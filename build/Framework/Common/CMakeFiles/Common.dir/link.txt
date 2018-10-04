@@ -1,0 +1,2 @@
+/usr/bin/ar qc libCommon.a  CMakeFiles/Common.dir/BaseApplication.cpp.o CMakeFiles/Common.dir/GraphicsManager.cpp.o CMakeFiles/Common.dir/main.cpp.o
+/usr/bin/ranlib libCommon.a

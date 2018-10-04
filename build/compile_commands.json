@@ -1,0 +1,22 @@
+[
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface  -g   -std=gnu++11 -o CMakeFiles/Common.dir/BaseApplication.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.cpp"
+},
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface  -g   -std=gnu++11 -o CMakeFiles/Common.dir/GraphicsManager.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp"
+},
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface  -g   -std=gnu++11 -o CMakeFiles/Common.dir/main.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/main.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/Framework/Common/main.cpp"
+},
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Empty",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface  -g   -std=gnu++11 -o CMakeFiles/Empty.dir/EmptyApplication.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Empty/EmptyApplication.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/Empty/EmptyApplication.cpp"
+}
+]

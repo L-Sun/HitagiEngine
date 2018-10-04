@@ -1,0 +1,6 @@
+BasedOnStyle: Google
+IndentWidth: 4
+SortIncludes: false
+AlignConsecutiveAssignments: true
+AlignTrailingComments: true
+AccessModifierOffset: -4

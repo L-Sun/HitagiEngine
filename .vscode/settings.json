@@ -1,0 +1,8 @@
+{
+    "clang.cxxflags": [
+        "-Wno-pragma-once-outside-header",
+        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Common",
+        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Interface"
+    ],
+    "clang.completion.enable": false
+}

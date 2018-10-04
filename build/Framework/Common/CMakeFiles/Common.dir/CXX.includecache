@@ -1,0 +1,22 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../Framework/Interface/IRuntimeModule.hpp
+Interface.hpp
+../Framework/Interface/Interface.hpp
+
+../Framework/Interface/Interface.hpp
+
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp
+GraphicsManager.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.hpp
+
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.hpp
+IRuntimeModule.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/IRuntimeModule.hpp
+

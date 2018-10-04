@@ -1,0 +1,1 @@
+/usr/bin/clang++  -g  -rdynamic CMakeFiles/Empty.dir/EmptyApplication.cpp.o  -o Empty ../Framework/Common/libCommon.a 
