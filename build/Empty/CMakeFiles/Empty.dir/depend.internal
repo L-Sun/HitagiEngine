@@ -3,6 +3,7 @@
 
 Empty/CMakeFiles/Empty.dir/EmptyApplication.cpp.o
  ../Framework/Common/BaseApplication.hpp
+ ../Framework/Common/GfxConfiguration.h
  ../Framework/Interface/IApplication.hpp
  ../Framework/Interface/IRuntimeModule.hpp
  ../Framework/Interface/Interface.hpp

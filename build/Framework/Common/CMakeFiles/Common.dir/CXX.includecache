@@ -6,17 +6,57 @@
 
 #IncludeRegexTransform: 
 
+../Framework/Common/GfxConfiguration.h
+cstdint
+-
+iostream
+-
+
+../Framework/Interface/IApplication.hpp
+IRuntimeModule.hpp
+../Framework/Interface/IRuntimeModule.hpp
+GfxConfiguration.h
+../Framework/Interface/GfxConfiguration.h
+
 ../Framework/Interface/IRuntimeModule.hpp
 Interface.hpp
 ../Framework/Interface/Interface.hpp
 
 ../Framework/Interface/Interface.hpp
 
-/home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp
-GraphicsManager.hpp
-/home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.hpp
+cstdint
+-
+cstddef
+-
+
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.cpp
+BaseApplication.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.hpp
+iostream
+-
+
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.hpp
+IApplication.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/IApplication.hpp
 
 /home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.hpp
 IRuntimeModule.hpp
 /home/lawliet/workspace/cpp/game_engine/Framework/Common/IRuntimeModule.hpp
+
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/MemoryManager.hpp
+IRuntimeModule.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/IRuntimeModule.hpp
+Allocator.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.hpp
+
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/main.cpp
+iostream
+-
+IApplication.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/IApplication.hpp
+GraphicsManager.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.hpp
+MemoryManager.hpp
+/home/lawliet/workspace/cpp/game_engine/Framework/Common/MemoryManager.hpp
 

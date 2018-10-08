@@ -8,12 +8,17 @@ set(CMAKE_DEPENDS_GENERATOR "Unix Makefiles")
 set(CMAKE_MAKEFILE_DEPENDS
   "CMakeCache.txt"
   "../CMakeLists.txt"
-  "../Empty/CMakeLists.txt"
   "../Framework/CMakeLists.txt"
   "../Framework/Common/CMakeLists.txt"
-  "CMakeFiles/3.12.2/CMakeCCompiler.cmake"
-  "CMakeFiles/3.12.2/CMakeCXXCompiler.cmake"
-  "CMakeFiles/3.12.2/CMakeSystem.cmake"
+  "../Platform/CMakeLists.txt"
+  "../Platform/Empty/CMakeLists.txt"
+  "../Platform/Linux/CMakeLists.txt"
+  "../RHI/CMakeLists.txt"
+  "../RHI/Empty/CMakeLists.txt"
+  "../RHI/OpenGL/CMakeLists.txt"
+  "CMakeFiles/3.12.3/CMakeCCompiler.cmake"
+  "CMakeFiles/3.12.3/CMakeCXXCompiler.cmake"
+  "CMakeFiles/3.12.3/CMakeSystem.cmake"
   "/usr/share/cmake-3.12/Modules/CMakeCInformation.cmake"
   "/usr/share/cmake-3.12/Modules/CMakeCXXInformation.cmake"
   "/usr/share/cmake-3.12/Modules/CMakeCommonLanguageInclude.cmake"
@@ -47,11 +52,18 @@ set(CMAKE_MAKEFILE_PRODUCTS
   "CMakeFiles/CMakeDirectoryInformation.cmake"
   "Framework/CMakeFiles/CMakeDirectoryInformation.cmake"
   "Framework/Common/CMakeFiles/CMakeDirectoryInformation.cmake"
-  "Empty/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "Platform/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "Platform/Empty/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "Platform/Linux/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "RHI/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "RHI/Empty/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "RHI/OpenGL/CMakeFiles/CMakeDirectoryInformation.cmake"
   )
 
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
   "Framework/Common/CMakeFiles/Common.dir/DependInfo.cmake"
-  "Empty/CMakeFiles/Empty.dir/DependInfo.cmake"
+  "Platform/Empty/CMakeFiles/Empty.dir/DependInfo.cmake"
+  "Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/DependInfo.cmake"
+  "RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/DependInfo.cmake"
   )

@@ -9,6 +9,14 @@
 ../Framework/Common/BaseApplication.hpp
 IApplication.hpp
 ../Framework/Common/IApplication.hpp
+GfxConfiguration.h
+../Framework/Common/GfxConfiguration.h
+
+../Framework/Common/GfxConfiguration.h
+cstdint
+-
+iostream
+-
 
 ../Framework/Interface/IApplication.hpp
 Interface.hpp

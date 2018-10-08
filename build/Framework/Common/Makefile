@@ -125,6 +125,33 @@ Common/fast:
 	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/build
 .PHONY : Common/fast
 
+Allocator.o: Allocator.cpp.o
+
+.PHONY : Allocator.o
+
+# target to build an object file
+Allocator.cpp.o:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.o
+.PHONY : Allocator.cpp.o
+
+Allocator.i: Allocator.cpp.i
+
+.PHONY : Allocator.i
+
+# target to preprocess a source file
+Allocator.cpp.i:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.i
+.PHONY : Allocator.cpp.i
+
+Allocator.s: Allocator.cpp.s
+
+.PHONY : Allocator.s
+
+# target to generate assembly for a file
+Allocator.cpp.s:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.s
+.PHONY : Allocator.cpp.s
+
 BaseApplication.o: BaseApplication.cpp.o
 
 .PHONY : BaseApplication.o
@@ -179,6 +206,33 @@ GraphicsManager.cpp.s:
 	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/GraphicsManager.cpp.s
 .PHONY : GraphicsManager.cpp.s
 
+MemoryManager.o: MemoryManager.cpp.o
+
+.PHONY : MemoryManager.o
+
+# target to build an object file
+MemoryManager.cpp.o:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.o
+.PHONY : MemoryManager.cpp.o
+
+MemoryManager.i: MemoryManager.cpp.i
+
+.PHONY : MemoryManager.i
+
+# target to preprocess a source file
+MemoryManager.cpp.i:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.i
+.PHONY : MemoryManager.cpp.i
+
+MemoryManager.s: MemoryManager.cpp.s
+
+.PHONY : MemoryManager.s
+
+# target to generate assembly for a file
+MemoryManager.cpp.s:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.s
+.PHONY : MemoryManager.cpp.s
+
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -215,12 +269,18 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... Common"
 	@echo "... edit_cache"
+	@echo "... Allocator.o"
+	@echo "... Allocator.i"
+	@echo "... Allocator.s"
 	@echo "... BaseApplication.o"
 	@echo "... BaseApplication.i"
 	@echo "... BaseApplication.s"
 	@echo "... GraphicsManager.o"
 	@echo "... GraphicsManager.i"
 	@echo "... GraphicsManager.s"
+	@echo "... MemoryManager.o"
+	@echo "... MemoryManager.i"
+	@echo "... MemoryManager.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

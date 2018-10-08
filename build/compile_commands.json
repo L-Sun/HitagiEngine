@@ -1,22 +1,52 @@
 [
 {
   "directory": "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common",
-  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface  -g   -std=gnu++11 -o CMakeFiles/Common.dir/BaseApplication.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.cpp",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL  -Wall -g   -std=gnu++11 -o CMakeFiles/Common.dir/Allocator.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.cpp"
+},
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL  -Wall -g   -std=gnu++11 -o CMakeFiles/Common.dir/BaseApplication.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.cpp",
   "file": "/home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.cpp"
 },
 {
   "directory": "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common",
-  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface  -g   -std=gnu++11 -o CMakeFiles/Common.dir/GraphicsManager.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL  -Wall -g   -std=gnu++11 -o CMakeFiles/Common.dir/GraphicsManager.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp",
   "file": "/home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp"
 },
 {
   "directory": "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common",
-  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface  -g   -std=gnu++11 -o CMakeFiles/Common.dir/main.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/main.cpp",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL  -Wall -g   -std=gnu++11 -o CMakeFiles/Common.dir/MemoryManager.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/MemoryManager.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/Framework/Common/MemoryManager.cpp"
+},
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL  -Wall -g   -std=gnu++11 -o CMakeFiles/Common.dir/main.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/main.cpp",
   "file": "/home/lawliet/workspace/cpp/game_engine/Framework/Common/main.cpp"
 },
 {
-  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Empty",
-  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface  -g   -std=gnu++11 -o CMakeFiles/Empty.dir/EmptyApplication.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Empty/EmptyApplication.cpp",
-  "file": "/home/lawliet/workspace/cpp/game_engine/Empty/EmptyApplication.cpp"
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Platform/Empty",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL  -Wall -g   -std=gnu++11 -o CMakeFiles/Empty.dir/EmptyApplication.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Platform/Empty/EmptyApplication.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/Platform/Empty/EmptyApplication.cpp"
+},
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Platform/Linux",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL -I/home/lawliet/workspace/cpp/game_engine/External/GL/include  -Wall -g   -std=gnu++11 -o CMakeFiles/MyGameEngineOpenGL.dir/GLFWApplication.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Platform/Linux/GLFWApplication.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/Platform/Linux/GLFWApplication.cpp"
+},
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/Platform/Linux",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL -I/home/lawliet/workspace/cpp/game_engine/External/GL/include  -Wall -g   -std=gnu++11 -o CMakeFiles/MyGameEngineOpenGL.dir/OpenGLApplication.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Platform/Linux/OpenGLApplication.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/Platform/Linux/OpenGLApplication.cpp"
+},
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/RHI/OpenGL",
+  "command": "/usr/bin/clang++   -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL -I/home/lawliet/workspace/cpp/game_engine/External/GL/include  -Wall -g   -std=gnu++11 -o CMakeFiles/OpenGLRHI.dir/OpenGLGraphicsManager.cpp.o -c /home/lawliet/workspace/cpp/game_engine/RHI/OpenGL/OpenGLGraphicsManager.cpp",
+  "file": "/home/lawliet/workspace/cpp/game_engine/RHI/OpenGL/OpenGLGraphicsManager.cpp"
+},
+{
+  "directory": "/home/lawliet/workspace/cpp/game_engine/build/RHI/OpenGL",
+  "command": "/usr/bin/clang  -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL -I/home/lawliet/workspace/cpp/game_engine/External/GL/include  -g   -std=gnu11 -o CMakeFiles/OpenGLRHI.dir/__/__/External/GL/src/glad.c.o   -c /home/lawliet/workspace/cpp/game_engine/External/GL/src/glad.c",
+  "file": "/home/lawliet/workspace/cpp/game_engine/External/GL/src/glad.c"
 }
 ]

@@ -107,7 +107,7 @@ Framework/Common/preinstall:
 Framework/Common/CMakeFiles/Common.dir/all:
 	$(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/depend
 	$(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=1,2,3,4 "Built target Common"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=1,2,3,4,5,6 "Built target Common"
 .PHONY : Framework/Common/CMakeFiles/Common.dir/all
 
 # Include target in all.
@@ -117,7 +117,7 @@ all: Framework/Common/CMakeFiles/Common.dir/all
 
 # Build rule for subdir invocation for target.
 Framework/Common/CMakeFiles/Common.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 6
 	$(MAKE) -f CMakeFiles/Makefile2 Framework/Common/CMakeFiles/Common.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 0
 .PHONY : Framework/Common/CMakeFiles/Common.dir/rule
@@ -138,57 +138,228 @@ clean: Framework/Common/CMakeFiles/Common.dir/clean
 .PHONY : clean
 
 #=============================================================================
-# Directory level rules for directory Empty
+# Directory level rules for directory Platform
 
 # Convenience name for "all" pass in the directory.
-Empty/all: Empty/CMakeFiles/Empty.dir/all
+Platform/all: Platform/Empty/all
+Platform/all: Platform/Linux/all
 
-.PHONY : Empty/all
+.PHONY : Platform/all
 
 # Convenience name for "clean" pass in the directory.
-Empty/clean: Empty/CMakeFiles/Empty.dir/clean
+Platform/clean: Platform/Empty/clean
+Platform/clean: Platform/Linux/clean
 
-.PHONY : Empty/clean
+.PHONY : Platform/clean
 
 # Convenience name for "preinstall" pass in the directory.
-Empty/preinstall:
+Platform/preinstall: Platform/Empty/preinstall
+Platform/preinstall: Platform/Linux/preinstall
 
-.PHONY : Empty/preinstall
+.PHONY : Platform/preinstall
 
 #=============================================================================
-# Target rules for target Empty/CMakeFiles/Empty.dir
+# Directory level rules for directory Platform/Empty
+
+# Convenience name for "all" pass in the directory.
+Platform/Empty/all: Platform/Empty/CMakeFiles/Empty.dir/all
+
+.PHONY : Platform/Empty/all
+
+# Convenience name for "clean" pass in the directory.
+Platform/Empty/clean: Platform/Empty/CMakeFiles/Empty.dir/clean
+
+.PHONY : Platform/Empty/clean
+
+# Convenience name for "preinstall" pass in the directory.
+Platform/Empty/preinstall:
+
+.PHONY : Platform/Empty/preinstall
+
+#=============================================================================
+# Target rules for target Platform/Empty/CMakeFiles/Empty.dir
 
 # All Build rule for target.
-Empty/CMakeFiles/Empty.dir/all: Framework/Common/CMakeFiles/Common.dir/all
-	$(MAKE) -f Empty/CMakeFiles/Empty.dir/build.make Empty/CMakeFiles/Empty.dir/depend
-	$(MAKE) -f Empty/CMakeFiles/Empty.dir/build.make Empty/CMakeFiles/Empty.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=5,6 "Built target Empty"
-.PHONY : Empty/CMakeFiles/Empty.dir/all
+Platform/Empty/CMakeFiles/Empty.dir/all: Framework/Common/CMakeFiles/Common.dir/all
+	$(MAKE) -f Platform/Empty/CMakeFiles/Empty.dir/build.make Platform/Empty/CMakeFiles/Empty.dir/depend
+	$(MAKE) -f Platform/Empty/CMakeFiles/Empty.dir/build.make Platform/Empty/CMakeFiles/Empty.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=7,8 "Built target Empty"
+.PHONY : Platform/Empty/CMakeFiles/Empty.dir/all
 
 # Include target in all.
-all: Empty/CMakeFiles/Empty.dir/all
+all: Platform/Empty/CMakeFiles/Empty.dir/all
 
 .PHONY : all
 
 # Build rule for subdir invocation for target.
-Empty/CMakeFiles/Empty.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 6
-	$(MAKE) -f CMakeFiles/Makefile2 Empty/CMakeFiles/Empty.dir/all
+Platform/Empty/CMakeFiles/Empty.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 8
+	$(MAKE) -f CMakeFiles/Makefile2 Platform/Empty/CMakeFiles/Empty.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 0
-.PHONY : Empty/CMakeFiles/Empty.dir/rule
+.PHONY : Platform/Empty/CMakeFiles/Empty.dir/rule
 
 # Convenience name for target.
-Empty: Empty/CMakeFiles/Empty.dir/rule
+Empty: Platform/Empty/CMakeFiles/Empty.dir/rule
 
 .PHONY : Empty
 
 # clean rule for target.
-Empty/CMakeFiles/Empty.dir/clean:
-	$(MAKE) -f Empty/CMakeFiles/Empty.dir/build.make Empty/CMakeFiles/Empty.dir/clean
-.PHONY : Empty/CMakeFiles/Empty.dir/clean
+Platform/Empty/CMakeFiles/Empty.dir/clean:
+	$(MAKE) -f Platform/Empty/CMakeFiles/Empty.dir/build.make Platform/Empty/CMakeFiles/Empty.dir/clean
+.PHONY : Platform/Empty/CMakeFiles/Empty.dir/clean
 
 # clean rule for target.
-clean: Empty/CMakeFiles/Empty.dir/clean
+clean: Platform/Empty/CMakeFiles/Empty.dir/clean
+
+.PHONY : clean
+
+#=============================================================================
+# Directory level rules for directory Platform/Linux
+
+# Convenience name for "all" pass in the directory.
+Platform/Linux/all: Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all
+
+.PHONY : Platform/Linux/all
+
+# Convenience name for "clean" pass in the directory.
+Platform/Linux/clean: Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/clean
+
+.PHONY : Platform/Linux/clean
+
+# Convenience name for "preinstall" pass in the directory.
+Platform/Linux/preinstall:
+
+.PHONY : Platform/Linux/preinstall
+
+#=============================================================================
+# Target rules for target Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir
+
+# All Build rule for target.
+Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all: Framework/Common/CMakeFiles/Common.dir/all
+Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
+	$(MAKE) -f Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build.make Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/depend
+	$(MAKE) -f Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build.make Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=9,10,11 "Built target MyGameEngineOpenGL"
+.PHONY : Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all
+
+# Include target in all.
+all: Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all
+
+.PHONY : all
+
+# Build rule for subdir invocation for target.
+Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 12
+	$(MAKE) -f CMakeFiles/Makefile2 Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 0
+.PHONY : Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/rule
+
+# Convenience name for target.
+MyGameEngineOpenGL: Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/rule
+
+.PHONY : MyGameEngineOpenGL
+
+# clean rule for target.
+Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/clean:
+	$(MAKE) -f Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build.make Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/clean
+.PHONY : Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/clean
+
+# clean rule for target.
+clean: Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/clean
+
+.PHONY : clean
+
+#=============================================================================
+# Directory level rules for directory RHI
+
+# Convenience name for "all" pass in the directory.
+RHI/all: RHI/Empty/all
+RHI/all: RHI/OpenGL/all
+
+.PHONY : RHI/all
+
+# Convenience name for "clean" pass in the directory.
+RHI/clean: RHI/Empty/clean
+RHI/clean: RHI/OpenGL/clean
+
+.PHONY : RHI/clean
+
+# Convenience name for "preinstall" pass in the directory.
+RHI/preinstall: RHI/Empty/preinstall
+RHI/preinstall: RHI/OpenGL/preinstall
+
+.PHONY : RHI/preinstall
+
+#=============================================================================
+# Directory level rules for directory RHI/Empty
+
+# Convenience name for "all" pass in the directory.
+RHI/Empty/all:
+
+.PHONY : RHI/Empty/all
+
+# Convenience name for "clean" pass in the directory.
+RHI/Empty/clean:
+
+.PHONY : RHI/Empty/clean
+
+# Convenience name for "preinstall" pass in the directory.
+RHI/Empty/preinstall:
+
+.PHONY : RHI/Empty/preinstall
+
+#=============================================================================
+# Directory level rules for directory RHI/OpenGL
+
+# Convenience name for "all" pass in the directory.
+RHI/OpenGL/all: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
+
+.PHONY : RHI/OpenGL/all
+
+# Convenience name for "clean" pass in the directory.
+RHI/OpenGL/clean: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/clean
+
+.PHONY : RHI/OpenGL/clean
+
+# Convenience name for "preinstall" pass in the directory.
+RHI/OpenGL/preinstall:
+
+.PHONY : RHI/OpenGL/preinstall
+
+#=============================================================================
+# Target rules for target RHI/OpenGL/CMakeFiles/OpenGLRHI.dir
+
+# All Build rule for target.
+RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all:
+	$(MAKE) -f RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/build.make RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/depend
+	$(MAKE) -f RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/build.make RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=12,13,14 "Built target OpenGLRHI"
+.PHONY : RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
+
+# Include target in all.
+all: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
+
+.PHONY : all
+
+# Build rule for subdir invocation for target.
+RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 3
+	$(MAKE) -f CMakeFiles/Makefile2 RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 0
+.PHONY : RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/rule
+
+# Convenience name for target.
+OpenGLRHI: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/rule
+
+.PHONY : OpenGLRHI
+
+# clean rule for target.
+RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/clean:
+	$(MAKE) -f RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/build.make RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/clean
+.PHONY : RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/clean
+
+# clean rule for target.
+clean: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/clean
 
 .PHONY : clean
 

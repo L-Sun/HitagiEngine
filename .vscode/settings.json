@@ -2,7 +2,9 @@
     "clang.cxxflags": [
         "-Wno-pragma-once-outside-header",
         "-I/home/lawliet/workspace/cpp/game_engine/Framework/Common",
-        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Interface"
+        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Interface",
+        "-I/home/lawliet/workspace/cpp/game_engine/RHI",
+        "-I/home/lawliet/workspace/cpp/game_engine/External/GL/include"
     ],
     "clang.completion.enable": false
 }

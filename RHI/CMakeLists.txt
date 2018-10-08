@@ -1,0 +1,5 @@
+add_subdirectory(Empty)
+add_subdirectory(OpenGL)
+if(${WIN32})
+    add_subdirectory(D3d)
+endif(${WIN32})

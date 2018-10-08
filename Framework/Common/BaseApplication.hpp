@@ -4,12 +4,21 @@
 namespace My {
 class BaseApplication : implements IApplication {
 public:
-    virtual int Initialize();
+    BaseApplication(GfxConfiguration& cfg);
+    virtual int  Initialize();
     virtual void Finalize();
     virtual void Tick();
     virtual bool IsQuit();
 
+    inline GfxConfiguration& GetConfiguration() { return m_Config; }
+
 protected:
-    bool m_bQuit;
+    virtual void OnDraw() {}
+
+    static bool      m_bQuit;
+    GfxConfiguration m_Config;
+
+private:
+    BaseApplication(){};
 };
 }  // namespace My

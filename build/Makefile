@@ -133,8 +133,34 @@ Empty: cmake_check_build_system
 
 # fast build rule for target.
 Empty/fast:
-	$(MAKE) -f Empty/CMakeFiles/Empty.dir/build.make Empty/CMakeFiles/Empty.dir/build
+	$(MAKE) -f Platform/Empty/CMakeFiles/Empty.dir/build.make Platform/Empty/CMakeFiles/Empty.dir/build
 .PHONY : Empty/fast
+
+#=============================================================================
+# Target rules for targets named MyGameEngineOpenGL
+
+# Build rule for target.
+MyGameEngineOpenGL: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 MyGameEngineOpenGL
+.PHONY : MyGameEngineOpenGL
+
+# fast build rule for target.
+MyGameEngineOpenGL/fast:
+	$(MAKE) -f Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build.make Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build
+.PHONY : MyGameEngineOpenGL/fast
+
+#=============================================================================
+# Target rules for targets named OpenGLRHI
+
+# Build rule for target.
+OpenGLRHI: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 OpenGLRHI
+.PHONY : OpenGLRHI
+
+# fast build rule for target.
+OpenGLRHI/fast:
+	$(MAKE) -f RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/build.make RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/build
+.PHONY : OpenGLRHI/fast
 
 # Help Target
 help:
@@ -146,6 +172,8 @@ help:
 	@echo "... edit_cache"
 	@echo "... Common"
 	@echo "... Empty"
+	@echo "... MyGameEngineOpenGL"
+	@echo "... OpenGLRHI"
 .PHONY : help
 
 

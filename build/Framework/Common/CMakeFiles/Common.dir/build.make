@@ -57,9 +57,22 @@ include Framework/Common/CMakeFiles/Common.dir/progress.make
 # Include the compile flags for this target's objects.
 include Framework/Common/CMakeFiles/Common.dir/flags.make
 
+Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.o: Framework/Common/CMakeFiles/Common.dir/flags.make
+Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.o: ../Framework/Common/Allocator.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.o"
+	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/Common.dir/Allocator.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.cpp
+
+Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/Common.dir/Allocator.cpp.i"
+	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.cpp > CMakeFiles/Common.dir/Allocator.cpp.i
+
+Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/Common.dir/Allocator.cpp.s"
+	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.cpp -o CMakeFiles/Common.dir/Allocator.cpp.s
+
 Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o: Framework/Common/CMakeFiles/Common.dir/flags.make
 Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o: ../Framework/Common/BaseApplication.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o"
 	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/Common.dir/BaseApplication.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.cpp
 
 Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.i: cmake_force
@@ -72,7 +85,7 @@ Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.s: cmake_force
 
 Framework/Common/CMakeFiles/Common.dir/GraphicsManager.cpp.o: Framework/Common/CMakeFiles/Common.dir/flags.make
 Framework/Common/CMakeFiles/Common.dir/GraphicsManager.cpp.o: ../Framework/Common/GraphicsManager.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object Framework/Common/CMakeFiles/Common.dir/GraphicsManager.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object Framework/Common/CMakeFiles/Common.dir/GraphicsManager.cpp.o"
 	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/Common.dir/GraphicsManager.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp
 
 Framework/Common/CMakeFiles/Common.dir/GraphicsManager.cpp.i: cmake_force
@@ -83,9 +96,22 @@ Framework/Common/CMakeFiles/Common.dir/GraphicsManager.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/Common.dir/GraphicsManager.cpp.s"
 	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp -o CMakeFiles/Common.dir/GraphicsManager.cpp.s
 
+Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.o: Framework/Common/CMakeFiles/Common.dir/flags.make
+Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.o: ../Framework/Common/MemoryManager.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.o"
+	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/Common.dir/MemoryManager.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/MemoryManager.cpp
+
+Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/Common.dir/MemoryManager.cpp.i"
+	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lawliet/workspace/cpp/game_engine/Framework/Common/MemoryManager.cpp > CMakeFiles/Common.dir/MemoryManager.cpp.i
+
+Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/Common.dir/MemoryManager.cpp.s"
+	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lawliet/workspace/cpp/game_engine/Framework/Common/MemoryManager.cpp -o CMakeFiles/Common.dir/MemoryManager.cpp.s
+
 Framework/Common/CMakeFiles/Common.dir/main.cpp.o: Framework/Common/CMakeFiles/Common.dir/flags.make
 Framework/Common/CMakeFiles/Common.dir/main.cpp.o: ../Framework/Common/main.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object Framework/Common/CMakeFiles/Common.dir/main.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object Framework/Common/CMakeFiles/Common.dir/main.cpp.o"
 	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && /usr/bin/clang++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/Common.dir/main.cpp.o -c /home/lawliet/workspace/cpp/game_engine/Framework/Common/main.cpp
 
 Framework/Common/CMakeFiles/Common.dir/main.cpp.i: cmake_force
@@ -98,19 +124,23 @@ Framework/Common/CMakeFiles/Common.dir/main.cpp.s: cmake_force
 
 # Object files for target Common
 Common_OBJECTS = \
+"CMakeFiles/Common.dir/Allocator.cpp.o" \
 "CMakeFiles/Common.dir/BaseApplication.cpp.o" \
 "CMakeFiles/Common.dir/GraphicsManager.cpp.o" \
+"CMakeFiles/Common.dir/MemoryManager.cpp.o" \
 "CMakeFiles/Common.dir/main.cpp.o"
 
 # External object files for target Common
 Common_EXTERNAL_OBJECTS =
 
+Framework/Common/libCommon.a: Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.o
 Framework/Common/libCommon.a: Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o
 Framework/Common/libCommon.a: Framework/Common/CMakeFiles/Common.dir/GraphicsManager.cpp.o
+Framework/Common/libCommon.a: Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.o
 Framework/Common/libCommon.a: Framework/Common/CMakeFiles/Common.dir/main.cpp.o
 Framework/Common/libCommon.a: Framework/Common/CMakeFiles/Common.dir/build.make
 Framework/Common/libCommon.a: Framework/Common/CMakeFiles/Common.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX static library libCommon.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX static library libCommon.a"
 	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && $(CMAKE_COMMAND) -P CMakeFiles/Common.dir/cmake_clean_target.cmake
 	cd /home/lawliet/workspace/cpp/game_engine/build/Framework/Common && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/Common.dir/link.txt --verbose=$(VERBOSE)
 
