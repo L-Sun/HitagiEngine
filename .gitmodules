@@ -1,0 +1,3 @@
+[submodule "crossguid"]
+	path = External/src/crossguid
+	url = git@github.com:graeme-hill/crossguid.git
