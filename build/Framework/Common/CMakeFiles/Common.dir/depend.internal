@@ -4,6 +4,14 @@
 Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.o
  /home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.cpp
  /home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.hpp
+Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.o
+ ../Framework/Interface/IRuntimeModule.hpp
+ ../Framework/Interface/Interface.hpp
+ /home/lawliet/workspace/cpp/game_engine/Framework/Common/Allocator.hpp
+ /home/lawliet/workspace/cpp/game_engine/Framework/Common/AssetLoader.cpp
+ /home/lawliet/workspace/cpp/game_engine/Framework/Common/AssetLoader.hpp
+ /home/lawliet/workspace/cpp/game_engine/Framework/Common/Buffer.hpp
+ /home/lawliet/workspace/cpp/game_engine/Framework/Common/MemoryManager.hpp
 Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o
  ../Framework/Common/GfxConfiguration.h
  ../Framework/Interface/IApplication.hpp

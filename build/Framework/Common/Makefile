@@ -152,6 +152,33 @@ Allocator.cpp.s:
 	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.s
 .PHONY : Allocator.cpp.s
 
+AssetLoader.o: AssetLoader.cpp.o
+
+.PHONY : AssetLoader.o
+
+# target to build an object file
+AssetLoader.cpp.o:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.o
+.PHONY : AssetLoader.cpp.o
+
+AssetLoader.i: AssetLoader.cpp.i
+
+.PHONY : AssetLoader.i
+
+# target to preprocess a source file
+AssetLoader.cpp.i:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.i
+.PHONY : AssetLoader.cpp.i
+
+AssetLoader.s: AssetLoader.cpp.s
+
+.PHONY : AssetLoader.s
+
+# target to generate assembly for a file
+AssetLoader.cpp.s:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.s
+.PHONY : AssetLoader.cpp.s
+
 BaseApplication.o: BaseApplication.cpp.o
 
 .PHONY : BaseApplication.o
@@ -272,6 +299,9 @@ help:
 	@echo "... Allocator.o"
 	@echo "... Allocator.i"
 	@echo "... Allocator.s"
+	@echo "... AssetLoader.o"
+	@echo "... AssetLoader.i"
+	@echo "... AssetLoader.s"
 	@echo "... BaseApplication.o"
 	@echo "... BaseApplication.i"
 	@echo "... BaseApplication.s"

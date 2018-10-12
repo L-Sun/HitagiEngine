@@ -3,8 +3,13 @@
         "-Wno-pragma-once-outside-header",
         "-I/home/lawliet/workspace/cpp/game_engine/Framework/Common",
         "-I/home/lawliet/workspace/cpp/game_engine/Framework/Interface",
+        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Codec",
         "-I/home/lawliet/workspace/cpp/game_engine/RHI",
-        "-I/home/lawliet/workspace/cpp/game_engine/External/GL/include"
+        "-I/home/lawliet/workspace/cpp/game_engine/External/src/glad/include",
+        "-I/home/lawliet/workspace/cpp/game_engine/Platform/Linux",
+        "-I/home/lawliet/workspace/cpp/game_engine/Platform/Windows",
+        "-I/home/lawliet/workspace/cpp/game_engine/Platform/Empty",
+        "-I/home/lawliet/workspace/cpp/game_engine/RHI"
     ],
     "clang.completion.enable": false
 }

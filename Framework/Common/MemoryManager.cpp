@@ -1,6 +1,10 @@
 #include "MemoryManager.hpp"
-#include "malloc.h"
+#include <malloc.h>
 using namespace My;
+
+#ifndef ALIGN
+#define ALIGN(x, a) (((x) + ((a)-1)) & ~((a)-1))
+#endif
 
 namespace My {
 static const uint32_t kBlockSizes[] = {
@@ -53,6 +57,7 @@ void MemoryManager::Finalize() {
 void MemoryManager::Tick() {}
 
 Allocator* MemoryManager::LookUpAllocator(size_t size) {
+    auto x = m_pBlockSizeLookup;
     if (size <= kMaxBlockSize)
         return m_pAllocators + m_pBlockSizeLookup[size];
     else
@@ -65,6 +70,21 @@ void* MemoryManager::Allocate(size_t size) {
         return pAlloc->Allocate();
     else
         return malloc(size);
+}
+
+void* MemoryManager::Allocate(size_t size, size_t alignment) {
+    uint8_t* p;
+    size += alignment;
+    Allocator* pAlloc = LookUpAllocator(size);
+    if (pAlloc)
+        p = reinterpret_cast<uint8_t*>(pAlloc->Allocate());
+    else
+        p = reinterpret_cast<uint8_t*>(malloc(size));
+
+    p = reinterpret_cast<uint8_t*>(
+        ALIGN(reinterpret_cast<size_t>(p), alignment));
+
+    return p;
 }
 
 void MemoryManager::Free(void* p, size_t size) {

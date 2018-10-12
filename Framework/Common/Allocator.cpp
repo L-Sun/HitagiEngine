@@ -1,6 +1,6 @@
-#include "Allocator.hpp"
 #include <cassert>
 #include <cstring>
+#include "Allocator.hpp"
 
 #ifndef ALIGN
 #define ALIGN(x, a) (((x) + ((a)-1)) & ~((a)-1))
@@ -76,7 +76,7 @@ void* Allocator::Allocate() {
     --m_nFreeBlocks;
 
 #if defined(_DEBUG)
-    FilAllocatedBlock(freeBlock);
+    FillAllocatedBlock(freeBlock);
 #endif  // _DEBUG
 
     return reinterpret_cast<void*>(freeBlock);
@@ -128,7 +128,7 @@ void Allocator::FillFreeBlock(BlockHeader* pBlock) {
         PATTERN_ALIGN, m_szAlignmentSize);
 }
 
-void Allocator::FilAllocatedBlock(BlockHeader* pBlock) {
+void Allocator::FillAllocatedBlock(BlockHeader* pBlock) {
     std::memset(pBlock, PATTERN_ALLOC, m_szBlockSize - m_szAlignmentSize);
     std::memset(
         reinterpret_cast<uint8_t*>(pBlock) + m_szBlockSize - m_szAlignmentSize,

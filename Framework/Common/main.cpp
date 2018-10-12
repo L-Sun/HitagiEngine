@@ -3,7 +3,6 @@
 #include "GraphicsManager.hpp"
 #include "MemoryManager.hpp"
 
-using namespace std;
 using namespace My;
 
 namespace My {
@@ -16,17 +15,19 @@ int main(int argc, char const* argv[]) {
     int ret;
 
     if ((ret = g_pApp->Initialize()) != 0) {
-        cout << "App Initialize failed, will exit now." << endl;
+        std::cout << "App Initialize failed, will exit now." << std::endl;
         return ret;
     }
 
     if ((ret = g_pMemoryManager->Initialize()) != 0) {
-        cout << "Memory Manager Initialize failed, will exit now." << endl;
+        std::cout << "Memory Manager Initialize failed, will exit now."
+                  << std::endl;
         return ret;
     }
 
     if ((ret = g_pGraphicsManager->Initialize()) != 0) {
-        cout << "Graphics Manager Initialize failed, will exit now." << endl;
+        std::cout << "Graphics Manager Initialize failed, will exit now."
+                  << std::endl;
         return ret;
     }
 

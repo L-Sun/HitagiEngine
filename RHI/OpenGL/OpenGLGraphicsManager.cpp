@@ -1,7 +1,7 @@
 #include <iostream>
+#include "glad/glad.h"
 #include "OpenGLGraphicsManager.hpp"
 
-using namespace std;
 using namespace My;
 
 extern struct gladGLversionStruct GLVersion;
@@ -10,12 +10,12 @@ int OpenGLGraphicsManager::Initialize() {
     int result;
     result = gladLoadGL();
     if (!result) {
-        cout << "OpenGL load failed!\n";
+        std::cout << "OpenGL load failed!\n";
         return -1;
     } else {
         result = 0;
-        cout << "OpenGL Version" << GLVersion.major << "." << GLVersion.minor
-             << endl;
+        std::cout << "OpenGL Version" << GLVersion.major << "."
+                  << GLVersion.minor << std::endl;
 
         if (GLAD_GL_VERSION_3_0) {
             // Set the depth buffer to be entirely cleared to 1.0 values.

@@ -4,7 +4,6 @@
 #include "GLFWApplication.hpp"
 
 using namespace My;
-using namespace std;
 
 int GLFWApplication::Initialize() {
     int result;
@@ -23,7 +22,7 @@ int GLFWApplication::Initialize() {
                                 m_Config.appName, NULL, NULL);
 
     if (m_window == NULL) {
-        cout << "Failed to create GLFW window" << endl;
+        std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
@@ -34,9 +33,10 @@ int GLFWApplication::Initialize() {
 void GLFWApplication::Finalize() { glfwTerminate(); }
 
 void GLFWApplication::Tick() {
+    BaseApplication::m_bQuit = glfwWindowShouldClose(m_window);
     if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        BaseApplication::m_bQuit = true;
-    OnDraw();
+        glfwSetWindowShouldClose(m_window, true);
     glfwPollEvents();
+    OnDraw();
     glfwSwapBuffers(m_window);
 }

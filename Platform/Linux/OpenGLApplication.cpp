@@ -1,3 +1,4 @@
+#include "glad/glad.h"
 #include "OpenGL/OpenGLGraphicsManager.hpp"
 #include "MemoryManager.hpp"
 #include "OpenGLApplication.hpp"

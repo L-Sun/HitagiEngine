@@ -1,5 +1,6 @@
 file(REMOVE_RECURSE
   "CMakeFiles/Common.dir/Allocator.cpp.o"
+  "CMakeFiles/Common.dir/AssetLoader.cpp.o"
   "CMakeFiles/Common.dir/BaseApplication.cpp.o"
   "CMakeFiles/Common.dir/GraphicsManager.cpp.o"
   "CMakeFiles/Common.dir/MemoryManager.cpp.o"

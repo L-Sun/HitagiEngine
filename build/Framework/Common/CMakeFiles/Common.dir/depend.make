@@ -4,6 +4,14 @@
 Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.o: ../Framework/Common/Allocator.cpp
 Framework/Common/CMakeFiles/Common.dir/Allocator.cpp.o: ../Framework/Common/Allocator.hpp
 
+Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.o: ../Framework/Interface/IRuntimeModule.hpp
+Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.o: ../Framework/Interface/Interface.hpp
+Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.o: ../Framework/Common/Allocator.hpp
+Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.o: ../Framework/Common/AssetLoader.cpp
+Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.o: ../Framework/Common/AssetLoader.hpp
+Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.o: ../Framework/Common/Buffer.hpp
+Framework/Common/CMakeFiles/Common.dir/AssetLoader.cpp.o: ../Framework/Common/MemoryManager.hpp
+
 Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o: ../Framework/Common/GfxConfiguration.h
 Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o: ../Framework/Interface/IApplication.hpp
 Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o: ../Framework/Interface/IRuntimeModule.hpp

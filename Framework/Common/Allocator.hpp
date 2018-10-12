@@ -8,7 +8,7 @@ struct BlockHeader {
 };
 
 struct PageHeader {
-    PageHeader* pNext;
+    PageHeader*  pNext;
     BlockHeader* Blocks() { return reinterpret_cast<BlockHeader*>(this + 1); }
 };
 
@@ -27,8 +27,8 @@ public:
     void Reset(size_t data_size, size_t page_size, size_t alignment);
 
     void* Allocate();
-    void Free(void* p);
-    void FreeAll();
+    void  Free(void* p);
+    void  FreeAll();
 
 private:
 #if defined(_DEBUG)
@@ -38,13 +38,13 @@ private:
 #endif  // _DEBUG
 
     BlockHeader* NextBlock(BlockHeader* pBlock);
-    PageHeader* m_pPageList;
+    PageHeader*  m_pPageList;
     BlockHeader* m_pFreeList;
 
-    size_t m_szDataSize;
-    size_t m_szPageSize;
-    size_t m_szAlignmentSize;
-    size_t m_szBlockSize;
+    size_t   m_szDataSize;
+    size_t   m_szPageSize;
+    size_t   m_szAlignmentSize;
+    size_t   m_szBlockSize;
     uint32_t m_nBlocksPerPage;
 
     uint32_t m_nPages;

@@ -124,6 +124,19 @@ Common/fast:
 .PHONY : Common/fast
 
 #=============================================================================
+# Target rules for targets named AssetLoaderTest
+
+# Build rule for target.
+AssetLoaderTest: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 AssetLoaderTest
+.PHONY : AssetLoaderTest
+
+# fast build rule for target.
+AssetLoaderTest/fast:
+	$(MAKE) -f Framework/Common/test/CMakeFiles/AssetLoaderTest.dir/build.make Framework/Common/test/CMakeFiles/AssetLoaderTest.dir/build
+.PHONY : AssetLoaderTest/fast
+
+#=============================================================================
 # Target rules for targets named Empty
 
 # Build rule for target.
@@ -137,6 +150,19 @@ Empty/fast:
 .PHONY : Empty/fast
 
 #=============================================================================
+# Target rules for targets named GLFWApplication
+
+# Build rule for target.
+GLFWApplication: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 GLFWApplication
+.PHONY : GLFWApplication
+
+# fast build rule for target.
+GLFWApplication/fast:
+	$(MAKE) -f Platform/Linux/CMakeFiles/GLFWApplication.dir/build.make Platform/Linux/CMakeFiles/GLFWApplication.dir/build
+.PHONY : GLFWApplication/fast
+
+#=============================================================================
 # Target rules for targets named MyGameEngineOpenGL
 
 # Build rule for target.
@@ -148,6 +174,19 @@ MyGameEngineOpenGL: cmake_check_build_system
 MyGameEngineOpenGL/fast:
 	$(MAKE) -f Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build.make Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build
 .PHONY : MyGameEngineOpenGL/fast
+
+#=============================================================================
+# Target rules for targets named TextureLoadTest
+
+# Build rule for target.
+TextureLoadTest: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 TextureLoadTest
+.PHONY : TextureLoadTest
+
+# fast build rule for target.
+TextureLoadTest/fast:
+	$(MAKE) -f Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/build.make Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/build
+.PHONY : TextureLoadTest/fast
 
 #=============================================================================
 # Target rules for targets named OpenGLRHI
@@ -171,8 +210,11 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... Common"
+	@echo "... AssetLoaderTest"
 	@echo "... Empty"
+	@echo "... GLFWApplication"
 	@echo "... MyGameEngineOpenGL"
+	@echo "... TextureLoadTest"
 	@echo "... OpenGLRHI"
 .PHONY : help
 
