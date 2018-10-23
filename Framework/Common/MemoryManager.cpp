@@ -57,11 +57,8 @@ void MemoryManager::Finalize() {
 void MemoryManager::Tick() {}
 
 Allocator* MemoryManager::LookUpAllocator(size_t size) {
-    auto x = m_pBlockSizeLookup;
-    if (size <= kMaxBlockSize)
-        return m_pAllocators + m_pBlockSizeLookup[size];
-    else
-        return nullptr;
+    return size <= kMaxBlockSize ? (m_pAllocators + m_pBlockSizeLookup[size])
+                                 : nullptr;
 }
 
 void* MemoryManager::Allocate(size_t size) {

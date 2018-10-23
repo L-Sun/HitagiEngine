@@ -11,18 +11,17 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Platform")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/External/src/crossguid/cmake")
 
-
 include_directories("${PROJECT_SOURCE_DIR}/Framework/Common")
 include_directories("${PROJECT_SOURCE_DIR}/Framework/Codec")
 include_directories("${PROJECT_SOURCE_DIR}/Framework/Interface")
 include_directories("${PROJECT_SOURCE_DIR}/RHI")
 
-include_directories("${PROJECT_SOURCE_DIR}/External/GL/include")
+include_directories("${PROJECT_SOURCE_DIR}/External/src/glm/glm")
 
 IF(${UNIX})
     set(TARGET_PLATFORM "Linux")
 ELSEIF(${WIN32})
-    set(TARGET_PLATFORM "WIndows")
+    set(TARGET_PLATFORM "Windows")
 ENDIF(${UNIX})
 include_directories("${PROJECT_SOURCE_DIR}/Platform/${TARGET_PLATFORM}")
 set(EXTERNAL_ROOT ${PROJECT_SOURCE_DIR}/External/${TARGET_PLATFORM})
