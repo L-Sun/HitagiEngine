@@ -2,12 +2,15 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <type_traits>
 
-#define GLM_ENABLE_EXPERIMENTAL
+#define GLM_FORCE_SILENT_WARNINGS
 #include "glm.hpp"
+#define GLM_ENABLE_EXPERIMENTAL
 #include "gtx/string_cast.hpp"
+#include "gtc/constants.hpp"
 
-#include "guid.hpp"
+#include "Guid.hpp"
 #include "Image.hpp"
 #include "portable.hpp"
 
@@ -17,6 +20,14 @@ constexpr int32_t i32(const char* s, int32_t v) {
     return *s ? i32(s + 1, v * 256 + *s) : v;
 }
 }  // namespace details
+
+std::ostream& operator<<(std::ostream& out, const glm::vec4 vec) {
+    return out << glm::to_string(vec);
+}
+std::ostream& operator<<(std::ostream& out, const glm::vec3 vec) {
+    return out << glm::to_string(vec);
+}
+
 constexpr int32_t operator"" _i32(const char* s, size_t) {
     return details::i32(s, 0);
 }
@@ -212,8 +223,7 @@ struct ParameterMap {
                                     const ParameterMap& obj) {
         if (obj.bUsingSingleValue) {
             out << "Parameter Type: Single Value" << std::endl;
-            out << "Parameter Value: " << glm::to_string(obj.Value)
-                << std::endl;
+            out << obj.Value << std::endl;
         } else {
             out << "Parameter Type: Map" << std::endl;
         }
@@ -402,7 +412,7 @@ public:
                                     const SceneObjectPerspectiveCamera& obj) {
         out << static_cast<const SceneObjectCamera&>(obj) << std::endl;
         out << "Camera Type: Perspective" << std::endl;
-        out << "FOV" << obj.m_fFov << std::endl;
+        out << "FOV: " << obj.m_fFov << std::endl;
         return out;
     }
 };
