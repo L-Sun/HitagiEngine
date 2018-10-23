@@ -109,7 +109,7 @@ Framework/Common/preinstall: Framework/Common/test/preinstall
 Framework/Common/CMakeFiles/Common.dir/all:
 	$(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/depend
 	$(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=3,4,5,6,7,8,9 "Built target Common"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=3,4,5,6,7,8,9,10 "Built target Common"
 .PHONY : Framework/Common/CMakeFiles/Common.dir/all
 
 # Include target in all.
@@ -119,7 +119,7 @@ all: Framework/Common/CMakeFiles/Common.dir/all
 
 # Build rule for subdir invocation for target.
 Framework/Common/CMakeFiles/Common.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 7
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 8
 	$(MAKE) -f CMakeFiles/Makefile2 Framework/Common/CMakeFiles/Common.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 0
 .PHONY : Framework/Common/CMakeFiles/Common.dir/rule
@@ -174,7 +174,7 @@ all: Framework/Common/test/CMakeFiles/AssetLoaderTest.dir/all
 
 # Build rule for subdir invocation for target.
 Framework/Common/test/CMakeFiles/AssetLoaderTest.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 9
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 10
 	$(MAKE) -f CMakeFiles/Makefile2 Framework/Common/test/CMakeFiles/AssetLoaderTest.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 0
 .PHONY : Framework/Common/test/CMakeFiles/AssetLoaderTest.dir/rule
@@ -240,7 +240,7 @@ Platform/Empty/preinstall:
 Platform/Empty/CMakeFiles/Empty.dir/all: Framework/Common/CMakeFiles/Common.dir/all
 	$(MAKE) -f Platform/Empty/CMakeFiles/Empty.dir/build.make Platform/Empty/CMakeFiles/Empty.dir/depend
 	$(MAKE) -f Platform/Empty/CMakeFiles/Empty.dir/build.make Platform/Empty/CMakeFiles/Empty.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=10,11 "Built target Empty"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=11,12 "Built target Empty"
 .PHONY : Platform/Empty/CMakeFiles/Empty.dir/all
 
 # Include target in all.
@@ -250,7 +250,7 @@ all: Platform/Empty/CMakeFiles/Empty.dir/all
 
 # Build rule for subdir invocation for target.
 Platform/Empty/CMakeFiles/Empty.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 9
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 10
 	$(MAKE) -f CMakeFiles/Makefile2 Platform/Empty/CMakeFiles/Empty.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 0
 .PHONY : Platform/Empty/CMakeFiles/Empty.dir/rule
@@ -299,7 +299,7 @@ Platform/Linux/preinstall: Platform/Linux/test/preinstall
 Platform/Linux/CMakeFiles/GLFWApplication.dir/all:
 	$(MAKE) -f Platform/Linux/CMakeFiles/GLFWApplication.dir/build.make Platform/Linux/CMakeFiles/GLFWApplication.dir/depend
 	$(MAKE) -f Platform/Linux/CMakeFiles/GLFWApplication.dir/build.make Platform/Linux/CMakeFiles/GLFWApplication.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=12,13 "Built target GLFWApplication"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=13,14 "Built target GLFWApplication"
 .PHONY : Platform/Linux/CMakeFiles/GLFWApplication.dir/all
 
 # Include target in all.
@@ -333,12 +333,12 @@ clean: Platform/Linux/CMakeFiles/GLFWApplication.dir/clean
 # Target rules for target Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir
 
 # All Build rule for target.
-Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
-Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all: Framework/Common/CMakeFiles/Common.dir/all
 Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all: Platform/Linux/CMakeFiles/GLFWApplication.dir/all
+Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all: Framework/Common/CMakeFiles/Common.dir/all
+Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
 	$(MAKE) -f Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build.make Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/depend
 	$(MAKE) -f Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build.make Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=14,15 "Built target MyGameEngineOpenGL"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=15,16 "Built target MyGameEngineOpenGL"
 .PHONY : Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all
 
 # Include target in all.
@@ -348,7 +348,7 @@ all: Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all
 
 # Build rule for subdir invocation for target.
 Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 14
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 15
 	$(MAKE) -f CMakeFiles/Makefile2 Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 0
 .PHONY : Platform/Linux/CMakeFiles/MyGameEngineOpenGL.dir/rule
@@ -390,12 +390,12 @@ Platform/Linux/test/preinstall:
 # Target rules for target Platform/Linux/test/CMakeFiles/TextureLoadTest.dir
 
 # All Build rule for target.
-Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/all: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
-Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/all: Framework/Common/CMakeFiles/Common.dir/all
 Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/all: Platform/Linux/CMakeFiles/GLFWApplication.dir/all
+Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/all: Framework/Common/CMakeFiles/Common.dir/all
+Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/all: RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
 	$(MAKE) -f Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/build.make Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/depend
 	$(MAKE) -f Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/build.make Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=19,20 "Built target TextureLoadTest"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=20,21 "Built target TextureLoadTest"
 .PHONY : Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/all
 
 # Include target in all.
@@ -405,7 +405,7 @@ all: Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/all
 
 # Build rule for subdir invocation for target.
 Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 14
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 15
 	$(MAKE) -f CMakeFiles/Makefile2 Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles 0
 .PHONY : Platform/Linux/test/CMakeFiles/TextureLoadTest.dir/rule
@@ -489,7 +489,7 @@ RHI/OpenGL/preinstall:
 RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all:
 	$(MAKE) -f RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/build.make RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/depend
 	$(MAKE) -f RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/build.make RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=16,17,18 "Built target OpenGLRHI"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles --progress-num=17,18,19 "Built target OpenGLRHI"
 .PHONY : RHI/OpenGL/CMakeFiles/OpenGLRHI.dir/all
 
 # Include target in all.

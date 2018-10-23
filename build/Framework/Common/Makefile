@@ -260,6 +260,33 @@ MemoryManager.cpp.s:
 	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.s
 .PHONY : MemoryManager.cpp.s
 
+SceneManager.o: SceneManager.cpp.o
+
+.PHONY : SceneManager.o
+
+# target to build an object file
+SceneManager.cpp.o:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/SceneManager.cpp.o
+.PHONY : SceneManager.cpp.o
+
+SceneManager.i: SceneManager.cpp.i
+
+.PHONY : SceneManager.i
+
+# target to preprocess a source file
+SceneManager.cpp.i:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/SceneManager.cpp.i
+.PHONY : SceneManager.cpp.i
+
+SceneManager.s: SceneManager.cpp.s
+
+.PHONY : SceneManager.s
+
+# target to generate assembly for a file
+SceneManager.cpp.s:
+	cd /home/lawliet/workspace/cpp/game_engine/build && $(MAKE) -f Framework/Common/CMakeFiles/Common.dir/build.make Framework/Common/CMakeFiles/Common.dir/SceneManager.cpp.s
+.PHONY : SceneManager.cpp.s
+
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -311,6 +338,9 @@ help:
 	@echo "... MemoryManager.o"
 	@echo "... MemoryManager.i"
 	@echo "... MemoryManager.s"
+	@echo "... SceneManager.o"
+	@echo "... SceneManager.i"
+	@echo "... SceneManager.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

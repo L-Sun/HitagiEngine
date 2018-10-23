@@ -28,28 +28,28 @@ The CXX compiler identification is Clang, found in "/home/lawliet/workspace/cpp/
 Determining if the C compiler works passed with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_7a775/fast"
-/usr/bin/make -f CMakeFiles/cmTC_7a775.dir/build.make CMakeFiles/cmTC_7a775.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_97219/fast"
+/usr/bin/make -f CMakeFiles/cmTC_97219.dir/build.make CMakeFiles/cmTC_97219.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building C object CMakeFiles/cmTC_7a775.dir/testCCompiler.c.o
-/usr/bin/clang    -o CMakeFiles/cmTC_7a775.dir/testCCompiler.c.o   -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp/testCCompiler.c
-Linking C executable cmTC_7a775
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7a775.dir/link.txt --verbose=1
-/usr/bin/clang      -rdynamic CMakeFiles/cmTC_7a775.dir/testCCompiler.c.o  -o cmTC_7a775 
+Building C object CMakeFiles/cmTC_97219.dir/testCCompiler.c.o
+/usr/bin/clang    -o CMakeFiles/cmTC_97219.dir/testCCompiler.c.o   -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp/testCCompiler.c
+Linking C executable cmTC_97219
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_97219.dir/link.txt --verbose=1
+/usr/bin/clang      -rdynamic CMakeFiles/cmTC_97219.dir/testCCompiler.c.o  -o cmTC_97219 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
 Detecting C compiler ABI info compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_c9963/fast"
-/usr/bin/make -f CMakeFiles/cmTC_c9963.dir/build.make CMakeFiles/cmTC_c9963.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_a97a2/fast"
+/usr/bin/make -f CMakeFiles/cmTC_a97a2.dir/build.make CMakeFiles/cmTC_a97a2.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building C object CMakeFiles/cmTC_c9963.dir/CMakeCCompilerABI.c.o
-/usr/bin/clang    -o CMakeFiles/cmTC_c9963.dir/CMakeCCompilerABI.c.o   -c /usr/share/cmake-3.12/Modules/CMakeCCompilerABI.c
-Linking C executable cmTC_c9963
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_c9963.dir/link.txt --verbose=1
-/usr/bin/clang     -v -rdynamic CMakeFiles/cmTC_c9963.dir/CMakeCCompilerABI.c.o  -o cmTC_c9963 
+Building C object CMakeFiles/cmTC_a97a2.dir/CMakeCCompilerABI.c.o
+/usr/bin/clang    -o CMakeFiles/cmTC_a97a2.dir/CMakeCCompilerABI.c.o   -c /usr/share/cmake-3.12/Modules/CMakeCCompilerABI.c
+Linking C executable cmTC_a97a2
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a97a2.dir/link.txt --verbose=1
+/usr/bin/clang     -v -rdynamic CMakeFiles/cmTC_a97a2.dir/CMakeCCompilerABI.c.o  -o cmTC_a97a2 
 clang version 7.0.0 (tags/RELEASE_700/final)
 Target: x86_64-pc-linux-gnu
 Thread model: posix
@@ -62,7 +62,7 @@ Selected GCC installation: /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1
 Candidate multilib: .;@m64
 Candidate multilib: 32;@m32
 Selected multilib: .;@m64
- "/usr/bin/ld" -pie -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_c9963 /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64 -L/usr/bin/../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../.. -L/usr/bin/../lib -L/lib -L/usr/lib CMakeFiles/cmTC_c9963.dir/CMakeCCompilerABI.c.o -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtendS.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crtn.o
+ "/usr/bin/ld" -pie -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_a97a2 /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64 -L/usr/bin/../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../.. -L/usr/bin/../lib -L/lib -L/usr/lib CMakeFiles/cmTC_a97a2.dir/CMakeCCompilerABI.c.o -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtendS.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crtn.o
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
@@ -70,14 +70,14 @@ Parsed C implicit link information from above output:
   link line regex: [^( *|.*[/\])(ld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\]+-)?ld|collect2)[^/\]*( |$)]
   ignore line: [Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp]
   ignore line: []
-  ignore line: [Run Build Command:"/usr/bin/make" "cmTC_c9963/fast"]
-  ignore line: [/usr/bin/make -f CMakeFiles/cmTC_c9963.dir/build.make CMakeFiles/cmTC_c9963.dir/build]
+  ignore line: [Run Build Command:"/usr/bin/make" "cmTC_a97a2/fast"]
+  ignore line: [/usr/bin/make -f CMakeFiles/cmTC_a97a2.dir/build.make CMakeFiles/cmTC_a97a2.dir/build]
   ignore line: [make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”]
-  ignore line: [Building C object CMakeFiles/cmTC_c9963.dir/CMakeCCompilerABI.c.o]
-  ignore line: [/usr/bin/clang    -o CMakeFiles/cmTC_c9963.dir/CMakeCCompilerABI.c.o   -c /usr/share/cmake-3.12/Modules/CMakeCCompilerABI.c]
-  ignore line: [Linking C executable cmTC_c9963]
-  ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_c9963.dir/link.txt --verbose=1]
-  ignore line: [/usr/bin/clang     -v -rdynamic CMakeFiles/cmTC_c9963.dir/CMakeCCompilerABI.c.o  -o cmTC_c9963 ]
+  ignore line: [Building C object CMakeFiles/cmTC_a97a2.dir/CMakeCCompilerABI.c.o]
+  ignore line: [/usr/bin/clang    -o CMakeFiles/cmTC_a97a2.dir/CMakeCCompilerABI.c.o   -c /usr/share/cmake-3.12/Modules/CMakeCCompilerABI.c]
+  ignore line: [Linking C executable cmTC_a97a2]
+  ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a97a2.dir/link.txt --verbose=1]
+  ignore line: [/usr/bin/clang     -v -rdynamic CMakeFiles/cmTC_a97a2.dir/CMakeCCompilerABI.c.o  -o cmTC_a97a2 ]
   ignore line: [clang version 7.0.0 (tags/RELEASE_700/final)]
   ignore line: [Target: x86_64-pc-linux-gnu]
   ignore line: [Thread model: posix]
@@ -93,7 +93,7 @@ Parsed C implicit link information from above output:
   ignore line: [@m32]
   ignore line: [Selected multilib: .]
   ignore line: [@m64]
-  link line: [ "/usr/bin/ld" -pie -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_c9963 /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64 -L/usr/bin/../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../.. -L/usr/bin/../lib -L/lib -L/usr/lib CMakeFiles/cmTC_c9963.dir/CMakeCCompilerABI.c.o -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtendS.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crtn.o]
+  link line: [ "/usr/bin/ld" -pie -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_a97a2 /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64 -L/usr/bin/../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../.. -L/usr/bin/../lib -L/lib -L/usr/lib CMakeFiles/cmTC_a97a2.dir/CMakeCCompilerABI.c.o -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtendS.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crtn.o]
     arg [/usr/bin/ld] ==> ignore
     arg [-pie] ==> ignore
     arg [-export-dynamic] ==> ignore
@@ -104,7 +104,7 @@ Parsed C implicit link information from above output:
     arg [-dynamic-linker] ==> ignore
     arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
     arg [-o] ==> ignore
-    arg [cmTC_c9963] ==> ignore
+    arg [cmTC_a97a2] ==> ignore
     arg [/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o] ==> ignore
     arg [/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o] ==> ignore
     arg [/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o] ==> ignore
@@ -117,7 +117,7 @@ Parsed C implicit link information from above output:
     arg [-L/usr/bin/../lib] ==> dir [/usr/bin/../lib]
     arg [-L/lib] ==> dir [/lib]
     arg [-L/usr/lib] ==> dir [/usr/lib]
-    arg [CMakeFiles/cmTC_c9963.dir/CMakeCCompilerABI.c.o] ==> ignore
+    arg [CMakeFiles/cmTC_a97a2.dir/CMakeCCompilerABI.c.o] ==> ignore
     arg [-lgcc] ==> lib [gcc]
     arg [--as-needed] ==> ignore
     arg [-lgcc_s] ==> lib [gcc_s]
@@ -148,14 +148,14 @@ Parsed C implicit link information from above output:
 Detecting C [-std=c11] compiler features compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_bd1c3/fast"
-/usr/bin/make -f CMakeFiles/cmTC_bd1c3.dir/build.make CMakeFiles/cmTC_bd1c3.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_d47cb/fast"
+/usr/bin/make -f CMakeFiles/cmTC_d47cb.dir/build.make CMakeFiles/cmTC_d47cb.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building C object CMakeFiles/cmTC_bd1c3.dir/feature_tests.c.o
-/usr/bin/clang   -std=c11 -o CMakeFiles/cmTC_bd1c3.dir/feature_tests.c.o   -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.c
-Linking C executable cmTC_bd1c3
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_bd1c3.dir/link.txt --verbose=1
-/usr/bin/clang      -rdynamic CMakeFiles/cmTC_bd1c3.dir/feature_tests.c.o  -o cmTC_bd1c3 
+Building C object CMakeFiles/cmTC_d47cb.dir/feature_tests.c.o
+/usr/bin/clang   -std=c11 -o CMakeFiles/cmTC_d47cb.dir/feature_tests.c.o   -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.c
+Linking C executable cmTC_d47cb
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d47cb.dir/link.txt --verbose=1
+/usr/bin/clang      -rdynamic CMakeFiles/cmTC_d47cb.dir/feature_tests.c.o  -o cmTC_d47cb 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
@@ -168,14 +168,14 @@ make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles
 Detecting C [-std=c99] compiler features compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_374a2/fast"
-/usr/bin/make -f CMakeFiles/cmTC_374a2.dir/build.make CMakeFiles/cmTC_374a2.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_39bda/fast"
+/usr/bin/make -f CMakeFiles/cmTC_39bda.dir/build.make CMakeFiles/cmTC_39bda.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building C object CMakeFiles/cmTC_374a2.dir/feature_tests.c.o
-/usr/bin/clang   -std=c99 -o CMakeFiles/cmTC_374a2.dir/feature_tests.c.o   -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.c
-Linking C executable cmTC_374a2
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_374a2.dir/link.txt --verbose=1
-/usr/bin/clang      -rdynamic CMakeFiles/cmTC_374a2.dir/feature_tests.c.o  -o cmTC_374a2 
+Building C object CMakeFiles/cmTC_39bda.dir/feature_tests.c.o
+/usr/bin/clang   -std=c99 -o CMakeFiles/cmTC_39bda.dir/feature_tests.c.o   -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.c
+Linking C executable cmTC_39bda
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_39bda.dir/link.txt --verbose=1
+/usr/bin/clang      -rdynamic CMakeFiles/cmTC_39bda.dir/feature_tests.c.o  -o cmTC_39bda 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
@@ -188,14 +188,14 @@ make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles
 Detecting C [-std=c90] compiler features compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_13a75/fast"
-/usr/bin/make -f CMakeFiles/cmTC_13a75.dir/build.make CMakeFiles/cmTC_13a75.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_1212a/fast"
+/usr/bin/make -f CMakeFiles/cmTC_1212a.dir/build.make CMakeFiles/cmTC_1212a.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building C object CMakeFiles/cmTC_13a75.dir/feature_tests.c.o
-/usr/bin/clang   -std=c90 -o CMakeFiles/cmTC_13a75.dir/feature_tests.c.o   -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.c
-Linking C executable cmTC_13a75
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_13a75.dir/link.txt --verbose=1
-/usr/bin/clang      -rdynamic CMakeFiles/cmTC_13a75.dir/feature_tests.c.o  -o cmTC_13a75 
+Building C object CMakeFiles/cmTC_1212a.dir/feature_tests.c.o
+/usr/bin/clang   -std=c90 -o CMakeFiles/cmTC_1212a.dir/feature_tests.c.o   -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.c
+Linking C executable cmTC_1212a
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1212a.dir/link.txt --verbose=1
+/usr/bin/clang      -rdynamic CMakeFiles/cmTC_1212a.dir/feature_tests.c.o  -o cmTC_1212a 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
@@ -206,28 +206,28 @@ make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles
 Determining if the CXX compiler works passed with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_7c780/fast"
-/usr/bin/make -f CMakeFiles/cmTC_7c780.dir/build.make CMakeFiles/cmTC_7c780.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_8e534/fast"
+/usr/bin/make -f CMakeFiles/cmTC_8e534.dir/build.make CMakeFiles/cmTC_8e534.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building CXX object CMakeFiles/cmTC_7c780.dir/testCXXCompiler.cxx.o
-/usr/bin/clang++     -o CMakeFiles/cmTC_7c780.dir/testCXXCompiler.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp/testCXXCompiler.cxx
-Linking CXX executable cmTC_7c780
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7c780.dir/link.txt --verbose=1
-/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_7c780.dir/testCXXCompiler.cxx.o  -o cmTC_7c780 
+Building CXX object CMakeFiles/cmTC_8e534.dir/testCXXCompiler.cxx.o
+/usr/bin/clang++     -o CMakeFiles/cmTC_8e534.dir/testCXXCompiler.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp/testCXXCompiler.cxx
+Linking CXX executable cmTC_8e534
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8e534.dir/link.txt --verbose=1
+/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_8e534.dir/testCXXCompiler.cxx.o  -o cmTC_8e534 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
 Detecting CXX compiler ABI info compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_8bac0/fast"
-/usr/bin/make -f CMakeFiles/cmTC_8bac0.dir/build.make CMakeFiles/cmTC_8bac0.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_a38ca/fast"
+/usr/bin/make -f CMakeFiles/cmTC_a38ca.dir/build.make CMakeFiles/cmTC_a38ca.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building CXX object CMakeFiles/cmTC_8bac0.dir/CMakeCXXCompilerABI.cpp.o
-/usr/bin/clang++     -o CMakeFiles/cmTC_8bac0.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.12/Modules/CMakeCXXCompilerABI.cpp
-Linking CXX executable cmTC_8bac0
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8bac0.dir/link.txt --verbose=1
-/usr/bin/clang++      -v -rdynamic CMakeFiles/cmTC_8bac0.dir/CMakeCXXCompilerABI.cpp.o  -o cmTC_8bac0 
+Building CXX object CMakeFiles/cmTC_a38ca.dir/CMakeCXXCompilerABI.cpp.o
+/usr/bin/clang++     -o CMakeFiles/cmTC_a38ca.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.12/Modules/CMakeCXXCompilerABI.cpp
+Linking CXX executable cmTC_a38ca
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a38ca.dir/link.txt --verbose=1
+/usr/bin/clang++      -v -rdynamic CMakeFiles/cmTC_a38ca.dir/CMakeCXXCompilerABI.cpp.o  -o cmTC_a38ca 
 clang version 7.0.0 (tags/RELEASE_700/final)
 Target: x86_64-pc-linux-gnu
 Thread model: posix
@@ -240,7 +240,7 @@ Selected GCC installation: /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1
 Candidate multilib: .;@m64
 Candidate multilib: 32;@m32
 Selected multilib: .;@m64
- "/usr/bin/ld" -pie -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_8bac0 /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64 -L/usr/bin/../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../.. -L/usr/bin/../lib -L/lib -L/usr/lib CMakeFiles/cmTC_8bac0.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtendS.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crtn.o
+ "/usr/bin/ld" -pie -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_a38ca /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64 -L/usr/bin/../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../.. -L/usr/bin/../lib -L/lib -L/usr/lib CMakeFiles/cmTC_a38ca.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtendS.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crtn.o
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
@@ -248,14 +248,14 @@ Parsed CXX implicit link information from above output:
   link line regex: [^( *|.*[/\])(ld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\]+-)?ld|collect2)[^/\]*( |$)]
   ignore line: [Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp]
   ignore line: []
-  ignore line: [Run Build Command:"/usr/bin/make" "cmTC_8bac0/fast"]
-  ignore line: [/usr/bin/make -f CMakeFiles/cmTC_8bac0.dir/build.make CMakeFiles/cmTC_8bac0.dir/build]
+  ignore line: [Run Build Command:"/usr/bin/make" "cmTC_a38ca/fast"]
+  ignore line: [/usr/bin/make -f CMakeFiles/cmTC_a38ca.dir/build.make CMakeFiles/cmTC_a38ca.dir/build]
   ignore line: [make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”]
-  ignore line: [Building CXX object CMakeFiles/cmTC_8bac0.dir/CMakeCXXCompilerABI.cpp.o]
-  ignore line: [/usr/bin/clang++     -o CMakeFiles/cmTC_8bac0.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.12/Modules/CMakeCXXCompilerABI.cpp]
-  ignore line: [Linking CXX executable cmTC_8bac0]
-  ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8bac0.dir/link.txt --verbose=1]
-  ignore line: [/usr/bin/clang++      -v -rdynamic CMakeFiles/cmTC_8bac0.dir/CMakeCXXCompilerABI.cpp.o  -o cmTC_8bac0 ]
+  ignore line: [Building CXX object CMakeFiles/cmTC_a38ca.dir/CMakeCXXCompilerABI.cpp.o]
+  ignore line: [/usr/bin/clang++     -o CMakeFiles/cmTC_a38ca.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.12/Modules/CMakeCXXCompilerABI.cpp]
+  ignore line: [Linking CXX executable cmTC_a38ca]
+  ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a38ca.dir/link.txt --verbose=1]
+  ignore line: [/usr/bin/clang++      -v -rdynamic CMakeFiles/cmTC_a38ca.dir/CMakeCXXCompilerABI.cpp.o  -o cmTC_a38ca ]
   ignore line: [clang version 7.0.0 (tags/RELEASE_700/final)]
   ignore line: [Target: x86_64-pc-linux-gnu]
   ignore line: [Thread model: posix]
@@ -271,7 +271,7 @@ Parsed CXX implicit link information from above output:
   ignore line: [@m32]
   ignore line: [Selected multilib: .]
   ignore line: [@m64]
-  link line: [ "/usr/bin/ld" -pie -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_8bac0 /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64 -L/usr/bin/../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../.. -L/usr/bin/../lib -L/lib -L/usr/lib CMakeFiles/cmTC_8bac0.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtendS.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crtn.o]
+  link line: [ "/usr/bin/ld" -pie -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_a38ca /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64 -L/usr/bin/../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../.. -L/usr/bin/../lib -L/lib -L/usr/lib CMakeFiles/cmTC_a38ca.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtendS.o /usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crtn.o]
     arg [/usr/bin/ld] ==> ignore
     arg [-pie] ==> ignore
     arg [-export-dynamic] ==> ignore
@@ -282,7 +282,7 @@ Parsed CXX implicit link information from above output:
     arg [-dynamic-linker] ==> ignore
     arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
     arg [-o] ==> ignore
-    arg [cmTC_8bac0] ==> ignore
+    arg [cmTC_a38ca] ==> ignore
     arg [/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/Scrt1.o] ==> ignore
     arg [/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/../../../../lib64/crti.o] ==> ignore
     arg [/usr/bin/../lib64/gcc/x86_64-pc-linux-gnu/8.2.1/crtbeginS.o] ==> ignore
@@ -295,7 +295,7 @@ Parsed CXX implicit link information from above output:
     arg [-L/usr/bin/../lib] ==> dir [/usr/bin/../lib]
     arg [-L/lib] ==> dir [/lib]
     arg [-L/usr/lib] ==> dir [/usr/lib]
-    arg [CMakeFiles/cmTC_8bac0.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+    arg [CMakeFiles/cmTC_a38ca.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
     arg [-lstdc++] ==> lib [stdc++]
     arg [-lm] ==> lib [m]
     arg [-lgcc_s] ==> lib [gcc_s]
@@ -324,14 +324,14 @@ Parsed CXX implicit link information from above output:
 Detecting CXX [-std=c++2a] compiler features compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_7af80/fast"
-/usr/bin/make -f CMakeFiles/cmTC_7af80.dir/build.make CMakeFiles/cmTC_7af80.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_4119b/fast"
+/usr/bin/make -f CMakeFiles/cmTC_4119b.dir/build.make CMakeFiles/cmTC_4119b.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building CXX object CMakeFiles/cmTC_7af80.dir/feature_tests.cxx.o
-/usr/bin/clang++    -std=c++2a -o CMakeFiles/cmTC_7af80.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
-Linking CXX executable cmTC_7af80
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7af80.dir/link.txt --verbose=1
-/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_7af80.dir/feature_tests.cxx.o  -o cmTC_7af80 
+Building CXX object CMakeFiles/cmTC_4119b.dir/feature_tests.cxx.o
+/usr/bin/clang++    -std=c++2a -o CMakeFiles/cmTC_4119b.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
+Linking CXX executable cmTC_4119b
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4119b.dir/link.txt --verbose=1
+/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_4119b.dir/feature_tests.cxx.o  -o cmTC_4119b 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
@@ -397,14 +397,14 @@ make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles
 Detecting CXX [-std=c++17] compiler features compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_42551/fast"
-/usr/bin/make -f CMakeFiles/cmTC_42551.dir/build.make CMakeFiles/cmTC_42551.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_f20be/fast"
+/usr/bin/make -f CMakeFiles/cmTC_f20be.dir/build.make CMakeFiles/cmTC_f20be.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building CXX object CMakeFiles/cmTC_42551.dir/feature_tests.cxx.o
-/usr/bin/clang++    -std=c++17 -o CMakeFiles/cmTC_42551.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
-Linking CXX executable cmTC_42551
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_42551.dir/link.txt --verbose=1
-/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_42551.dir/feature_tests.cxx.o  -o cmTC_42551 
+Building CXX object CMakeFiles/cmTC_f20be.dir/feature_tests.cxx.o
+/usr/bin/clang++    -std=c++17 -o CMakeFiles/cmTC_f20be.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
+Linking CXX executable cmTC_f20be
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f20be.dir/link.txt --verbose=1
+/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_f20be.dir/feature_tests.cxx.o  -o cmTC_f20be 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
@@ -470,14 +470,14 @@ make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles
 Detecting CXX [-std=c++14] compiler features compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_e1764/fast"
-/usr/bin/make -f CMakeFiles/cmTC_e1764.dir/build.make CMakeFiles/cmTC_e1764.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_c957e/fast"
+/usr/bin/make -f CMakeFiles/cmTC_c957e.dir/build.make CMakeFiles/cmTC_c957e.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building CXX object CMakeFiles/cmTC_e1764.dir/feature_tests.cxx.o
-/usr/bin/clang++    -std=c++14 -o CMakeFiles/cmTC_e1764.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
-Linking CXX executable cmTC_e1764
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e1764.dir/link.txt --verbose=1
-/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_e1764.dir/feature_tests.cxx.o  -o cmTC_e1764 
+Building CXX object CMakeFiles/cmTC_c957e.dir/feature_tests.cxx.o
+/usr/bin/clang++    -std=c++14 -o CMakeFiles/cmTC_c957e.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
+Linking CXX executable cmTC_c957e
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_c957e.dir/link.txt --verbose=1
+/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_c957e.dir/feature_tests.cxx.o  -o cmTC_c957e 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
@@ -543,14 +543,14 @@ make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles
 Detecting CXX [-std=c++11] compiler features compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_1021b/fast"
-/usr/bin/make -f CMakeFiles/cmTC_1021b.dir/build.make CMakeFiles/cmTC_1021b.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_b0d6b/fast"
+/usr/bin/make -f CMakeFiles/cmTC_b0d6b.dir/build.make CMakeFiles/cmTC_b0d6b.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building CXX object CMakeFiles/cmTC_1021b.dir/feature_tests.cxx.o
-/usr/bin/clang++    -std=c++11 -o CMakeFiles/cmTC_1021b.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
-Linking CXX executable cmTC_1021b
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1021b.dir/link.txt --verbose=1
-/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_1021b.dir/feature_tests.cxx.o  -o cmTC_1021b 
+Building CXX object CMakeFiles/cmTC_b0d6b.dir/feature_tests.cxx.o
+/usr/bin/clang++    -std=c++11 -o CMakeFiles/cmTC_b0d6b.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
+Linking CXX executable cmTC_b0d6b
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b0d6b.dir/link.txt --verbose=1
+/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_b0d6b.dir/feature_tests.cxx.o  -o cmTC_b0d6b 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 
@@ -616,14 +616,14 @@ make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles
 Detecting CXX [-std=c++98] compiler features compiled with the following output:
 Change Dir: /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_ebcd9/fast"
-/usr/bin/make -f CMakeFiles/cmTC_ebcd9.dir/build.make CMakeFiles/cmTC_ebcd9.dir/build
+Run Build Command:"/usr/bin/make" "cmTC_7505c/fast"
+/usr/bin/make -f CMakeFiles/cmTC_7505c.dir/build.make CMakeFiles/cmTC_7505c.dir/build
 make[1]: 进入目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
-Building CXX object CMakeFiles/cmTC_ebcd9.dir/feature_tests.cxx.o
-/usr/bin/clang++    -std=c++98 -o CMakeFiles/cmTC_ebcd9.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
-Linking CXX executable cmTC_ebcd9
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ebcd9.dir/link.txt --verbose=1
-/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_ebcd9.dir/feature_tests.cxx.o  -o cmTC_ebcd9 
+Building CXX object CMakeFiles/cmTC_7505c.dir/feature_tests.cxx.o
+/usr/bin/clang++    -std=c++98 -o CMakeFiles/cmTC_7505c.dir/feature_tests.cxx.o -c /home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/feature_tests.cxx
+Linking CXX executable cmTC_7505c
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7505c.dir/link.txt --verbose=1
+/usr/bin/clang++       -rdynamic CMakeFiles/cmTC_7505c.dir/feature_tests.cxx.o  -o cmTC_7505c 
 make[1]: 离开目录“/home/lawliet/workspace/cpp/game_engine/build/CMakeFiles/CMakeTmp”
 
 

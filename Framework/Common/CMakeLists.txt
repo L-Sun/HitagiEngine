@@ -4,6 +4,7 @@ AssetLoader.cpp
 BaseApplication.cpp
 GraphicsManager.cpp
 MemoryManager.cpp
+SceneManager.cpp
 main.cpp
 )
 

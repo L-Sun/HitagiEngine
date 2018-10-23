@@ -6,5 +6,5 @@ CXX_FLAGS = -g -D_DEBUG   -std=gnu++14
 
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Codec -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/GL/include -I/home/lawliet/workspace/cpp/game_engine/Platform/Linux -I/home/lawliet/workspace/cpp/game_engine/External/Linux/include 
+CXX_INCLUDES = -I/home/lawliet/workspace/cpp/game_engine/Framework/Common -I/home/lawliet/workspace/cpp/game_engine/Framework/Codec -I/home/lawliet/workspace/cpp/game_engine/Framework/Interface -I/home/lawliet/workspace/cpp/game_engine/RHI -I/home/lawliet/workspace/cpp/game_engine/External/src/glad/include -I/home/lawliet/workspace/cpp/game_engine/External/src/glm/glm -I/home/lawliet/workspace/cpp/game_engine/Platform/Linux -I/home/lawliet/workspace/cpp/game_engine/External/Linux/include 
 

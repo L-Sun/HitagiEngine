@@ -9,6 +9,7 @@ set(CMAKE_DEPENDS_CHECK_CXX
   "/home/lawliet/workspace/cpp/game_engine/Framework/Common/BaseApplication.cpp" "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common/CMakeFiles/Common.dir/BaseApplication.cpp.o"
   "/home/lawliet/workspace/cpp/game_engine/Framework/Common/GraphicsManager.cpp" "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common/CMakeFiles/Common.dir/GraphicsManager.cpp.o"
   "/home/lawliet/workspace/cpp/game_engine/Framework/Common/MemoryManager.cpp" "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common/CMakeFiles/Common.dir/MemoryManager.cpp.o"
+  "/home/lawliet/workspace/cpp/game_engine/Framework/Common/SceneManager.cpp" "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common/CMakeFiles/Common.dir/SceneManager.cpp.o"
   "/home/lawliet/workspace/cpp/game_engine/Framework/Common/main.cpp" "/home/lawliet/workspace/cpp/game_engine/build/Framework/Common/CMakeFiles/Common.dir/main.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "Clang")
@@ -19,7 +20,8 @@ set(CMAKE_CXX_TARGET_INCLUDE_PATH
   "../Framework/Codec"
   "../Framework/Interface"
   "../RHI"
-  "../External/GL/include"
+  "../External/src/glad/include"
+  "../External/src/glm/glm"
   "../Platform/Linux"
   "../External/Linux/include"
   )

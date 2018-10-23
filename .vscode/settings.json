@@ -9,7 +9,9 @@
         "-I/home/lawliet/workspace/cpp/game_engine/Platform/Linux",
         "-I/home/lawliet/workspace/cpp/game_engine/Platform/Windows",
         "-I/home/lawliet/workspace/cpp/game_engine/Platform/Empty",
-        "-I/home/lawliet/workspace/cpp/game_engine/RHI"
+        "-I/home/lawliet/workspace/cpp/game_engine/RHI",
+        "-I/home/lawliet/workspace/cpp/game_engine/External/src/crossguid/include/crossguid",
+        "-I/home/lawliet/workspace/cpp/game_engine/External/src/glm/glm"
     ],
     "clang.completion.enable": false
 }

@@ -3,3 +3,6 @@
 /build
 
 .clang-format
+
+test.cpp
+test
