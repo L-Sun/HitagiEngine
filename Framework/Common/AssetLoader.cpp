@@ -83,7 +83,7 @@ Buffer AssetLoader::SyncOpenAndRead(const char* filePath, AssetOpenMode mode) {
 
         pBuff = new Buffer(length);
         fstrm.read(reinterpret_cast<char*>(pBuff->m_pData), length);
-        if (mode == MY_OPEN_TEXT) pBuff->m_pData[length] = '\0';
+        if (mode == MY_OPEN_TEXT) pBuff->m_pData[length - 1] = '\0';
         CloseFile(fstrm);
     } else {
         std::cout << "Error opening file " << filePath << std::endl;
