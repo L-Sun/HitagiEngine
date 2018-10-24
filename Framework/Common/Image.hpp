@@ -1,6 +1,5 @@
 #pragma once
-#include <cstdint>
-#include <vector>
+#include <iostream>
 #include <array>
 
 namespace My {
@@ -16,4 +15,5 @@ typedef struct _Image {
     bgra* data;
 } Image;
 
+std::ostream& operator<<(std::ostream& out, const Image& image);
 }  // namespace My
