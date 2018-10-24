@@ -307,12 +307,13 @@ public:
         out << "Primitive Type: " << obj.m_PrimitiveType << std::endl;
         out << "This mesh contains 0x" << obj.m_VertexArray.size()
             << " vertex properties." << std::endl;
+        out << std::endl;
         for (size_t i = 0; i < obj.m_VertexArray.size(); i++) {
             out << obj.m_VertexArray[i] << std::endl;
         }
-
         out << "This mesh catains 0x" << obj.m_IndexArray.size()
-            << " index properties.";
+            << " index properties." << std::endl;
+        out << std::endl;
         for (size_t i = 0; i < obj.m_IndexArray.size(); i++) {
             out << obj.m_IndexArray[i] << std::endl;
         }
@@ -386,9 +387,11 @@ struct ParameterValueMap {
 
     friend std::ostream& operator<<(std::ostream&            out,
                                     const ParameterValueMap& obj) {
-        out << "Parameter Value:" << obj.Value << std::endl;
-        if (obj.ValueMap)
-            out << "Parameter Map: " << *(obj.ValueMap) << std::endl;
+        out << "Parameter Value:" << obj.Value;
+        if (obj.ValueMap) {
+            out << std::endl;
+            out << "Parameter Map: \n" << *(obj.ValueMap) << std::endl;
+        }
         return out;
     }
 };
