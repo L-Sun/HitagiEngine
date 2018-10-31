@@ -30,4 +30,6 @@ private:
     static Allocator* m_pAllocators;
     static Allocator* LookUpAllocator(size_t size);
 };
+
+extern MemoryManager* g_pMemoryManager;
 }  // namespace My

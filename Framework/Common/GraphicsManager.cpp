@@ -9,3 +9,5 @@ int GraphicsManager::Initialize() {
 
 void GraphicsManager::Finalize() {}
 void GraphicsManager::Tick() {}
+void GraphicsManager::Draw() {}
+void GraphicsManager::Clear() {}

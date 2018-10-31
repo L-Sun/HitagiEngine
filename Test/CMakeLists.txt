@@ -7,6 +7,10 @@ add_executable(OgexParserTest OgexParserTest.cpp)
 target_link_libraries(OgexParserTest Common ${OPENGEX_LIBRARY} ${OPENDDL_LIBRARY} ${XG_LIBRARY})
 add_test(NAME TEST_OgexParser COMMAND OgexParserTest)
 
-add_executable(SceneObjectTest SceneObjectTest.cpp)
-target_link_libraries(SceneObjectTest Common ${XG_LIBRARY})
-add_test(NAME TEST_SceneObject COMMAND SceneObjectTest)
+# add_executable(SceneObjectTest SceneObjectTest.cpp)
+# target_link_libraries(SceneObjectTest Common ${XG_LIBRARY})
+# add_test(NAME TEST_SceneObject COMMAND SceneObjectTest)
+
+add_executable(SceneLoadingTest SceneLoadingTest.cpp)
+target_link_libraries(SceneLoadingTest Common ${OPENGEX_LIBRARY} ${OPENDDL_LIBRARY} ${XG_LIBRARY})
+add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest)

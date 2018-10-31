@@ -1,19 +1,18 @@
 #include "glad/glad.h"
 #include "OpenGL/OpenGLGraphicsManager.hpp"
-#include "MemoryManager.hpp"
 #include "OpenGLApplication.hpp"
 
 using namespace My;
 
 namespace My {
-GfxConfiguration config("Game Engine From Scratch (Linux)", 8, 8, 8, 8, 24, 8,
-                        0, 960, 540);
-IApplication*    g_pApp =
-    static_cast<IApplication*>(new OpenGLApplication(config));
-GraphicsManager* g_pGraphicsManager =
-    static_cast<GraphicsManager*>(new OpenGLGraphicsManager);
-MemoryManager* g_pMemoryManager =
-    static_cast<MemoryManager*>(new MemoryManager);
+// clang-format off
+GfxConfiguration config("Game Engine From Scratch (Linux)", 8, 8, 8, 8, 24, 8, 0, 960, 540);
+IApplication*    g_pApp             = static_cast<IApplication*>(new OpenGLApplication(config));
+GraphicsManager* g_pGraphicsManager = static_cast<GraphicsManager*>(new OpenGLGraphicsManager);
+MemoryManager*   g_pMemoryManager   = static_cast<MemoryManager*>(new MemoryManager);
+AssetLoader*     g_pAssetLoader     = static_cast<AssetLoader*>(new AssetLoader);
+SceneManager*    g_pSceneManager    = static_cast<SceneManager*>(new SceneManager);
+// clang-format on
 }  // namespace My
 
 int OpenGLApplication::Initialize() {
@@ -34,6 +33,6 @@ int OpenGLApplication::Initialize() {
 void OpenGLApplication::Finalize() { GLFWApplication::Finalize(); }
 void OpenGLApplication::Tick() { GLFWApplication::Tick(); }
 void OpenGLApplication::OnDraw() {
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    g_pGraphicsManager->Clear();
+    g_pGraphicsManager->Draw();
 }

@@ -4,6 +4,8 @@ AssetLoader.cpp
 BaseApplication.cpp
 GraphicsManager.cpp
 MemoryManager.cpp
+Scene.cpp
+SceneObject.cpp
 SceneManager.cpp
 Image.cpp
 main.cpp

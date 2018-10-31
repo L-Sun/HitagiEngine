@@ -8,5 +8,9 @@ public:
     virtual int  Initialize();
     virtual void Finalize();
     virtual void Tick();
+    virtual void Draw();
+    virtual void Clear();
 };
+
+extern GraphicsManager* g_pGraphicsManager;
 }  // namespace My
