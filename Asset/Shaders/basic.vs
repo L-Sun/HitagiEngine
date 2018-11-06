@@ -6,7 +6,7 @@ in vec3 inputNormal;
 out vec4 normal;
 out vec4 v;
 
-uniform mat4 objectLocalMatrix;
+uniform mat4 modelMatrix;
 
 uniform mat4 worldMatrix;
 uniform mat4 viewMatrix;
@@ -14,7 +14,7 @@ uniform mat4 projectionMatrix;
 
 void main(){
 
-    mat4 transformMatrix = worldMatrix * objectLocalMatrix;
+    mat4 transformMatrix = worldMatrix * modelMatrix;
 
     v = transformMatrix * vec4(inputPosition, 1.0f);
     v = viewMatrix * v;

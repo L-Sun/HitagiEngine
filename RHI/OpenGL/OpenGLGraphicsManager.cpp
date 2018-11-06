@@ -94,17 +94,21 @@ int OpenGLGraphicsManager::Initialize() {
     return result;
 }
 void OpenGLGraphicsManager::Finalize() {
-    for (size_t i = 0; i < m_Buffers.size(); i++) {
+    for (auto dbc : m_DrawBatchContext) {
+        glDeleteVertexArrays(1, &dbc.vao);
+    }
+    m_DrawBatchContext.clear();
+
+    for (auto i = 0; i < m_Buffers.size() - 1; i++) {
         glDisableVertexAttribArray(i);
     }
+
     for (auto buf : m_Buffers) {
-        if (buf.first == "index") {
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        } else {
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-        }
-        glDeleteBuffers(1, &buf.second);
+        glDeleteBuffers(1, &buf);
     }
+
+    m_Buffers.clear();
+
     glDetachShader(m_shaderProgram, m_vertexShader);
     glDetachShader(m_shaderProgram, m_fragmentShader);
     glDeleteShader(m_vertexShader);
@@ -181,143 +185,151 @@ void OpenGLGraphicsManager::InitializeBuffers() {
     auto  pGeometryNode = scene.GetFirstGeometryNode();
 
     while (pGeometryNode) {
-        auto pGeometry = scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
-        assert(pGeometry);
-        auto pMesh = pGeometry->GetMesh().lock();
-        if (!pMesh) return;
+        if (pGeometryNode->Visible()) {
+            auto pGeometry =
+                scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
+            assert(pGeometry);
+            auto pMesh = pGeometry->GetMesh().lock();
+            if (!pMesh) return;
 
-        auto vertexPropertiesCount = pMesh->GetVertexPropertiesCount();
-        auto vertexCount           = pMesh->GetVertexCount();
+            auto vertexPropertiesCount = pMesh->GetVertexPropertiesCount();
+            auto vertexCount           = pMesh->GetVertexCount();
 
-        GLuint vao;
-        glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
+            GLuint vao;
+            glGenVertexArrays(1, &vao);
+            glBindVertexArray(vao);
 
-        GLuint buffer_id;
+            GLuint buffer_id;
 
-        for (int32_t i = 0; i < vertexPropertiesCount; i++) {
-            const SceneObjectVertexArray& v_property_array =
-                pMesh->GetVertexPropertyArray(i);
-            auto v_property_array_data_size = v_property_array.GetDataSize();
-            auto v_property_array_data      = v_property_array.GetData();
+            for (int32_t i = 0; i < vertexPropertiesCount; i++) {
+                const SceneObjectVertexArray& v_property_array =
+                    pMesh->GetVertexPropertyArray(i);
+                auto v_property_array_data_size =
+                    v_property_array.GetDataSize();
+                auto v_property_array_data = v_property_array.GetData();
 
-            glGenBuffers(1, &buffer_id);
-            glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
-            glBufferData(GL_ARRAY_BUFFER, v_property_array_data_size,
-                         v_property_array_data, GL_STATIC_DRAW);
+                glGenBuffers(1, &buffer_id);
+                glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
+                glBufferData(GL_ARRAY_BUFFER, v_property_array_data_size,
+                             v_property_array_data, GL_STATIC_DRAW);
 
-            glEnableVertexAttribArray(i);
-            glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
+                glEnableVertexAttribArray(i);
 
-            switch (v_property_array.GetDataType()) {
-                case VertexDataType::VERTEX_DATA_TYPE_FLOAT1:
-                    glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
+                switch (v_property_array.GetDataType()) {
+                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT1:
+                        glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
+                        break;
+                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT2:
+                        glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
+                        break;
+                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT3:
+                        glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
+                        break;
+                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT4:
+                        glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
+                        break;
+                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE1:
+                        glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
+                        break;
+                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE2:
+                        glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
+                        break;
+                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE3:
+                        glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
+                        break;
+                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE4:
+                        glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
+                        break;
+                    default:
+                        assert(0);
+                        break;
+                }
+                m_Buffers.push_back(buffer_id);
+            }
+
+            auto indexGroupCount = pMesh->GetIndexGroupCount();
+
+            GLenum mode;
+            switch (pMesh->GetPrimitiveType()) {
+                case PrimitiveType::PRIMITIVE_TYPE_POINT_LIST:
+                    mode = GL_POINTS;
                     break;
-                case VertexDataType::VERTEX_DATA_TYPE_FLOAT2:
-                    glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
+                case PrimitiveType::PRIMITIVE_TYPE_LINE_LIST:
+                    mode = GL_LINES;
                     break;
-                case VertexDataType::VERTEX_DATA_TYPE_FLOAT3:
-                    glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
+                case PrimitiveType::PRIMITIVE_TYPE_LINE_STRIP:
+                    mode = GL_LINE_STRIP;
                     break;
-                case VertexDataType::VERTEX_DATA_TYPE_FLOAT4:
-                    glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
+                case PrimitiveType::PRIMITIVE_TYPE_TRI_LIST:
+                    mode = GL_TRIANGLES;
                     break;
-                case VertexDataType::VERTEX_DATA_TYPE_DOUBLE1:
-                    glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
+                case PrimitiveType::PRIMITIVE_TYPE_TRI_STRIP:
+                    mode = GL_TRIANGLE_STRIP;
                     break;
-                case VertexDataType::VERTEX_DATA_TYPE_DOUBLE2:
-                    glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
-                    break;
-                case VertexDataType::VERTEX_DATA_TYPE_DOUBLE3:
-                    glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
-                    break;
-                case VertexDataType::VERTEX_DATA_TYPE_DOUBLE4:
-                    glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
+                case PrimitiveType::PRIMITIVE_TYPE_TRI_FAN:
+                    mode = GL_TRIANGLE_FAN;
                     break;
                 default:
-                    assert(0);
-                    break;
+                    continue;
             }
-            m_Buffers[v_property_array.GetAttributeName()] = buffer_id;
+
+            for (decltype(indexGroupCount) i = 0; i < indexGroupCount; i++) {
+                glGenBuffers(1, &buffer_id);
+
+                const SceneObjectIndexArray& index_array =
+                    pMesh->GetIndexArray(i);
+                auto index_array_size = index_array.GetDataSize();
+                auto index_array_data = index_array.GetData();
+
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_array_size,
+                             index_array_data, GL_STATIC_DRAW);
+
+                GLsizei indexCount =
+                    static_cast<GLsizei>(index_array.GetIndexCount());
+                GLenum type;
+                switch (index_array.GetIndexType()) {
+                    case IndexDataType::INDEX_DATA_TYPE_INT8:
+                        type = GL_UNSIGNED_BYTE;
+                        break;
+                    case IndexDataType::INDEX_DATA_TYPE_INT16:
+                        type = GL_UNSIGNED_SHORT;
+                        break;
+                    case IndexDataType::INDEX_DATA_TYPE_INT32:
+                        type = GL_UNSIGNED_INT;
+                        break;
+                    default:
+                        // not supported by OpenGL
+                        cout << "Error: Unsupported Index Type " << index_array
+                             << endl;
+                        cout << "Mesh: " << *pMesh << endl;
+                        cout << "Geometry: " << *pGeometry << endl;
+                        continue;
+                }
+
+                m_Buffers.push_back(buffer_id);
+
+                DrawBatchContext& dbc = *(new DrawBatchContext);
+                dbc.vao               = vao;
+                dbc.mode              = mode;
+                dbc.type              = type;
+                dbc.transform         = pGeometryNode->GetCalculatedTransform();
+                dbc.counts.push_back(indexCount);
+                m_DrawBatchContext.push_back(std::move(dbc));
+            }
         }
-
-        glGenBuffers(1, &buffer_id);
-        const SceneObjectIndexArray& index_array = pMesh->GetIndexArray(0);
-        auto index_array_size                    = index_array.GetDataSize();
-        auto index_array_data                    = index_array.GetData();
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_array_size,
-                     index_array_data, GL_STATIC_DRAW);
-
-        GLsizei indexCount = static_cast<GLsizei>(index_array.GetIndexCount());
-        GLenum  mode;
-
-        switch (pMesh->GetPrimitiveType()) {
-            case PrimitiveType::PRIMITIVE_TYPE_POINT_LIST:
-                mode = GL_POINTS;
-                break;
-            case PrimitiveType::PRIMITIVE_TYPE_LINE_LIST:
-                mode = GL_LINES;
-                break;
-            case PrimitiveType::PRIMITIVE_TYPE_LINE_STRIP:
-                mode = GL_LINE_STRIP;
-                break;
-            case PrimitiveType::PRIMITIVE_TYPE_TRI_LIST:
-                mode = GL_TRIANGLES;
-                break;
-            case PrimitiveType::PRIMITIVE_TYPE_TRI_STRIP:
-                mode = GL_TRIANGLE_STRIP;
-                break;
-            case PrimitiveType::PRIMITIVE_TYPE_TRI_FAN:
-                mode = GL_TRIANGLE_FAN;
-                break;
-            default:
-                continue;
-        }
-
-        GLenum type;
-
-        switch (index_array.GetIndexType()) {
-            case IndexDataType::INDEX_DATA_TYPE_INT8:
-                type = GL_UNSIGNED_BYTE;
-                break;
-            case IndexDataType::INDEX_DATA_TYPE_INT16:
-                type = GL_UNSIGNED_SHORT;
-                break;
-            case IndexDataType::INDEX_DATA_TYPE_INT32:
-                type = GL_UNSIGNED_INT;
-                break;
-            default:
-                // not supported by OpenGL
-                cerr << "Error: Unsupported Index Type: " << index_array
-                     << endl;
-                cerr << "Mesh: " << *pMesh << endl;
-                cerr << "Geometry: " << *pGeometry << endl;
-                continue;
-                break;
-        }
-
-        m_Buffers["index"] = buffer_id;
-
-        DrawBatchContext& dbc = *(new DrawBatchContext);
-        dbc.vao               = vao;
-        dbc.mode              = mode;
-        dbc.type              = type;
-        dbc.count             = indexCount;
-        dbc.transform         = pGeometryNode->GetCalculatedTransform();
-        m_VAO.push_back(std::move(dbc));
         pGeometryNode = scene.GetNextGeometryNode();
     }
+
     return;
 }
 
 void OpenGLGraphicsManager::RenderBuffers() {
     static float rotateAngle = 0.0f;
 
-    // rotateAngle += glm::pi<float>() / 1200;
+    rotateAngle = glm::pi<float>() / 120.0;
+
     glm::mat4& worldMat = m_DrawFrameContext.m_worldMatrix;
-    worldMat = glm::rotate(worldMat, rotateAngle, glm::vec3(0.0f, 1.0f, 0.0f));
     worldMat = glm::rotate(worldMat, rotateAngle, glm::vec3(0.0f, 0.0f, 1.0f));
 
     CalculateCameraMatrix();
@@ -325,12 +337,16 @@ void OpenGLGraphicsManager::RenderBuffers() {
 
     SetPerFrameShaderParameters();
 
-    for (auto dbc : m_VAO) {
+    for (auto dbc : m_DrawBatchContext) {
         glUseProgram(m_shaderProgram);
-        SetPerBatchShaderParameters("objectLocalMatrix",
-                                    &(*dbc.transform)[0][0]);
+        SetPerBatchShaderParameters("modelMatrix", &(*dbc.transform)[0][0]);
         glBindVertexArray(dbc.vao);
-        glDrawElements(dbc.mode, dbc.count, dbc.type, 0);
+        auto           indexBufferCount = dbc.counts.size();
+        const GLvoid** pIndicies        = new const GLvoid*[indexBufferCount];
+        memset(pIndicies, 0x00, sizeof(GLvoid*) * indexBufferCount);
+        glMultiDrawElements(dbc.mode, dbc.counts.data(), dbc.type, pIndicies,
+                            indexBufferCount);
+        delete[] pIndicies;
     }
     return;
 }
@@ -344,21 +360,28 @@ void OpenGLGraphicsManager::CalculateCameraMatrix() {
         viewMat = *pCameraNode->GetCalculatedTransform();
         viewMat = glm::inverse(viewMat);
     } else {
-        glm::vec3 position(0, 0, 5);
+        glm::vec3 position(0, -5, 0);
         glm::vec3 lookAt(0, 0, 0);
-        glm::vec3 up(0, 1, 0);
+        glm::vec3 up(0, 0, 1);
         viewMat = glm::lookAt(position, lookAt, up);
     }
-    auto  pCamera = scene.GetCamera(pCameraNode->GetSceneObjectRef());
-    float fieldOfView =
-        dynamic_pointer_cast<SceneObjectPerspectiveCamera>(pCamera)->GetFov();
-    const GfxConfiguration conf = g_pApp->GetConfiguration();
 
+    float fieldOfView      = glm::pi<float>() / 2.0f;
+    float nearClipDistance = 1.0f;
+    float farClipDistance  = 100.0f;
+
+    if (pCameraNode) {
+        auto pCamera = scene.GetCamera(pCameraNode->GetSceneObjectRef());
+        fieldOfView =
+            dynamic_pointer_cast<SceneObjectPerspectiveCamera>(pCamera)
+                ->GetFov();
+        nearClipDistance = pCamera->GetNearClipDistance();
+        farClipDistance  = pCamera->GetFarClipDistance();
+    }
+    const GfxConfiguration& conf = g_pApp->GetConfiguration();
     float screenAspect = (float)conf.screenWidth / (float)conf.screenHeight;
-
     m_DrawFrameContext.m_projectionMatrix = glm::perspective(
-        fieldOfView, screenAspect, pCamera->GetNearClipDistance(),
-        pCamera->GetFarClipDistance());
+        fieldOfView, screenAspect, nearClipDistance, farClipDistance);
 }
 
 void OpenGLGraphicsManager::CalculateLights() {
@@ -379,7 +402,7 @@ void OpenGLGraphicsManager::CalculateLights() {
             lightColor = pLight->GetColor().Value;
         }
     } else {
-        lightPos   = glm::vec3(10.0f, 10.0f, 10.0f);
+        lightPos   = glm::vec3(-1.0f, -5.0f, 0.0f);
         lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }

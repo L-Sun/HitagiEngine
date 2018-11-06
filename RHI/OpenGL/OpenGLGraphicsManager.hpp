@@ -42,13 +42,13 @@ private:
         GLuint                     vao;
         GLenum                     mode;
         GLenum                     type;
-        GLsizei                    count;
+        std::vector<GLsizei>       counts;
         std::shared_ptr<glm::mat4> transform;
     };
 
     DrawFrameContext m_DrawFrameContext;
 
-    std::vector<DrawBatchContext>                 m_VAO;
-    std::unordered_map<std::string, unsigned int> m_Buffers;
+    std::vector<DrawBatchContext> m_DrawBatchContext;
+    std::vector<GLuint>           m_Buffers;
 };
 }  // namespace My

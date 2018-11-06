@@ -296,11 +296,12 @@ public:
     void SetPrimitiveType(PrimitiveType type) { m_PrimitiveType = type; }
 
     // Get some things
-    size_t GetIndexCount() const {
-        return (m_IndexArray.empty() ? 0 : m_IndexArray[0].GetIndexCount());
+    size_t GetIndexGroupCount() const { return m_IndexArray.size(); }
+    size_t GetIndexCount(const size_t index) const {
+        return m_IndexArray.empty() ? 0 : m_IndexArray[index].GetIndexCount();
     }
     size_t GetVertexCount() const {
-        return (m_VertexArray.empty() ? 0 : m_VertexArray[0].GetVertexCount());
+        return m_VertexArray.empty() ? 0 : m_VertexArray[0].GetVertexCount();
     }
     size_t GetVertexPropertiesCount() const { return m_VertexArray.size(); }
     const SceneObjectVertexArray& GetVertexPropertyArray(
@@ -536,6 +537,13 @@ public:
 
     friend std::ostream& operator<<(std::ostream&               out,
                                     const SceneObjectSpotLight& obj);
+};
+
+class SceneObjectInfiniteLight : public SceneObjectLight {
+public:
+    using SceneObjectLight::SceneObjectLight;
+    friend std::ostream& operator<<(std::ostream&                   out,
+                                    const SceneObjectInfiniteLight& obj);
 };
 
 class SceneObjectCamera : public BaseSceneObject {

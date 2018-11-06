@@ -34,7 +34,15 @@ int main(int argc, char const* argv[]) {
                   << std::endl;
         return ret;
     }
-    g_pSceneManager->LoadScene("Scene/cube.ogex");
+    std::string scene_file_name = "Scene/aili_cycle.ogex";
+    if (argc > 1) {
+        scene_file_name = argv[1];
+    }
+
+    if ((ret = g_pSceneManager->LoadScene(scene_file_name.c_str())) != 0) {
+        std::cout << "Unable to load scene: " << scene_file_name << std::endl;
+        return ret;
+    }
 
     std::cout << "\n------- Initial Graphics Manager -------" << std::endl;
     if ((ret = g_pGraphicsManager->Initialize()) != 0) {
