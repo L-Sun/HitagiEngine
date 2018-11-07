@@ -7,16 +7,20 @@ set(CMAKE_CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS "-g -no-pie")
 set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG")
 
+include(CTest)
+
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Platform")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/External/src/crossguid/cmake")
 
 include_directories("${PROJECT_SOURCE_DIR}/Framework/Common")
+include_directories("${PROJECT_SOURCE_DIR}/Framework/GeomMath")
 include_directories("${PROJECT_SOURCE_DIR}/Framework/Parser")
 include_directories("${PROJECT_SOURCE_DIR}/Framework/Interface")
 include_directories("${PROJECT_SOURCE_DIR}/RHI")
 
 include_directories("${PROJECT_SOURCE_DIR}/External/src/glm/glm")
+include_directories("${PROJECT_SOURCE_DIR}/External/src/glad/include")
 
 IF(${UNIX})
     set(TARGET_PLATFORM "Linux")

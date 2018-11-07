@@ -14,9 +14,9 @@ int GLFWApplication::Initialize() {
     if (result != 0) exit(result);
 
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    for (auto hint : WindowHintConfig) {
+        glfwWindowHint(hint.first, hint.second);
+    }
 
     m_window = glfwCreateWindow(m_Config.screenWidth, m_Config.screenHeight,
                                 m_Config.appName, NULL, NULL);

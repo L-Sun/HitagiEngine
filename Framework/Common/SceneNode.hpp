@@ -11,24 +11,31 @@ namespace My {
 class BaseSceneNode {
 protected:
     std::string                                      m_strName;
-    std::list<std::unique_ptr<BaseSceneNode>>        m_Chlidren;
-    std::list<std::unique_ptr<SceneObjectTransform>> m_Transforms;
+    std::list<std::shared_ptr<BaseSceneNode>>        m_Chlidren;
+    std::list<std::shared_ptr<SceneObjectTransform>> m_Transforms;
 
     virtual void dump(std::ostream& out) const {}
 
 public:
     BaseSceneNode() {}
-    BaseSceneNode(const char* name) { m_strName = name; }
-    BaseSceneNode(std::string& name) { m_strName = name; }
-    BaseSceneNode(std::string&& name) { m_strName = std::move(name); }
+    BaseSceneNode(const std::string& name) { m_strName = name; }
 
     virtual ~BaseSceneNode() {}
 
-    void AppendChild(std::unique_ptr<BaseSceneNode>&& sub_node) {
+    void AppendChild(std::shared_ptr<BaseSceneNode>&& sub_node) {
         m_Chlidren.push_back(std::move(sub_node));
     }
-    void AppendChild(std::unique_ptr<SceneObjectTransform>&& transform) {
+    void AppendChild(std::shared_ptr<SceneObjectTransform>&& transform) {
         m_Transforms.push_back(std::move(transform));
+    }
+
+    const std::shared_ptr<glm::mat4> GetCalculatedTransform() const {
+        std::shared_ptr<glm::mat4> result(new glm::mat4(1.0f));
+
+        for (auto trans : m_Transforms) {
+            *result = *result * static_cast<glm::mat4>(*trans);
+        }
+        return result;
     }
 
     friend std::ostream& operator<<(std::ostream&        out,
@@ -42,10 +49,10 @@ public:
         node.dump(out);
         out << std::endl;
 
-        for (const std::unique_ptr<BaseSceneNode>& sub_node : node.m_Chlidren) {
+        for (const std::shared_ptr<BaseSceneNode>& sub_node : node.m_Chlidren) {
             out << *sub_node << std::endl;
         }
-        for (const std::unique_ptr<SceneObjectTransform>& sub_node :
+        for (const std::shared_ptr<SceneObjectTransform>& sub_node :
              node.m_Transforms) {
             out << *sub_node << std::endl;
         }
@@ -58,26 +65,17 @@ public:
 template <typename T>
 class SceneNode : public BaseSceneNode {
 protected:
-    std::shared_ptr<T> m_pSceneObjcet;
+    std::string m_keySceneObject;
 
     virtual void dump(std::ostream& out) const {
-        if (m_pSceneObjcet) out << *m_pSceneObjcet << std::endl;
+        out << m_keySceneObject << std::endl;
     }
 
 public:
     using BaseSceneNode::BaseSceneNode;
     SceneNode() = default;
-    SceneNode(const std::shared_ptr<T>& object) { m_pSceneObjcet = object; }
-    SceneNode(const std::shared_ptr<T>&& object) {
-        m_pSceneObjcet = std::move(object);
-    }
-
-    void AddSceneObjectRef(const std::shared_ptr<T>& object) {
-        m_pSceneObjcet = object;
-    }
-    void AddSceneObjectRef(const std::shared_ptr<T>&& object) {
-        m_pSceneObjcet = std::move(object);
-    }
+    void AddSceneObjectRef(const std::string& key) { m_keySceneObject = key; }
+    const std::string& GetSceneObjectRef() { return m_keySceneObject; }
 };
 
 typedef BaseSceneNode SceneEmptyNode;
@@ -87,7 +85,7 @@ protected:
     bool m_bShadow;
     bool m_bMotionBlur;
 
-    std::vector<std::shared_ptr<SceneObjectMaterial>> m_Materials;
+    std::vector<std::string> m_Materials;
 
     virtual void dump(std::ostream& out) const {
         SceneNode::dump(out);
@@ -95,7 +93,7 @@ protected:
         out << "Shadow: " << m_bShadow << std::endl;
         out << "Motion Blur: " << m_bMotionBlur << std::endl;
         out << "Material(s): " << std::endl;
-        for (auto material : m_Materials) out << *material << std::endl;
+        for (auto material : m_Materials) out << material << std::endl;
     }
 
 public:
@@ -108,19 +106,20 @@ public:
     const bool MotionBlur() { return m_bMotionBlur; }
 
     using SceneNode::AddSceneObjectRef;
-    void AddSceneObjectRef(const std::shared_ptr<SceneObjectMaterial>& object) {
-        m_Materials.push_back(object);
+    void AddMaterialRef(const std::string& key) { m_Materials.push_back(key); }
+    void AddMaterialRef(const std::string&& key) {
+        m_Materials.push_back(std::move(key));
     }
 };
 
 class SceneLightNode : public SceneNode<SceneObjectLight> {
 protected:
-    glm::vec3 m_Target;
+    bool m_bShadow;
 
 public:
     using SceneNode::SceneNode;
-    void             SetTarget(glm::vec3& target) { m_Target = target; }
-    const glm::vec3& GetTarget() { return m_Target; }
+    void       SetIfCastShadow(bool shaodw) { m_bShadow = shaodw; }
+    const bool CastShadow() { return m_bShadow; }
 };
 
 class SceneCameraNode : public SceneNode<SceneObjectCamera> {
