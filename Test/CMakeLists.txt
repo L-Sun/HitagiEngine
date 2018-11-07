@@ -14,3 +14,7 @@ add_test(NAME TEST_OgexParser COMMAND OgexParserTest)
 add_executable(SceneLoadingTest SceneLoadingTest.cpp)
 target_link_libraries(SceneLoadingTest Common ${OPENGEX_LIBRARY} ${OPENDDL_LIBRARY} ${XG_LIBRARY})
 add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest)
+
+add_executable(MathTest MathTest.cpp)
+target_link_libraries(MathTest GeomMath)
+add_test(NAME TEST_Math COMMAND MathTest)

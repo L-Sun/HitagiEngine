@@ -11,6 +11,8 @@ Image.cpp
 main.cpp
 )
 
+target_link_libraries(Common GeomMath)
+
 find_library(XG_LIBRARY xg PATHS ${EXTERNAL_LIBRARY_PATH})
 find_library(OPENDDL_LIBRARY OpenDDL PATHS ${EXTERNAL_LIBRARY_PATH})
 find_library(OPENGEX_LIBRARY OpenGEX PATHS ${EXTERNAL_LIBRARY_PATH})

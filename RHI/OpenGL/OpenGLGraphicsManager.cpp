@@ -320,7 +320,6 @@ void OpenGLGraphicsManager::InitializeBuffers() {
         }
         pGeometryNode = scene.GetNextGeometryNode();
     }
-
     return;
 }
 
