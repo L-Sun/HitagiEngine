@@ -6,11 +6,6 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS "-g")
 
-# include(CTest)
-
-find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
-
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Platform")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/External/src/crossguid/cmake")
@@ -42,7 +37,12 @@ set(EXTERNAL_ROOT ${PROJECT_SOURCE_DIR}/External/${TARGET_PLATFORM})
 include_directories("${EXTERNAL_ROOT}/include")
 set(EXTERNAL_LIBRARY_PATH ${EXTERNAL_ROOT}/lib)
 
-# include(PlatformDependencies)
+include(PlatformDependencies)
+include(CheckCXXSourceCompiles)
+find_package(GTest REQUIRED)
+include_directories(${GTEST_INCLUDE_DIRS})
+
+
 add_subdirectory(Framework)
 add_subdirectory(Platform)
 add_subdirectory(RHI)
