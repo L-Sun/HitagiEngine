@@ -20,7 +20,5 @@ int main(int argc, char const* argv[]) {
     g_pMemoryManager->Finalize();
     delete g_pMemoryManager;
 
-    int a;
-    std::cin >> a;
     return 0;
 }

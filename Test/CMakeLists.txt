@@ -17,4 +17,4 @@ add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest)
 
 add_executable(MathTest MathTest.cpp)
 target_link_libraries(MathTest GeomMath ${GTEST_BOTH_LIBRARIES})
-add_test(NAME TEST_Math COMMAND MathTest)
+gtest_add_tests(TARGET MathTest)

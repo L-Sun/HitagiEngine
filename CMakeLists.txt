@@ -4,16 +4,24 @@ project(GameEngine)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "-Wall")
-set(CMAKE_CXX_FLAGS "-g -no-pie")
-set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG")
+set(CMAKE_CXX_FLAGS "-g")
 
-include(CTest)
+# include(CTest)
+
 find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Platform")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/External/src/crossguid/cmake")
+
+include(TargetArchDetect)
+target_architecture(TARGET_ARCH)
+if((TARGET_ARCH MATCHES "x86_64" OR TARGET_ARCH MATCHES "ia64") AND NOT OF_32BIT)
+        set(ARCH_BIT 64)
+else()
+        set(ARCH_BIT 32)
+endif()
 
 include_directories("${PROJECT_SOURCE_DIR}/Framework/Common")
 include_directories("${PROJECT_SOURCE_DIR}/Framework/GeomMath")

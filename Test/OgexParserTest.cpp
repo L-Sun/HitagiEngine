@@ -55,7 +55,5 @@ int main(int argc, char const* argv[]) {
     delete g_pMemoryManager;
     delete g_pAssetLoader;
 
-    int x;
-    cin >> x;
     return 0;
 }

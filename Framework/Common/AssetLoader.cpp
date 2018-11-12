@@ -37,11 +37,13 @@ std::fstream& AssetLoader::OpenFile(const char* name, AssetOpenMode mode,
     std::string fullPath;
 
     for (size_t i = 0; i < 10; i++) {
+        auto src     = m_strSearchPath.begin();
         bool looping = true;
-        for (auto src = m_strSearchPath.begin(); looping; src++) {
+        while (looping) {
             fullPath = upPath;
             if (src != m_strSearchPath.end()) {
                 fullPath.append(*src + "/Asset/");
+                src++;
             } else {
                 fullPath.append("Asset/");
                 looping = false;
