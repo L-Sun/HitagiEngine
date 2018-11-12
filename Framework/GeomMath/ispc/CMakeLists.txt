@@ -1,4 +1,9 @@
-set(FUNCTIONS CrossProduct AddByElement)
+set(
+FUNCTIONS
+    Addition
+    Subtraction
+    Multiplication
+)
 
 foreach(FUNC IN LISTS FUNCTIONS)
     add_custom_command(OUTPUT ${FUNC}.o

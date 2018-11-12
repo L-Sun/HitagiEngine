@@ -1,8 +1,9 @@
 #pragma once
 #include <cstring>
 #include <iostream>
-#include "include/CrossProduct.h"
-#include "include/AddByElement.h"
+#include "include/Addition.h"
+#include "include/Subtraction.h"
+#include "include/Multiplication.h"
 
 namespace My {
 
@@ -132,15 +133,63 @@ struct Vector4 {
 };
 typedef Vector4<float> vec4;
 
+// Vector Operation
 template <template <typename> class Vec, typename T>
-void VecAdd(Vec<T>& result, const Vec<T>& vec1, const Vec<T>& vec2) {
-    ispc::AddByElement(vec1, vec2, result, countof(result.data));
+Vec<T> operator+(const Vec<T>& lhs, const Vec<T>& rhs) {
+    Vec<T> result;
+    ispc::AddByElement(lhs, rhs, result, countof(result.data));
+    return result;
+}
+template <template <typename> class Vec, typename T>
+Vec<T>& operator+=(Vec<T>& lhs, const Vec<T>& rhs) {
+    ispc::IncreaceByElement(lhs, rhs, countof(lhs.data));
+    return lhs;
+}
+template <template <typename> class Vec, typename T>
+Vec<T> operator-(const Vec<T>& rhs) {
+    Vec<T> result;
+    ispc::Negate(rhs, result, countof(result.data));
+    return result;
+}
+template <template <typename> class Vec, typename T>
+Vec<T> operator-(const Vec<T>& lhs, const Vec<T>& rhs) {
+    Vec<T> result;
+    ispc::SubByElement(lhs, rhs, result, countof(result.data));
+    return result;
+}
+template <template <typename> class Vec, typename T>
+Vec<T>& operator-=(Vec<T>& lhs, const Vec<T>& rhs) {
+    ispc::DecreaceByElement(lhs, rhs, countof(lhs.data));
+    return lhs;
+}
+template <template <typename> class Vec, typename T>
+Vec<T> operator*(const Vec<T>& lhs, const Vec<T>& rhs) {
+    Vec<T> result;
+    ispc::DotProduct(lhs, rhs, result, countof(result.data));
+    return result;
+}
+template <template <typename> class Vec, typename T>
+Vec<T> operator*(const Vec<T>& lhs, const T& rhs) {
+    Vec<T> result;
+    ispc::MulByNum(lhs, rhs, result, countof(result.data));
+    return result;
+}
+template <template <typename> class Vec, typename T>
+Vec<T> operator*(const T& lhs, const Vec<T>& rhs) {
+    Vec<T> result;
+    ispc::MulByNum(rhs, lhs, result, countof(result.data));
+    return result;
+}
+template <template <typename> class Vec, typename T>
+Vec<T>& operator*=(Vec<T>& lhs, const T& rhs) {
+    ispc::MulSelfByNum(lhs, rhs, countof(lhs.data));
+    return lhs;
 }
 
 template <template <typename> class Vec, typename T>
-Vec<T> operator+(const Vec<T>& vec1, const Vec<T>& vec2) {
+Vec<T> cross(const Vec<T>& vec1, const Vec<T>& vec2) {
     Vec<T> result;
-    ispc::AddByElement(vec1, vec2, result, countof(result.data));
+    ispc::CrossProduct(vec1, vec2, result, countof(result));
     return result;
 }
 
@@ -154,14 +203,64 @@ struct Matrix {
 
     operator T*() { return &data[0][0]; }
     operator const T*() const { return static_cast<const T*>(&data[0][0]); }
+
+    friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                out << mat[i][j] << " ";
+            }
+            out << '\n';
+        }
+        return out;
+    }
+
+    // Matrix Operation
+    const Matrix operator+(const Matrix& rhs) const {
+        Matrix reuslt;
+        ispc::AddByElement(*this, rhs, reuslt, countof(reuslt.data));
+        return reuslt;
+    }
+    const Matrix operator+(const T& rhs) const {
+        Matrix result;
+        ispc::AddByNum(*this, rhs, result, countof(result.data));
+        return result;
+    }
+    friend const Matrix operator+(const T& lhs, const Matrix& rhs) {
+        return rhs + lhs;
+    }
+    Matrix& operator+=(const Matrix& rhs) {
+        ispc::IncreaceByElement(*this, rhs, countof(data));
+        return *this;
+    }
+    Matrix& operator+=(const T& rhs) {
+        ispc::IncreaceByNum(*this, rhs, countof(data));
+        return *this;
+    }
+
+    const Matrix operator-() const {
+        Matrix result;
+        ispc::Negate(*this, result, countof(result.data));
+        return result;
+    }
+    const Matrix operator-(const Matrix& rhs) const {
+        Matrix result;
+        ispc::SubByElement(*this, rhs, result, countof(result.data));
+        return result;
+    }
+    const Matrix operator-(const T& rhs) const {
+        Matrix result;
+        ispc::SubByNum(*this, rhs, result, countof(result.data));
+        return result;
+    }
+    friend const Matrix operator-(const T& lhs, const Matrix& rhs) {
+        return rhs - lhs;
+    }
+    Matrix& operator-=(const T& rhs) {
+        ispc::DecreaceByNum(*this, rhs, countof(data));
+        return *this;
+    }
 };
 typedef Matrix<float, 3, 3> mat3;
 typedef Matrix<float, 4, 4> mat4;
-
-template <typename T, int ROWS, int COLS>
-void MatrixAdd(Matrix<T, ROWS, COLS>& result, const Matrix<T, ROWS, COLS>& a,
-               const Matrix<T, ROWS, COLS>& b) {
-    ispc::AddByElement(a, b, result, countof(result.data));
-}
 
 }  // namespace My

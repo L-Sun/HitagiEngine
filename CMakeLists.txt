@@ -8,6 +8,8 @@ set(CMAKE_CXX_FLAGS "-g -no-pie")
 set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG")
 
 include(CTest)
+find_package(GTest REQUIRED)
+include_directories(${GTEST_INCLUDE_DIRS})
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Platform")
@@ -37,3 +39,5 @@ add_subdirectory(Framework)
 add_subdirectory(Platform)
 add_subdirectory(RHI)
 add_subdirectory(Test)
+
+enable_testing()

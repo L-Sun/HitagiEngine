@@ -16,5 +16,5 @@ target_link_libraries(SceneLoadingTest Common ${OPENGEX_LIBRARY} ${OPENDDL_LIBRA
 add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest)
 
 add_executable(MathTest MathTest.cpp)
-target_link_libraries(MathTest GeomMath)
+target_link_libraries(MathTest GeomMath ${GTEST_BOTH_LIBRARIES})
 add_test(NAME TEST_Math COMMAND MathTest)
