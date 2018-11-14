@@ -15,12 +15,11 @@ export void MulSelfByNum (uniform float a[], uniform const float b, uniform cons
 }
 export void DotProduct(uniform const float a[], uniform const float b[], uniform float* uniform result, uniform const size_t count) {
     *result = 0;
-    uniform float * uniform r = uniform new uniform float[count];
-    MulByElement(a, b, r, count);
-    foreach_active(i) {
-        *result += r[i];
+    varying float sum = 0.0;
+    foreach(index = 0 ... count) {
+        sum += a[index] * b[index];
     }
-    delete[] r;
+    *result = reduce_add(sum);
 }
 export void CrossProduct(uniform const float a[3], uniform const float b[3], uniform float result[3]) {
     foreach (index = 0 ... 3) {
