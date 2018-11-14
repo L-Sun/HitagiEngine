@@ -2,6 +2,7 @@ set(FUNCTIONS
 Addition
 Subtraction
 Multiplication
+Division
 )
 
 foreach(FUNC IN LISTS FUNCTIONS)

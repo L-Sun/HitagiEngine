@@ -1,9 +1,10 @@
 #pragma once
-#include <cstring>
 #include <iostream>
+#include <cassert>
 #include "include/Addition.h"
 #include "include/Subtraction.h"
 #include "include/Multiplication.h"
+#include "include/Division.h"
 
 namespace My {
 template <typename T, size_t RowSize, size_t ColSize>
@@ -34,12 +35,12 @@ struct Vector {
         ispc::AddByElement(data, rhs, result, D);
         return result;
     }
-    const Vector operator+(T rhs) const {
+    const Vector operator+(const T& rhs) const {
         Vector result;
         ispc::AddByNum(data, rhs, result, D);
         return result;
     }
-    friend const Vector operator+(T lhs, const Vector& rhs) {
+    friend const Vector operator+(const T& lhs, const Vector& rhs) {
         return rhs + lhs;
     }
 
@@ -53,12 +54,12 @@ struct Vector {
         ispc::SubByElement(data, rhs, result, D);
         return result;
     }
-    const Vector operator-(T rhs) const {
+    const Vector operator-(const T& rhs) const {
         Vector result;
         ispc::SubByNum(data, rhs, result, D);
         return result;
     }
-    friend const Vector operator-(T lhs, const Vector& rhs) {
+    friend const Vector operator-(const T& lhs, const Vector& rhs) {
         Vector result;
         ispc::NegateSubByNum(lhs, rhs, result, D);
         return result;
@@ -69,20 +70,25 @@ struct Vector {
         ispc::DotProduct(data, rhs, &result, D);
         return result;
     }
-    const Vector operator*(T rhs) const {
+    const Vector operator*(const T& rhs) const {
         Vector result;
         ispc::MulByNum(data, rhs, result, D);
         return result;
     }
-    friend const Vector operator*(T lhs, const Vector& rhs) {
-        return (rhs * lhs);
+    friend const Vector operator*(const T& lhs, const Vector& rhs) {
+        return rhs * lhs;
+    }
+    const Vector operator/(const T& rhs) const {
+        Vector result;
+        ispc::DivNum(data, rhs, result, D);
+        return result;
     }
 
     Vector& operator+=(const Vector& rhs) {
         ispc::IncreaceByElement(data, rhs, D);
         return *this;
     }
-    Vector& operator+=(T rhs) {
+    Vector& operator+=(const T& rhs) {
         ispc::IncreaceByNum(data, rhs, D);
         return *this;
     }
@@ -90,12 +96,16 @@ struct Vector {
         ispc::DecreaceByElement(data, rhs, D);
         return *this;
     }
-    Vector& operator-=(T rhs) {
+    Vector& operator-=(const T& rhs) {
         ispc::DecreaceByNum(data, rhs, D);
         return *this;
     }
-    Vector& operator*=(T rhs) {
+    Vector& operator*=(const T& rhs) {
         ispc::MulSelfByNum(data, rhs, D);
+        return *this;
+    }
+    Vector& operator/=(const T& rhs) {
+        ispc::DivSelfByNum(data, rhs, D);
         return *this;
     }
 };
