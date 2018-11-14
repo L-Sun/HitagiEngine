@@ -11,16 +11,6 @@ constexpr size_t countof(T (&)[RowSize][ColSize]) {
     return RowSize * ColSize;
 }
 
-template <template <typename> class TT, typename T>
-std::ostream& operator<<(std::ostream& out, TT<T> vector) {
-    out << "( ";
-    for (uint32_t i = 0; i < countof(vector.data); i++) {
-        out << vector.data[i] << ((i == countof(vector.data) - 1) ? ' ' : ',');
-    }
-    out << ")";
-    return out;
-}
-
 template <typename T, int D>
 struct Vector {
     T data[D];
@@ -30,6 +20,14 @@ struct Vector {
 
     operator T*() { return data; }
     operator const T*() const { return static_cast<const T*>(data); }
+
+    friend std::ostream& operator<<(std::ostream& out, Vector v) {
+        out << "(";
+        for (size_t i = 0; i < D - 1; i++) {
+            out << v.data[i] << ", ";
+        }
+        return out << v.data[D - 1] << ")";
+    }
 
     const Vector operator+(const Vector& rhs) const {
         Vector result;
@@ -48,6 +46,7 @@ struct Vector {
     const Vector operator-() {
         Vector result;
         ispc::Negate(data, result, D);
+        return result;
     }
     const Vector operator-(const Vector& rhs) const {
         Vector result;
@@ -65,9 +64,9 @@ struct Vector {
         return result;
     }
 
-    const Vector operator*(const Vector& rhs) const {
-        Vector result;
-        ispc::DotProduct(data, rhs, result, D);
+    const T operator*(const Vector& rhs) const {
+        T result;
+        ispc::DotProduct(data, rhs, &result, D);
         return result;
     }
     const Vector operator*(T rhs) const {
@@ -106,26 +105,23 @@ class swizzle {
     friend Vec;
 
 public:
-    T* p[sizeof...(Indexs)];
+    T* data;
 
     swizzle& operator=(std::initializer_list<T> l) {
-        for (size_t i = 0; i < sizeof...(Indexs); i++) {
-            *p[i] = l[i];
-        }
-    }
-
-    operator rVec() { return Vec(*p[Indexs]...); }
-    operator const rVec() const { return Vec(*p[Indexs]...); }
-
-private:
-    swizzle(Vec& v) { init(v); }
-    swizzle& init(Vec& v) {
-        int indexs[] = {Indexs...};
-        for (size_t i = 0; i < sizeof...(Indexs); i++) {
-            p[i] = &v[indexs[i]];
+        size_t indexs[] = {Indexs...};
+        size_t i        = 0;
+        for (auto&& v : l) {
+            data[indexs[i]] = v;
+            i++;
         }
         return *this;
     }
+
+    operator rVec() { return rVec(data[Indexs]...); }
+    operator const rVec() const { return rVec(data[Indexs]...); }
+
+private:
+    swizzle(Vec& v) : data(v.data) {}
 };
 
 template <typename T>
