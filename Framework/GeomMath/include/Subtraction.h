@@ -37,6 +37,7 @@ extern "C" {
     extern void DecreaceByElement(float * target, const float * src, uint32_t count);
     extern void DecreaceByNum(float * target, const float num, uint32_t count);
     extern void Negate(const float * src, float * result, uint32_t count);
+    extern void NegateSubByNum(const float num, const float * a, float * result, uint32_t count);
     extern void SubByElement(const float * a, const float * b, float * result, uint32_t count);
     extern void SubByNum(const float * a, const float num, float * result, uint32_t count);
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )
