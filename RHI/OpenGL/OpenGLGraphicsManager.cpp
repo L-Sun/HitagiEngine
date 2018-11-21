@@ -284,7 +284,6 @@ void OpenGLGraphicsManager::InitializeBuffers() {
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
                 glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_array_size,
                              index_array_data, GL_STATIC_DRAW);
-
                 GLsizei indexCount =
                     static_cast<GLsizei>(index_array.GetIndexCount());
                 GLenum type;

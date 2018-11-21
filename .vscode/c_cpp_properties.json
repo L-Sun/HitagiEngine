@@ -21,11 +21,11 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/Framework/Interface"
+                "${workspaceFolder}/**"
             ],
             "defines": [
-                "_DEBUG"
+                "_DEBUG",
+                "__cplusplus"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c11",

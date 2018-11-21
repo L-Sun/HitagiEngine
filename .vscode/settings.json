@@ -1,19 +1,19 @@
 {
     "clang.cxxflags": [
         "-Wno-pragma-once-outside-header",
-        "-IC:/Users/54405/workspace/game_engine/Framework/Common",
-        "-IC:/Users/54405/workspace/game_engine/Framework/Interface",
-        "-IC:/Users/54405/workspace/game_engine/Framework/Parser",
-        "-IC:/Users/54405/workspace/game_engine/Framework/GeomMath",
-        "-IC:/Users/54405/workspace/game_engine/RHI",
-        "-IC:/Users/54405/workspace/game_engine/External/src/glad/include",
-        "-IC:/Users/54405/workspace/game_engine/Platform/Linux",
-        "-IC:/Users/54405/workspace/game_engine/Platform/Windows",
-        "-IC:/Users/54405/workspace/game_engine/Platform/Empty",
-        "-IC:/Users/54405/workspace/game_engine/RHI",
-        "-IC:/Users/54405/workspace/game_engine/External/src/crossguid/include/crossguid",
-        "-IC:/Users/54405/workspace/game_engine/External/src/glm/glm",
-        "-IC:/Users/54405/workspace/game_engine/External/Linux/include"
+        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Common",
+        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Interface",
+        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Parser",
+        "-I/home/lawliet/workspace/cpp/game_engine/Framework/GeomMath",
+        "-I/home/lawliet/workspace/cpp/game_engine/RHI",
+        "-I/home/lawliet/workspace/cpp/game_engine/External/src/glad/include",
+        "-I/home/lawliet/workspace/cpp/game_engine/Platform/Linux",
+        "-I/home/lawliet/workspace/cpp/game_engine/Platform/Windows",
+        "-I/home/lawliet/workspace/cpp/game_engine/Platform/Empty",
+        "-I/home/lawliet/workspace/cpp/game_engine/RHI",
+        "-I/home/lawliet/workspace/cpp/game_engine/External/src/crossguid/include/crossguid",
+        "-I/home/lawliet/workspace/cpp/game_engine/External/src/glm/glm",
+        "-I/home/lawliet/workspace/cpp/game_engine/External/Linux/include"
     ],
     "clang.completion.enable": false,
     "files.associations": {

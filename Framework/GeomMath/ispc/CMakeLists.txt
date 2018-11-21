@@ -3,6 +3,7 @@ Addition
 Subtraction
 Multiplication
 Division
+Vector
 )
 
 foreach(FUNC IN LISTS FUNCTIONS)
