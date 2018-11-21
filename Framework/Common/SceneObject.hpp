@@ -5,11 +5,7 @@
 #include <memory>
 #include <type_traits>
 
-#define GLM_FORCE_SILENT_WARNINGS
-#include "glm.hpp"
-#define GLM_ENABLE_EXPERIMENTAL
-#include "gtx/string_cast.hpp"
-#include "gtc/constants.hpp"
+#include "geommath.hpp"
 
 #include "Guid.hpp"
 #include "Image.hpp"
@@ -21,10 +17,6 @@ constexpr int32_t i32(const char* s, int32_t v) {
     return *s ? i32(s + 1, v * 256 + *s) : v;
 }
 }  // namespace details
-
-std::ostream& operator<<(std::ostream& out, const glm::vec4 vec);
-std::ostream& operator<<(std::ostream& out, const glm::vec3 vec);
-std::ostream& operator<<(std::ostream& out, const glm::mat4 mat);
 
 constexpr int32_t operator"" _i32(const char* s, size_t) {
     return details::i32(s, 0);
@@ -137,7 +129,6 @@ public:
                 size *= sizeof(double);
             default:
                 size = 0;
-                assert(0);
                 break;
         }
         return size;
@@ -165,7 +156,6 @@ public:
                 break;
             default:
                 size = 0;
-                assert(0);
                 break;
         }
         return size;
@@ -226,7 +216,6 @@ public:
                 break;
             default:
                 size = 0;
-                assert(0);
                 break;
         }
         return size;
@@ -322,7 +311,7 @@ protected:
     uint32_t               m_nTexCoordIndex;
     std::string            m_Name;
     std::shared_ptr<Image> m_pImage;
-    std::vector<glm::mat4> m_Transforms;
+    std::vector<mat4>      m_Transforms;
 
 public:
     SceneObjectTexture()
@@ -344,7 +333,7 @@ public:
     SceneObjectTexture(SceneObjectTexture&&) = default;
 
     void SetName(std::string& name) { m_Name = name; }
-    void AddTransform(glm::mat4& matrix) { m_Transforms.push_back(matrix); }
+    void AddTransform(mat4& matrix) { m_Transforms.push_back(matrix); }
 
     friend std::ostream& operator<<(std::ostream&             out,
                                     const SceneObjectTexture& obj);
@@ -381,9 +370,9 @@ struct ParameterValueMap {
     }
 };
 
-typedef ParameterValueMap<glm::vec4> Color;
-typedef ParameterValueMap<glm::vec3> Normal;
-typedef ParameterValueMap<float>     Parameter;
+typedef ParameterValueMap<vec4>  Color;
+typedef ParameterValueMap<vec3>  Normal;
+typedef ParameterValueMap<float> Parameter;
 
 class SceneObjectMaterial : public BaseSceneObject {
 protected:
@@ -404,10 +393,10 @@ public:
           m_Name(std::move(name)) {}
 
     SceneObjectMaterial(const std::string& name       = "",
-                        Color&&            base_color = glm::vec4(1.0f),
+                        Color&&            base_color = vec4(1.0f),
                         Parameter&&        metallic   = 0.0f,
                         Parameter&&        roughness  = 0.0f,
-                        Normal&&           normal = glm::vec3(0.0f, 0.0f, 1.0f),
+                        Normal&&           normal     = vec3(0.0f, 0.0f, 1.0f),
                         Parameter&& specular = 0.0f, Parameter&& ao = 0.0f)
         : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_MATRIAL),
           m_Name(name),
@@ -420,7 +409,7 @@ public:
 
     void SetName(const std::string& name) { m_Name = name; }
     void SetName(std::string&& name) { m_Name = std::move(name); }
-    void SetColor(std::string& attrib, glm::vec4& color) {
+    void SetColor(std::string& attrib, vec4& color) {
         if (attrib == "deffuse") m_BaseColor = Color(color);
     }
     void SetParam(std::string& attrib, float param) {}
@@ -483,7 +472,7 @@ protected:
 
     SceneObjectLight(void)
         : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_LIGHT),
-          m_LightColor(glm::vec4(1.0f)),
+          m_LightColor(vec4(1.0f)),
           m_fIntensity(100.0f),
           m_LightAttenuation(DefaultAttenFunc),
           m_bCastShadows(false){};
@@ -493,7 +482,7 @@ protected:
 
 public:
     void SetIfCastShadow(bool shadow) { m_bCastShadows = shadow; }
-    void SetColor(std::string& attrib, glm::vec4& color) {
+    void SetColor(std::string& attrib, vec4& color) {
         if (attrib == "light") {
             m_LightColor = Color(color);
         }
@@ -532,8 +521,8 @@ protected:
 public:
     SceneObjectSpotLight(void)
         : SceneObjectLight(),
-          m_fConeAngle(glm::pi<float>() / 4.0f),
-          m_fPenumbraAngle(glm::pi<float>() / 3.0f) {}
+          m_fConeAngle(PI / 4.0f),
+          m_fPenumbraAngle(PI / 3.0f) {}
 
     friend std::ostream& operator<<(std::ostream&               out,
                                     const SceneObjectSpotLight& obj);
@@ -564,7 +553,7 @@ protected:
                                     const SceneObjectCamera& obj);
 
 public:
-    void SetColor(std::string& attrib, glm::vec4& color) {
+    void SetColor(std::string& attrib, vec4& color) {
         // TODO: extension
     }
     void SetParam(std::string& attrib, float param) {
@@ -593,7 +582,7 @@ protected:
     float m_fFov;
 
 public:
-    SceneObjectPerspectiveCamera(float fov = glm::pi<float>() / 2.0)
+    SceneObjectPerspectiveCamera(float fov = PI / 2.0)
         : SceneObjectCamera(), m_fFov(fov) {}
 
     void SetParam(std::string& attrib, float param) {
@@ -611,22 +600,21 @@ public:
 
 class SceneObjectTransform {
 protected:
-    glm::mat4 m_matrix;
-    bool      m_bSceneObjectOnly;
+    mat4 m_matrix;
+    bool m_bSceneObjectOnly;
 
 public:
     SceneObjectTransform() {
-        m_matrix           = glm::mat4(1.0f);
+        m_matrix           = mat4(1.0f);
         m_bSceneObjectOnly = false;
     }
-    SceneObjectTransform(const glm::mat4 matrix,
-                         const bool      object_only = false) {
+    SceneObjectTransform(const mat4 matrix, const bool object_only = false) {
         m_matrix           = matrix;
         m_bSceneObjectOnly = object_only;
     }
 
-    operator glm::mat4() { return m_matrix; }
-    operator const glm::mat4() const { return m_matrix; }
+    operator mat4() { return m_matrix; }
+    operator const mat4() const { return m_matrix; }
 
     friend std::ostream& operator<<(std::ostream&               out,
                                     const SceneObjectTransform& obj);
@@ -637,22 +625,19 @@ public:
     SceneObjectTranslation(const char axis, const float amount) {
         switch (axis) {
             case 'x':
-                m_matrix =
-                    glm::translate(m_matrix, glm::vec3(amount, 0.0f, 0.0f));
+                m_matrix = translate(m_matrix, vec3(amount, 0.0f, 0.0f));
                 break;
             case 'y':
-                m_matrix =
-                    glm::translate(m_matrix, glm::vec3(0.0f, amount, 0.0f));
+                m_matrix = translate(m_matrix, vec3(0.0f, amount, 0.0f));
                 break;
             case 'z':
-                m_matrix =
-                    glm::translate(m_matrix, glm::vec3(0.0f, 0.0f, amount));
+                m_matrix = translate(m_matrix, vec3(0.0f, 0.0f, amount));
             default:
-                assert(0);
+                break;
         }
     }
     SceneObjectTranslation(const float x, const float y, const float z) {
-        m_matrix = glm::translate(m_matrix, glm::vec3(x, y, z));
+        m_matrix = translate(m_matrix, vec3(x, y, z));
     }
 };
 
@@ -661,27 +646,27 @@ public:
     SceneObjectRotation(const char axis, const float theta) {
         switch (axis) {
             case 'x':
-                m_matrix = glm::rotate(m_matrix, glm::radians(theta),
-                                       glm::vec3(1.0f, 0.0f, 0.0f));
+                m_matrix =
+                    rotate(m_matrix, radians(theta), vec3(1.0f, 0.0f, 0.0f));
                 break;
             case 'y':
-                m_matrix = glm::rotate(m_matrix, glm::radians(theta),
-                                       glm::vec3(0.0f, 1.0f, 0.0f));
+                m_matrix =
+                    rotate(m_matrix, radians(theta), vec3(0.0f, 1.0f, 0.0f));
                 break;
             case 'z':
-                m_matrix = glm::rotate(m_matrix, glm::radians(theta),
-                                       glm::vec3(0.0f, 0.0f, 1.0f));
+                m_matrix =
+                    rotate(m_matrix, radians(theta), vec3(0.0f, 0.0f, 1.0f));
                 break;
             default:
-                assert(0);
+                break;
         }
     }
-    SceneObjectRotation(glm::vec3& axis, const float theta) {
-        axis     = glm::normalize(axis);
-        m_matrix = glm::rotate(m_matrix, theta, axis);
+    SceneObjectRotation(vec3& axis, const float theta) {
+        axis     = normalize(axis);
+        m_matrix = rotate(m_matrix, theta, axis);
     }
-    SceneObjectRotation(glm::quat quaternion) {
-        m_matrix = glm::mat4(quaternion) * m_matrix;
+    SceneObjectRotation(quat quaternion) {
+        m_matrix = mat4(quaternion) * m_matrix;
     }
 };
 
@@ -690,20 +675,20 @@ public:
     SceneObjectScale(const char axis, const float amount) {
         switch (axis) {
             case 'x':
-                m_matrix = glm::scale(m_matrix, glm::vec3(amount, 0.0f, 0.0f));
+                m_matrix = scale(m_matrix, vec3(amount, 0.0f, 0.0f));
                 break;
             case 'y':
-                m_matrix = glm::scale(m_matrix, glm::vec3(0.0f, amount, 0.0f));
+                m_matrix = scale(m_matrix, vec3(0.0f, amount, 0.0f));
                 break;
             case 'z':
-                m_matrix = glm::scale(m_matrix, glm::vec3(0.0f, 0.0f, amount));
+                m_matrix = scale(m_matrix, vec3(0.0f, 0.0f, amount));
                 break;
             default:
-                assert(0);
+                break;
         }
     }
     SceneObjectScale(const float x, const float y, const float z) {
-        m_matrix = glm::scale(m_matrix, glm::vec3(x, y, z));
+        m_matrix = scale(m_matrix, vec3(x, y, z));
     }
 };
 

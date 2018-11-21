@@ -29,11 +29,11 @@ public:
         m_Transforms.push_back(std::move(transform));
     }
 
-    const std::shared_ptr<glm::mat4> GetCalculatedTransform() const {
-        std::shared_ptr<glm::mat4> result(new glm::mat4(1.0f));
+    const std::shared_ptr<mat4> GetCalculatedTransform() const {
+        std::shared_ptr<mat4> result(new mat4(1.0f));
 
         for (auto trans : m_Transforms) {
-            *result = *result * static_cast<glm::mat4>(*trans);
+            *result = *result * static_cast<mat4>(*trans);
         }
         return result;
     }
@@ -124,12 +124,12 @@ public:
 
 class SceneCameraNode : public SceneNode<SceneObjectCamera> {
 protected:
-    glm::vec3 m_Target;
+    vec3 m_Target;
 
 public:
     using SceneNode::SceneNode;
-    void             SetTarget(glm::vec3& target) { m_Target = target; }
-    const glm::vec3& GetTarget() { return m_Target; }
+    void        SetTarget(vec3& target) { m_Target = target; }
+    const vec3& GetTarget() { return m_Target; }
 };
 
 }  // namespace My

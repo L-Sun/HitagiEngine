@@ -1,5 +1,5 @@
-#include "gtc/type_ptr.hpp" z
 #include <unordered_map>
+#include "geommath.hpp"
 #include "OpenGEX.h"
 #include "portable.hpp"
 #include "SceneParser.hpp"
@@ -319,14 +319,14 @@ private:
                 int32_t                         index, count;
                 const OGEX::TransformStructure& _structure =
                     dynamic_cast<const OGEX::TransformStructure&>(structure);
-                bool      object_flag = _structure.GetObjectFlag();
-                glm::mat4 matrix;
+                bool object_flag = _structure.GetObjectFlag();
+                mat4 matrix;
                 std::shared_ptr<SceneObjectTransform> transform;
 
                 count = _structure.GetTransformCount();
                 for (index = 0; index < count; index++) {
                     const float* data = _structure.GetTransform(index);
-                    matrix            = glm::make_mat4(data);
+                    matrix            = data;
 
                     if (!m_bUpIsYAxis) {
                         // exchange y and z
@@ -352,17 +352,16 @@ private:
                     _structure.GetFirstCoreSubnode();
                 while (_sub_structure) {
                     std::string attrib, textureName;
-                    glm::vec4   color;
+                    vec4        color;
                     float       param;
                     switch (_sub_structure->GetStructureType()) {
                         case OGEX::kStructureColor: {
                             attrib = dynamic_cast<const OGEX::ColorStructure*>(
                                          _sub_structure)
                                          ->GetAttribString();
-                            color = glm::make_vec4(
-                                dynamic_cast<const OGEX::ColorStructure*>(
-                                    _sub_structure)
-                                    ->GetColor());
+                            color = dynamic_cast<const OGEX::ColorStructure*>(
+                                        _sub_structure)
+                                        ->GetColor();
                             material->SetColor(attrib, color);
                         } break;
                         case OGEX::kStructureParam: {
@@ -415,17 +414,16 @@ private:
                     _structure.GetFirstCoreSubnode();
                 while (_sub_structure) {
                     std::string attrib, textureName;
-                    glm::vec4   color;
+                    vec4        color;
                     float       param;
                     switch (_sub_structure->GetStructureType()) {
                         case OGEX::kStructureColor: {
                             attrib = dynamic_cast<const OGEX::ColorStructure*>(
                                          _sub_structure)
                                          ->GetAttribString();
-                            color = glm::make_vec4(
-                                dynamic_cast<const OGEX::ColorStructure*>(
-                                    _sub_structure)
-                                    ->GetColor());
+                            color = dynamic_cast<const OGEX::ColorStructure*>(
+                                        _sub_structure)
+                                        ->GetColor();
                             light->SetColor(attrib, color);
                         } break;
                         case OGEX::kStructureParam: {
@@ -470,17 +468,16 @@ private:
                     _structure.GetFirstCoreSubnode();
                 while (_sub_structure) {
                     std::string attrib, textureName;
-                    glm::vec4   color;
+                    vec4        color;
                     float       param;
                     switch (_sub_structure->GetStructureType()) {
                         case OGEX::kStructureColor: {
                             attrib = dynamic_cast<const OGEX::ColorStructure*>(
                                          _sub_structure)
                                          ->GetAttribString();
-                            color = glm::make_vec4(
-                                dynamic_cast<const OGEX::ColorStructure*>(
-                                    _sub_structure)
-                                    ->GetColor());
+                            color = dynamic_cast<const OGEX::ColorStructure*>(
+                                        _sub_structure)
+                                        ->GetColor();
                             camera->SetColor(attrib, color);
                         } break;
                         case OGEX::kStructureParam: {

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <cassert>
 #include "OpenGLGraphicsManager.hpp"
 #include "IApplication.hpp"
 #include "AssetLoader.hpp"
@@ -85,7 +86,7 @@ int OpenGLGraphicsManager::Initialize() {
             glEnable(GL_CULL_FACE);
             glCullFace(GL_BACK);
 
-            m_DrawFrameContext.m_worldMatrix = glm::mat4(1.0f);
+            m_DrawFrameContext.m_worldMatrix = mat4(1.0f);
         }
         InitializeShader(VS_SHADER_SOURCE_FILE, FS_SHADER_SOURCE_FILE);
         InitializeBuffers();
@@ -325,10 +326,10 @@ void OpenGLGraphicsManager::InitializeBuffers() {
 void OpenGLGraphicsManager::RenderBuffers() {
     static float rotateAngle = 0.0f;
 
-    rotateAngle = glm::pi<float>() / 120.0;
+    rotateAngle = PI / 120.0;
 
-    glm::mat4& worldMat = m_DrawFrameContext.m_worldMatrix;
-    worldMat = glm::rotate(worldMat, rotateAngle, glm::vec3(0.0f, 0.0f, 1.0f));
+    mat4& worldMat = m_DrawFrameContext.m_worldMatrix;
+    worldMat       = rotate(worldMat, rotateAngle, vec3(0.0f, 0.0f, 1.0f));
 
     CalculateCameraMatrix();
     CalculateLights();
@@ -353,18 +354,18 @@ void OpenGLGraphicsManager::CalculateCameraMatrix() {
     auto& scene       = g_pSceneManager->GetSceneForRendering();
     auto  pCameraNode = scene.GetFirstCameraNode();
 
-    glm::mat4& viewMat = m_DrawFrameContext.m_viewMatrix;
+    mat4& viewMat = m_DrawFrameContext.m_viewMatrix;
     if (pCameraNode) {
         viewMat = *pCameraNode->GetCalculatedTransform();
-        viewMat = glm::inverse(viewMat);
+        viewMat = inverse(viewMat);
     } else {
-        glm::vec3 position(0, -5, 0);
-        glm::vec3 lookAt(0, 0, 0);
-        glm::vec3 up(0, 0, 1);
-        viewMat = glm::lookAt(position, lookAt, up);
+        vec3 position(0, -5, 0);
+        vec3 look_at(0, 0, 0);
+        vec3 up(0, 0, 1);
+        viewMat = lookAt(position, look_at, up);
     }
 
-    float fieldOfView      = glm::pi<float>() / 2.0f;
+    float fieldOfView      = PI / 2.0f;
     float nearClipDistance = 1.0f;
     float farClipDistance  = 100.0f;
 
@@ -378,7 +379,7 @@ void OpenGLGraphicsManager::CalculateCameraMatrix() {
     }
     const GfxConfiguration& conf = g_pApp->GetConfiguration();
     float screenAspect = (float)conf.screenWidth / (float)conf.screenHeight;
-    m_DrawFrameContext.m_projectionMatrix = glm::perspective(
+    m_DrawFrameContext.m_projectionMatrix = perspective(
         fieldOfView, screenAspect, nearClipDistance, farClipDistance);
 }
 
@@ -386,22 +387,22 @@ void OpenGLGraphicsManager::CalculateLights() {
     auto& scene      = g_pSceneManager->GetSceneForRendering();
     auto  pLightNode = scene.GetFirstLightNode();
 
-    glm::vec3& lightPos   = m_DrawFrameContext.m_lightPosition;
-    glm::vec4& lightColor = m_DrawFrameContext.m_lightColor;
+    vec3& lightPos   = m_DrawFrameContext.m_lightPosition;
+    vec4& lightColor = m_DrawFrameContext.m_lightColor;
 
     if (pLightNode) {
-        lightPos = glm::vec3(0.0f);
+        lightPos = vec3(0.0f);
         auto _lightPos =
-            *pLightNode->GetCalculatedTransform() * glm::vec4(lightPos, 1.0f);
-        lightPos = glm::vec3(_lightPos);
+            *pLightNode->GetCalculatedTransform() * vec4(lightPos, 1.0f);
+        lightPos = vec3(_lightPos);
 
         auto pLight = scene.GetLight(pLightNode->GetSceneObjectRef());
         if (pLight) {
             lightColor = pLight->GetColor().Value;
         }
     } else {
-        lightPos   = glm::vec3(-1.0f, -5.0f, 0.0f);
-        lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        lightPos   = vec3(-1.0f, -5.0f, 0.0f);
+        lightColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }
 

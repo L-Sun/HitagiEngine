@@ -1,11 +1,12 @@
 #pragma once
-#include "GraphicsManager.hpp"
-#include "glad/glad.h"
-#include "glm.hpp"
 #include <unordered_map>
 #include <vector>
 #include <string>
 #include <memory>
+
+#include "GraphicsManager.hpp"
+#include "glad/glad.h"
+#include "geommath.hpp"
 
 namespace My {
 class OpenGLGraphicsManager : public GraphicsManager {
@@ -31,19 +32,19 @@ private:
     unsigned int m_shaderProgram;
 
     struct DrawFrameContext {
-        glm::mat4 m_worldMatrix;
-        glm::mat4 m_viewMatrix;
-        glm::mat4 m_projectionMatrix;
-        glm::vec3 m_lightPosition;
-        glm::vec4 m_lightColor;
+        mat4 m_worldMatrix;
+        mat4 m_viewMatrix;
+        mat4 m_projectionMatrix;
+        vec3 m_lightPosition;
+        vec4 m_lightColor;
     };
 
     struct DrawBatchContext {
-        GLuint                     vao;
-        GLenum                     mode;
-        GLenum                     type;
-        std::vector<GLsizei>       counts;
-        std::shared_ptr<glm::mat4> transform;
+        GLuint                vao;
+        GLenum                mode;
+        GLenum                type;
+        std::vector<GLsizei>  counts;
+        std::shared_ptr<mat4> transform;
     };
 
     DrawFrameContext m_DrawFrameContext;

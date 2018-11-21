@@ -1,17 +1,6 @@
 #include "SceneObject.hpp"
 
 namespace My {
-//  GLM print
-std::ostream& operator<<(std::ostream& out, const glm::vec4 vec) {
-    return out << glm::to_string(vec);
-}
-std::ostream& operator<<(std::ostream& out, const glm::vec3 vec) {
-    return out << glm::to_string(vec);
-}
-std::ostream& operator<<(std::ostream& out, const glm::mat4 mat) {
-    return out << glm::to_string(mat);
-}
-
 // Type print
 std::ostream& operator<<(std::ostream& out, SceneObjectType type) {
     int32_t n = static_cast<int32_t>(type);
