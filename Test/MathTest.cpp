@@ -32,6 +32,10 @@ TEST(VectorTest, VectorInit) {
     vector_eq(v3, vec3({1, 2, 3}));
     vector_eq(vec3({1, 2, 0}), vec3(v2));
 }
+TEST(VectorTest, VectorCopy) {
+    vec3 a(1);
+    a = v3;
+}
 TEST(VectorTest, VectorOperator) {
     vector_eq(v3 + 1, vec3(2, 3, 4));
     vector_eq(1 + v3, vec3(2, 3, 4));
@@ -44,7 +48,7 @@ TEST(VectorTest, VectorOperator) {
     vector_eq(v3 / 2, vec3(0.5, 1.0, 1.5));
     EXPECT_NEAR(v3 * vec3(1, 2, 3), 14, 1e-6);
 }
-TEST(VectorTest, VectorAssigmentOperator) {
+TEST(VectorTest, VectorAssignmentOperator) {
     auto _v3 = v3;
     vector_eq(_v3 += 3, v3 + 3);
     vector_eq(_v3 -= 3, v3);

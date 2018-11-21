@@ -20,7 +20,7 @@ struct Vector {
     Vector() = default;
     Vector(std::initializer_list<T> l) { std::move(l.begin(), l.end(), data); }
     Vector(const T& num) { std::fill(data, data + D, num); }
-    Vector(const T (&a)[D]) { std::copy(a, a + D, data); }
+    Vector(const T* p) { std::copy(p, p + D, data); }
     template <int DD>
     Vector(const Vector<T, DD>& v) {
         if (DD < D) {
@@ -29,7 +29,14 @@ struct Vector {
         } else
             std::copy(v.data, v.data + D, data);
     }
-    Vector& operator=(const T* p) { std::copy(p, p + D, data); }
+    Vector& operator=(const T* p) {
+        std::copy(p, p + D, data);
+        return *this;
+    }
+    Vector& operator=(const Vector& v) {
+        std::copy(v.data, v.data + D, data);
+        return *this;
+    }
 
     operator T*() { return data; }
     operator const T*() const { return static_cast<const T*>(data); }
@@ -131,7 +138,7 @@ struct Vector {
     }
 };
 
-template <typename Vec, typename rVec, typename T, int... Indexs>
+template <typename Vec, typename rT, typename T, int... Indexs>
 class swizzle {
     friend Vec;
 
@@ -148,8 +155,8 @@ public:
         return *this;
     }
 
-    operator rVec() { return rVec(data[Indexs]...); }
-    operator const rVec() const { return rVec(data[Indexs]...); }
+    operator rT() { return rT(data[Indexs]...); }
+    operator const rT() const { return rT(data[Indexs]...); }
 
 private:
     swizzle(Vec& v) : data(v.data) {}
@@ -159,16 +166,16 @@ template <typename T>
 struct Vector2 : public Vector<T, 2> {
     typedef Vector<T, 2> base_vec;
 
-    T& x = base_vec::data[0];
-    T& y = base_vec::data[1];
-    T &u = x, v = y;
-
+    swizzle<Vector2, T, T, 0>             x  = *this;
+    swizzle<Vector2, T, T, 1>             y  = *this;
+    decltype(x)                           u  = x;
+    decltype(y)                           v  = y;
     swizzle<Vector2, Vector2<T>, T, 0, 1> xy = *this;
     swizzle<Vector2, Vector2<T>, T, 1, 0> yx = *this;
     decltype(xy)                          uv = xy;
 
     Vector2() = default;
-    Vector2(const T (&a)[2]) : base_vec(a) {}
+    Vector2(const T* p) : base_vec(p) {}
     Vector2(const T& v) : base_vec(v) {}
     Vector2(const T& x, const T& y) : base_vec({x, y}) {}
 };
@@ -176,10 +183,12 @@ template <typename T>
 struct Vector3 : public Vector<T, 3> {
     typedef Vector<T, 3> base_vec;
 
-    T& x = base_vec::data[0];
-    T& y = base_vec::data[1];
-    T& z = base_vec::data[2];
-    T &r = x, g = y, b = z;
+    swizzle<Vector3, T, T, 0> x = *this;
+    swizzle<Vector3, T, T, 1> y = *this;
+    swizzle<Vector3, T, T, 2> z = *this;
+    decltype(x)               r = x;
+    decltype(y)               g = y;
+    decltype(z)               b = z;
 
     swizzle<Vector3, Vector2<T>, T, 0, 1>    xy  = *this;
     swizzle<Vector3, Vector2<T>, T, 1, 0>    yx  = *this;
@@ -193,10 +202,10 @@ struct Vector3 : public Vector<T, 3> {
     swizzle<Vector3, Vector3<T>, T, 1, 2, 0> yzx = *this;
     swizzle<Vector3, Vector3<T>, T, 2, 0, 1> zxy = *this;
     swizzle<Vector3, Vector3<T>, T, 2, 1, 0> zyx = *this;
-    decltype(xyz)&                           rgb = xyz;
+    decltype(xyz)                            rgb = xyz;
 
     Vector3() = default;
-    Vector3(const T (&a)[3]) : base_vec(a) {}
+    Vector3(const T* p) : base_vec(p) {}
     Vector3(const T& v) : base_vec(v) {}
     template <int DD>
     Vector3(const Vector<T, DD>& v) : base_vec(v) {}
@@ -206,11 +215,14 @@ template <typename T>
 struct Vector4 : public Vector<T, 4> {
     typedef Vector<T, 4> base_vec;
 
-    T& x = base_vec::data[0];
-    T& y = base_vec::data[1];
-    T& z = base_vec::data[2];
-    T& w = base_vec::data[3];
-    T &r = x, g = y, b = z, a = w;
+    swizzle<Vector4, T, T, 0> x = *this;
+    swizzle<Vector4, T, T, 1> y = *this;
+    swizzle<Vector4, T, T, 2> z = *this;
+    swizzle<Vector4, T, T, 3> w = *this;
+    decltype(x)               r = x;
+    decltype(y)               g = y;
+    decltype(z)               b = z;
+    decltype(w)               a = w;
 
     swizzle<Vector4, Vector3<T>, T, 0, 1, 2> xyz = *this;
     swizzle<Vector4, Vector3<T>, T, 0, 2, 1> xzy = *this;
@@ -218,13 +230,13 @@ struct Vector4 : public Vector<T, 4> {
     swizzle<Vector4, Vector3<T>, T, 1, 2, 0> yzx = *this;
     swizzle<Vector4, Vector3<T>, T, 2, 0, 1> zxy = *this;
     swizzle<Vector4, Vector3<T>, T, 2, 1, 0> zyx = *this;
-    decltype(xyz)&                           rgb = xyz;
+    decltype(xyz)                            rgb = xyz;
 
     swizzle<Vector4, Vector4<T>, T, 0, 1, 2, 3> rgba = *this;
     swizzle<Vector4, Vector4<T>, T, 2, 1, 0, 3> bgra = *this;
 
     Vector4() = default;
-    Vector4(const T (&a)[4]) : base_vec(a) {}
+    Vector4(const T* p) : base_vec(p) {}
     Vector4(const T& num) : base_vec(num) {}
     template <int DD>
     Vector4(const Vector<T, DD>& v) : base_vec(v) {}
@@ -232,9 +244,11 @@ struct Vector4 : public Vector<T, 4> {
         : base_vec({x, y, z, w}) {}
 };
 
-typedef Vector2<float> vec2;
-typedef Vector3<float> vec3;
-typedef Vector4<float> vec4;
+typedef Vector2<float>   vec2;
+typedef Vector3<float>   vec3;
+typedef Vector4<float>   vec4;
+typedef Vector4<float>   quat;
+typedef Vector4<uint8_t> R8G8B8A8Unorm;
 
 template <typename T, int ROWS, int COLS>
 struct Matrix {
@@ -372,11 +386,11 @@ struct Matrix {
 typedef Matrix<float, 3, 3> mat3;
 typedef Matrix<float, 4, 4> mat4;
 
-float radins(float angle) { return angle * PI / 180.0f; }
+float radians(float angle) { return angle * PI / 180.0f; }
 
 template <typename T, int D>
 Vector<T, D> normalize(const Vector<T, D>& v) {
-    auto ret = v;
+    Vector<T, D> ret = v;
     ispc::Normalize(ret, D);
     return ret;
 }
@@ -385,6 +399,67 @@ Vector3<T> cross(const Vector3<T>& v1, const Vector3<T>& v2) {
     Vector3<T> result;
     ispc::CrossProduct(v1, v2, result);
     return result;
+}
+
+template <typename T>
+Matrix<T, 4, 4> translate(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
+    Matrix<T, 4, 4> ret(mat);
+    ret[0] = v.x * mat[3];
+    ret[1] = v.y * mat[3];
+    ret[2] = v.z * mat[3];
+    return ret;
+}
+template <typename T>
+Matrix<T, 4, 4> rotateX(const Matrix<T, 4, 4>& mat, const float angle) {
+    float c = cosf(angle), s = sinf(angle);
+
+    Matrix<T, 4, 4> ret = {
+        {1, 0, 0, 0}, {0, c, -s, 0}, {0, s, c, 0}, {0, 0, 0, 1}};
+    return ret * mat;
+}
+template <typename T>
+Matrix<T, 4, 4> rotateY(const Matrix<T, 4, 4>& mat, const float angle) {
+    float c = cosf(angle), s = sinf(angle);
+
+    Matrix<T, 4, 4> ret = {
+        {c, 0, s, 0}, {0, 1, 0, 0}, {-s, 0, c, 0}, {0, 0, 0, 1}};
+    return ret * mat;
+}
+template <typename T>
+Matrix<T, 4, 4> rotateZ(const Matrix<T, 4, 4>& mat, const float angle) {
+    float c = cosf(angle), s = sinf(angle);
+
+    Matrix<T, 4, 4> ret = {
+        {c, -s, 0, 0}, {s, c, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}};
+    return ret * mat;
+}
+template <typename T>
+Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const float angle,
+                       const Vector3<T>& axis) {
+    float        c = cosf(angle), s = sinf(angle);
+    float        _1c = 1 - c;
+    const float &x = axis.x, &y = axis.y, &z = axis.z;
+    float        xz = x * z, xy = x * y, yz = y * z;
+
+    Matrix<T, 4, 4> ret = {
+        {c + x * x * _1c, xy * _1c - z * s, xz * _1c + y * s, 0},
+        {xy * _1c + z * s, c + y * y * _1c, yz * _1c - x * s, 0},
+        {xz * _1c - y * s, yz * _1c + x * s, c * z * z * _1c, 0},
+        {0, 0, 0, 1}};
+    return ret * mat;
+}
+
+template <typename T>
+Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector4<T>& quatv) {
+    return Matrix<T, 4, 4>(1.0f);
+}
+template <typename T>
+Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
+    auto ret = mat;
+    ret[0] *= v.x;
+    ret[1] *= v.y;
+    ret[2] *= v.z;
+    return ret;
 }
 
 mat4 respective(unsigned int width, unsigned int height, float near,

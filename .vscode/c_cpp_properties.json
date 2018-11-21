@@ -21,11 +21,11 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/Framework/GeomMath"
             ],
             "defines": [
-                "_DEBUG",
-                "__cplusplus"
+                "_DEBUG"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c11",
