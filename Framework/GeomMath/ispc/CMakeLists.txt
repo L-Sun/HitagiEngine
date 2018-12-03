@@ -4,6 +4,7 @@ Subtraction
 Multiplication
 Division
 Vector
+Matrix
 )
 
 foreach(FUNC IN LISTS FUNCTIONS)
