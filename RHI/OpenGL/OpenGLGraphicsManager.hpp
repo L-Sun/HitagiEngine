@@ -5,8 +5,8 @@
 #include <memory>
 
 #include "GraphicsManager.hpp"
-#include "glad/glad.h"
 #include "geommath.hpp"
+#include "glad/glad.h"
 
 namespace My {
 class OpenGLGraphicsManager : public GraphicsManager {

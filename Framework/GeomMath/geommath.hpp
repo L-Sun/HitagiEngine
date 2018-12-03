@@ -10,7 +10,7 @@
 
 namespace My {
 
-static constexpr const float PI = 3.14159265358979323846;
+const float PI = 3.14159265358979323846;
 
 template <typename T, int ROWS, int COLS>
 struct Matrix;
@@ -168,7 +168,7 @@ struct Vector2 : public Vector<T, 2> {
     swizzle<Vector2, Vector2<T>, T, 1, 0> yx = *this;
     decltype(xy)                          uv = xy;
 
-    Vector2() = default;
+    Vector2() {}
     Vector2(const T* p) : base_vec(p) {}
     Vector2(const T& v) : base_vec(v) {}
     Vector2(const base_vec& v) : base_vec(v) {}
@@ -199,7 +199,7 @@ struct Vector3 : public Vector<T, 3> {
     swizzle<Vector3, Vector3<T>, T, 2, 1, 0> zyx = *this;
     decltype(xyz)                            rgb = xyz;
 
-    Vector3() = default;
+    Vector3() {}
     Vector3(const T* p) : base_vec(p) {}
     Vector3(const T& v) : base_vec(v) {}
     Vector3(const base_vec& v) : base_vec(v) {}
@@ -230,7 +230,7 @@ struct Vector4 : public Vector<T, 4> {
     swizzle<Vector4, Vector4<T>, T, 0, 1, 2, 3> rgba = *this;
     swizzle<Vector4, Vector4<T>, T, 2, 1, 0, 3> bgra = *this;
 
-    Vector4() = default;
+    Vector4() {}
     Vector4(const T* p) : base_vec(p) {}
     Vector4(const T& num) : base_vec(num) {}
     Vector4(const base_vec& v) : base_vec(v) {}
@@ -477,24 +477,26 @@ Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
 
 template <typename T>
 Matrix<T, 4, 4> perspectiveFov(T fov, T width, T height, T near, T far) {
-    mat4    ret(static_cast<T>(0));
-    T       nmf = near - far;
-    T const h   = std::tan(0.5 * fov);
-    T const w   = h * height / width;
-    ret[0][0]   = near / w;
-    ret[1][1]   = near / h;
-    ret[2][2]   = (near + far) / nmf;
-    ret[2][3]   = static_cast<T>(2) * near * far / nmf;
-    ret[3][2]   = static_cast<T>(-1);
+    mat4 ret(static_cast<T>(0));
+
+    const T h   = std::tan(0.5 * fov);
+    const T w   = h * height / width;
+    const T nmf = near - far;
+
+    ret[0][0] = near / w;
+    ret[1][1] = near / h;
+    ret[2][2] = (near + far) / nmf;
+    ret[2][3] = static_cast<T>(2) * near * far / nmf;
+    ret[3][2] = static_cast<T>(-1);
     return ret;
 }
 template <typename T>
 Matrix<T, 4, 4> perspective(T fov, T aspect, T near, T far) {
-    Matrix<T, 4, 4> ret(static_cast<T>(0));
+    Matrix<T, 4, 4> ret(static_cast<T>(1));
 
-    T const h   = std::tan(0.5 * fov);
-    T const w   = h * aspect;
-    T       nmf = near - far;
+    const T h   = std::tan(static_cast<T>(0.5) * fov);
+    const T w   = h * aspect;
+    const T nmf = near - far;
 
     ret[0][0] = near / w;
     ret[1][1] = near / h;

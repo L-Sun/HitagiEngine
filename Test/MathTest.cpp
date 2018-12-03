@@ -28,9 +28,9 @@ void matrix_eq(Matrix<T, ROWS, COLS> mat1, Matrix<T, ROWS, COLS> mat2) {
 }
 
 TEST(VectorTest, VectorInit) {
-    vector_eq(v2, vec2({1, 2}));
-    vector_eq(v3, vec3({1, 2, 3}));
-    vector_eq(vec3({1, 2, 0}), vec3(v2));
+    vector_eq(v2, vec2(1, 2));
+    vector_eq(v3, vec3(1, 2, 3));
+    vector_eq(vec3(1, 2, 0), vec3(v2, 0));
 }
 TEST(VectorTest, VectorCopy) {
     vec3 a(1);
@@ -120,6 +120,9 @@ TEST(MatrixTest, MatMulVec) {
     vec3 v = vec3(1, 2, 3);
     vector_eq(v *= l, vec3(30, 36, 42));
 }
+
+TEST(TransformTest, Perspective) {}
+
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

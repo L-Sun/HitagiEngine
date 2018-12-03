@@ -1,19 +1,19 @@
 {
     "clang.cxxflags": [
         "-Wno-pragma-once-outside-header",
-        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Common",
-        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Interface",
-        "-I/home/lawliet/workspace/cpp/game_engine/Framework/Parser",
-        "-I/home/lawliet/workspace/cpp/game_engine/Framework/GeomMath",
-        "-I/home/lawliet/workspace/cpp/game_engine/RHI",
-        "-I/home/lawliet/workspace/cpp/game_engine/External/src/glad/include",
-        "-I/home/lawliet/workspace/cpp/game_engine/Platform/Linux",
-        "-I/home/lawliet/workspace/cpp/game_engine/Platform/Windows",
-        "-I/home/lawliet/workspace/cpp/game_engine/Platform/Empty",
-        "-I/home/lawliet/workspace/cpp/game_engine/RHI",
-        "-I/home/lawliet/workspace/cpp/game_engine/External/src/crossguid/include/crossguid",
-        "-I/home/lawliet/workspace/cpp/game_engine/External/src/glm/glm",
-        "-I/home/lawliet/workspace/cpp/game_engine/External/Linux/include"
+        "-I./Framework/Common",
+        "-I./Framework/Interface",
+        "-I./Framework/Parser",
+        "-I./Framework/GeomMath",
+        "-I./RHI",
+        "-I./External/src/glad/include",
+        "-I./Platform/Linux",
+        "-I./Platform/Windows",
+        "-I./Platform/Empty",
+        "-I./RHI",
+        "-I./External/src/crossguid/include/crossguid",
+        "-I./External/src/glm/glm",
+        "-I./External/Linux/include"
     ],
     "clang.completion.enable": false,
     "files.associations": {

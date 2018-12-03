@@ -136,16 +136,14 @@ bool OpenGLGraphicsManager::SetPerFrameShaderParameters() {
     if (location == -1) {
         return false;
     }
-    glUniformMatrix4fv(location, 1, false,
-                       &m_DrawFrameContext.m_worldMatrix[0][0]);
+    glUniformMatrix4fv(location, 1, false, m_DrawFrameContext.m_worldMatrix);
 
     // Set view matrix
     location = glGetUniformLocation(m_shaderProgram, "viewMatrix");
     if (location == -1) {
         return false;
     }
-    glUniformMatrix4fv(location, 1, false,
-                       &m_DrawFrameContext.m_viewMatrix[0][0]);
+    glUniformMatrix4fv(location, 1, false, m_DrawFrameContext.m_viewMatrix);
 
     // Set projection matrix
     location = glGetUniformLocation(m_shaderProgram, "projectionMatrix");
@@ -153,19 +151,19 @@ bool OpenGLGraphicsManager::SetPerFrameShaderParameters() {
         return false;
     }
     glUniformMatrix4fv(location, 1, false,
-                       &m_DrawFrameContext.m_projectionMatrix[0][0]);
+                       m_DrawFrameContext.m_projectionMatrix);
 
     location = glGetUniformLocation(m_shaderProgram, "lightPosition");
     if (location == -1) {
         return false;
     }
-    glUniform3fv(location, 1, &m_DrawFrameContext.m_lightPosition[0]);
+    glUniform3fv(location, 1, m_DrawFrameContext.m_lightPosition);
 
     location = glGetUniformLocation(m_shaderProgram, "lightColor");
     if (location == -1) {
         return false;
     }
-    glUniform4fv(location, 1, &m_DrawFrameContext.m_lightColor[0]);
+    glUniform4fv(location, 1, m_DrawFrameContext.m_lightColor);
 
     return true;
 }
@@ -338,7 +336,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
 
     for (auto dbc : m_DrawBatchContext) {
         glUseProgram(m_shaderProgram);
-        SetPerBatchShaderParameters("modelMatrix", &(*dbc.transform)[0][0]);
+        SetPerBatchShaderParameters("modelMatrix", *dbc.transform);
         glBindVertexArray(dbc.vao);
         auto           indexBufferCount = dbc.counts.size();
         const GLvoid** pIndicies        = new const GLvoid*[indexBufferCount];
