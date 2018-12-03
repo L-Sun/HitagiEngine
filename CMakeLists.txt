@@ -40,6 +40,9 @@ include(CheckCXXSourceCompiles)
 find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
 
+include(CTest)
+find_package(GTest REQUIRED)
+include_directories(${GTEST_INCLUDE_DIRS})
 
 add_subdirectory(Framework)
 add_subdirectory(Platform)
