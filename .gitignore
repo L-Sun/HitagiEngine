@@ -4,5 +4,7 @@
 
 .clang-format
 
+/Framework/GeomMath/include
+
 test.cpp
 test
