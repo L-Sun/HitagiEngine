@@ -6,6 +6,7 @@
 #include "include/Multiplication.h"
 #include "include/Division.h"
 #include "include/Vector.h"
+#include "include/Matrix.h"
 
 namespace My {
 
@@ -21,14 +22,7 @@ struct Vector {
     Vector(std::initializer_list<T> l) { std::move(l.begin(), l.end(), data); }
     Vector(const T& num) { std::fill(data, data + D, num); }
     Vector(const T* p) { std::copy(p, p + D, data); }
-    template <int DD>
-    Vector(const Vector<T, DD>& v) {
-        if (DD < D) {
-            std::copy(v.data, v.data + DD, data);
-            std::fill(data + DD, data + D, 0.0);
-        } else
-            std::copy(v.data, v.data + D, data);
-    }
+    Vector(const Vector& v) { std::copy(v.data, v.data + D, data); }
     Vector& operator=(const T* p) {
         std::copy(p, p + D, data);
         return *this;
@@ -177,6 +171,7 @@ struct Vector2 : public Vector<T, 2> {
     Vector2() = default;
     Vector2(const T* p) : base_vec(p) {}
     Vector2(const T& v) : base_vec(v) {}
+    Vector2(const base_vec& v) : base_vec(v) {}
     Vector2(const T& x, const T& y) : base_vec({x, y}) {}
 };
 template <typename T>
@@ -207,9 +202,9 @@ struct Vector3 : public Vector<T, 3> {
     Vector3() = default;
     Vector3(const T* p) : base_vec(p) {}
     Vector3(const T& v) : base_vec(v) {}
-    template <int DD>
-    Vector3(const Vector<T, DD>& v) : base_vec(v) {}
+    Vector3(const base_vec& v) : base_vec(v) {}
     Vector3(const T& x, const T& y, const T& z) : base_vec({x, y, z}) {}
+    Vector3(const Vector2<T>& v, const T& z) : base_vec({v.x, v.y, z}) {}
 };
 template <typename T>
 struct Vector4 : public Vector<T, 4> {
@@ -238,10 +233,12 @@ struct Vector4 : public Vector<T, 4> {
     Vector4() = default;
     Vector4(const T* p) : base_vec(p) {}
     Vector4(const T& num) : base_vec(num) {}
-    template <int DD>
-    Vector4(const Vector<T, DD>& v) : base_vec(v) {}
+    Vector4(const base_vec& v) : base_vec(v) {}
     Vector4(const T& x, const T& y, const T& z, const T& w)
         : base_vec({x, y, z, w}) {}
+    Vector4(const Vector2<T>& v, const T& z, const T& w)
+        : base_vec({v.x, v.y, z, w}) {}
+    Vector4(const Vector3<T>& v, const T& w) : base_vec({v.x, v.y, v.z, w}) {}
 };
 
 typedef Vector2<float>   vec2;
@@ -257,10 +254,7 @@ struct Matrix {
     row_type data[ROWS];
 
     Matrix() = default;
-    Matrix(const T v) {
-        for (size_t i = 0; i < ROWS; i++)
-            for (size_t j = 0; j < COLS; j++) data[i][j] = i == j ? v : 0.0;
-    }
+    Matrix(const T v) { ispc::Identity(&data[0][0], v, ROWS); }
     Matrix(std::initializer_list<T> l) {
         if (l.size() != ROWS * COLS) {
             std::cerr << "can't match the size of matirx" << std::endl;
@@ -386,7 +380,7 @@ struct Matrix {
 typedef Matrix<float, 3, 3> mat3;
 typedef Matrix<float, 4, 4> mat4;
 
-float radians(float angle) { return angle * PI / 180.0f; }
+inline float radians(float angle) { return angle * PI / 180.0f; }
 
 template <typename T, int D>
 Vector<T, D> normalize(const Vector<T, D>& v) {
@@ -401,6 +395,13 @@ Vector3<T> cross(const Vector3<T>& v1, const Vector3<T>& v2) {
     return result;
 }
 
+template <typename T, int N>
+Matrix<T, N, N> inverse(const Matrix<T, N, N>& mat) {
+    Matrix<T, N, N> ret;
+    ispc::Inverse(mat, ret, N);
+    return ret;
+}
+
 template <typename T>
 Matrix<T, 4, 4> translate(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
     Matrix<T, 4, 4> ret(mat);
@@ -410,36 +411,36 @@ Matrix<T, 4, 4> translate(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
     return ret;
 }
 template <typename T>
-Matrix<T, 4, 4> rotateX(const Matrix<T, 4, 4>& mat, const float angle) {
-    float c = cosf(angle), s = sinf(angle);
+Matrix<T, 4, 4> rotateX(const Matrix<T, 4, 4>& mat, const T angle) {
+    T c = std::cos(angle), s = std::sin(angle);
 
     Matrix<T, 4, 4> ret = {
         {1, 0, 0, 0}, {0, c, -s, 0}, {0, s, c, 0}, {0, 0, 0, 1}};
     return ret * mat;
 }
 template <typename T>
-Matrix<T, 4, 4> rotateY(const Matrix<T, 4, 4>& mat, const float angle) {
-    float c = cosf(angle), s = sinf(angle);
+Matrix<T, 4, 4> rotateY(const Matrix<T, 4, 4>& mat, const T angle) {
+    T c = std::cos(angle), s = std::sin(angle);
 
     Matrix<T, 4, 4> ret = {
         {c, 0, s, 0}, {0, 1, 0, 0}, {-s, 0, c, 0}, {0, 0, 0, 1}};
     return ret * mat;
 }
 template <typename T>
-Matrix<T, 4, 4> rotateZ(const Matrix<T, 4, 4>& mat, const float angle) {
-    float c = cosf(angle), s = sinf(angle);
+Matrix<T, 4, 4> rotateZ(const Matrix<T, 4, 4>& mat, const T angle) {
+    T c = std::cos(angle), s = std::sin(angle);
 
     Matrix<T, 4, 4> ret = {
         {c, -s, 0, 0}, {s, c, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}};
     return ret * mat;
 }
 template <typename T>
-Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const float angle,
+Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T angle,
                        const Vector3<T>& axis) {
-    float        c = cosf(angle), s = sinf(angle);
-    float        _1c = 1 - c;
-    const float &x = axis.x, &y = axis.y, &z = axis.z;
-    float        xz = x * z, xy = x * y, yz = y * z;
+    T        c = std::cos(angle), s = std::sin(angle);
+    T        _1c = 1 - c;
+    const T &x = axis.x, &y = axis.y, &z = axis.z;
+    T        xz = x * z, xy = x * y, yz = y * z;
 
     Matrix<T, 4, 4> ret = {
         {c + x * x * _1c, xy * _1c - z * s, xz * _1c + y * s, 0},
@@ -451,7 +452,19 @@ Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const float angle,
 
 template <typename T>
 Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector4<T>& quatv) {
-    return Matrix<T, 4, 4>(1.0f);
+    quatv = normalize(quatv);
+
+    T a = quatv.x, b = quatv.y, c = quatv.z, d = quatv.w;
+    T _2b2 = 2 * b * b, _2c2 = 2 * c * c, _2d2 = 2 * d * d, _2ab = 2 * a * b,
+      _2ac = 2 * a * c, _2ad = 2 * a * d, _2bc = 2 * b * c, _2bd = 2 * b * d,
+      _2cd = 2 * c * d;
+
+    Matrix<T, 4, 4> rotate_mat = {
+        {1 - _2c2 - _2d2, _2bc - _2ad, _2ac + _2bd, 0},
+        {_2bc + _2ad, 1 - _2b2, -_2d2, _2cd - _2ab, 0},
+        {_2bd - _2ac, _2ab + _2cd, 1 - _2b2 - _2c2, 0},
+        {0, 0, 0, 1}};
+    return rotate_mat * mat;
 }
 template <typename T>
 Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
@@ -462,42 +475,56 @@ Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
     return ret;
 }
 
-mat4 respective(unsigned int width, unsigned int height, float near,
-                float far) {
-    mat4  ret(0.0f);
-    float nmf = near - far;
-    ret[0][0] = 2.0f * near / width;
-    ret[1][1] = 2.0f * near / height;
-    ret[2][2] = (near + far) / nmf;
-    ret[2][3] = 2.0f * near * far / nmf;
-    ret[3][2] = -1.0f;
+template <typename T>
+Matrix<T, 4, 4> perspectiveFov(T fov, T width, T height, T near, T far) {
+    mat4    ret(static_cast<T>(0));
+    T       nmf = near - far;
+    T const h   = std::tan(0.5 * fov);
+    T const w   = h * height / width;
+    ret[0][0]   = near / w;
+    ret[1][1]   = near / h;
+    ret[2][2]   = (near + far) / nmf;
+    ret[2][3]   = static_cast<T>(2) * near * far / nmf;
+    ret[3][2]   = static_cast<T>(-1);
     return ret;
 }
-mat4 respective(float fov, float aspect, float near, float far) {
-    unsigned int height = 2 * near / tanf(fov / 2);
-    unsigned int width  = height * aspect;
-    return respective(width, height, near, far);
-}
-mat4 orth(float left, float right, float top, float bottom, float near,
-          float far) {
-    mat4 ret(0.0f);
-    ret[0][0] = 2 / (right - left);
-    ret[1][1] = 2 / (top - bottom);
-    ret[2][2] = -2 / (far - near);
-    ret[2][3] = -(far + near) / (far - near);
-    ret[3][3] = 1;
-    return ret;
-}
+template <typename T>
+Matrix<T, 4, 4> perspective(T fov, T aspect, T near, T far) {
+    Matrix<T, 4, 4> ret(static_cast<T>(0));
 
-mat4 lookAt(const vec3& position, const vec3& target, const vec3& up) {
-    vec3 direct   = normalize(target - position);
-    vec3 right    = normalize(cross(direct, up));
-    vec3 cameraUp = normalize(cross(right, direct));
-    mat4 l(1.0f);
-    mat4 r(1.0f);
-    l[0]    = vec4(right);
-    l[1]    = vec4(cameraUp);
-    l[2]    = vec4(direct);
+    T const h   = std::tan(0.5 * fov);
+    T const w   = h * aspect;
+    T       nmf = near - far;
+
+    ret[0][0] = near / w;
+    ret[1][1] = near / h;
+    ret[2][2] = (near + far) / nmf;
+    ret[2][3] = static_cast<T>(2) * near * far / nmf;
+    ret[3][2] = static_cast<T>(-1);
+    return ret;
+}
+template <typename T>
+Matrix<T, 4, 4> orth(T left, T right, T top, T bottom, T near, T far) {
+    Matrix<T, 4, 4> ret(static_cast<T>(0));
+    ret[0][0] = static_cast<T>(2) / (right - left);
+    ret[1][1] = static_cast<T>(2) / (top - bottom);
+    ret[2][2] = static_cast<T>(-2) / (far - near);
+    ret[2][3] = -(far + near) / (far - near);
+    ret[3][3] = static_cast<T>(1);
+    return ret;
+}
+template <typename T>
+Matrix<T, 4, 4> lookAt(const Vector3<T>& position, const Vector3<T>& target,
+                       const Vector3<T>& up) {
+    Vector3<T> direct   = normalize(target - position);
+    Vector3<T> right    = normalize(cross(direct, up));
+    Vector3<T> cameraUp = normalize(cross(right, direct));
+
+    Matrix<T, 4, 4> l(1);
+    Matrix<T, 4, 4> r(1);
+    l[0]    = Vector4<T>(right, static_cast<T>(0));
+    l[1]    = Vector4<T>(cameraUp, static_cast<T>(0));
+    l[2]    = Vector4<T>(direct, static_cast<T>(0));
     r[0][3] = -position.x;
     r[1][3] = -position.y;
     r[2][3] = -position.z;
