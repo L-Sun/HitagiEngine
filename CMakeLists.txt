@@ -24,7 +24,7 @@ include_directories("${PROJECT_SOURCE_DIR}/Framework/Parser")
 include_directories("${PROJECT_SOURCE_DIR}/Framework/Interface")
 include_directories("${PROJECT_SOURCE_DIR}/RHI")
 
-include_directories("${PROJECT_SOURCE_DIR}/External/src/glm/glm")
+include_directories("${PROJECT_SOURCE_DIR}/External/src/glm")
 include_directories("${PROJECT_SOURCE_DIR}/External/src/glad/include")
 
 IF(${UNIX})
