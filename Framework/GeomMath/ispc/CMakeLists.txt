@@ -5,6 +5,7 @@ Multiplication
 Division
 Vector
 Matrix
+DCT8x8
 )
 
 foreach(FUNC IN LISTS FUNCTIONS)

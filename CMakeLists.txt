@@ -3,6 +3,7 @@ project(GameEngine)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_FLAGS "-nopie -Wno-unused-command-line-argument")
 set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG")
 
 

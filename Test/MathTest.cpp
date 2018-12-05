@@ -18,10 +18,11 @@ void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2) {
 }
 
 template <typename T, int ROWS, int COLS>
-void matrix_eq(Matrix<T, ROWS, COLS> mat1, Matrix<T, ROWS, COLS> mat2) {
+void matrix_eq(Matrix<T, ROWS, COLS> mat1, Matrix<T, ROWS, COLS> mat2,
+               double epsilon = 1E-5) {
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
-            EXPECT_NEAR(mat1[i][j], mat2[i][j], 1E-5)
+            EXPECT_NEAR(mat1[i][j], mat2[i][j], epsilon)
                 << "difference at index: [" << i << "][" << j << "]";
         }
     }
@@ -133,6 +134,31 @@ TEST(TransformTest, Inverse) {
     matrix_eq(inverse(c), d);
 }
 
+TEST(TransformTest, DCT8x8Test) {
+    // clang-format off
+    mat8 pixel_block = {
+        {-76, -73, -67, -62, -58, -67, -64, -55},
+        {-65, -69, -73, -38, -19, -43, -59, -56},
+        {-66, -69, -60, -15, 16, -24, -62, -55},
+        {-65, -70, -57, -6, 26, -22, -58, -59},
+        {-61, -67, -60, -24, -2, -40, -60, -58},
+        {-49, -63, -68, -58, -51, -60, -70, -53},
+        {-43, -57, -64, -69, -73, -67, -63, -45},
+        {-41, -49, -59, -60, -63, -52, -50, -34}
+    };
+    mat8 out = {
+        {-415.38, -30.19, -61.20,  27.24,  56.12, -20.10, -2.39,  0.46},
+        {   4.47, -21.86, -60.76,  10.25,  13.15,  -7.09, -8.54,  4.88},
+        { -46.83,   7.37,  77.13, -24.56, -28.91,   9.93,  5.42, -5.65},
+        { -48.53,  12.07,  34.10, -14.76, -10.24,   6.30,  1.83,  1.95},
+        {  12.12,  -6.55, -13.20,  -3.95,  -1.87,   1.75, -2.79,  3.14},
+        {  -7.73,   2.91,   2.38,  -5.94,  -2.38,   0.94,  4.30,  1.85},
+        {  -1.03,   0.18,   0.42,  -2.42,  -0.88,  -3.02,  4.12, -0.66},
+        {  -0.17,   0.14,  -1.07,  -4.19,  -1.17,  -0.10,  0.50,  1.68},
+    };
+    // clang-format on
+    matrix_eq(dct8x8(pixel_block), out, 0.1);
+}
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

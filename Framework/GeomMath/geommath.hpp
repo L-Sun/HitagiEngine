@@ -7,6 +7,7 @@
 #include "include/Division.h"
 #include "include/Vector.h"
 #include "include/Matrix.h"
+#include "include/DCT8x8.h"
 
 namespace My {
 
@@ -388,6 +389,7 @@ struct Matrix {
 };
 typedef Matrix<float, 3, 3> mat3;
 typedef Matrix<float, 4, 4> mat4;
+typedef Matrix<float, 8, 8> mat8;
 
 inline float radians(float angle) { return angle / 180.0f * PI; }
 
@@ -593,4 +595,12 @@ Matrix<T, 4, 4> lookAt(const Vector3<T>& position, const Vector3<T>& target,
         {-right * position, -cameraUp * position, direct * position, 1}};
     return look_at;
 }
+
+template <typename T>
+Matrix<T, 8, 8> dct8x8(const Matrix<T, 8, 8>& pixel_block) {
+    Matrix<T, 8, 8> ret;
+    ispc::DCT8x8(pixel_block, ret);
+    return ret;
+}
+
 }  // namespace My
