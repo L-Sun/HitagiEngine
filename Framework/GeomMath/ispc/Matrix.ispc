@@ -1,4 +1,4 @@
-export void Identity(uniform float mat[],uniform float v, uniform size_t order) {
+export void Identity(uniform float mat[], uniform float v, uniform size_t order) {
     foreach(i = 0 ... order*order) {
         mat[i] = i % (order+1) == 0 ? v : 0.0f;
     }
@@ -52,39 +52,66 @@ export uniform bool InverseMatrix4X4f(uniform float matrix[16])
     return true;
 }
 
-export void Inverse(uniform const float mat[], uniform float ret[], uniform size_t order) {
-    float* uniform a = uniform new float[order*order];
-    foreach (i = 0 ... order*order)
+export uniform bool Inverse(uniform const float mat[], uniform float ret[], uniform size_t n) {
+    float* uniform a = uniform new float[n*n];
+
+    foreach (i = 0 ... n*n)
         a[i] = mat[i];
 
-    Identity(ret, 1.0f, order);
+    Identity(ret, 1.0f, n);
 
-    for(int i = 0; i < order; i++) {
-        // row operator
-        for(int j = i+1; j < order; j++) {
-            float x = a[j*order+i]/a[i*(order+1)];
-            foreach(k = 0 ... order) {
-                a[j*order+k] -= x * a[i*order+k];
-                ret[j*order+k] -= x * ret[i*order+k];
+    for (int i = 0; i < n; i++) {
+        // find principal element
+        int k = i;
+        for (int j = i + 1; j < n; j++)
+            if (abs(a[j*n + i]) > abs(a[i*n + i]))
+                k = j;
+
+        if (abs(a[k*n + i]) < 1E-10) {
+            return false;
+        }
+        // if principal element is not in row i, swap row i and row k
+        if (k != i) {
+            foreach (j = 0 ... n) {
+                float temp = a[i*n + j];
+                a[i*n +j] = a[k*n +j];
+                a[k*n +j] = temp;
+                temp = ret[i*n +j];
+                ret[i*n +j] = ret[k*n +j];
+                ret[k*n +j] = temp;
+            }
+        }
+
+        float d = 1/a[i*n + i];
+        for(int j = i + 1; j < n; j++) {
+            float alpha = a[j*n + i] * d;
+            foreach(k = 0 ... n) {
+                a[j*n + k] -= alpha * a[i*n + k];
+                ret[j*n + k] -= alpha * ret[i*n + k];
             }
         }
     }
-    for(int i = 0; i < order; i++) {
-        float x = a[i*(order+1)];
-        foreach(j = 0 ... order) {
-            a[i*order + j] /= x;
-            ret[i*order + j] /= x;
+
+    foreach(i = 0 ... n) {
+        float d = 1/a[i*n + i];
+        for(int j = 0; j < n; j++) {
+            a[i*n + j] *= d;
+            ret[i*n + j] *= d;
         }
     }
-    for(int i = order; i >= 0; i--) {
+
+    for(int i = n-1; i >= 0; i--) {
         for(int j = i-1; j >=0; j--) {
-            float x = a[j*order+i];
-            foreach(k = 0 ... order) {
-                a[j*order+k] -= x * a[i*order+k];
-                ret[j*order+k] -= x * ret[i*order+k];
+            float alpha = a[j*n+i];
+            foreach(k = 0 ... n) {
+                a[j*n + k] -= alpha * a[i*n+k];
+                ret[j*n + k] -= alpha * ret[i*n+k];
             }
         }
     }
+
+    return true;
+
 }
 
 export void MatrixExchangeYandZ(uniform float data[], const uniform int rows, const uniform int cols)

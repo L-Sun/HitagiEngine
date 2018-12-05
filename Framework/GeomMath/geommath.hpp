@@ -407,12 +407,16 @@ Vector3<T> cross(const Vector3<T>& v1, const Vector3<T>& v2) {
 template <typename T, int N>
 Matrix<T, N, N> inverse(const Matrix<T, N, N>& mat) {
     Matrix<T, N, N> ret;
+    bool            success = false;
     if (N == 4) {
-        ret = mat;
-        if (!ispc::InverseMatrix4X4f(ret))
-            std::cout << "(matrix is singular)" << std::endl;
+        ret     = mat;
+        success = ispc::InverseMatrix4X4f(ret);
     } else {
-        ispc::Inverse(mat, ret, N);
+        success = ispc::Inverse(mat, ret, N);
+    }
+    if (!success) {
+        ret = Matrix<T, N, N>(1.0f);
+        std::cout << "matrix is singular" << std::endl;
     }
     return ret;
 }

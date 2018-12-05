@@ -35,7 +35,7 @@ namespace ispc { /* namespace */
 extern "C" {
 #endif // __cplusplus
     extern void Identity(float * mat, float v, uint32_t order);
-    extern void Inverse(const float * mat, float * ret, uint32_t order);
+    extern bool Inverse(const float * mat, float * ret, uint32_t n);
     extern bool InverseMatrix4X4f(float * matrix);
     extern void MatrixExchangeYandZ(float * data, const int32_t rows, const int32_t cols);
 #if defined(__cplusplus) && (! defined(__ISPC_NO_EXTERN_C) || !__ISPC_NO_EXTERN_C )

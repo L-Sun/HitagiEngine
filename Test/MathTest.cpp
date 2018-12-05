@@ -21,7 +21,7 @@ template <typename T, int ROWS, int COLS>
 void matrix_eq(Matrix<T, ROWS, COLS> mat1, Matrix<T, ROWS, COLS> mat2) {
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
-            EXPECT_NEAR(mat1[i][j], mat2[i][j], 1E-8)
+            EXPECT_NEAR(mat1[i][j], mat2[i][j], 1E-5)
                 << "difference at index: [" << i << "][" << j << "]";
         }
     }
@@ -121,7 +121,16 @@ TEST(MatrixTest, MatMulVec) {
     vector_eq(v *= l, vec3(30, 36, 42));
 }
 
-TEST(TransformTest, Perspective) {}
+TEST(TransformTest, Inverse) {
+    mat3 a = {{1, 2, -2}, {2, 5, -3}, {3, 7, -4}};
+    mat3 b = {{1, -6, 4}, {-1, 2, -1}, {-1, -1, 1}};
+    mat4 c = {{1, 2, 3, 4}, {5, 2, 1, 7}, {1, 2, 2, 9}, {6, 7, 8, 1}};
+    mat4 d = {{0.38461538, 0.30177515, -0.3964497, -0.08284024},
+              {-1.92307692, -0.43195266, 1.13609467, 0.49112426},
+              {1.38461538, 0.14792899, -0.70414201, -0.23668639},
+              {0.07692308, 0.0295858, 0.0591716, -0.04733728}};
+    matrix_eq(inverse(c), d);
+}
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
