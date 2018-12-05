@@ -282,11 +282,20 @@ struct Matrix {
     operator const T*() const { return static_cast<const T*>(&data[0][0]); }
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
+        std::fixed(out);
         for (int i = 0; i < ROWS; i++) {
+            if (i == 0)
+                out << "{{";
+            else
+                out << " {";
             for (int j = 0; j < COLS; j++) {
-                out << mat[i][j] << " ";
+                out << mat[i][j];
+                if (j != COLS - 1) out << ", ";
             }
-            out << '\n';
+            if (i != ROWS - 1)
+                out << "},\n";
+            else
+                out << "}}\n";
         }
         return out;
     }
@@ -380,7 +389,7 @@ struct Matrix {
 typedef Matrix<float, 3, 3> mat3;
 typedef Matrix<float, 4, 4> mat4;
 
-inline float radians(float angle) { return angle * PI / 180.0f; }
+inline float radians(float angle) { return angle / 180.0f * PI; }
 
 template <typename T, int D>
 Vector<T, D> normalize(const Vector<T, D>& v) {
@@ -398,72 +407,132 @@ Vector3<T> cross(const Vector3<T>& v1, const Vector3<T>& v2) {
 template <typename T, int N>
 Matrix<T, N, N> inverse(const Matrix<T, N, N>& mat) {
     Matrix<T, N, N> ret;
-    ispc::Inverse(mat, ret, N);
+    if (N == 4) {
+        ret = mat;
+        if (!ispc::InverseMatrix4X4f(ret))
+            std::cout << "(matrix is singular)" << std::endl;
+    } else {
+        ispc::Inverse(mat, ret, N);
+    }
     return ret;
+}
+
+template <typename T, int ROWS, int COLS>
+void exchangeYZ(Matrix<T, ROWS, COLS>& matrix) {
+    ispc::MatrixExchangeYandZ(matrix, ROWS, COLS);
 }
 
 template <typename T>
 Matrix<T, 4, 4> translate(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
-    Matrix<T, 4, 4> ret(mat);
-    ret[0] = v.x * mat[3];
-    ret[1] = v.y * mat[3];
-    ret[2] = v.z * mat[3];
-    return ret;
+    // clang-format off
+    Matrix<T, 4, 4> translation = {
+        {1,   0,   0,   0},
+        {0,   1,   0,   0},
+        {0,   0,   1,   0},
+        {v.x, v.y, v.z, 1}
+    };
+    // clang-format on
+    return translation * mat;
 }
 template <typename T>
 Matrix<T, 4, 4> rotateX(const Matrix<T, 4, 4>& mat, const T angle) {
-    T c = std::cos(angle), s = std::sin(angle);
-
-    Matrix<T, 4, 4> ret = {
-        {1, 0, 0, 0}, {0, c, -s, 0}, {0, s, c, 0}, {0, 0, 0, 1}};
-    return ret * mat;
+    const T c = std::cos(angle), s = std::sin(angle);
+    // clang-format off
+    Matrix<T, 4, 4> rotate_x = {
+        {1,  0, 0, 0},
+        {0,  c, s, 0},
+        {0, -s, c, 0}, 
+        {0,  0, 0, 1}
+    };
+    // clang-format on
+    return rotate_x * mat;
 }
 template <typename T>
 Matrix<T, 4, 4> rotateY(const Matrix<T, 4, 4>& mat, const T angle) {
-    T c = std::cos(angle), s = std::sin(angle);
+    const T c = std::cos(angle), s = std::sin(angle);
 
-    Matrix<T, 4, 4> ret = {
-        {c, 0, s, 0}, {0, 1, 0, 0}, {-s, 0, c, 0}, {0, 0, 0, 1}};
-    return ret * mat;
+    // clang-format off
+    Matrix<T, 4, 4> rotate_y = {
+        {c, 0, -s, 0},
+        {0, 1,  0, 0},
+        {s, 0,  c, 0},
+        {0, 0,  0, 1}
+    };
+    // clang-format on
+    return rotate_y * mat;
 }
 template <typename T>
 Matrix<T, 4, 4> rotateZ(const Matrix<T, 4, 4>& mat, const T angle) {
-    T c = std::cos(angle), s = std::sin(angle);
+    const T c = std::cos(angle), s = std::sin(angle);
 
-    Matrix<T, 4, 4> ret = {
-        {c, -s, 0, 0}, {s, c, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}};
-    return ret * mat;
+    // clang-format off
+    Matrix<T, 4, 4> rotate_z = {
+        { c, s, 0, 0},
+        {-s, c, 0, 0},
+        { 0, 0, 1, 0},
+        { 0, 0, 0, 1}
+    };
+    // clang-format on
+
+    return rotate_z * mat;
 }
 template <typename T>
 Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T angle,
                        const Vector3<T>& axis) {
-    T        c = std::cos(angle), s = std::sin(angle);
-    T        _1c = 1 - c;
-    const T &x = axis.x, &y = axis.y, &z = axis.z;
-    T        xz = x * z, xy = x * y, yz = y * z;
+    const float c = cosf(angle), s = sinf(angle), _1_c = 1.0f - c;
+    const float x = axis.x, y = axis.y, z = axis.z;
+    // clang-format off
+    Matrix<T, 4, 4> rotation = {
+        {c + x * x * _1_c    , x * y * _1_c + z * s, x * z * _1_c - y * s, 0.0f},
+        {x * y * _1_c - z * s, c + y * y * _1_c    , y * z * _1_c + x * s, 0.0f},
+        {x * z * _1_c + y * s, y * z * _1_c - x * s, c + z * z * _1_c,     0.0f},
+        {0.0f,                 0.0f,                 0.0f,                 1.0f}
+    };
+    // clang-format on
 
-    Matrix<T, 4, 4> ret = {
-        {c + x * x * _1c, xy * _1c - z * s, xz * _1c + y * s, 0},
-        {xy * _1c + z * s, c + y * y * _1c, yz * _1c - x * s, 0},
-        {xz * _1c - y * s, yz * _1c + x * s, c * z * z * _1c, 0},
-        {0, 0, 0, 1}};
-    return ret * mat;
+    return rotation * mat;
+}
+
+template <typename T>
+Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T yaw, const T pitch,
+                       const T roll) {
+    T cYaw, cPitch, cRoll, sYaw, sPitch, sRoll;
+    cYaw   = std::cos(yaw);
+    cPitch = std::cos(pitch);
+    cRoll  = std::cos(roll);
+
+    sYaw   = std::sin(yaw);
+    sPitch = std::sin(pitch);
+    sRoll  = std::sin(roll);
+
+    // clang-format off
+    Matrix<T, 4, 4> rotation = {
+        {(cRoll * cYaw) + (sRoll * sPitch * sYaw) , (sRoll * cPitch), (cRoll * -sYaw) + (sRoll * sPitch * cYaw), 0.0f},
+        {(-sRoll * cYaw) + (cRoll * sPitch * sYaw), (cRoll * cPitch), (sRoll * sYaw) + (cRoll * sPitch * cYaw) , 0.0f},
+        {(cPitch * sYaw)                          , -sPitch         , (cPitch * cYaw)                          , 0.0f},
+        {0.0f                                     , 0.0f            , 0.0f                                     , 1.0f}
+    };
+    // clang-format on
+
+    return rotation * mat;
 }
 
 template <typename T>
 Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector4<T>& quatv) {
-    quatv = normalize(quatv);
+    quatv     = normalize(quatv);
+    const T a = quatv.x, b = quatv.y, c = quatv.z, d = quatv.w;
+    const T _2a2 = 2 * a * a, _2b2 = 2 * b * b, _2c2 = 2 * c * c,
+            _2ab = 2 * a * b, _2ac = 2 * a * c, _2ad = 2 * a * d,
+            _2bc = 2 * b * c, _2bd = 2 * b * d, _2cd = 2 * c * d;
 
-    T a = quatv.x, b = quatv.y, c = quatv.z, d = quatv.w;
-    T _2b2 = 2 * b * b, _2c2 = 2 * c * c, _2d2 = 2 * d * d, _2ab = 2 * a * b,
-      _2ac = 2 * a * c, _2ad = 2 * a * d, _2bc = 2 * b * c, _2bd = 2 * b * d,
-      _2cd = 2 * c * d;
-
+    // clang-format off
     Matrix<T, 4, 4> rotate_mat = {
-        {1 - _2c2 - _2d2, _2bc - _2ad, _2ac + _2bd, 0},
-        {_2bc + _2ad, 1 - _2b2, -_2d2, _2cd - _2ab, 0},
-        {_2bd - _2ac, _2ab + _2cd, 1 - _2b2 - _2c2, 0},
-        {0, 0, 0, 1}};
+        {1 - _2b2 - _2c2, _2ab - _2cd    , _2bd + _2ac    , 0},
+        {_2ab + _2cd    , 1 - _2a2, -_2c2, _2bc - _2ad    , 0},
+        {_2ac - _2bd    , _2ad + _2bc    , 1 - _2a2 - _2b2, 0},
+        {0              , 0              , 0              , 1}
+    };
+    // clang-format on
     return rotate_mat * mat;
 }
 template <typename T>
@@ -477,44 +546,35 @@ Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
 
 template <typename T>
 Matrix<T, 4, 4> perspectiveFov(T fov, T width, T height, T near, T far) {
-    mat4 ret(static_cast<T>(0));
+    Matrix<T, 4, 4> ret(static_cast<T>(0));
 
-    const T h   = std::tan(0.5 * fov);
+    const T h   = std::tan(static_cast<T>(0.5) * fov);
     const T w   = h * height / width;
     const T nmf = near - far;
 
-    ret[0][0] = near / w;
-    ret[1][1] = near / h;
+    ret[0][0] = 1 / w;
+    ret[1][1] = 1 / h;
     ret[2][2] = (near + far) / nmf;
-    ret[2][3] = static_cast<T>(2) * near * far / nmf;
-    ret[3][2] = static_cast<T>(-1);
+    ret[2][3] = static_cast<T>(-1);
+    ret[3][2] = static_cast<T>(2) * near * far / nmf;
     return ret;
 }
 template <typename T>
 Matrix<T, 4, 4> perspective(T fov, T aspect, T near, T far) {
-    Matrix<T, 4, 4> ret(static_cast<T>(1));
+    Matrix<T, 4, 4> ret(static_cast<T>(0));
 
     const T h   = std::tan(static_cast<T>(0.5) * fov);
     const T w   = h * aspect;
     const T nmf = near - far;
 
-    ret[0][0] = near / w;
-    ret[1][1] = near / h;
+    ret[0][0] = static_cast<T>(1) / w;
+    ret[1][1] = static_cast<T>(1) / h;
     ret[2][2] = (near + far) / nmf;
-    ret[2][3] = static_cast<T>(2) * near * far / nmf;
-    ret[3][2] = static_cast<T>(-1);
+    ret[2][3] = -static_cast<T>(1);
+    ret[3][2] = static_cast<T>(2) * near * far / nmf;
     return ret;
 }
-template <typename T>
-Matrix<T, 4, 4> orth(T left, T right, T top, T bottom, T near, T far) {
-    Matrix<T, 4, 4> ret(static_cast<T>(0));
-    ret[0][0] = static_cast<T>(2) / (right - left);
-    ret[1][1] = static_cast<T>(2) / (top - bottom);
-    ret[2][2] = static_cast<T>(-2) / (far - near);
-    ret[2][3] = -(far + near) / (far - near);
-    ret[3][3] = static_cast<T>(1);
-    return ret;
-}
+
 template <typename T>
 Matrix<T, 4, 4> lookAt(const Vector3<T>& position, const Vector3<T>& target,
                        const Vector3<T>& up) {
@@ -522,15 +582,11 @@ Matrix<T, 4, 4> lookAt(const Vector3<T>& position, const Vector3<T>& target,
     Vector3<T> right    = normalize(cross(direct, up));
     Vector3<T> cameraUp = normalize(cross(right, direct));
 
-    Matrix<T, 4, 4> l(1);
-    Matrix<T, 4, 4> r(1);
-    l[0]    = Vector4<T>(right, static_cast<T>(0));
-    l[1]    = Vector4<T>(cameraUp, static_cast<T>(0));
-    l[2]    = Vector4<T>(direct, static_cast<T>(0));
-    r[0][3] = -position.x;
-    r[1][3] = -position.y;
-    r[2][3] = -position.z;
-    return l * r;
+    Matrix<T, 4, 4> look_at = {
+        {right.x, cameraUp.x, -direct.x, 0},
+        {right.y, cameraUp.y, -direct.y, 0},
+        {right.z, cameraUp.z, -direct.z, 0},
+        {-right * position, -cameraUp * position, direct * position, 1}};
+    return look_at;
 }
-
 }  // namespace My
