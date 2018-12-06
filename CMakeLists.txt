@@ -3,7 +3,6 @@ project(GameEngine)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_FLAGS "-nopie -Wno-unused-command-line-argument")
 set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG")
 
 
@@ -25,7 +24,6 @@ include_directories("${PROJECT_SOURCE_DIR}/Framework/Parser")
 include_directories("${PROJECT_SOURCE_DIR}/Framework/Interface")
 include_directories("${PROJECT_SOURCE_DIR}/RHI")
 
-include_directories("${PROJECT_SOURCE_DIR}/External/src/glm")
 include_directories("${PROJECT_SOURCE_DIR}/External/src/glad/include")
 
 IF(${UNIX})
