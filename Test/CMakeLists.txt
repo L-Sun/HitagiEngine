@@ -20,3 +20,7 @@ add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest)
 add_executable(MathTest MathTest.cpp)
 target_link_libraries(MathTest GeomMath ${GTEST_BOTH_LIBRARIES})
 gtest_add_tests(TARGET MathTest)
+
+add_executable(ColorSpaceConversionTest ColorSpaceConversionTest.cpp)
+target_link_libraries(ColorSpaceConversionTest GeomMath ${GTEST_BOTH_LIBRARIES})
+gtest_add_tests(TARGET ColorSpaceConversionTest)

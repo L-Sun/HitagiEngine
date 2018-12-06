@@ -7,7 +7,7 @@
 #include "include/Division.h"
 #include "include/Vector.h"
 #include "include/Matrix.h"
-#include "include/DCT8x8.h"
+#include "include/DCT.h"
 
 namespace My {
 
@@ -597,9 +597,16 @@ Matrix<T, 4, 4> lookAt(const Vector3<T>& position, const Vector3<T>& target,
 }
 
 template <typename T>
-Matrix<T, 8, 8> dct8x8(const Matrix<T, 8, 8>& pixel_block) {
+Matrix<T, 8, 8> DCT8x8(const Matrix<T, 8, 8>& pixel_block) {
     Matrix<T, 8, 8> ret;
-    ispc::DCT8x8(pixel_block, ret);
+    ispc::DCT(pixel_block, ret);
+    return ret;
+}
+
+template <typename T>
+Matrix<T, 8, 8> IDCT8x8(const Matrix<T, 8, 8>& pixel_block) {
+    Matrix<T, 8, 8> ret;
+    ispc::IDCT(pixel_block, ret);
     return ret;
 }
 
