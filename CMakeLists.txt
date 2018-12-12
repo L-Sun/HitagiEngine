@@ -3,11 +3,9 @@ project(GameEngine)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG")
 
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Platform")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/External/src/crossguid/cmake")
 
 include(TargetArchDetect)
@@ -36,10 +34,23 @@ set(EXTERNAL_ROOT ${PROJECT_SOURCE_DIR}/External/${TARGET_PLATFORM})
 include_directories("${EXTERNAL_ROOT}/include")
 set(EXTERNAL_LIBRARY_PATH ${EXTERNAL_ROOT}/lib)
 
+find_library(XG_LIBRARY xg PATHS ${EXTERNAL_LIBRARY_PATH} NO_CMAKE_FIND_ROOT_PATH)
+find_library(OPENDDL_LIBRARY OpenDDL PATHS ${EXTERNAL_LIBRARY_PATH} NO_CMAKE_FIND_ROOT_PATH)
+find_library(OPENGEX_LIBRARY OpenGEX PATHS ${EXTERNAL_LIBRARY_PATH} NO_CMAKE_FIND_ROOT_PATH)
+
 include(PlatformDependencies)
 include(CheckCXXSourceCompiles)
-find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
+CHECK_CXX_SOURCE_COMPILES(
+"#include <memory>
+int main(int argc, char** argv)
+{
+    std::unique_ptr<int> my_int = std::make_unique<int>();
+    *my_int = 0;
+    return *my_int;
+}
+"
+ HAVE_MAKE_UNIQUE)
+
 
 include(CTest)
 find_package(GTest REQUIRED)
