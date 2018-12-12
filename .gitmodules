@@ -10,3 +10,6 @@
 [submodule "ispc"]
 	path = External/src/ispc
 	url = https://github.com/netwarm007/ispc.git
+[submodule "glad"]
+	path = External/src/glad
+	url = https://github.com/L-Sun/glad.git
