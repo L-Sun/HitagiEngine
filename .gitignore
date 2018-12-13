@@ -4,5 +4,5 @@
 
 .clang-format
 
-/Framework/GeomMath/include
+/Framework/GeomMath/include/*.h
 
