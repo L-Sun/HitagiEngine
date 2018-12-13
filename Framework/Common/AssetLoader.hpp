@@ -17,17 +17,15 @@ public:
     virtual void Finalize();
     virtual void Tick();
 
-    enum AssetOpenMode { MY_OPEN_TEXT, MY_OPEN_BINARY };
     enum AssetSeekBase { MY_SEEK_SET, MY_SEEK_CUR, MY_SEEK_END };
 
     bool AddSearchPath(const char* path);
     bool RemoveSearchPath(const char* path);
     bool FileExists(const char* filePath);
 
-    std::fstream& OpenFile(const char* name, AssetOpenMode mode,
-                           std::fstream& fstrm);
+    std::fstream& OpenFile(const char* name, std::fstream& fstrm);
 
-    Buffer SyncOpenAndRead(const char* filePath, AssetOpenMode mode);
+    Buffer SyncOpenAndRead(const char* filePath);
 
     size_t SyncRead(std::fstream& fstrm, Buffer& buf);
 
@@ -40,7 +38,7 @@ public:
     inline std::string SyncOpenAndReadTextFileToString(const char* fileName) {
         std::string result;
 
-        Buffer buffer  = SyncOpenAndRead(fileName, MY_OPEN_TEXT);
+        Buffer buffer  = SyncOpenAndRead(fileName);
         char*  content = reinterpret_cast<char*>(buffer.m_pData);
 
         if (content) result = std::string(std::move(content));

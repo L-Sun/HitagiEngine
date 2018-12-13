@@ -31,8 +31,7 @@ bool AssetLoader::FileExists(const char* filePath) {
     return false;
 }
 
-std::fstream& AssetLoader::OpenFile(const char* name, AssetOpenMode mode,
-                                    std::fstream& fstrm) {
+std::fstream& AssetLoader::OpenFile(const char* name, std::fstream& fstrm) {
     std::string upPath;
     std::string fullPath;
 
@@ -54,15 +53,7 @@ std::fstream& AssetLoader::OpenFile(const char* name, AssetOpenMode mode,
             std::cout << "Trying to open " << fullPath << std::endl;
 #endif  // _DEBUG
 
-            switch (mode) {
-                case MY_OPEN_TEXT:
-                    fstrm.open(fullPath, fstrm.in);
-                    break;
-                case MY_OPEN_BINARY:
-                    fstrm.open(fullPath, fstrm.in | fstrm.binary);
-                default:
-                    break;
-            }
+            fstrm.open(fullPath, fstrm.in | fstrm.binary);
             if (fstrm) return fstrm;
         }
         upPath.append("../");
@@ -70,13 +61,13 @@ std::fstream& AssetLoader::OpenFile(const char* name, AssetOpenMode mode,
     return fstrm;
 }
 
-Buffer AssetLoader::SyncOpenAndRead(const char* filePath, AssetOpenMode mode) {
+Buffer AssetLoader::SyncOpenAndRead(const char* filePath) {
     std::fstream fstrm;
-    OpenFile(filePath, mode, fstrm);
+    OpenFile(filePath, fstrm);
     Buffer* pBuff = nullptr;
 
     if (fstrm) {
-        size_t length = GetSize(fstrm) + (mode == MY_OPEN_TEXT ? 1 : 0);
+        size_t length = GetSize(fstrm) + 1;
 
 #if defined(_DEBUG)
         std::cout << "Read file " << filePath << ", " << length << " byte(s)"
@@ -85,7 +76,7 @@ Buffer AssetLoader::SyncOpenAndRead(const char* filePath, AssetOpenMode mode) {
 
         pBuff = new Buffer(length);
         fstrm.read(reinterpret_cast<char*>(pBuff->m_pData), length);
-        if (mode == MY_OPEN_TEXT) pBuff->m_pData[length - 1] = '\0';
+        pBuff->m_pData[length - 1] = '\0';
         CloseFile(fstrm);
     } else {
         std::cout << "Error opening file " << filePath << std::endl;
