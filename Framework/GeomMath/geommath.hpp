@@ -138,8 +138,14 @@ class swizzle {
     friend Vec;
 
 public:
-    T* data;
-
+    T*       data;
+    swizzle& operator=(const T& v) {
+        size_t indexs[] = {Indexs...};
+        for (int i = 0; i < sizeof...(Indexs); i++) {
+            data[indexs[i]] = v;
+        }
+        return *this;
+    }
     swizzle& operator=(std::initializer_list<T> l) {
         size_t indexs[] = {Indexs...};
         size_t i        = 0;
@@ -155,7 +161,7 @@ public:
 
 private:
     swizzle(Vec& v) : data(v.data) {}
-};
+};  // namespace My
 
 template <typename T>
 struct Vector2 : public Vector<T, 2> {
@@ -355,7 +361,7 @@ struct Matrix {
     friend Matrix operator*(const T& lhs, const Matrix& rhs) {
         return rhs * lhs;
     }
-    const Matrix operator/(const T& rhs) {
+    const Matrix operator/(const T& rhs) const {
         Matrix result;
         ispc::DivNum(*this, rhs, result, ROWS * COLS);
         return result;
@@ -386,6 +392,12 @@ struct Matrix {
         ispc::DivSelfByNum(*this, rhs, ROWS * COLS);
         return *this;
     }
+
+    const Matrix mulByElement(const Matrix& rhs) const {
+        Matrix res;
+        res = ispc::MulByElement(*this, rhs, res, ROWS * COLS);
+        return res;
+    }
 };
 typedef Matrix<float, 3, 3> mat3;
 typedef Matrix<float, 4, 4> mat4;
@@ -395,9 +407,9 @@ inline float radians(float angle) { return angle / 180.0f * PI; }
 
 template <typename T, int D>
 Vector<T, D> normalize(const Vector<T, D>& v) {
-    Vector<T, D> ret = v;
-    ispc::Normalize(ret, D);
-    return ret;
+    Vector<T, D> res = v;
+    ispc::Normalize(res, D);
+    return res;
 }
 template <typename T>
 Vector3<T> cross(const Vector3<T>& v1, const Vector3<T>& v2) {
@@ -408,19 +420,19 @@ Vector3<T> cross(const Vector3<T>& v1, const Vector3<T>& v2) {
 
 template <typename T, int N>
 Matrix<T, N, N> inverse(const Matrix<T, N, N>& mat) {
-    Matrix<T, N, N> ret;
+    Matrix<T, N, N> res;
     bool            success = false;
     if (N == 4) {
-        ret     = mat;
-        success = ispc::InverseMatrix4X4f(ret);
+        res     = mat;
+        success = ispc::InverseMatrix4X4f(res);
     } else {
-        success = ispc::Inverse(mat, ret, N);
+        success = ispc::Inverse(mat, res, N);
     }
     if (!success) {
-        ret = Matrix<T, N, N>(1.0f);
+        res = Matrix<T, N, N>(1.0f);
         std::cout << "matrix is singular" << std::endl;
     }
-    return ret;
+    return res;
 }
 
 template <typename T, int ROWS, int COLS>
@@ -543,42 +555,42 @@ Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector4<T>& quatv) {
 }
 template <typename T>
 Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
-    auto ret = mat;
-    ret[0] *= v.x;
-    ret[1] *= v.y;
-    ret[2] *= v.z;
-    return ret;
+    auto res = mat;
+    res[0] *= v.x;
+    res[1] *= v.y;
+    res[2] *= v.z;
+    return res;
 }
 
 template <typename T>
 Matrix<T, 4, 4> perspectiveFov(T fov, T width, T height, T near, T far) {
-    Matrix<T, 4, 4> ret(static_cast<T>(0));
+    Matrix<T, 4, 4> res(static_cast<T>(0));
 
     const T h   = std::tan(static_cast<T>(0.5) * fov);
     const T w   = h * height / width;
     const T nmf = near - far;
 
-    ret[0][0] = 1 / w;
-    ret[1][1] = 1 / h;
-    ret[2][2] = (near + far) / nmf;
-    ret[2][3] = static_cast<T>(-1);
-    ret[3][2] = static_cast<T>(2) * near * far / nmf;
-    return ret;
+    res[0][0] = 1 / w;
+    res[1][1] = 1 / h;
+    res[2][2] = (near + far) / nmf;
+    res[2][3] = static_cast<T>(-1);
+    res[3][2] = static_cast<T>(2) * near * far / nmf;
+    return res;
 }
 template <typename T>
 Matrix<T, 4, 4> perspective(T fov, T aspect, T near, T far) {
-    Matrix<T, 4, 4> ret(static_cast<T>(0));
+    Matrix<T, 4, 4> res(static_cast<T>(0));
 
     const T h   = std::tan(static_cast<T>(0.5) * fov);
     const T w   = h * aspect;
     const T nmf = near - far;
 
-    ret[0][0] = static_cast<T>(1) / w;
-    ret[1][1] = static_cast<T>(1) / h;
-    ret[2][2] = (near + far) / nmf;
-    ret[2][3] = -static_cast<T>(1);
-    ret[3][2] = static_cast<T>(2) * near * far / nmf;
-    return ret;
+    res[0][0] = static_cast<T>(1) / w;
+    res[1][1] = static_cast<T>(1) / h;
+    res[2][2] = (near + far) / nmf;
+    res[2][3] = -static_cast<T>(1);
+    res[3][2] = static_cast<T>(2) * near * far / nmf;
+    return res;
 }
 
 template <typename T>
@@ -598,16 +610,16 @@ Matrix<T, 4, 4> lookAt(const Vector3<T>& position, const Vector3<T>& target,
 
 template <typename T>
 Matrix<T, 8, 8> DCT8x8(const Matrix<T, 8, 8>& pixel_block) {
-    Matrix<T, 8, 8> ret;
-    ispc::DCT(pixel_block, ret);
-    return ret;
+    Matrix<T, 8, 8> res;
+    ispc::DCT(pixel_block, res);
+    return res;
 }
 
 template <typename T>
 Matrix<T, 8, 8> IDCT8x8(const Matrix<T, 8, 8>& pixel_block) {
-    Matrix<T, 8, 8> ret;
-    ispc::IDCT(pixel_block, ret);
-    return ret;
+    Matrix<T, 8, 8> res;
+    ispc::IDCT(pixel_block, res);
+    return res;
 }
 
 }  // namespace My
