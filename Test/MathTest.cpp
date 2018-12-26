@@ -69,6 +69,10 @@ TEST(SwizzleTest, SwizzleTest) {
     vector_eq(v3, vec3(1, 3, 3));
     v3.zyx = {1, 3, 3};
     vector_eq(v3, vec3(3, 3, 1));
+    v3.r = 4;
+    vector_eq(v3, vec3(4, 3, 1));
+    vec4 v(v3.rgb, 1);
+    vector_eq(v, vec4(4, 3, 1, 1));
 }
 
 TEST(MatrixTest, MatInit) {
