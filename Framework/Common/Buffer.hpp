@@ -58,6 +58,11 @@ public:
         m_pData = nullptr;
     }
 
+    uint8_t*       GetData() { return m_pData; }
+    const uint8_t* GetData() const { return m_pData; }
+    size_t         GetDataSize() const { return m_szSize; }
+
+private:
     uint8_t* m_pData;
     size_t   m_szSize;
     size_t   m_szAlignment;
