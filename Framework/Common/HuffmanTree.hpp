@@ -16,15 +16,14 @@ public:
     HuffmanNode() = default;
     HuffmanNode(T value) : m_Value(value), m_isLeaf(true) {}
 
-    HuffmanNode(std::shared_ptr<HuffmanNode> left,
-                std::shared_ptr<HuffmanNode> right = nullptr)
-        : m_pLeft(left), m_pRight(right) {}
-
     bool isLeaf() { return m_isLeaf; }
 
-    T                                  getValue() const { return m_Value; }
-    const std::shared_ptr<HuffmanNode> getLeft() const { return m_pLeft; }
-    const std::shared_ptr<HuffmanNode> getRight() const { return m_pRight; }
+    T                                  GetValue() const { return m_Value; }
+    const std::shared_ptr<HuffmanNode> GetLeft() const { return m_pLeft; }
+    const std::shared_ptr<HuffmanNode> GetRight() const { return m_pRight; }
+
+    void SetLeft(std::shared_ptr<HuffmanNode> node) { m_pLeft = node; }
+    void SetRight(std::shared_ptr<HuffmanNode> node) { m_pRight = node; }
 
 protected:
     T                            m_Value;
@@ -36,7 +35,7 @@ protected:
 template <typename T>
 class HuffmanTree {
 public:
-    HuffmanTree() = default;
+    HuffmanTree() { m_pRoot = std::make_shared<HuffmanNode<T>>(); }
     void Dump() {
         std::string bits;
         Dump(m_pRoot, bits);
@@ -77,18 +76,19 @@ public:
             // Build lower layer Huffman tree
             // and push to the curr layer node queue
             while (sz_lower_layer > 0) {
-                std::shared_ptr<HuffmanNode<T>> left, right;
+                auto node = std::make_shared<HuffmanNode<T>>();
 
-                left = node_queue.front();
+                auto left = node_queue.front();
                 node_queue.pop();
+                node->SetLeft(left);
                 sz_lower_layer--;
 
                 if (sz_lower_layer > 0) {
-                    right = node_queue.front();
+                    auto right = node_queue.front();
                     node_queue.pop();
+                    node->SetRight(right);
                     sz_lower_layer--;
                 }
-                auto node = std::make_shared<HuffmanNode<T>>(left, right);
                 node_queue.push(node);
             }
         }
@@ -98,14 +98,14 @@ public:
             throw;
         }
 
-        std::shared_ptr<HuffmanNode<T>> left, right;
-        left = node_queue.front();
+        auto left = node_queue.front();
         node_queue.pop();
+        m_pRoot->SetLeft(left);
         if (!node_queue.empty()) {
-            right = node_queue.front();
+            auto right = node_queue.front();
             node_queue.pop();
+            m_pRoot->SetRight(right);
         }
-        m_pRoot = std::make_shared<HuffmanNode<T>>(left, right);
         return code_size;
     }
 
@@ -120,7 +120,7 @@ public:
             for (int j = 0; j < 8; j++) {
                 uint8_t bit = (data & (0x1 << (7 - j))) >> (7 - j);
                 curr_node =
-                    bit == 0 ? curr_node->getLeft() : curr_node->getRight();
+                    bit == 0 ? curr_node->GetLeft() : curr_node->GetRight();
 
                 if (!curr_node) {
                     std::cout << "Decode error at " << i * 8 + j << std::endl;
@@ -128,7 +128,7 @@ public:
                 }
 
                 if (curr_node->isLeaf()) {
-                    res.push_back(curr_node->getValue());
+                    res.push_back(curr_node->GetValue());
                     curr_node = m_pRoot;
                 }
             }
@@ -146,7 +146,7 @@ public:
             for (int j = bit_offset; j < 8; j++) {
                 uint8_t bit = (data & (0x1 << (7 - j))) >> (7 - j);
                 curr_node =
-                    bit == 0 ? curr_node->getLeft() : curr_node->getRight();
+                    bit == 0 ? curr_node->GetLeft() : curr_node->GetRight();
                 assert(curr_node);
                 if (curr_node->isLeaf()) {
                     if (j == 7) {
@@ -156,7 +156,7 @@ public:
                         byte_offset = i;
                         bit_offset  = j + 1;
                     }
-                    res = curr_node->getValue();
+                    res = curr_node->GetValue();
                     return res;
                 }
             }
@@ -177,11 +177,11 @@ private:
         if (node) {
             if (node->isLeaf()) {
                 std::cout << std::setw(5) << std::right << std::hex
-                          << static_cast<int>(node->getValue()) << "|"
+                          << static_cast<int>(node->GetValue()) << "|"
                           << std::left << bits << std::endl;
             } else {
-                Dump(node->getLeft(), bits + '0');
-                Dump(node->getRight(), bits + '1');
+                Dump(node->GetLeft(), bits + '0');
+                Dump(node->GetRight(), bits + '1');
             }
         }
     }
