@@ -180,6 +180,11 @@ struct Vector2 : public Vector<T, 2> {
     Vector2(const T& v) : base_vec(v) {}
     Vector2(const base_vec& v) : base_vec(v) {}
     Vector2(const T& x, const T& y) : base_vec({x, y}) {}
+    Vector2(const Vector2& v) : base_vec(v) {}
+    Vector2& operator=(const Vector2& v) {
+        if (this != &v) base_vec::operator=(v);
+        return *this;
+    }
 };
 template <typename T>
 struct Vector3 : public Vector<T, 3> {
@@ -212,6 +217,11 @@ struct Vector3 : public Vector<T, 3> {
     Vector3(const base_vec& v) : base_vec(v) {}
     Vector3(const T& x, const T& y, const T& z) : base_vec({x, y, z}) {}
     Vector3(const Vector2<T>& v, const T& z) : base_vec({v.x, v.y, z}) {}
+    Vector3(const Vector3& v) : base_vec(v) {}
+    Vector3& operator=(const Vector3& v) {
+        if (this != &v) base_vec::operator=(v);
+        return *this;
+    }
 };
 template <typename T>
 struct Vector4 : public Vector<T, 4> {
@@ -246,6 +256,11 @@ struct Vector4 : public Vector<T, 4> {
     Vector4(const Vector2<T>& v, const T& z, const T& w)
         : base_vec({v.x, v.y, z, w}) {}
     Vector4(const Vector3<T>& v, const T& w) : base_vec({v.x, v.y, v.z, w}) {}
+    Vector4(const Vector4& v) : base_vec(v) {}
+    Vector4& operator=(const Vector4& v) {
+        if (this != &v) base_vec::operator=(v);
+        return *this;
+    }
 };
 
 typedef Vector2<float>   vec2;
@@ -292,7 +307,7 @@ struct Matrix {
         std::fixed(out);
         for (int i = 0; i < ROWS; i++) {
             if (i == 0)
-                out << "{{";
+                out << "\n{{";
             else
                 out << " {";
             for (int j = 0; j < COLS; j++) {
@@ -395,7 +410,7 @@ struct Matrix {
 
     const Matrix mulByElement(const Matrix& rhs) const {
         Matrix res;
-        res = ispc::MulByElement(*this, rhs, res, ROWS * COLS);
+        ispc::MulByElement(*this, rhs, res, ROWS * COLS);
         return res;
     }
 };

@@ -32,6 +32,7 @@ TEST(VectorTest, VectorInit) {
     vector_eq(v2, vec2(1, 2));
     vector_eq(v3, vec3(1, 2, 3));
     vector_eq(vec3(1, 2, 0), vec3(v2, 0));
+    vector_eq(vec4(v3, 1), vec4(1, 2, 3, 1));
 }
 TEST(VectorTest, VectorCopy) {
     vec3 a(1);
@@ -71,8 +72,11 @@ TEST(SwizzleTest, SwizzleTest) {
     vector_eq(v3, vec3(3, 3, 1));
     v3.r = 4;
     vector_eq(v3, vec3(4, 3, 1));
-    vec4 v(v3.rgb, 1);
-    vector_eq(v, vec4(4, 3, 1, 1));
+    vec4 v4;
+    vec4 vx4 = vec4(1, 2, 3, 4);
+    v4       = vx4;
+    vx4.x    = 3;
+    vector_eq((vec3)v4.rgb, vec3(1, 2, 3));
 }
 
 TEST(MatrixTest, MatInit) {
