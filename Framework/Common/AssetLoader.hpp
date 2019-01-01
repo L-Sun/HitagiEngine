@@ -19,13 +19,13 @@ public:
 
     enum AssetSeekBase { MY_SEEK_SET, MY_SEEK_CUR, MY_SEEK_END };
 
-    bool AddSearchPath(const char* path);
-    bool RemoveSearchPath(const char* path);
-    bool FileExists(const char* filePath);
+    bool AddSearchPath(const std::string& path);
+    bool RemoveSearchPath(const std::string& path);
+    bool FileExists(const std::string& filePath);
 
-    std::fstream& OpenFile(const char* name, std::fstream& fstrm);
+    std::fstream& OpenFile(const std::string& name, std::fstream& fstrm);
 
-    Buffer SyncOpenAndRead(const char* filePath);
+    Buffer SyncOpenAndRead(const std::string& filePath);
 
     size_t SyncRead(std::fstream& fstrm, Buffer& buf);
 
@@ -35,11 +35,12 @@ public:
 
     std::istream& Seek(std::fstream& fstrm, long offset, AssetSeekBase where);
 
-    inline std::string SyncOpenAndReadTextFileToString(const char* fileName) {
+    inline std::string SyncOpenAndReadTextFileToString(
+        const std::string fileName) {
         std::string result;
 
         Buffer buffer  = SyncOpenAndRead(fileName);
-        char*  content = reinterpret_cast<char*>(buffer.m_pData);
+        char*  content = reinterpret_cast<char*>(buffer.GetData());
 
         if (content) result = std::string(std::move(content));
         return result;

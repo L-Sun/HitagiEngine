@@ -73,3 +73,9 @@ const shared_ptr<SceneCameraNode> Scene::GetNextCameraNode() const {
     if (_it == CameraNodes.cend()) return nullptr;
     return ((++_it == CameraNodes.cend()) ? nullptr : _it->second);
 }
+
+void Scene::LoadResource() {
+    for (auto& material : Materials) {
+        material.second->LoadTextures();
+    }
+}

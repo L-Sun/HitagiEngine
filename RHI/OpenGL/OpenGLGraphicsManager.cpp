@@ -107,8 +107,12 @@ void OpenGLGraphicsManager::Finalize() {
     for (auto buf : m_Buffers) {
         glDeleteBuffers(1, &buf);
     }
+    for (auto texture : m_Textures) {
+        glDeleteTextures(1, &texture);
+    }
 
     m_Buffers.clear();
+    m_Textures.clear();
 
     glDetachShader(m_shaderProgram, m_vertexShader);
     glDetachShader(m_shaderProgram, m_fragmentShader);
@@ -169,13 +173,45 @@ bool OpenGLGraphicsManager::SetPerFrameShaderParameters() {
 }
 
 bool OpenGLGraphicsManager::SetPerBatchShaderParameters(const char* paramName,
-                                                        float*      param) {
+                                                        const mat4& param) {
     unsigned int location;
     location = glGetUniformLocation(m_shaderProgram, paramName);
     if (location == -1) {
         return false;
     }
     glUniformMatrix4fv(location, 1, false, param);
+    return true;
+}
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(const char* paramName,
+                                                        const vec3& param) {
+    unsigned int location;
+    location = glGetUniformLocation(m_shaderProgram, paramName);
+    if (location == -1) {
+        return false;
+    }
+    glUniform3fv(location, 1, param);
+    return true;
+}
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(const char* paramName,
+                                                        const float param) {
+    unsigned int location;
+    location = glGetUniformLocation(m_shaderProgram, paramName);
+    if (location == -1) {
+        return false;
+    }
+    glUniform1f(location, param);
+    return true;
+}
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
+    const char* paramName, const GLint texture_index) {
+    unsigned int location;
+    location = glGetUniformLocation(m_shaderProgram, paramName);
+    if (location == -1) {
+        return false;
+    }
+
+    if (texture_index < GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS)
+        glUniform1i(location, texture_index);
     return true;
 }
 
@@ -307,12 +343,48 @@ void OpenGLGraphicsManager::InitializeBuffers() {
 
                 m_Buffers.push_back(buffer_id);
 
+                size_t      material_index = index_array.GetMaterialIndex();
+                std::string material_key =
+                    pGeometryNode->GetMaterialRef(material_index);
+                auto material = scene.GetMaterial(material_key);
+
+                if (material) {
+                    auto color = material->GetBaseColor();
+                    if (color.ValueMap) {
+                        auto texture = color.ValueMap->GetTextureImage();
+                        auto it      = m_TextureIndex.find(material_key);
+                        if (it == m_TextureIndex.end()) {
+                            GLuint texture_id;
+                            glGenTextures(1, &texture_id);
+                            glActiveTexture(GL_TEXTURE0 + texture_id);
+                            glBindTexture(GL_TEXTURE_2D, texture_id);
+                            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                         texture.Width, texture.Height, 0,
+                                         GL_RGBA, GL_UNSIGNED_BYTE,
+                                         texture.data);
+                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                                            GL_REPEAT);
+                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                                            GL_REPEAT);
+                            glTexParameteri(GL_TEXTURE_2D,
+                                            GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                            glTexParameteri(GL_TEXTURE_2D,
+                                            GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+                            m_TextureIndex[color.ValueMap->GetName()] =
+                                texture_id;
+                            m_Textures.push_back(texture_id);
+                        }
+                    }
+                }
+
                 DrawBatchContext& dbc = *(new DrawBatchContext);
                 dbc.vao               = vao;
                 dbc.mode              = mode;
                 dbc.type              = type;
                 dbc.transform         = pGeometryNode->GetCalculatedTransform();
-                dbc.counts.push_back(indexCount);
+                dbc.material          = material;
+                dbc.count             = indexCount;
                 m_DrawBatchContext.push_back(std::move(dbc));
             }
         }
@@ -337,13 +409,35 @@ void OpenGLGraphicsManager::RenderBuffers() {
     for (auto dbc : m_DrawBatchContext) {
         glUseProgram(m_shaderProgram);
         SetPerBatchShaderParameters("modelMatrix", *dbc.transform);
+
         glBindVertexArray(dbc.vao);
-        auto           indexBufferCount = dbc.counts.size();
-        const GLvoid** pIndicies        = new const GLvoid*[indexBufferCount];
-        memset(pIndicies, 0x00, sizeof(GLvoid*) * indexBufferCount);
-        glMultiDrawElements(dbc.mode, dbc.counts.data(), dbc.type, pIndicies,
-                            indexBufferCount);
-        delete[] pIndicies;
+        // auto           indexBufferCount = dbc.counts.size();
+        // const GLvoid** pIndicies        = new const
+        // GLvoid*[indexBufferCount]; memset(pIndicies, 0x00, sizeof(GLvoid*) *
+        // indexBufferCount); glMultiDrawElements(dbc.mode, dbc.counts.data(),
+        // dbc.type, pIndicies, indexBufferCount);
+        // delete[] pIndicies;
+
+        if (dbc.material) {
+            Color color = dbc.material->GetBaseColor();
+
+            if (color.ValueMap) {
+                SetPerBatchShaderParameters(
+                    "defaultSampler",
+                    m_TextureIndex[color.ValueMap->GetName()]);
+                SetPerBatchShaderParameters("diffuseColor", vec3(-1.0f));
+            } else {
+                SetPerBatchShaderParameters("diffuseColor", color.Value.rgb);
+            }
+
+            color = dbc.material->GetSpecularColor();
+            SetPerBatchShaderParameters("specularColor", color.Value.rgb);
+
+            Parameter param = dbc.material->GetSpecularPower();
+            SetPerBatchShaderParameters("specularPower", param.Value);
+        }
+
+        glDrawElements(dbc.mode, dbc.count, dbc.type, 0x00);
     }
     return;
 }
@@ -449,6 +543,7 @@ bool OpenGLGraphicsManager::InitializeShader(const char* vsFilename,
 
     glBindAttribLocation(m_shaderProgram, 0, "inputPosition");
     glBindAttribLocation(m_shaderProgram, 1, "inputNormal");
+    glBindAttribLocation(m_shaderProgram, 2, "inputUV");
 
     glLinkProgram(m_shaderProgram);
     glGetProgramiv(m_shaderProgram, GL_LINK_STATUS, &status);

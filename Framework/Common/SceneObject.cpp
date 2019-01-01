@@ -58,7 +58,7 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
     return out << std::endl;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
-    out << "Material: " << obj.m_MaterialIndex << std::endl;
+    out << "Material: " << obj.m_nMaterialIndex << std::endl;
     out << "Restart Index: 0x" << obj.m_szResetartIndex << std::endl;
     out << "Index Data Type: " << obj.m_DataType << std::endl;
     out << "Data Size: 0x" << obj.m_szData << std::endl;

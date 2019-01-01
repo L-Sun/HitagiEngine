@@ -45,5 +45,7 @@ public:
         const std::string& key) const;
     const std::shared_ptr<SceneObjectMaterial> GetFirstMaterial() const;
     const std::shared_ptr<SceneObjectMaterial> GetNextMaterial() const;
+
+    void LoadResource();
 };
 }  // namespace My

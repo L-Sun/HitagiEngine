@@ -3,8 +3,10 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <map>
 
 #include "GraphicsManager.hpp"
+#include "SceneObject.hpp"
 #include "geommath.hpp"
 #include "glad/glad.h"
 
@@ -18,7 +20,11 @@ public:
     virtual void Tick();
 
 private:
-    bool SetPerBatchShaderParameters(const char* paramName, float* param);
+    bool SetPerBatchShaderParameters(const char* paramName, const mat4& param);
+    bool SetPerBatchShaderParameters(const char* paramName, const vec3& param);
+    bool SetPerBatchShaderParameters(const char* paramName, const float param);
+    bool SetPerBatchShaderParameters(const char* paramName,
+                                     const GLint texture_index);
     bool SetPerFrameShaderParameters();
 
     void InitializeBuffers();
@@ -27,9 +33,10 @@ private:
     void CalculateLights();
     bool InitializeShader(const char* vsFilename, const char* fsFilename);
 
-    unsigned int m_vertexShader;
-    unsigned int m_fragmentShader;
-    unsigned int m_shaderProgram;
+    unsigned int                 m_vertexShader;
+    unsigned int                 m_fragmentShader;
+    unsigned int                 m_shaderProgram;
+    std::map<std::string, GLint> m_TextureIndex;
 
     struct DrawFrameContext {
         mat4 m_worldMatrix;
@@ -40,16 +47,18 @@ private:
     };
 
     struct DrawBatchContext {
-        GLuint                vao;
-        GLenum                mode;
-        GLenum                type;
-        std::vector<GLsizei>  counts;
-        std::shared_ptr<mat4> transform;
+        GLuint                               vao;
+        GLenum                               mode;
+        GLenum                               type;
+        GLsizei                              count;
+        std::shared_ptr<mat4>                transform;
+        std::shared_ptr<SceneObjectMaterial> material;
     };
 
     DrawFrameContext m_DrawFrameContext;
 
     std::vector<DrawBatchContext> m_DrawBatchContext;
     std::vector<GLuint>           m_Buffers;
+    std::vector<GLuint>           m_Textures;
 };
 }  // namespace My

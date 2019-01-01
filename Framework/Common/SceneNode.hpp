@@ -110,6 +110,9 @@ public:
     void AddMaterialRef(const std::string&& key) {
         m_Materials.push_back(std::move(key));
     }
+    std::string GetMaterialRef(const size_t index) {
+        return index < m_Materials.size() ? m_Materials[index] : std::string();
+    }
 };
 
 class SceneLightNode : public SceneNode<SceneObjectLight> {

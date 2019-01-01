@@ -8,21 +8,21 @@ void AssetLoader::Finalize() { return m_strSearchPath.clear(); }
 
 void AssetLoader::Tick() {}
 
-bool AssetLoader::AddSearchPath(const char* path) {
+bool AssetLoader::AddSearchPath(const std::string& path) {
     for (auto src : m_strSearchPath)
         if (src == path) return true;
     m_strSearchPath.push_back(path);
     return true;
 }
 
-bool AssetLoader::RemoveSearchPath(const char* path) {
+bool AssetLoader::RemoveSearchPath(const std::string& path) {
     for (auto src = m_strSearchPath.begin(); src != m_strSearchPath.end();
          src++)
         if (*src == path) m_strSearchPath.erase(src);
     return true;
 }
 
-bool AssetLoader::FileExists(const char* filePath) {
+bool AssetLoader::FileExists(const std::string& filePath) {
     std::fstream fstrm(filePath);
     if (fstrm) {
         CloseFile(fstrm);
@@ -31,7 +31,8 @@ bool AssetLoader::FileExists(const char* filePath) {
     return false;
 }
 
-std::fstream& AssetLoader::OpenFile(const char* name, std::fstream& fstrm) {
+std::fstream& AssetLoader::OpenFile(const std::string& name,
+                                    std::fstream&      fstrm) {
     std::string upPath;
     std::string fullPath;
 
@@ -61,7 +62,7 @@ std::fstream& AssetLoader::OpenFile(const char* name, std::fstream& fstrm) {
     return fstrm;
 }
 
-Buffer AssetLoader::SyncOpenAndRead(const char* filePath) {
+Buffer AssetLoader::SyncOpenAndRead(const std::string& filePath) {
     std::fstream fstrm;
     OpenFile(filePath, fstrm);
     Buffer* pBuff = nullptr;
@@ -75,8 +76,8 @@ Buffer AssetLoader::SyncOpenAndRead(const char* filePath) {
 #endif  // _DEBUG
 
         pBuff = new Buffer(length);
-        fstrm.read(reinterpret_cast<char*>(pBuff->m_pData), length);
-        pBuff->m_pData[length - 1] = '\0';
+        fstrm.read(reinterpret_cast<char*>(pBuff->GetData()), length);
+        pBuff->GetData()[length - 1] = '\0';
         CloseFile(fstrm);
     } else {
         std::cout << "Error opening file " << filePath << std::endl;
@@ -105,7 +106,7 @@ size_t AssetLoader::SyncRead(std::fstream& fstrm, Buffer& buf) {
         std::cout << "null file discriptor" << std::endl;
         return 0;
     }
-    fstrm >> buf.m_pData;
+    fstrm >> buf.GetData();
     return fstrm.tellg();
 }
 

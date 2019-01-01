@@ -10,21 +10,13 @@
 #include "Guid.hpp"
 #include "Image.hpp"
 #include "portable.hpp"
+#include "AssetLoader.hpp"
+#include "JPEG.hpp"
 
 namespace My {
-namespace details {
-constexpr int32_t i32(const char* s, int32_t v) {
-    return *s ? i32(s + 1, v * 256 + *s) : v;
-}
-}  // namespace details
-
-constexpr int32_t operator"" _i32(const char* s, size_t) {
-    return details::i32(s, 0);
-}
-
 enum SceneObjectType {
     SCENE_OBJECT_TYPE_MESH          = "MESH"_i32,
-    SCENE_OBJECT_TYPE_MATRIAL       = "MATL"_i32,
+    SCENE_OBJECT_TYPE_MATERIAL      = "MATL"_i32,
     SCENE_OBJECT_TYPE_TEXTURE       = "TXTU"_i32,
     SCENE_OBJECT_TYPE_LIGHT         = "LGHT"_i32,
     SCENE_OBJECT_TYPE_CAMERA        = "CAMR"_i32,
@@ -176,7 +168,7 @@ std::ostream& operator<<(std::ostream& out, const IndexDataType& type);
 
 class SceneObjectIndexArray {
 protected:
-    const uint32_t      m_MaterialIndex;
+    const uint32_t      m_nMaterialIndex;
     const size_t        m_szResetartIndex;
     const IndexDataType m_DataType;
     const void*         m_pData;
@@ -187,7 +179,7 @@ public:
         const uint32_t material_index = 0, const uint32_t restart_index = 0,
         const IndexDataType data_type = IndexDataType::INDEX_DATA_TYPE_INT16,
         const void* data = nullptr, const size_t data_size = 0)
-        : m_MaterialIndex(material_index),
+        : m_nMaterialIndex(material_index),
           m_szResetartIndex(restart_index),
           m_DataType(data_type),
           m_pData(data),
@@ -195,6 +187,7 @@ public:
     SceneObjectIndexArray(SceneObjectIndexArray&)  = default;
     SceneObjectIndexArray(SceneObjectIndexArray&&) = default;
 
+    const uint32_t      GetMaterialIndex() const { return m_nMaterialIndex; }
     const IndexDataType GetIndexType() const { return m_DataType; }
     const void*         GetData() const { return m_pData; }
     size_t              GetIndexCount() const { return m_szData; }
@@ -317,7 +310,7 @@ public:
     SceneObjectTexture()
         : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_TEXTURE),
           m_nTexCoordIndex(0) {}
-    SceneObjectTexture(std::string& name)
+    SceneObjectTexture(const std::string& name)
         : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_TEXTURE),
           m_nTexCoordIndex(0),
           m_Name(name) {}
@@ -332,8 +325,26 @@ public:
     SceneObjectTexture(SceneObjectTexture&)  = default;
     SceneObjectTexture(SceneObjectTexture&&) = default;
 
-    void SetName(std::string& name) { m_Name = name; }
     void AddTransform(mat4& matrix) { m_Transforms.push_back(matrix); }
+    void SetName(const std::string& name) { m_Name = name; }
+    void SetName(std::string&& name) { m_Name = std::move(name); }
+    void LoadTexture() {
+        if (!m_pImage) {
+            Buffer     buf = g_pAssetLoader->SyncOpenAndRead(m_Name);
+            JfifParser jfif_parser;
+            m_pImage = std::make_shared<Image>(jfif_parser.Parse(buf));
+        }
+    }
+    const std::string& GetName() const { return m_Name; }
+    const Image&       GetTextureImage() {
+        if (!m_pImage) {
+            Buffer     buf = g_pAssetLoader->SyncOpenAndRead(m_Name);
+            JfifParser jfif_parser;
+            m_pImage = std::make_shared<Image>(jfif_parser.Parse(buf));
+        }
+
+        return *m_pImage;
+    }
 
     friend std::ostream& operator<<(std::ostream&             out,
                                     const SceneObjectTexture& obj);
@@ -381,45 +392,80 @@ protected:
     Parameter   m_Metallic;
     Parameter   m_Roughness;
     Normal      m_Normal;
-    Parameter   m_Specular;
+    Color       m_Specular;
+    Parameter   m_SpecularPower;
     Parameter   m_AmbientOcclusion;
+    Color       m_Opacity;
+    Color       m_Transparency;
+    Color       m_Emission;
 
 public:
-    SceneObjectMaterial(const std::string& name)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_MATRIAL),
-          m_Name(name) {}
-    SceneObjectMaterial(const std::string&& name)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_MATRIAL),
-          m_Name(std::move(name)) {}
+    SceneObjectMaterial(void)
+        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_MATERIAL),
+          m_Name(""),
+          m_BaseColor(vec4(1.0f)),
+          m_Metallic(0.0f),
+          m_Roughness(0.0f),
+          m_Normal(vec3(0.0f, 0.0f, 1.0f)),
+          m_Specular(0.0f),
+          m_SpecularPower(1.0f),
+          m_AmbientOcclusion(1.0f),
+          m_Opacity(1.0f),
+          m_Transparency(0.0f),
+          m_Emission(0.0f){};
+    SceneObjectMaterial(const std::string& name) : SceneObjectMaterial() {
+        m_Name = name;
+    };
+    SceneObjectMaterial(std::string&& name) : SceneObjectMaterial() {
+        m_Name = std::move(name);
+    };
 
-    SceneObjectMaterial(const std::string& name       = "",
-                        Color&&            base_color = vec4(1.0f),
-                        Parameter&&        metallic   = 0.0f,
-                        Parameter&&        roughness  = 0.0f,
-                        Normal&&           normal     = vec3(0.0f, 0.0f, 1.0f),
-                        Parameter&& specular = 0.0f, Parameter&& ao = 0.0f)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_MATRIAL),
-          m_Name(name),
-          m_BaseColor(std::move(base_color)),
-          m_Metallic(std::move(metallic)),
-          m_Roughness(std::move(roughness)),
-          m_Normal(std::move(normal)),
-          m_Specular(std::move(specular)),
-          m_AmbientOcclusion(std::move(ao)) {}
+    const std::string& GetName() const { return m_Name; }
+    const Color&       GetBaseColor() const { return m_BaseColor; }
+    const Color&       GetSpecularColor() const { return m_Specular; }
+    const Parameter&   GetSpecularPower() const { return m_SpecularPower; }
 
     void SetName(const std::string& name) { m_Name = name; }
     void SetName(std::string&& name) { m_Name = std::move(name); }
-    void SetColor(std::string& attrib, vec4& color) {
-        if (attrib == "deffuse") m_BaseColor = Color(color);
+    void SetColor(const std::string& attrib, const vec4& color) {
+        if (attrib == "diffuse") m_BaseColor = Color(color);
+        if (attrib == "specular") m_Specular = Color(color);
+        if (attrib == "emission") m_Emission = Color(color);
+        if (attrib == "opacity") m_Opacity = Color(color);
+        if (attrib == "transparency") m_Transparency = Color(color);
     }
-    void SetParam(std::string& attrib, float param) {}
-    void SetTexture(std::string& attrib, std::string& textureName) {
+    void SetParam(const std::string& attrib, const float param) {
+        if (attrib == "specular_power") m_SpecularPower = Parameter(param);
+    }
+    void SetTexture(const std::string& attrib, const std::string& textureName) {
         if (attrib == "diffuse")
             m_BaseColor = std::make_shared<SceneObjectTexture>(textureName);
+        if (attrib == "specular")
+            m_Specular = std::make_shared<SceneObjectTexture>(textureName);
+        if (attrib == "specular_power")
+            m_SpecularPower = std::make_shared<SceneObjectTexture>(textureName);
+        if (attrib == "emission")
+            m_Emission = std::make_shared<SceneObjectTexture>(textureName);
+        if (attrib == "opacity")
+            m_Opacity = std::make_shared<SceneObjectTexture>(textureName);
+        if (attrib == "transparency")
+            m_Transparency = std::make_shared<SceneObjectTexture>(textureName);
+        if (attrib == "normal")
+            m_Normal = std::make_shared<SceneObjectTexture>(textureName);
     }
-    void SetTexture(std::string&                         attrib,
-                    std::shared_ptr<SceneObjectTexture>& texture) {
+    void SetTexture(const std::string&                         attrib,
+                    const std::shared_ptr<SceneObjectTexture>& texture) {
         if (attrib == "diffuse") m_BaseColor = texture;
+        if (attrib == "specular") m_Specular = texture;
+        if (attrib == "specular_power") m_SpecularPower = texture;
+        if (attrib == "emission") m_Emission = texture;
+        if (attrib == "opacity") m_Opacity = texture;
+        if (attrib == "transparency") m_Transparency = texture;
+        if (attrib == "normal") m_Normal = texture;
+    }
+
+    void LoadTextures() {
+        if (m_BaseColor.ValueMap) m_BaseColor.ValueMap->LoadTexture();
     }
 
     friend std::ostream& operator<<(std::ostream&              out,
