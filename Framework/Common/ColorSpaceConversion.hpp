@@ -21,7 +21,7 @@ const mat4 YCbCr2RGB = {
 // clang-format on
 
 inline YCbCr ConvertRGB2YCbCr(const RGB& rgb) {
-    vec4 result = vec4(rgb, 0.0f) * RGB2YCbCr;
+    vec4 result = vec4(rgb, 1.0f) * RGB2YCbCr;
     return result.xyz;
 }
 inline YCbCr ConvertRGB2YCbCr(const float& r, const float& g, const float& b) {
@@ -29,7 +29,7 @@ inline YCbCr ConvertRGB2YCbCr(const float& r, const float& g, const float& b) {
 }
 
 inline RGB ConvertYCbCr2RGB(const YCbCr& ycbcr) {
-    vec4 result = vec4(ycbcr, 0.0f) * YCbCr2RGB;
+    vec4 result = vec4(ycbcr, 1.0f) * YCbCr2RGB;
     return result.xyz;
 }
 inline RGB ConvertYCbCr2RGB(const float& Y, const float& Cb, const float& Cr) {
