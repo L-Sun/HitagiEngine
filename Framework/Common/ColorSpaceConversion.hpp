@@ -1,3 +1,4 @@
+#pragma once
 #include "geommath.hpp"
 
 namespace My {
@@ -19,19 +20,19 @@ const mat4 YCbCr2RGB = {
 };
 // clang-format on
 
-YCbCr ConvertRGB2YCbCr(const RGB& rgb) {
+inline YCbCr ConvertRGB2YCbCr(const RGB& rgb) {
     vec4 result = vec4(rgb, 0.0f) * RGB2YCbCr;
     return result.xyz;
 }
-YCbCr ConvertRGB2YCbCr(const float& r, const float& g, const float& b) {
+inline YCbCr ConvertRGB2YCbCr(const float& r, const float& g, const float& b) {
     return ConvertRGB2YCbCr(RGB(r, g, b));
 }
 
-RGB ConvertYCbCr2RGB(const YCbCr& ycbcr) {
+inline RGB ConvertYCbCr2RGB(const YCbCr& ycbcr) {
     vec4 result = vec4(ycbcr, 0.0f) * YCbCr2RGB;
     return result.xyz;
 }
-RGB ConvertYCbCr2RGB(const float& Y, const float& Cb, const float& Cr) {
+inline RGB ConvertYCbCr2RGB(const float& Y, const float& Cb, const float& Cr) {
     return ConvertYCbCr2RGB(YCbCr(Y, Cb, Cr));
 }
 }  // namespace My

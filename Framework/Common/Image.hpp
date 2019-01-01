@@ -2,7 +2,7 @@
 #include <iostream>
 
 namespace My {
-typedef struct _Image {
+struct Image {
     uint32_t Width;
     uint32_t Height;
     uint32_t bitcount;
@@ -10,7 +10,7 @@ typedef struct _Image {
     size_t   data_size;
 
     void* data;
-} Image;
+};
 
 std::ostream& operator<<(std::ostream& out, const Image& image);
 }  // namespace My

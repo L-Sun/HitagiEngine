@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <iomanip>
+#include <cassert>
 
 namespace My {
 
@@ -36,12 +37,12 @@ template <typename T>
 class HuffmanTree {
 public:
     HuffmanTree() = default;
-    void dump() {
+    void Dump() {
         std::string bits;
-        dump(m_pRoot, bits);
+        Dump(m_pRoot, bits);
     }
 
-    void fillHuffmanTree(const uint8_t layer[16], const uint8_t* code) {
+    size_t FillHuffmanTree(const uint8_t layer[16], const uint8_t* code) {
         size_t code_size = 0;
         for (int i = 0; i < 16; i++) {
             code_size += layer[i];
@@ -82,7 +83,7 @@ public:
                 node_queue.pop();
                 sz_lower_layer--;
 
-                if (sz_lower_layer != 0) {
+                if (sz_lower_layer > 0) {
                     right = node_queue.front();
                     node_queue.pop();
                     sz_lower_layer--;
@@ -92,9 +93,9 @@ public:
             }
         }
 
-        if (node_queue.size() != 1 || node_queue.size() != 2) {
+        if (node_queue.size() == 0 || node_queue.size() > 2) {
             std::cout << "Fill Huffman tree error!" << std::endl;
-            return;
+            throw;
         }
 
         std::shared_ptr<HuffmanNode<T>> left, right;
@@ -105,9 +106,10 @@ public:
             node_queue.pop();
         }
         m_pRoot = std::make_shared<HuffmanNode<T>>(left, right);
+        return code_size;
     }
 
-    std::vector<T> decode(const uint8_t* encoded_stream,
+    std::vector<T> Decode(const uint8_t* encoded_stream,
                           const size_t   encoded_stream_length) {
         std::vector<T> res;
         auto           curr_node = m_pRoot;
@@ -133,7 +135,7 @@ public:
         }
     }
 
-    T decodeSingleValue(const uint8_t* encoded_stream,
+    T DecodeSingleValue(const uint8_t* encoded_stream,
                         const size_t encoded_stream_length, size_t& byte_offset,
                         uint8_t& bit_offset) {
         T    res       = 0;
@@ -145,10 +147,7 @@ public:
                 uint8_t bit = (data & (0x1 << (7 - j))) >> (7 - j);
                 curr_node =
                     bit == 0 ? curr_node->getLeft() : curr_node->getRight();
-                if (!curr_node) {
-                    std::cout << "Decode error at " << i * 8 + j << std::endl;
-                    return 0;
-                }
+                assert(curr_node);
                 if (curr_node->isLeaf()) {
                     if (j == 7) {
                         byte_offset = i + 1;
@@ -172,14 +171,17 @@ public:
 
 private:
     std::shared_ptr<HuffmanNode<T>> m_pRoot;
-    void dump(const std::shared_ptr<HuffmanNode<T>>& node, std::string& bits) {
+
+    void Dump(const std::shared_ptr<HuffmanNode<T>>& node,
+              const std::string&                     bits) {
         if (node) {
             if (node->isLeaf()) {
-                std::cout << std::setw(5) << std::right << node->getValue()
-                          << "|" << std::left << bits << std::endl;
+                std::cout << std::setw(5) << std::right << std::hex
+                          << static_cast<int>(node->getValue()) << "|"
+                          << std::left << bits << std::endl;
             } else {
-                dump(node->getLeft(), bits + '0');
-                dump(node->getRight(), bits + '1');
+                Dump(node->getLeft(), bits + '0');
+                Dump(node->getRight(), bits + '1');
             }
         }
     }

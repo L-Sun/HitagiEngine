@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <climits>
 
+namespace My {
 template <typename T>
 T endian_native_unsigned_int(T net_number) {
     T result = 0;
@@ -26,3 +27,29 @@ T endian_net_unsigned_int(T native_number) {
     } while (i != 0);
     return result;
 }
+namespace details {
+constexpr int32_t i32(const char* s, int32_t v) {
+    return *s ? i32(s + 1, v * 256 + *s) : v;
+}
+
+constexpr uint16_t u16(const char* s, uint16_t v) {
+    return *s ? u16(s + 1, v * 256 + *s) : v;
+}
+
+constexpr uint32_t u32(const char* s, uint32_t v) {
+    return *s ? u32(s + 1, v * 256 + *s) : v;
+}
+}  // namespace details
+
+constexpr int32_t operator"" _i32(const char* s, size_t) {
+    return details::i32(s, 0);
+}
+
+constexpr uint32_t operator"" _u32(const char* s, size_t) {
+    return details::u32(s, 0);
+}
+
+constexpr uint16_t operator"" _u16(const char* s, size_t) {
+    return details::u16(s, 0);
+}
+}  // namespace My
