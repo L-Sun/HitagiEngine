@@ -7,8 +7,16 @@ uniform mat4 worldMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 
+uniform vec3 ambientColor = vec3( 0.03f, 0.03f, 0.03f );
+uniform vec3 diffuseColor = vec3( 0.5f, 0.5f, 0.5f );
+uniform vec3 specularColor = vec3( 1.0f, 1.0f, 1.0f );
+uniform float specularPower = 50.0f;
+
+uniform sampler2D defaultSampler;
+
 in vec4 normal;
 in vec4 v;
+in vec2 uv;
 
 out vec4 outputColor;
 
@@ -18,7 +26,8 @@ void main(void) {
     vec3 L = normalize((viewMatrix * vec4(lightPosition, 1.0f)).xyz - v.xyz);
     vec3 R = normalize(2 * dot(L,N) * N - L);
     vec3 V = normalize(v.xyz);
-    float diffuse = dot(N, L)*0.8;
-
-    outputColor = vec4(0.1+lightColor.xyz * clamp(diffuse + 0.05* dot(R, V), 0.0f, 1.0f), 1.0f);
+    if (diffuseColor.r < 0)
+        outputColor = vec4(ambientColor.rgb + lightColor.rgb * texture(defaultSampler, uv).rgb * dot(N, L) + specularColor.rgb * pow(dot(R, V), specularPower), 1.0f); 
+    else
+        outputColor = vec4(ambientColor.rgb + lightColor.rgb * diffuseColor.rgb * dot(N, L) + specularColor.rgb * pow(dot(R, V), specularPower), 1.0f); 
 }
