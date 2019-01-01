@@ -17,6 +17,10 @@ add_executable(SceneLoadingTest SceneLoadingTest.cpp)
 target_link_libraries(SceneLoadingTest Common ${OPENGEX_LIBRARY} ${OPENDDL_LIBRARY} ${XG_LIBRARY})
 add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest)
 
+add_executable(JpegParserTest JpegParserTest.cpp)
+target_link_libraries(JpegParserTest Common ${OPENGEX_LIBRARY} ${OPENDDL_LIBRARY} ${XG_LIBRARY})
+add_test(NAME TEST_JpegParser COMMAND JpegParserTest)
+
 add_executable(MathTest MathTest.cpp)
 target_link_libraries(MathTest GeomMath ${GTEST_BOTH_LIBRARIES})
 gtest_add_tests(TARGET MathTest)
