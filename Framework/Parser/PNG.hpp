@@ -91,7 +91,7 @@ public:
         const uint8_t* pDataEnd = pData + buf.GetDataSize();
 
         const PNG_FILEHEADER* pFileHeader =
-            reinterpret_cast<const PNG_FILEHEADER*>(pData);
+            (reinterpret_cast<const PNG_FILEHEADER*>(pData));
 
         pData += sizeof(PNG_FILEHEADER);
 
@@ -102,7 +102,9 @@ public:
             while (pData < pDataEnd) {
                 const PNG_CHUNK* pChunk =
                     reinterpret_cast<const PNG_CHUNK*>(pData);
-                PNG_CHUNK_TYPE type = pChunk->Type;
+                PNG_CHUNK_TYPE type =
+                    static_cast<PNG_CHUNK_TYPE>(endian_net_unsigned_int(
+                        static_cast<uint32_t>(pChunk->Type)));
                 std::cout << "==========================" << std::endl;
                 switch (type) {
                     case PNG_CHUNK_TYPE::IHDR: {
@@ -110,21 +112,23 @@ public:
                         std::cout << "-----------------------" << std::endl;
                         const PNG_IHDR* pIhdr =
                             reinterpret_cast<const PNG_IHDR*>(pData);
-                        m_Width             = pIhdr->Width;
-                        m_Height            = pIhdr->Height;
-                        m_BitDepth          = pIhdr->BitDepth;
-                        m_ColorType         = pIhdr->ColorType;
+                        m_Width     = endian_net_unsigned_int(pIhdr->Width);
+                        m_Height    = endian_net_unsigned_int(pIhdr->Height);
+                        m_BitDepth  = pIhdr->BitDepth;
+                        m_ColorType = pIhdr->ColorType;
                         m_CompressionMethod = pIhdr->CompressionMethod;
                         m_FilterMethod      = pIhdr->FilterMethod;
                         m_InterlaceMethod   = pIhdr->InterlaceMethod;
 
                         switch (m_ColorType) {
                             case 0:  // grayscale
-                            case 3:  // indexed
                                 m_BytesPerPixel = (m_BitDepth + 7) >> 3;
                                 break;
                             case 2:  // rgb true color
                                 m_BytesPerPixel = (m_BitDepth * 3) >> 3;
+                                break;
+                            case 3:  // indexed
+                                m_BytesPerPixel = (m_BitDepth + 7) >> 3;
                                 break;
                             case 4:  // grayscale with alpha
                                 m_BytesPerPixel = (m_BitDepth * 2) >> 3;
