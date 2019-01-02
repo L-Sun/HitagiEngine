@@ -13,8 +13,9 @@ void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2,
 
 TEST(ColorSpaceConversionTest, RGB2YCbCr) {
     RGB rgb = {64, 35, 17};
-    vector_eq(YCbCr(41.619, -13.8933, 15.9636), ConvertRGB2YCbCr(rgb), 1e-4);
-    vector_eq(rgb, ConvertYCbCr2RGB(YCbCr(41.619, -13.8933, 15.9636)), 1e-4);
+    vector_eq(YCbCr(41.619, 114.106658, 143.96362), ConvertRGB2YCbCr(rgb),
+              1e-4);
+    vector_eq(rgb, ConvertYCbCr2RGB(YCbCr(41.619, 114.106, 143.96)), 1e-2);
 }
 
 int main(int argc, char* argv[]) {
