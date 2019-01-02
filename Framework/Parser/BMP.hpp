@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include "geommath.hpp"
 #include "ImageParser.hpp"
 
 namespace My {
@@ -32,9 +33,9 @@ public:
     virtual Image Parse(const Buffer& buf) {
         Image              img;
         BITMAP_FILEHEADER* pFileHeader =
-            reinterpret_cast<BITMAP_FILEHEADER*>(buf.m_pData);
+            reinterpret_cast<BITMAP_FILEHEADER*>(buf.GetData());
         BITMAP_HEADER* pBmpHeader = reinterpret_cast<BITMAP_HEADER*>(
-            buf.m_pData + BITMAP_FILEHEADER_SIZE);
+            buf.GetData() + BITMAP_FILEHEADER_SIZE);
 
         if (pFileHeader->Signature == 0x4D42 /* 'B''M' */) {
             std::cout << "Asset is Windows BMP file" << std::endl;
@@ -64,7 +65,7 @@ public:
                 std::cout << "Sorry, only true color BMP is suported at now"
                           << std::endl;
             } else {
-                uint8_t* pSourceData = buf.m_pData + pFileHeader->BitsOffset;
+                uint8_t* pSourceData = buf.GetData() + pFileHeader->BitsOffset;
 
                 for (int32_t y = img.Height - 1; y >= 0; y--)
                     for (uint32_t x = 0; x < img.Width; x++)

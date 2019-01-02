@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <climits>
+#include <cassert>
 
 namespace My {
 template <typename T>

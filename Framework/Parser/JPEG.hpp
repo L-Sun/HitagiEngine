@@ -6,7 +6,6 @@
 #include "ImageParser.hpp"
 #include "HuffmanTree.hpp"
 #include "ColorSpaceConversion.hpp"
-#include <cassert>
 
 // #define DUMP_DETAILS 1
 
