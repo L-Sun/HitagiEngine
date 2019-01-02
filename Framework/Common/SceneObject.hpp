@@ -12,6 +12,8 @@
 #include "portable.hpp"
 #include "AssetLoader.hpp"
 #include "JPEG.hpp"
+#include "PNG.hpp"
+#include "BMP.hpp"
 
 namespace My {
 enum SceneObjectType {
@@ -330,17 +332,24 @@ public:
     void SetName(std::string&& name) { m_Name = std::move(name); }
     void LoadTexture() {
         if (!m_pImage) {
-            Buffer     buf = g_pAssetLoader->SyncOpenAndRead(m_Name);
-            JfifParser jfif_parser;
-            m_pImage = std::make_shared<Image>(jfif_parser.Parse(buf));
+            Buffer      buf = g_pAssetLoader->SyncOpenAndRead(m_Name);
+            std::string ext = m_Name.substr(m_Name.find_last_of("."));
+            if (ext == ".jpg" || ext == ".jpeg") {
+                JfifParser jfif_parser;
+                m_pImage = std::make_shared<Image>(jfif_parser.Parse(buf));
+            } else if (ext == ".png") {
+                PngParser png_parser;
+                m_pImage = std::make_shared<Image>(png_parser.Parse(buf));
+            } else if (ext == ".bmp") {
+                BmpParser bmp_parser;
+                m_pImage = std::make_shared<Image>(bmp_parser.Parse(buf));
+            }
         }
     }
     const std::string& GetName() const { return m_Name; }
     const Image&       GetTextureImage() {
         if (!m_pImage) {
-            Buffer     buf = g_pAssetLoader->SyncOpenAndRead(m_Name);
-            JfifParser jfif_parser;
-            m_pImage = std::make_shared<Image>(jfif_parser.Parse(buf));
+            LoadTexture();
         }
 
         return *m_pImage;

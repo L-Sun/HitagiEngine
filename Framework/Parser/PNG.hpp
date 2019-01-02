@@ -321,7 +321,7 @@ public:
         } else {
             std::cout << "File is not a PNG file!" << std::endl;
         }
-        return std::move(img);
+        return img;
     }
 };
 }  // namespace My
