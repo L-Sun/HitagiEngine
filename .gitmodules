@@ -10,3 +10,6 @@
 [submodule "glad"]
 	path = External/src/glad
 	url = https://github.com/L-Sun/glad.git
+[submodule "zlib"]
+	path = External/src/zlib
+	url = https://github.com/L-Sun/zlib.git
