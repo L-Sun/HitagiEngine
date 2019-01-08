@@ -8,6 +8,7 @@
 #include "include/Vector.h"
 #include "include/Matrix.h"
 #include "include/DCT.h"
+#include "include/Integral.h"
 
 namespace My {
 
@@ -642,6 +643,11 @@ Matrix<T, 8, 8> IDCT8x8(const Matrix<T, 8, 8>& pixel_block) {
     Matrix<T, 8, 8> res;
     ispc::IDCT(pixel_block, res);
     return res;
+}
+
+template <typename T, typename F>
+const T integral(const T& a, const T& b, const T& precision, F&& func) {
+    return ispc::Integral(a, b, precision, func);
 }
 
 }  // namespace My
