@@ -17,7 +17,6 @@ public:
     virtual void Finalize();
     virtual void Clear();
     virtual void Draw();
-    virtual void Tick();
 
 private:
     bool SetPerBatchShaderParameters(const char* paramName, const mat4& param);
@@ -29,22 +28,12 @@ private:
 
     void InitializeBuffers();
     void RenderBuffers();
-    void CalculateCameraMatrix();
-    void CalculateLights();
     bool InitializeShader(const char* vsFilename, const char* fsFilename);
 
     unsigned int                 m_vertexShader;
     unsigned int                 m_fragmentShader;
     unsigned int                 m_shaderProgram;
     std::map<std::string, GLint> m_TextureIndex;
-
-    struct DrawFrameContext {
-        mat4 m_worldMatrix;
-        mat4 m_viewMatrix;
-        mat4 m_projectionMatrix;
-        vec3 m_lightPosition;
-        vec4 m_lightColor;
-    };
 
     struct DrawBatchContext {
         GLuint                               vao;
@@ -54,8 +43,6 @@ private:
         std::shared_ptr<mat4>                transform;
         std::shared_ptr<SceneObjectMaterial> material;
     };
-
-    DrawFrameContext m_DrawFrameContext;
 
     std::vector<DrawBatchContext> m_DrawBatchContext;
     std::vector<GLuint>           m_Buffers;

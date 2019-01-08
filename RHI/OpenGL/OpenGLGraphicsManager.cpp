@@ -60,6 +60,10 @@ static void OutputLinkerErrorMessage(unsigned int programId) {
 
 int OpenGLGraphicsManager::Initialize() {
     int result;
+    result = GraphicsManager::Initialize();
+    if (result) {
+        return result;
+    }
     result = gladLoadGL();
     if (!result) {
         cout << "OpenGL load failed!\n";
@@ -85,8 +89,6 @@ int OpenGLGraphicsManager::Initialize() {
             // Enable back face culling.
             glEnable(GL_CULL_FACE);
             glCullFace(GL_BACK);
-
-            m_DrawFrameContext.m_worldMatrix = mat4(1.0f);
         }
         InitializeShader(VS_SHADER_SOURCE_FILE, FS_SHADER_SOURCE_FILE);
         InitializeBuffers();
@@ -100,10 +102,6 @@ void OpenGLGraphicsManager::Finalize() {
     }
     m_DrawBatchContext.clear();
 
-    for (auto i = 0; i < m_Buffers.size() - 1; i++) {
-        glDisableVertexAttribArray(i);
-    }
-
     for (auto buf : m_Buffers) {
         glDeleteBuffers(1, &buf);
     }
@@ -114,21 +112,30 @@ void OpenGLGraphicsManager::Finalize() {
     m_Buffers.clear();
     m_Textures.clear();
 
-    glDetachShader(m_shaderProgram, m_vertexShader);
-    glDetachShader(m_shaderProgram, m_fragmentShader);
-    glDeleteShader(m_vertexShader);
-    glDeleteShader(m_fragmentShader);
-    glDeleteProgram(m_shaderProgram);
+    if (m_shaderProgram) {
+        if (m_vertexShader) {
+            glDetachShader(m_shaderProgram, m_vertexShader);
+            glDeleteShader(m_vertexShader);
+        }
+        if (m_fragmentShader) {
+            glDetachShader(m_shaderProgram, m_fragmentShader);
+            glDeleteShader(m_fragmentShader);
+        }
+
+        glDeleteProgram(m_shaderProgram);
+    }
+
+    GraphicsManager::Finalize();
 }
 
-void OpenGLGraphicsManager::Tick() {}
-
 void OpenGLGraphicsManager::Clear() {
+    GraphicsManager::Clear();
     glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void OpenGLGraphicsManager::Draw() {
+    GraphicsManager::Draw();
     RenderBuffers();
     glFlush();
 }
@@ -394,16 +401,6 @@ void OpenGLGraphicsManager::InitializeBuffers() {
 }
 
 void OpenGLGraphicsManager::RenderBuffers() {
-    static float rotateAngle = 0.0f;
-
-    rotateAngle = PI / 120.0;
-
-    mat4& worldMat = m_DrawFrameContext.m_worldMatrix;
-    worldMat       = rotate(worldMat, rotateAngle, vec3(0.0f, 0.0f, 1.0f));
-
-    CalculateCameraMatrix();
-    CalculateLights();
-
     SetPerFrameShaderParameters();
 
     for (auto dbc : m_DrawBatchContext) {
@@ -440,62 +437,6 @@ void OpenGLGraphicsManager::RenderBuffers() {
         glDrawElements(dbc.mode, dbc.count, dbc.type, 0x00);
     }
     return;
-}
-
-void OpenGLGraphicsManager::CalculateCameraMatrix() {
-    auto& scene       = g_pSceneManager->GetSceneForRendering();
-    auto  pCameraNode = scene.GetFirstCameraNode();
-
-    mat4& viewMat = m_DrawFrameContext.m_viewMatrix;
-    if (pCameraNode) {
-        viewMat = *pCameraNode->GetCalculatedTransform();
-        viewMat = inverse(viewMat);
-    } else {
-        vec3 position(0, -5, 0);
-        vec3 look_at(0, 0, 0);
-        vec3 up(0, 0, 1);
-        viewMat = lookAt(position, look_at, up);
-    }
-
-    float fieldOfView      = PI / 2.0f;
-    float nearClipDistance = 1.0f;
-    float farClipDistance  = 100.0f;
-
-    if (pCameraNode) {
-        auto pCamera = scene.GetCamera(pCameraNode->GetSceneObjectRef());
-        fieldOfView =
-            dynamic_pointer_cast<SceneObjectPerspectiveCamera>(pCamera)
-                ->GetFov();
-        nearClipDistance = pCamera->GetNearClipDistance();
-        farClipDistance  = pCamera->GetFarClipDistance();
-    }
-    const GfxConfiguration& conf = g_pApp->GetConfiguration();
-    float screenAspect = (float)conf.screenWidth / (float)conf.screenHeight;
-    m_DrawFrameContext.m_projectionMatrix = perspective(
-        fieldOfView, screenAspect, nearClipDistance, farClipDistance);
-}
-
-void OpenGLGraphicsManager::CalculateLights() {
-    auto& scene      = g_pSceneManager->GetSceneForRendering();
-    auto  pLightNode = scene.GetFirstLightNode();
-
-    vec3& lightPos   = m_DrawFrameContext.m_lightPosition;
-    vec4& lightColor = m_DrawFrameContext.m_lightColor;
-
-    if (pLightNode) {
-        lightPos = vec3(0.0f);
-        auto _lightPos =
-            *pLightNode->GetCalculatedTransform() * vec4(lightPos, 1.0f);
-        lightPos = vec3(_lightPos);
-
-        auto pLight = scene.GetLight(pLightNode->GetSceneObjectRef());
-        if (pLight) {
-            lightColor = pLight->GetColor().Value;
-        }
-    } else {
-        lightPos   = vec3(-1.0f, -5.0f, 0.0f);
-        lightColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    }
 }
 
 bool OpenGLGraphicsManager::InitializeShader(const char* vsFilename,

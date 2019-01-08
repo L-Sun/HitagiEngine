@@ -6,6 +6,9 @@
 #include "SceneNode.hpp"
 namespace My {
 class Scene {
+private:
+    std::shared_ptr<SceneObjectMaterial> m_pDefaultMaterial;
+
 public:
     std::shared_ptr<BaseSceneNode> SceneGraph;
     std::unordered_multimap<std::string, std::shared_ptr<SceneCameraNode>>
@@ -23,6 +26,9 @@ public:
         Geometries;
 
 public:
+    Scene() {
+        m_pDefaultMaterial = std::make_shared<SceneObjectMaterial>("default");
+    }
     Scene(const std::string& scene_name)
         : SceneGraph(new BaseSceneNode(scene_name)) {}
     ~Scene() = default;

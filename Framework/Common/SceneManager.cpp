@@ -3,10 +3,12 @@
 #include "OGEX.hpp"
 
 using namespace My;
+
 SceneManager::~SceneManager() {}
 
 int SceneManager::Initialize() {
     int result = 0;
+    m_pScene   = make_unique<Scene>();
     return result;
 }
 void SceneManager::Finalize() {}
@@ -16,6 +18,7 @@ void SceneManager::Tick() {}
 int SceneManager::LoadScene(const char* scene_file_name) {
     if (LoadOgexScene(scene_file_name)) {
         m_pScene->LoadResource();
+        m_bDirtyFlag = true;
         return 0;
     } else {
         return -1;
@@ -38,4 +41,9 @@ bool SceneManager::LoadOgexScene(const char* ogex_scene_file_name) {
     return true;
 }
 
-const Scene& SceneManager::GetSceneForRendering() { return *m_pScene; }
+const Scene& SceneManager::GetSceneForRendering() {
+    m_bDirtyFlag = false;
+    return *m_pScene;
+}
+
+bool SceneManager::IsSceneChanged() { return m_bDirtyFlag; }
