@@ -4,6 +4,7 @@
 #include "MemoryManager.hpp"
 #include "AssetLoader.hpp"
 #include "SceneManager.hpp"
+#include "InputManager.hpp"
 
 namespace My {
 class BaseApplication : implements IApplication {
@@ -14,13 +15,17 @@ public:
     virtual void Tick();
     virtual bool IsQuit();
 
+    virtual void SetCommandLineParameters(int argc, char** argv);
+    virtual int  LoadScene();
+    virtual void OnDraw() {}
+
     inline GfxConfiguration& GetConfiguration() { return m_Config; }
 
 protected:
-    virtual void OnDraw() {}
-
     static bool      m_bQuit;
     GfxConfiguration m_Config;
+    int              m_nArgC;
+    char**           m_ppArgV;
 
 private:
     BaseApplication() {}
