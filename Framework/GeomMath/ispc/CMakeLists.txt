@@ -5,6 +5,8 @@ Multiplication
 Division
 Vector
 Integral
+Matrix
+DCT
 )
 
 foreach(FUNC IN LISTS FUNCTIONS)
