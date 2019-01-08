@@ -7,6 +7,7 @@ MemoryManager.cpp
 Scene.cpp
 SceneObject.cpp
 SceneManager.cpp
+InputManager.cpp
 Image.cpp
 main.cpp
 )
