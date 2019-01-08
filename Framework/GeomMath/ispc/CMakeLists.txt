@@ -4,8 +4,7 @@ Subtraction
 Multiplication
 Division
 Vector
-Matrix
-DCT
+Integral
 )
 
 foreach(FUNC IN LISTS FUNCTIONS)
@@ -14,6 +13,7 @@ foreach(FUNC IN LISTS FUNCTIONS)
         add_custom_command(OUTPUT ${FUNC}.o
             COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMAND sed -i '' 's/const uint32_t count/const size_t count/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h
+            COMMAND sed -i '' 's/float\) [\*] f/\*f\)\(float\)/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h # quick fix function pointer error
             MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMENT "Building ${FUNC}"
         )
@@ -21,6 +21,7 @@ foreach(FUNC IN LISTS FUNCTIONS)
         add_custom_command(OUTPUT ${FUNC}.o
             COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMAND gsed -i 's/const uint32_t count/const size_t count/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h
+            COMMAND gsed -i 's/float\) [\*] f/\*f\)\(float\)/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h # quick fix function pointer error
             MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMENT "Building ${FUNC}"
         )
@@ -28,6 +29,7 @@ foreach(FUNC IN LISTS FUNCTIONS)
         add_custom_command(OUTPUT ${FUNC}.o
             COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMAND sed -i "s/const uint32_t count/const size_t count/" ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h
+            COMMAND sed -i "s/float\) [\*] f/\*f\)\(float\)/" ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h # quick fix function pointer error
             COMMAND rm -f ${GEOMMATH_LIB_HEADER_FOLDER}/sed?????? #quick fix for Gnu for Win32 sed
             MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMENT "Building ${FUNC}"
@@ -36,6 +38,7 @@ foreach(FUNC IN LISTS FUNCTIONS)
         add_custom_command(OUTPUT ${FUNC}.o
             COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMAND sed -i 's/const uint32_t count/const size_t count/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h
+            COMMAND sed -i 's/float\) [\*] f/\*f\)\(float\)/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h # quick fix function pointer error
             MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMENT "Building ${FUNC}"
         )
@@ -51,6 +54,6 @@ add_custom_command(OUTPUT ${GEOMMATH_LIB_FILE}
         DEPENDS ${OBJECTS}
         )
 
-add_custom_target(GeomMathLib
+add_custom_target(MathLib
                    DEPENDS ${GEOMMATH_LIB_FILE}
         )
