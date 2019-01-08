@@ -6,6 +6,8 @@
 using namespace My;
 using namespace std;
 
+#define DEBUG 1
+
 int  InputManager::Initialize() { return 0; }
 void InputManager::Finalize() {}
 void InputManager::Tick() {}
