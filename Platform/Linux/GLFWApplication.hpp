@@ -20,5 +20,8 @@ private:
         {GLFW_CONTEXT_VERSION_MINOR, 5},
         {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
         {GLFW_SAMPLES, 4}};
+
+    static void KeyCallback(GLFWwindow* window, int key, int scancode,
+                            int action, int mods);
 };
 }  // namespace My
