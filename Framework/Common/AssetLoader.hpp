@@ -9,7 +9,7 @@
 
 namespace My {
 
-class AssetLoader : public IRuntimeMoudle {
+class AssetLoader : public IRuntimeModule {
 public:
     virtual ~AssetLoader(){};
 

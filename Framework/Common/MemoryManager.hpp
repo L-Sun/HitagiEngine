@@ -3,7 +3,7 @@
 #include "Allocator.hpp"
 
 namespace My {
-class MemoryManager : implements IRuntimeMoudle {
+class MemoryManager : implements IRuntimeModule {
 public:
     template <typename T, typename... Arguments>
     T* New(Arguments... parameters) {
