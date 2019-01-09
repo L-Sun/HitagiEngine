@@ -129,7 +129,7 @@ void GraphicsManager::CalculateLights() {
     if (pLightNode) {
         lightPos = vec3(0.0f);
         auto _lightPos =
-            *pLightNode->GetCalculatedTransform() * vec4(lightPos, 1.0f);
+            vec4(lightPos, 1.0f) * (*pLightNode->GetCalculatedTransform());
         lightPos = vec3(_lightPos);
 
         auto pLight = scene.GetLight(pLightNode->GetSceneObjectRef());
