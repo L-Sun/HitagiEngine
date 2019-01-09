@@ -50,7 +50,7 @@ std::fstream& AssetLoader::OpenFile(const std::string& name,
             }
             fullPath.append(name);
 
-#if defined(_DEBUG)
+#ifdef DEBUG
             std::cout << "Trying to open " << fullPath << std::endl;
 #endif  // _DEBUG
 
@@ -70,7 +70,7 @@ Buffer AssetLoader::SyncOpenAndRead(const std::string& filePath) {
     if (fstrm) {
         size_t length = GetSize(fstrm) + 1;
 
-#if defined(_DEBUG)
+#ifdef DEBUG
         std::cout << "Read file " << filePath << ", " << length << " byte(s)"
                   << std::endl;
 #endif  // _DEBUG
