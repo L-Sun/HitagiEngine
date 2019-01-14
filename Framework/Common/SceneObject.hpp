@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <type_traits>
+#include <traits>
 
 #include "geommath.hpp"
 
@@ -26,23 +26,23 @@ enum SceneObjectType {
     ANIMATOR      = "ANIM"_i32,
     CLIP          = "CLIP"_i32,
     GEOMETRY      = "GEOM"_i32,
-    _INDEX_ARRAY  = "VARR"_i32,
+    INDEX_ARRAY   = "VARR"_i32,
     VERETEX_ARRAY = "VARR"_i32,
 };
 
 enum SceneObjectCollisionType {
-    TYPE_NONE         = "CNON"_i32,
-    TYPE_SPHERE       = "CSPH"_i32,
-    TYPE_BOX          = "CBOX"_i32,
-    TYPE_CYLINDER     = "CCYL"_i32,
-    TYPE_CAPSULE      = "CCAP"_i32,
-    TYPE_CONE         = "CCON"_i32,
-    TYPE_MULTI_SPHERE = "CMUL"_i32,
-    TYPE_CONVEX_HULL  = "CCVH"_i32,
-    TYPE_CONVEX_MESH  = "CCVM"_i32,
-    TYPE_BVH_MESH     = "CBVM"_i32,
-    TYPE_HEIGHTFIELD  = "CHIG"_i32,
-    TYPE_PLANE        = "CPLN"_i32,
+    NONE         = "CNON"_i32,
+    SPHERE       = "CSPH"_i32,
+    BOX          = "CBOX"_i32,
+    CYLINDER     = "CCYL"_i32,
+    CAPSULE      = "CCAP"_i32,
+    CONE         = "CCON"_i32,
+    MULTI_SPHERE = "CMUL"_i32,
+    CONVEX_HULL  = "CCVH"_i32,
+    CONVEX_MESH  = "CCVM"_i32,
+    BVH_MESH     = "CBVM"_i32,
+    HEIGHTFIELD  = "CHIG"_i32,
+    PLANE        = "CPLN"_i32,
 };
 
 std::ostream& operator<<(std::ostream& out, SceneObjectType type);
@@ -512,7 +512,7 @@ protected:
 public:
     SceneObjectGeometry()
         : BaseSceneObject(SceneObjectType::GEOMETRY),
-          m_CollisionType(SceneObjectCollisionType::TYPE_NONE) {}
+          m_CollisionType(SceneObjectCollisionType::NONE) {}
     void SetVisibility(bool visible) { m_bVisible = visible; }
     void SetIfCastShadow(bool shadow) { m_bShadow = shadow; }
     void SetIfMotionBlur(bool motion_blur) { m_bMotionBlur = motion_blur; }
