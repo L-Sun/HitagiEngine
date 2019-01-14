@@ -33,3 +33,7 @@ gtest_add_tests(TARGET MathTest)
 add_executable(ColorSpaceConversionTest ColorSpaceConversionTest.cpp)
 target_link_libraries(ColorSpaceConversionTest GeomMath ${GTEST_BOTH_LIBRARIES})
 gtest_add_tests(TARGET ColorSpaceConversionTest)
+
+add_executable(BulletTest BulletTest.cpp)
+target_link_libraries(BulletTest ${BULLET_DYNAMICS_LIBRARY} ${BULLET_COLLISION_LIBRARY} ${BULLET_LINEARMATH_LIBRARY})
+add_test(NAME TEST_Bullet COMMAND BulletTest)
