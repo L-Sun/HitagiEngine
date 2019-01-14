@@ -15,12 +15,14 @@ public:
     int LoadScene(const char* scene_file_name);
 
     bool         IsSceneChanged();
+    void         NotifySceneIsRenderingQueued();
     const Scene& GetSceneForRendering();
+    void         ResetScene();
 
 protected:
     bool LoadOgexScene(const char* ogex_scene_file_name);
 
-    std::unique_ptr<Scene> m_pScene;
+    std::shared_ptr<Scene> m_pScene;
     bool                   m_bDirtyFlag = false;
 };
 

@@ -275,17 +275,12 @@ protected:
 public:
     SceneObjectMesh(bool visible = true, bool shadow = true,
                     bool motion_blur = true)
-        : BaseSceneObject(SceneObjectType::MESH),
-          m_bVisible(visible),
-          m_bShadow(shadow),
-          m_bMotionBlur(motion_blur) {}
+        : BaseSceneObject(SceneObjectType::MESH) {}
     SceneObjectMesh(SceneObjectMesh&& mesh)
         : BaseSceneObject(SceneObjectType::MESH),
           m_IndexArray(std::move(mesh.m_IndexArray)),
           m_VertexArray(std::move(mesh.m_VertexArray)),
-          m_bVisible(mesh.m_bVisible),
-          m_bShadow(mesh.m_bShadow),
-          m_bMotionBlur(mesh.m_bMotionBlur) {}
+          m_PrimitiveType(mesh.m_PrimitiveType) {}
 
     // Set some things
     void AddIndexArray(SceneObjectIndexArray&& array) {

@@ -8,7 +8,7 @@ SceneManager::~SceneManager() {}
 
 int SceneManager::Initialize() {
     int result = 0;
-    m_pScene   = make_unique<Scene>();
+    m_pScene   = make_shared<Scene>();
     return result;
 }
 void SceneManager::Finalize() {}
@@ -24,6 +24,8 @@ int SceneManager::LoadScene(const char* scene_file_name) {
         return -1;
     }
 }
+
+void SceneManager::ResetScene() { m_bDirtyFlag = true; }
 
 bool SceneManager::LoadOgexScene(const char* ogex_scene_file_name) {
     string ogex_text =
@@ -41,9 +43,8 @@ bool SceneManager::LoadOgexScene(const char* ogex_scene_file_name) {
     return true;
 }
 
-const Scene& SceneManager::GetSceneForRendering() {
-    m_bDirtyFlag = false;
-    return *m_pScene;
-}
+const Scene& SceneManager::GetSceneForRendering() { return *m_pScene; }
 
 bool SceneManager::IsSceneChanged() { return m_bDirtyFlag; }
+
+void SceneManager::NotifySceneIsRenderingQueued() { m_bDirtyFlag = false; }
