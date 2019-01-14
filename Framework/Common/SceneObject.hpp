@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <traits>
+#include <type_traits>
 
 #include "geommath.hpp"
 
