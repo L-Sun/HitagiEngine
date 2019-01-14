@@ -50,6 +50,8 @@ void BaseApplication::Tick() {
     g_pMemoryManager->Tick();
     g_pAssetLoader->Tick();
     g_pSceneManager->Tick();
+    g_pInputManager->Tick();
+    g_pPhysicsManager->Tick();
     g_pGraphicsManager->Tick();
 }
 
