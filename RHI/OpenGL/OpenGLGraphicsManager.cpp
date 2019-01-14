@@ -5,6 +5,7 @@
 #include "IApplication.hpp"
 #include "AssetLoader.hpp"
 #include "SceneManager.hpp"
+#include "PhysicsManager.hpp"
 
 const char VS_SHADER_SOURCE_FILE[] = "Shaders/basic.vs";
 const char FS_SHADER_SOURCE_FILE[] = "Shaders/basic.fs";
@@ -223,10 +224,10 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
 }
 
 void OpenGLGraphicsManager::InitializeBuffers() {
-    auto& scene         = g_pSceneManager->GetSceneForRendering();
-    auto  pGeometryNode = scene.GetFirstGeometryNode();
+    auto& scene = g_pSceneManager->GetSceneForRendering();
 
-    while (pGeometryNode) {
+    for (auto _it : scene.GeometryNodes) {
+        auto pGeometryNode = _it.second;
         if (pGeometryNode->Visible()) {
             auto pGeometry =
                 scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
@@ -389,7 +390,7 @@ void OpenGLGraphicsManager::InitializeBuffers() {
                 dbc.vao               = vao;
                 dbc.mode              = mode;
                 dbc.type              = type;
-                dbc.transform         = pGeometryNode->GetCalculatedTransform();
+                dbc.node              = pGeometryNode;
                 dbc.material          = material;
                 dbc.count             = indexCount;
                 m_DrawBatchContext.push_back(std::move(dbc));
@@ -405,8 +406,30 @@ void OpenGLGraphicsManager::RenderBuffers() {
 
     for (auto dbc : m_DrawBatchContext) {
         glUseProgram(m_shaderProgram);
-        SetPerBatchShaderParameters("modelMatrix", *dbc.transform);
 
+        mat4 trans = *dbc.node->GetCalculatedTransform();
+
+        if (void* rigidBody = dbc.node->RigidBody()) {
+            // the geometry has rigid body bounded, we blend the simlation
+            // result here.
+            mat4 simulated_result =
+                g_pPhysicsManager->GetRigidBodyTransform(rigidBody);
+
+            // reset the translation part of the matrix
+            memcpy(trans[3], vec3(0.0f, 0.0f, 0.0f), sizeof(float) * 3);
+
+            // apply the rotation part of the simlation result
+            mat4 rotation(1.0f);
+            memcpy(rotation[0], simulated_result[0], sizeof(float) * 3);
+            memcpy(rotation[1], simulated_result[1], sizeof(float) * 3);
+            memcpy(rotation[2], simulated_result[2], sizeof(float) * 3);
+            trans = trans * rotation;
+
+            // replace the translation part of the matrix with simlation result
+            // directly
+            memcpy(trans[3], simulated_result[3], sizeof(float) * 3);
+        }
+        SetPerBatchShaderParameters("modelMatrix", trans);
         glBindVertexArray(dbc.vao);
         // auto           indexBufferCount = dbc.counts.size();
         // const GLvoid** pIndicies        = new const

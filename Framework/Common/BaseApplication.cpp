@@ -42,6 +42,20 @@ int BaseApplication::Initialize() {
     }
     cerr << "Success" << endl;
 
+    cerr << "Initialize Input Manager: ";
+    if ((ret = g_pInputManager->Initialize()) != 0) {
+        cerr << "Failed. err = " << ret;
+        return ret;
+    }
+    cerr << "Success" << endl;
+
+    cerr << "Initialize Physics Manager: ";
+    if ((ret = g_pPhysicsManager->Initialize()) != 0) {
+        cerr << "Failed. err = " << ret;
+        return ret;
+    }
+    cerr << "Success" << endl;
+
     return ret;
 }
 
@@ -57,7 +71,9 @@ void BaseApplication::Tick() {
 
 // Finalize all sub modules and clean up all runtime temporary files.
 void BaseApplication::Finalize() {
+    g_pInputManager->Finalize();
     g_pGraphicsManager->Finalize();
+    g_pPhysicsManager->Finalize();
     g_pSceneManager->Finalize();
     g_pAssetLoader->Finalize();
     g_pMemoryManager->Finalize();
@@ -73,7 +89,7 @@ bool BaseApplication::IsQuit() { return m_bQuit; }
 int BaseApplication::LoadScene() {
     int ret;
 
-    string scene_file_name = "Scene/cube.ogex";
+    string scene_file_name = "Scene/physics_1.ogex";
     if (m_nArgC > 1) {
         scene_file_name = m_ppArgV[1];
     }

@@ -33,6 +33,7 @@ void GLFWApplication::Finalize() { glfwTerminate(); }
 
 void GLFWApplication::Tick() {
     BaseApplication::m_bQuit = glfwWindowShouldClose(m_window);
+    BaseApplication::Tick();
     glfwSetKeyCallback(m_window, KeyCallback);
     glfwPollEvents();
     OnDraw();
@@ -60,6 +61,8 @@ void GLFWApplication::KeyCallback(GLFWwindow* window, int key, int scancode,
         g_pInputManager->RightArrowKeyDown();
     else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
         g_pInputManager->RightArrowKeyUp();
+    else if (key == GLFW_KEY_R && action == GLFW_PRESS)
+        g_pSceneManager->ResetScene();
     else if (key == GLFW_KEY_ESCAPE &&
              (action == GLFW_PRESS || action == GLFW_REPEAT))
         glfwSetWindowShouldClose(window, true);

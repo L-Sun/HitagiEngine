@@ -7,6 +7,7 @@
 
 #include "GraphicsManager.hpp"
 #include "SceneObject.hpp"
+#include "SceneNode.hpp"
 #include "geommath.hpp"
 #include "glad/glad.h"
 
@@ -40,7 +41,7 @@ private:
         GLenum                               mode;
         GLenum                               type;
         GLsizei                              count;
-        std::shared_ptr<mat4>                transform;
+        std::shared_ptr<SceneGeometryNode>   node;
         std::shared_ptr<SceneObjectMaterial> material;
     };
 

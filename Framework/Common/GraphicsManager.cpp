@@ -19,9 +19,13 @@ void GraphicsManager::Tick() {
              << endl;
         Finalize();
         Initialize();
+        g_pSceneManager->NotifySceneIsRenderingQueued();
     }
     CalculateCameraMatrix();
     CalculateLights();
+
+    Clear();
+    Draw();
 }
 void GraphicsManager::Draw() {}
 void GraphicsManager::Clear() {}
