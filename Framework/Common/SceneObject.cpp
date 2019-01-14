@@ -65,22 +65,22 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
     out << "Data: ";
     for (size_t i = 0; i < obj.m_szData; i++) {
         switch (obj.m_DataType) {
-            case IndexDataType::INDEX_DATA_TYPE_INT8:
+            case IndexDataType::INT8:
                 out << "0x"
                     << *(reinterpret_cast<const int8_t*>(obj.m_pData) + i)
                     << ' ';
                 break;
-            case IndexDataType::INDEX_DATA_TYPE_INT16:
+            case IndexDataType::INT16:
                 out << "0x"
                     << *(reinterpret_cast<const int16_t*>(obj.m_pData) + i)
                     << ' ';
                 break;
-            case IndexDataType::INDEX_DATA_TYPE_INT32:
+            case IndexDataType::INT32:
                 out << "0x"
                     << *(reinterpret_cast<const int32_t*>(obj.m_pData) + i)
                     << ' ';
                 break;
-            case IndexDataType::INDEX_DATA_TYPE_INT64:
+            case IndexDataType::INT64:
                 out << "0x"
                     << *(reinterpret_cast<const int64_t*>(obj.m_pData) + i)
                     << ' ';

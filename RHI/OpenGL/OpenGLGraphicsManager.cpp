@@ -258,28 +258,28 @@ void OpenGLGraphicsManager::InitializeBuffers() {
                 glEnableVertexAttribArray(i);
 
                 switch (v_property_array.GetDataType()) {
-                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT1:
+                    case VertexDataType::FLOAT1:
                         glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
                         break;
-                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT2:
+                    case VertexDataType::FLOAT2:
                         glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
                         break;
-                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT3:
+                    case VertexDataType::FLOAT3:
                         glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
                         break;
-                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT4:
+                    case VertexDataType::FLOAT4:
                         glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
                         break;
-                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE1:
+                    case VertexDataType::DOUBLE1:
                         glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
                         break;
-                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE2:
+                    case VertexDataType::DOUBLE2:
                         glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
                         break;
-                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE3:
+                    case VertexDataType::DOUBLE3:
                         glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
                         break;
-                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE4:
+                    case VertexDataType::DOUBLE4:
                         glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
                         break;
                     default:
@@ -293,22 +293,22 @@ void OpenGLGraphicsManager::InitializeBuffers() {
 
             GLenum mode;
             switch (pMesh->GetPrimitiveType()) {
-                case PrimitiveType::PRIMITIVE_TYPE_POINT_LIST:
+                case PrimitiveType::POINT_LIST:
                     mode = GL_POINTS;
                     break;
-                case PrimitiveType::PRIMITIVE_TYPE_LINE_LIST:
+                case PrimitiveType::LINE_LIST:
                     mode = GL_LINES;
                     break;
-                case PrimitiveType::PRIMITIVE_TYPE_LINE_STRIP:
+                case PrimitiveType::LINE_STRIP:
                     mode = GL_LINE_STRIP;
                     break;
-                case PrimitiveType::PRIMITIVE_TYPE_TRI_LIST:
+                case PrimitiveType::TRI_LIST:
                     mode = GL_TRIANGLES;
                     break;
-                case PrimitiveType::PRIMITIVE_TYPE_TRI_STRIP:
+                case PrimitiveType::TRI_STRIP:
                     mode = GL_TRIANGLE_STRIP;
                     break;
-                case PrimitiveType::PRIMITIVE_TYPE_TRI_FAN:
+                case PrimitiveType::TRI_FAN:
                     mode = GL_TRIANGLE_FAN;
                     break;
                 default:
@@ -330,13 +330,13 @@ void OpenGLGraphicsManager::InitializeBuffers() {
                     static_cast<GLsizei>(index_array.GetIndexCount());
                 GLenum type;
                 switch (index_array.GetIndexType()) {
-                    case IndexDataType::INDEX_DATA_TYPE_INT8:
+                    case IndexDataType::INT8:
                         type = GL_UNSIGNED_BYTE;
                         break;
-                    case IndexDataType::INDEX_DATA_TYPE_INT16:
+                    case IndexDataType::INT16:
                         type = GL_UNSIGNED_SHORT;
                         break;
-                    case IndexDataType::INDEX_DATA_TYPE_INT32:
+                    case IndexDataType::INT32:
                         type = GL_UNSIGNED_INT;
                         break;
                     default:
