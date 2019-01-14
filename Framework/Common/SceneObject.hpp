@@ -18,16 +18,31 @@
 
 namespace My {
 enum SceneObjectType {
-    SCENE_OBJECT_TYPE_MESH          = "MESH"_i32,
-    SCENE_OBJECT_TYPE_MATERIAL      = "MATL"_i32,
-    SCENE_OBJECT_TYPE_TEXTURE       = "TXTU"_i32,
-    SCENE_OBJECT_TYPE_LIGHT         = "LGHT"_i32,
-    SCENE_OBJECT_TYPE_CAMERA        = "CAMR"_i32,
-    SCENE_OBJECT_TYPE_ANIMATOR      = "ANIM"_i32,
-    SCENE_OBJECT_TYPE_CLIP          = "CLIP"_i32,
-    SCENE_OBJECT_TYPE_GEOMETRY      = "GEOM"_i32,
-    SCENE_OBJECT_TYPE_INDEX_ARRAY   = "VARR"_i32,
-    SCENE_OBJECT_TYPE_VERETEX_ARRAY = "VARR"_i32,
+    MESH          = "MESH"_i32,
+    MATERIAL      = "MATL"_i32,
+    TEXTURE       = "TXTU"_i32,
+    LIGHT         = "LGHT"_i32,
+    CAMERA        = "CAMR"_i32,
+    ANIMATOR      = "ANIM"_i32,
+    CLIP          = "CLIP"_i32,
+    GEOMETRY      = "GEOM"_i32,
+    _INDEX_ARRAY  = "VARR"_i32,
+    VERETEX_ARRAY = "VARR"_i32,
+};
+
+enum SceneObjectCollisionType {
+    TYPE_NONE         = "CNON"_i32,
+    TYPE_SPHERE       = "CSPH"_i32,
+    TYPE_BOX          = "CBOX"_i32,
+    TYPE_CYLINDER     = "CCYL"_i32,
+    TYPE_CAPSULE      = "CCAP"_i32,
+    TYPE_CONE         = "CCON"_i32,
+    TYPE_MULTI_SPHERE = "CMUL"_i32,
+    TYPE_CONVEX_HULL  = "CCVH"_i32,
+    TYPE_CONVEX_MESH  = "CCVM"_i32,
+    TYPE_BVH_MESH     = "CBVM"_i32,
+    TYPE_HEIGHTFIELD  = "CHIG"_i32,
+    TYPE_PLANE        = "CPLN"_i32,
 };
 
 std::ostream& operator<<(std::ostream& out, SceneObjectType type);
@@ -72,14 +87,14 @@ public:
 };
 
 enum VertexDataType {
-    VERTEX_DATA_TYPE_FLOAT1  = "FLT1"_i32,
-    VERTEX_DATA_TYPE_FLOAT2  = "FLT2"_i32,
-    VERTEX_DATA_TYPE_FLOAT3  = "FLT3"_i32,
-    VERTEX_DATA_TYPE_FLOAT4  = "FLT4"_i32,
-    VERTEX_DATA_TYPE_DOUBLE1 = "DUB1"_i32,
-    VERTEX_DATA_TYPE_DOUBLE2 = "DUB2"_i32,
-    VERTEX_DATA_TYPE_DOUBLE3 = "DUB3"_i32,
-    VERTEX_DATA_TYPE_DOUBLE4 = "DUB4"_i32,
+    FLOAT1  = "FLT1"_i32,
+    FLOAT2  = "FLT2"_i32,
+    FLOAT3  = "FLT3"_i32,
+    FLOAT4  = "FLT4"_i32,
+    DOUBLE1 = "DUB1"_i32,
+    DOUBLE2 = "DUB2"_i32,
+    DOUBLE3 = "DUB3"_i32,
+    DOUBLE4 = "DUB4"_i32,
 };
 
 std::ostream& operator<<(std::ostream& out, VertexDataType type);
@@ -93,10 +108,10 @@ protected:
     const size_t         m_szData;
 
 public:
-    SceneObjectVertexArray(const char* attr = "", uint32_t morph_index = 0,
-                           const VertexDataType data_type =
-                               VertexDataType::VERTEX_DATA_TYPE_FLOAT3,
-                           const void* data = nullptr, size_t data_size = 0)
+    SceneObjectVertexArray(
+        const char* attr = "", uint32_t morph_index = 0,
+        const VertexDataType data_type = VertexDataType::FLOAT3,
+        const void* data = nullptr, size_t data_size = 0)
         : m_strAttribute(attr),
           m_MorphTargetIndex(morph_index),
           m_DataType(data_type),
@@ -111,16 +126,16 @@ public:
         size_t size = m_szData;
 
         switch (m_DataType) {
-            case VertexDataType::VERTEX_DATA_TYPE_FLOAT1:
-            case VertexDataType::VERTEX_DATA_TYPE_FLOAT2:
-            case VertexDataType::VERTEX_DATA_TYPE_FLOAT3:
-            case VertexDataType::VERTEX_DATA_TYPE_FLOAT4:
+            case VertexDataType::FLOAT1:
+            case VertexDataType::FLOAT2:
+            case VertexDataType::FLOAT3:
+            case VertexDataType::FLOAT4:
                 size *= sizeof(float);
                 break;
-            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE1:
-            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE2:
-            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE3:
-            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE4:
+            case VertexDataType::DOUBLE1:
+            case VertexDataType::DOUBLE2:
+            case VertexDataType::DOUBLE3:
+            case VertexDataType::DOUBLE4:
                 size *= sizeof(double);
             default:
                 size = 0;
@@ -133,20 +148,20 @@ public:
         size_t size = m_szData;
 
         switch (m_DataType) {
-            case VERTEX_DATA_TYPE_FLOAT1:
-            case VERTEX_DATA_TYPE_DOUBLE1:
+            case FLOAT1:
+            case DOUBLE1:
                 size /= 1;
                 break;
-            case VERTEX_DATA_TYPE_FLOAT2:
-            case VERTEX_DATA_TYPE_DOUBLE2:
+            case FLOAT2:
+            case DOUBLE2:
                 size /= 2;
                 break;
-            case VERTEX_DATA_TYPE_FLOAT3:
-            case VERTEX_DATA_TYPE_DOUBLE3:
+            case FLOAT3:
+            case DOUBLE3:
                 size /= 3;
                 break;
-            case VERTEX_DATA_TYPE_FLOAT4:
-            case VERTEX_DATA_TYPE_DOUBLE4:
+            case FLOAT4:
+            case DOUBLE4:
                 size /= 4;
                 break;
             default:
@@ -161,10 +176,10 @@ public:
 };
 
 enum IndexDataType {
-    INDEX_DATA_TYPE_INT8  = "I8  "_i32,
-    INDEX_DATA_TYPE_INT16 = "I16 "_i32,
-    INDEX_DATA_TYPE_INT32 = "I32 "_i32,
-    INDEX_DATA_TYPE_INT64 = "I64 "_i32,
+    INT8  = "I8  "_i32,
+    INT16 = "I16 "_i32,
+    INT32 = "I32 "_i32,
+    INT64 = "I64 "_i32,
 };
 
 std::ostream& operator<<(std::ostream& out, const IndexDataType& type);
@@ -178,10 +193,11 @@ protected:
     const size_t        m_szData;
 
 public:
-    SceneObjectIndexArray(
-        const uint32_t material_index = 0, const uint32_t restart_index = 0,
-        const IndexDataType data_type = IndexDataType::INDEX_DATA_TYPE_INT16,
-        const void* data = nullptr, const size_t data_size = 0)
+    SceneObjectIndexArray(const uint32_t      material_index = 0,
+                          const uint32_t      restart_index  = 0,
+                          const IndexDataType data_type = IndexDataType::INT16,
+                          const void*         data      = nullptr,
+                          const size_t        data_size = 0)
         : m_nMaterialIndex(material_index),
           m_szResetartIndex(restart_index),
           m_DataType(data_type),
@@ -198,16 +214,16 @@ public:
         size_t size = m_szData;
 
         switch (m_DataType) {
-            case IndexDataType::INDEX_DATA_TYPE_INT8:
+            case IndexDataType::INT8:
                 size *= sizeof(int8_t);
                 break;
-            case IndexDataType::INDEX_DATA_TYPE_INT16:
+            case IndexDataType::INT16:
                 size *= sizeof(int16_t);
                 break;
-            case IndexDataType::INDEX_DATA_TYPE_INT32:
+            case IndexDataType::INT32:
                 size *= sizeof(int32_t);
                 break;
-            case IndexDataType::INDEX_DATA_TYPE_INT64:
+            case IndexDataType::INT64:
                 size *= sizeof(int64_t);
                 break;
             default:
@@ -223,23 +239,23 @@ public:
 
 typedef enum _PrimitiveType : int32_t {
     // clang-format off
-    PRIMITIVE_TYPE_None                 = "NONE"_i32,  ///< No particular primitive type.
-    PRIMITIVE_TYPE_POINT_LIST           = "PLST"_i32,  ///< For N>=0, vertex N renders a point.
-    PRIMITIVE_TYPE_LINE_LIST            = "LLST"_i32,  ///< For N>=0, vertices [N*2+0, N*2+1] render a line.
-    PRIMITIVE_TYPE_LINE_STRIP           = "LSTR"_i32,  ///< For N>=0, vertices [N, N+1] render a line.
-    PRIMITIVE_TYPE_TRI_LIST             = "TLST"_i32,  ///< For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a triangle.
-    PRIMITIVE_TYPE_TRI_FAN              = "TFAN"_i32,  ///< For N>=0, vertices [0, (N+1)%M, (N+2)%M] render a triangle, where M is the vertex count.
-    PRIMITIVE_TYPE_TRI_STRIP            = "TSTR"_i32,  ///< For N>=0, vertices [N*2+0, N*2+1, N*2+2] and [N*2+2, N*2+1, N*2+3] render triangles.
-    PRIMITIVE_TYPE_PATCH                = "PACH"_i32,  ///< Used for tessellation.
-    PRIMITIVE_TYPE_LINE_LIST_ADJACENCY  = "LLSA"_i32,  ///< For N>=0, vertices [N*4..N*4+3] render a line from [1, 2]. Lines [0, 1] and [2, 3] are adjacent to the rendered line.
-    PRIMITIVE_TYPE_LINE_STRIP_ADJACENCY = "LSTA"_i32,  ///< For N>=0, vertices [N+1, N+2] render a line. Lines [N, N+1] and [N+2, N+3] are adjacent to the rendered line.
-    PRIMITIVE_TYPE_TRI_LIST_ADJACENCY   = "TLSA"_i32,  ///< For N>=0, vertices [N*6..N*6+5] render a triangle from [0, 2, 4]. Triangles [0, 1, 2] [4, 2, 3] and [5, 0, 4] are adjacent to the rendered triangle.
-    PRIMITIVE_TYPE_TRI_STRIP_ADJACENCY  = "TSTA"_i32,  ///< For N>=0, vertices [N*4..N*4+6] render a triangle from [0, 2, 4] and [4, 2, 6]. Odd vertices Nodd form adjacent triangles with indices min(Nodd+1,Nlast) and max(Nodd-3,Nfirst).
-    PRIMITIVE_TYPE_RECT_LIST            = "RLST"_i32,  ///< For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a screen-aligned rectangle. 0 is upper-left, 1 is upper-right, and 2 is the lower-left corner.
-    PRIMITIVE_TYPE_LINE_LOOP            = "LLOP"_i32,  ///< Like <c>kPrimitiveTypeLineStrip</c>, but the first and last vertices also render a line.
-    PRIMITIVE_TYPE_QUAD_LIST            = "QLST"_i32,  ///< For N>=0, vertices [N*4+0, N*4+1, N*4+2] and [N*4+0, N*4+2, N*4+3] render triangles.
-    PRIMITIVE_TYPE_QUAD_STRIP           = "QSTR"_i32,  ///< For N>=0, vertices [N*2+0, N*2+1, N*2+3] and [N*2+0, N*2+3, N*2+2] render triangles.
-    PRIMITIVE_TYPE_POLYGON              = "POLY"_i32,  ///< For N>=0, vertices [0, N+1, N+2] render a triangle.
+    None                 = "NONE"_i32,  ///< No particular primitive type.
+    POINT_LIST           = "PLST"_i32,  ///< For N>=0, vertex N renders a point.
+    LINE_LIST            = "LLST"_i32,  ///< For N>=0, vertices [N*2+0, N*2+1] render a line.
+    LINE_STRIP           = "LSTR"_i32,  ///< For N>=0, vertices [N, N+1] render a line.
+    TRI_LIST             = "TLST"_i32,  ///< For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a triangle.
+    TRI_FAN              = "TFAN"_i32,  ///< For N>=0, vertices [0, (N+1)%M, (N+2)%M] render a triangle, where M is the vertex count.
+    TRI_STRIP            = "TSTR"_i32,  ///< For N>=0, vertices [N*2+0, N*2+1, N*2+2] and [N*2+2, N*2+1, N*2+3] render triangles.
+    PATCH                = "PACH"_i32,  ///< Used for tessellation.
+    LINE_LIST_ADJACENCY  = "LLSA"_i32,  ///< For N>=0, vertices [N*4..N*4+3] render a line from [1, 2]. Lines [0, 1] and [2, 3] are adjacent to the rendered line.
+    LINE_STRIP_ADJACENCY = "LSTA"_i32,  ///< For N>=0, vertices [N+1, N+2] render a line. Lines [N, N+1] and [N+2, N+3] are adjacent to the rendered line.
+    TRI_LIST_ADJACENCY   = "TLSA"_i32,  ///< For N>=0, vertices [N*6..N*6+5] render a triangle from [0, 2, 4]. Triangles [0, 1, 2] [4, 2, 3] and [5, 0, 4] are adjacent to the rendered triangle.
+    TRI_STRIP_ADJACENCY  = "TSTA"_i32,  ///< For N>=0, vertices [N*4..N*4+6] render a triangle from [0, 2, 4] and [4, 2, 6]. Odd vertices Nodd form adjacent triangles with indices min(Nodd+1,Nlast) and max(Nodd-3,Nfirst).
+    RECT_LIST            = "RLST"_i32,  ///< For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a screen-aligned rectangle. 0 is upper-left, 1 is upper-right, and 2 is the lower-left corner.
+    LINE_LOOP            = "LLOP"_i32,  ///< Like <c>kPrimitiveTypeLineStrip</c>, but the first and last vertices also render a line.
+    QUAD_LIST            = "QLST"_i32,  ///< For N>=0, vertices [N*4+0, N*4+1, N*4+2] and [N*4+0, N*4+2, N*4+3] render triangles.
+    QUAD_STRIP           = "QSTR"_i32,  ///< For N>=0, vertices [N*2+0, N*2+1, N*2+3] and [N*2+0, N*2+3, N*2+2] render triangles.
+    POLYGON              = "POLY"_i32,  ///< For N>=0, vertices [0, N+1, N+2] render a triangle.
     // clang-format on
 } PrimitiveType;
 
@@ -259,12 +275,12 @@ protected:
 public:
     SceneObjectMesh(bool visible = true, bool shadow = true,
                     bool motion_blur = true)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_MESH),
+        : BaseSceneObject(SceneObjectType::MESH),
           m_bVisible(visible),
           m_bShadow(shadow),
           m_bMotionBlur(motion_blur) {}
     SceneObjectMesh(SceneObjectMesh&& mesh)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_MESH),
+        : BaseSceneObject(SceneObjectType::MESH),
           m_IndexArray(std::move(mesh.m_IndexArray)),
           m_VertexArray(std::move(mesh.m_VertexArray)),
           m_bVisible(mesh.m_bVisible),
@@ -311,18 +327,17 @@ protected:
 
 public:
     SceneObjectTexture()
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_TEXTURE),
-          m_nTexCoordIndex(0) {}
+        : BaseSceneObject(SceneObjectType::TEXTURE), m_nTexCoordIndex(0) {}
     SceneObjectTexture(const std::string& name)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_TEXTURE),
+        : BaseSceneObject(SceneObjectType::TEXTURE),
           m_nTexCoordIndex(0),
           m_Name(name) {}
     SceneObjectTexture(uint32_t coord_index, std::shared_ptr<Image>& image)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_TEXTURE),
+        : BaseSceneObject(SceneObjectType::TEXTURE),
           m_nTexCoordIndex(coord_index),
           m_pImage(image) {}
     SceneObjectTexture(uint32_t coord_index, std::shared_ptr<Image>&& image)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_TEXTURE),
+        : BaseSceneObject(SceneObjectType::TEXTURE),
           m_nTexCoordIndex(coord_index),
           m_pImage(std::move(image)) {}
     SceneObjectTexture(SceneObjectTexture&)  = default;
@@ -414,7 +429,7 @@ protected:
 
 public:
     SceneObjectMaterial(void)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_MATERIAL),
+        : BaseSceneObject(SceneObjectType::MATERIAL),
           m_Name(""),
           m_BaseColor(vec4(1.0f)),
           m_Metallic(0.0f),
@@ -489,19 +504,27 @@ class SceneObjectGeometry : public BaseSceneObject {
 protected:
     std::vector<std::shared_ptr<SceneObjectMesh>> m_Mesh;
 
-    bool m_bVisible;
-    bool m_bShadow;
-    bool m_bMotionBlur;
+    bool                     m_bVisible;
+    bool                     m_bShadow;
+    bool                     m_bMotionBlur;
+    SceneObjectCollisionType m_CollisionType;
 
 public:
     SceneObjectGeometry()
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_GEOMETRY) {}
+        : BaseSceneObject(SceneObjectType::GEOMETRY),
+          m_CollisionType(SceneObjectCollisionType::TYPE_NONE) {}
     void SetVisibility(bool visible) { m_bVisible = visible; }
     void SetIfCastShadow(bool shadow) { m_bShadow = shadow; }
     void SetIfMotionBlur(bool motion_blur) { m_bMotionBlur = motion_blur; }
-    const bool Visible() { return m_bVisible; }
-    const bool CastShadow() { return m_bShadow; }
-    const bool MotionBlur() { return m_bMotionBlur; }
+    void SetCollisionType(SceneObjectCollisionType collision_type) {
+        m_CollisionType = collision_type;
+    }
+    const bool                     Visible() { return m_bVisible; }
+    const bool                     CastShadow() { return m_bShadow; }
+    const bool                     MotionBlur() { return m_bMotionBlur; }
+    const SceneObjectCollisionType CollisionType() const {
+        return m_CollisionType;
+    }
 
     void AddMesh(std::shared_ptr<SceneObjectMesh>& mesh) {
         m_Mesh.push_back(std::move(mesh));
@@ -530,7 +553,7 @@ protected:
     std::string m_strTexture;
 
     SceneObjectLight(void)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_LIGHT),
+        : BaseSceneObject(SceneObjectType::LIGHT),
           m_LightColor(vec4(1.0f)),
           m_fIntensity(100.0f),
           m_LightAttenuation(DefaultAttenFunc),
@@ -603,7 +626,7 @@ protected:
     // can only be used as base class
     SceneObjectCamera(float aspect = 16.0f / 9.0f, float near_clip = 1.0f,
                       float far_clip = 100.0f)
-        : BaseSceneObject(SceneObjectType::SCENE_OBJECT_TYPE_CAMERA),
+        : BaseSceneObject(SceneObjectType::CAMERA),
           m_fAspect(aspect),
           m_fNearClipDistance(near_clip),
           m_fFarClipDistance(far_clip) {}
