@@ -93,6 +93,42 @@ private:
                 _object->SetVisibility(_structure.GetVisibleFlag());
                 _object->SetIfCastShadow(_structure.GetShadowFlag());
                 _object->SetIfMotionBlur(_structure.GetMotionBlurFlag());
+                // extensions
+                //// collision shape
+                ODDL::Structure* extension =
+                    _structure.GetFirstExtensionSubnode();
+                while (extension) {
+                    const OGEX::ExtensionStructure* _extension =
+                        dynamic_cast<const OGEX::ExtensionStructure*>(
+                            extension);
+                    auto _appid = _extension->GetApplicationString();
+                    if (_appid == "MyGameEngine") {
+                        auto _type = _extension->GetTypeString();
+                        if (_type == "collision") {
+                            const ODDL::Structure* sub_structure =
+                                _extension->GetFirstCoreSubnode();
+                            const ODDL::DataStructure<ODDL::StringDataType>*
+                                dataStructure =
+                                    static_cast<const ODDL::DataStructure<
+                                        ODDL::StringDataType>*>(sub_structure);
+                            auto collision_type =
+                                dataStructure->GetDataElement(0);
+                            if (collision_type == "plane") {
+                                _object->SetCollisionType(
+                                    SceneObjectCollisionType::PLANE);
+                            } else if (collision_type == "sphere") {
+                                _object->SetCollisionType(
+                                    SceneObjectCollisionType::SPHERE);
+                            } else if (collision_type == "box") {
+                                _object->SetCollisionType(
+                                    SceneObjectCollisionType::BOX);
+                            }
+                            break;
+                        }
+                    }
+                    extension = extension->Next();
+                }
+                // meshs
                 const ODDL::Map<OGEX::MeshStructure>* _meshs =
                     _structure.GetMeshMap();
                 int32_t _count = _meshs->GetElementCount();
