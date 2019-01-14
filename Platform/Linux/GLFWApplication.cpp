@@ -41,22 +41,26 @@ void GLFWApplication::Tick() {
 
 void GLFWApplication::KeyCallback(GLFWwindow* window, int key, int scancode,
                                   int action, int mods) {
-    if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+    if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT))
         g_pInputManager->UpArrowKeyDown();
     else if (key == GLFW_KEY_UP && action == GLFW_RELEASE)
         g_pInputManager->UpArrowKeyUp();
-    else if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+    else if (key == GLFW_KEY_DOWN &&
+             (action == GLFW_PRESS || action == GLFW_REPEAT))
         g_pInputManager->DownArrowKeyDown();
     else if (key == GLFW_KEY_DOWN && action == GLFW_RELEASE)
         g_pInputManager->DownArrowKeyUp();
-    else if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
+    else if (key == GLFW_KEY_LEFT &&
+             (action == GLFW_PRESS || action == GLFW_REPEAT))
         g_pInputManager->LeftArrowKeyDown();
     else if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE)
         g_pInputManager->LeftArrowKeyUp();
-    else if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
+    else if (key == GLFW_KEY_RIGHT &&
+             (action == GLFW_PRESS || action == GLFW_REPEAT))
         g_pInputManager->RightArrowKeyDown();
     else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
         g_pInputManager->RightArrowKeyUp();
-    else if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+    else if (key == GLFW_KEY_ESCAPE &&
+             (action == GLFW_PRESS || action == GLFW_REPEAT))
         glfwSetWindowShouldClose(window, true);
 }
