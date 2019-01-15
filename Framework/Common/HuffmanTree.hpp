@@ -95,7 +95,7 @@ public:
 
         if (node_queue.size() == 0 || node_queue.size() > 2) {
             std::cout << "Fill Huffman tree error!" << std::endl;
-            throw;
+            exit(0);
         }
 
         auto left = node_queue.front();

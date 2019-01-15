@@ -259,28 +259,28 @@ void OpenGLGraphicsManager::InitializeBuffers() {
                 glEnableVertexAttribArray(i);
 
                 switch (v_property_array.GetDataType()) {
-                    case VertexDataType::FLOAT1:
+                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT1:
                         glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
                         break;
-                    case VertexDataType::FLOAT2:
+                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT2:
                         glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
                         break;
-                    case VertexDataType::FLOAT3:
+                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT3:
                         glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
                         break;
-                    case VertexDataType::FLOAT4:
+                    case VertexDataType::VERTEX_DATA_TYPE_FLOAT4:
                         glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
                         break;
-                    case VertexDataType::DOUBLE1:
+                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE1:
                         glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
                         break;
-                    case VertexDataType::DOUBLE2:
+                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE2:
                         glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
                         break;
-                    case VertexDataType::DOUBLE3:
+                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE3:
                         glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
                         break;
-                    case VertexDataType::DOUBLE4:
+                    case VertexDataType::VERTEX_DATA_TYPE_DOUBLE4:
                         glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
                         break;
                     default:
@@ -331,13 +331,13 @@ void OpenGLGraphicsManager::InitializeBuffers() {
                     static_cast<GLsizei>(index_array.GetIndexCount());
                 GLenum type;
                 switch (index_array.GetIndexType()) {
-                    case IndexDataType::INT8:
+                    case IndexDataType::INDEX_DATA_TYPE_INT8:
                         type = GL_UNSIGNED_BYTE;
                         break;
-                    case IndexDataType::INT16:
+                    case IndexDataType::INDEX_DATA_TYPE_INT16:
                         type = GL_UNSIGNED_SHORT;
                         break;
-                    case IndexDataType::INT32:
+                    case IndexDataType::INDEX_DATA_TYPE_INT32:
                         type = GL_UNSIGNED_INT;
                         break;
                     default:

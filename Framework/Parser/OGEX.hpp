@@ -187,20 +187,20 @@ private:
                                     VertexDataType vertexDataType;
                                     switch (arraySize) {
                                         case 1:
-                                            vertexDataType =
-                                                VertexDataType::FLOAT1;
+                                            vertexDataType = VertexDataType::
+                                                VERTEX_DATA_TYPE_FLOAT1;
                                             break;
                                         case 2:
-                                            vertexDataType =
-                                                VertexDataType::FLOAT2;
+                                            vertexDataType = VertexDataType::
+                                                VERTEX_DATA_TYPE_FLOAT2;
                                             break;
                                         case 3:
-                                            vertexDataType =
-                                                VertexDataType::FLOAT3;
+                                            vertexDataType = VertexDataType::
+                                                VERTEX_DATA_TYPE_FLOAT3;
                                             break;
                                         case 4:
-                                            vertexDataType =
-                                                VertexDataType::FLOAT4;
+                                            vertexDataType = VertexDataType::
+                                                VERTEX_DATA_TYPE_FLOAT4;
                                             break;
                                         default:
                                             continue;
@@ -226,10 +226,11 @@ private:
                                     int32_t       elementCount = 0;
                                     const void*   _data        = nullptr;
                                     IndexDataType index_type =
-                                        IndexDataType::INT16;
+                                        IndexDataType::INDEX_DATA_TYPE_INT16;
                                     switch (type) {
                                         case ODDL::kDataUnsignedInt8: {
-                                            index_type = IndexDataType::INT8;
+                                            index_type = IndexDataType::
+                                                INDEX_DATA_TYPE_INT8;
                                             const ODDL::DataStructure<
                                                 UnsignedInt8DataType>*
                                                 dataStructure = dynamic_cast<
@@ -245,7 +246,8 @@ private:
 
                                         } break;
                                         case ODDL::kDataUnsignedInt16: {
-                                            index_type = IndexDataType::INT16;
+                                            index_type = IndexDataType::
+                                                INDEX_DATA_TYPE_INT16;
                                             const ODDL::DataStructure<
                                                 UnsignedInt16DataType>*
                                                 dataStructure = dynamic_cast<
@@ -261,7 +263,8 @@ private:
 
                                         } break;
                                         case ODDL::kDataUnsignedInt32: {
-                                            index_type = IndexDataType::INT32;
+                                            index_type = IndexDataType::
+                                                INDEX_DATA_TYPE_INT32;
                                             const ODDL::DataStructure<
                                                 UnsignedInt32DataType>*
                                                 dataStructure = dynamic_cast<
@@ -277,7 +280,8 @@ private:
 
                                         } break;
                                         case ODDL::kDataUnsignedInt64: {
-                                            index_type = IndexDataType::INT64;
+                                            index_type = IndexDataType::
+                                                INDEX_DATA_TYPE_INT64;
                                             const ODDL::DataStructure<
                                                 UnsignedInt64DataType>*
                                                 dataStructure = dynamic_cast<
@@ -297,16 +301,20 @@ private:
 
                                     int32_t data_size = 0;
                                     switch (index_type) {
-                                        case IndexDataType::INT8:
+                                        case IndexDataType::
+                                            INDEX_DATA_TYPE_INT8:
                                             data_size = 1;
                                             break;
-                                        case IndexDataType::INT16:
+                                        case IndexDataType::
+                                            INDEX_DATA_TYPE_INT16:
                                             data_size = 2;
                                             break;
-                                        case IndexDataType::INT32:
+                                        case IndexDataType::
+                                            INDEX_DATA_TYPE_INT32:
                                             data_size = 4;
                                             break;
-                                        case IndexDataType::INT64:
+                                        case IndexDataType::
+                                            INDEX_DATA_TYPE_INT64:
                                             data_size = 8;
                                             break;
                                         default:;

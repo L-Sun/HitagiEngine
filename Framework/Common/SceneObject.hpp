@@ -87,14 +87,14 @@ public:
 };
 
 enum VertexDataType {
-    FLOAT1  = "FLT1"_i32,
-    FLOAT2  = "FLT2"_i32,
-    FLOAT3  = "FLT3"_i32,
-    FLOAT4  = "FLT4"_i32,
-    DOUBLE1 = "DUB1"_i32,
-    DOUBLE2 = "DUB2"_i32,
-    DOUBLE3 = "DUB3"_i32,
-    DOUBLE4 = "DUB4"_i32,
+    VERTEX_DATA_TYPE_FLOAT1  = "FLT1"_i32,
+    VERTEX_DATA_TYPE_FLOAT2  = "FLT2"_i32,
+    VERTEX_DATA_TYPE_FLOAT3  = "FLT3"_i32,
+    VERTEX_DATA_TYPE_FLOAT4  = "FLT4"_i32,
+    VERTEX_DATA_TYPE_DOUBLE1 = "DUB1"_i32,
+    VERTEX_DATA_TYPE_DOUBLE2 = "DUB2"_i32,
+    VERTEX_DATA_TYPE_DOUBLE3 = "DUB3"_i32,
+    VERTEX_DATA_TYPE_DOUBLE4 = "DUB4"_i32,
 };
 
 std::ostream& operator<<(std::ostream& out, VertexDataType type);
@@ -108,10 +108,10 @@ protected:
     const size_t         m_szData;
 
 public:
-    SceneObjectVertexArray(
-        const char* attr = "", uint32_t morph_index = 0,
-        const VertexDataType data_type = VertexDataType::FLOAT3,
-        const void* data = nullptr, size_t data_size = 0)
+    SceneObjectVertexArray(const char* attr = "", uint32_t morph_index = 0,
+                           const VertexDataType data_type =
+                               VertexDataType::VERTEX_DATA_TYPE_FLOAT3,
+                           const void* data = nullptr, size_t data_size = 0)
         : m_strAttribute(attr),
           m_MorphTargetIndex(morph_index),
           m_DataType(data_type),
@@ -126,16 +126,16 @@ public:
         size_t size = m_szData;
 
         switch (m_DataType) {
-            case VertexDataType::FLOAT1:
-            case VertexDataType::FLOAT2:
-            case VertexDataType::FLOAT3:
-            case VertexDataType::FLOAT4:
+            case VertexDataType::VERTEX_DATA_TYPE_FLOAT1:
+            case VertexDataType::VERTEX_DATA_TYPE_FLOAT2:
+            case VertexDataType::VERTEX_DATA_TYPE_FLOAT3:
+            case VertexDataType::VERTEX_DATA_TYPE_FLOAT4:
                 size *= sizeof(float);
                 break;
-            case VertexDataType::DOUBLE1:
-            case VertexDataType::DOUBLE2:
-            case VertexDataType::DOUBLE3:
-            case VertexDataType::DOUBLE4:
+            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE1:
+            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE2:
+            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE3:
+            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE4:
                 size *= sizeof(double);
             default:
                 size = 0;
@@ -148,20 +148,20 @@ public:
         size_t size = m_szData;
 
         switch (m_DataType) {
-            case FLOAT1:
-            case DOUBLE1:
+            case VertexDataType::VERTEX_DATA_TYPE_FLOAT1:
+            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE1:
                 size /= 1;
                 break;
-            case FLOAT2:
-            case DOUBLE2:
+            case VertexDataType::VERTEX_DATA_TYPE_FLOAT2:
+            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE2:
                 size /= 2;
                 break;
-            case FLOAT3:
-            case DOUBLE3:
+            case VertexDataType::VERTEX_DATA_TYPE_FLOAT3:
+            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE3:
                 size /= 3;
                 break;
-            case FLOAT4:
-            case DOUBLE4:
+            case VertexDataType::VERTEX_DATA_TYPE_FLOAT4:
+            case VertexDataType::VERTEX_DATA_TYPE_DOUBLE4:
                 size /= 4;
                 break;
             default:
@@ -176,10 +176,10 @@ public:
 };
 
 enum IndexDataType {
-    INT8  = "I8  "_i32,
-    INT16 = "I16 "_i32,
-    INT32 = "I32 "_i32,
-    INT64 = "I64 "_i32,
+    INDEX_DATA_TYPE_INT8  = "I8  "_i32,
+    INDEX_DATA_TYPE_INT16 = "I16 "_i32,
+    INDEX_DATA_TYPE_INT32 = "I32 "_i32,
+    INDEX_DATA_TYPE_INT64 = "I64 "_i32,
 };
 
 std::ostream& operator<<(std::ostream& out, const IndexDataType& type);
@@ -193,11 +193,10 @@ protected:
     const size_t        m_szData;
 
 public:
-    SceneObjectIndexArray(const uint32_t      material_index = 0,
-                          const uint32_t      restart_index  = 0,
-                          const IndexDataType data_type = IndexDataType::INT16,
-                          const void*         data      = nullptr,
-                          const size_t        data_size = 0)
+    SceneObjectIndexArray(
+        const uint32_t material_index = 0, const uint32_t restart_index = 0,
+        const IndexDataType data_type = IndexDataType::INDEX_DATA_TYPE_INT16,
+        const void* data = nullptr, const size_t data_size = 0)
         : m_nMaterialIndex(material_index),
           m_szResetartIndex(restart_index),
           m_DataType(data_type),
@@ -214,16 +213,16 @@ public:
         size_t size = m_szData;
 
         switch (m_DataType) {
-            case IndexDataType::INT8:
+            case IndexDataType::INDEX_DATA_TYPE_INT8:
                 size *= sizeof(int8_t);
                 break;
-            case IndexDataType::INT16:
+            case IndexDataType::INDEX_DATA_TYPE_INT16:
                 size *= sizeof(int16_t);
                 break;
-            case IndexDataType::INT32:
+            case IndexDataType::INDEX_DATA_TYPE_INT32:
                 size *= sizeof(int32_t);
                 break;
-            case IndexDataType::INT64:
+            case IndexDataType::INDEX_DATA_TYPE_INT64:
                 size *= sizeof(int64_t);
                 break;
             default:
