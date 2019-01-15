@@ -16,6 +16,8 @@ public:
     void LeftArrowKeyUp();
     void RightArrowKeyDown();
     void RightArrowKeyUp();
+    void ResetKeyUp();
+    void ResetKeyDown();
 };
 
 extern InputManager* g_pInputManager;

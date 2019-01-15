@@ -1,6 +1,7 @@
 #include <iostream>
 #include "InputManager.hpp"
 #include "GraphicsManager.hpp"
+#include "SceneManager.hpp"
 #include "geommath.hpp"
 
 using namespace My;
@@ -62,4 +63,15 @@ void InputManager::RightArrowKeyUp() {
 #ifdef DEBUG
     cerr << "[InputManager] Right Arrow Key Up!" << endl;
 #endif
+}
+void InputManager::ResetKeyUp() {
+#ifdef DEBUG
+    cerr << "[InputManager] R Key Up!" << endl;
+#endif
+}
+void InputManager::ResetKeyDown() {
+#ifdef DEBUG
+    cerr << "[InputManager] R Key Down!" << endl;
+#endif
+    g_pSceneManager->ResetScene();
 }

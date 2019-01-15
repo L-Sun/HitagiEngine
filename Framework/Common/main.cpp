@@ -1,6 +1,4 @@
 #include <iostream>
-#include <chrono>
-#include <thread>
 #include "BaseApplication.hpp"
 
 using namespace My;

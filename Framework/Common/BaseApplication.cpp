@@ -1,5 +1,7 @@
 #include "BaseApplication.hpp"
 #include <iostream>
+#include <chrono>
+#include <thread>
 
 using namespace My;
 using namespace std;
@@ -67,6 +69,7 @@ void BaseApplication::Tick() {
     g_pInputManager->Tick();
     g_pPhysicsManager->Tick();
     g_pGraphicsManager->Tick();
+    std::this_thread::sleep_for(std::chrono::microseconds(10000));
 }
 
 // Finalize all sub modules and clean up all runtime temporary files.

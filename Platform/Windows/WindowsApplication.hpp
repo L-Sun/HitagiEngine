@@ -13,6 +13,9 @@ public:
 
     inline HWND GetMainWindow() const { return m_hWnd; }
 
+protected:
+    void CreateMainWindow();
+
 private:
     // the WindowProc function prototype
     static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam,

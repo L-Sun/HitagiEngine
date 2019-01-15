@@ -62,7 +62,7 @@ void GLFWApplication::KeyCallback(GLFWwindow* window, int key, int scancode,
     else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
         g_pInputManager->RightArrowKeyUp();
     else if (key == GLFW_KEY_R && action == GLFW_PRESS)
-        g_pSceneManager->ResetScene();
+        g_pInputManager->ResetKeyDown();
     else if (key == GLFW_KEY_ESCAPE &&
              (action == GLFW_PRESS || action == GLFW_REPEAT))
         glfwSetWindowShouldClose(window, true);

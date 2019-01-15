@@ -11,12 +11,14 @@ using namespace My;
 
 namespace My {
 // clang-format off
-GfxConfiguration config(_T("Game Engine From Scratch (Win32 + OpenGL)"), 8, 8, 8, 8, 24, 8, 0, 960, 540);
+GfxConfiguration config("Game Engine From Scratch (Win32 + OpenGL)", 8, 8, 8, 8, 24, 8, 0, 960, 540);
 IApplication*    g_pApp             = static_cast<IApplication*>(new OpenGLApplication(config));
 GraphicsManager* g_pGraphicsManager = static_cast<GraphicsManager*>(new OpenGLGraphicsManager);
 MemoryManager*   g_pMemoryManager   = static_cast<MemoryManager*>(new MemoryManager);
 AssetLoader*     g_pAssetLoader     = static_cast<AssetLoader*>(new AssetLoader);
 SceneManager*    g_pSceneManager    = static_cast<SceneManager*>(new SceneManager);
+InputManager*    g_pInputManager    = static_cast<InputManager*>(new InputManager);
+PhysicsManager*  g_pPhysicsManager  = static_cast<PhysicsManager*>(new PhysicsManager);
 // clang-format on
 }  // namespace My
 
@@ -117,11 +119,7 @@ int OpenGLApplication::Initialize() {
     DestroyWindow(TemphWnd);
 
     // now initialize our application window
-    result = WindowsApplication::Initialize();
-    if (result) {
-        std::cout << "Windows Application initialize failed!" << std::endl;
-        return result;
-    }
+    WindowsApplication::CreateMainWindow();
 
     m_hDC = GetDC(m_hWnd);
 
@@ -205,6 +203,13 @@ int OpenGLApplication::Initialize() {
         if (result != 1) {
             return result;
         }
+    }
+
+    result = BaseApplication::Initialize();
+
+    if (result) {
+        printf("Windows Application initialize failed!");
+        return result;
     }
 
     return result;
