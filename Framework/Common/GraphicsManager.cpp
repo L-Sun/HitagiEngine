@@ -163,3 +163,22 @@ void GraphicsManager::WorldRotateY(float radians) {
     m_DrawFrameContext.m_worldMatrix =
         m_DrawFrameContext.m_worldMatrix * rotationMatrix;
 }
+
+#ifdef DEBUG
+void GraphicsManager::DrawLine(const vec3& from, const vec3& to,
+                               const vec3& color) {
+    cout << "[GraphicsManager] GraphicsManager::DrawLine(" << from << "," << to
+         << "," << color << ")" << endl;
+}
+
+void GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
+                              const vec3& color) {
+    cout << "[GraphicsManager] GraphicsManager::DrawBox(" << bbMin << ","
+         << bbMax << "," << color << ")" << endl;
+}
+
+void GraphicsManager::ClearDebugBuffers() {
+    cout << "[GraphicsManager] GraphicsManager::ClearDebugBuffers(void)"
+         << endl;
+}
+#endif

@@ -13,6 +13,13 @@ public:
     virtual void Draw();
     virtual void Clear();
 
+#ifdef DEBUG
+    virtual void DrawLine(const vec3& from, const vec3& to, const vec3& color);
+    virtual void DrawBox(const vec3& bbMin, const vec3& bbMax,
+                         const vec3& color);
+    virtual void ClearDebugBuffers();
+#endif
+
     void WorldRotateX(float angle);
     void WorldRotateY(float angle);
 

@@ -8,7 +8,8 @@ Scene.cpp
 SceneObject.cpp
 SceneManager.cpp
 InputManager.cpp
-PhysicsManager.cpp
+DebugManager.cpp
+GameLogic.cpp
 Image.cpp
 main.cpp
 )
@@ -19,7 +20,6 @@ target_link_libraries(Common
         ${OPENDDL_LIBRARY} 
         ${XG_LIBRARY} 
         ${ZLIB_LIBRARY}
-        ${BULLET_DYNAMICS_LIBRARY} 
-        ${BULLET_COLLISION_LIBRARY} 
-        ${BULLET_LINEARMATH_LIBRARY})
+)
 
+__add_xg_platform_dependencies(Common)

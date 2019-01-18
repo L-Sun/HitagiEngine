@@ -117,6 +117,9 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
                 case 0x52:  // R Key
                     g_pInputManager->ResetKeyUp();
                     break;
+                case 0x44:  // D Key
+                    g_pInputManager->DebugKeyUp();
+                    break;
                 default:
                     break;
             }
@@ -137,6 +140,9 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
                     break;
                 case 0x52:  // R Key
                     g_pInputManager->ResetKeyDown();
+                    break;
+                case 0x44:  // D Key
+                    g_pInputManager->DebugKeyDown();
                     break;
                 default:
                     break;
