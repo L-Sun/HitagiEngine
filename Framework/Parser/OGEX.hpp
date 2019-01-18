@@ -108,20 +108,36 @@ private:
                             const ODDL::Structure* sub_structure =
                                 _extension->GetFirstCoreSubnode();
                             const ODDL::DataStructure<ODDL::StringDataType>*
-                                dataStructure =
+                                dataStructure1 =
                                     static_cast<const ODDL::DataStructure<
                                         ODDL::StringDataType>*>(sub_structure);
                             auto collision_type =
-                                dataStructure->GetDataElement(0);
+                                dataStructure1->GetDataElement(0);
+
+                            sub_structure = _extension->GetLastCoreSubnode();
+                            const ODDL::DataStructure<ODDL::FloatDataType>*
+                                dataStructure2 =
+                                    static_cast<const ODDL::DataStructure<
+                                        ODDL::FloatDataType>*>(sub_structure);
+                            auto elementCount =
+                                dataStructure2->GetDataElementCount();
+                            float* _data =
+                                (float*)&dataStructure2->GetDataElement(0);
                             if (collision_type == "plane") {
                                 _object->SetCollisionType(
-                                    SceneObjectCollisionType::PLANE);
+                                    SceneObjectCollisionType::kPLANE);
+                                _object->SetCollisionParameters(_data,
+                                                                elementCount);
                             } else if (collision_type == "sphere") {
                                 _object->SetCollisionType(
-                                    SceneObjectCollisionType::SPHERE);
+                                    SceneObjectCollisionType::kSPHERE);
+                                _object->SetCollisionParameters(_data,
+                                                                elementCount);
                             } else if (collision_type == "box") {
                                 _object->SetCollisionType(
-                                    SceneObjectCollisionType::BOX);
+                                    SceneObjectCollisionType::kBOX);
+                                _object->SetCollisionParameters(_data,
+                                                                elementCount);
                             }
                             break;
                         }
@@ -139,17 +155,17 @@ private:
                     const std::string _primitive_type =
                         static_cast<const char*>(_mesh->GetMeshPrimitive());
                     if (_primitive_type == "points") {
-                        mesh->SetPrimitiveType(PrimitiveType::POINT_LIST);
+                        mesh->SetPrimitiveType(PrimitiveType::kPOINT_LIST);
                     } else if (_primitive_type == "lines") {
-                        mesh->SetPrimitiveType(PrimitiveType::LINE_LIST);
+                        mesh->SetPrimitiveType(PrimitiveType::kLINE_LIST);
                     } else if (_primitive_type == "line_strip") {
-                        mesh->SetPrimitiveType(PrimitiveType::LINE_STRIP);
+                        mesh->SetPrimitiveType(PrimitiveType::kLINE_STRIP);
                     } else if (_primitive_type == "triangles") {
-                        mesh->SetPrimitiveType(PrimitiveType::TRI_LIST);
+                        mesh->SetPrimitiveType(PrimitiveType::kTRI_LIST);
                     } else if (_primitive_type == "triangle_strip") {
-                        mesh->SetPrimitiveType(PrimitiveType::TRI_STRIP);
+                        mesh->SetPrimitiveType(PrimitiveType::kTRI_STRIP);
                     } else if (_primitive_type == "quads") {
-                        mesh->SetPrimitiveType(PrimitiveType::QUAD_LIST);
+                        mesh->SetPrimitiveType(PrimitiveType::kQUAD_LIST);
                     } else {
                         // not supported
                         mesh.reset();
@@ -187,20 +203,20 @@ private:
                                     VertexDataType vertexDataType;
                                     switch (arraySize) {
                                         case 1:
-                                            vertexDataType = VertexDataType::
-                                                VERTEX_DATA_TYPE_FLOAT1;
+                                            vertexDataType =
+                                                VertexDataType::kFLOAT1;
                                             break;
                                         case 2:
-                                            vertexDataType = VertexDataType::
-                                                VERTEX_DATA_TYPE_FLOAT2;
+                                            vertexDataType =
+                                                VertexDataType::kFLOAT2;
                                             break;
                                         case 3:
-                                            vertexDataType = VertexDataType::
-                                                VERTEX_DATA_TYPE_FLOAT3;
+                                            vertexDataType =
+                                                VertexDataType::kFLOAT3;
                                             break;
                                         case 4:
-                                            vertexDataType = VertexDataType::
-                                                VERTEX_DATA_TYPE_FLOAT4;
+                                            vertexDataType =
+                                                VertexDataType::kFLOAT4;
                                             break;
                                         default:
                                             continue;
@@ -226,11 +242,10 @@ private:
                                     int32_t       elementCount = 0;
                                     const void*   _data        = nullptr;
                                     IndexDataType index_type =
-                                        IndexDataType::INDEX_DATA_TYPE_INT16;
+                                        IndexDataType::kINT16;
                                     switch (type) {
                                         case ODDL::kDataUnsignedInt8: {
-                                            index_type = IndexDataType::
-                                                INDEX_DATA_TYPE_INT8;
+                                            index_type = IndexDataType::kINT8;
                                             const ODDL::DataStructure<
                                                 UnsignedInt8DataType>*
                                                 dataStructure = dynamic_cast<
@@ -246,8 +261,7 @@ private:
 
                                         } break;
                                         case ODDL::kDataUnsignedInt16: {
-                                            index_type = IndexDataType::
-                                                INDEX_DATA_TYPE_INT16;
+                                            index_type = IndexDataType::kINT16;
                                             const ODDL::DataStructure<
                                                 UnsignedInt16DataType>*
                                                 dataStructure = dynamic_cast<
@@ -263,8 +277,7 @@ private:
 
                                         } break;
                                         case ODDL::kDataUnsignedInt32: {
-                                            index_type = IndexDataType::
-                                                INDEX_DATA_TYPE_INT32;
+                                            index_type = IndexDataType::kINT32;
                                             const ODDL::DataStructure<
                                                 UnsignedInt32DataType>*
                                                 dataStructure = dynamic_cast<
@@ -280,8 +293,7 @@ private:
 
                                         } break;
                                         case ODDL::kDataUnsignedInt64: {
-                                            index_type = IndexDataType::
-                                                INDEX_DATA_TYPE_INT64;
+                                            index_type = IndexDataType::kINT64;
                                             const ODDL::DataStructure<
                                                 UnsignedInt64DataType>*
                                                 dataStructure = dynamic_cast<
@@ -301,20 +313,16 @@ private:
 
                                     int32_t data_size = 0;
                                     switch (index_type) {
-                                        case IndexDataType::
-                                            INDEX_DATA_TYPE_INT8:
+                                        case IndexDataType::kINT8:
                                             data_size = 1;
                                             break;
-                                        case IndexDataType::
-                                            INDEX_DATA_TYPE_INT16:
+                                        case IndexDataType::kINT16:
                                             data_size = 2;
                                             break;
-                                        case IndexDataType::
-                                            INDEX_DATA_TYPE_INT32:
+                                        case IndexDataType::kINT32:
                                             data_size = 4;
                                             break;
-                                        case IndexDataType::
-                                            INDEX_DATA_TYPE_INT64:
+                                        case IndexDataType::kINT64:
                                             data_size = 8;
                                             break;
                                         default:;

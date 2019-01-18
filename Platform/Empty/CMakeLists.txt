@@ -1,2 +1,8 @@
-add_executable(Empty EmptyApplication.cpp)
-target_link_libraries(Empty Common) 
+add_library(PlatformInterfaceEmpty 
+                EmptyApplication.cpp
+)
+add_library(MyGameEngineEmpty EmptyApplicationConfig.cpp)
+target_link_libraries(MyGameEngineEmpty
+            Common 
+            PlatformInterface
+)
