@@ -9,6 +9,8 @@
 #include "include/Matrix.h"
 #include "include/DCT.h"
 #include "include/Integral.h"
+#include "include/Absolute.h"
+#include "include/MaxMin.h"
 
 namespace My {
 
@@ -648,6 +650,59 @@ Matrix<T, 8, 8> IDCT8x8(const Matrix<T, 8, 8>& pixel_block) {
 template <typename T, typename F>
 const T integral(const T& a, const T& b, const T& precision, F&& func) {
     return ispc::Integral(a, b, precision, func);
+}
+
+template <typename T, int ROWS, int COLS>
+const Vector3<T> GetOrigin(const Matrix<T, ROWS, COLS>& mat) {
+    static_assert(
+        ROWS >= 3,
+        "[Error] Only 3x3 and above matrix can be passed to this method!");
+    static_assert(
+        COLS >= 3,
+        "[Error] Only 3x3 and above matrix can be passed to this method!");
+    return Vector3<T>(mat[3][0], mat[3][1], mat[3][2]);
+}
+
+template <typename T, int ROWS1, int COLS1, int ROWS2, int COLS2>
+void Shrink(Matrix<T, ROWS1, COLS1>&       mat1,
+            const Matrix<T, ROWS2, COLS2>& mat2) {
+    static_assert(
+        ROWS1 < ROWS2,
+        "[Error] Target matrix ROWS must smaller than source matrix ROWS!");
+    static_assert(
+        COLS1 < COLS2,
+        "[Error] Target matrix COLS must smaller than source matrix COLS!");
+
+    size_t size = sizeof(T) * COLS1;
+    for (int i = 0; i < ROWS1; i++) {
+        std::memcpy(mat1[i], mat2[i], size);
+    }
+}
+
+template <typename T, int ROWS, int COLS>
+const Matrix<T, ROWS, COLS> Absolute(const Matrix<T, ROWS, COLS>& mat) {
+    Matrix<T, ROWS, COLS> res;
+    ispc::Absolute(res, mat, ROWS * COLS);
+    return res;
+}
+
+template <typename T, int D>
+const Vector<T, D> Max(const Vector<T, D>& a, const T& b) {
+    Vector<T, D> res;
+    ispc::Max(res, a, b, D);
+    return res;
+}
+
+template <typename T, int D>
+const Vector<T, D> Min(const Vector<T, D>& a, const T& b) {
+    Vector<T, D> res;
+    ispc::Min(res, a, b, D);
+    return res;
+}
+
+template <typename T, int D>
+const T Length(const Vector<T, D>& v) {
+    return static_cast<T>(std::sqrt(v * v));
 }
 
 }  // namespace My

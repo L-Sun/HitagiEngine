@@ -5,7 +5,9 @@
 #include "AssetLoader.hpp"
 #include "SceneManager.hpp"
 #include "InputManager.hpp"
-#include "PhysicsManager.hpp"
+#include "IPhysicsManager.hpp"
+#include "DebugManager.hpp"
+#include "GameLogic.hpp"
 
 namespace My {
 class BaseApplication : implements IApplication {
@@ -17,7 +19,6 @@ public:
     virtual bool IsQuit();
 
     virtual void SetCommandLineParameters(int argc, char** argv);
-    virtual int  LoadScene();
     virtual void OnDraw() {}
 
     inline GfxConfiguration& GetConfiguration() { return m_Config; }

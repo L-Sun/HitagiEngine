@@ -2,11 +2,11 @@
 #include "IRuntimeModule.hpp"
 #define BT_USE_DOUBLE_PRECISION 1
 #include "btBulletDynamicsCommon.h"
-#include "IRuntimeModule.hpp"
+#include "IPhysicsManager.hpp"
 #include "SceneManager.hpp"
 
 namespace My {
-class PhysicsManager : implements IRuntimeModule {
+class BulletPhysicsManager : implements IPhysicsManager {
 public:
     virtual int  Initialize();
     virtual void Finalize();
@@ -20,6 +20,9 @@ public:
     virtual void ClearRigidBodies();
 
     mat4 GetRigidBodyTransform(void* rigidBody);
+    void UpdateRigidBodyTransform(SceneGeometryNode& node);
+
+    void ApplyCentralForce(void* rigidBody, vec3 force);
 
 protected:
     btBroadphaseInterface*               m_btBroadphase;
@@ -31,5 +34,4 @@ protected:
     std::vector<btCollisionShape*> m_btCollisionShapes;
 };
 
-extern PhysicsManager* g_pPhysicsManager;
 }  // namespace My

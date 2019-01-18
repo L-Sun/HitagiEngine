@@ -7,6 +7,8 @@ Vector
 Integral
 Matrix
 DCT
+Absolute
+MaxMin
 )
 
 foreach(FUNC IN LISTS FUNCTIONS)

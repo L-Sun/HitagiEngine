@@ -1,7 +1,5 @@
 #include "BaseApplication.hpp"
 #include <iostream>
-#include <chrono>
-#include <thread>
 
 using namespace My;
 using namespace std;
@@ -58,7 +56,38 @@ int BaseApplication::Initialize() {
     }
     cerr << "Success" << endl;
 
+    cerr << "Initialize GameLogic Manager: ";
+    if ((ret = g_pGameLogic->Initialize()) != 0) {
+        cerr << "Failed. err = " << ret;
+        return ret;
+    }
+    cerr << "Success" << endl;
+
+#ifdef DEBUG
+    cerr << "Initialize Debug Manager: ";
+    if ((ret = g_pDebugManager->Initialize()) != 0) {
+        cerr << "Failed. err =" << ret;
+        return ret;
+    }
+    cerr << "Success" << endl;
+
+#endif
+
     return ret;
+}
+
+// Finalize all sub modules and clean up all runtime temporary files.
+void BaseApplication::Finalize() {
+#ifdef DEBUG
+    g_pDebugManager->Finalize();
+#endif
+    g_pGameLogic->Finalize();
+    g_pGraphicsManager->Finalize();
+    g_pPhysicsManager->Finalize();
+    g_pInputManager->Finalize();
+    g_pSceneManager->Finalize();
+    g_pAssetLoader->Finalize();
+    g_pMemoryManager->Finalize();
 }
 
 // One cycle of the main loop
@@ -69,17 +98,10 @@ void BaseApplication::Tick() {
     g_pInputManager->Tick();
     g_pPhysicsManager->Tick();
     g_pGraphicsManager->Tick();
-    std::this_thread::sleep_for(std::chrono::microseconds(10000));
-}
-
-// Finalize all sub modules and clean up all runtime temporary files.
-void BaseApplication::Finalize() {
-    g_pInputManager->Finalize();
-    g_pGraphicsManager->Finalize();
-    g_pPhysicsManager->Finalize();
-    g_pSceneManager->Finalize();
-    g_pAssetLoader->Finalize();
-    g_pMemoryManager->Finalize();
+    g_pGameLogic->Tick();
+#ifdef DEBUG
+    g_pDebugManager->Tick();
+#endif
 }
 
 void BaseApplication::SetCommandLineParameters(int argc, char** argv) {
@@ -88,22 +110,3 @@ void BaseApplication::SetCommandLineParameters(int argc, char** argv) {
 }
 
 bool BaseApplication::IsQuit() { return m_bQuit; }
-
-int BaseApplication::LoadScene() {
-    int ret;
-
-    string scene_file_name = "Scene/physics_1.ogex";
-    if (m_nArgC > 1) {
-        scene_file_name = m_ppArgV[1];
-    }
-
-    cerr << "Load Scene(" << scene_file_name << "): ";
-    if ((ret = g_pSceneManager->LoadScene(scene_file_name.c_str())) != 0) {
-        cerr << "Failed. err = " << ret;
-        return ret;
-    }
-
-    cerr << "Success";
-
-    return 0;
-}
