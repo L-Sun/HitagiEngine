@@ -673,9 +673,8 @@ void Shrink(Matrix<T, ROWS1, COLS1>&       mat1,
         COLS1 < COLS2,
         "[Error] Target matrix COLS must smaller than source matrix COLS!");
 
-    size_t size = sizeof(T) * COLS1;
     for (int i = 0; i < ROWS1; i++) {
-        std::memcpy(mat1[i], mat2[i], size);
+        mat1[i] = mat2[i];
     }
 }
 
