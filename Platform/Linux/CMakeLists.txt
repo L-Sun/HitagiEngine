@@ -10,7 +10,7 @@ find_library(DL_LIBRARY dl)
 endif(${CMAKE_HOST_SYSTEM_NAME} MATCHES FreeBSD)
 
 
-add_executable(MyGameEngine OpenGLApplication.cpp)
+add_library(MyGameEngine OpenGLApplication.cpp OpenGLApplicationConfig.cpp)
 
 target_link_libraries(MyGameEngine GLFWApplication OpenGLRHI Common glfw
     ${OPENGL_LIBRARY}
@@ -18,4 +18,3 @@ target_link_libraries(MyGameEngine GLFWApplication OpenGLRHI Common glfw
 )
 
 target_include_directories(MyGameEngine PRIVATE "${PROJECT_SOURCE_DIR}/External/src/glad/include")
-__add_xg_platform_dependencies(MyGameEngine)

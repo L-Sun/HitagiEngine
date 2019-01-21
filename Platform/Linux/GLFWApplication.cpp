@@ -61,6 +61,11 @@ void GLFWApplication::KeyCallback(GLFWwindow* window, int key, int scancode,
         g_pInputManager->RightArrowKeyDown();
     else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
         g_pInputManager->RightArrowKeyUp();
+    else if (key == GLFW_KEY_D &&
+             (action == GLFW_PRESS || action == GLFW_REPEAT))
+        g_pInputManager->DebugKeyDown();
+    else if (key == GLFW_KEY_D && action == GLFW_RELEASE)
+        g_pInputManager->DebugKeyUp();
     else if (key == GLFW_KEY_R && action == GLFW_PRESS)
         g_pInputManager->ResetKeyDown();
     else if (key == GLFW_KEY_ESCAPE &&

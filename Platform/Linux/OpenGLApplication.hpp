@@ -9,6 +9,4 @@ public:
     virtual void Finalize();
     virtual void Tick();
 
-protected:
-    virtual void OnDraw();
 };

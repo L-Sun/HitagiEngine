@@ -6,14 +6,16 @@ using namespace My;
 
 namespace My {
 // clang-format off
-GfxConfiguration config("Game Engine From Scratch (Linux)", 8, 8, 8, 8, 24, 8, 0, 960, 540);
+extern GfxConfiguration config;
 IApplication*    g_pApp             = static_cast<IApplication*>(new OpenGLApplication(config));
 GraphicsManager* g_pGraphicsManager = static_cast<GraphicsManager*>(new OpenGLGraphicsManager);
 MemoryManager*   g_pMemoryManager   = static_cast<MemoryManager*>(new MemoryManager);
 AssetLoader*     g_pAssetLoader     = static_cast<AssetLoader*>(new AssetLoader);
 SceneManager*    g_pSceneManager    = static_cast<SceneManager*>(new SceneManager);
 InputManager*    g_pInputManager    = static_cast<InputManager*>(new InputManager);
-PhysicsManager*  g_pPhysicsManager  = static_cast<PhysicsManager*>(new PhysicsManager);
+#ifdef DEBUG
+DebugManager*    g_pDebugManager    = static_cast<DebugManager*>(new DebugManager);
+#endif
 // clang-format on
 }  // namespace My
 
@@ -33,8 +35,8 @@ int OpenGLApplication::Initialize() {
 }
 
 void OpenGLApplication::Finalize() { GLFWApplication::Finalize(); }
-void OpenGLApplication::Tick() { GLFWApplication::Tick(); }
-void OpenGLApplication::OnDraw() {
+void OpenGLApplication::Tick() {
     g_pGraphicsManager->Clear();
     g_pGraphicsManager->Draw();
+    GLFWApplication::Tick();
 }
