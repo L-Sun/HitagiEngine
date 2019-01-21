@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <climits>
 #include <cassert>
+#include <limits>
 
 namespace My {
 template <typename T>
