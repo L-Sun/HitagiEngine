@@ -165,6 +165,13 @@ public:
         }
         return *this;
     }
+    swizzle& operator=(const swizzle& s) {
+        size_t indexs[] = {Indexs...};
+        for (size_t i = 0; i < sizeof...(Indexs); i++) {
+            data[indexs[i]] = s.data[indexs[i]];
+        }
+        return *this;
+    }
 
     operator rT() { return rT(data[Indexs]...); }
     operator const rT() const { return rT(data[Indexs]...); }
