@@ -13,7 +13,7 @@ int MyTest::Initialize() {
 
     cout << "My Game Logic Initialize" << endl;
     cout << "Start Loading Game Scene" << endl;
-    result = g_pSceneManager->LoadScene("Scene/aili_cycle.ogex");
+    result = g_pSceneManager->LoadScene("Scene/test.ogex");
 
     return result;
 }

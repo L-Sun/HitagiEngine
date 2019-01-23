@@ -436,28 +436,16 @@ void OpenGLGraphicsManager::RenderBuffers() {
     SetPerFrameShaderParameters(m_shaderProgram);
 
     for (auto dbc : m_DrawBatchContext) {
-        mat4 trans = *dbc.node->GetCalculatedTransform();
+        mat4 trans;
 
         if (void* rigidBody = dbc.node->RigidBody()) {
             // the geometry has rigid body bounded, we blend the simlation
             // result here.
-            mat4 simulated_result =
-                g_pPhysicsManager->GetRigidBodyTransform(rigidBody);
-
-            // reset the translation part of the matrix
-            memcpy(trans[3], vec3(0.0f, 0.0f, 0.0f), sizeof(float) * 3);
-
-            // apply the rotation part of the simlation result
-            mat4 rotation(1.0f);
-            memcpy(rotation[0], simulated_result[0], sizeof(float) * 3);
-            memcpy(rotation[1], simulated_result[1], sizeof(float) * 3);
-            memcpy(rotation[2], simulated_result[2], sizeof(float) * 3);
-            trans = trans * rotation;
-
-            // replace the translation part of the matrix with simlation
-            // result directly
-            memcpy(trans[3], simulated_result[3], sizeof(float) * 3);
+            trans = g_pPhysicsManager->GetRigidBodyTransform(rigidBody);
+        } else {
+            trans = *dbc.node->GetCalculatedTransform();
         }
+
         SetPerBatchShaderParameters(m_shaderProgram, "modelMatrix", trans);
         glBindVertexArray(dbc.vao);
         // auto           indexBufferCount = dbc.counts.size();
