@@ -56,6 +56,8 @@ private:
                     _key          = material->GetStructureName();
                     _node->AddMaterialRef(_key);
                 }
+                std::string name = _structure.GetNodeName();
+                scene.LUT_Name_GeometryNode.emplace(name, _node);
                 scene.GeometryNodes.emplace(_key, _node);
                 node = _node;
             } break;

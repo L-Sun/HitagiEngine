@@ -259,6 +259,11 @@ typedef enum _PrimitiveType : int32_t {
     // clang-format on
 } PrimitiveType;
 
+struct BoundingBox {
+    vec3 centroid;
+    vec3 extent;
+};
+
 std::ostream& operator<<(std::ostream& out, const PrimitiveType& type);
 
 class SceneObjectMesh : public BaseSceneObject {
@@ -308,6 +313,7 @@ public:
         return m_IndexArray[index];
     }
     const PrimitiveType& GetPrimitiveType() { return m_PrimitiveType; }
+    BoundingBox          GetBoundingBox() const;
 
     friend std::ostream& operator<<(std::ostream&          out,
                                     const SceneObjectMesh& obj);
@@ -535,6 +541,9 @@ public:
     }
     const std::weak_ptr<SceneObjectMesh> GetMeshLOD(size_t lod) {
         return (lod < m_Mesh.size() ? m_Mesh[lod] : nullptr);
+    }
+    BoundingBox GetBoundingBox() const {
+        return m_Mesh.empty() ? BoundingBox() : m_Mesh[0]->GetBoundingBox();
     }
 
     friend std::ostream& operator<<(std::ostream&              out,

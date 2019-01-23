@@ -51,8 +51,15 @@ void MyPhysicsManager::CreateRigidBody(SceneGeometryNode&         node,
             auto       motionState = make_shared<MotionState>(*trans);
             rigidBody              = new RigidBody(collision_box, motionState);
         } break;
-        default:
-            break;
+        default: {
+            // create AABB box according to Bounding Box
+            auto       bounding_box  = geometry.GetBoundingBox();
+            auto       collision_box = make_shared<Box>(bounding_box.extent);
+            const auto trans         = node.GetCalculatedTransform();
+            auto       motionState =
+                make_shared<MotionState>(*trans, bounding_box.centroid);
+            rigidBody = new RigidBody(collision_box, motionState);
+        }
     }
     node.LinkRigidBody(rigidBody);
 }
@@ -114,19 +121,26 @@ void MyPhysicsManager::DrawDebugInfo() {
         auto pGeometryNode = _it.second;
 
         if (void* rigidBody = pGeometryNode->RigidBody()) {
-            RigidBody* _rigidBody = reinterpret_cast<RigidBody*>(rigidBody);
-            mat4       simulated_result = GetRigidBodyTransform(_rigidBody);
-            auto       pGeometry        = _rigidBody->GetCollisionShape();
-            DrawAabb(*pGeometry, simulated_result);
+            RigidBody* _rigidBody   = reinterpret_cast<RigidBody*>(rigidBody);
+            auto       motionState  = _rigidBody->GetMotionState();
+            auto       pGeometry    = _rigidBody->GetCollisionShape();
+            auto       trans        = motionState->GetTransition();
+            auto       centerOfMass = motionState->GetCenterOfMassOffset();
+            DrawAabb(*pGeometry, trans, centerOfMass);
         }
     }
 }
 
-void MyPhysicsManager::DrawAabb(const Geometry& geometry, const mat4& trans) {
+void MyPhysicsManager::DrawAabb(const Geometry& geometry, const mat4& trans,
+                                const vec3& centerOfMass) {
     vec3 bbMin, bbMax;
-    vec3 color(0.5f, 0.5f, 0.5f);
-
-    geometry.GetAabb(trans, bbMin, bbMax);
+    vec3 color(0.7f, 0.6f, 0.5f);
+    mat4 _trans(1.0f);
+    _trans.data[3][0] = centerOfMass.x * trans.data[0][0];  // scale by x-scale
+    _trans.data[3][1] = centerOfMass.y * trans.data[1][1];  // scale by y-scale
+    _trans.data[3][2] = centerOfMass.z * trans.data[2][2];  // scale by z-scale
+    _trans            = trans * _trans;
+    geometry.GetAabb(_trans, bbMin, bbMax);
     g_pGraphicsManager->DrawBox(bbMin, bbMax, color);
 }
 

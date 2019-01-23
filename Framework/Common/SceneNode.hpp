@@ -13,6 +13,7 @@ protected:
     std::string                                      m_strName;
     std::list<std::shared_ptr<BaseSceneNode>>        m_Chlidren;
     std::list<std::shared_ptr<SceneObjectTransform>> m_Transforms;
+    mat4 m_RuntimeTransform = mat4(1.0f);
 
     virtual void dump(std::ostream& out) const {}
 
@@ -33,9 +34,14 @@ public:
         std::shared_ptr<mat4> result(new mat4(1.0f));
 
         for (auto trans : m_Transforms) {
-            *result = *result * static_cast<mat4>(*trans);
+            *result *= static_cast<mat4>(*trans);
         }
+        *result *= m_RuntimeTransform;
         return result;
+    }
+
+    void RotateBy(const float& x, const float& y, const float& z) {
+        m_RuntimeTransform *= rotate(mat4(1.0f), x, y, z);
     }
 
     friend std::ostream& operator<<(std::ostream&        out,

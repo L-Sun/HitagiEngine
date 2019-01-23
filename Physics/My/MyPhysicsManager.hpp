@@ -27,7 +27,8 @@ public:
 
 protected:
 #ifdef DEBUG
-    void DrawAabb(const Geometry& geometry, const mat4& trans);
+    void DrawAabb(const Geometry& geometry, const mat4& trans,
+                  const vec3& centerOfMass);
 #endif
 };
 }  // namespace My
