@@ -2,6 +2,7 @@
 #include "IRuntimeModule.hpp"
 #include "geommath.hpp"
 #include "Image.hpp"
+#include "Scene.hpp"
 
 namespace My {
 class GraphicsManager : implements IRuntimeModule {
@@ -20,22 +21,16 @@ public:
     virtual void ClearDebugBuffers();
 #endif
 
-    void WorldRotateX(float angle);
-    void WorldRotateY(float angle);
-
 protected:
-    bool SetPerFrameShaderParameters();
-    bool SetPerBatchShaderParameters(const char* paramName, const mat4& param);
-    bool SetPerBatchShaderParameters(const char* paramName, const vec3& param);
-    bool SetPerBatchShaderParameters(const char* paramName, const float param);
-    bool SetPerBatchShaderParameters(const char* paramName, const int param);
-
-    void InitConstants();
-    bool InitializeShader(const char* vsFilename, const char* fsFilename);
-    void InitializeBuffers();
-    void CalculateCameraMatrix();
-    void CalculateLights();
-    void RenderBuffers();
+    virtual void InitConstants();
+    virtual void InitializeBuffers(const Scene& scene);
+    virtual bool InitializeShaders();
+    virtual void ClearShaders();
+    virtual void ClearBuffers();
+    virtual void CalculateCameraMatrix();
+    virtual void CalculateLights();
+    virtual void UpdateConstants();
+    virtual void RenderBuffers();
 
     struct DrawFrameContext {
         mat4 m_worldMatrix;

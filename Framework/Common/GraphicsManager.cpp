@@ -12,67 +12,38 @@ int GraphicsManager::Initialize() {
     return result;
 }
 
-void GraphicsManager::Finalize() {}
+void GraphicsManager::Finalize() {
+#ifdef DEBUG
+    ClearDebugBuffers();
+#endif
+    ClearBuffers();
+    ClearShaders();
+}
+
 void GraphicsManager::Tick() {
     if (g_pSceneManager->IsSceneChanged()) {
-        cout << "Detected Scene Change, reinitialize Graphics Manager..."
-             << endl;
-        Finalize();
-        Initialize();
+        cout << "Detected Scene Change, reinitialize buffers ..." << endl;
+        ClearBuffers();
+        ClearShaders();
+        const Scene& scene = g_pSceneManager->GetSceneForRendering();
+        InitializeShaders();
+        InitializeBuffers(scene);
         g_pSceneManager->NotifySceneIsRenderingQueued();
     }
-    CalculateCameraMatrix();
-    CalculateLights();
+    UpdateConstants();
 
     Clear();
     Draw();
 }
-void GraphicsManager::Draw() {}
+void GraphicsManager::Draw() {
+    UpdateConstants();
+    RenderBuffers();
+}
 void GraphicsManager::Clear() {}
 
-bool GraphicsManager::SetPerFrameShaderParameters() {
-    cout << "[RHI] GraphicsManager::SetPerFrameShaderParameters(void)" << endl;
-    return true;
-}
-
-bool GraphicsManager::SetPerBatchShaderParameters(const char* paramName,
-                                                  const mat4& param) {
-    cout << "[RHI] GraphicsManager::SetPerFrameShaderParameters(const char* "
-            "paramName, const Matrix4X4f& param)"
-         << endl;
-    cout << "paramName = " << paramName << endl;
-    cout << "param = " << param << endl;
-    return true;
-}
-
-bool GraphicsManager::SetPerBatchShaderParameters(const char* paramName,
-                                                  const vec3& param) {
-    cout << "[RHI] GraphicsManager::SetPerFrameShaderParameters(const char* "
-            "paramName, const Vector3f& param)"
-         << endl;
-    cout << "paramName = " << paramName << endl;
-    cout << "param = " << param << endl;
-    return true;
-}
-
-bool GraphicsManager::SetPerBatchShaderParameters(const char* paramName,
-                                                  const float param) {
-    cout << "[RHI] GraphicsManager::SetPerFrameShaderParameters(const char* "
-            "paramName, const float param)"
-         << endl;
-    cout << "paramName = " << paramName << endl;
-    cout << "param = " << param << endl;
-    return true;
-}
-
-bool GraphicsManager::SetPerBatchShaderParameters(const char* paramName,
-                                                  const int   param) {
-    cout << "[RHI] GraphicsManager::SetPerFrameShaderParameters(const char* "
-            "paramName, const int param)"
-         << endl;
-    cout << "paramName = " << paramName << endl;
-    cout << "param = " << param << endl;
-    return true;
+void GraphicsManager::UpdateConstants() {
+    CalculateCameraMatrix();
+    CalculateLights();
 }
 
 void GraphicsManager::InitConstants() {
@@ -80,14 +51,16 @@ void GraphicsManager::InitConstants() {
     m_DrawFrameContext.m_worldMatrix = mat4(1.0f);
 }
 
-bool GraphicsManager::InitializeShader(const char* vsFilename,
-                                       const char* fsFilename) {
+bool GraphicsManager::InitializeShaders() {
     cout << "[RHI] GraphicsManager::InitializeShader(const char* vsFilename, "
             "const char* fsFilename)"
          << endl;
-    cout << "VS Filename: " << vsFilename << endl;
-    cout << "PS Filename: " << fsFilename << endl;
+
     return true;
+}
+
+void GraphicsManager::ClearShaders() {
+    cout << "[GraphicsManager] GraphicsManager::ClearShaders()" << endl;
 }
 
 void GraphicsManager::CalculateCameraMatrix() {
@@ -145,23 +118,14 @@ void GraphicsManager::CalculateLights() {
         lightColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }
-
-void GraphicsManager::InitializeBuffers() {}
-
+void GraphicsManager::InitializeBuffers(const Scene& scene) {
+    cout << "[GraphicsManager] GraphicsManager::InitializeBuffers()" << endl;
+}
+void GraphicsManager::ClearBuffers() {
+    cout << "[GraphicsManager] GraphicsManager::ClearBuffers()" << endl;
+}
 void GraphicsManager::RenderBuffers() {
     cout << "[RHI] GraphicsManager::RenderBuffers()" << endl;
-}
-
-void GraphicsManager::WorldRotateX(float radians) {
-    mat4 rotationMatrix = rotateX(mat4(1.0f), radians);
-    m_DrawFrameContext.m_worldMatrix =
-        m_DrawFrameContext.m_worldMatrix * rotationMatrix;
-}
-
-void GraphicsManager::WorldRotateY(float radians) {
-    mat4 rotationMatrix = rotateY(mat4(1.0f), radians);
-    m_DrawFrameContext.m_worldMatrix =
-        m_DrawFrameContext.m_worldMatrix * rotationMatrix;
 }
 
 #ifdef DEBUG

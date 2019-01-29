@@ -36,10 +36,10 @@ private:
                                      const GLint texture_index);
     bool SetPerFrameShaderParameters(GLuint shader);
 
-    void InitializeBuffers();
-    void RenderBuffers();
-    void ClearBuffers();
-    bool InitializeShader();
+    void InitializeBuffers(const Scene& scene) final;
+    void ClearBuffers() final;
+    bool InitializeShaders() final;
+    void RenderBuffers() final;
 
     GLuint m_vertexShader;
     GLuint m_fragmentShader;

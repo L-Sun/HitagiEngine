@@ -94,8 +94,6 @@ int OpenGLGraphicsManager::Initialize() {
             glEnable(GL_CULL_FACE);
             glCullFace(GL_BACK);
         }
-        InitializeShader();
-        InitializeBuffers();
     }
 
     return result;
@@ -231,9 +229,7 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
     return true;
 }
 
-void OpenGLGraphicsManager::InitializeBuffers() {
-    auto& scene = g_pSceneManager->GetSceneForRendering();
-
+void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
     for (auto _it : scene.GeometryNodes) {
         auto pGeometryNode = _it.second;
         if (pGeometryNode->Visible()) {
@@ -500,7 +496,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
     return;
 }
 
-bool OpenGLGraphicsManager::InitializeShader() {
+bool OpenGLGraphicsManager::InitializeShaders() {
     const char* vsFilename = VS_SHADER_SOURCE_FILE;
     const char* fsFilename = FS_SHADER_SOURCE_FILE;
 #ifdef DEBUG
