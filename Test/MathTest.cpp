@@ -10,14 +10,14 @@ vec3 v3 = {1, 2, 3};
 mat3 m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
 // mat4 m4 = {{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}, {13, 14, 15, 16}};
 
-template <typename T, int D>
+template <typename T, unsigned D>
 void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2) {
     for (size_t i = 0; i < D; i++) {
         EXPECT_NEAR(v1[i], v2[i], 1E-8) << "difference at index: " << i;
     }
 }
 
-template <typename T, int ROWS, int COLS>
+template <typename T, unsigned ROWS, unsigned COLS>
 void matrix_eq(Matrix<T, ROWS, COLS> mat1, Matrix<T, ROWS, COLS> mat2,
                double epsilon = 1E-5) {
     for (int i = 0; i < ROWS; i++) {
