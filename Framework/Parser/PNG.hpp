@@ -46,7 +46,7 @@ struct PNG_IHDR : PNG_CHUNK {
 };
 
 struct PNG_PLTE : PNG_CHUNK {
-    Vector3<uint8_t>* rgb;
+    Vector<uint8_t, 3>* rgb;
 };
 #pragma pack(pop)
 

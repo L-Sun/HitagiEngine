@@ -213,7 +213,7 @@ BoundingBox SceneObjectMesh::GetBoundingBox() const {
                         bbmax.z = (bbmax.z > vertex.z) ? bbmax.z : vertex.z;
                     } break;
                     case VertexDataType::kDOUBLE3: {
-                        const Vector3<double> vertex =
+                        const Vector<double, 3> vertex =
                             reinterpret_cast<const double*>(data) + 3 * i;
                         bbmin.x = (bbmin.x < vertex.x) ? bbmin.x : vertex.x;
                         bbmin.y = (bbmin.y < vertex.y) ? bbmin.y : vertex.y;
