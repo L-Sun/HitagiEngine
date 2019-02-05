@@ -8,7 +8,7 @@
 #include "include/Vector.h"
 #include "include/Matrix.h"
 #include "include/DCT.h"
-#include "include/Integral.h"
+// #include "include/Integral.h"
 #include "include/Absolute.h"
 #include "include/MaxMin.h"
 
@@ -16,17 +16,120 @@ namespace My {
 
 const float PI = 3.14159265358979323846;
 
-template <typename T, int ROWS, int COLS>
+template <typename T, unsigned ROWS, unsigned COLS>
 struct Matrix;
 
-template <typename T, int D>
-struct Vector {
+template <typename T, unsigned D>
+struct Vector;
+
+template <typename T, unsigned D, unsigned... Indexs>
+class swizzle {
+public:
     T data[D];
+
+    swizzle& operator=(const T& v) {
+        size_t indexs[] = {Indexs...};
+        for (unsigned i = 0; i < sizeof...(Indexs); i++) {
+            data[indexs[i]] = v;
+        }
+        return *this;
+    }
+    swizzle& operator=(std::initializer_list<T> l) {
+        size_t indexs[] = {Indexs...};
+        size_t i        = 0;
+        for (auto&& e : l) data[indexs[i++]] = e;
+        return *this;
+    }
+    swizzle& operator=(const Vector<T, sizeof...(Indexs)>& v) {
+        size_t indexs[] = {Indexs...};
+        for (size_t i = 0; i < sizeof...(Indexs); i++) {
+            data[indexs[i]] = v[i];
+        }
+        return *this;
+    }
+
+    operator Vector<T, sizeof...(Indexs)>() {
+        return Vector<T, sizeof...(Indexs)>({data[Indexs]...});
+    }
+    operator const Vector<T, sizeof...(Indexs)>() const {
+        return Vector<T, sizeof...(Indexs)>({data[Indexs]...});
+    }
+};
+
+// clang-format off
+template <typename T, unsigned D>
+struct BaseVector {
+    union {
+        T data[D];
+    };
+    BaseVector() = default;
+};
+
+template <typename T>
+struct BaseVector<T, 2> {
+    union {
+        T data[2];
+        struct { T x, y; };
+        struct { T u, v; };
+        swizzle<T, 2, 0, 1> xy, uv;
+        swizzle<T, 2, 1, 0> yx, vu;
+    };
+    BaseVector() = default;
+    BaseVector(const T& x, const T& y) : data{x, y} {}
+};
+
+template <typename T>
+struct BaseVector<T, 3> {
+    union {
+        T data[3];
+        struct { T x, y, z; };
+        struct { T r, g, b; };
+        swizzle<T, 3, 0, 1, 2> xyz, rgb;
+        swizzle<T, 3, 0, 2, 1> xzy, rbg;
+        swizzle<T, 3, 1, 0, 2> yxz, grb;
+        swizzle<T, 3, 1, 2, 0> yzx, gbr;
+        swizzle<T, 3, 2, 0, 1> zxy, brg;
+        swizzle<T, 3, 2, 1, 0> zyx, bgr;
+    };
+    BaseVector() = default;
+    BaseVector(const T& x, const T& y, const T& z) : data{x, y, z} {}
+};
+
+template <typename T>
+struct BaseVector<T, 4> {
+    union {
+        T data[4];
+        struct { T x, y, z, w; };
+        struct { T r, g, b, a; };
+        swizzle<T, 3, 0, 1, 2> xyz, rgb;
+        swizzle<T, 3, 0, 2, 1> xzy, rbg;
+        swizzle<T, 3, 1, 0, 2> yxz, grb;
+        swizzle<T, 3, 1, 2, 0> yzx, gbr;
+        swizzle<T, 3, 2, 0, 1> zxy, brg;
+        swizzle<T, 3, 2, 1, 0> zyx, bgr;
+        swizzle<T, 4, 0, 1, 2, 3> xyzw, rgba;
+        swizzle<T, 4, 2, 1, 0, 3> zyxw, bgra;
+    };
+    BaseVector() = default;
+    BaseVector(const T& x, const T& y, const T& z,const T& w) : data{x, y, z, w} {}
+};
+// clang-format on
+
+template <typename T, unsigned D>
+struct Vector : public BaseVector<T, D> {
+    using BaseVector<T, D>::data;
+    using BaseVector<T, D>::BaseVector;
+
     Vector() = default;
     Vector(std::initializer_list<T> l) { std::move(l.begin(), l.end(), data); }
     Vector(const T& num) { std::fill(data, data + D, num); }
     Vector(const T* p) { std::copy(p, p + D, data); }
     Vector(const Vector& v) { std::copy(v.data, v.data + D, data); }
+    Vector(const Vector<T, D - 1>& v, const T& num) {
+        std::copy(v.data, v.data + D - 1, data);
+        data[D - 1] = num;
+    }
+
     Vector& operator=(const T* p) {
         std::copy(p, p + D, data);
         return *this;
@@ -87,7 +190,7 @@ struct Vector {
         ispc::DotProduct(data, rhs, &result, D);
         return result;
     }
-    template <int DD>
+    template <unsigned DD>
     const Vector<T, DD> operator*(const Matrix<T, D, DD>& rhs) {
         Vector<T, DD> result;
         ispc::MatMul(data, rhs, result, 1, D, DD);
@@ -136,150 +239,13 @@ struct Vector {
     }
 };
 
-template <typename Vec, typename rT, typename T, int... Indexs>
-class swizzle {
-    friend Vec;
+typedef Vector<float, 2>   vec2;
+typedef Vector<float, 3>   vec3;
+typedef Vector<float, 4>   vec4;
+typedef Vector<float, 4>   quat;
+typedef Vector<uint8_t, 4> R8G8B8A8Unorm;
 
-public:
-    T*       data;
-    swizzle& operator=(const T& v) {
-        size_t indexs[] = {Indexs...};
-        for (int i = 0; i < sizeof...(Indexs); i++) {
-            data[indexs[i]] = v;
-        }
-        return *this;
-    }
-    swizzle& operator=(std::initializer_list<T> l) {
-        size_t indexs[] = {Indexs...};
-        size_t i        = 0;
-        for (auto&& v : l) {
-            data[indexs[i]] = v;
-            i++;
-        }
-        return *this;
-    }
-    swizzle& operator=(const Vector<T, sizeof...(Indexs)>& v) {
-        size_t indexs[] = {Indexs...};
-        for (size_t i = 0; i < sizeof...(Indexs); i++) {
-            data[indexs[i]] = v[i];
-        }
-        return *this;
-    }
-
-    operator rT() { return rT(data[Indexs]...); }
-    operator const rT() const { return rT(data[Indexs]...); }
-
-private:
-    swizzle(Vec& v) : data(v.data) {}
-};  // namespace My
-
-template <typename T>
-struct Vector2 : public Vector<T, 2> {
-    typedef Vector<T, 2> base_vec;
-
-    swizzle<Vector2, T, T, 0>             x  = *this;
-    swizzle<Vector2, T, T, 1>             y  = *this;
-    decltype(x)                           u  = x;
-    decltype(y)                           v  = y;
-    swizzle<Vector2, Vector2<T>, T, 0, 1> xy = *this;
-    swizzle<Vector2, Vector2<T>, T, 1, 0> yx = *this;
-    decltype(xy)                          uv = xy;
-
-    Vector2() {}
-    Vector2(const T* p) : base_vec(p) {}
-    Vector2(const T& v) : base_vec(v) {}
-    Vector2(const base_vec& v) : base_vec(v) {}
-    Vector2(const T& x, const T& y) : base_vec({x, y}) {}
-    Vector2(const Vector2& v) : base_vec(v) {}
-    Vector2& operator=(const Vector2& v) {
-        if (this != &v) base_vec::operator=(v);
-        return *this;
-    }
-};
-template <typename T>
-struct Vector3 : public Vector<T, 3> {
-    typedef Vector<T, 3> base_vec;
-
-    swizzle<Vector3, T, T, 0> x = *this;
-    swizzle<Vector3, T, T, 1> y = *this;
-    swizzle<Vector3, T, T, 2> z = *this;
-    decltype(x)               r = x;
-    decltype(y)               g = y;
-    decltype(z)               b = z;
-
-    swizzle<Vector3, Vector2<T>, T, 0, 1>    xy  = *this;
-    swizzle<Vector3, Vector2<T>, T, 1, 0>    yx  = *this;
-    swizzle<Vector3, Vector2<T>, T, 2, 0>    zx  = *this;
-    swizzle<Vector3, Vector2<T>, T, 0, 2>    xz  = *this;
-    swizzle<Vector3, Vector2<T>, T, 1, 2>    yz  = *this;
-    swizzle<Vector3, Vector2<T>, T, 2, 1>    zy  = *this;
-    swizzle<Vector3, Vector3<T>, T, 0, 1, 2> xyz = *this;
-    swizzle<Vector3, Vector3<T>, T, 0, 2, 1> xzy = *this;
-    swizzle<Vector3, Vector3<T>, T, 1, 0, 2> yxz = *this;
-    swizzle<Vector3, Vector3<T>, T, 1, 2, 0> yzx = *this;
-    swizzle<Vector3, Vector3<T>, T, 2, 0, 1> zxy = *this;
-    swizzle<Vector3, Vector3<T>, T, 2, 1, 0> zyx = *this;
-    decltype(xyz)                            rgb = xyz;
-
-    Vector3() {}
-    Vector3(const T* p) : base_vec(p) {}
-    Vector3(const T& v) : base_vec(v) {}
-    Vector3(const base_vec& v) : base_vec(v) {}
-    Vector3(const T& x, const T& y, const T& z) : base_vec({x, y, z}) {}
-    Vector3(const Vector2<T>& v, const T& z) : base_vec({v.x, v.y, z}) {}
-    Vector3(const Vector3& v) : base_vec(v) {}
-    Vector3& operator=(const Vector3& v) {
-        if (this != &v) base_vec::operator=(v);
-        return *this;
-    }
-};
-template <typename T>
-struct Vector4 : public Vector<T, 4> {
-    typedef Vector<T, 4> base_vec;
-
-    swizzle<Vector4, T, T, 0> x = *this;
-    swizzle<Vector4, T, T, 1> y = *this;
-    swizzle<Vector4, T, T, 2> z = *this;
-    swizzle<Vector4, T, T, 3> w = *this;
-    decltype(x)               r = x;
-    decltype(y)               g = y;
-    decltype(z)               b = z;
-    decltype(w)               a = w;
-
-    swizzle<Vector4, Vector3<T>, T, 0, 1, 2> xyz = *this;
-    swizzle<Vector4, Vector3<T>, T, 0, 2, 1> xzy = *this;
-    swizzle<Vector4, Vector3<T>, T, 1, 0, 2> yxz = *this;
-    swizzle<Vector4, Vector3<T>, T, 1, 2, 0> yzx = *this;
-    swizzle<Vector4, Vector3<T>, T, 2, 0, 1> zxy = *this;
-    swizzle<Vector4, Vector3<T>, T, 2, 1, 0> zyx = *this;
-    decltype(xyz)                            rgb = xyz;
-
-    swizzle<Vector4, Vector4<T>, T, 0, 1, 2, 3> rgba = *this;
-    swizzle<Vector4, Vector4<T>, T, 2, 1, 0, 3> bgra = *this;
-
-    Vector4() {}
-    Vector4(const T* p) : base_vec(p) {}
-    Vector4(const T& num) : base_vec(num) {}
-    Vector4(const base_vec& v) : base_vec(v) {}
-    Vector4(const T& x, const T& y, const T& z, const T& w)
-        : base_vec({x, y, z, w}) {}
-    Vector4(const Vector2<T>& v, const T& z, const T& w)
-        : base_vec({v.x, v.y, z, w}) {}
-    Vector4(const Vector3<T>& v, const T& w) : base_vec({v.x, v.y, v.z, w}) {}
-    Vector4(const Vector4& v) : base_vec(v) {}
-    Vector4& operator=(const Vector4& v) {
-        if (this != &v) base_vec::operator=(v);
-        return *this;
-    }
-};
-
-typedef Vector2<float>   vec2;
-typedef Vector3<float>   vec3;
-typedef Vector4<float>   vec4;
-typedef Vector4<float>   quat;
-typedef Vector4<uint8_t> R8G8B8A8Unorm;
-
-template <typename T, int ROWS, int COLS>
+template <typename T, unsigned ROWS, unsigned COLS>
 struct Matrix {
     typedef Vector<T, COLS> row_type;
 
@@ -307,20 +273,22 @@ struct Matrix {
     }
     Matrix(const T* p) { std::copy(p, p + ROWS * COLS, &data[0][0]); }
 
-    row_type&       operator[](int row_index) { return data[row_index]; }
-    const row_type& operator[](int row_index) const { return data[row_index]; }
+    row_type&       operator[](unsigned row_index) { return data[row_index]; }
+    const row_type& operator[](unsigned row_index) const {
+        return data[row_index];
+    }
 
     operator T*() { return &data[0][0]; }
     operator const T*() const { return static_cast<const T*>(&data[0][0]); }
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
         std::fixed(out);
-        for (int i = 0; i < ROWS; i++) {
+        for (unsigned i = 0; i < ROWS; i++) {
             if (i == 0)
                 out << "\n{{";
             else
                 out << " {";
-            for (int j = 0; j < COLS; j++) {
+            for (unsigned j = 0; j < COLS; j++) {
                 out << mat[i][j];
                 if (j != COLS - 1) out << ", ";
             }
@@ -367,7 +335,7 @@ struct Matrix {
         ispc::NegateSubByNum(lhs, rhs, result, ROWS * COLS);
         return result;
     }
-    template <int CC>
+    template <unsigned CC>
     const Matrix<T, ROWS, CC> operator*(const Matrix<T, COLS, CC>& rhs) const {
         Matrix<T, ROWS, CC> result;
         ispc::MatMul(*this, rhs, result, ROWS, COLS, CC);
@@ -430,20 +398,20 @@ typedef Matrix<float, 8, 8> mat8;
 
 inline float radians(float angle) { return angle / 180.0f * PI; }
 
-template <typename T, int D>
+template <typename T, unsigned D>
 Vector<T, D> normalize(const Vector<T, D>& v) {
     Vector<T, D> res = v;
     ispc::Normalize(res, D);
     return res;
 }
 template <typename T>
-Vector3<T> cross(const Vector3<T>& v1, const Vector3<T>& v2) {
-    Vector3<T> result;
+Vector<T, 3> cross(const Vector<T, 3>& v1, const Vector<T, 3>& v2) {
+    Vector<T, 3> result;
     ispc::CrossProduct(v1, v2, result);
     return result;
 }
 
-template <typename T, int N>
+template <typename T, unsigned N>
 Matrix<T, N, N> inverse(const Matrix<T, N, N>& mat) {
     Matrix<T, N, N> res;
     bool            success = false;
@@ -460,13 +428,13 @@ Matrix<T, N, N> inverse(const Matrix<T, N, N>& mat) {
     return res;
 }
 
-template <typename T, int ROWS, int COLS>
+template <typename T, unsigned ROWS, unsigned COLS>
 void exchangeYZ(Matrix<T, ROWS, COLS>& matrix) {
     ispc::MatrixExchangeYandZ(matrix, ROWS, COLS);
 }
 
 template <typename T>
-Matrix<T, 4, 4> translate(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
+Matrix<T, 4, 4> translate(const Matrix<T, 4, 4>& mat, const Vector<T, 3>& v) {
     // clang-format off
     Matrix<T, 4, 4> translation = {
         {1,   0,   0,   0},
@@ -521,7 +489,7 @@ Matrix<T, 4, 4> rotateZ(const Matrix<T, 4, 4>& mat, const T angle) {
 }
 template <typename T>
 Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T angle,
-                       const Vector3<T>& axis) {
+                       const Vector<T, 3>& axis) {
     const float c = cosf(angle), s = sinf(angle), _1_c = 1.0f - c;
     const float x = axis.x, y = axis.y, z = axis.z;
     // clang-format off
@@ -561,7 +529,7 @@ Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T yaw, const T pitch,
 }
 
 template <typename T>
-Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector4<T>& quatv) {
+Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector<T, 4>& quatv) {
     quatv     = normalize(quatv);
     const T a = quatv.x, b = quatv.y, c = quatv.z, d = quatv.w;
     const T _2a2 = 2 * a * a, _2b2 = 2 * b * b, _2c2 = 2 * c * c,
@@ -579,7 +547,7 @@ Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector4<T>& quatv) {
     return rotate_mat * mat;
 }
 template <typename T>
-Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, const Vector3<T>& v) {
+Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, const Vector<T, 3>& v) {
     auto res = mat;
     res[0] *= v.x;
     res[1] *= v.y;
@@ -619,11 +587,11 @@ Matrix<T, 4, 4> perspective(T fov, T aspect, T near, T far) {
 }
 
 template <typename T>
-Matrix<T, 4, 4> lookAt(const Vector3<T>& position, const Vector3<T>& target,
-                       const Vector3<T>& up) {
-    Vector3<T> direct   = normalize(target - position);
-    Vector3<T> right    = normalize(cross(direct, up));
-    Vector3<T> cameraUp = normalize(cross(right, direct));
+Matrix<T, 4, 4> lookAt(const Vector<T, 3>& position, const Vector<T, 3>& target,
+                       const Vector<T, 3>& up) {
+    Vector<T, 3> direct   = normalize(target - position);
+    Vector<T, 3> right    = normalize(cross(direct, up));
+    Vector<T, 3> cameraUp = normalize(cross(right, direct));
 
     Matrix<T, 4, 4> look_at = {
         {right.x, cameraUp.x, -direct.x, 0},
@@ -647,23 +615,24 @@ Matrix<T, 8, 8> IDCT8x8(const Matrix<T, 8, 8>& pixel_block) {
     return res;
 }
 
-template <typename T, typename F>
-const T integral(const T& a, const T& b, const T& precision, F&& func) {
-    return ispc::Integral(a, b, precision, func);
-}
+// template <typename T, typename F>
+// const T integral(const T& a, const T& b, const T& precision, F&& func) {
+//     return ispc::Integral(a, b, precision, func);
+// }
 
-template <typename T, int ROWS, int COLS>
-const Vector3<T> GetOrigin(const Matrix<T, ROWS, COLS>& mat) {
+template <typename T, unsigned ROWS, unsigned COLS>
+const Vector<T, 3> GetOrigin(const Matrix<T, ROWS, COLS>& mat) {
     static_assert(
         ROWS >= 3,
         "[Error] Only 3x3 and above matrix can be passed to this method!");
     static_assert(
         COLS >= 3,
         "[Error] Only 3x3 and above matrix can be passed to this method!");
-    return Vector3<T>(mat[3][0], mat[3][1], mat[3][2]);
+    return Vector<T, 3>({mat[3][0], mat[3][1], mat[3][2]});
 }
 
-template <typename T, int ROWS1, int COLS1, int ROWS2, int COLS2>
+template <typename T, unsigned ROWS1, unsigned COLS1, unsigned ROWS2,
+          unsigned COLS2>
 void Shrink(Matrix<T, ROWS1, COLS1>&       mat1,
             const Matrix<T, ROWS2, COLS2>& mat2) {
     static_assert(
@@ -673,33 +642,33 @@ void Shrink(Matrix<T, ROWS1, COLS1>&       mat1,
         COLS1 < COLS2,
         "[Error] Target matrix COLS must smaller than source matrix COLS!");
 
-    for (int i = 0; i < ROWS1; i++) {
+    for (unsigned i = 0; i < ROWS1; i++) {
         mat1[i] = mat2[i];
     }
 }
 
-template <typename T, int ROWS, int COLS>
+template <typename T, unsigned ROWS, unsigned COLS>
 const Matrix<T, ROWS, COLS> Absolute(const Matrix<T, ROWS, COLS>& mat) {
     Matrix<T, ROWS, COLS> res;
     ispc::Absolute(res, mat, ROWS * COLS);
     return res;
 }
 
-template <typename T, int D>
+template <typename T, unsigned D>
 const Vector<T, D> Max(const Vector<T, D>& a, const T& b) {
     Vector<T, D> res;
     ispc::Max(res, a, b, D);
     return res;
 }
 
-template <typename T, int D>
+template <typename T, unsigned D>
 const Vector<T, D> Min(const Vector<T, D>& a, const T& b) {
     Vector<T, D> res;
     ispc::Min(res, a, b, D);
     return res;
 }
 
-template <typename T, int D>
+template <typename T, unsigned D>
 const T Length(const Vector<T, D>& v) {
     return static_cast<T>(std::sqrt(v * v));
 }
