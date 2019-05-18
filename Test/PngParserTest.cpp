@@ -22,9 +22,9 @@ int main(int argc, const char** argv) {
 
     Buffer buf;
     if (argc >= 2) {
-        buf = g_pAssetLoader->SyncOpenAndRead(argv[1]);
+        buf = g_pAssetLoader->SyncOpenAndReadBinary(argv[1]);
     } else {
-        buf = g_pAssetLoader->SyncOpenAndRead("Textures/eye.png");
+        buf = g_pAssetLoader->SyncOpenAndReadBinary("Textures/eye.png");
     }
 
     PngParser png_parser;
