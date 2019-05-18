@@ -40,6 +40,12 @@ protected:
         vec4 m_lightColor;
     };
 
+    struct DrawBatchContext {
+        size_t                               count;
+        std::shared_ptr<SceneGeometryNode>   node;
+        std::shared_ptr<SceneObjectMaterial> material;
+    };
+
     DrawFrameContext m_DrawFrameContext;
 };
 

@@ -1,37 +1,8 @@
+
 #include "WindowsApplication.hpp"
 #include <tchar.h>
 
 using namespace My;
-
-int WindowsApplication::Initialize() {
-    int result;
-    CreateMainWindow();
-
-    // first call base class initialization
-    result = BaseApplication::Initialize();
-
-    if (result != 0) exit(result);
-
-    return result;
-}
-
-void WindowsApplication::Finalize() { BaseApplication::Finalize(); }
-
-void WindowsApplication::Tick() {
-    BaseApplication::Tick();
-    // this struct holds windows event messages
-    MSG msg;
-
-    // we use PeekMessage instead of GetMessage here
-    // because we should not block the thread at any where
-    // except the engine execution driver module
-    if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-        // translate keystroke message into the right formate
-        TranslateMessage(&msg);
-        // send the message to the WindowProc function
-        DispatchMessage(&msg);
-    }
-}
 
 void WindowsApplication::CreateMainWindow() {
     // get the HINSTANCE of the Console Program
@@ -74,6 +45,45 @@ void WindowsApplication::CreateMainWindow() {
     ShowWindow(m_hWnd, SW_SHOW);
 }
 
+int WindowsApplication::Initialize() {
+    int result;
+
+    CreateMainWindow();
+
+    m_hDc = GetDC(m_hWnd);
+
+    // call base class initialization
+    result = BaseApplication::Initialize();
+
+    if (result != 0) exit(result);
+
+    return result;
+}
+
+void WindowsApplication::Finalize() {
+    ReleaseDC(m_hWnd, m_hDc);
+
+    BaseApplication::Finalize();
+}
+
+void WindowsApplication::Tick() {
+    BaseApplication::Tick();
+
+    // this struct holds Windows event messages
+    MSG msg;
+
+    // we use PeekMessage instead of GetMessage here
+    // because we should not block the thread at anywhere
+    // except the engine execution driver module
+    if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+        // translate keystroke messages into the right format
+        TranslateMessage(&msg);
+
+        // send the message to the WindowProc function
+        DispatchMessage(&msg);
+    }
+}
+
 // this is the main message handler for the program
 LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
                                                 WPARAM wParam, LPARAM lParam) {
@@ -85,9 +95,7 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
         SetLastError(0);
         if (!SetWindowLongPtr(hWnd, GWLP_USERDATA,
                               reinterpret_cast<LONG_PTR>(pThis))) {
-            if (GetLastError() != 0) {
-                return FALSE;
-            }
+            if (GetLastError() != 0) return FALSE;
         }
     } else {
         pThis = reinterpret_cast<WindowsApplication*>(
@@ -95,11 +103,7 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
     }
 
     // sort through and find what code to run for the message given
-
     switch (message) {
-        case WM_PAINT: {
-            g_pApp->OnDraw();
-        } break;
         case WM_KEYUP: {
             switch (wParam) {
                 case VK_LEFT:
@@ -114,12 +118,7 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
                 case VK_DOWN:
                     g_pInputManager->DownArrowKeyUp();
                     break;
-                case 0x52:  // R Key
-                    g_pInputManager->ResetKeyUp();
-                    break;
-                case 0x44:  // D Key
-                    g_pInputManager->DebugKeyUp();
-                    break;
+
                 default:
                     break;
             }
@@ -138,26 +137,18 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
                 case VK_DOWN:
                     g_pInputManager->DownArrowKeyDown();
                     break;
-                case 0x52:  // R Key
-                    g_pInputManager->ResetKeyDown();
-                    break;
-                case 0x44:  // D Key
-                    g_pInputManager->DebugKeyDown();
-                    break;
+
                 default:
                     break;
             }
         } break;
-
-        case WM_DESTROY:
-            // cloase the application entirely
+        case WM_DESTROY: {
+            // close the application entirely
             PostQuitMessage(0);
             m_bQuit = true;
-            return 0;
-        default:
-            break;
+        }
     }
 
-    // Handle any message the switch statement didn't
+    // Handle any messages the switch statement didn't
     return DefWindowProc(hWnd, message, wParam, lParam);
 }

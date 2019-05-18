@@ -1,0 +1,9 @@
+add_library(D3dRHI
+D3d12GraphicsManager.cpp
+)
+target_link_libraries(
+    D3dRHI
+    d3d12
+    dxgi
+    d3dcompiler
+)

@@ -53,13 +53,10 @@ private:
 
     std::map<std::string, GLint> m_TextureIndex;
 
-    struct DrawBatchContext {
-        GLuint                               vao;
-        GLenum                               mode;
-        GLenum                               type;
-        GLsizei                              count;
-        std::shared_ptr<SceneGeometryNode>   node;
-        std::shared_ptr<SceneObjectMaterial> material;
+    struct OpenGLDrawBatchContext : public DrawBatchContext {
+        GLuint vao;
+        GLenum mode;
+        GLenum type;
     };
 
 #ifdef DEBUG
@@ -71,9 +68,9 @@ private:
     };
 #endif
 
-    std::vector<DrawBatchContext> m_DrawBatchContext;
-    std::vector<GLuint>           m_Buffers;
-    std::vector<GLuint>           m_Textures;
+    std::vector<OpenGLDrawBatchContext> m_DrawBatchContext;
+    std::vector<GLuint>                 m_Buffers;
+    std::vector<GLuint>                 m_Textures;
 
 #ifdef DEBUG
     std::vector<DebugDrawBatchContext> m_DebugDrawBatchContext;

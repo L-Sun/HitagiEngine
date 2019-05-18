@@ -390,13 +390,13 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
                     }
                 }
 
-                DrawBatchContext& dbc = *(new DrawBatchContext);
-                dbc.vao               = vao;
-                dbc.mode              = mode;
-                dbc.type              = type;
-                dbc.node              = pGeometryNode;
-                dbc.material          = material;
-                dbc.count             = indexCount;
+                OpenGLDrawBatchContext& dbc = *(new OpenGLDrawBatchContext);
+                dbc.vao                     = vao;
+                dbc.mode                    = mode;
+                dbc.type                    = type;
+                dbc.node                    = pGeometryNode;
+                dbc.material                = material;
+                dbc.count                   = indexCount;
                 m_DrawBatchContext.push_back(std::move(dbc));
             }
         }

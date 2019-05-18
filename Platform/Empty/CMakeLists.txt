@@ -4,5 +4,5 @@ add_library(PlatformInterfaceEmpty
 add_library(MyGameEngineEmpty EmptyApplicationConfig.cpp)
 target_link_libraries(MyGameEngineEmpty
             Common 
-            PlatformInterface
+            PlatformInterfaceEmpty
 )
