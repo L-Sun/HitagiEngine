@@ -4,7 +4,6 @@ Subtraction
 Multiplication
 Division
 Vector
-Integral
 Matrix
 DCT
 Absolute
