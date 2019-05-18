@@ -349,7 +349,7 @@ public:
     void SetName(std::string&& name) { m_Name = std::move(name); }
     void LoadTexture() {
         if (!m_pImage) {
-            Buffer      buf = g_pAssetLoader->SyncOpenAndRead(m_Name);
+            Buffer      buf = g_pAssetLoader->SyncOpenAndReadBinary(m_Name);
             std::string ext = m_Name.substr(m_Name.find_last_of("."));
             if (ext == ".jpg" || ext == ".jpeg") {
                 JfifParser jfif_parser;
