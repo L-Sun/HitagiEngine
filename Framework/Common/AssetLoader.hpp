@@ -25,7 +25,7 @@ public:
 
     std::fstream& OpenFile(const std::string& name, std::fstream& fstrm);
 
-    Buffer SyncOpenAndRead(const std::string& filePath);
+    Buffer SyncOpenAndReadBinary(const std::string& filePath);
 
     size_t SyncRead(std::fstream& fstrm, Buffer& buf);
 
@@ -39,10 +39,11 @@ public:
         const std::string fileName) {
         std::string result;
 
-        Buffer buffer  = SyncOpenAndRead(fileName);
+        Buffer buffer  = SyncOpenAndReadBinary(fileName);
         char*  content = reinterpret_cast<char*>(buffer.GetData());
 
-        if (content) result = std::string(std::move(content));
+        if (content)
+            result = std::string(std::move(content), buffer.GetDataSize());
         return result;
     }
 

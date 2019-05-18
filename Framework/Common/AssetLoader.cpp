@@ -62,13 +62,13 @@ std::fstream& AssetLoader::OpenFile(const std::string& name,
     return fstrm;
 }
 
-Buffer AssetLoader::SyncOpenAndRead(const std::string& filePath) {
+Buffer AssetLoader::SyncOpenAndReadBinary(const std::string& filePath) {
     std::fstream fstrm;
     OpenFile(filePath, fstrm);
     Buffer* pBuff = nullptr;
 
     if (fstrm) {
-        size_t length = GetSize(fstrm) + 1;
+        size_t length = GetSize(fstrm);
 
 #ifdef DEBUG
         std::cout << "Read file " << filePath << ", " << length << " byte(s)"
@@ -77,7 +77,6 @@ Buffer AssetLoader::SyncOpenAndRead(const std::string& filePath) {
 
         pBuff = new Buffer(length);
         fstrm.read(reinterpret_cast<char*>(pBuff->GetData()), length);
-        pBuff->GetData()[length - 1] = '\0';
         CloseFile(fstrm);
     } else {
         std::cout << "Error opening file " << filePath << std::endl;
