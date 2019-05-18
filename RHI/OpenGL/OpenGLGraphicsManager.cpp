@@ -472,6 +472,9 @@ void OpenGLGraphicsManager::RenderBuffers() {
             Parameter param = dbc.material->GetSpecularPower();
             SetPerBatchShaderParameters(m_shaderProgram, "specularPower",
                                         param.Value);
+        } else {
+            SetPerBatchShaderParameters(m_shaderProgram, "diffuseColor",
+                                        vec3(-1.0f));
         }
 
         glDrawElements(dbc.mode, dbc.count, dbc.type, 0x00);
