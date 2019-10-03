@@ -6,7 +6,7 @@
 	url = https://github.com/netwarm007/OpenGEX.git
 [submodule "ispc"]
 	path = External/src/ispc
-	url = https://github.com/netwarm007/ispc.git
+	url = https://github.com/ispc/ispc.git
 [submodule "glad"]
 	path = External/src/glad
 	url = https://github.com/L-Sun/glad.git
