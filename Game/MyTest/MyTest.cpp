@@ -1,6 +1,7 @@
 #include <iostream>
 #include "MyTest.hpp"
 #include "SceneManager.hpp"
+#include "DebugManager.hpp"
 #include <chrono>
 #include <thread>
 #include "My/MyPhysicsManager.hpp"

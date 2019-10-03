@@ -4,8 +4,8 @@ project(GameEngine)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD 11)
 
-set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG -D_DEBUG")
-set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -D_DEBUG")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/External/src/crossguid/cmake")
@@ -62,8 +62,9 @@ int main(int argc, char** argv)
 
 
 include(CTest)
-find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
+find_package(GTest  REQUIRED)
+include(GoogleTest)
+include_directories(${GTEST_INCLUDE_DIR})
 
 add_subdirectory(Framework)
 add_subdirectory(Game)

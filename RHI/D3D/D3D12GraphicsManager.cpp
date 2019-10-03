@@ -10,7 +10,6 @@ using namespace My;
 using namespace std;
 
 namespace My {
-extern IApplication* g_pApp;
 
 template <class T>
 inline void SafeRelease(T** ppInterfaceToRelease) {
@@ -770,7 +769,7 @@ HRESULT D3d12GraphicsManager::CreateConstantBuffer() {
 HRESULT D3d12GraphicsManager::CreateGraphicsResources() {
     HRESULT hr;
 
-#if defined(_DEBUG)
+#if defined(DEBUG)
     // Enable the D3D12 debug layer.
     {
         ID3D12Debug* pDebugController;

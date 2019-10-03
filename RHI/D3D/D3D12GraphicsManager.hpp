@@ -89,6 +89,16 @@ private:
     };
     std::vector<D3d12DrawBatchContext> m_DrawBatchContext;
 
+#if defined(DEBUG)
+
+    struct DebugDrawBatchContext {
+        size_t           property_count;
+        Vector<float, 4> color;
+    };
+    std::vector<DebugDrawBatchContext> m_DebugDrawBatchContext;
+
+#endif  // DEBUG
+
     uint8_t*            m_pCbvDataBegin = nullptr;
     static const size_t kSizePerFrameConstantBuffer =
         (sizeof(DrawFrameContext) + 255) &
