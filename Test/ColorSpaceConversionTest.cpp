@@ -3,10 +3,8 @@
 
 using namespace My;
 
-template <typename T, int D>
-void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2,
-               double error = 1e-8) {
-    for (size_t i = 0; i < D; i++) {
+void vector_eq(const vec3& v1, const vec3& v2, double error = 1e-8) {
+    for (size_t i = 0; i < 3; i++) {
         EXPECT_NEAR(v1[i], v2[i], error) << "difference at index: " << i;
     }
 }

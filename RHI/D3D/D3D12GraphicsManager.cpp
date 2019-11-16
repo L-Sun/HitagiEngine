@@ -94,7 +94,7 @@ inline UINT64 GetRequiredIntermediateSize(
     D3D12_RESOURCE_DESC Desc         = pDestinationResource->GetDesc();
     UINT64              RequiredSize = 0;
 
-    ID3D12Device* pDevice;
+    ID3D12Device* pDevice = nullptr;
     pDestinationResource->GetDevice(__uuidof(*pDevice),
                                     reinterpret_cast<void**>(&pDevice));
     pDevice->GetCopyableFootprints(&Desc, FirstSubresource, NumSubresources, 0,
@@ -153,11 +153,13 @@ inline UINT64 UpdateSubresources(
     } else {
         for (UINT i = 0; i < NumSubresources; ++i) {
             D3D12_TEXTURE_COPY_LOCATION Dst = {
-                pDestinationResource, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-                i + FirstSubresource};
+                pDestinationResource,
+                D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+                {{i + FirstSubresource}}};
             D3D12_TEXTURE_COPY_LOCATION Src = {
-                pIntermediate, D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
-                pLayouts[i]};
+                pIntermediate,
+                D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+                {pLayouts[i]}};
             pCmdList->CopyTextureRegion(&Dst, 0, 0, 0, &Src, nullptr);
         }
     }
@@ -194,8 +196,8 @@ inline UINT64 UpdateSubresources(
     UINT* pNumRows =
         reinterpret_cast<UINT*>(pRowSizesInBytes + NumSubresources);
 
-    D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
-    ID3D12Device*       pDevice;
+    D3D12_RESOURCE_DESC Desc    = pDestinationResource->GetDesc();
+    ID3D12Device*       pDevice = nullptr;
     pDestinationResource->GetDevice(__uuidof(*pDevice),
                                     reinterpret_cast<void**>(&pDevice));
     pDevice->GetCopyableFootprints(&Desc, FirstSubresource, NumSubresources,
@@ -226,8 +228,8 @@ inline UINT64 UpdateSubresources(
     UINT                               NumRows[MaxSubresources];
     UINT64                             RowSizesInBytes[MaxSubresources];
 
-    D3D12_RESOURCE_DESC Desc = pDestinationResource->GetDesc();
-    ID3D12Device*       pDevice;
+    D3D12_RESOURCE_DESC Desc    = pDestinationResource->GetDesc();
+    ID3D12Device*       pDevice = nullptr;
     pDestinationResource->GetDevice(__uuidof(*pDevice),
                                     reinterpret_cast<void**>(&pDevice));
     pDevice->GetCopyableFootprints(&Desc, FirstSubresource, NumSubresources,
@@ -912,13 +914,13 @@ HRESULT D3d12GraphicsManager::CreateRootSignature() {
 
     D3D12_ROOT_PARAMETER1 rootParameters[3] = {
         {D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-         {1, &ranges[0]},
+         {{1, &ranges[0]}},
          D3D12_SHADER_VISIBILITY_ALL},
         {D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-         {1, &ranges[1]},
+         {{1, &ranges[1]}},
          D3D12_SHADER_VISIBILITY_PIXEL},
         {D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
-         {1, &ranges[2]},
+         {{1, &ranges[2]}},
          D3D12_SHADER_VISIBILITY_PIXEL}};
 
     // Allow input layout and deny uneccessary access to certain pipeline
