@@ -1,16 +1,44 @@
 #pragma once
 #include <iostream>
 #include <cmath>
-#include "include/Addition.h"
-#include "include/Subtraction.h"
-#include "include/Multiplication.h"
-#include "include/Division.h"
-#include "include/Vector.h"
-#include "include/Matrix.h"
-#include "include/DCT.h"
-// #include "include/Integral.h"
-#include "include/Absolute.h"
-#include "include/MaxMin.h"
+
+namespace ispc { /* namespace */
+extern "C" {
+void Absolute(float* result, const float* a, const uint32_t count);
+void AddByElement(const float* a, const float* b, float* result,
+                  uint32_t count);
+void AddByNum(const float* a, const float b, float* result, uint32_t count);
+void IncreaceByElement(float* traget, const float* src, uint32_t count);
+void IncreaceByNum(float* traget, const float num, uint32_t count);
+void DCT(const float* in_matrix, float* out_matrix);
+void IDCT(const float* in_matrix, float* out_matrix);
+void DivNum(const float* a, const float b, float* result, uint32_t count);
+void DivSelfByNum(float* src, const float num, uint32_t count);
+void Identity(float* mat, float v, uint32_t order);
+bool Inverse(const float* mat, float* ret, uint32_t n);
+bool InverseMatrix4X4f(float* matrix);
+void MatrixExchangeYandZ(float* data, const int32_t rows, const int32_t cols);
+void Max(float* res, const float* a, float b, const uint32_t count);
+void Min(float* res, const float* a, float b, const uint32_t count);
+void MatMul(const float* a, const float* b, float* result, uint32_t rows,
+            uint32_t middle, uint32_t cols);
+void MulByElement(const float* a, const float* b, float* result,
+                  uint32_t count);
+void MulByNum(const float* a, const float b, float* result, uint32_t count);
+void MulSelfByNum(float* a, const float b, uint32_t count);
+void DecreaceByElement(float* target, const float* src, uint32_t count);
+void DecreaceByNum(float* target, const float num, uint32_t count);
+void Negate(const float* src, float* result, uint32_t count);
+void NegateSubByNum(const float num, const float* a, float* result,
+                    uint32_t count);
+void SubByElement(const float* a, const float* b, float* result,
+                  uint32_t count);
+void SubByNum(const float* a, const float num, float* result, uint32_t count);
+void CrossProduct(const float* a, const float* b, float* result);
+void DotProduct(const float* a, const float* b, float* result, uint32_t count);
+void Normalize(float* a, uint32_t count);
+}
+}  // namespace ispc
 
 namespace My {
 
@@ -248,7 +276,7 @@ typedef Vector<uint8_t, 4> R8G8B8A8Unorm;
 template <typename T, unsigned ROWS, unsigned COLS>
 struct Matrix {
     typedef Vector<T, COLS> row_type;
-    
+
     row_type data[ROWS];
 
     Matrix() = default;
@@ -614,11 +642,6 @@ Matrix<T, 8, 8> IDCT8x8(const Matrix<T, 8, 8>& pixel_block) {
     ispc::IDCT(pixel_block, res);
     return res;
 }
-
-// template <typename T, typename F>
-// const T integral(const T& a, const T& b, const T& precision, F&& func) {
-//     return ispc::Integral(a, b, precision, func);
-// }
 
 template <typename T, unsigned ROWS, unsigned COLS>
 const Vector<T, 3> GetOrigin(const Matrix<T, ROWS, COLS>& mat) {

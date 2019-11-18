@@ -11,51 +11,55 @@ MaxMin
 )
 
 foreach(FUNC IN LISTS FUNCTIONS)
-
-    if(${APPLE})
+    IF(APPLE)
         add_custom_command(OUTPUT ${FUNC}.o
-            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
-            COMMAND sed -i '' 's/const uint32_t count/const size_t count/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h
-            COMMAND sed -i '' 's/float\) [\*] f/\*f\)\(float\)/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h # quick fix function pointer error
+            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMENT "Building ${FUNC}"
-        )
-    elseif(${CMAKE_HOST_SYSTEM_NAME} MATCHES FreeBSD)
+            )
+    ELSEIF(${CMAKE_HOST_SYSTEM_NAME} MATCHES FreeBSD)
         add_custom_command(OUTPUT ${FUNC}.o
-            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
-            COMMAND gsed -i 's/const uint32_t count/const size_t count/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h
-            COMMAND gsed -i 's/float\) [\*] f/\*f\)\(float\)/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h # quick fix function pointer error
+            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMENT "Building ${FUNC}"
-        )
-    elseif(${CMAKE_HOST_SYSTEM_NAME} MATCHES Windows)
+            )
+    ELSEIF(${CMAKE_HOST_SYSTEM_NAME} MATCHES Windows)
         add_custom_command(OUTPUT ${FUNC}.o
-            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
-            COMMAND sed -i "s/const uint32_t count/const size_t count/" ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h
-            COMMAND sed -i "s/float\) [\*] f/\*f\)\(float\)/" ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h # quick fix function pointer error
-            COMMAND rm -f ${GEOMMATH_LIB_HEADER_FOLDER}/sed?????? #quick fix for Gnu for Win32 sed
+            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMENT "Building ${FUNC}"
-        )
-    else()
+            )
+    ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES Android)
         add_custom_command(OUTPUT ${FUNC}.o
-            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
-            COMMAND sed -i 's/const uint32_t count/const size_t count/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h
-            COMMAND sed -i 's/float\) [\*] f/\*f\)\(float\)/' ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h # quick fix function pointer error
+            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} --emit-llvm -o ${FUNC}.bc ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
+            COMMAND ${CMAKE_COMMAND} -E env "PATH=${LLVM_COMPILER_PATH}" llc -O3 -float-abi=soft -march=arm -mcpu=cortex-a9 -thread-model=posix -filetype=obj -o=${FUNC}.o ${FUNC}.bc
             MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMENT "Building ${FUNC}"
-        )
-    endif(${APPLE})
+            )
+    ELSE()
+        add_custom_command(OUTPUT ${FUNC}.o
+            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
+            MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
+            COMMENT "Building ${FUNC}"
+            )
+    ENDIF()
 
     list(APPEND OBJECTS ${FUNC}.o)
 
 endforeach(FUNC)
 
+IF(${WIN32})
 add_custom_command(OUTPUT ${GEOMMATH_LIB_FILE}
         COMMAND ${CMAKE_AR} ${ISPC_LIBRARIAN_OPTIONS} ${OBJECTS}
-        COMMAND rm -v ${OBJECTS}
         DEPENDS ${OBJECTS}
         )
+ELSE(${WIN32})
+add_custom_command(OUTPUT ${GEOMMATH_LIB_FILE}
+        COMMAND ${CMAKE_AR} ${ISPC_LIBRARIAN_OPTIONS} ${OBJECTS}
+        COMMAND ${CMAKE_RANLIB} ${GEOMMATH_LIB_FILE}
+        DEPENDS ${OBJECTS}
+        )
+ENDIF(${WIN32})
 
 add_custom_target(MathLib
                    DEPENDS ${GEOMMATH_LIB_FILE}
