@@ -3,7 +3,7 @@
 
 namespace My {
 
-class DebugManager : implements IRuntimeModule {
+class DebugManager : public IRuntimeModule {
 public:
     virtual int  Initialize();
     virtual void Finalize();

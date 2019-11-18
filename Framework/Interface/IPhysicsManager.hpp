@@ -5,7 +5,7 @@
 
 namespace My {
 
-class IPhysicsManager : implements IRuntimeModule {
+class IPhysicsManager : public IRuntimeModule {
 public:
     virtual int  Initialize() = 0;
     virtual void Finalize()   = 0;

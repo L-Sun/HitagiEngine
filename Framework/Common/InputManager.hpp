@@ -2,7 +2,7 @@
 #include "IRuntimeModule.hpp"
 
 namespace My {
-class InputManager : implements IRuntimeModule {
+class InputManager : public IRuntimeModule {
 public:
     virtual int  Initialize();
     virtual void Finalize();

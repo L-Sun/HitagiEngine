@@ -1,9 +1,7 @@
 #pragma once
 
-#include "Interface.hpp"
-
 namespace My {
-Interface IRuntimeModule {
+class IRuntimeModule {
 public:
     virtual ~IRuntimeModule(){};
     virtual int  Initialize() = 0;

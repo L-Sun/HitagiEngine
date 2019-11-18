@@ -5,7 +5,7 @@
 
 namespace My {
 
-class SceneManager : implements IRuntimeModule {
+class SceneManager : public IRuntimeModule {
 public:
     virtual ~SceneManager();
     virtual int  Initialize();

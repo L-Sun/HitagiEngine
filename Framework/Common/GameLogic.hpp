@@ -3,7 +3,7 @@
 
 namespace My {
 
-class GameLogic : implements IRuntimeModule {
+class GameLogic : public IRuntimeModule {
 public:
     virtual int  Initialize();
     virtual void Finalize();

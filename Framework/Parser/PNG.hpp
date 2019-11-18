@@ -72,7 +72,7 @@ static void zerr(int ret) {
     }
 }
 
-class PngParser : implements ImageParser {
+class PngParser : public ImageParser {
 protected:
     uint16_t m_Width;
     uint16_t m_Height;

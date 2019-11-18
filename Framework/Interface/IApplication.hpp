@@ -3,7 +3,7 @@
 #include "GfxConfiguration.h"
 
 namespace My {
-Interface IApplication : implements IRuntimeModule {
+class IApplication : public IRuntimeModule {
 public:
     virtual int  Initialize() = 0;
     virtual void Finalize()   = 0;

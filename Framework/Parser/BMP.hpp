@@ -28,7 +28,7 @@ typedef struct _BITMAP_HEADER {
 } BITMAP_HEADER;
 #pragma pack(pop)
 
-class BmpParser : implements ImageParser {
+class BmpParser : public ImageParser {
 public:
     virtual Image Parse(const Buffer& buf) {
         Image                    img;

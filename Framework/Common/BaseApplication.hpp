@@ -10,7 +10,7 @@
 #include "GameLogic.hpp"
 
 namespace My {
-class BaseApplication : implements IApplication {
+class BaseApplication : public IApplication {
 public:
     BaseApplication(GfxConfiguration& cfg);
     virtual int  Initialize();

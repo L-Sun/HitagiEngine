@@ -30,10 +30,8 @@ foreach(FUNC IN LISTS FUNCTIONS)
         )
     elseif(${CMAKE_HOST_SYSTEM_NAME} MATCHES Windows)
         add_custom_command(OUTPUT ${FUNC}.o
-            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
-            COMMAND sed -i "s/const uint32_t count/const size_t count/" ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h
-            COMMAND sed -i "s/float\) [\*] f/\*f\)\(float\)/" ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h # quick fix function pointer error
-            COMMAND rm -f ${GEOMMATH_LIB_HEADER_FOLDER}/sed?????? #quick fix for Gnu for Win32 sed
+            COMMAND ${CMAKE_COMMAND} -E env "PATH=${ISPC_COMPILER_PATH}" ${ISPC_COMPILER} --woff ${ISPC_OPTIONS} -o ${FUNC}.o -h ${GEOMMATH_LIB_HEADER_FOLDER}/${FUNC}.h ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
+
             MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${FUNC}.ispc
             COMMENT "Building ${FUNC}"
         )

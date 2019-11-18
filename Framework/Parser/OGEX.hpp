@@ -5,7 +5,7 @@
 #include "SceneParser.hpp"
 
 namespace My {
-class OgexParser : implements SceneParser {
+class OgexParser : public SceneParser {
 private:
     void ConvertOddlStructureToSceneNode(
         const ODDL::Structure&          structure,

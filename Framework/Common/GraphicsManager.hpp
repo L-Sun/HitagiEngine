@@ -5,7 +5,7 @@
 #include "Scene.hpp"
 
 namespace My {
-class GraphicsManager : implements IRuntimeModule {
+class GraphicsManager : public IRuntimeModule {
 public:
     virtual ~GraphicsManager() {}
     virtual int  Initialize();
