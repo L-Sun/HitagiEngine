@@ -1,0 +1,13 @@
+prefix=C:/workspace/cpp/game_engine/External/Windows
+exec_prefix=C:/workspace/cpp/game_engine/External/Windows
+libdir=C:/workspace/cpp/game_engine/External/Windows/lib
+sharedlibdir=C:/workspace/cpp/game_engine/External/Windows/lib
+includedir=C:/workspace/cpp/game_engine/External/Windows/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.2.11
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}
