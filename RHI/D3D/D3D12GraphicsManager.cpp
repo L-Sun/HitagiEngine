@@ -1,6 +1,6 @@
 #include <iostream>
 #include <objbase.h>
-#include "D3d12GraphicsManager.hpp"
+#include "D3D12GraphicsManager.hpp"
 #include "WindowsApplication.hpp"
 #include "SceneManager.hpp"
 #include "AssetLoader.hpp"
@@ -247,7 +247,7 @@ inline UINT64 UpdateSubresources(
 // ************************************************
 }  // namespace My
 
-HRESULT D3d12GraphicsManager::WaitForPreviousFrame() {
+HRESULT D3D12GraphicsManager::WaitForPreviousFrame() {
     // WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
     // This is code implemented as such for simplicity. More advanced samples
     // illustrate how to use fences for efficient resource usage.
@@ -274,7 +274,7 @@ HRESULT D3d12GraphicsManager::WaitForPreviousFrame() {
     return hr;
 }
 
-HRESULT D3d12GraphicsManager::CreateDescriptorHeaps() {
+HRESULT D3D12GraphicsManager::CreateDescriptorHeaps() {
     HRESULT hr;
 
     // Describe and create a render target view (RTV) descriptor heap.
@@ -338,7 +338,7 @@ HRESULT D3d12GraphicsManager::CreateDescriptorHeaps() {
     return hr;
 }
 
-HRESULT D3d12GraphicsManager::CreateRenderTarget() {
+HRESULT D3D12GraphicsManager::CreateRenderTarget() {
     HRESULT hr;
 
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle =
@@ -357,7 +357,7 @@ HRESULT D3d12GraphicsManager::CreateRenderTarget() {
     return hr;
 }
 
-HRESULT D3d12GraphicsManager::CreateDepthStencil() {
+HRESULT D3D12GraphicsManager::CreateDepthStencil() {
     HRESULT hr;
 
     // Create the depth stencil view.
@@ -407,7 +407,7 @@ HRESULT D3d12GraphicsManager::CreateDepthStencil() {
     return hr;
 }
 
-HRESULT D3d12GraphicsManager::CreateVertexBuffer(
+HRESULT D3D12GraphicsManager::CreateVertexBuffer(
     const SceneObjectVertexArray& v_property_array) {
     HRESULT hr;
 
@@ -485,7 +485,7 @@ HRESULT D3d12GraphicsManager::CreateVertexBuffer(
     return hr;
 }
 
-HRESULT D3d12GraphicsManager::CreateIndexBuffer(
+HRESULT D3D12GraphicsManager::CreateIndexBuffer(
     const SceneObjectIndexArray& index_array) {
     HRESULT hr;
 
@@ -557,7 +557,7 @@ HRESULT D3d12GraphicsManager::CreateIndexBuffer(
     return hr;
 }
 
-HRESULT D3d12GraphicsManager::CreateTextureBuffer(SceneObjectTexture& texture) {
+HRESULT D3D12GraphicsManager::CreateTextureBuffer(SceneObjectTexture& texture) {
     HRESULT hr = S_OK;
 
     auto it = m_TextureIndex.find(texture.GetName());
@@ -687,7 +687,7 @@ HRESULT D3d12GraphicsManager::CreateTextureBuffer(SceneObjectTexture& texture) {
     return hr;
 }
 
-HRESULT D3d12GraphicsManager::CreateSamplerBuffer() {
+HRESULT D3D12GraphicsManager::CreateSamplerBuffer() {
     // Describe and create a sampler.
     D3D12_SAMPLER_DESC samplerDesc = {};
     samplerDesc.Filter             = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -705,7 +705,7 @@ HRESULT D3d12GraphicsManager::CreateSamplerBuffer() {
     return S_OK;
 }
 
-HRESULT D3d12GraphicsManager::CreateConstantBuffer() {
+HRESULT D3D12GraphicsManager::CreateConstantBuffer() {
     HRESULT hr;
 
     D3D12_HEAP_PROPERTIES prop = {D3D12_HEAP_TYPE_UPLOAD,
@@ -768,7 +768,7 @@ HRESULT D3d12GraphicsManager::CreateConstantBuffer() {
     return hr;
 }
 
-HRESULT D3d12GraphicsManager::CreateGraphicsResources() {
+HRESULT D3D12GraphicsManager::CreateGraphicsResources() {
     HRESULT hr;
 
 #if defined(DEBUG)
@@ -891,7 +891,7 @@ HRESULT D3d12GraphicsManager::CreateGraphicsResources() {
     return hr;
 }
 
-HRESULT D3d12GraphicsManager::CreateRootSignature() {
+HRESULT D3D12GraphicsManager::CreateRootSignature() {
     HRESULT hr = S_OK;
 
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
@@ -957,7 +957,7 @@ HRESULT D3d12GraphicsManager::CreateRootSignature() {
 }
 
 // this is the function that loads and prepares the shaders
-bool D3d12GraphicsManager::InitializeShaders() {
+bool D3D12GraphicsManager::InitializeShaders() {
     HRESULT     hr         = S_OK;
     const char* vsFilename = "Shaders/basic_vs.cso";
     const char* fsFilename = "Shaders/basic_ps.cso";
@@ -1063,12 +1063,12 @@ bool D3d12GraphicsManager::InitializeShaders() {
     return true;
 }
 
-void D3d12GraphicsManager::ClearShaders() {
+void D3D12GraphicsManager::ClearShaders() {
     SafeRelease(&m_pCommandList);
     SafeRelease(&m_pPipelineState);
 }
 
-void D3d12GraphicsManager::InitializeBuffers(const Scene& scene) {
+void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
     HRESULT hr;
     cout << "Creating Constant Buffer ...";
     if (FAILED(hr = CreateConstantBuffer())) {
@@ -1172,7 +1172,7 @@ void D3d12GraphicsManager::InitializeBuffers(const Scene& scene) {
     return;
 }
 
-int D3d12GraphicsManager::Initialize() {
+int D3D12GraphicsManager::Initialize() {
     int result = GraphicsManager::Initialize();
 
     if (!result) {
@@ -1191,7 +1191,7 @@ int D3d12GraphicsManager::Initialize() {
     return result;
 }
 
-void D3d12GraphicsManager::ClearBuffers() {
+void D3D12GraphicsManager::ClearBuffers() {
     SafeRelease(&m_pFence);
     for (auto p : m_Buffers) {
         SafeRelease(&p);
@@ -1207,7 +1207,7 @@ void D3d12GraphicsManager::ClearBuffers() {
     m_DrawBatchContext.clear();
 }
 
-void D3d12GraphicsManager::Finalize() {
+void D3D12GraphicsManager::Finalize() {
     GraphicsManager::Finalize();
 
     SafeRelease(&m_pRtvHeap);
@@ -1225,9 +1225,9 @@ void D3d12GraphicsManager::Finalize() {
     SafeRelease(&m_pDev);
 }
 
-void D3d12GraphicsManager::Clear() { GraphicsManager::Clear(); }
+void D3D12GraphicsManager::Clear() { GraphicsManager::Clear(); }
 
-void D3d12GraphicsManager::Draw() {
+void D3D12GraphicsManager::Draw() {
     PopulateCommandList();
 
     GraphicsManager::Draw();
@@ -1235,7 +1235,7 @@ void D3d12GraphicsManager::Draw() {
     WaitForPreviousFrame();
 }
 
-HRESULT D3d12GraphicsManager::PopulateCommandList() {
+HRESULT D3D12GraphicsManager::PopulateCommandList() {
     HRESULT hr;
 
     // command list allocators can only be reset when the associated
@@ -1347,7 +1347,7 @@ HRESULT D3d12GraphicsManager::PopulateCommandList() {
     return hr;
 }
 
-void D3d12GraphicsManager::UpdateConstants() {
+void D3D12GraphicsManager::UpdateConstants() {
     GraphicsManager::UpdateConstants();
 
     // CBV Per Frame
@@ -1358,7 +1358,7 @@ void D3d12GraphicsManager::UpdateConstants() {
     }
 }
 
-void D3d12GraphicsManager::RenderBuffers() {
+void D3D12GraphicsManager::RenderBuffers() {
     HRESULT hr;
 
     // execute the command list
@@ -1372,13 +1372,13 @@ void D3d12GraphicsManager::RenderBuffers() {
     (void)hr;
 }
 
-bool D3d12GraphicsManager::SetPerFrameShaderParameters() {
+bool D3D12GraphicsManager::SetPerFrameShaderParameters() {
     memcpy(m_pCbvDataBegin + m_nFrameIndex * kSizeConstantBufferPerFrame,
            &m_DrawFrameContext, sizeof(DrawFrameContext));
     return true;
 }
 
-bool D3d12GraphicsManager::SetPerBatchShaderParameters(int32_t index) {
+bool D3D12GraphicsManager::SetPerBatchShaderParameters(int32_t index) {
     PerBatchConstants pbc;
     memset(&pbc, 0x00, sizeof(pbc));
 

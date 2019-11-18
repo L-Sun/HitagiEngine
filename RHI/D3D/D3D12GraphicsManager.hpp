@@ -7,7 +7,7 @@
 
 namespace My {
 
-class D3d12GraphicsManager : public GraphicsManager {
+class D3D12GraphicsManager : public GraphicsManager {
 public:
     int  Initialize() final;
     void Finalize() final;
