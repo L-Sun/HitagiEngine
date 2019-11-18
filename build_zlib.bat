@@ -3,6 +3,8 @@ git submodule update --init External/src/zlib
 mkdir External\build\zlib
 pushd External\build\zlib
 rm -rf *
-cmake -DCMAKE_INSTALL_PREFIX=../../ -G "Visual Studio 15 2017 Win64" -DBUILD_SHARED_LIBS=off -Thost=x64 ../../src/zlib
+cmake -DCMAKE_INSTALL_PREFIX=../../Windows -G Ninja -DBUILD_SHARED_LIBS=off ../../src/zlib
 cmake --build . --config release --target install
+cd ../../
+rm -rf build
 popd

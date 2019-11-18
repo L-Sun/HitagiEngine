@@ -1,47 +1,48 @@
 #include <iostream>
-#include "D3d12GraphicsManager.hpp"
+#include <objbase.h>
+#include "D3D12GraphicsManager.hpp"
 #include "WindowsApplication.hpp"
 #include "d3dUtil.hpp"
 
 using namespace My;
 using namespace std;
 
-int D3d12GraphicsManager::Initialize() {
+int D3D12GraphicsManager::Initialize() {
     int result = GraphicsManager::Initialize();
     result     = InitD3d();
     return result;
 }
 
-void D3d12GraphicsManager::Finalize() {
+void D3D12GraphicsManager::Finalize() {
     if (m_pDevice) FlushCommandQueue();
     GraphicsManager::Finalize();
 }
 
-void D3d12GraphicsManager::Draw() { GraphicsManager::Draw(); }
-void D3d12GraphicsManager::Clear() { GraphicsManager::Clear(); }
+void D3D12GraphicsManager::Draw() { GraphicsManager::Draw(); }
+void D3D12GraphicsManager::Clear() { GraphicsManager::Clear(); }
 
 // this is the function that loads and prepares the shaders
-bool D3d12GraphicsManager::InitializeShaders() { return true; }
+bool D3D12GraphicsManager::InitializeShaders() { return true; }
 
-void D3d12GraphicsManager::ClearShaders() {}
+void D3D12GraphicsManager::ClearShaders() {}
 
-void D3d12GraphicsManager::InitializeBuffers(const Scene& scene) {}
+void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {}
 
-void D3d12GraphicsManager::ClearBuffers() {}
+void D3D12GraphicsManager::ClearBuffers() {}
 
-void D3d12GraphicsManager::UpdateConstants() {
+void D3D12GraphicsManager::UpdateConstants() {
     GraphicsManager::UpdateConstants();
 }
 
-void D3d12GraphicsManager::RenderBuffers() {}
+void D3D12GraphicsManager::RenderBuffers() {}
 
-bool D3d12GraphicsManager::SetPerFrameShaderParameters() { return true; }
+bool D3D12GraphicsManager::SetPerFrameShaderParameters() { return true; }
 
-bool D3d12GraphicsManager::SetPerBatchShaderParameters(int32_t index) {
+bool D3D12GraphicsManager::SetPerBatchShaderParameters(int32_t index) {
     return true;
 }
 
-int D3d12GraphicsManager::InitD3d() {
+int D3D12GraphicsManager::InitD3d() {
     auto config =
         reinterpret_cast<WindowsApplication*>(g_pApp)->GetConfiguration();
 
@@ -176,7 +177,7 @@ int D3d12GraphicsManager::InitD3d() {
     return 0;
 }
 
-void D3d12GraphicsManager::CreateSwapChain() {
+void D3D12GraphicsManager::CreateSwapChain() {
     m_pSwapChain.Reset();
     ComPtr<IDXGISwapChain1> swapChain;
     DXGI_SWAP_CHAIN_DESC1   swapChainDesc = {};
@@ -201,7 +202,7 @@ void D3d12GraphicsManager::CreateSwapChain() {
     ThrowIfFailed(swapChain.As(&m_pSwapChain));
 }
 
-void D3d12GraphicsManager::CreateCommandObjects() {
+void D3D12GraphicsManager::CreateCommandObjects() {
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Flags                    = D3D12_COMMAND_QUEUE_FLAG_NONE;
     queueDesc.Type                     = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -220,7 +221,7 @@ void D3d12GraphicsManager::CreateCommandObjects() {
     ThrowIfFailed(m_pCommandList->Close());
 }
 
-void D3d12GraphicsManager::FlushCommandQueue() {
+void D3D12GraphicsManager::FlushCommandQueue() {
     m_nCurrenFence++;
     ThrowIfFailed(m_pCommandQueue->Signal(m_pFence.Get(), m_nCurrenFence));
     if (m_pFence->GetCompletedValue() < m_nCurrenFence) {
@@ -233,7 +234,7 @@ void D3d12GraphicsManager::FlushCommandQueue() {
     }
 }
 
-void D3d12GraphicsManager::CreateRtvAndDsvDescHeaps() {
+void D3D12GraphicsManager::CreateRtvAndDsvDescHeaps() {
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
     rtvHeapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
     rtvHeapDesc.NodeMask                   = 0;
@@ -251,13 +252,13 @@ void D3d12GraphicsManager::CreateRtvAndDsvDescHeaps() {
                                                   IID_PPV_ARGS(&m_pDsvHeap)));
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE D3d12GraphicsManager::CurrentBackBufferView()
+D3D12_CPU_DESCRIPTOR_HANDLE D3D12GraphicsManager::CurrentBackBufferView()
     const {
     return CD3DX12_CPU_DESCRIPTOR_HANDLE(
         m_pRtvHeap->GetCPUDescriptorHandleForHeapStart(), m_nCurrBackBuffer,
         m_nRtvHeapSize);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE D3d12GraphicsManager::DepthStencilView() const {
+D3D12_CPU_DESCRIPTOR_HANDLE D3D12GraphicsManager::DepthStencilView() const {
     return m_pDsvHeap->GetCPUDescriptorHandleForHeapStart();
 }
