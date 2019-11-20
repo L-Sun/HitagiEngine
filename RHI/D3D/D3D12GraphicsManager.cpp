@@ -321,7 +321,7 @@ HRESULT D3D12GraphicsManager::CreateDescriptorHeaps() {
     // Describe and create a sampler descriptor heap.
     D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {};
     samplerHeapDesc.NumDescriptors =
-        kMaxTextureCount;  // this is the max D3d12 HW support currently
+        kMaxTextureCount;  // this is the max D3D12 HW support currently
     samplerHeapDesc.Type  = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
     samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     if (FAILED(hr = m_pDev->CreateDescriptorHeap(
@@ -1131,7 +1131,7 @@ void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
             auto material_key   = pGeometryNode->GetMaterialRef(material_index);
             auto material       = scene.GetMaterial(material_key);
 
-            D3d12DrawBatchContext dbc;
+            D3D12DrawBatchContext dbc;
             dbc.count          = (UINT)index_array.GetIndexCount();
             dbc.property_count = vertexPropertiesCount;
             if (material) {

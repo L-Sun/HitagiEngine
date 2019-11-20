@@ -5,12 +5,12 @@ target_link_libraries(PlatformInterface
     Common
 )
 
-add_library(MyGameEngineD3d12
-    D3d12Application.cpp
-    D3d12ApplicationConfig.cpp
+add_library(MyGameEngineD3D12
+    D3D12Application.cpp
+    D3D12ApplicationConfig.cpp
 )
-target_link_libraries(MyGameEngineD3d12
-    D3dRHI
+target_link_libraries(MyGameEngineD3D12
+    D3DRHI
     PlatformInterface
 )
 

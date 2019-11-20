@@ -84,10 +84,10 @@ private:
         bool             usingNormalMap;
     };
 
-    struct D3d12DrawBatchContext : public DrawBatchContext {
+    struct D3D12DrawBatchContext : public DrawBatchContext {
         size_t property_count;
     };
-    std::vector<D3d12DrawBatchContext> m_DrawBatchContext;
+    std::vector<D3D12DrawBatchContext> m_DrawBatchContext;
 
 #if defined(DEBUG)
 
