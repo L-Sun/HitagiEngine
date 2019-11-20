@@ -1,5 +1,5 @@
 add_subdirectory(Empty)
 add_subdirectory(OpenGL)
 if(${WIN32})
-    add_subdirectory(D3d)
+    add_subdirectory(D3D)
 endif(${WIN32})
