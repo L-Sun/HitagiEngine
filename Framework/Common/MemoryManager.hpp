@@ -31,5 +31,5 @@ private:
     static Allocator* LookUpAllocator(size_t size);
 };
 
-extern MemoryManager* g_pMemoryManager;
+extern std::unique_ptr<MemoryManager> g_pMemoryManager;
 }  // namespace My

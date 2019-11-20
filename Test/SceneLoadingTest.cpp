@@ -8,9 +8,9 @@ using namespace My;
 using namespace std;
 
 namespace My {
-MemoryManager* g_pMemoryManager = new MemoryManager();
-AssetLoader*   g_pAssetLoader   = new AssetLoader();
-SceneManager*  g_pSceneManager  = new SceneManager();
+unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
+unique_ptr<SceneManager>  g_pSceneManager(new SceneManager);
 }  // namespace My
 
 template <typename T>
@@ -77,10 +77,6 @@ int main(int, char**) {
     g_pSceneManager->Finalize();
     g_pAssetLoader->Finalize();
     g_pMemoryManager->Finalize();
-
-    delete g_pSceneManager;
-    delete g_pAssetLoader;
-    delete g_pMemoryManager;
 
     return 0;
 }

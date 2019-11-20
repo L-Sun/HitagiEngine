@@ -3,7 +3,7 @@
 #include <chrono>
 
 namespace My {
-class Clock : implements IRuntimeModule {
+class Clock : public IRuntimeModule {
 public:
     virtual int  Initialize();
     virtual void Tick();

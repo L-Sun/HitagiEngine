@@ -8,8 +8,8 @@ using namespace My;
 using namespace std;
 
 namespace My {
-MemoryManager* g_pMemoryManager = new MemoryManager();
-AssetLoader*   g_pAssetLoader   = new AssetLoader();
+unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
 }  // namespace My
 
 template <typename Key, typename T>
@@ -52,8 +52,6 @@ int main(int argc, char const* argv[]) {
 
     g_pMemoryManager->Finalize();
     g_pAssetLoader->Finalize();
-    delete g_pMemoryManager;
-    delete g_pAssetLoader;
 
     return 0;
 }

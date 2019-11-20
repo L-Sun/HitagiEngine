@@ -1,5 +1,5 @@
 #pragma once
-
+#include <memory>
 namespace My {
 class IRuntimeModule {
 public:

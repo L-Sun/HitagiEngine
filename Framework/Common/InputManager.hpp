@@ -28,5 +28,5 @@ protected:
     bool m_bRightKeyPressed = false;
 };
 
-extern InputManager* g_pInputManager;
+extern std::unique_ptr<InputManager> g_pInputManager;
 }  // namespace My

@@ -33,5 +33,5 @@ protected:
     bool                   m_bDirtyFlag = false;
 };
 
-extern SceneManager* g_pSceneManager;
+extern std::unique_ptr<SceneManager> g_pSceneManager;
 }  // namespace My

@@ -8,8 +8,8 @@ using namespace std;
 using namespace My;
 
 namespace My {
-MemoryManager* g_pMemoryManager = new MemoryManager();
-AssetLoader*   g_pAssetLoader   = new AssetLoader();
+unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
 }  // namespace My
 
 int main(int argc, char const* argv[]) {

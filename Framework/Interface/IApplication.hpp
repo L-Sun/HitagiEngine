@@ -19,5 +19,5 @@ public:
     virtual GfxConfiguration& GetConfiguration() = 0;
 };
 
-extern IApplication* g_pApp;
+extern std::unique_ptr<IApplication> g_pApp;
 }  // namespace My

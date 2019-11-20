@@ -4,7 +4,6 @@
 #include "MemoryManager.hpp"
 
 namespace My {
-extern MemoryManager* g_pMemoryManager;
 
 class Buffer {
 public:

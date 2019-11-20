@@ -49,5 +49,6 @@ protected:
     DrawFrameContext m_DrawFrameContext;
 };
 
-extern GraphicsManager* g_pGraphicsManager;
+extern std::unique_ptr<GraphicsManager> g_pGraphicsManager;
+
 }  // namespace My

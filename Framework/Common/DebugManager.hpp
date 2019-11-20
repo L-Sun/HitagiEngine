@@ -15,5 +15,5 @@ public:
 protected:
     bool m_bDrawDebugInfo = false;
 };
-extern DebugManager* g_pDebugManager;
+extern std::unique_ptr<DebugManager> g_pDebugManager;
 }  // namespace My
