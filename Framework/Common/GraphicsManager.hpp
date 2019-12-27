@@ -41,7 +41,7 @@ protected:
     };
 
     struct DrawBatchContext {
-        size_t                               count;
+        size_t                               count;  // index count per node
         std::shared_ptr<SceneGeometryNode>   node;
         std::shared_ptr<SceneObjectMaterial> material;
     };

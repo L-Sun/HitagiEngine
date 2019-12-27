@@ -13,7 +13,7 @@ ComPtr<ID3D12Resource> CreateDefaultBuffer(
 template <typename T>
 class UploadBuffer {
 public:
-    UploadBuffer(ID3D12Device5* device, unsigned elementeCount,
+    UploadBuffer(ID3D12Device5* device, size_t elementeCount,
                  bool isConstantBuffer)
         : m_bIsConstantBuffer(isConstantBuffer) {
         m_szElement = isConstantBuffer ? ((sizeof(T) + 255) & ~255) : sizeof(T);
@@ -43,12 +43,13 @@ public:
     void            CopyData(int elementIndex, const T& data) {
         memcpy(&m_pMappedData[elementIndex * m_szElement], &data, sizeof(T));
     }
+    size_t GetCBByteSize() const { return m_szElement; }
 
 private:
     ComPtr<ID3D12Resource> m_pUploadBuffer;
     BYTE*                  m_pMappedData = nullptr;
 
-    unsigned m_szElement         = 0;
-    bool     m_bIsConstantBuffer = false;
+    size_t m_szElement         = 0;
+    bool   m_bIsConstantBuffer = false;
 };
 }  // namespace d3dUtil

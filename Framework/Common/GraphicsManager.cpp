@@ -26,8 +26,8 @@ void GraphicsManager::Tick() {
         ClearBuffers();
         ClearShaders();
         const Scene& scene = g_pSceneManager->GetSceneForRendering();
-        InitializeShaders();
         InitializeBuffers(scene);
+        InitializeShaders();
         g_pSceneManager->NotifySceneIsRenderingQueued();
     }
     UpdateConstants();

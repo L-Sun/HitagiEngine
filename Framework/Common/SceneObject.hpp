@@ -268,7 +268,10 @@ std::ostream& operator<<(std::ostream& out, const PrimitiveType& type);
 
 class SceneObjectMesh : public BaseSceneObject {
 protected:
-    std::vector<SceneObjectIndexArray>  m_IndexArray;
+    std::vector<SceneObjectIndexArray> m_IndexArray;
+    // Different vector elements correspond to different attributes of vertices,
+    // such as the first element is coorespond to the position of vertices, the
+    // second element is coorrespond to the normal of vertices, etc.
     std::vector<SceneObjectVertexArray> m_VertexArray;
 
     PrimitiveType m_PrimitiveType;
