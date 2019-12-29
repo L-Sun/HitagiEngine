@@ -43,8 +43,8 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
     D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
-    static constexpr int m_nSwapChainBufferCount = 2;
-    int                  m_nCurrBackBuffer       = 0;
+    static constexpr int m_nFrameCount     = 2;
+    int                  m_nCurrBackBuffer = 0;
 
     ComPtr<IDXGIFactory7> m_pDxgiFactory;
     ComPtr<ID3D12Device5> m_pDevice;
@@ -66,7 +66,7 @@ private:
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
     ComPtr<IDXGISwapChain4> m_pSwapChain;
-    ComPtr<ID3D12Resource>  m_pRenderTargets[m_nSwapChainBufferCount];
+    ComPtr<ID3D12Resource>  m_pRenderTargets[m_nFrameCount];
     ComPtr<ID3D12Resource>  m_pDepthStencilBuffer;
 
     D3D12_VIEWPORT m_viewport;
@@ -75,8 +75,8 @@ private:
     bool     m_b4xMsaaState   = false;
     uint32_t m_n4xMsaaQuality = 0;
 
-    D3D12_SHADER_BYTECODE    m_VS;
-    D3D12_SHADER_BYTECODE    m_PS;
+    D3D12_SHADER_BYTECODE                 m_VS;
+    D3D12_SHADER_BYTECODE                 m_PS;
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
 
     ComPtr<ID3D12PipelineState> m_pPipelineState;

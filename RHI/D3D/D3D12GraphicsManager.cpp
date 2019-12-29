@@ -100,9 +100,8 @@ void D3D12GraphicsManager::RenderBuffers() {
     PopulateCommandList();
     ID3D12CommandList* cmdsLists[] = {m_pCommandList.Get()};
     m_pCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
-
     ThrowIfFailed(m_pSwapChain->Present(0, 0));
-    m_nCurrBackBuffer = (m_nCurrBackBuffer + 1) % m_nSwapChainBufferCount;
+    m_nCurrBackBuffer = (m_nCurrBackBuffer + 1) % m_nFrameCount;
 
     FlushCommandQueue();
 }
@@ -115,7 +114,6 @@ bool D3D12GraphicsManager::SetPerFrameShaderParameters() {
 bool D3D12GraphicsManager::SetPerBatchShaderParameters(int32_t index) {
     ObjectConstants ob;
     ob.modelMatrix = *m_DrawBatchContext[index].node->GetCalculatedTransform();
-    cout << ob.modelMatrix << endl;
     m_pObjUploader->CopyData(index, ob);
     return true;
 }
@@ -199,6 +197,8 @@ int D3D12GraphicsManager::InitD3D() {
         m_viewport.Height   = static_cast<float>(config.screenHeight);
         m_viewport.TopLeftX = 0.0f;
         m_viewport.TopLeftY = 0.0f;
+        m_viewport.MinDepth = 0.0f;
+        m_viewport.MaxDepth = 1.0f;
 
         m_scissorRect.top    = 0.0f;
         m_scissorRect.left   = 0.0f;
@@ -213,7 +213,7 @@ void D3D12GraphicsManager::CreateSwapChain() {
     m_pSwapChain.Reset();
     ComPtr<IDXGISwapChain1> swapChain;
     DXGI_SWAP_CHAIN_DESC1   swapChainDesc = {};
-    swapChainDesc.BufferCount             = m_nSwapChainBufferCount;
+    swapChainDesc.BufferCount             = m_nFrameCount;
     swapChainDesc.Width            = g_pApp->GetConfiguration().screenWidth;
     swapChainDesc.Height           = g_pApp->GetConfiguration().screenHeight;
     swapChainDesc.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -271,7 +271,7 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
     rtvHeapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
     rtvHeapDesc.NodeMask                   = 0;
-    rtvHeapDesc.NumDescriptors             = m_nSwapChainBufferCount;
+    rtvHeapDesc.NumDescriptors             = m_nFrameCount;
     rtvHeapDesc.Type                       = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
     ThrowIfFailed(m_pDevice->CreateDescriptorHeap(&rtvHeapDesc,
                                                   IID_PPV_ARGS(&m_pRtvHeap)));
@@ -287,7 +287,7 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
     // Create rtv.
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
         m_pRtvHeap->GetCPUDescriptorHandleForHeapStart());
-    for (unsigned i = 0; i < m_nSwapChainBufferCount; i++) {
+    for (unsigned i = 0; i < m_nFrameCount; i++) {
         ThrowIfFailed(
             m_pSwapChain->GetBuffer(i, IID_PPV_ARGS(&m_pRenderTargets[i])));
         m_pDevice->CreateRenderTargetView(m_pRenderTargets[i].Get(), nullptr,
@@ -373,8 +373,8 @@ void D3D12GraphicsManager::PopulateCommandList() {
     m_pCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
 
     cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-        m_pCbvHeap->GetGPUDescriptorHandleForHeapStart(),
-        m_nSwapChainBufferCount, m_nCbvSrvUavHeapSize);
+        m_pCbvHeap->GetGPUDescriptorHandleForHeapStart(), m_nFrameCount,
+        m_nCbvSrvUavHeapSize);
     size_t i          = 0;
     size_t vbv_offset = 0;
     for (auto&& dbc : m_DrawBatchContext) {
@@ -451,17 +451,17 @@ void D3D12GraphicsManager::CreateConstantBuffer() {
     D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
     cbvHeapDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     cbvHeapDesc.NodeMask       = 0;
-    cbvHeapDesc.NumDescriptors = szElement + m_nSwapChainBufferCount;
+    cbvHeapDesc.NumDescriptors = szElement + m_nFrameCount;
     cbvHeapDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     ThrowIfFailed(m_pDevice->CreateDescriptorHeap(&cbvHeapDesc,
                                                   IID_PPV_ARGS(&m_pCbvHeap)));
     // Constant buffer for frame
     {
         m_pFrameUploader = make_unique<d3dUtil::UploadBuffer<DrawFrameContext>>(
-            m_pDevice.Get(), m_nSwapChainBufferCount, true);
+            m_pDevice.Get(), m_nFrameCount, true);
         auto cbAddress = m_pFrameUploader->Resource()->GetGPUVirtualAddress();
         for (size_t i = 0, cbSize = m_pFrameUploader->GetCBByteSize();
-             i < m_nSwapChainBufferCount; i++, cbAddress += cbSize) {
+             i < m_nFrameCount; i++, cbAddress += cbSize) {
             D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
             cbvDesc.BufferLocation = cbAddress;
             cbvDesc.SizeInBytes    = cbSize;
@@ -486,7 +486,7 @@ void D3D12GraphicsManager::CreateConstantBuffer() {
 
             auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(
                 m_pCbvHeap->GetCPUDescriptorHandleForHeapStart(),
-                m_nSwapChainBufferCount + i, m_nCbvSrvUavHeapSize);
+                m_nFrameCount + i, m_nCbvSrvUavHeapSize);
             m_pDevice->CreateConstantBufferView(&cbvDesc, handle);
         }
     }
