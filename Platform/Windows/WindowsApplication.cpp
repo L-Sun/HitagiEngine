@@ -118,6 +118,8 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
                 case VK_DOWN:
                     g_pInputManager->DownArrowKeyUp();
                     break;
+                case 0x43:
+                    g_pInputManager->CKeyUp();
                 case 0x44:
                     g_pInputManager->DebugKeyUp();
                 default:
@@ -138,6 +140,8 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
                 case VK_DOWN:
                     g_pInputManager->DownArrowKeyDown();
                     break;
+                case 0x43:
+                    g_pInputManager->CKeyDown();
                 case 0x44:
                     g_pInputManager->DebugKeyDown();
                 default:

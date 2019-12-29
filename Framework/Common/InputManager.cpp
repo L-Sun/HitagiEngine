@@ -91,6 +91,25 @@ void InputManager::RightArrowKeyUp() {
     m_bRightKeyPressed = false;
 }
 
+void InputManager::CKeyDown() {
+#ifdef DEBUG
+    cerr << "[InputManager] C Key Down!" << endl;
+#endif
+    g_pGameLogic->OnCKeyDown();
+    if (!m_bRightKeyPressed) {
+        g_pGameLogic->OnCKey();
+        m_bCKeyPressed = true;
+    }
+}
+
+void InputManager::CKeyUp() {
+#ifdef DEBUG
+    cerr << "[InputManager] C Key Up!" << endl;
+#endif
+    g_pGameLogic->OnCKeyUp();
+    m_bCKeyPressed = false;
+}
+
 void InputManager::ResetKeyDown() {
 #ifdef DEBUG
     cerr << "[InputManager] Reset Key Down!" << endl;

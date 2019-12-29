@@ -16,6 +16,9 @@ public:
     void LeftArrowKeyUp();
     void RightArrowKeyDown();
     void RightArrowKeyUp();
+    void CKeyUp();
+    void CKeyDown();
+
     void ResetKeyUp();
     void ResetKeyDown();
     void DebugKeyUp();
@@ -26,6 +29,7 @@ protected:
     bool m_bDownKeyPressed  = false;
     bool m_bLeftKeyPressed  = false;
     bool m_bRightKeyPressed = false;
+    bool m_bCKeyPressed     = false;
 };
 
 extern std::unique_ptr<InputManager> g_pInputManager;

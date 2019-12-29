@@ -117,3 +117,20 @@ void GameLogic::OnDKey() {
     cerr << "[GameLogic] OnDKey()" << endl;
 #endif
 }
+void GameLogic::OnCKeyDown() {
+#ifdef DEBUG
+    cerr << "[GameLogic] OnCKeyDown()" << endl;
+#endif
+}
+
+void GameLogic::OnCKeyUp() {
+#ifdef DEBUG
+    cerr << "[GameLogic] OnCKeyUp()" << endl;
+#endif
+}
+
+void GameLogic::OnCKey() {
+#ifdef DEBUG
+    cerr << "[GameLogic] OnCKey()" << endl;
+#endif
+}

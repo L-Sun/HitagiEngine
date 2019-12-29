@@ -115,6 +115,7 @@ bool D3D12GraphicsManager::SetPerFrameShaderParameters() {
 bool D3D12GraphicsManager::SetPerBatchShaderParameters(int32_t index) {
     ObjectConstants ob;
     ob.modelMatrix = *m_DrawBatchContext[index].node->GetCalculatedTransform();
+    cout << ob.modelMatrix << endl;
     m_pObjUploader->CopyData(index, ob);
     return true;
 }
@@ -337,14 +338,14 @@ void D3D12GraphicsManager::PopulateCommandList() {
     ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(),
                                         m_pPipelineState.Get()));
 
-    m_pCommandList->RSSetViewports(1, &m_viewport);
-    m_pCommandList->RSSetScissorRects(1, &m_scissorRect);
-
     // change state from presentation to waitting to render.
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         m_pRenderTargets[m_nCurrBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT,
         D3D12_RESOURCE_STATE_RENDER_TARGET);
     m_pCommandList->ResourceBarrier(1, &barrier);
+
+    m_pCommandList->RSSetViewports(1, &m_viewport);
+    m_pCommandList->RSSetScissorRects(1, &m_scissorRect);
 
     // clear buffer view
     const float clearColor[] = {0.0f, 0.2f, 0.4f, 1.0f};

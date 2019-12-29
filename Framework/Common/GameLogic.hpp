@@ -32,6 +32,10 @@ public:
     virtual void OnDKeyDown();
     virtual void OnDKeyUp();
     virtual void OnDKey();
+
+    virtual void OnCKeyDown();
+    virtual void OnCKeyUp();
+    virtual void OnCKey();
 };
 extern GameLogic* g_pGameLogic;
 }  // namespace My

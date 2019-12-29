@@ -43,6 +43,9 @@ public:
     void RotateBy(const float& x, const float& y, const float& z) {
         m_RuntimeTransform *= rotate(mat4(1.0f), x, y, z);
     }
+    void Move(const float& x, const float& y, const float& z) {
+        m_RuntimeTransform *= translate(mat4(1.0f), vec3(x, y, z));
+    }
 
     friend std::ostream& operator<<(std::ostream&        out,
                                     const BaseSceneNode& node) {
