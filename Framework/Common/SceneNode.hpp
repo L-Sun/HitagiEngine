@@ -14,6 +14,7 @@ protected:
     std::list<std::shared_ptr<BaseSceneNode>>        m_Chlidren;
     std::list<std::shared_ptr<SceneObjectTransform>> m_Transforms;
     mat4 m_RuntimeTransform = mat4(1.0f);
+    bool m_bDirty           = true;
 
     virtual void dump(std::ostream& out) const {}
 
@@ -39,12 +40,17 @@ public:
         *result *= m_RuntimeTransform;
         return result;
     }
+    // Get is the node updated
+    bool Dirty() const { return m_bDirty; }
+    void ClearDirty() { m_bDirty = false; }
 
     void RotateBy(const float& x, const float& y, const float& z) {
         m_RuntimeTransform *= rotate(mat4(1.0f), x, y, z);
+        m_bDirty = true;
     }
     void Move(const float& x, const float& y, const float& z) {
         m_RuntimeTransform *= translate(mat4(1.0f), vec3(x, y, z));
+        m_bDirty = true;
     }
 
     friend std::ostream& operator<<(std::ostream&        out,

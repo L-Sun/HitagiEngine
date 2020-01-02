@@ -15,7 +15,7 @@ class UploadBuffer {
 public:
     UploadBuffer(ID3D12Device5* device, size_t elementeCount,
                  bool isConstantBuffer)
-        : m_bIsConstantBuffer(isConstantBuffer) {
+        : m_nElements(elementeCount), m_bIsConstantBuffer(isConstantBuffer) {
         m_szElement = isConstantBuffer ? ((sizeof(T) + 255) & ~255) : sizeof(T);
 
         auto heap_properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
@@ -44,12 +44,14 @@ public:
         memcpy(&m_pMappedData[elementIndex * m_szElement], &data, sizeof(T));
     }
     size_t GetCBByteSize() const { return m_szElement; }
+    size_t GetElementCount() const { return m_nElements; }
 
 private:
     ComPtr<ID3D12Resource> m_pUploadBuffer;
     BYTE*                  m_pMappedData = nullptr;
 
     size_t m_szElement         = 0;
+    size_t m_nElements         = 0;
     bool   m_bIsConstantBuffer = false;
 };
 }  // namespace d3dUtil

@@ -3,6 +3,7 @@
 
 #include "GraphicsManager.hpp"
 #include "d3dUtil.hpp"
+#include "FrameResource.hpp"
 
 using namespace Microsoft::WRL;
 
@@ -16,9 +17,6 @@ public:
     void Clear() final;
 
 protected:
-    bool SetPerFrameShaderParameters();
-    bool SetPerBatchShaderParameters(int32_t index);
-
     void UpdateConstants() final;
     void InitializeBuffers(const Scene& scene) final;
     bool InitializeShaders() final;
@@ -27,12 +25,24 @@ protected:
     void RenderBuffers() final;
 
 private:
-    int  InitD3D();
-    void CreateCommandObjects();
+    struct ObjectConstants {
+        mat4 modelMatrix;
+    };
+
+    struct D3D12DrawBatchContext : public DrawBatchContext {
+        size_t   property_count;
+        unsigned numFramesDirty;
+    };
+    using FR = FrameResource<FrameConstants, ObjectConstants>;
+
+    int InitD3D();
+
     void CreateSwapChain();
-    void FlushCommandQueue();
+    void CreateFrameResource();
+    void CreateCommandObjects();
     void CreateDescriptorHeaps();
     void PopulateCommandList();
+    void FlushCommandQueue();
 
     void CreateVertexBuffer(const SceneObjectVertexArray& vertexArray);
     void CreateIndexBuffer(const SceneObjectIndexArray& indexArray);
@@ -43,8 +53,8 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
     D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
-    static constexpr int m_nFrameCount     = 2;
-    int                  m_nCurrBackBuffer = 0;
+    static constexpr unsigned m_nFrameCount     = 2;
+    int                       m_nCurrBackBuffer = 0;
 
     ComPtr<IDXGIFactory7> m_pDxgiFactory;
     ComPtr<ID3D12Device5> m_pDevice;
@@ -53,7 +63,8 @@ private:
     ComPtr<ID3D12CommandAllocator>     m_pCommandAllocator;
     ComPtr<ID3D12GraphicsCommandList4> m_pCommandList;
     ComPtr<ID3D12Fence1>               m_pFence;
-    uint64_t                           m_nCurrenFence = 0;
+    HANDLE                             m_fenceEvent;
+    uint64_t                           m_nCurrFence = 0;
 
     uint64_t                     m_nRtvHeapSize       = 0;
     uint64_t                     m_nDsvHeapSize       = 0;
@@ -61,6 +72,7 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_pRtvHeap;
     ComPtr<ID3D12DescriptorHeap> m_pDsvHeap;
     ComPtr<ID3D12DescriptorHeap> m_pCbvHeap;
+    unsigned                     m_nFrameCBOffset;
 
     DXGI_FORMAT m_BackBufferFormat   = DXGI_FORMAT_R8G8B8A8_UNORM;
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -82,20 +94,12 @@ private:
     ComPtr<ID3D12PipelineState> m_pPipelineState;
     ComPtr<ID3D12RootSignature> m_pRootSignature;
 
-    struct ObjectConstants {
-        mat4 modelMatrix;
-    };
+    std::vector<std::unique_ptr<FR>> m_frameResource;
+    size_t                           m_nCurrFrameResourceIndex = 0;
 
-    struct D3D12DrawBatchContext : public DrawBatchContext {
-        size_t property_count;
-    };
-
-    std::vector<D3D12DrawBatchContext>    m_DrawBatchContext;
+    std::vector<D3D12DrawBatchContext>    m_drawBatchContext;
     std::vector<D3D12_VERTEX_BUFFER_VIEW> m_vertexBufferView;
     std::vector<D3D12_INDEX_BUFFER_VIEW>  m_indexBufferView;
-
-    std::unique_ptr<d3dUtil::UploadBuffer<ObjectConstants>>  m_pObjUploader;
-    std::unique_ptr<d3dUtil::UploadBuffer<DrawFrameContext>> m_pFrameUploader;
 
     std::vector<ComPtr<ID3D12Resource>> m_Buffers;
 };

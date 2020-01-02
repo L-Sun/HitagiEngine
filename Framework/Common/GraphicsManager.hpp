@@ -32,7 +32,7 @@ protected:
     virtual void UpdateConstants();
     virtual void RenderBuffers();
 
-    struct DrawFrameContext {
+    struct FrameConstants {
         mat4 m_worldMatrix;
         mat4 m_viewMatrix;
         mat4 m_projectionMatrix;
@@ -46,7 +46,7 @@ protected:
         std::shared_ptr<SceneObjectMaterial> material;
     };
 
-    DrawFrameContext m_DrawFrameContext;
+    FrameConstants m_frameConstants;
 };
 
 extern std::unique_ptr<GraphicsManager> g_pGraphicsManager;
