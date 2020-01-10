@@ -26,7 +26,10 @@ protected:
 
 private:
     struct ObjectConstants {
-        mat4 modelMatrix;
+        mat4  modelMatrix;
+        vec4  baseColor;
+        vec4  specularColor;
+        float specularPower;
     };
 
     struct D3D12DrawBatchContext : public DrawBatchContext {
@@ -38,22 +41,24 @@ private:
     int InitD3D();
 
     void CreateSwapChain();
-    void CreateFrameResource();
     void CreateCommandObjects();
-    void CreateDescriptorHeaps();
     void PopulateCommandList();
     void FlushCommandQueue();
 
-    void CreateVertexBuffer(const SceneObjectVertexArray& vertexArray);
-    void CreateIndexBuffer(const SceneObjectIndexArray& indexArray);
-    void CreateConstantBuffer();
+    void CreateDescriptorHeaps();
+    void CreateVertexBuffer();
+    void CreateIndexBuffer();
+    void CreateFrameResource();
     void CreateRootSignature();
+    void CreateConstantBuffer();
+    void CreateTextureBuffer();
+    void CreateSampler();
     void BuildPipelineStateObject();
 
     D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
     D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
-    static constexpr unsigned m_nFrameCount     = 2;
+    static constexpr unsigned m_nFrameCount     = 3;
     int                       m_nCurrBackBuffer = 0;
 
     ComPtr<IDXGIFactory7> m_pDxgiFactory;
@@ -71,8 +76,10 @@ private:
     uint64_t                     m_nCbvSrvUavHeapSize = 0;
     ComPtr<ID3D12DescriptorHeap> m_pRtvHeap;
     ComPtr<ID3D12DescriptorHeap> m_pDsvHeap;
-    ComPtr<ID3D12DescriptorHeap> m_pCbvHeap;
+    ComPtr<ID3D12DescriptorHeap> m_pCbvSrvHeap;
+    ComPtr<ID3D12DescriptorHeap> m_pSamplerHeap;
     unsigned                     m_nFrameCBOffset;
+    unsigned                     m_nSrvOffset;
 
     DXGI_FORMAT m_BackBufferFormat   = DXGI_FORMAT_R8G8B8A8_UNORM;
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -87,16 +94,20 @@ private:
     bool     m_b4xMsaaState   = false;
     uint32_t m_n4xMsaaQuality = 0;
 
-    D3D12_SHADER_BYTECODE                 m_VS;
-    D3D12_SHADER_BYTECODE                 m_PS;
+    std::vector<D3D12_SHADER_BYTECODE>    m_VS;
+    std::vector<D3D12_SHADER_BYTECODE>    m_PS;
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
 
-    ComPtr<ID3D12PipelineState> m_pPipelineState;
+    std::vector<ComPtr<ID3D12PipelineState>> m_pPipelineState;
     ComPtr<ID3D12RootSignature> m_pRootSignature;
 
     std::vector<std::unique_ptr<FR>> m_frameResource;
-    size_t                           m_nCurrFrameResourceIndex = 0;
+    // Generally, the frame resource size is greater or equal to frame count
+    size_t m_nFrameResourceSize = m_nFrameCount;
+    // size_t m_nFrameResourceSize      = 3;
+    size_t m_nCurrFrameResourceIndex = 0;
 
+    const Scene*                          m_pScene;
     std::vector<D3D12DrawBatchContext>    m_drawBatchContext;
     std::vector<D3D12_VERTEX_BUFFER_VIEW> m_vertexBufferView;
     std::vector<D3D12_INDEX_BUFFER_VIEW>  m_indexBufferView;

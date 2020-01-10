@@ -1,12 +1,17 @@
 #pragma once
 #include "d3dUtil.hpp"
+#include <unordered_map>
 
 template <typename TFrameConstant, typename TObjConstant>
 class FrameResource {
+    struct Texture {
+        size_t                 index;  // offset in current frame in srv
+        ComPtr<ID3D12Resource> texture    = nullptr;
+        ComPtr<ID3D12Resource> uploadHeap = nullptr;
+    };
+
 public:
-    FrameResource(ID3D12Device5* pDev, size_t objConstantCount,
-                  std::shared_ptr<ID3D12PipelineState> pso)
-        : m_pPSO(pso) {
+    FrameResource(ID3D12Device5* pDev, size_t objCount) {
         ThrowIfFailed(
             pDev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
                                          IID_PPV_ARGS(&m_pCommandAllocator)));
@@ -15,17 +20,38 @@ public:
             nullptr, IID_PPV_ARGS(&m_pCommandList)));
         ThrowIfFailed(m_pCommandList->Close());
 
-        m_pFrameUploader =
+        m_pFrameCBUploader =
             std::make_unique<d3dUtil::UploadBuffer<TFrameConstant>>(pDev, 1,
                                                                     true);
-        m_pObjUploader = std::make_unique<d3dUtil::UploadBuffer<TObjConstant>>(
-            pDev, objConstantCount, true);
+        m_pObjCBUploader =
+            std::make_unique<d3dUtil::UploadBuffer<TObjConstant>>(
+                pDev, objCount, true);
     }
     void UpdateFrameConstants(TFrameConstant frameConstants) {
-        m_pFrameUploader->CopyData(0, frameConstants);
+        m_pFrameCBUploader->CopyData(0, frameConstants);
     }
     void UpdateObjectConstants(size_t index, TObjConstant objectConstants) {
-        m_pObjUploader->CopyData(index, objectConstants);
+        m_pObjCBUploader->CopyData(index, objectConstants);
+    }
+
+    void UpdateTexture(const std::string& name, void* data) {
+        if (m_textures.find(name) != m_textures.end()) {
+            ComPtr<ID3D12Resource>&    texture    = m_textures[name].texture;
+            ComPtr<ID3D12Resource>&    uploadHeap = m_textures[name].uploadHeap;
+            const D3D12_RESOURCE_DESC& desc =
+                m_textures[name].texture->GetDesc();
+            D3D12_SUBRESOURCE_DATA textureData;
+            textureData.pData      = data;
+            textureData.RowPitch   = desc.Width * 4;
+            textureData.SlicePitch = textureData.RowPitch * desc.Height;
+
+            UpdateSubresources(m_pCommandList.Get(), texture.Get(),
+                               uploadHeap.Get(), 0, 0, 1, &textureData);
+            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+                texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+            m_pCommandList->ResourceBarrier(1, &barrier);
+        }
     }
 
     FrameResource(const FrameResource& rhs) = delete;
@@ -34,10 +60,11 @@ public:
 
     uint64_t fence = 0;
 
-    ComPtr<ID3D12CommandAllocator>       m_pCommandAllocator;
-    ComPtr<ID3D12GraphicsCommandList>    m_pCommandList;
-    std::shared_ptr<ID3D12PipelineState> m_pPSO;
+    ComPtr<ID3D12CommandAllocator>    m_pCommandAllocator;
+    ComPtr<ID3D12GraphicsCommandList> m_pCommandList;
 
-    std::unique_ptr<d3dUtil::UploadBuffer<TFrameConstant>> m_pFrameUploader;
-    std::unique_ptr<d3dUtil::UploadBuffer<TObjConstant>>   m_pObjUploader;
+    std::unique_ptr<d3dUtil::UploadBuffer<TFrameConstant>> m_pFrameCBUploader;
+    std::unique_ptr<d3dUtil::UploadBuffer<TObjConstant>>   m_pObjCBUploader;
+
+    std::unordered_map<std::string, Texture> m_textures;
 };
