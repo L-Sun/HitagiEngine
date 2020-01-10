@@ -239,7 +239,7 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
             if (!pMesh) return;
 
             auto vertexPropertiesCount = pMesh->GetVertexPropertiesCount();
-            auto vertexCount           = pMesh->GetVertexCount();
+            // auto vertexCount           = pMesh->GetVertexCount();
 
             GLuint vao;
             glGenVertexArrays(1, &vao);

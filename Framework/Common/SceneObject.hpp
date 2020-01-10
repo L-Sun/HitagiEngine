@@ -67,10 +67,9 @@ protected:
     }
     virtual ~BaseSceneObject() {}
 
-private:
-    BaseSceneObject()                     = delete;
-    BaseSceneObject(BaseSceneObject& obj) = delete;
-    BaseSceneObject& operator=(BaseSceneObject& obj) = delete;
+    BaseSceneObject()                     = default;
+    BaseSceneObject(BaseSceneObject& obj) = default;
+    BaseSceneObject& operator=(BaseSceneObject& obj) = default;
 
 public:
     const Guid&           GetGuid() const { return m_Guid; }
