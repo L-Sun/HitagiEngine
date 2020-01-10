@@ -16,5 +16,3 @@ target_link_libraries(MyGameEngine GLFWApplication OpenGLRHI Common glfw
     ${OPENGL_LIBRARY}
     ${DL_LIBRARY}
 )
-
-target_include_directories(MyGameEngine PRIVATE "${PROJECT_SOURCE_DIR}/External/src/glad/include")
