@@ -8,24 +8,11 @@
 namespace My {
 constexpr float PI = 3.14159265358979323846;
 
-#if defined(Use_Eigen)
-using namespace Eigen;
-template <typename T, int D>
-using Vector = Matrix<T, D, 1>;
-
-using vec2          = Vector4f;
-using vec3          = Vector3f;
-using vec4          = Vector4f;
-using quat          = Vector4f;
-using R8G8B8A8Unorm = Matrix<uint8_t, 4, 1>;
-
-#else
 using vec2          = Vector<float, 2>;
 using vec3          = Vector<float, 3>;
 using vec4          = Vector<float, 4>;
 using quat          = Vector<float, 4>;
 using R8G8B8A8Unorm = Vector<uint8_t, 4>;
-#endif
 
 using mat3 = Matrix<float, 3, 3>;
 using mat4 = Matrix<float, 4, 4>;
@@ -35,31 +22,20 @@ inline float radians(float angle) { return angle / 180.0f * PI; }
 
 template <typename T, int D>
 Vector<T, D> normalize(const Vector<T, D>& v) {
-#if defined(Use_Eigen)
-    return v.normalized();
-#else
     Vector<T, D> res = v;
     ispc::Normalize(res, D);
     return res;
-#endif  // Use_Eigen
 }
 
 template <typename T>
 Vector<T, 3> cross(const Vector<T, 3>& v1, const Vector<T, 3>& v2) {
-#if defined(Use_Eigen)
-    return v1.cross(v2);
-#else
     Vector<T, 3> result;
     ispc::CrossProduct(v1, v2, result);
     return result;
-#endif  // Use_Eigen
 }
 
 template <typename T, int N>
 Matrix<T, N, N> inverse(const Matrix<T, N, N>& mat) {
-#if defined(Use_Eigen)
-    return mat.inverse();
-#else
     Matrix<T, N, N> res;
     bool            success = false;
     if (N == 4) {
@@ -73,23 +49,15 @@ Matrix<T, N, N> inverse(const Matrix<T, N, N>& mat) {
         std::cout << "matrix is singular" << std::endl;
     }
     return res;
-#endif  // Use_Eigen
 }
 
 template <typename T, int ROWS, int COLS>
 void exchangeYZ(Matrix<T, ROWS, COLS>& matrix) {
-#if defined(Use_Eigen)
-    matrix.col(1).swap(matrix.col(2));
-#else
     std::swap(matrix.data[1], matrix.data[2]);
-#endif  // Use_Eigen
 }
 
 template <typename T>
 Matrix<T, 4, 4> translate(const Matrix<T, 4, 4>& mat, const Vector<T, 3>& v) {
-#if defined(Use_Eigen)
-
-#else
     // clang-format off
     Matrix<T, 4, 4> translation = {
         {1, 0, 0, v.x},
@@ -99,7 +67,6 @@ Matrix<T, 4, 4> translate(const Matrix<T, 4, 4>& mat, const Vector<T, 3>& v) {
     };
     // clang-format on
     return translation * mat;
-#endif  // Use_Eigen
 }
 template <typename T>
 Matrix<T, 4, 4> rotateX(const Matrix<T, 4, 4>& mat, const T angle) {
