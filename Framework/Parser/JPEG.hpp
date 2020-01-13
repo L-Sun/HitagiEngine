@@ -278,7 +278,7 @@ protected:
                           << std::endl;
                 std::cout << "DC Value: " << dc_value << std::endl;
 #endif
-                block[i][0][0] = dc_value;
+                block[i](0, 0) = dc_value;
 
                 // update bit_offset and byte_offset
                 bit_offset += dc_bit_length & 0x07u;
@@ -359,7 +359,7 @@ protected:
 #endif
 
                     int index = m_zigzagIndex[ac_index];
-                    block[i][index >> 3][index & 0x07] = ac_value;
+                    block[i](index >> 3, index & 0x07) = ac_value;
 
                     // update bit_offset and byte_offset
                     bit_offset += ac_bit_length & 0x07u;
@@ -382,7 +382,7 @@ protected:
 #ifdef DUMP_DETAILS
                 std::cout << "After Quantization: " << block[i];
 #endif
-                block[i][0][0] += 1024.0f;  // level shift. same as +128 to each
+                block[i](0, 0) += 1024.0f;  // level shift. same as +128 to each
                                             // element after IDCT
                 block[i] = IDCT8x8(block[i]);
 #ifdef DUMP_DETAILS
@@ -400,7 +400,7 @@ protected:
             for (int i = 0; i < 8; i++) {
                 for (int j = 0; j < 8; j++) {
                     for (int k = 0; k < m_nComponentsInFrame; k++) {
-                        ycbcr[k] = block[k][i][j];
+                        ycbcr[k] = block[k](i, j);
                     }
 
                     pBuf = reinterpret_cast<uint8_t*>(img.data) +
@@ -552,9 +552,9 @@ public:
                                 int index = m_zigzagIndex[i];
                                 
                                 if (pQtable->ElementPrecision() == 0) {
-                                    m_tableQuantization[pQtable->DestinationIdentifier()][index >> 3][index & 0x7] = pElementDataStart[i];
+                                    m_tableQuantization[pQtable->DestinationIdentifier()](index >> 3,index & 0x7) = pElementDataStart[i];
                                 } else {
-                                    m_tableQuantization[pQtable->DestinationIdentifier()][index >> 3][index & 0x7] = endian_net_unsigned_int(*((uint16_t*)pElementDataStart + i));
+                                    m_tableQuantization[pQtable->DestinationIdentifier()](index >> 3,index & 0x7) = endian_net_unsigned_int(*((uint16_t*)pElementDataStart + i));
                                 }
                             }
 #ifdef DUMP_DETAILS

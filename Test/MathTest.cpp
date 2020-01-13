@@ -4,25 +4,26 @@
 
 using namespace std;
 using namespace My;
+// clang-format off
 
 vec2 v2 = {1, 2};
 vec3 v3 = {1, 2, 3};
 mat3 m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
 // mat4 m4 = {{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}, {13, 14, 15, 16}};
 
-template <typename T, unsigned D>
+template <typename T, int D>
 void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2) {
     for (size_t i = 0; i < D; i++) {
         EXPECT_NEAR(v1[i], v2[i], 1E-8) << "difference at index: " << i;
     }
 }
 
-template <typename T, unsigned ROWS, unsigned COLS>
+template <typename T, int ROWS, int COLS>
 void matrix_eq(Matrix<T, ROWS, COLS> mat1, Matrix<T, ROWS, COLS> mat2,
                double epsilon = 1E-5) {
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
-            EXPECT_NEAR(mat1[i][j], mat2[i][j], epsilon)
+            EXPECT_NEAR(mat1(i,j), mat2(i,j), epsilon)
                 << "difference at index: [" << i << "][" << j << "]";
         }
     }
@@ -113,6 +114,10 @@ TEST(MatrixTest, MatDivNum) {
 TEST(MatrixTest, MatMulMat) {
     mat3 l = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
     mat3 r = {{9, 8, 7}, {6, 5, 4}, {3, 2, 1}};
+    cout << l <<endl;
+    cout << r<<endl;
+    cout <<l*r<<endl;
+    cout << mat3({{30, 24, 18}, {84, 69, 54}, {138, 114, 90}})<<endl;
     matrix_eq(l * r, mat3({{30, 24, 18}, {84, 69, 54}, {138, 114, 90}}));
     matrix_eq(r * l, mat3({{90, 114, 138}, {54, 69, 84}, {18, 24, 30}}));
     Matrix<float, 2, 3> x = {{0, 1, 2}, {3, 4, 5}};
@@ -128,6 +133,22 @@ TEST(MatrixTest, MatMulVec) {
     vector_eq(vec3(1, 2, 3) * y, vec4(32, 38, 44, 50));
     vec3 v = vec3(1, 2, 3);
     vector_eq(v *= l, vec3(30, 36, 42));
+}
+
+TEST(TransformTest, Translate) {
+    mat4 a = {
+        {1, 4, 7, 10},
+        {2, 5, 8, 11},
+        {3, 6, 9, 12},
+        {1, 1, 1,  1}
+    };
+    mat4 b = {
+        {2, 5,  8, 11},
+        {4, 7, 10, 13},
+        {6, 9, 12, 15},
+        {1, 1,  1,  1}
+    };
+    matrix_eq(translate(a, vec3(1, 2, 3)), b);
 }
 
 TEST(TransformTest, Inverse) {

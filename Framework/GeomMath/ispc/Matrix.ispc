@@ -70,7 +70,7 @@ export uniform bool Inverse(uniform const float mat[], uniform float ret[], unif
         if (abs(a[k*n + i]) < 1E-10) {
             return false;
         }
-        // if principal element is not in row i, swap row i and row k
+        // if principal element is not in col i, swap col i and col k
         if (k != i) {
             foreach (j = 0 ... n) {
                 float temp = a[i*n + j];
@@ -112,16 +112,4 @@ export uniform bool Inverse(uniform const float mat[], uniform float ret[], unif
 
     return true;
 
-}
-
-export void MatrixExchangeYandZ(uniform float data[], const uniform int rows, const uniform int cols)
-{
-    foreach(row_index = 0 ... rows) {
-        int start_index = row_index * cols;
-        unsigned int* p = (unsigned int*)(data + start_index + 1);
-        unsigned int* q = (unsigned int*)(data + start_index + 2);
-        *p ^= *q;
-        *q ^= *p;
-        *p ^= *q;
-    }
 }

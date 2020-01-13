@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.1)
 project(GameEngine)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_C_STANDARD 11)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
+
+set(Use_Eigen False)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/External/src/crossguid/cmake")

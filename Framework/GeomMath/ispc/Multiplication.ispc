@@ -14,10 +14,10 @@ export void MulSelfByNum (uniform float a[], uniform const float b, uniform size
     }
 }
 export void MatMul(uniform const float a[], uniform const float b[], uniform float result[], uniform size_t rows, uniform size_t middle, uniform size_t cols) {
-    foreach(row = 0 ... rows, col = 0 ... cols) {
+    foreach(col = 0 ... cols, row = 0 ... rows) {
         float sum = 0.0;
         for(int i = 0; i < middle; i++)
-            sum += a[row * middle + i] * b[col + i * cols];
-        result[row*cols + col] = sum;
+            sum += a[row + i * rows] * b[col * middle + i];
+        result[col * rows + row] = sum;
     }
 }
