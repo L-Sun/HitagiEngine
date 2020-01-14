@@ -11,6 +11,7 @@ InputManager.cpp
 DebugManager.cpp
 GameLogic.cpp
 Image.cpp
+Timer.cpp
 main.cpp
 )
 
@@ -20,6 +21,7 @@ target_link_libraries(Common
         ${OPENDDL_LIBRARY} 
         ${XG_LIBRARY} 
         ${ZLIB_LIBRARY}
+        ${TURBO_JPEG_LIBRARY}
 )
 
 __add_xg_platform_dependencies(Common)

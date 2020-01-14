@@ -18,7 +18,7 @@ target_link_libraries(SceneLoadingTest Common ${OPENGEX_LIBRARY} ${OPENDDL_LIBRA
 add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest)
 
 add_executable(JpegParserTest JpegParserTest.cpp)
-target_link_libraries(JpegParserTest Common ${OPENGEX_LIBRARY} ${OPENDDL_LIBRARY} ${XG_LIBRARY})
+target_link_libraries(JpegParserTest Common ${TURBO_JPEG_LIBRARY})
 add_test(NAME TEST_JpegParser COMMAND JpegParserTest)
 
 add_executable(PngParserTest PngParserTest.cpp)
@@ -37,3 +37,7 @@ gtest_add_tests(TARGET ColorSpaceConversionTest)
 add_executable(BulletTest BulletTest.cpp)
 target_link_libraries(BulletTest ${BULLET_DYNAMICS_LIBRARY} ${BULLET_COLLISION_LIBRARY} ${BULLET_LINEARMATH_LIBRARY})
 add_test(NAME TEST_Bullet COMMAND BulletTest)
+
+add_executable(TimerTest TimerTest.cpp)
+target_link_libraries(TimerTest Common  ${GTEST_BOTH_LIBRARIES})
+gtest_add_tests(TARGET TimerTest)

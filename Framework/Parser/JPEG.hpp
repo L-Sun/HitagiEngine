@@ -6,6 +6,7 @@
 #include "ImageParser.hpp"
 #include "HuffmanTree.hpp"
 #include "ColorSpaceConversion.hpp"
+#include "turbojpeg/turbojpeg.h"
 
 // #define DUMP_DETAILS 1
 
@@ -385,6 +386,7 @@ protected:
                 block[i](0, 0) += 1024.0f;  // level shift. same as +128 to each
                                             // element after IDCT
                 block[i] = IDCT8x8(block[i]);
+
 #ifdef DUMP_DETAILS
                 std::cout << "After IDCT: " << block[i];
 #endif
@@ -434,6 +436,24 @@ protected:
 public:
     virtual Image Parse(const Buffer& buf) {
         Image img;
+        // Use Turbo JPEG
+        {
+            tjhandle jpegHandle = tjInitDecompress();
+            int      width, height, subsamp, colorSapce;
+            tjDecompressHeader3(jpegHandle, buf.GetData(), buf.GetDataSize(),
+                                &width, &height, &subsamp, &colorSapce);
+            img.Width     = static_cast<uint32_t>(width);
+            img.Height    = static_cast<uint32_t>(height);
+            img.bitcount  = 32;
+            img.pitch     = ((img.Width * img.bitcount >> 3) + 3) & ~3;
+            img.data_size = img.pitch * img.Height;
+            img.data      = g_pMemoryManager->Allocate(img.data_size);
+            tjDecompress2(jpegHandle, buf.GetData(), buf.GetDataSize(),
+                          reinterpret_cast<uint8_t*>(img.data), img.Width,
+                          img.pitch, img.Height, TJPF_RGBA, TJFLAG_FASTDCT);
+            tjDestroy(jpegHandle);
+            return img;
+        }
 
         const uint8_t* pData    = buf.GetData();
         const uint8_t* pDataEnd = buf.GetData() + buf.GetDataSize();
@@ -590,7 +610,9 @@ public:
                         pScsp = reinterpret_cast<const SCAN_COMPONENT_SPEC_PARAMS*>(pTmp);
 
                         const uint8_t* pScanData = pData + endian_net_unsigned_int((uint16_t)pScanHeader->Length) + 2;
+                        std::cout<<"xx"<<std::endl;
                         scanLength = ParseScanData(pScanData, pDataEnd, img);
+                        std::cout<<"xx"<<std::endl;
                         pData += endian_net_unsigned_int(pSegmentHeader->Length) + 2 + scanLength;
                     } break;
                     case 0xFFD0:
