@@ -9,6 +9,6 @@ add_executable(MyTest
     MyTest.cpp MyTestConfig.cpp)
 ENDIF(ANDROID)
 target_link_libraries(MyTest 
-                        MyGameEngineD3D12
+                        MyGameEngine
                         MyPhysics
 )

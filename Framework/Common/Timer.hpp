@@ -14,7 +14,7 @@ public:
 
     void Reset();
     void Start();
-    void Stop();
+    void Pause();
 
 private:
     std::chrono::duration<double> mDeltaTime;
@@ -25,7 +25,7 @@ private:
     std::chrono::high_resolution_clock::time_point mPrevTime;
     std::chrono::high_resolution_clock::time_point mCurrTime;
 
-    bool mStopped;
+    bool mPaused = true;
 };
 
 }  // namespace My

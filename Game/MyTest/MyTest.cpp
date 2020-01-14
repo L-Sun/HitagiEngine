@@ -14,7 +14,7 @@ int MyTest::Initialize() {
 
     cout << "My Game Logic Initialize" << endl;
     cout << "Start Loading Game Scene" << endl;
-    result = g_pSceneManager->LoadScene("Scene/cube.ogex");
+    result = g_pSceneManager->LoadScene("Scene/aili_cycle.ogex");
 
     return result;
 }

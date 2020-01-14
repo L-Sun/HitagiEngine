@@ -1,24 +1,25 @@
 #include "Timer.hpp"
 
 using namespace My;
-using namespace std::chrono;
+using namespace std;
 
 int Clock::Initialize() {
-    mDeltaTime  = duration<double>::zero();
-    mPausedTime = duration<double>::zero();
-    mBaseTime   = high_resolution_clock::now();
-    mStopped    = true;
+    mDeltaTime  = chrono::duration<double>::zero();
+    mPausedTime = chrono::duration<double>::zero();
+    mBaseTime   = chrono::high_resolution_clock::now();
+    mPaused     = true;
     mStopTime   = mBaseTime;
 
     return 1;
 }
+void Clock::Finalize() {}
 
 float Clock::deltaTime() const {
     return static_cast<float>(mDeltaTime.count());
 }
 
 float Clock::totalTime() const {
-    if (mStopped) {
+    if (mPaused) {
         return static_cast<float>(
             ((mStopTime - mBaseTime) - mPausedTime).count());
     } else {
@@ -28,32 +29,32 @@ float Clock::totalTime() const {
 }
 
 void Clock::Tick() {
-    if (mStopped) {
-        mDeltaTime = duration<double>::zero();
+    if (mPaused) {
+        mDeltaTime = chrono::duration<double>::zero();
         return;
     }
-    mCurrTime  = high_resolution_clock::now();
+    mCurrTime  = chrono::high_resolution_clock::now();
     mDeltaTime = mCurrTime - mPrevTime;
     mPrevTime  = mCurrTime;
 }
 
 void Clock::Start() {
-    if (mStopped) {
-        auto now = high_resolution_clock::now();
+    if (mPaused) {
+        auto now = chrono::high_resolution_clock::now();
         mPausedTime += now - mStopTime;
         mPrevTime = now;
-        mStopped  = false;
+        mPaused   = false;
     }
 }
 
-void Clock::Stop() {
-    if (!mStopped) {
-        mStopTime = high_resolution_clock::now();
-        mStopped  = true;
+void Clock::Pause() {
+    if (!mPaused) {
+        mStopTime = chrono::high_resolution_clock::now();
+        mPaused   = true;
     }
 }
 
 void Clock::Reset() {
-    mBaseTime = high_resolution_clock::now();
-    mStopped  = true;
+    mBaseTime = chrono::high_resolution_clock::now();
+    mPaused   = true;
 }
