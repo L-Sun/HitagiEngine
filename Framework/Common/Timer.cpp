@@ -20,8 +20,12 @@ chrono::duration<double> Clock::totalTime() const {
     if (mPaused) {
         return (mStopTime - mBaseTime) - mPausedTime;
     } else {
-        return (mCurrTime - mBaseTime) - mPausedTime;
+        return (mTickTime - mBaseTime) - mPausedTime;
     }
+}
+
+chrono::high_resolution_clock::time_point Clock::tickTime() const {
+    return mTickTime;
 }
 
 void Clock::Tick() {
@@ -29,9 +33,9 @@ void Clock::Tick() {
         mDeltaTime = chrono::duration<double>::zero();
         return;
     }
-    mCurrTime  = chrono::high_resolution_clock::now();
-    mDeltaTime = mCurrTime - mPrevTime;
-    mPrevTime  = mCurrTime;
+    mTickTime  = chrono::high_resolution_clock::now();
+    mDeltaTime = mTickTime - mPrevTime;
+    mPrevTime  = mTickTime;
 }
 
 void Clock::Start() {

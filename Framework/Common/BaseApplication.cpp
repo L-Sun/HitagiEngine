@@ -1,5 +1,6 @@
 #include "BaseApplication.hpp"
 #include <iostream>
+#include <thread>
 
 using namespace My;
 using namespace std;
@@ -63,6 +64,13 @@ int BaseApplication::Initialize() {
     }
     cerr << "Success" << endl;
 
+    cerr << "Initialize Timer: ";
+    if ((ret = m_clock.Initialize()) != 0) {
+        cerr << "Failed. err = " << ret;
+        return ret;
+    }
+    m_clock.Start();
+
 #ifdef DEBUG
     cerr << "Initialize Debug Manager: ";
     if ((ret = g_pDebugManager->Initialize()) != 0) {
@@ -92,6 +100,7 @@ void BaseApplication::Finalize() {
 
 // One cycle of the main loop
 void BaseApplication::Tick() {
+    m_clock.Tick();
     g_pMemoryManager->Tick();
     g_pAssetLoader->Tick();
     g_pSceneManager->Tick();
@@ -102,6 +111,18 @@ void BaseApplication::Tick() {
 #ifdef DEBUG
     g_pDebugManager->Tick();
 #endif
+    if (m_frame_counter != -1) {
+        m_sumFPS += 1.0 / m_clock.deltaTime().count();
+    }
+    m_frame_counter++;
+    if (m_frame_counter == 30) {
+        m_FPS           = m_sumFPS / 30;
+        m_sumFPS        = 0;
+        m_frame_counter = 0;
+    }
+    m_k += m_FPS - 60;
+    this_thread::sleep_until(m_clock.tickTime() + chrono::seconds(1) / 60.0 +
+                             m_k * chrono::microseconds(1));
 }
 
 void BaseApplication::SetCommandLineParameters(int argc, char** argv) {

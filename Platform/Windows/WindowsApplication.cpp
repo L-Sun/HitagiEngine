@@ -68,7 +68,9 @@ void WindowsApplication::Finalize() {
 
 void WindowsApplication::Tick() {
     BaseApplication::Tick();
-
+    std::ostringstream ss;
+    ss << "FPS: " << m_FPS;
+    SetWindowTextA(m_hWnd, ss.str().c_str());
     // this struct holds Windows event messages
     MSG msg;
 

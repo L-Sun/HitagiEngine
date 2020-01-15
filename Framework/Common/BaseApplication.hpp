@@ -8,6 +8,7 @@
 #include "IPhysicsManager.hpp"
 #include "DebugManager.hpp"
 #include "GameLogic.hpp"
+#include "Timer.hpp"
 
 namespace My {
 class BaseApplication : public IApplication {
@@ -29,7 +30,13 @@ protected:
     int              m_nArgC;
     char**           m_ppArgV;
 
+    Clock m_clock;
+    short m_FPS = 60;
+
 private:
     BaseApplication() {}
+    short m_sumFPS        = 0;
+    short m_frame_counter = -1;
+    long  m_k             = 0;
 };
 }  // namespace My
