@@ -9,8 +9,8 @@ public:
     virtual void Tick();
     virtual void Finalize();
 
-    float totalTime() const;
-    float deltaTime() const;
+    std::chrono::duration<double> totalTime() const;
+    std::chrono::duration<double> deltaTime() const;
 
     void Reset();
     void Start();

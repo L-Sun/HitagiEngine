@@ -10,21 +10,17 @@ int Clock::Initialize() {
     mPaused     = true;
     mStopTime   = mBaseTime;
 
-    return 1;
+    return 0;
 }
 void Clock::Finalize() {}
 
-float Clock::deltaTime() const {
-    return static_cast<float>(mDeltaTime.count());
-}
+chrono::duration<double> Clock::deltaTime() const { return mDeltaTime; }
 
-float Clock::totalTime() const {
+chrono::duration<double> Clock::totalTime() const {
     if (mPaused) {
-        return static_cast<float>(
-            ((mStopTime - mBaseTime) - mPausedTime).count());
+        return (mStopTime - mBaseTime) - mPausedTime;
     } else {
-        return static_cast<float>(
-            ((mCurrTime - mBaseTime) - mPausedTime).count());
+        return (mCurrTime - mBaseTime) - mPausedTime;
     }
 }
 

@@ -13,7 +13,7 @@ TEST(TimerTest, DurationTest) {
     c.Start();
     std::this_thread::sleep_for(1s);
     c.Tick();
-    EXPECT_NEAR(1.0, c.deltaTime(), 0.1);
+    EXPECT_NEAR(1.0, c.deltaTime().count(), 0.1);
 }
 
 TEST(TimerTest, PauseTest) {
@@ -24,7 +24,7 @@ TEST(TimerTest, PauseTest) {
     c.Pause();
     std::this_thread::sleep_for(1s);
     c.Start();
-    EXPECT_NEAR(1.0, c.deltaTime(), 0.1);
+    EXPECT_NEAR(1.0, c.deltaTime().count(), 0.1);
 }
 
 int main(int argc, char *argv[]) {
