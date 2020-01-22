@@ -113,8 +113,9 @@ Matrix<T, 4, 4> rotateZ(const Matrix<T, 4, 4>& mat, const T angle) {
 template <typename T>
 Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T angle,
                        const Vector<T, 3>& axis) {
+    auto        _axis = normalize(axis);
     const float c = cosf(angle), s = sinf(angle), _1_c = 1.0f - c;
-    const float x = axis.x, y = axis.y, z = axis.z;
+    const float x = _axis.x, y = _axis.y, z = _axis.z;
     // clang-format off
     Matrix<T, 4, 4> rotation = {
         {c + x * x * _1_c    , x * y * _1_c - z * s, x * z * _1_c + y * s, 0.0f},

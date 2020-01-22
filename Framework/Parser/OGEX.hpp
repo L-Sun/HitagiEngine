@@ -375,7 +375,7 @@ private:
 
                     transform = std::make_shared<SceneObjectTransform>(
                         matrix, object_flag);
-                    base_node->AppendChild(std::move(transform));
+                    base_node->AppendTransform(std::move(transform));
                 }
             }
                 return;

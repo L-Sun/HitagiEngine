@@ -238,23 +238,23 @@ public:
 
 typedef enum _PrimitiveType : int32_t {
     // clang-format off
-    kNone                 = "NONE"_i32,  ///< No particular primitive type.
-    kPOINT_LIST           = "PLST"_i32,  ///< For N>=0, vertex N renders a point.
-    kLINE_LIST            = "LLST"_i32,  ///< For N>=0, vertices [N*2+0, N*2+1] render a line.
-    kLINE_STRIP           = "LSTR"_i32,  ///< For N>=0, vertices [N, N+1] render a line.
-    kTRI_LIST             = "TLST"_i32,  ///< For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a triangle.
-    kTRI_FAN              = "TFAN"_i32,  ///< For N>=0, vertices [0, (N+1)%M, (N+2)%M] render a triangle, where M is the vertex count.
-    kTRI_STRIP            = "TSTR"_i32,  ///< For N>=0, vertices [N*2+0, N*2+1, N*2+2] and [N*2+2, N*2+1, N*2+3] render triangles.
-    kPATCH                = "PACH"_i32,  ///< Used for tessellation.
-    kLINE_LIST_ADJACENCY  = "LLSA"_i32,  ///< For N>=0, vertices [N*4..N*4+3] render a line from [1, 2]. Lines [0, 1] and [2, 3] are adjacent to the rendered line.
-    kLINE_STRIP_ADJACENCY = "LSTA"_i32,  ///< For N>=0, vertices [N+1, N+2] render a line. Lines [N, N+1] and [N+2, N+3] are adjacent to the rendered line.
-    kTRI_LIST_ADJACENCY   = "TLSA"_i32,  ///< For N>=0, vertices [N*6..N*6+5] render a triangle from [0, 2, 4]. Triangles [0, 1, 2] [4, 2, 3] and [5, 0, 4] are adjacent to the rendered triangle.
-    kTRI_STRIP_ADJACENCY  = "TSTA"_i32,  ///< For N>=0, vertices [N*4..N*4+6] render a triangle from [0, 2, 4] and [4, 2, 6]. Odd vertices Nodd form adjacent triangles with indices min(Nodd+1,Nlast) and max(Nodd-3,Nfirst).
-    kRECT_LIST            = "RLST"_i32,  ///< For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a screen-aligned rectangle. 0 is upper-left, 1 is upper-right, and 2 is the lower-left corner.
-    kLINE_LOOP            = "LLOP"_i32,  ///< Like <c>kPrimitiveTypeLineStrip</c>, but the first and last vertices also render a line.
-    kQUAD_LIST            = "QLST"_i32,  ///< For N>=0, vertices [N*4+0, N*4+1, N*4+2] and [N*4+0, N*4+2, N*4+3] render triangles.
-    kQUAD_STRIP           = "QSTR"_i32,  ///< For N>=0, vertices [N*2+0, N*2+1, N*2+3] and [N*2+0, N*2+3, N*2+2] render triangles.
-    kPOLYGON              = "POLY"_i32,  ///< For N>=0, vertices [0, N+1, N+2] render a triangle.
+    kNone                 = "NONE"_i32,  // No particular primitive type.
+    kPOINT_LIST           = "PLST"_i32,  // For N>=0, vertex N renders a point.
+    kLINE_LIST            = "LLST"_i32,  // For N>=0, vertices [N*2+0, N*2+1] render a line.
+    kLINE_STRIP           = "LSTR"_i32,  // For N>=0, vertices [N, N+1] render a line.
+    kTRI_LIST             = "TLST"_i32,  // For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a triangle.
+    kTRI_FAN              = "TFAN"_i32,  // For N>=0, vertices [0, (N+1)%M, (N+2)%M] render a triangle, where M is the vertex count.
+    kTRI_STRIP            = "TSTR"_i32,  // For N>=0, vertices [N*2+0, N*2+1, N*2+2] and [N*2+2, N*2+1, N*2+3] render triangles.
+    kPATCH                = "PACH"_i32,  // Used for tessellation.
+    kLINE_LIST_ADJACENCY  = "LLSA"_i32,  // For N>=0, vertices [N*4..N*4+3] render a line from [1, 2]. Lines [0, 1] and [2, 3] are adjacent to the rendered line.
+    kLINE_STRIP_ADJACENCY = "LSTA"_i32,  // For N>=0, vertices [N+1, N+2] render a line. Lines [N, N+1] and [N+2, N+3] are adjacent to the rendered line.
+    kTRI_LIST_ADJACENCY   = "TLSA"_i32,  // For N>=0, vertices [N*6..N*6+5] render a triangle from [0, 2, 4]. Triangles [0, 1, 2] [4, 2, 3] and [5, 0, 4] are adjacent to the rendered triangle.
+    kTRI_STRIP_ADJACENCY  = "TSTA"_i32,  // For N>=0, vertices [N*4..N*4+6] render a triangle from [0, 2, 4] and [4, 2, 6]. Odd vertices Nodd form adjacent triangles with indices min(Nodd+1,Nlast) and max(Nodd-3,Nfirst).
+    kRECT_LIST            = "RLST"_i32,  // For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a screen-aligned rectangle. 0 is upper-left, 1 is upper-right, and 2 is the lower-left corner.
+    kLINE_LOOP            = "LLOP"_i32,  // Like <c>kPrimitiveTypeLineStrip</c>, but the first and last vertices also render a line.
+    kQUAD_LIST            = "QLST"_i32,  // For N>=0, vertices [N*4+0, N*4+1, N*4+2] and [N*4+0, N*4+2, N*4+3] render triangles.
+    kQUAD_STRIP           = "QSTR"_i32,  // For N>=0, vertices [N*2+0, N*2+1, N*2+3] and [N*2+0, N*2+3, N*2+2] render triangles.
+    kPOLYGON              = "POLY"_i32,  // For N>=0, vertices [0, N+1, N+2] render a triangle.
     // clang-format on
 } PrimitiveType;
 

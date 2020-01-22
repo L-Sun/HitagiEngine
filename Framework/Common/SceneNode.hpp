@@ -27,7 +27,7 @@ public:
     void AppendChild(std::shared_ptr<BaseSceneNode>&& sub_node) {
         m_Chlidren.push_back(std::move(sub_node));
     }
-    void AppendChild(std::shared_ptr<SceneObjectTransform>&& transform) {
+    void AppendTransform(std::shared_ptr<SceneObjectTransform>&& transform) {
         m_Transforms.push_back(std::move(transform));
     }
 
