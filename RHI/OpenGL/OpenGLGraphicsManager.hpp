@@ -54,6 +54,7 @@ private:
     std::map<std::string, GLint> m_TextureIndex;
 
     struct OpenGLDrawBatchContext : public DrawBatchContext {
+        size_t count;  // index count per node
         GLuint vao;
         GLenum mode;
         GLenum type;

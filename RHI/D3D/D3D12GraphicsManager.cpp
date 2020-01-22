@@ -97,6 +97,12 @@ int D3D12GraphicsManager::InitD3D() {
             CD3DX12_RECT(0, 0, config.screenWidth, config.screenHeight);
     }
 
+    CreateDescriptorHeaps();
+    CreateFrameResource();
+    CreateRootSignature();
+    CreateConstantBuffer();
+    CreateSampler();
+
     return 0;
 }
 
@@ -145,42 +151,6 @@ void D3D12GraphicsManager::CreateCommandObjects() {
     ThrowIfFailed(m_pCommandList->Close());
 }
 
-void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
-    m_pScene = &scene;
-    for (auto&& [key, pGeometryNode] : m_pScene->GeometryNodes) {
-        if (pGeometryNode && pGeometryNode->Visible()) {
-            auto pGeometry =
-                m_pScene->GetGeometry(pGeometryNode->GetSceneObjectRef());
-            assert(pGeometry);
-            auto pMesh = pGeometry->GetMesh().lock();
-            if (!pMesh) continue;
-
-            // LOD
-            auto& index_array    = pMesh->GetIndexArray(0);
-            auto  material_index = index_array.GetMaterialIndex();
-            auto  material_key = pGeometryNode->GetMaterialRef(material_index);
-            auto  material     = scene.GetMaterial(material_key);
-
-            D3D12DrawBatchContext dbc;
-            dbc.node           = pGeometryNode;
-            dbc.count          = index_array.GetIndexCount();
-            dbc.property_count = pMesh->GetVertexPropertiesCount();
-            dbc.material       = material;
-            dbc.numFramesDirty = m_nFrameResourceSize;
-
-            m_drawBatchContext.push_back(dbc);
-        }
-    }
-
-    CreateDescriptorHeaps();
-    CreateVertexBuffer();
-    CreateIndexBuffer();
-    CreateFrameResource();
-    CreateRootSignature();
-    CreateConstantBuffer();
-    CreateTextureBuffer();
-    CreateSampler();
-}
 void D3D12GraphicsManager::CreateDescriptorHeaps() {
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
     rtvHeapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
@@ -246,15 +216,14 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
     // per frame have n objects constant buffer descriptor and 1 frame constant
     // buffer descriptor
     CbvSrvHeapDesc.NumDescriptors =
-        m_nFrameResourceSize *
-        (m_drawBatchContext.size() + 1 + m_pScene->Materials.size());
+        m_nFrameResourceSize * (m_nMaxObjects + 1 + m_nMaxTextures);
     CbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     ThrowIfFailed(m_pDevice->CreateDescriptorHeap(
         &CbvSrvHeapDesc, IID_PPV_ARGS(&m_pCbvSrvHeap)));
 
     // Use the last n descriptor as the frame constant buffer descriptor
-    m_nFrameCBOffset = m_nFrameResourceSize * m_drawBatchContext.size();
-    m_nSrvOffset     = m_nFrameResourceSize * (m_drawBatchContext.size() + 1);
+    m_nFrameCBOffset = m_nFrameResourceSize * m_nMaxObjects;
+    m_nSrvOffset     = m_nFrameResourceSize * (m_nMaxObjects + 1);
 
     // Sampler descriptor heap
     D3D12_DESCRIPTOR_HEAP_DESC samplerDescHeap = {};
@@ -265,75 +234,10 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
         &samplerDescHeap, IID_PPV_ARGS(&m_pSamplerHeap)));
 }
 
-void D3D12GraphicsManager::CreateVertexBuffer() {
-    ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
-
-    for (auto&& dbc : m_drawBatchContext) {
-        auto pGeometry = m_pScene->GetGeometry(dbc.node->GetSceneObjectRef());
-        auto pMesh     = pGeometry->GetMesh().lock();
-        if (!pMesh) continue;
-        size_t vertexPropertiesCount = pMesh->GetVertexPropertiesCount();
-
-        for (size_t i = 0; i < vertexPropertiesCount; i++) {
-            const SceneObjectVertexArray& vertexArray =
-                pMesh->GetVertexPropertyArray(i);
-            ComPtr<ID3D12Resource> pUploader;
-            auto                   pVertexBuffer = d3dUtil::CreateDefaultBuffer(
-                m_pDevice.Get(), m_pCommandList.Get(), vertexArray.GetData(),
-                vertexArray.GetDataSize(), pUploader);
-
-            D3D12_VERTEX_BUFFER_VIEW vbv;
-            vbv.BufferLocation = pVertexBuffer->GetGPUVirtualAddress();
-            vbv.SizeInBytes    = vertexArray.GetDataSize();
-            vbv.StrideInBytes =
-                vertexArray.GetDataSize() / vertexArray.GetVertexCount();
-            m_vertexBufferView.push_back(vbv);
-            m_Buffers.push_back(pVertexBuffer);
-            m_Buffers.push_back(pUploader);
-        }
-    }
-
-    ThrowIfFailed(m_pCommandList->Close());
-    ID3D12CommandList* cmdsLists[] = {m_pCommandList.Get()};
-    m_pCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
-    FlushCommandQueue();
-}
-
-void D3D12GraphicsManager::CreateIndexBuffer() {
-    ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
-
-    for (auto&& dbc : m_drawBatchContext) {
-        auto pGeometry = m_pScene->GetGeometry(dbc.node->GetSceneObjectRef());
-        auto pMesh     = pGeometry->GetMesh().lock();
-        if (!pMesh) continue;
-        // LOD
-        const SceneObjectIndexArray& indexArray = pMesh->GetIndexArray(0);
-
-        ComPtr<ID3D12Resource> pUploader;
-        auto                   pIndexBuffer = d3dUtil::CreateDefaultBuffer(
-            m_pDevice.Get(), m_pCommandList.Get(), indexArray.GetData(),
-            indexArray.GetDataSize(), pUploader);
-
-        D3D12_INDEX_BUFFER_VIEW ibv;
-        ibv.BufferLocation = pIndexBuffer->GetGPUVirtualAddress();
-        ibv.Format         = DXGI_FORMAT_R32_UINT;
-        ibv.SizeInBytes    = indexArray.GetDataSize();
-        m_indexBufferView.push_back(ibv);
-
-        m_Buffers.push_back(pIndexBuffer);
-        m_Buffers.push_back(pUploader);
-    }
-
-    ThrowIfFailed(m_pCommandList->Close());
-    ID3D12CommandList* cmdsLists[] = {m_pCommandList.Get()};
-    m_pCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
-    FlushCommandQueue();
-}
-
 void D3D12GraphicsManager::CreateFrameResource() {
     for (size_t i = 0; i < m_nFrameResourceSize; i++) {
         m_frameResource.push_back(
-            make_unique<FR>(m_pDevice.Get(), m_drawBatchContext.size()));
+            make_unique<FR>(m_pDevice.Get(), m_nMaxObjects));
     }
 }
 
@@ -415,6 +319,225 @@ void D3D12GraphicsManager::CreateConstantBuffer() {
             fr->m_pFrameCBUploader->Resource()->GetGPUVirtualAddress();
         m_pDevice->CreateConstantBufferView(&cbDesc, handle);
         handle.Offset(m_nCbvSrvUavHeapSize);
+    }
+}
+
+void D3D12GraphicsManager::CreateSampler() {
+    D3D12_SAMPLER_DESC samplerDesc = {};
+    samplerDesc.AddressU           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.AddressV           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.AddressW           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.ComparisonFunc     = D3D12_COMPARISON_FUNC_ALWAYS;
+    samplerDesc.Filter             = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+    samplerDesc.MaxAnisotropy      = 1;
+    samplerDesc.MaxLOD             = D3D12_FLOAT32_MAX;
+    samplerDesc.MinLOD             = 0;
+    samplerDesc.MipLODBias         = 0.0f;
+
+    m_pDevice->CreateSampler(
+        &samplerDesc, m_pSamplerHeap->GetCPUDescriptorHandleForHeapStart());
+}
+
+bool D3D12GraphicsManager::InitializeShaders() {
+    Buffer v_shader =
+               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/simple_vs.cso"),
+           p1_shader =
+               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/simple_ps_1.cso");
+
+    m_VS["simple"] =
+        CD3DX12_SHADER_BYTECODE(v_shader.GetData(), v_shader.GetDataSize());
+    m_PS["no_texture"] =
+        CD3DX12_SHADER_BYTECODE(p1_shader.GetData(), p1_shader.GetDataSize());
+
+    Buffer p2_shader =
+        g_pAssetLoader->SyncOpenAndReadBinary("Shaders/simple_ps_2.cso");
+    m_PS["texture"] =
+        CD3DX12_SHADER_BYTECODE(p2_shader.GetData(), p2_shader.GetDataSize());
+
+    // Define the vertex input layout, becase vertices storage is
+    m_inputLayout = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+        {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+    };
+
+#if defined(DEBUG)
+    Buffer v_debugShader =
+               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/debug_vs.cso"),
+           p_debugShader =
+               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/debug_ps.cso");
+    m_VS["debug"] = CD3DX12_SHADER_BYTECODE(v_debugShader.GetData(),
+                                            v_debugShader.GetDataSize());
+    m_PS["debug"] = CD3DX12_SHADER_BYTECODE(p_debugShader.GetData(),
+                                            p_debugShader.GetDataSize());
+
+    m_debugInputLayout = {{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0},
+                          {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0}};
+
+#endif  // DEBUG
+
+    BuildPipelineStateObject();
+
+    return true;
+}
+
+void D3D12GraphicsManager::BuildPipelineStateObject() {
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+    psoDesc.InputLayout                        = {m_inputLayout.data(),
+                           static_cast<UINT>(m_inputLayout.size())};
+    psoDesc.pRootSignature                     = m_pRootSignature.Get();
+    psoDesc.VS                                 = m_VS["simple"];
+    psoDesc.PS                                 = m_PS["no_texture"];
+    psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
+    psoDesc.BlendState            = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    psoDesc.DepthStencilState     = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    psoDesc.SampleMask            = UINT_MAX;
+    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    psoDesc.NumRenderTargets      = 1;
+    psoDesc.RTVFormats[0]         = m_BackBufferFormat;
+    psoDesc.SampleDesc.Count      = m_b4xMsaaState ? 4 : 1;
+    psoDesc.SampleDesc.Quality    = m_b4xMsaaState ? (m_n4xMsaaQuality - 1) : 0;
+    psoDesc.DSVFormat             = m_DepthStencilFormat;
+
+    m_pipelineState["no_texture"] = ComPtr<ID3D12PipelineState>();
+    ThrowIfFailed(m_pDevice->CreateGraphicsPipelineState(
+        &psoDesc, IID_PPV_ARGS(&m_pipelineState["no_texture"])));
+
+    // for texture
+    psoDesc.PS                 = m_PS["texture"];
+    m_pipelineState["texture"] = ComPtr<ID3D12PipelineState>();
+    ThrowIfFailed(m_pDevice->CreateGraphicsPipelineState(
+        &psoDesc, IID_PPV_ARGS(&m_pipelineState["texture"])));
+
+#if defined(DEBUG)
+    psoDesc.InputLayout           = {m_debugInputLayout.data(),
+                           static_cast<UINT>(m_debugInputLayout.size())};
+    psoDesc.VS                    = m_VS["debug"];
+    psoDesc.PS                    = m_PS["debug"];
+    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+    m_pipelineState["debug"]      = ComPtr<ID3D12PipelineState>();
+    ThrowIfFailed(m_pDevice->CreateGraphicsPipelineState(
+        &psoDesc, IID_PPV_ARGS(&m_pipelineState["debug"])));
+#endif  // DEBUG
+}
+
+void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
+    m_pScene = &scene;
+    // Initialize geometries buffer
+    for (auto&& [key, geometry] : m_pScene->Geometries) {
+        if (geometry->Visible()) {
+            if (auto pMesh = geometry->GetMesh().lock()) {
+                auto g = make_shared<MeshBuffer>();
+                for (size_t i = 0; i < pMesh->GetVertexPropertiesCount(); i++) {
+                    CreateVertexBuffer(pMesh->GetVertexPropertyArray(i), g);
+                }
+                // LOD
+                CreateIndexBuffer(pMesh->GetIndexArray(0), g);
+                SetPrimitiveType(pMesh->GetPrimitiveType(), g);
+                g->count          = pMesh->GetIndexCount(0);
+                m_geometries[key] = g;
+            }
+        }
+    }
+
+    // Initialize Texture Buffer
+
+    // Iniialize draw items
+    for (auto&& [key, node] : m_pScene->GeometryNodes) {
+        if (node->Visible()) {
+            D3D12DrawBatchContext dbc;
+            dbc.node = node;
+            cout << key << endl;
+            dbc.pGeometry      = m_geometries[node->GetSceneObjectRef()];
+            dbc.numFramesDirty = m_nFrameResourceSize;
+            dbc.material       = m_pScene->GetMaterial(node->GetMaterialRef(0));
+            dbc.constantBufferIndex = m_drawBatchContext.size();
+            if (dbc.material && dbc.material->GetBaseColor().ValueMap)
+                dbc.pPSO = m_pipelineState["texture"];
+            else
+                dbc.pPSO = m_pipelineState["no_texture"];
+
+            m_drawBatchContext.push_back(dbc);
+        }
+    }
+
+    CreateTextureBuffer();
+}
+
+void D3D12GraphicsManager::CreateVertexBuffer(
+    const SceneObjectVertexArray& vertexArray,
+    const shared_ptr<MeshBuffer>& pGeometry) {
+    ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
+
+    ComPtr<ID3D12Resource> pUploader;
+    auto                   pVertexBuffer = d3dUtil::CreateDefaultBuffer(
+        m_pDevice.Get(), m_pCommandList.Get(), vertexArray.GetData(),
+        vertexArray.GetDataSize(), pUploader);
+
+    D3D12_VERTEX_BUFFER_VIEW vbv;
+    vbv.BufferLocation = pVertexBuffer->GetGPUVirtualAddress();
+    vbv.SizeInBytes    = vertexArray.GetDataSize();
+    vbv.StrideInBytes =
+        vertexArray.GetDataSize() / vertexArray.GetVertexCount();
+
+    pGeometry->vbv.push_back(vbv);
+    pGeometry->vertexBuffer.push_back(pVertexBuffer);
+    m_Uploader.push_back(pUploader);
+
+    ThrowIfFailed(m_pCommandList->Close());
+    ID3D12CommandList* cmdsLists[] = {m_pCommandList.Get()};
+    m_pCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+    FlushCommandQueue();
+}
+
+void D3D12GraphicsManager::CreateIndexBuffer(
+    const SceneObjectIndexArray&  indexArray,
+    const shared_ptr<MeshBuffer>& pGeometry) {
+    ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
+
+    ComPtr<ID3D12Resource> pUploader;
+    auto                   pIndexBuffer = d3dUtil::CreateDefaultBuffer(
+        m_pDevice.Get(), m_pCommandList.Get(), indexArray.GetData(),
+        indexArray.GetDataSize(), pUploader);
+
+    D3D12_INDEX_BUFFER_VIEW ibv;
+    ibv.BufferLocation = pIndexBuffer->GetGPUVirtualAddress();
+    ibv.Format         = DXGI_FORMAT_R32_UINT;
+    ibv.SizeInBytes    = indexArray.GetDataSize();
+
+    pGeometry->ibv.push_back(ibv);
+    pGeometry->indexBuffer.push_back(pIndexBuffer);
+    m_Uploader.push_back(pUploader);
+
+    ThrowIfFailed(m_pCommandList->Close());
+    ID3D12CommandList* cmdsLists[] = {m_pCommandList.Get()};
+    m_pCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+    FlushCommandQueue();
+}
+
+void D3D12GraphicsManager::SetPrimitiveType(
+    const PrimitiveType&               primitiveType,
+    const std::shared_ptr<MeshBuffer>& pGeometry) {
+    switch (primitiveType) {
+        case PrimitiveType::kLINE_LIST:
+            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+            break;
+        case PrimitiveType::kLINE_LIST_ADJACENCY:
+            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ;
+            break;
+        case PrimitiveType::kTRI_LIST:
+            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+            break;
+        case PrimitiveType::kTRI_LIST_ADJACENCY:
+            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
+            break;
+        default:
+            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+            break;
     }
 }
 
@@ -507,83 +630,6 @@ void D3D12GraphicsManager::CreateTextureBuffer() {
     FlushCommandQueue();
 }
 
-void D3D12GraphicsManager::CreateSampler() {
-    D3D12_SAMPLER_DESC samplerDesc = {};
-    samplerDesc.AddressU           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplerDesc.AddressV           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplerDesc.AddressW           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplerDesc.ComparisonFunc     = D3D12_COMPARISON_FUNC_ALWAYS;
-    samplerDesc.Filter             = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
-    samplerDesc.MaxAnisotropy      = 1;
-    samplerDesc.MaxLOD             = D3D12_FLOAT32_MAX;
-    samplerDesc.MinLOD             = 0;
-    samplerDesc.MipLODBias         = 0.0f;
-
-    m_pDevice->CreateSampler(
-        &samplerDesc, m_pSamplerHeap->GetCPUDescriptorHandleForHeapStart());
-}
-
-// this is the function that loads and prepares the shaders
-bool D3D12GraphicsManager::InitializeShaders() {
-    Buffer v_shader =
-               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/simple_vs.cso"),
-           p1_shader =
-               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/simple_ps_1.cso");
-
-    m_VS.push_back(
-        CD3DX12_SHADER_BYTECODE(v_shader.GetData(), v_shader.GetDataSize()));
-    m_PS.push_back(
-        CD3DX12_SHADER_BYTECODE(p1_shader.GetData(), p1_shader.GetDataSize()));
-
-    Buffer p2_shader =
-        g_pAssetLoader->SyncOpenAndReadBinary("Shaders/simple_ps_2.cso");
-    m_PS.push_back(
-        CD3DX12_SHADER_BYTECODE(p2_shader.GetData(), p2_shader.GetDataSize()));
-
-    // Define the vertex input layout, becase vertices storage is
-    m_inputLayout = {
-        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-        {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-    };
-
-    BuildPipelineStateObject();
-
-    return true;
-}
-
-void D3D12GraphicsManager::BuildPipelineStateObject() {
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-    psoDesc.InputLayout    = {m_inputLayout.data(), (UINT)m_inputLayout.size()};
-    psoDesc.pRootSignature = m_pRootSignature.Get();
-    psoDesc.VS             = m_VS[0];
-    psoDesc.PS             = m_PS[0];
-    psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-    psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
-    psoDesc.BlendState            = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-    psoDesc.DepthStencilState     = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-    psoDesc.SampleMask            = UINT_MAX;
-    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    psoDesc.NumRenderTargets      = 1;
-    psoDesc.RTVFormats[0]         = m_BackBufferFormat;
-    psoDesc.SampleDesc.Count      = m_b4xMsaaState ? 4 : 1;
-    psoDesc.SampleDesc.Quality    = m_b4xMsaaState ? (m_n4xMsaaQuality - 1) : 0;
-    psoDesc.DSVFormat             = m_DepthStencilFormat;
-
-    m_pPipelineState.push_back(ComPtr<ID3D12PipelineState>());
-    ThrowIfFailed(m_pDevice->CreateGraphicsPipelineState(
-        &psoDesc, IID_PPV_ARGS(&m_pPipelineState[0])));
-
-    // for texture
-    psoDesc.PS = m_PS[1];
-    m_pPipelineState.push_back(ComPtr<ID3D12PipelineState>());
-    ThrowIfFailed(m_pDevice->CreateGraphicsPipelineState(
-        &psoDesc, IID_PPV_ARGS(&m_pPipelineState[1])));
-}
-
 void D3D12GraphicsManager::ClearShaders() {}
 
 void D3D12GraphicsManager::ClearBuffers() {}
@@ -602,7 +648,6 @@ void D3D12GraphicsManager::UpdateConstants() {
 
     // Update frame resource
     currFR->UpdateFrameConstants(m_frameConstants);
-    int32_t i = 0;
     for (auto&& dbc : m_drawBatchContext) {
         if (dbc.node->Dirty()) {
             dbc.node->ClearDirty();
@@ -622,11 +667,17 @@ void D3D12GraphicsManager::UpdateConstants() {
                 oc.specularPower = dbc.material->GetSpecularPower().Value;
             }
 
-            currFR->UpdateObjectConstants(i, oc);
+            currFR->UpdateObjectConstants(dbc.constantBufferIndex, oc);
             dbc.numFramesDirty--;
         }
-        i++;
     }
+#if defined(DEBUG)
+    for (auto&& dbc : m_debugDrawBatchContext) {
+        ObjectConstants oc;
+        oc.modelMatrix = *dbc.node->GetCalculatedTransform();
+        currFR->UpdateObjectConstants(dbc.constantBufferIndex, oc);
+    }
+#endif  // DEBUG
 }
 
 void D3D12GraphicsManager::RenderBuffers() {
@@ -649,8 +700,6 @@ void D3D12GraphicsManager::PopulateCommandList() {
 
     ThrowIfFailed(
         m_pCommandList->Reset(fr->m_pCommandAllocator.Get(), nullptr));
-
-    m_pCommandList->SetPipelineState(m_pPipelineState[0].Get());
 
     // change state from presentation to waitting to render.
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -679,8 +728,6 @@ void D3D12GraphicsManager::PopulateCommandList() {
     m_pCommandList->SetDescriptorHeaps(_countof(pDescriptorHeaps),
                                        pDescriptorHeaps);
 
-    m_pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
     m_pCommandList->SetGraphicsRootSignature(m_pRootSignature.Get());
     // Sampler
     m_pCommandList->SetGraphicsRootDescriptorTable(
@@ -691,40 +738,11 @@ void D3D12GraphicsManager::PopulateCommandList() {
         m_nFrameCBOffset + m_nCurrFrameResourceIndex, m_nCbvSrvUavHeapSize);
     m_pCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
 
-    cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-        m_pCbvSrvHeap->GetGPUDescriptorHandleForHeapStart(),
-        // Offset of the first object in constant buffer heap at current frame
-        fr->m_pObjCBUploader->GetElementCount() * m_nCurrFrameResourceIndex,
-        m_nCbvSrvUavHeapSize);
-    size_t i          = 0;
-    size_t vbv_offset = 0;
-    for (auto&& dbc : m_drawBatchContext) {
-        for (size_t j = 0; j < dbc.property_count; j++) {
-            m_pCommandList->IASetVertexBuffers(
-                j, 1, &m_vertexBufferView[vbv_offset++]);
-        }
+    DrawRenderItems(m_pCommandList.Get(), m_drawBatchContext);
 
-        m_pCommandList->SetGraphicsRootDescriptorTable(1, cbvHandle);
-        cbvHandle.Offset(m_nCbvSrvUavHeapSize);
-        m_pCommandList->IASetIndexBuffer(&m_indexBufferView[i++]);
-
-        // Texture
-        if (dbc.material) {
-            if (auto& pTexture = dbc.material->GetBaseColor().ValueMap) {
-                m_pCommandList->SetPipelineState(m_pPipelineState[1].Get());
-                size_t offset =
-                    m_nSrvOffset +
-                    m_nCurrFrameResourceIndex * fr->m_textures.size() +
-                    fr->m_textures[pTexture->GetName()].index;
-                auto srvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-                    m_pCbvSrvHeap->GetGPUDescriptorHandleForHeapStart(), offset,
-                    m_nCbvSrvUavHeapSize);
-                m_pCommandList->SetGraphicsRootDescriptorTable(2, srvHandle);
-            }
-        }
-
-        m_pCommandList->DrawIndexedInstanced(dbc.count, 1, 0, 0, 0);
-    }
+#if defined(DEBUG)
+    DrawRenderItems(m_pCommandList.Get(), m_debugDrawBatchContext);
+#endif  // DEBUG
 
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         m_pRenderTargets[m_nCurrBackBuffer].Get(),
@@ -732,6 +750,46 @@ void D3D12GraphicsManager::PopulateCommandList() {
     m_pCommandList->ResourceBarrier(1, &barrier);
 
     ThrowIfFailed(m_pCommandList->Close());
+}
+
+void D3D12GraphicsManager::DrawRenderItems(
+    ID3D12GraphicsCommandList4*               cmdList,
+    const std::vector<D3D12DrawBatchContext>& drawItems) {
+    //
+    auto   fr       = m_frameResource[m_nCurrFrameResourceIndex].get();
+    size_t cbv_size = fr->m_pObjCBUploader->GetElementCount();
+
+    for (auto&& dbc : drawItems) {
+        cmdList->SetPipelineState(dbc.pPSO.Get());
+        for (size_t i = 0; i < dbc.pGeometry->vbv.size(); i++) {
+            cmdList->IASetVertexBuffers(i, 1, &dbc.pGeometry->vbv[i]);
+        }
+
+        cmdList->IASetIndexBuffer(&dbc.pGeometry->ibv[0]);
+
+        CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(
+            m_pCbvSrvHeap->GetGPUDescriptorHandleForHeapStart(),
+            cbv_size * m_nCurrFrameResourceIndex + dbc.constantBufferIndex,
+            m_nCbvSrvUavHeapSize);
+        cmdList->SetGraphicsRootDescriptorTable(1, cbvHandle);
+
+        // Texture
+        if (dbc.material) {
+            if (auto& pTexture = dbc.material->GetBaseColor().ValueMap) {
+                size_t offset =
+                    m_nSrvOffset +
+                    m_nCurrFrameResourceIndex * fr->m_textures.size() +
+                    fr->m_textures[pTexture->GetName()].index;
+
+                auto srvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+                    m_pCbvSrvHeap->GetGPUDescriptorHandleForHeapStart(), offset,
+                    m_nCbvSrvUavHeapSize);
+                cmdList->SetGraphicsRootDescriptorTable(2, srvHandle);
+            }
+        }
+        cmdList->IASetPrimitiveTopology(dbc.pGeometry->primitiveType);
+        cmdList->DrawIndexedInstanced(dbc.pGeometry->count, 1, 0, 0, 0);
+    }
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE D3D12GraphicsManager::CurrentBackBufferView()
@@ -755,3 +813,91 @@ void D3D12GraphicsManager::FlushCommandQueue() {
         WaitForSingleObject(m_fenceEvent, INFINITE);
     }
 }
+
+#if defined(DEBUG)
+void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
+                                    const vec3& color) {
+    GraphicsManager::DrawLine(from, to, color);
+    if (m_geometries.find("debug_line") == m_geometries.end()) {
+        auto pGeometry                  = make_shared<MeshBuffer>();
+        pGeometry->primitiveType        = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+        vector<vec3>           position = {{0, 0, 0}, {1, 0, 0}};
+        vector<int>            index    = {0, 1};
+        vector<vec3>           colors(position.size(), color);
+        SceneObjectVertexArray pos_array("position", 0, VertexDataType::kFLOAT3,
+                                         position.data(), position.size() * 3);
+        SceneObjectVertexArray color_array("color", 0, VertexDataType::kFLOAT3,
+                                           colors.data(), colors.size() * 3);
+        CreateVertexBuffer(pos_array, pGeometry);
+        CreateVertexBuffer(color_array, pGeometry);
+        SceneObjectIndexArray index_array(0, 0, IndexDataType::kINT32,
+                                          index.data(), index.size());
+        CreateIndexBuffer(index_array, pGeometry);
+        pGeometry->count           = index.size();
+        m_geometries["debug_line"] = pGeometry;
+    }
+
+    vec3 v1          = to - from;
+    vec3 v2          = {Length(v1), 0, 0};
+    vec3 rotate_axis = v1 + v2;
+    mat4 transform   = scale(mat4(1.0f), vec3(Length(v1)));
+    transform        = rotate(transform, radians(180), rotate_axis);
+    transform        = translate(transform, from);
+
+    D3D12DrawBatchContext dbc;
+    dbc.node = std::make_shared<SceneGeometryNode>();
+    dbc.node->AppendTransform(make_shared<SceneObjectTransform>(transform));
+    dbc.material       = nullptr;
+    dbc.numFramesDirty = m_nFrameResourceSize;
+    dbc.constantBufferIndex =
+        m_drawBatchContext.size() + m_debugDrawBatchContext.size();
+    dbc.pGeometry = m_geometries["debug_line"];
+    dbc.pPSO      = m_pipelineState["debug"];
+
+    m_debugDrawBatchContext.push_back(dbc);
+}
+
+void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
+                                   const vec3& color) {
+    GraphicsManager::DrawBox(bbMin, bbMax, color);
+    if (m_geometries.find("debug_box") == m_geometries.end()) {
+        auto         pGeometry = make_shared<MeshBuffer>();
+        vector<vec3> position  = {
+            {-1, -1, -1}, {1, -1, -1}, {1, 1, -1}, {-1, 1, -1},
+            {-1, -1, 1},  {1, -1, 1},  {1, 1, 1},  {-1, 1, 1},
+        };
+        vector<int> index = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4};
+        pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+        vector<vec3>           colors(position.size(), color);
+        SceneObjectVertexArray pos_array("position", 0, VertexDataType::kFLOAT3,
+                                         position.data(), position.size() * 3);
+        SceneObjectVertexArray color_array("color", 0, VertexDataType::kFLOAT3,
+                                           colors.data(), colors.size() * 3);
+        CreateVertexBuffer(pos_array, pGeometry);
+        CreateVertexBuffer(color_array, pGeometry);
+        SceneObjectIndexArray index_array(0, 0, IndexDataType::kINT32,
+                                          index.data(), index.size());
+        CreateIndexBuffer(index_array, pGeometry);
+        pGeometry->count          = index.size();
+        m_geometries["debug_box"] = pGeometry;
+    }
+    mat4 transform = translate(scale(mat4(1.0f), 0.5 * (bbMax - bbMin)),
+                               0.5 * (bbMax + bbMin));
+
+    D3D12DrawBatchContext dbc;
+    dbc.node = std::make_shared<SceneGeometryNode>();
+    dbc.node->AppendTransform(make_shared<SceneObjectTransform>(transform));
+    dbc.material       = nullptr;
+    dbc.numFramesDirty = m_nFrameResourceSize;
+    dbc.constantBufferIndex =
+        m_drawBatchContext.size() + m_debugDrawBatchContext.size();
+    dbc.pGeometry = m_geometries["debug_box"];
+    dbc.pPSO      = m_pipelineState["debug"];
+    m_debugDrawBatchContext.push_back(dbc);
+}
+
+void D3D12GraphicsManager::ClearDebugBuffers() {
+    m_debugDrawBatchContext.clear();
+}
+
+#endif  // DEBUG

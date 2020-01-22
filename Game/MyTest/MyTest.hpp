@@ -1,5 +1,6 @@
 #pragma once
 #include "GameLogic.hpp"
+#include "Timer.hpp"
 #include <string>
 #include <vector>
 
@@ -19,6 +20,7 @@ private:
     std::vector<std::string> selectedNode = {"Sphere", "Cone", "Suzanne",
                                              "Cube"};
 
+    Clock  m_clock;
     size_t i = 0;
 };
 }  // namespace My

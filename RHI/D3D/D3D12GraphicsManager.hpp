@@ -16,6 +16,12 @@ public:
     void Draw() final;
     void Clear() final;
 
+#if defined(DEBUG)
+    void DrawLine(const vec3& from, const vec3& to, const vec3& color) final;
+    void DrawBox(const vec3& bbMin, const vec3& bbMax, const vec3& color) final;
+    void ClearDebugBuffers() final;
+#endif  // DEBUG
+
 protected:
     void UpdateConstants() final;
     void InitializeBuffers(const Scene& scene) final;
@@ -32,9 +38,21 @@ private:
         float specularPower;
     };
 
+    struct MeshBuffer {
+        size_t                                count;
+        std::vector<ComPtr<ID3D12Resource>>   vertexBuffer;
+        std::vector<D3D12_VERTEX_BUFFER_VIEW> vbv;
+        std::vector<ComPtr<ID3D12Resource>>   indexBuffer;
+        std::vector<D3D12_INDEX_BUFFER_VIEW>  ibv;
+        D3D_PRIMITIVE_TOPOLOGY                primitiveType;
+    };
+
     struct D3D12DrawBatchContext : public DrawBatchContext {
-        size_t   property_count;
-        unsigned numFramesDirty;
+        //  Being set to -1 means it dose not use cbv
+        std::shared_ptr<MeshBuffer> pGeometry;
+        int                         constantBufferIndex;
+        unsigned                    numFramesDirty;
+        ComPtr<ID3D12PipelineState> pPSO;
     };
     using FR = FrameResource<FrameConstants, ObjectConstants>;
 
@@ -46,8 +64,12 @@ private:
     void FlushCommandQueue();
 
     void CreateDescriptorHeaps();
-    void CreateVertexBuffer();
-    void CreateIndexBuffer();
+    void CreateVertexBuffer(const SceneObjectVertexArray&      vertexArray,
+                            const std::shared_ptr<MeshBuffer>& pGeometry);
+    void CreateIndexBuffer(const SceneObjectIndexArray&       indexArray,
+                           const std::shared_ptr<MeshBuffer>& pGeometry);
+    void SetPrimitiveType(const PrimitiveType&               primitiveType,
+                          const std::shared_ptr<MeshBuffer>& pGeometry);
     void CreateFrameResource();
     void CreateRootSignature();
     void CreateConstantBuffer();
@@ -55,10 +77,15 @@ private:
     void CreateSampler();
     void BuildPipelineStateObject();
 
+    void DrawRenderItems(ID3D12GraphicsCommandList4*               cmdList,
+                         const std::vector<D3D12DrawBatchContext>& drawItems);
+
     D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
     D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
     static constexpr unsigned m_nFrameCount     = 3;
+    static constexpr unsigned m_nMaxObjects     = 10000;
+    static constexpr unsigned m_nMaxTextures    = 10000;
     int                       m_nCurrBackBuffer = 0;
 
     ComPtr<IDXGIFactory7> m_pDxgiFactory;
@@ -94,11 +121,12 @@ private:
     bool     m_b4xMsaaState   = false;
     uint32_t m_n4xMsaaQuality = 0;
 
-    std::vector<D3D12_SHADER_BYTECODE>    m_VS;
-    std::vector<D3D12_SHADER_BYTECODE>    m_PS;
-    std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
+    std::unordered_map<std::string, D3D12_SHADER_BYTECODE> m_VS;
+    std::unordered_map<std::string, D3D12_SHADER_BYTECODE> m_PS;
+    std::vector<D3D12_INPUT_ELEMENT_DESC>                  m_inputLayout;
 
-    std::vector<ComPtr<ID3D12PipelineState>> m_pPipelineState;
+    std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>
+                                m_pipelineState;
     ComPtr<ID3D12RootSignature> m_pRootSignature;
 
     std::vector<std::unique_ptr<FR>> m_frameResource;
@@ -107,11 +135,15 @@ private:
     // size_t m_nFrameResourceSize      = 3;
     size_t m_nCurrFrameResourceIndex = 0;
 
-    const Scene*                          m_pScene;
-    std::vector<D3D12DrawBatchContext>    m_drawBatchContext;
-    std::vector<D3D12_VERTEX_BUFFER_VIEW> m_vertexBufferView;
-    std::vector<D3D12_INDEX_BUFFER_VIEW>  m_indexBufferView;
+    const Scene*                                                 m_pScene;
+    std::unordered_map<std::string, std::shared_ptr<MeshBuffer>> m_geometries;
+    std::vector<D3D12DrawBatchContext> m_drawBatchContext;
 
-    std::vector<ComPtr<ID3D12Resource>> m_Buffers;
+    std::vector<ComPtr<ID3D12Resource>> m_Uploader;
+
+#if defined(DEBUG)
+    std::vector<D3D12_INPUT_ELEMENT_DESC> m_debugInputLayout;
+    std::vector<D3D12DrawBatchContext>    m_debugDrawBatchContext;
+#endif  // DEBUG
 };
 }  // namespace My

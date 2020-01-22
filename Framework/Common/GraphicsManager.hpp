@@ -14,7 +14,7 @@ public:
     virtual void Draw();
     virtual void Clear();
 
-#ifdef DEBUG
+#if defined(DEBUG)
     virtual void DrawLine(const vec3& from, const vec3& to, const vec3& color);
     virtual void DrawBox(const vec3& bbMin, const vec3& bbMax,
                          const vec3& color);
@@ -41,7 +41,6 @@ protected:
     };
 
     struct DrawBatchContext {
-        size_t                               count;  // index count per node
         std::shared_ptr<SceneGeometryNode>   node;
         std::shared_ptr<SceneObjectMaterial> material;
     };

@@ -14,14 +14,15 @@ int MyTest::Initialize() {
 
     cout << "My Game Logic Initialize" << endl;
     cout << "Start Loading Game Scene" << endl;
-    result = g_pSceneManager->LoadScene("Scene/aili_cycle.ogex");
-
+    result = g_pSceneManager->LoadScene("Scene/balls.ogex");
+    m_clock.Initialize();
+    m_clock.Start();
     return result;
 }
 
 void MyTest::Finalize() { cout << "MyTest Game Logic Finalize" << endl; }
 
-void MyTest::Tick() { this_thread::sleep_for(std::chrono::milliseconds(60)); }
+void MyTest::Tick() {}
 
 void MyTest::OnLeftKey() {
     auto node_weak_ptr = g_pSceneManager->GetSceneGeometryNode(selectedNode[i]);
