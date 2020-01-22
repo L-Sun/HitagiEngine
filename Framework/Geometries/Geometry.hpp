@@ -3,7 +3,15 @@
 #include "aabb.hpp"
 
 namespace My {
-enum GeometryType { BOX, SPHERE, CYLINDER, CONE, PLANE, CAPSULE, TRIANGLE };
+enum struct GeometryType {
+    BOX,
+    SPHERE,
+    CYLINDER,
+    CONE,
+    PLANE,
+    CAPSULE,
+    TRIANGLE
+};
 
 class Geometry {
 public:

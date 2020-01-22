@@ -8,7 +8,7 @@
 namespace My {
 #pragma pack(push, 1)
 
-enum PNG_CHUNK_TYPE {
+enum struct PNG_CHUNK_TYPE {
     IHDR = "IHDR"_u32,
     PLTE = "PLTE"_u32,
     IDAT = "IDAT"_u32,

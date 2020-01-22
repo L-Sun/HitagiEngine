@@ -16,7 +16,7 @@ public:
     virtual void Finalize();
     virtual void Tick();
 
-    enum AssetSeekBase { MY_SEEK_SET, MY_SEEK_CUR, MY_SEEK_END };
+    enum struct AssetSeekBase { MY_SEEK_SET, MY_SEEK_CUR, MY_SEEK_END };
 
     bool AddSearchPath(const std::string& path);
     bool RemoveSearchPath(const std::string& path);

@@ -112,11 +112,11 @@ size_t AssetLoader::SyncRead(std::fstream& fstrm, Buffer& buf) {
 std::istream& AssetLoader::Seek(std::fstream& fstrm, long offset,
                                 AssetSeekBase where) {
     switch (where) {
-        case MY_SEEK_SET:
+        case AssetSeekBase::MY_SEEK_SET:
             return fstrm.seekg(offset, std::fstream::beg);
-        case MY_SEEK_CUR:
+        case AssetSeekBase::MY_SEEK_CUR:
             return fstrm.seekg(offset, std::fstream::cur);
-        case MY_SEEK_END:
+        case AssetSeekBase::MY_SEEK_END:
             return fstrm.seekg(offset, std::fstream::end);
     }
 }

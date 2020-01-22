@@ -17,7 +17,7 @@
 #include "TGA.hpp"
 
 namespace My {
-enum SceneObjectType {
+enum struct SceneObjectType {
     kMESH          = "MESH"_i32,
     kMATERIAL      = "MATL"_i32,
     kTEXTURE       = "TXTU"_i32,
@@ -30,7 +30,7 @@ enum SceneObjectType {
     kVERETEX_ARRAY = "VARR"_i32,
 };
 
-enum SceneObjectCollisionType {
+enum struct SceneObjectCollisionType {
     kNONE         = "CNON"_i32,
     kSPHERE       = "CSPH"_i32,
     kBOX          = "CBOX"_i32,
@@ -85,7 +85,7 @@ public:
     }
 };
 
-enum VertexDataType {
+enum struct VertexDataType {
     kFLOAT1  = "FLT1"_i32,
     kFLOAT2  = "FLT2"_i32,
     kFLOAT3  = "FLT3"_i32,
@@ -174,7 +174,7 @@ public:
                                     const SceneObjectVertexArray& obj);
 };
 
-enum IndexDataType {
+enum struct IndexDataType {
     kINT8  = "I8  "_i32,
     kINT16 = "I16 "_i32,
     kINT32 = "I32 "_i32,
@@ -236,7 +236,7 @@ public:
                                     const SceneObjectIndexArray& obj);
 };
 
-typedef enum _PrimitiveType : int32_t {
+enum struct PrimitiveType : int32_t {
     // clang-format off
     kNone                 = "NONE"_i32,  // No particular primitive type.
     kPOINT_LIST           = "PLST"_i32,  // For N>=0, vertex N renders a point.
@@ -256,7 +256,7 @@ typedef enum _PrimitiveType : int32_t {
     kQUAD_STRIP           = "QSTR"_i32,  // For N>=0, vertices [N*2+0, N*2+1, N*2+3] and [N*2+0, N*2+3, N*2+2] render triangles.
     kPOLYGON              = "POLY"_i32,  // For N>=0, vertices [0, N+1, N+2] render a triangle.
     // clang-format on
-} PrimitiveType;
+};
 
 struct BoundingBox {
     vec3 centroid;
