@@ -38,7 +38,7 @@ private:
         float specularPower;
     };
 
-    struct MeshBuffer {
+    struct GeometryBuffer {
         size_t                                count;
         std::vector<ComPtr<ID3D12Resource>>   vertexBuffer;
         std::vector<D3D12_VERTEX_BUFFER_VIEW> vbv;
@@ -47,12 +47,18 @@ private:
         D3D_PRIMITIVE_TOPOLOGY                primitiveType;
     };
 
+    struct TextureBuffer {
+        size_t                 index;  // offset in current frame in srv
+        ComPtr<ID3D12Resource> texture    = nullptr;
+        ComPtr<ID3D12Resource> uploadHeap = nullptr;
+    };
+
     struct D3D12DrawBatchContext : public DrawBatchContext {
         //  Being set to -1 means it dose not use cbv
-        std::shared_ptr<MeshBuffer> pGeometry;
-        int                         constantBufferIndex;
-        unsigned                    numFramesDirty;
-        ComPtr<ID3D12PipelineState> pPSO;
+        std::shared_ptr<GeometryBuffer> pGeometry;
+        int                             constantBufferIndex;
+        unsigned                        numFramesDirty;
+        ComPtr<ID3D12PipelineState>     pPSO;
     };
     using FR = FrameResource<FrameConstants, ObjectConstants>;
 
@@ -64,12 +70,12 @@ private:
     void FlushCommandQueue();
 
     void CreateDescriptorHeaps();
-    void CreateVertexBuffer(const SceneObjectVertexArray&      vertexArray,
-                            const std::shared_ptr<MeshBuffer>& pGeometry);
-    void CreateIndexBuffer(const SceneObjectIndexArray&       indexArray,
-                           const std::shared_ptr<MeshBuffer>& pGeometry);
-    void SetPrimitiveType(const PrimitiveType&               primitiveType,
-                          const std::shared_ptr<MeshBuffer>& pGeometry);
+    void CreateVertexBuffer(const SceneObjectVertexArray&          vertexArray,
+                            const std::shared_ptr<GeometryBuffer>& pGeometry);
+    void CreateIndexBuffer(const SceneObjectIndexArray&           indexArray,
+                           const std::shared_ptr<GeometryBuffer>& pGeometry);
+    void SetPrimitiveType(const PrimitiveType&                   primitiveType,
+                          const std::shared_ptr<GeometryBuffer>& pGeometry);
     void CreateFrameResource();
     void CreateRootSignature();
     void CreateConstantBuffer();
@@ -135,8 +141,10 @@ private:
     // size_t m_nFrameResourceSize      = 3;
     size_t m_nCurrFrameResourceIndex = 0;
 
-    const Scene*                                                 m_pScene;
-    std::unordered_map<std::string, std::shared_ptr<MeshBuffer>> m_geometries;
+    const Scene* m_pScene;
+    std::unordered_map<std::string, std::shared_ptr<GeometryBuffer>>
+                                                                    m_geometries;
+    std::unordered_map<std::string, std::shared_ptr<TextureBuffer>> m_textures;
     std::vector<D3D12DrawBatchContext> m_drawBatchContext;
 
     std::vector<ComPtr<ID3D12Resource>> m_Uploader;
