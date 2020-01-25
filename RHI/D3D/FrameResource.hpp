@@ -4,12 +4,6 @@
 
 template <typename TFrameConstant, typename TObjConstant>
 class FrameResource {
-    struct Texture {
-        size_t                 index;  // offset in current frame in srv
-        ComPtr<ID3D12Resource> texture    = nullptr;
-        ComPtr<ID3D12Resource> uploadHeap = nullptr;
-    };
-
 public:
     FrameResource(ID3D12Device5* pDev, size_t objCount) {
         ThrowIfFailed(
@@ -65,6 +59,4 @@ public:
 
     std::unique_ptr<d3dUtil::UploadBuffer<TFrameConstant>> m_pFrameCBUploader;
     std::unique_ptr<d3dUtil::UploadBuffer<TObjConstant>>   m_pObjCBUploader;
-
-    std::unordered_map<std::string, Texture> m_textures;
 };
