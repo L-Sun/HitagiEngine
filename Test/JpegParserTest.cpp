@@ -4,12 +4,11 @@
 #include "MemoryManager.hpp"
 #include "JPEG.hpp"
 
-using namespace std;
 using namespace My;
 
 namespace My {
-unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
-unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
+std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
 }  // namespace My
 
 int main(int argc, char const* argv[]) {
@@ -31,7 +30,7 @@ int main(int argc, char const* argv[]) {
         JfifParser jfif_parser;
 
         Image image = jfif_parser.Parse(buf);
-        cout << image;
+        std::cout << image;
     }
 
     g_pAssetLoader->Finalize();

@@ -7,15 +7,14 @@
 #include "GraphicsManager.hpp"
 
 using namespace My;
-using namespace std;
 
 int MyPhysicsManager::Initialize() {
-    cout << "[MyPhysicsManager] Initialize" << endl;
+    std::cout << "[MyPhysicsManager] Initialize" << std::endl;
     return 0;
 }
 
 void MyPhysicsManager::Finalize() {
-    cout << "[MyPhysicsManager] Finalize" << endl;
+    std::cout << "[MyPhysicsManager] Finalize" << std::endl;
     // Clean up
     ClearRigidBodies();
 }
@@ -34,30 +33,30 @@ void MyPhysicsManager::CreateRigidBody(SceneGeometryNode&         node,
 
     switch (geometry.CollisionType()) {
         case SceneObjectCollisionType::kSPHERE: {
-            auto       collision_box = make_shared<Sphere>(param[0]);
+            auto       collision_box = std::make_shared<Sphere>(param[0]);
             const auto trans         = node.GetCalculatedTransform();
-            auto       motionState   = make_shared<MotionState>(*trans);
+            auto       motionState   = std::make_shared<MotionState>(*trans);
             rigidBody = new RigidBody(collision_box, motionState);
         } break;
         case SceneObjectCollisionType::kBOX: {
-            auto       collision_box = make_shared<Box>(vec3(param));
+            auto       collision_box = std::make_shared<Box>(vec3(param));
             const auto trans         = node.GetCalculatedTransform();
-            auto       motionState   = make_shared<MotionState>(*trans);
+            auto       motionState   = std::make_shared<MotionState>(*trans);
             rigidBody = new RigidBody(collision_box, motionState);
         } break;
         case SceneObjectCollisionType::kPLANE: {
-            auto collision_box     = make_shared<Plane>(vec3(param), param[3]);
-            const auto trans       = node.GetCalculatedTransform();
-            auto       motionState = make_shared<MotionState>(*trans);
+            auto collision_box = std::make_shared<Plane>(vec3(param), param[3]);
+            const auto trans   = node.GetCalculatedTransform();
+            auto       motionState = std::make_shared<MotionState>(*trans);
             rigidBody              = new RigidBody(collision_box, motionState);
         } break;
         default: {
             // create AABB box according to Bounding Box
-            auto       bounding_box  = geometry.GetBoundingBox();
-            auto       collision_box = make_shared<Box>(bounding_box.extent);
-            const auto trans         = node.GetCalculatedTransform();
+            auto bounding_box  = geometry.GetBoundingBox();
+            auto collision_box = std::make_shared<Box>(bounding_box.extent);
+            const auto trans   = node.GetCalculatedTransform();
             auto       motionState =
-                make_shared<MotionState>(*trans, bounding_box.centroid);
+                std::make_shared<MotionState>(*trans, bounding_box.centroid);
             rigidBody = new RigidBody(collision_box, motionState);
         }
     }

@@ -6,21 +6,22 @@
 #include <thread>
 #include "My/MyPhysicsManager.hpp"
 
-using namespace std;
 using namespace My;
 
 int MyTest::Initialize() {
     int result;
 
-    cout << "My Game Logic Initialize" << endl;
-    cout << "Start Loading Game Scene" << endl;
+    std::cout << "My Game Logic Initialize" << std::endl;
+    std::cout << "Start Loading Game Scene" << std::endl;
     result = g_pSceneManager->LoadScene("Scene/balls.ogex");
     m_clock.Initialize();
     m_clock.Start();
     return result;
 }
 
-void MyTest::Finalize() { cout << "MyTest Game Logic Finalize" << endl; }
+void MyTest::Finalize() {
+    std::cout << "MyTest Game Logic Finalize" << std::endl;
+}
 
 void MyTest::Tick() {}
 

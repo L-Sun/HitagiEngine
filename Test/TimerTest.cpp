@@ -3,7 +3,6 @@
 #include <thread>
 
 using namespace My;
-using namespace std;
 using namespace std::chrono_literals;
 
 My::Clock c;

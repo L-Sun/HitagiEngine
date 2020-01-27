@@ -4,7 +4,6 @@
 #include "IApplication.hpp"
 
 using namespace My;
-using namespace std;
 
 int GraphicsManager::Initialize() {
     int result = 0;
@@ -22,7 +21,8 @@ void GraphicsManager::Finalize() {
 
 void GraphicsManager::Tick() {
     if (g_pSceneManager->IsSceneChanged()) {
-        cout << "Detected Scene Change, reinitialize buffers ..." << endl;
+        std::cout << "Detected Scene Change, reinitialize buffers ..."
+                  << std::endl;
         ClearBuffers();
         ClearShaders();
         const Scene& scene = g_pSceneManager->GetSceneForRendering();
@@ -51,15 +51,17 @@ void GraphicsManager::InitConstants() {
 }
 
 bool GraphicsManager::InitializeShaders() {
-    cout << "[RHI] GraphicsManager::InitializeShader(const char* vsFilename, "
-            "const char* fsFilename)"
-         << endl;
+    std::cout
+        << "[RHI] GraphicsManager::InitializeShader(const char* vsFilename, "
+           "const char* fsFilename)"
+        << std::endl;
 
     return true;
 }
 
 void GraphicsManager::ClearShaders() {
-    cout << "[GraphicsManager] GraphicsManager::ClearShaders()" << endl;
+    std::cout << "[GraphicsManager] GraphicsManager::ClearShaders()"
+              << std::endl;
 }
 
 void GraphicsManager::CalculateCameraMatrix() {
@@ -84,7 +86,7 @@ void GraphicsManager::CalculateCameraMatrix() {
     if (pCameraNode) {
         auto pCamera = scene.GetCamera(pCameraNode->GetSceneObjectRef());
         fieldOfView =
-            dynamic_pointer_cast<SceneObjectPerspectiveCamera>(pCamera)
+            std::dynamic_pointer_cast<SceneObjectPerspectiveCamera>(pCamera)
                 ->GetFov();
         nearClipDistance = pCamera->GetNearClipDistance();
         farClipDistance  = pCamera->GetFarClipDistance();
@@ -118,30 +120,32 @@ void GraphicsManager::CalculateLights() {
     }
 }
 void GraphicsManager::InitializeBuffers(const Scene& scene) {
-    cout << "[GraphicsManager] GraphicsManager::InitializeBuffers()" << endl;
+    std::cout << "[GraphicsManager] GraphicsManager::InitializeBuffers()"
+              << std::endl;
 }
 void GraphicsManager::ClearBuffers() {
-    cout << "[GraphicsManager] GraphicsManager::ClearBuffers()" << endl;
+    std::cout << "[GraphicsManager] GraphicsManager::ClearBuffers()"
+              << std::endl;
 }
 void GraphicsManager::RenderBuffers() {
-    cout << "[RHI] GraphicsManager::RenderBuffers()" << endl;
+    std::cout << "[RHI] GraphicsManager::RenderBuffers()" << std::endl;
 }
 
 #ifdef DEBUG
 void GraphicsManager::DrawLine(const vec3& from, const vec3& to,
                                const vec3& color) {
-    cout << "[GraphicsManager] GraphicsManager::DrawLine(" << from << "," << to
-         << "," << color << ")" << endl;
+    std::cout << "[GraphicsManager] GraphicsManager::DrawLine(" << from << ","
+              << to << "," << color << ")" << std::endl;
 }
 
 void GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
                               const vec3& color) {
-    cout << "[GraphicsManager] GraphicsManager::DrawBox(" << bbMin << ","
-         << bbMax << "," << color << ")" << endl;
+    std::cout << "[GraphicsManager] GraphicsManager::DrawBox(" << bbMin << ","
+              << bbMax << "," << color << ")" << std::endl;
 }
 
 void GraphicsManager::ClearDebugBuffers() {
-    cout << "[GraphicsManager] GraphicsManager::ClearDebugBuffers(void)"
-         << endl;
+    std::cout << "[GraphicsManager] GraphicsManager::ClearDebugBuffers(void)"
+              << std::endl;
 }
 #endif

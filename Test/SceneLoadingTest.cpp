@@ -5,19 +5,19 @@
 #include "SceneManager.hpp"
 
 using namespace My;
-using namespace std;
 
 namespace My {
-unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
-unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
-unique_ptr<SceneManager>  g_pSceneManager(new SceneManager);
+std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
+std::unique_ptr<SceneManager>  g_pSceneManager(new SceneManager);
 }  // namespace My
 
 template <typename T>
-static ostream& operator<<(ostream&                             out,
-                           unordered_map<string, shared_ptr<T>> map) {
+static std::ostream& operator<<(
+    std::ostream&                                       out,
+    std::unordered_map<std::string, std::shared_ptr<T>> map) {
     for (auto p : map) {
-        out << *p.second << endl;
+        out << *p.second << std::endl;
     }
 
     return out;
@@ -31,47 +31,47 @@ int main(int, char**) {
     g_pSceneManager->LoadScene("Scene/Example.ogex");
     auto& scene = g_pSceneManager->GetSceneForRendering();
 
-    cout << "Dump of Cameras" << endl;
-    cout << "---------------------------" << endl;
+    std::cout << "Dump of Cameras" << std::endl;
+    std::cout << "---------------------------" << std::endl;
     for (auto _it : scene.CameraNodes) {
         auto pCameraNode = _it.second;
         if (pCameraNode) {
-            weak_ptr<SceneObjectCamera> pCamera =
+            std::weak_ptr<SceneObjectCamera> pCamera =
                 scene.GetCamera(pCameraNode->GetSceneObjectRef());
             auto pObj = pCamera.lock();
-            if (pObj) cout << *pObj << endl;
+            if (pObj) std::cout << *pObj << std::endl;
         }
     }
 
-    cout << "Dump of Lights" << endl;
-    cout << "---------------------------" << endl;
+    std::cout << "Dump of Lights" << std::endl;
+    std::cout << "---------------------------" << std::endl;
     for (auto _it : scene.LightNodes) {
         auto pLightNode = _it.second;
         if (pLightNode) {
-            weak_ptr<SceneObjectLight> pLight =
+            std::weak_ptr<SceneObjectLight> pLight =
                 scene.GetLight(pLightNode->GetSceneObjectRef());
             auto pObj = pLight.lock();
-            if (pObj) cout << *pObj << endl;
+            if (pObj) std::cout << *pObj << std::endl;
         }
     }
 
-    cout << "Dump of Geometries" << endl;
-    cout << "---------------------------" << endl;
+    std::cout << "Dump of Geometries" << std::endl;
+    std::cout << "---------------------------" << std::endl;
     for (auto _it : scene.GeometryNodes) {
         auto pGeometryNode = _it.second;
         if (pGeometryNode) {
-            weak_ptr<SceneObjectGeometry> pGeometry =
+            std::weak_ptr<SceneObjectGeometry> pGeometry =
                 scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
             auto pObj = pGeometry.lock();
-            if (pObj) cout << *pObj << endl;
+            if (pObj) std::cout << *pObj << std::endl;
         }
     }
 
-    cout << "Dump of Materials" << endl;
-    cout << "---------------------------" << endl;
+    std::cout << "Dump of Materials" << std::endl;
+    std::cout << "---------------------------" << std::endl;
     for (auto _it : scene.Materials) {
         auto pMaterial = _it.second;
-        if (pMaterial) cout << *pMaterial << endl;
+        if (pMaterial) std::cout << *pMaterial << std::endl;
     }
 
     g_pSceneManager->Finalize();

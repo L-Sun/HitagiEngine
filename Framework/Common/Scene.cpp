@@ -1,9 +1,8 @@
 #include "Scene.hpp"
 using namespace My;
-using namespace std;
 
 // Material
-const shared_ptr<SceneObjectMaterial> Scene::GetMaterial(
+const std::shared_ptr<SceneObjectMaterial> Scene::GetMaterial(
     const std::string& key) const {
     auto i = Materials.find(key);
     if (i == Materials.end())
@@ -11,12 +10,12 @@ const shared_ptr<SceneObjectMaterial> Scene::GetMaterial(
     else
         return i->second;
 }
-const shared_ptr<SceneObjectMaterial> Scene::GetFirstMaterial() const {
+const std::shared_ptr<SceneObjectMaterial> Scene::GetFirstMaterial() const {
     return (Materials.empty() ? nullptr : Materials.cbegin()->second);
 }
 
 // Geometry
-const shared_ptr<SceneObjectGeometry> Scene::GetGeometry(
+const std::shared_ptr<SceneObjectGeometry> Scene::GetGeometry(
     const std::string& key) const {
     auto i = Geometries.find(key);
     if (i == Geometries.end())
@@ -24,12 +23,12 @@ const shared_ptr<SceneObjectGeometry> Scene::GetGeometry(
     else
         return i->second;
 }
-const shared_ptr<SceneGeometryNode> Scene::GetFirstGeometryNode() const {
+const std::shared_ptr<SceneGeometryNode> Scene::GetFirstGeometryNode() const {
     return (GeometryNodes.empty() ? nullptr : GeometryNodes.cbegin()->second);
 }
 
 // Light
-const shared_ptr<SceneObjectLight> Scene::GetLight(
+const std::shared_ptr<SceneObjectLight> Scene::GetLight(
     const std::string& key) const {
     auto i = Lights.find(key);
     if (i == Lights.end())
@@ -37,12 +36,12 @@ const shared_ptr<SceneObjectLight> Scene::GetLight(
     else
         return i->second;
 }
-const shared_ptr<SceneLightNode> Scene::GetFirstLightNode() const {
+const std::shared_ptr<SceneLightNode> Scene::GetFirstLightNode() const {
     return (LightNodes.empty() ? nullptr : LightNodes.cbegin()->second);
 }
 
 // Camera
-const shared_ptr<SceneObjectCamera> Scene::GetCamera(
+const std::shared_ptr<SceneObjectCamera> Scene::GetCamera(
     const std::string& key) const {
     auto i = Cameras.find(key);
     if (i == Cameras.end())
@@ -50,7 +49,7 @@ const shared_ptr<SceneObjectCamera> Scene::GetCamera(
     else
         return i->second;
 }
-const shared_ptr<SceneCameraNode> Scene::GetFirstCameraNode() const {
+const std::shared_ptr<SceneCameraNode> Scene::GetFirstCameraNode() const {
     return (CameraNodes.empty() ? nullptr : CameraNodes.cbegin()->second);
 }
 

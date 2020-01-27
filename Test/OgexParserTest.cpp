@@ -5,17 +5,16 @@
 #include "OGEX.hpp"
 
 using namespace My;
-using namespace std;
 
 namespace My {
-unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
-unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
+std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
 }  // namespace My
 
 template <typename Key, typename T>
-static ostream& operator<<(ostream& out, unordered_map<Key, T> map) {
+std::ostream& operator<<(std::ostream& out, unordered_map<Key, T> map) {
     for (auto p : map) {
-        out << *p.second << endl;
+        out << *p.second << std::endl;
     }
     return out;
 }
@@ -24,31 +23,31 @@ int main(int argc, char const* argv[]) {
     g_pMemoryManager->Initialize();
     g_pAssetLoader->Initialize();
 
-    string ogex_text =
+    std::string ogex_text =
         g_pAssetLoader->SyncOpenAndReadTextFileToString("Scene/cube.ogex");
-    OgexParser*       ogex_parser = new OgexParser();
-    unique_ptr<Scene> pScene      = ogex_parser->Parse(ogex_text);
+    OgexParser*            ogex_parser = new OgexParser();
+    std::unique_ptr<Scene> pScene      = ogex_parser->Parse(ogex_text);
 
     delete ogex_parser;
-    cout << "Dump of Scene Graph" << endl;
-    cout << "-------------------" << endl;
-    cout << *pScene->SceneGraph << endl;
+    std::cout << "Dump of Scene Graph" << std::endl;
+    std::cout << "-------------------" << std::endl;
+    std::cout << *pScene->SceneGraph << std::endl;
 
-    cout << "Dump of Camera" << endl;
-    cout << "-------------------" << endl;
-    cout << pScene->Cameras << endl;
+    std::cout << "Dump of Camera" << std::endl;
+    std::cout << "-------------------" << std::endl;
+    std::cout << pScene->Cameras << std::endl;
 
-    cout << "Dump of Geometries" << endl;
-    cout << "-------------------" << endl;
-    cout << pScene->Geometries << endl;
+    std::cout << "Dump of Geometries" << std::endl;
+    std::cout << "-------------------" << std::endl;
+    std::cout << pScene->Geometries << std::endl;
 
-    cout << "Dump of Light" << endl;
-    cout << "-------------------" << endl;
-    cout << pScene->Lights << endl;
+    std::cout << "Dump of Light" << std::endl;
+    std::cout << "-------------------" << std::endl;
+    std::cout << pScene->Lights << std::endl;
 
-    cout << "Dump of Material" << endl;
-    cout << "-------------------" << endl;
-    cout << pScene->Materials << endl;
+    std::cout << "Dump of Material" << std::endl;
+    std::cout << "-------------------" << std::endl;
+    std::cout << pScene->Materials << std::endl;
 
     g_pMemoryManager->Finalize();
     g_pAssetLoader->Finalize();

@@ -1,7 +1,6 @@
 #pragma once
 #include "IRuntimeModule.hpp"
 #include "geommath.hpp"
-#include "Image.hpp"
 #include "Scene.hpp"
 
 namespace My {

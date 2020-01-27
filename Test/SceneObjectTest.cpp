@@ -3,8 +3,6 @@
 #include "SceneNode.hpp"
 
 using namespace My;
-using namespace std;
-using namespace xg;
 
 int32_t main(int32_t argc, char** argv) {
     int32_t                               result = 0;
@@ -23,12 +21,12 @@ int32_t main(int32_t argc, char** argv) {
 
     soGeometry->AddMesh(soMesh);
 
-    cout << *soGeometry << endl;
-    cout << *soMaterial << endl;
-    cout << *soOmniLight << endl;
-    cout << *soSpotLight << endl;
-    cout << *soOrthogonalCamera << endl;
-    cout << *soPerspectiveCamera << endl;
+    std::cout << *soGeometry << std::endl;
+    std::cout << *soMaterial << std::endl;
+    std::cout << *soOmniLight << std::endl;
+    std::cout << *soSpotLight << std::endl;
+    std::cout << *soOrthogonalCamera << std::endl;
+    std::cout << *soPerspectiveCamera << std::endl;
 
     SceneEmptyNode                     snEmpty;
     std::shared_ptr<SceneGeometryNode> snGeometry(new SceneGeometryNode());
@@ -43,7 +41,7 @@ int32_t main(int32_t argc, char** argv) {
     snEmpty.AppendChild(std::move(snLight));
     snEmpty.AppendChild(std::move(snCamera));
 
-    cout << snEmpty << endl;
+    std::cout << snEmpty << std::endl;
 
     return result;
 }

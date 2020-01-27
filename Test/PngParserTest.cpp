@@ -4,12 +4,11 @@
 #include "MemoryManager.hpp"
 #include "PNG.hpp"
 
-using namespace std;
 using namespace My;
 
 namespace My {
-unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
-unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
+std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
 }  // namespace My
 
 int main(int argc, const char** argv) {
@@ -31,7 +30,7 @@ int main(int argc, const char** argv) {
 
     Image image = png_parser.Parse(buf);
 
-    cout << image;
+    std::cout << image;
 
     g_pAssetLoader->Finalize();
     g_pMemoryManager->Finalize();

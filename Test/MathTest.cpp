@@ -2,7 +2,6 @@
 #include "geommath.hpp"
 #include <gtest/gtest.h>
 
-using namespace std;
 using namespace My;
 // clang-format off
 
@@ -114,10 +113,6 @@ TEST(MatrixTest, MatDivNum) {
 TEST(MatrixTest, MatMulMat) {
     mat3 l = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
     mat3 r = {{9, 8, 7}, {6, 5, 4}, {3, 2, 1}};
-    cout << l <<endl;
-    cout << r<<endl;
-    cout <<l*r<<endl;
-    cout << mat3({{30, 24, 18}, {84, 69, 54}, {138, 114, 90}})<<endl;
     matrix_eq(l * r, mat3({{30, 24, 18}, {84, 69, 54}, {138, 114, 90}}));
     matrix_eq(r * l, mat3({{90, 114, 138}, {54, 69, 84}, {18, 24, 30}}));
     Matrix<float, 2, 3> x = {{0, 1, 2}, {3, 4, 5}};

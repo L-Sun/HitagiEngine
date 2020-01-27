@@ -4,7 +4,6 @@
 #include "WindowsApplication.hpp"
 
 using namespace My;
-using namespace std;
 int D3D12GraphicsManager::Initialize() {
     int result = GraphicsManager::Initialize();
     result     = InitD3D();
@@ -237,7 +236,7 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
 void D3D12GraphicsManager::CreateFrameResource() {
     for (size_t i = 0; i < m_nFrameResourceSize; i++) {
         m_frameResource.push_back(
-            make_unique<FR>(m_pDevice.Get(), m_nMaxObjects));
+            std::make_unique<FR>(m_pDevice.Get(), m_nMaxObjects));
     }
 }
 
@@ -429,7 +428,7 @@ void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
     for (auto&& [key, geometry] : m_pScene->Geometries) {
         if (geometry->Visible()) {
             if (auto pMesh = geometry->GetMesh().lock()) {
-                auto g = make_shared<GeometryBuffer>();
+                auto g = std::make_shared<GeometryBuffer>();
                 for (size_t i = 0; i < pMesh->GetVertexPropertiesCount(); i++) {
                     CreateVertexBuffer(pMesh->GetVertexPropertyArray(i), g);
                 }
@@ -466,8 +465,8 @@ void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
 }
 
 void D3D12GraphicsManager::CreateVertexBuffer(
-    const SceneObjectVertexArray&     vertexArray,
-    const shared_ptr<GeometryBuffer>& pGeometry) {
+    const SceneObjectVertexArray&          vertexArray,
+    const std::shared_ptr<GeometryBuffer>& pGeometry) {
     ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
 
     ComPtr<ID3D12Resource> pUploader;
@@ -492,8 +491,8 @@ void D3D12GraphicsManager::CreateVertexBuffer(
 }
 
 void D3D12GraphicsManager::CreateIndexBuffer(
-    const SceneObjectIndexArray&      indexArray,
-    const shared_ptr<GeometryBuffer>& pGeometry) {
+    const SceneObjectIndexArray&           indexArray,
+    const std::shared_ptr<GeometryBuffer>& pGeometry) {
     ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
 
     ComPtr<ID3D12Resource> pUploader;
@@ -610,10 +609,10 @@ void D3D12GraphicsManager::CreateTextureBuffer() {
                 m_pDevice->CreateShaderResourceView(texture.Get(), &srvDesc,
                                                     handle);
                 handle.Offset(m_nCbvSrvUavHeapSize);
-                auto pTextureBuffer             = make_shared<TextureBuffer>();
-                pTextureBuffer->index           = m_textures.size();
-                pTextureBuffer->texture         = texture;
-                pTextureBuffer->uploadHeap      = uploadHeap;
+                auto pTextureBuffer        = std::make_shared<TextureBuffer>();
+                pTextureBuffer->index      = m_textures.size();
+                pTextureBuffer->texture    = texture;
+                pTextureBuffer->uploadHeap = uploadHeap;
                 m_textures[pTexture->GetName()] = pTextureBuffer;
             }
         }
@@ -811,11 +810,11 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
                                     const vec3& color) {
     GraphicsManager::DrawLine(from, to, color);
     if (m_geometries.find("debug_line") == m_geometries.end()) {
-        auto pGeometry                  = make_shared<GeometryBuffer>();
+        auto pGeometry                  = std::make_shared<GeometryBuffer>();
         pGeometry->primitiveType        = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-        vector<vec3>           position = {{0, 0, 0}, {1, 0, 0}};
-        vector<int>            index    = {0, 1};
-        vector<vec3>           colors(position.size(), color);
+        std::vector<vec3>      position = {{0, 0, 0}, {1, 0, 0}};
+        std::vector<int>       index    = {0, 1};
+        std::vector<vec3>      colors(position.size(), color);
         SceneObjectVertexArray pos_array("position", 0, VertexDataType::kFLOAT3,
                                          position.data(), position.size() * 3);
         SceneObjectVertexArray color_array("color", 0, VertexDataType::kFLOAT3,
@@ -838,7 +837,8 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
 
     D3D12DrawBatchContext dbc;
     dbc.node = std::make_shared<SceneGeometryNode>();
-    dbc.node->AppendTransform(make_shared<SceneObjectTransform>(transform));
+    dbc.node->AppendTransform(
+        std::make_shared<SceneObjectTransform>(transform));
     dbc.material       = nullptr;
     dbc.numFramesDirty = m_nFrameResourceSize;
     dbc.constantBufferIndex =
@@ -853,14 +853,15 @@ void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
                                    const vec3& color) {
     GraphicsManager::DrawBox(bbMin, bbMax, color);
     if (m_geometries.find("debug_box") == m_geometries.end()) {
-        auto         pGeometry = make_shared<GeometryBuffer>();
-        vector<vec3> position  = {
+        auto              pGeometry = std::make_shared<GeometryBuffer>();
+        std::vector<vec3> position  = {
             {-1, -1, -1}, {1, -1, -1}, {1, 1, -1}, {-1, 1, -1},
             {-1, -1, 1},  {1, -1, 1},  {1, 1, 1},  {-1, 1, 1},
         };
-        vector<int> index = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4};
+        std::vector<int> index   = {0, 1, 2, 3, 0, 4, 5, 1,
+                                  5, 6, 2, 6, 7, 3, 7, 4};
         pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
-        vector<vec3>           colors(position.size(), color);
+        std::vector<vec3>      colors(position.size(), color);
         SceneObjectVertexArray pos_array("position", 0, VertexDataType::kFLOAT3,
                                          position.data(), position.size() * 3);
         SceneObjectVertexArray color_array("color", 0, VertexDataType::kFLOAT3,
@@ -878,7 +879,8 @@ void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
 
     D3D12DrawBatchContext dbc;
     dbc.node = std::make_shared<SceneGeometryNode>();
-    dbc.node->AppendTransform(make_shared<SceneObjectTransform>(transform));
+    dbc.node->AppendTransform(
+        std::make_shared<SceneObjectTransform>(transform));
     dbc.material       = nullptr;
     dbc.numFramesDirty = m_nFrameResourceSize;
     dbc.constantBufferIndex =

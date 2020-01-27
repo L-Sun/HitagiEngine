@@ -1,7 +1,6 @@
 #include <iostream>
 #include "GameLogic.hpp"
 
-using namespace std;
 using namespace My;
 
 int GameLogic::Initialize() { return 0; }
@@ -12,125 +11,125 @@ void GameLogic::Tick() {}
 
 void GameLogic::OnUpKeyDown() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnUpKeyDown()" << endl;
+    std::cout << "[GameLogic] OnUpKeyDown()" << std::endl;
 #endif
 }
 
 void GameLogic::OnUpKeyUp() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnUpKeyUp()" << endl;
+    std::cout << "[GameLogic] OnUpKeyUp()" << std::endl;
 #endif
 }
 
 void GameLogic::OnUpKey() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnUpKey()" << endl;
+    std::cout << "[GameLogic] OnUpKey()" << std::endl;
 #endif
 }
 
 void GameLogic::OnDownKeyDown() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnDownKeyDown()" << endl;
+    std::cout << "[GameLogic] OnDownKeyDown()" << std::endl;
 #endif
 }
 
 void GameLogic::OnDownKeyUp() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnDownKeyUp()" << endl;
+    std::cout << "[GameLogic] OnDownKeyUp()" << std::endl;
 #endif
 }
 
 void GameLogic::OnDownKey() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnDownKey()" << endl;
+    std::cout << "[GameLogic] OnDownKey()" << std::endl;
 #endif
 }
 
 void GameLogic::OnLeftKeyDown() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnLeftKeyDown()" << endl;
+    std::cout << "[GameLogic] OnLeftKeyDown()" << std::endl;
 #endif
 }
 
 void GameLogic::OnLeftKeyUp() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnLeftKeyUp()" << endl;
+    std::cout << "[GameLogic] OnLeftKeyUp()" << std::endl;
 #endif
 }
 
 void GameLogic::OnLeftKey() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnLeftKey()" << endl;
+    std::cout << "[GameLogic] OnLeftKey()" << std::endl;
 #endif
 }
 
 void GameLogic::OnRightKeyDown() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnRightKeyDown()" << endl;
+    std::cout << "[GameLogic] OnRightKeyDown()" << std::endl;
 #endif
 }
 
 void GameLogic::OnRightKeyUp() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnRightKeyUp()" << endl;
+    std::cout << "[GameLogic] OnRightKeyUp()" << std::endl;
 #endif
 }
 
 void GameLogic::OnRightKey() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnRightKey()" << endl;
+    std::cout << "[GameLogic] OnRightKey()" << std::endl;
 #endif
 }
 
 void GameLogic::OnRKeyDown() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnRKeyDown()" << endl;
+    std::cout << "[GameLogic] OnRKeyDown()" << std::endl;
 #endif
 }
 
 void GameLogic::OnRKeyUp() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnRKeyUp()" << endl;
+    std::cout << "[GameLogic] OnRKeyUp()" << std::endl;
 #endif
 }
 
 void GameLogic::OnRKey() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnRKey()" << endl;
+    std::cout << "[GameLogic] OnRKey()" << std::endl;
 #endif
 }
 
 void GameLogic::OnDKeyDown() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnDKeyDown()" << endl;
+    std::cout << "[GameLogic] OnDKeyDown()" << std::endl;
 #endif
 }
 
 void GameLogic::OnDKeyUp() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnDKeyUp()" << endl;
+    std::cout << "[GameLogic] OnDKeyUp()" << std::endl;
 #endif
 }
 
 void GameLogic::OnDKey() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnDKey()" << endl;
+    std::cout << "[GameLogic] OnDKey()" << std::endl;
 #endif
 }
 void GameLogic::OnCKeyDown() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnCKeyDown()" << endl;
+    std::cout << "[GameLogic] OnCKeyDown()" << std::endl;
 #endif
 }
 
 void GameLogic::OnCKeyUp() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnCKeyUp()" << endl;
+    std::cout << "[GameLogic] OnCKeyUp()" << std::endl;
 #endif
 }
 
 void GameLogic::OnCKey() {
 #ifdef DEBUG
-    cerr << "[GameLogic] OnCKey()" << endl;
+    std::cout << "[GameLogic] OnCKey()" << std::endl;
 #endif
 }

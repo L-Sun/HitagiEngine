@@ -3,7 +3,6 @@
 #include <thread>
 
 using namespace My;
-using namespace std;
 
 bool BaseApplication::m_bQuit = false;
 
@@ -13,71 +12,71 @@ BaseApplication::BaseApplication(GfxConfiguration& cfg) : m_Config(cfg) {}
 int BaseApplication::Initialize() {
     int ret = 0;
 
-    cout << m_Config;
+    std::cout << m_Config;
 
-    cerr << "Initialize Memory Manager: ";
+    std::cout << "Initialize Memory Manager: ";
     if ((ret = g_pMemoryManager->Initialize()) != 0) {
-        cerr << "Failed. err = " << ret;
+        std::cerr << "Failed. err = " << ret;
         return ret;
     }
-    cerr << "Success" << endl;
+    std::cout << "Success" << std::endl;
 
-    cerr << "Initialize Asset Loader: ";
+    std::cout << "Initialize Asset Loader: ";
     if ((ret = g_pAssetLoader->Initialize()) != 0) {
-        cerr << "Failed. err = " << ret;
+        std::cerr << "Failed. err = " << ret;
         return ret;
     }
-    cerr << "Success" << endl;
+    std::cout << "Success" << std::endl;
 
-    cerr << "Initialize Scene Manager: ";
+    std::cout << "Initialize Scene Manager: ";
     if ((ret = g_pSceneManager->Initialize()) != 0) {
-        cerr << "Failed. err = " << ret;
+        std::cerr << "Failed. err = " << ret;
         return ret;
     }
-    cerr << "Success" << endl;
+    std::cout << "Success" << std::endl;
 
-    cerr << "Initialize Graphics Manager: ";
+    std::cout << "Initialize Graphics Manager: ";
     if ((ret = g_pGraphicsManager->Initialize()) != 0) {
-        cerr << "Failed. err = " << ret;
+        std::cerr << "Failed. err = " << ret;
         return ret;
     }
-    cerr << "Success" << endl;
+    std::cout << "Success" << std::endl;
 
-    cerr << "Initialize Input Manager: ";
+    std::cout << "Initialize Input Manager: ";
     if ((ret = g_pInputManager->Initialize()) != 0) {
-        cerr << "Failed. err = " << ret;
+        std::cerr << "Failed. err = " << ret;
         return ret;
     }
-    cerr << "Success" << endl;
+    std::cout << "Success" << std::endl;
 
-    cerr << "Initialize Physics Manager: ";
+    std::cout << "Initialize Physics Manager: ";
     if ((ret = g_pPhysicsManager->Initialize()) != 0) {
-        cerr << "Failed. err = " << ret;
+        std::cerr << "Failed. err = " << ret;
         return ret;
     }
-    cerr << "Success" << endl;
+    std::cout << "Success" << std::endl;
 
-    cerr << "Initialize GameLogic Manager: ";
+    std::cout << "Initialize GameLogic Manager: ";
     if ((ret = g_pGameLogic->Initialize()) != 0) {
-        cerr << "Failed. err = " << ret;
+        std::cerr << "Failed. err = " << ret;
         return ret;
     }
-    cerr << "Success" << endl;
+    std::cout << "Success" << std::endl;
 
-    cerr << "Initialize Timer: ";
+    std::cout << "Initialize Timer: ";
     if ((ret = m_clock.Initialize()) != 0) {
-        cerr << "Failed. err = " << ret;
+        std::cerr << "Failed. err = " << ret;
         return ret;
     }
     m_clock.Start();
 
-#ifdef DEBUG
-    cerr << "Initialize Debug Manager: ";
+#if defined(DEBUG)
+    std::cout << "Initialize Debug Manager: ";
     if ((ret = g_pDebugManager->Initialize()) != 0) {
-        cerr << "Failed. err =" << ret;
+        std::cerr << "Failed. err =" << ret;
         return ret;
     }
-    cerr << "Success" << endl;
+    std::cout << "Success" << std::endl;
 
 #endif
 
@@ -121,8 +120,9 @@ void BaseApplication::Tick() {
         m_frame_counter = 0;
     }
     m_k += m_FPS - 60;
-    this_thread::sleep_until(m_clock.tickTime() + chrono::seconds(1) / 60.0 +
-                             m_k * chrono::microseconds(1));
+    std::this_thread::sleep_until(m_clock.tickTime() +
+                                  std::chrono::seconds(1) / 60.0 +
+                                  m_k * std::chrono::microseconds(1));
 }
 
 void BaseApplication::SetCommandLineParameters(int argc, char** argv) {

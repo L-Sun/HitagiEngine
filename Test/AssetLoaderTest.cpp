@@ -3,20 +3,19 @@
 #include "MemoryManager.hpp"
 #include "AssetLoader.hpp"
 
-using namespace std;
 using namespace My;
 
 namespace My {
-unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
 }  // namespace My
 
 int main(int argc, char const* argv[]) {
     g_pMemoryManager->Initialize();
 
     AssetLoader asset_loader;
-    string      shader_pgm =
+    std::string shader_pgm =
         asset_loader.SyncOpenAndReadTextFileToString("Shaders/copy.vs");
-    cout << shader_pgm << endl;
+    std::cout << shader_pgm << std::endl;
     g_pMemoryManager->Finalize();
 
     return 0;

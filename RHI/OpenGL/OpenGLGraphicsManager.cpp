@@ -14,14 +14,13 @@ const char DEBUG_VS_SHADER_SOURCE_FILE[] = "Shaders/debug_vs.glsl";
 const char DEBUG_PS_SHADER_SOURCE_FILE[] = "Shaders/debug_ps.glsl";
 #endif
 
-using namespace std;
 using namespace My;
 
 static void OutputShaderErrorMessage(unsigned int shaderId,
                                      const char*  shaderFileName) {
-    int      logSize, i;
-    char*    infoLog;
-    ofstream fout;
+    int           logSize, i;
+    char*         infoLog;
+    std::ofstream fout;
 
     glGetShaderiv(shaderId, GL_INFO_LOG_LENGTH, &logSize);
     logSize++;
@@ -35,15 +34,15 @@ static void OutputShaderErrorMessage(unsigned int shaderId,
         fout << infoLog[i];
     }
     fout.close();
-    cerr << "Error compiling shader. Check shader-error.txt for message."
-         << shaderFileName << endl;
+    std::cerr << "Error compiling shader. Check shader-error.txt for message."
+              << shaderFileName << std::endl;
     return;
 }
 
 static void OutputLinkerErrorMessage(unsigned int programId) {
-    int      logSize, i;
-    char*    infoLog;
-    ofstream fout;
+    int           logSize, i;
+    char*         infoLog;
+    std::ofstream fout;
     glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &logSize);
     logSize++;
 
@@ -58,8 +57,8 @@ static void OutputLinkerErrorMessage(unsigned int programId) {
         fout << infoLog[i];
     }
     fout.close();
-    cerr << "Error compiling linker. Check linker-error.txt for message."
-         << endl;
+    std::cerr << "Error compiling linker. Check linker-error.txt for message."
+              << std::endl;
 }
 
 int OpenGLGraphicsManager::Initialize() {
@@ -70,11 +69,11 @@ int OpenGLGraphicsManager::Initialize() {
     }
     result = gladLoadGL();
     if (!result) {
-        cout << "OpenGL load failed!\n";
+        std::cerr << "OpenGL load failed!\n";
         return -1;
     } else {
         result = 0;
-        cout << "OpenGL Version" << glGetString(GL_VERSION) << endl;
+        std::cout << "OpenGL Version" << glGetString(GL_VERSION) << std::endl;
 
         if (GLAD_GL_VERSION_3_0) {
             // Set the depth buffer to be entirely cleared to 1.0 values.
@@ -345,10 +344,10 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
                         break;
                     default:
                         // not supported by OpenGL
-                        cout << "Error: Unsupported Index Type " << index_array
-                             << endl;
-                        cout << "Mesh: " << *pMesh << endl;
-                        cout << "Geometry: " << *pGeometry << endl;
+                        std::cerr << "Error: Unsupported Index Type "
+                                  << index_array << std::endl;
+                        std::cout << "Mesh: " << *pMesh << std::endl;
+                        std::cout << "Geometry: " << *pGeometry << std::endl;
                         continue;
                 }
 
@@ -506,9 +505,9 @@ bool OpenGLGraphicsManager::InitializeShaders() {
     const char* debugFsFilename = DEBUG_PS_SHADER_SOURCE_FILE;
 #endif
 
-    string vertexShaderBuffer;
-    string fragmentShaderBuffer;
-    int    status;
+    std::string vertexShaderBuffer;
+    std::string fragmentShaderBuffer;
+    int         status;
 
     vertexShaderBuffer =
         g_pAssetLoader->SyncOpenAndReadTextFileToString(vsFilename);

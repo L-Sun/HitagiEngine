@@ -7,7 +7,6 @@
 #include "geommath.hpp"
 
 using namespace My;
-using namespace std;
 
 #define DEBUG 1
 
@@ -17,7 +16,7 @@ void InputManager::Tick() {}
 
 void InputManager::UpArrowKeyDown() {
 #ifdef DEBUG
-    cerr << "[InputManager] Up Arrow Key Down!" << endl;
+    std::cout << "[InputManager] Up Arrow Key Down!" << std::endl;
 #endif
     g_pGameLogic->OnUpKeyDown();
     if (!m_bUpKeyPressed) {
@@ -28,7 +27,7 @@ void InputManager::UpArrowKeyDown() {
 
 void InputManager::UpArrowKeyUp() {
 #ifdef DEBUG
-    cerr << "[InputManager] Up Arrow Key Up!" << endl;
+    std::cout << "[InputManager] Up Arrow Key Up!" << std::endl;
 #endif
     g_pGameLogic->OnUpKeyUp();
     m_bUpKeyPressed = false;
@@ -36,7 +35,7 @@ void InputManager::UpArrowKeyUp() {
 
 void InputManager::DownArrowKeyDown() {
 #ifdef DEBUG
-    cerr << "[InputManager] Down Arrow Key Down!" << endl;
+    std::cout << "[InputManager] Down Arrow Key Down!" << std::endl;
 #endif
     g_pGameLogic->OnDownKeyDown();
     if (!m_bDownKeyPressed) {
@@ -47,7 +46,7 @@ void InputManager::DownArrowKeyDown() {
 
 void InputManager::DownArrowKeyUp() {
 #ifdef DEBUG
-    cerr << "[InputManager] Down Arrow Key Up!" << endl;
+    std::cout << "[InputManager] Down Arrow Key Up!" << std::endl;
 #endif
     g_pGameLogic->OnDownKeyUp();
     m_bDownKeyPressed = false;
@@ -55,7 +54,7 @@ void InputManager::DownArrowKeyUp() {
 
 void InputManager::LeftArrowKeyDown() {
 #ifdef DEBUG
-    cerr << "[InputManager] Left Arrow Key Down!" << endl;
+    std::cout << "[InputManager] Left Arrow Key Down!" << std::endl;
 #endif
     g_pGameLogic->OnLeftKeyDown();
     if (!m_bLeftKeyPressed) {
@@ -66,7 +65,7 @@ void InputManager::LeftArrowKeyDown() {
 
 void InputManager::LeftArrowKeyUp() {
 #ifdef DEBUG
-    cerr << "[InputManager] Left Arrow Key Up!" << endl;
+    std::cout << "[InputManager] Left Arrow Key Up!" << std::endl;
 #endif
     g_pGameLogic->OnLeftKeyUp();
     m_bLeftKeyPressed = false;
@@ -74,7 +73,7 @@ void InputManager::LeftArrowKeyUp() {
 
 void InputManager::RightArrowKeyDown() {
 #ifdef DEBUG
-    cerr << "[InputManager] Right Arrow Key Down!" << endl;
+    std::cout << "[InputManager] Right Arrow Key Down!" << std::endl;
 #endif
     g_pGameLogic->OnRightKeyDown();
     if (!m_bRightKeyPressed) {
@@ -85,7 +84,7 @@ void InputManager::RightArrowKeyDown() {
 
 void InputManager::RightArrowKeyUp() {
 #ifdef DEBUG
-    cerr << "[InputManager] Right Arrow Key Up!" << endl;
+    std::cout << "[InputManager] Right Arrow Key Up!" << std::endl;
 #endif
     g_pGameLogic->OnRightKeyUp();
     m_bRightKeyPressed = false;
@@ -93,7 +92,7 @@ void InputManager::RightArrowKeyUp() {
 
 void InputManager::CKeyDown() {
 #ifdef DEBUG
-    cerr << "[InputManager] C Key Down!" << endl;
+    std::cout << "[InputManager] C Key Down!" << std::endl;
 #endif
     g_pGameLogic->OnCKeyDown();
     if (!m_bRightKeyPressed) {
@@ -104,7 +103,7 @@ void InputManager::CKeyDown() {
 
 void InputManager::CKeyUp() {
 #ifdef DEBUG
-    cerr << "[InputManager] C Key Up!" << endl;
+    std::cout << "[InputManager] C Key Up!" << std::endl;
 #endif
     g_pGameLogic->OnCKeyUp();
     m_bCKeyPressed = false;
@@ -112,26 +111,26 @@ void InputManager::CKeyUp() {
 
 void InputManager::ResetKeyDown() {
 #ifdef DEBUG
-    cerr << "[InputManager] Reset Key Down!" << endl;
+    std::cout << "[InputManager] Reset Key Down!" << std::endl;
 #endif
     g_pSceneManager->ResetScene();
 }
 
 void InputManager::ResetKeyUp() {
 #ifdef DEBUG
-    cerr << "[InputManager] Reset Key Up!" << endl;
+    std::cout << "[InputManager] Reset Key Up!" << std::endl;
 #endif
 }
 
 #ifdef DEBUG
 void InputManager::DebugKeyDown() {
-    cerr << "[InputManager] Debug Key Down!" << endl;
+    std::cout << "[InputManager] Debug Key Down!" << std::endl;
     g_pDebugManager->ToggleDebugInfo();
 }
 #endif
 
 #ifdef DEBUG
 void InputManager::DebugKeyUp() {
-    cerr << "[InputManager] Debug Key Up!" << endl;
+    std::cout << "[InputManager] Debug Key Up!" << std::endl;
 }
 #endif

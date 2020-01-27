@@ -4,20 +4,13 @@
 #include <vector>
 #include <memory>
 #include <type_traits>
-
+#include "portable.hpp"
 #include "geommath.hpp"
-
 #include "Guid.hpp"
 #include "Image.hpp"
-#include "portable.hpp"
-#include "AssetLoader.hpp"
-#include "JPEG.hpp"
-#include "PNG.hpp"
-#include "BMP.hpp"
-#include "TGA.hpp"
 
 namespace My {
-enum struct SceneObjectType {
+enum struct SceneObjectType : int32_t {
     kMESH          = "MESH"_i32,
     kMATERIAL      = "MATL"_i32,
     kTEXTURE       = "TXTU"_i32,
@@ -30,7 +23,7 @@ enum struct SceneObjectType {
     kVERETEX_ARRAY = "VARR"_i32,
 };
 
-enum struct SceneObjectCollisionType {
+enum struct SceneObjectCollisionType : int32_t {
     kNONE         = "CNON"_i32,
     kSPHERE       = "CSPH"_i32,
     kBOX          = "CBOX"_i32,
@@ -45,47 +38,7 @@ enum struct SceneObjectCollisionType {
     kPLANE        = "CPLN"_i32,
 };
 
-std::ostream& operator<<(std::ostream& out, SceneObjectType type);
-
-using namespace xg;
-
-class BaseSceneObject {
-protected:
-    Guid            m_Guid;
-    SceneObjectType m_Type;
-    BaseSceneObject(SceneObjectType type) : m_Type(type) { m_Guid = newGuid(); }
-    BaseSceneObject(Guid& guid, SceneObjectType type)
-        : m_Guid(guid), m_Type(type) {}
-    BaseSceneObject(Guid&& guid, SceneObjectType type)
-        : m_Guid(std::move(guid)), m_Type(type) {}
-    BaseSceneObject(BaseSceneObject&& obj)
-        : m_Guid(std::move(obj.m_Guid)), m_Type(obj.m_Type) {}
-    BaseSceneObject& operator=(BaseSceneObject&& obj) {
-        this->m_Guid = std::move(obj.m_Guid);
-        this->m_Type = obj.m_Type;
-        return *this;
-    }
-    virtual ~BaseSceneObject() {}
-
-    BaseSceneObject()                     = default;
-    BaseSceneObject(BaseSceneObject& obj) = default;
-    BaseSceneObject& operator=(BaseSceneObject& obj) = default;
-
-public:
-    const Guid&           GetGuid() const { return m_Guid; }
-    const SceneObjectType GetType() const { return m_Type; }
-
-    friend std::ostream& operator<<(std::ostream&          out,
-                                    const BaseSceneObject& obj) {
-        out << "SceneObject" << std::endl;
-        out << "-----------" << std::endl;
-        out << "GUID: " << obj.m_Guid << std::endl;
-        out << "Type: " << obj.m_Type << std::endl;
-        return out;
-    }
-};
-
-enum struct VertexDataType {
+enum struct VertexDataType : int32_t {
     kFLOAT1  = "FLT1"_i32,
     kFLOAT2  = "FLT2"_i32,
     kFLOAT3  = "FLT3"_i32,
@@ -96,144 +49,11 @@ enum struct VertexDataType {
     kDOUBLE4 = "DUB4"_i32,
 };
 
-std::ostream& operator<<(std::ostream& out, VertexDataType type);
-
-class SceneObjectVertexArray {
-protected:
-    const std::string    m_strAttribute;
-    const uint32_t       m_MorphTargetIndex;
-    const VertexDataType m_DataType;
-    const void*          m_pData;
-    const size_t         m_szData;
-
-public:
-    SceneObjectVertexArray(
-        const char* attr = "", uint32_t morph_index = 0,
-        const VertexDataType data_type = VertexDataType::kFLOAT3,
-        const void* data = nullptr, size_t data_size = 0)
-        : m_strAttribute(attr),
-          m_MorphTargetIndex(morph_index),
-          m_DataType(data_type),
-          m_pData(data),
-          m_szData(data_size) {}
-    SceneObjectVertexArray(SceneObjectVertexArray& arr)  = default;
-    SceneObjectVertexArray(SceneObjectVertexArray&& arr) = default;
-
-    const std::string& GetAttributeName() const { return m_strAttribute; };
-    VertexDataType     GetDataType() const { return m_DataType; }
-    size_t             GetDataSize() const {
-        size_t size = m_szData;
-
-        switch (m_DataType) {
-            case VertexDataType::kFLOAT1:
-            case VertexDataType::kFLOAT2:
-            case VertexDataType::kFLOAT3:
-            case VertexDataType::kFLOAT4:
-                size *= sizeof(float);
-                break;
-            case VertexDataType::kDOUBLE1:
-            case VertexDataType::kDOUBLE2:
-            case VertexDataType::kDOUBLE3:
-            case VertexDataType::kDOUBLE4:
-                size *= sizeof(double);
-            default:
-                size = 0;
-                break;
-        }
-        return size;
-    }
-    const void* GetData() const { return m_pData; }
-    size_t      GetVertexCount() const {
-        size_t size = m_szData;
-
-        switch (m_DataType) {
-            case VertexDataType::kFLOAT1:
-            case VertexDataType::kDOUBLE1:
-                size /= 1;
-                break;
-            case VertexDataType::kFLOAT2:
-            case VertexDataType::kDOUBLE2:
-                size /= 2;
-                break;
-            case VertexDataType::kFLOAT3:
-            case VertexDataType::kDOUBLE3:
-                size /= 3;
-                break;
-            case VertexDataType::kFLOAT4:
-            case VertexDataType::kDOUBLE4:
-                size /= 4;
-                break;
-            default:
-                size = 0;
-                break;
-        }
-        return size;
-    }
-
-    friend std::ostream& operator<<(std::ostream&                 out,
-                                    const SceneObjectVertexArray& obj);
-};
-
-enum struct IndexDataType {
+enum struct IndexDataType : int32_t {
     kINT8  = "I8  "_i32,
     kINT16 = "I16 "_i32,
     kINT32 = "I32 "_i32,
     kINT64 = "I64 "_i32,
-};
-
-std::ostream& operator<<(std::ostream& out, const IndexDataType& type);
-
-class SceneObjectIndexArray {
-protected:
-    const uint32_t      m_nMaterialIndex;
-    const size_t        m_szResetartIndex;
-    const IndexDataType m_DataType;
-    const void*         m_pData;
-    const size_t        m_szData;
-
-public:
-    SceneObjectIndexArray(const uint32_t      material_index = 0,
-                          const uint32_t      restart_index  = 0,
-                          const IndexDataType data_type = IndexDataType::kINT16,
-                          const void*         data      = nullptr,
-                          const size_t        data_size = 0)
-        : m_nMaterialIndex(material_index),
-          m_szResetartIndex(restart_index),
-          m_DataType(data_type),
-          m_pData(data),
-          m_szData(data_size) {}
-    SceneObjectIndexArray(SceneObjectIndexArray&)  = default;
-    SceneObjectIndexArray(SceneObjectIndexArray&&) = default;
-
-    const uint32_t      GetMaterialIndex() const { return m_nMaterialIndex; }
-    const IndexDataType GetIndexType() const { return m_DataType; }
-    const void*         GetData() const { return m_pData; }
-    size_t              GetIndexCount() const { return m_szData; }
-    size_t              GetDataSize() const {
-        size_t size = m_szData;
-
-        switch (m_DataType) {
-            case IndexDataType::kINT8:
-                size *= sizeof(int8_t);
-                break;
-            case IndexDataType::kINT16:
-                size *= sizeof(int16_t);
-                break;
-            case IndexDataType::kINT32:
-                size *= sizeof(int32_t);
-                break;
-            case IndexDataType::kINT64:
-                size *= sizeof(int64_t);
-                break;
-            default:
-                size = 0;
-                break;
-        }
-        return size;
-    }
-
-    friend std::ostream& operator<<(std::ostream&                out,
-                                    const SceneObjectIndexArray& obj);
 };
 
 enum struct PrimitiveType : int32_t {
@@ -258,19 +78,109 @@ enum struct PrimitiveType : int32_t {
     // clang-format on
 };
 
+std::ostream& operator<<(std::ostream& out, const SceneObjectType& type);
+std::ostream& operator<<(std::ostream& out, const VertexDataType& type);
+std::ostream& operator<<(std::ostream& out, const IndexDataType& type);
+std::ostream& operator<<(std::ostream& out, const PrimitiveType& type);
+
+using namespace xg;
+
+class BaseSceneObject {
+protected:
+    Guid            m_Guid;
+    SceneObjectType m_Type;
+    BaseSceneObject(SceneObjectType type);
+    BaseSceneObject(Guid& guid, SceneObjectType type);
+    BaseSceneObject(Guid&& guid, SceneObjectType type);
+    BaseSceneObject(BaseSceneObject&& obj);
+    BaseSceneObject& operator=(BaseSceneObject&& obj);
+    virtual ~BaseSceneObject() {}
+
+    BaseSceneObject()                     = default;
+    BaseSceneObject(BaseSceneObject& obj) = default;
+    BaseSceneObject& operator=(BaseSceneObject& obj) = default;
+
+public:
+    const Guid&           GetGuid() const { return m_Guid; }
+    const SceneObjectType GetType() const { return m_Type; }
+
+    friend std::ostream& operator<<(std::ostream&          out,
+                                    const BaseSceneObject& obj);
+};
+
+class SceneObjectVertexArray {
+protected:
+    const std::string    m_strAttribute;
+    const uint32_t       m_MorphTargetIndex;
+    const VertexDataType m_DataType;
+    const void*          m_pData;
+    const size_t         m_szData;
+
+public:
+    SceneObjectVertexArray(
+        const char* attr = "", uint32_t morph_index = 0,
+        const VertexDataType data_type = VertexDataType::kFLOAT3,
+        const void* data = nullptr, size_t data_size = 0)
+        : m_strAttribute(attr),
+          m_MorphTargetIndex(morph_index),
+          m_DataType(data_type),
+          m_pData(data),
+          m_szData(data_size) {}
+    SceneObjectVertexArray(SceneObjectVertexArray& arr)  = default;
+    SceneObjectVertexArray(SceneObjectVertexArray&& arr) = default;
+
+    const std::string&   GetAttributeName() const;
+    VertexDataType       GetDataType() const;
+    size_t               GetDataSize() const;
+    const void*          GetData() const;
+    size_t               GetVertexCount() const;
+    friend std::ostream& operator<<(std::ostream&                 out,
+                                    const SceneObjectVertexArray& obj);
+};
+
+class SceneObjectIndexArray {
+protected:
+    const uint32_t      m_nMaterialIndex;
+    const size_t        m_szResetartIndex;
+    const IndexDataType m_DataType;
+    const void*         m_pData;
+    const size_t        m_szData;
+
+public:
+    SceneObjectIndexArray(const uint32_t      material_index = 0,
+                          const uint32_t      restart_index  = 0,
+                          const IndexDataType data_type = IndexDataType::kINT16,
+                          const void*         data      = nullptr,
+                          const size_t        data_size = 0)
+        : m_nMaterialIndex(material_index),
+          m_szResetartIndex(restart_index),
+          m_DataType(data_type),
+          m_pData(data),
+          m_szData(data_size) {}
+    SceneObjectIndexArray(SceneObjectIndexArray&)  = default;
+    SceneObjectIndexArray(SceneObjectIndexArray&&) = default;
+
+    const uint32_t       GetMaterialIndex() const;
+    const IndexDataType  GetIndexType() const;
+    const void*          GetData() const;
+    size_t               GetIndexCount() const;
+    size_t               GetDataSize() const;
+    friend std::ostream& operator<<(std::ostream&                out,
+                                    const SceneObjectIndexArray& obj);
+};
+
 struct BoundingBox {
     vec3 centroid;
     vec3 extent;
 };
 
-std::ostream& operator<<(std::ostream& out, const PrimitiveType& type);
-
 class SceneObjectMesh : public BaseSceneObject {
 protected:
     std::vector<SceneObjectIndexArray> m_IndexArray;
-    // Different vector elements correspond to different attributes of vertices,
-    // such as the first element is coorespond to the position of vertices, the
-    // second element is coorrespond to the normal of vertices, etc.
+    // Different vector elements correspond to different attributes of
+    // vertices, such as the first element is coorespond to the position of
+    // vertices, the second element is coorrespond to the normal of
+    // vertices, etc.
     std::vector<SceneObjectVertexArray> m_VertexArray;
 
     PrimitiveType m_PrimitiveType;
@@ -290,34 +200,21 @@ public:
           m_PrimitiveType(mesh.m_PrimitiveType) {}
 
     // Set some things
-    void AddIndexArray(SceneObjectIndexArray&& array) {
-        m_IndexArray.push_back(std::move(array));
-    }
-    void AddVertexArray(SceneObjectVertexArray&& array) {
-        m_VertexArray.push_back(std::move(array));
-    }
-    void SetPrimitiveType(PrimitiveType type) { m_PrimitiveType = type; }
+    void AddIndexArray(SceneObjectIndexArray&& array);
+    void AddVertexArray(SceneObjectVertexArray&& array);
+    void SetPrimitiveType(PrimitiveType type);
 
     // Get some things
-    size_t GetIndexGroupCount() const { return m_IndexArray.size(); }
-    size_t GetIndexCount(const size_t index) const {
-        return m_IndexArray.empty() ? 0 : m_IndexArray[index].GetIndexCount();
-    }
-    size_t GetVertexCount() const {
-        return m_VertexArray.empty() ? 0 : m_VertexArray[0].GetVertexCount();
-    }
-    size_t GetVertexPropertiesCount() const { return m_VertexArray.size(); }
+    size_t                        GetIndexGroupCount() const;
+    size_t                        GetIndexCount(const size_t index) const;
+    size_t                        GetVertexCount() const;
+    size_t                        GetVertexPropertiesCount() const;
     const SceneObjectVertexArray& GetVertexPropertyArray(
-        const size_t index) const {
-        return m_VertexArray[index];
-    }
-    const SceneObjectIndexArray& GetIndexArray(const size_t index) const {
-        return m_IndexArray[index];
-    }
-    const PrimitiveType& GetPrimitiveType() { return m_PrimitiveType; }
-    BoundingBox          GetBoundingBox() const;
-
-    friend std::ostream& operator<<(std::ostream&          out,
+        const size_t index) const;
+    const SceneObjectIndexArray& GetIndexArray(const size_t index) const;
+    const PrimitiveType&         GetPrimitiveType();
+    BoundingBox                  GetBoundingBox() const;
+    friend std::ostream&         operator<<(std::ostream&          out,
                                     const SceneObjectMesh& obj);
 };
 
@@ -346,37 +243,12 @@ public:
     SceneObjectTexture(SceneObjectTexture&)  = default;
     SceneObjectTexture(SceneObjectTexture&&) = default;
 
-    void AddTransform(mat4& matrix) { m_Transforms.push_back(matrix); }
-    void SetName(const std::string& name) { m_Name = name; }
-    void SetName(std::string&& name) { m_Name = std::move(name); }
-    void LoadTexture() {
-        if (!m_pImage) {
-            Buffer      buf = g_pAssetLoader->SyncOpenAndReadBinary(m_Name);
-            std::string ext = m_Name.substr(m_Name.find_last_of("."));
-            if (ext == ".jpg" || ext == ".jpeg") {
-                JfifParser jfif_parser;
-                m_pImage = std::make_shared<Image>(jfif_parser.Parse(buf));
-            } else if (ext == ".png") {
-                PngParser png_parser;
-                m_pImage = std::make_shared<Image>(png_parser.Parse(buf));
-            } else if (ext == ".bmp") {
-                BmpParser bmp_parser;
-                m_pImage = std::make_shared<Image>(bmp_parser.Parse(buf));
-            } else if (ext == ".tga") {
-                TgaParser tga_parser;
-                m_pImage = std::make_shared<Image>(tga_parser.Parse(buf));
-            }
-        }
-    }
-    const std::string& GetName() const { return m_Name; }
-    const Image&       GetTextureImage() {
-        if (!m_pImage) {
-            LoadTexture();
-        }
-
-        return *m_pImage;
-    }
-
+    void                 AddTransform(mat4& matrix);
+    void                 SetName(const std::string& name);
+    void                 SetName(std::string&& name);
+    void                 LoadTexture();
+    const std::string&   GetName() const;
+    const Image&         GetTextureImage();
     friend std::ostream& operator<<(std::ostream&             out,
                                     const SceneObjectTexture& obj);
 };
@@ -451,54 +323,18 @@ public:
         m_Name = std::move(name);
     };
 
-    const std::string& GetName() const { return m_Name; }
-    const Color&       GetBaseColor() const { return m_BaseColor; }
-    const Color&       GetSpecularColor() const { return m_Specular; }
-    const Parameter&   GetSpecularPower() const { return m_SpecularPower; }
-
-    void SetName(const std::string& name) { m_Name = name; }
-    void SetName(std::string&& name) { m_Name = std::move(name); }
-    void SetColor(const std::string& attrib, const vec4& color) {
-        if (attrib == "diffuse") m_BaseColor = Color(color);
-        if (attrib == "specular") m_Specular = Color(color);
-        if (attrib == "emission") m_Emission = Color(color);
-        if (attrib == "opacity") m_Opacity = Color(color);
-        if (attrib == "transparency") m_Transparency = Color(color);
-    }
-    void SetParam(const std::string& attrib, const float param) {
-        if (attrib == "specular_power") m_SpecularPower = Parameter(param);
-    }
-    void SetTexture(const std::string& attrib, const std::string& textureName) {
-        if (attrib == "diffuse")
-            m_BaseColor = std::make_shared<SceneObjectTexture>(textureName);
-        if (attrib == "specular")
-            m_Specular = std::make_shared<SceneObjectTexture>(textureName);
-        if (attrib == "specular_power")
-            m_SpecularPower = std::make_shared<SceneObjectTexture>(textureName);
-        if (attrib == "emission")
-            m_Emission = std::make_shared<SceneObjectTexture>(textureName);
-        if (attrib == "opacity")
-            m_Opacity = std::make_shared<SceneObjectTexture>(textureName);
-        if (attrib == "transparency")
-            m_Transparency = std::make_shared<SceneObjectTexture>(textureName);
-        if (attrib == "normal")
-            m_Normal = std::make_shared<SceneObjectTexture>(textureName);
-    }
+    const std::string& GetName() const;
+    const Color&       GetBaseColor() const;
+    const Color&       GetSpecularColor() const;
+    const Parameter&   GetSpecularPower() const;
+    void               SetName(const std::string& name);
+    void               SetName(std::string&& name);
+    void               SetColor(const std::string& attrib, const vec4& color);
+    void               SetParam(const std::string& attrib, const float param);
+    void SetTexture(const std::string& attrib, const std::string& textureName);
     void SetTexture(const std::string&                         attrib,
-                    const std::shared_ptr<SceneObjectTexture>& texture) {
-        if (attrib == "diffuse") m_BaseColor = texture;
-        if (attrib == "specular") m_Specular = texture;
-        if (attrib == "specular_power") m_SpecularPower = texture;
-        if (attrib == "emission") m_Emission = texture;
-        if (attrib == "opacity") m_Opacity = texture;
-        if (attrib == "transparency") m_Transparency = texture;
-        if (attrib == "normal") m_Normal = texture;
-    }
-
-    void LoadTextures() {
-        if (m_BaseColor.ValueMap) m_BaseColor.ValueMap->LoadTexture();
-    }
-
+                    const std::shared_ptr<SceneObjectTexture>& texture);
+    void LoadTextures();
     friend std::ostream& operator<<(std::ostream&              out,
                                     const SceneObjectMaterial& obj);
 };
@@ -517,38 +353,21 @@ public:
     SceneObjectGeometry()
         : BaseSceneObject(SceneObjectType::kGEOMETRY),
           m_CollisionType(SceneObjectCollisionType::kNONE) {}
-    void SetVisibility(bool visible) { m_bVisible = visible; }
-    void SetIfCastShadow(bool shadow) { m_bShadow = shadow; }
-    void SetIfMotionBlur(bool motion_blur) { m_bMotionBlur = motion_blur; }
-    void SetCollisionType(SceneObjectCollisionType collision_type) {
-        m_CollisionType = collision_type;
-    }
-    void SetCollisionParameters(const float* param, int32_t count) {
-        assert(count > 0 && count < 10);
-        memcpy(m_CollisionParameters, param, sizeof(float) * count);
-    }
-    const bool                     Visible() { return m_bVisible; }
-    const bool                     CastShadow() { return m_bShadow; }
-    const bool                     MotionBlur() { return m_bMotionBlur; }
-    const SceneObjectCollisionType CollisionType() const {
-        return m_CollisionType;
-    }
-    const float* CollisionParameters() const { return m_CollisionParameters; }
-
-    void AddMesh(std::shared_ptr<SceneObjectMesh>& mesh) {
-        m_Mesh.push_back(std::move(mesh));
-    }
-    const std::weak_ptr<SceneObjectMesh> GetMesh() {
-        return (m_Mesh.empty() ? nullptr : m_Mesh[0]);
-    }
-    const std::weak_ptr<SceneObjectMesh> GetMeshLOD(size_t lod) {
-        return (lod < m_Mesh.size() ? m_Mesh[lod] : nullptr);
-    }
-    BoundingBox GetBoundingBox() const {
-        return m_Mesh.empty() ? BoundingBox() : m_Mesh[0]->GetBoundingBox();
-    }
-
-    friend std::ostream& operator<<(std::ostream&              out,
+    void       SetVisibility(bool visible);
+    void       SetIfCastShadow(bool shadow);
+    void       SetIfMotionBlur(bool motion_blur);
+    void       SetCollisionType(SceneObjectCollisionType collision_type);
+    void       SetCollisionParameters(const float* param, int32_t count);
+    const bool Visible();
+    const bool CastShadow();
+    const bool MotionBlur();
+    const SceneObjectCollisionType CollisionType() const;
+    const float*                   CollisionParameters() const;
+    void AddMesh(std::shared_ptr<SceneObjectMesh>& mesh);
+    const std::weak_ptr<SceneObjectMesh> GetMesh();
+    const std::weak_ptr<SceneObjectMesh> GetMeshLOD(size_t lod);
+    BoundingBox                          GetBoundingBox() const;
+    friend std::ostream&                 operator<<(std::ostream&              out,
                                     const SceneObjectGeometry& obj);
 };
 
@@ -575,36 +394,20 @@ protected:
                                     const SceneObjectLight& obj);
 
 public:
-    void SetIfCastShadow(bool shadow) { m_bCastShadows = shadow; }
-    void SetColor(std::string& attrib, vec4& color) {
-        if (attrib == "light") {
-            m_LightColor = Color(color);
-        }
-    }
-    void SetParam(std::string& attrib, float param) {
-        if (attrib == "intensity") {
-            m_fIntensity = param;
-        }
-    }
-    void SetTexture(std::string& attrib, std::string& textureName) {
-        if (attrib == "projection") {
-            m_strTexture = textureName;
-        }
-    }
-    void         SetAttenuation(AttenFunc func) { m_LightAttenuation = func; }
-    const Color& GetColor() { return m_LightColor; }
-    float        GetIntensity() { return m_fIntensity; }
+    void         SetIfCastShadow(bool shadow);
+    void         SetColor(std::string& attrib, vec4& color);
+    void         SetParam(std::string& attrib, float param);
+    void         SetTexture(std::string& attrib, std::string& textureName);
+    void         SetAttenuation(AttenFunc func);
+    const Color& GetColor();
+    float        GetIntensity();
 };
 
 class SceneObjectOmniLight : public SceneObjectLight {
 public:
     using SceneObjectLight::SceneObjectLight;
     friend std::ostream& operator<<(std::ostream&               out,
-                                    const SceneObjectOmniLight& obj) {
-        out << static_cast<const SceneObjectLight&>(obj) << std::endl;
-        out << "Light Type: Omni" << std::endl;
-        return out;
-    }
+                                    const SceneObjectOmniLight& obj);
 };
 
 class SceneObjectSpotLight : public SceneObjectLight {
@@ -647,21 +450,11 @@ protected:
                                     const SceneObjectCamera& obj);
 
 public:
-    void SetColor(std::string& attrib, vec4& color) {
-        // TODO: extension
-    }
-    void SetParam(std::string& attrib, float param) {
-        if (attrib == "near")
-            m_fNearClipDistance = param;
-        else if (attrib == "far")
-            m_fFarClipDistance = param;
-    }
-    void SetTexture(std::string& attrib, std::string& textureName) {
-        // TODO: extension
-    }
-
-    float GetNearClipDistance() const { return m_fNearClipDistance; }
-    float GetFarClipDistance() const { return m_fFarClipDistance; }
+    void  SetColor(std::string& attrib, vec4& color);
+    void  SetParam(std::string& attrib, float param);
+    void  SetTexture(std::string& attrib, std::string& textureName);
+    float GetNearClipDistance() const;
+    float GetFarClipDistance() const;
 };
 
 class SceneObjectOrthogonalCamera : public SceneObjectCamera {
@@ -679,15 +472,8 @@ public:
     SceneObjectPerspectiveCamera(float fov = PI / 2.0)
         : SceneObjectCamera(), m_fFov(fov) {}
 
-    void SetParam(std::string& attrib, float param) {
-        // TODO: handle fovs, fovy
-        if (attrib == "fov") {
-            m_fFov = param;
-        }
-        SceneObjectCamera::SetParam(attrib, param);
-    }
-    float GetFov() const { return m_fFov; }
-
+    void                 SetParam(std::string& attrib, float param);
+    float                GetFov() const;
     friend std::ostream& operator<<(std::ostream&                       out,
                                     const SceneObjectPerspectiveCamera& obj);
 };
@@ -698,14 +484,9 @@ protected:
     bool m_bSceneObjectOnly;
 
 public:
-    SceneObjectTransform() {
-        m_matrix           = mat4(1.0f);
-        m_bSceneObjectOnly = false;
-    }
-    SceneObjectTransform(const mat4 matrix, const bool object_only = false) {
-        m_matrix           = matrix;
-        m_bSceneObjectOnly = object_only;
-    }
+    SceneObjectTransform() : m_matrix(1.0f), m_bSceneObjectOnly(false) {}
+    SceneObjectTransform(const mat4 matrix, const bool object_only = false)
+        : m_matrix(matrix), m_bSceneObjectOnly(object_only) {}
 
     operator mat4() { return m_matrix; }
     operator const mat4() const { return m_matrix; }
@@ -716,74 +497,21 @@ public:
 
 class SceneObjectTranslation : public SceneObjectTransform {
 public:
-    SceneObjectTranslation(const char axis, const float amount) {
-        switch (axis) {
-            case 'x':
-                m_matrix = translate(m_matrix, vec3(amount, 0.0f, 0.0f));
-                break;
-            case 'y':
-                m_matrix = translate(m_matrix, vec3(0.0f, amount, 0.0f));
-                break;
-            case 'z':
-                m_matrix = translate(m_matrix, vec3(0.0f, 0.0f, amount));
-            default:
-                break;
-        }
-    }
-    SceneObjectTranslation(const float x, const float y, const float z) {
-        m_matrix = translate(m_matrix, vec3(x, y, z));
-    }
+    SceneObjectTranslation(const char axis, const float amount);
+    SceneObjectTranslation(const float x, const float y, const float z);
 };
 
 class SceneObjectRotation : public SceneObjectTransform {
 public:
-    SceneObjectRotation(const char axis, const float theta) {
-        switch (axis) {
-            case 'x':
-                m_matrix =
-                    rotate(m_matrix, radians(theta), vec3(1.0f, 0.0f, 0.0f));
-                break;
-            case 'y':
-                m_matrix =
-                    rotate(m_matrix, radians(theta), vec3(0.0f, 1.0f, 0.0f));
-                break;
-            case 'z':
-                m_matrix =
-                    rotate(m_matrix, radians(theta), vec3(0.0f, 0.0f, 1.0f));
-                break;
-            default:
-                break;
-        }
-    }
-    SceneObjectRotation(vec3& axis, const float theta) {
-        axis     = normalize(axis);
-        m_matrix = rotate(m_matrix, theta, axis);
-    }
-    SceneObjectRotation(quat quaternion) {
-        m_matrix = mat4(quaternion) * m_matrix;
-    }
+    SceneObjectRotation(const char axis, const float theta);
+    SceneObjectRotation(vec3& axis, const float theta);
+    SceneObjectRotation(quat quaternion);
 };
 
 class SceneObjectScale : public SceneObjectTransform {
 public:
-    SceneObjectScale(const char axis, const float amount) {
-        switch (axis) {
-            case 'x':
-                m_matrix = scale(m_matrix, vec3(amount, 0.0f, 0.0f));
-                break;
-            case 'y':
-                m_matrix = scale(m_matrix, vec3(0.0f, amount, 0.0f));
-                break;
-            case 'z':
-                m_matrix = scale(m_matrix, vec3(0.0f, 0.0f, amount));
-                break;
-            default:
-                break;
-        }
-    }
-    SceneObjectScale(const float x, const float y, const float z) {
-        m_matrix = scale(m_matrix, vec3(x, y, z));
-    }
+    SceneObjectScale(const char axis, const float amount);
+    SceneObjectScale(const float x, const float y, const float z);
 };
 
 }  // namespace My
