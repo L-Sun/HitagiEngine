@@ -1,10 +1,8 @@
 #include <iostream>
 #include "InputManager.hpp"
-#include "GraphicsManager.hpp"
 #include "SceneManager.hpp"
 #include "GameLogic.hpp"
 #include "DebugManager.hpp"
-#include "geommath.hpp"
 
 using namespace My;
 

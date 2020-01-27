@@ -3,10 +3,9 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <type_traits>
+#include <crossguid/guid.hpp>
 #include "portable.hpp"
 #include "geommath.hpp"
-#include "Guid.hpp"
 #include "Image.hpp"
 
 namespace My {
@@ -83,15 +82,13 @@ std::ostream& operator<<(std::ostream& out, const VertexDataType& type);
 std::ostream& operator<<(std::ostream& out, const IndexDataType& type);
 std::ostream& operator<<(std::ostream& out, const PrimitiveType& type);
 
-using namespace xg;
-
 class BaseSceneObject {
 protected:
-    Guid            m_Guid;
+    xg::Guid        m_Guid;
     SceneObjectType m_Type;
     BaseSceneObject(SceneObjectType type);
-    BaseSceneObject(Guid& guid, SceneObjectType type);
-    BaseSceneObject(Guid&& guid, SceneObjectType type);
+    BaseSceneObject(xg::Guid& guid, SceneObjectType type);
+    BaseSceneObject(xg::Guid&& guid, SceneObjectType type);
     BaseSceneObject(BaseSceneObject&& obj);
     BaseSceneObject& operator=(BaseSceneObject&& obj);
     virtual ~BaseSceneObject() {}
@@ -101,7 +98,7 @@ protected:
     BaseSceneObject& operator=(BaseSceneObject& obj) = default;
 
 public:
-    const Guid&           GetGuid() const { return m_Guid; }
+    const xg::Guid&       GetGuid() const { return m_Guid; }
     const SceneObjectType GetType() const { return m_Type; }
 
     friend std::ostream& operator<<(std::ostream&          out,

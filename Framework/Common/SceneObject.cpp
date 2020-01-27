@@ -8,11 +8,11 @@
 namespace My {
 // Class BaseSceneObject
 BaseSceneObject::BaseSceneObject(SceneObjectType type) : m_Type(type) {
-    m_Guid = newGuid();
+    m_Guid = xg::newGuid();
 }
-BaseSceneObject::BaseSceneObject(Guid& guid, SceneObjectType type)
+BaseSceneObject::BaseSceneObject(xg::Guid& guid, SceneObjectType type)
     : m_Guid(guid), m_Type(type) {}
-BaseSceneObject::BaseSceneObject(Guid&& guid, SceneObjectType type)
+BaseSceneObject::BaseSceneObject(xg::Guid&& guid, SceneObjectType type)
     : m_Guid(std::move(guid)), m_Type(type) {}
 BaseSceneObject::BaseSceneObject(BaseSceneObject&& obj)
     : m_Guid(std::move(obj.m_Guid)), m_Type(obj.m_Type) {}
