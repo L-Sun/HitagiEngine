@@ -6,6 +6,6 @@ target_link_libraries(D3DRHI
         dxgi
         d3dcompiler
         d3dUtil
-        Common
+        GraphicsManager
 )
 target_include_directories(D3DRHI INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

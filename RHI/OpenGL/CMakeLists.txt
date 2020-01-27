@@ -4,7 +4,7 @@ add_library(OpenGLRHI
 )
 target_link_libraries(OpenGLRHI 
     PRIVATE
-        Common
+        GraphicsManager
         ${OPENGL_LIBRARIES}
 )
 target_include_directories(OpenGLRHI INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

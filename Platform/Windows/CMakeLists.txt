@@ -2,7 +2,8 @@ add_library(PlatformInterface
     WindowsApplication.cpp
 )
 target_link_libraries(PlatformInterface
-    Common
+    PUBLIC
+        Common
 )
 
 add_library(MyGameEngineD3D12
@@ -10,8 +11,9 @@ add_library(MyGameEngineD3D12
     D3D12ApplicationConfig.cpp
 )
 target_link_libraries(MyGameEngineD3D12
-    D3DRHI
-    PlatformInterface
+    PUBLIC
+        D3DRHI
+        PlatformInterface
 )
 
 add_library(MyGameEngine
@@ -20,6 +22,7 @@ add_library(MyGameEngine
     ${PROJECT_SOURCE_DIR}/External/src/glad/src/glad_wgl.c
 )
 target_link_libraries(MyGameEngine
-    OpenGLRHI
-    PlatformInterface
+    PUBLIC
+        OpenGLRHI
+        PlatformInterface
 )
