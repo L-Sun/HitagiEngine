@@ -1,6 +1,6 @@
 #include <tchar.h>
 #include "D3D12Application.hpp"
-#include "D3D/D3D12GraphicsManager.hpp"
+#include "D3D12GraphicsManager.hpp"
 
 using namespace My;
 

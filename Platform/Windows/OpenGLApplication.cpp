@@ -1,7 +1,7 @@
 #include <iostream>
 #include <tchar.h>
 #include "OpenGLApplication.hpp"
-#include "OpenGL/OpenGLGraphicsManager.hpp"
+#include "OpenGLGraphicsManager.hpp"
 #include "glad/glad_wgl.h"
 
 using namespace My;

@@ -1,3 +1,4 @@
+add_subdirectory(Interface)
 add_subdirectory(Common)
 add_subdirectory(GeomMath)
 add_subdirectory(Geometries)

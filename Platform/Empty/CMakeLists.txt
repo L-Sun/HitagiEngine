@@ -1,8 +1,6 @@
-add_library(PlatformInterfaceEmpty 
-                EmptyApplication.cpp
-)
-add_library(MyGameEngineEmpty EmptyApplicationConfig.cpp)
+
+add_library(MyGameEngineEmpty EmptyApplication.cpp EmptyApplicationConfig.cpp)
 target_link_libraries(MyGameEngineEmpty
-            Common 
-            PlatformInterfaceEmpty
+    PRIVATE
+        Common
 )

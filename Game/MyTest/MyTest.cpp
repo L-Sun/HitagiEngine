@@ -4,7 +4,7 @@
 #include "DebugManager.hpp"
 #include <chrono>
 #include <thread>
-#include "My/MyPhysicsManager.hpp"
+#include "MyPhysicsManager.hpp"
 
 using namespace My;
 

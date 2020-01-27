@@ -1,5 +1,4 @@
 #pragma once
-#include "portable.hpp"
 #include "aabb.hpp"
 
 namespace My {

@@ -5,12 +5,10 @@ add_test(NAME TEST_AssetLoader COMMAND AssetLoaderTest)
 
 add_executable(OgexParserTest OgexParserTest.cpp)
 target_link_libraries(OgexParserTest Common)
-__add_xg_platform_dependencies(OgexParserTest)
 add_test(NAME TEST_OgexParser COMMAND OgexParserTest)
 
 # add_executable(SceneObjectTest SceneObjectTest.cpp)
 # target_link_libraries(SceneObjectTest Common ${XG_LIBRARY})
-# __add_xg_platform_dependencies(SceneObjectTest)
 # add_test(NAME TEST_SceneObject COMMAND SceneObjectTest)
 
 add_executable(SceneLoadingTest SceneLoadingTest.cpp)
@@ -31,7 +29,7 @@ target_link_libraries(MathTest GeomMath ${GTEST_BOTH_LIBRARIES})
 gtest_add_tests(TARGET MathTest)
 
 add_executable(ColorSpaceConversionTest ColorSpaceConversionTest.cpp)
-target_link_libraries(ColorSpaceConversionTest GeomMath ${GTEST_BOTH_LIBRARIES})
+target_link_libraries(ColorSpaceConversionTest Common ${GTEST_BOTH_LIBRARIES})
 gtest_add_tests(TARGET ColorSpaceConversionTest)
 
 add_executable(BulletTest BulletTest.cpp)
@@ -39,5 +37,5 @@ target_link_libraries(BulletTest ${BULLET_DYNAMICS_LIBRARY} ${BULLET_COLLISION_L
 add_test(NAME TEST_Bullet COMMAND BulletTest)
 
 add_executable(TimerTest TimerTest.cpp)
-target_link_libraries(TimerTest Common  ${GTEST_BOTH_LIBRARIES})
+target_link_libraries(TimerTest Common ${GTEST_BOTH_LIBRARIES})
 gtest_add_tests(TARGET TimerTest)

@@ -1,6 +1,6 @@
 #include "GfxConfiguration.h"
 #include "MyTest.hpp"
-#include "My/MyPhysicsManager.hpp"
+#include "MyPhysicsManager.hpp"
 
 namespace My {
 // clang-format off

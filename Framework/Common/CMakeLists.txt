@@ -1,27 +1,24 @@
 add_library(Common
-Allocator.cpp
-AssetLoader.cpp
-BaseApplication.cpp
-GraphicsManager.cpp
-MemoryManager.cpp
-Scene.cpp
-SceneObject.cpp
-SceneManager.cpp
-InputManager.cpp
-DebugManager.cpp
-GameLogic.cpp
-Image.cpp
-Timer.cpp
-main.cpp
+    Allocator.cpp
+    AssetLoader.cpp
+    BaseApplication.cpp
+    GraphicsManager.cpp
+    MemoryManager.cpp
+    Scene.cpp
+    SceneObject.cpp
+    SceneManager.cpp
+    InputManager.cpp
+    DebugManager.cpp
+    GameLogic.cpp
+    Timer.cpp
+    main.cpp
 )
 
-target_link_libraries(Common 
+target_link_libraries(Common
+    PUBLIC
+        Interface
         GeomMath
-        ${OPENGEX_LIBRARY} 
-        ${OPENDDL_LIBRARY} 
-        ${XG_LIBRARY} 
-        ${ZLIB_LIBRARY}
-        ${TURBO_JPEG_LIBRARY}
+        Parser
 )
 
-__add_xg_platform_dependencies(Common)
+target_include_directories(Common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
