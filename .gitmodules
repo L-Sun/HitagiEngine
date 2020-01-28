@@ -1,18 +1,9 @@
-[submodule "crossguid"]
-	path = External/src/crossguid
-	url = https://github.com/netwarm007/crossguid.git
 [submodule "opengex"]
 	path = External/src/opengex
 	url = https://github.com/netwarm007/OpenGEX.git
 [submodule "ispc"]
 	path = External/src/ispc
 	url = https://github.com/ispc/ispc.git
-[submodule "glad"]
-	path = External/src/glad
-	url = https://github.com/L-Sun/glad.git
-[submodule "zlib"]
-	path = External/src/zlib
-	url = https://github.com/L-Sun/zlib.git
 [submodule "bullet3"]
 	path = External/src/bullet3
 	url = https://github.com/bulletphysics/bullet3.git
