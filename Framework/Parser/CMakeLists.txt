@@ -1,11 +1,13 @@
 add_library(Image Image.cpp)
 add_library(Parser INTERFACE)
-target_include_directories(Parser INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(Parser INTERFACE
-    Image
-    GeomMath
-    ${TURBO_JPEG_LIBRARY}
-    ${OPENGEX_LIBRARY} 
-    ${OPENDDL_LIBRARY}
-    ZLIB::ZLIB
+
+target_link_libraries(Parser
+    INTERFACE
+        Image
+        GeomMath
+        ${OPENGEX_LIBRARY} 
+        ${OPENDDL_LIBRARY}
+        ${JPEG_LIBRARIES}
+        png
 )
+target_include_directories(Parser INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} ${JPEG_INCLUDE_DIR})
