@@ -18,6 +18,6 @@ else(ANDROID)
 endif(ANDROID)
 
 target_link_libraries(MyTest 
-    MyGameEngineD3D12
+    MyGameEngineOpenGL
     MyPhysics
 )

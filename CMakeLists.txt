@@ -9,6 +9,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
 find_package(OpenGL REQUIRED)
 find_package(crossguid CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(glad CONFIG REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 
 
 
@@ -18,7 +20,6 @@ ELSEIF(${WIN32})
     set(TARGET_PLATFORM "Windows")
 ENDIF(${UNIX})
 
-include_directories("${PROJECT_SOURCE_DIR}/External/src/glad/include")
 include_directories("${PROJECT_SOURCE_DIR}/Platform/${TARGET_PLATFORM}")
 set(EXTERNAL_ROOT ${PROJECT_SOURCE_DIR}/External/${TARGET_PLATFORM})
 include_directories("${EXTERNAL_ROOT}/include")

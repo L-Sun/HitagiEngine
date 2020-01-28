@@ -1,6 +1,5 @@
-#include <tchar.h>
-#include "OpenGLApplication.hpp"
 #include "OpenGLGraphicsManager.hpp"
+#include "OpenGLApplication.hpp"
 
 namespace My {
 extern GfxConfiguration          config;

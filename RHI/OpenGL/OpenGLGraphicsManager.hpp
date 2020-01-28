@@ -4,12 +4,12 @@
 #include <string>
 #include <memory>
 #include <map>
+#include <glad/glad.h>
 
 #include "GraphicsManager.hpp"
 #include "SceneObject.hpp"
 #include "SceneNode.hpp"
 #include "geommath.hpp"
-#include "glad/glad.h"
 
 namespace My {
 class OpenGLGraphicsManager : public GraphicsManager {
