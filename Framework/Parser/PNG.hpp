@@ -77,11 +77,55 @@ public:
         img.data_size = img.pitch * img.Height;
         img.data      = g_pMemoryManager->Allocate(img.data_size);
 
-        unsigned   row_bytes = png_get_rowbytes(png_ptr, info_ptr);
-        png_bytepp rows      = png_get_rows(png_ptr, info_ptr);
-        auto       p         = reinterpret_cast<uint8_t*>(img.data);
-        for (int i = 0; i < img.Height; ++i) {
-            memcpy(p + (row_bytes * i), rows[i], row_bytes);
+        png_bytepp rows = png_get_rows(png_ptr, info_ptr);
+        auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img.data);
+
+        switch (png_get_color_type(png_ptr, info_ptr)) {
+            case PNG_COLOR_TYPE_GRAY: {
+                for (int i = 0; i < img.Height; i++) {
+                    for (int j = 0; j < img.Width; j++) {
+                        p[j].r = rows[i][j];
+                        p[j].g = rows[i][j];
+                        p[j].b = rows[i][j];
+                        p[j].a = 255;
+                    }
+                    // to next line
+                    p += img.Width;
+                }
+            } break;
+            case PNG_COLOR_TYPE_GRAY_ALPHA: {
+                for (int i = 0; i < img.Height; i++) {
+                    for (int j = 0; j < img.Width; j++) {
+                        p[j].r = rows[i][2 * j + 0];
+                        p[j].g = rows[i][2 * j + 0];
+                        p[j].b = rows[i][2 * j + 0];
+                        p[j].a = rows[i][2 * j + 1];
+                    }
+                    // to next line
+                    p += img.Width;
+                }
+            } break;
+            case PNG_COLOR_TYPE_RGB: {
+                for (int i = 0; i < img.Height; i++) {
+                    for (int j = 0; j < img.Width; j++) {
+                        p[j].r = rows[i][3 * j + 0];
+                        p[j].g = rows[i][3 * j + 1];
+                        p[j].b = rows[i][3 * j + 2];
+                        p[j].a = 255;
+                    }
+                    // to next line
+                    p += img.Width;
+                }
+            } break;
+            case PNG_COLOR_TYPE_RGBA: {
+                for (int i = 0; i < img.Height; i++) {
+                    memcpy(p[i * img.Width], rows[i], img.pitch);
+                }
+            } break;
+            default:
+                std::cerr << "[libpng] Unsupport color type." << std::endl;
+                return img;
+                break;
         }
 
         png_destroy_read_struct(&png_ptr, &info_ptr, 0);
