@@ -1,9 +1,7 @@
-add_library(Image Image.cpp)
 add_library(Parser INTERFACE)
 
 target_link_libraries(Parser
     INTERFACE
-        Image
         GeomMath
         ${OPENGEX_LIBRARY} 
         ${OPENDDL_LIBRARY}

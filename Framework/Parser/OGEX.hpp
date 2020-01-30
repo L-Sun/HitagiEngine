@@ -567,9 +567,12 @@ public:
     OgexParser()          = default;
     virtual ~OgexParser() = default;
 
-    virtual std::unique_ptr<Scene> Parse(const std::string& buf) {
+    virtual std::unique_ptr<Scene> Parse(const std::string& filePath) {
         std::unique_ptr<Scene>       pScene(new Scene("OGEX Scene"));
         OGEX::OpenGexDataDescription openGexDataDescription;
+
+        std::string buf =
+            g_pAssetLoader->SyncOpenAndReadTextFileToString(filePath);
 
         ODDL::DataResult result =
             openGexDataDescription.ProcessText(buf.c_str());

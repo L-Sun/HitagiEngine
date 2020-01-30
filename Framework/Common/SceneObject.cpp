@@ -201,7 +201,7 @@ void SceneObjectTexture::LoadTexture() {
         Buffer      buf = g_pAssetLoader->SyncOpenAndReadBinary(m_Name);
         std::string ext = m_Name.substr(m_Name.find_last_of("."));
         if (ext == ".jpg" || ext == ".jpeg") {
-            JfifParser jfif_parser;
+            JpegParser jfif_parser;
             m_pImage = std::make_shared<Image>(jfif_parser.Parse(buf));
         } else if (ext == ".png") {
             PngParser png_parser;

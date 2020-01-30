@@ -23,10 +23,8 @@ int main(int argc, char const* argv[]) {
     g_pMemoryManager->Initialize();
     g_pAssetLoader->Initialize();
 
-    std::string ogex_text =
-        g_pAssetLoader->SyncOpenAndReadTextFileToString("Scene/cube.ogex");
     OgexParser*            ogex_parser = new OgexParser();
-    std::unique_ptr<Scene> pScene      = ogex_parser->Parse(ogex_text);
+    std::unique_ptr<Scene> pScene      = ogex_parser->Parse("Scene/cube.ogex");
 
     delete ogex_parser;
     std::cout << "Dump of Scene Graph" << std::endl;

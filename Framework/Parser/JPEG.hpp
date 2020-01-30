@@ -10,7 +10,7 @@
 
 namespace My {
 
-class JfifParser : public ImageParser {
+class JpegParser : public ImageParser {
 public:
     virtual Image Parse(const Buffer& buf) {
         jpeg_decompress_struct cinfo;

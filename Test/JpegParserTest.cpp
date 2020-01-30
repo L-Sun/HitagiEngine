@@ -27,7 +27,7 @@ int main(int argc, char const* argv[]) {
             buf = g_pAssetLoader->SyncOpenAndReadBinary("Textures/b.jpg");
         }
 
-        JfifParser jfif_parser;
+        JpegParser jfif_parser;
 
         Image image = jfif_parser.Parse(buf);
         std::cout << image;

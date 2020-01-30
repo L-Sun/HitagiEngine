@@ -1,4 +1,5 @@
 #include <fbxsdk.h>
+#include "AssetLoader.hpp"
 
 /* Tab character ("\t") counter */
 int numTabs = 0;
@@ -110,8 +111,17 @@ void PrintNode(FbxNode* pNode) {
  * Main function - loads the hard-coded fbx file,
  * and prints its contents in an xml format to stdout.
  */
+
+namespace My {
+std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
+}  // namespace My
+
+using namespace My;
+
 int main(int argc, char** argv) {
     // Change the following filename to a suitable filename value.
+
     const char* lFilename = "E:/workspace/cpp/game_engine/Asset/Scene/test.fbx";
 
     // Initialize the SDK manager. This object handles all our memory

@@ -24,8 +24,8 @@ ELSEIF(${WIN32})
 ENDIF(${UNIX})
 
 include_directories("${PROJECT_SOURCE_DIR}/Platform/${TARGET_PLATFORM}")
+include_directories("${PROJECT_SOURCE_DIR}/External/include")
 set(EXTERNAL_ROOT ${PROJECT_SOURCE_DIR}/External/${TARGET_PLATFORM})
-include_directories("${EXTERNAL_ROOT}/include")
 set(EXTERNAL_LIBRARY_PATH ${EXTERNAL_ROOT}/lib)
 
 
