@@ -14,7 +14,7 @@ const char DEBUG_VS_SHADER_SOURCE_FILE[] = "Shaders/debug_vs.glsl";
 const char DEBUG_PS_SHADER_SOURCE_FILE[] = "Shaders/debug_ps.glsl";
 #endif
 
-using namespace My;
+namespace My {
 
 static void OutputShaderErrorMessage(unsigned int shaderId,
                                      const char*  shaderFileName) {
@@ -750,3 +750,4 @@ void OpenGLGraphicsManager::ClearDebugBuffers() {
     m_DebugBuffers.clear();
 }
 #endif
+}  // namespace My
