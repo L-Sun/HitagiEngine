@@ -1,6 +1,3 @@
 /.vscode
-
 /build
-
-/Framework/GeomMath/include/*.h
-
+/Asset/Texutres
