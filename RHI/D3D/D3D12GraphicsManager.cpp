@@ -853,6 +853,7 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
     dbc.node->AppendTransform(
         std::make_shared<SceneObjectTransform>(transform));
     dbc.material       = nullptr;
+    dbc.material_index = 0;
     dbc.numFramesDirty = m_nFrameResourceSize;
     dbc.constantBufferIndex =
         m_drawBatchContext.size() + m_debugDrawBatchContext.size();
@@ -895,6 +896,7 @@ void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
     dbc.node->AppendTransform(
         std::make_shared<SceneObjectTransform>(transform));
     dbc.material       = nullptr;
+    dbc.material_index = 0;
     dbc.numFramesDirty = m_nFrameResourceSize;
     dbc.constantBufferIndex =
         m_drawBatchContext.size() + m_debugDrawBatchContext.size();
