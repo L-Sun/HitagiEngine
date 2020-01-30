@@ -181,8 +181,9 @@ bool OpenGLGraphicsManager::SetPerFrameShaderParameters(GLuint shader) {
     return true;
 }
 
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
-    GLuint shader, std::string_view paramName, const mat4& param) {
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
+                                                        const char* paramName,
+                                                        const mat4& param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
@@ -191,8 +192,9 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
     glUniformMatrix4fv(location, 1, false, param);
     return true;
 }
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
-    GLuint shader, std::string_view paramName, const vec3& param) {
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
+                                                        const char* paramName,
+                                                        const vec3& param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
@@ -201,8 +203,9 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
     glUniform3fv(location, 1, param);
     return true;
 }
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
-    GLuint shader, std::string_view paramName, const float param) {
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
+                                                        const char* paramName,
+                                                        const float param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
@@ -212,7 +215,7 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
     return true;
 }
 bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
-    GLuint shader, std::string_view paramName, const GLint texture_index) {
+    GLuint shader, const char* paramName, const GLint texture_index) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
