@@ -15,7 +15,7 @@ void SceneManager::Finalize() {}
 
 void SceneManager::Tick() {}
 
-int SceneManager::LoadScene(const char* scene_file_name) {
+int SceneManager::LoadScene(std::string_view scene_file_name) {
     if (LoadOgexScene(scene_file_name)) {
         m_pScene->LoadResource();
         m_bDirtyFlag = true;
@@ -27,7 +27,7 @@ int SceneManager::LoadScene(const char* scene_file_name) {
 
 void SceneManager::ResetScene() { m_bDirtyFlag = true; }
 
-bool SceneManager::LoadOgexScene(const char* ogex_scene_file_name) {
+bool SceneManager::LoadOgexScene(std::string_view ogex_scene_file_name) {
     OgexParser ogex_parser;
     m_pScene = ogex_parser.Parse(ogex_scene_file_name);
     if (!m_pScene) {
@@ -49,7 +49,7 @@ void SceneManager::NotifySceneIsRenderingQueued() { m_bDirtyFlag = false; }
 void SceneManager::NotifySceneIsPhysicalSimulationQueued() {}
 
 std::weak_ptr<SceneGeometryNode> SceneManager::GetSceneGeometryNode(
-    std::string name) {
+    const std::string& name) {
     auto it = m_pScene->LUT_Name_GeometryNode.find(name);
     if (it != m_pScene->LUT_Name_GeometryNode.end())
         return it->second;
@@ -57,6 +57,6 @@ std::weak_ptr<SceneGeometryNode> SceneManager::GetSceneGeometryNode(
         return weak_ptr<SceneGeometryNode>();
 }
 std::weak_ptr<SceneObjectGeometry> SceneManager::GetSceneGeometryObject(
-    std::string key) {
+    const std::string& key) {
     return m_pScene->Geometries.find(key)->second;
 }

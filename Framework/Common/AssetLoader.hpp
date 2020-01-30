@@ -18,13 +18,13 @@ public:
 
     enum struct AssetSeekBase { MY_SEEK_SET, MY_SEEK_CUR, MY_SEEK_END };
 
-    bool AddSearchPath(const std::string& path);
-    bool RemoveSearchPath(const std::string& path);
-    bool FileExists(const std::string& filePath);
+    bool AddSearchPath(std::string_view path);
+    bool RemoveSearchPath(std::string_view path);
+    bool FileExists(std::string_view filePath);
 
-    std::fstream& OpenFile(const std::string& name, std::fstream& fstrm);
+    std::fstream& OpenFile(std::string_view name, std::fstream& fstrm);
 
-    Buffer SyncOpenAndReadBinary(const std::string& filePath);
+    Buffer SyncOpenAndReadBinary(std::string_view filePath);
 
     size_t SyncRead(std::fstream& fstrm, Buffer& buf);
 
@@ -35,7 +35,7 @@ public:
     std::istream& Seek(std::fstream& fstrm, long offset, AssetSeekBase where);
 
     inline std::string SyncOpenAndReadTextFileToString(
-        const std::string fileName) {
+        std::string_view fileName) {
         std::string result;
 
         Buffer buffer  = SyncOpenAndReadBinary(fileName);

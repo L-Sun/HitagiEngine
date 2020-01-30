@@ -8,22 +8,23 @@ void AssetLoader::Finalize() { return m_strSearchPath.clear(); }
 
 void AssetLoader::Tick() {}
 
-bool AssetLoader::AddSearchPath(const std::string& path) {
+bool AssetLoader::AddSearchPath(std::string_view path) {
     for (auto src : m_strSearchPath)
         if (src == path) return true;
-    m_strSearchPath.push_back(path);
+    m_strSearchPath.push_back(std::string(path));
     return true;
 }
 
-bool AssetLoader::RemoveSearchPath(const std::string& path) {
+bool AssetLoader::RemoveSearchPath(std::string_view path) {
     for (auto src = m_strSearchPath.begin(); src != m_strSearchPath.end();
          src++)
         if (*src == path) m_strSearchPath.erase(src);
     return true;
 }
 
-bool AssetLoader::FileExists(const std::string& filePath) {
-    std::fstream fstrm(filePath);
+bool AssetLoader::FileExists(std::string_view filePath) {
+    std::string  _filePath(filePath);
+    std::fstream fstrm(_filePath);
     if (fstrm) {
         CloseFile(fstrm);
         return true;
@@ -31,8 +32,8 @@ bool AssetLoader::FileExists(const std::string& filePath) {
     return false;
 }
 
-std::fstream& AssetLoader::OpenFile(const std::string& name,
-                                    std::fstream&      fstrm) {
+std::fstream& AssetLoader::OpenFile(std::string_view name,
+                                    std::fstream&    fstrm) {
     std::string upPath;
     std::string fullPath;
 
@@ -62,7 +63,7 @@ std::fstream& AssetLoader::OpenFile(const std::string& name,
     return fstrm;
 }
 
-Buffer AssetLoader::SyncOpenAndReadBinary(const std::string& filePath) {
+Buffer AssetLoader::SyncOpenAndReadBinary(std::string_view filePath) {
     std::fstream fstrm;
     OpenFile(filePath, fstrm);
     Buffer* pBuff = nullptr;

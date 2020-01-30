@@ -20,7 +20,7 @@ protected:
 
 public:
     BaseSceneNode() {}
-    BaseSceneNode(const std::string& name) { m_strName = name; }
+    BaseSceneNode(std::string_view name) { m_strName = name; }
 
     virtual ~BaseSceneNode() {}
 
@@ -89,7 +89,7 @@ protected:
 public:
     using BaseSceneNode::BaseSceneNode;
     SceneNode() = default;
-    void AddSceneObjectRef(const std::string& key) { m_keySceneObject = key; }
+    void AddSceneObjectRef(std::string_view key) { m_keySceneObject = key; }
     const std::string& GetSceneObjectRef() { return m_keySceneObject; }
 };
 
@@ -121,8 +121,10 @@ public:
     const bool MotionBlur() { return m_bMotionBlur; }
 
     using SceneNode::AddSceneObjectRef;
-    void AddMaterialRef(const std::string& key) { m_Materials.push_back(key); }
-    void AddMaterialRef(const std::string&& key) {
+    void AddMaterialRef(std::string_view key) {
+        m_Materials.push_back(std::string(key));
+    }
+    void AddMaterialRef(std::string&& key) {
         m_Materials.push_back(std::move(key));
     }
     std::string GetMaterialRef(const size_t index) {

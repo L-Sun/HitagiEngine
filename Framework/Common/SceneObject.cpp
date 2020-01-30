@@ -237,20 +237,18 @@ void SceneObjectMaterial::SetName(const std::string& name) { m_Name = name; }
 void SceneObjectMaterial::SetName(std::string&& name) {
     m_Name = std::move(name);
 }
-void SceneObjectMaterial::SetColor(const std::string& attrib,
-                                   const vec4&        color) {
+void SceneObjectMaterial::SetColor(std::string_view attrib, const vec4& color) {
     if (attrib == "diffuse") m_BaseColor = Color(color);
     if (attrib == "specular") m_Specular = Color(color);
     if (attrib == "emission") m_Emission = Color(color);
     if (attrib == "opacity") m_Opacity = Color(color);
     if (attrib == "transparency") m_Transparency = Color(color);
 }
-void SceneObjectMaterial::SetParam(const std::string& attrib,
-                                   const float        param) {
+void SceneObjectMaterial::SetParam(std::string_view attrib, const float param) {
     if (attrib == "specular_power") m_SpecularPower = Parameter(param);
 }
-void SceneObjectMaterial::SetTexture(const std::string& attrib,
-                                     const std::string& textureName) {
+void SceneObjectMaterial::SetTexture(std::string_view attrib,
+                                     std::string_view textureName) {
     if (attrib == "diffuse")
         m_BaseColor = std::make_shared<SceneObjectTexture>(textureName);
     if (attrib == "specular")
@@ -267,7 +265,7 @@ void SceneObjectMaterial::SetTexture(const std::string& attrib,
         m_Normal = std::make_shared<SceneObjectTexture>(textureName);
 }
 void SceneObjectMaterial::SetTexture(
-    const std::string&                         attrib,
+    std::string_view                           attrib,
     const std::shared_ptr<SceneObjectTexture>& texture) {
     if (attrib == "diffuse") m_BaseColor = texture;
     if (attrib == "specular") m_Specular = texture;
@@ -322,18 +320,18 @@ BoundingBox SceneObjectGeometry::GetBoundingBox() const {
 
 // Class SceneObjectLight
 void SceneObjectLight::SetIfCastShadow(bool shadow) { m_bCastShadows = shadow; }
-void SceneObjectLight::SetColor(std::string& attrib, vec4& color) {
+void SceneObjectLight::SetColor(std::string_view attrib, vec4& color) {
     if (attrib == "light") {
         m_LightColor = Color(color);
     }
 }
-void SceneObjectLight::SetParam(std::string& attrib, float param) {
+void SceneObjectLight::SetParam(std::string_view attrib, float param) {
     if (attrib == "intensity") {
         m_fIntensity = param;
     }
 }
-void SceneObjectLight::SetTexture(std::string& attrib,
-                                  std::string& textureName) {
+void SceneObjectLight::SetTexture(std::string_view attrib,
+                                  std::string_view textureName) {
     if (attrib == "projection") {
         m_strTexture = textureName;
     }
@@ -349,17 +347,17 @@ float        SceneObjectLight::GetIntensity() { return m_fIntensity; }
 // Class SceneObjectInfiniteLight
 
 // Class SceneObjectCamera
-void SceneObjectCamera::SetColor(std::string& attrib, vec4& color) {
+void SceneObjectCamera::SetColor(std::string_view attrib, vec4& color) {
     // TODO: extension
 }
-void SceneObjectCamera::SetParam(std::string& attrib, float param) {
+void SceneObjectCamera::SetParam(std::string_view attrib, float param) {
     if (attrib == "near")
         m_fNearClipDistance = param;
     else if (attrib == "far")
         m_fFarClipDistance = param;
 }
-void SceneObjectCamera::SetTexture(std::string& attrib,
-                                   std::string& textureName) {
+void SceneObjectCamera::SetTexture(std::string_view attrib,
+                                   std::string_view textureName) {
     // TODO: extension
 }
 float SceneObjectCamera::GetNearClipDistance() const {
@@ -371,7 +369,8 @@ float SceneObjectCamera::GetFarClipDistance() const {
 
 // Class SceneObjectOrthogonalCamera
 // Class SceneObjectPerspectiveCamera
-void SceneObjectPerspectiveCamera::SetParam(std::string& attrib, float param) {
+void SceneObjectPerspectiveCamera::SetParam(std::string_view attrib,
+                                            float            param) {
     // TODO: handle fovs, fovy
     if (attrib == "fov") {
         m_fFov = param;

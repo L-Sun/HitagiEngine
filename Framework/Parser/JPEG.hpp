@@ -1,12 +1,8 @@
 #pragma once
 #include <iostream>
 #include <vector>
-#include <string>
 #include <jpeglib.h>
-#include "portable.hpp"
 #include "ImageParser.hpp"
-#include "HuffmanTree.hpp"
-#include "ColorSpaceConversion.hpp"
 
 namespace My {
 

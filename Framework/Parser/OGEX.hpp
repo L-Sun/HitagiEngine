@@ -567,7 +567,7 @@ public:
     OgexParser()          = default;
     virtual ~OgexParser() = default;
 
-    virtual std::unique_ptr<Scene> Parse(const std::string& filePath) {
+    virtual std::unique_ptr<Scene> Parse(std::string_view filePath) {
         std::unique_ptr<Scene>       pScene(new Scene("OGEX Scene"));
         OGEX::OpenGexDataDescription openGexDataDescription;
 

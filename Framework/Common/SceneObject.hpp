@@ -225,7 +225,7 @@ protected:
 public:
     SceneObjectTexture()
         : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(0) {}
-    SceneObjectTexture(const std::string& name)
+    SceneObjectTexture(std::string_view name)
         : BaseSceneObject(SceneObjectType::kTEXTURE),
           m_nTexCoordIndex(0),
           m_Name(name) {}
@@ -326,10 +326,10 @@ public:
     const Parameter&   GetSpecularPower() const;
     void               SetName(const std::string& name);
     void               SetName(std::string&& name);
-    void               SetColor(const std::string& attrib, const vec4& color);
-    void               SetParam(const std::string& attrib, const float param);
-    void SetTexture(const std::string& attrib, const std::string& textureName);
-    void SetTexture(const std::string&                         attrib,
+    void               SetColor(std::string_view attrib, const vec4& color);
+    void               SetParam(std::string_view attrib, const float param);
+    void SetTexture(std::string_view attrib, std::string_view textureName);
+    void SetTexture(std::string_view                           attrib,
                     const std::shared_ptr<SceneObjectTexture>& texture);
     void LoadTextures();
     friend std::ostream& operator<<(std::ostream&              out,
@@ -391,11 +391,11 @@ protected:
                                     const SceneObjectLight& obj);
 
 public:
-    void         SetIfCastShadow(bool shadow);
-    void         SetColor(std::string& attrib, vec4& color);
-    void         SetParam(std::string& attrib, float param);
-    void         SetTexture(std::string& attrib, std::string& textureName);
-    void         SetAttenuation(AttenFunc func);
+    void SetIfCastShadow(bool shadow);
+    void SetColor(std::string_view attrib, vec4& color);
+    void SetParam(std::string_view attrib, float param);
+    void SetTexture(std::string_view attrib, std::string_view textureName);
+    void SetAttenuation(AttenFunc func);
     const Color& GetColor();
     float        GetIntensity();
 };
@@ -447,9 +447,9 @@ protected:
                                     const SceneObjectCamera& obj);
 
 public:
-    void  SetColor(std::string& attrib, vec4& color);
-    void  SetParam(std::string& attrib, float param);
-    void  SetTexture(std::string& attrib, std::string& textureName);
+    void  SetColor(std::string_view attrib, vec4& color);
+    void  SetParam(std::string_view attrib, float param);
+    void  SetTexture(std::string_view attrib, std::string_view textureName);
     float GetNearClipDistance() const;
     float GetFarClipDistance() const;
 };
@@ -469,7 +469,7 @@ public:
     SceneObjectPerspectiveCamera(float fov = PI / 2.0)
         : SceneObjectCamera(), m_fFov(fov) {}
 
-    void                 SetParam(std::string& attrib, float param);
+    void                 SetParam(std::string_view attrib, float param);
     float                GetFov() const;
     friend std::ostream& operator<<(std::ostream&                       out,
                                     const SceneObjectPerspectiveCamera& obj);

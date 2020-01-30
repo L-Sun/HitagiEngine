@@ -28,7 +28,7 @@ public:
         m_pObjCBUploader->CopyData(index, objectConstants);
     }
 
-    void UpdateTexture(const std::string& name, void* data) {
+    void UpdateTexture(std::string_view name, void* data) {
         if (m_textures.find(name) != m_textures.end()) {
             ComPtr<ID3D12Resource>&    texture    = m_textures[name].texture;
             ComPtr<ID3D12Resource>&    uploadHeap = m_textures[name].uploadHeap;
