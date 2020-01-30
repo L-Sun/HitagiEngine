@@ -1,6 +1,4 @@
 /.vscode
-
 /build
-
-/Framework/GeomMath/include/*.h
-
+/Asset/Textures
+/Asset/Scene
