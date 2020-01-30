@@ -47,7 +47,7 @@ void GraphicsManager::UpdateConstants() {
 
 void GraphicsManager::InitConstants() {
     // Initialize the world/model matrix to the identity matrix.
-    m_frameConstants.m_worldMatrix = mat4(1.0f);
+    m_DrawFrameContext.worldMatrix = mat4(1.0f);
 }
 
 bool GraphicsManager::InitializeShaders() {
@@ -68,7 +68,7 @@ void GraphicsManager::CalculateCameraMatrix() {
     auto& scene       = g_pSceneManager->GetSceneForRendering();
     auto  pCameraNode = scene.GetFirstCameraNode();
 
-    mat4& viewMat = m_frameConstants.m_viewMatrix;
+    mat4& viewMat = m_DrawFrameContext.viewMatrix;
     if (pCameraNode) {
         viewMat = *pCameraNode->GetCalculatedTransform();
         viewMat = inverse(viewMat);
@@ -93,7 +93,7 @@ void GraphicsManager::CalculateCameraMatrix() {
     }
     const GfxConfiguration& conf = g_pApp->GetConfiguration();
     float screenAspect = (float)conf.screenWidth / (float)conf.screenHeight;
-    m_frameConstants.m_projectionMatrix = perspective(
+    m_DrawFrameContext.projectionMatrix = perspective(
         fieldOfView, screenAspect, nearClipDistance, farClipDistance);
 }
 
@@ -101,8 +101,8 @@ void GraphicsManager::CalculateLights() {
     auto& scene      = g_pSceneManager->GetSceneForRendering();
     auto  pLightNode = scene.GetFirstLightNode();
 
-    vec3& lightPos   = m_frameConstants.m_lightPosition;
-    vec4& lightColor = m_frameConstants.m_lightColor;
+    vec3& lightPos   = m_DrawFrameContext.lightPosition;
+    vec4& lightColor = m_DrawFrameContext.lightColor;
 
     if (pLightNode) {
         lightPos = vec3(0.0f);

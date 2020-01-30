@@ -1,7 +1,5 @@
 cbuffer FrameConstants : register(b0){
-    matrix worldMatrix;
-    matrix viewMatrix;
-    matrix projectionMatrix;
+    matrix WVP;
     float3 lightPosition;
     float4 lightColor;
 };
@@ -39,9 +37,10 @@ PSInput VSMain(VSInput input)
         {0.0f, 0.0f ,1.0f, 0.0f},
         {0.0f, 0.0f ,0.0f, 1.0f},
     };
-    matrix trans = mul(projectionMatrix, mul(viewMatrix, mul(worldMatrix, modelMatrix)));
-    output.position = mul(trans, float4(input.position, 1.0f));
-    output.normal = normalize(mul(trans, float4(input.normal, 0.0f)));
+
+    matrix MVP = mul(WVP, modelMatrix);
+    output.position = mul(MVP, float4(input.position, 1.0f));
+    output.normal = normalize(mul(MVP, float4(input.normal, 0.0f)));
     output.posInView = output.position.xyz;
     output.uv = input.uv;
     return  output;

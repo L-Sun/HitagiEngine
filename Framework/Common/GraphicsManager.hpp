@@ -31,12 +31,12 @@ protected:
     virtual void UpdateConstants();
     virtual void RenderBuffers();
 
-    struct FrameConstants {
-        mat4 m_worldMatrix;
-        mat4 m_viewMatrix;
-        mat4 m_projectionMatrix;
-        vec3 m_lightPosition;
-        vec4 m_lightColor;
+    struct DrawFrameContext {
+        mat4 worldMatrix;
+        mat4 viewMatrix;
+        mat4 projectionMatrix;
+        vec3 lightPosition;
+        vec4 lightColor;
     };
 
     struct DrawBatchContext {
@@ -44,7 +44,7 @@ protected:
         std::shared_ptr<SceneObjectMaterial> material;
     };
 
-    FrameConstants m_frameConstants;
+    DrawFrameContext m_DrawFrameContext;
 };
 
 extern std::unique_ptr<GraphicsManager> g_pGraphicsManager;

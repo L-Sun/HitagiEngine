@@ -432,10 +432,11 @@ void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
                 for (size_t i = 0; i < pMesh->GetVertexPropertiesCount(); i++) {
                     CreateVertexBuffer(pMesh->GetVertexPropertyArray(i), g);
                 }
-                // LOD
-                CreateIndexBuffer(pMesh->GetIndexArray(0), g);
+                for (size_t i = 0; i < pMesh->GetIndexGroupCount(); i++) {
+                    CreateIndexBuffer(pMesh->GetIndexArray(i), g);
+                    g->index_count.push_back(pMesh->GetIndexCount(i));
+                }
                 SetPrimitiveType(pMesh->GetPrimitiveType(), g);
-                g->count          = pMesh->GetIndexCount(0);
                 m_geometries[key] = g;
             }
         }
@@ -446,18 +447,22 @@ void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
     // Iniialize draw items
     for (auto&& [key, node] : m_pScene->GeometryNodes) {
         if (node->Visible()) {
-            D3D12DrawBatchContext dbc;
-            dbc.node           = node;
-            dbc.pGeometry      = m_geometries[node->GetSceneObjectRef()];
-            dbc.numFramesDirty = m_nFrameResourceSize;
-            dbc.material       = m_pScene->GetMaterial(node->GetMaterialRef(0));
-            dbc.constantBufferIndex = m_drawBatchContext.size();
-            if (dbc.material && dbc.material->GetBaseColor().ValueMap)
-                dbc.pPSO = m_pipelineState["texture"];
-            else
-                dbc.pPSO = m_pipelineState["no_texture"];
+            auto pGeometry = m_geometries[node->GetSceneObjectRef()];
+            for (size_t i = 0; i < pGeometry->index_count.size(); i++) {
+                D3D12DrawBatchContext dbc;
+                dbc.node           = node;
+                dbc.pGeometry      = pGeometry;
+                dbc.numFramesDirty = m_nFrameResourceSize;
+                dbc.material_index = i;
+                dbc.material = m_pScene->GetMaterial(node->GetMaterialRef(i));
+                dbc.constantBufferIndex = m_drawBatchContext.size();
 
-            m_drawBatchContext.push_back(dbc);
+                if (dbc.material && dbc.material->GetBaseColor().ValueMap)
+                    dbc.pPSO = m_pipelineState["texture"];
+                else
+                    dbc.pPSO = m_pipelineState["no_texture"];
+                m_drawBatchContext.push_back(dbc);
+            }
         }
     }
 
@@ -640,7 +645,13 @@ void D3D12GraphicsManager::UpdateConstants() {
     }
 
     // Update frame resource
-    currFR->UpdateFrameConstants(m_frameConstants);
+    FrameConstants fc;
+    fc.WVP = m_DrawFrameContext.projectionMatrix *
+             m_DrawFrameContext.viewMatrix * m_DrawFrameContext.worldMatrix;
+    fc.lightColor    = m_DrawFrameContext.lightColor;
+    fc.lightPosition = m_DrawFrameContext.lightPosition;
+
+    currFR->UpdateFrameConstants(fc);
     for (auto&& dbc : m_drawBatchContext) {
         if (dbc.node->Dirty()) {
             dbc.node->ClearDirty();
@@ -758,7 +769,7 @@ void D3D12GraphicsManager::DrawRenderItems(
             cmdList->IASetVertexBuffers(i, 1, &dbc.pGeometry->vbv[i]);
         }
 
-        cmdList->IASetIndexBuffer(&dbc.pGeometry->ibv[0]);
+        cmdList->IASetIndexBuffer(&dbc.pGeometry->ibv[dbc.material_index]);
 
         CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(
             m_pCbvSrvHeap->GetGPUDescriptorHandleForHeapStart(),
@@ -779,7 +790,8 @@ void D3D12GraphicsManager::DrawRenderItems(
             }
         }
         cmdList->IASetPrimitiveTopology(dbc.pGeometry->primitiveType);
-        cmdList->DrawIndexedInstanced(dbc.pGeometry->count, 1, 0, 0, 0);
+        cmdList->DrawIndexedInstanced(
+            dbc.pGeometry->index_count[dbc.material_index], 1, 0, 0, 0);
     }
 }
 
@@ -824,7 +836,7 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
         SceneObjectIndexArray index_array(0, 0, IndexDataType::kINT32,
                                           index.data(), index.size());
         CreateIndexBuffer(index_array, pGeometry);
-        pGeometry->count           = index.size();
+        pGeometry->index_count.push_back(index.size());
         m_geometries["debug_line"] = pGeometry;
     }
 
@@ -871,7 +883,7 @@ void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
         SceneObjectIndexArray index_array(0, 0, IndexDataType::kINT32,
                                           index.data(), index.size());
         CreateIndexBuffer(index_array, pGeometry);
-        pGeometry->count          = index.size();
+        pGeometry->index_count.push_back(index.size());
         m_geometries["debug_box"] = pGeometry;
     }
     mat4 transform = translate(scale(mat4(1.0f), 0.5 * (bbMax - bbMin)),

@@ -150,33 +150,33 @@ bool OpenGLGraphicsManager::SetPerFrameShaderParameters(GLuint shader) {
     if (location == -1) {
         return false;
     }
-    glUniformMatrix4fv(location, 1, false, m_frameConstants.m_worldMatrix);
+    glUniformMatrix4fv(location, 1, false, m_DrawFrameContext.worldMatrix);
 
     // Set view matrix
     location = glGetUniformLocation(shader, "viewMatrix");
     if (location == -1) {
         return false;
     }
-    glUniformMatrix4fv(location, 1, false, m_frameConstants.m_viewMatrix);
+    glUniformMatrix4fv(location, 1, false, m_DrawFrameContext.viewMatrix);
 
     // Set projection matrix
     location = glGetUniformLocation(shader, "projectionMatrix");
     if (location == -1) {
         return false;
     }
-    glUniformMatrix4fv(location, 1, false, m_frameConstants.m_projectionMatrix);
+    glUniformMatrix4fv(location, 1, false, m_DrawFrameContext.projectionMatrix);
 
     location = glGetUniformLocation(shader, "lightPosition");
     if (location == -1) {
         return false;
     }
-    glUniform3fv(location, 1, m_frameConstants.m_lightPosition);
+    glUniform3fv(location, 1, m_DrawFrameContext.lightPosition);
 
     location = glGetUniformLocation(shader, "lightColor");
     if (location == -1) {
         return false;
     }
-    glUniform4fv(location, 1, m_frameConstants.m_lightColor);
+    glUniform4fv(location, 1, m_DrawFrameContext.lightColor);
 
     return true;
 }

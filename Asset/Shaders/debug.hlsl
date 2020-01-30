@@ -1,16 +1,13 @@
 cbuffer FrameConstants : register(b0){
-    matrix worldMatrix;
-    matrix viewMatrix;
-    matrix projectionMatrix;
     float3 lightPosition;
     float4 lightColor;
 };
 
 cbuffer ObjectConstants : register(b1){
-    matrix modelMatrix;
-    float4  baseColor;
-    float4  specularColor;
-    float specularPower;
+    matrix MVP;
+    float4 baseColor;
+    float4 specularColor;
+    float  specularPower;
 };
 
 struct VSInput {
@@ -27,8 +24,7 @@ PSInput VSMain(VSInput input)
 {
     PSInput output;
 
-    matrix trans = mul(projectionMatrix, mul(viewMatrix, mul(worldMatrix, modelMatrix)));
-    output.position = mul(trans, float4(input.position, 1.0f));
+    output.position = mul(MVP, float4(input.position, 1.0f));
     output.color = input.color;
     return  output;
 }

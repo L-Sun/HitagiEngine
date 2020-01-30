@@ -31,6 +31,13 @@ protected:
     void RenderBuffers() final;
 
 private:
+    struct FrameConstants {
+        // WVP = Projection * View * World
+        mat4 WVP;
+        vec3 lightPosition;
+        vec4 lightColor;
+    };
+
     struct ObjectConstants {
         mat4  modelMatrix;
         vec4  baseColor;
@@ -39,7 +46,7 @@ private:
     };
 
     struct GeometryBuffer {
-        size_t                                count;
+        std::vector<size_t>                   index_count;
         std::vector<ComPtr<ID3D12Resource>>   vertexBuffer;
         std::vector<D3D12_VERTEX_BUFFER_VIEW> vbv;
         std::vector<ComPtr<ID3D12Resource>>   indexBuffer;
@@ -56,7 +63,8 @@ private:
     struct D3D12DrawBatchContext : public DrawBatchContext {
         //  Being set to -1 means it dose not use cbv
         std::shared_ptr<GeometryBuffer> pGeometry;
-        int                             constantBufferIndex;
+        size_t                          material_index;
+        size_t                          constantBufferIndex;
         unsigned                        numFramesDirty;
         ComPtr<ID3D12PipelineState>     pPSO;
     };
