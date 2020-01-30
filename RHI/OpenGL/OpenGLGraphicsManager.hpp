@@ -26,13 +26,13 @@ public:
 #endif
 
 private:
-    bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
+    bool SetPerBatchShaderParameters(GLuint shader, std::string_view paramName,
                                      const mat4& param);
-    bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
+    bool SetPerBatchShaderParameters(GLuint shader, std::string_view paramName,
                                      const vec3& param);
-    bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
+    bool SetPerBatchShaderParameters(GLuint shader, std::string_view paramName,
                                      const float param);
-    bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
+    bool SetPerBatchShaderParameters(GLuint shader, std::string_view paramName,
                                      const GLint texture_index);
     bool SetPerFrameShaderParameters(GLuint shader);
 

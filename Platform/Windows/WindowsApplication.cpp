@@ -30,7 +30,7 @@ void WindowsApplication::CreateMainWindow() {
     m_hWnd =
         CreateWindowEx(0,
                        _T("GameEngineFromScratch"),  // name of the window class
-                       m_Config.appName,             // title of the window
+                       m_Config.appName.c_str(),     // title of the window
                        WS_OVERLAPPEDWINDOW,          // window style
                        CW_USEDEFAULT,                // x-position of the window
                        CW_USEDEFAULT,                // y-position of the window

@@ -13,7 +13,7 @@ int GLFWApplication::Initialize() {
     }
 
     m_window = glfwCreateWindow(m_Config.screenWidth, m_Config.screenHeight,
-                                m_Config.appName, NULL, NULL);
+                                m_Config.appName.c_str(), NULL, NULL);
 
     if (m_window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;

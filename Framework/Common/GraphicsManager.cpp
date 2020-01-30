@@ -51,10 +51,7 @@ void GraphicsManager::InitConstants() {
 }
 
 bool GraphicsManager::InitializeShaders() {
-    std::cout
-        << "[RHI] GraphicsManager::InitializeShader(const char* vsFilename, "
-           "const char* fsFilename)"
-        << std::endl;
+    std::cout << "[RHI] GraphicsManager::InitializeShader()" << std::endl;
 
     return true;
 }

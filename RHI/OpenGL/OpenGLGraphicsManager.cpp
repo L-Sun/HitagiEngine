@@ -16,8 +16,8 @@ const char DEBUG_PS_SHADER_SOURCE_FILE[] = "Shaders/debug_ps.glsl";
 
 using namespace My;
 
-static void OutputShaderErrorMessage(unsigned int shaderId,
-                                     const char*  shaderFileName) {
+static void OutputShaderErrorMessage(unsigned int     shaderId,
+                                     std::string_view shaderFileName) {
     int           logSize, i;
     char*         infoLog;
     std::ofstream fout;
@@ -181,9 +181,8 @@ bool OpenGLGraphicsManager::SetPerFrameShaderParameters(GLuint shader) {
     return true;
 }
 
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
-                                                        const char* paramName,
-                                                        const mat4& param) {
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
+    GLuint shader, std::string_view paramName, const mat4& param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
@@ -192,9 +191,8 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
     glUniformMatrix4fv(location, 1, false, param);
     return true;
 }
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
-                                                        const char* paramName,
-                                                        const vec3& param) {
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
+    GLuint shader, std::string_view paramName, const vec3& param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
@@ -203,9 +201,8 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
     glUniform3fv(location, 1, param);
     return true;
 }
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
-                                                        const char* paramName,
-                                                        const float param) {
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
+    GLuint shader, std::string_view paramName, const float param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
@@ -215,7 +212,7 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
     return true;
 }
 bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
-    GLuint shader, const char* paramName, const GLint texture_index) {
+    GLuint shader, std::string_view paramName, const GLint texture_index) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
@@ -498,11 +495,11 @@ void OpenGLGraphicsManager::RenderBuffers() {
 }
 
 bool OpenGLGraphicsManager::InitializeShaders() {
-    const char* vsFilename = VS_SHADER_SOURCE_FILE;
-    const char* fsFilename = FS_SHADER_SOURCE_FILE;
+    const std::string vsFilename = VS_SHADER_SOURCE_FILE;
+    const std::string fsFilename = FS_SHADER_SOURCE_FILE;
 #ifdef DEBUG
-    const char* debugVsFilename = DEBUG_VS_SHADER_SOURCE_FILE;
-    const char* debugFsFilename = DEBUG_PS_SHADER_SOURCE_FILE;
+    const std::string debugVsFilename = DEBUG_VS_SHADER_SOURCE_FILE;
+    const std::string debugFsFilename = DEBUG_PS_SHADER_SOURCE_FILE;
 #endif
 
     std::string vertexShaderBuffer;

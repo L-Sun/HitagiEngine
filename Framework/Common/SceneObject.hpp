@@ -115,7 +115,7 @@ protected:
 
 public:
     SceneObjectVertexArray(
-        const char* attr = "", uint32_t morph_index = 0,
+        std::string_view attr = "", uint32_t morph_index = 0,
         const VertexDataType data_type = VertexDataType::kFLOAT3,
         const void* data = nullptr, size_t data_size = 0)
         : m_strAttribute(attr),

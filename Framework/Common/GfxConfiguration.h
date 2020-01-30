@@ -1,10 +1,9 @@
-#include <cstdint>
 #include <iostream>
 
 namespace My {
 
 struct GfxConfiguration {
-    GfxConfiguration(const char* appName = "MyGameEngine", uint32_t r = 8,
+    GfxConfiguration(std::string_view appName = "MyGameEngine", uint32_t r = 8,
                      uint32_t g = 8, uint32_t b = 8, uint32_t a = 8,
                      uint32_t d = 24, uint32_t s = 0, uint32_t msaa = 0,
                      uint32_t width = 1920, uint32_t height = 1080)
@@ -19,7 +18,7 @@ struct GfxConfiguration {
           screenWidth(width),
           screenHeight(height) {}
 
-    const char* appName;
+    std::string appName;
     uint32_t    redBits;
     uint32_t    greenBits;
     uint32_t    blueBits;
