@@ -3,7 +3,8 @@
 #include "D3D12GraphicsManager.hpp"
 #include "WindowsApplication.hpp"
 
-using namespace My;
+namespace My {
+
 int D3D12GraphicsManager::Initialize() {
     int result = GraphicsManager::Initialize();
     result     = InitD3D();
@@ -907,3 +908,5 @@ void D3D12GraphicsManager::ClearDebugBuffers() {
 }
 
 #endif  // DEBUG
+
+}  // namespace My
