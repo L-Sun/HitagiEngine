@@ -7,11 +7,11 @@
 #include "SceneManager.hpp"
 #include "IPhysicsManager.hpp"
 
-const char VS_SHADER_SOURCE_FILE[] = "Shaders/basic.vs";
-const char FS_SHADER_SOURCE_FILE[] = "Shaders/basic.fs";
+const char VS_SHADER_SOURCE_FILE[] = "Asset/Shaders/basic.vs";
+const char FS_SHADER_SOURCE_FILE[] = "Asset/Shaders/basic.fs";
 #ifdef DEBUG
-const char DEBUG_VS_SHADER_SOURCE_FILE[] = "Shaders/debug_vs.glsl";
-const char DEBUG_PS_SHADER_SOURCE_FILE[] = "Shaders/debug_ps.glsl";
+const char DEBUG_VS_SHADER_SOURCE_FILE[] = "Asset/Shaders/debug_vs.glsl";
+const char DEBUG_PS_SHADER_SOURCE_FILE[] = "Asset/Shaders/debug_ps.glsl";
 #endif
 
 namespace My {
@@ -228,8 +228,8 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
 }
 
 void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
-    for (auto _it : scene.GeometryNodes) {
-        auto pGeometryNode = _it.second;
+    for (auto [key, pNode] : scene.GeometryNodes) {
+        auto pGeometryNode = pNode;
         if (pGeometryNode->Visible()) {
             auto pGeometry =
                 scene.GetGeometry(pGeometryNode->GetSceneObjectRef());

@@ -338,9 +338,9 @@ void D3D12GraphicsManager::CreateSampler() {
 
 bool D3D12GraphicsManager::InitializeShaders() {
     Buffer v_shader =
-               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/simple_vs.cso"),
+               g_pAssetLoader->SyncOpenAndReadBinary("Asset/Shaders/simple_vs.cso"),
            p1_shader =
-               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/simple_ps_1.cso");
+               g_pAssetLoader->SyncOpenAndReadBinary("Asset/Shaders/simple_ps_1.cso");
 
     m_VS["simple"] =
         CD3DX12_SHADER_BYTECODE(v_shader.GetData(), v_shader.GetDataSize());
@@ -348,7 +348,7 @@ bool D3D12GraphicsManager::InitializeShaders() {
         CD3DX12_SHADER_BYTECODE(p1_shader.GetData(), p1_shader.GetDataSize());
 
     Buffer p2_shader =
-        g_pAssetLoader->SyncOpenAndReadBinary("Shaders/simple_ps_2.cso");
+        g_pAssetLoader->SyncOpenAndReadBinary("Asset/Shaders/simple_ps_2.cso");
     m_PS["texture"] =
         CD3DX12_SHADER_BYTECODE(p2_shader.GetData(), p2_shader.GetDataSize());
 
@@ -364,9 +364,9 @@ bool D3D12GraphicsManager::InitializeShaders() {
 
 #if defined(DEBUG)
     Buffer v_debugShader =
-               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/debug_vs.cso"),
+               g_pAssetLoader->SyncOpenAndReadBinary("Asset/Shaders/debug_vs.cso"),
            p_debugShader =
-               g_pAssetLoader->SyncOpenAndReadBinary("Shaders/debug_ps.cso");
+               g_pAssetLoader->SyncOpenAndReadBinary("Asset/Shaders/debug_ps.cso");
     m_VS["debug"] = CD3DX12_SHADER_BYTECODE(v_debugShader.GetData(),
                                             v_debugShader.GetDataSize());
     m_PS["debug"] = CD3DX12_SHADER_BYTECODE(p_debugShader.GetData(),

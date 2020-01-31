@@ -95,20 +95,18 @@ void GraphicsManager::CalculateCameraMatrix() {
 }
 
 void GraphicsManager::CalculateLights() {
-    auto& scene      = g_pSceneManager->GetSceneForRendering();
-    auto  pLightNode = scene.GetFirstLightNode();
+    auto& scene = g_pSceneManager->GetSceneForRendering();
 
     vec3& lightPos   = m_DrawFrameContext.lightPosition;
     vec4& lightColor = m_DrawFrameContext.lightColor;
 
-    if (pLightNode) {
+    if (auto pLightNode = scene.GetFirstLightNode()) {
         lightPos = vec3(0.0f);
         auto _lightPos =
             (*pLightNode->GetCalculatedTransform()) * vec4(lightPos, 1.0f);
         lightPos = vec3(_lightPos);
 
-        auto pLight = scene.GetLight(pLightNode->GetSceneObjectRef());
-        if (pLight) {
+        if (auto pLight = scene.GetLight(pLightNode->GetSceneObjectRef())) {
             lightColor = pLight->GetColor().Value;
         }
     } else {

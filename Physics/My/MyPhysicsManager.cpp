@@ -72,8 +72,8 @@ void MyPhysicsManager::UpdateRigidBodyTransform(SceneGeometryNode& node) {
 }
 
 void MyPhysicsManager::DeleteRigidBody(SceneGeometryNode& node) {
-    RigidBody* rigidBody = reinterpret_cast<RigidBody*>(node.UnlinkRigidBody());
-    if (rigidBody) {
+    if (RigidBody* rigidBody =
+            reinterpret_cast<RigidBody*>(node.UnlinkRigidBody())) {
         delete rigidBody;
     }
 }
@@ -82,8 +82,8 @@ int MyPhysicsManager::CreateRigidBodies() {
     auto& scene = g_pSceneManager->GetSceneForPhysicsSimulation();
     // Geometries
 
-    for (auto _it : scene.GeometryNodes) {
-        auto pGeometryNode = _it.second;
+    for (auto [key, pNode] : scene.GeometryNodes) {
+        auto pGeometryNode = pNode;
         auto pGeometry = scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
         assert(pGeometry);
         CreateRigidBody(*pGeometryNode, *pGeometry);
@@ -94,8 +94,8 @@ int MyPhysicsManager::CreateRigidBodies() {
 void MyPhysicsManager::ClearRigidBodies() {
     auto& scene = g_pSceneManager->GetSceneForPhysicsSimulation();
     // Geometries
-    for (auto _it : scene.GeometryNodes) {
-        auto pGeometryNode = _it.second;
+    for (auto [key, pNode] : scene.GeometryNodes) {
+        auto pGeometryNode = pNode;
         DeleteRigidBody(*pGeometryNode);
     }
 }
@@ -116,8 +116,8 @@ void MyPhysicsManager::DrawDebugInfo() {
 
     // Geometries
 
-    for (auto _it : scene.GeometryNodes) {
-        auto pGeometryNode = _it.second;
+    for (auto [key, pNode] : scene.GeometryNodes) {
+        auto pGeometryNode = pNode;
 
         if (void* rigidBody = pGeometryNode->RigidBody()) {
             RigidBody* _rigidBody   = reinterpret_cast<RigidBody*>(rigidBody);

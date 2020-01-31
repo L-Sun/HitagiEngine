@@ -7,8 +7,8 @@ int GLFWApplication::Initialize() {
     int result;
 
     glfwInit();
-    for (auto hint : WindowHintConfig) {
-        glfwWindowHint(hint.first, hint.second);
+    for (auto [hint, value] : WindowHintConfig) {
+        glfwWindowHint(hint, value);
     }
 
     m_window = glfwCreateWindow(m_Config.screenWidth, m_Config.screenHeight,

@@ -1,7 +1,6 @@
 #include <unordered_map>
 #include "geommath.hpp"
 #include "OpenGEX.h"
-#include "portable.hpp"
 #include "SceneParser.hpp"
 
 namespace My {
@@ -16,10 +15,10 @@ private:
             case OGEX::kStructureMetric: {
                 const OGEX::MetricStructure& _structure =
                     dynamic_cast<const OGEX::MetricStructure&>(structure);
-                auto                   _key = _structure.GetMetricKey();
+
                 const ODDL::Structure* sub_structure =
                     _structure.GetFirstCoreSubnode();
-                if (_key == "up") {
+                if (auto _key = _structure.GetMetricKey(); _key == "up") {
                     const ODDL::DataStructure<ODDL::StringDataType>*
                         dataStructure = static_cast<
                             const ODDL::DataStructure<ODDL::StringDataType>*>(
@@ -103,18 +102,17 @@ private:
                     const OGEX::ExtensionStructure* _extension =
                         dynamic_cast<const OGEX::ExtensionStructure*>(
                             extension);
-                    auto _appid = _extension->GetApplicationString();
-                    if (_appid == "MyGameEngine") {
-                        auto _type = _extension->GetTypeString();
-                        if (_type == "collision") {
+
+                    if (auto _appid = _extension->GetApplicationString();
+                        _appid == "MyGameEngine") {
+                        if (auto _type = _extension->GetTypeString();
+                            _type == "collision") {
                             const ODDL::Structure* sub_structure =
                                 _extension->GetFirstCoreSubnode();
                             const ODDL::DataStructure<ODDL::StringDataType>*
                                 dataStructure1 =
                                     static_cast<const ODDL::DataStructure<
                                         ODDL::StringDataType>*>(sub_structure);
-                            auto collision_type =
-                                dataStructure1->GetDataElement(0);
 
                             sub_structure = _extension->GetLastCoreSubnode();
                             const ODDL::DataStructure<ODDL::FloatDataType>*
@@ -125,7 +123,10 @@ private:
                                 dataStructure2->GetDataElementCount();
                             float* _data =
                                 (float*)&dataStructure2->GetDataElement(0);
-                            if (collision_type == "plane") {
+
+                            if (auto collision_type =
+                                    dataStructure1->GetDataElement(0);
+                                collision_type == "plane") {
                                 _object->SetCollisionType(
                                     SceneObjectCollisionType::kPLANE);
                                 _object->SetCollisionParameters(_data,
@@ -567,16 +568,13 @@ public:
     OgexParser()          = default;
     virtual ~OgexParser() = default;
 
-    virtual std::unique_ptr<Scene> Parse(std::string_view filePath) {
-        std::unique_ptr<Scene>       pScene(new Scene("OGEX Scene"));
+    virtual std::unique_ptr<Scene> Parse(const Buffer& buf) {
+        std::unique_ptr<Scene> pScene(new Scene("OGEX Scene"));
+        if (buf.GetDataSize() == 0) return nullptr;
+
         OGEX::OpenGexDataDescription openGexDataDescription;
-
-        std::string buf =
-            g_pAssetLoader->SyncOpenAndReadTextFileToString(filePath);
-
-        ODDL::DataResult result =
-            openGexDataDescription.ProcessText(buf.c_str());
-        if (result == ODDL::kDataOkay) {
+        const char* c_str = reinterpret_cast<const char*>(buf.GetData());
+        if (openGexDataDescription.ProcessText(c_str) == ODDL::kDataOkay) {
             const ODDL::Structure* structure =
                 openGexDataDescription.GetRootStructure()->GetFirstSubnode();
             while (structure) {

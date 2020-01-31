@@ -5,6 +5,6 @@
 namespace My {
 class SceneParser {
 public:
-    virtual std::unique_ptr<Scene> Parse(std::string_view filePath) = 0;
+    virtual std::unique_ptr<Scene> Parse(const Buffer& buf) = 0;
 };
 }  // namespace My

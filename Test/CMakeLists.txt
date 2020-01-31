@@ -23,15 +23,9 @@ add_executable(PngParserTest PngParserTest.cpp)
 target_link_libraries(PngParserTest PRIVATE SceneManager)
 add_test(NAME TEST_PngParser COMMAND PngParserTest)
 
-
 add_executable(MathTest MathTest.cpp)
 target_link_libraries(MathTest PRIVATE GeomMath GTest::gtest)
 add_test(NAME TEST_Math COMMAND MathTest)
-
-add_executable(ColorSpaceConversionTest ColorSpaceConversionTest.cpp)
-target_link_libraries(ColorSpaceConversionTest PRIVATE ColorSpaceConversion GTest::gtest)
-add_test(NAME TEST_ColorSpaceConversion COMMAND ColorSpaceConversionTest)
-
 
 add_executable(TimerTest TimerTest.cpp)
 target_link_libraries(TimerTest PRIVATE Timer GTest::gtest)

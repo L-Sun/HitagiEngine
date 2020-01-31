@@ -14,7 +14,7 @@ int main(int argc, char const* argv[]) {
 
     AssetLoader asset_loader;
     std::string shader_pgm =
-        asset_loader.SyncOpenAndReadTextFileToString("Shaders/copy.vs");
+        asset_loader.SyncOpenAndReadTextFileToString("Asset/Shaders/copy.vs");
     std::cout << shader_pgm << std::endl;
     g_pMemoryManager->Finalize();
 

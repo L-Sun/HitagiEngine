@@ -13,8 +13,8 @@ std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
 
 template <typename Key, typename T>
 std::ostream& operator<<(std::ostream& out, unordered_map<Key, T> map) {
-    for (auto p : map) {
-        out << *p.second << std::endl;
+    for (auto [key, pValue] : map) {
+        out << *pValue << std::endl;
     }
     return out;
 }
@@ -23,10 +23,16 @@ int main(int argc, char const* argv[]) {
     g_pMemoryManager->Initialize();
     g_pAssetLoader->Initialize();
 
+    std::string text = g_pAssetLoader->SyncOpenAndReadTextFileToString(
+        "Asset/Scene/cube.ogex");
+    Buffer                 buf(text.size() + 1, text.c_str(), text.size() + 1);
     OgexParser*            ogex_parser = new OgexParser();
-    std::unique_ptr<Scene> pScene      = ogex_parser->Parse("Scene/cube.ogex");
+    std::unique_ptr<Scene> pScene      = ogex_parser->Parse(buf);
 
     delete ogex_parser;
+
+    if (pScene == nullptr) return -1;
+
     std::cout << "Dump of Scene Graph" << std::endl;
     std::cout << "-------------------" << std::endl;
     std::cout << *pScene->SceneGraph << std::endl;

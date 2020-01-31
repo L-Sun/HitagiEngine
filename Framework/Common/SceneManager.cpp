@@ -28,8 +28,11 @@ int SceneManager::LoadScene(std::string_view scene_file_name) {
 void SceneManager::ResetScene() { m_bDirtyFlag = true; }
 
 bool SceneManager::LoadOgexScene(std::string_view ogex_scene_file_name) {
+    const string text =
+        g_pAssetLoader->SyncOpenAndReadTextFileToString(ogex_scene_file_name);
+    Buffer     buf(text.size() + 1, text.c_str(), text.size() + 1);
     OgexParser ogex_parser;
-    m_pScene = ogex_parser.Parse(ogex_scene_file_name);
+    m_pScene = ogex_parser.Parse(buf);
     if (!m_pScene) {
         return false;
     }

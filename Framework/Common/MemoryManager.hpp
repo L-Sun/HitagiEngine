@@ -29,6 +29,7 @@ private:
     static size_t*    m_pBlockSizeLookup;
     static Allocator* m_pAllocators;
     static Allocator* LookUpAllocator(size_t size);
+    bool              m_bInitialized = false;
 };
 
 extern std::unique_ptr<MemoryManager> g_pMemoryManager;

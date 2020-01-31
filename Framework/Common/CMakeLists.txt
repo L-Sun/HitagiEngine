@@ -4,7 +4,7 @@ target_link_libraries(Dependency INTERFACE Interface GeomMath)
 target_include_directories(Dependency INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(Common          BaseApplication.cpp GameLogic.cpp main.cpp)
-add_library(MemoryManager   Allocator.cpp MemoryManager.cpp)
+add_library(MemoryManager   Allocator.cpp Buffer.cpp MemoryManager.cpp)
 add_library(AssetLoader     AssetLoader.cpp)
 add_library(SceneManager    SceneManager.cpp Scene.cpp SceneObject.cpp Image.cpp)
 add_library(GraphicsManager GraphicsManager.cpp)

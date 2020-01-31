@@ -31,8 +31,8 @@ Allocator*            MemoryManager::m_pAllocators;
 }  // namespace My
 
 int MemoryManager::Initialize() {
-    static bool s_bInitialized = false;
-    if (!s_bInitialized) {
+    m_bInitialized = false;
+    if (!m_bInitialized) {
         m_pBlockSizeLookup = new size_t[kMaxBlockSize + 1];
 
         for (size_t i = 0, j = 0; i <= kMaxBlockSize; i++) {
@@ -44,12 +44,13 @@ int MemoryManager::Initialize() {
         for (size_t i = 0; i < kNumBlockSizes; i++)
             m_pAllocators[i].Reset(kBlockSizes[i], kPageSize, kAlignment);
 
-        s_bInitialized = true;
+        m_bInitialized = true;
     }
     return 0;
 }
 
 void MemoryManager::Finalize() {
+    m_bInitialized = false;
     delete[] m_pAllocators;
     delete[] m_pBlockSizeLookup;
 }
@@ -85,6 +86,8 @@ void* MemoryManager::Allocate(size_t size, size_t alignment) {
 }
 
 void MemoryManager::Free(void* p, size_t size) {
+    // fix free repeatedly
+    if (m_bInitialized == false) return;
     Allocator* pAlloc = LookUpAllocator(size);
     if (pAlloc)
         pAlloc->Free(p);

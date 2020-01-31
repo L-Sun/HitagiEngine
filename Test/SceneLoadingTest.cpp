@@ -33,44 +33,37 @@ int main(int, char**) {
 
     std::cout << "Dump of Cameras" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto _it : scene.CameraNodes) {
-        auto pCameraNode = _it.second;
+    for (auto [key, pCameraNode] : scene.CameraNodes) {
         if (pCameraNode) {
             std::weak_ptr<SceneObjectCamera> pCamera =
                 scene.GetCamera(pCameraNode->GetSceneObjectRef());
-            auto pObj = pCamera.lock();
-            if (pObj) std::cout << *pObj << std::endl;
+            if (auto pObj = pCamera.lock()) std::cout << *pObj << std::endl;
         }
     }
 
     std::cout << "Dump of Lights" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto _it : scene.LightNodes) {
-        auto pLightNode = _it.second;
+    for (auto [key, pLightNode] : scene.LightNodes) {
         if (pLightNode) {
             std::weak_ptr<SceneObjectLight> pLight =
                 scene.GetLight(pLightNode->GetSceneObjectRef());
-            auto pObj = pLight.lock();
-            if (pObj) std::cout << *pObj << std::endl;
+            if (auto pObj = pLight.lock()) std::cout << *pObj << std::endl;
         }
     }
 
     std::cout << "Dump of Geometries" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto _it : scene.GeometryNodes) {
-        auto pGeometryNode = _it.second;
+    for (auto [key, pGeometryNode] : scene.GeometryNodes) {
         if (pGeometryNode) {
             std::weak_ptr<SceneObjectGeometry> pGeometry =
                 scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
-            auto pObj = pGeometry.lock();
-            if (pObj) std::cout << *pObj << std::endl;
+            if (auto pObj = pGeometry.lock()) std::cout << *pObj << std::endl;
         }
     }
 
     std::cout << "Dump of Materials" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto _it : scene.Materials) {
-        auto pMaterial = _it.second;
+    for (auto [key, pMaterial] : scene.Materials) {
         if (pMaterial) std::cout << *pMaterial << std::endl;
     }
 
