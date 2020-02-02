@@ -149,7 +149,7 @@ BoundingBox SceneObjectMesh::GetBoundingBox() const {
     auto count = m_VertexArray.size();
 
     for (auto n = 0; n < count; n++) {
-        if (m_VertexArray[n].GetAttributeName() == "position") {
+        if (m_VertexArray[n].GetAttributeName() == "POSITION") {
             auto data_type      = m_VertexArray[n].GetDataType();
             auto vertices_count = m_VertexArray[n].GetVertexCount();
             auto data           = m_VertexArray[n].GetData();
@@ -304,7 +304,7 @@ const float* SceneObjectGeometry::CollisionParameters() const {
     return m_CollisionParameters;
 }
 
-void SceneObjectGeometry::AddMesh(std::shared_ptr<SceneObjectMesh>& mesh) {
+void SceneObjectGeometry::AddMesh(std::shared_ptr<SceneObjectMesh>&& mesh) {
     m_Mesh.push_back(std::move(mesh));
 }
 const std::weak_ptr<SceneObjectMesh> SceneObjectGeometry::GetMesh() {
@@ -320,7 +320,7 @@ BoundingBox SceneObjectGeometry::GetBoundingBox() const {
 
 // Class SceneObjectLight
 void SceneObjectLight::SetIfCastShadow(bool shadow) { m_bCastShadows = shadow; }
-void SceneObjectLight::SetColor(std::string_view attrib, vec4& color) {
+void SceneObjectLight::SetColor(std::string_view attrib, const vec4& color) {
     if (attrib == "light") {
         m_LightColor = Color(color);
     }
@@ -347,7 +347,7 @@ float        SceneObjectLight::GetIntensity() { return m_fIntensity; }
 // Class SceneObjectInfiniteLight
 
 // Class SceneObjectCamera
-void SceneObjectCamera::SetColor(std::string_view attrib, vec4& color) {
+void SceneObjectCamera::SetColor(std::string_view attrib, const vec4& color) {
     // TODO: extension
 }
 void SceneObjectCamera::SetParam(std::string_view attrib, float param) {
@@ -645,5 +645,4 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectTransform& obj) {
 float DefaultAttenFunc(float intensity, float distance) {
     return intensity / pow(1 + distance, 2.0f);
 }
-
 }  // namespace My

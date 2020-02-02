@@ -360,7 +360,8 @@ bool D3D12GraphicsManager::InitializeShaders() {
          D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
         {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0,
          D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-    };
+        {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 3, 0,
+         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}};
 
 #if defined(DEBUG)
     Buffer v_debugShader =
@@ -480,6 +481,7 @@ void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
 void D3D12GraphicsManager::CreateVertexBuffer(
     const SceneObjectVertexArray&          vertexArray,
     const std::shared_ptr<GeometryBuffer>& pGeometry) {
+    ThrowIfFailed(m_pCommandAllocator->Reset());
     ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
 
     ComPtr<ID3D12Resource> pUploader;
@@ -506,6 +508,7 @@ void D3D12GraphicsManager::CreateVertexBuffer(
 void D3D12GraphicsManager::CreateIndexBuffer(
     const SceneObjectIndexArray&           indexArray,
     const std::shared_ptr<GeometryBuffer>& pGeometry) {
+    ThrowIfFailed(m_pCommandAllocator->Reset());
     ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
 
     ComPtr<ID3D12Resource> pUploader;
@@ -523,6 +526,7 @@ void D3D12GraphicsManager::CreateIndexBuffer(
     m_Uploader.push_back(pUploader);
 
     ThrowIfFailed(m_pCommandList->Close());
+
     ID3D12CommandList* cmdsLists[] = {m_pCommandList.Get()};
     m_pCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
     FlushCommandQueue();
@@ -551,6 +555,7 @@ void D3D12GraphicsManager::SetPrimitiveType(
 }
 
 void D3D12GraphicsManager::CreateTextureBuffer() {
+    ThrowIfFailed(m_pCommandAllocator->Reset());
     ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
 
     D3D12_RESOURCE_DESC textureDesc = {};
@@ -636,9 +641,20 @@ void D3D12GraphicsManager::CreateTextureBuffer() {
     FlushCommandQueue();
 }
 
-void D3D12GraphicsManager::ClearShaders() {}
+void D3D12GraphicsManager::ClearShaders() {
+    m_pipelineState.clear();
+    m_VS.clear();
+    m_PS.clear();
+}
 
-void D3D12GraphicsManager::ClearBuffers() {}
+void D3D12GraphicsManager::ClearBuffers() {
+    FlushCommandQueue();
+    m_drawBatchContext.clear();
+    m_debugDrawBatchContext.clear();
+    m_geometries.clear();
+    m_textures.clear();
+    m_Uploader.clear();
+}
 
 void D3D12GraphicsManager::UpdateConstants() {
     GraphicsManager::UpdateConstants();
@@ -829,7 +845,15 @@ void D3D12GraphicsManager::FlushCommandQueue() {
 void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
                                     const vec3& color) {
     GraphicsManager::DrawLine(from, to, color);
-    if (m_geometries.find("debug_line") == m_geometries.end()) {
+    std::string name;
+    if (color.r > 0)
+        name = "debug_line-x";
+    else if (color.b > 0)
+        name = "debug_line-y";
+    else
+        name = "debug_line-z";
+
+    if (m_geometries.find(name) == m_geometries.end()) {
         auto pGeometry                  = std::make_shared<GeometryBuffer>();
         pGeometry->primitiveType        = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
         std::vector<vec3>      position = {{0, 0, 0}, {1, 0, 0}};
@@ -845,7 +869,7 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
                                           index.data(), index.size());
         CreateIndexBuffer(index_array, pGeometry);
         pGeometry->index_count.push_back(index.size());
-        m_geometries["debug_line"] = pGeometry;
+        m_geometries[name] = pGeometry;
     }
 
     vec3 v1          = to - from;
@@ -864,7 +888,7 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
     dbc.numFramesDirty = m_nFrameResourceSize;
     dbc.constantBufferIndex =
         m_drawBatchContext.size() + m_debugDrawBatchContext.size();
-    dbc.pGeometry = m_geometries["debug_line"];
+    dbc.pGeometry = m_geometries[name];
     dbc.pPSO      = m_pipelineState["debug"];
 
     m_debugDrawBatchContext.push_back(dbc);

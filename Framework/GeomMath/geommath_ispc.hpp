@@ -148,7 +148,12 @@ struct Vector : public BaseVector<T, D> {
     Vector() = default;
     Vector(std::initializer_list<T> l) { std::move(l.begin(), l.end(), data); }
     Vector(const T& num) { std::fill(data, data + D, num); }
-    Vector(const T* p) { std::copy(p, p + D, data); }
+
+    template <typename TT>
+    Vector(const TT* p) {
+        std::copy(p, p + D, data);
+    }
+
     Vector(const Vector& v) { std::copy(v.data, v.data + D, data); }
     Vector(const Vector<T, D - 1>& v, const T& num) {
         std::copy(v.data, v.data + D - 1, data);
@@ -165,7 +170,7 @@ struct Vector : public BaseVector<T, D> {
     }
 
     operator T*() { return data; }
-    operator const T*() const { return static_cast<const T*>(data); }
+    operator const T *() const { return static_cast<const T*>(data); }
 
     friend std::ostream& operator<<(std::ostream& out, Vector v) {
         out << "(";
@@ -314,7 +319,7 @@ struct Matrix {
     }
 
     operator T*() { return &data[0][0]; }
-    operator const T*() const { return static_cast<const T*>(&data[0][0]); }
+    operator const T *() const { return static_cast<const T*>(&data[0][0]); }
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
         std::fixed(out);

@@ -18,6 +18,7 @@ struct VSInput {
     float3 position : POSITION;
     float3 normal : NORMAL;
     float2 uv : TEXCOORD;
+    float4 color : COLOR;
 };
 
 struct PSInput
@@ -26,6 +27,7 @@ struct PSInput
     float4 normal   : NORMAL;
     float2 uv : TEXCOORD0;
     float3 posInView : TEXCOORD1;
+    float4 color : COLOR;
 };
 
 PSInput VSMain(VSInput input)
@@ -43,6 +45,7 @@ PSInput VSMain(VSInput input)
     output.normal = normalize(mul(MVP, float4(input.normal, 0.0f)));
     output.posInView = output.position.xyz;
     output.uv = input.uv;
+    output.color = input.color;
     return  output;
 }
 
@@ -56,7 +59,7 @@ float4 PSMain1(PSInput input) : SV_TARGET
 	const float3 vV = normalize(float3(0.0f,0.0f,0.0f) - input.posInView);
 	float d = length(vL); 
 	float3 vLightInts = float3(0.0f, 0.0f, 0.01f) + lightRgb * baseColor.xyz * dot(vN, vL) + specularColor.xyz * pow(clamp(dot(vR,vV), 0.0f, 1.0f), specularPower);
-	return float4(vLightInts, 0.6f);
+	return float4(vLightInts, 1.0f);
 
 }
 

@@ -1,7 +1,7 @@
 #include <algorithm>
 #include "Buffer.hpp"
 
-namespace My {
+using namespace My;
 Buffer::Buffer()
     : m_pData(nullptr), m_szSize(0), m_szAlignment(alignof(uint32_t)) {}
 Buffer::Buffer(size_t size, const void* srcPtr, size_t copySize,
@@ -57,5 +57,3 @@ Buffer::~Buffer() {
 uint8_t*       Buffer::GetData() { return m_pData; }
 const uint8_t* Buffer::GetData() const { return m_pData; }
 size_t         Buffer::GetDataSize() const { return m_szSize; }
-
-}  // namespace My

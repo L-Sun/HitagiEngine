@@ -1,7 +1,7 @@
 
-add_library(Dependency INTERFACE)
-target_link_libraries(Dependency INTERFACE Interface GeomMath)
-target_include_directories(Dependency INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(CommonHeader INTERFACE)
+target_link_libraries(CommonHeader INTERFACE Interface)
+target_include_directories(CommonHeader INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(Common          BaseApplication.cpp GameLogic.cpp main.cpp)
 add_library(MemoryManager   Allocator.cpp Buffer.cpp MemoryManager.cpp)
@@ -11,22 +11,21 @@ add_library(GraphicsManager GraphicsManager.cpp)
 add_library(DebugManager    DebugManager.cpp)
 add_library(InputManager    InputManager.cpp)
 add_library(Timer           Timer.cpp)
-add_library(ColorSpaceConversion INTERFACE)
 
-target_link_libraries(MemoryManager        PUBLIC    Dependency)
-target_link_libraries(AssetLoader          PUBLIC    Dependency MemoryManager)
-target_link_libraries(Timer                PUBLIC    Dependency)
-target_link_libraries(SceneManager         PUBLIC    Dependency Parser AssetLoader PRIVATE crossguid)
-target_link_libraries(GraphicsManager      PUBLIC    Dependency SceneManager)
-target_link_libraries(DebugManager         PUBLIC    Dependency SceneManager)
-target_link_libraries(InputManager         PUBLIC    Dependency SceneManager)
-target_link_libraries(ColorSpaceConversion INTERFACE Dependency)
+target_link_libraries(MemoryManager   PUBLIC CommonHeader)
+target_link_libraries(AssetLoader     PUBLIC CommonHeader MemoryManager)
+target_link_libraries(Timer           PUBLIC CommonHeader)
+target_link_libraries(SceneManager    PUBLIC CommonHeader Parser AssetLoader GeomMath crossguid)
+target_link_libraries(GraphicsManager PUBLIC CommonHeader SceneManager)
+target_link_libraries(DebugManager    PUBLIC CommonHeader SceneManager)
+target_link_libraries(InputManager    PUBLIC CommonHeader SceneManager)
 
 target_include_directories(SceneManager INTERFACE "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
 
 target_link_libraries(Common
     PUBLIC
-        Dependency
+        CommonHeader
+        GeomMath
         Parser
         MemoryManager
         AssetLoader

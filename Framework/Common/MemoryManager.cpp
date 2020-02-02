@@ -1,5 +1,6 @@
 #include "MemoryManager.hpp"
 #include <malloc.h>
+
 using namespace My;
 
 #ifndef ALIGN
@@ -77,7 +78,7 @@ void* MemoryManager::Allocate(size_t size, size_t alignment) {
     if (pAlloc)
         p = reinterpret_cast<uint8_t*>(pAlloc->Allocate());
     else
-        p = reinterpret_cast<uint8_t*>(malloc(size));
+        p = new uint8_t[size];
 
     p = reinterpret_cast<uint8_t*>(
         ALIGN(reinterpret_cast<size_t>(p), alignment));
@@ -92,5 +93,5 @@ void MemoryManager::Free(void* p, size_t size) {
     if (pAlloc)
         pAlloc->Free(p);
     else
-        free(p);
+        delete[] reinterpret_cast<uint8_t*>(p);
 }

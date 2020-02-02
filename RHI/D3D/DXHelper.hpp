@@ -68,12 +68,12 @@ inline HRESULT ReadDataFromFile(LPCWSTR filename, byte** data, UINT* size) {
     using namespace Microsoft::WRL;
 
     CREATEFILE2_EXTENDED_PARAMETERS extendedParams = {};
-    extendedParams.dwSize             = sizeof(CREATEFILE2_EXTENDED_PARAMETERS);
-    extendedParams.dwFileAttributes   = FILE_ATTRIBUTE_NORMAL;
-    extendedParams.dwFileFlags        = FILE_FLAG_SEQUENTIAL_SCAN;
-    extendedParams.dwSecurityQosFlags = SECURITY_ANONYMOUS;
-    extendedParams.lpSecurityAttributes = nullptr;
-    extendedParams.hTemplateFile        = nullptr;
+    extendedParams.dwSize                          = sizeof(CREATEFILE2_EXTENDED_PARAMETERS);
+    extendedParams.dwFileAttributes                = FILE_ATTRIBUTE_NORMAL;
+    extendedParams.dwFileFlags                     = FILE_FLAG_SEQUENTIAL_SCAN;
+    extendedParams.dwSecurityQosFlags              = SECURITY_ANONYMOUS;
+    extendedParams.lpSecurityAttributes            = nullptr;
+    extendedParams.hTemplateFile                   = nullptr;
 
     Wrappers::FileHandle file(CreateFile2(filename, GENERIC_READ,
                                           FILE_SHARE_READ, OPEN_EXISTING,

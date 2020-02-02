@@ -1,6 +1,7 @@
 #include "SceneManager.hpp"
 #include "AssetLoader.hpp"
 #include "OGEX.hpp"
+#include "FBX.hpp"
 
 using namespace My;
 
@@ -8,36 +9,39 @@ SceneManager::~SceneManager() {}
 
 int SceneManager::Initialize() {
     int result = 0;
-    m_pScene   = make_shared<Scene>();
+    m_pScene   = make_unique<Scene>();
     return result;
 }
 void SceneManager::Finalize() {}
 
-void SceneManager::Tick() {}
+void SceneManager::Tick() {
+    if (IsSceneChanged()) {
+        // LoadScene(m_scenePath);
+    }
+}
 
-int SceneManager::LoadScene(std::string_view scene_file_name) {
-    if (LoadOgexScene(scene_file_name)) {
+int SceneManager::LoadScene(std::filesystem::path sceneFile) {
+    m_scenePath = sceneFile;
+    if (auto ext = sceneFile.extension(); ext == ".ogex") {
+        const string text =
+            g_pAssetLoader->SyncOpenAndReadTextFileToString(sceneFile);
+        Buffer     buf(text.size() + 1, text.c_str(), text.size() + 1);
+        OgexParser ogex_parser;
+        m_pScene = ogex_parser.Parse(buf);
+    } else if (ext == ".fbx") {
+        Buffer    buf = g_pAssetLoader->SyncOpenAndReadBinary(sceneFile);
+        FbxParser fbx_parser;
+        m_pScene = fbx_parser.Parse(buf);
+    }
+    if (m_pScene) {
         m_pScene->LoadResource();
         m_bDirtyFlag = true;
         return 0;
-    } else {
-        return -1;
     }
+    return -1;
 }
 
 void SceneManager::ResetScene() { m_bDirtyFlag = true; }
-
-bool SceneManager::LoadOgexScene(std::string_view ogex_scene_file_name) {
-    const string text =
-        g_pAssetLoader->SyncOpenAndReadTextFileToString(ogex_scene_file_name);
-    Buffer     buf(text.size() + 1, text.c_str(), text.size() + 1);
-    OgexParser ogex_parser;
-    m_pScene = ogex_parser.Parse(buf);
-    if (!m_pScene) {
-        return false;
-    }
-    return true;
-}
 
 const Scene& SceneManager::GetSceneForRendering() const { return *m_pScene; }
 

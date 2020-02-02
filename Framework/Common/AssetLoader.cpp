@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 
-namespace My {
+using namespace My;
 
 int AssetLoader::Initialize() { return 0; }
 
@@ -40,16 +40,14 @@ std::string AssetLoader::SyncOpenAndReadTextFileToString(
 }
 
 bool AssetLoader::checkFile(const std::filesystem::path &filePath) const {
-    std::cout << "[AssetLoader] File: " << filePath << std::endl;
+    std::cout << "[AssetLoader] File: " << filePath << std::flush;
     if (!std::filesystem::exists(filePath)) {
-        std::cerr << "[Error-AssetLoader] File does not exists." << std::endl;
+        std::cerr << "\n[Error-AssetLoader] File does not exists." << std::endl;
         return false;
     }
 #if defined(DEBUG)
-    std::cout << "[AssetLoader] File size: "
-              << std::filesystem::file_size(filePath) << " bytes." << std::endl;
+    std::cout << " File size: " << std::filesystem::file_size(filePath)
+              << " bytes." << std::endl;
 #endif  // DEBUG
     return true;
 }
-
-}  // namespace My

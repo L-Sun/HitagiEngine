@@ -1,4 +1,7 @@
 
+add_executable(BufferTest BufferTest.cpp)
+target_link_libraries(BufferTest PRIVATE MemoryManager)
+
 add_executable(AssetLoaderTest AssetLoaderTest.cpp)
 target_link_libraries(AssetLoaderTest PRIVATE AssetLoader)
 add_test(NAME TEST_AssetLoader COMMAND AssetLoaderTest)

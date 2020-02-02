@@ -15,6 +15,7 @@ public:
     Buffer& operator=(const Buffer& rhs);
     Buffer& operator=(Buffer&& rhs);
     ~Buffer();
+
     uint8_t*       GetData();
     const uint8_t* GetData() const;
     size_t         GetDataSize() const;

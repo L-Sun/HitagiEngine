@@ -24,6 +24,8 @@ public:
 
     virtual ~BaseSceneNode() {}
 
+    const std::string& GetName() const { return m_strName; }
+
     void AppendChild(std::shared_ptr<BaseSceneNode>&& sub_node) {
         m_Chlidren.push_back(std::move(sub_node));
     }
@@ -52,6 +54,8 @@ public:
         m_RuntimeTransform *= translate(mat4(1.0f), vec3(x, y, z));
         m_bDirty = true;
     }
+
+    void Reset() { m_RuntimeTransform = mat4(1.0f); }
 
     friend std::ostream& operator<<(std::ostream&        out,
                                     const BaseSceneNode& node) {
@@ -123,9 +127,6 @@ public:
     using SceneNode::AddSceneObjectRef;
     void AddMaterialRef(std::string_view key) {
         m_Materials.push_back(std::string(key));
-    }
-    void AddMaterialRef(std::string&& key) {
-        m_Materials.push_back(std::move(key));
     }
     std::string GetMaterialRef(const size_t index) {
         return index < m_Materials.size() ? m_Materials[index] : std::string();

@@ -70,7 +70,7 @@ void GraphicsManager::CalculateCameraMatrix() {
         viewMat = *pCameraNode->GetCalculatedTransform();
         viewMat = inverse(viewMat);
     } else {
-        vec3 position(0, -5, 0);
+        vec3 position(0, -2, 0);
         vec3 look_at(0, 0, 0);
         vec3 up(0, 0, 1);
         viewMat = lookAt(position, look_at, up);
@@ -104,13 +104,13 @@ void GraphicsManager::CalculateLights() {
         lightPos = vec3(0.0f);
         auto _lightPos =
             (*pLightNode->GetCalculatedTransform()) * vec4(lightPos, 1.0f);
-        lightPos = vec3(_lightPos);
+        lightPos = vec3(_lightPos.xyz);
 
         if (auto pLight = scene.GetLight(pLightNode->GetSceneObjectRef())) {
             lightColor = pLight->GetColor().Value;
         }
     } else {
-        lightPos   = vec3(-1.0f, -5.0f, 0.0f);
+        lightPos   = vec3(-1.0f, -10.0f, 5.0f);
         lightColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }

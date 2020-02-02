@@ -140,7 +140,7 @@ private:
     std::vector<D3D12_INPUT_ELEMENT_DESC>                  m_inputLayout;
 
     std::unordered_map<std::string, ComPtr<ID3D12PipelineState>>
-                                m_pipelineState;
+        m_pipelineState;
     ComPtr<ID3D12RootSignature> m_pRootSignature;
 
     std::vector<std::unique_ptr<FR>> m_frameResource;
@@ -151,9 +151,9 @@ private:
 
     const Scene* m_pScene;
     std::unordered_map<std::string, std::shared_ptr<GeometryBuffer>>
-                                                                    m_geometries;
+        m_geometries;
     std::unordered_map<std::string, std::shared_ptr<TextureBuffer>> m_textures;
-    std::vector<D3D12DrawBatchContext> m_drawBatchContext;
+    std::vector<D3D12DrawBatchContext>                              m_drawBatchContext;
 
     std::vector<ComPtr<ID3D12Resource>> m_Uploader;
 

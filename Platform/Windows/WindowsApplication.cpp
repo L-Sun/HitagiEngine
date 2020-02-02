@@ -122,8 +122,12 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
                     break;
                 case 0x43:
                     g_pInputManager->CKeyUp();
+                    break;
                 case 0x44:
                     g_pInputManager->DebugKeyUp();
+                case 0x52:
+                    g_pInputManager->ResetKeyUp();
+                    break;
                 default:
                     break;
             }
@@ -144,8 +148,13 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
                     break;
                 case 0x43:
                     g_pInputManager->CKeyDown();
+                    break;
                 case 0x44:
                     g_pInputManager->DebugKeyDown();
+                    break;
+                case 0x52:
+                    g_pInputManager->ResetKeyDown();
+                    break;
                 default:
                     break;
             }

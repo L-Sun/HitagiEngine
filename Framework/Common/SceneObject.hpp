@@ -360,7 +360,7 @@ public:
     const bool MotionBlur();
     const SceneObjectCollisionType CollisionType() const;
     const float*                   CollisionParameters() const;
-    void AddMesh(std::shared_ptr<SceneObjectMesh>& mesh);
+    void AddMesh(std::shared_ptr<SceneObjectMesh>&& mesh);
     const std::weak_ptr<SceneObjectMesh> GetMesh();
     const std::weak_ptr<SceneObjectMesh> GetMeshLOD(size_t lod);
     BoundingBox                          GetBoundingBox() const;
@@ -392,7 +392,7 @@ protected:
 
 public:
     void SetIfCastShadow(bool shadow);
-    void SetColor(std::string_view attrib, vec4& color);
+    void SetColor(std::string_view attrib, const vec4& color);
     void SetParam(std::string_view attrib, float param);
     void SetTexture(std::string_view attrib, std::string_view textureName);
     void SetAttenuation(AttenFunc func);
@@ -447,7 +447,7 @@ protected:
                                     const SceneObjectCamera& obj);
 
 public:
-    void  SetColor(std::string_view attrib, vec4& color);
+    void  SetColor(std::string_view attrib, const vec4& color);
     void  SetParam(std::string_view attrib, float param);
     void  SetTexture(std::string_view attrib, std::string_view textureName);
     float GetNearClipDistance() const;

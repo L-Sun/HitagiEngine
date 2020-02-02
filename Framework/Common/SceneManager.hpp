@@ -1,7 +1,7 @@
 #pragma once
-#include "geommath.hpp"
+#include <filesystem>
 #include "IRuntimeModule.hpp"
-#include "SceneParser.hpp"
+#include "Scene.hpp"
 
 namespace My {
 
@@ -12,7 +12,7 @@ public:
     virtual void Finalize();
     virtual void Tick();
 
-    int LoadScene(std::string_view);
+    int LoadScene(std::filesystem::path sceneFile);
 
     bool IsSceneChanged();
     void NotifySceneIsRenderingQueued();
@@ -29,10 +29,9 @@ public:
         const std::string& key);
 
 protected:
-    bool LoadOgexScene(std::string_view);
-
-    std::shared_ptr<Scene> m_pScene;
+    std::unique_ptr<Scene> m_pScene;
     bool                   m_bDirtyFlag = false;
+    std::filesystem::path  m_scenePath;
 };
 
 extern std::unique_ptr<SceneManager> g_pSceneManager;
