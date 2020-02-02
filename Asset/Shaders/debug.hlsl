@@ -1,10 +1,11 @@
 cbuffer FrameConstants : register(b0){
+    matrix WVP;
     float3 lightPosition;
     float4 lightColor;
 };
 
 cbuffer ObjectConstants : register(b1){
-    matrix MVP;
+    matrix modelMatrix;
     float4 baseColor;
     float4 specularColor;
     float  specularPower;
@@ -23,7 +24,7 @@ struct PSInput {
 PSInput VSMain(VSInput input)
 {
     PSInput output;
-
+    matrix MVP = mul(WVP, modelMatrix);
     output.position = mul(MVP, float4(input.position, 1.0f));
     output.color = input.color;
     return  output;
