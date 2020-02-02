@@ -73,8 +73,8 @@ int D3D12GraphicsManager::InitD3D() {
     // Detect 4x MSAA
     {
         D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels;
-        msQualityLevels.Flags  = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
-        msQualityLevels.Format = m_BackBufferFormat;
+        msQualityLevels.Flags            = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
+        msQualityLevels.Format           = m_BackBufferFormat;
         msQualityLevels.NumQualityLevels = 0;
         msQualityLevels.SampleCount      = 4;
         ThrowIfFailed(m_pDevice->CheckFeatureSupport(
@@ -111,14 +111,14 @@ void D3D12GraphicsManager::CreateSwapChain() {
     ComPtr<IDXGISwapChain1> swapChain;
     DXGI_SWAP_CHAIN_DESC1   swapChainDesc = {};
     swapChainDesc.BufferCount             = m_nFrameCount;
-    swapChainDesc.Width            = g_pApp->GetConfiguration().screenWidth;
-    swapChainDesc.Height           = g_pApp->GetConfiguration().screenHeight;
-    swapChainDesc.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
-    swapChainDesc.BufferUsage      = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapChainDesc.Scaling          = DXGI_SCALING_STRETCH;
-    swapChainDesc.SwapEffect       = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    swapChainDesc.AlphaMode        = DXGI_ALPHA_MODE_UNSPECIFIED;
-    swapChainDesc.SampleDesc.Count = m_b4xMsaaState ? 4 : 1;
+    swapChainDesc.Width                   = g_pApp->GetConfiguration().screenWidth;
+    swapChainDesc.Height                  = g_pApp->GetConfiguration().screenHeight;
+    swapChainDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapChainDesc.BufferUsage             = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapChainDesc.Scaling                 = DXGI_SCALING_STRETCH;
+    swapChainDesc.SwapEffect              = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    swapChainDesc.AlphaMode               = DXGI_ALPHA_MODE_UNSPECIFIED;
+    swapChainDesc.SampleDesc.Count        = m_b4xMsaaState ? 4 : 1;
     swapChainDesc.SampleDesc.Quality =
         m_b4xMsaaState ? (m_n4xMsaaQuality - 1) : 0;
     swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
@@ -211,8 +211,8 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
 
     // Create CBV Descriptor Heap
     D3D12_DESCRIPTOR_HEAP_DESC CbvHeapDesc = {};
-    CbvHeapDesc.Flags    = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    CbvHeapDesc.NodeMask = 0;
+    CbvHeapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    CbvHeapDesc.NodeMask                   = 0;
     // per frame have n objects constant buffer descriptor and 1 frame constant
     // buffer descriptor
     CbvHeapDesc.NumDescriptors =
@@ -227,9 +227,9 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
 
     // Sampler descriptor heap
     D3D12_DESCRIPTOR_HEAP_DESC samplerDescHeap = {};
-    samplerDescHeap.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    samplerDescHeap.NumDescriptors = 1;
-    samplerDescHeap.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+    samplerDescHeap.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    samplerDescHeap.NumDescriptors             = 1;
+    samplerDescHeap.Type                       = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
     ThrowIfFailed(m_pDevice->CreateDescriptorHeap(
         &samplerDescHeap, IID_PPV_ARGS(&m_pSamplerHeap)));
 }
@@ -383,23 +383,23 @@ bool D3D12GraphicsManager::InitializeShaders() {
 }
 
 void D3D12GraphicsManager::BuildPipelineStateObject() {
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-    psoDesc.InputLayout                        = {m_inputLayout.data(),
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc    = {};
+    psoDesc.InputLayout                           = {m_inputLayout.data(),
                            static_cast<UINT>(m_inputLayout.size())};
-    psoDesc.pRootSignature                     = m_pRootSignature.Get();
-    psoDesc.VS                                 = m_VS["simple"];
-    psoDesc.PS                                 = m_PS["no_texture"];
-    psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    psoDesc.pRootSignature                        = m_pRootSignature.Get();
+    psoDesc.VS                                    = m_VS["simple"];
+    psoDesc.PS                                    = m_PS["no_texture"];
+    psoDesc.RasterizerState                       = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
-    psoDesc.BlendState            = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-    psoDesc.DepthStencilState     = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-    psoDesc.SampleMask            = UINT_MAX;
-    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    psoDesc.NumRenderTargets      = 1;
-    psoDesc.RTVFormats[0]         = m_BackBufferFormat;
-    psoDesc.SampleDesc.Count      = m_b4xMsaaState ? 4 : 1;
-    psoDesc.SampleDesc.Quality    = m_b4xMsaaState ? (m_n4xMsaaQuality - 1) : 0;
-    psoDesc.DSVFormat             = m_DepthStencilFormat;
+    psoDesc.BlendState                            = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    psoDesc.DepthStencilState                     = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    psoDesc.SampleMask                            = UINT_MAX;
+    psoDesc.PrimitiveTopologyType                 = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    psoDesc.NumRenderTargets                      = 1;
+    psoDesc.RTVFormats[0]                         = m_BackBufferFormat;
+    psoDesc.SampleDesc.Count                      = m_b4xMsaaState ? 4 : 1;
+    psoDesc.SampleDesc.Quality                    = m_b4xMsaaState ? (m_n4xMsaaQuality - 1) : 0;
+    psoDesc.DSVFormat                             = m_DepthStencilFormat;
 
     m_pipelineState["no_texture"] = ComPtr<ID3D12PipelineState>();
     ThrowIfFailed(m_pDevice->CreateGraphicsPipelineState(
@@ -430,9 +430,16 @@ void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
         if (geometry->Visible()) {
             if (auto pMesh = geometry->GetMesh().lock()) {
                 auto g = std::make_shared<GeometryBuffer>();
-                for (size_t i = 0; i < pMesh->GetVertexPropertiesCount(); i++) {
-                    CreateVertexBuffer(pMesh->GetVertexPropertyArray(i), g);
+                for (auto&& layout : m_inputLayout) {
+                    for (size_t i = 0; i < pMesh->GetVertexPropertiesCount(); i++) {
+                        auto& vertexArray = pMesh->GetVertexPropertyArray(i);
+                        if (vertexArray.GetAttributeName() == layout.SemanticName) {
+                            CreateVertexBuffer(vertexArray, g);
+                            break;
+                        }
+                    }
                 }
+
                 for (size_t i = 0; i < pMesh->GetIndexGroupCount(); i++) {
                     CreateIndexBuffer(pMesh->GetIndexArray(i), g);
                     g->index_count.push_back(pMesh->GetIndexCount(i));
@@ -451,11 +458,11 @@ void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
             auto pGeometry = m_geometries[node->GetSceneObjectRef()];
             for (size_t i = 0; i < pGeometry->index_count.size(); i++) {
                 D3D12DrawBatchContext dbc;
-                dbc.node           = node;
-                dbc.pGeometry      = pGeometry;
-                dbc.numFramesDirty = m_nFrameResourceSize;
-                dbc.material_index = i;
-                dbc.material = m_pScene->GetMaterial(node->GetMaterialRef(i));
+                dbc.node                = node;
+                dbc.pGeometry           = pGeometry;
+                dbc.numFramesDirty      = m_nFrameResourceSize;
+                dbc.material_index      = i;
+                dbc.material            = m_pScene->GetMaterial(node->GetMaterialRef(i));
                 dbc.constantBufferIndex = m_drawBatchContext.size();
 
                 if (dbc.material && dbc.material->GetBaseColor().ValueMap)
@@ -560,10 +567,10 @@ void D3D12GraphicsManager::CreateTextureBuffer() {
     auto uploadHeapProp  = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Format                  = textureDesc.Format;
-    srvDesc.ViewDimension           = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels     = 1;
+    srvDesc.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Format                          = textureDesc.Format;
+    srvDesc.ViewDimension                   = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels             = 1;
 
     auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(
         m_pCbvSrvHeap->GetCPUDescriptorHandleForHeapStart(), m_nSrvOffset,
@@ -615,10 +622,10 @@ void D3D12GraphicsManager::CreateTextureBuffer() {
                 m_pDevice->CreateShaderResourceView(texture.Get(), &srvDesc,
                                                     handle);
                 handle.Offset(m_nCbvSrvUavHeapSize);
-                auto pTextureBuffer        = std::make_shared<TextureBuffer>();
-                pTextureBuffer->index      = m_textures.size();
-                pTextureBuffer->texture    = texture;
-                pTextureBuffer->uploadHeap = uploadHeap;
+                auto pTextureBuffer             = std::make_shared<TextureBuffer>();
+                pTextureBuffer->index           = m_textures.size();
+                pTextureBuffer->texture         = texture;
+                pTextureBuffer->uploadHeap      = uploadHeap;
                 m_textures[pTexture->GetName()] = pTextureBuffer;
             }
         }
@@ -665,8 +672,8 @@ void D3D12GraphicsManager::UpdateConstants() {
 
             if (dbc.material) {
                 const Color* pColor = &dbc.material->GetBaseColor();
-                oc.baseColor = pColor->ValueMap ? vec4(-1.0f) : pColor->Value;
-                pColor       = &dbc.material->GetSpecularColor();
+                oc.baseColor        = pColor->ValueMap ? vec4(-1.0f) : pColor->Value;
+                pColor              = &dbc.material->GetSpecularColor();
                 oc.specularColor =
                     pColor->ValueMap ? vec4(-1.0f) : pColor->Value;
                 oc.specularPower = dbc.material->GetSpecularPower().Value;
@@ -869,8 +876,14 @@ void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
     if (m_geometries.find("debug_box") == m_geometries.end()) {
         auto              pGeometry = std::make_shared<GeometryBuffer>();
         std::vector<vec3> position  = {
-            {-1, -1, -1}, {1, -1, -1}, {1, 1, -1}, {-1, 1, -1},
-            {-1, -1, 1},  {1, -1, 1},  {1, 1, 1},  {-1, 1, 1},
+            {-1, -1, -1},
+            {1, -1, -1},
+            {1, 1, -1},
+            {-1, 1, -1},
+            {-1, -1, 1},
+            {1, -1, 1},
+            {1, 1, 1},
+            {-1, 1, 1},
         };
         std::vector<int> index   = {0, 1, 2, 3, 0, 4, 5, 1,
                                   5, 6, 2, 6, 7, 3, 7, 4};
