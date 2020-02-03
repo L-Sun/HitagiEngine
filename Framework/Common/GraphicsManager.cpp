@@ -47,7 +47,8 @@ void GraphicsManager::UpdateConstants() {
 
 void GraphicsManager::InitConstants() {
     // Initialize the world/model matrix to the identity matrix.
-    m_DrawFrameContext.worldMatrix = mat4(1.0f);
+    m_FrameConstants.worldMatrix   = mat4(1.0f);
+    m_FrameConstants.lightPosition = vec3(5, 5, 5);
 }
 
 bool GraphicsManager::InitializeShaders() {
@@ -65,14 +66,14 @@ void GraphicsManager::CalculateCameraMatrix() {
     auto& scene       = g_pSceneManager->GetSceneForRendering();
     auto  pCameraNode = scene.GetFirstCameraNode();
 
-    mat4& viewMat = m_DrawFrameContext.viewMatrix;
+    mat4& viewMat = m_FrameConstants.viewMatrix;
     if (pCameraNode) {
         viewMat = *pCameraNode->GetCalculatedTransform();
         viewMat = inverse(viewMat);
     } else {
-        vec3 position(0, -2, 0);
+        vec3 position(5, 5, 5);
         vec3 look_at(0, 0, 0);
-        vec3 up(0, 0, 1);
+        vec3 up(-1, -1, 1);
         viewMat = lookAt(position, look_at, up);
     }
 
@@ -90,15 +91,19 @@ void GraphicsManager::CalculateCameraMatrix() {
     }
     const GfxConfiguration& conf = g_pApp->GetConfiguration();
     float screenAspect = (float)conf.screenWidth / (float)conf.screenHeight;
-    m_DrawFrameContext.projectionMatrix = perspective(
+    m_FrameConstants.projectionMatrix = perspective(
         fieldOfView, screenAspect, nearClipDistance, farClipDistance);
+
+    m_FrameConstants.WVP = m_FrameConstants.projectionMatrix *
+                           m_FrameConstants.viewMatrix *
+                           m_FrameConstants.worldMatrix;
 }
 
 void GraphicsManager::CalculateLights() {
     auto& scene = g_pSceneManager->GetSceneForRendering();
 
-    vec3& lightPos   = m_DrawFrameContext.lightPosition;
-    vec4& lightColor = m_DrawFrameContext.lightColor;
+    vec3& lightPos   = m_FrameConstants.lightPosition;
+    vec4& lightColor = m_FrameConstants.lightColor;
 
     if (auto pLightNode = scene.GetFirstLightNode()) {
         lightPos = vec3(0.0f);
@@ -110,7 +115,9 @@ void GraphicsManager::CalculateLights() {
             lightColor = pLight->GetColor().Value;
         }
     } else {
-        lightPos   = vec3(-1.0f, -10.0f, 5.0f);
+        auto _lightPos =
+            rotateZ(mat4(1.0f), radians(1.0f)) * vec4(lightPos, 1.0f);
+        lightPos   = _lightPos.xyz;
         lightColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }

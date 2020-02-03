@@ -31,13 +31,6 @@ protected:
     void RenderBuffers() final;
 
 private:
-    struct FrameConstants {
-        // WVP = Projection * View * World
-        mat4 WVP;
-        vec3 lightPosition;
-        vec4 lightColor;
-    };
-
     struct ObjectConstants {
         mat4  modelMatrix;
         vec4  baseColor;

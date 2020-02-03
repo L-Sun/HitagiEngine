@@ -28,7 +28,7 @@ int main(int, char**) {
     g_pSceneManager->Initialize();
     g_pAssetLoader->Initialize();
 
-    g_pSceneManager->LoadScene("Scene/Example.ogex");
+    g_pSceneManager->LoadScene("Asset/Scene/test.fbx");
     auto& scene = g_pSceneManager->GetSceneForRendering();
 
     std::cout << "Dump of Cameras" << std::endl;

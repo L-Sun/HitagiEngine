@@ -669,13 +669,8 @@ void D3D12GraphicsManager::UpdateConstants() {
     }
 
     // Update frame resource
-    FrameConstants fc;
-    fc.WVP = m_DrawFrameContext.projectionMatrix *
-             m_DrawFrameContext.viewMatrix * m_DrawFrameContext.worldMatrix;
-    fc.lightColor    = m_DrawFrameContext.lightColor;
-    fc.lightPosition = m_DrawFrameContext.lightPosition;
 
-    currFR->UpdateFrameConstants(fc);
+    currFR->UpdateFrameConstants(m_FrameConstants);
     for (auto&& dbc : m_drawBatchContext) {
         if (dbc.node->Dirty()) {
             dbc.node->ClearDirty();
@@ -844,7 +839,6 @@ void D3D12GraphicsManager::FlushCommandQueue() {
 #if defined(DEBUG)
 void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
                                     const vec3& color) {
-    GraphicsManager::DrawLine(from, to, color);
     std::string name;
     if (color.r > 0)
         name = "debug_line-x";
@@ -896,7 +890,6 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
 
 void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
                                    const vec3& color) {
-    GraphicsManager::DrawBox(bbMin, bbMax, color);
     if (m_geometries.find("debug_box") == m_geometries.end()) {
         auto              pGeometry = std::make_shared<GeometryBuffer>();
         std::vector<vec3> position  = {
