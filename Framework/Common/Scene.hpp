@@ -33,8 +33,8 @@ public:
         m_pDefaultMaterial = std::make_shared<SceneObjectMaterial>("default");
     }
     Scene(const std::string& scene_name)
-        : SceneGraph(new BaseSceneNode(scene_name)) {}
-    ~Scene() = default;
+        : SceneGraph(std::make_shared<BaseSceneNode>(scene_name)) {}
+    ~Scene(){};
 
     const std::shared_ptr<SceneObjectCamera> GetCamera(
         const std::string& key) const;

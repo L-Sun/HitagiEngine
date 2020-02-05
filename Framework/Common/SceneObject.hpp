@@ -107,24 +107,20 @@ public:
 
 class SceneObjectVertexArray {
 protected:
-    const std::string    m_strAttribute;
-    const uint32_t       m_MorphTargetIndex;
-    const VertexDataType m_DataType;
-    const void*          m_pData;
-    const size_t         m_szData;
+    std::string    m_strAttribute;
+    uint32_t       m_MorphTargetIndex;
+    VertexDataType m_DataType;
+    size_t         m_vertexCount;
+    void*          m_pData = nullptr;
 
 public:
     SceneObjectVertexArray(
         std::string_view attr = "", uint32_t morph_index = 0,
         const VertexDataType data_type = VertexDataType::kFLOAT3,
-        const void* data = nullptr, size_t data_size = 0)
-        : m_strAttribute(attr),
-          m_MorphTargetIndex(morph_index),
-          m_DataType(data_type),
-          m_pData(data),
-          m_szData(data_size) {}
-    SceneObjectVertexArray(SceneObjectVertexArray& arr)  = default;
-    SceneObjectVertexArray(SceneObjectVertexArray&& arr) = default;
+        void* data = nullptr, size_t vertexCount = 0);
+    SceneObjectVertexArray(SceneObjectVertexArray& rhs);
+    SceneObjectVertexArray(SceneObjectVertexArray&& rhs);
+    ~SceneObjectVertexArray();
 
     const std::string&   GetAttributeName() const;
     VertexDataType       GetDataType() const;
@@ -137,25 +133,20 @@ public:
 
 class SceneObjectIndexArray {
 protected:
-    const uint32_t      m_nMaterialIndex;
-    const size_t        m_szResetartIndex;
-    const IndexDataType m_DataType;
-    const void*         m_pData;
-    const size_t        m_szData;
+    uint32_t      m_nMaterialIndex;
+    size_t        m_szResetartIndex;
+    IndexDataType m_DataType;
+    size_t        m_indexCount;
+    void*         m_pData = nullptr;
 
 public:
     SceneObjectIndexArray(const uint32_t      material_index = 0,
                           const uint32_t      restart_index  = 0,
                           const IndexDataType data_type = IndexDataType::kINT16,
-                          const void*         data      = nullptr,
-                          const size_t        data_size = 0)
-        : m_nMaterialIndex(material_index),
-          m_szResetartIndex(restart_index),
-          m_DataType(data_type),
-          m_pData(data),
-          m_szData(data_size) {}
-    SceneObjectIndexArray(SceneObjectIndexArray&)  = default;
-    SceneObjectIndexArray(SceneObjectIndexArray&&) = default;
+                          void* data = nullptr, const size_t elementCount = 0);
+    SceneObjectIndexArray(SceneObjectIndexArray&);
+    SceneObjectIndexArray(SceneObjectIndexArray&&);
+    ~SceneObjectIndexArray();
 
     const uint32_t       GetMaterialIndex() const;
     const IndexDataType  GetIndexType() const;

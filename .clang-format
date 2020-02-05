@@ -4,4 +4,6 @@ SortIncludes: false
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AlignTrailingComments: true
+DerivePointerAlignment: false
+PointerAlignment: Left
 AccessModifierOffset: -4

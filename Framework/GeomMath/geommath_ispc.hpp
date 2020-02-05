@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <iomanip>
 #include <cmath>
 
 namespace ispc { /* namespace */
@@ -173,11 +174,15 @@ struct Vector : public BaseVector<T, D> {
     operator const T *() const { return static_cast<const T*>(data); }
 
     friend std::ostream& operator<<(std::ostream& out, Vector v) {
-        out << "(";
+        std::ios state(NULL);
+        state.copyfmt(out);
+        out << "(" << std::setprecision(2);
         for (size_t i = 0; i < D - 1; i++) {
             out << v.data[i] << ", ";
         }
-        return out << v.data[D - 1] << ")";
+        out << v.data[D - 1] << ")" << std::flush;
+        out.copyfmt(state);
+        return out;
     }
 
     const Vector operator+(const Vector& rhs) const {
@@ -322,7 +327,10 @@ struct Matrix {
     operator const T *() const { return static_cast<const T*>(&data[0][0]); }
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
+        std::ios state(NULL);
+        state.copyfmt(out);
         std::fixed(out);
+        out << std::setprecision(3);
         for (int i = 0; i < ROWS; i++) {
             if (i == 0)
                 out << "\n{{";
@@ -337,6 +345,8 @@ struct Matrix {
             else
                 out << "}}\n";
         }
+        out << std::flush;
+        out.copyfmt(state);
         return out;
     }
 

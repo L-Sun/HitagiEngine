@@ -37,5 +37,5 @@ public:
     virtual void OnCKeyUp();
     virtual void OnCKey();
 };
-extern GameLogic* g_pGameLogic;
+extern std::unique_ptr<GameLogic> g_pGameLogic;
 }  // namespace My

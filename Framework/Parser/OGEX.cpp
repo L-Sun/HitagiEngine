@@ -192,35 +192,38 @@ void OgexParser::ConvertOddlStructureToSceneNode(
                                     dataStructure->GetDataElementCount();
                                 const void* _data =
                                     &dataStructure->GetDataElement(0);
-                                void*  data     = new float[elementCount];
+                                void*  data     = g_pMemoryManager->Allocate(sizeof(float) * elementCount);
                                 size_t buf_size = sizeof(float) * elementCount;
                                 memcpy(data, _data, buf_size);
+                                size_t         vertexCount;
                                 VertexDataType vertexDataType;
                                 switch (arraySize) {
                                     case 1:
                                         vertexDataType =
                                             VertexDataType::kFLOAT1;
+                                        vertexCount = elementCount / 1;
                                         break;
                                     case 2:
                                         vertexDataType =
                                             VertexDataType::kFLOAT2;
+                                        vertexCount = elementCount / 2;
                                         break;
                                     case 3:
                                         vertexDataType =
                                             VertexDataType::kFLOAT3;
+                                        vertexCount = elementCount / 3;
                                         break;
                                     case 4:
                                         vertexDataType =
                                             VertexDataType::kFLOAT4;
+                                        vertexCount = elementCount / 4;
                                         break;
                                     default:
                                         continue;
                                 }
-                                SceneObjectVertexArray& _v_array =
-                                    *new SceneObjectVertexArray(
-                                        attr, morph_index, vertexDataType, data,
-                                        elementCount);
-                                mesh->AddVertexArray(std::move(_v_array));
+                                mesh->AddVertexArray(std::move(SceneObjectVertexArray(
+                                    attr, morph_index, vertexDataType, data,
+                                    vertexCount)));
                             } break;
                             case OGEX::kStructureIndexArray: {
                                 const OGEX::IndexArrayStructure* _i =
@@ -319,13 +322,11 @@ void OgexParser::ConvertOddlStructureToSceneNode(
                                 }
 
                                 size_t buf_size = elementCount * data_size;
-                                void*  data     = new uint8_t[buf_size];
+                                void*  data     = g_pMemoryManager->Allocate(sizeof(uint8_t) * buf_size);
                                 memcpy(data, _data, buf_size);
-                                SceneObjectIndexArray& _i_array =
-                                    *new SceneObjectIndexArray(
-                                        material_index, restart_index,
-                                        index_type, data, elementCount);
-                                mesh->AddIndexArray(std::move(_i_array));
+                                mesh->AddIndexArray(std::move(SceneObjectIndexArray(
+                                    material_index, restart_index,
+                                    index_type, data, elementCount)));
 
                             } break;
                             default:

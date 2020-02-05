@@ -23,6 +23,36 @@ BaseSceneObject& BaseSceneObject::operator=(BaseSceneObject&& obj) {
 }
 
 // Class SceneObjectVertexArray
+SceneObjectVertexArray::SceneObjectVertexArray(std::string_view     attr,
+                                               uint32_t             morph_index,
+                                               const VertexDataType data_type,
+                                               void* data, size_t vertexCount)
+    : m_strAttribute(attr),
+      m_MorphTargetIndex(morph_index),
+      m_DataType(data_type),
+      m_pData(data),
+      m_vertexCount(vertexCount) {}
+SceneObjectVertexArray::SceneObjectVertexArray(SceneObjectVertexArray& rhs) {
+    if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
+    m_strAttribute     = rhs.m_strAttribute;
+    m_MorphTargetIndex = rhs.m_MorphTargetIndex;
+    m_DataType         = rhs.m_DataType;
+    m_vertexCount      = rhs.m_vertexCount;
+    m_pData            = g_pMemoryManager->Allocate(rhs.GetDataSize());
+    std::memcpy(m_pData, rhs.m_pData, rhs.GetDataSize());
+}
+SceneObjectVertexArray::SceneObjectVertexArray(SceneObjectVertexArray&& rhs) {
+    if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
+    m_strAttribute     = std::move(rhs.m_strAttribute);
+    m_MorphTargetIndex = rhs.m_MorphTargetIndex;
+    m_DataType         = rhs.m_DataType;
+    m_vertexCount      = rhs.m_vertexCount;
+    m_pData            = rhs.m_pData;
+    rhs.m_pData        = nullptr;
+}
+SceneObjectVertexArray::~SceneObjectVertexArray() {
+    if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
+}
 const std::string& SceneObjectVertexArray::GetAttributeName() const {
     return m_strAttribute;
 }
@@ -30,55 +60,73 @@ VertexDataType SceneObjectVertexArray::GetDataType() const {
     return m_DataType;
 }
 size_t SceneObjectVertexArray::GetDataSize() const {
-    size_t size = m_szData;
-
+    size_t vertexSize;
     switch (m_DataType) {
         case VertexDataType::kFLOAT1:
+            vertexSize = sizeof(float) * 1;
+            break;
         case VertexDataType::kFLOAT2:
+            vertexSize = sizeof(float) * 2;
+            break;
         case VertexDataType::kFLOAT3:
+            vertexSize = sizeof(float) * 3;
+            break;
         case VertexDataType::kFLOAT4:
-            size *= sizeof(float);
+            vertexSize = sizeof(float) * 4;
             break;
         case VertexDataType::kDOUBLE1:
+            vertexSize = sizeof(double) * 1;
+            break;
         case VertexDataType::kDOUBLE2:
+            vertexSize = sizeof(double) * 2;
+            break;
         case VertexDataType::kDOUBLE3:
+            vertexSize = sizeof(double) * 3;
+            break;
         case VertexDataType::kDOUBLE4:
-            size *= sizeof(double);
+            vertexSize = sizeof(double) * 4;
+            break;
         default:
-            size = 0;
+            vertexSize = 0;
             break;
     }
-    return size;
+    return vertexSize * GetVertexCount();
 }
 const void* SceneObjectVertexArray::GetData() const { return m_pData; }
-size_t      SceneObjectVertexArray::GetVertexCount() const {
-    size_t size = m_szData;
-
-    switch (m_DataType) {
-        case VertexDataType::kFLOAT1:
-        case VertexDataType::kDOUBLE1:
-            size /= 1;
-            break;
-        case VertexDataType::kFLOAT2:
-        case VertexDataType::kDOUBLE2:
-            size /= 2;
-            break;
-        case VertexDataType::kFLOAT3:
-        case VertexDataType::kDOUBLE3:
-            size /= 3;
-            break;
-        case VertexDataType::kFLOAT4:
-        case VertexDataType::kDOUBLE4:
-            size /= 4;
-            break;
-        default:
-            size = 0;
-            break;
-    }
-    return size;
-}
+size_t SceneObjectVertexArray::GetVertexCount() const { return m_vertexCount; }
 
 // Class SceneObjectIndexArray
+SceneObjectIndexArray::SceneObjectIndexArray(const uint32_t      material_index,
+                                             const uint32_t      restart_index,
+                                             const IndexDataType data_type,
+                                             void*               data,
+                                             const size_t        indexCount)
+    : m_nMaterialIndex(material_index),
+      m_szResetartIndex(restart_index),
+      m_DataType(data_type),
+      m_pData(data),
+      m_indexCount(indexCount) {}
+SceneObjectIndexArray::SceneObjectIndexArray(SceneObjectIndexArray& rhs) {
+    if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
+    m_nMaterialIndex  = rhs.m_nMaterialIndex;
+    m_szResetartIndex = rhs.m_szResetartIndex;
+    m_DataType        = rhs.m_DataType;
+    m_indexCount      = rhs.m_indexCount;
+    m_pData           = g_pMemoryManager->Allocate(rhs.GetDataSize());
+    std::memcpy(m_pData, rhs.m_pData, rhs.GetDataSize());
+}
+SceneObjectIndexArray::SceneObjectIndexArray(SceneObjectIndexArray&& rhs) {
+    if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
+    m_nMaterialIndex  = rhs.m_nMaterialIndex;
+    m_szResetartIndex = rhs.m_szResetartIndex;
+    m_DataType        = rhs.m_DataType;
+    m_indexCount      = rhs.m_indexCount;
+    m_pData           = rhs.m_pData;
+    rhs.m_pData       = nullptr;
+}
+SceneObjectIndexArray::~SceneObjectIndexArray() {
+    if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
+}
 const uint32_t SceneObjectIndexArray::GetMaterialIndex() const {
     return m_nMaterialIndex;
 }
@@ -86,22 +134,22 @@ const IndexDataType SceneObjectIndexArray::GetIndexType() const {
     return m_DataType;
 }
 const void* SceneObjectIndexArray::GetData() const { return m_pData; }
-size_t      SceneObjectIndexArray::GetIndexCount() const { return m_szData; }
-size_t      SceneObjectIndexArray::GetDataSize() const {
-    size_t size = m_szData;
+size_t SceneObjectIndexArray::GetIndexCount() const { return m_indexCount; }
+size_t SceneObjectIndexArray::GetDataSize() const {
+    size_t size;
 
     switch (m_DataType) {
         case IndexDataType::kINT8:
-            size *= sizeof(int8_t);
+            size = m_indexCount * sizeof(int8_t);
             break;
         case IndexDataType::kINT16:
-            size *= sizeof(int16_t);
+            size = m_indexCount * sizeof(int16_t);
             break;
         case IndexDataType::kINT32:
-            size *= sizeof(int32_t);
+            size = m_indexCount * sizeof(int32_t);
             break;
         case IndexDataType::kINT64:
-            size *= sizeof(int64_t);
+            size = m_indexCount * sizeof(int64_t);
             break;
         default:
             size = 0;
@@ -502,10 +550,51 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
     out << "Attribute: " << obj.m_strAttribute << std::endl;
     out << "Morph Target Index: 0x" << obj.m_MorphTargetIndex << std::endl;
     out << "Data Type: " << obj.m_DataType << std::endl;
-    out << "Data Size: 0x" << obj.m_szData << std::endl;
+    out << "Data Size: " << obj.GetDataSize() << " bytes." << std::endl;
     out << "Data: ";
-    for (size_t i = 0; i < obj.m_szData; i++) {
-        out << *(reinterpret_cast<const float*>(obj.m_pData) + i) << ' ';
+    for (size_t i = 0; i < obj.GetVertexCount(); i++) {
+        switch (obj.m_DataType) {
+            case VertexDataType::kFLOAT1:
+                std::cout << *(reinterpret_cast<const float*>(obj.m_pData) + i)
+                          << ' ';
+                break;
+            case VertexDataType::kFLOAT2:
+                std::cout << *(reinterpret_cast<const vec2*>(obj.m_pData) + i)
+                          << ' ';
+                break;
+            case VertexDataType::kFLOAT3:
+                std::cout << *(reinterpret_cast<const vec3*>(obj.m_pData) + i)
+                          << ' ';
+                break;
+            case VertexDataType::kFLOAT4:
+                std::cout << *(reinterpret_cast<const vec4*>(obj.m_pData) + i)
+                          << ' ';
+                break;
+            case VertexDataType::kDOUBLE1:
+                std::cout << *(reinterpret_cast<const double*>(obj.m_pData) + i)
+                          << ' ';
+                break;
+            case VertexDataType::kDOUBLE2:
+                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(
+                                   obj.m_pData) +
+                               i)
+                          << ' ';
+                break;
+            case VertexDataType::kDOUBLE3:
+                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(
+                                   obj.m_pData) +
+                               i)
+                          << ' ';
+                break;
+            case VertexDataType::kDOUBLE4:
+                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(
+                                   obj.m_pData) +
+                               i)
+                          << ' ';
+                break;
+            default:
+                break;
+        }
     }
     return out << std::endl;
 }
@@ -513,28 +602,24 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
     out << "Material: " << obj.m_nMaterialIndex << std::endl;
     out << "Restart Index: 0x" << obj.m_szResetartIndex << std::endl;
     out << "Index Data Type: " << obj.m_DataType << std::endl;
-    out << "Data Size: 0x" << obj.m_szData << std::endl;
+    out << "Data Size: 0x" << obj.GetDataSize() << std::endl;
     out << "Data: ";
-    for (size_t i = 0; i < obj.m_szData; i++) {
+    for (size_t i = 0; i < obj.GetIndexCount(); i++) {
         switch (obj.m_DataType) {
             case IndexDataType::kINT8:
-                out << "0x"
-                    << *(reinterpret_cast<const int8_t*>(obj.m_pData) + i)
+                out << *(reinterpret_cast<const int8_t*>(obj.m_pData) + i)
                     << ' ';
                 break;
             case IndexDataType::kINT16:
-                out << "0x"
-                    << *(reinterpret_cast<const int16_t*>(obj.m_pData) + i)
+                out << *(reinterpret_cast<const int16_t*>(obj.m_pData) + i)
                     << ' ';
                 break;
             case IndexDataType::kINT32:
-                out << "0x"
-                    << *(reinterpret_cast<const int32_t*>(obj.m_pData) + i)
+                out << *(reinterpret_cast<const int32_t*>(obj.m_pData) + i)
                     << ' ';
                 break;
             case IndexDataType::kINT64:
-                out << "0x"
-                    << *(reinterpret_cast<const int64_t*>(obj.m_pData) + i)
+                out << *(reinterpret_cast<const int64_t*>(obj.m_pData) + i)
                     << ' ';
                 break;
             default:

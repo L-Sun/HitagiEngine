@@ -23,5 +23,5 @@ public:
 
     virtual void ApplyCentralForce(void* rigidBody, vec3 force) = 0;
 };
-extern IPhysicsManager* g_pPhysicsManager;
+extern std::unique_ptr<IPhysicsManager> g_pPhysicsManager;
 }  // namespace My

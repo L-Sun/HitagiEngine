@@ -1,6 +1,77 @@
 #include <fbxsdk.h>
 #include "AssetLoader.hpp"
 
+class MemoryStream : public FbxStream {
+public:
+    MemoryStream(const My::Buffer& buffer, int readID = -1, int writeID = -1)
+        : m_pData(buffer.GetData()),
+          m_szData(buffer.GetDataSize()),
+          m_readerID(readID),
+          m_writeID(writeID) {}
+    ~MemoryStream() { Close(); }
+
+    virtual EState GetState() { return m_state; }
+
+    virtual bool Open(void* pStreamData) {
+        m_state = EState::eOpen;
+        m_pos   = 0;
+        return true;
+    }
+
+    virtual bool Close() {
+        m_state = EState::eClosed;
+        return true;
+    }
+    virtual bool Flush() { return true; }
+    virtual int  Write(const void* pData, int pSize) {
+        m_errorCode = 1;
+        return 0;
+    }
+    virtual int Read(void* pData, int pSize) const {
+        int read_size = pSize <= m_szData - m_pos ? pSize : m_szData - m_pos;
+        std::memcpy(pData, m_pData + m_pos, read_size);
+        const_cast<MemoryStream&>(*this).m_pos += read_size;
+        return read_size;
+    };
+    virtual int GetReaderID() const {
+        int a = 0;
+        a;
+        return m_readerID;
+    }
+    virtual int  GetWriterID() const { return m_writeID; }
+    virtual void Seek(const FbxInt64&          pOffset,
+                      const FbxFile::ESeekPos& pSeekPos) {
+        switch (pSeekPos) {
+            case FbxFile::ESeekPos::eCurrent:
+                m_pos += pOffset;
+                break;
+            case FbxFile::ESeekPos::eEnd:
+                m_pos = m_szData - pOffset;
+                break;
+            case FbxFile::ESeekPos::eBegin:
+            default:
+                m_pos = pOffset;
+                break;
+        }
+    }
+    virtual long GetPosition() const {
+        return m_state == EState::eOpen ? m_pos : 0;
+    }
+    virtual void SetPosition(long pPosition) { m_pos = pPosition; }
+    virtual int  GetError() const { return m_errorCode; }
+    virtual void ClearError() { m_errorCode = 0; }
+
+private:
+    const uint8_t* m_pData;
+    size_t         m_szData;
+    size_t         m_pos;
+    EState         m_state;
+
+    int m_errorCode;
+    int m_readerID;
+    int m_writeID;
+};
+
 /* Tab character ("\t") counter */
 int numTabs = 0;
 
@@ -85,13 +156,15 @@ void PrintNode(FbxNode* pNode) {
     FbxDouble3  translation = pNode->LclTranslation.Get();
     FbxDouble3  rotation    = pNode->LclRotation.Get();
     FbxDouble3  scaling     = pNode->LclScaling.Get();
+    FbxDouble   visibility  = pNode->Visibility.Get();
 
     // Print the contents of the node.
     printf(
         "<node name='%s' translation='(%f, %f, %f)' rotation='(%f, %f, %f)' "
-        "scaling='(%f, %f, %f)'>\n",
+        "scaling='(%f, %f, %f) visibility=%f'>\n",
         nodeName, translation[0], translation[1], translation[2], rotation[0],
-        rotation[1], rotation[2], scaling[0], scaling[1], scaling[2]);
+        rotation[1], rotation[2], scaling[0], scaling[1], scaling[2],
+        visibility);
     numTabs++;
 
     // Print the node's attributes.
@@ -105,6 +178,7 @@ void PrintNode(FbxNode* pNode) {
     numTabs--;
     PrintTabs();
     printf("</node>\n");
+    if (pNode->GetGeometry()) printf("%s\n", pNode->GetGeometry()->GetName());
 }
 
 /**
@@ -135,8 +209,13 @@ int main(int argc, char** argv) {
     // Create an importer using the SDK manager.
     FbxImporter* lImporter = FbxImporter::Create(lSdkManager, "");
 
+    Buffer test            = g_pAssetLoader->SyncOpenAndReadBinary(lFilename);
+    FbxIOPluginRegistry* r = lSdkManager->GetIOPluginRegistry();
+    MemoryStream         ms(test, r->FindReaderIDByExtension("fbx"));
+
     // Use the first argument as the filename for the importer.
-    if (!lImporter->Initialize(lFilename, -1, lSdkManager->GetIOSettings())) {
+    if (!lImporter->Initialize(&ms, nullptr, -1,
+                               lSdkManager->GetIOSettings())) {
         printf("Call to FbxImporter::Initialize() failed.\n");
         printf("Error returned: %s\n\n",
                lImporter->GetStatus().GetErrorString());
@@ -152,13 +231,21 @@ int main(int argc, char** argv) {
     // The file is imported; so get rid of the importer.
     lImporter->Destroy();
 
+    FbxGeometryConverter lGeometryConverter(lSdkManager);
+    lGeometryConverter.Triangulate(lScene, true);
+
     // Print the nodes of the scene and their attributes recursively.
     // Note that we are not printing the root node because it should
     // not contain any attributes.
     FbxNode* lRootNode = lScene->GetRootNode();
+
     if (lRootNode) {
         for (int i = 0; i < lRootNode->GetChildCount(); i++)
             PrintNode(lRootNode->GetChild(i));
+    }
+    for (size_t i = 0; i < lScene->GetGeometryCount(); i++) {
+        printf("%s %d\n", lScene->GetGeometry(i)->GetName(),
+               lScene->GetGeometry(i)->GetElementVisibilityCount());
     }
     // Destroy the SDK manager and all the other objects it was handling.
     lSdkManager->Destroy();

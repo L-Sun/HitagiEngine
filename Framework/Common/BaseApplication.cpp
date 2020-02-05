@@ -35,15 +35,15 @@ int BaseApplication::Initialize() {
     }
     std::cout << "Success" << std::endl;
 
-    std::cout << "Initialize Graphics Manager: ";
-    if ((ret = g_pGraphicsManager->Initialize()) != 0) {
+    std::cout << "Initialize Input Manager: ";
+    if ((ret = g_pInputManager->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
     std::cout << "Success" << std::endl;
 
-    std::cout << "Initialize Input Manager: ";
-    if ((ret = g_pInputManager->Initialize()) != 0) {
+    std::cout << "Initialize Graphics Manager: ";
+    if ((ret = g_pGraphicsManager->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }

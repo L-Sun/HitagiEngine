@@ -104,7 +104,7 @@ protected:
     bool                     m_bShadow;
     bool                     m_bMotionBlur;
     std::vector<std::string> m_Materials;
-    void*                    m_pRigidBody = nullptr;
+    std::shared_ptr<void>    m_pRigidBody = nullptr;
 
     virtual void dump(std::ostream& out) const {
         SceneNode::dump(out);
@@ -117,6 +117,7 @@ protected:
 
 public:
     using SceneNode::SceneNode;
+    ~SceneGeometryNode() { UnlinkRigidBody(); }
     void SetVisibility(bool visible) { m_bVisible = visible; }
     void SetIfCastShadow(bool shadow) { m_bShadow = shadow; }
     void SetIfMotionBlur(bool motion_blur) { m_bMotionBlur = motion_blur; }
@@ -131,15 +132,12 @@ public:
     std::string GetMaterialRef(const size_t index) {
         return index < m_Materials.size() ? m_Materials[index] : std::string();
     }
-    void  LinkRigidBody(void* rigidBody) { m_pRigidBody = rigidBody; }
-    void* UnlinkRigidBody() {
-        void* rigidBody = m_pRigidBody;
-        m_pRigidBody    = nullptr;
-
-        return rigidBody;
+    void LinkRigidBody(std::shared_ptr<void> rigidBody) {
+        m_pRigidBody = rigidBody;
     }
+    void UnlinkRigidBody() { m_pRigidBody = nullptr; }
 
-    void* RigidBody() { return m_pRigidBody; }
+    std::shared_ptr<void> RigidBody() { return m_pRigidBody; }
 };
 
 class SceneLightNode : public SceneNode<SceneObjectLight> {

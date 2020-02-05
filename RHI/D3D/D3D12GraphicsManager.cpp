@@ -591,8 +591,8 @@ void D3D12GraphicsManager::CreateTextureBuffer() {
 
                 // Create texture buffer
 
-                textureDesc.Width  = img.Width;
-                textureDesc.Height = img.Height;
+                textureDesc.Width  = img.GetWidth();
+                textureDesc.Height = img.GetHeight();
 
                 ThrowIfFailed(m_pDevice->CreateCommittedResource(
                     &defaultheapProp, D3D12_HEAP_FLAG_NONE, &textureDesc,
@@ -613,9 +613,9 @@ void D3D12GraphicsManager::CreateTextureBuffer() {
                     IID_PPV_ARGS(&uploadHeap)));
 
                 D3D12_SUBRESOURCE_DATA textureData;
-                textureData.pData      = img.data;
-                textureData.RowPitch   = img.pitch;
-                textureData.SlicePitch = img.pitch * img.Height;
+                textureData.pData      = img.getData();
+                textureData.RowPitch   = img.GetPitch();
+                textureData.SlicePitch = img.GetPitch() * img.GetHeight();
                 UpdateSubresources(m_pCommandList.Get(), texture.Get(),
                                    uploadHeap.Get(), 0, 0, subresourceCount,
                                    &textureData);
@@ -643,6 +643,7 @@ void D3D12GraphicsManager::CreateTextureBuffer() {
 
 void D3D12GraphicsManager::ClearShaders() {
     m_pipelineState.clear();
+
     m_VS.clear();
     m_PS.clear();
 }
@@ -854,9 +855,9 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
         std::vector<int>       index    = {0, 1};
         std::vector<vec3>      colors(position.size(), color);
         SceneObjectVertexArray pos_array("position", 0, VertexDataType::kFLOAT3,
-                                         position.data(), position.size() * 3);
+                                         position.data(), position.size());
         SceneObjectVertexArray color_array("color", 0, VertexDataType::kFLOAT3,
-                                           colors.data(), colors.size() * 3);
+                                           colors.data(), colors.size());
         CreateVertexBuffer(pos_array, pGeometry);
         CreateVertexBuffer(color_array, pGeometry);
         SceneObjectIndexArray index_array(0, 0, IndexDataType::kINT32,
@@ -906,10 +907,10 @@ void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
                                   5, 6, 2, 6, 7, 3, 7, 4};
         pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
         std::vector<vec3>      colors(position.size(), color);
-        SceneObjectVertexArray pos_array("position", 0, VertexDataType::kFLOAT3,
-                                         position.data(), position.size() * 3);
-        SceneObjectVertexArray color_array("color", 0, VertexDataType::kFLOAT3,
-                                           colors.data(), colors.size() * 3);
+        SceneObjectVertexArray pos_array("POSITION", 0, VertexDataType::kFLOAT3,
+                                         position.data(), position.size());
+        SceneObjectVertexArray color_array("COLOR", 0, VertexDataType::kFLOAT3,
+                                           colors.data(), colors.size());
         CreateVertexBuffer(pos_array, pGeometry);
         CreateVertexBuffer(color_array, pGeometry);
         SceneObjectIndexArray index_array(0, 0, IndexDataType::kINT32,

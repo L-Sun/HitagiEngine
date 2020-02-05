@@ -14,13 +14,12 @@ Image JpegParser::Parse(const Buffer& buf) {
     jpeg_read_header(&cinfo, true);
     cinfo.out_color_space = JCS_EXT_RGBA;
 
-    Image img;
-    img.Width     = static_cast<uint32_t>(cinfo.image_width);
-    img.Height    = static_cast<uint32_t>(cinfo.image_height);
-    img.bitcount  = 32;
-    img.pitch     = ((img.Width * img.bitcount >> 3) + 3) & ~3;
-    img.data_size = img.pitch * img.Height;
-    img.data      = g_pMemoryManager->Allocate(img.data_size);
+    auto  width    = static_cast<uint32_t>(cinfo.image_width);
+    auto  height   = static_cast<uint32_t>(cinfo.image_height);
+    auto  bitcount = 32;
+    auto  pitch    = ((width * bitcount >> 3) + 3) & ~3;
+    auto  dataSize = pitch * height;
+    Image img(width, height, bitcount, pitch, dataSize);
     jpeg_start_decompress(&cinfo);
 
     int buffer_height = 1;
@@ -28,7 +27,7 @@ Image JpegParser::Parse(const Buffer& buf) {
 
     JSAMPARRAY buffer = new JSAMPROW[buffer_height];
     buffer[0]         = new JSAMPLE[row_stride];
-    auto p            = reinterpret_cast<uint8_t*>(img.data);
+    auto p            = reinterpret_cast<uint8_t*>(img.getData());
 
     while (cinfo.output_scanline < cinfo.output_height) {
         jpeg_read_scanlines(&cinfo, buffer, 1);

@@ -12,11 +12,11 @@ int SceneManager::Initialize() {
     m_pScene   = make_unique<Scene>();
     return result;
 }
-void SceneManager::Finalize() {}
+void SceneManager::Finalize() { m_pScene = nullptr; }
 
 void SceneManager::Tick() {
     if (IsSceneChanged()) {
-        // LoadScene(m_scenePath);
+        LoadScene(m_scenePath);
     }
 }
 

@@ -10,7 +10,6 @@ Image BmpParser::Parse(const Buffer& buf) {
         reinterpret_cast<const BITMAP_FILEHEADER*>(buf.GetData());
     const BITMAP_HEADER* pBmpHeader = reinterpret_cast<const BITMAP_HEADER*>(
         buf.GetData() + BITMAP_FILEHEADER_SIZE);
-
     if (pFileHeader->Signature == 0x4D42 /* 'B''M' */) {
         std::cout << "Asset is Windows BMP file" << std::endl;
         std::cout << "BMP Header" << std::endl;
@@ -25,29 +24,27 @@ Image BmpParser::Parse(const Buffer& buf) {
                   << std::endl;
         std::cout << "Image Size: " << pBmpHeader->SizeImage << std::endl;
 
-        img.Width       = pBmpHeader->Width;
-        img.Height      = pBmpHeader->Height;
-        img.bitcount    = 32;
-        auto byte_count = img.bitcount >> 3;
-        img.pitch       = ((img.Width * img.bitcount >> 3) + 3) & ~3;
-        img.data_size   = img.pitch * img.Height;
-        img.data        = reinterpret_cast<R8G8B8A8Unorm*>(
-            g_pMemoryManager->Allocate(img.data_size));
-
-        if (img.bitcount < 24) {
+        auto     width      = pBmpHeader->Width;
+        auto     height     = pBmpHeader->Height;
+        auto     bitcount   = 32;
+        auto     byte_count = bitcount >> 3;
+        auto     pitch      = ((width * bitcount >> 3) + 3) & ~3;
+        auto     data_size  = pitch * height;
+        Image    img(width, height, bitcount, pitch, data_size);
+        uint8_t* data = reinterpret_cast<uint8_t*>(img.getData());
+        if (bitcount < 24) {
             std::cout << "Sorry, only true color BMP is supported at now."
                       << std::endl;
         } else {
             const uint8_t* pSourceData =
                 reinterpret_cast<const uint8_t*>(buf.GetData()) +
                 pFileHeader->BitsOffset;
-            for (int32_t y = img.Height - 1; y >= 0; y--) {
-                for (uint32_t x = 0; x < img.Width; x++) {
-                    (reinterpret_cast<R8G8B8A8Unorm*>(
-                         reinterpret_cast<uint8_t*>(img.data) +
-                         img.pitch * (img.Height - y - 1) + x * byte_count))
+            for (int32_t y = height - 1; y >= 0; y--) {
+                for (uint32_t x = 0; x < width; x++) {
+                    (reinterpret_cast<R8G8B8A8Unorm*>(data +
+                                                      pitch * (height - y - 1) + x * byte_count))
                         ->bgra = *reinterpret_cast<const R8G8B8A8Unorm*>(
-                        pSourceData + img.pitch * y + x * byte_count);
+                        pSourceData + pitch * y + x * byte_count);
                 }
             }
         }

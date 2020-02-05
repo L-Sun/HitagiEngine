@@ -51,9 +51,13 @@ int MemoryManager::Initialize() {
 }
 
 void MemoryManager::Finalize() {
-    m_bInitialized = false;
+    for (size_t i = 0; i < kNumBlockSizes; i++) {
+        m_pAllocators[i].FreeAll();
+    }
+
     delete[] m_pAllocators;
     delete[] m_pBlockSizeLookup;
+    m_bInitialized = false;
 }
 
 void MemoryManager::Tick() {}
@@ -68,12 +72,13 @@ void* MemoryManager::Allocate(size_t size) {
     if (pAlloc)
         return pAlloc->Allocate();
     else
-        return malloc(size);
+        return new uint8_t[size];
 }
 
 void* MemoryManager::Allocate(size_t size, size_t alignment) {
     uint8_t* p;
-    size += alignment;
+    size = ALIGN(size, alignment);
+
     Allocator* pAlloc = LookUpAllocator(size);
     if (pAlloc)
         p = reinterpret_cast<uint8_t*>(pAlloc->Allocate());

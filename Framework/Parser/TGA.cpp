@@ -16,7 +16,6 @@ struct TGA_FILEHEADER {
 #pragma pack(pop)
 
 Image TgaParser::Parse(const Buffer& buf) {
-    Image          img;
     const uint8_t* pData    = buf.GetData();
     const uint8_t* pDataEnd = pData + buf.GetDataSize();
 
@@ -35,7 +34,7 @@ Image TgaParser::Parse(const Buffer& buf) {
     if (pFileHeader->ColorMapType) {
         std::cout << "Unsupported Color Map. Only Type 0 is supported."
                   << std::endl;
-        return img;
+        return Image();
     }
 
 #ifdef DEBUG
@@ -48,13 +47,20 @@ Image TgaParser::Parse(const Buffer& buf) {
                   << std::endl;
     }
     // tga all values are little-endian
-    img.Width  = (pFileHeader->ImageSpec[5] << 8) + pFileHeader->ImageSpec[4];
-    img.Height = (pFileHeader->ImageSpec[7] << 8) + pFileHeader->ImageSpec[6];
+    auto    width       = (pFileHeader->ImageSpec[5] << 8) + pFileHeader->ImageSpec[4];
+    auto    height      = (pFileHeader->ImageSpec[7] << 8) + pFileHeader->ImageSpec[6];
     uint8_t pixel_depth = pFileHeader->ImageSpec[8];
+    // rendering the pixel data
+    auto bitcount = 32;
+    // for GPU address alignment
+    auto  pitch     = (width * (bitcount >> 3) + 3) & ~3u;
+    auto  data_size = pitch * height;
+    Image img(width, height, bitcount, pitch, data_size);
+
 #ifdef DEBUG
     uint8_t alpha_depth = pFileHeader->ImageSpec[9] & 0x0F;
-    std::cout << "Image Width: " << img.Width << std::endl;
-    std::cout << "Image Height: " << img.Height << std::endl;
+    std::cout << "Image width: " << width << std::endl;
+    std::cout << "Image height: " << height << std::endl;
     std::cout << "Image Pixel Depth: " << (uint16_t)pixel_depth << std::endl;
     std::cout << "Image Alpha Depth: " << (uint16_t)alpha_depth << std::endl;
 #endif
@@ -63,55 +69,48 @@ Image TgaParser::Parse(const Buffer& buf) {
     // skip the Color Map. since we assume the Color Map Type is 0,
     // nothing to skip
 
-    // rendering the pixel data
-    img.bitcount = 32;
-    // for GPU address alignment
-    img.pitch     = (img.Width * (img.bitcount >> 3) + 3) & ~3u;
-    img.data_size = img.pitch * img.Height;
-    img.data      = g_pMemoryManager->Allocate(img.data_size);
-
-    uint8_t* pOut = reinterpret_cast<uint8_t*>(img.data);
+    uint8_t* pOut = reinterpret_cast<uint8_t*>(img.getData());
     // clang-format off
-        for (auto i = 0; i < img.Height; i++) {
-            for (auto j = 0; j < img.Width; j++) {
+        for (auto i = 0; i < height; i++) {
+            for (auto j = 0; j < width; j++) {
                 switch (pixel_depth) {
                     case 15:
                     {
                         uint16_t color = *reinterpret_cast<const uint16_t*>(pData);
                         pData += 2;
-                        *(pOut + img.pitch * i + j * 4)     = ((color & 0x7C00) >> 10); // R
-                        *(pOut + img.pitch * i + j * 4 + 1) = ((color & 0x03E0) >> 5);  // G
-                        *(pOut + img.pitch * i + j * 4 + 2) = ((color & 0x001F) >> 10); // B
-                        *(pOut + img.pitch * i + j * 4 + 3) = 0xFF;                     // A
+                        *(pOut + pitch * i + j * 4)     = ((color & 0x7C00) >> 10); // R
+                        *(pOut + pitch * i + j * 4 + 1) = ((color & 0x03E0) >> 5);  // G
+                        *(pOut + pitch * i + j * 4 + 2) = ((color & 0x001F) >> 10); // B
+                        *(pOut + pitch * i + j * 4 + 3) = 0xFF;                     // A
                     } break;
                     case 16:
                     {
                         uint16_t color = *reinterpret_cast<const uint16_t*>(pData);
                         pData += 2;
-                        *(pOut + img.pitch * i + j * 4)     = ((color & 0x7C00) >> 10);     // R
-                        *(pOut + img.pitch * i + j * 4 + 1) = ((color & 0x03E0) >> 5);      // G
-                        *(pOut + img.pitch * i + j * 4 + 2) = ((color & 0x001F) >> 10);     // B
-                        *(pOut + img.pitch * i + j * 4 + 3) = ((color & 0x8000)?0xFF:0x00); // A
+                        *(pOut + pitch * i + j * 4)     = ((color & 0x7C00) >> 10);     // R
+                        *(pOut + pitch * i + j * 4 + 1) = ((color & 0x03E0) >> 5);      // G
+                        *(pOut + pitch * i + j * 4 + 2) = ((color & 0x001F) >> 10);     // B
+                        *(pOut + pitch * i + j * 4 + 3) = ((color & 0x8000)?0xFF:0x00); // A
                     } break;
                     case 24:
                     {
-                        *(pOut + img.pitch * i + j * 4)     = *pData; // R
+                        *(pOut + pitch * i + j * 4)     = *pData; // R
                         pData++;
-                        *(pOut + img.pitch * i + j * 4 + 1) = *pData; // G
+                        *(pOut + pitch * i + j * 4 + 1) = *pData; // G
                         pData++;
-                        *(pOut + img.pitch * i + j * 4 + 2) = *pData; // B
+                        *(pOut + pitch * i + j * 4 + 2) = *pData; // B
                         pData++;
-                        *(pOut + img.pitch * i + j * 4 + 3) = 0xFF;   // A
+                        *(pOut + pitch * i + j * 4 + 3) = 0xFF;   // A
                     } break;
                     case 32:
                     {
-                        *(pOut + img.pitch * i + j * 4)     = *pData; // R
+                        *(pOut + pitch * i + j * 4)     = *pData; // R
                         pData++;
-                        *(pOut + img.pitch * i + j * 4 + 1) = *pData; // G
+                        *(pOut + pitch * i + j * 4 + 1) = *pData; // G
                         pData++;
-                        *(pOut + img.pitch * i + j * 4 + 2) = *pData; // B
+                        *(pOut + pitch * i + j * 4 + 2) = *pData; // B
                         pData++;
-                        *(pOut + img.pitch * i + j * 4 + 3) = *pData; // A
+                        *(pOut + pitch * i + j * 4 + 3) = *pData; // A
                         pData++;
                     } break;
                     default:

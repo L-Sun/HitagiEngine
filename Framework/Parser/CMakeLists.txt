@@ -11,6 +11,7 @@ target_link_libraries(Parser
     PRIVATE
         Interface
         CommonHeader
+        MemoryManager
         GeomMath
         ${OPENGEX_LIBRARY} 
         ${OPENDDL_LIBRARY}
