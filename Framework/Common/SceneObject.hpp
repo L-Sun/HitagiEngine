@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <variant>
 #include <crossguid/guid.hpp>
 #include "portable.hpp"
 #include "geommath.hpp"
@@ -117,7 +118,7 @@ public:
     SceneObjectVertexArray(
         std::string_view attr = "", uint32_t morph_index = 0,
         const VertexDataType data_type = VertexDataType::kFLOAT3,
-        void* data = nullptr, size_t vertexCount = 0);
+        const void* data = nullptr, size_t vertexCount = 0);
     SceneObjectVertexArray(SceneObjectVertexArray& rhs);
     SceneObjectVertexArray(SceneObjectVertexArray&& rhs);
     ~SceneObjectVertexArray();
@@ -143,7 +144,8 @@ public:
     SceneObjectIndexArray(const uint32_t      material_index = 0,
                           const uint32_t      restart_index  = 0,
                           const IndexDataType data_type = IndexDataType::kINT16,
-                          void* data = nullptr, const size_t elementCount = 0);
+                          const void*         data      = nullptr,
+                          const size_t        elementCount = 0);
     SceneObjectIndexArray(SceneObjectIndexArray&);
     SceneObjectIndexArray(SceneObjectIndexArray&&);
     ~SceneObjectIndexArray();
@@ -158,8 +160,8 @@ public:
 };
 
 struct BoundingBox {
-    vec3 centroid;
-    vec3 extent;
+    vec3f centroid;
+    vec3f extent;
 };
 
 class SceneObjectMesh : public BaseSceneObject {
@@ -211,7 +213,7 @@ protected:
     uint32_t               m_nTexCoordIndex;
     std::string            m_Name;
     std::shared_ptr<Image> m_pImage;
-    std::vector<mat4>      m_Transforms;
+    std::vector<mat4f>     m_Transforms;
 
 public:
     SceneObjectTexture()
@@ -231,7 +233,7 @@ public:
     SceneObjectTexture(SceneObjectTexture&)  = default;
     SceneObjectTexture(SceneObjectTexture&&) = default;
 
-    void                 AddTransform(mat4& matrix);
+    void                 AddTransform(mat4f& matrix);
     void                 SetName(const std::string& name);
     void                 SetName(std::string&& name);
     void                 LoadTexture();
@@ -272,8 +274,8 @@ struct ParameterValueMap {
     }
 };
 
-typedef ParameterValueMap<vec4>  Color;
-typedef ParameterValueMap<vec3>  Normal;
+typedef ParameterValueMap<vec4f> Color;
+typedef ParameterValueMap<vec3f> Normal;
 typedef ParameterValueMap<float> Parameter;
 
 class SceneObjectMaterial : public BaseSceneObject {
@@ -294,10 +296,10 @@ public:
     SceneObjectMaterial(void)
         : BaseSceneObject(SceneObjectType::kMATERIAL),
           m_Name(""),
-          m_BaseColor(vec4(1.0f)),
+          m_BaseColor(vec4f(1.0f)),
           m_Metallic(0.0f),
           m_Roughness(0.0f),
-          m_Normal(vec3(0.0f, 0.0f, 1.0f)),
+          m_Normal(vec3f(0.0f, 0.0f, 1.0f)),
           m_Specular(0.0f),
           m_SpecularPower(1.0f),
           m_AmbientOcclusion(1.0f),
@@ -317,7 +319,7 @@ public:
     const Parameter&   GetSpecularPower() const;
     void               SetName(const std::string& name);
     void               SetName(std::string&& name);
-    void               SetColor(std::string_view attrib, const vec4& color);
+    void               SetColor(std::string_view attrib, const vec4f& color);
     void               SetParam(std::string_view attrib, const float param);
     void SetTexture(std::string_view attrib, std::string_view textureName);
     void SetTexture(std::string_view                           attrib,
@@ -373,7 +375,7 @@ protected:
 
     SceneObjectLight(void)
         : BaseSceneObject(SceneObjectType::kLIGHT),
-          m_LightColor(vec4(1.0f)),
+          m_LightColor(vec4f(1.0f)),
           m_fIntensity(100.0f),
           m_LightAttenuation(DefaultAttenFunc),
           m_bCastShadows(false){};
@@ -383,7 +385,7 @@ protected:
 
 public:
     void SetIfCastShadow(bool shadow);
-    void SetColor(std::string_view attrib, const vec4& color);
+    void SetColor(std::string_view attrib, const vec4f& color);
     void SetParam(std::string_view attrib, float param);
     void SetTexture(std::string_view attrib, std::string_view textureName);
     void SetAttenuation(AttenFunc func);
@@ -438,7 +440,7 @@ protected:
                                     const SceneObjectCamera& obj);
 
 public:
-    void  SetColor(std::string_view attrib, const vec4& color);
+    void  SetColor(std::string_view attrib, const vec4f& color);
     void  SetParam(std::string_view attrib, float param);
     void  SetTexture(std::string_view attrib, std::string_view textureName);
     float GetNearClipDistance() const;
@@ -468,16 +470,16 @@ public:
 
 class SceneObjectTransform {
 protected:
-    mat4 m_matrix;
-    bool m_bSceneObjectOnly;
+    mat4f m_matrix;
+    bool  m_bSceneObjectOnly;
 
 public:
     SceneObjectTransform() : m_matrix(1.0f), m_bSceneObjectOnly(false) {}
-    SceneObjectTransform(const mat4 matrix, const bool object_only = false)
+    SceneObjectTransform(const mat4f matrix, const bool object_only = false)
         : m_matrix(matrix), m_bSceneObjectOnly(object_only) {}
 
-    operator mat4() { return m_matrix; }
-    operator const mat4() const { return m_matrix; }
+    operator mat4f() { return m_matrix; }
+    operator const mat4f() const { return m_matrix; }
 
     friend std::ostream& operator<<(std::ostream&               out,
                                     const SceneObjectTransform& obj);
@@ -492,8 +494,8 @@ public:
 class SceneObjectRotation : public SceneObjectTransform {
 public:
     SceneObjectRotation(const char axis, const float theta);
-    SceneObjectRotation(vec3& axis, const float theta);
-    SceneObjectRotation(quat quaternion);
+    SceneObjectRotation(vec3f& axis, const float theta);
+    SceneObjectRotation(quatf quaternion);
 };
 
 class SceneObjectScale : public SceneObjectTransform {

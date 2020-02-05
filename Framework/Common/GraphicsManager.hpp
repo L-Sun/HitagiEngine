@@ -14,9 +14,9 @@ public:
     virtual void Clear();
 
 #if defined(DEBUG)
-    virtual void DrawLine(const vec3& from, const vec3& to, const vec3& color);
-    virtual void DrawBox(const vec3& bbMin, const vec3& bbMax,
-                         const vec3& color);
+    virtual void DrawLine(const vec3f& from, const vec3f& to, const vec3f& color);
+    virtual void DrawBox(const vec3f& bbMin, const vec3f& bbMax,
+                         const vec3f& color);
     virtual void ClearDebugBuffers();
 #endif
 
@@ -32,12 +32,12 @@ protected:
     virtual void RenderBuffers();
 
     struct FrameConstants {
-        mat4 WVP;
-        mat4 worldMatrix;
-        mat4 viewMatrix;
-        mat4 projectionMatrix;
-        vec3 lightPosition;
-        vec4 lightColor;
+        mat4f WVP;
+        mat4f worldMatrix;
+        mat4f viewMatrix;
+        mat4f projectionMatrix;
+        vec3f lightPosition;
+        vec4f lightColor;
     };
 
     struct DrawBatchContext {

@@ -8,7 +8,7 @@ public:
     Sphere() = delete;
     Sphere(float radius) : Geometry(GeometryType::SPHERE), m_fRadius(radius) {}
 
-    virtual void GetAabb(const mat4& trans, vec3& aabbMin, vec3& aabbMax) const;
+    virtual void GetAabb(const mat4f& trans, vec3f& aabbMin, vec3f& aabbMax) const;
 
     float GetRadius() const { return m_fRadius; }
 

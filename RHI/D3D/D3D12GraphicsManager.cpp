@@ -684,10 +684,10 @@ void D3D12GraphicsManager::UpdateConstants() {
 
             if (dbc.material) {
                 const Color* pColor = &dbc.material->GetBaseColor();
-                oc.baseColor        = pColor->ValueMap ? vec4(-1.0f) : pColor->Value;
+                oc.baseColor        = pColor->ValueMap ? vec4f(-1.0f) : pColor->Value;
                 pColor              = &dbc.material->GetSpecularColor();
                 oc.specularColor =
-                    pColor->ValueMap ? vec4(-1.0f) : pColor->Value;
+                    pColor->ValueMap ? vec4f(-1.0f) : pColor->Value;
                 oc.specularPower = dbc.material->GetSpecularPower().Value;
             }
 
@@ -838,8 +838,8 @@ void D3D12GraphicsManager::FlushCommandQueue() {
 }
 
 #if defined(DEBUG)
-void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
-                                    const vec3& color) {
+void D3D12GraphicsManager::DrawLine(const vec3f& from, const vec3f& to,
+                                    const vec3f& color) {
     std::string name;
     if (color.r > 0)
         name = "debug_line-x";
@@ -851,9 +851,9 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
     if (m_geometries.find(name) == m_geometries.end()) {
         auto pGeometry                  = std::make_shared<GeometryBuffer>();
         pGeometry->primitiveType        = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-        std::vector<vec3>      position = {{0, 0, 0}, {1, 0, 0}};
+        std::vector<vec3f>      position = {{0, 0, 0}, {1, 0, 0}};
         std::vector<int>       index    = {0, 1};
-        std::vector<vec3>      colors(position.size(), color);
+        std::vector<vec3f>      colors(position.size(), color);
         SceneObjectVertexArray pos_array("position", 0, VertexDataType::kFLOAT3,
                                          position.data(), position.size());
         SceneObjectVertexArray color_array("color", 0, VertexDataType::kFLOAT3,
@@ -867,11 +867,11 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
         m_geometries[name] = pGeometry;
     }
 
-    vec3 v1          = to - from;
-    vec3 v2          = {Length(v1), 0, 0};
-    vec3 rotate_axis = v1 + v2;
-    mat4 transform   = scale(mat4(1.0f), vec3(Length(v1)));
-    transform        = rotate(transform, radians(180), rotate_axis);
+    vec3f v1          = to - from;
+    vec3f v2          = {Length(v1), 0, 0};
+    vec3f rotate_axis = v1 + v2;
+    mat4f transform   = scale(mat4f(1.0f), vec3f(Length(v1)));
+    transform        = rotate(transform, radians(180.0f), rotate_axis);
     transform        = translate(transform, from);
 
     D3D12DrawBatchContext dbc;
@@ -889,11 +889,11 @@ void D3D12GraphicsManager::DrawLine(const vec3& from, const vec3& to,
     m_debugDrawBatchContext.push_back(dbc);
 }
 
-void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
-                                   const vec3& color) {
+void D3D12GraphicsManager::DrawBox(const vec3f& bbMin, const vec3f& bbMax,
+                                   const vec3f& color) {
     if (m_geometries.find("debug_box") == m_geometries.end()) {
         auto              pGeometry = std::make_shared<GeometryBuffer>();
-        std::vector<vec3> position  = {
+        std::vector<vec3f> position  = {
             {-1, -1, -1},
             {1, -1, -1},
             {1, 1, -1},
@@ -906,7 +906,7 @@ void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
         std::vector<int> index   = {0, 1, 2, 3, 0, 4, 5, 1,
                                   5, 6, 2, 6, 7, 3, 7, 4};
         pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
-        std::vector<vec3>      colors(position.size(), color);
+        std::vector<vec3f>      colors(position.size(), color);
         SceneObjectVertexArray pos_array("POSITION", 0, VertexDataType::kFLOAT3,
                                          position.data(), position.size());
         SceneObjectVertexArray color_array("COLOR", 0, VertexDataType::kFLOAT3,
@@ -919,7 +919,7 @@ void D3D12GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
         pGeometry->index_count.push_back(index.size());
         m_geometries["debug_box"] = pGeometry;
     }
-    mat4 transform = translate(scale(mat4(1.0f), 0.5 * (bbMax - bbMin)),
+    mat4f transform = translate(scale(mat4f(1.0f), 0.5 * (bbMax - bbMin)),
                                0.5 * (bbMax + bbMin));
 
     D3D12DrawBatchContext dbc;

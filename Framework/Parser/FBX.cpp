@@ -79,22 +79,21 @@ std::shared_ptr<SceneObjectMesh> addMesh(FbxMesh* _pMesh, Scene& scene) {
         std::cerr << "[FbxParser] parser unsupport dot and line now. Skipping the Mesh: " << _pMesh->GetName() << std::endl;
         return nullptr;
     }
-    std::cout << sizeof(vec3) << std::endl;
-    vec3* posArray     = reinterpret_cast<vec3*>(g_pMemoryManager->Allocate(sizeof(vec3) * ctrlPointSize));
-    int*  indicesArray = reinterpret_cast<int*>(g_pMemoryManager->Allocate(sizeof(int) * indicesSize));
-    vec3* normalArray  = reinterpret_cast<vec3*>(g_pMemoryManager->Allocate(sizeof(vec3) * indicesSize));
-    vec2* uvArray      = reinterpret_cast<vec2*>(g_pMemoryManager->Allocate(sizeof(vec2) * indicesSize));
-    vec4* colorArray   = reinterpret_cast<vec4*>(g_pMemoryManager->Allocate(sizeof(vec4) * indicesSize));
-    vec3* tangentArray = reinterpret_cast<vec3*>(g_pMemoryManager->Allocate(sizeof(vec3) * indicesSize));
+    std::vector<vec3f> posArray(ctrlPointSize);
+    std::vector<int>   indicesArray(indicesSize);
+    std::vector<vec3f> normalArray(indicesSize);
+    std::vector<vec2f> uvArray(indicesSize);
+    std::vector<vec4f> colorArray(indicesSize);
+    std::vector<vec3f> tangentArray(indicesSize);
 
     // Read position
     if (int pointCount = _pMesh->GetControlPointsCount(); pointCount > 0) {
         for (int i = 0; i < pointCount; i++) {
             const auto& vertPos = _pMesh->GetControlPointAt(i);
-            posArray[i]         = vec3(vertPos[0], vertPos[1], vertPos[2]);
+            posArray[i]         = vec3f(vertPos[0], vertPos[1], vertPos[2]);
         }
         pMesh->AddVertexArray(std::move(
-            SceneObjectVertexArray("POSITION", 0, VertexDataType::kFLOAT3, posArray, pointCount)));
+            SceneObjectVertexArray("POSITION", 0, VertexDataType::kFLOAT3, posArray.data(), pointCount)));
     }
 
     int polygonCount = _pMesh->GetPolygonCount();
@@ -125,7 +124,7 @@ std::shared_ptr<SceneObjectMesh> addMesh(FbxMesh* _pMesh, Scene& scene) {
                     }
                 }
                 if (directIndex != -1) {
-                    normalArray[vertCounter] = vec3(
+                    normalArray[vertCounter] = vec3f(
                         _pNormal->GetDirectArray().GetAt(directIndex)[0],
                         _pNormal->GetDirectArray().GetAt(directIndex)[1],
                         _pNormal->GetDirectArray().GetAt(directIndex)[2]);
@@ -152,7 +151,7 @@ std::shared_ptr<SceneObjectMesh> addMesh(FbxMesh* _pMesh, Scene& scene) {
                 }
 
                 if (directIndex != -1) {
-                    uvArray[vertCounter] = vec2(
+                    uvArray[vertCounter] = vec2f(
                         _pUV->GetDirectArray().GetAt(directIndex)[0],
                         _pUV->GetDirectArray().GetAt(directIndex)[1]);
                 }
@@ -179,7 +178,7 @@ std::shared_ptr<SceneObjectMesh> addMesh(FbxMesh* _pMesh, Scene& scene) {
                 }
 
                 if (directIndex != -1) {
-                    colorArray[vertCounter] = vec4(
+                    colorArray[vertCounter] = vec4f(
                         _pColor->GetDirectArray().GetAt(directIndex).mRed,
                         _pColor->GetDirectArray().GetAt(directIndex).mGreen,
                         _pColor->GetDirectArray().GetAt(directIndex).mBlue,
@@ -207,7 +206,7 @@ std::shared_ptr<SceneObjectMesh> addMesh(FbxMesh* _pMesh, Scene& scene) {
                     }
                 }
                 if (directIndex != -1) {
-                    normalArray[vertCounter] = vec3(
+                    normalArray[vertCounter] = vec3f(
                         _pTangent->GetDirectArray().GetAt(directIndex)[0],
                         _pTangent->GetDirectArray().GetAt(directIndex)[1],
                         _pTangent->GetDirectArray().GetAt(directIndex)[2]);
@@ -217,29 +216,22 @@ std::shared_ptr<SceneObjectMesh> addMesh(FbxMesh* _pMesh, Scene& scene) {
     }
 
     pMesh->AddIndexArray(std::move(
-        SceneObjectIndexArray(0, 0, IndexDataType::kINT32, indicesArray, indicesSize)));
+        SceneObjectIndexArray(0, 0, IndexDataType::kINT32, indicesArray.data(), indicesSize)));
     if (_pMesh->GetElementNormalCount() > 0)
         pMesh->AddVertexArray(std::move(
-            SceneObjectVertexArray("NORMAL", 0, VertexDataType::kFLOAT3, normalArray, indicesSize)));
-    else
-        g_pMemoryManager->Free(normalArray, sizeof(vec3) * indicesSize);
+            SceneObjectVertexArray("NORMAL", 0, VertexDataType::kFLOAT3, normalArray.data(), indicesSize)));
+
     if (_pMesh->GetElementVertexColorCount() > 0)
         pMesh->AddVertexArray(std::move(
-            SceneObjectVertexArray("COLOR", 0, VertexDataType::kFLOAT4, colorArray, indicesSize)));
-    else
-        g_pMemoryManager->Free(colorArray, sizeof(vec4) * indicesSize);
+            SceneObjectVertexArray("COLOR", 0, VertexDataType::kFLOAT4, colorArray.data(), indicesSize)));
 
     if (_pMesh->GetElementTangentCount() > 0)
         pMesh->AddVertexArray(std::move(
-            SceneObjectVertexArray("TANGENT", 0, VertexDataType::kFLOAT3, tangentArray, indicesSize)));
-    else
-        g_pMemoryManager->Free(tangentArray, sizeof(vec3) * indicesSize);
+            SceneObjectVertexArray("TANGENT", 0, VertexDataType::kFLOAT3, tangentArray.data(), indicesSize)));
 
     if (_pMesh->GetElementUVCount() > 0)
         pMesh->AddVertexArray(std::move(
-            SceneObjectVertexArray("TEXCOORD", 0, VertexDataType::kFLOAT2, uvArray, indicesSize)));
-    else
-        g_pMemoryManager->Free(uvArray, sizeof(vec2) * indicesSize);
+            SceneObjectVertexArray("TEXCOORD", 0, VertexDataType::kFLOAT2, uvArray.data(), indicesSize)));
 
     // Read Material Indices
     // for (int i = 0; i < _pMesh->GetElementMaterialCount(); i++) {
@@ -301,31 +293,31 @@ std::unique_ptr<Scene> FbxParser::Parse(const Buffer& buf) {
             auto _emission  = _Phong->Emissive.Get();
             auto _shininess = _Phong->Shininess.Get();
             auto _opacity   = 1.0 - _Phong->TransparencyFactor.Get();
-            pMaterial->SetColor("diffuse", vec4(_diffuse[0], _diffuse[1], _diffuse[2], 1.0f));
-            pMaterial->SetColor("specular", vec4(_specular[0], _specular[1], _specular[2], 1.0f));
-            pMaterial->SetColor("emission", vec4(_emission[0], _emission[1], _emission[2], 1.0f));
-            pMaterial->SetColor("opacity", vec4(_opacity));
-            pMaterial->SetColor("transparency", vec4(1.0f - _opacity));
+            pMaterial->SetColor("diffuse", vec4f(_diffuse[0], _diffuse[1], _diffuse[2], 1.0f));
+            pMaterial->SetColor("specular", vec4f(_specular[0], _specular[1], _specular[2], 1.0f));
+            pMaterial->SetColor("emission", vec4f(_emission[0], _emission[1], _emission[2], 1.0f));
+            pMaterial->SetColor("opacity", vec4f(_opacity));
+            pMaterial->SetColor("transparency", vec4f(1.0f - _opacity));
             pMaterial->SetParam("specular_power", static_cast<float>(_shininess));
         }
 
         pScene->Materials[_pMaterial->GetName()] = pMaterial;
     }
 
-    auto getTrans = [&](FbxNode* _pNode) -> mat4 {
-        auto _scaling    = _pNode->LclScaling.Get().Buffer();
-        auto _rotation   = _pNode->LclRotation.Get().Buffer();
-        auto _traslation = _pNode->LclTranslation.Get().Buffer();
-        mat4 trans(1.0f);
-        trans = scale(trans, vec3(_scaling));
+    auto getTrans = [&](FbxNode* _pNode) -> mat4f {
+        auto  _scaling    = _pNode->LclScaling.Get().Buffer();
+        auto  _rotation   = _pNode->LclRotation.Get().Buffer();
+        auto  _traslation = _pNode->LclTranslation.Get().Buffer();
+        mat4f trans(1.0f);
+        trans = scale(trans, vec3f(_scaling));
         trans = rotate(trans,
                        radians(static_cast<float>(_rotation[0])),
                        radians(static_cast<float>(_rotation[1])),
                        radians(static_cast<float>(_rotation[2])));
-        std::cout << _pNode->GetName() << vec3(static_cast<float>(_rotation[0]), static_cast<float>(_rotation[1]), static_cast<float>(_rotation[2]))
+        std::cout << _pNode->GetName() << vec3f(static_cast<float>(_rotation[0]), static_cast<float>(_rotation[1]), static_cast<float>(_rotation[2]))
                   << std::endl;
 
-        trans = translate(trans, vec3(_traslation));
+        trans = translate(trans, vec3f(_traslation));
 
         return trans;
     };
@@ -395,8 +387,8 @@ std::unique_ptr<Scene> FbxParser::Parse(const Buffer& buf) {
                     break;
             }
 
-            vec3 color(_pLight->Color.Get().Buffer());
-            pLight->SetColor("light", vec4(color, 1.0f));
+            vec3f color(_pLight->Color.Get().Buffer());
+            pLight->SetColor("light", vec4f(color, 1.0f));
             pLight->SetParam("intensity", static_cast<float>(_pLight->Intensity.Get()));
             pLight->SetAttenuation(DefaultAttenFunc);
             pScene->Lights[_pLight->GetName()] = pLight;

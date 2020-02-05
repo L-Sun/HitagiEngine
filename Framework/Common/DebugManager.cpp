@@ -29,21 +29,21 @@ void DebugManager::ToggleDebugInfo() {
 void DebugManager::DrawDebugInfo() {
 #ifdef DEBUG
     // x - axis
-    vec3 from(0.0f, 0.0f, 0.0f);
-    vec3 to(10.0f, 0.0f, 0.0f);
-    vec3 color(1.0f, 0.0f, 0.0f);
+    vec3f from(0.0f, 0.0f, 0.0f);
+    vec3f to(10.0f, 0.0f, 0.0f);
+    vec3f color(1.0f, 0.0f, 0.0f);
     g_pGraphicsManager->DrawLine(from, to, color);
 
     // y - axis
-    from  = vec3(0.0f, 0.0f, 0.0f);
-    to    = vec3(0.0f, 10.0f, 0.0f);
-    color = vec3(0.0f, 1.0f, 0.0f);
+    from  = vec3f(0.0f, 0.0f, 0.0f);
+    to    = vec3f(0.0f, 10.0f, 0.0f);
+    color = vec3f(0.0f, 1.0f, 0.0f);
     g_pGraphicsManager->DrawLine(from, to, color);
 
     // z - axis
-    from  = vec3(0.0f, 0.0f, 0.0f);
-    to    = vec3(0.0f, 0.0f, 10.0f);
-    color = vec3(0.0f, 0.0f, 1.0f);
+    from  = vec3f(0.0f, 0.0f, 0.0f);
+    to    = vec3f(0.0f, 0.0f, 10.0f);
+    color = vec3f(0.0f, 0.0f, 1.0f);
     g_pGraphicsManager->DrawLine(from, to, color);
 #endif
 }

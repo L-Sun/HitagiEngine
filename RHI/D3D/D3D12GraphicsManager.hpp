@@ -17,8 +17,8 @@ public:
     void Clear() final;
 
 #if defined(DEBUG)
-    void DrawLine(const vec3& from, const vec3& to, const vec3& color) final;
-    void DrawBox(const vec3& bbMin, const vec3& bbMax, const vec3& color) final;
+    void DrawLine(const vec3f& from, const vec3f& to, const vec3f& color) final;
+    void DrawBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) final;
     void ClearDebugBuffers() final;
 #endif  // DEBUG
 
@@ -32,9 +32,9 @@ protected:
 
 private:
     struct ObjectConstants {
-        mat4  modelMatrix;
-        vec4  baseColor;
-        vec4  specularColor;
+        mat4f  modelMatrix;
+        vec4f  baseColor;
+        vec4f  specularColor;
         float specularPower;
     };
 

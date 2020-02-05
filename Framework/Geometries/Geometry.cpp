@@ -2,26 +2,26 @@
 
 using namespace My;
 
-void Geometry::CalculateTemporalAabb(const mat4& curTrans, const vec3& linvel,
-                                     const vec3& angvel, float timeStep,
-                                     vec3& temporalAabbMin,
-                                     vec3& temporalAabbMax) const {
+void Geometry::CalculateTemporalAabb(const mat4f& curTrans, const vec3f& linvel,
+                                     const vec3f& angvel, float timeStep,
+                                     vec3f& temporalAabbMin,
+                                     vec3f& temporalAabbMax) const {
     GetAabb(curTrans, temporalAabbMin, temporalAabbMax);
 
-    vec3 linMotion = linvel * timeStep;
+    vec3f linMotion = linvel * timeStep;
     temporalAabbMax += Max(linMotion, 0.0f);
     temporalAabbMin += Min(linMotion, 0.0f);
 
     float angularMotion = Length(angvel) * GetAngularMotionDisc() * timeStep;
-    vec3  angularMotion3d(angularMotion, angularMotion, angularMotion);
+    vec3f  angularMotion3d(angularMotion, angularMotion, angularMotion);
 
     temporalAabbMin = temporalAabbMin - angularMotion3d;
     temporalAabbMax = temporalAabbMax + angularMotion3d;
 }
 
-void Geometry::GetBoundingSphere(vec3& center, float& radius) const {
-    mat4 tran(1.0f);
-    vec3 aabbMin, aabbMax;
+void Geometry::GetBoundingSphere(vec3f& center, float& radius) const {
+    mat4f tran(1.0f);
+    vec3f aabbMin, aabbMax;
 
     GetAabb(tran, aabbMin, aabbMax);
 
@@ -30,7 +30,7 @@ void Geometry::GetBoundingSphere(vec3& center, float& radius) const {
 }
 
 float Geometry::GetAngularMotionDisc() const {
-    vec3  center;
+    vec3f  center;
     float disc = 0.0f;
     GetBoundingSphere(center, disc);
     disc += Length(center);

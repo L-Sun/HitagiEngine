@@ -192,9 +192,9 @@ void OgexParser::ConvertOddlStructureToSceneNode(
                                     dataStructure->GetDataElementCount();
                                 const void* _data =
                                     &dataStructure->GetDataElement(0);
-                                void*  data     = g_pMemoryManager->Allocate(sizeof(float) * elementCount);
+                                float* data     = new float[elementCount];
                                 size_t buf_size = sizeof(float) * elementCount;
-                                memcpy(data, _data, buf_size);
+                                std::memcpy(data, _data, buf_size);
                                 size_t         vertexCount;
                                 VertexDataType vertexDataType;
                                 switch (arraySize) {
@@ -224,6 +224,7 @@ void OgexParser::ConvertOddlStructureToSceneNode(
                                 mesh->AddVertexArray(std::move(SceneObjectVertexArray(
                                     attr, morph_index, vertexDataType, data,
                                     vertexCount)));
+                                delete[] data;
                             } break;
                             case OGEX::kStructureIndexArray: {
                                 const OGEX::IndexArrayStructure* _i =
@@ -321,13 +322,13 @@ void OgexParser::ConvertOddlStructureToSceneNode(
                                     default:;
                                 }
 
-                                size_t buf_size = elementCount * data_size;
-                                void*  data     = g_pMemoryManager->Allocate(sizeof(uint8_t) * buf_size);
-                                memcpy(data, _data, buf_size);
+                                size_t   buf_size = elementCount * data_size;
+                                uint8_t* data     = new uint8_t[buf_size];
+                                std::memcpy(data, _data, buf_size);
                                 mesh->AddIndexArray(std::move(SceneObjectIndexArray(
                                     material_index, restart_index,
                                     index_type, data, elementCount)));
-
+                                delete[] data;
                             } break;
                             default:
                                 // ignore it
@@ -349,7 +350,7 @@ void OgexParser::ConvertOddlStructureToSceneNode(
             const OGEX::TransformStructure& _structure =
                 dynamic_cast<const OGEX::TransformStructure&>(structure);
             bool                                  object_flag = _structure.GetObjectFlag();
-            mat4                                  matrix;
+            mat4f                                 matrix;
             std::shared_ptr<SceneObjectTransform> transform;
 
             count = _structure.GetTransformCount();
@@ -381,7 +382,7 @@ void OgexParser::ConvertOddlStructureToSceneNode(
                 _structure.GetFirstCoreSubnode();
             while (_sub_structure) {
                 std::string attrib, textureName;
-                vec4        color;
+                vec4f       color;
                 float       param;
                 switch (_sub_structure->GetStructureType()) {
                     case OGEX::kStructureColor: {
@@ -442,7 +443,7 @@ void OgexParser::ConvertOddlStructureToSceneNode(
                 _structure.GetFirstCoreSubnode();
             while (_sub_structure) {
                 std::string attrib, textureName;
-                vec4        color;
+                vec4f       color;
                 float       param;
                 switch (_sub_structure->GetStructureType()) {
                     case OGEX::kStructureColor: {
@@ -495,7 +496,7 @@ void OgexParser::ConvertOddlStructureToSceneNode(
                 _structure.GetFirstCoreSubnode();
             while (_sub_structure) {
                 std::string attrib, textureName;
-                vec4        color;
+                vec4f       color;
                 float       param;
                 switch (_sub_structure->GetStructureType()) {
                     case OGEX::kStructureColor: {

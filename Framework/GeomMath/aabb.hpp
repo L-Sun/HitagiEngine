@@ -2,13 +2,13 @@
 #include "geommath.hpp"
 
 namespace My {
-inline void TransformAabb(const vec3& halfExtents, float margin,
-                          const mat4& trans, vec3& aabbMinOut,
-                          vec3& aabbMaxOut) {
-    vec3 halfExtentssWithMargin = halfExtents + vec3(margin);
-    vec3 center, extent;
+inline void TransformAabb(const vec3f& halfExtents, float margin,
+                          const mat4f& trans, vec3f& aabbMinOut,
+                          vec3f& aabbMaxOut) {
+    vec3f halfExtentssWithMargin = halfExtents + vec3f(margin);
+    vec3f center, extent;
     center = GetOrigin(trans);
-    mat3 basis;
+    mat3f basis;
     Shrink(basis, trans);
     basis      = Absolute(basis);
     extent     = halfExtentssWithMargin * basis;

@@ -13,7 +13,7 @@ protected:
     std::string                                      m_strName;
     std::list<std::shared_ptr<BaseSceneNode>>        m_Chlidren;
     std::list<std::shared_ptr<SceneObjectTransform>> m_Transforms;
-    mat4 m_RuntimeTransform = mat4(1.0f);
+    mat4f m_RuntimeTransform = mat4f(1.0f);
     bool m_bDirty           = true;
 
     virtual void dump(std::ostream& out) const {}
@@ -33,11 +33,11 @@ public:
         m_Transforms.push_back(std::move(transform));
     }
 
-    const std::shared_ptr<mat4> GetCalculatedTransform() const {
-        std::shared_ptr<mat4> result(new mat4(1.0f));
+    const std::shared_ptr<mat4f> GetCalculatedTransform() const {
+        std::shared_ptr<mat4f> result(new mat4f(1.0f));
 
         for (auto trans : m_Transforms) {
-            *result *= static_cast<mat4>(*trans);
+            *result *= static_cast<mat4f>(*trans);
         }
         *result *= m_RuntimeTransform;
         return result;
@@ -47,15 +47,15 @@ public:
     void ClearDirty() { m_bDirty = false; }
 
     void RotateBy(const float& x, const float& y, const float& z) {
-        m_RuntimeTransform *= rotate(mat4(1.0f), x, y, z);
+        m_RuntimeTransform *= rotate(mat4f(1.0f), x, y, z);
         m_bDirty = true;
     }
     void Move(const float& x, const float& y, const float& z) {
-        m_RuntimeTransform *= translate(mat4(1.0f), vec3(x, y, z));
+        m_RuntimeTransform *= translate(mat4f(1.0f), vec3f(x, y, z));
         m_bDirty = true;
     }
 
-    void Reset() { m_RuntimeTransform = mat4(1.0f); }
+    void Reset() { m_RuntimeTransform = mat4f(1.0f); }
 
     friend std::ostream& operator<<(std::ostream&        out,
                                     const BaseSceneNode& node) {
@@ -117,7 +117,6 @@ protected:
 
 public:
     using SceneNode::SceneNode;
-    ~SceneGeometryNode() { UnlinkRigidBody(); }
     void SetVisibility(bool visible) { m_bVisible = visible; }
     void SetIfCastShadow(bool shadow) { m_bShadow = shadow; }
     void SetIfMotionBlur(bool motion_blur) { m_bMotionBlur = motion_blur; }
@@ -152,12 +151,12 @@ public:
 
 class SceneCameraNode : public SceneNode<SceneObjectCamera> {
 protected:
-    vec3 m_Target;
+    vec3f m_Target;
 
 public:
     using SceneNode::SceneNode;
-    void        SetTarget(vec3& target) { m_Target = target; }
-    const vec3& GetTarget() { return m_Target; }
+    void        SetTarget(vec3f& target) { m_Target = target; }
+    const vec3f& GetTarget() { return m_Target; }
 };
 
 }  // namespace My

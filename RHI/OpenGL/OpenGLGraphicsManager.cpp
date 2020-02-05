@@ -183,7 +183,7 @@ bool OpenGLGraphicsManager::SetPerFrameShaderParameters(GLuint shader) {
 
 bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
                                                         const char* paramName,
-                                                        const mat4& param) {
+                                                        const mat4f& param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
@@ -194,7 +194,7 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
 }
 bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
                                                         const char* paramName,
-                                                        const vec3& param) {
+                                                        const vec3f& param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
@@ -430,7 +430,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
     SetPerFrameShaderParameters(m_shaderProgram);
 
     for (auto dbc : m_DrawBatchContext) {
-        mat4 trans;
+        mat4f trans;
 
         if (void* rigidBody = dbc.node->RigidBody()) {
             // the geometry has rigid body bounded, we blend the simlation
@@ -457,7 +457,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
                     m_shaderProgram, "defaultSampler",
                     m_TextureIndex[color.ValueMap->GetName()]);
                 SetPerBatchShaderParameters(m_shaderProgram, "diffuseColor",
-                                            vec3(-1.0f));
+                                            vec3f(-1.0f));
             } else {
                 SetPerBatchShaderParameters(m_shaderProgram, "diffuseColor",
                                             color.Value.rgb);
@@ -472,7 +472,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
                                         param.Value);
         } else {
             SetPerBatchShaderParameters(m_shaderProgram, "diffuseColor",
-                                        vec3(-1.0f));
+                                        vec3f(-1.0f));
         }
 
         glDrawElements(dbc.mode, dbc.count, dbc.type, 0x00);
@@ -632,8 +632,8 @@ bool OpenGLGraphicsManager::InitializeShaders() {
 }
 
 #ifdef DEBUG
-void OpenGLGraphicsManager::DrawLine(const vec3& from, const vec3& to,
-                                     const vec3& color) {
+void OpenGLGraphicsManager::DrawLine(const vec3f& from, const vec3f& to,
+                                     const vec3f& color) {
     GLfloat vertices[6];
     vertices[0] = from.x;
     vertices[1] = from.y;
@@ -672,8 +672,8 @@ void OpenGLGraphicsManager::DrawLine(const vec3& from, const vec3& to,
     m_DebugDrawBatchContext.push_back(std::move(dbc));
 }
 
-void OpenGLGraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
-                                    const vec3& color) {
+void OpenGLGraphicsManager::DrawBox(const vec3f& bbMin, const vec3f& bbMax,
+                                    const vec3f& color) {
     GLfloat vertices[24];
     // top
     vertices[0] = bbMax.x;

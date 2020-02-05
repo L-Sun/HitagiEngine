@@ -20,16 +20,16 @@ public:
     void Draw() final;
 
 #ifdef DEBUG
-    void DrawLine(const vec3& from, const vec3& to, const vec3& color) final;
-    void DrawBox(const vec3& bbMin, const vec3& bbMax, const vec3& color) final;
+    void DrawLine(const vec3f& from, const vec3f& to, const vec3f& color) final;
+    void DrawBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) final;
     void ClearDebugBuffers() final;
 #endif
 
 private:
     bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
-                                     const mat4& param);
+                                     const mat4f& param);
     bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
-                                     const vec3& param);
+                                     const vec3f& param);
     bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
                                      const float param);
     bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
@@ -65,7 +65,7 @@ private:
         GLuint  vao;
         GLenum  mode;
         GLsizei count;
-        vec3    color;
+        vec3f    color;
     };
 #endif
 

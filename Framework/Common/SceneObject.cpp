@@ -26,12 +26,15 @@ BaseSceneObject& BaseSceneObject::operator=(BaseSceneObject&& obj) {
 SceneObjectVertexArray::SceneObjectVertexArray(std::string_view     attr,
                                                uint32_t             morph_index,
                                                const VertexDataType data_type,
-                                               void* data, size_t vertexCount)
+                                               const void*          data,
+                                               size_t               vertexCount)
     : m_strAttribute(attr),
       m_MorphTargetIndex(morph_index),
       m_DataType(data_type),
-      m_pData(data),
-      m_vertexCount(vertexCount) {}
+      m_vertexCount(vertexCount) {
+    m_pData = g_pMemoryManager->Allocate(GetDataSize());
+    std::memcpy(m_pData, data, GetDataSize());
+}
 SceneObjectVertexArray::SceneObjectVertexArray(SceneObjectVertexArray& rhs) {
     if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
     m_strAttribute     = rhs.m_strAttribute;
@@ -99,13 +102,15 @@ size_t SceneObjectVertexArray::GetVertexCount() const { return m_vertexCount; }
 SceneObjectIndexArray::SceneObjectIndexArray(const uint32_t      material_index,
                                              const uint32_t      restart_index,
                                              const IndexDataType data_type,
-                                             void*               data,
+                                             const void*         data,
                                              const size_t        indexCount)
     : m_nMaterialIndex(material_index),
       m_szResetartIndex(restart_index),
       m_DataType(data_type),
-      m_pData(data),
-      m_indexCount(indexCount) {}
+      m_indexCount(indexCount) {
+    m_pData = g_pMemoryManager->Allocate(GetDataSize());
+    std::memcpy(m_pData, data, GetDataSize());
+}
 SceneObjectIndexArray::SceneObjectIndexArray(SceneObjectIndexArray& rhs) {
     if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
     m_nMaterialIndex  = rhs.m_nMaterialIndex;
@@ -192,9 +197,9 @@ const PrimitiveType& SceneObjectMesh::GetPrimitiveType() {
     return m_PrimitiveType;
 }
 BoundingBox SceneObjectMesh::GetBoundingBox() const {
-    vec3 bbmin(std::numeric_limits<float>::max());
-    vec3 bbmax(std::numeric_limits<float>::min());
-    auto count = m_VertexArray.size();
+    vec3f bbmin(std::numeric_limits<float>::max());
+    vec3f bbmax(std::numeric_limits<float>::min());
+    auto  count = m_VertexArray.size();
 
     for (auto n = 0; n < count; n++) {
         if (m_VertexArray[n].GetAttributeName() == "POSITION") {
@@ -205,7 +210,7 @@ BoundingBox SceneObjectMesh::GetBoundingBox() const {
             for (auto i = 0; i < vertices_count; i++) {
                 switch (data_type) {
                     case VertexDataType::kFLOAT3: {
-                        const vec3 vertex =
+                        const vec3f vertex =
                             reinterpret_cast<const float*>(data) + 3 * i;
                         bbmin.x = (bbmin.x < vertex.x) ? bbmin.x : vertex.x;
                         bbmin.y = (bbmin.y < vertex.y) ? bbmin.y : vertex.y;
@@ -237,7 +242,7 @@ BoundingBox SceneObjectMesh::GetBoundingBox() const {
 }
 
 // Class SceneObjectTexture
-void SceneObjectTexture::AddTransform(mat4& matrix) {
+void SceneObjectTexture::AddTransform(mat4f& matrix) {
     m_Transforms.push_back(matrix);
 }
 void SceneObjectTexture::SetName(const std::string& name) { m_Name = name; }
@@ -285,7 +290,8 @@ void SceneObjectMaterial::SetName(const std::string& name) { m_Name = name; }
 void SceneObjectMaterial::SetName(std::string&& name) {
     m_Name = std::move(name);
 }
-void SceneObjectMaterial::SetColor(std::string_view attrib, const vec4& color) {
+void SceneObjectMaterial::SetColor(std::string_view attrib,
+                                   const vec4f&     color) {
     if (attrib == "diffuse") m_BaseColor = Color(color);
     if (attrib == "specular") m_Specular = Color(color);
     if (attrib == "emission") m_Emission = Color(color);
@@ -368,7 +374,7 @@ BoundingBox SceneObjectGeometry::GetBoundingBox() const {
 
 // Class SceneObjectLight
 void SceneObjectLight::SetIfCastShadow(bool shadow) { m_bCastShadows = shadow; }
-void SceneObjectLight::SetColor(std::string_view attrib, const vec4& color) {
+void SceneObjectLight::SetColor(std::string_view attrib, const vec4f& color) {
     if (attrib == "light") {
         m_LightColor = Color(color);
     }
@@ -395,7 +401,7 @@ float        SceneObjectLight::GetIntensity() { return m_fIntensity; }
 // Class SceneObjectInfiniteLight
 
 // Class SceneObjectCamera
-void SceneObjectCamera::SetColor(std::string_view attrib, const vec4& color) {
+void SceneObjectCamera::SetColor(std::string_view attrib, const vec4f& color) {
     // TODO: extension
 }
 void SceneObjectCamera::SetParam(std::string_view attrib, float param) {
@@ -433,57 +439,60 @@ SceneObjectTranslation::SceneObjectTranslation(const char  axis,
                                                const float amount) {
     switch (axis) {
         case 'x':
-            m_matrix = translate(m_matrix, vec3(amount, 0.0f, 0.0f));
+            m_matrix = translate(m_matrix, vec3f(amount, 0.0f, 0.0f));
             break;
         case 'y':
-            m_matrix = translate(m_matrix, vec3(0.0f, amount, 0.0f));
+            m_matrix = translate(m_matrix, vec3f(0.0f, amount, 0.0f));
             break;
         case 'z':
-            m_matrix = translate(m_matrix, vec3(0.0f, 0.0f, amount));
+            m_matrix = translate(m_matrix, vec3f(0.0f, 0.0f, amount));
         default:
             break;
     }
 }
 SceneObjectTranslation::SceneObjectTranslation(const float x, const float y,
                                                const float z) {
-    m_matrix = translate(m_matrix, vec3(x, y, z));
+    m_matrix = translate(m_matrix, vec3f(x, y, z));
 }
 
 // Class SceneObjectRotation
 SceneObjectRotation::SceneObjectRotation(const char axis, const float theta) {
     switch (axis) {
         case 'x':
-            m_matrix = rotate(m_matrix, radians(theta), vec3(1.0f, 0.0f, 0.0f));
+            m_matrix =
+                rotate(m_matrix, radians(theta), vec3f(1.0f, 0.0f, 0.0f));
             break;
         case 'y':
-            m_matrix = rotate(m_matrix, radians(theta), vec3(0.0f, 1.0f, 0.0f));
+            m_matrix =
+                rotate(m_matrix, radians(theta), vec3f(0.0f, 1.0f, 0.0f));
             break;
         case 'z':
-            m_matrix = rotate(m_matrix, radians(theta), vec3(0.0f, 0.0f, 1.0f));
+            m_matrix =
+                rotate(m_matrix, radians(theta), vec3f(0.0f, 0.0f, 1.0f));
             break;
         default:
             break;
     }
 }
-SceneObjectRotation::SceneObjectRotation(vec3& axis, const float theta) {
+SceneObjectRotation::SceneObjectRotation(vec3f& axis, const float theta) {
     axis     = normalize(axis);
     m_matrix = rotate(m_matrix, theta, axis);
 }
-SceneObjectRotation::SceneObjectRotation(quat quaternion) {
-    m_matrix = mat4(quaternion) * m_matrix;
+SceneObjectRotation::SceneObjectRotation(quatf quaternion) {
+    m_matrix = mat4f(quaternion) * m_matrix;
 }
 
 // Class SceneObjectScale
 SceneObjectScale::SceneObjectScale(const char axis, const float amount) {
     switch (axis) {
         case 'x':
-            m_matrix = scale(m_matrix, vec3(amount, 0.0f, 0.0f));
+            m_matrix = scale(m_matrix, vec3f(amount, 0.0f, 0.0f));
             break;
         case 'y':
-            m_matrix = scale(m_matrix, vec3(0.0f, amount, 0.0f));
+            m_matrix = scale(m_matrix, vec3f(0.0f, amount, 0.0f));
             break;
         case 'z':
-            m_matrix = scale(m_matrix, vec3(0.0f, 0.0f, amount));
+            m_matrix = scale(m_matrix, vec3f(0.0f, 0.0f, amount));
             break;
         default:
             break;
@@ -491,7 +500,7 @@ SceneObjectScale::SceneObjectScale(const char axis, const float amount) {
 }
 SceneObjectScale::SceneObjectScale(const float x, const float y,
                                    const float z) {
-    m_matrix = scale(m_matrix, vec3(x, y, z));
+    m_matrix = scale(m_matrix, vec3f(x, y, z));
 }
 
 // Type print
@@ -559,15 +568,15 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
                           << ' ';
                 break;
             case VertexDataType::kFLOAT2:
-                std::cout << *(reinterpret_cast<const vec2*>(obj.m_pData) + i)
+                std::cout << *(reinterpret_cast<const vec2f*>(obj.m_pData) + i)
                           << ' ';
                 break;
             case VertexDataType::kFLOAT3:
-                std::cout << *(reinterpret_cast<const vec3*>(obj.m_pData) + i)
+                std::cout << *(reinterpret_cast<const vec3f*>(obj.m_pData) + i)
                           << ' ';
                 break;
             case VertexDataType::kFLOAT4:
-                std::cout << *(reinterpret_cast<const vec4*>(obj.m_pData) + i)
+                std::cout << *(reinterpret_cast<const vec4f*>(obj.m_pData) + i)
                           << ' ';
                 break;
             case VertexDataType::kDOUBLE1:

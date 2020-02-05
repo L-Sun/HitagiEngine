@@ -18,15 +18,15 @@ public:
     Geometry()          = default;
     virtual ~Geometry() = default;
 
-    virtual void  GetAabb(const mat4& trans, vec3& aabbMin,
-                          vec3& aabbMax) const = 0;
-    virtual void  GetBoundingSphere(vec3& center, float& radius) const;
+    virtual void  GetAabb(const mat4f& trans, vec3f& aabbMin,
+                          vec3f& aabbMax) const = 0;
+    virtual void  GetBoundingSphere(vec3f& center, float& radius) const;
     virtual float GetAngularMotionDisc() const;
 
-    void CalculateTemporalAabb(const mat4& curTrans, const vec3& linvel,
-                               const vec3& angvel, float timeStep,
-                               vec3& temporalAabbMin,
-                               vec3& temporalAabbMax) const;
+    void CalculateTemporalAabb(const mat4f& curTrans, const vec3f& linvel,
+                               const vec3f& angvel, float timeStep,
+                               vec3f& temporalAabbMin,
+                               vec3f& temporalAabbMax) const;
 
     GeometryType GetGeometryType() const { return m_kGeometryType; }
 

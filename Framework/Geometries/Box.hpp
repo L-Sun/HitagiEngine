@@ -5,15 +5,15 @@ namespace My {
 class Box : public Geometry {
 public:
     Box() : Geometry(GeometryType::BOX) {}
-    Box(vec3 dimension)
+    Box(vec3f dimension)
         : Geometry(GeometryType::BOX), m_vDimension(dimension) {}
 
-    virtual void GetAabb(const mat4& trans, vec3& aabbMin, vec3& aabbMax) const;
+    virtual void GetAabb(const mat4f& trans, vec3f& aabbMin, vec3f& aabbMax) const;
 
-    vec3 GetDimension() const { return m_vDimension; }
-    vec3 GetDimensionWithMargin() const { return m_vDimension + m_fMargin; }
+    vec3f GetDimension() const { return m_vDimension; }
+    vec3f GetDimensionWithMargin() const { return m_vDimension + m_fMargin; }
 
 protected:
-    vec3 m_vDimension;
+    vec3f m_vDimension;
 };
 }  // namespace My

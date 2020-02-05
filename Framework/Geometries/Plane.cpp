@@ -2,7 +2,7 @@
 
 using namespace My;
 
-void Plane::GetAabb(const mat4& trans, vec3& aabbMin, vec3& aabbMax) const {
+void Plane::GetAabb(const mat4f& trans, vec3f& aabbMin, vec3f& aabbMax) const {
     (void)trans;
     float minf = std::numeric_limits<float>::min();
     float maxf = std::numeric_limits<float>::max();

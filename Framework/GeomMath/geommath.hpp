@@ -6,19 +6,28 @@
 #endif  // Use_Eigen
 
 namespace My {
-constexpr float PI = 3.14159265358979323846;
+constexpr double PI = 3.14159265358979323846;
 
-using vec2          = Vector<float, 2>;
-using vec3          = Vector<float, 3>;
-using vec4          = Vector<float, 4>;
-using quat          = Vector<float, 4>;
+using vec2f = Vector<float, 2>;
+using vec3f = Vector<float, 3>;
+using vec4f = Vector<float, 4>;
+using quatf = Vector<float, 4>;
+using mat3f = Matrix<float, 3, 3>;
+using mat4f = Matrix<float, 4, 4>;
+
 using R8G8B8A8Unorm = Vector<uint8_t, 4>;
 
-using mat3 = Matrix<float, 3, 3>;
-using mat4 = Matrix<float, 4, 4>;
-using mat8 = Matrix<float, 8, 8>;
+using vec2d = Vector<double, 2>;
+using vec3d = Vector<double, 3>;
+using vec4d = Vector<double, 4>;
+using quatd = Vector<double, 4>;
+using mat3d = Matrix<double, 3, 3>;
+using mat4d = Matrix<double, 4, 4>;
 
-inline float radians(float angle) { return angle / 180.0f * PI; }
+template <typename T>
+inline T radians(T angle) {
+    return angle / 180.0 * PI;
+}
 
 template <typename T, int D>
 Vector<T, D> normalize(const Vector<T, D>& v) {
@@ -113,9 +122,9 @@ Matrix<T, 4, 4> rotateZ(const Matrix<T, 4, 4>& mat, const T angle) {
 template <typename T>
 Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T angle,
                        const Vector<T, 3>& axis) {
-    auto        _axis = normalize(axis);
-    const float c = cosf(angle), s = sinf(angle), _1_c = 1.0f - c;
-    const float x = _axis.x, y = _axis.y, z = _axis.z;
+    auto    _axis = normalize(axis);
+    const T c = std::cos(angle), s = std::sin(angle), _1_c = 1.0f - c;
+    const T x = _axis.x, y = _axis.y, z = _axis.z;
     // clang-format off
     Matrix<T, 4, 4> rotation = {
         {c + x * x * _1_c    , x * y * _1_c - z * s, x * z * _1_c + y * s, 0.0f},

@@ -2,9 +2,9 @@
 
 using namespace My;
 
-void Sphere::GetAabb(const mat4& trans, vec3& aabbMin, vec3& aabbMax) const {
-    vec3 center = GetOrigin(trans);
-    vec3 extent(m_fMargin, m_fMargin, m_fMargin);
+void Sphere::GetAabb(const mat4f& trans, vec3f& aabbMin, vec3f& aabbMax) const {
+    vec3f center = GetOrigin(trans);
+    vec3f extent(m_fMargin, m_fMargin, m_fMargin);
     aabbMin = center - extent;
     aabbMax = center + extent;
 }

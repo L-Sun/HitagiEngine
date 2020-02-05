@@ -16,10 +16,10 @@ public:
     int  CreateRigidBodies() final;
     void ClearRigidBodies() final;
 
-    mat4 GetRigidBodyTransform(void* rigidBody) final;
+    mat4f GetRigidBodyTransform(void* rigidBody) final;
     void UpdateRigidBodyTransform(SceneGeometryNode& node) final;
 
-    void ApplyCentralForce(void* rigidBody, vec3 force) final;
+    void ApplyCentralForce(void* rigidBody, vec3f force) final;
 
 #ifdef DEBUG
     void DrawDebugInfo();
@@ -27,8 +27,8 @@ public:
 
 protected:
 #ifdef DEBUG
-    void DrawAabb(const Geometry& geometry, const mat4& trans,
-                  const vec3& centerOfMass);
+    void DrawAabb(const Geometry& geometry, const mat4f& trans,
+                  const vec3f& centerOfMass);
 #endif
 };
 }  // namespace My

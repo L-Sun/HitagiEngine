@@ -47,8 +47,8 @@ void GraphicsManager::UpdateConstants() {
 
 void GraphicsManager::InitConstants() {
     // Initialize the world/model matrix to the identity matrix.
-    m_FrameConstants.worldMatrix   = mat4(1.0f);
-    m_FrameConstants.lightPosition = vec3(5, 5, 5);
+    m_FrameConstants.worldMatrix   = mat4f(1.0f);
+    m_FrameConstants.lightPosition = vec3f(5, 5, 5);
 }
 
 bool GraphicsManager::InitializeShaders() {
@@ -66,14 +66,14 @@ void GraphicsManager::CalculateCameraMatrix() {
     auto& scene       = g_pSceneManager->GetSceneForRendering();
     auto  pCameraNode = scene.GetFirstCameraNode();
 
-    mat4& viewMat = m_FrameConstants.viewMatrix;
+    mat4f& viewMat = m_FrameConstants.viewMatrix;
     if (pCameraNode) {
         viewMat = *pCameraNode->GetCalculatedTransform();
         viewMat = inverse(viewMat);
     } else {
-        vec3 position(5, 5, 5);
-        vec3 look_at(0, 0, 0);
-        vec3 up(-1, -1, 1);
+        vec3f position(5, 5, 5);
+        vec3f look_at(0, 0, 0);
+        vec3f up(-1, -1, 1);
         viewMat = lookAt(position, look_at, up);
     }
 
@@ -102,23 +102,23 @@ void GraphicsManager::CalculateCameraMatrix() {
 void GraphicsManager::CalculateLights() {
     auto& scene = g_pSceneManager->GetSceneForRendering();
 
-    vec3& lightPos   = m_FrameConstants.lightPosition;
-    vec4& lightColor = m_FrameConstants.lightColor;
+    vec3f& lightPos   = m_FrameConstants.lightPosition;
+    vec4f& lightColor = m_FrameConstants.lightColor;
 
     if (auto pLightNode = scene.GetFirstLightNode()) {
-        lightPos = vec3(0.0f);
+        lightPos = vec3f(0.0f);
         auto _lightPos =
-            (*pLightNode->GetCalculatedTransform()) * vec4(lightPos, 1.0f);
-        lightPos = vec3(_lightPos.xyz);
+            (*pLightNode->GetCalculatedTransform()) * vec4f(lightPos, 1.0f);
+        lightPos = vec3f(_lightPos.xyz);
 
         if (auto pLight = scene.GetLight(pLightNode->GetSceneObjectRef())) {
             lightColor = pLight->GetColor().Value;
         }
     } else {
         auto _lightPos =
-            rotateZ(mat4(1.0f), radians(1.0f)) * vec4(lightPos, 1.0f);
+            rotateZ(mat4f(1.0f), radians(1.0f)) * vec4f(lightPos, 1.0f);
         lightPos   = _lightPos.xyz;
-        lightColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        lightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }
 void GraphicsManager::InitializeBuffers(const Scene& scene) {
@@ -134,14 +134,14 @@ void GraphicsManager::RenderBuffers() {
 }
 
 #ifdef DEBUG
-void GraphicsManager::DrawLine(const vec3& from, const vec3& to,
-                               const vec3& color) {
+void GraphicsManager::DrawLine(const vec3f& from, const vec3f& to,
+                               const vec3f& color) {
     std::cout << "[GraphicsManager] GraphicsManager::DrawLine(" << from << ","
               << to << "," << color << ")" << std::endl;
 }
 
-void GraphicsManager::DrawBox(const vec3& bbMin, const vec3& bbMax,
-                              const vec3& color) {
+void GraphicsManager::DrawBox(const vec3f& bbMin, const vec3f& bbMax,
+                              const vec3f& color) {
     std::cout << "[GraphicsManager] GraphicsManager::DrawBox(" << bbMin << ","
               << bbMax << "," << color << ")" << std::endl;
 }

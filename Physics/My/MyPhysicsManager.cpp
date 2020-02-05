@@ -39,13 +39,13 @@ void MyPhysicsManager::CreateRigidBody(SceneGeometryNode&         node,
             rigidBody = std::make_shared<RigidBody>(collision_box, motionState);
         } break;
         case SceneObjectCollisionType::kBOX: {
-            auto       collision_box = std::make_shared<Box>(vec3(param));
+            auto       collision_box = std::make_shared<Box>(vec3f(param));
             const auto trans         = node.GetCalculatedTransform();
             auto       motionState   = std::make_shared<MotionState>(*trans);
             rigidBody = std::make_shared<RigidBody>(collision_box, motionState);
         } break;
         case SceneObjectCollisionType::kPLANE: {
-            auto collision_box = std::make_shared<Plane>(vec3(param), param[3]);
+            auto collision_box = std::make_shared<Plane>(vec3f(param), param[3]);
             const auto trans   = node.GetCalculatedTransform();
             auto       motionState = std::make_shared<MotionState>(*trans);
             rigidBody = std::make_shared<RigidBody>(collision_box, motionState);
@@ -96,15 +96,15 @@ void MyPhysicsManager::ClearRigidBodies() {
     }
 }
 
-mat4 MyPhysicsManager::GetRigidBodyTransform(void* rigidBody) {
-    mat4       trans;
+mat4f MyPhysicsManager::GetRigidBodyTransform(void* rigidBody) {
+    mat4f       trans;
     RigidBody* _rigidBody  = reinterpret_cast<RigidBody*>(rigidBody);
     auto       motionState = _rigidBody->GetMotionState();
     trans                  = motionState->GetTransition();
     return trans;
 }
 
-void MyPhysicsManager::ApplyCentralForce(void* rigidBody, vec3 force) {}
+void MyPhysicsManager::ApplyCentralForce(void* rigidBody, vec3f force) {}
 
 #ifdef DEBUG
 void MyPhysicsManager::DrawDebugInfo() {
@@ -126,11 +126,11 @@ void MyPhysicsManager::DrawDebugInfo() {
     }
 }
 
-void MyPhysicsManager::DrawAabb(const Geometry& geometry, const mat4& trans,
-                                const vec3& centerOfMass) {
-    vec3 bbMin, bbMax;
-    vec3 color(0.7f, 0.6f, 0.5f);
-    mat4 _trans(1.0f);
+void MyPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans,
+                                const vec3f& centerOfMass) {
+    vec3f bbMin, bbMax;
+    vec3f color(0.7f, 0.6f, 0.5f);
+    mat4f _trans(1.0f);
     _trans.data[3][0] = centerOfMass.x * trans.data[0][0];  // scale by x-scale
     _trans.data[3][1] = centerOfMass.y * trans.data[1][1];  // scale by y-scale
     _trans.data[3][2] = centerOfMass.z * trans.data[2][2];  // scale by z-scale

@@ -28,15 +28,15 @@ int BaseApplication::Initialize() {
     }
     std::cout << "Success" << std::endl;
 
-    std::cout << "Initialize Scene Manager: ";
-    if ((ret = g_pSceneManager->Initialize()) != 0) {
+    std::cout << "Initialize Input Manager: ";
+    if ((ret = g_pInputManager->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
     std::cout << "Success" << std::endl;
 
-    std::cout << "Initialize Input Manager: ";
-    if ((ret = g_pInputManager->Initialize()) != 0) {
+    std::cout << "Initialize Scene Manager: ";
+    if ((ret = g_pSceneManager->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
@@ -91,8 +91,8 @@ void BaseApplication::Finalize() {
     g_pGameLogic->Finalize();
     g_pGraphicsManager->Finalize();
     g_pPhysicsManager->Finalize();
-    g_pInputManager->Finalize();
     g_pSceneManager->Finalize();
+    g_pInputManager->Finalize();
     g_pAssetLoader->Finalize();
     g_pMemoryManager->Finalize();
 }
@@ -102,8 +102,8 @@ void BaseApplication::Tick() {
     m_clock.Tick();
     g_pMemoryManager->Tick();
     g_pAssetLoader->Tick();
-    g_pSceneManager->Tick();
     g_pInputManager->Tick();
+    g_pSceneManager->Tick();
     g_pPhysicsManager->Tick();
     g_pGraphicsManager->Tick();
     g_pGameLogic->Tick();
