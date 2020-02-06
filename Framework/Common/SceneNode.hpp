@@ -14,7 +14,7 @@ protected:
     std::list<std::shared_ptr<BaseSceneNode>>        m_Chlidren;
     std::list<std::shared_ptr<SceneObjectTransform>> m_Transforms;
     mat4f m_RuntimeTransform = mat4f(1.0f);
-    bool m_bDirty           = true;
+    bool  m_bDirty           = true;
 
     virtual void dump(std::ostream& out) const {}
 
@@ -155,7 +155,7 @@ protected:
 
 public:
     using SceneNode::SceneNode;
-    void        SetTarget(vec3f& target) { m_Target = target; }
+    void         SetTarget(vec3f& target) { m_Target = target; }
     const vec3f& GetTarget() { return m_Target; }
 };
 

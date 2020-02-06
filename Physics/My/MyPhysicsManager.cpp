@@ -45,8 +45,9 @@ void MyPhysicsManager::CreateRigidBody(SceneGeometryNode&         node,
             rigidBody = std::make_shared<RigidBody>(collision_box, motionState);
         } break;
         case SceneObjectCollisionType::kPLANE: {
-            auto collision_box = std::make_shared<Plane>(vec3f(param), param[3]);
-            const auto trans   = node.GetCalculatedTransform();
+            auto collision_box =
+                std::make_shared<Plane>(vec3f(param), param[3]);
+            const auto trans       = node.GetCalculatedTransform();
             auto       motionState = std::make_shared<MotionState>(*trans);
             rigidBody = std::make_shared<RigidBody>(collision_box, motionState);
         } break;
@@ -96,15 +97,16 @@ void MyPhysicsManager::ClearRigidBodies() {
     }
 }
 
-mat4f MyPhysicsManager::GetRigidBodyTransform(void* rigidBody) {
-    mat4f       trans;
-    RigidBody* _rigidBody  = reinterpret_cast<RigidBody*>(rigidBody);
-    auto       motionState = _rigidBody->GetMotionState();
-    trans                  = motionState->GetTransition();
+mat4f MyPhysicsManager::GetRigidBodyTransform(std::shared_ptr<void> rigidBody) {
+    mat4f trans;
+    auto  _rigidBody  = std::static_pointer_cast<RigidBody>(rigidBody);
+    auto  motionState = _rigidBody->GetMotionState();
+    trans             = motionState->GetTransition();
     return trans;
 }
 
-void MyPhysicsManager::ApplyCentralForce(void* rigidBody, vec3f force) {}
+void MyPhysicsManager::ApplyCentralForce(std::shared_ptr<void> rigidBody,
+                                         vec3f                 force) {}
 
 #ifdef DEBUG
 void MyPhysicsManager::DrawDebugInfo() {

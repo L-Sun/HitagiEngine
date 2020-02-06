@@ -18,10 +18,11 @@ public:
     virtual int  CreateRigidBodies() = 0;
     virtual void ClearRigidBodies()  = 0;
 
-    virtual mat4f GetRigidBodyTransform(void* rigidBody)            = 0;
-    virtual void UpdateRigidBodyTransform(SceneGeometryNode& node) = 0;
+    virtual mat4f GetRigidBodyTransform(std::shared_ptr<void> rigidBody) = 0;
+    virtual void  UpdateRigidBodyTransform(SceneGeometryNode& node)      = 0;
 
-    virtual void ApplyCentralForce(void* rigidBody, vec3f force) = 0;
+    virtual void ApplyCentralForce(std::shared_ptr<void> rigidBody,
+                                   vec3f                 force) = 0;
 };
 extern std::unique_ptr<IPhysicsManager> g_pPhysicsManager;
 }  // namespace My

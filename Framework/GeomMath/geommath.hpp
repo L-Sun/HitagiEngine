@@ -14,6 +14,7 @@ using vec4f = Vector<float, 4>;
 using quatf = Vector<float, 4>;
 using mat3f = Matrix<float, 3, 3>;
 using mat4f = Matrix<float, 4, 4>;
+using mat8f = Matrix<float, 8, 8>;
 
 using R8G8B8A8Unorm = Vector<uint8_t, 4>;
 
@@ -23,6 +24,7 @@ using vec4d = Vector<double, 4>;
 using quatd = Vector<double, 4>;
 using mat3d = Matrix<double, 3, 3>;
 using mat4d = Matrix<double, 4, 4>;
+using mat8d = Matrix<double, 8, 8>;
 
 template <typename T>
 inline T radians(T angle) {

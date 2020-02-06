@@ -16,10 +16,10 @@ public:
     int  CreateRigidBodies() final;
     void ClearRigidBodies() final;
 
-    mat4f GetRigidBodyTransform(void* rigidBody) final;
-    void UpdateRigidBodyTransform(SceneGeometryNode& node) final;
+    mat4f GetRigidBodyTransform(std::shared_ptr<void> rigidBody) final;
+    void  UpdateRigidBodyTransform(SceneGeometryNode& node) final;
 
-    void ApplyCentralForce(void* rigidBody, vec3f force) final;
+    void ApplyCentralForce(std::shared_ptr<void> rigidBody, vec3f force) final;
 
 #ifdef DEBUG
     void DrawDebugInfo();

@@ -181,8 +181,8 @@ bool OpenGLGraphicsManager::SetPerFrameShaderParameters(GLuint shader) {
     return true;
 }
 
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
-                                                        const char* paramName,
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint       shader,
+                                                        const char*  paramName,
                                                         const mat4f& param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
@@ -192,8 +192,8 @@ bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
     glUniformMatrix4fv(location, 1, false, param);
     return true;
 }
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
-                                                        const char* paramName,
+bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint       shader,
+                                                        const char*  paramName,
                                                         const vec3f& param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
@@ -432,7 +432,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
     for (auto dbc : m_DrawBatchContext) {
         mat4f trans;
 
-        if (void* rigidBody = dbc.node->RigidBody()) {
+        if (auto rigidBody = dbc.node->RigidBody()) {
             // the geometry has rigid body bounded, we blend the simlation
             // result here.
             trans = g_pPhysicsManager->GetRigidBodyTransform(rigidBody);
