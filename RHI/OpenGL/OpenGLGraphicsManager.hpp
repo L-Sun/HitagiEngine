@@ -38,6 +38,7 @@ private:
 
     void InitializeBuffers(const Scene& scene) final;
     void ClearBuffers() final;
+    void ClearShaders() final;
     bool InitializeShaders() final;
     void RenderBuffers() final;
 
@@ -56,6 +57,7 @@ private:
     struct OpenGLDrawBatchContext : public DrawBatchContext {
         size_t count;  // index count per node
         GLuint vao;
+        GLuint ebo;
         GLenum mode;
         GLenum type;
     };
@@ -65,7 +67,7 @@ private:
         GLuint  vao;
         GLenum  mode;
         GLsizei count;
-        vec3f    color;
+        vec3f   color;
     };
 #endif
 

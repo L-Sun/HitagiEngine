@@ -244,8 +244,6 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
             glGenVertexArrays(1, &vao);
             glBindVertexArray(vao);
 
-            GLuint buffer_id;
-
             for (int32_t i = 0; i < vertexPropertiesCount; i++) {
                 const SceneObjectVertexArray& v_property_array =
                     pMesh->GetVertexPropertyArray(i);
@@ -253,8 +251,9 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
                     v_property_array.GetDataSize();
                 auto v_property_array_data = v_property_array.GetData();
 
-                glGenBuffers(1, &buffer_id);
-                glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
+                GLuint vbo;
+                glGenBuffers(1, &vbo);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo);
                 glBufferData(GL_ARRAY_BUFFER, v_property_array_data_size,
                              v_property_array_data, GL_STATIC_DRAW);
 
@@ -289,7 +288,7 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
                         assert(0);
                         break;
                 }
-                m_Buffers.push_back(buffer_id);
+                m_Buffers.push_back(vbo);
             }
 
             auto indexGroupCount = pMesh->GetIndexGroupCount();
@@ -319,14 +318,15 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
             }
 
             for (decltype(indexGroupCount) i = 0; i < indexGroupCount; i++) {
-                glGenBuffers(1, &buffer_id);
+                GLuint ebo;
+                glGenBuffers(1, &ebo);
 
                 const SceneObjectIndexArray& index_array =
                     pMesh->GetIndexArray(i);
                 auto index_array_size = index_array.GetDataSize();
                 auto index_array_data = index_array.GetData();
 
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
                 glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_array_size,
                              index_array_data, GL_STATIC_DRAW);
                 GLsizei indexCount =
@@ -351,7 +351,7 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
                         continue;
                 }
 
-                m_Buffers.push_back(buffer_id);
+                m_Buffers.push_back(ebo);
 
                 size_t      material_index = index_array.GetMaterialIndex();
                 std::string material_key =
@@ -388,13 +388,14 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
                     }
                 }
 
-                OpenGLDrawBatchContext& dbc = *(new OpenGLDrawBatchContext);
-                dbc.vao                     = vao;
-                dbc.mode                    = mode;
-                dbc.type                    = type;
-                dbc.node                    = pGeometryNode;
-                dbc.material                = material;
-                dbc.count                   = indexCount;
+                OpenGLDrawBatchContext dbc;
+                dbc.vao      = vao;
+                dbc.ebo      = ebo;
+                dbc.mode     = mode;
+                dbc.type     = type;
+                dbc.node     = pGeometryNode;
+                dbc.material = material;
+                dbc.count    = indexCount;
                 m_DrawBatchContext.push_back(std::move(dbc));
             }
         }
@@ -424,6 +425,16 @@ void OpenGLGraphicsManager::ClearBuffers() {
     m_Buffers.clear();
     m_Textures.clear();
 }
+void OpenGLGraphicsManager::ClearShaders() {
+    glDeleteShader(m_vertexShader);
+    glDeleteShader(m_fragmentShader);
+#if defined(DEBUG)
+
+    glDeleteShader(m_debugVertexShader);
+    glDeleteShader(m_debugFragmentShader);
+
+#endif  // DEBUG
+}
 
 void OpenGLGraphicsManager::RenderBuffers() {
     glUseProgram(m_shaderProgram);
@@ -442,12 +453,6 @@ void OpenGLGraphicsManager::RenderBuffers() {
 
         SetPerBatchShaderParameters(m_shaderProgram, "modelMatrix", trans);
         glBindVertexArray(dbc.vao);
-        // auto           indexBufferCount = dbc.counts.size();
-        // const GLvoid** pIndicies        = new const
-        // GLvoid*[indexBufferCount]; memset(pIndicies, 0x00,
-        // sizeof(GLvoid*) * indexBufferCount);
-        // glMultiDrawElements(dbc.mode, dbc.counts.data(), dbc.type,
-        // pIndicies, indexBufferCount); delete[] pIndicies;
 
         if (dbc.material) {
             Color color = dbc.material->GetBaseColor();
@@ -474,7 +479,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
             SetPerBatchShaderParameters(m_shaderProgram, "diffuseColor",
                                         vec3f(-1.0f));
         }
-
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, dbc.ebo);
         glDrawElements(dbc.mode, dbc.count, dbc.type, 0x00);
     }
 
