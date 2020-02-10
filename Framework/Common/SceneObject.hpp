@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <variant>
 #include <crossguid/guid.hpp>
 #include "portable.hpp"
 #include "geommath.hpp"
@@ -88,124 +87,21 @@ protected:
     xg::Guid        m_Guid;
     SceneObjectType m_Type;
     BaseSceneObject(SceneObjectType type);
-    BaseSceneObject(xg::Guid& guid, SceneObjectType type);
-    BaseSceneObject(xg::Guid&& guid, SceneObjectType type);
+    BaseSceneObject(const xg::Guid& guid, const SceneObjectType& type);
+    BaseSceneObject(xg::Guid&& guid, const SceneObjectType& type);
     BaseSceneObject(BaseSceneObject&& obj);
     BaseSceneObject& operator=(BaseSceneObject&& obj);
     virtual ~BaseSceneObject() {}
 
-    BaseSceneObject()                     = default;
-    BaseSceneObject(BaseSceneObject& obj) = default;
-    BaseSceneObject& operator=(BaseSceneObject& obj) = default;
+    BaseSceneObject()                           = default;
+    BaseSceneObject(const BaseSceneObject& obj) = default;
+    BaseSceneObject& operator=(const BaseSceneObject& obj) = default;
 
 public:
     const xg::Guid&       GetGuid() const { return m_Guid; }
     const SceneObjectType GetType() const { return m_Type; }
 
-    friend std::ostream& operator<<(std::ostream&          out,
-                                    const BaseSceneObject& obj);
-};
-
-class SceneObjectVertexArray {
-protected:
-    std::string    m_strAttribute;
-    uint32_t       m_MorphTargetIndex;
-    VertexDataType m_DataType;
-    size_t         m_vertexCount;
-    void*          m_pData = nullptr;
-
-public:
-    SceneObjectVertexArray(
-        std::string_view attr = "", uint32_t morph_index = 0,
-        const VertexDataType data_type = VertexDataType::kFLOAT3,
-        const void* data = nullptr, size_t vertexCount = 0);
-    SceneObjectVertexArray(SceneObjectVertexArray& rhs);
-    SceneObjectVertexArray(SceneObjectVertexArray&& rhs);
-    ~SceneObjectVertexArray();
-
-    const std::string&   GetAttributeName() const;
-    VertexDataType       GetDataType() const;
-    size_t               GetDataSize() const;
-    const void*          GetData() const;
-    size_t               GetVertexCount() const;
-    friend std::ostream& operator<<(std::ostream&                 out,
-                                    const SceneObjectVertexArray& obj);
-};
-
-class SceneObjectIndexArray {
-protected:
-    uint32_t      m_nMaterialIndex;
-    size_t        m_szResetartIndex;
-    IndexDataType m_DataType;
-    size_t        m_indexCount;
-    void*         m_pData = nullptr;
-
-public:
-    SceneObjectIndexArray(const uint32_t      material_index = 0,
-                          const uint32_t      restart_index  = 0,
-                          const IndexDataType data_type = IndexDataType::kINT16,
-                          const void*         data      = nullptr,
-                          const size_t        elementCount = 0);
-    SceneObjectIndexArray(SceneObjectIndexArray&);
-    SceneObjectIndexArray(SceneObjectIndexArray&&);
-    ~SceneObjectIndexArray();
-
-    const uint32_t       GetMaterialIndex() const;
-    const IndexDataType  GetIndexType() const;
-    const void*          GetData() const;
-    size_t               GetIndexCount() const;
-    size_t               GetDataSize() const;
-    friend std::ostream& operator<<(std::ostream&                out,
-                                    const SceneObjectIndexArray& obj);
-};
-
-struct BoundingBox {
-    vec3f centroid;
-    vec3f extent;
-};
-
-class SceneObjectMesh : public BaseSceneObject {
-protected:
-    std::vector<SceneObjectIndexArray> m_IndexArray;
-    // Different vector elements correspond to different attributes of
-    // vertices, such as the first element is coorespond to the position of
-    // vertices, the second element is coorrespond to the normal of
-    // vertices, etc.
-    std::vector<SceneObjectVertexArray> m_VertexArray;
-
-    PrimitiveType m_PrimitiveType;
-
-    bool m_bVisible;
-    bool m_bShadow;
-    bool m_bMotionBlur;
-
-public:
-    SceneObjectMesh(bool visible = true, bool shadow = true,
-                    bool motion_blur = true)
-        : BaseSceneObject(SceneObjectType::kMESH) {}
-    SceneObjectMesh(SceneObjectMesh&& mesh)
-        : BaseSceneObject(SceneObjectType::kMESH),
-          m_IndexArray(std::move(mesh.m_IndexArray)),
-          m_VertexArray(std::move(mesh.m_VertexArray)),
-          m_PrimitiveType(mesh.m_PrimitiveType) {}
-
-    // Set some things
-    void AddIndexArray(SceneObjectIndexArray&& array);
-    void AddVertexArray(SceneObjectVertexArray&& array);
-    void SetPrimitiveType(PrimitiveType type);
-
-    // Get some things
-    size_t                        GetIndexGroupCount() const;
-    size_t                        GetIndexCount(const size_t index) const;
-    size_t                        GetVertexCount() const;
-    size_t                        GetVertexPropertiesCount() const;
-    const SceneObjectVertexArray& GetVertexPropertyArray(
-        const size_t index) const;
-    const SceneObjectIndexArray& GetIndexArray(const size_t index) const;
-    const PrimitiveType&         GetPrimitiveType();
-    BoundingBox                  GetBoundingBox() const;
-    friend std::ostream&         operator<<(std::ostream&          out,
-                                    const SceneObjectMesh& obj);
+    friend std::ostream& operator<<(std::ostream& out, const BaseSceneObject& obj);
 };
 
 class SceneObjectTexture : public BaseSceneObject {
@@ -216,20 +112,13 @@ protected:
     std::vector<mat4f>     m_Transforms;
 
 public:
-    SceneObjectTexture()
-        : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(0) {}
+    SceneObjectTexture() : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(0) {}
     SceneObjectTexture(std::string_view name)
-        : BaseSceneObject(SceneObjectType::kTEXTURE),
-          m_nTexCoordIndex(0),
-          m_Name(name) {}
+        : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(0), m_Name(name) {}
     SceneObjectTexture(uint32_t coord_index, std::shared_ptr<Image>& image)
-        : BaseSceneObject(SceneObjectType::kTEXTURE),
-          m_nTexCoordIndex(coord_index),
-          m_pImage(image) {}
+        : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(coord_index), m_pImage(image) {}
     SceneObjectTexture(uint32_t coord_index, std::shared_ptr<Image>&& image)
-        : BaseSceneObject(SceneObjectType::kTEXTURE),
-          m_nTexCoordIndex(coord_index),
-          m_pImage(std::move(image)) {}
+        : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(coord_index), m_pImage(std::move(image)) {}
     SceneObjectTexture(SceneObjectTexture&)  = default;
     SceneObjectTexture(SceneObjectTexture&&) = default;
 
@@ -239,8 +128,7 @@ public:
     void                 LoadTexture();
     const std::string&   GetName() const;
     const Image&         GetTextureImage();
-    friend std::ostream& operator<<(std::ostream&             out,
-                                    const SceneObjectTexture& obj);
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj);
 };
 
 template <typename T>
@@ -250,21 +138,18 @@ struct ParameterValueMap {
 
     ParameterValueMap() = default;
     ParameterValueMap(const T value) : Value(value) {}
-    ParameterValueMap(const std::shared_ptr<SceneObjectTexture>& value)
-        : ValueMap(value) {}
+    ParameterValueMap(const std::shared_ptr<SceneObjectTexture>& value) : ValueMap(value) {}
     ParameterValueMap(const ParameterValueMap& rhs) = default;
     ParameterValueMap(ParameterValueMap&& rhs)      = default;
     ParameterValueMap& operator=(const ParameterValueMap& rhs) = default;
     ParameterValueMap& operator=(ParameterValueMap&& rhs) = default;
-    ParameterValueMap& operator                           =(
-        const std::shared_ptr<SceneObjectTexture>& rhs) {
+    ParameterValueMap& operator                           =(const std::shared_ptr<SceneObjectTexture>& rhs) {
         ValueMap = rhs;
         return *this;
     }
     ~ParameterValueMap() = default;
 
-    friend std::ostream& operator<<(std::ostream&            out,
-                                    const ParameterValueMap& obj) {
+    friend std::ostream& operator<<(std::ostream& out, const ParameterValueMap& obj) {
         out << "Parameter Value:" << obj.Value;
         if (obj.ValueMap) {
             out << std::endl;
@@ -288,7 +173,7 @@ protected:
     Color       m_Specular;
     Parameter   m_SpecularPower;
     Parameter   m_AmbientOcclusion;
-    Color       m_Opacity;
+    Parameter   m_Opacity;
     Color       m_Transparency;
     Color       m_Emission;
 
@@ -306,32 +191,124 @@ public:
           m_Opacity(1.0f),
           m_Transparency(0.0f),
           m_Emission(0.0f){};
-    SceneObjectMaterial(const std::string& name) : SceneObjectMaterial() {
-        m_Name = name;
-    };
-    SceneObjectMaterial(std::string&& name) : SceneObjectMaterial() {
-        m_Name = std::move(name);
-    };
+    SceneObjectMaterial(const std::string& name) : SceneObjectMaterial() { m_Name = name; };
+    SceneObjectMaterial(std::string&& name) : SceneObjectMaterial() { m_Name = std::move(name); };
 
-    const std::string& GetName() const;
-    const Color&       GetBaseColor() const;
-    const Color&       GetSpecularColor() const;
-    const Parameter&   GetSpecularPower() const;
-    void               SetName(const std::string& name);
-    void               SetName(std::string&& name);
-    void               SetColor(std::string_view attrib, const vec4f& color);
-    void               SetParam(std::string_view attrib, const float param);
-    void SetTexture(std::string_view attrib, std::string_view textureName);
-    void SetTexture(std::string_view                           attrib,
-                    const std::shared_ptr<SceneObjectTexture>& texture);
-    void LoadTextures();
-    friend std::ostream& operator<<(std::ostream&              out,
-                                    const SceneObjectMaterial& obj);
+    const std::string&   GetName() const;
+    const Color&         GetBaseColor() const;
+    const Color&         GetSpecularColor() const;
+    const Parameter&     GetSpecularPower() const;
+    void                 SetName(const std::string& name);
+    void                 SetName(std::string&& name);
+    void                 SetColor(std::string_view attrib, const vec4f& color);
+    void                 SetParam(std::string_view attrib, const float param);
+    void                 SetTexture(std::string_view attrib, std::string_view textureName);
+    void                 SetTexture(std::string_view attrib, const std::shared_ptr<SceneObjectTexture>& texture);
+    void                 LoadTextures();
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj);
+};
+
+class SceneObjectVertexArray {
+protected:
+    std::string    m_strAttribute;
+    uint32_t       m_MorphTargetIndex;
+    VertexDataType m_DataType;
+    size_t         m_vertexCount;
+    void*          m_pData = nullptr;
+
+public:
+    SceneObjectVertexArray(std::string_view attr = "", uint32_t morph_index = 0,
+                           const VertexDataType data_type = VertexDataType::kFLOAT3, const void* data = nullptr,
+                           size_t vertexCount = 0);
+    SceneObjectVertexArray(const SceneObjectVertexArray& rhs);
+    SceneObjectVertexArray(SceneObjectVertexArray&& rhs);
+    SceneObjectVertexArray& operator=(const SceneObjectVertexArray& rhs);
+    SceneObjectVertexArray& operator=(SceneObjectVertexArray&& rhs);
+    ~SceneObjectVertexArray();
+
+    const std::string&   GetAttributeName() const;
+    VertexDataType       GetDataType() const;
+    size_t               GetDataSize() const;
+    const void*          GetData() const;
+    size_t               GetVertexCount() const;
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj);
+};
+
+class SceneObjectIndexArray {
+protected:
+    size_t        m_szResetartIndex;
+    IndexDataType m_DataType;
+    size_t        m_indexCount;
+    void*         m_pData = nullptr;
+
+public:
+    SceneObjectIndexArray(const uint32_t restart_index = 0, const IndexDataType data_type = IndexDataType::kINT16,
+                          const void* data = nullptr, const size_t elementCount = 0);
+    SceneObjectIndexArray(const SceneObjectIndexArray& rhs);
+    SceneObjectIndexArray(SceneObjectIndexArray&& rhs);
+    SceneObjectIndexArray& operator=(const SceneObjectIndexArray& rhs);
+    SceneObjectIndexArray& operator=(SceneObjectIndexArray&& rhs);
+    ~SceneObjectIndexArray();
+
+    const IndexDataType  GetIndexType() const;
+    const void*          GetData() const;
+    size_t               GetIndexCount() const;
+    size_t               GetDataSize() const;
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj);
+};
+
+struct BoundingBox {
+    vec3f centroid;
+    vec3f extent;
+};
+
+class SceneObjectMesh : public BaseSceneObject {
+protected:
+    // Different vector elements correspond to different attributes of
+    // vertices, such as the first element is coorespond to the position of
+    // vertices, the second element is coorrespond to the normal of
+    // vertices, etc.
+    std::unordered_map<std::string, SceneObjectVertexArray> m_VertexArray;
+    SceneObjectIndexArray                                   m_IndexArray;
+    std::weak_ptr<SceneObjectMaterial>                      m_Material;
+    PrimitiveType                                           m_PrimitiveType;
+
+    bool m_bVisible;
+    bool m_bShadow;
+    bool m_bMotionBlur;
+
+public:
+    SceneObjectMesh(bool visible = true, bool shadow = true, bool motion_blur = true)
+        : BaseSceneObject(SceneObjectType::kMESH) {}
+    SceneObjectMesh(SceneObjectMesh&& mesh)
+        : BaseSceneObject(SceneObjectType::kMESH),
+          m_IndexArray(std::move(mesh.m_IndexArray)),
+          m_VertexArray(std::move(mesh.m_VertexArray)),
+          m_PrimitiveType(mesh.m_PrimitiveType) {}
+
+    // Set some things
+    void AddIndexArray(SceneObjectIndexArray&& array);
+    void AddVertexArray(SceneObjectVertexArray&& array);
+    void SetPrimitiveType(PrimitiveType type);
+    void SetMaterial(const std::weak_ptr<SceneObjectMaterial>& material);
+
+    // Get some things
+    size_t                             GetVertexCount() const;
+    size_t                             GetVertexPropertiesCount() const;
+    const SceneObjectVertexArray&      GetVertexPropertyArray(const std::string& attr) const;
+    const SceneObjectIndexArray&       GetIndexArray() const;
+    const PrimitiveType&               GetPrimitiveType();
+    std::weak_ptr<SceneObjectMaterial> GetMaterial() const;
+    BoundingBox                        GetBoundingBox() const;
+    friend std::ostream&               operator<<(std::ostream& out, const SceneObjectMesh& obj);
 };
 
 class SceneObjectGeometry : public BaseSceneObject {
 protected:
-    std::vector<std::shared_ptr<SceneObjectMesh>> m_Mesh;
+    // LOD | meshes array
+    //  0  | meshes array[0] include multiple meshes at 0 LOD
+    // ... | ...
+    std::vector<std::vector<std::weak_ptr<SceneObjectMesh>>> m_MeshesLOD;
 
     bool                     m_bVisible;
     bool                     m_bShadow;
@@ -341,24 +318,21 @@ protected:
 
 public:
     SceneObjectGeometry()
-        : BaseSceneObject(SceneObjectType::kGEOMETRY),
-          m_CollisionType(SceneObjectCollisionType::kNONE) {}
-    void       SetVisibility(bool visible);
-    void       SetIfCastShadow(bool shadow);
-    void       SetIfMotionBlur(bool motion_blur);
-    void       SetCollisionType(SceneObjectCollisionType collision_type);
-    void       SetCollisionParameters(const float* param, int32_t count);
-    const bool Visible();
-    const bool CastShadow();
-    const bool MotionBlur();
-    const SceneObjectCollisionType CollisionType() const;
-    const float*                   CollisionParameters() const;
-    void AddMesh(std::shared_ptr<SceneObjectMesh>&& mesh);
-    const std::weak_ptr<SceneObjectMesh> GetMesh();
-    const std::weak_ptr<SceneObjectMesh> GetMeshLOD(size_t lod);
-    BoundingBox                          GetBoundingBox() const;
-    friend std::ostream&                 operator<<(std::ostream&              out,
-                                    const SceneObjectGeometry& obj);
+        : BaseSceneObject(SceneObjectType::kGEOMETRY), m_CollisionType(SceneObjectCollisionType::kNONE) {}
+    void                                        SetVisibility(bool visible);
+    void                                        SetIfCastShadow(bool shadow);
+    void                                        SetIfMotionBlur(bool motion_blur);
+    void                                        SetCollisionType(SceneObjectCollisionType collision_type);
+    void                                        SetCollisionParameters(const float* param, int32_t count);
+    const bool                                  Visible() const;
+    const bool                                  CastShadow() const;
+    const bool                                  MotionBlur() const;
+    const SceneObjectCollisionType              CollisionType() const;
+    const float*                                CollisionParameters() const;
+    void                                        AddMesh(const std::weak_ptr<SceneObjectMesh>& mesh, size_t level = 0);
+    std::vector<std::weak_ptr<SceneObjectMesh>> GetMeshes(size_t lod = 0) const;
+    BoundingBox                                 GetBoundingBox() const;
+    friend std::ostream&                        operator<<(std::ostream& out, const SceneObjectGeometry& obj);
 };
 
 typedef float (*AttenFunc)(float /* Intensity */, float /* distance */);
@@ -366,6 +340,14 @@ typedef float (*AttenFunc)(float /* Intensity */, float /* distance */);
 float DefaultAttenFunc(float intensity, float distance);
 
 class SceneObjectLight : public BaseSceneObject {
+public:
+    SceneObjectLight(const vec4f& color = vec4f(1.0f), float intensity = 100.0f)
+        : BaseSceneObject(SceneObjectType::kLIGHT),
+          m_LightColor(color),
+          m_fIntensity(intensity),
+          m_LightAttenuation(DefaultAttenFunc),
+          m_bCastShadows(false){};
+
 protected:
     Color       m_LightColor;
     float       m_fIntensity;
@@ -373,53 +355,43 @@ protected:
     bool        m_bCastShadows;
     std::string m_strTexture;
 
-    SceneObjectLight(void)
-        : BaseSceneObject(SceneObjectType::kLIGHT),
-          m_LightColor(vec4f(1.0f)),
-          m_fIntensity(100.0f),
-          m_LightAttenuation(DefaultAttenFunc),
-          m_bCastShadows(false){};
-
-    friend std::ostream& operator<<(std::ostream&           out,
-                                    const SceneObjectLight& obj);
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectLight& obj);
 
 public:
-    void SetIfCastShadow(bool shadow);
-    void SetColor(std::string_view attrib, const vec4f& color);
-    void SetParam(std::string_view attrib, float param);
-    void SetTexture(std::string_view attrib, std::string_view textureName);
-    void SetAttenuation(AttenFunc func);
+    void         SetIfCastShadow(bool shadow);
+    void         SetColor(std::string_view attrib, const vec4f& color);
+    void         SetParam(std::string_view attrib, float param);
+    void         SetTexture(std::string_view attrib, std::string_view textureName);
+    void         SetAttenuation(AttenFunc func);
     const Color& GetColor();
     float        GetIntensity();
 };
 
-class SceneObjectOmniLight : public SceneObjectLight {
+class SceneObjectPointLight : public SceneObjectLight {
 public:
     using SceneObjectLight::SceneObjectLight;
-    friend std::ostream& operator<<(std::ostream&               out,
-                                    const SceneObjectOmniLight& obj);
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectPointLight& obj);
 };
 
 class SceneObjectSpotLight : public SceneObjectLight {
 protected:
-    float m_fConeAngle;
-    float m_fPenumbraAngle;
+    vec3f m_direction;
+    float m_fInnerConeAngle;
+    float m_fOuterConeAngle;
 
 public:
-    SceneObjectSpotLight(void)
-        : SceneObjectLight(),
-          m_fConeAngle(PI / 4.0f),
-          m_fPenumbraAngle(PI / 3.0f) {}
+    SceneObjectSpotLight(const vec4f& color = vec4f(1.0f), float intensity = 100.0f,
+                         const vec3f& direction = vec3f(0.0f), float innerConeAngle = PI / 3.0f,
+                         float outerConeAngle = PI / 4.0f)
+        : SceneObjectLight(color, intensity), m_fInnerConeAngle(innerConeAngle), m_fOuterConeAngle(outerConeAngle) {}
 
-    friend std::ostream& operator<<(std::ostream&               out,
-                                    const SceneObjectSpotLight& obj);
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectSpotLight& obj);
 };
 
 class SceneObjectInfiniteLight : public SceneObjectLight {
 public:
     using SceneObjectLight::SceneObjectLight;
-    friend std::ostream& operator<<(std::ostream&                   out,
-                                    const SceneObjectInfiniteLight& obj);
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectInfiniteLight& obj);
 };
 
 class SceneObjectCamera : public BaseSceneObject {
@@ -429,15 +401,13 @@ protected:
     float m_fFarClipDistance;
 
     // can only be used as base class
-    SceneObjectCamera(float aspect = 16.0f / 9.0f, float near_clip = 1.0f,
-                      float far_clip = 100.0f)
+    SceneObjectCamera(float aspect = 16.0f / 9.0f, float near_clip = 1.0f, float far_clip = 100.0f)
         : BaseSceneObject(SceneObjectType::kCAMERA),
           m_fAspect(aspect),
           m_fNearClipDistance(near_clip),
           m_fFarClipDistance(far_clip) {}
 
-    friend std::ostream& operator<<(std::ostream&            out,
-                                    const SceneObjectCamera& obj);
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectCamera& obj);
 
 public:
     void  SetColor(std::string_view attrib, const vec4f& color);
@@ -450,8 +420,7 @@ public:
 class SceneObjectOrthogonalCamera : public SceneObjectCamera {
 public:
     using SceneObjectCamera::SceneObjectCamera;
-    friend std::ostream& operator<<(std::ostream&                      out,
-                                    const SceneObjectOrthogonalCamera& obj);
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectOrthogonalCamera& obj);
 };
 
 class SceneObjectPerspectiveCamera : public SceneObjectCamera {
@@ -459,13 +428,11 @@ protected:
     float m_fFov;
 
 public:
-    SceneObjectPerspectiveCamera(float fov = PI / 2.0)
-        : SceneObjectCamera(), m_fFov(fov) {}
+    SceneObjectPerspectiveCamera(float fov = PI / 2.0) : SceneObjectCamera(), m_fFov(fov) {}
 
     void                 SetParam(std::string_view attrib, float param);
     float                GetFov() const;
-    friend std::ostream& operator<<(std::ostream&                       out,
-                                    const SceneObjectPerspectiveCamera& obj);
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectPerspectiveCamera& obj);
 };
 
 class SceneObjectTransform {
@@ -481,8 +448,7 @@ public:
     operator mat4f() { return m_matrix; }
     operator const mat4f() const { return m_matrix; }
 
-    friend std::ostream& operator<<(std::ostream&               out,
-                                    const SceneObjectTransform& obj);
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectTransform& obj);
 };
 
 class SceneObjectTranslation : public SceneObjectTransform {

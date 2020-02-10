@@ -71,14 +71,14 @@ void GraphicsManager::CalculateCameraMatrix() {
         viewMat = *pCameraNode->GetCalculatedTransform();
         viewMat = inverse(viewMat);
     } else {
-        vec3f position(5, 5, 5);
+        vec3f position(2, 2, 2);
         vec3f look_at(0, 0, 0);
         vec3f up(-1, -1, 1);
         viewMat = lookAt(position, look_at, up);
     }
 
     float fieldOfView      = PI / 2.0f;
-    float nearClipDistance = 1.0f;
+    float nearClipDistance = 0.1f;
     float farClipDistance  = 100.0f;
 
     if (pCameraNode) {

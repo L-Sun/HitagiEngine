@@ -44,6 +44,7 @@ private:
 
     GLuint m_vertexShader;
     GLuint m_fragmentShader;
+    GLuint m_geometryShader;
     GLuint m_shaderProgram;
 
 #ifdef DEBUG
@@ -54,12 +55,19 @@ private:
 
     std::map<std::string, GLint> m_TextureIndex;
 
-    struct OpenGLDrawBatchContext : public DrawBatchContext {
-        size_t count;  // index count per node
-        GLuint vao;
-        GLuint ebo;
-        GLenum mode;
-        GLenum type;
+    std::vector<std::string> m_inputLayout = {
+        "POSITION",
+        "NORMAL",
+        "TEXCOORD"};
+
+    struct DrawBatchContext {
+        std::weak_ptr<SceneGeometryNode>   node;
+        std::weak_ptr<SceneObjectMaterial> material;
+        size_t                             indexCount;
+        GLuint                             vao;
+        GLuint                             ebo;
+        GLenum                             mode;
+        GLenum                             type;
     };
 
 #ifdef DEBUG
@@ -71,9 +79,9 @@ private:
     };
 #endif
 
-    std::vector<OpenGLDrawBatchContext> m_DrawBatchContext;
-    std::vector<GLuint>                 m_Buffers;
-    std::vector<GLuint>                 m_Textures;
+    std::vector<DrawBatchContext> m_DrawBatchContext;
+    std::vector<GLuint>           m_Buffers;
+    std::vector<GLuint>           m_Textures;
 
 #ifdef DEBUG
     std::vector<DebugDrawBatchContext> m_DebugDrawBatchContext;

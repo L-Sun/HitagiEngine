@@ -5,6 +5,6 @@ namespace My {
 
 class TgaParser : public ImageParser {
 public:
-    virtual Image Parse(const Buffer& buf);
+    Image Parse(const Buffer& buf) final;
 };
 }  // namespace My

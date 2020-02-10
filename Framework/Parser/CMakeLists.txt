@@ -1,8 +1,8 @@
 add_library(Parser
     BMP.cpp
-    FBX.cpp
+    # FBX.cpp
+    Assimp.cpp
     JPEG.cpp
-    OGEX.cpp
     PNG.cpp
     TGA.cpp
 )
@@ -13,17 +13,17 @@ target_link_libraries(Parser
         CommonHeader
         MemoryManager
         GeomMath
-        ${OPENGEX_LIBRARY} 
-        ${OPENDDL_LIBRARY}
         ${JPEG_LIBRARIES}
         png
-        ${FBX_LIBRARIES}
+        assimp::assimp AssetLoader
+        # ${FBX_LIBRARIES}
 )
 target_include_directories(Parser
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE
-        ${FBX_INCLUDE_DIR}
+        # ${FBX_INCLUDE_DIR}
         ${JPEG_INCLUDE_DIR}
 )
+target_compile_options(Parser PRIVATE -Wno-pragma-pack)
 

@@ -4,6 +4,6 @@
 namespace My {
 class PngParser : public ImageParser {
 public:
-    virtual Image Parse(const Buffer& buf);
+    Image Parse(const Buffer& buf) final;
 };
 }  // namespace My

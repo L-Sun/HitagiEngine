@@ -23,10 +23,8 @@ public:
 
     void ResetScene();
 
-    std::weak_ptr<SceneGeometryNode> GetSceneGeometryNode(
-        const std::string& name);
-    std::weak_ptr<SceneObjectGeometry> GetSceneGeometryObject(
-        const std::string& key);
+    std::weak_ptr<SceneGeometryNode>   GetSceneGeometryNode(const std::string& name);
+    std::weak_ptr<SceneObjectGeometry> GetSceneGeometryObject(const std::string& key);
 
 protected:
     std::unique_ptr<Scene> m_pScene;

@@ -13,15 +13,13 @@ int MyTest::Initialize() {
 
     std::cout << "My Game Logic Initialize" << std::endl;
     std::cout << "Start Loading Game Scene" << std::endl;
-    result = g_pSceneManager->LoadScene("Asset/Scene/balls.ogex");
+    result = g_pSceneManager->LoadScene("Asset/Scene/test.dae");
     m_clock.Initialize();
     m_clock.Start();
     return result;
 }
 
-void MyTest::Finalize() {
-    std::cout << "MyTest Game Logic Finalize" << std::endl;
-}
+void MyTest::Finalize() { std::cout << "MyTest Game Logic Finalize" << std::endl; }
 
 void MyTest::Tick() {}
 

@@ -152,7 +152,9 @@ struct Vector : public BaseVector<T, D> {
 
     template <typename TT>
     Vector(const TT* p) {
-        std::copy(p, p + D, data);
+        for (size_t i = 0; i < D; i++) {
+            data[i] = static_cast<T>(*p++);
+        }
     }
 
     Vector(const Vector& v) { std::copy(v.data, v.data + D, data); }
@@ -171,7 +173,7 @@ struct Vector : public BaseVector<T, D> {
     }
 
     operator T*() { return data; }
-    operator const T *() const { return static_cast<const T*>(data); }
+    operator const T*() const { return static_cast<const T*>(data); }
 
     friend std::ostream& operator<<(std::ostream& out, Vector v) {
         std::ios state(NULL);
@@ -324,7 +326,7 @@ struct Matrix {
     }
 
     operator T*() { return &data[0][0]; }
-    operator const T *() const { return static_cast<const T*>(&data[0][0]); }
+    operator const T*() const { return static_cast<const T*>(&data[0][0]); }
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
         std::ios state(NULL);

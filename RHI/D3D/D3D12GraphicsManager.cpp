@@ -359,8 +359,6 @@ bool D3D12GraphicsManager::InitializeShaders() {
         {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0,
          D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
         {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0,
-         D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-        {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 3, 0,
          D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}};
 
 #if defined(DEBUG)
@@ -426,51 +424,41 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
 
 void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
     m_pScene = &scene;
-    // Initialize geometries buffer
-    for (auto&& [key, geometry] : m_pScene->Geometries) {
-        if (geometry->Visible()) {
-            if (auto pMesh = geometry->GetMesh().lock()) {
-                auto g = std::make_shared<GeometryBuffer>();
-                for (auto&& layout : m_inputLayout) {
-                    for (size_t i = 0; i < pMesh->GetVertexPropertiesCount(); i++) {
-                        auto& vertexArray = pMesh->GetVertexPropertyArray(i);
-                        if (vertexArray.GetAttributeName() == layout.SemanticName) {
-                            CreateVertexBuffer(vertexArray, g);
-                            break;
-                        }
-                    }
-                }
-
-                for (size_t i = 0; i < pMesh->GetIndexGroupCount(); i++) {
-                    CreateIndexBuffer(pMesh->GetIndexArray(i), g);
-                    g->index_count.push_back(pMesh->GetIndexCount(i));
-                }
-                SetPrimitiveType(pMesh->GetPrimitiveType(), g);
-                m_geometries[key] = g;
-            }
+    // Initialize meshes buffer
+    for (auto&& [key, pMesh] : m_pScene->Meshes) {
+        auto m      = std::make_shared<MeshBuffer>();
+        m->material = pMesh->GetMaterial();
+        for (auto&& inputLayout : m_inputLayout) {
+            auto& vertexArray = pMesh->GetVertexPropertyArray(inputLayout.SemanticName);
+            CreateVertexBuffer(vertexArray, m);
         }
+        auto& indexArray = pMesh->GetIndexArray();
+        m->indexCount    = indexArray.GetIndexCount();
+        CreateIndexBuffer(indexArray, m);
+        SetPrimitiveType(pMesh->GetPrimitiveType(), m);
+        if (auto material = pMesh->GetMaterial().lock())
+            if (material->GetBaseColor().ValueMap)
+                m->pPSO = m_pipelineState["texture"];
+            else
+                m->pPSO = m_pipelineState["no_texture"];
+        else
+            m->pPSO = m_pipelineState["simple"];
+
+        m_meshBuffer[pMesh->GetGuid()] = m;
     }
-
-    // Initialize Texture Buffer
-
-    // Iniialize draw items
+    // Initialize draw item
     for (auto&& [key, node] : m_pScene->GeometryNodes) {
         if (node->Visible()) {
-            auto pGeometry = m_geometries[node->GetSceneObjectRef()];
-            for (size_t i = 0; i < pGeometry->index_count.size(); i++) {
-                D3D12DrawBatchContext dbc;
-                dbc.node                = node;
-                dbc.pGeometry           = pGeometry;
-                dbc.numFramesDirty      = m_nFrameResourceSize;
-                dbc.material_index      = i;
-                dbc.material            = m_pScene->GetMaterial(node->GetMaterialRef(i));
-                dbc.constantBufferIndex = m_drawBatchContext.size();
-
-                if (dbc.material && dbc.material->GetBaseColor().ValueMap)
-                    dbc.pPSO = m_pipelineState["texture"];
-                else
-                    dbc.pPSO = m_pipelineState["no_texture"];
-                m_drawBatchContext.push_back(dbc);
+            auto geometry = m_pScene->GetGeometry(node->GetSceneObjectRef());
+            for (auto&& mesh : geometry->GetMeshes()) {
+                if (auto pMesh = mesh.lock()) {
+                    DrawItem d;
+                    d.constantBufferIndex = m_drawItems.size();
+                    d.meshBuffer          = m_meshBuffer[pMesh->GetGuid()];
+                    d.node                = node;
+                    d.numFramesDirty      = m_nFrameResourceSize;
+                    m_drawItems.push_back(std::move(d));
+                }
             }
         }
     }
@@ -479,8 +467,8 @@ void D3D12GraphicsManager::InitializeBuffers(const Scene& scene) {
 }
 
 void D3D12GraphicsManager::CreateVertexBuffer(
-    const SceneObjectVertexArray&          vertexArray,
-    const std::shared_ptr<GeometryBuffer>& pGeometry) {
+    const SceneObjectVertexArray&      vertexArray,
+    const std::shared_ptr<MeshBuffer>& pMeshBuffer) {
     ThrowIfFailed(m_pCommandAllocator->Reset());
     ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
 
@@ -495,8 +483,8 @@ void D3D12GraphicsManager::CreateVertexBuffer(
     vbv.StrideInBytes =
         vertexArray.GetDataSize() / vertexArray.GetVertexCount();
 
-    pGeometry->vbv.push_back(vbv);
-    pGeometry->vertexBuffer.push_back(pVertexBuffer);
+    pMeshBuffer->vbv.push_back(vbv);
+    pMeshBuffer->verticesBuffer.push_back(pVertexBuffer);
     m_Uploader.push_back(pUploader);
 
     ThrowIfFailed(m_pCommandList->Close());
@@ -506,8 +494,8 @@ void D3D12GraphicsManager::CreateVertexBuffer(
 }
 
 void D3D12GraphicsManager::CreateIndexBuffer(
-    const SceneObjectIndexArray&           indexArray,
-    const std::shared_ptr<GeometryBuffer>& pGeometry) {
+    const SceneObjectIndexArray&       indexArray,
+    const std::shared_ptr<MeshBuffer>& pMeshBuffer) {
     ThrowIfFailed(m_pCommandAllocator->Reset());
     ThrowIfFailed(m_pCommandList->Reset(m_pCommandAllocator.Get(), nullptr));
 
@@ -521,8 +509,8 @@ void D3D12GraphicsManager::CreateIndexBuffer(
     ibv.Format         = DXGI_FORMAT_R32_UINT;
     ibv.SizeInBytes    = indexArray.GetDataSize();
 
-    pGeometry->ibv.push_back(ibv);
-    pGeometry->indexBuffer.push_back(pIndexBuffer);
+    pMeshBuffer->ibv           = ibv;
+    pMeshBuffer->indicesBuffer = pIndexBuffer;
     m_Uploader.push_back(pUploader);
 
     ThrowIfFailed(m_pCommandList->Close());
@@ -533,23 +521,23 @@ void D3D12GraphicsManager::CreateIndexBuffer(
 }
 
 void D3D12GraphicsManager::SetPrimitiveType(
-    const PrimitiveType&                   primitiveType,
-    const std::shared_ptr<GeometryBuffer>& pGeometry) {
+    const PrimitiveType&               primitiveType,
+    const std::shared_ptr<MeshBuffer>& pMeshBuffer) {
     switch (primitiveType) {
         case PrimitiveType::kLINE_LIST:
-            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
             break;
         case PrimitiveType::kLINE_LIST_ADJACENCY:
-            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ;
+            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ;
             break;
         case PrimitiveType::kTRI_LIST:
-            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
             break;
         case PrimitiveType::kTRI_LIST_ADJACENCY:
-            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
+            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
             break;
         default:
-            pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
             break;
     }
 }
@@ -650,10 +638,11 @@ void D3D12GraphicsManager::ClearShaders() {
 
 void D3D12GraphicsManager::ClearBuffers() {
     FlushCommandQueue();
-    m_drawBatchContext.clear();
-    m_debugDrawBatchContext.clear();
-    m_geometries.clear();
+    m_drawItems.clear();
+    m_meshBuffer.clear();
     m_textures.clear();
+    ClearDebugBuffers();
+    m_debugMeshBuffer.clear();
     m_Uploader.clear();
 }
 
@@ -672,36 +661,41 @@ void D3D12GraphicsManager::UpdateConstants() {
     // Update frame resource
 
     currFR->UpdateFrameConstants(m_FrameConstants);
-    for (auto&& dbc : m_drawBatchContext) {
-        if (dbc.node->Dirty()) {
-            dbc.node->ClearDirty();
-            // object need to be upadted for per frame resource
-            dbc.numFramesDirty = m_nFrameResourceSize;
-        }
-        if (dbc.numFramesDirty > 0) {
-            ObjectConstants oc;
-            oc.modelMatrix = *dbc.node->GetCalculatedTransform();
+    for (auto&& d : m_drawItems) {
+        auto node = d.node.lock();
+        if (!node) continue;
 
-            if (dbc.material) {
-                const Color* pColor = &dbc.material->GetBaseColor();
-                oc.baseColor        = pColor->ValueMap ? vec4f(-1.0f) : pColor->Value;
-                pColor              = &dbc.material->GetSpecularColor();
+        if (node->Dirty()) {
+            node->ClearDirty();
+            // object need to be upadted for per frame resource
+            d.numFramesDirty = m_nFrameResourceSize;
+        }
+        if (d.numFramesDirty > 0) {
+            ObjectConstants oc;
+            oc.modelMatrix = *node->GetCalculatedTransform();
+
+            if (auto material = d.meshBuffer->material.lock()) {
+                auto& baseColor     = material->GetBaseColor();
+                oc.baseColor        = baseColor.ValueMap ? vec4f(-1.0f) : baseColor.Value;
+                auto& specularColor = material->GetSpecularColor();
                 oc.specularColor =
-                    pColor->ValueMap ? vec4f(-1.0f) : pColor->Value;
-                oc.specularPower = dbc.material->GetSpecularPower().Value;
+                    specularColor.ValueMap ? vec4f(-1.0f) : specularColor.Value;
+                oc.specularPower = material->GetSpecularPower().Value;
             }
 
-            currFR->UpdateObjectConstants(dbc.constantBufferIndex, oc);
-            dbc.numFramesDirty--;
+            currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
+            d.numFramesDirty--;
         }
     }
 #if defined(DEBUG)
-    for (auto&& dbc : m_debugDrawBatchContext) {
-        ObjectConstants oc;
-        oc.modelMatrix = *dbc.node->GetCalculatedTransform();
-        currFR->UpdateObjectConstants(dbc.constantBufferIndex, oc);
+    for (auto&& d : m_debugDrawItems) {
+        if (auto node = d.node.lock()) {
+            ObjectConstants oc;
+            oc.modelMatrix = *node->GetCalculatedTransform();
+            currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
+        }
     }
-#endif  // DEBUG
+#endif
 }
 
 void D3D12GraphicsManager::RenderBuffers() {
@@ -762,10 +756,10 @@ void D3D12GraphicsManager::PopulateCommandList() {
         m_nFrameCBOffset + m_nCurrFrameResourceIndex, m_nCbvSrvUavHeapSize);
     m_pCommandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
 
-    DrawRenderItems(m_pCommandList.Get(), m_drawBatchContext);
+    DrawRenderItems(m_pCommandList.Get(), m_drawItems);
 
 #if defined(DEBUG)
-    DrawRenderItems(m_pCommandList.Get(), m_debugDrawBatchContext);
+    DrawRenderItems(m_pCommandList.Get(), m_debugDrawItems);
 #endif  // DEBUG
 
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -777,29 +771,31 @@ void D3D12GraphicsManager::PopulateCommandList() {
 }
 
 void D3D12GraphicsManager::DrawRenderItems(
-    ID3D12GraphicsCommandList4*               cmdList,
-    const std::vector<D3D12DrawBatchContext>& drawItems) {
+    ID3D12GraphicsCommandList4*  cmdList,
+    const std::vector<DrawItem>& drawItems) {
     //
-    auto   fr       = m_frameResource[m_nCurrFrameResourceIndex].get();
-    size_t cbv_size = fr->m_pObjCBUploader->GetElementCount();
+    auto         fr       = m_frameResource[m_nCurrFrameResourceIndex].get();
+    const size_t cbv_size = fr->m_pObjCBUploader->GetElementCount();
 
-    for (auto&& dbc : drawItems) {
-        cmdList->SetPipelineState(dbc.pPSO.Get());
-        for (size_t i = 0; i < dbc.pGeometry->vbv.size(); i++) {
-            cmdList->IASetVertexBuffers(i, 1, &dbc.pGeometry->vbv[i]);
+    for (auto&& d : drawItems) {
+        const auto& meshBuffer = d.meshBuffer;
+        cmdList->SetPipelineState(meshBuffer->pPSO.Get());
+
+        for (size_t i = 0; i < meshBuffer->vbv.size(); i++) {
+            cmdList->IASetVertexBuffers(i, 1, &meshBuffer->vbv[i]);
         }
 
-        cmdList->IASetIndexBuffer(&dbc.pGeometry->ibv[dbc.material_index]);
+        cmdList->IASetIndexBuffer(&meshBuffer->ibv);
 
         CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(
             m_pCbvSrvHeap->GetGPUDescriptorHandleForHeapStart(),
-            cbv_size * m_nCurrFrameResourceIndex + dbc.constantBufferIndex,
+            cbv_size * m_nCurrFrameResourceIndex + d.constantBufferIndex,
             m_nCbvSrvUavHeapSize);
         cmdList->SetGraphicsRootDescriptorTable(1, cbvHandle);
 
         // Texture
-        if (dbc.material) {
-            if (auto& pTexture = dbc.material->GetBaseColor().ValueMap) {
+        if (auto material = meshBuffer->material.lock()) {
+            if (auto& pTexture = material->GetBaseColor().ValueMap) {
                 size_t offset =
                     m_nSrvOffset + m_textures[pTexture->GetName()]->index;
 
@@ -809,9 +805,8 @@ void D3D12GraphicsManager::DrawRenderItems(
                 cmdList->SetGraphicsRootDescriptorTable(2, srvHandle);
             }
         }
-        cmdList->IASetPrimitiveTopology(dbc.pGeometry->primitiveType);
-        cmdList->DrawIndexedInstanced(
-            dbc.pGeometry->index_count[dbc.material_index], 1, 0, 0, 0);
+        cmdList->IASetPrimitiveTopology(meshBuffer->primitiveType);
+        cmdList->DrawIndexedInstanced(meshBuffer->indexCount, 1, 0, 0, 0);
     }
 }
 
@@ -848,52 +843,51 @@ void D3D12GraphicsManager::DrawLine(const vec3f& from, const vec3f& to,
     else
         name = "debug_line-z";
 
-    if (m_geometries.find(name) == m_geometries.end()) {
-        auto pGeometry                  = std::make_shared<GeometryBuffer>();
-        pGeometry->primitiveType        = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-        std::vector<vec3f>      position = {{0, 0, 0}, {1, 0, 0}};
+    if (m_debugMeshBuffer.find(name) == m_debugMeshBuffer.end()) {
+        auto meshBuffer                 = std::make_shared<MeshBuffer>();
+        meshBuffer->primitiveType       = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+        std::vector<vec3f>     position = {{0, 0, 0}, {1, 0, 0}};
         std::vector<int>       index    = {0, 1};
-        std::vector<vec3f>      colors(position.size(), color);
-        SceneObjectVertexArray pos_array("position", 0, VertexDataType::kFLOAT3,
+        std::vector<vec3f>     colors(position.size(), color);
+        SceneObjectVertexArray pos_array("POSITION", 0, VertexDataType::kFLOAT3,
                                          position.data(), position.size());
-        SceneObjectVertexArray color_array("color", 0, VertexDataType::kFLOAT3,
+        SceneObjectVertexArray color_array("COLOR", 0, VertexDataType::kFLOAT3,
                                            colors.data(), colors.size());
-        CreateVertexBuffer(pos_array, pGeometry);
-        CreateVertexBuffer(color_array, pGeometry);
-        SceneObjectIndexArray index_array(0, 0, IndexDataType::kINT32,
+        CreateVertexBuffer(pos_array, meshBuffer);
+        CreateVertexBuffer(color_array, meshBuffer);
+        SceneObjectIndexArray index_array(0, IndexDataType::kINT32,
                                           index.data(), index.size());
-        CreateIndexBuffer(index_array, pGeometry);
-        pGeometry->index_count.push_back(index.size());
-        m_geometries[name] = pGeometry;
+        CreateIndexBuffer(index_array, meshBuffer);
+        meshBuffer->indexCount  = index.size();
+        meshBuffer->pPSO        = m_pipelineState["debug"];
+        m_debugMeshBuffer[name] = meshBuffer;
     }
 
     vec3f v1          = to - from;
     vec3f v2          = {Length(v1), 0, 0};
     vec3f rotate_axis = v1 + v2;
     mat4f transform   = scale(mat4f(1.0f), vec3f(Length(v1)));
-    transform        = rotate(transform, radians(180.0f), rotate_axis);
-    transform        = translate(transform, from);
+    transform         = rotate(transform, radians(180.0f), rotate_axis);
+    transform         = translate(transform, from);
 
-    D3D12DrawBatchContext dbc;
-    dbc.node = std::make_shared<SceneGeometryNode>();
-    dbc.node->AppendTransform(
+    auto node = std::make_shared<SceneGeometryNode>();
+    node->AppendTransform(
         std::make_shared<SceneObjectTransform>(transform));
-    dbc.material       = nullptr;
-    dbc.material_index = 0;
-    dbc.numFramesDirty = m_nFrameResourceSize;
-    dbc.constantBufferIndex =
-        m_drawBatchContext.size() + m_debugDrawBatchContext.size();
-    dbc.pGeometry = m_geometries[name];
-    dbc.pPSO      = m_pipelineState["debug"];
+    m_debugNode.push_back(node);
 
-    m_debugDrawBatchContext.push_back(dbc);
+    DrawItem d;
+    d.node                = node;
+    d.meshBuffer          = m_debugMeshBuffer[name];
+    d.constantBufferIndex = m_drawItems.size() + m_debugDrawItems.size();
+    d.numFramesDirty      = m_nFrameResourceSize;
+    m_debugDrawItems.push_back(d);
 }
 
 void D3D12GraphicsManager::DrawBox(const vec3f& bbMin, const vec3f& bbMax,
                                    const vec3f& color) {
-    if (m_geometries.find("debug_box") == m_geometries.end()) {
-        auto              pGeometry = std::make_shared<GeometryBuffer>();
-        std::vector<vec3f> position  = {
+    if (m_debugMeshBuffer.find("debug_box") == m_debugMeshBuffer.end()) {
+        auto               meshBuffer = std::make_shared<MeshBuffer>();
+        std::vector<vec3f> position   = {
             {-1, -1, -1},
             {1, -1, -1},
             {1, 1, -1},
@@ -903,41 +897,43 @@ void D3D12GraphicsManager::DrawBox(const vec3f& bbMin, const vec3f& bbMax,
             {1, 1, 1},
             {-1, 1, 1},
         };
-        std::vector<int> index   = {0, 1, 2, 3, 0, 4, 5, 1,
+        std::vector<int> index    = {0, 1, 2, 3, 0, 4, 5, 1,
                                   5, 6, 2, 6, 7, 3, 7, 4};
-        pGeometry->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
-        std::vector<vec3f>      colors(position.size(), color);
+        meshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+        std::vector<vec3f>     colors(position.size(), color);
         SceneObjectVertexArray pos_array("POSITION", 0, VertexDataType::kFLOAT3,
                                          position.data(), position.size());
         SceneObjectVertexArray color_array("COLOR", 0, VertexDataType::kFLOAT3,
                                            colors.data(), colors.size());
-        CreateVertexBuffer(pos_array, pGeometry);
-        CreateVertexBuffer(color_array, pGeometry);
-        SceneObjectIndexArray index_array(0, 0, IndexDataType::kINT32,
+        CreateVertexBuffer(pos_array, meshBuffer);
+        CreateVertexBuffer(color_array, meshBuffer);
+        SceneObjectIndexArray index_array(0, IndexDataType::kINT32,
                                           index.data(), index.size());
-        CreateIndexBuffer(index_array, pGeometry);
-        pGeometry->index_count.push_back(index.size());
-        m_geometries["debug_box"] = pGeometry;
+        CreateIndexBuffer(index_array, meshBuffer);
+        meshBuffer->indexCount = index.size();
+
+        meshBuffer->pPSO               = m_pipelineState["debug"];
+        m_debugMeshBuffer["debug_box"] = meshBuffer;
     }
     mat4f transform = translate(scale(mat4f(1.0f), 0.5 * (bbMax - bbMin)),
-                               0.5 * (bbMax + bbMin));
+                                0.5 * (bbMax + bbMin));
 
-    D3D12DrawBatchContext dbc;
-    dbc.node = std::make_shared<SceneGeometryNode>();
-    dbc.node->AppendTransform(
+    auto node = std::make_shared<SceneGeometryNode>();
+    node->AppendTransform(
         std::make_shared<SceneObjectTransform>(transform));
-    dbc.material       = nullptr;
-    dbc.material_index = 0;
-    dbc.numFramesDirty = m_nFrameResourceSize;
-    dbc.constantBufferIndex =
-        m_drawBatchContext.size() + m_debugDrawBatchContext.size();
-    dbc.pGeometry = m_geometries["debug_box"];
-    dbc.pPSO      = m_pipelineState["debug"];
-    m_debugDrawBatchContext.push_back(dbc);
+    m_debugNode.push_back(node);
+
+    DrawItem d;
+    d.node                = node;
+    d.meshBuffer          = m_debugMeshBuffer["debug_box"];
+    d.constantBufferIndex = m_drawItems.size() + m_debugDrawItems.size();
+    d.numFramesDirty      = m_nFrameResourceSize;
+    m_debugDrawItems.push_back(d);
 }
 
 void D3D12GraphicsManager::ClearDebugBuffers() {
-    m_debugDrawBatchContext.clear();
+    m_debugNode.clear();
+    m_debugDrawItems.clear();
 }
 
 #endif  // DEBUG

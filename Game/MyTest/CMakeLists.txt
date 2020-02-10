@@ -17,7 +17,17 @@ else(ANDROID)
     )
 endif(ANDROID)
 
-target_link_libraries(MyTest 
-    MyGameEngineD3D12
-    MyPhysics
-)
+set(UseOpenGL false)
+
+if(${UseOpenGL})
+    target_link_libraries(MyTest 
+        MyGameEngineOpenGL
+        MyPhysics
+    )
+else()
+    target_link_libraries(MyTest 
+        MyGameEngineD3D12
+        MyPhysics
+    )
+endif(${UseOpenGL})
+

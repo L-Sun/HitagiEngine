@@ -1,32 +1,74 @@
-#include "AssetLoader.hpp"
-#include "OGEX.hpp"
+#include <iostream>
+#include <memory_resource>
+#include <algorithm>
+#include <vector>
 
-#ifdef _WIN32
-#include <crtdbg.h>
-#ifdef _DEBUG
+using namespace std;
 
-#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
-#endif
-#endif
+class my_memory_resource : public std::pmr::memory_resource {
+public:
+    ~my_memory_resource() override {}
 
-namespace My {
-std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
-std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
-}  // namespace My
+    void* allocate();
+    void  deallocate(void* p, size_t bytes,
+                     size_t alignment = alignof(std::max_align_t));
+    bool  is_equal(const my_memory_resource& other) const;
 
-using namespace My;
-int main(int argc, char const* argv[]) {
-    g_pMemoryManager->Initialize();
-    {
-        Buffer buf =
-            g_pAssetLoader->SyncOpenAndReadBinary("Asset/Scene/balls.ogex");
-        OgexParser parser;
-        auto       pScene = parser.Parse(buf);
+protected:
+    void* do_allocate(size_t bytes, size_t alignment) override {
+        if (m_nFree < bytes) return nullptr;
+        void* ret = static_cast<void*>(m_pFree);
+        m_pFree += bytes;
+        m_nFree -= bytes;
+        m_nAllocated += bytes;
+        m_blocks.push_back(alloc_rec{ret, bytes, alignment});
+        return ret;
     }
-    g_pMemoryManager->Finalize();
+    void do_deallocate(void* p, size_t bytes, size_t alignment) override {
+        auto i = std::find_if(m_blocks.begin(), m_blocks.end(),
+                              [p](alloc_rec& r) { return r.ptr == p; });
+        if (i == m_blocks.end())
+            throw std::invalid_argument("deallocate: Invalid pointer.");
+        else if (i->bytes != bytes)
+            throw std::invalid_argument("deallocate: size mismatch");
+        else if (i->alignment != alignment)
+            throw std::invalid_argument("deallocate: Alignment mismatch");
 
-#ifdef _WIN32
-    _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
-#endif
+        m_ndeallocated += bytes;
+        m_blocks.erase(i);
+    }
+    bool do_is_equal(const memory_resource& other) const noexcept override {
+        return this == &other;
+    }
+
+public:
+    struct alloc_rec {
+        void*  ptr;
+        size_t bytes;
+        size_t alignment;
+    };
+
+    char                   m_buffer[128];
+    char*                  m_pFree        = m_buffer;
+    size_t                 m_nFree        = 128;
+    size_t                 m_nAllocated   = 0;
+    size_t                 m_ndeallocated = 0;
+    pmr::vector<alloc_rec> m_blocks;
+};
+
+int main(int argc, char const* argv[]) {
+    char buffer[128];
+
+    my_memory_resource ms;
+
+    pmr::monotonic_buffer_resource mbr(buffer, 128);
+
+    pmr::vector<int> vec(&mbr);
+
+    for (size_t i = 0; i < 15; i++) {
+        cout << "-------" << i << "-------" << endl;
+        vec.push_back(i);
+    }
+
     return 0;
 }

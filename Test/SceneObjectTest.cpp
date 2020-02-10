@@ -5,10 +5,10 @@
 using namespace My;
 
 int32_t main(int32_t argc, char** argv) {
-    int32_t                               result = 0;
-    std::shared_ptr<SceneObjectGeometry>  soGeometry(new SceneObjectGeometry());
-    std::shared_ptr<SceneObjectOmniLight> soOmniLight(
-        new SceneObjectOmniLight());
+    int32_t                              result = 0;
+    std::shared_ptr<SceneObjectGeometry> soGeometry(new SceneObjectGeometry());
+    std::shared_ptr<SceneObjectPointLight> soOmniLight(
+        new SceneObjectPointLight());
     std::shared_ptr<SceneObjectSpotLight> soSpotLight(
         new SceneObjectSpotLight());
     std::shared_ptr<SceneObjectOrthogonalCamera> soOrthogonalCamera(

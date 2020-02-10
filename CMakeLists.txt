@@ -16,6 +16,8 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(JPEG REQUIRED)
 find_package(libpng CONFIG REQUIRED)
 find_package(FBX REQUIRED)
+find_package(assimp CONFIG REQUIRED)
+
 
 IF(${UNIX})
     set(TARGET_PLATFORM "Linux")

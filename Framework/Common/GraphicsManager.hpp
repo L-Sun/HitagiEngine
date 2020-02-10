@@ -15,8 +15,7 @@ public:
 
 #if defined(DEBUG)
     virtual void DrawLine(const vec3f& from, const vec3f& to, const vec3f& color);
-    virtual void DrawBox(const vec3f& bbMin, const vec3f& bbMax,
-                         const vec3f& color);
+    virtual void DrawBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color);
     virtual void ClearDebugBuffers();
 #endif
 
@@ -38,11 +37,6 @@ protected:
         mat4f projectionMatrix;
         vec3f lightPosition;
         vec4f lightColor;
-    };
-
-    struct DrawBatchContext {
-        std::shared_ptr<SceneGeometryNode>   node;
-        std::shared_ptr<SceneObjectMaterial> material;
     };
 
     FrameConstants m_FrameConstants;

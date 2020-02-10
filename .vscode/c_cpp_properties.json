@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${vcpkgRoot}/x64-windows/include",
+                "C:/Program Files/Autodesk/FBX/FBX SDK/2020.0.1/include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "_WIN32"
+            ],
+            "windowsSdkVersion": "10.0.18362.0",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "msvc-x64",
+            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/VC/Tools/MSVC/14.24.28314/bin/Hostx64/x64/cl.exe"
+        }
+    ],
+    "version": 4
+}

@@ -30,7 +30,7 @@ Image::Image(Image&& rhs) {
     m_pData     = rhs.m_pData;
     rhs.m_pData = nullptr;
 }
-Image Image::operator=(Image&& rhs) {
+Image& Image::operator=(Image&& rhs) {
     if (this != &rhs) {
         if (m_pData) g_pMemoryManager->Free(m_pData, m_dataSize);
         m_width     = rhs.m_width;
@@ -43,7 +43,7 @@ Image Image::operator=(Image&& rhs) {
     }
     return *this;
 }
-Image Image::operator=(const Image& rhs) {
+Image& Image::operator=(const Image& rhs) {
     if (this != &rhs) {
         if (m_pData) g_pMemoryManager->Free(m_pData, m_dataSize);
         m_width    = rhs.m_width;

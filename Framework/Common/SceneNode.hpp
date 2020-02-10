@@ -100,19 +100,16 @@ public:
 typedef BaseSceneNode SceneEmptyNode;
 class SceneGeometryNode : public SceneNode<SceneObjectGeometry> {
 protected:
-    bool                     m_bVisible;
-    bool                     m_bShadow;
-    bool                     m_bMotionBlur;
-    std::vector<std::string> m_Materials;
-    std::shared_ptr<void>    m_pRigidBody = nullptr;
+    bool                  m_bVisible;
+    bool                  m_bShadow;
+    bool                  m_bMotionBlur;
+    std::shared_ptr<void> m_pRigidBody = nullptr;
 
     virtual void dump(std::ostream& out) const {
         SceneNode::dump(out);
         out << "Visible: " << m_bVisible << std::endl;
         out << "Shadow: " << m_bShadow << std::endl;
         out << "Motion Blur: " << m_bMotionBlur << std::endl;
-        out << "Material(s): " << std::endl;
-        for (auto material : m_Materials) out << material << std::endl;
     }
 
 public:
@@ -125,12 +122,6 @@ public:
     const bool MotionBlur() { return m_bMotionBlur; }
 
     using SceneNode::AddSceneObjectRef;
-    void AddMaterialRef(std::string_view key) {
-        m_Materials.push_back(std::string(key));
-    }
-    std::string GetMaterialRef(const size_t index) {
-        return index < m_Materials.size() ? m_Materials[index] : std::string();
-    }
     void LinkRigidBody(std::shared_ptr<void> rigidBody) {
         m_pRigidBody = rigidBody;
     }

@@ -28,7 +28,10 @@ int GLFWApplication::Initialize() {
     return result;
 }
 
-void GLFWApplication::Finalize() { glfwTerminate(); }
+void GLFWApplication::Finalize() {
+    glfwTerminate();
+    BaseApplication::Finalize();
+}
 
 void GLFWApplication::Tick() {
     BaseApplication::m_bQuit = glfwWindowShouldClose(m_window);

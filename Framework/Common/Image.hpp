@@ -10,8 +10,8 @@ public:
 
     Image(const Image& rhs);
     Image(Image&& rhs);
-    Image operator=(Image&& rhs);
-    Image operator=(const Image& rhs);
+    Image& operator=(Image&& rhs);
+    Image& operator=(const Image& rhs);
     ~Image();
 
     inline uint32_t GetWidth() const { return m_width; }
