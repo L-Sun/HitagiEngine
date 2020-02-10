@@ -13,7 +13,7 @@ int MyTest::Initialize() {
 
     std::cout << "My Game Logic Initialize" << std::endl;
     std::cout << "Start Loading Game Scene" << std::endl;
-    result = g_pSceneManager->LoadScene("Asset/Scene/test.dae");
+    result = g_pSceneManager->LoadScene("Asset/Scene/test.fbx");
     m_clock.Initialize();
     m_clock.Start();
     return result;

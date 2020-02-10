@@ -15,24 +15,7 @@ find_package(glad CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(JPEG REQUIRED)
 find_package(libpng CONFIG REQUIRED)
-find_package(FBX REQUIRED)
 find_package(assimp CONFIG REQUIRED)
-
-
-IF(${UNIX})
-    set(TARGET_PLATFORM "Linux")
-ELSEIF(${WIN32})
-    set(TARGET_PLATFORM "Windows")
-ENDIF(${UNIX})
-
-include_directories("${PROJECT_SOURCE_DIR}/Platform/${TARGET_PLATFORM}")
-include_directories("${PROJECT_SOURCE_DIR}/External/include")
-set(EXTERNAL_ROOT ${PROJECT_SOURCE_DIR}/External/${TARGET_PLATFORM})
-set(EXTERNAL_LIBRARY_PATH ${EXTERNAL_ROOT}/lib)
-
-
-find_library(OPENDDL_LIBRARY OpenDDL PATHS ${EXTERNAL_LIBRARY_PATH} NO_CMAKE_FIND_ROOT_PATH NO_SYSTEM_ENVIRONMENT_PATH)
-find_library(OPENGEX_LIBRARY OpenGEX PATHS ${EXTERNAL_LIBRARY_PATH} NO_CMAKE_FIND_ROOT_PATH NO_SYSTEM_ENVIRONMENT_PATH)
 
 find_package(GTest CONFIG REQUIRED)
 include(CTest)

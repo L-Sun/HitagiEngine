@@ -1,9 +1,9 @@
 #include "D3D12GraphicsManager.hpp"
-#include "D3D12Application.hpp"
+#include "WindowsApplication.hpp"
 
 namespace My {
 extern GfxConfiguration          config;
-std::unique_ptr<IApplication>    g_pApp(new D3D12Application(config));
+std::unique_ptr<IApplication>    g_pApp(new WindowsApplication(config));
 std::unique_ptr<GraphicsManager> g_pGraphicsManager(new D3D12GraphicsManager);
 std::unique_ptr<MemoryManager>   g_pMemoryManager(new MemoryManager);
 std::unique_ptr<AssetLoader>     g_pAssetLoader(new AssetLoader);

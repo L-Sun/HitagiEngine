@@ -1,14 +1,12 @@
 add_library(MyGameEngineD3D12
-WindowsApplication.cpp
-    D3D12Application.cpp
-    D3D12ApplicationConfig.cpp
+    WindowsApplication.cpp
+    WindowsApplicationConfig.cpp
 )
 target_link_libraries(MyGameEngineD3D12
     PUBLIC
         Common
         D3DRHI
 )
-
 add_library(MyGameEngineOpenGL
     GLFWApplication.cpp
     OpenGLApplication.cpp

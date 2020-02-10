@@ -8,9 +8,11 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
     std::unique_ptr<Scene> pScene(new Scene);
     Assimp::Importer       importer;
 
-    auto flag = aiPostProcessSteps::aiProcess_Triangulate |
-                aiPostProcessSteps::aiProcess_CalcTangentSpace |
-                aiPostProcessSteps::aiProcess_JoinIdenticalVertices;
+    auto flag =
+        aiPostProcessSteps::aiProcess_Triangulate |
+        aiPostProcessSteps::aiProcess_CalcTangentSpace |
+        aiPostProcessSteps::aiProcess_GenSmoothNormals |
+        aiPostProcessSteps::aiProcess_JoinIdenticalVertices;
 
     const aiScene* _pScene = importer.ReadFileFromMemory(buf.GetData(), buf.GetDataSize(), flag);
 
@@ -95,20 +97,13 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
 
         // Read Indices
         std::vector<int> indices;
-        for (size_t face = 0; face < _mesh->mNumFaces; face++) {
-            if (_mesh->mFaces[face].mNumIndices == 3) {
-                indices.push_back(_mesh->mFaces[face].mIndices[0]);
-                indices.push_back(_mesh->mFaces[face].mIndices[1]);
-                indices.push_back(_mesh->mFaces[face].mIndices[2]);
-            } else {
-                std::cout << "[AssimpParser] wierd number of indices to a face: " << _mesh->mFaces[face].mNumIndices << std::endl;
-                indices.clear();
-                break;
-            }
-        }
+        for (size_t face = 0; face < _mesh->mNumFaces; face++)
+            for (size_t i = 0; i < _mesh->mFaces[face].mNumIndices; i++)
+                indices.push_back(_mesh->mFaces[face].mIndices[i]);
+        mesh->AddIndexArray(SceneObjectIndexArray(0, IndexDataType::kINT32, indices.data(), indices.size()));
+
         auto materialRef = _pScene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
         mesh->SetMaterial(pScene->Materials[materialRef]);
-        mesh->AddIndexArray(SceneObjectIndexArray(0, IndexDataType::kINT32, indices.data(), indices.size()));
         return mesh;
     };
 
@@ -190,7 +185,24 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
         if (float opacity; AI_SUCCESS == _material->Get(AI_MATKEY_OPACITY, opacity))
             material->SetParam("opacity", opacity);
 
-        // TODO: load texture
+        // set diffuse texture
+        // TODO: blend mutiple texture
+        const std::unordered_map<std::string, aiTextureType> map = {
+            {"diffuse", aiTextureType::aiTextureType_DIFFUSE},
+            {"specular", aiTextureType::aiTextureType_SPECULAR},
+            {"emission", aiTextureType::aiTextureType_EMISSIVE},
+            {"opacity", aiTextureType::aiTextureType_OPACITY},
+            // {"transparency", },
+            {"normal", aiTextureType::aiTextureType_NORMALS},
+        };
+        for (auto&& [key1, key2] : map) {
+            for (size_t i = 0; i < _material->GetTextureCount(key2); i++) {
+                aiString path;
+                if (AI_SUCCESS == _material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, i, &path))
+                    material->SetTexture(key1, std::make_shared<SceneObjectTexture>(path.C_Str()));
+                break;  // unsupport blend for now.
+            }
+        }
 
         pScene->Materials[_material->GetName().C_Str()] = material;
     }
@@ -259,6 +271,6 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
 
     pScene->SceneGraph = convert(_pScene->mRootNode);
     return pScene;
-}
+}  // namespace My
 
 }  // namespace My
