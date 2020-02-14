@@ -15,7 +15,6 @@ void SceneManager::Finalize() { m_pScene = nullptr; }
 
 void SceneManager::Tick() {
     if (IsSceneChanged()) {
-        LoadScene(m_scenePath);
     }
 }
 

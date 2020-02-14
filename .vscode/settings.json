@@ -69,6 +69,11 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "numeric": "cpp",
-        "string_view": "cpp"
+        "string_view": "cpp",
+        "queue": "cpp",
+        "strstream": "cpp"
+    },
+    "path-intellisense.mappings": {
+        "Asset": "${workspaceRoot}/Asset"
     }
 }

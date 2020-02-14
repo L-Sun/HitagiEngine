@@ -1,7 +1,10 @@
 #pragma once
+#include <ft2build.h>
+#include FT_FREETYPE_H
 #include "IRuntimeModule.hpp"
 #include "geommath.hpp"
 #include "Scene.hpp"
+#include "Buffer.hpp"
 
 namespace My {
 class GraphicsManager : public IRuntimeModule {
@@ -14,22 +17,13 @@ public:
     virtual void Clear();
 
 #if defined(DEBUG)
-    virtual void DrawLine(const vec3f& from, const vec3f& to, const vec3f& color);
-    virtual void DrawBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color);
+    virtual void RenderLine(const vec3f& from, const vec3f& to, const vec3f& color);
+    virtual void RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color);
+    virtual void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color);
     virtual void ClearDebugBuffers();
 #endif
 
 protected:
-    virtual void InitConstants();
-    virtual void InitializeBuffers(const Scene& scene);
-    virtual bool InitializeShaders();
-    virtual void ClearShaders();
-    virtual void ClearBuffers();
-    virtual void CalculateCameraMatrix();
-    virtual void CalculateLights();
-    virtual void UpdateConstants();
-    virtual void RenderBuffers();
-
     struct FrameConstants {
         mat4f WVP;
         mat4f worldMatrix;
@@ -39,7 +33,23 @@ protected:
         vec4f lightColor;
     };
 
-    FrameConstants m_FrameConstants;
+    virtual void       InitConstants();
+    virtual void       InitializeBuffers(const Scene& scene);
+    virtual bool       InitializeShaders();
+    virtual void       ClearShaders();
+    virtual void       ClearBuffers();
+    virtual void       CalculateCameraMatrix();
+    virtual void       CalculateLights();
+    virtual void       UpdateConstants();
+    virtual void       RenderBuffers();
+    const FT_GlyphSlot GetGlyph(char c);
+
+    FrameConstants m_frameConstants;
+
+private:
+    FT_Library m_ftLibrary;
+    FT_Face    m_ftFace;
+    Buffer     m_fontFaceFile;
 };
 
 extern std::unique_ptr<GraphicsManager> g_pGraphicsManager;

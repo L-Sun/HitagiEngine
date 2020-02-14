@@ -1,12 +1,12 @@
 #pragma once
 #include <iostream>
+#include "portable.hpp"
 
 namespace My {
 class Image {
 public:
     Image() = default;
-    Image(uint32_t m_width, uint32_t m_height, uint32_t m_bitcount,
-          uint32_t m_pitch, size_t m_dataSize);
+    Image(uint32_t m_width, uint32_t m_height, uint32_t m_bitcount, uint32_t m_pitch, size_t m_dataSize);
 
     Image(const Image& rhs);
     Image(Image&& rhs);

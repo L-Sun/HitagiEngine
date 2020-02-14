@@ -7,7 +7,7 @@
 
 namespace My {
 constexpr double PI = 3.14159265358979323846;
-
+// Float
 using vec2f = Vector<float, 2>;
 using vec3f = Vector<float, 3>;
 using vec4f = Vector<float, 4>;
@@ -16,8 +16,7 @@ using mat3f = Matrix<float, 3, 3>;
 using mat4f = Matrix<float, 4, 4>;
 using mat8f = Matrix<float, 8, 8>;
 
-using R8G8B8A8Unorm = Vector<uint8_t, 4>;
-
+// Double
 using vec2d = Vector<double, 2>;
 using vec3d = Vector<double, 3>;
 using vec4d = Vector<double, 4>;
@@ -25,6 +24,8 @@ using quatd = Vector<double, 4>;
 using mat3d = Matrix<double, 3, 3>;
 using mat4d = Matrix<double, 4, 4>;
 using mat8d = Matrix<double, 8, 8>;
+
+using R8G8B8A8Unorm = Vector<uint8_t, 4>;
 
 template <typename T>
 inline T radians(T angle) {
@@ -122,8 +123,7 @@ Matrix<T, 4, 4> rotateZ(const Matrix<T, 4, 4>& mat, const T angle) {
     return rotate_z * mat;
 }
 template <typename T>
-Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T angle,
-                       const Vector<T, 3>& axis) {
+Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T angle, const Vector<T, 3>& axis) {
     auto    _axis = normalize(axis);
     const T c = std::cos(angle), s = std::sin(angle), _1_c = 1.0f - c;
     const T x = _axis.x, y = _axis.y, z = _axis.z;
@@ -140,8 +140,7 @@ Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T angle,
 }
 
 template <typename T>
-Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T yaw, const T pitch,
-                       const T roll) {
+Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const T yaw, const T pitch, const T roll) {
     T cYaw, cPitch, cRoll, sYaw, sPitch, sRoll;
     cYaw   = std::cos(yaw);
     cPitch = std::cos(pitch);
@@ -167,8 +166,7 @@ template <typename T>
 Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector<T, 4>& quatv) {
     quatv     = normalize(quatv);
     const T a = quatv.x, b = quatv.y, c = quatv.z, d = quatv.w;
-    const T _2a2 = 2 * a * a, _2b2 = 2 * b * b, _2c2 = 2 * c * c,
-            _2ab = 2 * a * b, _2ac = 2 * a * c, _2ad = 2 * a * d,
+    const T _2a2 = 2 * a * a, _2b2 = 2 * b * b, _2c2 = 2 * c * c, _2ab = 2 * a * b, _2ac = 2 * a * c, _2ad = 2 * a * d,
             _2bc = 2 * b * c, _2bd = 2 * b * d, _2cd = 2 * c * d;
 
     // clang-format off
@@ -222,10 +220,20 @@ Matrix<T, 4, 4> perspective(T fov, T aspect, T near, T far) {
     res(2, 3) = static_cast<T>(2) * near * far / nmf;
     return res;
 }
+template <typename T>
+Matrix<T, 4, 4> ortho(T left, T right, T bottom, T top, T near, T far) {
+    Matrix<T, 4, 4> res(static_cast<T>(1));
+    res(0, 0) = static_cast<T>(2) / (right - left);
+    res(1, 1) = static_cast<T>(2) / (top - bottom);
+    res(2, 2) = -static_cast<T>(2) / (far - near);
+    res(0, 3) = -(right + left) / (right - left);
+    res(1, 3) = -(top + bottom) / (top - bottom);
+    res(2, 3) = -(far + near) / (far - near);
+    return res;
+}
 
 template <typename T>
-Matrix<T, 4, 4> lookAt(const Vector<T, 3>& position, const Vector<T, 3>& target,
-                       const Vector<T, 3>& up) {
+Matrix<T, 4, 4> lookAt(const Vector<T, 3>& position, const Vector<T, 3>& target, const Vector<T, 3>& up) {
     Vector<T, 3> direct   = normalize(target - position);
     Vector<T, 3> right    = normalize(cross(direct, up));
     Vector<T, 3> cameraUp = normalize(cross(right, direct));
@@ -255,24 +263,15 @@ Matrix<T, 8, 8> IDCT8x8(const Matrix<T, 8, 8>& pixel_block) {
 
 template <typename T, int ROWS, int COLS>
 const Vector<T, 3> GetOrigin(const Matrix<T, ROWS, COLS>& mat) {
-    static_assert(
-        ROWS >= 3,
-        "[Error] Only 3x3 and above matrix can be passed to this method!");
-    static_assert(
-        COLS >= 3,
-        "[Error] Only 3x3 and above matrix can be passed to this method!");
+    static_assert(ROWS >= 3, "[Error] Only 3x3 and above matrix can be passed to this method!");
+    static_assert(COLS >= 3, "[Error] Only 3x3 and above matrix can be passed to this method!");
     return Vector<T, 3>({mat(0, 3), mat(1, 3), mat(2, 3)});
 }
 
 template <typename T, int ROWS1, int COLS1, int ROWS2, int COLS2>
-void Shrink(Matrix<T, ROWS1, COLS1>&       mat1,
-            const Matrix<T, ROWS2, COLS2>& mat2) {
-    static_assert(
-        ROWS1 < ROWS2,
-        "[Error] Target matrix ROWS must smaller than source matrix ROWS!");
-    static_assert(
-        COLS1 < COLS2,
-        "[Error] Target matrix COLS must smaller than source matrix COLS!");
+void Shrink(Matrix<T, ROWS1, COLS1>& mat1, const Matrix<T, ROWS2, COLS2>& mat2) {
+    static_assert(ROWS1 < ROWS2, "[Error] Target matrix ROWS must smaller than source matrix ROWS!");
+    static_assert(COLS1 < COLS2, "[Error] Target matrix COLS must smaller than source matrix COLS!");
 
     for (int i = 0; i < COLS1; i++) {
         mat1.data[i] = mat2.data[i];

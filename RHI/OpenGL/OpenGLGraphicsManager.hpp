@@ -3,7 +3,8 @@
 #include <vector>
 #include <string>
 #include <memory>
-#include <map>
+#include <queue>
+#include <variant>
 #include <glad/glad.h>
 
 #include "GraphicsManager.hpp"
@@ -20,21 +21,17 @@ public:
     void Draw() final;
 
 #ifdef DEBUG
-    void DrawLine(const vec3f& from, const vec3f& to, const vec3f& color) final;
-    void DrawBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) final;
+    void RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) final;
+    void RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) final;
+    void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) final;
     void ClearDebugBuffers() final;
 #endif
 
 private:
-    bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
-                                     const mat4f& param);
-    bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
-                                     const vec3f& param);
-    bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
-                                     const float param);
-    bool SetPerBatchShaderParameters(GLuint shader, const char* paramName,
-                                     const GLint texture_index);
-    bool SetPerFrameShaderParameters(GLuint shader);
+    using TshaderParameter = std::variant<float, vec2f, vec3f, vec4f, mat4f, GLuint>;
+    bool SetShaderParameters(GLuint shader, const char* paramName,
+                             TshaderParameter param);
+    bool UpdateFrameParameters(GLuint shader);
 
     void InitializeBuffers(const Scene& scene) final;
     void ClearBuffers() final;
@@ -42,33 +39,68 @@ private:
     bool InitializeShaders() final;
     void RenderBuffers() final;
 
-    GLuint m_vertexShader;
-    GLuint m_fragmentShader;
-    GLuint m_geometryShader;
-    GLuint m_shaderProgram;
-
-#ifdef DEBUG
-    GLuint m_debugVertexShader;
-    GLuint m_debugFragmentShader;
-    GLuint m_debugShaderProgram;
-#endif
-
-    std::map<std::string, GLint> m_TextureIndex;
-
-    std::vector<std::string> m_inputLayout = {
-        "POSITION",
-        "NORMAL",
-        "TEXCOORD"};
-
-    struct DrawBatchContext {
-        std::weak_ptr<SceneGeometryNode>   node;
-        std::weak_ptr<SceneObjectMaterial> material;
-        size_t                             indexCount;
+    struct MeshBuffer {
         GLuint                             vao;
+        std::vector<GLuint>                vbos;
         GLuint                             ebo;
         GLenum                             mode;
         GLenum                             type;
+        size_t                             indexCount;
+        std::weak_ptr<SceneObjectMaterial> material;
     };
+
+    struct DrawBatchContext {
+        std::weak_ptr<SceneGeometryNode> node;
+        std::shared_ptr<MeshBuffer>      mesh;
+    };
+    struct ShaderInfo {
+        std::string path;
+        int         type;
+        GLuint      shaderId;
+    };
+    struct ShaderProgram {
+        GLuint                   programId;
+        std::vector<ShaderInfo>  shaders;
+        std::vector<std::string> layout;
+    };
+    struct CharacterInfo {
+        GLuint              textureID;
+        Vector<int, 2>      bearing;
+        Vector<unsigned, 2> size;
+        int                 advance;
+    };
+
+    struct TextRenderInfo {
+        std::string text;
+        vec2f       position;
+        vec3f       color;
+    };
+
+    ShaderProgram m_basicShader = {
+        0,
+        {
+            {"Asset/Shaders/basic.vs", GL_VERTEX_SHADER, 0},
+            {"Asset/Shaders/basic.fs", GL_FRAGMENT_SHADER, 0},
+        },
+        {"POSITION", "NORMAL", "TEXCOORD"}};
+
+    ShaderProgram m_textShader = {
+        0,
+        {
+            {"Asset/Shaders/text.vs", GL_VERTEX_SHADER, 0},
+            {"Asset/Shaders/text.fs", GL_FRAGMENT_SHADER, 0},
+        },
+        {"vertex"}};
+
+    std::unordered_map<xg::Guid, GLuint>                      m_Textures;
+    std::unordered_map<xg::Guid, std::shared_ptr<MeshBuffer>> m_meshBuffers;
+    std::vector<DrawBatchContext>                             m_DrawBatchContext;
+
+    std::unordered_map<char, CharacterInfo> m_characters;
+    GLuint                                  m_textRenderVAO = 0;
+    GLuint                                  m_textRenderVBO = 0;
+
+    std::queue<TextRenderInfo> m_textRenderQueue;
 
 #ifdef DEBUG
     struct DebugDrawBatchContext {
@@ -77,15 +109,15 @@ private:
         GLsizei count;
         vec3f   color;
     };
-#endif
-
-    std::vector<DrawBatchContext> m_DrawBatchContext;
-    std::vector<GLuint>           m_Buffers;
-    std::vector<GLuint>           m_Textures;
-
-#ifdef DEBUG
     std::vector<DebugDrawBatchContext> m_DebugDrawBatchContext;
     std::vector<GLuint>                m_DebugBuffers;
+    ShaderProgram                      m_debugShader = {
+        0,
+        {
+            {"Asset/Shaders/debug.vs", GL_VERTEX_SHADER, 0},
+            {"Asset/Shaders/debug.fs", GL_FRAGMENT_SHADER, 0},
+        },
+        {"POSITION"}};
 #endif
 };
 }  // namespace My

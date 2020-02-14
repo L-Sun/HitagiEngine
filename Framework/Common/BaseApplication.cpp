@@ -1,6 +1,6 @@
-#include "BaseApplication.hpp"
 #include <iostream>
 #include <thread>
+#include "BaseApplication.hpp"
 
 using namespace My;
 
@@ -120,8 +120,7 @@ void BaseApplication::Tick() {
         m_frame_counter = 0;
     }
     m_k += m_FPS - 60;
-    std::this_thread::sleep_until(m_clock.tickTime() +
-                                  std::chrono::seconds(1) / 60.0 +
+    std::this_thread::sleep_until(m_clock.tickTime() + std::chrono::seconds(1) / 60.0 +
                                   m_k * std::chrono::microseconds(1));
 }
 

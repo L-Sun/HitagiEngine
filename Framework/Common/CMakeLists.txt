@@ -15,8 +15,8 @@ add_library(Timer           Timer.cpp)
 target_link_libraries(MemoryManager   PUBLIC CommonHeader)
 target_link_libraries(AssetLoader     PUBLIC CommonHeader MemoryManager)
 target_link_libraries(Timer           PUBLIC CommonHeader)
-target_link_libraries(SceneManager    PUBLIC CommonHeader Parser AssetLoader GeomMath crossguid)
-target_link_libraries(GraphicsManager PUBLIC CommonHeader SceneManager)
+target_link_libraries(SceneManager    PUBLIC CommonHeader Parser AssetLoader GeomMath PRIVATE crossguid)
+target_link_libraries(GraphicsManager PUBLIC CommonHeader SceneManager PRIVATE freetype)
 target_link_libraries(DebugManager    PUBLIC CommonHeader SceneManager)
 target_link_libraries(InputManager    PUBLIC CommonHeader SceneManager)
 
@@ -24,7 +24,7 @@ target_include_directories(SceneManager INTERFACE "$<TARGET_PROPERTY:crossguid,I
 
 target_link_libraries(Common
     PUBLIC
-        CommonHeader
+        Interface
         GeomMath
         Parser
         MemoryManager

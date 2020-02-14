@@ -4,8 +4,8 @@
 #include <vector>
 #include <memory>
 #include <crossguid/guid.hpp>
-#include "portable.hpp"
 #include "geommath.hpp"
+#include "portable.hpp"
 #include "Image.hpp"
 
 namespace My {

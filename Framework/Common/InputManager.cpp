@@ -128,7 +128,5 @@ void InputManager::DebugKeyDown() {
 #endif
 
 #ifdef DEBUG
-void InputManager::DebugKeyUp() {
-    std::cout << "[InputManager] Debug Key Up!" << std::endl;
-}
+void InputManager::DebugKeyUp() { std::cout << "[InputManager] Debug Key Up!" << std::endl; }
 #endif

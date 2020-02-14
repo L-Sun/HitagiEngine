@@ -7,61 +7,7 @@
 #include "SceneManager.hpp"
 #include "IPhysicsManager.hpp"
 
-const char VS_SHADER_SOURCE_FILE[] = "Asset/Shaders/basic.vs";
-const char FS_SHADER_SOURCE_FILE[] = "Asset/Shaders/basic.fs";
-#ifdef DEBUG
-const char DEBUG_VS_SHADER_SOURCE_FILE[] = "Asset/Shaders/debug_vs.glsl";
-const char DEBUG_PS_SHADER_SOURCE_FILE[] = "Asset/Shaders/debug_ps.glsl";
-#endif
-
 namespace My {
-
-static void OutputShaderErrorMessage(unsigned int     shaderId,
-                                     std::string_view shaderFileName) {
-    int           logSize, i;
-    char*         infoLog;
-    std::ofstream fout;
-
-    glGetShaderiv(shaderId, GL_INFO_LOG_LENGTH, &logSize);
-    logSize++;
-    infoLog = new char[logSize];
-    if (!infoLog) return;
-    glGetShaderInfoLog(shaderId, logSize, NULL, infoLog);
-
-    fout.open("shader-error.txt");
-
-    for (i = 0; i < logSize; i++) {
-        fout << infoLog[i];
-    }
-    fout.close();
-    std::cerr << "Error compiling shader. Check shader-error.txt for message."
-              << shaderFileName << std::endl;
-    delete[] infoLog;
-    return;
-}
-
-static void OutputLinkerErrorMessage(unsigned int programId) {
-    int           logSize, i;
-    char*         infoLog;
-    std::ofstream fout;
-    glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &logSize);
-    logSize++;
-
-    infoLog = new char[logSize];
-    if (!infoLog) {
-        return;
-    }
-    glGetProgramInfoLog(programId, logSize, NULL, infoLog);
-    fout.open("link-error.txt");
-
-    for (i = 0; i < logSize; i++) {
-        fout << infoLog[i];
-    }
-    fout.close();
-    std::cerr << "Error compiling linker. Check linker-error.txt for message."
-              << std::endl;
-    delete[] infoLog;
-}
 
 int OpenGLGraphicsManager::Initialize() {
     int result;
@@ -86,6 +32,9 @@ int OpenGLGraphicsManager::Initialize() {
 
             // Enable multisample
             glEnable(GL_MULTISAMPLE);
+
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             // Set the polygon winding to front facing for the left handed
             // system.
@@ -118,306 +67,301 @@ void OpenGLGraphicsManager::Draw() {
     glFlush();
 }
 
-bool OpenGLGraphicsManager::SetPerFrameShaderParameters(GLuint shader) {
-    unsigned int location;
-    // Set world matrix
-    location = glGetUniformLocation(shader, "worldMatrix");
-    if (location != -1) {
-        glUniformMatrix4fv(location, 1, false, m_FrameConstants.worldMatrix);
-    }
-
-    // Set view matrix
-    location = glGetUniformLocation(shader, "viewMatrix");
-    if (location != -1) {
-        glUniformMatrix4fv(location, 1, false, m_FrameConstants.viewMatrix);
-    }
-
-    // Set projection matrix
-    location = glGetUniformLocation(shader, "projectionMatrix");
-    if (location != -1) {
-        glUniformMatrix4fv(location, 1, false, m_FrameConstants.projectionMatrix);
-    }
-
-    location = glGetUniformLocation(shader, "lightPosition");
-    if (location != -1) {
-        glUniform3fv(location, 1, m_FrameConstants.lightPosition);
-    }
-
-    location = glGetUniformLocation(shader, "lightColor");
-    if (location != -1) {
-        glUniform4fv(location, 1, m_FrameConstants.lightColor);
-    }
-
+bool OpenGLGraphicsManager::UpdateFrameParameters(GLuint shader) {
+    SetShaderParameters(shader, "worldMatrix", m_frameConstants.worldMatrix);
+    SetShaderParameters(shader, "viewMatrix", m_frameConstants.viewMatrix);
+    SetShaderParameters(shader, "projectionMatrix", m_frameConstants.projectionMatrix);
+    SetShaderParameters(shader, "lightPosition", m_frameConstants.lightPosition);
+    SetShaderParameters(shader, "lightColor", m_frameConstants.lightColor);
     return true;
 }
-
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint       shader,
-                                                        const char*  paramName,
-                                                        const mat4f& param) {
+bool OpenGLGraphicsManager::SetShaderParameters(GLuint           shader,
+                                                const char*      paramName,
+                                                TshaderParameter param) {
     unsigned int location;
     location = glGetUniformLocation(shader, paramName);
     if (location == -1) {
+        std::cerr << "[OpenGL] Set shader parameter failed. parmeter: " << paramName << std::endl;
         return false;
     }
-    glUniformMatrix4fv(location, 1, false, param);
-    return true;
-}
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint       shader,
-                                                        const char*  paramName,
-                                                        const vec3f& param) {
-    unsigned int location;
-    location = glGetUniformLocation(shader, paramName);
-    if (location == -1) {
-        return false;
-    }
-    glUniform3fv(location, 1, param);
-    return true;
-}
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(GLuint      shader,
-                                                        const char* paramName,
-                                                        const float param) {
-    unsigned int location;
-    location = glGetUniformLocation(shader, paramName);
-    if (location == -1) {
-        return false;
-    }
-    glUniform1f(location, param);
-    return true;
-}
-bool OpenGLGraphicsManager::SetPerBatchShaderParameters(
-    GLuint shader, const char* paramName, const GLint texture_index) {
-    unsigned int location;
-    location = glGetUniformLocation(shader, paramName);
-    if (location == -1) {
-        return false;
-    }
-
-    if (texture_index < GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS)
-        glUniform1i(location, texture_index);
+    if (std::holds_alternative<float>(param))
+        glUniform1f(location, std::get<float>(param));
+    else if (std::holds_alternative<vec2f>(param))
+        glUniform2fv(location, 1, std::get<vec2f>(param));
+    else if (std::holds_alternative<vec3f>(param))
+        glUniform3fv(location, 1, std::get<vec3f>(param));
+    else if (std::holds_alternative<vec4f>(param))
+        glUniform4fv(location, 1, std::get<vec4f>(param));
+    else if (std::holds_alternative<mat4f>(param))
+        glUniformMatrix4fv(location, 1, false, std::get<mat4f>(param));
+    else if (std::holds_alternative<GLuint>(param))
+        if (std::get<GLuint>(param) < GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS)
+            glUniform1i(location, std::get<GLuint>(param));
     return true;
 }
 
 void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
-    for (auto [key, pNode] : scene.GeometryNodes) {
-        if (!pNode->Visible()) continue;
-        auto pGeometry = scene.GetGeometry(pNode->GetSceneObjectRef());
-        for (auto&& _mesh : pGeometry->GetMeshes()) {
-            auto mesh = _mesh.lock();
-            if (!mesh) continue;
+    // Initialize Mesh
+    for (auto&& [key, mesh] : scene.Meshes) {
+        auto mb = std::make_shared<MeshBuffer>();
+        glGenVertexArrays(1, &mb->vao);
+        glBindVertexArray(mb->vao);
 
-            GLuint vao;
-            glGenVertexArrays(1, &vao);
-            glGenBuffers(1, &vao);
-            glBindVertexArray(vao);
-
-            for (size_t i = 0; i < m_inputLayout.size(); i++) {
-                auto& vertexArray    = mesh->GetVertexPropertyArray(m_inputLayout[i]);
-                auto  vertexData     = vertexArray.GetData();
-                auto  vertexDataSize = vertexArray.GetDataSize();
-
-                GLuint vbo;
-                glGenBuffers(1, &vbo);
-                glBindBuffer(GL_ARRAY_BUFFER, vbo);
-                glBufferData(GL_ARRAY_BUFFER, vertexDataSize, vertexData, GL_STATIC_DRAW);
-                glEnableVertexAttribArray(i);
-
-                switch (vertexArray.GetDataType()) {
-                    case VertexDataType::kFLOAT1:
-                        glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
-                        break;
-                    case VertexDataType::kFLOAT2:
-                        glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
-                        break;
-                    case VertexDataType::kFLOAT3:
-                        glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
-                        break;
-                    case VertexDataType::kFLOAT4:
-                        glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
-                        break;
-                    case VertexDataType::kDOUBLE1:
-                        glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
-                        break;
-                    case VertexDataType::kDOUBLE2:
-                        glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
-                        break;
-                    case VertexDataType::kDOUBLE3:
-                        glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
-                        break;
-                    case VertexDataType::kDOUBLE4:
-                        glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
-                        break;
-                    default:
-                        assert(0);
-                        break;
-                }
-                m_Buffers.push_back(vbo);
-            }
-
-            GLuint ebo;
-            glGenBuffers(1, &ebo);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-            auto& indexArray         = mesh->GetIndexArray();
-            auto  indexArrayData     = indexArray.GetData();
-            auto  indexArrayDataSize = indexArray.GetDataSize();
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexArrayDataSize,
-                         indexArrayData, GL_STATIC_DRAW);
-            m_Buffers.push_back(ebo);
-
-            GLsizei indexCount =
-                static_cast<GLsizei>(indexArray.GetIndexCount());
-            GLenum type;
-            switch (indexArray.GetIndexType()) {
-                case IndexDataType::kINT8:
-                    type = GL_UNSIGNED_BYTE;
+        // Vertex Buffer
+        for (size_t i = 0; i < m_basicShader.layout.size(); i++) {
+            auto&  vertexArray    = mesh->GetVertexPropertyArray(m_basicShader.layout[i]);
+            auto   vertexData     = vertexArray.GetData();
+            auto   vertexDataSize = vertexArray.GetDataSize();
+            GLuint vbo;
+            glGenBuffers(1, &vbo);
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferData(GL_ARRAY_BUFFER, vertexDataSize, vertexData, GL_STATIC_DRAW);
+            glEnableVertexAttribArray(i);
+            switch (vertexArray.GetDataType()) {
+                case VertexDataType::kFLOAT1:
+                    glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
                     break;
-                case IndexDataType::kINT16:
-                    type = GL_UNSIGNED_SHORT;
+                case VertexDataType::kFLOAT2:
+                    glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
                     break;
-                case IndexDataType::kINT32:
-                    type = GL_UNSIGNED_INT;
+                case VertexDataType::kFLOAT3:
+                    glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
+                    break;
+                case VertexDataType::kFLOAT4:
+                    glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
+                    break;
+                case VertexDataType::kDOUBLE1:
+                    glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
+                    break;
+                case VertexDataType::kDOUBLE2:
+                    glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
+                    break;
+                case VertexDataType::kDOUBLE3:
+                    glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
+                    break;
+                case VertexDataType::kDOUBLE4:
+                    glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
                     break;
                 default:
-                    // not supported by OpenGL
-                    std::cerr << "Error: Unsupported Index Type "
-                              << indexArray << std::endl;
-                    std::cout << "Mesh: " << *mesh << std::endl;
-                    std::cout << "Geometry: " << *pGeometry << std::endl;
-                    continue;
+                    assert(0);
+                    break;
             }
+            mb->vbos.push_back(vbo);
+        }
+        // Index Array
+        glGenBuffers(1, &mb->ebo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mb->ebo);
+        auto& indexArray         = mesh->GetIndexArray();
+        auto  indexArrayData     = indexArray.GetData();
+        auto  indexArrayDataSize = indexArray.GetDataSize();
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexArrayDataSize, indexArrayData, GL_STATIC_DRAW);
+        mb->indexCount = indexArray.GetIndexCount();
+        switch (indexArray.GetIndexType()) {
+            case IndexDataType::kINT8:
+                mb->type = GL_UNSIGNED_BYTE;
+                break;
+            case IndexDataType::kINT16:
+                mb->type = GL_UNSIGNED_SHORT;
+                break;
+            case IndexDataType::kINT32:
+                mb->type = GL_UNSIGNED_INT;
+                break;
+            default:
+                // not supported by OpenGL
+                std::cerr << "Error: Unsupported Index Type "
+                          << indexArray << std::endl;
+                std::cout << "Mesh: " << *mesh << std::endl;
+                continue;
+        }
+        // Primitive
+        switch (mesh->GetPrimitiveType()) {
+            case PrimitiveType::kPOINT_LIST:
+                mb->mode = GL_POINTS;
+                break;
+            case PrimitiveType::kLINE_LIST:
+                mb->mode = GL_LINES;
+                break;
+            case PrimitiveType::kLINE_STRIP:
+                mb->mode = GL_LINE_STRIP;
+                break;
+            case PrimitiveType::kTRI_LIST:
+                mb->mode = GL_TRIANGLES;
+                break;
+            case PrimitiveType::kTRI_STRIP:
+                mb->mode = GL_TRIANGLE_STRIP;
+                break;
+            case PrimitiveType::kTRI_FAN:
+                mb->mode = GL_TRIANGLE_FAN;
+                break;
+            default:
+                continue;
+        }
+        mb->material                   = mesh->GetMaterial();
+        m_meshBuffers[mesh->GetGuid()] = mb;
+    }
 
-            GLenum mode;
-            switch (mesh->GetPrimitiveType()) {
-                case PrimitiveType::kPOINT_LIST:
-                    mode = GL_POINTS;
-                    break;
-                case PrimitiveType::kLINE_LIST:
-                    mode = GL_LINES;
-                    break;
-                case PrimitiveType::kLINE_STRIP:
-                    mode = GL_LINE_STRIP;
-                    break;
-                case PrimitiveType::kTRI_LIST:
-                    mode = GL_TRIANGLES;
-                    break;
-                case PrimitiveType::kTRI_STRIP:
-                    mode = GL_TRIANGLE_STRIP;
-                    break;
-                case PrimitiveType::kTRI_FAN:
-                    mode = GL_TRIANGLE_FAN;
-                    break;
-                default:
-                    continue;
+    // Initialize Texture
+    for (auto&& [key, material] : scene.Materials) {
+        auto color = material->GetBaseColor();
+        if (color.ValueMap) {
+            auto& guid  = color.ValueMap->GetGuid();
+            auto& image = color.ValueMap->GetTextureImage();
+            auto  it    = m_Textures.find(guid);
+            if (it == m_Textures.end()) {
+                GLuint textureId;
+                glGenTextures(1, &textureId);
+                glActiveTexture(GL_TEXTURE0 + textureId);
+                glBindTexture(GL_TEXTURE_2D, textureId);
+                glTexImage2D(GL_TEXTURE_2D,
+                             0,
+                             GL_RGBA,
+                             image.GetWidth(),
+                             image.GetHeight(),
+                             0,
+                             GL_RGBA,
+                             GL_UNSIGNED_BYTE,
+                             image.getData());
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                                GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                                GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D,
+                                GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D,
+                                GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                m_Textures[guid] = textureId;
             }
-
-            auto material = mesh->GetMaterial().lock();
-            if (material) {
-                auto color = material->GetBaseColor();
-                if (color.ValueMap) {
-                    auto  texture = color.ValueMap;
-                    auto& img     = texture->GetTextureImage();
-                    auto  it      = m_TextureIndex.find(texture->GetName());
-                    if (it == m_TextureIndex.end()) {
-                        GLuint texture_id;
-                        glGenTextures(1, &texture_id);
-                        glActiveTexture(GL_TEXTURE0 + texture_id);
-                        glBindTexture(GL_TEXTURE_2D, texture_id);
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                     img.GetWidth(), img.GetHeight(), 0,
-                                     GL_RGBA, GL_UNSIGNED_BYTE,
-                                     img.getData());
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
-                                        GL_REPEAT);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
-                                        GL_REPEAT);
-                        glTexParameteri(GL_TEXTURE_2D,
-                                        GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                        glTexParameteri(GL_TEXTURE_2D,
-                                        GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-                        m_TextureIndex[color.ValueMap->GetName()] =
-                            texture_id;
-                        m_Textures.push_back(texture_id);
-                    }
-                }
-            }
-
-            DrawBatchContext dbc;
-            dbc.vao        = vao;
-            dbc.ebo        = ebo;
-            dbc.mode       = mode;
-            dbc.type       = type;
-            dbc.node       = pNode;
-            dbc.material   = material;
-            dbc.indexCount = indexCount;
-            m_DrawBatchContext.push_back(std::move(dbc));
-
-            m_Buffers.push_back(vao);
         }
     }
+
+    for (auto [key, node] : scene.GeometryNodes) {
+        auto geometry = scene.Geometries.at(node->GetSceneObjectRef());
+        for (auto&& _mesh : geometry->GetMeshes()) {
+            if (auto mesh = _mesh.lock()) {
+                m_DrawBatchContext.push_back({node,
+                                              m_meshBuffers[mesh->GetGuid()]});
+            }
+        }
+    }
+
+    // Initialize text buffer
+    glGenVertexArrays(1, &m_textRenderVAO);
+    glGenBuffers(1, &m_textRenderVBO);
+    glBindVertexArray(m_textRenderVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_textRenderVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 6 * 4, nullptr, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
+bool OpenGLGraphicsManager::InitializeShaders() {
+    auto OutputShaderErrorMessage = [](GLuint                       id,
+                                       const std::filesystem::path& shaderFileName) -> void {
+        int           logSize;
+        char*         infoLog;
+        std::ofstream fout("shader-error.txt");
+        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &logSize);
+        infoLog = new char[logSize];
+        glGetShaderInfoLog(id, logSize, nullptr, infoLog);
+        for (int i = 0; i < logSize; i++) {
+            fout << infoLog[i];
+        }
+        fout.close();
+        std::cerr << "[OpenGL] Error compiling shader. Check shader-error.txt for message."
+                  << shaderFileName << std::endl;
+        delete[] infoLog;
+    };
+
+    auto compileShader = [&](ShaderProgram& program) {
+        int status;
+        program.programId = glCreateProgram();
+        for (auto&& shaderInfo : program.shaders) {
+            std::string shaderBuffer = g_pAssetLoader->SyncOpenAndReadTextFileToString(shaderInfo.path);
+            const char* c_str        = shaderBuffer.c_str();
+            shaderInfo.shaderId      = glCreateShader(shaderInfo.type);
+            glShaderSource(shaderInfo.shaderId, 1, &c_str, nullptr);
+            glCompileShader(shaderInfo.shaderId);
+            glGetShaderiv(shaderInfo.shaderId, GL_COMPILE_STATUS, &status);
+            if (status != 1)
+                OutputShaderErrorMessage(shaderInfo.shaderId, shaderInfo.path);
+            glAttachShader(program.programId, shaderInfo.shaderId);
+        }
+        for (size_t i = 0; i < program.layout.size(); i++)
+            glBindAttribLocation(program.programId, i, program.layout[i].c_str());
+        glLinkProgram(program.programId);
+        glGetProgramiv(program.programId, GL_LINK_STATUS, &status);
+        if (status != 1)
+            OutputShaderErrorMessage(program.programId, "");
+    };
+
+    compileShader(m_basicShader);
+    compileShader(m_textShader);
+    int status;
+#ifdef DEBUG
+    compileShader(m_debugShader);
+#endif
+    return true;
 }
 
 void OpenGLGraphicsManager::ClearBuffers() {
 #ifdef DEBUG
     ClearDebugBuffers();
 #endif
-
-    for (auto dbc : m_DrawBatchContext) {
-        glDeleteVertexArrays(1, &dbc.vao);
-    }
-
     m_DrawBatchContext.clear();
-
-    for (auto buf : m_Buffers) {
-        glDeleteBuffers(1, &buf);
+    for (auto&& [guid, mesh] : m_meshBuffers) {
+        glDeleteVertexArrays(1, &mesh->vao);
+        glDeleteBuffers(1, &mesh->ebo);
+        for (auto&& vbo : mesh->vbos)
+            glDeleteBuffers(1, &vbo);
     }
+    m_meshBuffers.clear();
 
-    for (auto texture : m_Textures) {
+    for (auto [guid, texture] : m_Textures) {
         glDeleteTextures(1, &texture);
     }
-
-    m_Buffers.clear();
     m_Textures.clear();
-}
-void OpenGLGraphicsManager::ClearShaders() {
-    if (m_shaderProgram) {
-        if (m_vertexShader) {
-            glDetachShader(m_shaderProgram, m_vertexShader);
-            glDeleteShader(m_vertexShader);
-        }
-        if (m_fragmentShader) {
-            glDetachShader(m_shaderProgram, m_fragmentShader);
-            glDeleteShader(m_fragmentShader);
-        }
-        if (m_geometryShader) {
-            glDetachShader(m_shaderProgram, m_geometryShader);
-            glDeleteShader(m_geometryShader);
-        }
 
-        glDeleteProgram(m_shaderProgram);
+    for (auto&& [c, ci] : m_characters) {
+        glDeleteTextures(1, &ci.textureID);
+    }
+    m_characters.clear();
+    glDeleteVertexArrays(1, &m_textRenderVAO);
+    glDeleteBuffers(1, &m_textRenderVBO);
+}
+
+void OpenGLGraphicsManager::ClearShaders() {
+    if (m_basicShader.programId) {
+        for (auto&& shaderInfo : m_basicShader.shaders) {
+            glDeleteShader(shaderInfo.shaderId);
+        }
+        glDeleteProgram(m_basicShader.programId);
+    }
+    if (m_textShader.programId) {
+        for (auto&& shaderInfo : m_textShader.shaders) {
+            glDeleteShader(shaderInfo.shaderId);
+        }
+        glDeleteProgram(m_textShader.programId);
     }
 
 #if defined(DEBUG)
-    if (m_debugShaderProgram) {
-        if (m_debugVertexShader) {
-            glDetachShader(m_debugShaderProgram, m_debugVertexShader);
-            glDeleteShader(m_debugVertexShader);
+    if (m_debugShader.programId) {
+        for (auto&& shaderInfo : m_debugShader.shaders) {
+            glDeleteShader(shaderInfo.shaderId);
         }
-        if (m_debugFragmentShader) {
-            glDetachShader(m_debugShaderProgram, m_debugFragmentShader);
-            glDeleteShader(m_debugFragmentShader);
-        }
-        glDeleteProgram(m_debugShaderProgram);
+        glDeleteProgram(m_debugShader.programId);
     }
 #endif  // DEBUG
 }
 
 void OpenGLGraphicsManager::RenderBuffers() {
-    glUseProgram(m_shaderProgram);
-    SetPerFrameShaderParameters(m_shaderProgram);
+    glUseProgram(m_basicShader.programId);
+    UpdateFrameParameters(m_basicShader.programId);
 
     for (auto dbc : m_DrawBatchContext) {
         auto node = dbc.node.lock();
-        if (!node) continue;
+        if (!node && !node->Visible()) continue;
         mat4f trans;
         if (auto rigidBody = node->RigidBody()) {
             // the geometry has rigid body bounded, we blend the simlation
@@ -427,48 +371,86 @@ void OpenGLGraphicsManager::RenderBuffers() {
             trans = *node->GetCalculatedTransform();
         }
 
-        SetPerBatchShaderParameters(m_shaderProgram, "modelMatrix", trans);
-        glBindVertexArray(dbc.vao);
+        SetShaderParameters(m_basicShader.programId, "modelMatrix", trans);
+        glBindVertexArray(dbc.mesh->vao);
 
-        if (auto material = dbc.material.lock()) {
+        if (auto material = dbc.mesh->material.lock()) {
             Color color = material->GetBaseColor();
 
             if (color.ValueMap) {
-                SetPerBatchShaderParameters(
-                    m_shaderProgram, "defaultSampler",
-                    m_TextureIndex[color.ValueMap->GetName()]);
-                SetPerBatchShaderParameters(m_shaderProgram, "diffuseColor",
-                                            vec3f(-1.0f));
+                SetShaderParameters(
+                    m_basicShader.programId, "defaultSampler",
+                    m_Textures[color.ValueMap->GetGuid()]);
+                SetShaderParameters(m_basicShader.programId, "diffuseColor",
+                                    vec3f(-1.0f));
             } else {
-                SetPerBatchShaderParameters(m_shaderProgram, "diffuseColor",
-                                            color.Value.rgb);
+                SetShaderParameters(m_basicShader.programId, "diffuseColor",
+                                    color.Value.rgb);
             }
 
             color = material->GetSpecularColor();
-            SetPerBatchShaderParameters(m_shaderProgram, "specularColor",
-                                        color.Value.rgb);
+            SetShaderParameters(m_basicShader.programId, "specularColor",
+                                color.Value.rgb);
 
             Parameter param = material->GetSpecularPower();
-            SetPerBatchShaderParameters(m_shaderProgram, "specularPower",
-                                        param.Value);
+            SetShaderParameters(m_basicShader.programId, "specularPower",
+                                param.Value);
         } else {
-            SetPerBatchShaderParameters(m_shaderProgram, "diffuseColor",
-                                        vec3f(-1.0f));
+            SetShaderParameters(m_basicShader.programId, "diffuseColor",
+                                vec3f(-1.0f));
         }
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, dbc.ebo);
-        glDrawElements(dbc.mode, dbc.indexCount, dbc.type, 0x00);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, dbc.mesh->ebo);
+        glDrawElements(dbc.mesh->mode, dbc.mesh->indexCount, dbc.mesh->type, 0x00);
+    }
+
+    // Render text
+    glUseProgram(m_textShader.programId);
+    UpdateFrameParameters(m_textShader.programId);
+    SetShaderParameters(m_textShader.programId, "projection", ortho(0.0f, 1024.0f, 0.0f, 720.0f, 0.0f, 100.0f));
+    while (!m_textRenderQueue.empty()) {
+        auto& textInfo = m_textRenderQueue.front();
+        SetShaderParameters(m_textShader.programId, "textColor", textInfo.color);
+        glActiveTexture(GL_TEXTURE0);
+        glBindVertexArray(m_textRenderVAO);
+        for (auto&& c : textInfo.text) {
+            GLfloat posX   = textInfo.position.x + m_characters[c].bearing.x;
+            GLfloat posY   = textInfo.position.y - (m_characters[c].size.y - m_characters[c].bearing.y);
+            GLfloat width  = m_characters[c].size.x;
+            GLfloat height = m_characters[c].size.y;
+            // clang-format off
+            GLfloat vertices[6][4] = {
+                // position                   texcoord
+                {posX        , posY + height, 0.0, 0.0},
+                {posX        , posY         , 0.0, 1.0},
+                {posX + width, posY         , 1.0, 1.0},
+
+                {posX        , posY + height, 0.0, 0.0},
+                {posX + width, posY         , 1.0, 1.0},
+                {posX + width, posY + height, 1.0, 0.0},
+            };
+            // clang-format on
+            glBindTexture(GL_TEXTURE_2D, m_characters[c].textureID);
+            glBindBuffer(GL_ARRAY_BUFFER, m_textRenderVBO);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            textInfo.position.x += (m_characters[c].advance >> 6);
+        }
+        glBindVertexArray(0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        m_textRenderQueue.pop();
     }
 
 #ifdef DEBUG
     // Set the color shader as the current shader program and set the matrices
     // that it will use for rendering.
-    glUseProgram(m_debugShaderProgram);
+    glUseProgram(m_debugShader.programId);
 
-    SetPerFrameShaderParameters(m_debugShaderProgram);
+    UpdateFrameParameters(m_debugShader.programId);
 
     for (auto dbc : m_DebugDrawBatchContext) {
-        SetPerBatchShaderParameters(m_debugShaderProgram, "lineColor",
-                                    dbc.color);
+        SetShaderParameters(m_debugShader.programId, "lineColor",
+                            dbc.color);
 
         glBindVertexArray(dbc.vao);
         glDrawElements(dbc.mode, dbc.count, GL_UNSIGNED_INT, 0x00);
@@ -476,127 +458,9 @@ void OpenGLGraphicsManager::RenderBuffers() {
 #endif
 }
 
-bool OpenGLGraphicsManager::InitializeShaders() {
-    const std::string vsFilename = VS_SHADER_SOURCE_FILE;
-    const std::string fsFilename = FS_SHADER_SOURCE_FILE;
-
-    std::string vertexShaderBuffer;
-    std::string fragmentShaderBuffer;
-    int         status;
-
-    vertexShaderBuffer =
-        g_pAssetLoader->SyncOpenAndReadTextFileToString(vsFilename);
-    if (vertexShaderBuffer.empty()) {
-        return false;
-    }
-    fragmentShaderBuffer =
-        g_pAssetLoader->SyncOpenAndReadTextFileToString(fsFilename);
-    if (fragmentShaderBuffer.empty()) {
-        return false;
-    }
-
-    m_vertexShader   = glCreateShader(GL_VERTEX_SHADER);
-    m_fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-
-    const char* _v_c_str = vertexShaderBuffer.c_str();
-    const char* _f_c_str = fragmentShaderBuffer.c_str();
-
-    glShaderSource(m_vertexShader, 1, &_v_c_str, NULL);
-    glShaderSource(m_fragmentShader, 1, &_f_c_str, NULL);
-
-    glCompileShader(m_vertexShader);
-    glCompileShader(m_fragmentShader);
-
-    glGetShaderiv(m_vertexShader, GL_COMPILE_STATUS, &status);
-    if (status != 1) {
-        OutputShaderErrorMessage(m_vertexShader, vsFilename);
-        return false;
-    }
-    glGetShaderiv(m_fragmentShader, GL_COMPILE_STATUS, &status);
-    if (status != 1) {
-        OutputShaderErrorMessage(m_fragmentShader, fsFilename);
-        return false;
-    }
-
-    m_shaderProgram = glCreateProgram();
-
-    glAttachShader(m_shaderProgram, m_vertexShader);
-    glAttachShader(m_shaderProgram, m_fragmentShader);
-
-    for (size_t i = 0; i < m_inputLayout.size(); i++) {
-        glBindAttribLocation(m_shaderProgram, i, m_inputLayout[i].c_str());
-    }
-
-    glLinkProgram(m_shaderProgram);
-
-    glGetProgramiv(m_shaderProgram, GL_LINK_STATUS, &status);
-    if (status != 1) {
-        OutputLinkerErrorMessage(m_shaderProgram);
-        return false;
-    }
-
 #ifdef DEBUG
-    const std::string debugVsFilename = DEBUG_VS_SHADER_SOURCE_FILE;
-    const std::string debugFsFilename = DEBUG_PS_SHADER_SOURCE_FILE;
-    std::string       debugVertexShaderBuffer;
-    std::string       debugFragmentShaderBuffer;
-
-    m_debugVertexShader   = glCreateShader(GL_VERTEX_SHADER);
-    m_debugFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-
-    // Load the fragment shader source file into a text buffer.
-    debugVertexShaderBuffer =
-        g_pAssetLoader->SyncOpenAndReadTextFileToString(debugVsFilename);
-    if (debugVertexShaderBuffer.empty()) {
-        return false;
-    }
-    // Load the fragment shader source file into a text buffer.
-
-    debugFragmentShaderBuffer =
-        g_pAssetLoader->SyncOpenAndReadTextFileToString(debugFsFilename);
-    if (debugFragmentShaderBuffer.empty()) {
-        return false;
-    }
-
-    const char* _v_c_str_debug = debugVertexShaderBuffer.c_str();
-    glShaderSource(m_debugVertexShader, 1, &_v_c_str_debug, NULL);
-    const char* _f_c_str_debug = debugFragmentShaderBuffer.c_str();
-    glShaderSource(m_debugFragmentShader, 1, &_f_c_str_debug, NULL);
-
-    glCompileShader(m_debugVertexShader);
-    glCompileShader(m_debugFragmentShader);
-
-    glGetShaderiv(m_debugVertexShader, GL_COMPILE_STATUS, &status);
-    if (status != 1) {
-        OutputShaderErrorMessage(m_debugVertexShader, debugVsFilename);
-        return false;
-    }
-    glGetShaderiv(m_debugFragmentShader, GL_COMPILE_STATUS, &status);
-    if (status != 1) {
-        OutputShaderErrorMessage(m_debugFragmentShader, debugFsFilename);
-        return false;
-    }
-
-    m_debugShaderProgram = glCreateProgram();
-
-    glAttachShader(m_debugShaderProgram, m_debugVertexShader);
-    glAttachShader(m_debugShaderProgram, m_debugFragmentShader);
-
-    glBindAttribLocation(m_debugShaderProgram, 0, "POSITION");
-    glLinkProgram(m_debugShaderProgram);
-    glGetProgramiv(m_debugShaderProgram, GL_LINK_STATUS, &status);
-    if (status != 1) {
-        OutputLinkerErrorMessage(m_debugShaderProgram);
-        return false;
-    }
-#endif
-
-    return true;
-}
-
-#ifdef DEBUG
-void OpenGLGraphicsManager::DrawLine(const vec3f& from, const vec3f& to,
-                                     const vec3f& color) {
+void OpenGLGraphicsManager::RenderLine(const vec3f& from, const vec3f& to,
+                                       const vec3f& color) {
     GLfloat vertices[6];
     vertices[0] = from.x;
     vertices[1] = from.y;
@@ -635,8 +499,8 @@ void OpenGLGraphicsManager::DrawLine(const vec3f& from, const vec3f& to,
     m_DebugDrawBatchContext.push_back(std::move(dbc));
 }
 
-void OpenGLGraphicsManager::DrawBox(const vec3f& bbMin, const vec3f& bbMax,
-                                    const vec3f& color) {
+void OpenGLGraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax,
+                                      const vec3f& color) {
     GLfloat vertices[24];
     // top
     vertices[0] = bbMax.x;
@@ -698,6 +562,39 @@ void OpenGLGraphicsManager::DrawBox(const vec3f& bbMin, const vec3f& bbMax,
     dbc.color = color;
 
     m_DebugDrawBatchContext.push_back(std::move(dbc));
+}
+
+void OpenGLGraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    for (auto&& c : text) {
+        if (m_characters.find(c) == m_characters.end()) {
+            auto   glyph = GetGlyph(c);
+            GLuint texture;
+            glGenTextures(1, &texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RED,
+                glyph->bitmap.pitch,
+                glyph->bitmap.rows,
+                0,
+                GL_RED,
+                GL_UNSIGNED_BYTE,
+                glyph->bitmap.buffer);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            CharacterInfo ci;
+            ci.textureID = texture;
+            ci.bearing   = {glyph->bitmap_left, glyph->bitmap_top};
+            ci.size      = {glyph->bitmap.width, glyph->bitmap.rows};
+            ci.advance   = glyph->advance.x;
+            m_characters.insert({c, ci});
+        }
+    }
+    m_textRenderQueue.push({std::string(text), position, color});
 }
 
 void OpenGLGraphicsManager::ClearDebugBuffers() {

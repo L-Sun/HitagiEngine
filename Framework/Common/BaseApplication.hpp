@@ -1,11 +1,11 @@
 #pragma once
 #include "IApplication.hpp"
+#include "IPhysicsManager.hpp"
 #include "GraphicsManager.hpp"
 #include "MemoryManager.hpp"
 #include "AssetLoader.hpp"
 #include "SceneManager.hpp"
 #include "InputManager.hpp"
-#include "IPhysicsManager.hpp"
 #include "DebugManager.hpp"
 #include "GameLogic.hpp"
 #include "Timer.hpp"

@@ -10,26 +10,6 @@ using namespace Microsoft::WRL;
 namespace My {
 
 class D3D12GraphicsManager : public GraphicsManager {
-public:
-    int  Initialize() final;
-    void Finalize() final;
-    void Draw() final;
-    void Clear() final;
-
-#if defined(DEBUG)
-    void DrawLine(const vec3f& from, const vec3f& to, const vec3f& color) final;
-    void DrawBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) final;
-    void ClearDebugBuffers() final;
-#endif  // DEBUG
-
-protected:
-    void UpdateConstants() final;
-    void InitializeBuffers(const Scene& scene) final;
-    bool InitializeShaders() final;
-    void ClearBuffers() final;
-    void ClearShaders() final;
-    void RenderBuffers() final;
-
 private:
     struct ObjectConstants {
         mat4f modelMatrix;
@@ -64,6 +44,28 @@ private:
 
     using FR = FrameResource<FrameConstants, ObjectConstants>;
 
+public:
+    int  Initialize() final;
+    void Finalize() final;
+    void Draw() final;
+    void Clear() final;
+
+#if defined(DEBUG)
+    void RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) final;
+    void RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) final;
+    void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) final;
+    void ClearDebugBuffers() final;
+#endif  // DEBUG
+
+protected:
+    void UpdateConstants() final;
+    void InitializeBuffers(const Scene& scene) final;
+    bool InitializeShaders() final;
+    void ClearBuffers() final;
+    void ClearShaders() final;
+    void RenderBuffers() final;
+
+private:
     int InitD3D();
 
     void CreateSwapChain();
@@ -71,22 +73,18 @@ private:
     void PopulateCommandList();
     void FlushCommandQueue();
 
-    void CreateDescriptorHeaps();
-    void CreateVertexBuffer(const SceneObjectVertexArray&      vertexArray,
-                            const std::shared_ptr<MeshBuffer>& dbc);
-    void CreateIndexBuffer(const SceneObjectIndexArray&       indexArray,
-                           const std::shared_ptr<MeshBuffer>& dbc);
-    void SetPrimitiveType(const PrimitiveType&               primitiveType,
-                          const std::shared_ptr<MeshBuffer>& dbc);
-    void CreateFrameResource();
-    void CreateRootSignature();
-    void CreateConstantBuffer();
-    void CreateTextureBuffer();
-    void CreateSampler();
-    void BuildPipelineStateObject();
+    void                           CreateDescriptorHeaps();
+    void                           CreateVertexBuffer(const SceneObjectVertexArray& vertexArray, const std::shared_ptr<MeshBuffer>& dbc);
+    void                           CreateIndexBuffer(const SceneObjectIndexArray& indexArray, const std::shared_ptr<MeshBuffer>& dbc);
+    void                           SetPrimitiveType(const PrimitiveType& primitiveType, const std::shared_ptr<MeshBuffer>& dbc);
+    void                           CreateFrameResource();
+    void                           CreateRootSignature();
+    void                           CreateConstantBuffer();
+    std::shared_ptr<TextureBuffer> CreateTextureBuffer(const Image& img, size_t srvOffset);
+    void                           CreateSampler();
+    void                           BuildPipelineStateObject();
 
-    void DrawRenderItems(ID3D12GraphicsCommandList4*  cmdList,
-                         const std::vector<DrawItem>& drawItems);
+    void DrawRenderItems(ID3D12GraphicsCommandList4* cmdList, const std::vector<DrawItem>& drawItems);
 
     D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
     D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
@@ -143,15 +141,14 @@ private:
     // size_t m_nFrameResourceSize      = 3;
     size_t m_nCurrFrameResourceIndex = 0;
 
-    const Scene*                                                    m_pScene;
-    std::unordered_map<std::string, std::shared_ptr<TextureBuffer>> m_textures;
-    std::unordered_map<xg::Guid, std::shared_ptr<MeshBuffer>>       m_meshBuffer;
-    std::vector<DrawItem>                                           m_drawItems;
+    std::unordered_map<xg::Guid, std::shared_ptr<TextureBuffer>> m_textures;
+    std::unordered_map<xg::Guid, std::shared_ptr<MeshBuffer>>    m_meshBuffer;
+    std::vector<DrawItem>                                        m_drawItems;
 
     std::vector<ComPtr<ID3D12Resource>> m_Uploader;
 
 #if defined(DEBUG)
-    std::vector<std::shared_ptr<SceneEmptyNode>>                 m_debugNode;
+    std::vector<std::shared_ptr<SceneGeometryNode>>              m_debugNode;
     std::unordered_map<std::string, std::shared_ptr<MeshBuffer>> m_debugMeshBuffer;
     std::vector<D3D12_INPUT_ELEMENT_DESC>                        m_debugInputLayout;
     std::vector<DrawItem>                                        m_debugDrawItems;

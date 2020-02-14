@@ -25,3 +25,6 @@ add_test(NAME TEST_Math COMMAND MathTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 add_executable(TimerTest TimerTest.cpp)
 target_link_libraries(TimerTest PRIVATE Timer GTest::gtest)
 add_test(NAME TEST_TimerTest COMMAND TimerTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
+add_executable(TextBitmapTest TextBitmapTest.cpp)
+target_link_libraries(TextBitmapTest PRIVATE freetype AssetLoader)

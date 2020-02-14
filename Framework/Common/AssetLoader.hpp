@@ -17,11 +17,10 @@ public:
     size_t GetFileSize(std::filesystem::path filePath) const;
 
     Buffer      SyncOpenAndReadBinary(std::filesystem::path filePath) const;
-    std::string SyncOpenAndReadTextFileToString(
-        std::filesystem::path filePath) const;
+    std::string SyncOpenAndReadTextFileToString(std::filesystem::path filePath) const;
 
 private:
-    bool checkFile(const std::filesystem::path &filePath) const;
+    bool checkFile(const std::filesystem::path& filePath) const;
 };  // namespace My
 
 extern std::unique_ptr<AssetLoader> g_pAssetLoader;

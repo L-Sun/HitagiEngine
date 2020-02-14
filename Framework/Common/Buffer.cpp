@@ -2,17 +2,14 @@
 #include "Buffer.hpp"
 
 using namespace My;
-Buffer::Buffer()
-    : m_pData(nullptr), m_szSize(0), m_szAlignment(alignof(uint32_t)) {}
-Buffer::Buffer(size_t size, const void* srcPtr, size_t copySize,
-               size_t alignment)
+Buffer::Buffer() : m_pData(nullptr), m_szSize(0), m_szAlignment(alignof(uint32_t)) {}
+Buffer::Buffer(size_t size, const void* srcPtr, size_t copySize, size_t alignment)
     : m_szSize(size), m_szAlignment(alignment) {
     m_pData = reinterpret_cast<uint8_t*>(g_pMemoryManager->Allocate(size));
     if (srcPtr) memcpy(m_pData, srcPtr, std::min(size, copySize));
 }
 Buffer::Buffer(const Buffer& rhs) {
-    m_pData =
-        reinterpret_cast<uint8_t*>(g_pMemoryManager->Allocate(rhs.m_szSize));
+    m_pData = reinterpret_cast<uint8_t*>(g_pMemoryManager->Allocate(rhs.m_szSize));
     memcpy(m_pData, rhs.m_pData, rhs.m_szSize);
     m_szSize      = rhs.m_szSize;
     m_szAlignment = rhs.m_szAlignment;
@@ -30,8 +27,7 @@ Buffer& Buffer::operator=(const Buffer& rhs) {
         memcpy(m_pData, rhs.m_pData, rhs.m_szSize);
     else {
         if (m_pData) g_pMemoryManager->Free(m_pData, m_szSize);
-        m_pData = reinterpret_cast<uint8_t*>(
-            g_pMemoryManager->Allocate(rhs.m_szSize));
+        m_pData = reinterpret_cast<uint8_t*>(g_pMemoryManager->Allocate(rhs.m_szSize));
         memcpy(m_pData, rhs.m_pData, rhs.m_szSize);
         m_szSize      = rhs.m_szSize;
         m_szAlignment = rhs.m_szAlignment;

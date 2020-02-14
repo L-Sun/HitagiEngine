@@ -26,8 +26,7 @@ void MyPhysicsManager::Tick() {
         g_pSceneManager->NotifySceneIsPhysicalSimulationQueued();
     }
 }
-void MyPhysicsManager::CreateRigidBody(SceneGeometryNode&         node,
-                                       const SceneObjectGeometry& geometry) {
+void MyPhysicsManager::CreateRigidBody(SceneGeometryNode& node, const SceneObjectGeometry& geometry) {
     const float*               param     = geometry.CollisionParameters();
     std::shared_ptr<RigidBody> rigidBody = nullptr;
 
@@ -36,52 +35,47 @@ void MyPhysicsManager::CreateRigidBody(SceneGeometryNode&         node,
             auto       collision_box = std::make_shared<Sphere>(param[0]);
             const auto trans         = node.GetCalculatedTransform();
             auto       motionState   = std::make_shared<MotionState>(*trans);
-            rigidBody = std::make_shared<RigidBody>(collision_box, motionState);
+            rigidBody                = std::make_shared<RigidBody>(collision_box, motionState);
         } break;
         case SceneObjectCollisionType::kBOX: {
             auto       collision_box = std::make_shared<Box>(vec3f(param));
             const auto trans         = node.GetCalculatedTransform();
             auto       motionState   = std::make_shared<MotionState>(*trans);
-            rigidBody = std::make_shared<RigidBody>(collision_box, motionState);
+            rigidBody                = std::make_shared<RigidBody>(collision_box, motionState);
         } break;
         case SceneObjectCollisionType::kPLANE: {
-            auto collision_box =
-                std::make_shared<Plane>(vec3f(param), param[3]);
-            const auto trans       = node.GetCalculatedTransform();
-            auto       motionState = std::make_shared<MotionState>(*trans);
-            rigidBody = std::make_shared<RigidBody>(collision_box, motionState);
+            auto       collision_box = std::make_shared<Plane>(vec3f(param), param[3]);
+            const auto trans         = node.GetCalculatedTransform();
+            auto       motionState   = std::make_shared<MotionState>(*trans);
+            rigidBody                = std::make_shared<RigidBody>(collision_box, motionState);
         } break;
         default: {
             // create AABB box according to Bounding Box
-            auto bounding_box  = geometry.GetBoundingBox();
-            auto collision_box = std::make_shared<Box>(bounding_box.extent);
-            const auto trans   = node.GetCalculatedTransform();
-            auto       motionState =
-                std::make_shared<MotionState>(*trans, bounding_box.centroid);
-            rigidBody = std::make_shared<RigidBody>(collision_box, motionState);
+            auto       bounding_box  = geometry.GetBoundingBox();
+            auto       collision_box = std::make_shared<Box>(bounding_box.extent);
+            const auto trans         = node.GetCalculatedTransform();
+            auto       motionState   = std::make_shared<MotionState>(*trans, bounding_box.centroid);
+            rigidBody                = std::make_shared<RigidBody>(collision_box, motionState);
         }
     }
     node.LinkRigidBody(rigidBody);
 }
 
 void MyPhysicsManager::UpdateRigidBodyTransform(SceneGeometryNode& node) {
-    const auto trans     = node.GetCalculatedTransform();
-    auto       rigidBody = node.RigidBody();
-    auto       motionState =
-        std::static_pointer_cast<RigidBody>(rigidBody)->GetMotionState();
+    const auto trans       = node.GetCalculatedTransform();
+    auto       rigidBody   = node.RigidBody();
+    auto       motionState = std::static_pointer_cast<RigidBody>(rigidBody)->GetMotionState();
     motionState->SetTransition(*trans);
 }
 
-void MyPhysicsManager::DeleteRigidBody(SceneGeometryNode& node) {
-    node.UnlinkRigidBody();
-}
-int MyPhysicsManager::CreateRigidBodies() {
+void MyPhysicsManager::DeleteRigidBody(SceneGeometryNode& node) { node.UnlinkRigidBody(); }
+int  MyPhysicsManager::CreateRigidBodies() {
     auto& scene = g_pSceneManager->GetSceneForPhysicsSimulation();
     // Geometries
 
     for (auto [key, pNode] : scene.GeometryNodes) {
         auto pGeometryNode = pNode;
-        auto pGeometry = scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
+        auto pGeometry     = scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
         assert(pGeometry);
         CreateRigidBody(*pGeometryNode, *pGeometry);
     }
@@ -105,8 +99,7 @@ mat4f MyPhysicsManager::GetRigidBodyTransform(std::shared_ptr<void> rigidBody) {
     return trans;
 }
 
-void MyPhysicsManager::ApplyCentralForce(std::shared_ptr<void> rigidBody,
-                                         vec3f                 force) {}
+void MyPhysicsManager::ApplyCentralForce(std::shared_ptr<void> rigidBody, vec3f force) {}
 
 #ifdef DEBUG
 void MyPhysicsManager::DrawDebugInfo() {
@@ -117,8 +110,7 @@ void MyPhysicsManager::DrawDebugInfo() {
     for (auto [key, pNode] : scene.GeometryNodes) {
         auto pGeometryNode = pNode;
 
-        if (auto rigidBody =
-                std::static_pointer_cast<RigidBody>(pNode->RigidBody())) {
+        if (auto rigidBody = std::static_pointer_cast<RigidBody>(pNode->RigidBody())) {
             auto motionState  = rigidBody->GetMotionState();
             auto pGeometry    = rigidBody->GetCollisionShape();
             auto trans        = motionState->GetTransition();
@@ -128,8 +120,7 @@ void MyPhysicsManager::DrawDebugInfo() {
     }
 }
 
-void MyPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans,
-                                const vec3f& centerOfMass) {
+void MyPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass) {
     vec3f bbMin, bbMax;
     vec3f color(0.7f, 0.6f, 0.5f);
     mat4f _trans(1.0f);
@@ -138,7 +129,7 @@ void MyPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans,
     _trans.data[3][2] = centerOfMass.z * trans.data[2][2];  // scale by z-scale
     _trans            = trans * _trans;
     geometry.GetAabb(_trans, bbMin, bbMax);
-    g_pGraphicsManager->DrawBox(bbMin, bbMax, color);
+    g_pGraphicsManager->RenderBox(bbMin, bbMax, color);
 }
 
 #endif

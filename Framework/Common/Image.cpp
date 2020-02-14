@@ -2,13 +2,8 @@
 #include "MemoryManager.hpp"
 
 namespace My {
-Image::Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch,
-             size_t dataSize)
-    : m_width(width),
-      m_height(height),
-      m_bitcount(bitcount),
-      m_pitch(pitch),
-      m_dataSize(dataSize) {
+Image::Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t dataSize)
+    : m_width(width), m_height(height), m_bitcount(bitcount), m_pitch(pitch), m_dataSize(dataSize) {
     m_pData = g_pMemoryManager->Allocate(dataSize);
 }
 
