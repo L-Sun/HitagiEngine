@@ -7,24 +7,24 @@
 using namespace My;
 
 namespace My {
-std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
-std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
+std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
+std::unique_ptr<AssetLoader>   g_AssetLoader(new AssetLoader);
 }  // namespace My
 
 int main(int argc, char const* argv[]) {
-    g_pMemoryManager->Initialize();
-    g_pAssetLoader->Initialize();
+    g_MemoryManager->Initialize();
+    g_AssetLoader->Initialize();
 
 #ifdef __ORBIS__
-    g_pAssetLoader->AddSearchPath("/app0");
+    g_AssetLoader->AddSearchPath("/app0");
 #endif
 
     {
         Buffer buf;
         if (argc >= 2) {
-            buf = g_pAssetLoader->SyncOpenAndReadBinary(argv[1]);
+            buf = g_AssetLoader->SyncOpenAndReadBinary(argv[1]);
         } else {
-            buf = g_pAssetLoader->SyncOpenAndReadBinary("Asset/Textures/b.jpg");
+            buf = g_AssetLoader->SyncOpenAndReadBinary("Asset/Textures/b.jpg");
         }
 
         JpegParser jfif_parser;
@@ -33,8 +33,8 @@ int main(int argc, char const* argv[]) {
         std::cout << image;
     }
 
-    g_pAssetLoader->Finalize();
-    g_pMemoryManager->Finalize();
+    g_AssetLoader->Finalize();
+    g_MemoryManager->Finalize();
 
     return 0;
 }

@@ -11,15 +11,14 @@ int GLFWApplication::Initialize() {
         glfwWindowHint(hint, value);
     }
 
-    m_window = glfwCreateWindow(m_Config.screenWidth, m_Config.screenHeight,
-                                m_Config.appName.c_str(), NULL, NULL);
+    m_Window = glfwCreateWindow(m_Config.screenWidth, m_Config.screenHeight, m_Config.appName.c_str(), NULL, NULL);
 
-    if (m_window == NULL) {
+    if (m_Window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
-    glfwMakeContextCurrent(m_window);
+    glfwMakeContextCurrent(m_Window);
 
     // first call base class initialization
     result = BaseApplication::Initialize();
@@ -34,43 +33,37 @@ void GLFWApplication::Finalize() {
 }
 
 void GLFWApplication::Tick() {
-    BaseApplication::m_bQuit = glfwWindowShouldClose(m_window);
+    BaseApplication::m_Quit = glfwWindowShouldClose(m_Window);
     BaseApplication::Tick();
-    glfwSetKeyCallback(m_window, KeyCallback);
+    glfwSetKeyCallback(m_Window, KeyCallback);
     glfwPollEvents();
     OnDraw();
-    glfwSwapBuffers(m_window);
+    glfwSwapBuffers(m_Window);
 }
 
-void GLFWApplication::KeyCallback(GLFWwindow* window, int key, int scancode,
-                                  int action, int mods) {
+void GLFWApplication::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_pInputManager->UpArrowKeyDown();
+        g_InputManager->UpArrowKeyDown();
     else if (key == GLFW_KEY_UP && action == GLFW_RELEASE)
-        g_pInputManager->UpArrowKeyUp();
-    else if (key == GLFW_KEY_DOWN &&
-             (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_pInputManager->DownArrowKeyDown();
+        g_InputManager->UpArrowKeyUp();
+    else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        g_InputManager->DownArrowKeyDown();
     else if (key == GLFW_KEY_DOWN && action == GLFW_RELEASE)
-        g_pInputManager->DownArrowKeyUp();
-    else if (key == GLFW_KEY_LEFT &&
-             (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_pInputManager->LeftArrowKeyDown();
+        g_InputManager->DownArrowKeyUp();
+    else if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        g_InputManager->LeftArrowKeyDown();
     else if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE)
-        g_pInputManager->LeftArrowKeyUp();
-    else if (key == GLFW_KEY_RIGHT &&
-             (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_pInputManager->RightArrowKeyDown();
+        g_InputManager->LeftArrowKeyUp();
+    else if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        g_InputManager->RightArrowKeyDown();
     else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
-        g_pInputManager->RightArrowKeyUp();
-    else if (key == GLFW_KEY_D &&
-             (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_pInputManager->DebugKeyDown();
+        g_InputManager->RightArrowKeyUp();
+    else if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        g_InputManager->DebugKeyDown();
     else if (key == GLFW_KEY_D && action == GLFW_RELEASE)
-        g_pInputManager->DebugKeyUp();
+        g_InputManager->DebugKeyUp();
     else if (key == GLFW_KEY_R && action == GLFW_PRESS)
-        g_pInputManager->ResetKeyDown();
-    else if (key == GLFW_KEY_ESCAPE &&
-             (action == GLFW_PRESS || action == GLFW_REPEAT))
+        g_InputManager->ResetKeyDown();
+    else if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS || action == GLFW_REPEAT))
         glfwSetWindowShouldClose(window, true);
 }

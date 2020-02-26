@@ -9,70 +9,69 @@
 using namespace My;
 
 Allocator::Allocator()
-    : m_pPageList(nullptr),
-      m_pFreeList(nullptr),
-      m_szDataSize(0),
-      m_szPageSize(0),
-      m_szAlignmentSize(0),
-      m_szBlockSize(0),
-      m_nBlocksPerPage(0) {}
+    : m_PageList(nullptr),
+      m_FreeList(nullptr),
+      m_DataSize(0),
+      m_PageSize(0),
+      m_AlignmentSize(0),
+      m_BlockSize(0),
+      m_BlocksPerPage(0) {}
 
-Allocator::Allocator(size_t data_size, size_t page_size, size_t alignment)
-    : m_pPageList(nullptr), m_pFreeList(nullptr) {
-    Reset(data_size, page_size, alignment);
+Allocator::Allocator(size_t dataSize, size_t pageSize, size_t alignment) : m_PageList(nullptr), m_FreeList(nullptr) {
+    Reset(dataSize, pageSize, alignment);
 }
 
 Allocator::~Allocator() { FreeAll(); }
 
-void Allocator::Reset(size_t data_size, size_t page_size, size_t alignment) {
+void Allocator::Reset(size_t dataSize, size_t pageSize, size_t alignment) {
     FreeAll();
 
-    m_szDataSize = data_size;
-    m_szPageSize = page_size;
+    m_DataSize = dataSize;
+    m_PageSize = pageSize;
 
-    size_t minimal_size = (sizeof(BlockHeader) > m_szDataSize) ? sizeof(BlockHeader) : m_szDataSize;
+    size_t minimal_size = (sizeof(BlockHeader) > m_DataSize) ? sizeof(BlockHeader) : m_DataSize;
 
-#if defined(DEBUG)
+#if defined(_DEBUG)
     assert(alignment > 0 && ((alignment & (alignment - 1))) == 0);
 #endif
 
-    m_szBlockSize     = ALIGN(minimal_size, alignment);
-    m_szAlignmentSize = m_szBlockSize - minimal_size;
-    m_nBlocksPerPage  = (m_szPageSize - sizeof(PageHeader)) / m_szBlockSize;
+    m_BlockSize     = ALIGN(minimal_size, alignment);
+    m_AlignmentSize = m_BlockSize - minimal_size;
+    m_BlocksPerPage = (m_PageSize - sizeof(PageHeader)) / m_BlockSize;
 }
 
 void* Allocator::Allocate() {
-    if (!m_pFreeList) {
-        PageHeader* pNewPage = reinterpret_cast<PageHeader*>(new uint8_t[m_szPageSize]);
-        ++m_nPages;
-        m_nBLocks += m_nBlocksPerPage;
-        m_nFreeBlocks += m_nBlocksPerPage;
+    if (!m_FreeList) {
+        PageHeader* newPage = reinterpret_cast<PageHeader*>(new uint8_t[m_PageSize]);
+        ++m_Pages;
+        m_BLocks += m_BlocksPerPage;
+        m_FreeBlocks += m_BlocksPerPage;
 
-#if defined(DEBUG)
-        FillFreePage(pNewPage);
+#if defined(_DEBUG)
+        FillFreePage(newPage);
 #endif  // DEBUG
 
         // push new page
-        if (m_pPageList) pNewPage->pNext = m_pPageList;
-        m_pPageList = pNewPage;
+        if (m_PageList) newPage->next = m_PageList;
+        m_PageList = newPage;
 
         // the first block in page
-        BlockHeader* pBlock = pNewPage->Blocks();
+        BlockHeader* block = newPage->Blocks();
         // fill block
-        for (uint32_t i = 0; i < m_nBlocksPerPage - 1; i++) {
-            pBlock->pNext = NextBlock(pBlock);
-            pBlock        = NextBlock(pBlock);
+        for (uint32_t i = 0; i < m_BlocksPerPage - 1; i++) {
+            block->next = NextBlock(block);
+            block       = NextBlock(block);
         }
-        pBlock->pNext = nullptr;  // the last block
+        block->next = nullptr;  // the last block
         // push free block
-        m_pFreeList = pNewPage->Blocks();
+        m_FreeList = newPage->Blocks();
     }
 
-    BlockHeader* freeBlock = m_pFreeList;
-    m_pFreeList            = m_pFreeList->pNext;
-    --m_nFreeBlocks;
+    BlockHeader* freeBlock = m_FreeList;
+    m_FreeList             = m_FreeList->next;
+    --m_FreeBlocks;
 
-#if defined(DEBUG)
+#if defined(_DEBUG)
     FillAllocatedBlock(freeBlock);
 #endif  // DEBUG
 
@@ -82,56 +81,54 @@ void* Allocator::Allocate() {
 void Allocator::Free(void* p) {
     BlockHeader* block = reinterpret_cast<BlockHeader*>(p);
 
-#if defined(DEBUG)
+#if defined(_DEBUG)
     FillFreeBlock(block);
 #endif  // DEBUG
 
     // push free block
-    block->pNext = m_pFreeList;
-    m_pFreeList  = block;
-    ++m_nFreeBlocks;
+    block->next = m_FreeList;
+    m_FreeList  = block;
+    ++m_FreeBlocks;
 }
 
 void Allocator::FreeAll() {
-    PageHeader* pPage = m_pPageList;
+    PageHeader* page = m_PageList;
 
-    while (pPage) {
-        PageHeader* _p = pPage;
-        pPage          = pPage->pNext;
+    while (page) {
+        PageHeader* _p = page;
+        page           = page->next;
         delete[] reinterpret_cast<uint8_t*>(_p);
     }
 
-    m_pPageList = nullptr;
-    m_pFreeList = nullptr;
+    m_PageList = nullptr;
+    m_FreeList = nullptr;
 
-    m_nPages      = 0;
-    m_nBLocks     = 0;
-    m_nFreeBlocks = 0;
+    m_Pages      = 0;
+    m_BLocks     = 0;
+    m_FreeBlocks = 0;
 }
 
-#if defined(DEBUG)
+#if defined(_DEBUG)
 
-void Allocator::FillFreePage(PageHeader* pPage) {
-    pPage->pNext        = nullptr;
-    BlockHeader* pBlock = pPage->Blocks();
+void Allocator::FillFreePage(PageHeader* page) {
+    page->next          = nullptr;
+    BlockHeader* pBlock = page->Blocks();
 
-    for (uint32_t i = 0; i < m_nBlocksPerPage; i++) FillFreeBlock(pBlock);
+    for (uint32_t i = 0; i < m_BlocksPerPage; i++) FillFreeBlock(pBlock);
 }
 
-void Allocator::FillFreeBlock(BlockHeader* pBlock) {
-    std::memset(pBlock, PATTERN_FREE, m_szBlockSize - m_szAlignmentSize);
-    std::memset(reinterpret_cast<uint8_t*>(pBlock) + m_szBlockSize - m_szAlignmentSize, PATTERN_ALIGN,
-                m_szAlignmentSize);
+void Allocator::FillFreeBlock(BlockHeader* block) {
+    std::memset(block, PATTERN_FREE, m_BlockSize - m_AlignmentSize);
+    std::memset(reinterpret_cast<uint8_t*>(block) + m_BlockSize - m_AlignmentSize, PATTERN_ALIGN, m_AlignmentSize);
 }
 
-void Allocator::FillAllocatedBlock(BlockHeader* pBlock) {
-    std::memset(pBlock, PATTERN_ALLOC, m_szBlockSize - m_szAlignmentSize);
-    std::memset(reinterpret_cast<uint8_t*>(pBlock) + m_szBlockSize - m_szAlignmentSize, PATTERN_ALIGN,
-                m_szAlignmentSize);
+void Allocator::FillAllocatedBlock(BlockHeader* block) {
+    std::memset(block, PATTERN_ALLOC, m_BlockSize - m_AlignmentSize);
+    std::memset(reinterpret_cast<uint8_t*>(block) + m_BlockSize - m_AlignmentSize, PATTERN_ALIGN, m_AlignmentSize);
 }
 
 #endif  // DEBUG
 
-BlockHeader* Allocator::NextBlock(BlockHeader* pBlock) {
-    return reinterpret_cast<BlockHeader*>(reinterpret_cast<uint8_t*>(pBlock) + m_szBlockSize);
+BlockHeader* Allocator::NextBlock(BlockHeader* block) {
+    return reinterpret_cast<BlockHeader*>(reinterpret_cast<uint8_t*>(block) + m_BlockSize);
 }

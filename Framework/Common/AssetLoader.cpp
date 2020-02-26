@@ -42,7 +42,7 @@ bool AssetLoader::checkFile(const std::filesystem::path& filePath) const {
         std::cerr << "\n[Error-AssetLoader] File does not exists." << std::endl;
         return false;
     }
-#if defined(DEBUG)
+#if defined(_DEBUG)
     std::cout << " File size: " << std::filesystem::file_size(filePath) << " bytes." << std::endl;
 #endif  // DEBUG
     return true;

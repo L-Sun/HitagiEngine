@@ -13,7 +13,7 @@ public:
     void DrawDebugInfo();
 
 protected:
-    bool m_bDrawDebugInfo = false;
+    bool m_DrawDebugInfo = false;
 };
-extern std::unique_ptr<DebugManager> g_pDebugManager;
+extern std::unique_ptr<DebugManager> g_DebugManager;
 }  // namespace My

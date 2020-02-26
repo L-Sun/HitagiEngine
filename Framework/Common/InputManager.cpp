@@ -13,120 +13,120 @@ void InputManager::Finalize() {}
 void InputManager::Tick() {}
 
 void InputManager::UpArrowKeyDown() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Up Arrow Key Down!" << std::endl;
 #endif
-    g_pGameLogic->OnUpKeyDown();
-    if (!m_bUpKeyPressed) {
-        g_pGameLogic->OnUpKey();
-        m_bUpKeyPressed = true;
+    g_GameLogic->OnUpKeyDown();
+    if (!m_UpKeyPressed) {
+        g_GameLogic->OnUpKey();
+        m_UpKeyPressed = true;
     }
 }
 
 void InputManager::UpArrowKeyUp() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Up Arrow Key Up!" << std::endl;
 #endif
-    g_pGameLogic->OnUpKeyUp();
-    m_bUpKeyPressed = false;
+    g_GameLogic->OnUpKeyUp();
+    m_UpKeyPressed = false;
 }
 
 void InputManager::DownArrowKeyDown() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Down Arrow Key Down!" << std::endl;
 #endif
-    g_pGameLogic->OnDownKeyDown();
-    if (!m_bDownKeyPressed) {
-        g_pGameLogic->OnDownKey();
-        m_bDownKeyPressed = true;
+    g_GameLogic->OnDownKeyDown();
+    if (!m_DownKeyPressed) {
+        g_GameLogic->OnDownKey();
+        m_DownKeyPressed = true;
     }
 }
 
 void InputManager::DownArrowKeyUp() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Down Arrow Key Up!" << std::endl;
 #endif
-    g_pGameLogic->OnDownKeyUp();
-    m_bDownKeyPressed = false;
+    g_GameLogic->OnDownKeyUp();
+    m_DownKeyPressed = false;
 }
 
 void InputManager::LeftArrowKeyDown() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Left Arrow Key Down!" << std::endl;
 #endif
-    g_pGameLogic->OnLeftKeyDown();
-    if (!m_bLeftKeyPressed) {
-        g_pGameLogic->OnLeftKey();
-        m_bLeftKeyPressed = true;
+    g_GameLogic->OnLeftKeyDown();
+    if (!m_LeftKeyPressed) {
+        g_GameLogic->OnLeftKey();
+        m_LeftKeyPressed = true;
     }
 }
 
 void InputManager::LeftArrowKeyUp() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Left Arrow Key Up!" << std::endl;
 #endif
-    g_pGameLogic->OnLeftKeyUp();
-    m_bLeftKeyPressed = false;
+    g_GameLogic->OnLeftKeyUp();
+    m_LeftKeyPressed = false;
 }
 
 void InputManager::RightArrowKeyDown() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Right Arrow Key Down!" << std::endl;
 #endif
-    g_pGameLogic->OnRightKeyDown();
-    if (!m_bRightKeyPressed) {
-        g_pGameLogic->OnRightKey();
-        m_bRightKeyPressed = true;
+    g_GameLogic->OnRightKeyDown();
+    if (!m_RightKeyPressed) {
+        g_GameLogic->OnRightKey();
+        m_RightKeyPressed = true;
     }
 }
 
 void InputManager::RightArrowKeyUp() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Right Arrow Key Up!" << std::endl;
 #endif
-    g_pGameLogic->OnRightKeyUp();
-    m_bRightKeyPressed = false;
+    g_GameLogic->OnRightKeyUp();
+    m_RightKeyPressed = false;
 }
 
 void InputManager::CKeyDown() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] C Key Down!" << std::endl;
 #endif
-    g_pGameLogic->OnCKeyDown();
-    if (!m_bRightKeyPressed) {
-        g_pGameLogic->OnCKey();
-        m_bCKeyPressed = true;
+    g_GameLogic->OnCKeyDown();
+    if (!m_RightKeyPressed) {
+        g_GameLogic->OnCKey();
+        m_CKeyPressed = true;
     }
 }
 
 void InputManager::CKeyUp() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] C Key Up!" << std::endl;
 #endif
-    g_pGameLogic->OnCKeyUp();
-    m_bCKeyPressed = false;
+    g_GameLogic->OnCKeyUp();
+    m_CKeyPressed = false;
 }
 
 void InputManager::ResetKeyDown() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Reset Key Down!" << std::endl;
 #endif
-    g_pSceneManager->ResetScene();
+    g_SceneManager->ResetScene();
 }
 
 void InputManager::ResetKeyUp() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     std::cout << "[InputManager] Reset Key Up!" << std::endl;
 #endif
 }
 
-#ifdef DEBUG
+#if defined(_DEBUG)
 void InputManager::DebugKeyDown() {
     std::cout << "[InputManager] Debug Key Down!" << std::endl;
-    g_pDebugManager->ToggleDebugInfo();
+    g_DebugManager->ToggleDebugInfo();
 }
 #endif
 
-#ifdef DEBUG
+#if defined(_DEBUG)
 void InputManager::DebugKeyUp() { std::cout << "[InputManager] Debug Key Up!" << std::endl; }
 #endif

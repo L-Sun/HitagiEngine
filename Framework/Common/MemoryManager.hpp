@@ -26,11 +26,11 @@ public:
     void  Free(void* p, size_t size);
 
 private:
-    static size_t*    m_pBlockSizeLookup;
-    static Allocator* m_pAllocators;
+    static size_t*    m_BlockSizeLookup;
+    static Allocator* m_Allocators;
     static Allocator* LookUpAllocator(size_t size);
-    bool              m_bInitialized = false;
+    bool              m_Initialized = false;
 };
 
-extern std::unique_ptr<MemoryManager> g_pMemoryManager;
+extern std::unique_ptr<MemoryManager> g_MemoryManager;
 }  // namespace My

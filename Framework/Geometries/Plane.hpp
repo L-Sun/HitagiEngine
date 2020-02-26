@@ -11,11 +11,11 @@ public:
 
     void GetAabb(const mat4f& trans, vec3f& aabbMin, vec3f& aabbMax) const final;
 
-    vec3f  GetNormal() const { return m_vNormal; };
-    float GetIntercept() const { return m_fIntercept; };
+    vec3f GetNormal() const { return m_Normal; };
+    float GetIntercept() const { return m_Intercept; };
 
 protected:
-    vec3f  m_vNormal;
-    float m_fIntercept;
+    vec3f m_Normal;
+    float m_Intercept;
 };
 }  // namespace My

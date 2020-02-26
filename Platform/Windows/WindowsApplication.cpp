@@ -1,6 +1,6 @@
 
-#include "WindowsApplication.hpp"
 #include <tchar.h>
+#include "WindowsApplication.hpp"
 
 using namespace My;
 
@@ -27,19 +27,18 @@ void WindowsApplication::CreateMainWindow() {
     RegisterClassEx(&wc);
 
     // create the window and use the result as the handle
-    m_hWnd =
-        CreateWindowEx(0,
-                       _T("GameEngineFromScratch"),  // name of the window class
-                       m_Config.appName.c_str(),     // title of the window
-                       WS_OVERLAPPEDWINDOW,          // window style
-                       CW_USEDEFAULT,                // x-position of the window
-                       CW_USEDEFAULT,                // y-position of the window
-                       m_Config.screenWidth,         // width of the window
-                       m_Config.screenHeight,        // height of the window
-                       NULL,       // we have no parent window, NULL
-                       NULL,       // we aren't using menus, NULL
-                       hInstance,  // application handle
-                       this);      // pass pointer to current object
+    m_hWnd = CreateWindowEx(0,
+                            _T("GameEngineFromScratch"),  // name of the window class
+                            m_Config.appName.c_str(),     // title of the window
+                            WS_OVERLAPPEDWINDOW,          // window style
+                            CW_USEDEFAULT,                // x-position of the window
+                            CW_USEDEFAULT,                // y-position of the window
+                            m_Config.screenWidth,         // width of the window
+                            m_Config.screenHeight,        // height of the window
+                            NULL,                         // we have no parent window, NULL
+                            NULL,                         // we aren't using menus, NULL
+                            hInstance,                    // application handle
+                            this);                        // pass pointer to current object
 
     // display the window on the screen
     ShowWindow(m_hWnd, SW_SHOW);
@@ -50,7 +49,7 @@ int WindowsApplication::Initialize() {
 
     CreateMainWindow();
 
-    m_hDc = GetDC(m_hWnd);
+    m_hHdc = GetDC(m_hWnd);
 
     // call base class initialization
     result = BaseApplication::Initialize();
@@ -61,7 +60,7 @@ int WindowsApplication::Initialize() {
 }
 
 void WindowsApplication::Finalize() {
-    ReleaseDC(m_hWnd, m_hDc);
+    ReleaseDC(m_hWnd, m_hHdc);
 
     BaseApplication::Finalize();
 }
@@ -87,21 +86,17 @@ void WindowsApplication::Tick() {
 }
 
 // this is the main message handler for the program
-LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
-                                                WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     WindowsApplication* pThis;
     if (message == WM_NCCREATE) {
-        pThis = static_cast<WindowsApplication*>(
-            reinterpret_cast<CREATESTRUCT*>(lParam)->lpCreateParams);
+        pThis = static_cast<WindowsApplication*>(reinterpret_cast<CREATESTRUCT*>(lParam)->lpCreateParams);
 
         SetLastError(0);
-        if (!SetWindowLongPtr(hWnd, GWLP_USERDATA,
-                              reinterpret_cast<LONG_PTR>(pThis))) {
+        if (!SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pThis))) {
             if (GetLastError() != 0) return FALSE;
         }
     } else {
-        pThis = reinterpret_cast<WindowsApplication*>(
-            GetWindowLongPtr(hWnd, GWLP_USERDATA));
+        pThis = reinterpret_cast<WindowsApplication*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
     }
 
     // sort through and find what code to run for the message given
@@ -109,24 +104,24 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
         case WM_KEYUP: {
             switch (wParam) {
                 case VK_LEFT:
-                    g_pInputManager->LeftArrowKeyUp();
+                    g_InputManager->LeftArrowKeyUp();
                     break;
                 case VK_RIGHT:
-                    g_pInputManager->RightArrowKeyUp();
+                    g_InputManager->RightArrowKeyUp();
                     break;
                 case VK_UP:
-                    g_pInputManager->UpArrowKeyUp();
+                    g_InputManager->UpArrowKeyUp();
                     break;
                 case VK_DOWN:
-                    g_pInputManager->DownArrowKeyUp();
+                    g_InputManager->DownArrowKeyUp();
                     break;
                 case 0x43:
-                    g_pInputManager->CKeyUp();
+                    g_InputManager->CKeyUp();
                     break;
                 case 0x44:
-                    g_pInputManager->DebugKeyUp();
+                    g_InputManager->DebugKeyUp();
                 case 0x52:
-                    g_pInputManager->ResetKeyUp();
+                    g_InputManager->ResetKeyUp();
                     break;
                 default:
                     break;
@@ -135,25 +130,25 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
         case WM_KEYDOWN: {
             switch (wParam) {
                 case VK_LEFT:
-                    g_pInputManager->LeftArrowKeyDown();
+                    g_InputManager->LeftArrowKeyDown();
                     break;
                 case VK_RIGHT:
-                    g_pInputManager->RightArrowKeyDown();
+                    g_InputManager->RightArrowKeyDown();
                     break;
                 case VK_UP:
-                    g_pInputManager->UpArrowKeyDown();
+                    g_InputManager->UpArrowKeyDown();
                     break;
                 case VK_DOWN:
-                    g_pInputManager->DownArrowKeyDown();
+                    g_InputManager->DownArrowKeyDown();
                     break;
                 case 0x43:
-                    g_pInputManager->CKeyDown();
+                    g_InputManager->CKeyDown();
                     break;
                 case 0x44:
-                    g_pInputManager->DebugKeyDown();
+                    g_InputManager->DebugKeyDown();
                     break;
                 case 0x52:
-                    g_pInputManager->ResetKeyDown();
+                    g_InputManager->ResetKeyDown();
                     break;
                 default:
                     break;
@@ -162,7 +157,7 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message,
         case WM_DESTROY: {
             // close the application entirely
             PostQuitMessage(0);
-            m_bQuit = true;
+            m_Quit = true;
         }
     }
 

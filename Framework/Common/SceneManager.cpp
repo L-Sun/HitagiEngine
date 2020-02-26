@@ -8,10 +8,10 @@ SceneManager::~SceneManager() {}
 
 int SceneManager::Initialize() {
     int result = 0;
-    m_pScene   = std::make_unique<Scene>();
+    m_Scene    = std::make_unique<Scene>();
     return result;
 }
-void SceneManager::Finalize() { m_pScene = nullptr; }
+void SceneManager::Finalize() { m_Scene = nullptr; }
 
 void SceneManager::Tick() {
     if (IsSceneChanged()) {
@@ -19,37 +19,37 @@ void SceneManager::Tick() {
 }
 
 int SceneManager::LoadScene(std::filesystem::path sceneFile) {
-    m_scenePath      = sceneFile;
-    Buffer       buf = g_pAssetLoader->SyncOpenAndReadBinary(sceneFile);
+    m_ScenePath      = sceneFile;
+    Buffer       buf = g_AssetLoader->SyncOpenAndReadBinary(sceneFile);
     AssimpParser parser;
-    m_pScene = parser.Parse(buf);
-    if (m_pScene) {
-        m_pScene->LoadResource();
-        m_bDirtyFlag = true;
+    m_Scene = parser.Parse(buf);
+    if (m_Scene) {
+        m_Scene->LoadResource();
+        m_DirtyFlag = true;
         return 0;
     }
     return -1;
 }
 
-void SceneManager::ResetScene() { m_bDirtyFlag = true; }
+void SceneManager::ResetScene() { m_DirtyFlag = true; }
 
-const Scene& SceneManager::GetSceneForRendering() const { return *m_pScene; }
+const Scene& SceneManager::GetSceneForRendering() const { return *m_Scene; }
 
-const Scene& SceneManager::GetSceneForPhysicsSimulation() const { return *m_pScene; }
+const Scene& SceneManager::GetSceneForPhysicsSimulation() const { return *m_Scene; }
 
-bool SceneManager::IsSceneChanged() { return m_bDirtyFlag; }
+bool SceneManager::IsSceneChanged() { return m_DirtyFlag; }
 
-void SceneManager::NotifySceneIsRenderingQueued() { m_bDirtyFlag = false; }
+void SceneManager::NotifySceneIsRenderingQueued() { m_DirtyFlag = false; }
 
 void SceneManager::NotifySceneIsPhysicalSimulationQueued() {}
 
 std::weak_ptr<SceneGeometryNode> SceneManager::GetSceneGeometryNode(const std::string& name) {
-    auto it = m_pScene->GeometryNodes.find(name);
-    if (it != m_pScene->GeometryNodes.end())
+    auto it = m_Scene->GeometryNodes.find(name);
+    if (it != m_Scene->GeometryNodes.end())
         return it->second;
     else
         return std::weak_ptr<SceneGeometryNode>();
 }
 std::weak_ptr<SceneObjectGeometry> SceneManager::GetSceneGeometryObject(const std::string& key) {
-    return m_pScene->Geometries.find(key)->second;
+    return m_Scene->Geometries.find(key)->second;
 }

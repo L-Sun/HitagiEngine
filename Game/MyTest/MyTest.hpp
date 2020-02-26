@@ -17,10 +17,9 @@ class MyTest : public GameLogic {
     void OnCKey() final;
 
 private:
-    std::vector<std::string> selectedNode = {"Sphere", "Cone", "Suzanne",
-                                             "Cube"};
+    std::vector<std::string> selectedNode = {"Sphere", "Cone", "Suzanne", "Cube"};
 
-    Clock  m_clock;
+    Clock  m_Clock;
     size_t i = 0;
 };
 }  // namespace My

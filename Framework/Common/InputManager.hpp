@@ -25,12 +25,12 @@ public:
     void DebugKeyDown();
 
 protected:
-    bool m_bUpKeyPressed    = false;
-    bool m_bDownKeyPressed  = false;
-    bool m_bLeftKeyPressed  = false;
-    bool m_bRightKeyPressed = false;
-    bool m_bCKeyPressed     = false;
+    bool m_UpKeyPressed    = false;
+    bool m_DownKeyPressed  = false;
+    bool m_LeftKeyPressed  = false;
+    bool m_RightKeyPressed = false;
+    bool m_CKeyPressed     = false;
 };
 
-extern std::unique_ptr<InputManager> g_pInputManager;
+extern std::unique_ptr<InputManager> g_InputManager;
 }  // namespace My

@@ -23,5 +23,5 @@ private:
     bool checkFile(const std::filesystem::path& filePath) const;
 };  // namespace My
 
-extern std::unique_ptr<AssetLoader> g_pAssetLoader;
+extern std::unique_ptr<AssetLoader> g_AssetLoader;
 }  // namespace My

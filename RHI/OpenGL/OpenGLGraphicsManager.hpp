@@ -20,7 +20,7 @@ public:
     void Clear() final;
     void Draw() final;
 
-#ifdef DEBUG
+#if defined(_DEBUG)
     void RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) final;
     void RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) final;
     void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) final;
@@ -76,7 +76,7 @@ private:
         vec3f       color;
     };
 
-    ShaderProgram m_basicShader = {
+    ShaderProgram m_BasicShader = {
         0,
         {
             {"Asset/Shaders/basic.vs", GL_VERTEX_SHADER, 0},
@@ -84,7 +84,7 @@ private:
         },
         {"POSITION", "NORMAL", "TEXCOORD"}};
 
-    ShaderProgram m_textShader = {
+    ShaderProgram m_TextShader = {
         0,
         {
             {"Asset/Shaders/text.vs", GL_VERTEX_SHADER, 0},
@@ -93,16 +93,16 @@ private:
         {"vertex"}};
 
     std::unordered_map<xg::Guid, GLuint>                      m_Textures;
-    std::unordered_map<xg::Guid, std::shared_ptr<MeshBuffer>> m_meshBuffers;
+    std::unordered_map<xg::Guid, std::shared_ptr<MeshBuffer>> m_MeshBuffers;
     std::vector<DrawBatchContext>                             m_DrawBatchContext;
 
-    std::unordered_map<char, CharacterInfo> m_characters;
-    GLuint                                  m_textRenderVAO = 0;
-    GLuint                                  m_textRenderVBO = 0;
+    std::unordered_map<char, CharacterInfo> m_Characters;
+    GLuint                                  m_TextRenderVAO = 0;
+    GLuint                                  m_TextRenderVBO = 0;
 
     std::queue<TextRenderInfo> m_textRenderQueue;
 
-#ifdef DEBUG
+#if defined(_DEBUG)
     struct DebugDrawBatchContext {
         GLuint  vao;
         GLenum  mode;
@@ -111,7 +111,7 @@ private:
     };
     std::vector<DebugDrawBatchContext> m_DebugDrawBatchContext;
     std::vector<GLuint>                m_DebugBuffers;
-    ShaderProgram                      m_debugShader = {
+    ShaderProgram                      m_DebugShader = {
         0,
         {
             {"Asset/Shaders/debug.vs", GL_VERTEX_SHADER, 0},

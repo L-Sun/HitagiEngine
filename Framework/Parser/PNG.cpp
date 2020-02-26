@@ -9,14 +9,14 @@ struct ImageSource {
     int            size;
     int            offset;
 };
-void pngReadCallback(png_structp png_ptr, png_bytep data, png_size_t length) {
-    auto isource = reinterpret_cast<ImageSource*>(png_get_io_ptr(png_ptr));
+void pngReadCallback(png_structp png_tr, png_bytep data, png_size_t length) {
+    auto isource = reinterpret_cast<ImageSource*>(png_get_io_ptr(png_tr));
 
     if (isource->offset + length <= isource->size) {
         std::memcpy(data, isource->data + isource->offset, length);
         isource->offset += length;
     } else
-        png_error(png_ptr, "[libpng] pngReaderCallback failed.");
+        png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
 Image PngParser::Parse(const Buffer& buf) {
@@ -30,22 +30,22 @@ Image PngParser::Parse(const Buffer& buf) {
         return Image();
     }
 
-    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr,
+    png_structp png_tr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr,
                                                  nullptr, nullptr);
-    if (!png_ptr) {
+    if (!png_tr) {
         std::cerr << "[libpng] libpng can not create read struct." << std::endl;
         return Image();
     }
-    png_infop info_ptr = png_create_info_struct(png_ptr);
+    png_infop info_ptr = png_create_info_struct(png_tr);
     if (!info_ptr) {
         std::cerr << "[libpng] libpng can not create info struct." << std::endl;
-        png_destroy_read_struct(&png_ptr, nullptr, nullptr);
+        png_destroy_read_struct(&png_tr, nullptr, nullptr);
         return Image();
     }
 
-    if (setjmp(png_jmpbuf(png_ptr))) {
+    if (setjmp(png_jmpbuf(png_tr))) {
         std::cerr << "[libpng] error during read_image." << std::endl;
-        png_destroy_read_struct(&png_ptr, &info_ptr, 0);
+        png_destroy_read_struct(&png_tr, &info_ptr, 0);
         return Image();
     }
 
@@ -54,23 +54,23 @@ Image PngParser::Parse(const Buffer& buf) {
     imgSource.size   = buf.GetDataSize();
     imgSource.offset = 0;
 
-    png_set_read_fn(png_ptr, &imgSource, pngReadCallback);
+    png_set_read_fn(png_tr, &imgSource, pngReadCallback);
     png_read_png(
-        png_ptr, info_ptr,
+        png_tr, info_ptr,
         PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_PACKING,
         0);
 
-    auto  width    = png_get_image_width(png_ptr, info_ptr);
-    auto  height   = png_get_image_height(png_ptr, info_ptr);
+    auto  width    = png_get_image_width(png_tr, info_ptr);
+    auto  height   = png_get_image_height(png_tr, info_ptr);
     auto  bitcount = 32;
     auto  pitch    = ((width * bitcount >> 3) + 3) & ~3;
     auto  dataSize = pitch * height;
     Image img(width, height, bitcount, pitch, dataSize);
 
-    png_bytepp rows = png_get_rows(png_ptr, info_ptr);
+    png_bytepp rows = png_get_rows(png_tr, info_ptr);
     auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img.getData());
 
-    switch (png_get_color_type(png_ptr, info_ptr)) {
+    switch (png_get_color_type(png_tr, info_ptr)) {
         case PNG_COLOR_TYPE_GRAY: {
             for (int i = 0; i < height; i++) {
                 for (int j = 0; j < width; j++) {
@@ -118,6 +118,6 @@ Image PngParser::Parse(const Buffer& buf) {
             break;
     }
 
-    png_destroy_read_struct(&png_ptr, &info_ptr, 0);
+    png_destroy_read_struct(&png_tr, &info_ptr, 0);
     return img;
 }

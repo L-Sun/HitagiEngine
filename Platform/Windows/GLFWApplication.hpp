@@ -12,16 +12,14 @@ public:
     virtual void Tick();
 
 protected:
-    GLFWwindow* m_window;
+    GLFWwindow* m_Window;
 
 private:
-    std::map<unsigned int, unsigned int> WindowHintConfig = {
-        {GLFW_CONTEXT_VERSION_MAJOR, 4},
-        {GLFW_CONTEXT_VERSION_MINOR, 5},
-        {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
-        {GLFW_SAMPLES, 4}};
+    std::map<unsigned int, unsigned int> WindowHintConfig = {{GLFW_CONTEXT_VERSION_MAJOR, 4},
+                                                             {GLFW_CONTEXT_VERSION_MINOR, 5},
+                                                             {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
+                                                             {GLFW_SAMPLES, 4}};
 
-    static void KeyCallback(GLFWwindow* window, int key, int scancode,
-                            int action, int mods);
+    static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 };
 }  // namespace My

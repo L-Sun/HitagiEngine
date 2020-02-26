@@ -22,7 +22,7 @@ int OpenGLApplication::Initialize() {
 
 void OpenGLApplication::Finalize() { GLFWApplication::Finalize(); }
 void OpenGLApplication::Tick() {
-    g_pGraphicsManager->Clear();
-    g_pGraphicsManager->Draw();
+    g_GraphicsManager->Clear();
+    g_GraphicsManager->Draw();
     GLFWApplication::Tick();
 }

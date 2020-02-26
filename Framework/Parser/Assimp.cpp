@@ -5,7 +5,7 @@
 
 namespace My {
 std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
-    std::unique_ptr<Scene> pScene(new Scene);
+    std::unique_ptr<Scene> scene(new Scene);
     Assimp::Importer       importer;
 
     auto flag =
@@ -14,9 +14,9 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
         aiPostProcessSteps::aiProcess_GenSmoothNormals |
         aiPostProcessSteps::aiProcess_JoinIdenticalVertices;
 
-    const aiScene* _pScene = importer.ReadFileFromMemory(buf.GetData(), buf.GetDataSize(), flag);
+    const aiScene* _scene = importer.ReadFileFromMemory(buf.GetData(), buf.GetDataSize(), flag);
 
-    if (!_pScene) {
+    if (!_scene) {
         std::cerr << "[AssimpParser] Can parse the scene." << std::endl;
         return nullptr;
     }
@@ -26,16 +26,16 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
         // Set primitive type
         switch (_mesh->mPrimitiveTypes) {
             case aiPrimitiveType::aiPrimitiveType_LINE:
-                mesh->SetPrimitiveType(PrimitiveType::kLINE_LIST);
+                mesh->SetPrimitiveType(PrimitiveType::LINE_LIST);
                 break;
             case aiPrimitiveType::aiPrimitiveType_POINT:
-                mesh->SetPrimitiveType(PrimitiveType::kPOINT_LIST);
+                mesh->SetPrimitiveType(PrimitiveType::POINT_LIST);
                 break;
             case aiPrimitiveType::aiPrimitiveType_POLYGON:
-                mesh->SetPrimitiveType(PrimitiveType::kPOLYGON);
+                mesh->SetPrimitiveType(PrimitiveType::POLYGON);
                 break;
             case aiPrimitiveType::aiPrimitiveType_TRIANGLE:
-                mesh->SetPrimitiveType(PrimitiveType::kTRI_LIST);
+                mesh->SetPrimitiveType(PrimitiveType::TRI_LIST);
                 break;
             case aiPrimitiveType::_aiPrimitiveType_Force32Bit:
             default:
@@ -47,7 +47,7 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
             std::vector<vec3f> pos(_mesh->mNumVertices);
             for (size_t i = 0; i < _mesh->mNumVertices; i++)
                 pos[i] = vec3f(_mesh->mVertices[i].x, _mesh->mVertices[i].y, _mesh->mVertices[i].z);
-            mesh->AddVertexArray(SceneObjectVertexArray("POSITION", 0, VertexDataType::kFLOAT3, pos.data(), pos.size()));
+            mesh->AddVertexArray(SceneObjectVertexArray("POSITION", 0, VertexDataType::FLOAT3, pos.data(), pos.size()));
         }
 
         // Read Normal
@@ -55,7 +55,7 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
             std::vector<vec3f> normal(_mesh->mNumVertices);
             for (size_t i = 0; i < _mesh->mNumVertices; i++)
                 normal[i] = vec3f(_mesh->mNormals[i].x, _mesh->mNormals[i].y, _mesh->mNormals[i].z);
-            mesh->AddVertexArray(SceneObjectVertexArray("NORMAL", 0, VertexDataType::kFLOAT3, normal.data(), normal.size()));
+            mesh->AddVertexArray(SceneObjectVertexArray("NORMAL", 0, VertexDataType::FLOAT3, normal.data(), normal.size()));
         }
 
         // Read Color
@@ -68,7 +68,7 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
                                      _mesh->mColors[colorChannels][i].b,
                                      _mesh->mColors[colorChannels][i].a);
                 const auto attr = std::string("COLOR") + (colorChannels == 0 ? "" : std::to_string(colorChannels));
-                mesh->AddVertexArray(SceneObjectVertexArray(attr, 0, VertexDataType::kFLOAT4, color.data(), color.size()));
+                mesh->AddVertexArray(SceneObjectVertexArray(attr, 0, VertexDataType::FLOAT4, color.data(), color.size()));
             }
         }
 
@@ -80,7 +80,7 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
                     texcoord[i] = vec2f(_mesh->mTextureCoords[UVChannel][i].x, _mesh->mTextureCoords[UVChannel][i].y);
 
                 const auto attr = std::string("TEXCOORD") + (UVChannel == 0 ? "" : std::to_string(UVChannel));
-                mesh->AddVertexArray(SceneObjectVertexArray(attr, 0, VertexDataType::kFLOAT2, texcoord.data(), texcoord.size()));
+                mesh->AddVertexArray(SceneObjectVertexArray(attr, 0, VertexDataType::FLOAT2, texcoord.data(), texcoord.size()));
             }
         }
 
@@ -91,8 +91,8 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
                 tangent[i]   = vec3f(_mesh->mTangents[i].x, _mesh->mTangents[i].y, _mesh->mTangents[i].z);
                 bitangent[i] = vec3f(_mesh->mBitangents[i].x, _mesh->mBitangents[i].y, _mesh->mBitangents[i].z);
             }
-            mesh->AddVertexArray(SceneObjectVertexArray("TANGENT", 0, VertexDataType::kFLOAT3, tangent.data(), tangent.size()));
-            mesh->AddVertexArray(SceneObjectVertexArray("BITANGENT", 0, VertexDataType::kFLOAT3, bitangent.data(), bitangent.size()));
+            mesh->AddVertexArray(SceneObjectVertexArray("TANGENT", 0, VertexDataType::FLOAT3, tangent.data(), tangent.size()));
+            mesh->AddVertexArray(SceneObjectVertexArray("BITANGENT", 0, VertexDataType::FLOAT3, bitangent.data(), bitangent.size()));
         }
 
         // Read Indices
@@ -100,25 +100,25 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
         for (size_t face = 0; face < _mesh->mNumFaces; face++)
             for (size_t i = 0; i < _mesh->mFaces[face].mNumIndices; i++)
                 indices.push_back(_mesh->mFaces[face].mIndices[i]);
-        mesh->AddIndexArray(SceneObjectIndexArray(0, IndexDataType::kINT32, indices.data(), indices.size()));
+        mesh->AddIndexArray(SceneObjectIndexArray(0, IndexDataType::INT32, indices.data(), indices.size()));
 
-        auto materialRef = _pScene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
-        mesh->SetMaterial(pScene->Materials[materialRef]);
+        auto materialRef = _scene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
+        mesh->SetMaterial(scene->Materials[materialRef]);
         return mesh;
     };
 
     // process camera
-    for (size_t i = 0; i < _pScene->mNumCameras; i++) {
-        const auto _camera           = _pScene->mCameras[i];
+    for (size_t i = 0; i < _scene->mNumCameras; i++) {
+        const auto _camera           = _scene->mCameras[i];
         auto       perspectiveCamera = std::make_shared<SceneObjectPerspectiveCamera>(_camera->mHorizontalFOV);
         perspectiveCamera->SetParam("near", _camera->mClipPlaneNear);
         perspectiveCamera->SetParam("far", _camera->mClipPlaneFar);
-        pScene->Cameras[_camera->mName.C_Str()] = perspectiveCamera;
+        scene->Cameras[_camera->mName.C_Str()] = perspectiveCamera;
     }
 
     // process light
-    for (size_t i = 0; i < _pScene->mNumLights; i++) {
-        const auto                        _light = _pScene->mLights[i];
+    for (size_t i = 0; i < _scene->mNumLights; i++) {
+        const auto                        _light = _scene->mLights[i];
         std::shared_ptr<SceneObjectLight> light;
         switch (_light->mType) {
             case aiLightSourceType::aiLightSource_AMBIENT:
@@ -156,13 +156,13 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
                 std::cerr << "[AssimpParser] Unknown light type." << std::endl;
                 break;
         }
-        pScene->Lights[_light->mName.C_Str()] = light;
+        scene->Lights[_light->mName.C_Str()] = light;
     }
 
     // process material
-    for (size_t i = 0; i < _pScene->mNumMaterials; i++) {
+    for (size_t i = 0; i < _scene->mNumMaterials; i++) {
         auto       material  = std::make_shared<SceneObjectMaterial>();
-        const auto _material = _pScene->mMaterials[i];
+        const auto _material = _scene->mMaterials[i];
         // set material name
         if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
             material->SetName(name.C_Str());
@@ -204,13 +204,13 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
             }
         }
 
-        pScene->Materials[_material->GetName().C_Str()] = material;
+        scene->Materials[_material->GetName().C_Str()] = material;
     }
 
     // process meshes
-    for (size_t i = 0; i < _pScene->mNumMeshes; i++) {
-        auto _mesh                           = _pScene->mMeshes[i];
-        pScene->Meshes[_mesh->mName.C_Str()] = createMesh(_mesh);
+    for (size_t i = 0; i < _scene->mNumMeshes; i++) {
+        auto _mesh                          = _scene->mMeshes[i];
+        scene->Meshes[_mesh->mName.C_Str()] = createMesh(_mesh);
     }
 
     auto getMatrix = [](const aiMatrix4x4& _mat) -> mat4f {
@@ -224,8 +224,8 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
     auto createGeometry = [&](const aiNode* _node) -> std::shared_ptr<SceneObjectGeometry> {
         auto geometry = std::make_shared<SceneObjectGeometry>();
         for (size_t i = 0; i < _node->mNumMeshes; i++) {
-            auto _mesh = _pScene->mMeshes[_node->mMeshes[i]];
-            geometry->AddMesh(pScene->Meshes[_mesh->mName.C_Str()]);
+            auto _mesh = _scene->mMeshes[_node->mMeshes[i]];
+            geometry->AddMesh(scene->Meshes[_mesh->mName.C_Str()]);
         }
         return geometry;
     };
@@ -235,26 +235,26 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
         std::shared_ptr<BaseSceneNode> node;
         // The node is a geometry
         if (_node->mNumMeshes > 0) {
-            pScene->Geometries[_node->mName.C_Str()] = createGeometry(_node);
+            scene->Geometries[_node->mName.C_Str()] = createGeometry(_node);
 
             auto geometryNode = std::make_shared<SceneGeometryNode>(_node->mName.C_Str());
             geometryNode->AddSceneObjectRef(_node->mName.C_Str());
-            pScene->GeometryNodes[_node->mName.C_Str()] = geometryNode;
-            node                                        = geometryNode;
+            scene->GeometryNodes[_node->mName.C_Str()] = geometryNode;
+            node                                       = geometryNode;
         }
         // The node is a camera
-        else if (pScene->Cameras.find(_node->mName.C_Str()) != pScene->Cameras.end()) {
+        else if (scene->Cameras.find(_node->mName.C_Str()) != scene->Cameras.end()) {
             auto cameraNode = std::make_shared<SceneCameraNode>(_node->mName.C_Str());
             cameraNode->AddSceneObjectRef(_node->mName.C_Str());
-            pScene->CameraNodes[_node->mName.C_Str()] = cameraNode;
-            node                                      = cameraNode;
+            scene->CameraNodes[_node->mName.C_Str()] = cameraNode;
+            node                                     = cameraNode;
         }
         // The node is a light
-        else if (pScene->Lights.find(_node->mName.C_Str()) != pScene->Lights.end()) {
+        else if (scene->Lights.find(_node->mName.C_Str()) != scene->Lights.end()) {
             auto lightNode = std::make_shared<SceneLightNode>(_node->mName.C_Str());
             lightNode->AddSceneObjectRef(_node->mName.C_Str());
-            pScene->LightNodes[_node->mName.C_Str()] = lightNode;
-            node                                     = lightNode;
+            scene->LightNodes[_node->mName.C_Str()] = lightNode;
+            node                                    = lightNode;
         }
         // The node is empty
         else {
@@ -269,8 +269,8 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
         return node;
     };
 
-    pScene->SceneGraph = convert(_pScene->mRootNode);
-    return pScene;
+    scene->SceneGraph = convert(_scene->mRootNode);
+    return scene;
 }  // namespace My
 
 }  // namespace My

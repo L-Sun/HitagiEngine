@@ -17,7 +17,7 @@ else(ANDROID)
     )
 endif(ANDROID)
 
-# set(UseOpenGL true)
+set(UseOpenGL true)
 
 if(${UseOpenGL})
     target_link_libraries(MyTest 

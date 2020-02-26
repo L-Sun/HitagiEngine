@@ -7,7 +7,7 @@
 namespace My {
 class Scene {
 private:
-    std::shared_ptr<SceneObjectMaterial> m_pDefaultMaterial;
+    std::shared_ptr<SceneObjectMaterial> m_DefaultMaterial;
 
 public:
     std::shared_ptr<BaseSceneNode>                                      SceneGraph;
@@ -22,7 +22,7 @@ public:
     std::unordered_map<std::string, std::shared_ptr<SceneObjectGeometry>> Geometries;
 
 public:
-    Scene() { m_pDefaultMaterial = std::make_shared<SceneObjectMaterial>("default"); }
+    Scene() { m_DefaultMaterial = std::make_shared<SceneObjectMaterial>("default"); }
     Scene(std::string_view scene_name) : SceneGraph(std::make_shared<BaseSceneNode>(scene_name)) {}
     ~Scene(){};
 

@@ -18,11 +18,10 @@ protected:
 
 private:
     // the WindowProc function prototype
-    static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam,
-                                       LPARAM lParam);
+    static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 protected:
     HWND m_hWnd;
-    HDC  m_hDc;
+    HDC  m_hHdc;
 };
 }  // namespace My

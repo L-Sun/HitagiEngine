@@ -248,16 +248,16 @@ Matrix<T, 4, 4> lookAt(const Vector<T, 3>& position, const Vector<T, 3>& target,
 }
 
 template <typename T>
-Matrix<T, 8, 8> DCT8x8(const Matrix<T, 8, 8>& pixel_block) {
+Matrix<T, 8, 8> DCT8x8(const Matrix<T, 8, 8>& pixelBlock) {
     Matrix<T, 8, 8> res;
-    ispc::DCT(pixel_block, res);
+    ispc::DCT(pixelBlock, res);
     return res;
 }
 
 template <typename T>
-Matrix<T, 8, 8> IDCT8x8(const Matrix<T, 8, 8>& pixel_block) {
+Matrix<T, 8, 8> IDCT8x8(const Matrix<T, 8, 8>& pixelBlock) {
     Matrix<T, 8, 8> res;
-    ispc::IDCT(pixel_block, res);
+    ispc::IDCT(pixelBlock, res);
     return res;
 }
 

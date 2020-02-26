@@ -21,12 +21,12 @@ public:
 
     void ApplyCentralForce(std::shared_ptr<void> rigidBody, vec3f force) final;
 
-#ifdef DEBUG
+#if defined(_DEBUG)
     void DrawDebugInfo();
 #endif
 
 protected:
-#ifdef DEBUG
+#if defined(_DEBUG)
     void DrawAabb(const Geometry& geometry, const mat4f& trans,
                   const vec3f& centerOfMass);
 #endif

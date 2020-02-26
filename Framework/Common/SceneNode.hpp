@@ -10,21 +10,21 @@ namespace My {
 
 class BaseSceneNode {
 protected:
-    std::string                                      m_strName;
+    std::string                                      m_Name;
     std::list<std::shared_ptr<BaseSceneNode>>        m_Chlidren;
     std::list<std::shared_ptr<SceneObjectTransform>> m_Transforms;
     mat4f                                            m_RuntimeTransform = mat4f(1.0f);
-    bool                                             m_bDirty           = true;
+    bool                                             m_Dirty            = true;
 
     virtual void dump(std::ostream& out) const {}
 
 public:
     BaseSceneNode() {}
-    BaseSceneNode(std::string_view name) { m_strName = name; }
+    BaseSceneNode(std::string_view name) { m_Name = name; }
 
     virtual ~BaseSceneNode() {}
 
-    const std::string& GetName() const { return m_strName; }
+    const std::string& GetName() const { return m_Name; }
 
     void AppendChild(std::shared_ptr<BaseSceneNode>&& sub_node) { m_Chlidren.push_back(std::move(sub_node)); }
     void AppendTransform(std::shared_ptr<SceneObjectTransform>&& transform) {
@@ -41,16 +41,16 @@ public:
         return result;
     }
     // Get is the node updated
-    bool Dirty() const { return m_bDirty; }
-    void ClearDirty() { m_bDirty = false; }
+    bool Dirty() const { return m_Dirty; }
+    void ClearDirty() { m_Dirty = false; }
 
     void RotateBy(const float& x, const float& y, const float& z) {
         m_RuntimeTransform *= rotate(mat4f(1.0f), x, y, z);
-        m_bDirty = true;
+        m_Dirty = true;
     }
     void Move(const float& x, const float& y, const float& z) {
         m_RuntimeTransform *= translate(mat4f(1.0f), vec3f(x, y, z));
-        m_bDirty = true;
+        m_Dirty = true;
     }
 
     void Reset() { m_RuntimeTransform = mat4f(1.0f); }
@@ -60,7 +60,7 @@ public:
         indent++;
         out << std::string(indent, ' ') << "Scene Node" << std::endl;
         out << std::string(indent, ' ') << "----------" << std::endl;
-        out << std::string(indent, ' ') << "Name: " << node.m_strName << std::endl;
+        out << std::string(indent, ' ') << "Name: " << node.m_Name << std::endl;
         node.dump(out);
         out << std::endl;
 
@@ -79,56 +79,56 @@ public:
 template <typename T>
 class SceneNode : public BaseSceneNode {
 protected:
-    std::string m_keySceneObject;
+    std::string m_SceneObjectRef;
 
-    virtual void dump(std::ostream& out) const { out << m_keySceneObject << std::endl; }
+    virtual void dump(std::ostream& out) const { out << m_SceneObjectRef << std::endl; }
 
 public:
     using BaseSceneNode::BaseSceneNode;
     SceneNode() = default;
-    void               AddSceneObjectRef(std::string_view key) { m_keySceneObject = key; }
-    const std::string& GetSceneObjectRef() { return m_keySceneObject; }
+    void               AddSceneObjectRef(std::string_view key) { m_SceneObjectRef = key; }
+    const std::string& GetSceneObjectRef() { return m_SceneObjectRef; }
 };
 
 typedef BaseSceneNode SceneEmptyNode;
 class SceneGeometryNode : public SceneNode<SceneObjectGeometry> {
 protected:
-    bool                  m_bVisible;
-    bool                  m_bShadow;
-    bool                  m_bMotionBlur;
-    std::shared_ptr<void> m_pRigidBody = nullptr;
+    bool                  m_Visible;
+    bool                  m_Shadow;
+    bool                  m_MotionBlur;
+    std::shared_ptr<void> m_RigidBody = nullptr;
 
     virtual void dump(std::ostream& out) const {
         SceneNode::dump(out);
-        out << "Visible: " << m_bVisible << std::endl;
-        out << "Shadow: " << m_bShadow << std::endl;
-        out << "Motion Blur: " << m_bMotionBlur << std::endl;
+        out << "Visible: " << m_Visible << std::endl;
+        out << "Shadow: " << m_Shadow << std::endl;
+        out << "Motion Blur: " << m_MotionBlur << std::endl;
     }
 
 public:
     using SceneNode::SceneNode;
-    void       SetVisibility(bool visible) { m_bVisible = visible; }
-    void       SetIfCastShadow(bool shadow) { m_bShadow = shadow; }
-    void       SetIfMotionBlur(bool motion_blur) { m_bMotionBlur = motion_blur; }
-    const bool Visible() { return m_bVisible; }
-    const bool CastShadow() { return m_bShadow; }
-    const bool MotionBlur() { return m_bMotionBlur; }
+    void       SetVisibility(bool visible) { m_Visible = visible; }
+    void       SetIfCastShadow(bool shadow) { m_Shadow = shadow; }
+    void       SetIfMotionBlur(bool motionBlur) { m_MotionBlur = motionBlur; }
+    const bool Visible() { return m_Visible; }
+    const bool CastShadow() { return m_Shadow; }
+    const bool MotionBlur() { return m_MotionBlur; }
 
     using SceneNode::AddSceneObjectRef;
-    void LinkRigidBody(std::shared_ptr<void> rigidBody) { m_pRigidBody = rigidBody; }
-    void UnlinkRigidBody() { m_pRigidBody = nullptr; }
+    void LinkRigidBody(std::shared_ptr<void> rigidBody) { m_RigidBody = rigidBody; }
+    void UnlinkRigidBody() { m_RigidBody = nullptr; }
 
-    std::shared_ptr<void> RigidBody() { return m_pRigidBody; }
+    std::shared_ptr<void> RigidBody() { return m_RigidBody; }
 };
 
 class SceneLightNode : public SceneNode<SceneObjectLight> {
 protected:
-    bool m_bShadow;
+    bool m_Shadow;
 
 public:
     using SceneNode::SceneNode;
-    void       SetIfCastShadow(bool shaodw) { m_bShadow = shaodw; }
-    const bool CastShadow() { return m_bShadow; }
+    void       SetIfCastShadow(bool shaodw) { m_Shadow = shaodw; }
+    const bool CastShadow() { return m_Shadow; }
 };
 
 class SceneCameraNode : public SceneNode<SceneObjectCamera> {

@@ -68,11 +68,11 @@ void OpenGLGraphicsManager::Draw() {
 }
 
 bool OpenGLGraphicsManager::UpdateFrameParameters(GLuint shader) {
-    SetShaderParameters(shader, "worldMatrix", m_frameConstants.worldMatrix);
-    SetShaderParameters(shader, "viewMatrix", m_frameConstants.viewMatrix);
-    SetShaderParameters(shader, "projectionMatrix", m_frameConstants.projectionMatrix);
-    SetShaderParameters(shader, "lightPosition", m_frameConstants.lightPosition);
-    SetShaderParameters(shader, "lightColor", m_frameConstants.lightColor);
+    SetShaderParameters(shader, "worldMatrix", m_FrameConstants.worldMatrix);
+    SetShaderParameters(shader, "viewMatrix", m_FrameConstants.viewMatrix);
+    SetShaderParameters(shader, "projectionMatrix", m_FrameConstants.projectionMatrix);
+    SetShaderParameters(shader, "lightPosition", m_FrameConstants.lightPosition);
+    SetShaderParameters(shader, "lightColor", m_FrameConstants.lightColor);
     return true;
 }
 bool OpenGLGraphicsManager::SetShaderParameters(GLuint           shader,
@@ -108,8 +108,8 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
         glBindVertexArray(mb->vao);
 
         // Vertex Buffer
-        for (size_t i = 0; i < m_basicShader.layout.size(); i++) {
-            auto&  vertexArray    = mesh->GetVertexPropertyArray(m_basicShader.layout[i]);
+        for (size_t i = 0; i < m_BasicShader.layout.size(); i++) {
+            auto&  vertexArray    = mesh->GetVertexPropertyArray(m_BasicShader.layout[i]);
             auto   vertexData     = vertexArray.GetData();
             auto   vertexDataSize = vertexArray.GetDataSize();
             GLuint vbo;
@@ -118,28 +118,28 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
             glBufferData(GL_ARRAY_BUFFER, vertexDataSize, vertexData, GL_STATIC_DRAW);
             glEnableVertexAttribArray(i);
             switch (vertexArray.GetDataType()) {
-                case VertexDataType::kFLOAT1:
+                case VertexDataType::FLOAT1:
                     glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
                     break;
-                case VertexDataType::kFLOAT2:
+                case VertexDataType::FLOAT2:
                     glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
                     break;
-                case VertexDataType::kFLOAT3:
+                case VertexDataType::FLOAT3:
                     glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
                     break;
-                case VertexDataType::kFLOAT4:
+                case VertexDataType::FLOAT4:
                     glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
                     break;
-                case VertexDataType::kDOUBLE1:
+                case VertexDataType::DOUBLE1:
                     glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
                     break;
-                case VertexDataType::kDOUBLE2:
+                case VertexDataType::DOUBLE2:
                     glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
                     break;
-                case VertexDataType::kDOUBLE3:
+                case VertexDataType::DOUBLE3:
                     glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
                     break;
-                case VertexDataType::kDOUBLE4:
+                case VertexDataType::DOUBLE4:
                     glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
                     break;
                 default:
@@ -157,13 +157,13 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexArrayDataSize, indexArrayData, GL_STATIC_DRAW);
         mb->indexCount = indexArray.GetIndexCount();
         switch (indexArray.GetIndexType()) {
-            case IndexDataType::kINT8:
+            case IndexDataType::INT8:
                 mb->type = GL_UNSIGNED_BYTE;
                 break;
-            case IndexDataType::kINT16:
+            case IndexDataType::INT16:
                 mb->type = GL_UNSIGNED_SHORT;
                 break;
-            case IndexDataType::kINT32:
+            case IndexDataType::INT32:
                 mb->type = GL_UNSIGNED_INT;
                 break;
             default:
@@ -175,29 +175,29 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
         }
         // Primitive
         switch (mesh->GetPrimitiveType()) {
-            case PrimitiveType::kPOINT_LIST:
+            case PrimitiveType::POINT_LIST:
                 mb->mode = GL_POINTS;
                 break;
-            case PrimitiveType::kLINE_LIST:
+            case PrimitiveType::LINE_LIST:
                 mb->mode = GL_LINES;
                 break;
-            case PrimitiveType::kLINE_STRIP:
+            case PrimitiveType::LINE_STRIP:
                 mb->mode = GL_LINE_STRIP;
                 break;
-            case PrimitiveType::kTRI_LIST:
+            case PrimitiveType::TRI_LIST:
                 mb->mode = GL_TRIANGLES;
                 break;
-            case PrimitiveType::kTRI_STRIP:
+            case PrimitiveType::TRI_STRIP:
                 mb->mode = GL_TRIANGLE_STRIP;
                 break;
-            case PrimitiveType::kTRI_FAN:
+            case PrimitiveType::TRI_FAN:
                 mb->mode = GL_TRIANGLE_FAN;
                 break;
             default:
                 continue;
         }
         mb->material                   = mesh->GetMaterial();
-        m_meshBuffers[mesh->GetGuid()] = mb;
+        m_MeshBuffers[mesh->GetGuid()] = mb;
     }
 
     // Initialize Texture
@@ -239,16 +239,16 @@ void OpenGLGraphicsManager::InitializeBuffers(const Scene& scene) {
         for (auto&& _mesh : geometry->GetMeshes()) {
             if (auto mesh = _mesh.lock()) {
                 m_DrawBatchContext.push_back({node,
-                                              m_meshBuffers[mesh->GetGuid()]});
+                                              m_MeshBuffers[mesh->GetGuid()]});
             }
         }
     }
 
     // Initialize text buffer
-    glGenVertexArrays(1, &m_textRenderVAO);
-    glGenBuffers(1, &m_textRenderVBO);
-    glBindVertexArray(m_textRenderVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, m_textRenderVBO);
+    glGenVertexArrays(1, &m_TextRenderVAO);
+    glGenBuffers(1, &m_TextRenderVBO);
+    glBindVertexArray(m_TextRenderVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_TextRenderVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 6 * 4, nullptr, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
@@ -278,7 +278,7 @@ bool OpenGLGraphicsManager::InitializeShaders() {
         int status;
         program.programId = glCreateProgram();
         for (auto&& shaderInfo : program.shaders) {
-            std::string shaderBuffer = g_pAssetLoader->SyncOpenAndReadTextFileToString(shaderInfo.path);
+            std::string shaderBuffer = g_AssetLoader->SyncOpenAndReadTextFileToString(shaderInfo.path);
             const char* c_str        = shaderBuffer.c_str();
             shaderInfo.shaderId      = glCreateShader(shaderInfo.type);
             glShaderSource(shaderInfo.shaderId, 1, &c_str, nullptr);
@@ -296,68 +296,68 @@ bool OpenGLGraphicsManager::InitializeShaders() {
             OutputShaderErrorMessage(program.programId, "");
     };
 
-    compileShader(m_basicShader);
-    compileShader(m_textShader);
+    compileShader(m_BasicShader);
+    compileShader(m_TextShader);
     int status;
-#ifdef DEBUG
-    compileShader(m_debugShader);
+#if defined(_DEBUG)
+    compileShader(m_DebugShader);
 #endif
     return true;
 }
 
 void OpenGLGraphicsManager::ClearBuffers() {
-#ifdef DEBUG
+#if defined(_DEBUG)
     ClearDebugBuffers();
 #endif
     m_DrawBatchContext.clear();
-    for (auto&& [guid, mesh] : m_meshBuffers) {
+    for (auto&& [guid, mesh] : m_MeshBuffers) {
         glDeleteVertexArrays(1, &mesh->vao);
         glDeleteBuffers(1, &mesh->ebo);
         for (auto&& vbo : mesh->vbos)
             glDeleteBuffers(1, &vbo);
     }
-    m_meshBuffers.clear();
+    m_MeshBuffers.clear();
 
     for (auto [guid, texture] : m_Textures) {
         glDeleteTextures(1, &texture);
     }
     m_Textures.clear();
 
-    for (auto&& [c, ci] : m_characters) {
+    for (auto&& [c, ci] : m_Characters) {
         glDeleteTextures(1, &ci.textureID);
     }
-    m_characters.clear();
-    glDeleteVertexArrays(1, &m_textRenderVAO);
-    glDeleteBuffers(1, &m_textRenderVBO);
+    m_Characters.clear();
+    glDeleteVertexArrays(1, &m_TextRenderVAO);
+    glDeleteBuffers(1, &m_TextRenderVBO);
 }
 
 void OpenGLGraphicsManager::ClearShaders() {
-    if (m_basicShader.programId) {
-        for (auto&& shaderInfo : m_basicShader.shaders) {
+    if (m_BasicShader.programId) {
+        for (auto&& shaderInfo : m_BasicShader.shaders) {
             glDeleteShader(shaderInfo.shaderId);
         }
-        glDeleteProgram(m_basicShader.programId);
+        glDeleteProgram(m_BasicShader.programId);
     }
-    if (m_textShader.programId) {
-        for (auto&& shaderInfo : m_textShader.shaders) {
+    if (m_TextShader.programId) {
+        for (auto&& shaderInfo : m_TextShader.shaders) {
             glDeleteShader(shaderInfo.shaderId);
         }
-        glDeleteProgram(m_textShader.programId);
+        glDeleteProgram(m_TextShader.programId);
     }
 
-#if defined(DEBUG)
-    if (m_debugShader.programId) {
-        for (auto&& shaderInfo : m_debugShader.shaders) {
+#if defined(_DEBUG)
+    if (m_DebugShader.programId) {
+        for (auto&& shaderInfo : m_DebugShader.shaders) {
             glDeleteShader(shaderInfo.shaderId);
         }
-        glDeleteProgram(m_debugShader.programId);
+        glDeleteProgram(m_DebugShader.programId);
     }
 #endif  // DEBUG
 }
 
 void OpenGLGraphicsManager::RenderBuffers() {
-    glUseProgram(m_basicShader.programId);
-    UpdateFrameParameters(m_basicShader.programId);
+    glUseProgram(m_BasicShader.programId);
+    UpdateFrameParameters(m_BasicShader.programId);
 
     for (auto dbc : m_DrawBatchContext) {
         auto node = dbc.node.lock();
@@ -366,12 +366,12 @@ void OpenGLGraphicsManager::RenderBuffers() {
         if (auto rigidBody = node->RigidBody()) {
             // the geometry has rigid body bounded, we blend the simlation
             // result here.
-            trans = g_pPhysicsManager->GetRigidBodyTransform(rigidBody);
+            trans = g_hysicsManager->GetRigidBodyTransform(rigidBody);
         } else {
             trans = *node->GetCalculatedTransform();
         }
 
-        SetShaderParameters(m_basicShader.programId, "modelMatrix", trans);
+        SetShaderParameters(m_BasicShader.programId, "modelMatrix", trans);
         glBindVertexArray(dbc.mesh->vao);
 
         if (auto material = dbc.mesh->material.lock()) {
@@ -379,24 +379,24 @@ void OpenGLGraphicsManager::RenderBuffers() {
 
             if (color.ValueMap) {
                 SetShaderParameters(
-                    m_basicShader.programId, "defaultSampler",
+                    m_BasicShader.programId, "defaultSampler",
                     m_Textures[color.ValueMap->GetGuid()]);
-                SetShaderParameters(m_basicShader.programId, "diffuseColor",
+                SetShaderParameters(m_BasicShader.programId, "diffuseColor",
                                     vec3f(-1.0f));
             } else {
-                SetShaderParameters(m_basicShader.programId, "diffuseColor",
+                SetShaderParameters(m_BasicShader.programId, "diffuseColor",
                                     color.Value.rgb);
             }
 
             color = material->GetSpecularColor();
-            SetShaderParameters(m_basicShader.programId, "specularColor",
+            SetShaderParameters(m_BasicShader.programId, "specularColor",
                                 color.Value.rgb);
 
             Parameter param = material->GetSpecularPower();
-            SetShaderParameters(m_basicShader.programId, "specularPower",
+            SetShaderParameters(m_BasicShader.programId, "specularPower",
                                 param.Value);
         } else {
-            SetShaderParameters(m_basicShader.programId, "diffuseColor",
+            SetShaderParameters(m_BasicShader.programId, "diffuseColor",
                                 vec3f(-1.0f));
         }
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, dbc.mesh->ebo);
@@ -404,19 +404,19 @@ void OpenGLGraphicsManager::RenderBuffers() {
     }
 
     // Render text
-    glUseProgram(m_textShader.programId);
-    UpdateFrameParameters(m_textShader.programId);
-    SetShaderParameters(m_textShader.programId, "projection", ortho(0.0f, 1024.0f, 0.0f, 720.0f, 0.0f, 100.0f));
+    glUseProgram(m_TextShader.programId);
+    UpdateFrameParameters(m_TextShader.programId);
+    SetShaderParameters(m_TextShader.programId, "projection", ortho(0.0f, 1024.0f, 0.0f, 720.0f, 0.0f, 100.0f));
     while (!m_textRenderQueue.empty()) {
         auto& textInfo = m_textRenderQueue.front();
-        SetShaderParameters(m_textShader.programId, "textColor", textInfo.color);
+        SetShaderParameters(m_TextShader.programId, "textColor", textInfo.color);
         glActiveTexture(GL_TEXTURE0);
-        glBindVertexArray(m_textRenderVAO);
+        glBindVertexArray(m_TextRenderVAO);
         for (auto&& c : textInfo.text) {
-            GLfloat posX   = textInfo.position.x + m_characters[c].bearing.x;
-            GLfloat posY   = textInfo.position.y - (m_characters[c].size.y - m_characters[c].bearing.y);
-            GLfloat width  = m_characters[c].size.x;
-            GLfloat height = m_characters[c].size.y;
+            GLfloat posX   = textInfo.position.x + m_Characters[c].bearing.x;
+            GLfloat posY   = textInfo.position.y - (m_Characters[c].size.y - m_Characters[c].bearing.y);
+            GLfloat width  = m_Characters[c].size.x;
+            GLfloat height = m_Characters[c].size.y;
             // clang-format off
             GLfloat vertices[6][4] = {
                 // position                   texcoord
@@ -429,27 +429,27 @@ void OpenGLGraphicsManager::RenderBuffers() {
                 {posX + width, posY + height, 1.0, 0.0},
             };
             // clang-format on
-            glBindTexture(GL_TEXTURE_2D, m_characters[c].textureID);
-            glBindBuffer(GL_ARRAY_BUFFER, m_textRenderVBO);
+            glBindTexture(GL_TEXTURE_2D, m_Characters[c].textureID);
+            glBindBuffer(GL_ARRAY_BUFFER, m_TextRenderVBO);
             glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glDrawArrays(GL_TRIANGLES, 0, 6);
-            textInfo.position.x += (m_characters[c].advance >> 6);
+            textInfo.position.x += (m_Characters[c].advance >> 6);
         }
         glBindVertexArray(0);
         glBindTexture(GL_TEXTURE_2D, 0);
         m_textRenderQueue.pop();
     }
 
-#ifdef DEBUG
+#if defined(_DEBUG)
     // Set the color shader as the current shader program and set the matrices
     // that it will use for rendering.
-    glUseProgram(m_debugShader.programId);
+    glUseProgram(m_DebugShader.programId);
 
-    UpdateFrameParameters(m_debugShader.programId);
+    UpdateFrameParameters(m_DebugShader.programId);
 
     for (auto dbc : m_DebugDrawBatchContext) {
-        SetShaderParameters(m_debugShader.programId, "lineColor",
+        SetShaderParameters(m_DebugShader.programId, "lineColor",
                             dbc.color);
 
         glBindVertexArray(dbc.vao);
@@ -458,7 +458,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
 #endif
 }
 
-#ifdef DEBUG
+#if defined(_DEBUG)
 void OpenGLGraphicsManager::RenderLine(const vec3f& from, const vec3f& to,
                                        const vec3f& color) {
     GLfloat vertices[6];
@@ -567,7 +567,7 @@ void OpenGLGraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax,
 void OpenGLGraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     for (auto&& c : text) {
-        if (m_characters.find(c) == m_characters.end()) {
+        if (m_Characters.find(c) == m_Characters.end()) {
             auto   glyph = GetGlyph(c);
             GLuint texture;
             glGenTextures(1, &texture);
@@ -591,7 +591,7 @@ void OpenGLGraphicsManager::RenderText(std::string_view text, const vec2f& posit
             ci.bearing   = {glyph->bitmap_left, glyph->bitmap_top};
             ci.size      = {glyph->bitmap.width, glyph->bitmap.rows};
             ci.advance   = glyph->advance.x;
-            m_characters.insert({c, ci});
+            m_Characters.insert({c, ci});
         }
     }
     m_textRenderQueue.push({std::string(text), position, color});

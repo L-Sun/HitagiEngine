@@ -3,57 +3,55 @@
 using namespace My;
 
 int Clock::Initialize() {
-    mDeltaTime  = std::chrono::duration<double>::zero();
-    mPausedTime = std::chrono::duration<double>::zero();
-    mBaseTime   = std::chrono::high_resolution_clock::now();
-    mPaused     = true;
-    mStopTime   = mBaseTime;
+    m_DeltaTime  = std::chrono::duration<double>::zero();
+    m_PausedTime = std::chrono::duration<double>::zero();
+    m_BaseTime   = std::chrono::high_resolution_clock::now();
+    m_Paused     = true;
+    m_StopTime   = m_BaseTime;
 
     return 0;
 }
 void Clock::Finalize() {}
 
-std::chrono::duration<double> Clock::deltaTime() const { return mDeltaTime; }
+std::chrono::duration<double> Clock::deltaTime() const { return m_DeltaTime; }
 
 std::chrono::duration<double> Clock::totalTime() const {
-    if (mPaused) {
-        return (mStopTime - mBaseTime) - mPausedTime;
+    if (m_Paused) {
+        return (m_StopTime - m_BaseTime) - m_PausedTime;
     } else {
-        return (mTickTime - mBaseTime) - mPausedTime;
+        return (m_TickTime - m_BaseTime) - m_PausedTime;
     }
 }
 
-std::chrono::high_resolution_clock::time_point Clock::tickTime() const {
-    return mTickTime;
-}
+std::chrono::high_resolution_clock::time_point Clock::tickTime() const { return m_TickTime; }
 
 void Clock::Tick() {
-    if (mPaused) {
-        mDeltaTime = std::chrono::duration<double>::zero();
+    if (m_Paused) {
+        m_DeltaTime = std::chrono::duration<double>::zero();
         return;
     }
-    mTickTime  = std::chrono::high_resolution_clock::now();
-    mDeltaTime = mTickTime - mPrevTime;
-    mPrevTime  = mTickTime;
+    m_TickTime  = std::chrono::high_resolution_clock::now();
+    m_DeltaTime = m_TickTime - m_PrevTime;
+    m_PrevTime  = m_TickTime;
 }
 
 void Clock::Start() {
-    if (mPaused) {
+    if (m_Paused) {
         auto now = std::chrono::high_resolution_clock::now();
-        mPausedTime += now - mStopTime;
-        mPrevTime = now;
-        mPaused   = false;
+        m_PausedTime += now - m_StopTime;
+        m_PrevTime = now;
+        m_Paused   = false;
     }
 }
 
 void Clock::Pause() {
-    if (!mPaused) {
-        mStopTime = std::chrono::high_resolution_clock::now();
-        mPaused   = true;
+    if (!m_Paused) {
+        m_StopTime = std::chrono::high_resolution_clock::now();
+        m_Paused   = true;
     }
 }
 
 void Clock::Reset() {
-    mBaseTime = std::chrono::high_resolution_clock::now();
-    mPaused   = true;
+    m_BaseTime = std::chrono::high_resolution_clock::now();
+    m_Paused   = true;
 }

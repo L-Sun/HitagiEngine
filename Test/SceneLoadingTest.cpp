@@ -16,9 +16,9 @@ using namespace My;
 #endif
 
 namespace My {
-std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
-std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
-std::unique_ptr<SceneManager>  g_pSceneManager(new SceneManager);
+std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
+std::unique_ptr<AssetLoader>   g_AssetLoader(new AssetLoader);
+std::unique_ptr<SceneManager>  g_SceneManager(new SceneManager);
 }  // namespace My
 
 template <typename T>
@@ -31,12 +31,12 @@ static std::ostream& operator<<(std::ostream& out, std::unordered_map<std::strin
 }
 
 int main(int, char**) {
-    g_pMemoryManager->Initialize();
-    g_pSceneManager->Initialize();
-    g_pAssetLoader->Initialize();
+    g_MemoryManager->Initialize();
+    g_SceneManager->Initialize();
+    g_AssetLoader->Initialize();
 
-    g_pSceneManager->LoadScene("Asset/Scene/test1.fbx");
-    auto& scene = g_pSceneManager->GetSceneForRendering();
+    g_SceneManager->LoadScene("Asset/Scene/test1.fbx");
+    auto& scene = g_SceneManager->GetSceneForRendering();
 
     std::cout << "Dump of Cameras" << std::endl;
     std::cout << "---------------------------" << std::endl;
@@ -71,10 +71,10 @@ int main(int, char**) {
     for (auto [key, pMaterial] : scene.Materials) {
         if (pMaterial) std::cout << *pMaterial << std::endl;
     }
-    g_pSceneManager->ResetScene();
-    g_pSceneManager->Finalize();
-    g_pAssetLoader->Finalize();
-    g_pMemoryManager->Finalize();
+    g_SceneManager->ResetScene();
+    g_SceneManager->Finalize();
+    g_AssetLoader->Finalize();
+    g_MemoryManager->Finalize();
 
 #ifdef _WIN32
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);

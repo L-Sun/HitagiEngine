@@ -18,23 +18,23 @@ using namespace My;
 #endif
 
 namespace My {
-std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
-std::unique_ptr<AssetLoader>   g_pAssetLoader(new AssetLoader);
+std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
+std::unique_ptr<AssetLoader>   g_AssetLoader(new AssetLoader);
 }  // namespace My
 void Init() {
-    g_pMemoryManager->Initialize();
-    g_pAssetLoader->Initialize();
+    g_MemoryManager->Initialize();
+    g_AssetLoader->Initialize();
 }
 void Finalize(string_view text) {
     cout << text << endl;
-    g_pAssetLoader->Finalize();
-    g_pMemoryManager->Finalize();
+    g_AssetLoader->Finalize();
+    g_MemoryManager->Finalize();
 }
 
 int main(int argc, char const* argv[]) {
     Init();
     {
-        Buffer fontBuffer = g_pAssetLoader->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
+        Buffer fontBuffer = g_AssetLoader->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
 
         FT_Library library;  // handle to library
         FT_Face    face;     // handle to face object

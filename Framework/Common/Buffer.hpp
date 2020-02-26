@@ -20,8 +20,8 @@ public:
     size_t         GetDataSize() const;
 
 private:
-    uint8_t* m_pData;
-    size_t   m_szSize;
-    size_t   m_szAlignment;
+    uint8_t* m_Data;
+    size_t   m_Size;
+    size_t   m_Alignment;
 };
 }  // namespace My

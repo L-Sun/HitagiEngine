@@ -25,18 +25,18 @@ public:
     inline GfxConfiguration& GetConfiguration() { return m_Config; }
 
 protected:
-    static bool      m_bQuit;
+    static bool      m_Quit;
     GfxConfiguration m_Config;
-    int              m_nArgC;
-    char**           m_ppArgV;
+    int              m_ArgSize;
+    char**           m_Arg;
 
-    Clock m_clock;
+    Clock m_Clock;
     short m_FPS = 60;
 
 private:
     BaseApplication() {}
-    short m_sumFPS        = 0;
-    short m_frame_counter = -1;
-    long  m_k             = 0;
+    short m_SumFPS       = 0;
+    short m_FrameCounter = -1;
+    long  m_k            = 0;
 };
 }  // namespace My

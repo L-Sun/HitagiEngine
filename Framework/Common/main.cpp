@@ -14,18 +14,18 @@ using namespace My;
 int main(int argc, char** argv) {
     int ret;
 
-    g_pApp->SetCommandLineParameters(argc, argv);
+    g_App->SetCommandLineParameters(argc, argv);
 
-    if ((ret = g_pApp->Initialize()) != 0) {
+    if ((ret = g_App->Initialize()) != 0) {
         std::cout << "App Initialize failed, will exit now." << std::endl;
         return ret;
     }
 
-    while (!g_pApp->IsQuit()) {
-        g_pApp->Tick();
+    while (!g_App->IsQuit()) {
+        g_App->Tick();
     }
 
-    g_pApp->Finalize();
+    g_App->Finalize();
 #ifdef _WIN32
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
     _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG);

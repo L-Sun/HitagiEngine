@@ -8,24 +8,24 @@ public:
     FrameResource(ID3D12Device5* pDev, size_t objCount) {
         ThrowIfFailed(
             pDev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                         IID_PPV_ARGS(&m_pCommandAllocator)));
+                                         IID_PPV_ARGS(&m_CommandAllocator)));
         ThrowIfFailed(pDev->CreateCommandList(
-            0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_pCommandAllocator.Get(),
-            nullptr, IID_PPV_ARGS(&m_pCommandList)));
-        ThrowIfFailed(m_pCommandList->Close());
+            0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_CommandAllocator.Get(),
+            nullptr, IID_PPV_ARGS(&m_CommandList)));
+        ThrowIfFailed(m_CommandList->Close());
 
-        m_pFrameCBUploader =
+        m_FrameCBUploader =
             std::make_unique<d3dUtil::UploadBuffer<TFrameConstant>>(pDev, 1,
                                                                     true);
-        m_pObjCBUploader =
+        m_ObjCBUploader =
             std::make_unique<d3dUtil::UploadBuffer<TObjConstant>>(
                 pDev, objCount, true);
     }
     void UpdateFrameConstants(TFrameConstant frameConstants) {
-        m_pFrameCBUploader->CopyData(0, frameConstants);
+        m_FrameCBUploader->CopyData(0, frameConstants);
     }
     void UpdateObjectConstants(size_t index, TObjConstant objectConstants) {
-        m_pObjCBUploader->CopyData(index, objectConstants);
+        m_ObjCBUploader->CopyData(index, objectConstants);
     }
 
     void UpdateTexture(std::string_view name, void* data) {
@@ -39,12 +39,12 @@ public:
             textureData.RowPitch   = desc.Width * 4;
             textureData.SlicePitch = textureData.RowPitch * desc.Height;
 
-            UpdateSubresources(m_pCommandList.Get(), texture.Get(),
+            UpdateSubresources(m_CommandList.Get(), texture.Get(),
                                uploadHeap.Get(), 0, 0, 1, &textureData);
             auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
                 texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-            m_pCommandList->ResourceBarrier(1, &barrier);
+            m_CommandList->ResourceBarrier(1, &barrier);
         }
     }
 
@@ -54,9 +54,9 @@ public:
 
     uint64_t fence = 0;
 
-    ComPtr<ID3D12CommandAllocator>    m_pCommandAllocator;
-    ComPtr<ID3D12GraphicsCommandList> m_pCommandList;
+    ComPtr<ID3D12CommandAllocator>    m_CommandAllocator;
+    ComPtr<ID3D12GraphicsCommandList> m_CommandList;
 
-    std::unique_ptr<d3dUtil::UploadBuffer<TFrameConstant>> m_pFrameCBUploader;
-    std::unique_ptr<d3dUtil::UploadBuffer<TObjConstant>>   m_pObjCBUploader;
+    std::unique_ptr<d3dUtil::UploadBuffer<TFrameConstant>> m_FrameCBUploader;
+    std::unique_ptr<d3dUtil::UploadBuffer<TObjConstant>>   m_ObjCBUploader;
 };

@@ -4,7 +4,7 @@
 
 using namespace My;
 
-bool BaseApplication::m_bQuit = false;
+bool BaseApplication::m_Quit = false;
 
 BaseApplication::BaseApplication(GfxConfiguration& cfg) : m_Config(cfg) {}
 
@@ -15,64 +15,64 @@ int BaseApplication::Initialize() {
     std::cout << m_Config;
 
     std::cout << "Initialize Memory Manager: ";
-    if ((ret = g_pMemoryManager->Initialize()) != 0) {
+    if ((ret = g_MemoryManager->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
     std::cout << "Success" << std::endl;
 
     std::cout << "Initialize Asset Loader: ";
-    if ((ret = g_pAssetLoader->Initialize()) != 0) {
+    if ((ret = g_AssetLoader->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
     std::cout << "Success" << std::endl;
 
     std::cout << "Initialize Input Manager: ";
-    if ((ret = g_pInputManager->Initialize()) != 0) {
+    if ((ret = g_InputManager->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
     std::cout << "Success" << std::endl;
 
     std::cout << "Initialize Scene Manager: ";
-    if ((ret = g_pSceneManager->Initialize()) != 0) {
+    if ((ret = g_SceneManager->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
     std::cout << "Success" << std::endl;
 
     std::cout << "Initialize Graphics Manager: ";
-    if ((ret = g_pGraphicsManager->Initialize()) != 0) {
+    if ((ret = g_GraphicsManager->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
     std::cout << "Success" << std::endl;
 
     std::cout << "Initialize Physics Manager: ";
-    if ((ret = g_pPhysicsManager->Initialize()) != 0) {
+    if ((ret = g_hysicsManager->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
     std::cout << "Success" << std::endl;
 
     std::cout << "Initialize GameLogic Manager: ";
-    if ((ret = g_pGameLogic->Initialize()) != 0) {
+    if ((ret = g_GameLogic->Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
     std::cout << "Success" << std::endl;
 
     std::cout << "Initialize Timer: ";
-    if ((ret = m_clock.Initialize()) != 0) {
+    if ((ret = m_Clock.Initialize()) != 0) {
         std::cerr << "Failed. err = " << ret;
         return ret;
     }
-    m_clock.Start();
+    m_Clock.Start();
 
-#if defined(DEBUG)
+#if defined(_DEBUG)
     std::cout << "Initialize Debug Manager: ";
-    if ((ret = g_pDebugManager->Initialize()) != 0) {
+    if ((ret = g_DebugManager->Initialize()) != 0) {
         std::cerr << "Failed. err =" << ret;
         return ret;
     }
@@ -85,48 +85,48 @@ int BaseApplication::Initialize() {
 
 // Finalize all sub modules and clean up all runtime temporary files.
 void BaseApplication::Finalize() {
-#ifdef DEBUG
-    g_pDebugManager->Finalize();
+#if defined(_DEBUG)
+    g_DebugManager->Finalize();
 #endif
-    g_pGameLogic->Finalize();
-    g_pGraphicsManager->Finalize();
-    g_pPhysicsManager->Finalize();
-    g_pSceneManager->Finalize();
-    g_pInputManager->Finalize();
-    g_pAssetLoader->Finalize();
-    g_pMemoryManager->Finalize();
+    g_GameLogic->Finalize();
+    g_GraphicsManager->Finalize();
+    g_hysicsManager->Finalize();
+    g_SceneManager->Finalize();
+    g_InputManager->Finalize();
+    g_AssetLoader->Finalize();
+    g_MemoryManager->Finalize();
 }
 
 // One cycle of the main loop
 void BaseApplication::Tick() {
-    m_clock.Tick();
-    g_pMemoryManager->Tick();
-    g_pAssetLoader->Tick();
-    g_pInputManager->Tick();
-    g_pSceneManager->Tick();
-    g_pPhysicsManager->Tick();
-    g_pGraphicsManager->Tick();
-    g_pGameLogic->Tick();
-#ifdef DEBUG
-    g_pDebugManager->Tick();
+    m_Clock.Tick();
+    g_MemoryManager->Tick();
+    g_AssetLoader->Tick();
+    g_InputManager->Tick();
+    g_SceneManager->Tick();
+    g_hysicsManager->Tick();
+    g_GraphicsManager->Tick();
+    g_GameLogic->Tick();
+#if defined(_DEBUG)
+    g_DebugManager->Tick();
 #endif
-    if (m_frame_counter != -1) {
-        m_sumFPS += 1.0 / m_clock.deltaTime().count();
+    if (m_FrameCounter != -1) {
+        m_SumFPS += 1.0 / m_Clock.deltaTime().count();
     }
-    m_frame_counter++;
-    if (m_frame_counter == 30) {
-        m_FPS           = m_sumFPS / 30;
-        m_sumFPS        = 0;
-        m_frame_counter = 0;
+    m_FrameCounter++;
+    if (m_FrameCounter == 30) {
+        m_FPS          = m_SumFPS / 30;
+        m_SumFPS       = 0;
+        m_FrameCounter = 0;
     }
     m_k += m_FPS - 60;
-    std::this_thread::sleep_until(m_clock.tickTime() + std::chrono::seconds(1) / 60.0 +
+    std::this_thread::sleep_until(m_Clock.tickTime() + std::chrono::seconds(1) / 60.0 +
                                   m_k * std::chrono::microseconds(1));
 }
 
 void BaseApplication::SetCommandLineParameters(int argc, char** argv) {
-    m_nArgC  = argc;
-    m_ppArgV = argv;
+    m_ArgSize = argc;
+    m_Arg     = argv;
 }
 
-bool BaseApplication::IsQuit() { return m_bQuit; }
+bool BaseApplication::IsQuit() { return m_Quit; }

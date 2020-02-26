@@ -27,10 +27,10 @@ public:
     std::weak_ptr<SceneObjectGeometry> GetSceneGeometryObject(const std::string& key);
 
 protected:
-    std::unique_ptr<Scene> m_pScene;
-    bool                   m_bDirtyFlag = false;
-    std::filesystem::path  m_scenePath;
+    std::unique_ptr<Scene> m_Scene;
+    bool                   m_DirtyFlag = false;
+    std::filesystem::path  m_ScenePath;
 };
 
-extern std::unique_ptr<SceneManager> g_pSceneManager;
+extern std::unique_ptr<SceneManager> g_SceneManager;
 }  // namespace My

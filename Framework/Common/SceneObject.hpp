@@ -10,70 +10,70 @@
 
 namespace My {
 enum struct SceneObjectType : int32_t {
-    kMESH          = "MESH"_i32,
-    kMATERIAL      = "MATL"_i32,
-    kTEXTURE       = "TXTU"_i32,
-    kLIGHT         = "LGHT"_i32,
-    kCAMERA        = "CAMR"_i32,
-    kANIMATOR      = "ANIM"_i32,
-    kCLIP          = "CLIP"_i32,
-    kGEOMETRY      = "GEOM"_i32,
-    kINDEX_ARRAY   = "VARR"_i32,
-    kVERETEX_ARRAY = "VARR"_i32,
+    MESH          = "MESH"_i32,
+    MATERIAL      = "MATL"_i32,
+    TEXTURE       = "TXTU"_i32,
+    LIGHT         = "LGHT"_i32,
+    CAMERA        = "CAMR"_i32,
+    ANIMATOR      = "ANIM"_i32,
+    CLIP          = "CLIP"_i32,
+    GEOMETRY      = "GEOM"_i32,
+    INDEX_ARRAY   = "VARR"_i32,
+    VERETEX_ARRAY = "VARR"_i32,
 };
 
 enum struct SceneObjectCollisionType : int32_t {
-    kNONE         = "CNON"_i32,
-    kSPHERE       = "CSPH"_i32,
-    kBOX          = "CBOX"_i32,
-    kCYLINDER     = "CCYL"_i32,
-    kCAPSULE      = "CCAP"_i32,
-    kCONE         = "CCON"_i32,
-    kMULTI_SPHERE = "CMUL"_i32,
-    kCONVEX_HULL  = "CCVH"_i32,
-    kCONVEX_MESH  = "CCVM"_i32,
-    kBVH_MESH     = "CBVM"_i32,
-    kHEIGHTFIELD  = "CHIG"_i32,
-    kPLANE        = "CPLN"_i32,
+    NONE         = "CNON"_i32,
+    SPHERE       = "CSPH"_i32,
+    BOX          = "CBOX"_i32,
+    CYLINDER     = "CCYL"_i32,
+    CAPSULE      = "CCAP"_i32,
+    CONE         = "CCON"_i32,
+    MULTI_SPHERE = "CMUL"_i32,
+    CONVEX_HULL  = "CCVH"_i32,
+    CONVEX_MESH  = "CCVM"_i32,
+    BVH_MESH     = "CBVM"_i32,
+    HEIGHTFIELD  = "CHIG"_i32,
+    PLANE        = "CPLN"_i32,
 };
 
 enum struct VertexDataType : int32_t {
-    kFLOAT1  = "FLT1"_i32,
-    kFLOAT2  = "FLT2"_i32,
-    kFLOAT3  = "FLT3"_i32,
-    kFLOAT4  = "FLT4"_i32,
-    kDOUBLE1 = "DUB1"_i32,
-    kDOUBLE2 = "DUB2"_i32,
-    kDOUBLE3 = "DUB3"_i32,
-    kDOUBLE4 = "DUB4"_i32,
+    FLOAT1  = "FLT1"_i32,
+    FLOAT2  = "FLT2"_i32,
+    FLOAT3  = "FLT3"_i32,
+    FLOAT4  = "FLT4"_i32,
+    DOUBLE1 = "DUB1"_i32,
+    DOUBLE2 = "DUB2"_i32,
+    DOUBLE3 = "DUB3"_i32,
+    DOUBLE4 = "DUB4"_i32,
 };
 
 enum struct IndexDataType : int32_t {
-    kINT8  = "I8  "_i32,
-    kINT16 = "I16 "_i32,
-    kINT32 = "I32 "_i32,
-    kINT64 = "I64 "_i32,
+    INT8  = "I8  "_i32,
+    INT16 = "I16 "_i32,
+    INT32 = "I32 "_i32,
+    INT64 = "I64 "_i32,
 };
 
 enum struct PrimitiveType : int32_t {
     // clang-format off
-    kNone                 = "NONE"_i32,  // No particular primitive type.
-    kPOINT_LIST           = "PLST"_i32,  // For N>=0, vertex N renders a point.
-    kLINE_LIST            = "LLST"_i32,  // For N>=0, vertices [N*2+0, N*2+1] render a line.
-    kLINE_STRIP           = "LSTR"_i32,  // For N>=0, vertices [N, N+1] render a line.
-    kTRI_LIST             = "TLST"_i32,  // For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a triangle.
-    kTRI_FAN              = "TFAN"_i32,  // For N>=0, vertices [0, (N+1)%M, (N+2)%M] render a triangle, where M is the vertex count.
-    kTRI_STRIP            = "TSTR"_i32,  // For N>=0, vertices [N*2+0, N*2+1, N*2+2] and [N*2+2, N*2+1, N*2+3] render triangles.
-    kPATCH                = "PACH"_i32,  // Used for tessellation.
-    kLINE_LIST_ADJACENCY  = "LLSA"_i32,  // For N>=0, vertices [N*4..N*4+3] render a line from [1, 2]. Lines [0, 1] and [2, 3] are adjacent to the rendered line.
-    kLINE_STRIP_ADJACENCY = "LSTA"_i32,  // For N>=0, vertices [N+1, N+2] render a line. Lines [N, N+1] and [N+2, N+3] are adjacent to the rendered line.
-    kTRI_LIST_ADJACENCY   = "TLSA"_i32,  // For N>=0, vertices [N*6..N*6+5] render a triangle from [0, 2, 4]. Triangles [0, 1, 2] [4, 2, 3] and [5, 0, 4] are adjacent to the rendered triangle.
-    kTRI_STRIP_ADJACENCY  = "TSTA"_i32,  // For N>=0, vertices [N*4..N*4+6] render a triangle from [0, 2, 4] and [4, 2, 6]. Odd vertices Nodd form adjacent triangles with indices min(Nodd+1,Nlast) and max(Nodd-3,Nfirst).
-    kRECT_LIST            = "RLST"_i32,  // For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a screen-aligned rectangle. 0 is upper-left, 1 is upper-right, and 2 is the lower-left corner.
-    kLINE_LOOP            = "LLOP"_i32,  // Like <c>kPrimitiveTypeLineStrip</c>, but the first and last vertices also render a line.
-    kQUAD_LIST            = "QLST"_i32,  // For N>=0, vertices [N*4+0, N*4+1, N*4+2] and [N*4+0, N*4+2, N*4+3] render triangles.
-    kQUAD_STRIP           = "QSTR"_i32,  // For N>=0, vertices [N*2+0, N*2+1, N*2+3] and [N*2+0, N*2+3, N*2+2] render triangles.
-    kPOLYGON              = "POLY"_i32,  // For N>=0, vertices [0, N+1, N+2] render a triangle.
+    None                 = "NONE"_i32,  // No particular primitive type.
+    POINT_LIST           = "PLST"_i32,  // For N>=0, vertex N renders a point.
+    LINE_LIST            = "LLST"_i32,  // For N>=0, vertices [N*2+0, N*2+1] render a line.
+    LINE_STRIP           = "LSTR"_i32,  // For N>=0, vertices [N, N+1] render a line.
+    TRI_LIST             = "TLST"_i32,  // For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a triangle.
+    TRI_FAN              = "TFAN"_i32,  // For N>=0, vertices [0, (N+1)%M, (N+2)%M] render a triangle, where M is the vertex count.
+    TRI_STRIP            = "TSTR"_i32,  // For N>=0, vertices [N*2+0, N*2+1, N*2+2] and [N*2+2, N*2+1, N*2+3] render triangles.
+    PATCH                = "PACH"_i32,  // Used for tessellation.
+    LINE_LIST_ADJACENCY  = "LLSA"_i32,  // For N>=0, vertices [N*4..N*4+3] render a line from [1, 2]. Lines [0, 1] and [2, 3] are adjacent to the rendered line.
+    LINE_STRIP_ADJACENCY = "LSTA"_i32,  // For N>=0, vertices [N+1, N+2] render a line. Lines [N, N+1] and [N+2, N+3] are adjacent to the rendered line.
+    TRI_LIST_ADJACENCY   = "TLSA"_i32,  // For N>=0, vertices [N*6..N*6+5] render a triangle from [0, 2, 4]. Triangles [0, 1, 2] [4, 2, 3] and [5, 0, 4] are adjacent to the rendered triangle.
+    TRI_STRIP_ADJACENCY  = "TSTA"_i32,  // For N>=0, vertices [N*4..N*4+6] render a triangle from [0, 2, 4] and [4, 2, 6]. Odd vertices Nodd form adjacent triangles with indices min(Nodd+1,Nlast) and max(Nodd-3,Nfirst).
+    RECT_LIST            = "RLST"_i32,  // For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a screen-aligned rectangle. 0 is upper-left, 1 is upper-right, and 2 is the lower-left corner.
+    LINE_LOOP            = "LLOP"_i32,  // Like <c>kPrimitiveTypeLineStrip</c>, but the first and last vertices also render a line.
+    QUAD_LIST            = "QLST"_i32,  // For N>=0, vertices [N*4+0, N*4+1, N*4+2] and [N*4+0, N*4+2, N*4+3] render triangles.
+    QUAD_STRIP           = "QSTR"_i32,  // For N>=0, vertices [N*2+0, N*2+1, N*2+3] and [N*2+0, N*2+3, N*2+2] render triangles.
+    POLYGON              = "POLY"_i32,  // For N>=0, vertices [0, N+1, N+2] render a triangle.
     // clang-format on
 };
 
@@ -106,19 +106,19 @@ public:
 
 class SceneObjectTexture : public BaseSceneObject {
 protected:
-    uint32_t               m_nTexCoordIndex;
+    uint32_t               m_TexCoordIndex;
     std::string            m_Name;
-    std::shared_ptr<Image> m_pImage;
+    std::shared_ptr<Image> m_Image;
     std::vector<mat4f>     m_Transforms;
 
 public:
-    SceneObjectTexture() : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(0) {}
+    SceneObjectTexture() : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0) {}
     SceneObjectTexture(std::string_view name)
-        : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(0), m_Name(name) {}
-    SceneObjectTexture(uint32_t coord_index, std::shared_ptr<Image>& image)
-        : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(coord_index), m_pImage(image) {}
-    SceneObjectTexture(uint32_t coord_index, std::shared_ptr<Image>&& image)
-        : BaseSceneObject(SceneObjectType::kTEXTURE), m_nTexCoordIndex(coord_index), m_pImage(std::move(image)) {}
+        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0), m_Name(name) {}
+    SceneObjectTexture(uint32_t coordIndex, std::shared_ptr<Image>& image)
+        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(coordIndex), m_Image(image) {}
+    SceneObjectTexture(uint32_t coordIndex, std::shared_ptr<Image>&& image)
+        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
     SceneObjectTexture(SceneObjectTexture&)  = default;
     SceneObjectTexture(SceneObjectTexture&&) = default;
 
@@ -178,8 +178,8 @@ protected:
     Color       m_Emission;
 
 public:
-    SceneObjectMaterial(void)
-        : BaseSceneObject(SceneObjectType::kMATERIAL),
+    SceneObjectMaterial()
+        : BaseSceneObject(SceneObjectType::MATERIAL),
           m_Name(""),
           m_BaseColor(vec4f(1.0f)),
           m_Metallic(0.0f),
@@ -210,15 +210,15 @@ public:
 
 class SceneObjectVertexArray {
 protected:
-    std::string    m_strAttribute;
+    std::string    m_Attribute;
     uint32_t       m_MorphTargetIndex;
     VertexDataType m_DataType;
-    size_t         m_vertexCount;
-    void*          m_pData = nullptr;
+    size_t         m_VertexCount;
+    void*          m_Data = nullptr;
 
 public:
     SceneObjectVertexArray(std::string_view attr = "", uint32_t morph_index = 0,
-                           const VertexDataType data_type = VertexDataType::kFLOAT3, const void* data = nullptr,
+                           const VertexDataType dataType = VertexDataType::FLOAT3, const void* data = nullptr,
                            size_t vertexCount = 0);
     SceneObjectVertexArray(const SceneObjectVertexArray& rhs);
     SceneObjectVertexArray(SceneObjectVertexArray&& rhs);
@@ -236,13 +236,13 @@ public:
 
 class SceneObjectIndexArray {
 protected:
-    size_t        m_szResetartIndex;
+    size_t        m_ResetartIndex;
     IndexDataType m_DataType;
-    size_t        m_indexCount;
-    void*         m_pData = nullptr;
+    size_t        m_IndexCount;
+    void*         m_Data = nullptr;
 
 public:
-    SceneObjectIndexArray(const uint32_t restart_index = 0, const IndexDataType data_type = IndexDataType::kINT16,
+    SceneObjectIndexArray(const uint32_t restartIndex = 0, const IndexDataType dataType = IndexDataType::INT16,
                           const void* data = nullptr, const size_t elementCount = 0);
     SceneObjectIndexArray(const SceneObjectIndexArray& rhs);
     SceneObjectIndexArray(SceneObjectIndexArray&& rhs);
@@ -273,15 +273,15 @@ protected:
     std::weak_ptr<SceneObjectMaterial>                      m_Material;
     PrimitiveType                                           m_PrimitiveType;
 
-    bool m_bVisible;
-    bool m_bShadow;
-    bool m_bMotionBlur;
+    bool m_Visible;
+    bool m_Shadow;
+    bool m_MotionBlur;
 
 public:
-    SceneObjectMesh(bool visible = true, bool shadow = true, bool motion_blur = true)
-        : BaseSceneObject(SceneObjectType::kMESH) {}
+    SceneObjectMesh(bool visible = true, bool shadow = true, bool motionBlur = true)
+        : BaseSceneObject(SceneObjectType::MESH) {}
     SceneObjectMesh(SceneObjectMesh&& mesh)
-        : BaseSceneObject(SceneObjectType::kMESH),
+        : BaseSceneObject(SceneObjectType::MESH),
           m_IndexArray(std::move(mesh.m_IndexArray)),
           m_VertexArray(std::move(mesh.m_VertexArray)),
           m_PrimitiveType(mesh.m_PrimitiveType) {}
@@ -310,19 +310,19 @@ protected:
     // ... | ...
     std::vector<std::vector<std::weak_ptr<SceneObjectMesh>>> m_MeshesLOD;
 
-    bool                     m_bVisible;
-    bool                     m_bShadow;
-    bool                     m_bMotionBlur;
+    bool                     m_Visible;
+    bool                     m_Shadow;
+    bool                     m_MotionBlur;
     SceneObjectCollisionType m_CollisionType;
     float                    m_CollisionParameters[10];
 
 public:
     SceneObjectGeometry()
-        : BaseSceneObject(SceneObjectType::kGEOMETRY), m_CollisionType(SceneObjectCollisionType::kNONE) {}
+        : BaseSceneObject(SceneObjectType::GEOMETRY), m_CollisionType(SceneObjectCollisionType::NONE) {}
     void                                        SetVisibility(bool visible);
     void                                        SetIfCastShadow(bool shadow);
-    void                                        SetIfMotionBlur(bool motion_blur);
-    void                                        SetCollisionType(SceneObjectCollisionType collision_type);
+    void                                        SetIfMotionBlur(bool motionBlur);
+    void                                        SetCollisionType(SceneObjectCollisionType collisionType);
     void                                        SetCollisionParameters(const float* param, int32_t count);
     const bool                                  Visible() const;
     const bool                                  CastShadow() const;
@@ -342,18 +342,18 @@ float DefaultAttenFunc(float intensity, float distance);
 class SceneObjectLight : public BaseSceneObject {
 public:
     SceneObjectLight(const vec4f& color = vec4f(1.0f), float intensity = 100.0f)
-        : BaseSceneObject(SceneObjectType::kLIGHT),
+        : BaseSceneObject(SceneObjectType::LIGHT),
           m_LightColor(color),
-          m_fIntensity(intensity),
+          m_Intensity(intensity),
           m_LightAttenuation(DefaultAttenFunc),
-          m_bCastShadows(false){};
+          m_CastShadows(false){};
 
 protected:
     Color       m_LightColor;
-    float       m_fIntensity;
+    float       m_Intensity;
     AttenFunc   m_LightAttenuation;
-    bool        m_bCastShadows;
-    std::string m_strTexture;
+    bool        m_CastShadows;
+    std::string m_TextureRef;
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectLight& obj);
 
@@ -375,15 +375,15 @@ public:
 
 class SceneObjectSpotLight : public SceneObjectLight {
 protected:
-    vec3f m_direction;
-    float m_fInnerConeAngle;
-    float m_fOuterConeAngle;
+    vec3f m_Direction;
+    float m_InnerConeAngle;
+    float m_OuterConeAngle;
 
 public:
     SceneObjectSpotLight(const vec4f& color = vec4f(1.0f), float intensity = 100.0f,
                          const vec3f& direction = vec3f(0.0f), float innerConeAngle = PI / 3.0f,
                          float outerConeAngle = PI / 4.0f)
-        : SceneObjectLight(color, intensity), m_fInnerConeAngle(innerConeAngle), m_fOuterConeAngle(outerConeAngle) {}
+        : SceneObjectLight(color, intensity), m_InnerConeAngle(innerConeAngle), m_OuterConeAngle(outerConeAngle) {}
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectSpotLight& obj);
 };
@@ -396,16 +396,16 @@ public:
 
 class SceneObjectCamera : public BaseSceneObject {
 protected:
-    float m_fAspect;
-    float m_fNearClipDistance;
-    float m_fFarClipDistance;
+    float m_Aspect;
+    float m_NearClipDistance;
+    float m_FarClipDistance;
 
     // can only be used as base class
-    SceneObjectCamera(float aspect = 16.0f / 9.0f, float near_clip = 1.0f, float far_clip = 100.0f)
-        : BaseSceneObject(SceneObjectType::kCAMERA),
-          m_fAspect(aspect),
-          m_fNearClipDistance(near_clip),
-          m_fFarClipDistance(far_clip) {}
+    SceneObjectCamera(float aspect = 16.0f / 9.0f, float nearClip = 1.0f, float farClip = 100.0f)
+        : BaseSceneObject(SceneObjectType::CAMERA),
+          m_Aspect(aspect),
+          m_NearClipDistance(nearClip),
+          m_FarClipDistance(farClip) {}
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectCamera& obj);
 
@@ -425,10 +425,10 @@ public:
 
 class SceneObjectPerspectiveCamera : public SceneObjectCamera {
 protected:
-    float m_fFov;
+    float m_Fov;
 
 public:
-    SceneObjectPerspectiveCamera(float fov = PI / 2.0) : SceneObjectCamera(), m_fFov(fov) {}
+    SceneObjectPerspectiveCamera(float fov = PI / 2.0) : SceneObjectCamera(), m_Fov(fov) {}
 
     void                 SetParam(std::string_view attrib, float param);
     float                GetFov() const;
@@ -437,16 +437,16 @@ public:
 
 class SceneObjectTransform {
 protected:
-    mat4f m_matrix;
-    bool  m_bSceneObjectOnly;
+    mat4f m_Transform;
+    bool  m_SceneObjectOnly;
 
 public:
-    SceneObjectTransform() : m_matrix(1.0f), m_bSceneObjectOnly(false) {}
+    SceneObjectTransform() : m_Transform(1.0f), m_SceneObjectOnly(false) {}
     SceneObjectTransform(const mat4f matrix, const bool object_only = false)
-        : m_matrix(matrix), m_bSceneObjectOnly(object_only) {}
+        : m_Transform(matrix), m_SceneObjectOnly(object_only) {}
 
-    operator mat4f() { return m_matrix; }
-    operator const mat4f() const { return m_matrix; }
+    operator mat4f() { return m_Transform; }
+    operator const mat4f() const { return m_Transform; }
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectTransform& obj);
 };

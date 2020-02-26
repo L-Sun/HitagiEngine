@@ -19,68 +19,68 @@ BaseSceneObject& BaseSceneObject::operator=(BaseSceneObject&& obj) {
 }
 
 // Class SceneObjectVertexArray
-SceneObjectVertexArray::SceneObjectVertexArray(std::string_view attr, uint32_t morph_index,
-                                               const VertexDataType data_type, const void* data, size_t vertexCount)
-    : m_strAttribute(attr), m_MorphTargetIndex(morph_index), m_DataType(data_type), m_vertexCount(vertexCount) {
-    m_pData = g_pMemoryManager->Allocate(GetDataSize());
-    std::memcpy(m_pData, data, GetDataSize());
+SceneObjectVertexArray::SceneObjectVertexArray(std::string_view attr, uint32_t morphIndex,
+                                               const VertexDataType dataType, const void* data, size_t vertexCount)
+    : m_Attribute(attr), m_MorphTargetIndex(morphIndex), m_DataType(dataType), m_VertexCount(vertexCount) {
+    m_Data = g_MemoryManager->Allocate(GetDataSize());
+    std::memcpy(m_Data, data, GetDataSize());
 }
 SceneObjectVertexArray::SceneObjectVertexArray(const SceneObjectVertexArray& rhs) { this->operator=(rhs); }
 SceneObjectVertexArray::SceneObjectVertexArray(SceneObjectVertexArray&& rhs) { this->operator=(rhs); }
 SceneObjectVertexArray& SceneObjectVertexArray::operator=(const SceneObjectVertexArray& rhs) {
     if (this != &rhs) {
-        if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
-        m_strAttribute     = rhs.m_strAttribute;
+        if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
+        m_Attribute        = rhs.m_Attribute;
         m_MorphTargetIndex = rhs.m_MorphTargetIndex;
         m_DataType         = rhs.m_DataType;
-        m_vertexCount      = rhs.m_vertexCount;
-        m_pData            = g_pMemoryManager->Allocate(rhs.GetDataSize());
-        std::memcpy(m_pData, rhs.m_pData, rhs.GetDataSize());
+        m_VertexCount      = rhs.m_VertexCount;
+        m_Data             = g_MemoryManager->Allocate(rhs.GetDataSize());
+        std::memcpy(m_Data, rhs.m_Data, rhs.GetDataSize());
     }
     return *this;
 }
 SceneObjectVertexArray& SceneObjectVertexArray::operator=(SceneObjectVertexArray&& rhs) {
     if (this != &rhs) {
-        if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
-        m_strAttribute     = std::move(rhs.m_strAttribute);
+        if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
+        m_Attribute        = std::move(rhs.m_Attribute);
         m_MorphTargetIndex = rhs.m_MorphTargetIndex;
         m_DataType         = rhs.m_DataType;
-        m_vertexCount      = rhs.m_vertexCount;
-        m_pData            = rhs.m_pData;
-        rhs.m_pData        = nullptr;
+        m_VertexCount      = rhs.m_VertexCount;
+        m_Data             = rhs.m_Data;
+        rhs.m_Data         = nullptr;
     }
     return *this;
 }
 SceneObjectVertexArray::~SceneObjectVertexArray() {
-    if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
+    if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
 }
-const std::string& SceneObjectVertexArray::GetAttributeName() const { return m_strAttribute; }
+const std::string& SceneObjectVertexArray::GetAttributeName() const { return m_Attribute; }
 VertexDataType     SceneObjectVertexArray::GetDataType() const { return m_DataType; }
 size_t             SceneObjectVertexArray::GetDataSize() const {
     size_t vertexSize;
     switch (m_DataType) {
-        case VertexDataType::kFLOAT1:
+        case VertexDataType::FLOAT1:
             vertexSize = sizeof(float) * 1;
             break;
-        case VertexDataType::kFLOAT2:
+        case VertexDataType::FLOAT2:
             vertexSize = sizeof(float) * 2;
             break;
-        case VertexDataType::kFLOAT3:
+        case VertexDataType::FLOAT3:
             vertexSize = sizeof(float) * 3;
             break;
-        case VertexDataType::kFLOAT4:
+        case VertexDataType::FLOAT4:
             vertexSize = sizeof(float) * 4;
             break;
-        case VertexDataType::kDOUBLE1:
+        case VertexDataType::DOUBLE1:
             vertexSize = sizeof(double) * 1;
             break;
-        case VertexDataType::kDOUBLE2:
+        case VertexDataType::DOUBLE2:
             vertexSize = sizeof(double) * 2;
             break;
-        case VertexDataType::kDOUBLE3:
+        case VertexDataType::DOUBLE3:
             vertexSize = sizeof(double) * 3;
             break;
-        case VertexDataType::kDOUBLE4:
+        case VertexDataType::DOUBLE4:
             vertexSize = sizeof(double) * 4;
             break;
         default:
@@ -89,61 +89,61 @@ size_t             SceneObjectVertexArray::GetDataSize() const {
     }
     return vertexSize * GetVertexCount();
 }
-const void* SceneObjectVertexArray::GetData() const { return m_pData; }
-size_t      SceneObjectVertexArray::GetVertexCount() const { return m_vertexCount; }
+const void* SceneObjectVertexArray::GetData() const { return m_Data; }
+size_t      SceneObjectVertexArray::GetVertexCount() const { return m_VertexCount; }
 
 // Class SceneObjectIndexArray
-SceneObjectIndexArray::SceneObjectIndexArray(const uint32_t restart_index, const IndexDataType data_type,
+SceneObjectIndexArray::SceneObjectIndexArray(const uint32_t restart_index, const IndexDataType dataType,
                                              const void* data, const size_t indexCount)
-    : m_szResetartIndex(restart_index), m_DataType(data_type), m_indexCount(indexCount) {
-    m_pData = g_pMemoryManager->Allocate(GetDataSize());
-    std::memcpy(m_pData, data, GetDataSize());
+    : m_ResetartIndex(restart_index), m_DataType(dataType), m_IndexCount(indexCount) {
+    m_Data = g_MemoryManager->Allocate(GetDataSize());
+    std::memcpy(m_Data, data, GetDataSize());
 }
 SceneObjectIndexArray::SceneObjectIndexArray(const SceneObjectIndexArray& rhs) { this->operator=(rhs); }
 SceneObjectIndexArray::SceneObjectIndexArray(SceneObjectIndexArray&& rhs) { this->operator=(std::move(rhs)); }
 SceneObjectIndexArray& SceneObjectIndexArray::operator=(const SceneObjectIndexArray& rhs) {
     if (this != &rhs) {
-        if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
-        m_szResetartIndex = rhs.m_szResetartIndex;
-        m_DataType        = rhs.m_DataType;
-        m_indexCount      = rhs.m_indexCount;
-        m_pData           = g_pMemoryManager->Allocate(rhs.GetDataSize());
-        std::memcpy(m_pData, rhs.m_pData, rhs.GetDataSize());
+        if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
+        m_ResetartIndex = rhs.m_ResetartIndex;
+        m_DataType      = rhs.m_DataType;
+        m_IndexCount    = rhs.m_IndexCount;
+        m_Data          = g_MemoryManager->Allocate(rhs.GetDataSize());
+        std::memcpy(m_Data, rhs.m_Data, rhs.GetDataSize());
     }
     return *this;
 }
 SceneObjectIndexArray& SceneObjectIndexArray::operator=(SceneObjectIndexArray&& rhs) {
     if (this != &rhs) {
-        if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
-        m_szResetartIndex = rhs.m_szResetartIndex;
-        m_DataType        = rhs.m_DataType;
-        m_indexCount      = rhs.m_indexCount;
-        m_pData           = rhs.m_pData;
-        rhs.m_pData       = nullptr;
+        if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
+        m_ResetartIndex = rhs.m_ResetartIndex;
+        m_DataType      = rhs.m_DataType;
+        m_IndexCount    = rhs.m_IndexCount;
+        m_Data          = rhs.m_Data;
+        rhs.m_Data      = nullptr;
     }
     return *this;
 }
 SceneObjectIndexArray::~SceneObjectIndexArray() {
-    if (m_pData) g_pMemoryManager->Free(m_pData, GetDataSize());
+    if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
 }
 const IndexDataType SceneObjectIndexArray::GetIndexType() const { return m_DataType; }
-const void*         SceneObjectIndexArray::GetData() const { return m_pData; }
-size_t              SceneObjectIndexArray::GetIndexCount() const { return m_indexCount; }
+const void*         SceneObjectIndexArray::GetData() const { return m_Data; }
+size_t              SceneObjectIndexArray::GetIndexCount() const { return m_IndexCount; }
 size_t              SceneObjectIndexArray::GetDataSize() const {
     size_t size;
 
     switch (m_DataType) {
-        case IndexDataType::kINT8:
-            size = m_indexCount * sizeof(int8_t);
+        case IndexDataType::INT8:
+            size = m_IndexCount * sizeof(int8_t);
             break;
-        case IndexDataType::kINT16:
-            size = m_indexCount * sizeof(int16_t);
+        case IndexDataType::INT16:
+            size = m_IndexCount * sizeof(int16_t);
             break;
-        case IndexDataType::kINT32:
-            size = m_indexCount * sizeof(int32_t);
+        case IndexDataType::INT32:
+            size = m_IndexCount * sizeof(int32_t);
             break;
-        case IndexDataType::kINT64:
-            size = m_indexCount * sizeof(int64_t);
+        case IndexDataType::INT64:
+            size = m_IndexCount * sizeof(int64_t);
             break;
         default:
             size = 0;
@@ -174,12 +174,12 @@ BoundingBox                        SceneObjectMesh::GetBoundingBox() const {
     vec3f bbmin(std::numeric_limits<float>::max());
     vec3f bbmax(std::numeric_limits<float>::min());
     auto  positions    = m_VertexArray.at("POSITION");
-    auto  data_type    = positions.GetDataType();
+    auto  dataType     = positions.GetDataType();
     auto  vertex_count = positions.GetVertexCount();
     auto  data         = positions.GetData();
 
-    switch (data_type) {
-        case VertexDataType::kFLOAT3: {
+    switch (dataType) {
+        case VertexDataType::FLOAT3: {
             auto vertex = reinterpret_cast<const vec3f*>(data);
             for (auto i = 0; i < vertex_count; i++, vertex++) {
                 bbmin.x = std::min(bbmin.x, vertex->x);
@@ -190,7 +190,7 @@ BoundingBox                        SceneObjectMesh::GetBoundingBox() const {
                 bbmax.z = std::max(bbmax.z, vertex->z);
             }
         } break;
-        case VertexDataType::kDOUBLE3: {
+        case VertexDataType::DOUBLE3: {
             auto vertex = reinterpret_cast<const vec3d*>(data);
             for (auto i = 0; i < vertex_count; i++, vertex++) {
                 bbmin.x = std::min(static_cast<double>(bbmin.x), vertex->x);
@@ -216,31 +216,31 @@ void SceneObjectTexture::AddTransform(mat4f& matrix) { m_Transforms.push_back(ma
 void SceneObjectTexture::SetName(const std::string& name) { m_Name = name; }
 void SceneObjectTexture::SetName(std::string&& name) { m_Name = std::move(name); }
 void SceneObjectTexture::LoadTexture() {
-    if (!m_pImage) {
-        Buffer buf = g_pAssetLoader->SyncOpenAndReadBinary(m_Name);
+    if (!m_Image) {
+        Buffer buf = g_AssetLoader->SyncOpenAndReadBinary(m_Name);
         auto   ext = std::filesystem::path(m_Name).extension();
         if (ext == ".jpg" || ext == ".jpeg") {
             JpegParser jfif_parser;
-            m_pImage = std::make_shared<Image>(jfif_parser.Parse(buf));
+            m_Image = std::make_shared<Image>(jfif_parser.Parse(buf));
         } else if (ext == ".png") {
-            PngParser png_parser;
-            m_pImage = std::make_shared<Image>(png_parser.Parse(buf));
+            PngParser png_arser;
+            m_Image = std::make_shared<Image>(png_arser.Parse(buf));
         } else if (ext == ".bmp") {
             BmpParser bmp_parser;
-            m_pImage = std::make_shared<Image>(bmp_parser.Parse(buf));
+            m_Image = std::make_shared<Image>(bmp_parser.Parse(buf));
         } else if (ext == ".tga") {
             TgaParser tga_parser;
-            m_pImage = std::make_shared<Image>(tga_parser.Parse(buf));
+            m_Image = std::make_shared<Image>(tga_parser.Parse(buf));
         }
     }
 }
 const std::string& SceneObjectTexture::GetName() const { return m_Name; }
 const Image&       SceneObjectTexture::GetTextureImage() {
-    if (!m_pImage) {
+    if (!m_Image) {
         LoadTexture();
     }
 
-    return *m_pImage;
+    return *m_Image;
 }
 
 // Class SceneObjectMaterial
@@ -283,19 +283,17 @@ void SceneObjectMaterial::LoadTextures() {
 }
 
 // Class SceneObjectGeometry
-void SceneObjectGeometry::SetVisibility(bool visible) { m_bVisible = visible; }
-void SceneObjectGeometry::SetIfCastShadow(bool shadow) { m_bShadow = shadow; }
-void SceneObjectGeometry::SetIfMotionBlur(bool motion_blur) { m_bMotionBlur = motion_blur; }
-void SceneObjectGeometry::SetCollisionType(SceneObjectCollisionType collision_type) {
-    m_CollisionType = collision_type;
-}
+void SceneObjectGeometry::SetVisibility(bool visible) { m_Visible = visible; }
+void SceneObjectGeometry::SetIfCastShadow(bool shadow) { m_Shadow = shadow; }
+void SceneObjectGeometry::SetIfMotionBlur(bool motion_blur) { m_MotionBlur = motion_blur; }
+void SceneObjectGeometry::SetCollisionType(SceneObjectCollisionType collisionType) { m_CollisionType = collisionType; }
 void SceneObjectGeometry::SetCollisionParameters(const float* param, int32_t count) {
     assert(count > 0 && count < 10);
     memcpy(m_CollisionParameters, param, sizeof(float) * count);
 }
-const bool                     SceneObjectGeometry::Visible() const { return m_bVisible; }
-const bool                     SceneObjectGeometry::CastShadow() const { return m_bShadow; }
-const bool                     SceneObjectGeometry::MotionBlur() const { return m_bMotionBlur; }
+const bool                     SceneObjectGeometry::Visible() const { return m_Visible; }
+const bool                     SceneObjectGeometry::CastShadow() const { return m_Shadow; }
+const bool                     SceneObjectGeometry::MotionBlur() const { return m_MotionBlur; }
 const SceneObjectCollisionType SceneObjectGeometry::CollisionType() const { return m_CollisionType; }
 const float*                   SceneObjectGeometry::CollisionParameters() const { return m_CollisionParameters; }
 
@@ -332,7 +330,7 @@ BoundingBox SceneObjectGeometry::GetBoundingBox() const {
 }
 
 // Class SceneObjectLight
-void SceneObjectLight::SetIfCastShadow(bool shadow) { m_bCastShadows = shadow; }
+void SceneObjectLight::SetIfCastShadow(bool shadow) { m_CastShadows = shadow; }
 void SceneObjectLight::SetColor(std::string_view attrib, const vec4f& color) {
     if (attrib == "light") {
         m_LightColor = Color(color);
@@ -340,17 +338,17 @@ void SceneObjectLight::SetColor(std::string_view attrib, const vec4f& color) {
 }
 void SceneObjectLight::SetParam(std::string_view attrib, float param) {
     if (attrib == "intensity") {
-        m_fIntensity = param;
+        m_Intensity = param;
     }
 }
 void SceneObjectLight::SetTexture(std::string_view attrib, std::string_view textureName) {
     if (attrib == "projection") {
-        m_strTexture = textureName;
+        m_TextureRef = textureName;
     }
 }
 void         SceneObjectLight::SetAttenuation(AttenFunc func) { m_LightAttenuation = func; }
 const Color& SceneObjectLight::GetColor() { return m_LightColor; }
-float        SceneObjectLight::GetIntensity() { return m_fIntensity; }
+float        SceneObjectLight::GetIntensity() { return m_Intensity; }
 
 // Class SceneObjectOmniLight
 // Class SceneObjectSpotLight
@@ -362,87 +360,87 @@ void SceneObjectCamera::SetColor(std::string_view attrib, const vec4f& color) {
 }
 void SceneObjectCamera::SetParam(std::string_view attrib, float param) {
     if (attrib == "near")
-        m_fNearClipDistance = param;
+        m_NearClipDistance = param;
     else if (attrib == "far")
-        m_fFarClipDistance = param;
+        m_FarClipDistance = param;
 }
 void SceneObjectCamera::SetTexture(std::string_view attrib, std::string_view textureName) {
     // TODO: extension
 }
-float SceneObjectCamera::GetNearClipDistance() const { return m_fNearClipDistance; }
-float SceneObjectCamera::GetFarClipDistance() const { return m_fFarClipDistance; }
+float SceneObjectCamera::GetNearClipDistance() const { return m_NearClipDistance; }
+float SceneObjectCamera::GetFarClipDistance() const { return m_FarClipDistance; }
 
 // Class SceneObjectOrthogonalCamera
 // Class SceneObjectPerspectiveCamera
 void SceneObjectPerspectiveCamera::SetParam(std::string_view attrib, float param) {
     // TODO: handle fovs, fovy
     if (attrib == "fov") {
-        m_fFov = param;
+        m_Fov = param;
     }
     SceneObjectCamera::SetParam(attrib, param);
 }
-float SceneObjectPerspectiveCamera::GetFov() const { return m_fFov; }
+float SceneObjectPerspectiveCamera::GetFov() const { return m_Fov; }
 
 // Class SceneObjectTransform
 // Class SceneObjectTranslation
 SceneObjectTranslation::SceneObjectTranslation(const char axis, const float amount) {
     switch (axis) {
         case 'x':
-            m_matrix = translate(m_matrix, vec3f(amount, 0.0f, 0.0f));
+            m_Transform = translate(m_Transform, vec3f(amount, 0.0f, 0.0f));
             break;
         case 'y':
-            m_matrix = translate(m_matrix, vec3f(0.0f, amount, 0.0f));
+            m_Transform = translate(m_Transform, vec3f(0.0f, amount, 0.0f));
             break;
         case 'z':
-            m_matrix = translate(m_matrix, vec3f(0.0f, 0.0f, amount));
+            m_Transform = translate(m_Transform, vec3f(0.0f, 0.0f, amount));
         default:
             break;
     }
 }
 SceneObjectTranslation::SceneObjectTranslation(const float x, const float y, const float z) {
-    m_matrix = translate(m_matrix, vec3f(x, y, z));
+    m_Transform = translate(m_Transform, vec3f(x, y, z));
 }
 
 // Class SceneObjectRotation
 SceneObjectRotation::SceneObjectRotation(const char axis, const float theta) {
     switch (axis) {
         case 'x':
-            m_matrix = rotate(m_matrix, radians(theta), vec3f(1.0f, 0.0f, 0.0f));
+            m_Transform = rotate(m_Transform, radians(theta), vec3f(1.0f, 0.0f, 0.0f));
             break;
         case 'y':
-            m_matrix = rotate(m_matrix, radians(theta), vec3f(0.0f, 1.0f, 0.0f));
+            m_Transform = rotate(m_Transform, radians(theta), vec3f(0.0f, 1.0f, 0.0f));
             break;
         case 'z':
-            m_matrix = rotate(m_matrix, radians(theta), vec3f(0.0f, 0.0f, 1.0f));
+            m_Transform = rotate(m_Transform, radians(theta), vec3f(0.0f, 0.0f, 1.0f));
             break;
         default:
             break;
     }
 }
 SceneObjectRotation::SceneObjectRotation(vec3f& axis, const float theta) {
-    axis     = normalize(axis);
-    m_matrix = rotate(m_matrix, theta, axis);
+    axis        = normalize(axis);
+    m_Transform = rotate(m_Transform, theta, axis);
 }
-SceneObjectRotation::SceneObjectRotation(quatf quaternion) { m_matrix = mat4f(quaternion) * m_matrix; }
+SceneObjectRotation::SceneObjectRotation(quatf quaternion) { m_Transform = mat4f(quaternion) * m_Transform; }
 
 // Class SceneObjectScale
 SceneObjectScale::SceneObjectScale(const char axis, const float amount) {
     switch (axis) {
         case 'x':
-            m_matrix = scale(m_matrix, vec3f(amount, 0.0f, 0.0f));
+            m_Transform = scale(m_Transform, vec3f(amount, 0.0f, 0.0f));
             break;
         case 'y':
-            m_matrix = scale(m_matrix, vec3f(0.0f, amount, 0.0f));
+            m_Transform = scale(m_Transform, vec3f(0.0f, amount, 0.0f));
             break;
         case 'z':
-            m_matrix = scale(m_matrix, vec3f(0.0f, 0.0f, amount));
+            m_Transform = scale(m_Transform, vec3f(0.0f, 0.0f, amount));
             break;
         default:
             break;
     }
 }
 SceneObjectScale::SceneObjectScale(const float x, const float y, const float z) {
-    m_matrix = scale(m_matrix, vec3f(x, y, z));
+    m_Transform = scale(m_Transform, vec3f(x, y, z));
 }
 
 // Type print
@@ -498,7 +496,7 @@ std::ostream& operator<<(std::ostream& out, const BaseSceneObject& obj) {
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
-    out << "Attribute: " << obj.m_strAttribute << '\n';
+    out << "Attribute: " << obj.m_Attribute << '\n';
     out << "Morph Target Index: " << obj.m_MorphTargetIndex << '\n';
     out << "Data Type: " << obj.m_DataType << '\n';
     out << "Data Size: " << obj.GetDataSize() << " bytes.\n";
@@ -506,29 +504,29 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
     out << "Data: ";
     for (size_t i = 0; i < obj.GetVertexCount(); i++) {
         switch (obj.m_DataType) {
-            case VertexDataType::kFLOAT1:
-                std::cout << *(reinterpret_cast<const float*>(obj.m_pData) + i) << ' ';
+            case VertexDataType::FLOAT1:
+                std::cout << *(reinterpret_cast<const float*>(obj.m_Data) + i) << ' ';
                 break;
-            case VertexDataType::kFLOAT2:
-                std::cout << *(reinterpret_cast<const vec2f*>(obj.m_pData) + i) << ' ';
+            case VertexDataType::FLOAT2:
+                std::cout << *(reinterpret_cast<const vec2f*>(obj.m_Data) + i) << ' ';
                 break;
-            case VertexDataType::kFLOAT3:
-                std::cout << *(reinterpret_cast<const vec3f*>(obj.m_pData) + i) << ' ';
+            case VertexDataType::FLOAT3:
+                std::cout << *(reinterpret_cast<const vec3f*>(obj.m_Data) + i) << ' ';
                 break;
-            case VertexDataType::kFLOAT4:
-                std::cout << *(reinterpret_cast<const vec4f*>(obj.m_pData) + i) << ' ';
+            case VertexDataType::FLOAT4:
+                std::cout << *(reinterpret_cast<const vec4f*>(obj.m_Data) + i) << ' ';
                 break;
-            case VertexDataType::kDOUBLE1:
-                std::cout << *(reinterpret_cast<const double*>(obj.m_pData) + i) << ' ';
+            case VertexDataType::DOUBLE1:
+                std::cout << *(reinterpret_cast<const double*>(obj.m_Data) + i) << ' ';
                 break;
-            case VertexDataType::kDOUBLE2:
-                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(obj.m_pData) + i) << ' ';
+            case VertexDataType::DOUBLE2:
+                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(obj.m_Data) + i) << ' ';
                 break;
-            case VertexDataType::kDOUBLE3:
-                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(obj.m_pData) + i) << ' ';
+            case VertexDataType::DOUBLE3:
+                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(obj.m_Data) + i) << ' ';
                 break;
-            case VertexDataType::kDOUBLE4:
-                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(obj.m_pData) + i) << ' ';
+            case VertexDataType::DOUBLE4:
+                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(obj.m_Data) + i) << ' ';
                 break;
             default:
                 break;
@@ -537,23 +535,23 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
     return out << std::endl;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
-    out << "Restart Index: " << obj.m_szResetartIndex << '\n';
+    out << "Restart Index: " << obj.m_ResetartIndex << '\n';
     out << "Index Data Type: " << obj.m_DataType << '\n';
     out << "Data Size: " << obj.GetDataSize() << '\n';
     out << "Data: ";
     for (size_t i = 0; i < obj.GetIndexCount(); i++) {
         switch (obj.m_DataType) {
-            case IndexDataType::kINT8:
-                out << reinterpret_cast<const int8_t*>(obj.m_pData)[i] << ' ';
+            case IndexDataType::INT8:
+                out << reinterpret_cast<const int8_t*>(obj.m_Data)[i] << ' ';
                 break;
-            case IndexDataType::kINT16:
-                out << reinterpret_cast<const int16_t*>(obj.m_pData)[i] << ' ';
+            case IndexDataType::INT16:
+                out << reinterpret_cast<const int16_t*>(obj.m_Data)[i] << ' ';
                 break;
-            case IndexDataType::kINT32:
-                out << reinterpret_cast<const int32_t*>(obj.m_pData)[i] << ' ';
+            case IndexDataType::INT32:
+                out << reinterpret_cast<const int32_t*>(obj.m_Data)[i] << ' ';
                 break;
-            case IndexDataType::kINT64:
-                out << reinterpret_cast<const int64_t*>(obj.m_pData)[i] << ' ';
+            case IndexDataType::INT64:
+                out << reinterpret_cast<const int64_t*>(obj.m_Data)[i] << ' ';
                 break;
             default:
                 break;
@@ -574,9 +572,9 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectMesh& obj) {
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj) {
     out << static_cast<const BaseSceneObject&>(obj) << '\n';
-    out << "Coord Index: " << obj.m_nTexCoordIndex << '\n';
+    out << "Coord Index: " << obj.m_TexCoordIndex << '\n';
     out << "Name: " << obj.m_Name << '\n';
-    if (obj.m_pImage) out << "Image: " << *obj.m_pImage << '\n';
+    if (obj.m_Image) out << "Image: " << *obj.m_Image << '\n';
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj) {
@@ -601,9 +599,9 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectGeometry& obj) {
 std::ostream& operator<<(std::ostream& out, const SceneObjectLight& obj) {
     out << static_cast<const BaseSceneObject&>(obj) << '\n';
     out << "Color: " << obj.m_LightColor << '\n';
-    out << "Intensity: " << obj.m_fIntensity << '\n';
-    out << "Cast Shadows: " << obj.m_bCastShadows << '\n';
-    out << "Texture: " << obj.m_strTexture << '\n';
+    out << "Intensity: " << obj.m_Intensity << '\n';
+    out << "Cast Shadows: " << obj.m_CastShadows << '\n';
+    out << "Texture: " << obj.m_TextureRef << '\n';
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectPointLight& obj) {
@@ -614,8 +612,8 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectPointLight& obj) {
 std::ostream& operator<<(std::ostream& out, const SceneObjectSpotLight& obj) {
     out << static_cast<const SceneObjectLight&>(obj) << '\n';
     out << "Light Type: Spot" << '\n';
-    out << "Inner Cone Angle" << obj.m_fInnerConeAngle << '\n';
-    out << "Outer Cone Angle" << obj.m_fOuterConeAngle << '\n';
+    out << "Inner Cone Angle" << obj.m_InnerConeAngle << '\n';
+    out << "Outer Cone Angle" << obj.m_OuterConeAngle << '\n';
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectInfiniteLight& obj) {
@@ -625,9 +623,9 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectInfiniteLight& obj)
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectCamera& obj) {
     out << static_cast<const BaseSceneObject&>(obj) << '\n';
-    out << "Aspcet: " << obj.m_fAspect << '\n';
-    out << "Near Clip Distance: " << obj.m_fNearClipDistance << '\n';
-    out << "Far Clip Distance: " << obj.m_fFarClipDistance << '\n';
+    out << "Aspcet: " << obj.m_Aspect << '\n';
+    out << "Near Clip Distance: " << obj.m_NearClipDistance << '\n';
+    out << "Far Clip Distance: " << obj.m_FarClipDistance << '\n';
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectOrthogonalCamera& obj) {
@@ -638,12 +636,12 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectOrthogonalCamera& o
 std::ostream& operator<<(std::ostream& out, const SceneObjectPerspectiveCamera& obj) {
     out << static_cast<const SceneObjectCamera&>(obj) << '\n';
     out << "Camera Type: Perspective" << '\n';
-    out << "FOV: " << obj.m_fFov << '\n';
+    out << "FOV: " << obj.m_Fov << '\n';
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectTransform& obj) {
-    out << "Transform Matrix: " << obj.m_matrix << '\n';
-    out << "Is Object Local: " << obj.m_bSceneObjectOnly << '\n';
+    out << "Transform Matrix: " << obj.m_Transform << '\n';
+    out << "Is Object Local: " << obj.m_SceneObjectOnly << '\n';
     return out;
 }
 

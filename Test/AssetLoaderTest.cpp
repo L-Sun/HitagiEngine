@@ -6,17 +6,16 @@
 using namespace My;
 
 namespace My {
-std::unique_ptr<MemoryManager> g_pMemoryManager(new MemoryManager);
+std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
 }  // namespace My
 
 int main(int argc, char const* argv[]) {
-    g_pMemoryManager->Initialize();
+    g_MemoryManager->Initialize();
 
     AssetLoader asset_loader;
-    std::string shader_pgm =
-        asset_loader.SyncOpenAndReadTextFileToString("Asset/Shaders/copy.vs");
+    std::string shader_pgm = asset_loader.SyncOpenAndReadTextFileToString("Asset/Shaders/copy.vs");
     std::cout << shader_pgm << std::endl;
-    g_pMemoryManager->Finalize();
+    g_MemoryManager->Finalize();
 
     return 0;
 }

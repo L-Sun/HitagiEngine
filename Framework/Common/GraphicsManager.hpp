@@ -16,7 +16,7 @@ public:
     virtual void Draw();
     virtual void Clear();
 
-#if defined(DEBUG)
+#if defined(_DEBUG)
     virtual void RenderLine(const vec3f& from, const vec3f& to, const vec3f& color);
     virtual void RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color);
     virtual void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color);
@@ -44,14 +44,14 @@ protected:
     virtual void       RenderBuffers();
     const FT_GlyphSlot GetGlyph(char c);
 
-    FrameConstants m_frameConstants;
+    FrameConstants m_FrameConstants;
 
 private:
-    FT_Library m_ftLibrary;
-    FT_Face    m_ftFace;
-    Buffer     m_fontFaceFile;
+    FT_Library m_FTLibrary;
+    FT_Face    m_FTFace;
+    Buffer     m_FontFaceFile;
 };
 
-extern std::unique_ptr<GraphicsManager> g_pGraphicsManager;
+extern std::unique_ptr<GraphicsManager> g_GraphicsManager;
 
 }  // namespace My

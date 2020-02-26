@@ -19,15 +19,15 @@ public:
     void Pause();
 
 private:
-    std::chrono::duration<double> mDeltaTime;
-    std::chrono::duration<double> mPausedTime;
+    std::chrono::duration<double> m_DeltaTime;
+    std::chrono::duration<double> m_PausedTime;
 
-    std::chrono::high_resolution_clock::time_point mBaseTime;
-    std::chrono::high_resolution_clock::time_point mStopTime;
-    std::chrono::high_resolution_clock::time_point mPrevTime;
-    std::chrono::high_resolution_clock::time_point mTickTime;
+    std::chrono::high_resolution_clock::time_point m_BaseTime;
+    std::chrono::high_resolution_clock::time_point m_StopTime;
+    std::chrono::high_resolution_clock::time_point m_PrevTime;
+    std::chrono::high_resolution_clock::time_point m_TickTime;
 
-    bool mPaused = true;
+    bool m_Paused = true;
 };
 
 }  // namespace My
