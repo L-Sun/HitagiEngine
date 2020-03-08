@@ -5,7 +5,7 @@
 #include "geommath_ispc.hpp"
 #endif  // Use_Eigen
 
-namespace My {
+namespace Hitagi {
 constexpr double PI = 3.14159265358979323846;
 // Float
 using vec2f = Vector<float, 2>;
@@ -304,4 +304,4 @@ const T Length(const Vector<T, D>& v) {
     return static_cast<T>(std::sqrt(v * v));
 }
 
-}  // namespace My
+}  // namespace Hitagi

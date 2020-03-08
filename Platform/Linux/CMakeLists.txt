@@ -10,9 +10,9 @@ find_library(DL_LIBRARY dl)
 endif(${CMAKE_HOST_SYSTEM_NAME} MATCHES FreeBSD)
 
 
-add_library(MyGameEngine OpenGLApplication.cpp OpenGLApplicationConfig.cpp)
+add_library(HitagiGameEngine OpenGLApplication.cpp OpenGLApplicationConfig.cpp)
 
-target_link_libraries(MyGameEngine GLFWApplication OpenGLRHI Common glfw
+target_link_libraries(HitagiGameEngine GLFWApplication OpenGLRHI Common glfw
     ${OPENGL_LIBRARY}
     ${DL_LIBRARY}
 )

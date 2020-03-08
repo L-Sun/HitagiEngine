@@ -3,7 +3,7 @@
 #include <cstring>
 #include "MemoryManager.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class Buffer {
 public:
@@ -24,4 +24,4 @@ private:
     size_t   m_Size;
     size_t   m_Alignment;
 };
-}  // namespace My
+}  // namespace Hitagi

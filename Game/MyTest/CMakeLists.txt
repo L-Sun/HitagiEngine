@@ -1,33 +1,33 @@
 if(ANDROID)
-    add_library(MyTest
+    add_library(HitagiTest
         SHARED 
-            MyTest.cpp
-            MyTestConfig.cpp
+            HitagiTest.cpp
+            HitagiTestConfig.cpp
     )
 elseif(APPLE)
-    add_executable(MyTest
+    add_executable(HitagiTest
         MACOSX_BUNDLE
-            MyTest.cpp
-            MyTestConfig.cpp
+            HitagiTest.cpp
+            HitagiTestConfig.cpp
     )
 else(ANDROID)
-    add_executable(MyTest 
-        MyTest.cpp
-        MyTestConfig.cpp
+    add_executable(HitagiTest 
+        HitagiTest.cpp
+        HitagiTestConfig.cpp
     )
 endif(ANDROID)
 
 set(UseOpenGL true)
 
 if(${UseOpenGL})
-    target_link_libraries(MyTest 
-        MyGameEngineOpenGL
-        MyPhysics
+    target_link_libraries(HitagiTest 
+        HitagiGameEngineOpenGL
+        HitagiPhysics
     )
 else()
-    target_link_libraries(MyTest 
-        MyGameEngineD3D12
-        MyPhysics
+    target_link_libraries(HitagiTest 
+        HitagiGameEngineD3D12
+        HitagiPhysics
     )
 endif(${UseOpenGL})
 

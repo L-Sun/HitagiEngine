@@ -1,6 +1,6 @@
 #include "Geometry.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 void Geometry::CalculateTemporalAabb(const mat4f& curTrans, const vec3f& linvel,
                                      const vec3f& angvel, float timeStep,

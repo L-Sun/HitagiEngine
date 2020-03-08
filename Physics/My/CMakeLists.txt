@@ -1,7 +1,7 @@
-add_library(MyPhysics MyPhysicsManager.cpp)
-target_link_libraries(MyPhysics
+add_library(HitagiPhysics HitagiPhysicsManager.cpp)
+target_link_libraries(HitagiPhysics
     PUBLIC 
         Geometries
         Common
 )
-target_include_directories(MyPhysics INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(HitagiPhysics INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -1,5 +1,5 @@
 #include "Scene.hpp"
-using namespace My;
+using namespace Hitagi;
 
 // Material
 std::shared_ptr<SceneObjectMaterial> Scene::GetMaterial(const std::string& key) const {

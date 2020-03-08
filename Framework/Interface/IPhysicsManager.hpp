@@ -3,7 +3,7 @@
 #include "IRuntimeModule.hpp"
 #include "SceneManager.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class IPhysicsManager : public IRuntimeModule {
 public:
@@ -23,4 +23,4 @@ public:
     virtual void ApplyCentralForce(std::shared_ptr<void> rigidBody, vec3f force) = 0;
 };
 extern std::unique_ptr<IPhysicsManager> g_hysicsManager;
-}  // namespace My
+}  // namespace Hitagi

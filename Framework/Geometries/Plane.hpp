@@ -2,7 +2,7 @@
 #pragma once
 #include "Geometry.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class Plane : public Geometry {
 public:
@@ -18,4 +18,4 @@ protected:
     vec3f m_Normal;
     float m_Intercept;
 };
-}  // namespace My
+}  // namespace Hitagi

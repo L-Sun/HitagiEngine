@@ -6,7 +6,7 @@
 #include <list>
 #include "SceneObject.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class BaseSceneNode {
 protected:
@@ -141,4 +141,4 @@ public:
     const vec3f& GetTarget() { return m_Target; }
 };
 
-}  // namespace My
+}  // namespace Hitagi

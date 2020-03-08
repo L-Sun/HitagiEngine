@@ -1,7 +1,7 @@
 #pragma once
 #include "BaseApplication.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class EmptyApplication : public BaseApplication {
 public:
@@ -9,4 +9,4 @@ public:
     void Finalize() final;
     void Tick() final;
 };
-}  // namespace My
+}  // namespace Hitagi

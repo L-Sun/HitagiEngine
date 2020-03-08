@@ -3,7 +3,7 @@
 #include "png.h"
 #include "PNG.hpp"
 
-using namespace My;
+using namespace Hitagi;
 struct ImageSource {
     const uint8_t* data;
     int            size;

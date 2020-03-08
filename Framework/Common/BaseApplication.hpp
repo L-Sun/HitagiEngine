@@ -10,7 +10,7 @@
 #include "GameLogic.hpp"
 #include "Timer.hpp"
 
-namespace My {
+namespace Hitagi {
 class BaseApplication : public IApplication {
 public:
     BaseApplication(GfxConfiguration& cfg);
@@ -39,4 +39,4 @@ private:
     short m_FrameCounter = -1;
     long  m_k            = 0;
 };
-}  // namespace My
+}  // namespace Hitagi

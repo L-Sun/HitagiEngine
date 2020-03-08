@@ -1,7 +1,7 @@
 #include <iostream>
 #include "BaseApplication.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 #ifdef _WIN32
 #include <crtdbg.h>

@@ -1,7 +1,7 @@
 #pragma once
 #include "Geometry.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class Sphere : public Geometry {
 public:
@@ -15,4 +15,4 @@ public:
 protected:
     float m_Radius;
 };
-}  // namespace My
+}  // namespace Hitagi

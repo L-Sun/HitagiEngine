@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace My {
+namespace Hitagi {
 
 struct BlockHeader {
     BlockHeader* next;
@@ -51,4 +51,4 @@ private:
     uint32_t m_BLocks;
     uint32_t m_FreeBlocks;
 };
-}  // namespace My
+}  // namespace Hitagi

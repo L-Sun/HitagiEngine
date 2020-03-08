@@ -1,17 +1,17 @@
 #include <iostream>
-#include "MyTest.hpp"
+#include "HitagiTest.hpp"
 #include "SceneManager.hpp"
 #include "DebugManager.hpp"
 #include <chrono>
 #include <thread>
-#include "MyPhysicsManager.hpp"
+#include "HitagiPhysicsManager.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
-int MyTest::Initialize() {
+int HitagiTest::Initialize() {
     int result;
 
-    std::cout << "My Game Logic Initialize" << std::endl;
+    std::cout << "Hitagi Game Logic Initialize" << std::endl;
     std::cout << "Start Loading Game Scene" << std::endl;
     result = g_SceneManager->LoadScene("Asset/Scene/test.fbx");
     m_Clock.Initialize();
@@ -19,11 +19,11 @@ int MyTest::Initialize() {
     return result;
 }
 
-void MyTest::Finalize() { std::cout << "MyTest Game Logic Finalize" << std::endl; }
+void HitagiTest::Finalize() { std::cout << "HitagiTest Game Logic Finalize" << std::endl; }
 
-void MyTest::Tick() {}
+void HitagiTest::Tick() {}
 
-void MyTest::OnLeftKey() {
+void HitagiTest::OnLeftKey() {
     auto node_weak_ptr = g_SceneManager->GetSceneGeometryNode(selectedNode[i]);
 
     if (auto node_ptr = node_weak_ptr.lock()) {
@@ -31,7 +31,7 @@ void MyTest::OnLeftKey() {
         g_hysicsManager->UpdateRigidBodyTransform(*node_ptr);
     }
 }
-void MyTest::OnRightKey() {
+void HitagiTest::OnRightKey() {
     auto node_weak_ptr = g_SceneManager->GetSceneGeometryNode(selectedNode[i]);
 
     if (auto node_ptr = node_weak_ptr.lock()) {
@@ -39,7 +39,7 @@ void MyTest::OnRightKey() {
         g_hysicsManager->UpdateRigidBodyTransform(*node_ptr);
     }
 }
-void MyTest::OnUpKey() {
+void HitagiTest::OnUpKey() {
     auto node_weak_ptr = g_SceneManager->GetSceneGeometryNode(selectedNode[i]);
 
     if (auto node_ptr = node_weak_ptr.lock()) {
@@ -47,7 +47,7 @@ void MyTest::OnUpKey() {
         g_hysicsManager->UpdateRigidBodyTransform(*node_ptr);
     }
 }
-void MyTest::OnDownKey() {
+void HitagiTest::OnDownKey() {
     auto node_weak_ptr = g_SceneManager->GetSceneGeometryNode(selectedNode[i]);
 
     if (auto node_ptr = node_weak_ptr.lock()) {
@@ -56,4 +56,4 @@ void MyTest::OnDownKey() {
     }
 }
 
-void MyTest::OnCKey() { i = (i + 1) % selectedNode.size(); }
+void HitagiTest::OnCKey() { i = (i + 1) % selectedNode.size(); }

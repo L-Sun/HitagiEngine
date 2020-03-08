@@ -1,6 +1,6 @@
 #include "Timer.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 int Clock::Initialize() {
     m_DeltaTime  = std::chrono::duration<double>::zero();

@@ -3,7 +3,7 @@
 #include "OpenGLGraphicsManager.hpp"
 #include "OpenGLApplication.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 int OpenGLApplication::Initialize() {
     int result;

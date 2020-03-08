@@ -2,7 +2,7 @@
 #include "geommath.hpp"
 #include <gtest/gtest.h>
 
-using namespace My;
+using namespace Hitagi;
 // clang-format off
 
 vec2f v2 = {1, 2};

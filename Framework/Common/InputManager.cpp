@@ -4,7 +4,7 @@
 #include "GameLogic.hpp"
 #include "DebugManager.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 #define DEBUG 1
 

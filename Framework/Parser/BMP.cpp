@@ -2,7 +2,7 @@
 #include "geommath.hpp"
 #include "BMP.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 Image BmpParser::Parse(const Buffer& buf) {
     Image                    img;

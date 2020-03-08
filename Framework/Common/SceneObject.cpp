@@ -5,7 +5,7 @@
 #include "BMP.hpp"
 #include "TGA.hpp"
 
-namespace My {
+namespace Hitagi {
 // Class BaseSceneObject
 BaseSceneObject::BaseSceneObject(SceneObjectType type) : m_Type(type) { m_Guid = xg::newGuid(); }
 BaseSceneObject::BaseSceneObject(const xg::Guid& guid, const SceneObjectType& type) : m_Guid(guid), m_Type(type) {}
@@ -646,4 +646,4 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectTransform& obj) {
 }
 
 float DefaultAttenFunc(float intensity, float distance) { return intensity / pow(1 + distance, 2.0f); }
-}  // namespace My
+}  // namespace Hitagi

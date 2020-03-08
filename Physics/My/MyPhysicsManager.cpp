@@ -1,32 +1,32 @@
 #include <iostream>
-#include "MyPhysicsManager.hpp"
+#include "HitagiPhysicsManager.hpp"
 #include "Box.hpp"
 #include "Plane.hpp"
 #include "Sphere.hpp"
 #include "RigidBody.hpp"
 #include "GraphicsManager.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
-int MyPhysicsManager::Initialize() {
-    std::cout << "[MyPhysicsManager] Initialize" << std::endl;
+int HitagiPhysicsManager::Initialize() {
+    std::cout << "[HitagiPhysicsManager] Initialize" << std::endl;
     return 0;
 }
 
-void MyPhysicsManager::Finalize() {
-    std::cout << "[MyPhysicsManager] Finalize" << std::endl;
+void HitagiPhysicsManager::Finalize() {
+    std::cout << "[HitagiPhysicsManager] Finalize" << std::endl;
     // Clean up
     ClearRigidBodies();
 }
 
-void MyPhysicsManager::Tick() {
+void HitagiPhysicsManager::Tick() {
     if (g_SceneManager->IsSceneChanged()) {
         ClearRigidBodies();
         CreateRigidBodies();
         g_SceneManager->NotifySceneIsPhysicalSimulationQueued();
     }
 }
-void MyPhysicsManager::CreateRigidBody(SceneGeometryNode& node, const SceneObjectGeometry& geometry) {
+void HitagiPhysicsManager::CreateRigidBody(SceneGeometryNode& node, const SceneObjectGeometry& geometry) {
     const float*               param     = geometry.CollisionParameters();
     std::shared_ptr<RigidBody> rigidBody = nullptr;
 
@@ -61,15 +61,15 @@ void MyPhysicsManager::CreateRigidBody(SceneGeometryNode& node, const SceneObjec
     node.LinkRigidBody(rigidBody);
 }
 
-void MyPhysicsManager::UpdateRigidBodyTransform(SceneGeometryNode& node) {
+void HitagiPhysicsManager::UpdateRigidBodyTransform(SceneGeometryNode& node) {
     const auto trans       = node.GetCalculatedTransform();
     auto       rigidBody   = node.RigidBody();
     auto       motionState = std::static_pointer_cast<RigidBody>(rigidBody)->GetMotionState();
     motionState->SetTransition(*trans);
 }
 
-void MyPhysicsManager::DeleteRigidBody(SceneGeometryNode& node) { node.UnlinkRigidBody(); }
-int  MyPhysicsManager::CreateRigidBodies() {
+void HitagiPhysicsManager::DeleteRigidBody(SceneGeometryNode& node) { node.UnlinkRigidBody(); }
+int  HitagiPhysicsManager::CreateRigidBodies() {
     auto& scene = g_SceneManager->GetSceneForPhysicsSimulation();
     // Geometries
 
@@ -82,7 +82,7 @@ int  MyPhysicsManager::CreateRigidBodies() {
     return 0;
 }
 
-void MyPhysicsManager::ClearRigidBodies() {
+void HitagiPhysicsManager::ClearRigidBodies() {
     auto& scene = g_SceneManager->GetSceneForPhysicsSimulation();
     // Geometries
     for (auto [key, node] : scene.GeometryNodes) {
@@ -91,7 +91,7 @@ void MyPhysicsManager::ClearRigidBodies() {
     }
 }
 
-mat4f MyPhysicsManager::GetRigidBodyTransform(std::shared_ptr<void> rigidBody) {
+mat4f HitagiPhysicsManager::GetRigidBodyTransform(std::shared_ptr<void> rigidBody) {
     mat4f trans;
     auto  _rigidBody  = std::static_pointer_cast<RigidBody>(rigidBody);
     auto  motionState = _rigidBody->GetMotionState();
@@ -99,10 +99,10 @@ mat4f MyPhysicsManager::GetRigidBodyTransform(std::shared_ptr<void> rigidBody) {
     return trans;
 }
 
-void MyPhysicsManager::ApplyCentralForce(std::shared_ptr<void> rigidBody, vec3f force) {}
+void HitagiPhysicsManager::ApplyCentralForce(std::shared_ptr<void> rigidBody, vec3f force) {}
 
 #if defined(_DEBUG)
-void MyPhysicsManager::DrawDebugInfo() {
+void HitagiPhysicsManager::DrawDebugInfo() {
     auto& scene = g_SceneManager->GetSceneForPhysicsSimulation();
 
     // Geometries
@@ -120,7 +120,7 @@ void MyPhysicsManager::DrawDebugInfo() {
     }
 }
 
-void MyPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass) {
+void HitagiPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass) {
     vec3f bbMin, bbMax;
     vec3f color(0.7f, 0.6f, 0.5f);
     mat4f _trans(1.0f);

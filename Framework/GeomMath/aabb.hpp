@@ -1,7 +1,7 @@
 #pragma once
 #include "geommath.hpp"
 
-namespace My {
+namespace Hitagi {
 inline void TransformAabb(const vec3f& halfExtents, float margin,
                           const mat4f& trans, vec3f& aabbMinOut,
                           vec3f& aabbMaxOut) {
@@ -15,4 +15,4 @@ inline void TransformAabb(const vec3f& halfExtents, float margin,
     aabbMinOut = center - extent;
     aabbMaxOut = center + extent;
 }
-}  // namespace My
+}  // namespace Hitagi

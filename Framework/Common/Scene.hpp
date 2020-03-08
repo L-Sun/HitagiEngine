@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include "SceneObject.hpp"
 #include "SceneNode.hpp"
-namespace My {
+namespace Hitagi {
 class Scene {
 private:
     std::shared_ptr<SceneObjectMaterial> m_DefaultMaterial;
@@ -36,4 +36,4 @@ public:
 
     void LoadResource();
 };
-}  // namespace My
+}  // namespace Hitagi

@@ -2,7 +2,7 @@
 #include "SceneObject.hpp"
 #include "SceneNode.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 int32_t main(int32_t argc, char** argv) {
     int32_t                              result = 0;

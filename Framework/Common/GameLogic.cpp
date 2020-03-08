@@ -1,7 +1,7 @@
 #include <iostream>
 #include "GameLogic.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 int GameLogic::Initialize() { return 0; }
 

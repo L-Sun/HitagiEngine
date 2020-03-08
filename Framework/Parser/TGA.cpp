@@ -3,7 +3,7 @@
 #include "portable.hpp"
 #include "TGA.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 #pragma pack(push, 1)
 struct TGA_FILEHEADER {

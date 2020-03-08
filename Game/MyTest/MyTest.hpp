@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-namespace My {
-class MyTest : public GameLogic {
+namespace Hitagi {
+class HitagiTest : public GameLogic {
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;
@@ -22,4 +22,4 @@ private:
     Clock  m_Clock;
     size_t i = 0;
 };
-}  // namespace My
+}  // namespace Hitagi

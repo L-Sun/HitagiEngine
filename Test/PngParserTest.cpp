@@ -4,12 +4,12 @@
 #include "MemoryManager.hpp"
 #include "PNG.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
-namespace My {
+namespace Hitagi {
 std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
 std::unique_ptr<AssetLoader>   g_AssetLoader(new AssetLoader);
-}  // namespace My
+}  // namespace Hitagi
 
 int main(int argc, const char** argv) {
     g_MemoryManager->Initialize();

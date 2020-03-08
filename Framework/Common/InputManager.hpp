@@ -1,7 +1,7 @@
 #pragma once
 #include "IRuntimeModule.hpp"
 
-namespace My {
+namespace Hitagi {
 class InputManager : public IRuntimeModule {
 public:
     virtual int  Initialize();
@@ -33,4 +33,4 @@ protected:
 };
 
 extern std::unique_ptr<InputManager> g_InputManager;
-}  // namespace My
+}  // namespace Hitagi

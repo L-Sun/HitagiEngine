@@ -2,7 +2,7 @@
 #include <chrono>
 #include "IRuntimeModule.hpp"
 
-namespace My {
+namespace Hitagi {
 class Clock : public IRuntimeModule {
 public:
     virtual int  Initialize();
@@ -30,4 +30,4 @@ private:
     bool m_Paused = true;
 };
 
-}  // namespace My
+}  // namespace Hitagi

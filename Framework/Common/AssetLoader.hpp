@@ -4,7 +4,7 @@
 #include "IRuntimeModule.hpp"
 #include "Buffer.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class AssetLoader : public IRuntimeModule {
 public:
@@ -21,7 +21,7 @@ public:
 
 private:
     bool checkFile(const std::filesystem::path& filePath) const;
-};  // namespace My
+};  // namespace Hitagi
 
 extern std::unique_ptr<AssetLoader> g_AssetLoader;
-}  // namespace My
+}  // namespace Hitagi

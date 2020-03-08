@@ -1,7 +1,7 @@
 #pragma once
 #include "ImageParser.hpp"
 
-namespace My {
+namespace Hitagi {
 class BmpParser : public ImageParser {
 public:
     virtual Image Parse(const Buffer& buf);
@@ -31,4 +31,4 @@ private:
     } BITMAP_HEADER;
 #pragma pack(pop)
 };
-}  // namespace My
+}  // namespace Hitagi

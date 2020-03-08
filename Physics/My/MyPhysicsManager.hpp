@@ -2,8 +2,8 @@
 #include "IPhysicsManager.hpp"
 #include "Geometry.hpp"
 
-namespace My {
-class MyPhysicsManager : public IPhysicsManager {
+namespace Hitagi {
+class HitagiPhysicsManager : public IPhysicsManager {
 public:
     int  Initialize() final;
     void Finalize() final;
@@ -31,4 +31,4 @@ protected:
                   const vec3f& centerOfMass);
 #endif
 };
-}  // namespace My
+}  // namespace Hitagi

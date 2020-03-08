@@ -3,11 +3,11 @@
 #include "MemoryManager.hpp"
 #include "AssetLoader.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
-namespace My {
+namespace Hitagi {
 std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
-}  // namespace My
+}  // namespace Hitagi
 
 int main(int argc, char const* argv[]) {
     g_MemoryManager->Initialize();

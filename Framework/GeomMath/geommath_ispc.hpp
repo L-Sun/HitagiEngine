@@ -40,7 +40,7 @@ void Normalize(float* a, uint32_t count);
 }
 }  // namespace ispc
 
-namespace My {
+namespace Hitagi {
 
 template <typename T, int ROWS, int COLS>
 struct Matrix;
@@ -445,4 +445,4 @@ struct Matrix {
     }
 };
 
-}  // namespace My
+}  // namespace Hitagi

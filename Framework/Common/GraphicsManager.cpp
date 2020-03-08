@@ -4,7 +4,7 @@
 #include "SceneManager.hpp"
 #include "AssetLoader.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 int GraphicsManager::Initialize() {
     int result = 0;

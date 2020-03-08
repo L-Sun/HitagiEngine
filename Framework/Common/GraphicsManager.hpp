@@ -6,7 +6,7 @@
 #include "Scene.hpp"
 #include "Buffer.hpp"
 
-namespace My {
+namespace Hitagi {
 class GraphicsManager : public IRuntimeModule {
 public:
     virtual ~GraphicsManager() {}
@@ -54,4 +54,4 @@ private:
 
 extern std::unique_ptr<GraphicsManager> g_GraphicsManager;
 
-}  // namespace My
+}  // namespace Hitagi

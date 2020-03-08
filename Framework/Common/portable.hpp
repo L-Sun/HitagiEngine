@@ -5,7 +5,7 @@
 #include <cassert>
 #include <limits>
 
-namespace My {
+namespace Hitagi {
 template <typename T>
 T endian_native_unsigned_int(T net_number) {
     T result = 0;
@@ -54,4 +54,4 @@ constexpr uint32_t operator"" _u32(const char* s, size_t) {
 constexpr uint16_t operator"" _u16(const char* s, size_t) {
     return details::u16(s, 0);
 }
-}  // namespace My
+}  // namespace Hitagi

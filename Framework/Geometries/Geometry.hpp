@@ -1,7 +1,7 @@
 #pragma once
 #include "aabb.hpp"
 
-namespace My {
+namespace Hitagi {
 enum struct GeometryType { BOX, SPHERE, CYLINDER, CONE, PLANE, CAPSULE, TRIANGLE };
 
 class Geometry {
@@ -24,4 +24,4 @@ protected:
     float        m_Margin = std::numeric_limits<float>::epsilon();
 };
 
-}  // namespace My
+}  // namespace Hitagi

@@ -1,13 +1,13 @@
 #include "MemoryManager.hpp"
 #include <malloc.h>
 
-using namespace My;
+using namespace Hitagi;
 
 #ifndef ALIGN
 #define ALIGN(x, a) (((x) + ((a)-1)) & ~((a)-1))
 #endif
 
-namespace My {
+namespace Hitagi {
 static const uint32_t kBlockSizes[] = {
     // 4-increments
     4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96,
@@ -26,7 +26,7 @@ static const uint32_t kNumBlockSizes = sizeof(kBlockSizes) / sizeof(kBlockSizes[
 static const uint32_t kMaxBlockSize = kBlockSizes[kNumBlockSizes - 1];
 size_t*               MemoryManager::m_BlockSizeLookup;
 Allocator*            MemoryManager::m_Allocators;
-}  // namespace My
+}  // namespace Hitagi
 
 int MemoryManager::Initialize() {
     m_Initialized = false;

@@ -1,1 +1,1 @@
-add_subdirectory(My)
+add_subdirectory(Hitagi)

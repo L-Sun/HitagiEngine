@@ -3,7 +3,7 @@
 #include <assimp/scene.h>
 #include "Assimp.hpp"
 
-namespace My {
+namespace Hitagi {
 std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
     std::unique_ptr<Scene> scene(new Scene);
     Assimp::Importer       importer;
@@ -271,6 +271,6 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Buffer& buf) {
 
     scene->SceneGraph = convert(_scene->mRootNode);
     return scene;
-}  // namespace My
+}  // namespace Hitagi
 
-}  // namespace My
+}  // namespace Hitagi

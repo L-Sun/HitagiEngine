@@ -3,7 +3,7 @@
 #include <jpeglib.h>
 #include "JPEG.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 Image JpegParser::Parse(const Buffer& buf) {
     jpeg_decompress_struct cinfo;

@@ -3,7 +3,7 @@
 #include <GLFW/glfw3.h>
 #include "BaseApplication.hpp"
 
-namespace My {
+namespace Hitagi {
 class GLFWApplication : public BaseApplication {
 public:
     GLFWApplication(GfxConfiguration& config) : BaseApplication(config) {}
@@ -22,4 +22,4 @@ private:
 
     static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 };
-}  // namespace My
+}  // namespace Hitagi

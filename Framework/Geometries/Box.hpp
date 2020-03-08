@@ -1,7 +1,7 @@
 #pragma once
 #include "Geometry.hpp"
 
-namespace My {
+namespace Hitagi {
 class Box : public Geometry {
 public:
     Box() : Geometry(GeometryType::BOX) {}
@@ -15,4 +15,4 @@ public:
 protected:
     vec3f m_Dimension;
 };
-}  // namespace My
+}  // namespace Hitagi

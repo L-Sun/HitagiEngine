@@ -1,7 +1,7 @@
 #pragma once
 #include "GLFWApplication.hpp"
 
-using namespace My;
+using namespace Hitagi;
 class OpenGLApplication : public GLFWApplication {
 public:
     OpenGLApplication(GfxConfiguration& config) : GLFWApplication(config) {}

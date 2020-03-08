@@ -1,7 +1,7 @@
 #include <algorithm>
 #include "Buffer.hpp"
 
-using namespace My;
+using namespace Hitagi;
 Buffer::Buffer() : m_Data(nullptr), m_Size(0), m_Alignment(alignof(uint32_t)) {}
 Buffer::Buffer(size_t size, const void* srcPtr, size_t copySize, size_t alignment)
     : m_Size(size), m_Alignment(alignment) {

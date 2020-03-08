@@ -2,7 +2,7 @@
 #include "AssetLoader.hpp"
 #include "Assimp.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 SceneManager::~SceneManager() {}
 

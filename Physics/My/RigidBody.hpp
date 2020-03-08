@@ -3,7 +3,7 @@
 #include "Geometry.hpp"
 #include "MotionState.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class RigidBody {
 public:
@@ -17,4 +17,4 @@ private:
     std::shared_ptr<Geometry>    m_CollisionShape;
     std::shared_ptr<MotionState> m_MotionState;
 };
-}  // namespace My
+}  // namespace Hitagi

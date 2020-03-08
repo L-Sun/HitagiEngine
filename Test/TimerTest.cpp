@@ -2,10 +2,10 @@
 #include "Timer.hpp"
 #include <thread>
 
-using namespace My;
+using namespace Hitagi;
 using namespace std::chrono_literals;
 
-My::Clock c;
+Hitagi::Clock c;
 
 TEST(TimerTest, DurationTest) {
     c.Initialize();

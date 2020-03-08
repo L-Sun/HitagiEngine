@@ -2,7 +2,7 @@
 #include "IRuntimeModule.hpp"
 #include "GfxConfiguration.h"
 
-namespace My {
+namespace Hitagi {
 class IApplication : public IRuntimeModule {
 public:
     virtual int  Initialize() = 0;
@@ -20,4 +20,4 @@ public:
 };
 
 extern std::unique_ptr<IApplication> g_App;
-}  // namespace My
+}  // namespace Hitagi

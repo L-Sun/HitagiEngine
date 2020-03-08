@@ -1,6 +1,6 @@
 #include "Plane.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 void Plane::GetAabb(const mat4f& trans, vec3f& aabbMin, vec3f& aabbMax) const {
     (void)trans;

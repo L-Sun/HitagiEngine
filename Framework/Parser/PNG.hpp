@@ -1,9 +1,9 @@
 #pragma once
 #include "ImageParser.hpp"
 
-namespace My {
+namespace Hitagi {
 class PngParser : public ImageParser {
 public:
     Image Parse(const Buffer& buf) final;
 };
-}  // namespace My
+}  // namespace Hitagi

@@ -4,7 +4,7 @@
 #include "MemoryManager.hpp"
 #include "SceneManager.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 #define _CRTDBG_MAP_ALLOC
 #ifdef _WIN32
@@ -15,11 +15,11 @@ using namespace My;
 #endif
 #endif
 
-namespace My {
+namespace Hitagi {
 std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
 std::unique_ptr<AssetLoader>   g_AssetLoader(new AssetLoader);
 std::unique_ptr<SceneManager>  g_SceneManager(new SceneManager);
-}  // namespace My
+}  // namespace Hitagi
 
 template <typename T>
 static std::ostream& operator<<(std::ostream& out, std::unordered_map<std::string, std::shared_ptr<T>> map) {

@@ -7,7 +7,7 @@
 
 using namespace Microsoft::WRL;
 
-namespace My {
+namespace Hitagi {
 
 class D3D12GraphicsManager : public GraphicsManager {
 private:
@@ -154,4 +154,4 @@ private:
     std::vector<DrawItem>                                        m_DebugDrawItems;
 #endif  // DEBUG
 };
-}  // namespace My
+}  // namespace Hitagi

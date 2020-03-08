@@ -6,7 +6,7 @@
 #define ALIGN(x, a) (((x) + ((a)-1)) & ~((a)-1))
 #endif
 
-using namespace My;
+using namespace Hitagi;
 
 Allocator::Allocator()
     : m_PageList(nullptr),

@@ -5,14 +5,14 @@
 
 using namespace std;
 
-class my_memory_resource : public std::pmr::memory_resource {
+class Hitagi_memory_resource : public std::pmr::memory_resource {
 public:
-    ~my_memory_resource() override {}
+    ~Hitagi_memory_resource() override {}
 
     void* allocate();
     void  deallocate(void* p, size_t bytes,
                      size_t alignment = alignof(std::max_align_t));
-    bool  is_equal(const my_memory_resource& other) const;
+    bool  is_equal(const Hitagi_memory_resource& other) const;
 
 protected:
     void* do_allocate(size_t bytes, size_t alignment) override {
@@ -59,7 +59,7 @@ public:
 int main(int argc, char const* argv[]) {
     char buffer[128];
 
-    my_memory_resource ms;
+    Hitagi_memory_resource ms;
 
     pmr::monotonic_buffer_resource mbr(buffer, 128);
 

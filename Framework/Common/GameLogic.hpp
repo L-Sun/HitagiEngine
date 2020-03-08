@@ -1,7 +1,7 @@
 #pragma once
 #include "IRuntimeModule.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class GameLogic : public IRuntimeModule {
 public:
@@ -38,4 +38,4 @@ public:
     virtual void OnCKey();
 };
 extern std::unique_ptr<GameLogic> g_GameLogic;
-}  // namespace My
+}  // namespace Hitagi

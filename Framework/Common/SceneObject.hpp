@@ -8,7 +8,7 @@
 #include "portable.hpp"
 #include "Image.hpp"
 
-namespace My {
+namespace Hitagi {
 enum struct SceneObjectType : int32_t {
     MESH          = "MESH"_i32,
     MATERIAL      = "MATL"_i32,
@@ -470,4 +470,4 @@ public:
     SceneObjectScale(const float x, const float y, const float z);
 };
 
-}  // namespace My
+}  // namespace Hitagi

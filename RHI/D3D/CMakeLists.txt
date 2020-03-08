@@ -6,7 +6,7 @@ target_link_libraries(D3DRHI
         dxgi
         d3dcompiler
         d3dUtil
-        MyGameEngineD3D12
+        HitagiGameEngineD3D12
         GraphicsManager
         Platform
 )

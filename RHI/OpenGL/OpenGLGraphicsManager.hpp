@@ -12,7 +12,7 @@
 #include "SceneNode.hpp"
 #include "geommath.hpp"
 
-namespace My {
+namespace Hitagi {
 class OpenGLGraphicsManager : public GraphicsManager {
 public:
     int  Initialize() final;
@@ -120,4 +120,4 @@ private:
         {"POSITION"}};
 #endif
 };
-}  // namespace My
+}  // namespace Hitagi

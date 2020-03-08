@@ -3,7 +3,7 @@
 #include <windowsx.h>
 #include "BaseApplication.hpp"
 
-namespace My {
+namespace Hitagi {
 class WindowsApplication : public BaseApplication {
 public:
     WindowsApplication(GfxConfiguration& config) : BaseApplication(config) {}
@@ -24,4 +24,4 @@ protected:
     HWND m_hWnd;
     HDC  m_hHdc;
 };
-}  // namespace My
+}  // namespace Hitagi

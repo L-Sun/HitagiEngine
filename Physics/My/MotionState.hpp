@@ -1,7 +1,7 @@
 #pragma once
 #include "geommath.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class MotionState {
 public:
@@ -20,4 +20,4 @@ private:
     mat4f m_Transition;
     vec3f m_CenterOfMassOffset;
 };
-}  // namespace My
+}  // namespace Hitagi

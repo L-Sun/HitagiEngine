@@ -2,7 +2,7 @@
 #include <tchar.h>
 #include "WindowsApplication.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 void WindowsApplication::CreateMainWindow() {
     // get the HINSTANCE of the Console Program

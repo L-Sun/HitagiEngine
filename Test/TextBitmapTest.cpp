@@ -6,7 +6,7 @@
 
 #include "AssetLoader.hpp"
 using namespace std;
-using namespace My;
+using namespace Hitagi;
 
 #define _CRTDBG_MAP_ALLOC
 #ifdef _WIN32
@@ -17,10 +17,10 @@ using namespace My;
 #endif
 #endif
 
-namespace My {
+namespace Hitagi {
 std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
 std::unique_ptr<AssetLoader>   g_AssetLoader(new AssetLoader);
-}  // namespace My
+}  // namespace Hitagi
 void Init() {
     g_MemoryManager->Initialize();
     g_AssetLoader->Initialize();

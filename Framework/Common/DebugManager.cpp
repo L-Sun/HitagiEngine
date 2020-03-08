@@ -3,7 +3,7 @@
 #include "GraphicsManager.hpp"
 #include "IPhysicsManager.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 int DebugManager::Initialize() { return 0; }
 

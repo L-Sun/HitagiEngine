@@ -3,7 +3,7 @@
 #include "D3D12GraphicsManager.hpp"
 #include "WindowsApplication.hpp"
 
-namespace My {
+namespace Hitagi {
 
 int D3D12GraphicsManager::Initialize() {
     int result = GraphicsManager::Initialize();
@@ -940,4 +940,4 @@ void D3D12GraphicsManager::ClearDebugBuffers() {
 
 #endif  // DEBUG
 
-}  // namespace My
+}  // namespace Hitagi

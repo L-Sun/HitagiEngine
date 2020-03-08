@@ -2,7 +2,7 @@
 #include "IRuntimeModule.hpp"
 #include "Allocator.hpp"
 
-namespace My {
+namespace Hitagi {
 class MemoryManager : public IRuntimeModule {
 public:
     template <typename T, typename... Arguments>
@@ -33,4 +33,4 @@ private:
 };
 
 extern std::unique_ptr<MemoryManager> g_MemoryManager;
-}  // namespace My
+}  // namespace Hitagi

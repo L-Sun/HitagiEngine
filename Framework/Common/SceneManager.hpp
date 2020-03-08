@@ -3,7 +3,7 @@
 #include "IRuntimeModule.hpp"
 #include "Scene.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class SceneManager : public IRuntimeModule {
 public:
@@ -33,4 +33,4 @@ protected:
 };
 
 extern std::unique_ptr<SceneManager> g_SceneManager;
-}  // namespace My
+}  // namespace Hitagi

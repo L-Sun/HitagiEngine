@@ -1,1 +1,1 @@
-add_subdirectory(MyTest)
+add_subdirectory(HitagiTest)

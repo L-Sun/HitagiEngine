@@ -1,6 +1,6 @@
 #pragma once
 #include <memory>
-namespace My {
+namespace Hitagi {
 class IRuntimeModule {
 public:
     virtual ~IRuntimeModule(){};
@@ -12,4 +12,4 @@ public:
     virtual void DrawDebugInfo(){};
 #endif
 };
-}  // namespace My
+}  // namespace Hitagi

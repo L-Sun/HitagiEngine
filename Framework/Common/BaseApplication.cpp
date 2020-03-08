@@ -2,7 +2,7 @@
 #include <thread>
 #include "BaseApplication.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 bool BaseApplication::m_Quit = false;
 

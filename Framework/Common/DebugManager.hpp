@@ -1,7 +1,7 @@
 #pragma once
 #include "IRuntimeModule.hpp"
 
-namespace My {
+namespace Hitagi {
 
 class DebugManager : public IRuntimeModule {
 public:
@@ -16,4 +16,4 @@ protected:
     bool m_DrawDebugInfo = false;
 };
 extern std::unique_ptr<DebugManager> g_DebugManager;
-}  // namespace My
+}  // namespace Hitagi

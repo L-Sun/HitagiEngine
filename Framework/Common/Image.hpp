@@ -2,7 +2,7 @@
 #include <iostream>
 #include "portable.hpp"
 
-namespace My {
+namespace Hitagi {
 class Image {
 public:
     Image() = default;
@@ -33,4 +33,4 @@ private:
     void* m_Data = nullptr;
 };
 
-}  // namespace My
+}  // namespace Hitagi

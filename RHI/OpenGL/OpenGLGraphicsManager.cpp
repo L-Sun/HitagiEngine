@@ -7,7 +7,7 @@
 #include "SceneManager.hpp"
 #include "IPhysicsManager.hpp"
 
-namespace My {
+namespace Hitagi {
 
 int OpenGLGraphicsManager::Initialize() {
     int result;
@@ -610,4 +610,4 @@ void OpenGLGraphicsManager::ClearDebugBuffers() {
     m_DebugBuffers.clear();
 }
 #endif
-}  // namespace My
+}  // namespace Hitagi

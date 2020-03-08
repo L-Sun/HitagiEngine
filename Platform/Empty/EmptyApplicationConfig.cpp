@@ -1,6 +1,6 @@
 #include "BaseApplication.hpp"
 
-namespace My {
+namespace Hitagi {
 extern GfxConfiguration        config;
 std::unique_ptr<IApplication>  g_App(new BaseApplication(config));
 std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
@@ -10,4 +10,4 @@ std::unique_ptr<InputManager>  g_InputManager(new InputManager);
 #if defined(_DEBUG)
 std::unique_ptr<DebugManager> g_DebugManager(new DebugManager);
 #endif
-}  // namespace My
+}  // namespace Hitagi

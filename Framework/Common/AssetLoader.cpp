@@ -2,7 +2,7 @@
 #include <fstream>
 #include "AssetLoader.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 int AssetLoader::Initialize() { return 0; }
 

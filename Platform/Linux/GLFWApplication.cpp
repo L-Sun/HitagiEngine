@@ -2,7 +2,7 @@
 #include "OpenGL/OpenGLGraphicsManager.hpp"
 #include "GLFWApplication.hpp"
 
-using namespace My;
+using namespace Hitagi;
 
 int GLFWApplication::Initialize() {
     int result;
