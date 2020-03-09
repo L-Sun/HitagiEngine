@@ -2,10 +2,9 @@
 #include "Timer.hpp"
 #include <thread>
 
-using namespace Hitagi;
 using namespace std::chrono_literals;
 
-Hitagi::Clock c;
+Hitagi::Core::Clock c;
 
 TEST(TimerTest, DurationTest) {
     c.Initialize();
@@ -26,7 +25,7 @@ TEST(TimerTest, PauseTest) {
     EXPECT_NEAR(1.0, c.deltaTime().count(), 0.1);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
     return 0;

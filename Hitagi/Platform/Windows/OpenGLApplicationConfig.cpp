@@ -1,0 +1,15 @@
+#include "OpenGLGraphicsManager.hpp"
+#include "OpenGLApplication.hpp"
+
+namespace Hitagi {
+extern GfxConfiguration                    config;
+std::unique_ptr<IApplication>              g_App(new OpenGLApplication(config));
+std::unique_ptr<Graphics::GraphicsManager> g_GraphicsManager(new Graphics::OpenGLGraphicsManager);
+std::unique_ptr<Core::MemoryManager>       g_MemoryManager(new Core::MemoryManager);
+std::unique_ptr<Core::FileIOManager>              g_FileIOManager(new Core::FileIOManager);
+std::unique_ptr<Resource::SceneManager>    g_SceneManager(new Resource::SceneManager);
+std::unique_ptr<InputManager>              g_InputManager(new InputManager);
+#if defined(_DEBUG)
+std::unique_ptr<DebugManager> g_DebugManager(new DebugManager);
+#endif
+}  // namespace Hitagi

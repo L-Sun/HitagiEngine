@@ -1,6 +1,6 @@
 #include <iostream>
 #include <string>
-#include "AssetLoader.hpp"
+#include "FileIOManager.hpp"
 #include "MemoryManager.hpp"
 #include "SceneManager.hpp"
 
@@ -16,9 +16,9 @@ using namespace Hitagi;
 #endif
 
 namespace Hitagi {
-std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
-std::unique_ptr<AssetLoader>   g_AssetLoader(new AssetLoader);
-std::unique_ptr<SceneManager>  g_SceneManager(new SceneManager);
+std::unique_ptr<Core::MemoryManager>    g_MemoryManager(new Core::MemoryManager);
+std::unique_ptr<Core::FileIOManager>           g_FileIOManager(new Core::FileIOManager);
+std::unique_ptr<Resource::SceneManager> g_SceneManager(new Resource::SceneManager);
 }  // namespace Hitagi
 
 template <typename T>
@@ -33,16 +33,16 @@ static std::ostream& operator<<(std::ostream& out, std::unordered_map<std::strin
 int main(int, char**) {
     g_MemoryManager->Initialize();
     g_SceneManager->Initialize();
-    g_AssetLoader->Initialize();
+    g_FileIOManager->Initialize();
 
-    g_SceneManager->LoadScene("Asset/Scene/test1.fbx");
+    g_SceneManager->LoadScene("Asset/Scene/test.fbx");
     auto& scene = g_SceneManager->GetSceneForRendering();
 
     std::cout << "Dump of Cameras" << std::endl;
     std::cout << "---------------------------" << std::endl;
     for (auto [key, pCameraNode] : scene.CameraNodes) {
         if (pCameraNode) {
-            std::weak_ptr<SceneObjectCamera> pCamera = scene.GetCamera(pCameraNode->GetSceneObjectRef());
+            std::weak_ptr<Resource::SceneObjectCamera> pCamera = scene.GetCamera(pCameraNode->GetSceneObjectRef());
             if (auto pObj = pCamera.lock()) std::cout << *pObj << std::endl;
         }
     }
@@ -51,7 +51,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto [key, pLightNode] : scene.LightNodes) {
         if (pLightNode) {
-            std::weak_ptr<SceneObjectLight> pLight = scene.GetLight(pLightNode->GetSceneObjectRef());
+            std::weak_ptr<Resource::SceneObjectLight> pLight = scene.GetLight(pLightNode->GetSceneObjectRef());
             if (auto pObj = pLight.lock()) std::cout << *pObj << std::endl;
         }
     }
@@ -60,7 +60,8 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto [key, pGeometryNode] : scene.GeometryNodes) {
         if (pGeometryNode) {
-            std::weak_ptr<SceneObjectGeometry> pGeometry = scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
+            std::weak_ptr<Resource::SceneObjectGeometry> pGeometry =
+                scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
             if (auto pObj = pGeometry.lock()) std::cout << *pObj << std::endl;
             std::cout << *pGeometryNode->GetCalculatedTransform() << std::endl;
         }
@@ -73,7 +74,7 @@ int main(int, char**) {
     }
     g_SceneManager->ResetScene();
     g_SceneManager->Finalize();
-    g_AssetLoader->Finalize();
+    g_FileIOManager->Finalize();
     g_MemoryManager->Finalize();
 
 #ifdef _WIN32

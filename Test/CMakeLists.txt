@@ -1,10 +1,10 @@
 
 add_executable(BufferTest BufferTest.cpp)
-target_link_libraries(BufferTest PRIVATE SceneManager MemoryManager)
+target_link_libraries(BufferTest PRIVATE SceneManager)
 
-add_executable(AssetLoaderTest AssetLoaderTest.cpp)
-target_link_libraries(AssetLoaderTest PRIVATE AssetLoader)
-add_test(NAME TEST_AssetLoader COMMAND AssetLoaderTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_executable(FileIOManagerTest FileIOManagerTest.cpp)
+target_link_libraries(FileIOManagerTest PRIVATE Core)
+add_test(NAME TEST_FileIOManager COMMAND FileIOManagerTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(SceneLoadingTest SceneLoadingTest.cpp)
 target_link_libraries(SceneLoadingTest PRIVATE SceneManager)
@@ -23,8 +23,8 @@ target_link_libraries(MathTest PRIVATE GeomMath GTest::gtest)
 add_test(NAME TEST_Math COMMAND MathTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(TimerTest TimerTest.cpp)
-target_link_libraries(TimerTest PRIVATE Timer GTest::gtest)
+target_link_libraries(TimerTest PRIVATE Core GTest::gtest)
 add_test(NAME TEST_TimerTest COMMAND TimerTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(TextBitmapTest TextBitmapTest.cpp)
-target_link_libraries(TextBitmapTest PRIVATE freetype AssetLoader)
+target_link_libraries(TextBitmapTest PRIVATE freetype Core)

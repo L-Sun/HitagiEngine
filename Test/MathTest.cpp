@@ -1,5 +1,5 @@
 #include <iostream>
-#include "geommath.hpp"
+#include "GeomMath.hpp"
 #include <gtest/gtest.h>
 
 using namespace Hitagi;

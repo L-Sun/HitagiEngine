@@ -1,0 +1,3 @@
+add_library(DebugManager DebugManager.cpp)
+target_link_libraries(DebugManager PRIVATE PhysicsManager GraphicsManager)
+target_include_directories(DebugManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

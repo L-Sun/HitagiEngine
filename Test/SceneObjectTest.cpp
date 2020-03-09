@@ -2,19 +2,15 @@
 #include "SceneObject.hpp"
 #include "SceneNode.hpp"
 
-using namespace Hitagi;
+using namespace Hitagi::Resource;
 
 int32_t main(int32_t argc, char** argv) {
-    int32_t                              result = 0;
-    std::shared_ptr<SceneObjectGeometry> soGeometry(new SceneObjectGeometry());
-    std::shared_ptr<SceneObjectPointLight> soOmniLight(
-        new SceneObjectPointLight());
-    std::shared_ptr<SceneObjectSpotLight> soSpotLight(
-        new SceneObjectSpotLight());
-    std::shared_ptr<SceneObjectOrthogonalCamera> soOrthogonalCamera(
-        new SceneObjectOrthogonalCamera());
-    std::shared_ptr<SceneObjectPerspectiveCamera> soPerspectiveCamera(
-        new SceneObjectPerspectiveCamera());
+    int32_t                                       result = 0;
+    std::shared_ptr<SceneObjectGeometry>          soGeometry(new SceneObjectGeometry());
+    std::shared_ptr<SceneObjectPointLight>        soOmniLight(new SceneObjectPointLight());
+    std::shared_ptr<SceneObjectSpotLight>         soSpotLight(new SceneObjectSpotLight());
+    std::shared_ptr<SceneObjectOrthogonalCamera>  soOrthogonalCamera(new SceneObjectOrthogonalCamera());
+    std::shared_ptr<SceneObjectPerspectiveCamera> soPerspectiveCamera(new SceneObjectPerspectiveCamera());
 
     std::shared_ptr<SceneObjectMesh>     soMesh(new SceneObjectMesh());
     std::shared_ptr<SceneObjectMaterial> soMaterial(new SceneObjectMaterial());

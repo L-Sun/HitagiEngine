@@ -1,38 +1,38 @@
 #include <iostream>
 #include <string>
-#include "AssetLoader.hpp"
+#include "FileIOManager.hpp"
 #include "MemoryManager.hpp"
 #include "PNG.hpp"
 
 using namespace Hitagi;
 
 namespace Hitagi {
-std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
-std::unique_ptr<AssetLoader>   g_AssetLoader(new AssetLoader);
+std::unique_ptr<Core::MemoryManager> g_MemoryManager(new Core::MemoryManager);
+std::unique_ptr<Core::FileIOManager>        g_FileIOManager(new Core::FileIOManager);
 }  // namespace Hitagi
 
 int main(int argc, const char** argv) {
     g_MemoryManager->Initialize();
-    g_AssetLoader->Initialize();
+    g_FileIOManager->Initialize();
 
 #ifdef __ORBIS__
-    g_AssetLoader->AddSearchPath("/app0");
+    g_FileIOManager->AddSearchPath("/app0");
 #endif
 
-    Buffer buf;
+    Core::Buffer buf;
     if (argc >= 2) {
-        buf = g_AssetLoader->SyncOpenAndReadBinary(argv[1]);
+        buf = g_FileIOManager->SyncOpenAndReadBinary(argv[1]);
     } else {
-        buf = g_AssetLoader->SyncOpenAndReadBinary("Textures/eye.png");
+        buf = g_FileIOManager->SyncOpenAndReadBinary("Textures/eye.png");
     }
 
-    PngParser png_arser;
+    Resource::PngParser png_arser;
 
-    Image image = png_arser.Parse(buf);
+    Resource::Image image = png_arser.Parse(buf);
 
     std::cout << image;
 
-    g_AssetLoader->Finalize();
+    g_FileIOManager->Finalize();
     g_MemoryManager->Finalize();
 
     return 0;

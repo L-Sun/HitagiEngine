@@ -4,7 +4,7 @@
 #include <iomanip>
 #include FT_FREETYPE_H
 
-#include "AssetLoader.hpp"
+#include "FileIOManager.hpp"
 using namespace std;
 using namespace Hitagi;
 
@@ -18,23 +18,23 @@ using namespace Hitagi;
 #endif
 
 namespace Hitagi {
-std::unique_ptr<MemoryManager> g_MemoryManager(new MemoryManager);
-std::unique_ptr<AssetLoader>   g_AssetLoader(new AssetLoader);
+std::unique_ptr<Core::MemoryManager> g_MemoryManager(new Core::MemoryManager);
+std::unique_ptr<Core::FileIOManager>        g_FileIOManager(new Core::FileIOManager);
 }  // namespace Hitagi
 void Init() {
     g_MemoryManager->Initialize();
-    g_AssetLoader->Initialize();
+    g_FileIOManager->Initialize();
 }
 void Finalize(string_view text) {
     cout << text << endl;
-    g_AssetLoader->Finalize();
+    g_FileIOManager->Finalize();
     g_MemoryManager->Finalize();
 }
 
 int main(int argc, char const* argv[]) {
     Init();
     {
-        Buffer fontBuffer = g_AssetLoader->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
+        Core::Buffer fontBuffer = g_FileIOManager->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
 
         FT_Library library;  // handle to library
         FT_Face    face;     // handle to face object
