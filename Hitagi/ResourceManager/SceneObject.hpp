@@ -221,8 +221,8 @@ public:
     SceneObjectVertexArray(std::string_view attr = "", uint32_t morph_index = 0,
                            const VertexDataType dataType = VertexDataType::FLOAT3, const void* data = nullptr,
                            size_t vertexCount = 0);
-    SceneObjectVertexArray(const SceneObjectVertexArray& rhs);
-    SceneObjectVertexArray(SceneObjectVertexArray&& rhs);
+    SceneObjectVertexArray(const SceneObjectVertexArray& array);
+    SceneObjectVertexArray(SceneObjectVertexArray&& array);
     SceneObjectVertexArray& operator=(const SceneObjectVertexArray& rhs);
     SceneObjectVertexArray& operator=(SceneObjectVertexArray&& rhs);
     ~SceneObjectVertexArray();
@@ -245,8 +245,8 @@ protected:
 public:
     SceneObjectIndexArray(const uint32_t restartIndex = 0, const IndexDataType dataType = IndexDataType::INT16,
                           const void* data = nullptr, const size_t elementCount = 0);
-    SceneObjectIndexArray(const SceneObjectIndexArray& rhs);
-    SceneObjectIndexArray(SceneObjectIndexArray&& rhs);
+    SceneObjectIndexArray(const SceneObjectIndexArray& array);
+    SceneObjectIndexArray(SceneObjectIndexArray&& array);
     SceneObjectIndexArray& operator=(const SceneObjectIndexArray& rhs);
     SceneObjectIndexArray& operator=(SceneObjectIndexArray&& rhs);
     ~SceneObjectIndexArray();

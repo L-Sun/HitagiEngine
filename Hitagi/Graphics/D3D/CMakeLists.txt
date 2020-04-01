@@ -1,4 +1,14 @@
-add_library(D3DRHI D3D12GraphicsManager.cpp)
+add_library(D3DRHI
+    D3D12GraphicsManager.cpp
+    CommandListManager.cpp
+    CommandAllocatorPool.cpp
+    GpuBuffer.cpp
+    CommandContext.cpp
+    LinearAllocator.cpp
+    DescriptorAllocator.cpp
+    DynamicDescriptorHeap.cpp
+    RootSignature.cpp
+)
 add_library(d3dUtil d3dUtil.cpp)
 target_link_libraries(D3DRHI
     PRIVATE

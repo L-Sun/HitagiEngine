@@ -8,23 +8,28 @@ Image::Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch,
     m_Data = g_MemoryManager->Allocate(dataSize);
 }
 
-Image::Image(const Image& rhs) {
-    m_Width    = rhs.m_Width;
-    m_Height   = rhs.m_Height;
-    m_Bitcount = rhs.m_Bitcount;
-    m_Pitch    = rhs.m_Pitch;
-    m_DataSize = rhs.m_DataSize;
-    m_Data     = g_MemoryManager->Allocate(m_DataSize);
-    std::memcpy(m_Data, rhs.m_Data, m_DataSize);
+Image::Image(const Image& image)
+    : m_Width(image.m_Width),
+      m_Height(image.m_Height),
+      m_Bitcount(image.m_Bitcount),
+      m_Pitch(image.m_Pitch),
+      m_DataSize(image.m_DataSize) {
+    m_Data = g_MemoryManager->Allocate(m_DataSize);
+    std::memcpy(m_Data, image.m_Data, m_DataSize);
 }
-Image::Image(Image&& rhs) {
-    m_Width    = rhs.m_Width;
-    m_Height   = rhs.m_Height;
-    m_Bitcount = rhs.m_Bitcount;
-    m_Pitch    = rhs.m_Pitch;
-    m_DataSize = rhs.m_DataSize;
-    m_Data     = rhs.m_Data;
-    rhs.m_Data = nullptr;
+Image::Image(Image&& image)
+    : m_Width(image.m_Width),
+      m_Height(image.m_Height),
+      m_Bitcount(image.m_Bitcount),
+      m_Pitch(image.m_Pitch),
+      m_DataSize(image.m_DataSize),
+      m_Data(image.m_Data) {
+    image.m_Width    = 0;
+    image.m_Height   = 0;
+    image.m_Bitcount = 0;
+    image.m_Pitch    = 0;
+    image.m_DataSize = 0;
+    image.m_Data     = nullptr;
 }
 Image& Image::operator=(Image&& rhs) {
     if (this != &rhs) {
@@ -35,7 +40,13 @@ Image& Image::operator=(Image&& rhs) {
         m_Pitch    = rhs.m_Pitch;
         m_DataSize = rhs.m_DataSize;
         m_Data     = rhs.m_Data;
-        rhs.m_Data = nullptr;
+
+        rhs.m_Width    = 0;
+        rhs.m_Height   = 0;
+        rhs.m_Bitcount = 0;
+        rhs.m_Pitch    = 0;
+        rhs.m_DataSize = 0;
+        rhs.m_Data     = nullptr;
     }
     return *this;
 }

@@ -71,7 +71,11 @@
         "numeric": "cpp",
         "string_view": "cpp",
         "queue": "cpp",
-        "strstream": "cpp"
+        "strstream": "cpp",
+        "complex": "cpp",
+        "unordered_set": "cpp",
+        "core": "cpp",
+        "geometry": "cpp"
     },
     "path-intellisense.mappings": {
         "Asset": "${workspaceRoot}/Asset"

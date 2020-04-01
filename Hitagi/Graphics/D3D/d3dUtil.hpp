@@ -1,33 +1,25 @@
 #pragma once
-#include "DXHelper.hpp"
-#include "d3dx12.h"
-#include <dxgi1_6.h>
-#include "d3dcompiler.h"
+#include "D3Dpch.hpp"
 
 namespace d3dUtil {
-ComPtr<ID3D12Resource> CreateDefaultBuffer(
-    ID3D12Device5* device, ID3D12GraphicsCommandList* cmdList,
-    const void* initData, uint64_t byteSize,
-    ComPtr<ID3D12Resource>& uploadBuffer);
+ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device5* device, ID3D12GraphicsCommandList* cmdList,
+                                           const void* initData, uint64_t byteSize,
+                                           ComPtr<ID3D12Resource>& uploadBuffer);
 
 template <typename T>
 class UploadBuffer {
 public:
-    UploadBuffer(ID3D12Device5* device, size_t elementeCount,
-                 bool isConstantBuffer)
+    UploadBuffer(ID3D12Device5* device, size_t elementeCount, bool isConstantBuffer)
         : m_ElementsCount(elementeCount), m_IsConstantBuffer(isConstantBuffer) {
         m_ElementSize = isConstantBuffer ? ((sizeof(T) + 255) & ~255) : sizeof(T);
 
         auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-        auto resourceDesc =
-            CD3DX12_RESOURCE_DESC::Buffer(m_ElementSize * elementeCount);
-        ThrowIfFailed(device->CreateCommittedResource(
-            &heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc,
-            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-            IID_PPV_ARGS(&m_UploadBuffer)));
+        auto resourceDesc   = CD3DX12_RESOURCE_DESC::Buffer(m_ElementSize * elementeCount);
+        ThrowIfFailed(device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc,
+                                                      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                      IID_PPV_ARGS(&m_UploadBuffer)));
 
-        ThrowIfFailed(m_UploadBuffer->Map(
-            0, nullptr, reinterpret_cast<void**>(&m_MappedData)));
+        ThrowIfFailed(m_UploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&m_MappedData)));
     }
 
     UploadBuffer(const UploadBuffer& rhs) = delete;

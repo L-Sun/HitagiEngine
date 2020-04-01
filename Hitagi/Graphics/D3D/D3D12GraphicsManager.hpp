@@ -1,15 +1,21 @@
 #pragma once
-#include <vector>
-
 #include "GraphicsManager.hpp"
 #include "d3dUtil.hpp"
 #include "FrameResource.hpp"
-
-using namespace Microsoft::WRL;
+#include "CommandListManager.hpp"
+#include "CommandContext.hpp"
+#include "GpuBuffer.hpp"
+#include "RootSignature.hpp"
+#include "DescriptorAllocator.hpp"
 
 namespace Hitagi::Graphics {
 
 class D3D12GraphicsManager : public GraphicsManager {
+    friend class LinearAllocator;
+    friend class DescriptorAllocatorPage;
+    friend class DynamicDescriptorHeap;
+    friend class RootSignature;
+
 private:
     struct ObjectConstants {
         mat4f modelMatrix;
@@ -18,26 +24,18 @@ private:
         float specularPower;
     };
 
-    struct TextureBuffer {
-        size_t                 index;  // offset in current frame in srv
-        ComPtr<ID3D12Resource> texture    = nullptr;
-        ComPtr<ID3D12Resource> uploadHeap = nullptr;
-    };
-
-    struct MeshBuffer {
-        std::vector<ComPtr<ID3D12Resource>>          verticesBuffer;
-        std::vector<D3D12_VERTEX_BUFFER_VIEW>        vbv;
+    struct MeshInfo {
         size_t                                       indexCount;
-        ComPtr<ID3D12Resource>                       indicesBuffer;
+        std::vector<D3D12_VERTEX_BUFFER_VIEW>        vbv;
         D3D12_INDEX_BUFFER_VIEW                      ibv;
         D3D_PRIMITIVE_TOPOLOGY                       primitiveType;
         std::weak_ptr<Resource::SceneObjectMaterial> material;
-        ComPtr<ID3D12PipelineState>                  pPSO;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState>  pPSO;
     };
 
     struct DrawItem {
         std::weak_ptr<Resource::SceneGeometryNode> node;
-        std::shared_ptr<MeshBuffer>                meshBuffer;
+        std::shared_ptr<MeshInfo>                  meshBuffer;
         size_t                                     constantBufferIndex;
         unsigned                                   numFramesDirty;
     };
@@ -69,23 +67,20 @@ private:
     int InitD3D();
 
     void CreateSwapChain();
-    void CreateCommandObjects();
-    void PopulateCommandList();
-    void FlushCommandQueue();
+    void PopulateCommandList(CommandContext& context);
 
     void CreateDescriptorHeaps();
-    void CreateVertexBuffer(const Resource::SceneObjectVertexArray& vertexArray,
-                            const std::shared_ptr<MeshBuffer>&      dbc);
-    void CreateIndexBuffer(const Resource::SceneObjectIndexArray& indexArray, const std::shared_ptr<MeshBuffer>& dbc);
-    void SetPrimitiveType(const Resource::PrimitiveType& primitiveType, const std::shared_ptr<MeshBuffer>& dbc);
+    void CreateVertexBuffer(const Resource::SceneObjectVertexArray& vertexArray, const std::shared_ptr<MeshInfo>& dbc);
+    void CreateIndexBuffer(const Resource::SceneObjectIndexArray& indexArray, const std::shared_ptr<MeshInfo>& dbc);
+    void SetPrimitiveType(const Resource::PrimitiveType& primitiveType, const std::shared_ptr<MeshInfo>& dbc);
     void CreateFrameResource();
     void CreateRootSignature();
     void CreateConstantBuffer();
-    std::shared_ptr<TextureBuffer> CreateTextureBuffer(const Resource::Image& img, size_t srvOffset);
-    void                           CreateSampler();
-    void                           BuildPipelineStateObject();
+    TextureBuffer CreateTextureBuffer(const Resource::Image& image, size_t srvOffset);
+    void          CreateSampler();
+    void          BuildPipelineStateObject();
 
-    void DrawRenderItems(ID3D12GraphicsCommandList4* cmdList, const std::vector<DrawItem>& drawItems);
+    void DrawRenderItems(CommandContext& context, const std::vector<DrawItem>& drawItems);
 
     D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
     D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
@@ -95,32 +90,30 @@ private:
     static constexpr unsigned m_MaxTextures    = 10000;
     int                       m_CurrBackBuffer = 0;
 
-    ComPtr<IDXGIFactory7> m_DxgiFactory;
-    ComPtr<ID3D12Device5> m_Device;
+    Microsoft::WRL::ComPtr<IDXGIFactory7> m_DxgiFactory;
+    Microsoft::WRL::ComPtr<ID3D12Device6> m_Device;
 
-    ComPtr<ID3D12CommandQueue>         m_CommandQueue;
-    ComPtr<ID3D12CommandAllocator>     m_CommandAllocator;
-    ComPtr<ID3D12GraphicsCommandList4> m_CommandList;
-    ComPtr<ID3D12Fence1>               m_Fence;
-    HANDLE                             m_FenceEvent;
-    uint64_t                           m_CurrFence = 0;
+    CommandListManager m_CommandListManager;
 
-    uint64_t                     m_RtvHeapSize       = 0;
-    uint64_t                     m_DsvHeapSize       = 0;
-    uint64_t                     m_CbvSrvUavHeapSize = 0;
-    ComPtr<ID3D12DescriptorHeap> m_RtvHeap;
-    ComPtr<ID3D12DescriptorHeap> m_DsvHeap;
-    ComPtr<ID3D12DescriptorHeap> m_CbvSrvHeap;
-    ComPtr<ID3D12DescriptorHeap> m_SamplerHeap;
-    unsigned                     m_FrameCBOffset;
-    unsigned                     m_SrvOffset;
+    uint64_t m_RtvHeapSize       = 0;
+    uint64_t m_DsvHeapSize       = 0;
+    uint64_t m_CbvSrvUavHeapSize = 0;
+
+    DescriptorAllocator                          m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_RtvHeap;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DsvHeap;
+    DescriptorAllocation                         m_CbvSrvDescriptors;
+    DescriptorAllocation                         m_SamplerDescriptors;
+
+    unsigned m_FrameCBOffset;
+    unsigned m_SrvOffset;
 
     DXGI_FORMAT m_BackBufferFormat   = DXGI_FORMAT_R8G8B8A8_UNORM;
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-    ComPtr<IDXGISwapChain4> m_SwapChain;
-    ComPtr<ID3D12Resource>  m_RenderTargets[m_FrameCount];
-    ComPtr<ID3D12Resource>  m_DepthStencilBuffer;
+    Microsoft::WRL::ComPtr<IDXGISwapChain4> m_SwapChain;
+    Microsoft::WRL::ComPtr<ID3D12Resource>  m_RenderTargets[m_FrameCount];
+    Microsoft::WRL::ComPtr<ID3D12Resource>  m_DepthStencilBuffer;
 
     D3D12_VIEWPORT m_Viewport;
     D3D12_RECT     m_ScissorRect;
@@ -132,8 +125,8 @@ private:
     std::unordered_map<std::string, D3D12_SHADER_BYTECODE> m_PS;
     std::vector<D3D12_INPUT_ELEMENT_DESC>                  m_InputLayout;
 
-    std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> m_PipelineState;
-    ComPtr<ID3D12RootSignature>                                  m_RootSignature;
+    std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_PipelineState;
+    RootSignature                                                                m_RootSignature;
 
     std::vector<std::unique_ptr<FR>> m_FrameResource;
     // Generally, the frame resource size is greater or equal to frame count
@@ -141,17 +134,16 @@ private:
     // size_t m_FrameResourceSize      = 3;
     size_t m_CurrFrameResourceIndex = 0;
 
-    std::unordered_map<xg::Guid, std::shared_ptr<TextureBuffer>> m_Textures;
-    std::unordered_map<xg::Guid, std::shared_ptr<MeshBuffer>>    m_MeshBuffer;
-    std::vector<DrawItem>                                        m_DrawItems;
-
-    std::vector<ComPtr<ID3D12Resource>> m_Uploader;
+    std::unordered_map<xg::Guid, TextureBuffer>             m_Textures;
+    std::unordered_map<xg::Guid, std::shared_ptr<MeshInfo>> m_Meshes;
+    std::vector<DrawItem>                                   m_DrawItems;
+    std::vector<GpuBuffer>                                  m_Buffers;
 
 #if defined(_DEBUG)
-    std::vector<std::shared_ptr<Resource::SceneGeometryNode>>    m_DebugNode;
-    std::unordered_map<std::string, std::shared_ptr<MeshBuffer>> m_DebugMeshBuffer;
-    std::vector<D3D12_INPUT_ELEMENT_DESC>                        m_DebugInputLayout;
-    std::vector<DrawItem>                                        m_DebugDrawItems;
+    std::vector<std::shared_ptr<Resource::SceneGeometryNode>>  m_DebugNode;
+    std::unordered_map<std::string, std::shared_ptr<MeshInfo>> m_DebugMeshBuffer;
+    std::vector<D3D12_INPUT_ELEMENT_DESC>                      m_DebugInputLayout;
+    std::vector<DrawItem>                                      m_DebugDrawItems;
 #endif  // DEBUG
 };
 }  // namespace Hitagi::Graphics

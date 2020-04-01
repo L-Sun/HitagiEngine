@@ -13,8 +13,10 @@ BaseSceneObject::BaseSceneObject(xg::Guid&& guid, const SceneObjectType& type)
     : m_Guid(std::move(guid)), m_Type(type) {}
 BaseSceneObject::BaseSceneObject(BaseSceneObject&& obj) : m_Guid(std::move(obj.m_Guid)), m_Type(obj.m_Type) {}
 BaseSceneObject& BaseSceneObject::operator=(BaseSceneObject&& obj) {
-    this->m_Guid = std::move(obj.m_Guid);
-    this->m_Type = obj.m_Type;
+    if (this != &obj) {
+        m_Guid = std::move(obj.m_Guid);
+        m_Type = obj.m_Type;
+    }
     return *this;
 }
 
@@ -25,8 +27,22 @@ SceneObjectVertexArray::SceneObjectVertexArray(std::string_view attr, uint32_t m
     m_Data = g_MemoryManager->Allocate(GetDataSize());
     std::memcpy(m_Data, data, GetDataSize());
 }
-SceneObjectVertexArray::SceneObjectVertexArray(const SceneObjectVertexArray& rhs) { this->operator=(rhs); }
-SceneObjectVertexArray::SceneObjectVertexArray(SceneObjectVertexArray&& rhs) { this->operator=(rhs); }
+SceneObjectVertexArray::SceneObjectVertexArray(const SceneObjectVertexArray& array)
+    : m_Attribute(array.m_Attribute),
+      m_MorphTargetIndex(array.m_MorphTargetIndex),
+      m_DataType(array.m_DataType),
+      m_VertexCount(array.m_VertexCount) {
+    m_Data = g_MemoryManager->Allocate(array.GetDataSize());
+    std::memcpy(m_Data, array.m_Data, array.GetDataSize());
+}
+SceneObjectVertexArray::SceneObjectVertexArray(SceneObjectVertexArray&& array)
+    : m_Attribute(std::move(array.m_Attribute)),
+      m_MorphTargetIndex(array.m_MorphTargetIndex),
+      m_DataType(array.m_DataType),
+      m_VertexCount(array.m_VertexCount),
+      m_Data(array.m_Data) {
+    array.m_Data = nullptr;
+}
 SceneObjectVertexArray& SceneObjectVertexArray::operator=(const SceneObjectVertexArray& rhs) {
     if (this != &rhs) {
         if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
@@ -99,8 +115,18 @@ SceneObjectIndexArray::SceneObjectIndexArray(const uint32_t restart_index, const
     m_Data = g_MemoryManager->Allocate(GetDataSize());
     std::memcpy(m_Data, data, GetDataSize());
 }
-SceneObjectIndexArray::SceneObjectIndexArray(const SceneObjectIndexArray& rhs) { this->operator=(rhs); }
-SceneObjectIndexArray::SceneObjectIndexArray(SceneObjectIndexArray&& rhs) { this->operator=(std::move(rhs)); }
+SceneObjectIndexArray::SceneObjectIndexArray(const SceneObjectIndexArray& array)
+    : m_ResetartIndex(array.m_ResetartIndex), m_DataType(array.m_DataType), m_IndexCount(array.m_IndexCount) {
+    m_Data = g_MemoryManager->Allocate(array.GetDataSize());
+    std::memcpy(m_Data, array.m_Data, array.GetDataSize());
+}
+SceneObjectIndexArray::SceneObjectIndexArray(SceneObjectIndexArray&& array)
+    : m_ResetartIndex(array.m_ResetartIndex),
+      m_DataType(array.m_DataType),
+      m_IndexCount(array.m_IndexCount),
+      m_Data(array.m_Data) {
+    array.m_Data = nullptr;
+}
 SceneObjectIndexArray& SceneObjectIndexArray::operator=(const SceneObjectIndexArray& rhs) {
     if (this != &rhs) {
         if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());

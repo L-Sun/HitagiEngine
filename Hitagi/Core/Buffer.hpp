@@ -9,8 +9,8 @@ class Buffer {
 public:
     Buffer();
     Buffer(size_t size, const void* srcPtr = nullptr, size_t copySize = 0, size_t alignment = 4);
-    Buffer(const Buffer& rhs);
-    Buffer(Buffer&& rhs);
+    Buffer(const Buffer& buffer);
+    Buffer(Buffer&& buffer);
     Buffer& operator=(const Buffer& rhs);
     Buffer& operator=(Buffer&& rhs);
     ~Buffer();

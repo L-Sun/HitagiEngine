@@ -8,8 +8,8 @@ public:
     Image() = default;
     Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t dataSize);
 
-    Image(const Image& rhs);
-    Image(Image&& rhs);
+    Image(const Image& image);
+    Image(Image&& image);
     Image& operator=(Image&& rhs);
     Image& operator=(const Image& rhs);
     ~Image();
