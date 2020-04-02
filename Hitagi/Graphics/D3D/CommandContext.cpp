@@ -121,6 +121,29 @@ void CommandContext::SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE type, unsig
     m_DynamicDescriptorHeaps[type]->StageDescriptor(rootIndex, offset, 1, handle);
 }
 
+void CommandContext::SetViewportAndScissor(const D3D12_VIEWPORT& viewport, const D3D12_RECT& rect) {
+    SetViewport(viewport);
+    SetScissor(rect);
+}
+
+void CommandContext::SetViewport(const D3D12_VIEWPORT& viewport) { m_CommandList->RSSetViewports(1, &viewport); }
+
+void CommandContext::SetScissor(const D3D12_RECT& rect) { m_CommandList->RSSetScissorRects(1, &rect); }
+
+void CommandContext::SetIndexBuffer(const D3D12_INDEX_BUFFER_VIEW& IBView) { m_CommandList->IASetIndexBuffer(&IBView); }
+
+void CommandContext::SetVertexBuffer(UINT slot, const D3D12_VERTEX_BUFFER_VIEW& VBView) {
+    m_CommandList->IASetVertexBuffers(slot, 1, &VBView);
+}
+
+void CommandContext::SetVertexBuffers(UINT startSlot, UINT count, const D3D12_VERTEX_BUFFER_VIEW VBViews[]) {
+    m_CommandList->IASetVertexBuffers(startSlot, count, VBViews);
+}
+
+void CommandContext::SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY topology) {
+    m_CommandList->IASetPrimitiveTopology(topology);
+}
+
 void CommandContext::DrawIndexedInstanced(unsigned indexCountPerInstance, unsigned instanceCount,
                                           unsigned startIndexLocation, int baseVertexLocation,
                                           unsigned startInstanceLocation) {
@@ -143,11 +166,10 @@ uint64_t CommandContext::Finish(bool waitForComplete) {
     queue.DiscardAllocator(fenceValue, m_CommandAllocator);
     m_CommandAllocator = nullptr;
 
-    // TODO need keep the dynamic heap alive until the gpu finishing execute command.
-    // for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++) {
-    //     m_DynamicDescriptorHeaps[i].reset(nullptr);
-    //     m_CurrentDescriptorHeaps[i] = nullptr;
-    // }
+    for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++) {
+        m_DynamicDescriptorHeaps[i]->Reset(fenceValue);
+        m_CurrentDescriptorHeaps[i] = nullptr;
+    }
 
     if (waitForComplete) m_CommandManager.WaitForFence(fenceValue);
 

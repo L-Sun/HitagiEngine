@@ -15,6 +15,7 @@ class D3D12GraphicsManager : public GraphicsManager {
     friend class DescriptorAllocatorPage;
     friend class DynamicDescriptorHeap;
     friend class RootSignature;
+    friend class DescriptorAllocation;
 
 private:
     struct ObjectConstants {
@@ -99,11 +100,11 @@ private:
     uint64_t m_DsvHeapSize       = 0;
     uint64_t m_CbvSrvUavHeapSize = 0;
 
-    DescriptorAllocator                          m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_RtvHeap;
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DsvHeap;
-    DescriptorAllocation                         m_CbvSrvDescriptors;
-    DescriptorAllocation                         m_SamplerDescriptors;
+    DescriptorAllocator  m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+    DescriptorAllocation m_RtvDescriptors;
+    DescriptorAllocation m_DsvDescriptors;
+    DescriptorAllocation m_CbvSrvDescriptors;
+    DescriptorAllocation m_SamplerDescriptors;
 
     unsigned m_FrameCBOffset;
     unsigned m_SrvOffset;

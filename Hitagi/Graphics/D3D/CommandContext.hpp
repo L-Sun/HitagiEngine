@@ -25,12 +25,22 @@ public:
     void TransitionResource(GpuResource& resource, D3D12_RESOURCE_STATES newState, bool flushImmediate = false);
     void FlushResourceBarriers();
 
+    void SetViewportAndScissor(const D3D12_VIEWPORT& viewport, const D3D12_RECT& rect);
+    void SetViewport(const D3D12_VIEWPORT& viewport);
+    void SetScissor(const D3D12_RECT& rect);
+
     void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, ID3D12DescriptorHeap* heap);
     void SetDescriptorHeaps(unsigned heapCount, D3D12_DESCRIPTOR_HEAP_TYPE type[], ID3D12DescriptorHeap* heaps[]);
     void SetRootSignature(const RootSignature& rootSignature);
     void BindDescriptorHeaps();
     void SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE type, unsigned rootIndex, unsigned offset,
                               D3D12_CPU_DESCRIPTOR_HANDLE handle);
+
+    void SetIndexBuffer(const D3D12_INDEX_BUFFER_VIEW& IBView);
+    void SetVertexBuffer(UINT slot, const D3D12_VERTEX_BUFFER_VIEW& VBView);
+    void SetVertexBuffers(UINT startSlot, UINT count, const D3D12_VERTEX_BUFFER_VIEW VBViews[]);
+
+    void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY topology);
 
     void DrawIndexedInstanced(unsigned indexCountPerInstance, unsigned instanceCount, unsigned startIndexLocation,
                               int baseVertexLocation, unsigned startInstanceLocation);

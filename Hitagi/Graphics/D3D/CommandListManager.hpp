@@ -46,12 +46,18 @@ public:
     CommandListManager();
     ~CommandListManager();
 
+    CommandListManager(CommandListManager&) = delete;
+    CommandListManager& operator=(CommandListManager&) = delete;
+
     void Initialize(ID3D12Device6* device);
     void Finalize();
 
     void CreateNewCommandList(D3D12_COMMAND_LIST_TYPE type, ID3D12GraphicsCommandList5** list,
                               ID3D12CommandAllocator** allocator);
     void WaitForFence(uint64_t fenceValue);
+    bool IsFenceComplete(uint64_t fenceValue) {
+        return GetQueue(static_cast<D3D12_COMMAND_LIST_TYPE>(fenceValue >> 56)).IsFenceComplete(fenceValue);
+    }
 
     CommandQueue& GetGraphicsQueue() { return m_GraphicsQueue; }
     CommandQueue& GetComputeQueue() { return m_ComputeQueue; }

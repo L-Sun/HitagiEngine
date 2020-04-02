@@ -48,13 +48,6 @@ int D3D12GraphicsManager::InitD3D() {
         }
     }
 
-    // Get size of descriptor
-    {
-        m_RtvHeapSize       = m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-        m_DsvHeapSize       = m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-        m_CbvSrvUavHeapSize = m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    }
-
     // Detect 4x MSAA
     {
         D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels;
@@ -113,27 +106,17 @@ void D3D12GraphicsManager::CreateSwapChain() {
 }
 
 void D3D12GraphicsManager::CreateDescriptorHeaps() {
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-    rtvHeapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    rtvHeapDesc.NodeMask                   = 0;
-    rtvHeapDesc.NumDescriptors             = m_FrameCount;
-    rtvHeapDesc.Type                       = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    ThrowIfFailed(m_Device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_RtvHeap)));
-
-    D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-    dsvHeapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    dsvHeapDesc.NodeMask                   = 0;
-    dsvHeapDesc.NumDescriptors             = 1;
-    dsvHeapDesc.Type                       = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-    ThrowIfFailed(m_Device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_DsvHeap)));
+    for (int type = 0; type < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; type++) {
+        m_DescriptorAllocator[type].Initialize(static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(type));
+    }
 
     // Create rtv.
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_RtvHeap->GetCPUDescriptorHandleForHeapStart());
+    m_RtvDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(m_FrameCount);
     for (unsigned i = 0; i < m_FrameCount; i++) {
         ThrowIfFailed(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&m_RenderTargets[i])));
-        m_Device->CreateRenderTargetView(m_RenderTargets[i].Get(), nullptr, rtvHandle);
-        rtvHandle.Offset(1, m_RtvHeapSize);
+        m_Device->CreateRenderTargetView(m_RenderTargets[i].Get(), nullptr, m_RtvDescriptors.GetDescriptorHandle(i));
     }
+    m_DsvDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Allocate();
 
     // Create dsv.
     auto config = g_App->GetConfiguration();
@@ -162,10 +145,6 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
                                                     IID_PPV_ARGS(&m_DepthStencilBuffer)));
 
     m_Device->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, DepthStencilView());
-
-    for (int type = 0; type < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; type++) {
-        m_DescriptorAllocator[type].Initialize(static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(type));
-    }
 
     // Create CBV Descriptor Heap
     m_CbvSrvDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Allocate(
@@ -489,8 +468,7 @@ void D3D12GraphicsManager::RenderBuffers() {
     CommandContext context(m_CommandListManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
     PopulateCommandList(context);
 
-    // TODO ture should be removed
-    currFR->fence = context.Finish(true);
+    currFR->fence = context.Finish();
     ThrowIfFailed(m_SwapChain->Present(0, 0));
     m_CurrBackBuffer = (m_CurrBackBuffer + 1) % m_FrameCount;
 }
@@ -500,12 +478,12 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
     auto commandList = context.GetCommandList();
 
     // change state from presentation to waitting to render.
+    // TODO change commandList to context
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         m_RenderTargets[m_CurrBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
     commandList->ResourceBarrier(1, &barrier);
 
-    commandList->RSSetViewports(1, &m_Viewport);
-    commandList->RSSetScissorRects(1, &m_ScissorRect);
+    context.SetViewportAndScissor(m_Viewport, m_ScissorRect);
 
     // clear buffer view
     const float clearColor[] = {0.0f, 0.2f, 0.4f, 1.0f};
@@ -524,6 +502,7 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
 
     context.SetRootSignature(m_RootSignature);
     context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 3, 0, m_SamplerDescriptors.GetDescriptorHandle());
+
     // Sampler
     // commandList->SetGraphicsRootDescriptorTable(3, m_SamplerHeap->GetGPUDescriptorHandleForHeapStart());
     // Frame Cbv
@@ -552,17 +531,14 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
 
     for (auto&& d : drawItems) {
         const auto& meshBuffer = d.meshBuffer;
+        // TODO Implement of pipeline state object
         cmdList->SetPipelineState(meshBuffer->pPSO.Get());
 
         for (size_t i = 0; i < meshBuffer->vbv.size(); i++) {
-            cmdList->IASetVertexBuffers(i, 1, &meshBuffer->vbv[i]);
+            context.SetVertexBuffer(i, meshBuffer->vbv[i]);
         }
-        cmdList->IASetIndexBuffer(&meshBuffer->ibv);
+        context.SetIndexBuffer(meshBuffer->ibv);
 
-        // CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(m_CbvSrvHeap->GetGPUDescriptorHandleForHeapStart(),
-        //                                         cbv_size * m_CurrFrameResourceIndex + d.constantBufferIndex,
-        //                                         m_CbvSrvUavHeapSize);
-        // cmdList->SetGraphicsRootDescriptorTable(1, cbvHandle);
         context.SetDynamicDescriptor(
             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, 0,
             m_CbvSrvDescriptors.GetDescriptorHandle(cbv_size * m_CurrFrameResourceIndex + d.constantBufferIndex));
@@ -570,28 +546,22 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
         // Texture
         if (auto material = meshBuffer->material.lock()) {
             if (auto& pTexture = material->GetBaseColor().ValueMap) {
-                // auto offset = m_Textures.at(pTexture->GetGuid()).GetSRV().ptr -
-                //               m_CbvSrvHeap->GetCPUDescriptorHandleForHeapStart().ptr;
-                // auto handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_CbvSrvHeap->GetGPUDescriptorHandleForHeapStart(),
-                // offset); cmdList->SetGraphicsRootDescriptorTable(2, handle);
-
                 context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2, 0,
                                              m_Textures.at(pTexture->GetGuid()).GetSRV());
             }
         }
-        cmdList->IASetPrimitiveTopology(meshBuffer->primitiveType);
+        context.SetPrimitiveTopology(meshBuffer->primitiveType);
         // cmdList->DrawIndexedInstanced(meshBuffer->indexCount, 1, 0, 0, 0);
         context.DrawIndexedInstanced(meshBuffer->indexCount, 1, 0, 0, 0);
     }
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE D3D12GraphicsManager::CurrentBackBufferView() const {
-    return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_RtvHeap->GetCPUDescriptorHandleForHeapStart(), m_CurrBackBuffer,
-                                         m_RtvHeapSize);
+    return m_RtvDescriptors.GetDescriptorHandle(m_CurrBackBuffer);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE D3D12GraphicsManager::DepthStencilView() const {
-    return m_DsvHeap->GetCPUDescriptorHandleForHeapStart();
+    return m_DsvDescriptors.GetDescriptorHandle();
 }
 
 #if defined(_DEBUG)

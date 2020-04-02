@@ -12,7 +12,7 @@ public:
     void Initialize(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescPerHeap = 256);
 
     DescriptorAllocation Allocate(uint32_t numDescriptor = 1);
-    void                 ReleaseStaleDescriptor(uint64_t frameNumber);
+    void                 ReleaseStaleDescriptor(uint64_t fenceValue);
 
 private:
     using DescriptorHeapPool = std::vector<std::shared_ptr<DescriptorAllocatorPage>>;
@@ -51,10 +51,11 @@ public:
 private:
     void Free(uint64_t fenceValue);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE              m_CpuHandle;
-    D3D12_GPU_DESCRIPTOR_HANDLE              m_GpuHandle;
-    uint32_t                                 m_numDescriptors;
-    uint32_t                                 m_DescriptorSize;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;
+    D3D12_GPU_DESCRIPTOR_HANDLE m_GpuHandle;
+    uint32_t                    m_numDescriptors;
+    uint32_t                    m_DescriptorSize;
+
     std::shared_ptr<DescriptorAllocatorPage> m_PageFrom;
 };
 

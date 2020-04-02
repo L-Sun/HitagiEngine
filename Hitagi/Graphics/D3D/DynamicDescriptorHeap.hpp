@@ -8,9 +8,8 @@ class CommandContext;
 
 class DynamicDescriptorHeap {
 public:
-    DynamicDescriptorHeap(CommandContext& cmdContext, D3D12_DESCRIPTOR_HEAP_TYPE type,
-                          uint32_t numDescriptorHeap = 1024);
-    ~DynamicDescriptorHeap() { Reset(); }
+    DynamicDescriptorHeap(CommandContext& cmdContext, D3D12_DESCRIPTOR_HEAP_TYPE type);
+    ~DynamicDescriptorHeap() { Reset(m_FenceValue); }
 
     void StageDescriptor(uint32_t rootParameterIndex, uint32_t offset, uint32_t numDescriptors,
                          const D3D12_CPU_DESCRIPTOR_HANDLE srcDescriptorHandle);
@@ -25,12 +24,14 @@ public:
     // Paser root signature to get information about the layout of descriptors.
     void ParseRootSignature(const RootSignature& rootSignature);
 
-    void Reset();
+    void Reset(uint64_t fenceValue);
 
 private:
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> RequestDescriptorHeap();
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap();
-    uint32_t                                     StaleDescriptorCount() const;
+    static std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> RequestDescriptorHeap(
+        D3D12_DESCRIPTOR_HEAP_TYPE type);
+    static Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
+
+    uint32_t StaleDescriptorCount() const;
 
     struct DescriptorTableCache {
         DescriptorTableCache() : baseHandle(nullptr), numDescriptors(0) {}
@@ -42,25 +43,27 @@ private:
         uint32_t                     numDescriptors;
     };
 
+    using DescriptorHeapPool = std::queue<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>>;
+    using AvailableHeapPool  = std::queue<std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t>>;
+
+    static const uint32_t     kNumDescriptorsPerHeap = 1024;
+    static const uint32_t     kMaxDescriptorTables   = 32;
+    static DescriptorHeapPool kDescriptorHeapPool[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+    static AvailableHeapPool  kAvailableDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+
     CommandContext&            m_CommandContext;
     D3D12_DESCRIPTOR_HEAP_TYPE m_Type;
-    uint32_t                   m_NumDescriptorsPerHeap;
     uint32_t                   m_HandleIncrementSize;
-
-    static const uint32_t m_MaxDescriptorTables = 32;
+    uint64_t                   m_FenceValue;
 
     std::unique_ptr<D3D12_CPU_DESCRIPTOR_HANDLE[]> m_DescriptorHandleCache;
-    DescriptorTableCache                           m_DescriptorTableCache[m_MaxDescriptorTables];
+    DescriptorTableCache                           m_DescriptorTableCache[kMaxDescriptorTables];
 
     // Each bit in the bit mask indicates which descriptor table is bound to the root signature.
     uint32_t m_DescriptorTableBitMask;
     // Each bit in the bit mask indicates a descriptor table in the root signature that has
     // changed since the last time the descriptors were copied.
     uint32_t m_StaleDescriptorTableBitMask;
-
-    using DescriptorHeapPool = std::queue<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>>;
-    DescriptorHeapPool m_DescriptorHeapPool;
-    DescriptorHeapPool m_AvailableDescriptorHeaps;
 
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_CurrentDescriptorHeap;
     CD3DX12_GPU_DESCRIPTOR_HANDLE                m_CurrentGPUDescriptorHandle;

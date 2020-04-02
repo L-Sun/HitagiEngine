@@ -38,7 +38,7 @@ DescriptorAllocation& DescriptorAllocation::operator=(DescriptorAllocation&& rhs
 }
 
 DescriptorAllocation::~DescriptorAllocation() {
-    // TODO get fencevalue
+    // TODO RAII fenceValue
     Free(0);
 }
 
