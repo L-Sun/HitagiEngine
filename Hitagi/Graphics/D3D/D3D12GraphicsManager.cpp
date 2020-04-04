@@ -29,7 +29,7 @@ int D3D12GraphicsManager::InitD3D() {
 
     // Enable d3d12 debug layer.
     {
-        ComPtr<ID3D12Debug3> debugController;
+        Microsoft::WRL::ComPtr<ID3D12Debug3> debugController;
         if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
             debugController->EnableDebugLayer();
             // Enable additional debug layers.
@@ -42,7 +42,7 @@ int D3D12GraphicsManager::InitD3D() {
     // Create device.
     {
         if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_Device)))) {
-            ComPtr<IDXGIAdapter4> pWarpaAdapter;
+            Microsoft::WRL::ComPtr<IDXGIAdapter4> pWarpaAdapter;
             ThrowIfFailed(m_DxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&pWarpaAdapter)));
             ThrowIfFailed(D3D12CreateDevice(pWarpaAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_Device)));
         }
@@ -83,21 +83,21 @@ int D3D12GraphicsManager::InitD3D() {
 
 void D3D12GraphicsManager::CreateSwapChain() {
     m_SwapChain.Reset();
-    ComPtr<IDXGISwapChain1> swapChain;
-    DXGI_SWAP_CHAIN_DESC1   swapChainDesc = {};
-    swapChainDesc.BufferCount             = m_FrameCount;
-    swapChainDesc.Width                   = g_App->GetConfiguration().screenWidth;
-    swapChainDesc.Height                  = g_App->GetConfiguration().screenHeight;
-    swapChainDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
-    swapChainDesc.BufferUsage             = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapChainDesc.Scaling                 = DXGI_SCALING_STRETCH;
-    swapChainDesc.SwapEffect              = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    swapChainDesc.AlphaMode               = DXGI_ALPHA_MODE_UNSPECIFIED;
-    swapChainDesc.SampleDesc.Count        = m_4xMsaaState ? 4 : 1;
-    swapChainDesc.SampleDesc.Quality      = m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0;
-    swapChainDesc.Flags                   = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-    HWND window                           = reinterpret_cast<WindowsApplication*>(g_App.get())->GetMainWindow();
-    auto commandQueue                     = m_CommandListManager.GetGraphicsQueue().GetCommandQueue();
+    Microsoft::WRL::ComPtr<IDXGISwapChain1> swapChain;
+    DXGI_SWAP_CHAIN_DESC1                   swapChainDesc = {};
+    swapChainDesc.BufferCount                             = m_FrameCount;
+    swapChainDesc.Width                                   = g_App->GetConfiguration().screenWidth;
+    swapChainDesc.Height                                  = g_App->GetConfiguration().screenHeight;
+    swapChainDesc.Format                                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapChainDesc.BufferUsage                             = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapChainDesc.Scaling                                 = DXGI_SCALING_STRETCH;
+    swapChainDesc.SwapEffect                              = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    swapChainDesc.AlphaMode                               = DXGI_ALPHA_MODE_UNSPECIFIED;
+    swapChainDesc.SampleDesc.Count                        = m_4xMsaaState ? 4 : 1;
+    swapChainDesc.SampleDesc.Quality                      = m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0;
+    swapChainDesc.Flags                                   = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+    HWND window       = reinterpret_cast<WindowsApplication*>(g_App.get())->GetMainWindow();
+    auto commandQueue = m_CommandListManager.GetGraphicsQueue().GetCommandQueue();
     ThrowIfFailed(
         m_DxgiFactory->CreateSwapChainForHwnd(commandQueue, window, &swapChainDesc, nullptr, nullptr, &swapChain));
 
@@ -233,11 +233,9 @@ bool D3D12GraphicsManager::InitializeShaders() {
     Core::Buffer v_shader  = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/simple_vs.cso"),
                  p1_shader = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/simple_ps_1.cso");
 
-    m_VS["simple"]     = CD3DX12_SHADER_BYTECODE(v_shader.GetData(), v_shader.GetDataSize());
-    m_PS["no_texture"] = CD3DX12_SHADER_BYTECODE(p1_shader.GetData(), p1_shader.GetDataSize());
-
-    Core::Buffer p2_shader = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/simple_ps_2.cso");
-    m_PS["texture"]        = CD3DX12_SHADER_BYTECODE(p2_shader.GetData(), p2_shader.GetDataSize());
+    m_ShaderManager.LoadShader("Asset/Shaders/simple_vs.cso", ShaderType::VERTEX, "simple");
+    m_ShaderManager.LoadShader("Asset/Shaders/simple_ps_1.cso", ShaderType::PIXEL, "no_texture");
+    m_ShaderManager.LoadShader("Asset/Shaders/simple_ps_2.cso", ShaderType::PIXEL, "texture");
 
     // Define the vertex input layout, becase vertices storage is
     m_InputLayout = {{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
@@ -245,10 +243,8 @@ bool D3D12GraphicsManager::InitializeShaders() {
                      {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}};
 
 #if defined(_DEBUG)
-    Core::Buffer v_debugShader = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/debug_vs.cso"),
-                 p_debugShader = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/debug_ps.cso");
-    m_VS["debug"]              = CD3DX12_SHADER_BYTECODE(v_debugShader.GetData(), v_debugShader.GetDataSize());
-    m_PS["debug"]              = CD3DX12_SHADER_BYTECODE(p_debugShader.GetData(), p_debugShader.GetDataSize());
+    m_ShaderManager.LoadShader("Asset/Shaders/debug_vs.cso", ShaderType::VERTEX, "debug");
+    m_ShaderManager.LoadShader("Asset/Shaders/debug_ps.cso", ShaderType::PIXEL, "debug");
 
     m_DebugInputLayout = {{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0},
                           {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0}};
@@ -261,38 +257,53 @@ bool D3D12GraphicsManager::InitializeShaders() {
 }
 
 void D3D12GraphicsManager::BuildPipelineStateObject() {
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc    = {};
-    psoDesc.InputLayout                           = {m_InputLayout.data(), static_cast<UINT>(m_InputLayout.size())};
-    psoDesc.pRootSignature                        = m_RootSignature.GetRootSignature().Get();
-    psoDesc.VS                                    = m_VS["simple"];
-    psoDesc.PS                                    = m_PS["no_texture"];
-    psoDesc.RasterizerState                       = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-    psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
-    psoDesc.BlendState                            = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-    psoDesc.DepthStencilState                     = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-    psoDesc.SampleMask                            = UINT_MAX;
-    psoDesc.PrimitiveTopologyType                 = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    psoDesc.NumRenderTargets                      = 1;
-    psoDesc.RTVFormats[0]                         = m_BackBufferFormat;
-    psoDesc.SampleDesc.Count                      = m_4xMsaaState ? 4 : 1;
-    psoDesc.SampleDesc.Quality                    = m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0;
-    psoDesc.DSVFormat                             = m_DepthStencilFormat;
+    auto rasterizerDesc                  = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    rasterizerDesc.FrontCounterClockwise = true;
+    auto blendDesc                       = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    auto depthStencilDesc                = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 
-    m_PipelineState["no_texture"] = ComPtr<ID3D12PipelineState>();
-    ThrowIfFailed(m_Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_PipelineState["no_texture"])));
+    m_GraphicsPSO.insert({"no_texture", GraphicsPSO()});
+    m_GraphicsPSO["no_texture"].SetInputLayout(m_InputLayout);
+    m_GraphicsPSO["no_texture"].SetRootSignature(m_RootSignature);
+    m_GraphicsPSO["no_texture"].SetVertexShader(m_ShaderManager.GetVertexShader("simple"));
+    m_GraphicsPSO["no_texture"].SetPixelShader(m_ShaderManager.GetPixelShader("no_texture"));
+    m_GraphicsPSO["no_texture"].SetRasterizerState(rasterizerDesc);
+    m_GraphicsPSO["no_texture"].SetBlendState(blendDesc);
+    m_GraphicsPSO["no_texture"].SetDepthStencilState(depthStencilDesc);
+    m_GraphicsPSO["no_texture"].SetSampleMask(UINT_MAX);
+    m_GraphicsPSO["no_texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+    m_GraphicsPSO["no_texture"].SetRenderTargetFormats(
+        {m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1, m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
+    m_GraphicsPSO["no_texture"].Finalize();
 
-    // for texture
-    psoDesc.PS                 = m_PS["texture"];
-    m_PipelineState["texture"] = ComPtr<ID3D12PipelineState>();
-    ThrowIfFailed(m_Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_PipelineState["texture"])));
+    m_GraphicsPSO.insert({"texture", GraphicsPSO()});
+    m_GraphicsPSO["texture"].SetInputLayout(m_InputLayout);
+    m_GraphicsPSO["texture"].SetRootSignature(m_RootSignature);
+    m_GraphicsPSO["texture"].SetVertexShader(m_ShaderManager.GetVertexShader("simple"));
+    m_GraphicsPSO["texture"].SetPixelShader(m_ShaderManager.GetPixelShader("texture"));
+    m_GraphicsPSO["texture"].SetRasterizerState(rasterizerDesc);
+    m_GraphicsPSO["texture"].SetBlendState(blendDesc);
+    m_GraphicsPSO["texture"].SetDepthStencilState(depthStencilDesc);
+    m_GraphicsPSO["texture"].SetSampleMask(UINT_MAX);
+    m_GraphicsPSO["texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+    m_GraphicsPSO["texture"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1,
+                                                    m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
+    m_GraphicsPSO["texture"].Finalize();
 
 #if defined(_DEBUG)
-    psoDesc.InputLayout           = {m_DebugInputLayout.data(), static_cast<UINT>(m_DebugInputLayout.size())};
-    psoDesc.VS                    = m_VS["debug"];
-    psoDesc.PS                    = m_PS["debug"];
-    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-    m_PipelineState["debug"]      = ComPtr<ID3D12PipelineState>();
-    ThrowIfFailed(m_Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_PipelineState["debug"])));
+    m_GraphicsPSO.insert({"debug", GraphicsPSO()});
+    m_GraphicsPSO["debug"].SetInputLayout(m_DebugInputLayout);
+    m_GraphicsPSO["debug"].SetRootSignature(m_RootSignature);
+    m_GraphicsPSO["debug"].SetVertexShader(m_ShaderManager.GetVertexShader("debug"));
+    m_GraphicsPSO["debug"].SetPixelShader(m_ShaderManager.GetPixelShader("debug"));
+    m_GraphicsPSO["debug"].SetRasterizerState(rasterizerDesc);
+    m_GraphicsPSO["debug"].SetBlendState(blendDesc);
+    m_GraphicsPSO["debug"].SetDepthStencilState(depthStencilDesc);
+    m_GraphicsPSO["debug"].SetSampleMask(UINT_MAX);
+    m_GraphicsPSO["debug"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE);
+    m_GraphicsPSO["debug"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1,
+                                                  m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
+    m_GraphicsPSO["debug"].Finalize();
 #endif  // DEBUG
 }
 
@@ -311,11 +322,11 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
         SetPrimitiveType(pMesh->GetPrimitiveType(), m);
         if (auto material = pMesh->GetMaterial().lock())
             if (material->GetBaseColor().ValueMap)
-                m->pPSO = m_PipelineState["texture"];
+                m->pPSO = m_GraphicsPSO["texture"].GetPSO();
             else
-                m->pPSO = m_PipelineState["no_texture"];
+                m->pPSO = m_GraphicsPSO["no_texture"].GetPSO();
         else
-            m->pPSO = m_PipelineState["simple"];
+            m->pPSO = m_GraphicsPSO["simple"].GetPSO();
 
         m_Meshes[pMesh->GetGuid()] = m;
     }
@@ -397,12 +408,7 @@ TextureBuffer D3D12GraphicsManager::CreateTextureBuffer(const Resource::Image& i
     return TextureBuffer(context, handle, sampleDesc, image);
 }
 
-void D3D12GraphicsManager::ClearShaders() {
-    m_PipelineState.clear();
-
-    m_VS.clear();
-    m_PS.clear();
-}
+void D3D12GraphicsManager::ClearShaders() { m_GraphicsPSO.clear(); }
 
 void D3D12GraphicsManager::ClearBuffers() {
     m_CommandListManager.IdleGPU();
@@ -496,18 +502,9 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
     const D3D12_CPU_DESCRIPTOR_HANDLE& dsv            = DepthStencilView();
     commandList->OMSetRenderTargets(1, &currBackBuffer, false, &dsv);
 
-    // D3D12_DESCRIPTOR_HEAP_TYPE type[]  = {D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-    // D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER}; ID3D12DescriptorHeap*      heaps[] = {m_CbvSrvDescriptors,
-    // m_SamplerHeap.Get()}; context.SetDescriptorHeaps(_countof(heaps), type, heaps);
-
     context.SetRootSignature(m_RootSignature);
     context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 3, 0, m_SamplerDescriptors.GetDescriptorHandle());
 
-    // Sampler
-    // commandList->SetGraphicsRootDescriptorTable(3, m_SamplerHeap->GetGPUDescriptorHandleForHeapStart());
-    // Frame Cbv
-
-    // commandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
     context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 0, 0,
                                  m_CbvSrvDescriptors.GetDescriptorHandle(m_FrameCBOffset + m_CurrFrameResourceIndex));
 
@@ -532,7 +529,7 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
     for (auto&& d : drawItems) {
         const auto& meshBuffer = d.meshBuffer;
         // TODO Implement of pipeline state object
-        cmdList->SetPipelineState(meshBuffer->pPSO.Get());
+        cmdList->SetPipelineState(meshBuffer->pPSO);
 
         for (size_t i = 0; i < meshBuffer->vbv.size(); i++) {
             context.SetVertexBuffer(i, meshBuffer->vbv[i]);
@@ -589,7 +586,7 @@ void D3D12GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const 
         Resource::SceneObjectIndexArray index_array(0, Resource::IndexDataType::INT32, index.data(), index.size());
         CreateIndexBuffer(index_array, meshBuffer);
         meshBuffer->indexCount  = index.size();
-        meshBuffer->pPSO        = m_PipelineState["debug"];
+        meshBuffer->pPSO        = m_GraphicsPSO["debug"].GetPSO();
         m_DebugMeshBuffer[name] = meshBuffer;
     }
 
@@ -631,7 +628,7 @@ void D3D12GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, con
         CreateIndexBuffer(index_array, meshBuffer);
         meshBuffer->indexCount = index.size();
 
-        meshBuffer->pPSO               = m_PipelineState["debug"];
+        meshBuffer->pPSO               = m_GraphicsPSO["debug"].GetPSO();
         m_DebugMeshBuffer["debug_box"] = meshBuffer;
     }
     mat4f transform = translate(scale(mat4f(1.0f), 0.5 * (bbMax - bbMin)), 0.5 * (bbMax + bbMin));

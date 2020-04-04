@@ -4,7 +4,7 @@
 #include "IRuntimeModule.hpp"
 #include "GeomMath.hpp"
 #include "Scene.hpp"
-#include "Buffer.hpp"
+#include "ShaderManager.hpp"
 
 namespace Hitagi::Graphics {
 class GraphicsManager : public IRuntimeModule {
@@ -45,6 +45,7 @@ protected:
     const FT_GlyphSlot GetGlyph(char c);
 
     FrameConstants m_FrameConstants;
+    ShaderManager  m_ShaderManager;
 
 private:
     FT_Library   m_FTLibrary;

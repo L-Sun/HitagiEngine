@@ -7,7 +7,8 @@
 namespace Hitagi::Graphics {
 
 int GraphicsManager::Initialize() {
-    int result = 0;
+    int result = m_ShaderManager.Initialize();
+
     InitConstants();
 
     // Initialize Free Type

@@ -7,6 +7,7 @@
 #include "GpuBuffer.hpp"
 #include "RootSignature.hpp"
 #include "DescriptorAllocator.hpp"
+#include "PipeLineState.hpp"
 
 namespace Hitagi::Graphics {
 
@@ -16,6 +17,7 @@ class D3D12GraphicsManager : public GraphicsManager {
     friend class DynamicDescriptorHeap;
     friend class RootSignature;
     friend class DescriptorAllocation;
+    friend class GraphicsPSO;
 
 private:
     struct ObjectConstants {
@@ -31,7 +33,7 @@ private:
         D3D12_INDEX_BUFFER_VIEW                      ibv;
         D3D_PRIMITIVE_TOPOLOGY                       primitiveType;
         std::weak_ptr<Resource::SceneObjectMaterial> material;
-        Microsoft::WRL::ComPtr<ID3D12PipelineState>  pPSO;
+        ID3D12PipelineState*                         pPSO;
     };
 
     struct DrawItem {
@@ -122,12 +124,10 @@ private:
     bool     m_4xMsaaState   = false;
     uint32_t m_4xMsaaQuality = 0;
 
-    std::unordered_map<std::string, D3D12_SHADER_BYTECODE> m_VS;
-    std::unordered_map<std::string, D3D12_SHADER_BYTECODE> m_PS;
-    std::vector<D3D12_INPUT_ELEMENT_DESC>                  m_InputLayout;
+    std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayout;
 
-    std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_PipelineState;
-    RootSignature                                                                m_RootSignature;
+    std::unordered_map<std::string, GraphicsPSO> m_GraphicsPSO;
+    RootSignature                                m_RootSignature;
 
     std::vector<std::unique_ptr<FR>> m_FrameResource;
     // Generally, the frame resource size is greater or equal to frame count

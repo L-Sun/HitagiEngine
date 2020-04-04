@@ -21,9 +21,9 @@ public:
 protected:
     void UpdateGpuVirtualAddress() { m_GpuVirtualAddress = m_Resource->GetGPUVirtualAddress(); }
 
-    ComPtr<ID3D12Resource>    m_Resource;
-    D3D12_RESOURCE_STATES     m_UsageState;
-    D3D12_RESOURCE_STATES     m_TransitioningState;
-    D3D12_GPU_VIRTUAL_ADDRESS m_GpuVirtualAddress;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_Resource;
+    D3D12_RESOURCE_STATES                  m_UsageState;
+    D3D12_RESOURCE_STATES                  m_TransitioningState;
+    D3D12_GPU_VIRTUAL_ADDRESS              m_GpuVirtualAddress;
 };
 }  // namespace Hitagi::Graphics

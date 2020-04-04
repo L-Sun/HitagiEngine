@@ -2,9 +2,9 @@
 #include "D3Dpch.hpp"
 
 namespace d3dUtil {
-ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device5* device, ID3D12GraphicsCommandList* cmdList,
-                                           const void* initData, uint64_t byteSize,
-                                           ComPtr<ID3D12Resource>& uploadBuffer);
+Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(ID3D12Device5* device, ID3D12GraphicsCommandList* cmdList,
+                                                           const void* initData, uint64_t byteSize,
+                                                           Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer);
 
 template <typename T>
 class UploadBuffer {
@@ -39,8 +39,8 @@ public:
     size_t GetElementCount() const { return m_ElementsCount; }
 
 private:
-    ComPtr<ID3D12Resource> m_UploadBuffer;
-    BYTE*                  m_MappedData = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_UploadBuffer;
+    BYTE*                                  m_MappedData = nullptr;
 
     size_t m_ElementSize      = 0;
     size_t m_ElementsCount    = 0;

@@ -9,7 +9,6 @@
 #include "Image.hpp"
 
 namespace Hitagi::Resource {
-
 enum struct SceneObjectType : int32_t {
     MESH          = "MESH"_i32,
     MATERIAL      = "MATL"_i32,
