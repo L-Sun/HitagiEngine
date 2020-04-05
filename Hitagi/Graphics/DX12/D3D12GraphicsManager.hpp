@@ -9,7 +9,7 @@
 #include "DescriptorAllocator.hpp"
 #include "PipeLineState.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 
 class D3D12GraphicsManager : public GraphicsManager {
     friend class LinearAllocator;
@@ -46,6 +46,16 @@ private:
     using FR = FrameResource<FrameConstants, ObjectConstants>;
 
 public:
+    static D3D12GraphicsManager& Get() {
+        static D3D12GraphicsManager instance;
+        return instance;
+    }
+
+    D3D12GraphicsManager(const D3D12GraphicsManager&) = delete;
+    D3D12GraphicsManager(D3D12GraphicsManager&&)      = delete;
+    D3D12GraphicsManager& operator=(const D3D12GraphicsManager&) = delete;
+    D3D12GraphicsManager& operator=(D3D12GraphicsManager&&) = delete;
+
     int  Initialize() final;
     void Finalize() final;
     void Draw() final;
@@ -67,6 +77,9 @@ protected:
     void RenderBuffers() final;
 
 private:
+    D3D12GraphicsManager() {}
+    virtual ~D3D12GraphicsManager() {}
+
     int InitD3D();
 
     void CreateSwapChain();
@@ -147,4 +160,4 @@ private:
     std::vector<DrawItem>                                      m_DebugDrawItems;
 #endif  // DEBUG
 };
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

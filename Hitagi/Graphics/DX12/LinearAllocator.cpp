@@ -2,7 +2,7 @@
 #include "LinearAllocator.hpp"
 #include "D3D12GraphicsManager.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 size_t align(size_t x, size_t a) { return (x + a - 1) & ~(a - 1); }
 
 LinearAllocator::Allocation LinearAllocator::Allocate(size_t size, size_t alignment) {
@@ -36,7 +36,7 @@ void LinearAllocator::Reset() {
 LinearAllocator::~LinearAllocator() {}
 
 LinearAllocator::Page::Page(size_t pageSize) : m_PageSize(pageSize), m_Offset(0), m_CpuPtr(nullptr) {
-    auto device   = reinterpret_cast<D3D12GraphicsManager*>(g_GraphicsManager.get())->m_Device;
+    auto device   = reinterpret_cast<D3D12GraphicsManager*>(g_GraphicsManager)->m_Device;
     auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     auto desc     = CD3DX12_RESOURCE_DESC::Buffer(m_PageSize);
     m_UsageState  = D3D12_RESOURCE_STATE_GENERIC_READ;
@@ -71,4 +71,4 @@ LinearAllocator::Allocation LinearAllocator::Page::Allocate(size_t size, size_t 
 
 void LinearAllocator::Page::Reset() { m_Offset = 0; }
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

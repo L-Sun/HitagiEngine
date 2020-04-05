@@ -3,7 +3,7 @@
 #include "d3dUtil.hpp"
 #include "GpuBuffer.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 template <typename TFrameConstant, typename TObjConstant>
 class FrameResource {
 public:
@@ -25,4 +25,4 @@ public:
     std::unique_ptr<d3dUtil::UploadBuffer<TFrameConstant>> m_FrameCBUploader;
     std::unique_ptr<d3dUtil::UploadBuffer<TObjConstant>>   m_ObjCBUploader;
 };
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

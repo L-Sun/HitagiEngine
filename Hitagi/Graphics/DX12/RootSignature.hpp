@@ -1,7 +1,7 @@
 #pragma once
 #include "D3Dpch.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 struct RootParameter : public CD3DX12_ROOT_PARAMETER1 {
 public:
     using CD3DX12_ROOT_PARAMETER1::CD3DX12_ROOT_PARAMETER1;
@@ -81,4 +81,4 @@ private:
     uint32_t m_DescriptorTableBitMask;
 };
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

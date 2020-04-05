@@ -3,7 +3,7 @@
 #include <memory>
 #include "GpuBuffer.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 class LinearAllocator {
     struct Allocation {
         GpuResource&              resource;
@@ -43,4 +43,4 @@ private:
 
     std::shared_ptr<Page> m_CurrPage;
 };
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

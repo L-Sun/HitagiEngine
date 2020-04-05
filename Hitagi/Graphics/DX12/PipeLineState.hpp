@@ -3,7 +3,7 @@
 #include "RootSignature.hpp"
 #include "Buffer.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 class PipeLineState {
 public:
     PipeLineState() : m_RootSignature(nullptr) {}
@@ -35,4 +35,4 @@ private:
     D3D12_GRAPHICS_PIPELINE_STATE_DESC    m_PSODesc;
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayouts;
 };
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

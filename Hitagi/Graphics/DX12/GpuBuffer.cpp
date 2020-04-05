@@ -1,7 +1,7 @@
 #include "GpuBuffer.hpp"
 #include "CommandContext.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 
 GpuBuffer::GpuBuffer(CommandContext& context, size_t numElement, size_t elementSize, const void* initialData)
 
@@ -67,4 +67,4 @@ TextureBuffer::TextureBuffer(CommandContext& context, D3D12_CPU_DESCRIPTOR_HANDL
     context.m_Device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_CpuDescriptorHandle);
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

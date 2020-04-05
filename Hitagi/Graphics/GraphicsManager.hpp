@@ -55,5 +55,5 @@ private:
 
 }  // namespace Hitagi::Graphics
 namespace Hitagi {
-extern std::unique_ptr<Graphics::GraphicsManager> g_GraphicsManager;
+extern Graphics::GraphicsManager* g_GraphicsManager;
 }

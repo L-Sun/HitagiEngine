@@ -3,7 +3,7 @@
 #include "D3D12GraphicsManager.hpp"
 #include "WindowsApplication.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 
 int D3D12GraphicsManager::Initialize() {
     int result = GraphicsManager::Initialize();
@@ -654,4 +654,4 @@ void D3D12GraphicsManager::ClearDebugBuffers() {
 
 #endif  // DEBUG
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

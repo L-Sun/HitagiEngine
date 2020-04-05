@@ -3,7 +3,7 @@
 #include "RootSignature.hpp"
 
 // Stage, commit or cpoy directly CPU visible descriptor to GPU visible descriptor.
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 class CommandContext;
 
 class DynamicDescriptorHeap {
@@ -71,4 +71,4 @@ private:
 
     uint32_t m_NumFreeHandles;
 };
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

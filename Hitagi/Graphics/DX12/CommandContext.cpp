@@ -1,6 +1,6 @@
 #include "CommandContext.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 
 CommandContext::CommandContext(CommandListManager& cmdManager, D3D12_COMMAND_LIST_TYPE type)
     : m_Device(cmdManager.m_Device),
@@ -189,4 +189,4 @@ void CommandContext::Reset() {
     BindDescriptorHeaps();
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

@@ -3,7 +3,7 @@
 #include "Image.hpp"
 #include "GpuResource.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 class GpuBuffer : public GpuResource {
 public:
     GpuBuffer(CommandContext& context, size_t numElement, size_t elementSize, const void* initialData = nullptr);
@@ -44,4 +44,4 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE m_CpuDescriptorHandle;
 };
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

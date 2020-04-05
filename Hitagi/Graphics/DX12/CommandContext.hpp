@@ -5,7 +5,7 @@
 #include "LinearAllocator.hpp"
 #include "DynamicDescriptorHeap.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 class CommandContext {
     template <typename T1, typename T2>
     friend class FrameResource;
@@ -66,4 +66,4 @@ private:
 
     D3D12_COMMAND_LIST_TYPE m_Type;
 };
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

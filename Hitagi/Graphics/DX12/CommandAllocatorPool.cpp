@@ -2,7 +2,7 @@
 #include <sstream>
 #include "CommandAllocatorPool.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 
 CommandAllocatorPool::CommandAllocatorPool(D3D12_COMMAND_LIST_TYPE type) : m_type(type), m_Device(nullptr) {}
 CommandAllocatorPool::~CommandAllocatorPool() { Finalize(); }
@@ -38,4 +38,4 @@ ID3D12CommandAllocator* CommandAllocatorPool::GetAllocator(uint64_t completedFen
 void CommandAllocatorPool::DiscardAllocator(uint64_t fenceValue, ID3D12CommandAllocator* allocator) {
     m_readyAllocators.push({fenceValue, allocator});
 }
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

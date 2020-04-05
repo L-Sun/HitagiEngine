@@ -1,7 +1,7 @@
 #pragma once
 #include "D3Dpch.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 class GpuResource {
     friend class CommandContext;
 
@@ -26,4 +26,4 @@ protected:
     D3D12_RESOURCE_STATES                  m_TransitioningState;
     D3D12_GPU_VIRTUAL_ADDRESS              m_GpuVirtualAddress;
 };
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

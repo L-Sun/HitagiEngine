@@ -3,7 +3,7 @@
 #include <queue>
 #include "D3Dpch.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 class CommandAllocatorPool {
 public:
     CommandAllocatorPool(D3D12_COMMAND_LIST_TYPE type);
@@ -22,4 +22,4 @@ private:
     std::vector<ID3D12CommandAllocator*>                     m_AllocatorPool;
     std::queue<std::pair<uint64_t, ID3D12CommandAllocator*>> m_readyAllocators;
 };
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

@@ -1,7 +1,7 @@
 #include "PipeLineState.hpp"
 #include "D3D12GraphicsManager.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 void GraphicsPSO::SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& inputLayout) {
     m_InputLayouts = inputLayout;
 }
@@ -39,8 +39,8 @@ void GraphicsPSO::Finalize() {
     m_PSODesc.pRootSignature = m_RootSignature->GetRootSignature().Get();
     assert(m_PSODesc.pRootSignature != nullptr);
 
-    auto device = static_cast<D3D12GraphicsManager*>(g_GraphicsManager.get())->m_Device;
+    auto device = D3D12GraphicsManager::Get().m_Device;
     ThrowIfFailed(device->CreateGraphicsPipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

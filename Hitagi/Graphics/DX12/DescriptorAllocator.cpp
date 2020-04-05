@@ -1,7 +1,7 @@
 #include "D3D12GraphicsManager.hpp"
 #include "DescriptorAllocator.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 
 // DescriptorAllocation
 DescriptorAllocation::DescriptorAllocation()
@@ -61,7 +61,7 @@ void DescriptorAllocation::Free(uint64_t fenceValue) {
 
 DescriptorAllocatorPage::DescriptorAllocatorPage(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors)
     : m_Type(type), m_NumDescriptors(numDescriptors) {
-    auto                       device = static_cast<D3D12GraphicsManager*>(g_GraphicsManager.get())->m_Device;
+    auto                       device = static_cast<D3D12GraphicsManager*>(g_GraphicsManager)->m_Device;
     D3D12_DESCRIPTOR_HEAP_DESC desc   = {};
     desc.Type                         = m_Type;
     desc.NumDescriptors               = m_NumDescriptors;
@@ -220,4 +220,4 @@ void DescriptorAllocator::ReleaseStaleDescriptor(uint64_t fenceValue) {
     }
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

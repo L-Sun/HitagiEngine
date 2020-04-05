@@ -1,7 +1,7 @@
 #include "RootSignature.hpp"
 #include "D3D12GraphicsManager.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 RootSignature::RootSignature(uint32_t numRootParams, uint32_t numStaticSamplers)
     : m_Finalized(false),
       m_RootSignatureDesc{},
@@ -117,11 +117,11 @@ void RootSignature::Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags, D3D_ROOT_SIGNATUR
     ThrowIfFailed(
         D3DX12SerializeVersionedRootSignature(&versionRootSignatureDesc, version, &rootSignatureBlob, &errorBlob));
 
-    auto device = static_cast<D3D12GraphicsManager*>(g_GraphicsManager.get())->m_Device;
+    auto device = D3D12GraphicsManager::Get().m_Device;
     ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
                                               rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
 
     m_Finalized = true;
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

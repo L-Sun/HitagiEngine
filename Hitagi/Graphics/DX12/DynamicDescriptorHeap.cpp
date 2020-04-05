@@ -1,7 +1,7 @@
 #include "DynamicDescriptorHeap.hpp"
 #include "D3D12GraphicsManager.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 DynamicDescriptorHeap::DescriptorHeapPool
     DynamicDescriptorHeap::kDescriptorHeapPool[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 DynamicDescriptorHeap::AvailableHeapPool
@@ -15,7 +15,7 @@ DynamicDescriptorHeap::DynamicDescriptorHeap(CommandContext& cmdContext, D3D12_D
       m_CurrentCPUDescriptorHandle(D3D12_DEFAULT),
       m_CurrentGPUDescriptorHandle(D3D12_DEFAULT),
       m_NumFreeHandles(0) {
-    auto device             = static_cast<D3D12GraphicsManager*>(g_GraphicsManager.get())->m_Device;
+    auto device             = D3D12GraphicsManager::Get().m_Device;
     m_HandleIncrementSize   = device->GetDescriptorHandleIncrementSize(m_Type);
     m_DescriptorHandleCache = std::make_unique<D3D12_CPU_DESCRIPTOR_HANDLE[]>(kNumDescriptorsPerHeap);
 }
@@ -90,7 +90,7 @@ uint32_t DynamicDescriptorHeap::StaleDescriptorCount() const {
 std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> DynamicDescriptorHeap::RequestDescriptorHeap(
     D3D12_DESCRIPTOR_HEAP_TYPE type) {
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap;
-    auto& cmdListMgr = static_cast<D3D12GraphicsManager*>(g_GraphicsManager.get())->m_CommandListManager;
+    auto&                                        cmdListMgr = D3D12GraphicsManager::Get().m_CommandListManager;
 
     auto&    availableHeapPool = kAvailableDescriptorHeaps[type];
     uint64_t fenceValue        = 0;
@@ -108,7 +108,7 @@ std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> DynamicDescrip
 
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> DynamicDescriptorHeap::CreateDescriptorHeap(
     D3D12_DESCRIPTOR_HEAP_TYPE type) {
-    auto device = static_cast<D3D12GraphicsManager*>(g_GraphicsManager.get())->m_Device;
+    auto device = D3D12GraphicsManager::Get().m_Device;
 
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
     descriptorHeapDesc.Type                       = type;
@@ -128,7 +128,7 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
 
     if (numDescriptorsToCommit <= 0) return;
 
-    auto device = static_cast<D3D12GraphicsManager*>(g_GraphicsManager.get())->m_Device;
+    auto device = D3D12GraphicsManager::Get().m_Device;
     assert(cmdList != nullptr);
 
     if (!m_CurrentDescriptorHeap || m_NumFreeHandles < numDescriptorsToCommit) {
@@ -185,7 +185,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(ID3D12Graphics
         m_StaleDescriptorTableBitMask = m_DescriptorTableBitMask;
     }
 
-    auto                        device = static_cast<D3D12GraphicsManager*>(g_GraphicsManager.get())->m_Device;
+    auto                        device = D3D12GraphicsManager::Get().m_Device;
     D3D12_GPU_DESCRIPTOR_HANDLE handle = m_CurrentGPUDescriptorHandle;
     device->CopyDescriptorsSimple(1, m_CurrentCPUDescriptorHandle, cpuDescriptorHandle, m_Type);
     m_CurrentCPUDescriptorHandle.Offset(1, m_HandleIncrementSize);
@@ -195,4 +195,4 @@ D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(ID3D12Graphics
     return handle;
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12

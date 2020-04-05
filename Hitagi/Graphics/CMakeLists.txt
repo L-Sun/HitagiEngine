@@ -8,5 +8,5 @@ target_link_libraries(GraphicsManager PUBLIC SceneManager PhysicsManager ShaderM
 add_subdirectory(Empty)
 add_subdirectory(OpenGL)
 if(${WIN32})
-    add_subdirectory(D3D)
+    add_subdirectory(DX12)
 endif(${WIN32})

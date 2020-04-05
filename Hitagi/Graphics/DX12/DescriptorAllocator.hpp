@@ -2,7 +2,7 @@
 #include "D3Dpch.hpp"
 #include <mutex>
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::DX12 {
 
 class DescriptorAllocation;
 class DescriptorAllocatorPage;
@@ -109,4 +109,4 @@ private:
 
     std::mutex m_AllocationMutex;
 };
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::DX12
