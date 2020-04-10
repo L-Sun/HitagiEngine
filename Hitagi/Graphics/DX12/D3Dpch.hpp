@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <functional>
 #include <queue>
+#include <mutex>
 
 // DX12
 #include "DXHelper.hpp"

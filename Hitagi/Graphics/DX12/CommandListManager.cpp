@@ -1,4 +1,3 @@
-#include <cassert>
 #include "CommandListManager.hpp"
 
 namespace Hitagi::Graphics::DX12 {

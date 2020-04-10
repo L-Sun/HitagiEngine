@@ -1,6 +1,4 @@
 #pragma once
-#include <vector>
-#include <queue>
 #include "D3Dpch.hpp"
 
 namespace Hitagi::Graphics::DX12 {

@@ -1,5 +1,4 @@
 #include "RootSignature.hpp"
-#include "D3D12GraphicsManager.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 RootSignature::RootSignature(uint32_t numRootParams, uint32_t numStaticSamplers)
@@ -83,7 +82,8 @@ void RootSignature::InitStaticSampler(UINT shaderRegister, const D3D12_SAMPLER_D
     }
 }
 
-void RootSignature::Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags, D3D_ROOT_SIGNATURE_VERSION version) {
+void RootSignature::Finalize(ID3D12Device6* device, D3D12_ROOT_SIGNATURE_FLAGS flags,
+                             D3D_ROOT_SIGNATURE_VERSION version) {
     if (m_Finalized) return;
 
     m_RootSignatureDesc.NumParameters     = m_NumParameters;
@@ -117,7 +117,6 @@ void RootSignature::Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags, D3D_ROOT_SIGNATUR
     ThrowIfFailed(
         D3DX12SerializeVersionedRootSignature(&versionRootSignatureDesc, version, &rootSignatureBlob, &errorBlob));
 
-    auto device = D3D12GraphicsManager::Get().m_Device;
     ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
                                               rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
 

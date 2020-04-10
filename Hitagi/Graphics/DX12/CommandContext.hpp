@@ -1,9 +1,9 @@
 #pragma once
-#include "D3Dpch.hpp"
 #include "CommandListManager.hpp"
 #include "GpuResource.hpp"
 #include "LinearAllocator.hpp"
 #include "DynamicDescriptorHeap.hpp"
+#include "PipeLineState.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 class CommandContext {
@@ -11,6 +11,7 @@ class CommandContext {
     friend class FrameResource;
     friend class GpuBuffer;
     friend class TextureBuffer;
+    friend class DynamicDescriptorHeap;
 
 public:
     CommandContext(CommandListManager& cmdManager, D3D12_COMMAND_LIST_TYPE type);
@@ -29,6 +30,14 @@ public:
     void SetViewport(const D3D12_VIEWPORT& viewport);
     void SetScissor(const D3D12_RECT& rect);
 
+    void SetRenderTargets(unsigned numRTVs, const D3D12_CPU_DESCRIPTOR_HANDLE RTVs[]);
+    void SetRenderTargets(unsigned numRTVs, const D3D12_CPU_DESCRIPTOR_HANDLE RTVs[], D3D12_CPU_DESCRIPTOR_HANDLE DSV);
+    void SetRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE RTV) { SetRenderTargets(1, &RTV); }
+    void SetRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE RTV, D3D12_CPU_DESCRIPTOR_HANDLE DSV) {
+        SetRenderTargets(1, &RTV, DSV);
+    }
+    void SetDepthStencilTarget(D3D12_CPU_DESCRIPTOR_HANDLE DSV) { SetRenderTargets(0, nullptr, DSV); }
+
     void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, ID3D12DescriptorHeap* heap);
     void SetDescriptorHeaps(unsigned heapCount, D3D12_DESCRIPTOR_HEAP_TYPE type[], ID3D12DescriptorHeap* heaps[]);
     void SetRootSignature(const RootSignature& rootSignature);
@@ -36,9 +45,10 @@ public:
     void SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE type, unsigned rootIndex, unsigned offset,
                               D3D12_CPU_DESCRIPTOR_HANDLE handle);
 
+    void SetPipeLineState(const PipeLineState& pso);
     void SetIndexBuffer(const D3D12_INDEX_BUFFER_VIEW& IBView);
-    void SetVertexBuffer(UINT slot, const D3D12_VERTEX_BUFFER_VIEW& VBView);
-    void SetVertexBuffers(UINT startSlot, UINT count, const D3D12_VERTEX_BUFFER_VIEW VBViews[]);
+    void SetVertexBuffer(unsigned slot, const D3D12_VERTEX_BUFFER_VIEW& VBView);
+    void SetVertexBuffers(unsigned startSlot, unsigned count, const D3D12_VERTEX_BUFFER_VIEW VBViews[]);
 
     void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY topology);
 

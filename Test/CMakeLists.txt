@@ -28,3 +28,5 @@ add_test(NAME TEST_TimerTest COMMAND TimerTest WORKING_DIRECTORY ${PROJECT_SOURC
 
 add_executable(TextBitmapTest TextBitmapTest.cpp)
 target_link_libraries(TextBitmapTest PRIVATE freetype Core)
+
+add_subdirectory(DX12)

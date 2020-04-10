@@ -1,5 +1,4 @@
 #include "PipeLineState.hpp"
-#include "D3D12GraphicsManager.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 void GraphicsPSO::SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& inputLayout) {
@@ -34,12 +33,11 @@ void GraphicsPSO::SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& RTVForm
     m_PSODesc.SampleDesc.Quality = MSAAQuality;
 }
 
-void GraphicsPSO::Finalize() {
+void GraphicsPSO::Finalize(ID3D12Device6* device) {
     m_PSODesc.InputLayout    = {m_InputLayouts.data(), static_cast<UINT>(m_InputLayouts.size())};
     m_PSODesc.pRootSignature = m_RootSignature->GetRootSignature().Get();
     assert(m_PSODesc.pRootSignature != nullptr);
-
-    auto device = D3D12GraphicsManager::Get().m_Device;
+    assert(device != nullptr);
     ThrowIfFailed(device->CreateGraphicsPipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
 }
 

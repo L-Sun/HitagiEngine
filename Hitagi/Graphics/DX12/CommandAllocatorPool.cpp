@@ -15,24 +15,24 @@ void CommandAllocatorPool::Finalize() {
 }
 
 ID3D12CommandAllocator* CommandAllocatorPool::GetAllocator(uint64_t completedFenceValue) {
-    ID3D12CommandAllocator* allocator = nullptr;
+    ID3D12CommandAllocator* newAllocator = nullptr;
     if (!m_readyAllocators.empty()) {
         auto& [fenceValue, allocator] = m_readyAllocators.front();
         if (fenceValue <= completedFenceValue) {
-            allocator = allocator;
+            newAllocator = allocator;
             ThrowIfFailed(allocator->Reset());
             m_readyAllocators.pop();
         }
     }
     // If no allocator(s) were ready to be used, create a new one
-    if (allocator == nullptr) {
-        ThrowIfFailed(m_Device->CreateCommandAllocator(m_type, IID_PPV_ARGS(&allocator)));
+    if (newAllocator == nullptr) {
+        ThrowIfFailed(m_Device->CreateCommandAllocator(m_type, IID_PPV_ARGS(&newAllocator)));
         std::wstringstream wss;
         wss << L"CommandAllocator " << m_AllocatorPool.size();
-        allocator->SetName(wss.str().c_str());
-        m_AllocatorPool.push_back(allocator);
+        newAllocator->SetName(wss.str().c_str());
+        m_AllocatorPool.push_back(newAllocator);
     }
-    return allocator;
+    return newAllocator;
 }
 
 void CommandAllocatorPool::DiscardAllocator(uint64_t fenceValue, ID3D12CommandAllocator* allocator) {

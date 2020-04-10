@@ -1,11 +1,13 @@
 #include "DynamicDescriptorHeap.hpp"
-#include "D3D12GraphicsManager.hpp"
+#include "CommandContext.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 DynamicDescriptorHeap::DescriptorHeapPool
     DynamicDescriptorHeap::kDescriptorHeapPool[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 DynamicDescriptorHeap::AvailableHeapPool
     DynamicDescriptorHeap::kAvailableDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+
+std::mutex DynamicDescriptorHeap::kMutex;
 
 DynamicDescriptorHeap::DynamicDescriptorHeap(CommandContext& cmdContext, D3D12_DESCRIPTOR_HEAP_TYPE type)
     : m_CommandContext(cmdContext),
@@ -15,8 +17,7 @@ DynamicDescriptorHeap::DynamicDescriptorHeap(CommandContext& cmdContext, D3D12_D
       m_CurrentCPUDescriptorHandle(D3D12_DEFAULT),
       m_CurrentGPUDescriptorHandle(D3D12_DEFAULT),
       m_NumFreeHandles(0) {
-    auto device             = D3D12GraphicsManager::Get().m_Device;
-    m_HandleIncrementSize   = device->GetDescriptorHandleIncrementSize(m_Type);
+    m_HandleIncrementSize   = cmdContext.m_Device->GetDescriptorHandleIncrementSize(m_Type);
     m_DescriptorHandleCache = std::make_unique<D3D12_CPU_DESCRIPTOR_HANDLE[]>(kNumDescriptorsPerHeap);
 }
 
@@ -87,29 +88,28 @@ uint32_t DynamicDescriptorHeap::StaleDescriptorCount() const {
     return numStaleDescriptors;
 }
 
-std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> DynamicDescriptorHeap::RequestDescriptorHeap(
-    D3D12_DESCRIPTOR_HEAP_TYPE type) {
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap;
-    auto&                                        cmdListMgr = D3D12GraphicsManager::Get().m_CommandListManager;
+std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> DynamicDescriptorHeap::RequestDescriptorHeap() {
+    auto& cmdListMgr = m_CommandContext.m_CommandManager;
 
-    auto&    availableHeapPool = kAvailableDescriptorHeaps[type];
-    uint64_t fenceValue        = 0;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap;
+    auto&                                        availableHeapPool = kAvailableDescriptorHeaps[m_Type];
+    uint64_t                                     fenceValue        = 0;
+
+    std::lock_guard lock(kMutex);
     if (!availableHeapPool.empty() && cmdListMgr.IsFenceComplete(availableHeapPool.front().second)) {
         descriptorHeap = availableHeapPool.front().first;
         fenceValue     = availableHeapPool.front().second;
         availableHeapPool.pop();
     } else {
-        descriptorHeap = CreateDescriptorHeap(type);
-        kDescriptorHeapPool[type].push(descriptorHeap);
+        descriptorHeap = CreateDescriptorHeap(m_CommandContext.m_Device, m_Type);
+        kDescriptorHeapPool[m_Type].push(descriptorHeap);
     }
 
     return {descriptorHeap, fenceValue};
 }
 
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> DynamicDescriptorHeap::CreateDescriptorHeap(
-    D3D12_DESCRIPTOR_HEAP_TYPE type) {
-    auto device = D3D12GraphicsManager::Get().m_Device;
-
+    ID3D12Device6* device, D3D12_DESCRIPTOR_HEAP_TYPE type) {
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
     descriptorHeapDesc.Type                       = type;
     descriptorHeapDesc.NumDescriptors             = kNumDescriptorsPerHeap;
@@ -128,11 +128,11 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
 
     if (numDescriptorsToCommit <= 0) return;
 
-    auto device = D3D12GraphicsManager::Get().m_Device;
+    auto device = m_CommandContext.m_Device;
     assert(cmdList != nullptr);
 
     if (!m_CurrentDescriptorHeap || m_NumFreeHandles < numDescriptorsToCommit) {
-        auto heap                    = RequestDescriptorHeap(m_Type);
+        auto heap                    = RequestDescriptorHeap();
         m_CurrentDescriptorHeap      = heap.first;
         m_CurrentCPUDescriptorHandle = m_CurrentDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
         m_CurrentGPUDescriptorHandle = m_CurrentDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
@@ -171,7 +171,7 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
 D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(ID3D12GraphicsCommandList5* cmdList,
                                                                   D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle) {
     if (!m_CurrentDescriptorHeap || m_NumFreeHandles < 1) {
-        auto heap                    = RequestDescriptorHeap(m_Type);
+        auto heap                    = RequestDescriptorHeap();
         m_CurrentDescriptorHeap      = heap.first;
         m_CurrentCPUDescriptorHandle = m_CurrentDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
         m_CurrentGPUDescriptorHandle = m_CurrentDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
@@ -185,9 +185,8 @@ D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(ID3D12Graphics
         m_StaleDescriptorTableBitMask = m_DescriptorTableBitMask;
     }
 
-    auto                        device = D3D12GraphicsManager::Get().m_Device;
     D3D12_GPU_DESCRIPTOR_HANDLE handle = m_CurrentGPUDescriptorHandle;
-    device->CopyDescriptorsSimple(1, m_CurrentCPUDescriptorHandle, cpuDescriptorHandle, m_Type);
+    m_CommandContext.m_Device->CopyDescriptorsSimple(1, m_CurrentCPUDescriptorHandle, cpuDescriptorHandle, m_Type);
     m_CurrentCPUDescriptorHandle.Offset(1, m_HandleIncrementSize);
     m_CurrentGPUDescriptorHandle.Offset(1, m_HandleIncrementSize);
     m_NumFreeHandles -= 1;

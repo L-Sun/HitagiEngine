@@ -12,7 +12,7 @@
 #include "SceneNode.hpp"
 #include "GeomMath.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::OpenGL {
 
 class OpenGLGraphicsManager : public GraphicsManager {
 public:

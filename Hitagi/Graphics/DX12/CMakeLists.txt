@@ -10,14 +10,13 @@ add_library(D3DRHI
     RootSignature.cpp
     PipelineState.cpp
 )
-add_library(d3dUtil d3dUtil.cpp)
 target_link_libraries(D3DRHI
     PRIVATE
         d3d12
         dxgi
         d3dcompiler
-        d3dUtil
         HitagiEngineD3D12
+    PUBLIC
         GraphicsManager
 )
 target_include_directories(D3DRHI INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

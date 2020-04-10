@@ -3,9 +3,9 @@
 
 namespace Hitagi::Graphics::DX12 {
 
-GpuBuffer::GpuBuffer(CommandContext& context, size_t numElement, size_t elementSize, const void* initialData)
-
-    : m_Context(context),
+GpuBuffer::GpuBuffer(ID3D12Device6* device, size_t numElement, size_t elementSize, const void* initialData,
+                     CommandContext* context)
+    : m_Device(device),
       m_ElementCount(numElement),
       m_ElementSize(elementSize),
       m_BufferSize(numElement * elementSize),
@@ -15,23 +15,15 @@ GpuBuffer::GpuBuffer(CommandContext& context, size_t numElement, size_t elementS
     auto desc      = CD3DX12_RESOURCE_DESC::Buffer(m_BufferSize);
     auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
-    ThrowIfFailed(m_Context.m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState,
-                                                              nullptr, IID_PPV_ARGS(&m_Resource)));
+    ThrowIfFailed(m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr,
+                                                    IID_PPV_ARGS(&m_Resource)));
     UpdateGpuVirtualAddress();
 
-    if (initialData) m_Context.InitializeBuffer(*this, initialData, m_BufferSize);
-}
-
-void GpuBuffer::CreateConstantBufferView(D3D12_CPU_DESCRIPTOR_HANDLE handle, uint32_t offset, uint32_t size) const {
-    assert(offset + size <= m_BufferSize);
-
-    size = (size + 255) & ~255;
-
-    D3D12_CONSTANT_BUFFER_VIEW_DESC CBVDesc;
-    CBVDesc.BufferLocation = m_GpuVirtualAddress + static_cast<size_t>(offset);
-    CBVDesc.SizeInBytes    = size;
-
-    m_Context.m_Device->CreateConstantBufferView(&CBVDesc, handle);
+    if (initialData) {
+        assert(context != nullptr);
+        assert(context->m_Device == m_Device);
+        context->InitializeBuffer(*this, initialData, m_BufferSize);
+    }
 }
 
 TextureBuffer::TextureBuffer(CommandContext& context, D3D12_CPU_DESCRIPTOR_HANDLE handle, DXGI_SAMPLE_DESC sampleDesc,

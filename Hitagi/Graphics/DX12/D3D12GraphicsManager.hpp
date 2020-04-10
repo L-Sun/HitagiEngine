@@ -1,6 +1,5 @@
 #pragma once
 #include "GraphicsManager.hpp"
-#include "d3dUtil.hpp"
 #include "FrameResource.hpp"
 #include "CommandListManager.hpp"
 #include "CommandContext.hpp"
@@ -12,13 +11,6 @@
 namespace Hitagi::Graphics::DX12 {
 
 class D3D12GraphicsManager : public GraphicsManager {
-    friend class LinearAllocator;
-    friend class DescriptorAllocatorPage;
-    friend class DynamicDescriptorHeap;
-    friend class RootSignature;
-    friend class DescriptorAllocation;
-    friend class GraphicsPSO;
-
 private:
     struct ObjectConstants {
         mat4f modelMatrix;
@@ -33,7 +25,7 @@ private:
         D3D12_INDEX_BUFFER_VIEW                      ibv;
         D3D_PRIMITIVE_TOPOLOGY                       primitiveType;
         std::weak_ptr<Resource::SceneObjectMaterial> material;
-        ID3D12PipelineState*                         pPSO;
+        std::string                         psoName;
     };
 
     struct DrawItem {
@@ -46,16 +38,6 @@ private:
     using FR = FrameResource<FrameConstants, ObjectConstants>;
 
 public:
-    static D3D12GraphicsManager& Get() {
-        static D3D12GraphicsManager instance;
-        return instance;
-    }
-
-    D3D12GraphicsManager(const D3D12GraphicsManager&) = delete;
-    D3D12GraphicsManager(D3D12GraphicsManager&&)      = delete;
-    D3D12GraphicsManager& operator=(const D3D12GraphicsManager&) = delete;
-    D3D12GraphicsManager& operator=(D3D12GraphicsManager&&) = delete;
-
     int  Initialize() final;
     void Finalize() final;
     void Draw() final;
@@ -77,18 +59,15 @@ protected:
     void RenderBuffers() final;
 
 private:
-    D3D12GraphicsManager() {}
-    virtual ~D3D12GraphicsManager() {}
-
     int InitD3D();
 
     void CreateSwapChain();
     void PopulateCommandList(CommandContext& context);
 
     void CreateDescriptorHeaps();
-    void CreateVertexBuffer(const Resource::SceneObjectVertexArray& vertexArray, const std::shared_ptr<MeshInfo>& dbc);
-    void CreateIndexBuffer(const Resource::SceneObjectIndexArray& indexArray, const std::shared_ptr<MeshInfo>& dbc);
-    void SetPrimitiveType(const Resource::PrimitiveType& primitiveType, const std::shared_ptr<MeshInfo>& dbc);
+    void CreateVertexBuffer(const Resource::SceneObjectVertexArray& vertexArray, std::shared_ptr<MeshInfo> dbc);
+    void CreateIndexBuffer(const Resource::SceneObjectIndexArray& indexArray, std::shared_ptr<MeshInfo> dbc);
+    void SetPrimitiveType(const Resource::PrimitiveType& primitiveType, std::shared_ptr<MeshInfo> dbc);
     void CreateFrameResource();
     void CreateRootSignature();
     void CreateConstantBuffer();
@@ -102,8 +81,8 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
     static constexpr unsigned m_FrameCount     = 3;
-    static constexpr unsigned m_MaxObjects     = 10000;
-    static constexpr unsigned m_MaxTextures    = 10000;
+    unsigned                  m_MaxObjects     = 1000;
+    unsigned                  m_MaxTextures    = 10000;
     int                       m_CurrBackBuffer = 0;
 
     Microsoft::WRL::ComPtr<IDXGIFactory7> m_DxgiFactory;
@@ -141,6 +120,8 @@ private:
 
     std::unordered_map<std::string, GraphicsPSO> m_GraphicsPSO;
     RootSignature                                m_RootSignature;
+
+    LinearAllocator m_LinearAllocator;
 
     std::vector<std::unique_ptr<FR>> m_FrameResource;
     // Generally, the frame resource size is greater or equal to frame count

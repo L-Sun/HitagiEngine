@@ -31,12 +31,10 @@ protected:
     char**           m_Arg;
 
     Core::Clock m_Clock;
-    short       m_FPS = 60;
+    double      m_FPS;
+    short       m_FPSLimit = 60;
 
 private:
     BaseApplication() {}
-    short m_SumFPS       = 0;
-    short m_FrameCounter = -1;
-    long  m_k            = 0;
 };
 }  // namespace Hitagi

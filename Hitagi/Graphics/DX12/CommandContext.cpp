@@ -5,6 +5,9 @@ namespace Hitagi::Graphics::DX12 {
 CommandContext::CommandContext(CommandListManager& cmdManager, D3D12_COMMAND_LIST_TYPE type)
     : m_Device(cmdManager.m_Device),
       m_CommandManager(cmdManager),
+      m_CommandList(nullptr),
+      m_CommandAllocator(nullptr),
+      m_LinearAllocator(cmdManager.m_Device),
       m_CurrRootSignature(nullptr),
       m_NumBarriersToFlush(0),
       m_Type(type) {
@@ -34,8 +37,7 @@ void CommandContext::InitializeBuffer(GpuResource& dest, const void* data, size_
 
 void CommandContext::InitializeTexture(GpuResource& dest, size_t numSubresources, D3D12_SUBRESOURCE_DATA subData[]) {
     const UINT64 uploadBufferSize = GetRequiredIntermediateSize(dest.GetResource(), 0, numSubresources);
-
-    auto uploadBuffer = m_LinearAllocator.Allocate(uploadBufferSize);
+    auto         uploadBuffer     = m_LinearAllocator.Allocate(uploadBufferSize);
 
     UpdateSubresources(m_CommandList, dest.GetResource(), uploadBuffer.resource.GetResource(), uploadBuffer.offset, 0,
                        numSubresources, subData);
@@ -92,9 +94,9 @@ void CommandContext::SetDescriptorHeaps(unsigned heapCount, D3D12_DESCRIPTOR_HEA
 }
 
 void CommandContext::BindDescriptorHeaps() {
-    UINT                  NonNullHeaps = 0;
+    unsigned              NonNullHeaps = 0;
     ID3D12DescriptorHeap* HeapsToBind[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
-    for (UINT i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i) {
+    for (unsigned i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i) {
         ID3D12DescriptorHeap* HeapIter = m_CurrentDescriptorHeaps[i];
         if (HeapIter != nullptr) HeapsToBind[NonNullHeaps++] = HeapIter;
     }
@@ -130,13 +132,24 @@ void CommandContext::SetViewport(const D3D12_VIEWPORT& viewport) { m_CommandList
 
 void CommandContext::SetScissor(const D3D12_RECT& rect) { m_CommandList->RSSetScissorRects(1, &rect); }
 
+void CommandContext::SetRenderTargets(unsigned numRTVs, const D3D12_CPU_DESCRIPTOR_HANDLE RTVs[],
+                                      D3D12_CPU_DESCRIPTOR_HANDLE DSV) {
+    m_CommandList->OMSetRenderTargets(numRTVs, RTVs, false, &DSV);
+}
+
+void CommandContext::SetRenderTargets(unsigned numRTVs, const D3D12_CPU_DESCRIPTOR_HANDLE RTVs[]) {
+    m_CommandList->OMSetRenderTargets(numRTVs, RTVs, false, nullptr);
+}
+
+void CommandContext::SetPipeLineState(const PipeLineState& pso) { m_CommandList->SetPipelineState(pso.GetPSO()); }
+
 void CommandContext::SetIndexBuffer(const D3D12_INDEX_BUFFER_VIEW& IBView) { m_CommandList->IASetIndexBuffer(&IBView); }
 
-void CommandContext::SetVertexBuffer(UINT slot, const D3D12_VERTEX_BUFFER_VIEW& VBView) {
+void CommandContext::SetVertexBuffer(unsigned slot, const D3D12_VERTEX_BUFFER_VIEW& VBView) {
     m_CommandList->IASetVertexBuffers(slot, 1, &VBView);
 }
 
-void CommandContext::SetVertexBuffers(UINT startSlot, UINT count, const D3D12_VERTEX_BUFFER_VIEW VBViews[]) {
+void CommandContext::SetVertexBuffers(unsigned startSlot, unsigned count, const D3D12_VERTEX_BUFFER_VIEW VBViews[]) {
     m_CommandList->IASetVertexBuffers(startSlot, count, VBViews);
 }
 

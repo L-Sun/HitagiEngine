@@ -7,7 +7,7 @@
 #include "SceneManager.hpp"
 #include "IPhysicsManager.hpp"
 
-namespace Hitagi::Graphics {
+namespace Hitagi::Graphics::OpenGL {
 
 int OpenGLGraphicsManager::Initialize() {
     int result;

@@ -110,18 +110,10 @@ void BaseApplication::Tick() {
 #if defined(_DEBUG)
     g_DebugManager->Tick();
 #endif
-    if (m_FrameCounter != -1) {
-        m_SumFPS += 1.0 / m_Clock.deltaTime().count();
+    m_FPS = 1.0 / m_Clock.deltaTime().count();
+    if (m_FPSLimit != -1) {
+        std::this_thread::sleep_for(std::chrono::seconds(1) / static_cast<double>(m_FPSLimit));
     }
-    m_FrameCounter++;
-    if (m_FrameCounter == 30) {
-        m_FPS          = m_SumFPS / 30;
-        m_SumFPS       = 0;
-        m_FrameCounter = 0;
-    }
-    m_k += m_FPS - 60;
-    std::this_thread::sleep_until(m_Clock.tickTime() + std::chrono::seconds(1) / 60.0 +
-                                  m_k * std::chrono::microseconds(1));
 }
 
 void BaseApplication::SetCommandLineParameters(int argc, char** argv) {

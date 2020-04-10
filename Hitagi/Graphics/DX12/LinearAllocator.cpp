@@ -1,12 +1,19 @@
 #include <new>
 #include "LinearAllocator.hpp"
-#include "D3D12GraphicsManager.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 size_t align(size_t x, size_t a) { return (x + a - 1) & ~(a - 1); }
 
+void LinearAllocator::Initalize(ID3D12Device6* device, size_t pageSize) {
+    if (!m_Initialized) {
+        m_Device      = device;
+        m_PageSize    = pageSize;
+        m_Initialized = true;
+    }
+}
+
 LinearAllocator::Allocation LinearAllocator::Allocate(size_t size, size_t alignment) {
-    if (size > m_PageSize) throw std::bad_alloc();
+    if (!m_Initialized || size > m_PageSize) throw std::bad_alloc();
     if (!m_CurrPage || !m_CurrPage->HasSpace(size, alignment)) m_CurrPage = RequestPage();
 
     return m_CurrPage->Allocate(size, alignment);
@@ -18,7 +25,7 @@ std::shared_ptr<LinearAllocator::Page> LinearAllocator::RequestPage() {
         page = m_AvailablePages.front();
         m_AvailablePages.pop();
     } else {
-        page = std::make_shared<Page>(m_PageSize);
+        page = std::make_shared<Page>(m_Device, m_PageSize);
         m_PagePool.push_back(page);
     }
     return page;
@@ -35,13 +42,13 @@ void LinearAllocator::Reset() {
 
 LinearAllocator::~LinearAllocator() {}
 
-LinearAllocator::Page::Page(size_t pageSize) : m_PageSize(pageSize), m_Offset(0), m_CpuPtr(nullptr) {
-    auto device   = reinterpret_cast<D3D12GraphicsManager*>(g_GraphicsManager)->m_Device;
+LinearAllocator::Page::Page(ID3D12Device6* device, size_t pageSize)
+    : m_Device(device), m_PageSize(pageSize), m_Offset(0), m_CpuPtr(nullptr) {
     auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
     auto desc     = CD3DX12_RESOURCE_DESC::Buffer(m_PageSize);
     m_UsageState  = D3D12_RESOURCE_STATE_GENERIC_READ;
-    ThrowIfFailed(device->CreateCommittedResource(&heapProp, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr,
-                                                  IID_PPV_ARGS(&m_Resource)));
+    ThrowIfFailed(m_Device->CreateCommittedResource(&heapProp, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr,
+                                                    IID_PPV_ARGS(&m_Resource)));
     UpdateGpuVirtualAddress();
 
     m_Resource->Map(0, nullptr, &m_CpuPtr);

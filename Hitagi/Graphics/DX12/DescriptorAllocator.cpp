@@ -1,4 +1,3 @@
-#include "D3D12GraphicsManager.hpp"
 #include "DescriptorAllocator.hpp"
 
 namespace Hitagi::Graphics::DX12 {
@@ -59,12 +58,12 @@ void DescriptorAllocation::Free(uint64_t fenceValue) {
 
 // DescriptorAllocatorPage
 
-DescriptorAllocatorPage::DescriptorAllocatorPage(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors)
+DescriptorAllocatorPage::DescriptorAllocatorPage(ID3D12Device6* device, D3D12_DESCRIPTOR_HEAP_TYPE type,
+                                                 uint32_t numDescriptors)
     : m_Type(type), m_NumDescriptors(numDescriptors) {
-    auto                       device = static_cast<D3D12GraphicsManager*>(g_GraphicsManager)->m_Device;
-    D3D12_DESCRIPTOR_HEAP_DESC desc   = {};
-    desc.Type                         = m_Type;
-    desc.NumDescriptors               = m_NumDescriptors;
+    D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+    desc.Type                       = m_Type;
+    desc.NumDescriptors             = m_NumDescriptors;
 
     ThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_DescriptorHeap)));
 
@@ -176,13 +175,14 @@ void DescriptorAllocatorPage::FreeBlock(uint32_t offset, uint32_t numDescriptors
 
 // DescriptorAllocator
 
-void DescriptorAllocator::Initialize(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescPerHeap) {
+void DescriptorAllocator::Initialize(ID3D12Device6* device, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescPerHeap) {
+    m_Device                = device;
     m_HeapType              = type;
     m_NumDescriptorsPerHeap = numDescPerHeap;
 }
 
 std::shared_ptr<DescriptorAllocatorPage> DescriptorAllocator::CreateAllocatorPage() {
-    auto newPage = std::make_shared<DescriptorAllocatorPage>(m_HeapType, m_NumDescriptorsPerHeap);
+    auto newPage = std::make_shared<DescriptorAllocatorPage>(m_Device, m_HeapType, m_NumDescriptorsPerHeap);
     m_HeapPool.emplace_back(newPage);
     m_AvailbaleHeaps.insert(m_HeapPool.size() - 1);
     return newPage;

@@ -1,12 +1,12 @@
 #pragma once
-#include "D3Dpch.hpp"
 #include "Image.hpp"
 #include "GpuResource.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 class GpuBuffer : public GpuResource {
 public:
-    GpuBuffer(CommandContext& context, size_t numElement, size_t elementSize, const void* initialData = nullptr);
+    GpuBuffer(ID3D12Device6* device, size_t numElement, size_t elementSize, const void* initialData = nullptr,
+              CommandContext* context = nullptr);
     D3D12_VERTEX_BUFFER_VIEW VertexBufferView() const {
         D3D12_VERTEX_BUFFER_VIEW vbv;
         vbv.BufferLocation = m_Resource->GetGPUVirtualAddress();
@@ -21,11 +21,9 @@ public:
         ibv.SizeInBytes    = m_BufferSize;
         return ibv;
     }
-    void CreateConstantBufferView(D3D12_CPU_DESCRIPTOR_HANDLE handle, uint32_t offset, uint32_t size) const;
 
 protected:
-    CommandContext& m_Context;
-
+    ID3D12Device6*       m_Device;
     size_t               m_ElementCount;
     size_t               m_ElementSize;
     size_t               m_BufferSize;

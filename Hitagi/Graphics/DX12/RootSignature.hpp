@@ -37,7 +37,7 @@ public:
 
     void Destroy();
 
-    void Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags   = D3D12_ROOT_SIGNATURE_FLAG_NONE,
+    void Finalize(ID3D12Device6* device, D3D12_ROOT_SIGNATURE_FLAGS flags = D3D12_ROOT_SIGNATURE_FLAG_NONE,
                   D3D_ROOT_SIGNATURE_VERSION version = D3D_ROOT_SIGNATURE_VERSION_1_1);
 
     void InitStaticSampler(UINT shaderRegister, const D3D12_SAMPLER_DESC& nonStaticSamplerDesc,
@@ -66,6 +66,7 @@ public:
 private:
     bool m_Finalized;
 
+    ID3D12Device6*                              m_Device;
     D3D12_ROOT_SIGNATURE_DESC1                  m_RootSignatureDesc;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
 

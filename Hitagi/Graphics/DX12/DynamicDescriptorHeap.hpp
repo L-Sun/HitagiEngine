@@ -1,5 +1,4 @@
 #pragma once
-#include "D3Dpch.hpp"
 #include "RootSignature.hpp"
 
 // Stage, commit or cpoy directly CPU visible descriptor to GPU visible descriptor.
@@ -27,9 +26,10 @@ public:
     void Reset(uint64_t fenceValue);
 
 private:
-    static std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> RequestDescriptorHeap(
-        D3D12_DESCRIPTOR_HEAP_TYPE type);
-    static Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
+    std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> RequestDescriptorHeap();
+
+    static Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ID3D12Device6*             device,
+                                                                             D3D12_DESCRIPTOR_HEAP_TYPE type);
 
     uint32_t StaleDescriptorCount() const;
 
@@ -50,6 +50,7 @@ private:
     static const uint32_t     kMaxDescriptorTables   = 32;
     static DescriptorHeapPool kDescriptorHeapPool[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
     static AvailableHeapPool  kAvailableDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+    static std::mutex         kMutex;
 
     CommandContext&            m_CommandContext;
     D3D12_DESCRIPTOR_HEAP_TYPE m_Type;

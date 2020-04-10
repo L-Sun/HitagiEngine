@@ -1,6 +1,5 @@
 #pragma once
 #include "D3Dpch.hpp"
-#include <mutex>
 
 namespace Hitagi::Graphics::DX12 {
 
@@ -9,7 +8,7 @@ class DescriptorAllocatorPage;
 
 class DescriptorAllocator {
 public:
-    void Initialize(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescPerHeap = 256);
+    void Initialize(ID3D12Device6* device, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescPerHeap = 256);
 
     DescriptorAllocation Allocate(uint32_t numDescriptor = 1);
     void                 ReleaseStaleDescriptor(uint64_t fenceValue);
@@ -18,6 +17,7 @@ private:
     using DescriptorHeapPool = std::vector<std::shared_ptr<DescriptorAllocatorPage>>;
     std::shared_ptr<DescriptorAllocatorPage> CreateAllocatorPage();
 
+    ID3D12Device6*             m_Device;
     D3D12_DESCRIPTOR_HEAP_TYPE m_HeapType;
     uint32_t                   m_NumDescriptorsPerHeap;
 
@@ -61,7 +61,7 @@ private:
 
 class DescriptorAllocatorPage : public std::enable_shared_from_this<DescriptorAllocatorPage> {
 public:
-    DescriptorAllocatorPage(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors);
+    DescriptorAllocatorPage(ID3D12Device6* device, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors);
     DescriptorAllocation Allocate(uint32_t numDescriptors);
     void                 Free(DescriptorAllocation&& descriptor, uint64_t fenceValue);
     void                 ReleaseStaleDescriptor(uint64_t fenceValue);

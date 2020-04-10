@@ -1,5 +1,3 @@
-#include <iostream>
-#include <objbase.h>
 #include "D3D12GraphicsManager.hpp"
 #include "WindowsApplication.hpp"
 
@@ -62,6 +60,9 @@ int D3D12GraphicsManager::InitD3D() {
         assert(m_4xMsaaQuality > 0 && "Unexpected MSAA qulity level.");
     }
 
+    // Initalize LinearAllocator
+    m_LinearAllocator.Initalize(m_Device.Get());
+
     // Create command queue, allocator and list.
     m_CommandListManager.Initialize(m_Device.Get());
     CreateSwapChain();
@@ -107,7 +108,7 @@ void D3D12GraphicsManager::CreateSwapChain() {
 
 void D3D12GraphicsManager::CreateDescriptorHeaps() {
     for (int type = 0; type < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; type++) {
-        m_DescriptorAllocator[type].Initialize(static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(type));
+        m_DescriptorAllocator[type].Initialize(m_Device.Get(), static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(type));
     }
 
     // Create rtv.
@@ -159,7 +160,7 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
 
 void D3D12GraphicsManager::CreateFrameResource() {
     for (size_t i = 0; i < m_FrameResourceSize; i++) {
-        m_FrameResource.push_back(std::make_unique<FR>(m_Device.Get(), m_MaxObjects));
+        m_FrameResource.push_back(std::make_unique<FR>(m_LinearAllocator, m_MaxObjects));
     }
 }
 
@@ -177,7 +178,8 @@ void D3D12GraphicsManager::CreateRootSignature() {
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     }
 
-    m_RootSignature.Finalize(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, featureData.HighestVersion);
+    m_RootSignature.Finalize(m_Device.Get(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
+                             featureData.HighestVersion);
 }
 
 void D3D12GraphicsManager::CreateConstantBuffer() {
@@ -194,10 +196,10 @@ void D3D12GraphicsManager::CreateConstantBuffer() {
     for (size_t i = 0; i < m_FrameResourceSize; i++) {
         auto                            fr = m_FrameResource[i].get();
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbDsec;
-        cbDsec.SizeInBytes                  = fr->m_ObjCBUploader->GetCBByteSize();
-        D3D12_GPU_VIRTUAL_ADDRESS cbAddress = fr->m_ObjCBUploader->Resource()->GetGPUVirtualAddress();
+        cbDsec.SizeInBytes                  = fr->ObjectSize();
+        D3D12_GPU_VIRTUAL_ADDRESS cbAddress = fr->m_ObjectConstantBuffer.GpuPtr;
 
-        for (size_t j = 0; j < fr->m_ObjCBUploader->GetElementCount(); j++) {
+        for (size_t j = 0; j < fr->m_NumObjects; j++) {
             cbDsec.BufferLocation = cbAddress;
             m_Device->CreateConstantBufferView(&cbDsec, m_CbvSrvDescriptors.GetDescriptorHandle(offset++));
             cbAddress += cbDsec.SizeInBytes;
@@ -208,8 +210,8 @@ void D3D12GraphicsManager::CreateConstantBuffer() {
     for (size_t i = 0; i < m_FrameResourceSize; i++) {
         auto                            fr = m_FrameResource[i].get();
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbDesc;
-        cbDesc.SizeInBytes    = fr->m_FrameCBUploader->GetCBByteSize();
-        cbDesc.BufferLocation = fr->m_FrameCBUploader->Resource()->GetGPUVirtualAddress();
+        cbDesc.SizeInBytes    = fr->FrameConstantSize();
+        cbDesc.BufferLocation = fr->m_FrameConstantBuffer.GpuPtr;
         m_Device->CreateConstantBufferView(&cbDesc, m_CbvSrvDescriptors.GetDescriptorHandle(offset++));
     }
 }
@@ -274,7 +276,7 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     m_GraphicsPSO["no_texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
     m_GraphicsPSO["no_texture"].SetRenderTargetFormats(
         {m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1, m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
-    m_GraphicsPSO["no_texture"].Finalize();
+    m_GraphicsPSO["no_texture"].Finalize(m_Device.Get());
 
     m_GraphicsPSO.insert({"texture", GraphicsPSO()});
     m_GraphicsPSO["texture"].SetInputLayout(m_InputLayout);
@@ -288,7 +290,7 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     m_GraphicsPSO["texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
     m_GraphicsPSO["texture"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1,
                                                     m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
-    m_GraphicsPSO["texture"].Finalize();
+    m_GraphicsPSO["texture"].Finalize(m_Device.Get());
 
 #if defined(_DEBUG)
     m_GraphicsPSO.insert({"debug", GraphicsPSO()});
@@ -303,7 +305,7 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     m_GraphicsPSO["debug"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE);
     m_GraphicsPSO["debug"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1,
                                                   m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
-    m_GraphicsPSO["debug"].Finalize();
+    m_GraphicsPSO["debug"].Finalize(m_Device.Get());
 #endif  // DEBUG
 }
 
@@ -322,11 +324,11 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
         SetPrimitiveType(pMesh->GetPrimitiveType(), m);
         if (auto material = pMesh->GetMaterial().lock())
             if (material->GetBaseColor().ValueMap)
-                m->pPSO = m_GraphicsPSO["texture"].GetPSO();
+                m->psoName = "texture";
             else
-                m->pPSO = m_GraphicsPSO["no_texture"].GetPSO();
+                m->psoName = "no_texture";
         else
-            m->pPSO = m_GraphicsPSO["simple"].GetPSO();
+            m->psoName = "simple";
 
         m_Meshes[pMesh->GetGuid()] = m;
     }
@@ -359,25 +361,25 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
 }
 
 void D3D12GraphicsManager::CreateVertexBuffer(const Resource::SceneObjectVertexArray& vertexArray,
-                                              const std::shared_ptr<MeshInfo>&        pMeshBuffer) {
+                                              std::shared_ptr<MeshInfo>               pMeshBuffer) {
     CommandContext context(m_CommandListManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
-    GpuBuffer      vb(context, vertexArray.GetVertexCount(), vertexArray.GetDataSize() / vertexArray.GetVertexCount(),
-                 vertexArray.GetData());
+    GpuBuffer vb(m_Device.Get(), vertexArray.GetVertexCount(), vertexArray.GetDataSize() / vertexArray.GetVertexCount(),
+                 vertexArray.GetData(), &context);
     pMeshBuffer->vbv.push_back(vb.VertexBufferView());
     m_Buffers.push_back(vb);
 }
 
 void D3D12GraphicsManager::CreateIndexBuffer(const Resource::SceneObjectIndexArray& indexArray,
-                                             const std::shared_ptr<MeshInfo>&       pMeshBuffer) {
+                                             std::shared_ptr<MeshInfo>              pMeshBuffer) {
     CommandContext context(m_CommandListManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
-    GpuBuffer      ib(context, indexArray.GetIndexCount(), indexArray.GetDataSize() / indexArray.GetIndexCount(),
-                 indexArray.GetData());
+    GpuBuffer      ib(m_Device.Get(), indexArray.GetIndexCount(), indexArray.GetDataSize() / indexArray.GetIndexCount(),
+                 indexArray.GetData(), &context);
     pMeshBuffer->ibv = ib.IndexBufferView();
     m_Buffers.push_back(ib);
 }
 
-void D3D12GraphicsManager::SetPrimitiveType(const Resource::PrimitiveType&   primitiveType,
-                                            const std::shared_ptr<MeshInfo>& pMeshBuffer) {
+void D3D12GraphicsManager::SetPrimitiveType(const Resource::PrimitiveType& primitiveType,
+                                            std::shared_ptr<MeshInfo>      pMeshBuffer) {
     switch (primitiveType) {
         case Resource::PrimitiveType::LINE_LIST:
             pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
@@ -498,9 +500,7 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
                                        0, nullptr);
 
     // render back buffer
-    const D3D12_CPU_DESCRIPTOR_HANDLE& currBackBuffer = CurrentBackBufferView();
-    const D3D12_CPU_DESCRIPTOR_HANDLE& dsv            = DepthStencilView();
-    commandList->OMSetRenderTargets(1, &currBackBuffer, false, &dsv);
+    context.SetRenderTarget(CurrentBackBufferView(), DepthStencilView());
 
     context.SetRootSignature(m_RootSignature);
     context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 3, 0, m_SamplerDescriptors.GetDescriptorHandle());
@@ -521,15 +521,11 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
 
 void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::vector<DrawItem>& drawItems) {
     //
-    auto         fr       = m_FrameResource[m_CurrFrameResourceIndex].get();
-    const size_t cbv_size = fr->m_ObjCBUploader->GetElementCount();
-
-    auto cmdList = context.GetCommandList();
+    auto numObj = m_FrameResource[m_CurrFrameResourceIndex].get()->m_NumObjects;
 
     for (auto&& d : drawItems) {
         const auto& meshBuffer = d.meshBuffer;
-        // TODO Implement of pipeline state object
-        cmdList->SetPipelineState(meshBuffer->pPSO);
+        context.SetPipeLineState(m_GraphicsPSO[meshBuffer->psoName]);
 
         for (size_t i = 0; i < meshBuffer->vbv.size(); i++) {
             context.SetVertexBuffer(i, meshBuffer->vbv[i]);
@@ -538,7 +534,7 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
 
         context.SetDynamicDescriptor(
             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, 0,
-            m_CbvSrvDescriptors.GetDescriptorHandle(cbv_size * m_CurrFrameResourceIndex + d.constantBufferIndex));
+            m_CbvSrvDescriptors.GetDescriptorHandle(numObj * m_CurrFrameResourceIndex + d.constantBufferIndex));
 
         // Texture
         if (auto material = meshBuffer->material.lock()) {
@@ -548,7 +544,6 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
             }
         }
         context.SetPrimitiveTopology(meshBuffer->primitiveType);
-        // cmdList->DrawIndexedInstanced(meshBuffer->indexCount, 1, 0, 0, 0);
         context.DrawIndexedInstanced(meshBuffer->indexCount, 1, 0, 0, 0);
     }
 }
@@ -586,7 +581,7 @@ void D3D12GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const 
         Resource::SceneObjectIndexArray index_array(0, Resource::IndexDataType::INT32, index.data(), index.size());
         CreateIndexBuffer(index_array, meshBuffer);
         meshBuffer->indexCount  = index.size();
-        meshBuffer->pPSO        = m_GraphicsPSO["debug"].GetPSO();
+        meshBuffer->psoName     = "debug";
         m_DebugMeshBuffer[name] = meshBuffer;
     }
 
@@ -628,7 +623,7 @@ void D3D12GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, con
         CreateIndexBuffer(index_array, meshBuffer);
         meshBuffer->indexCount = index.size();
 
-        meshBuffer->pPSO               = m_GraphicsPSO["debug"].GetPSO();
+        meshBuffer->psoName            = "debug";
         m_DebugMeshBuffer["debug_box"] = meshBuffer;
     }
     mat4f transform = translate(scale(mat4f(1.0f), 0.5 * (bbMax - bbMin)), 0.5 * (bbMax + bbMin));
