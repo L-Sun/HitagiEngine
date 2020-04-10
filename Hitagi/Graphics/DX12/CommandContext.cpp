@@ -21,6 +21,11 @@ CommandContext::CommandContext(CommandListManager& cmdManager, D3D12_COMMAND_LIS
 }
 CommandContext::~CommandContext() {
     if (m_CommandList) m_CommandList->Release();
+    if (m_CommandAllocator) {
+        auto&    queue      = m_CommandManager.GetQueue(m_Type);
+        uint64_t fenceValue = queue.GetLastCompletedFenceValue();
+        queue.DiscardAllocator(fenceValue, m_CommandAllocator);
+    }
 }
 
 void CommandContext::InitializeBuffer(GpuResource& dest, const void* data, size_t bufferSize) {

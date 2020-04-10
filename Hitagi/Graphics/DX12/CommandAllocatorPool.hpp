@@ -15,9 +15,9 @@ public:
     inline bool             Size() const { return m_AllocatorPool.size(); }
 
 private:
-    const D3D12_COMMAND_LIST_TYPE                            m_type;
-    ID3D12Device6*                                           m_Device;
-    std::vector<ID3D12CommandAllocator*>                     m_AllocatorPool;
-    std::queue<std::pair<uint64_t, ID3D12CommandAllocator*>> m_readyAllocators;
+    const D3D12_COMMAND_LIST_TYPE                               m_Type;
+    ID3D12Device6*                                              m_Device;
+    std::vector<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>> m_AllocatorPool;
+    std::queue<std::pair<uint64_t, ID3D12CommandAllocator*>>    m_ReadyAllocators;
 };
 }  // namespace Hitagi::Graphics::DX12

@@ -31,12 +31,8 @@ int main(int argc, char const* argv[]) {
 
     CommandListManager mgr;
     mgr.Initialize(device.Get());
-    using namespace std::chrono_literals;
-    while (true) {
+    for (size_t i = 0; i < 100000; i++) {
         CommandContext context(mgr, D3D12_COMMAND_LIST_TYPE_DIRECT);
-        context.Finish(true);
-        std::this_thread::sleep_for(1ms);
     }
-
     return 0;
 }
