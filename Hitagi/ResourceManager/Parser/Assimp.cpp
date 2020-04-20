@@ -18,7 +18,7 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
     const aiScene* _scene = importer.ReadFileFromMemory(buf.GetData(), buf.GetDataSize(), flag);
 
     if (!_scene) {
-        std::cerr << "[AssimpParser] Can parse the scene." << std::endl;
+        m_Logger->error("Can not parse the scene.");
         return nullptr;
     }
 
@@ -40,7 +40,7 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                 break;
             case aiPrimitiveType::_aiPrimitiveType_Force32Bit:
             default:
-                std::cerr << "[AssimpParser] Unsupport Primitive Type" << std::endl;
+                m_Logger->error("Unsupport Primitive Type");
         }
 
         // Read Position
@@ -123,13 +123,14 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         std::shared_ptr<SceneObjectLight> light;
         switch (_light->mType) {
             case aiLightSourceType::aiLightSource_AMBIENT:
-                std::cout << "[AssimpParser] Enigne unsupport light type now: AMBIENT" << std::endl;
+                std::cerr << "[AssimpParser] " << std::endl;
+                m_Logger->warn("Unsupport light type: AMBIEN");
                 break;
             case aiLightSourceType::aiLightSource_AREA:
-                std::cout << "[AssimpParser] Enigne unsupport light type now: AREA" << std::endl;
+                m_Logger->warn("Unsupport light type: AREA");
                 break;
             case aiLightSourceType::aiLightSource_DIRECTIONAL:
-                std::cout << "[AssimpParser] Enigne unsupport light type now: DIRECTIONAL" << std::endl;
+                m_Logger->warn("Unsupport light type: DIRECTIONAL");
                 break;
             case aiLightSourceType::aiLightSource_POINT: {
                 vec4f color     = normalize(vec4f(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b, 1.0f));
@@ -148,13 +149,13 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                     _light->mAngleOuterCone);
             } break;
             case aiLightSourceType::aiLightSource_UNDEFINED:
-                std::cout << "[AssimpParser] Enigne unsupport light type now: UNDEFINED" << std::endl;
+                m_Logger->warn("Unsupport light type: UNDEFINED");
                 break;
             case aiLightSourceType::_aiLightSource_Force32Bit:
-                std::cout << "[AssimpParser] Enigne unsupport light type now: Force32Bit" << std::endl;
+                m_Logger->warn("Unsupport light type: Force32Bit");
                 break;
             default:
-                std::cerr << "[AssimpParser] Unknown light type." << std::endl;
+                m_Logger->warn("Unknown light type.");
                 break;
         }
         scene->Lights[_light->mName.C_Str()] = light;

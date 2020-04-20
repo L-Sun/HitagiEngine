@@ -11,18 +11,17 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
     const BITMAP_HEADER* bmpHeader = reinterpret_cast<const BITMAP_HEADER*>(
         buf.GetData() + BITMAP_FILEHEADER_SIZE);
     if (fileHeader->Signature == 0x4D42 /* 'B''M' */) {
-        std::cout << "Asset is Windows BMP file" << std::endl;
-        std::cout << "BMP Header" << std::endl;
-        std::cout << "-----------------------------------" << std::endl;
-        std::cout << "File Size:" << fileHeader->Size << std::endl;
-        std::cout << "Data Offset: " << fileHeader->BitsOffset << std::endl;
-        std::cout << "Image Width: " << bmpHeader->Width << std::endl;
-        std::cout << "Image Height: " << bmpHeader->Height << std::endl;
-        std::cout << "Image Planes: " << bmpHeader->Planes << std::endl;
-        std::cout << "Image BitCount: " << bmpHeader->BitCount << std::endl;
-        std::cout << "Image Comperession: " << bmpHeader->Compression
-                  << std::endl;
-        std::cout << "Image Size: " << bmpHeader->SizeImage << std::endl;
+        m_Logger->debug("Asset is Windows BMP file");
+        m_Logger->debug("BMP Header");
+        m_Logger->debug("-----------------------------------");
+        m_Logger->debug("File Size:          {}", fileHeader->Size);
+        m_Logger->debug("Data Offset:        {}", fileHeader->BitsOffset);
+        m_Logger->debug("Image Width:        {}", bmpHeader->Width);
+        m_Logger->debug("Image Height:       {}", bmpHeader->Height);
+        m_Logger->debug("Image Planes:       {}", bmpHeader->Planes);
+        m_Logger->debug("Image BitCount:     {}", bmpHeader->BitCount);
+        m_Logger->debug("Image Comperession: {}", bmpHeader->Compression);
+        m_Logger->debug("Image Size:         {}", bmpHeader->SizeImage);
 
         auto     width      = bmpHeader->Width;
         auto     height     = bmpHeader->Height;
@@ -33,8 +32,7 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
         Image    img(width, height, bitcount, pitch, dataSize);
         uint8_t* data = reinterpret_cast<uint8_t*>(img.getData());
         if (bitcount < 24) {
-            std::cout << "Sorry, only true color BMP is supported at now."
-                      << std::endl;
+            m_Logger->warn("Sorry, only true color BMP is supported at now.");
         } else {
             const uint8_t* sourceData =
                 reinterpret_cast<const uint8_t*>(buf.GetData()) +

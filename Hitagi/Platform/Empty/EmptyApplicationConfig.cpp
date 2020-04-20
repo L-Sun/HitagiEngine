@@ -4,7 +4,7 @@ namespace Hitagi {
 extern GfxConfiguration                 config;
 std::unique_ptr<IApplication>           g_App(new BaseApplication(config));
 std::unique_ptr<Core::MemoryManager>    g_MemoryManager(new Core::MemoryManager);
-std::unique_ptr<Core::FileIOManager>           g_FileIOManager(new Core::FileIOManager);
+std::unique_ptr<Core::FileIOManager>    g_FileIOManager(new Core::FileIOManager);
 std::unique_ptr<Resource::SceneManager> g_SceneManager(new Resource::SceneManager);
 std::unique_ptr<InputManager>           g_InputManager(new InputManager);
 #if defined(_DEBUG)

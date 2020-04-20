@@ -19,32 +19,24 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
     const uint8_t* data     = buf.GetData();
     const uint8_t* pDataEnd = data + buf.GetDataSize();
 
-    std::cout << "Parsing as TGA file:" << std::endl;
-
+    m_Logger->debug("Parsing as TGA file:");
     const TGA_FILEHEADER* fileHeader =
         reinterpret_cast<const TGA_FILEHEADER*>(data);
     data += sizeof(TGA_FILEHEADER);
 
-#if defined(_DEBUG)
-    std::cout << "ID Length: " << (uint16_t)fileHeader->IDLength << std::endl;
-    std::cout << "Color Map Type: " << (uint16_t)fileHeader->ColorMapType
-              << std::endl;
-#endif  // DEBUG
+    m_Logger->debug("ID Length:      {}", fileHeader->IDLength);
+    m_Logger->debug("Color Map Type: {}", fileHeader->ColorMapType);
 
     if (fileHeader->ColorMapType) {
-        std::cout << "Unsupported Color Map. Only Type 0 is supported."
-                  << std::endl;
+        m_Logger->warn("Unsupported Color Map. Only Type 0 is supported.");
         return Image();
     }
 
-#if defined(_DEBUG)
-    std::cout << "Image Type: " << (uint16_t)fileHeader->ImageType
-              << std::endl;
-#endif
+    m_Logger->debug("Color Map Type: {}", fileHeader->ImageType);
 
     if (fileHeader->ImageType != 2) {
-        std::cout << "Unsupported Image Type. Only Type 2 is supported."
-                  << std::endl;
+        m_Logger->warn("Unsupported Image Type. Only Type 2 is supported.");
+        return Image();
     }
     // tga all values are little-endian
     auto    width      = (fileHeader->ImageSpec[5] << 8) + fileHeader->ImageSpec[4];
@@ -57,13 +49,11 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
     auto  dataSize = pitch * height;
     Image img(width, height, bitcount, pitch, dataSize);
 
-#if defined(_DEBUG)
     uint8_t alpha_depth = fileHeader->ImageSpec[9] & 0x0F;
-    std::cout << "Image width: " << width << std::endl;
-    std::cout << "Image height: " << height << std::endl;
-    std::cout << "Image Pixel Depth: " << (uint16_t)pixelDepth << std::endl;
-    std::cout << "Image Alpha Depth: " << (uint16_t)alpha_depth << std::endl;
-#endif
+    m_Logger->debug("Image width:       {}", width);
+    m_Logger->debug("Image height:      {}", height);
+    m_Logger->debug("Image Pixel Depth: {}", pixelDepth);
+    m_Logger->debug("Image Alpha Depth: {}", alpha_depth);
     // skip Image ID
     data += fileHeader->IDLength;
     // skip the Color Map. since we assume the Color Map Type is 0,

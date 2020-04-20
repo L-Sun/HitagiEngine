@@ -4,6 +4,9 @@
 #include <vector>
 #include <string>
 #include <list>
+
+#include <fmt/format.h>
+
 #include "SceneObject.hpp"
 
 namespace Hitagi::Resource {
@@ -16,7 +19,7 @@ protected:
     mat4f                                            m_RuntimeTransform = mat4f(1.0f);
     bool                                             m_Dirty            = true;
 
-    virtual void dump(std::ostream& out) const {}
+    virtual void dump(std::ostream& out, unsigned indent) const {}
 
 public:
     BaseSceneNode() {}
@@ -56,23 +59,21 @@ public:
     void Reset() { m_RuntimeTransform = mat4f(1.0f); }
 
     friend std::ostream& operator<<(std::ostream& out, const BaseSceneNode& node) {
-        static thread_local int32_t indent = 0;
-        indent++;
-        out << std::string(indent, ' ') << "Scene Node" << std::endl;
-        out << std::string(indent, ' ') << "----------" << std::endl;
-        out << std::string(indent, ' ') << "Name: " << node.m_Name << std::endl;
-        node.dump(out);
-        out << std::endl;
+        static unsigned indent = 0;
+        out << fmt::format(
+            "{0:{1}}{2:-^30}\n"
+            "{0:{1}}{3:<15}{4:>15}\n",
+            "", indent, "Scene Node", "Name:", node.m_Name);
 
+        node.dump(out, indent);
+        out << fmt::format("{0:{1}}{2}\n", "", indent, "Children:");
+        indent += 4;
         for (const std::shared_ptr<BaseSceneNode>& sub_node : node.m_Chlidren) {
             out << *sub_node << std::endl;
         }
-        for (const std::shared_ptr<SceneObjectTransform>& sub_node : node.m_Transforms) {
-            out << *sub_node << std::endl;
-        }
-        indent--;
 
-        return out;
+        indent -= 4;
+        return out << fmt::format("{0:{1}}{2:-^30}", "", indent, "End");
     }
 };
 
@@ -81,7 +82,11 @@ class SceneNode : public BaseSceneNode {
 protected:
     std::string m_SceneObjectRef;
 
-    virtual void dump(std::ostream& out) const { out << m_SceneObjectRef << std::endl; }
+    virtual void dump(std::ostream& out, unsigned indent) const {
+        if (!m_SceneObjectRef.empty()) {
+            out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Obj Ref:", m_SceneObjectRef);
+        }
+    }
 
 public:
     using BaseSceneNode::BaseSceneNode;
@@ -98,11 +103,13 @@ protected:
     bool                  m_MotionBlur;
     std::shared_ptr<void> m_RigidBody = nullptr;
 
-    virtual void dump(std::ostream& out) const {
-        SceneNode::dump(out);
-        out << "Visible: " << m_Visible << std::endl;
-        out << "Shadow: " << m_Shadow << std::endl;
-        out << "Motion Blur: " << m_MotionBlur << std::endl;
+    virtual void dump(std::ostream& out, unsigned indent) const {
+        SceneNode::dump(out, indent);
+        out << fmt::format(
+            "{0:{1}}{2:<15}{3:>15}\n"
+            "{0:{1}}{4:<15}{5:>15}\n"
+            "{0:{1}}{6:<15}{7:>15}\n",
+            "", indent, "Visible:", m_Visible, "Shadow:", m_Shadow, "Motion Blur:", m_MotionBlur);
     }
 
 public:

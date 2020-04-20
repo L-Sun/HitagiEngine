@@ -17,7 +17,7 @@ using namespace Hitagi;
 
 namespace Hitagi {
 std::unique_ptr<Core::MemoryManager>    g_MemoryManager(new Core::MemoryManager);
-std::unique_ptr<Core::FileIOManager>           g_FileIOManager(new Core::FileIOManager);
+std::unique_ptr<Core::FileIOManager>    g_FileIOManager(new Core::FileIOManager);
 std::unique_ptr<Resource::SceneManager> g_SceneManager(new Resource::SceneManager);
 }  // namespace Hitagi
 
@@ -37,6 +37,8 @@ int main(int, char**) {
 
     g_SceneManager->LoadScene("Asset/Scene/test.fbx");
     auto& scene = g_SceneManager->GetSceneForRendering();
+
+    std::cout << *scene.SceneGraph << std::endl;
 
     std::cout << "Dump of Cameras" << std::endl;
     std::cout << "---------------------------" << std::endl;

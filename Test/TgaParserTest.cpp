@@ -1,8 +1,5 @@
-#include <iostream>
-#include <string>
 #include "FileIOManager.hpp"
-#include "MemoryManager.hpp"
-#include "PNG.hpp"
+#include "TGA.hpp"
 
 using namespace Hitagi;
 
@@ -19,12 +16,12 @@ int main(int argc, const char** argv) {
     if (argc >= 2) {
         buf = g_FileIOManager->SyncOpenAndReadBinary(argv[1]);
     } else {
-        buf = g_FileIOManager->SyncOpenAndReadBinary("Asset/Textures/eye.png");
+        buf = g_FileIOManager->SyncOpenAndReadBinary("Asset/Textures/floor.tga");
     }
 
-    Resource::PngParser png_arser;
+    Resource::TgaParser tga_arser;
 
-    Resource::Image image = png_arser.Parse(buf);
+    Resource::Image image = tga_arser.Parse(buf);
 
     std::cout << image;
 

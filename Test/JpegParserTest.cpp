@@ -8,7 +8,7 @@ using namespace Hitagi;
 
 namespace Hitagi {
 std::unique_ptr<Core::MemoryManager> g_MemoryManager(new Core::MemoryManager);
-std::unique_ptr<Core::FileIOManager>        g_FileIOManager(new Core::FileIOManager);
+std::unique_ptr<Core::FileIOManager> g_FileIOManager(new Core::FileIOManager);
 }  // namespace Hitagi
 
 int main(int argc, char const* argv[]) {
@@ -30,7 +30,7 @@ int main(int argc, char const* argv[]) {
         Resource::JpegParser jfif_parser;
 
         Resource::Image image = jfif_parser.Parse(buf);
-        std::cout << image;
+        std::cout << image << std::endl;
     }
 
     g_FileIOManager->Finalize();

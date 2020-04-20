@@ -16,12 +16,10 @@ public:
     virtual void Draw();
     virtual void Clear();
 
-#if defined(_DEBUG)
     virtual void RenderLine(const vec3f& from, const vec3f& to, const vec3f& color);
     virtual void RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color);
     virtual void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color);
     virtual void ClearDebugBuffers();
-#endif
 
 protected:
     struct FrameConstants {
@@ -44,8 +42,9 @@ protected:
     virtual void       RenderBuffers();
     const FT_GlyphSlot GetGlyph(char c);
 
-    FrameConstants m_FrameConstants;
-    ShaderManager  m_ShaderManager;
+    FrameConstants                  m_FrameConstants;
+    ShaderManager                   m_ShaderManager;
+    std::shared_ptr<spdlog::logger> m_Logger;
 
 private:
     FT_Library   m_FTLibrary;

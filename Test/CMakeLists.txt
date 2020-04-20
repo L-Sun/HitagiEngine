@@ -14,6 +14,10 @@ add_executable(JpegParserTest JpegParserTest.cpp)
 target_link_libraries(JpegParserTest PRIVATE SceneManager)
 add_test(NAME TEST_JpegParser COMMAND JpegParserTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
+add_executable(TgaParserTest TgaParserTest.cpp)
+target_link_libraries(TgaParserTest PRIVATE SceneManager)
+add_test(NAME TEST_TgaParser COMMAND TgaParserTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
 add_executable(PngParserTest PngParserTest.cpp)
 target_link_libraries(PngParserTest PRIVATE SceneManager)
 add_test(NAME TEST_PngParser COMMAND PngParserTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})

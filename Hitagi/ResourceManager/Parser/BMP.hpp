@@ -5,6 +5,7 @@ namespace Hitagi::Resource {
 class BmpParser : public ImageParser {
 public:
     virtual Image Parse(const Core::Buffer& buf);
+    BmpParser() : ImageParser(spdlog::stdout_color_st("BmpParser")) {}
 
 private:
 #pragma pack(push, 1)

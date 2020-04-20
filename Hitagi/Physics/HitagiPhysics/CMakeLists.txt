@@ -6,5 +6,6 @@ target_link_libraries(HitagiPhysics
         Core
         PhysicsManager
         Geometries
+        spdlog::spdlog
 )
 target_include_directories(HitagiPhysics INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

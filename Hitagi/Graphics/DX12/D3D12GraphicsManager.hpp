@@ -25,7 +25,7 @@ private:
         D3D12_INDEX_BUFFER_VIEW                      ibv;
         D3D_PRIMITIVE_TOPOLOGY                       primitiveType;
         std::weak_ptr<Resource::SceneObjectMaterial> material;
-        std::string                         psoName;
+        std::string                                  psoName;
     };
 
     struct DrawItem {

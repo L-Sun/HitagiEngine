@@ -77,11 +77,6 @@ enum struct PrimitiveType : int32_t {
     // clang-format on
 };
 
-std::ostream& operator<<(std::ostream& out, const SceneObjectType& type);
-std::ostream& operator<<(std::ostream& out, const VertexDataType& type);
-std::ostream& operator<<(std::ostream& out, const IndexDataType& type);
-std::ostream& operator<<(std::ostream& out, const PrimitiveType& type);
-
 class BaseSceneObject {
 protected:
     xg::Guid        m_Guid;
@@ -150,10 +145,10 @@ struct ParameterValueMap {
     ~ParameterValueMap() = default;
 
     friend std::ostream& operator<<(std::ostream& out, const ParameterValueMap& obj) {
-        out << "Parameter Value:" << obj.Value;
+        out << obj.Value;
         if (obj.ValueMap) {
-            out << std::endl;
-            out << "Parameter Map: \n" << *(obj.ValueMap) << std::endl;
+            out << fmt::format("\n{:-^30}\n", "Parameter Map") << *(obj.ValueMap)
+                << fmt::format("\n{:-^30}", "Parameter Map End");
         }
         return out;
     }

@@ -269,20 +269,6 @@ struct Matrix {
 
     Matrix() = default;
     Matrix(const T v) { ispc::Identity(&data[0][0], v, ROWS); }
-    Matrix(std::initializer_list<T> l) {
-        if (l.size() != ROWS * COLS) {
-            std::cerr << "can't match the size of matirx" << std::endl;
-            std::cerr << "the all element of matrix has been init with 1.0 " << std::endl;
-            std::fill(data, data + ROWS, col_type((T)1.0));
-        } else {
-            auto p = l.begin();
-            for (int i = 0; i < ROWS; i++) {
-                for (int j = 0; j < COLS; j++) {
-                    data[j][i] = *p++;
-                }
-            }
-        }
-    }
     Matrix(std::initializer_list<Vector<T, COLS>> l) {
         auto p = l.begin();
         for (int i = 0; i < ROWS; i++) {

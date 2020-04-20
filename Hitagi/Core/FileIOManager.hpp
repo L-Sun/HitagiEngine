@@ -1,6 +1,10 @@
 #pragma once
 #include <string>
 #include <filesystem>
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include "IRuntimeModule.hpp"
 #include "Buffer.hpp"
 
@@ -8,11 +12,12 @@ namespace Hitagi::Core {
 
 class FileIOManager : public IRuntimeModule {
 public:
+    FileIOManager() : m_Logger(spdlog::stdout_color_st("FileIOManager")) {}
     virtual ~FileIOManager(){};
 
-    virtual int  Initialize();
-    virtual void Finalize();
-    virtual void Tick();
+    virtual int  Initialize() { return 0; }
+    virtual void Finalize() {}
+    virtual void Tick() {}
 
     size_t GetFileSize(std::filesystem::path filePath) const;
 
@@ -20,8 +25,8 @@ public:
     std::string SyncOpenAndReadTextFileToString(std::filesystem::path filePath) const;
 
 private:
-    bool checkFile(const std::filesystem::path& filePath) const;
-};  // namespace Hitagi
+    std::shared_ptr<spdlog::logger> m_Logger;
+};
 
 }  // namespace Hitagi::Core
 

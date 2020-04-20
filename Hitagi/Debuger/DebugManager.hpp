@@ -8,6 +8,7 @@ public:
     virtual int  Initialize();
     virtual void Finalize();
     virtual void Tick();
+    virtual ~DebugManager() {}
 
     void ToggleDebugInfo();
     void DrawDebugInfo();

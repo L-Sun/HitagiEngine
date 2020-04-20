@@ -22,30 +22,29 @@ void pngReadCallback(png_structp png_tr, png_bytep data, png_size_t length) {
 
 Image PngParser::Parse(const Core::Buffer& buf) {
     enum { PNG_BYTES_TO_CHECK = 4 };
-    char check[PNG_BYTES_TO_CHECK];
 
-    if (buf.GetDataSize() < PNG_BYTES_TO_CHECK &&
-        png_sig_cmp(reinterpret_cast<png_const_bytep>(check), 0,
+    if (buf.GetDataSize() < PNG_BYTES_TO_CHECK ||
+        png_sig_cmp(reinterpret_cast<png_const_bytep>(buf.GetData()), 0,
                     PNG_BYTES_TO_CHECK)) {
-        std::cerr << "[libpng] the file format is not png." << std::endl;
+        m_Logger->warn("File format is not png!");
         return Image();
     }
 
     png_structp png_tr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr,
                                                 nullptr, nullptr);
     if (!png_tr) {
-        std::cerr << "[libpng] libpng can not create read struct." << std::endl;
+        m_Logger->error("Can not create read struct.");
         return Image();
     }
     png_infop info_ptr = png_create_info_struct(png_tr);
     if (!info_ptr) {
-        std::cerr << "[libpng] libpng can not create info struct." << std::endl;
+        m_Logger->error("Can not create info struct.");
         png_destroy_read_struct(&png_tr, nullptr, nullptr);
         return Image();
     }
 
     if (setjmp(png_jmpbuf(png_tr))) {
-        std::cerr << "[libpng] error during read_image." << std::endl;
+        m_Logger->error("Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, 0);
         return Image();
     }
@@ -114,7 +113,7 @@ Image PngParser::Parse(const Core::Buffer& buf) {
             }
         } break;
         default:
-            std::cerr << "[libpng] Unsupport color type." << std::endl;
+            m_Logger->error("Unsupport color type.");
             return img;
             break;
     }

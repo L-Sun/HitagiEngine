@@ -9,12 +9,12 @@
 namespace Hitagi::Physics {
 
 int HitagiPhysicsManager::Initialize() {
-    std::cout << "[HitagiPhysicsManager] Initialize" << std::endl;
+    m_Logger->info("Initialize.");
     return 0;
 }
 
 void HitagiPhysicsManager::Finalize() {
-    std::cout << "[HitagiPhysicsManager] Finalize" << std::endl;
+    m_Logger->info("Finalize.");
     // Clean up
     ClearRigidBodies();
 }
@@ -73,7 +73,6 @@ void HitagiPhysicsManager::DeleteRigidBody(Resource::SceneGeometryNode& node) { 
 int  HitagiPhysicsManager::CreateRigidBodies() {
     auto& scene = g_SceneManager->GetSceneForPhysicsSimulation();
     // Geometries
-
     for (auto [key, node] : scene.GeometryNodes) {
         auto pGeometryNode = node;
         auto pGeometry     = scene.GetGeometry(pGeometryNode->GetSceneObjectRef());

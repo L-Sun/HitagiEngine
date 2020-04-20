@@ -1,3 +1,5 @@
+#include <variant>
+
 #include "SceneObject.hpp"
 #include "FileIOManager.hpp"
 #include "JPEG.hpp"
@@ -470,101 +472,77 @@ SceneObjectScale::SceneObjectScale(const float x, const float y, const float z) 
 }
 
 // Type print
-std::ostream& operator<<(std::ostream& out, const SceneObjectType& type) {
-    int32_t n = static_cast<int32_t>(type);
+std::string TypeToString(std::variant<SceneObjectType, VertexDataType, IndexDataType, PrimitiveType> type) {
+    std::string ret;
+    int32_t     n;
+    if (std::holds_alternative<SceneObjectType>(type))
+        n = static_cast<int32_t>(std::get<SceneObjectType>(type));
+    else if (std::holds_alternative<VertexDataType>(type))
+        n = static_cast<int32_t>(std::get<VertexDataType>(type));
+    else if (std::holds_alternative<IndexDataType>(type))
+        n = static_cast<int32_t>(std::get<IndexDataType>(type));
+    else if (std::holds_alternative<PrimitiveType>(type))
+        n = static_cast<int32_t>(std::get<PrimitiveType>(type));
+
     // little endian, read bit from end;
     n       = endian_net_unsigned_int<int32_t>(n);
     char* c = reinterpret_cast<char*>(&n);
 
-    for (int i = 0; i < sizeof(int32_t); i++) {
-        out << *c++;
-    }
+    for (int i = 0; i < sizeof(int32_t); i++) ret.push_back(*c++);
 
-    return out;
-}
-std::ostream& operator<<(std::ostream& out, const VertexDataType& type) {
-    int32_t n = static_cast<int32_t>(type);
-    n         = endian_net_unsigned_int<int32_t>(n);
-    char* c   = reinterpret_cast<char*>(&n);
-
-    for (size_t i = 0; i < sizeof(int32_t); i++) {
-        out << *c++;
-    }
-    return out;
-}
-std::ostream& operator<<(std::ostream& out, const IndexDataType& type) {
-    int32_t n = static_cast<int32_t>(type);
-    n         = endian_net_unsigned_int<int32_t>(n);
-    char* c   = reinterpret_cast<char*>(&n);
-
-    for (size_t i = 0; i < sizeof(int32_t); i++) {
-        out << *c++;
-    }
-    return out;
-}
-std::ostream& operator<<(std::ostream& out, const PrimitiveType& type) {
-    int32_t n = static_cast<int32_t>(type);
-    n         = endian_net_unsigned_int(n);
-    char* c   = reinterpret_cast<char*>(&n);
-
-    for (size_t i = 0; i < sizeof(int32_t); i++) {
-        out << *c++;
-    }
-    return out;
+    return ret;
 }
 
 // Object print
 std::ostream& operator<<(std::ostream& out, const BaseSceneObject& obj) {
-    out << "SceneObject\n"
-        << "-----------\n"
-        << "GUID: " << obj.m_Guid << std::dec << '\n'
-        << "Type: " << obj.m_Type << '\n';
+    out << "GUID: " << obj.m_Guid << std::dec << std::endl;
+    out << "Type: " << TypeToString(obj.m_Type);
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
-    out << "Attribute: " << obj.m_Attribute << '\n';
-    out << "Morph Target Index: " << obj.m_MorphTargetIndex << '\n';
-    out << "Data Type: " << obj.m_DataType << '\n';
-    out << "Data Size: " << obj.GetDataSize() << " bytes.\n";
-    out << "Data Count: " << obj.GetVertexCount() << '\n';
-    out << "Data: ";
+    out << "Attribute:          " << obj.m_Attribute << std::endl;
+    out << "Morph Target Index: " << obj.m_MorphTargetIndex << std::endl;
+    out << "Data Type:          " << TypeToString(obj.m_DataType) << std::endl;
+    out << "Data Size:          " << obj.GetDataSize() << " bytes" << std::endl;
+    out << "Data Count:         " << obj.GetVertexCount() << std::endl;
+    out << "Data:               ";
     for (size_t i = 0; i < obj.GetVertexCount(); i++) {
         switch (obj.m_DataType) {
             case VertexDataType::FLOAT1:
-                std::cout << *(reinterpret_cast<const float*>(obj.m_Data) + i) << ' ';
+                std::cout << *(reinterpret_cast<const float*>(obj.m_Data) + i) << std::endl;
                 break;
             case VertexDataType::FLOAT2:
-                std::cout << *(reinterpret_cast<const vec2f*>(obj.m_Data) + i) << ' ';
+                std::cout << *(reinterpret_cast<const vec2f*>(obj.m_Data) + i) << std::endl;
                 break;
             case VertexDataType::FLOAT3:
-                std::cout << *(reinterpret_cast<const vec3f*>(obj.m_Data) + i) << ' ';
+                std::cout << *(reinterpret_cast<const vec3f*>(obj.m_Data) + i) << std::endl;
                 break;
             case VertexDataType::FLOAT4:
-                std::cout << *(reinterpret_cast<const vec4f*>(obj.m_Data) + i) << ' ';
+                std::cout << *(reinterpret_cast<const vec4f*>(obj.m_Data) + i) << std::endl;
                 break;
             case VertexDataType::DOUBLE1:
-                std::cout << *(reinterpret_cast<const double*>(obj.m_Data) + i) << ' ';
+                std::cout << *(reinterpret_cast<const double*>(obj.m_Data) + i) << std::endl;
                 break;
             case VertexDataType::DOUBLE2:
-                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(obj.m_Data) + i) << ' ';
+                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(obj.m_Data) + i) << std::endl;
                 break;
             case VertexDataType::DOUBLE3:
-                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(obj.m_Data) + i) << ' ';
+                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(obj.m_Data) + i) << std::endl;
                 break;
             case VertexDataType::DOUBLE4:
-                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(obj.m_Data) + i) << ' ';
+                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(obj.m_Data) + i) << std::endl;
                 break;
             default:
                 break;
         }
     }
-    return out << std::endl;
+    return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
-    out << "Restart Index: " << obj.m_ResetartIndex << '\n';
-    out << "Index Data Type: " << obj.m_DataType << '\n';
-    out << "Data Size: " << obj.GetDataSize() << '\n';
-    out << "Data: ";
+    out << "Restart Index:   " << obj.m_ResetartIndex << std::endl;
+    out << "Index Data Type: " << TypeToString(obj.m_DataType) << std::endl;
+    out << "Data Size:       " << obj.GetDataSize() << std::endl;
+    out << "Data:            ";
     for (size_t i = 0; i < obj.GetIndexCount(); i++) {
         switch (obj.m_DataType) {
             case IndexDataType::INT8:
@@ -586,88 +564,90 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
     return out << std::endl;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectMesh& obj) {
-    out << static_cast<const BaseSceneObject&>(obj) << '\n';
-    out << "Primitive Type: " << obj.m_PrimitiveType << '\n';
-    if (auto material = obj.m_Material.lock()) out << "Material: " << *material << '\n';
-    out << "This mesh contains " << obj.m_VertexArray.size() << " vertex properties." << '\n';
-    for (auto&& [key, v] : obj.m_VertexArray) {
-        out << v << '\n';
+    out << static_cast<const BaseSceneObject&>(obj) << std::endl;
+    out << "Primitive Type: " << TypeToString(obj.m_PrimitiveType) << std::endl;
+    if (auto material = obj.m_Material.lock()) {
+        out << "Material: " << *material << std::endl;
     }
-    out << "Indices index:" << '\n' << obj.m_IndexArray << std::endl;
+    out << "This mesh contains " << obj.m_VertexArray.size() << " vertex properties." << std::endl;
+    for (auto&& [key, v] : obj.m_VertexArray) {
+        out << v << std::endl;
+    }
+    out << "Indices index:" << std::endl << obj.m_IndexArray;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj) {
-    out << static_cast<const BaseSceneObject&>(obj) << '\n';
-    out << "Coord Index: " << obj.m_TexCoordIndex << '\n';
-    out << "Name: " << obj.m_Name << '\n';
-    if (obj.m_Image) out << "Image: " << *obj.m_Image << '\n';
+    out << static_cast<const BaseSceneObject&>(obj) << std::endl;
+    out << "Coord Index: " << obj.m_TexCoordIndex << std::endl;
+    out << "Name:        " << obj.m_Name << std::endl;
+    if (obj.m_Image) out << "Image:\n" << *obj.m_Image;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj) {
-    out << static_cast<const BaseSceneObject&>(obj) << '\n';
-    out << "Name: " << obj.m_Name << '\n';
-    out << "Albedo: " << obj.m_BaseColor << '\n';
-    out << "Metallic: " << obj.m_Metallic << '\n';
-    out << "Roughness: " << obj.m_Roughness << '\n';
-    out << "Normal: " << obj.m_Normal << '\n';
-    out << "Specular: " << obj.m_Specular << '\n';
-    out << "Ambient Occlusion: " << obj.m_AmbientOcclusion << '\n';
+    out << static_cast<const BaseSceneObject&>(obj) << std::endl;
+    out << "Name:              " << obj.m_Name << std::endl;
+    out << "Albedo:            " << obj.m_BaseColor << std::endl;
+    out << "Metallic:          " << obj.m_Metallic << std::endl;
+    out << "Roughness:         " << obj.m_Roughness << std::endl;
+    out << "Normal:            " << obj.m_Normal << std::endl;
+    out << "Specular:          " << obj.m_Specular << std::endl;
+    out << "Ambient Occlusion: " << obj.m_AmbientOcclusion;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectGeometry& obj) {
     for (size_t i = 0; i < obj.m_MeshesLOD.size(); i++) {
-        out << "Level: " << i << '\n';
+        out << "Level: " << i << std::endl;
         for (size_t j = 0; j < obj.m_MeshesLOD[i].size(); j++)
-            if (auto mesh = obj.m_MeshesLOD[i][j].lock()) out << "Mesh[" << j << "]:" << *mesh << '\n';
+            if (auto mesh = obj.m_MeshesLOD[i][j].lock()) out << fmt::format("Mesh[{}]:\n", i) << *mesh << std::endl;
     }
     return out << std::endl;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectLight& obj) {
-    out << static_cast<const BaseSceneObject&>(obj) << '\n';
-    out << "Color: " << obj.m_LightColor << '\n';
-    out << "Intensity: " << obj.m_Intensity << '\n';
-    out << "Cast Shadows: " << obj.m_CastShadows << '\n';
-    out << "Texture: " << obj.m_TextureRef << '\n';
+    out << static_cast<const BaseSceneObject&>(obj) << std::endl;
+    out << "Color:        " << obj.m_LightColor << std::endl;
+    out << "Intensity:    " << obj.m_Intensity << std::endl;
+    out << "Cast Shadows: " << obj.m_CastShadows << std::endl;
+    out << "Texture:      " << obj.m_TextureRef;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectPointLight& obj) {
-    out << static_cast<const SceneObjectLight&>(obj) << '\n';
-    out << "Light Type: Omni" << '\n';
+    out << static_cast<const SceneObjectLight&>(obj) << std::endl;
+    out << "Light Type: Omni" << std::endl;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectSpotLight& obj) {
-    out << static_cast<const SceneObjectLight&>(obj) << '\n';
-    out << "Light Type: Spot" << '\n';
-    out << "Inner Cone Angle" << obj.m_InnerConeAngle << '\n';
-    out << "Outer Cone Angle" << obj.m_OuterConeAngle << '\n';
+    out << static_cast<const SceneObjectLight&>(obj) << std::endl;
+    out << "Light Type:       Spot" << std::endl;
+    out << "Inner Cone Angle: " << obj.m_InnerConeAngle << std::endl;
+    out << "Outer Cone Angle: " << obj.m_OuterConeAngle;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectInfiniteLight& obj) {
-    out << static_cast<const SceneObjectLight&>(obj) << '\n';
-    out << "Light Type: Infinite" << '\n';
+    out << static_cast<const SceneObjectLight&>(obj) << std::endl;
+    out << "Light Type: Infinite" << std::endl;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectCamera& obj) {
-    out << static_cast<const BaseSceneObject&>(obj) << '\n';
-    out << "Aspcet: " << obj.m_Aspect << '\n';
-    out << "Near Clip Distance: " << obj.m_NearClipDistance << '\n';
-    out << "Far Clip Distance: " << obj.m_FarClipDistance << '\n';
+    out << static_cast<const BaseSceneObject&>(obj) << std::endl;
+    out << "Aspcet:             " << obj.m_Aspect << std::endl;
+    out << "Near Clip Distance: " << obj.m_NearClipDistance << std::endl;
+    out << "Far Clip Distance:  " << obj.m_FarClipDistance;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectOrthogonalCamera& obj) {
-    out << static_cast<const SceneObjectCamera&>(obj) << '\n';
-    out << "Camera Type: Orthogonal" << '\n';
+    out << static_cast<const SceneObjectCamera&>(obj) << std::endl;
+    out << "Camera Type: Orthogonal" << std::endl;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectPerspectiveCamera& obj) {
-    out << static_cast<const SceneObjectCamera&>(obj) << '\n';
-    out << "Camera Type: Perspective" << '\n';
-    out << "FOV: " << obj.m_Fov << '\n';
+    out << static_cast<const SceneObjectCamera&>(obj) << std::endl;
+    out << "Camera Type: Perspective" << std::endl;
+    out << "FOV:                    " << obj.m_Fov << std::endl;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectTransform& obj) {
-    out << "Transform Matrix: " << obj.m_Transform << '\n';
-    out << "Is Object Local: " << obj.m_SceneObjectOnly << '\n';
+    out << "Transform Matrix: " << obj.m_Transform << std::endl;
+    out << "Is Object Local:  " << obj.m_SceneObjectOnly;
     return out;
 }
 

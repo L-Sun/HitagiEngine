@@ -15,6 +15,8 @@ find_package(JPEG REQUIRED)
 find_package(libpng CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(freetype CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 find_package(GTest CONFIG REQUIRED)
 include(CTest)

@@ -5,8 +5,6 @@
 namespace Hitagi::Graphics {
 enum struct ShaderType { VERTEX, PIXEL, GEOMETRY };
 
-std::ostream& operator<<(std::ostream& out, const ShaderType& type);
-
 class VertexShader;
 class PixelShader;
 

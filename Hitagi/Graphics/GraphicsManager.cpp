@@ -7,20 +7,23 @@
 namespace Hitagi::Graphics {
 
 int GraphicsManager::Initialize() {
+    m_Logger   = spdlog::stderr_color_st("GraphicsManager");
     int result = m_ShaderManager.Initialize();
-
     InitConstants();
 
     // Initialize Free Type
     auto fontFacePath = g_App->GetConfiguration().fontFace;
     m_FontFaceFile    = g_FileIOManager->SyncOpenAndReadBinary(fontFacePath);
-    if (result = FT_Init_FreeType(&m_FTLibrary); result)
-        std::cerr << "[GraphicsManager] FreeType library initialize failed." << std::endl;
+    if (result = FT_Init_FreeType(&m_FTLibrary); result) {
+        m_Logger->error("FreeType library initialize failed.");
+    }
     if (result = FT_New_Memory_Face(m_FTLibrary, m_FontFaceFile.GetData(), m_FontFaceFile.GetDataSize(), 0, &m_FTFace);
-        result)
-        std::cerr << "[GraphicsManager] FreeType font face initialize Failed." << std::endl;
-    if (result = FT_Set_Pixel_Sizes(m_FTFace, 16, 0); result)
-        std::cerr << "[GraphicsManager] FreeType set size failed." << std::endl;
+        result) {
+        m_Logger->error("FreeType font face initialize Failed.");
+    }
+    if (result = FT_Set_Pixel_Sizes(m_FTFace, 16, 0); result) {
+        m_Logger->error("FreeType set size failed.");
+    }
 
     return result;
 }
@@ -39,7 +42,7 @@ void GraphicsManager::Finalize() {
 
 void GraphicsManager::Tick() {
     if (g_SceneManager->IsSceneChanged()) {
-        std::cout << "Detected Scene Change, reinitialize buffers ..." << std::endl;
+        m_Logger->info("Detected Scene Change, reinitialize buffers ...");
         ClearBuffers();
         ClearShaders();
         const Resource::Scene& scene = g_SceneManager->GetSceneForRendering();
@@ -47,7 +50,7 @@ void GraphicsManager::Tick() {
         InitializeBuffers(scene);
         g_SceneManager->NotifySceneIsRenderingQueued();
     }
-    g_GraphicsManager->RenderText("123123gaasdwqzxcx", vec2f(50, 50), 1, vec3f(1.0f));
+    g_GraphicsManager->RenderText("A fox jumped over the lazy brown dog.", vec2f(50, 50), 1, vec3f(1.0f));
     Clear();
     Draw();
 }
@@ -69,12 +72,11 @@ void GraphicsManager::InitConstants() {
 }
 
 bool GraphicsManager::InitializeShaders() {
-    std::cout << "[RHI] GraphicsManager::InitializeShader()" << std::endl;
-
+    m_Logger->debug("Initialize shaders.");
     return true;
 }
 
-void GraphicsManager::ClearShaders() { std::cout << "[GraphicsManager] GraphicsManager::ClearShaders()" << std::endl; }
+void GraphicsManager::ClearShaders() { m_Logger->debug("clear shaders."); }
 
 void GraphicsManager::CalculateCameraMatrix() {
     auto& scene      = g_SceneManager->GetSceneForRendering();
@@ -129,13 +131,9 @@ void GraphicsManager::CalculateLights() {
         lightColor     = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
     }
 }
-void GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
-    std::cout << "[GraphicsManager] GraphicsManager::InitializeBuffers()" << std::endl;
-}
-void GraphicsManager::ClearBuffers() { std::cout << "[GraphicsManager] GraphicsManager::ClearBuffers()" << std::endl; }
-void GraphicsManager::RenderBuffers() {
-    std::cout << "[GraphicsManager] GraphicsManager::RenderBuffers()" << std::endl;
-}
+void GraphicsManager::InitializeBuffers(const Resource::Scene& scene) { m_Logger->debug("Initialize buffers."); }
+void GraphicsManager::ClearBuffers() { m_Logger->debug("Clear buffers."); }
+void GraphicsManager::RenderBuffers() { m_Logger->debug("Render buffers."); }
 
 const FT_GlyphSlot GraphicsManager::GetGlyph(char c) {
     // Generate a bitmap of c.
@@ -146,23 +144,20 @@ const FT_GlyphSlot GraphicsManager::GetGlyph(char c) {
     return glyph;
 }
 
-#if defined(_DEBUG)
 void GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
-    std::cout << "[GraphicsManager] GraphicsManager::RenderLine(" << from << "," << to << "," << color << ")"
-              << std::endl;
+    m_Logger->debug("Draw line from ({}, {}, {}) to ({}, {}, {})", from.x, from.y, from.z, to.x, to.y, to.z);
 }
 
 void GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) {
-    std::cout << "[GraphicsManager] GraphicsManager::RenderBox(" << bbMin << "," << bbMax << "," << color << ")"
-              << std::endl;
+    m_Logger->debug("Draw box bbMin:({}, {}, {}), bbMax: ({}, {}, {}), color: ({}, {}, {})", bbMin.x, bbMin.y, bbMin.z,
+                    bbMax.x, bbMax.y, bbMax.z, color.r, color.g, color.b);
 }
 
 void GraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {
-    std::cout << "[GraphicsManager] GraphicsManager::RenderText [" << text << ']' << std::endl;
+    m_Logger->debug("Render text: {}, position: ({}, {}), scale: {}, color: ({}, {}, {})", text, position.x, position.y,
+                    scale, color.r, color.g, color.b);
 }
 
-void GraphicsManager::ClearDebugBuffers() {
-    std::cout << "[GraphicsManager] GraphicsManager::ClearDebugBuffers(void)" << std::endl;
-}
-#endif
+void GraphicsManager::ClearDebugBuffers() { m_Logger->debug("Clear debug buffers"); }
+
 }  // namespace Hitagi::Graphics

@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+
 #include "Image.hpp"
 #include "MemoryManager.hpp"
 
@@ -70,13 +72,22 @@ Image::~Image() {
 }
 
 std::ostream& operator<<(std::ostream& out, const Image& image) {
-    out << "Image" << std::endl;
-    out << "-----" << std::endl;
-    out << "Width: 0x" << image.m_Width << std::endl;
-    out << "Height: 0x" << image.m_Height << std::endl;
-    out << "Bit Count: 0x" << image.m_Bitcount << std::endl;
-    out << "Pitch: 0x" << image.m_Pitch << std::endl;
-    out << "Data Size: 0x" << image.m_DataSize << std::endl;
-    return out;
+    double            size    = image.m_DataSize;
+    const std::string unit[3] = {"B", "kB", "MB"};
+    size_t            i       = 0;
+    for (; i < 2; i++) {
+        if (size < 10) break;
+        size /= 1024;
+    }
+
+    return out << fmt::format(
+               "{0:-^25}\n"
+               "Width     {1:>10} px\n"
+               "Height    {2:>10} px\n"
+               "Bit Count {3:>10} bits\n"
+               "Pitch     {4:>10} \n"
+               "Data Size {5:>10.2f} {6}\n"
+               "{7:-^25}",
+               "Image Info", image.m_Width, image.m_Height, image.m_Bitcount, image.m_Pitch, size, unit[i], "End");
 }
 }  // namespace Hitagi::Resource
