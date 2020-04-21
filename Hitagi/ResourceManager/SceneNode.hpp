@@ -1,10 +1,4 @@
 #pragma once
-#include <iostream>
-#include <memory>
-#include <vector>
-#include <string>
-#include <list>
-
 #include <fmt/format.h>
 
 #include "SceneObject.hpp"

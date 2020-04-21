@@ -10,17 +10,9 @@ add_executable(SceneLoadingTest SceneLoadingTest.cpp)
 target_link_libraries(SceneLoadingTest PRIVATE SceneManager)
 add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
-add_executable(JpegParserTest JpegParserTest.cpp)
-target_link_libraries(JpegParserTest PRIVATE SceneManager)
-add_test(NAME TEST_JpegParser COMMAND JpegParserTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-
-add_executable(TgaParserTest TgaParserTest.cpp)
-target_link_libraries(TgaParserTest PRIVATE SceneManager)
-add_test(NAME TEST_TgaParser COMMAND TgaParserTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-
-add_executable(PngParserTest PngParserTest.cpp)
-target_link_libraries(PngParserTest PRIVATE SceneManager)
-add_test(NAME TEST_PngParser COMMAND PngParserTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+add_executable(ImageParserTest ImageParserTest.cpp)
+target_link_libraries(ImageParserTest PRIVATE ResourceManager GTest::gtest)
+add_test(NAME TEST_ImageParser COMMAND ImageParserTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(MathTest MathTest.cpp)
 target_link_libraries(MathTest PRIVATE GeomMath GTest::gtest)

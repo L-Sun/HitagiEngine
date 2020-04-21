@@ -75,9 +75,15 @@
         "complex": "cpp",
         "unordered_set": "cpp",
         "core": "cpp",
-        "geometry": "cpp"
+        "geometry": "cpp",
+        "clocale": "cpp",
+        "condition_variable": "cpp",
+        "cstdarg": "cpp"
     },
     "path-intellisense.mappings": {
         "Asset": "${workspaceRoot}/Asset"
-    }
+    },
+    "cmake.configureArgs": [
+        "-DCMAKE_TOOLCHAIN_FILE=E:/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    ]
 }

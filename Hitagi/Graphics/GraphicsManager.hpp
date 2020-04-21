@@ -1,8 +1,8 @@
 #pragma once
 #include <ft2build.h>
 #include FT_FREETYPE_H
+
 #include "IRuntimeModule.hpp"
-#include "GeomMath.hpp"
 #include "Scene.hpp"
 #include "ShaderManager.hpp"
 
@@ -42,9 +42,8 @@ protected:
     virtual void       RenderBuffers();
     const FT_GlyphSlot GetGlyph(char c);
 
-    FrameConstants                  m_FrameConstants;
-    ShaderManager                   m_ShaderManager;
-    std::shared_ptr<spdlog::logger> m_Logger;
+    FrameConstants m_FrameConstants;
+    ShaderManager  m_ShaderManager;
 
 private:
     FT_Library   m_FTLibrary;

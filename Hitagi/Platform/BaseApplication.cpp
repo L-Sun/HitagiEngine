@@ -1,6 +1,17 @@
-#include <iostream>
-#include <thread>
 #include "BaseApplication.hpp"
+
+#include <thread>
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
+#include "GraphicsManager.hpp"
+#include "MemoryManager.hpp"
+#include "InputManager.hpp"
+#include "DebugManager.hpp"
+#include "ResourceManager.hpp"
+#include "GameLogic.hpp"
+#include "IPhysicsManager.hpp"
 
 using namespace Hitagi;
 
@@ -10,74 +21,24 @@ BaseApplication::BaseApplication(GfxConfiguration& cfg) : m_Config(cfg) {}
 
 // Parse command line, read configuration, initialize all sub modules
 int BaseApplication::Initialize() {
-    int ret = 0;
+    int ret  = 0;
+    m_Logger = spdlog::stdout_color_mt("Application");
+    m_Logger->info("Initialize...");
 
     std::cout << m_Config;
 
-    std::cout << "Initialize Memory Manager: ";
-    if ((ret = g_MemoryManager->Initialize()) != 0) {
-        std::cerr << "Failed. err = " << ret;
-        return ret;
-    }
-    std::cout << "Success" << std::endl;
-
-    std::cout << "Initialize Asset Loader: ";
-    if ((ret = g_FileIOManager->Initialize()) != 0) {
-        std::cerr << "Failed. err = " << ret;
-        return ret;
-    }
-    std::cout << "Success" << std::endl;
-
-    std::cout << "Initialize Input Manager: ";
-    if ((ret = g_InputManager->Initialize()) != 0) {
-        std::cerr << "Failed. err = " << ret;
-        return ret;
-    }
-    std::cout << "Success" << std::endl;
-
-    std::cout << "Initialize Scene Manager: ";
-    if ((ret = g_SceneManager->Initialize()) != 0) {
-        std::cerr << "Failed. err = " << ret;
-        return ret;
-    }
-    std::cout << "Success" << std::endl;
-
-    std::cout << "Initialize Graphics Manager: ";
-    if ((ret = g_GraphicsManager->Initialize()) != 0) {
-        std::cerr << "Failed. err = " << ret;
-        return ret;
-    }
-    std::cout << "Success" << std::endl;
-
-    std::cout << "Initialize Physics Manager: ";
-    if ((ret = g_PhysicsManager->Initialize()) != 0) {
-        std::cerr << "Failed. err = " << ret;
-        return ret;
-    }
-    std::cout << "Success" << std::endl;
-
-    std::cout << "Initialize GameLogic Manager: ";
-    if ((ret = g_GameLogic->Initialize()) != 0) {
-        std::cerr << "Failed. err = " << ret;
-        return ret;
-    }
-    std::cout << "Success" << std::endl;
-
-    std::cout << "Initialize Timer: ";
-    if ((ret = m_Clock.Initialize()) != 0) {
-        std::cerr << "Failed. err = " << ret;
-        return ret;
-    }
-    m_Clock.Start();
+    if ((ret = g_MemoryManager->Initialize()) != 0) return ret;
+    if ((ret = g_FileIOManager->Initialize()) != 0) return ret;
+    if ((ret = g_InputManager->Initialize()) != 0) return ret;
+    if ((ret = g_ResourceManager->Initialize()) != 0) return ret;
+    if ((ret = g_SceneManager->Initialize()) != 0) return ret;
+    if ((ret = g_GraphicsManager->Initialize()) != 0) return ret;
+    if ((ret = g_PhysicsManager->Initialize()) != 0) return ret;
+    if ((ret = g_GameLogic->Initialize()) != 0) return ret;
+    if ((ret = m_Clock.Initialize()) != 0) return ret;
 
 #if defined(_DEBUG)
-    std::cout << "Initialize Debug Manager: ";
-    if ((ret = g_DebugManager->Initialize()) != 0) {
-        std::cerr << "Failed. err =" << ret;
-        return ret;
-    }
-    std::cout << "Success" << std::endl;
-
+    if ((ret = g_DebugManager->Initialize()) != 0) return ret;
 #endif
 
     return ret;
@@ -92,9 +53,13 @@ void BaseApplication::Finalize() {
     g_GraphicsManager->Finalize();
     g_PhysicsManager->Finalize();
     g_SceneManager->Finalize();
+    g_ResourceManager->Finalize();
     g_InputManager->Finalize();
     g_FileIOManager->Finalize();
     g_MemoryManager->Finalize();
+
+    m_Logger->info("Finalized.");
+    m_Logger = nullptr;
 }
 
 // One cycle of the main loop
@@ -103,6 +68,7 @@ void BaseApplication::Tick() {
     g_MemoryManager->Tick();
     g_FileIOManager->Tick();
     g_InputManager->Tick();
+    g_ResourceManager->Tick();
     g_SceneManager->Tick();
     g_PhysicsManager->Tick();
     g_GraphicsManager->Tick();

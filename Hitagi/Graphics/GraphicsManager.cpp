@@ -1,13 +1,17 @@
-#include <iostream>
-#include "IApplication.hpp"
 #include "GraphicsManager.hpp"
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
+#include "IApplication.hpp"
 #include "SceneManager.hpp"
-#include "FileIOManager.hpp"
 
 namespace Hitagi::Graphics {
 
 int GraphicsManager::Initialize() {
-    m_Logger   = spdlog::stderr_color_st("GraphicsManager");
+    m_Logger = spdlog::stdout_color_mt("GraphicsManager");
+    m_Logger->info("Initialize...");
+
     int result = m_ShaderManager.Initialize();
     InitConstants();
 
@@ -35,9 +39,13 @@ void GraphicsManager::Finalize() {
     ClearBuffers();
     ClearShaders();
 
+    m_ShaderManager.Finalize();
     // Release Free Type
     FT_Done_Face(m_FTFace);
     FT_Done_FreeType(m_FTLibrary);
+
+    m_Logger->info("Finalized.");
+    m_Logger = nullptr;
 }
 
 void GraphicsManager::Tick() {

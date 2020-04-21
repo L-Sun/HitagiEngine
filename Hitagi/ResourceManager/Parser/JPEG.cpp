@@ -1,11 +1,16 @@
-#include <iostream>
-#include <vector>
-#include <jpeglib.h>
 #include "JPEG.hpp"
+
+#include <jpeglib.h>
+#include <spdlog/spdlog.h>
 
 namespace Hitagi::Resource {
 
 Image JpegParser::Parse(const Core::Buffer& buf) {
+    if (buf.GetDataSize() == 0 || buf.GetData() == nullptr) {
+        spdlog::get("ResourceManager")->warn("[JPEG] Parser a empty file, will return empty image.");
+        return Image();
+    }
+
     jpeg_decompress_struct cinfo;
     jpeg_error_mgr         jerr;
     cinfo.err = jpeg_std_error(&jerr);

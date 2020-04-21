@@ -1,5 +1,8 @@
-#include <iostream>
 #include "GLFWApplication.hpp"
+
+#include <iostream>
+
+#include "InputManager.hpp"
 
 using namespace Hitagi;
 

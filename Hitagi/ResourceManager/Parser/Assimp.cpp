@@ -1,12 +1,14 @@
+#include "Assimp.hpp"
+
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include "Assimp.hpp"
+#include <spdlog/spdlog.h>
 
 namespace Hitagi::Resource {
 
-std::unique_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
-    std::unique_ptr<Scene> scene(new Scene);
+std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
+    std::shared_ptr<Scene> scene = std::make_shared<Scene>();
     Assimp::Importer       importer;
 
     auto flag =
@@ -18,7 +20,7 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
     const aiScene* _scene = importer.ReadFileFromMemory(buf.GetData(), buf.GetDataSize(), flag);
 
     if (!_scene) {
-        m_Logger->error("Can not parse the scene.");
+        spdlog::get("ResourceManager")->error("[Assimp] Can not parse the scene.");
         return nullptr;
     }
 
@@ -40,7 +42,7 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                 break;
             case aiPrimitiveType::_aiPrimitiveType_Force32Bit:
             default:
-                m_Logger->error("Unsupport Primitive Type");
+                spdlog::get("ResourceManager")->error("[Assimp] Unsupport Primitive Type");
         }
 
         // Read Position
@@ -124,13 +126,13 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         switch (_light->mType) {
             case aiLightSourceType::aiLightSource_AMBIENT:
                 std::cerr << "[AssimpParser] " << std::endl;
-                m_Logger->warn("Unsupport light type: AMBIEN");
+                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: AMBIEN");
                 break;
             case aiLightSourceType::aiLightSource_AREA:
-                m_Logger->warn("Unsupport light type: AREA");
+                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: AREA");
                 break;
             case aiLightSourceType::aiLightSource_DIRECTIONAL:
-                m_Logger->warn("Unsupport light type: DIRECTIONAL");
+                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: DIRECTIONAL");
                 break;
             case aiLightSourceType::aiLightSource_POINT: {
                 vec4f color     = normalize(vec4f(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b, 1.0f));
@@ -149,13 +151,13 @@ std::unique_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                     _light->mAngleOuterCone);
             } break;
             case aiLightSourceType::aiLightSource_UNDEFINED:
-                m_Logger->warn("Unsupport light type: UNDEFINED");
+                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: UNDEFINED");
                 break;
             case aiLightSourceType::_aiLightSource_Force32Bit:
-                m_Logger->warn("Unsupport light type: Force32Bit");
+                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: Force32Bit");
                 break;
             default:
-                m_Logger->warn("Unknown light type.");
+                spdlog::get("ResourceManager")->warn("[Assimp] Unknown light type.");
                 break;
         }
         scene->Lights[_light->mName.C_Str()] = light;

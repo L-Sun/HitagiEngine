@@ -1,13 +1,25 @@
-#include <iostream>
 #include "DebugManager.hpp"
-#include "GraphicsManager.hpp"
+
+#include <iostream>
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include "IPhysicsManager.hpp"
+#include "GraphicsManager.hpp"
 
-using namespace Hitagi;
+namespace Hitagi {
 
-int DebugManager::Initialize() { return 0; }
+int DebugManager::Initialize() {
+    m_Logger = spdlog::stdout_color_mt("DebugManager");
+    m_Logger->info("Initialize...");
+    return 0;
+}
 
-void DebugManager::Finalize() {}
+void DebugManager::Finalize() {
+    m_Logger->info("Finalized.");
+    m_Logger = nullptr;
+}
 
 void DebugManager::Tick() {
 #if defined(_DEBUG)
@@ -47,3 +59,4 @@ void DebugManager::DrawDebugInfo() {
     g_GraphicsManager->RenderLine(from, to, color);
 #endif
 }
+}  // namespace Hitagi

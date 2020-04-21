@@ -1,8 +1,13 @@
-add_library(ParserInterface INTERFACE)
-target_include_directories(ParserInterface INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-
 add_subdirectory(Parser)
 
-add_library(SceneManager SceneManager.cpp Scene.cpp SceneObject.cpp Image.cpp)
-target_link_libraries(SceneManager PUBLIC Core Parser PRIVATE crossguid fmt::fmt )
-target_include_directories(SceneManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
+add_library(ResourceManager
+    ResourceManager.cpp
+    Image.cpp
+    Scene.cpp
+    SceneObject.cpp
+)
+target_link_libraries(ResourceManager PUBLIC Core Parser PRIVATE crossguid)
+target_include_directories(ResourceManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
+
+add_library(SceneManager SceneManager.cpp)
+target_link_libraries(SceneManager PUBLIC ResourceManager)

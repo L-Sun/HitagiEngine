@@ -1,7 +1,5 @@
 #pragma once
-#include <cstddef>
-#include <cstring>
-#include "MemoryManager.hpp"
+#include <cstdint>
 
 namespace Hitagi::Core {
 

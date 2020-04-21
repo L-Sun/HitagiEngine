@@ -1,7 +1,15 @@
-#include <iostream>
 #include "ShaderManager.hpp"
 
+#include <spdlog/spdlog.h>
+
 namespace Hitagi::Graphics {
+int  ShaderManager::Initialize() { return 0; }
+void ShaderManager::Finalize() {
+    m_VertexShaders.clear();
+    m_PixelShaders.clear();
+}
+void ShaderManager::Tick() {}
+
 std::string TypeToString(const ShaderType& type) {
     switch (type) {
         case ShaderType::VERTEX:

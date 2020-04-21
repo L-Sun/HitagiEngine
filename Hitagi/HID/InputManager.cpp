@@ -1,12 +1,26 @@
-#include <iostream>
 #include "InputManager.hpp"
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include "SceneManager.hpp"
 #include "DebugManager.hpp"
 
 using namespace Hitagi;
 
-int  InputManager::Initialize() { return 0; }
-void InputManager::Finalize() {}
+int InputManager::Initialize() {
+    m_Logger = spdlog::stdout_color_mt("InputManager");
+    m_Logger->info("Initialize...");
+
+#if defined(DEBUG)
+    m_Logger->set_level(spdlog::level::debug);
+#endif  // DEBUG
+    return 0;
+}
+void InputManager::Finalize() {
+    m_Logger->info("Finalized.");
+    m_Logger = nullptr;
+}
 void InputManager::Tick() {}
 
 void InputManager::UpArrowKeyDown() {

@@ -4,6 +4,7 @@
 #include <iomanip>
 #include FT_FREETYPE_H
 
+#include "MemoryManager.hpp"
 #include "FileIOManager.hpp"
 using namespace std;
 using namespace Hitagi;
@@ -19,7 +20,7 @@ using namespace Hitagi;
 
 namespace Hitagi {
 std::unique_ptr<Core::MemoryManager> g_MemoryManager(new Core::MemoryManager);
-std::unique_ptr<Core::FileIOManager>        g_FileIOManager(new Core::FileIOManager);
+std::unique_ptr<Core::FileIOManager> g_FileIOManager(new Core::FileIOManager);
 }  // namespace Hitagi
 void Init() {
     g_MemoryManager->Initialize();

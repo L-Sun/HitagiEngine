@@ -1,7 +1,8 @@
-#include "GeomMath.hpp"
-#include "ImageParser.hpp"
-#include "portable.hpp"
 #include "TGA.hpp"
+
+#include <spdlog/spdlog.h>
+
+#include "GeomMath.hpp"
 
 namespace Hitagi::Resource {
 
@@ -19,23 +20,22 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
     const uint8_t* data     = buf.GetData();
     const uint8_t* pDataEnd = data + buf.GetDataSize();
 
-    m_Logger->debug("Parsing as TGA file:");
+    spdlog::get("ResourceManager")->debug("[TGA] Parsing as TGA file:");
     const TGA_FILEHEADER* fileHeader =
         reinterpret_cast<const TGA_FILEHEADER*>(data);
     data += sizeof(TGA_FILEHEADER);
 
-    m_Logger->debug("ID Length:      {}", fileHeader->IDLength);
-    m_Logger->debug("Color Map Type: {}", fileHeader->ColorMapType);
+    spdlog::get("ResourceManager")->debug("[TGA] ID Length:         {}", fileHeader->IDLength);
+    spdlog::get("ResourceManager")->debug("[TGA] Color Map Type:    {}", fileHeader->ColorMapType);
+    spdlog::get("ResourceManager")->debug("[TGA] Image Type:        {}", fileHeader->ImageType);
 
     if (fileHeader->ColorMapType) {
-        m_Logger->warn("Unsupported Color Map. Only Type 0 is supported.");
+        spdlog::get("ResourceManager")->warn("[TGA] Unsupported Color Map. Only Type 0 is supported.");
         return Image();
     }
 
-    m_Logger->debug("Color Map Type: {}", fileHeader->ImageType);
-
     if (fileHeader->ImageType != 2) {
-        m_Logger->warn("Unsupported Image Type. Only Type 2 is supported.");
+        spdlog::get("ResourceManager")->warn("[TGA] Unsupported Image Type. Only Type 2 is supported.");
         return Image();
     }
     // tga all values are little-endian
@@ -50,10 +50,10 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
     Image img(width, height, bitcount, pitch, dataSize);
 
     uint8_t alpha_depth = fileHeader->ImageSpec[9] & 0x0F;
-    m_Logger->debug("Image width:       {}", width);
-    m_Logger->debug("Image height:      {}", height);
-    m_Logger->debug("Image Pixel Depth: {}", pixelDepth);
-    m_Logger->debug("Image Alpha Depth: {}", alpha_depth);
+    spdlog::get("ResourceManager")->debug("[TGA] Image width:       {}", width);
+    spdlog::get("ResourceManager")->debug("[TGA] Image height:      {}", height);
+    spdlog::get("ResourceManager")->debug("[TGA] Image Pixel Depth: {}", pixelDepth);
+    spdlog::get("ResourceManager")->debug("[TGA] Image Alpha Depth: {}", alpha_depth);
     // skip Image ID
     data += fileHeader->IDLength;
     // skip the Color Map. since we assume the Color Map Type is 0,
@@ -111,4 +111,4 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
         assert(data <= pDataEnd);
         return img;
 }
-}
+}  // namespace Hitagi::Resource

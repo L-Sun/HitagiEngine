@@ -1,5 +1,6 @@
 #pragma once
 #include <unordered_map>
+
 #include "FileIOManager.hpp"
 
 namespace Hitagi::Graphics {
@@ -10,9 +11,9 @@ class PixelShader;
 
 class ShaderManager : public IRuntimeModule {
 public:
-    int  Initialize() final { return 0; }
-    void Finalize() final {}
-    void Tick() final {}
+    int  Initialize() final;
+    void Finalize() final;
+    void Tick() final;
 
     void                LoadShader(std::filesystem::path shaderPath, ShaderType type, std::string name = "");
     const VertexShader& GetVertexShader(const std::string& name) const { return m_VertexShaders.at(name); }

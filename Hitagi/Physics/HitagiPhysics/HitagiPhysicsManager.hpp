@@ -1,19 +1,10 @@
 #pragma once
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
 #include "IPhysicsManager.hpp"
 #include "Geometry.hpp"
 
 namespace Hitagi::Physics {
 class HitagiPhysicsManager : public IPhysicsManager {
 public:
-    HitagiPhysicsManager() : m_Logger(spdlog::stdout_color_st("HitagiPhysicsManager")) {
-#if defined(_DEBUG)
-        m_Logger->set_level(spdlog::level::debug);
-
-#endif
-    }
     virtual ~HitagiPhysicsManager() {}
 
     int  Initialize() final;
@@ -39,8 +30,5 @@ protected:
 #if defined(_DEBUG)
     void DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass);
 #endif
-
-private:
-    std::shared_ptr<spdlog::logger> m_Logger;
 };
 }  // namespace Hitagi::Physics

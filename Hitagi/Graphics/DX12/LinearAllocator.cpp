@@ -1,5 +1,6 @@
-#include <new>
 #include "LinearAllocator.hpp"
+
+#include <new>
 
 namespace Hitagi::Graphics::DX12 {
 size_t align(size_t x, size_t a) { return (x + a - 1) & ~(a - 1); }

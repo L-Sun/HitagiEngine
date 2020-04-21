@@ -1,7 +1,7 @@
 #pragma once
-#include <iostream>
-#include <iomanip>
 #include <cmath>
+
+#include <fmt/format.h>
 
 namespace ispc { /* namespace */
 extern "C" {
@@ -167,15 +167,7 @@ struct Vector : public BaseVector<T, D> {
     operator const T*() const { return static_cast<const T*>(data); }
 
     friend std::ostream& operator<<(std::ostream& out, Vector v) {
-        std::ios state(NULL);
-        state.copyfmt(out);
-        out << "(" << std::setprecision(2);
-        for (size_t i = 0; i < D - 1; i++) {
-            out << v.data[i] << ", ";
-        }
-        out << v.data[D - 1] << ")" << std::flush;
-        out.copyfmt(state);
-        return out;
+        return out << fmt::format("({:.2f})", fmt::join(v.data, ", "));
     }
 
     const Vector operator+(const Vector& rhs) const {
@@ -295,26 +287,20 @@ struct Matrix {
     operator const T*() const { return static_cast<const T*>(&data[0][0]); }
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
-        std::ios state(NULL);
-        state.copyfmt(out);
-        std::fixed(out);
-        out << std::setprecision(3);
         for (int i = 0; i < ROWS; i++) {
             if (i == 0)
                 out << "\n{{";
             else
                 out << " {";
             for (unsigned j = 0; j < COLS; j++) {
-                out << mat(i, j);
+                out << fmt::format("{:.2f}", mat(i, j));
                 if (j != COLS - 1) out << ", ";
             }
             if (i != ROWS - 1)
                 out << "},\n";
             else
-                out << "}}\n";
+                out << "}}";
         }
-        out << std::flush;
-        out.copyfmt(state);
         return out;
     }
 

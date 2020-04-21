@@ -11,9 +11,10 @@ target_include_directories(GeomMath INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 set_target_properties(GeomMath
     PROPERTIES
         IMPORTED_LOCATION ${GEOMMATH_LIB_FILE})
+target_link_libraries(GeomMath INTERFACE fmt::fmt)
 
-target_link_libraries(MemoryManager PUBLIC Interface)
-target_link_libraries(FileIOManager PUBLIC Interface MemoryManager spdlog::spdlog)
+target_link_libraries(MemoryManager PUBLIC Interface spdlog::spdlog)
+target_link_libraries(FileIOManager PUBLIC Interface MemoryManager)
 target_link_libraries(Timer         PUBLIC Interface)
 
 target_include_directories(MemoryManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

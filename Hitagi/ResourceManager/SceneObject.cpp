@@ -1,11 +1,9 @@
+#include "SceneObject.hpp"
+
 #include <variant>
 
-#include "SceneObject.hpp"
-#include "FileIOManager.hpp"
-#include "JPEG.hpp"
-#include "PNG.hpp"
-#include "BMP.hpp"
-#include "TGA.hpp"
+#include "MemoryManager.hpp"
+#include "ResourceManager.hpp"
 
 namespace Hitagi::Resource {
 // Class BaseSceneObject
@@ -245,21 +243,7 @@ void SceneObjectTexture::SetName(const std::string& name) { m_Name = name; }
 void SceneObjectTexture::SetName(std::string&& name) { m_Name = std::move(name); }
 void SceneObjectTexture::LoadTexture() {
     if (!m_Image) {
-        Core::Buffer buf = g_FileIOManager->SyncOpenAndReadBinary(m_Name);
-        auto         ext = std::filesystem::path(m_Name).extension();
-        if (ext == ".jpg" || ext == ".jpeg") {
-            JpegParser jfif_parser;
-            m_Image = std::make_shared<Image>(jfif_parser.Parse(buf));
-        } else if (ext == ".png") {
-            PngParser png_arser;
-            m_Image = std::make_shared<Image>(png_arser.Parse(buf));
-        } else if (ext == ".bmp") {
-            BmpParser bmp_parser;
-            m_Image = std::make_shared<Image>(bmp_parser.Parse(buf));
-        } else if (ext == ".tga") {
-            TgaParser tga_parser;
-            m_Image = std::make_shared<Image>(tga_parser.Parse(buf));
-        }
+        m_Image = g_ResourceManager->ParseImage(std::filesystem::path(m_Name));
     }
 }
 const std::string& SceneObjectTexture::GetName() const { return m_Name; }
@@ -267,7 +251,6 @@ const Image&       SceneObjectTexture::GetTextureImage() {
     if (!m_Image) {
         LoadTexture();
     }
-
     return *m_Image;
 }
 

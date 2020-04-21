@@ -8,11 +8,12 @@ add_library(Parser
 
 target_link_libraries(Parser
     PRIVATE
-        ParserInterface
-        Core
+        MemoryManager
+        GeomMath
         ${JPEG_LIBRARIES}
         png
         assimp::assimp
+        spdlog::spdlog
 )
 target_include_directories(Parser
     INTERFACE

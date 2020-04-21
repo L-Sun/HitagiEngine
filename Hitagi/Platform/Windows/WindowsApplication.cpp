@@ -1,9 +1,12 @@
 
 #include "WindowsApplication.hpp"
+
 #include <tchar.h>
 #include <sstream>
 
-using namespace Hitagi;
+#include "InputManager.hpp"
+
+namespace Hitagi {
 
 void WindowsApplication::CreateMainWindow() {
     // get the HINSTANCE of the Console Program
@@ -165,3 +168,4 @@ LRESULT CALLBACK WindowsApplication::WindowProc(HWND hWnd, UINT message, WPARAM 
     // Handle any messages the switch statement didn't
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
+}  // namespace Hitagi

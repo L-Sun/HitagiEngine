@@ -1,5 +1,8 @@
-#include <iostream>
 #include "HitagiPhysicsManager.hpp"
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include "Box.hpp"
 #include "Plane.hpp"
 #include "Sphere.hpp"
@@ -9,14 +12,17 @@
 namespace Hitagi::Physics {
 
 int HitagiPhysicsManager::Initialize() {
+    m_Logger = spdlog::stdout_color_mt("HitagiPhysicsManager");
     m_Logger->info("Initialize.");
     return 0;
 }
 
 void HitagiPhysicsManager::Finalize() {
-    m_Logger->info("Finalize.");
     // Clean up
     ClearRigidBodies();
+
+    m_Logger->info("Finalized.");
+    m_Logger = nullptr;
 }
 
 void HitagiPhysicsManager::Tick() {

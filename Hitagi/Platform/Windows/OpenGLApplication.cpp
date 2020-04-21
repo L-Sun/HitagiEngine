@@ -1,7 +1,6 @@
-// the fllowing include order can not change, because the header glad.h must be
-// before glwf3.h
-#include "OpenGLGraphicsManager.hpp"
 #include "OpenGLApplication.hpp"
+
+#include "OpenGLGraphicsManager.hpp"
 
 using namespace Hitagi;
 

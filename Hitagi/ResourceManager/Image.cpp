@@ -1,6 +1,7 @@
+#include "Image.hpp"
+
 #include <fmt/format.h>
 
-#include "Image.hpp"
 #include "MemoryManager.hpp"
 
 namespace Hitagi::Resource {

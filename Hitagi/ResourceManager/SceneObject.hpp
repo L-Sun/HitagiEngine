@@ -1,11 +1,7 @@
 #pragma once
-#include <iostream>
-#include <string>
-#include <vector>
-#include <memory>
 #include <crossguid/guid.hpp>
+
 #include "GeomMath.hpp"
-#include "portable.hpp"
 #include "Image.hpp"
 
 namespace Hitagi::Resource {

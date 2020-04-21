@@ -1,10 +1,7 @@
-#include <iostream>
-#include <fstream>
-#include <cassert>
 #include "OpenGLGraphicsManager.hpp"
-#include "IApplication.hpp"
-#include "FileIOManager.hpp"
-#include "SceneManager.hpp"
+
+#include <fstream>
+
 #include "IPhysicsManager.hpp"
 
 namespace Hitagi::Graphics::OpenGL {

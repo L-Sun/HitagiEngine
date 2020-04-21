@@ -1,13 +1,5 @@
 #pragma once
 #include "IApplication.hpp"
-#include "GraphicsManager.hpp"
-#include "MemoryManager.hpp"
-#include "FileIOManager.hpp"
-#include "SceneManager.hpp"
-#include "InputManager.hpp"
-#include "DebugManager.hpp"
-#include "GameLogic.hpp"
-#include "IPhysicsManager.hpp"
 #include "Timer.hpp"
 
 namespace Hitagi {

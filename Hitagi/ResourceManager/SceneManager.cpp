@@ -1,6 +1,9 @@
 #include "SceneManager.hpp"
-#include "FileIOManager.hpp"
-#include "Assimp.hpp"
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
+#include "ResourceManager.hpp"
 
 namespace Hitagi::Resource {
 
@@ -8,27 +11,22 @@ SceneManager::~SceneManager() {}
 
 int SceneManager::Initialize() {
     int result = 0;
-    m_Scene    = std::make_unique<Scene>();
+    m_Logger   = spdlog::stdout_color_mt("SceneManager");
+    m_Logger->info("Initialize...");
+
     return result;
 }
-void SceneManager::Finalize() { m_Scene = nullptr; }
-
-void SceneManager::Tick() {
-    if (IsSceneChanged()) {
-    }
+void SceneManager::Finalize() {
+    m_Scene = nullptr;
+    m_Logger->info("Finalized.");
+    m_Logger = nullptr;
 }
 
-int SceneManager::LoadScene(std::filesystem::path sceneFile) {
-    m_ScenePath      = sceneFile;
-    Core::Buffer buf = g_FileIOManager->SyncOpenAndReadBinary(sceneFile);
-    AssimpParser parser;
-    m_Scene = parser.Parse(buf);
-    if (m_Scene) {
-        m_Scene->LoadResource();
-        m_DirtyFlag = true;
-        return 0;
-    }
-    return -1;
+void SceneManager::Tick() {}
+
+void SceneManager::SetScene(std::filesystem::path name) {
+    m_Scene     = g_ResourceManager->ParseScene(name);
+    m_DirtyFlag = true;
 }
 
 void SceneManager::ResetScene() { m_DirtyFlag = true; }

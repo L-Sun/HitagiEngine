@@ -1,5 +1,10 @@
 #pragma once
 #include <memory>
+
+namespace spdlog {
+class logger;
+}
+
 namespace Hitagi {
 class IRuntimeModule {
 public:
@@ -11,5 +16,7 @@ public:
 #if defined(_DEBUG)
     virtual void DrawDebugInfo(){};
 #endif
+protected:
+    std::shared_ptr<spdlog::logger> m_Logger;
 };
 }  // namespace Hitagi

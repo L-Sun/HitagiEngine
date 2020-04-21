@@ -1,5 +1,8 @@
-#include <algorithm>
 #include "Buffer.hpp"
+
+#include <algorithm>
+
+#include "MemoryManager.hpp"
 
 namespace Hitagi::Core {
 

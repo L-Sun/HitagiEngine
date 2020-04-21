@@ -1,7 +1,11 @@
-#include <iostream>
-#include "GeomMath.hpp"
-#include "png.h"
 #include "PNG.hpp"
+
+#include <iostream>
+
+#include <spdlog/spdlog.h>
+#include <png.h>
+
+#include "GeomMath.hpp"
 
 namespace Hitagi::Resource {
 
@@ -26,25 +30,25 @@ Image PngParser::Parse(const Core::Buffer& buf) {
     if (buf.GetDataSize() < PNG_BYTES_TO_CHECK ||
         png_sig_cmp(reinterpret_cast<png_const_bytep>(buf.GetData()), 0,
                     PNG_BYTES_TO_CHECK)) {
-        m_Logger->warn("File format is not png!");
+        spdlog::get("ResourceManager")->warn("[PNG] File format is not png!");
         return Image();
     }
 
     png_structp png_tr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr,
                                                 nullptr, nullptr);
     if (!png_tr) {
-        m_Logger->error("Can not create read struct.");
+        spdlog::get("ResourceManager")->error("[PNG] Can not create read struct.");
         return Image();
     }
     png_infop info_ptr = png_create_info_struct(png_tr);
     if (!info_ptr) {
-        m_Logger->error("Can not create info struct.");
+        spdlog::get("ResourceManager")->error("[PNG] Can not create info struct.");
         png_destroy_read_struct(&png_tr, nullptr, nullptr);
         return Image();
     }
 
     if (setjmp(png_jmpbuf(png_tr))) {
-        m_Logger->error("Error occur during read_image.");
+        spdlog::get("ResourceManager")->error("[PNG] Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, 0);
         return Image();
     }
@@ -113,7 +117,7 @@ Image PngParser::Parse(const Core::Buffer& buf) {
             }
         } break;
         default:
-            m_Logger->error("Unsupport color type.");
+            spdlog::get("ResourceManager")->error("[PNG] Unsupport color type.");
             return img;
             break;
     }

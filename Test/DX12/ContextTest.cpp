@@ -1,5 +1,14 @@
 #include "CommandContext.hpp"
 
+#define _CRTDBG_MAP_ALLOC
+#ifdef _WIN32
+#include <crtdbg.h>
+#ifdef _DEBUG
+
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
+#endif
+
 using namespace Microsoft::WRL;
 using namespace Hitagi::Graphics::DX12;
 int main(int argc, char const* argv[]) {
@@ -34,5 +43,10 @@ int main(int argc, char const* argv[]) {
     for (size_t i = 0; i < 100000; i++) {
         CommandContext context(mgr, D3D12_COMMAND_LIST_TYPE_DIRECT);
     }
+
+#ifdef _WIN32
+    _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
+    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG);
+#endif
     return 0;
 }

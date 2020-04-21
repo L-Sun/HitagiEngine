@@ -1,5 +1,7 @@
 #include "MemoryManager.hpp"
-#include <malloc.h>
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace Hitagi::Core {
 
@@ -27,20 +29,22 @@ size_t*               MemoryManager::m_BlockSizeLookup;
 Allocator*            MemoryManager::m_Allocators;
 
 int MemoryManager::Initialize() {
-    m_Initialized = false;
-    if (!m_Initialized) {
-        m_BlockSizeLookup = new size_t[kMaxBlockSize + 1];
+    if (m_Initialized) return 0;
 
-        for (size_t i = 0, j = 0; i <= kMaxBlockSize; i++) {
-            if (i > kBlockSizes[j]) ++j;
-            m_BlockSizeLookup[i] = j;
-        }
+    m_Logger = spdlog::stdout_color_mt("MemoryManager");
+    m_Logger->info("Initialize...");
 
-        m_Allocators = new Allocator[kNumBlockSizes];
-        for (size_t i = 0; i < kNumBlockSizes; i++) m_Allocators[i].Reset(kBlockSizes[i], kPageSize, kAlignment);
+    m_BlockSizeLookup = new size_t[kMaxBlockSize + 1];
 
-        m_Initialized = true;
+    for (size_t i = 0, j = 0; i <= kMaxBlockSize; i++) {
+        if (i > kBlockSizes[j]) ++j;
+        m_BlockSizeLookup[i] = j;
     }
+
+    m_Allocators = new Allocator[kNumBlockSizes];
+    for (size_t i = 0; i < kNumBlockSizes; i++) m_Allocators[i].Reset(kBlockSizes[i], kPageSize, kAlignment);
+
+    m_Initialized = true;
     return 0;
 }
 
@@ -51,6 +55,9 @@ void MemoryManager::Finalize() {
 
     delete[] m_Allocators;
     delete[] m_BlockSizeLookup;
+
+    m_Logger->info("Finalize.");
+    m_Logger      = nullptr;
     m_Initialized = false;
 }
 

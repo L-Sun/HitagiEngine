@@ -9,11 +9,11 @@
 using namespace Hitagi;
 
 int MyTest::Initialize() {
-    int result;
+    int result = 0;
 
     std::cout << "Hitagi Game Logic Initialize" << std::endl;
     std::cout << "Start Loading Game Scene" << std::endl;
-    result = g_SceneManager->LoadScene("Asset/Scene/test.fbx");
+    g_SceneManager->SetScene("Asset/Scene/test.fbx");
     m_Clock.Initialize();
     m_Clock.Start();
     return result;

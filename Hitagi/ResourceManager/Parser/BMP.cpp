@@ -1,30 +1,31 @@
-#include <iostream>
-#include "GeomMath.hpp"
 #include "BMP.hpp"
+
+#include <spdlog/spdlog.h>
+
+#include "GeomMath.hpp"
 
 namespace Hitagi::Resource {
 
 Image BmpParser::Parse(const Core::Buffer& buf) {
-    Image                    img;
     const BITMAP_FILEHEADER* fileHeader =
         reinterpret_cast<const BITMAP_FILEHEADER*>(buf.GetData());
     const BITMAP_HEADER* bmpHeader = reinterpret_cast<const BITMAP_HEADER*>(
         buf.GetData() + BITMAP_FILEHEADER_SIZE);
     if (fileHeader->Signature == 0x4D42 /* 'B''M' */) {
-        m_Logger->debug("Asset is Windows BMP file");
-        m_Logger->debug("BMP Header");
-        m_Logger->debug("-----------------------------------");
-        m_Logger->debug("File Size:          {}", fileHeader->Size);
-        m_Logger->debug("Data Offset:        {}", fileHeader->BitsOffset);
-        m_Logger->debug("Image Width:        {}", bmpHeader->Width);
-        m_Logger->debug("Image Height:       {}", bmpHeader->Height);
-        m_Logger->debug("Image Planes:       {}", bmpHeader->Planes);
-        m_Logger->debug("Image BitCount:     {}", bmpHeader->BitCount);
-        m_Logger->debug("Image Comperession: {}", bmpHeader->Compression);
-        m_Logger->debug("Image Size:         {}", bmpHeader->SizeImage);
+        spdlog::get("ResourceManager")->debug("[BMP] Asset is Windows BMP file");
+        spdlog::get("ResourceManager")->debug("[BMP] BMP Header");
+        spdlog::get("ResourceManager")->debug("[BMP] -----------------------------------");
+        spdlog::get("ResourceManager")->debug("[BMP] File Size:          {}", fileHeader->Size);
+        spdlog::get("ResourceManager")->debug("[BMP] Data Offset:        {}", fileHeader->BitsOffset);
+        spdlog::get("ResourceManager")->debug("[BMP] Image Width:        {}", bmpHeader->Width);
+        spdlog::get("ResourceManager")->debug("[BMP] Image Height:       {}", bmpHeader->Height);
+        spdlog::get("ResourceManager")->debug("[BMP] Image Planes:       {}", bmpHeader->Planes);
+        spdlog::get("ResourceManager")->debug("[BMP] Image BitCount:     {}", bmpHeader->BitCount);
+        spdlog::get("ResourceManager")->debug("[BMP] Image Comperession: {}", bmpHeader->Compression);
+        spdlog::get("ResourceManager")->debug("[BMP] Image Size:         {}", bmpHeader->SizeImage);
 
-        auto     width      = bmpHeader->Width;
-        auto     height     = bmpHeader->Height;
+        auto     width      = std::abs(bmpHeader->Width);
+        auto     height     = std::abs(bmpHeader->Height);
         auto     bitcount   = 32;
         auto     byte_count = bitcount >> 3;
         auto     pitch      = ((width * bitcount >> 3) + 3) & ~3;
@@ -32,7 +33,7 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
         Image    img(width, height, bitcount, pitch, dataSize);
         uint8_t* data = reinterpret_cast<uint8_t*>(img.getData());
         if (bitcount < 24) {
-            m_Logger->warn("Sorry, only true color BMP is supported at now.");
+            spdlog::get("ResourceManager")->warn("[BMP] Sorry, only true color BMP is supported at now.");
         } else {
             const uint8_t* sourceData =
                 reinterpret_cast<const uint8_t*>(buf.GetData()) +
@@ -46,7 +47,9 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
                 }
             }
         }
+
+        return img;
     }
-    return img;
+    return Image();
 }
 }  // namespace Hitagi::Resource

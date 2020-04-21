@@ -1,16 +1,10 @@
 #pragma once
-#include <unordered_map>
-#include <vector>
-#include <string>
-#include <memory>
 #include <queue>
 #include <variant>
+
 #include <glad/glad.h>
 
 #include "GraphicsManager.hpp"
-#include "SceneObject.hpp"
-#include "SceneNode.hpp"
-#include "GeomMath.hpp"
 
 namespace Hitagi::Graphics::OpenGL {
 

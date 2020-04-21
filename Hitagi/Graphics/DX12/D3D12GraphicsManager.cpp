@@ -1,4 +1,5 @@
 #include "D3D12GraphicsManager.hpp"
+
 #include "WindowsApplication.hpp"
 
 namespace Hitagi::Graphics::DX12 {

@@ -1,5 +1,6 @@
 #pragma once
 #include <filesystem>
+
 #include "IRuntimeModule.hpp"
 #include "Scene.hpp"
 
@@ -12,7 +13,7 @@ public:
     virtual void Finalize();
     virtual void Tick();
 
-    int LoadScene(std::filesystem::path sceneFile);
+    void SetScene(std::filesystem::path name);
 
     bool IsSceneChanged();
     void NotifySceneIsRenderingQueued();
@@ -27,9 +28,8 @@ public:
     std::weak_ptr<SceneObjectGeometry> GetSceneGeometryObject(const std::string& key);
 
 protected:
-    std::unique_ptr<Scene> m_Scene;
+    std::shared_ptr<Scene> m_Scene;
     bool                   m_DirtyFlag = false;
-    std::filesystem::path  m_ScenePath;
 };
 
 }  // namespace Hitagi::Resource
