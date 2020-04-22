@@ -41,6 +41,7 @@ int BaseApplication::Initialize() {
     if ((ret = g_DebugManager->Initialize()) != 0) return ret;
 #endif
 
+    m_Clock.Start();
     return ret;
 }
 
@@ -58,6 +59,7 @@ void BaseApplication::Finalize() {
     g_FileIOManager->Finalize();
     g_MemoryManager->Finalize();
 
+    m_Clock.Finalize();
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
@@ -76,6 +78,7 @@ void BaseApplication::Tick() {
 #if defined(_DEBUG)
     g_DebugManager->Tick();
 #endif
+
     m_FPS = 1.0 / m_Clock.deltaTime().count();
     if (m_FPSLimit != -1) {
         std::this_thread::sleep_for(std::chrono::seconds(1) / static_cast<double>(m_FPSLimit));
