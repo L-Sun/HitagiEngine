@@ -284,14 +284,17 @@ public:
     void SetMaterial(const std::weak_ptr<SceneObjectMaterial>& material);
 
     // Get some things
-    size_t                             GetVertexCount() const;
-    size_t                             GetVertexPropertiesCount() const;
+    size_t GetVertexCount() const;
+    size_t GetVertexPropertiesCount() const;
+    // TODO replace const string& with string_view in c++20
+    bool                               HasProperty(const std::string& name) const;
     const SceneObjectVertexArray&      GetVertexPropertyArray(const std::string& attr) const;
     const SceneObjectIndexArray&       GetIndexArray() const;
     const PrimitiveType&               GetPrimitiveType();
     std::weak_ptr<SceneObjectMaterial> GetMaterial() const;
     BoundingBox                        GetBoundingBox() const;
-    friend std::ostream&               operator<<(std::ostream& out, const SceneObjectMesh& obj);
+
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectMesh& obj);
 };
 
 class SceneObjectGeometry : public BaseSceneObject {

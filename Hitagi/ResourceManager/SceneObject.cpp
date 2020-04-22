@@ -188,7 +188,8 @@ void   SceneObjectMesh::SetMaterial(const std::weak_ptr<SceneObjectMaterial>& ma
 size_t SceneObjectMesh::GetVertexCount() const {
     return m_VertexArray.empty() ? 0 : m_VertexArray.cbegin()->second.GetVertexCount();
 }
-size_t                        SceneObjectMesh::GetVertexPropertiesCount() const { return m_VertexArray.size(); }
+size_t SceneObjectMesh::GetVertexPropertiesCount() const { return m_VertexArray.size(); }
+bool   SceneObjectMesh::HasProperty(const std::string& name) const { return m_VertexArray.count(name) != 0; }
 const SceneObjectVertexArray& SceneObjectMesh::GetVertexPropertyArray(const std::string& attr) const {
     return m_VertexArray.at(attr);
 }

@@ -316,8 +316,10 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
         auto m      = std::make_shared<MeshInfo>();
         m->material = pMesh->GetMaterial();
         for (auto&& inputLayout : m_InputLayout) {
-            auto& vertexArray = pMesh->GetVertexPropertyArray(inputLayout.SemanticName);
-            CreateVertexBuffer(vertexArray, m);
+            if (pMesh->HasProperty(inputLayout.SemanticName)) {
+                auto& vertexArray = pMesh->GetVertexPropertyArray(inputLayout.SemanticName);
+                CreateVertexBuffer(vertexArray, m);
+            }
         }
         auto& indexArray = pMesh->GetIndexArray();
         m->indexCount    = indexArray.GetIndexCount();

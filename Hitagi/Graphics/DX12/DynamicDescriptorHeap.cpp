@@ -154,14 +154,16 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
         D3D12_CPU_DESCRIPTOR_HANDLE start[] = {m_CurrentCPUDescriptorHandle};
         UINT                        size[]  = {numSrcDesriptors};
 
-        device->CopyDescriptors(1, start, size, numSrcDesriptors, srcDescriptorHandles, nullptr, m_Type);
+        if (srcDescriptorHandles->ptr != 0) {
+            device->CopyDescriptors(1, start, size, numSrcDesriptors, srcDescriptorHandles, nullptr, m_Type);
 
-        // Set the descriptors on the command list using the passed-in setter function.
-        setFunc(cmdList, rootIndex, m_CurrentGPUDescriptorHandle);
+            // Set the descriptors on the command list using the passed-in setter function.
+            setFunc(cmdList, rootIndex, m_CurrentGPUDescriptorHandle);
 
-        m_CurrentCPUDescriptorHandle.Offset(numSrcDesriptors, m_HandleIncrementSize);
-        m_CurrentGPUDescriptorHandle.Offset(numSrcDesriptors, m_HandleIncrementSize);
-        m_NumFreeHandles -= numSrcDesriptors;
+            m_CurrentCPUDescriptorHandle.Offset(numSrcDesriptors, m_HandleIncrementSize);
+            m_CurrentGPUDescriptorHandle.Offset(numSrcDesriptors, m_HandleIncrementSize);
+            m_NumFreeHandles -= numSrcDesriptors;
+        }
 
         // Filp the current bit
         m_StaleDescriptorTableBitMask ^= (1 << rootIndex);
@@ -170,6 +172,7 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
 
 D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(ID3D12GraphicsCommandList5* cmdList,
                                                                   D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle) {
+    assert(cpuDescriptorHandle.ptr != 0);
     if (!m_CurrentDescriptorHeap || m_NumFreeHandles < 1) {
         auto heap                    = RequestDescriptorHeap();
         m_CurrentDescriptorHeap      = heap.first;
