@@ -32,25 +32,26 @@ public:
         std::shared_ptr<mat4f> result(new mat4f(1.0f));
 
         for (auto trans : m_Transforms) {
-            *result *= static_cast<mat4f>(*trans);
+            *result = static_cast<mat4f>(*trans) * (*result);
         }
-        *result *= m_RuntimeTransform;
+        *result = m_RuntimeTransform * (*result);
         return result;
     }
     // Get is the node updated
     bool Dirty() const { return m_Dirty; }
     void ClearDirty() { m_Dirty = false; }
 
-    void RotateBy(const float& x, const float& y, const float& z) {
-        m_RuntimeTransform *= rotate(mat4f(1.0f), x, y, z);
-        m_Dirty = true;
-    }
-    void Move(const float& x, const float& y, const float& z) {
-        m_RuntimeTransform *= translate(mat4f(1.0f), vec3f(x, y, z));
-        m_Dirty = true;
+    void ApplyTransform(const mat4f& trans) {
+        m_RuntimeTransform = trans * m_RuntimeTransform;
+        m_Dirty            = true;
     }
 
-    void Reset() { m_RuntimeTransform = mat4f(1.0f); }
+    void Reset(bool recursive = false) {
+        m_RuntimeTransform = mat4f(1.0f);
+        if (recursive)
+            for (auto&& child : m_Chlidren)
+                if (child) child->Reset(recursive);
+    }
 
     friend std::ostream& operator<<(std::ostream& out, const BaseSceneNode& node) {
         static unsigned indent = 0;
@@ -138,8 +139,9 @@ protected:
 
 public:
     using SceneNode::SceneNode;
-    void         SetTarget(vec3f& target) { m_Target = target; }
+    void         SetTarget(const vec3f& target) { m_Target = target; }
     const vec3f& GetTarget() { return m_Target; }
+    mat4f        GetViewMatrix() const { return inverse(*GetCalculatedTransform()); }
 };
 
 }  // namespace Hitagi::Resource

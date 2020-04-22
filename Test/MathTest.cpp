@@ -121,7 +121,6 @@ TEST(MatrixTest, MatMulMat) {
     Matrix<float, 3, 4> y = {{0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}};
     Matrix<float, 2, 4> z = {{20, 23, 26, 29}, {56, 68, 80, 92}};
     matrix_eq(x * y, z);
-    matrix_eq(l *= r, mat3f({{30, 24, 18}, {84, 69, 54}, {138, 114, 90}}));
 }
 TEST(MatrixTest, MatMulVec) {
     mat3f                l = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};

@@ -180,6 +180,16 @@ Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector<T, 4>& quatv) {
     return rotate_mat * mat;
 }
 template <typename T>
+Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, T s) {
+    auto res = mat;
+    for (size_t i = 0; i < 4; i++) {
+        res(0, i) *= s;
+        res(1, i) *= s;
+        res(2, i) *= s;
+    }
+    return res;
+}
+template <typename T>
 Matrix<T, 4, 4> scale(const Matrix<T, 4, 4>& mat, const Vector<T, 3>& v) {
     auto res = mat;
     for (size_t i = 0; i < 4; i++) {
