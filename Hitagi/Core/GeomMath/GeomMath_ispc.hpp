@@ -376,7 +376,6 @@ struct Matrix {
         ispc::DecreaceByNum(*this, rhs, ROWS * COLS);
         return *this;
     }
-    Matrix& operator*=(const Matrix& rhs) { return (*this = *this * rhs); }
     Matrix& operator*=(const T& rhs) {
         ispc::MulSelfByNum(*this, rhs, ROWS * COLS);
         return *this;
