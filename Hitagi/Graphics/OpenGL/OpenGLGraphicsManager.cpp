@@ -341,7 +341,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
             // result here.
             trans = g_PhysicsManager->GetRigidBodyTransform(rigidBody);
         } else {
-            trans = *node->GetCalculatedTransform();
+            trans = node->GetCalculatedTransform();
         }
 
         SetShaderParameters(m_BasicShader.programId, "modelMatrix", trans);

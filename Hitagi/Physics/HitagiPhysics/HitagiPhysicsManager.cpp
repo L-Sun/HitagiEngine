@@ -39,40 +39,35 @@ void HitagiPhysicsManager::CreateRigidBody(Resource::SceneGeometryNode&         
 
     switch (geometry.CollisionType()) {
         case Resource::SceneObjectCollisionType::SPHERE: {
-            auto       collisionBox = std::make_shared<Sphere>(param[0]);
-            const auto trans        = node.GetCalculatedTransform();
-            auto       motionState  = std::make_shared<MotionState>(*trans);
-            rigidBody               = std::make_shared<RigidBody>(collisionBox, motionState);
+            auto collisionBox = std::make_shared<Sphere>(param[0]);
+            auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
+            rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
         } break;
         case Resource::SceneObjectCollisionType::BOX: {
-            auto       collisionBox = std::make_shared<Box>(vec3f(param));
-            const auto trans        = node.GetCalculatedTransform();
-            auto       motionState  = std::make_shared<MotionState>(*trans);
-            rigidBody               = std::make_shared<RigidBody>(collisionBox, motionState);
+            auto collisionBox = std::make_shared<Box>(vec3f(param));
+            auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
+            rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
         } break;
         case Resource::SceneObjectCollisionType::PLANE: {
-            auto       collisionBox = std::make_shared<Plane>(vec3f(param), param[3]);
-            const auto trans        = node.GetCalculatedTransform();
-            auto       motionState  = std::make_shared<MotionState>(*trans);
-            rigidBody               = std::make_shared<RigidBody>(collisionBox, motionState);
+            auto collisionBox = std::make_shared<Plane>(vec3f(param), param[3]);
+            auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
+            rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
         } break;
         default: {
             // create AABB box according to Bounding Box
-            auto       boundingBox  = geometry.GetBoundingBox();
-            auto       collisionBox = std::make_shared<Box>(boundingBox.extent);
-            const auto trans        = node.GetCalculatedTransform();
-            auto       motionState  = std::make_shared<MotionState>(*trans, boundingBox.centroid);
-            rigidBody               = std::make_shared<RigidBody>(collisionBox, motionState);
+            auto boundingBox  = geometry.GetBoundingBox();
+            auto collisionBox = std::make_shared<Box>(boundingBox.extent);
+            auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform(), boundingBox.centroid);
+            rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
         }
     }
     node.LinkRigidBody(rigidBody);
 }
 
 void HitagiPhysicsManager::UpdateRigidBodyTransform(Resource::SceneGeometryNode& node) {
-    const auto trans       = node.GetCalculatedTransform();
-    auto       rigidBody   = node.RigidBody();
-    auto       motionState = std::static_pointer_cast<RigidBody>(rigidBody)->GetMotionState();
-    motionState->SetTransition(*trans);
+    auto rigidBody   = node.RigidBody();
+    auto motionState = std::static_pointer_cast<RigidBody>(rigidBody)->GetMotionState();
+    motionState->SetTransition(node.GetCalculatedTransform());
 }
 
 void HitagiPhysicsManager::DeleteRigidBody(Resource::SceneGeometryNode& node) { node.UnlinkRigidBody(); }
