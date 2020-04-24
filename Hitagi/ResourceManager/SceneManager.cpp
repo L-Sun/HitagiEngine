@@ -25,11 +25,25 @@ void SceneManager::Finalize() {
 void SceneManager::Tick() {}
 
 void SceneManager::SetScene(std::filesystem::path name) {
-    m_Scene     = g_ResourceManager->ParseScene(name);
+    m_Scene = g_ResourceManager->ParseScene(name);
+    if (m_Scene->GetFirstCameraNode() == nullptr) {
+        m_Logger->warn("Will create a default Camera");
+        m_Scene->Cameras["default"] = std::make_shared<SceneObjectCamera>();
+
+        vec3f pos                       = {3.0f, 3.0f, 3.0f};
+        vec3f up                        = {-1, -1, 1};
+        vec3f direct                    = -pos;
+        m_Scene->CameraNodes["default"] = std::make_shared<SceneCameraNode>("default", pos, up, direct);
+        m_Scene->CameraNodes["default"]->AddSceneObjectRef("default");
+        m_Scene->SceneGraph->AppendChild(m_Scene->CameraNodes["default"]);
+    }
     m_DirtyFlag = true;
 }
 
-void SceneManager::ResetScene() { m_DirtyFlag = true; }
+void SceneManager::ResetScene() {
+    m_Scene->SceneGraph->Reset(true);
+    m_DirtyFlag = true;
+}
 
 const Scene& SceneManager::GetSceneForRendering() const { return *m_Scene; }
 
@@ -51,4 +65,6 @@ std::weak_ptr<SceneGeometryNode> SceneManager::GetSceneGeometryNode(const std::s
 std::weak_ptr<SceneObjectGeometry> SceneManager::GetSceneGeometryObject(const std::string& key) {
     return m_Scene->Geometries.find(key)->second;
 }
+std::weak_ptr<SceneCameraNode> SceneManager::GetCameraNode() { return m_Scene->GetFirstCameraNode(); }
+
 }  // namespace Hitagi::Resource

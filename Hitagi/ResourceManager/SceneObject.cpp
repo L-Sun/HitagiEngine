@@ -384,7 +384,6 @@ void SceneObjectCamera::SetTexture(std::string_view attrib, std::string_view tex
 float SceneObjectCamera::GetNearClipDistance() const { return m_NearClipDistance; }
 float SceneObjectCamera::GetFarClipDistance() const { return m_FarClipDistance; }
 float SceneObjectCamera::GetFov() const { return m_Fov; }
-mat4f SceneObjectCamera::GetViewMatrix() const { return lookAt(m_Position, m_Target, m_Up); }
 
 // Class SceneObjectTransform
 // Class SceneObjectTranslation

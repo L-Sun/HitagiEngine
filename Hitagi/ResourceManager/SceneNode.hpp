@@ -135,7 +135,26 @@ public:
 
 class SceneCameraNode : public SceneNode<SceneObjectCamera> {
 public:
-    using SceneNode::SceneNode;
+    SceneCameraNode(std::string_view name, const vec3f& position = vec3f(0.0f), const vec3f& up = vec3f(0.0f),
+                    const vec3f& lookAt = vec3f(0.0f))
+        : SceneNode(name),
+          m_Position(position),
+          m_Up(up),
+          m_LookAt(lookAt),
+          m_Right(normalize(cross(lookAt, up))) {}
+
+    mat4f GetViewMatrix() const { return lookAt(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransform()); }
+
+    vec3f GetCameraPosition() const { return (GetCalculatedTransform() * vec4f(m_Position, 1)).xyz; }
+    vec3f GetCameraUp() const { return (GetCalculatedTransform() * vec4f(m_Up, 0)).xyz; }
+    vec3f GetCameraLookAt() const { return (GetCalculatedTransform() * vec4f(m_LookAt, 0)).xyz; }
+    vec3f GetCameraRight() const { return (GetCalculatedTransform() * vec4f(m_Right, 0)).xyz; }
+
+private:
+    vec3f m_Position;
+    vec3f m_Up;
+    vec3f m_LookAt;
+    vec3f m_Right;
 };
 
 }  // namespace Hitagi::Resource

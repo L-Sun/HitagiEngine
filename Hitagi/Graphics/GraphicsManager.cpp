@@ -91,9 +91,9 @@ void GraphicsManager::CalculateCameraMatrix() {
     auto  cameraNode = scene.GetFirstCameraNode();
 
     mat4f& viewMat = m_FrameConstants.viewMatrix;
+    viewMat        = cameraNode->GetViewMatrix();
 
-    auto camera            = scene.GetCamera(cameraNode->GetSceneObjectRef());
-    viewMat                = camera->GetViewMatrix() * inverse(cameraNode->GetCalculatedTransform());
+    auto  camera           = scene.GetCamera(cameraNode->GetSceneObjectRef());
     float fieldOfView      = camera->GetFov();
     float nearClipDistance = camera->GetNearClipDistance();
     float farClipDistance  = camera->GetFarClipDistance();

@@ -243,8 +243,8 @@ Matrix<T, 4, 4> ortho(T left, T right, T bottom, T top, T near, T far) {
 }
 
 template <typename T>
-Matrix<T, 4, 4> lookAt(const Vector<T, 3>& position, const Vector<T, 3>& target, const Vector<T, 3>& up) {
-    Vector<T, 3> direct   = normalize(target - position);
+Matrix<T, 4, 4> lookAt(const Vector<T, 3>& position, const Vector<T, 3>& direction, const Vector<T, 3>& up) {
+    Vector<T, 3> direct   = normalize(direction);
     Vector<T, 3> right    = normalize(cross(direct, up));
     Vector<T, 3> cameraUp = normalize(cross(right, direct));
     // clang-format off

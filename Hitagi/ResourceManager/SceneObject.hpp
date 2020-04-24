@@ -390,13 +390,8 @@ public:
 
 class SceneObjectCamera : public BaseSceneObject {
 public:
-    SceneObjectCamera(const vec3f& position = vec3f(0.0f, 0.0f, 0.0f), const vec3f& target = vec3f(0.0f, 0.0f, 1.0f),
-                      const vec3f& up = vec3f(0.0f, 0.0f, 1.0f), float aspect = 16.0f / 9.0f, float nearClip = 1.0f,
-                      float farClip = 100.0f, float fov = PI / 4)
+    SceneObjectCamera(float aspect = 16.0f / 9.0f, float nearClip = 1.0f, float farClip = 100.0f, float fov = PI / 4)
         : BaseSceneObject(SceneObjectType::CAMERA),
-          m_Position(position),
-          m_Target(normalize(target)),
-          m_Up(normalize(up)),
           m_Aspect(aspect),
           m_NearClipDistance(nearClip),
           m_FarClipDistance(farClip),
@@ -408,7 +403,6 @@ public:
     float GetNearClipDistance() const;
     float GetFarClipDistance() const;
     float GetFov() const;
-    mat4f GetViewMatrix() const;
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectCamera& obj);
 

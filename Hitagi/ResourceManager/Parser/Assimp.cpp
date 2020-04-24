@@ -111,19 +111,18 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
     };
 
     // process camera
+    std::unordered_map<std::string_view, unsigned> cameraNameToIndex;
     for (size_t i = 0; i < _scene->mNumCameras; i++) {
         const auto _camera = _scene->mCameras[i];
         auto       perspectiveCamera =
             std::make_shared<SceneObjectCamera>(
-                vec3f{_camera->mPosition.x, _camera->mPosition.y, _camera->mPosition.z},
-                vec3f{_camera->mLookAt.x, _camera->mLookAt.y, _camera->mLookAt.z},
-                vec3f{_camera->mUp.x, _camera->mUp.y, _camera->mUp.z},
                 _camera->mAspect,
                 _camera->mClipPlaneNear,
                 _camera->mClipPlaneFar,
                 _camera->mHorizontalFOV);
 
-        scene->Cameras[_camera->mName.C_Str()] = perspectiveCamera;
+        scene->Cameras[_camera->mName.C_Str()]    = perspectiveCamera;
+        cameraNameToIndex[_camera->mName.C_Str()] = i;
     }
 
     // process light
@@ -255,8 +254,15 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         }
         // The node is a camera
         else if (scene->Cameras.find(_node->mName.C_Str()) != scene->Cameras.end()) {
-            auto cameraNode = std::make_shared<SceneCameraNode>(_node->mName.C_Str());
+            auto& _camera = _scene->mCameras[cameraNameToIndex[_node->mName.C_Str()]];
+            // move space infomation to camera node
+            auto cameraNode = std::make_shared<SceneCameraNode>(
+                _node->mName.C_Str(),
+                vec3f(_camera->mPosition.x, _camera->mPosition.y, _camera->mPosition.z),
+                vec3f(_camera->mUp.x, _camera->mUp.y, _camera->mUp.z),
+                vec3f(_camera->mLookAt.x, _camera->mLookAt.y, _camera->mLookAt.z));
             cameraNode->AddSceneObjectRef(_node->mName.C_Str());
+
             scene->CameraNodes[_node->mName.C_Str()] = cameraNode;
             node                                     = cameraNode;
         }

@@ -27,6 +27,8 @@ public:
     std::weak_ptr<SceneGeometryNode>   GetSceneGeometryNode(const std::string& name);
     std::weak_ptr<SceneObjectGeometry> GetSceneGeometryObject(const std::string& key);
 
+    std::weak_ptr<SceneCameraNode> GetCameraNode();
+
 protected:
     std::shared_ptr<Scene> m_Scene;
     bool                   m_DirtyFlag = false;
