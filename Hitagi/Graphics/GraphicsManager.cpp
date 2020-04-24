@@ -91,26 +91,13 @@ void GraphicsManager::CalculateCameraMatrix() {
     auto  cameraNode = scene.GetFirstCameraNode();
 
     mat4f& viewMat = m_FrameConstants.viewMatrix;
-    if (cameraNode) {
-        viewMat = *cameraNode->GetCalculatedTransform();
-        viewMat = inverse(viewMat);
-    } else {
-        vec3f position(3, 3, 3);
-        vec3f look_at(0, 0, 0);
-        vec3f up(-1, -1, 1);
-        viewMat = lookAt(position, look_at, up);
-    }
 
-    float fieldOfView      = PI / 2.0f;
-    float nearClipDistance = 0.1f;
-    float farClipDistance  = 100.0f;
+    auto camera            = scene.GetCamera(cameraNode->GetSceneObjectRef());
+    viewMat                = camera->GetViewMatrix() * inverse(cameraNode->GetCalculatedTransform());
+    float fieldOfView      = camera->GetFov();
+    float nearClipDistance = camera->GetNearClipDistance();
+    float farClipDistance  = camera->GetFarClipDistance();
 
-    if (cameraNode) {
-        auto camera      = scene.GetCamera(cameraNode->GetSceneObjectRef());
-        fieldOfView      = std::dynamic_pointer_cast<Resource::SceneObjectPerspectiveCamera>(camera)->GetFov();
-        nearClipDistance = camera->GetNearClipDistance();
-        farClipDistance  = camera->GetFarClipDistance();
-    }
     const GfxConfiguration& conf         = g_App->GetConfiguration();
     float                   screenAspect = (float)conf.screenWidth / (float)conf.screenHeight;
     m_FrameConstants.projectionMatrix    = perspective(fieldOfView, screenAspect, nearClipDistance, farClipDistance);
@@ -127,7 +114,7 @@ void GraphicsManager::CalculateLights() {
 
     if (auto lightNode = scene.GetFirstLightNode()) {
         lightPos       = vec3f(0.0f);
-        auto _lightPos = (*lightNode->GetCalculatedTransform()) * vec4f(lightPos, 1.0f);
+        auto _lightPos = lightNode->GetCalculatedTransform() * vec4f(lightPos, 1.0f);
         lightPos       = vec3f(_lightPos.xyz);
 
         if (auto pLight = scene.GetLight(lightNode->GetSceneObjectRef())) {

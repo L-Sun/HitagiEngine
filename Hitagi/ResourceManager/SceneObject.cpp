@@ -375,23 +375,16 @@ void SceneObjectCamera::SetParam(std::string_view attrib, float param) {
         m_NearClipDistance = param;
     else if (attrib == "far")
         m_FarClipDistance = param;
+    else if (attrib == "fov")
+        m_Fov = param;
 }
 void SceneObjectCamera::SetTexture(std::string_view attrib, std::string_view textureName) {
     // TODO: extension
 }
 float SceneObjectCamera::GetNearClipDistance() const { return m_NearClipDistance; }
 float SceneObjectCamera::GetFarClipDistance() const { return m_FarClipDistance; }
-
-// Class SceneObjectOrthogonalCamera
-// Class SceneObjectPerspectiveCamera
-void SceneObjectPerspectiveCamera::SetParam(std::string_view attrib, float param) {
-    // TODO: handle fovs, fovy
-    if (attrib == "fov") {
-        m_Fov = param;
-    }
-    SceneObjectCamera::SetParam(attrib, param);
-}
-float SceneObjectPerspectiveCamera::GetFov() const { return m_Fov; }
+float SceneObjectCamera::GetFov() const { return m_Fov; }
+mat4f SceneObjectCamera::GetViewMatrix() const { return lookAt(m_Position, m_Target, m_Up); }
 
 // Class SceneObjectTransform
 // Class SceneObjectTranslation
@@ -614,19 +607,9 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectInfiniteLight& obj)
 std::ostream& operator<<(std::ostream& out, const SceneObjectCamera& obj) {
     out << static_cast<const BaseSceneObject&>(obj) << std::endl;
     out << "Aspcet:             " << obj.m_Aspect << std::endl;
+    out << "Fov:                " << obj.m_Fov << std::endl;
     out << "Near Clip Distance: " << obj.m_NearClipDistance << std::endl;
-    out << "Far Clip Distance:  " << obj.m_FarClipDistance;
-    return out;
-}
-std::ostream& operator<<(std::ostream& out, const SceneObjectOrthogonalCamera& obj) {
-    out << static_cast<const SceneObjectCamera&>(obj) << std::endl;
-    out << "Camera Type: Orthogonal" << std::endl;
-    return out;
-}
-std::ostream& operator<<(std::ostream& out, const SceneObjectPerspectiveCamera& obj) {
-    out << static_cast<const SceneObjectCamera&>(obj) << std::endl;
-    out << "Camera Type: Perspective" << std::endl;
-    out << "FOV:                    " << obj.m_Fov << std::endl;
+    out << "Far Clip Distance:  " << obj.m_FarClipDistance << std::endl;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectTransform& obj) {

@@ -28,13 +28,13 @@ public:
         m_Transforms.push_back(std::move(transform));
     }
 
-    const std::shared_ptr<mat4f> GetCalculatedTransform() const {
-        std::shared_ptr<mat4f> result(new mat4f(1.0f));
+    mat4f GetCalculatedTransform() const {
+        mat4f result(1.0f);
 
         for (auto trans : m_Transforms) {
-            *result = static_cast<mat4f>(*trans) * (*result);
+            result = static_cast<mat4f>(*trans) * result;
         }
-        *result = m_RuntimeTransform * (*result);
+        result = m_RuntimeTransform * result;
         return result;
     }
     // Get is the node updated
@@ -134,14 +134,8 @@ public:
 };
 
 class SceneCameraNode : public SceneNode<SceneObjectCamera> {
-protected:
-    vec3f m_Target;
-
 public:
     using SceneNode::SceneNode;
-    void         SetTarget(const vec3f& target) { m_Target = target; }
-    const vec3f& GetTarget() { return m_Target; }
-    mat4f        GetViewMatrix() const { return inverse(*GetCalculatedTransform()); }
 };
 
 }  // namespace Hitagi::Resource

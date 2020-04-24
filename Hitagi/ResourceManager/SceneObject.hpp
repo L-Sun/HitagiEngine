@@ -389,44 +389,37 @@ public:
 };
 
 class SceneObjectCamera : public BaseSceneObject {
-protected:
-    float m_Aspect;
-    float m_NearClipDistance;
-    float m_FarClipDistance;
-
-    // can only be used as base class
-    SceneObjectCamera(float aspect = 16.0f / 9.0f, float nearClip = 1.0f, float farClip = 100.0f)
+public:
+    SceneObjectCamera(const vec3f& position = vec3f(0.0f, 0.0f, 0.0f), const vec3f& target = vec3f(0.0f, 0.0f, 1.0f),
+                      const vec3f& up = vec3f(0.0f, 0.0f, 1.0f), float aspect = 16.0f / 9.0f, float nearClip = 1.0f,
+                      float farClip = 100.0f, float fov = PI / 4)
         : BaseSceneObject(SceneObjectType::CAMERA),
+          m_Position(position),
+          m_Target(normalize(target)),
+          m_Up(normalize(up)),
           m_Aspect(aspect),
           m_NearClipDistance(nearClip),
-          m_FarClipDistance(farClip) {}
+          m_FarClipDistance(farClip),
+          m_Fov(fov) {}
 
-    friend std::ostream& operator<<(std::ostream& out, const SceneObjectCamera& obj);
-
-public:
     void  SetColor(std::string_view attrib, const vec4f& color);
     void  SetParam(std::string_view attrib, float param);
     void  SetTexture(std::string_view attrib, std::string_view textureName);
     float GetNearClipDistance() const;
     float GetFarClipDistance() const;
-};
+    float GetFov() const;
+    mat4f GetViewMatrix() const;
 
-class SceneObjectOrthogonalCamera : public SceneObjectCamera {
-public:
-    using SceneObjectCamera::SceneObjectCamera;
-    friend std::ostream& operator<<(std::ostream& out, const SceneObjectOrthogonalCamera& obj);
-};
+    friend std::ostream& operator<<(std::ostream& out, const SceneObjectCamera& obj);
 
-class SceneObjectPerspectiveCamera : public SceneObjectCamera {
 protected:
+    vec3f m_Position;
+    vec3f m_Target;
+    vec3f m_Up;
+    float m_Aspect;
+    float m_NearClipDistance;
+    float m_FarClipDistance;
     float m_Fov;
-
-public:
-    SceneObjectPerspectiveCamera(float fov = PI / 2.0) : SceneObjectCamera(), m_Fov(fov) {}
-
-    void                 SetParam(std::string_view attrib, float param);
-    float                GetFov() const;
-    friend std::ostream& operator<<(std::ostream& out, const SceneObjectPerspectiveCamera& obj);
 };
 
 class SceneObjectTransform {

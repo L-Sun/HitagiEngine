@@ -65,7 +65,7 @@ int main(int, char**) {
             std::weak_ptr<Resource::SceneObjectGeometry> pGeometry =
                 scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
             if (auto pObj = pGeometry.lock()) std::cout << *pObj << std::endl;
-            std::cout << *pGeometryNode->GetCalculatedTransform() << std::endl;
+            std::cout << pGeometryNode->GetCalculatedTransform() << std::endl;
         }
     }
 

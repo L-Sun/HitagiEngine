@@ -112,10 +112,17 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
 
     // process camera
     for (size_t i = 0; i < _scene->mNumCameras; i++) {
-        const auto _camera           = _scene->mCameras[i];
-        auto       perspectiveCamera = std::make_shared<SceneObjectPerspectiveCamera>(_camera->mHorizontalFOV);
-        perspectiveCamera->SetParam("near", _camera->mClipPlaneNear);
-        perspectiveCamera->SetParam("far", _camera->mClipPlaneFar);
+        const auto _camera = _scene->mCameras[i];
+        auto       perspectiveCamera =
+            std::make_shared<SceneObjectCamera>(
+                vec3f{_camera->mPosition.x, _camera->mPosition.y, _camera->mPosition.z},
+                vec3f{_camera->mLookAt.x, _camera->mLookAt.y, _camera->mLookAt.z},
+                vec3f{_camera->mUp.x, _camera->mUp.y, _camera->mUp.z},
+                _camera->mAspect,
+                _camera->mClipPlaneNear,
+                _camera->mClipPlaneFar,
+                _camera->mHorizontalFOV);
+
         scene->Cameras[_camera->mName.C_Str()] = perspectiveCamera;
     }
 
