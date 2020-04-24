@@ -166,14 +166,14 @@ template <typename T>
 Matrix<T, 4, 4> rotate(const Matrix<T, 4, 4>& mat, const Vector<T, 4>& quatv) {
     auto    _quatv = normalize(quatv);
     const T a = _quatv.x, b = _quatv.y, c = _quatv.z, d = _quatv.w;
-    const T _2a2 = 2 * a * a, _2b2 = 2 * b * b, _2c2 = 2 * c * c, _2ab = 2 * a * b, _2ac = 2 * a * c, _2ad = 2 * a * d,
-            _2bc = 2 * b * c, _2bd = 2 * b * d, _2cd = 2 * c * d;
+    const T _2a2 = 2 * a * a, _2b2 = 2 * b * b, _2c2 = 2 * c * c, _2d2 = 2 * d * d, _2ab = 2 * a * b, _2ac = 2 * a * c,
+            _2ad = 2 * a * d, _2bc = 2 * b * c, _2bd = 2 * b * d, _2cd = 2 * c * d;
 
     // clang-format off
     Matrix<T, 4, 4> rotate_mat = {
-        {1 - _2b2 - _2c2, _2ab + _2cd    , _2ac - _2bd    , 0},
-        {_2ab - _2cd    , 1 - _2a2 -_2c2 , _2bc + _2ad    , 0},
-        {_2ac + _2bd    , _2bc - _2ad    , 1 - _2a2 - _2b2, 0},
+        {1 - _2c2 - _2d2, _2bc - _2ad    , _2ac + _2bd    , 0},
+        {_2bc + _2ad    , 1 - _2b2 -_2d2 , _2cd - _2ab    , 0},
+        {_2bd - _2ac    , _2ab + _2cd    , 1 - _2b2 - _2c2, 0},
         {0              , 0              , 0              , 1}
     };
     // clang-format on
