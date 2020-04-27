@@ -338,16 +338,18 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     // Intialize textures buffer
     size_t i = 0;
     for (auto&& [key, material] : scene.Materials) {
-        if (auto texture = material->GetBaseColor().ValueMap) {
-            auto  guid  = texture->GetGuid();
-            auto& image = texture->GetTextureImage();
-            m_Textures.insert({guid, CreateTextureBuffer(image, i)});
-            i++;
+        if (material) {
+            if (auto texture = material->GetBaseColor().ValueMap; texture != nullptr) {
+                auto  guid  = texture->GetGuid();
+                auto& image = texture->GetTextureImage();
+                m_Textures.insert({guid, CreateTextureBuffer(image, i)});
+                i++;
+            }
         }
     }
     // Initialize draw item
     for (auto&& [key, node] : scene.GeometryNodes) {
-        if (node->Visible()) {
+        if (node && node->Visible()) {
             auto geometry = scene.GetGeometry(node->GetSceneObjectRef());
             for (auto&& mesh : geometry->GetMeshes()) {
                 if (auto pMesh = mesh.lock()) {
@@ -421,8 +423,10 @@ void D3D12GraphicsManager::ClearBuffers() {
     m_Meshes.clear();
     m_Buffers.clear();
     m_Textures.clear();
+#if defined(_DEBUG)
     ClearDebugBuffers();
     m_DebugMeshBuffer.clear();
+#endif  // DEBUG
 }
 
 void D3D12GraphicsManager::UpdateConstants() {
@@ -447,7 +451,6 @@ void D3D12GraphicsManager::UpdateConstants() {
     for (auto&& d : m_DrawItems) {
         auto node = d.node.lock();
         if (!node) continue;
-
         if (node->Dirty()) {
             node->ClearDirty();
             // object need to be upadted for per frame resource
@@ -469,6 +472,7 @@ void D3D12GraphicsManager::UpdateConstants() {
             d.numFramesDirty--;
         }
     }
+
 #if defined(_DEBUG)
     for (auto&& d : m_DebugDrawItems) {
         if (auto node = d.node.lock()) {
@@ -514,10 +518,8 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
 
     context.SetRootSignature(m_RootSignature);
     context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 3, 0, m_SamplerDescriptors.GetDescriptorHandle());
-
     context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 0, 0,
                                  m_CbvSrvDescriptors.GetDescriptorHandle(m_FrameCBOffset + m_CurrFrameResourceIndex));
-
     DrawRenderItems(context, m_DrawItems);
 
 #if defined(_DEBUG)
@@ -532,10 +534,9 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
 void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::vector<DrawItem>& drawItems) {
     //
     auto numObj = m_FrameResource[m_CurrFrameResourceIndex].get()->m_NumObjects;
-
     for (auto&& d : drawItems) {
         const auto& meshBuffer = d.meshBuffer;
-        context.SetPipeLineState(m_GraphicsPSO[meshBuffer->psoName]);
+        context.SetPipeLineState(m_GraphicsPSO.at(meshBuffer->psoName));
 
         for (size_t i = 0; i < meshBuffer->vbv.size(); i++) {
             context.SetVertexBuffer(i, meshBuffer->vbv[i]);
@@ -565,6 +566,8 @@ D3D12_CPU_DESCRIPTOR_HANDLE D3D12GraphicsManager::CurrentBackBufferView() const 
 D3D12_CPU_DESCRIPTOR_HANDLE D3D12GraphicsManager::DepthStencilView() const {
     return m_DsvDescriptors.GetDescriptorHandle();
 }
+
+void D3D12GraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {}
 
 #if defined(_DEBUG)
 void D3D12GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
@@ -649,8 +652,6 @@ void D3D12GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, con
     d.numFramesDirty      = m_FrameResourceSize;
     m_DebugDrawItems.push_back(d);
 }
-
-void D3D12GraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {}
 
 void D3D12GraphicsManager::ClearDebugBuffers() {
     m_DebugNode.clear();

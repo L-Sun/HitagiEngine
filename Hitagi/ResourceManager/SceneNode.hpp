@@ -93,10 +93,10 @@ public:
 typedef BaseSceneNode SceneEmptyNode;
 class SceneGeometryNode : public SceneNode<SceneObjectGeometry> {
 protected:
-    bool                  m_Visible;
-    bool                  m_Shadow;
-    bool                  m_MotionBlur;
-    std::shared_ptr<void> m_RigidBody = nullptr;
+    bool                  m_Visible    = true;
+    bool                  m_Shadow     = true;
+    bool                  m_MotionBlur = false;
+    std::shared_ptr<void> m_RigidBody  = nullptr;
 
     virtual void dump(std::ostream& out, unsigned indent) const {
         SceneNode::dump(out, indent);
@@ -137,11 +137,7 @@ class SceneCameraNode : public SceneNode<SceneObjectCamera> {
 public:
     SceneCameraNode(std::string_view name, const vec3f& position = vec3f(0.0f), const vec3f& up = vec3f(0.0f),
                     const vec3f& lookAt = vec3f(0.0f))
-        : SceneNode(name),
-          m_Position(position),
-          m_Up(up),
-          m_LookAt(lookAt),
-          m_Right(normalize(cross(lookAt, up))) {}
+        : SceneNode(name), m_Position(position), m_Up(up), m_LookAt(lookAt), m_Right(normalize(cross(lookAt, up))) {}
 
     mat4f GetViewMatrix() const { return lookAt(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransform()); }
 

@@ -422,6 +422,31 @@ void OpenGLGraphicsManager::RenderBuffers() {
 #endif
 }
 
+void OpenGLGraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    for (auto&& c : text) {
+        if (m_Characters.find(c) == m_Characters.end()) {
+            auto   glyph = GetGlyph(c);
+            GLuint texture;
+            glGenTextures(1, &texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, glyph->bitmap.pitch, glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE,
+                         glyph->bitmap.buffer);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            CharacterInfo ci;
+            ci.textureID = texture;
+            ci.bearing   = {glyph->bitmap_left, glyph->bitmap_top};
+            ci.size      = {glyph->bitmap.width, glyph->bitmap.rows};
+            ci.advance   = glyph->advance.x;
+            m_Characters.insert({c, ci});
+        }
+    }
+    m_textRenderQueue.push({std::string(text), position, color});
+}
+
 #if defined(_DEBUG)
 void OpenGLGraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
     GLfloat vertices[6];
@@ -526,31 +551,6 @@ void OpenGLGraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, co
     m_DebugDrawBatchContext.push_back(std::move(dbc));
 }
 
-void OpenGLGraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    for (auto&& c : text) {
-        if (m_Characters.find(c) == m_Characters.end()) {
-            auto   glyph = GetGlyph(c);
-            GLuint texture;
-            glGenTextures(1, &texture);
-            glBindTexture(GL_TEXTURE_2D, texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, glyph->bitmap.pitch, glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE,
-                         glyph->bitmap.buffer);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            CharacterInfo ci;
-            ci.textureID = texture;
-            ci.bearing   = {glyph->bitmap_left, glyph->bitmap_top};
-            ci.size      = {glyph->bitmap.width, glyph->bitmap.rows};
-            ci.advance   = glyph->advance.x;
-            m_Characters.insert({c, ci});
-        }
-    }
-    m_textRenderQueue.push({std::string(text), position, color});
-}
-
 void OpenGLGraphicsManager::ClearDebugBuffers() {
     for (auto dbc : m_DebugDrawBatchContext) {
         glDeleteVertexArrays(1, &dbc.vao);
@@ -564,4 +564,4 @@ void OpenGLGraphicsManager::ClearDebugBuffers() {
     m_DebugBuffers.clear();
 }
 #endif
-}  // namespace Hitagi::Graphics
+}  // namespace Hitagi::Graphics::OpenGL

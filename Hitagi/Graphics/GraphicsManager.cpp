@@ -139,6 +139,12 @@ const FT_GlyphSlot GraphicsManager::GetGlyph(char c) {
     return glyph;
 }
 
+void GraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {
+    m_Logger->debug("Render text: {}, position: ({}, {}), scale: {}, color: ({}, {}, {})", text, position.x, position.y,
+                    scale, color.r, color.g, color.b);
+}
+
+#if defined(_DEBUG)
 void GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
     m_Logger->debug("Draw line from ({}, {}, {}) to ({}, {}, {})", from.x, from.y, from.z, to.x, to.y, to.z);
 }
@@ -147,12 +153,7 @@ void GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const ve
     m_Logger->debug("Draw box bbMin:({}, {}, {}), bbMax: ({}, {}, {}), color: ({}, {}, {})", bbMin.x, bbMin.y, bbMin.z,
                     bbMax.x, bbMax.y, bbMax.z, color.r, color.g, color.b);
 }
-
-void GraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {
-    m_Logger->debug("Render text: {}, position: ({}, {}), scale: {}, color: ({}, {}, {})", text, position.x, position.y,
-                    scale, color.r, color.g, color.b);
-}
-
 void GraphicsManager::ClearDebugBuffers() { m_Logger->debug("Clear debug buffers"); }
+#endif  // _DEBUG
 
 }  // namespace Hitagi::Graphics

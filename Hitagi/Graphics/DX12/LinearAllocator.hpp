@@ -27,12 +27,12 @@ private:
     };
 
 public:
-    LinearAllocator() : m_Device(nullptr), m_PageSize(0), m_Initialized(false) { }
-    LinearAllocator(ID3D12Device6* device, size_t pageSize = 2_MB)
+    LinearAllocator() : m_Device(nullptr), m_PageSize(0), m_Initialized(false) {}
+    LinearAllocator(ID3D12Device6* device, size_t pageSize = 10_MB)
         : m_Device(device), m_PageSize(pageSize), m_Initialized(true) {}
     ~LinearAllocator();
 
-    void       Initalize(ID3D12Device6* device, size_t pageSize = 2_MB);
+    void       Initalize(ID3D12Device6* device, size_t pageSize = 10_MB);
     size_t     GetPageSize() const { return m_PageSize; };
     Allocation Allocate(size_t size, size_t alignment = 256);
     template <typename T>

@@ -43,6 +43,7 @@ void Allocator::Reset(size_t dataSize, size_t pageSize, size_t alignment) {
 void* Allocator::Allocate() {
     if (!m_FreeList) {
         PageHeader* newPage = reinterpret_cast<PageHeader*>(new uint8_t[m_PageSize]);
+        newPage->next       = nullptr;
         ++m_Pages;
         m_BLocks += m_BlocksPerPage;
         m_FreeBlocks += m_BlocksPerPage;
@@ -111,7 +112,6 @@ void Allocator::FreeAll() {
 #if defined(_DEBUG)
 
 void Allocator::FillFreePage(PageHeader* page) {
-    page->next          = nullptr;
     BlockHeader* pBlock = page->Blocks();
 
     for (uint32_t i = 0; i < m_BlocksPerPage; i++) FillFreeBlock(pBlock);

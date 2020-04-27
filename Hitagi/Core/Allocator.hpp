@@ -31,11 +31,9 @@ public:
     void  FreeAll();
 
 private:
-#if defined(_DEBUG)
     void FillFreePage(PageHeader* page);
     void FillFreeBlock(BlockHeader* block);
     void FillAllocatedBlock(BlockHeader* block);
-#endif  // _DEBUG
 
     BlockHeader* NextBlock(BlockHeader* block);
     PageHeader*  m_PageList;

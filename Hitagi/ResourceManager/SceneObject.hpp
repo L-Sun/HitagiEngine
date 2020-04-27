@@ -176,12 +176,12 @@ public:
           m_Metallic(0.0f),
           m_Roughness(0.0f),
           m_Normal(vec3f(0.0f, 0.0f, 1.0f)),
-          m_Specular(vec4f{0.0f}),
+          m_Specular(vec4f(0.0f)),
           m_SpecularPower(1.0f),
           m_AmbientOcclusion(1.0f),
           m_Opacity(1.0f),
-          m_Transparency(vec4f{0.0f}),
-          m_Emission(vec4f{0.0f}){};
+          m_Transparency(vec4f(0.0f)),
+          m_Emission(vec4f(0.0f)){};
     SceneObjectMaterial(const std::string& name) : SceneObjectMaterial() { m_Name = name; };
     SceneObjectMaterial(std::string&& name) : SceneObjectMaterial() { m_Name = std::move(name); };
 

@@ -105,8 +105,8 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                 indices.push_back(_mesh->mFaces[face].mIndices[i]);
         mesh->AddIndexArray(SceneObjectIndexArray(0, IndexDataType::INT32, indices.data(), indices.size()));
 
-        auto materialRef = _scene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
-        mesh->SetMaterial(scene->Materials[materialRef]);
+        const std::string materialRef = _scene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
+        mesh->SetMaterial(scene->Materials.at(materialRef));
         return mesh;
     };
 

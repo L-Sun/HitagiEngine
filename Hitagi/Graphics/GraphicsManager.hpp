@@ -16,10 +16,13 @@ public:
     virtual void Draw();
     virtual void Clear();
 
+    virtual void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color);
+
+#if defined(_DEBUG)
     virtual void RenderLine(const vec3f& from, const vec3f& to, const vec3f& color);
     virtual void RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color);
-    virtual void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color);
     virtual void ClearDebugBuffers();
+#endif  // _DEBUG
 
 protected:
     struct FrameConstants {

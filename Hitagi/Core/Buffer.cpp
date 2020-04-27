@@ -10,11 +10,11 @@ Buffer::Buffer() : m_Data(nullptr), m_Size(0), m_Alignment(alignof(uint32_t)) {}
 Buffer::Buffer(size_t size, const void* srcPtr, size_t copySize, size_t alignment)
     : m_Size(size), m_Alignment(alignment) {
     m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(size));
-    if (srcPtr) memcpy(m_Data, srcPtr, std::min(size, copySize));
+    if (srcPtr) std::memcpy(m_Data, srcPtr, std::min(size, copySize));
 }
 Buffer::Buffer(const Buffer& buffer) {
     m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(buffer.m_Size));
-    memcpy(m_Data, buffer.m_Data, buffer.m_Size);
+    std::memcpy(m_Data, buffer.m_Data, buffer.m_Size);
     m_Size      = buffer.m_Size;
     m_Alignment = buffer.m_Alignment;
 }
@@ -26,11 +26,11 @@ Buffer::Buffer(Buffer&& buffer) : m_Data(buffer.m_Data), m_Size(buffer.m_Size), 
 Buffer& Buffer::operator=(const Buffer& rhs) {
     if (this != &rhs) {
         if (m_Size >= rhs.m_Size && m_Alignment == rhs.m_Alignment)
-            memcpy(m_Data, rhs.m_Data, rhs.m_Size);
+            std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
         else {
             if (m_Data) g_MemoryManager->Free(m_Data, m_Size);
             m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(rhs.m_Size));
-            memcpy(m_Data, rhs.m_Data, rhs.m_Size);
+            std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
             m_Size      = rhs.m_Size;
             m_Alignment = rhs.m_Alignment;
         }

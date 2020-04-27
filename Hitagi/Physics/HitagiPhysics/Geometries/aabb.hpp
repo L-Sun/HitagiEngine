@@ -10,7 +10,7 @@ inline void TransformAabb(const vec3f& halfExtents, float margin, const mat4f& t
     mat3f basis;
     Shrink(basis, trans);
     basis      = Absolute(basis);
-    extent     = halfExtentssWithMargin * basis;
+    extent     = basis * halfExtentssWithMargin;
     aabbMinOut = center - extent;
     aabbMaxOut = center + extent;
 }

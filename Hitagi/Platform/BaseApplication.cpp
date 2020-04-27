@@ -36,10 +36,7 @@ int BaseApplication::Initialize() {
     if ((ret = g_PhysicsManager->Initialize()) != 0) return ret;
     if ((ret = g_GameLogic->Initialize()) != 0) return ret;
     if ((ret = m_Clock.Initialize()) != 0) return ret;
-
-#if defined(_DEBUG)
     if ((ret = g_DebugManager->Initialize()) != 0) return ret;
-#endif
 
     m_Clock.Start();
     return ret;
@@ -47,9 +44,7 @@ int BaseApplication::Initialize() {
 
 // Finalize all sub modules and clean up all runtime temporary files.
 void BaseApplication::Finalize() {
-#if defined(_DEBUG)
     g_DebugManager->Finalize();
-#endif
     g_GameLogic->Finalize();
     g_GraphicsManager->Finalize();
     g_PhysicsManager->Finalize();

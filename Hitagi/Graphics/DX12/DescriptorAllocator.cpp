@@ -195,8 +195,12 @@ DescriptorAllocation DescriptorAllocator::Allocate(uint32_t numDescriptor) {
     for (auto iter = m_AvailbaleHeaps.begin(); iter != m_AvailbaleHeaps.end(); iter++) {
         auto allocatorPage = m_HeapPool[*iter];
         allocation         = allocatorPage->Allocate(numDescriptor);
+        // Becase any page in availbal heap must not be empty,
+        // so when NumFreeHandless return 0, allocating must have happend
+        // and we can erase it safely.
         if (allocatorPage->NumFreeHandles() == 0) {
             iter = m_AvailbaleHeaps.erase(iter);
+            assert(allocation);
         }
         if (allocation) break;
     }

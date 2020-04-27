@@ -4,10 +4,6 @@
 
 using namespace Hitagi;
 
-vec2f v2 = {1, 2};
-vec3f v3 = {1, 2, 3};
-mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
-
 template <typename T, unsigned D>
 void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2) {
     for (size_t i = 0; i < D; i++) {
@@ -25,16 +21,21 @@ void matrix_eq(const Matrix<T, D>& mat1, const Matrix<T, D>& mat2, double epsilo
 }
 
 TEST(VectorTest, VectorInit) {
-    vector_eq(v2, vec2f(1, 2));
-    vector_eq(v3, vec3f(1, 2, 3));
+    vec2f v2(1, 2);
+    vec3f v3(1, 2, 3);
     vector_eq(vec3f(1, 2, 0), vec3f(v2, 0));
     vector_eq(vec4f(v3, 1), vec4f(1, 2, 3, 1));
+
+    vector_eq(vec4f(1, 2, 3, 4), vec4f{1, 2, 3, 4});
+    vector_eq(vec4f(1), vec4f(1));
+    Vector<float, 6> v6({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f});
 }
 TEST(VectorTest, VectorCopy) {
-    vec3f a(1);
-    a = v3;
+    vec3f v3(1);
+    vec3f _v3 = v3;
 }
 TEST(VectorTest, VectorOperator) {
+    vec3f v3(1, 2, 3);
     vector_eq(v3 + 1, vec3f(2, 3, 4));
     vector_eq(1 + v3, vec3f(2, 3, 4));
     vector_eq(v3 + vec3f(1), vec3f(2, 3, 4));
@@ -46,7 +47,8 @@ TEST(VectorTest, VectorOperator) {
     vector_eq(v3 / 2, vec3f(0.5, 1.0, 1.5));
 }
 TEST(VectorTest, VectorAssignmentOperator) {
-    auto _v3 = v3;
+    vec3f v3(1, 2, 3);
+    auto  _v3 = v3;
     vector_eq(_v3 += 3, v3 + 3);
     vector_eq(_v3 -= 3, v3);
     vector_eq(_v3 += v3, 2 * v3);
@@ -66,11 +68,15 @@ TEST(VectorTest, VectorDotProduct) {
 }
 
 TEST(SwizzleTest, SwizzleTest) {
+    vec3f v3(1, 2, 3);
     vector_eq((vec3f)v3.zyx, vec3f(3, 2, 1));
+    std::cout << v3 << std::endl;
     vector_eq((vec3f)v3.rgb, v3);
     v3.rgb = {1, 3, 3};
+    std::cout << v3 << std::endl;
     vector_eq(v3, vec3f(1, 3, 3));
     v3.zyx = {1, 3, 3};
+    std::cout << v3 << std::endl;
     vector_eq(v3, vec3f(3, 3, 1));
     v3.r = 4;
     vector_eq(v3, vec3f(4, 3, 1));
@@ -86,14 +92,19 @@ TEST(SwizzleTest, SwizzleTest) {
 TEST(MatrixTest, MatInit) {
     mat3f _i(1);
     matrix_eq(_i, mat3f({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}));
+
+    mat3f m3 = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
 }
 TEST(MatrixTest, MatAddNum) {
+    mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
+
     matrix_eq(m3 + 3, mat3f({4, 4, 4, 4, 4, 4, 4, 4, 4}));
     matrix_eq(3 + m3, mat3f({4, 4, 4, 4, 4, 4, 4, 4, 4}));
     auto _m3 = m3;
     matrix_eq(_m3 += 3, mat3f({4, 4, 4, 4, 4, 4, 4, 4, 4}));
 }
 TEST(MatrixTest, MatSubNum) {
+    mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
     matrix_eq(3 - m3, mat3f({2, 2, 2, 2, 2, 2, 2, 2, 2}));
     matrix_eq(m3 - 3, mat3f({-2, -2, -2, -2, -2, -2, -2, -2, -2}));
     matrix_eq(-m3, mat3f({-1, -1, -1, -1, -1, -1, -1, -1, -1}));
@@ -101,12 +112,16 @@ TEST(MatrixTest, MatSubNum) {
     matrix_eq(_m3 -= 3, mat3f({-2, -2, -2, -2, -2, -2, -2, -2, -2}));
 }
 TEST(MatrixTest, MatMulNum) {
+    mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
+
     matrix_eq(m3 * 2, mat3f({2, 2, 2, 2, 2, 2, 2, 2, 2}));
     matrix_eq(2 * m3, mat3f({2, 2, 2, 2, 2, 2, 2, 2, 2}));
     auto _m3 = m3;
     matrix_eq(_m3 *= 2, mat3f({2, 2, 2, 2, 2, 2, 2, 2, 2}));
 }
 TEST(MatrixTest, MatDivNum) {
+    mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
+
     matrix_eq(m3 / 2, mat3f({0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5}));
     auto _m3 = m3;
     matrix_eq(_m3 /= 2, mat3f({0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5}));

@@ -14,7 +14,5 @@ std::unique_ptr<Core::FileIOManager>       g_FileIOManager(new Core::FileIOManag
 std::unique_ptr<Resource::ResourceManager> g_ResourceManager(new Resource::ResourceManager);
 std::unique_ptr<Resource::SceneManager>    g_SceneManager(new Resource::SceneManager);
 std::unique_ptr<InputManager>              g_InputManager(new InputManager);
-#if defined(_DEBUG)
-std::unique_ptr<DebugManager> g_DebugManager(new DebugManager);
-#endif
+std::unique_ptr<DebugManager>              g_DebugManager(new DebugManager);
 }  // namespace Hitagi
