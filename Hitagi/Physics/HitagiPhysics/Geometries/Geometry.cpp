@@ -10,7 +10,7 @@ void Geometry::CalculateTemporalAabb(const mat4f& curTrans, const vec3f& linvel,
     temporalAabbMax += Max(linMotion, 0.0f);
     temporalAabbMin += Min(linMotion, 0.0f);
 
-    float angularMotion = Length(angvel) * GetAngularMotionDisc() * timeStep;
+    float angularMotion = angvel.norm() * GetAngularMotionDisc() * timeStep;
     vec3f angularMotion3d(angularMotion, angularMotion, angularMotion);
 
     temporalAabbMin = temporalAabbMin - angularMotion3d;
@@ -23,7 +23,7 @@ void Geometry::GetBoundingSphere(vec3f& center, float& radius) const {
 
     GetAabb(tran, aabbMin, aabbMax);
 
-    radius = Length(aabbMax - aabbMin) * 0.5f;
+    radius = (aabbMax - aabbMin).norm() * 0.5f;
     center = (aabbMin + aabbMax) * 0.5f;
 }
 
@@ -31,7 +31,7 @@ float Geometry::GetAngularMotionDisc() const {
     vec3f center;
     float disc = 0.0f;
     GetBoundingSphere(center, disc);
-    disc += Length(center);
+    disc += center.norm();
     return disc;
 }
 }  // namespace Hitagi::Physics

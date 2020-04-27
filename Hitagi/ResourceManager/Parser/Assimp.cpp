@@ -227,7 +227,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         mat4f ret;
         for (int i = 0; i < 4; i++)
             for (int j = 0; j < 4; j++)
-                ret(i, j) = _mat[i][j];
+                ret[i][j] = _mat[i][j];
         return ret;
     };
 

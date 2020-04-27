@@ -2,7 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include "GeomMath.hpp"
+#include "HitagiMath.hpp"
 
 namespace Hitagi::Resource {
 

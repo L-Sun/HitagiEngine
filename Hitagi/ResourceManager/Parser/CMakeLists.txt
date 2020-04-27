@@ -9,7 +9,7 @@ add_library(Parser
 target_link_libraries(Parser
     PRIVATE
         MemoryManager
-        GeomMath
+        HitagiMath
         ${JPEG_LIBRARIES}
         png
         assimp::assimp

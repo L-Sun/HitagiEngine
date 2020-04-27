@@ -1,5 +1,5 @@
 #pragma once
-#include "GeomMath.hpp"
+#include "HitagiMath.hpp"
 
 namespace Hitagi::Physics {
 inline void TransformAabb(const vec3f& halfExtents, float margin, const mat4f& trans, vec3f& aabbMinOut,

@@ -425,7 +425,7 @@ SceneObjectRotation::SceneObjectRotation(vec3f& axis, const float theta) {
     axis        = normalize(axis);
     m_Transform = rotate(m_Transform, theta, axis);
 }
-SceneObjectRotation::SceneObjectRotation(quatf quaternion) { m_Transform = mat4f(quaternion) * m_Transform; }
+SceneObjectRotation::SceneObjectRotation(quatf quaternion) { m_Transform = rotate(m_Transform, quaternion); }
 
 // Class SceneObjectScale
 SceneObjectScale::SceneObjectScale(const char axis, const float amount) {

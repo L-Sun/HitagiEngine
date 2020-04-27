@@ -15,7 +15,7 @@ target_link_libraries(ImageParserTest PRIVATE ResourceManager GTest::gtest)
 add_test(NAME TEST_ImageParser COMMAND ImageParserTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(MathTest MathTest.cpp)
-target_link_libraries(MathTest PRIVATE GeomMath GTest::gtest)
+target_link_libraries(MathTest PRIVATE HitagiMath GTest::gtest)
 add_test(NAME TEST_Math COMMAND MathTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(TimerTest TimerTest.cpp)

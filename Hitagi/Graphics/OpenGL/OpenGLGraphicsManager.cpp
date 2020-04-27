@@ -83,7 +83,7 @@ bool OpenGLGraphicsManager::SetShaderParameters(GLuint shader, const char* param
     else if (std::holds_alternative<vec4f>(param))
         glUniform4fv(location, 1, std::get<vec4f>(param));
     else if (std::holds_alternative<mat4f>(param))
-        glUniformMatrix4fv(location, 1, false, std::get<mat4f>(param));
+        glUniformMatrix4fv(location, 1, true, std::get<mat4f>(param));
     else if (std::holds_alternative<GLuint>(param))
         if (std::get<GLuint>(param) < GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS)
             glUniform1i(location, std::get<GLuint>(param));

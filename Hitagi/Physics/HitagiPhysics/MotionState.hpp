@@ -1,5 +1,5 @@
 #pragma once
-#include "GeomMath.hpp"
+#include "HitagiMath.hpp"
 
 namespace Hitagi::Physics {
 

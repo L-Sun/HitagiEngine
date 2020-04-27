@@ -435,8 +435,15 @@ void D3D12GraphicsManager::UpdateConstants() {
     }
 
     // Update frame resource
+    FrameConstants frameConstants;
+    frameConstants.lightColor       = m_FrameConstants.lightColor;
+    frameConstants.lightPosition    = m_FrameConstants.lightPosition;
+    frameConstants.WVP              = transpose(m_FrameConstants.WVP);
+    frameConstants.projectionMatrix = transpose(m_FrameConstants.projectionMatrix);
+    frameConstants.viewMatrix       = transpose(m_FrameConstants.viewMatrix);
+    frameConstants.worldMatrix      = transpose(m_FrameConstants.worldMatrix);
 
-    currFR->UpdateFrameConstants(m_FrameConstants);
+    currFR->UpdateFrameConstants(frameConstants);
     for (auto&& d : m_DrawItems) {
         auto node = d.node.lock();
         if (!node) continue;
@@ -448,7 +455,7 @@ void D3D12GraphicsManager::UpdateConstants() {
         }
         if (d.numFramesDirty > 0) {
             ObjectConstants oc;
-            oc.modelMatrix = *node->GetCalculatedTransform();
+            oc.modelMatrix = transpose(node->GetCalculatedTransform());
 
             if (auto material = d.meshBuffer->material.lock()) {
                 auto& baseColor     = material->GetBaseColor();
@@ -466,7 +473,7 @@ void D3D12GraphicsManager::UpdateConstants() {
     for (auto&& d : m_DebugDrawItems) {
         if (auto node = d.node.lock()) {
             ObjectConstants oc;
-            oc.modelMatrix = *node->GetCalculatedTransform();
+            oc.modelMatrix = transpose(node->GetCalculatedTransform());
             currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
         }
     }
@@ -589,9 +596,9 @@ void D3D12GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const 
     }
 
     vec3f v1          = to - from;
-    vec3f v2          = {Length(v1), 0, 0};
+    vec3f v2          = {v1.norm(), 0, 0};
     vec3f rotate_axis = v1 + v2;
-    mat4f transform   = scale(mat4f(1.0f), vec3f(Length(v1)));
+    mat4f transform   = scale(mat4f(1.0f), vec3f(v1.norm()));
     transform         = rotate(transform, radians(180.0f), rotate_axis);
     transform         = translate(transform, from);
 
