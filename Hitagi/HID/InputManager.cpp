@@ -3,10 +3,9 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "SceneManager.hpp"
-#include "DebugManager.hpp"
+#include "IApplication.hpp"
 
-using namespace Hitagi;
+namespace Hitagi {
 
 int InputManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("InputManager");
@@ -15,84 +14,51 @@ int InputManager::Initialize() {
 #if defined(DEBUG)
     m_Logger->set_level(spdlog::level::debug);
 #endif  // DEBUG
+
+    auto& config = g_App->GetConfiguration();
+
     return 0;
 }
+
 void InputManager::Finalize() {
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
-void InputManager::Tick() {}
-
-void InputManager::UpArrowKeyDown() {
-    m_Logger->debug("Up Arrow Key Down!");
-    if (!m_UpKeyPressed) {
-        m_UpKeyPressed = true;
+void InputManager::Tick() {
+    for (auto&& m : m_BoolMapping) {
+        m.previous = m.current;
+        m.current  = false;  // will update in UpdateInputState()
     }
-}
-
-void InputManager::UpArrowKeyUp() {
-    m_Logger->debug("Up Arrow Key Up!");
-    m_UpKeyPressed = false;
-}
-
-void InputManager::DownArrowKeyDown() {
-    m_Logger->debug("Down Arrow Key Up!");
-    if (!m_DownKeyPressed) {
-        m_DownKeyPressed = true;
+    for (auto&& m : m_FloatMapping) {
+        m.previous = m.current;
+        m.current  = 0.0f;  // will update in UpdateInputState()
     }
+
+    // Update state
+    g_App->UpdateInputState();
 }
 
-void InputManager::DownArrowKeyUp() {
-    m_Logger->debug("Down Arrow Key Up!");
-    m_DownKeyPressed = false;
+void InputManager::Map(UserDefAction userAction, InputEvent key) {
+    if (userAction >= m_UserMapping.size()) m_UserMapping.resize(userAction + 1);
+    m_UserMapping[userAction] = key;
 }
 
-void InputManager::LeftArrowKeyDown() {
-    m_Logger->debug("Left Arrow Key Down!");
-    if (!m_LeftKeyPressed) {
-        m_LeftKeyPressed = true;
-    }
+bool InputManager::GetBool(UserDefAction userAction) const {
+    return m_BoolMapping[static_cast<unsigned>(m_UserMapping[userAction])].current;
 }
 
-void InputManager::LeftArrowKeyUp() {
-    m_Logger->debug("Left Arrow Key Up!");
-    m_LeftKeyPressed = false;
+bool InputManager::GetBoolNew(UserDefAction userAction) const {
+    auto& state = m_BoolMapping[static_cast<unsigned>(m_UserMapping[userAction])];
+    return state.current && !state.previous;
 }
 
-void InputManager::RightArrowKeyDown() {
-    m_Logger->debug("Left Arrow Key Up!");
-    if (!m_RightKeyPressed) {
-        m_RightKeyPressed = true;
-    }
+float InputManager::GetFloat(UserDefAction userAction) const {
+    return m_FloatMapping[static_cast<unsigned>(m_UserMapping[userAction])].current;
 }
 
-void InputManager::RightArrowKeyUp() {
-    m_Logger->debug("Left Arrow Key Up!");
-    m_RightKeyPressed = false;
+float InputManager::GetFloatDelta(UserDefAction userAction) const {
+    auto& state = m_FloatMapping[static_cast<unsigned>(m_UserMapping[userAction])];
+    return state.current - state.previous;
 }
 
-void InputManager::CKeyDown() {
-    m_Logger->debug("C Key Down!");
-    if (!m_RightKeyPressed) {
-        m_CKeyPressed = true;
-    }
-}
-
-void InputManager::CKeyUp() {
-    m_Logger->debug("C Key Up!");
-    m_CKeyPressed = false;
-}
-
-void InputManager::ResetKeyDown() {
-    m_Logger->debug("Reset  Key Down!");
-    g_SceneManager->ResetScene();
-}
-
-void InputManager::ResetKeyUp() { m_Logger->debug("Reset Arrow Key Up!"); }
-
-void InputManager::DebugKeyDown() {
-    m_Logger->debug("Debug Key Down!");
-    g_DebugManager->ToggleDebugInfo();
-}
-
-void InputManager::DebugKeyUp() { m_Logger->debug("Debug Key Up!"); }
+}  // namespace Hitagi

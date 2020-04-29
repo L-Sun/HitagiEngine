@@ -1,35 +1,50 @@
 #pragma once
+#include <iostream>
+#include <functional>
+#include <array>
+
 #include "IRuntimeModule.hpp"
 
 namespace Hitagi {
+enum class InputEvent : unsigned {
+    KEY_D,
+    MOUSE_RIGHT,
+    MOUSE_LEFT,
+    MOUSE_MIDDLE,
+    MOUSE_MOVE_X,
+    MOUSE_MOVE_Y,
+    MOUSE_SCROLL_X,
+    MOUSE_SCROLL_Y,
+    NUM_EVENT,
+};
+
 class InputManager : public IRuntimeModule {
+    friend class GLFWApplication;
+
 public:
-    virtual int  Initialize();
-    virtual void Finalize();
-    virtual void Tick();
+    using UserDefAction = int;
+    int  Initialize() final;
+    void Finalize() final;
+    void Tick() final;
 
-    void UpArrowKeyDown();
-    void UpArrowKeyUp();
-    void DownArrowKeyDown();
-    void DownArrowKeyUp();
-    void LeftArrowKeyDown();
-    void LeftArrowKeyUp();
-    void RightArrowKeyDown();
-    void RightArrowKeyUp();
-    void CKeyUp();
-    void CKeyDown();
+    void Map(UserDefAction userAction, InputEvent key);
 
-    void ResetKeyUp();
-    void ResetKeyDown();
-    void DebugKeyUp();
-    void DebugKeyDown();
+    bool  GetBool(UserDefAction userAction) const;
+    bool  GetBoolNew(UserDefAction userAction) const;
+    float GetFloat(UserDefAction userAction) const;
+    float GetFloatDelta(UserDefAction userAction) const;
 
-protected:
-    bool m_UpKeyPressed    = false;
-    bool m_DownKeyPressed  = false;
-    bool m_LeftKeyPressed  = false;
-    bool m_RightKeyPressed = false;
-    bool m_CKeyPressed     = false;
+private:
+    struct BoolMap {
+        bool current = false, previous = false;
+    };
+    struct FloatMap {
+        float current = 0, previous = 0;
+    };
+
+    std::array<BoolMap, static_cast<unsigned>(InputEvent::NUM_EVENT)>  m_BoolMapping;
+    std::array<FloatMap, static_cast<unsigned>(InputEvent::NUM_EVENT)> m_FloatMapping;
+    std::vector<InputEvent>                                            m_UserMapping;
 };
 
 extern std::unique_ptr<InputManager> g_InputManager;
