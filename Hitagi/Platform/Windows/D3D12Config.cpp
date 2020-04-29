@@ -1,5 +1,5 @@
 #include "D3D12GraphicsManager.hpp"
-#include "WindowsApplication.hpp"
+#include "GLFWApplication.hpp"
 #include "MemoryManager.hpp"
 #include "ResourceManager.hpp"
 #include "SceneManager.hpp"
@@ -8,7 +8,7 @@
 
 namespace Hitagi {
 extern GfxConfiguration                    config;
-std::unique_ptr<IApplication>              g_App(new WindowsApplication(config));
+std::unique_ptr<IApplication>              g_App(new GLFWApplication(config));
 std::unique_ptr<Graphics::GraphicsManager> g_GraphicsManager(new Graphics::DX12::D3D12GraphicsManager);
 std::unique_ptr<Core::MemoryManager>       g_MemoryManager(new Core::MemoryManager);
 std::unique_ptr<Core::FileIOManager>       g_FileIOManager(new Core::FileIOManager);

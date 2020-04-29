@@ -2,12 +2,20 @@
 
 #include <fstream>
 
+#include "GLFWApplication.hpp"
 #include "IPhysicsManager.hpp"
 
 namespace Hitagi::Graphics::OpenGL {
 
 int OpenGLGraphicsManager::Initialize() {
-    int result;
+    int         result;
+    GLFWwindow* window = static_cast<GLFWApplication*>(g_App.get())->GetWindow();
+    glfwSetWindowAttrib(window, GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwSetWindowAttrib(window, GLFW_CONTEXT_VERSION_MINOR, 5);
+    glfwSetWindowAttrib(window, GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwSetWindowAttrib(window, GLFW_SAMPLES, 4);
+    glfwMakeContextCurrent(window);
+
     result = gladLoadGL();
     if (!result) {
         std::cerr << "OpenGL load failed!\n";
@@ -38,6 +46,7 @@ int OpenGLGraphicsManager::Initialize() {
             glCullFace(GL_BACK);
         }
     }
+    glfwSwapInterval(1);
     result = GraphicsManager::Initialize();
     return result;
 }
@@ -56,6 +65,8 @@ void OpenGLGraphicsManager::Clear() {
 
 void OpenGLGraphicsManager::Draw() {
     GraphicsManager::Draw();
+    GLFWwindow* window = static_cast<GLFWApplication*>(g_App.get())->GetWindow();
+    glfwSwapBuffers(window);
     glFlush();
 }
 

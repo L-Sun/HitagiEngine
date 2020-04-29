@@ -2,71 +2,84 @@
 
 #include <iostream>
 
+#include <spdlog/spdlog.h>
+
 #include "InputManager.hpp"
 
 using namespace Hitagi;
 
 int GLFWApplication::Initialize() {
-    int result;
-
-    glfwInit();
-    for (auto [hint, value] : WindowHintConfig) {
-        glfwWindowHint(hint, value);
+    if (!glfwInit()) {
+        m_Logger->error("GLFW3 initialize failed.");
+        return -1;
     }
 
-    m_Window = glfwCreateWindow(m_Config.screenWidth, m_Config.screenHeight, m_Config.appName.c_str(), NULL, NULL);
-
-    if (m_Window == NULL) {
-        std::cout << "Failed to create GLFW window" << std::endl;
+    m_Window =
+        glfwCreateWindow(m_Config.screenWidth, m_Config.screenHeight, m_Config.appName.c_str(), nullptr, nullptr);
+    if (!m_Window) {
+        m_Logger->error("Create Window failed.");
         glfwTerminate();
         return -1;
     }
-    glfwMakeContextCurrent(m_Window);
-
+    glfwSetScrollCallback(m_Window, ProcessScroll);
     // first call base class initialization
-    result = BaseApplication::Initialize();
-    if (result != 0) exit(result);
-
-    return result;
+    return BaseApplication::Initialize();
 }
 
 void GLFWApplication::Finalize() {
+    if (m_Window) glfwDestroyWindow(m_Window);
     glfwTerminate();
     BaseApplication::Finalize();
 }
 
 void GLFWApplication::Tick() {
-    BaseApplication::m_Quit = glfwWindowShouldClose(m_Window);
     BaseApplication::Tick();
-    glfwSetKeyCallback(m_Window, KeyCallback);
-    glfwPollEvents();
-    OnDraw();
-    glfwSwapBuffers(m_Window);
+    BaseApplication::m_Quit = glfwWindowShouldClose(m_Window);
 }
 
-void GLFWApplication::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_InputManager->UpArrowKeyDown();
-    else if (key == GLFW_KEY_UP && action == GLFW_RELEASE)
-        g_InputManager->UpArrowKeyUp();
-    else if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_InputManager->DownArrowKeyDown();
-    else if (key == GLFW_KEY_DOWN && action == GLFW_RELEASE)
-        g_InputManager->DownArrowKeyUp();
-    else if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_InputManager->LeftArrowKeyDown();
-    else if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE)
-        g_InputManager->LeftArrowKeyUp();
-    else if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_InputManager->RightArrowKeyDown();
-    else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
-        g_InputManager->RightArrowKeyUp();
-    else if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        g_InputManager->DebugKeyDown();
-    else if (key == GLFW_KEY_D && action == GLFW_RELEASE)
-        g_InputManager->DebugKeyUp();
-    else if (key == GLFW_KEY_R && action == GLFW_PRESS)
-        g_InputManager->ResetKeyDown();
-    else if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        glfwSetWindowShouldClose(window, true);
+void GLFWApplication::UpdateInputState() {
+    // If scroll wheel, it will callback ProcessScroll function.
+    glfwPollEvents();
+
+    // Process Key Input
+    auto& boolMapping  = g_InputManager->m_BoolMapping;
+    auto& floatMapping = g_InputManager->m_FloatMapping;
+
+    constexpr std::pair<InputEvent, int> keyToGlfw[] = {
+        {InputEvent::KEY_D, GLFW_KEY_D},
+    };
+    for (auto&& [event, glfwKey] : keyToGlfw) {
+        const unsigned index        = static_cast<unsigned>(event);
+        boolMapping[index].current  = glfwGetKey(m_Window, glfwKey) != GLFW_RELEASE;
+        floatMapping[index].current = boolMapping[index].current ? 1.f : 0.f;
+    }
+
+    // Process Mouse Input
+    constexpr std::pair<InputEvent, int> buttonToGlfw[] = {
+        {InputEvent::MOUSE_LEFT, GLFW_MOUSE_BUTTON_LEFT},
+        {InputEvent::MOUSE_RIGHT, GLFW_MOUSE_BUTTON_RIGHT},
+        {InputEvent::MOUSE_MIDDLE, GLFW_MOUSE_BUTTON_MIDDLE},
+    };
+    for (auto&& [event, glfwButton] : buttonToGlfw) {
+        const unsigned index        = static_cast<unsigned>(event);
+        boolMapping[index].current  = glfwGetMouseButton(m_Window, glfwButton) != GLFW_RELEASE;
+        floatMapping[index].current = boolMapping[index].current ? 1.f : 0.f;
+    }
+
+    double x, y;
+    glfwGetCursorPos(m_Window, &x, &y);
+    boolMapping[static_cast<unsigned>(InputEvent::MOUSE_MOVE_X)].current  = (x != 0);
+    boolMapping[static_cast<unsigned>(InputEvent::MOUSE_MOVE_Y)].current  = (y != 0);
+    floatMapping[static_cast<unsigned>(InputEvent::MOUSE_MOVE_X)].current = x;
+    floatMapping[static_cast<unsigned>(InputEvent::MOUSE_MOVE_Y)].current = y;
+}
+
+void GLFWApplication::ProcessScroll(GLFWwindow* window, double xoffset, double yoffset) {
+    auto& boolMapping  = g_InputManager->m_BoolMapping;
+    auto& floatMapping = g_InputManager->m_FloatMapping;
+
+    boolMapping[static_cast<unsigned>(InputEvent::MOUSE_SCROLL_X)].current  = (xoffset != 0);
+    boolMapping[static_cast<unsigned>(InputEvent::MOUSE_SCROLL_Y)].current  = (yoffset != 0);
+    floatMapping[static_cast<unsigned>(InputEvent::MOUSE_SCROLL_X)].current = xoffset;
+    floatMapping[static_cast<unsigned>(InputEvent::MOUSE_SCROLL_Y)].current = yoffset;
 }

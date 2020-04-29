@@ -4,6 +4,7 @@ add_library(OpenGLRHI
 target_link_libraries(OpenGLRHI 
     PRIVATE
         GraphicsManager
+        GLFWApplication
         ${OPENGL_LIBRARIES}
         glad::glad
 )

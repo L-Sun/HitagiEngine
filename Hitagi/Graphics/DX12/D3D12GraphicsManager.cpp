@@ -1,6 +1,9 @@
 #include "D3D12GraphicsManager.hpp"
 
-#include "WindowsApplication.hpp"
+#include "GLFWApplication.hpp"
+
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
 
 namespace Hitagi::Graphics::DX12 {
 
@@ -98,13 +101,15 @@ void D3D12GraphicsManager::CreateSwapChain() {
     swapChainDesc.SampleDesc.Count                        = m_4xMsaaState ? 4 : 1;
     swapChainDesc.SampleDesc.Quality                      = m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0;
     swapChainDesc.Flags                                   = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-    HWND window       = reinterpret_cast<WindowsApplication*>(g_App.get())->GetMainWindow();
+
+    auto window       = static_cast<GLFWApplication*>(g_App.get())->GetWindow();
+    auto hWnd         = glfwGetWin32Window(window);
     auto commandQueue = m_CommandListManager.GetGraphicsQueue().GetCommandQueue();
     ThrowIfFailed(
-        m_DxgiFactory->CreateSwapChainForHwnd(commandQueue, window, &swapChainDesc, nullptr, nullptr, &swapChain));
+        m_DxgiFactory->CreateSwapChainForHwnd(commandQueue, hWnd, &swapChainDesc, nullptr, nullptr, &swapChain));
 
     ThrowIfFailed(swapChain.As(&m_SwapChain));
-    ThrowIfFailed(m_DxgiFactory->MakeWindowAssociation(window, DXGI_MWA_NO_ALT_ENTER));
+    ThrowIfFailed(m_DxgiFactory->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER));
 }
 
 void D3D12GraphicsManager::CreateDescriptorHeaps() {

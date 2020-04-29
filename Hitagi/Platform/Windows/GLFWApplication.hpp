@@ -1,7 +1,6 @@
 #pragma once
 #include <map>
 
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include "BaseApplication.hpp"
@@ -10,19 +9,16 @@ namespace Hitagi {
 class GLFWApplication : public BaseApplication {
 public:
     GLFWApplication(GfxConfiguration& config) : BaseApplication(config) {}
-    virtual int  Initialize();
-    virtual void Finalize();
-    virtual void Tick();
+    int  Initialize() final;
+    void Finalize() final;
+    void Tick() final;
+    void UpdateInputState() final;
 
-protected:
-    GLFWwindow* m_Window;
+    GLFWwindow* GetWindow() { return m_Window; }
 
 private:
-    std::map<unsigned int, unsigned int> WindowHintConfig = {{GLFW_CONTEXT_VERSION_MAJOR, 4},
-                                                             {GLFW_CONTEXT_VERSION_MINOR, 5},
-                                                             {GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE},
-                                                             {GLFW_SAMPLES, 4}};
+    static void ProcessScroll(GLFWwindow*, double, double);
 
-    static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+    GLFWwindow* m_Window;
 };
 }  // namespace Hitagi

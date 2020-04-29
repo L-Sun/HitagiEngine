@@ -15,7 +15,7 @@ target_link_libraries(D3DRHI
         d3d12
         dxgi
         d3dcompiler
-        HitagiEngineD3D12
+        GLFWApplication
     PUBLIC
         GraphicsManager
 )

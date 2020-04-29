@@ -17,16 +17,15 @@ using namespace Hitagi;
 
 bool BaseApplication::m_Quit = false;
 
-BaseApplication::BaseApplication(GfxConfiguration& cfg) : m_Config(cfg) {}
+BaseApplication::BaseApplication(GfxConfiguration& cfg) : m_Config(cfg) {
+    m_Logger = spdlog::stdout_color_mt("Application");
+}
 
 // Parse command line, read configuration, initialize all sub modules
 int BaseApplication::Initialize() {
-    int ret  = 0;
-    m_Logger = spdlog::stdout_color_mt("Application");
-    m_Logger->info("Initialize...");
+    int ret = 0;
 
-    std::cout << m_Config;
-
+    m_Logger->info("Initialize Moudules...");
     if ((ret = g_MemoryManager->Initialize()) != 0) return ret;
     if ((ret = g_FileIOManager->Initialize()) != 0) return ret;
     if ((ret = g_InputManager->Initialize()) != 0) return ret;

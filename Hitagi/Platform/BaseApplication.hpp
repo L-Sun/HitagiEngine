@@ -10,11 +10,11 @@ public:
     virtual void Finalize();
     virtual void Tick();
     virtual bool IsQuit();
-
     virtual void SetCommandLineParameters(int argc, char** argv);
-    virtual void OnDraw() {}
 
-    inline GfxConfiguration& GetConfiguration() { return m_Config; }
+    inline GfxConfiguration& GetConfiguration() final { return m_Config; }
+
+    virtual void UpdateInputState() {}
 
 protected:
     static bool      m_Quit;

@@ -1,23 +1,18 @@
-add_library(HitagiEngineD3D12
-    WindowsApplication.cpp
-    WindowsApplicationConfig.cpp
-)
+add_library(GLFWApplication GLFWApplication.cpp)
+target_link_libraries(GLFWApplication PUBLIC BaseApplication PRIVATE glfw)
+target_include_directories(GLFWApplication INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_library(HitagiEngineD3D12 D3D12Config.cpp)
+
 target_link_libraries(HitagiEngineD3D12
     PUBLIC
-        BaseApplication
+        GLFWApplication
         D3DRHI
 )
-target_include_directories(HitagiEngineD3D12 INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(HitagiEngineOpenGL
-    GLFWApplication.cpp
-    OpenGLApplication.cpp
-    OpenGLApplicationConfig.cpp
-)
+add_library(HitagiEngineOpenGL OpenGLConfig.cpp)
 target_link_libraries(HitagiEngineOpenGL
     PUBLIC
-        BaseApplication
+        GLFWApplication
         OpenGLRHI
-    PRIVATE
-        glfw
 )
