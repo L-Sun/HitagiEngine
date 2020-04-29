@@ -32,6 +32,50 @@ void HitagiPhysicsManager::Tick() {
         g_SceneManager->NotifySceneIsPhysicalSimulationQueued();
     }
 }
+
+void HitagiPhysicsManager::GetBoundingBox(vec3f& aabbMin, vec3f& aabbMax, const Resource::SceneObjectGeometry& geometry,
+                                          size_t lod) {
+    aabbMin = vec3f(std::numeric_limits<float>::max());
+    aabbMax = vec3f(std::numeric_limits<float>::min());
+
+    auto& meshes = geometry.GetMeshes(lod);
+    for (auto&& m : meshes) {
+        if (auto mesh = m.lock()) {
+            auto& positions    = mesh->GetVertexPropertyArray("POSITION");
+            auto  dataType     = positions.GetDataType();
+            auto  vertex_count = positions.GetVertexCount();
+            auto  data         = positions.GetData();
+
+            switch (dataType) {
+                case Resource::VertexDataType::FLOAT3: {
+                    auto vertex = reinterpret_cast<const vec3f*>(data);
+                    for (auto i = 0; i < vertex_count; i++, vertex++) {
+                        aabbMin.x = std::min(aabbMin.x, vertex->x);
+                        aabbMin.y = std::min(aabbMin.y, vertex->y);
+                        aabbMin.z = std::min(aabbMin.z, vertex->z);
+                        aabbMax.x = std::max(aabbMax.x, vertex->x);
+                        aabbMax.y = std::max(aabbMax.y, vertex->y);
+                        aabbMax.z = std::max(aabbMax.z, vertex->z);
+                    }
+                } break;
+                case Resource::VertexDataType::DOUBLE3: {
+                    auto vertex = reinterpret_cast<const vec3d*>(data);
+                    for (auto i = 0; i < vertex_count; i++, vertex++) {
+                        aabbMin.x = std::min(static_cast<double>(aabbMin.x), vertex->x);
+                        aabbMin.y = std::min(static_cast<double>(aabbMin.y), vertex->y);
+                        aabbMin.z = std::min(static_cast<double>(aabbMin.z), vertex->z);
+                        aabbMax.x = std::max(static_cast<double>(aabbMax.x), vertex->x);
+                        aabbMax.y = std::max(static_cast<double>(aabbMax.y), vertex->y);
+                        aabbMax.z = std::max(static_cast<double>(aabbMax.z), vertex->z);
+                    }
+                } break;
+                default:
+                    assert(0);
+            }
+        }
+    }
+}
+
 void HitagiPhysicsManager::CreateRigidBody(Resource::SceneGeometryNode&         node,
                                            const Resource::SceneObjectGeometry& geometry) {
     const float*               param     = geometry.CollisionParameters();
@@ -55,9 +99,10 @@ void HitagiPhysicsManager::CreateRigidBody(Resource::SceneGeometryNode&         
         } break;
         default: {
             // create AABB box according to Bounding Box
-            auto boundingBox  = geometry.GetBoundingBox();
-            auto collisionBox = std::make_shared<Box>(boundingBox.extent);
-            auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform(), boundingBox.centroid);
+            vec3f aabbMin, aabbMax;
+            GetBoundingBox(aabbMin, aabbMax, geometry);
+            auto collisionBox = std::make_shared<Box>(aabbMax - aabbMin);
+            auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform(), 0.5 * (aabbMin + aabbMax));
             rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
         }
     }
@@ -122,15 +167,15 @@ void HitagiPhysicsManager::DrawDebugInfo() {
 }
 
 void HitagiPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass) {
-    vec3f bbMin, bbMax;
+    vec3f aabbMin, aabbMax;
     vec3f color(0.7f, 0.6f, 0.5f);
     mat4f _trans(1.0f);
     _trans.data[3][0] = centerOfMass.x * trans.data[0][0];  // scale by x-scale
     _trans.data[3][1] = centerOfMass.y * trans.data[1][1];  // scale by y-scale
     _trans.data[3][2] = centerOfMass.z * trans.data[2][2];  // scale by z-scale
     _trans            = trans * _trans;
-    geometry.GetAabb(_trans, bbMin, bbMax);
-    g_GraphicsManager->RenderBox(bbMin, bbMax, color);
+    geometry.GetAabb(_trans, aabbMin, aabbMax);
+    g_GraphicsManager->RenderBox(aabbMin, aabbMax, color);
 }
 
 #endif

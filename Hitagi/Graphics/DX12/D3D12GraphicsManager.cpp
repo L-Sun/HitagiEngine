@@ -1,6 +1,7 @@
 #include "D3D12GraphicsManager.hpp"
 
 #include "GLFWApplication.hpp"
+#include "IPhysicsManager.hpp"
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
@@ -462,8 +463,14 @@ void D3D12GraphicsManager::UpdateConstants() {
             d.numFramesDirty = m_FrameResourceSize;
         }
         if (d.numFramesDirty > 0) {
+            mat4f transform;
+            if (auto rigidBody = node->RigidBody())
+                transform = g_PhysicsManager->GetRigidBodyTransform(rigidBody);
+            else
+                transform = node->GetCalculatedTransform();
+
             ObjectConstants oc;
-            oc.modelMatrix = transpose(node->GetCalculatedTransform());
+            oc.modelMatrix = transpose(transform);
 
             if (auto material = d.meshBuffer->material.lock()) {
                 auto& baseColor     = material->GetBaseColor();

@@ -5,7 +5,7 @@ namespace Hitagi::Physics {
 class Box : public Geometry {
 public:
     Box() : Geometry(GeometryType::BOX) {}
-    Box(vec3f dimension) : Geometry(GeometryType::BOX), m_Dimension(dimension) {}
+    Box(const vec3f& dimension) : Geometry(GeometryType::BOX), m_Dimension(dimension) {}
 
     virtual void GetAabb(const mat4f& trans, vec3f& aabbMin, vec3f& aabbMax) const;
 

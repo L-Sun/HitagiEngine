@@ -10,7 +10,8 @@ public:
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;
-
+    void GetBoundingBox(vec3f& aabbMin, vec3f& aabbMax, const Resource::SceneObjectGeometry& geometry,
+                        size_t lod = 0) final;
     void CreateRigidBody(Resource::SceneGeometryNode& node, const Resource::SceneObjectGeometry& geometry) final;
     void DeleteRigidBody(Resource::SceneGeometryNode& node) final;
 

@@ -248,11 +248,6 @@ public:
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj);
 };
 
-struct BoundingBox {
-    vec3f centroid;
-    vec3f extent;
-};
-
 class SceneObjectMesh : public BaseSceneObject {
 protected:
     // Different vector elements correspond to different attributes of
@@ -292,7 +287,6 @@ public:
     const SceneObjectIndexArray&       GetIndexArray() const;
     const PrimitiveType&               GetPrimitiveType();
     std::weak_ptr<SceneObjectMaterial> GetMaterial() const;
-    BoundingBox                        GetBoundingBox() const;
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectMesh& obj);
 };
@@ -313,20 +307,19 @@ protected:
 public:
     SceneObjectGeometry()
         : BaseSceneObject(SceneObjectType::GEOMETRY), m_CollisionType(SceneObjectCollisionType::NONE) {}
-    void                                        SetVisibility(bool visible);
-    void                                        SetIfCastShadow(bool shadow);
-    void                                        SetIfMotionBlur(bool motionBlur);
-    void                                        SetCollisionType(SceneObjectCollisionType collisionType);
-    void                                        SetCollisionParameters(const float* param, int32_t count);
-    const bool                                  Visible() const;
-    const bool                                  CastShadow() const;
-    const bool                                  MotionBlur() const;
-    const SceneObjectCollisionType              CollisionType() const;
-    const float*                                CollisionParameters() const;
-    void                                        AddMesh(const std::weak_ptr<SceneObjectMesh>& mesh, size_t level = 0);
-    std::vector<std::weak_ptr<SceneObjectMesh>> GetMeshes(size_t lod = 0) const;
-    BoundingBox                                 GetBoundingBox() const;
-    friend std::ostream&                        operator<<(std::ostream& out, const SceneObjectGeometry& obj);
+    void                           SetVisibility(bool visible);
+    void                           SetIfCastShadow(bool shadow);
+    void                           SetIfMotionBlur(bool motionBlur);
+    void                           SetCollisionType(SceneObjectCollisionType collisionType);
+    void                           SetCollisionParameters(const float* param, int32_t count);
+    const bool                     Visible() const;
+    const bool                     CastShadow() const;
+    const bool                     MotionBlur() const;
+    const SceneObjectCollisionType CollisionType() const;
+    const float*                   CollisionParameters() const;
+    void                           AddMesh(const std::weak_ptr<SceneObjectMesh>& mesh, size_t level = 0);
+    const std::vector<std::weak_ptr<SceneObjectMesh>>& GetMeshes(size_t lod = 0) const;
+    friend std::ostream&                               operator<<(std::ostream& out, const SceneObjectGeometry& obj);
 };
 
 typedef float (*AttenFunc)(float /* Intensity */, float /* distance */);

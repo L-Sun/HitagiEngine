@@ -11,6 +11,8 @@ public:
     virtual void Finalize()   = 0;
     virtual void Tick()       = 0;
 
+    virtual void GetBoundingBox(vec3f& aabbMin, vec3f& aabbMax, const Resource::SceneObjectGeometry& geometry,
+                                size_t lod = 0)                                                                    = 0;
     virtual void CreateRigidBody(Resource::SceneGeometryNode& node, const Resource::SceneObjectGeometry& geometry) = 0;
     virtual void DeleteRigidBody(Resource::SceneGeometryNode& BaseSceneNode)                                       = 0;
 

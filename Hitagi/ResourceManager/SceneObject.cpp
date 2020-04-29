@@ -197,46 +197,6 @@ const SceneObjectVertexArray& SceneObjectMesh::GetVertexPropertyArray(const std:
 const SceneObjectIndexArray&       SceneObjectMesh::GetIndexArray() const { return m_IndexArray; }
 const PrimitiveType&               SceneObjectMesh::GetPrimitiveType() { return m_PrimitiveType; }
 std::weak_ptr<SceneObjectMaterial> SceneObjectMesh::GetMaterial() const { return m_Material; }
-BoundingBox                        SceneObjectMesh::GetBoundingBox() const {
-    vec3f bbmin(std::numeric_limits<float>::max());
-    vec3f bbmax(std::numeric_limits<float>::min());
-    auto  positions    = m_VertexArray.at("POSITION");
-    auto  dataType     = positions.GetDataType();
-    auto  vertex_count = positions.GetVertexCount();
-    auto  data         = positions.GetData();
-
-    switch (dataType) {
-        case VertexDataType::FLOAT3: {
-            auto vertex = reinterpret_cast<const vec3f*>(data);
-            for (auto i = 0; i < vertex_count; i++, vertex++) {
-                bbmin.x = std::min(bbmin.x, vertex->x);
-                bbmin.y = std::min(bbmin.y, vertex->y);
-                bbmin.z = std::min(bbmin.z, vertex->z);
-                bbmax.x = std::max(bbmax.x, vertex->x);
-                bbmax.y = std::max(bbmax.y, vertex->y);
-                bbmax.z = std::max(bbmax.z, vertex->z);
-            }
-        } break;
-        case VertexDataType::DOUBLE3: {
-            auto vertex = reinterpret_cast<const vec3d*>(data);
-            for (auto i = 0; i < vertex_count; i++, vertex++) {
-                bbmin.x = std::min(static_cast<double>(bbmin.x), vertex->x);
-                bbmin.y = std::min(static_cast<double>(bbmin.y), vertex->y);
-                bbmin.z = std::min(static_cast<double>(bbmin.z), vertex->z);
-                bbmax.x = std::max(static_cast<double>(bbmax.x), vertex->x);
-                bbmax.y = std::max(static_cast<double>(bbmax.y), vertex->y);
-                bbmax.z = std::max(static_cast<double>(bbmax.z), vertex->z);
-            }
-        } break;
-        default:
-            assert(0);
-    }
-
-    BoundingBox result;
-    result.extent   = (bbmax - bbmin) * 0.5f;
-    result.centroid = (bbmax + bbmin) * 0.5;
-    return result;
-}
 
 // Class SceneObjectTexture
 void SceneObjectTexture::AddTransform(mat4f& matrix) { m_Transforms.push_back(matrix); }
@@ -313,32 +273,8 @@ void SceneObjectGeometry::AddMesh(const std::weak_ptr<SceneObjectMesh>& mesh, si
     if (level >= m_MeshesLOD.size()) m_MeshesLOD.resize(level + 1);
     m_MeshesLOD[level].push_back(mesh);
 }
-std::vector<std::weak_ptr<SceneObjectMesh>> SceneObjectGeometry::GetMeshes(size_t lod) const {
-    return (lod < m_MeshesLOD.size() ? m_MeshesLOD[lod] : std::vector<std::weak_ptr<SceneObjectMesh>>());
-}
-BoundingBox SceneObjectGeometry::GetBoundingBox() const {
-    BoundingBox ret;
-    if (!m_MeshesLOD.empty() && !m_MeshesLOD[0].empty()) {
-        vec3f bbmin(std::numeric_limits<float>::max());
-        vec3f bbmax(std::numeric_limits<float>::min());
-        for (auto&& _mesh : m_MeshesLOD[0]) {
-            if (auto mesh = _mesh.lock()) {
-                auto box    = mesh->GetBoundingBox();
-                auto _bbmin = box.centroid - box.extent;
-                auto _bbmax = box.centroid + box.extent;
-                bbmin.x     = std::min(bbmin.x, _bbmin.x);
-                bbmin.y     = std::min(bbmin.y, _bbmin.y);
-                bbmin.z     = std::min(bbmin.z, _bbmin.z);
-                bbmax.x     = std::max(bbmax.x, _bbmax.x);
-                bbmax.y     = std::max(bbmax.y, _bbmax.y);
-                bbmax.z     = std::max(bbmax.z, _bbmax.z);
-            }
-        }
-
-        ret.centroid = (bbmax + bbmin) * 0.5f;
-        ret.extent   = (bbmax - bbmin) * 0.5f;
-    }
-    return ret;
+const std::vector<std::weak_ptr<SceneObjectMesh>>& SceneObjectGeometry::GetMeshes(size_t lod) const {
+    return m_MeshesLOD[lod];
 }
 
 // Class SceneObjectLight

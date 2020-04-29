@@ -50,6 +50,7 @@ int OpenGLGraphicsManager::Initialize() {
     result = GraphicsManager::Initialize();
     return result;
 }
+void OpenGLGraphicsManager::Tick() { GraphicsManager::Tick(); }
 void OpenGLGraphicsManager::Finalize() {
     ClearBuffers();
     ClearShaders();

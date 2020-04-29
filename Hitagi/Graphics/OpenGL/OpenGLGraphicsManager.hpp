@@ -11,6 +11,7 @@ namespace Hitagi::Graphics::OpenGL {
 class OpenGLGraphicsManager : public GraphicsManager {
 public:
     int  Initialize() final;
+    void Tick() final;
     void Finalize() final;
     void Clear() final;
     void Draw() final;
