@@ -372,9 +372,23 @@ const Vector<T, D> Max(const Vector<T, D>& a, const T& b) {
 }
 
 template <typename T, unsigned D>
+const Vector<T, D> Max(const Vector<T, D>& a, const Vector<T, D>& b) {
+    Vector<T, D> res;
+    for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b[i]);
+    return res;
+}
+
+template <typename T, unsigned D>
 const Vector<T, D> Min(const Vector<T, D>& a, const T& b) {
     Vector<T, D> res;
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b);
+    return res;
+}
+
+template <typename T, unsigned D>
+const Vector<T, D> Min(const Vector<T, D>& a, const Vector<T, D>& b) {
+    Vector<T, D> res;
+    for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b[i]);
     return res;
 }
 
