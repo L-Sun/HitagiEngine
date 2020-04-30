@@ -14,7 +14,8 @@ class D3D12GraphicsManager : public GraphicsManager {
 private:
     struct ObjectConstants {
         mat4f modelMatrix;
-        vec4f baseColor;
+        vec4f ambientColor;
+        vec4f diffuseColor;
         vec4f specularColor;
         float specularPower;
     };

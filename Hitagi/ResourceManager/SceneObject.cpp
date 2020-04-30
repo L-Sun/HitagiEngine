@@ -217,13 +217,15 @@ const Image&       SceneObjectTexture::GetTextureImage() {
 
 // Class SceneObjectMaterial
 const std::string& SceneObjectMaterial::GetName() const { return m_Name; }
-const Color&       SceneObjectMaterial::GetBaseColor() const { return m_BaseColor; }
+const Color&       SceneObjectMaterial::GetAmbientColor() const { return m_AmbientColor; }
+const Color&       SceneObjectMaterial::GetDiffuseColor() const { return m_DiffuseColor; }
 const Color&       SceneObjectMaterial::GetSpecularColor() const { return m_Specular; }
 const Parameter&   SceneObjectMaterial::GetSpecularPower() const { return m_SpecularPower; }
 void               SceneObjectMaterial::SetName(const std::string& name) { m_Name = name; }
 void               SceneObjectMaterial::SetName(std::string&& name) { m_Name = std::move(name); }
 void               SceneObjectMaterial::SetColor(std::string_view attrib, const vec4f& color) {
-    if (attrib == "diffuse") m_BaseColor = Color(color);
+    if (attrib == "ambient") m_AmbientColor = Color(color);
+    if (attrib == "diffuse") m_DiffuseColor = Color(color);
     if (attrib == "specular") m_Specular = Color(color);
     if (attrib == "emission") m_Emission = Color(color);
     if (attrib == "transparency") m_Transparency = Color(color);
@@ -233,7 +235,8 @@ void SceneObjectMaterial::SetParam(std::string_view attrib, const float param) {
     if (attrib == "opacity") m_Opacity = Parameter(param);
 }
 void SceneObjectMaterial::SetTexture(std::string_view attrib, std::string_view textureName) {
-    if (attrib == "diffuse") m_BaseColor = std::make_shared<SceneObjectTexture>(textureName);
+    if (attrib == "ambient") m_DiffuseColor = std::make_shared<SceneObjectTexture>(textureName);
+    if (attrib == "diffuse") m_DiffuseColor = std::make_shared<SceneObjectTexture>(textureName);
     if (attrib == "specular") m_Specular = std::make_shared<SceneObjectTexture>(textureName);
     if (attrib == "specular_power") m_SpecularPower = std::make_shared<SceneObjectTexture>(textureName);
     if (attrib == "emission") m_Emission = std::make_shared<SceneObjectTexture>(textureName);
@@ -242,7 +245,8 @@ void SceneObjectMaterial::SetTexture(std::string_view attrib, std::string_view t
     if (attrib == "normal") m_Normal = std::make_shared<SceneObjectTexture>(textureName);
 }
 void SceneObjectMaterial::SetTexture(std::string_view attrib, const std::shared_ptr<SceneObjectTexture>& texture) {
-    if (attrib == "diffuse") m_BaseColor = texture;
+    if (attrib == "ambient") m_DiffuseColor = texture;
+    if (attrib == "diffuse") m_DiffuseColor = texture;
     if (attrib == "specular") m_Specular = texture;
     if (attrib == "specular_power") m_SpecularPower = texture;
     if (attrib == "emission") m_Emission = texture;
@@ -251,7 +255,7 @@ void SceneObjectMaterial::SetTexture(std::string_view attrib, const std::shared_
     if (attrib == "normal") m_Normal = texture;
 }
 void SceneObjectMaterial::LoadTextures() {
-    if (m_BaseColor.ValueMap) m_BaseColor.ValueMap->LoadTexture();
+    if (m_DiffuseColor.ValueMap) m_DiffuseColor.ValueMap->LoadTexture();
 }
 
 // Class SceneObjectGeometry
@@ -317,6 +321,7 @@ void SceneObjectCamera::SetParam(std::string_view attrib, float param) {
 void SceneObjectCamera::SetTexture(std::string_view attrib, std::string_view textureName) {
     // TODO: extension
 }
+float SceneObjectCamera::GetAspect() const { return m_Aspect; }
 float SceneObjectCamera::GetNearClipDistance() const { return m_NearClipDistance; }
 float SceneObjectCamera::GetFarClipDistance() const { return m_FarClipDistance; }
 float SceneObjectCamera::GetFov() const { return m_Fov; }
@@ -498,7 +503,7 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj) {
 std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj) {
     out << static_cast<const BaseSceneObject&>(obj) << std::endl;
     out << "Name:              " << obj.m_Name << std::endl;
-    out << "Albedo:            " << obj.m_BaseColor << std::endl;
+    out << "Albedo:            " << obj.m_DiffuseColor << std::endl;
     out << "Metallic:          " << obj.m_Metallic << std::endl;
     out << "Roughness:         " << obj.m_Roughness << std::endl;
     out << "Normal:            " << obj.m_Normal << std::endl;

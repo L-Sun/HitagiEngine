@@ -31,10 +31,10 @@ void ShaderManager::LoadShader(std::filesystem::path shaderPath, ShaderType type
     if (name.empty()) name = shaderPath.filename().replace_extension().u8string();
     switch (type) {
         case ShaderType::VERTEX:
-            m_VertexShaders.insert({std::move(name), VertexShader(std::move(data))});
+            m_VertexShaders[name] = VertexShader(std::move(data));
             break;
         case ShaderType::PIXEL:
-            m_PixelShaders.insert({std::move(name), PixelShader(std::move(data))});
+            m_PixelShaders[name] = PixelShader(std::move(data));
             break;
         default:
             spdlog::get("GraphicsManager")->error("[ShaderManager] Unsupport shader type: {}", TypeToString(type));

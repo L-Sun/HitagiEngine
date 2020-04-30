@@ -28,6 +28,7 @@ class Shader {
     friend class ShaderManager;
 
 public:
+    Shader() = default;
     Shader(Core::Buffer&& data) : m_ShaderData(std::move(data)) {}
     Shader(const Core::Buffer& data) : m_ShaderData(data) {}
 

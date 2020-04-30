@@ -205,7 +205,7 @@ void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
 
     // Initialize Texture
     for (auto&& [key, material] : scene.Materials) {
-        auto color = material->GetBaseColor();
+        auto color = material->GetDiffuseColor();
         if (color.ValueMap) {
             auto& guid  = color.ValueMap->GetGuid();
             auto& image = color.ValueMap->GetTextureImage();
@@ -355,7 +355,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
         glBindVertexArray(dbc.mesh->vao);
 
         if (auto material = dbc.mesh->material.lock()) {
-            Resource::Color color = material->GetBaseColor();
+            Resource::Color color = material->GetDiffuseColor();
 
             if (color.ValueMap) {
                 SetShaderParameters(m_BasicShader.programId, "defaultSampler", m_Textures[color.ValueMap->GetGuid()]);

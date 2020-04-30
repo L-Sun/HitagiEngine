@@ -12,6 +12,10 @@ int GraphicsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("GraphicsManager");
     m_Logger->info("Initialize...");
 
+#if defined(_DEBUG)
+    m_Logger->set_level(spdlog::level::debug);
+#endif  // _DEBUG
+
     int result = m_ShaderManager.Initialize();
     InitConstants();
 
@@ -75,8 +79,7 @@ void GraphicsManager::UpdateConstants() {
 
 void GraphicsManager::InitConstants() {
     // Initialize the world/model matrix to the identity matrix.
-    m_FrameConstants.worldMatrix   = mat4f(1.0f);
-    m_FrameConstants.lightPosition = vec3f(2, 2, 2);
+    m_FrameConstants.worldMatrix = mat4f(1.0f);
 }
 
 bool GraphicsManager::InitializeShaders() {
@@ -90,8 +93,7 @@ void GraphicsManager::CalculateCameraMatrix() {
     auto& scene      = g_SceneManager->GetSceneForRendering();
     auto  cameraNode = scene.GetFirstCameraNode();
 
-    mat4f& viewMat = m_FrameConstants.viewMatrix;
-    viewMat        = cameraNode->GetViewMatrix();
+    m_FrameConstants.viewMatrix = cameraNode->GetViewMatrix();
 
     float fieldOfView      = PI / 2.0f;
     float nearClipDistance = 0.1f;
@@ -114,21 +116,12 @@ void GraphicsManager::CalculateCameraMatrix() {
 void GraphicsManager::CalculateLights() {
     auto& scene = g_SceneManager->GetSceneForRendering();
 
-    vec3f& lightPos   = m_FrameConstants.lightPosition;
-    vec4f& lightColor = m_FrameConstants.lightColor;
-
     if (auto lightNode = scene.GetFirstLightNode()) {
-        lightPos       = vec3f(0.0f);
-        auto _lightPos = lightNode->GetCalculatedTransform() * vec4f(lightPos, 1.0f);
-        lightPos       = vec3f(_lightPos.xyz);
-
-        if (auto pLight = lightNode->GetSceneObjectRef().lock()) {
-            lightColor = pLight->GetColor().Value;
-        }
-    } else {
-        auto _lightPos = rotateZ(mat4f(1.0f), radians(1.0f)) * vec4f(lightPos, 1.0f);
-        lightPos       = _lightPos.xyz;
-        lightColor     = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
+        m_FrameConstants.lightPosition = vec4f(GetOrigin(lightNode->GetCalculatedTransform()), 1);
+        m_Logger->debug("{}", m_FrameConstants.lightPosition);
+        m_FrameConstants.lightPosInView = m_FrameConstants.viewMatrix * m_FrameConstants.lightPosition;
+        m_FrameConstants.lightColor     = lightNode->GetSceneObjectRef().lock()->GetColor().Value;
+        m_FrameConstants.lightIntensity = lightNode->GetSceneObjectRef().lock()->GetIntensity();
     }
 }
 void GraphicsManager::InitializeBuffers(const Resource::Scene& scene) { m_Logger->debug("Initialize buffers."); }

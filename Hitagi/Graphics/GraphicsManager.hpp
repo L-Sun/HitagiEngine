@@ -30,8 +30,10 @@ protected:
         mat4f worldMatrix;
         mat4f viewMatrix;
         mat4f projectionMatrix;
-        vec3f lightPosition;
+        vec4f lightPosition;
+        vec4f lightPosInView;
         vec4f lightColor;
+        float lightIntensity;
     };
 
     virtual void       InitConstants();

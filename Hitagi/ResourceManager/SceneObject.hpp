@@ -157,7 +157,8 @@ typedef ParameterValueMap<float> Parameter;
 class SceneObjectMaterial : public BaseSceneObject {
 protected:
     std::string m_Name;
-    Color       m_BaseColor;
+    Color       m_AmbientColor;
+    Color       m_DiffuseColor;
     Parameter   m_Metallic;
     Parameter   m_Roughness;
     Normal      m_Normal;
@@ -172,7 +173,8 @@ public:
     SceneObjectMaterial()
         : BaseSceneObject(SceneObjectType::MATERIAL),
           m_Name(""),
-          m_BaseColor(vec4f(1.0f)),
+          m_AmbientColor(vec4f(0.0f)),
+          m_DiffuseColor(vec4f(1.0f)),
           m_Metallic(0.0f),
           m_Roughness(0.0f),
           m_Normal(vec3f(0.0f, 0.0f, 1.0f)),
@@ -186,7 +188,8 @@ public:
     SceneObjectMaterial(std::string&& name) : SceneObjectMaterial() { m_Name = std::move(name); };
 
     const std::string&   GetName() const;
-    const Color&         GetBaseColor() const;
+    const Color&         GetAmbientColor() const;
+    const Color&         GetDiffuseColor() const;
     const Color&         GetSpecularColor() const;
     const Parameter&     GetSpecularPower() const;
     void                 SetName(const std::string& name);
@@ -393,6 +396,7 @@ public:
     void  SetColor(std::string_view attrib, const vec4f& color);
     void  SetParam(std::string_view attrib, float param);
     void  SetTexture(std::string_view attrib, std::string_view textureName);
+    float GetAspect() const;
     float GetNearClipDistance() const;
     float GetFarClipDistance() const;
     float GetFov() const;
@@ -400,9 +404,6 @@ public:
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectCamera& obj);
 
 protected:
-    vec3f m_Position;
-    vec3f m_Target;
-    vec3f m_Up;
     float m_Aspect;
     float m_NearClipDistance;
     float m_FarClipDistance;

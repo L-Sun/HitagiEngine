@@ -55,7 +55,8 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                 spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: DIRECTIONAL");
                 break;
             case aiLightSourceType::aiLightSource_POINT: {
-                vec4f color     = vec4f(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b, 1.0f);
+                vec4f color(1.0f);
+                color.rgb       = normalize(vec3f(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b));
                 float intensity = _light->mColorDiffuse.r / color.r;
                 light           = std::make_shared<SceneObjectPointLight>(color, intensity);
             } break;
@@ -91,6 +92,8 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
             material->SetName(name.C_Str());
         // set material diffuse color
+        if (aiColor3D ambientColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_AMBIENT, ambientColor))
+            material->SetColor("ambient", vec4f(ambientColor.r, ambientColor.g, ambientColor.b, 1.0f));
         if (aiColor3D diffuseColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor))
             material->SetColor("diffuse", vec4f(diffuseColor.r, diffuseColor.g, diffuseColor.b, 1.0f));
         // set material specular color

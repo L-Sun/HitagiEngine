@@ -333,7 +333,7 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
             CreateIndexBuffer(indexArray, m);
             SetPrimitiveType(mesh->GetPrimitiveType(), m);
             if (auto material = mesh->GetMaterial().lock())
-                if (material->GetBaseColor().ValueMap)
+                if (material->GetDiffuseColor().ValueMap)
                     m->psoName = "texture";
                 else
                     m->psoName = "no_texture";
@@ -347,7 +347,7 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     size_t i = 0;
     for (auto&& [key, material] : scene.Materials) {
         if (material) {
-            if (auto texture = material->GetBaseColor().ValueMap; texture != nullptr) {
+            if (auto texture = material->GetDiffuseColor().ValueMap; texture != nullptr) {
                 auto  guid  = texture->GetGuid();
                 auto& image = texture->GetTextureImage();
                 m_Textures.insert({guid, CreateTextureBuffer(image, i)});
@@ -446,41 +446,40 @@ void D3D12GraphicsManager::UpdateConstants() {
     }
 
     // Update frame resource
-    FrameConstants frameConstants;
-    frameConstants.lightColor       = m_FrameConstants.lightColor;
-    frameConstants.lightPosition    = m_FrameConstants.lightPosition;
-    frameConstants.WVP              = transpose(m_FrameConstants.WVP);
-    frameConstants.projectionMatrix = transpose(m_FrameConstants.projectionMatrix);
-    frameConstants.viewMatrix       = transpose(m_FrameConstants.viewMatrix);
-    frameConstants.worldMatrix      = transpose(m_FrameConstants.worldMatrix);
+    m_FrameConstants.WVP              = transpose(m_FrameConstants.WVP);
+    m_FrameConstants.projectionMatrix = transpose(m_FrameConstants.projectionMatrix);
+    m_FrameConstants.viewMatrix       = transpose(m_FrameConstants.viewMatrix);
+    m_FrameConstants.worldMatrix      = transpose(m_FrameConstants.worldMatrix);
 
-    currFR->UpdateFrameConstants(frameConstants);
+    currFR->UpdateFrameConstants(m_FrameConstants);
     for (auto&& d : m_DrawItems) {
         auto node = d.node.lock();
         if (!node) continue;
-        // if (node->Dirty()) {
-        // node->ClearDirty();
-        // object need to be upadted for per frame resource
-        // d.numFramesDirty = m_FrameResourceSize;
-        // }
-        // if (d.numFramesDirty > 0) {
-        mat4f transform;
-        transform = node->GetCalculatedTransform();
-
-        ObjectConstants oc;
-        oc.modelMatrix = transpose(transform);
-
-        if (auto material = d.meshBuffer->material.lock()) {
-            auto& baseColor     = material->GetBaseColor();
-            oc.baseColor        = baseColor.ValueMap ? vec4f(-1.0f) : baseColor.Value;
-            auto& specularColor = material->GetSpecularColor();
-            oc.specularColor    = specularColor.ValueMap ? vec4f(-1.0f) : specularColor.Value;
-            oc.specularPower    = material->GetSpecularPower().Value;
+        if (node->Dirty()) {
+            node->ClearDirty();
+            // object need to be upadted for per frame resource
+            d.numFramesDirty = m_FrameResourceSize;
         }
+        if (d.numFramesDirty > 0) {
+            mat4f transform;
+            transform = node->GetCalculatedTransform();
 
-        currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
-        // d.numFramesDirty--;
-        // }
+            ObjectConstants oc;
+            oc.modelMatrix = transpose(transform);
+
+            if (auto material = d.meshBuffer->material.lock()) {
+                auto& ambientColor  = material->GetAmbientColor();
+                oc.ambientColor     = ambientColor.ValueMap ? vec4f(-1.0f) : ambientColor.Value;
+                auto& diffuseColor  = material->GetDiffuseColor();
+                oc.diffuseColor     = diffuseColor.ValueMap ? vec4f(-1.0f) : diffuseColor.Value;
+                auto& specularColor = material->GetSpecularColor();
+                oc.specularColor    = specularColor.ValueMap ? vec4f(-1.0f) : specularColor.Value;
+                oc.specularPower    = material->GetSpecularPower().Value;
+            }
+
+            currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
+            d.numFramesDirty--;
+        }
     }
 
 #if defined(_DEBUG)
@@ -559,7 +558,7 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
 
         // Texture
         if (auto material = meshBuffer->material.lock()) {
-            if (auto& pTexture = material->GetBaseColor().ValueMap) {
+            if (auto& pTexture = material->GetDiffuseColor().ValueMap) {
                 context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2, 0,
                                              m_Textures.at(pTexture->GetGuid()).GetSRV());
             }
