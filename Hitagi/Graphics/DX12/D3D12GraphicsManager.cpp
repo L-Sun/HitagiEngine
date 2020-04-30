@@ -356,15 +356,16 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     // Initialize draw item
     for (auto&& [key, node] : scene.GeometryNodes) {
         if (node && node->Visible()) {
-            auto geometry = scene.GetGeometry(node->GetSceneObjectRef());
-            for (auto&& mesh : geometry->GetMeshes()) {
-                if (auto pMesh = mesh.lock()) {
-                    DrawItem d;
-                    d.constantBufferIndex = m_DrawItems.size();
-                    d.meshBuffer          = m_Meshes[pMesh->GetGuid()];
-                    d.node                = node;
-                    d.numFramesDirty      = m_FrameResourceSize;
-                    m_DrawItems.push_back(std::move(d));
+            if (auto geometry = node->GetSceneObjectRef().lock()) {
+                for (auto&& mesh : geometry->GetMeshes()) {
+                    if (auto pMesh = mesh.lock()) {
+                        DrawItem d;
+                        d.constantBufferIndex = m_DrawItems.size();
+                        d.meshBuffer          = m_Meshes[pMesh->GetGuid()];
+                        d.node                = node;
+                        d.numFramesDirty      = m_FrameResourceSize;
+                        m_DrawItems.push_back(std::move(d));
+                    }
                 }
             }
         }
@@ -464,10 +465,7 @@ void D3D12GraphicsManager::UpdateConstants() {
         }
         if (d.numFramesDirty > 0) {
             mat4f transform;
-            if (auto rigidBody = node->RigidBody())
-                transform = g_PhysicsManager->GetRigidBodyTransform(rigidBody);
-            else
-                transform = node->GetCalculatedTransform();
+            transform = node->GetCalculatedTransform();
 
             ObjectConstants oc;
             oc.modelMatrix = transpose(transform);

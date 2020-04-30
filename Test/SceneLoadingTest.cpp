@@ -44,7 +44,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto [key, pCameraNode] : scene.CameraNodes) {
         if (pCameraNode) {
-            std::weak_ptr<Resource::SceneObjectCamera> pCamera = scene.GetCamera(pCameraNode->GetSceneObjectRef());
+            std::weak_ptr<Resource::SceneObjectCamera> pCamera = pCameraNode->GetSceneObjectRef();
             if (auto pObj = pCamera.lock()) std::cout << *pObj << std::endl;
         }
     }
@@ -53,7 +53,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto [key, pLightNode] : scene.LightNodes) {
         if (pLightNode) {
-            std::weak_ptr<Resource::SceneObjectLight> pLight = scene.GetLight(pLightNode->GetSceneObjectRef());
+            std::weak_ptr<Resource::SceneObjectLight> pLight = pLightNode->GetSceneObjectRef();
             if (auto pObj = pLight.lock()) std::cout << *pObj << std::endl;
         }
     }
@@ -62,8 +62,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto [key, pGeometryNode] : scene.GeometryNodes) {
         if (pGeometryNode) {
-            std::weak_ptr<Resource::SceneObjectGeometry> pGeometry =
-                scene.GetGeometry(pGeometryNode->GetSceneObjectRef());
+            std::weak_ptr<Resource::SceneObjectGeometry> pGeometry = pGeometryNode->GetSceneObjectRef();
             if (auto pObj = pGeometry.lock()) std::cout << *pObj << std::endl;
             std::cout << pGeometryNode->GetCalculatedTransform() << std::endl;
         }

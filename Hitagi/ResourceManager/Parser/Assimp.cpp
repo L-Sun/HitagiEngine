@@ -243,39 +243,40 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
     std::function<std::shared_ptr<BaseSceneNode>(const aiNode*)>
         convert = [&](const aiNode* _node) -> std::shared_ptr<BaseSceneNode> {
         std::shared_ptr<BaseSceneNode> node;
+        const std::string              name(_node->mName.C_Str());
         // The node is a geometry
         if (_node->mNumMeshes > 0) {
-            scene->Geometries[_node->mName.C_Str()] = createGeometry(_node);
+            scene->Geometries[name] = createGeometry(_node);
 
-            auto geometryNode = std::make_shared<SceneGeometryNode>(_node->mName.C_Str());
-            geometryNode->AddSceneObjectRef(_node->mName.C_Str());
-            scene->GeometryNodes[_node->mName.C_Str()] = geometryNode;
-            node                                       = geometryNode;
+            auto geometryNode = std::make_shared<SceneGeometryNode>(name);
+            geometryNode->AddSceneObjectRef(scene->GetGeometry(name));
+            scene->GeometryNodes[name] = geometryNode;
+            node                       = geometryNode;
         }
         // The node is a camera
-        else if (scene->Cameras.find(_node->mName.C_Str()) != scene->Cameras.end()) {
-            auto& _camera = _scene->mCameras[cameraNameToIndex[_node->mName.C_Str()]];
+        else if (scene->Cameras.find(name) != scene->Cameras.end()) {
+            auto& _camera = _scene->mCameras[cameraNameToIndex[name]];
             // move space infomation to camera node
             auto cameraNode = std::make_shared<SceneCameraNode>(
-                _node->mName.C_Str(),
+                name,
                 vec3f(_camera->mPosition.x, _camera->mPosition.y, _camera->mPosition.z),
                 vec3f(_camera->mUp.x, _camera->mUp.y, _camera->mUp.z),
                 vec3f(_camera->mLookAt.x, _camera->mLookAt.y, _camera->mLookAt.z));
-            cameraNode->AddSceneObjectRef(_node->mName.C_Str());
+            cameraNode->AddSceneObjectRef(scene->GetCamera(name));
 
-            scene->CameraNodes[_node->mName.C_Str()] = cameraNode;
-            node                                     = cameraNode;
+            scene->CameraNodes[name] = cameraNode;
+            node                     = cameraNode;
         }
         // The node is a light
-        else if (scene->Lights.find(_node->mName.C_Str()) != scene->Lights.end()) {
-            auto lightNode = std::make_shared<SceneLightNode>(_node->mName.C_Str());
-            lightNode->AddSceneObjectRef(_node->mName.C_Str());
-            scene->LightNodes[_node->mName.C_Str()] = lightNode;
-            node                                    = lightNode;
+        else if (scene->Lights.find(name) != scene->Lights.end()) {
+            auto lightNode = std::make_shared<SceneLightNode>(name);
+            lightNode->AddSceneObjectRef(scene->GetLight(name));
+            scene->LightNodes[name] = lightNode;
+            node                    = lightNode;
         }
         // The node is empty
         else {
-            node = std::make_shared<SceneEmptyNode>(_node->mName.C_Str());
+            node = std::make_shared<SceneEmptyNode>(name);
         }
 
         // Add transform matrix

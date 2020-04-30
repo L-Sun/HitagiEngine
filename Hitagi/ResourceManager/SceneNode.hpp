@@ -75,28 +75,27 @@ public:
 template <typename T>
 class SceneNode : public BaseSceneNode {
 protected:
-    std::string m_SceneObjectRef;
+    std::weak_ptr<T> m_SceneObjectRef;
 
     virtual void dump(std::ostream& out, unsigned indent) const {
-        if (!m_SceneObjectRef.empty()) {
-            out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Obj Ref:", m_SceneObjectRef);
+        if (auto obj = m_SceneObjectRef.lock()) {
+            out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Obj Ref:", obj->GetGuid());
         }
     }
 
 public:
     using BaseSceneNode::BaseSceneNode;
     SceneNode() = default;
-    void               AddSceneObjectRef(std::string_view key) { m_SceneObjectRef = key; }
-    const std::string& GetSceneObjectRef() { return m_SceneObjectRef; }
+    void             AddSceneObjectRef(std::weak_ptr<T> ref) { m_SceneObjectRef = ref; }
+    std::weak_ptr<T> GetSceneObjectRef() { return m_SceneObjectRef; }
 };
 
 typedef BaseSceneNode SceneEmptyNode;
 class SceneGeometryNode : public SceneNode<SceneObjectGeometry> {
 protected:
-    bool                  m_Visible    = true;
-    bool                  m_Shadow     = true;
-    bool                  m_MotionBlur = false;
-    std::shared_ptr<void> m_RigidBody  = nullptr;
+    bool m_Visible    = true;
+    bool m_Shadow     = true;
+    bool m_MotionBlur = false;
 
     virtual void dump(std::ostream& out, unsigned indent) const {
         SceneNode::dump(out, indent);
@@ -117,10 +116,6 @@ public:
     const bool MotionBlur() { return m_MotionBlur; }
 
     using SceneNode::AddSceneObjectRef;
-    void LinkRigidBody(std::shared_ptr<void> rigidBody) { m_RigidBody = rigidBody; }
-    void UnlinkRigidBody() { m_RigidBody = nullptr; }
-
-    std::shared_ptr<void> RigidBody() { return m_RigidBody; }
 };
 
 class SceneLightNode : public SceneNode<SceneObjectLight> {

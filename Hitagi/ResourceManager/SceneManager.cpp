@@ -34,7 +34,7 @@ void SceneManager::SetScene(std::filesystem::path name) {
         vec3f up                        = {-1, -1, 1};
         vec3f direct                    = -pos;
         m_Scene->CameraNodes["default"] = std::make_shared<SceneCameraNode>("default", pos, up, direct);
-        m_Scene->CameraNodes["default"]->AddSceneObjectRef("default");
+        m_Scene->CameraNodes["default"]->AddSceneObjectRef(m_Scene->Cameras["default"]);
         m_Scene->SceneGraph->AppendChild(m_Scene->CameraNodes["default"]);
     }
     m_DirtyFlag = true;

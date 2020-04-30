@@ -225,10 +225,11 @@ void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     }
 
     for (auto [key, node] : scene.GeometryNodes) {
-        auto geometry = scene.Geometries.at(node->GetSceneObjectRef());
-        for (auto&& _mesh : geometry->GetMeshes()) {
-            if (auto mesh = _mesh.lock()) {
-                m_DrawBatchContext.push_back({node, m_MeshBuffers[mesh->GetGuid()]});
+        if (auto geometry = node->GetSceneObjectRef().lock()) {
+            for (auto&& _mesh : geometry->GetMeshes()) {
+                if (auto mesh = _mesh.lock()) {
+                    m_DrawBatchContext.push_back({node, m_MeshBuffers[mesh->GetGuid()]});
+                }
             }
         }
     }
@@ -348,13 +349,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
         auto node = dbc.node.lock();
         if (!node && !node->Visible()) continue;
         mat4f trans;
-        if (auto rigidBody = node->RigidBody()) {
-            // the geometry has rigid body bounded, we blend the simlation
-            // result here.
-            trans = g_PhysicsManager->GetRigidBodyTransform(rigidBody);
-        } else {
-            trans = node->GetCalculatedTransform();
-        }
+        trans = node->GetCalculatedTransform();
 
         SetShaderParameters(m_BasicShader.programId, "modelMatrix", trans);
         glBindVertexArray(dbc.mesh->vao);

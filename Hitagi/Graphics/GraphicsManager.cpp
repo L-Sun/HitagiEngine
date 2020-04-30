@@ -93,10 +93,15 @@ void GraphicsManager::CalculateCameraMatrix() {
     mat4f& viewMat = m_FrameConstants.viewMatrix;
     viewMat        = cameraNode->GetViewMatrix();
 
-    auto  camera           = scene.GetCamera(cameraNode->GetSceneObjectRef());
-    float fieldOfView      = camera->GetFov();
-    float nearClipDistance = camera->GetNearClipDistance();
-    float farClipDistance  = camera->GetFarClipDistance();
+    float fieldOfView      = PI / 2.0f;
+    float nearClipDistance = 0.1f;
+    float farClipDistance  = 100.0f;
+
+    if (auto camera = cameraNode->GetSceneObjectRef().lock()) {
+        fieldOfView      = camera->GetFov();
+        nearClipDistance = camera->GetNearClipDistance();
+        farClipDistance  = camera->GetFarClipDistance();
+    }
 
     const GfxConfiguration& conf         = g_App->GetConfiguration();
     float                   screenAspect = (float)conf.screenWidth / (float)conf.screenHeight;
@@ -117,7 +122,7 @@ void GraphicsManager::CalculateLights() {
         auto _lightPos = lightNode->GetCalculatedTransform() * vec4f(lightPos, 1.0f);
         lightPos       = vec3f(_lightPos.xyz);
 
-        if (auto pLight = scene.GetLight(lightNode->GetSceneObjectRef())) {
+        if (auto pLight = lightNode->GetSceneObjectRef().lock()) {
             lightColor = pLight->GetColor().Value;
         }
     } else {
