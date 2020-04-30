@@ -269,11 +269,11 @@ const bool                     SceneObjectGeometry::MotionBlur() const { return 
 const SceneObjectCollisionType SceneObjectGeometry::CollisionType() const { return m_CollisionType; }
 const float*                   SceneObjectGeometry::CollisionParameters() const { return m_CollisionParameters; }
 
-void SceneObjectGeometry::AddMesh(const std::weak_ptr<SceneObjectMesh>& mesh, size_t level) {
+void SceneObjectGeometry::AddMesh(std::unique_ptr<SceneObjectMesh> mesh, size_t level) {
     if (level >= m_MeshesLOD.size()) m_MeshesLOD.resize(level + 1);
-    m_MeshesLOD[level].push_back(mesh);
+    m_MeshesLOD[level].emplace_back(mesh.release());
 }
-const std::vector<std::weak_ptr<SceneObjectMesh>>& SceneObjectGeometry::GetMeshes(size_t lod) const {
+const std::vector<std::unique_ptr<SceneObjectMesh>>& SceneObjectGeometry::GetMeshes(size_t lod) const {
     return m_MeshesLOD[lod];
 }
 
@@ -421,34 +421,34 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
     for (size_t i = 0; i < obj.GetVertexCount(); i++) {
         switch (obj.m_DataType) {
             case VertexDataType::FLOAT1:
-                std::cout << *(reinterpret_cast<const float*>(obj.m_Data) + i) << std::endl;
+                std::cout << *(reinterpret_cast<const float*>(obj.m_Data) + i) << " ";
                 break;
             case VertexDataType::FLOAT2:
-                std::cout << *(reinterpret_cast<const vec2f*>(obj.m_Data) + i) << std::endl;
+                std::cout << *(reinterpret_cast<const vec2f*>(obj.m_Data) + i) << " ";
                 break;
             case VertexDataType::FLOAT3:
-                std::cout << *(reinterpret_cast<const vec3f*>(obj.m_Data) + i) << std::endl;
+                std::cout << *(reinterpret_cast<const vec3f*>(obj.m_Data) + i) << " ";
                 break;
             case VertexDataType::FLOAT4:
-                std::cout << *(reinterpret_cast<const vec4f*>(obj.m_Data) + i) << std::endl;
+                std::cout << *(reinterpret_cast<const vec4f*>(obj.m_Data) + i) << " ";
                 break;
             case VertexDataType::DOUBLE1:
-                std::cout << *(reinterpret_cast<const double*>(obj.m_Data) + i) << std::endl;
+                std::cout << *(reinterpret_cast<const double*>(obj.m_Data) + i) << " ";
                 break;
             case VertexDataType::DOUBLE2:
-                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(obj.m_Data) + i) << std::endl;
+                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(obj.m_Data) + i) << " ";
                 break;
             case VertexDataType::DOUBLE3:
-                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(obj.m_Data) + i) << std::endl;
+                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(obj.m_Data) + i) << " ";
                 break;
             case VertexDataType::DOUBLE4:
-                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(obj.m_Data) + i) << std::endl;
+                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(obj.m_Data) + i) << " ";
                 break;
             default:
                 break;
         }
     }
-    return out;
+    return out << std::endl;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
     out << "Restart Index:   " << obj.m_ResetartIndex << std::endl;
@@ -507,10 +507,11 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj) {
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectGeometry& obj) {
+    out << static_cast<const BaseSceneObject&>(obj) << std::endl;
     for (size_t i = 0; i < obj.m_MeshesLOD.size(); i++) {
         out << "Level: " << i << std::endl;
         for (size_t j = 0; j < obj.m_MeshesLOD[i].size(); j++)
-            if (auto mesh = obj.m_MeshesLOD[i][j].lock()) out << fmt::format("Mesh[{}]:\n", i) << *mesh << std::endl;
+            out << fmt::format("Mesh[{}]:\n", i) << *obj.m_MeshesLOD[i][j] << std::endl;
     }
     return out << std::endl;
 }

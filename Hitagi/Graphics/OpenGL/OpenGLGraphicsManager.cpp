@@ -104,101 +104,103 @@ bool OpenGLGraphicsManager::SetShaderParameters(GLuint shader, const char* param
 
 void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     // Initialize Mesh
-    for (auto&& [key, mesh] : scene.Meshes) {
-        auto mb = std::make_shared<MeshBuffer>();
-        glGenVertexArrays(1, &mb->vao);
-        glBindVertexArray(mb->vao);
+    for (auto&& [key, geometry] : scene.Geometries) {
+        for (auto&& mesh : geometry->GetMeshes()) {
+            auto mb = std::make_shared<MeshBuffer>();
+            glGenVertexArrays(1, &mb->vao);
+            glBindVertexArray(mb->vao);
 
-        // Vertex Buffer
-        for (size_t i = 0; i < m_BasicShader.layout.size(); i++) {
-            auto&  vertexArray    = mesh->GetVertexPropertyArray(m_BasicShader.layout[i]);
-            auto   vertexData     = vertexArray.GetData();
-            auto   vertexDataSize = vertexArray.GetDataSize();
-            GLuint vbo;
-            glGenBuffers(1, &vbo);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            glBufferData(GL_ARRAY_BUFFER, vertexDataSize, vertexData, GL_STATIC_DRAW);
-            glEnableVertexAttribArray(i);
-            switch (vertexArray.GetDataType()) {
-                case Resource::VertexDataType::FLOAT1:
-                    glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
+            // Vertex Buffer
+            for (size_t i = 0; i < m_BasicShader.layout.size(); i++) {
+                auto&  vertexArray    = mesh->GetVertexPropertyArray(m_BasicShader.layout[i]);
+                auto   vertexData     = vertexArray.GetData();
+                auto   vertexDataSize = vertexArray.GetDataSize();
+                GLuint vbo;
+                glGenBuffers(1, &vbo);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo);
+                glBufferData(GL_ARRAY_BUFFER, vertexDataSize, vertexData, GL_STATIC_DRAW);
+                glEnableVertexAttribArray(i);
+                switch (vertexArray.GetDataType()) {
+                    case Resource::VertexDataType::FLOAT1:
+                        glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
+                        break;
+                    case Resource::VertexDataType::FLOAT2:
+                        glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
+                        break;
+                    case Resource::VertexDataType::FLOAT3:
+                        glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
+                        break;
+                    case Resource::VertexDataType::FLOAT4:
+                        glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
+                        break;
+                    case Resource::VertexDataType::DOUBLE1:
+                        glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
+                        break;
+                    case Resource::VertexDataType::DOUBLE2:
+                        glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
+                        break;
+                    case Resource::VertexDataType::DOUBLE3:
+                        glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
+                        break;
+                    case Resource::VertexDataType::DOUBLE4:
+                        glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
+                        break;
+                    default:
+                        assert(0);
+                        break;
+                }
+                mb->vbos.push_back(vbo);
+            }
+            // Index Array
+            glGenBuffers(1, &mb->ebo);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mb->ebo);
+            auto& indexArray         = mesh->GetIndexArray();
+            auto  indexArrayData     = indexArray.GetData();
+            auto  indexArrayDataSize = indexArray.GetDataSize();
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexArrayDataSize, indexArrayData, GL_STATIC_DRAW);
+            mb->indexCount = indexArray.GetIndexCount();
+            switch (indexArray.GetIndexType()) {
+                case Resource::IndexDataType::INT8:
+                    mb->type = GL_UNSIGNED_BYTE;
                     break;
-                case Resource::VertexDataType::FLOAT2:
-                    glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
+                case Resource::IndexDataType::INT16:
+                    mb->type = GL_UNSIGNED_SHORT;
                     break;
-                case Resource::VertexDataType::FLOAT3:
-                    glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
-                    break;
-                case Resource::VertexDataType::FLOAT4:
-                    glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
-                    break;
-                case Resource::VertexDataType::DOUBLE1:
-                    glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
-                    break;
-                case Resource::VertexDataType::DOUBLE2:
-                    glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
-                    break;
-                case Resource::VertexDataType::DOUBLE3:
-                    glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
-                    break;
-                case Resource::VertexDataType::DOUBLE4:
-                    glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
+                case Resource::IndexDataType::INT32:
+                    mb->type = GL_UNSIGNED_INT;
                     break;
                 default:
-                    assert(0);
-                    break;
+                    // not supported by OpenGL
+                    std::cerr << "Error: Unsupported Index Type " << indexArray << std::endl;
+                    std::cout << "Mesh: " << *mesh << std::endl;
+                    continue;
             }
-            mb->vbos.push_back(vbo);
+            // Primitive
+            switch (mesh->GetPrimitiveType()) {
+                case Resource::PrimitiveType::POINT_LIST:
+                    mb->mode = GL_POINTS;
+                    break;
+                case Resource::PrimitiveType::LINE_LIST:
+                    mb->mode = GL_LINES;
+                    break;
+                case Resource::PrimitiveType::LINE_STRIP:
+                    mb->mode = GL_LINE_STRIP;
+                    break;
+                case Resource::PrimitiveType::TRI_LIST:
+                    mb->mode = GL_TRIANGLES;
+                    break;
+                case Resource::PrimitiveType::TRI_STRIP:
+                    mb->mode = GL_TRIANGLE_STRIP;
+                    break;
+                case Resource::PrimitiveType::TRI_FAN:
+                    mb->mode = GL_TRIANGLE_FAN;
+                    break;
+                default:
+                    continue;
+            }
+            mb->material                   = mesh->GetMaterial();
+            m_MeshBuffers[mesh->GetGuid()] = mb;
         }
-        // Index Array
-        glGenBuffers(1, &mb->ebo);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mb->ebo);
-        auto& indexArray         = mesh->GetIndexArray();
-        auto  indexArrayData     = indexArray.GetData();
-        auto  indexArrayDataSize = indexArray.GetDataSize();
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexArrayDataSize, indexArrayData, GL_STATIC_DRAW);
-        mb->indexCount = indexArray.GetIndexCount();
-        switch (indexArray.GetIndexType()) {
-            case Resource::IndexDataType::INT8:
-                mb->type = GL_UNSIGNED_BYTE;
-                break;
-            case Resource::IndexDataType::INT16:
-                mb->type = GL_UNSIGNED_SHORT;
-                break;
-            case Resource::IndexDataType::INT32:
-                mb->type = GL_UNSIGNED_INT;
-                break;
-            default:
-                // not supported by OpenGL
-                std::cerr << "Error: Unsupported Index Type " << indexArray << std::endl;
-                std::cout << "Mesh: " << *mesh << std::endl;
-                continue;
-        }
-        // Primitive
-        switch (mesh->GetPrimitiveType()) {
-            case Resource::PrimitiveType::POINT_LIST:
-                mb->mode = GL_POINTS;
-                break;
-            case Resource::PrimitiveType::LINE_LIST:
-                mb->mode = GL_LINES;
-                break;
-            case Resource::PrimitiveType::LINE_STRIP:
-                mb->mode = GL_LINE_STRIP;
-                break;
-            case Resource::PrimitiveType::TRI_LIST:
-                mb->mode = GL_TRIANGLES;
-                break;
-            case Resource::PrimitiveType::TRI_STRIP:
-                mb->mode = GL_TRIANGLE_STRIP;
-                break;
-            case Resource::PrimitiveType::TRI_FAN:
-                mb->mode = GL_TRIANGLE_FAN;
-                break;
-            default:
-                continue;
-        }
-        mb->material                   = mesh->GetMaterial();
-        m_MeshBuffers[mesh->GetGuid()] = mb;
     }
 
     // Initialize Texture
@@ -226,10 +228,8 @@ void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
 
     for (auto [key, node] : scene.GeometryNodes) {
         if (auto geometry = node->GetSceneObjectRef().lock()) {
-            for (auto&& _mesh : geometry->GetMeshes()) {
-                if (auto mesh = _mesh.lock()) {
-                    m_DrawBatchContext.push_back({node, m_MeshBuffers[mesh->GetGuid()]});
-                }
+            for (auto&& mesh : geometry->GetMeshes()) {
+                m_DrawBatchContext.push_back({node, m_MeshBuffers[mesh->GetGuid()]});
             }
         }
     }

@@ -318,28 +318,30 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
 
 void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     // Initialize meshes buffer
-    for (auto&& [key, pMesh] : scene.Meshes) {
-        auto m      = std::make_shared<MeshInfo>();
-        m->material = pMesh->GetMaterial();
-        for (auto&& inputLayout : m_InputLayout) {
-            if (pMesh->HasProperty(inputLayout.SemanticName)) {
-                auto& vertexArray = pMesh->GetVertexPropertyArray(inputLayout.SemanticName);
-                CreateVertexBuffer(vertexArray, m);
+    for (auto&& [key, geometry] : scene.Geometries) {
+        for (auto&& mesh : geometry->GetMeshes()) {
+            auto m      = std::make_shared<MeshInfo>();
+            m->material = mesh->GetMaterial();
+            for (auto&& inputLayout : m_InputLayout) {
+                if (mesh->HasProperty(inputLayout.SemanticName)) {
+                    auto& vertexArray = mesh->GetVertexPropertyArray(inputLayout.SemanticName);
+                    CreateVertexBuffer(vertexArray, m);
+                }
             }
-        }
-        auto& indexArray = pMesh->GetIndexArray();
-        m->indexCount    = indexArray.GetIndexCount();
-        CreateIndexBuffer(indexArray, m);
-        SetPrimitiveType(pMesh->GetPrimitiveType(), m);
-        if (auto material = pMesh->GetMaterial().lock())
-            if (material->GetBaseColor().ValueMap)
-                m->psoName = "texture";
+            auto& indexArray = mesh->GetIndexArray();
+            m->indexCount    = indexArray.GetIndexCount();
+            CreateIndexBuffer(indexArray, m);
+            SetPrimitiveType(mesh->GetPrimitiveType(), m);
+            if (auto material = mesh->GetMaterial().lock())
+                if (material->GetBaseColor().ValueMap)
+                    m->psoName = "texture";
+                else
+                    m->psoName = "no_texture";
             else
-                m->psoName = "no_texture";
-        else
-            m->psoName = "simple";
+                m->psoName = "simple";
 
-        m_Meshes[pMesh->GetGuid()] = m;
+            m_Meshes[mesh->GetGuid()] = m;
+        }
     }
     // Intialize textures buffer
     size_t i = 0;
@@ -358,14 +360,12 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
         if (node && node->Visible()) {
             if (auto geometry = node->GetSceneObjectRef().lock()) {
                 for (auto&& mesh : geometry->GetMeshes()) {
-                    if (auto pMesh = mesh.lock()) {
-                        DrawItem d;
-                        d.constantBufferIndex = m_DrawItems.size();
-                        d.meshBuffer          = m_Meshes[pMesh->GetGuid()];
-                        d.node                = node;
-                        d.numFramesDirty      = m_FrameResourceSize;
-                        m_DrawItems.push_back(std::move(d));
-                    }
+                    DrawItem d;
+                    d.constantBufferIndex = m_DrawItems.size();
+                    d.meshBuffer          = m_Meshes[mesh->GetGuid()];
+                    d.node                = node;
+                    d.numFramesDirty      = m_FrameResourceSize;
+                    m_DrawItems.push_back(std::move(d));
                 }
             }
         }
@@ -458,29 +458,29 @@ void D3D12GraphicsManager::UpdateConstants() {
     for (auto&& d : m_DrawItems) {
         auto node = d.node.lock();
         if (!node) continue;
-        if (node->Dirty()) {
-            node->ClearDirty();
-            // object need to be upadted for per frame resource
-            d.numFramesDirty = m_FrameResourceSize;
+        // if (node->Dirty()) {
+        // node->ClearDirty();
+        // object need to be upadted for per frame resource
+        // d.numFramesDirty = m_FrameResourceSize;
+        // }
+        // if (d.numFramesDirty > 0) {
+        mat4f transform;
+        transform = node->GetCalculatedTransform();
+
+        ObjectConstants oc;
+        oc.modelMatrix = transpose(transform);
+
+        if (auto material = d.meshBuffer->material.lock()) {
+            auto& baseColor     = material->GetBaseColor();
+            oc.baseColor        = baseColor.ValueMap ? vec4f(-1.0f) : baseColor.Value;
+            auto& specularColor = material->GetSpecularColor();
+            oc.specularColor    = specularColor.ValueMap ? vec4f(-1.0f) : specularColor.Value;
+            oc.specularPower    = material->GetSpecularPower().Value;
         }
-        if (d.numFramesDirty > 0) {
-            mat4f transform;
-            transform = node->GetCalculatedTransform();
 
-            ObjectConstants oc;
-            oc.modelMatrix = transpose(transform);
-
-            if (auto material = d.meshBuffer->material.lock()) {
-                auto& baseColor     = material->GetBaseColor();
-                oc.baseColor        = baseColor.ValueMap ? vec4f(-1.0f) : baseColor.Value;
-                auto& specularColor = material->GetSpecularColor();
-                oc.specularColor    = specularColor.ValueMap ? vec4f(-1.0f) : specularColor.Value;
-                oc.specularPower    = material->GetSpecularPower().Value;
-            }
-
-            currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
-            d.numFramesDirty--;
-        }
+        currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
+        // d.numFramesDirty--;
+        // }
     }
 
 #if defined(_DEBUG)

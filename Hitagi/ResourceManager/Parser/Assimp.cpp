@@ -24,92 +24,6 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         return nullptr;
     }
 
-    auto createMesh = [&](const aiMesh* _mesh) -> std::shared_ptr<SceneObjectMesh> {
-        auto mesh = std::make_shared<SceneObjectMesh>();
-        // Set primitive type
-        switch (_mesh->mPrimitiveTypes) {
-            case aiPrimitiveType::aiPrimitiveType_LINE:
-                mesh->SetPrimitiveType(PrimitiveType::LINE_LIST);
-                break;
-            case aiPrimitiveType::aiPrimitiveType_POINT:
-                mesh->SetPrimitiveType(PrimitiveType::POINT_LIST);
-                break;
-            case aiPrimitiveType::aiPrimitiveType_POLYGON:
-                mesh->SetPrimitiveType(PrimitiveType::POLYGON);
-                break;
-            case aiPrimitiveType::aiPrimitiveType_TRIANGLE:
-                mesh->SetPrimitiveType(PrimitiveType::TRI_LIST);
-                break;
-            case aiPrimitiveType::_aiPrimitiveType_Force32Bit:
-            default:
-                spdlog::get("ResourceManager")->error("[Assimp] Unsupport Primitive Type");
-        }
-
-        // Read Position
-        if (_mesh->HasPositions()) {
-            std::vector<vec3f> pos(_mesh->mNumVertices);
-            for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                pos[i] = vec3f(_mesh->mVertices[i].x, _mesh->mVertices[i].y, _mesh->mVertices[i].z);
-            mesh->AddVertexArray(SceneObjectVertexArray("POSITION", 0, VertexDataType::FLOAT3, pos.data(), pos.size()));
-        }
-
-        // Read Normal
-        if (_mesh->HasNormals()) {
-            std::vector<vec3f> normal(_mesh->mNumVertices);
-            for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                normal[i] = vec3f(_mesh->mNormals[i].x, _mesh->mNormals[i].y, _mesh->mNormals[i].z);
-            mesh->AddVertexArray(SceneObjectVertexArray("NORMAL", 0, VertexDataType::FLOAT3, normal.data(), normal.size()));
-        }
-
-        // Read Color
-        for (size_t colorChannels = 0; colorChannels < _mesh->GetNumColorChannels(); colorChannels++) {
-            if (_mesh->HasVertexColors(colorChannels)) {
-                std::vector<vec4f> color(_mesh->mNumVertices);
-                for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                    color[i] = vec4f(_mesh->mColors[colorChannels][i].r,
-                                     _mesh->mColors[colorChannels][i].g,
-                                     _mesh->mColors[colorChannels][i].b,
-                                     _mesh->mColors[colorChannels][i].a);
-                const auto attr = std::string("COLOR") + (colorChannels == 0 ? "" : std::to_string(colorChannels));
-                mesh->AddVertexArray(SceneObjectVertexArray(attr, 0, VertexDataType::FLOAT4, color.data(), color.size()));
-            }
-        }
-
-        // Read UV
-        for (size_t UVChannel = 0; UVChannel < _mesh->GetNumUVChannels(); UVChannel++) {
-            if (_mesh->HasTextureCoords(UVChannel)) {
-                std::vector<vec2f> texcoord(_mesh->mNumVertices);
-                for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                    texcoord[i] = vec2f(_mesh->mTextureCoords[UVChannel][i].x, _mesh->mTextureCoords[UVChannel][i].y);
-
-                const auto attr = std::string("TEXCOORD") + (UVChannel == 0 ? "" : std::to_string(UVChannel));
-                mesh->AddVertexArray(SceneObjectVertexArray(attr, 0, VertexDataType::FLOAT2, texcoord.data(), texcoord.size()));
-            }
-        }
-
-        // Read Tangent and Bitangent
-        if (_mesh->HasTangentsAndBitangents()) {
-            std::vector<vec3f> tangent(_mesh->mNumVertices), bitangent(_mesh->mNumVertices);
-            for (size_t i = 0; i < _mesh->mNumVertices; i++) {
-                tangent[i]   = vec3f(_mesh->mTangents[i].x, _mesh->mTangents[i].y, _mesh->mTangents[i].z);
-                bitangent[i] = vec3f(_mesh->mBitangents[i].x, _mesh->mBitangents[i].y, _mesh->mBitangents[i].z);
-            }
-            mesh->AddVertexArray(SceneObjectVertexArray("TANGENT", 0, VertexDataType::FLOAT3, tangent.data(), tangent.size()));
-            mesh->AddVertexArray(SceneObjectVertexArray("BITANGENT", 0, VertexDataType::FLOAT3, bitangent.data(), bitangent.size()));
-        }
-
-        // Read Indices
-        std::vector<int> indices;
-        for (size_t face = 0; face < _mesh->mNumFaces; face++)
-            for (size_t i = 0; i < _mesh->mFaces[face].mNumIndices; i++)
-                indices.push_back(_mesh->mFaces[face].mIndices[i]);
-        mesh->AddIndexArray(SceneObjectIndexArray(0, IndexDataType::INT32, indices.data(), indices.size()));
-
-        const std::string materialRef = _scene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
-        mesh->SetMaterial(scene->Materials.at(materialRef));
-        return mesh;
-    };
-
     // process camera
     std::unordered_map<std::string_view, unsigned> cameraNameToIndex;
     for (size_t i = 0; i < _scene->mNumCameras; i++) {
@@ -217,11 +131,91 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         scene->Materials[_material->GetName().C_Str()] = material;
     }
 
-    // process meshes
-    for (size_t i = 0; i < _scene->mNumMeshes; i++) {
-        auto _mesh                          = _scene->mMeshes[i];
-        scene->Meshes[_mesh->mName.C_Str()] = createMesh(_mesh);
-    }
+    auto createMesh = [&](const aiMesh* _mesh) -> std::unique_ptr<SceneObjectMesh> {
+        auto mesh = std::make_unique<SceneObjectMesh>();
+        // Set primitive type
+        switch (_mesh->mPrimitiveTypes) {
+            case aiPrimitiveType::aiPrimitiveType_LINE:
+                mesh->SetPrimitiveType(PrimitiveType::LINE_LIST);
+                break;
+            case aiPrimitiveType::aiPrimitiveType_POINT:
+                mesh->SetPrimitiveType(PrimitiveType::POINT_LIST);
+                break;
+            case aiPrimitiveType::aiPrimitiveType_POLYGON:
+                mesh->SetPrimitiveType(PrimitiveType::POLYGON);
+                break;
+            case aiPrimitiveType::aiPrimitiveType_TRIANGLE:
+                mesh->SetPrimitiveType(PrimitiveType::TRI_LIST);
+                break;
+            case aiPrimitiveType::_aiPrimitiveType_Force32Bit:
+            default:
+                spdlog::get("ResourceManager")->error("[Assimp] Unsupport Primitive Type");
+        }
+
+        // Read Position
+        if (_mesh->HasPositions()) {
+            std::vector<vec3f> pos(_mesh->mNumVertices);
+            for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                pos[i] = vec3f(_mesh->mVertices[i].x, _mesh->mVertices[i].y, _mesh->mVertices[i].z);
+            mesh->AddVertexArray(SceneObjectVertexArray("POSITION", 0, VertexDataType::FLOAT3, pos.data(), pos.size()));
+        }
+
+        // Read Normal
+        if (_mesh->HasNormals()) {
+            std::vector<vec3f> normal(_mesh->mNumVertices);
+            for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                normal[i] = vec3f(_mesh->mNormals[i].x, _mesh->mNormals[i].y, _mesh->mNormals[i].z);
+            mesh->AddVertexArray(SceneObjectVertexArray("NORMAL", 0, VertexDataType::FLOAT3, normal.data(), normal.size()));
+        }
+
+        // Read Color
+        for (size_t colorChannels = 0; colorChannels < _mesh->GetNumColorChannels(); colorChannels++) {
+            if (_mesh->HasVertexColors(colorChannels)) {
+                std::vector<vec4f> color(_mesh->mNumVertices);
+                for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                    color[i] = vec4f(_mesh->mColors[colorChannels][i].r,
+                                     _mesh->mColors[colorChannels][i].g,
+                                     _mesh->mColors[colorChannels][i].b,
+                                     _mesh->mColors[colorChannels][i].a);
+                const auto attr = std::string("COLOR") + (colorChannels == 0 ? "" : std::to_string(colorChannels));
+                mesh->AddVertexArray(SceneObjectVertexArray(attr, 0, VertexDataType::FLOAT4, color.data(), color.size()));
+            }
+        }
+
+        // Read UV
+        for (size_t UVChannel = 0; UVChannel < _mesh->GetNumUVChannels(); UVChannel++) {
+            if (_mesh->HasTextureCoords(UVChannel)) {
+                std::vector<vec2f> texcoord(_mesh->mNumVertices);
+                for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                    texcoord[i] = vec2f(_mesh->mTextureCoords[UVChannel][i].x, _mesh->mTextureCoords[UVChannel][i].y);
+
+                const auto attr = std::string("TEXCOORD") + (UVChannel == 0 ? "" : std::to_string(UVChannel));
+                mesh->AddVertexArray(SceneObjectVertexArray(attr, 0, VertexDataType::FLOAT2, texcoord.data(), texcoord.size()));
+            }
+        }
+
+        // Read Tangent and Bitangent
+        if (_mesh->HasTangentsAndBitangents()) {
+            std::vector<vec3f> tangent(_mesh->mNumVertices), bitangent(_mesh->mNumVertices);
+            for (size_t i = 0; i < _mesh->mNumVertices; i++) {
+                tangent[i]   = vec3f(_mesh->mTangents[i].x, _mesh->mTangents[i].y, _mesh->mTangents[i].z);
+                bitangent[i] = vec3f(_mesh->mBitangents[i].x, _mesh->mBitangents[i].y, _mesh->mBitangents[i].z);
+            }
+            mesh->AddVertexArray(SceneObjectVertexArray("TANGENT", 0, VertexDataType::FLOAT3, tangent.data(), tangent.size()));
+            mesh->AddVertexArray(SceneObjectVertexArray("BITANGENT", 0, VertexDataType::FLOAT3, bitangent.data(), bitangent.size()));
+        }
+
+        // Read Indices
+        std::vector<int> indices;
+        for (size_t face = 0; face < _mesh->mNumFaces; face++)
+            for (size_t i = 0; i < _mesh->mFaces[face].mNumIndices; i++)
+                indices.push_back(_mesh->mFaces[face].mIndices[i]);
+        mesh->AddIndexArray(SceneObjectIndexArray(0, IndexDataType::INT32, indices.data(), indices.size()));
+
+        const std::string materialRef = _scene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
+        mesh->SetMaterial(scene->Materials.at(materialRef));
+        return mesh;
+    };
 
     auto getMatrix = [](const aiMatrix4x4& _mat) -> mat4f {
         mat4f ret;
@@ -235,7 +229,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         auto geometry = std::make_shared<SceneObjectGeometry>();
         for (size_t i = 0; i < _node->mNumMeshes; i++) {
             auto _mesh = _scene->mMeshes[_node->mMeshes[i]];
-            geometry->AddMesh(scene->Meshes[_mesh->mName.C_Str()]);
+            geometry->AddMesh(createMesh(_mesh));
         }
         return geometry;
     };

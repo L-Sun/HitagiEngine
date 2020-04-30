@@ -296,7 +296,7 @@ protected:
     // LOD | meshes array
     //  0  | meshes array[0] include multiple meshes at 0 LOD
     // ... | ...
-    std::vector<std::vector<std::weak_ptr<SceneObjectMesh>>> m_MeshesLOD;
+    std::vector<std::vector<std::unique_ptr<SceneObjectMesh>>> m_MeshesLOD;
 
     bool                     m_Visible;
     bool                     m_Shadow;
@@ -317,9 +317,9 @@ public:
     const bool                     MotionBlur() const;
     const SceneObjectCollisionType CollisionType() const;
     const float*                   CollisionParameters() const;
-    void                           AddMesh(const std::weak_ptr<SceneObjectMesh>& mesh, size_t level = 0);
-    const std::vector<std::weak_ptr<SceneObjectMesh>>& GetMeshes(size_t lod = 0) const;
-    friend std::ostream&                               operator<<(std::ostream& out, const SceneObjectGeometry& obj);
+    void                           AddMesh(std::unique_ptr<SceneObjectMesh> mesh, size_t level = 0);
+    const std::vector<std::unique_ptr<SceneObjectMesh>>& GetMeshes(size_t lod = 0) const;
+    friend std::ostream&                                 operator<<(std::ostream& out, const SceneObjectGeometry& obj);
 };
 
 typedef float (*AttenFunc)(float /* Intensity */, float /* distance */);

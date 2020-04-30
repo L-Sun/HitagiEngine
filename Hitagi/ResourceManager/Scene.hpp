@@ -17,7 +17,6 @@ public:
     std::unordered_map<std::string, std::shared_ptr<SceneObjectCamera>>   Cameras;
     std::unordered_map<std::string, std::shared_ptr<SceneObjectLight>>    Lights;
     std::unordered_map<std::string, std::shared_ptr<SceneObjectMaterial>> Materials;
-    std::unordered_map<std::string, std::shared_ptr<SceneObjectMesh>>     Meshes;
     std::unordered_map<std::string, std::shared_ptr<SceneObjectGeometry>> Geometries;
 
 public:
