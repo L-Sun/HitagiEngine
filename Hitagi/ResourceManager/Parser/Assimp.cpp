@@ -55,7 +55,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                 spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: DIRECTIONAL");
                 break;
             case aiLightSourceType::aiLightSource_POINT: {
-                vec4f color     = normalize(vec4f(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b, 1.0f));
+                vec4f color     = vec4f(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b, 1.0f);
                 float intensity = _light->mColorDiffuse.r / color.r;
                 light           = std::make_shared<SceneObjectPointLight>(color, intensity);
             } break;

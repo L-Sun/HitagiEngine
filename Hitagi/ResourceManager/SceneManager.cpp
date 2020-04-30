@@ -62,6 +62,14 @@ std::weak_ptr<SceneGeometryNode> SceneManager::GetSceneGeometryNode(const std::s
     else
         return std::weak_ptr<SceneGeometryNode>();
 }
+std::weak_ptr<SceneLightNode> SceneManager::GetSceneLightNode(const std::string& name) {
+    auto it = m_Scene->LightNodes.find(name);
+    if (it != m_Scene->LightNodes.end())
+        return it->second;
+    else
+        return std::weak_ptr<SceneLightNode>();
+}
+
 std::weak_ptr<SceneObjectGeometry> SceneManager::GetSceneGeometryObject(const std::string& key) {
     return m_Scene->Geometries.find(key)->second;
 }

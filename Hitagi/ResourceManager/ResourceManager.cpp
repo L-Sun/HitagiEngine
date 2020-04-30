@@ -34,9 +34,12 @@ void ResourceManager::Finalize() {
     m_Logger = nullptr;
 }
 
-std::shared_ptr<Image> ResourceManager::ParseImage(std::filesystem::path filePath) {
+std::shared_ptr<Image> ResourceManager::ParseImage(const std::filesystem::path& filePath) {
     std::string name = filePath.string();
-    if (m_ImageCache.count(name) != 0) return m_ImageCache[name];
+    if (m_ImageCache.count(name) != 0) {
+        if (m_ImageCache.at(name).first >= std::filesystem::last_write_time(filePath))
+            return m_ImageCache.at(name).second;
+    }
 
     ImageFormat format = ImageFormat::NUM_SUPPORT;
 
@@ -61,17 +64,23 @@ std::shared_ptr<Image> ResourceManager::ParseImage(std::filesystem::path filePat
         return std::make_shared<Image>();
     }
 
-    m_ImageCache.emplace(name, std::make_shared<Image>(std::move(img)));
-    return m_ImageCache.at(name);
+    m_ImageCache[name] = {std::filesystem::last_write_time(filePath), std::make_shared<Image>(std::move(img))};
+    return m_ImageCache.at(name).second;
 }
 
-std::shared_ptr<Scene> ResourceManager::ParseScene(std::filesystem::path filePath) {
+std::shared_ptr<Scene> ResourceManager::ParseScene(const std::filesystem::path& filePath) {
     std::string name = filePath.string();
-    if (m_SceneCache.count(name) != 0) return m_SceneCache[name];
+    if (m_SceneCache.count(name) != 0) {
+        if (m_SceneCache.at(name).first >= std::filesystem::last_write_time(filePath))
+            return m_SceneCache.at(name).second;
+    }
 
     auto scene = m_SceneParser->Parse(g_FileIOManager->SyncOpenAndReadBinary(filePath));
 
-    if (scene) m_SceneCache[name] = scene;
+    if (scene) {
+        m_SceneCache[name].first  = std::filesystem::last_write_time(filePath);
+        m_SceneCache[name].second = scene;
+    }
 
     return scene;
 }
