@@ -62,7 +62,7 @@ private:
     std::queue<LinearAllocationPage*>                      m_AvailablePages;
 
     std::vector<std::unique_ptr<LinearAllocationPage>> m_LargePages;
-    std::stack<size_t>                                 m_LargePagesEmptyIndex;
+    std::queue<size_t>                                 m_LargePagesEmptyIndex;
     std::queue<std::pair<uint64_t, size_t>>            m_DeletionQueue;  // free large pages
 
     std::mutex m_Mutex;

@@ -46,7 +46,7 @@ std::pair<size_t, LinearAllocationPage*> LinearAllocatorPageManager::RequestLarg
     auto            ret     = newPage.get();
     size_t          index;
     if (!m_LargePagesEmptyIndex.empty()) {
-        index = m_LargePagesEmptyIndex.top();
+        index = m_LargePagesEmptyIndex.front();
         m_LargePagesEmptyIndex.pop();
         m_LargePages[index].reset(newPage.release());
     } else {
