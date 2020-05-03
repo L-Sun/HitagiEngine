@@ -1,12 +1,12 @@
 #include "GpuBuffer.hpp"
+
+#include "D3DCore.hpp"
 #include "CommandContext.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 
-GpuBuffer::GpuBuffer(ID3D12Device6* device, size_t numElement, size_t elementSize, const void* initialData,
-                     CommandContext* context)
-    : m_Device(device),
-      m_ElementCount(numElement),
+GpuBuffer::GpuBuffer(size_t numElement, size_t elementSize, const void* initialData, CommandContext* context)
+    : m_ElementCount(numElement),
       m_ElementSize(elementSize),
       m_BufferSize(numElement * elementSize),
       m_ResourceFlags(D3D12_RESOURCE_FLAG_NONE) {
@@ -15,13 +15,11 @@ GpuBuffer::GpuBuffer(ID3D12Device6* device, size_t numElement, size_t elementSiz
     auto desc      = CD3DX12_RESOURCE_DESC::Buffer(m_BufferSize);
     auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
-    ThrowIfFailed(m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr,
+    ThrowIfFailed(g_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr,
                                                     IID_PPV_ARGS(&m_Resource)));
-    UpdateGpuVirtualAddress();
 
     if (initialData) {
         assert(context != nullptr);
-        assert(context->m_Device == m_Device);
         context->InitializeBuffer(*this, initialData, m_BufferSize);
     }
 }
@@ -45,9 +43,8 @@ TextureBuffer::TextureBuffer(CommandContext& context, D3D12_CPU_DESCRIPTOR_HANDL
         desc.Format = DXGI_FORMAT_R8_UNORM;
 
     auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    ThrowIfFailed(context.m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState,
-                                                            nullptr,
-                                                            IID_PPV_ARGS(m_Resource.ReleaseAndGetAddressOf())));
+    ThrowIfFailed(g_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr,
+                                                    IID_PPV_ARGS(m_Resource.ReleaseAndGetAddressOf())));
 
     m_Resource->SetName(L"Texture");
     D3D12_SUBRESOURCE_DATA texResource;
@@ -56,7 +53,7 @@ TextureBuffer::TextureBuffer(CommandContext& context, D3D12_CPU_DESCRIPTOR_HANDL
 
     context.InitializeTexture(*this, 1, &texResource);
     m_CpuDescriptorHandle = handle;
-    context.m_Device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_CpuDescriptorHandle);
+    g_Device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_CpuDescriptorHandle);
 }
 
 }  // namespace Hitagi::Graphics::DX12

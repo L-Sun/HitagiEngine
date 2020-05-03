@@ -1,4 +1,5 @@
 add_library(D3DRHI
+    D3DCore.cpp
     D3D12GraphicsManager.cpp
     CommandListManager.cpp
     CommandAllocatorPool.cpp

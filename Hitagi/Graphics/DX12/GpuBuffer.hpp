@@ -6,7 +6,7 @@ namespace Hitagi::Graphics::DX12 {
 class GpuBuffer : public GpuResource {
 public:
     GpuBuffer() = default;
-    GpuBuffer(ID3D12Device6* device, size_t numElement, size_t elementSize, const void* initialData = nullptr,
+    GpuBuffer(size_t numElement, size_t elementSize, const void* initialData = nullptr,
               CommandContext* context = nullptr);
     D3D12_VERTEX_BUFFER_VIEW VertexBufferView() const {
         D3D12_VERTEX_BUFFER_VIEW vbv;
@@ -24,7 +24,6 @@ public:
     }
 
 protected:
-    ID3D12Device6*       m_Device;
     size_t               m_ElementCount;
     size_t               m_ElementSize;
     size_t               m_BufferSize;

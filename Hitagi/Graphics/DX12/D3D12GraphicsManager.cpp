@@ -1,5 +1,6 @@
 #include "D3D12GraphicsManager.hpp"
 
+#include "D3DCore.hpp"
 #include "GLFWApplication.hpp"
 #include "IPhysicsManager.hpp"
 
@@ -24,9 +25,13 @@ void D3D12GraphicsManager::Draw() {
 void D3D12GraphicsManager::Clear() { GraphicsManager::Clear(); }
 
 int D3D12GraphicsManager::InitD3D() {
+    // Config
     auto config = g_App->GetConfiguration();
+    auto window = static_cast<GLFWApplication*>(g_App.get())->GetWindow();
+    auto hWnd   = glfwGetWin32Window(window);
 
-    unsigned dxgiFactoryFlags = 0;
+    unsigned                              dxgiFactoryFlags = 0;
+    Microsoft::WRL::ComPtr<IDXGIFactory4> dxgiFactory;
 
 #if defined(_DEBUG)
 
@@ -40,14 +45,14 @@ int D3D12GraphicsManager::InitD3D() {
         }
     }
 #endif  // DEBUG
-    ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&m_DxgiFactory)));
+    ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&dxgiFactory)));
 
     // Create device.
     {
-        if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_Device)))) {
+        if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&g_Device)))) {
             Microsoft::WRL::ComPtr<IDXGIAdapter4> pWarpaAdapter;
-            ThrowIfFailed(m_DxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&pWarpaAdapter)));
-            ThrowIfFailed(D3D12CreateDevice(pWarpaAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_Device)));
+            ThrowIfFailed(dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&pWarpaAdapter)));
+            ThrowIfFailed(D3D12CreateDevice(pWarpaAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&g_Device)));
         }
     }
 
@@ -58,19 +63,37 @@ int D3D12GraphicsManager::InitD3D() {
         msQualityLevels.Format           = m_BackBufferFormat;
         msQualityLevels.NumQualityLevels = 0;
         msQualityLevels.SampleCount      = 4;
-        ThrowIfFailed(m_Device->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &msQualityLevels,
+        ThrowIfFailed(g_Device->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &msQualityLevels,
                                                     sizeof(msQualityLevels)));
 
         m_4xMsaaQuality = msQualityLevels.NumQualityLevels;
         assert(m_4xMsaaQuality > 0 && "Unexpected MSAA qulity level.");
     }
-
-    // Initalize LinearAllocator
-    m_LinearAllocator.Initalize(m_Device.Get());
-
     // Create command queue, allocator and list.
-    m_CommandListManager.Initialize(m_Device.Get());
-    CreateSwapChain();
+    g_CommandManager.Initialize(g_Device.Get());
+
+    // Create Swap Chain
+    {
+        DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
+        swapChainDesc.BufferCount           = m_FrameCount;
+        swapChainDesc.Width                 = g_App->GetConfiguration().screenWidth;
+        swapChainDesc.Height                = g_App->GetConfiguration().screenHeight;
+        swapChainDesc.Format                = DXGI_FORMAT_R8G8B8A8_UNORM;
+        swapChainDesc.BufferUsage           = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        swapChainDesc.Scaling               = DXGI_SCALING_STRETCH;
+        swapChainDesc.SwapEffect            = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+        swapChainDesc.AlphaMode             = DXGI_ALPHA_MODE_UNSPECIFIED;
+        swapChainDesc.SampleDesc.Count      = 1;
+        swapChainDesc.SampleDesc.Quality    = 0;
+        swapChainDesc.Flags                 = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+        Microsoft::WRL::ComPtr<IDXGISwapChain1> swapChain;
+        ThrowIfFailed(dxgiFactory->CreateSwapChainForHwnd(g_CommandManager.GetCommandQueue(), hWnd, &swapChainDesc,
+                                                          nullptr, nullptr, &swapChain));
+
+        ThrowIfFailed(swapChain.As(&m_SwapChain));
+        ThrowIfFailed(dxgiFactory->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER));
+    }
 
     // Set viewport and scissor rect.
     {
@@ -87,42 +110,16 @@ int D3D12GraphicsManager::InitD3D() {
     return 0;
 }
 
-void D3D12GraphicsManager::CreateSwapChain() {
-    m_SwapChain.Reset();
-    Microsoft::WRL::ComPtr<IDXGISwapChain1> swapChain;
-    DXGI_SWAP_CHAIN_DESC1                   swapChainDesc = {};
-    swapChainDesc.BufferCount                             = m_FrameCount;
-    swapChainDesc.Width                                   = g_App->GetConfiguration().screenWidth;
-    swapChainDesc.Height                                  = g_App->GetConfiguration().screenHeight;
-    swapChainDesc.Format                                  = DXGI_FORMAT_R8G8B8A8_UNORM;
-    swapChainDesc.BufferUsage                             = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapChainDesc.Scaling                                 = DXGI_SCALING_STRETCH;
-    swapChainDesc.SwapEffect                              = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    swapChainDesc.AlphaMode                               = DXGI_ALPHA_MODE_UNSPECIFIED;
-    swapChainDesc.SampleDesc.Count                        = 1;
-    swapChainDesc.SampleDesc.Quality                      = 0;
-    swapChainDesc.Flags                                   = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-
-    auto window       = static_cast<GLFWApplication*>(g_App.get())->GetWindow();
-    auto hWnd         = glfwGetWin32Window(window);
-    auto commandQueue = m_CommandListManager.GetGraphicsQueue().GetCommandQueue();
-    ThrowIfFailed(
-        m_DxgiFactory->CreateSwapChainForHwnd(commandQueue, hWnd, &swapChainDesc, nullptr, nullptr, &swapChain));
-
-    ThrowIfFailed(swapChain.As(&m_SwapChain));
-    ThrowIfFailed(m_DxgiFactory->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER));
-}
-
 void D3D12GraphicsManager::CreateDescriptorHeaps() {
     for (int type = 0; type < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; type++) {
-        m_DescriptorAllocator[type].Initialize(m_Device.Get(), static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(type));
+        m_DescriptorAllocator[type].Initialize(g_Device.Get(), static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(type));
     }
 
     // Create rtv.
     m_RtvDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(m_FrameCount);
     for (unsigned i = 0; i < m_FrameCount; i++) {
         ThrowIfFailed(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&m_RenderTargets[i])));
-        m_Device->CreateRenderTargetView(m_RenderTargets[i].Get(), nullptr, m_RtvDescriptors.GetDescriptorHandle(i));
+        g_Device->CreateRenderTargetView(m_RenderTargets[i].Get(), nullptr, m_RtvDescriptors.GetDescriptorHandle(i));
     }
     m_DsvDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Allocate();
 
@@ -148,11 +145,11 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
     optClear.DepthStencil.Stencil = 0;
 
     auto heap_properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    ThrowIfFailed(m_Device->CreateCommittedResource(&heap_properties, D3D12_HEAP_FLAG_NONE, &dsvDesc,
+    ThrowIfFailed(g_Device->CreateCommittedResource(&heap_properties, D3D12_HEAP_FLAG_NONE, &dsvDesc,
                                                     D3D12_RESOURCE_STATE_DEPTH_WRITE, &optClear,
                                                     IID_PPV_ARGS(&m_DepthStencilBuffer)));
 
-    m_Device->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, DepthStencilView());
+    g_Device->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, DepthStencilView());
 
     // Create CBV Descriptor Heap
     m_CbvSrvDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Allocate(
@@ -167,7 +164,7 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
 
 void D3D12GraphicsManager::CreateFrameResource() {
     for (size_t i = 0; i < m_FrameResourceSize; i++) {
-        m_FrameResource.push_back(std::make_unique<FR>(m_LinearAllocator, m_MaxObjects));
+        m_FrameResource.push_back(std::make_unique<FR>(m_MaxObjects));
     }
 }
 
@@ -181,11 +178,11 @@ void D3D12GraphicsManager::CreateRootSignature() {
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
 
     featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
-    if (FAILED(m_Device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData)))) {
+    if (FAILED(g_Device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData)))) {
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     }
 
-    m_RootSignature.Finalize(m_Device.Get(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
+    m_RootSignature.Finalize(g_Device.Get(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
                              featureData.HighestVersion);
 }
 
@@ -204,11 +201,11 @@ void D3D12GraphicsManager::CreateConstantBuffer() {
         auto                            fr = m_FrameResource[i].get();
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbDsec;
         cbDsec.SizeInBytes                  = fr->ObjectSize();
-        D3D12_GPU_VIRTUAL_ADDRESS cbAddress = fr->m_ObjectConstantBuffer.GpuPtr;
+        D3D12_GPU_VIRTUAL_ADDRESS cbAddress = fr->m_ObjectConstantBuffer.GpuVirtualAddress;
 
         for (size_t j = 0; j < fr->m_NumObjects; j++) {
             cbDsec.BufferLocation = cbAddress;
-            m_Device->CreateConstantBufferView(&cbDsec, m_CbvSrvDescriptors.GetDescriptorHandle(offset++));
+            g_Device->CreateConstantBufferView(&cbDsec, m_CbvSrvDescriptors.GetDescriptorHandle(offset++));
             cbAddress += cbDsec.SizeInBytes;
         }
     }
@@ -218,8 +215,8 @@ void D3D12GraphicsManager::CreateConstantBuffer() {
         auto                            fr = m_FrameResource[i].get();
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbDesc;
         cbDesc.SizeInBytes    = fr->FrameConstantSize();
-        cbDesc.BufferLocation = fr->m_FrameConstantBuffer.GpuPtr;
-        m_Device->CreateConstantBufferView(&cbDesc, m_CbvSrvDescriptors.GetDescriptorHandle(offset++));
+        cbDesc.BufferLocation = fr->m_FrameConstantBuffer.GpuVirtualAddress;
+        g_Device->CreateConstantBufferView(&cbDesc, m_CbvSrvDescriptors.GetDescriptorHandle(offset++));
     }
 }
 
@@ -235,7 +232,7 @@ void D3D12GraphicsManager::CreateSampler() {
     samplerDesc.MinLOD             = 0;
     samplerDesc.MipLODBias         = 0.0f;
 
-    m_Device->CreateSampler(&samplerDesc, m_SamplerDescriptors.GetDescriptorHandle());
+    g_Device->CreateSampler(&samplerDesc, m_SamplerDescriptors.GetDescriptorHandle());
 }
 
 bool D3D12GraphicsManager::InitializeShaders() {
@@ -283,7 +280,7 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     m_GraphicsPSO["no_texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
     m_GraphicsPSO["no_texture"].SetRenderTargetFormats(
         {m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1, m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
-    m_GraphicsPSO["no_texture"].Finalize(m_Device.Get());
+    m_GraphicsPSO["no_texture"].Finalize(g_Device.Get());
 
     m_GraphicsPSO.insert({"texture", GraphicsPSO()});
     m_GraphicsPSO["texture"].SetInputLayout(m_InputLayout);
@@ -297,7 +294,7 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     m_GraphicsPSO["texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
     m_GraphicsPSO["texture"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1,
                                                     m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
-    m_GraphicsPSO["texture"].Finalize(m_Device.Get());
+    m_GraphicsPSO["texture"].Finalize(g_Device.Get());
 
 #if defined(_DEBUG)
     m_GraphicsPSO.insert({"debug", GraphicsPSO()});
@@ -312,7 +309,7 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     m_GraphicsPSO["debug"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE);
     m_GraphicsPSO["debug"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1,
                                                   m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
-    m_GraphicsPSO["debug"].Finalize(m_Device.Get());
+    m_GraphicsPSO["debug"].Finalize(g_Device.Get());
 #endif  // DEBUG
 }
 
@@ -371,17 +368,17 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
 
 void D3D12GraphicsManager::CreateVertexBuffer(const Resource::SceneObjectVertexArray& vertexArray,
                                               std::shared_ptr<MeshInfo>               pMeshBuffer) {
-    CommandContext context(m_CommandListManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
-    pMeshBuffer->verticesBuffer.emplace_back(m_Device.Get(), vertexArray.GetVertexCount(),
+    CommandContext context(g_CommandManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
+    pMeshBuffer->verticesBuffer.emplace_back(vertexArray.GetVertexCount(),
                                              vertexArray.GetDataSize() / vertexArray.GetVertexCount(),
                                              vertexArray.GetData(), &context);
 }
 
 void D3D12GraphicsManager::CreateIndexBuffer(const Resource::SceneObjectIndexArray& indexArray,
                                              std::shared_ptr<MeshInfo>              pMeshBuffer) {
-    CommandContext context(m_CommandListManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
+    CommandContext context(g_CommandManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
     pMeshBuffer->indicesBuffer =
-        GpuBuffer(m_Device.Get(), indexArray.GetIndexCount(), indexArray.GetDataSize() / indexArray.GetIndexCount(),
+        GpuBuffer(indexArray.GetIndexCount(), indexArray.GetDataSize() / indexArray.GetIndexCount(),
                   indexArray.GetData(), &context);
 }
 
@@ -413,14 +410,14 @@ TextureBuffer D3D12GraphicsManager::CreateTextureBuffer(const Resource::Image& i
     sampleDesc.Count   = m_4xMsaaState ? 4 : 1;
     sampleDesc.Quality = m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0;
 
-    CommandContext context(m_CommandListManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
+    CommandContext context(g_CommandManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
     return TextureBuffer(context, handle, sampleDesc, image);
 }
 
 void D3D12GraphicsManager::ClearShaders() { m_GraphicsPSO.clear(); }
 
 void D3D12GraphicsManager::ClearBuffers() {
-    m_CommandListManager.IdleGPU();
+    g_CommandManager.IdleGPU();
     m_DrawItems.clear();
     m_Meshes.clear();
     m_Textures.clear();
@@ -435,8 +432,8 @@ void D3D12GraphicsManager::UpdateConstants() {
     auto currFR = m_FrameResource[m_CurrFrameResourceIndex].get();
 
     // Wait untill the frame is finished.
-    if (!m_CommandListManager.GetGraphicsQueue().IsFenceComplete(currFR->fence)) {
-        m_CommandListManager.WaitForFence(currFR->fence);
+    if (!g_CommandManager.GetGraphicsQueue().IsFenceComplete(currFR->fence)) {
+        g_CommandManager.WaitForFence(currFR->fence);
     }
 
     // Update frame resource
@@ -490,7 +487,7 @@ void D3D12GraphicsManager::UpdateConstants() {
 void D3D12GraphicsManager::RenderBuffers() {
     auto currFR = m_FrameResource[m_CurrFrameResourceIndex].get();
 
-    CommandContext context(m_CommandListManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
+    CommandContext context(g_CommandManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
     PopulateCommandList(context);
 
     currFR->fence = context.Finish();

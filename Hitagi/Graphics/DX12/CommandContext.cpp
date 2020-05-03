@@ -3,13 +3,13 @@
 namespace Hitagi::Graphics::DX12 {
 
 CommandContext::CommandContext(CommandListManager& cmdManager, D3D12_COMMAND_LIST_TYPE type)
-    : m_Device(cmdManager.m_Device),
-      m_CommandManager(cmdManager),
+    : m_CommandManager(cmdManager),
       m_CommandList(nullptr),
       m_CommandAllocator(nullptr),
-      m_LinearAllocator(cmdManager.m_Device),
       m_CurrRootSignature(nullptr),
       m_NumBarriersToFlush(0),
+      m_CpuLinearAllocator(LinearAllocatorType::CPU_WRITABLE),
+      m_GpuLinearAllocator(LinearAllocatorType::GPU_EXCLUSIVE),
       m_Type(type) {
     m_CommandManager.CreateNewCommandList(m_Type, &m_CommandList, &m_CommandAllocator);
 
@@ -24,12 +24,14 @@ CommandContext::~CommandContext() {
     if (m_CommandAllocator) {
         auto&    queue      = m_CommandManager.GetQueue(m_Type);
         uint64_t fenceValue = queue.GetLastCompletedFenceValue();
+        m_CpuLinearAllocator.DiscardPages(fenceValue);
+        m_GpuLinearAllocator.DiscardPages(fenceValue);
         queue.DiscardAllocator(fenceValue, m_CommandAllocator);
     }
 }
 
 void CommandContext::InitializeBuffer(GpuResource& dest, const void* data, size_t bufferSize) {
-    auto uploadBuffer = m_LinearAllocator.Allocate(bufferSize);
+    auto uploadBuffer = m_CpuLinearAllocator.Allocate(bufferSize);
     std::memcpy(uploadBuffer.CpuPtr, data, bufferSize);
 
     TransitionResource(dest, D3D12_RESOURCE_STATE_COPY_DEST, true);
@@ -42,7 +44,7 @@ void CommandContext::InitializeBuffer(GpuResource& dest, const void* data, size_
 
 void CommandContext::InitializeTexture(GpuResource& dest, size_t numSubresources, D3D12_SUBRESOURCE_DATA subData[]) {
     const UINT64 uploadBufferSize = GetRequiredIntermediateSize(dest.GetResource(), 0, numSubresources);
-    auto         uploadBuffer     = m_LinearAllocator.Allocate(uploadBufferSize);
+    auto         uploadBuffer     = m_CpuLinearAllocator.Allocate(uploadBufferSize);
 
     UpdateSubresources(m_CommandList, dest.GetResource(), uploadBuffer.resource.GetResource(), uploadBuffer.offset, 0,
                        numSubresources, subData);
@@ -181,6 +183,8 @@ uint64_t CommandContext::Finish(bool waitForComplete) {
     CommandQueue& queue = m_CommandManager.GetQueue(m_Type);
 
     uint64_t fenceValue = queue.ExecuteCommandList(m_CommandList);
+    m_CpuLinearAllocator.DiscardPages(fenceValue);
+    m_GpuLinearAllocator.DiscardPages(fenceValue);
     queue.DiscardAllocator(fenceValue, m_CommandAllocator);
     m_CommandAllocator = nullptr;
 

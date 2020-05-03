@@ -73,6 +73,8 @@ public:
         }
     }
 
+    ID3D12CommandQueue* GetCommandQueue() { return m_GraphicsQueue.GetCommandQueue(); }
+
     void IdleGPU() {
         m_GraphicsQueue.WaitIdle();
         m_ComputeQueue.WaitIdle();
@@ -85,5 +87,4 @@ private:
     CommandQueue   m_ComputeQueue;
     CommandQueue   m_CopyQueue;
 };
-extern std::unique_ptr<CommandListManager> g_CommandListManager;
 }  // namespace Hitagi::Graphics::DX12

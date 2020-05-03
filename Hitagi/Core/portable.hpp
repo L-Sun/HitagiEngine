@@ -43,6 +43,4 @@ constexpr uint32_t operator"" _u32(const char* s, size_t) { return details::u32(
 
 constexpr uint16_t operator"" _u16(const char* s, size_t) { return details::u16(s, 0); }
 
-constexpr size_t operator"" _kB(size_t x) { return x << 10; }
-constexpr size_t operator"" _MB(size_t x) { return x << 20; }
 }  // namespace Hitagi

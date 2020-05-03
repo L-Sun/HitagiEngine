@@ -59,7 +59,6 @@ public:
     void     Reset();
 
 private:
-    ID3D12Device6*              m_Device;
     CommandListManager&         m_CommandManager;
     ID3D12GraphicsCommandList5* m_CommandList;
     ID3D12CommandAllocator*     m_CommandAllocator;
@@ -72,7 +71,8 @@ private:
     D3D12_RESOURCE_BARRIER m_Barriers[16];
     unsigned               m_NumBarriersToFlush;
 
-    LinearAllocator m_LinearAllocator;
+    LinearAllocator m_CpuLinearAllocator;
+    LinearAllocator m_GpuLinearAllocator;
 
     D3D12_COMMAND_LIST_TYPE m_Type;
 };

@@ -2,13 +2,20 @@
 #include "LinearAllocator.hpp"
 
 namespace Hitagi::Graphics::DX12 {
+class FrameResourceLinearAllocator {
+protected:
+    inline static LinearAllocator sm_CpuLineraAllocator = LinearAllocator(LinearAllocatorType::CPU_WRITABLE);
+};
+
 template <typename TFrameConstant, typename TObjConstant>
-class FrameResource {
+class FrameResource : public FrameResourceLinearAllocator {
 public:
-    FrameResource(LinearAllocator& uploadBufferAlloc, size_t numObjects)
-        : m_NumObjects(numObjects),
-          m_FrameConstantBuffer(uploadBufferAlloc.Allocate<TFrameConstant>(1)),
-          m_ObjectConstantBuffer(uploadBufferAlloc.Allocate<TObjConstant>(numObjects)) {
+    FrameResource(size_t numObjects)
+        : FrameResourceLinearAllocator(),
+          m_NumObjects(numObjects),
+          m_FrameConstantBuffer(FrameResourceLinearAllocator::sm_CpuLineraAllocator.Allocate<TFrameConstant>(1)),
+          m_ObjectConstantBuffer(
+              FrameResourceLinearAllocator::sm_CpuLineraAllocator.Allocate<TObjConstant>(numObjects)) {
         m_SizeObject = m_ObjectConstantBuffer.size / m_NumObjects;
     }
     void UpdateFrameConstants(TFrameConstant frameConstants) {
@@ -25,10 +32,10 @@ public:
     FrameResource operator=(const FrameResource& rhs) = delete;
     ~FrameResource() {}
 
-    uint64_t                    fence = static_cast<uint64_t>(D3D12_COMMAND_LIST_TYPE_DIRECT) << 56;
-    size_t                      m_NumObjects;
-    size_t                      m_SizeObject;
-    LinearAllocator::Allocation m_FrameConstantBuffer, m_ObjectConstantBuffer;
+    uint64_t         fence = static_cast<uint64_t>(D3D12_COMMAND_LIST_TYPE_DIRECT) << 56;
+    size_t           m_NumObjects;
+    size_t           m_SizeObject;
+    LinearAllocation m_FrameConstantBuffer, m_ObjectConstantBuffer;
 };
 
 }  // namespace Hitagi::Graphics::DX12

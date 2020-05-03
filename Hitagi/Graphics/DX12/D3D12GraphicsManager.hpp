@@ -64,7 +64,6 @@ protected:
 private:
     int InitD3D();
 
-    void CreateSwapChain();
     void PopulateCommandList(CommandContext& context);
 
     void CreateDescriptorHeaps();
@@ -88,11 +87,6 @@ private:
     unsigned                  m_MaxTextures    = 10000;
     int                       m_CurrBackBuffer = 0;
     bool                      m_Raster         = false;
-
-    Microsoft::WRL::ComPtr<IDXGIFactory7> m_DxgiFactory;
-    Microsoft::WRL::ComPtr<ID3D12Device6> m_Device;
-
-    CommandListManager m_CommandListManager;
 
     uint64_t m_RtvHeapSize       = 0;
     uint64_t m_DsvHeapSize       = 0;
@@ -124,8 +118,6 @@ private:
 
     std::unordered_map<std::string, GraphicsPSO> m_GraphicsPSO;
     RootSignature                                m_RootSignature;
-
-    LinearAllocator m_LinearAllocator;
 
     std::vector<std::unique_ptr<FR>> m_FrameResource;
     // Generally, the frame resource size is greater or equal to frame count

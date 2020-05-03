@@ -28,8 +28,7 @@ public:
 private:
     std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> RequestDescriptorHeap();
 
-    static Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ID3D12Device6*             device,
-                                                                             D3D12_DESCRIPTOR_HEAP_TYPE type);
+    static Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
 
     uint32_t StaleDescriptorCount() const;
 
