@@ -21,19 +21,19 @@ private:
     };
 
     struct MeshInfo {
-        size_t                                       indexCount;
-        std::vector<D3D12_VERTEX_BUFFER_VIEW>        vbv;
-        D3D12_INDEX_BUFFER_VIEW                      ibv;
-        D3D_PRIMITIVE_TOPOLOGY                       primitiveType;
-        std::weak_ptr<Resource::SceneObjectMaterial> material;
-        std::string                                  psoName;
+        size_t                 indexCount;
+        std::vector<GpuBuffer> verticesBuffer;
+        GpuBuffer              indicesBuffer;
+        D3D_PRIMITIVE_TOPOLOGY primitiveType;
     };
 
     struct DrawItem {
-        std::weak_ptr<Resource::SceneGeometryNode> node;
-        std::shared_ptr<MeshInfo>                  meshBuffer;
-        size_t                                     constantBufferIndex;
-        unsigned                                   numFramesDirty;
+        std::weak_ptr<Resource::SceneGeometryNode>   node;
+        std::shared_ptr<MeshInfo>                    meshBuffer;
+        std::weak_ptr<Resource::SceneObjectMaterial> material;
+        std::string                                  psoName;
+        size_t                                       constantBufferIndex;
+        unsigned                                     numFramesDirty;
     };
 
     using FR = FrameResource<FrameConstants, ObjectConstants>;
@@ -44,8 +44,9 @@ public:
     void Draw() final;
     void Clear() final;
 
-    void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) final;
+    void ToggleRayTrancing() { m_Raster = !m_Raster; }
 
+    void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) final;
 #if defined(_DEBUG)
     void RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) final;
     void RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) final;
@@ -86,6 +87,7 @@ private:
     unsigned                  m_MaxObjects     = 1000;
     unsigned                  m_MaxTextures    = 10000;
     int                       m_CurrBackBuffer = 0;
+    bool                      m_Raster         = false;
 
     Microsoft::WRL::ComPtr<IDXGIFactory7> m_DxgiFactory;
     Microsoft::WRL::ComPtr<ID3D12Device6> m_Device;
@@ -134,7 +136,6 @@ private:
     std::unordered_map<xg::Guid, TextureBuffer>             m_Textures;
     std::unordered_map<xg::Guid, std::shared_ptr<MeshInfo>> m_Meshes;
     std::vector<DrawItem>                                   m_DrawItems;
-    std::vector<GpuBuffer>                                  m_Buffers;
 
 #if defined(_DEBUG)
     std::vector<std::shared_ptr<Resource::SceneGeometryNode>>  m_DebugNode;

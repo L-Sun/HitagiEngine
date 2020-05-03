@@ -99,8 +99,8 @@ void D3D12GraphicsManager::CreateSwapChain() {
     swapChainDesc.Scaling                                 = DXGI_SCALING_STRETCH;
     swapChainDesc.SwapEffect                              = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapChainDesc.AlphaMode                               = DXGI_ALPHA_MODE_UNSPECIFIED;
-    swapChainDesc.SampleDesc.Count                        = m_4xMsaaState ? 4 : 1;
-    swapChainDesc.SampleDesc.Quality                      = m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0;
+    swapChainDesc.SampleDesc.Count                        = 1;
+    swapChainDesc.SampleDesc.Quality                      = 0;
     swapChainDesc.Flags                                   = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
     auto window       = static_cast<GLFWApplication*>(g_App.get())->GetWindow();
@@ -320,8 +320,7 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     // Initialize meshes buffer
     for (auto&& [key, geometry] : scene.Geometries) {
         for (auto&& mesh : geometry->GetMeshes()) {
-            auto m      = std::make_shared<MeshInfo>();
-            m->material = mesh->GetMaterial();
+            auto m = std::make_shared<MeshInfo>();
             for (auto&& inputLayout : m_InputLayout) {
                 if (mesh->HasProperty(inputLayout.SemanticName)) {
                     auto& vertexArray = mesh->GetVertexPropertyArray(inputLayout.SemanticName);
@@ -332,14 +331,6 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
             m->indexCount    = indexArray.GetIndexCount();
             CreateIndexBuffer(indexArray, m);
             SetPrimitiveType(mesh->GetPrimitiveType(), m);
-            if (auto material = mesh->GetMaterial().lock())
-                if (material->GetDiffuseColor().ValueMap)
-                    m->psoName = "texture";
-                else
-                    m->psoName = "no_texture";
-            else
-                m->psoName = "simple";
-
             m_Meshes[mesh->GetGuid()] = m;
         }
     }
@@ -362,9 +353,15 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
                 for (auto&& mesh : geometry->GetMeshes()) {
                     DrawItem d;
                     d.constantBufferIndex = m_DrawItems.size();
-                    d.meshBuffer          = m_Meshes[mesh->GetGuid()];
+                    d.meshBuffer          = m_Meshes.at(mesh->GetGuid());
                     d.node                = node;
                     d.numFramesDirty      = m_FrameResourceSize;
+                    if (auto m = mesh->GetMaterial().lock()) {
+                        d.material = m;
+                        d.psoName  = m->GetDiffuseColor().ValueMap ? "texture" : "no_texture";
+                    } else {
+                        d.psoName = "simple";
+                    }
                     m_DrawItems.push_back(std::move(d));
                 }
             }
@@ -375,19 +372,17 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
 void D3D12GraphicsManager::CreateVertexBuffer(const Resource::SceneObjectVertexArray& vertexArray,
                                               std::shared_ptr<MeshInfo>               pMeshBuffer) {
     CommandContext context(m_CommandListManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
-    GpuBuffer vb(m_Device.Get(), vertexArray.GetVertexCount(), vertexArray.GetDataSize() / vertexArray.GetVertexCount(),
-                 vertexArray.GetData(), &context);
-    pMeshBuffer->vbv.push_back(vb.VertexBufferView());
-    m_Buffers.push_back(vb);
+    pMeshBuffer->verticesBuffer.emplace_back(m_Device.Get(), vertexArray.GetVertexCount(),
+                                             vertexArray.GetDataSize() / vertexArray.GetVertexCount(),
+                                             vertexArray.GetData(), &context);
 }
 
 void D3D12GraphicsManager::CreateIndexBuffer(const Resource::SceneObjectIndexArray& indexArray,
                                              std::shared_ptr<MeshInfo>              pMeshBuffer) {
     CommandContext context(m_CommandListManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
-    GpuBuffer      ib(m_Device.Get(), indexArray.GetIndexCount(), indexArray.GetDataSize() / indexArray.GetIndexCount(),
-                 indexArray.GetData(), &context);
-    pMeshBuffer->ibv = ib.IndexBufferView();
-    m_Buffers.push_back(ib);
+    pMeshBuffer->indicesBuffer =
+        GpuBuffer(m_Device.Get(), indexArray.GetIndexCount(), indexArray.GetDataSize() / indexArray.GetIndexCount(),
+                  indexArray.GetData(), &context);
 }
 
 void D3D12GraphicsManager::SetPrimitiveType(const Resource::PrimitiveType& primitiveType,
@@ -428,7 +423,6 @@ void D3D12GraphicsManager::ClearBuffers() {
     m_CommandListManager.IdleGPU();
     m_DrawItems.clear();
     m_Meshes.clear();
-    m_Buffers.clear();
     m_Textures.clear();
 #if defined(_DEBUG)
     ClearDebugBuffers();
@@ -467,7 +461,7 @@ void D3D12GraphicsManager::UpdateConstants() {
             ObjectConstants oc;
             oc.modelMatrix = transpose(transform);
 
-            if (auto material = d.meshBuffer->material.lock()) {
+            if (auto material = d.material.lock()) {
                 auto& ambientColor  = material->GetAmbientColor();
                 oc.ambientColor     = ambientColor.ValueMap ? vec4f(-1.0f) : ambientColor.Value;
                 auto& diffuseColor  = material->GetDiffuseColor();
@@ -508,15 +502,15 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
     auto fr          = m_FrameResource[m_CurrFrameResourceIndex].get();
     auto commandList = context.GetCommandList();
 
+    context.SetViewportAndScissor(m_Viewport, m_ScissorRect);
+
     // change state from presentation to waitting to render.
     // TODO change commandList to context
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         m_RenderTargets[m_CurrBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
     commandList->ResourceBarrier(1, &barrier);
-
-    context.SetViewportAndScissor(m_Viewport, m_ScissorRect);
-
     // clear buffer view
+
     const float clearColor[] = {0.0f, 0.2f, 0.4f, 1.0f};
     commandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
     commandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0,
@@ -529,7 +523,13 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
     context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 3, 0, m_SamplerDescriptors.GetDescriptorHandle());
     context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 0, 0,
                                  m_CbvSrvDescriptors.GetDescriptorHandle(m_FrameCBOffset + m_CurrFrameResourceIndex));
-    DrawRenderItems(context, m_DrawItems);
+
+    if (m_Raster) {
+        DrawRenderItems(context, m_DrawItems);
+    } else {
+        const float rayColor[] = {0.6f, 0.8f, 0.4f, 1.0f};
+        commandList->ClearRenderTargetView(CurrentBackBufferView(), rayColor, 0, nullptr);
+    }
 
 #if defined(_DEBUG)
     DrawRenderItems(context, m_DebugDrawItems);
@@ -541,23 +541,22 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
 }
 
 void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::vector<DrawItem>& drawItems) {
-    //
     auto numObj = m_FrameResource[m_CurrFrameResourceIndex].get()->m_NumObjects;
     for (auto&& d : drawItems) {
         const auto& meshBuffer = d.meshBuffer;
-        context.SetPipeLineState(m_GraphicsPSO.at(meshBuffer->psoName));
+        context.SetPipeLineState(m_GraphicsPSO.at(d.psoName));
 
-        for (size_t i = 0; i < meshBuffer->vbv.size(); i++) {
-            context.SetVertexBuffer(i, meshBuffer->vbv[i]);
+        for (size_t i = 0; i < meshBuffer->verticesBuffer.size(); i++) {
+            context.SetVertexBuffer(i, meshBuffer->verticesBuffer[i].VertexBufferView());
         }
-        context.SetIndexBuffer(meshBuffer->ibv);
+        context.SetIndexBuffer(meshBuffer->indicesBuffer.IndexBufferView());
 
         context.SetDynamicDescriptor(
             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, 0,
             m_CbvSrvDescriptors.GetDescriptorHandle(numObj * m_CurrFrameResourceIndex + d.constantBufferIndex));
 
         // Texture
-        if (auto material = meshBuffer->material.lock()) {
+        if (auto material = d.material.lock()) {
             if (auto& pTexture = material->GetDiffuseColor().ValueMap) {
                 context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2, 0,
                                              m_Textures.at(pTexture->GetGuid()).GetSRV());
@@ -603,7 +602,6 @@ void D3D12GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const 
         Resource::SceneObjectIndexArray index_array(0, Resource::IndexDataType::INT32, index.data(), index.size());
         CreateIndexBuffer(index_array, meshBuffer);
         meshBuffer->indexCount  = index.size();
-        meshBuffer->psoName     = "debug";
         m_DebugMeshBuffer[name] = meshBuffer;
     }
 
@@ -623,6 +621,7 @@ void D3D12GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const 
     d.meshBuffer          = m_DebugMeshBuffer[name];
     d.constantBufferIndex = m_DrawItems.size() + m_DebugDrawItems.size();
     d.numFramesDirty      = m_FrameResourceSize;
+    d.psoName             = "debug";
     m_DebugDrawItems.push_back(d);
 }
 
@@ -645,7 +644,6 @@ void D3D12GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, con
         CreateIndexBuffer(index_array, meshBuffer);
         meshBuffer->indexCount = index.size();
 
-        meshBuffer->psoName            = "debug";
         m_DebugMeshBuffer["debug_box"] = meshBuffer;
     }
     mat4f transform = translate(scale(mat4f(1.0f), 0.5 * (bbMax - bbMin)), 0.5 * (bbMax + bbMin));
@@ -659,6 +657,7 @@ void D3D12GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, con
     d.meshBuffer          = m_DebugMeshBuffer["debug_box"];
     d.constantBufferIndex = m_DrawItems.size() + m_DebugDrawItems.size();
     d.numFramesDirty      = m_FrameResourceSize;
+    d.psoName             = "debug";
     m_DebugDrawItems.push_back(d);
 }
 

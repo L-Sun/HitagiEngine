@@ -117,8 +117,7 @@ void GraphicsManager::CalculateLights() {
     auto& scene = g_SceneManager->GetSceneForRendering();
 
     if (auto lightNode = scene.GetFirstLightNode()) {
-        m_FrameConstants.lightPosition = vec4f(GetOrigin(lightNode->GetCalculatedTransform()), 1);
-        m_Logger->debug("{}", m_FrameConstants.lightPosition);
+        m_FrameConstants.lightPosition  = vec4f(GetOrigin(lightNode->GetCalculatedTransform()), 1);
         m_FrameConstants.lightPosInView = m_FrameConstants.viewMatrix * m_FrameConstants.lightPosition;
         m_FrameConstants.lightColor     = lightNode->GetSceneObjectRef().lock()->GetColor().Value;
         m_FrameConstants.lightIntensity = lightNode->GetSceneObjectRef().lock()->GetIntensity();

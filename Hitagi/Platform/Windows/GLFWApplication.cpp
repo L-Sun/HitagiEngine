@@ -46,7 +46,11 @@ void GLFWApplication::UpdateInputState() {
     auto& floatMapping = g_InputManager->m_FloatMapping;
 
     constexpr std::pair<InputEvent, int> keyToGlfw[] = {
-        {InputEvent::KEY_D, GLFW_KEY_D},
+        {InputEvent::KEY_R, GLFW_KEY_R},       {InputEvent::KEY_W, GLFW_KEY_W},
+        {InputEvent::KEY_A, GLFW_KEY_A},       {InputEvent::KEY_S, GLFW_KEY_S},
+        {InputEvent::KEY_D, GLFW_KEY_D},       {InputEvent::KEY_SPACE, GLFW_KEY_SPACE},
+        {InputEvent::KEY_UP, GLFW_KEY_UP},     {InputEvent::KEY_DOWN, GLFW_KEY_DOWN},
+        {InputEvent::KEY_LEFT, GLFW_KEY_LEFT}, {InputEvent::KEY_RIGHT, GLFW_KEY_RIGHT},
     };
     for (auto&& [event, glfwKey] : keyToGlfw) {
         const unsigned index        = static_cast<unsigned>(event);

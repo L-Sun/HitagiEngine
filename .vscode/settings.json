@@ -78,7 +78,8 @@
         "geometry": "cpp",
         "clocale": "cpp",
         "condition_variable": "cpp",
-        "cstdarg": "cpp"
+        "cstdarg": "cpp",
+        "optional": "cpp"
     },
     "path-intellisense.mappings": {
         "Asset": "${workspaceRoot}/Asset"

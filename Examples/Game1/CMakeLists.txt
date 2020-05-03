@@ -17,17 +17,9 @@ else(ANDROID)
     )
 endif(ANDROID)
 
-# set(UseOpenGL true)
-
-if(${UseOpenGL})
-    target_link_libraries(MyTest 
-        HitagiEngineOpenGL
-        HitagiPhysics
-    )
-else()
-    target_link_libraries(MyTest 
-        HitagiEngineD3D12
-        HitagiPhysics
-    )
-endif(${UseOpenGL})
+target_link_libraries(MyTest
+    PRIVATE
+        $<IF:$<BOOL:${UseOpenGL}>,HitagiEngineOpenGL,HitagiEngineD3D12>
+    HitagiPhysics
+)
 

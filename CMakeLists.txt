@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
 
+set(UseOpenGL false)
+
 find_package(OpenGL REQUIRED)
 find_package(crossguid CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)

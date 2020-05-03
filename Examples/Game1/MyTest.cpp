@@ -1,59 +1,78 @@
-#include <iostream>
-#include <chrono>
-#include <thread>
 #include "MyTest.hpp"
-#include "SceneManager.hpp"
-#include "DebugManager.hpp"
-#include "HitagiPhysicsManager.hpp"
+#include "D3D12GraphicsManager.hpp"
 
 using namespace Hitagi;
 
 int MyTest::Initialize() {
-    int result = 0;
-
-    std::cout << "Hitagi Game Logic Initialize" << std::endl;
-    std::cout << "Start Loading Game Scene" << std::endl;
+    int result = GameLogic::Initialize();
     g_SceneManager->SetScene("Asset/Scene/test.fbx");
-    m_Clock.Initialize();
-    m_Clock.Start();
+    g_InputManager->Map(DEBUG_TOGGLE, InputEvent::KEY_D);
+    g_InputManager->Map(ZOOM, InputEvent::MOUSE_SCROLL_Y);
+    g_InputManager->Map(ROTATE_ON, InputEvent::MOUSE_MIDDLE);
+    g_InputManager->Map(ROTATE_Z, InputEvent::MOUSE_MOVE_X);
+    g_InputManager->Map(ROTATE_H, InputEvent::MOUSE_MOVE_Y);
+
+    g_InputManager->Map(MOVE_UP, InputEvent::KEY_UP);
+    g_InputManager->Map(MOVE_DOWN, InputEvent::KEY_DOWN);
+    g_InputManager->Map(MOVE_LEFT, InputEvent::KEY_LEFT);
+    g_InputManager->Map(MOVE_RIGHT, InputEvent::KEY_RIGHT);
+    g_InputManager->Map(MOVE_FRONT, InputEvent::KEY_W);
+    g_InputManager->Map(MOVE_BACK, InputEvent::KEY_S);
+
+    g_InputManager->Map(RESET_SCENE, InputEvent::KEY_R);
+    g_InputManager->Map(RAY_TRACING, InputEvent::KEY_SPACE);
+
     return result;
 }
 
-void MyTest::Finalize() { std::cout << "MyTest Game Logic Finalize" << std::endl; }
+void MyTest::Finalize() { GameLogic::Finalize(); }
 
-void MyTest::Tick() {}
+void MyTest::Tick() {
+    if (g_InputManager->GetBoolNew(DEBUG_TOGGLE)) {
+        g_DebugManager->ToggleDebugInfo();
+    }
+    if (auto z = g_InputManager->GetFloat(ZOOM)) {
+        if (auto camera = g_SceneManager->GetCameraNode().lock()) {
+            auto direct = camera->GetCameraLookAt();
+            camera->ApplyTransform(translate(mat4f(1.0f), direct * 10 * z));
+        }
+    }
+    if (g_InputManager->GetBool(ROTATE_ON)) {
+        if (auto angleH = -g_InputManager->GetFloatDelta(ROTATE_H) * sensitivity; angleH != 0) {
+            if (auto camera = g_SceneManager->GetCameraNode().lock()) {
+                auto direct = camera->GetCameraRight();
+                camera->ApplyTransform(rotate(mat4f(1.0f), radians(angleH), direct));
+            }
+        }
+        if (auto angleZ = -g_InputManager->GetFloatDelta(ROTATE_Z) * sensitivity; angleZ != 0) {
+            if (auto camera = g_SceneManager->GetCameraNode().lock()) {
+                int sign = (camera->GetCameraUp().z > 0) ? 1 : -1;
+                camera->ApplyTransform(rotateZ(mat4f(1.0f), radians(sign * angleZ)));
+            }
+        }
+    }
 
-void MyTest::OnLeftKey() {
-    auto node_weak_ptr = g_SceneManager->GetSceneGeometryNode(selectedNode[i]);
+    LightMove();
+    if (g_InputManager->GetBoolNew(RAY_TRACING)) {
+        static_cast<Graphics::DX12::D3D12GraphicsManager*>(g_GraphicsManager.get())->ToggleRayTrancing();
+    }
 
-    if (auto node_ptr = node_weak_ptr.lock()) {
-        node_ptr->Move(-1.0f, 0.0f, 0.0f);
-        g_PhysicsManager->UpdateRigidBodyTransform(*node_ptr);
+    if (g_InputManager->GetBool(RESET_SCENE)) {
+        g_SceneManager->SetScene("Asset/Scene/test.fbx");
+        g_SceneManager->ResetScene();
     }
 }
-void MyTest::OnRightKey() {
-    auto node_weak_ptr = g_SceneManager->GetSceneGeometryNode(selectedNode[i]);
 
-    if (auto node_ptr = node_weak_ptr.lock()) {
-        node_ptr->Move(1.0f, 0.0f, 0.0f);
-        g_PhysicsManager->UpdateRigidBodyTransform(*node_ptr);
+void MyTest::LightMove() {
+    if (auto light = g_SceneManager->GetSceneLightNode("Point").lock()) {
+        vec3f moveDistance(0);
+        if (g_InputManager->GetBool(MOVE_LEFT)) moveDistance.x += 0.05;
+        if (g_InputManager->GetBool(MOVE_RIGHT)) moveDistance.x -= 0.05;
+        if (g_InputManager->GetBool(MOVE_UP)) moveDistance.z += 0.05;
+        if (g_InputManager->GetBool(MOVE_DOWN)) moveDistance.z -= 0.05;
+        if (g_InputManager->GetBool(MOVE_FRONT)) moveDistance.y += 0.05;
+        if (g_InputManager->GetBool(MOVE_BACK)) moveDistance.y -= 0.05;
+        light->ApplyTransform(translate(mat4f(1.0f), moveDistance));
+        // g_PhysicsManager->UpdateRigidBodyTransform(*cube);
     }
 }
-void MyTest::OnUpKey() {
-    auto node_weak_ptr = g_SceneManager->GetSceneGeometryNode(selectedNode[i]);
-
-    if (auto node_ptr = node_weak_ptr.lock()) {
-        node_ptr->Move(0.0f, 0.0f, 1.0f);
-        g_PhysicsManager->UpdateRigidBodyTransform(*node_ptr);
-    }
-}
-void MyTest::OnDownKey() {
-    auto node_weak_ptr = g_SceneManager->GetSceneGeometryNode(selectedNode[i]);
-
-    if (auto node_ptr = node_weak_ptr.lock()) {
-        node_ptr->Move(0.0f, 0.0f, -1.0f);
-        g_PhysicsManager->UpdateRigidBodyTransform(*node_ptr);
-    }
-}
-
-void MyTest::OnCKey() { i = (i + 1) % selectedNode.size(); }

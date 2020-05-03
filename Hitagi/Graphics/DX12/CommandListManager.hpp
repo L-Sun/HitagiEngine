@@ -85,4 +85,5 @@ private:
     CommandQueue   m_ComputeQueue;
     CommandQueue   m_CopyQueue;
 };
+extern std::unique_ptr<CommandListManager> g_CommandListManager;
 }  // namespace Hitagi::Graphics::DX12

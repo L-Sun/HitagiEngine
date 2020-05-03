@@ -7,7 +7,17 @@
 
 namespace Hitagi {
 enum class InputEvent : unsigned {
+    KEY_R,
+    KEY_UP,
+    KEY_DOWN,
+    KEY_RIGHT,
+    KEY_LEFT,
+    KEY_W,
+    KEY_A,
+    KEY_S,
     KEY_D,
+    KEY_SPACE,
+
     MOUSE_RIGHT,
     MOUSE_LEFT,
     MOUSE_MIDDLE,

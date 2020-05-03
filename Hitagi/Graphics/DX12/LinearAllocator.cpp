@@ -3,7 +3,10 @@
 #include <new>
 
 namespace Hitagi::Graphics::DX12 {
-size_t align(size_t x, size_t a) { return (x + a - 1) & ~(a - 1); }
+size_t align(size_t x, size_t a) {
+    assert((a - 1) & a == 0 && "alignment is not a power of two");
+    return (x + a - 1) & ~(a - 1);
+}
 
 void LinearAllocator::Initalize(ID3D12Device6* device, size_t pageSize) {
     if (!m_Initialized) {
@@ -13,15 +16,25 @@ void LinearAllocator::Initalize(ID3D12Device6* device, size_t pageSize) {
     }
 }
 
-LinearAllocator::Allocation LinearAllocator::Allocate(size_t size, size_t alignment) {
-    if (!m_Initialized || size > m_PageSize) throw std::bad_alloc();
-    if (!m_CurrPage || !m_CurrPage->HasSpace(size, alignment)) m_CurrPage = RequestPage();
+LinearAllocation LinearAllocator::Allocate(size_t size, size_t alignment) {
+    if (!m_Initialized) throw std::bad_alloc();
 
-    return m_CurrPage->Allocate(size, alignment);
+    size_t alignedSize = align(size, alignment);
+    if (alignedSize > m_PageSize) return AllocateLargePage(alignedSize);
+    if (!m_CurrPage || m_CurrOffset + alignedSize > m_PageSize) {
+        m_CurrPage   = RequestPage();
+        m_CurrOffset = 0;
+    }
+
+    LinearAllocation ret{*m_CurrPage, m_CurrOffset, alignedSize,
+                         reinterpret_cast<uint8_t*>(m_CurrPage->m_CpuPtr) + m_CurrOffset,
+                         m_CurrPage->m_GpuVirtualAddress + m_CurrOffset};
+    m_CurrOffset += alignedSize;
+    return ret;
 }
 
-std::shared_ptr<LinearAllocator::Page> LinearAllocator::RequestPage() {
-    std::shared_ptr<Page> page;
+std::shared_ptr<LinearAllocationPage> LinearAllocator::RequestPage() {
+    std::shared_ptr<LinearAllocationPage> page;
     if (!m_AvailablePages.empty()) {
         page = m_AvailablePages.front();
         m_AvailablePages.pop();

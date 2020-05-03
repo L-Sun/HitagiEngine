@@ -1,8 +1,5 @@
 #pragma once
 #include "GameLogic.hpp"
-#include "Timer.hpp"
-#include <string>
-#include <vector>
 
 namespace Hitagi {
 class MyTest : public GameLogic {
@@ -10,16 +7,24 @@ class MyTest : public GameLogic {
     void Finalize() final;
     void Tick() final;
 
-    void OnLeftKey() final;
-    void OnRightKey() final;
-    void OnUpKey() final;
-    void OnDownKey() final;
-    void OnCKey() final;
-
 private:
-    std::vector<std::string> selectedNode = {"Sphere", "Cone", "Suzanne", "Cube"};
+    void LightMove();
 
-    Core::Clock m_Clock;
-    size_t      i = 0;
+    enum {
+        DEBUG_TOGGLE,
+        ZOOM,
+        ROTATE_ON,
+        ROTATE_Z,
+        ROTATE_H,
+        MOVE_UP,
+        MOVE_DOWN,
+        MOVE_LEFT,
+        MOVE_RIGHT,
+        MOVE_FRONT,
+        MOVE_BACK,
+        RESET_SCENE,
+        RAY_TRACING,
+    };
+    float sensitivity = 0.5f;
 };
 }  // namespace Hitagi
