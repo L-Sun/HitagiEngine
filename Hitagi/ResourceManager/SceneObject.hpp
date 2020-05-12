@@ -191,6 +191,7 @@ public:
     const Color&         GetAmbientColor() const;
     const Color&         GetDiffuseColor() const;
     const Color&         GetSpecularColor() const;
+    const Color&         GetEmission() const;
     const Parameter&     GetSpecularPower() const;
     void                 SetName(const std::string& name);
     void                 SetName(std::string&& name);
@@ -310,17 +311,17 @@ protected:
 public:
     SceneObjectGeometry()
         : BaseSceneObject(SceneObjectType::GEOMETRY), m_CollisionType(SceneObjectCollisionType::NONE) {}
-    void                           SetVisibility(bool visible);
-    void                           SetIfCastShadow(bool shadow);
-    void                           SetIfMotionBlur(bool motionBlur);
-    void                           SetCollisionType(SceneObjectCollisionType collisionType);
-    void                           SetCollisionParameters(const float* param, int32_t count);
-    const bool                     Visible() const;
-    const bool                     CastShadow() const;
-    const bool                     MotionBlur() const;
-    const SceneObjectCollisionType CollisionType() const;
-    const float*                   CollisionParameters() const;
-    void                           AddMesh(std::unique_ptr<SceneObjectMesh> mesh, size_t level = 0);
+    void                                                 SetVisibility(bool visible);
+    void                                                 SetIfCastShadow(bool shadow);
+    void                                                 SetIfMotionBlur(bool motionBlur);
+    void                                                 SetCollisionType(SceneObjectCollisionType collisionType);
+    void                                                 SetCollisionParameters(const float* param, int32_t count);
+    const bool                                           Visible() const;
+    const bool                                           CastShadow() const;
+    const bool                                           MotionBlur() const;
+    const SceneObjectCollisionType                       CollisionType() const;
+    const float*                                         CollisionParameters() const;
+    void                                                 AddMesh(std::unique_ptr<SceneObjectMesh> mesh, size_t level = 0);
     const std::vector<std::unique_ptr<SceneObjectMesh>>& GetMeshes(size_t lod = 0) const;
     friend std::ostream&                                 operator<<(std::ostream& out, const SceneObjectGeometry& obj);
 };

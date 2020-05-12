@@ -26,14 +26,27 @@ public:
 
 protected:
     struct FrameConstants {
-        mat4f WVP;
-        mat4f worldMatrix;
-        mat4f viewMatrix;
-        mat4f projectionMatrix;
-        vec4f lightPosition;
-        vec4f lightPosInView;
-        vec4f lightColor;
-        float lightIntensity;
+        mat4f    projView;
+        mat4f    view;
+        mat4f    projection;
+        mat4f    invProjection;
+        mat4f    invView;
+        mat4f    invProjView;
+        vec4f    cameraPos;
+        vec4f    lightPosition;
+        vec4f    lightPosInView;
+        vec4f    lightIntensity;
+        unsigned frameCount = 1;
+        int      reset      = 0;
+    };
+
+    struct ObjectConstants {
+        mat4f model;
+        vec4f ambient;
+        vec4f diffuse;
+        vec4f emission;
+        vec4f specular;
+        float specularPower;
     };
 
     virtual void       InitConstants();

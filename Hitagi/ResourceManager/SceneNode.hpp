@@ -48,6 +48,7 @@ public:
 
     void Reset(bool recursive = false) {
         m_RuntimeTransform = mat4f(1.0f);
+        m_Dirty            = true;
         if (recursive)
             for (auto&& child : m_Chlidren)
                 if (child) child->Reset(recursive);

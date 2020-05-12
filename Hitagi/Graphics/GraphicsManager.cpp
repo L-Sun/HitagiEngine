@@ -75,11 +75,11 @@ void GraphicsManager::Clear() {}
 void GraphicsManager::UpdateConstants() {
     CalculateCameraMatrix();
     CalculateLights();
+    m_FrameConstants.frameCount++;
+    m_FrameConstants.reset = std::max(0, m_FrameConstants.reset - 1);
 }
 
 void GraphicsManager::InitConstants() {
-    // Initialize the world/model matrix to the identity matrix.
-    m_FrameConstants.worldMatrix = mat4f(1.0f);
 }
 
 bool GraphicsManager::InitializeShaders() {
@@ -90,37 +90,48 @@ bool GraphicsManager::InitializeShaders() {
 void GraphicsManager::ClearShaders() { m_Logger->debug("clear shaders."); }
 
 void GraphicsManager::CalculateCameraMatrix() {
-    auto& scene      = g_SceneManager->GetSceneForRendering();
-    auto  cameraNode = scene.GetFirstCameraNode();
+    auto& scene = g_SceneManager->GetSceneForRendering();
 
-    m_FrameConstants.viewMatrix = cameraNode->GetViewMatrix();
+    if (auto cameraNode = scene.GetFirstCameraNode(); cameraNode->Dirty()) {
+        m_FrameConstants.view      = cameraNode->GetViewMatrix();
+        m_FrameConstants.cameraPos = vec4f(cameraNode->GetCameraPosition(), 1.0f);
 
-    float fieldOfView      = PI / 2.0f;
-    float nearClipDistance = 0.1f;
-    float farClipDistance  = 100.0f;
+        float fieldOfView      = PI / 2.0f;
+        float nearClipDistance = 0.1f;
+        float farClipDistance  = 100.0f;
 
-    if (auto camera = cameraNode->GetSceneObjectRef().lock()) {
-        fieldOfView      = camera->GetFov();
-        nearClipDistance = camera->GetNearClipDistance();
-        farClipDistance  = camera->GetFarClipDistance();
+        if (auto camera = cameraNode->GetSceneObjectRef().lock()) {
+            fieldOfView      = camera->GetFov();
+            nearClipDistance = camera->GetNearClipDistance();
+            farClipDistance  = camera->GetFarClipDistance();
+        }
+
+        const GfxConfiguration& conf         = g_App->GetConfiguration();
+        float                   screenAspect = (float)conf.screenWidth / (float)conf.screenHeight;
+        m_FrameConstants.projection          = perspective(fieldOfView, screenAspect, nearClipDistance, farClipDistance);
+
+        m_FrameConstants.projView      = m_FrameConstants.projection * m_FrameConstants.view;
+        m_FrameConstants.invView       = inverse(m_FrameConstants.view);
+        m_FrameConstants.invProjection = inverse(m_FrameConstants.projection);
+        m_FrameConstants.invProjView   = inverse(m_FrameConstants.projView);
+
+        cameraNode->ClearDirty();
+        m_FrameConstants.reset      = 2;
+        m_FrameConstants.frameCount = 0;
     }
-
-    const GfxConfiguration& conf         = g_App->GetConfiguration();
-    float                   screenAspect = (float)conf.screenWidth / (float)conf.screenHeight;
-    m_FrameConstants.projectionMatrix    = perspective(fieldOfView, screenAspect, nearClipDistance, farClipDistance);
-
-    m_FrameConstants.WVP =
-        m_FrameConstants.projectionMatrix * m_FrameConstants.viewMatrix * m_FrameConstants.worldMatrix;
 }
 
 void GraphicsManager::CalculateLights() {
     auto& scene = g_SceneManager->GetSceneForRendering();
 
-    if (auto lightNode = scene.GetFirstLightNode()) {
+    if (auto lightNode = scene.GetFirstLightNode(); lightNode->Dirty()) {
         m_FrameConstants.lightPosition  = vec4f(GetOrigin(lightNode->GetCalculatedTransform()), 1);
-        m_FrameConstants.lightPosInView = m_FrameConstants.viewMatrix * m_FrameConstants.lightPosition;
-        m_FrameConstants.lightColor     = lightNode->GetSceneObjectRef().lock()->GetColor().Value;
-        m_FrameConstants.lightIntensity = lightNode->GetSceneObjectRef().lock()->GetIntensity();
+        m_FrameConstants.lightPosInView = m_FrameConstants.view * m_FrameConstants.lightPosition;
+        if (auto light = lightNode->GetSceneObjectRef().lock()) {
+            m_FrameConstants.lightIntensity = light->GetIntensity() * light->GetColor().Value;
+        }
+        lightNode->ClearDirty();
+        m_FrameConstants.frameCount = 0;
     }
 }
 void GraphicsManager::InitializeBuffers(const Resource::Scene& scene) { m_Logger->debug("Initialize buffers."); }

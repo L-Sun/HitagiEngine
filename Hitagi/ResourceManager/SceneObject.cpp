@@ -188,8 +188,8 @@ void   SceneObjectMesh::SetMaterial(const std::weak_ptr<SceneObjectMaterial>& ma
 size_t SceneObjectMesh::GetVertexCount() const {
     return m_VertexArray.empty() ? 0 : m_VertexArray.cbegin()->second.GetVertexCount();
 }
-size_t SceneObjectMesh::GetVertexPropertiesCount() const { return m_VertexArray.size(); }
-bool   SceneObjectMesh::HasProperty(const std::string& name) const { return m_VertexArray.count(name) != 0; }
+size_t                        SceneObjectMesh::GetVertexPropertiesCount() const { return m_VertexArray.size(); }
+bool                          SceneObjectMesh::HasProperty(const std::string& name) const { return m_VertexArray.count(name) != 0; }
 const SceneObjectVertexArray& SceneObjectMesh::GetVertexPropertyArray(const std::string& attr) const {
     return m_VertexArray.at(attr);
 }
@@ -221,6 +221,7 @@ const Color&       SceneObjectMaterial::GetAmbientColor() const { return m_Ambie
 const Color&       SceneObjectMaterial::GetDiffuseColor() const { return m_DiffuseColor; }
 const Color&       SceneObjectMaterial::GetSpecularColor() const { return m_Specular; }
 const Parameter&   SceneObjectMaterial::GetSpecularPower() const { return m_SpecularPower; }
+const Color&       SceneObjectMaterial::GetEmission() const { return m_Emission; }
 void               SceneObjectMaterial::SetName(const std::string& name) { m_Name = name; }
 void               SceneObjectMaterial::SetName(std::string&& name) { m_Name = std::move(name); }
 void               SceneObjectMaterial::SetColor(std::string_view attrib, const vec4f& color) {
@@ -490,14 +491,16 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectMesh& obj) {
     for (auto&& [key, v] : obj.m_VertexArray) {
         out << v << std::endl;
     }
-    out << "Indices index:" << std::endl << obj.m_IndexArray;
+    out << "Indices index:" << std::endl
+        << obj.m_IndexArray;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj) {
     out << static_cast<const BaseSceneObject&>(obj) << std::endl;
     out << "Coord Index: " << obj.m_TexCoordIndex << std::endl;
     out << "Name:        " << obj.m_Name << std::endl;
-    if (obj.m_Image) out << "Image:\n" << *obj.m_Image;
+    if (obj.m_Image) out << "Image:\n"
+                         << *obj.m_Image;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj) {

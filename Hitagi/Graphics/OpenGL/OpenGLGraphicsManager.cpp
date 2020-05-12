@@ -72,11 +72,11 @@ void OpenGLGraphicsManager::Draw() {
 }
 
 bool OpenGLGraphicsManager::UpdateFrameParameters(GLuint shader) {
-    SetShaderParameters(shader, "worldMatrix", m_FrameConstants.worldMatrix);
-    SetShaderParameters(shader, "viewMatrix", m_FrameConstants.viewMatrix);
-    SetShaderParameters(shader, "projectionMatrix", m_FrameConstants.projectionMatrix);
+    SetShaderParameters(shader, "worldMatrix", mat4f(1.0f));
+    SetShaderParameters(shader, "viewMatrix", m_FrameConstants.view);
+    SetShaderParameters(shader, "projectionMatrix", m_FrameConstants.projection);
     SetShaderParameters(shader, "lightPosition", m_FrameConstants.lightPosition);
-    SetShaderParameters(shader, "lightColor", m_FrameConstants.lightColor);
+    SetShaderParameters(shader, "lightColor", m_FrameConstants.lightIntensity);
     return true;
 }
 bool OpenGLGraphicsManager::SetShaderParameters(GLuint shader, const char* paramName, TshaderParameter param) {
@@ -418,7 +418,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
         // Set the color shader as the current shader program and set the matrices
         // that it will use for rendering.
         glUseProgram(m_DebugShader.programId);
-        SetShaderParameters(m_DebugShader.programId, "WVP", m_FrameConstants.WVP);
+        SetShaderParameters(m_DebugShader.programId, "WVP", m_FrameConstants.projView);
         for (auto dbc : m_DebugDrawBatchContext) {
             SetShaderParameters(m_DebugShader.programId, "lineColor", dbc.color);
 

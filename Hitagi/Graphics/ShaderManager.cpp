@@ -18,6 +18,8 @@ std::string TypeToString(const ShaderType& type) {
             return "Pixel";
         case ShaderType::GEOMETRY:
             return "Geometry";
+        case ShaderType::COMPUTE:
+            return "Compute";
     }
     return "Unkown";
 }
@@ -36,6 +38,8 @@ void ShaderManager::LoadShader(std::filesystem::path shaderPath, ShaderType type
         case ShaderType::PIXEL:
             m_PixelShaders[name] = PixelShader(std::move(data));
             break;
+        case ShaderType::COMPUTE:
+            m_ComputeShaders[name] = ComputeShader(std::move(data));
         default:
             spdlog::get("GraphicsManager")->error("[ShaderManager] Unsupport shader type: {}", TypeToString(type));
     }
