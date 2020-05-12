@@ -1,19 +1,23 @@
 cbuffer FrameConstants : register(b0){
-    matrix WVP;
-    matrix worldMatrix;
-    matrix viewMatrix;
-    matrix projectionMatrix;
-    float4 lightPos;
+    matrix porjView;
+    matrix view;
+    matrix projection;
+    matrix invProjection;
+    matrix invView;
+    matrix invProjView;
+    float4 cameraPos;
+    float4 lightPosition;
     float4 lightPosInView;
-    float4 lightColor;
-    float  lightIntensity;
+    float4 lightIntensity;
+    uint currFrameIndex;
 };
 
 cbuffer ObjectConstants : register(b1){
-    matrix modelMatrix;
-    float4 ambientColor;
-    float4 baseColor;
-    float4 specularColor;
+    matrix model;
+    float4 ambient;
+    float4 diffuse;
+    float4 emission;
+    float4 specular;
     float specularPower;
 };
 
@@ -38,11 +42,11 @@ PSInput VSMain(VSInput input)
 {
     PSInput output;
 
-    matrix MVP = mul(WVP, modelMatrix);
+    matrix MVP = mul(porjView, model);
     output.position = mul(MVP, float4(input.position, 1.0f));
-    output.normal = mul(viewMatrix, mul(modelMatrix, float4(input.normal, 0.0f)));
+    output.normal = mul(view, mul(model, float4(input.normal, 0.0f)));
     output.uv = input.uv;
-    output.posInView = mul(viewMatrix, mul(modelMatrix, float4(input.position, 1.0f)));
+    output.posInView = mul(view, mul(model, float4(input.position, 1.0f)));
     return  output;
 }
 
@@ -53,9 +57,9 @@ float4 PSMain1(PSInput input) : SV_TARGET
 	const float4 vV = normalize(-input.posInView);
     const float4 vH = normalize(0.5 * (vL + vV));
     const float invd = 1.0f / length(lightPosInView - input.posInView);
-	float4 vLightInts = ambientColor + lightColor * lightIntensity * invd * invd * (
-                              baseColor * max(dot(vN, vL), 0.0f)
-                            + specularColor * pow(max(dot(vH, vN), 0.0f), specularPower)
+	float4 vLightInts = ambient + lightIntensity * invd * invd * (
+                              diffuse * max(dot(vN, vL), 0.0f)
+                            + specular * pow(max(dot(vH, vN), 0.0f), specularPower)
                         );
 
 	return vLightInts;
@@ -63,15 +67,15 @@ float4 PSMain1(PSInput input) : SV_TARGET
 
 float4 PSMain2(PSInput input) : SV_TARGET
 {
-	const float3 vN = normalize(input.normal.xyz);
-	const float3 vL = normalize(lightPosInView.xyz - input.posInView.xyz);
-	const float3 vV = normalize(-input.posInView.xyz);
-    const float3 vH = normalize(0.5 * (vL + vV));
+	const float4 vN = normalize(input.normal);
+	const float4 vL = normalize(lightPosInView - input.posInView);
+	const float4 vV = normalize(-input.posInView);
+    const float4 vH = normalize(0.5 * (vL + vV));
     const float invd = 1.0f / length(lightPosInView - input.posInView);
-    float4 vLightInts = ambientColor + lightColor * lightIntensity * invd * invd * (
-                              ambientColor
+    float4 vLightInts = ambient + lightIntensity * invd * invd * (
+                              ambient
 							+ BaseMap.Sample(baseSampler, input.uv) * max(dot(vN, vL), 0.0f) 
-							+ specularColor * pow(max(dot(vH, vN), 0.0f), specularPower)
+							+ specular * pow(max(dot(vH, vN), 0.0f), specularPower)
                         );
 
 	return vLightInts;

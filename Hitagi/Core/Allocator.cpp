@@ -1,10 +1,7 @@
 #include "Allocator.hpp"
 #include <cassert>
 #include <cstring>
-
-#ifndef ALIGN
-#define ALIGN(x, a) (((x) + ((a)-1)) & ~((a)-1))
-#endif
+#include "portable.hpp"
 
 namespace Hitagi::Core {
 
@@ -35,7 +32,7 @@ void Allocator::Reset(size_t dataSize, size_t pageSize, size_t alignment) {
     assert(alignment > 0 && ((alignment & (alignment - 1))) == 0);
 #endif
 
-    m_BlockSize     = ALIGN(minimal_size, alignment);
+    m_BlockSize     = align(minimal_size, alignment);
     m_AlignmentSize = m_BlockSize - minimal_size;
     m_BlocksPerPage = (m_PageSize - sizeof(PageHeader)) / m_BlockSize;
 }

@@ -3,11 +3,9 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace Hitagi::Core {
+#include "portable.hpp"
 
-#ifndef ALIGN
-#define ALIGN(x, a) (((x) + ((a)-1)) & ~((a)-1))
-#endif
+namespace Hitagi::Core {
 
 static const uint32_t kBlockSizes[] = {
     // 4-increments
@@ -77,7 +75,7 @@ void* MemoryManager::Allocate(size_t size) {
 
 void* MemoryManager::Allocate(size_t size, size_t alignment) {
     uint8_t* p;
-    size = ALIGN(size, alignment);
+    size = align(size, alignment);
 
     Allocator* allocator = LookUpAllocator(size);
     if (allocator)
@@ -85,7 +83,7 @@ void* MemoryManager::Allocate(size_t size, size_t alignment) {
     else
         p = new uint8_t[size];
 
-    p = reinterpret_cast<uint8_t*>(ALIGN(reinterpret_cast<size_t>(p), alignment));
+    p = reinterpret_cast<uint8_t*>(align(reinterpret_cast<size_t>(p), alignment));
 
     return p;
 }

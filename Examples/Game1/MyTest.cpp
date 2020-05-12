@@ -66,13 +66,14 @@ void MyTest::Tick() {
 void MyTest::LightMove() {
     if (auto light = g_SceneManager->GetSceneLightNode("Point").lock()) {
         vec3f moveDistance(0);
+        bool  updated = false;
         if (g_InputManager->GetBool(MOVE_LEFT)) moveDistance.x += 0.05;
         if (g_InputManager->GetBool(MOVE_RIGHT)) moveDistance.x -= 0.05;
         if (g_InputManager->GetBool(MOVE_UP)) moveDistance.z += 0.05;
         if (g_InputManager->GetBool(MOVE_DOWN)) moveDistance.z -= 0.05;
         if (g_InputManager->GetBool(MOVE_FRONT)) moveDistance.y += 0.05;
         if (g_InputManager->GetBool(MOVE_BACK)) moveDistance.y -= 0.05;
-        light->ApplyTransform(translate(mat4f(1.0f), moveDistance));
-        // g_PhysicsManager->UpdateRigidBodyTransform(*cube);
+        if (moveDistance.norm() != 0)
+            light->ApplyTransform(translate(mat4f(1.0f), moveDistance));
     }
 }

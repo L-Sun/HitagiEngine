@@ -7,4 +7,4 @@ AlignTrailingComments: true
 DerivePointerAlignment: false
 PointerAlignment: Left
 AccessModifierOffset: -4
-ColumnLimit: 120
+ColumnLimit: 0
