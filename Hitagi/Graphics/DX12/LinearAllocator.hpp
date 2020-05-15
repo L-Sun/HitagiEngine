@@ -80,7 +80,7 @@ public:
     LinearAllocation Allocate(size_t size, size_t alignment = 256);
     template <typename T>
     LinearAllocation Allocate(size_t count, size_t alignment = 256) {
-        size_t size = (sizeof(T) + alignment - 1) & ~(alignment - 1);
+        size_t size = align(sizeof(T), alignment);
         return Allocate(size * count, alignment);
     }
 

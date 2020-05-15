@@ -10,6 +10,7 @@ add_library(D3DRHI
     DynamicDescriptorHeap.cpp
     RootSignature.cpp
     PipelineState.cpp
+    RaytracingHelper.cpp
 )
 target_link_libraries(D3DRHI
     PRIVATE

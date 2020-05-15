@@ -1,4 +1,5 @@
 #include "PipeLineState.hpp"
+#include "D3DCore.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 void GraphicsPSO::SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& inputLayout) {
@@ -33,12 +34,28 @@ void GraphicsPSO::SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& RTVForm
     m_PSODesc.SampleDesc.Quality = MSAAQuality;
 }
 
-void GraphicsPSO::Finalize(ID3D12Device6* device) {
+void GraphicsPSO::Finalize() {
     m_PSODesc.InputLayout    = {m_InputLayouts.data(), static_cast<UINT>(m_InputLayouts.size())};
-    m_PSODesc.pRootSignature = m_RootSignature->GetRootSignature().Get();
+    m_PSODesc.pRootSignature = m_RootSignature->GetRootSignature();
     assert(m_PSODesc.pRootSignature != nullptr);
-    assert(device != nullptr);
-    ThrowIfFailed(device->CreateGraphicsPipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
+    ThrowIfFailed(g_Device->CreateGraphicsPipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
+}
+
+ComputePSO::ComputePSO() {
+    ZeroMemory(&m_PSODesc, sizeof(m_PSODesc));
+    m_PSODesc.NodeMask = 1;
+}
+
+void ComputePSO::SetComputeShader(const ComputeShader& shader) {
+    const Core::Buffer& code = shader.GetShaderCode();
+    m_PSODesc.CS             = CD3DX12_SHADER_BYTECODE(code.GetData(), code.GetDataSize());
+}
+
+void ComputePSO::Finalize() {
+    // Make sure the root signature is finalized first
+    m_PSODesc.pRootSignature = m_RootSignature->GetRootSignature();
+    assert(m_PSODesc.pRootSignature != nullptr);
+    ThrowIfFailed(g_Device->CreateComputePipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
 }
 
 }  // namespace Hitagi::Graphics::DX12

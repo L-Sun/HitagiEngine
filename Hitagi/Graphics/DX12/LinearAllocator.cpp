@@ -5,10 +5,6 @@
 #include "D3DCore.hpp"
 
 namespace Hitagi::Graphics::DX12 {
-size_t align(size_t x, size_t a) {
-    assert(((a - 1) & a) == 0 && "alignment is not a power of two");
-    return (x + a - 1) & ~(a - 1);
-}
 
 std::array<LinearAllocatorPageManager, static_cast<unsigned>(LinearAllocatorType::NUM_TYPES)>
     LinearAllocator::sm_PageManager = {

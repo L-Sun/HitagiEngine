@@ -1,8 +1,11 @@
 #include "D3D12GraphicsManager.hpp"
 
+#include <spdlog/spdlog.h>
+
 #include "D3DCore.hpp"
 #include "GLFWApplication.hpp"
 #include "IPhysicsManager.hpp"
+#include "SceneManager.hpp"
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
@@ -111,20 +114,16 @@ int D3D12GraphicsManager::InitD3D() {
 }
 
 void D3D12GraphicsManager::CreateDescriptorHeaps() {
-    for (int type = 0; type < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; type++) {
-        m_DescriptorAllocator[type].Initialize(g_Device.Get(), static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(type));
-    }
-
     // Create rtv.
-    m_RtvDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(m_FrameCount);
+    m_RtvDescriptors = g_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(m_FrameCount);
     for (unsigned i = 0; i < m_FrameCount; i++) {
         ThrowIfFailed(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&m_RenderTargets[i])));
-        g_Device->CreateRenderTargetView(m_RenderTargets[i].Get(), nullptr, m_RtvDescriptors.GetDescriptorHandle(i));
+        g_Device->CreateRenderTargetView(m_RenderTargets[i].Get(), nullptr, m_RtvDescriptors.GetDescriptorCpuHandle(i));
     }
-    m_DsvDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Allocate();
 
     // Create dsv.
-    auto config = g_App->GetConfiguration();
+    m_DsvDescriptors = g_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Allocate();
+    auto config      = g_App->GetConfiguration();
 
     D3D12_RESOURCE_DESC dsvDesc = {};
     dsvDesc.Alignment           = 0;
@@ -145,21 +144,53 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
     optClear.DepthStencil.Stencil = 0;
 
     auto heap_properties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    ThrowIfFailed(g_Device->CreateCommittedResource(&heap_properties, D3D12_HEAP_FLAG_NONE, &dsvDesc,
-                                                    D3D12_RESOURCE_STATE_DEPTH_WRITE, &optClear,
+    ThrowIfFailed(g_Device->CreateCommittedResource(&heap_properties,
+                                                    D3D12_HEAP_FLAG_NONE,
+                                                    &dsvDesc,
+                                                    D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                                                    &optClear,
                                                     IID_PPV_ARGS(&m_DepthStencilBuffer)));
 
     g_Device->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, DepthStencilView());
 
-    // Create CBV Descriptor Heap
-    m_CbvSrvDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Allocate(
-        m_FrameResourceSize * (m_MaxObjects + 1) + m_MaxTextures);
+    D3D12_RESOURCE_DESC rtDesc = {};
+    rtDesc.DepthOrArraySize    = 1;
+    rtDesc.Dimension           = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    rtDesc.Format              = m_BackBufferFormat;
+    rtDesc.Flags               = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    rtDesc.Width               = config.screenWidth;
+    rtDesc.Height              = config.screenHeight;
+    rtDesc.Layout              = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    rtDesc.MipLevels           = 1;
+    rtDesc.SampleDesc.Count    = 1;
+    ThrowIfFailed(g_Device->CreateCommittedResource(&heap_properties,
+                                                    D3D12_HEAP_FLAG_NONE,
+                                                    &rtDesc,
+                                                    D3D12_RESOURCE_STATE_COPY_SOURCE,
+                                                    nullptr,
+                                                    IID_PPV_ARGS(&m_RaytracingOutput)));
+
+    // Create CBV SRV UAV Descriptor Heap
+    size_t CbvSrvUavDescriptorsCount = m_FrameResourceSize * (m_MaxObjects + 1) + m_MaxTextures;
+    m_CbvSrvUavDescriptors           = g_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Allocate(CbvSrvUavDescriptorsCount);
 
     // Use the last n descriptor as the frame constant buffer descriptor
     m_FrameCBOffset = m_FrameResourceSize * m_MaxObjects;
     m_SrvOffset     = m_FrameResourceSize * (m_MaxObjects + 1);
 
-    m_SamplerDescriptors = m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate();
+    m_SamplerDescriptors = g_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate();
+
+    size_t raytracingDescriptorCount =
+        1 +                         // BVH SRV Descriptor
+        1 +                         // Output UAV Descriptor
+        CbvSrvUavDescriptorsCount;  // Orther
+    m_RaytracingDescriptorHeap.Initalize(L"Raytracing CbvSrvUav Descriptor Heap",
+                                         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+                                         raytracingDescriptorCount);
+
+    m_RaytracingBVHDescriptor     = m_RaytracingDescriptorHeap.Allocate(1);
+    m_RaytracingOutPutDescriptor  = m_RaytracingDescriptorHeap.Allocate(1);
+    m_RaytracingCbvSrvDescriptors = m_RaytracingDescriptorHeap.Allocate(CbvSrvUavDescriptorsCount);
 }
 
 void D3D12GraphicsManager::CreateFrameResource() {
@@ -169,21 +200,51 @@ void D3D12GraphicsManager::CreateFrameResource() {
 }
 
 void D3D12GraphicsManager::CreateRootSignature() {
-    m_RootSignature.Reset(4, 0);
-    m_RootSignature[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1);
-    m_RootSignature[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
-    m_RootSignature[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL);
-    m_RootSignature[3].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL);
-
     D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
-
-    featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+    featureData.HighestVersion                    = D3D_ROOT_SIGNATURE_VERSION_1_1;
     if (FAILED(g_Device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData)))) {
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     }
 
-    m_RootSignature.Finalize(g_Device.Get(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
+    m_RootSignature.Reset(4, 0);
+    m_RootSignature[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, 0);
+    m_RootSignature[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1, 0);
+    m_RootSignature[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
+    m_RootSignature[3].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0, 1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
+
+    m_RootSignature.Finalize(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
                              featureData.HighestVersion);
+
+    // DXR Root Signature
+    // ---------------------------------------------------
+    // Description      |       Type       | reg.(sp.) | belong to
+    // ----------------------------------------------------
+    // BVH              | Descriptor Table |   t0 (0)  | global g0
+    // Output           | Descriptor Table |   u0 (0)  | local (raygen)
+    // Frame constant   | Descriptor Table |   b0 (0)  | glabal g1
+    // Random Numbers   | Root Descriptor  |   t1 (0)  | glabal g2
+    // Object constant  | Descriptor Table |   b0 (1)  | local (hit group)
+    // Object Normal    | Root Descriptor  |   t0 (1)  | local (hit group)
+    // Object Index     | Root Descriptor  |   t1 (1)  | local (hit group)
+    // ----------------------------------------------------
+
+    m_RayTracingGlobalRootSignature.Reset(3, 0);
+    m_RayTracingGlobalRootSignature[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 1, 0);  // t0
+    m_RayTracingGlobalRootSignature[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, 0);  // b0
+    m_RayTracingGlobalRootSignature[2].InitAsShaderResourceView(1, 0);                                   // b0
+    m_RayTracingGlobalRootSignature.Finalize(D3D12_ROOT_SIGNATURE_FLAG_NONE, featureData.HighestVersion);
+
+    m_RayGenSignature.Reset(1, 0);
+    m_RayGenSignature[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 1);  // u0
+    m_RayGenSignature.Finalize(D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE, featureData.HighestVersion);
+
+    m_HitSignature.Reset(3, 0);
+    m_HitSignature[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, 1);  // b0
+    m_HitSignature[1].InitAsShaderResourceView(0, 1);                                   // t0
+    m_HitSignature[2].InitAsShaderResourceView(1, 1);                                   // t1
+    m_HitSignature.Finalize(D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE, featureData.HighestVersion);
+
+    m_MissSignature.Finalize(D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE, featureData.HighestVersion);
 }
 
 void D3D12GraphicsManager::CreateConstantBuffer() {
@@ -205,8 +266,11 @@ void D3D12GraphicsManager::CreateConstantBuffer() {
 
         for (size_t j = 0; j < fr->m_NumObjects; j++) {
             cbDsec.BufferLocation = cbAddress;
-            g_Device->CreateConstantBufferView(&cbDsec, m_CbvSrvDescriptors.GetDescriptorHandle(offset++));
+            g_Device->CreateConstantBufferView(&cbDsec, m_CbvSrvUavDescriptors.GetDescriptorCpuHandle(offset));
+            g_Device->CreateConstantBufferView(&cbDsec, m_RaytracingCbvSrvDescriptors.GetDescriptorCpuHandle(offset));
+
             cbAddress += cbDsec.SizeInBytes;
+            offset++;
         }
     }
     // Create frame constant buffer, handle have been at the begin of
@@ -216,7 +280,18 @@ void D3D12GraphicsManager::CreateConstantBuffer() {
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbDesc;
         cbDesc.SizeInBytes    = fr->FrameConstantSize();
         cbDesc.BufferLocation = fr->m_FrameConstantBuffer.GpuVirtualAddress;
-        g_Device->CreateConstantBufferView(&cbDesc, m_CbvSrvDescriptors.GetDescriptorHandle(offset++));
+        g_Device->CreateConstantBufferView(&cbDesc, m_CbvSrvUavDescriptors.GetDescriptorCpuHandle(offset));
+        g_Device->CreateConstantBufferView(&cbDesc, m_RaytracingCbvSrvDescriptors.GetDescriptorCpuHandle(offset));
+        offset++;
+    }
+
+    {  // bind raytracing output descriptor
+        D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+        uavDesc.ViewDimension                    = D3D12_UAV_DIMENSION_TEXTURE2D;
+        g_Device->CreateUnorderedAccessView(m_RaytracingOutput.Get(),
+                                            nullptr,
+                                            &uavDesc,
+                                            m_RaytracingOutPutDescriptor.GetDescriptorCpuHandle());
     }
 }
 
@@ -232,7 +307,7 @@ void D3D12GraphicsManager::CreateSampler() {
     samplerDesc.MinLOD             = 0;
     samplerDesc.MipLODBias         = 0.0f;
 
-    g_Device->CreateSampler(&samplerDesc, m_SamplerDescriptors.GetDescriptorHandle());
+    g_Device->CreateSampler(&samplerDesc, m_SamplerDescriptors.GetDescriptorCpuHandle());
 }
 
 bool D3D12GraphicsManager::InitializeShaders() {
@@ -280,7 +355,7 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     m_GraphicsPSO["no_texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
     m_GraphicsPSO["no_texture"].SetRenderTargetFormats(
         {m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1, m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
-    m_GraphicsPSO["no_texture"].Finalize(g_Device.Get());
+    m_GraphicsPSO["no_texture"].Finalize();
 
     m_GraphicsPSO.insert({"texture", GraphicsPSO()});
     m_GraphicsPSO["texture"].SetInputLayout(m_InputLayout);
@@ -294,7 +369,30 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     m_GraphicsPSO["texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
     m_GraphicsPSO["texture"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1,
                                                     m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
-    m_GraphicsPSO["texture"].Finalize(g_Device.Get());
+    m_GraphicsPSO["texture"].Finalize();
+
+    auto                        buffer = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/Raytracing.cso");
+    RaytracingPipelineGenerator rsPsoGenerator;
+    rsPsoGenerator.AddLibrary(buffer, {L"RayGen", L"Miss", L"ClosestHit"});
+    rsPsoGenerator.AddHitGroup(L"HitGroup", L"ClosestHit");
+    rsPsoGenerator.SetGlobalSignature(m_RayTracingGlobalRootSignature);
+    rsPsoGenerator.AddRootSignatureAssociation(m_RayGenSignature, {L"RayGen"});
+    rsPsoGenerator.AddRootSignatureAssociation(m_MissSignature, {L"Miss"});
+    rsPsoGenerator.AddRootSignatureAssociation(m_HitSignature, {L"HitGroup"});
+
+    struct payload {
+        vec4f color;
+        int   depth;
+        float testT;
+        float T;
+        int   isEmission;
+    };
+    rsPsoGenerator.SetMaxPayloadSize(sizeof(payload));
+    rsPsoGenerator.SetMaxAttributeSize(2 * sizeof(float));
+    rsPsoGenerator.SetMaxRecursionDepth(16);
+
+    m_RaytracingPSO = rsPsoGenerator.Generate();
+    ThrowIfFailed(m_RaytracingPSO->QueryInterface(IID_PPV_ARGS(&m_RaytracingStateObjectProps)));
 
 #if defined(_DEBUG)
     m_GraphicsPSO.insert({"debug", GraphicsPSO()});
@@ -309,24 +407,32 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     m_GraphicsPSO["debug"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE);
     m_GraphicsPSO["debug"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, m_4xMsaaState ? 4 : 1,
                                                   m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0);
-    m_GraphicsPSO["debug"].Finalize(g_Device.Get());
+    m_GraphicsPSO["debug"].Finalize();
 #endif  // DEBUG
 }
 
 void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     // Initialize meshes buffer
+    std::wstring       name;
+    std::wstringstream wss;
+
     for (auto&& [key, geometry] : scene.Geometries) {
         for (auto&& mesh : geometry->GetMeshes()) {
             auto m = std::make_shared<MeshInfo>();
             for (auto&& inputLayout : m_InputLayout) {
                 if (mesh->HasProperty(inputLayout.SemanticName)) {
                     auto& vertexArray = mesh->GetVertexPropertyArray(inputLayout.SemanticName);
-                    CreateVertexBuffer(vertexArray, m);
+                    wss << inputLayout.SemanticName;
+                    wss >> name;
+                    m->verticesBuffer.emplace_back(name, vertexArray.GetVertexCount(),
+                                                   vertexArray.GetDataSize() / vertexArray.GetVertexCount(),
+                                                   vertexArray.GetData());
                 }
             }
             auto& indexArray = mesh->GetIndexArray();
             m->indexCount    = indexArray.GetIndexCount();
-            CreateIndexBuffer(indexArray, m);
+            m->indicesBuffer = GpuBuffer(L"Index Buffer", indexArray.GetIndexCount(),
+                                         indexArray.GetDataSize() / indexArray.GetIndexCount(), indexArray.GetData());
             SetPrimitiveType(mesh->GetPrimitiveType(), m);
             m_Meshes[mesh->GetGuid()] = m;
         }
@@ -364,22 +470,71 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
             }
         }
     }
-}
 
-void D3D12GraphicsManager::CreateVertexBuffer(const Resource::SceneObjectVertexArray& vertexArray,
-                                              std::shared_ptr<MeshInfo>               pMeshBuffer) {
-    CommandContext context(g_CommandManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
-    pMeshBuffer->verticesBuffer.emplace_back(vertexArray.GetVertexCount(),
-                                             vertexArray.GetDataSize() / vertexArray.GetVertexCount(),
-                                             vertexArray.GetData(), &context);
-}
+    // Initailize Acceleration structure
+    CommandContext         context("Ray Tracing");
+    BottomLevelASGenerator BLASGenerator;
+    TopLevelASGenerator    TLASGenerator;
+    size_t                 id = 0;
+    m_BottomLevelAS.resize(m_DrawItems.size());
+    for (size_t i = 0; i < m_DrawItems.size(); i++) {
+        BLASGenerator.AddMesh(*m_DrawItems[i].meshBuffer);
+        m_BottomLevelAS[i] = BLASGenerator.Generate(context, false, nullptr);
+        TLASGenerator.AddInstance(m_BottomLevelAS[i], m_DrawItems[i].node.lock()->GetCalculatedTransform(), id, id);
+        context.Finish(true);
+        context.Reset();
+        BLASGenerator.Reset();
+        id++;
+    }
+    m_TopLevelAS = TLASGenerator.Generate(context, false, nullptr);
+    context.Finish(true);
 
-void D3D12GraphicsManager::CreateIndexBuffer(const Resource::SceneObjectIndexArray& indexArray,
-                                             std::shared_ptr<MeshInfo>              pMeshBuffer) {
-    CommandContext context(g_CommandManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
-    pMeshBuffer->indicesBuffer =
-        GpuBuffer(indexArray.GetIndexCount(), indexArray.GetDataSize() / indexArray.GetIndexCount(),
-                  indexArray.GetData(), &context);
+    // bind the TLAS to srv descriptor
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc          = {};
+    srvDesc.Format                                   = DXGI_FORMAT_UNKNOWN;
+    srvDesc.ViewDimension                            = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    srvDesc.Shader4ComponentMapping                  = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.RaytracingAccelerationStructure.Location = m_TopLevelAS->GetGPUVirtualAddress();
+    g_Device->CreateShaderResourceView(nullptr, &srvDesc, m_RaytracingBVHDescriptor.GetDescriptorCpuHandle());
+
+    // Create shader binding table
+    {
+        m_RayGenShaderTable = ShaderTable(L"RayGenTable");
+        m_RayGenShaderTable.AddShaderRecord(
+            m_RaytracingStateObjectProps->GetShaderIdentifier(L"RayGen"),
+            m_RaytracingOutPutDescriptor.GetDescriptorGpuHandle());
+        m_RayGenShaderTable.Generate();
+    }
+    {
+        m_MissShaderTable = ShaderTable(L"MissTable");
+        m_MissShaderTable.AddShaderRecord(
+            m_RaytracingStateObjectProps->GetShaderIdentifier(L"Miss"));
+        m_MissShaderTable.Generate();
+    }
+    {
+        m_HitGroupShaderTable.resize(m_FrameResourceSize, ShaderTable(L"HitGroupShaderTable"));
+        size_t frameIndex = 0;
+        for (auto&& shaderTable : m_HitGroupShaderTable) {
+            for (auto&& d : m_DrawItems) {
+                shaderTable.AddShaderRecord(
+                    m_RaytracingStateObjectProps->GetShaderIdentifier(L"HitGroup"),
+                    m_RaytracingCbvSrvDescriptors.GetDescriptorGpuHandle(frameIndex * m_MaxObjects + d.constantBufferIndex),
+                    d.meshBuffer->verticesBuffer[1].GetResource()->GetGPUVirtualAddress(),
+                    d.meshBuffer->indicesBuffer.GetResource()->GetGPUVirtualAddress());
+            }
+            shaderTable.Generate();
+            frameIndex++;
+        }
+    }
+
+    // Generate random numbers for raytracing
+    {
+        std::mt19937                          rnd(std::random_device{}());
+        std::uniform_real_distribution<float> gen(0.0f, 1.0f);
+        std::vector<float>                    randomNumbers(10000);
+        for (auto&& n : randomNumbers) n = gen(rnd);
+        m_RandomNumbers = GpuBuffer(L"Random Numbers", randomNumbers.size(), sizeof(float), randomNumbers.data());
+    }
 }
 
 void D3D12GraphicsManager::SetPrimitiveType(const Resource::PrimitiveType& primitiveType,
@@ -404,14 +559,13 @@ void D3D12GraphicsManager::SetPrimitiveType(const Resource::PrimitiveType& primi
 }
 
 TextureBuffer D3D12GraphicsManager::CreateTextureBuffer(const Resource::Image& image, size_t srvOffset) {
-    auto handle = m_CbvSrvDescriptors.GetDescriptorHandle(m_SrvOffset + srvOffset);
+    auto handle = m_CbvSrvUavDescriptors.GetDescriptorCpuHandle(m_SrvOffset + srvOffset);
 
     DXGI_SAMPLE_DESC sampleDesc;
     sampleDesc.Count   = m_4xMsaaState ? 4 : 1;
     sampleDesc.Quality = m_4xMsaaState ? (m_4xMsaaQuality - 1) : 0;
 
-    CommandContext context(g_CommandManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
-    return TextureBuffer(context, handle, sampleDesc, image);
+    return TextureBuffer(handle, sampleDesc, image);
 }
 
 void D3D12GraphicsManager::ClearShaders() { m_GraphicsPSO.clear(); }
@@ -421,6 +575,7 @@ void D3D12GraphicsManager::ClearBuffers() {
     m_DrawItems.clear();
     m_Meshes.clear();
     m_Textures.clear();
+
 #if defined(_DEBUG)
     ClearDebugBuffers();
     m_DebugMeshBuffer.clear();
@@ -429,20 +584,23 @@ void D3D12GraphicsManager::ClearBuffers() {
 
 void D3D12GraphicsManager::UpdateConstants() {
     GraphicsManager::UpdateConstants();
-    auto currFR = m_FrameResource[m_CurrFrameResourceIndex].get();
 
+    auto currFR = m_FrameResource[m_CurrFrameResourceIndex].get();
     // Wait untill the frame is finished.
     if (!g_CommandManager.GetGraphicsQueue().IsFenceComplete(currFR->fence)) {
         g_CommandManager.WaitForFence(currFR->fence);
     }
 
     // Update frame resource
-    m_FrameConstants.WVP              = transpose(m_FrameConstants.WVP);
-    m_FrameConstants.projectionMatrix = transpose(m_FrameConstants.projectionMatrix);
-    m_FrameConstants.viewMatrix       = transpose(m_FrameConstants.viewMatrix);
-    m_FrameConstants.worldMatrix      = transpose(m_FrameConstants.worldMatrix);
+    FrameConstants fcb = m_FrameConstants;
+    fcb.projView       = transpose(m_FrameConstants.projView);
+    fcb.projection     = transpose(m_FrameConstants.projection);
+    fcb.view           = transpose(m_FrameConstants.view);
+    fcb.invView        = transpose(m_FrameConstants.invView);
+    fcb.invProjection  = transpose(m_FrameConstants.invProjection);
+    fcb.invProjView    = transpose(m_FrameConstants.invProjView);
 
-    currFR->UpdateFrameConstants(m_FrameConstants);
+    currFR->UpdateFrameConstants(fcb);
     for (auto&& d : m_DrawItems) {
         auto node = d.node.lock();
         if (!node) continue;
@@ -452,19 +610,18 @@ void D3D12GraphicsManager::UpdateConstants() {
             d.numFramesDirty = m_FrameResourceSize;
         }
         if (d.numFramesDirty > 0) {
-            mat4f transform;
-            transform = node->GetCalculatedTransform();
-
             ObjectConstants oc;
-            oc.modelMatrix = transpose(transform);
+            oc.model = transpose(node->GetCalculatedTransform());
 
             if (auto material = d.material.lock()) {
                 auto& ambientColor  = material->GetAmbientColor();
-                oc.ambientColor     = ambientColor.ValueMap ? vec4f(-1.0f) : ambientColor.Value;
+                oc.ambient          = ambientColor.ValueMap ? vec4f(-1.0f) : ambientColor.Value;
                 auto& diffuseColor  = material->GetDiffuseColor();
-                oc.diffuseColor     = diffuseColor.ValueMap ? vec4f(-1.0f) : diffuseColor.Value;
+                oc.diffuse          = diffuseColor.ValueMap ? vec4f(-1.0f) : diffuseColor.Value;
+                auto& emissionColor = material->GetEmission();
+                oc.emission         = emissionColor.ValueMap ? vec4f(-1.0f) : emissionColor.Value;
                 auto& specularColor = material->GetSpecularColor();
-                oc.specularColor    = specularColor.ValueMap ? vec4f(-1.0f) : specularColor.Value;
+                oc.specular         = specularColor.ValueMap ? vec4f(-1.0f) : specularColor.Value;
                 oc.specularPower    = material->GetSpecularPower().Value;
             }
 
@@ -477,7 +634,7 @@ void D3D12GraphicsManager::UpdateConstants() {
     for (auto&& d : m_DebugDrawItems) {
         if (auto node = d.node.lock()) {
             ObjectConstants oc;
-            oc.modelMatrix = transpose(node->GetCalculatedTransform());
+            oc.model = transpose(node->GetCalculatedTransform());
             currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
         }
     }
@@ -487,7 +644,7 @@ void D3D12GraphicsManager::UpdateConstants() {
 void D3D12GraphicsManager::RenderBuffers() {
     auto currFR = m_FrameResource[m_CurrFrameResourceIndex].get();
 
-    CommandContext context(g_CommandManager, D3D12_COMMAND_LIST_TYPE_DIRECT);
+    CommandContext context("Render");
     PopulateCommandList(context);
 
     currFR->fence = context.Finish();
@@ -499,33 +656,86 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
     auto fr          = m_FrameResource[m_CurrFrameResourceIndex].get();
     auto commandList = context.GetCommandList();
 
+    context.SetRootSignature(m_RootSignature);
     context.SetViewportAndScissor(m_Viewport, m_ScissorRect);
-
-    // change state from presentation to waitting to render.
-    // TODO change commandList to context
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-        m_RenderTargets[m_CurrBackBuffer].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+        m_RenderTargets[m_CurrBackBuffer].Get(),
+        D3D12_RESOURCE_STATE_PRESENT,
+        D3D12_RESOURCE_STATE_RENDER_TARGET);
     commandList->ResourceBarrier(1, &barrier);
-    // clear buffer view
 
-    const float clearColor[] = {0.0f, 0.2f, 0.4f, 1.0f};
-    commandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
-    commandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0,
-                                       0, nullptr);
+    // clear buffer view
 
     // render back buffer
     context.SetRenderTarget(CurrentBackBufferView(), DepthStencilView());
 
-    context.SetRootSignature(m_RootSignature);
-    context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 3, 0, m_SamplerDescriptors.GetDescriptorHandle());
-    context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 0, 0,
-                                 m_CbvSrvDescriptors.GetDescriptorHandle(m_FrameCBOffset + m_CurrFrameResourceIndex));
+    commandList->ClearDepthStencilView(DepthStencilView(),
+                                       D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+                                       1.0f, 0,
+                                       0, nullptr);
+    const float clearColor[] = {0.0f, 0.2f, 0.4f, 1.0f};
+    commandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
+
+    context.SetDynamicSampler(3, 0, m_SamplerDescriptors.GetDescriptorCpuHandle());
+    context.SetDynamicDescriptor(0, 0, m_CbvSrvUavDescriptors.GetDescriptorCpuHandle(m_FrameCBOffset + m_CurrFrameResourceIndex));
 
     if (m_Raster) {
         DrawRenderItems(context, m_DrawItems);
     } else {
-        const float rayColor[] = {0.6f, 0.8f, 0.4f, 1.0f};
-        commandList->ClearRenderTargetView(CurrentBackBufferView(), rayColor, 0, nullptr);
+        commandList->SetComputeRootSignature(m_RayTracingGlobalRootSignature.GetRootSignature());
+        context.SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, m_RaytracingDescriptorHeap.GetHeapPointer());
+        // BVH
+        commandList->SetComputeRootDescriptorTable(0, m_RaytracingBVHDescriptor.GetDescriptorGpuHandle());
+        // Frame constant buffer
+        commandList->SetComputeRootDescriptorTable(1, m_RaytracingCbvSrvDescriptors.GetDescriptorGpuHandle(m_FrameCBOffset + m_CurrFrameResourceIndex));
+        // Random Numbers
+        commandList->SetComputeRootShaderResourceView(2, m_RandomNumbers.GetResource()->GetGPUVirtualAddress());
+
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_RaytracingOutput.Get(),
+            D3D12_RESOURCE_STATE_COPY_SOURCE,
+            D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        commandList->ResourceBarrier(1, &barrier);
+
+        D3D12_DISPATCH_RAYS_DESC desc = {};
+
+        desc.RayGenerationShaderRecord.StartAddress = m_RayGenShaderTable.GetGpuBuffer()->GetGPUVirtualAddress();
+        desc.RayGenerationShaderRecord.SizeInBytes  = m_RayGenShaderTable.GetSize();
+
+        desc.MissShaderTable.StartAddress  = m_MissShaderTable.GetGpuBuffer()->GetGPUVirtualAddress();
+        desc.MissShaderTable.SizeInBytes   = m_MissShaderTable.GetSize();
+        desc.MissShaderTable.StrideInBytes = m_MissShaderTable.GetStride();
+
+        desc.HitGroupTable.StartAddress  = m_HitGroupShaderTable[m_CurrFrameResourceIndex].GetGpuBuffer()->GetGPUVirtualAddress();
+        desc.HitGroupTable.SizeInBytes   = m_HitGroupShaderTable[m_CurrFrameResourceIndex].GetSize();
+        desc.HitGroupTable.StrideInBytes = m_HitGroupShaderTable[m_CurrFrameResourceIndex].GetStride();
+
+        desc.Width  = m_Viewport.Width;
+        desc.Height = m_Viewport.Height;
+        desc.Depth  = 1;
+        commandList->SetPipelineState1(m_RaytracingPSO.Get());
+        commandList->DispatchRays(&desc);
+
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_RaytracingOutput.Get(),
+            D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+            D3D12_RESOURCE_STATE_COPY_SOURCE);
+        commandList->ResourceBarrier(1, &barrier);
+
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_RenderTargets[m_CurrBackBuffer].Get(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            D3D12_RESOURCE_STATE_COPY_DEST);
+        commandList->ResourceBarrier(1, &barrier);
+
+        commandList->CopyResource(m_RenderTargets[m_CurrBackBuffer].Get(),
+                                  m_RaytracingOutput.Get());
+
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_RenderTargets[m_CurrBackBuffer].Get(),
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_RENDER_TARGET);
+        commandList->ResourceBarrier(1, &barrier);
     }
 
 #if defined(_DEBUG)
@@ -548,15 +758,12 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
         }
         context.SetIndexBuffer(meshBuffer->indicesBuffer.IndexBufferView());
 
-        context.SetDynamicDescriptor(
-            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, 0,
-            m_CbvSrvDescriptors.GetDescriptorHandle(numObj * m_CurrFrameResourceIndex + d.constantBufferIndex));
+        context.SetDynamicDescriptor(1, 0, m_CbvSrvUavDescriptors.GetDescriptorCpuHandle(numObj * m_CurrFrameResourceIndex + d.constantBufferIndex));
 
         // Texture
         if (auto material = d.material.lock()) {
             if (auto& pTexture = material->GetDiffuseColor().ValueMap) {
-                context.SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2, 0,
-                                             m_Textures.at(pTexture->GetGuid()).GetSRV());
+                context.SetDynamicDescriptor(2, 0, m_Textures.at(pTexture->GetGuid()).GetSRV());
             }
         }
         context.SetPrimitiveTopology(meshBuffer->primitiveType);
@@ -565,11 +772,11 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE D3D12GraphicsManager::CurrentBackBufferView() const {
-    return m_RtvDescriptors.GetDescriptorHandle(m_CurrBackBuffer);
+    return m_RtvDescriptors.GetDescriptorCpuHandle(m_CurrBackBuffer);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE D3D12GraphicsManager::DepthStencilView() const {
-    return m_DsvDescriptors.GetDescriptorHandle();
+    return m_DsvDescriptors.GetDescriptorCpuHandle();
 }
 
 void D3D12GraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {}
@@ -585,21 +792,17 @@ void D3D12GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const 
         name = "debug_line-z";
 
     if (m_DebugMeshBuffer.find(name) == m_DebugMeshBuffer.end()) {
-        auto meshBuffer                           = std::make_shared<MeshInfo>();
-        meshBuffer->primitiveType                 = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-        std::vector<vec3f>               position = {{0, 0, 0}, {1, 0, 0}};
-        std::vector<int>                 index    = {0, 1};
-        std::vector<vec3f>               colors(position.size(), color);
-        Resource::SceneObjectVertexArray pos_array("POSITION", 0, Resource::VertexDataType::FLOAT3, position.data(),
-                                                   position.size());
-        Resource::SceneObjectVertexArray color_array("COLOR", 0, Resource::VertexDataType::FLOAT3, colors.data(),
-                                                     colors.size());
-        CreateVertexBuffer(pos_array, meshBuffer);
-        CreateVertexBuffer(color_array, meshBuffer);
-        Resource::SceneObjectIndexArray index_array(0, Resource::IndexDataType::INT32, index.data(), index.size());
-        CreateIndexBuffer(index_array, meshBuffer);
-        meshBuffer->indexCount  = index.size();
-        m_DebugMeshBuffer[name] = meshBuffer;
+        auto meshBuffer             = std::make_shared<MeshInfo>();
+        meshBuffer->primitiveType   = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+        std::vector<vec3f> position = {{0, 0, 0}, {1, 0, 0}};
+        std::vector<int>   index    = {0, 1};
+        std::vector<vec3f> colors(position.size(), color);
+
+        meshBuffer->verticesBuffer.emplace_back(L"Debug Position", position.size(), sizeof(vec3f), position.data());
+        meshBuffer->verticesBuffer.emplace_back(L"Debug Color", colors.size(), sizeof(vec3f), colors.data());
+        meshBuffer->indicesBuffer = GpuBuffer(L"Debug Index Buffer", index.size(), sizeof(int), index.data());
+        meshBuffer->indexCount    = index.size();
+        m_DebugMeshBuffer[name]   = meshBuffer;
     }
 
     vec3f v1          = to - from;
@@ -626,20 +829,22 @@ void D3D12GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, con
     if (m_DebugMeshBuffer.find("debug_box") == m_DebugMeshBuffer.end()) {
         auto               meshBuffer = std::make_shared<MeshInfo>();
         std::vector<vec3f> position   = {
-            {-1, -1, -1}, {1, -1, -1}, {1, 1, -1}, {-1, 1, -1}, {-1, -1, 1}, {1, -1, 1}, {1, 1, 1}, {-1, 1, 1},
+            {-1, -1, -1},
+            {1, -1, -1},
+            {1, 1, -1},
+            {-1, 1, -1},
+            {-1, -1, 1},
+            {1, -1, 1},
+            {1, 1, 1},
+            {-1, 1, 1},
         };
         std::vector<int> index    = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4};
         meshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
-        std::vector<vec3f>               colors(position.size(), color);
-        Resource::SceneObjectVertexArray pos_array("POSITION", 0, Resource::VertexDataType::FLOAT3, position.data(),
-                                                   position.size());
-        Resource::SceneObjectVertexArray color_array("COLOR", 0, Resource::VertexDataType::FLOAT3, colors.data(),
-                                                     colors.size());
-        CreateVertexBuffer(pos_array, meshBuffer);
-        CreateVertexBuffer(color_array, meshBuffer);
-        Resource::SceneObjectIndexArray index_array(0, Resource::IndexDataType::INT32, index.data(), index.size());
-        CreateIndexBuffer(index_array, meshBuffer);
-        meshBuffer->indexCount = index.size();
+        std::vector<vec3f> colors(position.size(), color);
+        meshBuffer->verticesBuffer.emplace_back(L"Debug Position", position.size(), sizeof(vec3f), position.data());
+        meshBuffer->verticesBuffer.emplace_back(L"Debug Color", colors.size(), sizeof(vec3f), colors.data());
+        meshBuffer->indicesBuffer = GpuBuffer(L"Debug Index Buffer", index.size(), sizeof(int), index.data());
+        meshBuffer->indexCount    = index.size();
 
         m_DebugMeshBuffer["debug_box"] = meshBuffer;
     }

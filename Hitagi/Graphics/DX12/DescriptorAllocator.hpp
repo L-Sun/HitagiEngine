@@ -8,7 +8,7 @@ class DescriptorAllocatorPage;
 
 class DescriptorAllocator {
 public:
-    void Initialize(ID3D12Device6* device, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescPerHeap = 256);
+    DescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescPerHeap = 256);
 
     DescriptorAllocation Allocate(uint32_t numDescriptor = 1);
     void                 ReleaseStaleDescriptor(uint64_t fenceValue);
@@ -17,7 +17,6 @@ private:
     using DescriptorHeapPool = std::vector<std::shared_ptr<DescriptorAllocatorPage>>;
     std::shared_ptr<DescriptorAllocatorPage> CreateAllocatorPage();
 
-    ID3D12Device6*             m_Device;
     D3D12_DESCRIPTOR_HEAP_TYPE m_HeapType;
     uint32_t                   m_NumDescriptorsPerHeap;
 
@@ -31,7 +30,7 @@ private:
 class DescriptorAllocation {
 public:
     DescriptorAllocation();
-    DescriptorAllocation(D3D12_CPU_DESCRIPTOR_HANDLE handle, uint32_t numDescriptors, uint32_t descriptorSize,
+    DescriptorAllocation(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle, uint32_t numDescriptors, uint32_t descriptorSize,
                          std::shared_ptr<DescriptorAllocatorPage> pageFrom);
 
     DescriptorAllocation(const DescriptorAllocation&) = delete;
@@ -42,35 +41,45 @@ public:
 
     ~DescriptorAllocation();
 
-    D3D12_CPU_DESCRIPTOR_HANDLE GetDescriptorHandle(uint32_t offset = 0) const;
+    D3D12_CPU_DESCRIPTOR_HANDLE GetDescriptorCpuHandle(uint32_t offset = 0) const;
+    D3D12_GPU_DESCRIPTOR_HANDLE GetDescriptorGpuHandle(uint32_t offset = 0) const;
 
-    uint32_t GetNumDescriptors() const { return m_numDescriptors; }
+    uint32_t GetNumDescriptors() const { return m_NumDescriptors; }
+
+    void SetFenceValue(uint64_t fenceValue) {
+        if (fenceValue < m_FenceValue) throw std::logic_error("Cannot set smaller fence value");
+        m_FenceValue = fenceValue;
+    }
 
     operator bool() const noexcept { return m_CpuHandle.ptr != 0; }
 
 private:
-    void Free(uint64_t fenceValue);
-
     D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;
     D3D12_GPU_DESCRIPTOR_HANDLE m_GpuHandle;
-    uint32_t                    m_numDescriptors;
+    uint32_t                    m_NumDescriptors;
     uint32_t                    m_DescriptorSize;
+
+    uint64_t m_FenceValue = 0;
 
     std::shared_ptr<DescriptorAllocatorPage> m_PageFrom;
 };
 
 class DescriptorAllocatorPage : public std::enable_shared_from_this<DescriptorAllocatorPage> {
 public:
-    DescriptorAllocatorPage(ID3D12Device6* device, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors);
+    DescriptorAllocatorPage(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors,
+                            D3D12_DESCRIPTOR_HEAP_FLAGS flag);
     DescriptorAllocation Allocate(uint32_t numDescriptors);
     void                 Free(DescriptorAllocation&& descriptor, uint64_t fenceValue);
     void                 ReleaseStaleDescriptor(uint64_t fenceValue);
 
-    inline uint32_t                   NumFreeHandles() const { return m_NumFreeHandle; }
-    inline D3D12_DESCRIPTOR_HEAP_TYPE GetType() const { return m_Type; }
-    inline bool                       HasSpace(uint32_t numDescriptors) const {
+    uint32_t                   NumFreeHandles() const { return m_NumFreeHandle; }
+    D3D12_DESCRIPTOR_HEAP_TYPE GetType() const { return m_Type; }
+    bool                       HasSpace(uint32_t numDescriptors) const {
         return m_FreeListBySize.lower_bound(numDescriptors) != m_FreeListBySize.cend();
     }
+
+    ID3D12DescriptorHeap*       GetHeapPointer() { return m_DescriptorHeap.Get(); }
+    const ID3D12DescriptorHeap* GetHeapPointer() const { return m_DescriptorHeap.Get(); }
 
 protected:
     uint32_t ComputeOffset(D3D12_CPU_DESCRIPTOR_HANDLE handle);
@@ -102,11 +111,32 @@ private:
 
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DescriptorHeap;
     D3D12_DESCRIPTOR_HEAP_TYPE                   m_Type;
+    D3D12_DESCRIPTOR_HEAP_FLAGS                  m_Flag;
     uint32_t                                     m_NumDescriptors;
-    D3D12_CPU_DESCRIPTOR_HANDLE                  m_BaseHandle;
+    D3D12_CPU_DESCRIPTOR_HANDLE                  m_CpuBaseHandle;
+    D3D12_GPU_DESCRIPTOR_HANDLE                  m_GpuBaseHandle;
     uint32_t                                     m_HandleIncrementSize;
     uint32_t                                     m_NumFreeHandle;
 
     std::mutex m_AllocationMutex;
 };
+
+class UserDescriptorHeap {
+public:
+    void                 Initalize(const std::wstring_view name, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t count);
+    DescriptorAllocation Allocate(uint32_t numDescriptor = 1);
+
+    ID3D12DescriptorHeap* GetHeapPointer() {
+        assert(m_Page && "Does the User Descriptor be Initialized?");
+        return m_Page->GetHeapPointer();
+    }
+    const ID3D12DescriptorHeap* GetHeapPointer() const {
+        assert(m_Page && "Does the User Descriptor be Initialized?");
+        return m_Page->GetHeapPointer();
+    }
+
+private:
+    std::shared_ptr<DescriptorAllocatorPage> m_Page = nullptr;
+};
+
 }  // namespace Hitagi::Graphics::DX12

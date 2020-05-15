@@ -1,5 +1,7 @@
 #include "RootSignature.hpp"
 
+#include "D3DCore.hpp"
+
 namespace Hitagi::Graphics::DX12 {
 RootSignature::RootSignature(uint32_t numRootParams, uint32_t numStaticSamplers)
     : m_Finalized(false),
@@ -82,9 +84,23 @@ void RootSignature::InitStaticSampler(UINT shaderRegister, const D3D12_SAMPLER_D
     }
 }
 
-void RootSignature::Finalize(ID3D12Device6* device, D3D12_ROOT_SIGNATURE_FLAGS flags,
+void RootSignature::Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags,
                              D3D_ROOT_SIGNATURE_VERSION version) {
     if (m_Finalized) return;
+
+    for (size_t i = 0; i < m_NumParameters; i++) {
+        switch (m_ParamArray[i].ParameterType) {
+            case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
+                m_NumDescriptorTables++;
+                break;
+            case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS:
+                m_NumRootConstants++;
+                break;
+            default:
+                m_NumRootDescriptors++;
+                break;
+        }
+    }
 
     m_RootSignatureDesc.NumParameters     = m_NumParameters;
     m_RootSignatureDesc.pParameters       = m_ParamArray.get();
@@ -117,8 +133,8 @@ void RootSignature::Finalize(ID3D12Device6* device, D3D12_ROOT_SIGNATURE_FLAGS f
     ThrowIfFailed(
         D3DX12SerializeVersionedRootSignature(&versionRootSignatureDesc, version, &rootSignatureBlob, &errorBlob));
 
-    ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
-                                              rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
+    ThrowIfFailed(g_Device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
+                                                rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
 
     m_Finalized = true;
 }

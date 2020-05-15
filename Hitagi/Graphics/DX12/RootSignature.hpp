@@ -9,10 +9,10 @@ public:
         if (ParameterType == D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) delete[] DescriptorTable.pDescriptorRanges;
     }
 
-    void InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE type, UINT shaderRegister, UINT count,
+    void InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE type, UINT shaderRegister, UINT count, UINT space = 0,
                                D3D12_SHADER_VISIBILITY visibility = D3D12_SHADER_VISIBILITY_ALL) {
         InitAsDescriptorTable(1, visibility);
-        SetTableRange(0, type, shaderRegister, count);
+        SetTableRange(0, type, shaderRegister, count, space);
     }
 
     void InitAsDescriptorTable(UINT rangeCount, D3D12_SHADER_VISIBILITY visibility = D3D12_SHADER_VISIBILITY_ALL) {
@@ -22,6 +22,7 @@ public:
 
     void SetTableRange(UINT rangeIndex, D3D12_DESCRIPTOR_RANGE_TYPE type, UINT shaderRegister, UINT count,
                        UINT space = 0, D3D12_DESCRIPTOR_RANGE_FLAGS flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE) {
+        assert(rangeIndex < DescriptorTable.NumDescriptorRanges);
         D3D12_DESCRIPTOR_RANGE1& range =
             *const_cast<D3D12_DESCRIPTOR_RANGE1*>(DescriptorTable.pDescriptorRanges + rangeIndex);
         range = CD3DX12_DESCRIPTOR_RANGE1(type, count, shaderRegister, space);
@@ -32,26 +33,34 @@ class RootSignature {
 public:
     RootSignature(uint32_t numRootParams = 0, uint32_t numStaticSamplers = 0);
     ~RootSignature(){};
+    RootSignature(const RootSignature&) = delete;
+    RootSignature& operator=(const RootSignature&) = delete;
+    RootSignature(RootSignature&&)                 = default;
+    RootSignature& operator=(RootSignature&&) = default;
 
     void Reset(uint32_t numRootParams, uint32_t numStaticSamplers);
 
     void Destroy();
 
-    void Finalize(ID3D12Device6* device, D3D12_ROOT_SIGNATURE_FLAGS flags = D3D12_ROOT_SIGNATURE_FLAG_NONE,
+    void Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags   = D3D12_ROOT_SIGNATURE_FLAG_NONE,
                   D3D_ROOT_SIGNATURE_VERSION version = D3D_ROOT_SIGNATURE_VERSION_1_1);
 
     void InitStaticSampler(UINT shaderRegister, const D3D12_SAMPLER_DESC& nonStaticSamplerDesc,
                            D3D12_SHADER_VISIBILITY visibility);
 
-    Microsoft::WRL::ComPtr<ID3D12RootSignature> GetRootSignature() const { return m_RootSignature; }
-    const D3D12_ROOT_SIGNATURE_DESC1&           GetRootSignatureDesc() const { return m_RootSignatureDesc; }
-    uint32_t                                    GetDescriptorTableBitMask(D3D12_DESCRIPTOR_HEAP_TYPE type) const {
+    ID3D12RootSignature*              GetRootSignature() const { return m_RootSignature.Get(); }
+    const D3D12_ROOT_SIGNATURE_DESC1& GetRootSignatureDesc() const { return m_RootSignatureDesc; }
+    uint32_t                          GetDescriptorTableBitMask(D3D12_DESCRIPTOR_HEAP_TYPE type) const {
         return type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? m_SamplerTableBitMask : m_DescriptorTableBitMask;
     }
-    uint32_t GetNumDescriptors(uint32_t rootIndex) const {
+    uint32_t GetNumDescriptorsInTable(uint32_t rootIndex) const {
         assert(rootIndex < 32);
         return m_NumDescriptorsPerTable[rootIndex];
     };
+
+    unsigned GetNumRootConstants() const { return m_NumRootConstants; }
+    unsigned GetNumRootDecriptors() const { return m_NumRootDescriptors; }
+    unsigned GetNumDescriptorTables() const { return m_NumDescriptorTables; }
 
     RootParameter& operator[](size_t index) {
         assert(index < m_NumParameters);
@@ -66,7 +75,6 @@ public:
 private:
     bool m_Finalized;
 
-    ID3D12Device6*                              m_Device;
     D3D12_ROOT_SIGNATURE_DESC1                  m_RootSignatureDesc;
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
 
@@ -77,6 +85,10 @@ private:
 
     std::unique_ptr<RootParameter[]>             m_ParamArray;
     std::unique_ptr<D3D12_STATIC_SAMPLER_DESC[]> m_SamplerArray;
+
+    unsigned m_NumDescriptorTables = 0;
+    unsigned m_NumRootConstants    = 0;
+    unsigned m_NumRootDescriptors  = 0;
 
     uint32_t m_SamplerTableBitMask;
     uint32_t m_DescriptorTableBitMask;

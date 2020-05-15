@@ -11,9 +11,8 @@ DynamicDescriptorHeap::AvailableHeapPool
 
 std::mutex DynamicDescriptorHeap::kMutex;
 
-DynamicDescriptorHeap::DynamicDescriptorHeap(CommandContext& cmdContext, D3D12_DESCRIPTOR_HEAP_TYPE type)
-    : m_CommandContext(cmdContext),
-      m_Type(type),
+DynamicDescriptorHeap::DynamicDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type)
+    : m_Type(type),
       m_DescriptorTableBitMask(0),
       m_StaleDescriptorTableBitMask(0),
       m_CurrentCPUDescriptorHandle(D3D12_DEFAULT),
@@ -48,7 +47,7 @@ void DynamicDescriptorHeap::ParseRootSignature(const RootSignature& rootSignatur
     uint32_t currentOffset = 0;
     DWORD    rootIndex;
     while (_BitScanForward(&rootIndex, descriptorTableBitMask) && rootIndex < rootSignatureDesc.NumParameters) {
-        uint32_t numDescriptors = rootSignature.GetNumDescriptors(rootIndex);
+        uint32_t numDescriptors = rootSignature.GetNumDescriptorsInTable(rootIndex);
 
         auto& tableCache          = m_DescriptorTableCache[rootIndex];
         tableCache.baseHandle     = &m_DescriptorHandleCache[currentOffset];
@@ -91,14 +90,12 @@ uint32_t DynamicDescriptorHeap::StaleDescriptorCount() const {
 }
 
 std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> DynamicDescriptorHeap::RequestDescriptorHeap() {
-    auto& cmdListMgr = m_CommandContext.m_CommandManager;
-
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap;
     auto&                                        availableHeapPool = kAvailableDescriptorHeaps[m_Type];
     uint64_t                                     fenceValue        = 0;
 
     std::lock_guard lock(kMutex);
-    if (!availableHeapPool.empty() && cmdListMgr.IsFenceComplete(availableHeapPool.front().second)) {
+    if (!availableHeapPool.empty() && g_CommandManager.IsFenceComplete(availableHeapPool.front().second)) {
         descriptorHeap = availableHeapPool.front().first;
         fenceValue     = availableHeapPool.front().second;
         availableHeapPool.pop();
@@ -124,9 +121,10 @@ Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> DynamicDescriptorHeap::CreateDescri
 }
 
 void DynamicDescriptorHeap::CommitStagedDescriptors(
-    ID3D12GraphicsCommandList5*                                                        cmdList,
+    CommandContext&                                                                    context,
     std::function<void(ID3D12GraphicsCommandList*, UINT, D3D12_GPU_DESCRIPTOR_HANDLE)> setFunc) {
     uint32_t numDescriptorsToCommit = StaleDescriptorCount();
+    auto     cmdList                = context.GetCommandList();
 
     if (numDescriptorsToCommit <= 0) return;
 
@@ -141,7 +139,7 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
         m_NumFreeHandles             = kNumDescriptorsPerHeap;
         m_FenceValue                 = heap.second;
 
-        m_CommandContext.SetDescriptorHeap(m_Type, m_CurrentDescriptorHeap.Get());
+        context.SetDescriptorHeap(m_Type, m_CurrentDescriptorHeap.Get());
         // When updating the descriptor heap on the command list, all descriptor
         // tables must be (re)recopied to the new descriptor heap (not just
         // the stale descriptor tables).
@@ -172,7 +170,7 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
     }
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(ID3D12GraphicsCommandList5* cmdList,
+D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(CommandContext&             context,
                                                                   D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle) {
     assert(cpuDescriptorHandle.ptr != 0);
     if (!m_CurrentDescriptorHeap || m_NumFreeHandles < 1) {
@@ -183,7 +181,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(ID3D12Graphics
         m_NumFreeHandles             = kNumDescriptorsPerHeap;
         m_FenceValue                 = heap.second;
 
-        m_CommandContext.SetDescriptorHeap(m_Type, m_CurrentDescriptorHeap.Get());
+        context.SetDescriptorHeap(m_Type, m_CurrentDescriptorHeap.Get());
         // When updating the descriptor heap on the command list, all descriptor
         // tables must be (re)recopied to the new descriptor heap (not just
         // the stale descriptor tables).

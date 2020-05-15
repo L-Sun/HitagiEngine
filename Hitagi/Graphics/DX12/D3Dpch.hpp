@@ -11,6 +11,8 @@
 #include <map>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
+#include <variant>
 #include <stack>
 #include <cmath>
 #include <algorithm>
@@ -18,11 +20,13 @@
 #include <queue>
 #include <mutex>
 #include <array>
+#include <random>
 
 // DX12
 #include "DXHelper.hpp"
 #include "d3dx12.h"
 #include <dxgi1_6.h>
+#include <dxcapi.h>
 #include "d3dcompiler.h"
 
 #define D3D12_GPU_VIRTUAL_ADDRESS_NULL ((D3D12_GPU_VIRTUAL_ADDRESS)0)

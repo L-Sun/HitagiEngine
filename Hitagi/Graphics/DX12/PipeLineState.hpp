@@ -12,7 +12,6 @@ public:
     ID3D12PipelineState* GetPSO() const { return m_PSO.Get(); }
 
 protected:
-    ID3D12Device6*                              m_Device;
     const RootSignature*                        m_RootSignature;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PSO;
 };
@@ -31,10 +30,21 @@ public:
     void SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& RTVFormats, DXGI_FORMAT DSVFormat, UINT MSAACount,
                                 UINT MSAAQuality);
 
-    void Finalize(ID3D12Device6* device);
+    void Finalize();
 
 private:
     D3D12_GRAPHICS_PIPELINE_STATE_DESC    m_PSODesc;
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayouts;
 };
+
+class ComputePSO : public PipeLineState {
+public:
+    ComputePSO();
+    void SetComputeShader(const ComputeShader& shader);
+    void Finalize();
+
+private:
+    D3D12_COMPUTE_PIPELINE_STATE_DESC m_PSODesc;
+};
+
 }  // namespace Hitagi::Graphics::DX12

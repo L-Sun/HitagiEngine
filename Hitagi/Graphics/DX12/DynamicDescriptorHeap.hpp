@@ -7,17 +7,17 @@ class CommandContext;
 
 class DynamicDescriptorHeap {
 public:
-    DynamicDescriptorHeap(CommandContext& cmdContext, D3D12_DESCRIPTOR_HEAP_TYPE type);
+    DynamicDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
     ~DynamicDescriptorHeap() { Reset(m_FenceValue); }
 
     void StageDescriptor(uint32_t rootParameterIndex, uint32_t offset, uint32_t numDescriptors,
                          const D3D12_CPU_DESCRIPTOR_HANDLE srcDescriptorHandle);
 
     void CommitStagedDescriptors(
-        ID3D12GraphicsCommandList5*                                                        cmdList,
+        CommandContext&                                                                    context,
         std::function<void(ID3D12GraphicsCommandList*, UINT, D3D12_GPU_DESCRIPTOR_HANDLE)> setFunc);
 
-    D3D12_GPU_DESCRIPTOR_HANDLE CopyDescriptor(ID3D12GraphicsCommandList5* cmdList,
+    D3D12_GPU_DESCRIPTOR_HANDLE CopyDescriptor(CommandContext&             context,
                                                D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);
 
     // Paser root signature to get information about the layout of descriptors.
@@ -51,7 +51,6 @@ private:
     static AvailableHeapPool  kAvailableDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
     static std::mutex         kMutex;
 
-    CommandContext&            m_CommandContext;
     D3D12_DESCRIPTOR_HEAP_TYPE m_Type;
     uint32_t                   m_HandleIncrementSize;
     uint64_t                   m_FenceValue;

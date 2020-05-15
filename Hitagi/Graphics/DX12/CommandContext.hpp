@@ -14,17 +14,20 @@ class CommandContext {
     friend class DynamicDescriptorHeap;
 
 public:
-    CommandContext(CommandListManager& cmdManager, D3D12_COMMAND_LIST_TYPE type);
+    CommandContext(const std::string_view name = "", D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT);
     CommandContext(const CommandContext&) = delete;
     CommandContext& operator=(const CommandContext&) = delete;
     ~CommandContext();
 
     ID3D12GraphicsCommandList5* GetCommandList() { return m_CommandList; }
 
-    void InitializeBuffer(GpuResource& dest, const void* data, size_t bufferSize);
-    void InitializeTexture(GpuResource& dest, size_t numSubresources, D3D12_SUBRESOURCE_DATA subData[]);
-    void TransitionResource(GpuResource& resource, D3D12_RESOURCE_STATES newState, bool flushImmediate = false);
-    void FlushResourceBarriers();
+    static void InitializeBuffer(GpuResource& dest, const void* data, size_t bufferSize);
+    static void InitializeTexture(GpuResource& dest, size_t numSubresources, D3D12_SUBRESOURCE_DATA subData[]);
+    void        TransitionResource(GpuResource& resource, D3D12_RESOURCE_STATES newState, bool flushImmediate = false);
+    void        FlushResourceBarriers();
+
+    void BuildRaytracingAccelerationStructure(ID3D12Resource*                                           resource,
+                                              const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC& desc);
 
     void SetViewportAndScissor(const D3D12_VIEWPORT& viewport, const D3D12_RECT& rect);
     void SetViewport(const D3D12_VIEWPORT& viewport);
@@ -42,8 +45,8 @@ public:
     void SetDescriptorHeaps(unsigned heapCount, D3D12_DESCRIPTOR_HEAP_TYPE type[], ID3D12DescriptorHeap* heaps[]);
     void SetRootSignature(const RootSignature& rootSignature);
     void BindDescriptorHeaps();
-    void SetDynamicDescriptor(D3D12_DESCRIPTOR_HEAP_TYPE type, unsigned rootIndex, unsigned offset,
-                              D3D12_CPU_DESCRIPTOR_HANDLE handle);
+    void SetDynamicDescriptor(unsigned rootIndex, unsigned offset, D3D12_CPU_DESCRIPTOR_HANDLE handle);
+    void SetDynamicSampler(unsigned rootIndex, unsigned offset, D3D12_CPU_DESCRIPTOR_HANDLE handle);
 
     void SetPipeLineState(const PipeLineState& pso);
     void SetIndexBuffer(const D3D12_INDEX_BUFFER_VIEW& IBView);
@@ -59,7 +62,7 @@ public:
     void     Reset();
 
 private:
-    CommandListManager&         m_CommandManager;
+    std::string                 m_Name;
     ID3D12GraphicsCommandList5* m_CommandList;
     ID3D12CommandAllocator*     m_CommandAllocator;
 

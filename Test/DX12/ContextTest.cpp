@@ -41,7 +41,7 @@ int main(int argc, char const* argv[]) {
     CommandListManager mgr;
     mgr.Initialize(device.Get());
     for (size_t i = 0; i < 100000; i++) {
-        CommandContext context(mgr, D3D12_COMMAND_LIST_TYPE_DIRECT);
+        CommandContext context;
     }
 
 #ifdef _WIN32

@@ -5,26 +5,25 @@
 
 namespace Hitagi::Graphics::DX12 {
 
-GpuBuffer::GpuBuffer(size_t numElement, size_t elementSize, const void* initialData, CommandContext* context)
+GpuBuffer::GpuBuffer(const std::wstring_view name, size_t numElement, size_t elementSize, const void* initialData)
     : m_ElementCount(numElement),
       m_ElementSize(elementSize),
       m_BufferSize(numElement * elementSize),
-      m_ResourceFlags(D3D12_RESOURCE_FLAG_NONE) {
+      m_ResourceFlags(D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) {
     m_UsageState = D3D12_RESOURCE_STATE_COMMON;
 
-    auto desc      = CD3DX12_RESOURCE_DESC::Buffer(m_BufferSize);
+    auto desc      = CD3DX12_RESOURCE_DESC::Buffer(m_BufferSize, m_ResourceFlags);
     auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
     ThrowIfFailed(g_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr,
                                                     IID_PPV_ARGS(&m_Resource)));
-
+    m_Resource->SetName(name.data());
     if (initialData) {
-        assert(context != nullptr);
-        context->InitializeBuffer(*this, initialData, m_BufferSize);
+        CommandContext::InitializeBuffer(*this, initialData, m_BufferSize);
     }
 }
 
-TextureBuffer::TextureBuffer(CommandContext& context, D3D12_CPU_DESCRIPTOR_HANDLE handle, DXGI_SAMPLE_DESC sampleDesc,
+TextureBuffer::TextureBuffer(D3D12_CPU_DESCRIPTOR_HANDLE handle, DXGI_SAMPLE_DESC sampleDesc,
                              const Resource::Image& image) {
     m_UsageState = D3D12_RESOURCE_STATE_COPY_DEST;
 
@@ -51,7 +50,7 @@ TextureBuffer::TextureBuffer(CommandContext& context, D3D12_CPU_DESCRIPTOR_HANDL
     texResource.pData    = image.getData();
     texResource.RowPitch = image.GetPitch();
 
-    context.InitializeTexture(*this, 1, &texResource);
+    CommandContext::InitializeTexture(*this, 1, &texResource);
     m_CpuDescriptorHandle = handle;
     g_Device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_CpuDescriptorHandle);
 }
