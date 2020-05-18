@@ -26,18 +26,16 @@ public:
 
 protected:
     struct FrameConstants {
-        mat4f    projView;
-        mat4f    view;
-        mat4f    projection;
-        mat4f    invProjection;
-        mat4f    invView;
-        mat4f    invProjView;
-        vec4f    cameraPos;
-        vec4f    lightPosition;
-        vec4f    lightPosInView;
-        vec4f    lightIntensity;
-        unsigned frameCount = 1;
-        int      reset      = 0;
+        mat4f projView;
+        mat4f view;
+        mat4f projection;
+        mat4f invProjection;
+        mat4f invView;
+        mat4f invProjView;
+        vec4f cameraPos;
+        vec4f lightPosition;
+        vec4f lightPosInView;
+        vec4f lightIntensity;
     };
 
     struct ObjectConstants {

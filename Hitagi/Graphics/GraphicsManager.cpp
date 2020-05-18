@@ -75,8 +75,6 @@ void GraphicsManager::Clear() {}
 void GraphicsManager::UpdateConstants() {
     CalculateCameraMatrix();
     CalculateLights();
-    m_FrameConstants.frameCount++;
-    m_FrameConstants.reset = std::max(0, m_FrameConstants.reset - 1);
 }
 
 void GraphicsManager::InitConstants() {
@@ -97,7 +95,7 @@ void GraphicsManager::CalculateCameraMatrix() {
         m_FrameConstants.cameraPos = vec4f(cameraNode->GetCameraPosition(), 1.0f);
 
         float fieldOfView      = PI / 2.0f;
-        float nearClipDistance = 0.1f;
+        float nearClipDistance = 0.f;
         float farClipDistance  = 100.0f;
 
         if (auto camera = cameraNode->GetSceneObjectRef().lock()) {
@@ -116,22 +114,17 @@ void GraphicsManager::CalculateCameraMatrix() {
         m_FrameConstants.invProjView   = inverse(m_FrameConstants.projView);
 
         cameraNode->ClearDirty();
-        m_FrameConstants.reset      = 2;
-        m_FrameConstants.frameCount = 0;
     }
 }
 
 void GraphicsManager::CalculateLights() {
     auto& scene = g_SceneManager->GetSceneForRendering();
 
-    if (auto lightNode = scene.GetFirstLightNode(); lightNode->Dirty()) {
-        m_FrameConstants.lightPosition  = vec4f(GetOrigin(lightNode->GetCalculatedTransform()), 1);
-        m_FrameConstants.lightPosInView = m_FrameConstants.view * m_FrameConstants.lightPosition;
-        if (auto light = lightNode->GetSceneObjectRef().lock()) {
-            m_FrameConstants.lightIntensity = light->GetIntensity() * light->GetColor().Value;
-        }
-        lightNode->ClearDirty();
-        m_FrameConstants.frameCount = 0;
+    auto lightNode                  = scene.GetFirstLightNode();
+    m_FrameConstants.lightPosition  = vec4f(GetOrigin(lightNode->GetCalculatedTransform()), 1);
+    m_FrameConstants.lightPosInView = m_FrameConstants.view * m_FrameConstants.lightPosition;
+    if (auto light = lightNode->GetSceneObjectRef().lock()) {
+        m_FrameConstants.lightIntensity = light->GetIntensity() * light->GetColor().Value;
     }
 }
 void GraphicsManager::InitializeBuffers(const Resource::Scene& scene) { m_Logger->debug("Initialize buffers."); }
@@ -148,18 +141,16 @@ const FT_GlyphSlot GraphicsManager::GetGlyph(char c) {
 }
 
 void GraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {
-    m_Logger->debug("Render text: {}, position: ({}, {}), scale: {}, color: ({}, {}, {})", text, position.x, position.y,
-                    scale, color.r, color.g, color.b);
+    m_Logger->debug("Render text: {}, position: {}, scale: {}, color: {}", text, position, scale, color);
 }
 
 #if defined(_DEBUG)
 void GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
-    m_Logger->debug("Draw line from ({}, {}, {}) to ({}, {}, {})", from.x, from.y, from.z, to.x, to.y, to.z);
+    m_Logger->debug("Draw line from {} to {}", from, to);
 }
 
 void GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) {
-    m_Logger->debug("Draw box bbMin:({}, {}, {}), bbMax: ({}, {}, {}), color: ({}, {}, {})", bbMin.x, bbMin.y, bbMin.z,
-                    bbMax.x, bbMax.y, bbMax.z, color.r, color.g, color.b);
+    m_Logger->debug("Draw box bbMin: {}, bbMax: {}, color: {}", bbMin, bbMax, color);
 }
 void GraphicsManager::ClearDebugBuffers() { m_Logger->debug("Clear debug buffers"); }
 #endif  // _DEBUG

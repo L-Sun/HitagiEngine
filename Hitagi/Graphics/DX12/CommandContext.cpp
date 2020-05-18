@@ -3,7 +3,7 @@
 
 namespace Hitagi::Graphics::DX12 {
 
-CommandContext::CommandContext(const std::string_view name, D3D12_COMMAND_LIST_TYPE type)
+CommandContext::CommandContext(std::string_view name, D3D12_COMMAND_LIST_TYPE type)
     : m_Name(name),
       m_CommandList(nullptr),
       m_CommandAllocator(nullptr),
@@ -148,6 +148,13 @@ void CommandContext::SetDynamicDescriptor(unsigned rootIndex, unsigned offset,
 
 void CommandContext::SetDynamicSampler(unsigned rootIndex, unsigned offset, D3D12_CPU_DESCRIPTOR_HANDLE handle) {
     m_DynamicDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]->StageDescriptor(rootIndex, offset, 1, handle);
+}
+
+void CommandContext::ClearDepth(DepthBuffer& target) {
+    m_CommandList->ClearDepthStencilView(target.GetDSV(), D3D12_CLEAR_FLAG_DEPTH, target.GetClearDepth(), target.GetClearStencil(), 0, nullptr);
+}
+void CommandContext::ClearColor(ColorBuffer& target) {
+    m_CommandList->ClearRenderTargetView(target.GetRTV(), target.GetClearColor(), 0, nullptr);
 }
 
 void CommandContext::SetViewportAndScissor(const D3D12_VIEWPORT& viewport, const D3D12_RECT& rect) {

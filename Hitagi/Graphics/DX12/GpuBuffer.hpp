@@ -6,7 +6,9 @@ namespace Hitagi::Graphics::DX12 {
 class GpuBuffer : public GpuResource {
 public:
     GpuBuffer() = default;
-    GpuBuffer(const std::wstring_view name, size_t numElement, size_t elementSize, const void* initialData = nullptr);
+
+    void Create(std::wstring_view name, size_t numElement, size_t elementSize, const void* initialData = nullptr);
+
     D3D12_VERTEX_BUFFER_VIEW VertexBufferView() const {
         D3D12_VERTEX_BUFFER_VIEW vbv;
         vbv.BufferLocation = m_Resource->GetGPUVirtualAddress();
@@ -32,7 +34,7 @@ protected:
 
 class TextureBuffer : public GpuResource {
 public:
-    TextureBuffer(D3D12_CPU_DESCRIPTOR_HANDLE handle, DXGI_SAMPLE_DESC sampleDesc, const Resource::Image& image);
+    TextureBuffer(D3D12_CPU_DESCRIPTOR_HANDLE handle, const Resource::Image& image);
 
     const D3D12_CPU_DESCRIPTOR_HANDLE& GetSRV() const { return m_CpuDescriptorHandle; }
     bool                               operator!() { return m_CpuDescriptorHandle.ptr == 0; }

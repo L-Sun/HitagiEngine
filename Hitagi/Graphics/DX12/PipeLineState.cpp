@@ -24,14 +24,13 @@ void GraphicsPSO::SetPixelShader(const PixelShader& shader) {
     m_PSODesc.PS             = CD3DX12_SHADER_BYTECODE(code.GetData(), code.GetDataSize());
 }
 
-void GraphicsPSO::SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& RTVFormats, DXGI_FORMAT DSVFormat,
-                                         UINT MSAACount, UINT MSAAQuality) {
+void GraphicsPSO::SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& RTVFormats, DXGI_FORMAT DSVFormat) {
     for (int i = 0; i < RTVFormats.size(); i++) m_PSODesc.RTVFormats[i] = RTVFormats[i];
     for (int i = RTVFormats.size(); i < m_PSODesc.NumRenderTargets; i++) m_PSODesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
     m_PSODesc.NumRenderTargets   = RTVFormats.size();
     m_PSODesc.DSVFormat          = DSVFormat;
-    m_PSODesc.SampleDesc.Count   = MSAACount;
-    m_PSODesc.SampleDesc.Quality = MSAAQuality;
+    m_PSODesc.SampleDesc.Count   = 1;
+    m_PSODesc.SampleDesc.Quality = 0;
 }
 
 void GraphicsPSO::Finalize() {

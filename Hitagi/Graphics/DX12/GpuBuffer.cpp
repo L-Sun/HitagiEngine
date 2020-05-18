@@ -5,11 +5,12 @@
 
 namespace Hitagi::Graphics::DX12 {
 
-GpuBuffer::GpuBuffer(const std::wstring_view name, size_t numElement, size_t elementSize, const void* initialData)
-    : m_ElementCount(numElement),
-      m_ElementSize(elementSize),
-      m_BufferSize(numElement * elementSize),
-      m_ResourceFlags(D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) {
+void GpuBuffer::Create(std::wstring_view name, size_t numElement, size_t elementSize, const void* initialData) {
+    m_ElementCount  = numElement;
+    m_ElementSize   = elementSize;
+    m_BufferSize    = numElement * elementSize;
+    m_ResourceFlags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
     m_UsageState = D3D12_RESOURCE_STATE_COMMON;
 
     auto desc      = CD3DX12_RESOURCE_DESC::Buffer(m_BufferSize, m_ResourceFlags);
@@ -23,8 +24,7 @@ GpuBuffer::GpuBuffer(const std::wstring_view name, size_t numElement, size_t ele
     }
 }
 
-TextureBuffer::TextureBuffer(D3D12_CPU_DESCRIPTOR_HANDLE handle, DXGI_SAMPLE_DESC sampleDesc,
-                             const Resource::Image& image) {
+TextureBuffer::TextureBuffer(D3D12_CPU_DESCRIPTOR_HANDLE handle, const Resource::Image& image) {
     m_UsageState = D3D12_RESOURCE_STATE_COPY_DEST;
 
     D3D12_RESOURCE_DESC desc = {};
@@ -33,7 +33,6 @@ TextureBuffer::TextureBuffer(D3D12_CPU_DESCRIPTOR_HANDLE handle, DXGI_SAMPLE_DES
     desc.Flags               = D3D12_RESOURCE_FLAG_NONE;
     desc.Height              = image.GetHeight();
     desc.MipLevels           = 1;
-    desc.SampleDesc          = sampleDesc;
     desc.Width               = image.GetWidth();
 
     if (image.GetBitcount() == 32)

@@ -232,7 +232,7 @@ void DescriptorAllocator::ReleaseStaleDescriptor(uint64_t fenceValue) {
     }
 }
 
-void UserDescriptorHeap::Initalize(const std::wstring_view name, D3D12_DESCRIPTOR_HEAP_TYPE type,
+void UserDescriptorHeap::Initalize(std::wstring_view name, D3D12_DESCRIPTOR_HEAP_TYPE type,
                                    uint32_t count) {
     D3D12_DESCRIPTOR_HEAP_FLAGS flag;
     if (type == D3D12_DESCRIPTOR_HEAP_TYPE_RTV || type == D3D12_DESCRIPTOR_HEAP_TYPE_DSV)

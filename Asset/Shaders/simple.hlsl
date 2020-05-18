@@ -9,7 +9,6 @@ cbuffer FrameConstants : register(b0){
     float4 lightPosition;
     float4 lightPosInView;
     float4 lightIntensity;
-    uint currFrameIndex;
 };
 
 cbuffer ObjectConstants : register(b1){

@@ -4,6 +4,8 @@
 #include "LinearAllocator.hpp"
 #include "DynamicDescriptorHeap.hpp"
 #include "PipeLineState.hpp"
+#include "DepthBuffer.hpp"
+#include "ColorBuffer.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 class CommandContext {
@@ -14,7 +16,7 @@ class CommandContext {
     friend class DynamicDescriptorHeap;
 
 public:
-    CommandContext(const std::string_view name = "", D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT);
+    CommandContext(std::string_view name = "", D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT);
     CommandContext(const CommandContext&) = delete;
     CommandContext& operator=(const CommandContext&) = delete;
     ~CommandContext();
@@ -28,6 +30,9 @@ public:
 
     void BuildRaytracingAccelerationStructure(ID3D12Resource*                                           resource,
                                               const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC& desc);
+
+    void ClearDepth(DepthBuffer& target);
+    void ClearColor(ColorBuffer& target);
 
     void SetViewportAndScissor(const D3D12_VIEWPORT& viewport, const D3D12_RECT& rect);
     void SetViewport(const D3D12_VIEWPORT& viewport);

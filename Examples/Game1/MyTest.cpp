@@ -20,7 +20,6 @@ int MyTest::Initialize() {
     g_InputManager->Map(MOVE_BACK, InputEvent::KEY_S);
 
     g_InputManager->Map(RESET_SCENE, InputEvent::KEY_R);
-    g_InputManager->Map(RAY_TRACING, InputEvent::KEY_SPACE);
 
     return result;
 }
@@ -53,9 +52,6 @@ void MyTest::Tick() {
     }
 
     LightMove();
-    if (g_InputManager->GetBoolNew(RAY_TRACING)) {
-        static_cast<Graphics::DX12::D3D12GraphicsManager*>(g_GraphicsManager.get())->ToggleRayTrancing();
-    }
 
     if (g_InputManager->GetBool(RESET_SCENE)) {
         g_SceneManager->SetScene("Asset/Scene/test.fbx");

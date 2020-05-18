@@ -27,8 +27,7 @@ public:
     void SetDepthStencilState(const D3D12_DEPTH_STENCIL_DESC& desc);
     void SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE type);
     void SetSampleMask(UINT mask);
-    void SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& RTVFormats, DXGI_FORMAT DSVFormat, UINT MSAACount,
-                                UINT MSAAQuality);
+    void SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& RTVFormats, DXGI_FORMAT DSVFormat);
 
     void Finalize();
 

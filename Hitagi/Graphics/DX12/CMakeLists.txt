@@ -10,6 +10,9 @@ add_library(D3DRHI
     DynamicDescriptorHeap.cpp
     RootSignature.cpp
     PipelineState.cpp
+    PixelBuffer.cpp
+    ColorBuffer.cpp
+    DepthBuffer.cpp
     RaytracingHelper.cpp
 )
 target_link_libraries(D3DRHI

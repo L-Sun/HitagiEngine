@@ -23,7 +23,6 @@ private:
         MOVE_FRONT,
         MOVE_BACK,
         RESET_SCENE,
-        RAY_TRACING,
     };
     float sensitivity = 0.5f;
 };

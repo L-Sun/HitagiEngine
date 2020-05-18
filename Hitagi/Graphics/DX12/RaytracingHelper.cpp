@@ -41,7 +41,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> BottomLevelASGenerator::Generate(CommandC
     auto resultSize        = bottomLevelprebuildInfo.ResultDataMaxSizeInBytes;
 
     // Create Buffer
-    m_ScratchBuffer = GpuBuffer(L"BLAS Scratch Buffer", scratchBufferSize, 1);
+    m_ScratchBuffer.Create(L"BLAS Scratch Buffer", scratchBufferSize, 1);
 
     D3D12_HEAP_PROPERTIES                  defaultHeapDesc = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     auto                                   desc            = CD3DX12_RESOURCE_DESC::Buffer(resultSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
@@ -94,7 +94,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> TopLevelASGenerator::Generate(CommandCont
     auto resultSize        = topLevelPrebuildInfo.ResultDataMaxSizeInBytes;
 
     // Create Buffer
-    m_ScratchBuffer = GpuBuffer(L"TLAS Scratch Buffer", scratchBufferSize, 1);
+    m_ScratchBuffer.Create(L"TLAS Scratch Buffer", scratchBufferSize, 1);
 
     D3D12_HEAP_PROPERTIES                  defaultHeapDesc = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     auto                                   desc            = CD3DX12_RESOURCE_DESC::Buffer(resultSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
@@ -104,10 +104,10 @@ Microsoft::WRL::ComPtr<ID3D12Resource> TopLevelASGenerator::Generate(CommandCont
                                       &desc,
                                       D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nullptr,
                                       IID_PPV_ARGS(&resultBuffer));
-    m_InstanceBuffer = GpuBuffer(L"Instance Data Buffer",
-                                 m_InstanceDescs.size(),
-                                 sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
-                                 m_InstanceDescs.data());
+    m_InstanceBuffer.Create(L"Instance Data Buffer",
+                            m_InstanceDescs.size(),
+                            sizeof(D3D12_RAYTRACING_INSTANCE_DESC),
+                            m_InstanceDescs.data());
 
     topLevelInputs.InstanceDescs = m_InstanceBuffer->GetGPUVirtualAddress();
 
@@ -123,10 +123,10 @@ void RaytracingPipelineGenerator::AddLibrary(const Core::Buffer& dxiLibrary, con
     m_Libraries.emplace_back(dxiLibrary, symbolExports);
 }
 
-void RaytracingPipelineGenerator::AddHitGroup(const std::wstring_view hitGroupName,
-                                              const std::wstring_view closestHitSymbol,
-                                              const std::wstring_view anyHitSymbol,
-                                              const std::wstring_view intersectionSymbol) {
+void RaytracingPipelineGenerator::AddHitGroup(std::wstring_view hitGroupName,
+                                              std::wstring_view closestHitSymbol,
+                                              std::wstring_view anyHitSymbol,
+                                              std::wstring_view intersectionSymbol) {
     m_HitGroups.emplace_back(hitGroupName, closestHitSymbol, anyHitSymbol, intersectionSymbol);
 }
 
@@ -357,10 +357,10 @@ RaytracingPipelineGenerator::Library::Library(const Core::Buffer&              d
     m_LibDesc.pExports                    = m_Exports.data();
 }
 
-RaytracingPipelineGenerator::HitGroup::HitGroup(const std::wstring_view hitGroupName,
-                                                const std::wstring_view closestHitSymbol,
-                                                const std::wstring_view anyHitSymbol,
-                                                const std::wstring_view intersectionSymbol)
+RaytracingPipelineGenerator::HitGroup::HitGroup(std::wstring_view hitGroupName,
+                                                std::wstring_view closestHitSymbol,
+                                                std::wstring_view anyHitSymbol,
+                                                std::wstring_view intersectionSymbol)
     : m_HitGroupName(hitGroupName),
       m_ClosestHitSymbol(closestHitSymbol),
       m_AnyHitSymbol(anyHitSymbol),

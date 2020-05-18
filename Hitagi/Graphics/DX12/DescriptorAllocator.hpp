@@ -123,7 +123,7 @@ private:
 
 class UserDescriptorHeap {
 public:
-    void                 Initalize(const std::wstring_view name, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t count);
+    void                 Initalize(std::wstring_view name, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t count);
     DescriptorAllocation Allocate(uint32_t numDescriptor = 1);
 
     ID3D12DescriptorHeap* GetHeapPointer() {

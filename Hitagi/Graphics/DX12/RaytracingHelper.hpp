@@ -59,10 +59,10 @@ public:
     }
     void AddLibrary(const Core::Buffer& dxiLibrary, const std::vector<std::wstring>& symbolExports);
 
-    void AddHitGroup(const std::wstring_view hitGroupName,
-                     const std::wstring_view closestHitSymbol,
-                     const std::wstring_view anyHitSymbol       = L"",
-                     const std::wstring_view intersectionSymbol = L"");
+    void AddHitGroup(std::wstring_view hitGroupName,
+                     std::wstring_view closestHitSymbol,
+                     std::wstring_view anyHitSymbol       = L"",
+                     std::wstring_view intersectionSymbol = L"");
 
     void AddRootSignatureAssociation(const RootSignature& rootSignature, const std::vector<std::wstring>& symbols);
     void SetGlobalSignature(const RootSignature& rootSignature);
@@ -86,10 +86,10 @@ private:
     };
 
     struct HitGroup {
-        HitGroup(const std::wstring_view hitGroupName,
-                 const std::wstring_view closestHitSymbol,
-                 const std::wstring_view anyHitSymbol       = L"",
-                 const std::wstring_view intersectionSymbol = L"");
+        HitGroup(std::wstring_view hitGroupName,
+                 std::wstring_view closestHitSymbol,
+                 std::wstring_view anyHitSymbol       = L"",
+                 std::wstring_view intersectionSymbol = L"");
 
         std::wstring         m_HitGroupName;
         std::wstring         m_ClosestHitSymbol;
@@ -126,7 +126,7 @@ private:
 
 class ShaderTable {
 public:
-    ShaderTable(const std::wstring_view name = L"") : m_Name(name), m_NumRecords(0), m_Stride(0) {
+    ShaderTable(std::wstring_view name = L"") : m_Name(name), m_NumRecords(0), m_Stride(0) {
         // the max size of root signature is 256 bytes
         m_Records.reserve(D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + 256);
     }
@@ -163,7 +163,7 @@ public:
             table.resize(table.size() + m_Stride - record.size());
         }
 
-        m_Buffer = GpuBuffer(m_Name, m_NumRecords, m_Stride, table.data());
+        m_Buffer.Create(m_Name, m_NumRecords, m_Stride, table.data());
         m_Records.clear();
     }
 
