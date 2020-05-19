@@ -79,7 +79,8 @@
         "clocale": "cpp",
         "condition_variable": "cpp",
         "cstdarg": "cpp",
-        "optional": "cpp"
+        "optional": "cpp",
+        "random": "cpp"
     },
     "path-intellisense.mappings": {
         "Asset": "${workspaceRoot}/Asset"

@@ -1,12 +1,15 @@
 #pragma once
 #include "Image.hpp"
 #include "GpuResource.hpp"
+#include "DescriptorAllocator.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 class GpuBuffer : public GpuResource {
 public:
     GpuBuffer() = default;
-
+    GpuBuffer(std::wstring_view name, size_t numElement, size_t elementSize, const void* initialData = nullptr) {
+        Create(name, numElement, elementSize, initialData);
+    }
     void Create(std::wstring_view name, size_t numElement, size_t elementSize, const void* initialData = nullptr);
 
     D3D12_VERTEX_BUFFER_VIEW VertexBufferView() const {
@@ -34,13 +37,14 @@ protected:
 
 class TextureBuffer : public GpuResource {
 public:
-    TextureBuffer(D3D12_CPU_DESCRIPTOR_HANDLE handle, const Resource::Image& image);
+    TextureBuffer(std::wstring_view name, const Resource::Image& image) { Create(name, image); }
+    void Create(std::wstring_view name, const Resource::Image& image);
 
-    const D3D12_CPU_DESCRIPTOR_HANDLE& GetSRV() const { return m_CpuDescriptorHandle; }
-    bool                               operator!() { return m_CpuDescriptorHandle.ptr == 0; }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetSRV() const { return m_SRV.GetDescriptorCpuHandle(); }
+    operator bool() const noexcept { return static_cast<bool>(m_SRV); }
 
 private:
-    D3D12_CPU_DESCRIPTOR_HANDLE m_CpuDescriptorHandle;
+    DescriptorAllocation m_SRV;
 };
 
 }  // namespace Hitagi::Graphics::DX12

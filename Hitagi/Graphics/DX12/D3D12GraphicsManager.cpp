@@ -196,9 +196,6 @@ void D3D12GraphicsManager::CreateSampler() {
 }
 
 bool D3D12GraphicsManager::InitializeShaders() {
-    Core::Buffer v_shader  = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/simple_vs.cso"),
-                 p1_shader = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/simple_ps_1.cso");
-
     m_ShaderManager.LoadShader("Asset/Shaders/simple_vs.cso", ShaderType::VERTEX, "simple");
     m_ShaderManager.LoadShader("Asset/Shaders/simple_ps_1.cso", ShaderType::PIXEL, "no_texture");
     m_ShaderManager.LoadShader("Asset/Shaders/simple_ps_2.cso", ShaderType::PIXEL, "texture");
@@ -283,8 +280,7 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
                     auto& vertexArray = mesh->GetVertexPropertyArray(inputLayout.SemanticName);
                     wss << inputLayout.SemanticName;
                     wss >> name;
-                    m->verticesBuffer.push_back(GpuBuffer());
-                    m->verticesBuffer.back().Create(
+                    m->verticesBuffer.emplace_back(
                         name,
                         vertexArray.GetVertexCount(),
                         vertexArray.GetDataSize() / vertexArray.GetVertexCount(),
@@ -304,9 +300,10 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     for (auto&& [key, material] : scene.Materials) {
         if (material) {
             if (auto texture = material->GetDiffuseColor().ValueMap; texture != nullptr) {
-                auto  guid  = texture->GetGuid();
-                auto& image = texture->GetTextureImage();
-                m_Textures.insert({guid, CreateTextureBuffer(image, i)});
+                auto               guid  = texture->GetGuid();
+                auto&              image = texture->GetTextureImage();
+                const std::string& name  = texture->GetName();
+                m_Textures.insert({guid, TextureBuffer(std::wstring(name.begin(), name.end()), image)});
                 i++;
             }
         }
@@ -353,11 +350,6 @@ void D3D12GraphicsManager::SetPrimitiveType(const Resource::PrimitiveType& primi
             pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
             break;
     }
-}
-
-TextureBuffer D3D12GraphicsManager::CreateTextureBuffer(const Resource::Image& image, size_t srvOffset) {
-    auto handle = m_CbvSrvUavDescriptors.GetDescriptorCpuHandle(m_SrvOffset + srvOffset);
-    return TextureBuffer(handle, image);
 }
 
 void D3D12GraphicsManager::ClearShaders() { m_GraphicsPSO.clear(); }
@@ -512,9 +504,8 @@ void D3D12GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const 
         std::vector<int>   index    = {0, 1};
         std::vector<vec3f> colors(position.size(), color);
 
-        meshBuffer->verticesBuffer.resize(2);
-        meshBuffer->verticesBuffer[0].Create(L"Debug Position", position.size(), sizeof(vec3f), position.data());
-        meshBuffer->verticesBuffer[1].Create(L"Debug Color", colors.size(), sizeof(vec3f), colors.data());
+        meshBuffer->verticesBuffer.emplace_back(L"Debug Position", position.size(), sizeof(vec3f), position.data());
+        meshBuffer->verticesBuffer.emplace_back(L"Debug Color", colors.size(), sizeof(vec3f), colors.data());
         meshBuffer->indicesBuffer.Create(L"Debug Index Buffer", index.size(), sizeof(int), index.data());
         meshBuffer->indexCount  = index.size();
         m_DebugMeshBuffer[name] = meshBuffer;
@@ -556,9 +547,8 @@ void D3D12GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, con
         std::vector<int> index    = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4};
         meshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
         std::vector<vec3f> colors(position.size(), color);
-        meshBuffer->verticesBuffer.resize(2);
-        meshBuffer->verticesBuffer[0].Create(L"Debug Position", position.size(), sizeof(vec3f), position.data());
-        meshBuffer->verticesBuffer[1].Create(L"Debug Color", colors.size(), sizeof(vec3f), colors.data());
+        meshBuffer->verticesBuffer.emplace_back(L"Debug Position", position.size(), sizeof(vec3f), position.data());
+        meshBuffer->verticesBuffer.emplace_back(L"Debug Color", colors.size(), sizeof(vec3f), colors.data());
         meshBuffer->indicesBuffer.Create(L"Debug Index Buffer", index.size(), sizeof(int), index.data());
         meshBuffer->indexCount = index.size();
 

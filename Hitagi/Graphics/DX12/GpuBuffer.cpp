@@ -24,7 +24,7 @@ void GpuBuffer::Create(std::wstring_view name, size_t numElement, size_t element
     }
 }
 
-TextureBuffer::TextureBuffer(D3D12_CPU_DESCRIPTOR_HANDLE handle, const Resource::Image& image) {
+void TextureBuffer::Create(std::wstring_view name, const Resource::Image& image) {
     m_UsageState = D3D12_RESOURCE_STATE_COPY_DEST;
 
     D3D12_RESOURCE_DESC desc = {};
@@ -44,14 +44,14 @@ TextureBuffer::TextureBuffer(D3D12_CPU_DESCRIPTOR_HANDLE handle, const Resource:
     ThrowIfFailed(g_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr,
                                                     IID_PPV_ARGS(m_Resource.ReleaseAndGetAddressOf())));
 
-    m_Resource->SetName(L"Texture");
+    m_Resource->SetName(name.data());
     D3D12_SUBRESOURCE_DATA texResource;
     texResource.pData    = image.getData();
     texResource.RowPitch = image.GetPitch();
 
     CommandContext::InitializeTexture(*this, 1, &texResource);
-    m_CpuDescriptorHandle = handle;
-    g_Device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_CpuDescriptorHandle);
+    if (!m_SRV) m_SRV = g_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Allocate();
+    g_Device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_SRV.GetDescriptorCpuHandle());
 }
 
 }  // namespace Hitagi::Graphics::DX12

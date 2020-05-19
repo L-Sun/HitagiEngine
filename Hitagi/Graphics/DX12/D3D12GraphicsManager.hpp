@@ -52,14 +52,13 @@ private:
 
     void PopulateCommandList(CommandContext& context);
 
-    void          CreateDescriptorHeaps();
-    void          SetPrimitiveType(const Resource::PrimitiveType& primitiveType, std::shared_ptr<MeshInfo> dbc);
-    void          CreateFrameResource();
-    void          CreateRootSignature();
-    void          CreateConstantBuffer();
-    TextureBuffer CreateTextureBuffer(const Resource::Image& image, size_t srvOffset);
-    void          CreateSampler();
-    void          BuildPipelineStateObject();
+    void CreateDescriptorHeaps();
+    void SetPrimitiveType(const Resource::PrimitiveType& primitiveType, std::shared_ptr<MeshInfo> dbc);
+    void CreateFrameResource();
+    void CreateRootSignature();
+    void CreateConstantBuffer();
+    void CreateSampler();
+    void BuildPipelineStateObject();
 
     void DrawRenderItems(CommandContext& context, const std::vector<DrawItem>& drawItems);
 
