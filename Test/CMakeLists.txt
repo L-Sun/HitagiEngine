@@ -3,7 +3,7 @@ add_executable(BufferTest BufferTest.cpp)
 target_link_libraries(BufferTest PRIVATE SceneManager)
 
 add_executable(FileIOManagerTest FileIOManagerTest.cpp)
-target_link_libraries(FileIOManagerTest PRIVATE Core)
+target_link_libraries(FileIOManagerTest PRIVATE FileIOManager)
 add_test(NAME TEST_FileIOManager COMMAND FileIOManagerTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(SceneLoadingTest SceneLoadingTest.cpp)
@@ -19,10 +19,10 @@ target_link_libraries(MathTest PRIVATE HitagiMath GTest::gtest)
 add_test(NAME TEST_Math COMMAND MathTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(TimerTest TimerTest.cpp)
-target_link_libraries(TimerTest PRIVATE Core GTest::gtest)
+target_link_libraries(TimerTest PRIVATE Timer GTest::gtest)
 add_test(NAME TEST_TimerTest COMMAND TimerTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(TextBitmapTest TextBitmapTest.cpp)
-target_link_libraries(TextBitmapTest PRIVATE freetype Core)
+target_link_libraries(TextBitmapTest PRIVATE freetype FileIOManager)
 
 add_subdirectory(DX12)

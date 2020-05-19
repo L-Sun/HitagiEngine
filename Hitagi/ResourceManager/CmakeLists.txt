@@ -6,7 +6,7 @@ add_library(ResourceManager
     Scene.cpp
     SceneObject.cpp
 )
-target_link_libraries(ResourceManager PUBLIC Core Parser PRIVATE crossguid)
+target_link_libraries(ResourceManager PUBLIC FileIOManager Parser PRIVATE crossguid)
 target_include_directories(ResourceManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
 
 add_library(SceneManager SceneManager.cpp)

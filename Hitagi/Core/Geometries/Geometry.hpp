@@ -2,7 +2,13 @@
 #include "aabb.hpp"
 
 namespace Hitagi::Physics {
-enum struct GeometryType { BOX, SPHERE, CYLINDER, CONE, PLANE, CAPSULE, TRIANGLE };
+enum struct GeometryType { BOX,
+                           SPHERE,
+                           CYLINDER,
+                           CONE,
+                           PLANE,
+                           CAPSULE,
+                           TRIANGLE };
 
 class Geometry {
 public:

@@ -1,5 +1,3 @@
-add_subdirectory(Geometries)
-
 add_library(HitagiPhysics HitagiPhysicsManager.cpp)
 target_link_libraries(HitagiPhysics
     PUBLIC

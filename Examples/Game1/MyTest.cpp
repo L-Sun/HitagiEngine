@@ -1,5 +1,4 @@
 #include "MyTest.hpp"
-#include "D3D12GraphicsManager.hpp"
 
 using namespace Hitagi;
 

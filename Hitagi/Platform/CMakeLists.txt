@@ -1,5 +1,5 @@
-add_library(BaseApplication BaseApplication.cpp)
-target_link_libraries(BaseApplication PUBLIC DebugManager GameLogic)
+add_library(BaseApplication main.cpp BaseApplication.cpp)
+target_link_libraries(BaseApplication PUBLIC DebugManager GameLogic Timer)
 target_include_directories(BaseApplication INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(Empty)
