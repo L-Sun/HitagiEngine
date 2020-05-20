@@ -6,6 +6,10 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <fmt/ostream.h>
 
+namespace Hitagi {
+std::unique_ptr<Core::FileIOManager> g_FileIOManager = std::make_unique<Core::FileIOManager>();
+}
+
 namespace Hitagi::Core {
 
 int FileIOManager::Initialize() {

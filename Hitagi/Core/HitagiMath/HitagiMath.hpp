@@ -1,7 +1,7 @@
 #pragma once
-#include "Vector.hpp"
-#include "Matrix.hpp"
-#include "Geometry.hpp"
+#include "./Vector.hpp"
+#include "./Matrix.hpp"
+#include "./Geometry.hpp"
 
 namespace Hitagi {
 constexpr double PI = 3.14159265358979323846;

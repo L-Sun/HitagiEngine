@@ -25,4 +25,8 @@ add_test(NAME TEST_TimerTest COMMAND TimerTest WORKING_DIRECTORY ${PROJECT_SOURC
 add_executable(TextBitmapTest TextBitmapTest.cpp)
 target_link_libraries(TextBitmapTest PRIVATE freetype FileIOManager)
 
+add_executable(ThreadPoolTest ThreadPoolTest.cpp)
+target_link_libraries(ThreadPoolTest PRIVATE ThreadManager)
+add_test(NAME TEST_ThreadPoolTest COMMAND ThreadPoolTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
 add_subdirectory(DX12)

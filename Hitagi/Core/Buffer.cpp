@@ -7,11 +7,19 @@
 namespace Hitagi::Core {
 
 Buffer::Buffer() : m_Data(nullptr), m_Size(0), m_Alignment(alignof(uint32_t)) {}
-Buffer::Buffer(size_t size, size_t alignment, const void* srcPtr, size_t copySize)
-    : m_Size(size), m_Alignment(alignment) {
+Buffer::Buffer(size_t size, size_t alignment)
+    : m_Size(size),
+      m_Alignment(alignment) {
     m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(size, m_Alignment));
-    if (srcPtr) std::memcpy(m_Data, srcPtr, std::min(size, copySize));
 }
+
+Buffer::Buffer(const void* initialData, size_t size, size_t alignment)
+    : m_Size(size),
+      m_Alignment(alignment) {
+    m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(size, m_Alignment));
+    std::memcpy(m_Data, initialData, m_Size);
+}
+
 Buffer::Buffer(const Buffer& buffer) {
     m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(buffer.m_Size, m_Alignment));
     std::memcpy(m_Data, buffer.m_Data, buffer.m_Size);

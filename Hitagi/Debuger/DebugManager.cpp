@@ -9,6 +9,7 @@
 #include "GraphicsManager.hpp"
 
 namespace Hitagi {
+std::unique_ptr<DebugManager> g_DebugManager = std::make_unique<DebugManager>();
 
 int DebugManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("DebugManager");

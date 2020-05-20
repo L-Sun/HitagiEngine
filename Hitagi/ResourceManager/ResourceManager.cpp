@@ -10,6 +10,10 @@
 
 #include "Assimp.hpp"
 
+namespace Hitagi {
+std::unique_ptr<Resource::ResourceManager> g_ResourceManager = std::make_unique<Resource::ResourceManager>();
+}
+
 namespace Hitagi::Resource {
 
 int ResourceManager::Initialize() {

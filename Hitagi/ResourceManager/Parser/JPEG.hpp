@@ -1,5 +1,5 @@
 #pragma once
-#include "../ImageParser.hpp"
+#include "ImageParser.hpp"
 
 namespace Hitagi::Resource {
 class JpegParser : public ImageParser {

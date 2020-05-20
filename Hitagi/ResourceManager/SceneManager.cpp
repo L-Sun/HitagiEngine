@@ -5,6 +5,10 @@
 
 #include "ResourceManager.hpp"
 
+namespace Hitagi {
+std::unique_ptr<Resource::SceneManager> g_SceneManager = std::make_unique<Resource::SceneManager>();
+}
+
 namespace Hitagi::Resource {
 
 SceneManager::~SceneManager() {}

@@ -280,17 +280,12 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
                     auto& vertexArray = mesh->GetVertexPropertyArray(inputLayout.SemanticName);
                     wss << inputLayout.SemanticName;
                     wss >> name;
-                    m->verticesBuffer.emplace_back(
-                        name,
-                        vertexArray.GetVertexCount(),
-                        vertexArray.GetDataSize() / vertexArray.GetVertexCount(),
-                        vertexArray.GetData());
+                    m->verticesBuffer.emplace_back(name, vertexArray.GetVertexCount(), vertexArray.GetVertexSize(), vertexArray.GetData());
                 }
             }
             auto& indexArray = mesh->GetIndexArray();
             m->indexCount    = indexArray.GetIndexCount();
-            m->indicesBuffer.Create(L"Index Buffer", indexArray.GetIndexCount(),
-                                    indexArray.GetDataSize() / indexArray.GetIndexCount(), indexArray.GetData());
+            m->indicesBuffer.Create(L"Index Buffer", indexArray.GetIndexCount(), indexArray.GetIndexSize(), indexArray.GetData());
             SetPrimitiveType(mesh->GetPrimitiveType(), m);
             m_Meshes[mesh->GetGuid()] = m;
         }

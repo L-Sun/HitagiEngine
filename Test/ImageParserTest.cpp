@@ -3,12 +3,6 @@
 #include "MemoryManager.hpp"
 #include "ResourceManager.hpp"
 
-namespace Hitagi {
-std::unique_ptr<Core::MemoryManager>       g_MemoryManager(new Core::MemoryManager);
-std::unique_ptr<Core::FileIOManager>       g_FileIOManager(new Core::FileIOManager);
-std::unique_ptr<Resource::ResourceManager> g_ResourceManager(new Resource::ResourceManager);
-}  // namespace Hitagi
-
 using namespace Hitagi;
 
 TEST(ImageParserTest, ErrorPath) {

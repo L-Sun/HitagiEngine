@@ -7,6 +7,8 @@
 
 namespace Hitagi {
 
+std::unique_ptr<InputManager> g_InputManager = std::make_unique<InputManager>();
+
 int InputManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("InputManager");
     m_Logger->info("Initialize...");

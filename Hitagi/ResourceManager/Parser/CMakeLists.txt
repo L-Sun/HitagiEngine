@@ -8,6 +8,7 @@ add_library(Parser
 
 target_link_libraries(Parser
     PRIVATE
+        ThreadManager
         MemoryManager
         HitagiMath
         ${JPEG_LIBRARIES}
@@ -16,7 +17,7 @@ target_link_libraries(Parser
         spdlog::spdlog
 )
 target_include_directories(Parser
-    INTERFACE
+    PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE
         ${JPEG_INCLUDE_DIR}

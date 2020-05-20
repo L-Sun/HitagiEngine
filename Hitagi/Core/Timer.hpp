@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <string>
 #include "IRuntimeModule.hpp"
 
 namespace Hitagi::Core {

@@ -52,7 +52,7 @@ void MyTest::Tick() {
 
     LightMove();
 
-    if (g_InputManager->GetBool(RESET_SCENE)) {
+    if (g_InputManager->GetBoolNew(RESET_SCENE)) {
         g_SceneManager->SetScene("Asset/Scene/test.fbx");
         g_SceneManager->ResetScene();
     }

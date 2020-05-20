@@ -12,6 +12,7 @@
 #include "ResourceManager.hpp"
 #include "GameLogic.hpp"
 #include "IPhysicsManager.hpp"
+#include "ThreadManager.hpp"
 
 using namespace Hitagi;
 
@@ -26,6 +27,7 @@ int BaseApplication::Initialize() {
     int ret = 0;
 
     m_Logger->info("Initialize Moudules...");
+    if ((ret = g_ThreadManager->Initialize()) != 0) return ret;
     if ((ret = g_MemoryManager->Initialize()) != 0) return ret;
     if ((ret = g_FileIOManager->Initialize()) != 0) return ret;
     if ((ret = g_InputManager->Initialize()) != 0) return ret;
@@ -52,6 +54,7 @@ void BaseApplication::Finalize() {
     g_InputManager->Finalize();
     g_FileIOManager->Finalize();
     g_MemoryManager->Finalize();
+    g_ThreadManager->Finalize();
 
     m_Clock.Finalize();
     m_Logger->info("Finalized.");
@@ -61,6 +64,7 @@ void BaseApplication::Finalize() {
 // One cycle of the main loop
 void BaseApplication::Tick() {
     m_Clock.Tick();
+    g_ThreadManager->Tick();
     g_MemoryManager->Tick();
     g_FileIOManager->Tick();
     g_InputManager->Tick();

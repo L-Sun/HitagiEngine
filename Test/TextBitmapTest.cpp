@@ -18,10 +18,6 @@ using namespace Hitagi;
 #endif
 #endif
 
-namespace Hitagi {
-std::unique_ptr<Core::MemoryManager> g_MemoryManager(new Core::MemoryManager);
-std::unique_ptr<Core::FileIOManager> g_FileIOManager(new Core::FileIOManager);
-}  // namespace Hitagi
 void Init() {
     g_MemoryManager->Initialize();
     g_FileIOManager->Initialize();

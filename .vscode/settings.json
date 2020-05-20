@@ -80,7 +80,8 @@
         "condition_variable": "cpp",
         "cstdarg": "cpp",
         "optional": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "future": "cpp"
     },
     "path-intellisense.mappings": {
         "Asset": "${workspaceRoot}/Asset"

@@ -5,6 +5,10 @@
 
 #include "portable.hpp"
 
+namespace Hitagi {
+std::unique_ptr<Core::MemoryManager> g_MemoryManager = std::make_unique<Core::MemoryManager>();
+}
+
 namespace Hitagi::Core {
 
 static const uint32_t kBlockSizes[] = {

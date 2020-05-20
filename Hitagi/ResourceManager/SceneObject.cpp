@@ -21,168 +21,94 @@ BaseSceneObject& BaseSceneObject::operator=(BaseSceneObject&& obj) {
 }
 
 // Class SceneObjectVertexArray
-SceneObjectVertexArray::SceneObjectVertexArray(std::string_view attr, uint32_t morphIndex,
-                                               const VertexDataType dataType, const void* data, size_t vertexCount)
-    : m_Attribute(attr), m_MorphTargetIndex(morphIndex), m_DataType(dataType), m_VertexCount(vertexCount) {
-    m_Data = g_MemoryManager->Allocate(GetDataSize());
-    std::memcpy(m_Data, data, GetDataSize());
-}
-SceneObjectVertexArray::SceneObjectVertexArray(const SceneObjectVertexArray& array)
-    : m_Attribute(array.m_Attribute),
-      m_MorphTargetIndex(array.m_MorphTargetIndex),
-      m_DataType(array.m_DataType),
-      m_VertexCount(array.m_VertexCount) {
-    m_Data = g_MemoryManager->Allocate(array.GetDataSize());
-    std::memcpy(m_Data, array.m_Data, array.GetDataSize());
-}
-SceneObjectVertexArray::SceneObjectVertexArray(SceneObjectVertexArray&& array)
-    : m_Attribute(std::move(array.m_Attribute)),
-      m_MorphTargetIndex(array.m_MorphTargetIndex),
-      m_DataType(array.m_DataType),
-      m_VertexCount(array.m_VertexCount),
-      m_Data(array.m_Data) {
-    array.m_Data = nullptr;
-}
-SceneObjectVertexArray& SceneObjectVertexArray::operator=(const SceneObjectVertexArray& rhs) {
-    if (this != &rhs) {
-        if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
-        m_Attribute        = rhs.m_Attribute;
-        m_MorphTargetIndex = rhs.m_MorphTargetIndex;
-        m_DataType         = rhs.m_DataType;
-        m_VertexCount      = rhs.m_VertexCount;
-        m_Data             = g_MemoryManager->Allocate(rhs.GetDataSize());
-        std::memcpy(m_Data, rhs.m_Data, rhs.GetDataSize());
-    }
-    return *this;
-}
-SceneObjectVertexArray& SceneObjectVertexArray::operator=(SceneObjectVertexArray&& rhs) {
-    if (this != &rhs) {
-        if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
-        m_Attribute        = std::move(rhs.m_Attribute);
-        m_MorphTargetIndex = rhs.m_MorphTargetIndex;
-        m_DataType         = rhs.m_DataType;
-        m_VertexCount      = rhs.m_VertexCount;
-        m_Data             = rhs.m_Data;
-        rhs.m_Data         = nullptr;
-    }
-    return *this;
-}
-SceneObjectVertexArray::~SceneObjectVertexArray() {
-    if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
-}
+
+SceneObjectVertexArray::SceneObjectVertexArray(std::string_view     attr,
+                                               const VertexDataType dataType,
+                                               const void*          data,
+                                               size_t               vertexCount,
+                                               uint32_t             morphIndex)
+    : m_Attribute(attr),
+      m_DataType(dataType),
+      m_VertexCount(vertexCount),
+      m_Data(data, GetVertexSize() * vertexCount),
+      m_MorphTargetIndex(morphIndex) {}
+
+SceneObjectVertexArray::SceneObjectVertexArray(std::string_view attr,
+                                               VertexDataType   dataType,
+                                               Core::Buffer&&   buffer,
+                                               uint32_t         morphIndex)
+    : m_Attribute(attr),
+      m_DataType(dataType),
+      m_VertexCount(buffer.GetDataSize() / GetVertexSize()),
+      m_Data(std::move(buffer)),
+      m_MorphTargetIndex(morphIndex) {}
+
 const std::string& SceneObjectVertexArray::GetAttributeName() const { return m_Attribute; }
 VertexDataType     SceneObjectVertexArray::GetDataType() const { return m_DataType; }
-size_t             SceneObjectVertexArray::GetDataSize() const {
-    size_t vertexSize;
+size_t             SceneObjectVertexArray::GetDataSize() const { return m_Data.GetDataSize(); }
+const void*        SceneObjectVertexArray::GetData() const { return m_Data.GetData(); }
+size_t             SceneObjectVertexArray::GetVertexCount() const { return m_VertexCount; }
+size_t             SceneObjectVertexArray::GetVertexSize() const {
     switch (m_DataType) {
         case VertexDataType::FLOAT1:
-            vertexSize = sizeof(float) * 1;
-            break;
+            return sizeof(float) * 1;
         case VertexDataType::FLOAT2:
-            vertexSize = sizeof(float) * 2;
-            break;
+            return sizeof(float) * 2;
         case VertexDataType::FLOAT3:
-            vertexSize = sizeof(float) * 3;
-            break;
+            return sizeof(float) * 3;
         case VertexDataType::FLOAT4:
-            vertexSize = sizeof(float) * 4;
-            break;
+            return sizeof(float) * 4;
         case VertexDataType::DOUBLE1:
-            vertexSize = sizeof(double) * 1;
-            break;
+            return sizeof(double) * 1;
         case VertexDataType::DOUBLE2:
-            vertexSize = sizeof(double) * 2;
-            break;
+            return sizeof(double) * 2;
         case VertexDataType::DOUBLE3:
-            vertexSize = sizeof(double) * 3;
-            break;
+            return sizeof(double) * 3;
         case VertexDataType::DOUBLE4:
-            vertexSize = sizeof(double) * 4;
-            break;
-        default:
-            vertexSize = 0;
-            break;
+            return sizeof(double) * 4;
     }
-    return vertexSize * GetVertexCount();
 }
-const void* SceneObjectVertexArray::GetData() const { return m_Data; }
-size_t      SceneObjectVertexArray::GetVertexCount() const { return m_VertexCount; }
 
 // Class SceneObjectIndexArray
-SceneObjectIndexArray::SceneObjectIndexArray(const uint32_t restart_index, const IndexDataType dataType,
-                                             const void* data, const size_t indexCount)
-    : m_ResetartIndex(restart_index), m_DataType(dataType), m_IndexCount(indexCount) {
-    m_Data = g_MemoryManager->Allocate(GetDataSize());
-    std::memcpy(m_Data, data, GetDataSize());
-}
-SceneObjectIndexArray::SceneObjectIndexArray(const SceneObjectIndexArray& array)
-    : m_ResetartIndex(array.m_ResetartIndex), m_DataType(array.m_DataType), m_IndexCount(array.m_IndexCount) {
-    m_Data = g_MemoryManager->Allocate(array.GetDataSize());
-    std::memcpy(m_Data, array.m_Data, array.GetDataSize());
-}
-SceneObjectIndexArray::SceneObjectIndexArray(SceneObjectIndexArray&& array)
-    : m_ResetartIndex(array.m_ResetartIndex),
-      m_DataType(array.m_DataType),
-      m_IndexCount(array.m_IndexCount),
-      m_Data(array.m_Data) {
-    array.m_Data = nullptr;
-}
-SceneObjectIndexArray& SceneObjectIndexArray::operator=(const SceneObjectIndexArray& rhs) {
-    if (this != &rhs) {
-        if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
-        m_ResetartIndex = rhs.m_ResetartIndex;
-        m_DataType      = rhs.m_DataType;
-        m_IndexCount    = rhs.m_IndexCount;
-        m_Data          = g_MemoryManager->Allocate(rhs.GetDataSize());
-        std::memcpy(m_Data, rhs.m_Data, rhs.GetDataSize());
-    }
-    return *this;
-}
-SceneObjectIndexArray& SceneObjectIndexArray::operator=(SceneObjectIndexArray&& rhs) {
-    if (this != &rhs) {
-        if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
-        m_ResetartIndex = rhs.m_ResetartIndex;
-        m_DataType      = rhs.m_DataType;
-        m_IndexCount    = rhs.m_IndexCount;
-        m_Data          = rhs.m_Data;
-        rhs.m_Data      = nullptr;
-    }
-    return *this;
-}
-SceneObjectIndexArray::~SceneObjectIndexArray() {
-    if (m_Data) g_MemoryManager->Free(m_Data, GetDataSize());
-}
-const IndexDataType SceneObjectIndexArray::GetIndexType() const { return m_DataType; }
-const void*         SceneObjectIndexArray::GetData() const { return m_Data; }
-size_t              SceneObjectIndexArray::GetIndexCount() const { return m_IndexCount; }
-size_t              SceneObjectIndexArray::GetDataSize() const {
-    size_t size;
+SceneObjectIndexArray::SceneObjectIndexArray(
+    const IndexDataType dataType,
+    const void*         data,
+    const size_t        indexCount,
+    const uint32_t      restartIndex)
+    : m_DataType(dataType),
+      m_IndexCount(indexCount),
+      m_Data(data, GetIndexSize() * indexCount),
+      m_ResetartIndex(restartIndex) {}
 
+SceneObjectIndexArray::SceneObjectIndexArray(
+    const IndexDataType dataType,
+    Core::Buffer&&      data,
+    const uint32_t      restartIndex)
+    : m_DataType(dataType),
+      m_IndexCount(data.GetDataSize() / GetIndexSize()),
+      m_Data(std::move(data)),
+      m_ResetartIndex(restartIndex) {}
+
+const IndexDataType SceneObjectIndexArray::GetIndexType() const { return m_DataType; }
+const void*         SceneObjectIndexArray::GetData() const { return m_Data.GetData(); }
+size_t              SceneObjectIndexArray::GetIndexCount() const { return m_IndexCount; }
+size_t              SceneObjectIndexArray::GetDataSize() const { return m_Data.GetDataSize(); }
+size_t              SceneObjectIndexArray::GetIndexSize() const {
     switch (m_DataType) {
         case IndexDataType::INT8:
-            size = m_IndexCount * sizeof(int8_t);
-            break;
+            return sizeof(int8_t);
         case IndexDataType::INT16:
-            size = m_IndexCount * sizeof(int16_t);
-            break;
+            return sizeof(int16_t);
         case IndexDataType::INT32:
-            size = m_IndexCount * sizeof(int32_t);
-            break;
+            return sizeof(int32_t);
         case IndexDataType::INT64:
-            size = m_IndexCount * sizeof(int64_t);
-            break;
-        default:
-            size = 0;
-            break;
+            return sizeof(int64_t);
     }
-    return size;
 }
 
 // Class SceneObjectMesh
-void SceneObjectMesh::AddIndexArray(SceneObjectIndexArray&& array) { m_IndexArray = std::move(array); }
-void SceneObjectMesh::AddVertexArray(SceneObjectVertexArray&& array) {
-    m_VertexArray.insert({array.GetAttributeName(), std::move(array)});
-}
+void   SceneObjectMesh::AddIndexArray(SceneObjectIndexArray&& array) { m_IndexArray = std::move(array); }
+void   SceneObjectMesh::AddVertexArray(SceneObjectVertexArray&& array) { m_VertexArray.insert({array.GetAttributeName(), std::move(array)}); }
 void   SceneObjectMesh::SetPrimitiveType(PrimitiveType type) { m_PrimitiveType = type; }
 void   SceneObjectMesh::SetMaterial(const std::weak_ptr<SceneObjectMaterial>& material) { m_Material = material; }
 size_t SceneObjectMesh::GetVertexCount() const {
@@ -424,31 +350,32 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
     out << "Data Size:          " << obj.GetDataSize() << " bytes" << std::endl;
     out << "Data Count:         " << obj.GetVertexCount() << std::endl;
     out << "Data:               ";
+    const void* data = obj.m_Data.GetData();
     for (size_t i = 0; i < obj.GetVertexCount(); i++) {
         switch (obj.m_DataType) {
             case VertexDataType::FLOAT1:
-                std::cout << *(reinterpret_cast<const float*>(obj.m_Data) + i) << " ";
+                std::cout << *(reinterpret_cast<const float*>(data) + i) << " ";
                 break;
             case VertexDataType::FLOAT2:
-                std::cout << *(reinterpret_cast<const vec2f*>(obj.m_Data) + i) << " ";
+                std::cout << *(reinterpret_cast<const vec2f*>(data) + i) << " ";
                 break;
             case VertexDataType::FLOAT3:
-                std::cout << *(reinterpret_cast<const vec3f*>(obj.m_Data) + i) << " ";
+                std::cout << *(reinterpret_cast<const vec3f*>(data) + i) << " ";
                 break;
             case VertexDataType::FLOAT4:
-                std::cout << *(reinterpret_cast<const vec4f*>(obj.m_Data) + i) << " ";
+                std::cout << *(reinterpret_cast<const vec4f*>(data) + i) << " ";
                 break;
             case VertexDataType::DOUBLE1:
-                std::cout << *(reinterpret_cast<const double*>(obj.m_Data) + i) << " ";
+                std::cout << *(reinterpret_cast<const double*>(data) + i) << " ";
                 break;
             case VertexDataType::DOUBLE2:
-                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(obj.m_Data) + i) << " ";
+                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(data) + i) << " ";
                 break;
             case VertexDataType::DOUBLE3:
-                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(obj.m_Data) + i) << " ";
+                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(data) + i) << " ";
                 break;
             case VertexDataType::DOUBLE4:
-                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(obj.m_Data) + i) << " ";
+                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(data) + i) << " ";
                 break;
             default:
                 break;
@@ -461,19 +388,20 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
     out << "Index Data Type: " << TypeToString(obj.m_DataType) << std::endl;
     out << "Data Size:       " << obj.GetDataSize() << std::endl;
     out << "Data:            ";
+    auto data = obj.GetData();
     for (size_t i = 0; i < obj.GetIndexCount(); i++) {
         switch (obj.m_DataType) {
             case IndexDataType::INT8:
-                out << reinterpret_cast<const int8_t*>(obj.m_Data)[i] << ' ';
+                out << reinterpret_cast<const int8_t*>(data)[i] << ' ';
                 break;
             case IndexDataType::INT16:
-                out << reinterpret_cast<const int16_t*>(obj.m_Data)[i] << ' ';
+                out << reinterpret_cast<const int16_t*>(data)[i] << ' ';
                 break;
             case IndexDataType::INT32:
-                out << reinterpret_cast<const int32_t*>(obj.m_Data)[i] << ' ';
+                out << reinterpret_cast<const int32_t*>(data)[i] << ' ';
                 break;
             case IndexDataType::INT64:
-                out << reinterpret_cast<const int64_t*>(obj.m_Data)[i] << ' ';
+                out << reinterpret_cast<const int64_t*>(data)[i] << ' ';
                 break;
             default:
                 break;

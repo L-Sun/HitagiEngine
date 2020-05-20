@@ -6,7 +6,8 @@ namespace Hitagi::Core {
 class Buffer {
 public:
     Buffer();
-    Buffer(size_t size, size_t alignment = 4, const void* srcPtr = nullptr, size_t copySize = 0);
+    Buffer(size_t size, size_t alignment = 4);
+    Buffer(const void* initialData, size_t size, size_t alignment = 4);
     Buffer(const Buffer& buffer);
     Buffer(Buffer&& buffer);
     Buffer& operator=(const Buffer& rhs);

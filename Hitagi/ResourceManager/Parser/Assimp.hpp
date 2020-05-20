@@ -1,5 +1,5 @@
 #pragma once
-#include "../SceneParser.hpp"
+#include "SceneParser.hpp"
 
 namespace Hitagi::Resource {
 class AssimpParser : public SceneParser {

@@ -1,5 +1,5 @@
 #pragma once
-#include "Scene.hpp"
+#include "../Scene.hpp"
 #include "Buffer.hpp"
 
 namespace Hitagi::Resource {

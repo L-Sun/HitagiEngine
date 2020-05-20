@@ -3,6 +3,7 @@
 
 #include "HitagiMath.hpp"
 #include "Image.hpp"
+#include "Buffer.hpp"
 
 namespace Hitagi::Resource {
 enum struct SceneObjectType : int32_t {
@@ -204,52 +205,75 @@ public:
 };
 
 class SceneObjectVertexArray {
-protected:
-    std::string    m_Attribute;
-    uint32_t       m_MorphTargetIndex;
-    VertexDataType m_DataType;
-    size_t         m_VertexCount;
-    void*          m_Data = nullptr;
-
 public:
-    SceneObjectVertexArray(std::string_view attr = "", uint32_t morph_index = 0,
-                           const VertexDataType dataType = VertexDataType::FLOAT3, const void* data = nullptr,
-                           size_t vertexCount = 0);
-    SceneObjectVertexArray(const SceneObjectVertexArray& array);
-    SceneObjectVertexArray(SceneObjectVertexArray&& array);
-    SceneObjectVertexArray& operator=(const SceneObjectVertexArray& rhs);
-    SceneObjectVertexArray& operator=(SceneObjectVertexArray&& rhs);
-    ~SceneObjectVertexArray();
+    SceneObjectVertexArray(
+        std::string_view attr        = "",
+        VertexDataType   dataType    = VertexDataType::FLOAT3,
+        const void*      data        = nullptr,
+        size_t           vertexCount = 0,
+        uint32_t         morphIndex  = 0);
+
+    SceneObjectVertexArray(
+        std::string_view attr,
+        VertexDataType   dataType,
+        Core::Buffer&&   buffer,
+        uint32_t         morphIndex = 0);
+
+    SceneObjectVertexArray(const SceneObjectVertexArray&) = default;
+    SceneObjectVertexArray(SceneObjectVertexArray&&)      = default;
+    SceneObjectVertexArray& operator=(const SceneObjectVertexArray&) = default;
+    SceneObjectVertexArray& operator=(SceneObjectVertexArray&&) = default;
+    ~SceneObjectVertexArray()                                   = default;
 
     const std::string&   GetAttributeName() const;
     VertexDataType       GetDataType() const;
     size_t               GetDataSize() const;
     const void*          GetData() const;
     size_t               GetVertexCount() const;
+    size_t               GetVertexSize() const;
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj);
+
+private:
+    std::string    m_Attribute;
+    VertexDataType m_DataType;
+    size_t         m_VertexCount;
+    Core::Buffer   m_Data;
+
+    uint32_t m_MorphTargetIndex;
 };
 
 class SceneObjectIndexArray {
-protected:
-    size_t        m_ResetartIndex;
-    IndexDataType m_DataType;
-    size_t        m_IndexCount;
-    void*         m_Data = nullptr;
-
 public:
-    SceneObjectIndexArray(const uint32_t restartIndex = 0, const IndexDataType dataType = IndexDataType::INT16,
-                          const void* data = nullptr, const size_t elementCount = 0);
-    SceneObjectIndexArray(const SceneObjectIndexArray& array);
-    SceneObjectIndexArray(SceneObjectIndexArray&& array);
-    SceneObjectIndexArray& operator=(const SceneObjectIndexArray& rhs);
-    SceneObjectIndexArray& operator=(SceneObjectIndexArray&& rhs);
-    ~SceneObjectIndexArray();
+    SceneObjectIndexArray(
+        const IndexDataType dataType     = IndexDataType::INT16,
+        const void*         data         = nullptr,
+        const size_t        elementCount = 0,
+        const uint32_t      restartIndex = 0);
+
+    SceneObjectIndexArray(
+        const IndexDataType dataType,
+        Core::Buffer&&      data,
+        const uint32_t      restartIndex = 0);
+
+    SceneObjectIndexArray(const SceneObjectIndexArray&) = default;
+    SceneObjectIndexArray(SceneObjectIndexArray&&)      = default;
+    SceneObjectIndexArray& operator=(const SceneObjectIndexArray&) = default;
+    SceneObjectIndexArray& operator=(SceneObjectIndexArray&&) = default;
+    ~SceneObjectIndexArray()                                  = default;
 
     const IndexDataType  GetIndexType() const;
     const void*          GetData() const;
     size_t               GetIndexCount() const;
     size_t               GetDataSize() const;
+    size_t               GetIndexSize() const;
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj);
+
+private:
+    IndexDataType m_DataType;
+    size_t        m_IndexCount;
+    Core::Buffer  m_Data;
+
+    size_t m_ResetartIndex;
 };
 
 class SceneObjectMesh : public BaseSceneObject {
