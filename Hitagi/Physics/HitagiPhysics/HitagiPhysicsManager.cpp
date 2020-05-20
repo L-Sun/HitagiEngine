@@ -3,10 +3,6 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "Box.hpp"
-#include "Plane.hpp"
-#include "Sphere.hpp"
-
 namespace Hitagi::Physics {
 
 int HitagiPhysicsManager::Initialize() {
@@ -86,36 +82,36 @@ std::array<vec3f, 2> HitagiPhysicsManager::GetAABB(Resource::SceneGeometryNode& 
 }
 
 void HitagiPhysicsManager::CreateRigidBody(Resource::SceneGeometryNode& node) {
-    auto geometry = node.GetSceneObjectRef().lock();
-    if (!geometry) return;
+    // auto geometry = node.GetSceneObjectRef().lock();
+    // if (!geometry) return;
 
-    const float*               param     = geometry->CollisionParameters();
-    std::shared_ptr<RigidBody> rigidBody = nullptr;
+    // const float*               param     = geometry->CollisionParameters();
+    // std::shared_ptr<RigidBody> rigidBody = nullptr;
 
-    switch (geometry->CollisionType()) {
-        case Resource::SceneObjectCollisionType::SPHERE: {
-            auto collisionBox = std::make_shared<Sphere>(param[0]);
-            auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
-            rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
-        } break;
-        case Resource::SceneObjectCollisionType::BOX: {
-            auto collisionBox = std::make_shared<Box>(vec3f(param));
-            auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
-            rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
-        } break;
-        case Resource::SceneObjectCollisionType::PLANE: {
-            auto collisionBox = std::make_shared<Plane>(vec3f(param), param[3]);
-            auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
-            rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
-        } break;
-        default: {
-            // create AABB box according to Bounding Box
-            vec3f aabbMin, aabbMax;
-            auto  collisionBox = std::make_shared<Box>(aabbMax - aabbMin);
-            auto  motionState = std::make_shared<MotionState>(node.GetCalculatedTransform(), 0.5 * (aabbMin + aabbMax));
-            rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
-        }
-    }
+    // switch (geometry->CollisionType()) {
+    //     case Resource::SceneObjectCollisionType::SPHERE: {
+    //         auto collisionBox = std::make_shared<Sphere>(param[0]);
+    //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
+    //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
+    //     } break;
+    //     case Resource::SceneObjectCollisionType::BOX: {
+    //         auto collisionBox = std::make_shared<Box>(vec3f(param));
+    //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
+    //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
+    //     } break;
+    //     case Resource::SceneObjectCollisionType::PLANE: {
+    //         auto collisionBox = std::make_shared<Plane>(vec3f(param), param[3]);
+    //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
+    //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
+    //     } break;
+    //     default: {
+    //         // create AABB box according to Bounding Box
+    //         vec3f aabbMin, aabbMax;
+    //         auto  collisionBox = std::make_shared<Box>(aabbMax - aabbMin);
+    //         auto  motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform(), 0.5 * (aabbMin + aabbMax));
+    //         rigidBody          = std::make_shared<RigidBody>(collisionBox, motionState);
+    //     }
+    // }
 }
 
 void HitagiPhysicsManager::UpdateRigidBodyTransform(Resource::SceneGeometryNode& node) {
@@ -153,7 +149,7 @@ void HitagiPhysicsManager::DrawDebugInfo() {
     // }
 }
 
-void HitagiPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass) {}
+void HitagiPhysicsManager::DrawAabb(const Core::Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass) {}
 
 #endif
 }  // namespace Hitagi::Physics

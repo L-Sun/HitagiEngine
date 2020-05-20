@@ -2,7 +2,6 @@ add_library(HitagiPhysics HitagiPhysicsManager.cpp)
 target_link_libraries(HitagiPhysics
     PUBLIC
         PhysicsManager
-        Geometries
     PRIVATE
         spdlog::spdlog
 )

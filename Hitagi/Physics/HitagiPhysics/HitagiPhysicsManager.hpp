@@ -1,7 +1,7 @@
 #pragma once
 #include "IPhysicsManager.hpp"
 #include "RigidBody.hpp"
-#include "Geometry.hpp"
+#include "HitagiMath.hpp"
 
 namespace Hitagi::Physics {
 class HitagiPhysicsManager : public IPhysicsManager {
@@ -28,7 +28,7 @@ public:
 
 private:
 #if defined(_DEBUG)
-    void DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass);
+    void DrawAabb(const Core::Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass);
 #endif
 
     std::unordered_map<std::string, RigidBody> m_RigidBodies;

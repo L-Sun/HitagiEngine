@@ -214,6 +214,18 @@ struct Vector : public BaseVector<T, D> {
     }
 };
 
+using vec2f = Vector<float, 2>;
+using vec3f = Vector<float, 3>;
+using vec4f = Vector<float, 4>;
+using quatf = Vector<float, 4>;
+
+using vec2d = Vector<double, 2>;
+using vec3d = Vector<double, 3>;
+using vec4d = Vector<double, 4>;
+using quatd = Vector<double, 4>;
+
+using R8G8B8A8Unorm = Vector<uint8_t, 4>;
+
 template <typename T, unsigned D>
 T dot(const Vector<T, D>& v1, const Vector<T, D>& v2) {
     T result = 0;

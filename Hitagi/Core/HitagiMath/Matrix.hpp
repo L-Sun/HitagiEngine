@@ -122,6 +122,14 @@ struct Matrix {
     }
 };
 
+using mat3f = Matrix<float, 3>;
+using mat4f = Matrix<float, 4>;
+using mat8f = Matrix<float, 8>;
+
+using mat3d = Matrix<double, 3>;
+using mat4d = Matrix<double, 4>;
+using mat8d = Matrix<double, 8>;
+
 template <typename T, unsigned D>
 Matrix<T, D> mulByElement(const Matrix<T, D>& m1, const Matrix<T, D>& m2) {
     Matrix result(0);

@@ -1,28 +1,10 @@
 #pragma once
-#include "./Math/Vector.hpp"
-#include "./Math/Matrix.hpp"
+#include "Vector.hpp"
+#include "Matrix.hpp"
+#include "Geometry.hpp"
 
 namespace Hitagi {
 constexpr double PI = 3.14159265358979323846;
-// Float
-using vec2f = Vector<float, 2>;
-using vec3f = Vector<float, 3>;
-using vec4f = Vector<float, 4>;
-using quatf = Vector<float, 4>;
-using mat3f = Matrix<float, 3>;
-using mat4f = Matrix<float, 4>;
-using mat8f = Matrix<float, 8>;
-
-// Double
-using vec2d = Vector<double, 2>;
-using vec3d = Vector<double, 3>;
-using vec4d = Vector<double, 4>;
-using quatd = Vector<double, 4>;
-using mat3d = Matrix<double, 3>;
-using mat4d = Matrix<double, 4>;
-using mat8d = Matrix<double, 8>;
-
-using R8G8B8A8Unorm = Vector<uint8_t, 4>;
 
 template <typename T>
 inline T radians(T angle) {
