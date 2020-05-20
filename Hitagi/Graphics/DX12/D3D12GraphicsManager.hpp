@@ -20,6 +20,7 @@ private:
         std::shared_ptr<MeshInfo>                    meshBuffer;
         std::weak_ptr<Resource::SceneObjectMaterial> material;
         std::string                                  psoName;
+        ObjectConstants                              constants;
         size_t                                       constantBufferIndex;
         unsigned                                     numFramesDirty;
     };
@@ -34,8 +35,7 @@ public:
 
     void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) final;
 #if defined(_DEBUG)
-    void RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) final;
-    void RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) final;
+    void DrawDebugMesh(const Resource::SceneObjectMesh& mesh, const mat4f& transform, const vec4f& color) final;
     void ClearDebugBuffers() final;
 #endif  // DEBUG
 
@@ -53,12 +53,13 @@ private:
     void PopulateCommandList(CommandContext& context);
 
     void CreateDescriptorHeaps();
-    void SetPrimitiveType(const Resource::PrimitiveType& primitiveType, std::shared_ptr<MeshInfo> dbc);
     void CreateFrameResource();
     void CreateRootSignature();
     void CreateConstantBuffer();
     void CreateSampler();
     void BuildPipelineStateObject();
+
+    static D3D_PRIMITIVE_TOPOLOGY GetD3DPrimitiveType(const Resource::PrimitiveType& primitiveType);
 
     void DrawRenderItems(CommandContext& context, const std::vector<DrawItem>& drawItems);
 
@@ -98,11 +99,9 @@ private:
     std::vector<DrawItem>                                   m_DrawItems;
 
 #if defined(_DEBUG)
-    std::vector<std::shared_ptr<Resource::SceneGeometryNode>>
-        m_DebugNode;
-    std::unordered_map<std::string, std::shared_ptr<MeshInfo>> m_DebugMeshBuffer;
-    std::vector<D3D12_INPUT_ELEMENT_DESC>                      m_DebugInputLayout;
-    std::vector<DrawItem>                                      m_DebugDrawItems;
+    std::vector<std::shared_ptr<Resource::SceneGeometryNode>> m_DebugNode;
+    std::vector<D3D12_INPUT_ELEMENT_DESC>                     m_DebugInputLayout;
+    std::vector<DrawItem>                                     m_DebugDrawItems;
 #endif  // DEBUG
 };
 }  // namespace Hitagi::Graphics::DX12

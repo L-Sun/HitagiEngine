@@ -209,8 +209,7 @@ bool D3D12GraphicsManager::InitializeShaders() {
     m_ShaderManager.LoadShader("Asset/Shaders/debug_vs.cso", ShaderType::VERTEX, "debug");
     m_ShaderManager.LoadShader("Asset/Shaders/debug_ps.cso", ShaderType::PIXEL, "debug");
 
-    m_DebugInputLayout = {{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0},
-                          {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0}};
+    m_DebugInputLayout = {{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0}};
 
 #endif  // DEBUG
 
@@ -286,7 +285,7 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
             auto& indexArray = mesh->GetIndexArray();
             m->indexCount    = indexArray.GetIndexCount();
             m->indicesBuffer.Create(L"Index Buffer", indexArray.GetIndexCount(), indexArray.GetIndexSize(), indexArray.GetData());
-            SetPrimitiveType(mesh->GetPrimitiveType(), m);
+            m->primitiveType          = GetD3DPrimitiveType(mesh->GetPrimitiveType());
             m_Meshes[mesh->GetGuid()] = m;
         }
     }
@@ -326,24 +325,24 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     }
 }
 
-void D3D12GraphicsManager::SetPrimitiveType(const Resource::PrimitiveType& primitiveType,
-                                            std::shared_ptr<MeshInfo>      pMeshBuffer) {
+D3D_PRIMITIVE_TOPOLOGY D3D12GraphicsManager::GetD3DPrimitiveType(const Resource::PrimitiveType& primitiveType) {
     switch (primitiveType) {
         case Resource::PrimitiveType::LINE_LIST:
-            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-            break;
+            return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
         case Resource::PrimitiveType::LINE_LIST_ADJACENCY:
-            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ;
-            break;
+            return D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ;
+        case Resource::PrimitiveType::LINE_STRIP:
+            return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+        case Resource::PrimitiveType::LINE_STRIP_ADJACENCY:
+            return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ;
         case Resource::PrimitiveType::TRI_LIST:
-            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-            break;
+            return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
         case Resource::PrimitiveType::TRI_LIST_ADJACENCY:
-            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
-            break;
+            return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
+        case Resource::PrimitiveType::POINT_LIST:
+            return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
         default:
-            pMeshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-            break;
+            return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
     }
 }
 
@@ -357,7 +356,6 @@ void D3D12GraphicsManager::ClearBuffers() {
 
 #if defined(_DEBUG)
     ClearDebugBuffers();
-    m_DebugMeshBuffer.clear();
 #endif  // DEBUG
 }
 
@@ -389,22 +387,21 @@ void D3D12GraphicsManager::UpdateConstants() {
             d.numFramesDirty = m_FrameResourceSize;
         }
         if (d.numFramesDirty > 0) {
-            ObjectConstants oc;
-            oc.model = transpose(node->GetCalculatedTransform());
+            d.constants.model = transpose(node->GetCalculatedTransform());
 
             if (auto material = d.material.lock()) {
-                auto& ambientColor  = material->GetAmbientColor();
-                oc.ambient          = ambientColor.ValueMap ? vec4f(-1.0f) : ambientColor.Value;
-                auto& diffuseColor  = material->GetDiffuseColor();
-                oc.diffuse          = diffuseColor.ValueMap ? vec4f(-1.0f) : diffuseColor.Value;
-                auto& emissionColor = material->GetEmission();
-                oc.emission         = emissionColor.ValueMap ? vec4f(-1.0f) : emissionColor.Value;
-                auto& specularColor = material->GetSpecularColor();
-                oc.specular         = specularColor.ValueMap ? vec4f(-1.0f) : specularColor.Value;
-                oc.specularPower    = material->GetSpecularPower().Value;
+                auto& ambientColor        = material->GetAmbientColor();
+                d.constants.ambient       = ambientColor.ValueMap ? vec4f(-1.0f) : ambientColor.Value;
+                auto& diffuseColor        = material->GetDiffuseColor();
+                d.constants.diffuse       = diffuseColor.ValueMap ? vec4f(-1.0f) : diffuseColor.Value;
+                auto& emissionColor       = material->GetEmission();
+                d.constants.emission      = emissionColor.ValueMap ? vec4f(-1.0f) : emissionColor.Value;
+                auto& specularColor       = material->GetSpecularColor();
+                d.constants.specular      = specularColor.ValueMap ? vec4f(-1.0f) : specularColor.Value;
+                d.constants.specularPower = material->GetSpecularPower().Value;
             }
 
-            currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
+            currFR->UpdateObjectConstants(d.constantBufferIndex, d.constants);
             d.numFramesDirty--;
         }
     }
@@ -412,9 +409,8 @@ void D3D12GraphicsManager::UpdateConstants() {
 #if defined(_DEBUG)
     for (auto&& d : m_DebugDrawItems) {
         if (auto node = d.node.lock()) {
-            ObjectConstants oc;
-            oc.model = transpose(node->GetCalculatedTransform());
-            currFR->UpdateObjectConstants(d.constantBufferIndex, oc);
+            d.constants.model = transpose(node->GetCalculatedTransform());
+            currFR->UpdateObjectConstants(d.constantBufferIndex, d.constants);
         }
     }
 #endif
@@ -426,7 +422,7 @@ void D3D12GraphicsManager::RenderBuffers() {
     CommandContext context("Render");
     PopulateCommandList(context);
 
-    currFR->fence = context.Finish();
+    currFR->fence = context.Finish(true);
     ThrowIfFailed(m_SwapChain->Present(0, 0));
     m_CurrBackBuffer = (m_CurrBackBuffer + 1) % m_FrameCount;
 }
@@ -483,85 +479,28 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
 void D3D12GraphicsManager::RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) {}
 
 #if defined(_DEBUG)
-void D3D12GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
-    std::string name;
-    if (color.r > 0)
-        name = "debug_line-x";
-    else if (color.b > 0)
-        name = "debug_line-y";
-    else
-        name = "debug_line-z";
+void D3D12GraphicsManager::DrawDebugMesh(const Resource::SceneObjectMesh& mesh, const mat4f& transform, const vec4f& color) {
+    DrawItem drawItem;
+    // initialize mesh buffer
+    drawItem.meshBuffer  = std::make_shared<MeshInfo>();
+    const auto& position = mesh.GetVertexPropertyArray("POSITION");
+    const auto& indices  = mesh.GetIndexArray();
+    drawItem.meshBuffer->verticesBuffer.emplace_back(
+        L"POSITION", position.GetVertexCount(), position.GetVertexSize(), position.GetData());
+    drawItem.meshBuffer->indicesBuffer.Create(L"Index Buffer", indices.GetIndexCount(), indices.GetIndexSize(), indices.GetData());
+    drawItem.meshBuffer->primitiveType = GetD3DPrimitiveType(mesh.GetPrimitiveType());
+    drawItem.meshBuffer->indexCount    = indices.GetIndexCount();
 
-    if (m_DebugMeshBuffer.find(name) == m_DebugMeshBuffer.end()) {
-        auto meshBuffer             = std::make_shared<MeshInfo>();
-        meshBuffer->primitiveType   = D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-        std::vector<vec3f> position = {{0, 0, 0}, {1, 0, 0}};
-        std::vector<int>   index    = {0, 1};
-        std::vector<vec3f> colors(position.size(), color);
+    m_DebugNode.emplace_back(std::make_shared<Resource::SceneGeometryNode>());
+    m_DebugNode.back()->ApplyTransform(transform);
 
-        meshBuffer->verticesBuffer.emplace_back(L"Debug Position", position.size(), sizeof(vec3f), position.data());
-        meshBuffer->verticesBuffer.emplace_back(L"Debug Color", colors.size(), sizeof(vec3f), colors.data());
-        meshBuffer->indicesBuffer.Create(L"Debug Index Buffer", index.size(), sizeof(int), index.data());
-        meshBuffer->indexCount  = index.size();
-        m_DebugMeshBuffer[name] = meshBuffer;
-    }
+    drawItem.node                = m_DebugNode.back();
+    drawItem.constantBufferIndex = m_DrawItems.size() + m_DebugDrawItems.size();
+    drawItem.numFramesDirty      = m_FrameResourceSize;
+    drawItem.psoName             = "debug";
+    drawItem.constants.diffuse   = color;
 
-    vec3f v1          = to - from;
-    vec3f v2          = {v1.norm(), 0, 0};
-    vec3f rotate_axis = v1 + v2;
-    mat4f transform   = scale(mat4f(1.0f), vec3f(v1.norm()));
-    transform         = rotate(transform, radians(180.0f), rotate_axis);
-    transform         = translate(transform, from);
-
-    auto node = std::make_shared<Resource::SceneGeometryNode>();
-    node->AppendTransform(std::make_shared<Resource::SceneObjectTransform>(transform));
-    m_DebugNode.push_back(node);
-
-    DrawItem d;
-    d.node                = node;
-    d.meshBuffer          = m_DebugMeshBuffer[name];
-    d.constantBufferIndex = m_DrawItems.size() + m_DebugDrawItems.size();
-    d.numFramesDirty      = m_FrameResourceSize;
-    d.psoName             = "debug";
-    m_DebugDrawItems.push_back(d);
-}
-
-void D3D12GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) {
-    if (m_DebugMeshBuffer.find("debug_box") == m_DebugMeshBuffer.end()) {
-        auto               meshBuffer = std::make_shared<MeshInfo>();
-        std::vector<vec3f> position   = {
-            {-1, -1, -1},
-            {1, -1, -1},
-            {1, 1, -1},
-            {-1, 1, -1},
-            {-1, -1, 1},
-            {1, -1, 1},
-            {1, 1, 1},
-            {-1, 1, 1},
-        };
-        std::vector<int> index    = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4};
-        meshBuffer->primitiveType = D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
-        std::vector<vec3f> colors(position.size(), color);
-        meshBuffer->verticesBuffer.emplace_back(L"Debug Position", position.size(), sizeof(vec3f), position.data());
-        meshBuffer->verticesBuffer.emplace_back(L"Debug Color", colors.size(), sizeof(vec3f), colors.data());
-        meshBuffer->indicesBuffer.Create(L"Debug Index Buffer", index.size(), sizeof(int), index.data());
-        meshBuffer->indexCount = index.size();
-
-        m_DebugMeshBuffer["debug_box"] = meshBuffer;
-    }
-    mat4f transform = translate(scale(mat4f(1.0f), 0.5 * (bbMax - bbMin)), 0.5 * (bbMax + bbMin));
-
-    auto node = std::make_shared<Resource::SceneGeometryNode>();
-    node->AppendTransform(std::make_shared<Resource::SceneObjectTransform>(transform));
-    m_DebugNode.push_back(node);
-
-    DrawItem d;
-    d.node                = node;
-    d.meshBuffer          = m_DebugMeshBuffer["debug_box"];
-    d.constantBufferIndex = m_DrawItems.size() + m_DebugDrawItems.size();
-    d.numFramesDirty      = m_FrameResourceSize;
-    d.psoName             = "debug";
-    m_DebugDrawItems.push_back(d);
+    m_DebugDrawItems.emplace_back(std::move(drawItem));
 }
 
 void D3D12GraphicsManager::ClearDebugBuffers() {

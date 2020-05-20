@@ -145,12 +145,39 @@ void GraphicsManager::RenderText(std::string_view text, const vec2f& position, f
 }
 
 #if defined(_DEBUG)
-void GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
-    m_Logger->debug("Draw line from {} to {}", from, to);
+Resource::SceneObjectMesh GenerateDebugMesh(std::vector<vec3f> vertices, std::vector<uint32_t> indices, Resource::PrimitiveType primitiveType) {
+    Resource::SceneObjectMesh mesh;
+    mesh.AddVertexArray(Resource::SceneObjectVertexArray("POSITION", Resource::VertexDataType::FLOAT3, vertices.data(), vertices.size()));
+    mesh.AddIndexArray(Resource::SceneObjectIndexArray(Resource::IndexDataType::INT32, indices.data(), indices.size()));
+    mesh.SetPrimitiveType(primitiveType);
+    return mesh;
 }
 
-void GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) {
+void GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec4f& color) {
+    m_Logger->debug("Draw line from: {}, to: {}, color: {}", from, to, color);
+    const std::vector<vec3f>    vertices = {from, to};
+    const std::vector<uint32_t> indices  = {0, 1};
+    DrawDebugMesh(GenerateDebugMesh(vertices, indices, Resource::PrimitiveType::LINE_LIST), mat4f(1.0f), color);
+}
+
+void GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec4f& color) {
     m_Logger->debug("Draw box bbMin: {}, bbMax: {}, color: {}", bbMin, bbMax, color);
+    const std::vector<vec3f> vertices = {
+        {bbMin.x, bbMin.y, bbMin.z},
+        {bbMax.x, bbMin.y, bbMin.z},
+        {bbMax.x, bbMax.y, bbMin.z},
+        {bbMin.x, bbMax.y, bbMin.z},
+        {bbMin.x, bbMin.y, bbMax.z},
+        {bbMax.x, bbMin.y, bbMax.z},
+        {bbMax.x, bbMax.y, bbMax.z},
+        {bbMin.x, bbMax.y, bbMax.z},
+    };
+    const std::vector<uint32_t> indices = {
+        0, 1, 1, 2, 2, 3, 3, 0,  // bottom
+        4, 5, 5, 6, 6, 7, 7, 4,  // top
+        0, 4, 1, 5, 2, 6, 3, 7,  // surround
+    };
+    DrawDebugMesh(GenerateDebugMesh(vertices, indices, Resource::PrimitiveType::LINE_LIST), mat4f(1.0f), color);
 }
 void GraphicsManager::ClearDebugBuffers() { m_Logger->debug("Clear debug buffers"); }
 #endif  // _DEBUG

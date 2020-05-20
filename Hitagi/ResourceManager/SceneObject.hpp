@@ -313,7 +313,7 @@ public:
     bool                               HasProperty(const std::string& name) const;
     const SceneObjectVertexArray&      GetVertexPropertyArray(const std::string& attr) const;
     const SceneObjectIndexArray&       GetIndexArray() const;
-    const PrimitiveType&               GetPrimitiveType();
+    const PrimitiveType&               GetPrimitiveType() const;
     std::weak_ptr<SceneObjectMaterial> GetMaterial() const;
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectMesh& obj);

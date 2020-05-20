@@ -455,108 +455,108 @@ void OpenGLGraphicsManager::RenderText(std::string_view text, const vec2f& posit
 }
 
 #if defined(_DEBUG)
-void OpenGLGraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
-    GLfloat vertices[6];
-    vertices[0] = from.x;
-    vertices[1] = from.y;
-    vertices[2] = from.z;
-    vertices[3] = to.x;
-    vertices[4] = to.y;
-    vertices[5] = to.z;
+// void OpenGLGraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
+//     GLfloat vertices[6];
+//     vertices[0] = from.x;
+//     vertices[1] = from.y;
+//     vertices[2] = from.z;
+//     vertices[3] = to.x;
+//     vertices[4] = to.y;
+//     vertices[5] = to.z;
 
-    GLuint index[] = {0, 1};
+//     GLuint index[] = {0, 1};
 
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+//     GLuint vao;
+//     glGenVertexArrays(1, &vao);
+//     glBindVertexArray(vao);
 
-    GLuint buffer_id;
-    glGenBuffers(1, &buffer_id);
-    glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    m_DebugBuffers.push_back(buffer_id);
+//     GLuint buffer_id;
+//     glGenBuffers(1, &buffer_id);
+//     glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
+//     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+//     m_DebugBuffers.push_back(buffer_id);
 
-    glGenBuffers(1, &buffer_id);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index), index, GL_STATIC_DRAW);
+//     glGenBuffers(1, &buffer_id);
+//     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
+//     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index), index, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-    m_DebugBuffers.push_back(buffer_id);
+//     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+//     glEnableVertexAttribArray(0);
+//     m_DebugBuffers.push_back(buffer_id);
 
-    DebugDrawBatchContext dbc;
+//     DebugDrawBatchContext dbc;
 
-    dbc.vao   = vao;
-    dbc.mode  = GL_LINES;
-    dbc.count = 2;
-    dbc.color = color;
+//     dbc.vao   = vao;
+//     dbc.mode  = GL_LINES;
+//     dbc.count = 2;
+//     dbc.color = color;
 
-    m_DebugDrawBatchContext.push_back(std::move(dbc));
-}
+//     m_DebugDrawBatchContext.push_back(std::move(dbc));
+// }
 
-void OpenGLGraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) {
-    GLfloat vertices[24];
-    // top
-    vertices[0] = bbMax.x;
-    vertices[1] = bbMax.y;
-    vertices[2] = bbMax.z;
+// void OpenGLGraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) {
+//     GLfloat vertices[24];
+//     // top
+//     vertices[0] = bbMax.x;
+//     vertices[1] = bbMax.y;
+//     vertices[2] = bbMax.z;
 
-    vertices[3] = bbMax.x;
-    vertices[4] = bbMin.y;
-    vertices[5] = bbMax.z;
+//     vertices[3] = bbMax.x;
+//     vertices[4] = bbMin.y;
+//     vertices[5] = bbMax.z;
 
-    vertices[6] = bbMin.x;
-    vertices[7] = bbMin.y;
-    vertices[8] = bbMax.z;
+//     vertices[6] = bbMin.x;
+//     vertices[7] = bbMin.y;
+//     vertices[8] = bbMax.z;
 
-    vertices[9]  = bbMin.x;
-    vertices[10] = bbMax.y;
-    vertices[11] = bbMax.z;
+//     vertices[9]  = bbMin.x;
+//     vertices[10] = bbMax.y;
+//     vertices[11] = bbMax.z;
 
-    // bottom
-    vertices[12] = bbMax.x;
-    vertices[13] = bbMax.y;
-    vertices[14] = bbMin.z;
+//     // bottom
+//     vertices[12] = bbMax.x;
+//     vertices[13] = bbMax.y;
+//     vertices[14] = bbMin.z;
 
-    vertices[15] = bbMax.x;
-    vertices[16] = bbMin.y;
-    vertices[17] = bbMin.z;
+//     vertices[15] = bbMax.x;
+//     vertices[16] = bbMin.y;
+//     vertices[17] = bbMin.z;
 
-    vertices[18] = bbMin.x;
-    vertices[19] = bbMin.y;
-    vertices[20] = bbMin.z;
+//     vertices[18] = bbMin.x;
+//     vertices[19] = bbMin.y;
+//     vertices[20] = bbMin.z;
 
-    vertices[21] = bbMin.x;
-    vertices[22] = bbMax.y;
-    vertices[23] = bbMin.z;
+//     vertices[21] = bbMin.x;
+//     vertices[22] = bbMax.y;
+//     vertices[23] = bbMin.z;
 
-    GLuint index[] = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4};
+//     GLuint index[] = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4};
 
-    GLuint vao, buffer_id;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+//     GLuint vao, buffer_id;
+//     glGenVertexArrays(1, &vao);
+//     glBindVertexArray(vao);
 
-    glGenBuffers(1, &buffer_id);
-    glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    m_DebugBuffers.push_back(buffer_id);
+//     glGenBuffers(1, &buffer_id);
+//     glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
+//     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+//     m_DebugBuffers.push_back(buffer_id);
 
-    glGenBuffers(1, &buffer_id);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index), index, GL_STATIC_DRAW);
+//     glGenBuffers(1, &buffer_id);
+//     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
+//     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index), index, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-    m_DebugBuffers.push_back(buffer_id);
+//     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+//     glEnableVertexAttribArray(0);
+//     m_DebugBuffers.push_back(buffer_id);
 
-    DebugDrawBatchContext dbc;
-    dbc.vao   = vao;
-    dbc.mode  = GL_LINE_STRIP;
-    dbc.count = 16;
-    dbc.color = color;
+//     DebugDrawBatchContext dbc;
+//     dbc.vao   = vao;
+//     dbc.mode  = GL_LINE_STRIP;
+//     dbc.count = 16;
+//     dbc.color = color;
 
-    m_DebugDrawBatchContext.push_back(std::move(dbc));
-}
+//     m_DebugDrawBatchContext.push_back(std::move(dbc));
+// }
 
 void OpenGLGraphicsManager::ClearDebugBuffers() {
     for (auto dbc : m_DebugDrawBatchContext) {

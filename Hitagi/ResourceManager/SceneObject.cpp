@@ -121,7 +121,7 @@ const SceneObjectVertexArray& SceneObjectMesh::GetVertexPropertyArray(const std:
 }
 
 const SceneObjectIndexArray&       SceneObjectMesh::GetIndexArray() const { return m_IndexArray; }
-const PrimitiveType&               SceneObjectMesh::GetPrimitiveType() { return m_PrimitiveType; }
+const PrimitiveType&               SceneObjectMesh::GetPrimitiveType() const { return m_PrimitiveType; }
 std::weak_ptr<SceneObjectMaterial> SceneObjectMesh::GetMaterial() const { return m_Material; }
 
 // Class SceneObjectTexture

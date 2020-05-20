@@ -8,8 +8,6 @@ class MyTest : public GameLogic {
     void Tick() final;
 
 private:
-    void LightMove();
-
     enum {
         DEBUG_TOGGLE,
         ZOOM,

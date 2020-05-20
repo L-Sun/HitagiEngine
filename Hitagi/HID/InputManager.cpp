@@ -13,7 +13,7 @@ int InputManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("InputManager");
     m_Logger->info("Initialize...");
 
-#if defined(DEBUG)
+#if defined(_DEBUG)
     m_Logger->set_level(spdlog::level::debug);
 #endif  // DEBUG
 
