@@ -2,6 +2,7 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <numeric>
 
 #include "IApplication.hpp"
 #include "SceneManager.hpp"
@@ -183,24 +184,24 @@ void GraphicsManager::RenderBox(const Box& box, const vec4f& color) {
 void GraphicsManager::RenderGrid(float spacing, const vec4f& color) {
     m_Logger->debug("Draw Grid(100x100) in xOy plane");
     std::vector<vec3f>    vertices;
-    std::vector<uint32_t> indices;
-    vertices.reserve(101 * 101);
-    indices.reserve(2 * (101 + 101));
+    std::vector<uint32_t> indices(2 * (101 + 101));
+    vertices.reserve(2 * (101 + 101));
 
-    float p = -50 * spacing;
-    for (size_t i = 0; i <= 100; i++)
-        for (size_t j = 0; j <= 100; j++)
-            vertices.push_back(vec3f{p + i * spacing, p + j * spacing, -1e-2f});
+    Line xLine{vec3f{-50 * spacing, -50 * spacing, 0}, vec3f{50 * spacing, -50 * spacing, -0.001}};
+    Line yLine{vec3f{-50 * spacing, -50 * spacing, 0}, vec3f{-50 * spacing, 50 * spacing, -0.001}};
 
-    for (size_t i = 0; i <= 100; i++) {
-        indices.push_back(i * 101);
-        indices.push_back((i + 1) * 101 - 1);
+    for (size_t i = 0; i < 101; i++) {
+        vertices.push_back(xLine.from);
+        vertices.push_back(xLine.to);
+        vertices.push_back(yLine.from);
+        vertices.push_back(yLine.to);
+        xLine.from.y += spacing;
+        xLine.to.y += spacing;
+        yLine.from.x += spacing;
+        yLine.to.x += spacing;
     }
-    for (size_t i = 0; i <= 100; i++) {
-        indices.push_back(i);
-        indices.push_back(100 * 101 + i);
-    }
 
+    std::iota(indices.begin(), indices.end(), 0);
     DrawDebugMesh(GenerateDebugMesh(vertices, indices, Resource::PrimitiveType::LINE_LIST), mat4f(1.0f), color);
 }
 
