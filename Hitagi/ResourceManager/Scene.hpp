@@ -22,7 +22,7 @@ public:
 public:
     Scene() { m_DefaultMaterial = std::make_shared<SceneObjectMaterial>("default"); }
     Scene(std::string_view scene_name) : SceneGraph(std::make_shared<BaseSceneNode>(scene_name)) {}
-    ~Scene(){};
+    ~Scene()= default;;
 
     std::shared_ptr<SceneObjectCamera>   GetCamera(const std::string& key) const;
     std::shared_ptr<SceneObjectLight>    GetLight(const std::string& key) const;

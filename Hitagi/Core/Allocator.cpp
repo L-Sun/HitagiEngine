@@ -6,13 +6,8 @@
 namespace Hitagi::Core {
 
 Allocator::Allocator()
-    : m_PageList(nullptr),
-      m_FreeList(nullptr),
-      m_DataSize(0),
-      m_PageSize(0),
-      m_AlignmentSize(0),
-      m_BlockSize(0),
-      m_BlocksPerPage(0) {}
+    
+      = default;
 
 Allocator::Allocator(size_t dataSize, size_t pageSize, size_t alignment) : m_PageList(nullptr), m_FreeList(nullptr) {
     Reset(dataSize, pageSize, alignment);
@@ -39,7 +34,7 @@ void Allocator::Reset(size_t dataSize, size_t pageSize, size_t alignment) {
 
 void* Allocator::Allocate() {
     if (!m_FreeList) {
-        PageHeader* newPage = reinterpret_cast<PageHeader*>(new uint8_t[m_PageSize]);
+        auto* newPage = reinterpret_cast<PageHeader*>(new uint8_t[m_PageSize]);
         newPage->next       = nullptr;
         ++m_Pages;
         m_BLocks += m_BlocksPerPage;
@@ -77,7 +72,7 @@ void* Allocator::Allocate() {
 }
 
 void Allocator::Free(void* p) {
-    BlockHeader* block = reinterpret_cast<BlockHeader*>(p);
+    auto* block = reinterpret_cast<BlockHeader*>(p);
 
 #if defined(_DEBUG)
     FillFreeBlock(block);

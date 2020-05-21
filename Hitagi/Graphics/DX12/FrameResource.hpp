@@ -30,7 +30,7 @@ public:
 
     FrameResource(const FrameResource& rhs) = delete;
     FrameResource operator=(const FrameResource& rhs) = delete;
-    ~FrameResource() {}
+    ~FrameResource() = default;
 
     uint64_t         fence = static_cast<uint64_t>(D3D12_COMMAND_LIST_TYPE_DIRECT) << 56;
     size_t           m_NumObjects;

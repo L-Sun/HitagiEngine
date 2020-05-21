@@ -87,6 +87,7 @@
         "Asset": "${workspaceRoot}/Asset"
     },
     "cmake.configureArgs": [
-        "-DCMAKE_TOOLCHAIN_FILE=E:/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "-DCMAKE_TOOLCHAIN_FILE=E:/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
     ]
 }

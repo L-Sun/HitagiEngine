@@ -1,10 +1,18 @@
 #pragma once
 #include <unordered_map>
+#include <utility>
+
+#include <utility>
+
+#include <utility>
 
 #include "FileIOManager.hpp"
 
 namespace Hitagi::Graphics {
-enum struct ShaderType { VERTEX, PIXEL, GEOMETRY, COMPUTE };
+enum struct ShaderType { VERTEX,
+                         PIXEL,
+                         GEOMETRY,
+                         COMPUTE };
 
 class VertexShader;
 class PixelShader;
@@ -32,8 +40,7 @@ class Shader {
 
 public:
     Shader() = default;
-    Shader(Core::Buffer&& data) : m_ShaderData(std::move(data)) {}
-    Shader(const Core::Buffer& data) : m_ShaderData(data) {}
+    Shader(Core::Buffer data) : m_ShaderData(std::move(data)) {}
 
     const Core::Buffer& GetShaderCode() const { return m_ShaderData; }
 

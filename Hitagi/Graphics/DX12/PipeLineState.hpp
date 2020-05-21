@@ -6,13 +6,13 @@
 namespace Hitagi::Graphics::DX12 {
 class PipeLineState {
 public:
-    PipeLineState() : m_RootSignature(nullptr) {}
+    PipeLineState() = default;
 
     void                 SetRootSignature(const RootSignature& rootSignature) { m_RootSignature = &rootSignature; }
     ID3D12PipelineState* GetPSO() const { return m_PSO.Get(); }
 
 protected:
-    const RootSignature*                        m_RootSignature;
+    const RootSignature*                        m_RootSignature = nullptr;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PSO;
 };
 

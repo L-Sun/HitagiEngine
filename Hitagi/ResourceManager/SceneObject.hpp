@@ -82,8 +82,8 @@ protected:
     BaseSceneObject(const xg::Guid& guid, const SceneObjectType& type);
     BaseSceneObject(xg::Guid&& guid, const SceneObjectType& type);
     BaseSceneObject(BaseSceneObject&& obj);
-    BaseSceneObject& operator=(BaseSceneObject&& obj);
-    virtual ~BaseSceneObject() {}
+    BaseSceneObject& operator  =(BaseSceneObject&& obj);
+    virtual ~BaseSceneObject() = default;
 
     BaseSceneObject()                           = default;
     BaseSceneObject(const BaseSceneObject& obj) = default;
@@ -98,13 +98,13 @@ public:
 
 class SceneObjectTexture : public BaseSceneObject {
 protected:
-    uint32_t               m_TexCoordIndex;
+    uint32_t               m_TexCoordIndex = 0;
     std::string            m_Name;
     std::shared_ptr<Image> m_Image;
     std::vector<mat4f>     m_Transforms;
 
 public:
-    SceneObjectTexture() : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0) {}
+    SceneObjectTexture() : BaseSceneObject(SceneObjectType::TEXTURE) {}
     SceneObjectTexture(std::string_view name)
         : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0), m_Name(name) {}
     SceneObjectTexture(uint32_t coordIndex, std::shared_ptr<Image>& image)
@@ -152,8 +152,8 @@ struct ParameterValueMap {
 };
 
 typedef ParameterValueMap<vec4f> Color;
-typedef ParameterValueMap<vec3f> Normal;
-typedef ParameterValueMap<float> Parameter;
+using Normal    = ParameterValueMap<vec3f>;
+using Parameter = ParameterValueMap<float>;
 
 class SceneObjectMaterial : public BaseSceneObject {
 protected:
@@ -329,12 +329,12 @@ protected:
     bool                     m_Visible;
     bool                     m_Shadow;
     bool                     m_MotionBlur;
-    SceneObjectCollisionType m_CollisionType;
-    float                    m_CollisionParameters[10];
+    SceneObjectCollisionType m_CollisionType{SceneObjectCollisionType::NONE};
+    std::array<float, 10>    m_CollisionParameters;
 
 public:
     SceneObjectGeometry()
-        : BaseSceneObject(SceneObjectType::GEOMETRY), m_CollisionType(SceneObjectCollisionType::NONE) {}
+        : BaseSceneObject(SceneObjectType::GEOMETRY) {}
     void                                                 SetVisibility(bool visible);
     void                                                 SetIfCastShadow(bool shadow);
     void                                                 SetIfMotionBlur(bool motionBlur);
@@ -350,24 +350,22 @@ public:
     friend std::ostream&                                 operator<<(std::ostream& out, const SceneObjectGeometry& obj);
 };
 
-typedef float (*AttenFunc)(float /* Intensity */, float /* distance */);
+using AttenFunc = float (*)(float, float);
 
 float DefaultAttenFunc(float intensity, float distance);
 
 class SceneObjectLight : public BaseSceneObject {
-public:
+protected:
     SceneObjectLight(const vec4f& color = vec4f(1.0f), float intensity = 100.0f)
         : BaseSceneObject(SceneObjectType::LIGHT),
           m_LightColor(color),
           m_Intensity(intensity),
-          m_LightAttenuation(DefaultAttenFunc),
-          m_CastShadows(false){};
+          m_LightAttenuation(DefaultAttenFunc){};
 
-protected:
     Color       m_LightColor;
     float       m_Intensity;
     AttenFunc   m_LightAttenuation;
-    bool        m_CastShadows;
+    bool        m_CastShadows{false};
     std::string m_TextureRef;
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectLight& obj);
@@ -384,7 +382,9 @@ public:
 
 class SceneObjectPointLight : public SceneObjectLight {
 public:
-    using SceneObjectLight::SceneObjectLight;
+    SceneObjectPointLight(const vec4f& color = vec4f(1.0f), float intensity = 100.0f)
+        : SceneObjectLight(color, intensity) {}
+
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectPointLight& obj);
 };
 
@@ -438,10 +438,10 @@ protected:
 class SceneObjectTransform {
 protected:
     mat4f m_Transform;
-    bool  m_SceneObjectOnly;
+    bool  m_SceneObjectOnly{false};
 
 public:
-    SceneObjectTransform() : m_Transform(1.0f), m_SceneObjectOnly(false) {}
+    SceneObjectTransform() : m_Transform(1.0f) {}
     SceneObjectTransform(const mat4f matrix, const bool object_only = false)
         : m_Transform(matrix), m_SceneObjectOnly(object_only) {}
 

@@ -13,9 +13,9 @@ namespace Hitagi {
 
 class GameLogic : public IRuntimeModule {
 public:
-    virtual int  Initialize();
-    virtual void Finalize();
-    virtual void Tick();
+    int  Initialize() override;
+    void Finalize() override;
+    void Tick() override;
 };
 extern std::unique_ptr<GameLogic> g_GameLogic;
 }  // namespace Hitagi

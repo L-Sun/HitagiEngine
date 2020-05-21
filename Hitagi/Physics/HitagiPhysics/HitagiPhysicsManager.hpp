@@ -7,8 +7,6 @@ namespace Hitagi::Physics {
 class HitagiPhysicsManager : public IPhysicsManager {
 public:
 public:
-    virtual ~HitagiPhysicsManager() {}
-
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;
@@ -21,10 +19,6 @@ public:
     void  UpdateRigidBodyTransform(Resource::SceneGeometryNode& node) final;
 
     void ApplyCentralForce(Resource::SceneGeometryNode& node, vec3f force) final;
-
-#if defined(_DEBUG)
-    void DrawDebugInfo();
-#endif
 
 private:
 #if defined(_DEBUG)

@@ -2,12 +2,13 @@
 #include <memory_resource>
 #include <algorithm>
 #include <vector>
+#include <array>
 
 using namespace std;
 
 class Hitagi_memory_resource : public std::pmr::memory_resource {
 public:
-    ~Hitagi_memory_resource() override {}
+    ~Hitagi_memory_resource() override = default;
 
     void* allocate();
     void  deallocate(void* p, size_t bytes,
@@ -48,8 +49,8 @@ public:
         size_t alignment;
     };
 
-    char                   m_buffer[128];
-    char*                  m_pFree        = m_buffer;
+    std::array<char, 128>  m_buffer;
+    char*                  m_pFree        = m_buffer.data();
     size_t                 m_nFree        = 128;
     size_t                 m_nAllocated   = 0;
     size_t                 m_ndeallocated = 0;

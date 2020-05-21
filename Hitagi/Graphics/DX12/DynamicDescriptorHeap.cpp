@@ -4,10 +4,6 @@
 #include "CommandContext.hpp"
 
 namespace Hitagi::Graphics::DX12 {
-DynamicDescriptorHeap::DescriptorHeapPool
-    DynamicDescriptorHeap::kDescriptorHeapPool[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
-DynamicDescriptorHeap::AvailableHeapPool
-    DynamicDescriptorHeap::kAvailableDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
 
 std::mutex DynamicDescriptorHeap::kMutex;
 
@@ -17,10 +13,9 @@ DynamicDescriptorHeap::DynamicDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type)
       m_StaleDescriptorTableBitMask(0),
       m_CurrentCPUDescriptorHandle(D3D12_DEFAULT),
       m_CurrentGPUDescriptorHandle(D3D12_DEFAULT),
-      m_NumFreeHandles(0) {
-    m_HandleIncrementSize   = g_Device->GetDescriptorHandleIncrementSize(m_Type);
-    m_DescriptorHandleCache = std::make_unique<D3D12_CPU_DESCRIPTOR_HANDLE[]>(kNumDescriptorsPerHeap);
-}
+      m_NumFreeHandles(0),
+      m_HandleIncrementSize(g_Device->GetDescriptorHandleIncrementSize(type)),
+      m_DescriptorHandleCache(kNumDescriptorsPerHeap) {}
 
 void DynamicDescriptorHeap::Reset(uint64_t fenceValue) {
     if (m_CurrentDescriptorHeap) {
@@ -151,11 +146,11 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
         UINT                         numSrcDesriptors     = m_DescriptorTableCache[rootIndex].numDescriptors;
         D3D12_CPU_DESCRIPTOR_HANDLE* srcDescriptorHandles = m_DescriptorTableCache[rootIndex].baseHandle;
 
-        D3D12_CPU_DESCRIPTOR_HANDLE start[] = {m_CurrentCPUDescriptorHandle};
-        UINT                        size[]  = {numSrcDesriptors};
+        std::array start = {m_CurrentCPUDescriptorHandle};
+        std::array size  = {numSrcDesriptors};
 
         if (srcDescriptorHandles->ptr != 0) {
-            device->CopyDescriptors(1, start, size, numSrcDesriptors, srcDescriptorHandles, nullptr, m_Type);
+            device->CopyDescriptors(1, start.data(), size.data(), numSrcDesriptors, srcDescriptorHandles, nullptr, m_Type);
 
             // Set the descriptors on the command list using the passed-in setter function.
             setFunc(cmdList, rootIndex, m_CurrentGPUDescriptorHandle);

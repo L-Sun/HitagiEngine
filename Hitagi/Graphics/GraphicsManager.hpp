@@ -10,10 +10,10 @@
 namespace Hitagi::Graphics {
 class GraphicsManager : public IRuntimeModule {
 public:
-    virtual ~GraphicsManager() {}
-    virtual int  Initialize();
-    virtual void Finalize();
-    virtual void Tick();
+    int  Initialize() override;
+    void Finalize() override;
+    void Tick() override;
+
     virtual void Draw();
     virtual void Clear();
 

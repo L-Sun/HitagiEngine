@@ -1,33 +1,23 @@
 #include "RootSignature.hpp"
 
+#include <memory>
+
 #include "D3DCore.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 RootSignature::RootSignature(uint32_t numRootParams, uint32_t numStaticSamplers)
-    : m_Finalized(false),
-      m_RootSignatureDesc{},
-      m_RootSignature(nullptr),
+    : m_RootSignature(nullptr),
       m_NumParameters(numRootParams),
       m_NumSamplers(numStaticSamplers),
-      m_NumInitializedStaticSamplers(numStaticSamplers),
-      m_ParamArray(nullptr),
-      m_SamplerArray(nullptr),
-      m_SamplerTableBitMask(0),
-      m_DescriptorTableBitMask(0) {
+      m_NumInitializedStaticSamplers(numStaticSamplers) {
     Reset(numRootParams, numStaticSamplers);
 };
 
 void RootSignature::Reset(uint32_t numRootParams, uint32_t numStaticSamplers) {
-    if (numRootParams > 0)
-        m_ParamArray.reset(new RootParameter[numRootParams]);
-    else
-        m_ParamArray = nullptr;
+    m_ParamArray.resize(numRootParams, RootParameter{});
     m_NumParameters = numRootParams;
 
-    if (numStaticSamplers > 0)
-        m_SamplerArray.reset(new D3D12_STATIC_SAMPLER_DESC[numStaticSamplers]);
-    else
-        m_SamplerArray = nullptr;
+    m_SamplerArray.resize(numRootParams, {});
     m_NumSamplers                  = numStaticSamplers;
     m_NumInitializedStaticSamplers = 0;
 }
@@ -103,9 +93,9 @@ void RootSignature::Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags,
     }
 
     m_RootSignatureDesc.NumParameters     = m_NumParameters;
-    m_RootSignatureDesc.pParameters       = m_ParamArray.get();
+    m_RootSignatureDesc.pParameters       = m_ParamArray.data();
     m_RootSignatureDesc.NumStaticSamplers = m_NumSamplers;
-    m_RootSignatureDesc.pStaticSamplers   = m_SamplerArray.get();
+    m_RootSignatureDesc.pStaticSamplers   = m_SamplerArray.data();
     m_RootSignatureDesc.Flags             = flags;
 
     for (uint32_t rootIndex = 0; rootIndex < m_NumParameters; rootIndex++) {

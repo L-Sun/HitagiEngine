@@ -18,6 +18,7 @@ int GraphicsManager::Initialize() {
 #endif  // _DEBUG
 
     int result = m_ShaderManager.Initialize();
+    if (result != 0) return result;
     InitConstants();
 
     // Initialize Free Type

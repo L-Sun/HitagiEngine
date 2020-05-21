@@ -13,8 +13,6 @@ class ThreadManager : public IRuntimeModule {
 public:
     ThreadManager() = default;
 
-    virtual ~ThreadManager() {}
-
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;

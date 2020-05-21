@@ -8,11 +8,11 @@ namespace Hitagi::Resource {
 
 #pragma pack(push, 1)
 struct TGA_FILEHEADER {
-    uint8_t IDLength;
-    uint8_t ColorMapType;
-    uint8_t ImageType;
-    uint8_t ColorMapSpec[5];
-    uint8_t ImageSpec[10];
+    uint8_t                 IDLength;
+    uint8_t                 ColorMapType;
+    uint8_t                 ImageType;
+    std::array<uint8_t, 5>  ColorMapSpec;
+    std::array<uint8_t, 10> ImageSpec;
 };
 #pragma pack(pop)
 
@@ -21,7 +21,7 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
     const uint8_t* pDataEnd = data + buf.GetDataSize();
 
     spdlog::get("ResourceManager")->debug("[TGA] Parsing as TGA file:");
-    const TGA_FILEHEADER* fileHeader =
+    const auto* fileHeader =
         reinterpret_cast<const TGA_FILEHEADER*>(data);
     data += sizeof(TGA_FILEHEADER);
 
@@ -59,7 +59,7 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
     // skip the Color Map. since we assume the Color Map Type is 0,
     // nothing to skip
 
-    uint8_t* out = reinterpret_cast<uint8_t*>(img.getData());
+    auto* out = reinterpret_cast<uint8_t*>(img.getData());
     // clang-format off
         for (auto i = 0; i < height; i++) {
             for (auto j = 0; j < width; j++) {

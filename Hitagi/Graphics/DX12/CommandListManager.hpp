@@ -82,7 +82,7 @@ public:
     }
 
 private:
-    ID3D12Device6* m_Device;
+    ID3D12Device6* m_Device = nullptr;
     CommandQueue   m_GraphicsQueue;
     CommandQueue   m_ComputeQueue;
     CommandQueue   m_CopyQueue;

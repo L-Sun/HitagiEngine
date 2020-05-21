@@ -16,10 +16,10 @@ protected:
     virtual void dump(std::ostream& out, unsigned indent) const {}
 
 public:
-    BaseSceneNode() {}
+    BaseSceneNode() = default;
     BaseSceneNode(std::string_view name) { m_Name = name; }
 
-    virtual ~BaseSceneNode() {}
+    virtual ~BaseSceneNode() = default;
 
     const std::string& GetName() const { return m_Name; }
 
@@ -78,7 +78,7 @@ class SceneNode : public BaseSceneNode {
 protected:
     std::weak_ptr<T> m_SceneObjectRef;
 
-    virtual void dump(std::ostream& out, unsigned indent) const {
+    void dump(std::ostream& out, unsigned indent) const override {
         if (auto obj = m_SceneObjectRef.lock()) {
             out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Obj Ref:", obj->GetGuid());
         }
@@ -91,14 +91,14 @@ public:
     std::weak_ptr<T> GetSceneObjectRef() { return m_SceneObjectRef; }
 };
 
-typedef BaseSceneNode SceneEmptyNode;
+using SceneEmptyNode = BaseSceneNode;
 class SceneGeometryNode : public SceneNode<SceneObjectGeometry> {
 protected:
     bool m_Visible    = true;
     bool m_Shadow     = true;
     bool m_MotionBlur = false;
 
-    virtual void dump(std::ostream& out, unsigned indent) const {
+    void dump(std::ostream& out, unsigned indent) const override {
         SceneNode::dump(out, indent);
         out << fmt::format(
             "{0:{1}}{2:<15}{3:>15}\n"

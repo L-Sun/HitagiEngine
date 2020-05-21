@@ -45,27 +45,32 @@ void GLFWApplication::UpdateInputState() {
     auto& boolMapping  = g_InputManager->m_BoolMapping;
     auto& floatMapping = g_InputManager->m_FloatMapping;
 
-    constexpr std::pair<InputEvent, int> keyToGlfw[] = {
-        {InputEvent::KEY_R, GLFW_KEY_R},       {InputEvent::KEY_W, GLFW_KEY_W},
-        {InputEvent::KEY_A, GLFW_KEY_A},       {InputEvent::KEY_S, GLFW_KEY_S},
-        {InputEvent::KEY_D, GLFW_KEY_D},       {InputEvent::KEY_SPACE, GLFW_KEY_SPACE},
-        {InputEvent::KEY_UP, GLFW_KEY_UP},     {InputEvent::KEY_DOWN, GLFW_KEY_DOWN},
-        {InputEvent::KEY_LEFT, GLFW_KEY_LEFT}, {InputEvent::KEY_RIGHT, GLFW_KEY_RIGHT},
+    constexpr std::array keyToGlfw = {
+        std::make_pair(InputEvent::KEY_R, GLFW_KEY_R),
+        std::make_pair(InputEvent::KEY_W, GLFW_KEY_W),
+        std::make_pair(InputEvent::KEY_A, GLFW_KEY_A),
+        std::make_pair(InputEvent::KEY_S, GLFW_KEY_S),
+        std::make_pair(InputEvent::KEY_D, GLFW_KEY_D),
+        std::make_pair(InputEvent::KEY_SPACE, GLFW_KEY_SPACE),
+        std::make_pair(InputEvent::KEY_UP, GLFW_KEY_UP),
+        std::make_pair(InputEvent::KEY_DOWN, GLFW_KEY_DOWN),
+        std::make_pair(InputEvent::KEY_LEFT, GLFW_KEY_LEFT),
+        std::make_pair(InputEvent::KEY_RIGHT, GLFW_KEY_RIGHT),
     };
     for (auto&& [event, glfwKey] : keyToGlfw) {
-        const unsigned index        = static_cast<unsigned>(event);
+        const auto index            = static_cast<unsigned>(event);
         boolMapping[index].current  = glfwGetKey(m_Window, glfwKey) != GLFW_RELEASE;
         floatMapping[index].current = boolMapping[index].current ? 1.f : 0.f;
     }
 
     // Process Mouse Input
-    constexpr std::pair<InputEvent, int> buttonToGlfw[] = {
-        {InputEvent::MOUSE_LEFT, GLFW_MOUSE_BUTTON_LEFT},
-        {InputEvent::MOUSE_RIGHT, GLFW_MOUSE_BUTTON_RIGHT},
-        {InputEvent::MOUSE_MIDDLE, GLFW_MOUSE_BUTTON_MIDDLE},
+    constexpr std::array buttonToGlfw{
+        std::make_pair(InputEvent::MOUSE_LEFT, GLFW_MOUSE_BUTTON_LEFT),
+        std::make_pair(InputEvent::MOUSE_RIGHT, GLFW_MOUSE_BUTTON_RIGHT),
+        std::make_pair(InputEvent::MOUSE_MIDDLE, GLFW_MOUSE_BUTTON_MIDDLE),
     };
     for (auto&& [event, glfwButton] : buttonToGlfw) {
-        const unsigned index        = static_cast<unsigned>(event);
+        const auto index            = static_cast<unsigned>(event);
         boolMapping[index].current  = glfwGetMouseButton(m_Window, glfwButton) != GLFW_RELEASE;
         floatMapping[index].current = boolMapping[index].current ? 1.f : 0.f;
     }

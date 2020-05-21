@@ -78,7 +78,7 @@ private:
     DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_D32_FLOAT;
 
     Microsoft::WRL::ComPtr<IDXGISwapChain4> m_SwapChain;
-    ColorBuffer                             m_DisplayPlanes[m_FrameCount];
+    std::array<ColorBuffer, m_FrameCount>   m_DisplayPlanes;
     DepthBuffer                             m_SceneDepthBuffer;
     D3D12_VIEWPORT                          m_Viewport;
     D3D12_RECT                              m_ScissorRect;

@@ -9,7 +9,7 @@ namespace Hitagi::Graphics::DX12 {
 
 class PixelBuffer : public GpuResource {
 public:
-    PixelBuffer() : m_Width(0), m_Height(0), m_ArraySize(0), m_Format(DXGI_FORMAT_A8_UNORM) {}
+    PixelBuffer() = default;
 
     uint32_t           GetWidth() const { return m_Width; }
     uint32_t           GetHeight() const { return m_Height; }
@@ -42,10 +42,10 @@ protected:
     static DXGI_FORMAT GetStencilFormat(DXGI_FORMAT format);
     static size_t      BytesPerPixel(DXGI_FORMAT format);
 
-    uint32_t    m_Width;
-    uint32_t    m_Height;
-    uint32_t    m_ArraySize;
-    DXGI_FORMAT m_Format;
+    uint32_t    m_Width     = 0;
+    uint32_t    m_Height    = 0;
+    uint32_t    m_ArraySize = 0;
+    DXGI_FORMAT m_Format{DXGI_FORMAT_A8_UNORM};
 };
 
 }  // namespace Hitagi::Graphics::DX12

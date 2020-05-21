@@ -49,7 +49,7 @@ Image PngParser::Parse(const Core::Buffer& buf) {
 
     if (setjmp(png_jmpbuf(png_tr))) {
         spdlog::get("ResourceManager")->error("[PNG] Error occur during read_image.");
-        png_destroy_read_struct(&png_tr, &info_ptr, 0);
+        png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
         return Image();
     }
 
@@ -62,7 +62,7 @@ Image PngParser::Parse(const Core::Buffer& buf) {
     png_read_png(
         png_tr, info_ptr,
         PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_PACKING,
-        0);
+        nullptr);
 
     auto  width    = png_get_image_width(png_tr, info_ptr);
     auto  height   = png_get_image_height(png_tr, info_ptr);
@@ -122,7 +122,7 @@ Image PngParser::Parse(const Core::Buffer& buf) {
             break;
     }
 
-    png_destroy_read_struct(&png_tr, &info_ptr, 0);
+    png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
     return img;
 }
 }  // namespace Hitagi::Resource

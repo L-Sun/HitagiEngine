@@ -11,8 +11,6 @@ std::unique_ptr<Resource::SceneManager> g_SceneManager = std::make_unique<Resour
 
 namespace Hitagi::Resource {
 
-SceneManager::~SceneManager() {}
-
 int SceneManager::Initialize() {
     int result = 0;
     m_Logger   = spdlog::stdout_color_mt("SceneManager");

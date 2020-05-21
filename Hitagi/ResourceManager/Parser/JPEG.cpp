@@ -30,7 +30,7 @@ Image JpegParser::Parse(const Core::Buffer& buf) {
     int buffer_height = 1;
     int row_stride    = cinfo.output_width * cinfo.output_components;
 
-    JSAMPARRAY buffer = new JSAMPROW[buffer_height];
+    auto buffer = new JSAMPROW[buffer_height];
     buffer[0]         = new JSAMPLE[row_stride];
     auto p            = reinterpret_cast<uint8_t*>(img.getData());
 

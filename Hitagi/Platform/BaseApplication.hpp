@@ -6,15 +6,15 @@ namespace Hitagi {
 class BaseApplication : public IApplication {
 public:
     BaseApplication(GfxConfiguration& cfg);
-    virtual int  Initialize();
-    virtual void Finalize();
-    virtual void Tick();
-    virtual bool IsQuit();
-    virtual void SetCommandLineParameters(int argc, char** argv);
+    int  Initialize() override;
+    void Finalize() override;
+    void Tick() override;
+    bool IsQuit() override;
+    void SetCommandLineParameters(int argc, char** argv) override;
 
     inline GfxConfiguration& GetConfiguration() final { return m_Config; }
 
-    virtual void UpdateInputState() {}
+    void UpdateInputState() override {}
 
 protected:
     static bool      m_Quit;
@@ -27,6 +27,6 @@ protected:
     short       m_FPSLimit = 120;
 
 private:
-    BaseApplication() {}
+    BaseApplication() = default;
 };
 }  // namespace Hitagi

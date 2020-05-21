@@ -43,6 +43,7 @@ struct BaseVector {
          std::array<T, D> data;
     };
     BaseVector()=default;
+    BaseVector(std::array<T,D> a):data{a}{}
 };
 
 template <typename T>
@@ -55,6 +56,7 @@ struct BaseVector<T, 2> {
         swizzle<T, 2, 1, 0> yx, vu;
     };
     BaseVector()=default;
+    BaseVector(std::array<T,2> a):data{a}{}
     BaseVector(const T& x, const T& y) : data{x, y} {}
 };
 
@@ -72,6 +74,7 @@ struct BaseVector<T, 3> {
         swizzle<T, 3, 2, 1, 0> zyx, bgr;
     };
     BaseVector()=default;
+    BaseVector(std::array<T,3> a):data{a}{}
     BaseVector(const T& x, const T& y, const T& z) : data{x, y, z} {}
 };
 
@@ -91,6 +94,7 @@ struct BaseVector<T, 4> {
         swizzle<T, 4, 2, 1, 0, 3> zyxw, bgra;
     };
     BaseVector()=default;
+    BaseVector(std::array<T,4> a):data{a}{}
     BaseVector(const T& x, const T& y, const T& z,const T& w) : data{x, y, z, w} {}
 };
 // clang-format on
@@ -106,7 +110,6 @@ struct Vector : public BaseVector<T, D> {
     Vector& operator=(Vector&&) = default;
 
     explicit Vector(const T& num) { data.fill(num); }
-    Vector(const T (&a)[D]) { std::copy_n(a, D, data.begin()); }
 
     Vector(const Vector<T, D - 1>& v, const T& num) {
         std::copy_n(v.data.begin(), D - 1, data.begin());
@@ -122,10 +125,6 @@ struct Vector : public BaseVector<T, D> {
         T result = 0;
         for (auto&& val : data) result += val * val;
         return std::sqrt(result);
-    }
-    Vector& operator=(const T (&a)[D]) {
-        std::copy_n(a, D, data.begin());
-        return *this;
     }
 
     operator T*() { return data.data(); }

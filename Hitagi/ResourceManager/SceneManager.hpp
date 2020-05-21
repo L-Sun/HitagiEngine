@@ -8,10 +8,9 @@ namespace Hitagi::Resource {
 
 class SceneManager : public IRuntimeModule {
 public:
-    virtual ~SceneManager();
-    virtual int  Initialize();
-    virtual void Finalize();
-    virtual void Tick();
+    int  Initialize() override;
+    void Finalize() override;
+    void Tick() override;
 
     void SetScene(std::filesystem::path name);
 

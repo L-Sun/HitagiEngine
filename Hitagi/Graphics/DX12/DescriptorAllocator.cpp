@@ -1,11 +1,15 @@
 #include "DescriptorAllocator.hpp"
+
+
+#include <utility>
+
 #include "D3DCore.hpp"
 
 namespace Hitagi::Graphics::DX12 {
 
 // DescriptorAllocation
 DescriptorAllocation::DescriptorAllocation()
-    : m_CpuHandle{0}, m_GpuHandle{0}, m_NumDescriptors(0), m_DescriptorSize(0), m_PageFrom(nullptr) {}
+    :  m_PageFrom(nullptr) {}
 
 DescriptorAllocation::DescriptorAllocation(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle, uint32_t numDescriptors,
                                            uint32_t descriptorSize, std::shared_ptr<DescriptorAllocatorPage> pageFrom)
@@ -13,8 +17,8 @@ DescriptorAllocation::DescriptorAllocation(D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle
       m_GpuHandle(gpuHandle),
       m_NumDescriptors(numDescriptors),
       m_DescriptorSize(descriptorSize),
-      m_PageFrom(pageFrom),
-      m_FenceValue(0) {}
+      m_PageFrom(std::move(pageFrom))
+      {}
 
 DescriptorAllocation::DescriptorAllocation(DescriptorAllocation&& allocation)
     : m_CpuHandle(allocation.m_CpuHandle),
@@ -131,7 +135,7 @@ uint32_t DescriptorAllocatorPage::ComputeOffset(D3D12_CPU_DESCRIPTOR_HANDLE hand
 void DescriptorAllocatorPage::AddNewBlock(uint32_t offset, uint32_t numDescriptors) {
     if (m_FreeIndexForIter.empty()) {
         m_FreeIndexForIter.push(m_FreeListIter.size());
-        m_FreeListIter.push_back({});
+        m_FreeListIter.emplace_back();
     }
     size_t index = m_FreeIndexForIter.front();
 

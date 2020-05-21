@@ -6,7 +6,7 @@
 
 namespace Hitagi::Core {
 
-Buffer::Buffer() : m_Data(nullptr), m_Size(0), m_Alignment(alignof(uint32_t)) {}
+Buffer::Buffer() :  m_Alignment(alignof(uint32_t)) {}
 Buffer::Buffer(size_t size, size_t alignment)
     : m_Size(size),
       m_Alignment(alignment) {

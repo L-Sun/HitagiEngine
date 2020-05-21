@@ -24,7 +24,7 @@ public:
     ID3D12GraphicsCommandList5* GetCommandList() { return m_CommandList; }
 
     static void InitializeBuffer(GpuResource& dest, const void* data, size_t bufferSize);
-    static void InitializeTexture(GpuResource& dest, size_t numSubresources, D3D12_SUBRESOURCE_DATA subData[]);
+    static void InitializeTexture(GpuResource& dest, const std::vector<D3D12_SUBRESOURCE_DATA>& subData);
     void        TransitionResource(GpuResource& resource, D3D12_RESOURCE_STATES newState, bool flushImmediate = false);
     void        FlushResourceBarriers();
 
@@ -38,16 +38,16 @@ public:
     void SetViewport(const D3D12_VIEWPORT& viewport);
     void SetScissor(const D3D12_RECT& rect);
 
-    void SetRenderTargets(unsigned numRTVs, const D3D12_CPU_DESCRIPTOR_HANDLE RTVs[]);
-    void SetRenderTargets(unsigned numRTVs, const D3D12_CPU_DESCRIPTOR_HANDLE RTVs[], D3D12_CPU_DESCRIPTOR_HANDLE DSV);
-    void SetRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE RTV) { SetRenderTargets(1, &RTV); }
+    void SetRenderTargets(const std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>& RTVs);
+    void SetRenderTargets(const std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>& RTVs, D3D12_CPU_DESCRIPTOR_HANDLE DSV);
+    void SetRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE RTV) { SetRenderTargets({RTV}); }
     void SetRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE RTV, D3D12_CPU_DESCRIPTOR_HANDLE DSV) {
-        SetRenderTargets(1, &RTV, DSV);
+        SetRenderTargets({RTV}, DSV);
     }
-    void SetDepthStencilTarget(D3D12_CPU_DESCRIPTOR_HANDLE DSV) { SetRenderTargets(0, nullptr, DSV); }
+    void SetDepthStencilTarget(D3D12_CPU_DESCRIPTOR_HANDLE DSV) { SetRenderTargets({}, DSV); }
 
     void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, ID3D12DescriptorHeap* heap);
-    void SetDescriptorHeaps(unsigned heapCount, D3D12_DESCRIPTOR_HEAP_TYPE type[], ID3D12DescriptorHeap* heaps[]);
+    void SetDescriptorHeaps(const std::vector<D3D12_DESCRIPTOR_HEAP_TYPE>& type, std::vector<ID3D12DescriptorHeap*>& heaps);
     void SetRootSignature(const RootSignature& rootSignature);
     void BindDescriptorHeaps();
     void SetDynamicDescriptor(unsigned rootIndex, unsigned offset, D3D12_CPU_DESCRIPTOR_HANDLE handle);
@@ -56,7 +56,7 @@ public:
     void SetPipeLineState(const PipeLineState& pso);
     void SetIndexBuffer(const D3D12_INDEX_BUFFER_VIEW& IBView);
     void SetVertexBuffer(unsigned slot, const D3D12_VERTEX_BUFFER_VIEW& VBView);
-    void SetVertexBuffers(unsigned startSlot, unsigned count, const D3D12_VERTEX_BUFFER_VIEW VBViews[]);
+    void SetVertexBuffers(unsigned startSlot, const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VBViews);
 
     void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY topology);
 
@@ -68,16 +68,16 @@ public:
 
 private:
     std::string                 m_Name;
-    ID3D12GraphicsCommandList5* m_CommandList;
-    ID3D12CommandAllocator*     m_CommandAllocator;
+    ID3D12GraphicsCommandList5* m_CommandList      = nullptr;
+    ID3D12CommandAllocator*     m_CommandAllocator = nullptr;
 
-    std::unique_ptr<DynamicDescriptorHeap> m_DynamicDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
-    ID3D12DescriptorHeap*                  m_CurrentDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+    std::array<std::unique_ptr<DynamicDescriptorHeap>, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_DynamicDescriptorHeaps;
+    std::array<ID3D12DescriptorHeap*, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES>                  m_CurrentDescriptorHeaps;
 
-    ID3D12RootSignature* m_CurrRootSignature;
+    ID3D12RootSignature* m_CurrRootSignature = nullptr;
 
-    D3D12_RESOURCE_BARRIER m_Barriers[16];
-    unsigned               m_NumBarriersToFlush;
+    std::array<D3D12_RESOURCE_BARRIER, 16> m_Barriers;
+    unsigned                               m_NumBarriersToFlush = 0;
 
     LinearAllocator m_CpuLinearAllocator;
     LinearAllocator m_GpuLinearAllocator;

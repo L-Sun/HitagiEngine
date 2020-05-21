@@ -3,7 +3,7 @@
 namespace Hitagi::Graphics::DX12 {
 
 CommandAllocatorPool::CommandAllocatorPool(D3D12_COMMAND_LIST_TYPE type) : m_Type(type), m_Device(nullptr) {}
-CommandAllocatorPool::~CommandAllocatorPool() {}
+CommandAllocatorPool::~CommandAllocatorPool() = default;
 
 void CommandAllocatorPool::Initialize(ID3D12Device6* device) { m_Device = device; }
 

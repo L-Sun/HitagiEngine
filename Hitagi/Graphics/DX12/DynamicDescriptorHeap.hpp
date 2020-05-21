@@ -33,30 +33,30 @@ private:
     uint32_t StaleDescriptorCount() const;
 
     struct DescriptorTableCache {
-        DescriptorTableCache() : baseHandle(nullptr), numDescriptors(0) {}
+        DescriptorTableCache() = default;
         void Reset() {
             baseHandle     = nullptr;
             numDescriptors = 0;
         }
-        D3D12_CPU_DESCRIPTOR_HANDLE* baseHandle;
-        uint32_t                     numDescriptors;
+        D3D12_CPU_DESCRIPTOR_HANDLE* baseHandle     = nullptr;
+        uint32_t                     numDescriptors = 0;
     };
 
     using DescriptorHeapPool = std::queue<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>>;
     using AvailableHeapPool  = std::queue<std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t>>;
 
-    static const uint32_t     kNumDescriptorsPerHeap = 1024;
-    static const uint32_t     kMaxDescriptorTables   = 32;
-    static DescriptorHeapPool kDescriptorHeapPool[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
-    static AvailableHeapPool  kAvailableDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
-    static std::mutex         kMutex;
+    static const uint32_t                                                              kNumDescriptorsPerHeap = 1024;
+    static const uint32_t                                                              kMaxDescriptorTables   = 32;
+    inline static std::array<DescriptorHeapPool, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> kDescriptorHeapPool;
+    inline static std::array<AvailableHeapPool, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES>  kAvailableDescriptorHeaps;
+    static std::mutex                                                                  kMutex;
 
     D3D12_DESCRIPTOR_HEAP_TYPE m_Type;
     uint32_t                   m_HandleIncrementSize;
     uint64_t                   m_FenceValue;
 
-    std::unique_ptr<D3D12_CPU_DESCRIPTOR_HANDLE[]> m_DescriptorHandleCache;
-    DescriptorTableCache                           m_DescriptorTableCache[kMaxDescriptorTables];
+    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>               m_DescriptorHandleCache;
+    std::array<DescriptorTableCache, kMaxDescriptorTables> m_DescriptorTableCache;
 
     // Each bit in the bit mask indicates which descriptor table is bound to the root signature.
     uint32_t m_DescriptorTableBitMask;

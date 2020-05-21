@@ -7,9 +7,9 @@
 namespace Hitagi::Resource {
 
 Image BmpParser::Parse(const Core::Buffer& buf) {
-    const BITMAP_FILEHEADER* fileHeader =
+    const auto* fileHeader =
         reinterpret_cast<const BITMAP_FILEHEADER*>(buf.GetData());
-    const BITMAP_HEADER* bmpHeader = reinterpret_cast<const BITMAP_HEADER*>(
+    const auto* bmpHeader = reinterpret_cast<const BITMAP_HEADER*>(
         buf.GetData() + BITMAP_FILEHEADER_SIZE);
     if (fileHeader->Signature == 0x4D42 /* 'B''M' */) {
         spdlog::get("ResourceManager")->debug("[BMP] Asset is Windows BMP file");
@@ -31,7 +31,7 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
         auto     pitch      = ((width * bitcount >> 3) + 3) & ~3;
         auto     dataSize   = pitch * height;
         Image    img(width, height, bitcount, pitch, dataSize);
-        uint8_t* data = reinterpret_cast<uint8_t*>(img.getData());
+        auto* data = reinterpret_cast<uint8_t*>(img.getData());
         if (bitcount < 24) {
             spdlog::get("ResourceManager")->warn("[BMP] Sorry, only true color BMP is supported at now.");
         } else {

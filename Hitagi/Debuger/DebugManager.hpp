@@ -5,11 +5,9 @@ namespace Hitagi {
 
 class DebugManager : public IRuntimeModule {
 public:
-    virtual int  Initialize();
-    virtual void Finalize();
-    virtual void Tick();
-    virtual ~DebugManager() {}
-
+    int  Initialize() final;
+    void Finalize() final;
+    void Tick() final;
     void ToggleDebugInfo();
     void DrawDebugInfo();
 

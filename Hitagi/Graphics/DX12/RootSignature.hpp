@@ -16,7 +16,7 @@ public:
     }
 
     void InitAsDescriptorTable(UINT rangeCount, D3D12_SHADER_VISIBILITY visibility = D3D12_SHADER_VISIBILITY_ALL) {
-        D3D12_DESCRIPTOR_RANGE1* range = new D3D12_DESCRIPTOR_RANGE1[rangeCount];
+        auto* range = new D3D12_DESCRIPTOR_RANGE1[rangeCount];
         CD3DX12_ROOT_PARAMETER1::InitAsDescriptorTable(rangeCount, range, visibility);
     }
 
@@ -32,7 +32,8 @@ public:
 class RootSignature {
 public:
     RootSignature(uint32_t numRootParams = 0, uint32_t numStaticSamplers = 0);
-    ~RootSignature(){};
+    ~RootSignature() = default;
+    ;
     RootSignature(const RootSignature&) = delete;
     RootSignature& operator=(const RootSignature&) = delete;
     RootSignature(RootSignature&&)                 = default;
@@ -62,36 +63,29 @@ public:
     unsigned GetNumRootDecriptors() const { return m_NumRootDescriptors; }
     unsigned GetNumDescriptorTables() const { return m_NumDescriptorTables; }
 
-    RootParameter& operator[](size_t index) {
-        assert(index < m_NumParameters);
-        return m_ParamArray.get()[index];
-    }
-
-    const RootParameter& operator[](size_t index) const {
-        assert(index < m_NumParameters);
-        return m_ParamArray.get()[index];
-    }
+    RootParameter&       operator[](size_t index) { return m_ParamArray[index]; }
+    const RootParameter& operator[](size_t index) const { return m_ParamArray[index]; }
 
 private:
-    bool m_Finalized;
+    bool m_Finalized{false};
 
-    D3D12_ROOT_SIGNATURE_DESC1                  m_RootSignatureDesc;
+    D3D12_ROOT_SIGNATURE_DESC1                  m_RootSignatureDesc{};
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
 
-    uint32_t m_NumDescriptorsPerTable[32];
-    unsigned m_NumParameters;
-    unsigned m_NumSamplers;
-    unsigned m_NumInitializedStaticSamplers;
+    std::array<uint32_t, 32> m_NumDescriptorsPerTable;
+    unsigned                 m_NumParameters;
+    unsigned                 m_NumSamplers;
+    unsigned                 m_NumInitializedStaticSamplers;
 
-    std::unique_ptr<RootParameter[]>             m_ParamArray;
-    std::unique_ptr<D3D12_STATIC_SAMPLER_DESC[]> m_SamplerArray;
+    std::vector<RootParameter>             m_ParamArray;
+    std::vector<D3D12_STATIC_SAMPLER_DESC> m_SamplerArray;
 
     unsigned m_NumDescriptorTables = 0;
     unsigned m_NumRootConstants    = 0;
     unsigned m_NumRootDescriptors  = 0;
 
-    uint32_t m_SamplerTableBitMask;
-    uint32_t m_DescriptorTableBitMask;
+    uint32_t m_SamplerTableBitMask    = 0;
+    uint32_t m_DescriptorTableBitMask = 0;
 };
 
 }  // namespace Hitagi::Graphics::DX12

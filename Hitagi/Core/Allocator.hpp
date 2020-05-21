@@ -37,17 +37,17 @@ private:
     void FillAllocatedBlock(BlockHeader* block);
 
     BlockHeader* NextBlock(BlockHeader* block);
-    PageHeader*  m_PageList;
-    BlockHeader* m_FreeList;
+    PageHeader*  m_PageList = nullptr;
+    BlockHeader* m_FreeList = nullptr;
 
-    size_t   m_DataSize;
-    size_t   m_PageSize;
-    size_t   m_AlignmentSize;
-    size_t   m_BlockSize;
-    uint32_t m_BlocksPerPage;
+    size_t   m_DataSize      = 0;
+    size_t   m_PageSize      = 0;
+    size_t   m_AlignmentSize = 0;
+    size_t   m_BlockSize     = 0;
+    uint32_t m_BlocksPerPage = 0;
 
-    uint32_t m_Pages;
-    uint32_t m_BLocks;
-    uint32_t m_FreeBlocks;
+    uint32_t m_Pages      = 0;
+    uint32_t m_BLocks     = 0;
+    uint32_t m_FreeBlocks = 0;
 };
 }  // namespace Hitagi::Core

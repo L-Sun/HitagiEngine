@@ -6,9 +6,9 @@
 namespace Hitagi::Core {
 class Clock : public IRuntimeModule {
 public:
-    virtual int  Initialize();
-    virtual void Tick();
-    virtual void Finalize();
+    int  Initialize() final;
+    void Tick() final;
+    void Finalize() final;
 
     std::chrono::duration<double> totalTime() const;
     std::chrono::duration<double> deltaTime() const;

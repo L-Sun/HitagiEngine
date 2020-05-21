@@ -192,13 +192,13 @@ void SceneObjectGeometry::SetIfMotionBlur(bool motion_blur) { m_MotionBlur = mot
 void SceneObjectGeometry::SetCollisionType(SceneObjectCollisionType collisionType) { m_CollisionType = collisionType; }
 void SceneObjectGeometry::SetCollisionParameters(const float* param, int32_t count) {
     assert(count > 0 && count < 10);
-    memcpy(m_CollisionParameters, param, sizeof(float) * count);
+    memcpy(m_CollisionParameters.data(), param, sizeof(float) * count);
 }
 const bool                     SceneObjectGeometry::Visible() const { return m_Visible; }
 const bool                     SceneObjectGeometry::CastShadow() const { return m_Shadow; }
 const bool                     SceneObjectGeometry::MotionBlur() const { return m_MotionBlur; }
 const SceneObjectCollisionType SceneObjectGeometry::CollisionType() const { return m_CollisionType; }
-const float*                   SceneObjectGeometry::CollisionParameters() const { return m_CollisionParameters; }
+const float*                   SceneObjectGeometry::CollisionParameters() const { return m_CollisionParameters.data(); }
 
 void SceneObjectGeometry::AddMesh(std::unique_ptr<SceneObjectMesh> mesh, size_t level) {
     if (level >= m_MeshesLOD.size()) m_MeshesLOD.resize(level + 1);

@@ -133,21 +133,6 @@ mat4f HitagiPhysicsManager::GetRigidBodyTransform(Resource::SceneGeometryNode& n
 void HitagiPhysicsManager::ApplyCentralForce(Resource::SceneGeometryNode& node, vec3f force) {}
 
 #if defined(_DEBUG)
-void HitagiPhysicsManager::DrawDebugInfo() {
-    // Geometries
-
-    // for (auto [key, node] : scene.GeometryNodes) {
-    //     auto pGeometryNode = node;
-
-    //     if (auto rigidBody = std::static_pointer_cast<RigidBody>(node->RigidBody())) {
-    //         auto motionState  = rigidBody->GetMotionState();
-    //         auto pGeometry    = rigidBody->GetCollisionShape();
-    //         auto trans        = motionState->GetTransition();
-    //         auto centerOfMass = motionState->GetCenterOfMassOffset();
-    //         DrawAabb(*pGeometry, trans, centerOfMass);
-    //     }
-    // }
-}
 
 void HitagiPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass) {}
 

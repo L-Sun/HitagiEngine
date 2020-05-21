@@ -19,8 +19,8 @@ public:
     size_t         GetDataSize() const;
 
 private:
-    uint8_t* m_Data;
-    size_t   m_Size;
+    uint8_t* m_Data = nullptr;
+    size_t   m_Size = 0;
     size_t   m_Alignment;
 };
 }  // namespace Hitagi::Core

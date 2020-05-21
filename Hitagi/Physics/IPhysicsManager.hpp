@@ -7,9 +7,9 @@ namespace Hitagi::Physics {
 
 class IPhysicsManager : public IRuntimeModule {
 public:
-    virtual int  Initialize() = 0;
-    virtual void Finalize()   = 0;
-    virtual void Tick()       = 0;
+    int  Initialize() override = 0;
+    void Finalize()   override = 0;
+    void Tick()       override = 0;
 
     virtual std::array<vec3f, 2> GetAABB(Resource::SceneGeometryNode& node) = 0;
 

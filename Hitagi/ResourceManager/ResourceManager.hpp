@@ -17,8 +17,8 @@ public:
     std::shared_ptr<Scene> ParseScene(const std::filesystem::path& filePath);
 
 private:
-    std::unique_ptr<ImageParser> m_ImageParser[static_cast<unsigned>(ImageFormat::NUM_SUPPORT)];
-    std::unique_ptr<SceneParser> m_SceneParser;
+    std::array<std::unique_ptr<ImageParser>, static_cast<unsigned>(ImageFormat::NUM_SUPPORT)> m_ImageParser;
+    std::unique_ptr<SceneParser>                                                              m_SceneParser;
 
     std::map<std::string, std::pair<std::filesystem::file_time_type, std::shared_ptr<Image>>> m_ImageCache;
     std::map<std::string, std::pair<std::filesystem::file_time_type, std::shared_ptr<Scene>>> m_SceneCache;

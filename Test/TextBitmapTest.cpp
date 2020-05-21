@@ -53,9 +53,9 @@ int main(int argc, char const* argv[]) {
             return -1;
         }
         auto glyph_index = FT_Get_Char_Index(face, 'a');
-        error            = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
-        error            = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-        auto bitmap      = face->glyph->bitmap;
+        if ((error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT)) != 0) return error;
+        if ((error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL)) != 0) return error;
+        auto bitmap = face->glyph->bitmap;
 
         for (size_t i = 0; i < bitmap.rows; i++) {
             for (size_t j = 0; j < bitmap.width; j++) {

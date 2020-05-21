@@ -5,10 +5,7 @@ namespace Hitagi::Graphics::DX12 {
 
 CommandContext::CommandContext(std::string_view name, D3D12_COMMAND_LIST_TYPE type)
     : m_Name(name),
-      m_CommandList(nullptr),
-      m_CommandAllocator(nullptr),
-      m_CurrRootSignature(nullptr),
-      m_NumBarriersToFlush(0),
+
       m_CpuLinearAllocator(LinearAllocatorType::CPU_WRITABLE),
       m_GpuLinearAllocator(LinearAllocatorType::GPU_EXCLUSIVE),
       m_Type(type) {
@@ -45,14 +42,14 @@ void CommandContext::InitializeBuffer(GpuResource& dest, const void* data, size_
     context.Finish(true);
 }
 
-void CommandContext::InitializeTexture(GpuResource& dest, size_t numSubresources, D3D12_SUBRESOURCE_DATA subData[]) {
+void CommandContext::InitializeTexture(GpuResource& dest, const std::vector<D3D12_SUBRESOURCE_DATA>& subData) {
     CommandContext context;
 
-    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(dest.GetResource(), 0, numSubresources);
+    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(dest.GetResource(), 0, subData.size());
     auto         uploadBuffer     = context.m_CpuLinearAllocator.Allocate(uploadBufferSize);
 
     UpdateSubresources(context.m_CommandList, dest.GetResource(), uploadBuffer.resource.GetResource(),
-                       uploadBuffer.offset, 0, numSubresources, subData);
+                       uploadBuffer.offset, 0, subData.size(), const_cast<D3D12_SUBRESOURCE_DATA*>(subData.data()));
     context.TransitionResource(dest, D3D12_RESOURCE_STATE_GENERIC_READ);
 
     context.Finish(true);
@@ -94,7 +91,7 @@ void CommandContext::TransitionResource(GpuResource& resource, D3D12_RESOURCE_ST
 
 void CommandContext::FlushResourceBarriers() {
     if (m_NumBarriersToFlush > 0) {
-        m_CommandList->ResourceBarrier(m_NumBarriersToFlush, m_Barriers);
+        m_CommandList->ResourceBarrier(m_NumBarriersToFlush, m_Barriers.data());
         m_NumBarriersToFlush = 0;
     }
 }
@@ -106,10 +103,11 @@ void CommandContext::SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, ID3D12De
     }
 }
 
-void CommandContext::SetDescriptorHeaps(unsigned heapCount, D3D12_DESCRIPTOR_HEAP_TYPE type[],
-                                        ID3D12DescriptorHeap* heaps[]) {
+void CommandContext::SetDescriptorHeaps(const std::vector<D3D12_DESCRIPTOR_HEAP_TYPE>& type,
+                                        std::vector<ID3D12DescriptorHeap*>&            heaps) {
+    assert(type.size() == heaps.size());
     bool changed = false;
-    for (unsigned i = 0; i < heapCount; i++) {
+    for (unsigned i = 0; i < type.size(); i++) {
         if (m_CurrentDescriptorHeaps[type[i]] != heaps[i]) m_CurrentDescriptorHeaps[type[i]] = heaps[i];
         changed = true;
     }
@@ -117,14 +115,14 @@ void CommandContext::SetDescriptorHeaps(unsigned heapCount, D3D12_DESCRIPTOR_HEA
 }
 
 void CommandContext::BindDescriptorHeaps() {
-    unsigned              NonNullHeaps = 0;
-    ID3D12DescriptorHeap* HeapsToBind[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+    unsigned                                                                NonNullHeaps = 0;
+    std::array<ID3D12DescriptorHeap*, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> HeapsToBind;
     for (unsigned i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i) {
         ID3D12DescriptorHeap* HeapIter = m_CurrentDescriptorHeaps[i];
         if (HeapIter != nullptr) HeapsToBind[NonNullHeaps++] = HeapIter;
     }
 
-    if (NonNullHeaps > 0) m_CommandList->SetDescriptorHeaps(NonNullHeaps, HeapsToBind);
+    if (NonNullHeaps > 0) m_CommandList->SetDescriptorHeaps(NonNullHeaps, HeapsToBind.data());
 }
 
 void CommandContext::SetRootSignature(const RootSignature& rootSignature) {
@@ -166,13 +164,13 @@ void CommandContext::SetViewport(const D3D12_VIEWPORT& viewport) { m_CommandList
 
 void CommandContext::SetScissor(const D3D12_RECT& rect) { m_CommandList->RSSetScissorRects(1, &rect); }
 
-void CommandContext::SetRenderTargets(unsigned numRTVs, const D3D12_CPU_DESCRIPTOR_HANDLE RTVs[],
-                                      D3D12_CPU_DESCRIPTOR_HANDLE DSV) {
-    m_CommandList->OMSetRenderTargets(numRTVs, RTVs, false, &DSV);
+void CommandContext::SetRenderTargets(const std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>& RTVs,
+                                      D3D12_CPU_DESCRIPTOR_HANDLE                     DSV) {
+    m_CommandList->OMSetRenderTargets(RTVs.size(), RTVs.data(), false, &DSV);
 }
 
-void CommandContext::SetRenderTargets(unsigned numRTVs, const D3D12_CPU_DESCRIPTOR_HANDLE RTVs[]) {
-    m_CommandList->OMSetRenderTargets(numRTVs, RTVs, false, nullptr);
+void CommandContext::SetRenderTargets(const std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>& RTVs) {
+    m_CommandList->OMSetRenderTargets(RTVs.size(), RTVs.data(), false, nullptr);
 }
 
 void CommandContext::SetPipeLineState(const PipeLineState& pso) { m_CommandList->SetPipelineState(pso.GetPSO()); }
@@ -183,8 +181,8 @@ void CommandContext::SetVertexBuffer(unsigned slot, const D3D12_VERTEX_BUFFER_VI
     m_CommandList->IASetVertexBuffers(slot, 1, &VBView);
 }
 
-void CommandContext::SetVertexBuffers(unsigned startSlot, unsigned count, const D3D12_VERTEX_BUFFER_VIEW VBViews[]) {
-    m_CommandList->IASetVertexBuffers(startSlot, count, VBViews);
+void CommandContext::SetVertexBuffers(unsigned startSlot, const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VBViews) {
+    m_CommandList->IASetVertexBuffers(startSlot, VBViews.size(), VBViews.data());
 }
 
 void CommandContext::SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY topology) {

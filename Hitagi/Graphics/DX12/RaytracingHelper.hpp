@@ -53,7 +53,7 @@ private:
 
 class RaytracingPipelineGenerator {
 public:
-    RaytracingPipelineGenerator() : m_GlobalRootSignature(nullptr) {
+    RaytracingPipelineGenerator() {
         m_DummyLocalRootSignature.Finalize(D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
         m_DummyGlobalRootSignature.Finalize();
     }
@@ -121,12 +121,12 @@ private:
     RootSignature m_DummyLocalRootSignature;
     RootSignature m_DummyGlobalRootSignature;
 
-    ID3D12RootSignature* m_GlobalRootSignature;
+    ID3D12RootSignature* m_GlobalRootSignature = nullptr;
 };
 
 class ShaderTable {
 public:
-    ShaderTable(std::wstring_view name = L"") : m_Name(name), m_NumRecords(0), m_Stride(0) {
+    ShaderTable(std::wstring_view name = L"") : m_Name(name) {
         // the max size of root signature is 256 bytes
         m_Records.reserve(D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + 256);
     }
@@ -196,8 +196,8 @@ private:
     std::wstring                      m_Name;
     std::vector<std::vector<uint8_t>> m_Records;
     GpuBuffer                         m_Buffer;
-    unsigned                          m_NumRecords;
-    size_t                            m_Stride;
+    unsigned                          m_NumRecords = 0;
+    size_t                            m_Stride     = 0;
 };
 
 }  // namespace Hitagi::Graphics::DX12

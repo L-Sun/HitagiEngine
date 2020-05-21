@@ -70,13 +70,10 @@ TEST(VectorTest, VectorDotProduct) {
 TEST(SwizzleTest, SwizzleTest) {
     vec3f v3(1, 2, 3);
     vector_eq((vec3f)v3.zyx, vec3f(3, 2, 1));
-    std::cout << v3 << std::endl;
     vector_eq((vec3f)v3.rgb, v3);
     v3.rgb = {1, 3, 3};
-    std::cout << v3 << std::endl;
     vector_eq(v3, vec3f(1, 3, 3));
     v3.zyx = {1, 3, 3};
-    std::cout << v3 << std::endl;
     vector_eq(v3, vec3f(3, 3, 1));
     v3.r = 4;
     vector_eq(v3, vec3f(4, 3, 1));
@@ -98,33 +95,33 @@ TEST(MatrixTest, MatInit) {
 TEST(MatrixTest, MatAddNum) {
     mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
 
-    matrix_eq(m3 + 3, mat3f({4, 4, 4, 4, 4, 4, 4, 4, 4}));
-    matrix_eq(3 + m3, mat3f({4, 4, 4, 4, 4, 4, 4, 4, 4}));
+    matrix_eq(m3 + 3, mat3f({{4, 4, 4}, {4, 4, 4}, {4, 4, 4}}));
+    matrix_eq(3 + m3, mat3f({{4, 4, 4}, {4, 4, 4}, {4, 4, 4}}));
     auto _m3 = m3;
-    matrix_eq(_m3 += 3, mat3f({4, 4, 4, 4, 4, 4, 4, 4, 4}));
+    matrix_eq(_m3 += 3, mat3f({{4, 4, 4}, {4, 4, 4}, {4, 4, 4}}));
 }
 TEST(MatrixTest, MatSubNum) {
     mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
-    matrix_eq(3 - m3, mat3f({2, 2, 2, 2, 2, 2, 2, 2, 2}));
-    matrix_eq(m3 - 3, mat3f({-2, -2, -2, -2, -2, -2, -2, -2, -2}));
-    matrix_eq(-m3, mat3f({-1, -1, -1, -1, -1, -1, -1, -1, -1}));
+    matrix_eq(3 - m3, mat3f({{2, 2, 2}, {2, 2, 2}, {2, 2, 2}}));
+    matrix_eq(m3 - 3, mat3f({{-2, -2, -2}, {-2, -2, -2}, {-2, -2, -2}}));
+    matrix_eq(-m3, mat3f({{-1, -1, -1}, {-1, -1, -1}, {-1, -1, -1}}));
     auto _m3 = m3;
-    matrix_eq(_m3 -= 3, mat3f({-2, -2, -2, -2, -2, -2, -2, -2, -2}));
+    matrix_eq(_m3 -= 3, mat3f({{-2, -2, -2}, {-2, -2, -2}, {-2, -2, -2}}));
 }
 TEST(MatrixTest, MatMulNum) {
     mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
 
-    matrix_eq(m3 * 2, mat3f({2, 2, 2, 2, 2, 2, 2, 2, 2}));
-    matrix_eq(2 * m3, mat3f({2, 2, 2, 2, 2, 2, 2, 2, 2}));
+    matrix_eq(m3 * 2, mat3f({{2, 2, 2}, {2, 2, 2}, {2, 2, 2}}));
+    matrix_eq(2 * m3, mat3f({{2, 2, 2}, {2, 2, 2}, {2, 2, 2}}));
     auto _m3 = m3;
-    matrix_eq(_m3 *= 2, mat3f({2, 2, 2, 2, 2, 2, 2, 2, 2}));
+    matrix_eq(_m3 *= 2, mat3f({{2, 2, 2}, {2, 2, 2}, {2, 2, 2}}));
 }
 TEST(MatrixTest, MatDivNum) {
     mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
 
-    matrix_eq(m3 / 2, mat3f({0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5}));
+    matrix_eq(m3 / 2, mat3f({{0.5, 0.5, 0.5}, {0.5, 0.5, 0.5}, {0.5, 0.5, 0.5}}));
     auto _m3 = m3;
-    matrix_eq(_m3 /= 2, mat3f({0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5}));
+    matrix_eq(_m3 /= 2, mat3f({{0.5, 0.5, 0.5}, {0.5, 0.5, 0.5}, {0.5, 0.5, 0.5}}));
 }
 TEST(MatrixTest, MatAddMat) {
     mat3f m1{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};

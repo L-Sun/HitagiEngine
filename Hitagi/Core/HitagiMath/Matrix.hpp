@@ -20,8 +20,7 @@ struct Matrix {
             for (unsigned col = 0; col < D; col++) data[row][col] = row == col ? num : 0;
     }
     Matrix(std::initializer_list<RowVec>&& l) { std::move(l.begin(), l.end(), data.begin()); }
-    Matrix(const T (&a)[D][D]) { std::copy(&a[0][0], &a[0][0] + D * D, &data[0][0]); }
-    Matrix(const T (&a)[D * D]) { std::copy(&a[0], &a[0] + D * D, &data[0][0]); }
+    Matrix(std::array<RowVec, D> a) : data(a) {}
 
     Vector<T, D>&       operator[](unsigned row) { return data[row]; }
     const Vector<T, D>& operator[](unsigned row) const { return data[row]; }

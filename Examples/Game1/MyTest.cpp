@@ -32,7 +32,7 @@ void MyTest::Tick() {
     if (auto z = g_InputManager->GetFloat(ZOOM)) {
         if (auto camera = g_SceneManager->GetCameraNode().lock()) {
             auto direct = camera->GetCameraLookAt();
-            camera->ApplyTransform(translate(mat4f(1.0f), direct * 10 * z));
+            camera->ApplyTransform(translate(mat4f(1.0f), direct * 1 * z));
         }
     }
     if (g_InputManager->GetBool(ROTATE_ON)) {

@@ -3,6 +3,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include <array>
+
 #include "portable.hpp"
 
 namespace Hitagi {
@@ -11,7 +13,7 @@ std::unique_ptr<Core::MemoryManager> g_MemoryManager = std::make_unique<Core::Me
 
 namespace Hitagi::Core {
 
-static const uint32_t kBlockSizes[] = {
+constexpr std::array kBlockSizes = {
     // 4-increments
     4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96,
 
@@ -21,14 +23,10 @@ static const uint32_t kBlockSizes[] = {
     // 64-increments
     704, 768, 832, 896, 960, 1024};
 
-static const uint32_t kPageSize  = 8192;
-static const uint32_t kAlignment = 4;
+constexpr uint32_t kPageSize  = 8192;
+constexpr uint32_t kAlignment = 4;
 
-static const uint32_t kNumBlockSizes = sizeof(kBlockSizes) / sizeof(kBlockSizes[0]);
-
-static const uint32_t kMaxBlockSize = kBlockSizes[kNumBlockSizes - 1];
-size_t*               MemoryManager::m_BlockSizeLookup;
-Allocator*            MemoryManager::m_Allocators;
+constexpr uint32_t kMaxBlockSize = kBlockSizes[kBlockSizes.size() - 1];
 
 int MemoryManager::Initialize() {
     if (m_Initialized) return 0;
@@ -43,15 +41,15 @@ int MemoryManager::Initialize() {
         m_BlockSizeLookup[i] = j;
     }
 
-    m_Allocators = new Allocator[kNumBlockSizes];
-    for (size_t i = 0; i < kNumBlockSizes; i++) m_Allocators[i].Reset(kBlockSizes[i], kPageSize, kAlignment);
+    m_Allocators = new Allocator[kBlockSizes.size()];
+    for (size_t i = 0; i < kBlockSizes.size(); i++) m_Allocators[i].Reset(kBlockSizes[i], kPageSize, kAlignment);
 
     m_Initialized = true;
     return 0;
 }
 
 void MemoryManager::Finalize() {
-    for (size_t i = 0; i < kNumBlockSizes; i++) {
+    for (size_t i = 0; i < kBlockSizes.size(); i++) {
         m_Allocators[i].FreeAll();
     }
 

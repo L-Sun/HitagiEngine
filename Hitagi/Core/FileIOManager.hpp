@@ -8,8 +8,6 @@ namespace Hitagi::Core {
 
 class FileIOManager : public IRuntimeModule {
 public:
-    virtual ~FileIOManager(){};
-
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;

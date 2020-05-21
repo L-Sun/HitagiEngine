@@ -21,7 +21,6 @@ int OpenGLGraphicsManager::Initialize() {
         std::cerr << "OpenGL load failed!\n";
         return -1;
     } else {
-        result = 0;
         std::cout << "OpenGL Version" << glGetString(GL_VERSION) << std::endl;
 
         if (GLAD_GL_VERSION_3_0) {
@@ -122,28 +121,28 @@ void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
                 glEnableVertexAttribArray(i);
                 switch (vertexArray.GetDataType()) {
                     case Resource::VertexDataType::FLOAT1:
-                        glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, 0);
+                        glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, nullptr);
                         break;
                     case Resource::VertexDataType::FLOAT2:
-                        glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, 0);
+                        glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, nullptr);
                         break;
                     case Resource::VertexDataType::FLOAT3:
-                        glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, 0);
+                        glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, nullptr);
                         break;
                     case Resource::VertexDataType::FLOAT4:
-                        glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, 0);
+                        glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, nullptr);
                         break;
                     case Resource::VertexDataType::DOUBLE1:
-                        glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, 0);
+                        glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, nullptr);
                         break;
                     case Resource::VertexDataType::DOUBLE2:
-                        glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, 0);
+                        glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, nullptr);
                         break;
                     case Resource::VertexDataType::DOUBLE3:
-                        glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, 0);
+                        glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, nullptr);
                         break;
                     case Resource::VertexDataType::DOUBLE4:
-                        glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, 0);
+                        glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, nullptr);
                         break;
                     default:
                         assert(0);
@@ -241,7 +240,7 @@ void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     glBindBuffer(GL_ARRAY_BUFFER, m_TextRenderVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 6 * 4, nullptr, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
@@ -373,7 +372,7 @@ void OpenGLGraphicsManager::RenderBuffers() {
             SetShaderParameters(m_BasicShader.programId, "diffuseColor", vec3f(-1.0f));
         }
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, dbc.mesh->ebo);
-        glDrawElements(dbc.mesh->mode, dbc.mesh->indexCount, dbc.mesh->type, 0x00);
+        glDrawElements(dbc.mesh->mode, dbc.mesh->indexCount, dbc.mesh->type, nullptr);
     }
 
     // Render text
@@ -390,20 +389,20 @@ void OpenGLGraphicsManager::RenderBuffers() {
             GLfloat width  = m_Characters[c].size.x;
             GLfloat height = m_Characters[c].size.y;
             // clang-format off
-            GLfloat vertices[6][4] = {
+            std::array vertices {
                 // position                   texcoord
-                {posX        , posY + height, 0.0, 0.0},
-                {posX        , posY         , 0.0, 1.0},
-                {posX + width, posY         , 1.0, 1.0},
+                posX        , posY + height, 0.0f, 0.0f,
+                posX        , posY         , 0.0f, 1.0f,
+                posX + width, posY         , 1.0f, 1.0f,
 
-                {posX        , posY + height, 0.0, 0.0},
-                {posX + width, posY         , 1.0, 1.0},
-                {posX + width, posY + height, 1.0, 0.0},
+                posX        , posY + height, 0.0f, 0.0f,
+                posX + width, posY         , 1.0f, 1.0f,
+                posX + width, posY + height, 1.0f, 0.0f,
             };
             // clang-format on
             glBindTexture(GL_TEXTURE_2D, m_Characters[c].textureID);
             glBindBuffer(GL_ARRAY_BUFFER, m_TextRenderVBO);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices.data());
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glDrawArrays(GL_TRIANGLES, 0, 6);
             textInfo.position.x += (m_Characters[c].advance >> 6);

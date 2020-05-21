@@ -49,7 +49,7 @@ void TextureBuffer::Create(std::wstring_view name, const Resource::Image& image)
     texResource.pData    = image.getData();
     texResource.RowPitch = image.GetPitch();
 
-    CommandContext::InitializeTexture(*this, 1, &texResource);
+    CommandContext::InitializeTexture(*this, {texResource});
     if (!m_SRV) m_SRV = g_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Allocate();
     g_Device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_SRV.GetDescriptorCpuHandle());
 }

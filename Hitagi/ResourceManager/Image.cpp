@@ -1,6 +1,7 @@
 #include "Image.hpp"
 
 #include <fmt/format.h>
+#include <array>
 
 #include "MemoryManager.hpp"
 
@@ -73,9 +74,9 @@ Image::~Image() {
 }
 
 std::ostream& operator<<(std::ostream& out, const Image& image) {
-    double            size    = image.m_DataSize;
-    const std::string unit[3] = {"B", "kB", "MB"};
-    size_t            i       = 0;
+    double               size = image.m_DataSize;
+    constexpr std::array unit = {"B", "kB", "MB"};
+    size_t               i    = 0;
     for (; i < 2; i++) {
         if (size < 10) break;
         size /= 1024;

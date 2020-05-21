@@ -16,20 +16,19 @@ public:
         Free(p, sizeof(T));
     }
 
-    virtual ~MemoryManager() {}
-    virtual int  Initialize();
-    virtual void Finalize();
-    virtual void Tick();
+    int  Initialize() final;
+    void Finalize() final;
+    void Tick() final;
 
     void* Allocate(size_t size);
     void* Allocate(size_t size, size_t alignment);
     void  Free(void* p, size_t size);
 
 private:
-    static size_t*    m_BlockSizeLookup;
-    static Allocator* m_Allocators;
-    static Allocator* LookUpAllocator(size_t size);
-    bool              m_Initialized = false;
+    inline static size_t*    m_BlockSizeLookup = nullptr;
+    inline static Allocator* m_Allocators      = nullptr;
+    static Allocator*        LookUpAllocator(size_t size);
+    bool                     m_Initialized = false;
 };
 
 }  // namespace Hitagi::Core

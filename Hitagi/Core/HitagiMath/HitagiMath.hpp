@@ -62,7 +62,8 @@ Matrix<T, 4> inverse(const Matrix<T, 4>& mat) {
     Matrix<T, 4> res;
     const T*     m = static_cast<const T*>(mat);
 
-    T inv[16], det;
+    std::array<T, 16> inv;
+    T                 det;
     inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] +
              m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
 

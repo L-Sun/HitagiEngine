@@ -72,11 +72,11 @@ void CommandQueue::WaitForFence(uint64_t fenceValue) {
 }
 
 CommandListManager::CommandListManager()
-    : m_Device(nullptr),
+    : 
       m_GraphicsQueue(D3D12_COMMAND_LIST_TYPE_DIRECT),
       m_ComputeQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE),
       m_CopyQueue(D3D12_COMMAND_LIST_TYPE_COPY) {}
-CommandListManager::~CommandListManager() {}
+CommandListManager::~CommandListManager() = default;
 
 void CommandListManager::Initialize(ID3D12Device6* device) {
     assert(device != nullptr);

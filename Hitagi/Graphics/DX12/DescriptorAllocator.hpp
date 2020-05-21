@@ -54,10 +54,10 @@ public:
     operator bool() const noexcept { return m_CpuHandle.ptr != 0; }
 
 private:
-    D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle;
-    D3D12_GPU_DESCRIPTOR_HANDLE m_GpuHandle;
-    uint32_t                    m_NumDescriptors;
-    uint32_t                    m_DescriptorSize;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_CpuHandle{0};
+    D3D12_GPU_DESCRIPTOR_HANDLE m_GpuHandle{0};
+    uint32_t                    m_NumDescriptors = 0;
+    uint32_t                    m_DescriptorSize = 0;
 
     uint64_t m_FenceValue = 0;
 

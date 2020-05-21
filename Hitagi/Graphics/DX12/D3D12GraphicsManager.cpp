@@ -13,9 +13,8 @@
 namespace Hitagi::Graphics::DX12 {
 
 int D3D12GraphicsManager::Initialize() {
-    int result = GraphicsManager::Initialize();
-    result     = InitD3D();
-    return result;
+    if (int result = GraphicsManager::Initialize(); result != 0) return result;
+    return InitD3D();
 }
 
 void D3D12GraphicsManager::Finalize() { GraphicsManager::Finalize(); }
@@ -429,8 +428,6 @@ void D3D12GraphicsManager::RenderBuffers() {
 }
 
 void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
-    auto fr = m_FrameResource[m_CurrFrameResourceIndex].get();
-
     context.SetRootSignature(m_RootSignature);
     context.SetViewportAndScissor(m_Viewport, m_ScissorRect);
     context.TransitionResource(m_DisplayPlanes[m_CurrBackBuffer], D3D12_RESOURCE_STATE_RENDER_TARGET);

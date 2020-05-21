@@ -19,7 +19,7 @@ public:
     void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) final;
 
 #if defined(_DEBUG)
-    void DrawDebugMesh(const Resource::SceneObjectMesh& mesh, const mat4f& transform) final {}
+    void DrawDebugMesh(const Resource::SceneObjectMesh& mesh, const mat4f& transform, const vec4f& color) final{};
     void ClearDebugBuffers() final;
 #endif
 
