@@ -153,24 +153,24 @@ Resource::SceneObjectMesh GenerateDebugMesh(std::vector<vec3f> vertices, std::ve
     return mesh;
 }
 
-void GraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec4f& color) {
-    m_Logger->debug("Draw line from: {}, to: {}, color: {}", from, to, color);
-    const std::vector<vec3f>    vertices = {from, to};
+void GraphicsManager::RenderLine(const Line& line, const vec4f& color) {
+    m_Logger->debug("Draw line from: {}, to: {}, color: {}", line.from, line.to, color);
+    const std::vector<vec3f>    vertices = {line.from, line.to};
     const std::vector<uint32_t> indices  = {0, 1};
     DrawDebugMesh(GenerateDebugMesh(vertices, indices, Resource::PrimitiveType::LINE_LIST), mat4f(1.0f), color);
 }
 
-void GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec4f& color) {
-    m_Logger->debug("Draw box bbMin: {}, bbMax: {}, color: {}", bbMin, bbMax, color);
+void GraphicsManager::RenderBox(const Box& box, const vec4f& color) {
+    m_Logger->debug("Draw box bbMin: {}, bbMax: {}, color: {}", box.bbMin, box.bbMax, color);
     const std::vector<vec3f> vertices = {
-        {bbMin.x, bbMin.y, bbMin.z},
-        {bbMax.x, bbMin.y, bbMin.z},
-        {bbMax.x, bbMax.y, bbMin.z},
-        {bbMin.x, bbMax.y, bbMin.z},
-        {bbMin.x, bbMin.y, bbMax.z},
-        {bbMax.x, bbMin.y, bbMax.z},
-        {bbMax.x, bbMax.y, bbMax.z},
-        {bbMin.x, bbMax.y, bbMax.z},
+        {box.bbMin.x, box.bbMin.y, box.bbMin.z},
+        {box.bbMax.x, box.bbMin.y, box.bbMin.z},
+        {box.bbMax.x, box.bbMax.y, box.bbMin.z},
+        {box.bbMin.x, box.bbMax.y, box.bbMin.z},
+        {box.bbMin.x, box.bbMin.y, box.bbMax.z},
+        {box.bbMax.x, box.bbMin.y, box.bbMax.z},
+        {box.bbMax.x, box.bbMax.y, box.bbMax.z},
+        {box.bbMin.x, box.bbMax.y, box.bbMax.z},
     };
     const std::vector<uint32_t> indices = {
         0, 1, 1, 2, 2, 3, 3, 0,  // bottom
@@ -179,6 +179,31 @@ void GraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const ve
     };
     DrawDebugMesh(GenerateDebugMesh(vertices, indices, Resource::PrimitiveType::LINE_LIST), mat4f(1.0f), color);
 }
+
+void GraphicsManager::RenderGrid(float spacing, const vec4f& color) {
+    m_Logger->debug("Draw Grid(100x100) in xOy plane");
+    std::vector<vec3f>    vertices;
+    std::vector<uint32_t> indices;
+    vertices.reserve(101 * 101);
+    indices.reserve(2 * (101 + 101));
+
+    float p = -50 * spacing;
+    for (size_t i = 0; i <= 100; i++)
+        for (size_t j = 0; j <= 100; j++)
+            vertices.push_back(vec3f{p + i * spacing, p + j * spacing, -1e-2f});
+
+    for (size_t i = 0; i <= 100; i++) {
+        indices.push_back(i * 101);
+        indices.push_back((i + 1) * 101 - 1);
+    }
+    for (size_t i = 0; i <= 100; i++) {
+        indices.push_back(i);
+        indices.push_back(100 * 101 + i);
+    }
+
+    DrawDebugMesh(GenerateDebugMesh(vertices, indices, Resource::PrimitiveType::LINE_LIST), mat4f(1.0f), color);
+}
+
 void GraphicsManager::ClearDebugBuffers() { m_Logger->debug("Clear debug buffers"); }
 #endif  // _DEBUG
 

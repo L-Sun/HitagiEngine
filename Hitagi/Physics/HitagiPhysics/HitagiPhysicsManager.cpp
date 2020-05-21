@@ -149,7 +149,7 @@ void HitagiPhysicsManager::DrawDebugInfo() {
     // }
 }
 
-void HitagiPhysicsManager::DrawAabb(const Core::Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass) {}
+void HitagiPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass) {}
 
 #endif
 }  // namespace Hitagi::Physics

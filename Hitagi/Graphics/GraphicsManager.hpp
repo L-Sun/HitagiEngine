@@ -5,6 +5,7 @@
 #include "IRuntimeModule.hpp"
 #include "Scene.hpp"
 #include "ShaderManager.hpp"
+#include "Geometry.hpp"
 
 namespace Hitagi::Graphics {
 class GraphicsManager : public IRuntimeModule {
@@ -19,8 +20,9 @@ public:
     virtual void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color);
 
 #if defined(_DEBUG)
-    void         RenderLine(const vec3f& from, const vec3f& to, const vec4f& color);
-    void         RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec4f& color);
+    void         RenderLine(const Line& line, const vec4f& color);
+    void         RenderBox(const Box& box, const vec4f& color);
+    void         RenderGrid(float spacing = 1.0f, const vec4f& color = {0.3f, 0.3f, 0.3f, 1.0f});
     virtual void ClearDebugBuffers();
 #endif  // _DEBUG
 

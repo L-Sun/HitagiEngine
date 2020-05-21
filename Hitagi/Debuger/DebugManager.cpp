@@ -38,23 +38,13 @@ void DebugManager::ToggleDebugInfo() {
 void DebugManager::DrawDebugInfo() {
 #if defined(_DEBUG)
     // x - axis
-    vec3f from(0.0f, 0.0f, 0.0f);
-    vec3f to(10.0f, 0.0f, 0.0f);
-    vec4f color(1.0f, 0.0f, 0.0f, 1.0f);
-    g_GraphicsManager->RenderLine(from, to, color);
-
+    g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(1000, 0, 0)}, vec4f(1, 0, 0, 1));
     // y - axis
-    from  = vec3f(0.0f, 0.0f, 0.0f);
-    to    = vec3f(0.0f, 10.0f, 0.0f);
-    color = vec4f(0.0f, 1.0f, 0.0f, 1.0f);
-    g_GraphicsManager->RenderLine(from, to, color);
-
+    g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(0, 1000, 0)}, vec4f(0, 1, 0, 1));
     // z - axis
-    from  = vec3f(0.0f, 0.0f, 0.0f);
-    to    = vec3f(0.0f, 0.0f, 10.0f);
-    color = vec4f(0.0f, 0.0f, 1.0f, 1.0f);
-    g_GraphicsManager->RenderLine(from, to, color);
+    g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(0, 0, 1000)}, vec4f(0, 0, 1, 1));
 
+    g_GraphicsManager->RenderGrid();
 #endif
 }
 }  // namespace Hitagi

@@ -106,6 +106,7 @@ void D3D12GraphicsManager::CreateDescriptorHeaps() {
         Microsoft::WRL::ComPtr<ID3D12Resource> displayPlane;
         ThrowIfFailed(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&displayPlane)));
         m_DisplayPlanes[i].CreateFromSwapChain(L"Primary Display Plane", displayPlane.Detach());
+        m_DisplayPlanes[i].SetClearColor(vec4f{0.1f, 0.1f, 0.1f, 1.0f});
     }
 
     // Create dsv.
