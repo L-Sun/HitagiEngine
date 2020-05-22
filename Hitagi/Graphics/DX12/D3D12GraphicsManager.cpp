@@ -247,6 +247,7 @@ bool D3D12GraphicsManager::InitializeShaders() {
 void D3D12GraphicsManager::BuildPipelineStateObject() {
     auto rasterizerDesc                  = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     rasterizerDesc.FrontCounterClockwise = true;
+    rasterizerDesc.MultisampleEnable     = m_Msaa;
     auto blendDesc                       = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     auto depthStencilDesc                = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 
@@ -510,6 +511,7 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
         context.SetPipeLineState(m_GraphicsPSO.at("MSAA"));
         context.TransitionResource(m_DisplayPlanes[m_CurrBackBuffer], D3D12_RESOURCE_STATE_RENDER_TARGET, true);
         context.SetRenderTarget(m_DisplayPlanes[m_CurrBackBuffer].GetRTV(), m_SceneDepthBuffer.GetDSV());
+        context.ClearColor(m_DisplayPlanes[m_CurrBackBuffer]);
         context.SetRootSignature(m_RootSignature.at("MSAA"));
         context.SetConstant(0, g_App->GetConfiguration().screenWidth, 0);
         context.SetConstant(0, g_App->GetConfiguration().screenHeight, 1);
