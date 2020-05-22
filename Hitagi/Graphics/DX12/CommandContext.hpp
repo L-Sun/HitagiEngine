@@ -50,6 +50,7 @@ public:
     void SetDescriptorHeaps(const std::vector<D3D12_DESCRIPTOR_HEAP_TYPE>& type, std::vector<ID3D12DescriptorHeap*>& heaps);
     void SetRootSignature(const RootSignature& rootSignature);
     void BindDescriptorHeaps();
+    void SetConstant(unsigned rootIndex, uint32_t constant, unsigned offset = 0);
     void SetDynamicDescriptor(unsigned rootIndex, unsigned offset, D3D12_CPU_DESCRIPTOR_HANDLE handle);
     void SetDynamicSampler(unsigned rootIndex, unsigned offset, D3D12_CPU_DESCRIPTOR_HANDLE handle);
 
@@ -59,9 +60,8 @@ public:
     void SetVertexBuffers(unsigned startSlot, const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VBViews);
 
     void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY topology);
-
-    void DrawIndexedInstanced(unsigned indexCountPerInstance, unsigned instanceCount, unsigned startIndexLocation,
-                              int baseVertexLocation, unsigned startInstanceLocation);
+    void DrawInstanced(unsigned VertexCountPerInstance, unsigned InstanceCount, unsigned StartVertexLocation, unsigned StartInstanceLocation);
+    void DrawIndexedInstanced(unsigned indexCountPerInstance, unsigned instanceCount, unsigned startIndexLocation, int baseVertexLocation, unsigned startInstanceLocation);
 
     uint64_t Finish(bool waitForComplete = false);
     void     Reset();

@@ -12,7 +12,7 @@ void GraphicsPSO::SetDepthStencilState(const D3D12_DEPTH_STENCIL_DESC& desc) { m
 void GraphicsPSO::SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE type) {
     m_PSODesc.PrimitiveTopologyType = type;
 }
-void GraphicsPSO::SetSampleMask(UINT mask) { m_PSODesc.SampleMask = mask; }
+void GraphicsPSO::SetSampleMask(unsigned mask) { m_PSODesc.SampleMask = mask; }
 
 void GraphicsPSO::SetVertexShader(const VertexShader& shader) {
     const Core::Buffer& code = shader.GetShaderCode();
@@ -24,20 +24,29 @@ void GraphicsPSO::SetPixelShader(const PixelShader& shader) {
     m_PSODesc.PS             = CD3DX12_SHADER_BYTECODE(code.GetData(), code.GetDataSize());
 }
 
-void GraphicsPSO::SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& RTVFormats, DXGI_FORMAT DSVFormat) {
+void GraphicsPSO::SetRenderTargetFormats(
+    const std::vector<DXGI_FORMAT>& RTVFormats, DXGI_FORMAT DSVFormat, unsigned MsaaCount, unsigned MsaaQuality) {
     for (int i = 0; i < RTVFormats.size(); i++) m_PSODesc.RTVFormats[i] = RTVFormats[i];
     for (int i = RTVFormats.size(); i < m_PSODesc.NumRenderTargets; i++) m_PSODesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
     m_PSODesc.NumRenderTargets   = RTVFormats.size();
     m_PSODesc.DSVFormat          = DSVFormat;
-    m_PSODesc.SampleDesc.Count   = 1;
-    m_PSODesc.SampleDesc.Quality = 0;
+    m_PSODesc.SampleDesc.Count   = MsaaCount;
+    m_PSODesc.SampleDesc.Quality = MsaaQuality;
 }
 
 void GraphicsPSO::Finalize() {
-    m_PSODesc.InputLayout    = {m_InputLayouts.data(), static_cast<UINT>(m_InputLayouts.size())};
+    m_PSODesc.InputLayout    = {m_InputLayouts.data(), static_cast<unsigned>(m_InputLayouts.size())};
     m_PSODesc.pRootSignature = m_RootSignature->GetRootSignature();
     assert(m_PSODesc.pRootSignature != nullptr);
     ThrowIfFailed(g_Device->CreateGraphicsPipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
+}
+
+GraphicsPSO GraphicsPSO::Copy() const {
+    GraphicsPSO ret;
+    ret.m_RootSignature = m_RootSignature;
+    ret.m_PSODesc       = m_PSODesc;
+    ret.m_InputLayouts  = m_InputLayouts;
+    return ret;
 }
 
 ComputePSO::ComputePSO() {

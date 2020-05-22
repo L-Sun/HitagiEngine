@@ -51,6 +51,7 @@ void GLFWApplication::UpdateInputState() {
         std::make_pair(InputEvent::KEY_A, GLFW_KEY_A),
         std::make_pair(InputEvent::KEY_S, GLFW_KEY_S),
         std::make_pair(InputEvent::KEY_D, GLFW_KEY_D),
+        std::make_pair(InputEvent::KEY_M, GLFW_KEY_M),
         std::make_pair(InputEvent::KEY_SPACE, GLFW_KEY_SPACE),
         std::make_pair(InputEvent::KEY_UP, GLFW_KEY_UP),
         std::make_pair(InputEvent::KEY_DOWN, GLFW_KEY_DOWN),

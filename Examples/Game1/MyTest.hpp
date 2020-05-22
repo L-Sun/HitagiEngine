@@ -21,6 +21,7 @@ private:
         MOVE_FRONT,
         MOVE_BACK,
         RESET_SCENE,
+        MSAA
     };
     float sensitivity = 0.5f;
 };

@@ -146,6 +146,16 @@ void GraphicsManager::RenderText(std::string_view text, const vec2f& position, f
     m_Logger->debug("Render text: {}, position: {}, scale: {}, color: {}", text, position, scale, color);
 }
 
+void GraphicsManager::ToogleMSAA() {
+    m_Msaa = !m_Msaa;
+    if (m_Msaa)
+        m_Logger->debug("Enable 4xMSAA");
+    else
+        m_Logger->debug("Disable 4xMSAA");
+    ClearShaders();
+    InitializeShaders();
+}
+
 #if defined(_DEBUG)
 Resource::SceneObjectMesh GenerateDebugMesh(std::vector<vec3f> vertices, std::vector<uint32_t> indices, Resource::PrimitiveType primitiveType) {
     Resource::SceneObjectMesh mesh;

@@ -83,11 +83,15 @@ private:
     D3D12_VIEWPORT                          m_Viewport;
     D3D12_RECT                              m_ScissorRect;
 
+    std::array<ColorBuffer, m_FrameCount> m_MsaaRtv;
+    DepthBuffer                           m_MsaaDepthBuffer;
+    GpuBuffer                             m_MsaaVertexBuffer;
+
     std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayout;
 
-    std::unordered_map<std::string, GraphicsPSO> m_GraphicsPSO;
-    std::unordered_map<std::string, ComputePSO>  m_ComputePSO;
-    RootSignature                                m_RootSignature;
+    std::unordered_map<std::string, GraphicsPSO>   m_GraphicsPSO;
+    std::unordered_map<std::string, ComputePSO>    m_ComputePSO;
+    std::unordered_map<std::string, RootSignature> m_RootSignature;
 
     std::vector<std::unique_ptr<FR>> m_FrameResource;
     // Generally, the frame resource size is greater or equal to frame count

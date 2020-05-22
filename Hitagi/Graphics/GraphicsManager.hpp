@@ -16,6 +16,7 @@ public:
 
     virtual void Draw();
     virtual void Clear();
+    void         ToogleMSAA();
 
     virtual void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color);
 
@@ -66,6 +67,7 @@ protected:
 
     FrameConstants m_FrameConstants;
     ShaderManager  m_ShaderManager;
+    bool           m_Msaa = true;
 
 private:
     FT_Library   m_FTLibrary;

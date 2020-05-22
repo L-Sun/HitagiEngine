@@ -19,6 +19,7 @@ int MyTest::Initialize() {
     g_InputManager->Map(MOVE_BACK, InputEvent::KEY_S);
 
     g_InputManager->Map(RESET_SCENE, InputEvent::KEY_R);
+    g_InputManager->Map(MSAA, InputEvent::KEY_M);
 
     return result;
 }
@@ -29,6 +30,10 @@ void MyTest::Tick() {
     if (g_InputManager->GetBoolNew(DEBUG_TOGGLE)) {
         g_DebugManager->ToggleDebugInfo();
     }
+    if (g_InputManager->GetBoolNew(MSAA)) {
+        g_GraphicsManager->ToogleMSAA();
+    }
+
     if (auto z = g_InputManager->GetFloat(ZOOM)) {
         if (auto camera = g_SceneManager->GetCameraNode().lock()) {
             auto direct = camera->GetCameraLookAt();

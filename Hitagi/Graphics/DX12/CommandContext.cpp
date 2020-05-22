@@ -139,6 +139,10 @@ void CommandContext::SetRootSignature(const RootSignature& rootSignature) {
     m_CommandList->SetGraphicsRootSignature(m_CurrRootSignature);
 }
 
+void CommandContext::SetConstant(unsigned rootIndex, uint32_t constant, unsigned offset) {
+    m_CommandList->SetGraphicsRoot32BitConstant(rootIndex, constant, offset);
+}
+
 void CommandContext::SetDynamicDescriptor(unsigned rootIndex, unsigned offset,
                                           D3D12_CPU_DESCRIPTOR_HANDLE handle) {
     m_DynamicDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->StageDescriptor(rootIndex, offset, 1, handle);
@@ -187,6 +191,16 @@ void CommandContext::SetVertexBuffers(unsigned startSlot, const std::vector<D3D1
 
 void CommandContext::SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY topology) {
     m_CommandList->IASetPrimitiveTopology(topology);
+}
+
+void CommandContext::DrawInstanced(unsigned VertexCountPerInstance, unsigned InstanceCount,
+                                   unsigned StartVertexLocation, unsigned StartInstanceLocation) {
+    FlushResourceBarriers();
+    for (size_t i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; i++) {
+        m_DynamicDescriptorHeaps[i]->CommitStagedDescriptors(
+            *this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);
+    }
+    m_CommandList->DrawInstanced(VertexCountPerInstance, InstanceCount, StartVertexLocation, StartInstanceLocation);
 }
 
 void CommandContext::DrawIndexedInstanced(unsigned indexCountPerInstance, unsigned instanceCount,

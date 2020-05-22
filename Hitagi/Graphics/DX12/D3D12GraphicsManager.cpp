@@ -100,17 +100,34 @@ int D3D12GraphicsManager::InitD3D() {
 }
 
 void D3D12GraphicsManager::CreateDescriptorHeaps() {
+    auto config = g_App->GetConfiguration();
+
     // Create rtv.
     for (unsigned i = 0; i < m_FrameCount; i++) {
         Microsoft::WRL::ComPtr<ID3D12Resource> displayPlane;
         ThrowIfFailed(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&displayPlane)));
-        m_DisplayPlanes[i].CreateFromSwapChain(L"Primary Display Plane", displayPlane.Detach());
         m_DisplayPlanes[i].SetClearColor(vec4f{0.1f, 0.1f, 0.1f, 1.0f});
+        m_DisplayPlanes[i].CreateFromSwapChain(fmt::format(L"Display Plane[{}]", i), displayPlane.Detach());
     }
+    const unsigned MsaaCount = m_Msaa ? 4 : 1, MsaaQulity = m_Msaa ? DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN : 0;
+    // Create Msaa RTV
+
+    for (unsigned i = 0; i < m_FrameCount; i++) {
+        m_MsaaRtv[i].SetMsaaMode(MsaaCount, MsaaQulity);
+        m_MsaaRtv[i].SetClearColor(vec4f{0.1f, 0.1f, 0.1f, 1.0f});
+        m_MsaaRtv[i].Create(fmt::format(L"MSAA[{}]", i), config.screenWidth, config.screenHeight, m_BackBufferFormat, 1);
+    }
+    // position and texture
+    std::array fullScreenQuad = {
+        -1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+        1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f, 1.0f, 1.0f};
+    m_MsaaVertexBuffer.Create(L"MSAA Vertex", 4, sizeof(vec3f) + sizeof(vec2f), fullScreenQuad.data());
 
     // Create dsv.
-    auto config = g_App->GetConfiguration();
     m_SceneDepthBuffer.Create(L"Scene Depth Buffer", config.screenWidth, config.screenHeight, m_DepthStencilFormat);
+    m_MsaaDepthBuffer.Create(L"MSAA Depth Buffer", config.screenWidth, config.screenHeight, m_DepthStencilFormat, MsaaCount, MsaaQulity);
 
     // Create CBV SRV UAV Descriptor Heap
     size_t CbvSrvUavDescriptorsCount = m_FrameResourceSize * (m_MaxObjects + 1) + m_MaxTextures;
@@ -136,14 +153,20 @@ void D3D12GraphicsManager::CreateRootSignature() {
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     }
 
-    m_RootSignature.Reset(4, 0);
-    m_RootSignature[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, 0);
-    m_RootSignature[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1, 0);
-    m_RootSignature[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
-    m_RootSignature[3].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0, 1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
+    m_RootSignature["basic"].Reset(4, 0);
+    m_RootSignature["basic"][0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, 0);
+    m_RootSignature["basic"][1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1, 0);
+    m_RootSignature["basic"][2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
+    m_RootSignature["basic"][3].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0, 1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    m_RootSignature.Finalize(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
-                             featureData.HighestVersion);
+    m_RootSignature["basic"].Finalize(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
+                                      featureData.HighestVersion);
+
+    m_RootSignature["MSAA"].Reset(2, 0);
+    m_RootSignature["MSAA"][0].InitAsConstants(2, 0);  // width, height
+    m_RootSignature["MSAA"][1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 1);
+    m_RootSignature["MSAA"].Finalize(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
+                                     featureData.HighestVersion);
 }
 
 void D3D12GraphicsManager::CreateConstantBuffer() {
@@ -205,6 +228,9 @@ bool D3D12GraphicsManager::InitializeShaders() {
                      {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
                      {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}};
 
+    m_ShaderManager.LoadShader("Asset/Shaders/MSAA_vs.cso", ShaderType::VERTEX, "MSAA");
+    m_ShaderManager.LoadShader("Asset/Shaders/MSAA_ps.cso", ShaderType::PIXEL, "MSAA");
+
 #if defined(_DEBUG)
     m_ShaderManager.LoadShader("Asset/Shaders/debug_vs.cso", ShaderType::VERTEX, "debug");
     m_ShaderManager.LoadShader("Asset/Shaders/debug_ps.cso", ShaderType::PIXEL, "debug");
@@ -224,45 +250,72 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     auto blendDesc                       = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     auto depthStencilDesc                = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 
-    m_GraphicsPSO.insert({"no_texture", GraphicsPSO()});
-    m_GraphicsPSO["no_texture"].SetInputLayout(m_InputLayout);
-    m_GraphicsPSO["no_texture"].SetRootSignature(m_RootSignature);
-    m_GraphicsPSO["no_texture"].SetVertexShader(m_ShaderManager.GetVertexShader("simple"));
-    m_GraphicsPSO["no_texture"].SetPixelShader(m_ShaderManager.GetPixelShader("no_texture"));
-    m_GraphicsPSO["no_texture"].SetRasterizerState(rasterizerDesc);
-    m_GraphicsPSO["no_texture"].SetBlendState(blendDesc);
-    m_GraphicsPSO["no_texture"].SetDepthStencilState(depthStencilDesc);
-    m_GraphicsPSO["no_texture"].SetSampleMask(UINT_MAX);
-    m_GraphicsPSO["no_texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
-    m_GraphicsPSO["no_texture"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat);
-    m_GraphicsPSO["no_texture"].Finalize();
+    unsigned MsaaCount   = m_Msaa ? 4 : 1;
+    unsigned MsaaQuality = m_Msaa ? DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN : 0;
 
-    m_GraphicsPSO.insert({"texture", GraphicsPSO()});
-    m_GraphicsPSO["texture"].SetInputLayout(m_InputLayout);
-    m_GraphicsPSO["texture"].SetRootSignature(m_RootSignature);
-    m_GraphicsPSO["texture"].SetVertexShader(m_ShaderManager.GetVertexShader("simple"));
-    m_GraphicsPSO["texture"].SetPixelShader(m_ShaderManager.GetPixelShader("texture"));
-    m_GraphicsPSO["texture"].SetRasterizerState(rasterizerDesc);
-    m_GraphicsPSO["texture"].SetBlendState(blendDesc);
-    m_GraphicsPSO["texture"].SetDepthStencilState(depthStencilDesc);
-    m_GraphicsPSO["texture"].SetSampleMask(UINT_MAX);
-    m_GraphicsPSO["texture"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
-    m_GraphicsPSO["texture"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat);
-    m_GraphicsPSO["texture"].Finalize();
+    GraphicsPSO noTexturePso;
+    noTexturePso.SetInputLayout(m_InputLayout);
+    noTexturePso.SetRootSignature(m_RootSignature.at("basic"));
+    noTexturePso.SetVertexShader(m_ShaderManager.GetVertexShader("simple"));
+    noTexturePso.SetPixelShader(m_ShaderManager.GetPixelShader("no_texture"));
+    noTexturePso.SetRasterizerState(rasterizerDesc);
+    noTexturePso.SetBlendState(blendDesc);
+    noTexturePso.SetDepthStencilState(depthStencilDesc);
+    noTexturePso.SetSampleMask(UINT_MAX);
+    noTexturePso.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+    noTexturePso.SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, MsaaCount, MsaaQuality);
+    noTexturePso.Finalize();
+    m_GraphicsPSO.emplace("no_texture", std::move(noTexturePso));
+
+    GraphicsPSO texturePso;
+    texturePso.SetInputLayout(m_InputLayout);
+    texturePso.SetRootSignature(m_RootSignature.at("basic"));
+    texturePso.SetVertexShader(m_ShaderManager.GetVertexShader("simple"));
+    texturePso.SetPixelShader(m_ShaderManager.GetPixelShader("texture"));
+    texturePso.SetRasterizerState(rasterizerDesc);
+    texturePso.SetBlendState(blendDesc);
+    texturePso.SetDepthStencilState(depthStencilDesc);
+    texturePso.SetSampleMask(UINT_MAX);
+    texturePso.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+    texturePso.SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, MsaaCount, MsaaQuality);
+    texturePso.Finalize();
+    m_GraphicsPSO.emplace("texutre", std::move(texturePso));
+
+    if (m_Msaa) {
+        const std::vector<D3D12_INPUT_ELEMENT_DESC> msaaInputLayout = {
+            {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}};
+        auto MsaaDepthStencilDesc        = depthStencilDesc;
+        MsaaDepthStencilDesc.DepthEnable = false;
+        GraphicsPSO MsaaPso;
+        MsaaPso.SetInputLayout(msaaInputLayout);
+        MsaaPso.SetRootSignature(m_RootSignature.at("MSAA"));
+        MsaaPso.SetVertexShader(m_ShaderManager.GetVertexShader("MSAA"));
+        MsaaPso.SetPixelShader(m_ShaderManager.GetPixelShader("MSAA"));
+        MsaaPso.SetRasterizerState(rasterizerDesc);
+        MsaaPso.SetBlendState(blendDesc);
+        MsaaPso.SetDepthStencilState(MsaaDepthStencilDesc);
+        MsaaPso.SetSampleMask(UINT_MAX);
+        MsaaPso.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+        MsaaPso.SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, 1, 0);
+        MsaaPso.Finalize();
+        m_GraphicsPSO.emplace("MSAA", std::move(MsaaPso));
+    }
 
 #if defined(_DEBUG)
-    m_GraphicsPSO.insert({"debug", GraphicsPSO()});
-    m_GraphicsPSO["debug"].SetInputLayout(m_DebugInputLayout);
-    m_GraphicsPSO["debug"].SetRootSignature(m_RootSignature);
-    m_GraphicsPSO["debug"].SetVertexShader(m_ShaderManager.GetVertexShader("debug"));
-    m_GraphicsPSO["debug"].SetPixelShader(m_ShaderManager.GetPixelShader("debug"));
-    m_GraphicsPSO["debug"].SetRasterizerState(rasterizerDesc);
-    m_GraphicsPSO["debug"].SetBlendState(blendDesc);
-    m_GraphicsPSO["debug"].SetDepthStencilState(depthStencilDesc);
-    m_GraphicsPSO["debug"].SetSampleMask(UINT_MAX);
-    m_GraphicsPSO["debug"].SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE);
-    m_GraphicsPSO["debug"].SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat);
-    m_GraphicsPSO["debug"].Finalize();
+    GraphicsPSO debugPso;
+    debugPso.SetInputLayout(m_DebugInputLayout);
+    debugPso.SetRootSignature(m_RootSignature.at("basic"));
+    debugPso.SetVertexShader(m_ShaderManager.GetVertexShader("debug"));
+    debugPso.SetPixelShader(m_ShaderManager.GetPixelShader("debug"));
+    debugPso.SetRasterizerState(rasterizerDesc);
+    debugPso.SetBlendState(blendDesc);
+    debugPso.SetDepthStencilState(depthStencilDesc);
+    debugPso.SetSampleMask(UINT_MAX);
+    debugPso.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE);
+    debugPso.SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, MsaaCount, MsaaQuality);
+    debugPso.Finalize();
+    m_GraphicsPSO.emplace("debug", std::move(debugPso));
 #endif  // DEBUG
 }
 
@@ -428,16 +481,19 @@ void D3D12GraphicsManager::RenderBuffers() {
 }
 
 void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
-    context.SetRootSignature(m_RootSignature);
+    auto& renderTarget = m_Msaa ? m_MsaaRtv[m_CurrBackBuffer] : m_DisplayPlanes[m_CurrBackBuffer];
+    auto& depthBuffer  = m_Msaa ? m_MsaaDepthBuffer : m_SceneDepthBuffer;
+
+    context.SetRootSignature(m_RootSignature.at("basic"));
     context.SetViewportAndScissor(m_Viewport, m_ScissorRect);
-    context.TransitionResource(m_DisplayPlanes[m_CurrBackBuffer], D3D12_RESOURCE_STATE_RENDER_TARGET);
-    context.TransitionResource(m_SceneDepthBuffer, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
+    context.TransitionResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    context.TransitionResource(depthBuffer, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
 
     // render back buffer
-    context.SetRenderTarget(m_DisplayPlanes[m_CurrBackBuffer].GetRTV(), m_SceneDepthBuffer.GetDSV());
+    context.SetRenderTarget(renderTarget.GetRTV(), depthBuffer.GetDSV());
 
-    context.ClearDepth(m_SceneDepthBuffer);
-    context.ClearColor(m_DisplayPlanes[m_CurrBackBuffer]);
+    context.ClearDepth(depthBuffer);
+    context.ClearColor(renderTarget);
 
     context.SetDynamicSampler(3, 0, m_SamplerDescriptors.GetDescriptorCpuHandle());
     context.SetDynamicDescriptor(0, 0, m_CbvSrvUavDescriptors.GetDescriptorCpuHandle(m_FrameCBOffset + m_CurrFrameResourceIndex));
@@ -447,7 +503,24 @@ void D3D12GraphicsManager::PopulateCommandList(CommandContext& context) {
 #if defined(_DEBUG)
     DrawRenderItems(context, m_DebugDrawItems);
 #endif  // DEBUG
-    context.TransitionResource(m_DisplayPlanes[m_CurrBackBuffer], D3D12_RESOURCE_STATE_PRESENT);
+
+    // MSAA Resolve
+    if (m_Msaa) {
+        context.TransitionResource(renderTarget, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        context.SetPipeLineState(m_GraphicsPSO.at("MSAA"));
+        context.TransitionResource(m_DisplayPlanes[m_CurrBackBuffer], D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+        context.SetRenderTarget(m_DisplayPlanes[m_CurrBackBuffer].GetRTV(), m_SceneDepthBuffer.GetDSV());
+        context.SetRootSignature(m_RootSignature.at("MSAA"));
+        context.SetConstant(0, g_App->GetConfiguration().screenWidth, 0);
+        context.SetConstant(0, g_App->GetConfiguration().screenHeight, 1);
+        context.SetDynamicDescriptor(1, 0, renderTarget.GetSRV());
+        context.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        context.SetVertexBuffer(0, m_MsaaVertexBuffer.VertexBufferView());
+        context.DrawInstanced(4, 1, 0, 0);
+        context.TransitionResource(m_DisplayPlanes[m_CurrBackBuffer], D3D12_RESOURCE_STATE_PRESENT);
+    } else {
+        context.TransitionResource(renderTarget, D3D12_RESOURCE_STATE_PRESENT);
+    }
 }
 
 void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::vector<DrawItem>& drawItems) {

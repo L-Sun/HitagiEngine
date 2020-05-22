@@ -4,19 +4,10 @@
 
 namespace Hitagi::Graphics::DX12 {
 
-void DepthBuffer::Create(std::wstring_view name, uint32_t width, uint32_t height, DXGI_FORMAT format) {
-    auto              desc          = DescribeTex2D(width, height, 1, 1, format, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
-    D3D12_CLEAR_VALUE clearValue    = {};
-    clearValue.Format               = format;
-    clearValue.DepthStencil.Depth   = m_ClearDepth;
-    clearValue.DepthStencil.Stencil = m_ClearStencil;
-    CreateTextureResource(name, desc, clearValue);
-    CreateDerivedViews(format);
-}
-
-void DepthBuffer::Create(std::wstring_view name, uint32_t width, uint32_t height, uint32_t numSamples, DXGI_FORMAT format) {
+void DepthBuffer::Create(std::wstring_view name, uint32_t width, uint32_t height, DXGI_FORMAT format, unsigned sampleCount, unsigned sampleQuality) {
     auto desc                       = DescribeTex2D(width, height, 1, 1, format, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
-    desc.SampleDesc.Count           = numSamples;
+    desc.SampleDesc.Count           = sampleCount;
+    desc.SampleDesc.Quality         = sampleQuality;
     D3D12_CLEAR_VALUE clearValue    = {};
     clearValue.Format               = format;
     clearValue.DepthStencil.Depth   = m_ClearDepth;
