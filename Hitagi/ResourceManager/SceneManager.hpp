@@ -30,8 +30,9 @@ public:
     std::weak_ptr<SceneCameraNode> GetCameraNode();
 
 protected:
-    std::shared_ptr<Scene> m_Scene;
-    bool                   m_DirtyFlag = false;
+    std::vector<Scene> m_Scene;
+    size_t             m_CurrentSceneIndex;
+    bool               m_DirtyFlag = false;
 };
 
 }  // namespace Hitagi::Resource

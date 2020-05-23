@@ -6,35 +6,30 @@
 using namespace Hitagi;
 
 TEST(ImageParserTest, ErrorPath) {
-    std::shared_ptr<Resource::Image> image;
-    image = g_ResourceManager->ParseImage("Asset/Textures/a.jpg");
-    EXPECT_EQ(image->GetDataSize(), 0);
+    auto image = g_ResourceManager->ParseImage("Asset/Textures/a.jpg");
+    EXPECT_FALSE(image);
     image = g_ResourceManager->ParseImage("Asset/Textures/b.ezx");
-    EXPECT_EQ(image->GetDataSize(), 0);
+    EXPECT_FALSE(image);
 }
 
 TEST(ImageParserTest, Jpeg) {
-    std::shared_ptr<Resource::Image> image;
-    image = g_ResourceManager->ParseImage("Asset/Textures/b.jpg");
-    EXPECT_TRUE(image->getData() != nullptr);
+    auto image = g_ResourceManager->ParseImage("Asset/Textures/avatar.jpg");
+    EXPECT_TRUE(image);
 }
 
 TEST(ImageParserTest, Tga) {
-    std::shared_ptr<Resource::Image> image;
-    image = g_ResourceManager->ParseImage("Asset/Textures/floor.tga");
-    EXPECT_TRUE(image->getData() != nullptr);
+    auto image = g_ResourceManager->ParseImage("Asset/Textures/avatar.tga");
+    EXPECT_TRUE(image);
 }
 
 TEST(ImageParserTest, png) {
-    std::shared_ptr<Resource::Image> image;
-    image = g_ResourceManager->ParseImage("Asset/Textures/a.png");
-    EXPECT_TRUE(image->getData() != nullptr);
+    auto image = g_ResourceManager->ParseImage("Asset/Textures/avatar.png");
+    EXPECT_TRUE(image);
 }
 
 TEST(ImageParserTest, bmp) {
-    std::shared_ptr<Resource::Image> image;
-    image = g_ResourceManager->ParseImage("Asset/Textures/test.bmp");
-    EXPECT_TRUE(image->getData() != nullptr);
+    auto image = g_ResourceManager->ParseImage("Asset/Textures/avatar.bmp");
+    EXPECT_TRUE(image);
 }
 
 int main(int argc, char* argv[]) {

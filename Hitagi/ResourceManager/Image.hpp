@@ -21,6 +21,10 @@ public:
     inline uint32_t GetDataSize() const { return m_DataSize; }
     inline void*    getData() const { return m_Data; }
 
+    operator bool() { return const_cast<const Image&>(*this); }
+
+    operator bool() const { return m_Data != nullptr && m_DataSize != 0; }
+
     friend std::ostream& operator<<(std::ostream& out, const Image& image);
 
 private:

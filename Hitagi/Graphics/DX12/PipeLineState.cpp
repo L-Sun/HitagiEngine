@@ -15,13 +15,11 @@ void GraphicsPSO::SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE type) {
 void GraphicsPSO::SetSampleMask(unsigned mask) { m_PSODesc.SampleMask = mask; }
 
 void GraphicsPSO::SetVertexShader(const VertexShader& shader) {
-    const Core::Buffer& code = shader.GetShaderCode();
-    m_PSODesc.VS             = CD3DX12_SHADER_BYTECODE(code.GetData(), code.GetDataSize());
+    m_PSODesc.VS = CD3DX12_SHADER_BYTECODE(shader.GetData(), shader.GetDataSize());
 }
 
 void GraphicsPSO::SetPixelShader(const PixelShader& shader) {
-    const Core::Buffer& code = shader.GetShaderCode();
-    m_PSODesc.PS             = CD3DX12_SHADER_BYTECODE(code.GetData(), code.GetDataSize());
+    m_PSODesc.PS = CD3DX12_SHADER_BYTECODE(shader.GetData(), shader.GetDataSize());
 }
 
 void GraphicsPSO::SetRenderTargetFormats(
@@ -55,8 +53,7 @@ ComputePSO::ComputePSO() {
 }
 
 void ComputePSO::SetComputeShader(const ComputeShader& shader) {
-    const Core::Buffer& code = shader.GetShaderCode();
-    m_PSODesc.CS             = CD3DX12_SHADER_BYTECODE(code.GetData(), code.GetDataSize());
+    m_PSODesc.CS = CD3DX12_SHADER_BYTECODE(shader.GetData(), shader.GetDataSize());
 }
 
 void ComputePSO::Finalize() {

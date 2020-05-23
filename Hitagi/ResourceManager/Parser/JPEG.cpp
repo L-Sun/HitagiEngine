@@ -6,9 +6,10 @@
 namespace Hitagi::Resource {
 
 Image JpegParser::Parse(const Core::Buffer& buf) {
-    if (buf.GetDataSize() == 0 || buf.GetData() == nullptr) {
-        spdlog::get("ResourceManager")->warn("[JPEG] Parser a empty file, will return empty image.");
-        return Image();
+    auto logger = spdlog::get("ResourceManager");
+    if (buf.Empty()) {
+        logger->warn("[JPEG] Parsing a empty buffer will return empty image.");
+        return Image{};
     }
 
     jpeg_decompress_struct cinfo;
@@ -31,8 +32,8 @@ Image JpegParser::Parse(const Core::Buffer& buf) {
     int row_stride    = cinfo.output_width * cinfo.output_components;
 
     auto buffer = new JSAMPROW[buffer_height];
-    buffer[0]         = new JSAMPLE[row_stride];
-    auto p            = reinterpret_cast<uint8_t*>(img.getData());
+    buffer[0]   = new JSAMPLE[row_stride];
+    auto p      = reinterpret_cast<uint8_t*>(img.getData());
 
     while (cinfo.output_scanline < cinfo.output_height) {
         jpeg_read_scanlines(&cinfo, buffer, 1);

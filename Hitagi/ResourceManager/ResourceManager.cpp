@@ -31,20 +31,11 @@ int ResourceManager::Initialize() {
 
 void ResourceManager::Tick() {}
 void ResourceManager::Finalize() {
-    m_SceneCache.clear();
-    m_ImageCache.clear();
-
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
-std::shared_ptr<Image> ResourceManager::ParseImage(const std::filesystem::path& filePath) {
-    std::string name = filePath.string();
-    if (m_ImageCache.count(name) != 0) {
-        if (m_ImageCache.at(name).first >= std::filesystem::last_write_time(filePath))
-            return m_ImageCache.at(name).second;
-    }
-
+Image ResourceManager::ParseImage(const std::filesystem::path& filePath) {
     ImageFormat format = ImageFormat::NUM_SUPPORT;
 
     auto ext = filePath.extension();
@@ -59,34 +50,19 @@ std::shared_ptr<Image> ResourceManager::ParseImage(const std::filesystem::path& 
 
     if (format >= ImageFormat::NUM_SUPPORT) {
         m_Logger->error("Unkown image format, and return a empty image");
-        return std::make_shared<Image>();
+        return Image{};
     }
-
     Image img = m_ImageParser[static_cast<unsigned>(format)]->Parse(g_FileIOManager->SyncOpenAndReadBinary(filePath));
     if (img.GetDataSize() == 0) {
         m_Logger->error("Parse image failed.");
-        return std::make_shared<Image>();
+        return Image{};
     }
 
-    m_ImageCache[name] = {std::filesystem::last_write_time(filePath), std::make_shared<Image>(std::move(img))};
-    return m_ImageCache.at(name).second;
+    return img;
 }
 
-std::shared_ptr<Scene> ResourceManager::ParseScene(const std::filesystem::path& filePath) {
-    std::string name = filePath.string();
-    if (m_SceneCache.count(name) != 0) {
-        if (m_SceneCache.at(name).first >= std::filesystem::last_write_time(filePath))
-            return m_SceneCache.at(name).second;
-    }
-
-    auto scene = m_SceneParser->Parse(g_FileIOManager->SyncOpenAndReadBinary(filePath));
-
-    if (scene) {
-        m_SceneCache[name].first  = std::filesystem::last_write_time(filePath);
-        m_SceneCache[name].second = scene;
-    }
-
-    return scene;
+Scene ResourceManager::ParseScene(const std::filesystem::path& filePath) {
+    return m_SceneParser->Parse(g_FileIOManager->SyncOpenAndReadBinary(filePath));
 }
 
 }  // namespace Hitagi::Resource

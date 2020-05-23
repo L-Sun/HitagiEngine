@@ -5,7 +5,6 @@ namespace Hitagi::Graphics::DX12 {
 
 CommandContext::CommandContext(std::string_view name, D3D12_COMMAND_LIST_TYPE type)
     : m_Name(name),
-
       m_CpuLinearAllocator(LinearAllocatorType::CPU_WRITABLE),
       m_GpuLinearAllocator(LinearAllocatorType::GPU_EXCLUSIVE),
       m_Type(type) {

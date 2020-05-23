@@ -17,25 +17,31 @@ struct TGA_FILEHEADER {
 #pragma pack(pop)
 
 Image TgaParser::Parse(const Core::Buffer& buf) {
+    auto logger = spdlog::get("ResourceManager");
+    if (buf.Empty()) {
+        logger->warn("[TGA] Parsing a empty buffer will return empty image.");
+        return Image{};
+    }
+
     const uint8_t* data     = buf.GetData();
     const uint8_t* pDataEnd = data + buf.GetDataSize();
 
-    spdlog::get("ResourceManager")->debug("[TGA] Parsing as TGA file:");
+    logger->debug("[TGA] Parsing as TGA file:");
     const auto* fileHeader =
         reinterpret_cast<const TGA_FILEHEADER*>(data);
     data += sizeof(TGA_FILEHEADER);
 
-    spdlog::get("ResourceManager")->debug("[TGA] ID Length:         {}", fileHeader->IDLength);
-    spdlog::get("ResourceManager")->debug("[TGA] Color Map Type:    {}", fileHeader->ColorMapType);
-    spdlog::get("ResourceManager")->debug("[TGA] Image Type:        {}", fileHeader->ImageType);
+    logger->debug("[TGA] ID Length:         {}", fileHeader->IDLength);
+    logger->debug("[TGA] Color Map Type:    {}", fileHeader->ColorMapType);
+    logger->debug("[TGA] Image Type:        {}", fileHeader->ImageType);
 
     if (fileHeader->ColorMapType) {
-        spdlog::get("ResourceManager")->warn("[TGA] Unsupported Color Map. Only Type 0 is supported.");
+        logger->warn("[TGA] Unsupported Color Map. Only Type 0 is supported.");
         return Image();
     }
 
     if (fileHeader->ImageType != 2) {
-        spdlog::get("ResourceManager")->warn("[TGA] Unsupported Image Type. Only Type 2 is supported.");
+        logger->warn("[TGA] Unsupported Image Type. Only Type 2 is supported.");
         return Image();
     }
     // tga all values are little-endian
@@ -50,10 +56,10 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
     Image img(width, height, bitcount, pitch, dataSize);
 
     uint8_t alpha_depth = fileHeader->ImageSpec[9] & 0x0F;
-    spdlog::get("ResourceManager")->debug("[TGA] Image width:       {}", width);
-    spdlog::get("ResourceManager")->debug("[TGA] Image height:      {}", height);
-    spdlog::get("ResourceManager")->debug("[TGA] Image Pixel Depth: {}", pixelDepth);
-    spdlog::get("ResourceManager")->debug("[TGA] Image Alpha Depth: {}", alpha_depth);
+    logger->debug("[TGA] Image width:       {}", width);
+    logger->debug("[TGA] Image height:      {}", height);
+    logger->debug("[TGA] Image Pixel Depth: {}", pixelDepth);
+    logger->debug("[TGA] Image Alpha Depth: {}", alpha_depth);
     // skip Image ID
     data += fileHeader->IDLength;
     // skip the Color Map. since we assume the Color Map Type is 0,

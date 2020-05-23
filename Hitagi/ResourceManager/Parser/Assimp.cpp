@@ -10,11 +10,16 @@
 
 namespace Hitagi::Resource {
 
-std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
-    auto begin = std::chrono::high_resolution_clock::now();
+Scene AssimpParser::Parse(const Core::Buffer& buf) {
+    auto logger = spdlog::get("ResourceManager");
+    if (buf.Empty()) {
+        logger->warn("[Assimp] Parsing a empty buffer will return empty scene.");
+        return Scene{};
+    }
 
-    std::shared_ptr<Scene> scene = std::make_shared<Scene>();
-    Assimp::Importer       importer;
+    auto             begin = std::chrono::high_resolution_clock::now();
+    Scene            scene;
+    Assimp::Importer importer;
 
     auto flag =
         aiPostProcessSteps::aiProcess_Triangulate |
@@ -25,8 +30,8 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
     const aiScene* _scene = importer.ReadFileFromMemory(buf.GetData(), buf.GetDataSize(), flag);
 
     if (!_scene) {
-        spdlog::get("ResourceManager")->error("[Assimp] Can not parse the scene.");
-        return nullptr;
+        logger->error("[Assimp] Can not parse the scene.");
+        return scene;
     }
 
     // process camera
@@ -40,7 +45,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                 _camera->mClipPlaneFar,
                 _camera->mHorizontalFOV);
 
-        scene->Cameras[_camera->mName.C_Str()]    = perspectiveCamera;
+        scene.Cameras[_camera->mName.C_Str()]     = perspectiveCamera;
         cameraNameToIndex[_camera->mName.C_Str()] = i;
     }
 
@@ -51,13 +56,13 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         switch (_light->mType) {
             case aiLightSourceType::aiLightSource_AMBIENT:
                 std::cerr << "[AssimpParser] " << std::endl;
-                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: AMBIEN");
+                logger->warn("[Assimp] Unsupport light type: AMBIEN");
                 break;
             case aiLightSourceType::aiLightSource_AREA:
-                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: AREA");
+                logger->warn("[Assimp] Unsupport light type: AREA");
                 break;
             case aiLightSourceType::aiLightSource_DIRECTIONAL:
-                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: DIRECTIONAL");
+                logger->warn("[Assimp] Unsupport light type: DIRECTIONAL");
                 break;
             case aiLightSourceType::aiLightSource_POINT: {
                 vec4f color(1.0f);
@@ -77,16 +82,16 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                     _light->mAngleOuterCone);
             } break;
             case aiLightSourceType::aiLightSource_UNDEFINED:
-                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: UNDEFINED");
+                logger->warn("[Assimp] Unsupport light type: UNDEFINED");
                 break;
             case aiLightSourceType::_aiLightSource_Force32Bit:
-                spdlog::get("ResourceManager")->warn("[Assimp] Unsupport light type: Force32Bit");
+                logger->warn("[Assimp] Unsupport light type: Force32Bit");
                 break;
             default:
-                spdlog::get("ResourceManager")->warn("[Assimp] Unknown light type.");
+                logger->warn("[Assimp] Unknown light type.");
                 break;
         }
-        scene->Lights[_light->mName.C_Str()] = light;
+        scene.Lights[_light->mName.C_Str()] = light;
     }
 
     // process material
@@ -136,7 +141,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
             }
         }
 
-        scene->Materials[_material->GetName().C_Str()] = material;
+        scene.Materials[_material->GetName().C_Str()] = material;
     }
 
     auto createMesh = [&](const aiMesh* _mesh) -> std::unique_ptr<SceneObjectMesh> {
@@ -157,7 +162,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                 break;
             case aiPrimitiveType::_aiPrimitiveType_Force32Bit:
             default:
-                spdlog::get("ResourceManager")->error("[Assimp] Unsupport Primitive Type");
+                logger->error("[Assimp] Unsupport Primitive Type");
         }
 
         std::vector<std::future<SceneObjectVertexArray>> vertices;
@@ -243,7 +248,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         mesh->AddIndexArray(SceneObjectIndexArray(IndexDataType::INT32, indices.data(), indices.size()));
 
         const std::string materialRef = _scene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
-        mesh->SetMaterial(scene->Materials.at(materialRef));
+        mesh->SetMaterial(scene.Materials.at(materialRef));
         return mesh;
     };
 
@@ -270,15 +275,15 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         const std::string              name(_node->mName.C_Str());
         // The node is a geometry
         if (_node->mNumMeshes > 0) {
-            scene->Geometries[name] = createGeometry(_node);
+            scene.Geometries[name] = createGeometry(_node);
 
             auto geometryNode = std::make_shared<SceneGeometryNode>(name);
-            geometryNode->AddSceneObjectRef(scene->GetGeometry(name));
-            scene->GeometryNodes[name] = geometryNode;
-            node                       = geometryNode;
+            geometryNode->AddSceneObjectRef(scene.GetGeometry(name));
+            scene.GeometryNodes[name] = geometryNode;
+            node                      = geometryNode;
         }
         // The node is a camera
-        else if (scene->Cameras.find(name) != scene->Cameras.end()) {
+        else if (scene.Cameras.find(name) != scene.Cameras.end()) {
             auto& _camera = _scene->mCameras[cameraNameToIndex[name]];
             // move space infomation to camera node
             auto cameraNode = std::make_shared<SceneCameraNode>(
@@ -286,17 +291,17 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
                 vec3f(_camera->mPosition.x, _camera->mPosition.y, _camera->mPosition.z),
                 vec3f(_camera->mUp.x, _camera->mUp.y, _camera->mUp.z),
                 vec3f(_camera->mLookAt.x, _camera->mLookAt.y, _camera->mLookAt.z));
-            cameraNode->AddSceneObjectRef(scene->GetCamera(name));
+            cameraNode->AddSceneObjectRef(scene.GetCamera(name));
 
-            scene->CameraNodes[name] = cameraNode;
-            node                     = cameraNode;
+            scene.CameraNodes[name] = cameraNode;
+            node                    = cameraNode;
         }
         // The node is a light
-        else if (scene->Lights.find(name) != scene->Lights.end()) {
+        else if (scene.Lights.find(name) != scene.Lights.end()) {
             auto lightNode = std::make_shared<SceneLightNode>(name);
-            lightNode->AddSceneObjectRef(scene->GetLight(name));
-            scene->LightNodes[name] = lightNode;
-            node                    = lightNode;
+            lightNode->AddSceneObjectRef(scene.GetLight(name));
+            scene.LightNodes[name] = lightNode;
+            node                   = lightNode;
         }
         // The node is empty
         else {
@@ -311,10 +316,10 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buf) {
         return node;
     };
 
-    scene->SceneGraph = convert(_scene->mRootNode);
+    scene.SceneGraph = convert(_scene->mRootNode);
 
     auto end = std::chrono::high_resolution_clock::now();
-    spdlog::get("ResourceManager")->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+    logger->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
     return scene;
 }
 

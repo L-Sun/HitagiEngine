@@ -42,7 +42,8 @@ public:
     Shader() = default;
     Shader(Core::Buffer data) : m_ShaderData(std::move(data)) {}
 
-    const Core::Buffer& GetShaderCode() const { return m_ShaderData; }
+    const uint8_t* GetData() const { return m_ShaderData.GetData(); }
+    size_t         GetDataSize() const { return m_ShaderData.GetDataSize(); }
 
 protected:
     Core::Buffer m_ShaderData;

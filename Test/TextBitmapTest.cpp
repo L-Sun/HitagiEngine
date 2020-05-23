@@ -31,7 +31,7 @@ void Finalize(string_view text) {
 int main(int argc, char const* argv[]) {
     Init();
     {
-        Core::Buffer fontBuffer = g_FileIOManager->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
+        auto fontBuffer = g_FileIOManager->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
 
         FT_Library library;  // handle to library
         FT_Face    face;     // handle to face object

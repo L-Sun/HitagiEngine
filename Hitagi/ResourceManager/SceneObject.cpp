@@ -138,7 +138,7 @@ const Image&       SceneObjectTexture::GetTextureImage() {
     if (!m_Image) {
         LoadTexture();
     }
-    return *m_Image;
+    return m_Image;
 }
 
 // Class SceneObjectMaterial
@@ -428,7 +428,7 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj) {
     out << "Coord Index: " << obj.m_TexCoordIndex << std::endl;
     out << "Name:        " << obj.m_Name << std::endl;
     if (obj.m_Image) out << "Image:\n"
-                         << *obj.m_Image;
+                         << obj.m_Image;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj) {

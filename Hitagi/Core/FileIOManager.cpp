@@ -18,41 +18,41 @@ int FileIOManager::Initialize() {
     return 0;
 }
 void FileIOManager::Finalize() {
+    m_FileStateCache.clear();
+    m_FileCache.clear();
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 void FileIOManager::Tick() {}
 
-size_t FileIOManager::GetFileSize(std::filesystem::path filePath) const {
-    if (!std::filesystem::exists(filePath)) {
-        m_Logger->warn("File dose not exist. {}", filePath);
-        return 0;
-    }
-    return std::filesystem::file_size(filePath);
+bool FileIOManager::IsFileChanged(const std::filesystem::path& filePath) const {
+    PathHash hash = std::filesystem::hash_value(filePath);
+    if (m_FileStateCache.count(hash) == 0) return true;
+    return m_FileStateCache.at(hash) < std::filesystem::last_write_time(filePath);
 }
 
-Buffer FileIOManager::SyncOpenAndReadBinary(std::filesystem::path filePath) const {
+const Buffer& FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& filePath) {
     if (!std::filesystem::exists(filePath)) {
         m_Logger->warn("File dose not exist. {}", filePath);
-        return Buffer();
+        return m_EmptyBuffer;
+    }
+    if (!IsFileChanged(filePath)) {
+        m_Logger->debug("Use cahce: {}", filePath.filename());
+        return m_FileCache.at(std::filesystem::hash_value(filePath));
     }
 
     m_Logger->info("Open file: {}", filePath);
-    Buffer        buf(std::filesystem::file_size(filePath));
+    Buffer        buffer(std::filesystem::file_size(filePath));
     std::ifstream ifs(filePath, std::ios::binary);
-    ifs.read(reinterpret_cast<char*>(buf.GetData()), buf.GetDataSize());
+    ifs.read(reinterpret_cast<char*>(buffer.GetData()), buffer.GetDataSize());
     ifs.close();
-    return buf;
-}
 
-std::string FileIOManager::SyncOpenAndReadTextFileToString(std::filesystem::path filePath) const {
-    if (!std::filesystem::exists(filePath)) {
-        m_Logger->warn("File dose not exist. {}", filePath);
-        return std::string();
-    }
-    m_Logger->info("Open file: {}", filePath);
-    std::ifstream ifs(filePath);
-    return std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+    // store cache
+    PathHash hash          = std::filesystem::hash_value(filePath);
+    m_FileStateCache[hash] = std::filesystem::last_write_time(filePath);
+    m_FileCache[hash]      = std::move(buffer);
+
+    return m_FileCache[hash];
 }
 
 }  // namespace Hitagi::Core

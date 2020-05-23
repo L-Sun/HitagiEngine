@@ -17,8 +17,7 @@ public:
     uint8_t*       GetData();
     const uint8_t* GetData() const;
     size_t         GetDataSize() const;
-
-    operator bool() const { return m_Data != nullptr && m_Size != 0; }
+    bool           Empty() const { return m_Data == nullptr || m_Size == 0; }
 
 private:
     uint8_t* m_Data      = nullptr;

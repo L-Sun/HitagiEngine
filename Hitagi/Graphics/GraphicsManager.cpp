@@ -13,10 +13,6 @@ int GraphicsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("GraphicsManager");
     m_Logger->info("Initialize...");
 
-#if defined(_DEBUG)
-    m_Logger->set_level(spdlog::level::debug);
-#endif  // _DEBUG
-
     int result = m_ShaderManager.Initialize();
     if (result != 0) return result;
     InitConstants();

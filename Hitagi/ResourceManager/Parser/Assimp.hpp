@@ -4,6 +4,6 @@
 namespace Hitagi::Resource {
 class AssimpParser : public SceneParser {
 public:
-    std::shared_ptr<Scene> Parse(const Core::Buffer& buf) final;
+    Scene Parse(const Core::Buffer& buf) final;
 };
 }  // namespace Hitagi::Resource

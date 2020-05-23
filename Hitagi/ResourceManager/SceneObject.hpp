@@ -98,18 +98,18 @@ public:
 
 class SceneObjectTexture : public BaseSceneObject {
 protected:
-    uint32_t               m_TexCoordIndex = 0;
-    std::string            m_Name;
-    std::shared_ptr<Image> m_Image;
-    std::vector<mat4f>     m_Transforms;
+    uint32_t           m_TexCoordIndex = 0;
+    std::string        m_Name;
+    Image              m_Image;
+    std::vector<mat4f> m_Transforms;
 
 public:
     SceneObjectTexture() : BaseSceneObject(SceneObjectType::TEXTURE) {}
     SceneObjectTexture(std::string_view name)
         : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0), m_Name(name) {}
-    SceneObjectTexture(uint32_t coordIndex, std::shared_ptr<Image>& image)
-        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(coordIndex), m_Image(image) {}
-    SceneObjectTexture(uint32_t coordIndex, std::shared_ptr<Image>&& image)
+    SceneObjectTexture(uint32_t coordIndex, Image image)
+        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
+    SceneObjectTexture(uint32_t coordIndex, Image&& image)
         : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
     SceneObjectTexture(SceneObjectTexture&)  = default;
     SceneObjectTexture(SceneObjectTexture&&) = default;

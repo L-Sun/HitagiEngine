@@ -25,21 +25,21 @@ std::string TypeToString(const ShaderType& type) {
 }
 
 void ShaderManager::LoadShader(std::filesystem::path shaderPath, ShaderType type, std::string name) {
-    Core::Buffer data = g_FileIOManager->SyncOpenAndReadBinary(shaderPath);
-    if (data.GetDataSize() == 0) {
+    auto data = g_FileIOManager->SyncOpenAndReadBinary(shaderPath);
+    if (data.Empty()) {
         spdlog::get("GraphicsManager")->error("[ShaderManager] Give up loading shader.");
         return;
     }
     if (name.empty()) name = shaderPath.filename().replace_extension().u8string();
     switch (type) {
         case ShaderType::VERTEX:
-            m_VertexShaders[name] = VertexShader(std::move(data));
+            m_VertexShaders[name] = VertexShader(data);
             break;
         case ShaderType::PIXEL:
-            m_PixelShaders[name] = PixelShader(std::move(data));
+            m_PixelShaders[name] = PixelShader(data);
             break;
         case ShaderType::COMPUTE:
-            m_ComputeShaders[name] = ComputeShader(std::move(data));
+            m_ComputeShaders[name] = ComputeShader(data);
         default:
             spdlog::get("GraphicsManager")->error("[ShaderManager] Unsupport shader type: {}", TypeToString(type));
     }

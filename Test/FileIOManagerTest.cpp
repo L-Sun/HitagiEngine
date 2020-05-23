@@ -9,13 +9,10 @@ int main(int argc, char const* argv[]) {
     g_MemoryManager->Initialize();
     g_FileIOManager->Initialize();
 
-    std::string shader_pgm = g_FileIOManager->SyncOpenAndReadTextFileToString("Asset/Shaders/basic.vs");
-    std::cout << shader_pgm << std::endl;
+    auto buffer = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/basic.vs");
 
-    Core::Buffer buff = g_FileIOManager->SyncOpenAndReadBinary("Asset/Shaders/basic.vs");
-
-    for (size_t i = 0; i < buff.GetDataSize(); i++) {
-        std::cout << buff.GetData()[i];
+    for (size_t i = 0; i < buffer.GetDataSize(); i++) {
+        std::cout << buffer.GetData()[i];
     }
     std::cout << std::endl;
 

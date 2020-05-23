@@ -20,6 +20,9 @@ bool BaseApplication::m_Quit = false;
 
 BaseApplication::BaseApplication(GfxConfiguration& cfg) : m_Config(cfg) {
     m_Logger = spdlog::stdout_color_mt("Application");
+#if defined(_DEBUG)
+    spdlog::set_level(spdlog::level::debug);
+#endif  // _DEBUG
 }
 
 // Parse command line, read configuration, initialize all sub modules

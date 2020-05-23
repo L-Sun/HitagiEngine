@@ -72,8 +72,7 @@ void CommandQueue::WaitForFence(uint64_t fenceValue) {
 }
 
 CommandListManager::CommandListManager()
-    : 
-      m_GraphicsQueue(D3D12_COMMAND_LIST_TYPE_DIRECT),
+    : m_GraphicsQueue(D3D12_COMMAND_LIST_TYPE_DIRECT),
       m_ComputeQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE),
       m_CopyQueue(D3D12_COMMAND_LIST_TYPE_COPY) {}
 CommandListManager::~CommandListManager() = default;
