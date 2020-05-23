@@ -93,7 +93,6 @@ void LinearAllocatorPageManager::FreeLargePages(uint64_t fenceValue, const std::
     }
 
     for (auto&& index : largePageIndex) {
-        (*m_LargePages[index])->Unmap(0, nullptr);
         m_DeletionQueue.push({fenceValue, index});
     }
 }
