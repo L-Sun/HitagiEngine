@@ -78,7 +78,7 @@ Image PngParser::Parse(const Core::Buffer& buf) {
     Image img(width, height, bitcount, pitch, dataSize);
 
     png_bytepp rows = png_get_rows(png_tr, info_ptr);
-    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img.getData());
+    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img.GetData());
 
     switch (png_get_color_type(png_tr, info_ptr)) {
         case PNG_COLOR_TYPE_GRAY: {

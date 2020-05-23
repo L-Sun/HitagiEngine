@@ -35,7 +35,7 @@ void ResourceManager::Finalize() {
     m_Logger = nullptr;
 }
 
-Image ResourceManager::ParseImage(const std::filesystem::path& filePath) {
+Image ResourceManager::ParseImage(const std::filesystem::path& filePath) const {
     ImageFormat format = ImageFormat::NUM_SUPPORT;
 
     auto ext = filePath.extension();
@@ -52,16 +52,10 @@ Image ResourceManager::ParseImage(const std::filesystem::path& filePath) {
         m_Logger->error("Unkown image format, and return a empty image");
         return Image{};
     }
-    Image img = m_ImageParser[static_cast<unsigned>(format)]->Parse(g_FileIOManager->SyncOpenAndReadBinary(filePath));
-    if (img.GetDataSize() == 0) {
-        m_Logger->error("Parse image failed.");
-        return Image{};
-    }
-
-    return img;
+    return m_ImageParser[static_cast<unsigned>(format)]->Parse(g_FileIOManager->SyncOpenAndReadBinary(filePath));
 }
 
-Scene ResourceManager::ParseScene(const std::filesystem::path& filePath) {
+Scene ResourceManager::ParseScene(const std::filesystem::path& filePath) const {
     return m_SceneParser->Parse(g_FileIOManager->SyncOpenAndReadBinary(filePath));
 }
 

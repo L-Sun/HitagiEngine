@@ -37,7 +37,7 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
         auto  pitch      = ((width * bitcount >> 3) + 3) & ~3;
         auto  dataSize   = pitch * height;
         Image img(width, height, bitcount, pitch, dataSize);
-        auto* data = reinterpret_cast<uint8_t*>(img.getData());
+        auto* data = reinterpret_cast<uint8_t*>(img.GetData());
         if (bitcount < 24) {
             logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
         } else {

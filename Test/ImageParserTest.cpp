@@ -7,29 +7,29 @@ using namespace Hitagi;
 
 TEST(ImageParserTest, ErrorPath) {
     auto image = g_ResourceManager->ParseImage("Asset/Textures/a.jpg");
-    EXPECT_FALSE(image);
+    EXPECT_TRUE(image.Empty());
     image = g_ResourceManager->ParseImage("Asset/Textures/b.ezx");
-    EXPECT_FALSE(image);
+    EXPECT_TRUE(image.Empty());
 }
 
 TEST(ImageParserTest, Jpeg) {
     auto image = g_ResourceManager->ParseImage("Asset/Textures/avatar.jpg");
-    EXPECT_TRUE(image);
+    EXPECT_TRUE(!image.Empty());
 }
 
 TEST(ImageParserTest, Tga) {
     auto image = g_ResourceManager->ParseImage("Asset/Textures/avatar.tga");
-    EXPECT_TRUE(image);
+    EXPECT_TRUE(!image.Empty());
 }
 
 TEST(ImageParserTest, png) {
     auto image = g_ResourceManager->ParseImage("Asset/Textures/avatar.png");
-    EXPECT_TRUE(image);
+    EXPECT_TRUE(!image.Empty());
 }
 
 TEST(ImageParserTest, bmp) {
     auto image = g_ResourceManager->ParseImage("Asset/Textures/avatar.bmp");
-    EXPECT_TRUE(image);
+    EXPECT_TRUE(!image.Empty());
 }
 
 int main(int argc, char* argv[]) {

@@ -46,7 +46,7 @@ void TextureBuffer::Create(std::wstring_view name, const Resource::Image& image)
 
     m_Resource->SetName(name.data());
     D3D12_SUBRESOURCE_DATA texResource;
-    texResource.pData    = image.getData();
+    texResource.pData    = image.GetData();
     texResource.RowPitch = image.GetPitch();
 
     CommandContext::InitializeTexture(*this, {texResource});

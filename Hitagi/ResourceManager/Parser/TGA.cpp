@@ -65,7 +65,7 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
     // skip the Color Map. since we assume the Color Map Type is 0,
     // nothing to skip
 
-    auto* out = reinterpret_cast<uint8_t*>(img.getData());
+    auto* out = reinterpret_cast<uint8_t*>(img.GetData());
     // clang-format off
         for (auto i = 0; i < height; i++) {
             for (auto j = 0; j < width; j++) {

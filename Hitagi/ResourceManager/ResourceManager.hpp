@@ -13,8 +13,8 @@ public:
     void Tick() final;
     void Finalize() final;
 
-    Image ParseImage(const std::filesystem::path& filePath);
-    Scene ParseScene(const std::filesystem::path& filePath);
+    Image ParseImage(const std::filesystem::path& filePath)const;
+    Scene ParseScene(const std::filesystem::path& filePath)const;
 
 private:
     std::array<std::unique_ptr<ImageParser>, static_cast<unsigned>(ImageFormat::NUM_SUPPORT)> m_ImageParser;

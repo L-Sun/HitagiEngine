@@ -216,7 +216,7 @@ void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
                 glActiveTexture(GL_TEXTURE0 + textureId);
                 glBindTexture(GL_TEXTURE_2D, textureId);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.GetWidth(), image.GetHeight(), 0, GL_RGBA,
-                             GL_UNSIGNED_BYTE, image.getData());
+                             GL_UNSIGNED_BYTE, image.GetData());
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

@@ -22,6 +22,6 @@ public:
 private:
     uint8_t* m_Data      = nullptr;
     size_t   m_Size      = 0;
-    size_t   m_Alignment = 0;
+    size_t   m_Alignment = alignof(uint32_t);
 };
 }  // namespace Hitagi::Core

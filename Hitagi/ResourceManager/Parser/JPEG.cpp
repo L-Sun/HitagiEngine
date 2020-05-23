@@ -33,7 +33,7 @@ Image JpegParser::Parse(const Core::Buffer& buf) {
 
     auto buffer = new JSAMPROW[buffer_height];
     buffer[0]   = new JSAMPLE[row_stride];
-    auto p      = reinterpret_cast<uint8_t*>(img.getData());
+    auto p      = reinterpret_cast<uint8_t*>(img.GetData());
 
     while (cinfo.output_scanline < cinfo.output_height) {
         jpeg_read_scanlines(&cinfo, buffer, 1);

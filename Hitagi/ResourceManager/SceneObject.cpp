@@ -129,13 +129,13 @@ void SceneObjectTexture::AddTransform(mat4f& matrix) { m_Transforms.push_back(ma
 void SceneObjectTexture::SetName(const std::string& name) { m_Name = name; }
 void SceneObjectTexture::SetName(std::string&& name) { m_Name = std::move(name); }
 void SceneObjectTexture::LoadTexture() {
-    if (!m_Image) {
+    if (m_Image.Empty()) {
         m_Image = g_ResourceManager->ParseImage(std::filesystem::path(m_Name));
     }
 }
 const std::string& SceneObjectTexture::GetName() const { return m_Name; }
 const Image&       SceneObjectTexture::GetTextureImage() {
-    if (!m_Image) {
+    if (m_Image.Empty()) {
         LoadTexture();
     }
     return m_Image;
@@ -427,8 +427,8 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj) {
     out << static_cast<const BaseSceneObject&>(obj) << std::endl;
     out << "Coord Index: " << obj.m_TexCoordIndex << std::endl;
     out << "Name:        " << obj.m_Name << std::endl;
-    if (obj.m_Image) out << "Image:\n"
-                         << obj.m_Image;
+    if (!obj.m_Image.Empty()) out << "Image:\n"
+                                  << obj.m_Image;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj) {
