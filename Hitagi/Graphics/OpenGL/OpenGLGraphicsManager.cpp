@@ -71,7 +71,6 @@ void OpenGLGraphicsManager::Draw() {
 }
 
 bool OpenGLGraphicsManager::UpdateFrameParameters(GLuint shader) {
-    SetShaderParameters(shader, "worldMatrix", mat4f(1.0f));
     SetShaderParameters(shader, "viewMatrix", m_FrameConstants.view);
     SetShaderParameters(shader, "projectionMatrix", m_FrameConstants.projection);
     SetShaderParameters(shader, "lightPosition", m_FrameConstants.lightPosition);
@@ -437,6 +436,7 @@ void OpenGLGraphicsManager::RenderText(std::string_view text, const vec2f& posit
             auto   glyph = GetGlyph(c);
             GLuint texture;
             glGenTextures(1, &texture);
+            glActiveTexture(GL_TEXTURE0 + texture);
             glBindTexture(GL_TEXTURE_2D, texture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, glyph->bitmap.pitch, glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE,
                          glyph->bitmap.buffer);

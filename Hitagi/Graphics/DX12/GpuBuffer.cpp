@@ -34,6 +34,8 @@ void TextureBuffer::Create(std::wstring_view name, const Resource::Image& image)
     desc.Height              = image.GetHeight();
     desc.MipLevels           = 1;
     desc.Width               = image.GetWidth();
+    desc.SampleDesc.Count    = 1;
+    desc.SampleDesc.Quality  = 0;
 
     if (image.GetBitcount() == 32)
         desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -46,8 +48,9 @@ void TextureBuffer::Create(std::wstring_view name, const Resource::Image& image)
 
     m_Resource->SetName(name.data());
     D3D12_SUBRESOURCE_DATA texResource;
-    texResource.pData    = image.GetData();
-    texResource.RowPitch = image.GetPitch();
+    texResource.pData      = image.GetData();
+    texResource.RowPitch   = image.GetPitch();
+    texResource.SlicePitch = image.GetDataSize();
 
     CommandContext::InitializeTexture(*this, {texResource});
     if (!m_SRV) m_SRV = g_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Allocate();

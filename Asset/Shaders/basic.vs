@@ -10,20 +10,14 @@ out vec2 uv;
 
 uniform mat4 modelMatrix;
 
-uniform mat4 worldMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 
 void main(){
-
-    mat4 transformMatrix = worldMatrix * modelMatrix;
-
-    v = transformMatrix * vec4(POSITION, 1.0f);
-    v = viewMatrix * v;
+    v = viewMatrix * modelMatrix * vec4(POSITION, 1.0f);
     gl_Position = projectionMatrix * v;
     
-    normal = transformMatrix * vec4(NORMAL, 0.0f);
-    normal = viewMatrix * normal;
+    normal = viewMatrix * modelMatrix * vec4(NORMAL, 0.0f);
 
     uv = TEXCOORD;
 }

@@ -134,7 +134,7 @@ struct Vector : public BaseVector<T, D> {
     const T& operator[](unsigned index) const { return data[index]; }
 
     friend std::ostream& operator<<(std::ostream& out, Vector v) {
-        return out << fmt::format("[{:6.2f}]", fmt::join(v.data, ", ")) << std::flush;
+        return out << fmt::format("[{:6}]", fmt::join(v.data, ", ")) << std::flush;
     }
 
     const Vector operator+(const Vector& rhs) const {

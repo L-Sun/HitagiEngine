@@ -280,7 +280,7 @@ void D3D12GraphicsManager::BuildPipelineStateObject() {
     texturePso.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
     texturePso.SetRenderTargetFormats({m_BackBufferFormat}, m_DepthStencilFormat, MsaaCount, MsaaQuality);
     texturePso.Finalize();
-    m_GraphicsPSO.emplace("texutre", std::move(texturePso));
+    m_GraphicsPSO.emplace("texture", std::move(texturePso));
 
     if (m_Msaa) {
         const std::vector<D3D12_INPUT_ELEMENT_DESC> msaaInputLayout = {

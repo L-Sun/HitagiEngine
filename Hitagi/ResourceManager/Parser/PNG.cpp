@@ -82,7 +82,7 @@ Image PngParser::Parse(const Core::Buffer& buf) {
 
     switch (png_get_color_type(png_tr, info_ptr)) {
         case PNG_COLOR_TYPE_GRAY: {
-            for (int i = 0; i < height; i++) {
+            for (int i = height - 1; i >= 0; i--) {
                 for (int j = 0; j < width; j++) {
                     p[j].r = rows[i][j];
                     p[j].g = rows[i][j];
@@ -94,7 +94,7 @@ Image PngParser::Parse(const Core::Buffer& buf) {
             }
         } break;
         case PNG_COLOR_TYPE_GRAY_ALPHA: {
-            for (int i = 0; i < height; i++) {
+            for (int i = height - 1; i >= 0; i--) {
                 for (int j = 0; j < width; j++) {
                     p[j].r = rows[i][2 * j + 0];
                     p[j].g = rows[i][2 * j + 0];
@@ -106,7 +106,7 @@ Image PngParser::Parse(const Core::Buffer& buf) {
             }
         } break;
         case PNG_COLOR_TYPE_RGB: {
-            for (int i = 0; i < height; i++) {
+            for (int i = height - 1; i >= 0; i--) {
                 for (int j = 0; j < width; j++) {
                     p[j].r = rows[i][3 * j + 0];
                     p[j].g = rows[i][3 * j + 1];
@@ -118,8 +118,11 @@ Image PngParser::Parse(const Core::Buffer& buf) {
             }
         } break;
         case PNG_COLOR_TYPE_RGBA: {
-            for (int i = 0; i < height; i++) {
-                memcpy(p[i * width], rows[i], pitch);
+            for (int i = height - 1; i >= 0; i--) {
+                auto _p = reinterpret_cast<R8G8B8A8Unorm*>(rows[i]);
+                std::copy(_p, _p + width, p);
+                // to next line
+                p += width;
             }
         } break;
         default:

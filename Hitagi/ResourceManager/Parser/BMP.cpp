@@ -37,7 +37,7 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
         auto  pitch      = ((width * bitcount >> 3) + 3) & ~3;
         auto  dataSize   = pitch * height;
         Image img(width, height, bitcount, pitch, dataSize);
-        auto* data = reinterpret_cast<uint8_t*>(img.GetData());
+        auto  data = reinterpret_cast<R8G8B8A8Unorm*>(img.GetData());
         if (bitcount < 24) {
             logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
         } else {
@@ -46,10 +46,9 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
                 fileHeader->BitsOffset;
             for (int32_t y = height - 1; y >= 0; y--) {
                 for (uint32_t x = 0; x < width; x++) {
-                    (reinterpret_cast<R8G8B8A8Unorm*>(data +
-                                                      pitch * (height - y - 1) + x * byte_count))
-                        ->bgra = *reinterpret_cast<const R8G8B8A8Unorm*>(
+                    data->bgra = *reinterpret_cast<const R8G8B8A8Unorm*>(
                         sourceData + pitch * y + x * byte_count);
+                    data++;
                 }
             }
         }

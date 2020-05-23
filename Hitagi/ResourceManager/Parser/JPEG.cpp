@@ -33,12 +33,11 @@ Image JpegParser::Parse(const Core::Buffer& buf) {
 
     auto buffer = new JSAMPROW[buffer_height];
     buffer[0]   = new JSAMPLE[row_stride];
-    auto p      = reinterpret_cast<uint8_t*>(img.GetData());
-
+    auto p      = reinterpret_cast<uint8_t*>(img.GetData()) + (height - 1) * row_stride;
     while (cinfo.output_scanline < cinfo.output_height) {
         jpeg_read_scanlines(&cinfo, buffer, 1);
         std::memcpy(p, buffer[0], row_stride);
-        p += row_stride;
+        p -= row_stride;
     }
 
     jpeg_finish_decompress(&cinfo);

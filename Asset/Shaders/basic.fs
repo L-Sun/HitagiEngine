@@ -3,7 +3,6 @@
 uniform vec3 lightPosition;
 uniform vec4 lightColor;
 
-uniform mat4 worldMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 
@@ -26,8 +25,10 @@ void main(void) {
     vec3 L = normalize((viewMatrix * vec4(lightPosition, 1.0f)).xyz - v.xyz);
     vec3 R = normalize(2 * clamp(dot(L,N), 0.0f, 1.0f) * N - L);
     vec3 V = normalize(v.xyz);
-    if (diffuseColor.r < 0)
-        outputColor = vec4(ambientColor.rgb + lightColor.rgb* texture(defaultSampler, uv).rgb * clamp(dot(N, L),0.0f, 1.0f) + specularColor.rgb * pow(clamp(dot(R, V), 0.0f, 1.0f), specularPower), 1.0f); 
+    if (diffuseColor.r < 0) {
+        outputColor = vec4(ambientColor.rgb + lightColor.rgb * texture(defaultSampler, uv).rgb * clamp(dot(N, L),0.0f, 1.0f) + specularColor.rgb * pow(clamp(dot(R, V), 0.0f, 1.0f), specularPower), 1.0f); 
+        outputColor = vec4(texture(defaultSampler, uv).rgb, 1.0f);
+        }
     else
-        outputColor = vec4(ambientColor.rgb + lightColor.rgb * diffuseColor.rgb * clamp(dot(N, L),0.0f, 1.0f) + specularColor.rgb * pow(clamp(dot(R,V), 0.0f, 1.0f), specularPower), 1.0f);  
+        outputColor = vec4(ambientColor.rgb + lightColor.rgb * diffuseColor.rgb * clamp(dot(N, L),0.0f, 1.0f) + specularColor.rgb * pow(clamp(dot(R, V), 0.0f, 1.0f), specularPower), 1.0f);  
 }
