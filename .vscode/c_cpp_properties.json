@@ -8,15 +8,13 @@
             ],
             "defines": [
                 "_DEBUG",
-                "DEBUG",
                 "UNICODE",
-                "_UNICODE",
-                "_WIN32"
+                "_UNICODE"
             ],
             "windowsSdkVersion": "10.0.18362.0",
+            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/VC/Tools/MSVC/14.26.28801/bin/Hostx64/x64/cl.exe",
             "cStandard": "c11",
             "cppStandard": "c++17",
-            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/VC/Tools/MSVC/14.24.28314/bin/Hostx64/x64/cl.exe",
             "intelliSenseMode": "msvc-x64"
         }
     ],

@@ -5,10 +5,14 @@
 #include "GLFWApplication.hpp"
 #include "IPhysicsManager.hpp"
 
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 namespace Hitagi::Graphics::OpenGL {
 
 int OpenGLGraphicsManager::Initialize() {
-    int         result;
+    int result = GraphicsManager::Initialize();
+    if (result != 0) return result;
     GLFWwindow* window = static_cast<GLFWApplication*>(g_App.get())->GetWindow();
     glfwSetWindowAttrib(window, GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwSetWindowAttrib(window, GLFW_CONTEXT_VERSION_MINOR, 5);
@@ -16,12 +20,11 @@ int OpenGLGraphicsManager::Initialize() {
     glfwSetWindowAttrib(window, GLFW_SAMPLES, 4);
     glfwMakeContextCurrent(window);
 
-    result = gladLoadGL();
-    if (!result) {
-        std::cerr << "OpenGL load failed!\n";
+    if (!gladLoadGL()) {
+        m_Logger->error("OpenGL load failed!");
         return -1;
     } else {
-        std::cout << "OpenGL Version" << glGetString(GL_VERSION) << std::endl;
+        m_Logger->info("OpenGL Version: {}", glGetString(GL_VERSION));
 
         if (GLAD_GL_VERSION_3_0) {
             // Set the depth buffer to be entirely cleared to 1.0 values.
@@ -46,7 +49,6 @@ int OpenGLGraphicsManager::Initialize() {
         }
     }
     glfwSwapInterval(1);
-    result = GraphicsManager::Initialize();
     return result;
 }
 void OpenGLGraphicsManager::Tick() { GraphicsManager::Tick(); }
@@ -59,7 +61,7 @@ void OpenGLGraphicsManager::Finalize() {
 
 void OpenGLGraphicsManager::Clear() {
     GraphicsManager::Clear();
-    glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -77,11 +79,11 @@ bool OpenGLGraphicsManager::UpdateFrameParameters(GLuint shader) {
     SetShaderParameters(shader, "lightColor", m_FrameConstants.lightIntensity);
     return true;
 }
-bool OpenGLGraphicsManager::SetShaderParameters(GLuint shader, const char* paramName, TshaderParameter param) {
+bool OpenGLGraphicsManager::SetShaderParameters(GLuint shader, std::string_view paramName, TshaderParameter param) {
     unsigned int location;
-    location = glGetUniformLocation(shader, paramName);
+    location = glGetUniformLocation(shader, paramName.data());
     if (location == -1) {
-        std::cerr << "[OpenGL] Set shader parameter failed. parmeter: " << paramName << std::endl;
+        m_Logger->info("Set shader parameter failed. parmeter: {}", paramName);
         return false;
     }
     if (std::holds_alternative<float>(param))
@@ -100,107 +102,126 @@ bool OpenGLGraphicsManager::SetShaderParameters(GLuint shader, const char* param
     return true;
 }
 
-void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
-    // Initialize Mesh
-    for (auto&& [key, geometry] : scene.Geometries) {
-        for (auto&& mesh : geometry->GetMeshes()) {
-            auto mb = std::make_shared<MeshBuffer>();
-            glGenVertexArrays(1, &mb->vao);
-            glBindVertexArray(mb->vao);
+int OpenGLGraphicsManager::GetGLPrimitiveType(Resource::PrimitiveType type) {
+    switch (type) {
+        case Resource::PrimitiveType::POINT_LIST:
+            return GL_POINTS;
+        case Resource::PrimitiveType::LINE_LIST:
+            return GL_LINES;
+        case Resource::PrimitiveType::LINE_STRIP:
+            return GL_LINE_STRIP;
+        case Resource::PrimitiveType::LINE_LIST_ADJACENCY:
+            return GL_LINES_ADJACENCY;
+        case Resource::PrimitiveType::LINE_LOOP:
+            return GL_LINE_LOOP;
+        case Resource::PrimitiveType::TRI_LIST:
+            return GL_TRIANGLES;
+        case Resource::PrimitiveType::TRI_STRIP:
+            return GL_TRIANGLE_STRIP;
+        case Resource::PrimitiveType::TRI_FAN:
+            return GL_TRIANGLE_FAN;
+        case Resource::PrimitiveType::TRI_LIST_ADJACENCY:
+            return GL_TRIANGLES_ADJACENCY;
+        case Resource::PrimitiveType::TRI_STRIP_ADJACENCY:
+            return GL_TRIANGLE_STRIP_ADJACENCY;
+        case Resource::PrimitiveType::POLYGON:
+            return GL_POLYGON;
+        case Resource::PrimitiveType::QUAD_LIST:
+            return GL_QUADS;
+        case Resource::PrimitiveType::QUAD_STRIP:
+            return GL_QUAD_STRIP;
+        default:
+            return GL_POINTS;
+    }
+}
 
-            // Vertex Buffer
-            for (size_t i = 0; i < m_BasicShader.layout.size(); i++) {
-                if (!mesh->HasProperty(m_BasicShader.layout[i])) continue;
-                auto&  vertexArray    = mesh->GetVertexPropertyArray(m_BasicShader.layout[i]);
-                auto   vertexData     = vertexArray.GetData();
-                auto   vertexDataSize = vertexArray.GetDataSize();
-                GLuint vbo;
-                glGenBuffers(1, &vbo);
-                glBindBuffer(GL_ARRAY_BUFFER, vbo);
-                glBufferData(GL_ARRAY_BUFFER, vertexDataSize, vertexData, GL_STATIC_DRAW);
-                glEnableVertexAttribArray(i);
-                switch (vertexArray.GetDataType()) {
-                    case Resource::VertexDataType::FLOAT1:
-                        glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, nullptr);
-                        break;
-                    case Resource::VertexDataType::FLOAT2:
-                        glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, nullptr);
-                        break;
-                    case Resource::VertexDataType::FLOAT3:
-                        glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, nullptr);
-                        break;
-                    case Resource::VertexDataType::FLOAT4:
-                        glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, nullptr);
-                        break;
-                    case Resource::VertexDataType::DOUBLE1:
-                        glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, nullptr);
-                        break;
-                    case Resource::VertexDataType::DOUBLE2:
-                        glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, nullptr);
-                        break;
-                    case Resource::VertexDataType::DOUBLE3:
-                        glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, nullptr);
-                        break;
-                    case Resource::VertexDataType::DOUBLE4:
-                        glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, nullptr);
-                        break;
-                    default:
-                        assert(0);
-                        break;
-                }
-                mb->vbos.push_back(vbo);
-            }
-            // Index Array
-            glGenBuffers(1, &mb->ebo);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mb->ebo);
-            auto& indexArray         = mesh->GetIndexArray();
-            auto  indexArrayData     = indexArray.GetData();
-            auto  indexArrayDataSize = indexArray.GetDataSize();
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexArrayDataSize, indexArrayData, GL_STATIC_DRAW);
-            mb->indexCount = indexArray.GetIndexCount();
-            switch (indexArray.GetIndexType()) {
-                case Resource::IndexDataType::INT8:
-                    mb->type = GL_UNSIGNED_BYTE;
-                    break;
-                case Resource::IndexDataType::INT16:
-                    mb->type = GL_UNSIGNED_SHORT;
-                    break;
-                case Resource::IndexDataType::INT32:
-                    mb->type = GL_UNSIGNED_INT;
-                    break;
-                default:
-                    // not supported by OpenGL
-                    std::cerr << "Error: Unsupported Index Type " << indexArray << std::endl;
-                    std::cout << "Mesh: " << *mesh << std::endl;
-                    continue;
-            }
-            // Primitive
-            switch (mesh->GetPrimitiveType()) {
-                case Resource::PrimitiveType::POINT_LIST:
-                    mb->mode = GL_POINTS;
-                    break;
-                case Resource::PrimitiveType::LINE_LIST:
-                    mb->mode = GL_LINES;
-                    break;
-                case Resource::PrimitiveType::LINE_STRIP:
-                    mb->mode = GL_LINE_STRIP;
-                    break;
-                case Resource::PrimitiveType::TRI_LIST:
-                    mb->mode = GL_TRIANGLES;
-                    break;
-                case Resource::PrimitiveType::TRI_STRIP:
-                    mb->mode = GL_TRIANGLE_STRIP;
-                    break;
-                case Resource::PrimitiveType::TRI_FAN:
-                    mb->mode = GL_TRIANGLE_FAN;
-                    break;
-                default:
-                    continue;
-            }
-            mb->material                   = mesh->GetMaterial();
-            m_MeshBuffers[mesh->GetGuid()] = mb;
+std::shared_ptr<OpenGLGraphicsManager::MeshBuffer> OpenGLGraphicsManager::CreateMeshBuffer(const Resource::SceneObjectMesh& mesh) {
+    auto mb = std::make_shared<MeshBuffer>();
+    glGenVertexArrays(1, &mb->vao);
+    glBindVertexArray(mb->vao);
+
+    // Vertex Buffer
+    for (size_t i = 0; i < m_BasicShader.layout.size(); i++) {
+        if (!mesh.HasProperty(m_BasicShader.layout[i])) continue;
+        auto&  vertexArray    = mesh.GetVertexPropertyArray(m_BasicShader.layout[i]);
+        auto   vertexData     = vertexArray.GetData();
+        auto   vertexDataSize = vertexArray.GetDataSize();
+        GLuint vbo;
+        glGenBuffers(1, &vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, vertexDataSize, vertexData, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(i);
+        switch (vertexArray.GetDataType()) {
+            case Resource::VertexDataType::FLOAT1:
+                glVertexAttribPointer(i, 1, GL_FLOAT, false, 0, nullptr);
+                break;
+            case Resource::VertexDataType::FLOAT2:
+                glVertexAttribPointer(i, 2, GL_FLOAT, false, 0, nullptr);
+                break;
+            case Resource::VertexDataType::FLOAT3:
+                glVertexAttribPointer(i, 3, GL_FLOAT, false, 0, nullptr);
+                break;
+            case Resource::VertexDataType::FLOAT4:
+                glVertexAttribPointer(i, 4, GL_FLOAT, false, 0, nullptr);
+                break;
+            case Resource::VertexDataType::DOUBLE1:
+                glVertexAttribPointer(i, 1, GL_DOUBLE, false, 0, nullptr);
+                break;
+            case Resource::VertexDataType::DOUBLE2:
+                glVertexAttribPointer(i, 2, GL_DOUBLE, false, 0, nullptr);
+                break;
+            case Resource::VertexDataType::DOUBLE3:
+                glVertexAttribPointer(i, 3, GL_DOUBLE, false, 0, nullptr);
+                break;
+            case Resource::VertexDataType::DOUBLE4:
+                glVertexAttribPointer(i, 4, GL_DOUBLE, false, 0, nullptr);
+                break;
+            default:
+                assert(0);
+                break;
+        }
+        mb->vbos.push_back(vbo);
+    }
+    // Index Array
+    glGenBuffers(1, &mb->ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mb->ebo);
+    auto& indexArray         = mesh.GetIndexArray();
+    auto  indexArrayData     = indexArray.GetData();
+    auto  indexArrayDataSize = indexArray.GetDataSize();
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexArrayDataSize, indexArrayData, GL_STATIC_DRAW);
+    mb->indexCount = indexArray.GetIndexCount();
+    switch (indexArray.GetIndexType()) {
+        case Resource::IndexDataType::INT8:
+            mb->type = GL_UNSIGNED_BYTE;
+            break;
+        case Resource::IndexDataType::INT16:
+            mb->type = GL_UNSIGNED_SHORT;
+            break;
+        case Resource::IndexDataType::INT32:
+            mb->type = GL_UNSIGNED_INT;
+            break;
+        default: {
+            // not supported by OpenGL
+            m_Logger->error("Unsupported Index Type");
+            m_Logger->error("Mesh", mesh);
+            glDeleteVertexArrays(1, &mb->vao);
+            glDeleteBuffers(1, &mb->ebo);
+            for (auto&& vbo : mb->vbos) glDeleteBuffers(1, &vbo);
+            return nullptr;
         }
     }
+    // Primitive
+    mb->mode     = GetGLPrimitiveType(mesh.GetPrimitiveType());
+    mb->material = mesh.GetMaterial();
+    return mb;
+}
+
+void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
+    // Initialize Mesh
+    for (auto&& [key, geometry] : scene.Geometries)
+        for (auto&& mesh : geometry->GetMeshes())
+            if (auto mb = CreateMeshBuffer(*mesh); mb != nullptr)
+                m_MeshBuffers[mesh->GetGuid()] = std::move(mb);
 
     // Initialize Texture
     for (auto&& [key, material] : scene.Materials) {
@@ -246,19 +267,32 @@ void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
 }
 
 bool OpenGLGraphicsManager::InitializeShaders() {
-    auto OutputShaderErrorMessage = [](GLuint id, const std::filesystem::path& shaderFileName) -> void {
-        int           logSize;
-        char*         infoLog;
-        std::ofstream fout("shader-error.txt");
-        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &logSize);
-        infoLog = new char[logSize];
-        glGetShaderInfoLog(id, logSize, nullptr, infoLog);
-        for (int i = 0; i < logSize; i++) {
-            fout << infoLog[i];
+    enum ShaderErrorType {
+        COMPILE_ERROR,
+        LINK_ERROR,
+    };
+    auto OutputShaderErrorMessage = [logger = m_Logger](GLuint id, const std::filesystem::path& shaderFileName, ShaderErrorType errorType) -> void {
+        int   logSize;
+        char* infoLog;
+        if (errorType == COMPILE_ERROR) {
+            logger->error("Compiling shader failed. {}", shaderFileName);
+            glGetShaderiv(id, GL_INFO_LOG_LENGTH, &logSize);
+            infoLog = new char[logSize];
+            glGetShaderInfoLog(id, logSize, nullptr, infoLog);
+        } else if (errorType == LINK_ERROR) {
+            logger->error("Link shader failed.");
+            glGetProgramiv(id, GL_INFO_LOG_LENGTH, &logSize);
+            infoLog = new char[logSize];
+            glGetProgramInfoLog(id, logSize, nullptr, infoLog);
         }
-        fout.close();
-        std::cerr << "[OpenGL] Error compiling shader. Check shader-error.txt for message." << shaderFileName
-                  << std::endl;
+
+        std::stringstream ss{infoLog};
+        std::string       singleLine;
+        while (ss >> std::ws) {
+            std::getline(ss, singleLine);
+            if (!singleLine.empty()) logger->error(singleLine);
+            singleLine.clear();
+        }
         delete[] infoLog;
     };
 
@@ -273,14 +307,14 @@ bool OpenGLGraphicsManager::InitializeShaders() {
             glShaderSource(shaderInfo.shaderId, 1, &c_str, &shaderSeize);
             glCompileShader(shaderInfo.shaderId);
             glGetShaderiv(shaderInfo.shaderId, GL_COMPILE_STATUS, &status);
-            if (status != 1) OutputShaderErrorMessage(shaderInfo.shaderId, shaderInfo.path);
+            if (status != 1) OutputShaderErrorMessage(shaderInfo.shaderId, shaderInfo.path, COMPILE_ERROR);
             glAttachShader(program.programId, shaderInfo.shaderId);
         }
         for (size_t i = 0; i < program.layout.size(); i++)
             glBindAttribLocation(program.programId, i, program.layout[i].c_str());
         glLinkProgram(program.programId);
         glGetProgramiv(program.programId, GL_LINK_STATUS, &status);
-        if (status != 1) OutputShaderErrorMessage(program.programId, "");
+        if (status != 1) OutputShaderErrorMessage(program.programId, "", LINK_ERROR);
     };
 
     compileShader(m_BasicShader);
@@ -418,12 +452,12 @@ void OpenGLGraphicsManager::RenderBuffers() {
         // Set the color shader as the current shader program and set the matrices
         // that it will use for rendering.
         glUseProgram(m_DebugShader.programId);
-        SetShaderParameters(m_DebugShader.programId, "WVP", m_FrameConstants.projView);
+        SetShaderParameters(m_DebugShader.programId, "projView", m_FrameConstants.projView);
         for (auto dbc : m_DebugDrawBatchContext) {
-            SetShaderParameters(m_DebugShader.programId, "lineColor", dbc.color);
+            SetShaderParameters(m_DebugShader.programId, "color", dbc.color);
 
-            glBindVertexArray(dbc.vao);
-            glDrawElements(dbc.mode, dbc.count, GL_UNSIGNED_INT, 0x00);
+            glBindVertexArray(dbc.mesh->vao);
+            glDrawElements(dbc.mesh->mode, dbc.mesh->indexCount, dbc.mesh->type, nullptr);
         }
     }
 #endif
@@ -456,120 +490,23 @@ void OpenGLGraphicsManager::RenderText(std::string_view text, const vec2f& posit
 }
 
 #if defined(_DEBUG)
-// void OpenGLGraphicsManager::RenderLine(const vec3f& from, const vec3f& to, const vec3f& color) {
-//     GLfloat vertices[6];
-//     vertices[0] = from.x;
-//     vertices[1] = from.y;
-//     vertices[2] = from.z;
-//     vertices[3] = to.x;
-//     vertices[4] = to.y;
-//     vertices[5] = to.z;
-
-//     GLuint index[] = {0, 1};
-
-//     GLuint vao;
-//     glGenVertexArrays(1, &vao);
-//     glBindVertexArray(vao);
-
-//     GLuint buffer_id;
-//     glGenBuffers(1, &buffer_id);
-//     glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
-//     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-//     m_DebugBuffers.push_back(buffer_id);
-
-//     glGenBuffers(1, &buffer_id);
-//     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
-//     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index), index, GL_STATIC_DRAW);
-
-//     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-//     glEnableVertexAttribArray(0);
-//     m_DebugBuffers.push_back(buffer_id);
-
-//     DebugDrawBatchContext dbc;
-
-//     dbc.vao   = vao;
-//     dbc.mode  = GL_LINES;
-//     dbc.count = 2;
-//     dbc.color = color;
-
-//     m_DebugDrawBatchContext.push_back(std::move(dbc));
-// }
-
-// void OpenGLGraphicsManager::RenderBox(const vec3f& bbMin, const vec3f& bbMax, const vec3f& color) {
-//     GLfloat vertices[24];
-//     // top
-//     vertices[0] = bbMax.x;
-//     vertices[1] = bbMax.y;
-//     vertices[2] = bbMax.z;
-
-//     vertices[3] = bbMax.x;
-//     vertices[4] = bbMin.y;
-//     vertices[5] = bbMax.z;
-
-//     vertices[6] = bbMin.x;
-//     vertices[7] = bbMin.y;
-//     vertices[8] = bbMax.z;
-
-//     vertices[9]  = bbMin.x;
-//     vertices[10] = bbMax.y;
-//     vertices[11] = bbMax.z;
-
-//     // bottom
-//     vertices[12] = bbMax.x;
-//     vertices[13] = bbMax.y;
-//     vertices[14] = bbMin.z;
-
-//     vertices[15] = bbMax.x;
-//     vertices[16] = bbMin.y;
-//     vertices[17] = bbMin.z;
-
-//     vertices[18] = bbMin.x;
-//     vertices[19] = bbMin.y;
-//     vertices[20] = bbMin.z;
-
-//     vertices[21] = bbMin.x;
-//     vertices[22] = bbMax.y;
-//     vertices[23] = bbMin.z;
-
-//     GLuint index[] = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4};
-
-//     GLuint vao, buffer_id;
-//     glGenVertexArrays(1, &vao);
-//     glBindVertexArray(vao);
-
-//     glGenBuffers(1, &buffer_id);
-//     glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
-//     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-//     m_DebugBuffers.push_back(buffer_id);
-
-//     glGenBuffers(1, &buffer_id);
-//     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer_id);
-//     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index), index, GL_STATIC_DRAW);
-
-//     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-//     glEnableVertexAttribArray(0);
-//     m_DebugBuffers.push_back(buffer_id);
-
-//     DebugDrawBatchContext dbc;
-//     dbc.vao   = vao;
-//     dbc.mode  = GL_LINE_STRIP;
-//     dbc.count = 16;
-//     dbc.color = color;
-
-//     m_DebugDrawBatchContext.push_back(std::move(dbc));
-// }
+void OpenGLGraphicsManager::DrawDebugMesh(const Resource::SceneObjectMesh& mesh, const mat4f& transform, const vec4f& color) {
+    DebugDrawBatchContext dbc;
+    dbc.mesh  = CreateMeshBuffer(mesh);
+    dbc.color = color;
+    dbc.node  = Resource::SceneGeometryNode();
+    dbc.node.ApplyTransform(transform);
+    m_DebugDrawBatchContext.emplace_back(std::move(dbc));
+}
 
 void OpenGLGraphicsManager::ClearDebugBuffers() {
     for (auto dbc : m_DebugDrawBatchContext) {
-        glDeleteVertexArrays(1, &dbc.vao);
+        glDeleteVertexArrays(1, &dbc.mesh->vao);
+        glDeleteBuffers(1, &dbc.mesh->ebo);
+        for (auto&& vbo : dbc.mesh->vbos) glDeleteBuffers(1, &vbo);
     }
 
     m_DebugDrawBatchContext.clear();
-
-    for (auto buf : m_DebugBuffers) {
-        glDeleteBuffers(1, &buf);
-    }
-    m_DebugBuffers.clear();
 }
 #endif
 }  // namespace Hitagi::Graphics::OpenGL

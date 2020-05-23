@@ -19,21 +19,11 @@ public:
     void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color) final;
 
 #if defined(_DEBUG)
-    void DrawDebugMesh(const Resource::SceneObjectMesh& mesh, const mat4f& transform, const vec4f& color) final{};
+    void DrawDebugMesh(const Resource::SceneObjectMesh& mesh, const mat4f& transform, const vec4f& color) final;
     void ClearDebugBuffers() final;
 #endif
 
 private:
-    using TshaderParameter = std::variant<float, vec2f, vec3f, vec4f, mat4f, GLuint>;
-    bool SetShaderParameters(GLuint shader, const char* paramName, TshaderParameter param);
-    bool UpdateFrameParameters(GLuint shader);
-
-    void InitializeBuffers(const Resource::Scene& scene) final;
-    void ClearBuffers() final;
-    void ClearShaders() final;
-    bool InitializeShaders() final;
-    void RenderBuffers() final;
-
     struct MeshBuffer {
         GLuint                                       vao;
         std::vector<GLuint>                          vbos;
@@ -44,10 +34,24 @@ private:
         std::weak_ptr<Resource::SceneObjectMaterial> material;
     };
 
+    static int                  GetGLPrimitiveType(Resource::PrimitiveType type);
+    std::shared_ptr<MeshBuffer> CreateMeshBuffer(const Resource::SceneObjectMesh& mesh);
+
+    using TshaderParameter = std::variant<float, vec2f, vec3f, vec4f, mat4f, GLuint>;
+    bool SetShaderParameters(GLuint shader, std::string_view paramName, TshaderParameter param);
+    bool UpdateFrameParameters(GLuint shader);
+
+    void InitializeBuffers(const Resource::Scene& scene) final;
+    void ClearBuffers() final;
+    void ClearShaders() final;
+    bool InitializeShaders() final;
+    void RenderBuffers() final;
+
     struct DrawBatchContext {
         std::weak_ptr<Resource::SceneGeometryNode> node;
         std::shared_ptr<MeshBuffer>                mesh;
     };
+
     struct ShaderInfo {
         std::string path;
         int         type;
@@ -97,13 +101,11 @@ private:
 
 #if defined(_DEBUG)
     struct DebugDrawBatchContext {
-        GLuint  vao;
-        GLenum  mode;
-        GLsizei count;
-        vec3f   color;
+        Resource::SceneGeometryNode node;
+        std::shared_ptr<MeshBuffer> mesh;
+        vec4f                       color;
     };
     std::vector<DebugDrawBatchContext> m_DebugDrawBatchContext;
-    std::vector<GLuint>                m_DebugBuffers;
     ShaderProgram                      m_DebugShader = {0,
                                    {
                                        {"Asset/Shaders/debug.vs", GL_VERTEX_SHADER, 0},
