@@ -111,6 +111,7 @@ void OpenGLGraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
 
             // Vertex Buffer
             for (size_t i = 0; i < m_BasicShader.layout.size(); i++) {
+                if (!mesh->HasProperty(m_BasicShader.layout[i])) continue;
                 auto&  vertexArray    = mesh->GetVertexPropertyArray(m_BasicShader.layout[i]);
                 auto   vertexData     = vertexArray.GetData();
                 auto   vertexDataSize = vertexArray.GetDataSize();
@@ -266,10 +267,11 @@ bool OpenGLGraphicsManager::InitializeShaders() {
         int status;
         program.programId = glCreateProgram();
         for (auto&& shaderInfo : program.shaders) {
-            std::string shaderBuffer = g_FileIOManager->SyncOpenAndReadTextFileToString(shaderInfo.path);
-            const char* c_str        = shaderBuffer.c_str();
+            auto        shaderBuffer = g_FileIOManager->SyncOpenAndReadBinary(shaderInfo.path);
+            char*       c_str        = reinterpret_cast<char*>(shaderBuffer.GetData());
+            const GLint shaderSeize  = shaderBuffer.GetDataSize();
             shaderInfo.shaderId      = glCreateShader(shaderInfo.type);
-            glShaderSource(shaderInfo.shaderId, 1, &c_str, nullptr);
+            glShaderSource(shaderInfo.shaderId, 1, &c_str, &shaderSeize);
             glCompileShader(shaderInfo.shaderId);
             glGetShaderiv(shaderInfo.shaderId, GL_COMPILE_STATUS, &status);
             if (status != 1) OutputShaderErrorMessage(shaderInfo.shaderId, shaderInfo.path);
