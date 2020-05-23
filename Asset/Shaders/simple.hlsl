@@ -55,7 +55,8 @@ float4 PSMain1(PSInput input) : SV_TARGET
 	const float4 vL = normalize(lightPosInView - input.posInView);
 	const float4 vV = normalize(-input.posInView);
     const float4 vH = normalize(0.5 * (vL + vV));
-    const float invd = 1.0f / length(lightPosInView - input.posInView);
+    const float  r = length(lightPosInView - input.posInView);
+    const float invd = 1.0f / (r * r + 1.0f);
 	float4 vLightInts = ambient + lightIntensity * invd * invd * (
                               diffuse * max(dot(vN, vL), 0.0f)
                             + specular * pow(max(dot(vH, vN), 0.0f), specularPower)
@@ -70,7 +71,8 @@ float4 PSMain2(PSInput input) : SV_TARGET
 	const float4 vL = normalize(lightPosInView - input.posInView);
 	const float4 vV = normalize(-input.posInView);
     const float4 vH = normalize(0.5 * (vL + vV));
-    const float invd = 1.0f / length(lightPosInView - input.posInView);
+    const float  r = length(lightPosInView - input.posInView);
+    const float invd = 1.0f / (r * r + 1.0f);
     float4 vLightInts = ambient + lightIntensity * invd * invd * (
                               ambient
 							+ BaseMap.Sample(baseSampler, input.uv) * max(dot(vN, vL), 0.0f) 
