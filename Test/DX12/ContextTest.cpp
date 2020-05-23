@@ -1,4 +1,5 @@
 #include "CommandContext.hpp"
+#include "D3DCore.hpp"
 
 #define _CRTDBG_MAP_ALLOC
 #ifdef _WIN32
@@ -12,7 +13,6 @@
 using namespace Microsoft::WRL;
 using namespace Hitagi::Graphics::DX12;
 int main(int argc, char const* argv[]) {
-    ComPtr<ID3D12Device6> device;
     ComPtr<IDXGIFactory7> factory;
     unsigned              dxgiFactoryFlags = 0;
 
@@ -31,16 +31,14 @@ int main(int argc, char const* argv[]) {
 
     // Create device.
     {
-        if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)))) {
+        if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&g_Device)))) {
             Microsoft::WRL::ComPtr<IDXGIAdapter4> pWarpaAdapter;
             ThrowIfFailed(factory->EnumWarpAdapter(IID_PPV_ARGS(&pWarpaAdapter)));
-            ThrowIfFailed(D3D12CreateDevice(pWarpaAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)));
+            ThrowIfFailed(D3D12CreateDevice(pWarpaAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&g_Device)));
         }
     }
-
-    CommandListManager mgr;
-    mgr.Initialize(device.Get());
-    for (size_t i = 0; i < 100000; i++) {
+    g_CommandManager.Initialize(g_Device.Get());
+    for (size_t i = 0; i < 1000; i++) {
         CommandContext context;
     }
 
