@@ -75,7 +75,7 @@ void OpenGLGraphicsManager::Draw() {
 bool OpenGLGraphicsManager::UpdateFrameParameters(GLuint shader) {
     SetShaderParameters(shader, "viewMatrix", m_FrameConstants.view);
     SetShaderParameters(shader, "projectionMatrix", m_FrameConstants.projection);
-    SetShaderParameters(shader, "lightPosition", m_FrameConstants.lightPosition);
+    SetShaderParameters(shader, "lightPosInView", m_FrameConstants.lightPosInView);
     SetShaderParameters(shader, "lightColor", m_FrameConstants.lightIntensity);
     return true;
 }

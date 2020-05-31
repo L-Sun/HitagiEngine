@@ -6,7 +6,6 @@
 #include <spdlog/spdlog.h>
 
 #include "HitagiMath.hpp"
-#include "ThreadManager.hpp"
 
 namespace Hitagi::Resource {
 
@@ -28,11 +27,13 @@ Scene AssimpParser::Parse(const Core::Buffer& buf) {
         aiPostProcessSteps::aiProcess_JoinIdenticalVertices;
 
     const aiScene* _scene = importer.ReadFileFromMemory(buf.GetData(), buf.GetDataSize(), flag);
-
     if (!_scene) {
         logger->error("[Assimp] Can not parse the scene.");
         return scene;
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    logger->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+    begin = std::chrono::high_resolution_clock::now();
 
     // process camera
     std::unordered_map<std::string_view, unsigned> cameraNameToIndex;
@@ -165,80 +166,66 @@ Scene AssimpParser::Parse(const Core::Buffer& buf) {
                 logger->error("[Assimp] Unsupport Primitive Type");
         }
 
-        std::vector<std::future<SceneObjectVertexArray>> vertices;
         // Read Position
         if (_mesh->HasPositions()) {
-            vertices.emplace_back(g_ThreadManager->RunTask([_mesh] {
-                Core::Buffer positionBuffer(_mesh->mNumVertices * sizeof(vec3f));
-                auto         position = reinterpret_cast<vec3f*>(positionBuffer.GetData());
-                for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                    position[i] = vec3f(_mesh->mVertices[i].x, _mesh->mVertices[i].y, _mesh->mVertices[i].z);
-                return SceneObjectVertexArray("POSITION", VertexDataType::FLOAT3, std::move(positionBuffer));
-            }));
+            Core::Buffer positionBuffer(_mesh->mNumVertices * sizeof(vec3f));
+            auto         position = reinterpret_cast<vec3f*>(positionBuffer.GetData());
+            for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                position[i] = vec3f(_mesh->mVertices[i].x, _mesh->mVertices[i].y, _mesh->mVertices[i].z);
+            mesh->AddVertexArray(SceneObjectVertexArray("POSITION", VertexDataType::FLOAT3, std::move(positionBuffer)));
         }
 
         // Read Normal
         if (_mesh->HasNormals()) {
-            vertices.emplace_back(g_ThreadManager->RunTask([_mesh] {
-                Core::Buffer normalBuffer(_mesh->mNumVertices * sizeof(vec3f));
-                auto         normal = reinterpret_cast<vec3f*>(normalBuffer.GetData());
-                for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                    normal[i] = vec3f(_mesh->mNormals[i].x, _mesh->mNormals[i].y, _mesh->mNormals[i].z);
-                return SceneObjectVertexArray("NORMAL", VertexDataType::FLOAT3, std::move(normalBuffer));
-            }));
+            Core::Buffer normalBuffer(_mesh->mNumVertices * sizeof(vec3f));
+            auto         normal = reinterpret_cast<vec3f*>(normalBuffer.GetData());
+            for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                normal[i] = vec3f(_mesh->mNormals[i].x, _mesh->mNormals[i].y, _mesh->mNormals[i].z);
+            mesh->AddVertexArray(SceneObjectVertexArray("NORMAL", VertexDataType::FLOAT3, std::move(normalBuffer)));
         }
 
         // Read Color
         for (size_t colorChannels = 0; colorChannels < _mesh->GetNumColorChannels(); colorChannels++) {
             if (_mesh->HasVertexColors(colorChannels)) {
-                vertices.emplace_back(g_ThreadManager->RunTask([_mesh, colorChannels] {
-                    Core::Buffer colorBuffer(_mesh->mNumVertices * sizeof(vec4f));
-                    auto         color = reinterpret_cast<vec4f*>(colorBuffer.GetData());
-                    for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                        color[i] = vec4f(_mesh->mColors[colorChannels][i].r,
-                                         _mesh->mColors[colorChannels][i].g,
-                                         _mesh->mColors[colorChannels][i].b,
-                                         _mesh->mColors[colorChannels][i].a);
-                    const auto attr = std::string("COLOR") + (colorChannels == 0 ? "" : std::to_string(colorChannels));
-                    return SceneObjectVertexArray(attr, VertexDataType::FLOAT4, std::move(colorBuffer));
-                }));
+                Core::Buffer colorBuffer(_mesh->mNumVertices * sizeof(vec4f));
+                auto         color = reinterpret_cast<vec4f*>(colorBuffer.GetData());
+                for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                    color[i] = vec4f(_mesh->mColors[colorChannels][i].r,
+                                     _mesh->mColors[colorChannels][i].g,
+                                     _mesh->mColors[colorChannels][i].b,
+                                     _mesh->mColors[colorChannels][i].a);
+                const auto attr = std::string("COLOR") + (colorChannels == 0 ? "" : std::to_string(colorChannels));
+                mesh->AddVertexArray(SceneObjectVertexArray(attr, VertexDataType::FLOAT4, std::move(colorBuffer)));
             }
         }
 
         // Read UV
         for (size_t UVChannel = 0; UVChannel < _mesh->GetNumUVChannels(); UVChannel++) {
             if (_mesh->HasTextureCoords(UVChannel)) {
-                vertices.emplace_back(g_ThreadManager->RunTask([_mesh, UVChannel] {
-                    Core::Buffer texcoordBuffer(_mesh->mNumVertices * sizeof(vec2f));
-                    auto         texcoord = reinterpret_cast<vec2f*>(texcoordBuffer.GetData());
-                    for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                        texcoord[i] = vec2f(_mesh->mTextureCoords[UVChannel][i].x, _mesh->mTextureCoords[UVChannel][i].y);
+                Core::Buffer texcoordBuffer(_mesh->mNumVertices * sizeof(vec2f));
+                auto         texcoord = reinterpret_cast<vec2f*>(texcoordBuffer.GetData());
+                for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                    texcoord[i] = vec2f(_mesh->mTextureCoords[UVChannel][i].x, _mesh->mTextureCoords[UVChannel][i].y);
 
-                    const auto attr = std::string("TEXCOORD") + (UVChannel == 0 ? "" : std::to_string(UVChannel));
-                    return SceneObjectVertexArray(attr, VertexDataType::FLOAT2, std::move(texcoordBuffer));
-                }));
+                const auto attr = std::string("TEXCOORD") + (UVChannel == 0 ? "" : std::to_string(UVChannel));
+                mesh->AddVertexArray(SceneObjectVertexArray(attr, VertexDataType::FLOAT2, std::move(texcoordBuffer)));
             }
         }
 
         // Read Tangent and Bitangent
         if (_mesh->HasTangentsAndBitangents()) {
-            vertices.emplace_back(g_ThreadManager->RunTask([_mesh] {
-                Core::Buffer tangentBuffer(_mesh->mNumVertices * sizeof(vec3f));
-                auto         tangent = reinterpret_cast<vec3f*>(tangentBuffer.GetData());
-                for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                    tangent[i] = vec3f(_mesh->mTangents[i].x, _mesh->mTangents[i].y, _mesh->mTangents[i].z);
-                return SceneObjectVertexArray("TANGENT", VertexDataType::FLOAT3, std::move(tangentBuffer));
-            }));
-            vertices.emplace_back(g_ThreadManager->RunTask([_mesh] {
-                Core::Buffer bitangentBuffer(_mesh->mNumVertices * sizeof(vec3f));
-                auto         bitangent = reinterpret_cast<vec3f*>(bitangentBuffer.GetData());
-                for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                    bitangent[i] = vec3f(_mesh->mBitangents[i].x, _mesh->mBitangents[i].y, _mesh->mBitangents[i].z);
-                return SceneObjectVertexArray("BITANGENT", VertexDataType::FLOAT3, std::move(bitangentBuffer));
-            }));
-        }
+            Core::Buffer tangentBuffer(_mesh->mNumVertices * sizeof(vec3f));
+            auto         tangent = reinterpret_cast<vec3f*>(tangentBuffer.GetData());
+            for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                tangent[i] = vec3f(_mesh->mTangents[i].x, _mesh->mTangents[i].y, _mesh->mTangents[i].z);
+            mesh->AddVertexArray(SceneObjectVertexArray("TANGENT", VertexDataType::FLOAT3, std::move(tangentBuffer)));
 
-        for (auto&& v : vertices) mesh->AddVertexArray(v.get());
+            Core::Buffer bitangentBuffer(_mesh->mNumVertices * sizeof(vec3f));
+            auto         bitangent = reinterpret_cast<vec3f*>(bitangentBuffer.GetData());
+            for (size_t i = 0; i < _mesh->mNumVertices; i++)
+                bitangent[i] = vec3f(_mesh->mBitangents[i].x, _mesh->mBitangents[i].y, _mesh->mBitangents[i].z);
+            mesh->AddVertexArray(SceneObjectVertexArray("BITANGENT", VertexDataType::FLOAT3, std::move(bitangentBuffer)));
+        }
 
         // Read Indices
         std::vector<int> indices;
@@ -318,8 +305,8 @@ Scene AssimpParser::Parse(const Core::Buffer& buf) {
 
     scene.SceneGraph = convert(_scene->mRootNode);
 
-    auto end = std::chrono::high_resolution_clock::now();
-    logger->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+    end = std::chrono::high_resolution_clock::now();
+    logger->info("[Assimp] Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
     return scene;
 }
 

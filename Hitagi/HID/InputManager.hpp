@@ -16,6 +16,8 @@ enum class InputEvent : unsigned {
     KEY_A,
     KEY_S,
     KEY_D,
+    KEY_Z,
+    KEY_X,
     KEY_M,
     KEY_SPACE,
 

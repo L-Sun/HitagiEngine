@@ -348,9 +348,10 @@ void D3D12GraphicsManager::InitializeBuffers(const Resource::Scene& scene) {
     for (auto&& [key, material] : scene.Materials) {
         if (material) {
             if (auto texture = material->GetDiffuseColor().ValueMap; texture != nullptr) {
-                auto               guid  = texture->GetGuid();
-                auto&              image = texture->GetTextureImage();
-                const std::string& name  = texture->GetName();
+                auto& image = texture->GetTextureImage();
+                if (image.Empty()) continue;
+                auto               guid = texture->GetGuid();
+                const std::string& name = texture->GetName();
                 m_Textures.insert({guid, TextureBuffer(std::wstring(name.begin(), name.end()), image)});
                 i++;
             }
@@ -541,7 +542,8 @@ void D3D12GraphicsManager::DrawRenderItems(CommandContext& context, const std::v
         // Texture
         if (auto material = d.material.lock()) {
             if (auto& pTexture = material->GetDiffuseColor().ValueMap) {
-                context.SetDynamicDescriptor(2, 0, m_Textures.at(pTexture->GetGuid()).GetSRV());
+                if (m_Textures.count(pTexture->GetGuid()) != 0)
+                    context.SetDynamicDescriptor(2, 0, m_Textures.at(pTexture->GetGuid()).GetSRV());
             }
         }
         context.SetPrimitiveTopology(meshBuffer->primitiveType);

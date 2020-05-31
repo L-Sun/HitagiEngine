@@ -22,6 +22,7 @@ int GLFWApplication::Initialize() {
         return -1;
     }
     glfwSetScrollCallback(m_Window, ProcessScroll);
+    glfwSetInputMode(m_Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     // first call base class initialization
     return BaseApplication::Initialize();
 }
@@ -51,6 +52,8 @@ void GLFWApplication::UpdateInputState() {
         std::make_pair(InputEvent::KEY_A, GLFW_KEY_A),
         std::make_pair(InputEvent::KEY_S, GLFW_KEY_S),
         std::make_pair(InputEvent::KEY_D, GLFW_KEY_D),
+        std::make_pair(InputEvent::KEY_Z, GLFW_KEY_Z),
+        std::make_pair(InputEvent::KEY_X, GLFW_KEY_X),
         std::make_pair(InputEvent::KEY_M, GLFW_KEY_M),
         std::make_pair(InputEvent::KEY_SPACE, GLFW_KEY_SPACE),
         std::make_pair(InputEvent::KEY_UP, GLFW_KEY_UP),

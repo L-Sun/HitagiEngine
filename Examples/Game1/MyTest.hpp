@@ -10,19 +10,17 @@ class MyTest : public GameLogic {
 private:
     enum {
         DEBUG_TOGGLE,
-        ZOOM,
-        ROTATE_ON,
-        ROTATE_Z,
-        ROTATE_H,
-        MOVE_UP,
-        MOVE_DOWN,
-        MOVE_LEFT,
-        MOVE_RIGHT,
         MOVE_FRONT,
         MOVE_BACK,
+        MOVE_LEFT,
+        MOVE_RIGHT,
+        MOVE_UP,
+        MOVE_DOWN,
+        ROTATE_H,
+        ROTATE_V,
         RESET_SCENE,
         MSAA
     };
-    float sensitivity = 0.5f;
+    float sensitivity = 0.1f;
 };
 }  // namespace Hitagi

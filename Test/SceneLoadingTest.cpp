@@ -1,7 +1,6 @@
 #include "MemoryManager.hpp"
 #include "ResourceManager.hpp"
 #include "SceneManager.hpp"
-#include "ThreadManager.hpp"
 
 using namespace Hitagi;
 
@@ -24,7 +23,6 @@ static std::ostream& operator<<(std::ostream& out, std::unordered_map<std::strin
 }
 
 int main(int, char**) {
-    g_ThreadManager->Initialize();
     g_MemoryManager->Initialize();
     g_FileIOManager->Initialize();
     g_ResourceManager->Initialize();
@@ -72,7 +70,6 @@ int main(int, char**) {
     g_ResourceManager->Finalize();
     g_FileIOManager->Finalize();
     g_MemoryManager->Finalize();
-    g_ThreadManager->Finalize();
 
 #ifdef _WIN32
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);

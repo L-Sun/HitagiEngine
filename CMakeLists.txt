@@ -28,4 +28,3 @@ add_subdirectory(Test)
 add_subdirectory(Examples)
 
 enable_testing()
-

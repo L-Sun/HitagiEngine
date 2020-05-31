@@ -8,7 +8,6 @@ add_library(Parser
 
 target_link_libraries(Parser
     PRIVATE
-        ThreadManager
         MemoryManager
         HitagiMath
         ${JPEG_LIBRARIES}

@@ -4,19 +4,17 @@ using namespace Hitagi;
 
 int MyTest::Initialize() {
     int result = GameLogic::Initialize();
-    g_SceneManager->SetScene("Asset/Scene/test.fbx");
-    g_InputManager->Map(DEBUG_TOGGLE, InputEvent::KEY_D);
-    g_InputManager->Map(ZOOM, InputEvent::MOUSE_SCROLL_Y);
-    g_InputManager->Map(ROTATE_ON, InputEvent::MOUSE_MIDDLE);
-    g_InputManager->Map(ROTATE_Z, InputEvent::MOUSE_MOVE_X);
-    g_InputManager->Map(ROTATE_H, InputEvent::MOUSE_MOVE_Y);
+    g_SceneManager->SetScene("Asset/Scene/spot.fbx");
+    g_InputManager->Map(DEBUG_TOGGLE, InputEvent::KEY_SPACE);
 
-    g_InputManager->Map(MOVE_UP, InputEvent::KEY_UP);
-    g_InputManager->Map(MOVE_DOWN, InputEvent::KEY_DOWN);
-    g_InputManager->Map(MOVE_LEFT, InputEvent::KEY_LEFT);
-    g_InputManager->Map(MOVE_RIGHT, InputEvent::KEY_RIGHT);
+    g_InputManager->Map(MOVE_LEFT, InputEvent::KEY_A);
+    g_InputManager->Map(MOVE_RIGHT, InputEvent::KEY_D);
     g_InputManager->Map(MOVE_FRONT, InputEvent::KEY_W);
     g_InputManager->Map(MOVE_BACK, InputEvent::KEY_S);
+    g_InputManager->Map(MOVE_UP, InputEvent::KEY_Z);
+    g_InputManager->Map(MOVE_DOWN, InputEvent::KEY_X);
+    g_InputManager->Map(ROTATE_H, InputEvent::MOUSE_MOVE_X);
+    g_InputManager->Map(ROTATE_V, InputEvent::MOUSE_MOVE_Y);
 
     g_InputManager->Map(RESET_SCENE, InputEvent::KEY_R);
     g_InputManager->Map(MSAA, InputEvent::KEY_M);
@@ -34,29 +32,32 @@ void MyTest::Tick() {
         g_GraphicsManager->ToogleMSAA();
     }
 
-    if (auto z = g_InputManager->GetFloat(ZOOM)) {
-        if (auto camera = g_SceneManager->GetCameraNode().lock()) {
-            auto direct = camera->GetCameraLookAt();
-            camera->ApplyTransform(translate(mat4f(1.0f), direct * 1 * z));
-        }
-    }
-    if (g_InputManager->GetBool(ROTATE_ON)) {
-        if (auto angleH = -g_InputManager->GetFloatDelta(ROTATE_H) * sensitivity; angleH != 0) {
-            if (auto camera = g_SceneManager->GetCameraNode().lock()) {
-                auto direct = camera->GetCameraRight();
-                camera->ApplyTransform(rotate(mat4f(1.0f), radians(angleH), direct));
-            }
-        }
-        if (auto angleZ = -g_InputManager->GetFloatDelta(ROTATE_Z) * sensitivity; angleZ != 0) {
-            if (auto camera = g_SceneManager->GetCameraNode().lock()) {
-                int sign = (camera->GetCameraUp().z > 0) ? 1 : -1;
-                camera->ApplyTransform(rotateZ(mat4f(1.0f), radians(sign * angleZ)));
-            }
-        }
+    if (auto camera = g_SceneManager->GetCameraNode().lock()) {
+        auto  position = camera->GetCameraPosition();
+        auto  front    = camera->GetCameraLookAt();
+        auto  right    = camera->GetCameraRight();
+        float phi      = -radians(sensitivity * g_InputManager->GetFloatDelta(ROTATE_H));
+        float theta    = -radians(sensitivity * g_InputManager->GetFloatDelta(ROTATE_V));
+
+        camera->ApplyTransform(translate(rotateZ(rotate(translate(mat4f(1.0f), -position), theta, right), phi), position));
+
+        right = camera->GetCameraRight();
+        front = camera->GetCameraLookAt();
+        // Move in plane, so z is equal to zero
+        front.z = 0;
+        right.z = 0;
+        vec3f move_vec(0.0f, 0.0f, 0.0f);
+        if (g_InputManager->GetBool(MOVE_LEFT)) move_vec += -right;
+        if (g_InputManager->GetBool(MOVE_RIGHT)) move_vec += right;
+        if (g_InputManager->GetBool(MOVE_FRONT)) move_vec += front;
+        if (g_InputManager->GetBool(MOVE_BACK)) move_vec += -front;
+        if (g_InputManager->GetBool(MOVE_UP)) move_vec.z += 1;
+        if (g_InputManager->GetBool(MOVE_DOWN)) move_vec.z -= 1;
+        camera->ApplyTransform(translate(mat4f(1.0f), sensitivity * move_vec));
     }
 
     if (g_InputManager->GetBoolNew(RESET_SCENE)) {
-        g_SceneManager->SetScene("Asset/Scene/test.fbx");
+        // g_SceneManager->SetScene("Asset/Scene/spot.fbx");
         g_SceneManager->ResetScene();
     }
 }
