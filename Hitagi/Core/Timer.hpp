@@ -10,9 +10,9 @@ public:
     void Tick() final;
     void Finalize() final;
 
-    std::chrono::duration<double> totalTime() const;
-    std::chrono::duration<double> deltaTime() const;
-
+    std::chrono::duration<double>                  totalTime() const;
+    std::chrono::duration<double>                  deltaTime() const;
+    std::chrono::high_resolution_clock::time_point GetBaseTime() const;
     std::chrono::high_resolution_clock::time_point tickTime() const;
 
     void Reset();

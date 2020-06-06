@@ -7,8 +7,6 @@
 #include "GraphicsManager.hpp"
 #include "Timer.hpp"
 
-#include <spdlog/spdlog.h>
-
 namespace Hitagi {
 
 class GameLogic : public IRuntimeModule {

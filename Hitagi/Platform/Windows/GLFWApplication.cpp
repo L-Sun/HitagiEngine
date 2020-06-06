@@ -1,7 +1,7 @@
 #include "GLFWApplication.hpp"
 
 #include <iostream>
-
+#include <Windows.h>  // set time period on win32
 #include <spdlog/spdlog.h>
 
 #include "InputManager.hpp"
@@ -23,6 +23,7 @@ int GLFWApplication::Initialize() {
     }
     glfwSetScrollCallback(m_Window, ProcessScroll);
     glfwSetInputMode(m_Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    timeBeginPeriod(1);
     // first call base class initialization
     return BaseApplication::Initialize();
 }
@@ -35,6 +36,7 @@ void GLFWApplication::Finalize() {
 
 void GLFWApplication::Tick() {
     BaseApplication::Tick();
+    glfwSetWindowTitle(m_Window, std::to_string(1000.0f / m_FPS).c_str());
     BaseApplication::m_Quit = glfwWindowShouldClose(m_Window);
 }
 

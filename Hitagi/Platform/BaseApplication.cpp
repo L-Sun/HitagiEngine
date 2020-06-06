@@ -82,8 +82,9 @@ void BaseApplication::Tick() {
 
     m_FPS = 1.0 / m_Clock.deltaTime().count();
     if (m_FPSLimit != -1) {
-        std::this_thread::sleep_for(std::chrono::seconds(1) / static_cast<double>(m_FPSLimit));
+        std::this_thread::sleep_until(m_Clock.GetBaseTime() + m_FrameIndex * std::chrono::milliseconds(1000) / m_FPSLimit);
     }
+    m_FrameIndex++;
 }
 
 void BaseApplication::SetCommandLineParameters(int argc, char** argv) {

@@ -24,7 +24,8 @@ protected:
 
     Core::Clock m_Clock;
     double      m_FPS;
-    short       m_FPSLimit = 120;
+    short       m_FPSLimit   = 60;
+    uint64_t    m_FrameIndex = 1;
 
 private:
     BaseApplication() = default;

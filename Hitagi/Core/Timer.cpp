@@ -34,6 +34,9 @@ void Clock::Tick() {
     m_DeltaTime = m_TickTime - m_PrevTime;
     m_PrevTime  = m_TickTime;
 }
+std::chrono::high_resolution_clock::time_point Clock::GetBaseTime() const {
+    return m_BaseTime;
+}
 
 void Clock::Start() {
     if (m_Paused) {
