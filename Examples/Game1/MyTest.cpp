@@ -1,44 +1,48 @@
 #include "MyTest.hpp"
+#include "Application.hpp"
+
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 using namespace Hitagi;
 
 int MyTest::Initialize() {
-    int result = GameLogic::Initialize();
+    m_Logger = spdlog::stdout_color_mt("MyTest");
+
     g_SceneManager->SetScene("Asset/Scene/spot.fbx");
-    g_InputManager->Map(DEBUG_TOGGLE, InputEvent::KEY_SPACE);
+    g_InputManager->Map(DEBUG_TOGGLE, VirtualKeyCode::KEY_SPACE);
 
-    g_InputManager->Map(MOVE_LEFT, InputEvent::KEY_A);
-    g_InputManager->Map(MOVE_RIGHT, InputEvent::KEY_D);
-    g_InputManager->Map(MOVE_FRONT, InputEvent::KEY_W);
-    g_InputManager->Map(MOVE_BACK, InputEvent::KEY_S);
-    g_InputManager->Map(MOVE_UP, InputEvent::KEY_Z);
-    g_InputManager->Map(MOVE_DOWN, InputEvent::KEY_X);
-    g_InputManager->Map(ROTATE_H, InputEvent::MOUSE_MOVE_X);
-    g_InputManager->Map(ROTATE_V, InputEvent::MOUSE_MOVE_Y);
+    g_InputManager->Map(MOVE_LEFT, VirtualKeyCode::KEY_A);
+    g_InputManager->Map(MOVE_RIGHT, VirtualKeyCode::KEY_D);
+    g_InputManager->Map(MOVE_FRONT, VirtualKeyCode::KEY_W);
+    g_InputManager->Map(MOVE_BACK, VirtualKeyCode::KEY_S);
+    g_InputManager->Map(MOVE_UP, VirtualKeyCode::KEY_Z);
+    g_InputManager->Map(MOVE_DOWN, VirtualKeyCode::KEY_X);
+    g_InputManager->Map(ROTATE_H, MouseEvent::MOVE_X);
+    g_InputManager->Map(ROTATE_V, MouseEvent::MOVE_Y);
 
-    g_InputManager->Map(RESET_SCENE, InputEvent::KEY_R);
-    g_InputManager->Map(MSAA, InputEvent::KEY_M);
+    g_InputManager->Map(RESET_SCENE, VirtualKeyCode::KEY_R);
+    g_InputManager->Map(MSAA, VirtualKeyCode::KEY_M);
 
-    return result;
+    return 0;
 }
 
-void MyTest::Finalize() { GameLogic::Finalize(); }
+void MyTest::Finalize() {
+    m_Logger->info("MyTest Finalize");
+    m_Logger = nullptr;
+}
 
 void MyTest::Tick() {
     if (g_InputManager->GetBoolNew(DEBUG_TOGGLE)) {
         g_DebugManager->ToggleDebugInfo();
-    }
-    if (g_InputManager->GetBoolNew(MSAA)) {
-        g_GraphicsManager->ToogleMSAA();
     }
 
     if (auto camera = g_SceneManager->GetCameraNode().lock()) {
         auto  position = camera->GetCameraPosition();
         auto  front    = camera->GetCameraLookAt();
         auto  right    = camera->GetCameraRight();
-        float phi      = -radians(sensitivity * g_InputManager->GetFloatDelta(ROTATE_H));
-        float theta    = -radians(sensitivity * g_InputManager->GetFloatDelta(ROTATE_V));
-
+        float phi      = 0;
+        float theta    = 0;
         camera->ApplyTransform(translate(rotateZ(rotate(translate(mat4f(1.0f), -position), theta, right), phi), position));
 
         right = camera->GetCameraRight();

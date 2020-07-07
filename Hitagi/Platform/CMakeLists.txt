@@ -1,12 +1,18 @@
-add_library(BaseApplication main.cpp BaseApplication.cpp)
-target_link_libraries(BaseApplication PUBLIC DebugManager GameLogic Timer ThreadManager)
-target_include_directories(BaseApplication INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(Application main.cpp Application.cpp)
+target_link_libraries(Application
+    PUBLIC
+        InputManager
+        SceneManager
+        PhysicsManager
+        GraphicsManager
+        DebugManager
+        Timer
+        GameLogic
+        ThreadManager
+)
+target_include_directories(Application INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_subdirectory(Empty)
-IF(${WIN32})
+if(${WIN32})
     # Windows specific code
     add_subdirectory(Windows)
-ELSEIF(${UNIX})
-    # Linux specific code
-    add_subdirectory(Linux)
-ENDIF(${WIN32})
+endif(${WIN32})

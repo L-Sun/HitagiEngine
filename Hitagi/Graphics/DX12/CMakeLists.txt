@@ -1,27 +1,28 @@
-add_library(D3DRHI
-    D3DCore.cpp
-    D3D12GraphicsManager.cpp
-    CommandListManager.cpp
+add_library(CommandListManager CommandListManager.cpp CommandAllocatorPool.cpp)
+add_library(Allocator Allocator.cpp)
+
+add_library(DX12DriverAPI
+    DX12DriverAPI.cpp
     CommandAllocatorPool.cpp
+    CommandListManager.cpp
     GpuBuffer.cpp
-    CommandContext.cpp
-    LinearAllocator.cpp
+    Allocator.cpp
     DescriptorAllocator.cpp
-    DynamicDescriptorHeap.cpp
+    CommandContext.cpp
     RootSignature.cpp
-    PipelineState.cpp
-    PixelBuffer.cpp
-    ColorBuffer.cpp
-    DepthBuffer.cpp
-    RaytracingHelper.cpp
+    PSO.cpp
+    DynamicDescriptorHeap.cpp
 )
-target_link_libraries(D3DRHI
+target_link_libraries(DX12DriverAPI
     PRIVATE
         d3d12
         dxgi
         d3dcompiler
-        GLFWApplication
-    PUBLIC
-        GraphicsManager
+        HitagiMath
 )
-target_include_directories(D3DRHI INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(DX12DriverAPI
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE
+        "$<TARGET_PROPERTY:HitagiEngine,INTERFACE_INCLUDE_DIRECTORIES>"
+)

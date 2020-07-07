@@ -1,9 +1,10 @@
 #pragma once
 #include "CommandAllocatorPool.hpp"
 
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
 class CommandQueue {
     friend class CommandContext;
+    friend class CommandListManager;
 
 public:
     CommandQueue(D3D12_COMMAND_LIST_TYPE type);
@@ -28,7 +29,7 @@ public:
     uint64_t            GetLastCompletedFenceValue() const { return m_LastCompletedFenceValue; }
 
 private:
-    const D3D12_COMMAND_LIST_TYPE              m_type;
+    D3D12_COMMAND_LIST_TYPE                    m_type;
     Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_CommandQueue;
     CommandAllocatorPool                       m_AllocatorPool;
 
@@ -40,14 +41,13 @@ private:
 };
 
 class CommandListManager {
-    friend class CommandContext;
-
 public:
     CommandListManager();
-    ~CommandListManager();
 
-    CommandListManager(CommandListManager&) = delete;
-    CommandListManager& operator=(CommandListManager&) = delete;
+    CommandListManager(const CommandListManager&) = delete;
+    CommandListManager& operator=(const CommandListManager&) = delete;
+    CommandListManager(CommandListManager&&)                 = default;
+    CommandListManager& operator=(CommandListManager&&) = default;
 
     void Initialize(ID3D12Device6* device);
 
@@ -81,10 +81,12 @@ public:
         m_CopyQueue.WaitIdle();
     }
 
+    ID3D12Device6* GetDevice() const noexcept { return m_Device; }
+
 private:
     ID3D12Device6* m_Device = nullptr;
     CommandQueue   m_GraphicsQueue;
     CommandQueue   m_ComputeQueue;
     CommandQueue   m_CopyQueue;
 };
-}  // namespace Hitagi::Graphics::DX12
+}  // namespace Hitagi::Graphics::backend::DX12

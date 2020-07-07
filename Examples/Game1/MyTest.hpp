@@ -1,8 +1,8 @@
 #pragma once
 #include "GameLogic.hpp"
 
-namespace Hitagi {
-class MyTest : public GameLogic {
+class MyTest : public Hitagi::GameLogic {
+public:
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;
@@ -23,4 +23,3 @@ private:
     };
     float sensitivity = 0.1f;
 };
-}  // namespace Hitagi

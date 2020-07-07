@@ -1,80 +1,55 @@
 #pragma once
+#include "../ICommandContext.hpp"
+
 #include "CommandListManager.hpp"
 #include "GpuResource.hpp"
-#include "LinearAllocator.hpp"
+#include "Allocator.hpp"
 #include "DynamicDescriptorHeap.hpp"
-#include "PipeLineState.hpp"
-#include "DepthBuffer.hpp"
-#include "ColorBuffer.hpp"
+#include "PSO.hpp"
+#include "HitagiMath.hpp"
 
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
+class DX12DriverAPI;
+
 class CommandContext {
-    template <typename T1, typename T2>
-    friend class FrameResource;
-    friend class GpuBuffer;
-    friend class TextureBuffer;
-    friend class DynamicDescriptorHeap;
-
 public:
-    CommandContext(std::string_view name = "", D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT);
+    CommandContext(DX12DriverAPI& driver, D3D12_COMMAND_LIST_TYPE type);
     CommandContext(const CommandContext&) = delete;
     CommandContext& operator=(const CommandContext&) = delete;
+    CommandContext(CommandContext&&)                 = default;
+    CommandContext& operator=(CommandContext&&) = delete;
     ~CommandContext();
 
-    ID3D12GraphicsCommandList5* GetCommandList() { return m_CommandList; }
+    auto GetCommandList() noexcept { return m_CommandList; }
 
-    static void InitializeBuffer(GpuResource& dest, const void* data, size_t bufferSize);
-    static void InitializeTexture(GpuResource& dest, const std::vector<D3D12_SUBRESOURCE_DATA>& subData);
-    void        TransitionResource(GpuResource& resource, D3D12_RESOURCE_STATES newState, bool flushImmediate = false);
-    void        FlushResourceBarriers();
+    void TransitionResource(GpuResource& resource, D3D12_RESOURCE_STATES newState, bool flushImmediate = false);
+    void FlushResourceBarriers();
 
-    void BuildRaytracingAccelerationStructure(ID3D12Resource*                                           resource,
-                                              const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC& desc);
+    void SetPSO(const PSO& pso) { m_CommandList->SetPipelineState(pso.GetPSO()); }
 
-    void ClearDepth(DepthBuffer& target);
-    void ClearColor(ColorBuffer& target);
-
-    void SetViewportAndScissor(const D3D12_VIEWPORT& viewport, const D3D12_RECT& rect);
-    void SetViewport(const D3D12_VIEWPORT& viewport);
-    void SetScissor(const D3D12_RECT& rect);
-
-    void SetRenderTargets(const std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>& RTVs);
-    void SetRenderTargets(const std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>& RTVs, D3D12_CPU_DESCRIPTOR_HANDLE DSV);
-    void SetRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE RTV) { SetRenderTargets({RTV}); }
-    void SetRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE RTV, D3D12_CPU_DESCRIPTOR_HANDLE DSV) {
-        SetRenderTargets({RTV}, DSV);
+    void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, ID3D12DescriptorHeap* heap) {
+        if (m_CurrentDescriptorHeaps[type] != heap) {
+            m_CurrentDescriptorHeaps[type] = heap;
+            BindDescriptorHeaps();
+        }
     }
-    void SetDepthStencilTarget(D3D12_CPU_DESCRIPTOR_HANDLE DSV) { SetRenderTargets({}, DSV); }
 
-    void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, ID3D12DescriptorHeap* heap);
-    void SetDescriptorHeaps(const std::vector<D3D12_DESCRIPTOR_HEAP_TYPE>& type, std::vector<ID3D12DescriptorHeap*>& heaps);
-    void SetRootSignature(const RootSignature& rootSignature);
-    void BindDescriptorHeaps();
-    void SetConstant(unsigned rootIndex, uint32_t constant, unsigned offset = 0);
-    void SetDynamicDescriptor(unsigned rootIndex, unsigned offset, D3D12_CPU_DESCRIPTOR_HANDLE handle);
-    void SetDynamicSampler(unsigned rootIndex, unsigned offset, D3D12_CPU_DESCRIPTOR_HANDLE handle);
-
-    void SetPipeLineState(const PipeLineState& pso);
-    void SetIndexBuffer(const D3D12_INDEX_BUFFER_VIEW& IBView);
-    void SetVertexBuffer(unsigned slot, const D3D12_VERTEX_BUFFER_VIEW& VBView);
-    void SetVertexBuffers(unsigned startSlot, const std::vector<D3D12_VERTEX_BUFFER_VIEW>& VBViews);
-
-    void SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY topology);
-    void DrawInstanced(unsigned VertexCountPerInstance, unsigned InstanceCount, unsigned StartVertexLocation, unsigned StartInstanceLocation);
-    void DrawIndexedInstanced(unsigned indexCountPerInstance, unsigned instanceCount, unsigned startIndexLocation, int baseVertexLocation, unsigned startInstanceLocation);
+    void SetDynamicDescriptor(unsigned rootIndex, unsigned offset, const Descriptor& descriptor) {
+        SetDynamicDescriptors(rootIndex, offset, {descriptor});
+    }
+    void SetDynamicDescriptors(unsigned rootIndex, unsigned offset, const std::vector<Descriptor>& descriptors) {
+        m_DynamicViewDescriptorHeap.StageDescriptors(rootIndex, offset, descriptors);
+    }
 
     uint64_t Finish(bool waitForComplete = false);
     void     Reset();
 
-private:
-    std::string                 m_Name;
+protected:
+    void BindDescriptorHeaps();
+
+    DX12DriverAPI&              m_Driver;
     ID3D12GraphicsCommandList5* m_CommandList      = nullptr;
     ID3D12CommandAllocator*     m_CommandAllocator = nullptr;
-
-    std::array<std::unique_ptr<DynamicDescriptorHeap>, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_DynamicDescriptorHeaps;
-    std::array<ID3D12DescriptorHeap*, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES>                  m_CurrentDescriptorHeaps;
-
-    ID3D12RootSignature* m_CurrRootSignature = nullptr;
 
     std::array<D3D12_RESOURCE_BARRIER, 16> m_Barriers;
     unsigned                               m_NumBarriersToFlush = 0;
@@ -82,6 +57,58 @@ private:
     LinearAllocator m_CpuLinearAllocator;
     LinearAllocator m_GpuLinearAllocator;
 
+    std::array<ID3D12DescriptorHeap*, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_CurrentDescriptorHeaps{};
+
+    DynamicDescriptorHeap m_DynamicViewDescriptorHeap;     // HEAP_TYPE_CBV_SRV_UAV
+    DynamicDescriptorHeap m_DynamicSamplerDescriptorHeap;  // HEAP_TYPE_SAMPLER
+
+    ID3D12RootSignature* m_RootSignature;
+
     D3D12_COMMAND_LIST_TYPE m_Type;
 };
-}  // namespace Hitagi::Graphics::DX12
+
+class GraphicsCommandContext : public CommandContext, public Graphics::IGraphicsCommandContext {
+public:
+    GraphicsCommandContext(DX12DriverAPI& driver)
+        : CommandContext(driver, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
+
+    // Front end interface
+    void SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
+    void SetRenderTarget(Graphics::RenderTarget& rt) final;
+    void SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depthBuffer) final;
+    void SetPipelineState(const Graphics::PipelineState& pipeline) final;
+    void SetParameter(std::string_view name, const Graphics::ConstantBuffer& cb, size_t offset) final;
+    void SetParameter(std::string_view name, const Graphics::TextureBuffer& texture) final;
+    void Draw(const Graphics::MeshBuffer& mesh) final;
+    void Present(Graphics::RenderTarget& rt) final;
+    void Finish(bool waitForComplete) final { CommandContext::Finish(waitForComplete); }
+
+    // Back end interface
+    void SetRootSignature(const RootSignature& rootSignature) {
+        if (m_RootSignature == rootSignature.GetRootSignature()) return;
+
+        m_CommandList->SetGraphicsRootSignature(m_RootSignature = rootSignature.GetRootSignature());
+        m_DynamicViewDescriptorHeap.ParseRootSignature(rootSignature);
+        m_DynamicSamplerDescriptorHeap.ParseRootSignature(rootSignature);
+    }
+
+private:
+    const Graphics::PipelineState* m_Pipeline;
+};
+
+class ComputeCommandContext : public CommandContext {
+public:
+    ComputeCommandContext(DX12DriverAPI& driver)
+        : CommandContext(driver, D3D12_COMMAND_LIST_TYPE_COMPUTE) {}
+};
+
+class CopyCommandContext : public CommandContext {
+public:
+    CopyCommandContext(DX12DriverAPI& driver)
+        : CommandContext(driver, D3D12_COMMAND_LIST_TYPE_COPY) {}
+
+    void InitializeBuffer(GpuResource& dest, const uint8_t* data, size_t dataSize);
+    void InitializeTexture(GpuResource& dest, const std::vector<D3D12_SUBRESOURCE_DATA>& subData);
+};
+
+}  // namespace Hitagi::Graphics::backend::DX12

@@ -1,6 +1,6 @@
 add_subdirectory(Interface)
 add_subdirectory(Core)
-add_subdirectory(ResourceManager)
+add_subdirectory(AssetManager)
 add_subdirectory(Graphics)
 add_subdirectory(Physics)
 add_subdirectory(Debuger)

@@ -1,3 +1,2 @@
-add_library(GameLogic GameLogic.cpp)
-target_link_libraries(GameLogic PUBLIC PhysicsManager InputManager GraphicsManager DebugManager)
+add_library(GameLogic INTERFACE)
 target_include_directories(GameLogic INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

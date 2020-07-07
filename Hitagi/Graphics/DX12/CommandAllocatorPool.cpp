@@ -1,11 +1,8 @@
 #include "CommandAllocatorPool.hpp"
 
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
 
-CommandAllocatorPool::CommandAllocatorPool(D3D12_COMMAND_LIST_TYPE type) : m_Type(type), m_Device(nullptr) {}
-CommandAllocatorPool::~CommandAllocatorPool() = default;
-
-void CommandAllocatorPool::Initialize(ID3D12Device6* device) { m_Device = device; }
+CommandAllocatorPool::CommandAllocatorPool(D3D12_COMMAND_LIST_TYPE type) : m_Type(type) {}
 
 ID3D12CommandAllocator* CommandAllocatorPool::GetAllocator(uint64_t completedFenceValue) {
     if (!m_ReadyAllocators.empty()) {
@@ -28,4 +25,4 @@ ID3D12CommandAllocator* CommandAllocatorPool::GetAllocator(uint64_t completedFen
 void CommandAllocatorPool::DiscardAllocator(uint64_t fenceValue, ID3D12CommandAllocator* allocator) {
     m_ReadyAllocators.push({fenceValue, allocator});
 }
-}  // namespace Hitagi::Graphics::DX12
+}  // namespace Hitagi::Graphics::backend::DX12

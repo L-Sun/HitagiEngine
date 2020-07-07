@@ -1,20 +1,23 @@
 #include "DynamicDescriptorHeap.hpp"
 
-#include "D3DCore.hpp"
 #include "CommandContext.hpp"
 
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
 
 std::mutex DynamicDescriptorHeap::kMutex;
 
-DynamicDescriptorHeap::DynamicDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type)
-    : m_Type(type),
+DynamicDescriptorHeap::DynamicDescriptorHeap(ID3D12Device*              device,
+                                             D3D12_DESCRIPTOR_HEAP_TYPE type,
+                                             FenceChecker&&             checker)
+    : m_Device(device),
+      m_Type(type),
       m_DescriptorTableBitMask(0),
       m_StaleDescriptorTableBitMask(0),
       m_CurrentCPUDescriptorHandle(D3D12_DEFAULT),
       m_CurrentGPUDescriptorHandle(D3D12_DEFAULT),
       m_NumFreeHandles(0),
-      m_HandleIncrementSize(g_Device->GetDescriptorHandleIncrementSize(type)),
+      m_HandleIncrementSize(device->GetDescriptorHandleIncrementSize(type)),
+      m_FenceChecker(std::move(checker)),
       m_DescriptorHandleCache(kNumDescriptorsPerHeap) {}
 
 void DynamicDescriptorHeap::Reset(uint64_t fenceValue) {
@@ -57,17 +60,16 @@ void DynamicDescriptorHeap::ParseRootSignature(const RootSignature& rootSignatur
            "heap. Consider increasing the maximum number of descriptors per descriptor heap.");
 }
 
-void DynamicDescriptorHeap::StageDescriptor(uint32_t rootParameterIndex, uint32_t offset, uint32_t numDescriptors,
-                                            const D3D12_CPU_DESCRIPTOR_HANDLE srcDescriptorHandle) {
-    if (numDescriptors > kNumDescriptorsPerHeap || rootParameterIndex >= kMaxDescriptorTables) throw std::bad_alloc();
+void DynamicDescriptorHeap::StageDescriptors(uint32_t rootParameterIndex, uint32_t offset, const std::vector<Descriptor>& descriptors) {
+    if (descriptors.size() > kNumDescriptorsPerHeap || rootParameterIndex >= kMaxDescriptorTables) throw std::bad_alloc();
 
     auto& tableCache = m_DescriptorTableCache[rootParameterIndex];
-    if (offset + numDescriptors > tableCache.numDescriptors)
+    if (offset + descriptors.size() > tableCache.numDescriptors)
         throw std::length_error("Number of descriptors exceeds the number of descriptors in the descriptor table.");
 
     D3D12_CPU_DESCRIPTOR_HANDLE* handle = tableCache.baseHandle + offset;
-    for (uint32_t i = 0; i < numDescriptors; i++) {
-        handle[i] = CD3DX12_CPU_DESCRIPTOR_HANDLE(srcDescriptorHandle, i, m_HandleIncrementSize);
+    for (uint32_t i = 0; i < descriptors.size(); i++) {
+        handle[i] = descriptors[i].handle;
     }
     m_StaleDescriptorTableBitMask |= (1 << rootParameterIndex);
 }
@@ -90,12 +92,12 @@ std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> DynamicDescrip
     uint64_t                                     fenceValue        = 0;
 
     std::lock_guard lock(kMutex);
-    if (!availableHeapPool.empty() && g_CommandManager.IsFenceComplete(availableHeapPool.front().second)) {
+    if (!availableHeapPool.empty() && m_FenceChecker(availableHeapPool.front().second)) {
         descriptorHeap = availableHeapPool.front().first;
         fenceValue     = availableHeapPool.front().second;
         availableHeapPool.pop();
     } else {
-        descriptorHeap = CreateDescriptorHeap(m_Type);
+        descriptorHeap = CreateDescriptorHeap(m_Device, m_Type);
         kDescriptorHeapPool[m_Type].push(descriptorHeap);
     }
 
@@ -103,14 +105,15 @@ std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> DynamicDescrip
 }
 
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> DynamicDescriptorHeap::CreateDescriptorHeap(
+    ID3D12Device*              device,
     D3D12_DESCRIPTOR_HEAP_TYPE type) {
     D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
     descriptorHeapDesc.Type                       = type;
     descriptorHeapDesc.NumDescriptors             = kNumDescriptorsPerHeap;
     descriptorHeapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap;
-    ThrowIfFailed(g_Device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&descriptorHeap)));
+    ComPtr<ID3D12DescriptorHeap> descriptorHeap;
+    ThrowIfFailed(device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&descriptorHeap)));
 
     return descriptorHeap;
 }
@@ -123,7 +126,6 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
 
     if (numDescriptorsToCommit <= 0) return;
 
-    auto device = g_Device;
     assert(cmdList != nullptr);
 
     if (!m_CurrentDescriptorHeap || m_NumFreeHandles < numDescriptorsToCommit) {
@@ -150,7 +152,7 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
         std::array size  = {numSrcDesriptors};
 
         if (srcDescriptorHandles->ptr != 0) {
-            device->CopyDescriptors(1, start.data(), size.data(), numSrcDesriptors, srcDescriptorHandles, nullptr, m_Type);
+            m_Device->CopyDescriptors(1, start.data(), size.data(), numSrcDesriptors, srcDescriptorHandles, nullptr, m_Type);
 
             // Set the descriptors on the command list using the passed-in setter function.
             setFunc(cmdList, rootIndex, m_CurrentGPUDescriptorHandle);
@@ -184,7 +186,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(CommandContext
     }
 
     D3D12_GPU_DESCRIPTOR_HANDLE handle = m_CurrentGPUDescriptorHandle;
-    g_Device->CopyDescriptorsSimple(1, m_CurrentCPUDescriptorHandle, cpuDescriptorHandle, m_Type);
+    m_Device->CopyDescriptorsSimple(1, m_CurrentCPUDescriptorHandle, cpuDescriptorHandle, m_Type);
     m_CurrentCPUDescriptorHandle.Offset(1, m_HandleIncrementSize);
     m_CurrentGPUDescriptorHandle.Offset(1, m_HandleIncrementSize);
     m_NumFreeHandles -= 1;
@@ -192,4 +194,4 @@ D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(CommandContext
     return handle;
 }
 
-}  // namespace Hitagi::Graphics::DX12
+}  // namespace Hitagi::Graphics::backend::DX12

@@ -1,17 +1,20 @@
 #pragma once
 #include "RootSignature.hpp"
+#include "DescriptorAllocator.hpp"
 
 // Stage, commit or cpoy directly CPU visible descriptor to GPU visible descriptor.
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
 class CommandContext;
 
 class DynamicDescriptorHeap {
+    using FenceValue   = uint64_t;
+    using FenceChecker = std::function<bool(FenceValue)>;
+
 public:
-    DynamicDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
+    DynamicDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, FenceChecker&& checker);
     ~DynamicDescriptorHeap() { Reset(m_FenceValue); }
 
-    void StageDescriptor(uint32_t rootParameterIndex, uint32_t offset, uint32_t numDescriptors,
-                         const D3D12_CPU_DESCRIPTOR_HANDLE srcDescriptorHandle);
+    void StageDescriptors(uint32_t rootParameterIndex, uint32_t offset, const std::vector<Descriptor>& descriptors);
 
     void CommitStagedDescriptors(
         CommandContext&                                                                    context,
@@ -23,12 +26,18 @@ public:
     // Paser root signature to get information about the layout of descriptors.
     void ParseRootSignature(const RootSignature& rootSignature);
 
-    void Reset(uint64_t fenceValue);
+    void Reset(FenceValue fenceValue);
+
+    static void Destroy() {
+        std::lock_guard lock(kMutex);
+        kDescriptorHeapPool       = {};
+        kAvailableDescriptorHeaps = {};
+    }
 
 private:
-    std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> RequestDescriptorHeap();
+    std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, FenceValue> RequestDescriptorHeap();
 
-    static Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
+    static Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type);
 
     uint32_t StaleDescriptorCount() const;
 
@@ -43,7 +52,7 @@ private:
     };
 
     using DescriptorHeapPool = std::queue<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>>;
-    using AvailableHeapPool  = std::queue<std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t>>;
+    using AvailableHeapPool  = std::queue<std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, FenceValue>>;
 
     static const uint32_t                                                              kNumDescriptorsPerHeap = 1024;
     static const uint32_t                                                              kMaxDescriptorTables   = 32;
@@ -51,9 +60,11 @@ private:
     inline static std::array<AvailableHeapPool, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES>  kAvailableDescriptorHeaps;
     static std::mutex                                                                  kMutex;
 
+    ID3D12Device*              m_Device;
     D3D12_DESCRIPTOR_HEAP_TYPE m_Type;
     uint32_t                   m_HandleIncrementSize;
-    uint64_t                   m_FenceValue;
+    FenceValue                 m_FenceValue;
+    FenceChecker               m_FenceChecker;
 
     std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>               m_DescriptorHandleCache;
     std::array<DescriptorTableCache, kMaxDescriptorTables> m_DescriptorTableCache;
@@ -70,4 +81,4 @@ private:
 
     uint32_t m_NumFreeHandles;
 };
-}  // namespace Hitagi::Graphics::DX12
+}  // namespace Hitagi::Graphics::backend::DX12

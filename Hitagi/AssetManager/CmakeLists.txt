@@ -1,0 +1,13 @@
+add_subdirectory(Parser)
+
+add_library(AssetManager
+    AssetManager.cpp
+    Image.cpp
+    Scene.cpp
+    SceneObject.cpp
+)
+target_link_libraries(AssetManager PUBLIC FileIOManager Parser HitagiMath PRIVATE crossguid)
+target_include_directories(AssetManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
+
+add_library(SceneManager SceneManager.cpp)
+target_link_libraries(SceneManager PUBLIC AssetManager)

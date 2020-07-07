@@ -3,7 +3,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "IApplication.hpp"
+#include "Application.hpp"
+#include "portable.hpp"
 
 namespace Hitagi {
 
@@ -23,40 +24,115 @@ void InputManager::Finalize() {
     m_Logger = nullptr;
 }
 void InputManager::Tick() {
-    for (auto&& m : m_BoolMapping) {
-        m.previous = m.current;
-        m.current  = false;  // will update in UpdateInputState()
-    }
-    for (auto&& m : m_FloatMapping) {
-        m.previous = m.current;
-        m.current  = 0.0f;  // will update in UpdateInputState()
-    }
+    for (auto&& state : m_KeyState)
+        state.previous = state.current;
 
-    // Update state
-    g_App->UpdateInputState();
+    m_MouseState.lastPos = m_MouseState.currPos;
+
+    g_App->UpdateInputEvent();
 }
 
-void InputManager::Map(UserDefAction userAction, InputEvent key) {
-    if (userAction >= m_UserMapping.size()) m_UserMapping.resize(userAction + 1);
-    m_UserMapping[userAction] = key;
+void InputManager::Map(UserDefAction userAction, std::variant<VirtualKeyCode, MouseEvent> event) {
+    m_UserMap[userAction] = std::move(event);
 }
 
 bool InputManager::GetBool(UserDefAction userAction) const {
-    return m_BoolMapping[static_cast<unsigned>(m_UserMapping[userAction])].current;
+    return std::visit(
+        [this](auto& arg) -> bool {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, VirtualKeyCode>)
+                return m_KeyState[static_cast<size_t>(arg)].current;
+            else if constexpr (std::is_same_v<T, MouseEvent>) {
+                switch (arg) {
+                    case MouseEvent::MOVE_X:
+                        return (m_MouseState.currPos[0] - m_MouseState.lastPos[0]) != 0;
+                    case MouseEvent::MOVE_Y:
+                        return (m_MouseState.currPos[1] - m_MouseState.lastPos[1]) != 0;
+                    case MouseEvent::SCROLL_X:
+                        return (m_MouseState.currScroll[0] - m_MouseState.lastScroll[0]) != 0;
+                    case MouseEvent::SCROLL_Y:
+                        return (m_MouseState.currScroll[1] - m_MouseState.lastScroll[1]) != 0;
+                }
+            } else
+                static_assert(always_false_v<T>, "non-exhaustive visitor!");
+            return false;
+        },
+        m_UserMap.at(userAction));
 }
 
 bool InputManager::GetBoolNew(UserDefAction userAction) const {
-    auto& state = m_BoolMapping[static_cast<unsigned>(m_UserMapping[userAction])];
-    return state.current && !state.previous;
+    return std::visit(
+        [this](auto& arg) -> bool {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, VirtualKeyCode>)
+                return m_KeyState[static_cast<size_t>(arg)].current && !m_KeyState[static_cast<size_t>(arg)].previous;
+            else if constexpr (std::is_same_v<T, MouseEvent>) {
+                switch (arg) {
+                    case MouseEvent::MOVE_X:
+                        return (m_MouseState.currPos[0] - m_MouseState.lastPos[0]) != 0;
+                    case MouseEvent::MOVE_Y:
+                        return (m_MouseState.currPos[1] - m_MouseState.lastPos[1]) != 0;
+                    case MouseEvent::SCROLL_X:
+                        return (m_MouseState.currScroll[0] - m_MouseState.lastScroll[0]) != 0;
+                    case MouseEvent::SCROLL_Y:
+                        return (m_MouseState.currScroll[1] - m_MouseState.lastScroll[1]) != 0;
+                }
+            } else
+                static_assert(always_false_v<T>, "non-exhaustive visitor!");
+            return false;
+        },
+        m_UserMap.at(userAction));
 }
 
 float InputManager::GetFloat(UserDefAction userAction) const {
-    return m_FloatMapping[static_cast<unsigned>(m_UserMapping[userAction])].current;
+    return std::visit(
+        [this](auto& arg) -> float {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, VirtualKeyCode>)
+                return m_KeyState[static_cast<size_t>(arg)].current ? 1 : 0;
+            else if constexpr (std::is_same_v<T, MouseEvent>) {
+                switch (arg) {
+                    case MouseEvent::MOVE_X:
+                        return m_MouseState.currPos[0];
+                    case MouseEvent::MOVE_Y:
+                        return m_MouseState.currPos[1];
+                    case MouseEvent::SCROLL_X:
+                        return m_MouseState.currScroll[0];
+                    case MouseEvent::SCROLL_Y:
+                        return m_MouseState.currScroll[1];
+                }
+            } else
+                static_assert(always_false_v<T>, "non-exhaustive visitor!");
+            return 0;
+        },
+        m_UserMap.at(userAction));
 }
 
 float InputManager::GetFloatDelta(UserDefAction userAction) const {
-    auto& state = m_FloatMapping[static_cast<unsigned>(m_UserMapping[userAction])];
-    return state.current - state.previous;
+    return std::visit(
+        [this](auto& arg) -> float {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, VirtualKeyCode>)
+                return (m_KeyState[static_cast<size_t>(arg)].current &&
+                        !m_KeyState[static_cast<size_t>(arg)].previous)
+                           ? 1
+                           : 0;
+            else if constexpr (std::is_same_v<T, MouseEvent>) {
+                switch (arg) {
+                    case MouseEvent::MOVE_X:
+                        return m_MouseState.currPos[0] - m_MouseState.lastPos[0];
+                    case MouseEvent::MOVE_Y:
+                        return m_MouseState.currPos[1] - m_MouseState.lastPos[1];
+                    case MouseEvent::SCROLL_X:
+                        return m_MouseState.currScroll[0] - m_MouseState.lastScroll[0];
+                    case MouseEvent::SCROLL_Y:
+                        return m_MouseState.currScroll[1] - m_MouseState.lastScroll[1];
+                }
+            } else
+                static_assert(always_false_v<T>, "non-exhaustive visitor!");
+            return 0;
+        },
+        m_UserMap.at(userAction));
 }
 
 }  // namespace Hitagi

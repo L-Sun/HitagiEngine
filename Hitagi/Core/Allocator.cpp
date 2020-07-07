@@ -1,13 +1,15 @@
 #include "Allocator.hpp"
+
+#include "HitagiMath.hpp"
+
 #include <cassert>
 #include <cstring>
-#include "portable.hpp"
 
 namespace Hitagi::Core {
 
 Allocator::Allocator()
-    
-      = default;
+
+    = default;
 
 Allocator::Allocator(size_t dataSize, size_t pageSize, size_t alignment) : m_PageList(nullptr), m_FreeList(nullptr) {
     Reset(dataSize, pageSize, alignment);
@@ -35,7 +37,7 @@ void Allocator::Reset(size_t dataSize, size_t pageSize, size_t alignment) {
 void* Allocator::Allocate() {
     if (!m_FreeList) {
         auto* newPage = reinterpret_cast<PageHeader*>(new uint8_t[m_PageSize]);
-        newPage->next       = nullptr;
+        newPage->next = nullptr;
         ++m_Pages;
         m_BLocks += m_BlocksPerPage;
         m_FreeBlocks += m_BlocksPerPage;

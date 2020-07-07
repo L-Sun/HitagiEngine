@@ -1,7 +1,7 @@
 #include "RaytracingHelper.hpp"
 #include "CommandContext.hpp"
 
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
 
 void BottomLevelASGenerator::AddMesh(const MeshInfo& mesh, bool opaque) {
     auto vbv = mesh.verticesBuffer[0].VertexBufferView();
@@ -24,7 +24,7 @@ void BottomLevelASGenerator::AddMesh(const MeshInfo& mesh, bool opaque) {
     m_Geometrydesc.push_back(std::move(desc));
 }
 
-Microsoft::WRL::ComPtr<ID3D12Resource> BottomLevelASGenerator::Generate(CommandContext& context, bool updateOnly,
+Microsoft::WRL::ComPtr<ID3D12Resource> BottomLevelASGenerator::Generate(GraphicsCommandContext& context, bool updateOnly,
                                                                         ID3D12Resource* previousResult) {
     // Calculate buffer size
     auto& bottomLevelInputs          = m_BuildDesc.Inputs;
@@ -77,7 +77,7 @@ void TopLevelASGenerator::AddInstance(Microsoft::WRL::ComPtr<ID3D12Resource> bot
     m_InstanceDescs.push_back(std::move(desc));
 }
 
-Microsoft::WRL::ComPtr<ID3D12Resource> TopLevelASGenerator::Generate(CommandContext& context, bool updateOnly,
+Microsoft::WRL::ComPtr<ID3D12Resource> TopLevelASGenerator::Generate(GraphicsCommandContext& context, bool updateOnly,
                                                                      ID3D12Resource* previousResult) {
     // Calculate buffer size
     auto& topLevelInputs          = m_BuildDesc.Inputs;
@@ -382,4 +382,4 @@ RaytracingPipelineGenerator::RootSignatureAssociation::RootSignatureAssociation(
         m_SymbolPointers[i] = m_Symbols[i].c_str();
 }
 
-}  // namespace Hitagi::Graphics::DX12
+}  // namespace Hitagi::Graphics::backend::DX12

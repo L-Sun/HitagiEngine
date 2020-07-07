@@ -1,4 +1,4 @@
 add_library(PhysicsManager INTERFACE)
 target_include_directories(PhysicsManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(PhysicsManager INTERFACE ResourceManager)
+target_link_libraries(PhysicsManager INTERFACE AssetManager)
 add_subdirectory(HitagiPhysics)

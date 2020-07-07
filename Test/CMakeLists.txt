@@ -11,7 +11,7 @@ target_link_libraries(SceneLoadingTest PRIVATE SceneManager)
 add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(ImageParserTest ImageParserTest.cpp)
-target_link_libraries(ImageParserTest PRIVATE ResourceManager GTest::gtest)
+target_link_libraries(ImageParserTest PRIVATE AssetManager GTest::gtest)
 add_test(NAME TEST_ImageParser COMMAND ImageParserTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(MathTest MathTest.cpp)
@@ -29,4 +29,11 @@ add_executable(ThreadPoolTest ThreadPoolTest.cpp)
 target_link_libraries(ThreadPoolTest PRIVATE ThreadManager)
 add_test(NAME TEST_ThreadPoolTest COMMAND ThreadPoolTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
-add_subdirectory(DX12)
+add_executable(GraphicsTest GraphicsTest.cpp)
+target_link_libraries(GraphicsTest PRIVATE GraphicsManager)
+add_test(NAME TEST_GraphicsTest COMMAND GraphicsTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
+add_executable(DX12Test DX12Test.cpp)
+target_link_libraries(DX12Test PRIVATE DX12DriverAPI)
+add_test(NAME TEST_DX12Test COMMAND DX12Test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+

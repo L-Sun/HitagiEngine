@@ -1,12 +1,30 @@
-add_library(ShaderManager ShaderManager.cpp)
-target_link_libraries(ShaderManager PRIVATE FileIOManager)
-
-add_library(GraphicsManager GraphicsManager.cpp)
-target_include_directories(GraphicsManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(GraphicsManager PUBLIC SceneManager PhysicsManager ShaderManager PRIVATE freetype)
-
-add_subdirectory(Empty)
-add_subdirectory(OpenGL)
 if(${WIN32})
     add_subdirectory(DX12)
 endif(${WIN32})
+
+
+add_library(ShaderManager ShaderManager.cpp)
+target_link_libraries(ShaderManager PUBLIC FileIOManager)
+
+add_library(GraphicsManager
+    GraphicsManager.cpp
+    ResourceManager.cpp
+    Frame.cpp
+    FrameGraph.cpp
+    PipelineState.cpp
+)
+target_include_directories(GraphicsManager
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE
+        "$<TARGET_PROPERTY:Application,INTERFACE_INCLUDE_DIRECTORIES>"
+)
+target_link_libraries(GraphicsManager
+    PUBLIC
+        ShaderManager
+    PRIVATE
+        SceneManager
+        PhysicsManager
+        $<$<PLATFORM_ID:Windows>:DX12DriverAPI>
+        freetype
+)

@@ -1,6 +1,6 @@
 #include "CommandListManager.hpp"
 
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
 CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type)
     : m_type(type),
       m_CommandQueue(nullptr),
@@ -9,12 +9,14 @@ CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type)
       // Use the upper 8 bit to identicate the type, which ranges from 0 to 6.
       m_LastCompletedFenceValue(static_cast<uint64_t>(type) << 56),
       m_NextFenceValue(static_cast<uint64_t>(type) << 56 | 1) {}
+
 CommandQueue::~CommandQueue() { CloseHandle(m_FenceHandle); }
 
 void CommandQueue::Initialize(ID3D12Device6* device) {
     assert(device != nullptr);
     assert(!IsReady());
     assert(m_AllocatorPool.Size() == 0);
+    m_AllocatorPool.Initialize(device);
 
     D3D12_COMMAND_QUEUE_DESC desc = {};
     desc.Flags                    = D3D12_COMMAND_QUEUE_FLAG_NONE;
@@ -75,7 +77,6 @@ CommandListManager::CommandListManager()
     : m_GraphicsQueue(D3D12_COMMAND_LIST_TYPE_DIRECT),
       m_ComputeQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE),
       m_CopyQueue(D3D12_COMMAND_LIST_TYPE_COPY) {}
-CommandListManager::~CommandListManager() = default;
 
 void CommandListManager::Initialize(ID3D12Device6* device) {
     assert(device != nullptr);
@@ -122,4 +123,4 @@ void CommandListManager::WaitForFence(uint64_t fenceValue) {
             break;
     }
 }
-}  // namespace Hitagi::Graphics::DX12
+}  // namespace Hitagi::Graphics::backend::DX12

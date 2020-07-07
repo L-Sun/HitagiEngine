@@ -5,7 +5,7 @@
 
 #include <array>
 
-#include "portable.hpp"
+#include "HitagiMath.hpp"
 
 namespace Hitagi {
 std::unique_ptr<Core::MemoryManager> g_MemoryManager = std::make_unique<Core::MemoryManager>();

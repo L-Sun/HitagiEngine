@@ -1,78 +1,34 @@
 #pragma once
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#include "DriverAPI.hpp"
+#include "ResourceManager.hpp"
+#include "Format.hpp"
+#include "Frame.hpp"
+#include "PipelineState.hpp"
 
 #include "IRuntimeModule.hpp"
 #include "Scene.hpp"
 #include "ShaderManager.hpp"
-#include "Geometry.hpp"
 
 namespace Hitagi::Graphics {
 class GraphicsManager : public IRuntimeModule {
 public:
-    int  Initialize() override;
-    void Finalize() override;
-    void Tick() override;
-
-    virtual void Draw();
-    virtual void Clear();
-    void         ToogleMSAA();
-
-    virtual void RenderText(std::string_view text, const vec2f& position, float scale, const vec3f& color);
-
-#if defined(_DEBUG)
-    void         RenderLine(const Line& line, const vec4f& color);
-    void         RenderBox(const Box& box, const vec4f& color);
-    void         RenderGrid(float spacing = 1.0f, const vec4f& color = {0.3f, 0.3f, 0.3f, 1.0f});
-    virtual void ClearDebugBuffers();
-#endif  // _DEBUG
+    int  Initialize() final;
+    void Finalize() final;
+    void Tick() final;
 
 protected:
-    struct FrameConstants {
-        mat4f projView;
-        mat4f view;
-        mat4f projection;
-        mat4f invProjection;
-        mat4f invView;
-        mat4f invProjView;
-        vec4f cameraPos;
-        vec4f lightPosition;
-        vec4f lightPosInView;
-        vec4f lightIntensity;
-    };
+    void Render(const Asset::Scene& secene);
 
-    struct ObjectConstants {
-        mat4f model;
-        vec4f ambient;
-        vec4f diffuse;
-        vec4f emission;
-        vec4f specular;
-        float specularPower;
-    };
+    std::unique_ptr<backend::DriverAPI> m_Driver;
+    std::unique_ptr<ResourceManager>    m_ResMgr;
 
-    virtual void       InitConstants();
-    virtual void       InitializeBuffers(const Resource::Scene& scene);
-    virtual bool       InitializeShaders();
-    virtual void       ClearShaders();
-    virtual void       ClearBuffers();
-    virtual void       CalculateCameraMatrix();
-    virtual void       CalculateLights();
-    virtual void       UpdateConstants();
-    virtual void       RenderBuffers();
-    const FT_GlyphSlot GetGlyph(char c);
+    static constexpr uint8_t sm_FrameCount       = 3;
+    static constexpr Format  sm_BackBufferFormat = Format::R8G8B8A8_UNORM;
+    int                      m_CurrBackBuffer    = 0;
 
-#if defined(_DEBUG)
-    virtual void DrawDebugMesh(const Resource::SceneObjectMesh& mesh, const mat4f& transform, const vec4f& color) = 0;
-#endif  // DEBUG
-
-    FrameConstants m_FrameConstants;
-    ShaderManager  m_ShaderManager;
-    bool           m_Msaa = true;
-
-private:
-    FT_Library   m_FTLibrary;
-    FT_Face      m_FTFace;
-    Core::Buffer m_FontFaceFile;
+    std::array<std::unique_ptr<Frame>, sm_FrameCount> m_Frame;
+    std::unique_ptr<PipelineState>                    m_PSO;
+    ShaderManager                                     m_ShaderManager;
 };
 
 }  // namespace Hitagi::Graphics

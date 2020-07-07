@@ -60,7 +60,7 @@ int main(int argc, char const* argv[]) {
         for (size_t i = 0; i < bitmap.rows; i++) {
             for (size_t j = 0; j < bitmap.width; j++) {
                 cout << setw(2)
-                     << (static_cast<unsigned>(reinterpret_cast<uint8_t*>(bitmap.buffer)[i * bitmap.pitch + j]) > 0
+                     << (static_cast<size_t>(reinterpret_cast<uint8_t*>(bitmap.buffer)[i * bitmap.pitch + j]) > 0
                              ? 1
                              : 0);
             }

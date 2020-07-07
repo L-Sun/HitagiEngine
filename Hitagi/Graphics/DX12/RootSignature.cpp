@@ -1,10 +1,6 @@
 #include "RootSignature.hpp"
 
-#include <memory>
-
-#include "D3DCore.hpp"
-
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
 RootSignature::RootSignature(uint32_t numRootParams, uint32_t numStaticSamplers)
     : m_RootSignature(nullptr),
       m_NumParameters(numRootParams),
@@ -74,8 +70,10 @@ void RootSignature::InitStaticSampler(UINT shaderRegister, const D3D12_SAMPLER_D
     }
 }
 
-void RootSignature::Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags,
-                             D3D_ROOT_SIGNATURE_VERSION version) {
+void RootSignature::Finalize(
+    ID3D12Device*              device,
+    D3D12_ROOT_SIGNATURE_FLAGS flags,
+    D3D_ROOT_SIGNATURE_VERSION version) {
     if (m_Finalized) return;
 
     for (size_t i = 0; i < m_NumParameters; i++) {
@@ -103,6 +101,7 @@ void RootSignature::Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags,
         m_NumDescriptorsPerTable[rootIndex] = 0;
         if (rootParam.ParameterType == D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
             assert(rootParam.DescriptorTable.pDescriptorRanges != nullptr);
+            // sampler descriptor and cbv_srv_uav descriptor can not be in the same descriptor table.
             if (rootParam.DescriptorTable.pDescriptorRanges->RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER)
                 m_SamplerTableBitMask |= (1 << rootIndex);
             else
@@ -120,13 +119,18 @@ void RootSignature::Finalize(D3D12_ROOT_SIGNATURE_FLAGS flags,
     Microsoft::WRL::ComPtr<ID3DBlob> rootSignatureBlob;
     Microsoft::WRL::ComPtr<ID3DBlob> errorBlob;
 
-    ThrowIfFailed(
-        D3DX12SerializeVersionedRootSignature(&versionRootSignatureDesc, version, &rootSignatureBlob, &errorBlob));
+    if (FAILED(D3DX12SerializeVersionedRootSignature(&versionRootSignatureDesc, version, &rootSignatureBlob, &errorBlob))) {
+        auto        buffer = reinterpret_cast<const char*>(errorBlob->GetBufferPointer());
+        auto        size   = errorBlob->GetBufferSize();
+        std::string info(buffer, size);
+        std::cout << info << std::endl;
+        throw std::runtime_error("Serialize Root RootSignature failed.");
+    }
 
-    ThrowIfFailed(g_Device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
-                                                rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
+    ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
+                                              rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
 
     m_Finalized = true;
 }
 
-}  // namespace Hitagi::Graphics::DX12
+}  // namespace Hitagi::Graphics::backend::DX12

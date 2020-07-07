@@ -43,8 +43,7 @@ constexpr uint32_t operator"" _u32(const char* s, size_t) { return details::u32(
 
 constexpr uint16_t operator"" _u16(const char* s, size_t) { return details::u16(s, 0); }
 
-inline size_t align(size_t x, size_t a) {
-    assert(((a - 1) & a) == 0 && "alignment is not a power of two");
-    return (x + a - 1) & ~(a - 1);
-}
+template <typename>
+inline constexpr bool always_false_v = false;
+
 }  // namespace Hitagi

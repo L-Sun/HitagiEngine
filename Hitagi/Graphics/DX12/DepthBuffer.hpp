@@ -3,14 +3,14 @@
 #include "PixelBuffer.hpp"
 #include "DescriptorAllocator.hpp"
 
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
 
 class DepthBuffer : public PixelBuffer {
 public:
     DepthBuffer(float clearDepth = 1.0f, uint8_t clearStencil = 0)
         : m_ClearDepth(clearDepth), m_ClearStencil(clearStencil) {}
 
-    void Create(std::wstring_view name, uint32_t width, uint32_t height,DXGI_FORMAT format, unsigned sampleCount = 1, unsigned sampleQuality = 0);
+    void Create(std::wstring_view name, uint32_t width, uint32_t height, DXGI_FORMAT format, unsigned sampleCount = 1, unsigned sampleQuality = 0);
 
     // Get pre-created CPU-visible descriptor handles
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const { return m_DSV[0].GetDescriptorCpuHandle(); }
@@ -34,4 +34,4 @@ private:
     DescriptorAllocation                m_StencilSRV;
 };
 
-}  // namespace Hitagi::Graphics::DX12
+}  // namespace Hitagi::Graphics::backend::DX12

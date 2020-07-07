@@ -27,24 +27,20 @@ void DebugManager::Tick() {
 
 void DebugManager::ToggleDebugInfo() {
 #if defined(_DEBUG)
-    m_DrawDebugInfo = !m_DrawDebugInfo;
-    if (!m_DrawDebugInfo)
-        g_GraphicsManager->ClearDebugBuffers();
-    else
-        DrawDebugInfo();
+
 #endif
 }
 
 void DebugManager::DrawDebugInfo() {
 #if defined(_DEBUG)
-    // x - axis
-    g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(1000, 0, 0)}, vec4f(1, 0, 0, 1));
-    // y - axis
-    g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(0, 1000, 0)}, vec4f(0, 1, 0, 1));
-    // z - axis
-    g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(0, 0, 1000)}, vec4f(0, 0, 1, 1));
+    // // x - axis
+    // g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(1000, 0, 0)}, vec4f(1, 0, 0, 1));
+    // // y - axis
+    // g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(0, 1000, 0)}, vec4f(0, 1, 0, 1));
+    // // z - axis
+    // g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(0, 0, 1000)}, vec4f(0, 0, 1, 1));
 
-    g_GraphicsManager->RenderGrid();
+    // g_GraphicsManager->RenderGrid();
 #endif
 }
 }  // namespace Hitagi

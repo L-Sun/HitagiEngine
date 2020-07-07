@@ -1,10 +1,5 @@
 #pragma once
 #include <unordered_map>
-#include <utility>
-
-#include <utility>
-
-#include <utility>
 
 #include "FileIOManager.hpp"
 
@@ -24,19 +19,25 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    void                 LoadShader(std::filesystem::path shaderPath, ShaderType type, std::string name = "");
-    const VertexShader&  GetVertexShader(const std::string& name) const { return m_VertexShaders.at(name); }
-    const PixelShader&   GetPixelShader(const std::string& name) const { return m_PixelShaders.at(name); }
-    const ComputeShader& GetComputeShader(const std::string& name) const { return m_ComputeShaders.at(name); }
+    void                          LoadShader(std::filesystem::path shaderPath, ShaderType type, std::string name = "");
+    std::shared_ptr<VertexShader> GetVertexShader(const std::string& name) noexcept {
+        return m_VertexShaders.count(name) != 0 ? m_VertexShaders.at(name) : nullptr;
+    }
+    std::shared_ptr<PixelShader> GetPixelShader(const std::string& name) noexcept {
+        return m_PixelShaders.count(name) != 0 ? m_PixelShaders.at(name) : nullptr;
+    }
+    std::shared_ptr<ComputeShader> GetComputeShader(const std::string& name) noexcept {
+        return m_ComputeShaders.count(name) != 0 ? m_ComputeShaders.at(name) : nullptr;
+    }
 
 private:
-    std::unordered_map<std::string, VertexShader>  m_VertexShaders;
-    std::unordered_map<std::string, PixelShader>   m_PixelShaders;
-    std::unordered_map<std::string, ComputeShader> m_ComputeShaders;
+    std::unordered_map<std::string, std::shared_ptr<VertexShader>>  m_VertexShaders;
+    std::unordered_map<std::string, std::shared_ptr<PixelShader>>   m_PixelShaders;
+    std::unordered_map<std::string, std::shared_ptr<ComputeShader>> m_ComputeShaders;
 };
 
 class Shader {
-    friend class ShaderManager;
+    friend ShaderManager;
 
 public:
     Shader() = default;

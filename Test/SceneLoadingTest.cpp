@@ -1,5 +1,5 @@
 #include "MemoryManager.hpp"
-#include "ResourceManager.hpp"
+#include "AssetManager.hpp"
 #include "SceneManager.hpp"
 
 using namespace Hitagi;
@@ -25,7 +25,7 @@ static std::ostream& operator<<(std::ostream& out, std::unordered_map<std::strin
 int main(int, char**) {
     g_MemoryManager->Initialize();
     g_FileIOManager->Initialize();
-    g_ResourceManager->Initialize();
+    g_AssetManager->Initialize();
     g_SceneManager->Initialize();
 
     g_SceneManager->SetScene("Asset/Scene/test.fbx");
@@ -37,7 +37,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto [key, pCameraNode] : scene.CameraNodes) {
         if (pCameraNode) {
-            std::weak_ptr<Resource::SceneObjectCamera> pCamera = pCameraNode->GetSceneObjectRef();
+            std::weak_ptr<Asset::SceneObjectCamera> pCamera = pCameraNode->GetSceneObjectRef();
             if (auto pObj = pCamera.lock()) std::cout << *pObj << std::endl;
         }
     }
@@ -46,7 +46,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto [key, pLightNode] : scene.LightNodes) {
         if (pLightNode) {
-            std::weak_ptr<Resource::SceneObjectLight> pLight = pLightNode->GetSceneObjectRef();
+            std::weak_ptr<Asset::SceneObjectLight> pLight = pLightNode->GetSceneObjectRef();
             if (auto pObj = pLight.lock()) std::cout << *pObj << std::endl;
         }
     }
@@ -55,7 +55,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto [key, pGeometryNode] : scene.GeometryNodes) {
         if (pGeometryNode) {
-            std::weak_ptr<Resource::SceneObjectGeometry> pGeometry = pGeometryNode->GetSceneObjectRef();
+            std::weak_ptr<Asset::SceneObjectGeometry> pGeometry = pGeometryNode->GetSceneObjectRef();
             if (auto pObj = pGeometry.lock()) std::cout << *pObj << std::endl;
             std::cout << pGeometryNode->GetCalculatedTransform() << std::endl;
         }
@@ -67,7 +67,7 @@ int main(int, char**) {
         if (pMaterial) std::cout << *pMaterial << std::endl;
     }
     g_SceneManager->Finalize();
-    g_ResourceManager->Finalize();
+    g_AssetManager->Finalize();
     g_FileIOManager->Finalize();
     g_MemoryManager->Finalize();
 

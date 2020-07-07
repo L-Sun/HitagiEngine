@@ -4,15 +4,15 @@
 #include "RootSignature.hpp"
 #include "HitagiMath.hpp"
 
-namespace Hitagi::Graphics::DX12 {
+namespace Hitagi::Graphics::backend::DX12 {
 
 class BottomLevelASGenerator {
 public:
     void AddMesh(const MeshInfo& mesh, bool opaque = true);
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> Generate(CommandContext& context,
-                                                    bool            updateOnly,
-                                                    ID3D12Resource* previousResult);
+    Microsoft::WRL::ComPtr<ID3D12Resource> Generate(GraphicsCommandContext& context,
+                                                    bool                    updateOnly,
+                                                    ID3D12Resource*         previousResult);
 
     void Reset() {
         m_ScratchBuffer = GpuBuffer();
@@ -33,9 +33,9 @@ public:
                      int                                    instanceID,
                      int                                    hitGroupIndex);
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> Generate(CommandContext& context,
-                                                    bool            updateOnly,
-                                                    ID3D12Resource* previousResult);
+    Microsoft::WRL::ComPtr<ID3D12Resource> Generate(GraphicsCommandContext& context,
+                                                    bool                    updateOnly,
+                                                    ID3D12Resource*         previousResult);
 
     void Reset() {
         m_ScratchBuffer  = GpuBuffer();
@@ -200,4 +200,4 @@ private:
     size_t                            m_Stride     = 0;
 };
 
-}  // namespace Hitagi::Graphics::DX12
+}  // namespace Hitagi::Graphics::backend::DX12

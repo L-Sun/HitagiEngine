@@ -265,7 +265,7 @@ Matrix<T, 4> perspectiveFov(T fov, T width, T height, T near, T far) {
     Matrix<T, 4> res(0);
 
     const T h   = std::tan(0.5 * fov);
-    const T w   = h * height / width;
+    const T w   = h * width / height;
     const T nmf = near - far;
 
     res[0][0] = 1 / w;
@@ -373,6 +373,11 @@ const Vector<T, D> Min(const Vector<T, D>& a, const Vector<T, D>& b) {
     Vector<T, D> res;
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b[i]);
     return res;
+}
+
+inline size_t align(size_t x, size_t a) {
+    assert(((a - 1) & a) == 0 && "alignment is not a power of two");
+    return (x + a - 1) & ~(a - 1);
 }
 
 }  // namespace Hitagi

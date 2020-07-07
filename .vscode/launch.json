@@ -13,7 +13,10 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "externalConsole": false
+            "externalConsole": false,
+            "logging": {
+                "moduleLoad": false
+            }
         }
     ]
 }

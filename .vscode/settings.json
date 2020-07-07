@@ -81,10 +81,8 @@
         "cstdarg": "cpp",
         "optional": "cpp",
         "random": "cpp",
-        "future": "cpp"
-    },
-    "path-intellisense.mappings": {
-        "Asset": "${workspaceRoot}/Asset"
+        "future": "cpp",
+        "*.rh": "cpp"
     },
     "cmake.configureArgs": [
         "-DCMAKE_TOOLCHAIN_FILE=E:/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake",
