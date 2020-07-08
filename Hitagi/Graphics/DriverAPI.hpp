@@ -31,6 +31,9 @@ public:
 
     virtual void UpdateConstantBuffer(ConstantBuffer& buffer, size_t offset, const uint8_t* src, size_t size) = 0;
 
+    // Sampler
+    virtual TextureSampler CreateSampler(std::string_view name, const TextureSampler::Description& desc) = 0;
+
     // Pipeline
     virtual void CreateRootSignature(const RootSignature& signature) = 0;
     virtual void DeleteRootSignature(const RootSignature& signature) = 0;

@@ -1,6 +1,7 @@
 #include "CommandContext.hpp"
 #include "DX12DriverAPI.hpp"
 #include "GpuBuffer.hpp"
+#include "Sampler.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
 
@@ -137,6 +138,12 @@ void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics:
     SetDynamicDescriptor(rootIndex, tableOffset, static_cast<const TextureBuffer*>(texture.GetResource())->GetSRV());
 }
 
+void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::TextureSampler& sampler) {
+    auto& sig                     = m_Driver.GetRootSignature(m_Pipeline->GetRootSignature()->Id());
+    auto [rootIndex, tableOffset] = sig.GetParameterTable(name);
+    SetDynamicSampler(rootIndex, tableOffset, static_cast<const Sampler*>(sampler.GetResource())->GetDescriptor());
+}
+
 void GraphicsCommandContext::Present(Graphics::RenderTarget& rt) {
     auto& renderTarget = *static_cast<RenderTarget*>(rt.GetResource());
     TransitionResource(renderTarget, D3D12_RESOURCE_STATE_PRESENT, true);
@@ -182,7 +189,7 @@ void CopyCommandContext::InitializeTexture(GpuResource& dest, const std::vector<
 
     UpdateSubresources(m_CommandList, dest.GetResource(), uploadBuffer.pageFrom.lock()->GetResource(),
                        uploadBuffer.pageOffset, 0, subData.size(), const_cast<D3D12_SUBRESOURCE_DATA*>(subData.data()));
-    TransitionResource(dest, D3D12_RESOURCE_STATE_GENERIC_READ);
+    TransitionResource(dest, D3D12_RESOURCE_STATE_COMMON);
 
     Finish(true);
 }

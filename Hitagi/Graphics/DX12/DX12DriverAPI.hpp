@@ -28,6 +28,8 @@ public:
 
     void UpdateConstantBuffer(Graphics::ConstantBuffer& buffer, size_t offset, const uint8_t* data, size_t size) final;
 
+    virtual Graphics::TextureSampler CreateSampler(std::string_view name, const Graphics::TextureSampler::Description& desc) final;
+
     void CreateRootSignature(const Graphics::RootSignature& signature) final;
     void DeleteRootSignature(const Graphics::RootSignature& signature) final;
     void CreatePipelineState(const Graphics::PipelineState& pso) final;

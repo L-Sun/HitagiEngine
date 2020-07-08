@@ -2,8 +2,8 @@
 
 #include "GpuBuffer.hpp"
 #include "CommandContext.hpp"
+#include "Sampler.cpp"
 #include "Win32Application.hpp"
-#include "ShaderManager.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
 ComPtr<ID3D12DebugDevice1> DX12DriverAPI::sm_DebugInterface = nullptr;
@@ -145,6 +145,7 @@ Graphics::TextureBuffer DX12DriverAPI::CreateTextureBuffer(std::string_view name
     _desc.DepthOrArraySize    = 1;
     _desc.SampleDesc.Count    = desc.sampleCount;
     _desc.SampleDesc.Quality  = desc.sampleQuality;
+    _desc.Dimension           = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
     auto buffer = std::make_unique<TextureBuffer>(
         name,
@@ -179,6 +180,25 @@ void DX12DriverAPI::UpdateConstantBuffer(Graphics::ConstantBuffer& buffer, size_
     assert(size == buffer.GetElementSize());
     auto cb = static_cast<ConstantBuffer*>(buffer.GetResource());
     cb->UpdataData(offset, data, size);
+}
+
+Graphics::TextureSampler DX12DriverAPI::CreateSampler(std::string_view name, const Graphics::TextureSampler::Description& desc) {
+    D3D12_SAMPLER_DESC samplerDesc = {};
+    samplerDesc.AddressU           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.AddressV           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.AddressW           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.ComparisonFunc     = D3D12_COMPARISON_FUNC_ALWAYS;
+    samplerDesc.Filter             = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+    samplerDesc.MaxAnisotropy      = 1;
+    samplerDesc.MaxLOD             = D3D12_FLOAT32_MAX;
+    samplerDesc.MinLOD             = 0;
+    samplerDesc.MipLODBias         = 0.0f;
+
+    return {std::make_unique<Sampler>(
+        name,
+        m_Device.Get(),
+        m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate(),
+        samplerDesc)};
 }
 
 void DX12DriverAPI::CreateRootSignature(const Graphics::RootSignature& signature) {

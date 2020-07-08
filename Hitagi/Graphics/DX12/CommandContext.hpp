@@ -40,7 +40,12 @@ public:
     void SetDynamicDescriptors(unsigned rootIndex, unsigned offset, const std::vector<Descriptor>& descriptors) {
         m_DynamicViewDescriptorHeap.StageDescriptors(rootIndex, offset, descriptors);
     }
-
+    void SetDynamicSampler(unsigned rootIndex, unsigned offset, const Descriptor& descriptor) {
+        SetDynamicSamplers(rootIndex, offset, {descriptor});
+    }
+    void SetDynamicSamplers(unsigned rootIndex, unsigned offset, const std::vector<Descriptor>& descriptors) {
+        m_DynamicSamplerDescriptorHeap.StageDescriptors(rootIndex, offset, descriptors);
+    }
     uint64_t Finish(bool waitForComplete = false);
     void     Reset();
 
@@ -79,6 +84,8 @@ public:
     void SetPipelineState(const Graphics::PipelineState& pipeline) final;
     void SetParameter(std::string_view name, const Graphics::ConstantBuffer& cb, size_t offset) final;
     void SetParameter(std::string_view name, const Graphics::TextureBuffer& texture) final;
+    void SetParameter(std::string_view name, const Graphics::TextureSampler& sampler) final;
+
     void Draw(const Graphics::MeshBuffer& mesh) final;
     void Present(Graphics::RenderTarget& rt) final;
     void Finish(bool waitForComplete) final { CommandContext::Finish(waitForComplete); }

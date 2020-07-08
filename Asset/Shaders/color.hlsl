@@ -22,8 +22,8 @@ cbuffer MaterialConstants : register(b2){
     float4 specular;
     float specularPower;
 };
-// Texture2D BaseMap : register(t0);
-// sampler baseSampler : register(s0);
+Texture2D<float4> materialTexutrues[4] : register(t0);
+sampler baseSampler : register(s0);
 
 struct VSInput {
     float3 position : POSITION;
@@ -51,7 +51,7 @@ PSInput VSMain(VSInput input)
     return output;
 }
 
-float4 PSMain1(PSInput input) : SV_TARGET
+float4 PSMain(PSInput input) : SV_TARGET
 {
 	const float4 vN = normalize(input.normal);
 	const float4 vL = normalize(lightPosInView - input.posInView);
@@ -59,26 +59,16 @@ float4 PSMain1(PSInput input) : SV_TARGET
     const float4 vH = normalize(0.5 * (vL + vV));
     const float  r = length(lightPosInView - input.posInView);
     const float invd = 1.0f / (r * r + 1.0f);
-	float4 vLightInts = ambient + (lightIntensity + 50.0f)  * invd * (
-                              (diffuse.r/*  < 0 ? BaseMap.Sample(baseSampler, input.uv) : diffuse */) * max(dot(vN, vL), 0.0f)
-                            + specular * pow(max(dot(vH, vN), 0.0f), specularPower)
-                        );
+    // color
+    const float4 _ambient       = (    ambient.r < 0 ? materialTexutrues[0].Sample(baseSampler, input.uv) : ambient);
+    const float4 _diffuse       = (    diffuse.r < 0 ? materialTexutrues[1].Sample(baseSampler, input.uv) : diffuse);
+    const float4 _specular      = (   specular.r < 0 ? materialTexutrues[2].Sample(baseSampler, input.uv) : specular);
+    const float4 _specularPower = (specularPower < 0 ? materialTexutrues[3].Sample(baseSampler, input.uv) : specularPower);
+
+	float4 vLightInts = _ambient 
+                        + (lightIntensity + 50.0f) * invd * (
+                            _diffuse * max(dot(vN, vL), 0.0f) + 
+                            _specular * pow(max(dot(vH, vN), 0.0f), _specularPower));
 
 	return vLightInts;
 }
-
-// float4 PSMain2(PSInput input) : SV_TARGET
-// {
-
-// 	const float4 vN = normalize(input.normal);
-// 	const float4 vL = normalize(lightPosInView - input.posInView);
-// 	const float4 vV = normalize(-input.posInView);
-//     const float4 vH = normalize(0.5 * (vL + vV));
-//     const float  r = length(lightPosInView - input.posInView);
-//     const float invd = 1.0f / (r * r + 1.0f);
-//     float4 vLightInts = ambient + (lightIntensity + 50.0f) * invd * invd * (
-// 							  BaseMap.Sample(baseSampler, input.uv) * max(dot(vN, vL), 0.0f) 
-// 							+ specular * pow(max(dot(vH, vN), 0.0f), specularPower)
-//                         );
-// 	return vLightInts;
-// }

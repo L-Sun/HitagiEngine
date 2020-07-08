@@ -34,19 +34,8 @@ public:
         vec4f lightIntensity;
     };
 
-    struct MeshInfo {
-        const MeshBuffer&    buffer;
-        size_t               materialOffset;
-        const PipelineState* pipeline;
-    };
-
     struct ConstantData {
         mat4f transform;
-        vec4f ambient;
-        vec4f diffuse;
-        vec4f emission;
-        vec4f specular;
-        float specularPower;
     };
 
     struct MaterialData {
@@ -55,6 +44,17 @@ public:
         vec4f emission;
         vec4f specular;
         float specularPower;
+    };
+
+    struct MeshInfo {
+        const MeshBuffer&    buffer;
+        size_t               materialOffset;
+        const TextureBuffer& ambient;
+        const TextureBuffer& diffuse;
+        const TextureBuffer& emission;
+        const TextureBuffer& specular;
+        const TextureBuffer& specularPower;
+        const PipelineState* pipeline;
     };
 
     struct DrawItem {

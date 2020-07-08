@@ -105,4 +105,84 @@ enum struct Format : uint32_t {
     BC7_UNORM                  = 98,
     BC7_UNORM_SRGB             = 99,
 };
+
+inline constexpr size_t GetFormatBitSize(Format format) {
+    switch (format) {
+        case Format::R32G32B32A32_TYPELESS:
+        case Format::R32G32B32A32_FLOAT:
+        case Format::R32G32B32A32_UINT:
+        case Format::R32G32B32A32_SINT:
+            return 128;
+        case Format::R32G32B32_TYPELESS:
+        case Format::R32G32B32_FLOAT:
+        case Format::R32G32B32_UINT:
+        case Format::R32G32B32_SINT:
+            return 96;
+        case Format::R16G16B16A16_TYPELESS:
+        case Format::R16G16B16A16_FLOAT:
+        case Format::R16G16B16A16_UNORM:
+        case Format::R16G16B16A16_UINT:
+        case Format::R16G16B16A16_SNORM:
+        case Format::R16G16B16A16_SINT:
+        case Format::R32G32_TYPELESS:
+        case Format::R32G32_FLOAT:
+        case Format::R32G32_UINT:
+        case Format::R32G32_SINT:
+        case Format::R32G8X24_TYPELESS:
+        case Format::D32_FLOAT_S8X24_UINT:
+        case Format::R32_FLOAT_X8X24_TYPELESS:
+        case Format::X32_TYPELESS_G8X24_UINT:
+            return 64;
+        case Format::R10G10B10A2_TYPELESS:
+        case Format::R10G10B10A2_UNORM:
+        case Format::R10G10B10A2_UINT:
+        case Format::R11G11B10_FLOAT:
+        case Format::R8G8B8A8_TYPELESS:
+        case Format::R8G8B8A8_UNORM:
+        case Format::R8G8B8A8_UNORM_SRGB:
+        case Format::R8G8B8A8_UINT:
+        case Format::R8G8B8A8_SNORM:
+        case Format::R8G8B8A8_SINT:
+        case Format::R16G16_TYPELESS:
+        case Format::R16G16_FLOAT:
+        case Format::R16G16_UNORM:
+        case Format::R16G16_UINT:
+        case Format::R16G16_SNORM:
+        case Format::R16G16_SINT:
+        case Format::R32_TYPELESS:
+        case Format::D32_FLOAT:
+        case Format::R32_FLOAT:
+        case Format::R32_UINT:
+        case Format::R32_SINT:
+        case Format::R24G8_TYPELESS:
+        case Format::D24_UNORM_S8_UINT:
+        case Format::R24_UNORM_X8_TYPELESS:
+        case Format::X24_TYPELESS_G8_UINT:
+            return 32;
+        case Format::R8G8_TYPELESS:
+        case Format::R8G8_UNORM:
+        case Format::R8G8_UINT:
+        case Format::R8G8_SNORM:
+        case Format::R8G8_SINT:
+        case Format::R16_TYPELESS:
+        case Format::R16_FLOAT:
+        case Format::D16_UNORM:
+        case Format::R16_UNORM:
+        case Format::R16_UINT:
+        case Format::R16_SNORM:
+        case Format::R16_SINT:
+            return 16;
+        case Format::R8_TYPELESS:
+        case Format::R8_UNORM:
+        case Format::R8_UINT:
+        case Format::R8_SNORM:
+        case Format::R8_SINT:
+        case Format::A8_UNORM:
+            return 8;
+        case Format::R1_UNORM:
+            return 1;
+        default:
+            return 0;
+    }
 }
+}  // namespace Hitagi::Graphics

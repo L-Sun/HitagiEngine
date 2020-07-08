@@ -44,29 +44,39 @@ void Frame::SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
             auto& meshes = geometry->GetMeshes();
             // Generate mesh info
             for (auto&& mesh : meshes) {
-                MeshInfo info = {
-                    m_ResMgr.GetMeshBuffer(*mesh),  // mesh buffer
-                    materialOffset,                 // material
-                    nullptr                         // TODO: pipeline
-                };
-
                 // Updata Material data
-                MaterialData data = {};
                 if (auto material = mesh->GetMaterial().lock()) {
-                    data.ambient       = material->GetAmbientColor().Value;
-                    data.diffuse       = material->GetDiffuseColor().Value;
-                    data.emission      = material->GetEmission().Value;
-                    data.specular      = material->GetSpecularColor().Value;
-                    data.specularPower = material->GetSpecularPower().Value;
+                    auto& ambient       = material->GetAmbientColor();
+                    auto& diffuse       = material->GetDiffuseColor();
+                    auto& emission      = material->GetEmission();
+                    auto& specular      = material->GetSpecularColor();
+                    auto& specularPower = material->GetSpecularPower();
+
+                    MaterialData data{
+                        ambient.ValueMap ? vec4f(-1.0f) : ambient.Value,
+                        diffuse.ValueMap ? vec4f(-1.0f) : diffuse.Value,
+                        emission.ValueMap ? vec4f(-1.0f) : emission.Value,
+                        specular.ValueMap ? vec4f(-1.0f) : specular.Value,
+                        specularPower.ValueMap ? -1.0f : specularPower.Value,
+                    };
 
                     m_Driver.UpdateConstantBuffer(
                         m_MaterialBuffer,
                         materialOffset,
                         reinterpret_cast<const uint8_t*>(&data),
                         sizeof(data));
+
+                    item.meshes.emplace_back(MeshInfo{
+                        m_ResMgr.GetMeshBuffer(*mesh),
+                        materialOffset,
+                        ambient.ValueMap ? m_ResMgr.GetTextureBuffer(*ambient.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM),
+                        diffuse.ValueMap ? m_ResMgr.GetTextureBuffer(*diffuse.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM),
+                        emission.ValueMap ? m_ResMgr.GetTextureBuffer(*emission.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM),
+                        specular.ValueMap ? m_ResMgr.GetTextureBuffer(*specular.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM),
+                        specularPower.ValueMap ? m_ResMgr.GetTextureBuffer(*specularPower.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R32_FLOAT),
+                    });
+                    materialOffset++;
                 }
-                materialOffset++;
-                item.meshes.emplace_back(info);
             }
             m_Geometries.emplace_back(std::move(item));
         }
@@ -118,6 +128,11 @@ void Frame::Draw(IGraphicsCommandContext* context) {
         context->SetParameter("ObjectConstants", m_ConstantBuffer, item.constantOffset);
         for (auto&& mesh : item.meshes) {
             context->SetParameter("MaterialConstants", m_MaterialBuffer, mesh.materialOffset);
+            context->SetParameter("AmbientTexture", mesh.ambient);
+            context->SetParameter("DiffuseTexture", mesh.diffuse);
+            context->SetParameter("EmissionTexture", mesh.emission);
+            context->SetParameter("SpecularTexture", mesh.specular);
+            context->SetParameter("PowerTexture", mesh.specularPower);
             context->Draw(mesh.buffer);
         }
     }

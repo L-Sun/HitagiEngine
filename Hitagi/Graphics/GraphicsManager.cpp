@@ -32,8 +32,8 @@ int GraphicsManager::Initialize() {
 
     // Initialize Shader Manader
     m_ShaderManager.Initialize();
-    m_ShaderManager.LoadShader("Asset/Shaders/simple_vs.cso", ShaderType::VERTEX, "color_vs");
-    m_ShaderManager.LoadShader("Asset/Shaders/simple_ps_1.cso", ShaderType::PIXEL, "color_ps");
+    m_ShaderManager.LoadShader("Asset/Shaders/color.vs", ShaderType::VERTEX);
+    m_ShaderManager.LoadShader("Asset/Shaders/color.ps", ShaderType::PIXEL);
 
     // ShaderVariables
     auto rootSig = std::make_shared<RootSignature>();
@@ -41,8 +41,14 @@ int GraphicsManager::Initialize() {
         .Add("FrameConstant", ShaderVariableType::CBV, 0, 0)
         .Add("ObjectConstants", ShaderVariableType::CBV, 1, 0)
         .Add("MaterialConstants", ShaderVariableType::CBV, 2, 0)
-        // .Add("BaseSampler", ShaderVariableType::Sampler, 0, 0)
-        // .Add("BaseMap", ShaderVariableType::SRV, 0, 0)
+        // textures
+        .Add("AmbientTexture", ShaderVariableType::SRV, 0, 0)
+        .Add("DiffuseTexture", ShaderVariableType::SRV, 1, 0)
+        .Add("EmissionTexture", ShaderVariableType::SRV, 2, 0)
+        .Add("SpecularTexture", ShaderVariableType::SRV, 3, 0)
+        .Add("PowerTexture", ShaderVariableType::SRV, 4, 0)
+        // sampler
+        .Add("BaseSampler", ShaderVariableType::Sampler, 0, 0)
         .Create(*m_Driver);
 
     m_PSO     = std::make_unique<PipelineState>("Color");
@@ -50,12 +56,13 @@ int GraphicsManager::Initialize() {
     pso.SetInputLayout({{"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0},
                         {"NORMAL", 0, Format::R32G32B32_FLOAT, 1, 0},
                         {"TEXCOORD", 0, Format::R32G32_FLOAT, 2, 0}})
-        .SetVertexShader(m_ShaderManager.GetVertexShader("color_vs"))
-        .SetPixelShader(m_ShaderManager.GetPixelShader("color_ps"))
+        .SetVertexShader(m_ShaderManager.GetVertexShader("color.vs"))
+        .SetPixelShader(m_ShaderManager.GetPixelShader("color.ps"))
         .SetRootSignautre(rootSig)
         .SetRenderFormat(Format::R8G8B8A8_UNORM)
         .SetDepthBufferFormat(Format::D32_FLOAT)
         .Create(*m_Driver);
+
     return 0;
 }
 
@@ -89,10 +96,12 @@ void GraphicsManager::Tick() {
 }
 
 void GraphicsManager::Render(const Asset::Scene& scene) {
-    auto& config = g_App->GetConfiguration();
-    auto  driver = m_Driver.get();
-    auto  frame  = m_Frame[m_CurrBackBuffer].get();
-    auto  pso    = m_PSO.get();
+    auto& config  = g_App->GetConfiguration();
+    auto  driver  = m_Driver.get();
+    auto  resMgr  = m_ResMgr.get();
+    auto  frame   = m_Frame[m_CurrBackBuffer].get();
+    auto  pso     = m_PSO.get();
+    auto  context = driver->GetGraphicsCommandContext();
 
     frame->SetGeometries(scene.GetGeometries());
     frame->SetCamera(*scene.GetFirstCameraNode());
@@ -114,22 +123,21 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
                 config.screenWidth,
                 1.0f,
                 0});
+            data.depthBuffer = builder.Write(data.depthBuffer);
         },
         // Excute function
         [=](const ResourceHelper& helper, PassData& data) {
-            auto context = driver->GetGraphicsCommandContext();
             context->SetRenderTargetAndDepthBuffer(frame->GetRenerTarget(), helper.Get<DepthBuffer>(data.depthBuffer));
             context->SetViewPort(0, 0, config.screenWidth, config.screenHeight);
             context->SetPipelineState(*pso);
+            context->SetParameter("BaseSampler", resMgr->GetSampler("BaseSampler"));
             frame->Draw(context.get());
             context->Present(frame->GetRenerTarget());
-            context->Finish(true);
         });
-
-    colorPass.GetData();
 
     fg.Compile();
     fg.Execute();
+    context->Finish(true);
 }
 
 }  // namespace Hitagi::Graphics

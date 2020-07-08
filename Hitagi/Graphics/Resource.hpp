@@ -65,9 +65,9 @@ public:
         uint32_t       width;
         uint32_t       height;
         uint32_t       pitch;
-        unsigned       mipLevel;
-        unsigned       sampleCount;
-        unsigned       sampleQuality;
+        unsigned       mipLevel=1;
+        unsigned       sampleCount     = 1;
+        unsigned       sampleQuality   = 0;
         const uint8_t* initialData     = nullptr;
         size_t         initialDataSize = 0;
     };
@@ -91,6 +91,13 @@ public:
         Format   format;
         uint32_t width;
         uint32_t height;
+    };
+    using ResourceContainer::ResourceContainer;
+};
+
+class TextureSampler : public ResourceContainer {
+public:
+    struct Description {
     };
     using ResourceContainer::ResourceContainer;
 };

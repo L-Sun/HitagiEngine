@@ -6,6 +6,7 @@ add_library(DX12DriverAPI
     CommandAllocatorPool.cpp
     CommandListManager.cpp
     GpuBuffer.cpp
+    Sampler.cpp
     Allocator.cpp
     DescriptorAllocator.cpp
     CommandContext.cpp
