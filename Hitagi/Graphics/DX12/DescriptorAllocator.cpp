@@ -14,7 +14,7 @@ DescriptorPage::DescriptorPage(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE 
 
     D3D12_DESCRIPTOR_HEAP_DESC desc;
     desc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;  // Just CPU Visiable
-    desc.NodeMask       = 1;
+    desc.NodeMask       = 0;
     desc.NumDescriptors = numDescriptors;
     desc.Type           = type;
 

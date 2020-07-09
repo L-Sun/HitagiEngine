@@ -40,9 +40,9 @@ const Buffer& FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& 
         m_Logger->debug("Use cahce: {}", filePath.filename());
         return m_FileCache.at(std::filesystem::hash_value(filePath));
     }
-
-    m_Logger->info("Open file: {}", filePath);
-    Buffer        buffer(std::filesystem::file_size(filePath));
+    auto fileSize = std::filesystem::file_size(filePath);
+    m_Logger->info("Open file: {} ({} bytes)", filePath, fileSize);
+    Buffer        buffer(fileSize);
     std::ifstream ifs(filePath, std::ios::binary);
     ifs.read(reinterpret_cast<char*>(buffer.GetData()), buffer.GetDataSize());
     ifs.close();

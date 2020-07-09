@@ -182,6 +182,7 @@ void DX12DriverAPI::UpdateConstantBuffer(Graphics::ConstantBuffer& buffer, size_
     cb->UpdataData(offset, data, size);
 }
 
+// TODO: Custom sampler
 Graphics::TextureSampler DX12DriverAPI::CreateSampler(std::string_view name, const Graphics::TextureSampler::Description& desc) {
     D3D12_SAMPLER_DESC samplerDesc = {};
     samplerDesc.AddressU           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -319,8 +320,8 @@ void DX12DriverAPI::CreatePipelineState(const Graphics::PipelineState& pso) {
         inputDesc.emplace_back(std::move(desc));
     }
 
-    gpso.SetVertexShader({vs->GetData(), vs->GetDataSize()});
-    gpso.SetPixelShader({ps->GetData(), ps->GetDataSize()});
+    gpso.SetVertexShader(CD3DX12_SHADER_BYTECODE{vs->GetData(), vs->GetDataSize()});
+    gpso.SetPixelShader(CD3DX12_SHADER_BYTECODE{ps->GetData(), ps->GetDataSize()});
     gpso.SetInputLayout(inputDesc);
     gpso.SetRootSignature(sig);
     gpso.SetBlendState(CD3DX12_BLEND_DESC(D3D12_DEFAULT));

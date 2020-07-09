@@ -103,8 +103,13 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     auto  pso     = m_PSO.get();
     auto  context = driver->GetGraphicsCommandContext();
 
+    auto     camera = scene.GetFirstCameraNode();
+    uint32_t h      = config.screenWidth / camera->GetSceneObjectRef().lock()->GetAspect();
+    uint32_t y      = (config.screenHeight - h) >> 1;
+    context->SetViewPort(0, y, config.screenWidth, h);
+
     frame->SetGeometries(scene.GetGeometries());
-    frame->SetCamera(*scene.GetFirstCameraNode());
+    frame->SetCamera(*camera);
     frame->SetLight(*scene.GetFirstLightNode());
     FrameGraph fg(*driver);
 
@@ -114,7 +119,7 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
 
     // color pass
     auto colorPass = fg.AddPass<PassData>(
-        "Test",
+        "ColorPass",
         // Setup function
         [&](FrameGraph::Builder& builder, PassData& data) {
             data.depthBuffer = builder.Create<DepthBuffer>(DepthBuffer::Description{
@@ -128,7 +133,6 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
         // Excute function
         [=](const ResourceHelper& helper, PassData& data) {
             context->SetRenderTargetAndDepthBuffer(frame->GetRenerTarget(), helper.Get<DepthBuffer>(data.depthBuffer));
-            context->SetViewPort(0, 0, config.screenWidth, config.screenHeight);
             context->SetPipelineState(*pso);
             context->SetParameter("BaseSampler", resMgr->GetSampler("BaseSampler"));
             frame->Draw(context.get());

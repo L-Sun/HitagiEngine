@@ -319,11 +319,11 @@ Matrix<T, 4> lookAt(const Vector<T, 3>& position, const Vector<T, 3>& direction,
 
 template <typename T>
 const Vector<T, 3> GetOrigin(const Matrix<T, 3>& mat) {
-    return Vector<T, 3>({mat[0][3], mat[1][3], mat[2][3]});
+    return Vector<T, 3>{mat[0][3], mat[1][3], mat[2][3]};
 }
 template <typename T>
 const Vector<T, 3> GetOrigin(const Matrix<T, 4>& mat) {
-    return Vector<T, 3>({mat[0][3], mat[1][3], mat[2][3]});
+    return Vector<T, 3>{mat[0][3], mat[1][3], mat[2][3]};
 }
 
 template <typename T, unsigned D1, unsigned D2>

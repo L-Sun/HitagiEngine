@@ -87,5 +87,6 @@
     "cmake.configureArgs": [
         "-DCMAKE_TOOLCHAIN_FILE=E:/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
-    ]
+    ],
+    "http.proxy": "https://127.0.0.1:8080"
 }

@@ -91,9 +91,9 @@ void Frame::SetCamera(Asset::SceneCameraNode& camera) {
     auto cameraObject = camera.GetSceneObjectRef().lock();
     assert(cameraObject != nullptr);
     // TODO orth camera
-    data.projection = perspectiveFov(
+    data.projection = perspective(
         cameraObject->GetFov(),
-        800.0f, 600.0f,
+        cameraObject->GetAspect(),
         cameraObject->GetNearClipDistance(),
         cameraObject->GetFarClipDistance());
     data.invProjection = inverse(data.projection);

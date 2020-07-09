@@ -18,7 +18,6 @@ target_link_libraries(DX12DriverAPI
     PRIVATE
         d3d12
         dxgi
-        d3dcompiler
         HitagiMath
 )
 target_include_directories(DX12DriverAPI

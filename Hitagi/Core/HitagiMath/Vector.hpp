@@ -32,8 +32,7 @@ public:
         return *this;
     }
 
-    operator Vector<T, sizeof...(Indexs)>() { return Vector<T, sizeof...(Indexs)>({data[Indexs]...}); }
-    operator Vector<T, sizeof...(Indexs)>() const { return Vector<T, sizeof...(Indexs)>({data[Indexs]...}); }
+    operator Vector<T, sizeof...(Indexs)>() const { return Vector<T, sizeof...(Indexs)>{data[Indexs]...}; }
 };
 
 // clang-format off

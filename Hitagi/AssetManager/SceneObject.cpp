@@ -55,6 +55,7 @@ size_t             SceneObjectVertexArray::GetVertexSize() const {
         case VertexDataType::DOUBLE4:
             return sizeof(double) * 4;
     }
+    return 0;
 }
 
 // Class SceneObjectIndexArray
@@ -82,6 +83,7 @@ size_t              SceneObjectIndexArray::GetIndexSize() const {
         case IndexDataType::INT64:
             return sizeof(int64_t);
     }
+    return 0;
 }
 
 // Class SceneObjectMesh
