@@ -9,7 +9,7 @@
 
 namespace Hitagi::Asset {
 
-Scene AssimpParser::Parse(const Core::Buffer& buf) {
+Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& scenePath) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[Assimp] Parsing a empty buffer will return empty scene.");
@@ -135,9 +135,12 @@ Scene AssimpParser::Parse(const Core::Buffer& buf) {
         };
         for (auto&& [key1, key2] : map) {
             for (size_t i = 0; i < _material->GetTextureCount(key2); i++) {
-                aiString path;
-                if (AI_SUCCESS == _material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, i, &path))
-                    material->SetTexture(key1, std::make_shared<SceneObjectTexture>(path.C_Str()));
+                aiString _path;
+                if (AI_SUCCESS == _material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, i, &_path)) {
+                    std::filesystem::path path(_path.C_Str());
+                    if (path.is_relative()) path = (scenePath.parent_path() / path).lexically_normal();
+                    material->SetTexture(key1, std::make_shared<SceneObjectTexture>(path));
+                }
                 break;  // unsupport blend for now.
             }
         }

@@ -35,10 +35,10 @@ void AssetManager::Finalize() {
     m_Logger = nullptr;
 }
 
-Image AssetManager::ParseImage(const std::filesystem::path& filePath) const {
+Image AssetManager::ParseImage(const std::filesystem::path& path) const {
     ImageFormat format = ImageFormat::NUM_SUPPORT;
 
-    auto ext = filePath.extension();
+    auto ext = path.extension();
     if (ext == ".jpeg" || ext == ".jpg")
         format = ImageFormat::JPEG;
     else if (ext == ".bmp")
@@ -52,11 +52,11 @@ Image AssetManager::ParseImage(const std::filesystem::path& filePath) const {
         m_Logger->error("Unkown image format, and return a empty image");
         return Image{};
     }
-    return m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIOManager->SyncOpenAndReadBinary(filePath));
+    return m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIOManager->SyncOpenAndReadBinary(path));
 }
 
-Scene AssetManager::ParseScene(const std::filesystem::path& filePath) const {
-    return m_SceneParser->Parse(g_FileIOManager->SyncOpenAndReadBinary(filePath));
+Scene AssetManager::ParseScene(const std::filesystem::path& path) const {
+    return m_SceneParser->Parse(g_FileIOManager->SyncOpenAndReadBinary(path), path);
 }
 
 }  // namespace Hitagi::Asset

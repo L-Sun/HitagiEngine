@@ -21,5 +21,5 @@ private:
         RESET_SCENE,
         MSAA
     };
-    float sensitivity = 0.1f;
+    Hitagi::Core::Clock m_Clock;
 };

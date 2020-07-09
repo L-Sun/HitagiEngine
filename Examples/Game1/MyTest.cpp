@@ -1,5 +1,4 @@
 #include "MyTest.hpp"
-#include "Application.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -8,7 +7,6 @@ using namespace Hitagi;
 
 int MyTest::Initialize() {
     m_Logger = spdlog::stdout_color_mt("MyTest");
-
     g_SceneManager->SetScene("Asset/Scene/spot.fbx");
     g_InputManager->Map(DEBUG_TOGGLE, VirtualKeyCode::KEY_SPACE);
 
@@ -24,6 +22,8 @@ int MyTest::Initialize() {
     g_InputManager->Map(RESET_SCENE, VirtualKeyCode::KEY_R);
     g_InputManager->Map(MSAA, VirtualKeyCode::KEY_M);
 
+    m_Clock.Initialize();
+    m_Clock.Start();
     return 0;
 }
 
@@ -33,6 +33,9 @@ void MyTest::Finalize() {
 }
 
 void MyTest::Tick() {
+    m_Clock.Tick();
+    float deltaTime = m_Clock.deltaTime().count();
+
     if (g_InputManager->GetBoolNew(DEBUG_TOGGLE)) {
         g_DebugManager->ToggleDebugInfo();
     }
@@ -50,14 +53,15 @@ void MyTest::Tick() {
         // Move in plane, so z is equal to zero
         front.z = 0;
         right.z = 0;
-        vec3f move_vec(0.0f, 0.0f, 0.0f);
+        vec3f       move_vec(0.0f, 0.0f, 0.0f);
+        const float speed = 1;
         if (g_InputManager->GetBool(MOVE_LEFT)) move_vec += -right;
         if (g_InputManager->GetBool(MOVE_RIGHT)) move_vec += right;
         if (g_InputManager->GetBool(MOVE_FRONT)) move_vec += front;
         if (g_InputManager->GetBool(MOVE_BACK)) move_vec += -front;
         if (g_InputManager->GetBool(MOVE_UP)) move_vec.z += 1;
         if (g_InputManager->GetBool(MOVE_DOWN)) move_vec.z -= 1;
-        camera->ApplyTransform(translate(mat4f(1.0f), sensitivity * move_vec));
+        camera->ApplyTransform(translate(mat4f(1.0f), speed * deltaTime * move_vec));
     }
 
     if (g_InputManager->GetBoolNew(RESET_SCENE)) {

@@ -1,9 +1,11 @@
 #pragma once
-#include <crossguid/guid.hpp>
-
 #include "HitagiMath.hpp"
 #include "Image.hpp"
 #include "Buffer.hpp"
+
+#include <crossguid/guid.hpp>
+
+#include <filesystem>
 
 namespace Hitagi::Asset {
 enum struct SceneObjectType : int32_t {
@@ -98,15 +100,16 @@ public:
 
 class SceneObjectTexture : public BaseSceneObject {
 protected:
-    uint32_t           m_TexCoordIndex = 0;
-    std::string        m_Name;
-    Image              m_Image;
-    std::vector<mat4f> m_Transforms;
+    uint32_t              m_TexCoordIndex = 0;
+    std::string           m_Name;
+    std::filesystem::path m_TexturePath;
+    Image                 m_Image;
+    std::vector<mat4f>    m_Transforms;
 
 public:
     SceneObjectTexture() : BaseSceneObject(SceneObjectType::TEXTURE) {}
-    SceneObjectTexture(std::string_view name)
-        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0), m_Name(name) {}
+    SceneObjectTexture(const std::filesystem::path& path)
+        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0), m_Name(path.filename().u8string()), m_TexturePath(path) {}
     SceneObjectTexture(uint32_t coordIndex, Image image)
         : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
     SceneObjectTexture(uint32_t coordIndex, Image&& image)
@@ -198,7 +201,6 @@ public:
     void                 SetName(std::string&& name);
     void                 SetColor(std::string_view attrib, const vec4f& color);
     void                 SetParam(std::string_view attrib, const float param);
-    void                 SetTexture(std::string_view attrib, std::string_view textureName);
     void                 SetTexture(std::string_view attrib, const std::shared_ptr<SceneObjectTexture>& texture);
     void                 LoadTextures();
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj);
@@ -295,7 +297,7 @@ public:
     void SetMaterial(const std::weak_ptr<SceneObjectMaterial>& material);
 
     // Get some things
-    const SceneObjectVertexArray&              GetVertexByName(std::string_view name)const;
+    const SceneObjectVertexArray&              GetVertexByName(std::string_view name) const;
     size_t                                     GetVertexArraysCount() const;
     const std::vector<SceneObjectVertexArray>& GetVertexArrays() const;
     const SceneObjectIndexArray&               GetIndexArray() const;

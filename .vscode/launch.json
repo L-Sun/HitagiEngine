@@ -15,7 +15,7 @@
             "environment": [],
             "externalConsole": false,
             "logging": {
-                "moduleLoad": false
+                "moduleLoad": true
             }
         }
     ]

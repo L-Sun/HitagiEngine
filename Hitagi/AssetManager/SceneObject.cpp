@@ -1,9 +1,8 @@
 #include "SceneObject.hpp"
-
-#include <variant>
-
 #include "MemoryManager.hpp"
 #include "AssetManager.hpp"
+
+#include <variant>
 
 namespace Hitagi::Asset {
 // Class BaseSceneObject
@@ -111,7 +110,7 @@ void SceneObjectTexture::SetName(const std::string& name) { m_Name = name; }
 void SceneObjectTexture::SetName(std::string&& name) { m_Name = std::move(name); }
 void SceneObjectTexture::LoadTexture() {
     if (m_Image.Empty()) {
-        m_Image = g_AssetManager->ParseImage(std::filesystem::path(m_Name));
+        m_Image = g_AssetManager->ParseImage(m_TexturePath);
     }
 }
 const std::string& SceneObjectTexture::GetName() const { return m_Name; }
@@ -141,16 +140,6 @@ void               SceneObjectMaterial::SetColor(std::string_view attrib, const 
 void SceneObjectMaterial::SetParam(std::string_view attrib, const float param) {
     if (attrib == "specular_power") m_SpecularPower = Parameter(param);
     if (attrib == "opacity") m_Opacity = Parameter(param);
-}
-void SceneObjectMaterial::SetTexture(std::string_view attrib, std::string_view textureName) {
-    if (attrib == "ambient") m_DiffuseColor = std::make_shared<SceneObjectTexture>(textureName);
-    if (attrib == "diffuse") m_DiffuseColor = std::make_shared<SceneObjectTexture>(textureName);
-    if (attrib == "specular") m_Specular = std::make_shared<SceneObjectTexture>(textureName);
-    if (attrib == "specular_power") m_SpecularPower = std::make_shared<SceneObjectTexture>(textureName);
-    if (attrib == "emission") m_Emission = std::make_shared<SceneObjectTexture>(textureName);
-    if (attrib == "opacity") m_Opacity = std::make_shared<SceneObjectTexture>(textureName);
-    if (attrib == "transparency") m_Transparency = std::make_shared<SceneObjectTexture>(textureName);
-    if (attrib == "normal") m_Normal = std::make_shared<SceneObjectTexture>(textureName);
 }
 void SceneObjectMaterial::SetTexture(std::string_view attrib, const std::shared_ptr<SceneObjectTexture>& texture) {
     if (attrib == "ambient") m_DiffuseColor = texture;
