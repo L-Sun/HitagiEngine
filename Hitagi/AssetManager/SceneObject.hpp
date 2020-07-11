@@ -384,8 +384,8 @@ protected:
 
 public:
     SceneObjectSpotLight(const vec4f& color = vec4f(1.0f), float intensity = 100.0f,
-                         const vec3f& direction = vec3f(0.0f), float innerConeAngle = PI / 3.0f,
-                         float outerConeAngle = PI / 4.0f)
+                         const vec3f& direction = vec3f(0.0f), float innerConeAngle = std::numbers::pi / 3.0f,
+                         float outerConeAngle = std::numbers::pi / 4.0f)
         : SceneObjectLight(color, intensity), m_InnerConeAngle(innerConeAngle), m_OuterConeAngle(outerConeAngle) {}
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectSpotLight& obj);
@@ -399,7 +399,7 @@ public:
 
 class SceneObjectCamera : public BaseSceneObject {
 public:
-    SceneObjectCamera(float aspect = 16.0f / 9.0f, float nearClip = 1.0f, float farClip = 100.0f, float fov = PI / 4)
+    SceneObjectCamera(float aspect = 16.0f / 9.0f, float nearClip = 1.0f, float farClip = 100.0f, float fov = std::numbers::pi / 4)
         : BaseSceneObject(SceneObjectType::CAMERA),
           m_Aspect(aspect),
           m_NearClipDistance(nearClip),

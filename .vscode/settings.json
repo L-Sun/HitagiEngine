@@ -82,7 +82,8 @@
         "optional": "cpp",
         "random": "cpp",
         "future": "cpp",
-        "*.rh": "cpp"
+        "*.rh": "cpp",
+        "numbers": "cpp"
     },
     "cmake.configureArgs": [
         "-DCMAKE_TOOLCHAIN_FILE=E:/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake",

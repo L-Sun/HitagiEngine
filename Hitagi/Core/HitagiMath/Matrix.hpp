@@ -16,7 +16,7 @@ struct Matrix {
 
     Matrix() = default;
     explicit Matrix(const T num) {
-        std::fill_n(&data[0][0], D * D, 0);
+        std::fill_n(&data[0][0], D * D, static_cast<T>(0));
         for (size_t i = 0; i < D; i++)
             data[i][i] = num;
     }
@@ -97,6 +97,12 @@ struct Matrix {
         return *this;
     }
 #if defined(USE_ISPC)
+    explicit Matrix(const T num) requires IspcSpeedable<T> {
+        ispc::zero(*this, D * D);
+        for (size_t i = 0; i < D; i++)
+            data[i][i] = num;
+    }
+
     const Matrix operator+(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
         Matrix result;
         ispc::vector_add(*this, rhs, result, D * D);

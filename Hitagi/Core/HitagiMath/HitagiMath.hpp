@@ -3,12 +3,13 @@
 #include "./Matrix.hpp"
 #include "./Geometry.hpp"
 
+#include <numbers>
+
 namespace Hitagi {
-constexpr double PI = 3.14159265358979323846;
 
 template <typename T>
-inline T radians(T angle) {
-    return angle / 180.0 * PI;
+inline const T radians(T angle) {
+    return angle / 180.0 * std::numbers::pi;
 }
 
 template <typename T, unsigned D>
@@ -39,8 +40,8 @@ Matrix<T, 3> inverse(const Matrix<T, 3>& mat) {
     T det = mat[0][0] * (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2]) -
             mat[0][1] * (mat[1][0] * mat[2][2] - mat[1][2] * mat[2][0]) +
             mat[0][2] * (mat[1][0] * mat[2][1] - mat[1][1] * mat[2][0]);
-    if (det == 0) return Matrix<T, 3>(1);
-    T invdet = 1 / det;
+    if (det == 0) return Matrix<T, 3>(static_cast<T>(1));
+    T invdet = static_cast<T>(1) / det;
 
     Matrix<T, 3> res;
     res[0][0] = (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2]) * invdet;

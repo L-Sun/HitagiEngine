@@ -135,7 +135,7 @@ TEST(TransformTest, Inverse) {
 
 TEST(TransformTest, InverseSingularMatrix) {
     mat3f a = {{1, 2, 3}, {1, 2, 3}, {3, 7, -4}};
-    matrix_eq(inverse(a), mat3f(1));
+    matrix_eq(inverse(a), mat3f(1.0f));
 }
 
 TEST(BenchmarkTest, MatrixOperator) {
