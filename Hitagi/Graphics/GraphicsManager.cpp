@@ -26,7 +26,7 @@ int GraphicsManager::Initialize() {
     m_ResMgr = std::make_unique<ResourceManager>(*m_Driver);
 
     // Initialize frame
-    m_Driver->CreateSwapChain(config.screenWidth, config.screenHeight, m_Frame.size(), Format::R8G8B8A8_UNORM);
+    m_Driver->CreateSwapChain(config.screenWidth, config.screenHeight, m_Frame.size(), Format::R8G8B8A8_UNORM, g_App->GetWindow());
     for (size_t frameIndex = 0; frameIndex < m_Frame.size(); frameIndex++)
         m_Frame[frameIndex] = std::make_unique<Frame>(*m_Driver, *m_ResMgr, frameIndex);
 

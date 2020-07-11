@@ -33,7 +33,8 @@ add_executable(GraphicsTest GraphicsTest.cpp)
 target_link_libraries(GraphicsTest PRIVATE GraphicsManager)
 add_test(NAME TEST_GraphicsTest COMMAND GraphicsTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
-add_executable(DX12Test DX12Test.cpp)
-target_link_libraries(DX12Test PRIVATE DX12DriverAPI)
-add_test(NAME TEST_DX12Test COMMAND DX12Test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-
+if(WIN32)
+    add_executable(DX12Test DX12Test.cpp)
+    target_link_libraries(DX12Test PRIVATE DX12DriverAPI)
+    add_test(NAME TEST_DX12Test COMMAND DX12Test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+endif(WIN32)

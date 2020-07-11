@@ -78,7 +78,7 @@ void Allocator::Free(void* p) {
 
 #if defined(_DEBUG)
     FillFreeBlock(block);
-#endif  // DEBUG
+#endif
 
     // push free block
     block->next = m_FreeList;

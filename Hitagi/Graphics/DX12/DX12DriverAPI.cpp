@@ -3,7 +3,8 @@
 #include "GpuBuffer.hpp"
 #include "CommandContext.hpp"
 #include "Sampler.cpp"
-#include "Win32Application.hpp"
+
+#include <windef.h>
 
 namespace Hitagi::Graphics::backend::DX12 {
 ComPtr<ID3D12DebugDevice1> DX12DriverAPI::sm_DebugInterface = nullptr;
@@ -56,8 +57,8 @@ void DX12DriverAPI::Present(size_t frameIndex) {
     ThrowIfFailed(m_SwapChain->Present(0, 0));
 }
 
-void DX12DriverAPI::CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format) {
-    auto hWnd = static_cast<Win32Application*>(g_App.get())->GetWindow();
+void DX12DriverAPI::CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format, void* window) {
+    auto hWnd = *reinterpret_cast<HWND*>(window);
 
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
     swapChainDesc.BufferCount           = frameCount;
@@ -325,7 +326,9 @@ void DX12DriverAPI::CreatePipelineState(const Graphics::PipelineState& pso) {
     gpso.SetInputLayout(inputDesc);
     gpso.SetRootSignature(sig);
     gpso.SetBlendState(CD3DX12_BLEND_DESC(D3D12_DEFAULT));
-    gpso.SetDepthStencilState(CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT));
+    auto depth        = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    depth.DepthEnable = pso.GetDepthBufferFormat() != Graphics::Format::UNKNOWN;
+    gpso.SetDepthStencilState(depth);
     gpso.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
     auto raDesc                  = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     raDesc.FrontCounterClockwise = true;

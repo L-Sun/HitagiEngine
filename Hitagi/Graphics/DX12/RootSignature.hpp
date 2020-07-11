@@ -74,7 +74,6 @@ public:
         m_NameTable[name] = {rootIndex, offset};
     }
     auto& GetParameterTable(std::string_view name) const noexcept {
-        // TODO: c++20
         return m_NameTable.at(std::string(name));
     }
 

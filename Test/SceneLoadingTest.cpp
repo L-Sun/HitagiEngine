@@ -28,7 +28,7 @@ int main(int, char**) {
     g_AssetManager->Initialize();
     g_SceneManager->Initialize();
 
-    g_SceneManager->SetScene("Asset/Scene/test.fbx");
+    g_SceneManager->SetScene("Asset/Scene/spot.fbx");
     auto& scene = g_SceneManager->GetSceneForRendering();
 
     std::cout << *scene.SceneGraph << std::endl;

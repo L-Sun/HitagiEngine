@@ -1,6 +1,6 @@
 #pragma once
-#include "../DriverAPI.hpp"
-#include "../Format.hpp"
+#include "DriverAPI.hpp"
+#include "Format.hpp"
 
 #include "CommandContext.hpp"
 #include "CommandListManager.hpp"
@@ -17,7 +17,7 @@ public:
 
     void Present(size_t frameIndex) final;
 
-    void                     CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format) final;
+    void                     CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format, void* window) final;
     Graphics::RenderTarget   CreateRenderTarget(std::string_view name, const Graphics::RenderTarget::Description& desc) final;
     Graphics::RenderTarget   CreateRenderFromSwapChain(size_t frameIndex) final;
     Graphics::VertexBuffer   CreateVertexBuffer(size_t vertexCount, size_t vertexSize, const uint8_t* initialData = nullptr) final;

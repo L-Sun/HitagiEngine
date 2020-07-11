@@ -21,4 +21,3 @@ target_include_directories(Parser
     PRIVATE
         ${JPEG_INCLUDE_DIR}
 )
-# target_compile_options(Parser PRIVATE -Wno-pragma-pack)

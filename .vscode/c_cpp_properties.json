@@ -7,6 +7,7 @@
                 "${vcpkgRoot}/x64-windows/include"
             ],
             "defines": [
+                "USE_ISPC",
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE"
@@ -14,7 +15,7 @@
             "windowsSdkVersion": "10.0.18362.0",
             "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/VC/Tools/MSVC/14.26.28801/bin/Hostx64/x64/cl.exe",
             "cStandard": "c11",
-            "cppStandard": "c++17",
+            "cppStandard": "c++20",
             "intelliSenseMode": "msvc-x64"
         }
     ],

@@ -30,7 +30,7 @@ void ShaderManager::LoadShader(std::filesystem::path shaderPath, ShaderType type
         spdlog::get("GraphicsManager")->error("[ShaderManager] Give up loading shader.");
         return;
     }
-    if (name.empty()) name = shaderPath.filename().u8string();
+    if (name.empty()) name = shaderPath.filename().string();
     switch (type) {
         case ShaderType::VERTEX:
             m_VertexShaders.emplace(name, std::make_shared<VertexShader>(data));

@@ -2,9 +2,14 @@
 #include <iostream>
 #include <array>
 #include <cassert>
+#include <concepts>
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>
+
+#if defined(USE_ISPC)
+#include "ispcMath.hpp"
+#endif  // USE_ISPC
 
 namespace Hitagi {
 template <typename T, unsigned D>
@@ -32,7 +37,7 @@ public:
         return *this;
     }
 
-    operator Vector<T, sizeof...(Indexs)>() const { return Vector<T, sizeof...(Indexs)>{data[Indexs]...}; }
+    operator Vector<T, sizeof...(Indexs)>() const noexcept { return Vector<T, sizeof...(Indexs)>{data[Indexs]...}; }
 };
 
 // clang-format off
@@ -120,7 +125,7 @@ struct Vector : public BaseVector<T, D> {
         for (unsigned i = 0; i < D; i++) data[i] = static_cast<T>(*p++);
     }
 
-    T norm() const {
+    T norm() const noexcept {
         T result = 0;
         for (auto&& val : data) result += val * val;
         return std::sqrt(result);
@@ -129,87 +134,112 @@ struct Vector : public BaseVector<T, D> {
     operator T*() { return data.data(); }
     operator const T*() const { return data.data(); }
 
-    T&       operator[](unsigned index) { return data[index]; }
-    const T& operator[](unsigned index) const { return data[index]; }
+    T&       operator[](unsigned index) noexcept { return data[index]; }
+    const T& operator[](unsigned index) const noexcept { return data[index]; }
 
     friend std::ostream& operator<<(std::ostream& out, Vector v) {
         return out << fmt::format("[{:6}]", fmt::join(v.data, ", ")) << std::flush;
     }
 
-    const Vector operator+(const Vector& rhs) const {
+    const Vector operator+(const Vector& rhs) const noexcept {
         Vector result;
-        for (unsigned i = 0; i < D; i++) result[i] = data[i] + rhs[i];
-        return result;
-    }
-    const Vector operator+(const T& rhs) const {
-        Vector result;
-        for (unsigned i = 0; i < D; i++) result[i] = data[i] + rhs;
-        return result;
-    }
-    friend const Vector operator+(const T& lhs, const Vector& rhs) { return rhs + lhs; }
-
-    const Vector operator-() const {
-        Vector result;
-        for (unsigned i = 0; i < D; i++) result[i] = -data[i];
-        return result;
-    }
-    const Vector operator-(const Vector& rhs) const {
-        Vector result;
-        for (unsigned i = 0; i < D; i++) result[i] = data[i] - rhs[i];
-        return result;
-    }
-    const Vector operator-(const T& rhs) const {
-        Vector result;
-        for (unsigned i = 0; i < D; i++) result[i] = data[i] - rhs;
-        return result;
-    }
-    friend const Vector operator-(const T& lhs, const Vector& rhs) {
-        Vector result;
-        for (unsigned i = 0; i < D; i++) result[i] = lhs - rhs[i];
+        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] + rhs[i];
         return result;
     }
 
-    const Vector operator*(const Vector& rhs) const {
+    const Vector operator-() const noexcept {
         Vector result;
-        for (unsigned i = 0; i < D; i++) result[i] = data[i] * rhs[i];
+        for (unsigned i = 0; i < D; i++) result.data[i] = -data[i];
         return result;
     }
-    const Vector operator*(const T& rhs) const {
+    const Vector operator-(const Vector& rhs) const noexcept {
         Vector result;
-        for (unsigned i = 0; i < D; i++) result[i] = data[i] * rhs;
-        return result;
-    }
-    friend const Vector operator*(const T& lhs, const Vector& rhs) { return rhs * lhs; }
-    const Vector        operator/(const T& rhs) const {
-        Vector result;
-        for (unsigned i = 0; i < D; i++) result[i] = data[i] / rhs;
+        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] - rhs[i];
         return result;
     }
 
-    Vector& operator+=(const Vector& rhs) {
+    const Vector operator*(const Vector& rhs) const noexcept {
+        Vector result;
+        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] * rhs[i];
+        return result;
+    }
+    const Vector operator*(const T& rhs) const noexcept {
+        Vector result;
+        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] * rhs;
+        return result;
+    }
+    friend const Vector operator*(const T& lhs, const Vector& rhs) noexcept { return rhs * lhs; }
+    const Vector        operator/(const T& rhs) const noexcept {
+        Vector result;
+        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
+        return result;
+    }
+    Vector& operator+=(const Vector& rhs) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] += rhs[i];
         return *this;
     }
-    Vector& operator+=(const T& rhs) {
-        for (unsigned i = 0; i < D; i++) data[i] += rhs;
-        return *this;
-    }
-    Vector& operator-=(const Vector& rhs) {
+    Vector& operator-=(const Vector& rhs) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] -= rhs[i];
         return *this;
     }
-    Vector& operator-=(const T& rhs) {
-        for (unsigned i = 0; i < D; i++) data[i] -= rhs;
-        return *this;
-    }
-    Vector& operator*=(const T& rhs) {
+    Vector& operator*=(const T& rhs) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] *= rhs;
         return *this;
     }
-    Vector& operator/=(const T& rhs) {
+    Vector& operator/=(const T& rhs) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] /= rhs;
         return *this;
     }
+
+#if defined(USE_ISPC)
+    const Vector operator+(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+        Vector result;
+        ispc::vector_add(*this, rhs, result, D);
+        return result;
+    }
+
+    const Vector operator-() const noexcept requires IspcSpeedable<T> {
+        Vector result;
+        ispc::vector_inverse(*this, result, D);
+        return result;
+    }
+    const Vector operator-(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+        Vector result;
+        ispc::vector_sub(*this, rhs, result, D);
+        return result;
+    }
+    const Vector operator*(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+        Vector result;
+        ispc::vector_mult_vector(*this, rhs, result, D);
+        return result;
+    }
+    const Vector operator*(const T& rhs) const noexcept requires IspcSpeedable<T> {
+        Vector result;
+        ispc::vector_mult(*this, rhs, result, D);
+        return result;
+    }
+    const Vector operator/(const T& rhs) const noexcept requires IspcSpeedable<T> {
+        Vector result;
+        ispc::vector_div(*this, rhs, result, D);
+        return result;
+    }
+    Vector& operator+=(const Vector& rhs) noexcept requires IspcSpeedable<T> {
+        ispc::vector_add_assgin(*this, rhs, D);
+        return *this;
+    }
+    Vector& operator-=(const Vector& rhs) noexcept requires IspcSpeedable<T> {
+        ispc::vector_sub_assgin(*this, rhs, D);
+        return *this;
+    }
+    Vector& operator*=(const T& rhs) noexcept requires IspcSpeedable<T> {
+        ispc::vector_mult_assgin(*this, rhs, D);
+        return *this;
+    }
+    Vector& operator/=(const T& rhs) noexcept requires IspcSpeedable<T> {
+        ispc::vector_div_assign(*this, rhs, D);
+        return *this;
+    }
+#endif  // USE_ISPC
 };
 
 using vec2f = Vector<float, 2>;
@@ -225,9 +255,17 @@ using quatd = Vector<double, 4>;
 using R8G8B8A8Unorm = Vector<uint8_t, 4>;
 
 template <typename T, unsigned D>
-T dot(const Vector<T, D>& v1, const Vector<T, D>& v2) {
+const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) noexcept {
     T result = 0;
-    for (unsigned i = 0; i < D; i++) result += v1[i] * v2[i];
+    for (unsigned i = 0; i < D; i++) result += lhs[i] * rhs[i];
     return result;
 }
+
+#if defined(USE_ISPC)
+template <IspcSpeedable T, unsigned D>
+const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) {
+    return ispc::vector_dot(lhs, rhs, D);
+}
+#endif  // USE_ISPC
+
 }  // namespace Hitagi

@@ -19,11 +19,9 @@ Vector<T, D> normalize(const Vector<T, D>& v) {
 template <typename T>
 Vector<T, 3> cross(const Vector<T, 3>& v1, const Vector<T, 3>& v2) {
     Vector<T, 3> result;
-    for (unsigned index = 0; index < 3; index++) {
-        unsigned index_a = ((index + 1 == 3) ? 0 : index + 1);
-        unsigned index_b = ((index == 0) ? 2 : index - 1);
-        result[index]    = v1[index_a] * v2[index_b] - v1[index_b] * v2[index_a];
-    }
+    result.x = v1.y * v2.z - v1.z * v2.y;
+    result.y = v1.z * v2.x - v1.x * v2.z;
+    result.z = v1.x * v2.y - v1.y * v2.x;
     return result;
 }
 

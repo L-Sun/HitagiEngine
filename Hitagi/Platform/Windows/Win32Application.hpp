@@ -10,8 +10,8 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    void UpdateInputEvent() final;
-    HWND GetWindow() { return m_Window; }
+    void  UpdateInputEvent() final;
+    void* GetWindow() final { return &m_Window; }
 
 private:
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);

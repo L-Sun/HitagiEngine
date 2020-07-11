@@ -109,7 +109,7 @@ protected:
 public:
     SceneObjectTexture() : BaseSceneObject(SceneObjectType::TEXTURE) {}
     SceneObjectTexture(const std::filesystem::path& path)
-        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0), m_Name(path.filename().u8string()), m_TexturePath(path) {}
+        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0), m_Name(path.filename().string()), m_TexturePath(path) {}
     SceneObjectTexture(uint32_t coordIndex, Image image)
         : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
     SceneObjectTexture(uint32_t coordIndex, Image&& image)

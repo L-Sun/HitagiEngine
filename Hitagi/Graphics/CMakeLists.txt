@@ -1,10 +1,13 @@
-if(${WIN32})
-    add_subdirectory(DX12)
-endif(${WIN32})
-
-
 add_library(ShaderManager ShaderManager.cpp)
 target_link_libraries(ShaderManager PUBLIC FileIOManager)
+
+add_library(GraphicsAPI INTERFACE)
+target_link_libraries(GraphicsAPI INTERFACE ShaderManager)
+target_include_directories(GraphicsAPI INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:AssetManager,INTERFACE_INCLUDE_DIRECTORIES>")
+
+if(WIN32)
+    add_subdirectory(DX12)
+endif(WIN32)
 
 add_library(GraphicsManager
     GraphicsManager.cpp

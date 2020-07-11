@@ -45,8 +45,9 @@ public:
 
     const Rect& GetWindowsRect() const noexcept { return m_Rect; }
 
-    virtual bool IsQuit();
-    virtual void SetCommandLineParameters(int argc, char** argv);
+    virtual void* GetWindow() = 0;
+    virtual bool  IsQuit();
+    virtual void  SetCommandLineParameters(int argc, char** argv);
 
     virtual GfxConfiguration& GetConfiguration();
     virtual void              UpdateInputEvent() = 0;
