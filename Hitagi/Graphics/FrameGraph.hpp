@@ -1,16 +1,13 @@
 #pragma once
 #include "Resource.hpp"
 #include "FramePass.hpp"
+#include "DriverAPI.hpp"
 
 #include <vector>
 #include <functional>
 #include <variant>
 
 namespace Hitagi::Graphics {
-
-namespace backend {
-class DriverAPI;
-}
 
 using FrameHandle     = size_t;
 using FrameResourceId = size_t;
@@ -58,7 +55,7 @@ public:
         PassNode&   node;
     };
 
-    FrameGraph(backend::DriverAPI& driver);
+    FrameGraph(backend::DriverAPI& driver) : m_Driver(driver) {}
 
     template <typename PassData, typename SetupFunc, typename ExecuteFunc>
     FramePass<PassData, ExecuteFunc> AddPass(std::string_view name, SetupFunc&& setup, ExecuteFunc&& execute) {
@@ -72,6 +69,7 @@ public:
 
     void Compile();
     void Execute();
+    void Retire(uint64_t fenceValue) noexcept;
 
 private:
     using Desc = std::variant<DepthBuffer::Description,
@@ -85,8 +83,10 @@ private:
     std::vector<ResourceNode> m_ResourceNodes;
     std::vector<PassNode>     m_PassNodes;
 
-    std::vector<std::pair<Desc, ResourceContainer>> m_Resources;
-    std::vector<FrameResourceId>                    m_ValidResource;
+    std::vector<ResourceContainer> m_Resources;
+    std::vector<Desc>              m_ResourcesDesc;
+    // resources container index
+    std::unordered_map<FrameResourceId, size_t> m_ValidResource;
 };
 
 class ResourceHelper {
@@ -97,8 +97,8 @@ public:
     T& Get(FrameHandle handle) const {
         using Desc = typename T::Description;
         auto id    = fg.m_ResourceNodes[handle].resource;
-        assert(std::holds_alternative<Desc>(fg.m_Resources[id].first));
-        return static_cast<T&>(fg.m_Resources[id].second);
+        assert(std::holds_alternative<Desc>(fg.m_ResourcesDesc[id]));
+        return static_cast<T&>(fg.m_Resources[fg.m_ValidResource.at(id)]);
     }
 
 private:

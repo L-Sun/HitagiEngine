@@ -86,9 +86,9 @@ public:
     void SetParameter(std::string_view name, const Graphics::TextureBuffer& texture) final;
     void SetParameter(std::string_view name, const Graphics::TextureSampler& sampler) final;
 
-    void Draw(const Graphics::MeshBuffer& mesh) final;
-    void Present(Graphics::RenderTarget& rt) final;
-    void Finish(bool waitForComplete) final { CommandContext::Finish(waitForComplete); }
+    void     Draw(const Graphics::MeshBuffer& mesh) final;
+    void     Present(Graphics::RenderTarget& rt) final;
+    uint64_t Finish(bool waitForComplete = false) final { return CommandContext::Finish(waitForComplete); }
 
     // Back end interface
     void SetRootSignature(const RootSignature& rootSignature) {

@@ -28,6 +28,8 @@ public:
 
     void UpdateConstantBuffer(Graphics::ConstantBuffer& buffer, size_t offset, const uint8_t* data, size_t size) final;
 
+    void RetireResources(std::vector<Graphics::ResourceContainer>&& resources, uint64_t fenceValue) final;
+
     virtual Graphics::TextureSampler CreateSampler(std::string_view name, const Graphics::TextureSampler::Description& desc) final;
 
     void CreateRootSignature(const Graphics::RootSignature& signature) final;
@@ -36,6 +38,8 @@ public:
     void DeletePipelineState(const Graphics::PipelineState& pso) final;
 
     std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() final;
+
+    void IdleGPU() final;
 
     void test(Graphics::RenderTarget& rt, const Graphics::PipelineState& pso) final;
 
@@ -72,5 +76,8 @@ private:
 
     std::unordered_map<size_t, RootSignature>    m_RootSignatures;
     std::unordered_map<std::string, GraphicsPSO> m_Pso;
+
+    // resource will release after fence complete
+    std::queue<std::pair<uint64_t, std::vector<Graphics::ResourceContainer>>> m_RetireResources;
 };
 }  // namespace Hitagi::Graphics::backend::DX12

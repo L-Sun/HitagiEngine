@@ -60,7 +60,6 @@ int GraphicsManager::Initialize() {
         .SetPixelShader(m_ShaderManager.GetPixelShader("color.ps"))
         .SetRootSignautre(rootSig)
         .SetRenderFormat(Format::R8G8B8A8_UNORM)
-        .SetDepthBufferFormat(Format::D32_FLOAT)
         .Create(*m_Driver);
 
     return 0;
@@ -69,18 +68,17 @@ int GraphicsManager::Initialize() {
 void GraphicsManager::Finalize() {
     m_Logger->info("Finalized.");
 
-    m_PSO = nullptr;
+    // Release all resource
+    {
+        m_Driver->IdleGPU();
 
-    // Rlease frame resource before destruction of backend API
-    m_ResMgr = nullptr;
-    for (auto&& frame : m_Frame)
-        frame = nullptr;
-    // Will Release the resource allcateb by backend driver.
-    // If not release, a error will occur in the porgram exit:
-    // ~GraphicsManager -> ~m_Driver -> static member destory function
-    // but the static member may has been destructed before ~GraphicsManager
-    // so call static member destory function is invalid.
-    m_Driver = nullptr;
+        m_PSO    = nullptr;
+        m_ResMgr = nullptr;
+        for (auto&& frame : m_Frame)
+            frame = nullptr;
+
+        m_Driver = nullptr;
+    }
     backend::DX12::DX12DriverAPI::ReportDebugLog();
 
     // Release shader resource
@@ -122,17 +120,17 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
         "ColorPass",
         // Setup function
         [&](FrameGraph::Builder& builder, PassData& data) {
-            data.depthBuffer = builder.Create<DepthBuffer>(DepthBuffer::Description{
-                Format::D32_FLOAT,
-                config.screenWidth,
-                config.screenWidth,
-                1.0f,
-                0});
-            data.depthBuffer = builder.Write(data.depthBuffer);
+            // data.depthBuffer = builder.Create<DepthBuffer>(DepthBuffer::Description{
+            //     Format::D32_FLOAT,
+            //     config.screenWidth,
+            //     config.screenWidth,
+            //     1.0f,
+            //     0});
+            // data.depthBuffer = builder.Write(data.depthBuffer);
         },
         // Excute function
         [=](const ResourceHelper& helper, PassData& data) {
-            context->SetRenderTargetAndDepthBuffer(frame->GetRenerTarget(), helper.Get<DepthBuffer>(data.depthBuffer));
+            context->SetRenderTarget(frame->GetRenerTarget());
             context->SetPipelineState(*pso);
             context->SetParameter("BaseSampler", resMgr->GetSampler("BaseSampler"));
             frame->Draw(context.get());
@@ -141,7 +139,7 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
 
     fg.Compile();
     fg.Execute();
-    context->Finish(true);
+    fg.Retire(context->Finish());
 }
 
 }  // namespace Hitagi::Graphics

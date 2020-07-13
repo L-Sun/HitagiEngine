@@ -1,5 +1,4 @@
 #include "FrameGraph.hpp"
-#include "DriverAPI.hpp"
 
 template <typename>
 inline constexpr bool always_false_v = false;
@@ -22,20 +21,20 @@ FrameHandle PassNode::Write(FrameGraph& fg, FrameHandle output) {
     fg.m_ResourceNodes.emplace_back(oldNode.resource, this, oldNode.version + 1);
     return ret;
 }
-FrameGraph::FrameGraph(backend::DriverAPI& driver) : m_Driver(driver) {}
 
 void FrameGraph::Compile() {
     // pruning the FrameGragh
     // ...
     //    generate valid resource id vector used by the next execute function.
-    for (size_t i = 0; i < m_Resources.size(); i++)
-        m_ValidResource.push_back(i);
+    for (size_t i = 0; i < m_ResourcesDesc.size(); i++)
+        m_ValidResource.emplace(i, i);
 }
 
 void FrameGraph::Execute() {
     // Prepare all resource used among the frame graph
-    for (auto id : m_ValidResource) {
-        m_Resources[id].second = std::visit(
+    for (size_t i = 0; i < m_ValidResource.size(); i++) {
+        auto id = m_ValidResource[i];
+        m_Resources.emplace_back(std::visit(
             [this](auto& arg) -> ResourceContainer {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, TextureBuffer::Description>)
@@ -47,7 +46,7 @@ void FrameGraph::Execute() {
                 else
                     static_assert(always_false_v<T>, "non-exhaustive visitor!");
             },
-            m_Resources[id].first);
+            m_ResourcesDesc[id]));
     }
 
     // execute all pass
@@ -57,11 +56,15 @@ void FrameGraph::Execute() {
     }
 }
 
+void FrameGraph::Retire(uint64_t fenceValue) noexcept {
+    m_Driver.RetireResources(std::move(m_Resources), fenceValue);
+}
+
 FrameHandle FrameGraph::Create(Desc desc) {
     // create new resource node
     auto handle = m_ResourceNodes.size();
-    auto id     = m_Resources.size();
-    m_Resources.emplace_back(std::move(desc), ResourceContainer{});
+    auto id     = m_ResourcesDesc.size();
+    m_ResourcesDesc.emplace_back(std::move(desc));
     m_ResourceNodes.emplace_back(id);
     return handle;
 }

@@ -43,6 +43,7 @@ DX12DriverAPI::DX12DriverAPI() : DriverAPI(APIType::DirectX12) {
 }
 
 DX12DriverAPI::~DX12DriverAPI() {
+    m_CommandManager.IdleGPU();
     // Release the static variable that is allocation of DX12
     LinearAllocator::Destroy();
     DynamicDescriptorHeap::Destroy();
@@ -116,6 +117,7 @@ Graphics::VertexBuffer DX12DriverAPI::CreateVertexBuffer(size_t vertexCount, siz
     }
     return {std::move(buffer)};
 }
+
 Graphics::IndexBuffer DX12DriverAPI::CreateIndexBuffer(size_t indexCount, size_t indexSize, const uint8_t* initialData) {
     auto buffer = std::make_unique<IndexBuffer>(m_Device.Get(), "Index", indexCount, indexSize);
     if (initialData) {
@@ -181,6 +183,13 @@ void DX12DriverAPI::UpdateConstantBuffer(Graphics::ConstantBuffer& buffer, size_
     assert(size == buffer.GetElementSize());
     auto cb = static_cast<ConstantBuffer*>(buffer.GetResource());
     cb->UpdataData(offset, data, size);
+}
+
+void DX12DriverAPI::RetireResources(std::vector<Graphics::ResourceContainer>&& resources, uint64_t fenceValue) {
+    while (!m_RetireResources.empty() && m_CommandManager.IsFenceComplete(m_RetireResources.front().first))
+        m_RetireResources.pop();
+
+    m_RetireResources.emplace(fenceValue, std::move(resources));
 }
 
 // TODO: Custom sampler
@@ -345,6 +354,8 @@ void DX12DriverAPI::DeletePipelineState(const Graphics::PipelineState& pso) {
 std::shared_ptr<IGraphicsCommandContext> DX12DriverAPI::GetGraphicsCommandContext() {
     return std::make_shared<GraphicsCommandContext>(*this);
 }
+
+void DX12DriverAPI::IdleGPU() { m_CommandManager.IdleGPU(); }
 
 // ----------------------------
 //  For test

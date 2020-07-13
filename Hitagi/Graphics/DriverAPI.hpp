@@ -31,6 +31,7 @@ public:
 
     virtual void UpdateConstantBuffer(ConstantBuffer& buffer, size_t offset, const uint8_t* src, size_t size) = 0;
 
+    virtual void RetireResources(std::vector<ResourceContainer>&& resources, uint64_t fenceValue) = 0;
     // Sampler
     virtual TextureSampler CreateSampler(std::string_view name, const TextureSampler::Description& desc) = 0;
 
@@ -42,6 +43,8 @@ public:
 
     // CommandList
     virtual std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() = 0;
+
+    virtual void IdleGPU() = 0;
 
     APIType GetType() const { return m_Type; }
 
