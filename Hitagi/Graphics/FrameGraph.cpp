@@ -58,6 +58,7 @@ void FrameGraph::Execute() {
 
 void FrameGraph::Retire(uint64_t fenceValue) noexcept {
     m_Driver.RetireResources(std::move(m_Resources), fenceValue);
+    m_Retired = true;
 }
 
 FrameHandle FrameGraph::Create(Desc desc) {

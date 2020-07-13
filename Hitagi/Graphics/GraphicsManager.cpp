@@ -60,6 +60,7 @@ int GraphicsManager::Initialize() {
         .SetPixelShader(m_ShaderManager.GetPixelShader("color.ps"))
         .SetRootSignautre(rootSig)
         .SetRenderFormat(Format::R8G8B8A8_UNORM)
+        .SetDepthBufferFormat(Format::D32_FLOAT)
         .Create(*m_Driver);
 
     return 0;
@@ -101,6 +102,8 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     auto  pso     = m_PSO.get();
     auto  context = driver->GetGraphicsCommandContext();
 
+    frame->WaitLastDraw();
+
     auto     camera = scene.GetFirstCameraNode();
     uint32_t h      = config.screenWidth / camera->GetSceneObjectRef().lock()->GetAspect();
     uint32_t y      = (config.screenHeight - h) >> 1;
@@ -120,17 +123,17 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
         "ColorPass",
         // Setup function
         [&](FrameGraph::Builder& builder, PassData& data) {
-            // data.depthBuffer = builder.Create<DepthBuffer>(DepthBuffer::Description{
-            //     Format::D32_FLOAT,
-            //     config.screenWidth,
-            //     config.screenWidth,
-            //     1.0f,
-            //     0});
-            // data.depthBuffer = builder.Write(data.depthBuffer);
+            data.depthBuffer = builder.Create<DepthBuffer>(DepthBuffer::Description{
+                Format::D32_FLOAT,
+                config.screenWidth,
+                config.screenWidth,
+                1.0f,
+                0});
+            data.depthBuffer = builder.Write(data.depthBuffer);
         },
         // Excute function
         [=](const ResourceHelper& helper, PassData& data) {
-            context->SetRenderTarget(frame->GetRenerTarget());
+            context->SetRenderTargetAndDepthBuffer(frame->GetRenerTarget(), helper.Get<DepthBuffer>(data.depthBuffer));
             context->SetPipelineState(*pso);
             context->SetParameter("BaseSampler", resMgr->GetSampler("BaseSampler"));
             frame->Draw(context.get());
@@ -139,7 +142,9 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
 
     fg.Compile();
     fg.Execute();
-    fg.Retire(context->Finish());
+    uint64_t fenceValue = context->Finish();
+    fg.Retire(fenceValue);
+    frame->SetFenceValue(fenceValue);
 }
 
 }  // namespace Hitagi::Graphics

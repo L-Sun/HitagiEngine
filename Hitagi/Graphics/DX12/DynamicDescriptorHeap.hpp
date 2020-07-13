@@ -12,7 +12,6 @@ class DynamicDescriptorHeap {
 
 public:
     DynamicDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, FenceChecker&& checker);
-    ~DynamicDescriptorHeap() { Reset(m_FenceValue); }
 
     void StageDescriptors(uint32_t rootParameterIndex, uint32_t offset, const std::vector<Descriptor>& descriptors);
 
@@ -63,7 +62,6 @@ private:
     ID3D12Device*              m_Device;
     D3D12_DESCRIPTOR_HEAP_TYPE m_Type;
     uint32_t                   m_HandleIncrementSize;
-    FenceValue                 m_FenceValue;
     FenceChecker               m_FenceChecker;
 
     std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>               m_DescriptorHandleCache;

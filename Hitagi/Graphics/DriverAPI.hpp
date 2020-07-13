@@ -44,7 +44,9 @@ public:
     // CommandList
     virtual std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() = 0;
 
-    virtual void IdleGPU() = 0;
+    // Fence
+    virtual void WaitFence(uint64_t fenceValue) = 0;
+    virtual void IdleGPU()                      = 0;
 
     APIType GetType() const { return m_Type; }
 

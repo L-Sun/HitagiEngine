@@ -39,6 +39,8 @@ public:
 
     std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() final;
 
+    // Fence
+    void WaitFence(uint64_t fenceValue) final;
     void IdleGPU() final;
 
     void test(Graphics::RenderTarget& rt, const Graphics::PipelineState& pso) final;

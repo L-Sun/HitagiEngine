@@ -82,7 +82,7 @@ void Application::Tick() {
 
     m_FPS = 1.0 / m_Clock.deltaTime().count();
     if (m_FPSLimit != -1) {
-        std::this_thread::sleep_until(m_Clock.GetBaseTime() + m_FrameIndex * std::chrono::milliseconds(1000) / m_FPSLimit);
+        // std::this_thread::sleep_until(m_Clock.GetBaseTime() + m_FrameIndex * std::chrono::milliseconds(1000) / m_FPSLimit);
     }
     m_FrameIndex++;
 }

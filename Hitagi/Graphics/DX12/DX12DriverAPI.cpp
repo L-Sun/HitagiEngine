@@ -355,6 +355,10 @@ std::shared_ptr<IGraphicsCommandContext> DX12DriverAPI::GetGraphicsCommandContex
     return std::make_shared<GraphicsCommandContext>(*this);
 }
 
+void DX12DriverAPI::WaitFence(uint64_t fenceValue) {
+    m_CommandManager.WaitForFence(fenceValue);
+}
+
 void DX12DriverAPI::IdleGPU() { m_CommandManager.IdleGPU(); }
 
 // ----------------------------

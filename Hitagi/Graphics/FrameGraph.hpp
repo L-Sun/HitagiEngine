@@ -56,6 +56,7 @@ public:
     };
 
     FrameGraph(backend::DriverAPI& driver) : m_Driver(driver) {}
+    ~FrameGraph() { assert(m_Retired && "Frame graph must set a fence to retire its resources."); }
 
     template <typename PassData, typename SetupFunc, typename ExecuteFunc>
     FramePass<PassData, ExecuteFunc> AddPass(std::string_view name, SetupFunc&& setup, ExecuteFunc&& execute) {
@@ -79,6 +80,7 @@ private:
     FrameHandle Create(Desc desc);
 
     backend::DriverAPI& m_Driver;
+    bool                m_Retired = false;
 
     std::vector<ResourceNode> m_ResourceNodes;
     std::vector<PassNode>     m_PassNodes;

@@ -20,9 +20,9 @@ DynamicDescriptorHeap::DynamicDescriptorHeap(ID3D12Device*              device,
       m_FenceChecker(std::move(checker)),
       m_DescriptorHandleCache(kNumDescriptorsPerHeap) {}
 
-void DynamicDescriptorHeap::Reset(uint64_t fenceValue) {
+void DynamicDescriptorHeap::Reset(FenceValue fenceValue) {
     if (m_CurrentDescriptorHeap) {
-        kAvailableDescriptorHeaps[m_Type].push({m_CurrentDescriptorHeap, m_FenceValue});
+        kAvailableDescriptorHeaps[m_Type].push({m_CurrentDescriptorHeap, fenceValue});
     }
     m_CurrentDescriptorHeap.Reset();
     m_CurrentCPUDescriptorHandle  = CD3DX12_CPU_DESCRIPTOR_HANDLE(D3D12_DEFAULT);
@@ -30,7 +30,6 @@ void DynamicDescriptorHeap::Reset(uint64_t fenceValue) {
     m_NumFreeHandles              = 0;
     m_DescriptorTableBitMask      = 0;
     m_StaleDescriptorTableBitMask = 0;
-    m_FenceValue                  = 0;
 
     // Reset the table cache
     for (int i = 0; i < kMaxDescriptorTables; ++i) m_DescriptorTableCache[i].Reset();
@@ -134,7 +133,6 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
         m_CurrentCPUDescriptorHandle = m_CurrentDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
         m_CurrentGPUDescriptorHandle = m_CurrentDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
         m_NumFreeHandles             = kNumDescriptorsPerHeap;
-        m_FenceValue                 = heap.second;
 
         context.SetDescriptorHeap(m_Type, m_CurrentDescriptorHeap.Get());
         // When updating the descriptor heap on the command list, all descriptor
@@ -176,7 +174,6 @@ D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(CommandContext
         m_CurrentCPUDescriptorHandle = m_CurrentDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
         m_CurrentGPUDescriptorHandle = m_CurrentDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
         m_NumFreeHandles             = kNumDescriptorsPerHeap;
-        m_FenceValue                 = heap.second;
 
         context.SetDescriptorHeap(m_Type, m_CurrentDescriptorHeap.Get());
         // When updating the descriptor heap on the command list, all descriptor

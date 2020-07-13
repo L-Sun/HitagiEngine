@@ -138,4 +138,8 @@ void Frame::Draw(IGraphicsCommandContext* context) {
     }
 }
 
+void Frame::WaitLastDraw() {
+    m_Driver.WaitFence(m_FenceValue);
+}
+
 }  // namespace Hitagi::Graphics
