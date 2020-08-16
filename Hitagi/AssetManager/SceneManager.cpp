@@ -29,16 +29,28 @@ void SceneManager::Tick() {}
 void SceneManager::SetScene(std::filesystem::path name) {
     m_Scene.emplace_back(g_AssetManager->ParseScene(name));
     m_CurrentSceneIndex = m_Scene.size() - 1;
-    if (m_Scene[m_CurrentSceneIndex].GetFirstCameraNode() == nullptr) {
-        m_Logger->warn("Will create a default Camera");
-        m_Scene[m_CurrentSceneIndex].Cameras["default"] = std::make_shared<SceneObjectCamera>();
+    auto& scene         = m_Scene[m_CurrentSceneIndex];
+    if (scene.GetFirstCameraNode() == nullptr) {
+        m_Logger->warn("Will create a default camera");
+        scene.Cameras["default"] = std::make_shared<SceneObjectCamera>();
 
-        vec3f pos                                           = {3.0f, 3.0f, 3.0f};
-        vec3f up                                            = {-1, -1, 1};
-        vec3f direct                                        = -pos;
-        m_Scene[m_CurrentSceneIndex].CameraNodes["default"] = std::make_shared<SceneCameraNode>("default", pos, up, direct);
-        m_Scene[m_CurrentSceneIndex].CameraNodes["default"]->AddSceneObjectRef(m_Scene[m_CurrentSceneIndex].Cameras["default"]);
-        m_Scene[m_CurrentSceneIndex].SceneGraph->AppendChild(m_Scene[m_CurrentSceneIndex].CameraNodes["default"]);
+        vec3f pos                    = {3.0f, 3.0f, 3.0f};
+        vec3f up                     = {-1, -1, 1};
+        vec3f direct                 = -pos;
+        scene.CameraNodes["default"] = std::make_shared<SceneCameraNode>("default", pos, up, direct);
+        scene.CameraNodes["default"]->AddSceneObjectRef(scene.Cameras["default"]);
+        scene.SceneGraph->AppendChild(scene.CameraNodes["default"]);
+    }
+    if (scene.GetFirstLightNode() == nullptr) {
+        m_Logger->warn("Will create a default light.");
+        scene.Lights["default"]     = std::make_shared<SceneObjectPointLight>();
+        scene.LightNodes["default"] = std::make_shared<SceneLightNode>("default");
+
+        scene.LightNodes["default"]->AddSceneObjectRef(scene.Lights["default"]);
+        scene.LightNodes["default"]->AppendTransform(
+            std::make_shared<SceneObjectTranslation>(3.0f, 3.0f, 3.0f));
+
+        scene.SceneGraph->AppendChild(scene.LightNodes["default"]);
     }
     m_DirtyFlag = true;
 }

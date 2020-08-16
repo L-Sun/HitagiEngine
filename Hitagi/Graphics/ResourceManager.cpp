@@ -1,5 +1,7 @@
 #include "ResourceManager.hpp"
 
+#include <spdlog/spdlog.h>
+
 namespace Hitagi::Graphics {
 const MeshBuffer& ResourceManager::GetMeshBuffer(Asset::SceneObjectMesh& mesh) {
     auto id = mesh.GetGuid();
@@ -31,7 +33,11 @@ const TextureBuffer& ResourceManager::GetTextureBuffer(Asset::SceneObjectTexture
     if (m_TextureBuffer.count(id) != 0)
         return m_TextureBuffer.at(id);
 
-    auto&  image = texture.GetTextureImage();
+    auto& image = texture.GetTextureImage();
+    if (image.Empty()) {
+        spdlog::get("GraphicsManager")->warn("Texture({}) is empty. Program will use default texture instead.");
+        return GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+    }
     Format format;
     if (auto bitCount = image.GetBitcount(); bitCount == 8)
         format = Format::R8_UNORM;
