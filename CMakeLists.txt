@@ -15,6 +15,7 @@ find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
 find_package(GTest CONFIG REQUIRED)
+include(CTest)
 
 add_subdirectory(Hitagi)
 add_subdirectory(Test)
