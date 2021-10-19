@@ -86,8 +86,7 @@
         "numbers": "cpp"
     },
     "cmake.configureArgs": [
-        "-DCMAKE_TOOLCHAIN_FILE=E:/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "-DCMAKE_TOOLCHAIN_FILE=C:/Users/L-Sun/workspace/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
-    ],
-    "http.proxy": "http://127.0.0.1:1080"
+    ]
 }

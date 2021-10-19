@@ -39,17 +39,6 @@ Hitagi Engine是以C++20开发的实验性游戏引擎，基本架构参考[从�
 并安装Vcpkg，具体方式请访问 [https://github.com/Microsoft/vcpkg](https://github.com/Microsoft/vcpkg)
 
 
-此时在Vcpkg中以x64-windows下载安装如下第三方库
-1. crossguid
-2. zlib
-3. libjpeg-turbo
-4. libpng
-5. assimp
-6. freetype
-7. fmt
-8. spdlog
-9. gtest
-
 命令为
 ```
 vcpkg.exe install --triplet x64-windows crossguid zlib libjpeg-turbo libpng assimp freetype fmt spdlog gtest
