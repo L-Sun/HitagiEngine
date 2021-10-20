@@ -49,7 +49,7 @@ ConstantBuffer::ConstantBuffer(std::string_view name, ID3D12Device* device, Desc
 }
 
 void ConstantBuffer::UpdataData(size_t offset, const uint8_t* data, size_t dataSize) {
-    std::copy_n(data, dataSize, m_CpuPtr + offset);
+    std::copy_n(data, dataSize, m_CpuPtr + offset * m_BlockSize);
 }
 
 ConstantBuffer::~ConstantBuffer() {

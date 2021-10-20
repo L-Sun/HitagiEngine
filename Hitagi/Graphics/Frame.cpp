@@ -35,8 +35,6 @@ void Frame::SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
 
             // need update
             ConstantData data{node.GetCalculatedTransform()};
-            if (m_Driver.GetType() == backend::APIType::DirectX12)
-                data.transform = transpose(data.transform);
             m_Driver.UpdateConstantBuffer(m_ConstantBuffer, constantOffset, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
             item.constantOffset = constantOffset;
             constantOffset++;
@@ -100,14 +98,14 @@ void Frame::SetCamera(Asset::SceneCameraNode& camera) {
     data.projView      = data.projection * data.view;
     data.invProjView   = inverse(data.projView);
 
-    if (m_Driver.GetType() == backend::APIType::DirectX12) {
-        data.view          = transpose(data.view);
-        data.projection    = transpose(data.projection);
-        data.invView       = transpose(data.invView);
-        data.invProjection = transpose(data.invProjection);
-        data.projView      = transpose(data.projView);
-        data.invProjView   = transpose(data.invProjView);
-    }
+    // if (m_Driver.GetType() == backend::APIType::DirectX12) {
+    //     data.view          = transpose(data.view);
+    //     data.projection    = transpose(data.projection);
+    //     data.invView       = transpose(data.invView);
+    //     data.invProjection = transpose(data.invProjection);
+    //     data.projView      = transpose(data.projView);
+    //     data.invProjView   = transpose(data.invProjView);
+    // }
 
     m_Driver.UpdateConstantBuffer(m_FrameConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
 }

@@ -2,7 +2,7 @@
 
 #include "GpuBuffer.hpp"
 #include "CommandContext.hpp"
-#include "Sampler.cpp"
+#include "Sampler.hpp"
 
 #include <windef.h>
 
@@ -324,9 +324,9 @@ void DX12DriverAPI::CreatePipelineState(const Graphics::PipelineState& pso) {
         desc.InputSlot                = layout.inputSlot;
         desc.AlignedByteOffset        = layout.alignedByOffset;
         desc.InputSlotClass           = layout.instanceCount.has_value()
-                                  ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA
-                                  : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-        desc.InstanceDataStepRate = layout.instanceCount.has_value() ? layout.instanceCount.value() : 0;
+                                            ? D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA
+                                            : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+        desc.InstanceDataStepRate     = layout.instanceCount.has_value() ? layout.instanceCount.value() : 0;
         inputDesc.emplace_back(std::move(desc));
     }
 
@@ -336,11 +336,12 @@ void DX12DriverAPI::CreatePipelineState(const Graphics::PipelineState& pso) {
     gpso.SetRootSignature(sig);
     gpso.SetBlendState(CD3DX12_BLEND_DESC(D3D12_DEFAULT));
     auto depth        = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-    depth.DepthEnable = pso.GetDepthBufferFormat() != Graphics::Format::UNKNOWN;
+    depth.DepthEnable = false;
     gpso.SetDepthStencilState(depth);
     gpso.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
-    auto raDesc                  = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-    raDesc.FrontCounterClockwise = true;
+    auto raDesc     = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    raDesc.CullMode = D3D12_CULL_MODE_NONE;
+    raDesc.FillMode = D3D12_FILL_MODE_WIREFRAME;
     gpso.SetRasterizerState(raDesc);
     gpso.SetRenderTargetFormats({ToDxgiFormat(pso.GetRenderTargetFormat())}, ToDxgiFormat(pso.GetDepthBufferFormat()));
     gpso.SetSampleMask(UINT_MAX);

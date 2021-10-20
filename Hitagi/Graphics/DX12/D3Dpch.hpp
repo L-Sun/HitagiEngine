@@ -23,6 +23,9 @@
 #include "d3dx12.h"
 #include <dxgi1_6.h>
 
+#undef near
+#undef far
+
 using namespace Microsoft::WRL;
 
 #define D3D12_GPU_VIRTUAL_ADDRESS_NULL ((D3D12_GPU_VIRTUAL_ADDRESS)0)

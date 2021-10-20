@@ -7,7 +7,7 @@ using namespace Hitagi;
 
 int MyTest::Initialize() {
     m_Logger = spdlog::stdout_color_mt("MyTest");
-    g_SceneManager->SetScene("Asset/Scene/spot.fbx");
+    g_SceneManager->SetScene("Asset/Scene/untitled.fbx");
     g_InputManager->Map(DEBUG_TOGGLE, VirtualKeyCode::KEY_SPACE);
 
     g_InputManager->Map(MOVE_LEFT, VirtualKeyCode::KEY_A);

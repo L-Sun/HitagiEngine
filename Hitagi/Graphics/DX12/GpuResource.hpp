@@ -1,6 +1,7 @@
 #pragma once
-#include "D3Dpch.hpp"
+
 #include "../Resource.hpp"
+#include "D3Dpch.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
 

@@ -32,6 +32,8 @@ int GraphicsManager::Initialize() {
 
     // Initialize Shader Manader
     m_ShaderManager.Initialize();
+
+    // TODO get and load all shader from AssetManager
     m_ShaderManager.LoadShader("Asset/Shaders/color.vs", ShaderType::VERTEX);
     m_ShaderManager.LoadShader("Asset/Shaders/color.ps", ShaderType::PIXEL);
 
@@ -51,11 +53,11 @@ int GraphicsManager::Initialize() {
         .Add("BaseSampler", ShaderVariableType::Sampler, 0, 0)
         .Create(*m_Driver);
 
-    m_PSO     = std::make_unique<PipelineState>("Color");
-    auto& pso = *m_PSO;
-    pso.SetInputLayout({{"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0},
-                        {"NORMAL", 0, Format::R32G32B32_FLOAT, 1, 0},
-                        {"TEXCOORD", 0, Format::R32G32_FLOAT, 2, 0}})
+    m_PSO = std::make_unique<PipelineState>("Color");
+    (*m_PSO)
+        .SetInputLayout({{"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0},
+                         {"NORMAL", 0, Format::R32G32B32_FLOAT, 1, 0},
+                         {"TEXCOORD", 0, Format::R32G32_FLOAT, 2, 0}})
         .SetVertexShader(m_ShaderManager.GetVertexShader("color.vs"))
         .SetPixelShader(m_ShaderManager.GetPixelShader("color.ps"))
         .SetRootSignautre(rootSig)
@@ -105,9 +107,11 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     frame->WaitLastDraw();
 
     auto     camera = scene.GetFirstCameraNode();
-    uint32_t h      = config.screenWidth / camera->GetSceneObjectRef().lock()->GetAspect();
-    uint32_t y      = (config.screenHeight - h) >> 1;
-    context->SetViewPort(0, y, config.screenWidth, h);
+    uint32_t width  = config.screenWidth;
+    uint32_t height = config.screenWidth / camera->GetSceneObjectRef().lock()->GetAspect();
+
+    // make view port vertical align
+    context->SetViewPort(0, (config.screenHeight - height) >> 1, width, height);
 
     frame->SetGeometries(scene.GetGeometries());
     frame->SetCamera(*camera);
@@ -125,8 +129,8 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
         [&](FrameGraph::Builder& builder, PassData& data) {
             data.depthBuffer = builder.Create<DepthBuffer>(DepthBuffer::Description{
                 Format::D32_FLOAT,
-                config.screenWidth,
-                config.screenWidth,
+                width,
+                height,
                 1.0f,
                 0});
             data.depthBuffer = builder.Write(data.depthBuffer);

@@ -9,6 +9,7 @@
         "libpng",
         "assimp",
         "freetype",
+        "fmt",
         "spdlog",
         "gtest"
     ]

@@ -25,6 +25,7 @@ public:
 
     RenderTarget& GetRenerTarget() { return m_Output; }
 
+    // TODO multiple light
     struct FrameConstant {
         // Camera
         mat4f projView;

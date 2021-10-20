@@ -27,7 +27,7 @@ void DebugManager::Tick() {
 
 void DebugManager::ToggleDebugInfo() {
 #if defined(_DEBUG)
-
+    m_Logger->info("Toggle Debug Info");
 #endif
 }
 
