@@ -20,7 +20,7 @@
                     "value": "$PATH:${command:cmake.launchTargetDirectory}"
                 },
             ],
-            "console": "newExternalWindow",
+            "console": "externalTerminal",
             "logging": {
                 "moduleLoad": true
             }

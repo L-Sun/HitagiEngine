@@ -1,8 +1,8 @@
-add_executable(MyTest 
-    MyTest.cpp
-    MyTestConfig.cpp
+add_executable(MyGame 
+    MyGame.cpp
+    MyGameConfig.cpp
 )
-target_link_libraries(MyTest
+target_link_libraries(MyGame
     PRIVATE
         HitagiEngine
         HitagiPhysics

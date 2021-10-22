@@ -48,7 +48,8 @@ private:
 
     using BlockSize   = size_t;
     using BlockOffset = size_t;
-    using SizeIter    = std::multimap<size_t, size_t>::iterator;
+    // TODO iter will change if the map is reallocated.
+    using SizeIter = std::multimap<size_t, size_t>::iterator;
 
     std::map<BlockOffset, SizeIter>       m_AvailableDescriptors;
     std::multimap<BlockSize, BlockOffset> m_SearchMap;

@@ -1,12 +1,12 @@
-#include "MyTest.hpp"
+#include "MyGame.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 using namespace Hitagi;
 
-int MyTest::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("MyTest");
+int MyGame::Initialize() {
+    m_Logger = spdlog::stdout_color_mt("MyGame");
     g_SceneManager->SetScene("Asset/Scene/untitled.fbx");
     g_InputManager->Map(DEBUG_TOGGLE, VirtualKeyCode::KEY_SPACE);
 
@@ -27,12 +27,12 @@ int MyTest::Initialize() {
     return 0;
 }
 
-void MyTest::Finalize() {
-    m_Logger->info("MyTest Finalize");
+void MyGame::Finalize() {
+    m_Logger->info("MyGame Finalize");
     m_Logger = nullptr;
 }
 
-void MyTest::Tick() {
+void MyGame::Tick() {
     m_Clock.Tick();
     float deltaTime = m_Clock.deltaTime().count();
 
@@ -65,7 +65,7 @@ void MyTest::Tick() {
     }
 
     if (g_InputManager->GetBoolNew(RESET_SCENE)) {
-        // g_SceneManager->SetScene("Asset/Scene/spot.fbx");
+        g_SceneManager->SetScene("Asset/Scene/untitled.fbx");
         g_SceneManager->ResetScene();
     }
 }
