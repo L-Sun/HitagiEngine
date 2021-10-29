@@ -48,9 +48,11 @@ private:
 
     using BlockSize   = size_t;
     using BlockOffset = size_t;
-    // TODO iter will change if the map is reallocated.
-    using SizeIter = std::multimap<size_t, size_t>::iterator;
+    using SizeIter    = std::multimap<size_t, size_t>::iterator;
 
+    // * according to cpp17 std www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/n4659.pdf [26.2.6/9] [26.2.6/10]
+    // * For associative containers `insert` and `emplace` members shall not affect the validity of iterators to the container
+    // * and `erase` and `extract` members invalidate only iterators to the erased elements that we will not use in the future
     std::map<BlockOffset, SizeIter>       m_AvailableDescriptors;
     std::multimap<BlockSize, BlockOffset> m_SearchMap;
 };
