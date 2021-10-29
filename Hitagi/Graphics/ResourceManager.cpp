@@ -82,6 +82,7 @@ const TextureSampler& ResourceManager::GetSampler(std::string_view name) {
     const std::string _name(name);
     if (m_Samplers.count(_name) != 0) return m_Samplers.at(_name);
 
+    // TODO should throw error
     m_Samplers.emplace(name, m_Driver.CreateSampler(name, {}));
     return m_Samplers.at(_name);
 }
