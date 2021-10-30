@@ -2,7 +2,12 @@
 #include "Vector.hpp"
 
 namespace Hitagi {
-struct Geometry {};
+class Geometry {
+public:
+    virtual ~Geometry(){};
+
+private:
+};
 
 struct Point : public Geometry {
     Point(const vec3f& point) : point(point) {}

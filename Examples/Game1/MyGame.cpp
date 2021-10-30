@@ -40,28 +40,16 @@ void MyGame::Tick() {
         g_DebugManager->ToggleDebugInfo();
     }
 
-    if (auto camera = g_SceneManager->GetCameraNode().lock()) {
-        auto  position = camera->GetCameraPosition();
-        auto  front    = camera->GetCameraLookAt();
-        auto  right    = camera->GetCameraRight();
-        float phi      = 0;
-        float theta    = 0;
-        camera->ApplyTransform(translate(rotateZ(rotate(translate(mat4f(1.0f), -position), theta, right), phi), position));
+    if (auto light = g_SceneManager->GetSceneLightNode("Light.001").lock()) {
+        vec3f translation;
+        if (g_InputManager->GetBool(MOVE_LEFT)) translation.x -= 0.1f;
+        if (g_InputManager->GetBool(MOVE_RIGHT)) translation.x += 0.1f;
+        if (g_InputManager->GetBool(MOVE_FRONT)) translation.y -= 0.1f;
+        if (g_InputManager->GetBool(MOVE_BACK)) translation.y += 0.1f;
+        if (g_InputManager->GetBool(MOVE_UP)) translation.z += 0.1f;
+        if (g_InputManager->GetBool(MOVE_DOWN)) translation.z -= 0.1f;
 
-        right = camera->GetCameraRight();
-        front = camera->GetCameraLookAt();
-        // Move in plane, so z is equal to zero
-        front.z = 0;
-        right.z = 0;
-        vec3f       move_vec(0.0f, 0.0f, 0.0f);
-        const float speed = 1;
-        if (g_InputManager->GetBool(MOVE_LEFT)) move_vec += -right;
-        if (g_InputManager->GetBool(MOVE_RIGHT)) move_vec += right;
-        if (g_InputManager->GetBool(MOVE_FRONT)) move_vec += front;
-        if (g_InputManager->GetBool(MOVE_BACK)) move_vec += -front;
-        if (g_InputManager->GetBool(MOVE_UP)) move_vec.z += 1;
-        if (g_InputManager->GetBool(MOVE_DOWN)) move_vec.z -= 1;
-        camera->ApplyTransform(translate(mat4f(1.0f), speed * deltaTime * move_vec));
+        light->ApplyTransform(translate(mat4f(1.0f), translation));
     }
 
     if (g_InputManager->GetBoolNew(RESET_SCENE)) {

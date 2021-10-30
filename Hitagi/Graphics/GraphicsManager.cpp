@@ -104,18 +104,10 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     auto  pso     = m_PSO.get();
     auto  context = driver->GetGraphicsCommandContext();
 
-    frame->WaitLastDraw();
-
     auto     camera = scene.GetFirstCameraNode();
     uint32_t width  = config.screenWidth;
     uint32_t height = config.screenWidth / camera->GetSceneObjectRef().lock()->GetAspect();
 
-    // make view port vertical align
-    context->SetViewPort(0, (config.screenHeight - height) >> 1, width, height);
-
-    frame->SetGeometries(scene.GetGeometries());
-    frame->SetCamera(*camera);
-    frame->SetLight(*scene.GetFirstLightNode());
     FrameGraph fg(*driver);
 
     struct PassData {
@@ -143,8 +135,17 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
             frame->Draw(context.get());
             context->Present(frame->GetRenerTarget());
         });
-
     fg.Compile();
+
+    frame->WaitLastDraw();
+
+    // make view port vertical align
+    context->SetViewPort(0, (config.screenHeight - height) >> 1, width, height);
+
+    frame->SetGeometries(scene.GetGeometries());
+    frame->SetCamera(*camera);
+    frame->SetLight(*scene.GetFirstLightNode());
+
     fg.Execute();
     uint64_t fenceValue = context->Finish();
     fg.Retire(fenceValue);

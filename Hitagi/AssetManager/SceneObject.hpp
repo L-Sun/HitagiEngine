@@ -154,7 +154,7 @@ struct ParameterValueMap {
     }
 };
 
-typedef ParameterValueMap<vec4f> Color;
+using Color     = ParameterValueMap<vec4f>;
 using Normal    = ParameterValueMap<vec3f>;
 using Parameter = ParameterValueMap<float>;
 

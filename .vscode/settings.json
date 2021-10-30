@@ -85,8 +85,7 @@
         "*.rh": "cpp",
         "numbers": "cpp"
     },
-    "cmake.configureArgs": [
-        "-DCMAKE_TOOLCHAIN_FILE=C:/Users/L-Sun/workspace/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
-    ]
+    "cmake.debugConfig": {
+        "cwd": "${workspaceFolder}"
+    },
 }

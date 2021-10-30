@@ -7,6 +7,7 @@ class ResourceManager {
 public:
     ResourceManager(backend::DriverAPI& driver) : m_Driver(driver) {}
 
+    // Get mesh buffer from gpu. It will create new buffer in gpu if the mesh is not in gpu.
     const MeshBuffer&     GetMeshBuffer(Asset::SceneObjectMesh& mesh);
     const TextureBuffer&  GetTextureBuffer(Asset::SceneObjectTexture& texture);
     const TextureBuffer&  GetDefaultTextureBuffer(Format format);
