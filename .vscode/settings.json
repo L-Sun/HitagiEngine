@@ -83,7 +83,11 @@
         "random": "cpp",
         "future": "cpp",
         "*.rh": "cpp",
-        "numbers": "cpp"
+        "numbers": "cpp",
+        "format": "cpp",
+        "regex": "cpp",
+        "charconv": "cpp",
+        "ranges": "cpp"
     },
     "cmake.debugConfig": {
         "cwd": "${workspaceFolder}"

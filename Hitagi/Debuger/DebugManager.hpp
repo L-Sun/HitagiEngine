@@ -4,14 +4,13 @@
 
 #include <chrono>
 
-namespace Hitagi {
+namespace Hitagi::Debugger {
+struct DebugPrimitive {
+    Geometry geometry;
+    vec4f    color;
+};
 
 class DebugManager : public IRuntimeModule {
-    struct DebugPrimitive {
-        Geometry geometry;
-        vec4f    color;
-    };
-
 public:
     int  Initialize() final;
     void Finalize() final;
@@ -28,5 +27,7 @@ protected:
     bool                        m_DrawDebugInfo = false;
 };
 
-extern std::unique_ptr<DebugManager> g_DebugManager;
-}  // namespace Hitagi
+}  // namespace Hitagi::Debugger
+namespace Hitagi {
+extern std::unique_ptr<Debugger::DebugManager> g_DebugManager;
+}

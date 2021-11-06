@@ -84,14 +84,25 @@ void DX12DriverAPI::CreateSwapChain(uint32_t width, uint32_t height, unsigned fr
     m_Viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, width, height);
 }
 
+Graphics::ResourceContainer DX12DriverAPI::GetSwapChainBuffer(size_t frameIndex) {
+    assert(m_SwapChain && "No swap chain created.");
+    ComPtr<ID3D12Resource> _res;
+    m_SwapChain->GetBuffer(frameIndex, IID_PPV_ARGS(&_res));
+    return {std::make_shared<GpuResource>("Swap chain buffer", _res.Detach())};
+}
+
 Graphics::RenderTarget DX12DriverAPI::CreateRenderTarget(std::string_view name, const Graphics::RenderTarget::Description& desc) {
     D3D12_RESOURCE_DESC _desc = {};
+    _desc.Dimension           = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    _desc.SampleDesc.Count    = 1;
+    _desc.SampleDesc.Quality  = 0;
     _desc.Width               = desc.width;
     _desc.Height              = desc.height;
     _desc.DepthOrArraySize    = 1;
+    _desc.Flags               = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     _desc.Format              = ToDxgiFormat(desc.format);
 
-    return {std::make_unique<RenderTarget>(
+    return {std::make_shared<RenderTarget>(
         name,
         m_Device.Get(),
         m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(),
@@ -102,7 +113,7 @@ Graphics::RenderTarget DX12DriverAPI::CreateRenderFromSwapChain(size_t frameInde
     assert(m_SwapChain && "No swap chain created.");
     ComPtr<ID3D12Resource> res;
     m_SwapChain->GetBuffer(frameIndex, IID_PPV_ARGS(&res));
-    return {std::make_unique<RenderTarget>(
+    return {std::make_shared<RenderTarget>(
         "RT for SwapChain",
         m_Device.Get(),
         m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(),
@@ -110,7 +121,7 @@ Graphics::RenderTarget DX12DriverAPI::CreateRenderFromSwapChain(size_t frameInde
 }
 
 Graphics::VertexBuffer DX12DriverAPI::CreateVertexBuffer(size_t vertexCount, size_t vertexSize, const uint8_t* initialData) {
-    auto buffer = std::make_unique<VertexBuffer>(m_Device.Get(), "Vertex", vertexCount, vertexSize);
+    auto buffer = std::make_shared<VertexBuffer>(m_Device.Get(), "Vertex", vertexCount, vertexSize);
     if (initialData) {
         CopyCommandContext context(*this);
         context.InitializeBuffer(*buffer, initialData, buffer->GetBufferSize());
@@ -119,7 +130,7 @@ Graphics::VertexBuffer DX12DriverAPI::CreateVertexBuffer(size_t vertexCount, siz
 }
 
 Graphics::IndexBuffer DX12DriverAPI::CreateIndexBuffer(size_t indexCount, size_t indexSize, const uint8_t* initialData) {
-    auto buffer = std::make_unique<IndexBuffer>(m_Device.Get(), "Index", indexCount, indexSize);
+    auto buffer = std::make_shared<IndexBuffer>(m_Device.Get(), "Index", indexCount, indexSize);
     if (initialData) {
         CopyCommandContext context(*this);
         context.InitializeBuffer(*buffer, initialData, buffer->GetBufferSize());
@@ -129,7 +140,7 @@ Graphics::IndexBuffer DX12DriverAPI::CreateIndexBuffer(size_t indexCount, size_t
 
 Graphics::ConstantBuffer DX12DriverAPI::CreateConstantBuffer(std::string_view name, size_t numElements, size_t elementSize) {
     return {
-        std::make_unique<ConstantBuffer>(
+        std::make_shared<ConstantBuffer>(
             name,
             m_Device.Get(),
             m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV],
@@ -150,7 +161,7 @@ Graphics::TextureBuffer DX12DriverAPI::CreateTextureBuffer(std::string_view name
     _desc.SampleDesc.Quality  = desc.sampleQuality;
     _desc.Dimension           = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
-    auto buffer = std::make_unique<TextureBuffer>(
+    auto buffer = std::make_shared<TextureBuffer>(
         name,
         m_Device.Get(),
         m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Allocate(),
@@ -169,7 +180,7 @@ Graphics::TextureBuffer DX12DriverAPI::CreateTextureBuffer(std::string_view name
 Graphics::DepthBuffer DX12DriverAPI::CreateDepthBuffer(std::string_view name, const Graphics::DepthBuffer::Description& desc) {
     auto _desc  = CD3DX12_RESOURCE_DESC::Tex2D(ToDxgiFormat(desc.format), desc.width, desc.height);
     _desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-    return {std::make_unique<DepthBuffer>(
+    return {std::make_shared<DepthBuffer>(
         name,
         m_Device.Get(),
         m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_DSV].Allocate(),

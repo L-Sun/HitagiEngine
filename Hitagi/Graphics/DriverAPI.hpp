@@ -29,6 +29,8 @@ public:
     virtual TextureBuffer  CreateTextureBuffer(std::string_view name, const TextureBuffer::Description& desc)                 = 0;
     virtual DepthBuffer    CreateDepthBuffer(std::string_view name, const DepthBuffer::Description& desc)                     = 0;
 
+    virtual ResourceContainer GetSwapChainBuffer(size_t frameIndex) = 0;
+
     virtual void UpdateConstantBuffer(ConstantBuffer& buffer, size_t offset, const uint8_t* src, size_t size) = 0;
 
     virtual void RetireResources(std::vector<ResourceContainer>&& resources, uint64_t fenceValue) = 0;

@@ -26,6 +26,8 @@ public:
     Graphics::TextureBuffer  CreateTextureBuffer(std::string_view name, const Graphics::TextureBuffer::Description& desc) final;
     Graphics::DepthBuffer    CreateDepthBuffer(std::string_view name, const Graphics::DepthBuffer::Description& desc) final;
 
+    Graphics::ResourceContainer GetSwapChainBuffer(size_t frameIndex) final;
+
     void UpdateConstantBuffer(Graphics::ConstantBuffer& buffer, size_t offset, const uint8_t* data, size_t size) final;
 
     void RetireResources(std::vector<Graphics::ResourceContainer>&& resources, uint64_t fenceValue) final;

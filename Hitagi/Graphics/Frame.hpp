@@ -12,19 +12,6 @@ class DriverAPI;
 class IGraphicsCommandContext;
 
 class Frame {
-public:
-    Frame(backend::DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex);
-
-    void SetFenceValue(uint64_t fenceValue) { m_FenceValue = fenceValue; }
-    void SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries);
-    void SetCamera(Asset::SceneCameraNode& camera);
-    void SetLight(Asset::SceneLightNode& light);
-    void Draw(IGraphicsCommandContext* context);
-
-    void WaitLastDraw();
-
-    RenderTarget& GetRenerTarget() { return m_Output; }
-
     // TODO multiple light
     struct FrameConstant {
         // Camera
@@ -67,6 +54,19 @@ public:
         std::vector<MeshInfo> meshes;
         size_t                constantOffset;
     };
+
+public:
+    Frame(backend::DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex);
+
+    void SetFenceValue(uint64_t fenceValue) { m_FenceValue = fenceValue; }
+    void SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries);
+    void SetCamera(Asset::SceneCameraNode& camera);
+    void SetLight(Asset::SceneLightNode& light);
+    void Draw(IGraphicsCommandContext* context);
+
+    void WaitLastDraw();
+
+    RenderTarget& GetRenderTarget() { return m_Output; }
 
 private:
     backend::DriverAPI& m_Driver;

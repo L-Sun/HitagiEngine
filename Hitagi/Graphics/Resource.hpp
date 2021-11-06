@@ -10,6 +10,7 @@ namespace Hitagi::Graphics {
 class Resource {
 public:
     Resource(std::string_view name) : name(name) {}
+    const std::string& GetName() const noexcept { return name; }
     virtual ~Resource() = default;
 
 protected:
@@ -19,7 +20,7 @@ protected:
 class ResourceContainer {
 public:
     ResourceContainer() = default;
-    ResourceContainer(std::unique_ptr<Resource>&& res) : m_Resource(std::move(res)) {}
+    ResourceContainer(std::shared_ptr<Resource> res) : m_Resource(std::move(res)) {}
 
     Resource*       GetResource() noexcept { return m_Resource.get(); }
     const Resource* GetResource() const noexcept { return m_Resource.get(); }
@@ -27,7 +28,7 @@ public:
     operator bool() const noexcept { return m_Resource != nullptr; }
 
 protected:
-    std::unique_ptr<Resource> m_Resource;
+    std::shared_ptr<Resource> m_Resource = nullptr;
 };
 
 class VertexBuffer : public ResourceContainer {
@@ -46,7 +47,7 @@ struct MeshBuffer {
 class ConstantBuffer : public ResourceContainer {
 public:
     ConstantBuffer() = default;
-    ConstantBuffer(std::unique_ptr<Resource>&& res, size_t numElement, size_t elementSize)
+    ConstantBuffer(std::shared_ptr<Resource> res, size_t numElement, size_t elementSize)
         : ResourceContainer(std::move(res)), m_NumElements(numElement), m_ElementSize(elementSize) {}
 
     size_t GetNumElements() const { return m_NumElements; }
@@ -65,7 +66,7 @@ public:
         uint32_t       width;
         uint32_t       height;
         uint32_t       pitch;
-        unsigned       mipLevel=1;
+        unsigned       mipLevel        = 1;
         unsigned       sampleCount     = 1;
         unsigned       sampleQuality   = 0;
         const uint8_t* initialData     = nullptr;

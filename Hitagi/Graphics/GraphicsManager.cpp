@@ -26,9 +26,9 @@ int GraphicsManager::Initialize() {
     m_ResMgr = std::make_unique<ResourceManager>(*m_Driver);
 
     // Initialize frame
-    m_Driver->CreateSwapChain(config.screenWidth, config.screenHeight, m_Frame.size(), Format::R8G8B8A8_UNORM, g_App->GetWindow());
-    for (size_t frameIndex = 0; frameIndex < m_Frame.size(); frameIndex++)
-        m_Frame[frameIndex] = std::make_unique<Frame>(*m_Driver, *m_ResMgr, frameIndex);
+    m_Driver->CreateSwapChain(config.screenWidth, config.screenHeight, sm_SwapChianSize, Format::R8G8B8A8_UNORM, g_App->GetWindow());
+    for (size_t index = 0; index < sm_SwapChianSize; index++)
+        m_Frames.at(index) = std::make_unique<Frame>(*m_Driver, *m_ResMgr, index);
 
     // Initialize Shader Manader
     m_ShaderManager.Initialize();
@@ -64,6 +64,7 @@ int GraphicsManager::Initialize() {
         .SetRenderFormat(Format::R8G8B8A8_UNORM)
         .SetDepthBufferFormat(Format::D32_FLOAT)
         .Create(*m_Driver);
+    // TODO end
 
     return 0;
 }
@@ -77,7 +78,7 @@ void GraphicsManager::Finalize() {
 
         m_PSO    = nullptr;
         m_ResMgr = nullptr;
-        for (auto&& frame : m_Frame)
+        for (auto&& frame : m_Frames)
             frame = nullptr;
 
         m_Driver = nullptr;
@@ -91,54 +92,27 @@ void GraphicsManager::Finalize() {
 }
 
 void GraphicsManager::Tick() {
-    Render(g_SceneManager->GetSceneForRendering());
+    const Asset::Scene& scene = g_SceneManager->GetSceneForRendering();
+    // TODO change the parameter to View, if multiple view port is finished
+    // views = g_App->GetViewsForRendering();
+    // rendertargets =  views.foreach(view : Render(view))
+    // ...
+    Render(scene);
     m_Driver->Present(m_CurrBackBuffer);
-    m_CurrBackBuffer = (m_CurrBackBuffer + 1) % m_Frame.size();
+    m_CurrBackBuffer = (m_CurrBackBuffer + 1) % sm_SwapChianSize;
 }
 
 void GraphicsManager::Render(const Asset::Scene& scene) {
     auto& config  = g_App->GetConfiguration();
     auto  driver  = m_Driver.get();
     auto  resMgr  = m_ResMgr.get();
-    auto  frame   = m_Frame[m_CurrBackBuffer].get();
     auto  pso     = m_PSO.get();
+    auto  frame   = m_Frames.at(m_CurrBackBuffer).get();
     auto  context = driver->GetGraphicsCommandContext();
 
     auto     camera = scene.GetFirstCameraNode();
     uint32_t width  = config.screenWidth;
     uint32_t height = config.screenWidth / camera->GetSceneObjectRef().lock()->GetAspect();
-
-    FrameGraph fg(*driver);
-
-    struct PassData {
-        FrameHandle depthBuffer;
-    };
-
-    // color pass
-    auto colorPass = fg.AddPass<PassData>(
-        "ColorPass",
-        // Setup function
-        [&](FrameGraph::Builder& builder, PassData& data) {
-            data.depthBuffer = builder.Create<DepthBuffer>(DepthBuffer::Description{
-                Format::D32_FLOAT,
-                width,
-                height,
-                1.0f,
-                0});
-            data.depthBuffer = builder.Write(data.depthBuffer);
-        },
-        // Excute function
-        [=](const ResourceHelper& helper, PassData& data) {
-            context->SetRenderTargetAndDepthBuffer(frame->GetRenerTarget(), helper.Get<DepthBuffer>(data.depthBuffer));
-            context->SetPipelineState(*pso);
-            context->SetParameter("BaseSampler", resMgr->GetSampler("BaseSampler"));
-            frame->Draw(context.get());
-            context->Present(frame->GetRenerTarget());
-        });
-    fg.Compile();
-
-    frame->WaitLastDraw();
-
     // make view port vertical align
     context->SetViewPort(0, (config.screenHeight - height) >> 1, width, height);
 
@@ -146,10 +120,51 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     frame->SetCamera(*camera);
     frame->SetLight(*scene.GetFirstLightNode());
 
-    fg.Execute();
-    uint64_t fenceValue = context->Finish();
-    fg.Retire(fenceValue);
-    frame->SetFenceValue(fenceValue);
+    FrameGraph fg;
+
+    auto renderTargetHandle = fg.Import(frame->GetRenderTarget());
+
+    struct PassData {
+        FrameHandle depthBuffer;
+        FrameHandle output;
+    };
+
+    // color pass
+    auto colorPass = fg.AddPass<PassData>(
+        "ColorPass",
+        // Setup function
+        [&](FrameGraph::Builder& builder, PassData& data) {
+            data.depthBuffer = builder.Create<DepthBuffer>(
+                "DepthBuffer",
+                DepthBuffer::Description{
+                    .format       = Format::D32_FLOAT,
+                    .width        = width,
+                    .height       = height,
+                    .clearDepth   = 1.0f,
+                    .clearStencil = 0,
+                });
+            data.depthBuffer = builder.Write(data.depthBuffer);
+            data.output      = builder.Write(renderTargetHandle);
+        },
+        // Excute function
+        [=](const ResourceHelper& helper, PassData& data) {
+            auto& deepthBuffer = helper.Get<DepthBuffer>(data.depthBuffer);
+            auto& renderTarget = helper.Get<RenderTarget>(data.output);
+            context->SetRenderTargetAndDepthBuffer(renderTarget, deepthBuffer);
+
+            context->SetPipelineState(*pso);
+            context->SetParameter("BaseSampler", resMgr->GetSampler("BaseSampler"));
+            frame->Draw(context.get());
+            context->Present(renderTarget);
+        });
+
+    fg.Compile();
+
+    frame->WaitLastDraw();
+    fg.Execute(*driver);
+    uint64_t fence = context->Finish();
+    frame->SetFenceValue(fence);
+    fg.Retire(fence, *driver);
 }
 
 }  // namespace Hitagi::Graphics
