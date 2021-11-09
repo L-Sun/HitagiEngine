@@ -1,8 +1,9 @@
 #include "RootSignature.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
-RootSignature::RootSignature(uint32_t numRootParams, uint32_t numStaticSamplers)
-    : m_RootSignature(nullptr),
+RootSignature::RootSignature(std::string_view name, uint32_t numRootParams, uint32_t numStaticSamplers)
+    : m_Name(name),
+      m_RootSignature(nullptr),
       m_NumParameters(numRootParams),
       m_NumSamplers(numStaticSamplers),
       m_NumInitializedStaticSamplers(numStaticSamplers) {
@@ -129,6 +130,8 @@ void RootSignature::Finalize(
 
     ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
                                               rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
+
+    m_RootSignature->SetName(std::wstring(m_Name.begin(), m_Name.end()).data());
 
     m_Finalized = true;
 }

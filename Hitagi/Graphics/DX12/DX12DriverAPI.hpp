@@ -34,10 +34,10 @@ public:
 
     virtual Graphics::TextureSampler CreateSampler(std::string_view name, const Graphics::TextureSampler::Description& desc) final;
 
-    void CreateRootSignature(const Graphics::RootSignature& signature) final;
-    void DeleteRootSignature(const Graphics::RootSignature& signature) final;
-    void CreatePipelineState(const Graphics::PipelineState& pso) final;
-    void DeletePipelineState(const Graphics::PipelineState& pso) final;
+    Graphics::RootSignature CreateRootSignature(const Graphics::RootSignature& signature) final;
+    void                    DeleteRootSignature(const Graphics::RootSignature& signature) final;
+    void                    CreatePipelineState(const Graphics::PipelineState& pso) final;
+    void                    DeletePipelineState(const Graphics::PipelineState& pso) final;
 
     std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() final;
 
@@ -79,8 +79,8 @@ private:
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_RTV},
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_DSV}};
 
-    std::unordered_map<size_t, RootSignature>    m_RootSignatures;
-    std::unordered_map<std::string, GraphicsPSO> m_Pso;
+    std::unordered_map<Graphics::RootSignature, RootSignature> m_RootSignatures;
+    std::unordered_map<std::string, GraphicsPSO>               m_Pso;
 
     // resource will release after fence complete
     std::queue<std::pair<uint64_t, std::vector<Graphics::Resource>>> m_RetireResources;

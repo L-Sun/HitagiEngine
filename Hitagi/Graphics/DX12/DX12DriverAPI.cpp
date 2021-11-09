@@ -314,8 +314,8 @@ void DX12DriverAPI::CreateRootSignature(const Graphics::RootSignature& signature
         }
     }
 
-    m_RootSignatures.emplace(signature.Id(), RootSignature(tables.size()));
-    auto& sig = m_RootSignatures[signature.Id()];
+    auto  index = m_RootSignatures.size();
+    auto& sig   = m_RootSignatures.emplace_back(signature.GetName(), tables.size());
     for (size_t i = 0; i < tables.size(); i++) {
         sig[i].InitAsDescriptorTable(tables[i].ranges.size(), visibilityCast.at(tables[i].visibility));
         size_t offset = 0;

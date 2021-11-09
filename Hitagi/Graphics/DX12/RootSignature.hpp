@@ -1,6 +1,8 @@
 #pragma once
 #include "D3Dpch.hpp"
 
+#include "../Pipelinestate.hpp"
+
 namespace Hitagi::Graphics::backend::DX12 {
 struct RootParameter : public CD3DX12_ROOT_PARAMETER1 {
 public:
@@ -29,12 +31,12 @@ public:
     }
 };
 
-class RootSignature {
+class RootSignature : Graphics::RootSignature {
 public:
     // the info of parameter in descriptor table. (rootIndex, offset)
     using ParameterTable = std::unordered_map<std::string, std::pair<size_t, size_t>>;
 
-    RootSignature(uint32_t numRootParams = 0, uint32_t numStaticSamplers = 0);
+    RootSignature(std::string_view name, uint32_t numRootParams = 0, uint32_t numStaticSamplers = 0);
     ~RootSignature()                    = default;
     RootSignature(const RootSignature&) = delete;
     RootSignature& operator=(const RootSignature&) = delete;
@@ -79,6 +81,8 @@ public:
 
 private:
     bool m_Finalized = false;
+
+    std::string m_Name;
 
     D3D12_ROOT_SIGNATURE_DESC1                  m_RootSignatureDesc{};
     Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;

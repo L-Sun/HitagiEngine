@@ -52,21 +52,21 @@ class RootSignature {
             // sort priority order: visibility > type > space > registerkkl
             return visibility != rhs.visibility
                        ? static_cast<int>(visibility) < static_cast<int>(rhs.visibility)
-                       : type != rhs.type
-                             ? static_cast<int>(type) < static_cast<int>(rhs.type)
-                             : space != rhs.space
-                                   ? space < rhs.space
-                                   : registerIndex < rhs.registerIndex;
+                   : type != rhs.type
+                       ? static_cast<int>(type) < static_cast<int>(rhs.type)
+                   : space != rhs.space
+                       ? space < rhs.space
+                       : registerIndex < rhs.registerIndex;
         }
     };
 
 public:
-    RootSignature();
-    RootSignature(const RootSignature&);
-    RootSignature(RootSignature&&);
+    RootSignature(std::string_view name);
+    RootSignature(const RootSignature&) = delete;
     RootSignature& operator=(const RootSignature&) = delete;
-    RootSignature& operator=(RootSignature&&) = delete;
-    ~RootSignature();
+    RootSignature(RootSignature&&);
+    RootSignature& operator  =(RootSignature&&);
+    virtual ~RootSignature() = default;
 
     RootSignature& Add(
         std::string_view   name,
@@ -74,19 +74,18 @@ public:
         unsigned           registerIndex,
         unsigned           space,
         ShaderVisibility   visibility = ShaderVisibility::All);
-    void Create(backend::DriverAPI& driver);
+    RootSignature& Create();
 
-    size_t Id() const noexcept { return m_Id; }
-    auto&  GetParametes() const noexcept { return m_ParameterTable; }
+    inline const std::string& GetName() const noexcept { return m_Name; }
+    inline auto&              GetParametes() const noexcept { return m_ParameterTable; }
 
     operator bool() const noexcept { return m_Created; }
 
-private:
-    static size_t GetNewId();
+protected:
+    virtual void Finish() = 0;
 
-    backend::DriverAPI* m_Driver  = nullptr;
+    std::string         m_Name;
     bool                m_Created = false;
-    size_t              m_Id;
     std::set<Parameter> m_ParameterTable;
 };
 

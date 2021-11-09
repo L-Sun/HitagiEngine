@@ -64,9 +64,18 @@ int GraphicsManager::Initialize() {
         .SetRenderFormat(Format::R8G8B8A8_UNORM)
         .SetDepthBufferFormat(Format::D32_FLOAT)
         .Create(*m_Driver);
-    // TODO end
 
-    return 0;
+    auto debugRootSig = std::make_shared<RootSignature>();
+    m_DebugPSO = std::make_unique<PipelineState>("Debug");
+    (*m_DebugPSO)
+        .SetInputLayout({{"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0},
+                         {"COLOR", 0, Format::R32G32B32_FLOAT, 1, 0}})
+        .SetVertexShader(m_ShaderManager.GetVertexShader("debug.vs"))
+        .SetPixelShader(m_ShaderManager.GetPixelShader("debug.ps"))
+
+        // TODO end
+
+        return 0;
 }
 
 void GraphicsManager::Finalize() {

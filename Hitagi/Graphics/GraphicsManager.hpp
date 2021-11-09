@@ -28,7 +28,9 @@ protected:
     static constexpr Format  sm_BackBufferFormat = Format::R8G8B8A8_UNORM;
     int                      m_CurrBackBuffer    = 0;
 
+    // TODO use file to descript pipeline object
     std::unique_ptr<PipelineState> m_PSO;
+    std::unique_ptr<PipelineState> m_DebugPSO;
     ShaderManager                  m_ShaderManager;
 
     // TODO multiple RenderTarget is need if the application has multiple view port

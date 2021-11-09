@@ -38,10 +38,10 @@ public:
     virtual TextureSampler CreateSampler(std::string_view name, const TextureSampler::Description& desc) = 0;
 
     // Pipeline
-    virtual void CreateRootSignature(const RootSignature& signature) = 0;
-    virtual void DeleteRootSignature(const RootSignature& signature) = 0;
-    virtual void CreatePipelineState(const PipelineState& pso)       = 0;
-    virtual void DeletePipelineState(const PipelineState& pso)       = 0;
+    virtual RootSignature CreateRootSignature()                               = 0;
+    virtual void          DeleteRootSignature(const RootSignature& signature) = 0;
+    virtual void          CreatePipelineState(const PipelineState& pso)       = 0;
+    virtual void          DeletePipelineState(const PipelineState& pso)       = 0;
 
     // CommandList
     virtual std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() = 0;

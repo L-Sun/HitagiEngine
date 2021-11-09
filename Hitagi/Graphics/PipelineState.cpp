@@ -2,26 +2,21 @@
 #include "DriverAPI.hpp"
 
 namespace Hitagi::Graphics {
-size_t RootSignature::GetNewId() {
-    static size_t idGenerator = 0;
-    return idGenerator++;
-}
 
-RootSignature::RootSignature() : m_Id(GetNewId()) {}
-
-RootSignature::RootSignature(const RootSignature& rhs)
-    : m_Id(GetNewId()), m_ParameterTable(rhs.m_ParameterTable) {}
+RootSignature::RootSignature(std::string_view name) : m_Name(name) {}
 
 RootSignature::RootSignature(RootSignature&& rhs)
-    : m_Driver(rhs.m_Driver),
+    : m_Name(std::move(rhs.m_Name)),
       m_Created(rhs.m_Created),
-      m_Id(rhs.m_Id),
       m_ParameterTable(std::move(rhs.m_ParameterTable)) {
     rhs.m_Created = false;
 }
 
-RootSignature::~RootSignature() {
-    if (m_Created && m_Driver) m_Driver->DeleteRootSignature(*this);
+RootSignature& RootSignature::operator=(RootSignature&& rhs) {
+    m_Name           = std::move(rhs.m_Name);
+    m_Created        = rhs.m_Created;
+    m_ParameterTable = std::move(rhs.m_ParameterTable);
+    rhs.m_Created    = false;
 }
 
 RootSignature& RootSignature::Add(std::string_view name, ShaderVariableType type, unsigned registerIndex, unsigned space, ShaderVisibility visibility) {
@@ -30,12 +25,12 @@ RootSignature& RootSignature::Add(std::string_view name, ShaderVariableType type
     return *this;
 }
 
-void RootSignature::Create(backend::DriverAPI& driver) {
+RootSignature& RootSignature::Create() {
     if (m_Created) throw std::logic_error("RootSignature has been created.");
-    m_Driver = &driver;
     // Call backend API to create root signature
-    m_Driver->CreateRootSignature(*this);
+    Finish();
     m_Created = true;
+    return *this;
 }
 
 std::set<std::string> PipelineState::m_PSOName;
