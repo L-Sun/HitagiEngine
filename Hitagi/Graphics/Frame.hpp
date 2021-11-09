@@ -2,15 +2,14 @@
 #include "SceneNode.hpp"
 #include "ResourceManager.hpp"
 #include "PipelineState.hpp"
+#include "DebugManager.hpp"
 
 #include "DebugManager.hpp"
 
 #include <vector>
 
 namespace Hitagi::Graphics {
-namespace backend {
 class DriverAPI;
-}
 class IGraphicsCommandContext;
 
 class Frame {
@@ -58,7 +57,7 @@ class Frame {
     };
 
 public:
-    Frame(backend::DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex);
+    Frame(DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex);
 
     void SetFenceValue(uint64_t fenceValue) { m_FenceValue = fenceValue; }
     void SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries);
@@ -72,10 +71,10 @@ public:
     RenderTarget& GetRenderTarget() { return m_Output; }
 
 private:
-    backend::DriverAPI& m_Driver;
-    ResourceManager&    m_ResMgr;
-    size_t              m_FrameIndex;
-    uint64_t            m_FenceValue = 0;
+    DriverAPI&       m_Driver;
+    ResourceManager& m_ResMgr;
+    size_t           m_FrameIndex;
+    uint64_t         m_FenceValue = 0;
 
     FrameConstant         m_FrameConstant;
     std::vector<DrawItem> m_Geometries;

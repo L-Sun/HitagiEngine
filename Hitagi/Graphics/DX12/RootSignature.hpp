@@ -31,7 +31,7 @@ public:
     }
 };
 
-class RootSignature : Graphics::RootSignature {
+class RootSignature : public backend::Resource {
 public:
     // the info of parameter in descriptor table. (rootIndex, offset)
     using ParameterTable = std::unordered_map<std::string, std::pair<size_t, size_t>>;
@@ -44,8 +44,6 @@ public:
     RootSignature& operator=(RootSignature&&) = default;
 
     void Reset(uint32_t numRootParams, uint32_t numStaticSamplers);
-
-    void Destroy();
 
     void Finalize(
         ID3D12Device*              device,

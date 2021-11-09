@@ -3,7 +3,7 @@
 #include "ICommandContext.hpp"
 
 namespace Hitagi::Graphics {
-Frame::Frame(backend::DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex)
+Frame::Frame(DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex)
     : m_Driver(driver),
       m_ResMgr(resourceManager),
       m_FrameIndex(frameIndex),

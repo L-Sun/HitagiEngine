@@ -6,7 +6,7 @@
 
 #include <vector>
 
-namespace Hitagi::Graphics::backend {
+namespace Hitagi::Graphics {
 enum struct APIType {
     DirectX12,
     Vulkan,
@@ -35,13 +35,11 @@ public:
 
     virtual void RetireResources(std::vector<Resource>&& resources, uint64_t fenceValue) = 0;
     // Sampler
-    virtual TextureSampler CreateSampler(std::string_view name, const TextureSampler::Description& desc) = 0;
+    virtual Sampler CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) = 0;
 
     // Pipeline
-    virtual RootSignature CreateRootSignature()                               = 0;
-    virtual void          DeleteRootSignature(const RootSignature& signature) = 0;
-    virtual void          CreatePipelineState(const PipelineState& pso)       = 0;
-    virtual void          DeletePipelineState(const PipelineState& pso)       = 0;
+    virtual std::unique_ptr<backend::Resource> CreateRootSignature(const RootSignature& rootsignature) = 0;
+    virtual std::unique_ptr<backend::Resource> CreatePipelineState(const PipelineState& pso)           = 0;
 
     // CommandList
     virtual std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() = 0;
@@ -59,4 +57,4 @@ protected:
     const APIType m_Type;
 };
 
-}  // namespace Hitagi::Graphics::backend
+}  // namespace Hitagi::Graphics

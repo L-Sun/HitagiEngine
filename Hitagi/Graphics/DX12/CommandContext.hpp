@@ -81,10 +81,12 @@ public:
     void SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
     void SetRenderTarget(Graphics::RenderTarget& rt) final;
     void SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depthBuffer) final;
+    void ClearRenderTarget(Graphics::RenderTarget& rt) final;
+    void ClearDepthBuffer(Graphics::DepthBuffer& depthBuffer) final;
     void SetPipelineState(const Graphics::PipelineState& pipeline) final;
     void SetParameter(std::string_view name, const Graphics::ConstantBuffer& cb, size_t offset) final;
     void SetParameter(std::string_view name, const Graphics::TextureBuffer& texture) final;
-    void SetParameter(std::string_view name, const Graphics::TextureSampler& sampler) final;
+    void SetParameter(std::string_view name, const Graphics::Sampler& sampler) final;
 
     void     Draw(const Graphics::MeshBuffer& mesh) final;
     void     Present(Graphics::RenderTarget& rt) final;

@@ -36,9 +36,11 @@ int GraphicsManager::Initialize() {
     // TODO get and load all shader from AssetManager
     m_ShaderManager.LoadShader("Asset/Shaders/color.vs", ShaderType::VERTEX);
     m_ShaderManager.LoadShader("Asset/Shaders/color.ps", ShaderType::PIXEL);
+    m_ShaderManager.LoadShader("Asset/Shaders/debug.vs", ShaderType::VERTEX);
+    m_ShaderManager.LoadShader("Asset/Shaders/debug.ps", ShaderType::PIXEL);
 
     // ShaderVariables
-    auto rootSig = std::make_shared<RootSignature>();
+    auto rootSig = std::make_shared<RootSignature>("Color root signature");
     (*rootSig)
         .Add("FrameConstant", ShaderVariableType::CBV, 0, 0)
         .Add("ObjectConstants", ShaderVariableType::CBV, 1, 0)
@@ -65,17 +67,25 @@ int GraphicsManager::Initialize() {
         .SetDepthBufferFormat(Format::D32_FLOAT)
         .Create(*m_Driver);
 
-    auto debugRootSig = std::make_shared<RootSignature>();
+    auto debug_rootSig = std::make_shared<RootSignature>("Debug sig");
+    (*debug_rootSig)
+        .Add("FrameConstant", ShaderVariableType::CBV, 0, 0)
+        .Add("PrimitiveConstant", ShaderVariableType::CBV, 1, 0)
+        .Create(*m_Driver);
+
     m_DebugPSO = std::make_unique<PipelineState>("Debug");
     (*m_DebugPSO)
         .SetInputLayout({{"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0},
-                         {"COLOR", 0, Format::R32G32B32_FLOAT, 1, 0}})
+                         {"COLOR", 0, Format::R32G32B32A32_FLOAT, 1, 0}})
         .SetVertexShader(m_ShaderManager.GetVertexShader("debug.vs"))
         .SetPixelShader(m_ShaderManager.GetPixelShader("debug.ps"))
+        .SetRootSignautre(debug_rootSig)
+        .SetRenderFormat(Format::R8G8B8A8_UNORM)
+        .Create(*m_Driver);
 
-        // TODO end
+    // TODO end
 
-        return 0;
+    return 0;
 }
 
 void GraphicsManager::Finalize() {
@@ -85,8 +95,9 @@ void GraphicsManager::Finalize() {
     {
         m_Driver->IdleGPU();
 
-        m_PSO    = nullptr;
-        m_ResMgr = nullptr;
+        m_PSO      = nullptr;
+        m_DebugPSO = nullptr;
+        m_ResMgr   = nullptr;
         for (auto&& frame : m_Frames)
             frame = nullptr;
 
@@ -112,12 +123,13 @@ void GraphicsManager::Tick() {
 }
 
 void GraphicsManager::Render(const Asset::Scene& scene) {
-    auto& config  = g_App->GetConfiguration();
-    auto  driver  = m_Driver.get();
-    auto  resMgr  = m_ResMgr.get();
-    auto  pso     = m_PSO.get();
-    auto  frame   = GetBcakFrameForRendering();
-    auto  context = driver->GetGraphicsCommandContext();
+    auto& config    = g_App->GetConfiguration();
+    auto  driver    = m_Driver.get();
+    auto  resMgr    = m_ResMgr.get();
+    auto  pso       = m_PSO.get();
+    auto  debug_pso = m_DebugPSO.get();
+    auto  frame     = GetBcakFrameForRendering();
+    auto  context   = driver->GetGraphicsCommandContext();
 
     auto     camera = scene.GetFirstCameraNode();
     uint32_t width  = config.screenWidth;
@@ -133,16 +145,16 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
 
     auto renderTargetHandle = fg.Import(&frame->GetRenderTarget());
 
-    struct PassData {
+    struct ColorPassData {
         FrameHandle depthBuffer;
         FrameHandle output;
     };
 
     // color pass
-    auto colorPass = fg.AddPass<PassData>(
+    auto colorPass = fg.AddPass<ColorPassData>(
         "ColorPass",
         // Setup function
-        [&](FrameGraph::Builder& builder, PassData& data) {
+        [&](FrameGraph::Builder& builder, ColorPassData& data) {
             data.depthBuffer = builder.Create<DepthBuffer>(
                 "DepthBuffer",
                 DepthBuffer::Description{
@@ -156,16 +168,38 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
             data.output      = builder.Write(renderTargetHandle);
         },
         // Excute function
-        [=](const ResourceHelper& helper, PassData& data) {
-            auto& deepthBuffer = helper.Get<DepthBuffer>(data.depthBuffer);
+        [=](const ResourceHelper& helper, ColorPassData& data) {
+            auto& depthBuffer  = helper.Get<DepthBuffer>(data.depthBuffer);
             auto& renderTarget = helper.Get<RenderTarget>(data.output);
-            context->SetRenderTargetAndDepthBuffer(renderTarget, deepthBuffer);
+            context->SetRenderTargetAndDepthBuffer(renderTarget, depthBuffer);
+            context->ClearRenderTarget(renderTarget);
+            context->ClearDepthBuffer(depthBuffer);
 
             context->SetPipelineState(*pso);
             context->SetParameter("BaseSampler", resMgr->GetSampler("BaseSampler"));
             frame->Draw(context.get());
-            context->Present(renderTarget);
         });
+
+    struct DebugPassData {
+        FrameHandle depth;
+        FrameHandle output;
+    };
+
+    // auto debugPass = fg.AddPass<DebugPassData>(
+    //     "DebugPass",
+    //     [&](FrameGraph::Builder& builder, DebugPassData& data) {
+    //         data.depth  = builder.Read(colorPass.GetData().depthBuffer);
+    //         data.output = builder.Read(colorPass.GetData().output);
+    //         data.output = builder.Write(data.output);
+    //     },
+    //     [=](const ResourceHelper& helper, DebugPassData& data) {
+    //         auto& deepthBuffer = helper.Get<DepthBuffer>(data.depth);
+    //         auto& renderTarget = helper.Get<RenderTarget>(data.output);
+
+    //         context->SetPipelineState(*debug_pso);
+    //     });
+
+    fg.Present(renderTargetHandle, context);
 
     fg.Compile();
 

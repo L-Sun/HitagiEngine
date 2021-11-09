@@ -210,7 +210,7 @@ void DX12DriverAPI::UpdateConstantBuffer(Graphics::ConstantBuffer& buffer, size_
     if (size > (buffer.GetNumElements() - offset) * buffer.GetElementSize()) {
         throw std::out_of_range("the input data is out of range of constant buffer!");
     }
-    auto cb = static_cast<ConstantBuffer*>(buffer.GetGpuResource());
+    auto cb = buffer.GetBackend<ConstantBuffer>();
     cb->UpdateData(offset, data, size);
 }
 
@@ -222,7 +222,7 @@ void DX12DriverAPI::RetireResources(std::vector<Graphics::Resource>&& resources,
 }
 
 // TODO: Custom sampler
-Graphics::TextureSampler DX12DriverAPI::CreateSampler(std::string_view name, const Graphics::TextureSampler::Description& desc) {
+Graphics::Sampler DX12DriverAPI::CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) {
     D3D12_SAMPLER_DESC samplerDesc = {};
     samplerDesc.AddressU           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     samplerDesc.AddressV           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -235,16 +235,15 @@ Graphics::TextureSampler DX12DriverAPI::CreateSampler(std::string_view name, con
     samplerDesc.MipLODBias         = 0.0f;
 
     return {name,
-            std::make_unique<Sampler>(
-                m_Device.Get(),
-                m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate(),
-                samplerDesc),
+            std::make_unique<Sampler>(m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate(), samplerDesc),
             desc};
 }
 
-void DX12DriverAPI::CreateRootSignature(const Graphics::RootSignature& signature) {
+std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Graphics::RootSignature& signature) {
     auto& parameterTable = signature.GetParametes();
-    if (parameterTable.empty()) return;
+    if (parameterTable.empty()) {
+        throw std::invalid_argument("can not create a empty root signature!");
+    }
 
     constexpr auto numVisibility = static_cast<int>(Graphics::ShaderVisibility::Num_Visibility);
     constexpr auto numVarType    = static_cast<int>(Graphics::ShaderVariableType::Num_Type);
@@ -314,14 +313,13 @@ void DX12DriverAPI::CreateRootSignature(const Graphics::RootSignature& signature
         }
     }
 
-    auto  index = m_RootSignatures.size();
-    auto& sig   = m_RootSignatures.emplace_back(signature.GetName(), tables.size());
+    auto sig = std::make_unique<RootSignature>(signature.GetName(), static_cast<uint32_t>(tables.size()));
     for (size_t i = 0; i < tables.size(); i++) {
-        sig[i].InitAsDescriptorTable(tables[i].ranges.size(), visibilityCast.at(tables[i].visibility));
+        (*sig)[i].InitAsDescriptorTable(tables[i].ranges.size(), visibilityCast.at(tables[i].visibility));
         size_t offset = 0;
         for (size_t j = 0; j < tables[i].ranges.size(); j++) {
             auto& range = ranges[tables[i].ranges[j]];
-            sig[i].SetTableRange(
+            (*sig)[i].SetTableRange(
                 j,
                 typeCast.at(range.iter->type),
                 range.iter->registerIndex,
@@ -329,22 +327,18 @@ void DX12DriverAPI::CreateRootSignature(const Graphics::RootSignature& signature
                 range.iter->space);
             auto iter = range.iter;
             for (size_t k = 0; k < range.count; k++, iter++)
-                sig.UpdateParameterInfo(iter->name, i, offset++);
+                sig->UpdateParameterInfo(iter->name, i, offset++);
         }
     }
-    sig.Finalize(m_Device.Get(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    sig->Finalize(m_Device.Get(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    return std::move(sig);
 }
 
-void DX12DriverAPI::DeleteRootSignature(const Graphics::RootSignature& signature) {
-    m_RootSignatures.erase(signature.Id());
-}
-
-void DX12DriverAPI::CreatePipelineState(const Graphics::PipelineState& pso) {
-    m_Pso.emplace(pso.GetName(), GraphicsPSO());
-    auto&                                 gpso = m_Pso[pso.GetName()];
+std::unique_ptr<backend::Resource> DX12DriverAPI::CreatePipelineState(const Graphics::PipelineState& pso) {
+    auto                                  gpso = std::make_unique<GraphicsPSO>(pso.GetName());
     auto                                  vs   = pso.GetVS();
     auto                                  ps   = pso.GetPS();
-    auto&                                 sig  = m_RootSignatures.at(pso.GetRootSignature()->Id());
+    auto                                  sig  = pso.GetRootSignature()->GetBackend<RootSignature>();
     std::vector<D3D12_INPUT_ELEMENT_DESC> inputDesc;
     for (auto&& layout : pso.GetInputLayout()) {
         D3D12_INPUT_ELEMENT_DESC desc = {};
@@ -360,25 +354,23 @@ void DX12DriverAPI::CreatePipelineState(const Graphics::PipelineState& pso) {
         inputDesc.emplace_back(std::move(desc));
     }
 
-    gpso.SetVertexShader(CD3DX12_SHADER_BYTECODE{vs->GetData(), vs->GetDataSize()});
-    gpso.SetPixelShader(CD3DX12_SHADER_BYTECODE{ps->GetData(), ps->GetDataSize()});
-    gpso.SetInputLayout(inputDesc);
-    gpso.SetRootSignature(sig);
-    gpso.SetBlendState(CD3DX12_BLEND_DESC(D3D12_DEFAULT));
+    gpso->SetVertexShader(CD3DX12_SHADER_BYTECODE{vs->GetData(), vs->GetDataSize()});
+    gpso->SetPixelShader(CD3DX12_SHADER_BYTECODE{ps->GetData(), ps->GetDataSize()});
+    gpso->SetInputLayout(inputDesc);
+    gpso->SetRootSignature(*sig);
+    gpso->SetBlendState(CD3DX12_BLEND_DESC(D3D12_DEFAULT));
     auto depth        = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     depth.DepthEnable = pso.GetDepthBufferFormat() != Graphics::Format::UNKNOWN;
-    gpso.SetDepthStencilState(depth);
-    gpso.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+    gpso->SetDepthStencilState(depth);
+    gpso->SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
     auto raDesc                  = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
     raDesc.FrontCounterClockwise = true;
-    gpso.SetRasterizerState(raDesc);
-    gpso.SetRenderTargetFormats({ToDxgiFormat(pso.GetRenderTargetFormat())}, ToDxgiFormat(pso.GetDepthBufferFormat()));
-    gpso.SetSampleMask(UINT_MAX);
-    gpso.Finalize(m_Device.Get());
-}
+    gpso->SetRasterizerState(raDesc);
+    gpso->SetRenderTargetFormats({ToDxgiFormat(pso.GetRenderTargetFormat())}, ToDxgiFormat(pso.GetDepthBufferFormat()));
+    gpso->SetSampleMask(UINT_MAX);
+    gpso->Finalize(m_Device.Get());
 
-void DX12DriverAPI::DeletePipelineState(const Graphics::PipelineState& pso) {
-    m_Pso.erase(pso.GetName());
+    return std::move(gpso);
 }
 
 std::shared_ptr<IGraphicsCommandContext> DX12DriverAPI::GetGraphicsCommandContext() {

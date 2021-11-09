@@ -5,19 +5,19 @@
 namespace Hitagi::Graphics {
 class ResourceManager {
 public:
-    ResourceManager(backend::DriverAPI& driver) : m_Driver(driver) {}
+    ResourceManager(DriverAPI& driver) : m_Driver(driver) {}
 
     // Get mesh buffer from gpu. It will create new buffer in gpu if the mesh is not in gpu.
-    const MeshBuffer&     GetMeshBuffer(Asset::SceneObjectMesh& mesh);
-    const TextureBuffer&  GetTextureBuffer(Asset::SceneObjectTexture& texture);
-    const TextureBuffer&  GetDefaultTextureBuffer(Format format);
-    const TextureSampler& GetSampler(std::string_view name);
+    const MeshBuffer&    GetMeshBuffer(Asset::SceneObjectMesh& mesh);
+    const TextureBuffer& GetTextureBuffer(Asset::SceneObjectTexture& texture);
+    const TextureBuffer& GetDefaultTextureBuffer(Format format);
+    const Sampler&       GetSampler(std::string_view name);
 
 private:
-    backend::DriverAPI&                             m_Driver;
-    std::unordered_map<xg::Guid, MeshBuffer>        m_MeshBuffer;
-    std::unordered_map<xg::Guid, TextureBuffer>     m_TextureBuffer;
-    std::unordered_map<std::string, TextureSampler> m_Samplers;
+    DriverAPI&                                  m_Driver;
+    std::unordered_map<xg::Guid, MeshBuffer>    m_MeshBuffer;
+    std::unordered_map<xg::Guid, TextureBuffer> m_TextureBuffer;
+    std::unordered_map<std::string, Sampler>    m_Samplers;
 
     std::unordered_map<Format, TextureBuffer> m_DefaultTextureBuffer;
 };

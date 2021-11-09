@@ -5,7 +5,7 @@
 
 namespace Hitagi::Graphics::backend::DX12 {
 
-class GpuResource : public IGpuResource {
+class GpuResource : public backend::Resource {
     friend class CommandContext;
 
 public:

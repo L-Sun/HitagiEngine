@@ -1,6 +1,7 @@
 #pragma once
 #include "Format.hpp"
 #include "ShaderManager.hpp"
+#include "Resource.hpp"
 
 #include <string>
 #include <optional>
@@ -9,10 +10,7 @@
 #include <set>
 
 namespace Hitagi::Graphics {
-
-namespace backend {
 class DriverAPI;
-}
 
 struct InputLayout {
     std::string           semanticName;
@@ -40,7 +38,7 @@ enum struct ShaderVisibility {
     Num_Visibility
 };
 
-class RootSignature {
+class RootSignature : public Resource {
     struct Parameter {
         std::string        name;
         ShaderVisibility   visibility;
@@ -61,12 +59,11 @@ class RootSignature {
     };
 
 public:
-    RootSignature(std::string_view name);
+    RootSignature(std::string_view name) : Resource(name, nullptr) {}
     RootSignature(const RootSignature&) = delete;
     RootSignature& operator=(const RootSignature&) = delete;
     RootSignature(RootSignature&&);
-    RootSignature& operator  =(RootSignature&&);
-    virtual ~RootSignature() = default;
+    RootSignature& operator=(RootSignature&&);
 
     RootSignature& Add(
         std::string_view   name,
@@ -74,28 +71,25 @@ public:
         unsigned           registerIndex,
         unsigned           space,
         ShaderVisibility   visibility = ShaderVisibility::All);
-    RootSignature& Create();
+    // TODO
+    RootSignature& AddStaticSampler(
+        unsigned             registerIndex,
+        Sampler::Description desc,
+        ShaderVisibility     visibility = ShaderVisibility::All);
+    RootSignature& Create(DriverAPI& driver);
 
-    inline const std::string& GetName() const noexcept { return m_Name; }
-    inline auto&              GetParametes() const noexcept { return m_ParameterTable; }
+    inline auto& GetParametes() const noexcept { return m_ParameterTable; }
 
     operator bool() const noexcept { return m_Created; }
 
 protected:
-    virtual void Finish() = 0;
-
-    std::string         m_Name;
     bool                m_Created = false;
     std::set<Parameter> m_ParameterTable;
 };
 
-class PipelineState {
+class PipelineState : public Resource {
 public:
-    PipelineState(std::string_view name) : m_Name(name) {
-        assert(m_PSOName.count(m_Name) == 0 && "there is a pso with the same name.");
-        m_PSOName.emplace(m_Name);
-    }
-    ~PipelineState();
+    PipelineState(std::string_view name) : Resource(name, nullptr) {}
 
     PipelineState& SetVertexShader(std::shared_ptr<VertexShader> vs);
     PipelineState& SetPixelShader(std::shared_ptr<PixelShader> ps);
@@ -103,22 +97,18 @@ public:
     PipelineState& SetRootSignautre(std::shared_ptr<RootSignature> sig);
     PipelineState& SetRenderFormat(Format format);
     PipelineState& SetDepthBufferFormat(Format format);
-    void           Create(backend::DriverAPI& driver);
+    void           Create(DriverAPI& driver);
 
-    const std::string&              GetName() const noexcept { return m_Name; }
-    std::shared_ptr<VertexShader>   GetVS() const noexcept { return m_Vs; }
-    std::shared_ptr<PixelShader>    GetPS() const noexcept { return m_Ps; }
-    const std::vector<InputLayout>& GetInputLayout() const noexcept { return m_InputLayout; }
-    std::shared_ptr<RootSignature>  GetRootSignature() const noexcept { return m_RootSignature; }
-    Format                          GetRenderTargetFormat() const noexcept { return m_RenderFormat; }
-    Format                          GetDepthBufferFormat() const noexcept { return m_DepthBufferFormat; }
+    inline const std::string&              GetName() const noexcept { return m_Name; }
+    inline std::shared_ptr<VertexShader>   GetVS() const noexcept { return m_Vs; }
+    inline std::shared_ptr<PixelShader>    GetPS() const noexcept { return m_Ps; }
+    inline const std::vector<InputLayout>& GetInputLayout() const noexcept { return m_InputLayout; }
+    inline std::shared_ptr<RootSignature>  GetRootSignature() const noexcept { return m_RootSignature; }
+    inline Format                          GetRenderTargetFormat() const noexcept { return m_RenderFormat; }
+    inline Format                          GetDepthBufferFormat() const noexcept { return m_DepthBufferFormat; }
 
 private:
-    static std::set<std::string> m_PSOName;
-
-    backend::DriverAPI*            m_Driver;
     bool                           m_Created = false;
-    std::string                    m_Name;
     std::shared_ptr<VertexShader>  m_Vs;
     std::shared_ptr<PixelShader>   m_Ps;
     std::vector<InputLayout>       m_InputLayout;

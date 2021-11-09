@@ -5,15 +5,18 @@
 #include <string>
 
 namespace Hitagi::Graphics {
-class IGpuResource {
+
+namespace backend {
+class Resource {
 public:
-    virtual ~IGpuResource() {}
+    virtual ~Resource() = default;
 };
+}  // namespace backend
 
 class Resource {
 public:
-    Resource(std::string_view name, std::unique_ptr<IGpuResource> gpuResource)
-        : m_Name(name), m_GpuResource(std::move(gpuResource)) {}
+    Resource(std::string_view name, std::unique_ptr<backend::Resource> resource)
+        : m_Name(name), m_Resource(std::move(resource)) {}
     Resource(const Resource&) = delete;
     Resource& operator=(const Resource&) = delete;
     Resource(Resource&&)                 = default;
@@ -21,12 +24,15 @@ public:
 
     inline const std::string& GetName() const noexcept { return m_Name; }
 
-    inline IGpuResource*       GetGpuResource() noexcept { return m_GpuResource.get(); }
-    inline const IGpuResource* GetGpuResource() const noexcept { return m_GpuResource.get(); }
+    template <typename T>
+    inline T* GetBackend() const noexcept {
+        using RT = std::remove_cv_t<T>;
+        return static_cast<RT*>(m_Resource.get());
+    }
 
 protected:
-    std::string                   m_Name;
-    std::unique_ptr<IGpuResource> m_GpuResource;
+    std::string                        m_Name;
+    std::unique_ptr<backend::Resource> m_Resource;
 };
 
 class VertexBuffer : public Resource {
@@ -44,7 +50,7 @@ struct MeshBuffer {
 };
 class ConstantBuffer : public Resource {
 public:
-    ConstantBuffer(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, size_t numElement, size_t elementSize)
+    ConstantBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpuResource, size_t numElement, size_t elementSize)
         : Resource(name, std::move(gpuResource)), m_NumElements(numElement), m_ElementSize(elementSize) {}
 
     size_t GetNumElements() const { return m_NumElements; }
@@ -69,7 +75,7 @@ public:
         size_t         initialDataSize = 0;
     } const desc;
 
-    TextureBuffer(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, Description desc)
+    TextureBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpuResource, Description desc)
         : Resource(name, std::move(gpuResource)), desc(desc) {}
 };
 
@@ -82,7 +88,7 @@ public:
         float    clearDepth;
         uint8_t  clearStencil;
     } const desc;
-    DepthBuffer(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, Description desc)
+    DepthBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpuResource, Description desc)
         : Resource(name, std::move(gpuResource)), desc(desc) {}
 };
 
@@ -93,16 +99,16 @@ public:
         uint64_t width;
         uint64_t height;
     } const desc;
-    RenderTarget(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, Description desc)
+    RenderTarget(std::string_view name, std::unique_ptr<backend::Resource> gpuResource, Description desc)
         : Resource(name, std::move(gpuResource)), desc(desc) {}
 };
 
-class TextureSampler : public Resource {
+class Sampler : public Resource {
 public:
     struct Description {
     } const desc;
-    TextureSampler(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, Description desc)
-        : Resource(name, std::move(gpuResource)), desc(desc) {}
+    Sampler(std::string_view name, std::unique_ptr<backend::Resource> sampler, Description desc)
+        : Resource(name, std::move(sampler)), desc(std::move(desc)) {}
 };
 
 }  // namespace Hitagi::Graphics

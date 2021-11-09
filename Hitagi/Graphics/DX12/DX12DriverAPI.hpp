@@ -32,12 +32,10 @@ public:
 
     void RetireResources(std::vector<Graphics::Resource>&& resources, uint64_t fenceValue) final;
 
-    virtual Graphics::TextureSampler CreateSampler(std::string_view name, const Graphics::TextureSampler::Description& desc) final;
+    virtual Graphics::Sampler CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) final;
 
-    Graphics::RootSignature CreateRootSignature(const Graphics::RootSignature& signature) final;
-    void                    DeleteRootSignature(const Graphics::RootSignature& signature) final;
-    void                    CreatePipelineState(const Graphics::PipelineState& pso) final;
-    void                    DeletePipelineState(const Graphics::PipelineState& pso) final;
+    std::unique_ptr<backend::Resource> CreateRootSignature(const Graphics::RootSignature& rootsignature) final;
+    std::unique_ptr<backend::Resource> CreatePipelineState(const Graphics::PipelineState& pso) final;
 
     std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() final;
 
@@ -51,8 +49,6 @@ public:
 
     ID3D12Device*       GetDevice() const noexcept { return m_Device.Get(); }
     CommandListManager& GetCmdMgr() noexcept { return m_CommandManager; }
-    GraphicsPSO&        GetPSO(const Graphics::PipelineState& pipeline) { return m_Pso.at(pipeline.GetName()); }
-    RootSignature&      GetRootSignature(size_t id) { return m_RootSignatures.at(id); }
 
 private:
     // Static method
@@ -78,9 +74,6 @@ private:
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER},
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_RTV},
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_DSV}};
-
-    std::unordered_map<Graphics::RootSignature, RootSignature> m_RootSignatures;
-    std::unordered_map<std::string, GraphicsPSO>               m_Pso;
 
     // resource will release after fence complete
     std::queue<std::pair<uint64_t, std::vector<Graphics::Resource>>> m_RetireResources;

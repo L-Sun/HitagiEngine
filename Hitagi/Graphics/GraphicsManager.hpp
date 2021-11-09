@@ -21,8 +21,8 @@ protected:
     void   Render(const Asset::Scene& scene);
     Frame* GetBcakFrameForRendering();
 
-    std::unique_ptr<backend::DriverAPI> m_Driver;
-    std::unique_ptr<ResourceManager>    m_ResMgr;
+    std::unique_ptr<DriverAPI>       m_Driver;
+    std::unique_ptr<ResourceManager> m_ResMgr;
 
     constexpr static uint8_t sm_SwapChianSize    = 2;
     static constexpr Format  sm_BackBufferFormat = Format::R8G8B8A8_UNORM;

@@ -27,7 +27,7 @@ void FrameGraph::Compile() {
     //    generate valid resource id vector used by the next execute function.
 }
 
-void FrameGraph::Execute(backend::DriverAPI& driver) {
+void FrameGraph::Execute(DriverAPI& driver) {
     // Prepare all transiant resource used among the frame graph
     // TODO prepare the remaining resource after pruning.
     for (auto&& [id, desc] : m_InnerResourcesDesc) {
@@ -54,7 +54,7 @@ void FrameGraph::Execute(backend::DriverAPI& driver) {
     }
 }
 
-void FrameGraph::Retire(uint64_t fenceValue, backend::DriverAPI& driver) noexcept {
+void FrameGraph::Retire(uint64_t fenceValue, DriverAPI& driver) noexcept {
     driver.RetireResources(std::move(m_InnerResources), fenceValue);
     m_Retired = true;
 }
@@ -66,6 +66,22 @@ FrameHandle FrameGraph::Create(std::string_view name, Desc desc) {
     m_InnerResourcesDesc.emplace(id, std::move(desc));
     m_ResourceNodes.emplace_back(name, id);
     return handle;
+}
+
+void FrameGraph::Present(FrameHandle renderTarget, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context) {
+    struct PassData {
+        FrameHandle output;
+    };
+    auto presentPass = AddPass<PassData>(
+        "Present",
+        [&](FrameGraph::Builder& builder, PassData& data) {
+            data.output = builder.Read(renderTarget);
+            builder.SideEffect();
+        },
+        [=](const ResourceHelper& helper, PassData& data) {
+            auto& rt = helper.Get<RenderTarget>(data.output);
+            context->Present(rt);
+        });
 }
 
 }  // namespace Hitagi::Graphics

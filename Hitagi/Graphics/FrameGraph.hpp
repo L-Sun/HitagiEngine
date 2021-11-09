@@ -80,12 +80,11 @@ public:
         return handle;
     }
 
-    void Present(FrameHandle renderTarget) {
-    }
+    void Present(FrameHandle renderTarget, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context);
 
     void Compile();
-    void Execute(backend::DriverAPI& driver);
-    void Retire(uint64_t fenceValue, backend::DriverAPI& driver) noexcept;
+    void Execute(DriverAPI& driver);
+    void Retire(uint64_t fenceValue, DriverAPI& driver) noexcept;
 
 private:
     using Desc = std::variant<DepthBuffer::Description,

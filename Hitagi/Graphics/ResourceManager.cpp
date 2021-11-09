@@ -87,7 +87,7 @@ const TextureBuffer& ResourceManager::GetDefaultTextureBuffer(Format format) {
     return m_DefaultTextureBuffer.at(format);
 }
 
-const TextureSampler& ResourceManager::GetSampler(std::string_view name) {
+const Sampler& ResourceManager::GetSampler(std::string_view name) {
     const std::string _name(name);
     if (m_Samplers.count(_name) != 0) return m_Samplers.at(_name);
 
