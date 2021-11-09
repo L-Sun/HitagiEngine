@@ -18,7 +18,8 @@ public:
 
 protected:
     // TODO change the parameter to View, if multiple view port is finished
-    void Render(const Asset::Scene& scene);
+    void   Render(const Asset::Scene& scene);
+    Frame* GetBcakFrameForRendering();
 
     std::unique_ptr<backend::DriverAPI> m_Driver;
     std::unique_ptr<ResourceManager>    m_ResMgr;

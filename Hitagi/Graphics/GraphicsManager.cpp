@@ -107,7 +107,7 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     auto  driver  = m_Driver.get();
     auto  resMgr  = m_ResMgr.get();
     auto  pso     = m_PSO.get();
-    auto  frame   = m_Frames.at(m_CurrBackBuffer).get();
+    auto  frame   = GetBcakFrameForRendering();
     auto  context = driver->GetGraphicsCommandContext();
 
     auto     camera = scene.GetFirstCameraNode();
@@ -160,11 +160,16 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
 
     fg.Compile();
 
-    frame->WaitLastDraw();
     fg.Execute(*driver);
     uint64_t fence = context->Finish();
     frame->SetFenceValue(fence);
     fg.Retire(fence, *driver);
+}
+
+Frame* GraphicsManager::GetBcakFrameForRendering() {
+    auto frame = m_Frames.at(m_CurrBackBuffer).get();
+    frame->ResetState();
+    return frame;
 }
 
 }  // namespace Hitagi::Graphics

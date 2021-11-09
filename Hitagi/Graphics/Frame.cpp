@@ -14,9 +14,6 @@ Frame::Frame(backend::DriverAPI& driver, ResourceManager& resourceManager, size_
 }
 
 void Frame::SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries) {
-    m_Geometries.clear();
-    m_Geometries.reserve(geometries.size());
-
     // Calculate need constant buffer size
     size_t constantCount = geometries.size(), materialCount = 0;
     for (Asset::SceneGeometryNode& node : geometries) {
@@ -83,6 +80,9 @@ void Frame::SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
     }
 }
 
+void Frame::SetDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives) {
+}
+
 void Frame::SetCamera(Asset::SceneCameraNode& camera) {
     auto& data        = m_FrameConstant;
     data.cameraPos    = vec4f(camera.GetCameraPosition(), 1.0f);
@@ -129,8 +129,9 @@ void Frame::Draw(IGraphicsCommandContext* context) {
     }
 }
 
-void Frame::WaitLastDraw() {
+void Frame::ResetState() {
     m_Driver.WaitFence(m_FenceValue);
+    m_Geometries.clear();
 }
 
 }  // namespace Hitagi::Graphics

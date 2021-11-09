@@ -3,6 +3,8 @@
 #include "ResourceManager.hpp"
 #include "PipelineState.hpp"
 
+#include "DebugManager.hpp"
+
 #include <vector>
 
 namespace Hitagi::Graphics {
@@ -60,11 +62,12 @@ public:
 
     void SetFenceValue(uint64_t fenceValue) { m_FenceValue = fenceValue; }
     void SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries);
+    void SetDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives);
     void SetCamera(Asset::SceneCameraNode& camera);
     void SetLight(Asset::SceneLightNode& light);
     void Draw(IGraphicsCommandContext* context);
 
-    void WaitLastDraw();
+    void ResetState();
 
     RenderTarget& GetRenderTarget() { return m_Output; }
 
