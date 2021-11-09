@@ -87,7 +87,8 @@
         "format": "cpp",
         "regex": "cpp",
         "charconv": "cpp",
-        "ranges": "cpp"
+        "ranges": "cpp",
+        "compare": "cpp"
     },
     "cmake.debugConfig": {
         "cwd": "${workspaceFolder}"

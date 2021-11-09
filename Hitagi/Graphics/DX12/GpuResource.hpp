@@ -5,12 +5,12 @@
 
 namespace Hitagi::Graphics::backend::DX12 {
 
-class GpuResource : public Resource {
+class GpuResource : public IGpuResource {
     friend class CommandContext;
 
 public:
-    GpuResource(std::string_view name, ID3D12Resource* resource = nullptr)
-        : Resource(name), m_TransitioningState(static_cast<D3D12_RESOURCE_STATES>(-1)) {
+    GpuResource(ID3D12Resource* resource = nullptr)
+        : m_TransitioningState(static_cast<D3D12_RESOURCE_STATES>(-1)) {
         if (resource) m_Resource.Attach(resource);
     }
 

@@ -122,7 +122,7 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
 
     FrameGraph fg;
 
-    auto renderTargetHandle = fg.Import(frame->GetRenderTarget());
+    auto renderTargetHandle = fg.Import(&frame->GetRenderTarget());
 
     struct PassData {
         FrameHandle depthBuffer;

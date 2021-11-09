@@ -20,17 +20,17 @@ public:
     void                     CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format, void* window) final;
     Graphics::RenderTarget   CreateRenderTarget(std::string_view name, const Graphics::RenderTarget::Description& desc) final;
     Graphics::RenderTarget   CreateRenderFromSwapChain(size_t frameIndex) final;
-    Graphics::VertexBuffer   CreateVertexBuffer(size_t vertexCount, size_t vertexSize, const uint8_t* initialData = nullptr) final;
-    Graphics::IndexBuffer    CreateIndexBuffer(size_t indexCount, size_t indexSize, const uint8_t* initialData = nullptr) final;
+    Graphics::VertexBuffer   CreateVertexBuffer(std::string_view name, size_t vertexCount, size_t vertexSize, const uint8_t* initialData = nullptr) final;
+    Graphics::IndexBuffer    CreateIndexBuffer(std::string_view name, size_t indexCount, size_t indexSize, const uint8_t* initialData = nullptr) final;
     Graphics::ConstantBuffer CreateConstantBuffer(std::string_view name, size_t numElements, size_t elementSize) final;
     Graphics::TextureBuffer  CreateTextureBuffer(std::string_view name, const Graphics::TextureBuffer::Description& desc) final;
     Graphics::DepthBuffer    CreateDepthBuffer(std::string_view name, const Graphics::DepthBuffer::Description& desc) final;
 
-    Graphics::ResourceContainer GetSwapChainBuffer(size_t frameIndex) final;
+    Graphics::Resource GetSwapChainBuffer(size_t frameIndex) final;
 
     void UpdateConstantBuffer(Graphics::ConstantBuffer& buffer, size_t offset, const uint8_t* data, size_t size) final;
 
-    void RetireResources(std::vector<Graphics::ResourceContainer>&& resources, uint64_t fenceValue) final;
+    void RetireResources(std::vector<Graphics::Resource>&& resources, uint64_t fenceValue) final;
 
     virtual Graphics::TextureSampler CreateSampler(std::string_view name, const Graphics::TextureSampler::Description& desc) final;
 
@@ -56,7 +56,8 @@ public:
 
 private:
     // Static method
-    static DXGI_FORMAT ToDxgiFormat(Graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
+    static DXGI_FORMAT      ToDxgiFormat(Graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
+    static Graphics::Format ToFormat(DXGI_FORMAT format) noexcept { return static_cast<Graphics::Format>(format); }
 
     // No-static method
     // RootSignature& GetRootSignature();
@@ -82,6 +83,6 @@ private:
     std::unordered_map<std::string, GraphicsPSO> m_Pso;
 
     // resource will release after fence complete
-    std::queue<std::pair<uint64_t, std::vector<Graphics::ResourceContainer>>> m_RetireResources;
+    std::queue<std::pair<uint64_t, std::vector<Graphics::Resource>>> m_RetireResources;
 };
 }  // namespace Hitagi::Graphics::backend::DX12

@@ -3,52 +3,49 @@
 #include "SceneObject.hpp"
 
 #include <string>
-#include <memory>
 
 namespace Hitagi::Graphics {
+class IGpuResource {
+public:
+    virtual ~IGpuResource() {}
+};
 
 class Resource {
 public:
-    Resource(std::string_view name) : name(name) {}
-    const std::string& GetName() const noexcept { return name; }
-    virtual ~Resource() = default;
+    Resource(std::string_view name, std::unique_ptr<IGpuResource> gpuResource)
+        : m_Name(name), m_GpuResource(std::move(gpuResource)) {}
+    Resource(const Resource&) = delete;
+    Resource& operator=(const Resource&) = delete;
+    Resource(Resource&&)                 = default;
+    Resource& operator=(Resource&&) = default;
+
+    inline const std::string& GetName() const noexcept { return m_Name; }
+
+    inline IGpuResource*       GetGpuResource() noexcept { return m_GpuResource.get(); }
+    inline const IGpuResource* GetGpuResource() const noexcept { return m_GpuResource.get(); }
 
 protected:
-    std::string name;
+    std::string                   m_Name;
+    std::unique_ptr<IGpuResource> m_GpuResource;
 };
 
-class ResourceContainer {
+class VertexBuffer : public Resource {
 public:
-    ResourceContainer() = default;
-    ResourceContainer(std::shared_ptr<Resource> res) : m_Resource(std::move(res)) {}
-
-    Resource*       GetResource() noexcept { return m_Resource.get(); }
-    const Resource* GetResource() const noexcept { return m_Resource.get(); }
-
-    operator bool() const noexcept { return m_Resource != nullptr; }
-
-protected:
-    std::shared_ptr<Resource> m_Resource = nullptr;
+    using Resource::Resource;
 };
-
-class VertexBuffer : public ResourceContainer {
+class IndexBuffer : public Resource {
 public:
-    using ResourceContainer::ResourceContainer;
-};
-class IndexBuffer : public ResourceContainer {
-public:
-    using ResourceContainer::ResourceContainer;
+    using Resource::Resource;
 };
 struct MeshBuffer {
     std::unordered_map<std::string, VertexBuffer> vertices;
     IndexBuffer                                   indices;
     Asset::PrimitiveType                          primitive;
 };
-class ConstantBuffer : public ResourceContainer {
+class ConstantBuffer : public Resource {
 public:
-    ConstantBuffer() = default;
-    ConstantBuffer(std::shared_ptr<Resource> res, size_t numElement, size_t elementSize)
-        : ResourceContainer(std::move(res)), m_NumElements(numElement), m_ElementSize(elementSize) {}
+    ConstantBuffer(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, size_t numElement, size_t elementSize)
+        : Resource(name, std::move(gpuResource)), m_NumElements(numElement), m_ElementSize(elementSize) {}
 
     size_t GetNumElements() const { return m_NumElements; }
     size_t GetElementSize() const { return m_ElementSize; }
@@ -58,49 +55,54 @@ private:
     size_t m_ElementSize = 0;
 };
 
-class TextureBuffer : public ResourceContainer {
+class TextureBuffer : public Resource {
 public:
-    using ResourceContainer::ResourceContainer;
     struct Description {
         Format         format;
-        uint32_t       width;
-        uint32_t       height;
-        uint32_t       pitch;
+        uint64_t       width;
+        uint64_t       height;
+        uint64_t       pitch;
         unsigned       mipLevel        = 1;
         unsigned       sampleCount     = 1;
         unsigned       sampleQuality   = 0;
         const uint8_t* initialData     = nullptr;
         size_t         initialDataSize = 0;
-    };
+    } const desc;
+
+    TextureBuffer(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, Description desc)
+        : Resource(name, std::move(gpuResource)), desc(desc) {}
 };
 
-class DepthBuffer : public ResourceContainer {
+class DepthBuffer : public Resource {
 public:
-    using ResourceContainer::ResourceContainer;
     struct Description {
         Format   format;
-        uint32_t width;
-        uint32_t height;
+        uint64_t width;
+        uint64_t height;
         float    clearDepth;
         uint8_t  clearStencil;
-    };
+    } const desc;
+    DepthBuffer(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, Description desc)
+        : Resource(name, std::move(gpuResource)), desc(desc) {}
 };
 
-class RenderTarget : public ResourceContainer {
+class RenderTarget : public Resource {
 public:
     struct Description {
         Format   format;
-        uint32_t width;
-        uint32_t height;
-    };
-    using ResourceContainer::ResourceContainer;
+        uint64_t width;
+        uint64_t height;
+    } const desc;
+    RenderTarget(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, Description desc)
+        : Resource(name, std::move(gpuResource)), desc(desc) {}
 };
 
-class TextureSampler : public ResourceContainer {
+class TextureSampler : public Resource {
 public:
     struct Description {
-    };
-    using ResourceContainer::ResourceContainer;
+    } const desc;
+    TextureSampler(std::string_view name, std::unique_ptr<IGpuResource> gpuResource, Description desc)
+        : Resource(name, std::move(gpuResource)), desc(desc) {}
 };
 
 }  // namespace Hitagi::Graphics

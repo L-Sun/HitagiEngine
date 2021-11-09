@@ -8,6 +8,8 @@ Frame::Frame(backend::DriverAPI& driver, ResourceManager& resourceManager, size_
       m_ResMgr(resourceManager),
       m_FrameIndex(frameIndex),
       m_FrameConstantBuffer(m_Driver.CreateConstantBuffer("FrameConstant", 1, sizeof(FrameConstant))),
+      m_ConstantBuffer(m_Driver.CreateConstantBuffer("Object Constant", 1, sizeof(ConstantData))),
+      m_MaterialBuffer(m_Driver.CreateConstantBuffer("Material Constant", 1, sizeof(MaterialData))),
       m_Output(m_Driver.CreateRenderFromSwapChain(frameIndex)) {
 }
 

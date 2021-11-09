@@ -104,15 +104,15 @@ void GraphicsCommandContext::SetViewPort(uint32_t x, uint32_t y, uint32_t width,
 }
 
 void GraphicsCommandContext::SetRenderTarget(Graphics::RenderTarget& rt) {
-    auto& renderTarget = *static_cast<RenderTarget*>(rt.GetResource());
+    auto& renderTarget = *static_cast<RenderTarget*>(rt.GetGpuResource());
     TransitionResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->OMSetRenderTargets(1, &renderTarget.GetRTV().handle, false, nullptr);
     m_CommandList->ClearRenderTargetView(renderTarget.GetRTV().handle, vec4f(0, 0, 0, 1), 0, nullptr);
 }
 
 void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depthBuffer) {
-    auto& renderTarget = *static_cast<RenderTarget*>(rt.GetResource());
-    auto& db           = *static_cast<DepthBuffer*>(depthBuffer.GetResource());
+    auto& renderTarget = *static_cast<RenderTarget*>(rt.GetGpuResource());
+    auto& db           = *static_cast<DepthBuffer*>(depthBuffer.GetGpuResource());
     TransitionResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET);
     TransitionResource(db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
     m_CommandList->OMSetRenderTargets(1, &renderTarget.GetRTV().handle, false, &db.GetDSV().handle);
@@ -129,28 +129,28 @@ void GraphicsCommandContext::SetPipelineState(const Graphics::PipelineState& pip
 void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::ConstantBuffer& cb, size_t offset) {
     auto& sig                     = m_Driver.GetRootSignature(m_Pipeline->GetRootSignature()->Id());
     auto [rootIndex, tableOffset] = sig.GetParameterTable(name);
-    SetDynamicDescriptor(rootIndex, tableOffset, static_cast<const ConstantBuffer*>(cb.GetResource())->GetCBV(offset));
+    SetDynamicDescriptor(rootIndex, tableOffset, static_cast<const ConstantBuffer*>(cb.GetGpuResource())->GetCBV(offset));
 }
 
 void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::TextureBuffer& texture) {
     auto& sig                     = m_Driver.GetRootSignature(m_Pipeline->GetRootSignature()->Id());
     auto [rootIndex, tableOffset] = sig.GetParameterTable(name);
-    SetDynamicDescriptor(rootIndex, tableOffset, static_cast<const TextureBuffer*>(texture.GetResource())->GetSRV());
+    SetDynamicDescriptor(rootIndex, tableOffset, static_cast<const TextureBuffer*>(texture.GetGpuResource())->GetSRV());
 }
 
 void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::TextureSampler& sampler) {
     auto& sig                     = m_Driver.GetRootSignature(m_Pipeline->GetRootSignature()->Id());
     auto [rootIndex, tableOffset] = sig.GetParameterTable(name);
-    SetDynamicSampler(rootIndex, tableOffset, static_cast<const Sampler*>(sampler.GetResource())->GetDescriptor());
+    SetDynamicSampler(rootIndex, tableOffset, static_cast<const Sampler*>(sampler.GetGpuResource())->GetDescriptor());
 }
 
 void GraphicsCommandContext::Present(Graphics::RenderTarget& rt) {
-    auto& renderTarget = *static_cast<RenderTarget*>(rt.GetResource());
+    auto& renderTarget = *static_cast<RenderTarget*>(rt.GetGpuResource());
     TransitionResource(renderTarget, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 
 void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
-    auto  indexBuffer = static_cast<const IndexBuffer*>(mesh.indices.GetResource());
+    auto  indexBuffer = static_cast<const IndexBuffer*>(mesh.indices.GetGpuResource());
     auto& layout      = m_Pipeline->GetInputLayout();
 
     auto ibv = indexBuffer->IndexBufferView();
@@ -160,7 +160,7 @@ void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
         while (iter != layout.end() && iter->semanticName != semanticName) iter++;
         if (iter == layout.end()) continue;
 
-        auto vbv = static_cast<const VertexBuffer*>(vertex.GetResource())->VertexBufferView();
+        auto vbv = static_cast<const VertexBuffer*>(vertex.GetGpuResource())->VertexBufferView();
         m_CommandList->IASetVertexBuffers(iter->inputSlot, 1, &vbv);
     }
 

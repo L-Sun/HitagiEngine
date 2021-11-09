@@ -20,20 +20,20 @@ public:
     virtual void Present(size_t frameIndex) = 0;
 
     // Buffer
-    virtual void           CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format, void* window) = 0;
-    virtual RenderTarget   CreateRenderTarget(std::string_view name, const RenderTarget::Description& desc)                   = 0;
-    virtual RenderTarget   CreateRenderFromSwapChain(size_t frameIndex)                                                       = 0;
-    virtual VertexBuffer   CreateVertexBuffer(size_t vertexCount, size_t vertexSize, const uint8_t* initialData = nullptr)    = 0;
-    virtual IndexBuffer    CreateIndexBuffer(size_t indexCount, size_t indexSize, const uint8_t* initialData = nullptr)       = 0;
-    virtual ConstantBuffer CreateConstantBuffer(std::string_view name, size_t numElements, size_t elementSize)                = 0;
-    virtual TextureBuffer  CreateTextureBuffer(std::string_view name, const TextureBuffer::Description& desc)                 = 0;
-    virtual DepthBuffer    CreateDepthBuffer(std::string_view name, const DepthBuffer::Description& desc)                     = 0;
+    virtual void           CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format, void* window)                     = 0;
+    virtual RenderTarget   CreateRenderTarget(std::string_view name, const RenderTarget::Description& desc)                                       = 0;
+    virtual RenderTarget   CreateRenderFromSwapChain(size_t frameIndex)                                                                           = 0;
+    virtual VertexBuffer   CreateVertexBuffer(std::string_view name, size_t vertexCount, size_t vertexSize, const uint8_t* initialData = nullptr) = 0;
+    virtual IndexBuffer    CreateIndexBuffer(std::string_view name, size_t indexCount, size_t indexSize, const uint8_t* initialData = nullptr)    = 0;
+    virtual ConstantBuffer CreateConstantBuffer(std::string_view name, size_t numElements, size_t elementSize)                                    = 0;
+    virtual TextureBuffer  CreateTextureBuffer(std::string_view name, const TextureBuffer::Description& desc)                                     = 0;
+    virtual DepthBuffer    CreateDepthBuffer(std::string_view name, const DepthBuffer::Description& desc)                                         = 0;
 
-    virtual ResourceContainer GetSwapChainBuffer(size_t frameIndex) = 0;
+    virtual Resource GetSwapChainBuffer(size_t frameIndex) = 0;
 
     virtual void UpdateConstantBuffer(ConstantBuffer& buffer, size_t offset, const uint8_t* src, size_t size) = 0;
 
-    virtual void RetireResources(std::vector<ResourceContainer>&& resources, uint64_t fenceValue) = 0;
+    virtual void RetireResources(std::vector<Resource>&& resources, uint64_t fenceValue) = 0;
     // Sampler
     virtual TextureSampler CreateSampler(std::string_view name, const TextureSampler::Description& desc) = 0;
 

@@ -32,8 +32,8 @@ struct PassNode {
     std::string name;
     bool        sideEffect = false;
     // index of the resource node in frame graph
-    std::vector<FrameHandle> reads;
-    std::vector<FrameHandle> writes;
+    std::set<FrameHandle> reads;
+    std::set<FrameHandle> writes;
 
     std::unique_ptr<PassExecutor> executor;
 };
@@ -72,10 +72,11 @@ public:
         return *pass;
     }
 
-    FrameHandle Import(RenderTarget& renderTarget) {
-        FrameHandle handle = m_ResourceNodes.size();
-        m_ResourceNodes.emplace_back(renderTarget.GetResource()->GetName(), m_Resources.size());
-        m_Resources.emplace_back(renderTarget);
+    FrameHandle Import(RenderTarget* renderTarget) {
+        FrameResourceId id     = m_ResourceCounter++;
+        FrameHandle     handle = m_ResourceNodes.size();
+        m_ResourceNodes.emplace_back(renderTarget->GetName(), id);
+        m_ValidResources.emplace(id, renderTarget);
         return handle;
     }
 
@@ -98,11 +99,10 @@ private:
     std::vector<ResourceNode> m_ResourceNodes;
     std::vector<PassNode>     m_PassNodes;
 
-    std::vector<ResourceContainer> m_Resources;
-    // m_ResourcesDesc will create resource for m_Resources. here the key is the index of m_Resources
-    std::unordered_map<size_t, Desc> m_ResourcesDesc;
-    // resources container index
-    std::unordered_set<FrameResourceId> m_ValidResource;
+    FrameResourceId                                m_ResourceCounter = 0;
+    std::vector<Resource>                          m_InnerResources;
+    std::unordered_map<FrameResourceId, Desc>      m_InnerResourcesDesc;
+    std::unordered_map<FrameResourceId, Resource*> m_ValidResources;
 };
 
 class ResourceHelper {
@@ -111,9 +111,9 @@ class ResourceHelper {
 public:
     template <typename T>
     T& Get(FrameHandle handle) const {
+        assert(node.reads.contains(handle) || node.writes.contains(handle) && "This pass node do not operate the handle in graph!");
         auto id = fg.m_ResourceNodes[handle].resource;
-        assert(fg.m_ValidResource.contains(id) && "can not access invalid resource after complie!");
-        return static_cast<T&>(fg.m_Resources.at(id));
+        return static_cast<T&>(*(fg.m_ValidResources.at(id)));
     }
 
 private:

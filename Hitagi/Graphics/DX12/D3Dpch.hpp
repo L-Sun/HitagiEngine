@@ -7,6 +7,7 @@
 // STL
 #include <iostream>
 #include <cassert>
+#include <string>
 #include <vector>
 #include <map>
 #include <set>

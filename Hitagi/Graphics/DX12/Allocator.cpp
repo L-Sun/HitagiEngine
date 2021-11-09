@@ -90,7 +90,7 @@ std::shared_ptr<LinearAllocator::LinearAllocationPage> LinearAllocator::PageMana
     ThrowIfFailed(device->CreateCommittedResource(&heapProp, D3D12_HEAP_FLAG_NONE, &desc, defaultUsage, nullptr, IID_PPV_ARGS(&resource)));
     resource->SetName(L"Linear Allocation Page");
     // resource ownership transfer to GpuResource
-    auto ret = std::make_shared<LinearAllocationPage>(GpuResource{"Linear Page", resource}, size);
+    auto ret = std::make_shared<LinearAllocationPage>(GpuResource{resource}, size);
     return ret;
 }
 

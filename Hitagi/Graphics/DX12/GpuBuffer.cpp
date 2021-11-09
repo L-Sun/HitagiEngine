@@ -7,8 +7,7 @@ GpuBuffer::GpuBuffer(ID3D12Device*    device,
                      std::string_view name,
                      size_t           numElements,
                      size_t           elementSize)
-    : GpuResource(name),
-      m_NumElements(numElements),
+    : m_NumElements(numElements),
       m_ElementSize(elementSize),
       m_BufferSize(numElements * elementSize) {
     auto desc      = CD3DX12_RESOURCE_DESC::Buffer(m_BufferSize, m_ResourceFlags);
@@ -21,8 +20,7 @@ GpuBuffer::GpuBuffer(ID3D12Device*    device,
 }
 
 ConstantBuffer::ConstantBuffer(std::string_view name, ID3D12Device* device, DescriptorAllocator& descritptorAllocator, size_t numElements, size_t elementSize)
-    : GpuResource(name),
-      m_NumElements(numElements),
+    : m_NumElements(numElements),
       m_ElementSize(elementSize),
       m_BlockSize(align(elementSize, 256)),
       m_BufferSize(align(elementSize, 256) * numElements) {
@@ -48,7 +46,7 @@ ConstantBuffer::ConstantBuffer(std::string_view name, ID3D12Device* device, Desc
     }
 }
 
-void ConstantBuffer::UpdataData(size_t offset, const uint8_t* data, size_t dataSize) {
+void ConstantBuffer::UpdateData(size_t offset, const uint8_t* data, size_t dataSize) {
     std::copy_n(data, dataSize, m_CpuPtr + offset * m_BlockSize);
 }
 
@@ -57,7 +55,7 @@ ConstantBuffer::~ConstantBuffer() {
 }
 
 TextureBuffer::TextureBuffer(std::string_view name, ID3D12Device* device, Descriptor&& srv, const D3D12_RESOURCE_DESC& desc)
-    : GpuResource(name), m_SRV(std::move(srv)) {
+    : m_SRV(std::move(srv)) {
     auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ThrowIfFailed(device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&m_Resource)));
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
@@ -65,7 +63,7 @@ TextureBuffer::TextureBuffer(std::string_view name, ID3D12Device* device, Descri
 }
 
 RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, Descriptor&& rtv, const D3D12_RESOURCE_DESC& desc)
-    : GpuResource(name), m_RTV(std::move(rtv)) {
+    : m_RTV(std::move(rtv)) {
     auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ThrowIfFailed(device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&m_Resource)));
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
@@ -73,13 +71,13 @@ RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, Descript
 }
 
 RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, Descriptor&& rtv, ID3D12Resource* res)
-    : GpuResource(name, res), m_RTV(std::move(rtv)) {
+    : GpuResource(res), m_RTV(std::move(rtv)) {
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
     device->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV.handle);
 }
 
 DepthBuffer::DepthBuffer(std::string_view name, ID3D12Device* device, Descriptor&& dsv, const D3D12_RESOURCE_DESC& desc, float clearDepth, uint8_t clearStencil)
-    : GpuResource(name), m_DSV(std::move(dsv)), m_ClearDepth(clearDepth), m_ClearStencil(clearStencil) {
+    : m_DSV(std::move(dsv)), m_ClearDepth(clearDepth), m_ClearStencil(clearStencil) {
     auto              heapProps     = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_CLEAR_VALUE clearValue    = {};
     clearValue.Format               = desc.Format;
