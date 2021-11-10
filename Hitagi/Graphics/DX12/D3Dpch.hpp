@@ -7,6 +7,7 @@
 // STL
 #include <iostream>
 #include <cassert>
+#include <string>
 #include <vector>
 #include <map>
 #include <set>
@@ -22,6 +23,9 @@
 #include "DXHelper.hpp"
 #include "d3dx12.h"
 #include <dxgi1_6.h>
+
+#undef near
+#undef far
 
 using namespace Microsoft::WRL;
 

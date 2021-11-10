@@ -5,9 +5,11 @@ Hitagi Engine是以C++20开发的实验性游戏引擎，基本架构参考[从�
 
 ## 完成模块
 ### 核心
+
 1. 图形学相关的数学库，支持swizzle操作，以ISPC加速运算
-2. 类TCMalloc的内存分配器
-3. 文件读写模块
+    1. 矩阵以行主序储存（无论是CPU侧，还算GPU侧，dxc编译时候，需要加上 `-Zpr` 表示行主序）
+3. 类TCMalloc的内存分配器
+4. 文件读写模块
 
 ### 场景管理
 以Assimp作为模型解析，并导入到SceneManager中
@@ -38,17 +40,6 @@ Hitagi Engine是以C++20开发的实验性游戏引擎，基本架构参考[从�
 
 并安装Vcpkg，具体方式请访问 [https://github.com/Microsoft/vcpkg](https://github.com/Microsoft/vcpkg)
 
-
-此时在Vcpkg中以x64-windows下载安装如下第三方库
-1. crossguid
-2. zlib
-3. libjpeg-turbo
-4. libpng
-5. assimp
-6. freetype
-7. fmt
-8. spdlog
-9. gtest
 
 命令为
 ```

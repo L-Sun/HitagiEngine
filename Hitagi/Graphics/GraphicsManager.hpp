@@ -17,18 +17,25 @@ public:
     void Tick() final;
 
 protected:
-    void Render(const Asset::Scene& secene);
+    // TODO change the parameter to View, if multiple view port is finished
+    void   Render(const Asset::Scene& scene);
+    Frame* GetBcakFrameForRendering();
 
-    std::unique_ptr<backend::DriverAPI> m_Driver;
-    std::unique_ptr<ResourceManager>    m_ResMgr;
+    std::unique_ptr<DriverAPI>       m_Driver;
+    std::unique_ptr<ResourceManager> m_ResMgr;
 
-    static constexpr uint8_t sm_FrameCount       = 3;
+    constexpr static uint8_t sm_SwapChianSize    = 2;
     static constexpr Format  sm_BackBufferFormat = Format::R8G8B8A8_UNORM;
     int                      m_CurrBackBuffer    = 0;
 
-    std::array<std::unique_ptr<Frame>, sm_FrameCount> m_Frame;
-    std::unique_ptr<PipelineState>                    m_PSO;
-    ShaderManager                                     m_ShaderManager;
+    // TODO use file to descript pipeline object
+    std::unique_ptr<PipelineState> m_PSO;
+    std::unique_ptr<PipelineState> m_DebugPSO;
+    ShaderManager                  m_ShaderManager;
+
+    // TODO multiple RenderTarget is need if the application has multiple view port
+    // if the class View is impletement, RenderTarget will be a member variable of View
+    std::array<std::unique_ptr<Frame>, sm_SwapChianSize> m_Frames;
 };
 
 }  // namespace Hitagi::Graphics

@@ -20,22 +20,22 @@ public:
     void                     CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format, void* window) final;
     Graphics::RenderTarget   CreateRenderTarget(std::string_view name, const Graphics::RenderTarget::Description& desc) final;
     Graphics::RenderTarget   CreateRenderFromSwapChain(size_t frameIndex) final;
-    Graphics::VertexBuffer   CreateVertexBuffer(size_t vertexCount, size_t vertexSize, const uint8_t* initialData = nullptr) final;
-    Graphics::IndexBuffer    CreateIndexBuffer(size_t indexCount, size_t indexSize, const uint8_t* initialData = nullptr) final;
+    Graphics::VertexBuffer   CreateVertexBuffer(std::string_view name, size_t vertexCount, size_t vertexSize, const uint8_t* initialData = nullptr) final;
+    Graphics::IndexBuffer    CreateIndexBuffer(std::string_view name, size_t indexCount, size_t indexSize, const uint8_t* initialData = nullptr) final;
     Graphics::ConstantBuffer CreateConstantBuffer(std::string_view name, size_t numElements, size_t elementSize) final;
     Graphics::TextureBuffer  CreateTextureBuffer(std::string_view name, const Graphics::TextureBuffer::Description& desc) final;
     Graphics::DepthBuffer    CreateDepthBuffer(std::string_view name, const Graphics::DepthBuffer::Description& desc) final;
 
+    Graphics::Resource GetSwapChainBuffer(size_t frameIndex) final;
+
     void UpdateConstantBuffer(Graphics::ConstantBuffer& buffer, size_t offset, const uint8_t* data, size_t size) final;
 
-    void RetireResources(std::vector<Graphics::ResourceContainer>&& resources, uint64_t fenceValue) final;
+    void RetireResources(std::vector<Graphics::Resource>&& resources, uint64_t fenceValue) final;
 
-    virtual Graphics::TextureSampler CreateSampler(std::string_view name, const Graphics::TextureSampler::Description& desc) final;
+    virtual Graphics::Sampler CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) final;
 
-    void CreateRootSignature(const Graphics::RootSignature& signature) final;
-    void DeleteRootSignature(const Graphics::RootSignature& signature) final;
-    void CreatePipelineState(const Graphics::PipelineState& pso) final;
-    void DeletePipelineState(const Graphics::PipelineState& pso) final;
+    std::unique_ptr<backend::Resource> CreateRootSignature(const Graphics::RootSignature& rootsignature) final;
+    std::unique_ptr<backend::Resource> CreatePipelineState(const Graphics::PipelineState& pso) final;
 
     std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() final;
 
@@ -49,12 +49,11 @@ public:
 
     ID3D12Device*       GetDevice() const noexcept { return m_Device.Get(); }
     CommandListManager& GetCmdMgr() noexcept { return m_CommandManager; }
-    GraphicsPSO&        GetPSO(const Graphics::PipelineState& pipeline) { return m_Pso.at(pipeline.GetName()); }
-    RootSignature&      GetRootSignature(size_t id) { return m_RootSignatures.at(id); }
 
 private:
     // Static method
-    static DXGI_FORMAT ToDxgiFormat(Graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
+    static DXGI_FORMAT      ToDxgiFormat(Graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
+    static Graphics::Format ToFormat(DXGI_FORMAT format) noexcept { return static_cast<Graphics::Format>(format); }
 
     // No-static method
     // RootSignature& GetRootSignature();
@@ -76,10 +75,7 @@ private:
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_RTV},
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_DSV}};
 
-    std::unordered_map<size_t, RootSignature>    m_RootSignatures;
-    std::unordered_map<std::string, GraphicsPSO> m_Pso;
-
     // resource will release after fence complete
-    std::queue<std::pair<uint64_t, std::vector<Graphics::ResourceContainer>>> m_RetireResources;
+    std::queue<std::pair<uint64_t, std::vector<Graphics::Resource>>> m_RetireResources;
 };
 }  // namespace Hitagi::Graphics::backend::DX12

@@ -2,18 +2,19 @@
 #include "RootSignature.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
-class PSO {
+class PSO : public backend::Resource {
 public:
-    PSO()           = default;
+    PSO(std::string_view name) : m_Name(name) {}
     PSO(const PSO&) = delete;
-    PSO& operator=(PSO&) = delete;
-    PSO(PSO&&)           = default;
+    PSO& operator=(const PSO&) = delete;
+    PSO(PSO&&)                 = default;
     PSO& operator=(PSO&&) = default;
 
     void                 SetRootSignature(const RootSignature& rootSignature) { m_RootSignature = &rootSignature; }
     ID3D12PipelineState* GetPSO() const { return m_PSO.Get(); }
 
 protected:
+    std::string                                 m_Name;
     const RootSignature*                        m_RootSignature = nullptr;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PSO           = nullptr;
 };
@@ -43,7 +44,7 @@ private:
 
 class ComputePSO : public PSO {
 public:
-    ComputePSO();
+    ComputePSO(std::string_view name);
     void SetComputeShader(CD3DX12_SHADER_BYTECODE code);
     void Finalize(ID3D12Device* device);
 

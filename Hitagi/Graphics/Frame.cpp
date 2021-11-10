@@ -3,18 +3,17 @@
 #include "ICommandContext.hpp"
 
 namespace Hitagi::Graphics {
-Frame::Frame(backend::DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex)
+Frame::Frame(DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex)
     : m_Driver(driver),
       m_ResMgr(resourceManager),
       m_FrameIndex(frameIndex),
       m_FrameConstantBuffer(m_Driver.CreateConstantBuffer("FrameConstant", 1, sizeof(FrameConstant))),
+      m_ConstantBuffer(m_Driver.CreateConstantBuffer("Object Constant", 1, sizeof(ConstantData))),
+      m_MaterialBuffer(m_Driver.CreateConstantBuffer("Material Constant", 1, sizeof(MaterialData))),
       m_Output(m_Driver.CreateRenderFromSwapChain(frameIndex)) {
 }
 
 void Frame::SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries) {
-    m_Geometries.clear();
-    m_Geometries.reserve(geometries.size());
-
     // Calculate need constant buffer size
     size_t constantCount = geometries.size(), materialCount = 0;
     for (Asset::SceneGeometryNode& node : geometries) {
@@ -35,8 +34,6 @@ void Frame::SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
 
             // need update
             ConstantData data{node.GetCalculatedTransform()};
-            if (m_Driver.GetType() == backend::APIType::DirectX12)
-                data.transform = transpose(data.transform);
             m_Driver.UpdateConstantBuffer(m_ConstantBuffer, constantOffset, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
             item.constantOffset = constantOffset;
             constantOffset++;
@@ -83,6 +80,9 @@ void Frame::SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
     }
 }
 
+void Frame::SetDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives) {
+}
+
 void Frame::SetCamera(Asset::SceneCameraNode& camera) {
     auto& data        = m_FrameConstant;
     data.cameraPos    = vec4f(camera.GetCameraPosition(), 1.0f);
@@ -99,15 +99,6 @@ void Frame::SetCamera(Asset::SceneCameraNode& camera) {
     data.invProjection = inverse(data.projection);
     data.projView      = data.projection * data.view;
     data.invProjView   = inverse(data.projView);
-
-    if (m_Driver.GetType() == backend::APIType::DirectX12) {
-        data.view          = transpose(data.view);
-        data.projection    = transpose(data.projection);
-        data.invView       = transpose(data.invView);
-        data.invProjection = transpose(data.invProjection);
-        data.projView      = transpose(data.projView);
-        data.invProjView   = transpose(data.invProjView);
-    }
 
     m_Driver.UpdateConstantBuffer(m_FrameConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
 }
@@ -138,8 +129,9 @@ void Frame::Draw(IGraphicsCommandContext* context) {
     }
 }
 
-void Frame::WaitLastDraw() {
+void Frame::ResetState() {
     m_Driver.WaitFence(m_FenceValue);
+    m_Geometries.clear();
 }
 
 }  // namespace Hitagi::Graphics

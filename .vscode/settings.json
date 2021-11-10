@@ -83,11 +83,18 @@
         "random": "cpp",
         "future": "cpp",
         "*.rh": "cpp",
-        "numbers": "cpp"
+        "numbers": "cpp",
+        "format": "cpp",
+        "regex": "cpp",
+        "charconv": "cpp",
+        "ranges": "cpp",
+        "compare": "cpp",
+        "any": "cpp",
+        "bit": "cpp",
+        "forward_list": "cpp",
+        "stop_token": "cpp"
     },
-    "cmake.configureArgs": [
-        "-DCMAKE_TOOLCHAIN_FILE=E:/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
-    ],
-    "http.proxy": "http://127.0.0.1:1080"
+    "cmake.debugConfig": {
+        "cwd": "${workspaceFolder}"
+    },
 }

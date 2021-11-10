@@ -9,7 +9,9 @@
 #include "GraphicsManager.hpp"
 
 namespace Hitagi {
-std::unique_ptr<DebugManager> g_DebugManager = std::make_unique<DebugManager>();
+std::unique_ptr<Debugger::DebugManager> g_DebugManager = std::make_unique<Debugger::DebugManager>();
+}
+namespace Hitagi::Debugger {
 
 int DebugManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("DebugManager");
@@ -26,21 +28,9 @@ void DebugManager::Tick() {
 }
 
 void DebugManager::ToggleDebugInfo() {
-#if defined(_DEBUG)
-
-#endif
 }
 
-void DebugManager::DrawDebugInfo() {
-#if defined(_DEBUG)
-    // // x - axis
-    // g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(1000, 0, 0)}, vec4f(1, 0, 0, 1));
-    // // y - axis
-    // g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(0, 1000, 0)}, vec4f(0, 1, 0, 1));
-    // // z - axis
-    // g_GraphicsManager->RenderLine(Line{vec3f(0, 0, 0), vec3f(0, 0, 1000)}, vec4f(0, 0, 1, 1));
-
-    // g_GraphicsManager->RenderGrid();
-#endif
+void DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, const std::chrono::duration<double> duration) {
 }
-}  // namespace Hitagi
+
+}  // namespace Hitagi::Debugger

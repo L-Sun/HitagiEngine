@@ -104,53 +104,62 @@ void GraphicsCommandContext::SetViewPort(uint32_t x, uint32_t y, uint32_t width,
 }
 
 void GraphicsCommandContext::SetRenderTarget(Graphics::RenderTarget& rt) {
-    auto& renderTarget = *static_cast<RenderTarget*>(rt.GetResource());
+    auto& renderTarget = *rt.GetBackend<RenderTarget>();
     TransitionResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->OMSetRenderTargets(1, &renderTarget.GetRTV().handle, false, nullptr);
-    m_CommandList->ClearRenderTargetView(renderTarget.GetRTV().handle, vec4f(0, 0, 0, 1), 0, nullptr);
 }
 
 void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depthBuffer) {
-    auto& renderTarget = *static_cast<RenderTarget*>(rt.GetResource());
-    auto& db           = *static_cast<DepthBuffer*>(depthBuffer.GetResource());
+    auto& renderTarget = *rt.GetBackend<RenderTarget>();
+    auto& db           = *depthBuffer.GetBackend<DepthBuffer>();
     TransitionResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET);
     TransitionResource(db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
     m_CommandList->OMSetRenderTargets(1, &renderTarget.GetRTV().handle, false, &db.GetDSV().handle);
-    m_CommandList->ClearDepthStencilView(db.GetDSV().handle, D3D12_CLEAR_FLAG_DEPTH, db.GetClearDepth(), db.GetClearStencil(), 0, nullptr);
+}
+
+void GraphicsCommandContext::ClearRenderTarget(Graphics::RenderTarget& rt) {
+    auto& renderTarget = *rt.GetBackend<RenderTarget>();
+    TransitionResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->ClearRenderTargetView(renderTarget.GetRTV().handle, vec4f(0, 0, 0, 1), 0, nullptr);
+}
+
+void GraphicsCommandContext::ClearDepthBuffer(Graphics::DepthBuffer& depthBuffer) {
+    auto& db = *depthBuffer.GetBackend<DepthBuffer>();
+    TransitionResource(db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
+    m_CommandList->ClearDepthStencilView(db.GetDSV().handle, D3D12_CLEAR_FLAG_DEPTH, db.GetClearDepth(), db.GetClearStencil(), 0, nullptr);
 }
 
 void GraphicsCommandContext::SetPipelineState(const Graphics::PipelineState& pipeline) {
     m_Pipeline = &pipeline;
-    SetPSO(m_Driver.GetPSO(pipeline));
-    SetRootSignature(m_Driver.GetRootSignature(pipeline.GetRootSignature()->Id()));
+    SetPSO(*pipeline.GetBackend<PSO>());
+    SetRootSignature(*pipeline.GetRootSignature()->GetBackend<RootSignature>());
 }
 
 void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::ConstantBuffer& cb, size_t offset) {
-    auto& sig                     = m_Driver.GetRootSignature(m_Pipeline->GetRootSignature()->Id());
-    auto [rootIndex, tableOffset] = sig.GetParameterTable(name);
-    SetDynamicDescriptor(rootIndex, tableOffset, static_cast<const ConstantBuffer*>(cb.GetResource())->GetCBV(offset));
+    auto sig                      = m_Pipeline->GetRootSignature()->GetBackend<RootSignature>();
+    auto [rootIndex, tableOffset] = sig->GetParameterTable(name);
+    SetDynamicDescriptor(rootIndex, tableOffset, cb.GetBackend<ConstantBuffer>()->GetCBV(offset));
 }
 
 void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::TextureBuffer& texture) {
-    auto& sig                     = m_Driver.GetRootSignature(m_Pipeline->GetRootSignature()->Id());
-    auto [rootIndex, tableOffset] = sig.GetParameterTable(name);
-    SetDynamicDescriptor(rootIndex, tableOffset, static_cast<const TextureBuffer*>(texture.GetResource())->GetSRV());
+    auto sig                      = m_Pipeline->GetRootSignature()->GetBackend<RootSignature>();
+    auto [rootIndex, tableOffset] = sig->GetParameterTable(name);
+    SetDynamicDescriptor(rootIndex, tableOffset, texture.GetBackend<TextureBuffer>()->GetSRV());
 }
 
-void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::TextureSampler& sampler) {
-    auto& sig                     = m_Driver.GetRootSignature(m_Pipeline->GetRootSignature()->Id());
-    auto [rootIndex, tableOffset] = sig.GetParameterTable(name);
-    SetDynamicSampler(rootIndex, tableOffset, static_cast<const Sampler*>(sampler.GetResource())->GetDescriptor());
+void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::Sampler& sampler) {
+    auto sig                      = m_Pipeline->GetRootSignature()->GetBackend<RootSignature>();
+    auto [rootIndex, tableOffset] = sig->GetParameterTable(name);
+    SetDynamicSampler(rootIndex, tableOffset, sampler.GetBackend<Sampler>()->GetDescriptor());
 }
 
 void GraphicsCommandContext::Present(Graphics::RenderTarget& rt) {
-    auto& renderTarget = *static_cast<RenderTarget*>(rt.GetResource());
+    auto& renderTarget = *rt.GetBackend<RenderTarget>();
     TransitionResource(renderTarget, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 
 void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
-    auto  indexBuffer = static_cast<const IndexBuffer*>(mesh.indices.GetResource());
+    auto  indexBuffer = mesh.indices.GetBackend<IndexBuffer>();
     auto& layout      = m_Pipeline->GetInputLayout();
 
     auto ibv = indexBuffer->IndexBufferView();
@@ -160,7 +169,7 @@ void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
         while (iter != layout.end() && iter->semanticName != semanticName) iter++;
         if (iter == layout.end()) continue;
 
-        auto vbv = static_cast<const VertexBuffer*>(vertex.GetResource())->VertexBufferView();
+        auto vbv = vertex.GetBackend<VertexBuffer>()->VertexBufferView();
         m_CommandList->IASetVertexBuffers(iter->inputSlot, 1, &vbv);
     }
 

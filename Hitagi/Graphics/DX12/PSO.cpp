@@ -37,17 +37,18 @@ void GraphicsPSO::Finalize(ID3D12Device* device) {
     m_PSODesc.pRootSignature = m_RootSignature->GetRootSignature();
     assert(m_PSODesc.pRootSignature != nullptr);
     ThrowIfFailed(device->CreateGraphicsPipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
+    m_PSO->SetName(std::wstring(m_Name.begin(), m_Name.end()).data());
 }
 
 GraphicsPSO GraphicsPSO::Copy() const {
-    GraphicsPSO ret;
+    GraphicsPSO ret(m_Name);
     ret.m_RootSignature = m_RootSignature;
     ret.m_PSODesc       = m_PSODesc;
     ret.m_InputLayouts  = m_InputLayouts;
     return ret;
 }
 
-ComputePSO::ComputePSO() {
+ComputePSO::ComputePSO(std::string_view name) : PSO(name) {
     ZeroMemory(&m_PSODesc, sizeof(m_PSODesc));
     m_PSODesc.NodeMask = 1;
 }

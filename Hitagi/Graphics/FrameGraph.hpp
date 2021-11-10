@@ -1,11 +1,12 @@
 #pragma once
 #include "Resource.hpp"
-#include "FramePass.hpp"
+#include "RenderPass.hpp"
 #include "DriverAPI.hpp"
 
 #include <vector>
 #include <functional>
 #include <variant>
+#include <unordered_set>
 
 namespace Hitagi::Graphics {
 
@@ -15,24 +16,26 @@ struct PassNode;
 class FrameGraph;
 
 struct ResourceNode {
-    ResourceNode(FrameResourceId resource, PassNode* writer = nullptr, unsigned version = 0)
-        : resource(resource), writer(writer), version(version) {}
+    ResourceNode(std::string_view name, FrameResourceId resource, PassNode* writer = nullptr, unsigned version = 0)
+        : name(std::string(name)), resource(resource), writer(writer), version(version) {}
+    std::string     name;
     FrameResourceId resource;
     PassNode*       writer;
     unsigned        version;
 };
 struct PassNode {
-    PassNode(std::string_view name, PassExecutor* pass) : name(name), pass(pass) {}
+    PassNode(std::string_view name, PassExecutor* executor) : name(name), executor(executor) {}
 
-    FrameHandle Read(FrameHandle input);
-    FrameHandle Write(FrameGraph& fg, FrameHandle output);
+    FrameHandle Read(const FrameHandle input);
+    FrameHandle Write(FrameGraph& fg, const FrameHandle output);
 
     std::string name;
+    bool        sideEffect = false;
     // index of the resource node in frame graph
-    std::vector<FrameHandle> reads;
-    std::vector<FrameHandle> writes;
+    std::set<FrameHandle> reads;
+    std::set<FrameHandle> writes;
 
-    std::unique_ptr<PassExecutor> pass;
+    std::unique_ptr<PassExecutor> executor;
 };
 
 class FrameGraph {
@@ -45,9 +48,10 @@ public:
 
     public:
         template <typename T>
-        FrameHandle Create(typename T::Description desc) const noexcept { return fg.Create(desc); }
-        FrameHandle Read(FrameHandle input) const noexcept { return node.Read(input); }
-        FrameHandle Write(FrameHandle output) const noexcept { return node.Write(fg, output); }
+        FrameHandle Create(std::string_view name, typename T::Description desc) const noexcept { return fg.Create(name, desc); }
+        FrameHandle Read(const FrameHandle input) const noexcept { return node.Read(input); }
+        FrameHandle Write(const FrameHandle output) const noexcept { return node.Write(fg, output); }
+        void        SideEffect() noexcept { node.sideEffect = true; }
 
     private:
         Builder(FrameGraph& fg, PassNode& node) : fg(fg), node(node) {}
@@ -55,12 +59,12 @@ public:
         PassNode&   node;
     };
 
-    FrameGraph(backend::DriverAPI& driver) : m_Driver(driver) {}
+    FrameGraph() = default;
     ~FrameGraph() { assert(m_Retired && "Frame graph must set a fence to retire its resources."); }
 
     template <typename PassData, typename SetupFunc, typename ExecuteFunc>
-    FramePass<PassData, ExecuteFunc> AddPass(std::string_view name, SetupFunc&& setup, ExecuteFunc&& execute) {
-        auto pass = new FramePass<PassData, ExecuteFunc>(std::forward<ExecuteFunc>(execute));
+    RenderPass<PassData, ExecuteFunc> AddPass(std::string_view name, SetupFunc&& setup, ExecuteFunc&& execute) {
+        auto pass = new RenderPass<PassData, ExecuteFunc>(std::forward<ExecuteFunc>(execute));
         // Transfer ownership to pass node
         PassNode& node = m_PassNodes.emplace_back(name, pass);
         Builder   builder(*this, node);
@@ -68,27 +72,36 @@ public:
         return *pass;
     }
 
+    FrameHandle Import(RenderTarget* renderTarget) {
+        FrameResourceId id     = m_ResourceCounter++;
+        FrameHandle     handle = m_ResourceNodes.size();
+        m_ResourceNodes.emplace_back(renderTarget->GetName(), id);
+        m_ValidResources.emplace(id, renderTarget);
+        return handle;
+    }
+
+    void Present(FrameHandle renderTarget, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context);
+
     void Compile();
-    void Execute();
-    void Retire(uint64_t fenceValue) noexcept;
+    void Execute(DriverAPI& driver);
+    void Retire(uint64_t fenceValue, DriverAPI& driver) noexcept;
 
 private:
     using Desc = std::variant<DepthBuffer::Description,
                               TextureBuffer::Description,
                               RenderTarget::Description>;
 
-    FrameHandle Create(Desc desc);
+    FrameHandle Create(std::string_view name, Desc desc);
 
-    backend::DriverAPI& m_Driver;
-    bool                m_Retired = false;
+    bool m_Retired = false;
 
     std::vector<ResourceNode> m_ResourceNodes;
     std::vector<PassNode>     m_PassNodes;
 
-    std::vector<ResourceContainer> m_Resources;
-    std::vector<Desc>              m_ResourcesDesc;
-    // resources container index
-    std::unordered_map<FrameResourceId, size_t> m_ValidResource;
+    FrameResourceId                                m_ResourceCounter = 0;
+    std::vector<Resource>                          m_InnerResources;
+    std::unordered_map<FrameResourceId, Desc>      m_InnerResourcesDesc;
+    std::unordered_map<FrameResourceId, Resource*> m_ValidResources;
 };
 
 class ResourceHelper {
@@ -97,10 +110,9 @@ class ResourceHelper {
 public:
     template <typename T>
     T& Get(FrameHandle handle) const {
-        using Desc = typename T::Description;
-        auto id    = fg.m_ResourceNodes[handle].resource;
-        assert(std::holds_alternative<Desc>(fg.m_ResourcesDesc[id]));
-        return static_cast<T&>(fg.m_Resources[fg.m_ValidResource.at(id)]);
+        assert(node.reads.contains(handle) || node.writes.contains(handle) && "This pass node do not operate the handle in graph!");
+        auto id = fg.m_ResourceNodes[handle].resource;
+        return static_cast<T&>(*(fg.m_ValidResources.at(id)));
     }
 
 private:

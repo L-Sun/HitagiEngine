@@ -1,6 +1,7 @@
 #include "ResourceManager.hpp"
 
 #include <spdlog/spdlog.h>
+#include <fmt/format.h>
 
 namespace Hitagi::Graphics {
 const MeshBuffer& ResourceManager::GetMeshBuffer(Asset::SceneObjectMesh& mesh) {
@@ -8,24 +9,32 @@ const MeshBuffer& ResourceManager::GetMeshBuffer(Asset::SceneObjectMesh& mesh) {
     if (m_MeshBuffer.count(id) != 0)
         return m_MeshBuffer.at(id);
 
+    decltype(MeshBuffer::vertices) vertices;
+
     // Create new vertex array
     for (auto&& vertex : mesh.GetVertexArrays()) {
-        m_MeshBuffer[id].vertices.emplace(
-            vertex.GetAttributeName(),    // attribut name
+        std::string_view name = vertex.GetAttributeName();
+        vertices.emplace(
+            name,                         // attribut name
             m_Driver.CreateVertexBuffer(  // backend vertex buffer
+                fmt::format("{}-{}", name, id.str()),
                 vertex.GetVertexCount(),
                 vertex.GetVertexSize(),
                 vertex.GetData()));
     }
     // Create Index array
-    auto& indexArray         = mesh.GetIndexArray();
-    m_MeshBuffer[id].indices = m_Driver.CreateIndexBuffer(
+    auto& indexArray = mesh.GetIndexArray();
+    auto  indices    = m_Driver.CreateIndexBuffer(
+        fmt::format("index-{}", id.str()),
         indexArray.GetIndexCount(),
         indexArray.GetIndexSize(),
         indexArray.GetData());
-    m_MeshBuffer[id].primitive = mesh.GetPrimitiveType();
 
-    return m_MeshBuffer[id];
+    m_MeshBuffer.emplace(id, MeshBuffer{std::move(vertices),
+                                        std::move(indices),
+                                        mesh.GetPrimitiveType()});
+
+    return m_MeshBuffer.at(id);
 }
 
 const TextureBuffer& ResourceManager::GetTextureBuffer(Asset::SceneObjectTexture& texture) {
@@ -78,10 +87,11 @@ const TextureBuffer& ResourceManager::GetDefaultTextureBuffer(Format format) {
     return m_DefaultTextureBuffer.at(format);
 }
 
-const TextureSampler& ResourceManager::GetSampler(std::string_view name) {
+const Sampler& ResourceManager::GetSampler(std::string_view name) {
     const std::string _name(name);
     if (m_Samplers.count(_name) != 0) return m_Samplers.at(_name);
 
+    // TODO should throw error
     m_Samplers.emplace(name, m_Driver.CreateSampler(name, {}));
     return m_Samplers.at(_name);
 }

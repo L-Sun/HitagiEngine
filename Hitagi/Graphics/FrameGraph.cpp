@@ -1,73 +1,87 @@
 #include "FrameGraph.hpp"
 
-template <typename>
-inline constexpr bool always_false_v = false;
+template <class... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
 
 namespace Hitagi::Graphics {
 
-FrameHandle PassNode::Read(FrameHandle input) {
-    auto pos = std::find(reads.begin(), reads.end(), input);
-    if (pos == reads.end())
-        reads.emplace_back(input);
+FrameHandle PassNode::Read(const FrameHandle input) {
+    if (!reads.contains(input))
+        reads.emplace(input);
 
     return input;
 }
-FrameHandle PassNode::Write(FrameGraph& fg, FrameHandle output) {
-    auto pos = std::find(writes.begin(), writes.end(), output);
-    if (pos != writes.end()) return output;
+FrameHandle PassNode::Write(FrameGraph& fg, const FrameHandle output) {
+    if (writes.contains(output)) return output;
     ResourceNode& oldNode = fg.m_ResourceNodes[output];
     // Create new resource node
     FrameHandle ret = fg.m_ResourceNodes.size();
-    fg.m_ResourceNodes.emplace_back(oldNode.resource, this, oldNode.version + 1);
+    fg.m_ResourceNodes.emplace_back(oldNode.name, oldNode.resource, this, oldNode.version + 1);
+    writes.emplace(ret);
     return ret;
 }
 
 void FrameGraph::Compile() {
-    // pruning the FrameGragh
+    // TODO pruning the FrameGragh
     // ...
     //    generate valid resource id vector used by the next execute function.
-    for (size_t i = 0; i < m_ResourcesDesc.size(); i++)
-        m_ValidResource.emplace(i, i);
 }
 
-void FrameGraph::Execute() {
-    // Prepare all resource used among the frame graph
-    for (size_t i = 0; i < m_ValidResource.size(); i++) {
-        auto id = m_ValidResource[i];
-        m_Resources.emplace_back(std::visit(
-            [this](auto& arg) -> ResourceContainer {
-                using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, TextureBuffer::Description>)
-                    return m_Driver.CreateTextureBuffer("", arg);
-                else if constexpr (std::is_same_v<T, DepthBuffer::Description>)
-                    return m_Driver.CreateDepthBuffer("", arg);
-                else if constexpr (std::is_same_v<T, RenderTarget::Description>)
-                    return m_Driver.CreateRenderTarget("", arg);
-                else
-                    static_assert(always_false_v<T>, "non-exhaustive visitor!");
+void FrameGraph::Execute(DriverAPI& driver) {
+    // Prepare all transiant resource used among the frame graph
+    // TODO prepare the remaining resource after pruning.
+    for (auto&& [id, desc] : m_InnerResourcesDesc) {
+        auto& res = m_InnerResources.emplace_back(std::visit(
+            overloaded{
+                [&](const TextureBuffer::Description& desc) -> Resource {
+                    return driver.CreateTextureBuffer("", desc);
+                },
+                [&](const DepthBuffer::Description& desc) -> Resource {
+                    return driver.CreateDepthBuffer("", desc);
+                },
+                [&](const RenderTarget::Description& desc) -> Resource {
+                    return driver.CreateRenderTarget("", desc);
+                },
             },
-            m_ResourcesDesc[id]));
+            desc));
+        m_ValidResources.emplace(id, &res);
     }
 
     // execute all pass
     for (auto&& node : m_PassNodes) {
         ResourceHelper helper(*this, node);
-        node.pass->Execute(helper);
+        node.executor->Execute(helper);
     }
 }
 
-void FrameGraph::Retire(uint64_t fenceValue) noexcept {
-    m_Driver.RetireResources(std::move(m_Resources), fenceValue);
+void FrameGraph::Retire(uint64_t fenceValue, DriverAPI& driver) noexcept {
+    driver.RetireResources(std::move(m_InnerResources), fenceValue);
     m_Retired = true;
 }
 
-FrameHandle FrameGraph::Create(Desc desc) {
+FrameHandle FrameGraph::Create(std::string_view name, Desc desc) {
     // create new resource node
-    auto handle = m_ResourceNodes.size();
-    auto id     = m_ResourcesDesc.size();
-    m_ResourcesDesc.emplace_back(std::move(desc));
-    m_ResourceNodes.emplace_back(id);
+    FrameResourceId id     = m_ResourceCounter++;
+    FrameHandle     handle = m_ResourceNodes.size();
+    m_InnerResourcesDesc.emplace(id, std::move(desc));
+    m_ResourceNodes.emplace_back(name, id);
     return handle;
+}
+
+void FrameGraph::Present(FrameHandle renderTarget, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context) {
+    struct PassData {
+        FrameHandle output;
+    };
+    auto presentPass = AddPass<PassData>(
+        "Present",
+        [&](FrameGraph::Builder& builder, PassData& data) {
+            data.output = builder.Read(renderTarget);
+            builder.SideEffect();
+        },
+        [=](const ResourceHelper& helper, PassData& data) {
+            auto& rt = helper.Get<RenderTarget>(data.output);
+            context->Present(rt);
+        });
 }
 
 }  // namespace Hitagi::Graphics

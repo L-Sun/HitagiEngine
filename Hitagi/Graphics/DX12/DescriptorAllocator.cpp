@@ -27,12 +27,8 @@ DescriptorPage::DescriptorPage(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE 
 }
 
 void DescriptorPage::DiscardDescriptor(Descriptor& descriptor) {
-    auto offset = (descriptor.handle.ptr - m_Handle.ptr) / m_IncrementSize;
-    // Merge the descriptor to neighboring block
-    // Since descriptors in vector is from front to back  in the page,
-    // so descriptor will try merge forward firstly,
-    // and then try merge bacwward.
-    // That can reduce unnecessary construction on m_AvailableDescriptors.
+    auto   offset = (descriptor.handle.ptr - m_Handle.ptr) / m_IncrementSize;
+    size_t size   = 1;
     if (m_AvailableDescriptors.empty()) {
         auto iter = m_SearchMap.emplace(1, offset);
         m_AvailableDescriptors.emplace(offset, iter);
@@ -41,59 +37,64 @@ void DescriptorPage::DiscardDescriptor(Descriptor& descriptor) {
 
     auto right = m_AvailableDescriptors.upper_bound(offset);
     auto left  = right != m_AvailableDescriptors.begin()
-                    ? std::prev(right)
-                    : m_AvailableDescriptors.end();
+                     ? std::prev(right)
+                     : m_AvailableDescriptors.end();
 
     // Merge forward
     if (left != m_AvailableDescriptors.end()) {
-        BlockOffset blockOffset = left->first;
-        BlockSize   size        = left->second->first;
-        if (blockOffset + size == offset) {
+        BlockOffset block_offset = left->first;
+        BlockSize   block_size   = left->second->first;
+        if (block_offset + block_size == offset) {
+            offset = block_offset;
+            size += block_size;
             m_SearchMap.erase(left->second);
-            left->second = m_SearchMap.emplace(size + 1, blockOffset);
+            m_AvailableDescriptors.erase(left);
         }
     }
+
     // Merge backward
     if (right != m_AvailableDescriptors.end()) {
-        BlockOffset blockOffset = right->first;
-        BlockSize   size        = right->second->first;
-        if (offset + 1 == blockOffset) {
+        BlockOffset block_offset = right->first;
+        BlockSize   block_size   = right->second->first;
+        if (offset + size == block_offset) {
+            size += block_size;
             m_SearchMap.erase(right->second);
             m_AvailableDescriptors.erase(right);
-            m_AvailableDescriptors.emplace(offset, m_SearchMap.emplace(size + 1, offset));
         }
     }
+
+    // insert the merged block
+    m_AvailableDescriptors.emplace(offset, m_SearchMap.emplace(size, offset));
 }
 
 std::optional<std::vector<Descriptor>> DescriptorPage::Allocate(size_t numDescriptors) {
     auto iter = m_SearchMap.lower_bound(numDescriptors);
     if (iter == m_SearchMap.end()) return {};
-    // release the block from the page.
-    // search map
-    BlockSize   size   = iter->first;
-    BlockOffset offset = iter->second;
-    m_SearchMap.erase(iter);
-    m_AvailableDescriptors.erase(offset);
 
-    // Now, we have the block info, offset and size, and then generator descriptors
-    std::vector<Descriptor> ret;
-    ret.reserve(numDescriptors);
+    // update block
+    auto        block_info = m_SearchMap.extract(iter);
+    BlockOffset offset     = block_info.mapped();
+    auto        block      = m_AvailableDescriptors.extract(offset);
+
+    // Now, we have the block info, offset and size, and then generate descriptors from the back of block
+    std::vector<Descriptor>       result;
     CD3DX12_CPU_DESCRIPTOR_HANDLE handle;
     handle.InitOffsetted(m_Handle, offset, m_IncrementSize);
 
     for (size_t i = 0; i < numDescriptors; i++) {
-        ret.emplace_back(handle, shared_from_this());
+        result.emplace_back(handle, shared_from_this());
         handle.Offset(m_IncrementSize);
     }
 
-    // Update the block info and insert to page and serach map
-    offset += numDescriptors;
-    size -= numDescriptors;
+    block_info.key() -= numDescriptors;
+    if (block_info.key() != 0) {
+        block_info.mapped() = offset + numDescriptors;
+        block.key()         = block_info.mapped();
+        block.mapped()      = m_SearchMap.insert(std::move(block_info));
+        m_AvailableDescriptors.insert(std::move(block));
+    }
 
-    iter = m_SearchMap.emplace(size, offset);
-    m_AvailableDescriptors.emplace(offset, iter);
-
-    return {std::move(ret)};
+    return {std::move(result)};
 }
 
 DescriptorAllocator::DescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type, size_t numDescriptorPerPage)

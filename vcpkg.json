@@ -1,0 +1,16 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+    "name": "hitagi-engine",
+    "version": "0.1.0",
+    "dependencies": [
+        "crossguid",
+        "zlib",
+        "libjpeg-turbo",
+        "libpng",
+        "assimp",
+        "freetype",
+        "fmt",
+        "spdlog",
+        "gtest"
+    ]
+}

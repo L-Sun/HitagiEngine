@@ -2,29 +2,18 @@
 #include "SceneNode.hpp"
 #include "ResourceManager.hpp"
 #include "PipelineState.hpp"
+#include "DebugManager.hpp"
+
+#include "DebugManager.hpp"
 
 #include <vector>
 
 namespace Hitagi::Graphics {
-namespace backend {
 class DriverAPI;
-}
 class IGraphicsCommandContext;
 
 class Frame {
-public:
-    Frame(backend::DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex);
-
-    void SetFenceValue(uint64_t fenceValue) { m_FenceValue = fenceValue; }
-    void SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries);
-    void SetCamera(Asset::SceneCameraNode& camera);
-    void SetLight(Asset::SceneLightNode& light);
-    void Draw(IGraphicsCommandContext* context);
-
-    void WaitLastDraw();
-
-    RenderTarget& GetRenerTarget() { return m_Output; }
-
+    // TODO multiple light
     struct FrameConstant {
         // Camera
         mat4f projView;
@@ -67,11 +56,25 @@ public:
         size_t                constantOffset;
     };
 
+public:
+    Frame(DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex);
+
+    void SetFenceValue(uint64_t fenceValue) { m_FenceValue = fenceValue; }
+    void SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries);
+    void SetDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives);
+    void SetCamera(Asset::SceneCameraNode& camera);
+    void SetLight(Asset::SceneLightNode& light);
+    void Draw(IGraphicsCommandContext* context);
+
+    void ResetState();
+
+    RenderTarget& GetRenderTarget() { return m_Output; }
+
 private:
-    backend::DriverAPI& m_Driver;
-    ResourceManager&    m_ResMgr;
-    size_t              m_FrameIndex;
-    uint64_t            m_FenceValue = 0;
+    DriverAPI&       m_Driver;
+    ResourceManager& m_ResMgr;
+    size_t           m_FrameIndex;
+    uint64_t         m_FenceValue = 0;
 
     FrameConstant         m_FrameConstant;
     std::vector<DrawItem> m_Geometries;

@@ -2,11 +2,6 @@
 #include <cassert>
 #include "./Vector.hpp"
 
-// Fix fmt join with array<RowVec>
-template <typename T, unsigned D, typename Char>
-struct fmt::formatter<Hitagi::Vector<T, D>, Char> : fmt::v7::detail::fallback_formatter<Hitagi::Vector<T, D>, Char> {
-};
-
 namespace Hitagi {
 
 template <typename T, unsigned D>

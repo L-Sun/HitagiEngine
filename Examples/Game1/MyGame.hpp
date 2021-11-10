@@ -1,7 +1,7 @@
 #pragma once
 #include "GameLogic.hpp"
 
-class MyTest : public Hitagi::GameLogic {
+class MyGame : public Hitagi::GameLogic {
 public:
     int  Initialize() final;
     void Finalize() final;
