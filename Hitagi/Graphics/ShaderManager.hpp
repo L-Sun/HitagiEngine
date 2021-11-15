@@ -4,10 +4,12 @@
 #include "FileIOManager.hpp"
 
 namespace Hitagi::Graphics {
-enum struct ShaderType { VERTEX,
-                         PIXEL,
-                         GEOMETRY,
-                         COMPUTE };
+enum struct ShaderType {
+    Vertex,
+    Pixel,
+    Geometry,
+    Compute,
+};
 
 class VertexShader;
 class PixelShader;

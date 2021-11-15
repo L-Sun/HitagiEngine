@@ -44,9 +44,9 @@ public:
     using Resource::Resource;
 };
 struct MeshBuffer {
-    std::unordered_map<std::string, VertexBuffer> vertices;
-    IndexBuffer                                   indices;
-    Asset::PrimitiveType                          primitive;
+    std::unordered_map<std::string, std::shared_ptr<VertexBuffer>> vertices;
+    std::shared_ptr<IndexBuffer>                                   indices;
+    PrimitiveType                                                  primitive;
 };
 class ConstantBuffer : public Resource {
 public:

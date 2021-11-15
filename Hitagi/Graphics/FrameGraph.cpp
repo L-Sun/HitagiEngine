@@ -31,20 +31,19 @@ void FrameGraph::Execute(DriverAPI& driver) {
     // Prepare all transiant resource used among the frame graph
     // TODO prepare the remaining resource after pruning.
     for (auto&& [id, desc] : m_InnerResourcesDesc) {
-        auto& res = m_InnerResources.emplace_back(std::visit(
+        m_Resources[id] = std::visit(
             overloaded{
-                [&](const TextureBuffer::Description& desc) -> Resource {
+                [&](const TextureBuffer::Description& desc) -> std::shared_ptr<Resource> {
                     return driver.CreateTextureBuffer("", desc);
                 },
-                [&](const DepthBuffer::Description& desc) -> Resource {
+                [&](const DepthBuffer::Description& desc) -> std::shared_ptr<Resource> {
                     return driver.CreateDepthBuffer("", desc);
                 },
-                [&](const RenderTarget::Description& desc) -> Resource {
+                [&](const RenderTarget::Description& desc) -> std::shared_ptr<Resource> {
                     return driver.CreateRenderTarget("", desc);
                 },
             },
-            desc));
-        m_ValidResources.emplace(id, &res);
+            desc);
     }
 
     // execute all pass
@@ -55,14 +54,20 @@ void FrameGraph::Execute(DriverAPI& driver) {
 }
 
 void FrameGraph::Retire(uint64_t fenceValue, DriverAPI& driver) noexcept {
-    driver.RetireResources(std::move(m_InnerResources), fenceValue);
+    decltype(m_Resources) wait_retire_resources;
+    for (const auto& [id, desc] : m_InnerResourcesDesc) {
+        wait_retire_resources.emplace_back(std::move(m_Resources.at(id)));
+    }
+
+    driver.RetireResources(std::move(wait_retire_resources), fenceValue);
     m_Retired = true;
 }
 
 FrameHandle FrameGraph::Create(std::string_view name, Desc desc) {
     // create new resource node
-    FrameResourceId id     = m_ResourceCounter++;
+    FrameResourceId id     = m_Resources.size();
     FrameHandle     handle = m_ResourceNodes.size();
+    m_Resources.emplace_back(nullptr);
     m_InnerResourcesDesc.emplace(id, std::move(desc));
     m_ResourceNodes.emplace_back(name, id);
     return handle;

@@ -66,6 +66,12 @@ PipelineState& PipelineState::SetDepthBufferFormat(Format format) {
     return *this;
 }
 
+PipelineState& PipelineState::SetPrimitiveType(PrimitiveType type) {
+    if (m_Created) throw std::logic_error("PSO has been created.");
+    m_PrimitiveType = type;
+    return *this;
+}
+
 void PipelineState::Create(DriverAPI& driver) {
     if (m_Created) throw std::logic_error("PSO has been created.");
     if (!(m_Vs && m_Ps && m_RootSignature)) throw std::logic_error("RootSignature is incompleted.");

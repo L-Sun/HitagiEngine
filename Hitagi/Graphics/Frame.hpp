@@ -41,14 +41,14 @@ class Frame {
     };
 
     struct MeshInfo {
-        const MeshBuffer&    buffer;
-        size_t               materialOffset;
-        const TextureBuffer& ambient;
-        const TextureBuffer& diffuse;
-        const TextureBuffer& emission;
-        const TextureBuffer& specular;
-        const TextureBuffer& specularPower;
-        const PipelineState* pipeline;
+        const PipelineState&           pipeline;
+        size_t                         materialOffset;
+        std::shared_ptr<MeshBuffer>    buffer;
+        std::shared_ptr<TextureBuffer> ambient;
+        std::shared_ptr<TextureBuffer> diffuse;
+        std::shared_ptr<TextureBuffer> emission;
+        std::shared_ptr<TextureBuffer> specular;
+        std::shared_ptr<TextureBuffer> specularPower;
     };
 
     struct DrawItem {
@@ -56,19 +56,26 @@ class Frame {
         size_t                constantOffset;
     };
 
+    struct DebugDrawItem {
+        const PipelineState&        pipeline;
+        std::shared_ptr<MeshBuffer> mesh;
+    };
+
 public:
     Frame(DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex);
 
     void SetFenceValue(uint64_t fenceValue) { m_FenceValue = fenceValue; }
-    void SetGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries);
-    void SetDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives);
+    // TODO generate pipeline state object from scene node infomation
+    void AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries, const PipelineState& pso);
+    void AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives, const PipelineState& pso);
     void SetCamera(Asset::SceneCameraNode& camera);
     void SetLight(Asset::SceneLightNode& light);
     void Draw(IGraphicsCommandContext* context);
+    void DebugDraw(IGraphicsCommandContext* context);
 
     void ResetState();
 
-    RenderTarget& GetRenderTarget() { return m_Output; }
+    auto GetRenderTarget() { return m_Output; }
 
 private:
     DriverAPI&       m_Driver;
@@ -76,13 +83,16 @@ private:
     size_t           m_FrameIndex;
     uint64_t         m_FenceValue = 0;
 
-    FrameConstant         m_FrameConstant;
-    std::vector<DrawItem> m_Geometries;
-    RenderTarget          m_Output;
+    FrameConstant                 m_FrameConstant;
+    std::vector<DrawItem>         m_Geometries;
+    std::vector<DebugDrawItem>    m_DebugItems;
+    std::shared_ptr<RenderTarget> m_Output;
 
     // the constant data used among the frame, including camera, light, etc.
-    ConstantBuffer m_FrameConstantBuffer;
-    ConstantBuffer m_ConstantBuffer;
-    ConstantBuffer m_MaterialBuffer;
+    std::shared_ptr<ConstantBuffer> m_FrameConstantBuffer;
+    std::shared_ptr<ConstantBuffer> m_ConstantBuffer;
+    std::shared_ptr<ConstantBuffer> m_MaterialBuffer;
+    size_t                          m_ConstantCount = 0;
+    size_t                          m_MaterialCount = 0;
 };
 }  // namespace Hitagi::Graphics

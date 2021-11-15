@@ -46,15 +46,15 @@ class RootSignature : public Resource {
         unsigned           registerIndex;
         unsigned           space;
 
-        bool operator<(const Parameter& rhs) const {
-            // sort priority order: visibility > type > space > registerkkl
-            return visibility != rhs.visibility
-                       ? static_cast<int>(visibility) < static_cast<int>(rhs.visibility)
-                   : type != rhs.type
-                       ? static_cast<int>(type) < static_cast<int>(rhs.type)
-                   : space != rhs.space
-                       ? space < rhs.space
-                       : registerIndex < rhs.registerIndex;
+        auto operator<=>(const Parameter& rhs) const {
+            if (auto cmp = visibility <=> rhs.visibility; cmp != 0)
+                return cmp;
+            if (auto cmp = type <=> rhs.type; cmp != 0)
+                return cmp;
+            if (auto cmp = space <=> rhs.space; cmp != 0)
+                return cmp;
+
+            return registerIndex <=> rhs.registerIndex;
         }
     };
 
@@ -71,7 +71,7 @@ public:
         unsigned           registerIndex,
         unsigned           space,
         ShaderVisibility   visibility = ShaderVisibility::All);
-    // TODO
+    // TODO Sampler
     RootSignature& AddStaticSampler(
         unsigned             registerIndex,
         Sampler::Description desc,
@@ -97,6 +97,7 @@ public:
     PipelineState& SetRootSignautre(std::shared_ptr<RootSignature> sig);
     PipelineState& SetRenderFormat(Format format);
     PipelineState& SetDepthBufferFormat(Format format);
+    PipelineState& SetPrimitiveType(PrimitiveType type);
     void           Create(DriverAPI& driver);
 
     inline const std::string&              GetName() const noexcept { return m_Name; }
@@ -106,6 +107,7 @@ public:
     inline std::shared_ptr<RootSignature>  GetRootSignature() const noexcept { return m_RootSignature; }
     inline Format                          GetRenderTargetFormat() const noexcept { return m_RenderFormat; }
     inline Format                          GetDepthBufferFormat() const noexcept { return m_DepthBufferFormat; }
+    inline PrimitiveType                   GetPrimitiveType() const noexcept { return m_PrimitiveType; }
 
 private:
     bool                           m_Created = false;
@@ -115,6 +117,7 @@ private:
     std::shared_ptr<RootSignature> m_RootSignature     = nullptr;
     Format                         m_RenderFormat      = Format::UNKNOWN;
     Format                         m_DepthBufferFormat = Format::UNKNOWN;
+    PrimitiveType                  m_PrimitiveType     = PrimitiveType::TriangleList;
 };
 
 }  // namespace Hitagi::Graphics

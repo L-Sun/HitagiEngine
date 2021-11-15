@@ -6,7 +6,15 @@ add_library(AssetManager
     Scene.cpp
     SceneObject.cpp
 )
-target_link_libraries(AssetManager PUBLIC FileIOManager Parser HitagiMath PRIVATE crossguid)
+target_link_libraries(AssetManager 
+    PUBLIC
+        FileIOManager
+        Parser
+        HitagiMath
+    PRIVATE
+        crossguid
+        magic_enum::magic_enum
+)
 target_include_directories(AssetManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
 
 add_library(SceneManager SceneManager.cpp)

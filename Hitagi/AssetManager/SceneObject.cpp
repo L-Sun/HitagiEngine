@@ -2,7 +2,7 @@
 #include "MemoryManager.hpp"
 #include "AssetManager.hpp"
 
-#include <variant>
+#include <magic_enum.hpp>
 
 namespace Hitagi::Asset {
 // Class BaseSceneObject
@@ -37,21 +37,21 @@ const uint8_t*     SceneObjectVertexArray::GetData() const { return m_Data.GetDa
 size_t             SceneObjectVertexArray::GetVertexCount() const { return m_VertexCount; }
 size_t             SceneObjectVertexArray::GetVertexSize() const {
     switch (m_DataType) {
-        case VertexDataType::FLOAT1:
+        case VertexDataType::Float1:
             return sizeof(float) * 1;
-        case VertexDataType::FLOAT2:
+        case VertexDataType::Float2:
             return sizeof(float) * 2;
-        case VertexDataType::FLOAT3:
+        case VertexDataType::Float3:
             return sizeof(float) * 3;
-        case VertexDataType::FLOAT4:
+        case VertexDataType::Float4:
             return sizeof(float) * 4;
-        case VertexDataType::DOUBLE1:
+        case VertexDataType::Double1:
             return sizeof(double) * 1;
-        case VertexDataType::DOUBLE2:
+        case VertexDataType::Double2:
             return sizeof(double) * 2;
-        case VertexDataType::DOUBLE3:
+        case VertexDataType::Double3:
             return sizeof(double) * 3;
-        case VertexDataType::DOUBLE4:
+        case VertexDataType::Double4:
             return sizeof(double) * 4;
     }
     return 0;
@@ -73,13 +73,13 @@ size_t              SceneObjectIndexArray::GetIndexCount() const { return m_Inde
 size_t              SceneObjectIndexArray::GetDataSize() const { return m_Data.GetDataSize(); }
 size_t              SceneObjectIndexArray::GetIndexSize() const {
     switch (m_DataType) {
-        case IndexDataType::INT8:
+        case IndexDataType::Int8:
             return sizeof(int8_t);
-        case IndexDataType::INT16:
+        case IndexDataType::Int16:
             return sizeof(int16_t);
-        case IndexDataType::INT32:
+        case IndexDataType::Int32:
             return sizeof(int32_t);
-        case IndexDataType::INT64:
+        case IndexDataType::Int64:
             return sizeof(int64_t);
     }
     return 0;
@@ -114,9 +114,9 @@ void SceneObjectTexture::LoadTexture() {
     }
 }
 const std::string& SceneObjectTexture::GetName() const { return m_Name; }
-const Image&       SceneObjectTexture::GetTextureImage() {
+const Image&       SceneObjectTexture::GetTextureImage() const {
     if (m_Image.Empty()) {
-        LoadTexture();
+        const_cast<SceneObjectTexture*>(this)->LoadTexture();
     }
     return m_Image;
 }
@@ -285,66 +285,44 @@ SceneObjectScale::SceneObjectScale(const float x, const float y, const float z) 
     m_Transform = scale(m_Transform, vec3f(x, y, z));
 }
 
-// Type print
-std::string TypeToString(std::variant<SceneObjectType, VertexDataType, IndexDataType, PrimitiveType> type) {
-    std::string ret;
-    int32_t     n;
-    if (std::holds_alternative<SceneObjectType>(type))
-        n = static_cast<int32_t>(std::get<SceneObjectType>(type));
-    else if (std::holds_alternative<VertexDataType>(type))
-        n = static_cast<int32_t>(std::get<VertexDataType>(type));
-    else if (std::holds_alternative<IndexDataType>(type))
-        n = static_cast<int32_t>(std::get<IndexDataType>(type));
-    else if (std::holds_alternative<PrimitiveType>(type))
-        n = static_cast<int32_t>(std::get<PrimitiveType>(type));
-
-    // little endian, read bit from end;
-    n       = endian_net_unsigned_int<int32_t>(n);
-    char* c = reinterpret_cast<char*>(&n);
-
-    for (int i = 0; i < sizeof(int32_t); i++) ret.push_back(*c++);
-
-    return ret;
-}
-
 // Object print
 std::ostream& operator<<(std::ostream& out, const BaseSceneObject& obj) {
     out << "GUID: " << obj.m_Guid << std::dec << std::endl;
-    out << "Type: " << TypeToString(obj.m_Type);
+    out << "Type: " << magic_enum::enum_name(obj.m_Type);
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
     out << "Attribute:          " << obj.m_Attribute << std::endl;
     out << "Morph Target Index: " << obj.m_MorphTargetIndex << std::endl;
-    out << "Data Type:          " << TypeToString(obj.m_DataType) << std::endl;
+    out << "Data Type:          " << magic_enum::enum_name(obj.m_DataType) << std::endl;
     out << "Data Size:          " << obj.GetDataSize() << " bytes" << std::endl;
     out << "Data Count:         " << obj.GetVertexCount() << std::endl;
     out << "Data:               ";
     const uint8_t* data = obj.m_Data.GetData();
     for (size_t i = 0; i < obj.GetVertexCount(); i++) {
         switch (obj.m_DataType) {
-            case VertexDataType::FLOAT1:
+            case VertexDataType::Float1:
                 std::cout << *(reinterpret_cast<const float*>(data) + i) << " ";
                 break;
-            case VertexDataType::FLOAT2:
+            case VertexDataType::Float2:
                 std::cout << *(reinterpret_cast<const vec2f*>(data) + i) << " ";
                 break;
-            case VertexDataType::FLOAT3:
+            case VertexDataType::Float3:
                 std::cout << *(reinterpret_cast<const vec3f*>(data) + i) << " ";
                 break;
-            case VertexDataType::FLOAT4:
+            case VertexDataType::Float4:
                 std::cout << *(reinterpret_cast<const vec4f*>(data) + i) << " ";
                 break;
-            case VertexDataType::DOUBLE1:
+            case VertexDataType::Double1:
                 std::cout << *(reinterpret_cast<const double*>(data) + i) << " ";
                 break;
-            case VertexDataType::DOUBLE2:
+            case VertexDataType::Double2:
                 std::cout << *(reinterpret_cast<const Vector<double, 2>*>(data) + i) << " ";
                 break;
-            case VertexDataType::DOUBLE3:
+            case VertexDataType::Double3:
                 std::cout << *(reinterpret_cast<const Vector<double, 3>*>(data) + i) << " ";
                 break;
-            case VertexDataType::DOUBLE4:
+            case VertexDataType::Double4:
                 std::cout << *(reinterpret_cast<const Vector<double, 4>*>(data) + i) << " ";
                 break;
             default:
@@ -355,22 +333,22 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectVertexArray& obj) {
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
     out << "Restart Index:   " << obj.m_ResetartIndex << std::endl;
-    out << "Index Data Type: " << TypeToString(obj.m_DataType) << std::endl;
+    out << "Index Data Type: " << magic_enum::enum_name(obj.m_DataType) << std::endl;
     out << "Data Size:       " << obj.GetDataSize() << std::endl;
     out << "Data:            ";
     auto data = obj.GetData();
     for (size_t i = 0; i < obj.GetIndexCount(); i++) {
         switch (obj.m_DataType) {
-            case IndexDataType::INT8:
+            case IndexDataType::Int8:
                 out << reinterpret_cast<const int8_t*>(data)[i] << ' ';
                 break;
-            case IndexDataType::INT16:
+            case IndexDataType::Int16:
                 out << reinterpret_cast<const int16_t*>(data)[i] << ' ';
                 break;
-            case IndexDataType::INT32:
+            case IndexDataType::Int32:
                 out << reinterpret_cast<const int32_t*>(data)[i] << ' ';
                 break;
-            case IndexDataType::INT64:
+            case IndexDataType::Int64:
                 out << reinterpret_cast<const int64_t*>(data)[i] << ' ';
                 break;
             default:
@@ -381,7 +359,7 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectIndexArray& obj) {
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectMesh& obj) {
     out << static_cast<const BaseSceneObject&>(obj) << std::endl;
-    out << "Primitive Type: " << TypeToString(obj.m_PrimitiveType) << std::endl;
+    out << "Primitive Type: " << magic_enum::enum_name(obj.m_PrimitiveType) << std::endl;
     if (auto material = obj.m_Material.lock()) {
         out << "Material: " << *material << std::endl;
     }

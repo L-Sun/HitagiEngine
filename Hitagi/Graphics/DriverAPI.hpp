@@ -20,22 +20,23 @@ public:
     virtual void Present(size_t frameIndex) = 0;
 
     // Buffer
-    virtual void           CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format, void* window)                     = 0;
-    virtual RenderTarget   CreateRenderTarget(std::string_view name, const RenderTarget::Description& desc)                                       = 0;
-    virtual RenderTarget   CreateRenderFromSwapChain(size_t frameIndex)                                                                           = 0;
-    virtual VertexBuffer   CreateVertexBuffer(std::string_view name, size_t vertexCount, size_t vertexSize, const uint8_t* initialData = nullptr) = 0;
-    virtual IndexBuffer    CreateIndexBuffer(std::string_view name, size_t indexCount, size_t indexSize, const uint8_t* initialData = nullptr)    = 0;
-    virtual ConstantBuffer CreateConstantBuffer(std::string_view name, size_t numElements, size_t elementSize)                                    = 0;
-    virtual TextureBuffer  CreateTextureBuffer(std::string_view name, const TextureBuffer::Description& desc)                                     = 0;
-    virtual DepthBuffer    CreateDepthBuffer(std::string_view name, const DepthBuffer::Description& desc)                                         = 0;
+    virtual void                            CreateSwapChain(uint32_t width, uint32_t height, unsigned frameCount, Format format, void* window)                     = 0;
+    virtual std::shared_ptr<RenderTarget>   CreateRenderTarget(std::string_view name, const RenderTarget::Description& desc)                                       = 0;
+    virtual std::shared_ptr<RenderTarget>   CreateRenderFromSwapChain(size_t frameIndex)                                                                           = 0;
+    virtual std::shared_ptr<VertexBuffer>   CreateVertexBuffer(std::string_view name, size_t vertexCount, size_t vertexSize, const uint8_t* initialData = nullptr) = 0;
+    virtual std::shared_ptr<IndexBuffer>    CreateIndexBuffer(std::string_view name, size_t indexCount, size_t indexSize, const uint8_t* initialData = nullptr)    = 0;
+    virtual std::shared_ptr<ConstantBuffer> CreateConstantBuffer(std::string_view name, size_t numElements, size_t elementSize)                                    = 0;
+    virtual std::shared_ptr<TextureBuffer>  CreateTextureBuffer(std::string_view name, const TextureBuffer::Description& desc)                                     = 0;
+    virtual std::shared_ptr<DepthBuffer>    CreateDepthBuffer(std::string_view name, const DepthBuffer::Description& desc)                                         = 0;
 
-    virtual Resource GetSwapChainBuffer(size_t frameIndex) = 0;
+    virtual std::shared_ptr<Resource> GetSwapChainBuffer(size_t frameIndex) = 0;
 
-    virtual void UpdateConstantBuffer(ConstantBuffer& buffer, size_t offset, const uint8_t* src, size_t size) = 0;
+    virtual void UpdateConstantBuffer(std::shared_ptr<ConstantBuffer> buffer, size_t offset, const uint8_t* src, size_t size) = 0;
 
-    virtual void RetireResources(std::vector<Resource>&& resources, uint64_t fenceValue) = 0;
+    // resource will relase after fence value and the ref count is zero!
+    virtual void RetireResources(std::vector<std::shared_ptr<Resource>> resources, uint64_t fenceValue) = 0;
     // Sampler
-    virtual Sampler CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) = 0;
+    virtual std::shared_ptr<Sampler> CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) = 0;
 
     // Pipeline
     virtual std::unique_ptr<backend::Resource> CreateRootSignature(const RootSignature& rootsignature) = 0;

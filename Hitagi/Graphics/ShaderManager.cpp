@@ -1,6 +1,7 @@
 #include "ShaderManager.hpp"
 
 #include <spdlog/spdlog.h>
+#include <magic_enum.hpp>
 
 namespace Hitagi::Graphics {
 int  ShaderManager::Initialize() { return 0; }
@@ -10,20 +11,6 @@ void ShaderManager::Finalize() {
 }
 void ShaderManager::Tick() {}
 
-std::string TypeToString(const ShaderType& type) {
-    switch (type) {
-        case ShaderType::VERTEX:
-            return "Vertex";
-        case ShaderType::PIXEL:
-            return "Pixel";
-        case ShaderType::GEOMETRY:
-            return "Geometry";
-        case ShaderType::COMPUTE:
-            return "Compute";
-    }
-    return "Unkown";
-}
-
 void ShaderManager::LoadShader(std::filesystem::path shaderPath, ShaderType type, std::string name) {
     auto data = g_FileIOManager->SyncOpenAndReadBinary(shaderPath);
     if (data.Empty()) {
@@ -32,16 +19,16 @@ void ShaderManager::LoadShader(std::filesystem::path shaderPath, ShaderType type
     }
     if (name.empty()) name = shaderPath.filename().string();
     switch (type) {
-        case ShaderType::VERTEX:
+        case ShaderType::Vertex:
             m_VertexShaders.emplace(name, std::make_shared<VertexShader>(data));
             break;
-        case ShaderType::PIXEL:
+        case ShaderType::Pixel:
             m_PixelShaders.emplace(name, std::make_shared<PixelShader>(data));
             break;
-        case ShaderType::COMPUTE:
+        case ShaderType::Compute:
             m_ComputeShaders.emplace(name, std::make_shared<ComputeShader>(data));
         default:
-            spdlog::get("GraphicsManager")->error("[ShaderManager] Unsupport shader type: {}", TypeToString(type));
+            spdlog::get("GraphicsManager")->error("[ShaderManager] Unsupport shader type: {}", magic_enum::enum_name(type));
     }
 }
 

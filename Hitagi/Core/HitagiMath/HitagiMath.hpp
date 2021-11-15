@@ -2,6 +2,7 @@
 #include "./Vector.hpp"
 #include "./Matrix.hpp"
 #include "./Geometry.hpp"
+#include "./Primitive.hpp"
 
 #include <numbers>
 

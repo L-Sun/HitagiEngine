@@ -72,11 +72,11 @@ public:
         return *pass;
     }
 
-    FrameHandle Import(RenderTarget* renderTarget) {
-        FrameResourceId id     = m_ResourceCounter++;
+    FrameHandle Import(std::shared_ptr<RenderTarget> renderTarget) {
+        FrameResourceId id     = m_Resources.size();
         FrameHandle     handle = m_ResourceNodes.size();
+        m_Resources.emplace_back(renderTarget);
         m_ResourceNodes.emplace_back(renderTarget->GetName(), id);
-        m_ValidResources.emplace(id, renderTarget);
         return handle;
     }
 
@@ -98,10 +98,8 @@ private:
     std::vector<ResourceNode> m_ResourceNodes;
     std::vector<PassNode>     m_PassNodes;
 
-    FrameResourceId                                m_ResourceCounter = 0;
-    std::vector<Resource>                          m_InnerResources;
-    std::unordered_map<FrameResourceId, Desc>      m_InnerResourcesDesc;
-    std::unordered_map<FrameResourceId, Resource*> m_ValidResources;
+    std::vector<std::shared_ptr<Resource>>    m_Resources;
+    std::unordered_map<FrameResourceId, Desc> m_InnerResourcesDesc;
 };
 
 class ResourceHelper {
@@ -110,9 +108,11 @@ class ResourceHelper {
 public:
     template <typename T>
     T& Get(FrameHandle handle) const {
-        assert(node.reads.contains(handle) || node.writes.contains(handle) && "This pass node do not operate the handle in graph!");
-        auto id = fg.m_ResourceNodes[handle].resource;
-        return static_cast<T&>(*(fg.m_ValidResources.at(id)));
+        assert((node.reads.contains(handle) || node.writes.contains(handle)) && "This pass node do not operate the handle in graph!");
+        auto id     = fg.m_ResourceNodes[handle].resource;
+        auto result = fg.m_Resources[id];
+        assert(result != nullptr && "Access a invalid resource in excution phase, which may be pruned in compile phase!");
+        return static_cast<T&>(*result);
     }
 
 private:

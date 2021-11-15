@@ -32,15 +32,15 @@ int Application::Initialize() {
     m_Logger->info("Initialize Moudules...");
     if ((ret = g_ThreadManager->Initialize()) != 0) return ret;
     if ((ret = g_MemoryManager->Initialize()) != 0) return ret;
+    if ((ret = g_DebugManager->Initialize()) != 0) return ret;
     if ((ret = g_FileIOManager->Initialize()) != 0) return ret;
-    if ((ret = g_InputManager->Initialize()) != 0) return ret;
     if ((ret = g_AssetManager->Initialize()) != 0) return ret;
+    if ((ret = g_InputManager->Initialize()) != 0) return ret;
     if ((ret = g_SceneManager->Initialize()) != 0) return ret;
-    if ((ret = g_GraphicsManager->Initialize()) != 0) return ret;
     if ((ret = g_PhysicsManager->Initialize()) != 0) return ret;
+    if ((ret = g_GraphicsManager->Initialize()) != 0) return ret;
     if ((ret = g_GameLogic->Initialize()) != 0) return ret;
     if ((ret = m_Clock.Initialize()) != 0) return ret;
-    if ((ret = g_DebugManager->Initialize()) != 0) return ret;
 
     m_Clock.Start();
     return ret;
@@ -48,14 +48,14 @@ int Application::Initialize() {
 
 // Finalize all sub modules and clean up all runtime temporary files.
 void Application::Finalize() {
-    g_DebugManager->Finalize();
     g_GameLogic->Finalize();
     g_GraphicsManager->Finalize();
     g_PhysicsManager->Finalize();
     g_SceneManager->Finalize();
-    g_AssetManager->Finalize();
     g_InputManager->Finalize();
+    g_AssetManager->Finalize();
     g_FileIOManager->Finalize();
+    g_DebugManager->Finalize();
     g_MemoryManager->Finalize();
     g_ThreadManager->Finalize();
 
@@ -69,16 +69,17 @@ void Application::Tick() {
     m_Clock.Tick();
     g_ThreadManager->Tick();
     g_MemoryManager->Tick();
+    g_DebugManager->Tick();
     g_FileIOManager->Tick();
-    g_InputManager->Tick();
     g_AssetManager->Tick();
+    g_InputManager->Tick();
+    g_GameLogic->Tick();
     g_SceneManager->Tick();
     g_PhysicsManager->Tick();
+
+    // -------------Before Render-------------------
     g_GraphicsManager->Tick();
-    g_GameLogic->Tick();
-#if defined(_DEBUG)
-    g_DebugManager->Tick();
-#endif
+    // -------------After Render--------------------
 
     m_FPS = 1.0 / m_Clock.deltaTime().count();
     if (m_FPSLimit != -1) {

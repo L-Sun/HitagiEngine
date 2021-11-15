@@ -19,7 +19,8 @@ private:
         ROTATE_H,
         ROTATE_V,
         RESET_SCENE,
-        MSAA
+        MSAA,
+        DEBUG
     };
     Hitagi::Core::Clock m_Clock;
 };

@@ -2,6 +2,7 @@
 #include "DX12DriverAPI.hpp"
 #include "GpuBuffer.hpp"
 #include "Sampler.hpp"
+#include "EnumConverter.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
 
@@ -130,6 +131,7 @@ void GraphicsCommandContext::ClearDepthBuffer(Graphics::DepthBuffer& depthBuffer
 }
 
 void GraphicsCommandContext::SetPipelineState(const Graphics::PipelineState& pipeline) {
+    if (m_Pipeline == &pipeline) return;
     m_Pipeline = &pipeline;
     SetPSO(*pipeline.GetBackend<PSO>());
     SetRootSignature(*pipeline.GetRootSignature()->GetBackend<RootSignature>());
@@ -159,7 +161,7 @@ void GraphicsCommandContext::Present(Graphics::RenderTarget& rt) {
 }
 
 void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
-    auto  indexBuffer = mesh.indices.GetBackend<IndexBuffer>();
+    auto  indexBuffer = mesh.indices->GetBackend<IndexBuffer>();
     auto& layout      = m_Pipeline->GetInputLayout();
 
     auto ibv = indexBuffer->IndexBufferView();
@@ -169,14 +171,14 @@ void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
         while (iter != layout.end() && iter->semanticName != semanticName) iter++;
         if (iter == layout.end()) continue;
 
-        auto vbv = vertex.GetBackend<VertexBuffer>()->VertexBufferView();
+        auto vbv = vertex->GetBackend<VertexBuffer>()->VertexBufferView();
         m_CommandList->IASetVertexBuffers(iter->inputSlot, 1, &vbv);
     }
 
     FlushResourceBarriers();
     m_DynamicViewDescriptorHeap.CommitStagedDescriptors(*this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);
     m_DynamicSamplerDescriptorHeap.CommitStagedDescriptors(*this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);
-    m_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_CommandList->IASetPrimitiveTopology(ToDxTopology(mesh.primitive));
     m_CommandList->DrawIndexedInstanced(indexBuffer->GetElementCount(), 1, 0, 0, 0);
 }
 

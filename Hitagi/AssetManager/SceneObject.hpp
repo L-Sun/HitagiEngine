@@ -8,72 +8,50 @@
 #include <filesystem>
 
 namespace Hitagi::Asset {
-enum struct SceneObjectType : int32_t {
-    MESH          = "MESH"_i32,
-    MATERIAL      = "MATL"_i32,
-    TEXTURE       = "TXTU"_i32,
-    LIGHT         = "LGHT"_i32,
-    CAMERA        = "CAMR"_i32,
-    ANIMATOR      = "ANIM"_i32,
-    CLIP          = "CLIP"_i32,
-    GEOMETRY      = "GEOM"_i32,
-    INDEX_ARRAY   = "VARR"_i32,
-    VERETEX_ARRAY = "VARR"_i32,
+enum struct SceneObjectType {
+    Mesh,
+    Material,
+    Texture,
+    Light,
+    Camera,
+    Animator,
+    Clip,
+    Geometry,
+    IndexArray,
+    VertexArray,
 };
 
-enum struct SceneObjectCollisionType : int32_t {
-    NONE         = "CNON"_i32,
-    SPHERE       = "CSPH"_i32,
-    BOX          = "CBOX"_i32,
-    CYLINDER     = "CCYL"_i32,
-    CAPSULE      = "CCAP"_i32,
-    CONE         = "CCON"_i32,
-    MULTI_SPHERE = "CMUL"_i32,
-    CONVEX_HULL  = "CCVH"_i32,
-    CONVEX_MESH  = "CCVM"_i32,
-    BVH_MESH     = "CBVM"_i32,
-    HEIGHTFIELD  = "CHIG"_i32,
-    PLANE        = "CPLN"_i32,
+enum struct SceneObjectCollisionType {
+    None,
+    Sphere,
+    BOx,
+    Cylinder,
+    Capsule,
+    Cone,
+    MultiSphere,
+    ConvexHull,
+    ConvexMesh,
+    BvhMesh,
+    HeightField,
+    Plane,
 };
 
-enum struct VertexDataType : int32_t {
-    FLOAT1  = "FLT1"_i32,
-    FLOAT2  = "FLT2"_i32,
-    FLOAT3  = "FLT3"_i32,
-    FLOAT4  = "FLT4"_i32,
-    DOUBLE1 = "DUB1"_i32,
-    DOUBLE2 = "DUB2"_i32,
-    DOUBLE3 = "DUB3"_i32,
-    DOUBLE4 = "DUB4"_i32,
+enum struct VertexDataType {
+    Float1,
+    Float2,
+    Float3,
+    Float4,
+    Double1,
+    Double2,
+    Double3,
+    Double4,
 };
 
-enum struct IndexDataType : int32_t {
-    INT8  = "I8  "_i32,
-    INT16 = "I16 "_i32,
-    INT32 = "I32 "_i32,
-    INT64 = "I64 "_i32,
-};
-
-enum struct PrimitiveType : int32_t {
-    // clang-format off
-    None                 = "NONE"_i32,  // No particular primitive type.
-    POINT_LIST           = "PLST"_i32,  // For N>=0, vertex N renders a point.
-    LINE_LIST            = "LLST"_i32,  // For N>=0, vertices [N*2+0, N*2+1] render a line.
-    LINE_STRIP           = "LSTR"_i32,  // For N>=0, vertices [N, N+1] render a line.
-    TRI_LIST             = "TLST"_i32,  // For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a triangle.
-    TRI_FAN              = "TFAN"_i32,  // For N>=0, vertices [0, (N+1)%M, (N+2)%M] render a triangle, where M is the vertex count.
-    TRI_STRIP            = "TSTR"_i32,  // For N>=0, vertices [N*2+0, N*2+1, N*2+2] and [N*2+2, N*2+1, N*2+3] render triangles.
-    PATCH                = "PACH"_i32,  // Used for tessellation.
-    LINE_LIST_ADJACENCY  = "LLSA"_i32,  // For N>=0, vertices [N*4..N*4+3] render a line from [1, 2]. Lines [0, 1] and [2, 3] are adjacent to the rendered line.
-    LINE_STRIP_ADJACENCY = "LSTA"_i32,  // For N>=0, vertices [N+1, N+2] render a line. Lines [N, N+1] and [N+2, N+3] are adjacent to the rendered line.
-    TRI_LIST_ADJACENCY   = "TLSA"_i32,  // For N>=0, vertices [N*6..N*6+5] render a triangle from [0, 2, 4]. Triangles [0, 1, 2] [4, 2, 3] and [5, 0, 4] are adjacent to the rendered triangle.
-    TRI_STRIP_ADJACENCY  = "TSTA"_i32,  // For N>=0, vertices [N*4..N*4+6] render a triangle from [0, 2, 4] and [4, 2, 6]. Odd vertices Nodd form adjacent triangles with indices min(Nodd+1,Nlast) and max(Nodd-3,Nfirst).
-    RECT_LIST            = "RLST"_i32,  // For N>=0, vertices [N*3+0, N*3+1, N*3+2] render a screen-aligned rectangle. 0 is upper-left, 1 is upper-right, and 2 is the lower-left corner.
-    LINE_LOOP            = "LLOP"_i32,  // Like <c>kPrimitiveTypeLineStrip</c>, but the first and last vertices also render a line.
-    QUAD_LIST            = "QLST"_i32,  // For N>=0, vertices [N*4+0, N*4+1, N*4+2] and [N*4+0, N*4+2, N*4+3] render triangles.
-    QUAD_STRIP           = "QSTR"_i32,  // For N>=0, vertices [N*2+0, N*2+1, N*2+3] and [N*2+0, N*2+3, N*2+2] render triangles.
-    POLYGON              = "POLY"_i32,  // For N>=0, vertices [0, N+1, N+2] render a triangle.
-    // clang-format on
+enum struct IndexDataType {
+    Int8,
+    Int16,
+    Int32,
+    Int64,
 };
 
 class BaseSceneObject {
@@ -107,13 +85,13 @@ protected:
     std::vector<mat4f>    m_Transforms;
 
 public:
-    SceneObjectTexture() : BaseSceneObject(SceneObjectType::TEXTURE) {}
+    SceneObjectTexture() : BaseSceneObject(SceneObjectType::Texture) {}
     SceneObjectTexture(const std::filesystem::path& path)
-        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(0), m_Name(path.filename().string()), m_TexturePath(path) {}
+        : BaseSceneObject(SceneObjectType::Texture), m_TexCoordIndex(0), m_Name(path.filename().string()), m_TexturePath(path) {}
     SceneObjectTexture(uint32_t coordIndex, Image image)
-        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
+        : BaseSceneObject(SceneObjectType::Texture), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
     SceneObjectTexture(uint32_t coordIndex, Image&& image)
-        : BaseSceneObject(SceneObjectType::TEXTURE), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
+        : BaseSceneObject(SceneObjectType::Texture), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
     SceneObjectTexture(SceneObjectTexture&)  = default;
     SceneObjectTexture(SceneObjectTexture&&) = default;
 
@@ -122,7 +100,7 @@ public:
     void                 SetName(std::string&& name);
     void                 LoadTexture();
     const std::string&   GetName() const;
-    const Image&         GetTextureImage();
+    const Image&         GetTextureImage() const;
     friend std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj);
 };
 
@@ -175,7 +153,7 @@ protected:
 
 public:
     SceneObjectMaterial()
-        : BaseSceneObject(SceneObjectType::MATERIAL),
+        : BaseSceneObject(SceneObjectType::Material),
           m_Name(""),
           m_AmbientColor(vec4f(0.0f)),
           m_DiffuseColor(vec4f(1.0f)),
@@ -283,9 +261,9 @@ protected:
 
 public:
     SceneObjectMesh(bool visible = true, bool shadow = true, bool motionBlur = true)
-        : BaseSceneObject(SceneObjectType::MESH) {}
+        : BaseSceneObject(SceneObjectType::Mesh) {}
     SceneObjectMesh(SceneObjectMesh&& mesh)
-        : BaseSceneObject(SceneObjectType::MESH),
+        : BaseSceneObject(SceneObjectType::Mesh),
           m_IndexArray(std::move(mesh.m_IndexArray)),
           m_VertexArray(std::move(mesh.m_VertexArray)),
           m_PrimitiveType(mesh.m_PrimitiveType) {}
@@ -317,12 +295,12 @@ protected:
     bool                     m_Visible;
     bool                     m_Shadow;
     bool                     m_MotionBlur;
-    SceneObjectCollisionType m_CollisionType{SceneObjectCollisionType::NONE};
+    SceneObjectCollisionType m_CollisionType{SceneObjectCollisionType::None};
     std::array<float, 10>    m_CollisionParameters;
 
 public:
     SceneObjectGeometry()
-        : BaseSceneObject(SceneObjectType::GEOMETRY) {}
+        : BaseSceneObject(SceneObjectType::Geometry) {}
     void                                                 SetVisibility(bool visible);
     void                                                 SetIfCastShadow(bool shadow);
     void                                                 SetIfMotionBlur(bool motionBlur);
@@ -338,14 +316,14 @@ public:
     friend std::ostream&                                 operator<<(std::ostream& out, const SceneObjectGeometry& obj);
 };
 
-using AttenFunc = float (*)(float, float);
+using AttenFunc = std::function<float(float, float)>;
 
 float DefaultAttenFunc(float intensity, float distance);
 
 class SceneObjectLight : public BaseSceneObject {
 protected:
     SceneObjectLight(const vec4f& color = vec4f(1.0f), float intensity = 100.0f)
-        : BaseSceneObject(SceneObjectType::LIGHT),
+        : BaseSceneObject(SceneObjectType::Light),
           m_LightColor(color),
           m_Intensity(intensity),
           m_LightAttenuation(DefaultAttenFunc){};
@@ -400,7 +378,7 @@ public:
 class SceneObjectCamera : public BaseSceneObject {
 public:
     SceneObjectCamera(float aspect = 16.0f / 9.0f, float nearClip = 1.0f, float farClip = 100.0f, float fov = std::numbers::pi / 4)
-        : BaseSceneObject(SceneObjectType::CAMERA),
+        : BaseSceneObject(SceneObjectType::Camera),
           m_Aspect(aspect),
           m_NearClipDistance(nearClip),
           m_FarClipDistance(farClip),

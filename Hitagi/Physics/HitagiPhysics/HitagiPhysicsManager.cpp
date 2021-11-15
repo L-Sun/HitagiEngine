@@ -35,14 +35,14 @@ std::array<vec3f, 2> HitagiPhysicsManager::GetAABB(Asset::SceneGeometryNode& nod
         auto  data         = positions.GetData();
 
         switch (dataType) {
-            case Asset::VertexDataType::FLOAT3: {
+            case Asset::VertexDataType::Float3: {
                 auto vertex = reinterpret_cast<const vec3f*>(data);
                 for (auto i = 0; i < vertex_count; i++, vertex++) {
                     aabbMin = Min(aabbMin, vertex[i]);
                     aabbMax = Max(aabbMax, vertex[i]);
                 }
             } break;
-            case Asset::VertexDataType::DOUBLE3: {
+            case Asset::VertexDataType::Double3: {
                 auto vertex = reinterpret_cast<const vec3d*>(data);
                 for (auto i = 0; i < vertex_count; i++, vertex++) {
                     aabbMin.x = std::min(static_cast<double>(aabbMin.x), vertex->x);

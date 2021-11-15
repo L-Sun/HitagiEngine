@@ -153,17 +153,15 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
         // Set primitive type
         switch (_mesh->mPrimitiveTypes) {
             case aiPrimitiveType::aiPrimitiveType_LINE:
-                mesh->SetPrimitiveType(PrimitiveType::LINE_LIST);
+                mesh->SetPrimitiveType(PrimitiveType::LineList);
                 break;
             case aiPrimitiveType::aiPrimitiveType_POINT:
-                mesh->SetPrimitiveType(PrimitiveType::POINT_LIST);
-                break;
-            case aiPrimitiveType::aiPrimitiveType_POLYGON:
-                mesh->SetPrimitiveType(PrimitiveType::POLYGON);
+                mesh->SetPrimitiveType(PrimitiveType::PointList);
                 break;
             case aiPrimitiveType::aiPrimitiveType_TRIANGLE:
-                mesh->SetPrimitiveType(PrimitiveType::TRI_LIST);
+                mesh->SetPrimitiveType(PrimitiveType::TriangleList);
                 break;
+            case aiPrimitiveType::aiPrimitiveType_POLYGON:
             case aiPrimitiveType::_aiPrimitiveType_Force32Bit:
             default:
                 logger->error("[Assimp] Unsupport Primitive Type");
@@ -175,7 +173,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
             auto         position = reinterpret_cast<vec3f*>(positionBuffer.GetData());
             for (size_t i = 0; i < _mesh->mNumVertices; i++)
                 position[i] = vec3f(_mesh->mVertices[i].x, _mesh->mVertices[i].y, _mesh->mVertices[i].z);
-            mesh->AddVertexArray(SceneObjectVertexArray("POSITION", VertexDataType::FLOAT3, std::move(positionBuffer)));
+            mesh->AddVertexArray(SceneObjectVertexArray("POSITION", VertexDataType::Float3, std::move(positionBuffer)));
         }
 
         // Read Normal
@@ -184,7 +182,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
             auto         normal = reinterpret_cast<vec3f*>(normalBuffer.GetData());
             for (size_t i = 0; i < _mesh->mNumVertices; i++)
                 normal[i] = vec3f(_mesh->mNormals[i].x, _mesh->mNormals[i].y, _mesh->mNormals[i].z);
-            mesh->AddVertexArray(SceneObjectVertexArray("NORMAL", VertexDataType::FLOAT3, std::move(normalBuffer)));
+            mesh->AddVertexArray(SceneObjectVertexArray("NORMAL", VertexDataType::Float3, std::move(normalBuffer)));
         }
 
         // Read Color
@@ -198,7 +196,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
                                      _mesh->mColors[colorChannels][i].b,
                                      _mesh->mColors[colorChannels][i].a);
                 const auto attr = std::string("COLOR") + (colorChannels == 0 ? "" : std::to_string(colorChannels));
-                mesh->AddVertexArray(SceneObjectVertexArray(attr, VertexDataType::FLOAT4, std::move(colorBuffer)));
+                mesh->AddVertexArray(SceneObjectVertexArray(attr, VertexDataType::Float4, std::move(colorBuffer)));
             }
         }
 
@@ -211,7 +209,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
                     texcoord[i] = vec2f(_mesh->mTextureCoords[UVChannel][i].x, _mesh->mTextureCoords[UVChannel][i].y);
 
                 const auto attr = std::string("TEXCOORD") + (UVChannel == 0 ? "" : std::to_string(UVChannel));
-                mesh->AddVertexArray(SceneObjectVertexArray(attr, VertexDataType::FLOAT2, std::move(texcoordBuffer)));
+                mesh->AddVertexArray(SceneObjectVertexArray(attr, VertexDataType::Float2, std::move(texcoordBuffer)));
             }
         }
 
@@ -221,13 +219,13 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
             auto         tangent = reinterpret_cast<vec3f*>(tangentBuffer.GetData());
             for (size_t i = 0; i < _mesh->mNumVertices; i++)
                 tangent[i] = vec3f(_mesh->mTangents[i].x, _mesh->mTangents[i].y, _mesh->mTangents[i].z);
-            mesh->AddVertexArray(SceneObjectVertexArray("TANGENT", VertexDataType::FLOAT3, std::move(tangentBuffer)));
+            mesh->AddVertexArray(SceneObjectVertexArray("TANGENT", VertexDataType::Float3, std::move(tangentBuffer)));
 
             Core::Buffer bitangentBuffer(_mesh->mNumVertices * sizeof(vec3f));
             auto         bitangent = reinterpret_cast<vec3f*>(bitangentBuffer.GetData());
             for (size_t i = 0; i < _mesh->mNumVertices; i++)
                 bitangent[i] = vec3f(_mesh->mBitangents[i].x, _mesh->mBitangents[i].y, _mesh->mBitangents[i].z);
-            mesh->AddVertexArray(SceneObjectVertexArray("BITANGENT", VertexDataType::FLOAT3, std::move(bitangentBuffer)));
+            mesh->AddVertexArray(SceneObjectVertexArray("BITANGENT", VertexDataType::Float3, std::move(bitangentBuffer)));
         }
 
         // Read Indices
@@ -241,7 +239,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
             for (size_t i = 0; i < _mesh->mFaces[face].mNumIndices; i++)
                 *indices++ = _mesh->mFaces[face].mIndices[i];  // assignment then increase
 
-        mesh->AddIndexArray(SceneObjectIndexArray(IndexDataType::INT32, std::move(indexBuffer)));
+        mesh->AddIndexArray(SceneObjectIndexArray(IndexDataType::Int32, std::move(indexBuffer)));
 
         const std::string materialRef = _scene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
         mesh->SetMaterial(scene.Materials.at(materialRef));

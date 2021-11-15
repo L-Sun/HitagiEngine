@@ -4,7 +4,7 @@
 #include <fmt/format.h>
 
 namespace Hitagi::Graphics {
-const MeshBuffer& ResourceManager::GetMeshBuffer(Asset::SceneObjectMesh& mesh) {
+std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::SceneObjectMesh& mesh) {
     auto id = mesh.GetGuid();
     if (m_MeshBuffer.count(id) != 0)
         return m_MeshBuffer.at(id);
@@ -30,22 +30,20 @@ const MeshBuffer& ResourceManager::GetMeshBuffer(Asset::SceneObjectMesh& mesh) {
         indexArray.GetIndexSize(),
         indexArray.GetData());
 
-    m_MeshBuffer.emplace(id, MeshBuffer{std::move(vertices),
-                                        std::move(indices),
-                                        mesh.GetPrimitiveType()});
+    m_MeshBuffer.emplace(id, std::make_shared<MeshBuffer>(vertices, indices, mesh.GetPrimitiveType()));
 
     return m_MeshBuffer.at(id);
 }
 
-const TextureBuffer& ResourceManager::GetTextureBuffer(Asset::SceneObjectTexture& texture) {
+std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(const Asset::SceneObjectTexture& texture) {
     auto id = texture.GetGuid();
     if (m_TextureBuffer.count(id) != 0)
         return m_TextureBuffer.at(id);
 
     auto& image = texture.GetTextureImage();
     if (image.Empty()) {
-        spdlog::get("GraphicsManager")->warn("Texture({}) is empty. Program will use default texture instead.");
-        return GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+        spdlog::get("GraphicsManager")->warn("Texture({}) is empty. There is nothing return!");
+        return nullptr;
     }
     Format format;
     if (auto bitCount = image.GetBitcount(); bitCount == 8)
@@ -72,7 +70,7 @@ const TextureBuffer& ResourceManager::GetTextureBuffer(Asset::SceneObjectTexture
     return m_TextureBuffer.at(id);
 }
 
-const TextureBuffer& ResourceManager::GetDefaultTextureBuffer(Format format) {
+std::shared_ptr<TextureBuffer> ResourceManager::GetDefaultTextureBuffer(Format format) {
     if (m_DefaultTextureBuffer.count(format) != 0)
         return m_DefaultTextureBuffer.at(format);
 
@@ -87,7 +85,7 @@ const TextureBuffer& ResourceManager::GetDefaultTextureBuffer(Format format) {
     return m_DefaultTextureBuffer.at(format);
 }
 
-const Sampler& ResourceManager::GetSampler(std::string_view name) {
+std::shared_ptr<Sampler> ResourceManager::GetSampler(std::string_view name) {
     const std::string _name(name);
     if (m_Samplers.count(_name) != 0) return m_Samplers.at(_name);
 
