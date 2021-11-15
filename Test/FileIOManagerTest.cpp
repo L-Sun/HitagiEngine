@@ -5,7 +5,7 @@
 
 using namespace Hitagi;
 
-int main(int argc, char const* argv[]) {
+auto main(int argc, char const* argv[]) -> int {
     g_MemoryManager->Initialize();
     g_FileIOManager->Initialize();
 

@@ -64,6 +64,7 @@ int GraphicsManager::Initialize() {
         .SetVertexShader(m_ShaderManager.GetVertexShader("color.vs"))
         .SetPixelShader(m_ShaderManager.GetPixelShader("color.ps"))
         .SetRootSignautre(rootSig)
+        .SetPrimitiveType(PrimitiveType::TriangleList)
         .SetRenderFormat(Format::R8G8B8A8_UNORM)
         .SetDepthBufferFormat(Format::D32_FLOAT)
         .Create(*m_Driver);

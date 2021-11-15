@@ -76,8 +76,8 @@ void* MemoryManager::Allocate(size_t size) {
 }
 
 void* MemoryManager::Allocate(size_t size, size_t alignment) {
-    uint8_t* p;
-    size = align(size, alignment);
+    uint8_t* p = nullptr;
+    size       = align(size, alignment);
 
     Allocator* allocator = LookUpAllocator(size);
     if (allocator)

@@ -2,7 +2,7 @@
 
 namespace Hitagi::Core {
 
-int Clock::Initialize() {
+auto Clock::Initialize() -> int {
     m_DeltaTime  = std::chrono::duration<double>::zero();
     m_PausedTime = std::chrono::duration<double>::zero();
     m_BaseTime   = std::chrono::high_resolution_clock::now();
@@ -13,9 +13,9 @@ int Clock::Initialize() {
 }
 void Clock::Finalize() {}
 
-std::chrono::duration<double> Clock::deltaTime() const { return m_DeltaTime; }
+auto Clock::deltaTime() const -> std::chrono::duration<double> { return m_DeltaTime; }
 
-std::chrono::duration<double> Clock::totalTime() const {
+auto Clock::totalTime() const -> std::chrono::duration<double> {
     if (m_Paused) {
         return (m_StopTime - m_BaseTime) - m_PausedTime;
     } else {
@@ -23,7 +23,7 @@ std::chrono::duration<double> Clock::totalTime() const {
     }
 }
 
-std::chrono::high_resolution_clock::time_point Clock::tickTime() const { return m_TickTime; }
+auto Clock::tickTime() const -> std::chrono::high_resolution_clock::time_point { return m_TickTime; }
 
 void Clock::Tick() {
     if (m_Paused) {
@@ -34,7 +34,7 @@ void Clock::Tick() {
     m_DeltaTime = m_TickTime - m_PrevTime;
     m_PrevTime  = m_TickTime;
 }
-std::chrono::high_resolution_clock::time_point Clock::GetBaseTime() const {
+auto Clock::GetBaseTime() const -> std::chrono::high_resolution_clock::time_point {
     return m_BaseTime;
 }
 

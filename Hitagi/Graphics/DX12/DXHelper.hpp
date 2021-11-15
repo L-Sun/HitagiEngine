@@ -22,6 +22,8 @@
 // must account for the GPU lifetime of resources to avoid destroying objects
 // that may still be referenced by the GPU.
 
+// NOLINTBEGIN
+
 inline std::string HrToString(HRESULT hr) {
     char s_str[64] = {};
     sprintf_s(s_str, "HRESULT of 0x%08X", static_cast<UINT>(hr));
@@ -163,3 +165,5 @@ void ResetUniquePtrArray(T* uniquePtrArray) {
         i.reset();
     }
 }
+
+// NOLINTEND

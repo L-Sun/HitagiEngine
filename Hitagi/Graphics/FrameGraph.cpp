@@ -2,6 +2,9 @@
 
 template <class... Ts>
 struct overloaded : Ts... { using Ts::operator()...; };
+// 显式推导指引（ C++20 起不需要）
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
 
 namespace Hitagi::Graphics {
 

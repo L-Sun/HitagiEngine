@@ -11,8 +11,8 @@ using namespace Hitagi;
 #endif
 #endif
 
-int main(int argc, char** argv) {
-    int ret;
+auto main(int argc, char** argv) -> int {
+    int ret = 0;
 
     g_App->SetCommandLineParameters(argc, argv);
 

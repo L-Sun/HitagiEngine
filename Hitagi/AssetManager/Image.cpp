@@ -15,7 +15,7 @@ Image::Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch,
       Core::Buffer(dataSize) {
 }
 
-std::ostream& operator<<(std::ostream& out, const Image& image) {
+auto operator<<(std::ostream& out, const Image& image) -> std::ostream& {
     double               size = image.GetDataSize();
     constexpr std::array unit = {"B", "kB", "MB"};
     size_t               i    = 0;

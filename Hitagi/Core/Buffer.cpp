@@ -30,7 +30,7 @@ Buffer::Buffer(Buffer&& buffer) : m_Data(buffer.m_Data), m_Size(buffer.m_Size), 
     buffer.m_Size      = 0;
     buffer.m_Alignment = 0;
 }
-Buffer& Buffer::operator=(const Buffer& rhs) {
+auto Buffer::operator=(const Buffer& rhs) -> Buffer& {
     if (this != &rhs) {
         if (m_Size >= rhs.m_Size && m_Alignment == rhs.m_Alignment)
             std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
@@ -44,7 +44,7 @@ Buffer& Buffer::operator=(const Buffer& rhs) {
     }
     return *this;
 }  // namespace Hitagi::Core
-Buffer& Buffer::operator=(Buffer&& rhs) {
+auto Buffer::operator=(Buffer&& rhs) -> Buffer& {
     if (this != &rhs) {
         if (m_Data) g_MemoryManager->Free(m_Data, m_Size);
         m_Data          = rhs.m_Data;
@@ -61,13 +61,13 @@ Buffer::~Buffer() {
     m_Data = nullptr;
 }
 
-uint8_t* Buffer::GetData() {
+auto Buffer::GetData() -> uint8_t* {
     return m_Data;
 }
-const uint8_t* Buffer::GetData() const {
+auto Buffer::GetData() const -> const uint8_t* {
     return m_Data;
 }
-size_t Buffer::GetDataSize() const {
+auto Buffer::GetDataSize() const -> size_t {
     return m_Size;
 }
 }  // namespace Hitagi::Core

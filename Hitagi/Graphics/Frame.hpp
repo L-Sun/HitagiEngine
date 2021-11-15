@@ -2,7 +2,6 @@
 #include "SceneNode.hpp"
 #include "ResourceManager.hpp"
 #include "PipelineState.hpp"
-#include "DebugManager.hpp"
 
 #include "DebugManager.hpp"
 

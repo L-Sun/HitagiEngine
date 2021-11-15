@@ -9,12 +9,12 @@ std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::SceneObj
     if (m_MeshBuffer.count(id) != 0)
         return m_MeshBuffer.at(id);
 
-    decltype(MeshBuffer::vertices) vertices;
+    auto result = std::make_shared<MeshBuffer>();
 
     // Create new vertex array
     for (auto&& vertex : mesh.GetVertexArrays()) {
         std::string_view name = vertex.GetAttributeName();
-        vertices.emplace(
+        result->vertices.emplace(
             name,                         // attribut name
             m_Driver.CreateVertexBuffer(  // backend vertex buffer
                 fmt::format("{}-{}", name, id.str()),
@@ -24,15 +24,17 @@ std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::SceneObj
     }
     // Create Index array
     auto& indexArray = mesh.GetIndexArray();
-    auto  indices    = m_Driver.CreateIndexBuffer(
+    result->indices  = m_Driver.CreateIndexBuffer(
         fmt::format("index-{}", id.str()),
         indexArray.GetIndexCount(),
         indexArray.GetIndexSize(),
         indexArray.GetData());
 
-    m_MeshBuffer.emplace(id, std::make_shared<MeshBuffer>(vertices, indices, mesh.GetPrimitiveType()));
+    result->primitive = mesh.GetPrimitiveType();
 
-    return m_MeshBuffer.at(id);
+    m_MeshBuffer.emplace(id, result);
+
+    return result;
 }
 
 std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(const Asset::SceneObjectTexture& texture) {

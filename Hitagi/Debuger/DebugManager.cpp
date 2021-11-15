@@ -1,6 +1,4 @@
 #include "DebugManager.hpp"
-#include "IPhysicsManager.hpp"
-#include "GraphicsManager.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -42,7 +40,7 @@ void DebugManager::DrawLine(const Line& line, const vec4f& color, const std::chr
 }
 
 void DebugManager::AddPrimitive(std::unique_ptr<Geometry> geometry, const vec4f& color, std::chrono::seconds duration, bool depthEnabled) {
-    m_DebugPrimitives.emplace_back(std::move(geometry), color, std::chrono::high_resolution_clock::now() + duration);
+    m_DebugPrimitives.emplace_back(DebugPrimitive{std::move(geometry), color, std::chrono::high_resolution_clock::now() + duration});
     // make min heap
     std::push_heap(m_DebugPrimitives.begin(), m_DebugPrimitives.end(), cmp);
 }

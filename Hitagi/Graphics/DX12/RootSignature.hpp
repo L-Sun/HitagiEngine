@@ -1,7 +1,7 @@
 #pragma once
 #include "D3Dpch.hpp"
 
-#include "../Pipelinestate.hpp"
+#include "../PipelineState.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
 struct RootParameter : public CD3DX12_ROOT_PARAMETER1 {
