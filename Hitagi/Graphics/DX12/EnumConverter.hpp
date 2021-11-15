@@ -25,6 +25,7 @@ inline D3D12_PRIMITIVE_TOPOLOGY_TYPE ToDxTopologyType(PrimitiveType type) noexce
         case PrimitiveType::TriangleStripAdjacency:
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     }
+    return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 }
 
 inline D3D12_PRIMITIVE_TOPOLOGY ToDxTopology(PrimitiveType type) noexcept {
@@ -48,6 +49,7 @@ inline D3D12_PRIMITIVE_TOPOLOGY ToDxTopology(PrimitiveType type) noexcept {
         case PrimitiveType::TriangleStripAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ;
     }
+    return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 }
 
 }  // namespace Hitagi::Graphics::backend::DX12

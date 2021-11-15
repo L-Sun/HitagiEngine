@@ -5,7 +5,7 @@
 using namespace Hitagi::Graphics;
 
 int main(int argc, char const* argv[]) {
-    RootSignature sig;
+    RootSignature sig("root signature test");
     sig.Add("", ShaderVariableType::CBV, 0, 0)
         .Add("", ShaderVariableType::SRV, 0, 1)
         .Add("", ShaderVariableType::CBV, 1, 0)

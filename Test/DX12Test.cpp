@@ -17,7 +17,7 @@ int main() {
     {
         auto driver = std::make_unique<backend::DX12::DX12DriverAPI>();
         auto cb     = driver->CreateConstantBuffer("Constant Buffer Test", 16, sizeof(size_t));
-        auto vb     = driver->CreateVertexBuffer(a.size(), sizeof(int), reinterpret_cast<uint8_t*>(a.data()));
+        auto vb     = driver->CreateVertexBuffer("Vertex Buffer Test", a.size(), sizeof(int), reinterpret_cast<uint8_t*>(a.data()));
         for (size_t i = 0; i < 16; i++) {
             driver->UpdateConstantBuffer(cb, i, reinterpret_cast<const uint8_t*>(&i), sizeof(size_t));
         }

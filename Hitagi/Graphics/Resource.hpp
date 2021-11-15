@@ -1,7 +1,9 @@
 #pragma once
 #include "Format.hpp"
-#include "SceneObject.hpp"
+#include "Primitive.hpp"
 
+#include <memory>
+#include <unordered_map>
 #include <string>
 
 namespace Hitagi::Graphics {
