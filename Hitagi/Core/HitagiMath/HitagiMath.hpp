@@ -15,7 +15,7 @@ inline const T radians(T angle) {
 
 template <typename T, unsigned D>
 Vector<T, D> normalize(const Vector<T, D>& v) {
-    return v / v.norm();
+    return v / v.Norm();
 }
 
 template <typename T>
@@ -44,7 +44,7 @@ Matrix<T, 3> inverse(const Matrix<T, 3>& mat) {
     if (det == 0) return Matrix<T, 3>(static_cast<T>(1));
     T invdet = static_cast<T>(1) / det;
 
-    Matrix<T, 3> res;
+    Matrix<T, 3> res{};
     res[0][0] = (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2]) * invdet;
     res[0][1] = (mat[0][2] * mat[2][1] - mat[0][1] * mat[2][2]) * invdet;
     res[0][2] = (mat[0][1] * mat[1][2] - mat[0][2] * mat[1][1]) * invdet;
@@ -59,10 +59,10 @@ Matrix<T, 3> inverse(const Matrix<T, 3>& mat) {
 
 template <typename T>
 Matrix<T, 4> inverse(const Matrix<T, 4>& mat) {
-    Matrix<T, 4> res;
+    Matrix<T, 4> res{};
     const T*     m = static_cast<const T*>(mat);
 
-    std::array<T, 16> inv;
+    std::array<T, 16> inv{};
     T                 det;
     inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] +
              m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
@@ -124,7 +124,7 @@ Matrix<T, 4> inverse(const Matrix<T, 4>& mat) {
 }
 
 template <typename T, unsigned D>
-void exchangeYZ(Matrix<T, D>& matrix) {
+void exchange_yz(Matrix<T, D>& matrix) {
     std::swap(matrix.data[1], matrix.data[2]);
 }
 
@@ -141,7 +141,7 @@ Matrix<T, 4> translate(const Matrix<T, 4>& mat, const Vector<T, 3>& v) {
     return translation * mat;
 }
 template <typename T>
-Matrix<T, 4> rotateX(const Matrix<T, 4>& mat, const T angle) {
+Matrix<T, 4> rotate_x(const Matrix<T, 4>& mat, const T angle) {
     const T c = std::cos(angle), s = std::sin(angle);
     // clang-format off
     Matrix<T, 4> rotate_x = {
@@ -154,7 +154,7 @@ Matrix<T, 4> rotateX(const Matrix<T, 4>& mat, const T angle) {
     return rotate_x * mat;
 }
 template <typename T>
-Matrix<T, 4> rotateY(const Matrix<T, 4>& mat, const T angle) {
+Matrix<T, 4> rotate_y(const Matrix<T, 4>& mat, const T angle) {
     const T c = std::cos(angle), s = std::sin(angle);
 
     // clang-format off
@@ -168,7 +168,7 @@ Matrix<T, 4> rotateY(const Matrix<T, 4>& mat, const T angle) {
     return rotate_y * mat;
 }
 template <typename T>
-Matrix<T, 4> rotateZ(const Matrix<T, 4>& mat, const T angle) {
+Matrix<T, 4> rotate_z(const Matrix<T, 4>& mat, const T angle) {
     const T c = std::cos(angle), s = std::sin(angle);
 
     // clang-format off
@@ -184,9 +184,9 @@ Matrix<T, 4> rotateZ(const Matrix<T, 4>& mat, const T angle) {
 }
 template <typename T>
 Matrix<T, 4> rotate(const Matrix<T, 4>& mat, const T angle, const Vector<T, 3>& axis) {
-    auto    _axis = normalize(axis);
+    auto    normalized_axis = normalize(axis);
     const T c = std::cos(angle), s = std::sin(angle), _1_c = 1.0f - c;
-    const T x = _axis.x, y = _axis.y, z = _axis.z;
+    const T x = normalized_axis.x, y = normalized_axis.y, z = normalized_axis.z;
     // clang-format off
     Matrix<T, 4> rotation = {
         {c + x * x * _1_c    , x * y * _1_c - z * s, x * z * _1_c + y * s, 0.0f},
@@ -224,8 +224,8 @@ Matrix<T, 4> rotate(const Matrix<T, 4>& mat, const T yaw, const T pitch, const T
 
 template <typename T>
 Matrix<T, 4> rotate(const Matrix<T, 4>& mat, const Vector<T, 4>& quatv) {
-    auto    _quatv = normalize(quatv);
-    const T a = _quatv.x, b = _quatv.y, c = _quatv.z, d = _quatv.w;
+    auto    normalized_quatv = normalize(quatv);
+    const T a = normalized_quatv.x, b = normalized_quatv.y, c = normalized_quatv.z, d = normalized_quatv.w;
     const T _2a2 = 2 * a * a, _2b2 = 2 * b * b, _2c2 = 2 * c * c, _2d2 = 2 * d * d, _2ab = 2 * a * b, _2ac = 2 * a * c,
             _2ad = 2 * a * d, _2bc = 2 * b * c, _2bd = 2 * b * d, _2cd = 2 * c * d;
 
@@ -261,7 +261,7 @@ Matrix<T, 4> scale(const Matrix<T, 4>& mat, const Vector<T, 3>& v) {
 }
 
 template <typename T>
-Matrix<T, 4> perspectiveFov(T fov, T width, T height, T near, T far) {
+Matrix<T, 4> perspective_fov(T fov, T width, T height, T near, T far) {
     Matrix<T, 4> res(0);
 
     const T h   = std::tan(0.5 * fov);
@@ -303,14 +303,14 @@ Matrix<T, 4> ortho(T left, T right, T bottom, T top, T near, T far) {
 }
 
 template <typename T>
-Matrix<T, 4> lookAt(const Vector<T, 3>& position, const Vector<T, 3>& direction, const Vector<T, 3>& up) {
-    Vector<T, 3> direct   = normalize(direction);
-    Vector<T, 3> right    = normalize(cross(direct, up));
-    Vector<T, 3> cameraUp = normalize(cross(right, direct));
+Matrix<T, 4> look_at(const Vector<T, 3>& position, const Vector<T, 3>& direction, const Vector<T, 3>& up) {
+    Vector<T, 3> direct    = normalize(direction);
+    Vector<T, 3> right     = normalize(cross(direct, up));
+    Vector<T, 3> camera_up = normalize(cross(right, direct));
     // clang-format off
     Matrix<T, 4> look_at = {
         {   right.x,    right.y,    right.z,    -dot(right, position)},
-        {cameraUp.x, cameraUp.y, cameraUp.z, -dot(cameraUp, position)},
+        {camera_up.x, camera_up.y, camera_up.z, -dot(camera_up, position)},
         { -direct.x,  -direct.y,  -direct.z,    dot(direct, position)},
         {         0,          0,          0,                         1}};
     // clang-format on
@@ -318,29 +318,29 @@ Matrix<T, 4> lookAt(const Vector<T, 3>& position, const Vector<T, 3>& direction,
 }
 
 template <typename T>
-const Vector<T, 3> GetOrigin(const Matrix<T, 3>& mat) {
+const Vector<T, 3> get_origin(const Matrix<T, 3>& mat) {
     return Vector<T, 3>{mat[0][3], mat[1][3], mat[2][3]};
 }
 template <typename T>
-const Vector<T, 3> GetOrigin(const Matrix<T, 4>& mat) {
+const Vector<T, 3> get_origin(const Matrix<T, 4>& mat) {
     return Vector<T, 3>{mat[0][3], mat[1][3], mat[2][3]};
 }
 
 template <typename T, unsigned D1, unsigned D2>
-void Shrink(Matrix<T, D1>& mat1, const Matrix<T, D2>& mat2) {
+void shrink(Matrix<T, D1>& mat1, const Matrix<T, D2>& mat2) {
     static_assert(D1 < D2, "[Error] Target matrix order must smaller than source matrix order!");
 
     for (unsigned row = 0; row < D1; row++)
         for (unsigned col = 0; col < D1; col++) mat1[row][col] = mat2[row][col];
 }
 template <typename T, unsigned D>
-const Vector<T, D> Absolute(const Vector<T, D>& a) {
+const Vector<T, D> absolute(const Vector<T, D>& a) {
     Vector<T, D> res;
     for (unsigned i = 0; i < D; i++) res[i] = std::abs(a[i]);
     return res;
 }
 template <typename T, unsigned D>
-const Matrix<T, D> Absolute(const Matrix<T, D>& a) {
+const Matrix<T, D> absolute(const Matrix<T, D>& a) {
     Matrix<T, D> res;
     for (unsigned row = 0; row < D; row++)
         for (unsigned col = 0; col < D; col++) res[row][col] = std::abs(a[row][col]);
@@ -348,28 +348,28 @@ const Matrix<T, D> Absolute(const Matrix<T, D>& a) {
 }
 
 template <typename T, unsigned D>
-const Vector<T, D> Max(const Vector<T, D>& a, const T& b) {
+const Vector<T, D> max(const Vector<T, D>& a, const T& b) {
     Vector<T, D> res;
     for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b);
     return res;
 }
 
 template <typename T, unsigned D>
-const Vector<T, D> Max(const Vector<T, D>& a, const Vector<T, D>& b) {
+const Vector<T, D> max(const Vector<T, D>& a, const Vector<T, D>& b) {
     Vector<T, D> res;
     for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b[i]);
     return res;
 }
 
 template <typename T, unsigned D>
-const Vector<T, D> Min(const Vector<T, D>& a, const T& b) {
+const Vector<T, D> min(const Vector<T, D>& a, const T& b) {
     Vector<T, D> res;
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b);
     return res;
 }
 
 template <typename T, unsigned D>
-const Vector<T, D> Min(const Vector<T, D>& a, const Vector<T, D>& b) {
+const Vector<T, D> min(const Vector<T, D>& a, const Vector<T, D>& b) {
     Vector<T, D> res;
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b[i]);
     return res;

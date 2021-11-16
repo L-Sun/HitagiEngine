@@ -13,11 +13,11 @@ protected:
     mat4f                                            m_RuntimeTransform = mat4f(1.0f);
     bool                                             m_Dirty            = true;
 
-    virtual void dump(std::ostream& out, unsigned indent) const {}
+    virtual void Dump(std::ostream& out, unsigned indent) const {}
 
 public:
     BaseSceneNode() = default;
-    BaseSceneNode(std::string_view name) { m_Name = name; }
+    BaseSceneNode(std::string_view name) : m_Name(name) {}
 
     virtual ~BaseSceneNode() = default;
 
@@ -61,7 +61,7 @@ public:
             "{0:{1}}{3:<15}{4:>15}\n",
             "", indent, "Scene Node", "Name:", node.m_Name);
 
-        node.dump(out, indent);
+        node.Dump(out, indent);
         out << fmt::format("{0:{1}}{2}\n", "", indent, "Children:");
         indent += 4;
         for (const std::shared_ptr<BaseSceneNode>& sub_node : node.m_Chlidren) {
@@ -78,7 +78,7 @@ class SceneNode : public BaseSceneNode {
 protected:
     std::weak_ptr<T> m_SceneObjectRef;
 
-    void dump(std::ostream& out, unsigned indent) const override {
+    void Dump(std::ostream& out, unsigned indent) const override {
         if (auto obj = m_SceneObjectRef.lock()) {
             out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Obj Ref:", obj->GetGuid());
         }
@@ -98,8 +98,8 @@ protected:
     bool m_Shadow     = true;
     bool m_MotionBlur = false;
 
-    void dump(std::ostream& out, unsigned indent) const override {
-        SceneNode::dump(out, indent);
+    void Dump(std::ostream& out, unsigned indent) const override {
+        SceneNode::Dump(out, indent);
         out << fmt::format(
             "{0:{1}}{2:<15}{3:>15}\n"
             "{0:{1}}{4:<15}{5:>15}\n"
@@ -111,7 +111,7 @@ public:
     using SceneNode::SceneNode;
     void       SetVisibility(bool visible) { m_Visible = visible; }
     void       SetIfCastShadow(bool shadow) { m_Shadow = shadow; }
-    void       SetIfMotionBlur(bool motionBlur) { m_MotionBlur = motionBlur; }
+    void       SetIfMotionBlur(bool motion_blur) { m_MotionBlur = motion_blur; }
     const bool Visible() { return m_Visible; }
     const bool CastShadow() { return m_Shadow; }
     const bool MotionBlur() { return m_MotionBlur; }
@@ -121,10 +121,9 @@ public:
 
 class SceneLightNode : public SceneNode<SceneObjectLight> {
 protected:
-    bool m_Shadow;
+    bool m_Shadow = false;
 
-public:
-    using SceneNode::SceneNode;
+        public : using SceneNode::SceneNode;
     void       SetIfCastShadow(bool shaodw) { m_Shadow = shaodw; }
     const bool CastShadow() { return m_Shadow; }
 };
@@ -132,14 +131,14 @@ public:
 class SceneCameraNode : public SceneNode<SceneObjectCamera> {
 public:
     SceneCameraNode(std::string_view name, const vec3f& position = vec3f(0.0f), const vec3f& up = vec3f(0, 0, 1),
-                    const vec3f& lookAt = vec3f(0, -1, 0))
+                    const vec3f& look_at = vec3f(0, -1, 0))
         : SceneNode(name),
           m_Position(position),
-          m_LookAt(normalize(lookAt)),
-          m_Right(normalize(cross(lookAt, up))),
+          m_LookAt(normalize(look_at)),
+          m_Right(normalize(cross(look_at, up))),
           m_Up(normalize(cross(m_Right, m_LookAt))) {}
 
-    mat4f GetViewMatrix() const { return lookAt(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransform()); }
+    mat4f GetViewMatrix() const { return look_at(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransform()); }
 
     vec3f GetCameraPosition() const { return (GetCalculatedTransform() * vec4f(m_Position, 1)).xyz; }
     vec3f GetCameraUp() const { return (GetCalculatedTransform() * vec4f(m_Up, 0)).xyz; }

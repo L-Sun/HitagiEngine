@@ -13,41 +13,41 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
         return Image{};
     }
 
-    const auto* fileHeader =
+    const auto* file_header =
         reinterpret_cast<const BITMAP_FILEHEADER*>(buf.GetData());
-    const auto* bmpHeader = reinterpret_cast<const BITMAP_HEADER*>(
+    const auto* bmp_header = reinterpret_cast<const BITMAP_HEADER*>(
         buf.GetData() + BITMAP_FILEHEADER_SIZE);
-    if (fileHeader->Signature == 0x4D42 /* 'B''M' */) {
+    if (file_header->signature == 0x4D42 /* 'B''M' */) {
         logger->debug("[BMP] Asset is Windows BMP file");
         logger->debug("[BMP] BMP Header");
         logger->debug("[BMP] -----------------------------------");
-        logger->debug("[BMP] File Size:          {}", fileHeader->Size);
-        logger->debug("[BMP] Data Offset:        {}", fileHeader->BitsOffset);
-        logger->debug("[BMP] Image Width:        {}", bmpHeader->Width);
-        logger->debug("[BMP] Image Height:       {}", bmpHeader->Height);
-        logger->debug("[BMP] Image Planes:       {}", bmpHeader->Planes);
-        logger->debug("[BMP] Image BitCount:     {}", bmpHeader->BitCount);
-        logger->debug("[BMP] Image Comperession: {}", bmpHeader->Compression);
-        logger->debug("[BMP] Image Size:         {}", bmpHeader->SizeImage);
+        logger->debug("[BMP] File Size:          {}", file_header->size);
+        logger->debug("[BMP] Data Offset:        {}", file_header->bits_offset);
+        logger->debug("[BMP] Image Width:        {}", bmp_header->width);
+        logger->debug("[BMP] Image Height:       {}", bmp_header->height);
+        logger->debug("[BMP] Image Planes:       {}", bmp_header->planes);
+        logger->debug("[BMP] Image BitCount:     {}", bmp_header->bit_count);
+        logger->debug("[BMP] Image Comperession: {}", bmp_header->compression);
+        logger->debug("[BMP] Image Size:         {}", bmp_header->size_image);
 
-        auto  width      = std::abs(bmpHeader->Width);
-        auto  height     = std::abs(bmpHeader->Height);
+        auto  width      = std::abs(bmp_header->width);
+        auto  height     = std::abs(bmp_header->height);
         auto  bitcount   = 32;
         auto  byte_count = bitcount >> 3;
         auto  pitch      = ((width * bitcount >> 3) + 3) & ~3;
-        auto  dataSize   = pitch * height;
-        Image img(width, height, bitcount, pitch, dataSize);
+        auto  data_size   = pitch * height;
+        Image img(width, height, bitcount, pitch, data_size);
         auto  data = reinterpret_cast<R8G8B8A8Unorm*>(img.GetData());
         if (bitcount < 24) {
             logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
         } else {
-            const uint8_t* sourceData =
+            const uint8_t* source_data =
                 reinterpret_cast<const uint8_t*>(buf.GetData()) +
-                fileHeader->BitsOffset;
+                file_header->bits_offset;
             for (int32_t y = height - 1; y >= 0; y--) {
                 for (uint32_t x = 0; x < width; x++) {
                     data->bgra = *reinterpret_cast<const R8G8B8A8Unorm*>(
-                        sourceData + pitch * y + x * byte_count);
+                        source_data + pitch * y + x * byte_count);
                     data++;
                 }
             }

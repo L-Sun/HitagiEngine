@@ -1,4 +1,4 @@
-Checks: 'cppcoreguidelines-init-variables,modernize-*,-modernize-use-trailing-return-type,-modernize-use-nodiscard'
+Checks: 'cppcoreguidelines-*,readability-identifier-naming,modernize-*,-modernize-use-trailing-return-type,-modernize-use-nodiscard'
 HeaderFilterRegex:   '.*\.hpp'
 CheckOptions:
   - key:             readability-identifier-naming.ClassCase
@@ -7,17 +7,19 @@ CheckOptions:
     value:           CamelCase
   - key:             readability-identifier-naming.FunctionCase
     value:           lower_case
-  - key:             readability-identifier-naming.ClassMethodCase
+  - key:             readability-identifier-naming.MethodCase
     value:           CamelCase
-  - key:             readability-identifier-naming.MemberCase
+  - key:             readability-identifier-naming.PublicMemberCase
+    value:           lower_case
+  - key:             readability-identifier-naming.PrivateMemberCase 
     value:           CamelCase
-  - key:             readability-identifier-naming.ClassMemberPrefix
+  - key:             readability-identifier-naming.PrivateMemberPrefix
     value:           m_
   - key:             readability-identifier-naming.ParameterCase
     value:           lower_case
   - key:             readability-identifier-naming.UnionCase
     value:           lower_case
-  - key:             readability-identifier-naming.VariableCase
+  - key:             readability-identifier-naming.LocalVariableCase
     value:           lower_case
   - key:             readability-identifier-naming.IgnoreMainLikeFunctions
     value:           1

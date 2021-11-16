@@ -32,7 +32,7 @@ TEST(VectorTest, VectorInit) {
 }
 TEST(VectorTest, VectorCopy) {
     vec3f v3(1);
-    vec3f _v3 = v3;
+    vec3f v4 = v3;
 }
 TEST(VectorTest, VectorOperator) {
     vec3d v3(1, 2, 3);
@@ -45,11 +45,11 @@ TEST(VectorTest, VectorOperator) {
 }
 TEST(VectorTest, VectorAssignmentOperator) {
     vec3f v3(1, 2, 3);
-    auto  _v3 = v3;
-    vector_eq(_v3 += v3, 2.0f * v3);
-    vector_eq(_v3 -= v3, v3);
-    vector_eq(_v3 *= 3, v3 * 3);
-    vector_eq(_v3 /= 3, v3);
+    auto  v4 = v3;
+    vector_eq(v4 += v3, 2.0f * v3);
+    vector_eq(v4 -= v3, v3);
+    vector_eq(v4 *= 3, v3 * 3);
+    vector_eq(v4 /= 3, v3);
 }
 TEST(VectorTest, VectorNormalize) {
     vec3f v3 = {3, 3, 3};
@@ -84,8 +84,8 @@ TEST(SwizzleTest, SwizzleTest) {
 }
 
 TEST(MatrixTest, MatInit) {
-    mat3f _i(1);
-    matrix_eq(_i, mat3f({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}));
+    mat3f m1(1);
+    matrix_eq(m1, mat3f({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}));
 
     mat3f m3 = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
 }

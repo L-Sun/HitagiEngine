@@ -17,6 +17,6 @@ private:
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 
     bool m_LockCursor = false;
-    HWND m_Window;
+    HWND m_Window{};
 };
 }  // namespace Hitagi

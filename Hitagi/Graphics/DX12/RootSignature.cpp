@@ -1,73 +1,73 @@
 #include "RootSignature.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
-RootSignature::RootSignature(std::string_view name, uint32_t numRootParams, uint32_t numStaticSamplers)
+RootSignature::RootSignature(std::string_view name, uint32_t num_root_params, uint32_t num_static_samplers)
     : m_Name(name),
       m_RootSignature(nullptr),
-      m_NumParameters(numRootParams),
-      m_NumSamplers(numStaticSamplers),
-      m_NumInitializedStaticSamplers(numStaticSamplers) {
-    Reset(numRootParams, numStaticSamplers);
+      m_NumParameters(num_root_params),
+      m_NumSamplers(num_static_samplers),
+      m_NumInitializedStaticSamplers(num_static_samplers) {
+    Reset(num_root_params, num_static_samplers);
 };
 
-void RootSignature::Reset(uint32_t numRootParams, uint32_t numStaticSamplers) {
-    m_ParamArray.resize(numRootParams, RootParameter{});
-    m_NumParameters = numRootParams;
+void RootSignature::Reset(uint32_t num_root_params, uint32_t num_static_samplers) {
+    m_ParamArray.resize(num_root_params, RootParameter{});
+    m_NumParameters = num_root_params;
 
-    m_SamplerArray.resize(numRootParams, {});
-    m_NumSamplers                  = numStaticSamplers;
+    m_SamplerArray.resize(num_root_params, {});
+    m_NumSamplers                  = num_static_samplers;
     m_NumInitializedStaticSamplers = 0;
 }
 
-void RootSignature::InitStaticSampler(UINT shaderRegister, const D3D12_SAMPLER_DESC& nonStaticSamplerDesc,
+void RootSignature::InitStaticSampler(UINT shader_register, const D3D12_SAMPLER_DESC& non_static_sampler_desc,
                                       D3D12_SHADER_VISIBILITY visibility) {
     assert(m_NumInitializedStaticSamplers < m_NumSamplers);
-    auto& StaticSamplerDesc = m_SamplerArray[m_NumInitializedStaticSamplers++];
+    auto& desc = m_SamplerArray[m_NumInitializedStaticSamplers++];
 
-    StaticSamplerDesc.Filter           = nonStaticSamplerDesc.Filter;
-    StaticSamplerDesc.AddressU         = nonStaticSamplerDesc.AddressU;
-    StaticSamplerDesc.AddressV         = nonStaticSamplerDesc.AddressV;
-    StaticSamplerDesc.AddressW         = nonStaticSamplerDesc.AddressW;
-    StaticSamplerDesc.MipLODBias       = nonStaticSamplerDesc.MipLODBias;
-    StaticSamplerDesc.MaxAnisotropy    = nonStaticSamplerDesc.MaxAnisotropy;
-    StaticSamplerDesc.ComparisonFunc   = nonStaticSamplerDesc.ComparisonFunc;
-    StaticSamplerDesc.BorderColor      = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
-    StaticSamplerDesc.MinLOD           = nonStaticSamplerDesc.MinLOD;
-    StaticSamplerDesc.MaxLOD           = nonStaticSamplerDesc.MaxLOD;
-    StaticSamplerDesc.ShaderRegister   = shaderRegister;
-    StaticSamplerDesc.RegisterSpace    = 0;
-    StaticSamplerDesc.ShaderVisibility = visibility;
+    desc.Filter           = non_static_sampler_desc.Filter;
+    desc.AddressU         = non_static_sampler_desc.AddressU;
+    desc.AddressV         = non_static_sampler_desc.AddressV;
+    desc.AddressW         = non_static_sampler_desc.AddressW;
+    desc.MipLODBias       = non_static_sampler_desc.MipLODBias;
+    desc.MaxAnisotropy    = non_static_sampler_desc.MaxAnisotropy;
+    desc.ComparisonFunc   = non_static_sampler_desc.ComparisonFunc;
+    desc.BorderColor      = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+    desc.MinLOD           = non_static_sampler_desc.MinLOD;
+    desc.MaxLOD           = non_static_sampler_desc.MaxLOD;
+    desc.ShaderRegister   = shader_register;
+    desc.RegisterSpace    = 0;
+    desc.ShaderVisibility = visibility;
 
-    if (StaticSamplerDesc.AddressU == D3D12_TEXTURE_ADDRESS_MODE_BORDER ||
-        StaticSamplerDesc.AddressV == D3D12_TEXTURE_ADDRESS_MODE_BORDER ||
-        StaticSamplerDesc.AddressW == D3D12_TEXTURE_ADDRESS_MODE_BORDER) {
-        bool noMatch = false;
+    if (desc.AddressU == D3D12_TEXTURE_ADDRESS_MODE_BORDER ||
+        desc.AddressV == D3D12_TEXTURE_ADDRESS_MODE_BORDER ||
+        desc.AddressW == D3D12_TEXTURE_ADDRESS_MODE_BORDER) {
+        bool no_match = false;
 
         do {
-            if (nonStaticSamplerDesc.BorderColor[0] == 0.0f && nonStaticSamplerDesc.BorderColor[1] == 0.0f &&
-                nonStaticSamplerDesc.BorderColor[2] == 0.0f && nonStaticSamplerDesc.BorderColor[3] == 0.0f)
+            if (non_static_sampler_desc.BorderColor[0] == 0.0f && non_static_sampler_desc.BorderColor[1] == 0.0f &&
+                non_static_sampler_desc.BorderColor[2] == 0.0f && non_static_sampler_desc.BorderColor[3] == 0.0f)
                 break;
             // Opaque Black
-            if (nonStaticSamplerDesc.BorderColor[0] == 0.0f && nonStaticSamplerDesc.BorderColor[1] == 0.0f &&
-                nonStaticSamplerDesc.BorderColor[2] == 0.0f && nonStaticSamplerDesc.BorderColor[3] == 1.0f)
+            if (non_static_sampler_desc.BorderColor[0] == 0.0f && non_static_sampler_desc.BorderColor[1] == 0.0f &&
+                non_static_sampler_desc.BorderColor[2] == 0.0f && non_static_sampler_desc.BorderColor[3] == 1.0f)
                 break;
             // Opaque White
-            if (nonStaticSamplerDesc.BorderColor[0] == 1.0f && nonStaticSamplerDesc.BorderColor[1] == 1.0f &&
-                nonStaticSamplerDesc.BorderColor[2] == 1.0f && nonStaticSamplerDesc.BorderColor[3] == 1.0f)
+            if (non_static_sampler_desc.BorderColor[0] == 1.0f && non_static_sampler_desc.BorderColor[1] == 1.0f &&
+                non_static_sampler_desc.BorderColor[2] == 1.0f && non_static_sampler_desc.BorderColor[3] == 1.0f)
                 break;
         } while (false);
 
-        if (noMatch) {
+        if (no_match) {
             std::cout << "[Warning] Sampler border color does not match static sampler limitations" << std::endl;
         }
 
-        if (nonStaticSamplerDesc.BorderColor[3] == 1.0f) {
-            if (nonStaticSamplerDesc.BorderColor[0] == 1.0f)
-                StaticSamplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
+        if (non_static_sampler_desc.BorderColor[3] == 1.0f) {
+            if (non_static_sampler_desc.BorderColor[0] == 1.0f)
+                desc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
             else
-                StaticSamplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
+                desc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
         } else
-            StaticSamplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+            desc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
     }
 }
 
@@ -97,39 +97,39 @@ void RootSignature::Finalize(
     m_RootSignatureDesc.pStaticSamplers   = m_SamplerArray.data();
     m_RootSignatureDesc.Flags             = flags;
 
-    for (uint32_t rootIndex = 0; rootIndex < m_NumParameters; rootIndex++) {
-        const auto& rootParam               = m_RootSignatureDesc.pParameters[rootIndex];
-        m_NumDescriptorsPerTable[rootIndex] = 0;
-        if (rootParam.ParameterType == D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
-            assert(rootParam.DescriptorTable.pDescriptorRanges != nullptr);
+    for (uint32_t root_index = 0; root_index < m_NumParameters; root_index++) {
+        const auto& root_param               = m_RootSignatureDesc.pParameters[root_index];
+        m_NumDescriptorsPerTable[root_index] = 0;
+        if (root_param.ParameterType == D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE) {
+            assert(root_param.DescriptorTable.pDescriptorRanges != nullptr);
             // sampler descriptor and cbv_srv_uav descriptor can not be in the same descriptor table.
-            if (rootParam.DescriptorTable.pDescriptorRanges->RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER)
-                m_SamplerTableBitMask |= (1 << rootIndex);
+            if (root_param.DescriptorTable.pDescriptorRanges->RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER)
+                m_SamplerTableBitMask |= (1 << root_index);
             else
-                m_DescriptorTableBitMask |= (1 << rootIndex);
+                m_DescriptorTableBitMask |= (1 << root_index);
 
-            for (UINT rangeIndex = 0; rangeIndex < rootParam.DescriptorTable.NumDescriptorRanges; rangeIndex++)
-                m_NumDescriptorsPerTable[rootIndex] +=
-                    rootParam.DescriptorTable.pDescriptorRanges[rangeIndex].NumDescriptors;
+            for (UINT range_index = 0; range_index < root_param.DescriptorTable.NumDescriptorRanges; range_index++)
+                m_NumDescriptorsPerTable[root_index] +=
+                    root_param.DescriptorTable.pDescriptorRanges[range_index].NumDescriptors;
         }
     }
 
-    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC versionRootSignatureDesc(m_RootSignatureDesc);
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC version_root_signature_desc(m_RootSignatureDesc);
 
     // Serialize the root signature.
-    Microsoft::WRL::ComPtr<ID3DBlob> rootSignatureBlob;
-    Microsoft::WRL::ComPtr<ID3DBlob> errorBlob;
+    Microsoft::WRL::ComPtr<ID3DBlob> root_signature_blob;
+    Microsoft::WRL::ComPtr<ID3DBlob> error_blob;
 
-    if (FAILED(D3DX12SerializeVersionedRootSignature(&versionRootSignatureDesc, version, &rootSignatureBlob, &errorBlob))) {
-        auto        buffer = reinterpret_cast<const char*>(errorBlob->GetBufferPointer());
-        auto        size   = errorBlob->GetBufferSize();
+    if (FAILED(D3DX12SerializeVersionedRootSignature(&version_root_signature_desc, version, &root_signature_blob, &error_blob))) {
+        auto        buffer = reinterpret_cast<const char*>(error_blob->GetBufferPointer());
+        auto        size   = error_blob->GetBufferSize();
         std::string info(buffer, size);
         std::cout << info << std::endl;
         throw std::runtime_error("Serialize Root RootSignature failed.");
     }
 
-    ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
-                                              rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
+    ThrowIfFailed(device->CreateRootSignature(0, root_signature_blob->GetBufferPointer(),
+                                              root_signature_blob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
 
     m_RootSignature->SetName(std::wstring(m_Name.begin(), m_Name.end()).data());
 

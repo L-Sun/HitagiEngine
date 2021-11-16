@@ -7,7 +7,7 @@ class Buffer {
 public:
     Buffer() = default;
     Buffer(size_t size, size_t alignment = 4);
-    Buffer(const void* initialData, size_t size, size_t alignment = 4);
+    Buffer(const void* initial_data, size_t size, size_t alignment = 4);
     Buffer(const Buffer& buffer);
     Buffer(Buffer&& buffer);
     Buffer& operator=(const Buffer& rhs);

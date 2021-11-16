@@ -13,12 +13,12 @@ namespace Hitagi::Graphics {
 class DriverAPI;
 
 struct InputLayout {
-    std::string           semanticName;
-    unsigned              semanticIndex;
+    std::string           semantic_name;
+    unsigned              semantic_index;
     Format                format;
-    unsigned              inputSlot;
-    size_t                alignedByOffset;
-    std::optional<size_t> instanceCount;
+    unsigned              input_slot;
+    size_t                aligned_by_offset;
+    std::optional<size_t> instance_count;
 };
 
 enum struct ShaderVariableType {
@@ -43,7 +43,7 @@ class RootSignature : public Resource {
         std::string        name;
         ShaderVisibility   visibility;
         ShaderVariableType type;
-        unsigned           registerIndex;
+        unsigned           register_index;
         unsigned           space;
 
         auto operator<=>(const Parameter& rhs) const {
@@ -53,7 +53,7 @@ class RootSignature : public Resource {
                 return cmp;
             if (auto cmp = space <=> rhs.space; cmp != 0)
                 return cmp;
-            return registerIndex <=> rhs.registerIndex;
+            return register_index <=> rhs.register_index;
         }
     };
 
@@ -67,12 +67,12 @@ public:
     RootSignature& Add(
         std::string_view   name,
         ShaderVariableType type,
-        unsigned           registerIndex,
+        unsigned           register_index,
         unsigned           space,
         ShaderVisibility   visibility = ShaderVisibility::All);
     // TODO Sampler
     RootSignature& AddStaticSampler(
-        unsigned             registerIndex,
+        unsigned             register_index,
         Sampler::Description desc,
         ShaderVisibility     visibility = ShaderVisibility::All);
     RootSignature& Create(DriverAPI& driver);
@@ -92,7 +92,7 @@ public:
 
     PipelineState& SetVertexShader(std::shared_ptr<VertexShader> vs);
     PipelineState& SetPixelShader(std::shared_ptr<PixelShader> ps);
-    PipelineState& SetInputLayout(const std::vector<InputLayout>& inputLayout);
+    PipelineState& SetInputLayout(const std::vector<InputLayout>& input_layout);
     PipelineState& SetRootSignautre(std::shared_ptr<RootSignature> sig);
     PipelineState& SetRenderFormat(Format format);
     PipelineState& SetDepthBufferFormat(Format format);

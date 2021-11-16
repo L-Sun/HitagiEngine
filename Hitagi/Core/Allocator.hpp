@@ -15,17 +15,17 @@ struct PageHeader {
 
 class Allocator {
 public:
-    static const uint8_t PATTERN_ALIGN = 0XFC;
-    static const uint8_t PATTERN_ALLOC = 0XFD;
-    static const uint8_t PATTERN_FREE  = 0XFE;
+    static const uint8_t g_PatternAlign = 0XFC;
+    static const uint8_t g_PatternAlloc = 0XFD;
+    static const uint8_t g_PatternFree  = 0XFE;
 
     Allocator();
-    Allocator(size_t dataSize, size_t pageSize, size_t alignment);
+    Allocator(size_t data_size, size_t page_size, size_t alignment);
     Allocator(const Allocator* clone);
     Allocator& operator=(const Allocator& rhs);
     ~Allocator();
 
-    void Reset(size_t dataSize, size_t pageSize, size_t alignment);
+    void Reset(size_t data_size, size_t page_size, size_t alignment);
 
     void* Allocate();
     void  Free(void* p);

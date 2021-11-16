@@ -23,12 +23,12 @@ std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::SceneObj
                 vertex.GetData()));
     }
     // Create Index array
-    auto& indexArray = mesh.GetIndexArray();
-    result->indices  = m_Driver.CreateIndexBuffer(
+    auto& index_array = mesh.GetIndexArray();
+    result->indices   = m_Driver.CreateIndexBuffer(
         fmt::format("index-{}", id.str()),
-        indexArray.GetIndexCount(),
-        indexArray.GetIndexSize(),
-        indexArray.GetData());
+        index_array.GetIndexCount(),
+        index_array.GetIndexSize(),
+        index_array.GetData());
 
     result->primitive = mesh.GetPrimitiveType();
 
@@ -48,13 +48,13 @@ std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(const Asset::Sc
         return nullptr;
     }
     Format format;
-    if (auto bitCount = image.GetBitcount(); bitCount == 8)
+    if (auto bit_count = image.GetBitcount(); bit_count == 8)
         format = Format::R8_UNORM;
-    else if (bitCount == 16)
+    else if (bit_count == 16)
         format = Format::R8G8_UNORM;
-    else if (bitCount == 24)
+    else if (bit_count == 24)
         format = Format::R8G8B8A8_UNORM;
-    else if (bitCount == 32)
+    else if (bit_count == 32)
         format = Format::R8G8B8A8_UNORM;
     else
         format = Format::UNKNOWN;
@@ -65,8 +65,8 @@ std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(const Asset::Sc
     desc.width                      = image.GetWidth();
     desc.height                     = image.GetHeight();
     desc.pitch                      = image.GetPitch();
-    desc.initialData                = image.GetData();
-    desc.initialDataSize            = image.GetDataSize();
+    desc.initial_data               = image.GetData();
+    desc.initial_data_size          = image.GetDataSize();
 
     m_TextureBuffer.emplace(id, m_Driver.CreateTextureBuffer(texture.GetName(), desc));
     return m_TextureBuffer.at(id);
@@ -80,20 +80,20 @@ std::shared_ptr<TextureBuffer> ResourceManager::GetDefaultTextureBuffer(Format f
     desc.format                     = format;
     desc.width                      = 100;
     desc.height                     = 100;
-    desc.pitch                      = GetFormatBitSize(format);
-    desc.sampleCount                = 1;
-    desc.sampleQuality              = 0;
+    desc.pitch                      = get_format_bit_size(format);
+    desc.sample_count               = 1;
+    desc.sample_quality             = 0;
     m_DefaultTextureBuffer.emplace(format, m_Driver.CreateTextureBuffer("Default Texture", desc));
     return m_DefaultTextureBuffer.at(format);
 }
 
 std::shared_ptr<Sampler> ResourceManager::GetSampler(std::string_view name) {
-    const std::string _name(name);
-    if (m_Samplers.count(_name) != 0) return m_Samplers.at(_name);
+    const std::string search_name(name);
+    if (m_Samplers.count(search_name) != 0) return m_Samplers.at(search_name);
 
     // TODO should throw error
-    m_Samplers.emplace(name, m_Driver.CreateSampler(name, {}));
-    return m_Samplers.at(_name);
+    auto&& [iter, success] = m_Samplers.emplace(search_name, m_Driver.CreateSampler(name, {}));
+    return iter->second;
 }
 
 }  // namespace Hitagi::Graphics

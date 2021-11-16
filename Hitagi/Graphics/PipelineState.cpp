@@ -21,9 +21,9 @@ RootSignature& RootSignature::operator=(RootSignature&& rhs) {
     return *this;
 }
 
-RootSignature& RootSignature::Add(std::string_view name, ShaderVariableType type, unsigned registerIndex, unsigned space, ShaderVisibility visibility) {
+RootSignature& RootSignature::Add(std::string_view name, ShaderVariableType type, unsigned register_index, unsigned space, ShaderVisibility visibility) {
     if (m_Created) throw std::logic_error("RootSignature has been created.");
-    m_ParameterTable.emplace(Parameter{std::string{name}, visibility, type, registerIndex, space});
+    m_ParameterTable.emplace(Parameter{std::string{name}, visibility, type, register_index, space});
     return *this;
 }
 
@@ -45,9 +45,9 @@ PipelineState& PipelineState::SetPixelShader(std::shared_ptr<PixelShader> ps) {
     m_Ps = ps;
     return *this;
 }
-PipelineState& PipelineState::SetInputLayout(const std::vector<InputLayout>& inputLayout) {
+PipelineState& PipelineState::SetInputLayout(const std::vector<InputLayout>& input_layout) {
     if (m_Created) throw std::logic_error("PSO has been created.");
-    m_InputLayout = inputLayout;
+    m_InputLayout = input_layout;
     return *this;
 }
 PipelineState& PipelineState::SetRootSignautre(std::shared_ptr<RootSignature> sig) {

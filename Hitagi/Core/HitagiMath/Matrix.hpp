@@ -46,12 +46,12 @@ struct Matrix {
         return result;
     }
     const Matrix operator*(const Matrix& rhs) const noexcept {
-        Matrix       result;
-        Vector<T, D> colVec;
+        Matrix       result{};
+        Vector<T, D> col_vec;
         for (unsigned col = 0; col < D; col++) {
-            for (unsigned i = 0; i < D; i++) colVec[i] = rhs[i][col];
+            for (unsigned i = 0; i < D; i++) col_vec[i] = rhs[i][col];
             for (unsigned row = 0; row < D; row++) {
-                result[row][col] = dot(data[row], colVec);
+                result[row][col] = dot(data[row], col_vec);
             }
         }
         return result;
@@ -99,7 +99,7 @@ struct Matrix {
     }
 
     const Matrix operator+(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
-        Matrix result;
+        Matrix result{};
         ispc::vector_add(*this, rhs, result, D * D);
         return result;
     }
@@ -109,17 +109,17 @@ struct Matrix {
         return result;
     }
     const Matrix operator-(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
-        Matrix result;
+        Matrix result{};
         ispc::vector_sub(*this, rhs, result, D * D);
         return result;
     }
     const Matrix operator*(const T& rhs) const noexcept requires IspcSpeedable<T> {
-        Matrix result;
+        Matrix result{};
         ispc::vector_mult(*this, rhs, result, D * D);
         return result;
     }
     const Matrix operator/(const T& rhs) const noexcept requires IspcSpeedable<T> {
-        Matrix result;
+        Matrix result{};
         ispc::vector_div(*this, rhs, result, D * D);
         return result;
     }
@@ -152,7 +152,7 @@ using mat4d = Matrix<double, 4>;
 using mat8d = Matrix<double, 8>;
 
 template <typename T, unsigned D>
-Matrix<T, D> mulByElement(const Matrix<T, D>& m1, const Matrix<T, D>& m2) {
+Matrix<T, D> mul_by_element(const Matrix<T, D>& m1, const Matrix<T, D>& m2) {
     Matrix result(0);
     for (unsigned row = 0; row < D; row++) result[row] = m1[row] * m2[row];
     return result;

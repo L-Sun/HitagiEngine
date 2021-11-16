@@ -6,11 +6,11 @@
 
 namespace Hitagi::Graphics::backend::DX12 {
 // Static method
-inline DXGI_FORMAT ToDxgiFormat(Graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
+inline DXGI_FORMAT to_dxgi_format(Graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
 
-inline Graphics::Format ToFormat(DXGI_FORMAT format) noexcept { return static_cast<Graphics::Format>(format); }
+inline Graphics::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<Graphics::Format>(format); }
 
-inline D3D12_PRIMITIVE_TOPOLOGY_TYPE ToDxTopologyType(PrimitiveType type) noexcept {
+inline D3D12_PRIMITIVE_TOPOLOGY_TYPE to_dx_topology_type(PrimitiveType type) noexcept {
     switch (type) {
         case PrimitiveType::PointList:
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
@@ -28,7 +28,7 @@ inline D3D12_PRIMITIVE_TOPOLOGY_TYPE ToDxTopologyType(PrimitiveType type) noexce
     return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 }
 
-inline D3D12_PRIMITIVE_TOPOLOGY ToDxTopology(PrimitiveType type) noexcept {
+inline D3D12_PRIMITIVE_TOPOLOGY to_dx_topology(PrimitiveType type) noexcept {
     switch (type) {
         case PrimitiveType::PointList:
             return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;

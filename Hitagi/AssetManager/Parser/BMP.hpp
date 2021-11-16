@@ -8,39 +8,39 @@ public:
 
 private:
 #pragma pack(push, 1)
-    using BITMAP_FILEHEADER = struct _BITMAP_FILEHEADER {
-        uint16_t Signature;
+    using BITMAP_FILEHEADER = struct BitmapFileheader {
+        uint16_t signature;
 
-        uint32_t Size;
+        uint32_t size;
 
-        uint32_t Reserved;
+        uint32_t reserved;
 
-        uint32_t BitsOffset;
+        uint32_t bits_offset;
     };
 #define BITMAP_FILEHEADER_SIZE 14
 
-    using BITMAP_HEADER = struct _BITMAP_HEADER {
-        uint32_t HeaderSize;
+    using BITMAP_HEADER = struct BitmapHeader {
+        uint32_t header_size;
 
-        int32_t Width;
+        int32_t width;
 
-        int32_t Height;
+        int32_t height;
 
-        uint16_t Planes;
+        uint16_t planes;
 
-        uint16_t BitCount;
+        uint16_t bit_count;
 
-        uint32_t Compression;
+        uint32_t compression;
 
-        uint32_t SizeImage;
+        uint32_t size_image;
 
-        int32_t PelsPerMeterX;
+        int32_t pels_per_meter_x;
 
-        int32_t PelsPerMeterY;
+        int32_t pels_per_meter_y;
 
-        uint32_t ClrUsed;
+        uint32_t clr_used;
 
-        uint32_t ClrImportant;
+        uint32_t clr_important;
     };
 #pragma pack(pop)
 };

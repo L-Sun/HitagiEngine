@@ -49,10 +49,10 @@ struct Squrae : public Geometry {
 };
 
 struct Box : public Geometry {
-    Box(const vec3f& bbMin, const vec3f& bbMax) : bbMin(bbMin), bbMax(bbMax) {}
+    Box(const vec3f& bb_min, const vec3f& bb_max) : bb_min(bb_min), bb_max(bb_max) {}
     std::pair<Vertices, Indices> GenerateMesh() final;
 
-    vec3f bbMin, bbMax;
+    vec3f bb_min, bb_max;
 };
 
 struct Circle : public Geometry {

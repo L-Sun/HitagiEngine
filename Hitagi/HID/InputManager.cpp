@@ -4,7 +4,12 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "Application.hpp"
-#include "portable.hpp"
+
+template <class... Ts>
+struct Overloaded : Ts... { using Ts::operator()...; };
+// 显式推导指引（ C++20 起不需要）
+template <class... Ts>
+Overloaded(Ts...) -> Overloaded<Ts...>;
 
 namespace Hitagi {
 
@@ -27,112 +32,104 @@ void InputManager::Tick() {
     for (auto&& state : m_KeyState)
         state.previous = state.current;
 
-    m_MouseState.lastPos = m_MouseState.currPos;
+    m_MouseState.last_pos = m_MouseState.curr_pos;
 
     g_App->UpdateInputEvent();
 }
 
-void InputManager::Map(UserDefAction userAction, std::variant<VirtualKeyCode, MouseEvent> event) {
-    m_UserMap[userAction] = std::move(event);
+void InputManager::Map(UserDefAction user_action, std::variant<VirtualKeyCode, MouseEvent> event) {
+    m_UserMap[user_action] = std::move(event);
 }
 
-bool InputManager::GetBool(UserDefAction userAction) const {
+bool InputManager::GetBool(UserDefAction user_action) const {
     return std::visit(
-        [this](auto& arg) -> bool {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, VirtualKeyCode>)
-                return m_KeyState[static_cast<size_t>(arg)].current;
-            else if constexpr (std::is_same_v<T, MouseEvent>) {
-                switch (arg) {
+        Overloaded{
+            [&](const VirtualKeyCode& key) -> bool {
+                return m_KeyState[static_cast<size_t>(key)].current;
+            },
+            [&](const MouseEvent& event) -> bool {
+                switch (event) {
                     case MouseEvent::MOVE_X:
-                        return (m_MouseState.currPos[0] - m_MouseState.lastPos[0]) != 0;
+                        return (m_MouseState.curr_pos[0] - m_MouseState.last_pos[0]) != 0;
                     case MouseEvent::MOVE_Y:
-                        return (m_MouseState.currPos[1] - m_MouseState.lastPos[1]) != 0;
+                        return (m_MouseState.curr_pos[1] - m_MouseState.last_pos[1]) != 0;
                     case MouseEvent::SCROLL_X:
-                        return (m_MouseState.currScroll[0] - m_MouseState.lastScroll[0]) != 0;
+                        return (m_MouseState.curr_scroll[0] - m_MouseState.last_scroll[0]) != 0;
                     case MouseEvent::SCROLL_Y:
-                        return (m_MouseState.currScroll[1] - m_MouseState.lastScroll[1]) != 0;
+                        return (m_MouseState.curr_scroll[1] - m_MouseState.last_scroll[1]) != 0;
                 }
-            } else
-                static_assert(always_false_v<T>, "non-exhaustive visitor!");
-            return false;
+            },
         },
-        m_UserMap.at(userAction));
+        m_UserMap.at(user_action));
 }
 
-bool InputManager::GetBoolNew(UserDefAction userAction) const {
+bool InputManager::GetBoolNew(UserDefAction user_action) const {
     return std::visit(
-        [this](auto& arg) -> bool {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, VirtualKeyCode>)
-                return m_KeyState[static_cast<size_t>(arg)].current && !m_KeyState[static_cast<size_t>(arg)].previous;
-            else if constexpr (std::is_same_v<T, MouseEvent>) {
-                switch (arg) {
+        Overloaded{
+            [&](const VirtualKeyCode& key) -> bool {
+                return m_KeyState[static_cast<size_t>(key)].current && !m_KeyState[static_cast<size_t>(key)].previous;
+            },
+            [&](const MouseEvent& event) -> bool {
+                switch (event) {
                     case MouseEvent::MOVE_X:
-                        return (m_MouseState.currPos[0] - m_MouseState.lastPos[0]) != 0;
+                        return (m_MouseState.curr_pos[0] - m_MouseState.last_pos[0]) != 0;
                     case MouseEvent::MOVE_Y:
-                        return (m_MouseState.currPos[1] - m_MouseState.lastPos[1]) != 0;
+                        return (m_MouseState.curr_pos[1] - m_MouseState.last_pos[1]) != 0;
                     case MouseEvent::SCROLL_X:
-                        return (m_MouseState.currScroll[0] - m_MouseState.lastScroll[0]) != 0;
+                        return (m_MouseState.curr_scroll[0] - m_MouseState.last_scroll[0]) != 0;
                     case MouseEvent::SCROLL_Y:
-                        return (m_MouseState.currScroll[1] - m_MouseState.lastScroll[1]) != 0;
+                        return (m_MouseState.curr_scroll[1] - m_MouseState.last_scroll[1]) != 0;
                 }
-            } else
-                static_assert(always_false_v<T>, "non-exhaustive visitor!");
-            return false;
+            },
         },
-        m_UserMap.at(userAction));
+        m_UserMap.at(user_action));
 }
 
-float InputManager::GetFloat(UserDefAction userAction) const {
+float InputManager::GetFloat(UserDefAction user_action) const {
     return std::visit(
-        [this](auto& arg) -> float {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, VirtualKeyCode>)
-                return m_KeyState[static_cast<size_t>(arg)].current ? 1 : 0;
-            else if constexpr (std::is_same_v<T, MouseEvent>) {
-                switch (arg) {
+        Overloaded{
+            [&](const VirtualKeyCode& key) -> float {
+                return m_KeyState[static_cast<size_t>(key)].current ? 1.0f : 0.0f;
+            },
+            [&](const MouseEvent& event) -> float {
+                switch (event) {
                     case MouseEvent::MOVE_X:
-                        return m_MouseState.currPos[0];
+                        return m_MouseState.curr_pos[0];
                     case MouseEvent::MOVE_Y:
-                        return m_MouseState.currPos[1];
+                        return m_MouseState.curr_pos[1];
                     case MouseEvent::SCROLL_X:
-                        return m_MouseState.currScroll[0];
+                        return m_MouseState.curr_scroll[0];
                     case MouseEvent::SCROLL_Y:
-                        return m_MouseState.currScroll[1];
+                        return m_MouseState.curr_scroll[1];
                 }
-            } else
-                static_assert(always_false_v<T>, "non-exhaustive visitor!");
-            return 0;
+            },
         },
-        m_UserMap.at(userAction));
+        m_UserMap.at(user_action));
 }
 
-float InputManager::GetFloatDelta(UserDefAction userAction) const {
+float InputManager::GetFloatDelta(UserDefAction user_action) const {
     return std::visit(
-        [this](auto& arg) -> float {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, VirtualKeyCode>)
-                return (m_KeyState[static_cast<size_t>(arg)].current &&
-                        !m_KeyState[static_cast<size_t>(arg)].previous)
-                           ? 1
-                           : 0;
-            else if constexpr (std::is_same_v<T, MouseEvent>) {
-                switch (arg) {
+        Overloaded{
+            [&](const VirtualKeyCode& key) -> float {
+                return (m_KeyState[static_cast<size_t>(key)].current &&
+                        !m_KeyState[static_cast<size_t>(key)].previous)
+                           ? 1.0f
+                           : 0.0f;
+            },
+            [&](const MouseEvent& event) -> float {
+                switch (event) {
                     case MouseEvent::MOVE_X:
-                        return m_MouseState.currPos[0] - m_MouseState.lastPos[0];
+                        return m_MouseState.curr_pos[0] - m_MouseState.last_pos[0];
                     case MouseEvent::MOVE_Y:
-                        return m_MouseState.currPos[1] - m_MouseState.lastPos[1];
+                        return m_MouseState.curr_pos[1] - m_MouseState.last_pos[1];
                     case MouseEvent::SCROLL_X:
-                        return m_MouseState.currScroll[0] - m_MouseState.lastScroll[0];
+                        return m_MouseState.curr_scroll[0] - m_MouseState.last_scroll[0];
                     case MouseEvent::SCROLL_Y:
-                        return m_MouseState.currScroll[1] - m_MouseState.lastScroll[1];
+                        return m_MouseState.curr_scroll[1] - m_MouseState.last_scroll[1];
                 }
-            } else
-                static_assert(always_false_v<T>, "non-exhaustive visitor!");
-            return 0;
+            },
         },
-        m_UserMap.at(userAction));
+        m_UserMap.at(user_action));
 }
 
 }  // namespace Hitagi

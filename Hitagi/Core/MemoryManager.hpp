@@ -25,8 +25,8 @@ public:
     void  Free(void* p, size_t size);
 
 private:
-    inline static size_t*    m_BlockSizeLookup = nullptr;
-    inline static Allocator* m_Allocators      = nullptr;
+    inline static size_t*    sm_BlockSizeLookup = nullptr;
+    inline static Allocator* sm_Allocators      = nullptr;
     static Allocator*        LookUpAllocator(size_t size);
     bool                     m_Initialized = false;
 };

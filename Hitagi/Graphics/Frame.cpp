@@ -3,29 +3,29 @@
 #include "ICommandContext.hpp"
 
 namespace Hitagi::Graphics {
-Frame::Frame(DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex)
+Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index)
     : m_Driver(driver),
-      m_ResMgr(resourceManager),
-      m_FrameIndex(frameIndex),
+      m_ResMgr(resource_manager),
+      m_FrameIndex(frame_index),
       m_FrameConstantBuffer(m_Driver.CreateConstantBuffer("Frame Constant", 1, sizeof(FrameConstant))),
       m_ConstantBuffer(m_Driver.CreateConstantBuffer("Object Constant", 1, sizeof(ConstantData))),
       m_MaterialBuffer(m_Driver.CreateConstantBuffer("Material Constant", 1, sizeof(MaterialData))),
-      m_Output(m_Driver.CreateRenderFromSwapChain(frameIndex)) {
+      m_Output(m_Driver.CreateRenderFromSwapChain(frame_index)) {
 }
 
 void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries, const PipelineState& pso) {
     // Calculate need constant buffer size
-    size_t constantCount = geometries.size(), materialCount = 0;
+    size_t constant_count = geometries.size(), material_count = 0;
     for (Asset::SceneGeometryNode& node : geometries) {
         if (auto geometry = node.GetSceneObjectRef().lock()) {
-            materialCount += geometry->GetMeshes().size();
+            material_count += geometry->GetMeshes().size();
         }
     }
     // if new size is smaller, the expand function return directly.
-    if (m_ConstantBuffer->GetNumElements() < constantCount)
-        m_ConstantBuffer = m_Driver.CreateConstantBuffer("Object Constant", constantCount, sizeof(ConstantData));
-    if (m_MaterialBuffer->GetNumElements() < materialCount)
-        m_MaterialBuffer = m_Driver.CreateConstantBuffer("Material Constant", materialCount, sizeof(MaterialData));
+    if (m_ConstantBuffer->GetNumElements() < constant_count)
+        m_ConstantBuffer = m_Driver.CreateConstantBuffer("Object Constant", constant_count, sizeof(ConstantData));
+    if (m_MaterialBuffer->GetNumElements() < material_count)
+        m_MaterialBuffer = m_Driver.CreateConstantBuffer("Material Constant", material_count, sizeof(MaterialData));
 
     for (Asset::SceneGeometryNode& node : geometries) {
         if (auto geometry = node.GetSceneObjectRef().lock()) {
@@ -34,7 +34,7 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
             // need update
             ConstantData data{node.GetCalculatedTransform()};
             m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
-            item.constantOffset = m_ConstantCount++;
+            item.constant_offset = m_ConstantCount++;
 
             auto& meshes = geometry->GetMeshes();
             // Generate mesh info
@@ -45,14 +45,14 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
                     auto& diffuse       = material->GetDiffuseColor();
                     auto& emission      = material->GetEmission();
                     auto& specular      = material->GetSpecularColor();
-                    auto& specularPower = material->GetSpecularPower();
+                    auto& specular_power = material->GetSpecularPower();
 
                     MaterialData data{
-                        ambient.ValueMap ? vec4f(-1.0f) : ambient.Value,
-                        diffuse.ValueMap ? vec4f(-1.0f) : diffuse.Value,
-                        emission.ValueMap ? vec4f(-1.0f) : emission.Value,
-                        specular.ValueMap ? vec4f(-1.0f) : specular.Value,
-                        specularPower.ValueMap ? -1.0f : specularPower.Value,
+                        ambient.value_map ? vec4f(-1.0f) : ambient.value,
+                        diffuse.value_map ? vec4f(-1.0f) : diffuse.value,
+                        emission.value_map ? vec4f(-1.0f) : emission.value,
+                        specular.value_map ? vec4f(-1.0f) : specular.value,
+                        specular_power.value_map ? -1.0f : specular_power.value,
                     };
 
                     m_Driver.UpdateConstantBuffer(
@@ -65,11 +65,11 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
                         pso,
                         m_MaterialCount,
                         m_ResMgr.GetMeshBuffer(*mesh),
-                        ambient.ValueMap ? m_ResMgr.GetTextureBuffer(*ambient.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        diffuse.ValueMap ? m_ResMgr.GetTextureBuffer(*diffuse.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        emission.ValueMap ? m_ResMgr.GetTextureBuffer(*emission.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        specular.ValueMap ? m_ResMgr.GetTextureBuffer(*specular.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        specularPower.ValueMap ? m_ResMgr.GetTextureBuffer(*specularPower.ValueMap) : m_ResMgr.GetDefaultTextureBuffer(Format::R32_FLOAT),
+                        ambient.value_map ? m_ResMgr.GetTextureBuffer(*ambient.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
+                        diffuse.value_map ? m_ResMgr.GetTextureBuffer(*diffuse.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
+                        emission.value_map ? m_ResMgr.GetTextureBuffer(*emission.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
+                        specular.value_map ? m_ResMgr.GetTextureBuffer(*specular.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
+                        specular_power.value_map ? m_ResMgr.GetTextureBuffer(*specular_power.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R32_FLOAT),
                     });
                     m_MaterialCount++;
                 }
@@ -114,30 +114,30 @@ void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& prim
 
 void Frame::SetCamera(Asset::SceneCameraNode& camera) {
     auto& data        = m_FrameConstant;
-    data.cameraPos    = vec4f(camera.GetCameraPosition(), 1.0f);
+    data.camera_pos    = vec4f(camera.GetCameraPosition(), 1.0f);
     data.view         = camera.GetViewMatrix();
-    data.invView      = inverse(data.view);
-    auto cameraObject = camera.GetSceneObjectRef().lock();
-    assert(cameraObject != nullptr);
+    data.inv_view      = inverse(data.view);
+    auto camera_object = camera.GetSceneObjectRef().lock();
+    assert(camera_object != nullptr);
     // TODO orth camera
     data.projection = perspective(
-        cameraObject->GetFov(),
-        cameraObject->GetAspect(),
-        cameraObject->GetNearClipDistance(),
-        cameraObject->GetFarClipDistance());
-    data.invProjection = inverse(data.projection);
-    data.projView      = data.projection * data.view;
-    data.invProjView   = inverse(data.projView);
+        camera_object->GetFov(),
+        camera_object->GetAspect(),
+        camera_object->GetNearClipDistance(),
+        camera_object->GetFarClipDistance());
+    data.inv_projection = inverse(data.projection);
+    data.proj_view      = data.projection * data.view;
+    data.inv_proj_view   = inverse(data.proj_view);
 
     m_Driver.UpdateConstantBuffer(m_FrameConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
 }
 
 void Frame::SetLight(Asset::SceneLightNode& light) {
     auto& data          = m_FrameConstant;
-    data.lightPosition  = vec4f(GetOrigin(light.GetCalculatedTransform()), 1);
-    data.lightPosInView = data.view * data.lightPosition;
-    if (auto lightObj = light.GetSceneObjectRef().lock()) {
-        data.lightIntensity = lightObj->GetIntensity() * lightObj->GetColor().Value;
+    data.light_position  = vec4f(get_origin(light.GetCalculatedTransform()), 1);
+    data.light_pos_in_view = data.view * data.light_position;
+    if (auto light_obj = light.GetSceneObjectRef().lock()) {
+        data.light_intensity = light_obj->GetIntensity() * light_obj->GetColor().value;
     }
     m_Driver.UpdateConstantBuffer(m_FrameConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
 }
@@ -147,14 +147,14 @@ void Frame::Draw(IGraphicsCommandContext* context) {
         for (const auto& mesh : item.meshes) {
             context->SetPipelineState(mesh.pipeline);
             context->SetParameter("FrameConstant", *m_FrameConstantBuffer, 0);
-            context->SetParameter("ObjectConstants", *m_ConstantBuffer, item.constantOffset);
-            context->SetParameter("MaterialConstants", *m_MaterialBuffer, mesh.materialOffset);
+            context->SetParameter("ObjectConstants", *m_ConstantBuffer, item.constant_offset);
+            context->SetParameter("MaterialConstants", *m_MaterialBuffer, mesh.material_offset);
             context->SetParameter("BaseSampler", *m_ResMgr.GetSampler("BaseSampler"));
             context->SetParameter("AmbientTexture", *mesh.ambient);
             context->SetParameter("DiffuseTexture", *mesh.diffuse);
             context->SetParameter("EmissionTexture", *mesh.emission);
             context->SetParameter("SpecularTexture", *mesh.specular);
-            context->SetParameter("PowerTexture", *mesh.specularPower);
+            context->SetParameter("PowerTexture", *mesh.specular_power);
             context->Draw(*mesh.buffer);
         }
     }

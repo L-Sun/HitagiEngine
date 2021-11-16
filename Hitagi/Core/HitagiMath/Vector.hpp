@@ -16,22 +16,22 @@ template <typename T, unsigned D>
 struct Vector;
 
 template <typename T, unsigned D, unsigned... Indexs>
-class swizzle {
+class Swizzle {
 public:
     std::array<T, D> data;
 
-    swizzle& operator=(const T& v) {
+    Swizzle& operator=(const T& v) {
         constexpr std::array<unsigned, sizeof...(Indexs)> indexs = {Indexs...};
         for (auto&& i : indexs) data[i] = v;
         return *this;
     }
-    swizzle& operator=(const std::initializer_list<T>& l) {
+    Swizzle& operator=(const std::initializer_list<T>& l) {
         constexpr std::array<unsigned, sizeof...(Indexs)> indexs = {Indexs...};
         unsigned                                          i      = 0;
         for (auto&& e : l) data[indexs[i++]] = e;
         return *this;
     }
-    swizzle& operator=(const Vector<T, sizeof...(Indexs)>& v) {
+    Swizzle& operator=(const Vector<T, sizeof...(Indexs)>& v) {
         constexpr std::array<unsigned, sizeof...(Indexs)> indexs = {Indexs...};
         for (auto&& i : indexs) data[i] = v[i];
         return *this;
@@ -56,8 +56,8 @@ struct BaseVector<T, 2> {
         std::array<T, 2> data;
         struct { T x, y; };
         struct { T u, v; };
-        swizzle<T, 2, 0, 1> xy, uv;
-        swizzle<T, 2, 1, 0> yx, vu;
+        Swizzle<T, 2, 0, 1> xy, uv;
+        Swizzle<T, 2, 1, 0> yx, vu;
     };
     BaseVector()=default;
     BaseVector(std::array<T,2> a):data{a}{}
@@ -70,12 +70,12 @@ struct BaseVector<T, 3> {
         std::array<T, 3> data;
         struct { T x, y, z; };
         struct { T r, g, b; };
-        swizzle<T, 3, 0, 1, 2> xyz, rgb;
-        swizzle<T, 3, 0, 2, 1> xzy, rbg;
-        swizzle<T, 3, 1, 0, 2> yxz, grb;
-        swizzle<T, 3, 1, 2, 0> yzx, gbr;
-        swizzle<T, 3, 2, 0, 1> zxy, brg;
-        swizzle<T, 3, 2, 1, 0> zyx, bgr;
+        Swizzle<T, 3, 0, 1, 2> xyz, rgb;
+        Swizzle<T, 3, 0, 2, 1> xzy, rbg;
+        Swizzle<T, 3, 1, 0, 2> yxz, grb;
+        Swizzle<T, 3, 1, 2, 0> yzx, gbr;
+        Swizzle<T, 3, 2, 0, 1> zxy, brg;
+        Swizzle<T, 3, 2, 1, 0> zyx, bgr;
     };
     BaseVector()=default;
     BaseVector(std::array<T,3> a):data{a}{}
@@ -88,14 +88,14 @@ struct BaseVector<T, 4> {
         std::array<T, 4> data;
         struct { T x, y, z, w; };
         struct { T r, g, b, a; };
-        swizzle<T, 3, 0, 1, 2> xyz, rgb;
-        swizzle<T, 3, 0, 2, 1> xzy, rbg;
-        swizzle<T, 3, 1, 0, 2> yxz, grb;
-        swizzle<T, 3, 1, 2, 0> yzx, gbr;
-        swizzle<T, 3, 2, 0, 1> zxy, brg;
-        swizzle<T, 3, 2, 1, 0> zyx, bgr;
-        swizzle<T, 4, 0, 1, 2, 3> xyzw, rgba;
-        swizzle<T, 4, 2, 1, 0, 3> zyxw, bgra;
+        Swizzle<T, 3, 0, 1, 2> xyz, rgb;
+        Swizzle<T, 3, 0, 2, 1> xzy, rbg;
+        Swizzle<T, 3, 1, 0, 2> yxz, grb;
+        Swizzle<T, 3, 1, 2, 0> yzx, gbr;
+        Swizzle<T, 3, 2, 0, 1> zxy, brg;
+        Swizzle<T, 3, 2, 1, 0> zyx, bgr;
+        Swizzle<T, 4, 0, 1, 2, 3> xyzw, rgba;
+        Swizzle<T, 4, 2, 1, 0, 3> zyxw, bgra;
     };
     BaseVector()=default;
     BaseVector(std::array<T,4> a):data{a}{}
@@ -125,7 +125,7 @@ struct Vector : public BaseVector<T, D> {
         for (unsigned i = 0; i < D; i++) data[i] = static_cast<T>(*p++);
     }
 
-    T norm() const noexcept {
+    T Norm() const noexcept {
         T result = 0;
         for (auto&& val : data) result += val * val;
         return std::sqrt(result);

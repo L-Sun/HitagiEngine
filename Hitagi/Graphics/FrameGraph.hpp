@@ -30,7 +30,7 @@ struct PassNode {
     FrameHandle Write(FrameGraph& fg, const FrameHandle output);
 
     std::string name;
-    bool        sideEffect = false;
+    bool        side_effect = false;
     // index of the resource node in frame graph
     std::set<FrameHandle> reads;
     std::set<FrameHandle> writes;
@@ -48,15 +48,15 @@ public:
 
     public:
         template <typename T>
-        FrameHandle Create(std::string_view name, typename T::Description desc) const noexcept { return fg.Create(name, desc); }
-        FrameHandle Read(const FrameHandle input) const noexcept { return node.Read(input); }
-        FrameHandle Write(const FrameHandle output) const noexcept { return node.Write(fg, output); }
-        void        SideEffect() noexcept { node.sideEffect = true; }
+        FrameHandle Create(std::string_view name, typename T::Description desc) const noexcept { return m_Fg.Create(name, desc); }
+        FrameHandle Read(const FrameHandle input) const noexcept { return m_Node.Read(input); }
+        FrameHandle Write(const FrameHandle output) const noexcept { return m_Node.Write(m_Fg, output); }
+        void        SideEffect() noexcept { m_Node.side_effect = true; }
 
     private:
-        Builder(FrameGraph& fg, PassNode& node) : fg(fg), node(node) {}
-        FrameGraph& fg;
-        PassNode&   node;
+        Builder(FrameGraph& fg, PassNode& node) : m_Fg(fg), m_Node(node) {}
+        FrameGraph& m_Fg;
+        PassNode&   m_Node;
     };
 
     FrameGraph() = default;
@@ -72,19 +72,19 @@ public:
         return *pass;
     }
 
-    FrameHandle Import(std::shared_ptr<RenderTarget> renderTarget) {
+    FrameHandle Import(std::shared_ptr<RenderTarget> render_target) {
         FrameResourceId id     = m_Resources.size();
         FrameHandle     handle = m_ResourceNodes.size();
-        m_Resources.emplace_back(renderTarget);
-        m_ResourceNodes.emplace_back(renderTarget->GetName(), id);
+        m_Resources.emplace_back(render_target);
+        m_ResourceNodes.emplace_back(render_target->GetName(), id);
         return handle;
     }
 
-    void Present(FrameHandle renderTarget, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context);
+    void Present(FrameHandle render_target, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context);
 
     void Compile();
     void Execute(DriverAPI& driver);
-    void Retire(uint64_t fenceValue, DriverAPI& driver) noexcept;
+    void Retire(uint64_t fence_value, DriverAPI& driver) noexcept;
 
 private:
     using Desc = std::variant<DepthBuffer::Description,
@@ -108,17 +108,17 @@ class ResourceHelper {
 public:
     template <typename T>
     T& Get(FrameHandle handle) const {
-        assert((node.reads.contains(handle) || node.writes.contains(handle)) && "This pass node do not operate the handle in graph!");
-        auto id     = fg.m_ResourceNodes[handle].resource;
-        auto result = fg.m_Resources[id];
+        assert((m_Node.reads.contains(handle) || m_Node.writes.contains(handle)) && "This pass node do not operate the handle in graph!");
+        auto id     = m_Fg.m_ResourceNodes[handle].resource;
+        auto result = m_Fg.m_Resources[id];
         assert(result != nullptr && "Access a invalid resource in excution phase, which may be pruned in compile phase!");
         return static_cast<T&>(*result);
     }
 
 private:
-    ResourceHelper(FrameGraph& fg, PassNode& node) : fg(fg), node(node) {}
-    FrameGraph& fg;
-    PassNode&   node;
+    ResourceHelper(FrameGraph& fg, PassNode& node) : m_Fg(fg), m_Node(node) {}
+    FrameGraph& m_Fg;
+    PassNode&   m_Node;
 };
 
 }  // namespace Hitagi::Graphics

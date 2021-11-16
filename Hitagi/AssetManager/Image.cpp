@@ -7,12 +7,12 @@
 
 namespace Hitagi::Asset {
 
-Image::Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t dataSize)
+Image::Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t data_size)
     : m_Width(width),
       m_Height(height),
       m_Bitcount(bitcount),
       m_Pitch(pitch),
-      Core::Buffer(dataSize) {
+      Core::Buffer(data_size) {
 }
 
 auto operator<<(std::ostream& out, const Image& image) -> std::ostream& {

@@ -6,7 +6,7 @@ namespace Hitagi::Graphics::backend::DX12 {
 
 class GpuBuffer : public GpuResource {
 public:
-    GpuBuffer(ID3D12Device* device, std::string_view name, size_t numElements, size_t elementSize);
+    GpuBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size);
     size_t GetBufferSize() const { return m_BufferSize; }
     size_t GetElementCount() const { return m_NumElements; }
 
@@ -43,9 +43,9 @@ public:
 
 class ConstantBuffer : public GpuResource {
 public:
-    ConstantBuffer(std::string_view name, ID3D12Device* device, DescriptorAllocator& descritptorAllocator, size_t numElements, size_t elementSize);
+    ConstantBuffer(std::string_view name, ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t num_elements, size_t element_size);
     ~ConstantBuffer() override;
-    void              UpdateData(size_t offset, const uint8_t* data, size_t dataSize);
+    void              UpdateData(size_t offset, const uint8_t* data, size_t data_size);
     const Descriptor& GetCBV(size_t offset) const { return m_CBV.at(offset); }
 
 private:
@@ -79,7 +79,7 @@ private:
 
 class DepthBuffer : public GpuResource {
 public:
-    DepthBuffer(std::string_view name, ID3D12Device* device, Descriptor&& dsv, const D3D12_RESOURCE_DESC& desc, float clearDepth, uint8_t clearStencil);
+    DepthBuffer(std::string_view name, ID3D12Device* device, Descriptor&& dsv, const D3D12_RESOURCE_DESC& desc, float clear_depth, uint8_t clear_stencil);
     const Descriptor& GetDSV() const noexcept { return m_DSV; }
 
     float   GetClearDepth() const noexcept { return m_ClearDepth; }

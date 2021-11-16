@@ -6,19 +6,19 @@ namespace Hitagi::Graphics::backend::DX12 {
 class AllocationPage;
 
 struct Allocation {
-    Allocation(std::weak_ptr<AllocationPage> pageFrom, size_t pageOffset, size_t size, uint8_t* cpuPtr, D3D12_GPU_VIRTUAL_ADDRESS gpuAddr)
-        : pageFrom(std::move(pageFrom)), pageOffset(pageOffset), size(size), cpuPtr(cpuPtr), gpuAddr(gpuAddr) {}
+    Allocation(std::weak_ptr<AllocationPage> page_from, size_t page_offset, size_t size, uint8_t* cpu_ptr, D3D12_GPU_VIRTUAL_ADDRESS gpu_addr)
+        : page_from(std::move(page_from)), page_offset(page_offset), size(size), cpu_ptr(cpu_ptr), gpu_addr(gpu_addr) {}
 
     Allocation(const Allocation&) = delete;
     Allocation& operator=(const Allocation&) = delete;
 
     ~Allocation();
 
-    std::weak_ptr<AllocationPage> pageFrom;
-    size_t                        pageOffset;
+    std::weak_ptr<AllocationPage> page_from;
+    size_t                        page_offset;
     size_t                        size;
-    uint8_t*                      cpuPtr;
-    D3D12_GPU_VIRTUAL_ADDRESS     gpuAddr;
+    uint8_t*                      cpu_ptr;
+    D3D12_GPU_VIRTUAL_ADDRESS     gpu_addr;
 };
 class AllocationPage : public GpuResource {
 public:
@@ -57,23 +57,23 @@ class LinearAllocator {
     using FenceValue   = uint64_t;
     using FenceChecker = std::function<bool(FenceValue)>;
 
-    static constexpr size_t GPU_ALLOCATOR_PAGE_SIZE = 0x10000;   // 64K
-    static constexpr size_t CPU_ALLOCATOR_PAGE_SIZE = 0x200000;  // 2MB
+    static constexpr size_t sm_GpuAllocatorPageSize = 0x10000;   // 64K
+    static constexpr size_t sm_CpuAllocatorPageSize = 0x200000;  // 2MB
 
     static size_t GetDefaultSize(AllocationPageType type) {
-        if (type == AllocationPageType::GPU_EXCLUSIVE) return GPU_ALLOCATOR_PAGE_SIZE;
+        if (type == AllocationPageType::GPU_EXCLUSIVE) return sm_GpuAllocatorPageSize;
         if (type == AllocationPageType::CPU_WRITABLE)
-            return CPU_ALLOCATOR_PAGE_SIZE;
+            return sm_CpuAllocatorPageSize;
         else
             throw std::runtime_error("Unkown page type.");
         return 0;
     }
 
 public:
-    LinearAllocator(ID3D12Device* device, AllocationPageType type, FenceChecker&& fenceChecker)
+    LinearAllocator(ID3D12Device* device, AllocationPageType type, FenceChecker&& fence_checker)
         : m_Device(device), m_Type(type) {
         sm_PageManager[static_cast<size_t>(m_Type)].UpdateAvailablePages(
-            std::forward<FenceChecker>(fenceChecker));
+            std::forward<FenceChecker>(fence_checker));
     }
     LinearAllocator(const LinearAllocator&) = delete;
     LinearAllocator& operator=(const LinearAllocator&) = delete;
@@ -92,8 +92,8 @@ public:
     void SetFence(FenceValue fence) noexcept;
 
     static void Destroy() {
-        for (auto&& pageManager : sm_PageManager)
-            pageManager.Reset();
+        for (auto&& page_manager : sm_PageManager)
+            page_manager.Reset();
     }
 
 private:
@@ -105,13 +105,13 @@ private:
         LinearAllocationPage(LinearAllocationPage&&) = default;
         LinearAllocationPage& operator=(LinearAllocationPage&&) = default;
 
-        void DiscardAllocation(Allocation&) final { m_AllocationCount--; }
+        void DiscardAllocation(Allocation&) final { m_allocation_count--; }
 
-        size_t GetFreeSize() const noexcept { return m_Size - m_Offset; }
-        bool   IsPageFree() const noexcept final { return m_AllocationCount == 0; }
+        size_t GetFreeSize() const noexcept { return m_Size - m_offset; }
+        bool   IsPageFree() const noexcept final { return m_allocation_count == 0; }
 
-        size_t m_Offset          = 0;
-        size_t m_AllocationCount = 0;
+        size_t m_offset           = 0;
+        size_t m_allocation_count = 0;
     };
 
     // Move semantic page manager
@@ -119,12 +119,12 @@ private:
         friend LinearAllocator;
 
     private:
-        PageManager(AllocationPageType type, size_t defaultPageSize)
-            : m_PageType(type), m_DefaultSize(defaultPageSize) {}
+        PageManager(AllocationPageType type, size_t default_page_size)
+            : m_PageType(type), m_DefaultSize(default_page_size) {}
 
         static std::shared_ptr<LinearAllocationPage> CreateNewPage(ID3D12Device* device, AllocationPageType type, size_t size);
 
-        void UpdateAvailablePages(std::function<bool(FenceValue)>&& fenceChecker);
+        void UpdateAvailablePages(std::function<bool(FenceValue)>&& fence_checker);
 
         // page ownership will transfer to caller
         std::shared_ptr<LinearAllocationPage> RequesetPage(ID3D12Device* device);

@@ -6,10 +6,10 @@ struct KeyState {
     bool current = false, previous = false, toggle = false;
 };
 struct MouseState {
-    std::array<float, 2> lastPos;
-    std::array<float, 2> currPos;
-    std::array<float, 2> lastScroll;
-    std::array<float, 2> currScroll;
+    std::array<float, 2> last_pos;
+    std::array<float, 2> curr_pos;
+    std::array<float, 2> last_scroll;
+    std::array<float, 2> curr_scroll;
 };
 
 enum class MouseEvent {

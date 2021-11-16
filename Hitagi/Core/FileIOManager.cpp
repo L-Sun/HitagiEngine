@@ -7,7 +7,7 @@
 #include <fmt/ostream.h>
 
 namespace Hitagi {
-std::unique_ptr<Core::FileIOManager> g_FileIOManager = std::make_unique<Core::FileIOManager>();
+std::unique_ptr<Core::FileIOManager> g_FileIoManager = std::make_unique<Core::FileIOManager>();
 }
 
 namespace Hitagi::Core {
@@ -25,31 +25,31 @@ void FileIOManager::Finalize() {
 }
 void FileIOManager::Tick() {}
 
-bool FileIOManager::IsFileChanged(const std::filesystem::path& filePath) const {
-    PathHash hash = std::filesystem::hash_value(filePath);
+bool FileIOManager::IsFileChanged(const std::filesystem::path& file_path) const {
+    PathHash hash = std::filesystem::hash_value(file_path);
     if (m_FileStateCache.count(hash) == 0) return true;
-    return m_FileStateCache.at(hash) < std::filesystem::last_write_time(filePath);
+    return m_FileStateCache.at(hash) < std::filesystem::last_write_time(file_path);
 }
 
-const Buffer& FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& filePath) {
-    if (!std::filesystem::exists(filePath)) {
-        m_Logger->warn("File dose not exist. {}", filePath);
+const Buffer& FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& file_path) {
+    if (!std::filesystem::exists(file_path)) {
+        m_Logger->warn("File dose not exist. {}", file_path);
         return m_EmptyBuffer;
     }
-    if (!IsFileChanged(filePath)) {
-        m_Logger->debug("Use cahce: {}", filePath.filename());
-        return m_FileCache.at(std::filesystem::hash_value(filePath));
+    if (!IsFileChanged(file_path)) {
+        m_Logger->debug("Use cahce: {}", file_path.filename());
+        return m_FileCache.at(std::filesystem::hash_value(file_path));
     }
-    auto fileSize = std::filesystem::file_size(filePath);
-    m_Logger->info("Open file: {} ({} bytes)", filePath, fileSize);
-    Buffer        buffer(fileSize);
-    std::ifstream ifs(filePath, std::ios::binary);
+    auto file_size = std::filesystem::file_size(file_path);
+    m_Logger->info("Open file: {} ({} bytes)", file_path, file_size);
+    Buffer        buffer(file_size);
+    std::ifstream ifs(file_path, std::ios::binary);
     ifs.read(reinterpret_cast<char*>(buffer.GetData()), buffer.GetDataSize());
     ifs.close();
 
     // store cache
-    PathHash hash          = std::filesystem::hash_value(filePath);
-    m_FileStateCache[hash] = std::filesystem::last_write_time(filePath);
+    PathHash hash          = std::filesystem::hash_value(file_path);
+    m_FileStateCache[hash] = std::filesystem::last_write_time(file_path);
     m_FileCache[hash]      = std::move(buffer);
 
     return m_FileCache[hash];

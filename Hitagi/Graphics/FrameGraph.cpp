@@ -1,10 +1,10 @@
 #include "FrameGraph.hpp"
 
 template <class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
+struct Overloaded : Ts... { using Ts::operator()...; };
 // 显式推导指引（ C++20 起不需要）
 template <class... Ts>
-overloaded(Ts...) -> overloaded<Ts...>;
+Overloaded(Ts...) -> Overloaded<Ts...>;
 
 namespace Hitagi::Graphics {
 
@@ -16,10 +16,10 @@ FrameHandle PassNode::Read(const FrameHandle input) {
 }
 FrameHandle PassNode::Write(FrameGraph& fg, const FrameHandle output) {
     if (writes.contains(output)) return output;
-    ResourceNode& oldNode = fg.m_ResourceNodes[output];
+    ResourceNode& old_node = fg.m_ResourceNodes[output];
     // Create new resource node
     FrameHandle ret = fg.m_ResourceNodes.size();
-    fg.m_ResourceNodes.emplace_back(oldNode.name, oldNode.resource, this, oldNode.version + 1);
+    fg.m_ResourceNodes.emplace_back(old_node.name, old_node.resource, this, old_node.version + 1);
     writes.emplace(ret);
     return ret;
 }
@@ -35,7 +35,7 @@ void FrameGraph::Execute(DriverAPI& driver) {
     // TODO prepare the remaining resource after pruning.
     for (auto&& [id, desc] : m_InnerResourcesDesc) {
         m_Resources[id] = std::visit(
-            overloaded{
+            Overloaded{
                 [&](const TextureBuffer::Description& desc) -> std::shared_ptr<Resource> {
                     return driver.CreateTextureBuffer("", desc);
                 },
@@ -56,13 +56,13 @@ void FrameGraph::Execute(DriverAPI& driver) {
     }
 }
 
-void FrameGraph::Retire(uint64_t fenceValue, DriverAPI& driver) noexcept {
+void FrameGraph::Retire(uint64_t fence_value, DriverAPI& driver) noexcept {
     decltype(m_Resources) wait_retire_resources;
     for (const auto& [id, desc] : m_InnerResourcesDesc) {
         wait_retire_resources.emplace_back(std::move(m_Resources.at(id)));
     }
 
-    driver.RetireResources(std::move(wait_retire_resources), fenceValue);
+    driver.RetireResources(std::move(wait_retire_resources), fence_value);
     m_Retired = true;
 }
 
@@ -76,14 +76,14 @@ FrameHandle FrameGraph::Create(std::string_view name, Desc desc) {
     return handle;
 }
 
-void FrameGraph::Present(FrameHandle renderTarget, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context) {
+void FrameGraph::Present(FrameHandle render_target, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context) {
     struct PassData {
         FrameHandle output;
     };
-    auto presentPass = AddPass<PassData>(
+    auto present_pass = AddPass<PassData>(
         "Present",
-        [&](FrameGraph::Builder& builder, PassData& data) {
-            data.output = builder.Read(renderTarget);
+        [render_target](FrameGraph::Builder& builder, PassData& data) {
+            data.output = builder.Read(render_target);
             builder.SideEffect();
         },
         [=](const ResourceHelper& helper, PassData& data) {

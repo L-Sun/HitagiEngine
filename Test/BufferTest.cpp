@@ -6,28 +6,28 @@
 
 using namespace std;
 
-class Hitagi_memory_resource : public std::pmr::memory_resource {
+class HitagiMemoryResource : public std::pmr::memory_resource {
 public:
-    ~Hitagi_memory_resource() override = default;
+    ~HitagiMemoryResource() override = default;
 
     void* allocate();
     void  deallocate(void* p, size_t bytes,
                      size_t alignment = alignof(std::max_align_t));
-    bool  is_equal(const Hitagi_memory_resource& other) const;
+    bool  is_equal(const HitagiMemoryResource& other) const;
 
 protected:
     void* do_allocate(size_t bytes, size_t alignment) override {
-        if (m_nFree < bytes) return nullptr;
-        void* ret = static_cast<void*>(m_pFree);
-        m_pFree += bytes;
-        m_nFree -= bytes;
-        m_nAllocated += bytes;
-        m_blocks.push_back(alloc_rec{ret, bytes, alignment});
+        if (m_n_free < bytes) return nullptr;
+        void* ret = static_cast<void*>(m_p_free);
+        m_p_free += bytes;
+        m_n_free -= bytes;
+        m_n_allocated += bytes;
+        m_blocks.push_back(AllocRec{ret, bytes, alignment});
         return ret;
     }
     void do_deallocate(void* p, size_t bytes, size_t alignment) override {
         auto i = std::find_if(m_blocks.begin(), m_blocks.end(),
-                              [p](alloc_rec& r) { return r.ptr == p; });
+                              [p](AllocRec& r) { return r.ptr == p; });
         if (i == m_blocks.end())
             throw std::invalid_argument("deallocate: Invalid pointer.");
         else if (i->bytes != bytes)
@@ -43,24 +43,24 @@ protected:
     }
 
 public:
-    struct alloc_rec {
+    struct AllocRec {
         void*  ptr;
         size_t bytes;
         size_t alignment;
     };
 
-    std::array<char, 128>  m_buffer;
-    char*                  m_pFree        = m_buffer.data();
-    size_t                 m_nFree        = 128;
-    size_t                 m_nAllocated   = 0;
+    std::array<char, 128>  m_buffer{};
+    char*                  m_p_free        = m_buffer.data();
+    size_t                 m_n_free        = 128;
+    size_t                 m_n_allocated   = 0;
     size_t                 m_ndeallocated = 0;
-    pmr::vector<alloc_rec> m_blocks;
+    pmr::vector<AllocRec> m_blocks;
 };
 
 int main(int argc, char const* argv[]) {
     char buffer[128];
 
-    Hitagi_memory_resource ms;
+    HitagiMemoryResource ms;
 
     pmr::monotonic_buffer_resource mbr(buffer, 128);
 

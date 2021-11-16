@@ -15,16 +15,16 @@ class Frame {
     // TODO multiple light
     struct FrameConstant {
         // Camera
-        mat4f projView;
+        mat4f proj_view;
         mat4f view;
         mat4f projection;
-        mat4f invProjection;
-        mat4f invView;
-        mat4f invProjView;
-        vec4f cameraPos;
-        vec4f lightPosition;
-        vec4f lightPosInView;
-        vec4f lightIntensity;
+        mat4f inv_projection;
+        mat4f inv_view;
+        mat4f inv_proj_view;
+        vec4f camera_pos;
+        vec4f light_position;
+        vec4f light_pos_in_view;
+        vec4f light_intensity;
     };
 
     struct ConstantData {
@@ -36,23 +36,23 @@ class Frame {
         vec4f diffuse;
         vec4f emission;
         vec4f specular;
-        float specularPower;
+        float specular_power;
     };
 
     struct MeshInfo {
         const PipelineState&           pipeline;
-        size_t                         materialOffset;
+        size_t                         material_offset;
         std::shared_ptr<MeshBuffer>    buffer;
         std::shared_ptr<TextureBuffer> ambient;
         std::shared_ptr<TextureBuffer> diffuse;
         std::shared_ptr<TextureBuffer> emission;
         std::shared_ptr<TextureBuffer> specular;
-        std::shared_ptr<TextureBuffer> specularPower;
+        std::shared_ptr<TextureBuffer> specular_power;
     };
 
     struct DrawItem {
         std::vector<MeshInfo> meshes;
-        size_t                constantOffset;
+        size_t                constant_offset{};
     };
 
     struct DebugDrawItem {
@@ -61,9 +61,9 @@ class Frame {
     };
 
 public:
-    Frame(DriverAPI& driver, ResourceManager& resourceManager, size_t frameIndex);
+    Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index);
 
-    void SetFenceValue(uint64_t fenceValue) { m_FenceValue = fenceValue; }
+    void SetFenceValue(uint64_t fence_value) { m_FenceValue = fence_value; }
     // TODO generate pipeline state object from scene node infomation
     void AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries, const PipelineState& pso);
     void AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives, const PipelineState& pso);
@@ -82,7 +82,7 @@ private:
     size_t           m_FrameIndex;
     uint64_t         m_FenceValue = 0;
 
-    FrameConstant                 m_FrameConstant;
+    FrameConstant                 m_FrameConstant{};
     std::vector<DrawItem>         m_Geometries;
     std::vector<DebugDrawItem>    m_DebugItems;
     std::shared_ptr<RenderTarget> m_Output;

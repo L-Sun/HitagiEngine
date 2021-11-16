@@ -12,11 +12,11 @@ Buffer::Buffer(size_t size, size_t alignment)
     m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(size, m_Alignment));
 }
 
-Buffer::Buffer(const void* initialData, size_t size, size_t alignment)
+Buffer::Buffer(const void* initial_data, size_t size, size_t alignment)
     : m_Size(size),
       m_Alignment(alignment) {
     m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(size, m_Alignment));
-    std::memcpy(m_Data, initialData, m_Size);
+    std::memcpy(m_Data, initial_data, m_Size);
 }
 
 Buffer::Buffer(const Buffer& buffer)

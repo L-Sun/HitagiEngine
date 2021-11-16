@@ -13,9 +13,9 @@ auto Clock::Initialize() -> int {
 }
 void Clock::Finalize() {}
 
-auto Clock::deltaTime() const -> std::chrono::duration<double> { return m_DeltaTime; }
+auto Clock::DeltaTime() const -> std::chrono::duration<double> { return m_DeltaTime; }
 
-auto Clock::totalTime() const -> std::chrono::duration<double> {
+auto Clock::TotalTime() const -> std::chrono::duration<double> {
     if (m_Paused) {
         return (m_StopTime - m_BaseTime) - m_PausedTime;
     } else {
@@ -23,7 +23,7 @@ auto Clock::totalTime() const -> std::chrono::duration<double> {
     }
 }
 
-auto Clock::tickTime() const -> std::chrono::high_resolution_clock::time_point { return m_TickTime; }
+auto Clock::TickTime() const -> std::chrono::high_resolution_clock::time_point { return m_TickTime; }
 
 void Clock::Tick() {
     if (m_Paused) {

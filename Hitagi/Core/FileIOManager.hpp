@@ -13,10 +13,10 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    const Buffer& SyncOpenAndReadBinary(const std::filesystem::path& filePath);
+    const Buffer& SyncOpenAndReadBinary(const std::filesystem::path& file_path);
 
 private:
-    bool IsFileChanged(const std::filesystem::path& filePath) const;
+    bool IsFileChanged(const std::filesystem::path& file_path) const;
 
     using PathHash = size_t;
     std::unordered_map<PathHash, std::filesystem::file_time_type> m_FileStateCache;
@@ -27,5 +27,5 @@ private:
 }  // namespace Hitagi::Core
 
 namespace Hitagi {
-extern std::unique_ptr<Core::FileIOManager> g_FileIOManager;
+extern std::unique_ptr<Core::FileIOManager> g_FileIoManager;
 }

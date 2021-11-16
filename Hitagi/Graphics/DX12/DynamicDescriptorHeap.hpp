@@ -13,24 +13,24 @@ class DynamicDescriptorHeap {
 public:
     DynamicDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, FenceChecker&& checker);
 
-    void StageDescriptors(uint32_t rootParameterIndex, uint32_t offset, const std::vector<Descriptor>& descriptors);
+    void StageDescriptors(uint32_t root_parameter_index, uint32_t offset, const std::vector<Descriptor>& descriptors);
 
     void CommitStagedDescriptors(
         CommandContext&                                                                    context,
-        std::function<void(ID3D12GraphicsCommandList*, UINT, D3D12_GPU_DESCRIPTOR_HANDLE)> setFunc);
+        std::function<void(ID3D12GraphicsCommandList*, UINT, D3D12_GPU_DESCRIPTOR_HANDLE)> set_func);
 
     D3D12_GPU_DESCRIPTOR_HANDLE CopyDescriptor(CommandContext&             context,
-                                               D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);
+                                               D3D12_CPU_DESCRIPTOR_HANDLE cpu_descriptor_handle);
 
     // Paser root signature to get information about the layout of descriptors.
-    void ParseRootSignature(const RootSignature& rootSignature);
+    void ParseRootSignature(const RootSignature& root_signature);
 
-    void Reset(FenceValue fenceValue);
+    void Reset(FenceValue fence_value);
 
     static void Destroy() {
-        std::lock_guard lock(kMutex);
-        kDescriptorHeapPool       = {};
-        kAvailableDescriptorHeaps = {};
+        std::lock_guard lock(sm_Mutex);
+        sm_DescriptorHeapPool       = {};
+        sm_AvailableDescriptorHeaps = {};
     }
 
 private:
@@ -43,29 +43,29 @@ private:
     struct DescriptorTableCache {
         DescriptorTableCache() = default;
         void Reset() {
-            baseHandle     = nullptr;
-            numDescriptors = 0;
+            base_handle     = nullptr;
+            num_descriptors = 0;
         }
-        D3D12_CPU_DESCRIPTOR_HANDLE* baseHandle     = nullptr;
-        uint32_t                     numDescriptors = 0;
+        D3D12_CPU_DESCRIPTOR_HANDLE* base_handle     = nullptr;
+        uint32_t                     num_descriptors = 0;
     };
 
     using DescriptorHeapPool = std::queue<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>>;
     using AvailableHeapPool  = std::queue<std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, FenceValue>>;
 
-    static const uint32_t                                                              kNumDescriptorsPerHeap = 1024;
-    static const uint32_t                                                              kMaxDescriptorTables   = 32;
-    inline static std::array<DescriptorHeapPool, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> kDescriptorHeapPool;
-    inline static std::array<AvailableHeapPool, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES>  kAvailableDescriptorHeaps;
-    static std::mutex                                                                  kMutex;
+    static const uint32_t                                                              sm_NumDescriptorsPerHeap = 1024;
+    static const uint32_t                                                              sm_MaxDescriptorTables   = 32;
+    inline static std::array<DescriptorHeapPool, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> sm_DescriptorHeapPool;
+    inline static std::array<AvailableHeapPool, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES>  sm_AvailableDescriptorHeaps;
+    static std::mutex                                                                  sm_Mutex;
 
     ID3D12Device*              m_Device;
     D3D12_DESCRIPTOR_HEAP_TYPE m_Type;
     uint32_t                   m_HandleIncrementSize;
     FenceChecker               m_FenceChecker;
 
-    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>               m_DescriptorHandleCache;
-    std::array<DescriptorTableCache, kMaxDescriptorTables> m_DescriptorTableCache;
+    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE>                 m_DescriptorHandleCache;
+    std::array<DescriptorTableCache, sm_MaxDescriptorTables> m_DescriptorTableCache;
 
     // Each bit in the bit mask indicates which descriptor table is bound to the root signature.
     uint32_t m_DescriptorTableBitMask;

@@ -24,7 +24,7 @@ public:
     ThreadManager& operator=(const ThreadManager&) = delete;
 
 private:
-    size_t m_MaxTasks;
+    size_t m_MaxTasks = 1;
 
     std::vector<std::thread>               m_ThreadPools;
     std::queue<std::packaged_task<void()>> m_Tasks;
@@ -42,7 +42,7 @@ decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
 
     using return_type = std::invoke_result_t<Func, Args...>;
 
-    auto task = std::make_shared<std::packaged_task<return_type()>>([Func = std::forward<Func>(func)] { return Func(); });
+    auto task = std::make_shared<std::packaged_task<return_type()>>([func = std::forward<Func>(func)] { return func(); });
 
     std::future<return_type> res = task->get_future();
 

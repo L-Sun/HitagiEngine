@@ -14,13 +14,13 @@ int main(int argc, char const* argv[]) {
         .Add("", ShaderVariableType::CBV, 2, 0)
         .Add("", ShaderVariableType::Sampler, 0, 0);
 
-    std::unordered_map<ShaderVariableType, std::string> typeInfo = {
+    std::unordered_map<ShaderVariableType, std::string> type_info = {
         {ShaderVariableType::CBV, "c"},
         {ShaderVariableType::SRV, "t"},
         {ShaderVariableType::UAV, "u"},
         {ShaderVariableType::Sampler, "s"},
     };
-    std::unordered_map<ShaderVisibility, std::string> visibilityInfo = {
+    std::unordered_map<ShaderVisibility, std::string> visibility_info = {
         {ShaderVisibility::All, "All"},
         {ShaderVisibility::Vertex, "Vertex"},
         {ShaderVisibility::Hull, "Hull"},
@@ -29,24 +29,24 @@ int main(int argc, char const* argv[]) {
         {ShaderVisibility::Pixel, "Pixel"},
     };
 
-    auto& parameterTable = sig.GetParametes();
+    auto& parameter_table = sig.GetParametes();
 
-    for (auto&& parameter : parameterTable) {
+    for (auto&& parameter : parameter_table) {
         std::cout << fmt::format(
                          "{} : ({}{},{})",
-                         visibilityInfo[parameter.visibility],
-                         typeInfo[parameter.type],
-                         parameter.registerIndex,
+                         visibility_info[parameter.visibility],
+                         type_info[parameter.type],
+                         parameter.register_index,
                          parameter.space)
                   << std::endl;
     }
-    using Iter = std::decay_t<decltype(parameterTable.begin())>;
+    using Iter = std::decay_t<decltype(parameter_table.begin())>;
     struct Range {
         Iter   iter;
         size_t count;
     };
     std::vector<Range> ranges;
-    for (auto iter = parameterTable.begin(); iter != parameterTable.end(); iter++) {
+    for (auto iter = parameter_table.begin(); iter != parameter_table.end(); iter++) {
         if (ranges.empty()) {
             ranges.emplace_back(Range{iter, 1});
             continue;
@@ -54,10 +54,10 @@ int main(int argc, char const* argv[]) {
         if (auto& p = *(ranges.back().iter);
             p.visibility == iter->visibility && p.type == iter->type && p.space == iter->space) {
             // new range
-            if (p.registerIndex + ranges.back().count < iter->registerIndex)
+            if (p.register_index + ranges.back().count < iter->register_index)
                 ranges.emplace_back(Range{iter, 1});
             // fllowing the range
-            else if (p.registerIndex + ranges.back().count == iter->registerIndex)
+            else if (p.register_index + ranges.back().count == iter->register_index)
                 ranges.back().count++;
             // [Error] in the range
             else

@@ -13,7 +13,7 @@ std::unique_ptr<Core::MemoryManager> g_MemoryManager = std::make_unique<Core::Me
 
 namespace Hitagi::Core {
 
-constexpr std::array kBlockSizes = {
+constexpr std::array block_size = {
     // 4-increments
     4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96,
 
@@ -23,10 +23,10 @@ constexpr std::array kBlockSizes = {
     // 64-increments
     704, 768, 832, 896, 960, 1024};
 
-constexpr uint32_t kPageSize  = 8192;
-constexpr uint32_t kAlignment = 4;
+constexpr uint32_t g_KPageSize  = 8192;
+constexpr uint32_t g_KAlignment = 4;
 
-constexpr uint32_t kMaxBlockSize = kBlockSizes[kBlockSizes.size() - 1];
+constexpr uint32_t g_KMaxBlockSize = block_size[block_size.size() - 1];
 
 int MemoryManager::Initialize() {
     if (m_Initialized) return 0;
@@ -34,27 +34,27 @@ int MemoryManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("MemoryManager");
     m_Logger->info("Initialize...");
 
-    m_BlockSizeLookup = new size_t[kMaxBlockSize + 1];
+    sm_BlockSizeLookup = new size_t[g_KMaxBlockSize + 1];
 
-    for (size_t i = 0, j = 0; i <= kMaxBlockSize; i++) {
-        if (i > kBlockSizes[j]) ++j;
-        m_BlockSizeLookup[i] = j;
+    for (size_t i = 0, j = 0; i <= g_KMaxBlockSize; i++) {
+        if (i > block_size[j]) ++j;
+        sm_BlockSizeLookup[i] = j;
     }
 
-    m_Allocators = new Allocator[kBlockSizes.size()];
-    for (size_t i = 0; i < kBlockSizes.size(); i++) m_Allocators[i].Reset(kBlockSizes[i], kPageSize, kAlignment);
+    sm_Allocators = new Allocator[block_size.size()];
+    for (size_t i = 0; i < block_size.size(); i++) sm_Allocators[i].Reset(block_size[i], g_KPageSize, g_KAlignment);
 
     m_Initialized = true;
     return 0;
 }
 
 void MemoryManager::Finalize() {
-    for (size_t i = 0; i < kBlockSizes.size(); i++) {
-        m_Allocators[i].FreeAll();
+    for (size_t i = 0; i < block_size.size(); i++) {
+        sm_Allocators[i].FreeAll();
     }
 
-    delete[] m_Allocators;
-    delete[] m_BlockSizeLookup;
+    delete[] sm_Allocators;
+    delete[] sm_BlockSizeLookup;
 
     m_Logger->info("Finalize.");
     m_Logger      = nullptr;
@@ -64,7 +64,7 @@ void MemoryManager::Finalize() {
 void MemoryManager::Tick() {}
 
 Allocator* MemoryManager::LookUpAllocator(size_t size) {
-    return size <= kMaxBlockSize ? (m_Allocators + m_BlockSizeLookup[size]) : nullptr;
+    return size <= g_KMaxBlockSize ? (sm_Allocators + sm_BlockSizeLookup[size]) : nullptr;
 }
 
 void* MemoryManager::Allocate(size_t size) {

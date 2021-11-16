@@ -8,8 +8,8 @@
 
 namespace Hitagi {
 
-extern GfxConfiguration      config;
-std::unique_ptr<Application> g_App = std::make_unique<Win32Application>(config);
+extern GfxConfiguration      g_Config;
+std::unique_ptr<Application> g_App = std::make_unique<Win32Application>(g_Config);
 
 int Win32Application::Initialize() {
     m_Logger->info("Initialize");
@@ -18,7 +18,7 @@ int Win32Application::Initialize() {
     timeBeginPeriod(1);
 
     // get the HINSTANCE of the Console Program
-    HINSTANCE hInstance = GetModuleHandle(nullptr);
+    HINSTANCE h_instance = GetModuleHandle(nullptr);
 
     // this struct holds information for the window class
     WNDCLASSEX wc;
@@ -30,25 +30,25 @@ int Win32Application::Initialize() {
     wc.cbSize        = sizeof(WNDCLASSEX);
     wc.style         = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc   = WindowProc;
-    wc.hInstance     = hInstance;
+    wc.hInstance     = h_instance;
     wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
     wc.lpszClassName = L"HitagiEngine";
 
     // register the window class
     RegisterClassEx(&wc);
-    const std::wstring title(m_Config.appName.begin(), m_Config.appName.end());
+    const std::wstring title(m_Config.app_name.begin(), m_Config.app_name.end());
     m_Window = CreateWindowEx(
         0,
         L"HitagiEngine",
         title.c_str(),                 // title
         WS_OVERLAPPEDWINDOW,           // Window style
         CW_USEDEFAULT, CW_USEDEFAULT,  // Position (x, y)
-        m_Config.screenWidth,          // Width
-        m_Config.screenHeight,         // Height
+        m_Config.screen_width,         // Width
+        m_Config.screen_height,        // Height
         nullptr,                       // Parent window
         nullptr,                       // Menu
-        hInstance,                     // Instance handle
+        h_instance,                    // Instance handle
         this                           //  Pass pointer to current object
     );
     if (m_Window == nullptr) {
@@ -107,13 +107,13 @@ void Win32Application::UpdateInputEvent() {
     }
 }
 
-LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    Win32Application* pThis = nullptr;
+LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w_param, LPARAM l_param) {
+    Win32Application* p_this = nullptr;
     if (message == WM_NCCREATE) {
-        pThis = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(lParam)->lpCreateParams);
+        p_this = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(l_param)->lpCreateParams);
 
         SetLastError(0);
-        if (!SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pThis))) {
+        if (!SetWindowLongPtr(h_wnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(p_this))) {
             if (GetLastError() != 0) return false;
         }
     } else {
@@ -122,14 +122,14 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
     switch (message) {
         case WM_DESTROY:
             PostQuitMessage(0);
-            m_Quit = true;
+            sm_Quit = true;
             ClipCursor(nullptr);
             break;
         case WM_MOUSEMOVE:
-            g_InputManager->UpdateState({static_cast<float>(GET_X_LPARAM(lParam)), static_cast<float>(GET_Y_LPARAM(lParam))});
+            g_InputManager->UpdateState({static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param))});
             break;
     }
-    return DefWindowProc(hWnd, message, wParam, lParam);
+    return DefWindowProc(h_wnd, message, w_param, l_param);
 }
 
 }  // namespace Hitagi

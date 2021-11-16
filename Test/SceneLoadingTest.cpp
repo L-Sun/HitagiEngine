@@ -24,51 +24,51 @@ static std::ostream& operator<<(std::ostream& out, std::unordered_map<std::strin
 
 int main(int, char**) {
     g_MemoryManager->Initialize();
-    g_FileIOManager->Initialize();
+    g_FileIoManager->Initialize();
     g_AssetManager->Initialize();
     g_SceneManager->Initialize();
 
     g_SceneManager->SetScene("Asset/Scene/spot.fbx");
     auto& scene = g_SceneManager->GetSceneForRendering();
 
-    std::cout << *scene.SceneGraph << std::endl;
+    std::cout << *scene.scene_graph << std::endl;
 
     std::cout << "Dump of Cameras" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pCameraNode] : scene.CameraNodes) {
+    for (auto [key, pCameraNode] : scene.camera_nodes) {
         if (pCameraNode) {
-            std::weak_ptr<Asset::SceneObjectCamera> pCamera = pCameraNode->GetSceneObjectRef();
-            if (auto pObj = pCamera.lock()) std::cout << *pObj << std::endl;
+            std::weak_ptr<Asset::SceneObjectCamera> p_camera = pCameraNode->GetSceneObjectRef();
+            if (auto p_obj = p_camera.lock()) std::cout << *p_obj << std::endl;
         }
     }
 
     std::cout << "Dump of Lights" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pLightNode] : scene.LightNodes) {
+    for (auto [key, pLightNode] : scene.light_nodes) {
         if (pLightNode) {
-            std::weak_ptr<Asset::SceneObjectLight> pLight = pLightNode->GetSceneObjectRef();
-            if (auto pObj = pLight.lock()) std::cout << *pObj << std::endl;
+            std::weak_ptr<Asset::SceneObjectLight> p_light = pLightNode->GetSceneObjectRef();
+            if (auto p_obj = p_light.lock()) std::cout << *p_obj << std::endl;
         }
     }
 
     std::cout << "Dump of Geometries" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pGeometryNode] : scene.GeometryNodes) {
+    for (auto [key, pGeometryNode] : scene.geometry_nodes) {
         if (pGeometryNode) {
-            std::weak_ptr<Asset::SceneObjectGeometry> pGeometry = pGeometryNode->GetSceneObjectRef();
-            if (auto pObj = pGeometry.lock()) std::cout << *pObj << std::endl;
+            std::weak_ptr<Asset::SceneObjectGeometry> p_geometry = pGeometryNode->GetSceneObjectRef();
+            if (auto p_obj = p_geometry.lock()) std::cout << *p_obj << std::endl;
             std::cout << pGeometryNode->GetCalculatedTransform() << std::endl;
         }
     }
 
     std::cout << "Dump of Materials" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pMaterial] : scene.Materials) {
+    for (auto [key, pMaterial] : scene.materials) {
         if (pMaterial) std::cout << *pMaterial << std::endl;
     }
     g_SceneManager->Finalize();
     g_AssetManager->Finalize();
-    g_FileIOManager->Finalize();
+    g_FileIoManager->Finalize();
     g_MemoryManager->Finalize();
 
 #ifdef _WIN32

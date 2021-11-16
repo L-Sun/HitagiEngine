@@ -1,8 +1,8 @@
 #include "PSO.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
-void GraphicsPSO::SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& inputLayout) {
-    m_InputLayouts = inputLayout;
+void GraphicsPSO::SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& input_layout) {
+    m_InputLayouts = input_layout;
 }
 
 void GraphicsPSO::SetBlendState(const D3D12_BLEND_DESC& desc) { m_PSODesc.BlendState = desc; }
@@ -22,13 +22,13 @@ void GraphicsPSO::SetPixelShader(CD3DX12_SHADER_BYTECODE code) {
 }
 
 void GraphicsPSO::SetRenderTargetFormats(
-    const std::vector<DXGI_FORMAT>& RTVFormats, DXGI_FORMAT DSVFormat, unsigned MsaaCount, unsigned MsaaQuality) {
-    for (int i = 0; i < RTVFormats.size(); i++) m_PSODesc.RTVFormats[i] = RTVFormats[i];
-    for (int i = RTVFormats.size(); i < m_PSODesc.NumRenderTargets; i++) m_PSODesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
-    m_PSODesc.NumRenderTargets   = RTVFormats.size();
-    m_PSODesc.DSVFormat          = DSVFormat;
-    m_PSODesc.SampleDesc.Count   = MsaaCount;
-    m_PSODesc.SampleDesc.Quality = MsaaQuality;
+    const std::vector<DXGI_FORMAT>& rtv_formats, DXGI_FORMAT dsv_format, unsigned msaa_count, unsigned msaa_quality) {
+    for (int i = 0; i < rtv_formats.size(); i++) m_PSODesc.RTVFormats[i] = rtv_formats[i];
+    for (int i = rtv_formats.size(); i < m_PSODesc.NumRenderTargets; i++) m_PSODesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+    m_PSODesc.NumRenderTargets   = rtv_formats.size();
+    m_PSODesc.DSVFormat          = dsv_format;
+    m_PSODesc.SampleDesc.Count   = msaa_count;
+    m_PSODesc.SampleDesc.Quality = msaa_quality;
 }
 
 void GraphicsPSO::Finalize(ID3D12Device* device) {

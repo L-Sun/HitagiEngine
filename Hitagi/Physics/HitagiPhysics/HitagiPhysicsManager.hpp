@@ -22,7 +22,7 @@ public:
 
 private:
 #if defined(_DEBUG)
-    void DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& centerOfMass);
+    void DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& center_of_mass);
 #endif
 
     std::unordered_map<std::string, RigidBody> m_RigidBodies;

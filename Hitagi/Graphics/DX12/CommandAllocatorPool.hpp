@@ -11,8 +11,8 @@ public:
         m_Device = device;
     }
 
-    ID3D12CommandAllocator* GetAllocator(uint64_t completedFenceValue);
-    void                    DiscardAllocator(uint64_t fenceValue, ID3D12CommandAllocator* allocator);
+    ID3D12CommandAllocator* GetAllocator(uint64_t completed_fence_value);
+    void                    DiscardAllocator(uint64_t fence_value, ID3D12CommandAllocator* allocator);
     inline bool             Size() const noexcept { return m_AllocatorPool.size(); }
 
 private:

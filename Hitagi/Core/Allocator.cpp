@@ -11,17 +11,17 @@ Allocator::Allocator()
 
     = default;
 
-Allocator::Allocator(size_t dataSize, size_t pageSize, size_t alignment)  {
-    Reset(dataSize, pageSize, alignment);
+Allocator::Allocator(size_t data_size, size_t page_size, size_t alignment)  {
+    Reset(data_size, page_size, alignment);
 }
 
 Allocator::~Allocator() { FreeAll(); }
 
-void Allocator::Reset(size_t dataSize, size_t pageSize, size_t alignment) {
+void Allocator::Reset(size_t data_size, size_t page_size, size_t alignment) {
     FreeAll();
 
-    m_DataSize = dataSize;
-    m_PageSize = pageSize;
+    m_DataSize = data_size;
+    m_PageSize = page_size;
 
     size_t minimal_size = (sizeof(BlockHeader) > m_DataSize) ? sizeof(BlockHeader) : m_DataSize;
 
@@ -36,22 +36,22 @@ void Allocator::Reset(size_t dataSize, size_t pageSize, size_t alignment) {
 
 void* Allocator::Allocate() {
     if (!m_FreeList) {
-        auto* newPage = reinterpret_cast<PageHeader*>(new uint8_t[m_PageSize]);
-        newPage->next = nullptr;
+        auto* new_page = reinterpret_cast<PageHeader*>(new uint8_t[m_PageSize]);
+        new_page->next = nullptr;
         ++m_Pages;
         m_BLocks += m_BlocksPerPage;
         m_FreeBlocks += m_BlocksPerPage;
 
 #if defined(_DEBUG)
-        FillFreePage(newPage);
+        FillFreePage(new_page);
 #endif  // DEBUG
 
         // push new page
-        if (m_PageList) newPage->next = m_PageList;
-        m_PageList = newPage;
+        if (m_PageList) new_page->next = m_PageList;
+        m_PageList = new_page;
 
         // the first block in page
-        BlockHeader* block = newPage->Blocks();
+        BlockHeader* block = new_page->Blocks();
         // fill block
         for (uint32_t i = 0; i < m_BlocksPerPage - 1; i++) {
             block->next = NextBlock(block);
@@ -59,18 +59,18 @@ void* Allocator::Allocate() {
         }
         block->next = nullptr;  // the last block
         // push free block
-        m_FreeList = newPage->Blocks();
+        m_FreeList = new_page->Blocks();
     }
 
-    BlockHeader* freeBlock = m_FreeList;
+    BlockHeader* free_block = m_FreeList;
     m_FreeList             = m_FreeList->next;
     --m_FreeBlocks;
 
 #if defined(_DEBUG)
-    FillAllocatedBlock(freeBlock);
+    FillAllocatedBlock(free_block);
 #endif  // DEBUG
 
-    return reinterpret_cast<void*>(freeBlock);
+    return reinterpret_cast<void*>(free_block);
 }
 
 void Allocator::Free(void* p) {
@@ -90,9 +90,9 @@ void Allocator::FreeAll() {
     PageHeader* page = m_PageList;
 
     while (page) {
-        PageHeader* _p = page;
+        PageHeader* p = page;
         page           = page->next;
-        delete[] reinterpret_cast<uint8_t*>(_p);
+        delete[] reinterpret_cast<uint8_t*>(p);
     }
 
     m_PageList = nullptr;
@@ -106,19 +106,19 @@ void Allocator::FreeAll() {
 #if defined(_DEBUG)
 
 void Allocator::FillFreePage(PageHeader* page) {
-    BlockHeader* pBlock = page->Blocks();
+    BlockHeader* p_block = page->Blocks();
 
-    for (uint32_t i = 0; i < m_BlocksPerPage; i++) FillFreeBlock(pBlock);
+    for (uint32_t i = 0; i < m_BlocksPerPage; i++) FillFreeBlock(p_block);
 }
 
 void Allocator::FillFreeBlock(BlockHeader* block) {
-    std::memset(block, PATTERN_FREE, m_BlockSize - m_AlignmentSize);
-    std::memset(reinterpret_cast<uint8_t*>(block) + m_BlockSize - m_AlignmentSize, PATTERN_ALIGN, m_AlignmentSize);
+    std::memset(block, g_PatternFree, m_BlockSize - m_AlignmentSize);
+    std::memset(reinterpret_cast<uint8_t*>(block) + m_BlockSize - m_AlignmentSize, g_PatternAlign, m_AlignmentSize);
 }
 
 void Allocator::FillAllocatedBlock(BlockHeader* block) {
-    std::memset(block, PATTERN_ALLOC, m_BlockSize - m_AlignmentSize);
-    std::memset(reinterpret_cast<uint8_t*>(block) + m_BlockSize - m_AlignmentSize, PATTERN_ALIGN, m_AlignmentSize);
+    std::memset(block, g_PatternAlloc, m_BlockSize - m_AlignmentSize);
+    std::memset(reinterpret_cast<uint8_t*>(block) + m_BlockSize - m_AlignmentSize, g_PatternAlign, m_AlignmentSize);
 }
 
 #endif  // DEBUG

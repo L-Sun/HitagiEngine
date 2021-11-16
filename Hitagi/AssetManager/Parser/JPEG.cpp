@@ -12,8 +12,8 @@ Image JpegParser::Parse(const Core::Buffer& buf) {
         return Image{};
     }
 
-    jpeg_decompress_struct cinfo;
-    jpeg_error_mgr         jerr;
+    jpeg_decompress_struct cinfo{};
+    jpeg_error_mgr         jerr{};
     cinfo.err = jpeg_std_error(&jerr);
     jpeg_create_decompress(&cinfo);
     jpeg_mem_src(&cinfo, buf.GetData(), buf.GetDataSize());
@@ -24,8 +24,8 @@ Image JpegParser::Parse(const Core::Buffer& buf) {
     auto  height   = static_cast<uint32_t>(cinfo.image_height);
     auto  bitcount = 32;
     auto  pitch    = ((width * bitcount >> 3) + 3) & ~3;
-    auto  dataSize = pitch * height;
-    Image img(width, height, bitcount, pitch, dataSize);
+    auto  data_size = pitch * height;
+    Image img(width, height, bitcount, pitch, data_size);
     jpeg_start_decompress(&cinfo);
 
     int buffer_height = 1;

@@ -4,25 +4,25 @@
 
 using namespace std::chrono_literals;
 
-Hitagi::Core::Clock c;
+Hitagi::Core::Clock g_C;
 
 TEST(TimerTest, DurationTest) {
-    c.Initialize();
-    c.Start();
+    g_C.Initialize();
+    g_C.Start();
     std::this_thread::sleep_for(1s);
-    c.Tick();
-    EXPECT_NEAR(1.0, c.deltaTime().count(), 0.1);
+    g_C.Tick();
+    EXPECT_NEAR(1.0, g_C.DeltaTime().count(), 0.1);
 }
 
 TEST(TimerTest, PauseTest) {
-    c.Initialize();
-    c.Start();
+    g_C.Initialize();
+    g_C.Start();
     std::this_thread::sleep_for(1s);
-    c.Tick();
-    c.Pause();
+    g_C.Tick();
+    g_C.Pause();
     std::this_thread::sleep_for(1s);
-    c.Start();
-    EXPECT_NEAR(1.0, c.deltaTime().count(), 0.1);
+    g_C.Start();
+    EXPECT_NEAR(1.0, g_C.DeltaTime().count(), 0.1);
 }
 
 int main(int argc, char* argv[]) {

@@ -46,7 +46,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
                 _camera->mClipPlaneFar,
                 _camera->mHorizontalFOV);
 
-        scene.Cameras[_camera->mName.C_Str()]     = perspectiveCamera;
+        scene.cameras[_camera->mName.C_Str()]     = perspectiveCamera;
         cameraNameToIndex[_camera->mName.C_Str()] = i;
     }
 
@@ -92,7 +92,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
                 logger->warn("[Assimp] Unknown light type.");
                 break;
         }
-        scene.Lights[_light->mName.C_Str()] = light;
+        scene.lights[_light->mName.C_Str()] = light;
     }
 
     // process material
@@ -145,13 +145,13 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
             }
         }
 
-        scene.Materials[_material->GetName().C_Str()] = material;
+        scene.materials[_material->GetName().C_Str()] = material;
     }
 
-    auto createMesh = [&](const aiMesh* _mesh) -> std::unique_ptr<SceneObjectMesh> {
+    auto createMesh = [&](const aiMesh* ai_mesh) -> std::unique_ptr<SceneObjectMesh> {
         auto mesh = std::make_unique<SceneObjectMesh>();
         // Set primitive type
-        switch (_mesh->mPrimitiveTypes) {
+        switch (ai_mesh->mPrimitiveTypes) {
             case aiPrimitiveType::aiPrimitiveType_LINE:
                 mesh->SetPrimitiveType(PrimitiveType::LineList);
                 break;
@@ -168,45 +168,45 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
         }
 
         // Read Position
-        if (_mesh->HasPositions()) {
-            Core::Buffer positionBuffer(_mesh->mNumVertices * sizeof(vec3f));
+        if (ai_mesh->HasPositions()) {
+            Core::Buffer positionBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
             auto         position = reinterpret_cast<vec3f*>(positionBuffer.GetData());
-            for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                position[i] = vec3f(_mesh->mVertices[i].x, _mesh->mVertices[i].y, _mesh->mVertices[i].z);
+            for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
+                position[i] = vec3f(ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z);
             mesh->AddVertexArray(SceneObjectVertexArray("POSITION", VertexDataType::Float3, std::move(positionBuffer)));
         }
 
         // Read Normal
-        if (_mesh->HasNormals()) {
-            Core::Buffer normalBuffer(_mesh->mNumVertices * sizeof(vec3f));
+        if (ai_mesh->HasNormals()) {
+            Core::Buffer normalBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
             auto         normal = reinterpret_cast<vec3f*>(normalBuffer.GetData());
-            for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                normal[i] = vec3f(_mesh->mNormals[i].x, _mesh->mNormals[i].y, _mesh->mNormals[i].z);
+            for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
+                normal[i] = vec3f(ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z);
             mesh->AddVertexArray(SceneObjectVertexArray("NORMAL", VertexDataType::Float3, std::move(normalBuffer)));
         }
 
         // Read Color
-        for (size_t colorChannels = 0; colorChannels < _mesh->GetNumColorChannels(); colorChannels++) {
-            if (_mesh->HasVertexColors(colorChannels)) {
-                Core::Buffer colorBuffer(_mesh->mNumVertices * sizeof(vec4f));
+        for (size_t colorChannels = 0; colorChannels < ai_mesh->GetNumColorChannels(); colorChannels++) {
+            if (ai_mesh->HasVertexColors(colorChannels)) {
+                Core::Buffer colorBuffer(ai_mesh->mNumVertices * sizeof(vec4f));
                 auto         color = reinterpret_cast<vec4f*>(colorBuffer.GetData());
-                for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                    color[i] = vec4f(_mesh->mColors[colorChannels][i].r,
-                                     _mesh->mColors[colorChannels][i].g,
-                                     _mesh->mColors[colorChannels][i].b,
-                                     _mesh->mColors[colorChannels][i].a);
+                for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
+                    color[i] = vec4f(ai_mesh->mColors[colorChannels][i].r,
+                                     ai_mesh->mColors[colorChannels][i].g,
+                                     ai_mesh->mColors[colorChannels][i].b,
+                                     ai_mesh->mColors[colorChannels][i].a);
                 const auto attr = std::string("COLOR") + (colorChannels == 0 ? "" : std::to_string(colorChannels));
                 mesh->AddVertexArray(SceneObjectVertexArray(attr, VertexDataType::Float4, std::move(colorBuffer)));
             }
         }
 
         // Read UV
-        for (size_t UVChannel = 0; UVChannel < _mesh->GetNumUVChannels(); UVChannel++) {
-            if (_mesh->HasTextureCoords(UVChannel)) {
-                Core::Buffer texcoordBuffer(_mesh->mNumVertices * sizeof(vec2f));
+        for (size_t UVChannel = 0; UVChannel < ai_mesh->GetNumUVChannels(); UVChannel++) {
+            if (ai_mesh->HasTextureCoords(UVChannel)) {
+                Core::Buffer texcoordBuffer(ai_mesh->mNumVertices * sizeof(vec2f));
                 auto         texcoord = reinterpret_cast<vec2f*>(texcoordBuffer.GetData());
-                for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                    texcoord[i] = vec2f(_mesh->mTextureCoords[UVChannel][i].x, _mesh->mTextureCoords[UVChannel][i].y);
+                for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
+                    texcoord[i] = vec2f(ai_mesh->mTextureCoords[UVChannel][i].x, ai_mesh->mTextureCoords[UVChannel][i].y);
 
                 const auto attr = std::string("TEXCOORD") + (UVChannel == 0 ? "" : std::to_string(UVChannel));
                 mesh->AddVertexArray(SceneObjectVertexArray(attr, VertexDataType::Float2, std::move(texcoordBuffer)));
@@ -214,35 +214,35 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
         }
 
         // Read Tangent and Bitangent
-        if (_mesh->HasTangentsAndBitangents()) {
-            Core::Buffer tangentBuffer(_mesh->mNumVertices * sizeof(vec3f));
+        if (ai_mesh->HasTangentsAndBitangents()) {
+            Core::Buffer tangentBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
             auto         tangent = reinterpret_cast<vec3f*>(tangentBuffer.GetData());
-            for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                tangent[i] = vec3f(_mesh->mTangents[i].x, _mesh->mTangents[i].y, _mesh->mTangents[i].z);
+            for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
+                tangent[i] = vec3f(ai_mesh->mTangents[i].x, ai_mesh->mTangents[i].y, ai_mesh->mTangents[i].z);
             mesh->AddVertexArray(SceneObjectVertexArray("TANGENT", VertexDataType::Float3, std::move(tangentBuffer)));
 
-            Core::Buffer bitangentBuffer(_mesh->mNumVertices * sizeof(vec3f));
+            Core::Buffer bitangentBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
             auto         bitangent = reinterpret_cast<vec3f*>(bitangentBuffer.GetData());
-            for (size_t i = 0; i < _mesh->mNumVertices; i++)
-                bitangent[i] = vec3f(_mesh->mBitangents[i].x, _mesh->mBitangents[i].y, _mesh->mBitangents[i].z);
+            for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
+                bitangent[i] = vec3f(ai_mesh->mBitangents[i].x, ai_mesh->mBitangents[i].y, ai_mesh->mBitangents[i].z);
             mesh->AddVertexArray(SceneObjectVertexArray("BITANGENT", VertexDataType::Float3, std::move(bitangentBuffer)));
         }
 
         // Read Indices
         size_t indicesCount = 0;
-        for (size_t face = 0; face < _mesh->mNumFaces; face++)
-            indicesCount += _mesh->mFaces[face].mNumIndices;
+        for (size_t face = 0; face < ai_mesh->mNumFaces; face++)
+            indicesCount += ai_mesh->mFaces[face].mNumIndices;
 
         Core::Buffer indexBuffer(indicesCount * sizeof(int));
         auto         indices = reinterpret_cast<int*>(indexBuffer.GetData());
-        for (size_t face = 0; face < _mesh->mNumFaces; face++)
-            for (size_t i = 0; i < _mesh->mFaces[face].mNumIndices; i++)
-                *indices++ = _mesh->mFaces[face].mIndices[i];  // assignment then increase
+        for (size_t face = 0; face < ai_mesh->mNumFaces; face++)
+            for (size_t i = 0; i < ai_mesh->mFaces[face].mNumIndices; i++)
+                *indices++ = ai_mesh->mFaces[face].mIndices[i];  // assignment then increase
 
         mesh->AddIndexArray(SceneObjectIndexArray(IndexDataType::Int32, std::move(indexBuffer)));
 
-        const std::string materialRef = _scene->mMaterials[_mesh->mMaterialIndex]->GetName().C_Str();
-        mesh->SetMaterial(scene.Materials.at(materialRef));
+        const std::string materialRef = _scene->mMaterials[ai_mesh->mMaterialIndex]->GetName().C_Str();
+        mesh->SetMaterial(scene.materials.at(materialRef));
         return mesh;
     };
 
@@ -257,8 +257,8 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
     auto createGeometry = [&](const aiNode* _node) -> std::shared_ptr<SceneObjectGeometry> {
         auto geometry = std::make_shared<SceneObjectGeometry>();
         for (size_t i = 0; i < _node->mNumMeshes; i++) {
-            auto _mesh = _scene->mMeshes[_node->mMeshes[i]];
-            geometry->AddMesh(createMesh(_mesh));
+            auto ai_mesh = _scene->mMeshes[_node->mMeshes[i]];
+            geometry->AddMesh(createMesh(ai_mesh));
         }
         return geometry;
     };
@@ -269,15 +269,15 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
         const std::string              name(_node->mName.C_Str());
         // The node is a geometry
         if (_node->mNumMeshes > 0) {
-            scene.Geometries[name] = createGeometry(_node);
+            scene.geometries[name] = createGeometry(_node);
 
             auto geometryNode = std::make_shared<SceneGeometryNode>(name);
             geometryNode->AddSceneObjectRef(scene.GetGeometry(name));
-            scene.GeometryNodes[name] = geometryNode;
-            node                      = geometryNode;
+            scene.geometry_nodes[name] = geometryNode;
+            node                       = geometryNode;
         }
         // The node is a camera
-        else if (scene.Cameras.find(name) != scene.Cameras.end()) {
+        else if (scene.cameras.find(name) != scene.cameras.end()) {
             auto& _camera = _scene->mCameras[cameraNameToIndex[name]];
             // move space infomation to camera node
             auto cameraNode = std::make_shared<SceneCameraNode>(
@@ -287,15 +287,15 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
                 vec3f(_camera->mLookAt.x, _camera->mLookAt.y, _camera->mLookAt.z));
             cameraNode->AddSceneObjectRef(scene.GetCamera(name));
 
-            scene.CameraNodes[name] = cameraNode;
-            node                    = cameraNode;
+            scene.camera_nodes[name] = cameraNode;
+            node                     = cameraNode;
         }
         // The node is a light
-        else if (scene.Lights.find(name) != scene.Lights.end()) {
+        else if (scene.lights.find(name) != scene.lights.end()) {
             auto lightNode = std::make_shared<SceneLightNode>(name);
             lightNode->AddSceneObjectRef(scene.GetLight(name));
-            scene.LightNodes[name] = lightNode;
-            node                   = lightNode;
+            scene.light_nodes[name] = lightNode;
+            node                    = lightNode;
         }
         // The node is empty
         else {
@@ -310,7 +310,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
         return node;
     };
 
-    scene.SceneGraph = convert(_scene->mRootNode);
+    scene.scene_graph = convert(_scene->mRootNode);
 
     end = std::chrono::high_resolution_clock::now();
     logger->info("[Assimp] Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());

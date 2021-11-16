@@ -4,7 +4,7 @@
 
 namespace Hitagi::Graphics::backend::DX12 {
 
-std::mutex DynamicDescriptorHeap::kMutex;
+std::mutex DynamicDescriptorHeap::sm_Mutex;
 
 DynamicDescriptorHeap::DynamicDescriptorHeap(ID3D12Device*              device,
                                              D3D12_DESCRIPTOR_HEAP_TYPE type,
@@ -18,11 +18,11 @@ DynamicDescriptorHeap::DynamicDescriptorHeap(ID3D12Device*              device,
       m_NumFreeHandles(0),
       m_HandleIncrementSize(device->GetDescriptorHandleIncrementSize(type)),
       m_FenceChecker(std::move(checker)),
-      m_DescriptorHandleCache(kNumDescriptorsPerHeap) {}
+      m_DescriptorHandleCache(sm_NumDescriptorsPerHeap) {}
 
-void DynamicDescriptorHeap::Reset(FenceValue fenceValue) {
+void DynamicDescriptorHeap::Reset(FenceValue fence_value) {
     if (m_CurrentDescriptorHeap) {
-        kAvailableDescriptorHeaps[m_Type].push({m_CurrentDescriptorHeap, fenceValue});
+        sm_AvailableDescriptorHeaps[m_Type].push({m_CurrentDescriptorHeap, fence_value});
     }
     m_CurrentDescriptorHeap.Reset();
     m_CurrentCPUDescriptorHandle  = CD3DX12_CPU_DESCRIPTOR_HANDLE(D3D12_DEFAULT);
@@ -32,107 +32,107 @@ void DynamicDescriptorHeap::Reset(FenceValue fenceValue) {
     m_StaleDescriptorTableBitMask = 0;
 
     // Reset the table cache
-    for (int i = 0; i < kMaxDescriptorTables; ++i) m_DescriptorTableCache[i].Reset();
+    for (int i = 0; i < sm_MaxDescriptorTables; ++i) m_DescriptorTableCache[i].Reset();
 }
 
-void DynamicDescriptorHeap::ParseRootSignature(const RootSignature& rootSignature) {
-    m_StaleDescriptorTableBitMask   = 0;
-    const auto& rootSignatureDesc   = rootSignature.GetRootSignatureDesc();
-    m_DescriptorTableBitMask        = rootSignature.GetDescriptorTableBitMask(m_Type);
-    uint32_t descriptorTableBitMask = m_DescriptorTableBitMask;
+void DynamicDescriptorHeap::ParseRootSignature(const RootSignature& root_signature) {
+    m_StaleDescriptorTableBitMask      = 0;
+    const auto& root_signature_desc    = root_signature.GetRootSignatureDesc();
+    m_DescriptorTableBitMask           = root_signature.GetDescriptorTableBitMask(m_Type);
+    uint32_t descriptor_table_bit_mask = m_DescriptorTableBitMask;
 
-    uint32_t currentOffset = 0;
-    DWORD    rootIndex = 0;
-    while (_BitScanForward(&rootIndex, descriptorTableBitMask) && rootIndex < rootSignatureDesc.NumParameters) {
-        uint32_t numDescriptors = rootSignature.GetNumDescriptorsInTable(rootIndex);
+    uint32_t current_offset = 0;
+    DWORD    root_index     = 0;
+    while (_BitScanForward(&root_index, descriptor_table_bit_mask) && root_index < root_signature_desc.NumParameters) {
+        uint32_t num_descriptors = root_signature.GetNumDescriptorsInTable(root_index);
 
-        auto& tableCache          = m_DescriptorTableCache[rootIndex];
-        tableCache.baseHandle     = &m_DescriptorHandleCache[currentOffset];
-        tableCache.numDescriptors = numDescriptors;
+        auto& table_cache           = m_DescriptorTableCache[root_index];
+        table_cache.base_handle     = &m_DescriptorHandleCache[current_offset];
+        table_cache.num_descriptors = num_descriptors;
 
-        currentOffset += numDescriptors;
+        current_offset += num_descriptors;
         // filp current bit
-        descriptorTableBitMask ^= (1 << rootIndex);
+        descriptor_table_bit_mask ^= (1 << root_index);
     }
-    assert(currentOffset <= kNumDescriptorsPerHeap &&
+    assert(current_offset <= sm_NumDescriptorsPerHeap &&
            "The root signature requires more than the maximum number of descriptors per descriptor "
            "heap. Consider increasing the maximum number of descriptors per descriptor heap.");
 }
 
-void DynamicDescriptorHeap::StageDescriptors(uint32_t rootParameterIndex, uint32_t offset, const std::vector<Descriptor>& descriptors) {
-    if (descriptors.size() > kNumDescriptorsPerHeap || rootParameterIndex >= kMaxDescriptorTables) throw std::bad_alloc();
+void DynamicDescriptorHeap::StageDescriptors(uint32_t root_parameter_index, uint32_t offset, const std::vector<Descriptor>& descriptors) {
+    if (descriptors.size() > sm_NumDescriptorsPerHeap || root_parameter_index >= sm_MaxDescriptorTables) throw std::bad_alloc();
 
-    auto& tableCache = m_DescriptorTableCache[rootParameterIndex];
-    if (offset + descriptors.size() > tableCache.numDescriptors)
+    auto& table_cache = m_DescriptorTableCache[root_parameter_index];
+    if (offset + descriptors.size() > table_cache.num_descriptors)
         throw std::length_error("Number of descriptors exceeds the number of descriptors in the descriptor table.");
 
-    D3D12_CPU_DESCRIPTOR_HANDLE* handle = tableCache.baseHandle + offset;
+    D3D12_CPU_DESCRIPTOR_HANDLE* handle = table_cache.base_handle + offset;
     for (uint32_t i = 0; i < descriptors.size(); i++) {
         handle[i] = descriptors[i].handle;
     }
-    m_StaleDescriptorTableBitMask |= (1 << rootParameterIndex);
+    m_StaleDescriptorTableBitMask |= (1 << root_parameter_index);
 }
 
 uint32_t DynamicDescriptorHeap::StaleDescriptorCount() const {
-    uint32_t numStaleDescriptors = 0;
-    DWORD    i = 0;
-    DWORD    staleDescriptorsBitMask = m_StaleDescriptorTableBitMask;
-    while (_BitScanForward(&i, staleDescriptorsBitMask)) {
-        numStaleDescriptors += m_DescriptorTableCache[i].numDescriptors;
-        staleDescriptorsBitMask ^= (1 << i);
+    uint32_t num_stale_descriptors      = 0;
+    DWORD    i                          = 0;
+    DWORD    stale_descriptors_bit_mask = m_StaleDescriptorTableBitMask;
+    while (_BitScanForward(&i, stale_descriptors_bit_mask)) {
+        num_stale_descriptors += m_DescriptorTableCache[i].num_descriptors;
+        stale_descriptors_bit_mask ^= (1 << i);
     }
 
-    return numStaleDescriptors;
+    return num_stale_descriptors;
 }
 
 std::pair<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>, uint64_t> DynamicDescriptorHeap::RequestDescriptorHeap() {
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap;
-    auto&                                        availableHeapPool = kAvailableDescriptorHeaps[m_Type];
-    uint64_t                                     fenceValue        = 0;
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptor_heap;
+    auto&                                        available_heap_pool = sm_AvailableDescriptorHeaps[m_Type];
+    uint64_t                                     fence_value         = 0;
 
-    std::lock_guard lock(kMutex);
-    if (!availableHeapPool.empty() && m_FenceChecker(availableHeapPool.front().second)) {
-        descriptorHeap = availableHeapPool.front().first;
-        fenceValue     = availableHeapPool.front().second;
-        availableHeapPool.pop();
+    std::lock_guard lock(sm_Mutex);
+    if (!available_heap_pool.empty() && m_FenceChecker(available_heap_pool.front().second)) {
+        descriptor_heap = available_heap_pool.front().first;
+        fence_value     = available_heap_pool.front().second;
+        available_heap_pool.pop();
     } else {
-        descriptorHeap = CreateDescriptorHeap(m_Device, m_Type);
-        kDescriptorHeapPool[m_Type].push(descriptorHeap);
+        descriptor_heap = CreateDescriptorHeap(m_Device, m_Type);
+        sm_DescriptorHeapPool[m_Type].push(descriptor_heap);
     }
 
-    return {descriptorHeap, fenceValue};
+    return {descriptor_heap, fence_value};
 }
 
 Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> DynamicDescriptorHeap::CreateDescriptorHeap(
     ID3D12Device*              device,
     D3D12_DESCRIPTOR_HEAP_TYPE type) {
-    D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
-    descriptorHeapDesc.Type                       = type;
-    descriptorHeapDesc.NumDescriptors             = kNumDescriptorsPerHeap;
-    descriptorHeapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    D3D12_DESCRIPTOR_HEAP_DESC descriptor_heap_desc = {};
+    descriptor_heap_desc.Type                       = type;
+    descriptor_heap_desc.NumDescriptors             = sm_NumDescriptorsPerHeap;
+    descriptor_heap_desc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
-    ComPtr<ID3D12DescriptorHeap> descriptorHeap;
-    ThrowIfFailed(device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&descriptorHeap)));
+    ComPtr<ID3D12DescriptorHeap> descriptor_heap;
+    ThrowIfFailed(device->CreateDescriptorHeap(&descriptor_heap_desc, IID_PPV_ARGS(&descriptor_heap)));
 
-    return descriptorHeap;
+    return descriptor_heap;
 }
 
 void DynamicDescriptorHeap::CommitStagedDescriptors(
     CommandContext&                                                                    context,
-    std::function<void(ID3D12GraphicsCommandList*, UINT, D3D12_GPU_DESCRIPTOR_HANDLE)> setFunc) {
-    uint32_t numDescriptorsToCommit = StaleDescriptorCount();
-    auto     cmdList                = context.GetCommandList();
+    std::function<void(ID3D12GraphicsCommandList*, UINT, D3D12_GPU_DESCRIPTOR_HANDLE)> set_func) {
+    uint32_t num_descriptors_to_commit = StaleDescriptorCount();
+    auto     cmd_list                  = context.GetCommandList();
 
-    if (numDescriptorsToCommit <= 0) return;
+    if (num_descriptors_to_commit <= 0) return;
 
-    assert(cmdList != nullptr);
+    assert(cmd_list != nullptr);
 
-    if (!m_CurrentDescriptorHeap || m_NumFreeHandles < numDescriptorsToCommit) {
+    if (!m_CurrentDescriptorHeap || m_NumFreeHandles < num_descriptors_to_commit) {
         auto heap                    = RequestDescriptorHeap();
         m_CurrentDescriptorHeap      = heap.first;
         m_CurrentCPUDescriptorHandle = m_CurrentDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
         m_CurrentGPUDescriptorHandle = m_CurrentDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
-        m_NumFreeHandles             = kNumDescriptorsPerHeap;
+        m_NumFreeHandles             = sm_NumDescriptorsPerHeap;
 
         context.SetDescriptorHeap(m_Type, m_CurrentDescriptorHeap.Get());
         // When updating the descriptor heap on the command list, all descriptor
@@ -141,39 +141,39 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
         m_StaleDescriptorTableBitMask = m_DescriptorTableBitMask;
     }
 
-    DWORD rootIndex = 0;
-    while (_BitScanForward(&rootIndex, m_StaleDescriptorTableBitMask)) {
-        UINT                         numSrcDesriptors     = m_DescriptorTableCache[rootIndex].numDescriptors;
-        D3D12_CPU_DESCRIPTOR_HANDLE* srcDescriptorHandles = m_DescriptorTableCache[rootIndex].baseHandle;
+    DWORD root_index = 0;
+    while (_BitScanForward(&root_index, m_StaleDescriptorTableBitMask)) {
+        UINT                         num_src_desriptors     = m_DescriptorTableCache[root_index].num_descriptors;
+        D3D12_CPU_DESCRIPTOR_HANDLE* src_descriptor_handles = m_DescriptorTableCache[root_index].base_handle;
 
         std::array start = {m_CurrentCPUDescriptorHandle};
-        std::array size  = {numSrcDesriptors};
+        std::array size  = {num_src_desriptors};
 
-        if (srcDescriptorHandles->ptr != 0) {
-            m_Device->CopyDescriptors(1, start.data(), size.data(), numSrcDesriptors, srcDescriptorHandles, nullptr, m_Type);
+        if (src_descriptor_handles->ptr != 0) {
+            m_Device->CopyDescriptors(1, start.data(), size.data(), num_src_desriptors, src_descriptor_handles, nullptr, m_Type);
 
             // Set the descriptors on the command list using the passed-in setter function.
-            setFunc(cmdList, rootIndex, m_CurrentGPUDescriptorHandle);
+            set_func(cmd_list, root_index, m_CurrentGPUDescriptorHandle);
 
-            m_CurrentCPUDescriptorHandle.Offset(numSrcDesriptors, m_HandleIncrementSize);
-            m_CurrentGPUDescriptorHandle.Offset(numSrcDesriptors, m_HandleIncrementSize);
-            m_NumFreeHandles -= numSrcDesriptors;
+            m_CurrentCPUDescriptorHandle.Offset(num_src_desriptors, m_HandleIncrementSize);
+            m_CurrentGPUDescriptorHandle.Offset(num_src_desriptors, m_HandleIncrementSize);
+            m_NumFreeHandles -= num_src_desriptors;
         }
 
         // Filp the current bit
-        m_StaleDescriptorTableBitMask ^= (1 << rootIndex);
+        m_StaleDescriptorTableBitMask ^= (1 << root_index);
     }
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(CommandContext&             context,
-                                                                  D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle) {
-    assert(cpuDescriptorHandle.ptr != 0);
+                                                                  D3D12_CPU_DESCRIPTOR_HANDLE cpu_descriptor_handle) {
+    assert(cpu_descriptor_handle.ptr != 0);
     if (!m_CurrentDescriptorHeap || m_NumFreeHandles < 1) {
         auto heap                    = RequestDescriptorHeap();
         m_CurrentDescriptorHeap      = heap.first;
         m_CurrentCPUDescriptorHandle = m_CurrentDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
         m_CurrentGPUDescriptorHandle = m_CurrentDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
-        m_NumFreeHandles             = kNumDescriptorsPerHeap;
+        m_NumFreeHandles             = sm_NumDescriptorsPerHeap;
 
         context.SetDescriptorHeap(m_Type, m_CurrentDescriptorHeap.Get());
         // When updating the descriptor heap on the command list, all descriptor
@@ -183,7 +183,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(CommandContext
     }
 
     D3D12_GPU_DESCRIPTOR_HANDLE handle = m_CurrentGPUDescriptorHandle;
-    m_Device->CopyDescriptorsSimple(1, m_CurrentCPUDescriptorHandle, cpuDescriptorHandle, m_Type);
+    m_Device->CopyDescriptorsSimple(1, m_CurrentCPUDescriptorHandle, cpu_descriptor_handle, m_Type);
     m_CurrentCPUDescriptorHandle.Offset(1, m_HandleIncrementSize);
     m_CurrentGPUDescriptorHandle.Offset(1, m_HandleIncrementSize);
     m_NumFreeHandles -= 1;

@@ -16,7 +16,7 @@
 
 using namespace Hitagi;
 
-bool Application::m_Quit = false;
+bool Application::sm_Quit = false;
 
 Application::Application(GfxConfiguration& cfg) : m_Config(cfg) {
     m_Logger = spdlog::stdout_color_mt("Application");
@@ -33,7 +33,7 @@ int Application::Initialize() {
     if ((ret = g_ThreadManager->Initialize()) != 0) return ret;
     if ((ret = g_MemoryManager->Initialize()) != 0) return ret;
     if ((ret = g_DebugManager->Initialize()) != 0) return ret;
-    if ((ret = g_FileIOManager->Initialize()) != 0) return ret;
+    if ((ret = g_FileIoManager->Initialize()) != 0) return ret;
     if ((ret = g_AssetManager->Initialize()) != 0) return ret;
     if ((ret = g_InputManager->Initialize()) != 0) return ret;
     if ((ret = g_SceneManager->Initialize()) != 0) return ret;
@@ -54,7 +54,7 @@ void Application::Finalize() {
     g_SceneManager->Finalize();
     g_InputManager->Finalize();
     g_AssetManager->Finalize();
-    g_FileIOManager->Finalize();
+    g_FileIoManager->Finalize();
     g_DebugManager->Finalize();
     g_MemoryManager->Finalize();
     g_ThreadManager->Finalize();
@@ -70,7 +70,7 @@ void Application::Tick() {
     g_ThreadManager->Tick();
     g_MemoryManager->Tick();
     g_DebugManager->Tick();
-    g_FileIOManager->Tick();
+    g_FileIoManager->Tick();
     g_AssetManager->Tick();
     g_InputManager->Tick();
     g_GameLogic->Tick();
@@ -81,7 +81,7 @@ void Application::Tick() {
     g_GraphicsManager->Tick();
     // -------------After Render--------------------
 
-    m_FPS = 1.0 / m_Clock.deltaTime().count();
+    m_FPS = 1.0 / m_Clock.DeltaTime().count();
     if (m_FPSLimit != -1) {
         // std::this_thread::sleep_until(m_Clock.GetBaseTime() + m_FrameIndex * std::chrono::milliseconds(1000) / m_FPSLimit);
     }
@@ -95,4 +95,4 @@ void Application::SetCommandLineParameters(int argc, char** argv) {
 
 GfxConfiguration& Application::GetConfiguration() { return m_Config; }
 
-bool Application::IsQuit() { return m_Quit; }
+bool Application::IsQuit() { return sm_Quit; }

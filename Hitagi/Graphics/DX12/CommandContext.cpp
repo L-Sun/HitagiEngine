@@ -20,32 +20,32 @@ CommandContext::~CommandContext() {
     // Finish() is not called before destruction. so use the last completed fence
     if (m_CommandAllocator) {
         auto&    queue      = m_Driver.GetCmdMgr().GetQueue(m_Type);
-        uint64_t fenceValue = queue.GetLastCompletedFenceValue();
-        queue.DiscardAllocator(fenceValue, m_CommandAllocator);
+        uint64_t fence_value = queue.GetLastCompletedFenceValue();
+        queue.DiscardAllocator(fence_value, m_CommandAllocator);
     }
 }
 
-void CommandContext::TransitionResource(GpuResource& resource, D3D12_RESOURCE_STATES newState, bool flushImmediate) {
-    D3D12_RESOURCE_STATES oldState = resource.m_UsageState;
-    if (oldState != newState) {
+void CommandContext::TransitionResource(GpuResource& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate) {
+    D3D12_RESOURCE_STATES old_state = resource.m_UsageState;
+    if (old_state != new_state) {
         assert(m_NumBarriersToFlush < 16 && "Exceeded arbitrary limit on buffered barriers");
-        D3D12_RESOURCE_BARRIER& barrierDesc = m_Barriers[m_NumBarriersToFlush++];
-        barrierDesc.Type                    = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrierDesc.Transition.pResource    = resource.GetResource();
-        barrierDesc.Transition.Subresource  = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        barrierDesc.Transition.StateBefore  = oldState;
-        barrierDesc.Transition.StateAfter   = newState;
+        D3D12_RESOURCE_BARRIER& barrier_desc = m_Barriers[m_NumBarriersToFlush++];
+        barrier_desc.Type                    = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier_desc.Transition.pResource    = resource.GetResource();
+        barrier_desc.Transition.Subresource  = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        barrier_desc.Transition.StateBefore  = old_state;
+        barrier_desc.Transition.StateAfter   = new_state;
 
-        if (newState == resource.m_TransitioningState) {
-            barrierDesc.Flags             = D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
+        if (new_state == resource.m_TransitioningState) {
+            barrier_desc.Flags             = D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
             resource.m_TransitioningState = static_cast<D3D12_RESOURCE_STATES>(-1);
         } else {
-            barrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
         }
-        resource.m_UsageState = newState;
+        resource.m_UsageState = new_state;
     }
 
-    if (flushImmediate || m_NumBarriersToFlush == 16) FlushResourceBarriers();
+    if (flush_immediate || m_NumBarriersToFlush == 16) FlushResourceBarriers();
 }
 
 void CommandContext::FlushResourceBarriers() {
@@ -56,35 +56,35 @@ void CommandContext::FlushResourceBarriers() {
 }
 
 void CommandContext::BindDescriptorHeaps() {
-    unsigned              nonNullHeaps = 0;
-    ID3D12DescriptorHeap* heapsToBind[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+    unsigned              non_null_heaps = 0;
+    ID3D12DescriptorHeap* heaps_to_bind[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
     for (unsigned i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i) {
         ID3D12DescriptorHeap* heap = m_CurrentDescriptorHeaps[i];
         if (heap != nullptr)
-            heapsToBind[nonNullHeaps++] = heap;
+            heaps_to_bind[non_null_heaps++] = heap;
     }
 
-    if (nonNullHeaps > 0) m_CommandList->SetDescriptorHeaps(nonNullHeaps, heapsToBind);
+    if (non_null_heaps > 0) m_CommandList->SetDescriptorHeaps(non_null_heaps, heaps_to_bind);
 }
 
-uint64_t CommandContext::Finish(bool waitForComplete) {
+uint64_t CommandContext::Finish(bool wait_for_complete) {
     FlushResourceBarriers();
 
     CommandQueue& queue = m_Driver.GetCmdMgr().GetQueue(m_Type);
 
-    uint64_t fenceValue = queue.ExecuteCommandList(m_CommandList);
-    m_CpuLinearAllocator.SetFence(fenceValue);
-    m_GpuLinearAllocator.SetFence(fenceValue);
-    queue.DiscardAllocator(fenceValue, m_CommandAllocator);
+    uint64_t fence_value = queue.ExecuteCommandList(m_CommandList);
+    m_CpuLinearAllocator.SetFence(fence_value);
+    m_GpuLinearAllocator.SetFence(fence_value);
+    queue.DiscardAllocator(fence_value, m_CommandAllocator);
     m_CommandAllocator = nullptr;
 
-    m_DynamicViewDescriptorHeap.Reset(fenceValue);
-    m_DynamicSamplerDescriptorHeap.Reset(fenceValue);
+    m_DynamicViewDescriptorHeap.Reset(fence_value);
+    m_DynamicSamplerDescriptorHeap.Reset(fence_value);
     m_CurrentDescriptorHeaps = {};
 
-    if (waitForComplete) m_Driver.GetCmdMgr().WaitForFence(fenceValue);
+    if (wait_for_complete) m_Driver.GetCmdMgr().WaitForFence(fence_value);
 
-    return fenceValue;
+    return fence_value;
 }
 
 void CommandContext::Reset() {
@@ -105,27 +105,27 @@ void GraphicsCommandContext::SetViewPort(uint32_t x, uint32_t y, uint32_t width,
 }
 
 void GraphicsCommandContext::SetRenderTarget(Graphics::RenderTarget& rt) {
-    auto& renderTarget = *rt.GetBackend<RenderTarget>();
-    TransitionResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
-    m_CommandList->OMSetRenderTargets(1, &renderTarget.GetRTV().handle, false, nullptr);
+    auto& render_target = *rt.GetBackend<RenderTarget>();
+    TransitionResource(render_target, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+    m_CommandList->OMSetRenderTargets(1, &render_target.GetRTV().handle, false, nullptr);
 }
 
-void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depthBuffer) {
-    auto& renderTarget = *rt.GetBackend<RenderTarget>();
-    auto& db           = *depthBuffer.GetBackend<DepthBuffer>();
-    TransitionResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET);
+void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depth_buffer) {
+    auto& render_target = *rt.GetBackend<RenderTarget>();
+    auto& db           = *depth_buffer.GetBackend<DepthBuffer>();
+    TransitionResource(render_target, D3D12_RESOURCE_STATE_RENDER_TARGET);
     TransitionResource(db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
-    m_CommandList->OMSetRenderTargets(1, &renderTarget.GetRTV().handle, false, &db.GetDSV().handle);
+    m_CommandList->OMSetRenderTargets(1, &render_target.GetRTV().handle, false, &db.GetDSV().handle);
 }
 
 void GraphicsCommandContext::ClearRenderTarget(Graphics::RenderTarget& rt) {
-    auto& renderTarget = *rt.GetBackend<RenderTarget>();
-    TransitionResource(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
-    m_CommandList->ClearRenderTargetView(renderTarget.GetRTV().handle, vec4f(0, 0, 0, 1), 0, nullptr);
+    auto& render_target = *rt.GetBackend<RenderTarget>();
+    TransitionResource(render_target, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+    m_CommandList->ClearRenderTargetView(render_target.GetRTV().handle, vec4f(0, 0, 0, 1), 0, nullptr);
 }
 
-void GraphicsCommandContext::ClearDepthBuffer(Graphics::DepthBuffer& depthBuffer) {
-    auto& db = *depthBuffer.GetBackend<DepthBuffer>();
+void GraphicsCommandContext::ClearDepthBuffer(Graphics::DepthBuffer& depth_buffer) {
+    auto& db = *depth_buffer.GetBackend<DepthBuffer>();
     TransitionResource(db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
     m_CommandList->ClearDepthStencilView(db.GetDSV().handle, D3D12_CLEAR_FLAG_DEPTH, db.GetClearDepth(), db.GetClearStencil(), 0, nullptr);
 }
@@ -156,50 +156,50 @@ void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics:
 }
 
 void GraphicsCommandContext::Present(Graphics::RenderTarget& rt) {
-    auto& renderTarget = *rt.GetBackend<RenderTarget>();
-    TransitionResource(renderTarget, D3D12_RESOURCE_STATE_PRESENT, true);
+    auto& render_target = *rt.GetBackend<RenderTarget>();
+    TransitionResource(render_target, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 
 void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
-    auto  indexBuffer = mesh.indices->GetBackend<IndexBuffer>();
+    auto  index_buffer = mesh.indices->GetBackend<IndexBuffer>();
     auto& layout      = m_Pipeline->GetInputLayout();
 
-    auto ibv = indexBuffer->IndexBufferView();
+    auto ibv = index_buffer->IndexBufferView();
     m_CommandList->IASetIndexBuffer(&ibv);
     for (auto&& [semanticName, vertex] : mesh.vertices) {
         auto iter = layout.begin();
-        while (iter != layout.end() && iter->semanticName != semanticName) iter++;
+        while (iter != layout.end() && iter->semantic_name != semanticName) iter++;
         if (iter == layout.end()) continue;
 
         auto vbv = vertex->GetBackend<VertexBuffer>()->VertexBufferView();
-        m_CommandList->IASetVertexBuffers(iter->inputSlot, 1, &vbv);
+        m_CommandList->IASetVertexBuffers(iter->input_slot, 1, &vbv);
     }
 
     FlushResourceBarriers();
     m_DynamicViewDescriptorHeap.CommitStagedDescriptors(*this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);
     m_DynamicSamplerDescriptorHeap.CommitStagedDescriptors(*this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);
-    m_CommandList->IASetPrimitiveTopology(ToDxTopology(mesh.primitive));
-    m_CommandList->DrawIndexedInstanced(indexBuffer->GetElementCount(), 1, 0, 0, 0);
+    m_CommandList->IASetPrimitiveTopology(to_dx_topology(mesh.primitive));
+    m_CommandList->DrawIndexedInstanced(index_buffer->GetElementCount(), 1, 0, 0, 0);
 }
 
-void CopyCommandContext::InitializeBuffer(GpuResource& dest, const uint8_t* data, size_t dataSize) {
-    auto uploadBuffer = m_CpuLinearAllocator.Allocate(dataSize);
-    std::copy_n(data, dataSize, uploadBuffer.cpuPtr);
+void CopyCommandContext::InitializeBuffer(GpuResource& dest, const uint8_t* data, size_t data_size) {
+    auto upload_buffer = m_CpuLinearAllocator.Allocate(data_size);
+    std::copy_n(data, data_size, upload_buffer.cpu_ptr);
 
     TransitionResource(dest, D3D12_RESOURCE_STATE_COPY_DEST, true);
-    m_CommandList->CopyBufferRegion(dest.GetResource(), 0, uploadBuffer.pageFrom.lock()->GetResource(),
-                                    uploadBuffer.pageOffset, dataSize);
+    m_CommandList->CopyBufferRegion(dest.GetResource(), 0, upload_buffer.page_from.lock()->GetResource(),
+                                    upload_buffer.page_offset, data_size);
     TransitionResource(dest, D3D12_RESOURCE_STATE_COMMON, true);
 
     Finish(true);
 }
 
-void CopyCommandContext::InitializeTexture(GpuResource& dest, const std::vector<D3D12_SUBRESOURCE_DATA>& subData) {
-    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(dest.GetResource(), 0, subData.size());
-    auto         uploadBuffer     = m_CpuLinearAllocator.Allocate(uploadBufferSize);
+void CopyCommandContext::InitializeTexture(GpuResource& dest, const std::vector<D3D12_SUBRESOURCE_DATA>& sub_data) {
+    const UINT64 upload_buffer_size = GetRequiredIntermediateSize(dest.GetResource(), 0, sub_data.size());
+    auto         upload_buffer     = m_CpuLinearAllocator.Allocate(upload_buffer_size);
 
-    UpdateSubresources(m_CommandList, dest.GetResource(), uploadBuffer.pageFrom.lock()->GetResource(),
-                       uploadBuffer.pageOffset, 0, subData.size(), const_cast<D3D12_SUBRESOURCE_DATA*>(subData.data()));
+    UpdateSubresources(m_CommandList, dest.GetResource(), upload_buffer.page_from.lock()->GetResource(),
+                       upload_buffer.page_offset, 0, sub_data.size(), const_cast<D3D12_SUBRESOURCE_DATA*>(sub_data.data()));
     TransitionResource(dest, D3D12_RESOURCE_STATE_COMMON);
 
     Finish(true);

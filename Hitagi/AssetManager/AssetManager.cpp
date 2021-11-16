@@ -52,11 +52,11 @@ Image AssetManager::ParseImage(const std::filesystem::path& path) const {
         m_Logger->error("Unkown image format, and return a empty image");
         return Image{};
     }
-    return m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIOManager->SyncOpenAndReadBinary(path));
+    return m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
 }
 
 Scene AssetManager::ParseScene(const std::filesystem::path& path) const {
-    return m_SceneParser->Parse(g_FileIOManager->SyncOpenAndReadBinary(path), path);
+    return m_SceneParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), path);
 }
 
 }  // namespace Hitagi::Asset

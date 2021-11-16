@@ -14,7 +14,7 @@ struct ImageSource {
     int            size;
     int            offset;
 };
-void pngReadCallback(png_structp png_tr, png_bytep data, png_size_t length) {
+void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
     auto isource = reinterpret_cast<ImageSource*>(png_get_io_ptr(png_tr));
 
     if (isource->offset + length <= isource->size) {
@@ -59,12 +59,12 @@ Image PngParser::Parse(const Core::Buffer& buf) {
         return {};
     }
 
-    ImageSource imgSource;
-    imgSource.data   = buf.GetData();
-    imgSource.size   = buf.GetDataSize();
-    imgSource.offset = 0;
+    ImageSource img_source{};
+    img_source.data   = buf.GetData();
+    img_source.size   = buf.GetDataSize();
+    img_source.offset = 0;
 
-    png_set_read_fn(png_tr, &imgSource, pngReadCallback);
+    png_set_read_fn(png_tr, &img_source, png_read_callback);
     png_read_png(
         png_tr, info_ptr,
         PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_PACKING,
@@ -74,8 +74,8 @@ Image PngParser::Parse(const Core::Buffer& buf) {
     auto  height   = png_get_image_height(png_tr, info_ptr);
     auto  bitcount = 32;
     auto  pitch    = ((width * bitcount >> 3) + 3) & ~3;
-    auto  dataSize = pitch * height;
-    Image img(width, height, bitcount, pitch, dataSize);
+    auto  data_size = pitch * height;
+    Image img(width, height, bitcount, pitch, data_size);
 
     png_bytepp rows = png_get_rows(png_tr, info_ptr);
     auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img.GetData());
@@ -119,8 +119,8 @@ Image PngParser::Parse(const Core::Buffer& buf) {
         } break;
         case PNG_COLOR_TYPE_RGBA: {
             for (int i = height - 1; i >= 0; i--) {
-                auto _p = reinterpret_cast<R8G8B8A8Unorm*>(rows[i]);
-                std::copy(_p, _p + width, p);
+                auto p = reinterpret_cast<R8G8B8A8Unorm*>(rows[i]);
+                std::copy(p, p + width, p);
                 // to next line
                 p += width;
             }

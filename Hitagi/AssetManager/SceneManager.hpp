@@ -31,8 +31,8 @@ public:
 
 protected:
     std::vector<Scene> m_Scene;
-    size_t             m_CurrentSceneIndex;
-    bool               m_DirtyFlag = false;
+    size_t             m_CurrentSceneIndex = 0;
+    bool               m_DirtyFlag         = false;
 };
 
 }  // namespace Hitagi::Asset

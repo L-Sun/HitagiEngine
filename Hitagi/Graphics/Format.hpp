@@ -106,7 +106,7 @@ enum struct Format : uint32_t {
     BC7_UNORM_SRGB             = 99,
 };
 
-inline constexpr size_t GetFormatBitSize(Format format) {
+inline constexpr size_t get_format_bit_size(Format format) {
     switch (format) {
         case Format::R32G32B32A32_TYPELESS:
         case Format::R32G32B32A32_FLOAT:

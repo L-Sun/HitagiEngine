@@ -10,18 +10,18 @@ public:
     void Tick() final;
     void Finalize() final;
 
-    std::chrono::duration<double>                  totalTime() const;
-    std::chrono::duration<double>                  deltaTime() const;
+    std::chrono::duration<double>                  TotalTime() const;
+    std::chrono::duration<double>                  DeltaTime() const;
     std::chrono::high_resolution_clock::time_point GetBaseTime() const;
-    std::chrono::high_resolution_clock::time_point tickTime() const;
+    std::chrono::high_resolution_clock::time_point TickTime() const;
 
     void Reset();
     void Start();
     void Pause();
 
 private:
-    std::chrono::duration<double> m_DeltaTime;
-    std::chrono::duration<double> m_PausedTime;
+    std::chrono::duration<double> m_DeltaTime{};
+    std::chrono::duration<double> m_PausedTime{};
 
     std::chrono::high_resolution_clock::time_point m_BaseTime;
     std::chrono::high_resolution_clock::time_point m_StopTime;

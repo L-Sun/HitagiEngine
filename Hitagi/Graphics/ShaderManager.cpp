@@ -11,13 +11,13 @@ void ShaderManager::Finalize() {
 }
 void ShaderManager::Tick() {}
 
-void ShaderManager::LoadShader(std::filesystem::path shaderPath, ShaderType type, std::string name) {
-    auto data = g_FileIOManager->SyncOpenAndReadBinary(shaderPath);
+void ShaderManager::LoadShader(std::filesystem::path shader_path, ShaderType type, std::string name) {
+    auto data = g_FileIoManager->SyncOpenAndReadBinary(shader_path);
     if (data.Empty()) {
         spdlog::get("GraphicsManager")->error("[ShaderManager] Give up loading shader.");
         return;
     }
-    if (name.empty()) name = shaderPath.filename().string();
+    if (name.empty()) name = shader_path.filename().string();
     switch (type) {
         case ShaderType::Vertex:
             m_VertexShaders.emplace(name, std::make_shared<VertexShader>(data));

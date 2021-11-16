@@ -21,14 +21,14 @@ BaseSceneObject& BaseSceneObject::operator=(BaseSceneObject&& obj) {
 
 // Class SceneObjectVertexArray
 SceneObjectVertexArray::SceneObjectVertexArray(std::string_view attr,
-                                               VertexDataType   dataType,
+                                               VertexDataType   data_type,
                                                Core::Buffer&&   buffer,
-                                               uint32_t         morphIndex)
+                                               uint32_t         morph_index)
     : m_Attribute(attr),
-      m_DataType(dataType),
+      m_DataType(data_type),
       m_VertexCount(buffer.GetDataSize() / GetVertexSize()),
       m_Data(std::move(buffer)),
-      m_MorphTargetIndex(morphIndex) {}
+      m_MorphTargetIndex(morph_index) {}
 
 const std::string& SceneObjectVertexArray::GetAttributeName() const { return m_Attribute; }
 VertexDataType     SceneObjectVertexArray::GetDataType() const { return m_DataType; }
@@ -59,13 +59,13 @@ size_t             SceneObjectVertexArray::GetVertexSize() const {
 
 // Class SceneObjectIndexArray
 SceneObjectIndexArray::SceneObjectIndexArray(
-    const IndexDataType dataType,
+    const IndexDataType data_type,
     Core::Buffer&&      data,
-    const uint32_t      restartIndex)
-    : m_DataType(dataType),
+    const uint32_t      restart_index)
+    : m_DataType(data_type),
       m_IndexCount(data.GetDataSize() / GetIndexSize()),
       m_Data(std::move(data)),
-      m_ResetartIndex(restartIndex) {}
+      m_ResetartIndex(restart_index) {}
 
 const IndexDataType SceneObjectIndexArray::GetIndexType() const { return m_DataType; }
 const uint8_t*      SceneObjectIndexArray::GetData() const { return m_Data.GetData(); }
@@ -152,14 +152,14 @@ void SceneObjectMaterial::SetTexture(std::string_view attrib, const std::shared_
     if (attrib == "normal") m_Normal = texture;
 }
 void SceneObjectMaterial::LoadTextures() {
-    if (m_DiffuseColor.ValueMap) m_DiffuseColor.ValueMap->LoadTexture();
+    if (m_DiffuseColor.value_map) m_DiffuseColor.value_map->LoadTexture();
 }
 
 // Class SceneObjectGeometry
 void SceneObjectGeometry::SetVisibility(bool visible) { m_Visible = visible; }
 void SceneObjectGeometry::SetIfCastShadow(bool shadow) { m_Shadow = shadow; }
 void SceneObjectGeometry::SetIfMotionBlur(bool motion_blur) { m_MotionBlur = motion_blur; }
-void SceneObjectGeometry::SetCollisionType(SceneObjectCollisionType collisionType) { m_CollisionType = collisionType; }
+void SceneObjectGeometry::SetCollisionType(SceneObjectCollisionType collision_type) { m_CollisionType = collision_type; }
 void SceneObjectGeometry::SetCollisionParameters(const float* param, int32_t count) {
     assert(count > 0 && count < 10);
     memcpy(m_CollisionParameters.data(), param, sizeof(float) * count);
@@ -190,9 +190,9 @@ void SceneObjectLight::SetParam(std::string_view attrib, float param) {
         m_Intensity = param;
     }
 }
-void SceneObjectLight::SetTexture(std::string_view attrib, std::string_view textureName) {
+void SceneObjectLight::SetTexture(std::string_view attrib, std::string_view texture_name) {
     if (attrib == "projection") {
-        m_TextureRef = textureName;
+        m_TextureRef = texture_name;
     }
 }
 void         SceneObjectLight::SetAttenuation(AttenFunc func) { m_LightAttenuation = func; }
@@ -215,7 +215,7 @@ void SceneObjectCamera::SetParam(std::string_view attrib, float param) {
     else if (attrib == "fov")
         m_Fov = param;
 }
-void SceneObjectCamera::SetTexture(std::string_view attrib, std::string_view textureName) {
+void SceneObjectCamera::SetTexture(std::string_view attrib, std::string_view texture_name) {
     // TODO: extension
 }
 float SceneObjectCamera::GetAspect() const { return m_Aspect; }
@@ -438,5 +438,5 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectTransform& obj) {
     return out;
 }
 
-float DefaultAttenFunc(float intensity, float distance) { return intensity / pow(1 + distance, 2.0f); }
+float default_atten_func(float intensity, float distance) { return intensity / pow(1 + distance, 2.0f); }
 }  // namespace Hitagi::Asset

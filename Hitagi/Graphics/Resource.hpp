@@ -52,8 +52,8 @@ struct MeshBuffer {
 };
 class ConstantBuffer : public Resource {
 public:
-    ConstantBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpuResource, size_t numElement, size_t elementSize)
-        : Resource(name, std::move(gpuResource)), m_NumElements(numElement), m_ElementSize(elementSize) {}
+    ConstantBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpu_resource, size_t num_element, size_t element_size)
+        : Resource(name, std::move(gpu_resource)), m_NumElements(num_element), m_ElementSize(element_size) {}
 
     size_t GetNumElements() const { return m_NumElements; }
     size_t GetElementSize() const { return m_ElementSize; }
@@ -70,15 +70,15 @@ public:
         uint64_t       width;
         uint64_t       height;
         uint64_t       pitch;
-        unsigned       mipLevel        = 1;
-        unsigned       sampleCount     = 1;
-        unsigned       sampleQuality   = 0;
-        const uint8_t* initialData     = nullptr;
-        size_t         initialDataSize = 0;
+        unsigned       mip_level        = 1;
+        unsigned       sample_count     = 1;
+        unsigned       sample_quality   = 0;
+        const uint8_t* initial_data     = nullptr;
+        size_t         initial_data_size = 0;
     } const desc;
 
-    TextureBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpuResource, Description desc)
-        : Resource(name, std::move(gpuResource)), desc(desc) {}
+    TextureBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpu_resource, Description desc)
+        : Resource(name, std::move(gpu_resource)), desc(desc) {}
 };
 
 class DepthBuffer : public Resource {
@@ -87,11 +87,11 @@ public:
         Format   format;
         uint64_t width;
         uint64_t height;
-        float    clearDepth;
-        uint8_t  clearStencil;
+        float    clear_depth;
+        uint8_t  clear_stencil;
     } const desc;
-    DepthBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpuResource, Description desc)
-        : Resource(name, std::move(gpuResource)), desc(desc) {}
+    DepthBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpu_resource, Description desc)
+        : Resource(name, std::move(gpu_resource)), desc(desc) {}
 };
 
 class RenderTarget : public Resource {
@@ -101,8 +101,8 @@ public:
         uint64_t width;
         uint64_t height;
     } const desc;
-    RenderTarget(std::string_view name, std::unique_ptr<backend::Resource> gpuResource, Description desc)
-        : Resource(name, std::move(gpuResource)), desc(desc) {}
+    RenderTarget(std::string_view name, std::unique_ptr<backend::Resource> gpu_resource, Description desc)
+        : Resource(name, std::move(gpu_resource)), desc(desc) {}
 };
 
 class Sampler : public Resource {

@@ -1,12 +1,11 @@
 #pragma once
 #include <iostream>
 #include "Buffer.hpp"
-#include "portable.hpp"
 
 namespace Hitagi::Asset {
 class Image : public Core::Buffer {
 public:
-    Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t dataSize);
+    Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t data_size);
     Image() = default;
 
     inline uint32_t GetWidth() const { return m_Width; }

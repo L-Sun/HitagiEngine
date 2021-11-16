@@ -35,7 +35,7 @@ void MyGame::Finalize() {
 
 void MyGame::Tick() {
     m_Clock.Tick();
-    float deltaTime = m_Clock.deltaTime().count();
+    float delta_time = m_Clock.DeltaTime().count();
 
     if (g_InputManager->GetBoolNew(DEBUG_TOGGLE)) {
         g_DebugManager->ToggleDebugInfo();

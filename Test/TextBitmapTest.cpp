@@ -18,38 +18,38 @@ using namespace Hitagi;
 #endif
 #endif
 
-void Init() {
+void init() {
     g_MemoryManager->Initialize();
-    g_FileIOManager->Initialize();
+    g_FileIoManager->Initialize();
 }
-void Finalize(string_view text) {
+void finalize(string_view text) {
     cout << text << endl;
-    g_FileIOManager->Finalize();
+    g_FileIoManager->Finalize();
     g_MemoryManager->Finalize();
 }
 
 int main(int argc, char const* argv[]) {
-    Init();
+    init();
     {
-        auto fontBuffer = g_FileIOManager->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
+        auto font_buffer = g_FileIoManager->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
 
         FT_Library library = nullptr;  // handle to library
         FT_Face    face = nullptr;     // handle to face object
 
         FT_Error error = 0;
         if (error = FT_Init_FreeType(&library); error != 0) {
-            Finalize("Initialize FreeType failed!");
+            finalize("Initialize FreeType failed!");
             return -1;
         }
-        error = FT_New_Memory_Face(library, fontBuffer.GetData(), fontBuffer.GetDataSize(), 0, &face);
+        error = FT_New_Memory_Face(library, font_buffer.GetData(), font_buffer.GetDataSize(), 0, &face);
         if (error) {
-            Finalize("Load font face failed!");
+            finalize("Load font face failed!");
             return -1;
         }
 
         error = FT_Set_Char_Size(face, 0, 16 * 64, 300, 300);
         if (error) {
-            Finalize("Set char size failed.");
+            finalize("Set char size failed.");
             return -1;
         }
         auto glyph_index = FT_Get_Char_Index(face, 'a');
@@ -69,7 +69,7 @@ int main(int argc, char const* argv[]) {
         FT_Done_Face(face);
         FT_Done_FreeType(library);
     }
-    Finalize("");
+    finalize("");
 #ifdef _WIN32
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
     _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG);

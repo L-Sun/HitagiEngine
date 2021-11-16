@@ -32,31 +32,31 @@ void SceneManager::SetScene(std::filesystem::path name) {
     auto& scene         = m_Scene[m_CurrentSceneIndex];
     if (scene.GetFirstCameraNode() == nullptr) {
         m_Logger->warn("Will create a default camera");
-        scene.Cameras["default"] = std::make_shared<SceneObjectCamera>();
+        scene.cameras["default"] = std::make_shared<SceneObjectCamera>();
 
         vec3f pos                    = {3.0f, 3.0f, 3.0f};
         vec3f up                     = {-1, -1, 1};
         vec3f direct                 = -pos;
-        scene.CameraNodes["default"] = std::make_shared<SceneCameraNode>("default", pos, up, direct);
-        scene.CameraNodes["default"]->AddSceneObjectRef(scene.Cameras["default"]);
-        scene.SceneGraph->AppendChild(scene.CameraNodes["default"]);
+        scene.camera_nodes["default"] = std::make_shared<SceneCameraNode>("default", pos, up, direct);
+        scene.camera_nodes["default"]->AddSceneObjectRef(scene.cameras["default"]);
+        scene.scene_graph->AppendChild(scene.camera_nodes["default"]);
     }
     if (scene.GetFirstLightNode() == nullptr) {
         m_Logger->warn("Will create a default light.");
-        scene.Lights["default"]     = std::make_shared<SceneObjectPointLight>();
-        scene.LightNodes["default"] = std::make_shared<SceneLightNode>("default");
+        scene.lights["default"]     = std::make_shared<SceneObjectPointLight>();
+        scene.light_nodes["default"] = std::make_shared<SceneLightNode>("default");
 
-        scene.LightNodes["default"]->AddSceneObjectRef(scene.Lights["default"]);
-        scene.LightNodes["default"]->AppendTransform(
+        scene.light_nodes["default"]->AddSceneObjectRef(scene.lights["default"]);
+        scene.light_nodes["default"]->AppendTransform(
             std::make_shared<SceneObjectTranslation>(3.0f, 3.0f, 3.0f));
 
-        scene.SceneGraph->AppendChild(scene.LightNodes["default"]);
+        scene.scene_graph->AppendChild(scene.light_nodes["default"]);
     }
     m_DirtyFlag = true;
 }
 
 void SceneManager::ResetScene() {
-    m_Scene[m_CurrentSceneIndex].SceneGraph->Reset(true);
+    m_Scene[m_CurrentSceneIndex].scene_graph->Reset(true);
     m_DirtyFlag = true;
 }
 
@@ -71,22 +71,22 @@ void SceneManager::NotifySceneIsRenderingQueued() { m_DirtyFlag = false; }
 void SceneManager::NotifySceneIsPhysicalSimulationQueued() {}
 
 std::weak_ptr<SceneGeometryNode> SceneManager::GetSceneGeometryNode(const std::string& name) {
-    auto it = m_Scene[m_CurrentSceneIndex].GeometryNodes.find(name);
-    if (it != m_Scene[m_CurrentSceneIndex].GeometryNodes.end())
+    auto it = m_Scene[m_CurrentSceneIndex].geometry_nodes.find(name);
+    if (it != m_Scene[m_CurrentSceneIndex].geometry_nodes.end())
         return it->second;
     else
         return {};
 }
 std::weak_ptr<SceneLightNode> SceneManager::GetSceneLightNode(const std::string& name) {
-    auto it = m_Scene[m_CurrentSceneIndex].LightNodes.find(name);
-    if (it != m_Scene[m_CurrentSceneIndex].LightNodes.end())
+    auto it = m_Scene[m_CurrentSceneIndex].light_nodes.find(name);
+    if (it != m_Scene[m_CurrentSceneIndex].light_nodes.end())
         return it->second;
     else
         return {};
 }
 
 std::weak_ptr<SceneObjectGeometry> SceneManager::GetSceneGeometryObject(const std::string& key) {
-    return m_Scene[m_CurrentSceneIndex].Geometries.find(key)->second;
+    return m_Scene[m_CurrentSceneIndex].geometries.find(key)->second;
 }
 std::weak_ptr<SceneCameraNode> SceneManager::GetCameraNode() { return m_Scene[m_CurrentSceneIndex].GetFirstCameraNode(); }
 

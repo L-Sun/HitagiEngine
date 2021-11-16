@@ -10,7 +10,7 @@ public:
     PSO(PSO&&)                 = default;
     PSO& operator=(PSO&&) = default;
 
-    void                 SetRootSignature(const RootSignature& rootSignature) { m_RootSignature = &rootSignature; }
+    void                 SetRootSignature(const RootSignature& root_signature) { m_RootSignature = &root_signature; }
     ID3D12PipelineState* GetPSO() const { return m_PSO.Get(); }
 
 protected:
@@ -23,7 +23,7 @@ class GraphicsPSO : public PSO {
 public:
     using PSO::PSO;
 
-    void SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& inputLayout);
+    void SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& input_layout);
     void SetVertexShader(CD3DX12_SHADER_BYTECODE code);
     void SetPixelShader(CD3DX12_SHADER_BYTECODE code);
     void SetBlendState(const D3D12_BLEND_DESC& desc);
@@ -31,7 +31,7 @@ public:
     void SetDepthStencilState(const D3D12_DEPTH_STENCIL_DESC& desc);
     void SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE type);
     void SetSampleMask(unsigned mask);
-    void SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& RTVFormats, DXGI_FORMAT DSVFormat, unsigned MsaaCount = 1, unsigned MsaaQuality = 0);
+    void SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& rtv_formats, DXGI_FORMAT dsv_format, unsigned msaa_count = 1, unsigned msaa_quality = 0);
 
     void Finalize(ID3D12Device* device);
 

@@ -34,15 +34,15 @@ TEST(ImageParserTest, bmp) {
 
 int main(int argc, char* argv[]) {
     g_MemoryManager->Initialize();
-    g_FileIOManager->Initialize();
+    g_FileIoManager->Initialize();
     g_AssetManager->Initialize();
 
     ::testing::InitGoogleTest(&argc, argv);
-    int testResult = RUN_ALL_TESTS();
+    int test_result = RUN_ALL_TESTS();
 
     g_AssetManager->Finalize();
-    g_FileIOManager->Finalize();
+    g_FileIoManager->Finalize();
     g_MemoryManager->Finalize();
 
-    return testResult;
+    return test_result;
 }

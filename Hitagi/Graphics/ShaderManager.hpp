@@ -21,7 +21,7 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    void                          LoadShader(std::filesystem::path shaderPath, ShaderType type, std::string name = "");
+    void                          LoadShader(std::filesystem::path shader_path, ShaderType type, std::string name = "");
     std::shared_ptr<VertexShader> GetVertexShader(const std::string& name) noexcept {
         return m_VertexShaders.count(name) != 0 ? m_VertexShaders.at(name) : nullptr;
     }
