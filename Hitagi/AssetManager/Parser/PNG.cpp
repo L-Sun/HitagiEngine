@@ -37,26 +37,26 @@ Image PngParser::Parse(const Core::Buffer& buf) {
         png_sig_cmp(reinterpret_cast<png_const_bytep>(buf.GetData()), 0,
                     PNG_BYTES_TO_CHECK)) {
         logger->warn("[PNG] File format is not png!");
-        return Image();
+        return {};
     }
 
     png_structp png_tr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr,
                                                 nullptr, nullptr);
     if (!png_tr) {
         logger->error("[PNG] Can not create read struct.");
-        return Image();
+        return {};
     }
     png_infop info_ptr = png_create_info_struct(png_tr);
     if (!info_ptr) {
         logger->error("[PNG] Can not create info struct.");
         png_destroy_read_struct(&png_tr, nullptr, nullptr);
-        return Image();
+        return {};
     }
 
     if (setjmp(png_jmpbuf(png_tr))) {
         logger->error("[PNG] Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
-        return Image();
+        return {};
     }
 
     ImageSource imgSource;

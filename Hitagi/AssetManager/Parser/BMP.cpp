@@ -55,6 +55,6 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
 
         return img;
     }
-    return Image();
+    return {};
 }
 }  // namespace Hitagi::Asset

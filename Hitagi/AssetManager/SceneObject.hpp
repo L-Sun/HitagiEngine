@@ -87,7 +87,7 @@ protected:
 public:
     SceneObjectTexture() : BaseSceneObject(SceneObjectType::Texture) {}
     SceneObjectTexture(const std::filesystem::path& path)
-        : BaseSceneObject(SceneObjectType::Texture), m_TexCoordIndex(0), m_Name(path.filename().string()), m_TexturePath(path) {}
+        : BaseSceneObject(SceneObjectType::Texture),  m_Name(path.filename().string()), m_TexturePath(path) {}
     SceneObjectTexture(uint32_t coordIndex, Image image)
         : BaseSceneObject(SceneObjectType::Texture), m_TexCoordIndex(coordIndex), m_Image(std::move(image)) {}
     SceneObjectTexture(uint32_t coordIndex, Image&& image)
@@ -196,7 +196,7 @@ public:
     SceneObjectVertexArray(SceneObjectVertexArray&&)      = default;
     SceneObjectVertexArray& operator=(const SceneObjectVertexArray&) = default;
     SceneObjectVertexArray& operator=(SceneObjectVertexArray&&) = default;
-    ~SceneObjectVertexArray()                                   = default;
+    ~SceneObjectVertexArray()                                   override = default;
 
     const std::string&   GetAttributeName() const;
     VertexDataType       GetDataType() const;
@@ -227,7 +227,7 @@ public:
     SceneObjectIndexArray(SceneObjectIndexArray&&)      = default;
     SceneObjectIndexArray& operator=(const SceneObjectIndexArray&) = default;
     SceneObjectIndexArray& operator=(SceneObjectIndexArray&&) = default;
-    ~SceneObjectIndexArray()                                  = default;
+    ~SceneObjectIndexArray()                                  override = default;
 
     const IndexDataType  GetIndexType() const;
     const uint8_t*       GetData() const;

@@ -42,7 +42,7 @@ void DynamicDescriptorHeap::ParseRootSignature(const RootSignature& rootSignatur
     uint32_t descriptorTableBitMask = m_DescriptorTableBitMask;
 
     uint32_t currentOffset = 0;
-    DWORD    rootIndex;
+    DWORD    rootIndex = 0;
     while (_BitScanForward(&rootIndex, descriptorTableBitMask) && rootIndex < rootSignatureDesc.NumParameters) {
         uint32_t numDescriptors = rootSignature.GetNumDescriptorsInTable(rootIndex);
 
@@ -75,7 +75,7 @@ void DynamicDescriptorHeap::StageDescriptors(uint32_t rootParameterIndex, uint32
 
 uint32_t DynamicDescriptorHeap::StaleDescriptorCount() const {
     uint32_t numStaleDescriptors = 0;
-    DWORD    i;
+    DWORD    i = 0;
     DWORD    staleDescriptorsBitMask = m_StaleDescriptorTableBitMask;
     while (_BitScanForward(&i, staleDescriptorsBitMask)) {
         numStaleDescriptors += m_DescriptorTableCache[i].numDescriptors;
@@ -141,7 +141,7 @@ void DynamicDescriptorHeap::CommitStagedDescriptors(
         m_StaleDescriptorTableBitMask = m_DescriptorTableBitMask;
     }
 
-    DWORD rootIndex;
+    DWORD rootIndex = 0;
     while (_BitScanForward(&rootIndex, m_StaleDescriptorTableBitMask)) {
         UINT                         numSrcDesriptors     = m_DescriptorTableCache[rootIndex].numDescriptors;
         D3D12_CPU_DESCRIPTOR_HANDLE* srcDescriptorHandles = m_DescriptorTableCache[rootIndex].baseHandle;

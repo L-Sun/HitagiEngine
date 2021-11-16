@@ -13,7 +13,7 @@ namespace Hitagi::Graphics::backend::DX12 {
 class DX12DriverAPI : public DriverAPI {
 public:
     DX12DriverAPI();
-    ~DX12DriverAPI();
+    ~DX12DriverAPI() override ;
 
     void Present(size_t frameIndex) final;
 
@@ -32,7 +32,7 @@ public:
 
     void RetireResources(std::vector<std::shared_ptr<Graphics::Resource>> resources, uint64_t fenceValue) final;
 
-    virtual std::shared_ptr<Graphics::Sampler> CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) final;
+    std::shared_ptr<Graphics::Sampler> CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) final;
 
     std::unique_ptr<backend::Resource> CreateRootSignature(const Graphics::RootSignature& rootsignature) final;
     std::unique_ptr<backend::Resource> CreatePipelineState(const Graphics::PipelineState& pso) final;

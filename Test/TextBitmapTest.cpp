@@ -33,10 +33,10 @@ int main(int argc, char const* argv[]) {
     {
         auto fontBuffer = g_FileIOManager->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
 
-        FT_Library library;  // handle to library
-        FT_Face    face;     // handle to face object
+        FT_Library library = nullptr;  // handle to library
+        FT_Face    face = nullptr;     // handle to face object
 
-        FT_Error error;
+        FT_Error error = 0;
         if (error = FT_Init_FreeType(&library); error != 0) {
             Finalize("Initialize FreeType failed!");
             return -1;

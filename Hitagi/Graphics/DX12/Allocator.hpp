@@ -27,7 +27,7 @@ public:
     AllocationPage(AllocationPage&&);
     AllocationPage& operator=(AllocationPage&&);
 
-    ~AllocationPage() {
+    ~AllocationPage() override {
         if (m_CpuPtr) m_Resource->Unmap(0, nullptr);
     }
     // when a allocation from this page is destructing, that will call this function.

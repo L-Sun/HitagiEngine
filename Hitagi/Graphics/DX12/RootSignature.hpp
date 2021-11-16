@@ -37,7 +37,7 @@ public:
     using ParameterTable = std::unordered_map<std::string, std::pair<size_t, size_t>>;
 
     RootSignature(std::string_view name, uint32_t numRootParams = 0, uint32_t numStaticSamplers = 0);
-    ~RootSignature()                    = default;
+    ~RootSignature()                    override = default;
     RootSignature(const RootSignature&) = delete;
     RootSignature& operator=(const RootSignature&) = delete;
     RootSignature(RootSignature&&)                 = default;

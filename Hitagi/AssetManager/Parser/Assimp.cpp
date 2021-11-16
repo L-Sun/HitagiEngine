@@ -117,10 +117,10 @@ Scene AssimpParser::Parse(const Core::Buffer& buf, const std::filesystem::path& 
         if (aiColor3D transparentColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_TRANSPARENT, transparentColor))
             material->SetColor("transparency", vec4f(transparentColor.r, transparentColor.g, transparentColor.b, 1.0f));
         // set material shiness
-        if (float shininess; AI_SUCCESS == _material->Get(AI_MATKEY_SHININESS, shininess))
+        if (float shininess = 0; AI_SUCCESS == _material->Get(AI_MATKEY_SHININESS, shininess))
             material->SetParam("specular_power", shininess);
         // set material opacity
-        if (float opacity; AI_SUCCESS == _material->Get(AI_MATKEY_OPACITY, opacity))
+        if (float opacity = 0; AI_SUCCESS == _material->Get(AI_MATKEY_OPACITY, opacity))
             material->SetParam("opacity", opacity);
 
         // set diffuse texture

@@ -53,7 +53,6 @@ class RootSignature : public Resource {
                 return cmp;
             if (auto cmp = space <=> rhs.space; cmp != 0)
                 return cmp;
-
             return registerIndex <=> rhs.registerIndex;
         }
     };

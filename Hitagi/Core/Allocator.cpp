@@ -11,7 +11,7 @@ Allocator::Allocator()
 
     = default;
 
-Allocator::Allocator(size_t dataSize, size_t pageSize, size_t alignment) : m_PageList(nullptr), m_FreeList(nullptr) {
+Allocator::Allocator(size_t dataSize, size_t pageSize, size_t alignment)  {
     Reset(dataSize, pageSize, alignment);
 }
 

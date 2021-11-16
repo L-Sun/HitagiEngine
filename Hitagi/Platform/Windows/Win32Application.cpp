@@ -95,7 +95,7 @@ void Win32Application::UpdateInputEvent() {
     // we use PeekMessage instead of GetMessage here
     // because we should not block the thread at anywhere
     // except the engine execution driver module
-    if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+    if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
         // translate keystroke messages into the right format
         TranslateMessage(&msg);
 
@@ -108,7 +108,7 @@ void Win32Application::UpdateInputEvent() {
 }
 
 LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    Win32Application* pThis;
+    Win32Application* pThis = nullptr;
     if (message == WM_NCCREATE) {
         pThis = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(lParam)->lpCreateParams);
 
@@ -117,7 +117,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
             if (GetLastError() != 0) return false;
         }
     } else {
-        pThis = reinterpret_cast<Win32Application*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+        // pThis = reinterpret_cast<Win32Application*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
     }
     switch (message) {
         case WM_DESTROY:

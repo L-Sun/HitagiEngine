@@ -10,9 +10,9 @@
 namespace Hitagi {
 class GameLogic : public IRuntimeModule {
 public:
-    int  Initialize() = 0;
-    void Finalize()   = 0;
-    void Tick()       = 0;
+    int  Initialize() override = 0;
+    void Finalize()   override = 0;
+    void Tick()       override = 0;
 };
 extern std::unique_ptr<GameLogic> g_GameLogic;
 }  // namespace Hitagi

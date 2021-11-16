@@ -37,12 +37,12 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
 
     if (fileHeader->ColorMapType) {
         logger->warn("[TGA] Unsupported Color Map. Only Type 0 is supported.");
-        return Image();
+        return {};
     }
 
     if (fileHeader->ImageType != 2) {
         logger->warn("[TGA] Unsupported Image Type. Only Type 2 is supported.");
-        return Image();
+        return {};
     }
     // tga all values are little-endian
     auto    width      = (fileHeader->ImageSpec[5] << 8) + fileHeader->ImageSpec[4];

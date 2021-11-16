@@ -86,7 +86,7 @@ std::shared_ptr<LinearAllocator::LinearAllocationPage> LinearAllocator::PageMana
             throw std::bad_alloc();
         }
     }
-    ID3D12Resource* resource;
+    ID3D12Resource* resource = nullptr;
     ThrowIfFailed(device->CreateCommittedResource(&heapProp, D3D12_HEAP_FLAG_NONE, &desc, defaultUsage, nullptr, IID_PPV_ARGS(&resource)));
     resource->SetName(L"Linear Allocation Page");
     // resource ownership transfer to GpuResource
