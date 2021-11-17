@@ -29,6 +29,7 @@ public:
     std::shared_ptr<Graphics::Resource> GetSwapChainBuffer(size_t frame_index) final;
 
     void UpdateConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t offset, const uint8_t* data, size_t size) final;
+    void ResizeConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t new_num_elements) final;
 
     void RetireResources(std::vector<std::shared_ptr<Graphics::Resource>> resources, uint64_t fence_value) final;
 

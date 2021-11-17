@@ -8,6 +8,7 @@ namespace Hitagi::Debugger {
 struct DebugPrimitive {
     std::unique_ptr<Geometry>                      geometry;
     vec4f                                          color;
+    mat4f                                          transform;
     std::chrono::high_resolution_clock::time_point expires_at;
 };
 
@@ -24,7 +25,7 @@ public:
     const std::vector<DebugPrimitive>& GetDebugPrimitiveForRender() const noexcept { return m_DebugPrimitives; };
 
 protected:
-    void AddPrimitive(std::unique_ptr<Geometry> geometry, const vec4f& color, std::chrono::seconds duration, bool depth_enabled);
+    void AddPrimitive(std::unique_ptr<Geometry> geometry, const vec4f& color,const mat4f& transform, std::chrono::seconds duration, bool depth_enabled);
 
     std::vector<DebugPrimitive> m_DebugPrimitives;
 

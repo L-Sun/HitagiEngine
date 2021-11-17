@@ -165,6 +165,11 @@ std::shared_ptr<Graphics::ConstantBuffer> DX12DriverAPI::CreateConstantBuffer(st
         element_size);
 }
 
+void DX12DriverAPI::ResizeConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t new_num_elements) {
+    auto cb = buffer->GetBackend<ConstantBuffer>();
+    cb->Resize(m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV], new_num_elements);
+}
+
 std::shared_ptr<Graphics::TextureBuffer> DX12DriverAPI::CreateTextureBuffer(std::string_view name, const Graphics::TextureBuffer::Description& desc) {
     D3D12_RESOURCE_DESC d3d_desc = {};
     d3d_desc.Width               = desc.width;
@@ -208,16 +213,8 @@ std::shared_ptr<Graphics::DepthBuffer> DX12DriverAPI::CreateDepthBuffer(std::str
         desc);
 }
 
-void DX12DriverAPI::UpdateConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t offset, const uint8_t* data, size_t size) {
-    assert(data != nullptr);
-    if (size % buffer->GetElementSize() != 0) {
-        throw std::invalid_argument("the size of input data must be an integer multiple of element size!");
-    }
-    if (size > (buffer->GetNumElements() - offset) * buffer->GetElementSize()) {
-        throw std::out_of_range("the input data is out of range of constant buffer!");
-    }
-    auto cb = buffer->GetBackend<ConstantBuffer>();
-    cb->UpdateData(offset, data, size);
+void DX12DriverAPI::UpdateConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t index, const uint8_t* data, size_t size) {
+    buffer->GetBackend<ConstantBuffer>()->UpdateData(index, data, size);
 }
 
 void DX12DriverAPI::RetireResources(std::vector<std::shared_ptr<Graphics::Resource>> resources, uint64_t fence_value) {

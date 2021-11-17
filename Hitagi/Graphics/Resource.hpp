@@ -70,10 +70,10 @@ public:
         uint64_t       width;
         uint64_t       height;
         uint64_t       pitch;
-        unsigned       mip_level        = 1;
-        unsigned       sample_count     = 1;
-        unsigned       sample_quality   = 0;
-        const uint8_t* initial_data     = nullptr;
+        unsigned       mip_level         = 1;
+        unsigned       sample_count      = 1;
+        unsigned       sample_quality    = 0;
+        const uint8_t* initial_data      = nullptr;
         size_t         initial_data_size = 0;
     } const desc;
 

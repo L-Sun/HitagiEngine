@@ -45,8 +45,9 @@ class ConstantBuffer : public GpuResource {
 public:
     ConstantBuffer(std::string_view name, ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t num_elements, size_t element_size);
     ~ConstantBuffer() override;
-    void              UpdateData(size_t offset, const uint8_t* data, size_t data_size);
-    const Descriptor& GetCBV(size_t offset) const { return m_CBV.at(offset); }
+    void                     UpdateData(size_t index, const uint8_t* data, size_t data_size);
+    void                     Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t new_num_elements);
+    inline const Descriptor& GetCBV(size_t index) const { return m_CBV.at(index); }
 
 private:
     uint8_t*                m_CpuPtr = nullptr;

@@ -25,14 +25,47 @@ ConstantBuffer::ConstantBuffer(std::string_view name, ID3D12Device* device, Desc
       m_BlockSize(align(element_size, 256)),
       m_BufferSize(align(element_size, 256) * num_elements) {
     m_UsageState = D3D12_RESOURCE_STATE_GENERIC_READ;
-
-    auto desc       = CD3DX12_RESOURCE_DESC::Buffer(m_BufferSize);
-    auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-    ThrowIfFailed(device->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&m_Resource)));
-
+    Resize(device, descritptor_allocator, num_elements);
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
+}
 
-    m_Resource->Map(0, nullptr, reinterpret_cast<void**>(&m_CpuPtr));
+void ConstantBuffer::UpdateData(size_t index, const uint8_t* data, size_t data_size) {
+    assert(data != nullptr);
+    if (data_size > m_ElementSize) {
+        throw std::invalid_argument(fmt::format("the size of input data must be smaller than block size {}", m_ElementSize));
+    }
+    if (index >= m_NumElements) {
+        throw std::out_of_range("the input data is out of range of constant buffer!");
+    }
+    std::copy_n(data, data_size, m_CpuPtr + index * m_BlockSize);
+}
+
+void ConstantBuffer::Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t num_elements) {
+    size_t                 new_buffer_size = num_elements * m_BlockSize;
+    ComPtr<ID3D12Resource> resource;
+
+    auto desc       = CD3DX12_RESOURCE_DESC::Buffer(new_buffer_size);
+    auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    ThrowIfFailed(device->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&resource)));
+
+    uint8_t* new_cpu_ptr = nullptr;
+    resource->Map(0, nullptr, reinterpret_cast<void**>(&new_cpu_ptr));
+
+    if (m_Resource) {
+        wchar_t name[128] = {};
+        UINT    size      = sizeof(name);
+        m_Resource->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
+        resource->SetName(std::wstring(name, size).data());
+
+        if (m_CpuPtr) std::copy_n(m_CpuPtr, m_BufferSize, new_cpu_ptr);
+
+        m_Resource->Unmap(0, nullptr);
+    }
+
+    m_CpuPtr      = new_cpu_ptr;
+    m_Resource    = resource;
+    m_BufferSize  = new_buffer_size;
+    m_NumElements = num_elements;
 
     // Create CBV
     assert(descritptor_allocator.GetType() == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -44,10 +77,6 @@ ConstantBuffer::ConstantBuffer(std::string_view name, ID3D12Device* device, Desc
         device->CreateConstantBufferView(&cbv_desc, cbv.handle);
         cbv_desc.BufferLocation += m_BlockSize;
     }
-}
-
-void ConstantBuffer::UpdateData(size_t offset, const uint8_t* data, size_t data_size) {
-    std::copy_n(data, data_size, m_CpuPtr + offset * m_BlockSize);
 }
 
 ConstantBuffer::~ConstantBuffer() {

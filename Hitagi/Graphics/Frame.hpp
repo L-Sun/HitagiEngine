@@ -12,9 +12,7 @@ class DriverAPI;
 class IGraphicsCommandContext;
 
 class Frame {
-    // TODO multiple light
     struct FrameConstant {
-        // Camera
         mat4f proj_view;
         mat4f view;
         mat4f projection;
@@ -26,12 +24,8 @@ class Frame {
         vec4f light_pos_in_view;
         vec4f light_intensity;
     };
-
-    struct ConstantData {
+    struct ObjectConstant {
         mat4f transform;
-    };
-
-    struct MaterialData {
         vec4f ambient;
         vec4f diffuse;
         vec4f emission;
@@ -39,9 +33,9 @@ class Frame {
         float specular_power;
     };
 
-    struct MeshInfo {
+    struct DrawItem {
         const PipelineState&           pipeline;
-        size_t                         material_offset;
+        size_t                         constant_offset;
         std::shared_ptr<MeshBuffer>    buffer;
         std::shared_ptr<TextureBuffer> ambient;
         std::shared_ptr<TextureBuffer> diffuse;
@@ -50,14 +44,10 @@ class Frame {
         std::shared_ptr<TextureBuffer> specular_power;
     };
 
-    struct DrawItem {
-        std::vector<MeshInfo> meshes;
-        size_t                constant_offset{};
-    };
-
     struct DebugDrawItem {
         const PipelineState&        pipeline;
         std::shared_ptr<MeshBuffer> mesh;
+        size_t                      constant_offset;
     };
 
 public:
@@ -83,15 +73,14 @@ private:
     uint64_t         m_FenceValue = 0;
 
     FrameConstant                 m_FrameConstant{};
-    std::vector<DrawItem>         m_Geometries;
+    std::vector<DrawItem>         m_DrawItems;
     std::vector<DebugDrawItem>    m_DebugItems;
     std::shared_ptr<RenderTarget> m_Output;
 
     // the constant data used among the frame, including camera, light, etc.
-    std::shared_ptr<ConstantBuffer> m_FrameConstantBuffer;
+    // TODO object constant buffer layout depending on different object
     std::shared_ptr<ConstantBuffer> m_ConstantBuffer;
-    std::shared_ptr<ConstantBuffer> m_MaterialBuffer;
-    size_t                          m_ConstantCount = 0;
-    size_t                          m_MaterialCount = 0;
+    // the first element in constant buffer is frame constant, including camera light
+    size_t m_ConstantCount = 1;
 };
 }  // namespace Hitagi::Graphics

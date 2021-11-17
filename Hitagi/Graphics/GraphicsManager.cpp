@@ -44,7 +44,6 @@ int GraphicsManager::Initialize() {
     (*root_sig)
         .Add("FrameConstant", ShaderVariableType::CBV, 0, 0)
         .Add("ObjectConstants", ShaderVariableType::CBV, 1, 0)
-        .Add("MaterialConstants", ShaderVariableType::CBV, 2, 0)
         // textures
         .Add("AmbientTexture", ShaderVariableType::SRV, 0, 0)
         .Add("DiffuseTexture", ShaderVariableType::SRV, 1, 0)
@@ -72,13 +71,13 @@ int GraphicsManager::Initialize() {
     auto debug_root_sig = std::make_shared<RootSignature>("Debug sig");
     (*debug_root_sig)
         .Add("FrameConstant", ShaderVariableType::CBV, 0, 0)
+        .Add("ObjectConstants", ShaderVariableType::CBV, 1, 0)
         .Create(*m_Driver);
 
     m_DebugPSO = std::make_unique<PipelineState>("Debug");
     (*m_DebugPSO)
         .SetInputLayout({
             {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0},
-            {"COLOR", 0, Format::R32G32B32A32_FLOAT, 1, 0},
         })
         .SetVertexShader(m_ShaderManager.GetVertexShader("debug.vs"))
         .SetPixelShader(m_ShaderManager.GetPixelShader("debug.ps"))

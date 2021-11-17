@@ -2,40 +2,50 @@
 
 using namespace Hitagi;
 
-std::pair<Geometry::Vertices, Geometry::Indices> Point::GenerateMesh() {
-    return {{point}, {0}};
+Mesh Point::GenerateMesh() {
+    return {
+        .vertices       = {point},
+        .indices        = {0},
+        .primitive_type = PrimitiveType::PointList,
+    };
 }
 
-std::pair<Geometry::Vertices, Geometry::Indices> Line::GenerateMesh() {
-    return {{from, to}, {0, 1, 0, 1, 1, 0}};
+Mesh Line::GenerateMesh() {
+    return {
+        .vertices       = {from, to},
+        .indices        = {0, 1},
+        .primitive_type = PrimitiveType::LineList,
+    };
 }
 
-std::pair<Geometry::Vertices, Geometry::Indices> Plane::GenerateMesh() {
+Mesh Plane::GenerateMesh() {
+    return {};
+}
+
+Mesh Triangle::GenerateMesh() {
+    return {
+        .vertices       = std::vector<vec3f>(points.begin(), points.end()),
+        .indices        = {0, 1, 2},
+        .primitive_type = PrimitiveType::TriangleList,
+    };
+}
+
+Mesh Squrae::GenerateMesh() {
     std::cerr << "Unimpletement function was invoked!" << std::endl;
-    return {{}, {}};
+    return {};
 }
 
-std::pair<Geometry::Vertices, Geometry::Indices> Triangle::GenerateMesh() {
+Mesh Box::GenerateMesh() {
     std::cerr << "Unimpletement function was invoked!" << std::endl;
-    return {{}, {}};
+    return {};
 }
 
-std::pair<Geometry::Vertices, Geometry::Indices> Squrae::GenerateMesh() {
+Mesh Circle::GenerateMesh() {
     std::cerr << "Unimpletement function was invoked!" << std::endl;
-    return {{}, {}};
+    return {};
 }
 
-std::pair<Geometry::Vertices, Geometry::Indices> Box::GenerateMesh() {
+Mesh Sphere::GenerateMesh() {
     std::cerr << "Unimpletement function was invoked!" << std::endl;
-    return {{}, {}};
-}
-
-std::pair<Geometry::Vertices, Geometry::Indices> Circle::GenerateMesh() {
-    std::cerr << "Unimpletement function was invoked!" << std::endl;
-    return {{}, {}};
-}
-
-std::pair<Geometry::Vertices, Geometry::Indices> Sphere::GenerateMesh() {
-    std::cerr << "Unimpletement function was invoked!" << std::endl;
-    return {{}, {}};
+    return {};
 }
