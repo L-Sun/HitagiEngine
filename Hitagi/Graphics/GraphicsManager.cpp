@@ -126,7 +126,6 @@ void GraphicsManager::Tick() {
 void GraphicsManager::Render(const Asset::Scene& scene) {
     auto& config    = g_App->GetConfiguration();
     auto  driver    = m_Driver.get();
-    auto  res_mgr   = m_ResMgr.get();
     auto& pso       = *m_PSO;
     auto& debug_pso = *m_DebugPSO;
     auto  frame     = GetBcakFrameForRendering();

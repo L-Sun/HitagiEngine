@@ -89,10 +89,13 @@ void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& prim
         item.mesh->primitive = PrimitiveType::LineList;
         item.constant_offset = m_ConstantCount;
 
-        ObjectConstant data;
+        struct {
+            mat4f transform;
+            vec4f color;
+        } data;
         data.transform = primitive.transform;
-        data.diffuse   = primitive.color;
-        m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount++, reinterpret_cast<const uint8_t*>(&data), sizeof(ObjectConstant));
+        data.color     = primitive.color;
+        m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount++, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
 
         m_DebugItems.emplace_back(std::move(item));
     }

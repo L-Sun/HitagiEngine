@@ -111,7 +111,7 @@ struct ParameterValueMap {
 
     ParameterValueMap() = default;
     ParameterValueMap(const T value) : value(value) {}
-    ParameterValueMap(const std::shared_ptr<SceneObjectTexture>& value) : ValueMap(value) {}
+    ParameterValueMap(const std::shared_ptr<SceneObjectTexture>& value) : value_map(value) {}
     ParameterValueMap(const ParameterValueMap& rhs) = default;
     ParameterValueMap(ParameterValueMap&& rhs)      = default;
     ParameterValueMap& operator=(const ParameterValueMap& rhs) = default;
@@ -166,8 +166,7 @@ public:
           m_Opacity(1.0f),
           m_Transparency(vec4f(0.0f)),
           m_Emission(vec4f(0.0f)){};
-    SceneObjectMaterial(const std::string& name) : m_Name(name){};
-    SceneObjectMaterial(std::string&& name) : m_Name(std::move(name)){};
+    SceneObjectMaterial(std::string name) : m_Name(std::move(name)){};
 
     const std::string&   GetName() const;
     const Color&         GetAmbientColor() const;

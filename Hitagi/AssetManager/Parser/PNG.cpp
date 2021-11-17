@@ -70,10 +70,10 @@ Image PngParser::Parse(const Core::Buffer& buf) {
         PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_PACKING,
         nullptr);
 
-    auto  width    = png_get_image_width(png_tr, info_ptr);
-    auto  height   = png_get_image_height(png_tr, info_ptr);
-    auto  bitcount = 32;
-    auto  pitch    = ((width * bitcount >> 3) + 3) & ~3;
+    auto  width     = png_get_image_width(png_tr, info_ptr);
+    auto  height    = png_get_image_height(png_tr, info_ptr);
+    auto  bitcount  = 32;
+    auto  pitch     = ((width * bitcount >> 3) + 3) & ~3;
     auto  data_size = pitch * height;
     Image img(width, height, bitcount, pitch, data_size);
 
@@ -119,8 +119,8 @@ Image PngParser::Parse(const Core::Buffer& buf) {
         } break;
         case PNG_COLOR_TYPE_RGBA: {
             for (int i = height - 1; i >= 0; i--) {
-                auto p = reinterpret_cast<R8G8B8A8Unorm*>(rows[i]);
-                std::copy(p, p + width, p);
+                auto q = reinterpret_cast<R8G8B8A8Unorm*>(rows[i]);
+                std::copy(q, q + width, p);
                 // to next line
                 p += width;
             }

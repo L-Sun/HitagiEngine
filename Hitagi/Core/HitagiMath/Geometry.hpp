@@ -14,6 +14,7 @@ struct Mesh {
 
 class Geometry {
 public:
+    virtual ~Geometry()         = default;
     virtual Mesh GenerateMesh() = 0;
 };
 

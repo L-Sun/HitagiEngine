@@ -3,6 +3,8 @@ project(HitagiEngine)
 
 set(CMAKE_CXX_STANDARD 20)
 
+set(CMAKE_CXX_CLANG_TIDY clang-tidy)
+
 option(USE_ISPC "Use ispc to generate HitagiMath" ON)
 
 find_package(crossguid CONFIG REQUIRED)

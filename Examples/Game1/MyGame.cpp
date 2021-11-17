@@ -35,14 +35,13 @@ void MyGame::Finalize() {
 
 void MyGame::Tick() {
     m_Clock.Tick();
-    float delta_time = m_Clock.DeltaTime().count();
 
     if (g_InputManager->GetBoolNew(DEBUG_TOGGLE)) {
         g_DebugManager->ToggleDebugInfo();
     }
 
     if (auto light = g_SceneManager->GetSceneLightNode("Light.001").lock()) {
-        vec3f translation;
+        vec3f translation(0);
         if (g_InputManager->GetBool(MOVE_LEFT)) translation.x -= 0.1f;
         if (g_InputManager->GetBool(MOVE_RIGHT)) translation.x += 0.1f;
         if (g_InputManager->GetBool(MOVE_FRONT)) translation.y -= 0.1f;

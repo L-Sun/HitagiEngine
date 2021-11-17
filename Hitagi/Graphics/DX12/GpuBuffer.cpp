@@ -52,10 +52,10 @@ void ConstantBuffer::Resize(ID3D12Device* device, DescriptorAllocator& descritpt
     resource->Map(0, nullptr, reinterpret_cast<void**>(&new_cpu_ptr));
 
     if (m_Resource) {
-        wchar_t name[128] = {};
-        UINT    size      = sizeof(name);
-        m_Resource->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name);
-        resource->SetName(std::wstring(name, size).data());
+        std::array<wchar_t, 128> name{};
+        UINT                     size = sizeof(name);
+        m_Resource->GetPrivateData(WKPDID_D3DDebugObjectNameW, &size, name.data());
+        resource->SetName(std::wstring(name.begin(), name.end()).data());
 
         if (m_CpuPtr) std::copy_n(m_CpuPtr, m_BufferSize, new_cpu_ptr);
 
