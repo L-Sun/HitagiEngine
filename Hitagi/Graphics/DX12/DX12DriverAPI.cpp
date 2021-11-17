@@ -168,6 +168,7 @@ std::shared_ptr<Graphics::ConstantBuffer> DX12DriverAPI::CreateConstantBuffer(st
 void DX12DriverAPI::ResizeConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t new_num_elements) {
     auto cb = buffer->GetBackend<ConstantBuffer>();
     cb->Resize(m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV], new_num_elements);
+    buffer->UpdateNumElements(new_num_elements);
 }
 
 std::shared_ptr<Graphics::TextureBuffer> DX12DriverAPI::CreateTextureBuffer(std::string_view name, const Graphics::TextureBuffer::Description& desc) {

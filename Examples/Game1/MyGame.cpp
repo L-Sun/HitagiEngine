@@ -52,7 +52,7 @@ void MyGame::Tick() {
         light->ApplyTransform(translate(mat4f(1.0f), translation));
     }
 
-    g_DebugManager->DrawLine(Line{vec3f(0, 0, 0), vec3f(0, 0, 10)}, vec4f(1, 0, 0, 1));
+    g_DebugManager->DrawAxis(mat4f(1.0f));
 
     if (g_InputManager->GetBoolNew(RESET_SCENE)) {
         g_SceneManager->SetScene("Asset/Scene/untitled.fbx");

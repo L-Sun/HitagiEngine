@@ -19,6 +19,8 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
             constant_count += geometry->GetMeshes().size();
         }
     }
+
+    // TODO auto resize constant buffer
     // if new size is smaller, the expand function return directly.
     if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < constant_count)
         // becase capacity + needed > exsisted + needed
@@ -67,6 +69,12 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
 }
 
 void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives, const PipelineState& pso) {
+    // TODO auto resize constant buffer
+    // if new size is smaller, the expand function return directly.
+    if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < primitives.size())
+        // becase capacity + needed > exsisted + needed
+        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + primitives.size());
+
     for (auto&& primitive : primitives) {
         DebugDrawItem item{
             .pipeline = pso,

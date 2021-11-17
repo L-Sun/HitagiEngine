@@ -1743,7 +1743,7 @@ struct CD3DX12_VIEW_INSTANCING_DESC : public D3D12_VIEW_INSTANCING_DESC {
 //------------------------------------------------------------------------------------------------
 // Row-by-row memcpy
 inline void MemcpySubresource(
-    _In_ const D3D12_MEMCPY_DEST*      pDest,
+    _In_ const D3D12_MEMCPY_DEST* pDest,
     _In_ const D3D12_SUBRESOURCE_DATA* pSrc,
     SIZE_T                             RowSizeInBytes,
     UINT                               NumRows,
@@ -1762,8 +1762,8 @@ inline void MemcpySubresource(
 //------------------------------------------------------------------------------------------------
 // Row-by-row memcpy
 inline void MemcpySubresource(
-    _In_ const D3D12_MEMCPY_DEST*      pDest,
-    _In_ const void*                   pResourceData,
+    _In_ const D3D12_MEMCPY_DEST* pDest,
+    _In_ const void*              pResourceData,
     _In_ const D3D12_SUBRESOURCE_INFO* pSrc,
     SIZE_T                             RowSizeInBytes,
     UINT                               NumRows,
@@ -1799,8 +1799,8 @@ inline UINT64 GetRequiredIntermediateSize(
 //------------------------------------------------------------------------------------------------
 // All arrays must be populated (e.g. by calling GetCopyableFootprints)
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList*                                       pCmdList,
-    _In_ ID3D12Resource*                                                  pDestinationResource,
+    _In_ ID3D12GraphicsCommandList* pCmdList,
+    _In_ ID3D12Resource* pDestinationResource,
     _In_ ID3D12Resource*                                                  pIntermediate,
     _In_range_(0, D3D12_REQ_SUBRESOURCES) UINT                            FirstSubresource,
     _In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT         NumSubresources,
@@ -1849,8 +1849,8 @@ inline UINT64 UpdateSubresources(
 //------------------------------------------------------------------------------------------------
 // All arrays must be populated (e.g. by calling GetCopyableFootprints)
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList*                                       pCmdList,
-    _In_ ID3D12Resource*                                                  pDestinationResource,
+    _In_ ID3D12GraphicsCommandList* pCmdList,
+    _In_ ID3D12Resource* pDestinationResource,
     _In_ ID3D12Resource*                                                  pIntermediate,
     _In_range_(0, D3D12_REQ_SUBRESOURCES) UINT                            FirstSubresource,
     _In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT         NumSubresources,
@@ -1900,8 +1900,8 @@ inline UINT64 UpdateSubresources(
 //------------------------------------------------------------------------------------------------
 // Heap-allocating UpdateSubresources implementation
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList*                               pCmdList,
-    _In_ ID3D12Resource*                                          pDestinationResource,
+    _In_ ID3D12GraphicsCommandList* pCmdList,
+    _In_ ID3D12Resource* pDestinationResource,
     _In_ ID3D12Resource*                                          pIntermediate,
     UINT64                                                        IntermediateOffset,
     _In_range_(0, D3D12_REQ_SUBRESOURCES) UINT                    FirstSubresource,
@@ -1934,8 +1934,8 @@ inline UINT64 UpdateSubresources(
 //------------------------------------------------------------------------------------------------
 // Heap-allocating UpdateSubresources implementation
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList*                               pCmdList,
-    _In_ ID3D12Resource*                                          pDestinationResource,
+    _In_ ID3D12GraphicsCommandList* pCmdList,
+    _In_ ID3D12Resource* pDestinationResource,
     _In_ ID3D12Resource*                                          pIntermediate,
     UINT64                                                        IntermediateOffset,
     _In_range_(0, D3D12_REQ_SUBRESOURCES) UINT                    FirstSubresource,
@@ -1970,8 +1970,8 @@ inline UINT64 UpdateSubresources(
 // Stack-allocating UpdateSubresources implementation
 template <UINT MaxSubresources>
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList*                           pCmdList,
-    _In_ ID3D12Resource*                                      pDestinationResource,
+    _In_ ID3D12GraphicsCommandList* pCmdList,
+    _In_ ID3D12Resource* pDestinationResource,
     _In_ ID3D12Resource*                                      pIntermediate,
     UINT64                                                    IntermediateOffset,
     _In_range_(0, MaxSubresources) UINT                       FirstSubresource,
@@ -1995,8 +1995,8 @@ inline UINT64 UpdateSubresources(
 // Stack-allocating UpdateSubresources implementation
 template <UINT MaxSubresources>
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList*                        pCmdList,
-    _In_ ID3D12Resource*                                   pDestinationResource,
+    _In_ ID3D12GraphicsCommandList* pCmdList,
+    _In_ ID3D12Resource* pDestinationResource,
     _In_ ID3D12Resource*                                   pIntermediate,
     UINT64                                                 IntermediateOffset,
     _In_range_(0, MaxSubresources) UINT                    FirstSubresource,
@@ -2036,8 +2036,8 @@ inline ID3D12CommandList* const* CommandListCast(t_CommandListType* const* pp) n
 // two code paths for building root signatures, this helper method reconstructs a 1.0 signature when
 // 1.1 is not supported.
 inline HRESULT D3DX12SerializeVersionedRootSignature(
-    _In_ const D3D12_VERSIONED_ROOT_SIGNATURE_DESC*    pRootSignatureDesc,
-    D3D_ROOT_SIGNATURE_VERSION                         MaxVersion,
+    _In_ const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignatureDesc,
+    D3D_ROOT_SIGNATURE_VERSION                      MaxVersion,
     _Outptr_ ID3DBlob**                                ppBlob,
     _Always_(_Outptr_opt_result_maybenull_) ID3DBlob** ppErrorBlob) noexcept {
     if (ppErrorBlob != nullptr) {
@@ -2178,7 +2178,7 @@ public:
         _Inner = i;
         return *this;
     }
-                           operator InnerStructType const&() const noexcept { return _Inner; }
+                           operator InnerStructType const &() const noexcept { return _Inner; }
                            operator InnerStructType&() noexcept { return _Inner; }
     InnerStructType*       operator&() noexcept { return &_Inner; }
     InnerStructType const* operator&() const noexcept { return &_Inner; }

@@ -51,12 +51,16 @@ struct MeshBuffer {
     PrimitiveType                                                  primitive;
 };
 class ConstantBuffer : public Resource {
-public:
-    ConstantBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpu_resource, size_t num_element, size_t element_size)
-        : Resource(name, std::move(gpu_resource)), m_NumElements(num_element), m_ElementSize(element_size) {}
+    friend class DriverAPI;
 
-    size_t GetNumElements() const { return m_NumElements; }
-    size_t GetElementSize() const { return m_ElementSize; }
+public:
+    ConstantBuffer(std::string_view name, std::unique_ptr<backend::Resource> gpu_resource, size_t num_elements, size_t element_size)
+        : Resource(name, std::move(gpu_resource)), m_NumElements(num_elements), m_ElementSize(element_size) {}
+
+    size_t GetNumElements() const noexcept { return m_NumElements; }
+    size_t GetElementSize() const noexcept { return m_ElementSize; }
+
+    void UpdateNumElements(size_t num_elements) noexcept { m_NumElements = num_elements; }
 
 private:
     size_t m_NumElements = 0;

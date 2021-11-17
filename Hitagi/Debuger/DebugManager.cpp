@@ -38,6 +38,16 @@ void DebugManager::ToggleDebugInfo() {
 void DebugManager::DrawLine(const Line& line, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
     AddPrimitive(std::make_unique<Line>(line), color, mat4f(1.0f), duration, depth_enabled);
 }
+void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
+    const vec3f origin{0.0f, 0.0f, 0.0f};
+    const vec3f x{10.0f, 0.0f, 0.0f};
+    const vec3f y{0.0f, 10.0f, 0.0f};
+    const vec3f z{0.0f, 0.0f, 10.0f};
+
+    AddPrimitive(std::make_unique<Line>(origin, x), vec4f(1, 0, 0, 1), transform, std::chrono::seconds(0), depth_enabled);
+    AddPrimitive(std::make_unique<Line>(origin, y), vec4f(0, 1, 0, 1), transform, std::chrono::seconds(0), depth_enabled);
+    AddPrimitive(std::make_unique<Line>(origin, z), vec4f(0, 0, 1, 1), transform, std::chrono::seconds(0), depth_enabled);
+}
 
 void DebugManager::AddPrimitive(std::unique_ptr<Geometry> geometry, const vec4f& color, const mat4f& transform, std::chrono::seconds duration, bool depth_enabled) {
     m_DebugPrimitives.emplace_back(DebugPrimitive{std::move(geometry), color, transform, std::chrono::high_resolution_clock::now() + duration});
