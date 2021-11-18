@@ -53,6 +53,10 @@ void MyGame::Tick() {
     }
 
     g_DebugManager->DrawAxis(mat4f(1.0f));
+    g_DebugManager->DrawBox(
+        Box{vec3f(-1.0f, -1.0f, -1.0f), vec3f(1.0f, 1.0f, 1.0f)},
+        translate(mat4f(1.0f), vec3f(3.0f, 0.0f, 0.0f)),
+        vec4f(0.8f, 0.2f, 0.4f, 1.0f));
 
     if (g_InputManager->GetBoolNew(RESET_SCENE)) {
         g_SceneManager->SetScene("Asset/Scene/untitled.fbx");

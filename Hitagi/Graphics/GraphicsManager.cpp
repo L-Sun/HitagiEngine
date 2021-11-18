@@ -84,6 +84,7 @@ int GraphicsManager::Initialize() {
         .SetPrimitiveType(PrimitiveType::LineList)
         .SetRootSignautre(debug_root_sig)
         .SetRenderFormat(Format::R8G8B8A8_UNORM)
+        .SetDepthBufferFormat(Format::D32_FLOAT)
         .Create(*m_Driver);
 
     return 0;
