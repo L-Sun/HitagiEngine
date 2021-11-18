@@ -33,6 +33,7 @@ void InputManager::Tick() {
         state.previous = state.current;
 
     m_MouseState.last_pos = m_MouseState.curr_pos;
+    m_MouseState.scroll   = 0;
 
     g_App->UpdateInputEvent();
 }
@@ -53,10 +54,8 @@ bool InputManager::GetBool(UserDefAction user_action) const {
                         return (m_MouseState.curr_pos[0] - m_MouseState.last_pos[0]) != 0;
                     case MouseEvent::MOVE_Y:
                         return (m_MouseState.curr_pos[1] - m_MouseState.last_pos[1]) != 0;
-                    case MouseEvent::SCROLL_X:
-                        return (m_MouseState.curr_scroll[0] - m_MouseState.last_scroll[0]) != 0;
-                    case MouseEvent::SCROLL_Y:
-                        return (m_MouseState.curr_scroll[1] - m_MouseState.last_scroll[1]) != 0;
+                    case MouseEvent::SCROLL:
+                        return m_MouseState.scroll != 0;
                 }
             },
         },
@@ -75,10 +74,8 @@ bool InputManager::GetBoolNew(UserDefAction user_action) const {
                         return (m_MouseState.curr_pos[0] - m_MouseState.last_pos[0]) != 0;
                     case MouseEvent::MOVE_Y:
                         return (m_MouseState.curr_pos[1] - m_MouseState.last_pos[1]) != 0;
-                    case MouseEvent::SCROLL_X:
-                        return (m_MouseState.curr_scroll[0] - m_MouseState.last_scroll[0]) != 0;
-                    case MouseEvent::SCROLL_Y:
-                        return (m_MouseState.curr_scroll[1] - m_MouseState.last_scroll[1]) != 0;
+                    case MouseEvent::SCROLL:
+                        return m_MouseState.scroll != 0;
                 }
             },
         },
@@ -97,10 +94,8 @@ float InputManager::GetFloat(UserDefAction user_action) const {
                         return m_MouseState.curr_pos[0];
                     case MouseEvent::MOVE_Y:
                         return m_MouseState.curr_pos[1];
-                    case MouseEvent::SCROLL_X:
-                        return m_MouseState.curr_scroll[0];
-                    case MouseEvent::SCROLL_Y:
-                        return m_MouseState.curr_scroll[1];
+                    case MouseEvent::SCROLL:
+                        return m_MouseState.scroll;
                 }
             },
         },
@@ -122,10 +117,8 @@ float InputManager::GetFloatDelta(UserDefAction user_action) const {
                         return m_MouseState.curr_pos[0] - m_MouseState.last_pos[0];
                     case MouseEvent::MOVE_Y:
                         return m_MouseState.curr_pos[1] - m_MouseState.last_pos[1];
-                    case MouseEvent::SCROLL_X:
-                        return m_MouseState.curr_scroll[0] - m_MouseState.last_scroll[0];
-                    case MouseEvent::SCROLL_Y:
-                        return m_MouseState.curr_scroll[1] - m_MouseState.last_scroll[1];
+                    case MouseEvent::SCROLL:
+                        return m_MouseState.scroll;
                 }
             },
         },

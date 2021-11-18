@@ -20,11 +20,12 @@ public:
     std::unordered_map<std::string, std::shared_ptr<SceneObjectGeometry>> geometries;
 
 public:
-    Scene() {
-        m_DefaultMaterial = std::make_shared<SceneObjectMaterial>("default");
-        scene_graph        = std::make_shared<BaseSceneNode>("default");
-    }
-    Scene(std::string_view scene_name) : scene_graph(std::make_shared<BaseSceneNode>(scene_name)) {}
+    Scene()
+        : m_DefaultMaterial(std::make_shared<SceneObjectMaterial>("default")),
+          scene_graph(std::make_shared<BaseSceneNode>("default")) {}
+    Scene(std::string_view scene_name)
+        : m_DefaultMaterial(std::make_shared<SceneObjectMaterial>("default")),
+          scene_graph(std::make_shared<BaseSceneNode>(scene_name)) {}
     ~Scene() = default;
 
     std::vector<std::reference_wrapper<SceneGeometryNode>> GetGeometries() const;

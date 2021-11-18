@@ -87,6 +87,8 @@ int GraphicsManager::Initialize() {
         .SetDepthBufferFormat(Format::D32_FLOAT)
         .Create(*m_Driver);
 
+    m_DebugDepthDisabledPSO = std::make_unique<PipelineState>("Debug Depth Disabled");
+
     return 0;
 }
 
@@ -139,7 +141,9 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     context->SetViewPort(0, (config.screen_height - height) >> 1, width, height);
 
     frame->AddGeometries(scene.GetGeometries(), pso);
-    frame->AddDebugPrimitives(g_DebugManager->GetDebugPrimitiveForRender(), debug_pso);
+    if (auto debug_primitives = g_DebugManager->GetDebugPrimitiveForRender(); debug_primitives.has_value()) {
+        frame->AddDebugPrimitives(debug_primitives.value(), debug_pso);
+    }
     frame->SetCamera(*camera);
     frame->SetLight(*scene.GetFirstLightNode());
 

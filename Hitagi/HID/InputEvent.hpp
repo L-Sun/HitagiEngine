@@ -8,15 +8,13 @@ struct KeyState {
 struct MouseState {
     std::array<float, 2> last_pos;
     std::array<float, 2> curr_pos;
-    std::array<float, 2> last_scroll;
-    std::array<float, 2> curr_scroll;
+    float                scroll;
 };
 
 enum class MouseEvent {
     MOVE_X,
     MOVE_Y,
-    SCROLL_X,
-    SCROLL_Y,
+    SCROLL,
 };
 
 enum class VirtualKeyCode {

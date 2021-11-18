@@ -78,30 +78,26 @@ public:
 
 class SceneObjectTexture : public BaseSceneObject {
 protected:
-    uint32_t              m_TexCoordIndex = 0;
-    std::string           m_Name;
-    std::filesystem::path m_TexturePath;
-    Image                 m_Image;
-    std::vector<mat4f>    m_Transforms;
+    uint32_t               m_TexCoordIndex = 0;
+    std::string            m_Name;
+    std::filesystem::path  m_TexturePath;
+    std::shared_ptr<Image> m_Image = nullptr;
 
 public:
     SceneObjectTexture() : BaseSceneObject(SceneObjectType::Texture) {}
     SceneObjectTexture(const std::filesystem::path& path)
         : BaseSceneObject(SceneObjectType::Texture), m_Name(path.filename().string()), m_TexturePath(path) {}
-    SceneObjectTexture(uint32_t coord_index, Image image)
-        : BaseSceneObject(SceneObjectType::Texture), m_TexCoordIndex(coord_index), m_Image(std::move(image)) {}
-    SceneObjectTexture(uint32_t coord_index, Image&& image)
+    SceneObjectTexture(uint32_t coord_index, std::shared_ptr<Image> image)
         : BaseSceneObject(SceneObjectType::Texture), m_TexCoordIndex(coord_index), m_Image(std::move(image)) {}
     SceneObjectTexture(SceneObjectTexture&)  = default;
     SceneObjectTexture(SceneObjectTexture&&) = default;
 
-    void                 AddTransform(mat4f& matrix);
-    void                 SetName(const std::string& name);
-    void                 SetName(std::string&& name);
-    void                 LoadTexture();
-    const std::string&   GetName() const;
-    const Image&         GetTextureImage() const;
-    friend std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj);
+    void                   SetName(const std::string& name);
+    void                   SetName(std::string&& name);
+    void                   LoadTexture();
+    const std::string&     GetName() const;
+    std::shared_ptr<Image> GetTextureImage() const;
+    friend std::ostream&   operator<<(std::ostream& out, const SceneObjectTexture& obj);
 };
 
 template <typename T>

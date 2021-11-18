@@ -6,11 +6,11 @@
 
 namespace Hitagi::Asset {
 
-Image BmpParser::Parse(const Core::Buffer& buf) {
+std::shared_ptr<Image> BmpParser::Parse(const Core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
-        logger->warn("[BMP] Parsing a empty buffer will return empty image.");
-        return Image{};
+        logger->warn("[BMP] Parsing a empty buffer will return nullptr");
+        return nullptr;
     }
 
     const auto* file_header =
@@ -30,14 +30,14 @@ Image BmpParser::Parse(const Core::Buffer& buf) {
         logger->debug("[BMP] Image Comperession: {}", bmp_header->compression);
         logger->debug("[BMP] Image Size:         {}", bmp_header->size_image);
 
-        auto  width      = std::abs(bmp_header->width);
-        auto  height     = std::abs(bmp_header->height);
-        auto  bitcount   = 32;
-        auto  byte_count = bitcount >> 3;
-        auto  pitch      = ((width * bitcount >> 3) + 3) & ~3;
-        auto  data_size   = pitch * height;
-        Image img(width, height, bitcount, pitch, data_size);
-        auto  data = reinterpret_cast<R8G8B8A8Unorm*>(img.GetData());
+        auto width      = std::abs(bmp_header->width);
+        auto height     = std::abs(bmp_header->height);
+        auto bitcount   = 32;
+        auto byte_count = bitcount >> 3;
+        auto pitch      = ((width * bitcount >> 3) + 3) & ~3;
+        auto data_size  = pitch * height;
+        auto img        = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
+        auto data       = reinterpret_cast<R8G8B8A8Unorm*>(img->GetData());
         if (bitcount < 24) {
             logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
         } else {

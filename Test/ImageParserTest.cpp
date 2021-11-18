@@ -6,30 +6,28 @@
 using namespace Hitagi;
 
 TEST(ImageParserTest, ErrorPath) {
-    auto image = g_AssetManager->ParseImage("Asset/Textures/a.jpg");
-    EXPECT_TRUE(image.Empty());
-    image = g_AssetManager->ParseImage("Asset/Textures/b.ezx");
-    EXPECT_TRUE(image.Empty());
+    auto image = g_AssetManager->ImportImage("Asset/Textures/a.jpg");
+    EXPECT_TRUE(image == nullptr);
 }
 
 TEST(ImageParserTest, Jpeg) {
-    auto image = g_AssetManager->ParseImage("Asset/Textures/avatar.jpg");
-    EXPECT_TRUE(!image.Empty());
+    auto image = g_AssetManager->ImportImage("Asset/Textures/avatar.jpg");
+    EXPECT_TRUE(image == nullptr);
 }
 
 TEST(ImageParserTest, Tga) {
-    auto image = g_AssetManager->ParseImage("Asset/Textures/avatar.tga");
-    EXPECT_TRUE(!image.Empty());
+    auto image = g_AssetManager->ImportImage("Asset/Textures/avatar.tga");
+    EXPECT_TRUE(image == nullptr);
 }
 
 TEST(ImageParserTest, png) {
-    auto image = g_AssetManager->ParseImage("Asset/Textures/avatar.png");
-    EXPECT_TRUE(!image.Empty());
+    auto image = g_AssetManager->ImportImage("Asset/Textures/avatar.png");
+    EXPECT_TRUE(image == nullptr);
 }
 
 TEST(ImageParserTest, bmp) {
-    auto image = g_AssetManager->ParseImage("Asset/Textures/test.bmp");
-    EXPECT_TRUE(!image.Empty());
+    auto image = g_AssetManager->ImportImage("Asset/Textures/test.bmp");
+    EXPECT_TRUE(image == nullptr);
 }
 
 int main(int argc, char* argv[]) {

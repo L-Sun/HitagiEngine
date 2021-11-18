@@ -16,14 +16,14 @@ struct TgaFileheader {
 };
 #pragma pack(pop)
 
-Image TgaParser::Parse(const Core::Buffer& buf) {
+std::shared_ptr<Image> TgaParser::Parse(const Core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
-        logger->warn("[TGA] Parsing a empty buffer will return empty image.");
-        return Image{};
+        logger->warn("[TGA] Parsing a empty buffer will return nullptr");
+        return nullptr;
     }
 
-    const uint8_t* data     = buf.GetData();
+    const uint8_t* data       = buf.GetData();
     const uint8_t* p_data_end = data + buf.GetDataSize();
 
     logger->debug("[TGA] Parsing as TGA file:");
@@ -45,15 +45,15 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
         return {};
     }
     // tga all values are little-endian
-    auto    width      = (file_header->image_spec[5] << 8) + file_header->image_spec[4];
-    auto    height     = (file_header->image_spec[7] << 8) + file_header->image_spec[6];
+    auto    width       = (file_header->image_spec[5] << 8) + file_header->image_spec[4];
+    auto    height      = (file_header->image_spec[7] << 8) + file_header->image_spec[6];
     uint8_t pixel_depth = file_header->image_spec[8];
     // rendering the pixel data
     auto bitcount = 32;
     // for GPU address alignment
-    auto  pitch    = (width * (bitcount >> 3) + 3) & ~3u;
-    auto  data_size = pitch * height;
-    Image img(width, height, bitcount, pitch, data_size);
+    auto pitch     = (width * (bitcount >> 3) + 3) & ~3u;
+    auto data_size = pitch * height;
+    auto img       = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
 
     uint8_t alpha_depth = file_header->image_spec[9] & 0x0F;
     logger->debug("[TGA] Image width:       {}", width);
@@ -65,7 +65,7 @@ Image TgaParser::Parse(const Core::Buffer& buf) {
     // skip the Color Map. since we assume the Color Map Type is 0,
     // nothing to skip
 
-    auto* out = reinterpret_cast<uint8_t*>(img.GetData());
+    auto* out = reinterpret_cast<uint8_t*>(img->GetData());
     // clang-format off
         for (auto i = 0; i < height; i++) {
             for (auto j = 0; j < width; j++) {

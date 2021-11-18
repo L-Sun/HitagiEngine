@@ -28,14 +28,13 @@ int main(int, char**) {
     g_AssetManager->Initialize();
     g_SceneManager->Initialize();
 
-    g_SceneManager->SetScene("Asset/Scene/spot.fbx");
-    auto& scene = g_SceneManager->GetSceneForRendering();
+    auto scene = g_AssetManager->ImportScene("Asset/Scene/spot.fbx");
 
-    std::cout << *scene.scene_graph << std::endl;
+    std::cout << *scene->scene_graph << std::endl;
 
     std::cout << "Dump of Cameras" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pCameraNode] : scene.camera_nodes) {
+    for (auto [key, pCameraNode] : scene->camera_nodes) {
         if (pCameraNode) {
             std::weak_ptr<Asset::SceneObjectCamera> p_camera = pCameraNode->GetSceneObjectRef();
             if (auto p_obj = p_camera.lock()) std::cout << *p_obj << std::endl;
@@ -44,7 +43,7 @@ int main(int, char**) {
 
     std::cout << "Dump of Lights" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pLightNode] : scene.light_nodes) {
+    for (auto [key, pLightNode] : scene->light_nodes) {
         if (pLightNode) {
             std::weak_ptr<Asset::SceneObjectLight> p_light = pLightNode->GetSceneObjectRef();
             if (auto p_obj = p_light.lock()) std::cout << *p_obj << std::endl;
@@ -53,7 +52,7 @@ int main(int, char**) {
 
     std::cout << "Dump of Geometries" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pGeometryNode] : scene.geometry_nodes) {
+    for (auto [key, pGeometryNode] : scene->geometry_nodes) {
         if (pGeometryNode) {
             std::weak_ptr<Asset::SceneObjectGeometry> p_geometry = pGeometryNode->GetSceneObjectRef();
             if (auto p_obj = p_geometry.lock()) std::cout << *p_obj << std::endl;
@@ -63,7 +62,7 @@ int main(int, char**) {
 
     std::cout << "Dump of Materials" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pMaterial] : scene.materials) {
+    for (auto [key, pMaterial] : scene->materials) {
         if (pMaterial) std::cout << *pMaterial << std::endl;
     }
     g_SceneManager->Finalize();

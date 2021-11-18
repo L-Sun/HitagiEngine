@@ -33,6 +33,7 @@ void DebugManager::Tick() {
 }
 
 void DebugManager::ToggleDebugInfo() {
+    m_DrawDebugInfo = !m_DrawDebugInfo;
 }
 
 void DebugManager::DrawLine(const Line& line, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
@@ -40,9 +41,9 @@ void DebugManager::DrawLine(const Line& line, const vec4f& color, const std::chr
 }
 void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
     const vec3f origin{0.0f, 0.0f, 0.0f};
-    const vec3f x{10.0f, 0.0f, 0.0f};
-    const vec3f y{0.0f, 10.0f, 0.0f};
-    const vec3f z{0.0f, 0.0f, 10.0f};
+    const vec3f x{1.0f, 0.0f, 0.0f};
+    const vec3f y{0.0f, 1.0f, 0.0f};
+    const vec3f z{0.0f, 0.0f, 1.0f};
 
     AddPrimitive(std::make_unique<Line>(origin, x), transform, vec4f(1, 0, 0, 1), std::chrono::seconds(0), depth_enabled);
     AddPrimitive(std::make_unique<Line>(origin, y), transform, vec4f(0, 1, 0, 1), std::chrono::seconds(0), depth_enabled);

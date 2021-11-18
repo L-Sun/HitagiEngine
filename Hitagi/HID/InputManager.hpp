@@ -14,8 +14,9 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    void UpdateState(VirtualKeyCode key, bool state) noexcept { m_KeyState[static_cast<size_t>(key)].current = state; }
-    void UpdateState(std::array<float, 2> position) noexcept { m_MouseState.curr_pos = position; }
+    void UpdateKeyState(VirtualKeyCode key, bool state) noexcept { m_KeyState[static_cast<size_t>(key)].current = state; }
+    void UpdatePointerState(std::array<float, 2> position) noexcept { m_MouseState.curr_pos = position; }
+    void UpdateWheelState(float delta) noexcept { m_MouseState.scroll = delta; }
 
     void Map(UserDefAction user_action, std::variant<VirtualKeyCode, MouseEvent> event);
 

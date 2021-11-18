@@ -103,7 +103,7 @@ void Win32Application::UpdateInputEvent() {
         DispatchMessage(&msg);
     }
     for (int key = 0; key < static_cast<int>(VirtualKeyCode::NUM); key++) {
-        g_InputManager->UpdateState(static_cast<VirtualKeyCode>(key), GetAsyncKeyState(key) & 0x8000);
+        g_InputManager->UpdateKeyState(static_cast<VirtualKeyCode>(key), GetAsyncKeyState(key) & 0x8000);
     }
 }
 
@@ -117,7 +117,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             if (GetLastError() != 0) return false;
         }
     } else {
-        // pThis = reinterpret_cast<Win32Application*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+        p_this = reinterpret_cast<Win32Application*>(GetWindowLongPtr(h_wnd, GWLP_USERDATA));
     }
     switch (message) {
         case WM_DESTROY:
@@ -126,8 +126,10 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             ClipCursor(nullptr);
             break;
         case WM_MOUSEMOVE:
-            g_InputManager->UpdateState({static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param))});
+            g_InputManager->UpdatePointerState({static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param))});
             break;
+        case WM_MOUSEWHEEL:
+            g_InputManager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / 120.0f);
     }
     return DefWindowProc(h_wnd, message, w_param, l_param);
 }

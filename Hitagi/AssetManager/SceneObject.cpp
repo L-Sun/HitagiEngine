@@ -105,21 +105,11 @@ const PrimitiveType&               SceneObjectMesh::GetPrimitiveType() const { r
 std::weak_ptr<SceneObjectMaterial> SceneObjectMesh::GetMaterial() const { return m_Material; }
 
 // Class SceneObjectTexture
-void SceneObjectTexture::AddTransform(mat4f& matrix) { m_Transforms.push_back(matrix); }
-void SceneObjectTexture::SetName(const std::string& name) { m_Name = name; }
-void SceneObjectTexture::SetName(std::string&& name) { m_Name = std::move(name); }
-void SceneObjectTexture::LoadTexture() {
-    if (m_Image.Empty()) {
-        m_Image = g_AssetManager->ParseImage(m_TexturePath);
-    }
-}
-const std::string& SceneObjectTexture::GetName() const { return m_Name; }
-const Image&       SceneObjectTexture::GetTextureImage() const {
-    if (m_Image.Empty()) {
-        const_cast<SceneObjectTexture*>(this)->LoadTexture();
-    }
-    return m_Image;
-}
+void                   SceneObjectTexture::SetName(const std::string& name) { m_Name = name; }
+void                   SceneObjectTexture::SetName(std::string&& name) { m_Name = std::move(name); }
+void                   SceneObjectTexture::LoadTexture() { m_Image = g_AssetManager->ImportImage(m_TexturePath); }
+const std::string&     SceneObjectTexture::GetName() const { return m_Name; }
+std::shared_ptr<Image> SceneObjectTexture::GetTextureImage() const { return m_Image; }
 
 // Class SceneObjectMaterial
 const std::string& SceneObjectMaterial::GetName() const { return m_Name; }
@@ -375,8 +365,8 @@ std::ostream& operator<<(std::ostream& out, const SceneObjectTexture& obj) {
     out << static_cast<const BaseSceneObject&>(obj) << std::endl;
     out << "Coord Index: " << obj.m_TexCoordIndex << std::endl;
     out << "Name:        " << obj.m_Name << std::endl;
-    if (!obj.m_Image.Empty()) out << "Image:\n"
-                                  << obj.m_Image;
+    if (!obj.m_Image) out << "Image:\n"
+                          << obj.m_Image;
     return out;
 }
 std::ostream& operator<<(std::ostream& out, const SceneObjectMaterial& obj) {

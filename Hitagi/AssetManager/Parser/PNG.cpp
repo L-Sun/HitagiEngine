@@ -24,11 +24,11 @@ void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
         png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
-Image PngParser::Parse(const Core::Buffer& buf) {
+std::shared_ptr<Image> PngParser::Parse(const Core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
-        logger->warn("[PNG] Parsing a empty buffer will return empty image.");
-        return Image{};
+        logger->warn("[PNG] Parsing a empty buffer will return nullptr.");
+        return nullptr;
     }
 
     enum { PNG_BYTES_TO_CHECK = 4 };
@@ -70,15 +70,15 @@ Image PngParser::Parse(const Core::Buffer& buf) {
         PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_PACKING,
         nullptr);
 
-    auto  width     = png_get_image_width(png_tr, info_ptr);
-    auto  height    = png_get_image_height(png_tr, info_ptr);
-    auto  bitcount  = 32;
-    auto  pitch     = ((width * bitcount >> 3) + 3) & ~3;
-    auto  data_size = pitch * height;
-    Image img(width, height, bitcount, pitch, data_size);
+    auto width     = png_get_image_width(png_tr, info_ptr);
+    auto height    = png_get_image_height(png_tr, info_ptr);
+    auto bitcount  = 32;
+    auto pitch     = ((width * bitcount >> 3) + 3) & ~3;
+    auto data_size = pitch * height;
+    auto img       = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
 
     png_bytepp rows = png_get_rows(png_tr, info_ptr);
-    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img.GetData());
+    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img->GetData());
 
     switch (png_get_color_type(png_tr, info_ptr)) {
         case PNG_COLOR_TYPE_GRAY: {

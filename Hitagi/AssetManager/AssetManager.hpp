@@ -13,12 +13,18 @@ public:
     void Tick() final;
     void Finalize() final;
 
-    Image ParseImage(const std::filesystem::path& path) const;
-    Scene ParseScene(const std::filesystem::path& path) const;
+    std::shared_ptr<Image> ImportImage(const std::filesystem::path& path);
+    std::shared_ptr<Scene> ImportScene(const std::filesystem::path& path);
+
+    auto GetScene(xg::Guid id) { return m_ImportedScenes.at(id); }
+    auto GetImage(xg::Guid id) { return m_ImportedImages.at(id); }
 
 private:
     std::array<std::unique_ptr<ImageParser>, static_cast<size_t>(ImageFormat::NUM_SUPPORT)> m_ImageParser;
     std::unique_ptr<SceneParser>                                                            m_SceneParser;
+
+    std::unordered_map<xg::Guid, std::shared_ptr<Scene>> m_ImportedScenes;
+    std::unordered_map<xg::Guid, std::shared_ptr<Image>> m_ImportedImages;
 };
 }  // namespace Hitagi::Asset
 

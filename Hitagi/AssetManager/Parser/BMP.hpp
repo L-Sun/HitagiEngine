@@ -4,7 +4,7 @@
 namespace Hitagi::Asset {
 class BmpParser : public ImageParser {
 public:
-    Image Parse(const Core::Buffer& buf) final;
+    std::shared_ptr<Image> Parse(const Core::Buffer& buf) final;
 
 private:
 #pragma pack(push, 1)

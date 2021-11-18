@@ -3,6 +3,7 @@
 #include "HitagiMath.hpp"
 
 #include <chrono>
+#include <functional>
 
 namespace Hitagi::Debugger {
 struct DebugPrimitive {
@@ -24,7 +25,10 @@ public:
     void DrawAxis(const mat4f& transform, bool depth_enabled = true);
     void DrawBox(const Box& box, const mat4f& transform, const vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
 
-    const std::vector<DebugPrimitive>& GetDebugPrimitiveForRender() const noexcept { return m_DebugPrimitives; };
+    inline auto GetDebugPrimitiveForRender() const noexcept {
+        auto result = std::cref(m_DebugPrimitives);
+        return m_DrawDebugInfo ? std::optional{result} : std::nullopt;
+    };
 
 protected:
     void AddPrimitive(std::unique_ptr<Geometry> geometry, const mat4f& transform, const vec4f& color, std::chrono::seconds duration, bool depth_enabled);

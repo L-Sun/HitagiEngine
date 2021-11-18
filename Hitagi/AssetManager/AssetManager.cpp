@@ -35,7 +35,7 @@ void AssetManager::Finalize() {
     m_Logger = nullptr;
 }
 
-Image AssetManager::ParseImage(const std::filesystem::path& path) const {
+std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& path) {
     ImageFormat format = ImageFormat::NUM_SUPPORT;
 
     auto ext = path.extension();
@@ -49,14 +49,18 @@ Image AssetManager::ParseImage(const std::filesystem::path& path) const {
         format = ImageFormat::PNG;
 
     if (format >= ImageFormat::NUM_SUPPORT) {
-        m_Logger->error("Unkown image format, and return a empty image");
-        return Image{};
+        m_Logger->error("Unkown image format, and return a null");
+        return nullptr;
     }
-    return m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
+    auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
+    m_ImportedImages.emplace(xg::newGuid(), image);
+    return image;
 }
 
-Scene AssetManager::ParseScene(const std::filesystem::path& path) const {
-    return m_SceneParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), path);
+std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
+    auto scene = m_SceneParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), path);
+    m_ImportedScenes.emplace(xg::newGuid(), scene);
+    return scene;
 }
 
 }  // namespace Hitagi::Asset

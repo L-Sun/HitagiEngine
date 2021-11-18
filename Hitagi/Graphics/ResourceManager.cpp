@@ -25,10 +25,10 @@ std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::SceneObj
     // Create Index array
     auto& index_array = mesh.GetIndexArray();
     result->indices   = m_Driver.CreateIndexBuffer(
-        fmt::format("index-{}", id.str()),
-        index_array.GetIndexCount(),
-        index_array.GetIndexSize(),
-        index_array.GetData());
+          fmt::format("index-{}", id.str()),
+          index_array.GetIndexCount(),
+          index_array.GetIndexSize(),
+          index_array.GetData());
 
     result->primitive = mesh.GetPrimitiveType();
 
@@ -42,13 +42,11 @@ std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(const Asset::Sc
     if (m_TextureBuffer.count(id) != 0)
         return m_TextureBuffer.at(id);
 
-    auto& image = texture.GetTextureImage();
-    if (image.Empty()) {
-        spdlog::get("GraphicsManager")->warn("Texture({}) is empty. There is nothing return!");
-        return nullptr;
-    }
+    auto image = texture.GetTextureImage();
+    if (!image) return GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+
     Format format;
-    if (auto bit_count = image.GetBitcount(); bit_count == 8)
+    if (auto bit_count = image->GetBitcount(); bit_count == 8)
         format = Format::R8_UNORM;
     else if (bit_count == 16)
         format = Format::R8G8_UNORM;
@@ -62,11 +60,11 @@ std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(const Asset::Sc
     // Create new texture buffer
     TextureBuffer::Description desc = {};
     desc.format                     = format;
-    desc.width                      = image.GetWidth();
-    desc.height                     = image.GetHeight();
-    desc.pitch                      = image.GetPitch();
-    desc.initial_data               = image.GetData();
-    desc.initial_data_size          = image.GetDataSize();
+    desc.width                      = image->GetWidth();
+    desc.height                     = image->GetHeight();
+    desc.pitch                      = image->GetPitch();
+    desc.initial_data               = image->GetData();
+    desc.initial_data_size          = image->GetDataSize();
 
     m_TextureBuffer.emplace(id, m_Driver.CreateTextureBuffer(texture.GetName(), desc));
     return m_TextureBuffer.at(id);

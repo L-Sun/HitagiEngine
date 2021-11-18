@@ -12,7 +12,7 @@ public:
     void Finalize() override;
     void Tick() override;
 
-    void SetScene(std::filesystem::path name);
+    void SetScene(std::shared_ptr<Scene> scene);
 
     bool IsSceneChanged();
     void NotifySceneIsRenderingQueued();
@@ -30,9 +30,8 @@ public:
     std::weak_ptr<SceneCameraNode> GetCameraNode();
 
 protected:
-    std::vector<Scene> m_Scene;
-    size_t             m_CurrentSceneIndex = 0;
-    bool               m_DirtyFlag         = false;
+    std::shared_ptr<Scene> m_Scene;
+    bool                   m_DirtyFlag = false;
 };
 
 }  // namespace Hitagi::Asset
