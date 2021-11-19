@@ -8,6 +8,7 @@
         "libjpeg-turbo",
         "libpng",
         "assimp",
+        "imgui",
         "freetype",
         "fmt",
         "spdlog",

@@ -30,6 +30,7 @@ protected:
 
     // TODO use file to descript pipeline object
     std::unique_ptr<PipelineState> m_PSO;
+    std::unique_ptr<PipelineState> m_ImGuiPSO;
     std::unique_ptr<PipelineState> m_DebugPSO;
     std::unique_ptr<PipelineState> m_DebugDepthDisabledPSO;
     ShaderManager                  m_ShaderManager;

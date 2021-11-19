@@ -6,6 +6,7 @@ target_link_libraries(Application
         PhysicsManager
         GraphicsManager
         DebugManager
+        GuiManager
         Timer
         GameLogic
         ThreadManager

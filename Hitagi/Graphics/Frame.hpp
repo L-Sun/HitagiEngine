@@ -4,6 +4,7 @@
 #include "PipelineState.hpp"
 
 #include "DebugManager.hpp"
+#include "GuiManager.hpp"
 
 #include <vector>
 
@@ -44,6 +45,13 @@ class Frame {
         std::shared_ptr<TextureBuffer> specular_power;
     };
 
+    struct GuiDrawItem {
+        const PipelineState&           pipeline;
+        std::shared_ptr<MeshBuffer>    mesh;
+        size_t                         constant_offset;
+        std::shared_ptr<TextureBuffer> texture;
+    };
+
     struct DebugDrawItem {
         const PipelineState&        pipeline;
         std::shared_ptr<MeshBuffer> mesh;
@@ -57,9 +65,11 @@ public:
     // TODO generate pipeline state object from scene node infomation
     void AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries, const PipelineState& pso);
     void AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives, const PipelineState& pso);
+    void PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> font_texture, const PipelineState& pso);
     void SetCamera(Asset::SceneCameraNode& camera);
     void SetLight(Asset::SceneLightNode& light);
     void Draw(IGraphicsCommandContext* context);
+    void GuiDraw(IGraphicsCommandContext* context);
     void DebugDraw(IGraphicsCommandContext* context);
 
     void ResetState();
@@ -75,6 +85,7 @@ private:
     FrameConstant                 m_FrameConstant{};
     std::vector<DrawItem>         m_DrawItems;
     std::vector<DebugDrawItem>    m_DebugItems;
+    std::vector<GuiDrawItem>      m_GuiDrawItems;
     std::shared_ptr<RenderTarget> m_Output;
 
     // the constant data used among the frame, including camera, light, etc.

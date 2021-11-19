@@ -55,4 +55,11 @@ const Buffer& FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& 
     return m_FileCache[hash];
 }
 
+void FileIOManager::SaveBuffer(const Buffer& buffer, const std::filesystem::path& path) {
+    auto fs = std::fstream(path, std::ios::binary | std::ios::out);
+    fs.write(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
+    fs.close();
+    m_Logger->info("Buffer has write to: {} ({} bytes)", path, buffer.GetDataSize());
+}
+
 }  // namespace Hitagi::Core

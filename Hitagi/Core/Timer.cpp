@@ -2,16 +2,8 @@
 
 namespace Hitagi::Core {
 
-auto Clock::Initialize() -> int {
-    m_DeltaTime  = std::chrono::duration<double>::zero();
-    m_PausedTime = std::chrono::duration<double>::zero();
-    m_BaseTime   = std::chrono::high_resolution_clock::now();
-    m_Paused     = true;
-    m_StopTime   = m_BaseTime;
-
-    return 0;
-}
-void Clock::Finalize() {}
+Clock::Clock()
+    : m_BaseTime(std::chrono::high_resolution_clock::now()), m_StopTime(m_BaseTime) {}
 
 auto Clock::DeltaTime() const -> std::chrono::duration<double> { return m_DeltaTime; }
 
@@ -23,7 +15,7 @@ auto Clock::TotalTime() const -> std::chrono::duration<double> {
     }
 }
 
-auto Clock::TickTime() const -> std::chrono::high_resolution_clock::time_point { return m_TickTime; }
+std::chrono::high_resolution_clock::time_point Clock::TickTime() const { return m_TickTime; }
 
 void Clock::Tick() {
     if (m_Paused) {

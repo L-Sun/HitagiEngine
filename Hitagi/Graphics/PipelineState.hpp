@@ -97,6 +97,7 @@ public:
     PipelineState& SetRenderFormat(Format format);
     PipelineState& SetDepthBufferFormat(Format format);
     PipelineState& SetPrimitiveType(PrimitiveType type);
+    PipelineState& SetFrontCounterClockwise(bool value);
     void           Create(DriverAPI& driver);
 
     inline const std::string&              GetName() const noexcept { return m_Name; }
@@ -107,16 +108,18 @@ public:
     inline Format                          GetRenderTargetFormat() const noexcept { return m_RenderFormat; }
     inline Format                          GetDepthBufferFormat() const noexcept { return m_DepthBufferFormat; }
     inline PrimitiveType                   GetPrimitiveType() const noexcept { return m_PrimitiveType; }
+    inline bool                            IsFontCounterClockwise() const noexcept { return m_FrontCounterClockwise; }
 
 private:
     bool                           m_Created = false;
     std::shared_ptr<VertexShader>  m_Vs;
     std::shared_ptr<PixelShader>   m_Ps;
     std::vector<InputLayout>       m_InputLayout;
-    std::shared_ptr<RootSignature> m_RootSignature     = nullptr;
-    Format                         m_RenderFormat      = Format::UNKNOWN;
-    Format                         m_DepthBufferFormat = Format::UNKNOWN;
-    PrimitiveType                  m_PrimitiveType     = PrimitiveType::TriangleList;
+    bool                           m_FrontCounterClockwise = true;
+    std::shared_ptr<RootSignature> m_RootSignature         = nullptr;
+    Format                         m_RenderFormat          = Format::UNKNOWN;
+    Format                         m_DepthBufferFormat     = Format::UNKNOWN;
+    PrimitiveType                  m_PrimitiveType         = PrimitiveType::TriangleList;
 };
 
 }  // namespace Hitagi::Graphics

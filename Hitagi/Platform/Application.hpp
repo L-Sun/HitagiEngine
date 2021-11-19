@@ -59,11 +59,6 @@ protected:
     char**           m_Arg     = nullptr;
     Rect             m_Rect{};
 
-    Core::Clock m_Clock;
-    double      m_FPS        = 0.0;
-    short       m_FPSLimit   = 60;
-    uint64_t    m_FrameIndex = 1;
-
 private:
     Application() = default;
 };

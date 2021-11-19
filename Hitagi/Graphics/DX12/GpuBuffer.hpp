@@ -1,6 +1,7 @@
 #pragma once
 #include "GpuResource.hpp"
 #include "DescriptorAllocator.hpp"
+#include "EnumConverter.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
 
@@ -35,7 +36,7 @@ public:
     D3D12_INDEX_BUFFER_VIEW IndexBufferView() const {
         D3D12_INDEX_BUFFER_VIEW ibv;
         ibv.BufferLocation = m_Resource->GetGPUVirtualAddress();
-        ibv.Format         = DXGI_FORMAT_R32_UINT;
+        ibv.Format         = index_size_to_dxgi_format(m_ElementSize);
         ibv.SizeInBytes    = m_BufferSize;
         return ibv;
     }

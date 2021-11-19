@@ -72,6 +72,11 @@ PipelineState& PipelineState::SetPrimitiveType(PrimitiveType type) {
     return *this;
 }
 
+PipelineState& PipelineState::SetFrontCounterClockwise(bool value) {
+    m_FrontCounterClockwise = value;
+    return *this;
+}
+
 void PipelineState::Create(DriverAPI& driver) {
     if (m_Created) throw std::logic_error("PSO has been created.");
     if (!(m_Vs && m_Ps && m_RootSignature)) throw std::logic_error("RootSignature is incompleted.");

@@ -14,6 +14,7 @@ public:
     void Tick() final;
 
     const Buffer& SyncOpenAndReadBinary(const std::filesystem::path& file_path);
+    void          SaveBuffer(const Buffer& buffer, const std::filesystem::path& path);
 
 private:
     bool IsFileChanged(const std::filesystem::path& file_path) const;

@@ -55,11 +55,11 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
                         pso,
                         m_ConstantCount,
                         m_ResMgr.GetMeshBuffer(*mesh),
-                        ambient.value_map ? m_ResMgr.GetTextureBuffer(*ambient.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        diffuse.value_map ? m_ResMgr.GetTextureBuffer(*diffuse.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        emission.value_map ? m_ResMgr.GetTextureBuffer(*emission.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        specular.value_map ? m_ResMgr.GetTextureBuffer(*specular.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        specular_power.value_map ? m_ResMgr.GetTextureBuffer(*specular_power.value_map) : m_ResMgr.GetDefaultTextureBuffer(Format::R32_FLOAT),
+                        ambient.value_map ? m_ResMgr.GetTextureBuffer(ambient.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
+                        diffuse.value_map ? m_ResMgr.GetTextureBuffer(diffuse.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
+                        emission.value_map ? m_ResMgr.GetTextureBuffer(emission.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
+                        specular.value_map ? m_ResMgr.GetTextureBuffer(specular.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
+                        specular_power.value_map ? m_ResMgr.GetTextureBuffer(specular_power.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R32_FLOAT),
                     });
                     m_ConstantCount++;
                 }
@@ -97,6 +97,7 @@ void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& prim
         item.mesh->primitive = PrimitiveType::LineList;
         item.constant_offset = m_ConstantCount;
 
+        // TODO
         struct {
             mat4f transform;
             vec4f color;
@@ -106,6 +107,60 @@ void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& prim
         m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount++, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
 
         m_DebugItems.emplace_back(std::move(item));
+    }
+}
+
+void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> font_texture, const PipelineState& pso) {
+    // TODO auto resize constant buffer
+    // if new size is smaller, the expand function return directly.
+    if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < data->CmdListsCount)
+        // becase capacity + needed > exsisted + needed
+        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + data->CmdListsCount);
+
+    const size_t constant_offset = m_ConstantCount++;
+    const float  L               = data->DisplayPos.x;
+    const float  R               = data->DisplayPos.x + data->DisplaySize.x;
+    const float  T               = data->DisplayPos.y;
+    const float  B               = data->DisplayPos.y + data->DisplaySize.y;
+    // clang-format off
+    const mat4f  projection      = {
+        {2.0f / (R - L)   , 0.0f             , 0.0f, (R + L) / (L - R)},
+        {0.0f             , 2.0f / (T - B)   , 0.0f, (T + B) / (B - T)},
+        {0.0f             , 0.0f             , 0.5f, 0.5f},
+        {0.0f             , 0.0f             , 0.0f, 1.0f},
+    };
+    // clang-format on
+    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, constant_offset, reinterpret_cast<const uint8_t*>(&projection), sizeof(projection));
+
+    for (size_t i = 0; i < data->CmdListsCount; i++) {
+        const auto  cmd_list = data->CmdLists[i];
+        GuiDrawItem item{
+            .pipeline        = pso,
+            .mesh            = nullptr,
+            .constant_offset = constant_offset,
+            .texture         = nullptr,
+        };
+        item.mesh            = std::make_shared<MeshBuffer>();
+        item.mesh->primitive = PrimitiveType::TriangleList;
+
+        auto vb = m_Driver.CreateVertexBuffer(
+            "Imgui Vertex",
+            cmd_list->VtxBuffer.size(),
+            sizeof(ImDrawVert),
+            reinterpret_cast<const uint8_t*>(cmd_list->VtxBuffer.Data));
+
+        item.mesh->vertices.emplace("POSITION", vb);
+        item.mesh->vertices.emplace("TEXCOORD", vb);
+        item.mesh->vertices.emplace("COLOR", vb);
+        item.mesh->indices = m_Driver.CreateIndexBuffer(
+            "Imgui Indices",
+            cmd_list->IdxBuffer.size(),
+            sizeof(ImDrawIdx),
+            reinterpret_cast<const uint8_t*>(cmd_list->IdxBuffer.Data));
+
+        item.texture = m_ResMgr.GetTextureBuffer(font_texture);
+
+        m_GuiDrawItems.emplace_back(std::move(item));
     }
 }
 
@@ -153,6 +208,15 @@ void Frame::Draw(IGraphicsCommandContext* context) {
         context->Draw(*item.buffer);
     }
 }
+void Frame::GuiDraw(IGraphicsCommandContext* context) {
+    for (const auto& item : m_GuiDrawItems) {
+        context->SetPipelineState(item.pipeline);
+        context->SetParameter("Constant", *m_ConstantBuffer, item.constant_offset);
+        context->SetParameter("Texture", *item.texture);
+        context->SetParameter("Sampler", *m_ResMgr.GetSampler("BaseSampler"));
+        context->Draw(*item.mesh);
+    }
+}
 
 void Frame::DebugDraw(IGraphicsCommandContext* context) {
     for (const auto& item : m_DebugItems) {
@@ -166,6 +230,7 @@ void Frame::DebugDraw(IGraphicsCommandContext* context) {
 void Frame::ResetState() {
     m_Driver.WaitFence(m_FenceValue);
     m_DrawItems.clear();
+    m_GuiDrawItems.clear();
     m_DebugItems.clear();
     m_ConstantCount = 1;
 }

@@ -8,7 +8,8 @@
 namespace Hitagi::Asset {
 
 Image::Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t data_size)
-    : m_Width(width),
+    : m_Guid(xg::newGuid()),
+      m_Width(width),
       m_Height(height),
       m_Bitcount(bitcount),
       m_Pitch(pitch),

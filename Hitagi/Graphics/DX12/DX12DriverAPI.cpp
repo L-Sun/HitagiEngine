@@ -364,13 +364,24 @@ std::unique_ptr<backend::Resource> DX12DriverAPI::CreatePipelineState(const Grap
     gpso->SetPixelShader(CD3DX12_SHADER_BYTECODE{ps->GetData(), ps->GetDataSize()});
     gpso->SetInputLayout(input_desc);
     gpso->SetRootSignature(*sig);
-    gpso->SetBlendState(CD3DX12_BLEND_DESC(D3D12_DEFAULT));
+    // TODO
+    auto blend_state                                  = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    blend_state.AlphaToCoverageEnable                 = false;
+    blend_state.RenderTarget[0].BlendEnable           = true;
+    blend_state.RenderTarget[0].SrcBlend              = D3D12_BLEND_SRC_ALPHA;
+    blend_state.RenderTarget[0].DestBlend             = D3D12_BLEND_INV_SRC_ALPHA;
+    blend_state.RenderTarget[0].BlendOp               = D3D12_BLEND_OP_ADD;
+    blend_state.RenderTarget[0].SrcBlendAlpha         = D3D12_BLEND_ONE;
+    blend_state.RenderTarget[0].DestBlendAlpha        = D3D12_BLEND_INV_SRC_ALPHA;
+    blend_state.RenderTarget[0].BlendOpAlpha          = D3D12_BLEND_OP_ADD;
+    blend_state.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+    gpso->SetBlendState(blend_state);
     auto depth        = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     depth.DepthEnable = pso.GetDepthBufferFormat() != Graphics::Format::UNKNOWN;
     gpso->SetDepthStencilState(depth);
     gpso->SetPrimitiveTopologyType(to_dx_topology_type(pso.GetPrimitiveType()));
     auto ra_desc                  = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-    ra_desc.FrontCounterClockwise = true;
+    ra_desc.FrontCounterClockwise = pso.IsFontCounterClockwise();
     gpso->SetRasterizerState(ra_desc);
     gpso->SetRenderTargetFormats({to_dxgi_format(pso.GetRenderTargetFormat())}, to_dxgi_format(pso.GetDepthBufferFormat()));
     gpso->SetSampleMask(UINT_MAX);

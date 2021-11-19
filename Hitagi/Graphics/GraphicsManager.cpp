@@ -1,10 +1,11 @@
 #include "GraphicsManager.hpp"
 
+#include "DX12/DX12DriverAPI.hpp"
 #include "PipelineState.hpp"
 #include "FrameGraph.hpp"
 #include "SceneManager.hpp"
 #include "Application.hpp"
-#include "DX12/DX12DriverAPI.hpp"
+#include "GuiManager.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -36,6 +37,8 @@ int GraphicsManager::Initialize() {
     // TODO get and load all shader from AssetManager
     m_ShaderManager.LoadShader("Asset/Shaders/color.vs", ShaderType::Vertex);
     m_ShaderManager.LoadShader("Asset/Shaders/color.ps", ShaderType::Pixel);
+    m_ShaderManager.LoadShader("Asset/Shaders/imgui.vs", ShaderType::Vertex);
+    m_ShaderManager.LoadShader("Asset/Shaders/imgui.ps", ShaderType::Pixel);
     m_ShaderManager.LoadShader("Asset/Shaders/debug.vs", ShaderType::Vertex);
     m_ShaderManager.LoadShader("Asset/Shaders/debug.ps", ShaderType::Pixel);
 
@@ -66,6 +69,29 @@ int GraphicsManager::Initialize() {
         .SetPrimitiveType(PrimitiveType::TriangleList)
         .SetRenderFormat(Format::R8G8B8A8_UNORM)
         .SetDepthBufferFormat(Format::D32_FLOAT)
+        .Create(*m_Driver);
+
+    // TODO imgui pipeline state object
+    auto imgui_root_sig = std::make_shared<RootSignature>("Imgui Sig");
+    (*imgui_root_sig)
+        .Add("Constant", ShaderVariableType::CBV, 0, 0)
+        .Add("Texture", ShaderVariableType::SRV, 0, 0)
+        .Add("Sampler", ShaderVariableType::Sampler, 0, 0)
+        .Create(*m_Driver);
+    m_ImGuiPSO = std::make_unique<PipelineState>("ImGui");
+    (*m_ImGuiPSO)
+        // here we use AOS fashion
+        .SetInputLayout({
+            {"POSITION", 0, Format::R32G32_FLOAT, 0, IM_OFFSETOF(ImDrawVert, pos)},
+            {"TEXCOORD", 0, Format::R32G32_FLOAT, 0, IM_OFFSETOF(ImDrawVert, uv)},
+            {"COLOR", 0, Format::R8G8B8A8_UNORM, 0, IM_OFFSETOF(ImDrawVert, col)},
+        })
+        .SetVertexShader(m_ShaderManager.GetVertexShader("imgui.vs"))
+        .SetPixelShader(m_ShaderManager.GetPixelShader("imgui.ps"))
+        .SetRootSignautre(imgui_root_sig)
+        .SetFrontCounterClockwise(false)
+        .SetRenderFormat(Format::R8G8B8A8_UNORM)
+        .SetPrimitiveType(PrimitiveType::TriangleList)
         .Create(*m_Driver);
 
     auto debug_root_sig = std::make_shared<RootSignature>("Debug sig");
@@ -130,6 +156,7 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     auto& config    = g_App->GetConfiguration();
     auto  driver    = m_Driver.get();
     auto& pso       = *m_PSO;
+    auto& gui_pso   = *m_ImGuiPSO;
     auto& debug_pso = *m_DebugPSO;
     auto  frame     = GetBcakFrameForRendering();
     auto  context   = driver->GetGraphicsCommandContext();
@@ -144,6 +171,8 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     if (auto debug_primitives = g_DebugManager->GetDebugPrimitiveForRender(); debug_primitives.has_value()) {
         frame->AddDebugPrimitives(debug_primitives.value(), debug_pso);
     }
+    frame->PrepareImGuiData(g_GuiManager->GetGuiDrawData(), g_GuiManager->GetGuiFontTexture(), gui_pso);
+
     frame->SetCamera(*camera);
     frame->SetLight(*scene.GetFirstLightNode());
 
@@ -193,8 +222,7 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
         "DebugPass",
         [&](FrameGraph::Builder& builder, DebugPassData& data) {
             data.depth  = builder.Read(color_pass.GetData().depth_buffer);
-            data.output = builder.Read(color_pass.GetData().output);
-            data.output = builder.Write(data.output);
+            data.output = builder.Write(color_pass.GetData().output);
         },
         [=](const ResourceHelper& helper, DebugPassData& data) {
             auto& depth_buffer  = helper.Get<DepthBuffer>(data.depth);
@@ -202,6 +230,22 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
             context->SetRenderTargetAndDepthBuffer(render_target, depth_buffer);
 
             frame->DebugDraw(context.get());
+        });
+
+    struct ImGuiPassData {
+        FrameHandle output;
+    };
+
+    auto imgui_pass = fg.AddPass<ImGuiPassData>(
+        "Imgui Pass",
+        [&](FrameGraph::Builder& builder, ImGuiPassData& data) {
+            data.output = builder.Write(color_pass.GetData().output);
+        },
+        [=](const ResourceHelper& helper, ImGuiPassData& data) {
+            auto& render_target = helper.Get<RenderTarget>(data.output);
+            context->SetRenderTarget(render_target);
+
+            frame->GuiDraw(context.get());
         });
 
     fg.Present(render_target_handle, context);

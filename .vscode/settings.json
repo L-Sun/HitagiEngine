@@ -92,7 +92,9 @@
         "any": "cpp",
         "bit": "cpp",
         "forward_list": "cpp",
-        "stop_token": "cpp"
+        "stop_token": "cpp",
+        "coroutine": "cpp",
+        "resumable": "cpp"
     },
     "cmake.debugConfig": {
         "cwd": "${workspaceFolder}"

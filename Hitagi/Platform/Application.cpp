@@ -8,6 +8,7 @@
 #include "GraphicsManager.hpp"
 #include "MemoryManager.hpp"
 #include "InputManager.hpp"
+#include "GuiManager.hpp"
 #include "DebugManager.hpp"
 #include "AssetManager.hpp"
 #include "GameLogic.hpp"
@@ -36,13 +37,12 @@ int Application::Initialize() {
     if ((ret = g_FileIoManager->Initialize()) != 0) return ret;
     if ((ret = g_AssetManager->Initialize()) != 0) return ret;
     if ((ret = g_InputManager->Initialize()) != 0) return ret;
+    if ((ret = g_GuiManager->Initialize()) != 0) return ret;
     if ((ret = g_SceneManager->Initialize()) != 0) return ret;
     if ((ret = g_PhysicsManager->Initialize()) != 0) return ret;
     if ((ret = g_GraphicsManager->Initialize()) != 0) return ret;
     if ((ret = g_GameLogic->Initialize()) != 0) return ret;
-    if ((ret = m_Clock.Initialize()) != 0) return ret;
 
-    m_Clock.Start();
     return ret;
 }
 
@@ -52,6 +52,7 @@ void Application::Finalize() {
     g_GraphicsManager->Finalize();
     g_PhysicsManager->Finalize();
     g_SceneManager->Finalize();
+    g_GuiManager->Finalize();
     g_InputManager->Finalize();
     g_AssetManager->Finalize();
     g_FileIoManager->Finalize();
@@ -59,20 +60,19 @@ void Application::Finalize() {
     g_MemoryManager->Finalize();
     g_ThreadManager->Finalize();
 
-    m_Clock.Finalize();
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
 // One cycle of the main loop
 void Application::Tick() {
-    m_Clock.Tick();
     g_ThreadManager->Tick();
     g_MemoryManager->Tick();
     g_DebugManager->Tick();
     g_FileIoManager->Tick();
     g_AssetManager->Tick();
     g_InputManager->Tick();
+    g_GuiManager->Tick();
     g_GameLogic->Tick();
     g_SceneManager->Tick();
     g_PhysicsManager->Tick();
@@ -80,12 +80,6 @@ void Application::Tick() {
     // -------------Before Render-------------------
     g_GraphicsManager->Tick();
     // -------------After Render--------------------
-
-    m_FPS = 1.0 / m_Clock.DeltaTime().count();
-    if (m_FPSLimit != -1) {
-        // std::this_thread::sleep_until(m_Clock.GetBaseTime() + m_FrameIndex * std::chrono::milliseconds(1000) / m_FPSLimit);
-    }
-    m_FrameIndex++;
 }
 
 void Application::SetCommandLineParameters(int argc, char** argv) {

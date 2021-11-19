@@ -9,7 +9,7 @@ public:
 
     // Get mesh buffer from gpu. It will create new buffer in gpu if the mesh is not in gpu.
     std::shared_ptr<MeshBuffer>    GetMeshBuffer(const Asset::SceneObjectMesh& mesh);
-    std::shared_ptr<TextureBuffer> GetTextureBuffer(const Asset::SceneObjectTexture& texture);
+    std::shared_ptr<TextureBuffer> GetTextureBuffer(std::shared_ptr<Asset::Image> image);
     std::shared_ptr<Sampler>       GetSampler(std::string_view name);
     std::shared_ptr<TextureBuffer> GetDefaultTextureBuffer(Format format);
 

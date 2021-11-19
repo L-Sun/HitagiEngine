@@ -37,16 +37,15 @@ std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::SceneObj
     return result;
 }
 
-std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(const Asset::SceneObjectTexture& texture) {
-    auto id = texture.GetGuid();
+std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(std::shared_ptr<Asset::Image> texture) {
+    if (!texture) return GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+
+    auto id = texture->GetGuid();
     if (m_TextureBuffer.count(id) != 0)
         return m_TextureBuffer.at(id);
 
-    auto image = texture.GetTextureImage();
-    if (!image) return GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
-
     Format format;
-    if (auto bit_count = image->GetBitcount(); bit_count == 8)
+    if (auto bit_count = texture->GetBitcount(); bit_count == 8)
         format = Format::R8_UNORM;
     else if (bit_count == 16)
         format = Format::R8G8_UNORM;
@@ -60,13 +59,13 @@ std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(const Asset::Sc
     // Create new texture buffer
     TextureBuffer::Description desc = {};
     desc.format                     = format;
-    desc.width                      = image->GetWidth();
-    desc.height                     = image->GetHeight();
-    desc.pitch                      = image->GetPitch();
-    desc.initial_data               = image->GetData();
-    desc.initial_data_size          = image->GetDataSize();
+    desc.width                      = texture->GetWidth();
+    desc.height                     = texture->GetHeight();
+    desc.pitch                      = texture->GetPitch();
+    desc.initial_data               = texture->GetData();
+    desc.initial_data_size          = texture->GetDataSize();
 
-    m_TextureBuffer.emplace(id, m_Driver.CreateTextureBuffer(texture.GetName(), desc));
+    m_TextureBuffer.emplace(id, m_Driver.CreateTextureBuffer(id.str(), desc));
     return m_TextureBuffer.at(id);
 }
 

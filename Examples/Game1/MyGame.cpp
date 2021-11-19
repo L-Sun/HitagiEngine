@@ -21,7 +21,6 @@ int MyGame::Initialize() {
     g_InputManager->Map(DEBUG, VirtualKeyCode::KEY_SPACE);
     g_InputManager->Map(RESET_SCENE, VirtualKeyCode::KEY_R);
 
-    m_Clock.Initialize();
     m_Clock.Start();
     return 0;
 }

@@ -7,7 +7,6 @@ using namespace std::chrono_literals;
 Hitagi::Core::Clock g_C;
 
 TEST(TimerTest, DurationTest) {
-    g_C.Initialize();
     g_C.Start();
     std::this_thread::sleep_for(1s);
     g_C.Tick();
@@ -15,7 +14,6 @@ TEST(TimerTest, DurationTest) {
 }
 
 TEST(TimerTest, PauseTest) {
-    g_C.Initialize();
     g_C.Start();
     std::this_thread::sleep_for(1s);
     g_C.Tick();

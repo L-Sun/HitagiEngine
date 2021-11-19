@@ -29,6 +29,7 @@ target_link_libraries(GraphicsManager
         SceneManager
         PhysicsManager
         DebugManager
+        GuiManager
         $<$<PLATFORM_ID:Windows>:DX12DriverAPI>
         freetype
 )

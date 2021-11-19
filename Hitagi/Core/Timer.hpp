@@ -1,14 +1,11 @@
 #pragma once
 #include <chrono>
 #include <string>
-#include "IRuntimeModule.hpp"
 
 namespace Hitagi::Core {
-class Clock : public IRuntimeModule {
+class Clock {
 public:
-    int  Initialize() final;
-    void Tick() final;
-    void Finalize() final;
+    Clock();
 
     std::chrono::duration<double>                  TotalTime() const;
     std::chrono::duration<double>                  DeltaTime() const;
@@ -17,11 +14,12 @@ public:
 
     void Reset();
     void Start();
+    void Tick();
     void Pause();
 
 private:
-    std::chrono::duration<double> m_DeltaTime{};
-    std::chrono::duration<double> m_PausedTime{};
+    std::chrono::duration<double> m_DeltaTime  = std::chrono::duration<double>::zero();
+    std::chrono::duration<double> m_PausedTime = std::chrono::duration<double>::zero();
 
     std::chrono::high_resolution_clock::time_point m_BaseTime;
     std::chrono::high_resolution_clock::time_point m_StopTime;
