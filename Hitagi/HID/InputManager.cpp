@@ -38,11 +38,17 @@ void InputManager::Tick() {
     g_App->UpdateInputEvent();
 }
 
-void InputManager::Map(UserDefAction user_action, std::variant<VirtualKeyCode, MouseEvent> event) {
-    m_UserMap[user_action] = std::move(event);
+void InputManager::Map(std::string user_action, std::variant<VirtualKeyCode, MouseEvent> event) {
+    m_UserMap.emplace(std::move(user_action), std::move(event));
 }
 
-bool InputManager::GetBool(UserDefAction user_action) const {
+bool InputManager::GetBool(std::string user_action) const {
+    if (m_UserMap.count(user_action) == 0) {
+        m_Logger->error("you are trying to get unmap action: [{}]", user_action);
+        m_Logger->error("HID will return zero value!!!");
+        return {};
+    }
+
     return std::visit(
         Overloaded{
             [&](const VirtualKeyCode& key) -> bool {
@@ -62,7 +68,13 @@ bool InputManager::GetBool(UserDefAction user_action) const {
         m_UserMap.at(user_action));
 }
 
-bool InputManager::GetBoolNew(UserDefAction user_action) const {
+bool InputManager::GetBoolNew(std::string user_action) const {
+    if (m_UserMap.count(user_action) == 0) {
+        m_Logger->error("you are trying to get unmap action: [{}]", user_action);
+        m_Logger->error("HID will return zero value!!!");
+        return {};
+    }
+
     return std::visit(
         Overloaded{
             [&](const VirtualKeyCode& key) -> bool {
@@ -82,7 +94,13 @@ bool InputManager::GetBoolNew(UserDefAction user_action) const {
         m_UserMap.at(user_action));
 }
 
-float InputManager::GetFloat(UserDefAction user_action) const {
+float InputManager::GetFloat(std::string user_action) const {
+    if (m_UserMap.count(user_action) == 0) {
+        m_Logger->error("you are trying to get unmap action: [{}]", user_action);
+        m_Logger->error("HID will return zero value!!!");
+        return {};
+    }
+
     return std::visit(
         Overloaded{
             [&](const VirtualKeyCode& key) -> float {
@@ -102,7 +120,13 @@ float InputManager::GetFloat(UserDefAction user_action) const {
         m_UserMap.at(user_action));
 }
 
-float InputManager::GetFloatDelta(UserDefAction user_action) const {
+float InputManager::GetFloatDelta(std::string user_action) const {
+    if (m_UserMap.count(user_action) == 0) {
+        m_Logger->error("you are trying to get unmap action: [{}]", user_action);
+        m_Logger->error("HID will return zero value!!!");
+        return {};
+    }
+
     return std::visit(
         Overloaded{
             [&](const VirtualKeyCode& key) -> float {

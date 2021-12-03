@@ -1,5 +1,6 @@
 #include "GuiManager.hpp"
 #include "Application.hpp"
+#include "InputManager.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -33,11 +34,17 @@ int GuiManager::Initialize() {
 void GuiManager::Tick() {
     m_Clock.Tick();
     {
-        auto  rect       = g_App->GetWindowsRect();
-        auto& io         = ImGui::GetIO();
+        auto& io = ImGui::GetIO();
+
+        // Update window size info.
+        auto rect        = g_App->GetWindowsRect();
         io.DisplaySize.x = rect.right - rect.left;
         io.DisplaySize.y = rect.bottom - rect.top;
-        io.DeltaTime     = m_Clock.DeltaTime().count();
+
+        // Update mouse pos
+
+        // Update delta time
+        io.DeltaTime = m_Clock.DeltaTime().count();
     }
     ImGui::NewFrame();
     bool show_demo_window = true;
