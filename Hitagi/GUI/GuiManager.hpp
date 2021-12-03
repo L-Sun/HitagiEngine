@@ -19,6 +19,9 @@ public:
     inline auto GetGuiFontTexture() const noexcept { return m_FontTexture; }
 
 private:
+    std::shared_ptr<Asset::Image> LoadFontTexture();
+    void                          MapKey();
+
     Core::Clock                   m_Clock;
     std::shared_ptr<Asset::Image> m_FontTexture;
 };
