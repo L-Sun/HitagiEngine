@@ -130,6 +130,10 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             break;
         case WM_MOUSEWHEEL:
             g_InputManager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / 120.0f);
+        case WM_CHAR:
+            size_t repeat_count = HIWORD(l_param) & KF_REPEAT == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
+            g_InputManager->AppendInputText(std::u8string(1, static_cast<char8_t>(w_param)));
+            // TODO IME
     }
     return DefWindowProc(h_wnd, message, w_param, l_param);
 }

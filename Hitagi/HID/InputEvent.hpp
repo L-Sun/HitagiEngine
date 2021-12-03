@@ -30,7 +30,7 @@ enum class VirtualKeyCode {
     // ...
     KEY_SHIFT     = 0x10,
     KEY_CTRL      = 0x11,
-    KEY_MENU      = 0x12,
+    KEY_ALT       = 0x12,
     KEY_PAUSE     = 0x13,
     KEY_CAPS_LOCK = 0x14,
     // ...
@@ -42,6 +42,7 @@ enum class VirtualKeyCode {
     KEY_END,
     KEY_HOME,
     KEY_LEFT,
+    KEY_UP,
     KEY_RIGHT,
     KEY_DOWN,
     KEY_SELECT,
