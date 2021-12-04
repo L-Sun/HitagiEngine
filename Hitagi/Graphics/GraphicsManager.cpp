@@ -127,6 +127,7 @@ void GraphicsManager::Finalize() {
 
         m_PSO      = nullptr;
         m_DebugPSO = nullptr;
+        m_ImGuiPSO = nullptr;
         m_ResMgr   = nullptr;
         for (auto&& frame : m_Frames)
             frame = nullptr;

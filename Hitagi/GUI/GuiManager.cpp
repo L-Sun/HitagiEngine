@@ -1,6 +1,7 @@
 #include "GuiManager.hpp"
 #include "Application.hpp"
 #include "InputManager.hpp"
+#include "FileIOManager.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -17,7 +18,7 @@ int GuiManager::Initialize() {
     m_Clock.Start();
 
     ImGui::CreateContext();
-    m_FontTexture = LoadFontTexture();
+    LoadFontTexture();
     MapKey();
 
     return 0;
@@ -59,22 +60,38 @@ void GuiManager::Tick() {
 
 void GuiManager::Finalize() {
     ImGui::DestroyContext();
+    m_FontsData.clear();
+    m_FontTexture = nullptr;
+    m_Logger->info("Finalize.");
+    m_Logger = nullptr;
 }
 
-std::shared_ptr<Asset::Image> GuiManager::LoadFontTexture() {
+void GuiManager::LoadFontTexture() {
     auto& io = ImGui::GetIO();
+
+    for (const auto& font_file : std::filesystem::directory_iterator{"./Asset/Fonts"}) {
+        auto& font_data = m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary(font_file));
+
+        ImFontConfig config;
+        config.FontData             = font_data.GetData();
+        config.FontDataSize         = font_data.GetDataSize();
+        config.SizePixels           = 18.0f;
+        config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
+
+        auto name = font_file.path().stem().u8string();
+        std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
+        io.Fonts->AddFont(&config);
+    }
 
     unsigned char* pixels = nullptr;
     int            width = 0, height = 0;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-    const uint32_t bitcount  = 32;
-    const size_t   pitch     = width * bitcount / 8;
-    auto           texture   = std::make_shared<Asset::Image>(width, height, 32, pitch, pitch * height);
-    uint8_t*       p_texture = texture->GetData();
-    std::copy_n(reinterpret_cast<const uint8_t*>(pixels), texture->GetDataSize(), p_texture);
-
-    return texture;
+    const uint32_t bitcount = 32;
+    const size_t   pitch    = width * bitcount / 8;
+    m_FontTexture           = std::make_shared<Asset::Image>(width, height, 32, pitch, pitch * height);
+    uint8_t* p_texture      = m_FontTexture->GetData();
+    std::copy_n(reinterpret_cast<const uint8_t*>(pixels), m_FontTexture->GetDataSize(), p_texture);
 }
 
 void GuiManager::MapKey() {

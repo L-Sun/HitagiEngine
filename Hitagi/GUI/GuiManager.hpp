@@ -5,6 +5,8 @@
 
 #include <imgui.h>
 
+#include <list>
+
 namespace Hitagi::Gui {
 class GuiManager : public IRuntimeModule {
 public:
@@ -19,11 +21,12 @@ public:
     inline auto GetGuiFontTexture() const noexcept { return m_FontTexture; }
 
 private:
-    std::shared_ptr<Asset::Image> LoadFontTexture();
-    void                          MapKey();
+    void LoadFontTexture();
+    void MapKey();
 
     Core::Clock                   m_Clock;
     std::shared_ptr<Asset::Image> m_FontTexture;
+    std::list<Core::Buffer>       m_FontsData;
 };
 
 }  // namespace Hitagi::Gui
