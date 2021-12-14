@@ -7,9 +7,7 @@
 namespace Hitagi::Asset {
 // Class BaseSceneObject
 BaseSceneObject::BaseSceneObject(SceneObjectType type) : m_Type(type) { m_Guid = xg::newGuid(); }
-BaseSceneObject::BaseSceneObject(const xg::Guid& guid, const SceneObjectType& type) : m_Guid(guid), m_Type(type) {}
-BaseSceneObject::BaseSceneObject(xg::Guid&& guid, const SceneObjectType& type)
-    : m_Guid(std::move(guid)), m_Type(type) {}
+BaseSceneObject::BaseSceneObject(xg::Guid guid, SceneObjectType type) : m_Guid(std::move(guid)), m_Type(type) {}
 BaseSceneObject::BaseSceneObject(BaseSceneObject&& obj) : m_Guid(std::move(obj.m_Guid)), m_Type(obj.m_Type) {}
 BaseSceneObject& BaseSceneObject::operator=(BaseSceneObject&& obj) {
     if (this != &obj) {
@@ -24,7 +22,8 @@ SceneObjectVertexArray::SceneObjectVertexArray(std::string_view attr,
                                                VertexDataType   data_type,
                                                Core::Buffer&&   buffer,
                                                uint32_t         morph_index)
-    : m_Attribute(attr),
+    : BaseSceneObject(SceneObjectType::VertexArray),
+      m_Attribute(attr),
       m_DataType(data_type),
       m_VertexCount(buffer.GetDataSize() / GetVertexSize()),
       m_Data(std::move(buffer)),
@@ -62,7 +61,8 @@ SceneObjectIndexArray::SceneObjectIndexArray(
     const IndexDataType data_type,
     Core::Buffer&&      data,
     const uint32_t      restart_index)
-    : m_DataType(data_type),
+    : BaseSceneObject(SceneObjectType::IndexArray),
+      m_DataType(data_type),
       m_IndexCount(data.GetDataSize() / GetIndexSize()),
       m_Data(std::move(data)),
       m_ResetartIndex(restart_index) {}
@@ -86,7 +86,7 @@ size_t              SceneObjectIndexArray::GetIndexSize() const {
 }
 
 // Class SceneObjectMesh
-void SceneObjectMesh::AddIndexArray(SceneObjectIndexArray&& array) { m_IndexArray = std::move(array); }
+void SceneObjectMesh::SetIndexArray(SceneObjectIndexArray&& array) { m_IndexArray = std::move(array); }
 void SceneObjectMesh::AddVertexArray(SceneObjectVertexArray&& array) { m_VertexArray.emplace_back(std::move(array)); }
 void SceneObjectMesh::SetPrimitiveType(PrimitiveType type) { m_PrimitiveType = type; }
 void SceneObjectMesh::SetMaterial(const std::weak_ptr<SceneObjectMaterial>& material) { m_Material = material; }

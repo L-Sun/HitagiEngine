@@ -1,14 +1,12 @@
 #include "AssetManager.hpp"
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
 #include "PNG.hpp"
 #include "JPEG.hpp"
 #include "BMP.hpp"
 #include "TGA.hpp"
 
-#include "Assimp.hpp"
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace Hitagi {
 std::unique_ptr<Asset::AssetManager> g_AssetManager = std::make_unique<Asset::AssetManager>();
@@ -25,7 +23,6 @@ int AssetManager::Initialize() {
     m_ImageParser[static_cast<size_t>(ImageFormat::TGA)]  = std::make_unique<TgaParser>();
     m_ImageParser[static_cast<size_t>(ImageFormat::BMP)]  = std::make_unique<BmpParser>();
 
-    m_SceneParser = std::make_unique<AssimpParser>();
     return 0;
 }
 
@@ -55,12 +52,6 @@ std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& pa
     auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
     m_ImportedImages.emplace(xg::newGuid(), image);
     return image;
-}
-
-std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
-    auto scene = m_SceneParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), path);
-    m_ImportedScenes.emplace(xg::newGuid(), scene);
-    return scene;
 }
 
 }  // namespace Hitagi::Asset

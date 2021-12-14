@@ -1,8 +1,9 @@
 #pragma once
-#include <filesystem>
-
 #include "IRuntimeModule.hpp"
 #include "Scene.hpp"
+#include "SceneParser.hpp"
+
+#include <map>
 
 namespace Hitagi::Asset {
 
@@ -12,7 +13,10 @@ public:
     void Finalize() override;
     void Tick() override;
 
-    void SetScene(std::shared_ptr<Scene> scene);
+    Scene& CreateScene(std::string name);
+    Scene& ImportScene(const std::filesystem::path& path);
+    void   SwitchScene(xg::Guid id);
+    void   DeleteScene(xg::Guid id);
 
     bool IsSceneChanged();
     void NotifySceneIsRenderingQueued();
@@ -23,15 +27,18 @@ public:
 
     void ResetScene();
 
-    std::weak_ptr<SceneGeometryNode>   GetSceneGeometryNode(const std::string& name);
-    std::weak_ptr<SceneLightNode>      GetSceneLightNode(const std::string& name);
-    std::weak_ptr<SceneObjectGeometry> GetSceneGeometryObject(const std::string& key);
+    std::weak_ptr<SceneGeometryNode> GetSceneGeometryNode(const std::string& name);
+    std::weak_ptr<SceneLightNode>    GetSceneLightNode(const std::string& name);
 
     std::weak_ptr<SceneCameraNode> GetCameraNode();
 
 protected:
-    std::shared_ptr<Scene> m_Scene;
-    bool                   m_DirtyFlag = false;
+    static void CreateDefaultCamera(Scene& scene);
+    static void CreateDefaultLight(Scene& scene);
+
+    std::map<xg::Guid, Scene>    m_Scenes;
+    xg::Guid                     m_CurrentScene;
+    std::unique_ptr<SceneParser> m_Parser;
 };
 
 }  // namespace Hitagi::Asset

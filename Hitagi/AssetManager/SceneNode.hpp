@@ -123,7 +123,8 @@ class SceneLightNode : public SceneNode<SceneObjectLight> {
 protected:
     bool m_Shadow = false;
 
-        public : using SceneNode::SceneNode;
+public:
+    using SceneNode::SceneNode;
     void       SetIfCastShadow(bool shaodw) { m_Shadow = shaodw; }
     const bool CastShadow() { return m_Shadow; }
 };

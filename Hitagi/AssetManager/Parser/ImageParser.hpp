@@ -12,7 +12,7 @@ enum class ImageFormat : unsigned { PNG,
 
 class ImageParser {
 public:
-    virtual std::shared_ptr<Image> Parse(const Core::Buffer& buf) = 0;
+    virtual std::shared_ptr<Image> Parse(const Core::Buffer& buffer) = 0;
     virtual ~ImageParser()                                        = default;
 };
 }  // namespace Hitagi::Asset

@@ -58,16 +58,14 @@ class BaseSceneObject {
 protected:
     xg::Guid        m_Guid;
     SceneObjectType m_Type;
-    BaseSceneObject(SceneObjectType type);
-    BaseSceneObject(const xg::Guid& guid, const SceneObjectType& type);
-    BaseSceneObject(xg::Guid&& guid, const SceneObjectType& type);
-    BaseSceneObject(BaseSceneObject&& obj);
-    BaseSceneObject& operator  =(BaseSceneObject&& obj);
-    virtual ~BaseSceneObject() = default;
 
-    BaseSceneObject()                           = default;
+    BaseSceneObject(SceneObjectType type);
+    BaseSceneObject(xg::Guid guid, SceneObjectType type);
+
     BaseSceneObject(const BaseSceneObject& obj) = default;
+    BaseSceneObject(BaseSceneObject&& obj);
     BaseSceneObject& operator=(const BaseSceneObject& obj) = default;
+    BaseSceneObject& operator                              =(BaseSceneObject&& obj);
 
 public:
     const xg::Guid&       GetGuid() const { return m_Guid; }
@@ -148,9 +146,9 @@ protected:
     Color       m_Emission;
 
 public:
-    SceneObjectMaterial()
+    SceneObjectMaterial(std::string name)
         : BaseSceneObject(SceneObjectType::Material),
-          m_Name(""),
+          m_Name(std::move(name)),
           m_AmbientColor(vec4f(0.0f)),
           m_DiffuseColor(vec4f(1.0f)),
           m_Metallic(0.0f),
@@ -162,7 +160,6 @@ public:
           m_Opacity(1.0f),
           m_Transparency(vec4f(0.0f)),
           m_Emission(vec4f(0.0f)){};
-    SceneObjectMaterial(std::string name) : m_Name(std::move(name)){};
 
     const std::string&   GetName() const;
     const Color&         GetAmbientColor() const;
@@ -191,7 +188,7 @@ public:
     SceneObjectVertexArray(SceneObjectVertexArray&&)      = default;
     SceneObjectVertexArray& operator=(const SceneObjectVertexArray&) = default;
     SceneObjectVertexArray& operator=(SceneObjectVertexArray&&) = default;
-    ~SceneObjectVertexArray() override                          = default;
+    ~SceneObjectVertexArray()                                   = default;
 
     const std::string&   GetAttributeName() const;
     VertexDataType       GetDataType() const;
@@ -212,7 +209,7 @@ private:
 
 class SceneObjectIndexArray : public BaseSceneObject {
 public:
-    SceneObjectIndexArray() = default;
+    SceneObjectIndexArray() : BaseSceneObject(SceneObjectType::IndexArray) {}
     SceneObjectIndexArray(
         const IndexDataType data_type,
         Core::Buffer&&      data,
@@ -222,7 +219,7 @@ public:
     SceneObjectIndexArray(SceneObjectIndexArray&&)      = default;
     SceneObjectIndexArray& operator=(const SceneObjectIndexArray&) = default;
     SceneObjectIndexArray& operator=(SceneObjectIndexArray&&) = default;
-    ~SceneObjectIndexArray() override                         = default;
+    ~SceneObjectIndexArray()                                  = default;
 
     const IndexDataType  GetIndexType() const;
     const uint8_t*       GetData() const;
@@ -255,16 +252,10 @@ protected:
     bool m_MotionBlur = false;
 
 public:
-    SceneObjectMesh(bool visible = true, bool shadow = true, bool motion_blur = true)
-        : BaseSceneObject(SceneObjectType::Mesh) {}
-    SceneObjectMesh(SceneObjectMesh&& mesh)
-        : BaseSceneObject(SceneObjectType::Mesh),
-          m_IndexArray(std::move(mesh.m_IndexArray)),
-          m_VertexArray(std::move(mesh.m_VertexArray)),
-          m_PrimitiveType(mesh.m_PrimitiveType) {}
+    SceneObjectMesh() : BaseSceneObject(SceneObjectType::Mesh) {}
 
     // Set some things
-    void AddIndexArray(SceneObjectIndexArray&& array);
+    void SetIndexArray(SceneObjectIndexArray&& array);
     void AddVertexArray(SceneObjectVertexArray&& array);
     void SetPrimitiveType(PrimitiveType type);
     void SetMaterial(const std::weak_ptr<SceneObjectMaterial>& material);

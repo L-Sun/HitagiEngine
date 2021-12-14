@@ -1,9 +1,10 @@
 #include "SceneManager.hpp"
 
+#include "FileIOManager.hpp"
+#include "Assimp.hpp"
+
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-
-#include "AssetManager.hpp"
 
 namespace Hitagi {
 std::unique_ptr<Asset::SceneManager> g_SceneManager = std::make_unique<Asset::SceneManager>();
@@ -15,86 +16,89 @@ int SceneManager::Initialize() {
     int result = 0;
     m_Logger   = spdlog::stdout_color_mt("SceneManager");
     m_Logger->info("Initialize...");
-
+    auto&& [iter, success] = m_Scenes.emplace(xg::newGuid(), Scene{});
+    m_CurrentScene         = iter->first;
     return result;
 }
 void SceneManager::Finalize() {
-    m_Scene = nullptr;
+    m_Parser = std::make_unique<AssimpParser>();
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
 void SceneManager::Tick() {}
 
-void SceneManager::SetScene(std::shared_ptr<Scene> scene) {
-    m_Scene = scene;
-    m_Scene->LoadResource();
-    if (m_Scene->GetFirstCameraNode() == nullptr) {
-        m_Logger->warn("Will create a default camera");
-        m_Scene->cameras["default"] = std::make_shared<SceneObjectCamera>();
+Scene& SceneManager::CreateScene(std::string name) {
+    auto&& [iter, success] = m_Scenes.emplace(xg::newGuid(), Scene{std::move(name)});
+    m_CurrentScene         = iter->first;
+    Scene& scene           = iter->second;
 
-        vec3f pos                        = {3.0f, 3.0f, 3.0f};
-        vec3f up                         = {-1, -1, 1};
-        vec3f direct                     = -pos;
-        m_Scene->camera_nodes["default"] = std::make_shared<SceneCameraNode>("default", pos, up, direct);
-        m_Scene->camera_nodes["default"]->AddSceneObjectRef(m_Scene->cameras["default"]);
-        m_Scene->scene_graph->AppendChild(m_Scene->camera_nodes["default"]);
+    CreateDefaultCamera(scene);
+    CreateDefaultLight(scene);
+
+    return scene;
+}
+
+Scene& SceneManager::ImportScene(const std::filesystem::path& path) {
+    auto&& [iter, success] = m_Scenes.emplace(xg::newGuid(), m_Parser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path)));
+
+    m_CurrentScene = iter->first;
+    Scene& scene   = iter->second;
+
+    if (scene.GetFirstCameraNode() == nullptr) CreateDefaultCamera(scene);
+    if (scene.GetFirstLightNode() == nullptr) CreateDefaultLight(scene);
+
+    return scene;
+}
+
+void SceneManager::SwitchScene(xg::Guid id) {
+    if (m_Scenes.count(id) != 0) {
+        m_CurrentScene = id;
     }
-    if (m_Scene->GetFirstLightNode() == nullptr) {
-        m_Logger->warn("Will create a default light.");
-        m_Scene->lights["default"]      = std::make_shared<SceneObjectPointLight>();
-        m_Scene->light_nodes["default"] = std::make_shared<SceneLightNode>("default");
+}
 
-        m_Scene->light_nodes["default"]->AddSceneObjectRef(m_Scene->lights["default"]);
-        m_Scene->light_nodes["default"]->AppendTransform(
-            std::make_shared<SceneObjectTranslation>(3.0f, 3.0f, 3.0f));
-
-        m_Scene->scene_graph->AppendChild(m_Scene->light_nodes["default"]);
+void SceneManager::DeleteScene(xg::Guid id) {
+    size_t delete_count = m_Scenes.erase(id);
+    if (delete_count == 0) {
+        m_Logger->warn("You are trying to delete a non-exsist scene!");
     }
-    m_DirtyFlag = true;
 }
 
 void SceneManager::ResetScene() {
-    m_Scene->scene_graph->Reset(true);
-    m_Scene->LoadResource();
-    m_DirtyFlag = true;
+    auto& scene = m_Scenes.at(m_CurrentScene);
+    scene.scene_graph->Reset(true);
+    scene.LoadResource();
 }
 
 // TODO culling
 const Scene& SceneManager::GetSceneForRendering() const {
-    if (!m_Scene) m_Logger->error("Please attach a scene to SceneManager before get scene from SceneManager!");
-    return *m_Scene;
+    return m_Scenes.at(m_CurrentScene);
 }
 
 const Scene& SceneManager::GetSceneForPhysicsSimulation() const {
-    if (!m_Scene) m_Logger->error("Please attach a scene to SceneManager before get scene from SceneManager!");
-    return *m_Scene;
+    return m_Scenes.at(m_CurrentScene);
 }
 
-bool SceneManager::IsSceneChanged() { return m_DirtyFlag; }
+void SceneManager::CreateDefaultCamera(Scene& scene) {
+    scene.cameras["default"] = std::make_shared<SceneObjectCamera>();
 
-void SceneManager::NotifySceneIsRenderingQueued() { m_DirtyFlag = false; }
-
-void SceneManager::NotifySceneIsPhysicalSimulationQueued() {}
-
-std::weak_ptr<SceneGeometryNode> SceneManager::GetSceneGeometryNode(const std::string& name) {
-    auto it = m_Scene->geometry_nodes.find(name);
-    if (it != m_Scene->geometry_nodes.end())
-        return it->second;
-    else
-        return {};
-}
-std::weak_ptr<SceneLightNode> SceneManager::GetSceneLightNode(const std::string& name) {
-    auto it = m_Scene->light_nodes.find(name);
-    if (it != m_Scene->light_nodes.end())
-        return it->second;
-    else
-        return {};
+    vec3f pos                     = {3.0f, 3.0f, 3.0f};
+    vec3f up                      = {-1, -1, 1};
+    vec3f direct                  = -pos;
+    scene.camera_nodes["default"] = std::make_shared<SceneCameraNode>("default", pos, up, direct);
+    scene.camera_nodes["default"]->AddSceneObjectRef(scene.cameras["default"]);
+    scene.scene_graph->AppendChild(scene.camera_nodes["default"]);
 }
 
-std::weak_ptr<SceneObjectGeometry> SceneManager::GetSceneGeometryObject(const std::string& key) {
-    return m_Scene->geometries.find(key)->second;
+void SceneManager::CreateDefaultLight(Scene& scene) {
+    scene.lights["default"]      = std::make_shared<SceneObjectPointLight>();
+    scene.light_nodes["default"] = std::make_shared<SceneLightNode>("default");
+
+    scene.light_nodes["default"]->AddSceneObjectRef(scene.lights["default"]);
+    scene.light_nodes["default"]->AppendTransform(
+        std::make_shared<SceneObjectTranslation>(3.0f, 3.0f, 3.0f));
+
+    scene.scene_graph->AppendChild(scene.light_nodes["default"]);
 }
-std::weak_ptr<SceneCameraNode> SceneManager::GetCameraNode() { return m_Scene->GetFirstCameraNode(); }
 
 }  // namespace Hitagi::Asset
