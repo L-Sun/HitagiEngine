@@ -108,16 +108,16 @@ void Win32Application::UpdateInputEvent() {
 }
 
 LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w_param, LPARAM l_param) {
-    Win32Application* p_this = nullptr;
+    // Win32Application* p_this = nullptr;
     if (message == WM_NCCREATE) {
-        p_this = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(l_param)->lpCreateParams);
+        auto p_this = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(l_param)->lpCreateParams);
 
         SetLastError(0);
         if (!SetWindowLongPtr(h_wnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(p_this))) {
             if (GetLastError() != 0) return false;
         }
     } else {
-        p_this = reinterpret_cast<Win32Application*>(GetWindowLongPtr(h_wnd, GWLP_USERDATA));
+        // p_this = reinterpret_cast<Win32Application*>(GetWindowLongPtr(h_wnd, GWLP_USERDATA));
     }
     switch (message) {
         case WM_DESTROY:
@@ -131,7 +131,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_MOUSEWHEEL:
             g_InputManager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / 120.0f);
         case WM_CHAR:
-            size_t repeat_count = HIWORD(l_param) & KF_REPEAT == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
+            size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
             g_InputManager->AppendInputText(std::u8string(repeat_count, static_cast<char8_t>(w_param)));
             // TODO IME
     }

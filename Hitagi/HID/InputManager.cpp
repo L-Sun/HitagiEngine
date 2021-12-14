@@ -40,53 +40,6 @@ void InputManager::Tick() {
     g_App->UpdateInputEvent();
 }
 
-void InputManager::Map(std::string user_action, std::variant<VirtualKeyCode, MouseEvent> event) {
-    if (m_UserMap.count(user_action) != 0) {
-        std::visit(
-            Overloaded{
-                [&](const VirtualKeyCode& key) {
-                    m_Logger->warn(
-                        "the user action: [{} -> key:{}] exsited,"
-                        " you are trying to override it!",
-                        user_action, static_cast<int>(key));
-                },
-                [&](const MouseEvent& event) {
-                    m_Logger->warn(
-                        "the user action: [{} -> key:{}] exsited,"
-                        " you are trying to override it!",
-                        user_action, magic_enum::enum_name(event));
-                },
-            },
-            m_UserMap.at(user_action));
-
-        m_UserMap.at(user_action) = std::move(event);
-    } else {
-        m_UserMap.emplace(std::move(user_action), std::move(event));
-    }
-}
-
-bool InputManager::HasAction(const std::string& user_action) const {
-    if (m_UserMap.count(user_action) == 0) {
-        m_Logger->error("you are trying to get unmap action: [{}]", user_action);
-        m_Logger->error("HID will return zero value!!!");
-        return false;
-    }
-    return true;
-}
-
-bool InputManager::GetBool(const std::string& user_action) const {
-    return HasAction(user_action) ? GetBool(m_UserMap.at(user_action)) : false;
-}
-bool InputManager::GetBoolNew(const std::string& user_action) const {
-    return HasAction(user_action) ? GetBoolNew(m_UserMap.at(user_action)) : false;
-}
-float InputManager::GetFloat(const std::string& user_action) const {
-    return HasAction(user_action) ? GetFloat(m_UserMap.at(user_action)) : 0.0f;
-}
-float InputManager::GetFloatDelta(const std::string& user_action) const {
-    return HasAction(user_action) ? GetFloatDelta(m_UserMap.at(user_action)) : 0.0f;
-}
-
 bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
         Overloaded{
