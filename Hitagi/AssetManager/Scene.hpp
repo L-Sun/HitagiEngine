@@ -6,6 +6,7 @@ namespace Hitagi::Asset {
 
 class Scene {
 private:
+    std::string                          m_Name;
     std::shared_ptr<SceneObjectMaterial> m_DefaultMaterial;
 
 public:
@@ -22,11 +23,15 @@ public:
 public:
     Scene()
         : m_DefaultMaterial(std::make_shared<SceneObjectMaterial>("default")),
-          scene_graph(std::make_shared<BaseSceneNode>("default")) {}
+          scene_graph(std::make_shared<BaseSceneNode>("root")) {}
     Scene(std::string_view scene_name)
-        : m_DefaultMaterial(std::make_shared<SceneObjectMaterial>("default")),
-          scene_graph(std::make_shared<BaseSceneNode>(scene_name)) {}
+        : m_Name(scene_name),
+          m_DefaultMaterial(std::make_shared<SceneObjectMaterial>("default")),
+          scene_graph(std::make_shared<BaseSceneNode>("root")) {}
     ~Scene() = default;
+
+    inline void               SetName(std::string name) noexcept { m_Name = std::move(name); }
+    inline const std::string& GetName() const noexcept { return m_Name; }
 
     std::vector<std::reference_wrapper<SceneGeometryNode>> GetGeometries() const;
 

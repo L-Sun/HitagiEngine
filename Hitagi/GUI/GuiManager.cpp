@@ -53,8 +53,12 @@ void GuiManager::Tick() {
         io.DeltaTime = m_Clock.DeltaTime().count();
     }
     ImGui::NewFrame();
-    bool show_demo_window = true;
-    ImGui::ShowDemoWindow(&show_demo_window);
+
+    while (!m_GuiDrawTasks.empty()) {
+        m_GuiDrawTasks.front()();
+        m_GuiDrawTasks.pop();
+    }
+
     ImGui::Render();
 }
 
@@ -69,8 +73,8 @@ void GuiManager::Finalize() {
 void GuiManager::LoadFontTexture() {
     auto& io = ImGui::GetIO();
 
-    for (const auto& font_file : std::filesystem::directory_iterator{"./Asset/Fonts"}) {
-        auto& font_data = m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary(font_file));
+    /* for (const auto& font_file : std::filesystem::directory_iterator{"./Assets/Fonts"}) */ {
+        auto& font_data = m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./Assets/Fonts/Hasklig-Regular.otf"));
 
         ImFontConfig config;
         config.FontData             = font_data.GetData();
@@ -78,7 +82,7 @@ void GuiManager::LoadFontTexture() {
         config.SizePixels           = 18.0f;
         config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
 
-        auto name = font_file.path().stem().u8string();
+        std::u8string name = u8"Hasklig-Regular";
         std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
         io.Fonts->AddFont(&config);
     }

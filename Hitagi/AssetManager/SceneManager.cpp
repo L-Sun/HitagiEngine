@@ -16,12 +16,18 @@ int SceneManager::Initialize() {
     int result = 0;
     m_Logger   = spdlog::stdout_color_mt("SceneManager");
     m_Logger->info("Initialize...");
-    auto&& [iter, success] = m_Scenes.emplace(xg::newGuid(), Scene{});
+    m_Parser               = std::make_unique<AssimpParser>();
+    auto&& [iter, success] = m_Scenes.emplace(xg::newGuid(), Scene{"Default"});
     m_CurrentScene         = iter->first;
+    Scene& scene           = iter->second;
+
+    CreateDefaultCamera(scene);
+    CreateDefaultLight(scene);
+
     return result;
 }
 void SceneManager::Finalize() {
-    m_Parser = std::make_unique<AssimpParser>();
+    m_Parser = nullptr;
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
@@ -44,6 +50,7 @@ Scene& SceneManager::ImportScene(const std::filesystem::path& path) {
 
     m_CurrentScene = iter->first;
     Scene& scene   = iter->second;
+    scene.SetName(path.stem().string());
 
     if (scene.GetFirstCameraNode() == nullptr) CreateDefaultCamera(scene);
     if (scene.GetFirstLightNode() == nullptr) CreateDefaultLight(scene);

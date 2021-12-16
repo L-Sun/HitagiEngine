@@ -13,10 +13,11 @@ public:
     void Finalize() override;
     void Tick() override;
 
-    Scene& CreateScene(std::string name);
-    Scene& ImportScene(const std::filesystem::path& path);
-    void   SwitchScene(xg::Guid id);
-    void   DeleteScene(xg::Guid id);
+    Scene&       CreateScene(std::string name);
+    Scene&       ImportScene(const std::filesystem::path& path);
+    inline auto& ListAllScene() noexcept { return m_Scenes; }
+    void         SwitchScene(xg::Guid id);
+    void         DeleteScene(xg::Guid id);
 
     bool IsSceneChanged();
     void NotifySceneIsRenderingQueued();

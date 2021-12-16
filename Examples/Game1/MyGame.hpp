@@ -9,4 +9,5 @@ public:
 
 private:
     Hitagi::Core::Clock m_Clock;
+    xg::Guid            m_CurrentScene;
 };

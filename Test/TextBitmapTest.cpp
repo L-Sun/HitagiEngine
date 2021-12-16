@@ -31,10 +31,10 @@ void finalize(string_view text) {
 int main(int argc, char const* argv[]) {
     init();
     {
-        auto font_buffer = g_FileIoManager->SyncOpenAndReadBinary("Asset/Fonts/Hasklig-Light.otf");
+        auto font_buffer = g_FileIoManager->SyncOpenAndReadBinary("Assets/Fonts/Hasklig-Light.otf");
 
         FT_Library library = nullptr;  // handle to library
-        FT_Face    face = nullptr;     // handle to face object
+        FT_Face    face    = nullptr;  // handle to face object
 
         FT_Error error = 0;
         if (error = FT_Init_FreeType(&library); error != 0) {

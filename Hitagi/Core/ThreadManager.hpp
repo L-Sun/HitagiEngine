@@ -42,7 +42,8 @@ decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
 
     using return_type = std::invoke_result_t<Func, Args...>;
 
-    auto task = std::make_shared<std::packaged_task<return_type()>>([func = std::forward<Func>(func)] { return func(); });
+    auto task = std::make_shared<std::packaged_task<return_type()>>(
+        std::bind(std::forward<Func>(func), std::forward<Args>(args)...));
 
     std::future<return_type> res = task->get_future();
 

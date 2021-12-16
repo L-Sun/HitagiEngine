@@ -6,27 +6,27 @@
 using namespace Hitagi;
 
 TEST(ImageParserTest, ErrorPath) {
-    auto image = g_AssetManager->ImportImage("Asset/Textures/a.jpg");
+    auto image = g_AssetManager->ImportImage("Assets/Textures/a.jpg");
     EXPECT_TRUE(image == nullptr);
 }
 
 TEST(ImageParserTest, Jpeg) {
-    auto image = g_AssetManager->ImportImage("Asset/Textures/avatar.jpg");
+    auto image = g_AssetManager->ImportImage("Assets/Textures/avatar.jpg");
     EXPECT_TRUE(image == nullptr);
 }
 
 TEST(ImageParserTest, Tga) {
-    auto image = g_AssetManager->ImportImage("Asset/Textures/avatar.tga");
+    auto image = g_AssetManager->ImportImage("Assets/Textures/avatar.tga");
     EXPECT_TRUE(image == nullptr);
 }
 
 TEST(ImageParserTest, png) {
-    auto image = g_AssetManager->ImportImage("Asset/Textures/avatar.png");
+    auto image = g_AssetManager->ImportImage("Assets/Textures/avatar.png");
     EXPECT_TRUE(image == nullptr);
 }
 
 TEST(ImageParserTest, bmp) {
-    auto image = g_AssetManager->ImportImage("Asset/Textures/test.bmp");
+    auto image = g_AssetManager->ImportImage("Assets/Textures/test.bmp");
     EXPECT_TRUE(image == nullptr);
 }
 

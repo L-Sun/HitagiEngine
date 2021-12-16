@@ -112,10 +112,9 @@ void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& prim
 
 void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> font_texture, const PipelineState& pso) {
     // TODO auto resize constant buffer
-    // if new size is smaller, the expand function return directly.
-    if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < data->CmdListsCount)
-        // becase capacity + needed > exsisted + needed
-        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + data->CmdListsCount);
+    // we need a element to store gui projection
+    if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < 1)
+        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + 1);
 
     const size_t constant_offset = m_ConstantCount++;
     const float  L               = data->DisplayPos.x;

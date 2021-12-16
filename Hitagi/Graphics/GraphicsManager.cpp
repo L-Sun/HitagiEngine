@@ -35,12 +35,12 @@ int GraphicsManager::Initialize() {
     m_ShaderManager.Initialize();
 
     // TODO get and load all shader from AssetManager
-    m_ShaderManager.LoadShader("Asset/Shaders/color.vs", ShaderType::Vertex);
-    m_ShaderManager.LoadShader("Asset/Shaders/color.ps", ShaderType::Pixel);
-    m_ShaderManager.LoadShader("Asset/Shaders/imgui.vs", ShaderType::Vertex);
-    m_ShaderManager.LoadShader("Asset/Shaders/imgui.ps", ShaderType::Pixel);
-    m_ShaderManager.LoadShader("Asset/Shaders/debug.vs", ShaderType::Vertex);
-    m_ShaderManager.LoadShader("Asset/Shaders/debug.ps", ShaderType::Pixel);
+    m_ShaderManager.LoadShader("Assets/Shaders/color.vs", ShaderType::Vertex);
+    m_ShaderManager.LoadShader("Assets/Shaders/color.ps", ShaderType::Pixel);
+    m_ShaderManager.LoadShader("Assets/Shaders/imgui.vs", ShaderType::Vertex);
+    m_ShaderManager.LoadShader("Assets/Shaders/imgui.ps", ShaderType::Pixel);
+    m_ShaderManager.LoadShader("Assets/Shaders/debug.vs", ShaderType::Vertex);
+    m_ShaderManager.LoadShader("Assets/Shaders/debug.ps", ShaderType::Pixel);
 
     // ShaderVariables
     auto root_sig = std::make_shared<RootSignature>("Color root signature");

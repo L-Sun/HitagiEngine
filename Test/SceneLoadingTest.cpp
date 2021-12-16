@@ -27,7 +27,7 @@ int main(int, char**) {
     g_FileIoManager->Initialize();
     g_SceneManager->Initialize();
 
-    auto& scene = g_SceneManager->ImportScene("Asset/Scene/spot.fbx");
+    auto& scene = g_SceneManager->ImportScene("Assets/Scene/spot.fbx");
 
     std::cout << *scene.scene_graph << std::endl;
 
