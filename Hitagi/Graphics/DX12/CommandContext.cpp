@@ -110,6 +110,10 @@ void GraphicsCommandContext::SetRenderTarget(Graphics::RenderTarget& rt) {
     m_CommandList->OMSetRenderTargets(1, &render_target.GetRTV().handle, false, nullptr);
 }
 
+void GraphicsCommandContext::UnsetRenderTarget() {
+    m_CommandList->OMSetRenderTargets(0, nullptr, false, nullptr);
+}
+
 void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depth_buffer) {
     auto& render_target = *rt.GetBackend<RenderTarget>();
     auto& db            = *depth_buffer.GetBackend<DepthBuffer>();

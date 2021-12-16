@@ -44,6 +44,7 @@ public:
     void Tick() override;
 
     const Rect& GetWindowsRect() const noexcept { return m_Rect; }
+    bool        WindowSizeChanged() const noexcept { return m_SizeChanged; }
 
     virtual void* GetWindow() = 0;
     virtual bool  IsQuit();
@@ -53,14 +54,14 @@ public:
     virtual void              UpdateInputEvent() = 0;
 
 protected:
+    void OnResize();
+
     static bool      sm_Quit;
     GfxConfiguration m_Config;
     int              m_ArgSize = 0;
     char**           m_Arg     = nullptr;
     Rect             m_Rect{};
-
-private:
-    Application() = default;
+    bool             m_SizeChanged = false;
 };
 extern std::unique_ptr<Application> g_App;
 }  // namespace Hitagi

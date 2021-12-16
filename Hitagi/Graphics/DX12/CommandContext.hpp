@@ -80,6 +80,7 @@ public:
     // Front end interface
     void SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
     void SetRenderTarget(Graphics::RenderTarget& rt) final;
+    void UnsetRenderTarget() final;
     void SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depth_buffer) final;
     void ClearRenderTarget(Graphics::RenderTarget& rt) final;
     void ClearDepthBuffer(Graphics::DepthBuffer& depth_buffer) final;

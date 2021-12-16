@@ -234,4 +234,9 @@ void Frame::ResetState() {
     m_ConstantCount = 1;
 }
 
+void Frame::SetRenderTarget(std::shared_ptr<RenderTarget> rt) {
+    m_Driver.WaitFence(m_FenceValue);
+    m_Output = rt;
+}
+
 }  // namespace Hitagi::Graphics

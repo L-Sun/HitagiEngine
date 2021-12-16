@@ -27,8 +27,9 @@ int SceneManager::Initialize() {
     return result;
 }
 void SceneManager::Finalize() {
-    m_Parser = nullptr;
     m_Logger->info("Finalized.");
+    m_Scenes.clear();
+    m_Parser = nullptr;
     m_Logger = nullptr;
 }
 

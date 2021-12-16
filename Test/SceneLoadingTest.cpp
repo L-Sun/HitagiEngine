@@ -27,7 +27,7 @@ int main(int, char**) {
     g_FileIoManager->Initialize();
     g_SceneManager->Initialize();
 
-    auto& scene = g_SceneManager->ImportScene("Assets/Scene/spot.fbx");
+    auto& scene = g_SceneManager->ImportScene("Assets/Scene/untitled.fbx");
 
     std::cout << *scene.scene_graph << std::endl;
 
@@ -65,7 +65,6 @@ int main(int, char**) {
         if (pMaterial) std::cout << *pMaterial << std::endl;
     }
     g_SceneManager->Finalize();
-    g_AssetManager->Finalize();
     g_FileIoManager->Finalize();
     g_MemoryManager->Finalize();
 

@@ -26,7 +26,7 @@ public:
     std::shared_ptr<Graphics::TextureBuffer>  CreateTextureBuffer(std::string_view name, const Graphics::TextureBuffer::Description& desc) final;
     std::shared_ptr<Graphics::DepthBuffer>    CreateDepthBuffer(std::string_view name, const Graphics::DepthBuffer::Description& desc) final;
 
-    std::shared_ptr<Graphics::Resource> GetSwapChainBuffer(size_t frame_index) final;
+    size_t ResizeSwapChain(uint32_t width, uint32_t height) final;
 
     void UpdateConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t offset, const uint8_t* data, size_t size) final;
     void ResizeConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t new_num_elements) final;
@@ -58,9 +58,6 @@ private:
     ComPtr<IDXGIFactory4> m_DxgiFactory;
 
     ComPtr<IDXGISwapChain4> m_SwapChain;
-
-    D3D12_VIEWPORT m_Viewport{};
-    D3D12_RECT     m_ScissorRect{};
 
     CommandListManager                 m_CommandManager;
     std::array<DescriptorAllocator, 4> m_DescriptorAllocator = {

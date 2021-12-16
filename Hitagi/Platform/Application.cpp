@@ -66,6 +66,8 @@ void Application::Finalize() {
 
 // One cycle of the main loop
 void Application::Tick() {
+    OnResize();
+
     g_ThreadManager->Tick();
     g_MemoryManager->Tick();
     g_DebugManager->Tick();
@@ -88,5 +90,20 @@ void Application::SetCommandLineParameters(int argc, char** argv) {
 }
 
 GfxConfiguration& Application::GetConfiguration() { return m_Config; }
+
+void Application::OnResize() {
+    uint32_t width  = m_Rect.right - m_Rect.left;
+    uint32_t height = m_Rect.bottom - m_Rect.top;
+
+    if (m_Config.screen_width == width && m_Config.screen_height == height) {
+        m_SizeChanged = false;
+        return;
+    }
+
+    m_Config.screen_width  = width;
+    m_Config.screen_height = height;
+
+    m_SizeChanged = true;
+}
 
 bool Application::IsQuit() { return sm_Quit; }

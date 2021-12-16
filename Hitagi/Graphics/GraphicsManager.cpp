@@ -143,6 +143,10 @@ void GraphicsManager::Finalize() {
 }
 
 void GraphicsManager::Tick() {
+    if (g_App->WindowSizeChanged()) {
+        OnSizeChanged();
+    }
+
     const Asset::Scene& scene = g_SceneManager->GetSceneForRendering();
     // TODO change the parameter to View, if multiple view port is finished
     // views = g_App->GetViewsForRendering();
@@ -151,6 +155,21 @@ void GraphicsManager::Tick() {
     Render(scene);
     m_Driver->Present(m_CurrBackBuffer);
     m_CurrBackBuffer = (m_CurrBackBuffer + 1) % sm_SwapChianSize;
+}
+
+void GraphicsManager::OnSizeChanged() {
+    m_Driver->IdleGPU();
+
+    for (auto&& frame : m_Frames) {
+        frame->SetRenderTarget(nullptr);
+    }
+
+    auto& config     = g_App->GetConfiguration();
+    m_CurrBackBuffer = m_Driver->ResizeSwapChain(config.screen_width, config.screen_height);
+
+    for (size_t index = 0; index < m_Frames.size(); index++) {
+        m_Frames.at(index)->SetRenderTarget(m_Driver->CreateRenderFromSwapChain(index));
+    }
 }
 
 void GraphicsManager::Render(const Asset::Scene& scene) {
@@ -164,9 +183,9 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
 
     auto     camera = scene.GetFirstCameraNode();
     uint32_t width  = config.screen_width;
-    uint32_t height = config.screen_width / camera->GetSceneObjectRef().lock()->GetAspect();
+    uint32_t height = config.screen_height;
     // make view port vertical align
-    context->SetViewPort(0, (config.screen_height - height) >> 1, width, height);
+    context->SetViewPort(0, 0, width, height);
 
     frame->AddGeometries(scene.GetGeometries(), pso);
     if (auto debug_primitives = g_DebugManager->GetDebugPrimitiveForRender(); debug_primitives.has_value()) {
@@ -195,8 +214,8 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
                 "DepthBuffer",
                 DepthBuffer::Description{
                     .format        = Format::D32_FLOAT,
-                    .width         = width,
-                    .height        = height,
+                    .width         = config.screen_width,
+                    .height        = config.screen_height,
                     .clear_depth   = 1.0f,
                     .clear_stencil = 0,
                 });

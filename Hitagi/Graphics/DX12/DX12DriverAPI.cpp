@@ -81,15 +81,15 @@ void DX12DriverAPI::CreateSwapChain(uint32_t width, uint32_t height, unsigned fr
 
     ThrowIfFailed(swap_chain.As(&m_SwapChain));
     ThrowIfFailed(m_DxgiFactory->MakeWindowAssociation(h_wnd, DXGI_MWA_NO_ALT_ENTER));
-
-    m_Viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, width, height);
 }
 
-std::shared_ptr<Graphics::Resource> DX12DriverAPI::GetSwapChainBuffer(size_t frame_index) {
+size_t DX12DriverAPI::ResizeSwapChain(uint32_t width, uint32_t height) {
     assert(m_SwapChain && "No swap chain created.");
-    ComPtr<ID3D12Resource> res;
-    m_SwapChain->GetBuffer(frame_index, IID_PPV_ARGS(&res));
-    return std::make_shared<Graphics::Resource>("Swap chain buffer", std::make_unique<GpuResource>(res.Detach()));
+    DXGI_SWAP_CHAIN_DESC1 desc;
+    m_SwapChain->GetDesc1(&desc);
+    ThrowIfFailed(m_SwapChain->ResizeBuffers(desc.BufferCount, width, height, desc.Format, desc.Flags));
+
+    return m_SwapChain->GetCurrentBackBufferIndex();
 }
 
 std::shared_ptr<Graphics::RenderTarget> DX12DriverAPI::CreateRenderTarget(std::string_view name, const Graphics::RenderTarget::Description& desc) {
@@ -118,14 +118,14 @@ std::shared_ptr<Graphics::RenderTarget> DX12DriverAPI::CreateRenderFromSwapChain
     ComPtr<ID3D12Resource> res;
     m_SwapChain->GetBuffer(frame_index, IID_PPV_ARGS(&res));
     auto rt = std::make_unique<RenderTarget>(
-        "RT for SwapChain",
+        fmt::format("RT for SwapChain {}", frame_index),
         m_Device.Get(),
         m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_RTV].Allocate(),
         res.Detach());
     auto desc = rt->GetResource()->GetDesc();
 
     return std::make_shared<Graphics::RenderTarget>(
-        "RT for SwapChain",
+        fmt::format("RT for SwapChain {}", frame_index),
         std::move(rt),
         Graphics::RenderTarget::Description{
             .format = to_format(desc.Format),

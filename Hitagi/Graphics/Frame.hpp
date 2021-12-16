@@ -74,12 +74,13 @@ public:
 
     void ResetState();
 
-    auto GetRenderTarget() { return m_Output; }
+    void        SetRenderTarget(std::shared_ptr<RenderTarget> rt);
+    inline auto GetRenderTarget() noexcept { return m_Output; }
 
 private:
     DriverAPI&       m_Driver;
     ResourceManager& m_ResMgr;
-    size_t           m_FrameIndex;
+    const size_t     m_FrameIndex;
     uint64_t         m_FenceValue = 0;
 
     FrameConstant                 m_FrameConstant{};

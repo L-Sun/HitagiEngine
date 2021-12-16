@@ -57,28 +57,6 @@ int Win32Application::Initialize() {
     }
     ShowWindow(m_Window, SW_SHOW);
 
-    GetClientRect(m_Window, reinterpret_cast<RECT*>(&m_Rect));
-
-    if (m_LockCursor) {
-        POINT ul;
-        ul.x = m_Rect.left;
-        ul.y = m_Rect.top;
-
-        POINT lr;
-        lr.x = m_Rect.right;
-        lr.y = m_Rect.bottom;
-
-        MapWindowPoints(m_Window, nullptr, &ul, 1);
-        MapWindowPoints(m_Window, nullptr, &lr, 1);
-
-        m_Rect.left = ul.x + 1;
-        m_Rect.top  = ul.y + 1;
-
-        m_Rect.right  = lr.x - 1;
-        m_Rect.bottom = lr.y - 1;
-        ClipCursor(reinterpret_cast<RECT*>(&m_Rect));
-    }
-
     return Application::Initialize();
 }
 
@@ -107,17 +85,43 @@ void Win32Application::UpdateInputEvent() {
     }
 }
 
+void Win32Application::UpdateRect() {
+    GetClientRect(m_Window, reinterpret_cast<RECT*>(&m_Rect));
+}
+
+void Win32Application::MapCursor() {
+    if (m_LockCursor) {
+        POINT ul;
+        ul.x = m_Rect.left;
+        ul.y = m_Rect.top;
+
+        POINT lr;
+        lr.x = m_Rect.right;
+        lr.y = m_Rect.bottom;
+
+        MapWindowPoints(m_Window, nullptr, &ul, 1);
+        MapWindowPoints(m_Window, nullptr, &lr, 1);
+
+        m_Rect.left = ul.x + 1;
+        m_Rect.top  = ul.y + 1;
+
+        m_Rect.right  = lr.x - 1;
+        m_Rect.bottom = lr.y - 1;
+        ClipCursor(reinterpret_cast<RECT*>(&m_Rect));
+    }
+}
+
 LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w_param, LPARAM l_param) {
-    // Win32Application* p_this = nullptr;
+    Win32Application* p_this = nullptr;
     if (message == WM_NCCREATE) {
-        auto p_this = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(l_param)->lpCreateParams);
+        p_this = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(l_param)->lpCreateParams);
 
         SetLastError(0);
         if (!SetWindowLongPtr(h_wnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(p_this))) {
             if (GetLastError() != 0) return false;
         }
     } else {
-        // p_this = reinterpret_cast<Win32Application*>(GetWindowLongPtr(h_wnd, GWLP_USERDATA));
+        p_this = reinterpret_cast<Win32Application*>(GetWindowLongPtr(h_wnd, GWLP_USERDATA));
     }
     switch (message) {
         case WM_DESTROY:
@@ -130,10 +134,16 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             break;
         case WM_MOUSEWHEEL:
             g_InputManager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / 120.0f);
-        case WM_CHAR:
+            break;
+        case WM_CHAR: {
             size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
             g_InputManager->AppendInputText(std::u8string(repeat_count, static_cast<char8_t>(w_param)));
+        } break;
             // TODO IME
+        case WM_SIZE:
+            p_this->UpdateRect();
+            p_this->MapCursor();
+            break;
     }
     return DefWindowProc(h_wnd, message, w_param, l_param);
 }

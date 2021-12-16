@@ -16,6 +16,9 @@ public:
 private:
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 
+    void UpdateRect();
+    void MapCursor();
+
     bool m_LockCursor = false;
     HWND m_Window{};
 };

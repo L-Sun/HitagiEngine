@@ -29,7 +29,8 @@ public:
     virtual std::shared_ptr<TextureBuffer>  CreateTextureBuffer(std::string_view name, const TextureBuffer::Description& desc)                                        = 0;
     virtual std::shared_ptr<DepthBuffer>    CreateDepthBuffer(std::string_view name, const DepthBuffer::Description& desc)                                            = 0;
 
-    virtual std::shared_ptr<Resource> GetSwapChainBuffer(size_t frame_index) = 0;
+    // Will return current back buffer index
+    virtual size_t ResizeSwapChain(uint32_t width, uint32_t height) = 0;
 
     virtual void UpdateConstantBuffer(std::shared_ptr<ConstantBuffer> buffer, size_t offset, const uint8_t* src, size_t size) = 0;
     virtual void ResizeConstantBuffer(std::shared_ptr<ConstantBuffer> buffer, size_t new_num_elements)                        = 0;

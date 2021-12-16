@@ -10,7 +10,7 @@
 namespace Hitagi::Asset {
 
 Scene AssimpParser::Parse(const Core::Buffer& buffer) {
-    auto logger = spdlog::get("AssetManager");
+    auto logger = spdlog::get("SceneManager");
     if (buffer.Empty()) {
         logger->warn("[Assimp] Parsing a empty buffer");
         return {};
