@@ -56,6 +56,8 @@ int Win32Application::Initialize() {
         return 1;
     }
     ShowWindow(m_Window, SW_SHOW);
+    UpdateRect();
+    MapCursor();
 
     return Application::Initialize();
 }
@@ -65,10 +67,6 @@ void Win32Application::Finalize() {
 }
 
 void Win32Application::Tick() {
-    Application::Tick();
-}
-
-void Win32Application::UpdateInputEvent() {
     MSG msg;
     // we use PeekMessage instead of GetMessage here
     // because we should not block the thread at anywhere
@@ -80,6 +78,11 @@ void Win32Application::UpdateInputEvent() {
         // send the message to the WindowProc function
         DispatchMessage(&msg);
     }
+
+    Application::Tick();
+}
+
+void Win32Application::UpdateInputEvent() {
     for (int key = 0; key < static_cast<int>(VirtualKeyCode::NUM); key++) {
         g_InputManager->UpdateKeyState(static_cast<VirtualKeyCode>(key), GetAsyncKeyState(key) & 0x8000);
     }
@@ -140,7 +143,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             g_InputManager->AppendInputText(std::u8string(repeat_count, static_cast<char8_t>(w_param)));
         } break;
             // TODO IME
-        case WM_SIZE:
+        case WM_SIZING:
             p_this->UpdateRect();
             p_this->MapCursor();
             break;

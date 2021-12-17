@@ -145,6 +145,7 @@ void GraphicsManager::Finalize() {
 void GraphicsManager::Tick() {
     if (g_App->WindowSizeChanged()) {
         OnSizeChanged();
+        m_Logger->debug("changed!");
     }
 
     const Asset::Scene& scene = g_SceneManager->GetSceneForRendering();
@@ -181,11 +182,7 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
     auto  frame     = GetBcakFrameForRendering();
     auto  context   = driver->GetGraphicsCommandContext();
 
-    auto     camera = scene.GetFirstCameraNode();
-    uint32_t width  = config.screen_width;
-    uint32_t height = config.screen_height;
-    // make view port vertical align
-    context->SetViewPort(0, 0, width, height);
+    auto camera = scene.GetFirstCameraNode();
 
     frame->AddGeometries(scene.GetGeometries(), pso);
     if (auto debug_primitives = g_DebugManager->GetDebugPrimitiveForRender(); debug_primitives.has_value()) {
@@ -226,6 +223,17 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
         [=](const ResourceHelper& helper, ColorPassData& data) {
             auto& depth_buffer  = helper.Get<DepthBuffer>(data.depth_buffer);
             auto& render_target = helper.Get<RenderTarget>(data.output);
+
+            uint32_t height = config.screen_height;
+            uint32_t width  = height * camera->GetSceneObjectRef().lock()->GetAspect();
+            if (width > config.screen_width) {
+                width  = config.screen_width;
+                height = config.screen_width / camera->GetSceneObjectRef().lock()->GetAspect();
+                context->SetViewPort(0, (config.screen_height - height) >> 1, width, height);
+            } else {
+                context->SetViewPort((config.screen_width - width) >> 1, 0, width, height);
+            }
+
             context->SetRenderTargetAndDepthBuffer(render_target, depth_buffer);
             context->ClearRenderTarget(render_target);
             context->ClearDepthBuffer(depth_buffer);
@@ -263,8 +271,8 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
         },
         [=](const ResourceHelper& helper, ImGuiPassData& data) {
             auto& render_target = helper.Get<RenderTarget>(data.output);
+            context->SetViewPort(0, 0, config.screen_width, config.screen_height);
             context->SetRenderTarget(render_target);
-
             frame->GuiDraw(context.get());
         });
 
