@@ -61,6 +61,7 @@ void Application::Finalize() {
     g_MemoryManager->Finalize();
     g_ThreadManager->Finalize();
 
+    m_Initialized = false;
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
