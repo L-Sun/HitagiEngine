@@ -57,6 +57,7 @@ protected:
     void OnResize();
 
     static bool      sm_Quit;
+    bool             m_Initialized = false;
     GfxConfiguration m_Config;
     int              m_ArgSize = 0;
     char**           m_Arg     = nullptr;

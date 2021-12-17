@@ -145,7 +145,6 @@ void GraphicsManager::Finalize() {
 void GraphicsManager::Tick() {
     if (g_App->WindowSizeChanged()) {
         OnSizeChanged();
-        m_Logger->debug("changed!");
     }
 
     const Asset::Scene& scene = g_SceneManager->GetSceneForRendering();

@@ -43,6 +43,7 @@ int Application::Initialize() {
     if ((ret = g_GraphicsManager->Initialize()) != 0) return ret;
     if ((ret = g_GameLogic->Initialize()) != 0) return ret;
 
+    if (ret == 0) m_Initialized = true;
     return ret;
 }
 

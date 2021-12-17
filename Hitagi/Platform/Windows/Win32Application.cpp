@@ -77,9 +77,9 @@ void Win32Application::Tick() {
 
         // send the message to the WindowProc function
         DispatchMessage(&msg);
+    } else {
+        Application::Tick();
     }
-
-    Application::Tick();
 }
 
 void Win32Application::UpdateInputEvent() {
@@ -146,6 +146,11 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_SIZING:
             p_this->UpdateRect();
             p_this->MapCursor();
+            break;
+        case WM_PAINT:
+            if (p_this->m_Initialized) {
+                p_this->Application::Tick();
+            }
             break;
     }
     return DefWindowProc(h_wnd, message, w_param, l_param);
