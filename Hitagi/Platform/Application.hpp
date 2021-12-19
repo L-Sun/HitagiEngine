@@ -51,7 +51,6 @@ public:
     virtual void  SetCommandLineParameters(int argc, char** argv);
 
     virtual GfxConfiguration& GetConfiguration();
-    virtual void              UpdateInputEvent() = 0;
 
 protected:
     void OnResize();

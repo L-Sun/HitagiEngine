@@ -30,14 +30,18 @@ void InputManager::Finalize() {
     m_Logger = nullptr;
 }
 void InputManager::Tick() {
-    for (auto&& state : m_KeyState)
-        state.previous = state.current;
+    for (auto&& state : m_KeyState) {
+        state.ClearDirty();
+    }
 
-    m_MouseState.last_pos = m_MouseState.curr_pos;
-    m_MouseState.scroll   = 0;
-    m_TextInput.clear();
+    m_MouseState.position.ClearDirty();
+    m_MouseState.scroll.ClearDirty();
 
-    g_App->UpdateInputEvent();
+    if (m_TextInputDirty) {
+        m_TextInputDirty = false;
+    } else {
+        m_TextInput.clear();
+    }
 }
 
 bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const {
@@ -49,11 +53,11 @@ bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const
             [&](const MouseEvent& event) -> bool {
                 switch (event) {
                     case MouseEvent::MOVE_X:
-                        return (m_MouseState.curr_pos[0] - m_MouseState.last_pos[0]) != 0;
+                        return (m_MouseState.position.current[0] - m_MouseState.position.previous[0]) != 0;
                     case MouseEvent::MOVE_Y:
-                        return (m_MouseState.curr_pos[1] - m_MouseState.last_pos[1]) != 0;
+                        return (m_MouseState.position.current[1] - m_MouseState.position.previous[1]) != 0;
                     case MouseEvent::SCROLL:
-                        return m_MouseState.scroll != 0;
+                        return m_MouseState.scroll.current != 0;
                 }
             },
         },
@@ -69,11 +73,11 @@ bool InputManager::GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) co
             [&](const MouseEvent& event) -> bool {
                 switch (event) {
                     case MouseEvent::MOVE_X:
-                        return (m_MouseState.curr_pos[0] - m_MouseState.last_pos[0]) != 0;
+                        return (m_MouseState.position.current[0] - m_MouseState.position.previous[0]) != 0;
                     case MouseEvent::MOVE_Y:
-                        return (m_MouseState.curr_pos[1] - m_MouseState.last_pos[1]) != 0;
+                        return (m_MouseState.position.current[1] - m_MouseState.position.previous[1]) != 0;
                     case MouseEvent::SCROLL:
-                        return m_MouseState.scroll != 0;
+                        return m_MouseState.scroll.current != m_MouseState.scroll.previous;
                 }
             },
         },
@@ -89,11 +93,11 @@ float InputManager::GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) con
             [&](const MouseEvent& event) -> float {
                 switch (event) {
                     case MouseEvent::MOVE_X:
-                        return m_MouseState.curr_pos[0];
+                        return m_MouseState.position.current[0];
                     case MouseEvent::MOVE_Y:
-                        return m_MouseState.curr_pos[1];
+                        return m_MouseState.position.current[1];
                     case MouseEvent::SCROLL:
-                        return m_MouseState.scroll;
+                        return m_MouseState.scroll.current;
                 }
             },
         },
@@ -112,11 +116,11 @@ float InputManager::GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event
             [&](const MouseEvent& event) -> float {
                 switch (event) {
                     case MouseEvent::MOVE_X:
-                        return m_MouseState.curr_pos[0] - m_MouseState.last_pos[0];
+                        return m_MouseState.position.current[0] - m_MouseState.position.previous[0];
                     case MouseEvent::MOVE_Y:
-                        return m_MouseState.curr_pos[1] - m_MouseState.last_pos[1];
+                        return m_MouseState.position.current[1] - m_MouseState.position.previous[1];
                     case MouseEvent::SCROLL:
-                        return m_MouseState.scroll;
+                        return m_MouseState.scroll.current - m_MouseState.scroll.previous;
                 }
             },
         },

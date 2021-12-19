@@ -10,7 +10,6 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    void  UpdateInputEvent() final;
     void* GetWindow() final { return &m_Window; }
 
 private:

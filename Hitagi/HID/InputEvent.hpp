@@ -2,13 +2,29 @@
 #include <array>
 namespace Hitagi {
 
-struct KeyState {
-    bool current = false, previous = false, toggle = false;
+template <typename T>
+struct DoubleState {
+    T    current, previous;
+    bool dirty;
+
+    inline void Update(T new_value) noexcept {
+        previous = std::move(current);
+        current  = std::move(new_value);
+        dirty    = true;
+    }
+
+    inline void ClearDirty() noexcept {
+        if (dirty)
+            dirty = false;
+        else
+            previous = current;
+    }
 };
+
+using KeyState = DoubleState<bool>;
 struct MouseState {
-    std::array<float, 2> last_pos;
-    std::array<float, 2> curr_pos;
-    float                scroll;
+    DoubleState<std::array<float, 2>> position;
+    DoubleState<float>                scroll;
 };
 
 enum class MouseEvent {
