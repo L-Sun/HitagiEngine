@@ -48,13 +48,13 @@ int GraphicsManager::Initialize() {
         .Add("FrameConstant", ShaderVariableType::CBV, 0, 0)
         .Add("ObjectConstants", ShaderVariableType::CBV, 1, 0)
         // textures
-        .Add("AmbientTexture", ShaderVariableType::SRV, 0, 0)
-        .Add("DiffuseTexture", ShaderVariableType::SRV, 1, 0)
-        .Add("EmissionTexture", ShaderVariableType::SRV, 2, 0)
-        .Add("SpecularTexture", ShaderVariableType::SRV, 3, 0)
-        .Add("PowerTexture", ShaderVariableType::SRV, 4, 0)
+        .Add("AmbientTexture", ShaderVariableType::SRV, 0, 0, ShaderVisibility::Pixel)
+        .Add("DiffuseTexture", ShaderVariableType::SRV, 1, 0, ShaderVisibility::Pixel)
+        .Add("EmissionTexture", ShaderVariableType::SRV, 2, 0, ShaderVisibility::Pixel)
+        .Add("SpecularTexture", ShaderVariableType::SRV, 3, 0, ShaderVisibility::Pixel)
+        .Add("PowerTexture", ShaderVariableType::SRV, 4, 0, ShaderVisibility::Pixel)
         // sampler
-        .Add("BaseSampler", ShaderVariableType::Sampler, 0, 0)
+        .Add("BaseSampler", ShaderVariableType::Sampler, 0, 0, ShaderVisibility::Pixel)
         .Create(*m_Driver);
 
     // TODO use AssetManager to manage pipeline state object
@@ -74,9 +74,9 @@ int GraphicsManager::Initialize() {
     // TODO imgui pipeline state object
     auto imgui_root_sig = std::make_shared<RootSignature>("Imgui Sig");
     (*imgui_root_sig)
-        .Add("Constant", ShaderVariableType::CBV, 0, 0)
-        .Add("Texture", ShaderVariableType::SRV, 0, 0)
-        .Add("Sampler", ShaderVariableType::Sampler, 0, 0)
+        .Add("Constant", ShaderVariableType::CBV, 0, 0, ShaderVisibility::Vertex)
+        .Add("Texture", ShaderVariableType::SRV, 0, 0, ShaderVisibility::Pixel)
+        .Add("Sampler", ShaderVariableType::Sampler, 0, 0, ShaderVisibility::Pixel)
         .Create(*m_Driver);
     m_ImGuiPSO = std::make_unique<PipelineState>("ImGui");
     (*m_ImGuiPSO)

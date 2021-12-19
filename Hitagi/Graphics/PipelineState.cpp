@@ -23,7 +23,7 @@ RootSignature& RootSignature::operator=(RootSignature&& rhs) {
 
 RootSignature& RootSignature::Add(std::string_view name, ShaderVariableType type, unsigned register_index, unsigned space, ShaderVisibility visibility) {
     if (m_Created) throw std::logic_error("RootSignature has been created.");
-    m_ParameterTable.emplace(Parameter{std::string{name}, visibility, type, register_index, space});
+    m_ParameterTable.emplace_back(Parameter{std::string{name}, visibility, type, register_index, space});
     return *this;
 }
 

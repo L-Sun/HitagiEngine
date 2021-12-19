@@ -45,16 +45,6 @@ class RootSignature : public Resource {
         ShaderVariableType type;
         unsigned           register_index;
         unsigned           space;
-
-        auto operator<=>(const Parameter& rhs) const {
-            if (auto cmp = visibility <=> rhs.visibility; cmp != 0)
-                return cmp;
-            if (auto cmp = type <=> rhs.type; cmp != 0)
-                return cmp;
-            if (auto cmp = space <=> rhs.space; cmp != 0)
-                return cmp;
-            return register_index <=> rhs.register_index;
-        }
     };
 
 public:
@@ -82,8 +72,8 @@ public:
     operator bool() const noexcept { return m_Created; }
 
 protected:
-    bool                m_Created = false;
-    std::set<Parameter> m_ParameterTable;
+    bool                   m_Created = false;
+    std::vector<Parameter> m_ParameterTable;
 };
 
 class PipelineState : public Resource {

@@ -245,11 +245,6 @@ std::shared_ptr<Graphics::Sampler> DX12DriverAPI::CreateSampler(std::string_view
 }
 
 std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Graphics::RootSignature& signature) {
-    auto& parameter_table = signature.GetParametes();
-    if (parameter_table.empty()) {
-        throw std::invalid_argument("can not create a empty root signature!");
-    }
-
     constexpr auto num_visibility = static_cast<int>(Graphics::ShaderVisibility::Num_Visibility);
     constexpr auto num_var_type   = static_cast<int>(Graphics::ShaderVariableType::Num_Type);
     static const std::unordered_map<Graphics::ShaderVisibility, D3D12_SHADER_VISIBILITY>
@@ -269,70 +264,72 @@ std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Grap
             {Graphics::ShaderVariableType::Sampler, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER},
         };
 
-    struct Range {
-        decltype(parameter_table.begin()) iter;
-        size_t                            count{};
-    };
-    std::vector<Range> ranges;
-    for (auto iter = parameter_table.begin(); iter != parameter_table.end(); iter++) {
-        if (ranges.empty()) {
-            ranges.emplace_back(Range{iter, 1});
-            continue;
-        }
-        if (auto& p = *(ranges.back().iter);
-            p.visibility == iter->visibility && p.type == iter->type && p.space == iter->space) {
-            // new range
-            if (p.register_index + ranges.back().count < iter->register_index)
-                ranges.emplace_back(Range{iter, 1});
-            // fllowing the range
-            else if (p.register_index + ranges.back().count == iter->register_index)
-                ranges.back().count++;
-            // [Error] in the range
-            else
-                throw std::logic_error("Has a same paramter");
-        } else {
-            ranges.emplace_back(Range{iter, 1});
-        }
+    // copy
+    auto parameters = signature.GetParametes();
+    if (parameters.empty()) {
+        throw std::invalid_argument("can not create a empty root signature!");
     }
-    // Now the range is sort by visibility, type, space, register
-    // becase the data structure of parameters is set
+    std::sort(parameters.begin(), parameters.end(), [](const auto& lhs, const auto& rhs) {
+        if (auto cmp = lhs.visibility <=> rhs.visibility; cmp != 0)
+            return cmp < 0;
+        if (auto cmp = lhs.type <=> rhs.type; cmp != 0)
+            return cmp < 0;
+        if (auto cmp = lhs.space <=> rhs.space; cmp != 0)
+            return cmp < 0;
+        return (lhs.register_index <=> rhs.register_index) < 0;
+    });
 
-    struct Table {
-        Graphics::ShaderVisibility visibility;
-        std::vector<size_t>        ranges{};
-    };
-    std::vector<Table> tables;
-    for (size_t i = 0; i < ranges.size(); i++) {
-        if (tables.empty()) {
-            tables.push_back(Table{ranges[i].iter->visibility, {i}});
-            continue;
+    // [begin, end)
+    std::vector<std::pair<size_t, size_t>> tables = {std::make_pair(0, 0)};
+    std::vector<std::pair<size_t, size_t>> ranges = {std::make_pair(0, 0)};
+    for (size_t i = 0; i < parameters.size(); i++) {
+        if (parameters[tables.back().first].visibility == parameters[i].visibility) {
+            if (parameters[i].type != Graphics::ShaderVariableType::Sampler)
+                tables.back().second++;
+            else if (parameters[tables.back().first].type == parameters[i].type)
+                tables.back().second++;
+            else
+                tables.emplace_back(i, i + 1);
+        } else {
+            tables.emplace_back(i, i + 1);
         }
-        if (tables.back().visibility == ranges[i].iter->visibility) {
-            if (ranges[i].iter->type == Graphics::ShaderVariableType::Sampler &&
-                ranges[i].iter->type != ranges[tables.back().ranges.back()].iter->type) {
-                // Sampler table
-                tables.push_back(Table{ranges[i].iter->visibility, {i}});
-            } else {
-                tables.back().ranges.push_back(i);
-            }
+
+        if (parameters[ranges.back().first].type == parameters[i].type &&
+            parameters[ranges.back().first].space == parameters[i].space) {
+            ranges.back().second++;
+        } else {
+            ranges.emplace_back(i, i + 1);
         }
     }
 
     auto sig = std::make_unique<RootSignature>(signature.GetName(), static_cast<uint32_t>(tables.size()));
-    for (size_t i = 0; i < tables.size(); i++) {
-        (*sig)[i].InitAsDescriptorTable(tables[i].ranges.size(), visibility_cast.at(tables[i].visibility));
-        size_t offset = 0;
-        for (size_t j = 0; j < tables[i].ranges.size(); j++) {
-            auto& range = ranges[tables[i].ranges[j]];
-            (*sig)[i].SetTableRange(
-                j,
-                type_cast.at(range.iter->type),
-                range.iter->register_index,
-                range.count,
-                range.iter->space);
-            auto iter = range.iter;
-            for (size_t k = 0; k < range.count; k++, iter++)
-                sig->UpdateParameterInfo(iter->name, i, offset++);
+    for (size_t table_index = 0, range_index = 0; table_index < tables.size(); table_index++) {
+        size_t num_ranges = 0;
+        while (
+            range_index < ranges.size() &&
+            // check the range is or not in the table
+            tables[table_index].first <= ranges[range_index].first && ranges[range_index].second <= tables[table_index].second) {
+            num_ranges++;
+            range_index++;
+        }
+
+        (*sig)[table_index].InitAsDescriptorTable(num_ranges, visibility_cast.at(parameters[tables[table_index].first].visibility));
+
+        range_index -= num_ranges;
+        for (size_t range_index_in_table = 0; range_index_in_table < num_ranges; range_index_in_table++) {
+            auto [begin, end] = ranges[range_index++];
+            (*sig)[table_index].SetTableRange(
+                range_index_in_table,
+                type_cast.at(parameters[begin].type),
+                parameters[begin].register_index,
+                end - begin,
+                parameters[begin].space);
+
+            while (begin < end) {
+                // parameter index in table
+                sig->UpdateParameterInfo(parameters[begin].name, table_index, begin - tables[table_index].first);
+                begin++;
+            }
         }
     }
     sig->Finalize(m_Device.Get(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
