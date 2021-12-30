@@ -2,7 +2,33 @@
 #include <cstdint>
 
 namespace Hitagi::Graphics {
+// Shader
+enum struct ShaderType {
+    Vertex,
+    Pixel,
+    Geometry,
+    Compute,
+};
 
+enum struct ShaderVariableType {
+    CBV,
+    SRV,
+    UAV,
+    Sampler,
+    Num_Type
+};
+
+enum struct ShaderVisibility {
+    All,
+    Vertex,
+    Hull,
+    Domain,
+    Geometry,
+    Pixel,
+    Num_Visibility
+};
+
+// Texture
 enum struct Format : uint32_t {
     UNKNOWN                    = 0,
     R32G32B32A32_TYPELESS      = 1,
@@ -106,7 +132,154 @@ enum struct Format : uint32_t {
     BC7_UNORM_SRGB             = 99,
 };
 
-inline constexpr size_t get_format_bit_size(Format format) {
+// Sampler
+enum struct TextureAddressMode {
+    Wrap,
+    Mirror,
+    Clamp,
+    Border,
+    MirrorOnce
+};
+
+enum struct ComparisonFunc {
+    Never,
+    Less,
+    Equal,
+    LessEqual,
+    Greater,
+    NotEqual,
+    GreaterEqual,
+    Always
+};
+
+enum struct Filter : uint32_t {
+    MIN_MAG_MIP_POINT                          = 0,
+    MIN_MAG_POINT_MIP_LINEAR                   = 0x1,
+    MIN_POINT_MAG_LINEAR_MIP_POINT             = 0x4,
+    MIN_POINT_MAG_MIP_LINEAR                   = 0x5,
+    MIN_LINEAR_MAG_MIP_POINT                   = 0x10,
+    MIN_LINEAR_MAG_POINT_MIP_LINEAR            = 0x11,
+    MIN_MAG_LINEAR_MIP_POINT                   = 0x14,
+    MIN_MAG_MIP_LINEAR                         = 0x15,
+    ANISOTROPIC                                = 0x55,
+    COMPARISON_MIN_MAG_MIP_POINT               = 0x80,
+    COMPARISON_MIN_MAG_POINT_MIP_LINEAR        = 0x81,
+    COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT  = 0x84,
+    COMPARISON_MIN_POINT_MAG_MIP_LINEAR        = 0x85,
+    COMPARISON_MIN_LINEAR_MAG_MIP_POINT        = 0x90,
+    COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR = 0x91,
+    COMPARISON_MIN_MAG_LINEAR_MIP_POINT        = 0x94,
+    COMPARISON_MIN_MAG_MIP_LINEAR              = 0x95,
+    COMPARISON_ANISOTROPIC                     = 0xd5,
+    MINIMUM_MIN_MAG_MIP_POINT                  = 0x100,
+    MINIMUM_MIN_MAG_POINT_MIP_LINEAR           = 0x101,
+    MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT     = 0x104,
+    MINIMUM_MIN_POINT_MAG_MIP_LINEAR           = 0x105,
+    MINIMUM_MIN_LINEAR_MAG_MIP_POINT           = 0x110,
+    MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR    = 0x111,
+    MINIMUM_MIN_MAG_LINEAR_MIP_POINT           = 0x114,
+    MINIMUM_MIN_MAG_MIP_LINEAR                 = 0x115,
+    MINIMUM_ANISOTROPIC                        = 0x155,
+    MAXIMUM_MIN_MAG_MIP_POINT                  = 0x180,
+    MAXIMUM_MIN_MAG_POINT_MIP_LINEAR           = 0x181,
+    MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT     = 0x184,
+    MAXIMUM_MIN_POINT_MAG_MIP_LINEAR           = 0x185,
+    MAXIMUM_MIN_LINEAR_MAG_MIP_POINT           = 0x190,
+    MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR    = 0x191,
+    MAXIMUM_MIN_MAG_LINEAR_MIP_POINT           = 0x194,
+    MAXIMUM_MIN_MAG_MIP_LINEAR                 = 0x195,
+    MAXIMUM_ANISOTROPIC                        = 0x1d5
+};
+
+// Pipeline
+enum struct Blend {
+    Zero,
+    One,
+    SrcColor,
+    InvSrcColor,
+    SrcAlpha,
+    InvSrcAlpha,
+    DestAlpha,
+    InvDestAlpha,
+    DestColor,
+    InvDestColor,
+    SrcAlphaSat,
+    BlendFactor,
+    InvBlendFactor,
+    Src1Color,
+    InvSrc1Color,
+    Src1Alpha,
+    InvSrc1Alpha,
+};
+
+enum struct BlendOp {
+    Add,
+    Subtract,
+    RevSubtract,
+    Min,
+    Max
+};
+
+enum struct LogicOp {
+    Clear,
+    Set,
+    Copy,
+    CopyInverted,
+    Noop,
+    Invert,
+    And,
+    Nand,
+    Or,
+    Nor,
+    Xor,
+    Equiv,
+    AndReverse,
+    AndInverted,
+    OrReverse,
+    OrInverted,
+};
+
+struct BlendDescription {
+    bool    alpha_to_coverage_enable = false;
+    bool    independent_blend_enable = false;
+    bool    enable_blend             = false;
+    bool    enable_logic_operation   = false;
+    Blend   src_blend                = Blend::One;
+    Blend   dest_blend               = Blend::Zero;
+    BlendOp blend_op                 = BlendOp::Add;
+    Blend   src_blend_alpha          = Blend::One;
+    Blend   dest_blend_alpha         = Blend::Zero;
+    BlendOp blend_op_alpha           = BlendOp::Add;
+    LogicOp logic_op                 = LogicOp::Noop;
+};
+
+enum struct FillMode {
+    Solid,
+    Wireframe,
+};
+
+enum struct CullMode {
+    None,
+    Front,
+    Back
+};
+
+struct RasterizerDescription {
+    FillMode fill_mode               = FillMode::Solid;
+    CullMode cull_mode               = CullMode::None;
+    bool     front_counter_clockwise = true;
+    int      depth_bias              = 0;
+    float    depth_bias_clamp        = 0.0f;
+    float    slope_scaled_depth_bias = 0.0f;
+    bool     depth_clip_enable       = true;
+    bool     multisample_enable      = false;
+    bool     antialiased_line_enable = false;
+    unsigned forced_sample_count     = 0;
+    bool     conservative_raster     = false;
+};
+
+// Utils
+constexpr inline size_t get_format_bit_size(Format format) {
     switch (format) {
         case Format::R32G32B32A32_TYPELESS:
         case Format::R32G32B32A32_FLOAT:
@@ -185,4 +358,5 @@ inline constexpr size_t get_format_bit_size(Format format) {
             return 0;
     }
 }
+
 }  // namespace Hitagi::Graphics

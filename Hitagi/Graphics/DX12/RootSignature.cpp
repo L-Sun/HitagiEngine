@@ -1,11 +1,12 @@
 #include "RootSignature.hpp"
+#include "spdlog/spdlog.h"
 
 namespace Hitagi::Graphics::backend::DX12 {
 RootSignature::RootSignature(std::string_view name, uint32_t num_root_params, uint32_t num_static_samplers)
     : m_Name(name),
       m_RootSignature(nullptr),
       m_NumParameters(num_root_params),
-      m_NumSamplers(num_static_samplers),
+      m_NumStaticSamplers(num_static_samplers),
       m_NumInitializedStaticSamplers(num_static_samplers) {
     Reset(num_root_params, num_static_samplers);
 };
@@ -15,54 +16,61 @@ void RootSignature::Reset(uint32_t num_root_params, uint32_t num_static_samplers
     m_NumParameters = num_root_params;
 
     m_SamplerArray.resize(num_root_params, {});
-    m_NumSamplers                  = num_static_samplers;
+    m_NumStaticSamplers            = num_static_samplers;
     m_NumInitializedStaticSamplers = 0;
 }
 
-void RootSignature::InitStaticSampler(UINT shader_register, const D3D12_SAMPLER_DESC& non_static_sampler_desc,
+void RootSignature::InitStaticSampler(UINT register_index, UINT space, const D3D12_SAMPLER_DESC& sampler_desc,
                                       D3D12_SHADER_VISIBILITY visibility) {
-    assert(m_NumInitializedStaticSamplers < m_NumSamplers);
+    assert(m_NumInitializedStaticSamplers < m_NumStaticSamplers);
     auto& desc = m_SamplerArray[m_NumInitializedStaticSamplers++];
 
-    desc.Filter           = non_static_sampler_desc.Filter;
-    desc.AddressU         = non_static_sampler_desc.AddressU;
-    desc.AddressV         = non_static_sampler_desc.AddressV;
-    desc.AddressW         = non_static_sampler_desc.AddressW;
-    desc.MipLODBias       = non_static_sampler_desc.MipLODBias;
-    desc.MaxAnisotropy    = non_static_sampler_desc.MaxAnisotropy;
-    desc.ComparisonFunc   = non_static_sampler_desc.ComparisonFunc;
+    desc.Filter           = sampler_desc.Filter;
+    desc.AddressU         = sampler_desc.AddressU;
+    desc.AddressV         = sampler_desc.AddressV;
+    desc.AddressW         = sampler_desc.AddressW;
+    desc.MipLODBias       = sampler_desc.MipLODBias;
+    desc.MaxAnisotropy    = sampler_desc.MaxAnisotropy;
+    desc.ComparisonFunc   = sampler_desc.ComparisonFunc;
     desc.BorderColor      = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
-    desc.MinLOD           = non_static_sampler_desc.MinLOD;
-    desc.MaxLOD           = non_static_sampler_desc.MaxLOD;
-    desc.ShaderRegister   = shader_register;
-    desc.RegisterSpace    = 0;
+    desc.MinLOD           = sampler_desc.MinLOD;
+    desc.MaxLOD           = sampler_desc.MaxLOD;
+    desc.ShaderRegister   = register_index;
+    desc.RegisterSpace    = space,
     desc.ShaderVisibility = visibility;
 
+    // Transform sampler border color to limited border color
     if (desc.AddressU == D3D12_TEXTURE_ADDRESS_MODE_BORDER ||
         desc.AddressV == D3D12_TEXTURE_ADDRESS_MODE_BORDER ||
         desc.AddressW == D3D12_TEXTURE_ADDRESS_MODE_BORDER) {
-        bool no_match = false;
-
-        do {
-            if (non_static_sampler_desc.BorderColor[0] == 0.0f && non_static_sampler_desc.BorderColor[1] == 0.0f &&
-                non_static_sampler_desc.BorderColor[2] == 0.0f && non_static_sampler_desc.BorderColor[3] == 0.0f)
-                break;
+        if (
+            (sampler_desc.BorderColor[0] == 0.0f &&
+             sampler_desc.BorderColor[1] == 0.0f &&
+             sampler_desc.BorderColor[2] == 0.0f &&
+             sampler_desc.BorderColor[3] == 0.0f) ||
             // Opaque Black
-            if (non_static_sampler_desc.BorderColor[0] == 0.0f && non_static_sampler_desc.BorderColor[1] == 0.0f &&
-                non_static_sampler_desc.BorderColor[2] == 0.0f && non_static_sampler_desc.BorderColor[3] == 1.0f)
-                break;
+            (sampler_desc.BorderColor[0] == 0.0f &&
+             sampler_desc.BorderColor[1] == 0.0f &&
+             sampler_desc.BorderColor[2] == 0.0f &&
+             sampler_desc.BorderColor[3] == 1.0f) ||
             // Opaque White
-            if (non_static_sampler_desc.BorderColor[0] == 1.0f && non_static_sampler_desc.BorderColor[1] == 1.0f &&
-                non_static_sampler_desc.BorderColor[2] == 1.0f && non_static_sampler_desc.BorderColor[3] == 1.0f)
-                break;
-        } while (false);
-
-        if (no_match) {
-            std::cout << "[Warning] Sampler border color does not match static sampler limitations" << std::endl;
+            (sampler_desc.BorderColor[0] == 1.0f &&
+             sampler_desc.BorderColor[1] == 1.0f &&
+             sampler_desc.BorderColor[2] == 1.0f &&
+             sampler_desc.BorderColor[3] == 1.0f)
+            //
+        ) {
+            auto graphics_logger = spdlog::get("GraphicsManager");
+            if (graphics_logger) {
+                graphics_logger->warn(
+                    "Sampler border color ({}, {}, {}, {}) does not match static sampler limitations",
+                    sampler_desc.BorderColor[0], sampler_desc.BorderColor[1],
+                    sampler_desc.BorderColor[2], sampler_desc.BorderColor[3]);
+            }
         }
 
-        if (non_static_sampler_desc.BorderColor[3] == 1.0f) {
-            if (non_static_sampler_desc.BorderColor[0] == 1.0f)
+        if (sampler_desc.BorderColor[3] == 1.0f) {
+            if (sampler_desc.BorderColor[0] == 1.0f)
                 desc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
             else
                 desc.BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
@@ -93,7 +101,7 @@ void RootSignature::Finalize(
 
     m_RootSignatureDesc.NumParameters     = m_NumParameters;
     m_RootSignatureDesc.pParameters       = m_ParamArray.data();
-    m_RootSignatureDesc.NumStaticSamplers = m_NumSamplers;
+    m_RootSignatureDesc.NumStaticSamplers = m_NumStaticSamplers;
     m_RootSignatureDesc.pStaticSamplers   = m_SamplerArray.data();
     m_RootSignatureDesc.Flags             = flags;
 

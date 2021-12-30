@@ -1,5 +1,5 @@
 #pragma once
-#include "Format.hpp"
+#include "Types.hpp"
 #include "ShaderManager.hpp"
 #include "Resource.hpp"
 
@@ -21,30 +21,20 @@ struct InputLayout {
     std::optional<size_t> instance_count;
 };
 
-enum struct ShaderVariableType {
-    CBV,
-    SRV,
-    UAV,
-    Sampler,
-    Num_Type
-};
-enum struct ShaderVisibility {
-    All,
-    Vertex,
-    Hull,
-    Domain,
-    Geometry,
-    Pixel,
-    Num_Visibility
-};
-
 class RootSignature : public Resource {
     struct Parameter {
         std::string        name;
-        ShaderVisibility   visibility;
         ShaderVariableType type;
         unsigned           register_index;
         unsigned           space;
+        ShaderVisibility   visibility;
+    };
+    struct StaticSamplerDescription {
+        std::string          name;
+        Sampler::Description desc;
+        unsigned             register_index;
+        unsigned             space;
+        ShaderVisibility     visibility;
     };
 
 public:
@@ -62,18 +52,22 @@ public:
         ShaderVisibility   visibility = ShaderVisibility::All);
     // TODO Sampler
     RootSignature& AddStaticSampler(
-        unsigned             register_index,
+        std::string_view     name,
         Sampler::Description desc,
+        unsigned             register_index,
+        unsigned             sapce,
         ShaderVisibility     visibility = ShaderVisibility::All);
     RootSignature& Create(DriverAPI& driver);
 
     inline auto& GetParametes() const noexcept { return m_ParameterTable; }
+    inline auto& GetStaticSamplerDescs() const noexcept { return m_StaticSamplerDescs; }
 
     operator bool() const noexcept { return m_Created; }
 
 protected:
-    bool                   m_Created = false;
-    std::vector<Parameter> m_ParameterTable;
+    bool                                  m_Created = false;
+    std::vector<Parameter>                m_ParameterTable;
+    std::vector<StaticSamplerDescription> m_StaticSamplerDescs;
 };
 
 class PipelineState : public Resource {
@@ -87,7 +81,8 @@ public:
     PipelineState& SetRenderFormat(Format format);
     PipelineState& SetDepthBufferFormat(Format format);
     PipelineState& SetPrimitiveType(PrimitiveType type);
-    PipelineState& SetFrontCounterClockwise(bool value);
+    PipelineState& SetRasterizerState(RasterizerDescription desc);
+    PipelineState& SetBlendState(BlendDescription desc);
     void           Create(DriverAPI& driver);
 
     inline const std::string&              GetName() const noexcept { return m_Name; }
@@ -98,6 +93,8 @@ public:
     inline Format                          GetRenderTargetFormat() const noexcept { return m_RenderFormat; }
     inline Format                          GetDepthBufferFormat() const noexcept { return m_DepthBufferFormat; }
     inline PrimitiveType                   GetPrimitiveType() const noexcept { return m_PrimitiveType; }
+    inline BlendDescription                GetBlendState() const noexcept { return m_BlendState; }
+    inline RasterizerDescription           GetRasterizerState() const noexcept { return m_RasterizerState; }
     inline bool                            IsFontCounterClockwise() const noexcept { return m_FrontCounterClockwise; }
 
 private:
@@ -110,6 +107,8 @@ private:
     Format                         m_RenderFormat          = Format::UNKNOWN;
     Format                         m_DepthBufferFormat     = Format::UNKNOWN;
     PrimitiveType                  m_PrimitiveType         = PrimitiveType::TriangleList;
+    BlendDescription               m_BlendState;
+    RasterizerDescription          m_RasterizerState;
 };
 
 }  // namespace Hitagi::Graphics

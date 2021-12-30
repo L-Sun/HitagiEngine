@@ -1,6 +1,8 @@
 #pragma once
-#include "Format.hpp"
+#include "Types.hpp"
 #include "Primitive.hpp"
+
+#include "HitagiMath.hpp"
 
 #include <memory>
 #include <unordered_map>
@@ -112,6 +114,16 @@ public:
 class Sampler : public Resource {
 public:
     struct Description {
+        Filter             filter         = Filter::ANISOTROPIC;
+        TextureAddressMode address_u      = TextureAddressMode::Wrap;
+        TextureAddressMode address_v      = TextureAddressMode::Wrap;
+        TextureAddressMode address_w      = TextureAddressMode::Wrap;
+        float              mip_lod_bias   = 0;
+        unsigned           max_anisotropy = 16;
+        ComparisonFunc     comp_func      = ComparisonFunc::LessEqual;
+        vec4f              border_color   = vec4f(0.0f);
+        float              min_lod        = 0.0f;
+        float              max_lod        = std::numeric_limits<float>::max();
     } const desc;
     Sampler(std::string_view name, std::unique_ptr<backend::Resource> sampler, Description desc)
         : Resource(name, std::move(sampler)), desc(std::move(desc)) {}

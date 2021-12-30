@@ -3,7 +3,7 @@
 #include "GpuBuffer.hpp"
 #include "CommandContext.hpp"
 #include "Sampler.hpp"
-#include "EnumConverter.hpp"
+#include "Utils.hpp"
 
 #include <windef.h>
 
@@ -227,35 +227,15 @@ void DX12DriverAPI::RetireResources(std::vector<std::shared_ptr<Graphics::Resour
 
 // TODO: Custom sampler
 std::shared_ptr<Graphics::Sampler> DX12DriverAPI::CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) {
-    D3D12_SAMPLER_DESC sampler_desc = {};
-    sampler_desc.AddressU           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    sampler_desc.AddressV           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    sampler_desc.AddressW           = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    sampler_desc.ComparisonFunc     = D3D12_COMPARISON_FUNC_ALWAYS;
-    sampler_desc.Filter             = D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR;
-    sampler_desc.MaxAnisotropy      = 1;
-    sampler_desc.MaxLOD             = D3D12_FLOAT32_MAX;
-    sampler_desc.MinLOD             = 0;
-    sampler_desc.MipLODBias         = 0.0f;
-
     return std::make_shared<Graphics::Sampler>(
         name,
-        std::make_unique<Sampler>(m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate(), sampler_desc),
+        std::make_unique<Sampler>(m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate(), to_d3d_sampler_desc(desc)),
         desc);
 }
 
 std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Graphics::RootSignature& signature) {
     constexpr auto num_visibility = static_cast<int>(Graphics::ShaderVisibility::Num_Visibility);
     constexpr auto num_var_type   = static_cast<int>(Graphics::ShaderVariableType::Num_Type);
-    static const std::unordered_map<Graphics::ShaderVisibility, D3D12_SHADER_VISIBILITY>
-        visibility_cast = {
-            {Graphics::ShaderVisibility::All, D3D12_SHADER_VISIBILITY_ALL},
-            {Graphics::ShaderVisibility::Vertex, D3D12_SHADER_VISIBILITY_VERTEX},
-            {Graphics::ShaderVisibility::Hull, D3D12_SHADER_VISIBILITY_HULL},
-            {Graphics::ShaderVisibility::Domain, D3D12_SHADER_VISIBILITY_DOMAIN},
-            {Graphics::ShaderVisibility::Geometry, D3D12_SHADER_VISIBILITY_GEOMETRY},
-            {Graphics::ShaderVisibility::Pixel, D3D12_SHADER_VISIBILITY_PIXEL},
-        };
     static const std::unordered_map<Graphics::ShaderVariableType, D3D12_DESCRIPTOR_RANGE_TYPE>
         type_cast = {
             {Graphics::ShaderVariableType::CBV, D3D12_DESCRIPTOR_RANGE_TYPE_CBV},
@@ -302,7 +282,18 @@ std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Grap
         }
     }
 
-    auto sig = std::make_unique<RootSignature>(signature.GetName(), static_cast<uint32_t>(tables.size()));
+    const auto& static_sampler_descs = signature.GetStaticSamplerDescs();
+
+    auto sig = std::make_unique<RootSignature>(signature.GetName(), static_cast<uint32_t>(tables.size()), static_sampler_descs.size());
+    // Init Static Samplers
+    for (const auto& static_sampler_desc : static_sampler_descs) {
+        sig->InitStaticSampler(static_sampler_desc.register_index,
+                               static_sampler_desc.space,
+                               to_d3d_sampler_desc(static_sampler_desc.desc),
+                               to_d3d_shader_visibility(static_sampler_desc.visibility));
+    }
+
+    // Init parameters
     for (size_t table_index = 0, range_index = 0; table_index < tables.size(); table_index++) {
         size_t num_ranges = 0;
         while (
@@ -313,7 +304,7 @@ std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Grap
             range_index++;
         }
 
-        (*sig)[table_index].InitAsDescriptorTable(num_ranges, visibility_cast.at(parameters[tables[table_index].first].visibility));
+        (*sig)[table_index].InitAsDescriptorTable(num_ranges, to_d3d_shader_visibility(parameters[tables[table_index].first].visibility));
 
         range_index -= num_ranges;
         for (size_t range_index_in_table = 0; range_index_in_table < num_ranges; range_index_in_table++) {
@@ -332,6 +323,7 @@ std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Grap
             }
         }
     }
+
     sig->Finalize(m_Device.Get(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
     return std::move(sig);
 }
@@ -361,27 +353,16 @@ std::unique_ptr<backend::Resource> DX12DriverAPI::CreatePipelineState(const Grap
     gpso->SetPixelShader(CD3DX12_SHADER_BYTECODE{ps->GetData(), ps->GetDataSize()});
     gpso->SetInputLayout(input_desc);
     gpso->SetRootSignature(*sig);
-    // TODO
-    auto blend_state                                  = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-    blend_state.AlphaToCoverageEnable                 = false;
-    blend_state.RenderTarget[0].BlendEnable           = true;
-    blend_state.RenderTarget[0].SrcBlend              = D3D12_BLEND_SRC_ALPHA;
-    blend_state.RenderTarget[0].DestBlend             = D3D12_BLEND_INV_SRC_ALPHA;
-    blend_state.RenderTarget[0].BlendOp               = D3D12_BLEND_OP_ADD;
-    blend_state.RenderTarget[0].SrcBlendAlpha         = D3D12_BLEND_ONE;
-    blend_state.RenderTarget[0].DestBlendAlpha        = D3D12_BLEND_INV_SRC_ALPHA;
-    blend_state.RenderTarget[0].BlendOpAlpha          = D3D12_BLEND_OP_ADD;
-    blend_state.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-    gpso->SetBlendState(blend_state);
+    gpso->SetBlendState(to_d3d_blend_desc(pso.GetBlendState()));
+
     auto depth        = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     depth.DepthEnable = pso.GetDepthBufferFormat() != Graphics::Format::UNKNOWN;
     gpso->SetDepthStencilState(depth);
     gpso->SetPrimitiveTopologyType(to_dx_topology_type(pso.GetPrimitiveType()));
-    auto ra_desc                  = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-    ra_desc.FrontCounterClockwise = pso.IsFontCounterClockwise();
-    gpso->SetRasterizerState(ra_desc);
+    gpso->SetRasterizerState(to_d3d_rasterizer_desc(pso.GetRasterizerState()));
     gpso->SetRenderTargetFormats({to_dxgi_format(pso.GetRenderTargetFormat())}, to_dxgi_format(pso.GetDepthBufferFormat()));
     gpso->SetSampleMask(UINT_MAX);
+
     gpso->Finalize(m_Device.Get());
 
     return std::move(gpso);

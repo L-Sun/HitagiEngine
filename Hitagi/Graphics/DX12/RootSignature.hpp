@@ -37,7 +37,7 @@ public:
     using ParameterTable = std::unordered_map<std::string, std::pair<size_t, size_t>>;
 
     RootSignature(std::string_view name, uint32_t num_root_params = 0, uint32_t num_static_samplers = 0);
-    ~RootSignature()                    override = default;
+    ~RootSignature() override           = default;
     RootSignature(const RootSignature&) = delete;
     RootSignature& operator=(const RootSignature&) = delete;
     RootSignature(RootSignature&&)                 = default;
@@ -50,7 +50,7 @@ public:
         D3D12_ROOT_SIGNATURE_FLAGS flags   = D3D12_ROOT_SIGNATURE_FLAG_NONE,
         D3D_ROOT_SIGNATURE_VERSION version = D3D_ROOT_SIGNATURE_VERSION_1_1);
 
-    void InitStaticSampler(UINT shader_register, const D3D12_SAMPLER_DESC& non_static_sampler_desc,
+    void InitStaticSampler(UINT register_index, UINT space, const D3D12_SAMPLER_DESC& sampler_desc,
                            D3D12_SHADER_VISIBILITY visibility);
 
     ID3D12RootSignature*              GetRootSignature() const { return m_RootSignature.Get(); }
@@ -87,7 +87,7 @@ private:
 
     std::array<uint32_t, 32> m_NumDescriptorsPerTable{};
     unsigned                 m_NumParameters;
-    unsigned                 m_NumSamplers;
+    unsigned                 m_NumStaticSamplers;
     unsigned                 m_NumInitializedStaticSamplers;
 
     std::vector<RootParameter>             m_ParamArray;

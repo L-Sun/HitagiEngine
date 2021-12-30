@@ -1,15 +1,10 @@
 #pragma once
+#include "FileIOManager.hpp"
+#include "Types.hpp"
+
 #include <unordered_map>
 
-#include "FileIOManager.hpp"
-
 namespace Hitagi::Graphics {
-enum struct ShaderType {
-    Vertex,
-    Pixel,
-    Geometry,
-    Compute,
-};
 
 class VertexShader;
 class PixelShader;

@@ -6,5 +6,5 @@ Checks: >
 # modernize-use-nullptr has a bug that strong_ordering compare with zero will generate a warning message
   -modernize-use-nullptr,
   -modernize-use-trailing-return-type,
-  -modernize-use-nodiscard
+  -modernize-use-nodiscard,
 HeaderFilterRegex:   '\.hpp$'

@@ -1,6 +1,6 @@
 #pragma once
 #include "Resource.hpp"
-#include "Format.hpp"
+#include "Types.hpp"
 #include "PipelineState.hpp"
 #include "ICommandContext.hpp"
 

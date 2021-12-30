@@ -212,7 +212,6 @@ void Frame::GuiDraw(IGraphicsCommandContext* context) {
         context->SetPipelineState(item.pipeline);
         context->SetParameter("Constant", *m_ConstantBuffer, item.constant_offset);
         context->SetParameter("Texture", *item.texture);
-        context->SetParameter("Sampler", *m_ResMgr.GetSampler("BaseSampler"));
         context->Draw(*item.mesh);
     }
 }

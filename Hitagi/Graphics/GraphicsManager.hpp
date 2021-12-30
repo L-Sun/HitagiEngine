@@ -1,7 +1,7 @@
 #pragma once
 #include "DriverAPI.hpp"
 #include "ResourceManager.hpp"
-#include "Format.hpp"
+#include "Types.hpp"
 #include "Frame.hpp"
 #include "PipelineState.hpp"
 

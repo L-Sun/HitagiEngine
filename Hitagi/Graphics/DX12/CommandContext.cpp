@@ -2,7 +2,7 @@
 #include "DX12DriverAPI.hpp"
 #include "GpuBuffer.hpp"
 #include "Sampler.hpp"
-#include "EnumConverter.hpp"
+#include "Utils.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
 

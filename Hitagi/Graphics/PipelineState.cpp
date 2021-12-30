@@ -23,7 +23,30 @@ RootSignature& RootSignature::operator=(RootSignature&& rhs) {
 
 RootSignature& RootSignature::Add(std::string_view name, ShaderVariableType type, unsigned register_index, unsigned space, ShaderVisibility visibility) {
     if (m_Created) throw std::logic_error("RootSignature has been created.");
-    m_ParameterTable.emplace_back(Parameter{std::string{name}, visibility, type, register_index, space});
+    m_ParameterTable.emplace_back(Parameter{
+        std::string{name},
+        type,
+        register_index,
+        space,
+        visibility,
+    });
+    return *this;
+}
+
+RootSignature& RootSignature::AddStaticSampler(
+    std::string_view     name,
+    Sampler::Description desc,
+    unsigned             register_index,
+    unsigned             sapce,
+    ShaderVisibility     visibility) {
+    m_StaticSamplerDescs.emplace_back(StaticSamplerDescription{
+        std::string{name},
+        desc,
+        register_index,
+        sapce,
+        visibility,
+    });
+
     return *this;
 }
 
@@ -72,8 +95,15 @@ PipelineState& PipelineState::SetPrimitiveType(PrimitiveType type) {
     return *this;
 }
 
-PipelineState& PipelineState::SetFrontCounterClockwise(bool value) {
-    m_FrontCounterClockwise = value;
+PipelineState& PipelineState::SetBlendState(BlendDescription desc) {
+    if (m_Created) throw std::logic_error("PSO has been created.");
+    m_BlendState = desc;
+    return *this;
+}
+
+PipelineState& PipelineState::SetRasterizerState(RasterizerDescription desc) {
+    if (m_Created) throw std::logic_error("PSO has been created.");
+    m_RasterizerState = desc;
     return *this;
 }
 

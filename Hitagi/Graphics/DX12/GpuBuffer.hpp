@@ -1,7 +1,7 @@
 #pragma once
 #include "GpuResource.hpp"
 #include "DescriptorAllocator.hpp"
-#include "EnumConverter.hpp"
+#include "Utils.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
 

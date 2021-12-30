@@ -76,7 +76,20 @@ int GraphicsManager::Initialize() {
     (*imgui_root_sig)
         .Add("Constant", ShaderVariableType::CBV, 0, 0, ShaderVisibility::Vertex)
         .Add("Texture", ShaderVariableType::SRV, 0, 0, ShaderVisibility::Pixel)
-        .Add("Sampler", ShaderVariableType::Sampler, 0, 0, ShaderVisibility::Pixel)
+        .AddStaticSampler("ImGuiSampler", {
+                                              .filter         = Filter::MIN_MAG_MIP_LINEAR,
+                                              .address_u      = TextureAddressMode::Wrap,
+                                              .address_v      = TextureAddressMode::Wrap,
+                                              .address_w      = TextureAddressMode::Wrap,
+                                              .mip_lod_bias   = 0.0f,
+                                              .max_anisotropy = 0,
+                                              .comp_func      = ComparisonFunc::Always,
+                                              .border_color   = vec4f(0.0f),
+                                              .min_lod        = 0.0f,
+                                              .max_lod        = 0.0f,
+                                          },
+                          0, 0, ShaderVisibility::Pixel)
+
         .Create(*m_Driver);
     m_ImGuiPSO = std::make_unique<PipelineState>("ImGui");
     (*m_ImGuiPSO)
@@ -89,9 +102,21 @@ int GraphicsManager::Initialize() {
         .SetVertexShader(m_ShaderManager.GetVertexShader("imgui.vs"))
         .SetPixelShader(m_ShaderManager.GetPixelShader("imgui.ps"))
         .SetRootSignautre(imgui_root_sig)
-        .SetFrontCounterClockwise(false)
         .SetRenderFormat(Format::R8G8B8A8_UNORM)
         .SetPrimitiveType(PrimitiveType::TriangleList)
+        .SetBlendState(BlendDescription{
+            .alpha_to_coverage_enable = false,
+            .enable_blend             = true,
+            .src_blend                = Blend::SrcAlpha,
+            .dest_blend               = Blend::InvSrc1Alpha,
+            .blend_op                 = BlendOp::Add,
+            .src_blend_alpha          = Blend::One,
+            .dest_blend_alpha         = Blend::InvSrc1Alpha,
+            .blend_op_alpha           = BlendOp::Add,
+        })
+        .SetRasterizerState(RasterizerDescription{
+            .cull_mode = CullMode::None,
+        })
         .Create(*m_Driver);
 
     auto debug_root_sig = std::make_shared<RootSignature>("Debug sig");
