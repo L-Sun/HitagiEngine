@@ -18,7 +18,7 @@ void Editor::MainMenu() {
 
 void Editor::FileExplorer() {
     if (ImGui::BeginPopup("File browser")) {
-        ImGui::EndPopup();
+                ImGui::EndPopup();
     }
 }
 

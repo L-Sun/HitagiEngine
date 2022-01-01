@@ -84,7 +84,7 @@ int GraphicsManager::Initialize() {
                                               .mip_lod_bias   = 0.0f,
                                               .max_anisotropy = 0,
                                               .comp_func      = ComparisonFunc::Always,
-                                              .border_color   = vec4f(0.0f),
+                                              .border_color   = vec4f(0.0f, 0.0f, 0.0f, 1.0f),
                                               .min_lod        = 0.0f,
                                               .max_lod        = 0.0f,
                                           },
@@ -108,14 +108,16 @@ int GraphicsManager::Initialize() {
             .alpha_to_coverage_enable = false,
             .enable_blend             = true,
             .src_blend                = Blend::SrcAlpha,
-            .dest_blend               = Blend::InvSrc1Alpha,
+            .dest_blend               = Blend::InvSrcAlpha,
             .blend_op                 = BlendOp::Add,
             .src_blend_alpha          = Blend::One,
-            .dest_blend_alpha         = Blend::InvSrc1Alpha,
+            .dest_blend_alpha         = Blend::InvSrcAlpha,
             .blend_op_alpha           = BlendOp::Add,
         })
         .SetRasterizerState(RasterizerDescription{
-            .cull_mode = CullMode::None,
+            .cull_mode               = CullMode::None,
+            .front_counter_clockwise = false,
+            .depth_clip_enable       = true,
         })
         .Create(*m_Driver);
 

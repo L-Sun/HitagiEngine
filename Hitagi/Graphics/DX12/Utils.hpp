@@ -197,11 +197,11 @@ inline D3D12_BLEND to_d3d_blend(Graphics::Blend blend) {
             return D3D12_BLEND_INV_BLEND_FACTOR;
         case Graphics::Blend::Src1Color:
             return D3D12_BLEND_SRC1_COLOR;
-        case Graphics::Blend::InvSrc1Color:
+        case Graphics::Blend::InvSrc_1_Color:
             return D3D12_BLEND_INV_SRC1_COLOR;
         case Graphics::Blend::Src1Alpha:
             return D3D12_BLEND_SRC1_ALPHA;
-        case Graphics::Blend::InvSrc1Alpha:
+        case Graphics::Blend::InvSrc_1_Alpha:
             return D3D12_BLEND_INV_SRC1_ALPHA;
         default: {
             auto logger = spdlog::get("GraphicsManager");

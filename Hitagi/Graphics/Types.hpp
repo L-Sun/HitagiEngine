@@ -207,9 +207,9 @@ enum struct Blend {
     BlendFactor,
     InvBlendFactor,
     Src1Color,
-    InvSrc1Color,
+    InvSrc_1_Color,
     Src1Alpha,
-    InvSrc1Alpha,
+    InvSrc_1_Alpha,
 };
 
 enum struct BlendOp {
