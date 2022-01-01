@@ -116,11 +116,17 @@ void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> fon
     if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < 1)
         m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + 1);
 
-    const size_t constant_offset = m_ConstantCount++;
-    const float  L               = data->DisplayPos.x;
-    const float  R               = data->DisplayPos.x + data->DisplaySize.x;
-    const float  T               = data->DisplayPos.y;
-    const float  B               = data->DisplayPos.y + data->DisplaySize.y;
+    m_GuiDrawInfo = std::make_shared<GuiDrawInformation>(
+        GuiDrawInformation{
+            .pipeline        = pso,
+            .font_texture    = m_ResMgr.GetTextureBuffer(font_texture),
+            .constant_offset = m_ConstantCount++,
+        });
+
+    const float L = data->DisplayPos.x;
+    const float R = data->DisplayPos.x + data->DisplaySize.x;
+    const float T = data->DisplayPos.y;
+    const float B = data->DisplayPos.y + data->DisplaySize.y;
     // clang-format off
     const mat4f  projection      = {
         {2.0f / (R - L)   , 0.0f             , 0.0f, (R + L) / (L - R)},
@@ -129,37 +135,48 @@ void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> fon
         {0.0f             , 0.0f             , 0.0f, 1.0f},
     };
     // clang-format on
-    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, constant_offset, reinterpret_cast<const uint8_t*>(&projection), sizeof(projection));
+    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_GuiDrawInfo->constant_offset, reinterpret_cast<const uint8_t*>(&projection), sizeof(projection));
 
     for (size_t i = 0; i < data->CmdListsCount; i++) {
-        const auto  cmd_list = data->CmdLists[i];
-        GuiDrawItem item{
-            .pipeline        = pso,
-            .mesh            = nullptr,
-            .constant_offset = constant_offset,
-            .texture         = nullptr,
-        };
-        item.mesh            = std::make_shared<MeshBuffer>();
-        item.mesh->primitive = PrimitiveType::TriangleList;
+        const auto cmd_list = data->CmdLists[i];
 
         auto vb = m_Driver.CreateVertexBuffer(
             "Imgui Vertex",
-            cmd_list->VtxBuffer.size(),
+            cmd_list->VtxBuffer.Size,
             sizeof(ImDrawVert),
             reinterpret_cast<const uint8_t*>(cmd_list->VtxBuffer.Data));
 
-        item.mesh->vertices.emplace("POSITION", vb);
-        item.mesh->vertices.emplace("TEXCOORD", vb);
-        item.mesh->vertices.emplace("COLOR", vb);
-        item.mesh->indices = m_Driver.CreateIndexBuffer(
+        auto ib = m_Driver.CreateIndexBuffer(
             "Imgui Indices",
-            cmd_list->IdxBuffer.size(),
+            cmd_list->IdxBuffer.Size,
             sizeof(ImDrawIdx),
             reinterpret_cast<const uint8_t*>(cmd_list->IdxBuffer.Data));
 
-        item.texture = m_ResMgr.GetTextureBuffer(font_texture);
+        for (const auto& cmd : cmd_list->CmdBuffer) {
+            vec2f clip_min(cmd.ClipRect.x - data->DisplayPos.x, cmd.ClipRect.y - data->DisplayPos.y);
+            vec2f clip_max(cmd.ClipRect.z - data->DisplayPos.x, cmd.ClipRect.w - data->DisplayPos.y);
+            if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+                continue;
 
-        m_GuiDrawItems.emplace_back(std::move(item));
+            auto mesh = std::make_shared<MeshBuffer>();
+            mesh->vertices.emplace("POSITION", vb);
+            mesh->vertices.emplace("TEXCOORD", vb);
+            mesh->vertices.emplace("COLOR", vb);
+            mesh->indices       = ib;
+            mesh->index_count   = cmd.ElemCount;
+            mesh->index_offset  = cmd.IdxOffset;
+            mesh->vertex_offset = cmd.VtxOffset;
+            mesh->primitive     = PrimitiveType::TriangleList;
+
+            std::array<uint32_t, 4> scissor_rect = {
+                static_cast<uint32_t>(clip_min.x),
+                static_cast<uint32_t>(clip_min.y),
+                static_cast<uint32_t>(clip_max.x),
+                static_cast<uint32_t>(clip_max.y),
+            };
+            m_GuiDrawInfo->scissor_rects.emplace_back(scissor_rect);
+            m_GuiDrawInfo->meshes.emplace_back(mesh);
+        }
     }
 }
 
@@ -208,11 +225,14 @@ void Frame::Draw(IGraphicsCommandContext* context) {
     }
 }
 void Frame::GuiDraw(IGraphicsCommandContext* context) {
-    for (const auto& item : m_GuiDrawItems) {
-        context->SetPipelineState(item.pipeline);
-        context->SetParameter("Constant", *m_ConstantBuffer, item.constant_offset);
-        context->SetParameter("Texture", *item.texture);
-        context->Draw(*item.mesh);
+    context->SetPipelineState(m_GuiDrawInfo->pipeline);
+    context->SetParameter("Constant", *m_ConstantBuffer, m_GuiDrawInfo->constant_offset);
+    context->SetParameter("Texture", *m_GuiDrawInfo->font_texture);
+
+    for (size_t i = 0; i < m_GuiDrawInfo->meshes.size(); i++) {
+        auto scissor_rects = m_GuiDrawInfo->scissor_rects[i];
+        context->SetScissorRect(scissor_rects[0], scissor_rects[1], scissor_rects[2], scissor_rects[3]);
+        context->Draw(*m_GuiDrawInfo->meshes[i]);
     }
 }
 
@@ -228,7 +248,7 @@ void Frame::DebugDraw(IGraphicsCommandContext* context) {
 void Frame::ResetState() {
     m_Driver.WaitFence(m_FenceValue);
     m_DrawItems.clear();
-    m_GuiDrawItems.clear();
+    m_GuiDrawInfo = nullptr;
     m_DebugItems.clear();
     m_ConstantCount = 1;
 }

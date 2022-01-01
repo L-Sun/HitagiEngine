@@ -17,6 +17,8 @@ int Win32Application::Initialize() {
     // Set time period on windows
     timeBeginPeriod(1);
 
+    SetProcessDPIAware();
+
     // get the HINSTANCE of the Console Program
     HINSTANCE h_instance = GetModuleHandle(nullptr);
 
@@ -80,6 +82,11 @@ void Win32Application::Tick() {
     } else {
         Application::Tick();
     }
+}
+
+float Win32Application::GetDpiRatio() {
+    unsigned dpi = GetDpiForWindow(m_Window);
+    return dpi / 96.0f;
 }
 
 void Win32Application::UpdateRect() {

@@ -79,6 +79,7 @@ public:
 
     // Front end interface
     void SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
+    void SetScissorRect(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom) final;
     void SetRenderTarget(Graphics::RenderTarget& rt) final;
     void UnsetRenderTarget() final;
     void SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depth_buffer) final;

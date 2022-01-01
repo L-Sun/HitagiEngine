@@ -98,9 +98,12 @@ void CommandContext::Reset() {
 }
 
 void GraphicsCommandContext::SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
-    auto vp   = CD3DX12_VIEWPORT(x, y, width, height);
-    auto rect = CD3DX12_RECT(x, y, width, height);
+    auto vp = CD3DX12_VIEWPORT(x, y, width, height);
     m_CommandList->RSSetViewports(1, &vp);
+}
+
+void GraphicsCommandContext::SetScissorRect(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom) {
+    auto rect = CD3DX12_RECT(left, top, right, bottom);
     m_CommandList->RSSetScissorRects(1, &rect);
 }
 
@@ -183,7 +186,7 @@ void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
     m_DynamicViewDescriptorHeap.CommitStagedDescriptors(*this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);
     m_DynamicSamplerDescriptorHeap.CommitStagedDescriptors(*this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);
     m_CommandList->IASetPrimitiveTopology(to_dx_topology(mesh.primitive));
-    m_CommandList->DrawIndexedInstanced(index_buffer->GetElementCount(), 1, 0, 0, 0);
+    m_CommandList->DrawIndexedInstanced(mesh.index_count, 1, mesh.index_offset, mesh.vertex_offset, 0);
 }
 
 void CopyCommandContext::InitializeBuffer(GpuResource& dest, const uint8_t* data, size_t data_size) {

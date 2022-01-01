@@ -45,11 +45,12 @@ class Frame {
         std::shared_ptr<TextureBuffer> specular_power;
     };
 
-    struct GuiDrawItem {
-        const PipelineState&           pipeline;
-        std::shared_ptr<MeshBuffer>    mesh;
-        size_t                         constant_offset;
-        std::shared_ptr<TextureBuffer> texture;
+    struct GuiDrawInformation {
+        const PipelineState&                     pipeline;
+        std::vector<std::shared_ptr<MeshBuffer>> meshes;
+        std::vector<std::array<uint32_t, 4>>     scissor_rects;
+        std::shared_ptr<TextureBuffer>           font_texture;
+        size_t                                   constant_offset;
     };
 
     struct DebugDrawItem {
@@ -83,11 +84,11 @@ private:
     const size_t     m_FrameIndex;
     uint64_t         m_FenceValue = 0;
 
-    FrameConstant                 m_FrameConstant{};
-    std::vector<DrawItem>         m_DrawItems;
-    std::vector<DebugDrawItem>    m_DebugItems;
-    std::vector<GuiDrawItem>      m_GuiDrawItems;
-    std::shared_ptr<RenderTarget> m_Output;
+    FrameConstant                       m_FrameConstant{};
+    std::vector<DrawItem>               m_DrawItems;
+    std::vector<DebugDrawItem>          m_DebugItems;
+    std::shared_ptr<GuiDrawInformation> m_GuiDrawInfo;
+    std::shared_ptr<RenderTarget>       m_Output;
 
     // the constant data used among the frame, including camera, light, etc.
     // TODO object constant buffer layout depending on different object

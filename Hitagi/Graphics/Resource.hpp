@@ -50,7 +50,11 @@ public:
 struct MeshBuffer {
     std::unordered_map<std::string, std::shared_ptr<VertexBuffer>> vertices;
     std::shared_ptr<IndexBuffer>                                   indices;
-    PrimitiveType                                                  primitive;
+    // if index_count is equal to zero, engine will use indices.size()
+    size_t        index_count   = 0;
+    size_t        index_offset  = 0;
+    size_t        vertex_offset = 0;
+    PrimitiveType primitive;
 };
 class ConstantBuffer : public Resource {
     friend class DriverAPI;

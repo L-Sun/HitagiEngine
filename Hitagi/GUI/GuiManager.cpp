@@ -18,6 +18,7 @@ int GuiManager::Initialize() {
     m_Clock.Start();
 
     ImGui::CreateContext();
+    ImGui::GetStyle().ScaleAllSizes(g_App->GetDpiRatio());
     LoadFontTexture();
     MapKey();
 
@@ -79,7 +80,7 @@ void GuiManager::LoadFontTexture() {
         ImFontConfig config;
         config.FontData             = font_data.GetData();
         config.FontDataSize         = font_data.GetDataSize();
-        config.SizePixels           = 18.0f;
+        config.SizePixels           = g_App->GetDpiRatio() * 18.0f;
         config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
 
         std::u8string name = u8"Hasklig-Regular";

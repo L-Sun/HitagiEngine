@@ -47,6 +47,8 @@ public:
     bool        WindowSizeChanged() const noexcept { return m_SizeChanged; }
 
     virtual void* GetWindow() = 0;
+    // Get Dpi / 96.0f
+    virtual float GetDpiRatio() = 0;
     virtual bool  IsQuit();
     virtual void  SetCommandLineParameters(int argc, char** argv);
 

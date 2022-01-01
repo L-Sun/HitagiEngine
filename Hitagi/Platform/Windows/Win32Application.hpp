@@ -11,6 +11,7 @@ public:
     void Tick() final;
 
     void* GetWindow() final { return &m_Window; }
+    float GetDpiRatio() final;
 
 private:
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
