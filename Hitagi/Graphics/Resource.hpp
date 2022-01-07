@@ -7,6 +7,7 @@
 #include <memory>
 #include <unordered_map>
 #include <string>
+#include <optional>
 
 namespace Hitagi::Graphics {
 
@@ -50,11 +51,10 @@ public:
 struct MeshBuffer {
     std::unordered_map<std::string, std::shared_ptr<VertexBuffer>> vertices;
     std::shared_ptr<IndexBuffer>                                   indices;
-    // if index_count is equal to zero, engine will use indices.size()
-    size_t        index_count   = 0;
-    size_t        index_offset  = 0;
-    size_t        vertex_offset = 0;
-    PrimitiveType primitive;
+    PrimitiveType                                                  primitive;
+    std::optional<size_t>                                          index_count;
+    std::optional<size_t>                                          index_offset;
+    std::optional<size_t>                                          vertex_offset;
 };
 class ConstantBuffer : public Resource {
     friend class DriverAPI;

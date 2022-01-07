@@ -255,9 +255,9 @@ void GraphicsManager::Render(const Asset::Scene& scene) {
             if (width > config.screen_width) {
                 width  = config.screen_width;
                 height = config.screen_width / camera->GetSceneObjectRef().lock()->GetAspect();
-                context->SetViewPort(0, (config.screen_height - height) >> 1, width, height);
+                context->SetViewPortAndScissor(0, (config.screen_height - height) >> 1, width, height);
             } else {
-                context->SetViewPort((config.screen_width - width) >> 1, 0, width, height);
+                context->SetViewPortAndScissor((config.screen_width - width) >> 1, 0, width, height);
             }
 
             context->SetRenderTargetAndDepthBuffer(render_target, depth_buffer);
