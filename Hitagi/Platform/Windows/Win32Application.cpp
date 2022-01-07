@@ -174,15 +174,12 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             if (w_param < static_cast<int>(VirtualKeyCode::NUM))
                 g_InputManager->UpdateKeyState(static_cast<VirtualKeyCode>(w_param), down);
 
-            g_InputManager->UpdateKeyState(
-                VirtualKeyCode::KEY_CTRL,
-                g_InputManager->GetBool(VirtualKeyCode::KEY_L_CTRL) || g_InputManager->GetBool(VirtualKeyCode::KEY_R_CTRL));
-            g_InputManager->UpdateKeyState(
-                VirtualKeyCode::KEY_SHIFT,
-                g_InputManager->GetBool(VirtualKeyCode::KEY_L_SHIFT) || g_InputManager->GetBool(VirtualKeyCode::KEY_R_SHIFT));
-            g_InputManager->UpdateKeyState(
-                VirtualKeyCode::KEY_ALT,
-                g_InputManager->GetBool(VirtualKeyCode::KEY_L_MENU) || g_InputManager->GetBool(VirtualKeyCode::KEY_R_MENU));
+            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_L_CTRL, w_param & static_cast<int>(VirtualKeyCode::KEY_L_CTRL));
+            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_CTRL, w_param & static_cast<int>(VirtualKeyCode::KEY_R_CTRL));
+            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_L_SHIFT, w_param & static_cast<int>(VirtualKeyCode::KEY_L_SHIFT));
+            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_SHIFT, w_param & static_cast<int>(VirtualKeyCode::KEY_R_SHIFT));
+            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_L_MENU, w_param & static_cast<int>(VirtualKeyCode::KEY_L_MENU));
+            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_MENU, w_param & static_cast<int>(VirtualKeyCode::KEY_R_MENU));
             return 0;
         }
         case WM_MOUSEMOVE:
