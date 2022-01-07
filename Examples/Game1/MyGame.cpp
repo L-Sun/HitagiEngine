@@ -8,8 +8,13 @@
 using namespace Hitagi;
 
 int MyGame::Initialize() {
+    int ret  = 0;
     m_Logger = spdlog::stdout_color_mt("MyGame");
-    return 0;
+    m_Logger->info("Initialize...");
+
+    if ((ret = m_Editor.Initialize()) != 0) return ret;
+
+    return ret;
 }
 
 void MyGame::Finalize() {
@@ -18,4 +23,6 @@ void MyGame::Finalize() {
 }
 
 void MyGame::Tick() {
+    m_Editor.Tick();
+    g_GuiManager->DrawGui([&]() { m_Editor.Draw(); });
 }

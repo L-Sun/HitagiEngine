@@ -1,8 +1,15 @@
 add_library(GuiManager GuiManager.cpp)
 target_link_libraries(GuiManager
     PUBLIC
-        Application
+        FileIOManager
+        AssetManager
+        InputManager
         imgui::imgui
-    PRIVATE    
+    PRIVATE
         spdlog::spdlog)
-target_include_directories(GuiManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(GuiManager
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE
+        "$<TARGET_PROPERTY:Application,INTERFACE_INCLUDE_DIRECTORIES>"
+)

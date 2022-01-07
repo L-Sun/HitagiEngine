@@ -6,5 +6,5 @@ target_link_libraries(MyGame
     PRIVATE
         HitagiEngine
         HitagiPhysics
+        HitagiEditor
 )
-
