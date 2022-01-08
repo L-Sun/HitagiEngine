@@ -137,7 +137,7 @@ struct Vector : public BaseVector<T, D> {
     T&       operator[](unsigned index) noexcept { return data[index]; }
     const T& operator[](unsigned index) const noexcept { return data[index]; }
 
-    friend std::ostream& operator<<(std::ostream& out, Vector v) {
+    friend std::ostream& operator<<(std::ostream& out, const Vector& v) {
         return out << fmt::format("[{:6}]", fmt::join(v.data, ", ")) << std::flush;
     }
 

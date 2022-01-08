@@ -37,7 +37,7 @@ class Frame {
     struct DrawItem {
         const PipelineState&           pipeline;
         size_t                         constant_offset;
-        std::shared_ptr<MeshBuffer>    buffer;
+        std::shared_ptr<MeshBuffer>    mesh;
         std::shared_ptr<TextureBuffer> ambient;
         std::shared_ptr<TextureBuffer> diffuse;
         std::shared_ptr<TextureBuffer> emission;
@@ -64,11 +64,11 @@ public:
 
     void SetFenceValue(uint64_t fence_value) { m_FenceValue = fence_value; }
     // TODO generate pipeline state object from scene node infomation
-    void AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries, const PipelineState& pso);
+    void AddGeometries(std::vector<std::reference_wrapper<Asset::GeometryNode>> geometries, const PipelineState& pso);
     void AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives, const PipelineState& pso);
     void PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> font_texture, const PipelineState& pso);
-    void SetCamera(Asset::SceneCameraNode& camera);
-    void SetLight(Asset::SceneLightNode& light);
+    void SetCamera(Asset::CameraNode& camera);
+    void SetLight(Asset::LightNode& light);
     void Draw(IGraphicsCommandContext* context);
     void GuiDraw(IGraphicsCommandContext* context);
     void DebugDraw(IGraphicsCommandContext* context);
@@ -79,6 +79,9 @@ public:
     inline auto GetRenderTarget() noexcept { return m_Output; }
 
 private:
+    void PopulateMaterial(const Asset::Material::Color& color, vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
+    void PopulateMaterial(const Asset::Material::SingleValue& color, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
+
     DriverAPI&       m_Driver;
     ResourceManager& m_ResMgr;
     const size_t     m_FrameIndex;
@@ -96,4 +99,5 @@ private:
     // the first element in constant buffer is frame constant, including camera light
     size_t m_ConstantCount = 1;
 };
+
 }  // namespace Hitagi::Graphics

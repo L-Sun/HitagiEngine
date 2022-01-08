@@ -28,10 +28,10 @@ public:
 
     void ResetScene();
 
-    std::weak_ptr<SceneGeometryNode> GetSceneGeometryNode(const std::string& name);
-    std::weak_ptr<SceneLightNode>    GetSceneLightNode(const std::string& name);
+    std::weak_ptr<GeometryNode> GetSceneGeometryNode(const std::string& name);
+    std::weak_ptr<LightNode>    GetSceneLightNode(const std::string& name);
 
-    std::weak_ptr<SceneCameraNode> GetCameraNode();
+    std::weak_ptr<CameraNode> GetCameraNode();
 
 protected:
     static void CreateDefaultCamera(Scene& scene);

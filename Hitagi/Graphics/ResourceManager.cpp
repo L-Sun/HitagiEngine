@@ -4,7 +4,7 @@
 #include <fmt/format.h>
 
 namespace Hitagi::Graphics {
-std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::SceneObjectMesh& mesh) {
+std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::Mesh& mesh) {
     auto id = mesh.GetGuid();
     if (m_MeshBuffer.count(id) != 0)
         return m_MeshBuffer.at(id);
@@ -25,10 +25,10 @@ std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::SceneObj
     // Create Index array
     auto& index_array = mesh.GetIndexArray();
     result->indices   = m_Driver.CreateIndexBuffer(
-          fmt::format("index-{}", id.str()),
-          index_array.GetIndexCount(),
-          index_array.GetIndexSize(),
-          index_array.GetData());
+        fmt::format("index-{}", id.str()),
+        index_array.GetIndexCount(),
+        index_array.GetIndexSize(),
+        index_array.GetData());
 
     result->primitive = mesh.GetPrimitiveType();
 

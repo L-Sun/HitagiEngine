@@ -1,16 +1,10 @@
 #include "InputManager.hpp"
+#include "Utils.hpp"
+#include "Application.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <magic_enum.hpp>
-
-#include "Application.hpp"
-
-template <class... Ts>
-struct Overloaded : Ts... { using Ts::operator()...; };
-// 显式推导指引（ C++20 起不需要）
-template <class... Ts>
-Overloaded(Ts...) -> Overloaded<Ts...>;
 
 namespace Hitagi {
 

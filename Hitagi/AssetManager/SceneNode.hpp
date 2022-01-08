@@ -7,11 +7,11 @@ namespace Hitagi::Asset {
 
 class BaseSceneNode {
 protected:
-    std::string                                      m_Name;
-    std::list<std::shared_ptr<BaseSceneNode>>        m_Chlidren;
-    std::list<std::shared_ptr<SceneObjectTransform>> m_Transforms;
-    mat4f                                            m_RuntimeTransform = mat4f(1.0f);
-    bool                                             m_Dirty            = true;
+    std::string                               m_Name;
+    std::list<std::shared_ptr<BaseSceneNode>> m_Chlidren;
+    std::list<mat4f>                          m_Transforms;
+    mat4f                                     m_RuntimeTransform = mat4f(1.0f);
+    bool                                      m_Dirty            = true;
 
     virtual void Dump(std::ostream& out, unsigned indent) const {}
 
@@ -24,7 +24,7 @@ public:
     const std::string& GetName() const { return m_Name; }
 
     void AppendChild(std::shared_ptr<BaseSceneNode>&& sub_node) { m_Chlidren.push_back(std::move(sub_node)); }
-    void AppendTransform(std::shared_ptr<SceneObjectTransform>&& transform) {
+    void AppendTransform(mat4f transform) {
         m_Transforms.push_back(std::move(transform));
     }
 
@@ -92,47 +92,33 @@ public:
 };
 
 using SceneEmptyNode = BaseSceneNode;
-class SceneGeometryNode : public SceneNode<SceneObjectGeometry> {
+
+class GeometryNode : public SceneNode<Geometry> {
 protected:
-    bool m_Visible    = true;
-    bool m_Shadow     = true;
-    bool m_MotionBlur = false;
+    bool m_Visible = true;
 
     void Dump(std::ostream& out, unsigned indent) const override {
         SceneNode::Dump(out, indent);
-        out << fmt::format(
-            "{0:{1}}{2:<15}{3:>15}\n"
-            "{0:{1}}{4:<15}{5:>15}\n"
-            "{0:{1}}{6:<15}{7:>15}\n",
-            "", indent, "Visible:", m_Visible, "Shadow:", m_Shadow, "Motion Blur:", m_MotionBlur);
+        out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Visible:", m_Visible);
     }
 
 public:
-    using SceneNode::SceneNode;
-    void       SetVisibility(bool visible) { m_Visible = visible; }
-    void       SetIfCastShadow(bool shadow) { m_Shadow = shadow; }
-    void       SetIfMotionBlur(bool motion_blur) { m_MotionBlur = motion_blur; }
-    const bool Visible() { return m_Visible; }
-    const bool CastShadow() { return m_Shadow; }
-    const bool MotionBlur() { return m_MotionBlur; }
-
     using SceneNode::AddSceneObjectRef;
+    using SceneNode::SceneNode;
+
+    void       SetVisibility(bool visible) { m_Visible = visible; }
+    const bool Visible() { return m_Visible; }
 };
 
-class SceneLightNode : public SceneNode<SceneObjectLight> {
-protected:
-    bool m_Shadow = false;
-
+class LightNode : public SceneNode<Light> {
 public:
     using SceneNode::SceneNode;
-    void       SetIfCastShadow(bool shaodw) { m_Shadow = shaodw; }
-    const bool CastShadow() { return m_Shadow; }
 };
 
-class SceneCameraNode : public SceneNode<SceneObjectCamera> {
+class CameraNode : public SceneNode<Camera> {
 public:
-    SceneCameraNode(std::string_view name, const vec3f& position = vec3f(0.0f), const vec3f& up = vec3f(0, 0, 1),
-                    const vec3f& look_at = vec3f(0, -1, 0))
+    CameraNode(std::string_view name, const vec3f& position = vec3f(0.0f), const vec3f& up = vec3f(0, 0, 1),
+               const vec3f& look_at = vec3f(0, -1, 0))
         : SceneNode(name),
           m_Position(position),
           m_LookAt(normalize(look_at)),

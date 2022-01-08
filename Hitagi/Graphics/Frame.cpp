@@ -1,6 +1,7 @@
 #include "Frame.hpp"
 #include "DriverAPI.hpp"
 #include "ICommandContext.hpp"
+#include "Utils.hpp"
 
 namespace Hitagi::Graphics {
 Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index)
@@ -11,10 +12,10 @@ Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_
       m_Output(m_Driver.CreateRenderFromSwapChain(frame_index)) {
 }
 
-void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometryNode>> geometries, const PipelineState& pso) {
+void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::GeometryNode>> geometries, const PipelineState& pso) {
     // Calculate need constant buffer size
     size_t constant_count = geometries.size();
-    for (Asset::SceneGeometryNode& node : geometries) {
+    for (Asset::GeometryNode& node : geometries) {
         if (auto geometry = node.GetSceneObjectRef().lock()) {
             constant_count += geometry->GetMeshes().size();
         }
@@ -26,7 +27,7 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
         // becase capacity + needed > exsisted + needed
         m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + constant_count);
 
-    for (Asset::SceneGeometryNode& node : geometries) {
+    for (Asset::GeometryNode& node : geometries) {
         if (auto geometry = node.GetSceneObjectRef().lock()) {
             // need update
             ObjectConstant data;
@@ -37,30 +38,20 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::SceneGeometr
             for (auto&& mesh : meshes) {
                 // Updata Material data
                 if (auto material = mesh->GetMaterial().lock()) {
-                    auto& ambient        = material->GetAmbientColor();
-                    auto& diffuse        = material->GetDiffuseColor();
-                    auto& emission       = material->GetEmission();
-                    auto& specular       = material->GetSpecularColor();
-                    auto& specular_power = material->GetSpecularPower();
+                    DrawItem item{
+                        .pipeline        = pso,
+                        .constant_offset = m_ConstantCount,
+                        .mesh            = m_ResMgr.GetMeshBuffer(*mesh),
+                    };
 
-                    data.ambient        = ambient.value_map ? vec4f(-1.0f) : ambient.value,
-                    data.diffuse        = diffuse.value_map ? vec4f(-1.0f) : diffuse.value,
-                    data.emission       = emission.value_map ? vec4f(-1.0f) : emission.value,
-                    data.specular       = specular.value_map ? vec4f(-1.0f) : specular.value,
-                    data.specular_power = specular_power.value_map ? -1.0f : specular_power.value,
+                    PopulateMaterial(material->GetAmbientColor(), data.ambient, item.ambient);
+                    PopulateMaterial(material->GetDiffuseColor(), data.diffuse, item.diffuse);
+                    PopulateMaterial(material->GetEmission(), data.emission, item.emission);
+                    PopulateMaterial(material->GetSpecularColor(), data.specular, item.specular);
+                    PopulateMaterial(material->GetSpecularPower(), data.specular_power, item.specular_power);
 
                     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
-
-                    m_DrawItems.emplace_back(DrawItem{
-                        pso,
-                        m_ConstantCount,
-                        m_ResMgr.GetMeshBuffer(*mesh),
-                        ambient.value_map ? m_ResMgr.GetTextureBuffer(ambient.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        diffuse.value_map ? m_ResMgr.GetTextureBuffer(diffuse.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        emission.value_map ? m_ResMgr.GetTextureBuffer(emission.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        specular.value_map ? m_ResMgr.GetTextureBuffer(specular.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R8G8_B8G8_UNORM),
-                        specular_power.value_map ? m_ResMgr.GetTextureBuffer(specular_power.value_map->GetTextureImage()) : m_ResMgr.GetDefaultTextureBuffer(Format::R32_FLOAT),
-                    });
+                    m_DrawItems.emplace_back(std::move(item));
                     m_ConstantCount++;
                 }
             }
@@ -180,7 +171,7 @@ void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> fon
     }
 }
 
-void Frame::SetCamera(Asset::SceneCameraNode& camera) {
+void Frame::SetCamera(Asset::CameraNode& camera) {
     auto& data         = m_FrameConstant;
     data.camera_pos    = vec4f(camera.GetCameraPosition(), 1.0f);
     data.view          = camera.GetViewMatrix();
@@ -200,12 +191,12 @@ void Frame::SetCamera(Asset::SceneCameraNode& camera) {
     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
 }
 
-void Frame::SetLight(Asset::SceneLightNode& light) {
+void Frame::SetLight(Asset::LightNode& light) {
     auto& data             = m_FrameConstant;
     data.light_position    = vec4f(get_origin(light.GetCalculatedTransform()), 1);
     data.light_pos_in_view = data.view * data.light_position;
     if (auto light_obj = light.GetSceneObjectRef().lock()) {
-        data.light_intensity = light_obj->GetIntensity() * light_obj->GetColor().value;
+        data.light_intensity = light_obj->GetIntensity() * light_obj->GetColor();
     }
     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
 }
@@ -221,7 +212,7 @@ void Frame::Draw(IGraphicsCommandContext* context) {
         context->SetParameter("EmissionTexture", *item.emission);
         context->SetParameter("SpecularTexture", *item.specular);
         context->SetParameter("PowerTexture", *item.specular_power);
-        context->Draw(*item.buffer);
+        context->Draw(*item.mesh);
     }
 }
 void Frame::GuiDraw(IGraphicsCommandContext* context) {
@@ -256,6 +247,32 @@ void Frame::ResetState() {
 void Frame::SetRenderTarget(std::shared_ptr<RenderTarget> rt) {
     m_Driver.WaitFence(m_FenceValue);
     m_Output = rt;
+}
+
+void Frame::PopulateMaterial(const Asset::Material::Color& color, vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
+    std::visit(Overloaded{
+                   [&](const vec4f& value) {
+                       value_dest   = value;
+                       texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+                   },
+                   [&](std::shared_ptr<Asset::Texture> texutre) {
+                       value_dest   = vec4f(-1.0f);
+                       texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
+                   }},
+               color);
+}
+
+void Frame::PopulateMaterial(const Asset::Material::SingleValue& value, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
+    std::visit(Overloaded{
+                   [&](float value) {
+                       value_dest   = value;
+                       texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8_UNORM);
+                   },
+                   [&](std::shared_ptr<Asset::Texture> texutre) {
+                       value_dest   = -1.0f;
+                       texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
+                   }},
+               value);
 }
 
 }  // namespace Hitagi::Graphics

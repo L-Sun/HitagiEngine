@@ -88,23 +88,22 @@ const Scene& SceneManager::GetSceneForPhysicsSimulation() const {
 }
 
 void SceneManager::CreateDefaultCamera(Scene& scene) {
-    scene.cameras["default"] = std::make_shared<SceneObjectCamera>();
+    scene.cameras["default"] = std::make_shared<Camera>();
 
     vec3f pos                     = {3.0f, 3.0f, 3.0f};
     vec3f up                      = {-1, -1, 1};
     vec3f direct                  = -pos;
-    scene.camera_nodes["default"] = std::make_shared<SceneCameraNode>("default", pos, up, direct);
+    scene.camera_nodes["default"] = std::make_shared<CameraNode>("default", pos, up, direct);
     scene.camera_nodes["default"]->AddSceneObjectRef(scene.cameras["default"]);
     scene.scene_graph->AppendChild(scene.camera_nodes["default"]);
 }
 
 void SceneManager::CreateDefaultLight(Scene& scene) {
-    scene.lights["default"]      = std::make_shared<SceneObjectPointLight>();
-    scene.light_nodes["default"] = std::make_shared<SceneLightNode>("default");
+    scene.lights["default"]      = std::make_shared<PointLight>();
+    scene.light_nodes["default"] = std::make_shared<LightNode>("default");
 
     scene.light_nodes["default"]->AddSceneObjectRef(scene.lights["default"]);
-    scene.light_nodes["default"]->AppendTransform(
-        std::make_shared<SceneObjectTranslation>(3.0f, 3.0f, 3.0f));
+    scene.light_nodes["default"]->AppendTransform(translate(mat4f(1.0f), vec3f(3.0f, 3.0f, 3.0f)));
 
     scene.scene_graph->AppendChild(scene.light_nodes["default"]);
 }
