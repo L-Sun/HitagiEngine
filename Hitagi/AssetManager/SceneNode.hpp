@@ -32,7 +32,7 @@ public:
         mat4f result(1.0f);
 
         for (auto trans : m_Transforms) {
-            result = static_cast<mat4f>(*trans) * result;
+            result = trans * result;
         }
         result = m_RuntimeTransform * result;
         return result;

@@ -36,18 +36,18 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
     begin = std::chrono::high_resolution_clock::now();
 
     // process camera
-    std::unordered_map<std::string_view, unsigned> cameraNameToIndex;
+    std::unordered_map<std::string_view, unsigned> camera_name_map;
     for (size_t i = 0; i < ai_scene->mNumCameras; i++) {
         const auto _camera = ai_scene->mCameras[i];
-        auto       perspectiveCamera =
+        auto       perspective_camera =
             std::make_shared<Camera>(
                 _camera->mAspect,
                 _camera->mClipPlaneNear,
                 _camera->mClipPlaneFar,
                 _camera->mHorizontalFOV);
 
-        scene.cameras[_camera->mName.C_Str()]     = perspectiveCamera;
-        cameraNameToIndex[_camera->mName.C_Str()] = i;
+        scene.cameras[_camera->mName.C_Str()]   = perspective_camera;
+        camera_name_map[_camera->mName.C_Str()] = i;
     }
 
     // process light
@@ -276,8 +276,8 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
             node                       = geometry_node;
         }
         // The node is a camera
-        else if (scene.cameras.find(name) != scene.cameras.end()) {
-            auto& _camera = ai_scene->mCameras[cameraNameToIndex[name]];
+        else if (scene.cameras.count(name) != 0) {
+            auto& _camera = ai_scene->mCameras[camera_name_map[name]];
             // move space infomation to camera node
             auto cameraNode = std::make_shared<CameraNode>(
                 name,
@@ -290,7 +290,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
             node                     = cameraNode;
         }
         // The node is a light
-        else if (scene.lights.find(name) != scene.lights.end()) {
+        else if (scene.lights.count(name) != 0) {
             auto lightNode = std::make_shared<LightNode>(name);
             lightNode->AddSceneObjectRef(scene.GetLight(name));
             scene.light_nodes[name] = lightNode;

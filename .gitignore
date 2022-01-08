@@ -4,3 +4,5 @@
 
 # ispc header will be generated during compilation
 *_ispc.h
+
+imgui.ini
