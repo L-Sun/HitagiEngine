@@ -1,15 +1,16 @@
 #pragma once
 #include "IRuntimeModule.hpp"
 #include "HitagiMath.hpp"
+#include "Geometry.hpp"
+#include "SceneNode.hpp"
 
 #include <chrono>
 #include <functional>
 
 namespace Hitagi::Debugger {
 struct DebugPrimitive {
-    std::unique_ptr<Geometry>                      geometry;
+    std::shared_ptr<Asset::GeometryNode>           geometry_node;
     vec4f                                          color;
-    mat4f                                          transform;
     std::chrono::high_resolution_clock::time_point expires_at;
 };
 
@@ -21,9 +22,9 @@ public:
     void ToggleDebugInfo();
     void DrawDebugInfo();
 
-    void DrawLine(const Line& line, const vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
+    void DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
     void DrawAxis(const mat4f& transform, bool depth_enabled = true);
-    void DrawBox(const Box& box, const mat4f& transform, const vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
+    void DrawBox(const mat4f& transform, const vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
 
     inline auto GetDebugPrimitiveForRender() const noexcept {
         auto result = std::cref(m_DebugPrimitives);
@@ -31,11 +32,13 @@ public:
     };
 
 protected:
-    void AddPrimitive(std::unique_ptr<Geometry> geometry, const mat4f& transform, const vec4f& color, std::chrono::seconds duration, bool depth_enabled);
+    void AddPrimitive(std::shared_ptr<Asset::Geometry> geometry, const mat4f& transform, const vec4f& color, std::chrono::seconds duration, bool depth_enabled);
 
-    std::vector<DebugPrimitive> m_DebugPrimitives;
+    std::vector<DebugPrimitive>      m_DebugPrimitives;
+    std::shared_ptr<Asset::Geometry> m_DebugLine;
+    std::shared_ptr<Asset::Geometry> m_DebugBox;
 
-    bool m_DrawDebugInfo = false;
+    bool m_DrawDebugInfo = true;
 };
 
 }  // namespace Hitagi::Debugger

@@ -94,7 +94,7 @@ void SceneManager::CreateDefaultCamera(Scene& scene) {
     vec3f up                      = {-1, -1, 1};
     vec3f direct                  = -pos;
     scene.camera_nodes["default"] = std::make_shared<CameraNode>("default", pos, up, direct);
-    scene.camera_nodes["default"]->AddSceneObjectRef(scene.cameras["default"]);
+    scene.camera_nodes["default"]->SetSceneObjectRef(scene.cameras["default"]);
     scene.scene_graph->AppendChild(scene.camera_nodes["default"]);
 }
 
@@ -102,7 +102,7 @@ void SceneManager::CreateDefaultLight(Scene& scene) {
     scene.lights["default"]      = std::make_shared<PointLight>();
     scene.light_nodes["default"] = std::make_shared<LightNode>("default");
 
-    scene.light_nodes["default"]->AddSceneObjectRef(scene.lights["default"]);
+    scene.light_nodes["default"]->SetSceneObjectRef(scene.lights["default"]);
     scene.light_nodes["default"]->AppendTransform(translate(mat4f(1.0f), vec3f(3.0f, 3.0f, 3.0f)));
 
     scene.scene_graph->AppendChild(scene.light_nodes["default"]);

@@ -1,6 +1,6 @@
 #pragma once
 #include "DriverAPI.hpp"
-#include "SceneObject.hpp"
+#include "Geometry.hpp"
 
 namespace Hitagi::Graphics {
 class ResourceManager {

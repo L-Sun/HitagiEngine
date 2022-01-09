@@ -29,20 +29,20 @@ std::array<vec3f, 2> HitagiPhysicsManager::GetAABB(Asset::GeometryNode& node) {
 
     // TODO mesh lod
     for (auto&& mesh : geometry->GetMeshes()) {
-        auto& positions    = mesh->GetVertexByName("POSITION");
+        auto& positions    = mesh.GetVertexByName("POSITION");
         auto  data_type    = positions.GetDataType();
         auto  vertex_count = positions.GetVertexCount();
         auto  data         = positions.GetData();
 
         switch (data_type) {
-            case Asset::VertexDataType::Float3: {
+            case Asset::VertexArray::DataType::Float3: {
                 auto vertex = reinterpret_cast<const vec3f*>(data);
                 for (auto i = 0; i < vertex_count; i++, vertex++) {
                     aabb_min = min(aabb_min, vertex[i]);
                     aabb_max = max(aabb_max, vertex[i]);
                 }
             } break;
-            case Asset::VertexDataType::Double3: {
+            case Asset::VertexArray::DataType::Double3: {
                 auto vertex = reinterpret_cast<const vec3d*>(data);
                 for (auto i = 0; i < vertex_count; i++, vertex++) {
                     aabb_min.x = std::min(static_cast<double>(aabb_min.x), vertex->x);
@@ -132,9 +132,4 @@ mat4f HitagiPhysicsManager::GetRigidBodyTransform(Asset::GeometryNode& node) {
 
 void HitagiPhysicsManager::ApplyCentralForce(Asset::GeometryNode& node, vec3f force) {}
 
-#if defined(_DEBUG)
-
-void HitagiPhysicsManager::DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& center_of_mass) {}
-
-#endif
 }  // namespace Hitagi::Physics

@@ -10,7 +10,7 @@ private:
     std::shared_ptr<Material> m_DefaultMaterial;
 
 public:
-    std::shared_ptr<BaseSceneNode>                                 scene_graph;
+    std::shared_ptr<SceneNode>                                     scene_graph;
     std::unordered_map<std::string, std::shared_ptr<CameraNode>>   camera_nodes;
     std::unordered_map<std::string, std::shared_ptr<LightNode>>    light_nodes;
     std::unordered_map<std::string, std::shared_ptr<GeometryNode>> geometry_nodes;
@@ -23,11 +23,11 @@ public:
 public:
     Scene()
         : m_DefaultMaterial(std::make_shared<Material>("default")),
-          scene_graph(std::make_shared<BaseSceneNode>("root")) {}
+          scene_graph(std::make_shared<SceneNode>("root")) {}
     Scene(std::string_view scene_name)
         : m_Name(scene_name),
           m_DefaultMaterial(std::make_shared<Material>("default")),
-          scene_graph(std::make_shared<BaseSceneNode>("root")) {}
+          scene_graph(std::make_shared<SceneNode>("root")) {}
     ~Scene() = default;
 
     inline void               SetName(std::string name) noexcept { m_Name = std::move(name); }

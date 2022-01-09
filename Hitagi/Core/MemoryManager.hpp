@@ -20,9 +20,9 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    void* Allocate(size_t size);
-    void* Allocate(size_t size, size_t alignment);
-    void  Free(void* p, size_t size);
+    [[nodiscard]] void* Allocate(size_t size);
+    [[nodiscard]] void* Allocate(size_t size, size_t alignment);
+    void                Free(void* p, size_t size);
 
 private:
     inline static size_t*    sm_BlockSizeLookup = nullptr;

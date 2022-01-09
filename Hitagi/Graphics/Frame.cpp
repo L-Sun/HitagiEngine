@@ -15,11 +15,6 @@ Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_
 void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::GeometryNode>> geometries, const PipelineState& pso) {
     // Calculate need constant buffer size
     size_t constant_count = geometries.size();
-    for (Asset::GeometryNode& node : geometries) {
-        if (auto geometry = node.GetSceneObjectRef().lock()) {
-            constant_count += geometry->GetMeshes().size();
-        }
-    }
 
     // TODO auto resize constant buffer
     // if new size is smaller, the expand function return directly.
@@ -33,27 +28,25 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::GeometryNode
             ObjectConstant data;
             data.transform = node.GetCalculatedTransform();
 
-            auto& meshes = geometry->GetMeshes();
-            // Generate mesh info
-            for (auto&& mesh : meshes) {
-                // Updata Material data
-                if (auto material = mesh->GetMaterial().lock()) {
-                    DrawItem item{
-                        .pipeline        = pso,
-                        .constant_offset = m_ConstantCount,
-                        .mesh            = m_ResMgr.GetMeshBuffer(*mesh),
-                    };
+            for (auto&& mesh : geometry->GetMeshes()) {
+                DrawItem item{
+                    .pipeline        = pso,
+                    .constant_offset = m_ConstantCount,
+                    .mesh            = m_ResMgr.GetMeshBuffer(mesh),
+                };
 
+                // Updata Material data
+                if (auto material = mesh.GetMaterial().lock()) {
                     PopulateMaterial(material->GetAmbientColor(), data.ambient, item.ambient);
                     PopulateMaterial(material->GetDiffuseColor(), data.diffuse, item.diffuse);
                     PopulateMaterial(material->GetEmission(), data.emission, item.emission);
                     PopulateMaterial(material->GetSpecularColor(), data.specular, item.specular);
                     PopulateMaterial(material->GetSpecularPower(), data.specular_power, item.specular_power);
-
-                    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
-                    m_DrawItems.emplace_back(std::move(item));
-                    m_ConstantCount++;
                 }
+
+                m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
+                m_DrawItems.emplace_back(std::move(item));
+                m_ConstantCount++;
             }
         }
     }
@@ -67,37 +60,25 @@ void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& prim
         m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + primitives.size());
 
     for (auto&& primitive : primitives) {
-        DebugDrawItem item{
-            .pipeline = pso,
-            .mesh     = std::make_shared<MeshBuffer>(),
-        };
+        if (auto geometry = primitive.geometry_node->GetSceneObjectRef().lock()) {
+            for (auto&& mesh : geometry->GetMeshes()) {
+                DebugDrawItem item{
+                    .pipeline        = pso,
+                    .mesh            = m_ResMgr.GetMeshBuffer(mesh),
+                    .constant_offset = m_ConstantCount};
 
-        const auto mesh = primitive.geometry->GenerateMesh();
-        item.mesh->vertices.emplace("POSITION", m_Driver.CreateVertexBuffer(
-                                                    "debug-primitive-position",
-                                                    mesh.vertices.size(),
-                                                    sizeof(decltype(mesh.vertices)::value_type),
-                                                    reinterpret_cast<const uint8_t*>(mesh.vertices.data())));
+                // TODO
+                struct {
+                    mat4f transform;
+                    vec4f color;
+                } data;
+                data.transform = primitive.geometry_node->GetCalculatedTransform();
+                data.color     = primitive.color;
+                m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount++, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
 
-        item.mesh->indices = m_Driver.CreateIndexBuffer(
-            "debug-primitive-indices",
-            mesh.indices.size(),
-            sizeof(decltype(mesh.indices)::value_type),
-            reinterpret_cast<const uint8_t*>(mesh.indices.data()));
-
-        item.mesh->primitive = PrimitiveType::LineList;
-        item.constant_offset = m_ConstantCount;
-
-        // TODO
-        struct {
-            mat4f transform;
-            vec4f color;
-        } data;
-        data.transform = primitive.transform;
-        data.color     = primitive.color;
-        m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount++, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
-
-        m_DebugItems.emplace_back(std::move(item));
+                m_DebugItems.emplace_back(std::move(item));
+            }
+        }
     }
 }
 

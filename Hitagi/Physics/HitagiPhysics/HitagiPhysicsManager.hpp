@@ -21,10 +21,6 @@ public:
     void ApplyCentralForce(Asset::GeometryNode& node, vec3f force) final;
 
 private:
-#if defined(_DEBUG)
-    void DrawAabb(const Geometry& geometry, const mat4f& trans, const vec3f& center_of_mass);
-#endif
-
     std::unordered_map<std::string, RigidBody> m_RigidBodies;
 };
 }  // namespace Hitagi::Physics
