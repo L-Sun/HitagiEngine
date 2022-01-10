@@ -41,35 +41,24 @@ void DebugManager::ToggleDebugInfo() {
 
 void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
     if (m_DebugLine == nullptr)
-        m_DebugLine = Asset::GeometryFactory::Line(vec3f(1.0f, 0.0f, 0.0f), vec3f(0.0f, 1.0f, 0.0f));
+        m_DebugLine = Asset::GeometryFactory::Line(vec3f(0.0f, 0.0f, 0.0f), vec3f(1.0f, 0.0f, 0.0f));
 
-    // T*(p1,p2,p3,p4) = (from, to, q3, q4)
-    // so T = (from, to, q3, q4) * (p1,p2,p3,p4)^-1
-    // we set  p1 = (1, 0, 0, 1), p2 = (0, 1, 0, 1), p3 = (0, 0, 1, 1), p4 = (0, 0, 0, 1)
-    // and set q3 = (0, 0, 1, 1), q4 = (0, 0, 0, 1)
-    mat4f p1p2p3p4 = {
-        {1.0f, 0.0f, 0.0f, 0.0f},
-        {0.0f, 1.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 1.0f, 0.0f},
-        {1.0f, 1.0f, 1.0f, 1.0f},
-    };
-    mat4f q1q2q3q4 = {
-        {from.x, to.x, 0.0f, 0.0f},
-        {from.y, to.y, 0.0f, 0.0f},
-        {from.z, to.z, 1.0f, 0.0f},
-        {1.0f, 1.0f, 1.0f, 1.0f},
-    };
-    mat4f transform = q1q2q3q4 * inverse(p1p2p3p4);
+    const vec3f dest_direction = normalize(to - from);
+    const float length         = (to - from).norm();
+    const vec3f rotate_axis    = cross(vec3f(1.0f, 0.0f, 0.0f), dest_direction);
+    const float theta          = std::acos(dot(vec3f(1.0f, 0.0f, 0.0f), dest_direction));
+
+    mat4f transform = translate(rotate(scale(mat4f(1.0f), length), theta, rotate_axis), from);
     AddPrimitive(m_DebugLine, transform, color, duration, depth_enabled);
 }
 void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
     const vec3f origin{0.0f, 0.0f, 0.0f};
-    const vec3f x{1.0f, 0.0f, 0.0f};
-    const vec3f y{0.0f, 1.0f, 0.0f};
-    const vec3f z{0.0f, 0.0f, 1.0f};
-    DrawLine(origin, x, vec4f(1, 0, 0, 1), std::chrono::seconds(0), depth_enabled);
-    DrawLine(origin, y, vec4f(0, 1, 0, 1), std::chrono::seconds(0), depth_enabled);
-    DrawLine(origin, z, vec4f(0, 0, 1, 1), std::chrono::seconds(0), depth_enabled);
+    const vec4f x{1.0f, 0.0f, 0.0f, 1.0f};
+    const vec4f y{0.0f, 1.0f, 0.0f, 1.0f};
+    const vec4f z{0.0f, 0.0f, 1.0f, 1.0f};
+    DrawLine(origin, (transform * x).xyz, vec4f(1, 0, 0, 1), std::chrono::seconds(0), depth_enabled);
+    DrawLine(origin, (transform * y).xyz, vec4f(0, 1, 0, 1), std::chrono::seconds(0), depth_enabled);
+    DrawLine(origin, (transform * z).xyz, vec4f(0, 0, 1, 1), std::chrono::seconds(0), depth_enabled);
 }
 
 void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {

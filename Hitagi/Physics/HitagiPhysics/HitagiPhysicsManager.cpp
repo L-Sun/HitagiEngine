@@ -58,7 +58,7 @@ std::array<vec3f, 2> HitagiPhysicsManager::GetAABB(Asset::GeometryNode& node) {
         }
     }
 
-    mat4f trans = node.GetCalculatedTransform();
+    mat4f trans = node.GetCalculatedTransformation();
     // recalculate aabbx after transform
     std::array<vec4f, 8> points = {
         vec4f(aabb_min, 1),
@@ -91,24 +91,24 @@ void HitagiPhysicsManager::CreateRigidBody(Asset::GeometryNode& node) {
     // switch (geometry->CollisionType()) {
     //     case Resource::SceneObjectCollisionType::SPHERE: {
     //         auto collisionBox = std::make_shared<Sphere>(param[0]);
-    //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
+    //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation());
     //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
     //     } break;
     //     case Resource::SceneObjectCollisionType::BOX: {
     //         auto collisionBox = std::make_shared<Box>(vec3f(param));
-    //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
+    //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation());
     //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
     //     } break;
     //     case Resource::SceneObjectCollisionType::PLANE: {
     //         auto collisionBox = std::make_shared<Plane>(vec3f(param), param[3]);
-    //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform());
+    //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation());
     //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
     //     } break;
     //     default: {
     //         // create AABB box according to Bounding Box
     //         vec3f aabbMin, aabbMax;
     //         auto  collisionBox = std::make_shared<Box>(aabbMax - aabbMin);
-    //         auto  motionState  = std::make_shared<MotionState>(node.GetCalculatedTransform(), 0.5 * (aabbMin + aabbMax));
+    //         auto  motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation(), 0.5 * (aabbMin + aabbMax));
     //         rigidBody          = std::make_shared<RigidBody>(collisionBox, motionState);
     //     }
     // }
@@ -117,7 +117,7 @@ void HitagiPhysicsManager::CreateRigidBody(Asset::GeometryNode& node) {
 void HitagiPhysicsManager::UpdateRigidBodyTransform(Asset::GeometryNode& node) {
     // auto rigidBody   = node.RigidBody();
     // auto motionState = std::static_pointer_cast<RigidBody>(rigidBody)->GetMotionState();
-    // motionState->SetTransition(node.GetCalculatedTransform());
+    // motionState->SetTransition(node.GetCalculatedTransformation());
 }
 
 void HitagiPhysicsManager::DeleteRigidBody(Asset::GeometryNode& node) {}

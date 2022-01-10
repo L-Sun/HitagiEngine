@@ -1,21 +1,13 @@
 #pragma once
-#include <fmt/format.h>
-
 #include "Geometry.hpp"
 #include "Camera.hpp"
 #include "Light.hpp"
 
+#include <fmt/format.h>
+
 namespace Hitagi::Asset {
 
 class SceneNode {
-protected:
-    std::string                           m_Name;
-    std::list<std::shared_ptr<SceneNode>> m_Chlidren;
-    std::list<mat4f>                      m_Transforms;
-    mat4f                                 m_RuntimeTransform = mat4f(1.0f);
-
-    virtual void Dump(std::ostream& out, unsigned indent) const {}
-
 public:
     SceneNode() = default;
     SceneNode(std::string_view name) : m_Name(name) {}
@@ -24,31 +16,59 @@ public:
 
     const std::string& GetName() const { return m_Name; }
 
-    void AppendChild(std::shared_ptr<SceneNode>&& sub_node) { m_Chlidren.push_back(std::move(sub_node)); }
-    void AppendTransform(mat4f transform) {
-        m_Transforms.push_back(std::move(transform));
+    inline void SetParent(std::weak_ptr<SceneNode> parent) {
+        m_Parent = parent;
+    }
+    inline void AppendChild(std::shared_ptr<SceneNode> child) {
+        m_Children.push_back(std::move(child));
+    }
+    inline const auto& GetChildren() const noexcept { return m_Children; }
+
+    // Apply a transformation to the node in its parent's space
+    void ApplyTransform(const mat4f& mat) {
+        auto curr_transform                   = translate(rotate(scale(mat4f(1.0f), m_Scaling), m_Orientation), m_Position);
+        auto [translation, rotation, scaling] = decompose(mat * curr_transform);
+
+        m_Orientation = rotation;
+        m_Position    = translation;
+        m_Scaling     = scaling;
+
+        SetDirty();
     }
 
-    mat4f GetCalculatedTransform() const {
-        mat4f result(1.0f);
+    inline const vec3f GetPosition(bool local_space = true) const {
+        return local_space ? m_Position : get_translation(m_RuntimeTransform);
+    }
 
-        for (auto trans : m_Transforms) {
-            result = trans * result;
+    inline const vec3f GetOrientation() const {
+        return m_Orientation;
+    }
+
+    inline const vec3f GetScaling() const {
+        return m_Scaling;
+    }
+
+    inline void Translate(const vec3f& translate) noexcept {
+        m_Position += translate;
+        SetDirty();
+    }
+    inline void Rotate(const vec3f& angles) noexcept {
+        m_Orientation += angles;
+        SetDirty();
+    }
+    inline void Scale(const vec3f value) noexcept {
+        m_Scaling = m_Scaling * value;
+        SetDirty();
+    }
+
+    const mat4f GetCalculatedTransformation() {
+        if (m_Dirty) {
+            m_RuntimeTransform = translate(rotate(scale(mat4f(1.0f), m_Scaling), m_Orientation), m_Position);
+            if (auto parent = m_Parent.lock())
+                m_RuntimeTransform = m_RuntimeTransform * parent->GetCalculatedTransformation();
         }
-        result = m_RuntimeTransform * result;
-        return result;
-    }
-    // Get is the node updated
-
-    void ApplyTransform(const mat4f& trans) {
-        m_RuntimeTransform = trans * m_RuntimeTransform;
-    }
-
-    void Reset(bool recursive = false) {
-        m_RuntimeTransform = mat4f(1.0f);
-        if (recursive)
-            for (auto&& child : m_Chlidren)
-                if (child) child->Reset(recursive);
+        m_Dirty = false;
+        return m_RuntimeTransform;
     }
 
     friend std::ostream& operator<<(std::ostream& out, const SceneNode& node) {
@@ -61,13 +81,32 @@ public:
         node.Dump(out, indent);
         out << fmt::format("{0:{1}}{2}\n", "", indent, "Children:");
         indent += 4;
-        for (const std::shared_ptr<SceneNode>& sub_node : node.m_Chlidren) {
+        for (const std::shared_ptr<SceneNode>& sub_node : node.m_Children) {
             out << *sub_node << std::endl;
         }
 
         indent -= 4;
         return out << fmt::format("{0:{1}}{2:-^30}", "", indent, "End");
     }
+
+protected:
+    virtual void Dump(std::ostream& out, unsigned indent) const {}
+    inline void  SetDirty() {
+        m_Dirty = true;
+        for (auto&& child : m_Children)
+            child->SetDirty();
+    }
+
+    std::string                           m_Name;
+    std::list<std::shared_ptr<SceneNode>> m_Children;
+    std::weak_ptr<SceneNode>              m_Parent;
+
+    vec3f m_Orientation{0.0f, 0.0f, 0.0f};
+    vec3f m_Position{0.0f, 0.0f, 0.0f};
+    vec3f m_Scaling{1.0f, 1.0f, 1.0f};
+
+    mat4f m_RuntimeTransform = mat4f(1.0f);
+    bool  m_Dirty            = true;
 };
 
 template <typename T>
@@ -122,12 +161,12 @@ public:
           m_Right(normalize(cross(look_at, up))),
           m_Up(normalize(cross(m_Right, m_LookAt))) {}
 
-    mat4f GetViewMatrix() const { return look_at(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransform()); }
+    mat4f GetViewMatrix() { return look_at(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransformation()); }
 
-    vec3f GetCameraPosition() const { return (GetCalculatedTransform() * vec4f(m_Position, 1)).xyz; }
-    vec3f GetCameraUp() const { return (GetCalculatedTransform() * vec4f(m_Up, 0)).xyz; }
-    vec3f GetCameraLookAt() const { return (GetCalculatedTransform() * vec4f(m_LookAt, 0)).xyz; }
-    vec3f GetCameraRight() const { return (GetCalculatedTransform() * vec4f(m_Right, 0)).xyz; }
+    vec3f GetCameraPosition() { return (GetCalculatedTransformation() * vec4f(m_Position, 1)).xyz; }
+    vec3f GetCameraUp() { return (GetCalculatedTransformation() * vec4f(m_Up, 0)).xyz; }
+    vec3f GetCameraLookAt() { return (GetCalculatedTransformation() * vec4f(m_LookAt, 0)).xyz; }
+    vec3f GetCameraRight() { return (GetCalculatedTransformation() * vec4f(m_Right, 0)).xyz; }
 
 private:
     vec3f m_Position;

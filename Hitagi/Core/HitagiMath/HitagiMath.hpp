@@ -8,12 +8,9 @@
 
 namespace Hitagi {
 
-inline const double radians(double angle) {
+template <typename T>
+inline const T radians(T angle) {
     return angle / 180.0 * std::numbers::pi;
-}
-
-inline const float radians(float angle) {
-    return angle / 180.0f * std::numbers::pi;
 }
 
 template <typename T, unsigned D>
@@ -182,6 +179,12 @@ const Matrix<T, 4> rotate_z(const Matrix<T, 4>& mat, const T angle) {
 }
 template <typename T>
 const Matrix<T, 4> rotate(const Matrix<T, 4>& mat, const T angle, const Vector<T, 3>& axis) {
+    if (std::abs(angle) < std::numeric_limits<T>::epsilon() ||
+        (std::abs(axis.x) < std::numeric_limits<T>::epsilon() &&
+         std::abs(axis.y) < std::numeric_limits<T>::epsilon() &&
+         std::abs(axis.z) < std::numeric_limits<T>::epsilon())) {
+        return mat;
+    }
     auto    normalized_axis = normalize(axis);
     const T c = std::cos(angle), s = std::sin(angle), _1_c = 1.0f - c;
     const T x = normalized_axis.x, y = normalized_axis.y, z = normalized_axis.z;

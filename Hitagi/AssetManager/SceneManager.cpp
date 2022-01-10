@@ -40,8 +40,8 @@ Scene& SceneManager::CreateScene(std::string name) {
     m_CurrentScene         = iter->first;
     Scene& scene           = iter->second;
 
-    CreateDefaultCamera(scene);
-    CreateDefaultLight(scene);
+    if (scene.GetFirstCameraNode() == nullptr) CreateDefaultCamera(scene);
+    if (scene.GetFirstLightNode() == nullptr) CreateDefaultLight(scene);
 
     return scene;
 }
@@ -72,12 +72,6 @@ void SceneManager::DeleteScene(xg::Guid id) {
     }
 }
 
-void SceneManager::ResetScene() {
-    auto& scene = m_Scenes.at(m_CurrentScene);
-    scene.scene_graph->Reset(true);
-    scene.LoadResource();
-}
-
 // TODO culling
 const Scene& SceneManager::GetSceneForRendering() const {
     return m_Scenes.at(m_CurrentScene);
@@ -103,7 +97,7 @@ void SceneManager::CreateDefaultLight(Scene& scene) {
     scene.light_nodes["default"] = std::make_shared<LightNode>("default");
 
     scene.light_nodes["default"]->SetSceneObjectRef(scene.lights["default"]);
-    scene.light_nodes["default"]->AppendTransform(translate(mat4f(1.0f), vec3f(3.0f, 3.0f, 3.0f)));
+    scene.light_nodes["default"]->ApplyTransform(translate(mat4f(1.0f), vec3f(3.0f, 3.0f, 3.0f)));
 
     scene.scene_graph->AppendChild(scene.light_nodes["default"]);
 }

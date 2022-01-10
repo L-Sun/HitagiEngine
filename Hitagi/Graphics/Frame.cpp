@@ -26,7 +26,7 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::GeometryNode
         if (auto geometry = node.GetSceneObjectRef().lock()) {
             // need update
             ObjectConstant data;
-            data.transform = node.GetCalculatedTransform();
+            data.transform = node.GetCalculatedTransformation();
 
             for (auto&& mesh : geometry->GetMeshes()) {
                 DrawItem item{
@@ -72,7 +72,7 @@ void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& prim
                     mat4f transform;
                     vec4f color;
                 } data;
-                data.transform = primitive.geometry_node->GetCalculatedTransform();
+                data.transform = primitive.geometry_node->GetCalculatedTransformation();
                 data.color     = primitive.color;
                 m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount++, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
 
@@ -95,18 +95,13 @@ void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> fon
             .constant_offset = m_ConstantCount++,
         });
 
-    const float L = data->DisplayPos.x;
-    const float R = data->DisplayPos.x + data->DisplaySize.x;
-    const float T = data->DisplayPos.y;
-    const float B = data->DisplayPos.y + data->DisplaySize.y;
-    // clang-format off
-    const mat4f  projection      = {
-        {2.0f / (R - L)   , 0.0f             , 0.0f, (R + L) / (L - R)},
-        {0.0f             , 2.0f / (T - B)   , 0.0f, (T + B) / (B - T)},
-        {0.0f             , 0.0f             , 0.5f, 0.5f},
-        {0.0f             , 0.0f             , 0.0f, 1.0f},
-    };
-    // clang-format on
+    const float left       = data->DisplayPos.x;
+    const float right      = data->DisplayPos.x + data->DisplaySize.x;
+    const float top        = data->DisplayPos.y;
+    const float bottom     = data->DisplayPos.y + data->DisplaySize.y;
+    const float near       = 3.0f;
+    const float far        = -1.0f;
+    const mat4f projection = ortho(left, right, bottom, top, near, far);
     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_GuiDrawInfo->constant_offset, reinterpret_cast<const uint8_t*>(&projection), sizeof(projection));
 
     for (size_t i = 0; i < data->CmdListsCount; i++) {
@@ -174,7 +169,7 @@ void Frame::SetCamera(Asset::CameraNode& camera) {
 
 void Frame::SetLight(Asset::LightNode& light) {
     auto& data             = m_FrameConstant;
-    data.light_position    = vec4f(get_origin(light.GetCalculatedTransform()), 1);
+    data.light_position    = light.GetCalculatedTransformation() * vec4f(1.0f);
     data.light_pos_in_view = data.view * data.light_position;
     if (auto light_obj = light.GetSceneObjectRef().lock()) {
         data.light_intensity = light_obj->GetIntensity() * light_obj->GetColor();

@@ -12,6 +12,7 @@ public:
 
     void MainMenu();
     void FileExplorer();
+    void SceneExplorer();
 
 private:
     bool m_OpenFileExplorer = false;

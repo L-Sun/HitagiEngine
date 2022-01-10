@@ -23,10 +23,11 @@ public:
     void NotifySceneIsRenderingQueued();
     void NotifySceneIsPhysicalSimulationQueued();
 
+    inline const Scene& GetScene() const {
+        return m_Scenes.at(m_CurrentScene);
+    }
     const Scene& GetSceneForRendering() const;
     const Scene& GetSceneForPhysicsSimulation() const;
-
-    void ResetScene();
 
     std::weak_ptr<GeometryNode> GetSceneGeometryNode(const std::string& name);
     std::weak_ptr<LightNode>    GetSceneLightNode(const std::string& name);

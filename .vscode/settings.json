@@ -95,7 +95,8 @@
         "stop_token": "cpp",
         "coroutine": "cpp",
         "resumable": "cpp",
-        "codecvt": "cpp"
+        "codecvt": "cpp",
+        "bitset": "cpp"
     },
     "cmake.debugConfig": {
         "cwd": "${workspaceFolder}"

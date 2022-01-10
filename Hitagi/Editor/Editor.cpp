@@ -1,6 +1,7 @@
 #include "Editor.hpp"
 #include "FileIOManager.hpp"
 #include "SceneManager.hpp"
+#include "DebugManager.hpp"
 
 #include <imgui.h>
 #include <spdlog/logger.h>
@@ -19,12 +20,15 @@ void Editor::Finalize() {
     m_Logger = nullptr;
 }
 
-void Editor::Tick() {}
+void Editor::Tick() {
+    g_DebugManager->DrawAxis(scale(mat4f(1.0f), 100.0f));
+}
 
 void Editor::Draw() {
     // Draw
     MainMenu();
     FileExplorer();
+    SceneExplorer();
 }
 
 void Editor::MainMenu() {
@@ -69,4 +73,36 @@ void Editor::FileExplorer() {
     }
 }
 
+void Editor::SceneExplorer() {
+    if (ImGui::Begin("Scene Explorer")) {
+        auto scene = g_SceneManager->GetScene();
+        if (ImGui::CollapsingHeader("Scene Nodes")) {
+            std::function<void(std::shared_ptr<Asset::SceneNode>)> print_node = [&](std::shared_ptr<Asset::SceneNode> node) -> void {
+                if (ImGui::TreeNode(node->GetName().data())) {
+                    {
+                        auto position    = node->GetPosition();
+                        auto orientation = 180.0f * std::numbers::inv_pi * node->GetOrientation();
+                        auto scaling     = node->GetScaling();
+
+                        bool dirty = false;
+                        if (ImGui::DragFloat3("Translation", position, 0.01f, 0.0f, 0.0f, "%.02f m")) {
+                            node->Translate(position - node->GetPosition());
+                        }
+                        if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °")) {
+                            node->Rotate(radians(orientation) - node->GetOrientation());
+                        }
+                    }
+
+                    // print children
+                    for (auto&& child : node->GetChildren()) {
+                        print_node(child);
+                    }
+                    ImGui::TreePop();
+                }
+            };
+            print_node(scene.scene_graph);
+        }
+    }
+    ImGui::End();
+}
 }  // namespace Hitagi

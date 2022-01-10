@@ -245,7 +245,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
         return mesh;
     };
 
-    auto get_matrix = [](const aiMatrix4x4& _mat) -> mat4f {
+    auto get_matrix = [](const aiMatrix4x4& _mat) -> const mat4f {
         mat4f ret;
         for (int i = 0; i < 4; i++)
             for (int j = 0; j < 4; j++)
@@ -262,8 +262,8 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
         return geometry;
     };
 
-    std::function<std::shared_ptr<SceneNode>(const aiNode*)>
-        convert = [&](const aiNode* _node) -> std::shared_ptr<SceneNode> {
+    std::function<std::shared_ptr<SceneNode>(const aiNode*, std::weak_ptr<SceneNode>)>
+        convert = [&](const aiNode* _node, std::weak_ptr<SceneNode> parent) -> std::shared_ptr<SceneNode> {
         std::shared_ptr<SceneNode> node;
         const std::string          name(_node->mName.C_Str());
         // The node is a geometry
@@ -302,14 +302,15 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
         }
 
         // Add transform matrix
-        node->AppendTransform(get_matrix(_node->mTransformation));
+        node->ApplyTransform(get_matrix(_node->mTransformation));
+        node->SetParent(parent);
         for (size_t i = 0; i < _node->mNumChildren; i++) {
-            node->AppendChild(convert(_node->mChildren[i]));
+            node->AppendChild(convert(_node->mChildren[i], node));
         }
         return node;
     };
 
-    scene.scene_graph = convert(ai_scene->mRootNode);
+    scene.scene_graph = convert(ai_scene->mRootNode, std::weak_ptr<SceneNode>{});
 
     end = std::chrono::high_resolution_clock::now();
     logger->info("[Assimp] Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());

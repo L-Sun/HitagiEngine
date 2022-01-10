@@ -24,9 +24,5 @@ void MyGame::Finalize() {
 
 void MyGame::Tick() {
     m_Editor.Tick();
-    g_DebugManager->DrawAxis(mat4f(1.0f));
-    static float phi = 0;
-    phi += std::numbers::inv_pi / 180.0f;
-    g_DebugManager->DrawBox(translate(mat4f(1.0f), vec3f(2 * std::sin(phi), 2 * std::cos(phi), 0.0f)), vec4f(1.0f, 0.3f, 0.1f, 1.0f));
     g_GuiManager->DrawGui([&]() { m_Editor.Draw(); });
 }
