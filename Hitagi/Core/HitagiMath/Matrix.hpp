@@ -9,7 +9,12 @@ struct Matrix {
     using RowVec = Vector<T, D>;
     std::array<RowVec, D> data;
 
-    Matrix() = default;
+    Matrix()              = default;
+    Matrix(const Matrix&) = default;
+    Matrix(Matrix&&)      = default;
+    Matrix& operator=(const Matrix&) = default;
+    Matrix& operator=(Matrix&&) = default;
+
     explicit Matrix(const T num) {
         std::fill_n(&data[0][0], D * D, static_cast<T>(0));
         for (size_t i = 0; i < D; i++)
@@ -20,6 +25,13 @@ struct Matrix {
 
     Vector<T, D>&       operator[](unsigned row) { return data[row]; }
     const Vector<T, D>& operator[](unsigned row) const { return data[row]; }
+
+    const Vector<T, D> col(unsigned index) const {
+        Vector<T, D> result;
+        for (unsigned i = 0; i < D; i++)
+            result[i] = data[i][index];
+        return result;
+    }
 
     operator T*() noexcept { return &data[0][0]; }
     operator const T*() const noexcept { return static_cast<const T*>(&data[0][0]); }
@@ -152,7 +164,7 @@ using mat4d = Matrix<double, 4>;
 using mat8d = Matrix<double, 8>;
 
 template <typename T, unsigned D>
-Matrix<T, D> mul_by_element(const Matrix<T, D>& m1, const Matrix<T, D>& m2) {
+const Matrix<T, D> mul_by_element(const Matrix<T, D>& m1, const Matrix<T, D>& m2) {
     Matrix result(0);
     for (unsigned row = 0; row < D; row++) result[row] = m1[row] * m2[row];
     return result;

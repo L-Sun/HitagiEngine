@@ -125,7 +125,7 @@ struct Vector : public BaseVector<T, D> {
         for (unsigned i = 0; i < D; i++) data[i] = static_cast<T>(*p++);
     }
 
-    T Norm() const noexcept {
+    T norm() const noexcept {
         T result = 0;
         for (auto&& val : data) result += val * val;
         return std::sqrt(result);
@@ -172,6 +172,11 @@ struct Vector : public BaseVector<T, D> {
     const Vector        operator/(const T& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
+        return result;
+    }
+    const Vector operator/(const Vector& rhs) const noexcept {
+        Vector result;
+        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs[i];
         return result;
     }
     Vector& operator+=(const Vector& rhs) noexcept {
@@ -223,6 +228,11 @@ struct Vector : public BaseVector<T, D> {
         ispc::vector_div(*this, rhs, result, D);
         return result;
     }
+    const Vector operator/(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+        Vector result;
+        ispc::vector_div_vector(*this, rhs, result, D);
+        return result;
+    }
     Vector& operator+=(const Vector& rhs) noexcept requires IspcSpeedable<T> {
         ispc::vector_add_assgin(*this, rhs, D);
         return *this;
@@ -245,12 +255,15 @@ struct Vector : public BaseVector<T, D> {
 using vec2f = Vector<float, 2>;
 using vec3f = Vector<float, 3>;
 using vec4f = Vector<float, 4>;
-using quatf = Vector<float, 4>;
 
 using vec2d = Vector<double, 2>;
 using vec3d = Vector<double, 3>;
 using vec4d = Vector<double, 4>;
-using quatd = Vector<double, 4>;
+
+template <typename T>
+using Quaternion = Vector<T, 4>;
+using quatf      = Quaternion<float>;
+using quatd      = Quaternion<double>;
 
 using R8G8B8A8Unorm = Vector<uint8_t, 4>;
 

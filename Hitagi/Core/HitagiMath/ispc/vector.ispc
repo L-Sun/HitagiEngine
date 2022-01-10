@@ -57,6 +57,11 @@ export void vector_div_float (const uniform float a[], const uniform float b, un
         out[i] = a[i] / b;
 }
 
+export void vector_div_vector_float(const uniform float a[], const uniform float b[], uniform float out[], const uniform int size) {
+    foreach (i = 0 ... size)
+        out[i] = a[i] / b[i];
+}
+
 export uniform float vector_dot_float (const uniform float a[], const uniform float b[], const uniform int size) {
     varying float sum = 0.0f;
     foreach (i = 0 ... size)
@@ -120,6 +125,11 @@ export void vector_div_assign_double (uniform double a[], const uniform double b
 export void vector_div_double (const uniform double a[], const uniform double b, uniform double out[], const uniform int size) {
     foreach (i = 0 ... size)
         out[i] = a[i] / b;
+}
+
+export void vector_div_vector_double(const uniform double a[], const uniform double b[], uniform double out[], const uniform int size) {
+    foreach (i = 0 ... size)
+        out[i] = a[i] / b[i];
 }
 
 export uniform double vector_dot_double (const uniform double a[], const uniform double b[], const uniform int size) {

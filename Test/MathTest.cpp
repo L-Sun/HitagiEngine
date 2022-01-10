@@ -5,9 +5,9 @@
 using namespace Hitagi;
 
 template <typename T, unsigned D>
-void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2) {
+void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2, double epsilon = 1E-5) {
     for (size_t i = 0; i < D; i++) {
-        EXPECT_NEAR(v1[i], v2[i], 1E-8) << "difference at index: " << i;
+        EXPECT_NEAR(v1[i], v2[i], epsilon) << "difference at index: " << i;
     }
 }
 
@@ -42,6 +42,7 @@ TEST(VectorTest, VectorOperator) {
     vector_eq(v3 * 2, vec3d(2, 4, 6));
     vector_eq(2.0 * v3, vec3d(2, 4, 6));
     vector_eq(v3 / 2, vec3d(0.5, 1.0, 1.5));
+    vector_eq(v3 / vec3d(1, 2, 3), vec3d(1, 1, 1));
 }
 TEST(VectorTest, VectorAssignmentOperator) {
     vec3f v3(1, 2, 3);
@@ -116,9 +117,24 @@ TEST(MatrixTest, VecProducts) {
 }
 
 TEST(TransformTest, TranslateTest) {
-    mat4f a = {{1, 4, 7, 10}, {2, 5, 8, 11}, {3, 6, 9, 12}, {1, 1, 1, 1}};
-    mat4f b = {{2, 5, 8, 11}, {4, 7, 10, 13}, {6, 9, 12, 15}, {1, 1, 1, 1}};
-    matrix_eq(translate(a, vec3f(1, 2, 3)), b);
+    vector_eq(translate(mat4f(1.0f), vec3f(1, 2, 3)) * vec4f(2, 4, 2, 1), vec4f(3, 6, 5, 1));
+    vector_eq(translate(mat4f(1.0f), vec3f(1, 2, 3)) * vec4f(2, 4, 2, 0), vec4f(2, 4, 2, 0));
+}
+
+TEST(TransformTest, ScaleTest) {
+    vector_eq(scale(mat4f(1.0f), vec3f(1.0f, 2.0f, 3.0f)) * vec4f(1, 2, 3, 1), vec4f(1, 4, 9, 1));
+}
+
+TEST(TransformTest, RotateTest) {
+    vector_eq(rotate_x(mat4f(1.0f), radians(90.0f)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
+    vector_eq(rotate_y(mat4f(1.0f), radians(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 0, -1, 1));
+    vector_eq(rotate_z(mat4f(1.0f), radians(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
+
+    vector_eq(rotate(mat4f(1.0f), vec3f(0, 0, radians(90.0f))) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
+    vector_eq(rotate(mat4f(1.0f), vec3f(0, radians(180.0f), 0)) * vec4f(1, 0, 0, 1), vec4f(-1, 0, 0, 1));
+    vector_eq(rotate(mat4f(1.0f), vec3f(radians(90.0f), 0, 0)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
+
+    vector_eq(rotate(mat4f(1.0f), radians(90.0f), vec3f(0.0f, 0.0f, 1.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
 }
 
 TEST(TransformTest, Inverse) {
@@ -136,6 +152,31 @@ TEST(TransformTest, Inverse) {
 TEST(TransformTest, InverseSingularMatrix) {
     mat3f a = {{1, 2, 3}, {1, 2, 3}, {3, 7, -4}};
     matrix_eq(inverse(a), mat3f(1.0f));
+}
+
+TEST(TransformTest, DecomposeTest) {
+    vec3f translation(1.0f, 1.0f, 1.0f);
+    vec3f rotation(radians(30.0f), radians(45.0f), radians(90.0f));
+    vec3f scaling(1.0f, 2.0f, 3.0f);
+    mat4f trans1      = translate(rotate(scale(mat4f(1.0f), scaling), rotation), translation);
+    auto [_t, _r, _s] = decompose(trans1);
+    vector_eq(_t, translation);
+    vector_eq(_r, rotation);
+    vector_eq(_s, scaling);
+}
+
+TEST(ConvertText, AxisAngleToQuaternion) {
+    vector_eq(
+        axis_angle_to_quternion(vec3f(1, 0, 0), radians(30.0f)),
+        quatf(0.258819043, 0, 0, 0.9659258));
+
+    vector_eq(
+        axis_angle_to_quternion(vec3f(1, 1, 1), radians(30.0f)),
+        quatf(0.149429246, 0.149429246, 0.149429246, 0.9659258));
+
+    vector_eq(
+        axis_angle_to_quternion(vec3f(1, 2, 3), radians(64.5f)),
+        quatf(0.1426144689, 0.28522893786, 0.42784342169, 0.8457278609));
 }
 
 TEST(BenchmarkTest, MatrixOperator) {
