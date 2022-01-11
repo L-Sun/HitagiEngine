@@ -200,13 +200,13 @@ const Matrix<T, 4> rotate(const Matrix<T, 4>& mat, const T angle, const Vector<T
     return rotation * mat;
 }
 
-// euler: [psi, theta, phi]
+// euler: [rotate about X, then Y and Z]
 template <typename T>
 const Matrix<T, 4> rotate(const Matrix<T, 4>& mat, const vec3f& euler) {
-    T c1, c2, c3, s1, s2, s3;
-    c1 = std::cos(euler.x);  // psi
-    c2 = std::cos(euler.y);  // theta
-    c3 = std::cos(euler.z);  // phi
+    T c3, c2, c1, s3, s2, s1;
+    c1 = std::cos(euler.x);
+    c2 = std::cos(euler.y);
+    c3 = std::cos(euler.z);
 
     s1 = std::sin(euler.x);
     s2 = std::sin(euler.y);
@@ -214,10 +214,10 @@ const Matrix<T, 4> rotate(const Matrix<T, 4>& mat, const vec3f& euler) {
 
     // clang-format off
     Matrix<T, 4> rotation = {
-        {           c2*c3,          - c2*s3,      s2, 0.0f},
-        {c1*s3 + c3*s1*s2, c1*c3 - s1*s2*s3, - c2*s1, 0.0f},
-        {s1*s3 - c1*c3*s2, c3*s1 + c1*s2*s3,   c1*c2, 0.0f},
-        {             0.0f,             0.0f,    0.0f, 1.0f}
+        {c2*c3, c3*s1*s2 - c1*s3,  s1*s3 + c1*c3*s2, 0.0f},
+        {c2*s3, c1*c3 + s1*s2*s3,  c1*s2*s3 - c3*s1, 0.0f},
+        { - s2,            c2*s1,             c1*c2, 0.0f},
+        { 0.0f,             0.0f,              0.0f, 1.0f}
     };
     // clang-format on
 
@@ -333,8 +333,7 @@ const Vector<T, 3> get_scaling(const Matrix<T, 4>& mat) {
     };
 }
 
-// Return translation, rotation (around x, y, z(up)), scaling
-// ! Fix Me
+// Return translation, rotation (XYZ), scaling
 template <typename T>
 std::tuple<Vector<T, 3>, Vector<T, 3>, Vector<T, 3>> decompose(const Matrix<T, 4>& transform) {
     Vector<T, 3> translation = get_translation(transform);
@@ -353,15 +352,15 @@ std::tuple<Vector<T, 3>, Vector<T, 3>, Vector<T, 3>> decompose(const Matrix<T, 4
     m[1] = m[1] / scaling,
     m[2] = m[2] / scaling,
 
-    rotation.y = std::asin(m[0][2]);
+    rotation.y = -std::asin(m[2][0]);
 
     T c = std::cos(rotation.y);
     if (std::abs(c) > std::numeric_limits<T>::epsilon()) {
-        rotation.x = std::atan2(-m[1][2], m[2][2]);
-        rotation.z = std::atan2(-m[0][1], m[0][0]);
+        rotation.x = std::atan2(m[2][1], m[2][2]);
+        rotation.z = std::atan2(m[1][0], m[0][0]);
     } else {
         rotation.x = static_cast<T>(0);
-        rotation.z = std::atan2(-m[0][1], m[1][1]);
+        rotation.z = std::atan2(-m[1][0], m[0][0]);
     }
     return {translation, rotation, scaling};
 }
@@ -384,20 +383,26 @@ const Quaternion<T> axis_angle_to_quternion(const Vector<T, 3>& axis, T angle) {
         std::cos(static_cast<T>(0.5) * angle),
     };
 }
-// return a vector contain roll(around x axis), yaw(around y axis), ptch(around z axis)
+
 template <typename T>
 const Vector<T, 3> quaternion_to_euler(const Quaternion<T>& quat) {
-    return {
-        // roll
-        std::atan2(static_cast<T>(2) * quat.x * quat.w - static_cast<T>(2) * quat.y * quat.z,
-                   static_cast<T>(1) - static_cast<T>(2) * quat.x * quat.x - static_cast<T>(2) * quat.z * quat.z),
+    T phi, theta, psi;
 
-        // yaw
-        std::atan2(static_cast<T>(2) * quat.y * quat.w - static_cast<T>(2) * quat.x * quat.z,
-                   static_cast<T>(1) - static_cast<T>(2) * quat.y * quat.y - static_cast<T>(2) * quat.w * quat.w),
-        // pitch
-        std::asin(static_cast<T>(2) * quat.x * quat.y + static_cast<T>(2) * quat.z * quat.w),
-    };
+    T sinr_cosp = static_cast<T>(2) * (quat.w * quat.x + quat.y * quat.z);
+    T cosr_cosp = static_cast<T>(1) - static_cast<T>(2) * (quat.x * quat.x + quat.y * quat.y);
+    phi         = std::atan2(sinr_cosp, cosr_cosp);
+
+    T sinp = static_cast<T>(2) * (quat.w * quat.y - quat.z * quat.x);
+    if (std::abs(sinp) >= static_cast<T>(1))
+        theta = std::copysign(std::numbers::pi, sinp);
+    else
+        theta = std::asin(sinp);
+
+    T siny_cosp = static_cast<T>(2) * (quat.w * quat.z + quat.x * quat.y);
+    T cosy_cosp = static_cast<T>(1) - static_cast<T>(2) * (quat.y * quat.y + quat.z * quat.z);
+    psi         = std::atan2(siny_cosp, cosy_cosp);
+
+    return {phi, theta, psi};
 }
 
 template <typename T, unsigned D1, unsigned D2>

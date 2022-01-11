@@ -5,7 +5,6 @@
 #include <concepts>
 
 #include <fmt/format.h>
-#include <fmt/ostream.h>
 
 #if defined(USE_ISPC)
 #include "ispcMath.hpp"

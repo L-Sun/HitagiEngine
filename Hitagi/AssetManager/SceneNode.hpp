@@ -116,7 +116,7 @@ protected:
 
     void Dump(std::ostream& out, unsigned indent) const override {
         if (auto obj = m_SceneObjectRef.lock()) {
-            out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Obj Ref:", obj->GetGuid());
+            out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Obj Ref:", obj->GetGuid().str());
         }
     }
 

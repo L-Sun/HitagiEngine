@@ -37,7 +37,11 @@ struct Matrix {
     operator const T*() const noexcept { return static_cast<const T*>(&data[0][0]); }
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
-        return out << fmt::format("[\n  {}\n]", fmt::join(mat.data, ",\n  "));
+        out << "[\n";
+        for (auto&& row : mat.data) {
+            out << " " << row << ",\n";
+        }
+        return out << "]" << std::flush;
     }
 
     // Matrix Operation

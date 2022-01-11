@@ -134,6 +134,16 @@ TEST(TransformTest, RotateTest) {
     vector_eq(rotate(mat4f(1.0f), vec3f(0, radians(180.0f), 0)) * vec4f(1, 0, 0, 1), vec4f(-1, 0, 0, 1));
     vector_eq(rotate(mat4f(1.0f), vec3f(radians(90.0f), 0, 0)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
 
+    vector_eq(
+        rotate(mat4f(1.0f), vec3f(radians(30.0f), radians(45.0f), radians(90.0f))) * vec4f(1, 2, 1, 1),
+        rotate_z(
+            rotate_y(
+                rotate_x(mat4f(1.0f),
+                         radians(30.0f)),
+                radians(45.0f)),
+            radians(90.0f)) *
+            vec4f(1, 2, 1, 1));
+
     vector_eq(rotate(mat4f(1.0f), radians(90.0f), vec3f(0.0f, 0.0f, 1.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
 }
 
@@ -165,7 +175,7 @@ TEST(TransformTest, DecomposeTest) {
     vector_eq(_s, scaling);
 }
 
-TEST(ConvertText, AxisAngleToQuaternion) {
+TEST(ConvertTest, AxisAngleToQuaternion) {
     vector_eq(
         axis_angle_to_quternion(vec3f(1, 0, 0), radians(30.0f)),
         quatf(0.258819043, 0, 0, 0.9659258));
@@ -177,6 +187,12 @@ TEST(ConvertText, AxisAngleToQuaternion) {
     vector_eq(
         axis_angle_to_quternion(vec3f(1, 2, 3), radians(64.5f)),
         quatf(0.1426144689, 0.28522893786, 0.42784342169, 0.8457278609));
+}
+
+TEST(ConvertTest, QuaternionToEuler) {
+    vector_eq(
+        quaternion_to_euler(quatf(-0.092296, 0.4304593, 0.5609855, 0.7010574)),
+        vec3f(radians(30.0f), radians(45.0f), radians(90.0f)));
 }
 
 TEST(BenchmarkTest, MatrixOperator) {
