@@ -65,7 +65,7 @@ public:
         if (m_Dirty) {
             m_RuntimeTransform = translate(rotate(scale(mat4f(1.0f), m_Scaling), m_Orientation), m_Position);
             if (auto parent = m_Parent.lock())
-                m_RuntimeTransform = m_RuntimeTransform * parent->GetCalculatedTransformation();
+                m_RuntimeTransform = parent->GetCalculatedTransformation() * m_RuntimeTransform;
         }
         m_Dirty = false;
         return m_RuntimeTransform;
