@@ -4,6 +4,7 @@ add_library(Parser
     JPEG.cpp
     PNG.cpp
     TGA.cpp
+    BvhParser.cpp
 )
 
 target_link_libraries(Parser

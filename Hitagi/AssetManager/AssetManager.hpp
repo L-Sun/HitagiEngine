@@ -1,6 +1,8 @@
 #pragma once
 #include "FileIOManager.hpp"
 #include "ImageParser.hpp"
+#include "MoCapParser.hpp"
+#include "SceneNode.hpp"
 
 #include <map>
 
@@ -12,12 +14,12 @@ public:
     void Tick() final;
     void Finalize() final;
 
-    std::shared_ptr<Image> ImportImage(const std::filesystem::path& path);
+    std::shared_ptr<Image>    ImportImage(const std::filesystem::path& path);
+    std::shared_ptr<BoneNode> ImportSkeleton(const std::filesystem::path& path);
 
 private:
     std::array<std::unique_ptr<ImageParser>, static_cast<size_t>(ImageFormat::NUM_SUPPORT)> m_ImageParser;
-
-    std::unordered_map<xg::Guid, std::shared_ptr<Image>> m_ImportedImages;
+    std::unique_ptr<MoCapParser>                                                            m_MoCapParser;
 };
 }  // namespace Hitagi::Asset
 

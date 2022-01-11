@@ -82,24 +82,24 @@ const Scene& SceneManager::GetSceneForPhysicsSimulation() const {
 }
 
 void SceneManager::CreateDefaultCamera(Scene& scene) {
-    scene.cameras["default"] = std::make_shared<Camera>();
+    scene.cameras["default-camera"] = std::make_shared<Camera>();
 
-    vec3f pos                     = {3.0f, 3.0f, 3.0f};
-    vec3f up                      = {-1, -1, 1};
-    vec3f direct                  = -pos;
-    scene.camera_nodes["default"] = std::make_shared<CameraNode>("default", pos, up, direct);
-    scene.camera_nodes["default"]->SetSceneObjectRef(scene.cameras["default"]);
-    scene.scene_graph->AppendChild(scene.camera_nodes["default"]);
+    vec3f pos                            = {3.0f, 3.0f, 3.0f};
+    vec3f up                             = {-1, -1, 1};
+    vec3f direct                         = -pos;
+    scene.camera_nodes["default-camera"] = std::make_shared<CameraNode>("default-camera", pos, up, direct);
+    scene.camera_nodes["default-camera"]->SetSceneObjectRef(scene.cameras["default-camera"]);
+    scene.scene_graph->AppendChild(scene.camera_nodes["default-camera"]);
 }
 
 void SceneManager::CreateDefaultLight(Scene& scene) {
-    scene.lights["default"]      = std::make_shared<PointLight>();
-    scene.light_nodes["default"] = std::make_shared<LightNode>("default");
+    scene.lights["default-light"]      = std::make_shared<PointLight>();
+    scene.light_nodes["default-light"] = std::make_shared<LightNode>("default-light");
 
-    scene.light_nodes["default"]->SetSceneObjectRef(scene.lights["default"]);
-    scene.light_nodes["default"]->ApplyTransform(translate(mat4f(1.0f), vec3f(3.0f, 3.0f, 3.0f)));
+    scene.light_nodes["default-light"]->SetSceneObjectRef(scene.lights["default-light"]);
+    scene.light_nodes["default-light"]->ApplyTransform(translate(mat4f(1.0f), vec3f(3.0f, 3.0f, 3.0f)));
 
-    scene.scene_graph->AppendChild(scene.light_nodes["default"]);
+    scene.scene_graph->AppendChild(scene.light_nodes["default-light"]);
 }
 
 }  // namespace Hitagi::Asset

@@ -2,6 +2,17 @@
 
 namespace Hitagi::Asset {
 
+void Scene::AddSkeleton(std::shared_ptr<BoneNode> skeleton) {
+    scene_graph->AppendChild(skeleton);
+    std::function<void(std::shared_ptr<BoneNode>)> recusive = [&](std::shared_ptr<BoneNode> bone) {
+        bone_nodes.emplace(bone->GetName(), bone);
+        for (auto&& child : bone->GetChildren()) {
+            recusive(std::static_pointer_cast<BoneNode>(child));
+        }
+    };
+    recusive(skeleton);
+}
+
 std::vector<std::reference_wrapper<GeometryNode>> Scene::GetGeometries() const {
     std::vector<std::reference_wrapper<GeometryNode>> ret;
     for (auto&& [key, node] : geometry_nodes)

@@ -19,11 +19,10 @@ public:
     void         SwitchScene(xg::Guid id);
     void         DeleteScene(xg::Guid id);
 
-    bool IsSceneChanged();
     void NotifySceneIsRenderingQueued();
     void NotifySceneIsPhysicalSimulationQueued();
 
-    inline const Scene& GetScene() const {
+    inline Scene& GetScene() {
         return m_Scenes.at(m_CurrentScene);
     }
     const Scene& GetSceneForRendering() const;

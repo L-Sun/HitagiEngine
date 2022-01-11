@@ -1,9 +1,12 @@
 #pragma once
 #include "HitagiMath.hpp"
+#include "SceneObject.hpp"
+#include "Bone.hpp"
 #include "Buffer.hpp"
 #include "Material.hpp"
 
 namespace Hitagi::Asset {
+
 class VertexArray {
 public:
     enum struct DataType {
@@ -73,31 +76,34 @@ private:
     Core::Buffer m_Data;
 };
 
-class Mesh {
+class Mesh : public SceneObject {
 public:
-    Mesh() : m_Guid(xg::newGuid()) {}
+    Mesh() = default;
 
     inline void SetIndexArray(IndexArray array) noexcept { m_IndexArray = std::move(array); }
     inline void AddVertexArray(VertexArray array) noexcept { m_VertexArray.emplace_back(std::move(array)); }
     inline void SetPrimitiveType(PrimitiveType type) noexcept { m_PrimitiveType = type; }
     inline void SetMaterial(std::shared_ptr<Material> material) noexcept { m_MaterialRef = material; }
 
-    inline xg::Guid      GetGuid() const noexcept { return m_Guid; }
+    std::shared_ptr<Bone> CreateNewBone(std::string name);
+
     const VertexArray&   GetVertexByName(std::string_view name) const;
     inline size_t        GetVertexArraysCount() const noexcept { return m_VertexArray.size(); }
     inline const auto&   GetVertexArrays() const noexcept { return m_VertexArray; }
     inline const auto&   GetIndexArray() const noexcept { return m_IndexArray; }
     inline PrimitiveType GetPrimitiveType() const noexcept { return m_PrimitiveType; }
-    inline const auto&   GetMaterial() const noexcept { return m_MaterialRef; }
+
+    inline const auto& GetMaterial() const noexcept { return m_MaterialRef; }
+    bool               HasBones() const noexcept { return !m_Bones.empty(); }
 
     friend std::ostream& operator<<(std::ostream& out, const Mesh& obj);
 
 private:
-    xg::Guid                 m_Guid;
-    std::vector<VertexArray> m_VertexArray;
-    IndexArray               m_IndexArray;
-    PrimitiveType            m_PrimitiveType = PrimitiveType::TriangleList;
-    std::weak_ptr<Material>  m_MaterialRef;
+    std::vector<VertexArray>           m_VertexArray;
+    IndexArray                         m_IndexArray;
+    PrimitiveType                      m_PrimitiveType = PrimitiveType::TriangleList;
+    std::weak_ptr<Material>            m_MaterialRef;
+    std::vector<std::shared_ptr<Bone>> m_Bones;
 };
 
 }  // namespace Hitagi::Asset

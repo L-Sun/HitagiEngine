@@ -1,6 +1,8 @@
 #pragma once
 #include "IRuntimeModule.hpp"
 
+#include <string>
+
 namespace Hitagi {
 class Editor : public IRuntimeModule {
 public:
@@ -15,7 +17,8 @@ public:
     void SceneExplorer();
 
 private:
-    bool m_OpenFileExplorer = false;
+    std::string m_OpenFileExt;
+    bool        m_OpenFileExplorer = false;
 };
 
 }  // namespace Hitagi

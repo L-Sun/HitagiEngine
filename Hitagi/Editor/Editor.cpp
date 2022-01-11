@@ -2,6 +2,7 @@
 #include "FileIOManager.hpp"
 #include "SceneManager.hpp"
 #include "DebugManager.hpp"
+#include "AssetManager.hpp"
 
 #include <imgui.h>
 #include <spdlog/logger.h>
@@ -34,7 +35,12 @@ void Editor::Draw() {
 void Editor::MainMenu() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("Open", "Ctrl+O")) {
+            if (ImGui::MenuItem("Open Scene")) {
+                m_OpenFileExt      = ".fbx";
+                m_OpenFileExplorer = true;
+            }
+            if (ImGui::MenuItem("Import MoCap")) {
+                m_OpenFileExt      = ".bvh";
                 m_OpenFileExplorer = true;
             }
             ImGui::EndMenu();
@@ -55,17 +61,38 @@ void Editor::MainMenu() {
 void Editor::FileExplorer() {
     if (m_OpenFileExplorer) {
         ImGui::OpenPopup("File browser");
+    } else {
+        m_OpenFileExt.clear();
     }
+
     if (ImGui::BeginPopupModal("File browser", &m_OpenFileExplorer, ImGuiWindowFlags_AlwaysAutoResize)) {
-        for (const auto directory : std::filesystem::directory_iterator("./Assets/Scene")) {
-            if (!directory.is_regular_file()) continue;
+        if (m_OpenFileExt == ".fbx") {
+            for (const auto directory : std::filesystem::directory_iterator("./Assets/Scene")) {
+                if (!directory.is_regular_file()) continue;
 
-            const auto path = directory.path();
-            if (path.extension() != ".fbx") continue;
+                const auto path = directory.path();
+                if (path.extension() != m_OpenFileExt) continue;
 
-            if (ImGui::Selectable(path.string().c_str())) {
-                g_SceneManager->ImportScene(path);
-                m_OpenFileExplorer = false;
+                if (ImGui::Selectable(path.string().c_str())) {
+                    g_SceneManager->ImportScene(path);
+                    m_OpenFileExt.clear();
+                    m_OpenFileExplorer = false;
+                }
+            }
+        } else if (m_OpenFileExt == ".bvh") {
+            for (const auto directory : std::filesystem::directory_iterator("./Assets/Motion")) {
+                if (!directory.is_regular_file()) continue;
+
+                const auto path = directory.path();
+                if (path.extension() != m_OpenFileExt) continue;
+
+                if (ImGui::Selectable(path.string().c_str())) {
+                    auto skeleton = g_AssetManager->ImportSkeleton(path);
+                    g_SceneManager->GetScene().AddSkeleton(skeleton);
+
+                    m_OpenFileExt.clear();
+                    m_OpenFileExplorer = false;
+                }
             }
         }
 

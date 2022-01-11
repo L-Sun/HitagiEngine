@@ -35,6 +35,14 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
     logger->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
     begin = std::chrono::high_resolution_clock::now();
 
+    auto get_matrix = [](const aiMatrix4x4& _mat) -> const mat4f {
+        mat4f ret;
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 4; j++)
+                ret[i][j] = _mat[i][j];
+        return ret;
+    };
+
     // process camera
     std::unordered_map<std::string_view, unsigned> camera_name_map;
     for (size_t i = 0; i < ai_scene->mNumCameras; i++) {
@@ -147,7 +155,10 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
         scene.materials[_material->GetName().C_Str()] = material;
     }
 
-    auto create_mesh = [&](const aiMesh* ai_mesh) -> Mesh {
+    std::unordered_map<std::string, std::shared_ptr<Bone>> bones;
+    std::unordered_map<aiMesh*, Mesh>                      meshes;
+
+    auto covert_mesh = [&](const aiMesh* ai_mesh) -> Mesh {
         Mesh mesh;
         // Set primitive type
         switch (ai_mesh->mPrimitiveTypes) {
@@ -240,24 +251,39 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
 
         mesh.SetIndexArray(IndexArray(IndexArray::DataType::Int32, std::move(indexBuffer)));
 
+        // material
         const std::string materialRef = ai_scene->mMaterials[ai_mesh->mMaterialIndex]->GetName().C_Str();
         mesh.SetMaterial(scene.materials.at(materialRef));
+
+        // bone
+        if (ai_mesh->HasBones()) {
+            for (size_t bone_index = 0; bone_index < ai_mesh->mNumBones; bone_index++) {
+                auto _bone = ai_mesh->mBones[bone_index];
+                auto bone  = mesh.CreateNewBone(_bone->mName.C_Str());
+                bones.emplace(bone->GetName(), bone);
+
+                bone->SetName(_bone->mName.C_Str());
+                for (size_t i = 0; i < _bone->mNumWeights; i++)
+                    bone->SetWeight(_bone->mWeights[i].mVertexId, _bone->mWeights[i].mWeight);
+                bone->SetBindTransformMatrix(get_matrix(_bone->mOffsetMatrix));
+            }
+        }
+
         return mesh;
     };
 
-    auto get_matrix = [](const aiMatrix4x4& _mat) -> const mat4f {
-        mat4f ret;
-        for (int i = 0; i < 4; i++)
-            for (int j = 0; j < 4; j++)
-                ret[i][j] = _mat[i][j];
-        return ret;
-    };
+    for (size_t i = 0; i < ai_scene->mNumMeshes; i++) {
+        auto ai_mesh = ai_scene->mMeshes[i];
+        meshes.emplace(ai_mesh, covert_mesh(ai_mesh));
+    }
 
     auto create_geometry = [&](const aiNode* _node) -> std::shared_ptr<Geometry> {
         auto geometry = std::make_shared<Geometry>();
         for (size_t i = 0; i < _node->mNumMeshes; i++) {
-            auto ai_mesh = ai_scene->mMeshes[_node->mMeshes[i]];
-            geometry->AddMesh(create_mesh(ai_mesh));
+            auto ai_mesh     = ai_scene->mMeshes[_node->mMeshes[i]];
+            auto mesh_handle = meshes.extract(ai_mesh);
+            assert(!mesh_handle.empty());
+            geometry->AddMesh(std::move(mesh_handle.mapped()));
         }
         return geometry;
     };
@@ -279,22 +305,29 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
         else if (scene.cameras.count(name) != 0) {
             auto& _camera = ai_scene->mCameras[camera_name_map[name]];
             // move space infomation to camera node
-            auto cameraNode = std::make_shared<CameraNode>(
+            auto camera_node = std::make_shared<CameraNode>(
                 name,
                 vec3f(_camera->mPosition.x, _camera->mPosition.y, _camera->mPosition.z),
                 vec3f(_camera->mUp.x, _camera->mUp.y, _camera->mUp.z),
                 vec3f(_camera->mLookAt.x, _camera->mLookAt.y, _camera->mLookAt.z));
-            cameraNode->SetSceneObjectRef(scene.GetCamera(name));
+            camera_node->SetSceneObjectRef(scene.GetCamera(name));
 
-            scene.camera_nodes[name] = cameraNode;
-            node                     = cameraNode;
+            scene.camera_nodes[name] = camera_node;
+            node                     = camera_node;
         }
         // The node is a light
         else if (scene.lights.count(name) != 0) {
-            auto lightNode = std::make_shared<LightNode>(name);
-            lightNode->SetSceneObjectRef(scene.GetLight(name));
-            scene.light_nodes[name] = lightNode;
-            node                    = lightNode;
+            auto light_node = std::make_shared<LightNode>(name);
+            light_node->SetSceneObjectRef(scene.GetLight(name));
+            scene.light_nodes[name] = light_node;
+            node                    = light_node;
+        }
+        // The node is bone
+        else if (bones.count(name) != 0) {
+            auto bone_node = std::make_shared<BoneNode>(name);
+            bone_node->SetSceneObjectRef(bones.at(name));
+            scene.bone_nodes.emplace(name, bone_node);
+            node = bone_node;
         }
         // The node is empty
         else {

@@ -14,6 +14,7 @@ public:
     std::unordered_map<std::string, std::shared_ptr<CameraNode>>   camera_nodes;
     std::unordered_map<std::string, std::shared_ptr<LightNode>>    light_nodes;
     std::unordered_map<std::string, std::shared_ptr<GeometryNode>> geometry_nodes;
+    std::unordered_map<std::string, std::shared_ptr<BoneNode>>     bone_nodes;
 
     std::unordered_map<std::string, std::shared_ptr<Camera>>   cameras;
     std::unordered_map<std::string, std::shared_ptr<Light>>    lights;
@@ -32,6 +33,8 @@ public:
 
     inline void               SetName(std::string name) noexcept { m_Name = std::move(name); }
     inline const std::string& GetName() const noexcept { return m_Name; }
+
+    void AddSkeleton(std::shared_ptr<BoneNode> skeleton);
 
     std::vector<std::reference_wrapper<GeometryNode>> GetGeometries() const;
 

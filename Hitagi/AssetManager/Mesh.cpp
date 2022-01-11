@@ -46,7 +46,7 @@ const VertexArray& Mesh::GetVertexByName(std::string_view name) const {
     for (auto&& vertex : m_VertexArray)
         if (vertex.GetAttributeName() == name)
             return vertex;
-    throw std::range_error(fmt::format("No name called{}", name));
+    throw std::range_error(fmt::format("No name called {}", name));
 }
 
 std::ostream& operator<<(std::ostream& out, const VertexArray& obj) {
@@ -113,7 +113,16 @@ std::ostream& operator<<(std::ostream& out, const IndexArray& obj) {
     }
     return out << std::endl;
 }
+
+std::shared_ptr<Bone> Mesh::CreateNewBone(std::string name) {
+    auto bone = std::make_shared<Bone>();
+    bone->SetName(std::move(name));
+    m_Bones.emplace_back(bone);
+    return bone;
+}
+
 std::ostream& operator<<(std::ostream& out, const Mesh& obj) {
+    out << static_cast<const SceneObject&>(obj) << std::endl;
     out << "Primitive Type: " << magic_enum::enum_name(obj.m_PrimitiveType) << std::endl;
     if (auto material = obj.m_MaterialRef.lock()) {
         out << fmt::format("Material Ref: {}\n", material->GetGuid().str());

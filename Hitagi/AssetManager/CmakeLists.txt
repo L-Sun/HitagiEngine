@@ -1,35 +1,20 @@
 add_subdirectory(Parser)
 
-add_library(SceneObject
+add_library(AssetManager
+    AssetManager.cpp
     SceneObject.cpp
+    Bone.cpp
     Mesh.cpp
     Material.cpp
     Geometry.cpp
     Light.cpp
     Camera.cpp
-    Texture.cpp
-)
-target_link_libraries(SceneObject
-    PUBLIC
-        HitagiMath
-        Parser
-        FileIOManager
-)
-target_include_directories(SceneObject INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
-
-add_library(GeometryFactory GeometryFactory.cpp)
-target_link_libraries(GeometryFactory PUBLIC SceneObject)
-target_include_directories(GeometryFactory INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
-
-add_library(AssetManager
-    AssetManager.cpp
     Image.cpp
     Scene.cpp
+    Texture.cpp
 )
 target_link_libraries(AssetManager 
     PUBLIC
-        SceneObject
-        GeometryFactory
         FileIOManager
         Parser
         HitagiMath
@@ -39,5 +24,8 @@ target_link_libraries(AssetManager
 )
 target_include_directories(AssetManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
 
-add_library(SceneManager SceneManager.cpp)
+add_library(SceneManager
+    SceneManager.cpp
+    GeometryFactory.cpp
+)
 target_link_libraries(SceneManager PUBLIC AssetManager)

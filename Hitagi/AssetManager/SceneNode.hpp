@@ -2,6 +2,7 @@
 #include "Geometry.hpp"
 #include "Camera.hpp"
 #include "Light.hpp"
+#include "Bone.hpp"
 
 #include <fmt/format.h>
 
@@ -23,6 +24,7 @@ public:
         m_Children.push_back(std::move(child));
     }
     inline const auto& GetChildren() const noexcept { return m_Children; }
+    inline auto        GetParent() const noexcept { return m_Parent; }
 
     // Apply a transformation to the node in its parent's space
     void ApplyTransform(const mat4f& mat) {
@@ -111,6 +113,12 @@ protected:
 
 template <typename T>
 class SceneNodeWithRef : public SceneNode {
+public:
+    using SceneNode::SceneNode;
+    SceneNodeWithRef() = default;
+    void             SetSceneObjectRef(std::weak_ptr<T> ref) { m_SceneObjectRef = ref; }
+    std::weak_ptr<T> GetSceneObjectRef() { return m_SceneObjectRef; }
+
 protected:
     std::weak_ptr<T> m_SceneObjectRef;
 
@@ -119,31 +127,24 @@ protected:
             out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Obj Ref:", obj->GetGuid().str());
         }
     }
-
-public:
-    using SceneNode::SceneNode;
-    SceneNodeWithRef() = default;
-    void             SetSceneObjectRef(std::weak_ptr<T> ref) { m_SceneObjectRef = ref; }
-    std::weak_ptr<T> GetSceneObjectRef() { return m_SceneObjectRef; }
 };
 
 using SceneEmptyNode = SceneNode;
 
 class GeometryNode : public SceneNodeWithRef<Geometry> {
-protected:
+public:
+    using SceneNodeWithRef::SceneNodeWithRef;
+
+    void       SetVisibility(bool visible) { m_Visible = visible; }
+    const bool Visible() { return m_Visible; }
+
+private:
     bool m_Visible = true;
 
     void Dump(std::ostream& out, unsigned indent) const override {
         SceneNodeWithRef::Dump(out, indent);
         out << fmt::format("{0:{1}}{2:<15}{3:>15}\n", "", indent, "Visible:", m_Visible);
     }
-
-public:
-    using SceneNodeWithRef::SceneNodeWithRef;
-    using SceneNodeWithRef::SetSceneObjectRef;
-
-    void       SetVisibility(bool visible) { m_Visible = visible; }
-    const bool Visible() { return m_Visible; }
 };
 
 class LightNode : public SceneNodeWithRef<Light> {
@@ -175,9 +176,9 @@ private:
     vec3f m_Up;
 };
 
-class BoneNode : public SceneNode {
+class BoneNode : public SceneNodeWithRef<Bone> {
 public:
-    using SceneNode::SceneNode;
+    using SceneNodeWithRef::SceneNodeWithRef;
 
 private:
     bool m_Visibility = false;
