@@ -64,7 +64,7 @@ public:
 
     void SetFenceValue(uint64_t fence_value) { m_FenceValue = fence_value; }
     // TODO generate pipeline state object from scene node infomation
-    void AddGeometries(std::vector<std::reference_wrapper<Asset::GeometryNode>> geometries, const PipelineState& pso);
+    void AddGeometries(const std::vector<std::shared_ptr<Asset::GeometryNode>>& geometries, const PipelineState& pso);
     void AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives, const PipelineState& pso);
     void PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> font_texture, const PipelineState& pso);
     void SetCamera(Asset::CameraNode& camera);

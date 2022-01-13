@@ -1,5 +1,6 @@
 #pragma once
 #include "../SceneNode.hpp"
+#include "../Animation.hpp"
 #include "Buffer.hpp"
 
 namespace Hitagi::Asset {
@@ -16,10 +17,9 @@ inline MoCapFormat get_mocap_format(std::string_view ext) {
 
 class MoCapParser {
 public:
-    virtual std::shared_ptr<BoneNode> ParserSkeleton(const Core::Buffer& buffer) = 0;
-    // TODO parser animation
-    // virtual Animation ParseAnimation(const Core::Buffer& buffer, float sample_rate);
     virtual ~MoCapParser() = default;
+
+    virtual std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> Parse(const Core::Buffer& buffer) = 0;
 };
 
 }  // namespace Hitagi::Asset

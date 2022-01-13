@@ -5,6 +5,7 @@
 #include "AssetManager.hpp"
 
 #include <imgui.h>
+#include <imgui_stdlib.h>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -49,9 +50,9 @@ void Editor::MainMenu() {
     }
 
     if (ImGui::Begin("Scenes")) {
-        for (const auto& [id, scene] : g_SceneManager->ListAllScene()) {
-            if (ImGui::Selectable(scene.GetName().c_str())) {
-                g_SceneManager->SwitchScene(id);
+        for (auto scene : g_SceneManager->ListAllScene()) {
+            if (ImGui::Selectable(scene->GetName().c_str())) {
+                g_SceneManager->SwitchScene(scene);
             }
         }
     }
@@ -74,7 +75,9 @@ void Editor::FileExplorer() {
                 if (path.extension() != m_OpenFileExt) continue;
 
                 if (ImGui::Selectable(path.string().c_str())) {
-                    g_SceneManager->ImportScene(path);
+                    auto scene = g_AssetManager->ImportScene(path);
+                    g_SceneManager->AddScene(scene);
+                    g_SceneManager->SwitchScene(scene);
                     m_OpenFileExt.clear();
                     m_OpenFileExplorer = false;
                 }
@@ -87,8 +90,9 @@ void Editor::FileExplorer() {
                 if (path.extension() != m_OpenFileExt) continue;
 
                 if (ImGui::Selectable(path.string().c_str())) {
-                    auto skeleton = g_AssetManager->ImportSkeleton(path);
-                    g_SceneManager->GetScene().AddSkeleton(skeleton);
+                    auto [skeleton, animation] = g_AssetManager->ImportAnimation(path);
+                    g_SceneManager->GetScene()->AddSkeleton(skeleton);
+                    g_SceneManager->GetScene()->AddAnimation(animation);
 
                     m_OpenFileExt.clear();
                     m_OpenFileExplorer = false;
@@ -111,12 +115,12 @@ void Editor::SceneExplorer() {
                         auto orientation = 180.0f * std::numbers::inv_pi * node->GetOrientation();
                         auto scaling     = node->GetScaling();
 
-                        bool dirty = false;
-                        if (ImGui::DragFloat3("Translation", position, 0.01f, 0.0f, 0.0f, "%.02f m")) {
-                            node->Translate(position - node->GetPosition());
-                        }
-                        if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °")) {
-                            node->Rotate(radians(orientation) - node->GetOrientation());
+                        bool changed = false;
+                        changed      = ImGui::DragFloat3("Translation", position, 0.01f, 0.0f, 0.0f, "%.02f m") || changed;
+                        changed      = ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °") || changed;
+
+                        if (changed) {
+                            node->SetTRS(position, euler_to_quaternion(radians(orientation)), scaling);
                         }
                     }
 
@@ -127,9 +131,36 @@ void Editor::SceneExplorer() {
                     ImGui::TreePop();
                 }
             };
-            print_node(scene.scene_graph);
+            print_node(scene->scene_graph);
+        }
+
+        if (ImGui::CollapsingHeader("Animation")) {
+            auto& animation_manager = g_SceneManager->GetAnimationManager();
+            for (auto&& animation : scene->animations) {
+                auto name = animation->GetName();
+                ImGui::SetNextItemWidth(100);
+                if (ImGui::InputText("Name", &name)) {
+                    animation->SetName(name);
+                }
+
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Play##anima")) {
+                    animation_manager.AddToPlayQueue(animation);
+                    animation->Play();
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Pause##anima")) {
+                    animation->Pause();
+                }
+                ImGui::SameLine();
+                bool anima_loop = animation->IsLoop();
+                if (ImGui::Checkbox("Loop##anima", &anima_loop)) {
+                    animation->SetLoop(anima_loop);
+                }
+            }
         }
     }
+
     ImGui::End();
 }
 }  // namespace Hitagi

@@ -6,6 +6,8 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
+
 namespace Hitagi::Asset {
 
 class SceneNode {
@@ -26,24 +28,31 @@ public:
     inline const auto& GetChildren() const noexcept { return m_Children; }
     inline auto        GetParent() const noexcept { return m_Parent; }
 
-    // Apply a transformation to the node in its parent's space
-    void ApplyTransform(const mat4f& mat) {
-        auto curr_transform                   = translate(rotate(scale(mat4f(1.0f), m_Scaling), m_Orientation), m_Position);
-        auto [translation, rotation, scaling] = decompose(mat * curr_transform);
-
-        m_Orientation = rotation;
-        m_Position    = translation;
+    void SetTRS(const vec3f& translation, const quatf& routation, const vec3f& scaling) {
+        m_Translation = translation;
+        m_Rotation    = routation;
         m_Scaling     = scaling;
 
-        SetDirty();
+        SetTransformDirty();
     }
 
-    inline const vec3f GetPosition(bool local_space = true) const {
-        return local_space ? m_Position : get_translation(m_RuntimeTransform);
+    // Apply a transformation to the node in its parent's space
+    void ApplyTransform(const mat4f& mat) {
+        auto [translation, rotation, scaling] = decompose(mat);
+
+        m_Rotation = euler_to_quaternion(rotation) * m_Rotation;
+        m_Translation += translation;
+        m_Scaling = m_Scaling * scaling;
+
+        SetTransformDirty();
     }
 
-    inline const vec3f GetOrientation() const {
-        return m_Orientation;
+    inline vec3f GetPosition(bool local_space = true) const {
+        return local_space ? m_Translation : get_translation(m_RuntimeTransform);
+    }
+
+    inline vec3f GetOrientation() const {
+        return quaternion_to_euler(m_Rotation);
     }
 
     inline const vec3f GetScaling() const {
@@ -51,26 +60,30 @@ public:
     }
 
     inline void Translate(const vec3f& translate) noexcept {
-        m_Position += translate;
-        SetDirty();
+        m_Translation += translate;
+        SetTransformDirty();
     }
-    inline void Rotate(const vec3f& angles) noexcept {
-        m_Orientation += angles;
-        SetDirty();
+    inline void Rotate(const vec3f& eular) noexcept {
+        m_Rotation = euler_to_quaternion(eular) * m_Rotation;
+        SetTransformDirty();
     }
     inline void Scale(const vec3f value) noexcept {
         m_Scaling = m_Scaling * value;
-        SetDirty();
+        SetTransformDirty();
     }
 
-    const mat4f GetCalculatedTransformation() {
-        if (m_Dirty) {
-            m_RuntimeTransform = translate(rotate(scale(mat4f(1.0f), m_Scaling), m_Orientation), m_Position);
-            if (auto parent = m_Parent.lock())
-                m_RuntimeTransform = parent->GetCalculatedTransformation() * m_RuntimeTransform;
+    mat4f GetParentSpace() const {
+        mat4f result(1.0f);
+        if (auto parent = m_Parent.lock()) result = parent->GetCalculatedTransformation();
+        return result;
+    }
+
+    mat4f GetCalculatedTransformation() {
+        if (m_TransformDirty) {
+            m_RuntimeTransform = translate(rotate(scale(mat4f(1.0f), m_Scaling), m_Rotation), m_Translation);
+            m_TransformDirty   = false;
         }
-        m_Dirty = false;
-        return m_RuntimeTransform;
+        return GetParentSpace() * m_RuntimeTransform;
     }
 
     friend std::ostream& operator<<(std::ostream& out, const SceneNode& node) {
@@ -93,22 +106,24 @@ public:
 
 protected:
     virtual void Dump(std::ostream& out, unsigned indent) const {}
-    inline void  SetDirty() {
-        m_Dirty = true;
-        for (auto&& child : m_Children)
-            child->SetDirty();
+
+    inline void SetTransformDirty() {
+        m_TransformDirty = true;
+        for (auto&& child : m_Children) {
+            child->SetTransformDirty();
+        }
     }
 
     std::string                           m_Name;
     std::list<std::shared_ptr<SceneNode>> m_Children;
     std::weak_ptr<SceneNode>              m_Parent;
 
-    vec3f m_Orientation{0.0f, 0.0f, 0.0f};
-    vec3f m_Position{0.0f, 0.0f, 0.0f};
+    bool  m_TransformDirty = false;
+    vec3f m_Translation{0.0f, 0.0f, 0.0f};
+    quatf m_Rotation{0.0f, 0.0f, 0.0f, 1.0f};
     vec3f m_Scaling{1.0f, 1.0f, 1.0f};
 
     mat4f m_RuntimeTransform = mat4f(1.0f);
-    bool  m_Dirty            = true;
 };
 
 template <typename T>
@@ -164,6 +179,7 @@ public:
 
     mat4f GetViewMatrix() { return look_at(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransformation()); }
 
+    // TODO
     vec3f GetCameraPosition() { return (GetCalculatedTransformation() * vec4f(m_Position, 1)).xyz; }
     vec3f GetCameraUp() { return (GetCalculatedTransformation() * vec4f(m_Up, 0)).xyz; }
     vec3f GetCameraLookAt() { return (GetCalculatedTransformation() * vec4f(m_LookAt, 0)).xyz; }
@@ -183,5 +199,15 @@ public:
 private:
     bool m_Visibility = false;
 };
+
+inline auto flatent_scene_tree(std::shared_ptr<SceneNode> node) -> std::vector<std::shared_ptr<SceneNode>> {
+    std::vector<std::shared_ptr<SceneNode>> result;
+    result.emplace_back(node);
+    for (auto&& child : node->GetChildren()) {
+        auto sub_result = flatent_scene_tree(child);
+        result.insert(result.end(), std::make_move_iterator(sub_result.begin()), std::make_move_iterator(sub_result.end()));
+    }
+    return result;
+}
 
 }  // namespace Hitagi::Asset

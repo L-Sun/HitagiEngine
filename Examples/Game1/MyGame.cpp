@@ -25,8 +25,8 @@ void MyGame::Finalize() {
 void MyGame::Tick() {
     m_Editor.Tick();
 
-    auto& scene = g_SceneManager->GetScene();
-    for (auto&& [name, bone] : scene.bone_nodes) {
+    auto scene = g_SceneManager->GetScene();
+    for (auto&& bone : scene->bone_nodes) {
         if (auto parent = bone->GetParent().lock()) {
             vec3f from = (parent->GetCalculatedTransformation() * vec4f(0, 0, 0, 1)).xyz;
             vec3f to   = (bone->GetCalculatedTransformation() * vec4f(0, 0, 0, 1)).xyz;

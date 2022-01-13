@@ -26,6 +26,7 @@ struct Matrix {
     Vector<T, D>&       operator[](unsigned row) { return data[row]; }
     const Vector<T, D>& operator[](unsigned row) const { return data[row]; }
 
+    // TODO make a reference so that we can remove the `const`
     const Vector<T, D> col(unsigned index) const {
         Vector<T, D> result;
         for (unsigned i = 0; i < D; i++)
@@ -45,23 +46,23 @@ struct Matrix {
     }
 
     // Matrix Operation
-    const Matrix operator+(const Matrix& rhs) const noexcept {
+    Matrix operator+(const Matrix& rhs) const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result.data[row] = data[row] + rhs[row];
         return result;
     }
 
-    const Matrix operator-() const noexcept {
+    Matrix operator-() const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result.data[row] = -data[row];
         return result;
     }
-    const Matrix operator-(const Matrix& rhs) const noexcept {
+    Matrix operator-(const Matrix& rhs) const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result.data[row] = data[row] - rhs[row];
         return result;
     }
-    const Matrix operator*(const Matrix& rhs) const noexcept {
+    Matrix operator*(const Matrix& rhs) const noexcept {
         Matrix       result{};
         Vector<T, D> col_vec;
         for (unsigned col = 0; col < D; col++) {
@@ -73,19 +74,19 @@ struct Matrix {
         return result;
     }
 
-    const Vector<T, D> operator*(const Vector<T, D>& rhs) const noexcept {
+    Vector<T, D> operator*(const Vector<T, D>& rhs) const noexcept {
         Vector<T, D> result;
         for (unsigned row = 0; row < D; row++) result[row] = dot(data[row], rhs);
         return result;
     }
-    const Matrix operator*(const T& rhs) const noexcept {
+    Matrix operator*(const T& rhs) const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result[row] = data[row] * rhs;
         return result;
     }
-    friend const Matrix operator*(const T& lhs, const Matrix& rhs) noexcept { return rhs * lhs; }
+    friend Matrix operator*(const T& lhs, const Matrix& rhs) noexcept { return rhs * lhs; }
 
-    const Matrix operator/(const T& rhs) const noexcept {
+    Matrix operator/(const T& rhs) const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result[row] = data[row] / rhs;
         return result;
@@ -114,27 +115,27 @@ struct Matrix {
             data[i][i] = num;
     }
 
-    const Matrix operator+(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
+    Matrix operator+(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
         Matrix result{};
         ispc::vector_add(*this, rhs, result, D * D);
         return result;
     }
-    const Matrix operator-() const noexcept requires IspcSpeedable<T> {
+    Matrix operator-() const noexcept requires IspcSpeedable<T> {
         Matrix result;
         ispc::vector_inverse(*this, result, D * D);
         return result;
     }
-    const Matrix operator-(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
+    Matrix operator-(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
         Matrix result{};
         ispc::vector_sub(*this, rhs, result, D * D);
         return result;
     }
-    const Matrix operator*(const T& rhs) const noexcept requires IspcSpeedable<T> {
+    Matrix operator*(const T& rhs) const noexcept requires IspcSpeedable<T> {
         Matrix result{};
         ispc::vector_mult(*this, rhs, result, D * D);
         return result;
     }
-    const Matrix operator/(const T& rhs) const noexcept requires IspcSpeedable<T> {
+    Matrix operator/(const T& rhs) const noexcept requires IspcSpeedable<T> {
         Matrix result{};
         ispc::vector_div(*this, rhs, result, D * D);
         return result;
@@ -168,7 +169,7 @@ using mat4d = Matrix<double, 4>;
 using mat8d = Matrix<double, 8>;
 
 template <typename T, unsigned D>
-const Matrix<T, D> mul_by_element(const Matrix<T, D>& m1, const Matrix<T, D>& m2) {
+Matrix<T, D> mul_by_element(const Matrix<T, D>& m1, const Matrix<T, D>& m2) {
     Matrix result(0);
     for (unsigned row = 0; row < D; row++) result[row] = m1[row] * m2[row];
     return result;

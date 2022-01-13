@@ -12,7 +12,7 @@ Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_
       m_Output(m_Driver.CreateRenderFromSwapChain(frame_index)) {
 }
 
-void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::GeometryNode>> geometries, const PipelineState& pso) {
+void Frame::AddGeometries(const std::vector<std::shared_ptr<Asset::GeometryNode>>& geometries, const PipelineState& pso) {
     // Calculate need constant buffer size
     size_t constant_count = geometries.size();
 
@@ -22,11 +22,11 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::GeometryNode
         // becase capacity + needed > exsisted + needed
         m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + constant_count);
 
-    for (Asset::GeometryNode& node : geometries) {
-        if (auto geometry = node.GetSceneObjectRef().lock()) {
+    for (auto node : geometries) {
+        if (auto geometry = node->GetSceneObjectRef().lock()) {
             // need update
             ObjectConstant data;
-            data.transform = node.GetCalculatedTransformation();
+            data.transform = node->GetCalculatedTransformation();
 
             for (auto&& mesh : geometry->GetMeshes()) {
                 DrawItem item{
@@ -42,6 +42,12 @@ void Frame::AddGeometries(std::vector<std::reference_wrapper<Asset::GeometryNode
                     PopulateMaterial(material->GetEmission(), data.emission, item.emission);
                     PopulateMaterial(material->GetSpecularColor(), data.specular, item.specular);
                     PopulateMaterial(material->GetSpecularPower(), data.specular_power, item.specular_power);
+                } else {
+                    item.ambient        = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+                    item.diffuse        = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+                    item.emission       = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+                    item.specular       = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+                    item.specular_power = m_ResMgr.GetDefaultTextureBuffer(Format::R8_UNORM);
                 }
 
                 m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount, reinterpret_cast<const uint8_t*>(&data), sizeof(data));

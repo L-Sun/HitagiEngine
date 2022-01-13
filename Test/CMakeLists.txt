@@ -7,7 +7,7 @@ target_link_libraries(FileIOManagerTest PRIVATE FileIOManager)
 add_test(NAME TEST_FileIOManager COMMAND FileIOManagerTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(SceneLoadingTest SceneLoadingTest.cpp)
-target_link_libraries(SceneLoadingTest PRIVATE SceneManager)
+target_link_libraries(SceneLoadingTest PRIVATE AssetManager)
 add_test(NAME TEST_SceneLoading COMMAND SceneLoadingTest WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(ImageParserTest ImageParserTest.cpp)

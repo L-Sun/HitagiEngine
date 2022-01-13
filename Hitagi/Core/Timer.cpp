@@ -48,6 +48,6 @@ void Clock::Pause() {
 
 void Clock::Reset() {
     m_BaseTime = std::chrono::high_resolution_clock::now();
-    m_Paused   = true;
+    m_StopTime = m_BaseTime;
 }
 }  // namespace Hitagi::Core

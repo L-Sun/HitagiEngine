@@ -124,7 +124,7 @@ struct Vector : public BaseVector<T, D> {
         for (unsigned i = 0; i < D; i++) data[i] = static_cast<T>(*p++);
     }
 
-    T norm() const noexcept {
+    const T norm() const noexcept {
         T result = 0;
         for (auto&& val : data) result += val * val;
         return std::sqrt(result);
@@ -140,40 +140,40 @@ struct Vector : public BaseVector<T, D> {
         return out << fmt::format("[{:6}]", fmt::join(v.data, ", ")) << std::flush;
     }
 
-    const Vector operator+(const Vector& rhs) const noexcept {
+    Vector operator+(const Vector& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] + rhs[i];
         return result;
     }
 
-    const Vector operator-() const noexcept {
+    Vector operator-() const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = -data[i];
         return result;
     }
-    const Vector operator-(const Vector& rhs) const noexcept {
+    Vector operator-(const Vector& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] - rhs[i];
         return result;
     }
 
-    const Vector operator*(const Vector& rhs) const noexcept {
+    Vector operator*(const Vector& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] * rhs[i];
         return result;
     }
-    const Vector operator*(const T& rhs) const noexcept {
+    Vector operator*(const T& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] * rhs;
         return result;
     }
-    friend const Vector operator*(const T& lhs, const Vector& rhs) noexcept { return rhs * lhs; }
-    const Vector        operator/(const T& rhs) const noexcept {
+    friend Vector operator*(const T& lhs, const Vector& rhs) noexcept { return rhs * lhs; }
+    Vector        operator/(const T& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
         return result;
     }
-    const Vector operator/(const Vector& rhs) const noexcept {
+    Vector operator/(const Vector& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs[i];
         return result;
@@ -196,38 +196,38 @@ struct Vector : public BaseVector<T, D> {
     }
 
 #if defined(USE_ISPC)
-    const Vector operator+(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator+(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
         Vector result;
         ispc::vector_add(*this, rhs, result, D);
         return result;
     }
 
-    const Vector operator-() const noexcept requires IspcSpeedable<T> {
+    Vector operator-() const noexcept requires IspcSpeedable<T> {
         Vector result;
         ispc::vector_inverse(*this, result, D);
         return result;
     }
-    const Vector operator-(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator-(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
         Vector result;
         ispc::vector_sub(*this, rhs, result, D);
         return result;
     }
-    const Vector operator*(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator*(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
         Vector result;
         ispc::vector_mult_vector(*this, rhs, result, D);
         return result;
     }
-    const Vector operator*(const T& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator*(const T& rhs) const noexcept requires IspcSpeedable<T> {
         Vector result;
         ispc::vector_mult(*this, rhs, result, D);
         return result;
     }
-    const Vector operator/(const T& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator/(const T& rhs) const noexcept requires IspcSpeedable<T> {
         Vector result;
         ispc::vector_div(*this, rhs, result, D);
         return result;
     }
-    const Vector operator/(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator/(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
         Vector result;
         ispc::vector_div_vector(*this, rhs, result, D);
         return result;
@@ -251,6 +251,21 @@ struct Vector : public BaseVector<T, D> {
 #endif  // USE_ISPC
 };
 
+template <typename T>
+struct Quaternion : public Vector<T, 4> {
+    using Vector<T, 4>::Vector;
+    using Vector<T, 4>::data;
+
+    Quaternion operator*(const Quaternion& rhs) const noexcept {
+        return {
+            data[0] * rhs.data[3] + data[3] * rhs.data[0] + data[1] * rhs.data[2] - data[2] * rhs.data[1],
+            data[1] * rhs.data[3] + data[3] * rhs.data[1] + data[2] * rhs.data[0] - data[0] * rhs.data[2],
+            data[2] * rhs.data[3] + data[3] * rhs.data[2] + data[0] * rhs.data[1] - data[1] * rhs.data[0],
+            data[3] * rhs.data[3] - data[0] * rhs.data[0] - data[1] * rhs.data[1] - data[2] * rhs.data[2],
+        };
+    }
+};
+
 using vec2f = Vector<float, 2>;
 using vec3f = Vector<float, 3>;
 using vec4f = Vector<float, 4>;
@@ -259,10 +274,8 @@ using vec2d = Vector<double, 2>;
 using vec3d = Vector<double, 3>;
 using vec4d = Vector<double, 4>;
 
-template <typename T>
-using Quaternion = Vector<T, 4>;
-using quatf      = Quaternion<float>;
-using quatd      = Quaternion<double>;
+using quatf = Quaternion<float>;
+using quatd = Quaternion<double>;
 
 using R8G8B8A8Unorm = Vector<uint8_t, 4>;
 

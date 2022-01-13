@@ -3,6 +3,7 @@ add_subdirectory(Parser)
 add_library(AssetManager
     AssetManager.cpp
     SceneObject.cpp
+    Animation.cpp
     Bone.cpp
     Mesh.cpp
     Material.cpp
@@ -16,6 +17,7 @@ add_library(AssetManager
 target_link_libraries(AssetManager 
     PUBLIC
         FileIOManager
+        Timer
         Parser
         HitagiMath
     PRIVATE
@@ -26,6 +28,7 @@ target_include_directories(AssetManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} "$
 
 add_library(SceneManager
     SceneManager.cpp
+    AnimationManager.cpp
     GeometryFactory.cpp
 )
 target_link_libraries(SceneManager PUBLIC AssetManager)

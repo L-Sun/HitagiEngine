@@ -5,7 +5,7 @@ namespace Hitagi::Asset {
 void Scene::AddSkeleton(std::shared_ptr<BoneNode> skeleton) {
     scene_graph->AppendChild(skeleton);
     std::function<void(std::shared_ptr<BoneNode>)> recusive = [&](std::shared_ptr<BoneNode> bone) {
-        bone_nodes.emplace(bone->GetName(), bone);
+        bone_nodes.emplace_back(bone);
         for (auto&& child : bone->GetChildren()) {
             recusive(std::static_pointer_cast<BoneNode>(child));
         }
@@ -13,58 +13,20 @@ void Scene::AddSkeleton(std::shared_ptr<BoneNode> skeleton) {
     recusive(skeleton);
 }
 
-std::vector<std::reference_wrapper<GeometryNode>> Scene::GetGeometries() const {
-    std::vector<std::reference_wrapper<GeometryNode>> ret;
-    for (auto&& [key, node] : geometry_nodes)
-        ret.emplace_back(*node);
-    return ret;
+void Scene::AddAnimation(std::shared_ptr<Animation> animation) {
+    if (animation) animations.emplace_back(animation);
 }
 
-// Material
-std::shared_ptr<Material> Scene::GetMaterial(const std::string& key) const {
-    auto i = materials.find(key);
-    if (i == materials.end())
-        return nullptr;
-    else
-        return i->second;
-}
-
-// Geometry
-std::shared_ptr<Geometry> Scene::GetGeometry(const std::string& key) const {
-    auto i = geometries.find(key);
-    if (i == geometries.end())
-        return nullptr;
-    else
-        return i->second;
-}
-
-// Light
-std::shared_ptr<Light> Scene::GetLight(const std::string& key) const {
-    auto i = lights.find(key);
-    if (i == lights.end())
-        return nullptr;
-    else
-        return i->second;
-}
-
-// Camera
-std::shared_ptr<Camera> Scene::GetCamera(const std::string& key) const {
-    auto i = cameras.find(key);
-    if (i == cameras.end())
-        return nullptr;
-    else
-        return i->second;
-}
 std::shared_ptr<CameraNode> Scene::GetFirstCameraNode() const {
-    return (camera_nodes.empty() ? nullptr : camera_nodes.cbegin()->second);
+    return (camera_nodes.empty() ? nullptr : camera_nodes.front());
 }
 std::shared_ptr<LightNode> Scene::GetFirstLightNode() const {
-    return (light_nodes.empty() ? nullptr : light_nodes.cbegin()->second);
+    return (light_nodes.empty() ? nullptr : light_nodes.front());
 }
 
 void Scene::LoadResource() {
     for (auto& material : materials) {
-        material.second->LoadTextures();
+        material->LoadTextures();
     }
 }
 }  // namespace Hitagi::Asset

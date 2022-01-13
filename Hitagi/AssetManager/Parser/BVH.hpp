@@ -6,8 +6,7 @@
 namespace Hitagi::Asset {
 class BvhParser : public MoCapParser {
 public:
-    virtual std::shared_ptr<BoneNode> ParserSkeleton(const Core::Buffer& buffer) final;
-    virtual ~BvhParser() = default;
+    virtual std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> Parse(const Core::Buffer& buffer);
 
 private:
     enum struct Channel {

@@ -2,7 +2,7 @@
 #include "FileIOManager.hpp"
 #include "ImageParser.hpp"
 #include "MoCapParser.hpp"
-#include "SceneNode.hpp"
+#include "SceneParser.hpp"
 
 #include <map>
 
@@ -14,12 +14,17 @@ public:
     void Tick() final;
     void Finalize() final;
 
-    std::shared_ptr<Image>    ImportImage(const std::filesystem::path& path);
-    std::shared_ptr<BoneNode> ImportSkeleton(const std::filesystem::path& path);
+    std::shared_ptr<Scene> ImportScene(const std::filesystem::path& path);
+    std::shared_ptr<Image> ImportImage(const std::filesystem::path& path);
+
+    std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> ImportAnimation(const std::filesystem::path& path);
 
 private:
     std::array<std::unique_ptr<ImageParser>, static_cast<size_t>(ImageFormat::NUM_SUPPORT)> m_ImageParser;
-    std::unique_ptr<MoCapParser>                                                            m_MoCapParser;
+
+    std::unique_ptr<SceneParser> m_SceneParser;
+
+    std::unique_ptr<MoCapParser> m_MoCapParser;
 };
 }  // namespace Hitagi::Asset
 

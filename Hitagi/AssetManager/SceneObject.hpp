@@ -13,6 +13,7 @@ public:
     inline const xg::Guid&    GetGuid() const noexcept { return m_Guid; }
     inline void               SetName(std::string name) noexcept { m_Name = std::move(name); }
     inline const std::string& GetName() const noexcept { return m_Name; }
+    std::string               GetUniqueName(std::string_view sep = "") const noexcept { return fmt::format("{}{}{}", m_Name, sep, m_Guid.str()); }
 
     friend std::ostream& operator<<(std::ostream& out, const SceneObject& obj);
 

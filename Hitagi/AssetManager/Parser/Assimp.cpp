@@ -9,15 +9,16 @@
 
 namespace Hitagi::Asset {
 
-Scene AssimpParser::Parse(const Core::Buffer& buffer) {
-    auto logger = spdlog::get("SceneManager");
+std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buffer) {
+    auto logger = spdlog::get("AssetManager");
+    auto scene  = std::make_shared<Scene>();
+
     if (buffer.Empty()) {
         logger->warn("[Assimp] Parsing a empty buffer");
-        return {};
+        return scene;
     }
 
-    auto  begin = std::chrono::high_resolution_clock::now();
-    Scene scene;
+    auto begin = std::chrono::high_resolution_clock::now();
 
     Assimp::Importer importer;
     auto             flag =
@@ -44,7 +45,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
     };
 
     // process camera
-    std::unordered_map<std::string_view, unsigned> camera_name_map;
+    std::unordered_map<std::string_view, std::pair<unsigned, std::shared_ptr<Camera>>> camera_name_map;
     for (size_t i = 0; i < ai_scene->mNumCameras; i++) {
         const auto _camera = ai_scene->mCameras[i];
         auto       perspective_camera =
@@ -53,12 +54,17 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
                 _camera->mClipPlaneNear,
                 _camera->mClipPlaneFar,
                 _camera->mHorizontalFOV);
+        perspective_camera->SetName(_camera->mName.C_Str());
 
-        scene.cameras[_camera->mName.C_Str()]   = perspective_camera;
-        camera_name_map[_camera->mName.C_Str()] = i;
+        auto&& [result, success] = camera_name_map.emplace(perspective_camera->GetName(), std::make_pair(i, perspective_camera));
+        if (!success)
+            logger->warn("A camera[{}] with the same name already exists!", perspective_camera->GetName());
+
+        scene->cameras.emplace_back(perspective_camera);
     }
 
     // process light
+    std::unordered_map<std::string_view, std::shared_ptr<Light>> light_name_map;
     for (size_t i = 0; i < ai_scene->mNumLights; i++) {
         const auto             _light = ai_scene->mLights[i];
         std::shared_ptr<Light> light;
@@ -100,13 +106,19 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
                 logger->warn("[Assimp] Unknown light type.");
                 break;
         }
-        scene.lights[_light->mName.C_Str()] = light;
+        light->SetName(_light->mName.C_Str());
+        auto&& [result, success] = light_name_map.emplace(light->GetName(), light);
+        if (!success)
+            logger->warn("A light[{}] with the same name already exists!", light->GetName());
+
+        scene->lights.emplace_back(light);
     }
 
     // process material
+    std::unordered_map<std::string_view, std::shared_ptr<Material>> material_name_map;
     for (size_t i = 0; i < ai_scene->mNumMaterials; i++) {
         const auto _material = ai_scene->mMaterials[i];
-        auto       material  = std::make_shared<Material>(_material->GetName().C_Str());
+        auto       material  = std::make_shared<Material>();
         // set material name
         if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
             material->SetName(name.C_Str());
@@ -152,14 +164,19 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
             }
         }
 
-        scene.materials[_material->GetName().C_Str()] = material;
+        auto&& [result, success] = material_name_map.emplace(material->GetName(), material);
+        if (!success)
+            logger->warn("A material[{}] with the same name already exists!", material->GetName());
+
+        scene->materials.emplace_back(material);
     }
 
-    std::unordered_map<std::string, std::shared_ptr<Bone>> bones;
+    std::unordered_map<std::string, std::shared_ptr<Bone>> bone_name_map;
     std::unordered_map<aiMesh*, Mesh>                      meshes;
 
     auto covert_mesh = [&](const aiMesh* ai_mesh) -> Mesh {
         Mesh mesh;
+        mesh.SetName(ai_mesh->mName.C_Str());
         // Set primitive type
         switch (ai_mesh->mPrimitiveTypes) {
             case aiPrimitiveType::aiPrimitiveType_LINE:
@@ -252,15 +269,18 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
         mesh.SetIndexArray(IndexArray(IndexArray::DataType::Int32, std::move(indexBuffer)));
 
         // material
-        const std::string materialRef = ai_scene->mMaterials[ai_mesh->mMaterialIndex]->GetName().C_Str();
-        mesh.SetMaterial(scene.materials.at(materialRef));
+        const std::string_view material_name = ai_scene->mMaterials[ai_mesh->mMaterialIndex]->GetName().C_Str();
+        if (material_name_map.count(material_name) != 0)
+            mesh.SetMaterial(material_name_map.at(material_name));
+        else
+            logger->warn("A mesh[{}] refers to a unexist material", material_name);
 
         // bone
         if (ai_mesh->HasBones()) {
             for (size_t bone_index = 0; bone_index < ai_mesh->mNumBones; bone_index++) {
                 auto _bone = ai_mesh->mBones[bone_index];
                 auto bone  = mesh.CreateNewBone(_bone->mName.C_Str());
-                bones.emplace(bone->GetName(), bone);
+                bone_name_map.emplace(bone->GetName(), bone);
 
                 bone->SetName(_bone->mName.C_Str());
                 for (size_t i = 0; i < _bone->mNumWeights; i++)
@@ -294,39 +314,40 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
         const std::string          name(_node->mName.C_Str());
         // The node is a geometry
         if (_node->mNumMeshes > 0) {
-            scene.geometries[name] = create_geometry(_node);
+            auto geometry = create_geometry(_node);
+            scene->geometries.emplace_back(geometry);
 
             auto geometry_node = std::make_shared<GeometryNode>(name);
-            geometry_node->SetSceneObjectRef(scene.GetGeometry(name));
-            scene.geometry_nodes[name] = geometry_node;
-            node                       = geometry_node;
+            geometry_node->SetSceneObjectRef(geometry);
+            scene->geometry_nodes.emplace_back(geometry_node);
+            node = geometry_node;
         }
         // The node is a camera
-        else if (scene.cameras.count(name) != 0) {
-            auto& _camera = ai_scene->mCameras[camera_name_map[name]];
+        else if (camera_name_map.count(name) != 0) {
+            auto& _camera = ai_scene->mCameras[camera_name_map[name].first];
             // move space infomation to camera node
             auto camera_node = std::make_shared<CameraNode>(
                 name,
                 vec3f(_camera->mPosition.x, _camera->mPosition.y, _camera->mPosition.z),
                 vec3f(_camera->mUp.x, _camera->mUp.y, _camera->mUp.z),
                 vec3f(_camera->mLookAt.x, _camera->mLookAt.y, _camera->mLookAt.z));
-            camera_node->SetSceneObjectRef(scene.GetCamera(name));
+            camera_node->SetSceneObjectRef(camera_name_map[name].second);
 
-            scene.camera_nodes[name] = camera_node;
-            node                     = camera_node;
+            scene->camera_nodes.emplace_back(camera_node);
+            node = camera_node;
         }
         // The node is a light
-        else if (scene.lights.count(name) != 0) {
+        else if (light_name_map.count(name) != 0) {
             auto light_node = std::make_shared<LightNode>(name);
-            light_node->SetSceneObjectRef(scene.GetLight(name));
-            scene.light_nodes[name] = light_node;
-            node                    = light_node;
+            light_node->SetSceneObjectRef(light_name_map.at(name));
+            scene->light_nodes.emplace_back(light_node);
+            node = light_node;
         }
         // The node is bone
-        else if (bones.count(name) != 0) {
+        else if (bone_name_map.count(name) != 0) {
             auto bone_node = std::make_shared<BoneNode>(name);
-            bone_node->SetSceneObjectRef(bones.at(name));
-            scene.bone_nodes.emplace(name, bone_node);
+            bone_node->SetSceneObjectRef(bone_name_map.at(name));
+            scene->bone_nodes.emplace_back(bone_node);
             node = bone_node;
         }
         // The node is empty
@@ -343,7 +364,7 @@ Scene AssimpParser::Parse(const Core::Buffer& buffer) {
         return node;
     };
 
-    scene.scene_graph = convert(ai_scene->mRootNode, std::weak_ptr<SceneNode>{});
+    scene->scene_graph = convert(ai_scene->mRootNode, std::weak_ptr<SceneNode>{});
 
     end = std::chrono::high_resolution_clock::now();
     logger->info("[Assimp] Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());

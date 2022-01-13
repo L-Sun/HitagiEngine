@@ -1,6 +1,5 @@
 #include "MemoryManager.hpp"
 #include "AssetManager.hpp"
-#include "SceneManager.hpp"
 
 using namespace Hitagi;
 
@@ -25,15 +24,15 @@ static std::ostream& operator<<(std::ostream& out, std::unordered_map<std::strin
 int main(int, char**) {
     g_MemoryManager->Initialize();
     g_FileIoManager->Initialize();
-    g_SceneManager->Initialize();
+    g_AssetManager->Initialize();
 
-    auto& scene = g_SceneManager->ImportScene("Assets/Scene/untitled.fbx");
+    auto scene = g_AssetManager->ImportScene("Assets/Scene/untitled.fbx");
 
-    std::cout << *scene.scene_graph << std::endl;
+    std::cout << scene->scene_graph << std::endl;
 
     std::cout << "Dump of Cameras" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pCameraNode] : scene.camera_nodes) {
+    for (auto pCameraNode : scene->camera_nodes) {
         if (pCameraNode) {
             std::weak_ptr<Asset::Camera> p_camera = pCameraNode->GetSceneObjectRef();
             if (auto p_obj = p_camera.lock()) std::cout << *p_obj << std::endl;
@@ -42,7 +41,7 @@ int main(int, char**) {
 
     std::cout << "Dump of Lights" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pLightNode] : scene.light_nodes) {
+    for (auto pLightNode : scene->light_nodes) {
         if (pLightNode) {
             std::weak_ptr<Asset::Light> p_light = pLightNode->GetSceneObjectRef();
             if (auto p_obj = p_light.lock()) std::cout << *p_obj << std::endl;
@@ -51,7 +50,7 @@ int main(int, char**) {
 
     std::cout << "Dump of Geometries" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pGeometryNode] : scene.geometry_nodes) {
+    for (auto pGeometryNode : scene->geometry_nodes) {
         if (pGeometryNode) {
             std::weak_ptr<Asset::Geometry> p_geometry = pGeometryNode->GetSceneObjectRef();
             if (auto p_obj = p_geometry.lock()) std::cout << *p_obj << std::endl;
@@ -61,10 +60,10 @@ int main(int, char**) {
 
     std::cout << "Dump of Materials" << std::endl;
     std::cout << "---------------------------" << std::endl;
-    for (auto [key, pMaterial] : scene.materials) {
+    for (auto pMaterial : scene->materials) {
         if (pMaterial) std::cout << *pMaterial << std::endl;
     }
-    g_SceneManager->Finalize();
+    g_AssetManager->Finalize();
     g_FileIoManager->Finalize();
     g_MemoryManager->Finalize();
 

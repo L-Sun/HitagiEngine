@@ -1,9 +1,9 @@
 #pragma once
 #include "IRuntimeModule.hpp"
 #include "Scene.hpp"
-#include "SceneParser.hpp"
+#include "AnimationManager.hpp"
 
-#include <map>
+#include <set>
 
 namespace Hitagi::Asset {
 
@@ -13,20 +13,19 @@ public:
     void Finalize() override;
     void Tick() override;
 
-    Scene&       CreateScene(std::string name);
-    Scene&       ImportScene(const std::filesystem::path& path);
-    inline auto& ListAllScene() noexcept { return m_Scenes; }
-    void         SwitchScene(xg::Guid id);
-    void         DeleteScene(xg::Guid id);
+    std::shared_ptr<Scene> CreateScene(std::string name);
+    void                   AddScene(std::shared_ptr<Scene> scene);
+    inline auto            ListAllScene() noexcept { return m_Scenes; }
+    void                   SwitchScene(std::shared_ptr<Scene> scene);
+    void                   DeleteScene(std::shared_ptr<Scene> scene);
 
-    void NotifySceneIsRenderingQueued();
-    void NotifySceneIsPhysicalSimulationQueued();
+    inline AnimationManager& GetAnimationManager() { return *m_AnimationManager; }
 
-    inline Scene& GetScene() {
-        return m_Scenes.at(m_CurrentScene);
-    }
-    const Scene& GetSceneForRendering() const;
-    const Scene& GetSceneForPhysicsSimulation() const;
+    inline auto GetScene() { return m_CurrentScene; }
+
+    // TODO renderable culling
+    std::shared_ptr<Scene> GetSceneForRendering() const;
+    std::shared_ptr<Scene> GetSceneForPhysicsSimulation() const;
 
     std::weak_ptr<GeometryNode> GetSceneGeometryNode(const std::string& name);
     std::weak_ptr<LightNode>    GetSceneLightNode(const std::string& name);
@@ -34,12 +33,13 @@ public:
     std::weak_ptr<CameraNode> GetCameraNode();
 
 protected:
-    static void CreateDefaultCamera(Scene& scene);
-    static void CreateDefaultLight(Scene& scene);
+    static void CreateDefaultCamera(std::shared_ptr<Scene> scene);
+    static void CreateDefaultLight(std::shared_ptr<Scene> scene);
 
-    std::map<xg::Guid, Scene>    m_Scenes;
-    xg::Guid                     m_CurrentScene;
-    std::unique_ptr<SceneParser> m_Parser;
+    std::set<std::shared_ptr<Scene>> m_Scenes;
+    std::shared_ptr<Scene>           m_CurrentScene;
+
+    std::unique_ptr<AnimationManager> m_AnimationManager;
 };
 
 }  // namespace Hitagi::Asset

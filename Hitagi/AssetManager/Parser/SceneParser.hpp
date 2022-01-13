@@ -5,7 +5,7 @@
 namespace Hitagi::Asset {
 class SceneParser {
 public:
-    virtual Scene Parse(const Core::Buffer& buffer) = 0;
-    virtual ~SceneParser()                          = default;
+    virtual std::shared_ptr<Scene> Parse(const Core::Buffer& buffer) = 0;
+    virtual ~SceneParser()                                           = default;
 };
 }  // namespace Hitagi::Asset

@@ -17,17 +17,17 @@ public:
     using Normal      = Parameter<vec3f>;
     using SingleValue = Parameter<float>;
 
-    Material(std::string name) : m_AmbientColor(vec4f(0.0f)),
-                                 m_DiffuseColor(vec4f(1.0f)),
-                                 m_Metallic(0.0f),
-                                 m_Roughness(0.0f),
-                                 m_Normal(vec3f(0.0f, 0.0f, 1.0f)),
-                                 m_Specular(vec4f(0.0f)),
-                                 m_SpecularPower(1.0f),
-                                 m_AmbientOcclusion(1.0f),
-                                 m_Opacity(1.0f),
-                                 m_Transparency(vec4f(0.0f)),
-                                 m_Emission(vec4f(0.0f)){};
+    Material() : m_AmbientColor(vec4f(0.0f)),
+                 m_DiffuseColor(vec4f(1.0f)),
+                 m_Metallic(0.0f),
+                 m_Roughness(0.0f),
+                 m_Normal(vec3f(0.0f, 0.0f, 1.0f)),
+                 m_Specular(vec4f(0.0f)),
+                 m_SpecularPower(1.0f),
+                 m_AmbientOcclusion(1.0f),
+                 m_Opacity(1.0f),
+                 m_Transparency(vec4f(0.0f)),
+                 m_Emission(vec4f(0.0f)) {}
 
     inline const Color&       GetAmbientColor() const noexcept { return m_AmbientColor; }
     inline const Color&       GetDiffuseColor() const noexcept { return m_DiffuseColor; }

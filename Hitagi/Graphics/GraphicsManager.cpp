@@ -174,12 +174,12 @@ void GraphicsManager::Tick() {
         OnSizeChanged();
     }
 
-    const Asset::Scene& scene = g_SceneManager->GetSceneForRendering();
+    auto scene = g_SceneManager->GetSceneForRendering();
     // TODO change the parameter to View, if multiple view port is finished
     // views = g_App->GetViewsForRendering();
     // rendertargets =  views.foreach(view : Render(view))
     // ...
-    Render(scene);
+    if (scene) Render(*scene);
     m_Driver->Present(m_CurrBackBuffer);
     m_CurrBackBuffer = (m_CurrBackBuffer + 1) % sm_SwapChianSize;
 }
