@@ -116,8 +116,20 @@ void Win32Application::MapCursor() {
 }
 
 void Win32Application::SetInputScreenPosition(unsigned x, unsigned y) {
+    if (HIMC himc = ::ImmGetContext(m_Window)) {
+        COMPOSITIONFORM composition_form = {};
+        composition_form.ptCurrentPos.x  = x;
+        composition_form.ptCurrentPos.y  = y;
+        composition_form.dwStyle         = CFS_FORCE_POSITION;
+        ::ImmSetCompositionWindow(himc, &composition_form);
+        CANDIDATEFORM candidate_form  = {};
+        candidate_form.dwStyle        = CFS_CANDIDATEPOS;
+        candidate_form.ptCurrentPos.x = x;
+        candidate_form.ptCurrentPos.y = y;
+        ::ImmSetCandidateWindow(himc, &candidate_form);
+        ::ImmReleaseContext(m_Window, himc);
+    }
 }
-
 LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w_param, LPARAM l_param) {
     Win32Application* p_this = nullptr;
     if (message == WM_NCCREATE) {

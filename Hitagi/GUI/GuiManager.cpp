@@ -20,6 +20,7 @@ int GuiManager::Initialize() {
 
     ImGui::CreateContext();
     ImGui::GetStyle().ScaleAllSizes(g_App->GetDpiRatio());
+    ImGui::GetIO().ImeSetInputScreenPosFn = [](int x, int y) -> void { g_App->SetInputScreenPosition(x, y); };
     LoadFontTexture();
     MapKey();
 
