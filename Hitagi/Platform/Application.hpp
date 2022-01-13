@@ -46,7 +46,8 @@ public:
     const Rect& GetWindowsRect() const noexcept { return m_Rect; }
     bool        WindowSizeChanged() const noexcept { return m_SizeChanged; }
 
-    virtual void* GetWindow() = 0;
+    virtual void* GetWindow()                                    = 0;
+    virtual void  SetInputScreenPosition(unsigned x, unsigned y) = 0;
     // Get Dpi / 96.0f
     virtual float GetDpiRatio() = 0;
     virtual bool  IsQuit();

@@ -115,6 +115,9 @@ void Win32Application::MapCursor() {
     }
 }
 
+void Win32Application::SetInputScreenPosition(unsigned x, unsigned y) {
+}
+
 LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w_param, LPARAM l_param) {
     Win32Application* p_this = nullptr;
     if (message == WM_NCCREATE) {
@@ -190,10 +193,13 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             return 0;
         case WM_CHAR: {
             size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
-            g_InputManager->AppendInputText(std::u8string(repeat_count, static_cast<char8_t>(w_param)));
+            g_InputManager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
         }
             return 0;
-            // TODO IME
+        case WM_IME_CHAR: {
+            g_InputManager->AppendInputText(std::u32string(1, static_cast<char32_t>(w_param)));
+        }
+            return 0;
         case WM_SIZE:
             if (w_param != SIZE_MINIMIZED) {
                 p_this->UpdateRect();

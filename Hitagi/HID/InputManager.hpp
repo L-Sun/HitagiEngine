@@ -23,7 +23,7 @@ public:
     inline void UpdateWheelState(float delta) noexcept {
         m_MouseState.scroll.Update(m_MouseState.scroll.current + delta);
     }
-    inline void AppendInputText(std::u8string text) noexcept {
+    inline void AppendInputText(std::u32string text) noexcept {
         m_TextInput.append(std::move(text));
         m_TextInputDirty = true;
     }
@@ -33,12 +33,12 @@ public:
     float GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) const;
     float GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event) const;
 
-    const std::u8string& GetInputText() const noexcept { return m_TextInput; };
+    const std::u32string& GetInputText() const noexcept { return m_TextInput; };
 
 private:
     std::array<KeyState, static_cast<size_t>(VirtualKeyCode::NUM)> m_KeyState;
     MouseState                                                     m_MouseState{};
-    std::u8string                                                  m_TextInput;
+    std::u32string                                                 m_TextInput;
     bool                                                           m_TextInputDirty = false;
 };
 
