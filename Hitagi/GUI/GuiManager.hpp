@@ -3,6 +3,7 @@
 #include "Timer.hpp"
 #include "Image.hpp"
 
+#define IMGUI_USER_CONFIG "imconfig.hpp"
 #include <imgui.h>
 
 #include <list>

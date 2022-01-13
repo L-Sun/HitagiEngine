@@ -3,6 +3,7 @@
 #include "InputManager.hpp"
 #include "FileIOManager.hpp"
 
+#include <imgui_freetype.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -72,7 +73,8 @@ void GuiManager::Finalize() {
 }
 
 void GuiManager::LoadFontTexture() {
-    auto& io = ImGui::GetIO();
+    auto& io                = ImGui::GetIO();
+    io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 
     /* for (const auto& font_file : std::filesystem::directory_iterator{"./Assets/Fonts"}) */ {
         auto& font_data = m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./Assets/Fonts/Hasklig-Regular.otf"));
