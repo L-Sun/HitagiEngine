@@ -19,100 +19,30 @@ public:
 
     const std::string& GetName() const { return m_Name; }
 
-    inline void SetParent(std::weak_ptr<SceneNode> parent) {
-        m_Parent = parent;
-    }
-    inline void AppendChild(std::shared_ptr<SceneNode> child) {
-        m_Children.push_back(std::move(child));
-    }
+    inline auto GetParent() const noexcept { return m_Parent; }
+    inline void SetParent(std::weak_ptr<SceneNode> parent) { m_Parent = parent; }
+
     inline const auto& GetChildren() const noexcept { return m_Children; }
-    inline auto        GetParent() const noexcept { return m_Parent; }
+    inline void        AppendChild(std::shared_ptr<SceneNode> child) { m_Children.push_back(std::move(child)); }
 
-    void SetTRS(const vec3f& translation, const quatf& routation, const vec3f& scaling) {
-        m_Translation = translation;
-        m_Rotation    = routation;
-        m_Scaling     = scaling;
+    inline vec3f GetPosition(bool local_space = true) const { return local_space ? m_Translation : get_translation(m_RuntimeTransform); }
+    inline vec3f GetOrientation() const { return quaternion_to_euler(m_Rotation); }
+    inline vec3f GetScaling() const { return m_Scaling; }
+    mat4f        GetParentSpace() const;
+    mat4f        GetCalculatedTransformation();
 
-        SetTransformDirty();
-    }
-
+    void SetTRS(const vec3f& translation, const quatf& routation, const vec3f& scaling);
     // Apply a transformation to the node in its parent's space
-    void ApplyTransform(const mat4f& mat) {
-        auto [translation, rotation, scaling] = decompose(mat);
+    void ApplyTransform(const mat4f& mat);
+    void Translate(const vec3f& translate);
+    void Rotate(const vec3f& eular);
+    void Scale(const vec3f value);
 
-        m_Rotation = euler_to_quaternion(rotation) * m_Rotation;
-        m_Translation += translation;
-        m_Scaling = m_Scaling * scaling;
-
-        SetTransformDirty();
-    }
-
-    inline vec3f GetPosition(bool local_space = true) const {
-        return local_space ? m_Translation : get_translation(m_RuntimeTransform);
-    }
-
-    inline vec3f GetOrientation() const {
-        return quaternion_to_euler(m_Rotation);
-    }
-
-    inline const vec3f GetScaling() const {
-        return m_Scaling;
-    }
-
-    inline void Translate(const vec3f& translate) noexcept {
-        m_Translation += translate;
-        SetTransformDirty();
-    }
-    inline void Rotate(const vec3f& eular) noexcept {
-        m_Rotation = euler_to_quaternion(eular) * m_Rotation;
-        SetTransformDirty();
-    }
-    inline void Scale(const vec3f value) noexcept {
-        m_Scaling = m_Scaling * value;
-        SetTransformDirty();
-    }
-
-    mat4f GetParentSpace() const {
-        mat4f result(1.0f);
-        if (auto parent = m_Parent.lock()) result = parent->GetCalculatedTransformation();
-        return result;
-    }
-
-    mat4f GetCalculatedTransformation() {
-        if (m_TransformDirty) {
-            m_RuntimeTransform = translate(rotate(scale(mat4f(1.0f), m_Scaling), m_Rotation), m_Translation);
-            m_TransformDirty   = false;
-        }
-        return GetParentSpace() * m_RuntimeTransform;
-    }
-
-    friend std::ostream& operator<<(std::ostream& out, const SceneNode& node) {
-        static unsigned indent = 0;
-        out << fmt::format(
-            "{0:{1}}{2:-^30}\n"
-            "{0:{1}}{3:<15}{4:>15}\n",
-            "", indent, "Scene Node", "Name:", node.m_Name);
-
-        node.Dump(out, indent);
-        out << fmt::format("{0:{1}}{2}\n", "", indent, "Children:");
-        indent += 4;
-        for (const std::shared_ptr<SceneNode>& sub_node : node.m_Children) {
-            out << *sub_node << std::endl;
-        }
-
-        indent -= 4;
-        return out << fmt::format("{0:{1}}{2:-^30}", "", indent, "End");
-    }
+    friend std::ostream& operator<<(std::ostream& out, const SceneNode& node);
 
 protected:
     virtual void Dump(std::ostream& out, unsigned indent) const {}
-
-    inline void SetTransformDirty() {
-        m_TransformDirty = true;
-        for (auto&& child : m_Children) {
-            child->SetTransformDirty();
-        }
-    }
+    void         SetTransformDirty();
 
     std::string                           m_Name;
     std::list<std::shared_ptr<SceneNode>> m_Children;
@@ -150,8 +80,8 @@ class GeometryNode : public SceneNodeWithRef<Geometry> {
 public:
     using SceneNodeWithRef::SceneNodeWithRef;
 
-    void       SetVisibility(bool visible) { m_Visible = visible; }
-    const bool Visible() { return m_Visible; }
+    inline void SetVisibility(bool visible) noexcept { m_Visible = visible; }
+    inline bool Visible() const noexcept { return m_Visible; }
 
 private:
     bool m_Visible = true;

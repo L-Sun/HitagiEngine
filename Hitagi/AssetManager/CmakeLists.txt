@@ -13,6 +13,7 @@ add_library(AssetManager
     Image.cpp
     Scene.cpp
     Texture.cpp
+    SceneNode.cpp
 )
 target_link_libraries(AssetManager 
     PUBLIC

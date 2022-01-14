@@ -88,7 +88,17 @@ void SceneManager::DeleteScene(std::shared_ptr<Scene> scene) {
 }
 
 std::shared_ptr<Scene> SceneManager::GetSceneForRendering() const {
-    return m_CurrentScene;
+    auto result = std::make_shared<Scene>();
+    for (auto&& node : m_CurrentScene->geometry_nodes) {
+        if (node->Visible()) {
+            result->geometry_nodes.emplace_back(node);
+        }
+    }
+    result->camera_nodes = m_CurrentScene->camera_nodes;
+    result->light_nodes  = m_CurrentScene->light_nodes;
+    result->bone_nodes   = m_CurrentScene->bone_nodes;
+
+    return result;
 }
 
 std::shared_ptr<Scene> SceneManager::GetSceneForPhysicsSimulation() const {

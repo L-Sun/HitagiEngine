@@ -96,7 +96,8 @@
         "coroutine": "cpp",
         "resumable": "cpp",
         "codecvt": "cpp",
-        "bitset": "cpp"
+        "bitset": "cpp",
+        "span": "cpp"
     },
     "cmake.debugConfig": {
         "cwd": "${workspaceFolder}"
