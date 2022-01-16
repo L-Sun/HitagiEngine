@@ -1,6 +1,7 @@
 #pragma once
 #include "DriverAPI.hpp"
 #include "Geometry.hpp"
+#include "GuiManager.hpp"
 
 namespace Hitagi::Graphics {
 class ResourceManager {
@@ -13,6 +14,9 @@ public:
     std::shared_ptr<Sampler>       GetSampler(std::string_view name);
     std::shared_ptr<TextureBuffer> GetDefaultTextureBuffer(Format format);
 
+    using ImGuiMeshBuilder = std::function<void(std::shared_ptr<Hitagi::Graphics::MeshBuffer>, ImDrawList*, const ImDrawCmd&)>;
+    void MakeImGuiMesh(ImDrawData* data, ImGuiMeshBuilder&& builder);
+
 private:
     DriverAPI&                                                   m_Driver;
     std::unordered_map<xg::Guid, std::shared_ptr<MeshBuffer>>    m_MeshBuffer;
@@ -20,5 +24,8 @@ private:
     std::unordered_map<std::string, std::shared_ptr<Sampler>>    m_Samplers;
 
     std::unordered_map<Format, std::shared_ptr<TextureBuffer>> m_DefaultTextureBuffer;
+
+    std::shared_ptr<VertexBuffer> m_ImGuiVertexBuffer;
+    std::shared_ptr<IndexBuffer>  m_ImGuiIndexBuffer;
 };
 }  // namespace Hitagi::Graphics

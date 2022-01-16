@@ -1,7 +1,7 @@
 /build
 /Assets/Textures
-/Assets/Scene
-/Assets/Motion
+/Assets/Scenes
+/Assets/Motions
 
 # ispc header will be generated during compilation
 *_ispc.h

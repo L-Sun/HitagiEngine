@@ -1,5 +1,6 @@
 #pragma once
 #include "IRuntimeModule.hpp"
+#include "SceneNode.hpp"
 
 #include <string>
 
@@ -17,8 +18,10 @@ public:
     void SceneExplorer();
 
 private:
+    static std::string GenName(std::string_view name, std::shared_ptr<Asset::SceneObject> obj);
+    static std::string GenName(std::string_view name, std::shared_ptr<Asset::SceneNode> node);
+
     std::string m_OpenFileExt;
-    bool        m_OpenFileExplorer = false;
 };
 
 }  // namespace Hitagi

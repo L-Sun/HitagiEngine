@@ -4,7 +4,7 @@
 namespace Hitagi::Asset {
 class Camera : public SceneObject {
 public:
-    Camera(float aspect = 16.0f / 9.0f, float near_clip = 1.0f, float far_clip = 100.0f, float fov = std::numbers::pi / 4)
+    Camera(float aspect = 16.0f / 9.0f, float near_clip = 1.0f, float far_clip = 1000.0f, float fov = std::numbers::pi / 4)
         : m_Aspect(aspect),
           m_NearClipDistance(near_clip),
           m_FarClipDistance(far_clip),

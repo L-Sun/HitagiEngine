@@ -110,36 +110,11 @@ void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> fon
     const mat4f projection = ortho(left, right, bottom, top, near, far);
     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_GuiDrawInfo->constant_offset, reinterpret_cast<const uint8_t*>(&projection), sizeof(projection));
 
-    for (size_t i = 0; i < data->CmdListsCount; i++) {
-        const auto cmd_list = data->CmdLists[i];
-
-        auto vb = m_Driver.CreateVertexBuffer(
-            "Imgui Vertex",
-            cmd_list->VtxBuffer.Size,
-            sizeof(ImDrawVert),
-            reinterpret_cast<const uint8_t*>(cmd_list->VtxBuffer.Data));
-
-        auto ib = m_Driver.CreateIndexBuffer(
-            "Imgui Indices",
-            cmd_list->IdxBuffer.Size,
-            sizeof(ImDrawIdx),
-            reinterpret_cast<const uint8_t*>(cmd_list->IdxBuffer.Data));
-
-        for (const auto& cmd : cmd_list->CmdBuffer) {
-            vec2f clip_min(cmd.ClipRect.x - data->DisplayPos.x, cmd.ClipRect.y - data->DisplayPos.y);
-            vec2f clip_max(cmd.ClipRect.z - data->DisplayPos.x, cmd.ClipRect.w - data->DisplayPos.y);
-            if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
-                continue;
-
-            auto mesh = std::make_shared<MeshBuffer>();
-            mesh->vertices.emplace("POSITION", vb);
-            mesh->vertices.emplace("TEXCOORD", vb);
-            mesh->vertices.emplace("COLOR", vb);
-            mesh->indices       = ib;
-            mesh->index_count   = cmd.ElemCount;
-            mesh->index_offset  = cmd.IdxOffset;
-            mesh->vertex_offset = cmd.VtxOffset;
-            mesh->primitive     = PrimitiveType::TriangleList;
+    m_ResMgr.MakeImGuiMesh(
+        data,
+        [&](std::shared_ptr<Hitagi::Graphics::MeshBuffer> mesh, ImDrawList* curr_cmd_list, const ImDrawCmd& curr_cmd) {
+            vec2f clip_min(curr_cmd.ClipRect.x - data->DisplayPos.x, curr_cmd.ClipRect.y - data->DisplayPos.y);
+            vec2f clip_max(curr_cmd.ClipRect.z - data->DisplayPos.x, curr_cmd.ClipRect.w - data->DisplayPos.y);
 
             std::array<uint32_t, 4> scissor_rect = {
                 static_cast<uint32_t>(clip_min.x),
@@ -147,10 +122,10 @@ void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> fon
                 static_cast<uint32_t>(clip_max.x),
                 static_cast<uint32_t>(clip_max.y),
             };
+
             m_GuiDrawInfo->scissor_rects.emplace_back(scissor_rect);
             m_GuiDrawInfo->meshes.emplace_back(mesh);
-        }
-    }
+        });
 }
 
 void Frame::SetCamera(Asset::CameraNode& camera) {

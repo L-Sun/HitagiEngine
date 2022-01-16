@@ -3,11 +3,13 @@
 
 namespace Hitagi::Graphics::backend::DX12 {
 
-GpuBuffer::GpuBuffer(ID3D12Device*    device,
-                     std::string_view name,
-                     size_t           num_elements,
-                     size_t           element_size)
-    : m_NumElements(num_elements),
+GpuBuffer::GpuBuffer(ID3D12Device*         device,
+                     std::string_view      name,
+                     size_t                num_elements,
+                     size_t                element_size,
+                     D3D12_RESOURCE_STATES usage)
+    : GpuResource(nullptr, usage),
+      m_NumElements(num_elements),
       m_ElementSize(element_size),
       m_BufferSize(num_elements * element_size) {
     auto desc       = CD3DX12_RESOURCE_DESC::Buffer(m_BufferSize, m_ResourceFlags);
@@ -17,6 +19,22 @@ GpuBuffer::GpuBuffer(ID3D12Device*    device,
                                                   IID_PPV_ARGS(&m_Resource)));
 
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
+}
+
+VertexBuffer::VertexBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size)
+    : GpuBuffer(device,
+                name,
+                num_elements,
+                element_size,
+                D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER) {
+}
+
+IndexBuffer::IndexBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size)
+    : GpuBuffer(device,
+                name,
+                num_elements,
+                element_size,
+                D3D12_RESOURCE_STATE_INDEX_BUFFER) {
 }
 
 ConstantBuffer::ConstantBuffer(std::string_view name, ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t num_elements, size_t element_size)

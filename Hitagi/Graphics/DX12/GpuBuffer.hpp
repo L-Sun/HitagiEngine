@@ -7,7 +7,7 @@ namespace Hitagi::Graphics::backend::DX12 {
 
 class GpuBuffer : public GpuResource {
 public:
-    GpuBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size);
+    GpuBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size, D3D12_RESOURCE_STATES usage = D3D12_RESOURCE_STATE_COMMON);
     size_t GetBufferSize() const { return m_BufferSize; }
     size_t GetElementCount() const { return m_NumElements; }
 
@@ -20,7 +20,8 @@ protected:
 
 class VertexBuffer : public GpuBuffer {
 public:
-    using GpuBuffer::GpuBuffer;
+    VertexBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size);
+
     D3D12_VERTEX_BUFFER_VIEW VertexBufferView() const {
         D3D12_VERTEX_BUFFER_VIEW vbv;
         vbv.BufferLocation = m_Resource->GetGPUVirtualAddress();
@@ -32,7 +33,8 @@ public:
 
 class IndexBuffer : public GpuBuffer {
 public:
-    using GpuBuffer::GpuBuffer;
+    IndexBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size);
+
     D3D12_INDEX_BUFFER_VIEW IndexBufferView() const {
         D3D12_INDEX_BUFFER_VIEW ibv;
         ibv.BufferLocation = m_Resource->GetGPUVirtualAddress();

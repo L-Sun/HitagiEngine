@@ -91,6 +91,8 @@ public:
     void SetParameter(std::string_view name, const Graphics::TextureBuffer& texture) final;
     void SetParameter(std::string_view name, const Graphics::Sampler& sampler) final;
 
+    void UpdateBuffer(std::shared_ptr<Graphics::Resource> resource, size_t offset, const uint8_t* data, size_t data_size) final;
+
     void     Draw(const Graphics::MeshBuffer& mesh) final;
     void     Present(Graphics::RenderTarget& rt) final;
     uint64_t Finish(bool wait_for_complete = false) final { return CommandContext::Finish(wait_for_complete); }

@@ -136,20 +136,24 @@ std::shared_ptr<Graphics::RenderTarget> DX12DriverAPI::CreateRenderFromSwapChain
 
 std::shared_ptr<Graphics::VertexBuffer> DX12DriverAPI::CreateVertexBuffer(std::string_view name, size_t vertex_count, size_t vertex_size, const uint8_t* initial_data) {
     auto buffer = std::make_unique<VertexBuffer>(m_Device.Get(), name, vertex_count, vertex_size);
+    auto result = std::make_shared<Graphics::VertexBuffer>(name, std::move(buffer), vertex_count, vertex_size);
     if (initial_data) {
-        CopyCommandContext context(*this);
-        context.InitializeBuffer(*buffer, initial_data, buffer->GetBufferSize());
+        GraphicsCommandContext context(*this);
+        context.UpdateBuffer(result, 0, initial_data, result->GetBackend<VertexBuffer>()->GetBufferSize());
+        context.Finish(true);
     }
-    return std::make_shared<Graphics::VertexBuffer>(name, std::move(buffer));
+    return result;
 }
 
 std::shared_ptr<Graphics::IndexBuffer> DX12DriverAPI::CreateIndexBuffer(std::string_view name, size_t index_count, size_t index_size, const uint8_t* initial_data) {
     auto buffer = std::make_unique<IndexBuffer>(m_Device.Get(), name, index_count, index_size);
+    auto result = std::make_shared<Graphics::IndexBuffer>(name, std::move(buffer), index_count, index_size);
     if (initial_data) {
-        CopyCommandContext context(*this);
-        context.InitializeBuffer(*buffer, initial_data, buffer->GetBufferSize());
+        GraphicsCommandContext context(*this);
+        context.UpdateBuffer(result, 0, initial_data, result->GetBackend<IndexBuffer>()->GetBufferSize());
+        context.Finish(true);
     }
-    return std::make_shared<Graphics::IndexBuffer>(name, std::move(buffer));
+    return result;
 }
 
 std::shared_ptr<Graphics::ConstantBuffer> DX12DriverAPI::CreateConstantBuffer(std::string_view name, size_t num_elements, size_t element_size) {

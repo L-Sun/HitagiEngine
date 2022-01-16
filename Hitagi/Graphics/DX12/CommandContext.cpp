@@ -199,6 +199,18 @@ void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
         0);
 }
 
+void GraphicsCommandContext::UpdateBuffer(std::shared_ptr<Graphics::Resource> resource, size_t offset, const uint8_t* data, size_t data_size) {
+    auto& dest          = *resource->GetBackend<GpuBuffer>();
+    auto  upload_buffer = m_CpuLinearAllocator.Allocate(data_size);
+    std::copy_n(data, data_size, upload_buffer.cpu_ptr);
+
+    auto old_state = dest.m_UsageState;
+    TransitionResource(dest, D3D12_RESOURCE_STATE_COPY_DEST, true);
+    m_CommandList->CopyBufferRegion(dest.GetResource(), offset, upload_buffer.page_from.lock()->GetResource(),
+                                    upload_buffer.page_offset, data_size);
+    TransitionResource(dest, old_state, true);
+}
+
 void CopyCommandContext::InitializeBuffer(GpuResource& dest, const uint8_t* data, size_t data_size) {
     auto upload_buffer = m_CpuLinearAllocator.Allocate(data_size);
     std::copy_n(data, data_size, upload_buffer.cpu_ptr);

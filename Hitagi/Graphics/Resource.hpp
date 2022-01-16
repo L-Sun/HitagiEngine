@@ -42,11 +42,23 @@ protected:
 
 class VertexBuffer : public Resource {
 public:
-    using Resource::Resource;
+    VertexBuffer(std::string_view name, std::unique_ptr<backend::Resource> resource, size_t vertex_count, size_t vertex_size)
+        : Resource(name, std::move(resource)),
+          vertex_count(vertex_count),
+          vertex_size(vertex_size) {}
+
+    const size_t vertex_count = 0;
+    const size_t vertex_size  = 0;
 };
 class IndexBuffer : public Resource {
 public:
-    using Resource::Resource;
+    IndexBuffer(std::string_view name, std::unique_ptr<backend::Resource> resource, size_t index_count, size_t index_size)
+        : Resource(name, std::move(resource)),
+          index_count(index_count),
+          index_size(index_size) {}
+
+    const size_t index_count = 0;
+    const size_t index_size  = 0;
 };
 struct MeshBuffer {
     std::unordered_map<std::string, std::shared_ptr<VertexBuffer>> vertices;
