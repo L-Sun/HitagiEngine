@@ -69,6 +69,7 @@ struct BaseVector<T, 3> {
         std::array<T, 3> data;
         struct { T x, y, z; };
         struct { T r, g, b; };
+        Swizzle<T, 3, 0, 1> xy, uv;
         Swizzle<T, 3, 0, 1, 2> xyz, rgb;
         Swizzle<T, 3, 0, 2, 1> xzy, rbg;
         Swizzle<T, 3, 1, 0, 2> yxz, grb;
@@ -87,12 +88,13 @@ struct BaseVector<T, 4> {
         std::array<T, 4> data;
         struct { T x, y, z, w; };
         struct { T r, g, b, a; };
-        Swizzle<T, 3, 0, 1, 2> xyz, rgb;
-        Swizzle<T, 3, 0, 2, 1> xzy, rbg;
-        Swizzle<T, 3, 1, 0, 2> yxz, grb;
-        Swizzle<T, 3, 1, 2, 0> yzx, gbr;
-        Swizzle<T, 3, 2, 0, 1> zxy, brg;
-        Swizzle<T, 3, 2, 1, 0> zyx, bgr;
+        Swizzle<T, 4, 0, 1> xy, uv;
+        Swizzle<T, 4, 0, 1, 2> xyz, rgb;
+        Swizzle<T, 4, 0, 2, 1> xzy, rbg;
+        Swizzle<T, 4, 1, 0, 2> yxz, grb;
+        Swizzle<T, 4, 1, 2, 0> yzx, gbr;
+        Swizzle<T, 4, 2, 0, 1> zxy, brg;
+        Swizzle<T, 4, 2, 1, 0> zyx, bgr;
         Swizzle<T, 4, 0, 1, 2, 3> xyzw, rgba;
         Swizzle<T, 4, 2, 1, 0, 3> zyxw, bgra;
     };

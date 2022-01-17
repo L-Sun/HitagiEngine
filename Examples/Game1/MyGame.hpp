@@ -8,6 +8,9 @@ public:
     void Finalize() final;
     void Tick() final;
 
+    void DrawBone();
+    void DumpAnimation();
+
 private:
     bool           m_ShowEditor = true;
     Hitagi::Editor m_Editor;

@@ -4,41 +4,45 @@ namespace Hitagi::Asset {
 bool Animation::Animate() {
     m_Clock.Tick();
 
-    if (m_Clock.TotalTime() > m_Duration) {
+    if (m_Clock.TotalTime().count() > m_Frames.size() * m_FrameTime) {
         if (m_Loop) {
             m_Clock.Reset();
         } else
             return true;
     }
 
-    size_t frame = m_FPS * m_Clock.TotalTime().count();
+    size_t frame = FPS() * m_Clock.TotalTime().count();
 
-    for (auto&& [node, animation] : m_Channels) {
-        TRS trs = animation.at(std::min(frame, animation.size() - 1));
+    for (auto&& [node, trs] : m_Frames.at(std::min(frame, m_Frames.size() - 1))) {
         node->SetTRS(trs.translation, trs.rotation, trs.scaling);
     }
     return false;
 }
 
 void Animation::Play() {
-    if (m_Clock.TotalTime() >= m_Duration) {
+    if (m_Clock.TotalTime().count() >= m_Frames.size() * m_FrameTime) {
         m_Clock.Reset();
     }
     m_Clock.Start();
 }
 
-AnimationBuilder& AnimationBuilder::AppenTRSToChannel(std::shared_ptr<SceneNode> channle, Animation::TRS trs) {
-    m_Result->m_Channels[channle].emplace_back(std::move(trs));
+AnimationBuilder& AnimationBuilder::SetSkeleton(std::shared_ptr<BoneNode> skeleton) {
+    m_Result->m_Skeleton = skeleton;
     return *this;
 }
 
-AnimationBuilder& AnimationBuilder::SetDuration(std::chrono::duration<double> duration) {
-    m_Result->m_Duration = duration;
+AnimationBuilder& AnimationBuilder::NewFrame() {
+    m_Result->m_Frames.resize(m_Result->m_Frames.size() + 1);
+    return *this;
+}
+
+AnimationBuilder& AnimationBuilder::AppenTRSToChannel(std::shared_ptr<SceneNode> channle, Animation::TRS trs) {
+    m_Result->m_Frames.back()[channle] = std::move(trs);
     return *this;
 }
 
 AnimationBuilder& AnimationBuilder::SetFrameRate(unsigned fps) {
-    m_Result->m_FPS = fps;
+    m_Result->m_FrameTime = 1.0 / static_cast<double>(fps);
     return *this;
 }
 

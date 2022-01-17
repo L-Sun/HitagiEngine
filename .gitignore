@@ -2,6 +2,7 @@
 /Assets/Textures
 /Assets/Scenes
 /Assets/Motions
+/Temp
 
 # ispc header will be generated during compilation
 *_ispc.h

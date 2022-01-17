@@ -25,19 +25,25 @@ public:
     inline bool IsLoop() const noexcept { return m_Loop; }
     inline void SetLoop(bool loop) noexcept { m_Loop = loop; }
 
+    inline unsigned    FPS() const noexcept { return static_cast<unsigned>(1.0f / m_FrameTime); }
+    inline double      FrameTime() const noexcept { return m_FrameTime; }
+    inline const auto& Data() const noexcept { return m_Frames; }
+    inline auto        GetSkeleton() noexcept { return m_Skeleton; }
+
 private:
     Core::Clock                                                      m_Clock;
     bool                                                             m_Loop = false;
-    std::chrono::duration<double>                                    m_Duration;
-    unsigned                                                         m_FPS;
-    std::unordered_map<std::shared_ptr<SceneNode>, std::vector<TRS>> m_Channels;
+    std::vector<std::unordered_map<std::shared_ptr<SceneNode>, TRS>> m_Frames;
+    double                                                           m_FrameTime;
+    std::shared_ptr<BoneNode>                                        m_Skeleton;
 };
 
 class AnimationBuilder {
 public:
     AnimationBuilder() : m_Result(std::make_shared<Animation>()) {}
+    AnimationBuilder&          SetSkeleton(std::shared_ptr<BoneNode> skeleton);
+    AnimationBuilder&          NewFrame();
     AnimationBuilder&          AppenTRSToChannel(std::shared_ptr<SceneNode> channle, Animation::TRS trs);
-    AnimationBuilder&          SetDuration(std::chrono::duration<double> duration);
     AnimationBuilder&          SetFrameRate(unsigned fps);
     std::shared_ptr<Animation> Finish();
 

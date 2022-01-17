@@ -3,6 +3,7 @@
 namespace Hitagi::Asset {
 
 void Scene::AddSkeleton(std::shared_ptr<BoneNode> skeleton) {
+    // TODO
     scene_graph->AppendChild(skeleton);
     std::function<void(std::shared_ptr<BoneNode>)> recusive = [&](std::shared_ptr<BoneNode> bone) {
         bone_nodes.emplace_back(bone);

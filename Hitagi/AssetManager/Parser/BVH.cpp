@@ -33,7 +33,7 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
 
     std::vector<decltype(root)> stack;
     size_t                      pos            = 0;
-    size_t                      totle_channels = 0;
+    size_t                      total_channels = 0;
     for (; pos < tokens.size(); pos++) {
         if (tokens[pos] == "HIERARCHY") {
             continue;
@@ -64,7 +64,7 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
         // ! the means of CHANNELS of .bvh format is not same as our engine
         else if (tokens[pos] == "CHANNELS") {
             size_t channels_count = std::stoi(tokens[pos + 1]);
-            totle_channels += channels_count;
+            total_channels += channels_count;
             auto& [_, channels] = joints_channels.emplace_back(current_node, std::vector<Channel>{});
 
             for (size_t i = 0; i < channels_count; i++) {
@@ -98,18 +98,16 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
         pos++;
     }
 
-    if ((tokens.size() - pos) / num_frames != totle_channels) {
+    if ((tokens.size() - pos) / num_frames != total_channels) {
         logger->warn("the animation data is broken!");
         return {root, nullptr};
     }
 
-    anima_builder
-        .SetDuration(
-            std::chrono::milliseconds(static_cast<long long unsigned>(
-                1000.0 * static_cast<double>(num_frames) * frame_time)))
-        .SetFrameRate(1.0 / frame_time);
+    anima_builder.SetFrameRate(1.0 / frame_time).SetSkeleton(root);
 
     for (size_t i = 0; i < num_frames; i++) {
+        anima_builder.NewFrame();
+
         for (auto&& [joint, channels] : joints_channels) {
             vec3f translation = joint->GetPosition();
             mat4f rotation(1.0f);

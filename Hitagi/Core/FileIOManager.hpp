@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <unordered_map>
+#include <fstream>
 
 #include "IRuntimeModule.hpp"
 #include "Buffer.hpp"
