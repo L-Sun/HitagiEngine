@@ -27,16 +27,18 @@ public:
 
     inline vec3f GetPosition(bool local_space = true) const { return local_space ? m_Translation : get_translation(m_RuntimeTransform); }
     inline vec3f GetOrientation() const { return quaternion_to_euler(m_Rotation); }
-    inline vec3f GetScaling() const { return m_Scaling; }
-    mat4f        GetParentSpace() const;
-    mat4f        GetCalculatedTransformation();
+    inline vec3f GetScaling() const noexcept { return m_Scaling; }
+    inline vec3f GetVelocity() const noexcept { return m_Velocity; }
+
+    mat4f GetCalculatedTransformation();
 
     void SetTRS(const vec3f& translation, const quatf& routation, const vec3f& scaling);
     // Apply a transformation to the node in its parent's space
-    void ApplyTransform(const mat4f& mat);
-    void Translate(const vec3f& translate);
-    void Rotate(const vec3f& eular);
-    void Scale(const vec3f value);
+    void        ApplyTransform(const mat4f& mat);
+    void        Translate(const vec3f& translate);
+    void        Rotate(const vec3f& eular);
+    void        Scale(const vec3f& value);
+    inline void SetVelocity(vec3f velocity) noexcept { m_Velocity = velocity; }
 
     friend std::ostream& operator<<(std::ostream& out, const SceneNode& node);
 
@@ -52,6 +54,7 @@ protected:
     vec3f m_Translation{0.0f, 0.0f, 0.0f};
     quatf m_Rotation{0.0f, 0.0f, 0.0f, 1.0f};
     vec3f m_Scaling{1.0f, 1.0f, 1.0f};
+    vec3f m_Velocity{0.0f, 0.0f, 0.0f};
 
     mat4f m_RuntimeTransform = mat4f(1.0f);
 };

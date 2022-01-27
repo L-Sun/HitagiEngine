@@ -2,6 +2,12 @@
 
 namespace Hitagi::Asset {
 bool Animation::Animate() {
+    if (m_Clock.IsPaused()) return false;
+
+    auto deltatime = m_Clock.DeltaTime().count();
+    if (deltatime < m_FrameTime)
+        return false;
+
     m_Clock.Tick();
 
     if (m_Clock.TotalTime().count() > m_Frames.size() * m_FrameTime) {
@@ -10,11 +16,12 @@ bool Animation::Animate() {
         } else
             return true;
     }
-
     size_t frame = FPS() * m_Clock.TotalTime().count();
 
     for (auto&& [node, trs] : m_Frames.at(std::min(frame, m_Frames.size() - 1))) {
+        vec3f velocity = (trs.translation - node->GetPosition()) / deltatime;
         node->SetTRS(trs.translation, trs.rotation, trs.scaling);
+        node->SetVelocity(velocity);
     }
     return false;
 }
