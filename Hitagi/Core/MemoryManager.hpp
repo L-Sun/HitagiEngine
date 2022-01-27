@@ -1,34 +1,35 @@
 #pragma once
 #include "IRuntimeModule.hpp"
-#include "Allocator.hpp"
+
+#include <memory_resource>
 
 namespace Hitagi::Core {
+constexpr std::uint64_t operator""_kb(unsigned long long val) { return static_cast<std::uint64_t>(val) << 10; }
+
+class MemoryPool : public std::pmr::synchronized_pool_resource {
+public:
+    MemoryPool(const std::pmr::pool_options& options, std::shared_ptr<spdlog::logger> logger)
+        : synchronized_pool_resource(options),
+          m_Logger(logger) {}
+
+private:
+    [[nodiscard]] void* do_allocate(size_t bytes, size_t alignment = alignof(std::max_align_t)) final;
+    void                do_deallocate(void* p, size_t bytes, size_t alignment) final;
+
+    std::shared_ptr<spdlog::logger> m_Logger = nullptr;
+};
+
 class MemoryManager : public IRuntimeModule {
 public:
-    template <typename T, typename... Arguments>
-    T* New(Arguments... parameters) {
-        return new (Allocator(sizeof(T))) T(parameters...);
-    }
-
-    template <typename T>
-    void Delete(T* p) {
-        reinterpret_cast<T*>(p)->~T();
-        Free(p, sizeof(T));
-    }
-
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;
 
-    [[nodiscard]] void* Allocate(size_t size);
-    [[nodiscard]] void* Allocate(size_t size, size_t alignment);
-    void                Free(void* p, size_t size);
+    [[nodiscard]] void* Allocate(size_t bytes, size_t alignment = alignof(std::max_align_t));
+    void                Free(void* p, size_t bytes, size_t alignment);
 
 private:
-    inline static size_t*    sm_BlockSizeLookup = nullptr;
-    inline static Allocator* sm_Allocators      = nullptr;
-    static Allocator*        LookUpAllocator(size_t size);
-    bool                     m_Initialized = false;
+    std::unique_ptr<MemoryPool> m_Pools;
 };
 
 }  // namespace Hitagi::Core

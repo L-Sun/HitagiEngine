@@ -1,6 +1,6 @@
 add_subdirectory(HitagiMath)
 
-add_library(MemoryManager   Allocator.cpp Buffer.cpp MemoryManager.cpp)
+add_library(MemoryManager   Buffer.cpp MemoryManager.cpp)
 add_library(FileIOManager   FileIOManager.cpp)
 add_library(Timer           Timer.cpp)
 add_library(ThreadManager   ThreadManager.cpp)
