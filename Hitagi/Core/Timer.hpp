@@ -12,18 +12,17 @@ public:
     std::chrono::high_resolution_clock::time_point GetBaseTime() const;
     std::chrono::high_resolution_clock::time_point TickTime() const;
 
-    void Reset();
-    void Start();
-    void Tick();
-    void Pause();
+    void        Reset();
+    void        Start();
+    void        Tick();
+    void        Pause();
+    inline bool IsPaused() const noexcept { return m_Paused; }
 
 private:
-    std::chrono::duration<double> m_DeltaTime  = std::chrono::duration<double>::zero();
     std::chrono::duration<double> m_PausedTime = std::chrono::duration<double>::zero();
 
     std::chrono::high_resolution_clock::time_point m_BaseTime;
     std::chrono::high_resolution_clock::time_point m_StopTime;
-    std::chrono::high_resolution_clock::time_point m_PrevTime;
     std::chrono::high_resolution_clock::time_point m_TickTime;
 
     bool m_Paused = true;

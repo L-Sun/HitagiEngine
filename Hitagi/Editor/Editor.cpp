@@ -124,14 +124,15 @@ void Editor::SceneExplorer() {
                     {
                         auto position    = node->GetPosition();
                         auto orientation = 180.0f * std::numbers::inv_pi * node->GetOrientation();
-                        auto scaling     = node->GetScaling();
+                        auto velocity    = node->GetVelocity();
 
                         bool changed = false;
                         changed      = ImGui::DragFloat3("Translation", position, 1.0f, 0.0f, 0.0f, "%.02f m") || changed;
                         changed      = ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °") || changed;
+                        ImGui::DragFloat3("Velocity", velocity, 0.0f, 0.0f, 0.0f, "%.03f °");
 
                         if (changed) {
-                            node->SetTRS(position, euler_to_quaternion(radians(orientation)), scaling);
+                            node->SetTRS(position, euler_to_quaternion(radians(orientation)), vec3f(1.0f));
                         }
                     }
 

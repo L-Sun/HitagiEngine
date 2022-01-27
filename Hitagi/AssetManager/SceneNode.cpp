@@ -1,17 +1,15 @@
 #include "SceneNode.hpp"
 namespace Hitagi::Asset {
-auto SceneNode::GetParentSpace() const -> mat4f {
-    mat4f result(1.0f);
-    if (auto parent = m_Parent.lock()) result = parent->GetCalculatedTransformation();
-    return result;
-}
 
 auto SceneNode::GetCalculatedTransformation() -> mat4f {
     if (m_TransformDirty) {
         m_RuntimeTransform = translate(rotate(scale(mat4f(1.0f), m_Scaling), m_Rotation), m_Translation);
-        m_TransformDirty   = false;
+        if (auto parent = m_Parent.lock()) {
+            m_RuntimeTransform = parent->GetCalculatedTransformation() * m_RuntimeTransform;
+        }
+        m_TransformDirty = false;
     }
-    return GetParentSpace() * m_RuntimeTransform;
+    return m_RuntimeTransform;
 }
 
 auto SceneNode::SetTRS(const vec3f& translation, const quatf& routation, const vec3f& scaling) -> void {
@@ -41,7 +39,7 @@ auto SceneNode::Rotate(const vec3f& eular) -> void {
     m_Rotation = euler_to_quaternion(eular) * m_Rotation;
     SetTransformDirty();
 }
-auto SceneNode::Scale(const vec3f value) -> void {
+auto SceneNode::Scale(const vec3f& value) -> void {
     m_Scaling = m_Scaling * value;
     SetTransformDirty();
 }

@@ -17,6 +17,7 @@ find_package(imgui CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
+find_package(onnxruntime CONFIG REQUIRED)
 
 find_package(GTest CONFIG REQUIRED)
 include(CTest)
