@@ -7,7 +7,7 @@
 
 namespace Hitagi::Core {
 
-constexpr size_t operator""_kB(unsigned long long val) { return val << 10; }
+constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
 class MemoryPool : public std::pmr::memory_resource {
 public:
@@ -16,8 +16,8 @@ public:
     MemoryPool& operator=(const MemoryPool&) = delete;
 
 private:
-    [[nodiscard]] void* do_allocate(size_t bytes, size_t alignment = alignof(std::max_align_t)) final;
-    void                do_deallocate(void* p, size_t bytes, size_t alignment) final;
+    [[nodiscard]] void* do_allocate(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) final;
+    void                do_deallocate(void* p, std::size_t bytes, std::size_t alignment) final;
     bool                do_is_equal(const std::pmr::memory_resource& other) const noexcept final {
         return this == &other;
     }
@@ -26,35 +26,56 @@ private:
         Block* next = nullptr;
     };
 
-    using Page = std::unique_ptr<std::byte[]>;
+    class Page {
+    public:
+        Page(std::size_t page_size, std::size_t block_size);
+        Page(const Page&) = delete;
+        Page& operator=(const Page&) = delete;
+        Page(Page&&);
+        Page& operator=(Page&&);
+        ~Page();
+
+        template <typename T>
+        inline auto get() noexcept { return reinterpret_cast<std::remove_cv_t<T>*>(data); }
+
+    private:
+        const std::size_t      size;
+        const std::align_val_t alignment;
+        std::byte*             data;
+    };
 
     struct Pool {
-        std::mutex m_Mutex;
+        std::mutex m_Mutex{};
 
-        std::list<Page> pages;
-        Block*          free_list = nullptr;
-        size_t          page_size;
-        size_t          block_size;
-        size_t          num_free_blocks = 0;
+        std::list<Page> pages{};
+        Block*          free_list       = nullptr;
+        std::size_t     page_size       = 8_kB;
+        std::size_t     block_size      = 0;
+        std::size_t     num_free_blocks = 0;
 
         Page&                new_page();
         [[nodiscard]] Block* allocate();
         void                 deallocate(Block* block);
     };
 
-    std::optional<std::reference_wrapper<Pool>> GetPool(size_t bytes);
-
     constexpr static std::array block_size = {
         // 4-increments
-        8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96,
+        8u, 12u, 16u, 20u, 24u, 28u, 32u, 36u, 40u, 44u, 48u, 52u, 56u, 60u, 64u, 68u, 72u, 76u, 80u, 84u, 88u, 92u, 96u,
 
         // 32-increments
-        128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640,
+        128u, 160u, 192u, 224u, 256u, 288u, 320u, 352u, 384u, 416u, 448u, 480u, 512u, 544u, 576u, 608u, 640u,
 
         // 64-increments
-        704, 768, 832, 896, 960, 1024};
+        704u, 768u, 832u, 896u, 960u, 1024u};
+
+    std::optional<std::reference_wrapper<Pool>> GetPool(std::size_t bytes);
 
     std::array<Pool, block_size.size()> m_Pools;
+
+    template <std::size_t... Ns>
+    constexpr auto InitPools(std::index_sequence<Ns...>) {
+        return std::array{(Pool{.block_size = block_size.at(Ns)})...};
+    }
 
     std::shared_ptr<spdlog::logger> m_Logger;
 };
@@ -65,8 +86,8 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    [[nodiscard]] void* Allocate(size_t bytes, size_t alignment = alignof(std::max_align_t));
-    void                Free(void* p, size_t bytes, size_t alignment);
+    [[nodiscard]] void* Allocate(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t));
+    void                Free(void* p, std::size_t bytes, std::size_t alignment);
 
 private:
     std::unique_ptr<MemoryPool> m_Pools;

@@ -13,19 +13,42 @@ std::unique_ptr<Core::MemoryManager> g_MemoryManager = std::make_unique<Core::Me
 
 namespace Hitagi::Core {
 
-auto MemoryPool::Pool::new_page() -> Page& {
-    auto page = std::unique_ptr<std::byte[]>(
-        new (std::align_val_t(block_size)) std::byte[page_size]);
+MemoryPool::Page::Page(std::size_t size, std::size_t block_size)
+    : size(size),
+      alignment(std::align_val_t(0x1 << std::countr_zero(block_size))),
+      data(new (alignment) std::byte[size]) {}
 
-    size_t num_block = page_size / block_size;
+MemoryPool::Page::Page(Page&& other)
+    : size(other.size), alignment(other.alignment), data(other.data) {
+    other.data = nullptr;
+}
+
+auto MemoryPool::Page::operator=(Page&& rhs) -> Page& {
+    if (this != &rhs) {
+        data     = rhs.data;
+        rhs.data = nullptr;
+    }
+    return *this;
+}
+
+MemoryPool::Page::~Page() {
+    if (data != nullptr) {
+        operator delete[](data, alignment);
+    }
+}
+
+auto MemoryPool::Pool::new_page() -> Page& {
+    Page page{page_size, block_size};
+
+    std::size_t num_block = page_size / block_size;
     num_free_blocks += num_block;
 
-    constexpr auto next_block = [](Block* block, size_t block_size) -> Block* {
+    constexpr auto next_block = [](Block* block, std::size_t block_size) -> Block* {
         return reinterpret_cast<Block*>(reinterpret_cast<std::byte*>(block) + block_size);
     };
 
-    auto p_block = reinterpret_cast<Block*>(page.get());
-    for (size_t i = 0; i < num_block - 1; i++) {
+    auto p_block = page.get<Block>();
+    for (std::size_t i = 0; i < num_block - 1; i++) {
         p_block->next = next_block(p_block, block_size);
         p_block       = next_block(p_block, block_size);
     }
@@ -38,7 +61,7 @@ auto MemoryPool::Pool::allocate() -> Block* {
 
     if (free_list == nullptr) {
         auto& page        = new_page();
-        auto  first_block = reinterpret_cast<Block*>(page.get());
+        auto  first_block = page.get<Block>();
         free_list         = first_block;
     }
     Block* result = free_list;
@@ -55,25 +78,22 @@ auto MemoryPool::Pool::deallocate(Block* block) -> void {
 }
 
 MemoryPool::MemoryPool(std::shared_ptr<spdlog::logger> logger)
-    : m_Logger(logger) {
+    : m_Logger(logger),
+      m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})) {
     m_Logger->set_level(spdlog::level::debug);
-    for (size_t i = 0; i < block_size.size(); i++) {
-        m_Pools.at(i).block_size = block_size.at(i);
-        m_Pools.at(i).page_size  = 8_kB;
-    }
 }
 
-auto MemoryPool::GetPool(size_t bytes) -> std::optional<std::reference_wrapper<Pool>> {
-    auto   iter  = std::lower_bound(std::begin(block_size), std::end(block_size), bytes);
-    size_t index = std::distance(std::begin(block_size), iter);
+auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrapper<Pool>> {
+    auto        iter  = std::lower_bound(std::begin(block_size), std::end(block_size), bytes);
+    std::size_t index = std::distance(std::begin(block_size), iter);
     if (index == m_Pools.size()) {
         return std::nullopt;
     }
     return m_Pools.at(index);
 }
 
-auto MemoryPool::do_allocate(size_t bytes, size_t alignment) -> void* {
-    if (auto pool = GetPool(bytes); pool.has_value()) {
+auto MemoryPool::do_allocate(std::size_t bytes, std::size_t alignment) -> void* {
+    if (auto pool = GetPool(align(bytes, alignment)); pool.has_value()) {
         auto result = pool->get().allocate();
         m_Logger->debug("Pool({} bytes): num_pages: {}, free_blocks: {}",
                         pool->get().block_size,
@@ -86,10 +106,11 @@ auto MemoryPool::do_allocate(size_t bytes, size_t alignment) -> void* {
     return new (std::align_val_t(alignment)) std::byte[bytes];
 }
 
-auto MemoryPool::do_deallocate(void* p, size_t bytes, size_t alignment) -> void {
-    if (auto pool = GetPool(bytes); pool.has_value()) return pool->get().deallocate(reinterpret_cast<Block*>(p));
+auto MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment) -> void {
+    if (auto pool = GetPool(align(bytes, alignment)); pool.has_value())
+        return pool->get().deallocate(reinterpret_cast<Block*>(p));
 
-    delete[] reinterpret_cast<std::byte*>(p);
+    operator delete[](reinterpret_cast<std::byte*>(p), std::align_val_t{alignment});
 }
 
 int MemoryManager::Initialize() {
@@ -113,11 +134,11 @@ void MemoryManager::Finalize() {
 
 void MemoryManager::Tick() {}
 
-void* MemoryManager::Allocate(size_t bytes, size_t alignment) {
+void* MemoryManager::Allocate(std::size_t bytes, std::size_t alignment) {
     return m_Pools->allocate(bytes, alignment);
 }
 
-void MemoryManager::Free(void* p, size_t bytes, size_t alignment) {
+void MemoryManager::Free(void* p, std::size_t bytes, std::size_t alignment) {
     m_Pools->deallocate(p, bytes, alignment);
 }
 
