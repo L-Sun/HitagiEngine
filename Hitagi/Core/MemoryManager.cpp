@@ -16,7 +16,7 @@ namespace Hitagi::Core {
 MemoryPool::Page::Page(std::size_t size, std::size_t block_size)
     : size(size),
       alignment(std::align_val_t(0x1 << std::countr_zero(block_size))),
-      data(new (alignment) std::byte[size]) {}
+      data(static_cast<std::byte*>(operator new[](size, alignment))) {}
 
 MemoryPool::Page::Page(Page&& other)
     : size(other.size), alignment(other.alignment), data(other.data) {
@@ -80,7 +80,6 @@ auto MemoryPool::Pool::deallocate(Block* block) -> void {
 MemoryPool::MemoryPool(std::shared_ptr<spdlog::logger> logger)
     : m_Logger(logger),
       m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})) {
-    m_Logger->set_level(spdlog::level::debug);
 }
 
 auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrapper<Pool>> {
@@ -95,15 +94,10 @@ auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrap
 auto MemoryPool::do_allocate(std::size_t bytes, std::size_t alignment) -> void* {
     if (auto pool = GetPool(align(bytes, alignment)); pool.has_value()) {
         auto result = pool->get().allocate();
-        m_Logger->debug("Pool({} bytes): num_pages: {}, free_blocks: {}",
-                        pool->get().block_size,
-                        pool->get().pages.size(),
-                        pool->get().num_free_blocks);
         return result;
     }
 
-    m_Logger->debug("using new/delete to allocate {} bytes", bytes);
-    return new (std::align_val_t(alignment)) std::byte[bytes];
+    return operator new[](bytes, std::align_val_t(alignment));
 }
 
 auto MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment) -> void {
