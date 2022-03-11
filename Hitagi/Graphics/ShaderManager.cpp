@@ -20,13 +20,13 @@ void ShaderManager::LoadShader(std::filesystem::path shader_path, ShaderType typ
     if (name.empty()) name = shader_path.filename().string();
     switch (type) {
         case ShaderType::Vertex:
-            m_VertexShaders.emplace(name, std::make_shared<VertexShader>(data));
+            m_VertexShaders.emplace(name, std::make_shared<VertexShader>(std::move(data)));
             break;
         case ShaderType::Pixel:
-            m_PixelShaders.emplace(name, std::make_shared<PixelShader>(data));
+            m_PixelShaders.emplace(name, std::make_shared<PixelShader>(std::move(data)));
             break;
         case ShaderType::Compute:
-            m_ComputeShaders.emplace(name, std::make_shared<ComputeShader>(data));
+            m_ComputeShaders.emplace(name, std::make_shared<ComputeShader>(std::move(data)));
         default:
             spdlog::get("GraphicsManager")->error("[ShaderManager] Unsupport shader type: {}", magic_enum::enum_name(type));
     }
