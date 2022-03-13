@@ -2,6 +2,9 @@
 #include "Application.hpp"
 #include <Windows.h>
 
+#undef min
+#undef max
+
 namespace Hitagi {
 class Win32Application : public Application {
 public:

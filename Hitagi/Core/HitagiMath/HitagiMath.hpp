@@ -441,28 +441,28 @@ Matrix<T, D> absolute(const Matrix<T, D>& a) {
 
 template <typename T, unsigned D>
 Vector<T, D> max(const Vector<T, D>& a, const T& b) {
-    Vector<T, D> res;
+    Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b);
     return res;
 }
 
 template <typename T, unsigned D>
 Vector<T, D> max(const Vector<T, D>& a, const Vector<T, D>& b) {
-    Vector<T, D> res;
+    Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b[i]);
     return res;
 }
 
 template <typename T, unsigned D>
 Vector<T, D> min(const Vector<T, D>& a, const T& b) {
-    Vector<T, D> res;
+    Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b);
     return res;
 }
 
 template <typename T, unsigned D>
 Vector<T, D> min(const Vector<T, D>& a, const Vector<T, D>& b) {
-    Vector<T, D> res;
+    Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b[i]);
     return res;
 }

@@ -17,11 +17,11 @@ public:
     inline void UpdateKeyState(VirtualKeyCode key, bool state) noexcept {
         m_KeyState[static_cast<size_t>(key)].Update(state);
     }
-    inline void UpdatePointerState(std::array<float, 2> position) noexcept {
-        m_MouseState.position.Update(position);
+    inline void UpdatePointerState(float x, float y) noexcept {
+        m_MouseState.position.Update(vec2f{x, y});
     }
-    inline void UpdateWheelState(float delta) noexcept {
-        m_MouseState.scroll.Update(m_MouseState.scroll.current + delta);
+    inline void UpdateWheelState(float delta_v, float delta_h) noexcept {
+        m_MouseState.scroll.Update(m_MouseState.scroll.current + vec2f{delta_v, delta_h});
     }
     inline void AppendInputText(std::u32string text) noexcept {
         m_TextInput.append(std::move(text));

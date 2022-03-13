@@ -50,8 +50,10 @@ bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const
                         return (m_MouseState.position.current[0] - m_MouseState.position.previous[0]) != 0;
                     case MouseEvent::MOVE_Y:
                         return (m_MouseState.position.current[1] - m_MouseState.position.previous[1]) != 0;
-                    case MouseEvent::SCROLL:
-                        return m_MouseState.scroll.current != 0;
+                    case MouseEvent::SCROLL_X:
+                        return m_MouseState.scroll.current.x != 0;
+                    case MouseEvent::SCROLL_Y:
+                        return m_MouseState.scroll.current.y != 0;
                 }
                 throw std::logic_error(fmt::format("unimpletement mouse event: {}", magic_enum::enum_name(event)));
             },
@@ -71,8 +73,10 @@ bool InputManager::GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) co
                         return (m_MouseState.position.current[0] - m_MouseState.position.previous[0]) != 0;
                     case MouseEvent::MOVE_Y:
                         return (m_MouseState.position.current[1] - m_MouseState.position.previous[1]) != 0;
-                    case MouseEvent::SCROLL:
-                        return m_MouseState.scroll.current != m_MouseState.scroll.previous;
+                    case MouseEvent::SCROLL_X:
+                        return m_MouseState.scroll.current.x != m_MouseState.scroll.previous.x;
+                    case MouseEvent::SCROLL_Y:
+                        return m_MouseState.scroll.current.y != m_MouseState.scroll.previous.y;
                 }
                 throw std::logic_error(fmt::format("unimpletement mouse event: {}", magic_enum::enum_name(event)));
             },
@@ -92,8 +96,10 @@ float InputManager::GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) con
                         return m_MouseState.position.current[0];
                     case MouseEvent::MOVE_Y:
                         return m_MouseState.position.current[1];
-                    case MouseEvent::SCROLL:
-                        return m_MouseState.scroll.current;
+                    case MouseEvent::SCROLL_X:
+                        return m_MouseState.scroll.current.x;
+                    case MouseEvent::SCROLL_Y:
+                        return m_MouseState.scroll.current.y;
                 }
                 throw std::logic_error(fmt::format("unimpletement mouse event: {}", magic_enum::enum_name(event)));
             },
@@ -116,8 +122,10 @@ float InputManager::GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event
                         return m_MouseState.position.current[0] - m_MouseState.position.previous[0];
                     case MouseEvent::MOVE_Y:
                         return m_MouseState.position.current[1] - m_MouseState.position.previous[1];
-                    case MouseEvent::SCROLL:
-                        return m_MouseState.scroll.current - m_MouseState.scroll.previous;
+                    case MouseEvent::SCROLL_X:
+                        return m_MouseState.scroll.current.x - m_MouseState.scroll.previous.x;
+                    case MouseEvent::SCROLL_Y:
+                        return m_MouseState.scroll.current.y - m_MouseState.scroll.previous.y;
                 }
                 throw std::logic_error(fmt::format("unimpletement mouse event: {}", magic_enum::enum_name(event)));
             },

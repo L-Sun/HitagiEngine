@@ -1,5 +1,8 @@
 #pragma once
+#include "HitagiMath.hpp"
+
 #include <array>
+
 namespace Hitagi {
 
 template <typename T>
@@ -23,22 +26,24 @@ struct DoubleState {
 
 using KeyState = DoubleState<bool>;
 struct MouseState {
-    DoubleState<std::array<float, 2>> position;
-    DoubleState<float>                scroll;
+    DoubleState<vec2f> position;
+    DoubleState<vec2f> scroll;
 };
 
 enum class MouseEvent {
     MOVE_X,
     MOVE_Y,
-    SCROLL,
+    SCROLL_Y,
+    SCROLL_X,
 };
 
 enum class VirtualKeyCode {
+    NONE           = 0x0,
     MOUSE_L_BUTTON = 0x01,
     MOUSE_R_BUTTON = 0x02,
     // KEY_CANCEL =0x03  //	Control-break processing
     MOUSE_M_BUTTON = 0x04,
-    KEY_BACK       = 0x08,
+    KEY_BACKSPACE  = 0x08,
     KEY_TAB        = 0x09,
     // ...
     KEY_CLEAR = 0x0C,
@@ -50,10 +55,10 @@ enum class VirtualKeyCode {
     KEY_PAUSE     = 0x13,
     KEY_CAPS_LOCK = 0x14,
     // ...
-    KEY_ESC = 0x1B,
+    KEY_ESCAPE = 0x1B,
     // ...
     KEY_SPACE = 0x20,
-    KEY_PGAE_UP,
+    KEY_PAGE_UP,
     KEY_PAGE_DOWN,
     KEY_END,
     KEY_HOME,
@@ -65,8 +70,8 @@ enum class VirtualKeyCode {
     KEY_PRINT,
     KEY_EXE,
     KEY_SNAPSHOT,
-    KEY_INS,
-    KEY_DEL,
+    KEY_INSERT,
+    KEY_DELETE,
     KEY_HELP,
 
     KEY_0 = 0x30,
@@ -117,6 +122,12 @@ enum class VirtualKeyCode {
     KEY_NUMPAD_7,
     KEY_NUMPAD_8,
     KEY_NUMPAD_9,
+    KEY_NUMPAD_MULTIPLY,
+    KEY_NUMPAD_ADD,
+    KEY_NUMPAD_SEPARA,
+    KEY_NUMPAD_SUBTRACT,
+    KEY_NUMPAD_DECIMAL,
+    KEY_NUMPAD_DIVIDE,
 
     KEY_F1 = 0x70,
     KEY_F2,
@@ -143,16 +154,28 @@ enum class VirtualKeyCode {
     KEY_F23,
     KEY_F24,
 
-    KEY_NUMLOCK     = 0x90,
+    KEY_NUM_LOCK    = 0x90,
     KEY_SCROLL_LOCK = 0x91,
 
     KEY_L_SHIFT = 0xA0,
     KEY_R_SHIFT,
     KEY_L_CTRL,
     KEY_R_CTRL,
-    KEY_L_MENU,
-    KEY_R_MENU,
+    KEY_L_ALT,
+    KEY_R_ALT,
 
+    // ...
+    KEY_SEMICOLON = 0xBA,    // ;:
+    KEY_EQUAL,               // =+
+    KEY_COMMA,               // ,<
+    KEY_MINUS,               // -_
+    KEY_PERIOD,              // .>
+    KEY_SLASH,               // /?
+    KEY_GRAVEACCENT,         // `~
+    KEY_LEFTBRACKET = 0XDB,  // [{
+    KEY_BACKSLASH,           // \|
+    KEY_RIGHTBRACKET,        // ]}
+    KEY_APOSTROPHE,          // '"
     NUM
 };
 

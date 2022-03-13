@@ -27,7 +27,8 @@ public:
 
 private:
     void LoadFontTexture();
-    void MapKey();
+    void MouseEvent();
+    void KeysEvent();
 
     Core::Clock                   m_Clock;
     std::shared_ptr<Asset::Image> m_FontTexture;

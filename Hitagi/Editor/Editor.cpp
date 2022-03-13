@@ -3,6 +3,7 @@
 #include "SceneManager.hpp"
 #include "DebugManager.hpp"
 #include "AssetManager.hpp"
+#include "GuiManager.hpp"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -24,6 +25,7 @@ void Editor::Finalize() {
 
 void Editor::Tick() {
     g_DebugManager->DrawAxis(scale(mat4f(1.0f), 100.0f));
+    g_GuiManager->DrawGui([this]() -> void { Draw(); });
 }
 
 void Editor::Draw() {

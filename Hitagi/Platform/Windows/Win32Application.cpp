@@ -193,15 +193,18 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_CTRL, w_param & static_cast<int>(VirtualKeyCode::KEY_R_CTRL));
             g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_L_SHIFT, w_param & static_cast<int>(VirtualKeyCode::KEY_L_SHIFT));
             g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_SHIFT, w_param & static_cast<int>(VirtualKeyCode::KEY_R_SHIFT));
-            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_L_MENU, w_param & static_cast<int>(VirtualKeyCode::KEY_L_MENU));
-            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_MENU, w_param & static_cast<int>(VirtualKeyCode::KEY_R_MENU));
+            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_L_ALT, w_param & static_cast<int>(VirtualKeyCode::KEY_L_ALT));
+            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_ALT, w_param & static_cast<int>(VirtualKeyCode::KEY_R_ALT));
             return 0;
         }
         case WM_MOUSEMOVE:
-            g_InputManager->UpdatePointerState({static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param))});
+            g_InputManager->UpdatePointerState(static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param)));
             return 0;
         case WM_MOUSEWHEEL:
-            g_InputManager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA));
+            g_InputManager->UpdateWheelState(0.0f, static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA));
+            return 0;
+        case WM_MOUSEHWHEEL:
+            g_InputManager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
             return 0;
         case WM_CHAR: {
             size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;

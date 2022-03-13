@@ -1,4 +1,5 @@
 #include "GuiManager.hpp"
+#include "ImGuiKeyMaps.hpp"
 #include "Application.hpp"
 #include "InputManager.hpp"
 #include "FileIOManager.hpp"
@@ -26,7 +27,6 @@ int GuiManager::Initialize() {
     };
 
     LoadFontTexture();
-    MapKey();
 
     return 0;
 }
@@ -42,14 +42,9 @@ void GuiManager::Tick() {
         io.DisplaySize.y = rect.bottom - rect.top;
 
         // Update HID
-        io.MousePos = ImVec2(g_InputManager->GetFloat(MouseEvent::MOVE_X), g_InputManager->GetFloat(MouseEvent::MOVE_Y));
-        io.MouseWheel += g_InputManager->GetFloatDelta(MouseEvent::SCROLL);
-        io.MouseDown[0] = g_InputManager->GetBool(VirtualKeyCode::MOUSE_L_BUTTON);
-        io.MouseDown[1] = g_InputManager->GetBool(VirtualKeyCode::MOUSE_R_BUTTON);
-        io.MouseDown[2] = g_InputManager->GetBool(VirtualKeyCode::MOUSE_M_BUTTON);
-        for (int key : io.KeyMap) {
-            io.KeysDown[key] = g_InputManager->GetBool(static_cast<VirtualKeyCode>(key));
-        }
+        MouseEvent();
+        KeysEvent();
+
         io.KeyCtrl  = g_InputManager->GetBool(VirtualKeyCode::KEY_CTRL);
         io.KeyShift = g_InputManager->GetBool(VirtualKeyCode::KEY_SHIFT);
         io.KeyAlt   = g_InputManager->GetBool(VirtualKeyCode::KEY_ALT);
@@ -126,31 +121,22 @@ void GuiManager::LoadFontTexture() {
     std::copy_n(reinterpret_cast<const uint8_t*>(pixels), m_FontTexture->GetDataSize(), p_texture);
 }
 
-void GuiManager::MapKey() {
+void GuiManager::MouseEvent() {
     auto& io = ImGui::GetIO();
 
-    io.KeyMap[ImGuiKey_Tab]         = static_cast<int>(VirtualKeyCode::KEY_TAB);
-    io.KeyMap[ImGuiKey_LeftArrow]   = static_cast<int>(VirtualKeyCode::KEY_LEFT);
-    io.KeyMap[ImGuiKey_RightArrow]  = static_cast<int>(VirtualKeyCode::KEY_RIGHT);
-    io.KeyMap[ImGuiKey_UpArrow]     = static_cast<int>(VirtualKeyCode::KEY_UP);
-    io.KeyMap[ImGuiKey_DownArrow]   = static_cast<int>(VirtualKeyCode::KEY_DOWN);
-    io.KeyMap[ImGuiKey_PageUp]      = static_cast<int>(VirtualKeyCode::KEY_PGAE_UP);
-    io.KeyMap[ImGuiKey_PageDown]    = static_cast<int>(VirtualKeyCode::KEY_PAGE_DOWN);
-    io.KeyMap[ImGuiKey_Home]        = static_cast<int>(VirtualKeyCode::KEY_HOME);
-    io.KeyMap[ImGuiKey_End]         = static_cast<int>(VirtualKeyCode::KEY_END);
-    io.KeyMap[ImGuiKey_Insert]      = static_cast<int>(VirtualKeyCode::KEY_INS);
-    io.KeyMap[ImGuiKey_Delete]      = static_cast<int>(VirtualKeyCode::KEY_DEL);
-    io.KeyMap[ImGuiKey_Backspace]   = static_cast<int>(VirtualKeyCode::KEY_BACK);
-    io.KeyMap[ImGuiKey_Space]       = static_cast<int>(VirtualKeyCode::KEY_SPACE);
-    io.KeyMap[ImGuiKey_Enter]       = static_cast<int>(VirtualKeyCode::KEY_ENTER);
-    io.KeyMap[ImGuiKey_Escape]      = static_cast<int>(VirtualKeyCode::KEY_ESC);
-    io.KeyMap[ImGuiKey_KeyPadEnter] = static_cast<int>(VirtualKeyCode::KEY_ENTER);
-    io.KeyMap[ImGuiKey_A]           = static_cast<int>(VirtualKeyCode::KEY_A);
-    io.KeyMap[ImGuiKey_C]           = static_cast<int>(VirtualKeyCode::KEY_C);
-    io.KeyMap[ImGuiKey_V]           = static_cast<int>(VirtualKeyCode::KEY_V);
-    io.KeyMap[ImGuiKey_X]           = static_cast<int>(VirtualKeyCode::KEY_X);
-    io.KeyMap[ImGuiKey_Y]           = static_cast<int>(VirtualKeyCode::KEY_Y);
-    io.KeyMap[ImGuiKey_Z]           = static_cast<int>(VirtualKeyCode::KEY_Z);
+    io.AddMousePosEvent(g_InputManager->GetFloat(MouseEvent::MOVE_X), g_InputManager->GetFloat(MouseEvent::MOVE_Y));
+    io.AddMouseWheelEvent(g_InputManager->GetFloat(MouseEvent::SCROLL_X), g_InputManager->GetFloat(MouseEvent::SCROLL_Y));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Left, g_InputManager->GetBool(VirtualKeyCode::MOUSE_L_BUTTON));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Right, g_InputManager->GetBool(VirtualKeyCode::MOUSE_R_BUTTON));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, g_InputManager->GetBool(VirtualKeyCode::MOUSE_M_BUTTON));
+}
+
+void GuiManager::KeysEvent() {
+    auto& io = ImGui::GetIO();
+
+    for (int key = ImGuiKey_NamedKey_BEGIN; key < ImGuiKey_NamedKey_END; key++) {
+        io.AddKeyEvent(key, g_InputManager->GetBool(convert_imgui_key(key)));
+    }
 }
 
 }  // namespace Hitagi::Gui
