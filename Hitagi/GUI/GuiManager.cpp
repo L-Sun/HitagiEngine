@@ -32,7 +32,6 @@ int GuiManager::Initialize() {
 }
 
 void GuiManager::Tick() {
-    m_Clock.Tick();
     {
         auto& io = ImGui::GetIO();
 
@@ -45,9 +44,6 @@ void GuiManager::Tick() {
         MouseEvent();
         KeysEvent();
 
-        io.KeyCtrl  = g_InputManager->GetBool(VirtualKeyCode::KEY_CTRL);
-        io.KeyShift = g_InputManager->GetBool(VirtualKeyCode::KEY_SHIFT);
-        io.KeyAlt   = g_InputManager->GetBool(VirtualKeyCode::KEY_ALT);
         // TODO IME
         for (const auto character : g_InputManager->GetInputText()) {
             io.AddInputCharacter(character);
@@ -64,6 +60,8 @@ void GuiManager::Tick() {
     }
 
     ImGui::Render();
+
+    m_Clock.Tick();
 }
 
 void GuiManager::Finalize() {
@@ -125,7 +123,7 @@ void GuiManager::MouseEvent() {
     auto& io = ImGui::GetIO();
 
     io.AddMousePosEvent(g_InputManager->GetFloat(MouseEvent::MOVE_X), g_InputManager->GetFloat(MouseEvent::MOVE_Y));
-    io.AddMouseWheelEvent(g_InputManager->GetFloat(MouseEvent::SCROLL_X), g_InputManager->GetFloat(MouseEvent::SCROLL_Y));
+    io.AddMouseWheelEvent(g_InputManager->GetFloatDelta(MouseEvent::SCROLL_X), g_InputManager->GetFloatDelta(MouseEvent::SCROLL_Y));
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, g_InputManager->GetBool(VirtualKeyCode::MOUSE_L_BUTTON));
     io.AddMouseButtonEvent(ImGuiMouseButton_Right, g_InputManager->GetBool(VirtualKeyCode::MOUSE_R_BUTTON));
     io.AddMouseButtonEvent(ImGuiMouseButton_Middle, g_InputManager->GetBool(VirtualKeyCode::MOUSE_M_BUTTON));
