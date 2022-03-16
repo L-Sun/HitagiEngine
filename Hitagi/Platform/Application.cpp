@@ -70,19 +70,19 @@ void Application::Finalize() {
 void Application::Tick() {
     OnResize();
 
-    g_ThreadManager->Tick();
-    g_MemoryManager->Tick();
-    g_DebugManager->Tick();
-    g_FileIoManager->Tick();
-    g_AssetManager->Tick();
-    g_InputManager->Tick();
-    g_GuiManager->Tick();
-    g_GameLogic->Tick();
-    g_SceneManager->Tick();
-    g_PhysicsManager->Tick();
+    g_DebugManager->Profiler("ThreadManager", []() { g_ThreadManager->Tick(); });
+    g_DebugManager->Profiler("MemoryManager", []() { g_MemoryManager->Tick(); });
+    g_DebugManager->Profiler("DebugManager", []() { g_DebugManager->Tick(); });
+    g_DebugManager->Profiler("FileIoManager", []() { g_FileIoManager->Tick(); });
+    g_DebugManager->Profiler("AssetManager", []() { g_AssetManager->Tick(); });
+    g_DebugManager->Profiler("InputManager", []() { g_InputManager->Tick(); });
+    g_DebugManager->Profiler("GuiManager", []() { g_GuiManager->Tick(); });
+    g_DebugManager->Profiler("GameLogic", []() { g_GameLogic->Tick(); });
+    g_DebugManager->Profiler("SceneManager", []() { g_SceneManager->Tick(); });
+    g_DebugManager->Profiler("PhysicsManager", []() { g_PhysicsManager->Tick(); });
 
     // -------------Before Render-------------------
-    g_GraphicsManager->Tick();
+    g_DebugManager->Profiler("GraphicsManager", []() { g_GraphicsManager->Tick(); });
     // -------------After Render--------------------
 }
 

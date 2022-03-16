@@ -26,6 +26,18 @@ public:
     void DrawAxis(const mat4f& transform, bool depth_enabled = true);
     void DrawBox(const mat4f& transform, const vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
 
+    template <typename Func>
+    void Profiler(const std::string& name, Func&& func) {
+        Core::Clock clock;
+        clock.Start();
+        clock.Tick();
+        func();
+        if (m_TimingInfo.count(name) == 0)
+            m_TimingInfo[name] = clock.DeltaTime();
+        else
+            m_TimingInfo[name] += clock.DeltaTime();
+    }
+
     inline auto GetDebugPrimitiveForRender() const noexcept {
         auto result = std::cref(m_DebugPrimitives);
         return m_DrawDebugInfo ? std::optional{result} : std::nullopt;
@@ -34,9 +46,13 @@ public:
 protected:
     void AddPrimitive(std::shared_ptr<Asset::Geometry> geometry, const mat4f& transform, const vec4f& color, std::chrono::seconds duration, bool depth_enabled);
 
+    void ShowProfilerInfo();
+
     std::vector<DebugPrimitive>      m_DebugPrimitives;
     std::shared_ptr<Asset::Geometry> m_DebugLine;
     std::shared_ptr<Asset::Geometry> m_DebugBox;
+
+    std::unordered_map<std::string, std::chrono::duration<double>> m_TimingInfo;
 
     bool m_DrawDebugInfo = true;
 };

@@ -14,7 +14,6 @@ namespace Hitagi {
 int Editor::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Editor");
     m_Logger->info("Initialize...");
-
     return 0;
 }
 

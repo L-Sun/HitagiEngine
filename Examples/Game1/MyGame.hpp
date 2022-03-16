@@ -9,6 +9,8 @@ public:
     void Tick() final;
 
 private:
+    void DrawBone();
+
     Hitagi::Core::Clock m_Clock;
     Hitagi::Editor      m_Editor;
 };

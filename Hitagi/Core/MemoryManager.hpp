@@ -11,7 +11,7 @@ constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; 
 
 class MemoryPool : public std::pmr::memory_resource {
 public:
-    MemoryPool(std::shared_ptr<spdlog::logger> logger);
+    MemoryPool();
     MemoryPool(const MemoryPool&) = delete;
     MemoryPool& operator=(const MemoryPool&) = delete;
 
@@ -76,8 +76,6 @@ private:
     constexpr auto InitPools(std::index_sequence<Ns...>) {
         return std::array{(Pool{.block_size = block_size.at(Ns)})...};
     }
-
-    std::shared_ptr<spdlog::logger> m_Logger;
 };
 
 class MemoryManager : public IRuntimeModule {

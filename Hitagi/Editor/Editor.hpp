@@ -1,6 +1,7 @@
 #pragma once
 #include "IRuntimeModule.hpp"
 #include "SceneNode.hpp"
+#include "Timer.hpp"
 
 #include <string>
 

@@ -1,8 +1,10 @@
 #include "DebugManager.hpp"
 #include "GeometryFactory.hpp"
+#include "GuiManager.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <fmt/chrono.h>
 
 #include <iostream>
 #include <algorithm>
@@ -33,6 +35,32 @@ void DebugManager::Tick() {
         std::pop_heap(m_DebugPrimitives.begin(), m_DebugPrimitives.end(), cmp);
         m_DebugPrimitives.pop_back();
     }
+    ShowProfilerInfo();
+    m_TimingInfo.clear();
+}
+
+void DebugManager::ShowProfilerInfo() {
+    g_GuiManager->DrawGui([timing_info = m_TimingInfo]() -> void {
+        if (ImGui::Begin("Profiler")) {
+            ImColor red(0.83f, 0.27f, 0.33f, 1.0f);
+            ImColor green(0.53f, 1.0f, 0.29f, 1.0f);
+
+            if (ImGui::BeginTable("Timing table", 2)) {
+                for (auto&& [name, timing] : timing_info) {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("%s: ", name.c_str());
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextColored(
+                        timing.count() * 1000.0 > 1.0f ? red : green,
+                        "%s",
+                        fmt::format("{:>10.2%Q %q}", std::chrono::duration<double, std::milli>(timing)).c_str());
+                }
+                ImGui::EndTable();
+            }
+        }
+        ImGui::End();
+    });
 }
 
 void DebugManager::ToggleDebugInfo() {
@@ -51,6 +79,7 @@ void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& col
     mat4f transform = translate(rotate(scale(mat4f(1.0f), length), theta, rotate_axis), from);
     AddPrimitive(m_DebugLine, transform, color, duration, depth_enabled);
 }
+
 void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
     const vec3f origin{0.0f, 0.0f, 0.0f};
     const vec4f x{1.0f, 0.0f, 0.0f, 1.0f};

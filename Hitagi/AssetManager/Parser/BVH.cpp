@@ -55,9 +55,9 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
             current_node->SetParent(parent);
         } else if (tokens[pos] == "OFFSET") {
             // ! Our engine is Z up, but bvh is Y up, so we need change the axis order here
-            float y = std::stof(tokens[++pos]);
-            float z = std::stof(tokens[++pos]);
-            float x = std::stof(tokens[++pos]);
+            float y = std::stof(tokens[++pos]) * 0.01;
+            float z = std::stof(tokens[++pos]) * 0.01;
+            float x = std::stof(tokens[++pos]) * 0.01;
 
             current_node->Translate(vec3f{x, y, z});
         }
@@ -121,13 +121,13 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
                 switch (channel) {
                     // ! Our engine is Z up, but bvh is Y up, so we need change the axis order here
                     case Channel::Xposition:
-                        translation.y += value;
+                        translation.y += value * 0.01;
                         break;
                     case Channel::Yposition:
-                        translation.z += value;
+                        translation.z += value * 0.01;
                         break;
                     case Channel::Zposition:
-                        translation.x += value;
+                        translation.x += value * 0.01;
                         break;
                     // ! Also we unkown the rotation order, so use axis rotation here
                     case Channel::Xrotation:

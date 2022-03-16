@@ -106,7 +106,7 @@ std::shared_ptr<Scene> SceneManager::GetSceneForPhysicsSimulation() const {
 }
 
 void SceneManager::CreateDefaultCamera(std::shared_ptr<Scene> scene) {
-    const vec3f pos    = {30.0f, 30.0f, 30.0f};
+    const vec3f pos    = {5.0f, 5.0f, 5.0f};
     const vec3f up     = {0, 0, 1};
     const vec3f direct = -pos;
 

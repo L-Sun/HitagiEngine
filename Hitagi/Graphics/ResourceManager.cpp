@@ -25,10 +25,10 @@ std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::Mesh& me
     // Create Index array
     auto& index_array = mesh.GetIndexArray();
     result->indices   = m_Driver.CreateIndexBuffer(
-        fmt::format("index-{}", id.str()),
-        index_array.GetIndexCount(),
-        index_array.GetIndexSize(),
-        index_array.GetData());
+          fmt::format("index-{}", id.str()),
+          index_array.GetIndexCount(),
+          index_array.GetIndexSize(),
+          index_array.GetData());
 
     result->primitive = mesh.GetPrimitiveType();
 

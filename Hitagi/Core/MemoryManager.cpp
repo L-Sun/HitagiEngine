@@ -77,10 +77,7 @@ auto MemoryPool::Pool::deallocate(Block* block) -> void {
     free_list   = block;
 }
 
-MemoryPool::MemoryPool(std::shared_ptr<spdlog::logger> logger)
-    : m_Logger(logger),
-      m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})) {
-}
+MemoryPool::MemoryPool() : m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})) {}
 
 auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrapper<Pool>> {
     auto        iter  = std::lower_bound(std::begin(block_size), std::end(block_size), bytes);
@@ -112,7 +109,7 @@ int MemoryManager::Initialize() {
     m_Logger->info("Initialize...");
 
     m_Logger->info("Initial Memory Pool...");
-    m_Pools = std::make_unique<MemoryPool>(m_Logger);
+    m_Pools = std::make_unique<MemoryPool>();
 
     m_Logger->debug("Set pmr default resource");
     std::pmr::set_default_resource(m_Pools.get());

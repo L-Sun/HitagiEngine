@@ -25,7 +25,7 @@ protected:
     std::unique_ptr<DriverAPI>       m_Driver;
     std::unique_ptr<ResourceManager> m_ResMgr;
 
-    static constexpr uint8_t sm_SwapChianSize    = 2;
+    static constexpr uint8_t sm_SwapChianSize    = 3;
     static constexpr Format  sm_BackBufferFormat = Format::R8G8B8A8_UNORM;
     int                      m_CurrBackBuffer    = 0;
 
