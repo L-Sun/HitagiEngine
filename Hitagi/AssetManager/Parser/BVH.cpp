@@ -98,6 +98,11 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
         pos++;
     }
 
+    if (num_frames == 0) {
+        logger->warn("The bvh file does not have frame data!");
+        return {root, nullptr};
+    }
+
     if ((tokens.size() - pos) / num_frames != total_channels) {
         logger->warn("the animation data is broken!");
         return {root, nullptr};
