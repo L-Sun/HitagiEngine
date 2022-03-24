@@ -7,9 +7,9 @@
 
 #include <iostream>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 struct ImageSource {
     const uint8_t* data;
@@ -26,7 +26,7 @@ void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
         png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
-std::shared_ptr<Image> PngParser::Parse(const Core::Buffer& buf) {
+std::shared_ptr<Image> PngParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[PNG] Parsing a empty buffer will return nullptr.");
@@ -136,4 +136,4 @@ std::shared_ptr<Image> PngParser::Parse(const Core::Buffer& buf) {
     png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
     return img;
 }
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

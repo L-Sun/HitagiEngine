@@ -3,7 +3,7 @@
 
 #include <array>
 
-namespace Hitagi {
+namespace hitagi {
 
 template <typename T>
 struct DoubleState {
@@ -26,8 +26,8 @@ struct DoubleState {
 
 using KeyState = DoubleState<bool>;
 struct MouseState {
-    DoubleState<Math::vec2f> position;
-    DoubleState<Math::vec2f> scroll;
+    DoubleState<math::vec2f> position;
+    DoubleState<math::vec2f> scroll;
 };
 
 enum class MouseEvent {
@@ -179,4 +179,4 @@ enum class VirtualKeyCode {
     NUM
 };
 
-}  // namespace Hitagi
+}  // namespace hitagi

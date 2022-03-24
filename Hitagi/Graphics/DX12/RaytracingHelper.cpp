@@ -1,7 +1,7 @@
 #include "RaytracingHelper.hpp"
 #include "CommandContext.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 void BottomLevelASGenerator::AddMesh(const MeshInfo& mesh, bool opaque) {
     auto vbv = mesh.verticesBuffer[0].VertexBufferView();
@@ -119,7 +119,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> TopLevelASGenerator::Generate(GraphicsCom
     return resultBuffer;
 }
 
-void RaytracingPipelineGenerator::AddLibrary(const Core::Buffer& dxiLibrary, const std::vector<std::wstring>& symbolExports) {
+void RaytracingPipelineGenerator::AddLibrary(const core::Buffer& dxiLibrary, const std::vector<std::wstring>& symbolExports) {
     m_Libraries.emplace_back(dxiLibrary, symbolExports);
 }
 
@@ -337,7 +337,7 @@ void RaytracingPipelineGenerator::BuildShaderExportList(std::vector<std::wstring
         exportedSymbols.emplace_back(std::move(name));
 }
 
-RaytracingPipelineGenerator::Library::Library(const Core::Buffer&              dxil,
+RaytracingPipelineGenerator::Library::Library(const core::Buffer&              dxil,
                                               const std::vector<std::wstring>& exportedSymbols)
     : m_Dxil(dxil),
       m_ExportedSymbols(exportedSymbols),
@@ -382,4 +382,4 @@ RaytracingPipelineGenerator::RootSignatureAssociation::RootSignatureAssociation(
         m_SymbolPointers[i] = m_Symbols[i].c_str();
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

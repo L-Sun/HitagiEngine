@@ -3,15 +3,15 @@
 #include "Timer.hpp"
 #include "SceneNode.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class Animation : public SceneObject {
     friend class AnimationBuilder;
 
 public:
     struct TRS {
-        Math::vec3f translation;
-        Math::quatf rotation;
-        Math::vec3f scaling;
+        math::vec3f translation;
+        math::quatf rotation;
+        math::vec3f scaling;
     };
 
     // Return:
@@ -31,7 +31,7 @@ public:
     inline auto        GetSkeleton() noexcept { return m_Skeleton; }
 
 private:
-    Core::Clock                                                      m_Clock;
+    core::Clock                                                      m_Clock;
     bool                                                             m_Loop = false;
     std::vector<std::unordered_map<std::shared_ptr<SceneNode>, TRS>> m_Frames;
     double                                                           m_FrameTime;
@@ -51,4 +51,4 @@ private:
     std::shared_ptr<Animation> m_Result;
 };
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

@@ -6,14 +6,14 @@
 
 using namespace std;
 
-class HitagiMemoryResource : public std::pmr::memory_resource {
+class hitagiMemoryResource : public std::pmr::memory_resource {
 public:
-    ~HitagiMemoryResource() override = default;
+    ~hitagiMemoryResource() override = default;
 
     void* allocate();
     void  deallocate(void* p, size_t bytes,
                      size_t alignment = alignof(std::max_align_t));
-    bool  is_equal(const HitagiMemoryResource& other) const;
+    bool  is_equal(const hitagiMemoryResource& other) const;
 
 protected:
     void* do_allocate(size_t bytes, size_t alignment) override {
@@ -49,18 +49,18 @@ public:
         size_t alignment;
     };
 
-    std::array<char, 128>  m_buffer{};
-    char*                  m_p_free        = m_buffer.data();
-    size_t                 m_n_free        = 128;
-    size_t                 m_n_allocated   = 0;
-    size_t                 m_ndeallocated = 0;
+    std::array<char, 128> m_buffer{};
+    char*                 m_p_free       = m_buffer.data();
+    size_t                m_n_free       = 128;
+    size_t                m_n_allocated  = 0;
+    size_t                m_ndeallocated = 0;
     pmr::vector<AllocRec> m_blocks;
 };
 
 int main(int argc, char const* argv[]) {
     char buffer[128];
 
-    HitagiMemoryResource ms;
+    hitagiMemoryResource ms;
 
     pmr::monotonic_buffer_resource mbr(buffer, 128);
 

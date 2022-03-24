@@ -9,12 +9,12 @@
 #include <iostream>
 #include <algorithm>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi {
-std::unique_ptr<Debugger::DebugManager> g_DebugManager = std::make_unique<Debugger::DebugManager>();
+namespace hitagi {
+std::unique_ptr<debugger::DebugManager> g_DebugManager = std::make_unique<debugger::DebugManager>();
 }
-namespace Hitagi::Debugger {
+namespace hitagi::debugger {
 constexpr auto cmp = [](const DebugPrimitive& lhs, const DebugPrimitive& rhs) -> bool {
     return lhs.expires_at > rhs.expires_at;
 };
@@ -71,7 +71,7 @@ void DebugManager::ToggleDebugInfo() {
 
 void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
     if (m_DebugLine == nullptr)
-        m_DebugLine = Asset::GeometryFactory::Line(vec3f(0.0f, 0.0f, 0.0f), vec3f(1.0f, 0.0f, 0.0f));
+        m_DebugLine = asset::GeometryFactory::Line(vec3f(0.0f, 0.0f, 0.0f), vec3f(1.0f, 0.0f, 0.0f));
 
     const vec3f dest_direction = normalize(to - from);
     const float length         = (to - from).norm();
@@ -94,12 +94,12 @@ void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
 
 void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
     if (m_DebugBox == nullptr)
-        m_DebugBox = Asset::GeometryFactory::Box(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f));
+        m_DebugBox = asset::GeometryFactory::Box(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f));
     AddPrimitive(m_DebugBox, transform, color, duration, depth_enabled);
 }
 
-void DebugManager::AddPrimitive(std::shared_ptr<Asset::Geometry> geometry, const mat4f& transform, const vec4f& color, std::chrono::seconds duration, bool depth_enabled) {
-    auto node = std::make_shared<Asset::GeometryNode>();
+void DebugManager::AddPrimitive(std::shared_ptr<asset::Geometry> geometry, const mat4f& transform, const vec4f& color, std::chrono::seconds duration, bool depth_enabled) {
+    auto node = std::make_shared<asset::GeometryNode>();
     node->SetSceneObjectRef(geometry);
     node->ApplyTransform(transform);
     m_DebugPrimitives.emplace_back(DebugPrimitive{node, color, std::chrono::high_resolution_clock::now() + duration});
@@ -107,4 +107,4 @@ void DebugManager::AddPrimitive(std::shared_ptr<Asset::Geometry> geometry, const
     std::push_heap(m_DebugPrimitives.begin(), m_DebugPrimitives.end(), cmp);
 }
 
-}  // namespace Hitagi::Debugger
+}  // namespace hitagi::debugger

@@ -4,24 +4,24 @@
 
 #include <Math/Matrix.hpp>
 
-namespace Hitagi::Physics {
-class HitagiPhysicsManager : public IPhysicsManager {
+namespace hitagi::physics {
+class hitagiPhysicsManager : public IPhysicsManager {
 public:
 public:
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;
 
-    std::array<Math::vec3f, 2> GetAABB(Asset::GeometryNode& node) final;
-    void                       CreateRigidBody(Asset::GeometryNode& node) final;
-    void                       DeleteRigidBody(Asset::GeometryNode& node) final;
+    std::array<math::vec3f, 2> GetAABB(asset::GeometryNode& node) final;
+    void                       CreateRigidBody(asset::GeometryNode& node) final;
+    void                       DeleteRigidBody(asset::GeometryNode& node) final;
 
-    Math::mat4f GetRigidBodyTransform(Asset::GeometryNode& node) final;
-    void        UpdateRigidBodyTransform(Asset::GeometryNode& node) final;
+    math::mat4f GetRigidBodyTransform(asset::GeometryNode& node) final;
+    void        UpdateRigidBodyTransform(asset::GeometryNode& node) final;
 
-    void ApplyCentralForce(Asset::GeometryNode& node, Math::vec3f force) final;
+    void ApplyCentralForce(asset::GeometryNode& node, math::vec3f force) final;
 
 private:
     std::unordered_map<std::string, RigidBody> m_RigidBodies;
 };
-}  // namespace Hitagi::Physics
+}  // namespace hitagi::physics

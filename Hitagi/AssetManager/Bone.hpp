@@ -5,7 +5,7 @@
 
 #include <map>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class Bone : public SceneObject {
 public:
     using SceneObject::SceneObject;
@@ -14,7 +14,7 @@ public:
         m_Weights[vertex_index] = weight;
     }
 
-    inline void SetBindTransformMatrix(Math::mat4f transform) {
+    inline void SetBindTransformMatrix(math::mat4f transform) {
         m_BindTransform = std::move(transform);
     }
 
@@ -30,7 +30,7 @@ public:
 
 private:
     std::map<size_t, float> m_Weights;
-    Math::mat4f             m_BindTransform;
+    math::mat4f             m_BindTransform;
 };
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

@@ -2,7 +2,7 @@
 #include "GameLogic.hpp"
 #include "Editor.hpp"
 
-class MyGame : public Hitagi::GameLogic {
+class MyGame : public hitagi::GameLogic {
 public:
     int  Initialize() final;
     void Finalize() final;
@@ -11,6 +11,6 @@ public:
 private:
     void DrawBone();
 
-    Hitagi::Core::Clock m_Clock;
-    Hitagi::Editor      m_Editor;
+    hitagi::core::Clock m_Clock;
+    hitagi::Editor      m_Editor;
 };

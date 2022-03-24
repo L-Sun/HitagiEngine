@@ -6,11 +6,11 @@
 
 #include <array>
 
-namespace Hitagi {
-std::unique_ptr<Core::MemoryManager> g_MemoryManager = std::make_unique<Core::MemoryManager>();
+namespace hitagi {
+std::unique_ptr<core::MemoryManager> g_MemoryManager = std::make_unique<core::MemoryManager>();
 }
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 
 MemoryPool::Page::Page(std::size_t size, std::size_t block_size)
     : size(size),
@@ -132,4 +132,4 @@ void MemoryManager::Free(void* p, std::size_t bytes, std::size_t alignment) {
     m_Pools->deallocate(p, bytes, alignment);
 }
 
-}  // namespace Hitagi::Core
+}  // namespace hitagi::core

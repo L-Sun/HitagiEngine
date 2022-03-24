@@ -3,7 +3,7 @@
 
 #include <numbers>
 
-namespace Hitagi::Math {
+namespace hitagi::math {
 
 template <typename T>
 inline const T radians(T angle) {
@@ -305,4 +305,4 @@ Quaternion<T> euler_to_quaternion(const Vector<T, 3> euler) {
         c1 * c2 * c3 + s1 * s2 * s3,
     };
 }
-}  // namespace Hitagi::Math
+}  // namespace hitagi::math

@@ -3,7 +3,7 @@
 
 #include "../PipelineState.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 struct RootParameter : public CD3DX12_ROOT_PARAMETER1 {
 public:
     using CD3DX12_ROOT_PARAMETER1::CD3DX12_ROOT_PARAMETER1;
@@ -103,4 +103,4 @@ private:
     uint32_t m_DescriptorTableBitMask = 0;
 };
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

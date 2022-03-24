@@ -10,13 +10,13 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi {
-std::unique_ptr<Graphics::GraphicsManager> g_GraphicsManager = std::make_unique<Graphics::GraphicsManager>();
+namespace hitagi {
+std::unique_ptr<graphics::GraphicsManager> g_GraphicsManager = std::make_unique<graphics::GraphicsManager>();
 }
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 
 int GraphicsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("GraphicsManager");
@@ -201,7 +201,7 @@ void GraphicsManager::OnSizeChanged() {
     }
 }
 
-void GraphicsManager::Render(const Asset::Scene& scene) {
+void GraphicsManager::Render(const asset::Scene& scene) {
     auto& config    = g_App->GetConfiguration();
     auto  driver    = m_Driver.get();
     auto& pso       = *m_PSO;
@@ -320,4 +320,4 @@ Frame* GraphicsManager::GetBcakFrameForRendering() {
     return frame;
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

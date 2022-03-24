@@ -2,7 +2,7 @@
 
 #include "D3DCore.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 void DepthBuffer::Create(std::wstring_view name, uint32_t width, uint32_t height, DXGI_FORMAT format, unsigned sampleCount, unsigned sampleQuality) {
     auto desc                       = DescribeTex2D(width, height, 1, 1, format, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
@@ -79,4 +79,4 @@ void DepthBuffer::CreateDerivedViews(DXGI_FORMAT format) {
     }
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

@@ -8,11 +8,11 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace Hitagi {
-std::unique_ptr<Gui::GuiManager> g_GuiManager = std::make_unique<Gui::GuiManager>();
+namespace hitagi {
+std::unique_ptr<gui::GuiManager> g_GuiManager = std::make_unique<gui::GuiManager>();
 }
 
-namespace Hitagi::Gui {
+namespace hitagi::gui {
 
 int GuiManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("GuiManager");
@@ -114,7 +114,7 @@ void GuiManager::LoadFontTexture() {
 
     const uint32_t bitcount = 32;
     const size_t   pitch    = width * bitcount / 8;
-    m_FontTexture           = std::make_shared<Asset::Image>(width, height, 32, pitch, pitch * height);
+    m_FontTexture           = std::make_shared<asset::Image>(width, height, 32, pitch, pitch * height);
     uint8_t* p_texture      = m_FontTexture->GetData();
     std::copy_n(reinterpret_cast<const uint8_t*>(pixels), m_FontTexture->GetDataSize(), p_texture);
 }
@@ -137,4 +137,4 @@ void GuiManager::KeysEvent() {
     }
 }
 
-}  // namespace Hitagi::Gui
+}  // namespace hitagi::gui

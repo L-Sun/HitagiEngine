@@ -7,7 +7,7 @@
 #include <queue>
 #include <vector>
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 
 class ThreadManager : public IRuntimeModule {
 public:
@@ -59,8 +59,8 @@ decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
     return res;
 }
 
-}  // namespace Hitagi::Core
+}  // namespace hitagi::core
 
-namespace Hitagi {
-extern std::unique_ptr<Core::ThreadManager> g_ThreadManager;
+namespace hitagi {
+extern std::unique_ptr<core::ThreadManager> g_ThreadManager;
 }

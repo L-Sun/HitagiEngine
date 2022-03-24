@@ -5,7 +5,7 @@
 
 #include <Math/Matrix.hpp>
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 class BottomLevelASGenerator {
 public:
@@ -30,7 +30,7 @@ private:
 class TopLevelASGenerator {
 public:
     void AddInstance(Microsoft::WRL::ComPtr<ID3D12Resource> bottomLevelAS,
-                     const Math::mat4f&                     transform,
+                     const math::mat4f&                     transform,
                      int                                    instanceID,
                      int                                    hitGroupIndex);
 
@@ -58,7 +58,7 @@ public:
         m_DummyLocalRootSignature.Finalize(D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE);
         m_DummyGlobalRootSignature.Finalize();
     }
-    void AddLibrary(const Core::Buffer& dxiLibrary, const std::vector<std::wstring>& symbolExports);
+    void AddLibrary(const core::Buffer& dxiLibrary, const std::vector<std::wstring>& symbolExports);
 
     void AddHitGroup(std::wstring_view hitGroupName,
                      std::wstring_view closestHitSymbol,
@@ -77,9 +77,9 @@ public:
 
 private:
     struct Library {
-        Library(const Core::Buffer& dxil, const std::vector<std::wstring>& exportedSymbols);
+        Library(const core::Buffer& dxil, const std::vector<std::wstring>& exportedSymbols);
 
-        const Core::Buffer&             m_Dxil;
+        const core::Buffer&             m_Dxil;
         const std::vector<std::wstring> m_ExportedSymbols;
 
         std::vector<D3D12_EXPORT_DESC> m_Exports;
@@ -201,4 +201,4 @@ private:
     size_t                            m_Stride     = 0;
 };
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

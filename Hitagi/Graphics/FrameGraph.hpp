@@ -8,7 +8,7 @@
 #include <variant>
 #include <unordered_set>
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 
 using FrameHandle     = size_t;
 using FrameResourceId = size_t;
@@ -80,7 +80,7 @@ public:
         return handle;
     }
 
-    void Present(FrameHandle render_target, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context);
+    void Present(FrameHandle render_target, std::shared_ptr<hitagi::graphics::IGraphicsCommandContext> context);
 
     void Compile();
     void Execute(DriverAPI& driver);
@@ -121,4 +121,4 @@ private:
     PassNode&   m_Node;
 };
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

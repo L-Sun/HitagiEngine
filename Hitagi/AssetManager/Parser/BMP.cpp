@@ -4,11 +4,11 @@
 
 #include <Math/Vector.hpp>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
-std::shared_ptr<Image> BmpParser::Parse(const Core::Buffer& buf) {
+std::shared_ptr<Image> BmpParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[BMP] Parsing a empty buffer will return nullptr");
@@ -59,4 +59,4 @@ std::shared_ptr<Image> BmpParser::Parse(const Core::Buffer& buf) {
     }
     return {};
 }
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

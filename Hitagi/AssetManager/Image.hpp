@@ -5,8 +5,8 @@
 
 #include <iostream>
 
-namespace Hitagi::Asset {
-class Image : public Core::Buffer {
+namespace hitagi::asset {
+class Image : public core::Buffer {
 public:
     Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t data_size);
     Image() = default;
@@ -27,4 +27,4 @@ private:
     uint32_t m_Pitch    = 0;
 };
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

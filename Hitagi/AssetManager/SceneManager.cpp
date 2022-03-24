@@ -6,13 +6,13 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi {
-std::unique_ptr<Asset::SceneManager> g_SceneManager = std::make_unique<Asset::SceneManager>();
+namespace hitagi {
+std::unique_ptr<asset::SceneManager> g_SceneManager = std::make_unique<asset::SceneManager>();
 }
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 int SceneManager::Initialize() {
     int result = 0;
@@ -133,4 +133,4 @@ void SceneManager::CreateDefaultLight(std::shared_ptr<Scene> scene) {
     scene->scene_graph->AppendChild(light_nodes);
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

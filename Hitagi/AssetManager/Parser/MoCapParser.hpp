@@ -3,7 +3,7 @@
 #include "../Animation.hpp"
 #include "Buffer.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 enum class MoCapFormat : unsigned {
     BVH,
     NUM_SUPPORT,
@@ -19,7 +19,7 @@ class MoCapParser {
 public:
     virtual ~MoCapParser() = default;
 
-    virtual std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> Parse(const Core::Buffer& buffer) = 0;
+    virtual std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> Parse(const core::Buffer& buffer) = 0;
 };
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

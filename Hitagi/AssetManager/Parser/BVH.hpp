@@ -3,10 +3,10 @@
 
 #include <unordered_map>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class BvhParser : public MoCapParser {
 public:
-    virtual std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> Parse(const Core::Buffer& buffer);
+    virtual std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> Parse(const core::Buffer& buffer);
 
 private:
     enum struct Channel {
@@ -21,4 +21,4 @@ private:
 
     static std::vector<std::string> Tokenizer(std::stringstream& ss);
 };
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

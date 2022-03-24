@@ -1,7 +1,7 @@
 #pragma once
 #include "CommandAllocatorPool.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 class CommandQueue {
     friend class CommandContext;
     friend class CommandListManager;
@@ -89,4 +89,4 @@ private:
     CommandQueue   m_ComputeQueue;
     CommandQueue   m_CopyQueue;
 };
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

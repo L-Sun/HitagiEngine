@@ -6,11 +6,11 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <fmt/ostream.h>
 
-namespace Hitagi {
-std::unique_ptr<Core::FileIOManager> g_FileIoManager = std::make_unique<Core::FileIOManager>();
+namespace hitagi {
+std::unique_ptr<core::FileIOManager> g_FileIoManager = std::make_unique<core::FileIOManager>();
 }
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 
 int FileIOManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("FileIOManager");
@@ -62,4 +62,4 @@ void FileIOManager::SaveBuffer(const Buffer& buffer, const std::filesystem::path
     m_Logger->info("Buffer has write to: {} ({} bytes)", path, buffer.GetDataSize());
 }
 
-}  // namespace Hitagi::Core
+}  // namespace hitagi::core

@@ -4,7 +4,7 @@
 
 #include <unordered_map>
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 
 class VertexShader;
 class PixelShader;
@@ -38,13 +38,13 @@ class Shader {
 
 public:
     Shader() = default;
-    Shader(Core::Buffer data) : m_ShaderData(std::move(data)) {}
+    Shader(core::Buffer data) : m_ShaderData(std::move(data)) {}
 
     const uint8_t* GetData() const { return m_ShaderData.GetData(); }
     size_t         GetDataSize() const { return m_ShaderData.GetDataSize(); }
 
 protected:
-    Core::Buffer m_ShaderData;
+    core::Buffer m_ShaderData;
 };
 
 class VertexShader : public Shader {
@@ -60,4 +60,4 @@ public:
     using Shader::Shader;
 };
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

@@ -2,7 +2,7 @@
 #include "PipelineState.hpp"
 #include "Resource.hpp"
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 class IGraphicsCommandContext {
 public:
     virtual ~IGraphicsCommandContext()                                                          = default;
@@ -28,4 +28,4 @@ public:
 
 class IComputeCommadnContext {};
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

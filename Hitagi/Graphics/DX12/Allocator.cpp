@@ -1,7 +1,7 @@
 #include "Allocator.hpp"
 #include "Utils.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 Allocation::~Allocation() {
     if (auto page = page_from.lock())
@@ -146,4 +146,4 @@ void LinearAllocator::PageManager::Reset() {
     m_AvailablePages = {};  // use a empty queue to clear
     m_LargePages.clear();
 }
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

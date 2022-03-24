@@ -8,7 +8,7 @@
 #include <list>
 #include <queue>
 
-namespace Hitagi::Gui {
+namespace hitagi::gui {
 class GuiManager : public IRuntimeModule {
 public:
     int  Initialize() final;
@@ -30,15 +30,15 @@ private:
     void MouseEvent();
     void KeysEvent();
 
-    Core::Clock                   m_Clock;
-    std::shared_ptr<Asset::Image> m_FontTexture;
-    std::list<Core::Buffer>       m_FontsData;
+    core::Clock                   m_Clock;
+    std::shared_ptr<asset::Image> m_FontTexture;
+    std::list<core::Buffer>       m_FontsData;
 
     std::queue<std::function<void()>> m_GuiDrawTasks;
 };
 
-}  // namespace Hitagi::Gui
+}  // namespace hitagi::gui
 
-namespace Hitagi {
-extern std::unique_ptr<Gui::GuiManager> g_GuiManager;
+namespace hitagi {
+extern std::unique_ptr<gui::GuiManager> g_GuiManager;
 }

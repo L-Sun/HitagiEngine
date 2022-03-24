@@ -3,7 +3,7 @@
 #include <spdlog/spdlog.h>
 #include <magic_enum.hpp>
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 int  ShaderManager::Initialize() { return 0; }
 void ShaderManager::Finalize() {
     m_VertexShaders.clear();
@@ -32,4 +32,4 @@ void ShaderManager::LoadShader(std::filesystem::path shader_path, ShaderType typ
     }
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

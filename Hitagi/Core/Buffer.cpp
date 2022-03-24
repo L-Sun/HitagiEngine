@@ -4,7 +4,7 @@
 
 #include "MemoryManager.hpp"
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 
 Buffer::Buffer(size_t size, size_t alignment)
     : m_Size(size),
@@ -45,7 +45,7 @@ auto Buffer::operator=(const Buffer& rhs) -> Buffer& {
         }
     }
     return *this;
-}  // namespace Hitagi::Core
+}  // namespace hitagi::Core
 auto Buffer::operator=(Buffer&& rhs) -> Buffer& {
     if (this != &rhs) {
         if (m_Data) g_MemoryManager->Free(m_Data, m_Size, m_Alignment);
@@ -72,4 +72,4 @@ auto Buffer::GetData() const -> const uint8_t* {
 auto Buffer::GetDataSize() const -> size_t {
     return m_Size;
 }
-}  // namespace Hitagi::Core
+}  // namespace hitagi::core

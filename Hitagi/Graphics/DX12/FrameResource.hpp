@@ -1,7 +1,7 @@
 #pragma once
 #include "LinearAllocator.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 class FrameResourceLinearAllocator {
 protected:
     inline static LinearAllocator sm_CpuLineraAllocator = LinearAllocator(LinearAllocatorType::CPU_WRITABLE);
@@ -38,4 +38,4 @@ public:
     LinearAllocation m_FrameConstantBuffer, m_ObjectConstantBuffer;
 };
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

@@ -7,7 +7,7 @@
 #include "DynamicDescriptorHeap.hpp"
 #include "PSO.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 class DX12DriverAPI;
 
 class CommandContext {
@@ -71,7 +71,7 @@ protected:
     D3D12_COMMAND_LIST_TYPE m_Type;
 };
 
-class GraphicsCommandContext : public CommandContext, public Graphics::IGraphicsCommandContext {
+class GraphicsCommandContext : public CommandContext, public graphics::IGraphicsCommandContext {
 public:
     GraphicsCommandContext(DX12DriverAPI& driver)
         : CommandContext(driver, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
@@ -80,20 +80,20 @@ public:
     void SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
     void SetScissorRect(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom) final;
     void SetViewPortAndScissor(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
-    void SetRenderTarget(Graphics::RenderTarget& rt) final;
+    void SetRenderTarget(graphics::RenderTarget& rt) final;
     void UnsetRenderTarget() final;
-    void SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depth_buffer) final;
-    void ClearRenderTarget(Graphics::RenderTarget& rt) final;
-    void ClearDepthBuffer(Graphics::DepthBuffer& depth_buffer) final;
-    void SetPipelineState(const Graphics::PipelineState& pipeline) final;
-    void SetParameter(std::string_view name, const Graphics::ConstantBuffer& cb, size_t offset) final;
-    void SetParameter(std::string_view name, const Graphics::TextureBuffer& texture) final;
-    void SetParameter(std::string_view name, const Graphics::Sampler& sampler) final;
+    void SetRenderTargetAndDepthBuffer(graphics::RenderTarget& rt, graphics::DepthBuffer& depth_buffer) final;
+    void ClearRenderTarget(graphics::RenderTarget& rt) final;
+    void ClearDepthBuffer(graphics::DepthBuffer& depth_buffer) final;
+    void SetPipelineState(const graphics::PipelineState& pipeline) final;
+    void SetParameter(std::string_view name, const graphics::ConstantBuffer& cb, size_t offset) final;
+    void SetParameter(std::string_view name, const graphics::TextureBuffer& texture) final;
+    void SetParameter(std::string_view name, const graphics::Sampler& sampler) final;
 
-    void UpdateBuffer(std::shared_ptr<Graphics::Resource> resource, size_t offset, const uint8_t* data, size_t data_size) final;
+    void UpdateBuffer(std::shared_ptr<graphics::Resource> resource, size_t offset, const uint8_t* data, size_t data_size) final;
 
-    void     Draw(const Graphics::MeshBuffer& mesh) final;
-    void     Present(Graphics::RenderTarget& rt) final;
+    void     Draw(const graphics::MeshBuffer& mesh) final;
+    void     Present(graphics::RenderTarget& rt) final;
     uint64_t Finish(bool wait_for_complete = false) final { return CommandContext::Finish(wait_for_complete); }
 
     // Back end interface
@@ -106,7 +106,7 @@ public:
     }
 
 private:
-    const Graphics::PipelineState* m_Pipeline{};
+    const graphics::PipelineState* m_Pipeline{};
 };
 
 class ComputeCommandContext : public CommandContext {
@@ -124,4 +124,4 @@ public:
     void InitializeTexture(GpuResource& dest, const std::vector<D3D12_SUBRESOURCE_DATA>& sub_data);
 };
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

@@ -7,7 +7,7 @@
 
 #include <windef.h>
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 ComPtr<ID3D12DebugDevice1> DX12DriverAPI::sm_DebugInterface = nullptr;
 
 DX12DriverAPI::DX12DriverAPI() : DriverAPI(APIType::DirectX12) {
@@ -92,7 +92,7 @@ size_t DX12DriverAPI::ResizeSwapChain(uint32_t width, uint32_t height) {
     return m_SwapChain->GetCurrentBackBufferIndex();
 }
 
-std::shared_ptr<Graphics::RenderTarget> DX12DriverAPI::CreateRenderTarget(std::string_view name, const Graphics::RenderTarget::Description& desc) {
+std::shared_ptr<graphics::RenderTarget> DX12DriverAPI::CreateRenderTarget(std::string_view name, const graphics::RenderTarget::Description& desc) {
     D3D12_RESOURCE_DESC d3d_desc = {};
     d3d_desc.Dimension           = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
     d3d_desc.SampleDesc.Count    = 1;
@@ -103,7 +103,7 @@ std::shared_ptr<Graphics::RenderTarget> DX12DriverAPI::CreateRenderTarget(std::s
     d3d_desc.Flags               = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     d3d_desc.Format              = to_dxgi_format(desc.format);
 
-    return std::make_shared<Graphics::RenderTarget>(
+    return std::make_shared<graphics::RenderTarget>(
         name,
         std::make_unique<RenderTarget>(
             name,
@@ -113,7 +113,7 @@ std::shared_ptr<Graphics::RenderTarget> DX12DriverAPI::CreateRenderTarget(std::s
         desc);
 }
 
-std::shared_ptr<Graphics::RenderTarget> DX12DriverAPI::CreateRenderFromSwapChain(size_t frame_index) {
+std::shared_ptr<graphics::RenderTarget> DX12DriverAPI::CreateRenderFromSwapChain(size_t frame_index) {
     assert(m_SwapChain && "No swap chain created.");
     ComPtr<ID3D12Resource> res;
     m_SwapChain->GetBuffer(frame_index, IID_PPV_ARGS(&res));
@@ -124,19 +124,19 @@ std::shared_ptr<Graphics::RenderTarget> DX12DriverAPI::CreateRenderFromSwapChain
         res.Detach());
     auto desc = rt->GetResource()->GetDesc();
 
-    return std::make_shared<Graphics::RenderTarget>(
+    return std::make_shared<graphics::RenderTarget>(
         fmt::format("RT for SwapChain {}", frame_index),
         std::move(rt),
-        Graphics::RenderTarget::Description{
+        graphics::RenderTarget::Description{
             .format = to_format(desc.Format),
             .width  = desc.Width,
             .height = desc.Height,
         });
 }
 
-std::shared_ptr<Graphics::VertexBuffer> DX12DriverAPI::CreateVertexBuffer(std::string_view name, size_t vertex_count, size_t vertex_size, const uint8_t* initial_data) {
+std::shared_ptr<graphics::VertexBuffer> DX12DriverAPI::CreateVertexBuffer(std::string_view name, size_t vertex_count, size_t vertex_size, const uint8_t* initial_data) {
     auto buffer = std::make_unique<VertexBuffer>(m_Device.Get(), name, vertex_count, vertex_size);
-    auto result = std::make_shared<Graphics::VertexBuffer>(name, std::move(buffer), vertex_count, vertex_size);
+    auto result = std::make_shared<graphics::VertexBuffer>(name, std::move(buffer), vertex_count, vertex_size);
     if (initial_data) {
         GraphicsCommandContext context(*this);
         context.UpdateBuffer(result, 0, initial_data, result->GetBackend<VertexBuffer>()->GetBufferSize());
@@ -145,9 +145,9 @@ std::shared_ptr<Graphics::VertexBuffer> DX12DriverAPI::CreateVertexBuffer(std::s
     return result;
 }
 
-std::shared_ptr<Graphics::IndexBuffer> DX12DriverAPI::CreateIndexBuffer(std::string_view name, size_t index_count, size_t index_size, const uint8_t* initial_data) {
+std::shared_ptr<graphics::IndexBuffer> DX12DriverAPI::CreateIndexBuffer(std::string_view name, size_t index_count, size_t index_size, const uint8_t* initial_data) {
     auto buffer = std::make_unique<IndexBuffer>(m_Device.Get(), name, index_count, index_size);
-    auto result = std::make_shared<Graphics::IndexBuffer>(name, std::move(buffer), index_count, index_size);
+    auto result = std::make_shared<graphics::IndexBuffer>(name, std::move(buffer), index_count, index_size);
     if (initial_data) {
         GraphicsCommandContext context(*this);
         context.UpdateBuffer(result, 0, initial_data, result->GetBackend<IndexBuffer>()->GetBufferSize());
@@ -156,8 +156,8 @@ std::shared_ptr<Graphics::IndexBuffer> DX12DriverAPI::CreateIndexBuffer(std::str
     return result;
 }
 
-std::shared_ptr<Graphics::ConstantBuffer> DX12DriverAPI::CreateConstantBuffer(std::string_view name, size_t num_elements, size_t element_size) {
-    return std::make_shared<Graphics::ConstantBuffer>(
+std::shared_ptr<graphics::ConstantBuffer> DX12DriverAPI::CreateConstantBuffer(std::string_view name, size_t num_elements, size_t element_size) {
+    return std::make_shared<graphics::ConstantBuffer>(
         name,
         std::make_unique<ConstantBuffer>(
             name,
@@ -169,13 +169,13 @@ std::shared_ptr<Graphics::ConstantBuffer> DX12DriverAPI::CreateConstantBuffer(st
         element_size);
 }
 
-void DX12DriverAPI::ResizeConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t new_num_elements) {
+void DX12DriverAPI::ResizeConstantBuffer(std::shared_ptr<graphics::ConstantBuffer> buffer, size_t new_num_elements) {
     auto cb = buffer->GetBackend<ConstantBuffer>();
     cb->Resize(m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV], new_num_elements);
     buffer->UpdateNumElements(new_num_elements);
 }
 
-std::shared_ptr<Graphics::TextureBuffer> DX12DriverAPI::CreateTextureBuffer(std::string_view name, const Graphics::TextureBuffer::Description& desc) {
+std::shared_ptr<graphics::TextureBuffer> DX12DriverAPI::CreateTextureBuffer(std::string_view name, const graphics::TextureBuffer::Description& desc) {
     D3D12_RESOURCE_DESC d3d_desc = {};
     d3d_desc.Width               = desc.width;
     d3d_desc.Height              = desc.height;
@@ -199,14 +199,14 @@ std::shared_ptr<Graphics::TextureBuffer> DX12DriverAPI::CreateTextureBuffer(std:
         sub_data.SlicePitch = desc.initial_data_size;
         context.InitializeTexture(*buffer, {sub_data});
     }
-    return std::make_shared<Graphics::TextureBuffer>(name, std::move(buffer), desc);
+    return std::make_shared<graphics::TextureBuffer>(name, std::move(buffer), desc);
 }
 
-std::shared_ptr<Graphics::DepthBuffer> DX12DriverAPI::CreateDepthBuffer(std::string_view name, const Graphics::DepthBuffer::Description& desc) {
+std::shared_ptr<graphics::DepthBuffer> DX12DriverAPI::CreateDepthBuffer(std::string_view name, const graphics::DepthBuffer::Description& desc) {
     auto d3d_desc  = CD3DX12_RESOURCE_DESC::Tex2D(to_dxgi_format(desc.format), desc.width, desc.height);
     d3d_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
-    return std::make_shared<Graphics::DepthBuffer>(
+    return std::make_shared<graphics::DepthBuffer>(
         name,
         std::make_unique<DepthBuffer>(
             name,
@@ -218,11 +218,11 @@ std::shared_ptr<Graphics::DepthBuffer> DX12DriverAPI::CreateDepthBuffer(std::str
         desc);
 }
 
-void DX12DriverAPI::UpdateConstantBuffer(std::shared_ptr<Graphics::ConstantBuffer> buffer, size_t index, const uint8_t* data, size_t size) {
+void DX12DriverAPI::UpdateConstantBuffer(std::shared_ptr<graphics::ConstantBuffer> buffer, size_t index, const uint8_t* data, size_t size) {
     buffer->GetBackend<ConstantBuffer>()->UpdateData(index, data, size);
 }
 
-void DX12DriverAPI::RetireResources(std::vector<std::shared_ptr<Graphics::Resource>> resources, uint64_t fence_value) {
+void DX12DriverAPI::RetireResources(std::vector<std::shared_ptr<graphics::Resource>> resources, uint64_t fence_value) {
     while (!m_RetireResources.empty() && m_CommandManager.IsFenceComplete(m_RetireResources.front().first))
         m_RetireResources.pop();
 
@@ -230,22 +230,22 @@ void DX12DriverAPI::RetireResources(std::vector<std::shared_ptr<Graphics::Resour
 }
 
 // TODO: Custom sampler
-std::shared_ptr<Graphics::Sampler> DX12DriverAPI::CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) {
-    return std::make_shared<Graphics::Sampler>(
+std::shared_ptr<graphics::Sampler> DX12DriverAPI::CreateSampler(std::string_view name, const graphics::Sampler::Description& desc) {
+    return std::make_shared<graphics::Sampler>(
         name,
         std::make_unique<Sampler>(m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate(), to_d3d_sampler_desc(desc)),
         desc);
 }
 
-std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Graphics::RootSignature& signature) {
-    constexpr auto num_visibility = static_cast<int>(Graphics::ShaderVisibility::Num_Visibility);
-    constexpr auto num_var_type   = static_cast<int>(Graphics::ShaderVariableType::Num_Type);
-    static const std::unordered_map<Graphics::ShaderVariableType, D3D12_DESCRIPTOR_RANGE_TYPE>
+std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const graphics::RootSignature& signature) {
+    constexpr auto num_visibility = static_cast<int>(graphics::ShaderVisibility::Num_Visibility);
+    constexpr auto num_var_type   = static_cast<int>(graphics::ShaderVariableType::Num_Type);
+    static const std::unordered_map<graphics::ShaderVariableType, D3D12_DESCRIPTOR_RANGE_TYPE>
         type_cast = {
-            {Graphics::ShaderVariableType::CBV, D3D12_DESCRIPTOR_RANGE_TYPE_CBV},
-            {Graphics::ShaderVariableType::SRV, D3D12_DESCRIPTOR_RANGE_TYPE_SRV},
-            {Graphics::ShaderVariableType::UAV, D3D12_DESCRIPTOR_RANGE_TYPE_UAV},
-            {Graphics::ShaderVariableType::Sampler, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER},
+            {graphics::ShaderVariableType::CBV, D3D12_DESCRIPTOR_RANGE_TYPE_CBV},
+            {graphics::ShaderVariableType::SRV, D3D12_DESCRIPTOR_RANGE_TYPE_SRV},
+            {graphics::ShaderVariableType::UAV, D3D12_DESCRIPTOR_RANGE_TYPE_UAV},
+            {graphics::ShaderVariableType::Sampler, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER},
         };
 
     // copy
@@ -268,7 +268,7 @@ std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Grap
     std::vector<std::pair<size_t, size_t>> ranges = {std::make_pair(0, 0)};
     for (size_t i = 0; i < parameters.size(); i++) {
         if (parameters[tables.back().first].visibility == parameters[i].visibility) {
-            if (parameters[i].type != Graphics::ShaderVariableType::Sampler)
+            if (parameters[i].type != graphics::ShaderVariableType::Sampler)
                 tables.back().second++;
             else if (parameters[tables.back().first].type == parameters[i].type)
                 tables.back().second++;
@@ -332,7 +332,7 @@ std::unique_ptr<backend::Resource> DX12DriverAPI::CreateRootSignature(const Grap
     return std::move(sig);
 }
 
-std::unique_ptr<backend::Resource> DX12DriverAPI::CreatePipelineState(const Graphics::PipelineState& pso) {
+std::unique_ptr<backend::Resource> DX12DriverAPI::CreatePipelineState(const graphics::PipelineState& pso) {
     auto gpso = std::make_unique<GraphicsPSO>(pso.GetName());
     auto vs   = pso.GetVS();
     auto ps   = pso.GetPS();
@@ -360,7 +360,7 @@ std::unique_ptr<backend::Resource> DX12DriverAPI::CreatePipelineState(const Grap
     gpso->SetBlendState(to_d3d_blend_desc(pso.GetBlendState()));
 
     auto depth        = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-    depth.DepthEnable = pso.GetDepthBufferFormat() != Graphics::Format::UNKNOWN;
+    depth.DepthEnable = pso.GetDepthBufferFormat() != graphics::Format::UNKNOWN;
     gpso->SetDepthStencilState(depth);
     gpso->SetPrimitiveTopologyType(to_dx_topology_type(pso.GetPrimitiveType()));
     gpso->SetRasterizerState(to_d3d_rasterizer_desc(pso.GetRasterizerState()));
@@ -385,7 +385,7 @@ void DX12DriverAPI::IdleGPU() { m_CommandManager.IdleGPU(); }
 // ----------------------------
 //  For test
 // ----------------------------
-void DX12DriverAPI::Test(Graphics::RenderTarget& rt, const Graphics::PipelineState& pso) {
+void DX12DriverAPI::Test(graphics::RenderTarget& rt, const graphics::PipelineState& pso) {
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

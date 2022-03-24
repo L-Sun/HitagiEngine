@@ -6,7 +6,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <magic_enum.hpp>
 
-namespace Hitagi {
+namespace hitagi {
 
 std::unique_ptr<InputManager> g_InputManager = std::make_unique<InputManager>();
 
@@ -133,4 +133,4 @@ float InputManager::GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event
         event);
 }
 
-}  // namespace Hitagi
+}  // namespace hitagi

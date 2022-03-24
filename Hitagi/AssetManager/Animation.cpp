@@ -1,8 +1,8 @@
 #include "Animation.hpp"
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 bool Animation::Animate() {
     if (m_Clock.IsPaused()) return false;
 
@@ -61,4 +61,4 @@ std::shared_ptr<Animation> AnimationBuilder::Finish() {
     return result;
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

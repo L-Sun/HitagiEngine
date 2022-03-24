@@ -4,7 +4,7 @@
 
 // the DescriptorAllocator is CPU visiable only, for those used shader visiable descriptor,
 // use the dynamic descriptor heap (in context).
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 class DescriptorPage;
 
@@ -73,4 +73,4 @@ private:
     std::list<std::shared_ptr<DescriptorPage>> m_PagePool;
 };
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

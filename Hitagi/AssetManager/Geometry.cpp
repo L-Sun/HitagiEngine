@@ -1,6 +1,6 @@
 #include "Geometry.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 void Geometry::AddMesh(Mesh mesh, size_t level) {
     m_Meshes[level].emplace_back(std::move(mesh));
 }
@@ -18,4 +18,4 @@ std::ostream& operator<<(std::ostream& out, const Geometry& obj) {
     return out;
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

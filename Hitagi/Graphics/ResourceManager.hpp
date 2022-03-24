@@ -3,18 +3,18 @@
 #include "Geometry.hpp"
 #include "GuiManager.hpp"
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 class ResourceManager {
 public:
     ResourceManager(DriverAPI& driver) : m_Driver(driver) {}
 
     // Get mesh buffer from gpu. It will create new buffer in gpu if the mesh is not in gpu.
-    std::shared_ptr<MeshBuffer>    GetMeshBuffer(const Asset::Mesh& mesh);
-    std::shared_ptr<TextureBuffer> GetTextureBuffer(std::shared_ptr<Asset::Image> image);
+    std::shared_ptr<MeshBuffer>    GetMeshBuffer(const asset::Mesh& mesh);
+    std::shared_ptr<TextureBuffer> GetTextureBuffer(std::shared_ptr<asset::Image> image);
     std::shared_ptr<Sampler>       GetSampler(std::string_view name);
     std::shared_ptr<TextureBuffer> GetDefaultTextureBuffer(Format format);
 
-    using ImGuiMeshBuilder = std::function<void(std::shared_ptr<Hitagi::Graphics::MeshBuffer>, ImDrawList*, const ImDrawCmd&)>;
+    using ImGuiMeshBuilder = std::function<void(std::shared_ptr<hitagi::graphics::MeshBuffer>, ImDrawList*, const ImDrawCmd&)>;
     void MakeImGuiMesh(ImDrawData* data, ImGuiMeshBuilder&& builder);
 
 private:
@@ -28,4 +28,4 @@ private:
     std::shared_ptr<VertexBuffer> m_ImGuiVertexBuffer;
     std::shared_ptr<IndexBuffer>  m_ImGuiIndexBuffer;
 };
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

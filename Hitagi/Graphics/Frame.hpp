@@ -10,29 +10,29 @@
 
 #include <vector>
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 class DriverAPI;
 class IGraphicsCommandContext;
 
 class Frame {
     struct FrameConstant {
-        Math::mat4f proj_view;
-        Math::mat4f view;
-        Math::mat4f projection;
-        Math::mat4f inv_projection;
-        Math::mat4f inv_view;
-        Math::mat4f inv_proj_view;
-        Math::vec4f camera_pos;
-        Math::vec4f light_position;
-        Math::vec4f light_pos_in_view;
-        Math::vec4f light_intensity;
+        math::mat4f proj_view;
+        math::mat4f view;
+        math::mat4f projection;
+        math::mat4f inv_projection;
+        math::mat4f inv_view;
+        math::mat4f inv_proj_view;
+        math::vec4f camera_pos;
+        math::vec4f light_position;
+        math::vec4f light_pos_in_view;
+        math::vec4f light_intensity;
     };
     struct ObjectConstant {
-        Math::mat4f transform;
-        Math::vec4f ambient;
-        Math::vec4f diffuse;
-        Math::vec4f emission;
-        Math::vec4f specular;
+        math::mat4f transform;
+        math::vec4f ambient;
+        math::vec4f diffuse;
+        math::vec4f emission;
+        math::vec4f specular;
         float       specular_power;
     };
 
@@ -66,11 +66,11 @@ public:
 
     void SetFenceValue(uint64_t fence_value) { m_FenceValue = fence_value; }
     // TODO generate pipeline state object from scene node infomation
-    void AddGeometries(const std::vector<std::shared_ptr<Asset::GeometryNode>>& geometries, const PipelineState& pso);
-    void AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives, const PipelineState& pso);
-    void PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> font_texture, const PipelineState& pso);
-    void SetCamera(Asset::CameraNode& camera);
-    void SetLight(Asset::LightNode& light);
+    void AddGeometries(const std::vector<std::shared_ptr<asset::GeometryNode>>& geometries, const PipelineState& pso);
+    void AddDebugPrimitives(const std::vector<debugger::DebugPrimitive>& primitives, const PipelineState& pso);
+    void PrepareImGuiData(ImDrawData* data, std::shared_ptr<asset::Image> font_texture, const PipelineState& pso);
+    void SetCamera(asset::CameraNode& camera);
+    void SetLight(asset::LightNode& light);
     void Draw(IGraphicsCommandContext* context);
     void GuiDraw(IGraphicsCommandContext* context);
     void DebugDraw(IGraphicsCommandContext* context);
@@ -81,8 +81,8 @@ public:
     inline auto GetRenderTarget() noexcept { return m_Output; }
 
 private:
-    void PopulateMaterial(const Asset::Material::Color& color, Math::vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
-    void PopulateMaterial(const Asset::Material::SingleValue& color, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
+    void PopulateMaterial(const asset::Material::Color& color, math::vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
+    void PopulateMaterial(const asset::Material::SingleValue& color, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
 
     DriverAPI&       m_Driver;
     ResourceManager& m_ResMgr;
@@ -102,4 +102,4 @@ private:
     size_t m_ConstantCount = 1;
 };
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

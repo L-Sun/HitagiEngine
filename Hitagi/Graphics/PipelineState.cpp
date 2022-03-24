@@ -1,7 +1,7 @@
 #include "PipelineState.hpp"
 #include "DriverAPI.hpp"
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 
 RootSignature::RootSignature(RootSignature&& rhs)
     : Resource(std::move(rhs.m_Name), std::move(rhs.m_Resource)),
@@ -114,4 +114,4 @@ void PipelineState::Create(DriverAPI& driver) {
     m_Created  = true;
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

@@ -3,7 +3,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 int AnimationManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("AnimationManager");
     m_Logger->info("Initializing...");
@@ -33,4 +33,4 @@ void AnimationManager::AddToPlayQueue(std::shared_ptr<Animation> animation) {
     m_PlayQueue.emplace(animation);
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

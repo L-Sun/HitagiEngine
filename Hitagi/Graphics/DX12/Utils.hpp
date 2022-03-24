@@ -6,27 +6,27 @@
 #include <magic_enum.hpp>
 
 // TODO change when integrate Vulkan
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 inline const size_t align(size_t x, size_t a) {
     assert(((a - 1) & a) == 0 && "alignment is not a power of two");
     return (x + a - 1) & ~(a - 1);
 }
 
-inline DXGI_FORMAT to_dxgi_format(Graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
+inline DXGI_FORMAT to_dxgi_format(graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
 
-inline Graphics::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<Graphics::Format>(format); }
+inline graphics::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<graphics::Format>(format); }
 
-inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(Graphics::TextureAddressMode mode) {
+inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(graphics::TextureAddressMode mode) {
     switch (mode) {
-        case Graphics::TextureAddressMode::Wrap:
+        case graphics::TextureAddressMode::Wrap:
             return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        case Graphics::TextureAddressMode::Mirror:
+        case graphics::TextureAddressMode::Mirror:
             return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
-        case Graphics::TextureAddressMode::Clamp:
+        case graphics::TextureAddressMode::Clamp:
             return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-        case Graphics::TextureAddressMode::Border:
+        case graphics::TextureAddressMode::Border:
             return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-        case Graphics::TextureAddressMode::MirrorOnce:
+        case graphics::TextureAddressMode::MirrorOnce:
             return D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE;
         default: {
             auto logger = spdlog::get("GraphicsManager");
@@ -39,23 +39,23 @@ inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(Graphics::TextureA
     return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 }
 
-inline D3D12_COMPARISON_FUNC to_d3d_comp_func(Graphics::ComparisonFunc func) {
+inline D3D12_COMPARISON_FUNC to_d3d_comp_func(graphics::ComparisonFunc func) {
     switch (func) {
-        case Graphics::ComparisonFunc::Never:
+        case graphics::ComparisonFunc::Never:
             return D3D12_COMPARISON_FUNC_NEVER;
-        case Graphics::ComparisonFunc::Less:
+        case graphics::ComparisonFunc::Less:
             return D3D12_COMPARISON_FUNC_LESS;
-        case Graphics::ComparisonFunc::Equal:
+        case graphics::ComparisonFunc::Equal:
             return D3D12_COMPARISON_FUNC_EQUAL;
-        case Graphics::ComparisonFunc::LessEqual:
+        case graphics::ComparisonFunc::LessEqual:
             return D3D12_COMPARISON_FUNC_LESS_EQUAL;
-        case Graphics::ComparisonFunc::Greater:
+        case graphics::ComparisonFunc::Greater:
             return D3D12_COMPARISON_FUNC_GREATER;
-        case Graphics::ComparisonFunc::NotEqual:
+        case graphics::ComparisonFunc::NotEqual:
             return D3D12_COMPARISON_FUNC_NOT_EQUAL;
-        case Graphics::ComparisonFunc::GreaterEqual:
+        case graphics::ComparisonFunc::GreaterEqual:
             return D3D12_COMPARISON_FUNC_GREATER_EQUAL;
-        case Graphics::ComparisonFunc::Always:
+        case graphics::ComparisonFunc::Always:
             return D3D12_COMPARISON_FUNC_ALWAYS;
         default: {
             auto logger = spdlog::get("GraphicsManager");
@@ -69,7 +69,7 @@ inline D3D12_COMPARISON_FUNC to_d3d_comp_func(Graphics::ComparisonFunc func) {
 }
 
 // TODO change when integrate Vulkan
-inline D3D12_FILTER to_d3d_filter(Graphics::Filter filter) noexcept {
+inline D3D12_FILTER to_d3d_filter(graphics::Filter filter) noexcept {
     return static_cast<D3D12_FILTER>(filter);
 }
 
@@ -127,7 +127,7 @@ inline DXGI_FORMAT index_size_to_dxgi_format(size_t size) noexcept {
     }
 }
 
-inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(Graphics::Sampler::Description desc) noexcept {
+inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(graphics::Sampler::Description desc) noexcept {
     D3D12_SAMPLER_DESC result{};
     result.AddressU       = to_d3d_texture_address_mode(desc.address_u);
     result.AddressV       = to_d3d_texture_address_mode(desc.address_v);
@@ -146,19 +146,19 @@ inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(Graphics::Sampler::Description des
     return result;
 }
 
-inline D3D12_SHADER_VISIBILITY to_d3d_shader_visibility(Graphics::ShaderVisibility visibility) {
+inline D3D12_SHADER_VISIBILITY to_d3d_shader_visibility(graphics::ShaderVisibility visibility) {
     switch (visibility) {
-        case Graphics::ShaderVisibility::All:
+        case graphics::ShaderVisibility::All:
             return D3D12_SHADER_VISIBILITY_ALL;
-        case Graphics::ShaderVisibility::Vertex:
+        case graphics::ShaderVisibility::Vertex:
             return D3D12_SHADER_VISIBILITY_VERTEX;
-        case Graphics::ShaderVisibility::Hull:
+        case graphics::ShaderVisibility::Hull:
             return D3D12_SHADER_VISIBILITY_HULL;
-        case Graphics::ShaderVisibility::Domain:
+        case graphics::ShaderVisibility::Domain:
             return D3D12_SHADER_VISIBILITY_DOMAIN;
-        case Graphics::ShaderVisibility::Geometry:
+        case graphics::ShaderVisibility::Geometry:
             return D3D12_SHADER_VISIBILITY_GEOMETRY;
-        case Graphics::ShaderVisibility::Pixel:
+        case graphics::ShaderVisibility::Pixel:
             return D3D12_SHADER_VISIBILITY_PIXEL;
         default: {
             auto logger = spdlog::get("GraphicsManager");
@@ -171,41 +171,41 @@ inline D3D12_SHADER_VISIBILITY to_d3d_shader_visibility(Graphics::ShaderVisibili
     return D3D12_SHADER_VISIBILITY_ALL;
 }
 
-inline D3D12_BLEND to_d3d_blend(Graphics::Blend blend) {
+inline D3D12_BLEND to_d3d_blend(graphics::Blend blend) {
     switch (blend) {
-        case Graphics::Blend::Zero:
+        case graphics::Blend::Zero:
             return D3D12_BLEND_ZERO;
-        case Graphics::Blend::One:
+        case graphics::Blend::One:
             return D3D12_BLEND_ONE;
-        case Graphics::Blend::SrcColor:
+        case graphics::Blend::SrcColor:
             return D3D12_BLEND_SRC_COLOR;
-        case Graphics::Blend::InvSrcColor:
+        case graphics::Blend::InvSrcColor:
             return D3D12_BLEND_INV_SRC_COLOR;
-        case Graphics::Blend::SrcAlpha:
+        case graphics::Blend::SrcAlpha:
             return D3D12_BLEND_SRC_ALPHA;
-        case Graphics::Blend::InvSrcAlpha:
+        case graphics::Blend::InvSrcAlpha:
             return D3D12_BLEND_INV_SRC_ALPHA;
-        case Graphics::Blend::DestAlpha:
+        case graphics::Blend::DestAlpha:
             return D3D12_BLEND_DEST_ALPHA;
-        case Graphics::Blend::InvDestAlpha:
+        case graphics::Blend::InvDestAlpha:
             return D3D12_BLEND_INV_DEST_ALPHA;
-        case Graphics::Blend::DestColor:
+        case graphics::Blend::DestColor:
             return D3D12_BLEND_DEST_COLOR;
-        case Graphics::Blend::InvDestColor:
+        case graphics::Blend::InvDestColor:
             return D3D12_BLEND_INV_DEST_COLOR;
-        case Graphics::Blend::SrcAlphaSat:
+        case graphics::Blend::SrcAlphaSat:
             return D3D12_BLEND_SRC_ALPHA_SAT;
-        case Graphics::Blend::BlendFactor:
+        case graphics::Blend::BlendFactor:
             return D3D12_BLEND_BLEND_FACTOR;
-        case Graphics::Blend::InvBlendFactor:
+        case graphics::Blend::InvBlendFactor:
             return D3D12_BLEND_INV_BLEND_FACTOR;
-        case Graphics::Blend::Src1Color:
+        case graphics::Blend::Src1Color:
             return D3D12_BLEND_SRC1_COLOR;
-        case Graphics::Blend::InvSrc_1_Color:
+        case graphics::Blend::InvSrc_1_Color:
             return D3D12_BLEND_INV_SRC1_COLOR;
-        case Graphics::Blend::Src1Alpha:
+        case graphics::Blend::Src1Alpha:
             return D3D12_BLEND_SRC1_ALPHA;
-        case Graphics::Blend::InvSrc_1_Alpha:
+        case graphics::Blend::InvSrc_1_Alpha:
             return D3D12_BLEND_INV_SRC1_ALPHA;
         default: {
             auto logger = spdlog::get("GraphicsManager");
@@ -219,17 +219,17 @@ inline D3D12_BLEND to_d3d_blend(Graphics::Blend blend) {
     return D3D12_BLEND_ZERO;
 }
 
-inline D3D12_BLEND_OP to_d3d_blend_op(Graphics::BlendOp operation) {
+inline D3D12_BLEND_OP to_d3d_blend_op(graphics::BlendOp operation) {
     switch (operation) {
-        case Graphics::BlendOp::Add:
+        case graphics::BlendOp::Add:
             return D3D12_BLEND_OP_ADD;
-        case Graphics::BlendOp::Subtract:
+        case graphics::BlendOp::Subtract:
             return D3D12_BLEND_OP_SUBTRACT;
-        case Graphics::BlendOp::RevSubtract:
+        case graphics::BlendOp::RevSubtract:
             return D3D12_BLEND_OP_REV_SUBTRACT;
-        case Graphics::BlendOp::Min:
+        case graphics::BlendOp::Min:
             return D3D12_BLEND_OP_MIN;
-        case Graphics::BlendOp::Max:
+        case graphics::BlendOp::Max:
             return D3D12_BLEND_OP_MAX;
         default: {
             auto logger = spdlog::get("GraphicsManager");
@@ -242,39 +242,39 @@ inline D3D12_BLEND_OP to_d3d_blend_op(Graphics::BlendOp operation) {
     return D3D12_BLEND_OP_ADD;
 }
 
-inline D3D12_LOGIC_OP to_d3d_logic_op(Graphics::LogicOp operation) {
+inline D3D12_LOGIC_OP to_d3d_logic_op(graphics::LogicOp operation) {
     switch (operation) {
-        case Graphics::LogicOp::Clear:
+        case graphics::LogicOp::Clear:
             return D3D12_LOGIC_OP_CLEAR;
-        case Graphics::LogicOp::Set:
+        case graphics::LogicOp::Set:
             return D3D12_LOGIC_OP_SET;
-        case Graphics::LogicOp::Copy:
+        case graphics::LogicOp::Copy:
             return D3D12_LOGIC_OP_COPY;
-        case Graphics::LogicOp::CopyInverted:
+        case graphics::LogicOp::CopyInverted:
             return D3D12_LOGIC_OP_COPY_INVERTED;
-        case Graphics::LogicOp::Noop:
+        case graphics::LogicOp::Noop:
             return D3D12_LOGIC_OP_NOOP;
-        case Graphics::LogicOp::Invert:
+        case graphics::LogicOp::Invert:
             return D3D12_LOGIC_OP_INVERT;
-        case Graphics::LogicOp::And:
+        case graphics::LogicOp::And:
             return D3D12_LOGIC_OP_AND;
-        case Graphics::LogicOp::Nand:
+        case graphics::LogicOp::Nand:
             return D3D12_LOGIC_OP_NAND;
-        case Graphics::LogicOp::Or:
+        case graphics::LogicOp::Or:
             return D3D12_LOGIC_OP_OR;
-        case Graphics::LogicOp::Nor:
+        case graphics::LogicOp::Nor:
             return D3D12_LOGIC_OP_NOR;
-        case Graphics::LogicOp::Xor:
+        case graphics::LogicOp::Xor:
             return D3D12_LOGIC_OP_XOR;
-        case Graphics::LogicOp::Equiv:
+        case graphics::LogicOp::Equiv:
             return D3D12_LOGIC_OP_EQUIV;
-        case Graphics::LogicOp::AndReverse:
+        case graphics::LogicOp::AndReverse:
             return D3D12_LOGIC_OP_AND_REVERSE;
-        case Graphics::LogicOp::AndInverted:
+        case graphics::LogicOp::AndInverted:
             return D3D12_LOGIC_OP_AND_INVERTED;
-        case Graphics::LogicOp::OrReverse:
+        case graphics::LogicOp::OrReverse:
             return D3D12_LOGIC_OP_OR_REVERSE;
-        case Graphics::LogicOp::OrInverted:
+        case graphics::LogicOp::OrInverted:
             return D3D12_LOGIC_OP_OR_INVERTED;
         default: {
             auto logger = spdlog::get("GraphicsManager");
@@ -287,7 +287,7 @@ inline D3D12_LOGIC_OP to_d3d_logic_op(Graphics::LogicOp operation) {
     return D3D12_LOGIC_OP_CLEAR;
 }
 
-inline D3D12_BLEND_DESC to_d3d_blend_desc(Graphics::BlendDescription desc) noexcept {
+inline D3D12_BLEND_DESC to_d3d_blend_desc(graphics::BlendDescription desc) noexcept {
     D3D12_BLEND_DESC result{};
     result.AlphaToCoverageEnable  = desc.alpha_to_coverage_enable;
     result.IndependentBlendEnable = desc.independent_blend_enable;
@@ -306,11 +306,11 @@ inline D3D12_BLEND_DESC to_d3d_blend_desc(Graphics::BlendDescription desc) noexc
     return result;
 }
 
-inline D3D12_FILL_MODE to_d3d_fill_mode(Graphics::FillMode mode) {
+inline D3D12_FILL_MODE to_d3d_fill_mode(graphics::FillMode mode) {
     switch (mode) {
-        case Graphics::FillMode::Solid:
+        case graphics::FillMode::Solid:
             return D3D12_FILL_MODE_SOLID;
-        case Graphics::FillMode::Wireframe:
+        case graphics::FillMode::Wireframe:
             return D3D12_FILL_MODE_WIREFRAME;
         default: {
             auto logger = spdlog::get("GraphicsManager");
@@ -323,13 +323,13 @@ inline D3D12_FILL_MODE to_d3d_fill_mode(Graphics::FillMode mode) {
     return D3D12_FILL_MODE_SOLID;
 }
 
-inline D3D12_CULL_MODE to_d3d_cull_mode(Graphics::CullMode mode) {
+inline D3D12_CULL_MODE to_d3d_cull_mode(graphics::CullMode mode) {
     switch (mode) {
-        case Graphics::CullMode::None:
+        case graphics::CullMode::None:
             return D3D12_CULL_MODE_NONE;
-        case Graphics::CullMode::Front:
+        case graphics::CullMode::Front:
             return D3D12_CULL_MODE_FRONT;
-        case Graphics::CullMode::Back:
+        case graphics::CullMode::Back:
             return D3D12_CULL_MODE_BACK;
         default: {
             auto logger = spdlog::get("GraphicsManager");
@@ -342,7 +342,7 @@ inline D3D12_CULL_MODE to_d3d_cull_mode(Graphics::CullMode mode) {
     return D3D12_CULL_MODE_NONE;
 }
 
-inline D3D12_RASTERIZER_DESC to_d3d_rasterizer_desc(Graphics::RasterizerDescription desc) noexcept {
+inline D3D12_RASTERIZER_DESC to_d3d_rasterizer_desc(graphics::RasterizerDescription desc) noexcept {
     D3D12_RASTERIZER_DESC result = {};
     result.FillMode              = to_d3d_fill_mode(desc.fill_mode);
     result.CullMode              = to_d3d_cull_mode(desc.cull_mode);
@@ -359,4 +359,4 @@ inline D3D12_RASTERIZER_DESC to_d3d_rasterizer_desc(Graphics::RasterizerDescript
     return result;
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

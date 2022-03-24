@@ -3,7 +3,7 @@
 #include "DescriptorAllocator.hpp"
 
 // Stage, commit or cpoy directly CPU visible descriptor to GPU visible descriptor.
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 class CommandContext;
 
 class DynamicDescriptorHeap {
@@ -79,4 +79,4 @@ private:
 
     uint32_t m_NumFreeHandles;
 };
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

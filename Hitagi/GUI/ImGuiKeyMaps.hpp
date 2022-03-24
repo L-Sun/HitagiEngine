@@ -3,7 +3,7 @@
 
 #include <imgui.h>
 
-namespace Hitagi::Gui {
+namespace hitagi::gui {
 
 inline VirtualKeyCode convert_imgui_key(ImGuiKey key) {
     switch (key) {
@@ -261,4 +261,4 @@ inline VirtualKeyCode convert_imgui_key(ImGuiKey key) {
     }
 }
 
-}  // namespace Hitagi::Gui
+}  // namespace hitagi::gui

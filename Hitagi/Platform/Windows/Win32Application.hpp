@@ -5,7 +5,7 @@
 #undef min
 #undef max
 
-namespace Hitagi {
+namespace hitagi {
 class Win32Application : public Application {
 public:
     using Application::Application;
@@ -26,4 +26,4 @@ private:
     bool m_LockCursor = false;
     HWND m_Window{};
 };
-}  // namespace Hitagi
+}  // namespace hitagi

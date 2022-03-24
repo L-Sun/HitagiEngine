@@ -6,9 +6,9 @@
 #include <unordered_map>
 #include <ranges>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 const std::unordered_map<std::string, BvhParser::Channel> BvhParser::m_ChannelMap = {
     {"Xposition", Channel::Xposition},
     {"Yposition", Channel::Yposition},
@@ -18,7 +18,7 @@ const std::unordered_map<std::string, BvhParser::Channel> BvhParser::m_ChannelMa
     {"Zrotation", Channel::Zrotation},
 };
 
-std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Parse(const Core::Buffer& buffer) {
+std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Parse(const core::Buffer& buffer) {
     auto logger = spdlog::get("AssetManager");
 
     std::stringstream ss;
@@ -194,4 +194,4 @@ std::vector<std::string> BvhParser::Tokenizer(std::stringstream& ss) {
     return result;
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

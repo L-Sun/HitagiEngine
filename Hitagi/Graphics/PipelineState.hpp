@@ -9,7 +9,7 @@
 #include <array>
 #include <set>
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 class DriverAPI;
 
 struct InputLayout {
@@ -111,4 +111,4 @@ private:
     RasterizerDescription          m_RasterizerState;
 };
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

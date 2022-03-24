@@ -1,8 +1,8 @@
 #include "SceneNode.hpp"
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 auto SceneNode::GetCalculatedTransformation() -> mat4f {
     if (m_TransformDirty) {
@@ -72,4 +72,4 @@ std::ostream& operator<<(std::ostream& out, const SceneNode& node) {
     return out << fmt::format("{0:{1}}{2:-^30}", "", indent, "End");
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

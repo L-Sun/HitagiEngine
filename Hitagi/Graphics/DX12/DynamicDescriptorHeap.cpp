@@ -2,7 +2,7 @@
 
 #include "CommandContext.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 std::mutex DynamicDescriptorHeap::sm_Mutex;
 
@@ -191,4 +191,4 @@ D3D12_GPU_DESCRIPTOR_HANDLE DynamicDescriptorHeap::CopyDescriptor(CommandContext
     return handle;
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

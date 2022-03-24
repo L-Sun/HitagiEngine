@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 
 enum struct PrimitiveType {
     PointList,
@@ -372,4 +372,4 @@ constexpr inline size_t get_format_bit_size(Format format) {
     }
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

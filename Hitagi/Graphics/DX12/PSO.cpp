@@ -1,6 +1,6 @@
 #include "PSO.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 void GraphicsPSO::SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& input_layout) {
     m_InputLayouts = input_layout;
 }
@@ -64,4 +64,4 @@ void ComputePSO::Finalize(ID3D12Device* device) {
     ThrowIfFailed(device->CreateComputePipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

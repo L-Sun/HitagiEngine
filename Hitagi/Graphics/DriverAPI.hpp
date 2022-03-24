@@ -6,7 +6,7 @@
 
 #include <vector>
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 enum struct APIType {
     DirectX12,
     Vulkan,
@@ -38,7 +38,7 @@ public:
     // resource will relase after fence value and the ref count is zero!
     virtual void RetireResources(std::vector<std::shared_ptr<Resource>> resources, uint64_t fence_value) = 0;
     // Sampler
-    virtual std::shared_ptr<Sampler> CreateSampler(std::string_view name, const Graphics::Sampler::Description& desc) = 0;
+    virtual std::shared_ptr<Sampler> CreateSampler(std::string_view name, const graphics::Sampler::Description& desc) = 0;
 
     // Pipeline
     virtual std::unique_ptr<backend::Resource> CreateRootSignature(const RootSignature& rootsignature) = 0;
@@ -60,4 +60,4 @@ protected:
     const APIType m_Type;
 };
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

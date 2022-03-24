@@ -5,7 +5,7 @@
 #include "Material.hpp"
 #include "Types.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 class VertexArray {
 public:
@@ -23,7 +23,7 @@ public:
     VertexArray() = default;
     VertexArray(std::string_view attr,
                 DataType         data_type,
-                Core::Buffer&&   buffer)
+                core::Buffer&&   buffer)
         : m_Attribute(attr),
           m_DataType(data_type),
           m_VertexCount(buffer.GetDataSize() / GetVertexSize()),
@@ -42,7 +42,7 @@ private:
     std::string  m_Attribute;
     DataType     m_DataType;
     size_t       m_VertexCount;
-    Core::Buffer m_Data;
+    core::Buffer m_Data;
 };
 
 class IndexArray {
@@ -57,7 +57,7 @@ public:
     IndexArray() = default;
     IndexArray(
         const DataType data_type,
-        Core::Buffer&& data)
+        core::Buffer&& data)
         : m_DataType(data_type),
           m_IndexCount(data.GetDataSize() / GetIndexSize()),
           m_Data(std::move(data)) {}
@@ -73,7 +73,7 @@ public:
 private:
     DataType     m_DataType   = DataType::Int32;
     size_t       m_IndexCount = 0;
-    Core::Buffer m_Data;
+    core::Buffer m_Data;
 };
 
 class Mesh : public SceneObject {
@@ -82,7 +82,7 @@ public:
 
     inline void SetIndexArray(IndexArray array) noexcept { m_IndexArray = std::move(array); }
     inline void AddVertexArray(VertexArray array) noexcept { m_VertexArray.emplace_back(std::move(array)); }
-    inline void SetPrimitiveType(Graphics::PrimitiveType type) noexcept { m_PrimitiveType = type; }
+    inline void SetPrimitiveType(graphics::PrimitiveType type) noexcept { m_PrimitiveType = type; }
     inline void SetMaterial(std::shared_ptr<Material> material) noexcept { m_MaterialRef = material; }
 
     std::shared_ptr<Bone> CreateNewBone(std::string name);
@@ -101,9 +101,9 @@ public:
 private:
     std::vector<VertexArray>           m_VertexArray;
     IndexArray                         m_IndexArray;
-    Graphics::PrimitiveType            m_PrimitiveType = Graphics::PrimitiveType::TriangleList;
+    graphics::PrimitiveType            m_PrimitiveType = graphics::PrimitiveType::TriangleList;
     std::weak_ptr<Material>            m_MaterialRef;
     std::vector<std::shared_ptr<Bone>> m_Bones;
 };
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

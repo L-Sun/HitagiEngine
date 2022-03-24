@@ -1,6 +1,6 @@
 #include "Light.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 float default_atten_func(float intensity, float distance) { return intensity / pow(1 + distance, 2.0f); }
 
 std::ostream& operator<<(std::ostream& out, const Light& obj) {
@@ -27,4 +27,4 @@ std::ostream& operator<<(std::ostream& out, const InfiniteLight& obj) {
     out << "Light Type: Infinite" << std::endl;
     return out;
 }
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

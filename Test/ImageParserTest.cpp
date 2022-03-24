@@ -3,7 +3,7 @@
 #include "MemoryManager.hpp"
 #include "AssetManager.hpp"
 
-using namespace Hitagi;
+using namespace hitagi;
 
 TEST(ImageParserTest, ErrorPath) {
     auto image = g_AssetManager->ImportImage("Assets/Textures/a.jpg");

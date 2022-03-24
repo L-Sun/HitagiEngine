@@ -5,7 +5,7 @@
 
 #include <unordered_set>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 class Scene {
 private:
@@ -48,4 +48,4 @@ public:
 
     void LoadResource();
 };
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

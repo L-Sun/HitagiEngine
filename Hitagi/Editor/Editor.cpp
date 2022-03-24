@@ -10,9 +10,9 @@
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi {
+namespace hitagi {
 int Editor::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Editor");
     m_Logger->info("Initialize...");
@@ -122,7 +122,7 @@ void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
         auto scene = g_SceneManager->GetScene();
         if (ImGui::CollapsingHeader("Scene Nodes")) {
-            std::function<void(std::shared_ptr<Asset::SceneNode>)> print_node = [&](std::shared_ptr<Asset::SceneNode> node) -> void {
+            std::function<void(std::shared_ptr<asset::SceneNode>)> print_node = [&](std::shared_ptr<asset::SceneNode> node) -> void {
                 if (ImGui::TreeNode(GenName(node->GetName(), node).c_str())) {
                     {
                         auto position    = node->GetPosition();
@@ -179,11 +179,11 @@ void Editor::SceneExplorer() {
     ImGui::End();
 }
 
-std::string Editor::GenName(std::string_view name, std::shared_ptr<Asset::SceneObject> obj) {
+std::string Editor::GenName(std::string_view name, std::shared_ptr<asset::SceneObject> obj) {
     return fmt::format("{}##{}", name, obj->GetGuid().str());
 }
-std::string Editor::GenName(std::string_view name, std::shared_ptr<Asset::SceneNode> node) {
+std::string Editor::GenName(std::string_view name, std::shared_ptr<asset::SceneNode> node) {
     return fmt::format("{}##{}", name, fmt::ptr(node));
 }
 
-}  // namespace Hitagi
+}  // namespace hitagi

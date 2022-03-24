@@ -1,7 +1,7 @@
 #include "MemoryManager.hpp"
 #include "AssetManager.hpp"
 
-using namespace Hitagi;
+using namespace hitagi;
 
 #define _CRTDBG_MAP_ALLOC
 #ifdef _WIN32
@@ -34,7 +34,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto pCameraNode : scene->camera_nodes) {
         if (pCameraNode) {
-            std::weak_ptr<Asset::Camera> p_camera = pCameraNode->GetSceneObjectRef();
+            std::weak_ptr<asset::Camera> p_camera = pCameraNode->GetSceneObjectRef();
             if (auto p_obj = p_camera.lock()) std::cout << *p_obj << std::endl;
         }
     }
@@ -43,7 +43,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto pLightNode : scene->light_nodes) {
         if (pLightNode) {
-            std::weak_ptr<Asset::Light> p_light = pLightNode->GetSceneObjectRef();
+            std::weak_ptr<asset::Light> p_light = pLightNode->GetSceneObjectRef();
             if (auto p_obj = p_light.lock()) std::cout << *p_obj << std::endl;
         }
     }
@@ -52,7 +52,7 @@ int main(int, char**) {
     std::cout << "---------------------------" << std::endl;
     for (auto pGeometryNode : scene->geometry_nodes) {
         if (pGeometryNode) {
-            std::weak_ptr<Asset::Geometry> p_geometry = pGeometryNode->GetSceneObjectRef();
+            std::weak_ptr<asset::Geometry> p_geometry = pGeometryNode->GetSceneObjectRef();
             if (auto p_obj = p_geometry.lock()) std::cout << *p_obj << std::endl;
             std::cout << pGeometryNode->GetCalculatedTransformation() << std::endl;
         }

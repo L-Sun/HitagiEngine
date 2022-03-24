@@ -1,7 +1,7 @@
 #include "Texture.hpp"
 #include "AssetManager.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 void Texture::LoadTexture() { m_Image = g_AssetManager->ImportImage(m_TexturePath); }
 
 std::ostream& operator<<(std::ostream& out, const Texture& obj) {
@@ -11,4 +11,4 @@ std::ostream& operator<<(std::ostream& out, const Texture& obj) {
                           << obj.m_Image;
     return out;
 }
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

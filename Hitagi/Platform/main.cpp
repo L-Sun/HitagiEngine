@@ -1,7 +1,7 @@
 #include <iostream>
 #include "Application.hpp"
 
-using namespace Hitagi;
+using namespace hitagi;
 
 #ifdef _WIN32
 #include <crtdbg.h>

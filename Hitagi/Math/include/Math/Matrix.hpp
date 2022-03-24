@@ -2,7 +2,7 @@
 #include <cassert>
 #include "Vector.hpp"
 
-namespace Hitagi::Math {
+namespace hitagi::math {
 
 template <typename T, unsigned D>
 struct Matrix {
@@ -288,4 +288,4 @@ Matrix<T, D> absolute(const Matrix<T, D>& a) {
     return res;
 }
 
-}  // namespace Hitagi::Math
+}  // namespace hitagi::math

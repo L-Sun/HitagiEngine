@@ -9,7 +9,7 @@
 #include "Scene.hpp"
 #include "ShaderManager.hpp"
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 class GraphicsManager : public IRuntimeModule {
 public:
     int  Initialize() final;
@@ -18,7 +18,7 @@ public:
 
 protected:
     // TODO change the parameter to View, if multiple view port is finished
-    void   Render(const Asset::Scene& scene);
+    void   Render(const asset::Scene& scene);
     void   OnSizeChanged();
     Frame* GetBcakFrameForRendering();
 
@@ -41,7 +41,7 @@ protected:
     std::array<std::unique_ptr<Frame>, sm_SwapChianSize> m_Frames;
 };
 
-}  // namespace Hitagi::Graphics
-namespace Hitagi {
-extern std::unique_ptr<Graphics::GraphicsManager> g_GraphicsManager;
+}  // namespace hitagi::graphics
+namespace hitagi {
+extern std::unique_ptr<graphics::GraphicsManager> g_GraphicsManager;
 }

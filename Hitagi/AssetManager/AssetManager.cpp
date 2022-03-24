@@ -10,11 +10,11 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace Hitagi {
-std::unique_ptr<Asset::AssetManager> g_AssetManager = std::make_unique<Asset::AssetManager>();
+namespace hitagi {
+std::unique_ptr<asset::AssetManager> g_AssetManager = std::make_unique<asset::AssetManager>();
 }
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 int AssetManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("AssetManager");
@@ -78,4 +78,4 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> AssetManager::I
     return result;
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

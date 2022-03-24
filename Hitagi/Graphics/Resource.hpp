@@ -8,7 +8,7 @@
 #include <string>
 #include <optional>
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 
 namespace backend {
 class Resource {
@@ -136,7 +136,7 @@ public:
         float              mip_lod_bias   = 0;
         unsigned           max_anisotropy = 16;
         ComparisonFunc     comp_func      = ComparisonFunc::LessEqual;
-        Math::vec4f        border_color   = Math::vec4f(0.0f);
+        math::vec4f        border_color   = math::vec4f(0.0f);
         float              min_lod        = 0.0f;
         float              max_lod        = std::numeric_limits<float>::max();
     } const desc;
@@ -144,4 +144,4 @@ public:
         : Resource(name, std::move(sampler)), desc(std::move(desc)) {}
 };
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

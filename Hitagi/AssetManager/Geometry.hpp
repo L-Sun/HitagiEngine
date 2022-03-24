@@ -5,7 +5,7 @@
 #include <map>
 #include <vector>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class Geometry : public SceneObject {
 protected:
     std::map<unsigned, std::vector<Mesh>> m_Meshes;
@@ -19,4 +19,4 @@ public:
 
     friend std::ostream& operator<<(std::ostream& out, const Geometry& obj);
 };
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

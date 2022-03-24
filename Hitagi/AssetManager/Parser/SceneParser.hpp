@@ -2,10 +2,10 @@
 #include "../Scene.hpp"
 #include "Buffer.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class SceneParser {
 public:
-    virtual std::shared_ptr<Scene> Parse(const Core::Buffer& buffer) = 0;
+    virtual std::shared_ptr<Scene> Parse(const core::Buffer& buffer) = 0;
     virtual ~SceneParser()                                           = default;
 };
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

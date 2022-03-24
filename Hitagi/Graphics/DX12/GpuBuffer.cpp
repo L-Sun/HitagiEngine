@@ -1,7 +1,7 @@
 #include "GpuBuffer.hpp"
 #include "Utils.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 GpuBuffer::GpuBuffer(ID3D12Device*         device,
                      std::string_view      name,
@@ -142,4 +142,4 @@ DepthBuffer::DepthBuffer(std::string_view name, ID3D12Device* device, Descriptor
     device->CreateDepthStencilView(m_Resource.Get(), &dsv_desc, m_DSV.handle);
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

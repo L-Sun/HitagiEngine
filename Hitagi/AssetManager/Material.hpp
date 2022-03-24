@@ -8,27 +8,27 @@
 
 #include <variant>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class Material : public SceneObject {
 public:
     template <typename T>
     using Parameter = std::variant<T, std::shared_ptr<Texture>>;
 
-    using Color       = Parameter<Math::vec4f>;
-    using Normal      = Parameter<Math::vec3f>;
+    using Color       = Parameter<math::vec4f>;
+    using Normal      = Parameter<math::vec3f>;
     using SingleValue = Parameter<float>;
 
-    Material() : m_AmbientColor(Math::vec4f(0.0f)),
-                 m_DiffuseColor(Math::vec4f(1.0f)),
+    Material() : m_AmbientColor(math::vec4f(0.0f)),
+                 m_DiffuseColor(math::vec4f(1.0f)),
                  m_Metallic(0.0f),
                  m_Roughness(0.0f),
-                 m_Normal(Math::vec3f(0.0f, 0.0f, 1.0f)),
-                 m_Specular(Math::vec4f(0.0f)),
+                 m_Normal(math::vec3f(0.0f, 0.0f, 1.0f)),
+                 m_Specular(math::vec4f(0.0f)),
                  m_SpecularPower(1.0f),
                  m_AmbientOcclusion(1.0f),
                  m_Opacity(1.0f),
-                 m_Transparency(Math::vec4f(0.0f)),
-                 m_Emission(Math::vec4f(0.0f)) {}
+                 m_Transparency(math::vec4f(0.0f)),
+                 m_Emission(math::vec4f(0.0f)) {}
 
     inline const Color&       GetAmbientColor() const noexcept { return m_AmbientColor; }
     inline const Color&       GetDiffuseColor() const noexcept { return m_DiffuseColor; }
@@ -36,7 +36,7 @@ public:
     inline const SingleValue& GetSpecularPower() const noexcept { return m_SpecularPower; }
     inline const Color&       GetEmission() const noexcept { return m_Emission; }
 
-    void SetColor(std::string_view attrib, const Math::vec4f& color);
+    void SetColor(std::string_view attrib, const math::vec4f& color);
     void SetParam(std::string_view attrib, const float param);
     void SetTexture(std::string_view attrib, const std::shared_ptr<Texture>& texture);
     void LoadTextures();
@@ -65,4 +65,4 @@ inline std::ostream& operator<<(std::ostream& out, const Material::Parameter<T>&
         return out << *std::get<std::shared_ptr<Texture>>(param);
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

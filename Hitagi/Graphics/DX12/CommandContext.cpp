@@ -6,9 +6,9 @@
 
 #include <Math/Vector.hpp>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 CommandContext::CommandContext(DX12DriverAPI& driver, D3D12_COMMAND_LIST_TYPE type)
     : m_Driver(driver),
@@ -116,7 +116,7 @@ void GraphicsCommandContext::SetViewPortAndScissor(uint32_t x, uint32_t y, uint3
     SetScissorRect(x, y, x + width, y + height);
 }
 
-void GraphicsCommandContext::SetRenderTarget(Graphics::RenderTarget& rt) {
+void GraphicsCommandContext::SetRenderTarget(graphics::RenderTarget& rt) {
     auto& render_target = *rt.GetBackend<RenderTarget>();
     TransitionResource(render_target, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->OMSetRenderTargets(1, &render_target.GetRTV().handle, false, nullptr);
@@ -126,7 +126,7 @@ void GraphicsCommandContext::UnsetRenderTarget() {
     m_CommandList->OMSetRenderTargets(0, nullptr, false, nullptr);
 }
 
-void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(Graphics::RenderTarget& rt, Graphics::DepthBuffer& depth_buffer) {
+void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(graphics::RenderTarget& rt, graphics::DepthBuffer& depth_buffer) {
     auto& render_target = *rt.GetBackend<RenderTarget>();
     auto& db            = *depth_buffer.GetBackend<DepthBuffer>();
     TransitionResource(render_target, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -134,49 +134,49 @@ void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(Graphics::RenderTarge
     m_CommandList->OMSetRenderTargets(1, &render_target.GetRTV().handle, false, &db.GetDSV().handle);
 }
 
-void GraphicsCommandContext::ClearRenderTarget(Graphics::RenderTarget& rt) {
+void GraphicsCommandContext::ClearRenderTarget(graphics::RenderTarget& rt) {
     auto& render_target = *rt.GetBackend<RenderTarget>();
     TransitionResource(render_target, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->ClearRenderTargetView(render_target.GetRTV().handle, vec4f(0, 0, 0, 1), 0, nullptr);
 }
 
-void GraphicsCommandContext::ClearDepthBuffer(Graphics::DepthBuffer& depth_buffer) {
+void GraphicsCommandContext::ClearDepthBuffer(graphics::DepthBuffer& depth_buffer) {
     auto& db = *depth_buffer.GetBackend<DepthBuffer>();
     TransitionResource(db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
     m_CommandList->ClearDepthStencilView(db.GetDSV().handle, D3D12_CLEAR_FLAG_DEPTH, db.GetClearDepth(), db.GetClearStencil(), 0, nullptr);
 }
 
-void GraphicsCommandContext::SetPipelineState(const Graphics::PipelineState& pipeline) {
+void GraphicsCommandContext::SetPipelineState(const graphics::PipelineState& pipeline) {
     if (m_Pipeline == &pipeline) return;
     m_Pipeline = &pipeline;
     SetPSO(*pipeline.GetBackend<PSO>());
     SetRootSignature(*pipeline.GetRootSignature()->GetBackend<RootSignature>());
 }
 
-void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::ConstantBuffer& cb, size_t offset) {
+void GraphicsCommandContext::SetParameter(std::string_view name, const graphics::ConstantBuffer& cb, size_t offset) {
     auto sig                      = m_Pipeline->GetRootSignature()->GetBackend<RootSignature>();
     auto [rootIndex, tableOffset] = sig->GetParameterTable(name);
     SetDynamicDescriptor(rootIndex, tableOffset, cb.GetBackend<ConstantBuffer>()->GetCBV(offset));
 }
 
-void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::TextureBuffer& texture) {
+void GraphicsCommandContext::SetParameter(std::string_view name, const graphics::TextureBuffer& texture) {
     auto sig                      = m_Pipeline->GetRootSignature()->GetBackend<RootSignature>();
     auto [rootIndex, tableOffset] = sig->GetParameterTable(name);
     SetDynamicDescriptor(rootIndex, tableOffset, texture.GetBackend<TextureBuffer>()->GetSRV());
 }
 
-void GraphicsCommandContext::SetParameter(std::string_view name, const Graphics::Sampler& sampler) {
+void GraphicsCommandContext::SetParameter(std::string_view name, const graphics::Sampler& sampler) {
     auto sig                      = m_Pipeline->GetRootSignature()->GetBackend<RootSignature>();
     auto [rootIndex, tableOffset] = sig->GetParameterTable(name);
     SetDynamicSampler(rootIndex, tableOffset, sampler.GetBackend<Sampler>()->GetDescriptor());
 }
 
-void GraphicsCommandContext::Present(Graphics::RenderTarget& rt) {
+void GraphicsCommandContext::Present(graphics::RenderTarget& rt) {
     auto& render_target = *rt.GetBackend<RenderTarget>();
     TransitionResource(render_target, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 
-void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
+void GraphicsCommandContext::Draw(const graphics::MeshBuffer& mesh) {
     auto  index_buffer = mesh.indices->GetBackend<IndexBuffer>();
     auto& layout       = m_Pipeline->GetInputLayout();
 
@@ -203,7 +203,7 @@ void GraphicsCommandContext::Draw(const Graphics::MeshBuffer& mesh) {
         0);
 }
 
-void GraphicsCommandContext::UpdateBuffer(std::shared_ptr<Graphics::Resource> resource, size_t offset, const uint8_t* data, size_t data_size) {
+void GraphicsCommandContext::UpdateBuffer(std::shared_ptr<graphics::Resource> resource, size_t offset, const uint8_t* data, size_t data_size) {
     auto& dest          = *resource->GetBackend<GpuBuffer>();
     auto  upload_buffer = m_CpuLinearAllocator.Allocate(data_size);
     std::copy_n(data, data_size, upload_buffer.cpu_ptr);
@@ -238,4 +238,4 @@ void CopyCommandContext::InitializeTexture(GpuResource& dest, const std::vector<
     Finish(true);
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

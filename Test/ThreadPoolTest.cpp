@@ -1,6 +1,6 @@
 #include "ThreadManager.hpp"
 
-using namespace Hitagi;
+using namespace hitagi;
 
 int main() {
     g_ThreadManager->Initialize();

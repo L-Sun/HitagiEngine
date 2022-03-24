@@ -2,7 +2,7 @@
 #include <chrono>
 #include <string>
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 class Clock {
 public:
     Clock();
@@ -28,4 +28,4 @@ private:
     bool m_Paused = true;
 };
 
-}  // namespace Hitagi::Core
+}  // namespace hitagi::core

@@ -6,9 +6,9 @@
 
 #include "MotionState.hpp"
 
-namespace Hitagi::Physics {
+namespace hitagi::physics {
 
 class RigidBody {
 private:
 };
-}  // namespace Hitagi::Physics
+}  // namespace hitagi::physics

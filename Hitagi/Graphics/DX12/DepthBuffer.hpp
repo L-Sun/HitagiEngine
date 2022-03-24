@@ -3,7 +3,7 @@
 #include "PixelBuffer.hpp"
 #include "DescriptorAllocator.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 class DepthBuffer : public PixelBuffer {
 public:
@@ -34,4 +34,4 @@ private:
     DescriptorAllocation                m_StencilSRV;
 };
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

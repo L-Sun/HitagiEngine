@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 
 class Buffer {
 public:
@@ -24,4 +24,4 @@ private:
     size_t   m_Size      = 0;
     size_t   m_Alignment = alignof(uint32_t);
 };
-}  // namespace Hitagi::Core
+}  // namespace hitagi::core

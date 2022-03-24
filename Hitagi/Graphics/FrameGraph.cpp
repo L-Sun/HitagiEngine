@@ -6,7 +6,7 @@ struct Overloaded : Ts... { using Ts::operator()...; };
 template <class... Ts>
 Overloaded(Ts...) -> Overloaded<Ts...>;
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 
 FrameHandle PassNode::Read(const FrameHandle input) {
     if (!reads.contains(input))
@@ -76,7 +76,7 @@ FrameHandle FrameGraph::Create(std::string_view name, Desc desc) {
     return handle;
 }
 
-void FrameGraph::Present(FrameHandle render_target, std::shared_ptr<Hitagi::Graphics::IGraphicsCommandContext> context) {
+void FrameGraph::Present(FrameHandle render_target, std::shared_ptr<hitagi::graphics::IGraphicsCommandContext> context) {
     struct PassData {
         FrameHandle output;
     };
@@ -92,4 +92,4 @@ void FrameGraph::Present(FrameHandle render_target, std::shared_ptr<Hitagi::Grap
         });
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

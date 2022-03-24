@@ -6,7 +6,7 @@
 #include "IRuntimeModule.hpp"
 #include "Buffer.hpp"
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 
 class FileIOManager : public IRuntimeModule {
 public:
@@ -26,8 +26,8 @@ private:
     Buffer                                                        m_EmptyBuffer;
 };
 
-}  // namespace Hitagi::Core
+}  // namespace hitagi::core
 
-namespace Hitagi {
-extern std::unique_ptr<Core::FileIOManager> g_FileIoManager;
+namespace hitagi {
+extern std::unique_ptr<core::FileIOManager> g_FileIoManager;
 }

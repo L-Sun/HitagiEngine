@@ -3,10 +3,10 @@
 #include <spdlog/spdlog.h>
 #include <fmt/format.h>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Graphics {
-std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::Mesh& mesh) {
+namespace hitagi::graphics {
+std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const asset::Mesh& mesh) {
     auto id = mesh.GetGuid();
     if (m_MeshBuffer.count(id) != 0)
         return m_MeshBuffer.at(id);
@@ -39,7 +39,7 @@ std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::Mesh& me
     return result;
 }
 
-std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(std::shared_ptr<Asset::Image> texture) {
+std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(std::shared_ptr<asset::Image> texture) {
     if (!texture) return GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
 
     auto id = texture->GetGuid();
@@ -153,4 +153,4 @@ void ResourceManager::MakeImGuiMesh(ImDrawData* data, ImGuiMeshBuilder&& builder
 
     cmd_context->Finish(true);
 }
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

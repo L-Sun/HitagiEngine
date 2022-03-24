@@ -1,6 +1,6 @@
 #include "Camera.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 std::ostream& operator<<(std::ostream& out, const Camera& obj) {
     out << static_cast<const SceneObject&>(obj) << std::endl;
     out << "Aspcet:             " << obj.m_Aspect << std::endl;
@@ -9,4 +9,4 @@ std::ostream& operator<<(std::ostream& out, const Camera& obj) {
     out << "Far Clip Distance:  " << obj.m_FarClipDistance << std::endl;
     return out;
 }
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

@@ -5,7 +5,7 @@
 
 #include "MemoryManager.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 Image::Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t data_size)
     : m_Guid(xg::newGuid()),
@@ -13,7 +13,7 @@ Image::Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch,
       m_Height(height),
       m_Bitcount(bitcount),
       m_Pitch(pitch),
-      Core::Buffer(data_size) {
+      core::Buffer(data_size) {
 }
 
 auto operator<<(std::ostream& out, const Image& image) -> std::ostream& {
@@ -35,4 +35,4 @@ auto operator<<(std::ostream& out, const Image& image) -> std::ostream& {
                "{7:-^25}",
                "Image Info", image.m_Width, image.m_Height, image.m_Bitcount, image.m_Pitch, size, unit[i], "End");
 }
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

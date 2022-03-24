@@ -5,7 +5,7 @@
 #include <iostream>
 #include <gtest/gtest.h>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
 template <typename T, unsigned D>
 void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2, double epsilon = 1E-5) {

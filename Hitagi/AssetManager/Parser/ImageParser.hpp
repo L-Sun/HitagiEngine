@@ -3,7 +3,7 @@
 #include "../Image.hpp"
 #include "Buffer.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 enum class ImageFormat : unsigned {
     PNG,
     JPEG,
@@ -26,7 +26,7 @@ inline ImageFormat get_image_format(std::string_view ext) {
 
 class ImageParser {
 public:
-    virtual std::shared_ptr<Image> Parse(const Core::Buffer& buffer) = 0;
+    virtual std::shared_ptr<Image> Parse(const core::Buffer& buffer) = 0;
     virtual ~ImageParser()                                           = default;
 };
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

@@ -15,7 +15,7 @@
 #include "IPhysicsManager.hpp"
 #include "ThreadManager.hpp"
 
-using namespace Hitagi;
+using namespace hitagi;
 
 bool Application::sm_Quit = false;
 

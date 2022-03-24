@@ -3,7 +3,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-using namespace Hitagi;
+using namespace hitagi;
 
 int ImGuiDemo::Initialize() {
     m_Logger = spdlog::stdout_color_mt("ImGuiDemo");

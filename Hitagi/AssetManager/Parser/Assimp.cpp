@@ -8,12 +8,12 @@
 #include <assimp/scene.h>
 #include <spdlog/spdlog.h>
 
-using namespace Hitagi::Math;
-using PrimitiveType = Hitagi::Graphics::PrimitiveType;
+using namespace hitagi::math;
+using PrimitiveType = hitagi::graphics::PrimitiveType;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
-std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buffer) {
+std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
     auto logger = spdlog::get("AssetManager");
     auto scene  = std::make_shared<Scene>();
 
@@ -200,7 +200,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buffer) {
 
         // Read Position
         if (ai_mesh->HasPositions()) {
-            Core::Buffer positionBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
+            core::Buffer positionBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
             auto         position = reinterpret_cast<vec3f*>(positionBuffer.GetData());
             for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
                 position[i] = vec3f(ai_mesh->mVertices[i].x, ai_mesh->mVertices[i].y, ai_mesh->mVertices[i].z);
@@ -209,7 +209,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buffer) {
 
         // Read Normal
         if (ai_mesh->HasNormals()) {
-            Core::Buffer normalBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
+            core::Buffer normalBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
             auto         normal = reinterpret_cast<vec3f*>(normalBuffer.GetData());
             for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
                 normal[i] = vec3f(ai_mesh->mNormals[i].x, ai_mesh->mNormals[i].y, ai_mesh->mNormals[i].z);
@@ -219,7 +219,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buffer) {
         // Read Color
         for (size_t colorChannels = 0; colorChannels < ai_mesh->GetNumColorChannels(); colorChannels++) {
             if (ai_mesh->HasVertexColors(colorChannels)) {
-                Core::Buffer colorBuffer(ai_mesh->mNumVertices * sizeof(vec4f));
+                core::Buffer colorBuffer(ai_mesh->mNumVertices * sizeof(vec4f));
                 auto         color = reinterpret_cast<vec4f*>(colorBuffer.GetData());
                 for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
                     color[i] = vec4f(ai_mesh->mColors[colorChannels][i].r,
@@ -234,7 +234,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buffer) {
         // Read UV
         for (size_t UVChannel = 0; UVChannel < ai_mesh->GetNumUVChannels(); UVChannel++) {
             if (ai_mesh->HasTextureCoords(UVChannel)) {
-                Core::Buffer texcoordBuffer(ai_mesh->mNumVertices * sizeof(vec2f));
+                core::Buffer texcoordBuffer(ai_mesh->mNumVertices * sizeof(vec2f));
                 auto         texcoord = reinterpret_cast<vec2f*>(texcoordBuffer.GetData());
                 for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
                     texcoord[i] = vec2f(ai_mesh->mTextureCoords[UVChannel][i].x, ai_mesh->mTextureCoords[UVChannel][i].y);
@@ -246,13 +246,13 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buffer) {
 
         // Read Tangent and Bitangent
         if (ai_mesh->HasTangentsAndBitangents()) {
-            Core::Buffer tangentBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
+            core::Buffer tangentBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
             auto         tangent = reinterpret_cast<vec3f*>(tangentBuffer.GetData());
             for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
                 tangent[i] = vec3f(ai_mesh->mTangents[i].x, ai_mesh->mTangents[i].y, ai_mesh->mTangents[i].z);
             mesh.AddVertexArray(VertexArray("TANGENT", VertexArray::DataType::Float3, std::move(tangentBuffer)));
 
-            Core::Buffer bitangentBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
+            core::Buffer bitangentBuffer(ai_mesh->mNumVertices * sizeof(vec3f));
             auto         bitangent = reinterpret_cast<vec3f*>(bitangentBuffer.GetData());
             for (size_t i = 0; i < ai_mesh->mNumVertices; i++)
                 bitangent[i] = vec3f(ai_mesh->mBitangents[i].x, ai_mesh->mBitangents[i].y, ai_mesh->mBitangents[i].z);
@@ -264,7 +264,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buffer) {
         for (size_t face = 0; face < ai_mesh->mNumFaces; face++)
             indicesCount += ai_mesh->mFaces[face].mNumIndices;
 
-        Core::Buffer indexBuffer(indicesCount * sizeof(int));
+        core::Buffer indexBuffer(indicesCount * sizeof(int));
         auto         indices = reinterpret_cast<int*>(indexBuffer.GetData());
         for (size_t face = 0; face < ai_mesh->mNumFaces; face++)
             for (size_t i = 0; i < ai_mesh->mFaces[face].mNumIndices; i++)
@@ -375,4 +375,4 @@ std::shared_ptr<Scene> AssimpParser::Parse(const Core::Buffer& buffer) {
     return scene;
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

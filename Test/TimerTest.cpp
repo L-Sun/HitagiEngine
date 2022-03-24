@@ -3,7 +3,7 @@
 #include <thread>
 
 using namespace std::chrono_literals;
-using namespace Hitagi::Core;
+using namespace hitagi::core;
 
 TEST(TimerTest, DurationTest) {
     Clock clock;

@@ -3,7 +3,7 @@
 #include "DescriptorAllocator.hpp"
 #include "Utils.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 class GpuBuffer : public GpuResource {
 public:
@@ -95,4 +95,4 @@ private:
     uint8_t    m_ClearStencil;
 };
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

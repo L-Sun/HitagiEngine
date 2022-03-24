@@ -1,7 +1,7 @@
 #pragma once
 #include "RootSignature.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 class PSO : public backend::Resource {
 public:
     PSO(std::string_view name) : m_Name(name) {}
@@ -52,4 +52,4 @@ private:
     D3D12_COMPUTE_PIPELINE_STATE_DESC m_PSODesc{};
 };
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

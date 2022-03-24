@@ -1,6 +1,6 @@
 #include "CommandAllocatorPool.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 CommandAllocatorPool::CommandAllocatorPool(D3D12_COMMAND_LIST_TYPE type) : m_Type(type) {}
 
@@ -25,4 +25,4 @@ ID3D12CommandAllocator* CommandAllocatorPool::GetAllocator(uint64_t completed_fe
 void CommandAllocatorPool::DiscardAllocator(uint64_t fence_value, ID3D12CommandAllocator* allocator) {
     m_ReadyAllocators.push({fence_value, allocator});
 }
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

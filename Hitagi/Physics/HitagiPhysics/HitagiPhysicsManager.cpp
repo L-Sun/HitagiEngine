@@ -3,26 +3,26 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Physics {
+namespace hitagi::physics {
 
-int HitagiPhysicsManager::Initialize() {
+int hitagiPhysicsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("HitagiPhysicsManager");
     m_Logger->info("Initialize.");
     return 0;
 }
 
-void HitagiPhysicsManager::Finalize() {
+void hitagiPhysicsManager::Finalize() {
     // Clean up
 
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
-void HitagiPhysicsManager::Tick() {}
+void hitagiPhysicsManager::Tick() {}
 
-std::array<vec3f, 2> HitagiPhysicsManager::GetAABB(Asset::GeometryNode& node) {
+std::array<vec3f, 2> hitagiPhysicsManager::GetAABB(asset::GeometryNode& node) {
     auto geometry = node.GetSceneObjectRef().lock();
     if (!geometry) return {vec3f(0), vec3f(0)};
 
@@ -37,14 +37,14 @@ std::array<vec3f, 2> HitagiPhysicsManager::GetAABB(Asset::GeometryNode& node) {
         auto  data         = positions.GetData();
 
         switch (data_type) {
-            case Asset::VertexArray::DataType::Float3: {
+            case asset::VertexArray::DataType::Float3: {
                 auto vertex = reinterpret_cast<const vec3f*>(data);
                 for (auto i = 0; i < vertex_count; i++, vertex++) {
                     aabb_min = min(aabb_min, vertex[i]);
                     aabb_max = max(aabb_max, vertex[i]);
                 }
             } break;
-            case Asset::VertexArray::DataType::Double3: {
+            case asset::VertexArray::DataType::Double3: {
                 auto vertex = reinterpret_cast<const vec3d*>(data);
                 for (auto i = 0; i < vertex_count; i++, vertex++) {
                     aabb_min.x = std::min(static_cast<double>(aabb_min.x), vertex->x);
@@ -83,7 +83,7 @@ std::array<vec3f, 2> HitagiPhysicsManager::GetAABB(Asset::GeometryNode& node) {
     return {std::move(new_aabb_min), std::move(new_aabb_max)};
 }
 
-void HitagiPhysicsManager::CreateRigidBody(Asset::GeometryNode& node) {
+void hitagiPhysicsManager::CreateRigidBody(asset::GeometryNode& node) {
     // auto geometry = node.GetSceneObjectRef().lock();
     // if (!geometry) return;
 
@@ -116,15 +116,15 @@ void HitagiPhysicsManager::CreateRigidBody(Asset::GeometryNode& node) {
     // }
 }
 
-void HitagiPhysicsManager::UpdateRigidBodyTransform(Asset::GeometryNode& node) {
+void hitagiPhysicsManager::UpdateRigidBodyTransform(asset::GeometryNode& node) {
     // auto rigidBody   = node.RigidBody();
     // auto motionState = std::static_pointer_cast<RigidBody>(rigidBody)->GetMotionState();
     // motionState->SetTransition(node.GetCalculatedTransformation());
 }
 
-void HitagiPhysicsManager::DeleteRigidBody(Asset::GeometryNode& node) {}
+void hitagiPhysicsManager::DeleteRigidBody(asset::GeometryNode& node) {}
 
-mat4f HitagiPhysicsManager::GetRigidBodyTransform(Asset::GeometryNode& node) {
+mat4f hitagiPhysicsManager::GetRigidBodyTransform(asset::GeometryNode& node) {
     mat4f trans;
     // auto  _rigidBody  = std::static_pointer_cast<RigidBody>(rigidBody);
     // auto  motionState = _rigidBody->GetMotionState();
@@ -132,6 +132,6 @@ mat4f HitagiPhysicsManager::GetRigidBodyTransform(Asset::GeometryNode& node) {
     return trans;
 }
 
-void HitagiPhysicsManager::ApplyCentralForce(Asset::GeometryNode& node, vec3f force) {}
+void hitagiPhysicsManager::ApplyCentralForce(asset::GeometryNode& node, vec3f force) {}
 
-}  // namespace Hitagi::Physics
+}  // namespace hitagi::physics

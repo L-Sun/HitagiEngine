@@ -2,7 +2,7 @@
 #include "GpuResource.hpp"
 #include "CommandListManager.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 class AllocationPage;
 
 struct Allocation {
@@ -159,4 +159,4 @@ private:
     std::vector<std::shared_ptr<LinearAllocationPage>> m_LargePages;
 };
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

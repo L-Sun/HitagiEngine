@@ -1,8 +1,8 @@
 #include "Material.hpp"
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 void Material::SetColor(std::string_view attrib, const vec4f& color) {
     if (attrib == "ambient") m_AmbientColor = color;
     if (attrib == "diffuse") m_DiffuseColor = color;

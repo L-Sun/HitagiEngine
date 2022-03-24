@@ -7,8 +7,8 @@
 
 #include <queue>
 
-using namespace Hitagi;
-using namespace Hitagi::Math;
+using namespace hitagi;
+using namespace hitagi::math;
 
 int MyGame::Initialize() {
     int ret  = 0;

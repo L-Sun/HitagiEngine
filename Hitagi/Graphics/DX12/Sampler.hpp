@@ -2,7 +2,7 @@
 #include "../Resource.hpp"
 #include "DescriptorAllocator.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 class Sampler : public backend::Resource {
 public:
@@ -12,4 +12,4 @@ public:
 private:
     Descriptor m_Sampler;
 };
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

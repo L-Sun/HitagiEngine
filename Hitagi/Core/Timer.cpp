@@ -1,6 +1,6 @@
 #include "Timer.hpp"
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 
 Clock::Clock()
     : m_BaseTime(std::chrono::high_resolution_clock::now()), m_StopTime(m_BaseTime) {}
@@ -53,4 +53,4 @@ void Clock::Reset() {
     m_PausedTime = std::chrono::duration<double>::zero();
     m_StopTime   = m_BaseTime;
 }
-}  // namespace Hitagi::Core
+}  // namespace hitagi::core

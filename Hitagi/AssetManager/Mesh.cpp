@@ -2,9 +2,9 @@
 
 #include <magic_enum.hpp>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 // Class VertexArray
 size_t VertexArray::GetVertexSize() const {
@@ -138,4 +138,4 @@ std::ostream& operator<<(std::ostream& out, const Mesh& obj) {
     return out;
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

@@ -3,10 +3,10 @@
 
 #include <Math/Vector.hpp>
 
-using namespace Hitagi::Math;
-using PrimitiveType = Hitagi::Graphics::PrimitiveType;
+using namespace hitagi::math;
+using PrimitiveType = hitagi::graphics::PrimitiveType;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 std::shared_ptr<Geometry> GeometryFactory::Line(const vec3f& from, const vec3f& to, std::shared_ptr<Material> material) {
     auto result = std::make_shared<Geometry>();
     Mesh mesh;
@@ -15,11 +15,11 @@ std::shared_ptr<Geometry> GeometryFactory::Line(const vec3f& from, const vec3f& 
         "POSITION",
         VertexArray::DataType::Float3,
         // ! it is not guaranteed that sizeof(std::array<T, N>) == N * sizeof(T)
-        Core::Buffer{(std::array{from, to}).data(), 2 * sizeof(vec3f)},
+        core::Buffer{(std::array{from, to}).data(), 2 * sizeof(vec3f)},
     });
     mesh.SetIndexArray(IndexArray{
         IndexArray::DataType::Int32,
-        Core::Buffer{(std::array{0, 1}).data(), 2 * sizeof(unsigned)},
+        core::Buffer{(std::array{0, 1}).data(), 2 * sizeof(unsigned)},
     });
     mesh.SetPrimitiveType(PrimitiveType::LineList);
     mesh.SetMaterial(material);
@@ -52,11 +52,11 @@ std::shared_ptr<Geometry> GeometryFactory::Box(const vec3f& bb_min, const vec3f&
     mesh.AddVertexArray(VertexArray{
         "POSITION",
         VertexArray::DataType::Float3,
-        Core::Buffer{vertex_data.data(), vertex_data.size() * sizeof(vec3f)},
+        core::Buffer{vertex_data.data(), vertex_data.size() * sizeof(vec3f)},
     });
     mesh.SetIndexArray(IndexArray{
         IndexArray::DataType::Int32,
-        Core::Buffer{index_data.data(), index_data.size() * sizeof(unsigned)},
+        core::Buffer{index_data.data(), index_data.size() * sizeof(unsigned)},
     });
     mesh.SetPrimitiveType(primitive_type);
     mesh.SetMaterial(material);
@@ -65,4 +65,4 @@ std::shared_ptr<Geometry> GeometryFactory::Box(const vec3f& bb_min, const vec3f&
     return result;
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

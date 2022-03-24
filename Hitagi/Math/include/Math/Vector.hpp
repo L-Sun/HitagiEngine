@@ -10,7 +10,7 @@
 #include "ispcMath.hpp"
 #endif  // USE_ISPC
 
-namespace Hitagi::Math {
+namespace hitagi::math {
 template <typename T, unsigned D>
 struct Vector;
 
@@ -344,4 +344,4 @@ Vector<T, D> min(const Vector<T, D>& a, const Vector<T, D>& b) {
     return res;
 }
 
-}  // namespace Hitagi::Math
+}  // namespace hitagi::math

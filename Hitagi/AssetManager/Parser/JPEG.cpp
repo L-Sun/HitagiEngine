@@ -3,9 +3,9 @@
 #include <jpeglib.h>
 #include <spdlog/spdlog.h>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
-std::shared_ptr<Image> JpegParser::Parse(const Core::Buffer& buf) {
+std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
@@ -48,4 +48,4 @@ std::shared_ptr<Image> JpegParser::Parse(const Core::Buffer& buf) {
 
     return img;
 }
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

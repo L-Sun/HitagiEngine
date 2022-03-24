@@ -4,7 +4,7 @@
 
 #include <unordered_set>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class AnimationManager : public IRuntimeModule {
 public:
     AnimationManager()                        = default;
@@ -20,4 +20,4 @@ public:
 private:
     std::unordered_set<std::shared_ptr<Animation>> m_PlayQueue;
 };
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

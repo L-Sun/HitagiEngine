@@ -1,6 +1,6 @@
 #include "CommandListManager.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type)
     : m_Type(type),
       m_CommandQueue(nullptr),
@@ -123,4 +123,4 @@ void CommandListManager::WaitForFence(uint64_t fence_value) {
             break;
     }
 }
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

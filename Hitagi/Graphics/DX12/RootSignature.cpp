@@ -1,7 +1,7 @@
 #include "RootSignature.hpp"
 #include "spdlog/spdlog.h"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 RootSignature::RootSignature(std::string_view name, uint32_t num_root_params, uint32_t num_static_samplers)
     : m_Name(name),
       m_RootSignature(nullptr),
@@ -144,4 +144,4 @@ void RootSignature::Finalize(
     m_Finalized = true;
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

@@ -7,7 +7,7 @@
 
 #include <filesystem>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class SceneObject {
 public:
     inline const xg::Guid&    GetGuid() const noexcept { return m_Guid; }
@@ -33,4 +33,4 @@ protected:
     SceneObject(SceneObject&&) = default;
     SceneObject& operator=(SceneObject&&) = default;
 };
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

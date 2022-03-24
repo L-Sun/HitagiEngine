@@ -4,9 +4,9 @@
 
 #include <Math/Vector.hpp>
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 #pragma pack(push, 1)
 struct TgaFileheader {
@@ -18,7 +18,7 @@ struct TgaFileheader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Image> TgaParser::Parse(const Core::Buffer& buf) {
+std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[TGA] Parsing a empty buffer will return nullptr");
@@ -119,4 +119,4 @@ std::shared_ptr<Image> TgaParser::Parse(const Core::Buffer& buf) {
         assert(data <= p_data_end);
         return img;
 }
-}  // namespace Hitagi::Resource
+}  // namespace hitagi::Resource

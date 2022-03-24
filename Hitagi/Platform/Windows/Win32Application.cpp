@@ -6,7 +6,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <windowsx.h>
 
-namespace Hitagi {
+namespace hitagi {
 
 extern GfxConfiguration      g_Config;
 std::unique_ptr<Application> g_App = std::make_unique<Win32Application>(g_Config);
@@ -35,14 +35,14 @@ int Win32Application::Initialize() {
     wc.hInstance     = h_instance;
     wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
-    wc.lpszClassName = L"HitagiEngine";
+    wc.lpszClassName = L"hitagiEngine";
 
     // register the window class
     RegisterClassEx(&wc);
     const std::wstring title(m_Config.app_name.begin(), m_Config.app_name.end());
     m_Window = CreateWindowEx(
         0,
-        L"HitagiEngine",
+        L"hitagiEngine",
         title.c_str(),                 // title
         WS_OVERLAPPEDWINDOW,           // Window style
         CW_USEDEFAULT, CW_USEDEFAULT,  // Position (x, y)
@@ -230,4 +230,4 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
     return DefWindowProc(h_wnd, message, w_param, l_param);
 }
 
-}  // namespace Hitagi
+}  // namespace hitagi

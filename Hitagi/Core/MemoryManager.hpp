@@ -5,7 +5,7 @@
 #include <array>
 #include <memory_resource>
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 
 constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
@@ -91,7 +91,7 @@ private:
     std::unique_ptr<MemoryPool> m_Pools;
 };
 
-}  // namespace Hitagi::Core
-namespace Hitagi {
-extern std::unique_ptr<Core::MemoryManager> g_MemoryManager;
+}  // namespace hitagi::core
+namespace hitagi {
+extern std::unique_ptr<core::MemoryManager> g_MemoryManager;
 }

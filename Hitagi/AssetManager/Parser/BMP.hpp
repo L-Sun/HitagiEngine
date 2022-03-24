@@ -1,10 +1,10 @@
 #pragma once
 #include "ImageParser.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class BmpParser : public ImageParser {
 public:
-    std::shared_ptr<Image> Parse(const Core::Buffer& buf) final;
+    std::shared_ptr<Image> Parse(const core::Buffer& buf) final;
 
 private:
 #pragma pack(push, 1)
@@ -44,4 +44,4 @@ private:
     };
 #pragma pack(pop)
 };
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

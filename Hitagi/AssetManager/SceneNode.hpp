@@ -10,7 +10,7 @@
 
 #include <algorithm>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 class SceneNode {
 public:
@@ -32,15 +32,15 @@ public:
     inline auto GetScaling() const noexcept { return m_Scaling; }
     inline auto GetVelocity() const noexcept { return m_Velocity; }
 
-    Math::mat4f GetCalculatedTransformation();
+    math::mat4f GetCalculatedTransformation();
 
-    void SetTRS(const Math::vec3f& translation, const Math::quatf& routation, const Math::vec3f& scaling);
+    void SetTRS(const math::vec3f& translation, const math::quatf& routation, const math::vec3f& scaling);
     // Apply a transformation to the node in its parent's space
-    void        ApplyTransform(const Math::mat4f& mat);
-    void        Translate(const Math::vec3f& translate);
-    void        Rotate(const Math::vec3f& eular);
-    void        Scale(const Math::vec3f& value);
-    inline void SetVelocity(Math::vec3f velocity) noexcept { m_Velocity = velocity; }
+    void        ApplyTransform(const math::mat4f& mat);
+    void        Translate(const math::vec3f& translate);
+    void        Rotate(const math::vec3f& eular);
+    void        Scale(const math::vec3f& value);
+    inline void SetVelocity(math::vec3f velocity) noexcept { m_Velocity = velocity; }
 
     friend std::ostream& operator<<(std::ostream& out, const SceneNode& node);
 
@@ -53,12 +53,12 @@ protected:
     std::weak_ptr<SceneNode>              m_Parent;
 
     bool        m_TransformDirty = false;
-    Math::vec3f m_Translation{0.0f, 0.0f, 0.0f};
-    Math::quatf m_Rotation{0.0f, 0.0f, 0.0f, 1.0f};
-    Math::vec3f m_Scaling{1.0f, 1.0f, 1.0f};
-    Math::vec3f m_Velocity{0.0f, 0.0f, 0.0f};
+    math::vec3f m_Translation{0.0f, 0.0f, 0.0f};
+    math::quatf m_Rotation{0.0f, 0.0f, 0.0f, 1.0f};
+    math::vec3f m_Scaling{1.0f, 1.0f, 1.0f};
+    math::vec3f m_Velocity{0.0f, 0.0f, 0.0f};
 
-    Math::mat4f m_RuntimeTransform = Math::mat4f(1.0f);
+    math::mat4f m_RuntimeTransform = math::mat4f(1.0f);
 };
 
 template <typename T>
@@ -104,27 +104,27 @@ public:
 
 class CameraNode : public SceneNodeWithRef<Camera> {
 public:
-    CameraNode(std::string_view name, const Math::vec3f& position = Math::vec3f(0.0f), const Math::vec3f& up = Math::vec3f(0, 0, 1),
-               const Math::vec3f& look_at = Math::vec3f(0, -1, 0))
+    CameraNode(std::string_view name, const math::vec3f& position = math::vec3f(0.0f), const math::vec3f& up = math::vec3f(0, 0, 1),
+               const math::vec3f& look_at = math::vec3f(0, -1, 0))
         : SceneNodeWithRef(name),
           m_Position(position),
           m_LookAt(normalize(look_at)),
           m_Right(normalize(cross(look_at, up))),
           m_Up(normalize(cross(m_Right, m_LookAt))) {}
 
-    Math::mat4f GetViewMatrix() { return look_at(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransformation()); }
+    math::mat4f GetViewMatrix() { return look_at(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransformation()); }
 
     // TODO
-    inline auto GetCameraPosition() { return (GetCalculatedTransformation() * Math::vec4f(m_Position, 1)).xyz; }
-    inline auto GetCameraUp() { return (GetCalculatedTransformation() * Math::vec4f(m_Up, 0)).xyz; }
-    inline auto GetCameraLookAt() { return (GetCalculatedTransformation() * Math::vec4f(m_LookAt, 0)).xyz; }
-    inline auto GetCameraRight() { return (GetCalculatedTransformation() * Math::vec4f(m_Right, 0)).xyz; }
+    inline auto GetCameraPosition() { return (GetCalculatedTransformation() * math::vec4f(m_Position, 1)).xyz; }
+    inline auto GetCameraUp() { return (GetCalculatedTransformation() * math::vec4f(m_Up, 0)).xyz; }
+    inline auto GetCameraLookAt() { return (GetCalculatedTransformation() * math::vec4f(m_LookAt, 0)).xyz; }
+    inline auto GetCameraRight() { return (GetCalculatedTransformation() * math::vec4f(m_Right, 0)).xyz; }
 
 private:
-    Math::vec3f m_Position;
-    Math::vec3f m_LookAt;
-    Math::vec3f m_Right;
-    Math::vec3f m_Up;
+    math::vec3f m_Position;
+    math::vec3f m_LookAt;
+    math::vec3f m_Right;
+    math::vec3f m_Up;
 };
 
 class BoneNode : public SceneNodeWithRef<Bone> {
@@ -145,4 +145,4 @@ inline auto flatent_scene_tree(std::shared_ptr<SceneNode> node) -> std::vector<s
     return result;
 }
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

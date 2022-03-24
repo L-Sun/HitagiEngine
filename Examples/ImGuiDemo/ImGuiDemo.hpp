@@ -1,7 +1,7 @@
 #pragma once
 #include "GameLogic.hpp"
 
-class ImGuiDemo : public Hitagi::GameLogic {
+class ImGuiDemo : public hitagi::GameLogic {
 public:
     int  Initialize() final;
     void Finalize() final;

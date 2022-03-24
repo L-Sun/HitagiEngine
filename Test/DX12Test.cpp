@@ -10,7 +10,7 @@
 #endif
 #endif
 
-using namespace Hitagi::Graphics;
+using namespace hitagi::graphics;
 
 int main() {
     std::vector<int> a(1024, 100);

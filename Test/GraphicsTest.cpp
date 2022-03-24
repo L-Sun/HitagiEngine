@@ -2,7 +2,7 @@
 #include <fmt/format.h>
 #include <iostream>
 
-using namespace Hitagi::Graphics;
+using namespace hitagi::graphics;
 
 int main(int argc, char const* argv[]) {
     RootSignature sig("root signature test");

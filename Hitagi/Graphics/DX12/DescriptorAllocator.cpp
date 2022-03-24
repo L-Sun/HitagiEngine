@@ -1,6 +1,6 @@
 #include "DescriptorAllocator.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 Descriptor::Descriptor(D3D12_CPU_DESCRIPTOR_HANDLE handle, std::shared_ptr<DescriptorPage> page_from)
     : handle(std::move(handle)), page_from(std::move(page_from)) {}
 
@@ -132,4 +132,4 @@ std::vector<Descriptor> DescriptorAllocator::Allocate(size_t num_descriptors) {
     return ret;
 }
 
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

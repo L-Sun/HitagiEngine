@@ -5,7 +5,7 @@ namespace spdlog {
 class logger;
 }
 
-namespace Hitagi {
+namespace hitagi {
 class IRuntimeModule {
 public:
     virtual ~IRuntimeModule() = default;
@@ -16,4 +16,4 @@ public:
 protected:
     std::shared_ptr<spdlog::logger> m_Logger;
 };
-}  // namespace Hitagi
+}  // namespace hitagi

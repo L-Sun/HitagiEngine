@@ -7,7 +7,7 @@
 #include "MemoryManager.hpp"
 #include "FileIOManager.hpp"
 using namespace std;
-using namespace Hitagi;
+using namespace hitagi;
 
 #define _CRTDBG_MAP_ALLOC
 #ifdef _WIN32

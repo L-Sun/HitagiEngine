@@ -3,17 +3,17 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace Hitagi {
-std::unique_ptr<Core::ThreadManager> g_ThreadManager = std::make_unique<Core::ThreadManager>();
+namespace hitagi {
+std::unique_ptr<core::ThreadManager> g_ThreadManager = std::make_unique<core::ThreadManager>();
 }
 
-namespace Hitagi::Core {
+namespace hitagi::core {
 
 int ThreadManager::Initialize() {
-    m_Logger        = spdlog::stdout_color_mt("ThreadManager");
+    m_Logger         = spdlog::stdout_color_mt("ThreadManager");
     auto num_threads = std::thread::hardware_concurrency();
-    m_MaxTasks      = 1024;
-    m_Stop          = false;
+    m_MaxTasks       = 1024;
+    m_Stop           = false;
 
     m_Logger->info("Initialize... Num of Thread: {}, Max Num of Task: {}", num_threads, m_MaxTasks);
 
@@ -51,4 +51,4 @@ void ThreadManager::Finalize() {
 
 void ThreadManager::Tick() {}
 
-}  // namespace Hitagi::Core
+}  // namespace hitagi::core

@@ -3,7 +3,7 @@
 #include "../Resource.hpp"
 #include "D3Dpch.hpp"
 
-namespace Hitagi::Graphics::backend::DX12 {
+namespace hitagi::graphics::backend::DX12 {
 
 class GpuResource : public backend::Resource {
     friend class CommandContext;
@@ -28,4 +28,4 @@ protected:
     D3D12_RESOURCE_STATES  m_UsageState;
     D3D12_RESOURCE_STATES  m_TransitioningState;
 };
-}  // namespace Hitagi::Graphics::backend::DX12
+}  // namespace hitagi::graphics::backend::DX12

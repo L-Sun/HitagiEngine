@@ -5,7 +5,7 @@
 
 #include <set>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 class SceneManager : public IRuntimeModule {
 public:
@@ -42,8 +42,8 @@ protected:
     std::unique_ptr<AnimationManager> m_AnimationManager;
 };
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset
 
-namespace Hitagi {
-extern std::unique_ptr<Asset::SceneManager> g_SceneManager;
+namespace hitagi {
+extern std::unique_ptr<asset::SceneManager> g_SceneManager;
 }

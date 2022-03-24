@@ -3,9 +3,9 @@
 #include "ICommandContext.hpp"
 #include "Utils.hpp"
 
-using namespace Hitagi::Math;
+using namespace hitagi::math;
 
-namespace Hitagi::Graphics {
+namespace hitagi::graphics {
 Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index)
     : m_Driver(driver),
       m_ResMgr(resource_manager),
@@ -14,7 +14,7 @@ Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_
       m_Output(m_Driver.CreateRenderFromSwapChain(frame_index)) {
 }
 
-void Frame::AddGeometries(const std::vector<std::shared_ptr<Asset::GeometryNode>>& geometries, const PipelineState& pso) {
+void Frame::AddGeometries(const std::vector<std::shared_ptr<asset::GeometryNode>>& geometries, const PipelineState& pso) {
     // Calculate need constant buffer size
     size_t constant_count = geometries.size();
 
@@ -60,7 +60,7 @@ void Frame::AddGeometries(const std::vector<std::shared_ptr<Asset::GeometryNode>
     }
 }
 
-void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& primitives, const PipelineState& pso) {
+void Frame::AddDebugPrimitives(const std::vector<debugger::DebugPrimitive>& primitives, const PipelineState& pso) {
     // TODO auto resize constant buffer
     // if new size is smaller, the expand function return directly.
     if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < primitives.size())
@@ -90,7 +90,7 @@ void Frame::AddDebugPrimitives(const std::vector<Debugger::DebugPrimitive>& prim
     }
 }
 
-void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> font_texture, const PipelineState& pso) {
+void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<asset::Image> font_texture, const PipelineState& pso) {
     // TODO auto resize constant buffer
     // we need a element to store gui projection
     if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < 1)
@@ -114,7 +114,7 @@ void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> fon
 
     m_ResMgr.MakeImGuiMesh(
         data,
-        [&](std::shared_ptr<Hitagi::Graphics::MeshBuffer> mesh, ImDrawList* curr_cmd_list, const ImDrawCmd& curr_cmd) {
+        [&](std::shared_ptr<hitagi::graphics::MeshBuffer> mesh, ImDrawList* curr_cmd_list, const ImDrawCmd& curr_cmd) {
             vec2f clip_min(curr_cmd.ClipRect.x - data->DisplayPos.x, curr_cmd.ClipRect.y - data->DisplayPos.y);
             vec2f clip_max(curr_cmd.ClipRect.z - data->DisplayPos.x, curr_cmd.ClipRect.w - data->DisplayPos.y);
 
@@ -130,7 +130,7 @@ void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<Asset::Image> fon
         });
 }
 
-void Frame::SetCamera(Asset::CameraNode& camera) {
+void Frame::SetCamera(asset::CameraNode& camera) {
     auto& data         = m_FrameConstant;
     data.camera_pos    = vec4f(camera.GetCameraPosition(), 1.0f);
     data.view          = camera.GetViewMatrix();
@@ -150,7 +150,7 @@ void Frame::SetCamera(Asset::CameraNode& camera) {
     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
 }
 
-void Frame::SetLight(Asset::LightNode& light) {
+void Frame::SetLight(asset::LightNode& light) {
     auto& data             = m_FrameConstant;
     data.light_position    = light.GetCalculatedTransformation() * vec4f(1.0f);
     data.light_pos_in_view = data.view * data.light_position;
@@ -208,30 +208,30 @@ void Frame::SetRenderTarget(std::shared_ptr<RenderTarget> rt) {
     m_Output = rt;
 }
 
-void Frame::PopulateMaterial(const Asset::Material::Color& color, vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
+void Frame::PopulateMaterial(const asset::Material::Color& color, vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
     std::visit(Overloaded{
                    [&](const vec4f& value) {
                        value_dest   = value;
                        texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
                    },
-                   [&](std::shared_ptr<Asset::Texture> texutre) {
+                   [&](std::shared_ptr<asset::Texture> texutre) {
                        value_dest   = vec4f(-1.0f);
                        texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
                    }},
                color);
 }
 
-void Frame::PopulateMaterial(const Asset::Material::SingleValue& value, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
+void Frame::PopulateMaterial(const asset::Material::SingleValue& value, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
     std::visit(Overloaded{
                    [&](float value) {
                        value_dest   = value;
                        texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8_UNORM);
                    },
-                   [&](std::shared_ptr<Asset::Texture> texutre) {
+                   [&](std::shared_ptr<asset::Texture> texutre) {
                        value_dest   = -1.0f;
                        texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
                    }},
                value);
 }
 
-}  // namespace Hitagi::Graphics
+}  // namespace hitagi::graphics

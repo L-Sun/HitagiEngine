@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 class Texture {
 public:
     Texture(const std::filesystem::path& path) : m_TexturePath(path) {}
@@ -24,4 +24,4 @@ protected:
     std::shared_ptr<Image> m_Image = nullptr;
 };
 
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

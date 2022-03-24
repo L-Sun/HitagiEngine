@@ -1,6 +1,6 @@
 #include "Scene.hpp"
 
-namespace Hitagi::Asset {
+namespace hitagi::asset {
 
 void Scene::AddSkeleton(std::shared_ptr<BoneNode> skeleton) {
     // TODO
@@ -30,4 +30,4 @@ void Scene::LoadResource() {
         material->LoadTextures();
     }
 }
-}  // namespace Hitagi::Asset
+}  // namespace hitagi::asset

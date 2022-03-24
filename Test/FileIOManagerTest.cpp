@@ -3,7 +3,7 @@
 #include "MemoryManager.hpp"
 #include "FileIOManager.hpp"
 
-using namespace Hitagi;
+using namespace hitagi;
 
 auto main(int argc, char const* argv[]) -> int {
     g_MemoryManager->Initialize();
