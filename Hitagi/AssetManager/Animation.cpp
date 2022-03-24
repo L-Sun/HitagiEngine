@@ -1,5 +1,7 @@
 #include "Animation.hpp"
 
+using namespace Hitagi::Math;
+
 namespace Hitagi::Asset {
 bool Animation::Animate() {
     if (m_Clock.IsPaused()) return false;

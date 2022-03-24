@@ -1,126 +1,13 @@
 #pragma once
-#include "./Vector.hpp"
-#include "./Matrix.hpp"
-#include "./Primitive.hpp"
+#include "Matrix.hpp"
 
 #include <numbers>
-#include <iostream>
 
-namespace Hitagi {
+namespace Hitagi::Math {
 
 template <typename T>
 inline const T radians(T angle) {
     return angle / 180.0 * std::numbers::pi;
-}
-
-template <typename T, unsigned D>
-Vector<T, D> normalize(const Vector<T, D>& v) {
-    return v / v.norm();
-}
-
-template <typename T>
-Vector<T, 3> cross(const Vector<T, 3>& v1, const Vector<T, 3>& v2) {
-    Vector<T, 3> result;
-    result.x = v1.y * v2.z - v1.z * v2.y;
-    result.y = v1.z * v2.x - v1.x * v2.z;
-    result.z = v1.x * v2.y - v1.y * v2.x;
-    return result;
-}
-
-template <typename T, unsigned D>
-Matrix<T, D> transpose(const Matrix<T, D>& mat) {
-    Matrix<T, D> result;
-    for (unsigned row = 0; row < D; row++)
-        for (unsigned col = 0; col < D; col++) result[col][row] = mat[row][col];
-
-    return result;
-}
-
-template <typename T>
-const T determinant(const Matrix<T, 3>& mat) {
-    return mat[0][0] * (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2]) -
-           mat[0][1] * (mat[1][0] * mat[2][2] - mat[1][2] * mat[2][0]) +
-           mat[0][2] * (mat[1][0] * mat[2][1] - mat[1][1] * mat[2][0]);
-}
-template <typename T>
-const T determinant(const Matrix<T, 4> mat) {
-    return mat[0][3] * mat[1][2] * mat[2][1] * mat[3][0] - mat[0][2] * mat[1][3] * mat[2][1] * mat[3][0] -
-           mat[0][3] * mat[1][1] * mat[2][2] * mat[3][0] + mat[0][1] * mat[1][3] * mat[2][2] * mat[3][0] +
-           mat[0][2] * mat[1][1] * mat[2][3] * mat[3][0] - mat[0][1] * mat[1][2] * mat[2][3] * mat[3][0] -
-           mat[0][3] * mat[1][2] * mat[2][0] * mat[3][1] + mat[0][2] * mat[1][3] * mat[2][0] * mat[3][1] +
-           mat[0][3] * mat[1][0] * mat[2][2] * mat[3][1] - mat[0][0] * mat[1][3] * mat[2][2] * mat[3][1] -
-           mat[0][2] * mat[1][0] * mat[2][3] * mat[3][1] + mat[0][0] * mat[1][2] * mat[2][3] * mat[3][1] +
-           mat[0][3] * mat[1][1] * mat[2][0] * mat[3][2] - mat[0][1] * mat[1][3] * mat[2][0] * mat[3][2] -
-           mat[0][3] * mat[1][0] * mat[2][1] * mat[3][2] + mat[0][0] * mat[1][3] * mat[2][1] * mat[3][2] +
-           mat[0][1] * mat[1][0] * mat[2][3] * mat[3][2] - mat[0][0] * mat[1][1] * mat[2][3] * mat[3][2] -
-           mat[0][2] * mat[1][1] * mat[2][0] * mat[3][3] + mat[0][1] * mat[1][2] * mat[2][0] * mat[3][3] +
-           mat[0][2] * mat[1][0] * mat[2][1] * mat[3][3] - mat[0][0] * mat[1][2] * mat[2][1] * mat[3][3] -
-           mat[0][1] * mat[1][0] * mat[2][2] * mat[3][3] + mat[0][0] * mat[1][1] * mat[2][2] * mat[3][3];
-};
-
-template <typename T>
-Matrix<T, 3> inverse(const Matrix<T, 3>& mat) {
-    T det = determinant(mat);
-    if (det == 0) {
-        std::cerr << "[HitagiMath] Warning: the matrix is singular! Function will return a identity matrix!" << std::endl;
-        return Matrix<T, 3>(static_cast<T>(1));
-    }
-    T inv_det = static_cast<T>(1) / det;
-
-    Matrix<T, 3> res{};
-    res[0][0] = (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2]) * inv_det;
-    res[0][1] = (mat[0][2] * mat[2][1] - mat[0][1] * mat[2][2]) * inv_det;
-    res[0][2] = (mat[0][1] * mat[1][2] - mat[0][2] * mat[1][1]) * inv_det;
-    res[1][0] = (mat[1][2] * mat[2][0] - mat[1][0] * mat[2][2]) * inv_det;
-    res[1][1] = (mat[0][0] * mat[2][2] - mat[0][2] * mat[2][0]) * inv_det;
-    res[1][2] = (mat[1][0] * mat[0][2] - mat[0][0] * mat[1][2]) * inv_det;
-    res[2][0] = (mat[1][0] * mat[2][1] - mat[2][0] * mat[1][1]) * inv_det;
-    res[2][1] = (mat[2][0] * mat[0][1] - mat[0][0] * mat[2][1]) * inv_det;
-    res[2][2] = (mat[0][0] * mat[1][1] - mat[1][0] * mat[0][1]) * inv_det;
-    return res;
-}
-
-template <typename T>
-Matrix<T, 4> inverse(const Matrix<T, 4>& mat) {
-    Matrix<T, 4> res{};
-    const T*     m = static_cast<const T*>(mat);
-
-    std::array<T, 16> inv{};
-    T                 det;
-    // clang-format off
-    inv[0]  =  m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] + m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
-    inv[4]  = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] + m[8] * m[6] * m[15] - m[8] * m[7] * m[14] - m[12] * m[6] * m[11] + m[12] * m[7] * m[10];
-    inv[8]  =  m[4] * m[9]  * m[15] - m[4] * m[11] * m[13] - m[8] * m[5] * m[15] + m[8] * m[7] * m[13] + m[12] * m[5] * m[11] - m[12] * m[7] * m[9];
-    inv[12] = -m[4] * m[9]  * m[14] + m[4] * m[10] * m[13] + m[8] * m[5] * m[14] - m[8] * m[6] * m[13] - m[12] * m[5] * m[10] + m[12] * m[6] * m[9];
-    inv[1]  = -m[1] * m[10] * m[15] + m[1] * m[11] * m[14] + m[9] * m[2] * m[15] - m[9] * m[3] * m[14] - m[13] * m[2] * m[11] + m[13] * m[3] * m[10];
-    inv[5]  =  m[0] * m[10] * m[15] - m[0] * m[11] * m[14] - m[8] * m[2] * m[15] + m[8] * m[3] * m[14] + m[12] * m[2] * m[11] - m[12] * m[3] * m[10];
-    inv[9]  = -m[0] * m[9]  * m[15] + m[0] * m[11] * m[13] + m[8] * m[1] * m[15] - m[8] * m[3] * m[13] - m[12] * m[1] * m[11] + m[12] * m[3] * m[9];
-    inv[13] =  m[0] * m[9]  * m[14] - m[0] * m[10] * m[13] - m[8] * m[1] * m[14] + m[8] * m[2] * m[13] + m[12] * m[1] * m[10] - m[12] * m[2] * m[9];
-    inv[2]  =  m[1] * m[6]  * m[15] - m[1] * m[7]  * m[14] - m[5] * m[2] * m[15] + m[5] * m[3] * m[14] + m[13] * m[2] * m[7]  - m[13] * m[3] * m[6];
-    inv[6]  = -m[0] * m[6]  * m[15] + m[0] * m[7]  * m[14] + m[4] * m[2] * m[15] - m[4] * m[3] * m[14] - m[12] * m[2] * m[7]  + m[12] * m[3] * m[6];
-    inv[10] =  m[0] * m[5]  * m[15] - m[0] * m[7]  * m[13] - m[4] * m[1] * m[15] + m[4] * m[3] * m[13] + m[12] * m[1] * m[7]  - m[12] * m[3] * m[5];
-    inv[14] = -m[0] * m[5]  * m[14] + m[0] * m[6]  * m[13] + m[4] * m[1] * m[14] - m[4] * m[2] * m[13] - m[12] * m[1] * m[6]  + m[12] * m[2] * m[5];
-    inv[3]  = -m[1] * m[6]  * m[11] + m[1] * m[7]  * m[10] + m[5] * m[2] * m[11] - m[5] * m[3] * m[10] - m[9]  * m[2] * m[7]  + m[9]  * m[3] * m[6];
-    inv[7]  =  m[0] * m[6]  * m[11] - m[0] * m[7]  * m[10] - m[4] * m[2] * m[11] + m[4] * m[3] * m[10] + m[8]  * m[2] * m[7]  - m[8]  * m[3] * m[6];
-    inv[11] = -m[0] * m[5]  * m[11] + m[0] * m[7]  * m[9]  + m[4] * m[1] * m[11] - m[4] * m[3] * m[9]  - m[8]  * m[1] * m[7]  + m[8]  * m[3] * m[5];
-    inv[15] =  m[0] * m[5]  * m[10] - m[0] * m[6]  * m[9]  - m[4] * m[1] * m[10] + m[4] * m[2] * m[9]  + m[8]  * m[1] * m[6]  - m[8]  * m[2] * m[5];
-    // clang-format on
-
-    det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
-
-    if (det == 0) {
-        std::cerr << "[HitagiMath] Warning: the matrix is singular! Function will return a identity matrix!" << std::endl;
-        return Matrix<T, 4>(static_cast<T>(1));
-    }
-    T inv_det = static_cast<T>(1) / det;
-
-    for (unsigned i = 0; i < 16; i++) static_cast<T*>(res)[i] = inv[i] * inv_det;
-    return res;
-}
-
-template <typename T, unsigned D>
-void exchange_yz(Matrix<T, D>& matrix) {
-    std::swap(matrix.data[1], matrix.data[2]);
 }
 
 template <typename T>
@@ -135,6 +22,7 @@ Matrix<T, 4> translate(const Matrix<T, 4>& mat, const Vector<T, 3>& v) {
     // clang-format on
     return translation * mat;
 }
+
 template <typename T>
 Matrix<T, 4> rotate_x(const Matrix<T, 4>& mat, const T angle) {
     const T c = std::cos(angle), s = std::sin(angle);
@@ -417,59 +305,4 @@ Quaternion<T> euler_to_quaternion(const Vector<T, 3> euler) {
         c1 * c2 * c3 + s1 * s2 * s3,
     };
 }
-
-template <typename T, unsigned D1, unsigned D2>
-void shrink(Matrix<T, D1>& mat1, const Matrix<T, D2>& mat2) {
-    static_assert(D1 < D2, "[Error] Target matrix order must smaller than source matrix order!");
-
-    for (unsigned row = 0; row < D1; row++)
-        for (unsigned col = 0; col < D1; col++) mat1[row][col] = mat2[row][col];
-}
-template <typename T, unsigned D>
-Vector<T, D> absolute(const Vector<T, D>& a) {
-    Vector<T, D> res;
-    for (unsigned i = 0; i < D; i++) res[i] = std::abs(a[i]);
-    return res;
-}
-template <typename T, unsigned D>
-Matrix<T, D> absolute(const Matrix<T, D>& a) {
-    Matrix<T, D> res;
-    for (unsigned row = 0; row < D; row++)
-        for (unsigned col = 0; col < D; col++) res[row][col] = std::abs(a[row][col]);
-    return res;
-}
-
-template <typename T, unsigned D>
-Vector<T, D> max(const Vector<T, D>& a, const T& b) {
-    Vector<T, D> res{};
-    for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b);
-    return res;
-}
-
-template <typename T, unsigned D>
-Vector<T, D> max(const Vector<T, D>& a, const Vector<T, D>& b) {
-    Vector<T, D> res{};
-    for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b[i]);
-    return res;
-}
-
-template <typename T, unsigned D>
-Vector<T, D> min(const Vector<T, D>& a, const T& b) {
-    Vector<T, D> res{};
-    for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b);
-    return res;
-}
-
-template <typename T, unsigned D>
-Vector<T, D> min(const Vector<T, D>& a, const Vector<T, D>& b) {
-    Vector<T, D> res{};
-    for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b[i]);
-    return res;
-}
-
-inline const size_t align(size_t x, size_t a) {
-    assert(((a - 1) & a) == 0 && "alignment is not a power of two");
-    return (x + a - 1) & ~(a - 1);
-}
-
-}  // namespace Hitagi
+}  // namespace Hitagi::Math

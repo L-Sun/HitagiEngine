@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <ranges>
 
+using namespace Hitagi::Math;
+
 namespace Hitagi::Asset {
 const std::unordered_map<std::string, BvhParser::Channel> BvhParser::m_ChannelMap = {
     {"Xposition", Channel::Xposition},

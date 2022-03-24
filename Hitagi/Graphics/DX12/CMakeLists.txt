@@ -18,7 +18,7 @@ target_link_libraries(DX12DriverAPI
         d3d12
         dxgi
         dxguid
-        HitagiMath
+        Math
 )
 target_include_directories(DX12DriverAPI
     INTERFACE

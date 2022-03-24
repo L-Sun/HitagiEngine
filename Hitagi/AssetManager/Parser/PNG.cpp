@@ -1,11 +1,13 @@
 #include "PNG.hpp"
 
-#include <iostream>
+#include <Math/Vector.hpp>
 
 #include <spdlog/spdlog.h>
 #include <png.h>
 
-#include "HitagiMath.hpp"
+#include <iostream>
+
+using namespace Hitagi::Math;
 
 namespace Hitagi::Asset {
 

@@ -1,5 +1,7 @@
 #include "Material.hpp"
 
+using namespace Hitagi::Math;
+
 namespace Hitagi::Asset {
 void Material::SetColor(std::string_view attrib, const vec4f& color) {
     if (attrib == "ambient") m_AmbientColor = color;

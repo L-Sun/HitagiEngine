@@ -3,21 +3,22 @@
 #include <thread>
 
 using namespace std::chrono_literals;
-
-Hitagi::Core::Clock g_C;
+using namespace Hitagi::Core;
 
 TEST(TimerTest, DurationTest) {
-    g_C.Start();
+    Clock clock;
+    clock.Start();
     std::this_thread::sleep_for(1s);
-    EXPECT_NEAR(1.0, g_C.DeltaTime().count(), 0.1);
+    EXPECT_NEAR(1.0, clock.DeltaTime().count(), 0.1);
 }
 
 TEST(TimerTest, PauseTest) {
-    g_C.Start();
+    Clock clock;
+    clock.Start();
     std::this_thread::sleep_for(1s);
-    g_C.Pause();
+    clock.Pause();
     std::this_thread::sleep_for(1s);
-    EXPECT_NEAR(1.0, g_C.DeltaTime().count(), 0.1);
+    EXPECT_NEAR(1.0, clock.DeltaTime().count(), 0.1);
 }
 
 int main(int argc, char* argv[]) {

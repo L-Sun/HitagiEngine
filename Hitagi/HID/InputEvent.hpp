@@ -1,5 +1,5 @@
 #pragma once
-#include "HitagiMath.hpp"
+#include <Math/Vector.hpp>
 
 #include <array>
 
@@ -26,8 +26,8 @@ struct DoubleState {
 
 using KeyState = DoubleState<bool>;
 struct MouseState {
-    DoubleState<vec2f> position;
-    DoubleState<vec2f> scroll;
+    DoubleState<Math::vec2f> position;
+    DoubleState<Math::vec2f> scroll;
 };
 
 enum class MouseEvent {

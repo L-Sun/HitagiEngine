@@ -2,7 +2,8 @@
 #include "D3DCore.hpp"
 #include "Buffer.hpp"
 #include "RootSignature.hpp"
-#include "HitagiMath.hpp"
+
+#include <Math/Matrix.hpp>
 
 namespace Hitagi::Graphics::backend::DX12 {
 
@@ -29,7 +30,7 @@ private:
 class TopLevelASGenerator {
 public:
     void AddInstance(Microsoft::WRL::ComPtr<ID3D12Resource> bottomLevelAS,
-                     const mat4f&                           transform,
+                     const Math::mat4f&                     transform,
                      int                                    instanceID,
                      int                                    hitGroupIndex);
 

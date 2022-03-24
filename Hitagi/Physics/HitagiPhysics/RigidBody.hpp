@@ -4,7 +4,6 @@
 
 #include <utility>
 
-#include "HitagiMath.hpp"
 #include "MotionState.hpp"
 
 namespace Hitagi::Physics {

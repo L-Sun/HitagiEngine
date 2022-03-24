@@ -3,6 +3,8 @@
 #include <spdlog/spdlog.h>
 #include <fmt/format.h>
 
+using namespace Hitagi::Math;
+
 namespace Hitagi::Graphics {
 std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const Asset::Mesh& mesh) {
     auto id = mesh.GetGuid();

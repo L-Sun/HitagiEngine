@@ -9,9 +9,9 @@ class Animation : public SceneObject {
 
 public:
     struct TRS {
-        vec3f translation;
-        quatf rotation;
-        vec3f scaling;
+        Math::vec3f translation;
+        Math::quatf rotation;
+        Math::vec3f scaling;
     };
 
     // Return:

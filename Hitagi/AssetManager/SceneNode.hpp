@@ -4,6 +4,8 @@
 #include "Light.hpp"
 #include "Bone.hpp"
 
+#include <Math/Transform.hpp>
+
 #include <fmt/format.h>
 
 #include <algorithm>
@@ -25,20 +27,20 @@ public:
     inline const auto& GetChildren() const noexcept { return m_Children; }
     inline void        AppendChild(std::shared_ptr<SceneNode> child) { m_Children.push_back(std::move(child)); }
 
-    inline vec3f GetPosition(bool local_space = true) const { return local_space ? m_Translation : get_translation(m_RuntimeTransform); }
-    inline vec3f GetOrientation() const { return quaternion_to_euler(m_Rotation); }
-    inline vec3f GetScaling() const noexcept { return m_Scaling; }
-    inline vec3f GetVelocity() const noexcept { return m_Velocity; }
+    inline auto GetPosition(bool local_space = true) const { return local_space ? m_Translation : get_translation(m_RuntimeTransform); }
+    inline auto GetOrientation() const { return quaternion_to_euler(m_Rotation); }
+    inline auto GetScaling() const noexcept { return m_Scaling; }
+    inline auto GetVelocity() const noexcept { return m_Velocity; }
 
-    mat4f GetCalculatedTransformation();
+    Math::mat4f GetCalculatedTransformation();
 
-    void SetTRS(const vec3f& translation, const quatf& routation, const vec3f& scaling);
+    void SetTRS(const Math::vec3f& translation, const Math::quatf& routation, const Math::vec3f& scaling);
     // Apply a transformation to the node in its parent's space
-    void        ApplyTransform(const mat4f& mat);
-    void        Translate(const vec3f& translate);
-    void        Rotate(const vec3f& eular);
-    void        Scale(const vec3f& value);
-    inline void SetVelocity(vec3f velocity) noexcept { m_Velocity = velocity; }
+    void        ApplyTransform(const Math::mat4f& mat);
+    void        Translate(const Math::vec3f& translate);
+    void        Rotate(const Math::vec3f& eular);
+    void        Scale(const Math::vec3f& value);
+    inline void SetVelocity(Math::vec3f velocity) noexcept { m_Velocity = velocity; }
 
     friend std::ostream& operator<<(std::ostream& out, const SceneNode& node);
 
@@ -50,13 +52,13 @@ protected:
     std::list<std::shared_ptr<SceneNode>> m_Children;
     std::weak_ptr<SceneNode>              m_Parent;
 
-    bool  m_TransformDirty = false;
-    vec3f m_Translation{0.0f, 0.0f, 0.0f};
-    quatf m_Rotation{0.0f, 0.0f, 0.0f, 1.0f};
-    vec3f m_Scaling{1.0f, 1.0f, 1.0f};
-    vec3f m_Velocity{0.0f, 0.0f, 0.0f};
+    bool        m_TransformDirty = false;
+    Math::vec3f m_Translation{0.0f, 0.0f, 0.0f};
+    Math::quatf m_Rotation{0.0f, 0.0f, 0.0f, 1.0f};
+    Math::vec3f m_Scaling{1.0f, 1.0f, 1.0f};
+    Math::vec3f m_Velocity{0.0f, 0.0f, 0.0f};
 
-    mat4f m_RuntimeTransform = mat4f(1.0f);
+    Math::mat4f m_RuntimeTransform = Math::mat4f(1.0f);
 };
 
 template <typename T>
@@ -102,27 +104,27 @@ public:
 
 class CameraNode : public SceneNodeWithRef<Camera> {
 public:
-    CameraNode(std::string_view name, const vec3f& position = vec3f(0.0f), const vec3f& up = vec3f(0, 0, 1),
-               const vec3f& look_at = vec3f(0, -1, 0))
+    CameraNode(std::string_view name, const Math::vec3f& position = Math::vec3f(0.0f), const Math::vec3f& up = Math::vec3f(0, 0, 1),
+               const Math::vec3f& look_at = Math::vec3f(0, -1, 0))
         : SceneNodeWithRef(name),
           m_Position(position),
           m_LookAt(normalize(look_at)),
           m_Right(normalize(cross(look_at, up))),
           m_Up(normalize(cross(m_Right, m_LookAt))) {}
 
-    mat4f GetViewMatrix() { return look_at(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransformation()); }
+    Math::mat4f GetViewMatrix() { return look_at(m_Position, m_LookAt, m_Up) * inverse(GetCalculatedTransformation()); }
 
     // TODO
-    vec3f GetCameraPosition() { return (GetCalculatedTransformation() * vec4f(m_Position, 1)).xyz; }
-    vec3f GetCameraUp() { return (GetCalculatedTransformation() * vec4f(m_Up, 0)).xyz; }
-    vec3f GetCameraLookAt() { return (GetCalculatedTransformation() * vec4f(m_LookAt, 0)).xyz; }
-    vec3f GetCameraRight() { return (GetCalculatedTransformation() * vec4f(m_Right, 0)).xyz; }
+    inline auto GetCameraPosition() { return (GetCalculatedTransformation() * Math::vec4f(m_Position, 1)).xyz; }
+    inline auto GetCameraUp() { return (GetCalculatedTransformation() * Math::vec4f(m_Up, 0)).xyz; }
+    inline auto GetCameraLookAt() { return (GetCalculatedTransformation() * Math::vec4f(m_LookAt, 0)).xyz; }
+    inline auto GetCameraRight() { return (GetCalculatedTransformation() * Math::vec4f(m_Right, 0)).xyz; }
 
 private:
-    vec3f m_Position;
-    vec3f m_LookAt;
-    vec3f m_Right;
-    vec3f m_Up;
+    Math::vec3f m_Position;
+    Math::vec3f m_LookAt;
+    Math::vec3f m_Right;
+    Math::vec3f m_Up;
 };
 
 class BoneNode : public SceneNodeWithRef<Bone> {

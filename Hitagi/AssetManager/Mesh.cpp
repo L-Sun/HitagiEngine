@@ -2,6 +2,8 @@
 
 #include <magic_enum.hpp>
 
+using namespace Hitagi::Math;
+
 namespace Hitagi::Asset {
 
 // Class VertexArray

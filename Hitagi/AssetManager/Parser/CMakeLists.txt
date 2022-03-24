@@ -10,7 +10,7 @@ add_library(Parser
 target_link_libraries(Parser
     PRIVATE
         MemoryManager
-        HitagiMath
+        Math
         ${JPEG_LIBRARIES}
         png
         assimp::assimp
@@ -21,4 +21,5 @@ target_include_directories(Parser
         ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE
         ${JPEG_INCLUDE_DIR}
+        "$<TARGET_PROPERTY:GraphicsManager,INTERFACE_INCLUDE_DIRECTORIES>"
 )

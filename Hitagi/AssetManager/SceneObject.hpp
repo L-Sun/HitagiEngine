@@ -1,9 +1,9 @@
 #pragma once
-#include "HitagiMath.hpp"
 #include "Image.hpp"
 #include "Buffer.hpp"
 
 #include <crossguid/guid.hpp>
+#include <fmt/format.h>
 
 #include <filesystem>
 

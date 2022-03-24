@@ -1,7 +1,6 @@
 #pragma once
 #include "../ICommandContext.hpp"
 
-#include "HitagiMath.hpp"
 #include "CommandListManager.hpp"
 #include "GpuResource.hpp"
 #include "Allocator.hpp"

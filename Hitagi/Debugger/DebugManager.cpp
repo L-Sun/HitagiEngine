@@ -9,6 +9,8 @@
 #include <iostream>
 #include <algorithm>
 
+using namespace Hitagi::Math;
+
 namespace Hitagi {
 std::unique_ptr<Debugger::DebugManager> g_DebugManager = std::make_unique<Debugger::DebugManager>();
 }

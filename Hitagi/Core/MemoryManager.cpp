@@ -1,11 +1,10 @@
 #include "MemoryManager.hpp"
+#include "Utils.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <array>
-
-#include "HitagiMath.hpp"
 
 namespace Hitagi {
 std::unique_ptr<Core::MemoryManager> g_MemoryManager = std::make_unique<Core::MemoryManager>();

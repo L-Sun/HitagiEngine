@@ -1,8 +1,9 @@
 #pragma once
 #include "IRuntimeModule.hpp"
-#include "HitagiMath.hpp"
 #include "Geometry.hpp"
 #include "SceneNode.hpp"
+
+#include <Math/Transform.hpp>
 
 #include <chrono>
 #include <functional>
@@ -10,7 +11,7 @@
 namespace Hitagi::Debugger {
 struct DebugPrimitive {
     std::shared_ptr<Asset::GeometryNode>           geometry_node;
-    vec4f                                          color;
+    Math::vec4f                                    color;
     std::chrono::high_resolution_clock::time_point expires_at;
 };
 
@@ -22,9 +23,9 @@ public:
     void ToggleDebugInfo();
     void DrawDebugInfo();
 
-    void DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
-    void DrawAxis(const mat4f& transform, bool depth_enabled = true);
-    void DrawBox(const mat4f& transform, const vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
+    void DrawLine(const Math::vec3f& from, const Math::vec3f& to, const Math::vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
+    void DrawAxis(const Math::mat4f& transform, bool depth_enabled = true);
+    void DrawBox(const Math::mat4f& transform, const Math::vec4f& color, std::chrono::seconds duration = std::chrono::seconds(0), bool depth_enabled = true);
 
     template <typename Func>
     void Profiler(const std::string& name, Func&& func) {
@@ -44,7 +45,7 @@ public:
     };
 
 protected:
-    void AddPrimitive(std::shared_ptr<Asset::Geometry> geometry, const mat4f& transform, const vec4f& color, std::chrono::seconds duration, bool depth_enabled);
+    void AddPrimitive(std::shared_ptr<Asset::Geometry> geometry, const Math::mat4f& transform, const Math::vec4f& color, std::chrono::seconds duration, bool depth_enabled);
 
     void ShowProfilerInfo();
 

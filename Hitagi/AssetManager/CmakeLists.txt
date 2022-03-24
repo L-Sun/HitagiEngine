@@ -20,12 +20,18 @@ target_link_libraries(AssetManager
         FileIOManager
         Timer
         Parser
-        HitagiMath
+        Math
     PRIVATE
         crossguid
         magic_enum::magic_enum
 )
-target_include_directories(AssetManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>")
+target_include_directories(AssetManager
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR} 
+        "$<TARGET_PROPERTY:crossguid,INTERFACE_INCLUDE_DIRECTORIES>"
+    PUBLIC
+        "$<TARGET_PROPERTY:GraphicsManager,INTERFACE_INCLUDE_DIRECTORIES>"
+)
 
 add_library(SceneManager
     SceneManager.cpp

@@ -1,6 +1,8 @@
 #pragma once
 #include "SceneObject.hpp"
 
+#include <Math/Matrix.hpp>
+
 #include <map>
 
 namespace Hitagi::Asset {
@@ -12,7 +14,7 @@ public:
         m_Weights[vertex_index] = weight;
     }
 
-    inline void SetBindTransformMatrix(mat4f transform) {
+    inline void SetBindTransformMatrix(Math::mat4f transform) {
         m_BindTransform = std::move(transform);
     }
 
@@ -22,13 +24,13 @@ public:
                    : 0.0f;
     }
 
-    inline const mat4f& GetBindTransform() const noexcept {
+    inline const auto& GetBindTransform() const noexcept {
         return m_BindTransform;
     }
 
 private:
     std::map<size_t, float> m_Weights;
-    mat4f                   m_BindTransform;
+    Math::mat4f             m_BindTransform;
 };
 
 }  // namespace Hitagi::Asset

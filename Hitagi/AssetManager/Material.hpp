@@ -1,7 +1,8 @@
 #pragma once
 #include "SceneObject.hpp"
 #include "Texture.hpp"
-#include "HitagiMath.hpp"
+
+#include <Math/Vector.hpp>
 
 #include <crossguid/guid.hpp>
 
@@ -13,21 +14,21 @@ public:
     template <typename T>
     using Parameter = std::variant<T, std::shared_ptr<Texture>>;
 
-    using Color       = Parameter<vec4f>;
-    using Normal      = Parameter<vec3f>;
+    using Color       = Parameter<Math::vec4f>;
+    using Normal      = Parameter<Math::vec3f>;
     using SingleValue = Parameter<float>;
 
-    Material() : m_AmbientColor(vec4f(0.0f)),
-                 m_DiffuseColor(vec4f(1.0f)),
+    Material() : m_AmbientColor(Math::vec4f(0.0f)),
+                 m_DiffuseColor(Math::vec4f(1.0f)),
                  m_Metallic(0.0f),
                  m_Roughness(0.0f),
-                 m_Normal(vec3f(0.0f, 0.0f, 1.0f)),
-                 m_Specular(vec4f(0.0f)),
+                 m_Normal(Math::vec3f(0.0f, 0.0f, 1.0f)),
+                 m_Specular(Math::vec4f(0.0f)),
                  m_SpecularPower(1.0f),
                  m_AmbientOcclusion(1.0f),
                  m_Opacity(1.0f),
-                 m_Transparency(vec4f(0.0f)),
-                 m_Emission(vec4f(0.0f)) {}
+                 m_Transparency(Math::vec4f(0.0f)),
+                 m_Emission(Math::vec4f(0.0f)) {}
 
     inline const Color&       GetAmbientColor() const noexcept { return m_AmbientColor; }
     inline const Color&       GetDiffuseColor() const noexcept { return m_DiffuseColor; }
@@ -35,7 +36,7 @@ public:
     inline const SingleValue& GetSpecularPower() const noexcept { return m_SpecularPower; }
     inline const Color&       GetEmission() const noexcept { return m_Emission; }
 
-    void SetColor(std::string_view attrib, const vec4f& color);
+    void SetColor(std::string_view attrib, const Math::vec4f& color);
     void SetParam(std::string_view attrib, const float param);
     void SetTexture(std::string_view attrib, const std::shared_ptr<Texture>& texture);
     void LoadTextures();

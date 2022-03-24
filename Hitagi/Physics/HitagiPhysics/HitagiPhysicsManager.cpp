@@ -3,6 +3,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+using namespace Hitagi::Math;
+
 namespace Hitagi::Physics {
 
 int HitagiPhysicsManager::Initialize() {

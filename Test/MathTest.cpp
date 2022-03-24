@@ -1,8 +1,11 @@
+#include <Math/Vector.hpp>
+#include <Math/Matrix.hpp>
+#include <Math/Transform.hpp>
+
 #include <iostream>
-#include "HitagiMath.hpp"
 #include <gtest/gtest.h>
 
-using namespace Hitagi;
+using namespace Hitagi::Math;
 
 template <typename T, unsigned D>
 void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2, double epsilon = 1E-5) {

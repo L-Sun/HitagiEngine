@@ -10,6 +10,8 @@
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+using namespace Hitagi::Math;
+
 namespace Hitagi {
 int Editor::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Editor");

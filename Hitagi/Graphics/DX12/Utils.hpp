@@ -1,13 +1,17 @@
 #pragma once
 #include "D3Dpch.hpp"
 #include "Resource.hpp"
-#include "Primitive.hpp"
 
 #include <spdlog/spdlog.h>
 #include <magic_enum.hpp>
 
 // TODO change when integrate Vulkan
 namespace Hitagi::Graphics::backend::DX12 {
+inline const size_t align(size_t x, size_t a) {
+    assert(((a - 1) & a) == 0 && "alignment is not a power of two");
+    return (x + a - 1) & ~(a - 1);
+}
+
 inline DXGI_FORMAT to_dxgi_format(Graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
 
 inline Graphics::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<Graphics::Format>(format); }

@@ -1,11 +1,15 @@
 #include "Assimp.hpp"
+#include "Types.hpp"
 
-#include "HitagiMath.hpp"
+#include <Math/Transform.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <spdlog/spdlog.h>
+
+using namespace Hitagi::Math;
+using PrimitiveType = Hitagi::Graphics::PrimitiveType;
 
 namespace Hitagi::Asset {
 

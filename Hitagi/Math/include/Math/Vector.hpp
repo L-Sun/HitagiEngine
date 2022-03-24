@@ -10,7 +10,7 @@
 #include "ispcMath.hpp"
 #endif  // USE_ISPC
 
-namespace Hitagi {
+namespace Hitagi::Math {
 template <typename T, unsigned D>
 struct Vector;
 
@@ -295,4 +295,53 @@ const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) {
 }
 #endif  // USE_ISPC
 
-}  // namespace Hitagi
+template <typename T, unsigned D>
+Vector<T, D> normalize(const Vector<T, D>& v) {
+    return v / v.norm();
+}
+
+template <typename T>
+Vector<T, 3> cross(const Vector<T, 3>& v1, const Vector<T, 3>& v2) {
+    Vector<T, 3> result;
+    result.x = v1.y * v2.z - v1.z * v2.y;
+    result.y = v1.z * v2.x - v1.x * v2.z;
+    result.z = v1.x * v2.y - v1.y * v2.x;
+    return result;
+}
+
+template <typename T, unsigned D>
+Vector<T, D> absolute(const Vector<T, D>& a) {
+    Vector<T, D> res;
+    for (unsigned i = 0; i < D; i++) res[i] = std::abs(a[i]);
+    return res;
+}
+
+template <typename T, unsigned D>
+Vector<T, D> max(const Vector<T, D>& a, const T& b) {
+    Vector<T, D> res{};
+    for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b);
+    return res;
+}
+
+template <typename T, unsigned D>
+Vector<T, D> max(const Vector<T, D>& a, const Vector<T, D>& b) {
+    Vector<T, D> res{};
+    for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b[i]);
+    return res;
+}
+
+template <typename T, unsigned D>
+Vector<T, D> min(const Vector<T, D>& a, const T& b) {
+    Vector<T, D> res{};
+    for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b);
+    return res;
+}
+
+template <typename T, unsigned D>
+Vector<T, D> min(const Vector<T, D>& a, const Vector<T, D>& b) {
+    Vector<T, D> res{};
+    for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b[i]);
+    return res;
+}
+
+}  // namespace Hitagi::Math

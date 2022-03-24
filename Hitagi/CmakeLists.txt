@@ -1,5 +1,6 @@
 add_subdirectory(Interface)
 add_subdirectory(Core)
+add_subdirectory(Math)
 add_subdirectory(AssetManager)
 add_subdirectory(Graphics)
 add_subdirectory(Physics)

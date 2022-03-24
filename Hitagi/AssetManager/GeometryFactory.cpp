@@ -1,4 +1,10 @@
 #include "GeometryFactory.hpp"
+#include "Types.hpp"
+
+#include <Math/Vector.hpp>
+
+using namespace Hitagi::Math;
+using PrimitiveType = Hitagi::Graphics::PrimitiveType;
 
 namespace Hitagi::Asset {
 std::shared_ptr<Geometry> GeometryFactory::Line(const vec3f& from, const vec3f& to, std::shared_ptr<Material> material) {

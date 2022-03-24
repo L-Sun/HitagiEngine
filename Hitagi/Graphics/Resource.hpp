@@ -1,8 +1,7 @@
 #pragma once
 #include "Types.hpp"
-#include "Primitive.hpp"
 
-#include "HitagiMath.hpp"
+#include <Math/Vector.hpp>
 
 #include <memory>
 #include <unordered_map>
@@ -137,7 +136,7 @@ public:
         float              mip_lod_bias   = 0;
         unsigned           max_anisotropy = 16;
         ComparisonFunc     comp_func      = ComparisonFunc::LessEqual;
-        vec4f              border_color   = vec4f(0.0f);
+        Math::vec4f        border_color   = Math::vec4f(0.0f);
         float              min_lod        = 0.0f;
         float              max_lod        = std::numeric_limits<float>::max();
     } const desc;

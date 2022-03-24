@@ -3,6 +3,8 @@
 #include "ICommandContext.hpp"
 #include "Utils.hpp"
 
+using namespace Hitagi::Math;
+
 namespace Hitagi::Graphics {
 Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index)
     : m_Driver(driver),

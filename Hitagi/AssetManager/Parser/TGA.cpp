@@ -2,7 +2,9 @@
 
 #include <spdlog/spdlog.h>
 
-#include "HitagiMath.hpp"
+#include <Math/Vector.hpp>
+
+using namespace Hitagi::Math;
 
 namespace Hitagi::Asset {
 

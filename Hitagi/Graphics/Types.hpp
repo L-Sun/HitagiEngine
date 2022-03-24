@@ -2,6 +2,19 @@
 #include <cstdint>
 
 namespace Hitagi::Graphics {
+
+enum struct PrimitiveType {
+    PointList,
+    LineList,
+    LineStrip,
+    TriangleList,
+    TriangleStrip,
+    LineListAdjacency,
+    LineStripAdjacency,
+    TriangleListAdjacency,
+    TriangleStripAdjacency,
+};
+
 // Shader
 enum struct ShaderType {
     Vertex,

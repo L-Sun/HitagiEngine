@@ -1,5 +1,5 @@
 #include "GpuBuffer.hpp"
-#include "HitagiMath.hpp"
+#include "Utils.hpp"
 
 namespace Hitagi::Graphics::backend::DX12 {
 

@@ -4,6 +4,10 @@
 #include "Sampler.hpp"
 #include "Utils.hpp"
 
+#include <Math/Vector.hpp>
+
+using namespace Hitagi::Math;
+
 namespace Hitagi::Graphics::backend::DX12 {
 
 CommandContext::CommandContext(DX12DriverAPI& driver, D3D12_COMMAND_LIST_TYPE type)

@@ -1,4 +1,7 @@
 #include "SceneNode.hpp"
+
+using namespace Hitagi::Math;
+
 namespace Hitagi::Asset {
 
 auto SceneNode::GetCalculatedTransformation() -> mat4f {

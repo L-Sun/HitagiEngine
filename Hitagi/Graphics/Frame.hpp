@@ -5,6 +5,8 @@
 
 #include "DebugManager.hpp"
 #include "GuiManager.hpp"
+#include <Math/Vector.hpp>
+#include <Math/Matrix.hpp>
 
 #include <vector>
 
@@ -14,24 +16,24 @@ class IGraphicsCommandContext;
 
 class Frame {
     struct FrameConstant {
-        mat4f proj_view;
-        mat4f view;
-        mat4f projection;
-        mat4f inv_projection;
-        mat4f inv_view;
-        mat4f inv_proj_view;
-        vec4f camera_pos;
-        vec4f light_position;
-        vec4f light_pos_in_view;
-        vec4f light_intensity;
+        Math::mat4f proj_view;
+        Math::mat4f view;
+        Math::mat4f projection;
+        Math::mat4f inv_projection;
+        Math::mat4f inv_view;
+        Math::mat4f inv_proj_view;
+        Math::vec4f camera_pos;
+        Math::vec4f light_position;
+        Math::vec4f light_pos_in_view;
+        Math::vec4f light_intensity;
     };
     struct ObjectConstant {
-        mat4f transform;
-        vec4f ambient;
-        vec4f diffuse;
-        vec4f emission;
-        vec4f specular;
-        float specular_power;
+        Math::mat4f transform;
+        Math::vec4f ambient;
+        Math::vec4f diffuse;
+        Math::vec4f emission;
+        Math::vec4f specular;
+        float       specular_power;
     };
 
     struct DrawItem {
@@ -79,7 +81,7 @@ public:
     inline auto GetRenderTarget() noexcept { return m_Output; }
 
 private:
-    void PopulateMaterial(const Asset::Material::Color& color, vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
+    void PopulateMaterial(const Asset::Material::Color& color, Math::vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
     void PopulateMaterial(const Asset::Material::SingleValue& color, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
 
     DriverAPI&       m_Driver;
