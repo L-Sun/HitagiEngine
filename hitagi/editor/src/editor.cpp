@@ -63,9 +63,9 @@ void Editor::MainMenu() {
 void Editor::FileExplorer() {
     std::filesystem::path folder;
     if (m_OpenFileExt == ".fbx") {
-        folder = "./Assets/Scenes";
+        folder = "./assets/scenes";
     } else if (m_OpenFileExt == ".bvh") {
-        folder = "./Assets/Motions";
+        folder = "./assets/motions";
     } else {
         return;
     }

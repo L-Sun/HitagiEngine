@@ -1,8 +1,8 @@
 build
-Assets/*
-!Assets/Shaders/
-!Assets/Fonts/
-Temp
+assets/*
+!assets/Shaders/
+!assets/Fonts/
+temp
 
 # ispc header will be generated during compilation
 *_ispc.h
