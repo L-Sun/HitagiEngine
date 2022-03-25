@@ -54,10 +54,9 @@ target_include_directories(
 )
 
 add_library(
-    scene_manager
-    src/scene_manager.cpp src/animation_manager.cpp src/geometry_factory.cpp
+    scene_manager src/scene_manager.cpp src/animation_manager.cpp
+                  src/geometry_factory.cpp
 )
-target_link_libraries(
-    scene_manager
-    PUBLIC asset_manager
-)
+target_link_libraries(scene_manager PUBLIC asset_manager)
+
+add_subdirectory(test)

@@ -1,6 +1,5 @@
 #include <hitagi/core/timer.hpp>
-
-#include <gtest/gtest.h>
+#include <hitagi/utils/test.hpp>
 
 #include <thread>
 

@@ -1,4 +1,5 @@
 #include <hitagi/core/thread_manager.hpp>
+#include <hitagi/utils/test.hpp>
 
 using namespace hitagi;
 
