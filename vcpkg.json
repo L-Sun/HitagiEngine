@@ -19,6 +19,7 @@
         "fmt",
         "spdlog",
         "magic-enum",
-        "gtest"
+        "gtest",
+        "benchmark"
     ]
 }

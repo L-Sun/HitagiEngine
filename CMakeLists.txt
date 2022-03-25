@@ -20,6 +20,7 @@ find_package(magic_enum CONFIG REQUIRED)
 find_package(onnxruntime CONFIG REQUIRED)
 
 find_package(GTest CONFIG REQUIRED)
+find_package(benchmark CONFIG REQUIRED)
 include(GoogleTest)
 include(CTest)
 

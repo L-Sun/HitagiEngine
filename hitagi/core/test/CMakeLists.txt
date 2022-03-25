@@ -1,4 +1,14 @@
 # ===============================================================
+# Memory Test
+# ===============================================================
+add_executable(memory_test memory_test.cpp)
+target_link_libraries(memory_test PRIVATE memory_manager test_utils)
+gtest_discover_tests(memory_test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
+add_executable(memory_benchmark memory_benchmark.cpp)
+target_link_libraries(memory_benchmark PRIVATE memory_manager test_utils)
+
+# ===============================================================
 # File IO Test
 # ===============================================================
 add_executable(file_io_manager_test file_io_manager_test.cpp)
@@ -13,10 +23,3 @@ gtest_discover_tests(
 add_executable(timer_test timer_test.cpp)
 target_link_libraries(timer_test PRIVATE timer test_utils)
 gtest_discover_tests(timer_test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-
-# ===============================================================
-# Thread Test
-# ===============================================================
-add_executable(thread_pool_test thread_pool_test.cpp)
-target_link_libraries(thread_pool_test PRIVATE thread_manager test_utils)
-gtest_discover_tests(thread_pool_test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
