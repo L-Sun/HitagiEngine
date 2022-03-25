@@ -2,7 +2,7 @@
 #include "Geometry.hpp"
 #include "Types.hpp"
 
-#include <Math/Vector.hpp>
+#include <Hitagi/Math/Vector.hpp>
 
 namespace hitagi::asset {
 class GeometryFactory {

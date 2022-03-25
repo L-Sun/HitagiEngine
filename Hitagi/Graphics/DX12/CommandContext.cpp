@@ -4,7 +4,7 @@
 #include "Sampler.hpp"
 #include "Utils.hpp"
 
-#include <Math/Vector.hpp>
+#include <Hitagi/Math/Vector.hpp>
 
 using namespace hitagi::math;
 

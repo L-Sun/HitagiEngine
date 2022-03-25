@@ -1,7 +1,7 @@
 #pragma once
 #include "SceneObject.hpp"
 
-#include <Math/Vector.hpp>
+#include <Hitagi/Math/Vector.hpp>
 
 #include <numbers>
 

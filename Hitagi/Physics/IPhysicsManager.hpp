@@ -2,8 +2,8 @@
 #include "IRuntimeModule.hpp"
 #include "SceneNode.hpp"
 
-#include <Math/Vector.hpp>
-#include <Math/Matrix.hpp>
+#include <Hitagi/Math/Vector.hpp>
+#include <Hitagi/Math/Matrix.hpp>
 
 #include <vector>
 

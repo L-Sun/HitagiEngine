@@ -1,7 +1,7 @@
 #pragma once
 #include "Types.hpp"
 
-#include <Math/Vector.hpp>
+#include <Hitagi/Math/Vector.hpp>
 
 #include <memory>
 #include <unordered_map>

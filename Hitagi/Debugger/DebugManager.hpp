@@ -3,7 +3,7 @@
 #include "Geometry.hpp"
 #include "SceneNode.hpp"
 
-#include <Math/Transform.hpp>
+#include <Hitagi/Math/Transform.hpp>
 
 #include <chrono>
 #include <functional>

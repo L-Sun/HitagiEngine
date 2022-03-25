@@ -1,6 +1,6 @@
 #include "PNG.hpp"
 
-#include <Math/Vector.hpp>
+#include <Hitagi/Math/Vector.hpp>
 
 #include <spdlog/spdlog.h>
 #include <png.h>

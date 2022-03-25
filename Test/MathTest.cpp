@@ -1,6 +1,6 @@
-#include <Math/Vector.hpp>
-#include <Math/Matrix.hpp>
-#include <Math/Transform.hpp>
+#include <Hitagi/Math/Vector.hpp>
+#include <Hitagi/Math/Matrix.hpp>
+#include <Hitagi/Math/Transform.hpp>
 
 #include <iostream>
 #include <gtest/gtest.h>

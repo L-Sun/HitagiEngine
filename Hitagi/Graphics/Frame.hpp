@@ -5,8 +5,8 @@
 
 #include "DebugManager.hpp"
 #include "GuiManager.hpp"
-#include <Math/Vector.hpp>
-#include <Math/Matrix.hpp>
+#include <Hitagi/Math/Vector.hpp>
+#include <Hitagi/Math/Matrix.hpp>
 
 #include <vector>
 

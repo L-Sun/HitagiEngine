@@ -4,7 +4,7 @@
 #include "Light.hpp"
 #include "Bone.hpp"
 
-#include <Math/Transform.hpp>
+#include <Hitagi/Math/Transform.hpp>
 
 #include <fmt/format.h>
 

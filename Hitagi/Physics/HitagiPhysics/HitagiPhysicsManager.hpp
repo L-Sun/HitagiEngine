@@ -2,7 +2,7 @@
 #include "IPhysicsManager.hpp"
 #include "RigidBody.hpp"
 
-#include <Math/Matrix.hpp>
+#include <Hitagi/Math/Matrix.hpp>
 
 namespace hitagi::physics {
 class hitagiPhysicsManager : public IPhysicsManager {

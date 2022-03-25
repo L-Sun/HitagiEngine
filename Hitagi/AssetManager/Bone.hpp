@@ -1,7 +1,7 @@
 #pragma once
 #include "SceneObject.hpp"
 
-#include <Math/Matrix.hpp>
+#include <Hitagi/Math/Matrix.hpp>
 
 #include <map>
 

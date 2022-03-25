@@ -2,7 +2,7 @@
 #include "SceneObject.hpp"
 #include "Texture.hpp"
 
-#include <Math/Vector.hpp>
+#include <Hitagi/Math/Vector.hpp>
 
 #include <crossguid/guid.hpp>
 

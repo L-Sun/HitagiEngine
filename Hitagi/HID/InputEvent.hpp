@@ -1,5 +1,5 @@
 #pragma once
-#include <Math/Vector.hpp>
+#include <Hitagi/Math/Vector.hpp>
 
 #include <array>
 

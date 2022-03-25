@@ -1,5 +1,5 @@
 #pragma once
-#include <Math/Matrix.hpp>
+#include <Hitagi/Math/Matrix.hpp>
 
 namespace hitagi::physics {
 

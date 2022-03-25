@@ -3,7 +3,7 @@
 #include "Buffer.hpp"
 #include "RootSignature.hpp"
 
-#include <Math/Matrix.hpp>
+#include <Hitagi/Math/Matrix.hpp>
 
 namespace hitagi::graphics::backend::DX12 {
 

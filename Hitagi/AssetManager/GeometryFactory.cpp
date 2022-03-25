@@ -1,7 +1,7 @@
 #include "GeometryFactory.hpp"
 #include "Types.hpp"
 
-#include <Math/Vector.hpp>
+#include <Hitagi/Math/Vector.hpp>
 
 using namespace hitagi::math;
 using PrimitiveType = hitagi::graphics::PrimitiveType;
