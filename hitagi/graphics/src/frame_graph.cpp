@@ -1,6 +1,6 @@
 #include "frame_graph.hpp"
 
-#include <hitagi/core/utils.hpp>
+#include <hitagi/utils/overloaded.hpp>
 
 namespace hitagi::graphics {
 
@@ -31,7 +31,7 @@ void FrameGraph::Execute(DriverAPI& driver) {
     // TODO prepare the remaining resource after pruning.
     for (auto&& [id, desc] : m_InnerResourcesDesc) {
         m_Resources[id] = std::visit(
-            Overloaded{
+            utils::Overloaded{
                 [&](const TextureBuffer::Description& desc) -> std::shared_ptr<Resource> {
                     return driver.CreateTextureBuffer("", desc);
                 },

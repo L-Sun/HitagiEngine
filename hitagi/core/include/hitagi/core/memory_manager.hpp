@@ -4,8 +4,14 @@
 #include <list>
 #include <array>
 #include <memory_resource>
+#include <assert.h>
 
 namespace hitagi::core {
+
+inline const size_t align(size_t x, size_t a) {
+    assert(((a - 1) & a) == 0 && "alignment is not a power of two");
+    return (x + a - 1) & ~(a - 1);
+}
 
 constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 

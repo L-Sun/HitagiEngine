@@ -4,7 +4,7 @@ add_library(
 )
 target_link_libraries(
     input_manager
-    PRIVATE math spdlog::spdlog
+    PRIVATE math utils spdlog::spdlog
 )
 target_include_directories(
     input_manager

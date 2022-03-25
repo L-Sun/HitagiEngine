@@ -41,7 +41,10 @@ target_include_directories(
 )
 target_link_libraries(
     graphics
-    PUBLIC core shader_manager math
+    PUBLIC core
+           shader_manager
+           math
+           utils
     PRIVATE scene_manager
             physics_manager
             debug_manager

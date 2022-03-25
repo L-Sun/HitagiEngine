@@ -1,5 +1,4 @@
 #include <hitagi/core/memory_manager.hpp>
-#include <hitagi/core/utils.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>

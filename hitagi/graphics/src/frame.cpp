@@ -3,7 +3,7 @@
 
 #include <hitagi/graphics/driver_api.hpp>
 
-#include <hitagi/core/utils.hpp>
+#include <hitagi/utils/overloaded.hpp>
 
 using namespace hitagi::math;
 
@@ -211,7 +211,7 @@ void Frame::SetRenderTarget(std::shared_ptr<RenderTarget> rt) {
 }
 
 void Frame::PopulateMaterial(const asset::Material::Color& color, vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
-    std::visit(Overloaded{
+    std::visit(utils::Overloaded{
                    [&](const vec4f& value) {
                        value_dest   = value;
                        texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
@@ -224,7 +224,7 @@ void Frame::PopulateMaterial(const asset::Material::Color& color, vec4f& value_d
 }
 
 void Frame::PopulateMaterial(const asset::Material::SingleValue& value, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
-    std::visit(Overloaded{
+    std::visit(utils::Overloaded{
                    [&](float value) {
                        value_dest   = value;
                        texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8_UNORM);

@@ -1,6 +1,6 @@
 #include <hitagi/hid/input_manager.hpp>
-#include <hitagi/core/utils.hpp>
 #include <hitagi/application.hpp>
+#include <hitagi/utils/overloaded.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -40,7 +40,7 @@ void InputManager::Tick() {
 
 bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
-        Overloaded{
+        utils::Overloaded{
             [&](const VirtualKeyCode& key) -> bool {
                 return m_KeyState[static_cast<size_t>(key)].current;
             },
@@ -63,7 +63,7 @@ bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const
 
 bool InputManager::GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
-        Overloaded{
+        utils::Overloaded{
             [&](const VirtualKeyCode& key) -> bool {
                 return m_KeyState[static_cast<size_t>(key)].current && !m_KeyState[static_cast<size_t>(key)].previous;
             },
@@ -86,7 +86,7 @@ bool InputManager::GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) co
 
 float InputManager::GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
-        Overloaded{
+        utils::Overloaded{
             [&](const VirtualKeyCode& key) -> float {
                 return m_KeyState[static_cast<size_t>(key)].current ? 1.0f : 0.0f;
             },
@@ -109,7 +109,7 @@ float InputManager::GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) con
 
 float InputManager::GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
-        Overloaded{
+        utils::Overloaded{
             [&](const VirtualKeyCode& key) -> float {
                 return (m_KeyState[static_cast<size_t>(key)].current &&
                         !m_KeyState[static_cast<size_t>(key)].previous)

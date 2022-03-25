@@ -281,6 +281,18 @@ using quatd = Quaternion<double>;
 
 using R8G8B8A8Unorm = Vector<uint8_t, 4>;
 
+using float2 = vec2f;
+using float3 = vec3f;
+using float4 = vec4f;
+
+using int2 = Vector<int32_t, 2>;
+using int3 = Vector<int32_t, 3>;
+using int4 = Vector<int32_t, 4>;
+
+using uint2 = Vector<uint32_t, 2>;
+using uint3 = Vector<uint32_t, 3>;
+using uint4 = Vector<uint32_t, 4>;
+
 template <typename T, unsigned D>
 const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) noexcept {
     T result = 0;
