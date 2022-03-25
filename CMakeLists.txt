@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(HitagiEngine)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD
+    20
+)
 
 # set(CMAKE_CXX_CLANG_TIDY clang-tidy)
 
@@ -22,8 +24,7 @@ find_package(onnxruntime CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 include(CTest)
 
-add_subdirectory(Hitagi)
-add_subdirectory(Test)
-add_subdirectory(Examples)
+add_subdirectory(hitagi)
+add_subdirectory(examples)
 
 enable_testing()
