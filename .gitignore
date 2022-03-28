@@ -2,6 +2,7 @@ build
 assets/*
 !assets/Shaders/
 !assets/Fonts/
+.xmake
 temp
 
 # ispc header will be generated during compilation

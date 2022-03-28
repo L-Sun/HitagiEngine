@@ -1,0 +1,31 @@
+[
+{
+  "directory": "e:\\workspace\\cpp\\HitagiEngine",
+  "arguments": ["C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.31.31103\\bin\\HostX64\\x64\\cl.exe", "/c", "/EHsc", "/nologo", "/std:c++20", "/Ihitagi\\core\\include", "/Fobuild\\.objs\\timer\\windows\\x64\\release\\hitagi\\core\\src\\timer.cpp.obj", "hitagi\\core\\src\\timer.cpp"],
+  "file": "hitagi\\core\\src\\timer.cpp"
+},
+{
+  "directory": "e:\\workspace\\cpp\\HitagiEngine",
+  "arguments": ["C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.31.31103\\bin\\HostX64\\x64\\cl.exe", "/c", "/EHsc", "/nologo", "/std:c++20", "/Ihitagi\\core\\include", "/IC:\\Users\\54405\\AppData\\Local\\.xmake\\packages\\s\\spdlog\\v1.9.2\\b91784a4f01840699617745366b379a3\\include", "/Fobuild\\.objs\\thread_manager\\windows\\x64\\release\\hitagi\\core\\src\\thread_manager.cpp.obj", "hitagi\\core\\src\\thread_manager.cpp"],
+  "file": "hitagi\\core\\src\\thread_manager.cpp"
+},
+{
+  "directory": "e:\\workspace\\cpp\\HitagiEngine",
+  "arguments": ["C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.31.31103\\bin\\HostX64\\x64\\cl.exe", "/c", "/EHsc", "/nologo", "/std:c++20", "/Ihitagi\\utils\\include", "/Ihitagi\\core\\include", "/IC:\\Users\\54405\\AppData\\Local\\.xmake\\packages\\f\\fmt\\8.1.1\\3c4518782925487388553bdb3459c51d\\include", "/IC:\\Users\\54405\\AppData\\Local\\.xmake\\packages\\g\\gtest\\1.11.0\\b1b08721ee914e67a215e7e32457c5db\\include", "/IC:\\Users\\54405\\AppData\\Local\\.xmake\\packages\\b\\benchmark\\1.6.1\\60f3c4adeab04731875ce1d51922364a\\include", "/Fobuild\\.objs\\memory_test\\windows\\x64\\release\\hitagi\\core\\test\\memory_test.cpp.obj", "hitagi\\core\\test\\memory_test.cpp"],
+  "file": "hitagi\\core\\test\\memory_test.cpp"
+},
+{
+  "directory": "e:\\workspace\\cpp\\HitagiEngine",
+  "arguments": ["C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.31.31103\\bin\\HostX64\\x64\\cl.exe", "/c", "/EHsc", "/nologo", "/std:c++20", "/Ihitagi\\core\\include", "/IC:\\Users\\54405\\AppData\\Local\\.xmake\\packages\\s\\spdlog\\v1.9.2\\b91784a4f01840699617745366b379a3\\include", "/Fobuild\\.objs\\memory_manager\\windows\\x64\\release\\hitagi\\core\\src\\buffer.cpp.obj", "hitagi\\core\\src\\buffer.cpp"],
+  "file": "hitagi\\core\\src\\buffer.cpp"
+},
+{
+  "directory": "e:\\workspace\\cpp\\HitagiEngine",
+  "arguments": ["C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.31.31103\\bin\\HostX64\\x64\\cl.exe", "/c", "/EHsc", "/nologo", "/std:c++20", "/Ihitagi\\core\\include", "/IC:\\Users\\54405\\AppData\\Local\\.xmake\\packages\\s\\spdlog\\v1.9.2\\b91784a4f01840699617745366b379a3\\include", "/Fobuild\\.objs\\memory_manager\\windows\\x64\\release\\hitagi\\core\\src\\memory_manager.cpp.obj", "hitagi\\core\\src\\memory_manager.cpp"],
+  "file": "hitagi\\core\\src\\memory_manager.cpp"
+},
+{
+  "directory": "e:\\workspace\\cpp\\HitagiEngine",
+  "arguments": ["C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.31.31103\\bin\\HostX64\\x64\\cl.exe", "/c", "/EHsc", "/nologo", "/std:c++20", "/Ihitagi\\core\\include", "/IC:\\Users\\54405\\AppData\\Local\\.xmake\\packages\\s\\spdlog\\v1.9.2\\b91784a4f01840699617745366b379a3\\include", "/Fobuild\\.objs\\file_io_manager\\windows\\x64\\release\\hitagi\\core\\src\\file_io_manager.cpp.obj", "hitagi\\core\\src\\file_io_manager.cpp"],
+  "file": "hitagi\\core\\src\\file_io_manager.cpp"
+}]
