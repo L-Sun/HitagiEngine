@@ -4,7 +4,7 @@
 #include <list>
 #include <array>
 #include <memory_resource>
-#include <assert.h>
+#include <cassert>
 
 namespace hitagi::core {
 

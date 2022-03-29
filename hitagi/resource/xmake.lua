@@ -1,0 +1,4 @@
+-- target("parser")
+--     add_files("src/parser/*.cpp")
+--     add_includedirs("include", {public = true})
+--     add_deps("core", "math")
