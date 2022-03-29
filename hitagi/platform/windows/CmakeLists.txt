@@ -1,17 +1,17 @@
-add_library(
-    hitagi_engine
+add_library(hitagi_engine
     win32_application.cpp
 )
-target_link_libraries(
-    hitagi_engine
-    PUBLIC application
-    PRIVATE Winmm
+target_link_libraries(hitagi_engine
+    PUBLIC
+        application
+    PRIVATE
+        Winmm
 )
-target_include_directories(
-    hitagi_engine
-    INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
+target_include_directories(hitagi_engine
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}
 )
-target_compile_definitions(
-    hitagi_engine
-    PRIVATE UNICODE
+target_compile_definitions(hitagi_engine
+    PRIVATE
+        UNICODE
 )

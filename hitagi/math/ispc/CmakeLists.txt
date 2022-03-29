@@ -13,7 +13,7 @@ set(ISPC_SRC
     "vector"
 )
 set(ISPC_FLAGS
-    -O2
+    -O3
 )
 
 foreach(
