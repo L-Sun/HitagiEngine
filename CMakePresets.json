@@ -33,7 +33,7 @@
             "configurePreset": "ninja-multi-vcpkg",
             "displayName": "Build Release",
             "description": "Build ninja-multi-vcpkg Release configuration",
-            "configuration": "Release"
+            "configuration": "RelWithDebInfo"
         }
     ],
     "testPresets": [
