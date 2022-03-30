@@ -20,11 +20,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: lukka/get-cmake@latest
-
-    - name: Restore artifacts, or setup vcpkg (do not install any package)
-      uses: lukka/run-vcpkg@v10
-      with:
-        vcpkgGitCommitId: 'af2287382b1991dbdcb7e5112d236f3323b9dd7a'
     
     - name: Run CMake
       uses: lukka/run-cmake@v10
