@@ -33,11 +33,11 @@ jobs:
       run: wget "https://github.com/ispc/ispc/releases/download/v1.17.0/ispc-v1.17.0-macOS.tar.gz" && tar -zxvf ispc-v1.17.0-macOS.tar.gz && echo "ispc-v1.17.0-macOS/bin" >> $GITHUB_PATH
 
     - uses: lukka/get-cmake@latest
-    
+
     - name: Restore artifacts, or setup vcpkg (do not install any package)
       uses: lukka/run-vcpkg@v10
       with: 
-        vcpkgDirectory: '${{ env.VCPKG_INSTALLATION_ROOT }}/vcpkg'
+        vcpkgGitCommitId: af2287382b1991dbdcb7e5112d236f3323b9dd7a
 
     - name: Build with ${{ matrix.compiler }}
       uses: lukka/run-cmake@v10
