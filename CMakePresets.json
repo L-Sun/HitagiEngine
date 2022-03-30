@@ -21,7 +21,7 @@
             }
         },
         {
-            "name": "Clang",
+            "name": "clang",
             "inherits": "Ninja",
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "clang.exe",
@@ -29,7 +29,7 @@
             }
         },
         {
-            "name": "MSVC",
+            "name": "msvc",
             "inherits": "Ninja",
             "architecture": {
                 "value": "x64",
@@ -43,38 +43,38 @@
     ],
     "buildPresets": [
         {
-            "name": "Clang (Debug)",
-            "configurePreset": "Clang",
-            "displayName": "Clang-cl Build Debug",
+            "name": "clang (Debug)",
+            "configurePreset": "clang",
+            "displayName": "clang Build Debug",
             "configuration": "Debug"
         },
         {
-            "name": "Clang (Release)",
-            "configurePreset": "Clang",
-            "displayName": "Clang-cl Build Release",
+            "name": "clang (Release)",
+            "configurePreset": "clang",
+            "displayName": "clang Build Release",
             "configuration": "Release"
         },
         {
-            "name": "MSVC (Debug)",
-            "configurePreset": "MSVC",
-            "displayName": "MSVC Build Debug",
+            "name": "msvc (Debug)",
+            "configurePreset": "msvc",
+            "displayName": "msvc Build Debug",
             "configuration": "Debug"
         },
         {
-            "name": "MSVC (Release)",
-            "configurePreset": "MSVC",
-            "displayName": "MSVC Build Release",
+            "name": "msvc (Release)",
+            "configurePreset": "msvc",
+            "displayName": "msvc Build Release",
             "configuration": "Release"
         }
     ],
     "testPresets": [
         {
-            "name": "Clang Test",
-            "configurePreset": "Clang"
+            "name": "clang Test",
+            "configurePreset": "clang"
         },
         {
-            "name": "MSVC Test",
-            "configurePreset": "MSVC"
+            "name": "msvc Test",
+            "configurePreset": "msvc"
         }
     ]
 }

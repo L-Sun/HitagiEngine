@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ dev ]
 
-
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -14,12 +13,14 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest]
+        compiler: [clang, msvc]
+        # exclude msvc from non-windows os
         
     steps:
     - uses: actions/checkout@v3
       with:
         lfs: true
-    - uses: lukka/get-cmake@latest
+
     
     - name: Download ISPC (Windows)
       if: runner.os == 'Windows'
@@ -30,25 +31,17 @@ jobs:
     - name: Download ISPC (MacOS)
       if: runner.os == 'macOS'
       run: wget "https://github.com/ispc/ispc/releases/download/v1.17.0/ispc-v1.17.0-macOS.tar.gz" && tar -zxvf ispc-v1.17.0-macOS.tar.gz && echo "ispc-v1.17.0-macOS/bin" >> $GITHUB_PATH
-      
+
+    - uses: lukka/get-cmake@latest
+    
     - name: Restore artifacts, or setup vcpkg (do not install any package)
       uses: lukka/run-vcpkg@v10
-      with:
-        vcpkgGitCommitId: 'af2287382b1991dbdcb7e5112d236f3323b9dd7a'
-        
-    - name: Build with clang
+      with: 
+        vcpkgDirectory: '${{ env.VCPKG_INSTALLATION_ROOT }}/vcpkg'
+
+    - name: Build with ${{ matrix.compiler }}
       uses: lukka/run-cmake@v10
       with:
-        configurePreset: 'Clang'
-        buildPreset: 'Clang (Release)'
-        testPreset: 'Clang Test'
-    
-    - name: Build with MSVC
-      uses: lukka/run-cmake@v10
-      with:
-        configurePreset: 'Clang'
-        buildPreset: 'MSVC (Release)'
-        testPreset: 'MSVC Test'
-        
-    
-  
+        configurePreset: '${{ matrix.compiler }}'
+        buildPreset: '${{ matrix.compiler }} (Release)'
+        testPreset: '${{ matrix.compiler }} Test'
