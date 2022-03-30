@@ -21,6 +21,14 @@ jobs:
     - uses: actions/checkout@v3
     - uses: lukka/get-cmake@latest
     
+    - name: Download ISPC
+      if: runner.os == 'Windows'
+      run: Invoke-WebRequest -Uri "https://github.com/ispc/ispc/releases/download/v1.17.0/ispc-v1.17.0-windows.zip" -OutFile "ispc.zip" ; 7z x ispc.zip ; "ispc-v1.17.0-windows/bin" >> $env:GITHUB_PATH
+    - if: runner.os == 'Linux'
+      run: wget "https://github.com/ispc/ispc/releases/download/v1.17.0/ispc-v1.17.0-linux.tar.gz" && tar -zxvf ispc-v1.17.0-linux.tar.gz && echo "ispc-v1.17.0-linux/bin" >> $GITHUB_PATH
+    - if: runner.os == 'macOS'
+      run: wget "https://github.com/ispc/ispc/releases/download/v1.17.0/ispc-v1.17.0-macOS.tar.gz" && tar -zxvf ispc-v1.17.0-macOS.tar.gz && echo "ispc-v1.17.0-macOS/bin" >> $GITHUB_PATH
+    
     - name: Run CMake
       uses: lukka/run-cmake@v10
       with:
