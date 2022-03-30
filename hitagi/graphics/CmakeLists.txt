@@ -52,5 +52,3 @@ target_link_libraries(
             $<$<PLATFORM_ID:Windows>:dx12_driver_api>
             freetype
 )
-
-add_subdirectory(test)
