@@ -1,5 +1,6 @@
 rule("ispc")
     set_extensions(".ispc")
+    add_deps("utils.inherit.links")
 
     on_load(function (target) 
         os.runv("ispc", {"--version"})
@@ -65,10 +66,6 @@ rule("ispc")
         })
         progress.show(opt.progress, "${color.build.object}compiling.ispc %s", sourcefile)
         table.insert(target:objectfiles(), objectfile)
-    end)
-
-    on_clean(function (target)
-       
     end)
 
 
