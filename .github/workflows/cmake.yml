@@ -19,6 +19,8 @@ jobs:
         
     steps:
     - uses: actions/checkout@v3
+      with:
+        lfs: true
     - uses: lukka/get-cmake@latest
     
     - name: Download ISPC (Windows)
