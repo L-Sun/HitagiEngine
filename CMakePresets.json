@@ -7,7 +7,8 @@
     },
     "configurePresets": [
         {
-            "name": "ninja-multi-vcpkg",
+            "name": "Ninja",
+            "hidden": true,
             "displayName": "Ninja Multi-Config",
             "description": "Configure with vcpkg toolchain and generate Ninja project files for all configurations",
             "binaryDir": "${sourceDir}/build/${presetName}",
@@ -16,38 +17,64 @@
                 "CMAKE_TOOLCHAIN_FILE": {
                     "type": "FILEPATH",
                     "value": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
-                },
+                }
+            }
+        },
+        {
+            "name": "Clang",
+            "inherits": "Ninja",
+            "cacheVariables": {
                 "CMAKE_C_COMPILER": "clang.exe",
                 "CMAKE_CXX_COMPILER": "clang++.exe"
+            }
+        },
+        {
+            "name": "MSVC",
+            "inherits": "Ninja",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe"
             }
         }
     ],
     "buildPresets": [
         {
-            "name": "ninja-multi-vcpkg-debug",
-            "configurePreset": "ninja-multi-vcpkg",
-            "displayName": "Build Debug",
-            "description": "Build ninja-multi-vcpkg Debug configuration",
+            "name": "Clang (Debug)",
+            "configurePreset": "Clang",
+            "displayName": "Clang-cl Build Debug",
             "configuration": "Debug"
         },
         {
-            "name": "ninja-multi-vcpkg-release",
-            "configurePreset": "ninja-multi-vcpkg",
-            "displayName": "Build Release",
-            "description": "Build ninja-multi-vcpkg Release configuration",
-            "configuration": "RelWithDebInfo"
+            "name": "Clang (Release)",
+            "configurePreset": "Clang",
+            "displayName": "Clang-cl Build Release",
+            "configuration": "Release"
+        },
+        {
+            "name": "MSVC (Debug)",
+            "configurePreset": "MSVC",
+            "displayName": "MSVC Build Debug",
+            "configuration": "Debug"
+        },
+        {
+            "name": "MSVC (Release)",
+            "configurePreset": "MSVC",
+            "displayName": "MSVC Build Release",
+            "configuration": "Release"
         }
     ],
     "testPresets": [
         {
-            "name": "ninja-multi-vcpkg-debug",
-            "configurePreset": "ninja-multi-vcpkg",
-            "configuration": "Debug"
+            "name": "Clang Test",
+            "configurePreset": "Clang"
         },
         {
-            "name": "ninja-multi-vcpkg-release",
-            "configurePreset": "ninja-multi-vcpkg",
-            "configuration": "RelWithDebInfo"
+            "name": "MSVC Test",
+            "configurePreset": "MSVC"
         }
     ]
 }

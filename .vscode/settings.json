@@ -101,5 +101,6 @@
     },
     "cmake.debugConfig": {
         "cwd": "${workspaceFolder}"
-    }
+    },
+    "C_Cpp.intelliSenseEngineFallback": "Enabled"
 }

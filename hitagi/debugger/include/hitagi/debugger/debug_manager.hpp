@@ -1,6 +1,7 @@
 #pragma once
 #include <hitagi/math/transform.hpp>
 #include <hitagi/core/runtime_module.hpp>
+#include <hitagi/core/timer.hpp>
 #include <hitagi/resource/geometry.hpp>
 #include <hitagi/resource/scene_node.hpp>
 
