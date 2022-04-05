@@ -1,0 +1,5 @@
+target("application")
+    set_kind("static")
+    add_includedirs("include", {public = true})
+    add_deps("core")
+    add_packages("spdlog")

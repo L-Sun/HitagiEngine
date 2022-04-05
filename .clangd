@@ -1,0 +1,16 @@
+CompileFlags:
+  Add: [-xc++, -std=c++20, -Wall, -Wno-missing-prototypes, -DDebug]
+  # Remove extra warnings specified in compile commands.
+  # Single value is also acceptable, same as "Remove: [-mabi]"
+  Remove: -mabi
+Diagnostics:
+  # Tweak Clang-Tidy checks.
+  ClangTidy:
+    Add: [
+        performance*,
+        modernize*,
+        cppcoreguidelines-avoid-goto,
+        cppcoreguidelines-prefer-member-initializer,
+        cppcoreguidelines-avoid-c-arrays
+    ]
+    Remove: [modernize-use-trailing-return-type, modernize-use-nodiscard]

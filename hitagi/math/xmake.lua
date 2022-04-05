@@ -6,7 +6,7 @@ option("ispc")
 
 
 target("math")
-    set_kind("static")
+    set_kind("phony")
     add_includedirs("include", {public = true})
     add_packages("fmt", {public = true})
     set_options("ispc", {public = true})

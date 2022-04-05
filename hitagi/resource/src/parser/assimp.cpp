@@ -1,5 +1,4 @@
 #include <hitagi/parser/assimp.hpp>
-#include <hitagi/graphics/types.hpp>
 #include <hitagi/math/transform.hpp>
 
 #include <assimp/Importer.hpp>
@@ -8,7 +7,6 @@
 #include <spdlog/spdlog.h>
 
 using namespace hitagi::math;
-using PrimitiveType = hitagi::graphics::PrimitiveType;
 
 namespace hitagi::asset {
 

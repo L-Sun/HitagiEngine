@@ -5,6 +5,7 @@
 #include <array>
 #include <memory_resource>
 #include <cassert>
+#include <type_traits>
 
 namespace hitagi::core {
 
@@ -37,8 +38,8 @@ private:
         Page(std::size_t page_size, std::size_t block_size);
         Page(const Page&) = delete;
         Page& operator=(const Page&) = delete;
-        Page(Page&&);
-        Page& operator=(Page&&);
+        Page(Page&&) noexcept;
+        Page& operator=(Page&&) noexcept;
         ~Page();
 
         template <typename T>
@@ -91,7 +92,13 @@ public:
     void Tick() final;
 
     [[nodiscard]] void* Allocate(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t));
-    void                Free(void* p, std::size_t bytes, std::size_t alignment);
+
+    template <typename T>
+    [[nodiscard]] T* Allocate(std::size_t count, std::size_t alignment = alignof(T)) {
+        return static_cast<T*>(Allocate(count * sizeof(T), alignment));
+    }
+
+    void Free(void* p, std::size_t bytes, std::size_t alignment);
 
 private:
     std::unique_ptr<MemoryPool> m_Pools;

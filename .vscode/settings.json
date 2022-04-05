@@ -101,5 +101,7 @@
     },
     "cmake.debugConfig": {
         "cwd": "${workspaceFolder}"
-    }
+    },
+    "xmake.compileCommandsDirectory": "${workspaceRoot}/build",
+    "C_Cpp.intelliSenseEngine": "Disabled"
 }

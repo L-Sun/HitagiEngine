@@ -4,7 +4,6 @@
     "version": "0.1.0",
     "dependencies": [
         "crossguid",
-        "zlib",
         "libjpeg-turbo",
         "libpng",
         "assimp",

@@ -8,7 +8,7 @@
 
 #include <filesystem>
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 class SceneObject {
 public:
     inline const xg::Guid&    GetGuid() const noexcept { return m_Guid; }
@@ -19,9 +19,6 @@ public:
     friend std::ostream& operator<<(std::ostream& out, const SceneObject& obj);
 
 protected:
-    xg::Guid    m_Guid;
-    std::string m_Name;
-
     SceneObject() : m_Guid(xg::newGuid()) {}
     SceneObject(const SceneObject& obj) : m_Guid(xg::newGuid()) {}
     SceneObject& operator=(const SceneObject& rhs) {
@@ -33,5 +30,10 @@ protected:
 
     SceneObject(SceneObject&&) = default;
     SceneObject& operator=(SceneObject&&) = default;
+
+    inline void RenewGuid() noexcept { m_Guid = xg::newGuid(); }
+
+    xg::Guid    m_Guid;
+    std::string m_Name;
 };
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

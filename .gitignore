@@ -4,6 +4,7 @@ assets/*
 !assets/Fonts/
 .xmake
 temp
+.cache
 
 .vscode/compile_commands.json
 

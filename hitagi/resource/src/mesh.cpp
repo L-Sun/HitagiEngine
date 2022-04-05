@@ -1,141 +1,89 @@
+#include <hitagi/resource/enums.hpp>
 #include <hitagi/resource/mesh.hpp>
 
 #include <magic_enum.hpp>
+#include <memory_resource>
+#include "hitagi/core/buffer.hpp"
+#include "spdlog/spdlog.h"
 
 using namespace hitagi::math;
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 
-// Class VertexArray
-size_t VertexArray::GetVertexSize() const {
-    switch (m_DataType) {
-        case DataType::Float1:
-            return sizeof(float) * 1;
-        case DataType::Float2:
-            return sizeof(float) * 2;
-        case DataType::Float3:
-            return sizeof(float) * 3;
-        case DataType::Float4:
-            return sizeof(float) * 4;
-        case DataType::Double1:
-            return sizeof(double) * 1;
-        case DataType::Double2:
-            return sizeof(double) * 2;
-        case DataType::Double3:
-            return sizeof(double) * 3;
-        case DataType::Double4:
-            return sizeof(double) * 4;
+auto VertexArray::Builder::BufferCount(std::uint8_t count) noexcept -> Builder& {
+    buffer_count = count;
+    return *this;
+}
+
+auto VertexArray::Builder::VertexCount(std::size_t count) noexcept -> Builder& {
+    vertex_count = count;
+    return *this;
+}
+
+auto VertexArray::Builder::AppendAttributeAt(std::uint8_t buffer_index, VertexAttribute attribute) noexcept -> Builder& {
+    attributes[static_cast<std::uint8_t>(attribute)] = {
+        .enabled      = true,
+        .buffer_index = buffer_index,
+        .offset       = buffer_strides[buffer_index],
+    };
+    buffer_strides[buffer_index] += get_vertex_attribute_size(attribute);
+    return *this;
+}
+
+std::shared_ptr<VertexArray> VertexArray::Builder::Build() {
+    if (vertex_count == 0) {
+        spdlog::get("AssetManager")->warn("vertex count can not be zero!");
+        return nullptr;
     }
-    return 0;
-}
-
-// Class Indices
-size_t IndexArray::GetIndexSize() const {
-    switch (m_DataType) {
-        case DataType::Int8:
-            return sizeof(int8_t);
-        case DataType::Int16:
-            return sizeof(int16_t);
-        case DataType::Int32:
-            return sizeof(int32_t);
-        case DataType::Int64:
-            return sizeof(int64_t);
+    if (buffer_count == 0) {
+        spdlog::get("AssetManager")->warn("buffer count can not be zero!");
+        return nullptr;
     }
-    return 0;
-}
 
-const VertexArray& Mesh::GetVertexByName(std::string_view name) const {
-    for (auto&& vertex : m_VertexArray)
-        if (vertex.GetAttributeName() == name)
-            return vertex;
-    throw std::range_error(fmt::format("No name called {}", name));
-}
-
-std::ostream& operator<<(std::ostream& out, const VertexArray& obj) {
-    out << "Attribute:          " << obj.m_Attribute << std::endl;
-    out << "Data Type:          " << magic_enum::enum_name(obj.m_DataType) << std::endl;
-    out << "Data Size:          " << obj.GetDataSize() << " bytes" << std::endl;
-    out << "Data Count:         " << obj.GetVertexCount() << std::endl;
-    out << "Data:               ";
-    const uint8_t* data = obj.m_Data.GetData();
-    for (size_t i = 0; i < obj.GetVertexCount(); i++) {
-        switch (obj.m_DataType) {
-            case VertexArray::DataType::Float1:
-                std::cout << *(reinterpret_cast<const float*>(data) + i) << " ";
-                break;
-            case VertexArray::DataType::Float2:
-                std::cout << *(reinterpret_cast<const vec2f*>(data) + i) << " ";
-                break;
-            case VertexArray::DataType::Float3:
-                std::cout << *(reinterpret_cast<const vec3f*>(data) + i) << " ";
-                break;
-            case VertexArray::DataType::Float4:
-                std::cout << *(reinterpret_cast<const vec4f*>(data) + i) << " ";
-                break;
-            case VertexArray::DataType::Double1:
-                std::cout << *(reinterpret_cast<const double*>(data) + i) << " ";
-                break;
-            case VertexArray::DataType::Double2:
-                std::cout << *(reinterpret_cast<const Vector<double, 2>*>(data) + i) << " ";
-                break;
-            case VertexArray::DataType::Double3:
-                std::cout << *(reinterpret_cast<const Vector<double, 3>*>(data) + i) << " ";
-                break;
-            case VertexArray::DataType::Double4:
-                std::cout << *(reinterpret_cast<const Vector<double, 4>*>(data) + i) << " ";
-                break;
-            default:
-                break;
-        }
+    size_t num_enabled_attribute = 0;
+    for (const auto& info : attributes) {
+        if (info.enabled) num_enabled_attribute++;
     }
-    return out << std::endl;
-}
-std::ostream& operator<<(std::ostream& out, const IndexArray& obj) {
-    out << "Index Data Type: " << magic_enum::enum_name(obj.m_DataType) << std::endl;
-    out << "Data Size:       " << obj.GetDataSize() << std::endl;
-    out << "Data:            ";
-    auto data = obj.GetData();
-    for (size_t i = 0; i < obj.GetIndexCount(); i++) {
-        switch (obj.m_DataType) {
-            case IndexArray::DataType::Int8:
-                out << reinterpret_cast<const int8_t*>(data)[i] << ' ';
-                break;
-            case IndexArray::DataType::Int16:
-                out << reinterpret_cast<const int16_t*>(data)[i] << ' ';
-                break;
-            case IndexArray::DataType::Int32:
-                out << reinterpret_cast<const int32_t*>(data)[i] << ' ';
-                break;
-            case IndexArray::DataType::Int64:
-                out << reinterpret_cast<const int64_t*>(data)[i] << ' ';
-                break;
-            default:
-                break;
-        }
+
+    if (num_enabled_attribute != buffer_count) {
+        spdlog::get("AssetManager")->warn("At leaset one slot(buffer) was never assigned to an attribute.");
+        return nullptr;
     }
-    return out << std::endl;
+
+    auto result = std::allocate_shared<VertexArray>(std::pmr::polymorphic_allocator<VertexArray>(std::pmr::get_default_resource()));
+
+    result->m_VertexCount   = vertex_count;
+    result->m_AttributeInfo = attributes;
+    for (auto stride : buffer_strides) {
+        if (stride == 0) break;
+        result->m_BufferStrides.emplace_back(stride);
+    }
+    for (std::size_t index = 0; index < buffer_count; index++) {
+        result->m_Buffers.emplace_back(buffer_strides.at(index) * vertex_count);
+    }
+
+    return result;
 }
 
-std::shared_ptr<Bone> Mesh::CreateNewBone(std::string name) {
-    auto bone = std::make_shared<Bone>();
-    bone->SetName(std::move(name));
-    m_Bones.emplace_back(bone);
-    return bone;
+auto IndexArray::Builder::Count(std::size_t count) noexcept -> Builder& {
+    index_count = count;
+    return *this;
 }
 
-std::ostream& operator<<(std::ostream& out, const Mesh& obj) {
-    out << static_cast<const SceneObject&>(obj) << std::endl;
-    out << "Primitive Type: " << magic_enum::enum_name(obj.m_PrimitiveType) << std::endl;
-    if (auto material = obj.m_MaterialRef.lock()) {
-        out << fmt::format("Material Ref: {}\n", material->GetGuid().str());
-    }
-    out << "This mesh contains " << obj.m_VertexArray.size() << " vertex properties." << std::endl;
-    for (auto&& v : obj.m_VertexArray) {
-        out << v << std::endl;
-    }
-    out << "Indices index:\n"
-        << obj.m_IndexArray;
-    return out;
+auto IndexArray::Builder::Type(IndexType type) noexcept -> Builder& {
+    index_type = type;
+    return *this;
 }
 
-}  // namespace hitagi::asset
+std::shared_ptr<IndexArray> IndexArray::Builder::Build() {
+    if (index_count == 0) {
+        spdlog::get("AssetManager")->warn("index count can not be zero!");
+        return nullptr;
+    }
+    auto result          = std::allocate_shared<IndexArray>(std::pmr::polymorphic_allocator<IndexArray>(std::pmr::get_default_resource()));
+    result->m_IndexType  = index_type;
+    result->m_IndexCount = index_count;
+    result->m_Data       = core::Buffer(get_index_type_size(index_type) * index_count);
+}
+
+}  // namespace hitagi::resource

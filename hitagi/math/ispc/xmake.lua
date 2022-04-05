@@ -2,17 +2,12 @@ rule("ispc")
     set_extensions(".ispc")
     add_deps("utils.inherit.links")
 
-    on_load(function (target) 
-        os.runv("ispc", {"--version"})
-    end)
+    on_buildcmd_file(function (target, batchcmds, sourcefile, opt) 
+        import("lib.detect.find_tool")
 
-    on_build_file(function (target, sourcefile, opt) 
-        import("utils.progress")
-
-        os.mkdir(target:targetdir())
+        local ispc = assert(find_tool("ispc"), "ispc not found!")
 
         local objectfile = target:objectfile(sourcefile)
-        os.mkdir(path.directory(objectfile))
         local headerfile = path.join(path.directory(sourcefile), path.basename(sourcefile) .. "_ispc.h")
 
         local enable_debug_info = ""
@@ -40,7 +35,9 @@ rule("ispc")
         
         local defines = ""
         if not (target:get("defines") == nil) then
-            defines = target:get("defines")
+            for _, define in pairs(target:get("defines")) do
+                defines = defines .. "-D" .. define
+            end
         end
 
         local include_path_flag = ""
@@ -53,7 +50,10 @@ rule("ispc")
             pic_flag = "--pic"
         end
 
-        os.vrunv("ispc", {
+        batchcmds:show_progress(opt.progress, "${color.build.object}compiling.ispc %s", sourcefile)
+        batchcmds:mkdir(target:targetdir())
+        batchcmds:mkdir(path.directory(objectfile))
+        batchcmds:vrunv(ispc.program, {
             sourcefile,
             enable_debug_info,
             pic_flag,
@@ -64,8 +64,11 @@ rule("ispc")
             "-h", headerfile,
             "-o", objectfile
         })
-        progress.show(opt.progress, "${color.build.object}compiling.ispc %s", sourcefile)
         table.insert(target:objectfiles(), objectfile)
+
+        batchcmds:add_depfiles(sourcefile)
+        batchcmds:set_depmtime(os.mtime(objectfile))
+        batchcmds:set_depcache(target:dependfile(objectfile))
     end)
 
 
