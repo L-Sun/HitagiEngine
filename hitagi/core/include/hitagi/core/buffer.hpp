@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <memory_resource>
 
 namespace hitagi::core {
 
@@ -32,8 +33,9 @@ public:
     }
 
 private:
-    std::byte*  m_Data      = nullptr;
-    std::size_t m_Size      = 0;
-    std::size_t m_Alignment = alignof(uint32_t);
+    std::pmr::polymorphic_allocator<> m_Allocator{std::pmr::get_default_resource()};
+    std::byte*                        m_Data      = nullptr;
+    std::size_t                       m_Size      = 0;
+    std::size_t                       m_Alignment = alignof(uint32_t);
 };
 }  // namespace hitagi::core

@@ -91,15 +91,6 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    [[nodiscard]] void* Allocate(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t));
-
-    template <typename T>
-    [[nodiscard]] T* Allocate(std::size_t count, std::size_t alignment = alignof(T)) {
-        return static_cast<T*>(Allocate(count * sizeof(T), alignment));
-    }
-
-    void Free(void* p, std::size_t bytes, std::size_t alignment);
-
 private:
     std::unique_ptr<MemoryPool> m_Pools;
 };

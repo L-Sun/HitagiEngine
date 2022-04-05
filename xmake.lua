@@ -5,6 +5,8 @@ if is_mode("debug") then
     set_symbols("debug")
 end
 
-add_requires("spdlog", "fmt", "magic_enum", "gtest", "benchmark")
+
+add_requires("fmt", "magic_enum", "gtest", "benchmark")
+add_requires("spdlog", {configs = {fmt_external = true}})
 
 includes("hitagi/**/xmake.lua")

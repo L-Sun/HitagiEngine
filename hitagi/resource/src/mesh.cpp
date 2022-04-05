@@ -1,10 +1,13 @@
+#include <bitset>
 #include <hitagi/resource/enums.hpp>
 #include <hitagi/resource/mesh.hpp>
 
 #include <magic_enum.hpp>
+#include <spdlog/spdlog.h>
+
 #include <memory_resource>
+#include <utility>
 #include "hitagi/core/buffer.hpp"
-#include "spdlog/spdlog.h"
 
 using namespace hitagi::math;
 
@@ -21,6 +24,11 @@ auto VertexArray::Builder::VertexCount(std::size_t count) noexcept -> Builder& {
 }
 
 auto VertexArray::Builder::AppendAttributeAt(std::uint8_t buffer_index, VertexAttribute attribute) noexcept -> Builder& {
+    if (attributes[static_cast<std::uint8_t>(attribute)].enabled) {
+        spdlog::get("AssetManager")->warn("duplicated attribute, will be ignored!");
+        return *this;
+    }
+
     attributes[static_cast<std::uint8_t>(attribute)] = {
         .enabled      = true,
         .buffer_index = buffer_index,
@@ -40,29 +48,27 @@ std::shared_ptr<VertexArray> VertexArray::Builder::Build() {
         return nullptr;
     }
 
-    size_t num_enabled_attribute = 0;
+    std::bitset<static_cast<std::uint8_t>(VertexAttribute::Num_Support)> enabled_slot;
     for (const auto& info : attributes) {
-        if (info.enabled) num_enabled_attribute++;
+        if (info.enabled) enabled_slot.set(info.buffer_index);
     }
 
-    if (num_enabled_attribute != buffer_count) {
+    if (enabled_slot.count() != buffer_count) {
         spdlog::get("AssetManager")->warn("At leaset one slot(buffer) was never assigned to an attribute.");
         return nullptr;
     }
 
-    auto result = std::allocate_shared<VertexArray>(std::pmr::polymorphic_allocator<VertexArray>(std::pmr::get_default_resource()));
+    return VertexArray::Create(*this, std::pmr::polymorphic_allocator<VertexArray>(std::pmr::get_default_resource()));
+}
 
-    result->m_VertexCount   = vertex_count;
-    result->m_AttributeInfo = attributes;
-    for (auto stride : buffer_strides) {
+VertexArray::VertexArray(const Builder& builder)
+    : m_VertexCount(builder.vertex_count),
+      m_AttributeInfo(builder.attributes) {
+    for (auto stride : builder.buffer_strides) {
         if (stride == 0) break;
-        result->m_BufferStrides.emplace_back(stride);
+        m_BufferStrides.emplace_back(stride);
+        m_Buffers.emplace_back(stride * m_VertexCount);
     }
-    for (std::size_t index = 0; index < buffer_count; index++) {
-        result->m_Buffers.emplace_back(buffer_strides.at(index) * vertex_count);
-    }
-
-    return result;
 }
 
 auto IndexArray::Builder::Count(std::size_t count) noexcept -> Builder& {
@@ -80,10 +86,44 @@ std::shared_ptr<IndexArray> IndexArray::Builder::Build() {
         spdlog::get("AssetManager")->warn("index count can not be zero!");
         return nullptr;
     }
-    auto result          = std::allocate_shared<IndexArray>(std::pmr::polymorphic_allocator<IndexArray>(std::pmr::get_default_resource()));
-    result->m_IndexType  = index_type;
-    result->m_IndexCount = index_count;
-    result->m_Data       = core::Buffer(get_index_type_size(index_type) * index_count);
+    return IndexArray::Create(*this, std::pmr::polymorphic_allocator<IndexArray>(std::pmr::get_default_resource()));
+}
+
+IndexArray::IndexArray(const Builder& builder)
+    : m_IndexType(builder.index_type),
+      m_IndexCount(builder.index_count),
+      m_Buffer(get_index_type_size(builder.index_type) * builder.index_count) {}
+
+Mesh::Mesh(
+    std::shared_ptr<VertexArray> vertices,
+    std::shared_ptr<IndexArray>  indices,
+    PrimitiveType                type,
+    std::size_t                  index_count,
+    std::size_t                  index_start,
+    std::size_t                  vertex_start)
+    : m_PrimitiveType(type) {
+    if (vertices == nullptr) {
+        spdlog::get("AssetManager")->warn("Can not create mesh with empty vetex array!");
+        return;
+    }
+    if (indices == nullptr) {
+        spdlog::get("AssetManager")->warn("Can not create mesh with empty index array!");
+        return;
+    }
+    if (index_start + index_count > indices->IndexCount()) {
+        spdlog::get("AssetManager")->warn("Can not create mesh since index used by mesh is out of range!");
+        return;
+    }
+    if (vertex_start > vertices->VertexCount()) {
+        spdlog::get("AssetManager")->warn("Can not create mesh since vertex used by mesh is out of range!");
+        return;
+    }
+
+    m_Vertices    = std::move(vertices);
+    m_Indices     = std::move(indices);
+    m_IndexCount  = index_count;
+    m_IndexStart  = index_start;
+    m_VertexStart = vertex_start;
 }
 
 }  // namespace hitagi::resource

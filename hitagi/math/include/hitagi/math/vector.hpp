@@ -4,8 +4,6 @@
 #include <cassert>
 #include <concepts>
 
-#include <fmt/format.h>
-
 #if defined(USE_ISPC)
 #include "ispc_math.hpp"
 #endif  // USE_ISPC

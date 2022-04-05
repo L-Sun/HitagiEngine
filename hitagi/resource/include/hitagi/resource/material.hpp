@@ -8,7 +8,7 @@
 
 #include <variant>
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 class Material : public SceneObject {
 public:
     template <typename T>
@@ -57,12 +57,4 @@ protected:
     Color       m_Emission;
 };
 
-template <typename T>
-inline std::ostream& operator<<(std::ostream& out, const Material::Parameter<T>& param) {
-    if (std::holds_alternative<T>(param))
-        return out << std::get<T>(param);
-    else
-        return out << *std::get<std::shared_ptr<Texture>>(param);
-}
-
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

@@ -1,6 +1,4 @@
 #pragma once
-#include "image.hpp"
-
 #include <hitagi/core/buffer.hpp>
 
 #include <crossguid/guid.hpp>

@@ -123,12 +123,4 @@ void MemoryManager::Finalize() {
 
 void MemoryManager::Tick() {}
 
-void* MemoryManager::Allocate(std::size_t bytes, std::size_t alignment) {
-    return m_Pools->allocate(bytes, alignment);
-}
-
-void MemoryManager::Free(void* p, std::size_t bytes, std::size_t alignment) {
-    m_Pools->deallocate(p, bytes, alignment);
-}
-
 }  // namespace hitagi::core
