@@ -1,13 +1,12 @@
-#include <bitset>
 #include <hitagi/resource/enums.hpp>
 #include <hitagi/resource/mesh.hpp>
 
 #include <magic_enum.hpp>
 #include <spdlog/spdlog.h>
 
+#include <bitset>
 #include <memory_resource>
 #include <utility>
-#include "hitagi/core/buffer.hpp"
 
 using namespace hitagi::math;
 

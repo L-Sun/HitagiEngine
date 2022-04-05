@@ -11,9 +11,9 @@ using namespace hitagi::math;
 namespace hitagi::asset {
 
 struct ImageSource {
-    const uint8_t* data;
-    int            size;
-    int            offset;
+    const std::byte* data;
+    int              size;
+    int              offset;
 };
 void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
     auto isource = reinterpret_cast<ImageSource*>(png_get_io_ptr(png_tr));

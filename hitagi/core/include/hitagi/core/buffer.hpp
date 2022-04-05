@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include <memory_resource>
+#include <cassert>
 
 namespace hitagi::core {
 
@@ -24,12 +25,21 @@ public:
     inline bool             Empty() const noexcept { return m_Data == nullptr || m_Size == 0; }
 
     template <typename T>
+    std::span<T> Span() const {
+        assert(
+            m_Size % sizeof(T) == 0 &&
+            "Create span from buffer failed,"
+            " since the buffer size is not multiple of sizeof(T)");
+        return std::span<T>{m_Data, m_Size / sizeof(T)};
+    }
+
+    template <typename T>
     std::span<T> Span() {
         assert(
             m_Size % sizeof(T) == 0 &&
             "Create span from buffer failed,"
             " since the buffer size is not multiple of sizeof(T)");
-        return std::span<T>{m_Data, (m_Size) / sizeof(T)};
+        return std::span<T>(reinterpret_cast<T*>(m_Data), m_Size / sizeof(T));
     }
 
 private:
