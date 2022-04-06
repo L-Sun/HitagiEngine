@@ -1,9 +1,7 @@
+#include <hitagi/utils/test.hpp>
 #include <hitagi/math/vector.hpp>
 #include <hitagi/math/matrix.hpp>
 #include <hitagi/math/transform.hpp>
-
-#include <iostream>
-#include <gtest/gtest.h>
 
 using namespace hitagi::math;
 

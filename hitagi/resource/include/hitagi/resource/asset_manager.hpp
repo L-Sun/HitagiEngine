@@ -6,7 +6,7 @@
 
 #include <map>
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 
 class AssetManager : public IRuntimeModule {
 public:
@@ -26,8 +26,8 @@ private:
 
     // std::unique_ptr<MoCapParser> m_MoCapParser;
 };
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource
 
 namespace hitagi {
-extern std::unique_ptr<asset::AssetManager> g_AssetManager;
+extern std::unique_ptr<resource::AssetManager> g_AssetManager;
 }

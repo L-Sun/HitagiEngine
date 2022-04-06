@@ -5,7 +5,44 @@
 
 using namespace hitagi::math;
 
-namespace hitagi::asset {
+namespace hitagi::resource {
+
+#pragma pack(push, 1)
+using BITMAP_FILEHEADER = struct BitmapFileheader {
+    uint16_t signature;
+
+    uint32_t size;
+
+    uint32_t reserved;
+
+    uint32_t bits_offset;
+};
+#define BITMAP_FILEHEADER_SIZE 14
+
+using BITMAP_HEADER = struct BitmapHeader {
+    uint32_t header_size;
+
+    int32_t width;
+
+    int32_t height;
+
+    uint16_t planes;
+
+    uint16_t bit_count;
+
+    uint32_t compression;
+
+    uint32_t size_image;
+
+    int32_t pels_per_meter_x;
+
+    int32_t pels_per_meter_y;
+
+    uint32_t clr_used;
+
+    uint32_t clr_important;
+};
+#pragma pack(pop)
 
 std::shared_ptr<Image> BmpParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
@@ -38,18 +75,20 @@ std::shared_ptr<Image> BmpParser::Parse(const core::Buffer& buf) {
         auto pitch      = ((width * bitcount >> 3) + 3) & ~3;
         auto data_size  = pitch * height;
         auto img        = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
-        auto data       = reinterpret_cast<R8G8B8A8Unorm*>(img->GetData());
+        auto data       = img->Buffer().Span<math::R8G8B8A8Unorm>();
         if (bitcount < 24) {
             logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
         } else {
             const uint8_t* source_data =
                 reinterpret_cast<const uint8_t*>(buf.GetData()) +
                 file_header->bits_offset;
+
+            size_t index = 0;
             for (int32_t y = height - 1; y >= 0; y--) {
                 for (uint32_t x = 0; x < width; x++) {
-                    data->bgra = *reinterpret_cast<const R8G8B8A8Unorm*>(
+                    data[index].bgra = *reinterpret_cast<const R8G8B8A8Unorm*>(
                         source_data + pitch * y + x * byte_count);
-                    data++;
+                    index++;
                 }
             }
         }
@@ -58,4 +97,4 @@ std::shared_ptr<Image> BmpParser::Parse(const core::Buffer& buf) {
     }
     return {};
 }
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

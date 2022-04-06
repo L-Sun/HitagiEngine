@@ -5,7 +5,7 @@
 
 using namespace hitagi::math;
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 
 #pragma pack(push, 1)
 struct TgaFileheader {
@@ -66,7 +66,7 @@ std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf) {
     // skip the Color Map. since we assume the Color Map Type is 0,
     // nothing to skip
 
-    auto out = img->Span<std::uint8_t>();
+    auto out = img->Buffer().Span<std::uint8_t>();
     for (auto i = 0; i < height; i++) {
         for (auto j = 0; j < width; j++) {
             switch (pixel_depth) {
@@ -113,4 +113,4 @@ std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf) {
     assert(data <= p_data_end);
     return img;
 }
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

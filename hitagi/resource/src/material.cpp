@@ -28,7 +28,6 @@ void Material::LoadTextures() {
     if (std::holds_alternative<std::shared_ptr<Texture>>(m_DiffuseColor))
         std::get<std::shared_ptr<Texture>>(m_DiffuseColor)->LoadTexture();
 }
-
 std::ostream& operator<<(std::ostream& out, const Material& obj) {
     out << "Albedo:            " << obj.m_DiffuseColor << std::endl;
     out << "Metallic:          " << obj.m_Metallic << std::endl;
@@ -38,4 +37,4 @@ std::ostream& operator<<(std::ostream& out, const Material& obj) {
     out << "Ambient Occlusion: " << obj.m_AmbientOcclusion;
     return out;
 }
-}
+}  // namespace hitagi::asset

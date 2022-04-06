@@ -2,7 +2,8 @@ rule("ispc")
     set_extensions(".ispc")
     add_deps("utils.inherit.links")
 
-    on_buildcmd_file(function (target, batchcmds, sourcefile, opt) 
+    -- Make sure ispc header is generated before compiling other target
+    before_buildcmd_file(function (target, batchcmds, sourcefile, opt) 
         import("lib.detect.find_tool")
 
         local ispc = assert(find_tool("ispc"), "ispc not found!")

@@ -1,11 +1,9 @@
+#include <hitagi/utils/test.hpp>
 #include <hitagi/resource/mesh.hpp>
 
-#include <gtest/gtest.h>
-#include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <string>
-#include "spdlog/common.h"
 
 using namespace hitagi::resource;
 
@@ -82,8 +80,8 @@ TEST(MeshTest, CreateInValidIndex) {
 }
 
 int main(int argc, char** argv) {
+    spdlog::set_level(spdlog::level::off);
     ::testing::InitGoogleTest(&argc, argv);
     auto p = spdlog::stdout_color_st(std::string{"AssetManager"});
-    p->set_level(spdlog::level::off);
     return RUN_ALL_TESTS();
 }

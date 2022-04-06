@@ -2,7 +2,7 @@
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/resource/image.hpp>
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 enum class ImageFormat : unsigned {
     PNG,
     JPEG,
@@ -28,4 +28,4 @@ public:
     virtual std::shared_ptr<Image> Parse(const core::Buffer& buffer) = 0;
     virtual ~ImageParser()                                           = default;
 };
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

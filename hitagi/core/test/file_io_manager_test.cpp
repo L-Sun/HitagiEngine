@@ -1,6 +1,6 @@
+#include <hitagi/utils/test.hpp>
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/file_io_manager.hpp>
-#include <hitagi/utils/test.hpp>
 
 #include <iostream>
 #include <string>
@@ -55,6 +55,7 @@ TEST(FileIoManagerTest, SaveFile) {
 }
 
 auto main(int argc, char* argv[]) -> int {
+    spdlog::set_level(spdlog::level::off);
     ::testing::InitGoogleTest(&argc, argv);
 
     g_MemoryManager->Initialize();

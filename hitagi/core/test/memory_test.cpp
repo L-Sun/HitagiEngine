@@ -1,5 +1,5 @@
-#include <hitagi/core/memory_manager.hpp>
 #include <hitagi/utils/test.hpp>
+#include <hitagi/core/memory_manager.hpp>
 
 #include <vector>
 #include "hitagi/core/buffer.hpp"
@@ -41,6 +41,7 @@ TEST(MemoryTest, PmrContainer) {
 }
 
 int main(int argc, char* argv[]) {
+    spdlog::set_level(spdlog::level::off);
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

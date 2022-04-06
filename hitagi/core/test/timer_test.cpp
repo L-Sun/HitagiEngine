@@ -1,5 +1,5 @@
-#include <hitagi/core/timer.hpp>
 #include <hitagi/utils/test.hpp>
+#include <hitagi/core/timer.hpp>
 
 #include <thread>
 
@@ -23,6 +23,7 @@ TEST(TimerTest, PauseTest) {
 }
 
 int main(int argc, char* argv[]) {
+    spdlog::set_level(spdlog::level::off);
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

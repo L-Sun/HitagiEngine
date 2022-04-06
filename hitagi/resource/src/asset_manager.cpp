@@ -10,10 +10,10 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace hitagi {
-std::unique_ptr<asset::AssetManager> g_AssetManager = std::make_unique<asset::AssetManager>();
+std::unique_ptr<resource::AssetManager> g_AssetManager = std::make_unique<resource::AssetManager>();
 }
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 
 int AssetManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("AssetManager");
@@ -77,4 +77,4 @@ std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& pa
 //     return result;
 // }
 
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

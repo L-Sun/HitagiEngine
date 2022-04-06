@@ -1,10 +1,11 @@
 #include <hitagi/parser/jpeg.hpp>
-#include <string>
 
 #include <jpeglib.h>
 #include <spdlog/spdlog.h>
 
-namespace hitagi::asset {
+#include <string>
+
+namespace hitagi::resource {
 
 std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
@@ -37,7 +38,7 @@ std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
 
         auto buffer = new JSAMPROW[buffer_height];
         buffer[0]   = new JSAMPLE[row_stride];
-        auto p      = reinterpret_cast<uint8_t*>(img->GetData()) + (height - 1) * row_stride;
+        auto p      = reinterpret_cast<uint8_t*>(img->Buffer().GetData()) + (height - 1) * row_stride;
         while (cinfo.output_scanline < cinfo.output_height) {
             jpeg_read_scanlines(&cinfo, buffer, 1);
             std::memcpy(p, buffer[0], row_stride);
@@ -57,4 +58,4 @@ std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
     }
     return img;
 }
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

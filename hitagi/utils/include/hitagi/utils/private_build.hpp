@@ -1,7 +1,7 @@
 #pragma once
 
 #include <memory>
-namespace utils {
+namespace hitagi::utils {
 template <typename T>
 class enable_private_make_shared_build {
 public:
@@ -27,4 +27,4 @@ public:
         return std::dynamic_pointer_cast<T>(std::allocate_shared<CreateTemp>(alloc, builder));
     }
 };
-}  // namespace utils
+}  // namespace hitagi::utils

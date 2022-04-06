@@ -1,30 +1,27 @@
 #pragma once
+#include "scene_object.hpp"
+
 #include <hitagi/core/buffer.hpp>
 
-#include <crossguid/guid.hpp>
-
-#include <iostream>
-
-namespace hitagi::asset {
-class Image : public core::Buffer {
+namespace hitagi::resource {
+class Image : public SceneObject {
 public:
-    Image(uint32_t width, uint32_t height, uint32_t bitcount, uint32_t pitch, size_t data_size);
     Image() = default;
+    Image(std::uint32_t width, std::uint32_t height, std::uint32_t bitcount, std::uint32_t pitch, std::size_t data_size);
 
-    inline xg::Guid GetGuid() const noexcept { return m_Guid; }
-    inline uint32_t GetWidth() const noexcept { return m_Width; }
-    inline uint32_t GetHeight() const noexcept { return m_Height; }
-    inline uint32_t GetBitcount() const noexcept { return m_Bitcount; }
-    inline uint32_t GetPitch() const noexcept { return m_Pitch; }
-
-    friend std::ostream& operator<<(std::ostream& out, const Image& image);
+    inline std::uint32_t Width() const noexcept { return m_Width; }
+    inline std::uint32_t Height() const noexcept { return m_Height; }
+    inline std::uint32_t Bitcount() const noexcept { return m_Bitcount; }
+    inline std::uint32_t Pitch() const noexcept { return m_Pitch; }
+    auto&                Buffer() noexcept { return m_Buffer; }
 
 private:
-    xg::Guid m_Guid;
-    uint32_t m_Width    = 0;
-    uint32_t m_Height   = 0;
-    uint32_t m_Bitcount = 0;
-    uint32_t m_Pitch    = 0;
+    std::uint32_t m_Width    = 0;
+    std::uint32_t m_Height   = 0;
+    std::uint32_t m_Bitcount = 0;
+    std::uint32_t m_Pitch    = 0;
+
+    core::Buffer m_Buffer;
 };
 
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource
