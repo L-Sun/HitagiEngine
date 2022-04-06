@@ -1,4 +1,6 @@
 #pragma once
+#include <fmt/format.h>
+
 #include <iostream>
 #include <array>
 #include <cassert>
