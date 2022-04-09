@@ -1,6 +1,7 @@
 #pragma once
 
 #include <hitagi/math/vector.hpp>
+#include <hitagi/math/matrix.hpp>
 
 #include <cstdint>
 #include <type_traits>
@@ -98,5 +99,27 @@ enum struct IndexType : std::uint8_t {
 constexpr auto get_index_type_size(IndexType type) {
     return type == IndexType::UINT16 ? sizeof(std::uint16_t) : sizeof(std::uint32_t);
 }
+
+enum struct MaterialType : std::uint8_t {
+    Phong,
+    BlinnPhong,
+    Custom
+};
+
+template <typename T>
+concept MaterialParametric =
+    std::same_as<float, T> ||
+    std::same_as<std::int32_t, T> ||
+    std::same_as<std::uint32_t, T> ||
+    std::same_as<math::vec2i, T> ||
+    std::same_as<math::vec2u, T> ||
+    std::same_as<math::vec2f, T> ||
+    std::same_as<math::vec3i, T> ||
+    std::same_as<math::vec3u, T> ||
+    std::same_as<math::vec3f, T> ||
+    std::same_as<math::vec4i, T> ||
+    std::same_as<math::vec4u, T> ||
+    std::same_as<math::mat4f, T> ||
+    std::same_as<math::vec4f, T>;
 
 }  // namespace hitagi::resource

@@ -1,14 +1,13 @@
 #pragma once
 #include "vector_ispc.h"
-#include <type_traits>
+#include <concepts>
 
 template <typename T>
 concept IspcSpeedable =
-    std::is_same_v<T, float> ||
-    std::is_same_v<T, double>;
+    std::same_as<float, T> || std::same_as<double, T>;
 
 namespace ispc{
-    //float
+    // float
     inline void vector_add_assgin(float* a, const float* b, const int32_t size){
         vector_add_assgin_float(a, b, size);
 }
@@ -49,7 +48,7 @@ inline void vector_inverse(const float* data, float* out, const int32_t size) {
     vector_inverse_float(data, out, size);
 }
 
-//double
+// double
 inline void vector_add_assgin(double* a, const double* b, const int32_t size) {
     vector_add_assgin_double(a, b, size);
 }

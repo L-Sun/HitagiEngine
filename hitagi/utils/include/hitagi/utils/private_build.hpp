@@ -11,7 +11,7 @@ public:
             CreateTemp(const Builder& builder) : T(builder) {}
         };
 
-        return std::dynamic_pointer_cast<T>(std::make_shared<CreateTemp>(builder));
+        return std::static_pointer_cast<T>(std::make_shared<CreateTemp>(builder));
     }
 };
 
@@ -24,7 +24,7 @@ public:
             CreateTemp(const Builder& builder) : T(builder) {}
         };
 
-        return std::dynamic_pointer_cast<T>(std::allocate_shared<CreateTemp>(alloc, builder));
+        return std::static_pointer_cast<T>(std::allocate_shared<CreateTemp>(alloc, builder));
     }
 };
 }  // namespace hitagi::utils

@@ -109,10 +109,10 @@ struct Vector : public BaseVector<T, D> {
     using BaseVector<T, D>::data;
     using BaseVector<T, D>::BaseVector;
 
-    Vector(const Vector&) = default;
-    Vector(Vector&&)      = default;
+    Vector(const Vector&)     = default;
+    Vector(Vector&&) noexcept = default;
     Vector& operator=(const Vector&) = default;
-    Vector& operator=(Vector&&) = default;
+    Vector& operator=(Vector&&) noexcept = default;
 
     explicit Vector(const T& num) { data.fill(num); }
 
@@ -122,9 +122,11 @@ struct Vector : public BaseVector<T, D> {
     }
 
     template <typename TT>
-    Vector(const TT* p) {
+    Vector(const TT* p) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] = static_cast<T>(*p++);
     }
+
+    constexpr static unsigned size() { return D; }
 
     const T norm() const noexcept {
         T result = 0;
