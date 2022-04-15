@@ -1,8 +1,15 @@
 target("utils")
     set_kind("headeronly")
+    add_headerfiles(
+        "include/hitagi/utils/concepts.hpp",
+        "include/hitagi/utils/soa.hpp",
+        "include/hitagi/utils/overloaded.hpp",
+        "include/hitagi/utils/private_build.hpp"
+    )
     add_includedirs("include", {public = true})
+    add_packages("fmt", {public = true})
 
-target("utils_test")
+target("test_utils")
     set_kind("headeronly")
     add_headerfiles("utils/test.hpp")
     add_includedirs("include", {public = true})
