@@ -1,8 +1,11 @@
+#pragma once
 #include "concepts.hpp"
 
 #include <fmt/format.h>
 
+#include <cstddef>
 #include <memory_resource>
+#include <utility>
 
 namespace hitagi::utils {
 
@@ -70,6 +73,15 @@ public:
     template <std::size_t T>
     TypeAt<T>& element_at(std::size_t i) {
         return const_cast<TypeAt<T>&>(const_cast<const SoA*>(this)->element_at<T>(i));
+    }
+
+    template <std::size_t T>
+    auto& elements() {
+        return std::get<T>(m_Data);
+    }
+    template <std::size_t T>
+    const auto& elements() const {
+        return std::get<T>(m_Data);
     }
 
     /* Iterator */
@@ -163,8 +175,8 @@ private:
         }
     }
 
-    std::tuple<std::vector<Types>...> m_Data;
-    std::size_t                       m_Size = 0;
+    std::tuple<std::pmr::vector<Types>...> m_Data;
+    std::size_t                            m_Size = 0;
 
     allocator_type m_Allocator;
 };

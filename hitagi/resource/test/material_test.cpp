@@ -1,8 +1,8 @@
 #include <hitagi/resource/material.hpp>
+#include <hitagi/resource/material_instance.hpp>
 #include <hitagi/utils/test.hpp>
 
 #include <array>
-#include "gtest/gtest.h"
 
 using namespace hitagi::resource;
 using namespace hitagi::math;
@@ -76,14 +76,14 @@ TEST(MaterialTest, Instance) {
     {
         auto _param1 = instance->GetValue<vec2f>("param1");
         EXPECT_TRUE(_param1.has_value());
-        vector_near(*_param1, param1, 1e-4);
+        vector_eq(*_param1, param1);
     }
 
     {
         auto _param2 = instance->GetValue<vec4f, 2>("param2");
         EXPECT_TRUE(_param2.has_value());
         for (std::size_t index = 0; index < 2; index++) {
-            vector_near((*_param2)[index], param2[index], 1e-4);
+            vector_eq((*_param2)[index], param2[index]);
         }
     }
 

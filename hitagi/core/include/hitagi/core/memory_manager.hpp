@@ -7,14 +7,14 @@
 #include <cassert>
 #include <type_traits>
 
+constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
+
 namespace hitagi::core {
 
 inline const size_t align(size_t x, size_t a) {
     assert(((a - 1) & a) == 0 && "alignment is not a power of two");
     return (x + a - 1) & ~(a - 1);
 }
-
-constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
 class MemoryPool : public std::pmr::memory_resource {
 public:

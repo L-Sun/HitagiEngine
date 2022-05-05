@@ -1,11 +1,10 @@
 #pragma once
-#include "scene_object.hpp"
-
+#include <hitagi/resource/scene_object.hpp>
 #include <hitagi/math/matrix.hpp>
 
 #include <map>
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 class Bone : public SceneObject {
 public:
     using SceneObject::SceneObject;
@@ -15,7 +14,7 @@ public:
     }
 
     inline void SetBindTransformMatrix(math::mat4f transform) {
-        m_BindTransform = std::move(transform);
+        m_BindTransform = transform;
     }
 
     inline float GetWeight(size_t vertex_index) const {
@@ -33,4 +32,4 @@ private:
     math::mat4f             m_BindTransform;
 };
 
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

@@ -2,6 +2,7 @@ target("utils")
     set_kind("headeronly")
     add_headerfiles(
         "include/hitagi/utils/concepts.hpp",
+        "include/hitagi/utils/hash.hpp",
         "include/hitagi/utils/soa.hpp",
         "include/hitagi/utils/overloaded.hpp",
         "include/hitagi/utils/private_build.hpp"

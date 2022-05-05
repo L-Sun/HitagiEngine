@@ -1,25 +1,9 @@
-#include <hitagi/utils/test.hpp>
-#include <hitagi/math/vector.hpp>
-#include <hitagi/math/matrix.hpp>
 #include <hitagi/math/transform.hpp>
 
+#include <hitagi/utils/test.hpp>
+
 using namespace hitagi::math;
-
-template <typename T, unsigned D>
-void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2, double epsilon = 1E-5) {
-    for (size_t i = 0; i < D; i++) {
-        EXPECT_NEAR(v1[i], v2[i], epsilon) << "difference at index: " << i;
-    }
-}
-
-template <typename T, unsigned D>
-void matrix_eq(const Matrix<T, D>& mat1, const Matrix<T, D>& mat2, double epsilon = 1E-5) {
-    for (int i = 0; i < D; i++) {
-        for (int j = 0; j < D; j++) {
-            EXPECT_NEAR(mat1[i][j], mat2[i][j], epsilon) << "difference at index: [" << i << "][" << j << "]";
-        }
-    }
-}
+using namespace hitagi::testing;
 
 TEST(VectorTest, VectorInit) {
     vec2f v2(1, 2);

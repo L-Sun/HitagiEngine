@@ -1,7 +1,6 @@
 #pragma once
 #include <hitagi/resource/enums.hpp>
 #include <hitagi/resource/scene_object.hpp>
-#include <hitagi/resource/material_instance.hpp>
 #include <hitagi/math/vector.hpp>
 #include <hitagi/math/matrix.hpp>
 #include <hitagi/utils/private_build.hpp>

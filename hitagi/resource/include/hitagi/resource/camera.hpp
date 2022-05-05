@@ -1,12 +1,12 @@
 #pragma once
-#include "scene_object.hpp"
+#include <hitagi/resource/scene_object.hpp>
 
 #include <numbers>
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 class Camera : public SceneObject {
 public:
-    Camera(float aspect = 16.0f / 9.0f, float near_clip = 1.0f, float far_clip = 1000.0f, float fov = std::numbers::pi / 4.0f)
+    Camera(float aspect = 16.0f / 9.0f, float near_clip = 1.0f, float far_clip = 1000.0f, float fov = 0.25 * std::numbers::pi)
         : m_Aspect(aspect),
           m_NearClipDistance(near_clip),
           m_FarClipDistance(far_clip),
@@ -22,12 +22,10 @@ public:
     inline float GetFarClipDistance() const noexcept { return m_FarClipDistance; }
     inline float GetFov() const noexcept { return m_Fov; }
 
-    friend std::ostream& operator<<(std::ostream& out, const Camera& obj);
-
 protected:
     float m_Aspect;
     float m_NearClipDistance;
     float m_FarClipDistance;
     float m_Fov;
 };
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource
