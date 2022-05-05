@@ -70,7 +70,7 @@ TEST(EcsTest, RegisterSystem) {
     };
 
     struct Mover {
-        static void OnUpdate(Schedule& schedule) {
+        static void OnUpdate(Schedule& schedule, std::chrono::duration<double> delta) {
             schedule
                 .Register(
                     "Update Position",

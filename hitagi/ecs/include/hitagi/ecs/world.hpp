@@ -1,6 +1,7 @@
 #pragma once
 #include <hitagi/ecs/entity.hpp>
 #include <hitagi/ecs/archetype.hpp>
+#include <hitagi/core/timer.hpp>
 
 #include <list>
 #include <memory>
@@ -12,16 +13,20 @@ namespace hitagi::ecs {
 class Schedule;
 
 template <typename T>
-concept SystemLike = requires(Schedule& s) {
-    T::OnUpdate(s);
+concept SystemLike = requires(Schedule& s, std::chrono::duration<double> delta) {
+    T::OnUpdate(s, delta);
 };
 
 class World {
 public:
+    World();
+
     void Update();
 
     template <SystemLike System>
     void RegisterSystem();
+
+    inline std::size_t NumEntities() const noexcept { return m_EnitiesMap.size(); }
 
     // create a entity that has multiple components.
     template <typename... Components>
@@ -39,11 +44,12 @@ public:
     std::optional<std::reference_wrapper<Component>> AccessEntity(const Entity& entity);
 
 private:
+    core::Clock                                                       m_Timer;
     std::size_t                                                       m_Counter = 0;
     std::pmr::unordered_map<Entity, std::shared_ptr<IArchetype>>      m_EnitiesMap;
     std::pmr::unordered_map<ArchetypeId, std::shared_ptr<IArchetype>> m_Archetypes;
 
-    std::pmr::vector<std::function<void(Schedule&)>> m_Systems;
+    std::pmr::vector<std::function<void(Schedule&, std::chrono::duration<double>)>> m_Systems;
 };
 
 template <SystemLike System>
