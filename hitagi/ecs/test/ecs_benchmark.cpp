@@ -3,6 +3,8 @@
 #include <hitagi/ecs/ecs_manager.hpp>
 #include <hitagi/math/vector.hpp>
 
+#include <spdlog/spdlog.h>
+
 using namespace hitagi;
 
 static void BM_ECS(benchmark::State& state) {
@@ -37,6 +39,7 @@ BENCHMARK(BM_ECS);
 int main(int argc, char** argv) {
     ::benchmark::Initialize(&argc, argv);
     if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
+    spdlog::set_level(spdlog::level::off);
     g_MemoryManager->Initialize();
     ::benchmark::RunSpecifiedBenchmarks();
     g_MemoryManager->Finalize();
