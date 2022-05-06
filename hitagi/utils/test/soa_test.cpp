@@ -2,6 +2,7 @@
 #include <hitagi/utils/soa.hpp>
 
 #include <array>
+#include "gtest/gtest.h"
 
 using namespace hitagi::utils;
 
@@ -42,6 +43,77 @@ TEST(SoaTest, Init) {
         std::array<float, 2>   // UV
         >
         data_with_pmr{&res};
+}
+
+TEST(SoaTest, AccessElement) {
+    debug_memory_resource res{"AccessElement"};
+
+    SoA<int, float> data{&res};
+    data.push_back({3, 3.0f});
+    data.push_back({4, 4.0f});
+
+    // No const
+    {
+        auto& no_const_data = data;
+
+        {
+            auto x = no_const_data[0];
+            EXPECT_EQ(std::get<0>(x), 3);
+            EXPECT_DOUBLE_EQ(std::get<1>(x), 3);
+        }
+        {
+            auto x = no_const_data.at(0);
+            EXPECT_EQ(std::get<0>(x), 3);
+            EXPECT_DOUBLE_EQ(std::get<1>(x), 3);
+        }
+        {
+            auto x = no_const_data.front();
+            EXPECT_EQ(std::get<0>(x), 3);
+            EXPECT_DOUBLE_EQ(std::get<1>(x), 3);
+        }
+        {
+            auto x = no_const_data.back();
+            EXPECT_EQ(std::get<0>(x), 4);
+            EXPECT_DOUBLE_EQ(std::get<1>(x), 4);
+        }
+        {
+            EXPECT_EQ(no_const_data.element_at<0>(0), 3);
+            EXPECT_EQ(no_const_data.element_at<0>(1), 4);
+            EXPECT_DOUBLE_EQ(no_const_data.element_at<1>(0), 3);
+            EXPECT_DOUBLE_EQ(no_const_data.element_at<1>(1), 4);
+        }
+    }
+    // Const
+    {
+        const auto& const_data = data;
+
+        {
+            auto x = const_data[0];
+            EXPECT_EQ(std::get<0>(x), 3);
+            EXPECT_DOUBLE_EQ(std::get<1>(x), 3);
+        }
+        {
+            auto x = const_data.at(0);
+            EXPECT_EQ(std::get<0>(x), 3);
+            EXPECT_DOUBLE_EQ(std::get<1>(x), 3);
+        }
+        {
+            auto x = const_data.front();
+            EXPECT_EQ(std::get<0>(x), 3);
+            EXPECT_DOUBLE_EQ(std::get<1>(x), 3);
+        }
+        {
+            auto x = const_data.back();
+            EXPECT_EQ(std::get<0>(x), 4);
+            EXPECT_DOUBLE_EQ(std::get<1>(x), 4);
+        }
+        {
+            EXPECT_EQ(const_data.element_at<0>(0), 3);
+            EXPECT_EQ(const_data.element_at<0>(1), 4);
+            EXPECT_DOUBLE_EQ(const_data.element_at<1>(0), 3);
+            EXPECT_DOUBLE_EQ(const_data.element_at<1>(1), 4);
+        }
+    }
 }
 
 TEST(SoaTest, ModifyElement) {

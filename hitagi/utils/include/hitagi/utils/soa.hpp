@@ -26,7 +26,7 @@ public:
         : m_Data{std::allocator_arg, allocator},
           m_Allocator(allocator) {}
 
-    allocator_type get_allocator() noexcept { return m_Allocator; }
+    allocator_type get_allocator() const noexcept { return m_Allocator; }
 
     /* Element Access */
 
