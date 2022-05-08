@@ -103,5 +103,6 @@
         "cwd": "${workspaceFolder}"
     },
     "xmake.compileCommandsDirectory": "${workspaceRoot}/build",
-    "C_Cpp.intelliSenseEngine": "Disabled"
+    "C_Cpp.intelliSenseEngine": "Disabled",
+    "testMate.cpp.test.workingDirectory": "${workspaceFolder}"
 }
