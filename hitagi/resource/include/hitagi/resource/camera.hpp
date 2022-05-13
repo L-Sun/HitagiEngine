@@ -1,31 +1,45 @@
 #pragma once
 #include <hitagi/resource/scene_object.hpp>
+#include <hitagi/resource/transform.hpp>
 
 #include <numbers>
 
 namespace hitagi::resource {
 class Camera : public SceneObject {
 public:
-    Camera(float aspect = 16.0f / 9.0f, float near_clip = 1.0f, float far_clip = 1000.0f, float fov = 0.25 * std::numbers::pi)
-        : m_Aspect(aspect),
-          m_NearClipDistance(near_clip),
-          m_FarClipDistance(far_clip),
-          m_Fov(fov) {}
+    Camera(
+        float          aspect    = 16.0f / 9.0f,
+        float          near_clip = 1.0f,
+        float          far_clip  = 1000.0f,
+        float          fov       = 0.25 * std::numbers::pi,
+        math::vec3f    position  = math::vec3f{0.0f, 0.0f, 0.0f},
+        math::vec3f    up        = math::vec3f{0.0f, 0.0f, 0.0f},
+        math::vec3f    look_at   = math::vec3f{0.0f, 0.0f, 0.0f},
+        allocator_type alloc     = {});
 
-    inline void SetAspect(float value) { m_Aspect = value; }
-    inline void SetNearClipDistance(float value) { m_NearClipDistance = value; }
-    inline void SetFarClipDistance(float value) { m_FarClipDistance = value; }
-    inline void SetFov(float value) { m_Fov = value; }
+    void SetAspect(float value);
+    void SetNearClipDistance(float value);
+    void SetFarClipDistance(float value);
+    void SetFov(float value);
+    void SetTransform(std::shared_ptr<Transform> transform);
 
-    inline float GetAspect() const noexcept { return m_Aspect; }
-    inline float GetNearClipDistance() const noexcept { return m_NearClipDistance; }
-    inline float GetFarClipDistance() const noexcept { return m_FarClipDistance; }
-    inline float GetFov() const noexcept { return m_Fov; }
+    Transform&  GetTransform() const;
+    math::mat4f GetViewMatrix() const;
+    float       GetAspect() const noexcept;
+    float       GetNearClipDistance() const noexcept;
+    float       GetFarClipDistance() const noexcept;
+    float       GetFov() const noexcept;
 
 protected:
     float m_Aspect;
     float m_NearClipDistance;
     float m_FarClipDistance;
     float m_Fov;
+
+    math::vec3f m_Position;
+    math::vec3f m_UpDirection;
+    math::vec3f m_LookDirection;
+
+    std::shared_ptr<Transform> m_Transform;
 };
 }  // namespace hitagi::resource

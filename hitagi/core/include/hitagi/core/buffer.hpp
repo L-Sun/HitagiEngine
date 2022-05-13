@@ -10,14 +10,22 @@ namespace hitagi::core {
 
 class Buffer {
 public:
-    Buffer() = default;
-    Buffer(std::size_t size, std::size_t alignment = 4);
-    Buffer(const void* initial_data, std::size_t size, std::size_t alignment = 4);
-    Buffer(const Buffer& buffer);
-    Buffer(Buffer&& buffer) noexcept;
+    using allocator_type = std::pmr::polymorphic_allocator<>;
+
+    Buffer(allocator_type alloc = {});
+    Buffer(std::size_t size, std::size_t alignment = 4, allocator_type alloc = {});
+    Buffer(const void* initial_data, std::size_t size, std::size_t alignment = 4, allocator_type alloc = {});
+
+    Buffer(const Buffer& buffer, allocator_type alloc = {});
+    Buffer(Buffer&& buffer) noexcept = default;
+
     Buffer& operator=(const Buffer& rhs);
     Buffer& operator=(Buffer&& rhs) noexcept;
+
     ~Buffer();
+
+    void Resize(std::size_t size, std::size_t alignment = 4);
+    void Clear();
 
     inline std::byte*       GetData() noexcept { return m_Data; }
     inline const std::byte* GetData() const noexcept { return m_Data; }
@@ -43,9 +51,9 @@ public:
     }
 
 private:
-    std::pmr::polymorphic_allocator<> m_Allocator{std::pmr::get_default_resource()};
-    std::byte*                        m_Data      = nullptr;
-    std::size_t                       m_Size      = 0;
-    std::size_t                       m_Alignment = alignof(uint32_t);
+    allocator_type m_Allocator;
+    std::byte*     m_Data      = nullptr;
+    std::size_t    m_Size      = 0;
+    std::size_t    m_Alignment = alignof(uint32_t);
 };
 }  // namespace hitagi::core

@@ -2,9 +2,9 @@
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/parser/image_parser.hpp>
 // #include <hitagi/parser/mocap_parser.hpp>
-// #include <hitagi/parser/scene_parser.hpp>
+#include <hitagi/parser/scene_parser.hpp>
 
-#include <map>
+#include <magic_enum.hpp>
 
 namespace hitagi::resource {
 
@@ -14,15 +14,21 @@ public:
     void Tick() final;
     void Finalize() final;
 
-    // std::shared_ptr<Scene> ImportScene(const std::filesystem::path& path);
+    Scene CreateEmptyScene(std::string_view name);
+
+    void                   ImportScene(Scene& scene, const std::filesystem::path& path);
     std::shared_ptr<Image> ImportImage(const std::filesystem::path& path);
 
     // std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> ImportAnimation(const std::filesystem::path& path);
 
 private:
-    std::array<std::unique_ptr<ImageParser>, static_cast<size_t>(ImageFormat::NUM_SUPPORT)> m_ImageParser;
+    void InitializeInnerMaterial();
 
-    // std::unique_ptr<SceneParser> m_SceneParser;
+    // Parser
+    std::array<std::unique_ptr<ImageParser>, magic_enum::enum_count<ImageFormat>()> m_ImageParser;
+    std::unique_ptr<SceneParser>                                                    m_SceneParser;
+
+    std::array<std::shared_ptr<Material>, magic_enum::enum_count<MaterialType>()> m_Materials{};
 
     // std::unique_ptr<MoCapParser> m_MoCapParser;
 };

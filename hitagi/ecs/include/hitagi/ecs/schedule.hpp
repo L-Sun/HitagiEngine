@@ -2,6 +2,7 @@
 #include <hitagi/ecs/world.hpp>
 #include <hitagi/utils/concepts.hpp>
 
+#include <memory_resource>
 #include <typeindex>
 #include <vector>
 #include <functional>
@@ -38,7 +39,9 @@ class Schedule {
     };
 
 public:
-    Schedule(World& world) : m_World(world) {}
+    using allocator_type = std::pmr::polymorphic_allocator<>;
+
+    Schedule(World& world, allocator_type alloc = {}) : m_World(world), m_Allocator(alloc) {}
 
     // Do task on the entities that contains components indicated at parameters.
     template <typename Func>
@@ -53,14 +56,14 @@ public:
 
 private:
     World&                                   m_World;
+    allocator_type                           m_Allocator;
     std::pmr::vector<std::shared_ptr<ITask>> m_Tasks;
 };
 
 template <typename Func>
 requires utils::unique_parameter_types<Func>
     Schedule& Schedule::Register(std::string_view name, Func&& task) {
-    auto                   alloc     = std::pmr::polymorphic_allocator<Task<Func>>(std::pmr::get_default_resource());
-    std::shared_ptr<ITask> task_info = std::allocate_shared<Task<Func>>(alloc, name, std::forward<Func>(task));
+    std::shared_ptr<ITask> task_info = std::allocate_shared<Task<Func>>(m_Allocator, name, std::forward<Func>(task));
 
     m_Tasks.emplace_back(std::move(task_info));
 

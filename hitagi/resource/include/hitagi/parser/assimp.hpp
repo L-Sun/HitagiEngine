@@ -1,9 +1,9 @@
 #pragma once
-#include "scene_parser.hpp"
+#include <hitagi/parser/scene_parser.hpp>
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 class AssimpParser : public SceneParser {
 public:
-    std::shared_ptr<Scene> Parse(const core::Buffer& buffer) final;
+    void Parse(Scene& scene, const core::Buffer& buffer, allocator_type alloc = {}) final;
 };
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

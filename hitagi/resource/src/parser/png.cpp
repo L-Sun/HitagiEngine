@@ -25,7 +25,7 @@ void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
         png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
-std::shared_ptr<Image> PngParser::Parse(const core::Buffer& buf) {
+std::shared_ptr<Image> PngParser::Parse(const core::Buffer& buf, allocator_type alloc) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[PNG] Parsing a empty buffer will return nullptr.");
@@ -76,7 +76,7 @@ std::shared_ptr<Image> PngParser::Parse(const core::Buffer& buf) {
     auto bitcount  = 32;
     auto pitch     = ((width * bitcount >> 3) + 3) & ~3;
     auto data_size = pitch * height;
-    auto img       = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
+    auto img       = std::allocate_shared<Image>(alloc, width, height, bitcount, pitch, data_size);
 
     png_bytepp rows = png_get_rows(png_tr, info_ptr);
     auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img->Buffer().GetData());

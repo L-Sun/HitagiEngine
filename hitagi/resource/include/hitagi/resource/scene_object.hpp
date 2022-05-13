@@ -1,18 +1,20 @@
 #pragma once
 #include <crossguid/guid.hpp>
+#include <memory_resource>
 
 namespace hitagi::resource {
 class SceneObject {
 public:
+    using allocator_type = std::pmr::polymorphic_allocator<>;
+
     const xg::Guid&  GetGuid() const noexcept;
     void             SetName(std::string_view name) noexcept;
     std::string_view GetName() const noexcept;
     std::string      GetUniqueName(std::string_view sep = "") const noexcept;
 
 protected:
-    SceneObject();
-    SceneObject(std::string_view name);
-    SceneObject(const SceneObject& obj);
+    SceneObject(allocator_type alloc);
+    SceneObject(const SceneObject& obj, allocator_type alloc = {});
     SceneObject& operator=(const SceneObject& rhs);
 
     SceneObject(SceneObject&& rhs) noexcept = default;

@@ -1,6 +1,5 @@
 #pragma once
-#include "input_event.hpp"
-
+#include <hitagi/hid/input_event.hpp>
 #include <hitagi/core/runtime_module.hpp>
 
 #include <variant>

@@ -30,24 +30,30 @@ public:
         friend class Material;
 
     public:
+        Builder(allocator_type alloc = {});
+
         Builder& Type(MaterialType type) noexcept;
 
         template <MaterialParametric T>
-        Builder& AppendParameterInfo(std::string_view name) noexcept;
+        Builder& AppendParameterInfo(std::string_view name);
 
         template <MaterialParametric T, std::size_t N>
-        Builder& AppendParameterArrayInfo(std::string_view name) noexcept;
+        Builder& AppendParameterArrayInfo(std::string_view name);
 
-        Builder& AppendTextureName(std::string_view name) noexcept;
+        Builder& AppendTextureName(std::string_view name);
 
         std::shared_ptr<Material> Build();
 
     private:
-        Builder& AppendParameterImpl(std::string_view name, const std::type_info& type_id, std::size_t size) noexcept;
+        Builder& AppendParameterImpl(std::string_view name, const std::type_info& type_id, std::size_t size);
+        void     AddName(const std::pmr::string& name);
 
+        allocator_type                            allocator;
         MaterialType                              material_type;
         std::pmr::vector<ParameterInfo>           parameters_info;
         std::pmr::unordered_set<std::pmr::string> texture_name;
+
+        std::pmr::unordered_set<std::pmr::string> exsisted_names;
     };
 
     std::shared_ptr<MaterialInstance> CreateInstance() const noexcept;
@@ -64,11 +70,12 @@ public:
     const MaterialInstance& GetDefaultMaterialInstance() const noexcept;
 
 protected:
-    Material(const Builder&);
+    Material(const Builder&, allocator_type alloc);
 
 private:
     void InitDefaultMaterialInstance();
 
+    allocator_type                            m_Allocator;
     MaterialType                              m_Type;
     std::pmr::vector<ParameterInfo>           m_ParametersInfo;
     std::pmr::unordered_set<std::pmr::string> m_ValidTextures;
@@ -77,12 +84,12 @@ private:
 };
 
 template <MaterialParametric T>
-auto Material::Builder::AppendParameterInfo(std::string_view name) noexcept -> Builder& {
+auto Material::Builder::AppendParameterInfo(std::string_view name) -> Builder& {
     return AppendParameterImpl(name, typeid(T), sizeof(T));
 }
 
 template <MaterialParametric T, std::size_t N>
-auto Material::Builder::AppendParameterArrayInfo(std::string_view name) noexcept -> Builder& {
+auto Material::Builder::AppendParameterArrayInfo(std::string_view name) -> Builder& {
     return AppendParameterImpl(name, typeid(std::array<T, N>), sizeof(T) * N);
 }
 

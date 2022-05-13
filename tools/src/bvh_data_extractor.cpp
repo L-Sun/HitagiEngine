@@ -52,8 +52,7 @@ std::stringstream frame_extractor(Animation& anima) {
             joint_index++;
         }
         for (const auto& joint : anima.joints) {
-            auto [translation, _r, _s] = decompose(joint->transform);
-            auto rotation              = euler_to_quaternion(_r);
+            auto [translation, rotation, _s] = decompose(joint->transform);
             ss << translation.x << ","
                << translation.y << ","
                << translation.z << ","

@@ -1,6 +1,6 @@
 #pragma once
+#include <hitagi/math/vector.hpp>
 #include <cassert>
-#include "vector.hpp"
 
 namespace hitagi::math {
 
@@ -9,11 +9,11 @@ struct Matrix {
     using RowVec = Vector<T, D>;
     std::array<RowVec, D> data;
 
-    Matrix()              = default;
-    Matrix(const Matrix&) = default;
-    Matrix(Matrix&&)      = default;
+    Matrix()                  = default;
+    Matrix(const Matrix&)     = default;
+    Matrix(Matrix&&) noexcept = default;
     Matrix& operator=(const Matrix&) = default;
-    Matrix& operator=(Matrix&&) = default;
+    Matrix& operator=(Matrix&&) noexcept = default;
 
     explicit Matrix(const T num) {
         std::fill_n(&data[0][0], D * D, static_cast<T>(0));
@@ -22,6 +22,13 @@ struct Matrix {
     }
     Matrix(std::initializer_list<RowVec>&& l) { std::move(l.begin(), l.end(), data.begin()); }
     Matrix(std::array<RowVec, D> a) : data(a) {}
+
+    template <typename TT>
+    Matrix(const TT* p) noexcept {
+        for (unsigned i = 0; i < D; i++)
+            for (unsigned j = 0; j < D; j++)
+                data[i][j] = static_cast<T>(*p++);
+    }
 
     Vector<T, D>&       operator[](unsigned row) { return data[row]; }
     const Vector<T, D>& operator[](unsigned row) const { return data[row]; }
@@ -170,7 +177,7 @@ using mat8d = Matrix<double, 8>;
 
 template <typename T, unsigned D>
 Matrix<T, D> mul_by_element(const Matrix<T, D>& m1, const Matrix<T, D>& m2) {
-    Matrix result(0);
+    Matrix<T, D> result(0);
     for (unsigned row = 0; row < D; row++) result[row] = m1[row] * m2[row];
     return result;
 }

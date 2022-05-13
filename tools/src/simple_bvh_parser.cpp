@@ -161,7 +161,7 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer) {
 
             anima.frames[i][joint_index] = {
                 .translation = translation,
-                .rotation    = euler_to_quaternion(_r),
+                .rotation    = _r,
             };
         }
     }

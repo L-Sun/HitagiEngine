@@ -3,11 +3,16 @@
 #include <hitagi/parser/jpeg.hpp>
 #include <hitagi/parser/bmp.hpp>
 #include <hitagi/parser/tga.hpp>
+#include <hitagi/math/vector.hpp>
+#include <hitagi/core/memory_manager.hpp>
+
 // #include <hitagi/parser/assimp.hpp>
 // #include <hitagi/parser/bvh.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
+using namespace hitagi::math;
 
 namespace hitagi {
 std::unique_ptr<resource::AssetManager> g_AssetManager = std::make_unique<resource::AssetManager>();
@@ -27,6 +32,8 @@ int AssetManager::Initialize() {
     m_ImageParser[static_cast<size_t>(ImageFormat::BMP)]  = std::make_unique<BmpParser>();
 
     // m_MoCapParser = std::make_unique<BvhParser>();
+
+    InitializeInnerMaterial();
 
     return 0;
 }
@@ -56,11 +63,11 @@ void AssetManager::Finalize() {
 std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& path) {
     auto format = get_image_format(path.extension().string());
 
-    if (format >= ImageFormat::NUM_SUPPORT) {
+    if (format == ImageFormat::UNKOWN) {
         m_Logger->error("Unkown image format, and return a null");
         return nullptr;
     }
-    auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
+    auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), g_MemoryManager->GetAllocator<Image>());
     return image;
 }
 
@@ -76,5 +83,19 @@ std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& pa
 //     result.second->SetName(path.stem().string());
 //     return result;
 // }
+
+void AssetManager::InitializeInnerMaterial() {
+    // Phong
+    m_Materials.at(*magic_enum::enum_index(MaterialType::Phong)) =
+        Material::Builder(g_MemoryManager->GetAllocator<Material>())
+            .Type(MaterialType::Phong)
+            .AppendParameterInfo<vec3f>("ambient")
+            .AppendParameterInfo<vec3f>("diffuse")
+            .AppendParameterInfo<vec3f>("specular")
+            .AppendTextureName("ambient_texture")
+            .AppendTextureName("diffuse_texture")
+            .AppendTextureName("specular_texture")
+            .Build();
+}
 
 }  // namespace hitagi::resource

@@ -13,6 +13,11 @@ target("file_io_manager_test")
     add_deps("file_io_manager", "test_utils")
     set_group("test/core")
 
+target("config_manager_test")
+    add_files("config_manager_test.cpp")
+    add_deps("config_manager", "test_utils")
+    set_group("test/core")
+
 target("timer_test")
     add_files("timer_test.cpp")
     add_deps("timer", "test_utils")

@@ -3,13 +3,12 @@
 #include <fmt/format.h>
 
 namespace hitagi::resource {
-SceneObject::SceneObject() : m_Guid(xg::newGuid()) {}
+SceneObject::SceneObject(allocator_type alloc)
+    : m_Guid(xg::newGuid()), m_Name(alloc) {}
 
-SceneObject::SceneObject(std::string_view name)
+SceneObject::SceneObject(const SceneObject& obj, allocator_type alloc)
     : m_Guid(xg::newGuid()),
-      m_Name(name) {}
-
-SceneObject::SceneObject(const SceneObject& obj) : m_Guid(xg::newGuid()) {}
+      m_Name(obj.m_Name, alloc) {}
 
 SceneObject& SceneObject::operator=(const SceneObject& rhs) {
     if (this != &rhs) {
@@ -20,7 +19,7 @@ SceneObject& SceneObject::operator=(const SceneObject& rhs) {
 
 auto SceneObject::GetGuid() const noexcept -> const xg::Guid& { return m_Guid; }
 
-void SceneObject::SetName(std::string_view name) noexcept { m_Name = std::pmr::string(name); }
+void SceneObject::SetName(std::string_view name) noexcept { m_Name = name; }
 
 auto SceneObject::GetName() const noexcept -> std::string_view { return m_Name; }
 

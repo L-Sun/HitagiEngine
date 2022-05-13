@@ -1,6 +1,7 @@
 #include <hitagi/application.hpp>
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/thread_manager.hpp>
+#include <hitagi/core/config_manager.hpp>
 #include <hitagi/physics/physics_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/resource/asset_manager.hpp>
@@ -35,6 +36,7 @@ int Application::Initialize() {
     if ((ret = g_MemoryManager->Initialize()) != 0) return ret;
     if ((ret = g_DebugManager->Initialize()) != 0) return ret;
     if ((ret = g_FileIoManager->Initialize()) != 0) return ret;
+    if ((ret = g_ConfigManager->Initialize()) != 0) return ret;
     if ((ret = g_AssetManager->Initialize()) != 0) return ret;
     if ((ret = g_InputManager->Initialize()) != 0) return ret;
     if ((ret = g_GuiManager->Initialize()) != 0) return ret;
@@ -56,6 +58,7 @@ void Application::Finalize() {
     g_GuiManager->Finalize();
     g_InputManager->Finalize();
     g_AssetManager->Finalize();
+    g_ConfigManager->Finalize();
     g_FileIoManager->Finalize();
     g_DebugManager->Finalize();
     g_MemoryManager->Finalize();
@@ -74,6 +77,7 @@ void Application::Tick() {
     g_DebugManager->Profiler("MemoryManager", []() { g_MemoryManager->Tick(); });
     g_DebugManager->Profiler("DebugManager", []() { g_DebugManager->Tick(); });
     g_DebugManager->Profiler("FileIoManager", []() { g_FileIoManager->Tick(); });
+    g_DebugManager->Profiler("ConfigManager", []() { g_ConfigManager->Tick(); });
     g_DebugManager->Profiler("AssetManager", []() { g_AssetManager->Tick(); });
     g_DebugManager->Profiler("InputManager", []() { g_InputManager->Tick(); });
     g_DebugManager->Profiler("GuiManager", []() { g_GuiManager->Tick(); });

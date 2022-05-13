@@ -1,105 +1,101 @@
 #pragma once
-#include "scene_object.hpp"
-#include "enums.hpp"
-
+#include <hitagi/resource/scene_object.hpp>
+#include <hitagi/resource/enums.hpp>
+#include <hitagi/resource/material.hpp>
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/utils/private_build.hpp>
 
-#include <memory>
+#include <magic_enum.hpp>
+
+#include <stdexcept>
 
 namespace hitagi::resource {
 
-class VertexArray : utils::enable_private_allocate_shared_build<VertexArray> {
+class VertexArray {
 public:
-    struct AttributeInfo {
-        bool         enabled      = false;
-        std::uint8_t buffer_index = 0;
-        std::size_t  offset       = 0;
-    };
-    class Builder {
-        friend class VertexArray;
+    using allocator_type = std::pmr::polymorphic_allocator<>;
 
-    public:
-        Builder&                     BufferCount(std::uint8_t count) noexcept;
-        Builder&                     VertexCount(std::size_t count) noexcept;
-        Builder&                     AppendAttributeAt(std::uint8_t buffer_index, VertexAttribute attribute) noexcept;
-        std::shared_ptr<VertexArray> Build();
-
-    private:
-        std::uint8_t                                                                       buffer_count;
-        std::size_t                                                                        vertex_count;
-        std::array<AttributeInfo, static_cast<std::uint8_t>(VertexAttribute::Num_Support)> attributes{};
-        std::array<std::size_t, static_cast<std::uint8_t>(VertexAttribute::Num_Support)>   buffer_strides;
-    };
+    VertexArray(std::size_t vertex_count, allocator_type alloc = {});
 
     inline std::size_t VertexCount() const noexcept { return m_VertexCount; }
-    auto&              GetBuffer(std::uint8_t index) { return m_Buffers.at(index); }
-    std::size_t        GetStride(std::uint8_t index) const { return m_BufferStrides.at(index); }
+    bool               IsEnable(VertexAttribute attr) const;
 
-protected:
-    // VertexArray only can be create by Builder
-    VertexArray(const Builder&);
+    core::Buffer& GetBuffer(VertexAttribute attr);
+
+    // the buffer will be constructed if `GetVertices` is invoke first time with attribute Attr
+    template <VertexAttribute Attr>
+    std::span<VertexType<Attr>> GetVertices();
 
 private:
-    std::size_t                                                                        m_VertexCount = 0;
-    std::array<AttributeInfo, static_cast<std::uint8_t>(VertexAttribute::Num_Support)> m_AttributeInfo{};
-    std::pmr::vector<core::Buffer>                                                     m_Buffers;
-    std::pmr::vector<std::size_t>                                                      m_BufferStrides;
+    std::size_t                                                         m_VertexCount = 0;
+    std::array<core::Buffer, magic_enum::enum_count<VertexAttribute>()> m_Buffers;
 };
 
 class IndexArray : utils::enable_private_allocate_shared_build<IndexArray> {
 public:
-    class Builder {
-        friend class IndexArray;
+    using allocator_type = std::pmr::polymorphic_allocator<>;
 
-    public:
-        Builder&                    Count(std::size_t count) noexcept;
-        Builder&                    Type(IndexType type) noexcept;
-        std::shared_ptr<IndexArray> Build();
-
-    private:
-        IndexType   index_type  = IndexType::UINT32;
-        std::size_t index_count = 0;
-    };
+    IndexArray(std::size_t index_count, IndexType type, allocator_type alloc = {});
 
     auto  IndexSize() const noexcept { return get_index_type_size(m_IndexType); }
     auto  IndexCount() const noexcept { return m_IndexCount; }
     auto& Buffer() const noexcept { return m_Buffer; }
 
-protected:
-    // IndexArray only can be create by Builder
-    IndexArray(const Builder& builder);
+    // The template parameter need to be same with the type used by constructor
+    template <IndexType T>
+    std::span<IndexDataType<T>> GetIndices();
 
 private:
-    IndexType    m_IndexType  = IndexType::UINT32;
     std::size_t  m_IndexCount = 0;
+    IndexType    m_IndexType  = IndexType::UINT32;
     core::Buffer m_Buffer;
 };
 
-class Mesh : public SceneObject {
+struct Mesh : public SceneObject {
 public:
     Mesh(
         std::shared_ptr<VertexArray> vertices,
         std::shared_ptr<IndexArray>  indices,
-        PrimitiveType                type         = PrimitiveType::TriangleList,
-        std::size_t                  index_count  = 0,
-        std::size_t                  index_start  = 0,
-        std::size_t                  vertex_start = 0);
+        // TODO use default material
+        std::shared_ptr<MaterialInstance> material     = nullptr,
+        PrimitiveType                     type         = PrimitiveType::TriangleList,
+        std::size_t                       index_count  = 0,
+        std::size_t                       index_start  = 0,
+        std::size_t                       vertex_start = 0,
+        allocator_type                    alloc        = {});
 
-    inline auto Vertices() const noexcept { return *m_Vertices; }
-    inline auto Indices() const noexcept { return *m_Indices; }
-    inline auto Primitive() const noexcept { return m_PrimitiveType; }
+    Mesh(const Mesh& other, allocator_type alloc = {});
+    Mesh& operator=(const Mesh&) = default;
 
-    // void SetMaterial(std::shared_ptr<Material> material) { m_Material = material; }
+    Mesh(Mesh&& other) = default;
+    Mesh& operator     =(Mesh&& rhs) noexcept;
 
 private:
-    std::shared_ptr<VertexArray> m_Vertices;
-    std::shared_ptr<IndexArray>  m_Indices;
-    PrimitiveType                m_PrimitiveType;
-    std::size_t                  m_IndexCount;
-    std::size_t                  m_IndexStart;
-    std::size_t                  m_VertexStart;
-    // std::shared_ptr<Material>    m_Material;
+    std::shared_ptr<VertexArray>      m_Vertices;
+    std::shared_ptr<IndexArray>       m_Indices;
+    std::shared_ptr<MaterialInstance> m_Material;
+    PrimitiveType                     m_PrimitiveType;
+    std::size_t                       m_IndexCount;
+    std::size_t                       m_IndexStart;
+    std::size_t                       m_VertexStart;
 };
+
+template <VertexAttribute Attr>
+std::span<VertexType<Attr>> VertexArray::GetVertices() {
+    auto& buffer = m_Buffers.at(magic_enum::enum_index(Attr).value());
+    if (buffer.Empty()) buffer.Resize(m_VertexCount * get_vertex_attribute_size(Attr));
+    return buffer.Span<VertexType<Attr>>();
+}
+
+template <IndexType T>
+std::span<IndexDataType<T>> IndexArray::GetIndices() {
+    if (T != m_IndexType)
+        throw std::invalid_argument(fmt::format(
+            "expect template parameter: ({}), but get ({})",
+            magic_enum::enum_name(m_IndexType),
+            magic_enum::enum_name(T)));
+
+    return m_Buffer.Span<IndexDataType<T>>();
+}
 
 }  // namespace hitagi::resource

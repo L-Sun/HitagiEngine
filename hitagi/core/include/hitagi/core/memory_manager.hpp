@@ -1,5 +1,5 @@
 #pragma once
-#include "runtime_module.hpp"
+#include <hitagi/core/runtime_module.hpp>
 
 #include <list>
 #include <array>
@@ -43,7 +43,7 @@ private:
         ~Page();
 
         template <typename T>
-        inline auto get() noexcept { return reinterpret_cast<std::remove_cv_t<T>*>(data); }
+        inline auto get() noexcept { return reinterpret_cast<std::remove_cvref_t<T>*>(data); }
 
     private:
         const std::size_t      size;
@@ -91,9 +91,17 @@ public:
     void Finalize() final;
     void Tick() final;
 
+    template <typename T>
+    std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;
+
 private:
     std::unique_ptr<MemoryPool> m_Pools;
 };
+
+template <typename T>
+std::pmr::polymorphic_allocator<T> MemoryManager::GetAllocator() const noexcept {
+    return std::pmr::polymorphic_allocator<T>(m_Pools.get());
+}
 
 }  // namespace hitagi::core
 namespace hitagi {

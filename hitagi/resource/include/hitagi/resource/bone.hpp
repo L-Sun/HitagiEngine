@@ -7,7 +7,8 @@
 namespace hitagi::resource {
 class Bone : public SceneObject {
 public:
-    using SceneObject::SceneObject;
+    Bone(allocator_type alloc = {})
+        : SceneObject(alloc), m_Weights(alloc) {}
 
     inline void SetWeight(size_t vertex_index, float weight) {
         m_Weights[vertex_index] = weight;
@@ -28,8 +29,8 @@ public:
     }
 
 private:
-    std::map<size_t, float> m_Weights;
-    math::mat4f             m_BindTransform;
+    std::pmr::map<size_t, float> m_Weights;
+    math::mat4f                  m_BindTransform;
 };
 
 }  // namespace hitagi::resource

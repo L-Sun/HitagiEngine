@@ -1,5 +1,5 @@
 #include <hitagi/ecs/ecs_manager.hpp>
-#include <memory_resource>
+#include <hitagi/core/memory_manager.hpp>
 
 namespace hitagi::ecs {
 
@@ -8,8 +8,7 @@ void EcsManager::Tick() {}
 void EcsManager::Finalize() {}
 
 std::shared_ptr<World> EcsManager::CreateEcsWorld(std::string_view name) {
-    auto world = std::allocate_shared<World>(
-        std::pmr::polymorphic_allocator<World>(std::pmr::get_default_resource()));
+    auto world = std::allocate_shared<World>(g_MemoryManager->GetAllocator<World>());
 
     m_Worlds.emplace(name, world);
     return world;

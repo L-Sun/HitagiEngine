@@ -1,8 +1,6 @@
 #pragma once
 #include <hitagi/math/vector.hpp>
 
-#include <array>
-
 namespace hitagi {
 
 template <typename T>

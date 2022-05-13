@@ -151,7 +151,7 @@ TEST(TransformTest, InverseSingularMatrix) {
 
 TEST(TransformTest, DecomposeTest) {
     vec3f translation(1.0f, 1.0f, 1.0f);
-    vec3f rotation = radians(vec3f(30.0f, 45.0f, 90.0f));
+    quatf rotation = euler_to_quaternion(radians(vec3f(30.0f, 45.0f, 90.0f)));
     vec3f scaling(1.0f, 2.0f, 3.0f);
     mat4f trans1      = translate(rotate(scale(mat4f(1.0f), scaling), rotation), translation);
     auto [_t, _r, _s] = decompose(trans1);

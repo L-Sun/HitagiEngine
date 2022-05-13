@@ -5,14 +5,14 @@
 
 namespace hitagi::asset {
 enum class MoCapFormat : unsigned {
+    UNKWON,
     BVH,
-    NUM_SUPPORT,
 };
 inline MoCapFormat get_mocap_format(std::string_view ext) {
     if (ext == ".bvh")
         return MoCapFormat::BVH;
 
-    return MoCapFormat::NUM_SUPPORT;
+    return MoCapFormat::UNKWON;
 }
 
 class MoCapParser {

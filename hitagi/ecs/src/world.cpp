@@ -3,12 +3,16 @@
 #include <hitagi/ecs/schedule.hpp>
 
 namespace hitagi::ecs {
-World::World() {
+World::World(allocator_type alloc)
+    : m_Allocator(alloc),
+      m_EnitiesMap(alloc),
+      m_Archetypes(alloc),
+      m_Systems(alloc) {
     m_Timer.Start();
 }
 
 void World::Update() {
-    Schedule schedule(*this);
+    Schedule schedule(*this, m_Allocator);
 
     for (auto&& system_fn : m_Systems) {
         system_fn(schedule, m_Timer.DeltaTime());

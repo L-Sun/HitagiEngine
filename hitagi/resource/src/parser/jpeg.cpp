@@ -7,7 +7,7 @@
 
 namespace hitagi::resource {
 
-std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
+std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf, allocator_type alloc) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
@@ -30,26 +30,23 @@ std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
         auto bitcount  = 32;
         auto pitch     = ((width * bitcount >> 3) + 3) & ~3;
         auto data_size = pitch * height;
-        img            = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
+        img            = std::allocate_shared<Image>(alloc, width, height, bitcount, pitch, data_size);
         jpeg_start_decompress(&cinfo);
 
-        int buffer_height = 1;
-        int row_stride    = cinfo.output_width * cinfo.output_components;
+        int row_stride = cinfo.output_width * cinfo.output_components;
 
-        auto buffer = new JSAMPROW[buffer_height];
-        buffer[0]   = new JSAMPLE[row_stride];
-        auto p      = reinterpret_cast<uint8_t*>(img->Buffer().GetData()) + (height - 1) * row_stride;
+        auto row_buffer = std::pmr::vector<JSAMPLE>(row_stride, alloc);
+        auto p          = reinterpret_cast<uint8_t*>(img->Buffer().GetData()) + (height - 1) * row_stride;
         while (cinfo.output_scanline < cinfo.output_height) {
-            jpeg_read_scanlines(&cinfo, buffer, 1);
-            std::memcpy(p, buffer[0], row_stride);
+            auto p_row = row_buffer.data();
+            jpeg_read_scanlines(&cinfo, &p_row, 1);
+            std::memcpy(p, p_row, row_stride);
             p -= row_stride;
         }
 
         jpeg_finish_decompress(&cinfo);
         jpeg_destroy_decompress(&cinfo);
 
-        delete[] buffer[0];
-        delete[] buffer;
     } catch (struct jpeg_error_mgr* err) {
         std::array<char, 1024> error_message;
         (cinfo.err->format_message)((j_common_ptr)&cinfo, error_message.data());

@@ -4,11 +4,11 @@
 
 namespace hitagi::resource {
 enum class ImageFormat : unsigned {
+    UNKOWN,
     PNG,
     JPEG,
     TGA,
     BMP,
-    NUM_SUPPORT
 };
 
 inline ImageFormat get_image_format(std::string_view ext) {
@@ -20,12 +20,14 @@ inline ImageFormat get_image_format(std::string_view ext) {
         return ImageFormat::TGA;
     else if (ext == ".png")
         return ImageFormat::PNG;
-    return ImageFormat::NUM_SUPPORT;
+    return ImageFormat::UNKOWN;
 }
 
 class ImageParser {
 public:
-    virtual std::shared_ptr<Image> Parse(const core::Buffer& buffer) = 0;
-    virtual ~ImageParser()                                           = default;
+    using allocator_type = std::pmr::polymorphic_allocator<>;
+
+    virtual std::shared_ptr<Image> Parse(const core::Buffer& buffer, allocator_type = {}) = 0;
+    virtual ~ImageParser()                                                                = default;
 };
 }  // namespace hitagi::resource

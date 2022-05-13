@@ -11,6 +11,13 @@ target("file_io_manager")
     add_deps("memory_manager")
     add_packages("spdlog")
 
+target("config_manager")
+    set_kind("static")
+    add_files("src/config_manager.cpp")
+    add_includedirs("include", {public = true})
+    add_deps("file_io_manager")
+    add_packages("yaml-cpp", "spdlog")
+
 target("timer")
     set_kind("static")
     add_files("src/timer.cpp")

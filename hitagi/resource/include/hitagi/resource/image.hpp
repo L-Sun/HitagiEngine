@@ -1,13 +1,17 @@
 #pragma once
-#include "scene_object.hpp"
-
+#include <hitagi/resource/scene_object.hpp>
 #include <hitagi/core/buffer.hpp>
 
 namespace hitagi::resource {
 class Image : public SceneObject {
 public:
-    Image() = default;
-    Image(std::uint32_t width, std::uint32_t height, std::uint32_t bitcount, std::uint32_t pitch, std::size_t data_size);
+    Image(allocator_type alloc = {}) : SceneObject(alloc), m_Buffer(alloc) {}
+    Image(std::uint32_t  width,
+          std::uint32_t  height,
+          std::uint32_t  bitcount,
+          std::uint32_t  pitch,
+          std::size_t    data_size,
+          allocator_type alloc = {});
 
     inline std::uint32_t Width() const noexcept { return m_Width; }
     inline std::uint32_t Height() const noexcept { return m_Height; }

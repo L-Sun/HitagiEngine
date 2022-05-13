@@ -21,7 +21,7 @@ public:
     template <typename Builder, typename Alloc>
     static std::shared_ptr<T> Create(const Builder& builder, const Alloc& alloc) {
         struct CreateTemp : public T {
-            CreateTemp(const Builder& builder) : T(builder) {}
+            CreateTemp(const Builder& builder, const Alloc& alloc) : T(builder, alloc) {}
         };
 
         return std::static_pointer_cast<T>(std::allocate_shared<CreateTemp>(alloc, builder));
