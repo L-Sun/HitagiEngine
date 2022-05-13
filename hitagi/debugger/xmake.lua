@@ -1,0 +1,5 @@
+target("debug_manager")
+    set_kind("static")
+    add_files("src/*.cpp")
+    add_includedirs("include")
+    add_deps("core", "resource")

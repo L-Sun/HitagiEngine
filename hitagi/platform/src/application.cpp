@@ -2,7 +2,7 @@
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/thread_manager.hpp>
 #include <hitagi/core/config_manager.hpp>
-#include <hitagi/physics/physics_manager.hpp>
+// #include <hitagi/physics/physics_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
@@ -20,15 +20,10 @@ using namespace hitagi;
 
 bool Application::sm_Quit = false;
 
-Application::Application(GfxConfiguration& cfg) : m_Config(cfg) {
-    m_Logger = spdlog::stdout_color_mt("Application");
-#if defined(_DEBUG)
-    spdlog::set_level(spdlog::level::debug);
-#endif  // _DEBUG
-}
-
 // Parse command line, read configuration, initialize all sub modules
 int Application::Initialize() {
+    m_Logger = spdlog::stdout_color_mt("Application");
+
     int ret = 0;
 
     m_Logger->info("Initialize Moudules...");

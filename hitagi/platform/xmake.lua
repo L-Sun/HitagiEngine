@@ -1,5 +1,5 @@
 target("application")
     set_kind("static")
+    add_files("src/application.cpp")
     add_includedirs("include", {public = true})
-    add_deps("core")
-    add_packages("spdlog")
+    add_deps("core", "asset_manager")

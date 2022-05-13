@@ -19,7 +19,7 @@ inline const size_t align(size_t x, size_t a) {
 class MemoryPool : public std::pmr::memory_resource {
 public:
     MemoryPool();
-    MemoryPool(const MemoryPool&) = delete;
+    MemoryPool(const MemoryPool&)            = delete;
     MemoryPool& operator=(const MemoryPool&) = delete;
 
 private:
@@ -36,13 +36,13 @@ private:
     class Page {
     public:
         Page(std::size_t page_size, std::size_t block_size);
-        Page(const Page&) = delete;
+        Page(const Page&)            = delete;
         Page& operator=(const Page&) = delete;
         Page(Page&&) noexcept;
         Page& operator=(Page&&) noexcept;
         ~Page();
 
-        template <typename T>
+        template <typename T = std::byte>
         inline auto get() noexcept { return reinterpret_cast<std::remove_cvref_t<T>*>(data); }
 
     private:
@@ -98,7 +98,7 @@ private:
     std::unique_ptr<MemoryPool> m_Pools;
 };
 
-template <typename T>
+template <typename T = std::byte>
 std::pmr::polymorphic_allocator<T> MemoryManager::GetAllocator() const noexcept {
     return std::pmr::polymorphic_allocator<T>(m_Pools.get());
 }

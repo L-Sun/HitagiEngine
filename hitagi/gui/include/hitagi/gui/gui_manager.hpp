@@ -1,7 +1,7 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/core/timer.hpp>
-#include <hitagi/resource/image.hpp>
+#include <hitagi/resource/texture.hpp>
 
 #include <imgui.h>
 
@@ -30,11 +30,10 @@ private:
     void MouseEvent();
     void KeysEvent();
 
-    core::Clock                   m_Clock;
-    std::shared_ptr<asset::Image> m_FontTexture;
-    std::list<core::Buffer>       m_FontsData;
-
-    std::queue<std::function<void()>> m_GuiDrawTasks;
+    core::Clock                        m_Clock;
+    std::shared_ptr<resource::Texture> m_FontTexture;
+    std::list<core::Buffer>            m_FontsData;
+    std::queue<std::function<void()>>  m_GuiDrawTasks;
 };
 
 }  // namespace hitagi::gui

@@ -1,7 +1,7 @@
 #pragma once
-#include "types.hpp"
-#include "shader_manager.hpp"
-#include "resource.hpp"
+#include <hitagi/graphics/resource.hpp>
+#include <hitagi/graphics/shader_manager.hpp>
+#include <hitagi/graphics/types.hpp>
 
 #include <string>
 #include <optional>
@@ -39,10 +39,10 @@ class RootSignature : public Resource {
 
 public:
     RootSignature(std::string_view name) : Resource(name, nullptr) {}
-    RootSignature(const RootSignature&) = delete;
+    RootSignature(const RootSignature&)            = delete;
     RootSignature& operator=(const RootSignature&) = delete;
-    RootSignature(RootSignature&&);
-    RootSignature& operator=(RootSignature&&);
+    RootSignature(RootSignature&&) noexcept;
+    RootSignature& operator=(RootSignature&&) noexcept;
 
     RootSignature& Add(
         std::string_view   name,
@@ -80,7 +80,7 @@ public:
     PipelineState& SetRootSignautre(std::shared_ptr<RootSignature> sig);
     PipelineState& SetRenderFormat(Format format);
     PipelineState& SetDepthBufferFormat(Format format);
-    PipelineState& SetPrimitiveType(PrimitiveType type);
+    PipelineState& SetPrimitiveType(resource::PrimitiveType type);
     PipelineState& SetRasterizerState(RasterizerDescription desc);
     PipelineState& SetBlendState(BlendDescription desc);
     void           Create(DriverAPI& driver);
@@ -92,7 +92,7 @@ public:
     inline std::shared_ptr<RootSignature>  GetRootSignature() const noexcept { return m_RootSignature; }
     inline Format                          GetRenderTargetFormat() const noexcept { return m_RenderFormat; }
     inline Format                          GetDepthBufferFormat() const noexcept { return m_DepthBufferFormat; }
-    inline PrimitiveType                   GetPrimitiveType() const noexcept { return m_PrimitiveType; }
+    inline resource::PrimitiveType         GetPrimitiveType() const noexcept { return m_PrimitiveType; }
     inline BlendDescription                GetBlendState() const noexcept { return m_BlendState; }
     inline RasterizerDescription           GetRasterizerState() const noexcept { return m_RasterizerState; }
     inline bool                            IsFontCounterClockwise() const noexcept { return m_FrontCounterClockwise; }
@@ -106,7 +106,7 @@ private:
     std::shared_ptr<RootSignature> m_RootSignature         = nullptr;
     Format                         m_RenderFormat          = Format::UNKNOWN;
     Format                         m_DepthBufferFormat     = Format::UNKNOWN;
-    PrimitiveType                  m_PrimitiveType         = PrimitiveType::TriangleList;
+    resource::PrimitiveType        m_PrimitiveType         = resource::PrimitiveType::TriangleList;
     BlendDescription               m_BlendState;
     RasterizerDescription          m_RasterizerState;
 };

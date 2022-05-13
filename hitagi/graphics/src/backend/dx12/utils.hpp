@@ -74,43 +74,43 @@ inline D3D12_FILTER to_d3d_filter(graphics::Filter filter) noexcept {
     return static_cast<D3D12_FILTER>(filter);
 }
 
-inline D3D12_PRIMITIVE_TOPOLOGY_TYPE to_dx_topology_type(PrimitiveType type) noexcept {
+inline D3D12_PRIMITIVE_TOPOLOGY_TYPE to_dx_topology_type(resource::PrimitiveType type) noexcept {
     switch (type) {
-        case PrimitiveType::PointList:
+        case resource::PrimitiveType::PointList:
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
-        case PrimitiveType::LineList:
-        case PrimitiveType::LineStrip:
-        case PrimitiveType::LineListAdjacency:
-        case PrimitiveType::LineStripAdjacency:
+        case resource::PrimitiveType::LineList:
+        case resource::PrimitiveType::LineStrip:
+        case resource::PrimitiveType::LineListAdjacency:
+        case resource::PrimitiveType::LineStripAdjacency:
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-        case PrimitiveType::TriangleList:
-        case PrimitiveType::TriangleStrip:
-        case PrimitiveType::TriangleListAdjacency:
-        case PrimitiveType::TriangleStripAdjacency:
+        case resource::PrimitiveType::TriangleList:
+        case resource::PrimitiveType::TriangleStrip:
+        case resource::PrimitiveType::TriangleListAdjacency:
+        case resource::PrimitiveType::TriangleStripAdjacency:
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     }
     return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 }
 
-inline D3D12_PRIMITIVE_TOPOLOGY to_dx_topology(PrimitiveType type) noexcept {
+inline D3D12_PRIMITIVE_TOPOLOGY to_dx_topology(resource::PrimitiveType type) noexcept {
     switch (type) {
-        case PrimitiveType::PointList:
+        case resource::PrimitiveType::PointList:
             return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
-        case PrimitiveType::LineList:
+        case resource::PrimitiveType::LineList:
             return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-        case PrimitiveType::LineStrip:
+        case resource::PrimitiveType::LineStrip:
             return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
-        case PrimitiveType::LineListAdjacency:
+        case resource::PrimitiveType::LineListAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ;
-        case PrimitiveType::LineStripAdjacency:
+        case resource::PrimitiveType::LineStripAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ;
-        case PrimitiveType::TriangleList:
+        case resource::PrimitiveType::TriangleList:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-        case PrimitiveType::TriangleStrip:
+        case resource::PrimitiveType::TriangleStrip:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
-        case PrimitiveType::TriangleListAdjacency:
+        case resource::PrimitiveType::TriangleListAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
-        case PrimitiveType::TriangleStripAdjacency:
+        case resource::PrimitiveType::TriangleStripAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ;
     }
     return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;

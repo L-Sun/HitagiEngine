@@ -34,31 +34,17 @@ private:
     std::unordered_map<std::string, std::shared_ptr<ComputeShader>> m_ComputeShaders;
 };
 
-class Shader {
-    friend ShaderManager;
-
+class VertexShader : public core::Buffer {
 public:
-    Shader() = default;
-    Shader(core::Buffer data) : m_ShaderData(std::move(data)) {}
-
-    const uint8_t* GetData() const { return m_ShaderData.GetData(); }
-    size_t         GetDataSize() const { return m_ShaderData.GetDataSize(); }
-
-protected:
-    core::Buffer m_ShaderData;
+    using core::Buffer::Buffer;
 };
-
-class VertexShader : public Shader {
+class PixelShader : public core::Buffer {
 public:
-    using Shader::Shader;
+    using core::Buffer::Buffer;
 };
-class PixelShader : public Shader {
+class ComputeShader : public core::Buffer {
 public:
-    using Shader::Shader;
-};
-class ComputeShader : public Shader {
-public:
-    using Shader::Shader;
+    using core::Buffer::Buffer;
 };
 
 }  // namespace hitagi::graphics

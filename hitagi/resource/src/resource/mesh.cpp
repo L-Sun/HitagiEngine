@@ -32,9 +32,6 @@ Mesh::Mesh(
     std::shared_ptr<IndexArray>       indices,
     std::shared_ptr<MaterialInstance> material,
     PrimitiveType                     type,
-    std::size_t                       index_count,
-    std::size_t                       index_start,
-    std::size_t                       vertex_start,
     allocator_type                    alloc)
     : SceneObject(alloc),
       m_Material(std::move(material)),
@@ -47,20 +44,9 @@ Mesh::Mesh(
         spdlog::get("AssetManager")->warn("Can not create mesh with empty index array!");
         return;
     }
-    if (index_start + index_count > indices->IndexCount()) {
-        spdlog::get("AssetManager")->warn("Can not create mesh since index used by mesh is out of range!");
-        return;
-    }
-    if (vertex_start > vertices->VertexCount()) {
-        spdlog::get("AssetManager")->warn("Can not create mesh since vertex used by mesh is out of range!");
-        return;
-    }
 
-    m_Vertices    = std::move(vertices);
-    m_Indices     = std::move(indices);
-    m_IndexCount  = index_count;
-    m_IndexStart  = index_start;
-    m_VertexStart = vertex_start;
+    m_Vertices = std::move(vertices);
+    m_Indices  = std::move(indices);
 }
 
 Mesh::Mesh(const Mesh& other, allocator_type alloc)
@@ -68,10 +54,7 @@ Mesh::Mesh(const Mesh& other, allocator_type alloc)
       m_Vertices(other.m_Vertices),
       m_Indices(other.m_Indices),
       m_Material(other.m_Material),
-      m_PrimitiveType(other.m_PrimitiveType),
-      m_IndexCount(other.m_IndexCount),
-      m_IndexStart(other.m_IndexStart),
-      m_VertexStart(other.m_VertexStart) {}
+      m_PrimitiveType(other.m_PrimitiveType) {}
 
 Mesh& Mesh::operator=(Mesh&& rhs) noexcept {
     SceneObject::operator=(rhs);
@@ -80,9 +63,6 @@ Mesh& Mesh::operator=(Mesh&& rhs) noexcept {
         m_Indices       = rhs.m_Indices;
         m_Material      = rhs.m_Material;
         m_PrimitiveType = rhs.m_PrimitiveType;
-        m_IndexCount    = rhs.m_IndexCount;
-        m_IndexStart    = rhs.m_IndexStart;
-        m_VertexStart   = rhs.m_VertexStart;
     }
     return *this;
 }

@@ -1,16 +1,15 @@
 #pragma once
-#include <hitagi/math/transform.hpp>
 #include <hitagi/core/runtime_module.hpp>
+#include <hitagi/core/timer.hpp>
 #include <hitagi/resource/geometry.hpp>
-#include <hitagi/resource/scene_node.hpp>
+#include <hitagi/math/transform.hpp>
 
 #include <chrono>
 #include <functional>
 
 namespace hitagi::debugger {
 struct DebugPrimitive {
-    std::shared_ptr<asset::GeometryNode>           geometry_node;
-    math::vec4f                                    color;
+    resource::Geometry                             geometry;
     std::chrono::high_resolution_clock::time_point expires_at;
 };
 
@@ -44,13 +43,11 @@ public:
     };
 
 protected:
-    void AddPrimitive(std::shared_ptr<asset::Geometry> geometry, const math::mat4f& transform, const math::vec4f& color, std::chrono::seconds duration, bool depth_enabled);
+    void AddPrimitive(resource::Geometry&& geometry, std::chrono::seconds duration, bool depth_enabled);
 
     void ShowProfilerInfo();
 
-    std::vector<DebugPrimitive>      m_DebugPrimitives;
-    std::shared_ptr<asset::Geometry> m_DebugLine;
-    std::shared_ptr<asset::Geometry> m_DebugBox;
+    std::pmr::vector<DebugPrimitive> m_DebugPrimitives;
 
     std::unordered_map<std::string, std::chrono::duration<double>> m_TimingInfo;
 

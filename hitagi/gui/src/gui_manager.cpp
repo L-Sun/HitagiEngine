@@ -1,11 +1,12 @@
 #include "imgui_keymaps.hpp"
 
 #include <hitagi/gui/gui_manager.hpp>
-#include <hitagi/application.hpp>
+#include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/file_io_manager.hpp>
+#include <hitagi/resource/texture.hpp>
 #include <hitagi/hid/input_manager.hpp>
+#include <hitagi/application.hpp>
 
-#include <imgui_freetype.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -21,11 +22,13 @@ int GuiManager::Initialize() {
     m_Clock.Start();
 
     ImGui::CreateContext();
-    ImGui::GetStyle().ScaleAllSizes(g_App->GetDpiRatio());
-    ImGui::GetIO().SetPlatformImeDataFn = [](ImGuiViewport* viewport, ImGuiPlatformImeData* data) -> void {
-        if (data->WantVisible)
-            g_App->SetInputScreenPosition(data->InputPos.x, data->InputPos.y);
-    };
+    if (g_App) {
+        ImGui::GetStyle().ScaleAllSizes(g_App->GetDpiRatio());
+        ImGui::GetIO().SetPlatformImeDataFn = [](ImGuiViewport* viewport, ImGuiPlatformImeData* data) -> void {
+            if (data->WantVisible && g_App)
+                g_App->SetInputScreenPosition(data->InputPos.x, data->InputPos.y);
+        };
+    }
 
     LoadFontTexture();
 
@@ -74,12 +77,12 @@ void GuiManager::Finalize() {
 }
 
 void GuiManager::LoadFontTexture() {
-    auto& io                = ImGui::GetIO();
-    io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+    auto& io = ImGui::GetIO();
+    // io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 
     /* for (const auto& font_file : std::filesystem::directory_iterator{"./Assets/Fonts"}) */ {
         ImFontConfig config;
-        config.SizePixels           = g_App->GetDpiRatio() * 18.0f;
+        config.SizePixels           = (g_App ? g_App->GetDpiRatio() : 1.0f) * 18.0f;
         config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
 
         m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./Assets/Fonts/Hasklig-Regular.otf"));
@@ -113,11 +116,13 @@ void GuiManager::LoadFontTexture() {
     int            width = 0, height = 0;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-    const uint32_t bitcount = 32;
-    const size_t   pitch    = width * bitcount / 8;
-    m_FontTexture           = std::make_shared<asset::Image>(width, height, 32, pitch, pitch * height);
-    uint8_t* p_texture      = m_FontTexture->GetData();
-    std::copy_n(reinterpret_cast<const uint8_t*>(pixels), m_FontTexture->GetDataSize(), p_texture);
+    const uint32_t bitcount       = 32;
+    const size_t   pitch          = width * bitcount / 8;
+    auto           texture_buffer = std::allocate_shared<resource::Image>(g_MemoryManager->GetAllocator<resource::Image>(), width, height, 32, pitch, pitch * height);
+
+    auto p_texture = texture_buffer->Buffer().GetData();
+    std::copy_n(reinterpret_cast<const std::byte*>(pixels), texture_buffer->Buffer().GetDataSize(), p_texture);
+    m_FontTexture = std::allocate_shared<resource::Texture>(g_MemoryManager->GetAllocator<resource::Texture>(), texture_buffer);
 }
 
 void GuiManager::MouseEvent() {

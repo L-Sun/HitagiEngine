@@ -197,10 +197,6 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
     std::pmr::unordered_map<aiMesh*, Mesh>                      meshes{alloc};
 
     auto covert_mesh = [&](const aiMesh* ai_mesh) -> Mesh {
-        // Mesh mesh;
-        // mesh.SetName(ai_mesh->mName.C_Str());
-        // // Set primitive type
-
         auto vertices = std::allocate_shared<VertexArray>(alloc, ai_mesh->mNumVertices);
 
         // Read Position
@@ -318,7 +314,9 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
         //     }
         // }
 
-        return {vertices, indices, material, primitive, 0, 0, 0, alloc};
+        Mesh mesh{vertices, indices, material, primitive, alloc};
+        mesh.SetName(ai_mesh->mName.C_Str());
+        return mesh;
     };
 
     for (size_t i = 0; i < ai_scene->mNumMeshes; i++) {

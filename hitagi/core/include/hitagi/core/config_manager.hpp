@@ -9,10 +9,11 @@ struct AppConfig {
     using allocator_type = std::pmr::polymorphic_allocator<>;
     AppConfig(allocator_type = {});
 
-    std::pmr::string title   = "Hitagi Engine";
-    std::pmr::string version = "v0.2.0";
-    std::uint32_t    width   = 1920;
-    std::uint32_t    height  = 1080;
+    std::pmr::string title     = "Hitagi Engine";
+    std::pmr::string version   = "v0.2.0";
+    std::uint32_t    width     = 1920;
+    std::uint32_t    height    = 1080;
+    double           dpi_ratio = 96.0f;
 };
 
 class ConfigManager : public IRuntimeModule {

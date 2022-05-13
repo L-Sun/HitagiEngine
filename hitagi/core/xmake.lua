@@ -34,4 +34,5 @@ target("thread_manager")
 
 target("core")
     set_kind("phony")
-    add_deps("memory_manager", "file_io_manager", "timer", "thread_manager")
+    add_deps("memory_manager", "file_io_manager", "config_manager", "timer", "thread_manager")
+    add_packages("spdlog", {public = true})

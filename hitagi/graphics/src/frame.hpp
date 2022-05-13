@@ -2,7 +2,6 @@
 #include "resource_manager.hpp"
 
 #include <hitagi/graphics/pipeline_state.hpp>
-#include <hitagi/resource/scene_node.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/math/vector.hpp>

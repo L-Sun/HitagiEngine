@@ -57,18 +57,15 @@ public:
         std::shared_ptr<VertexArray> vertices,
         std::shared_ptr<IndexArray>  indices,
         // TODO use default material
-        std::shared_ptr<MaterialInstance> material     = nullptr,
-        PrimitiveType                     type         = PrimitiveType::TriangleList,
-        std::size_t                       index_count  = 0,
-        std::size_t                       index_start  = 0,
-        std::size_t                       vertex_start = 0,
-        allocator_type                    alloc        = {});
+        std::shared_ptr<MaterialInstance> material = nullptr,
+        PrimitiveType                     type     = PrimitiveType::TriangleList,
+        allocator_type                    alloc    = {});
 
     Mesh(const Mesh& other, allocator_type alloc = {});
     Mesh& operator=(const Mesh&) = default;
 
     Mesh(Mesh&& other) = default;
-    Mesh& operator     =(Mesh&& rhs) noexcept;
+    Mesh& operator=(Mesh&& rhs) noexcept;
 
 private:
     std::shared_ptr<VertexArray>      m_Vertices;

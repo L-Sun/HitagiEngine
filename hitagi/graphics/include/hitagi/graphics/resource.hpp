@@ -1,7 +1,7 @@
 #pragma once
-#include "types.hpp"
-
+#include <hitagi/graphics/enums.hpp>
 #include <hitagi/math/vector.hpp>
+#include <hitagi/resource/enums.hpp>
 
 #include <memory>
 #include <unordered_map>
@@ -21,10 +21,10 @@ class Resource {
 public:
     Resource(std::string_view name, std::unique_ptr<backend::Resource> resource)
         : m_Name(name), m_Resource(std::move(resource)) {}
-    Resource(const Resource&) = delete;
+    Resource(const Resource&)            = delete;
     Resource& operator=(const Resource&) = delete;
     Resource(Resource&&)                 = default;
-    Resource& operator=(Resource&&) = default;
+    Resource& operator=(Resource&&)      = default;
 
     inline const std::string& GetName() const noexcept { return m_Name; }
 
@@ -62,7 +62,7 @@ public:
 struct MeshBuffer {
     std::unordered_map<std::string, std::shared_ptr<VertexBuffer>> vertices;
     std::shared_ptr<IndexBuffer>                                   indices;
-    PrimitiveType                                                  primitive;
+    resource::PrimitiveType                                        primitive;
     std::optional<size_t>                                          index_count;
     std::optional<size_t>                                          index_offset;
     std::optional<size_t>                                          vertex_offset;
