@@ -1,114 +1,143 @@
 #pragma once
+#include <hitagi/core/buffer.hpp>
 #include <hitagi/graphics/resource.hpp>
-#include <hitagi/graphics/shader_manager.hpp>
-#include <hitagi/graphics/types.hpp>
-
-#include <string>
-#include <optional>
-#include <cassert>
-#include <array>
-#include <set>
+#include <hitagi/graphics/enums.hpp>
+#include <hitagi/utils/private_build.hpp>
 
 namespace hitagi::graphics {
 class DriverAPI;
 
-struct InputLayout {
-    std::string           semantic_name;
-    unsigned              semantic_index;
-    Format                format;
-    unsigned              input_slot;
-    size_t                aligned_by_offset;
-    std::optional<size_t> instance_count;
-};
-
-class RootSignature : public Resource {
+struct RootSignatureDetial {
+public:
+    using allocator_type = std::pmr::polymorphic_allocator<>;
     struct Parameter {
-        std::string        name;
+        Parameter(allocator_type alloc = {}) : name(alloc) {}
+        std::pmr::string   name;
         ShaderVariableType type;
         unsigned           register_index;
         unsigned           space;
         ShaderVisibility   visibility;
     };
     struct StaticSamplerDescription {
-        std::string          name;
-        Sampler::Description desc;
-        unsigned             register_index;
-        unsigned             space;
-        ShaderVisibility     visibility;
+        StaticSamplerDescription(allocator_type alloc = {}) : name(alloc) {}
+        std::pmr::string name;
+        SamplerDesc      desc;
+        unsigned         register_index;
+        unsigned         space;
+        ShaderVisibility visibility;
     };
 
+    RootSignatureDetial(allocator_type alloc = {})
+        : parameter_table(alloc), static_sampler_descs(alloc) {}
+
+    std::pmr::vector<Parameter>                parameter_table;
+    std::pmr::vector<StaticSamplerDescription> static_sampler_descs;
+};
+
+class RootSignature : public Resource, private RootSignatureDetial, public utils::enable_private_allocate_shared_build<RootSignature> {
 public:
-    RootSignature(std::string_view name) : Resource(name, nullptr) {}
-    RootSignature(const RootSignature&)            = delete;
-    RootSignature& operator=(const RootSignature&) = delete;
-    RootSignature(RootSignature&&) noexcept;
-    RootSignature& operator=(RootSignature&&) noexcept;
+    using allocator_type = std::pmr::polymorphic_allocator<>;
 
-    RootSignature& Add(
-        std::string_view   name,
-        ShaderVariableType type,
-        unsigned           register_index,
-        unsigned           space,
-        ShaderVisibility   visibility = ShaderVisibility::All);
-    // TODO Sampler
-    RootSignature& AddStaticSampler(
-        std::string_view     name,
-        Sampler::Description desc,
-        unsigned             register_index,
-        unsigned             sapce,
-        ShaderVisibility     visibility = ShaderVisibility::All);
-    RootSignature& Create(DriverAPI& driver);
+    class Builder : private RootSignatureDetial {
+        friend class RootSignature;
 
-    inline auto& GetParametes() const noexcept { return m_ParameterTable; }
-    inline auto& GetStaticSamplerDescs() const noexcept { return m_StaticSamplerDescs; }
+    public:
+        Builder(allocator_type alloc = {}) : RootSignatureDetial(alloc), allocator(alloc) {}
+        Builder& Add(
+            std::string_view   name,
+            ShaderVariableType type,
+            unsigned           register_index,
+            unsigned           space,
+            ShaderVisibility   visibility = ShaderVisibility::All);
 
-    operator bool() const noexcept { return m_Created; }
+        // TODO Sampler
+        Builder& AddStaticSampler(
+            std::string_view name,
+            SamplerDesc      desc,
+            unsigned         register_index,
+            unsigned         space,
+            ShaderVisibility visibility = ShaderVisibility::All);
+
+        std::shared_ptr<RootSignature> Create(DriverAPI& driver);
+
+    private:
+        allocator_type allocator;
+    };
+
+    inline auto& GetParametes() const noexcept { return parameter_table; }
+    inline auto& GetStaticSamplerDescs() const noexcept { return static_sampler_descs; }
 
 protected:
-    bool                                  m_Created = false;
-    std::vector<Parameter>                m_ParameterTable;
-    std::vector<StaticSamplerDescription> m_StaticSamplerDescs;
+    RootSignature(const Builder&, allocator_type);
 };
 
-class PipelineState : public Resource {
+struct PipelineStateDetial {
+    using allocator_type = std::pmr::polymorphic_allocator<>;
+
+    struct InputLayout {
+        std::string_view      semantic_name;
+        unsigned              semantic_index;
+        Format                format;
+        unsigned              input_slot;
+        size_t                aligned_by_offset;
+        std::optional<size_t> instance_count;
+    };
+
+    PipelineStateDetial(allocator_type alloc = {})
+        : name(alloc),
+          vertex_shader(alloc),
+          pixel_shader(alloc),
+          input_layout(alloc) {}
+
+    std::pmr::string               name;
+    core::Buffer                   vertex_shader;
+    core::Buffer                   pixel_shader;
+    std::pmr::vector<InputLayout>  input_layout;
+    bool                           front_counter_clockwise = true;
+    std::shared_ptr<RootSignature> root_signature          = nullptr;
+    Format                         render_format           = Format::UNKNOWN;
+    Format                         depth_buffer_format     = Format::UNKNOWN;
+    resource::PrimitiveType        primitive_type          = resource::PrimitiveType::TriangleList;
+    BlendDescription               blend_state;
+    RasterizerDescription          rasterizer_state;
+};
+
+class PipelineState : public Resource, PipelineStateDetial, utils::enable_private_allocate_shared_build<PipelineState> {
 public:
-    PipelineState(std::string_view name) : Resource(name, nullptr) {}
+    using allocator_type = std::pmr::polymorphic_allocator<>;
 
-    PipelineState& SetVertexShader(std::shared_ptr<VertexShader> vs);
-    PipelineState& SetPixelShader(std::shared_ptr<PixelShader> ps);
-    PipelineState& SetInputLayout(const std::vector<InputLayout>& input_layout);
-    PipelineState& SetRootSignautre(std::shared_ptr<RootSignature> sig);
-    PipelineState& SetRenderFormat(Format format);
-    PipelineState& SetDepthBufferFormat(Format format);
-    PipelineState& SetPrimitiveType(resource::PrimitiveType type);
-    PipelineState& SetRasterizerState(RasterizerDescription desc);
-    PipelineState& SetBlendState(BlendDescription desc);
-    void           Create(DriverAPI& driver);
+    class Builder : private PipelineStateDetial {
+        friend class PipelineState;
 
-    inline const std::string&              GetName() const noexcept { return m_Name; }
-    inline std::shared_ptr<VertexShader>   GetVS() const noexcept { return m_Vs; }
-    inline std::shared_ptr<PixelShader>    GetPS() const noexcept { return m_Ps; }
-    inline const std::vector<InputLayout>& GetInputLayout() const noexcept { return m_InputLayout; }
-    inline std::shared_ptr<RootSignature>  GetRootSignature() const noexcept { return m_RootSignature; }
-    inline Format                          GetRenderTargetFormat() const noexcept { return m_RenderFormat; }
-    inline Format                          GetDepthBufferFormat() const noexcept { return m_DepthBufferFormat; }
-    inline resource::PrimitiveType         GetPrimitiveType() const noexcept { return m_PrimitiveType; }
-    inline BlendDescription                GetBlendState() const noexcept { return m_BlendState; }
-    inline RasterizerDescription           GetRasterizerState() const noexcept { return m_RasterizerState; }
-    inline bool                            IsFontCounterClockwise() const noexcept { return m_FrontCounterClockwise; }
+    public:
+        Builder(allocator_type alloc = {}) : PipelineStateDetial(alloc), allocator(alloc) {}
 
-private:
-    bool                           m_Created = false;
-    std::shared_ptr<VertexShader>  m_Vs;
-    std::shared_ptr<PixelShader>   m_Ps;
-    std::vector<InputLayout>       m_InputLayout;
-    bool                           m_FrontCounterClockwise = true;
-    std::shared_ptr<RootSignature> m_RootSignature         = nullptr;
-    Format                         m_RenderFormat          = Format::UNKNOWN;
-    Format                         m_DepthBufferFormat     = Format::UNKNOWN;
-    resource::PrimitiveType        m_PrimitiveType         = resource::PrimitiveType::TriangleList;
-    BlendDescription               m_BlendState;
-    RasterizerDescription          m_RasterizerState;
+        Builder& SetName(std::string_view name);
+        Builder& SetVertexShader(core::Buffer vs);
+        Builder& SetPixelShader(core::Buffer ps);
+        template <std::size_t N>
+        Builder& SetInputLayout(const std::array<InputLayout, N>& input_layout);
+        Builder& SetRootSignautre(std::shared_ptr<RootSignature> sig);
+        Builder& SetRenderFormat(Format format);
+        Builder& SetDepthBufferFormat(Format format);
+        Builder& SetPrimitiveType(resource::PrimitiveType type);
+        Builder& SetRasterizerState(RasterizerDescription desc);
+        Builder& SetBlendState(BlendDescription desc);
+
+        std::shared_ptr<PipelineState> Build(DriverAPI& driver);
+
+    private:
+        allocator_type allocator;
+    };
+
+protected:
+    PipelineState(const Builder& builder, allocator_type alloc);
 };
+
+template <std::size_t N>
+auto PipelineState::Builder::SetInputLayout(const std::array<InputLayout, N>& data) -> Builder& {
+    std::copy(data.begin(), data.end(), input_layout.begin());
+    return *this;
+}
 
 }  // namespace hitagi::graphics

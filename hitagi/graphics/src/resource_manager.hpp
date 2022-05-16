@@ -1,31 +1,48 @@
 #pragma once
 #include <hitagi/graphics/driver_api.hpp>
-#include <hitagi/resource/geometry.hpp>
-#include <hitagi/gui/gui_manager.hpp>
+#include <hitagi/graphics/resource.hpp>
+#include <hitagi/resource/mesh.hpp>
+#include <hitagi/resource/texture.hpp>
+#include <hitagi/resource/image.hpp>
 
 namespace hitagi::graphics {
 class ResourceManager {
 public:
     ResourceManager(DriverAPI& driver) : m_Driver(driver) {}
 
-    // Get mesh buffer from gpu. It will create new buffer in gpu if the mesh is not in gpu.
-    std::shared_ptr<MeshBuffer>    GetMeshBuffer(const asset::Mesh& mesh);
-    std::shared_ptr<TextureBuffer> GetTextureBuffer(std::shared_ptr<asset::Image> image);
-    std::shared_ptr<Sampler>       GetSampler(std::string_view name);
-    std::shared_ptr<TextureBuffer> GetDefaultTextureBuffer(Format format);
+    // prepare vertex buffer in gpu. It will create new buffer in gpu if the vertices is not in gpu.
+    void PrepareVertexBuffer(const std::shared_ptr<resource::VertexArray>& vertices);
 
-    using ImGuiMeshBuilder = std::function<void(std::shared_ptr<hitagi::graphics::MeshBuffer>, ImDrawList*, const ImDrawCmd&)>;
-    void MakeImGuiMesh(ImDrawData* data, ImGuiMeshBuilder&& builder);
+    // prepare index buffer in gpu. It will create new buffer in gpu if the indices is not in gpu.
+    void PrepareIndexBuffer(const std::shared_ptr<resource::IndexArray>& indices);
+
+    // prepare texture buffer in gpu. It will create new buffer in gpu if the textrue is not in gpu.
+    void PrepareTextureBuffer(const std::shared_ptr<resource::Texture>& texture);
+
+    // this function will prepare a constant buffer for storing all parameters from material instance
+    void PrepareMaterialParameterBuffer(const std::shared_ptr<resource::Material>& material);
+
+    // this function will prepare a pipeline state object in gpu.
+    void PreparePipeline(const std::shared_ptr<resource::Material>& material);
+
+    // TODO Sampler
+    // void PrepareSampler();
+
+    std::shared_ptr<VertexBuffer>   GetVertexBuffer(xg::Guid vertex_array_id) const noexcept;
+    std::shared_ptr<IndexBuffer>    GetIndexBuffer(xg::Guid index_array_id) const noexcept;
+    std::shared_ptr<TextureBuffer>  GetTextureBuffer(xg::Guid texture_id) const noexcept;
+    std::shared_ptr<Sampler>        GetSampler(xg::Guid sampler_id) const noexcept;
+    std::shared_ptr<ConstantBuffer> GetMaterialParameterBuffer(xg::Guid material_id) const noexcept;
+
+    std::shared_ptr<PipelineState> GetPipelineState(xg::Guid material_id) const noexcept;
 
 private:
-    DriverAPI&                                                   m_Driver;
-    std::unordered_map<xg::Guid, std::shared_ptr<MeshBuffer>>    m_MeshBuffer;
-    std::unordered_map<xg::Guid, std::shared_ptr<TextureBuffer>> m_TextureBuffer;
-    std::unordered_map<std::string, std::shared_ptr<Sampler>>    m_Samplers;
-
-    std::unordered_map<Format, std::shared_ptr<TextureBuffer>> m_DefaultTextureBuffer;
-
-    std::shared_ptr<VertexBuffer> m_ImGuiVertexBuffer;
-    std::shared_ptr<IndexBuffer>  m_ImGuiIndexBuffer;
+    DriverAPI&                                                    m_Driver;
+    std::unordered_map<xg::Guid, std::shared_ptr<VertexBuffer>>   m_VertexBuffer;
+    std::unordered_map<xg::Guid, std::shared_ptr<IndexBuffer>>    m_IndexBuffer;
+    std::unordered_map<xg::Guid, std::shared_ptr<TextureBuffer>>  m_TextureBuffer;
+    std::unordered_map<xg::Guid, std::shared_ptr<Sampler>>        m_Samplers;
+    std::unordered_map<xg::Guid, std::shared_ptr<ConstantBuffer>> m_MaterialParameterBuffer;
 };
+
 }  // namespace hitagi::graphics

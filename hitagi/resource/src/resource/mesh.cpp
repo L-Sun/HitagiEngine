@@ -10,7 +10,8 @@ using namespace hitagi::math;
 namespace hitagi::resource {
 
 VertexArray::VertexArray(std::size_t vertex_count, allocator_type alloc)
-    : m_VertexCount(vertex_count),
+    : SceneObject(alloc),
+      m_VertexCount(vertex_count),
       m_Buffers(
           utils::create_array_inplcae<
               core::Buffer,
@@ -22,7 +23,8 @@ bool VertexArray::IsEnable(VertexAttribute attr) const {
 }
 
 IndexArray::IndexArray(std::size_t index_count, IndexType type, allocator_type alloc)
-    : m_IndexCount(index_count),
+    : SceneObject(alloc),
+      m_IndexCount(index_count),
       m_IndexType(type),
       m_Buffer(index_count * get_index_type_size(type), alloc) {
 }

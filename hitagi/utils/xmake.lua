@@ -8,7 +8,7 @@ target("utils")
         "include/hitagi/utils/private_build.hpp"
     )
     add_includedirs("include", {public = true})
-    add_packages("fmt", {public = true})
+    add_packages("fmt", "magic_enum", {public = true})
 
 target("test_utils")
     set_kind("headeronly")

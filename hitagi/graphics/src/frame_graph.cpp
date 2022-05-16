@@ -14,8 +14,11 @@ FrameHandle PassNode::Write(FrameGraph& fg, const FrameHandle output) {
     if (writes.contains(output)) return output;
     ResourceNode& old_node = fg.m_ResourceNodes[output];
     // Create new resource node
-    FrameHandle ret = fg.m_ResourceNodes.size();
-    fg.m_ResourceNodes.emplace_back(old_node.name, old_node.resource, this, old_node.version + 1);
+    FrameHandle ret      = fg.m_ResourceNodes.size();
+    auto&       new_node = fg.m_ResourceNodes.emplace_back(old_node.name, old_node.resource);
+    new_node.writer      = this;
+    new_node.version     = old_node.version + 1;
+
     writes.emplace(ret);
     return ret;
 }
@@ -32,14 +35,14 @@ void FrameGraph::Execute(DriverAPI& driver) {
     for (auto&& [id, desc] : m_InnerResourcesDesc) {
         m_Resources[id] = std::visit(
             utils::Overloaded{
-                [&](const TextureBuffer::Description& desc) -> std::shared_ptr<Resource> {
-                    return driver.CreateTextureBuffer("", desc);
+                [&, id = id](const TextureBufferDesc& desc) -> std::shared_ptr<Resource> {
+                    return driver.CreateTextureBuffer(fmt::format("FrameGraph-texture-{}", id), desc);
                 },
-                [&](const DepthBuffer::Description& desc) -> std::shared_ptr<Resource> {
-                    return driver.CreateDepthBuffer("", desc);
+                [&, id = id](const DepthBufferDesc& desc) -> std::shared_ptr<Resource> {
+                    return driver.CreateDepthBuffer(fmt::format("FrameGraph-depth-buffer-{}", id), desc);
                 },
-                [&](const RenderTarget::Description& desc) -> std::shared_ptr<Resource> {
-                    return driver.CreateRenderTarget("", desc);
+                [&, id = id](const RenderTargetDesc& desc) -> std::shared_ptr<Resource> {
+                    return driver.CreateRenderTarget(fmt::format("FrameGraph-render-target-{}", id), desc);
                 },
             },
             desc);
@@ -53,12 +56,9 @@ void FrameGraph::Execute(DriverAPI& driver) {
 }
 
 void FrameGraph::Retire(uint64_t fence_value, DriverAPI& driver) noexcept {
-    decltype(m_Resources) wait_retire_resources;
     for (const auto& [id, desc] : m_InnerResourcesDesc) {
-        wait_retire_resources.emplace_back(std::move(m_Resources.at(id)));
+        driver.RetireResource(m_Resources.at(id), fence_value);
     }
-
-    driver.RetireResources(std::move(wait_retire_resources), fence_value);
     m_Retired = true;
 }
 
@@ -67,12 +67,12 @@ FrameHandle FrameGraph::Create(std::string_view name, Desc desc) {
     FrameResourceId id     = m_Resources.size();
     FrameHandle     handle = m_ResourceNodes.size();
     m_Resources.emplace_back(nullptr);
-    m_InnerResourcesDesc.emplace(id, std::move(desc));
+    m_InnerResourcesDesc.emplace(id, desc);
     m_ResourceNodes.emplace_back(name, id);
     return handle;
 }
 
-void FrameGraph::Present(FrameHandle render_target, std::shared_ptr<hitagi::graphics::IGraphicsCommandContext> context) {
+void FrameGraph::Present(FrameHandle render_target, const std::shared_ptr<hitagi::graphics::IGraphicsCommandContext>& context) {
     struct PassData {
         FrameHandle output;
     };
@@ -83,8 +83,7 @@ void FrameGraph::Present(FrameHandle render_target, std::shared_ptr<hitagi::grap
             builder.SideEffect();
         },
         [=](const ResourceHelper& helper, PassData& data) {
-            auto& rt = helper.Get<RenderTarget>(data.output);
-            context->Present(rt);
+            context->Present(helper.Get<RenderTarget>(data.output));
         });
 }
 

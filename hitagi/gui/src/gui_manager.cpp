@@ -7,6 +7,7 @@
 #include <hitagi/hid/input_manager.hpp>
 #include <hitagi/application.hpp>
 
+#include <imgui_freetype.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -77,8 +78,8 @@ void GuiManager::Finalize() {
 }
 
 void GuiManager::LoadFontTexture() {
-    auto& io = ImGui::GetIO();
-    // io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+    auto& io                = ImGui::GetIO();
+    io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 
     /* for (const auto& font_file : std::filesystem::directory_iterator{"./Assets/Fonts"}) */ {
         ImFontConfig config;

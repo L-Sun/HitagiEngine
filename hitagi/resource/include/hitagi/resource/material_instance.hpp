@@ -13,12 +13,14 @@ class MaterialInstance : public SceneObject {
     friend class Material;
 
 public:
-    MaterialInstance(allocator_type alloc = {}) : SceneObject(alloc), m_Parameters(alloc), m_Textures(alloc) {}
+    MaterialInstance(const std::shared_ptr<Material>& material, allocator_type alloc = {});
     MaterialInstance(const MaterialInstance& other, allocator_type alloc = {});
     MaterialInstance(MaterialInstance&&) noexcept = default;
 
-    MaterialInstance& operator=(const MaterialInstance&)     = default;
+    MaterialInstance& operator=(const MaterialInstance&);
     MaterialInstance& operator=(MaterialInstance&&) noexcept = default;
+
+    ~MaterialInstance();
 
     template <MaterialParametric T>
     MaterialInstance& SetParameter(std::string_view name, const T& value) noexcept;
@@ -38,6 +40,10 @@ public:
     std::shared_ptr<Texture> GetTexture(std::string_view name) const noexcept;
 
     inline auto GetMaterial() const noexcept { return m_Material; }
+
+    inline auto& GetParameterBuffer() const noexcept { return m_Parameters; }
+
+    inline auto& GetTextures() const noexcept { return m_Textures; }
 
 private:
     template <typename T>

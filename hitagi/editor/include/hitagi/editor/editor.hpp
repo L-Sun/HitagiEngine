@@ -19,8 +19,8 @@ public:
     void SceneExplorer();
 
 private:
-    static std::string GenName(std::string_view name, std::shared_ptr<asset::SceneObject> obj);
-    static std::string GenName(std::string_view name, std::shared_ptr<asset::SceneNode> node);
+    static std::string GenName(std::string_view name, std::shared_ptr<resource::SceneObject> obj);
+    static std::string GenName(std::string_view name, std::shared_ptr<resource::SceneNode> node);
 
     std::string m_OpenFileExt;
 };

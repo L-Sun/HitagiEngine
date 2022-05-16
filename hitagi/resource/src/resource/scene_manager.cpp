@@ -8,7 +8,7 @@
 using namespace hitagi::math;
 
 namespace hitagi {
-std::unique_ptr<asset::SceneManager> g_SceneManager = std::make_unique<asset::SceneManager>();
+std::unique_ptr<resource::SceneManager> g_SceneManager = std::make_unique<resource::SceneManager>();
 }
 
 namespace hitagi::asset {

@@ -2,12 +2,9 @@
 #include "resource_manager.hpp"
 
 #include <hitagi/graphics/pipeline_state.hpp>
-#include <hitagi/debugger/debug_manager.hpp>
-#include <hitagi/gui/gui_manager.hpp>
-#include <hitagi/math/vector.hpp>
-#include <hitagi/math/matrix.hpp>
-
-#include <vector>
+#include <hitagi/graphics/renderable.hpp>
+#include <hitagi/resource/camera.hpp>
+#include <hitagi/resource/light.hpp>
 
 namespace hitagi::graphics {
 class DriverAPI;
@@ -26,53 +23,27 @@ class Frame {
         math::vec4f light_pos_in_view;
         math::vec4f light_intensity;
     };
+
     struct ObjectConstant {
-        math::mat4f transform;
-        math::vec4f ambient;
-        math::vec4f diffuse;
-        math::vec4f emission;
-        math::vec4f specular;
-        float       specular_power;
-    };
-
-    struct DrawItem {
-        const PipelineState&           pipeline;
-        size_t                         constant_offset;
-        std::shared_ptr<MeshBuffer>    mesh;
-        std::shared_ptr<TextureBuffer> ambient;
-        std::shared_ptr<TextureBuffer> diffuse;
-        std::shared_ptr<TextureBuffer> emission;
-        std::shared_ptr<TextureBuffer> specular;
-        std::shared_ptr<TextureBuffer> specular_power;
-    };
-
-    struct GuiDrawInformation {
-        const PipelineState&                     pipeline;
-        std::vector<std::shared_ptr<MeshBuffer>> meshes;
-        std::vector<std::array<uint32_t, 4>>     scissor_rects;
-        std::shared_ptr<TextureBuffer>           font_texture;
-        size_t                                   constant_offset;
-    };
-
-    struct DebugDrawItem {
-        const PipelineState&        pipeline;
-        std::shared_ptr<MeshBuffer> mesh;
-        size_t                      constant_offset;
+        math::mat4f word_transform;
+        math::mat4f object_transform;
+        math::mat4f parent_transform;
+        math::vec4f translation;
+        math::quatf rotation;
+        math::vec4f scaling;
     };
 
 public:
-    Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index);
+    using allocator_type = std::pmr::polymorphic_allocator<>;
+    Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index, allocator_type alloc = {});
 
     void SetFenceValue(uint64_t fence_value) { m_FenceValue = fence_value; }
     // TODO generate pipeline state object from scene node infomation
-    void AddGeometries(const std::vector<std::shared_ptr<asset::GeometryNode>>& geometries, const PipelineState& pso);
-    void AddDebugPrimitives(const std::vector<debugger::DebugPrimitive>& primitives, const PipelineState& pso);
-    void PrepareImGuiData(ImDrawData* data, std::shared_ptr<asset::Image> font_texture, const PipelineState& pso);
-    void SetCamera(asset::CameraNode& camera);
-    void SetLight(asset::LightNode& light);
+    void AddRenderables(std::pmr::vector<Renderable> renderables);
+
+    void SetCamera(std::shared_ptr<resource::Camera> camera);
+    void SetLight(std::shared_ptr<resource::Light> light);
     void Draw(IGraphicsCommandContext* context);
-    void GuiDraw(IGraphicsCommandContext* context);
-    void DebugDraw(IGraphicsCommandContext* context);
 
     void ResetState();
 
@@ -80,19 +51,16 @@ public:
     inline auto GetRenderTarget() noexcept { return m_Output; }
 
 private:
-    void PopulateMaterial(const asset::Material::Color& color, math::vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
-    void PopulateMaterial(const asset::Material::SingleValue& color, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest);
+    void PrepareData();
 
     DriverAPI&       m_Driver;
     ResourceManager& m_ResMgr;
     const size_t     m_FrameIndex;
     uint64_t         m_FenceValue = 0;
 
-    FrameConstant                       m_FrameConstant{};
-    std::vector<DrawItem>               m_DrawItems;
-    std::vector<DebugDrawItem>          m_DebugItems;
-    std::shared_ptr<GuiDrawInformation> m_GuiDrawInfo;
-    std::shared_ptr<RenderTarget>       m_Output;
+    FrameConstant                 m_FrameConstant{};
+    std::pmr::vector<Renderable>  m_Renderables;
+    std::shared_ptr<RenderTarget> m_Output;
 
     // the constant data used among the frame, including camera, light, etc.
     // TODO object constant buffer layout depending on different object

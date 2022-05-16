@@ -1,8 +1,9 @@
 #pragma once
-#include "resource.hpp"
-#include "types.hpp"
-#include "pipeline_state.hpp"
-#include "command_context.hpp"
+#include <hitagi/resource/mesh.hpp>
+#include <hitagi/graphics/enums.hpp>
+#include <hitagi/graphics/resource.hpp>
+#include <hitagi/graphics/pipeline_state.hpp>
+#include <hitagi/graphics/command_context.hpp>
 
 #include <vector>
 
@@ -20,29 +21,32 @@ public:
     virtual void Present(size_t frame_index) = 0;
 
     // Buffer
-    virtual void                            CreateSwapChain(uint32_t width, uint32_t height, unsigned frame_count, Format format, void* window)                       = 0;
-    virtual std::shared_ptr<RenderTarget>   CreateRenderTarget(std::string_view name, const RenderTarget::Description& desc)                                          = 0;
-    virtual std::shared_ptr<RenderTarget>   CreateRenderFromSwapChain(size_t frame_index)                                                                             = 0;
-    virtual std::shared_ptr<VertexBuffer>   CreateVertexBuffer(std::string_view name, size_t vertex_count, size_t vertex_size, const uint8_t* initial_data = nullptr) = 0;
-    virtual std::shared_ptr<IndexBuffer>    CreateIndexBuffer(std::string_view name, size_t index_count, size_t index_size, const uint8_t* initial_data = nullptr)    = 0;
-    virtual std::shared_ptr<ConstantBuffer> CreateConstantBuffer(std::string_view name, size_t num_elements, size_t element_size)                                     = 0;
-    virtual std::shared_ptr<TextureBuffer>  CreateTextureBuffer(std::string_view name, const TextureBuffer::Description& desc)                                        = 0;
-    virtual std::shared_ptr<DepthBuffer>    CreateDepthBuffer(std::string_view name, const DepthBuffer::Description& desc)                                            = 0;
+    virtual void                            CreateSwapChain(uint32_t width, uint32_t height, unsigned frame_count, Format format, void* window) = 0;
+    virtual std::shared_ptr<RenderTarget>   CreateRenderTarget(std::string_view name, const RenderTargetDesc& desc)                             = 0;
+    virtual std::shared_ptr<RenderTarget>   CreateRenderFromSwapChain(size_t frame_index)                                                       = 0;
+    virtual std::shared_ptr<VertexBuffer>   CreateVertexBuffer(std::shared_ptr<resource::VertexArray> vertices)                                 = 0;
+    virtual std::shared_ptr<IndexBuffer>    CreateIndexBuffer(std::shared_ptr<resource::IndexArray> indices)                                    = 0;
+    virtual std::shared_ptr<TextureBuffer>  CreateTextureBuffer(std::shared_ptr<resource::Texture>)                                             = 0;
+    virtual std::shared_ptr<ConstantBuffer> CreateConstantBuffer(std::string_view name, size_t num_elements, size_t element_size)               = 0;
+    virtual std::shared_ptr<DepthBuffer>    CreateDepthBuffer(std::string_view name, const DepthBufferDesc& desc)                               = 0;
+
+    // Temp buffer, used by frame graph and so on.
+    virtual std::shared_ptr<TextureBuffer> CreateTextureBuffer(std::string_view name, TextureBufferDesc desc) = 0;
 
     // Will return current back buffer index
     virtual size_t ResizeSwapChain(uint32_t width, uint32_t height) = 0;
 
-    virtual void UpdateConstantBuffer(std::shared_ptr<ConstantBuffer> buffer, size_t offset, const uint8_t* src, size_t size) = 0;
-    virtual void ResizeConstantBuffer(std::shared_ptr<ConstantBuffer> buffer, size_t new_num_elements)                        = 0;
+    virtual void UpdateConstantBuffer(std::shared_ptr<ConstantBuffer> buffer, size_t offset, const std::byte* src, size_t size) = 0;
+    virtual void ResizeConstantBuffer(std::shared_ptr<ConstantBuffer> buffer, size_t new_num_elements)                          = 0;
 
     // resource will relase after fence value and the ref count is zero!
-    virtual void RetireResources(std::vector<std::shared_ptr<Resource>> resources, uint64_t fence_value) = 0;
+    virtual void RetireResource(std::shared_ptr<Resource> resource, uint64_t fence_value) = 0;
     // Sampler
-    virtual std::shared_ptr<Sampler> CreateSampler(std::string_view name, const graphics::Sampler::Description& desc) = 0;
+    virtual std::shared_ptr<Sampler> CreateSampler(std::string_view name, const SamplerDesc& desc) = 0;
 
     // Pipeline
-    virtual std::unique_ptr<backend::Resource> CreateRootSignature(const RootSignature& rootsignature) = 0;
-    virtual std::unique_ptr<backend::Resource> CreatePipelineState(const PipelineState& pso)           = 0;
+    virtual void CreateRootSignature(std::shared_ptr<RootSignature> rootsignature) = 0;
+    virtual void CreatePipelineState(std::shared_ptr<PipelineState> pso)           = 0;
 
     // CommandList
     virtual std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() = 0;

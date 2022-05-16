@@ -1,8 +1,7 @@
 #pragma once
-#include "driver_api.hpp"
-#include "types.hpp"
+#include <hitagi/graphics/driver_api.hpp>
+#include <hitagi/graphics/enums.hpp>
 #include "pipeline_state.hpp"
-#include "shader_manager.hpp"
 
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/resource/asset_manager.hpp>
@@ -19,7 +18,7 @@ public:
 
 protected:
     // TODO change the parameter to View, if multiple view port is finished
-    void   Render(const asset::Scene& scene);
+    void   Render(const resource::Scene& scene);
     void   OnSizeChanged();
     Frame* GetBcakFrameForRendering();
 
@@ -35,7 +34,6 @@ protected:
     std::unique_ptr<PipelineState> m_ImGuiPSO;
     std::unique_ptr<PipelineState> m_DebugPSO;
     std::unique_ptr<PipelineState> m_DebugDepthDisabledPSO;
-    ShaderManager                  m_ShaderManager;
 
     // TODO multiple RenderTarget is need if the application has multiple view port
     // if the class View is impletement, RenderTarget will be a member variable of View

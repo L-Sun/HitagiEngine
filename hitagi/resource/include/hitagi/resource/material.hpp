@@ -13,11 +13,11 @@
 
 namespace hitagi::resource {
 
-class MaterialInstance;
-
 class Material : public SceneObject,
                  public utils::enable_private_allocate_shared_build<Material>,
                  public std::enable_shared_from_this<Material> {
+    friend class MaterialInstance;
+
 public:
     struct ParameterInfo {
         std::pmr::string name;
@@ -57,6 +57,7 @@ public:
     };
 
     std::shared_ptr<MaterialInstance> CreateInstance() const noexcept;
+    std::size_t                       GetNumInstances() const noexcept;
 
     inline MaterialType GetType() const noexcept { return m_Type; }
 
@@ -66,8 +67,7 @@ public:
     bool IsValidTextureParameter(std::string_view name) const noexcept;
 
     std::optional<ParameterInfo> GetParameterInfo(std::string_view name) const noexcept;
-
-    const MaterialInstance& GetDefaultMaterialInstance() const noexcept;
+    std::size_t                  GetParametersSize() const noexcept;
 
 protected:
     Material(const Builder&, allocator_type alloc);
@@ -81,6 +81,7 @@ private:
     std::pmr::unordered_set<std::pmr::string> m_ValidTextures;
 
     std::shared_ptr<MaterialInstance> m_DefaultInstance = nullptr;
+    std::size_t                       m_NumInstances    = 0;
 };
 
 template <MaterialParametric T>

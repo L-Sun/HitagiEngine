@@ -4,10 +4,7 @@
 #include <hitagi/graphics/driver_api.hpp>
 #include <hitagi/graphics/resource.hpp>
 
-#include <vector>
-#include <functional>
-#include <variant>
-#include <unordered_set>
+#include <set>
 
 namespace hitagi::graphics {
 
@@ -17,12 +14,14 @@ struct PassNode;
 class FrameGraph;
 
 struct ResourceNode {
-    ResourceNode(std::string_view name, FrameResourceId resource, PassNode* writer = nullptr, unsigned version = 0)
-        : name(std::string(name)), resource(resource), writer(writer), version(version) {}
-    std::string     name;
-    FrameResourceId resource;
-    PassNode*       writer;
-    unsigned        version;
+    using allocator_type = std::pmr::polymorphic_allocator<>;
+
+    ResourceNode(std::string_view name, FrameResourceId resource, allocator_type alloc = {})
+        : name(name, alloc), resource(resource) {}
+    std::pmr::string name;
+    FrameResourceId  resource;
+    PassNode*        writer  = nullptr;
+    unsigned         version = 0;
 };
 struct PassNode {
     PassNode(std::string_view name, PassExecutor* executor) : name(name), executor(executor) {}
@@ -33,8 +32,8 @@ struct PassNode {
     std::string name;
     bool        side_effect = false;
     // index of the resource node in frame graph
-    std::set<FrameHandle> reads;
-    std::set<FrameHandle> writes;
+    std::pmr::set<FrameHandle> reads;
+    std::pmr::set<FrameHandle> writes;
 
     std::unique_ptr<PassExecutor> executor;
 };
@@ -44,6 +43,8 @@ class FrameGraph {
     friend class ResourceHelper;
 
 public:
+    using allocator_type = std::pmr::polymorphic_allocator<>;
+
     class Builder {
         friend class FrameGraph;
 
@@ -60,7 +61,12 @@ public:
         PassNode&   m_Node;
     };
 
-    FrameGraph() = default;
+    FrameGraph(allocator_type alloc = {})
+        : m_ResourceNodes(alloc),
+          m_PassNodes(alloc),
+          m_Resources(alloc),
+          m_InnerResourcesDesc(alloc) {}
+
     ~FrameGraph() { assert(m_Retired && "Frame graph must set a fence to retire its resources."); }
 
     template <typename PassData, typename SetupFunc, typename ExecuteFunc>
@@ -73,7 +79,7 @@ public:
         return *pass;
     }
 
-    FrameHandle Import(std::shared_ptr<RenderTarget> render_target) {
+    FrameHandle Import(const std::shared_ptr<RenderTarget>& render_target) {
         FrameResourceId id     = m_Resources.size();
         FrameHandle     handle = m_ResourceNodes.size();
         m_Resources.emplace_back(render_target);
@@ -81,26 +87,26 @@ public:
         return handle;
     }
 
-    void Present(FrameHandle render_target, std::shared_ptr<hitagi::graphics::IGraphicsCommandContext> context);
+    void Present(FrameHandle render_target, const std::shared_ptr<hitagi::graphics::IGraphicsCommandContext>& contex);
 
     void Compile();
     void Execute(DriverAPI& driver);
     void Retire(uint64_t fence_value, DriverAPI& driver) noexcept;
 
 private:
-    using Desc = std::variant<DepthBuffer::Description,
-                              TextureBuffer::Description,
-                              RenderTarget::Description>;
+    using Desc = std::variant<DepthBufferDesc,
+                              TextureBufferDesc,
+                              RenderTargetDesc>;
 
     FrameHandle Create(std::string_view name, Desc desc);
 
     bool m_Retired = false;
 
-    std::vector<ResourceNode> m_ResourceNodes;
-    std::vector<PassNode>     m_PassNodes;
+    std::pmr::vector<ResourceNode> m_ResourceNodes;
+    std::pmr::vector<PassNode>     m_PassNodes;
 
-    std::vector<std::shared_ptr<Resource>>    m_Resources;
-    std::unordered_map<FrameResourceId, Desc> m_InnerResourcesDesc;
+    std::pmr::vector<std::shared_ptr<Resource>>    m_Resources;
+    std::pmr::unordered_map<FrameResourceId, Desc> m_InnerResourcesDesc;
 };
 
 class ResourceHelper {
@@ -108,12 +114,12 @@ class ResourceHelper {
 
 public:
     template <typename T>
-    T& Get(FrameHandle handle) const {
+    std::shared_ptr<T> Get(FrameHandle handle) const {
         assert((m_Node.reads.contains(handle) || m_Node.writes.contains(handle)) && "This pass node do not operate the handle in graph!");
         auto id     = m_Fg.m_ResourceNodes[handle].resource;
         auto result = m_Fg.m_Resources[id];
         assert(result != nullptr && "Access a invalid resource in excution phase, which may be pruned in compile phase!");
-        return static_cast<T&>(*result);
+        return std::static_pointer_cast<T>(result);
     }
 
 private:

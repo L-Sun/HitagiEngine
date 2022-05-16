@@ -73,6 +73,10 @@ auto Material::CreateInstance() const noexcept -> std::shared_ptr<MaterialInstan
     return std::allocate_shared<MaterialInstance>(m_Allocator, *m_DefaultInstance);
 }
 
+std::size_t Material::GetNumInstances() const noexcept {
+    return m_NumInstances;
+}
+
 bool Material::IsValidTextureParameter(std::string_view name) const noexcept {
     return m_ValidTextures.count(std::pmr::string(name));
 }
@@ -89,8 +93,8 @@ auto Material::GetParameterInfo(std::string_view name) const noexcept -> std::op
     return std::nullopt;
 }
 
-const MaterialInstance& Material::GetDefaultMaterialInstance() const noexcept {
-    return *m_DefaultInstance.get();
+std::size_t Material::GetParametersSize() const noexcept {
+    return m_ParametersInfo.back().size + m_ParametersInfo.back().offset;
 }
 
 void Material::InitDefaultMaterialInstance() {

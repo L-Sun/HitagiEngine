@@ -12,14 +12,14 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    std::array<math::vec3f, 2> GetAABB(asset::GeometryNode& node) final;
-    void                       CreateRigidBody(asset::GeometryNode& node) final;
-    void                       DeleteRigidBody(asset::GeometryNode& node) final;
+    std::array<math::vec3f, 2> GetAABB(resource::Geometry& node) final;
+    void                       CreateRigidBody(resource::Geometry& node) final;
+    void                       DeleteRigidBody(resource::Geometry& node) final;
 
-    math::mat4f GetRigidBodyTransform(asset::GeometryNode& node) final;
-    void        UpdateRigidBodyTransform(asset::GeometryNode& node) final;
+    math::mat4f GetRigidBodyTransform(resource::Geometry& node) final;
+    void        UpdateRigidBodyTransform(resource::Geometry& node) final;
 
-    void ApplyCentralForce(asset::GeometryNode& node, math::vec3f force) final;
+    void ApplyCentralForce(resource::Geometry& node, math::vec3f force) final;
 
 private:
     std::unordered_map<std::string, RigidBody> m_RigidBodies;

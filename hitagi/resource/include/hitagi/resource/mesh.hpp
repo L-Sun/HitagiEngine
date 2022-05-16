@@ -1,7 +1,7 @@
 #pragma once
 #include <hitagi/resource/scene_object.hpp>
 #include <hitagi/resource/enums.hpp>
-#include <hitagi/resource/material.hpp>
+#include <hitagi/resource/material_instance.hpp>
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/utils/private_build.hpp>
 
@@ -11,7 +11,7 @@
 
 namespace hitagi::resource {
 
-class VertexArray {
+class VertexArray : public SceneObject {
 public:
     using allocator_type = std::pmr::polymorphic_allocator<>;
 
@@ -31,7 +31,7 @@ private:
     std::array<core::Buffer, magic_enum::enum_count<VertexAttribute>()> m_Buffers;
 };
 
-class IndexArray : utils::enable_private_allocate_shared_build<IndexArray> {
+class IndexArray : public SceneObject {
 public:
     using allocator_type = std::pmr::polymorphic_allocator<>;
 
@@ -72,9 +72,6 @@ private:
     std::shared_ptr<IndexArray>       m_Indices;
     std::shared_ptr<MaterialInstance> m_Material;
     PrimitiveType                     m_PrimitiveType;
-    std::size_t                       m_IndexCount;
-    std::size_t                       m_IndexStart;
-    std::size_t                       m_VertexStart;
 };
 
 template <VertexAttribute Attr>

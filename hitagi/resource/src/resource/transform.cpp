@@ -14,6 +14,11 @@ mat4f Transform::GetLocalTransform() const noexcept {
     return translate(rotate(scale(mat4f(1.0f), m_Scaling), m_Rotation), m_Translation);
 }
 
+mat4f Transform::GetParentTransform() const noexcept {
+    auto parent = m_Parent.lock();
+    return parent ? parent->GetTransform() : mat4f(1.0f);
+}
+
 vec3f Transform::GetTranslation() const noexcept { return m_Translation; }
 
 quatf Transform::GetRotation() const noexcept { return m_Rotation; }

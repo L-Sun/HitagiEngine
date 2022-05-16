@@ -13,6 +13,7 @@ public:
 
     math::mat4f GetTransform() const noexcept;
     math::mat4f GetLocalTransform() const noexcept;
+    math::mat4f GetParentTransform() const noexcept;
     math::vec3f GetTranslation() const noexcept;
     math::quatf GetRotation() const noexcept;
     math::vec3f GetScaling() const noexcept;

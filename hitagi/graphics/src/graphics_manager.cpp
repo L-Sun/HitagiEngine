@@ -204,7 +204,7 @@ void GraphicsManager::OnSizeChanged() {
     }
 }
 
-void GraphicsManager::Render(const asset::Scene& scene) {
+void GraphicsManager::Render(const resource::Scene& scene) {
     auto& config    = g_App->GetConfiguration();
     auto  driver    = m_Driver.get();
     auto& pso       = *m_PSO;
