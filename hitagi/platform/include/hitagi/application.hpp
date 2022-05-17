@@ -1,6 +1,5 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
-#include <hitagi/core/timer.hpp>
 
 namespace hitagi {
 class Application : public IRuntimeModule {

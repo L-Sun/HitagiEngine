@@ -42,38 +42,29 @@ void DebugManager::ToggleDebugInfo() {
 }
 
 void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
-    auto        allocator = g_MemoryManager->GetAllocator();
-    MeshFactory factory(allocator);
-
-    Geometry line(std::allocate_shared<Transform>(allocator), allocator);
-    line.AddMesh(factory.Line(from, to, color));
+    Geometry line(std::make_shared<Transform>());
+    line.AddMesh(MeshFactory::Line(from, to, color));
 
     AddPrimitive(std::move(line), duration, depth_enabled);
 }
 
 void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
-    auto        allocator = g_MemoryManager->GetAllocator();
-    MeshFactory factory(allocator);
-
     const vec3f origin{0.0f, 0.0f, 0.0f};
     const vec3f x{1.0f, 0.0f, 0.0f};
     const vec3f y{0.0f, 1.0f, 0.0f};
     const vec3f z{0.0f, 0.0f, 1.0f};
 
-    Geometry axis(std::allocate_shared<Transform>(allocator, decompose(transform)), allocator);
-    axis.AddMesh(factory.Line(origin, x, vec4f(1, 0, 0, 1)));
-    axis.AddMesh(factory.Line(origin, x, vec4f(0, 1, 0, 1)));
-    axis.AddMesh(factory.Line(origin, x, vec4f(0, 0, 1, 1)));
+    Geometry axis(std::make_shared<Transform>(decompose(transform)));
+    axis.AddMesh(MeshFactory::Line(origin, x, vec4f(1, 0, 0, 1)));
+    axis.AddMesh(MeshFactory::Line(origin, x, vec4f(0, 1, 0, 1)));
+    axis.AddMesh(MeshFactory::Line(origin, x, vec4f(0, 0, 1, 1)));
 
     AddPrimitive(std::move(axis), std::chrono::seconds(0), depth_enabled);
 }
 
 void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
-    auto        allocator = g_MemoryManager->GetAllocator();
-    MeshFactory factory(allocator);
-
-    Geometry box(std::allocate_shared<Transform>(allocator, decompose(transform)), allocator);
-    box.AddMesh(factory.BoxWireframe(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f), color));
+    Geometry box(std::make_shared<Transform>(decompose(transform)));
+    box.AddMesh(MeshFactory::BoxWireframe(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f), color));
 
     AddPrimitive(std::move(box), duration, depth_enabled);
 }

@@ -29,8 +29,6 @@ private:
     std::unique_ptr<SceneParser>                                                    m_SceneParser;
 
     std::array<std::shared_ptr<Material>, magic_enum::enum_count<MaterialType>()> m_Materials{};
-
-    // std::unique_ptr<MoCapParser> m_MoCapParser;
 };
 }  // namespace hitagi::resource
 

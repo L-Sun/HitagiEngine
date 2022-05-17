@@ -14,7 +14,7 @@
 namespace hitagi::resource {
 
 class Material : public SceneObject,
-                 public utils::enable_private_allocate_shared_build<Material>,
+                 public utils::enable_private_make_shared_build<Material>,
                  public std::enable_shared_from_this<Material> {
     friend class MaterialInstance;
 
@@ -30,8 +30,6 @@ public:
         friend class Material;
 
     public:
-        Builder(allocator_type alloc = {});
-
         Builder& Type(MaterialType type) noexcept;
 
         template <MaterialParametric T>
@@ -48,7 +46,6 @@ public:
         Builder& AppendParameterImpl(std::string_view name, const std::type_info& type_id, std::size_t size);
         void     AddName(const std::pmr::string& name);
 
-        allocator_type                            allocator;
         MaterialType                              material_type;
         std::pmr::vector<ParameterInfo>           parameters_info;
         std::pmr::unordered_set<std::pmr::string> texture_name;
@@ -70,12 +67,12 @@ public:
     std::size_t                  GetParametersSize() const noexcept;
 
 protected:
-    Material(const Builder&, allocator_type alloc);
+    friend class Builder;
+    Material(const Builder&);
 
 private:
     void InitDefaultMaterialInstance();
 
-    allocator_type                            m_Allocator;
     MaterialType                              m_Type;
     std::pmr::vector<ParameterInfo>           m_ParametersInfo;
     std::pmr::unordered_set<std::pmr::string> m_ValidTextures;

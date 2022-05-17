@@ -1,5 +1,5 @@
 target("application")
-    set_kind("static")
-    add_files("src/application.cpp")
+    set_kind("headronly")
+    add_headerfiles("include/hitagi/application.cpp")
     add_includedirs("include", {public = true})
-    add_deps("core", "asset_manager")
+    add_deps("runtime_module_interface")

@@ -1,10 +1,9 @@
 #pragma once
+#include <hitagi/core/runtime_module.hpp>
 #include <hitagi/graphics/driver_api.hpp>
 #include <hitagi/graphics/enums.hpp>
-#include "pipeline_state.hpp"
-
-#include <hitagi/core/runtime_module.hpp>
-#include <hitagi/resource/asset_manager.hpp>
+#include <hitagi/graphics/renderable.hpp>
+#include <hitagi/resource/camera.hpp>
 
 namespace hitagi::graphics {
 class Frame;
@@ -12,15 +11,21 @@ class ResourceManager;
 
 class GraphicsManager : public IRuntimeModule {
 public:
+    GraphicsManager();
+
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;
 
+    void SetCamera(std::shared_ptr<resource::Camera> camera);
+    void AppendRenderables(std::pmr::vector<Renderable> renderables);
+
 protected:
     // TODO change the parameter to View, if multiple view port is finished
-    void   Render(const resource::Scene& scene);
     void   OnSizeChanged();
     Frame* GetBcakFrameForRendering();
+
+    void Render();
 
     std::unique_ptr<DriverAPI>       m_Driver;
     std::unique_ptr<ResourceManager> m_ResMgr;
@@ -28,12 +33,6 @@ protected:
     static constexpr uint8_t sm_SwapChianSize    = 3;
     static constexpr Format  sm_BackBufferFormat = Format::R8G8B8A8_UNORM;
     int                      m_CurrBackBuffer    = 0;
-
-    // TODO use file to descript pipeline object
-    std::unique_ptr<PipelineState> m_PSO;
-    std::unique_ptr<PipelineState> m_ImGuiPSO;
-    std::unique_ptr<PipelineState> m_DebugPSO;
-    std::unique_ptr<PipelineState> m_DebugDepthDisabledPSO;
 
     // TODO multiple RenderTarget is need if the application has multiple view port
     // if the class View is impletement, RenderTarget will be a member variable of View

@@ -25,9 +25,7 @@ inline ImageFormat get_image_format(std::string_view ext) {
 
 class ImageParser {
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-
-    virtual std::shared_ptr<Image> Parse(const core::Buffer& buffer, allocator_type = {}) = 0;
-    virtual ~ImageParser()                                                                = default;
+    virtual std::shared_ptr<Image> Parse(const core::Buffer& buffer = {}) = 0;
+    virtual ~ImageParser()                                                = default;
 };
 }  // namespace hitagi::resource

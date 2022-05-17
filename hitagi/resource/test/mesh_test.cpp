@@ -1,5 +1,6 @@
 #include <hitagi/utils/test.hpp>
 #include <hitagi/resource/mesh.hpp>
+#include <hitagi/core/memory_manager.hpp>
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -31,5 +32,12 @@ int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::off);
     ::testing::InitGoogleTest(&argc, argv);
     auto p = spdlog::stdout_color_st(std::string{"AssetManager"});
-    return RUN_ALL_TESTS();
+
+    hitagi::g_MemoryManager->Initialize();
+
+    int result = RUN_ALL_TESTS();
+
+    hitagi::g_MemoryManager->Finalize();
+
+    return result;
 }

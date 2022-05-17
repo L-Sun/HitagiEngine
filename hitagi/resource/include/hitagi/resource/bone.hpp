@@ -7,8 +7,7 @@
 namespace hitagi::resource {
 class Bone : public SceneObject {
 public:
-    Bone(allocator_type alloc = {})
-        : SceneObject(alloc), m_Weights(alloc) {}
+    Bone() = default;
 
     inline void SetWeight(size_t vertex_index, float weight) {
         m_Weights[vertex_index] = weight;

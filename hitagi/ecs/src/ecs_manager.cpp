@@ -8,7 +8,7 @@ void EcsManager::Tick() {}
 void EcsManager::Finalize() {}
 
 std::shared_ptr<World> EcsManager::CreateEcsWorld(std::string_view name) {
-    auto world = std::allocate_shared<World>(g_MemoryManager->GetAllocator<World>());
+    auto world = std::make_shared<World>();
 
     m_Worlds.emplace(name, world);
     return world;

@@ -7,9 +7,9 @@
 namespace hitagi::resource {
 class Texture : public SceneObject {
 public:
-    Texture(std::filesystem::path path, allocator_type alloc = {});
-    Texture(std::shared_ptr<Image> image, allocator_type alloc = {});
-    Texture(uint32_t coord_index, std::shared_ptr<Image> image, allocator_type alloc = {});
+    Texture(std::filesystem::path path);
+    Texture(std::shared_ptr<Image> image);
+    Texture(uint32_t coord_index, std::shared_ptr<Image> image);
 
     std::shared_ptr<Image> GetTextureImage();
 

@@ -17,7 +17,7 @@ using namespace hitagi::math;
 
 namespace hitagi::resource {
 
-void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_type alloc) {
+void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer) {
     auto logger = spdlog::get("AssetManager");
 
     if (buffer.Empty()) {
@@ -61,8 +61,7 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
         const auto _camera = ai_scene->mCameras[i];
 
         auto perspective_camera =
-            std::allocate_shared<Camera>(
-                alloc,
+            std::make_shared<Camera>(
                 _camera->mAspect,
                 _camera->mClipPlaneNear,
                 _camera->mClipPlaneFar,
@@ -79,7 +78,7 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
     }
 
     // process light
-    std::pmr::unordered_map<std::string_view, std::shared_ptr<Light>> light_name_map{alloc};
+    std::pmr::unordered_map<std::string_view, std::shared_ptr<Light>> light_name_map;
     for (size_t i = 0; i < ai_scene->mNumLights; i++) {
         const auto             _light = ai_scene->mLights[i];
         std::shared_ptr<Light> light;
@@ -98,14 +97,13 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
                 vec4f color(1.0f);
                 color.rgb       = normalize(vec3f(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b));
                 float intensity = _light->mColorDiffuse.r / color.r;
-                light           = std::allocate_shared<PointLight>(alloc, color, intensity);
+                light           = std::make_shared<PointLight>(color, intensity);
             } break;
             case aiLightSourceType::aiLightSource_SPOT: {
                 vec4f diffuseColor(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b, 1.0f);
                 float intensity = _light->mColorDiffuse.r / diffuseColor.r;
                 vec3f direction(_light->mDirection.x, _light->mDirection.y, _light->mDirection.z);
-                light = std::allocate_shared<SpotLight>(
-                    alloc,
+                light = std::make_shared<SpotLight>(
                     diffuseColor,
                     intensity,
                     direction,
@@ -131,7 +129,7 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
     // process material
     // TODO support other material type
     auto                                                                         phong = scene.GetMaterial(MaterialType::Phong);
-    std::pmr::unordered_map<std::string_view, std::shared_ptr<MaterialInstance>> material_name_map{alloc};
+    std::pmr::unordered_map<std::string_view, std::shared_ptr<MaterialInstance>> material_name_map;
     for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
         const auto _material = ai_scene->mMaterials[i];
         auto       material  = phong->CreateInstance();
@@ -169,14 +167,13 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
                 {"opacity", aiTextureType::aiTextureType_OPACITY},
                 // {"transparency", },
                 {"normal", aiTextureType::aiTextureType_NORMALS},
-            },
-            alloc};
+            }};
         for (auto&& [key1, key2] : map) {
             for (size_t i = 0; i < _material->GetTextureCount(key2); i++) {
                 aiString _path;
                 if (AI_SUCCESS == _material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, i, &_path)) {
                     std::filesystem::path path(_path.C_Str());
-                    auto                  texture = std::allocate_shared<Texture>(alloc, path);
+                    auto                  texture = std::make_shared<Texture>(path);
                     texture->SetName(_path.C_Str());
                     material->SetTexture(key1, texture);
                 }
@@ -193,11 +190,11 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
             logger->warn("A material[{}] with the same name already exists!", material->GetName());
     }
 
-    std::pmr::unordered_map<std::string, std::shared_ptr<Bone>> bone_name_map{alloc};
-    std::pmr::unordered_map<aiMesh*, Mesh>                      meshes{alloc};
+    std::pmr::unordered_map<std::string, std::shared_ptr<Bone>> bone_name_map;
+    std::pmr::unordered_map<aiMesh*, Mesh>                      meshes;
 
     auto covert_mesh = [&](const aiMesh* ai_mesh) -> Mesh {
-        auto vertices = std::allocate_shared<VertexArray>(alloc, ai_mesh->mNumVertices);
+        auto vertices = std::make_shared<VertexArray>(ai_mesh->mNumVertices);
 
         // Read Position
         if (ai_mesh->HasPositions()) {
@@ -267,7 +264,7 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
         for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++)
             num_indices += ai_mesh->mFaces[face].mNumIndices;
 
-        auto        indices       = std::allocate_shared<IndexArray>(alloc, num_indices, IndexType::UINT32);
+        auto        indices       = std::make_shared<IndexArray>(num_indices, IndexType::UINT32);
         auto        indices_array = indices->GetIndices<IndexType::UINT32>();
         std::size_t p             = 0;
         for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++)
@@ -314,7 +311,7 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
         //     }
         // }
 
-        Mesh mesh{vertices, indices, material, primitive, alloc};
+        Mesh mesh{vertices, indices, material, primitive};
         mesh.SetName(ai_mesh->mName.C_Str());
         return mesh;
     };
@@ -325,7 +322,7 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
     }
 
     auto create_geometry = [&](const aiNode* _node, const std::shared_ptr<Transform>& transform) -> Geometry {
-        Geometry geometry(transform, alloc);
+        Geometry geometry(transform);
         for (size_t i = 0; i < _node->mNumMeshes; i++) {
             auto ai_mesh     = ai_scene->mMeshes[_node->mMeshes[i]];
             auto mesh_handle = meshes.extract(ai_mesh);
@@ -339,7 +336,7 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer, allocator_typ
         convert = [&](const aiNode* _node, const std::shared_ptr<Transform>& parent) -> void {
         std::string_view name = _node->mName.C_Str();
 
-        auto transform = std::allocate_shared<Transform>(alloc, decompose(get_matrix(_node->mTransformation)));
+        auto transform = std::make_shared<Transform>(decompose(get_matrix(_node->mTransformation)));
         transform->SetParent(parent);
 
         // The node is a geometry

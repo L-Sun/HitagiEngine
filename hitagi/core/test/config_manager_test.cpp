@@ -15,7 +15,7 @@ width: 1960
 height: 1280
 )";
 
-    Buffer buffer(yaml.data(), yaml.size(), 4, g_MemoryManager->GetAllocator<std::byte>());
+    Buffer buffer(yaml.data(), yaml.size(), 4);
     auto   path = std::filesystem::temp_directory_path() / "load_config_file_test.yaml";
     g_FileIoManager->SaveBuffer(buffer, path);
 

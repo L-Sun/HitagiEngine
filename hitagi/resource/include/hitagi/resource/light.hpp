@@ -7,9 +7,8 @@
 namespace hitagi::resource {
 class Light : public SceneObject {
 protected:
-    Light(const math::vec4f& color = math::vec4f(1.0f), float intensity = 100.0f, allocator_type alloc = {})
-        : SceneObject(alloc),
-          m_LightColor(color),
+    Light(const math::vec4f& color = math::vec4f(1.0f), float intensity = 100.0f)
+        : m_LightColor(color),
           m_Intensity(intensity){};
 
     math::vec4f m_LightColor;
@@ -23,8 +22,8 @@ public:
 
 class PointLight : public Light {
 public:
-    PointLight(const math::vec4f& color = math::vec4f(1.0f), float intensity = 100.0f, allocator_type alloc = {})
-        : Light(color, intensity, alloc) {}
+    PointLight(const math::vec4f& color = math::vec4f(1.0f), float intensity = 100.0f)
+        : Light(color, intensity) {}
 };
 
 class SpotLight : public Light {
@@ -36,8 +35,8 @@ protected:
 public:
     SpotLight(const math::vec4f& color = math::vec4f(1.0f), float intensity = 100.0f,
               const math::vec3f& direction = math::vec3f(0.0f), float inner_cone_angle = std::numbers::pi / 3.0f,
-              float outer_cone_angle = std::numbers::pi / 4.0f, allocator_type alloc = {})
-        : Light(color, intensity, alloc), m_InnerConeAngle(inner_cone_angle), m_OuterConeAngle(outer_cone_angle) {}
+              float outer_cone_angle = std::numbers::pi / 4.0f)
+        : Light(color, intensity), m_InnerConeAngle(inner_cone_angle), m_OuterConeAngle(outer_cone_angle) {}
 };
 
 class InfiniteLight : public Light {

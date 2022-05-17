@@ -1,14 +1,16 @@
 #pragma once
 #include <hitagi/graphics/driver_api.hpp>
-#include <hitagi/graphics/resource.hpp>
+
 #include <hitagi/resource/mesh.hpp>
 #include <hitagi/resource/texture.hpp>
 #include <hitagi/resource/image.hpp>
 
+#include <unordered_map>
+
 namespace hitagi::graphics {
 class ResourceManager {
 public:
-    ResourceManager(DriverAPI& driver) : m_Driver(driver) {}
+    ResourceManager(DriverAPI& driver);
 
     // prepare vertex buffer in gpu. It will create new buffer in gpu if the vertices is not in gpu.
     void PrepareVertexBuffer(const std::shared_ptr<resource::VertexArray>& vertices);
@@ -37,12 +39,13 @@ public:
     std::shared_ptr<PipelineState> GetPipelineState(xg::Guid material_id) const noexcept;
 
 private:
-    DriverAPI&                                                    m_Driver;
-    std::unordered_map<xg::Guid, std::shared_ptr<VertexBuffer>>   m_VertexBuffer;
-    std::unordered_map<xg::Guid, std::shared_ptr<IndexBuffer>>    m_IndexBuffer;
-    std::unordered_map<xg::Guid, std::shared_ptr<TextureBuffer>>  m_TextureBuffer;
-    std::unordered_map<xg::Guid, std::shared_ptr<Sampler>>        m_Samplers;
-    std::unordered_map<xg::Guid, std::shared_ptr<ConstantBuffer>> m_MaterialParameterBuffer;
+    DriverAPI&                                                         m_Driver;
+    std::pmr::unordered_map<xg::Guid, std::shared_ptr<VertexBuffer>>   m_VertexBuffer;
+    std::pmr::unordered_map<xg::Guid, std::shared_ptr<IndexBuffer>>    m_IndexBuffer;
+    std::pmr::unordered_map<xg::Guid, std::shared_ptr<TextureBuffer>>  m_TextureBuffer;
+    std::pmr::unordered_map<xg::Guid, std::shared_ptr<Sampler>>        m_Samplers;
+    std::pmr::unordered_map<xg::Guid, std::shared_ptr<ConstantBuffer>> m_MaterialParameterBuffer;
+    std::pmr::unordered_map<xg::Guid, std::shared_ptr<PipelineState>>  m_PipelineStates;
 };
 
 }  // namespace hitagi::graphics

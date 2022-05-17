@@ -3,6 +3,7 @@
 #include <hitagi/utils/test.hpp>
 
 #include <array>
+#include "hitagi/core/memory_manager.hpp"
 
 using namespace hitagi::resource;
 using namespace hitagi::math;
@@ -94,5 +95,10 @@ TEST(MaterialTest, Instance) {
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    hitagi::g_MemoryManager->Initialize();
+
+    int result = RUN_ALL_TESTS();
+
+    hitagi::g_MemoryManager->Finalize();
+    return result;
 }

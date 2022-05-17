@@ -1,22 +1,20 @@
 #include "frame.hpp"
-#include <hitagi/graphics/command_context.hpp>
 
 #include <hitagi/graphics/driver_api.hpp>
-
 #include <hitagi/utils/overloaded.hpp>
-#include "hitagi/graphics/pipeline_state.hpp"
-#include "spdlog/spdlog.h"
 
 using namespace hitagi::math;
 
 namespace hitagi::graphics {
-Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index, allocator_type alloc)
+Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index)
     : m_Driver(driver),
       m_ResMgr(resource_manager),
       m_FrameIndex(frame_index),
-      m_Renderables(alloc),
       m_Output(m_Driver.CreateRenderFromSwapChain(frame_index)),
-      m_ConstantBuffer(m_Driver.CreateConstantBuffer("Object Constant", 1, std::max({sizeof(FrameConstant), sizeof(ObjectConstant)}))) {}
+      m_ConstantBuffer(m_Driver.CreateConstantBuffer(
+          "Object Constant",
+          {.num_elements = 1,
+           .element_size = std::max({sizeof(FrameConstant), sizeof(ObjectConstant)})})) {}
 
 void Frame::AddRenderables(std::pmr::vector<Renderable> renderables) {
     m_Renderables.insert(
@@ -65,25 +63,25 @@ void Frame::AddRenderables(std::pmr::vector<Renderable> renderables) {
 //         });
 // }
 
-// void Frame::SetCamera(resource::CameraNode& camera) {
-//     auto& data         = m_FrameConstant;
-//     data.camera_pos    = vec4f(camera.GetCameraPosition(), 1.0f);
-//     data.view          = camera.GetViewMatrix();
-//     data.inv_view      = inverse(data.view);
-//     auto camera_object = camera.GetSceneObjectRef().lock();
-//     assert(camera_object != nullptr);
-//     // TODO orth camera
-//     data.projection = perspective(
-//         camera_object->GetFov(),
-//         camera_object->GetAspect(),
-//         camera_object->GetNearClipDistance(),
-//         camera_object->GetFarClipDistance());
-//     data.inv_projection = inverse(data.projection);
-//     data.proj_view      = data.projection * data.view;
-//     data.inv_proj_view  = inverse(data.proj_view);
+void Frame::SetCamera(std::shared_ptr<resource::Camera> camera) {
+    auto& data      = m_FrameConstant;
+    data.camera_pos = vec4f(camera->GetGlobalPosition(), 1.0f);
+    data.view       = camera->GetViewMatrix();
+    data.inv_view   = inverse(data.view);
 
-//     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
-// }
+    data.projection = perspective(
+        camera->GetFov(),
+        camera->GetAspect(),
+        camera->GetNearClipDistance(),
+        camera->GetFarClipDistance());
+    data.inv_projection = inverse(data.projection);
+    data.proj_view      = data.projection * data.view;
+    data.inv_proj_view  = inverse(data.proj_view);
+
+    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<std::byte*>(&data), sizeof(data));
+
+    m_Camera = std::move(camera);
+}
 
 // void Frame::SetLight(resource::LightNode& light) {
 //     auto& data             = m_FrameConstant;
@@ -97,7 +95,7 @@ void Frame::AddRenderables(std::pmr::vector<Renderable> renderables) {
 
 void Frame::Draw(IGraphicsCommandContext* context) {
     for (const auto& item : m_Renderables) {
-        context->SetPipelineState(*m_ResMgr.GetPipelineState(item.material->GetGuid()));
+        context->SetPipelineState(m_ResMgr.GetPipelineState(item.material->GetGuid()));
         context->SetParameter("FrameConstant",
                               m_ConstantBuffer,
                               0);
@@ -117,10 +115,20 @@ void Frame::Draw(IGraphicsCommandContext* context) {
     }
 }
 
-void Frame::ResetState() {
+void Frame::SetFenceValue(std::uint64_t fence_value) {
+    m_FenceValue = fence_value;
+    m_Lock       = true;
+}
+
+bool Frame::IsRenderingFinished() const {
+    return m_Driver.IsFenceComplete(m_FenceValue);
+}
+
+void Frame::Reset() {
     m_Driver.WaitFence(m_FenceValue);
     m_Renderables.clear();
     m_ConstantCount = 1;
+    m_Lock          = false;
 }
 
 void Frame::SetRenderTarget(std::shared_ptr<RenderTarget> rt) {
@@ -196,14 +204,6 @@ void Frame::PrepareData() {
                 material_buffer,
                 index, cpu_buffer.GetData(),
                 cpu_buffer.GetDataSize());
-
-        } else if (material->GetNumInstances() * material->GetParametersSize() != 0) {
-            spdlog::get("GraphicsManager")->warn(
-                "Failed to get material constant buffer!"
-                " Material:{}",
-                material->GetUniqueName());
-        } else {
-            // That is ok, because there is not parameter used by material.
         }
 
         // Texture

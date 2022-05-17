@@ -3,8 +3,8 @@
 #include <spdlog/spdlog.h>
 
 namespace hitagi::resource {
-Geometry::Geometry(std::shared_ptr<Transform> transform, allocator_type alloc)
-    : SceneObject(alloc), m_Meshes(alloc), m_Transform(std::move(transform)) {
+Geometry::Geometry(std::shared_ptr<Transform> transform)
+    : m_Transform(std::move(transform)) {
     if (m_Transform == nullptr) {
         auto logger = spdlog::get("AssetManager");
         if (logger) logger->error("You must set a valid transform to the geometry!");

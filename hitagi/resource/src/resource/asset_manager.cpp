@@ -46,6 +46,10 @@ void AssetManager::Finalize() {
         img_parser = nullptr;
     }
 
+    for (auto&& materail : m_Materials) {
+        materail = nullptr;
+    }
+
     // m_SceneParser = nullptr;
 
     m_Logger->info("Finalized.");
@@ -67,7 +71,7 @@ std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& pa
         m_Logger->error("Unkown image format, and return a null");
         return nullptr;
     }
-    auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), g_MemoryManager->GetAllocator<Image>());
+    auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
     return image;
 }
 
@@ -87,7 +91,7 @@ std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& pa
 void AssetManager::InitializeInnerMaterial() {
     // Phong
     m_Materials.at(*magic_enum::enum_index(MaterialType::Phong)) =
-        Material::Builder(g_MemoryManager->GetAllocator<Material>())
+        Material::Builder()
             .Type(MaterialType::Phong)
             .AppendParameterInfo<vec3f>("ambient")
             .AppendParameterInfo<vec3f>("diffuse")

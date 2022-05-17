@@ -27,8 +27,7 @@ protected:
     };
 
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-    IArchetype(allocator_type alloc = {}) : m_MetaInfo(alloc) {}
+    IArchetype() = default;
 
     virtual ArchetypeId Id() const = 0;
 
@@ -64,11 +63,10 @@ template <typename... Components>
 requires utils::unique_types<Components...>
 class Archetype : public IArchetype {
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-    Archetype(allocator_type alloc = {}) : m_Data(alloc) {}
+    Archetype() = default;
 
-    static std::shared_ptr<IArchetype> Create(allocator_type alloc = {}) {
-        auto result = std::allocate_shared<Archetype>(alloc);
+    static std::shared_ptr<IArchetype> Create() {
+        auto result = std::make_shared<Archetype>();
 
         // entity info also is a component
         result->m_MetaInfo.emplace_back(

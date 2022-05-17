@@ -37,11 +37,11 @@ public:
     using ParameterTable = std::unordered_map<std::string, std::pair<size_t, size_t>>;
 
     RootSignature(std::string_view name, uint32_t num_root_params = 0, uint32_t num_static_samplers = 0);
-    ~RootSignature() override           = default;
-    RootSignature(const RootSignature&) = delete;
+    ~RootSignature() override                      = default;
+    RootSignature(const RootSignature&)            = delete;
     RootSignature& operator=(const RootSignature&) = delete;
     RootSignature(RootSignature&&)                 = default;
-    RootSignature& operator=(RootSignature&&) = default;
+    RootSignature& operator=(RootSignature&&)      = default;
 
     void Reset(uint32_t num_root_params, uint32_t num_static_samplers);
 
@@ -56,7 +56,7 @@ public:
     ID3D12RootSignature*              GetRootSignature() const { return m_RootSignature.Get(); }
     const D3D12_ROOT_SIGNATURE_DESC1& GetRootSignatureDesc() const { return m_RootSignatureDesc; }
     uint32_t                          GetDescriptorTableBitMask(D3D12_DESCRIPTOR_HEAP_TYPE type) const {
-        return type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? m_SamplerTableBitMask : m_DescriptorTableBitMask;
+                                 return type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ? m_SamplerTableBitMask : m_DescriptorTableBitMask;
     }
     uint32_t GetNumDescriptorsInTable(uint32_t root_index) const {
         assert(root_index < 32);
@@ -70,8 +70,8 @@ public:
     RootParameter&       operator[](size_t index) { return m_ParamArray[index]; }
     const RootParameter& operator[](size_t index) const { return m_ParamArray[index]; }
 
-    void UpdateParameterInfo(const std::string& name, size_t root_index, size_t offset) {
-        m_NameTable[name] = {root_index, offset};
+    void UpdateParameterInfo(std::string_view name, size_t root_index, size_t offset) {
+        m_NameTable[std::string(name)] = {root_index, offset};
     }
     auto& GetParameterTable(std::string_view name) const noexcept {
         return m_NameTable.at(std::string(name));

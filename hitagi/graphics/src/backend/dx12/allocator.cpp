@@ -16,10 +16,10 @@ AllocationPage::AllocationPage(AllocationPage&& rhs)
 AllocationPage& AllocationPage::operator=(AllocationPage&& rhs) {
     if (&rhs != this) {
         GpuResource::operator=(std::move(rhs));
-        m_Size               = rhs.m_Size;
-        m_CpuPtr             = rhs.m_CpuPtr;
-        rhs.m_Size           = 0;
-        rhs.m_CpuPtr         = nullptr;
+        m_Size       = rhs.m_Size;
+        m_CpuPtr     = rhs.m_CpuPtr;
+        rhs.m_Size   = 0;
+        rhs.m_CpuPtr = nullptr;
     }
     return *this;
 };
@@ -45,7 +45,7 @@ Allocation LinearAllocator::Allocate(size_t size, size_t alignment) {
         m_CurrPage = m_Pages.emplace_back(mgr.RequesetPage(m_Device));
 
     size_t                    offset  = m_CurrPage->m_offset;
-    uint8_t*                  cpu_ptr = m_CurrPage->m_CpuPtr + m_CurrPage->m_offset;
+    std::byte*                cpu_ptr = m_CurrPage->m_CpuPtr + m_CurrPage->m_offset;
     D3D12_GPU_VIRTUAL_ADDRESS gpu_ptr = m_CurrPage->m_Resource->GetGPUVirtualAddress() + m_CurrPage->m_offset;
 
     m_CurrPage->m_offset += size;

@@ -7,7 +7,7 @@
 
 namespace hitagi::resource {
 
-std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf, allocator_type alloc) {
+std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
@@ -30,12 +30,12 @@ std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf, allocator_type
         auto bitcount  = 32;
         auto pitch     = ((width * bitcount >> 3) + 3) & ~3;
         auto data_size = pitch * height;
-        img            = std::allocate_shared<Image>(alloc, width, height, bitcount, pitch, data_size);
+        img            = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
         jpeg_start_decompress(&cinfo);
 
         int row_stride = cinfo.output_width * cinfo.output_components;
 
-        auto row_buffer = std::pmr::vector<JSAMPLE>(row_stride, alloc);
+        auto row_buffer = std::pmr::vector<JSAMPLE>(row_stride);
         auto p          = reinterpret_cast<uint8_t*>(img->Buffer().GetData()) + (height - 1) * row_stride;
         while (cinfo.output_scanline < cinfo.output_height) {
             auto p_row = row_buffer.data();

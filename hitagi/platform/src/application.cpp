@@ -2,9 +2,7 @@
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/thread_manager.hpp>
 #include <hitagi/core/config_manager.hpp>
-// #include <hitagi/physics/physics_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
-#include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
 #include <hitagi/hid/input_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>

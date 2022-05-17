@@ -17,7 +17,7 @@ struct TgaFileheader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf, allocator_type alloc) {
+std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[TGA] Parsing a empty buffer will return nullptr");
@@ -54,7 +54,7 @@ std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf, allocator_type 
     // for GPU address alignment
     auto pitch     = (width * (bitcount >> 3) + 3) & ~3u;
     auto data_size = pitch * height;
-    auto img       = std::allocate_shared<Image>(alloc, width, height, bitcount, pitch, data_size);
+    auto img       = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
 
     std::uint8_t alpha_depth = file_header->image_spec[9] & 0x0F;
     logger->debug("[TGA] Image width:       {}", width);

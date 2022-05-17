@@ -20,9 +20,7 @@ concept SystemLike = requires(Schedule& s, std::chrono::duration<double> delta) 
 
 class World {
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-
-    World(allocator_type = {});
+    World();
 
     void Update();
 
@@ -47,7 +45,6 @@ public:
     std::optional<std::reference_wrapper<Component>> AccessEntity(const Entity& entity);
 
 private:
-    allocator_type                                                    m_Allocator;
     core::Clock                                                       m_Timer;
     std::size_t                                                       m_Counter = 0;
     std::pmr::unordered_map<Entity, std::shared_ptr<IArchetype>>      m_EnitiesMap;
@@ -66,7 +63,7 @@ requires utils::unique_types<Components...>
     Entity World::CreateEntity() {
     auto id = get_archetype_id<Components...>();
     if (m_Archetypes.count(id) == 0) {
-        m_Archetypes.emplace(id, Archetype<Components...>::Create(m_Allocator));
+        m_Archetypes.emplace(id, Archetype<Components...>::Create());
     }
 
     auto archetype         = m_Archetypes.at(id);

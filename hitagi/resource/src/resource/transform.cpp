@@ -4,9 +4,10 @@ using namespace hitagi::math;
 
 namespace hitagi::resource {
 
-Transform::Transform(allocator_type alloc) : m_Children(alloc) {}
-
-Transform::Transform(const std::tuple<math::vec3f, math::quatf, math::vec3f>& rts, allocator_type alloc) : m_Children(alloc) {}
+Transform::Transform(const std::tuple<math::vec3f, math::quatf, math::vec3f>& trs)
+    : m_Scaling(std::get<2>(trs)),
+      m_Rotation(std::get<1>(trs)),
+      m_Translation(std::get<0>(trs)) {}
 
 mat4f Transform::GetTransform() const noexcept { return m_WorldTransform; }
 

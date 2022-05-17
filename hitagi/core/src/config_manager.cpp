@@ -12,13 +12,12 @@ std::unique_ptr<core::ConfigManager> g_ConfigManager = std::make_unique<core::Co
 }
 
 namespace hitagi::core {
-AppConfig::AppConfig(allocator_type alloc) {}
 
 int ConfigManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("ConfigManager");
     m_Logger->info("Initialize...");
 
-    m_Config = std::allocate_shared<AppConfig>(g_MemoryManager->GetAllocator<AppConfig>());
+    m_Config = std::make_shared<AppConfig>();
 
     return 0;
 }

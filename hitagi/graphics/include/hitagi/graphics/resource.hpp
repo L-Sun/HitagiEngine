@@ -1,8 +1,9 @@
 #pragma once
-#include <hitagi/graphics/enums.hpp>
-#include <hitagi/resource/enums.hpp>
 #include <hitagi/math/vector.hpp>
+#include <hitagi/resource/enums.hpp>
+#include <hitagi/graphics/enums.hpp>
 
+#include <bitset>
 #include <memory>
 #include <unordered_map>
 #include <string>
@@ -19,17 +20,19 @@ public:
 
 class Resource {
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
+    Resource(std::string_view name, std::unique_ptr<backend::Resource> resource)
+        : m_Name(name), m_Resource(std::move(resource)) {}
 
-    Resource(std::string_view name, std::unique_ptr<backend::Resource> resource, allocator_type alloc = {})
-        : m_Name(name, alloc), m_Resource(std::move(resource)) {}
-    Resource(const Resource&)            = delete;
+    Resource(const Resource&)  = delete;
+    Resource(Resource&& other) = default;
+
     Resource& operator=(const Resource&) = delete;
-    Resource(Resource&&)                 = default;
     Resource& operator=(Resource&&)      = default;
 
     inline std::string_view GetName() const noexcept { return m_Name; }
     inline std::uint32_t    Version() const noexcept { return m_Version; }
+
+    inline void SetResource(std::unique_ptr<backend::Resource> resource) noexcept { m_Resource = std::move(resource); }
 
     template <typename T>
     inline T* GetBackend() const noexcept {
@@ -46,18 +49,19 @@ protected:
 template <typename Desc>
 class ResourceWithDesc : public Resource {
 public:
+    using DescType = Desc;
     ResourceWithDesc(std::string_view                   name,
                      std::unique_ptr<backend::Resource> res,
-                     Desc                               desc,
-                     allocator_type                     alloc = {})
-        : Resource(name, std::move(res), desc, alloc), desc(desc) {}
+                     Desc                               desc)
+        : Resource(name, std::move(res)), desc(desc) {}
 
     const Desc desc;
 };
 
 struct VertexBufferDesc {
     std::size_t vertex_count = 0;
-    std::size_t vertex_size  = 0;
+    //  indicate the size of the correspond slot
+    std::bitset<magic_enum::enum_count<resource::VertexAttribute>()> slot_mask;
 };
 using VertexBuffer = ResourceWithDesc<VertexBufferDesc>;
 
@@ -74,15 +78,13 @@ struct ConstantBufferDesc {
 using ConstantBuffer = ResourceWithDesc<ConstantBufferDesc>;
 
 struct TextureBufferDesc {
-    Format         format;
-    uint64_t       width;
-    uint64_t       height;
-    uint64_t       pitch;
-    unsigned       mip_level         = 1;
-    unsigned       sample_count      = 1;
-    unsigned       sample_quality    = 0;
-    const uint8_t* initial_data      = nullptr;
-    size_t         initial_data_size = 0;
+    Format   format;
+    uint64_t width;
+    uint64_t height;
+    uint64_t pitch;
+    unsigned mip_level      = 1;
+    unsigned sample_count   = 1;
+    unsigned sample_quality = 0;
 };
 using TextureBuffer = ResourceWithDesc<TextureBufferDesc>;
 

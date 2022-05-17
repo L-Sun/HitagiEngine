@@ -1,10 +1,11 @@
 #include <hitagi/resource/material_instance.hpp>
+#include "hitagi/resource/scene_object.hpp"
 
 #include <spdlog/spdlog.h>
 
 namespace hitagi::resource {
-MaterialInstance::MaterialInstance(const std::shared_ptr<Material>& material, allocator_type alloc)
-    : SceneObject(alloc), m_Material(material), m_Parameters(alloc), m_Textures(alloc) {
+MaterialInstance::MaterialInstance(const std::shared_ptr<Material>& material)
+    : m_Material(material) {
     if (material == nullptr) {
         if (auto logger = spdlog::get("AssetManager"); logger) {
             logger->error("Can not create a material instance without the material info, since the pointer of material is null!");
@@ -14,10 +15,10 @@ MaterialInstance::MaterialInstance(const std::shared_ptr<Material>& material, al
     material->m_NumInstances++;
 }
 
-MaterialInstance::MaterialInstance(const MaterialInstance& other, allocator_type alloc)
-    : SceneObject(alloc),
+MaterialInstance::MaterialInstance(const MaterialInstance& other)
+    : SceneObject(other),
       m_Parameters(other.m_Parameters),
-      m_Textures(alloc) {
+      m_Textures(other.m_Textures) {
     if (auto material = m_Material.lock(); material) {
         material->m_NumInstances--;
     }
@@ -55,9 +56,16 @@ MaterialInstance& MaterialInstance::SetTexture(std::string_view name, std::share
     auto material = m_Material.lock();
     if (material && material->IsValidTextureParameter(name)) {
         m_Textures[std::pmr::string(name)] = std::move(texture);
+    } else {
+        Warn(fmt::format("You are setting a invalid parameter: {}", name));
     }
 
     return *this;
+}
+
+void MaterialInstance::Warn(std::string_view message) const {
+    auto logger = spdlog::get("AssetManager");
+    if (logger) logger->warn(message);
 }
 
 }  // namespace hitagi::resource

@@ -4,7 +4,7 @@
 namespace hitagi::resource {
 class JpegParser : public ImageParser {
 public:
-    std::shared_ptr<Image> Parse(const core::Buffer& buf, allocator_type alloc = {}) final;
+    std::shared_ptr<Image> Parse(const core::Buffer& buf) final;
 };
 
 }  // namespace hitagi::resource

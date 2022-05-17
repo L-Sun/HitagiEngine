@@ -1,14 +1,12 @@
 #include <hitagi/resource/material.hpp>
 #include <hitagi/resource/material_instance.hpp>
 
-#include <spdlog/logger.h>
+#include <spdlog/spdlog.h>
 #include <magic_enum.hpp>
 
 #include <stdexcept>
 
 namespace hitagi::resource {
-
-Material::Builder::Builder(allocator_type alloc) : allocator(alloc), parameters_info(alloc), texture_name(alloc) {}
 
 auto Material::Builder::Type(MaterialType type) noexcept -> Builder& {
     material_type = type;
@@ -16,7 +14,7 @@ auto Material::Builder::Type(MaterialType type) noexcept -> Builder& {
 }
 
 auto Material::Builder::AppendParameterImpl(std::string_view name, const std::type_info& type_id, std::size_t size) -> Builder& {
-    std::pmr::string param_name{name, allocator};
+    std::pmr::string param_name{name};
     AddName(param_name);
 
     std::size_t offset = 0;
@@ -38,7 +36,7 @@ auto Material::Builder::AppendParameterImpl(std::string_view name, const std::ty
 }
 
 auto Material::Builder::AppendTextureName(std::string_view name) -> Builder& {
-    std::pmr::string param_name{name, allocator};
+    std::pmr::string param_name{name};
     AddName(param_name);
 
     texture_name.emplace(name);
@@ -55,22 +53,19 @@ void Material::Builder::AddName(const std::pmr::string& name) {
 }
 
 std::shared_ptr<Material> Material::Builder::Build() {
-    auto result = Material::Create(*this, allocator);
+    auto result = Material::Create(*this);
     result->InitDefaultMaterialInstance();
     return result;
 }
 
-Material::Material(const Builder& builder, allocator_type alloc)
-    : SceneObject(alloc),
-      m_Allocator(alloc),
-      m_Type(builder.material_type),
-      m_ParametersInfo(builder.parameters_info, alloc),
-      m_ValidTextures(builder.texture_name, alloc),
-      m_DefaultInstance(std::allocate_shared<MaterialInstance>(alloc)) {
+Material::Material(const Builder& builder)
+    : m_Type(builder.material_type),
+      m_ParametersInfo(builder.parameters_info),
+      m_ValidTextures(builder.texture_name) {
 }
 
 auto Material::CreateInstance() const noexcept -> std::shared_ptr<MaterialInstance> {
-    return std::allocate_shared<MaterialInstance>(m_Allocator, *m_DefaultInstance);
+    return std::make_shared<MaterialInstance>(*m_DefaultInstance);
 }
 
 std::size_t Material::GetNumInstances() const noexcept {
@@ -98,8 +93,8 @@ std::size_t Material::GetParametersSize() const noexcept {
 }
 
 void Material::InitDefaultMaterialInstance() {
+    m_DefaultInstance = std::make_shared<MaterialInstance>(shared_from_this());
     m_DefaultInstance->SetName(magic_enum::enum_name(m_Type));
-    m_DefaultInstance->m_Material = shared_from_this();
 
     const auto& end_parameter_info  = m_ParametersInfo.back();
     m_DefaultInstance->m_Parameters = core::Buffer(end_parameter_info.offset + end_parameter_info.size);

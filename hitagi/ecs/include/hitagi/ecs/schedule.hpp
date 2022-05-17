@@ -16,20 +16,12 @@ class Schedule {
 
     template <typename Func>
     struct Task : public ITask {
-        using allocator_type = std::pmr::polymorphic_allocator<>;
+        Task(std::string_view name, Func&& task)
+            : task_name(name), task(std::move(task)) {}
 
-        Task(
-            std::string_view      name,
-            Func&&                task,
-            const allocator_type& alloc = {})
-            : task_name(name, alloc), task(std::move(task)) {}
-
-        Task(Task&& other, const allocator_type& alloc)
-            : task_name(other.task_name, alloc), task(std::move(other.task)) {}
-
-        Task(const Task&) = delete;
-        Task& operator=(const Task&) = delete;
-        Task(Task&&) noexcept        = default;
+        Task(const Task&)                = delete;
+        Task& operator=(const Task&)     = delete;
+        Task(Task&&) noexcept            = default;
         Task& operator=(Task&&) noexcept = default;
 
         void Run(World& world) final;
@@ -39,9 +31,7 @@ class Schedule {
     };
 
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-
-    Schedule(World& world, allocator_type alloc = {}) : m_World(world), m_Allocator(alloc) {}
+    Schedule(World& world) : m_World(world) {}
 
     // Do task on the entities that contains components indicated at parameters.
     template <typename Func>
@@ -56,14 +46,13 @@ public:
 
 private:
     World&                                   m_World;
-    allocator_type                           m_Allocator;
     std::pmr::vector<std::shared_ptr<ITask>> m_Tasks;
 };
 
 template <typename Func>
 requires utils::unique_parameter_types<Func>
     Schedule& Schedule::Register(std::string_view name, Func&& task) {
-    std::shared_ptr<ITask> task_info = std::allocate_shared<Task<Func>>(m_Allocator, name, std::forward<Func>(task));
+    std::shared_ptr<ITask> task_info = std::make_shared<Task<Func>>(name, std::forward<Func>(task));
 
     m_Tasks.emplace_back(std::move(task_info));
 

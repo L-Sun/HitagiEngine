@@ -8,10 +8,9 @@
 namespace hitagi::resource {
 class Scene : public SceneObject {
 public:
-    using allocator_type     = std::pmr::polymorphic_allocator<>;
     using SupportedMaterails = std::array<std::shared_ptr<Material>, magic_enum::enum_count<MaterialType>()>;
 
-    Scene(SupportedMaterails materials, allocator_type alloc = {});
+    Scene(SupportedMaterails materials);
     void AddGeometry(Geometry geometry);
     void AddCamera(std::shared_ptr<Camera> camera);
     void AddLight(std::shared_ptr<Light> light);

@@ -8,14 +8,13 @@ namespace hitagi::resource {
 class Camera : public SceneObject {
 public:
     Camera(
-        float          aspect    = 16.0f / 9.0f,
-        float          near_clip = 1.0f,
-        float          far_clip  = 1000.0f,
-        float          fov       = 0.25 * std::numbers::pi,
-        math::vec3f    position  = math::vec3f{0.0f, 0.0f, 0.0f},
-        math::vec3f    up        = math::vec3f{0.0f, 0.0f, 0.0f},
-        math::vec3f    look_at   = math::vec3f{0.0f, 0.0f, 0.0f},
-        allocator_type alloc     = {});
+        float       aspect    = 16.0f / 9.0f,
+        float       near_clip = 1.0f,
+        float       far_clip  = 1000.0f,
+        float       fov       = 0.25 * std::numbers::pi,
+        math::vec3f position  = math::vec3f{0.0f, 0.0f, 0.0f},
+        math::vec3f up        = math::vec3f{0.0f, 0.0f, 0.0f},
+        math::vec3f look_at   = math::vec3f{0.0f, 0.0f, 0.0f});
 
     void SetAspect(float value);
     void SetNearClipDistance(float value);
@@ -25,6 +24,7 @@ public:
 
     Transform&  GetTransform() const;
     math::mat4f GetViewMatrix() const;
+    math::vec3f GetGlobalPosition() const;
     float       GetAspect() const noexcept;
     float       GetNearClipDistance() const noexcept;
     float       GetFarClipDistance() const noexcept;

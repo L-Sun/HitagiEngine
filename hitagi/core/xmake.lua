@@ -1,3 +1,8 @@
+target("runtime_module_interface")
+    set_kind("headeronly")
+    add_headerfiles("include/hitagi/core/runtime_module.hpp")
+    add_includedirs("include", {public = true})
+
 target("memory_manager")
     set_kind("static")
     add_files("src/buffer.cpp", "src/memory_manager.cpp")

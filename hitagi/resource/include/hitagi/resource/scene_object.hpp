@@ -5,21 +5,19 @@
 namespace hitagi::resource {
 class SceneObject {
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-
     const xg::Guid&  GetGuid() const noexcept;
     void             SetName(std::string_view name) noexcept;
     std::string_view GetName() const noexcept;
-    std::string      GetUniqueName(std::string_view sep = "-") const noexcept;
+    std::pmr::string GetUniqueName(std::string_view sep = "-") const noexcept;
     std::uint32_t    Version() const noexcept;
 
 protected:
-    SceneObject(allocator_type alloc);
-    SceneObject(const SceneObject& obj, allocator_type alloc = {});
-    SceneObject& operator=(const SceneObject& rhs);
+    explicit SceneObject();
+    SceneObject(const SceneObject& obj);
+    SceneObject(SceneObject&& obj);
 
-    SceneObject(SceneObject&& rhs) noexcept            = default;
-    SceneObject& operator=(SceneObject&& rhs) noexcept = default;
+    SceneObject& operator=(const SceneObject& rhs);
+    SceneObject& operator=(SceneObject&& rhs) = default;
 
     void RenewGuid() noexcept;
 

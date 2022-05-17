@@ -119,11 +119,11 @@ void GuiManager::LoadFontTexture() {
 
     const uint32_t bitcount       = 32;
     const size_t   pitch          = width * bitcount / 8;
-    auto           texture_buffer = std::allocate_shared<resource::Image>(g_MemoryManager->GetAllocator<resource::Image>(), width, height, 32, pitch, pitch * height);
+    auto           texture_buffer = std::make_shared<resource::Image>(width, height, 32, pitch, pitch * height);
 
     auto p_texture = texture_buffer->Buffer().GetData();
     std::copy_n(reinterpret_cast<const std::byte*>(pixels), texture_buffer->Buffer().GetDataSize(), p_texture);
-    m_FontTexture = std::allocate_shared<resource::Texture>(g_MemoryManager->GetAllocator<resource::Texture>(), texture_buffer);
+    m_FontTexture = std::make_shared<resource::Texture>(texture_buffer);
 }
 
 void GuiManager::MouseEvent() {

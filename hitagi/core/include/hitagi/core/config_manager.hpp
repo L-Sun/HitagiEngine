@@ -6,9 +6,6 @@
 
 namespace hitagi::core {
 struct AppConfig {
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-    AppConfig(allocator_type = {});
-
     std::pmr::string title     = "Hitagi Engine";
     std::pmr::string version   = "v0.2.0";
     std::uint32_t    width     = 1920;

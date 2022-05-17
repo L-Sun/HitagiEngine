@@ -101,7 +101,7 @@ public:
         using pointer           = Structure*;
         using reference         = std::conditional_t<std::is_same_v<SoAPointer, SoA*>, StructureRef, StructureConstRef>;
 
-        Iterator(const Iterator& rhs) noexcept = default;
+        Iterator(const Iterator& rhs) noexcept   = default;
         Iterator& operator=(const Iterator& rhs) = default;
 
         reference operator*() const { return soa->at(index); }
@@ -137,10 +137,10 @@ public:
     [[nodiscard]] constexpr bool empty() const noexcept { return m_Size == 0; }
     constexpr std::size_t        size() const noexcept { return m_Size; }
     constexpr void               reserve(std::size_t n) {
-        [&]<std::size_t... I>(std::index_sequence<I...>) {
-            (std::get<I>(m_Data).reserve(n), ...);
+                      [&]<std::size_t... I>(std::index_sequence<I...>) {
+                          (std::get<I>(m_Data).reserve(n), ...);
         }
-        (std::index_sequence_for<Types...>{});
+                      (std::index_sequence_for<Types...>{});
     }
     constexpr void shrink_to_fit() {
         [&]<std::size_t... I>(std::index_sequence<I...>) {

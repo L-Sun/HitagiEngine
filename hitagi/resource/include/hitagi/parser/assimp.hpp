@@ -4,6 +4,6 @@
 namespace hitagi::resource {
 class AssimpParser : public SceneParser {
 public:
-    void Parse(Scene& scene, const core::Buffer& buffer, allocator_type alloc = {}) final;
+    void Parse(Scene& scene, const core::Buffer& buffer) final;
 };
 }  // namespace hitagi::resource

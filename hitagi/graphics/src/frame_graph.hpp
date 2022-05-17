@@ -2,35 +2,34 @@
 #include "render_pass.hpp"
 
 #include <hitagi/graphics/driver_api.hpp>
-#include <hitagi/graphics/resource.hpp>
 
 #include <set>
 
 namespace hitagi::graphics {
 
-using FrameHandle     = size_t;
-using FrameResourceId = size_t;
+using FrameHandle     = std::size_t;
+using FrameResourceId = std::size_t;
 struct PassNode;
 class FrameGraph;
 
 struct ResourceNode {
-    using allocator_type = std::pmr::polymorphic_allocator<>;
+    ResourceNode(std::string_view name, FrameResourceId resource)
+        : name(name), resource(resource) {}
 
-    ResourceNode(std::string_view name, FrameResourceId resource, allocator_type alloc = {})
-        : name(name, alloc), resource(resource) {}
     std::pmr::string name;
     FrameResourceId  resource;
     PassNode*        writer  = nullptr;
     unsigned         version = 0;
 };
 struct PassNode {
-    PassNode(std::string_view name, PassExecutor* executor) : name(name), executor(executor) {}
+    PassNode(std::string_view name, PassExecutor* executor)
+        : name(name), executor(executor) {}
 
     FrameHandle Read(const FrameHandle input);
     FrameHandle Write(FrameGraph& fg, const FrameHandle output);
 
-    std::string name;
-    bool        side_effect = false;
+    std::pmr::string name;
+    bool             side_effect = false;
     // index of the resource node in frame graph
     std::pmr::set<FrameHandle> reads;
     std::pmr::set<FrameHandle> writes;
@@ -43,14 +42,13 @@ class FrameGraph {
     friend class ResourceHelper;
 
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-
     class Builder {
         friend class FrameGraph;
 
     public:
         template <typename T>
-        FrameHandle Create(std::string_view name, typename T::Description desc) const noexcept { return m_Fg.Create(name, desc); }
+        FrameHandle Create(std::string_view name, typename T::DescType desc) const noexcept { return m_Fg.Create(name, desc); }
+
         FrameHandle Read(const FrameHandle input) const noexcept { return m_Node.Read(input); }
         FrameHandle Write(const FrameHandle output) const noexcept { return m_Node.Write(m_Fg, output); }
         void        SideEffect() noexcept { m_Node.side_effect = true; }
@@ -61,11 +59,7 @@ public:
         PassNode&   m_Node;
     };
 
-    FrameGraph(allocator_type alloc = {})
-        : m_ResourceNodes(alloc),
-          m_PassNodes(alloc),
-          m_Resources(alloc),
-          m_InnerResourcesDesc(alloc) {}
+    FrameGraph() = default;
 
     ~FrameGraph() { assert(m_Retired && "Frame graph must set a fence to retire its resources."); }
 

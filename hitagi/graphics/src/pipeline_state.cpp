@@ -1,6 +1,7 @@
 #include <hitagi/graphics/pipeline_state.hpp>
 #include <hitagi/graphics/driver_api.hpp>
 #include <string_view>
+#include "magic_enum.hpp"
 #include "spdlog/spdlog.h"
 
 namespace hitagi::graphics {
@@ -8,31 +9,17 @@ namespace hitagi::graphics {
 using namespace hitagi::resource;
 
 auto RootSignature::Builder::Add(std::string_view name, ShaderVariableType type, unsigned register_index, unsigned space, ShaderVisibility visibility) -> RootSignature::Builder& {
-    auto& param = parameter_table.emplace_back(allocator);
-
-    param.name           = name;
-    param.type           = type;
-    param.register_index = register_index;
-    param.space          = space;
-    param.visibility     = visibility;
-
+    parameter_table.emplace_back(Parameter{std::pmr::string(name), type, register_index, space, visibility});
     return *this;
 }
 
 auto RootSignature::Builder::AddStaticSampler(std::string_view name, SamplerDesc desc, unsigned register_index, unsigned space, ShaderVisibility visibility) -> RootSignature::Builder& {
-    auto& sampler = static_sampler_descs.emplace_back(allocator);
-
-    sampler.name           = name;
-    sampler.desc           = desc;
-    sampler.register_index = register_index;
-    sampler.space          = space;
-    sampler.visibility     = visibility;
-
+    static_sampler_descs.emplace_back(StaticSamplerDescription{std::pmr::string(name), desc, register_index, space, visibility});
     return *this;
 }
 
 auto RootSignature::Builder::Create(DriverAPI& driver) -> std::shared_ptr<RootSignature> {
-    auto root_signature = RootSignature::Create(*this, allocator);
+    auto root_signature = RootSignature::Create(*this);
     driver.CreateRootSignature(root_signature);
 
     return root_signature;
@@ -44,13 +31,18 @@ auto PipelineState::Builder::SetName(std::string_view name) -> Builder& {
 }
 
 auto PipelineState::Builder::SetVertexShader(core::Buffer vs) -> Builder& {
-    vertex_shader = std::move(vertex_shader);
+    vertex_shader = std::move(vs);
     return *this;
 }
 auto PipelineState::Builder::SetPixelShader(core::Buffer ps) -> Builder& {
     pixel_shader = std::move(ps);
     return *this;
 }
+auto PipelineState::Builder::EnableVertexSlot(resource::VertexAttribute slot) -> Builder& {
+    vertex_slot_mask.set(magic_enum::enum_integer(slot));
+    return *this;
+}
+
 auto PipelineState::Builder::SetRootSignautre(std::shared_ptr<RootSignature> sig) -> Builder& {
     root_signature = std::move(sig);
     return *this;
@@ -86,7 +78,7 @@ auto PipelineState::Builder::Build(DriverAPI& driver) -> std::shared_ptr<Pipelin
         }
         throw std::logic_error("RootSignature is incompleted.");
     }
-    auto result = PipelineState::Create(*this, allocator);
+    auto result = PipelineState::Create(*this);
     driver.CreatePipelineState(result);
     return result;
 }

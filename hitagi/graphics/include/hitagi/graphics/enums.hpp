@@ -16,7 +16,6 @@ enum struct ShaderVariableType {
     SRV,
     UAV,
     Sampler,
-    Num_Type
 };
 
 enum struct ShaderVisibility {
@@ -26,7 +25,6 @@ enum struct ShaderVisibility {
     Domain,
     Geometry,
     Pixel,
-    Num_Visibility
 };
 
 // Texture

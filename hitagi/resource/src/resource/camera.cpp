@@ -5,23 +5,21 @@
 using namespace hitagi::math;
 
 namespace hitagi::resource {
-Camera::Camera(float          aspect,
-               float          near_clip,
-               float          far_clip,
-               float          fov,
-               math::vec3f    position,
-               math::vec3f    up,
-               math::vec3f    look_at,
-               allocator_type alloc)
-    : SceneObject(alloc),
-      m_Aspect(aspect),
+Camera::Camera(float       aspect,
+               float       near_clip,
+               float       far_clip,
+               float       fov,
+               math::vec3f position,
+               math::vec3f up,
+               math::vec3f look_at)
+    : m_Aspect(aspect),
       m_NearClipDistance(near_clip),
       m_FarClipDistance(far_clip),
       m_Fov(fov),
       m_Position(position),
       m_UpDirection(up),
       m_LookDirection(look_at),
-      m_Transform(std::allocate_shared<Transform>(alloc)) {}
+      m_Transform(std::make_shared<Transform>()) {}
 
 void Camera::SetAspect(float value) { m_Aspect = value; }
 void Camera::SetNearClipDistance(float value) { m_NearClipDistance = value; }
@@ -43,6 +41,10 @@ auto Camera::GetTransform() const -> Transform& {
 
 mat4f Camera::GetViewMatrix() const {
     return look_at(m_Position, m_LookDirection, m_UpDirection) * inverse(m_Transform->GetTransform());
+}
+
+math::vec3f Camera::GetGlobalPosition() const {
+    return (m_Transform->GetTransform() * vec4f(m_Position, 1.0f)).xyz;
 }
 
 float Camera::GetAspect() const noexcept { return m_Aspect; }

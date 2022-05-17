@@ -8,19 +8,23 @@
 #include <magic_enum.hpp>
 
 #include <stdexcept>
+#include <bitset>
 
 namespace hitagi::resource {
 
 class VertexArray : public SceneObject {
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-
-    VertexArray(std::size_t vertex_count, allocator_type alloc = {});
+    VertexArray(std::size_t vertex_count);
+    VertexArray(const VertexArray& other) = default;
+    VertexArray(VertexArray&& other)      = default;
 
     inline std::size_t VertexCount() const noexcept { return m_VertexCount; }
     bool               IsEnable(VertexAttribute attr) const;
 
+    std::bitset<magic_enum::enum_count<VertexAttribute>()> GetSlotMask() const;
+
     core::Buffer& GetBuffer(VertexAttribute attr);
+    core::Buffer& GetBuffer(std::size_t slot);
 
     // the buffer will be constructed if `GetVertices` is invoke first time with attribute Attr
     template <VertexAttribute Attr>
@@ -33,9 +37,9 @@ private:
 
 class IndexArray : public SceneObject {
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-
-    IndexArray(std::size_t index_count, IndexType type, allocator_type alloc = {});
+    IndexArray(std::size_t index_count, IndexType type);
+    IndexArray(const IndexArray& other) = default;
+    IndexArray(IndexArray&& other)      = default;
 
     auto  IndexSize() const noexcept { return get_index_type_size(m_IndexType); }
     auto  IndexCount() const noexcept { return m_IndexCount; }
@@ -58,14 +62,12 @@ public:
         std::shared_ptr<IndexArray>  indices,
         // TODO use default material
         std::shared_ptr<MaterialInstance> material = nullptr,
-        PrimitiveType                     type     = PrimitiveType::TriangleList,
-        allocator_type                    alloc    = {});
+        PrimitiveType                     type     = PrimitiveType::TriangleList);
 
-    Mesh(const Mesh& other, allocator_type alloc = {});
+    Mesh(const Mesh& other)      = default;
     Mesh& operator=(const Mesh&) = default;
-
-    Mesh(Mesh&& other) = default;
-    Mesh& operator=(Mesh&& rhs) noexcept;
+    Mesh(Mesh&& other)           = default;
+    Mesh& operator=(Mesh&& rhs)  = default;
 
 private:
     std::shared_ptr<VertexArray>      m_Vertices;

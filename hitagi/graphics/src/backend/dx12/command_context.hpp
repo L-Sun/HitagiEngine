@@ -14,10 +14,10 @@ class DX12DriverAPI;
 class CommandContext {
 public:
     CommandContext(DX12DriverAPI& driver, D3D12_COMMAND_LIST_TYPE type);
-    CommandContext(const CommandContext&) = delete;
+    CommandContext(const CommandContext&)            = delete;
     CommandContext& operator=(const CommandContext&) = delete;
     CommandContext(CommandContext&&)                 = default;
-    CommandContext& operator=(CommandContext&&) = delete;
+    CommandContext& operator=(CommandContext&&)      = delete;
     ~CommandContext();
 
     auto GetCommandList() noexcept { return m_CommandList; }
@@ -81,20 +81,21 @@ public:
     void SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
     void SetScissorRect(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom) final;
     void SetViewPortAndScissor(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
-    void SetRenderTarget(graphics::RenderTarget& rt) final;
+    void SetRenderTarget(std::shared_ptr<graphics::RenderTarget> rt) final;
     void UnsetRenderTarget() final;
-    void SetRenderTargetAndDepthBuffer(graphics::RenderTarget& rt, graphics::DepthBuffer& depth_buffer) final;
-    void ClearRenderTarget(graphics::RenderTarget& rt) final;
-    void ClearDepthBuffer(graphics::DepthBuffer& depth_buffer) final;
-    void SetPipelineState(const graphics::PipelineState& pipeline) final;
-    void SetParameter(std::string_view name, const graphics::ConstantBuffer& cb, size_t offset) final;
-    void SetParameter(std::string_view name, const graphics::TextureBuffer& texture) final;
-    void SetParameter(std::string_view name, const graphics::Sampler& sampler) final;
+    void SetRenderTargetAndDepthBuffer(std::shared_ptr<graphics::RenderTarget> rt, std::shared_ptr<graphics::DepthBuffer> depth_buffer) final;
+    void ClearRenderTarget(std::shared_ptr<graphics::RenderTarget> rt) final;
+    void ClearDepthBuffer(std::shared_ptr<graphics::DepthBuffer> depth_buffer) final;
+    void SetPipelineState(std::shared_ptr<graphics::PipelineState> pipeline) final;
+    void SetParameter(std::string_view name, std::shared_ptr<graphics::ConstantBuffer> cb, std::size_t offset) final;
+    void SetParameter(std::string_view name, std::shared_ptr<graphics::TextureBuffer> texture) final;
+    void SetParameter(std::string_view name, std::shared_ptr<graphics::Sampler> sampler) final;
 
-    void UpdateBuffer(std::shared_ptr<graphics::Resource> resource, size_t offset, const uint8_t* data, size_t data_size) final;
+    void UpdateBuffer(std::shared_ptr<graphics::Resource> resource, std::size_t offset, const std::byte* data, std::size_t data_size) final;
+    void ModifyBuffer(std::shared_ptr<graphics::Resource> resource, std::function<void(std::byte*, std::size_t)>&&) final;
 
-    void     Draw(const graphics::MeshBuffer& mesh) final;
-    void     Present(graphics::RenderTarget& rt) final;
+    void     Draw(std::shared_ptr<graphics::VertexBuffer> vb, std::shared_ptr<graphics::IndexBuffer> ib, resource::PrimitiveType) final;
+    void     Present(std::shared_ptr<graphics::RenderTarget> rt) final;
     uint64_t Finish(bool wait_for_complete = false) final { return CommandContext::Finish(wait_for_complete); }
 
     // Back end interface
@@ -107,7 +108,7 @@ public:
     }
 
 private:
-    const graphics::PipelineState* m_Pipeline{};
+    std::shared_ptr<graphics::PipelineState> m_CurrentPipeline = nullptr;
 };
 
 class ComputeCommandContext : public CommandContext {
@@ -121,7 +122,7 @@ public:
     CopyCommandContext(DX12DriverAPI& driver)
         : CommandContext(driver, D3D12_COMMAND_LIST_TYPE_COPY) {}
 
-    void InitializeBuffer(GpuResource& dest, const uint8_t* data, size_t data_size);
+    void InitializeBuffer(GpuResource& dest, const std::byte* data, size_t data_size);
     void InitializeTexture(GpuResource& dest, const std::vector<D3D12_SUBRESOURCE_DATA>& sub_data);
 };
 

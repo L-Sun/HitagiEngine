@@ -6,10 +6,9 @@
 namespace hitagi::resource {
 class Transform : std::enable_shared_from_this<Transform> {
 public:
-    using allocator_type = std::pmr::polymorphic_allocator<>;
-    Transform(allocator_type alloc = {});
+    explicit Transform();
 
-    Transform(const std::tuple<math::vec3f, math::quatf, math::vec3f>& rts, allocator_type alloc = {});
+    Transform(const std::tuple<math::vec3f, math::quatf, math::vec3f>& trs);
 
     math::mat4f GetTransform() const noexcept;
     math::mat4f GetLocalTransform() const noexcept;

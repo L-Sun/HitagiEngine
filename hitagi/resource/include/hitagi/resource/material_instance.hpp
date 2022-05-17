@@ -3,8 +3,6 @@
 #include <hitagi/resource/texture.hpp>
 #include <hitagi/resource/material.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <optional>
 
 namespace hitagi::resource {
@@ -13,12 +11,12 @@ class MaterialInstance : public SceneObject {
     friend class Material;
 
 public:
-    MaterialInstance(const std::shared_ptr<Material>& material, allocator_type alloc = {});
-    MaterialInstance(const MaterialInstance& other, allocator_type alloc = {});
-    MaterialInstance(MaterialInstance&&) noexcept = default;
+    MaterialInstance(const std::shared_ptr<Material>& material);
+    MaterialInstance(const MaterialInstance& other);
+    MaterialInstance(MaterialInstance&&) = default;
 
     MaterialInstance& operator=(const MaterialInstance&);
-    MaterialInstance& operator=(MaterialInstance&&) noexcept = default;
+    MaterialInstance& operator=(MaterialInstance&&) = default;
 
     ~MaterialInstance();
 
@@ -46,6 +44,8 @@ public:
     inline auto& GetTextures() const noexcept { return m_Textures; }
 
 private:
+    void Warn(std::string_view message) const;
+
     template <typename T>
     const T& GetParameter(std::string_view name) const noexcept;
 
@@ -65,8 +65,7 @@ MaterialInstance& MaterialInstance::SetParameter(std::string_view name, const T&
     if (material && material->IsValidParameter<T>(name)) {
         GetParameter<T>(name) = value;
     } else {
-        auto logger = spdlog::get("AssetManager");
-        if (logger) logger->warn("You are setting a invalid parameter: {}", name);
+        Warn(fmt::format("You are setting a invalid parameter: {}", name));
     }
 
     return *this;
@@ -79,8 +78,7 @@ MaterialInstance& MaterialInstance::SetParameter(std::string_view name, std::arr
     if (material && material->IsValidParameter<decltype(value)>(name)) {
         std::copy(value.begin(), value.end(), &GetParameter<T>(name));
     } else {
-        auto logger = spdlog::get("AssetManager");
-        if (logger) logger->warn("You are setting a invalid parameter: {}", name);
+        Warn(fmt::format("You are setting a invalid parameter: {}", name));
     }
 
     return *this;
@@ -92,8 +90,7 @@ auto MaterialInstance::GetValue(std::string_view name) const noexcept -> std::op
     if (material && material->IsValidParameter<T>(name)) {
         return GetParameter<T>(name);
     } else {
-        auto logger = spdlog::get("AssetManager");
-        if (logger) logger->warn("You are setting a invalid parameter: {}", name);
+        Warn(fmt::format("You are setting a invalid parameter: {}", name));
     }
 
     return std::nullopt;
@@ -108,8 +105,7 @@ auto MaterialInstance::GetValue(std::string_view name) const noexcept -> std::op
         std::copy_n(&GetParameter<T>(name), N, result.data());
         return result;
     } else {
-        auto logger = spdlog::get("AssetManager");
-        if (logger) logger->warn("You are setting a invalid parameter: {}", name);
+        Warn(fmt::format("You are setting a invalid parameter: {}", name));
     }
     return std::nullopt;
 }

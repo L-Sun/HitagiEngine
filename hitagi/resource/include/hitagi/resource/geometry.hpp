@@ -7,7 +7,7 @@ namespace hitagi::resource {
 
 class Geometry : public SceneObject {
 public:
-    Geometry(std::shared_ptr<Transform> transform, allocator_type alloc = {});
+    Geometry(std::shared_ptr<Transform> transform);
     void SetTransform(std::shared_ptr<Transform> transform) noexcept;
     void AddMesh(Mesh mesh) noexcept;
 
