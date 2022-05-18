@@ -11,4 +11,3 @@ rule("clang-msvc")
             end
         end
     end)
-rule_end()

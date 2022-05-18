@@ -2,7 +2,7 @@ set_project("HitagiEngine")
 set_languages("c++20")
 
 includes("xmake-rules/*.lua")
-add_rules("mode.debug", "mode.release", "clang-msvc")
+add_rules("mode.debug", "mode.release", "clang-msvc", "copy-dll")
 
 add_requireconfs("*", {configs = {shared = true}})
 add_requires("magic_enum", "crossguid", "gtest", "benchmark", "taskflow", "cxxopts", "yaml-cpp")
