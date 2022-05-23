@@ -6,13 +6,14 @@ namespace hitagi::math {
 
 template <typename T, unsigned D>
 struct Matrix {
-    using RowVec = Vector<T, D>;
+    using value_type = T;
+    using RowVec     = Vector<T, D>;
     std::array<RowVec, D> data;
 
-    Matrix()                  = default;
-    Matrix(const Matrix&)     = default;
-    Matrix(Matrix&&) noexcept = default;
-    Matrix& operator=(const Matrix&) = default;
+    Matrix()                             = default;
+    Matrix(const Matrix&)                = default;
+    Matrix(Matrix&&) noexcept            = default;
+    Matrix& operator=(const Matrix&)     = default;
     Matrix& operator=(Matrix&&) noexcept = default;
 
     explicit Matrix(const T num) {

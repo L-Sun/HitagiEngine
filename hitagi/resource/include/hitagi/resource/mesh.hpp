@@ -19,7 +19,6 @@ public:
     VertexArray(VertexArray&& other)      = default;
 
     inline std::size_t VertexCount() const noexcept { return m_VertexCount; }
-    bool               IsEnable(VertexAttribute attr) const;
 
     std::bitset<magic_enum::enum_count<VertexAttribute>()> GetSlotMask() const;
 

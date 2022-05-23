@@ -1,12 +1,13 @@
 #include <hitagi/resource/asset_manager.hpp>
+#include <hitagi/core/memory_manager.hpp>
+#include <hitagi/math/vector.hpp>
 #include <hitagi/parser/png.hpp>
 #include <hitagi/parser/jpeg.hpp>
 #include <hitagi/parser/bmp.hpp>
 #include <hitagi/parser/tga.hpp>
-#include <hitagi/math/vector.hpp>
-#include <hitagi/core/memory_manager.hpp>
+#include <hitagi/parser/assimp.hpp>
+#include "hitagi/core/file_io_manager.hpp"
 
-// #include <hitagi/parser/assimp.hpp>
 // #include <hitagi/parser/bvh.hpp>
 
 #include <spdlog/spdlog.h>
@@ -24,7 +25,7 @@ int AssetManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("AssetManager");
     m_Logger->info("Initialize...");
 
-    // m_SceneParser = std::make_unique<AssimpParser>();
+    m_SceneParser = std::make_unique<AssimpParser>();
 
     m_ImageParser[static_cast<size_t>(ImageFormat::PNG)]  = std::make_unique<PngParser>();
     m_ImageParser[static_cast<size_t>(ImageFormat::JPEG)] = std::make_unique<JpegParser>();
@@ -50,19 +51,15 @@ void AssetManager::Finalize() {
         materail = nullptr;
     }
 
-    // m_SceneParser = nullptr;
+    m_SceneParser = nullptr;
 
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
-// std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
-//     auto scene = m_SceneParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
-//     scene->SetName(path.stem().string());
-//     if (!scene) m_Logger->error("Failed to Import Scene: {}", path.string());
-
-//     return scene;
-// }
+void AssetManager::ImportScene(Scene& scene, const std::filesystem::path& path) {
+    m_SceneParser->Parse(scene, m_Materials, g_FileIoManager->SyncOpenAndReadBinary(path));
+}
 
 std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& path) {
     auto format = get_image_format(path.extension().string());
@@ -90,16 +87,15 @@ std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& pa
 
 void AssetManager::InitializeInnerMaterial() {
     // Phong
-    m_Materials.at(*magic_enum::enum_index(MaterialType::Phong)) =
+    m_Materials.emplace_back(
         Material::Builder()
-            .Type(MaterialType::Phong)
             .AppendParameterInfo<vec3f>("ambient")
             .AppendParameterInfo<vec3f>("diffuse")
             .AppendParameterInfo<vec3f>("specular")
             .AppendTextureName("ambient_texture")
             .AppendTextureName("diffuse_texture")
             .AppendTextureName("specular_texture")
-            .Build();
+            .Build());
 }
 
 }  // namespace hitagi::resource

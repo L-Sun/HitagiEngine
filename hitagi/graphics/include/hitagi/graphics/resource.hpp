@@ -60,7 +60,7 @@ public:
 
 struct VertexBufferDesc {
     std::size_t vertex_count = 0;
-    //  indicate the size of the correspond slot
+    //  indicate which slot is enabled
     std::bitset<magic_enum::enum_count<resource::VertexAttribute>()> slot_mask;
 };
 using VertexBuffer = ResourceWithDesc<VertexBufferDesc>;

@@ -28,7 +28,7 @@ private:
     std::array<std::unique_ptr<ImageParser>, magic_enum::enum_count<ImageFormat>()> m_ImageParser;
     std::unique_ptr<SceneParser>                                                    m_SceneParser;
 
-    std::array<std::shared_ptr<Material>, magic_enum::enum_count<MaterialType>()> m_Materials{};
+    std::pmr::vector<std::shared_ptr<Material>> m_Materials;
 };
 }  // namespace hitagi::resource
 

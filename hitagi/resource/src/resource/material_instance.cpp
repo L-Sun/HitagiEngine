@@ -63,6 +63,20 @@ MaterialInstance& MaterialInstance::SetTexture(std::string_view name, std::share
     return *this;
 }
 
+MaterialInstance& MaterialInstance::SetMaterial(const std::shared_ptr<Material>& material) noexcept {
+    auto _m = m_Material.lock();
+    if (_m) _m->m_NumInstances--;
+
+    material->m_NumInstances++;
+
+    m_Material = material;
+    return *this;
+}
+
+std::shared_ptr<Texture> MaterialInstance::GetTexture(std::string_view name) const noexcept {
+    return m_Textures.at(std::pmr::string(name));
+}
+
 void MaterialInstance::Warn(std::string_view message) const {
     auto logger = spdlog::get("AssetManager");
     if (logger) logger->warn(message);

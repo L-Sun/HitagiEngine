@@ -25,7 +25,7 @@ target("parser")
     remove_files("src/parser/bvh.cpp")
     add_includedirs("include", {public = true})
     add_deps("core", "math", "resource")
-    add_packages("libpng", "assimp", "libjpeg-turbo")
+    add_packages("libpng", "assimp", "libjpeg-turbo", "yaml-cpp")
 
 target("asset_manager")
     set_kind("static")

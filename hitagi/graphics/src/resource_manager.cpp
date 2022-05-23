@@ -1,4 +1,6 @@
 #include "resource_manager.hpp"
+#include <hitagi/core/file_io_manager.hpp>
+#include "magic_enum.hpp"
 
 using namespace hitagi::resource;
 
@@ -63,6 +65,33 @@ void ResourceManager::PrepareMaterialParameterBuffer(const std::shared_ptr<Mater
 }
 
 void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material) {
-    // TODO
+    if (m_PipelineStates.count(material->GetGuid()) == 0) {
+        RootSignature::Builder rootsig_builder;
+        rootsig_builder
+            .Add("FrameConstantBuffer", ShaderVariableType::CBV, 0, 0)
+            .Add("ObjectConstantBuffer", ShaderVariableType::CBV, 1, 0)
+            .Add("MaterialConstantBuffer", ShaderVariableType::CBV, 2, 0);  // TODO shader visibility
+
+        {
+            std::size_t i = 0;
+            for (auto& texture_name : material->GetTextureNames()) {
+                rootsig_builder.Add(texture_name, ShaderVariableType::SRV, i++, 0);
+            }
+        }
+        auto rootsig = rootsig_builder.Create(m_Driver);
+
+        std::string_view       name = material->GetName();
+        PipelineState::Builder pso_builder;
+        // TODO
+        pso_builder
+            .SetName(name)
+            .SetVertexShader(g_FileIoManager->SyncOpenAndReadBinary(fmt::format("/assets/shaders/{}.vs", name)))
+            .SetPixelShader(g_FileIoManager->SyncOpenAndReadBinary(fmt::format("/assets/shaders/{}.ps", name)));
+        magic_enum::enum_for_each<VertexAttribute>([&](auto slot) {
+            if (material->IsSlotEnabled(slot)) {
+                pso_builder.EnableVertexSlot(slot);
+            }
+        });
+    }
 }
 }  // namespace hitagi::graphics

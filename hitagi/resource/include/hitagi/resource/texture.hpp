@@ -11,7 +11,8 @@ public:
     Texture(std::shared_ptr<Image> image);
     Texture(uint32_t coord_index, std::shared_ptr<Image> image);
 
-    std::shared_ptr<Image> GetTextureImage();
+    std::shared_ptr<Image> GetTextureImage() const noexcept;
+    std::filesystem::path  GetTexturePath() const noexcept;
 
     void LoadImage(std::function<std::shared_ptr<Image>(std::filesystem::path)>&& loader);
     void UnloadImage();

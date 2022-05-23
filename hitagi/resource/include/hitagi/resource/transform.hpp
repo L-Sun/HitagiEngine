@@ -4,9 +4,9 @@
 #include <memory_resource>
 
 namespace hitagi::resource {
-class Transform : std::enable_shared_from_this<Transform> {
+class Transform : public std::enable_shared_from_this<Transform> {
 public:
-    explicit Transform();
+    Transform() = default;
 
     Transform(const std::tuple<math::vec3f, math::quatf, math::vec3f>& trs);
 

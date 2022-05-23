@@ -1,7 +1,6 @@
 #include <hitagi/core/config_manager.hpp>
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/core/memory_manager.hpp>
-#include "yaml-cpp/node/parse.h"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>

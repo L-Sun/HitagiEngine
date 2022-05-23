@@ -23,11 +23,13 @@ public:
     template <MaterialParametric T>
     MaterialInstance& SetParameter(std::string_view name, const T& value) noexcept;
 
-    template <MaterialParametric T, std::size_t N>
-    MaterialInstance& SetParameter(std::string_view name, const std::array<T, N> value) noexcept;
+    template <MaterialParametric T>
+    MaterialInstance& SetParameter(std::string_view name, const std::pmr::vector<T> value) noexcept;
 
     // TODO set a sampler
     MaterialInstance& SetTexture(std::string_view name, std::shared_ptr<Texture> texture) noexcept;
+
+    MaterialInstance& SetMaterial(const std::shared_ptr<Material>& material) noexcept;
 
     template <MaterialParametric T>
     std::optional<T> GetValue(std::string_view name) const noexcept;
@@ -71,8 +73,8 @@ MaterialInstance& MaterialInstance::SetParameter(std::string_view name, const T&
     return *this;
 }
 
-template <MaterialParametric T, std::size_t N>
-MaterialInstance& MaterialInstance::SetParameter(std::string_view name, std::array<T, N> value) noexcept {
+template <MaterialParametric T>
+MaterialInstance& MaterialInstance::SetParameter(std::string_view name, std::pmr::vector<T> value) noexcept {
     auto material = m_Material.lock();
 
     if (material && material->IsValidParameter<decltype(value)>(name)) {

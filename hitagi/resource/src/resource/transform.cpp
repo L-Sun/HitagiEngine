@@ -28,7 +28,7 @@ vec3f Transform::GetScaling() const noexcept { return m_Scaling; }
 
 void Transform::SetParent(const std::shared_ptr<Transform>& parent) {
     m_Parent = parent;
-    parent->m_Children.emplace_back(shared_from_this());
+    if (parent) parent->m_Children.emplace_back(shared_from_this());
     UpdateTransformRecursive();
 }
 

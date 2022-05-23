@@ -6,18 +6,18 @@
 #include <hitagi/math/transform.hpp>
 
 #include <assimp/Importer.hpp>
-#include "hitagi/resource/enums.hpp"
-#include "hitagi/resource/mesh.hpp"
-#include "magic_enum.hpp"
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <spdlog/spdlog.h>
+
+#include <algorithm>
+#include <unordered_set>
 
 using namespace hitagi::math;
 
 namespace hitagi::resource {
 
-void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer) {
+void AssimpParser::Parse(Scene& scene, std::pmr::vector<std::shared_ptr<Material>>& materials, const core::Buffer& buffer) {
     auto logger = spdlog::get("AssetManager");
 
     if (buffer.Empty()) {
@@ -41,7 +41,9 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer) {
     }
     auto end = std::chrono::high_resolution_clock::now();
     logger->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+
     begin = std::chrono::high_resolution_clock::now();
+    scene.SetName(ai_scene->mName.C_Str());
 
     constexpr auto get_matrix = [](const aiMatrix4x4& _mat) -> const mat4f {
         mat4f ret(reinterpret_cast<const ai_real*>(&_mat));
@@ -127,35 +129,33 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer) {
     }
 
     // process material
-    // TODO support other material type
-    auto                                                                         phong = scene.GetMaterial(MaterialType::Phong);
-    std::pmr::unordered_map<std::string_view, std::shared_ptr<MaterialInstance>> material_name_map;
+    std::pmr::unordered_map<std::string_view, std::shared_ptr<MaterialInstance>> material_instances;
+
     for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
-        const auto _material = ai_scene->mMaterials[i];
-        auto       material  = phong->CreateInstance();
+        const auto        _material = ai_scene->mMaterials[i];
+        Material::Builder builder;
 
         // set material diffuse color
         if (aiColor3D ambientColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_AMBIENT, ambientColor))
-            material->SetParameter("ambient", vec4f(ambientColor.r, ambientColor.g, ambientColor.b, 1.0f));
+            builder.AppendParameterInfo("ambient", vec4f(ambientColor.r, ambientColor.g, ambientColor.b, 1.0f));
         if (aiColor3D diffuseColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor))
-            material->SetParameter("diffuse", vec4f(diffuseColor.r, diffuseColor.g, diffuseColor.b, 1.0f));
+            builder.AppendParameterInfo("diffuse", vec4f(diffuseColor.r, diffuseColor.g, diffuseColor.b, 1.0f));
         // set material specular color
         if (aiColor3D specularColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_SPECULAR, specularColor))
-            material->SetParameter("specular", vec4f(specularColor.r, specularColor.g, specularColor.b, 1.0f));
+            builder.AppendParameterInfo("specular", vec4f(specularColor.r, specularColor.g, specularColor.b, 1.0f));
 
-        // TODO support the following parameter
-        // // set material emission color
-        // if (aiColor3D emissiveColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor))
-        //     material->SetParameter("emission", vec4f(emissiveColor.r, emissiveColor.g, emissiveColor.b, 1.0f));
-        // // set material transparent color
-        // if (aiColor3D transparentColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_TRANSPARENT, transparentColor))
-        //     material->SetParameter("transparency", vec4f(transparentColor.r, transparentColor.g, transparentColor.b, 1.0f));
-        // // set material shiness
-        // if (float shininess = 0; AI_SUCCESS == _material->Get(AI_MATKEY_SHININESS, shininess))
-        //     material->SetParameter("specular_power", shininess);
-        // // set material opacity
-        // if (float opacity = 0; AI_SUCCESS == _material->Get(AI_MATKEY_OPACITY, opacity))
-        //     material->SetParameter("opacity", opacity);
+        // set material emission color
+        if (aiColor3D emissiveColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor))
+            builder.AppendParameterInfo("emission", vec4f(emissiveColor.r, emissiveColor.g, emissiveColor.b, 1.0f));
+        // set material transparent color
+        if (aiColor3D transparentColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_TRANSPARENT, transparentColor))
+            builder.AppendParameterInfo("transparency", vec4f(transparentColor.r, transparentColor.g, transparentColor.b, 1.0f));
+        // set material shiness
+        if (float shininess = 0; AI_SUCCESS == _material->Get(AI_MATKEY_SHININESS, shininess))
+            builder.AppendParameterInfo("specular_power", shininess);
+        // set material opacity
+        if (float opacity = 0; AI_SUCCESS == _material->Get(AI_MATKEY_OPACITY, opacity))
+            builder.AppendParameterInfo("opacity", opacity);
 
         // set diffuse texture
         // TODO: blend mutiple texture
@@ -175,17 +175,39 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer) {
                     std::filesystem::path path(_path.C_Str());
                     auto                  texture = std::make_shared<Texture>(path);
                     texture->SetName(_path.C_Str());
-                    material->SetTexture(key1, texture);
+                    builder.AppendTextureName(key1, _path.C_Str());
                 }
                 break;  // unsupport blend for now.
             }
         }
 
+        // TODO adapte assimp shader
+        builder.SetShader("asset/assimp.hlsl");
+
+        auto material = builder.Build();
+        auto instance = material->CreateInstance();
+        instance->SetName(material->GetName());
+
+        auto iter = std::find_if(materials.begin(),
+                                 materials.end(),
+                                 [material](auto m) -> bool {
+                                     return *m == *material;
+                                 });
+
+        // A new material type
+        if (iter == materials.end()) {
+            materials.emplace_back(material);
+        }
+        // A exists material type
+        else {
+            instance->SetMaterial(material);
+        }
+
         // set material name
         if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
-            material->SetName(name.C_Str());
+            instance->SetName(name.C_Str());
 
-        auto&& [result, success] = material_name_map.emplace(material->GetName(), material);
+        auto&& [result, success] = material_instances.emplace(instance->GetName(), instance);
         if (!success)
             logger->warn("A material[{}] with the same name already exists!", material->GetName());
     }
@@ -272,28 +294,22 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer) {
                 indices_array[p++] = ai_mesh->mFaces[face].mIndices[i];
 
         PrimitiveType primitive;
-        switch (ai_mesh->mPrimitiveTypes) {
-            case aiPrimitiveType::aiPrimitiveType_LINE:
-                primitive = PrimitiveType::LineList;
-                break;
-            case aiPrimitiveType::aiPrimitiveType_POINT:
-                primitive = PrimitiveType::PointList;
-                break;
-            case aiPrimitiveType::aiPrimitiveType_TRIANGLE:
-                primitive = PrimitiveType::TriangleList;
-                break;
-            case aiPrimitiveType::aiPrimitiveType_POLYGON:
-            case aiPrimitiveType::_aiPrimitiveType_Force32Bit:
-            default:
-                primitive = PrimitiveType::Unkown;
-                logger->error("[Assimp] Unsupport Primitive Type");
+        if (ai_mesh->mPrimitiveTypes & aiPrimitiveType::aiPrimitiveType_LINE)
+            primitive = PrimitiveType::LineList;
+        else if (ai_mesh->mPrimitiveTypes & aiPrimitiveType::aiPrimitiveType_POINT)
+            primitive = PrimitiveType::PointList;
+        else if (ai_mesh->mPrimitiveTypes & aiPrimitiveType::aiPrimitiveType_TRIANGLE)
+            primitive = PrimitiveType::TriangleList;
+        else {
+            primitive = PrimitiveType::Unkown;
+            logger->error("[Assimp] Unsupport Primitive Type");
         }
 
         // material
         std::shared_ptr<MaterialInstance> material      = nullptr;
         const std::string_view            material_name = ai_scene->mMaterials[ai_mesh->mMaterialIndex]->GetName().C_Str();
-        if (material_name_map.count(material_name) != 0)
-            material = material_name_map.at(material_name);
+        if (material_instances.count(material_name) != 0)
+            material = material_instances.at(material_name);
         else
             logger->warn("A mesh[{}] refers to a unexist material", material_name);
 
@@ -333,7 +349,7 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer) {
     };
 
     std::function<void(const aiNode*, const std::shared_ptr<Transform>&)>
-        convert = [&](const aiNode* _node, const std::shared_ptr<Transform>& parent) -> void {
+        convert = [&](const aiNode* _node, std::shared_ptr<Transform> parent) -> void {
         std::string_view name = _node->mName.C_Str();
 
         auto transform = std::make_shared<Transform>(decompose(get_matrix(_node->mTransformation)));
@@ -343,15 +359,17 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer) {
         if (_node->mNumMeshes > 0) {
             auto geometry = create_geometry(_node, transform);
             geometry.SetName(name);
-            scene.AddGeometry(std::move(geometry));
+            scene.geometries.emplace_back(std::move(geometry));
         }
         // The node is a camera
         else if (camera_name_map.count(name) != 0) {
-            camera_name_map.at(name)->SetTransform(transform);
+            auto camera = camera_name_map.at(name);
+            camera->SetTransform(transform);
+            scene.cameras.emplace(camera);
         }
         // The node is a light
         else if (light_name_map.count(name) != 0) {
-            scene.AddLight(light_name_map.at(name));
+            scene.lights.emplace(light_name_map.at(name));
         }
         // // The node is bone
         // else if (bone_name_map.count(name) != 0) {
@@ -364,7 +382,12 @@ void AssimpParser::Parse(Scene& scene, const core::Buffer& buffer) {
         else {
             // No thing to do;
         }
+
+        for (std::size_t i = 0; i < _node->mNumChildren; i++) {
+            convert(_node->mChildren[i], transform);
+        }
     };
+    convert(ai_scene->mRootNode, nullptr);
 
     end = std::chrono::high_resolution_clock::now();
     logger->info("[Assimp] Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());

@@ -3,6 +3,7 @@
 #include <hitagi/resource/asset_manager.hpp>
 
 using namespace hitagi;
+using namespace hitagi::resource;
 
 TEST(ImageParserTest, ErrorPath) {
     auto image = g_AssetManager->ImportImage("assets/test/azcxxcacas.jpg");
@@ -23,22 +24,30 @@ TEST(ImageParserTest, Tga) {
     EXPECT_EQ(image->Height(), 152);
 }
 
-TEST(ImageParserTest, png) {
+TEST(ImageParserTest, Png) {
     auto image = g_AssetManager->ImportImage("assets/test/test.png");
     EXPECT_TRUE(image != nullptr);
     EXPECT_EQ(image->Width(), 278);
     EXPECT_EQ(image->Height(), 152);
 }
 
-TEST(ImageParserTest, bmp) {
+TEST(ImageParserTest, Bmp) {
     auto image = g_AssetManager->ImportImage("assets/test/test.bmp");
     EXPECT_TRUE(image != nullptr);
     EXPECT_EQ(image->Width(), 278);
     EXPECT_EQ(image->Height(), 152);
 }
 
+TEST(SceneParserTest, Fbx) {
+    Scene scene;
+    g_AssetManager->ImportScene(scene, "assets/test/test.fbx");
+    EXPECT_EQ(scene.cameras.size(), 1);
+    EXPECT_EQ(scene.geometries.size(), 1);
+    EXPECT_EQ(scene.lights.size(), 1);
+}
+
 int main(int argc, char* argv[]) {
-    spdlog::set_level(spdlog::level::off);
+    spdlog::set_level(spdlog::level::debug);
     g_MemoryManager->Initialize();
     g_FileIoManager->Initialize();
     g_AssetManager->Initialize();

@@ -232,7 +232,8 @@ void GraphicsCommandContext::Draw(std::shared_ptr<graphics::VertexBuffer> vertex
     m_CommandList->IASetIndexBuffer(&ibv);
 
     for (std::size_t slot = 0; slot < vertex_buffer->desc.slot_mask.size(); slot++) {
-        if (vertex_buffer->desc.slot_mask.test(slot)) {
+        // Make sure the slot is enabled in pipeline and vertex buffer
+        if (vertex_buffer->desc.slot_mask.test(slot) && m_CurrentPipeline->vertex_slot_mask.test(slot)) {
             auto vbv = vertex_buffer->GetBackend<VertexBuffer>()->VertexBufferView(slot);
             m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
         }

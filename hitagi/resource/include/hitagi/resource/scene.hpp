@@ -8,23 +8,13 @@
 namespace hitagi::resource {
 class Scene : public SceneObject {
 public:
-    using SupportedMaterails = std::array<std::shared_ptr<Material>, magic_enum::enum_count<MaterialType>()>;
-
-    Scene(SupportedMaterails materials);
-    void AddGeometry(Geometry geometry);
-    void AddCamera(std::shared_ptr<Camera> camera);
-    void AddLight(std::shared_ptr<Light> light);
-
-    std::shared_ptr<Material> GetMaterial(MaterialType type) const;
+    Scene() = default;
 
     std::pmr::vector<Mesh> GetRenderable();
 
-private:
-    std::pmr::vector<Geometry>                m_Geometries;
-    std::pmr::vector<std::shared_ptr<Light>>  m_Lights;
-    std::pmr::vector<std::shared_ptr<Camera>> m_Camera;
-
-    SupportedMaterails m_Materials;
+    std::pmr::vector<Geometry>                       geometries;
+    std::pmr::unordered_set<std::shared_ptr<Light>>  lights;
+    std::pmr::unordered_set<std::shared_ptr<Camera>> cameras;
 };
 
 }  // namespace hitagi::resource

@@ -94,12 +94,6 @@ constexpr auto get_index_type_size(IndexType type) {
     return type == IndexType::UINT16 ? sizeof(std::uint16_t) : sizeof(std::uint32_t);
 }
 
-enum struct MaterialType : std::uint8_t {
-    Phong,
-    BlinnPhong,
-    Custom
-};
-
 template <typename T>
 concept MaterialParametric =
     std::same_as<float, T> ||

@@ -17,10 +17,6 @@ VertexArray::VertexArray(std::size_t vertex_count)
               magic_enum::enum_count<VertexAttribute>()>()) {
 }
 
-bool VertexArray::IsEnable(VertexAttribute attr) const {
-    return !m_Buffers.at(magic_enum::enum_integer(attr)).Empty();
-}
-
 std::bitset<magic_enum::enum_count<VertexAttribute>()> VertexArray::GetSlotMask() const {
     std::bitset<magic_enum::enum_count<VertexAttribute>()> mask;
     for (std::size_t slot = 0; slot < m_Buffers.size(); slot++) {
