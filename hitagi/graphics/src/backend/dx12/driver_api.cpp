@@ -15,7 +15,6 @@
 #include <algorithm>
 
 namespace hitagi::graphics::backend::DX12 {
-ComPtr<ID3D12DebugDevice1> DX12DriverAPI::sm_DebugInterface = nullptr;
 
 DX12DriverAPI::DX12DriverAPI()
     : DriverAPI(APIType::DirectX12),
@@ -57,11 +56,6 @@ DX12DriverAPI::~DX12DriverAPI() {
     // Release the static variable that is allocation of DX12
     LinearAllocator::Destroy();
     DynamicDescriptorHeap::Destroy();
-    ThrowIfFailed(m_Device->QueryInterface(sm_DebugInterface.ReleaseAndGetAddressOf()));
-}
-
-void DX12DriverAPI::ReportDebugLog() {
-    sm_DebugInterface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
 }
 
 void DX12DriverAPI::Present(size_t frame_index) {

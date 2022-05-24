@@ -11,6 +11,7 @@ namespace hitagi::debugger {
 struct DebugPrimitive {
     resource::Geometry                             geometry;
     std::chrono::high_resolution_clock::time_point expires_at;
+    bool                                           dirty = true;
 };
 
 class DebugManager : public IRuntimeModule {
@@ -32,10 +33,10 @@ public:
 
 protected:
     void AddPrimitive(resource::Geometry&& geometry, std::chrono::seconds duration, bool depth_enabled);
+    void RetiredPrimitive();
+    void DrawPrimitive() const;
 
-    std::pmr::vector<DebugPrimitive> m_DebugPrimitives;
-
-    std::unordered_map<std::string, std::chrono::duration<double>> m_TimingInfo;
+    std::shared_ptr<std::pmr::vector<DebugPrimitive>> m_DebugPrimitives;
 
     std::shared_ptr<resource::MaterialInstance> m_LineMaterial;
 

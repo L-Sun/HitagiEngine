@@ -48,14 +48,10 @@ public:
 
     void Test(graphics::RenderTarget& rt, const graphics::PipelineState& pso) final;
 
-    static void ReportDebugLog();
-
     ID3D12Device*       GetDevice() const noexcept { return m_Device.Get(); }
     CommandListManager& GetCmdMgr() noexcept { return m_CommandManager; }
 
 private:
-    static ComPtr<ID3D12DebugDevice1> sm_DebugInterface;
-
     ComPtr<ID3D12Device6> m_Device;
     ComPtr<IDXGIFactory4> m_DxgiFactory;
 

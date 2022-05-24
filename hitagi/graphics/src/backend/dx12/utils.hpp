@@ -166,8 +166,9 @@ inline D3D12_PRIMITIVE_TOPOLOGY_TYPE to_dx_topology_type(resource::PrimitiveType
         case resource::PrimitiveType::TriangleListAdjacency:
         case resource::PrimitiveType::TriangleStripAdjacency:
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        default:
+            return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
     }
-    return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 }
 
 inline D3D12_PRIMITIVE_TOPOLOGY to_dx_topology(resource::PrimitiveType type) noexcept {
@@ -190,8 +191,9 @@ inline D3D12_PRIMITIVE_TOPOLOGY to_dx_topology(resource::PrimitiveType type) noe
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
         case resource::PrimitiveType::TriangleStripAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ;
+        default:
+            return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
     }
-    return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 }
 
 inline DXGI_FORMAT index_size_to_dxgi_format(size_t size) noexcept {

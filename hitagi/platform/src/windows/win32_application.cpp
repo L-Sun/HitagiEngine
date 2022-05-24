@@ -72,6 +72,8 @@ void Win32Application::Finalize() {
 }
 
 void Win32Application::Tick() {
+    m_SizeChanged = false;
+
     MSG msg;
     // we use PeekMessage instead of GetMessage here
     // because we should not block the thread at anywhere

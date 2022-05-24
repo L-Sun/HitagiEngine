@@ -169,7 +169,7 @@ void Frame::SetRenderTarget(std::shared_ptr<RenderTarget> rt) {
 void Frame::PrepareData() {
     // TODO auto resize constant buffer
     // if new size is smaller, the expand function return directly.
-    if (m_ConstantBuffer->desc.num_elements < m_Renderables.size())
+    if (m_ConstantBuffer->desc.num_elements < m_Renderables.size() + 1)
         // becase capacity + needed > exsisted + needed
         m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_Renderables.size());
 

@@ -2,10 +2,15 @@
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/resource/mesh_factory.hpp>
 #include <hitagi/resource/asset_manager.hpp>
+#include <hitagi/resource/renderable.hpp>
+#include <hitagi/graphics/graphics_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <fmt/chrono.h>
+
+#include <algorithm>
+#include <iterator>
 
 using namespace hitagi::math;
 using namespace hitagi::resource;
@@ -14,30 +19,26 @@ namespace hitagi {
 std::unique_ptr<debugger::DebugManager> g_DebugManager = std::make_unique<debugger::DebugManager>();
 }
 namespace hitagi::debugger {
-constexpr auto cmp = [](const DebugPrimitive& lhs, const DebugPrimitive& rhs) -> bool {
-    return lhs.expires_at > rhs.expires_at;
-};
 
 int DebugManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("DebugManager");
     m_Logger->info("Initialize...");
 
-    m_LineMaterial = g_AssetManager->ImportMaterial("assets/material/debug_line.json");
-
+    m_LineMaterial    = g_AssetManager->ImportMaterial("assets/material/debug_line.json");
+    m_DebugPrimitives = std::make_shared<std::pmr::vector<DebugPrimitive>>();
     return 0;
 }
 
 void DebugManager::Finalize() {
+    m_DebugPrimitives = nullptr;
+    m_LineMaterial    = nullptr;
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
 void DebugManager::Tick() {
-    while (!m_DebugPrimitives.empty() && m_DebugPrimitives.back().expires_at < std::chrono::high_resolution_clock::now()) {
-        std::pop_heap(m_DebugPrimitives.begin(), m_DebugPrimitives.end(), cmp);
-        m_DebugPrimitives.pop_back();
-    }
-    m_TimingInfo.clear();
+    RetiredPrimitive();
+    DrawPrimitive();
 }
 
 void DebugManager::ToggleDebugInfo() {
@@ -69,7 +70,7 @@ void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
     axis.meshes.emplace_back(y_axis);
     axis.meshes.emplace_back(z_axis);
 
-    AddPrimitive(std::move(axis), std::chrono::seconds(0), depth_enabled);
+    AddPrimitive(std::move(axis), std::chrono::seconds::max(), depth_enabled);
 }
 
 void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
@@ -82,9 +83,42 @@ void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, const std
 }
 
 void DebugManager::AddPrimitive(Geometry&& geometry, std::chrono::seconds duration, bool depth_enabled) {
-    m_DebugPrimitives.emplace_back(DebugPrimitive{std::move(geometry), std::chrono::high_resolution_clock::now() + duration});
-    // make min heap
-    std::push_heap(m_DebugPrimitives.begin(), m_DebugPrimitives.end(), cmp);
+    m_DebugPrimitives->emplace_back(DebugPrimitive{std::move(geometry), std::chrono::high_resolution_clock::now() + duration});
+}
+
+void DebugManager::RetiredPrimitive() {
+    std::sort(m_DebugPrimitives->begin(), m_DebugPrimitives->end(),
+              [](const DebugPrimitive& lhs, const DebugPrimitive& rhs) -> bool {
+                  return lhs.expires_at > rhs.expires_at;
+              });
+
+    auto iter = std::find_if(m_DebugPrimitives->begin(), m_DebugPrimitives->end(),
+                             [](DebugPrimitive& item) {
+                                 if (item.dirty) {
+                                     item.dirty = false;
+                                     return false;
+                                 }
+                                 return item.expires_at < std::chrono::high_resolution_clock::now();
+                             });
+    m_DebugPrimitives->erase(iter, m_DebugPrimitives->end());
+}
+
+void DebugManager::DrawPrimitive() const {
+    std::pmr::vector<Renderable> renderables;
+    for (const auto& primitive : *m_DebugPrimitives) {
+        auto& geometry = primitive.geometry;
+        for (const auto& mesh : geometry.meshes) {
+            Renderable item;
+            item.indices           = mesh.indices;
+            item.vertices          = mesh.vertices;
+            item.material          = mesh.material->GetMaterial().lock();
+            item.material_instance = mesh.material;
+            item.transform         = geometry.transform;
+            renderables.emplace_back(std::move(item));
+        }
+    }
+
+    g_GraphicsManager->AppendRenderables(renderables);
 }
 
 }  // namespace hitagi::debugger

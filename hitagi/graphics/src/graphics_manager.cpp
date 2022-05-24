@@ -54,7 +54,6 @@ void GraphicsManager::Finalize() {
 
         m_Driver = nullptr;
     }
-    backend::DX12::DX12DriverAPI::ReportDebugLog();
 
     m_Logger = nullptr;
 }
@@ -65,9 +64,7 @@ void GraphicsManager::Tick() {
     }
 
     // TODO change the parameter to View, if multiple view port is finished
-    // views = g_App->GetViewsForRendering();
-    // rendertargets =  views.foreach(view : Render(view))
-    // ...
+    Render();
     m_Driver->Present(m_CurrBackBuffer);
     m_CurrBackBuffer = (m_CurrBackBuffer + 1) % sm_SwapChianSize;
 }
@@ -102,6 +99,8 @@ void GraphicsManager::Render() {
     auto driver  = m_Driver.get();
     auto frame   = GetBcakFrameForRendering();
     auto context = driver->GetGraphicsCommandContext();
+
+    frame->PrepareData();
 
     const auto          rect          = g_App->GetWindowsRect();
     const std::uint32_t screen_width  = rect.right - rect.left,
@@ -155,11 +154,6 @@ void GraphicsManager::Render() {
 
             frame->Draw(context.get());
         });
-
-    struct DebugPassData {
-        FrameHandle depth;
-        FrameHandle output;
-    };
 
     fg.Present(render_target_handle, context);
 

@@ -53,9 +53,9 @@ public:
     void        SetRenderTarget(std::shared_ptr<RenderTarget> rt);
     inline auto GetRenderTarget() noexcept { return m_Output; }
 
-private:
     void PrepareData();
 
+private:
     DriverAPI&        m_Driver;
     ResourceManager&  m_ResMgr;
     const std::size_t m_FrameIndex;

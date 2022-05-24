@@ -87,7 +87,7 @@ ConstantBuffer::ConstantBuffer(std::string_view name, ID3D12Device* device, Desc
       m_BlockSize(align(desc.element_size, 256)),
       m_BufferSize(align(desc.element_size, 256) * desc.num_elements) {
     m_UsageState = D3D12_RESOURCE_STATE_GENERIC_READ;
-    Resize(device, descritptor_allocator, desc.element_size);
+    Resize(device, descritptor_allocator, desc.num_elements);
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
 }
 

@@ -104,6 +104,8 @@ void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material)
                 pso_builder.EnableVertexSlot(slot);
             }
         });
+
+        m_PipelineStates.emplace(material->GetGuid(), pso_builder.Build(m_Driver));
     }
 }
 

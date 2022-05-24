@@ -17,6 +17,7 @@ int MyGame::Initialize() {
     int ret  = 0;
     m_Logger = spdlog::stdout_color_mt("MyGame");
     m_Logger->info("Initialize...");
+    g_DebugManager->DrawAxis(mat4f{1.0f});
 
     return ret;
 }

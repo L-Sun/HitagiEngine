@@ -11,7 +11,7 @@ public:
     std::size_t GetBufferSize() const { return m_BufferSize; }
 
 protected:
-    std::size_t          m_BufferSize;
+    std::size_t          m_BufferSize    = 0;
     D3D12_RESOURCE_FLAGS m_ResourceFlags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 };
 

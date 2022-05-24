@@ -52,6 +52,7 @@ int Application::Initialize() {
 void Application::Finalize() {
     for (auto& _module : std::ranges::reverse_view(m_Modules)) {
         _module->Finalize();
+        _module = nullptr;
     }
 
     m_Initialized = false;
@@ -63,7 +64,6 @@ void Application::Finalize() {
 void Application::Tick() {
     g_ThreadManager->Tick();
     g_MemoryManager->Tick();
-    g_DebugManager->Tick();
     g_FileIoManager->Tick();
     g_ConfigManager->Tick();
     g_AssetManager->Tick();
@@ -71,6 +71,7 @@ void Application::Tick() {
     g_GuiManager->Tick();
     g_GamePlay->Tick();
     g_SceneManager->Tick();
+    g_DebugManager->Tick();
 
     // -------------Before Render-------------------
     g_GraphicsManager->Tick();

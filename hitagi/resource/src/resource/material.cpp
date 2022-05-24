@@ -113,6 +113,7 @@ bool Material::IsSlotEnabled(VertexAttribute slot) const {
 }
 
 std::size_t Material::GetParametersSize() const noexcept {
+    if (parameters_info.empty()) return 0;
     return parameters_info.back().size + parameters_info.back().offset;
 }
 
