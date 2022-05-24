@@ -7,13 +7,14 @@
 #include <optional>
 #include <typeindex>
 #include <span>
+#include <cassert>
 
 namespace hitagi::ecs {
 using ArchetypeId = std::size_t;
 
 template <typename... Components>
-requires utils::unique_types<Components...>
-constexpr ArchetypeId get_archetype_id() {
+requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
+    constexpr ArchetypeId get_archetype_id() {
     std::size_t seed = 0;
     utils::hash_combine(seed, std::type_index(typeid(std::remove_cvref_t<Components>))...);
     return seed;
@@ -60,8 +61,8 @@ protected:
 };
 
 template <typename... Components>
-requires utils::unique_types<Components...>
-class Archetype : public IArchetype {
+requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
+    class Archetype : public IArchetype {
 public:
     Archetype() = default;
 
@@ -149,7 +150,7 @@ std::size_t IArchetype::GetComponentIndex() const {
 }
 
 template <typename... Components>
-requires utils::unique_types<Components...>
+requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
     std::tuple<void*, std::size_t> Archetype<Components...>::GetComponentRawData(const std::size_t index) {
     assert(index < m_MetaInfo.size());
 
@@ -164,14 +165,14 @@ requires utils::unique_types<Components...>
 }
 
 template <typename... Components>
-requires utils::unique_types<Components...>
-void Archetype<Components...>::CreateInstance(const Entity& entity) {
+requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
+    void Archetype<Components...>::CreateInstance(const Entity& entity) {
     m_Data.emplace_back(Entity{entity.index}, Components{}...);
 }
 
 template <typename... Components>
-requires utils::unique_types<Components...>
-void Archetype<Components...>::DeleteInstance(const Entity& entity) {
+requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
+    void Archetype<Components...>::DeleteInstance(const Entity& entity) {
     std::size_t index = GetEntityIndex(entity);
 
     auto a = m_Data.at(index);
@@ -182,9 +183,9 @@ void Archetype<Components...>::DeleteInstance(const Entity& entity) {
 }
 
 template <typename... Components>
-requires utils::unique_types<Components...>
+requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
     std::size_t Archetype<Components...>::GetEntityIndex(const Entity& entity)
-const {
+        const {
     auto iter = std::find_if(
         m_Data.begin(), m_Data.end(),
         [&](const auto& item) {

@@ -31,14 +31,14 @@ public:
 
     // create a entity that has multiple components.
     template <typename... Components>
-    requires utils::unique_types<Components...>
+    requires utils::UniqueTypes<Components...>
         Entity CreateEntity();
 
     void DestoryEntity(const Entity& entity);
 
     // Get a array of archetype which contains the interseted components
     template <typename... Components>
-    requires utils::unique_types<Components...>
+    requires utils::UniqueTypes<Components...>
         std::vector<std::shared_ptr<IArchetype>> GetArchetypes();
 
     template <typename Component>
@@ -59,7 +59,7 @@ void World::RegisterSystem() {
 }
 
 template <typename... Components>
-requires utils::unique_types<Components...>
+requires utils::UniqueTypes<Components...>
     Entity World::CreateEntity() {
     auto id = get_archetype_id<Components...>();
     if (m_Archetypes.count(id) == 0) {
@@ -82,7 +82,7 @@ auto World::AccessEntity(const Entity& entity) -> std::optional<std::reference_w
 }
 
 template <typename... Components>
-requires utils::unique_types<Components...>
+requires utils::UniqueTypes<Components...>
     std::vector<std::shared_ptr<IArchetype>> World::GetArchetypes() {
     std::vector<std::shared_ptr<IArchetype>> result;
     for (auto& [id, archetype] : m_Archetypes) {

@@ -1,8 +1,7 @@
-#include <hitagi/utils/test.hpp>
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/resource/asset_manager.hpp>
-#include "gtest/gtest.h"
-#include "hitagi/resource/enums.hpp"
+
+#include <hitagi/utils/test.hpp>
 
 using namespace hitagi;
 using namespace hitagi::resource;

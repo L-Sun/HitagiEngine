@@ -17,14 +17,17 @@ concept remove_const_pointer_same =
 // clang-format on
 
 template <typename...>
-inline constexpr auto is_unique = std::true_type{};
+constexpr auto is_unique_v = std::true_type{};
 
 template <typename T, typename... Rest>
-inline constexpr auto is_unique<T, Rest...> = std::bool_constant<
-    (!std::is_same_v<T, Rest> && ...) && is_unique<Rest...>>{};
+constexpr auto is_unique_v<T, Rest...> =
+    !std::disjunction_v<std::is_same<T, Rest>...> && is_unique_v<Rest...>;
+
+template <typename T>
+concept NoCVRef = !std::is_reference_v<T> && !std::is_const_v<T> && !std::is_volatile_v<T>;
 
 template <typename... Types>
-concept unique_types = is_unique<Types...>;
+concept UniqueTypes = is_unique_v<Types...>;
 
 // https://stackoverflow.com/a/7943765/6244553
 // For generic types, directly use the result of the signature of its 'operator()'
@@ -40,7 +43,7 @@ struct function_traits<ReturnType (ClassType::*)(Args...) const> {
 
     using result_type = ReturnType;
 
-    constexpr static bool unique_parameter_types = is_unique<Args...>;
+    constexpr static bool unique_parameter_types = is_unique_v<Args...>;
 
     using args = std::tuple<Args...>;
 

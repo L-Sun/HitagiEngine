@@ -50,7 +50,8 @@ int Application::Initialize() {
 
 // Finalize all sub modules and clean up all runtime temporary files.
 void Application::Finalize() {
-    for (auto& _module : std::ranges::reverse_view(m_Modules)) {
+    for (auto iter = m_Modules.rbegin(); iter != m_Modules.rend(); iter++) {
+        auto _module = *iter;
         _module->Finalize();
         _module = nullptr;
     }
