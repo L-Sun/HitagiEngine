@@ -20,7 +20,7 @@ public:
     void Finalize() final;
 
     void       LoadConfig(const std::filesystem::path& path);
-    AppConfig& GetConfig() { return *m_Config; };
+    AppConfig& GetConfig();
 
 private:
     std::shared_ptr<AppConfig> m_Config;

@@ -1,129 +1,100 @@
 #include <hitagi/parser/material_parser.hpp>
 
 #include <spdlog/spdlog.h>
-#include <yaml-cpp/yaml.h>
+#include <nlohmann/json.hpp>
 
 #include <filesystem>
 
 using namespace hitagi::math;
 
-namespace YAML {
+namespace hitagi::math {
 template <typename T, unsigned N>
-struct convert<Vector<T, N>> {
-    static Node encode(const Vector<T, N>& rhs) {
-        Node node;
-        for (unsigned i = 0; i < N; i++) {
-            node.push_back(rhs[i]);
-        }
-        return node;
-    }
-
-    static bool decode(const Node& node, Vector<T, N>& rhs) {
-        if (!node.IsSequence() || node.size() != N) {
-            return false;
-        }
-        for (unsigned i = 0; i < N; i++) {
-            rhs[i] = node[i].as<T>();
-        }
-        return true;
-    }
-};
-
-template <>
-struct convert<hitagi::resource::PrimitiveType> {
-    static Node encode(const hitagi::resource::PrimitiveType primitive) {
-        Node node;
-        node = std::string(magic_enum::enum_name(primitive));
-        return node;
-    }
-
-    static bool decode(const Node& node, hitagi::resource::PrimitiveType& rhs) {
-        if (!node.IsScalar()) {
-            return false;
-        }
-        auto result = magic_enum::enum_cast<hitagi::resource::PrimitiveType>(node.as<std::string>());
-        if (result.has_value()) {
-            rhs = result.value();
-            return true;
-        } else {
-            return false;
-        }
-    }
-};
-template <>
-struct convert<std::filesystem::path> {
-    static Node encode(const std::filesystem::path& rhs) {
-        Node node;
-        node = rhs.string();
-        return node;
-    }
-
-    static bool decode(const Node& node, std::filesystem::path& rhs) {
-        if (!node.IsScalar()) {
-            return false;
-        }
-        rhs = node.as<std::string>();
-        return true;
-    }
-};
-
-}  // namespace YAML
+void to_json(nlohmann::json& j, const Vector<T, N>& vec) {
+    j = vec.data;
+}
+template <typename T, unsigned N>
+void from_json(const nlohmann::json& j, Vector<T, N>& p) {
+    p.data = j;
+}
+template <typename T, unsigned N>
+void to_json(nlohmann::json& j, const Matrix<T, N>& vec) {
+    j = vec.data;
+}
+template <typename T, unsigned N>
+void from_json(const nlohmann::json& j, Matrix<T, N>& p) {
+    p.data = j;
+}
+}  // namespace hitagi::math
 
 namespace hitagi::resource {
+
 std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buffer, std::pmr::vector<std::shared_ptr<Material>>& materials) {
     if (buffer.Empty()) return nullptr;
 
     auto logger = spdlog::get("AssetManager");
 
-    YAML::Node node;
+    nlohmann::json json;
     try {
-        node = YAML::Load(reinterpret_cast<const char*>(buffer.GetData()));
+        json = nlohmann::json::parse(buffer.Span<char>());
+    } catch (std::exception ex) {
+        logger->error(ex.what());
+        return nullptr;
+    }
 
-        auto logger = spdlog::get("AssetManager");
+    Material::Builder builder;
+    builder
+        .SetName(json["name"])
+        .SetShader(json["shader"]);
 
-        Material::Builder builder;
-        builder
-            .SetName(node["name"].as<std::string>())
-            .SetPrimitive(node["primitive"].as<PrimitiveType>())
-            .SetShader(node["shader"].as<std::filesystem::path>());
+    if (auto primitive = magic_enum::enum_cast<PrimitiveType>(json["primitive"].get<std::string_view>()); primitive.has_value()) {
+        builder.SetPrimitive(*primitive);
+    } else {
+        logger->warn("Unkown primitive type: {}", json["name"]);
+    }
 
-        for (auto vertex_attri : node["vertexs"]) {
-            auto slot = magic_enum::enum_cast<VertexAttribute>(vertex_attri.as<std::string>());
-            if (!slot.has_value()) {
-                throw std::invalid_argument(fmt::format("Unkown vertex attributes {}", vertex_attri.as<std::string>()));
-            }
+    for (const auto& vertex_attri : json["vertex_attributes"]) {
+        auto slot = magic_enum::enum_cast<VertexAttribute>(vertex_attri.get<std::string>());
+        if (!slot.has_value()) {
+            logger->error("Unkown vertex attributes {}", vertex_attri);
+            return nullptr;
+        }
+    }
+
+    if (json.contains("paramters")) {
+        if (!json["parameters"].is_array()) {
+            logger->error("paramters field must be a type of sequence");
+            return nullptr;
         }
 
-        for (auto param : node["parameters"]) {
-            std::pmr::string name{param["name"].as<std::string>()};
-            std::pmr::string type{param["type"].as<std::string>()};
+        for (auto param : json["parameters"]) {
+            std::string_view type = param["type"], name = param["name"];
 
             if (type == "float")
-                builder.AppendParameterInfo(name, param["value"].as<float>());
+                builder.AppendParameterInfo<float>(name, param["value"]);
             else if (type == "int32")
-                builder.AppendParameterInfo(name, param["value"].as<std::int32_t>());
+                builder.AppendParameterInfo<std::int32_t>(name, param["value"]);
             else if (type == "uint32")
-                builder.AppendParameterInfo(name, param["value"].as<std::uint32_t>());
+                builder.AppendParameterInfo<std::uint32_t>(name, param["value"]);
             else if (type == "vec2i") {
-                builder.AppendParameterInfo(name, param["value"].as<vec2i>());
+                builder.AppendParameterInfo<vec2i>(name, param["value"]);
             } else if (type == "vec2u")
-                builder.AppendParameterInfo(name, param["value"].as<vec2u>());
+                builder.AppendParameterInfo<vec2u>(name, param["value"]);
             else if (type == "vec2f")
-                builder.AppendParameterInfo(name, param["value"].as<vec2f>());
+                builder.AppendParameterInfo<vec2f>(name, param["value"]);
             else if (type == "vec3i")
-                builder.AppendParameterInfo(name, param["value"].as<vec3i>());
+                builder.AppendParameterInfo<vec3i>(name, param["value"]);
             else if (type == "vec3u")
-                builder.AppendParameterInfo(name, param["value"].as<vec3u>());
+                builder.AppendParameterInfo<vec3u>(name, param["value"]);
             else if (type == "vec3f")
-                builder.AppendParameterInfo(name, param["value"].as<vec3f>());
+                builder.AppendParameterInfo<vec3f>(name, param["value"]);
             else if (type == "vec4i")
-                builder.AppendParameterInfo(name, param["value"].as<vec4i>());
+                builder.AppendParameterInfo<vec4i>(name, param["value"]);
             else if (type == "vec4u")
-                builder.AppendParameterInfo(name, param["value"].as<vec4u>());
+                builder.AppendParameterInfo<vec4u>(name, param["value"]);
             else if (type == "vec4f")
-                builder.AppendParameterInfo(name, param["value"].as<vec4f>());
+                builder.AppendParameterInfo<vec4f>(name, param["value"]);
             else if (type == "mat4f")
-                builder.AppendParameterInfo(name, param["value"].as<vec4f>());
+                builder.AppendParameterInfo<mat4f>(name, param["value"]);
             // else if (type == "float[]")
             //     builder.AppendParameterArrayInfo<float>(name, param["value"].size());
             // else if (type == "int32[]")
@@ -151,39 +122,30 @@ std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buff
             // else if (type == "mat4f[]")
             //     builder.AppendParameterArrayInfo<vec4f>(name, param["value"].size());
             else {
-                logger->error("Unkown parameter type: {}", type);
-                throw std::invalid_argument(fmt::format("Unkown parameter type: {}", type));
+                logger->error("Unkown parameter type: {}", param["type"]);
+                return nullptr;
             }
         }
-
-        for (auto texture : node["textures"]) {
-            builder.AppendTextureName(texture["name"].as<std::string>(), texture["path"].as<std::filesystem::path>());
-        }
-
-        auto material = builder.Build();
-        auto iter     = std::find_if(materials.begin(), materials.end(), [material](const auto& m) {
-            return *m == *material;
-            });
-
-        auto instance = material->CreateInstance();
-        // A new material type
-        if (iter == materials.end()) {
-            materials.emplace_back(material);
-        } else {
-            instance->SetMaterial(*iter);
-        }
-
-        return instance;
-
-    } catch (YAML::ParserException ex) {
-        logger->error(ex.what());
-        return nullptr;
-    } catch (std::exception ex) {
-        logger->error(ex.what());
-        return nullptr;
     }
 
-    return nullptr;
+    for (auto texture : json["textures"]) {
+        builder.AppendTextureName(texture["name"], texture["path"]);
+    }
+
+    auto material = builder.Build();
+    auto iter     = std::find_if(materials.begin(), materials.end(), [material](const auto& m) {
+        return *m == *material;
+    });
+
+    auto instance = material->CreateInstance();
+    // A new material type
+    if (iter == materials.end()) {
+        materials.emplace_back(material);
+    } else {
+        instance->SetMaterial(*iter);
+    }
+
+    return instance;
 }
 
 }  // namespace hitagi::resource

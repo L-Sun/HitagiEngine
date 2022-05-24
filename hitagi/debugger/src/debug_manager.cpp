@@ -22,7 +22,7 @@ int DebugManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("DebugManager");
     m_Logger->info("Initialize...");
 
-    m_LineMaterial = g_AssetManager->ImportMaterial("assets/material/debug_line.yaml");
+    m_LineMaterial = g_AssetManager->ImportMaterial("assets/material/debug_line.json");
 
     return 0;
 }

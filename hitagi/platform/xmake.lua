@@ -1,6 +1,6 @@
 target("application")
-    set_kind("headronly")
-    add_headerfiles("include/hitagi/application.cpp")
+    set_kind("headeronly")
+    add_headerfiles("include/hitagi/application.hpp")
     add_includedirs("include", {public = true})
     add_deps("runtime_module_interface")
 

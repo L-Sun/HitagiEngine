@@ -118,10 +118,11 @@ std::size_t Material::GetParametersSize() const noexcept {
 
 void Material::InitDefaultMaterialInstance(const Builder& builder) {
     m_DefaultInstance = std::make_shared<MaterialInstance>(shared_from_this());
-    m_DefaultInstance->SetName(fmt::format("{}-{}", m_Name, m_NumInstances));
+    m_DefaultInstance->SetName(fmt::format("{}-{}", builder.name, m_NumInstances));
 
-    const auto& end_parameter_info  = parameters_info.back();
-    m_DefaultInstance->m_Parameters = core::Buffer(builder.default_buffer.data(), end_parameter_info.offset + end_parameter_info.size);
+    const auto& end_parameter_info = parameters_info.back();
+    if (!builder.default_buffer.empty())
+        m_DefaultInstance->m_Parameters = core::Buffer(builder.default_buffer.data(), end_parameter_info.offset + end_parameter_info.size);
 
     for (const auto& texture : texture_name) {
         m_DefaultInstance->m_Textures.emplace(texture, std::make_shared<Texture>(builder.default_textures.at(texture)));

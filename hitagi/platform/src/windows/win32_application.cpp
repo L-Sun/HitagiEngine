@@ -12,7 +12,9 @@ namespace hitagi {
 std::unique_ptr<Application> g_App = std::make_unique<Win32Application>();
 
 int Win32Application::Initialize() {
+    m_Logger = spdlog::stdout_color_mt("Win32Application");
     m_Logger->info("Initialize");
+
     auto config = g_ConfigManager->GetConfig();
 
     // Set time period on windows

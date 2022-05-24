@@ -21,7 +21,7 @@ target("config_manager")
     add_files("src/config_manager.cpp")
     add_includedirs("include", {public = true})
     add_deps("file_io_manager")
-    add_packages("yaml-cpp", "spdlog")
+    add_packages("nlohmann_json", "spdlog")
 
 target("timer")
     set_kind("static")

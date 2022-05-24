@@ -4,7 +4,7 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <yaml-cpp/yaml.h>
+#include <nlohmann/json.hpp>
 
 namespace hitagi {
 std::unique_ptr<core::ConfigManager> g_ConfigManager = std::make_unique<core::ConfigManager>();
@@ -15,8 +15,6 @@ namespace hitagi::core {
 int ConfigManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("ConfigManager");
     m_Logger->info("Initialize...");
-
-    m_Config = std::make_shared<AppConfig>();
 
     return 0;
 }
@@ -31,19 +29,25 @@ void ConfigManager::Finalize() {
 
 void ConfigManager::LoadConfig(const std::filesystem::path& path) {
     m_Logger->info("lode config file: {}", path.string());
-    auto       buffer = g_FileIoManager->SyncOpenAndReadBinary(path);
-    YAML::Node node;
-    try {
-        node = YAML::Load(reinterpret_cast<const char*>(buffer.GetData()));
-    } catch (YAML::ParserException ex) {
-        m_Logger->error(ex.what());
-    }
-    auto& config = *m_Config;
+    auto buffer = g_FileIoManager->SyncOpenAndReadBinary(path);
 
-    config.title   = node["title"].as<std::string>();
-    config.version = node["version"].as<std::string>();
-    config.width   = node["width"].as<std::uint32_t>();
-    config.height  = node["width"].as<std::uint32_t>();
+    auto json = nlohmann::json::parse(buffer.Span<char>());
+
+    auto new_config = std::make_shared<AppConfig>();
+
+    new_config->title   = json["title"].get<std::string>();
+    new_config->version = json["version"].get<std::string>();
+    new_config->width   = json["width"].get<std::uint32_t>();
+    new_config->height  = json["height"].get<std::uint32_t>();
+
+    m_Config = std::move(new_config);
+}
+
+AppConfig& ConfigManager::GetConfig() {
+    if (m_Config == nullptr) {
+        m_Config = std::make_shared<AppConfig>();
+    }
+    return *m_Config;
 }
 
 }  // namespace hitagi::core

@@ -1,6 +1,8 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 
+#include <vector>
+
 namespace hitagi {
 class Application : public IRuntimeModule {
 public:
@@ -29,6 +31,8 @@ protected:
     char**      m_Arg         = nullptr;
     Rect        m_Rect{};
     bool        m_SizeChanged = false;
+
+    std::vector<IRuntimeModule*> m_Modules;
 };
 extern std::unique_ptr<Application> g_App;
 }  // namespace hitagi

@@ -103,9 +103,12 @@ void Frame::Draw(IGraphicsCommandContext* context) {
         context->SetParameter("ObjectConstants",
                               m_ConstantBuffer,
                               item.object_constant_offset);
-        context->SetParameter("MaterialConstants",
-                              m_ResMgr.GetMaterialParameterBuffer(item.material->GetGuid()),
-                              item.material_constant_offset);
+
+        if (auto material_constant_buffer = m_ResMgr.GetMaterialParameterBuffer(item.material->GetGuid());
+            material_constant_buffer) {
+            context->SetParameter("MaterialConstants", material_constant_buffer, item.material_constant_offset);
+        }
+
         for (const auto& [name, texture] : item.material_instance->GetTextures()) {
             context->SetParameter(name, m_ResMgr.GetTextureBuffer(texture->GetGuid()));
         }

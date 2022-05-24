@@ -86,7 +86,7 @@ void GuiManager::LoadFontTexture() {
         config.SizePixels           = (g_App ? g_App->GetDpiRatio() : 1.0f) * 18.0f;
         config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
 
-        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./Assets/Fonts/Hasklig-Regular.otf"));
+        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/Hasklig-Regular.otf"));
         config.FontData     = m_FontsData.back().GetData();
         config.FontDataSize = m_FontsData.back().GetDataSize();
 
@@ -96,7 +96,7 @@ void GuiManager::LoadFontTexture() {
 
         config.MergeMode = true;
 
-        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./Assets/Fonts/NotoSansSC-Regular.otf"));
+        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansSC-Regular.otf"));
         config.FontData     = m_FontsData.back().GetData();
         config.FontDataSize = m_FontsData.back().GetDataSize();
         config.GlyphRanges  = io.Fonts->GetGlyphRangesChineseFull();
@@ -104,7 +104,7 @@ void GuiManager::LoadFontTexture() {
         std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
         io.Fonts->AddFont(&config);
 
-        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./Assets/Fonts/NotoSansJP-Regular.otf"));
+        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansJP-Regular.otf"));
         config.FontData     = m_FontsData.back().GetData();
         config.FontDataSize = m_FontsData.back().GetDataSize();
         config.GlyphRanges  = io.Fonts->GetGlyphRangesJapanese();

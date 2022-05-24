@@ -36,8 +36,6 @@ int AssetManager::Initialize() {
 
     // m_MoCapParser = std::make_unique<BvhParser>();
 
-    InitializeInnerMaterial();
-
     return 0;
 }
 
@@ -92,18 +90,5 @@ std::shared_ptr<MaterialInstance> AssetManager::ImportMaterial(const std::filesy
 //     result.second->SetName(path.stem().string());
 //     return result;
 // }
-
-void AssetManager::InitializeInnerMaterial() {
-    // Phong
-    m_Materials.emplace_back(
-        Material::Builder()
-            .AppendParameterInfo<vec3f>("ambient")
-            .AppendParameterInfo<vec3f>("diffuse")
-            .AppendParameterInfo<vec3f>("specular")
-            .AppendTextureName("ambient_texture")
-            .AppendTextureName("diffuse_texture")
-            .AppendTextureName("specular_texture")
-            .Build());
-}
 
 }  // namespace hitagi::resource

@@ -24,8 +24,6 @@ public:
     // std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> ImportAnimation(const std::filesystem::path& path);
 
 private:
-    void InitializeInnerMaterial();
-
     // Parser
     std::array<std::unique_ptr<ImageParser>, magic_enum::enum_count<ImageFormat>()> m_ImageParser;
     std::unique_ptr<SceneParser>                                                    m_SceneParser;

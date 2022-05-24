@@ -57,6 +57,8 @@ void ResourceManager::PrepareMaterial(const std::shared_ptr<resource::Material>&
 }
 
 void ResourceManager::PrepareMaterialParameterBuffer(const std::shared_ptr<Material>& material) {
+    if (material->GetParametersSize() == 0) return;
+
     auto id = material->GetGuid();
     if (m_MaterialParameterBuffer.count(id) == 0) {
         m_MaterialParameterBuffer.emplace(

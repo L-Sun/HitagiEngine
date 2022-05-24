@@ -14,6 +14,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include <ranges>
 #include <thread>
 
 using namespace hitagi;
@@ -26,18 +27,22 @@ int Application::Initialize() {
 
     int ret = 0;
 
+    m_Modules.emplace_back(g_ThreadManager.get());
+    m_Modules.emplace_back(g_MemoryManager.get());
+    m_Modules.emplace_back(g_FileIoManager.get());
+    m_Modules.emplace_back(g_ConfigManager.get());
+    m_Modules.emplace_back(g_AssetManager.get());
+    m_Modules.emplace_back(g_InputManager.get());
+    m_Modules.emplace_back(g_GraphicsManager.get());
+    m_Modules.emplace_back(g_SceneManager.get());
+    m_Modules.emplace_back(g_GuiManager.get());
+    m_Modules.emplace_back(g_DebugManager.get());
+    m_Modules.emplace_back(g_GamePlay.get());
+
     m_Logger->info("Initialize Moudules...");
-    if ((ret = g_ThreadManager->Initialize()) != 0) return ret;
-    if ((ret = g_MemoryManager->Initialize()) != 0) return ret;
-    if ((ret = g_DebugManager->Initialize()) != 0) return ret;
-    if ((ret = g_FileIoManager->Initialize()) != 0) return ret;
-    if ((ret = g_ConfigManager->Initialize()) != 0) return ret;
-    if ((ret = g_AssetManager->Initialize()) != 0) return ret;
-    if ((ret = g_InputManager->Initialize()) != 0) return ret;
-    if ((ret = g_GuiManager->Initialize()) != 0) return ret;
-    if ((ret = g_SceneManager->Initialize()) != 0) return ret;
-    if ((ret = g_GraphicsManager->Initialize()) != 0) return ret;
-    if ((ret = g_GamePlay->Initialize()) != 0) return ret;
+    for (auto _module : m_Modules) {
+        if ((ret = _module->Initialize()) != 0) return ret;
+    }
 
     if (ret == 0) m_Initialized = true;
     return ret;
@@ -45,17 +50,9 @@ int Application::Initialize() {
 
 // Finalize all sub modules and clean up all runtime temporary files.
 void Application::Finalize() {
-    g_GamePlay->Finalize();
-    g_GraphicsManager->Finalize();
-    g_SceneManager->Finalize();
-    g_GuiManager->Finalize();
-    g_InputManager->Finalize();
-    g_AssetManager->Finalize();
-    g_ConfigManager->Finalize();
-    g_FileIoManager->Finalize();
-    g_DebugManager->Finalize();
-    g_MemoryManager->Finalize();
-    g_ThreadManager->Finalize();
+    for (auto& _module : std::ranges::reverse_view(m_Modules)) {
+        _module->Finalize();
+    }
 
     m_Initialized = false;
     m_Logger->info("Finalized.");
