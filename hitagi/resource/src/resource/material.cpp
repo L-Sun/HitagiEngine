@@ -13,6 +13,11 @@ auto Material::Builder::SetName(std::string_view _name) -> Builder& {
     return *this;
 }
 
+auto Material::Builder::SetPrimitive(PrimitiveType type) -> Builder& {
+    primitive = type;
+    return *this;
+}
+
 auto Material::Builder::SetShader(const std::filesystem::path& path) -> Builder& {
     shader = path;
     return *this;
@@ -83,7 +88,8 @@ auto Material::CreateInstance() const noexcept -> std::shared_ptr<MaterialInstan
 }
 
 std::size_t Material::GetNumInstances() const noexcept {
-    return m_NumInstances;
+    // remove the default instance
+    return m_NumInstances - 1;
 }
 
 bool Material::IsValidTextureParameter(std::string_view name) const noexcept {

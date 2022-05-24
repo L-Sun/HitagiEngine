@@ -1,9 +1,13 @@
 #include <hitagi/utils/test.hpp>
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/resource/asset_manager.hpp>
+#include "gtest/gtest.h"
+#include "hitagi/resource/enums.hpp"
 
 using namespace hitagi;
 using namespace hitagi::resource;
+using namespace hitagi::math;
+using namespace hitagi::testing;
 
 TEST(ImageParserTest, ErrorPath) {
     auto image = g_AssetManager->ImportImage("assets/test/azcxxcacas.jpg");
@@ -44,6 +48,26 @@ TEST(SceneParserTest, Fbx) {
     EXPECT_EQ(scene.cameras.size(), 1);
     EXPECT_EQ(scene.geometries.size(), 1);
     EXPECT_EQ(scene.lights.size(), 1);
+}
+
+TEST(MaterialParserTest, Inner) {
+    auto instance = g_AssetManager->ImportMaterial("assets/test/test-mat.yaml");
+    EXPECT_TRUE(instance != nullptr);
+
+    auto mat = instance->GetMaterial().lock();
+    EXPECT_TRUE(mat != nullptr);
+    EXPECT_EQ(mat->GetNumInstances(), 1);
+    EXPECT_EQ(mat->GetPrimitiveType(), PrimitiveType::TriangleList);
+
+    EXPECT_TRUE(instance->GetValue<vec4f>("diffuse").has_value());
+    EXPECT_TRUE(instance->GetValue<vec4f>("ambient").has_value());
+    EXPECT_TRUE(instance->GetValue<vec4f>("specular").has_value());
+    EXPECT_TRUE(instance->GetValue<float>("specular_power").has_value());
+
+    vector_eq(instance->GetValue<vec4f>("diffuse").value(), vec4f(1.0f, 0.8f, 0.5f, 1.0f));
+    vector_eq(instance->GetValue<vec4f>("ambient").value(), vec4f(0.5f, 0.8f, 0.5f, 1.0f));
+    vector_eq(instance->GetValue<vec4f>("specular").value(), vec4f(0.0f, 0.8f, 0.5f, 1.0f));
+    EXPECT_DOUBLE_EQ(instance->GetValue<float>("specular_power").value(), 23.0);
 }
 
 int main(int argc, char* argv[]) {

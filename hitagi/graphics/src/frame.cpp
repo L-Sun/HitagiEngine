@@ -4,6 +4,7 @@
 #include <hitagi/utils/overloaded.hpp>
 
 using namespace hitagi::math;
+using namespace hitagi::resource;
 
 namespace hitagi::graphics {
 Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index)
@@ -63,7 +64,7 @@ void Frame::AddRenderables(std::pmr::vector<Renderable> renderables) {
 //         });
 // }
 
-void Frame::SetCamera(std::shared_ptr<resource::Camera> camera) {
+void Frame::SetCamera(std::shared_ptr<Camera> camera) {
     auto& data      = m_FrameConstant;
     data.camera_pos = vec4f(camera->GetGlobalPosition(), 1.0f);
     data.view       = camera->GetViewMatrix();
@@ -111,7 +112,7 @@ void Frame::Draw(IGraphicsCommandContext* context) {
 
         context->Draw(m_ResMgr.GetVertexBuffer(item.vertices->GetGuid()),
                       m_ResMgr.GetIndexBuffer(item.indices->GetGuid()),
-                      item.primitive);
+                      item.material->GetPrimitiveType());
     }
 }
 
@@ -196,13 +197,14 @@ void Frame::PrepareData() {
 
         // Material parameter data
         auto material = item.material;
-        m_ResMgr.PrepareMaterialParameterBuffer(material);
+        m_ResMgr.PrepareMaterial(material);
         if (auto material_buffer = m_ResMgr.GetMaterialParameterBuffer(material->GetGuid()); material_buffer) {
             auto& cpu_buffer = item.material_instance->GetParameterBuffer();
 
             m_Driver.UpdateConstantBuffer(
                 material_buffer,
-                index, cpu_buffer.GetData(),
+                index,
+                cpu_buffer.GetData(),
                 cpu_buffer.GetDataSize());
         }
 

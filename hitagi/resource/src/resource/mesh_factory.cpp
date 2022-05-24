@@ -1,8 +1,10 @@
 #include <hitagi/resource/mesh_factory.hpp>
+#include "hitagi/resource/asset_manager.hpp"
 
 using namespace hitagi::math;
 
 namespace hitagi::resource {
+
 Mesh MeshFactory::Line(const vec3f& from, const vec3f& to, const vec4f& color) {
     auto vertices = std::make_shared<VertexArray>(2);
     auto pos      = vertices->GetVertices<VertexAttribute::Position>();
@@ -18,7 +20,7 @@ Mesh MeshFactory::Line(const vec3f& from, const vec3f& to, const vec4f& color) {
     indices_arr[0]   = 0;
     indices_arr[1]   = 1;
 
-    return {vertices, indices, nullptr, PrimitiveType::LineList};
+    return {vertices, indices, nullptr};
 }
 
 Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max, const vec4f& color) {
@@ -50,7 +52,7 @@ Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max, const v
     auto indices_array = indices->GetIndices<IndexType::UINT32>();
     std::copy(index_data.cbegin(), index_data.cend(), indices_array.begin());
 
-    return {vertices, indices, nullptr, PrimitiveType::LineList};
+    return {vertices, indices, nullptr};
 }
 
 }  // namespace hitagi::resource

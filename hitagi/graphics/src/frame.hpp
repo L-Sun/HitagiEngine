@@ -1,7 +1,7 @@
 #pragma once
 #include "resource_manager.hpp"
 
-#include <hitagi/graphics/renderable.hpp>
+#include <hitagi/resource/renderable.hpp>
 #include <hitagi/resource/camera.hpp>
 #include <hitagi/resource/light.hpp>
 
@@ -37,12 +37,12 @@ public:
 
     void SetFenceValue(std::uint64_t fence_value);
     // TODO generate pipeline state object from scene node infomation
-    void AddRenderables(std::pmr::vector<Renderable> renderables);
+    void AddRenderables(std::pmr::vector<resource::Renderable> renderables);
 
     void SetCamera(std::shared_ptr<resource::Camera> camera);
     void SetLight(std::shared_ptr<resource::Light> light);
 
-    std::shared_ptr<resource::Camera> GetCamera() const;
+    std::shared_ptr<resource::Camera> GetCamera() const { return m_Camera; }
 
     void Draw(IGraphicsCommandContext* context);
 
@@ -62,10 +62,10 @@ private:
     std::uint64_t     m_FenceValue = 0;
     bool              m_Lock       = false;
 
-    FrameConstant                     m_FrameConstant{};
-    std::shared_ptr<resource::Camera> m_Camera;
-    std::pmr::vector<Renderable>      m_Renderables;
-    std::shared_ptr<RenderTarget>     m_Output;
+    FrameConstant                          m_FrameConstant{};
+    std::shared_ptr<resource::Camera>      m_Camera;
+    std::pmr::vector<resource::Renderable> m_Renderables;
+    std::shared_ptr<RenderTarget>          m_Output;
 
     // the constant data used among the frame, including camera, light, etc.
     // TODO object constant buffer layout depending on different object

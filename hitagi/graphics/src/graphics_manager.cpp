@@ -12,6 +12,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 using namespace hitagi::math;
+using namespace hitagi::resource;
 
 namespace hitagi {
 std::unique_ptr<graphics::GraphicsManager> g_GraphicsManager = std::make_unique<graphics::GraphicsManager>();
@@ -89,7 +90,7 @@ void GraphicsManager::OnSizeChanged() {
     }
 }
 
-void GraphicsManager::SetCamera(std::shared_ptr<resource::Camera> camera) {
+void GraphicsManager::SetCamera(std::shared_ptr<Camera> camera) {
     GetBcakFrameForRendering()->SetCamera(std::move(camera));
 }
 

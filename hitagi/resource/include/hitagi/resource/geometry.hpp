@@ -9,15 +9,13 @@ class Geometry : public SceneObject {
 public:
     Geometry(std::shared_ptr<Transform> transform);
     void SetTransform(std::shared_ptr<Transform> transform) noexcept;
-    void AddMesh(Mesh mesh) noexcept;
 
     bool IsVisiable() const noexcept;
     void SetVisibility(bool visibility) noexcept;
 
-private:
-    std::pmr::vector<Mesh>     m_Meshes;
-    std::shared_ptr<Transform> m_Transform;
-    bool                       m_Visibility;
+    std::pmr::vector<Mesh>     meshes;
+    std::shared_ptr<Transform> transform;
+    bool                       visiable;
 };
 
 }  // namespace hitagi::resource

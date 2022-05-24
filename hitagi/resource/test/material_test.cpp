@@ -22,12 +22,12 @@ TEST(MaterialTest, InitMaterial) {
     EXPECT_TRUE(mat->IsValidParameter<vec2f>("param1"));
     EXPECT_TRUE(mat->IsValidParameter<vec4f>("param2"));
     EXPECT_TRUE(mat->IsValidParameter<vec2f>("param3"));
-    EXPECT_TRUE((mat->IsValidParameter<std::array<vec2f, 3>>("param4")));
+    EXPECT_TRUE((mat->IsValidParameterArray<vec2f>("param4", 3)));
     EXPECT_TRUE(mat->IsValidTextureParameter("texture"));
 
     EXPECT_FALSE(mat->IsValidParameter<vec3f>("param1"));
     EXPECT_FALSE(mat->IsValidParameter<vec4f>("param-no-exists"));
-    EXPECT_FALSE((mat->IsValidParameter<std::array<vec2f, 4>>("param4")));
+    EXPECT_FALSE(mat->IsValidParameterArray<vec2f>("param4", 4));
     EXPECT_FALSE(mat->IsValidTextureParameter("texture-no-exists"));
 }
 

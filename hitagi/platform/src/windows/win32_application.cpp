@@ -1,6 +1,7 @@
 #include "win32_application.hpp"
 
 #include <hitagi/hid/input_manager.hpp>
+#include <hitagi/core/config_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -8,11 +9,11 @@
 
 namespace hitagi {
 
-extern GfxConfiguration      g_Config;
-std::unique_ptr<Application> g_App = std::make_unique<Win32Application>(g_Config);
+std::unique_ptr<Application> g_App = std::make_unique<Win32Application>();
 
 int Win32Application::Initialize() {
     m_Logger->info("Initialize");
+    auto config = g_ConfigManager->GetConfig();
 
     // Set time period on windows
     timeBeginPeriod(1);
@@ -39,15 +40,15 @@ int Win32Application::Initialize() {
 
     // register the window class
     RegisterClassEx(&wc);
-    const std::wstring title(m_Config.app_name.begin(), m_Config.app_name.end());
+    const std::wstring title(config.title.begin(), config.title.end());
     m_Window = CreateWindowEx(
         0,
         L"hitagiEngine",
         title.c_str(),                 // title
         WS_OVERLAPPEDWINDOW,           // Window style
         CW_USEDEFAULT, CW_USEDEFAULT,  // Position (x, y)
-        m_Config.screen_width,         // Width
-        m_Config.screen_height,        // Height
+        config.width,                  // Width
+        config.height,                 // Height
         nullptr,                       // Parent window
         nullptr,                       // Menu
         h_instance,                    // Instance handle
@@ -90,7 +91,17 @@ float Win32Application::GetDpiRatio() {
 }
 
 void Win32Application::UpdateRect() {
+    Rect rect = m_Rect;
     GetClientRect(m_Window, reinterpret_cast<RECT*>(&m_Rect));
+
+    auto last_width  = rect.right - rect.left;
+    auto last_height = rect.bottom - rect.top;
+    auto curr_width  = m_Rect.right - m_Rect.left;
+    auto curr_height = m_Rect.bottom - m_Rect.top;
+
+    if (last_width != curr_width || last_height != curr_height) {
+        m_SizeChanged = true;
+    }
 }
 
 void Win32Application::MapCursor() {

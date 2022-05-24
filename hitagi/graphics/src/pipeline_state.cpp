@@ -8,12 +8,17 @@ namespace hitagi::graphics {
 
 using namespace hitagi::resource;
 
-auto RootSignature::Builder::Add(std::string_view name, ShaderVariableType type, unsigned register_index, unsigned space, ShaderVisibility visibility) -> RootSignature::Builder& {
+auto RootSignature::Builder::SetName(std::string_view _name) -> Builder& {
+    name = _name;
+    return *this;
+}
+
+auto RootSignature::Builder::Add(std::string_view name, ShaderVariableType type, unsigned register_index, unsigned space, ShaderVisibility visibility) -> Builder& {
     parameter_table.emplace_back(Parameter{std::pmr::string(name), type, register_index, space, visibility});
     return *this;
 }
 
-auto RootSignature::Builder::AddStaticSampler(std::string_view name, SamplerDesc desc, unsigned register_index, unsigned space, ShaderVisibility visibility) -> RootSignature::Builder& {
+auto RootSignature::Builder::AddStaticSampler(std::string_view name, SamplerDesc desc, unsigned register_index, unsigned space, ShaderVisibility visibility) -> Builder& {
     static_sampler_descs.emplace_back(StaticSamplerDescription{std::pmr::string(name), desc, register_index, space, visibility});
     return *this;
 }
@@ -82,5 +87,11 @@ auto PipelineState::Builder::Build(DriverAPI& driver) -> std::shared_ptr<Pipelin
     driver.CreatePipelineState(result);
     return result;
 }
+
+RootSignature::RootSignature(const Builder& builder)
+    : Resource(builder.name, nullptr), RootSignatureDetial(builder) {}
+
+PipelineState::PipelineState(const Builder& builder)
+    : Resource(builder.name, nullptr), PipelineStateDetial(builder) {}
 
 }  // namespace hitagi::graphics

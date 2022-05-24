@@ -26,7 +26,7 @@ public:
         unsigned         space;
         ShaderVisibility visibility;
     };
-
+    std::pmr::string                           name;
     std::pmr::vector<Parameter>                parameter_table;
     std::pmr::vector<StaticSamplerDescription> static_sampler_descs;
 };
@@ -37,6 +37,8 @@ public:
         friend class RootSignature;
 
     public:
+        Builder& SetName(std::string_view name);
+
         Builder& Add(
             std::string_view   name,
             ShaderVariableType type,

@@ -2,12 +2,14 @@
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/thread_manager.hpp>
 #include <hitagi/core/config_manager.hpp>
-#include <hitagi/graphics/graphics_manager.hpp>
+#include <hitagi/core/file_io_manager.hpp>
+#include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
+#include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/hid/input_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
-#include <hitagi/gameplay/gamelogic.hpp>
+#include <hitagi/gameplay.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -34,9 +36,8 @@ int Application::Initialize() {
     if ((ret = g_InputManager->Initialize()) != 0) return ret;
     if ((ret = g_GuiManager->Initialize()) != 0) return ret;
     if ((ret = g_SceneManager->Initialize()) != 0) return ret;
-    if ((ret = g_PhysicsManager->Initialize()) != 0) return ret;
     if ((ret = g_GraphicsManager->Initialize()) != 0) return ret;
-    if ((ret = g_GameLogic->Initialize()) != 0) return ret;
+    if ((ret = g_GamePlay->Initialize()) != 0) return ret;
 
     if (ret == 0) m_Initialized = true;
     return ret;
@@ -44,9 +45,8 @@ int Application::Initialize() {
 
 // Finalize all sub modules and clean up all runtime temporary files.
 void Application::Finalize() {
-    g_GameLogic->Finalize();
+    g_GamePlay->Finalize();
     g_GraphicsManager->Finalize();
-    g_PhysicsManager->Finalize();
     g_SceneManager->Finalize();
     g_GuiManager->Finalize();
     g_InputManager->Finalize();
@@ -64,45 +64,25 @@ void Application::Finalize() {
 
 // One cycle of the main loop
 void Application::Tick() {
-    OnResize();
-
-    g_DebugManager->Profiler("ThreadManager", []() { g_ThreadManager->Tick(); });
-    g_DebugManager->Profiler("MemoryManager", []() { g_MemoryManager->Tick(); });
-    g_DebugManager->Profiler("DebugManager", []() { g_DebugManager->Tick(); });
-    g_DebugManager->Profiler("FileIoManager", []() { g_FileIoManager->Tick(); });
-    g_DebugManager->Profiler("ConfigManager", []() { g_ConfigManager->Tick(); });
-    g_DebugManager->Profiler("AssetManager", []() { g_AssetManager->Tick(); });
-    g_DebugManager->Profiler("InputManager", []() { g_InputManager->Tick(); });
-    g_DebugManager->Profiler("GuiManager", []() { g_GuiManager->Tick(); });
-    g_DebugManager->Profiler("GameLogic", []() { g_GameLogic->Tick(); });
-    g_DebugManager->Profiler("SceneManager", []() { g_SceneManager->Tick(); });
-    g_DebugManager->Profiler("PhysicsManager", []() { g_PhysicsManager->Tick(); });
+    g_ThreadManager->Tick();
+    g_MemoryManager->Tick();
+    g_DebugManager->Tick();
+    g_FileIoManager->Tick();
+    g_ConfigManager->Tick();
+    g_AssetManager->Tick();
+    g_InputManager->Tick();
+    g_GuiManager->Tick();
+    g_GamePlay->Tick();
+    g_SceneManager->Tick();
 
     // -------------Before Render-------------------
-    g_DebugManager->Profiler("GraphicsManager", []() { g_GraphicsManager->Tick(); });
+    g_GraphicsManager->Tick();
     // -------------After Render--------------------
 }
 
 void Application::SetCommandLineParameters(int argc, char** argv) {
     m_ArgSize = argc;
     m_Arg     = argv;
-}
-
-GfxConfiguration& Application::GetConfiguration() { return m_Config; }
-
-void Application::OnResize() {
-    uint32_t width  = m_Rect.right - m_Rect.left;
-    uint32_t height = m_Rect.bottom - m_Rect.top;
-
-    if (m_Config.screen_width == width && m_Config.screen_height == height) {
-        m_SizeChanged = false;
-        return;
-    }
-
-    m_Config.screen_width  = width;
-    m_Config.screen_height = height;
-
-    m_SizeChanged = true;
 }
 
 bool Application::IsQuit() { return sm_Quit; }

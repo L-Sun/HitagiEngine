@@ -21,11 +21,11 @@ public:
     // prepare texture buffer in gpu. It will create new buffer in gpu if the textrue is not in gpu.
     void PrepareTextureBuffer(const std::shared_ptr<resource::Texture>& texture);
 
-    // this function will prepare a constant buffer for storing all parameters from material instance
-    void PrepareMaterialParameterBuffer(const std::shared_ptr<resource::Material>& material);
-
-    // this function will prepare a pipeline state object in gpu.
-    void PreparePipeline(const std::shared_ptr<resource::Material>& material);
+    // this function will :
+    // 1. prepare a constant buffer for storing all parameters from material instance
+    // 2. create pipeline
+    // TODO 3. complie shader if not exists
+    void PrepareMaterial(const std::shared_ptr<resource::Material>& material);
 
     // TODO Sampler
     // void PrepareSampler();
@@ -39,6 +39,11 @@ public:
     std::shared_ptr<PipelineState> GetPipelineState(xg::Guid material_id) const noexcept;
 
 private:
+    void PrepareMaterialParameterBuffer(const std::shared_ptr<resource::Material>& material);
+    void PreparePipeline(const std::shared_ptr<resource::Material>& material);
+    // TODO
+    void CompileShader(const std::filesystem::path& path);
+
     DriverAPI&                                                         m_Driver;
     std::pmr::unordered_map<xg::Guid, std::shared_ptr<VertexBuffer>>   m_VertexBuffer;
     std::pmr::unordered_map<xg::Guid, std::shared_ptr<IndexBuffer>>    m_IndexBuffer;

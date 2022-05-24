@@ -32,6 +32,8 @@ int AssetManager::Initialize() {
     m_ImageParser[static_cast<size_t>(ImageFormat::TGA)]  = std::make_unique<TgaParser>();
     m_ImageParser[static_cast<size_t>(ImageFormat::BMP)]  = std::make_unique<BmpParser>();
 
+    m_MaterialParser = std::make_unique<MaterialParser>();
+
     // m_MoCapParser = std::make_unique<BvhParser>();
 
     InitializeInnerMaterial();
@@ -43,22 +45,24 @@ void AssetManager::Tick() {}
 void AssetManager::Finalize() {
     // m_MoCapParser = nullptr;
 
+    m_MaterialParser = nullptr;
+
     for (auto&& img_parser : m_ImageParser) {
         img_parser = nullptr;
     }
 
+    m_SceneParser = nullptr;
+
     for (auto&& materail : m_Materials) {
         materail = nullptr;
     }
-
-    m_SceneParser = nullptr;
 
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
 void AssetManager::ImportScene(Scene& scene, const std::filesystem::path& path) {
-    m_SceneParser->Parse(scene, m_Materials, g_FileIoManager->SyncOpenAndReadBinary(path));
+    m_SceneParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), scene, m_Materials);
 }
 
 std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& path) {
@@ -70,6 +74,10 @@ std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& pa
     }
     auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
     return image;
+}
+
+std::shared_ptr<MaterialInstance> AssetManager::ImportMaterial(const std::filesystem::path& path) {
+    return m_MaterialParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), m_Materials);
 }
 
 // std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> AssetManager::ImportAnimation(const std::filesystem::path& path) {

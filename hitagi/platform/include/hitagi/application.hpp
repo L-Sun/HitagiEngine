@@ -23,8 +23,6 @@ public:
     virtual void  SetCommandLineParameters(int argc, char** argv);
 
 protected:
-    void OnResize();
-
     static bool sm_Quit;
     bool        m_Initialized = false;
     int         m_ArgSize     = 0;

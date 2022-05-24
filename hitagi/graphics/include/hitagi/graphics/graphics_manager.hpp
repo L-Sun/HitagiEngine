@@ -2,7 +2,7 @@
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/graphics/driver_api.hpp>
 #include <hitagi/graphics/enums.hpp>
-#include <hitagi/graphics/renderable.hpp>
+#include <hitagi/resource/renderable.hpp>
 #include <hitagi/resource/camera.hpp>
 
 namespace hitagi::graphics {
@@ -11,14 +11,12 @@ class ResourceManager;
 
 class GraphicsManager : public IRuntimeModule {
 public:
-    GraphicsManager();
-
     int  Initialize() final;
     void Finalize() final;
     void Tick() final;
 
     void SetCamera(std::shared_ptr<resource::Camera> camera);
-    void AppendRenderables(std::pmr::vector<Renderable> renderables);
+    void AppendRenderables(std::pmr::vector<resource::Renderable> renderables);
 
 protected:
     // TODO change the parameter to View, if multiple view port is finished

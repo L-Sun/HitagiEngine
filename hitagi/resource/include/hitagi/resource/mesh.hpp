@@ -60,19 +60,16 @@ public:
         std::shared_ptr<VertexArray> vertices,
         std::shared_ptr<IndexArray>  indices,
         // TODO use default material
-        std::shared_ptr<MaterialInstance> material = nullptr,
-        PrimitiveType                     type     = PrimitiveType::TriangleList);
+        std::shared_ptr<MaterialInstance> material = nullptr);
 
-    Mesh(const Mesh& other)      = default;
+    Mesh(const Mesh& other) = default;
     Mesh& operator=(const Mesh&) = default;
     Mesh(Mesh&& other)           = default;
-    Mesh& operator=(Mesh&& rhs)  = default;
+    Mesh& operator=(Mesh&& rhs) = default;
 
-private:
-    std::shared_ptr<VertexArray>      m_Vertices;
-    std::shared_ptr<IndexArray>       m_Indices;
-    std::shared_ptr<MaterialInstance> m_Material;
-    PrimitiveType                     m_PrimitiveType;
+    std::shared_ptr<MaterialInstance> material;
+    std::shared_ptr<VertexArray>      vertices;
+    std::shared_ptr<IndexArray>       indices;
 };
 
 template <VertexAttribute Attr>

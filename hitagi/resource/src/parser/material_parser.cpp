@@ -28,6 +28,28 @@ struct convert<Vector<T, N>> {
         return true;
     }
 };
+
+template <>
+struct convert<hitagi::resource::PrimitiveType> {
+    static Node encode(const hitagi::resource::PrimitiveType primitive) {
+        Node node;
+        node = std::string(magic_enum::enum_name(primitive));
+        return node;
+    }
+
+    static bool decode(const Node& node, hitagi::resource::PrimitiveType& rhs) {
+        if (!node.IsScalar()) {
+            return false;
+        }
+        auto result = magic_enum::enum_cast<hitagi::resource::PrimitiveType>(node.as<std::string>());
+        if (result.has_value()) {
+            rhs = result.value();
+            return true;
+        } else {
+            return false;
+        }
+    }
+};
 template <>
 struct convert<std::filesystem::path> {
     static Node encode(const std::filesystem::path& rhs) {
@@ -48,8 +70,9 @@ struct convert<std::filesystem::path> {
 }  // namespace YAML
 
 namespace hitagi::resource {
+std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buffer, std::pmr::vector<std::shared_ptr<Material>>& materials) {
+    if (buffer.Empty()) return nullptr;
 
-std::shared_ptr<Material> MaterialParser::Parse(const core::Buffer& buffer) {
     auto logger = spdlog::get("AssetManager");
 
     YAML::Node node;
@@ -61,6 +84,7 @@ std::shared_ptr<Material> MaterialParser::Parse(const core::Buffer& buffer) {
         Material::Builder builder;
         builder
             .SetName(node["name"].as<std::string>())
+            .SetPrimitive(node["primitive"].as<PrimitiveType>())
             .SetShader(node["shader"].as<std::filesystem::path>());
 
         for (auto vertex_attri : node["vertexs"]) {
@@ -133,10 +157,23 @@ std::shared_ptr<Material> MaterialParser::Parse(const core::Buffer& buffer) {
         }
 
         for (auto texture : node["textures"]) {
-            builder.AppendTextureName(texture["name"].as<std::string>());
+            builder.AppendTextureName(texture["name"].as<std::string>(), texture["path"].as<std::filesystem::path>());
         }
 
-        builder.Build();
+        auto material = builder.Build();
+        auto iter     = std::find_if(materials.begin(), materials.end(), [material](const auto& m) {
+            return *m == *material;
+            });
+
+        auto instance = material->CreateInstance();
+        // A new material type
+        if (iter == materials.end()) {
+            materials.emplace_back(material);
+        } else {
+            instance->SetMaterial(*iter);
+        }
+
+        return instance;
 
     } catch (YAML::ParserException ex) {
         logger->error(ex.what());
@@ -145,9 +182,8 @@ std::shared_ptr<Material> MaterialParser::Parse(const core::Buffer& buffer) {
         logger->error(ex.what());
         return nullptr;
     }
-}
 
-std::shared_ptr<Material> ParseMaterial(const YAML::Node& node) {
+    return nullptr;
 }
 
 }  // namespace hitagi::resource

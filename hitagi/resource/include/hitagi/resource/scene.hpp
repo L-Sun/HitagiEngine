@@ -2,6 +2,7 @@
 #include <hitagi/resource/geometry.hpp>
 #include <hitagi/resource/camera.hpp>
 #include <hitagi/resource/light.hpp>
+#include <hitagi/resource/renderable.hpp>
 
 #include <magic_enum.hpp>
 
@@ -10,7 +11,7 @@ class Scene : public SceneObject {
 public:
     Scene() = default;
 
-    std::pmr::vector<Mesh> GetRenderable();
+    std::pmr::vector<Renderable> GetRenderable();
 
     std::pmr::vector<Geometry>                       geometries;
     std::pmr::unordered_set<std::shared_ptr<Light>>  lights;

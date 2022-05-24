@@ -74,11 +74,11 @@ MaterialInstance& MaterialInstance::SetParameter(std::string_view name, const T&
 }
 
 template <MaterialParametric T>
-MaterialInstance& MaterialInstance::SetParameter(std::string_view name, std::pmr::vector<T> value) noexcept {
+MaterialInstance& MaterialInstance::SetParameter(std::string_view name, std::pmr::vector<T> values) noexcept {
     auto material = m_Material.lock();
 
-    if (material && material->IsValidParameter<decltype(value)>(name)) {
-        std::copy(value.begin(), value.end(), &GetParameter<T>(name));
+    if (material && material->IsValidParameterArray<T>(name, values.size())) {
+        std::copy(values.begin(), values.end(), &GetParameter<T>(name));
     } else {
         Warn(fmt::format("You are setting a invalid parameter: {}", name));
     }
@@ -102,7 +102,7 @@ template <MaterialParametric T, std::size_t N>
 auto MaterialInstance::GetValue(std::string_view name) const noexcept -> std::optional<std::array<T, N>> {
     auto material = m_Material.lock();
 
-    if (material && material->IsValidParameter<std::array<T, N>>(name)) {
+    if (material && material->IsValidParameterArray<T>(name, N)) {
         std::array<T, N> result{};
         std::copy_n(&GetParameter<T>(name), N, result.data());
         return result;

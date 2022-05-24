@@ -24,6 +24,7 @@ struct MaterialDetial {
         std::size_t      offset;
         std::size_t      size;
     };
+    PrimitiveType                                          primitive;
     std::filesystem::path                                  shader;
     std::bitset<magic_enum::enum_count<VertexAttribute>()> slot_mask;
     std::pmr::vector<ParameterInfo>                        parameters_info;
@@ -43,9 +44,15 @@ public:
     public:
         Builder& SetName(std::string_view name);
 
+        Builder& SetPrimitive(PrimitiveType primitive);
+
         Builder& SetShader(const std::filesystem::path& path);
 
         Builder& EnableSlot(VertexAttribute slot);
+
+        // Set rasizer state
+        // Builder& Cull();
+        // ...
 
         template <MaterialParametric T>
         Builder& AppendParameterInfo(std::string_view name, T default_value = {});
@@ -70,8 +77,15 @@ public:
     std::shared_ptr<MaterialInstance> CreateInstance() const noexcept;
     std::size_t                       GetNumInstances() const noexcept;
 
-    template <typename T>
+    PrimitiveType GetPrimitiveType() const noexcept { return primitive; }
+
+    const auto& GetShaderPath() const noexcept { return shader; }
+
+    template <MaterialParametric T>
     bool IsValidParameter(std::string_view name) const noexcept;
+
+    template <MaterialParametric T>
+    bool IsValidParameterArray(std::string_view name, std::size_t count) const noexcept;
 
     std::optional<ParameterInfo>           GetParameterInfo(std::string_view name) const noexcept;
     const std::pmr::vector<ParameterInfo>& GetParameterInfos() const noexcept;
@@ -108,7 +122,7 @@ auto Material::Builder::AppendParameterArrayInfo(std::string_view name, std::siz
     return AppendParameterImpl(name, typeid(T), sizeof(T) * count, reinterpret_cast<std::byte*>(default_values.data()));
 }
 
-template <typename T>
+template <MaterialParametric T>
 bool Material::IsValidParameter(std::string_view name) const noexcept {
     auto iter = std::find_if(
         parameters_info.cbegin(),
@@ -117,8 +131,21 @@ bool Material::IsValidParameter(std::string_view name) const noexcept {
             if (name != item.name) return false;
             if (std::type_index(typeid(std::remove_cvref_t<T>)) == item.type)
                 return true;
-            if (std::type_index(typeid(typename T::value_type)) == item.type && item.size == sizeof(T))
-                return true;
+            return false;
+        });
+
+    return iter != parameters_info.cend();
+}
+
+template <MaterialParametric T>
+bool Material::IsValidParameterArray(std::string_view name, std::size_t count) const noexcept {
+    auto iter = std::find_if(
+        parameters_info.cbegin(),
+        parameters_info.cend(),
+        [&](const ParameterInfo& item) {
+            if (name != item.name) return false;
+            if (std::type_index(typeid(std::remove_cvref_t<T>)) == item.type)
+                return sizeof(T) * count == item.size;
             return false;
         });
 

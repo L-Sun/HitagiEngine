@@ -40,23 +40,21 @@ IndexArray::IndexArray(std::size_t index_count, IndexType type)
 }
 
 Mesh::Mesh(
-    std::shared_ptr<VertexArray>      vertices,
-    std::shared_ptr<IndexArray>       indices,
-    std::shared_ptr<MaterialInstance> material,
-    PrimitiveType                     type)
-    : m_Material(std::move(material)),
-      m_PrimitiveType(type) {
-    if (vertices == nullptr) {
-        spdlog::get("AssetManager")->warn("Can not create mesh with empty vetex array!");
-        return;
+    std::shared_ptr<VertexArray>      _vertices,
+    std::shared_ptr<IndexArray>       _indices,
+    std::shared_ptr<MaterialInstance> _material)
+    : material(std::move(_material)) {
+    if (_vertices == nullptr) {
+        if (auto logger = spdlog::get("AssetManager"))
+            logger->warn("Can not create mesh with empty vetex array!");
     }
-    if (indices == nullptr) {
-        spdlog::get("AssetManager")->warn("Can not create mesh with empty index array!");
-        return;
+    if (_indices == nullptr) {
+        if (auto logger = spdlog::get("AssetManager"))
+            logger->warn("Can not create mesh with empty index array!");
     }
 
-    m_Vertices = std::move(vertices);
-    m_Indices  = std::move(indices);
+    vertices = std::move(_vertices);
+    indices  = std::move(_indices);
 }
 
 }  // namespace hitagi::resource

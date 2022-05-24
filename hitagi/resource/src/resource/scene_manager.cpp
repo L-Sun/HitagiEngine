@@ -1,6 +1,5 @@
 #include <hitagi/resource/scene_manager.hpp>
-#include <hitagi/core/file_io_manager.hpp>
-#include <hitagi/parser/assimp.hpp>
+#include <hitagi/graphics/graphics_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -11,125 +10,96 @@ namespace hitagi {
 std::unique_ptr<resource::SceneManager> g_SceneManager = std::make_unique<resource::SceneManager>();
 }
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 
 int SceneManager::Initialize() {
-    int result = 0;
-    m_Logger   = spdlog::stdout_color_mt("SceneManager");
+    m_Logger = spdlog::stdout_color_mt("SceneManager");
     m_Logger->info("Initialize...");
 
-    m_AnimationManager = std::make_unique<AnimationManager>();
-    m_AnimationManager->Initialize();
+    m_Scenes.emplace_back(Scene{});
+    m_CurrentScene = 0;
 
-    m_CurrentScene = std::make_shared<Scene>("Default Scene");
-    m_Scenes.emplace(m_CurrentScene);
+    CurrentScene().SetName("DefaultScene");
 
-    CreateDefaultCamera(m_CurrentScene);
-    CreateDefaultLight(m_CurrentScene);
+    CreateDefaultCamera(CurrentScene());
+    CreateDefaultLight(CurrentScene());
 
-    return result;
+    m_CurrentCamera = *(CurrentScene().cameras.begin());
+
+    return 0;
 }
 void SceneManager::Finalize() {
-    m_CurrentScene = nullptr;
-
-    for (auto&& scene : m_Scenes) {
-        // here the variable `scene` is reference variable
-        // use_count == 1 means that no one refers the scene except SceneManager
-        if (scene.use_count() != 1) {
-            m_Logger->warn("there is a Scene{} who is refered in other places!", scene->GetName());
-        }
-    }
-
     m_Scenes.clear();
-
-    m_AnimationManager->Finalize();
-    m_AnimationManager = nullptr;
 
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
 void SceneManager::Tick() {
-    m_AnimationManager->Tick();
+    g_GraphicsManager->SetCamera(m_CurrentCamera);
+    g_GraphicsManager->AppendRenderables(CurrentScene().GetRenderable());
 }
 
-std::shared_ptr<Scene> SceneManager::CreateScene(std::string name) {
-    auto result = std::make_shared<Scene>(std::move(name));
-    m_Scenes.emplace(result);
-
-    if (result->GetFirstCameraNode() == nullptr) CreateDefaultCamera(result);
-    if (result->GetFirstLightNode() == nullptr) CreateDefaultLight(result);
-
-    return result;
+Scene& SceneManager::CurrentScene() {
+    return m_Scenes[m_CurrentScene];
 }
 
-void SceneManager::AddScene(std::shared_ptr<Scene> scene) {
-    assert(scene != nullptr);
+Scene& SceneManager::CreateEmptyScene(std::string_view name) {
+    auto& scene = m_Scenes.emplace_back(Scene{});
+    scene.SetName(name);
 
-    auto&& [iter, success] = m_Scenes.emplace(scene);
+    CreateDefaultCamera(scene);
+    CreateDefaultLight(scene);
 
-    if (scene->GetFirstCameraNode() == nullptr) CreateDefaultCamera(scene);
-    if (scene->GetFirstLightNode() == nullptr) CreateDefaultLight(scene);
+    return scene;
 }
 
-void SceneManager::SwitchScene(std::shared_ptr<Scene> scene) {
-    if (m_Scenes.count(scene) == 0) {
-        m_Logger->warn("you are try to switch a scene that is not managed by SceneManager!");
-        m_Logger->warn("The scene will add to SceneManager!");
-        m_Scenes.emplace(scene);
+void SceneManager::AddScene(Scene scene) {
+    m_Scenes.emplace_back(scene);
+}
+
+void SceneManager::SwitchScene(std::size_t index) {
+    if (index >= m_Scenes.size()) {
+        m_Logger->warn("You are setting a exsist scene!");
+        return;
     }
-    m_CurrentScene = scene;
+    m_CurrentScene = index;
 }
 
-void SceneManager::DeleteScene(std::shared_ptr<Scene> scene) {
-    size_t delete_count = m_Scenes.erase(scene);
-    if (delete_count == 0) {
-        m_Logger->warn("You are trying to delete a scene that is not managed by SceneManager!");
-    }
+void SceneManager::DeleteScene(std::size_t index) {
+    DeleteScenes({index});
 }
 
-std::shared_ptr<Scene> SceneManager::GetSceneForRendering() const {
-    auto result = std::make_shared<Scene>();
-    for (auto&& node : m_CurrentScene->geometry_nodes) {
-        if (node->Visible()) {
-            result->geometry_nodes.emplace_back(node);
+void SceneManager::DeleteScenes(std::pmr::vector<std::size_t> index_array) {
+    std::size_t i = 0, j = 0;
+    std::sort(index_array.begin(), index_array.end());
+    auto iter = std::remove_if(m_Scenes.begin(), m_Scenes.end(), [&](const Scene& scene) {
+        if (i == index_array[j]) {
+            i++;
+            j++;
+            return true;
         }
-    }
-    result->camera_nodes = m_CurrentScene->camera_nodes;
-    result->light_nodes  = m_CurrentScene->light_nodes;
-    result->bone_nodes   = m_CurrentScene->bone_nodes;
-
-    return result;
+        i++;
+        return false;
+    });
+    m_Scenes.erase(iter, m_Scenes.end());
 }
 
-std::shared_ptr<Scene> SceneManager::GetSceneForPhysicsSimulation() const {
-    return m_CurrentScene;
+void SceneManager::SetCamera(std::shared_ptr<Camera> camera) {
+    m_CurrentCamera = std::move(camera);
 }
 
-void SceneManager::CreateDefaultCamera(std::shared_ptr<Scene> scene) {
-    const vec3f pos    = {5.0f, 5.0f, 5.0f};
-    const vec3f up     = {0, 0, 1};
-    const vec3f direct = -pos;
-
-    auto camera      = std::make_shared<Camera>();
-    auto camera_node = std::make_shared<CameraNode>("default-camera", pos, up, direct);
+void SceneManager::CreateDefaultCamera(Scene& scene) {
+    auto camera = std::make_shared<Camera>();
     camera->SetName("default-camera");
-    camera_node->SetSceneObjectRef(camera);
-
-    scene->cameras.emplace_back(camera);
-    scene->camera_nodes.emplace_back(camera_node);
-    scene->scene_graph->AppendChild(camera_node);
+    scene.cameras.emplace(camera);
 }
 
-void SceneManager::CreateDefaultLight(std::shared_ptr<Scene> scene) {
-    auto light       = std::make_shared<PointLight>();
-    auto light_nodes = std::make_shared<LightNode>("default-light");
+void SceneManager::CreateDefaultLight(Scene& scene) {
+    auto light = std::make_shared<PointLight>();
     light->SetName("default-light");
-    light_nodes->SetSceneObjectRef(light);
 
-    scene->lights.emplace_back(light);
-    scene->light_nodes.emplace_back(light_nodes);
-    scene->scene_graph->AppendChild(light_nodes);
+    scene.lights.emplace(light);
 }
 
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

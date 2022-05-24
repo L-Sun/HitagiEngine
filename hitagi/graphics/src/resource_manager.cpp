@@ -1,6 +1,8 @@
 #include "resource_manager.hpp"
+
 #include <hitagi/core/file_io_manager.hpp>
-#include "magic_enum.hpp"
+
+#include <magic_enum.hpp>
 
 using namespace hitagi::resource;
 
@@ -49,6 +51,11 @@ void ResourceManager::PrepareTextureBuffer(const std::shared_ptr<Texture>& textu
     }
 }
 
+void ResourceManager::PrepareMaterial(const std::shared_ptr<resource::Material>& material) {
+    PrepareMaterialParameterBuffer(material);
+    PreparePipeline(material);
+}
+
 void ResourceManager::PrepareMaterialParameterBuffer(const std::shared_ptr<Material>& material) {
     auto id = material->GetGuid();
     if (m_MaterialParameterBuffer.count(id) == 0) {
@@ -78,15 +85,18 @@ void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material)
                 rootsig_builder.Add(texture_name, ShaderVariableType::SRV, i++, 0);
             }
         }
-        auto rootsig = rootsig_builder.Create(m_Driver);
 
-        std::string_view       name = material->GetName();
+        auto shader_path = material->GetShaderPath();
+
         PipelineState::Builder pso_builder;
-        // TODO
+        // TODO more infomation
         pso_builder
-            .SetName(name)
-            .SetVertexShader(g_FileIoManager->SyncOpenAndReadBinary(fmt::format("/assets/shaders/{}.vs", name)))
-            .SetPixelShader(g_FileIoManager->SyncOpenAndReadBinary(fmt::format("/assets/shaders/{}.ps", name)));
+            .SetName(material->GetName())
+            .SetVertexShader(g_FileIoManager->SyncOpenAndReadBinary(shader_path.replace_extension("vs")))
+            .SetPixelShader(g_FileIoManager->SyncOpenAndReadBinary(shader_path.replace_extension("ps")))
+            .SetRootSignautre(rootsig_builder.Create(m_Driver))
+            .SetPrimitiveType(material->GetPrimitiveType());
+
         magic_enum::enum_for_each<VertexAttribute>([&](auto slot) {
             if (material->IsSlotEnabled(slot)) {
                 pso_builder.EnableVertexSlot(slot);
@@ -94,4 +104,43 @@ void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material)
         });
     }
 }
+
+std::shared_ptr<VertexBuffer> ResourceManager::GetVertexBuffer(xg::Guid vertex_array_id) const noexcept {
+    if (m_VertexBuffer.count(vertex_array_id) != 0) {
+        return m_VertexBuffer.at(vertex_array_id);
+    }
+    return nullptr;
+}
+std::shared_ptr<IndexBuffer> ResourceManager::GetIndexBuffer(xg::Guid index_array_id) const noexcept {
+    if (m_IndexBuffer.count(index_array_id) != 0) {
+        return m_IndexBuffer.at(index_array_id);
+    }
+    return nullptr;
+}
+std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(xg::Guid texture_id) const noexcept {
+    if (m_TextureBuffer.count(texture_id) != 0) {
+        return m_TextureBuffer.at(texture_id);
+    }
+    return nullptr;
+}
+std::shared_ptr<Sampler> ResourceManager::GetSampler(xg::Guid sampler_id) const noexcept {
+    if (m_Samplers.count(sampler_id) != 0) {
+        return m_Samplers.at(sampler_id);
+    }
+    return nullptr;
+}
+std::shared_ptr<ConstantBuffer> ResourceManager::GetMaterialParameterBuffer(xg::Guid material_id) const noexcept {
+    if (m_MaterialParameterBuffer.count(material_id) != 0) {
+        return m_MaterialParameterBuffer.at(material_id);
+    }
+    return nullptr;
+}
+
+std::shared_ptr<PipelineState> ResourceManager::GetPipelineState(xg::Guid material_id) const noexcept {
+    if (m_PipelineStates.count(material_id) != 0) {
+        return m_PipelineStates.at(material_id);
+    }
+    return nullptr;
+}
+
 }  // namespace hitagi::graphics

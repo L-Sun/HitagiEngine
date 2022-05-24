@@ -17,7 +17,7 @@ using namespace hitagi::math;
 
 namespace hitagi::resource {
 
-void AssimpParser::Parse(Scene& scene, std::pmr::vector<std::shared_ptr<Material>>& materials, const core::Buffer& buffer) {
+void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vector<std::shared_ptr<Material>>& materials) {
     auto logger = spdlog::get("AssetManager");
 
     if (buffer.Empty()) {
@@ -129,10 +129,7 @@ void AssimpParser::Parse(Scene& scene, std::pmr::vector<std::shared_ptr<Material
     }
 
     // process material
-    std::pmr::unordered_map<std::string_view, std::shared_ptr<MaterialInstance>> material_instances;
-
-    for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
-        const auto        _material = ai_scene->mMaterials[i];
+    auto convert_material = [&](const aiMaterial* _material, PrimitiveType primitive) -> std::shared_ptr<MaterialInstance> {
         Material::Builder builder;
 
         // set material diffuse color
@@ -182,7 +179,9 @@ void AssimpParser::Parse(Scene& scene, std::pmr::vector<std::shared_ptr<Material
         }
 
         // TODO adapte assimp shader
-        builder.SetShader("asset/assimp.hlsl");
+        builder
+            .SetShader("asset/assimp.hlsl")
+            .SetPrimitive(primitive);
 
         auto material = builder.Build();
         auto instance = material->CreateInstance();
@@ -200,20 +199,17 @@ void AssimpParser::Parse(Scene& scene, std::pmr::vector<std::shared_ptr<Material
         }
         // A exists material type
         else {
-            instance->SetMaterial(material);
+            instance->SetMaterial(*iter);
         }
 
         // set material name
         if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
             instance->SetName(name.C_Str());
 
-        auto&& [result, success] = material_instances.emplace(instance->GetName(), instance);
-        if (!success)
-            logger->warn("A material[{}] with the same name already exists!", material->GetName());
-    }
+        return instance;
+    };
 
-    std::pmr::unordered_map<std::string, std::shared_ptr<Bone>> bone_name_map;
-    std::pmr::unordered_map<aiMesh*, Mesh>                      meshes;
+    std::pmr::unordered_map<aiMesh*, Mesh> meshes;
 
     auto covert_mesh = [&](const aiMesh* ai_mesh) -> Mesh {
         auto vertices = std::make_shared<VertexArray>(ai_mesh->mNumVertices);
@@ -306,12 +302,7 @@ void AssimpParser::Parse(Scene& scene, std::pmr::vector<std::shared_ptr<Material
         }
 
         // material
-        std::shared_ptr<MaterialInstance> material      = nullptr;
-        const std::string_view            material_name = ai_scene->mMaterials[ai_mesh->mMaterialIndex]->GetName().C_Str();
-        if (material_instances.count(material_name) != 0)
-            material = material_instances.at(material_name);
-        else
-            logger->warn("A mesh[{}] refers to a unexist material", material_name);
+        std::shared_ptr<MaterialInstance> material = convert_material(ai_scene->mMaterials[ai_mesh->mMaterialIndex], primitive);
 
         // // bone
         // if (ai_mesh->HasBones()) {
@@ -327,7 +318,7 @@ void AssimpParser::Parse(Scene& scene, std::pmr::vector<std::shared_ptr<Material
         //     }
         // }
 
-        Mesh mesh{vertices, indices, material, primitive};
+        Mesh mesh{vertices, indices, material};
         mesh.SetName(ai_mesh->mName.C_Str());
         return mesh;
     };
@@ -343,7 +334,7 @@ void AssimpParser::Parse(Scene& scene, std::pmr::vector<std::shared_ptr<Material
             auto ai_mesh     = ai_scene->mMeshes[_node->mMeshes[i]];
             auto mesh_handle = meshes.extract(ai_mesh);
             assert(!mesh_handle.empty());
-            geometry.AddMesh(std::move(mesh_handle.mapped()));
+            geometry.meshes.emplace_back(std::move(mesh_handle.mapped()));
         }
         return geometry;
     };
