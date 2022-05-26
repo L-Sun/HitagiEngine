@@ -14,40 +14,42 @@ ResourceManager::ResourceManager(DriverAPI& driver)
 void ResourceManager::PrepareVertexBuffer(const std::shared_ptr<VertexArray>& vertices) {
     auto id = vertices->GetGuid();
     if (m_VertexBuffer.count(id) == 0) {
-        m_VertexBuffer.emplace(vertices->GetGuid(), m_Driver.CreateVertexBuffer(vertices));
-
+        m_VertexBuffer.emplace(id, m_Driver.CreateVertexBuffer(vertices));
+        m_VersionsInfo[id] = vertices->Version();
     } else if (auto& vb = m_VertexBuffer.at(id);
-               vertices->Version() > vb->Version()) {
-        vb = m_Driver.CreateVertexBuffer(vertices);
+               vertices->Version() > m_VersionsInfo.at(id)) {
+        vb                 = m_Driver.CreateVertexBuffer(vertices);
+        m_VersionsInfo[id] = vertices->Version();
     } else {
-        assert(vertices->Version() == vb->Version());
+        assert(vertices->Version() == m_VersionsInfo.at(id));
     }
 }
 
 void ResourceManager::PrepareIndexBuffer(const std::shared_ptr<IndexArray>& indices) {
     auto id = indices->GetGuid();
     if (m_IndexBuffer.count(id) == 0) {
-        m_IndexBuffer.emplace(indices->GetGuid(), m_Driver.CreateIndexBuffer(indices));
-
+        m_IndexBuffer.emplace(id, m_Driver.CreateIndexBuffer(indices));
+        m_VersionsInfo[id] = indices->Version();
     } else if (auto& ib = m_IndexBuffer.at(id);
-               indices->Version() > ib->Version()) {
-        ib = m_Driver.CreateIndexBuffer(indices);
-
+               indices->Version() > m_VersionsInfo.at(id)) {
+        ib                 = m_Driver.CreateIndexBuffer(indices);
+        m_VersionsInfo[id] = indices->Version();
     } else {
-        assert(indices->Version() == ib->Version());
+        assert(indices->Version() == m_VersionsInfo.at(id));
     }
 }
 
 void ResourceManager::PrepareTextureBuffer(const std::shared_ptr<Texture>& texture) {
     auto id = texture->GetGuid();
     if (m_TextureBuffer.count(id) == 0) {
-        m_TextureBuffer.emplace(texture->GetGuid(), m_Driver.CreateTextureBuffer(texture));
-
+        m_TextureBuffer.emplace(id, m_Driver.CreateTextureBuffer(texture));
+        m_VersionsInfo[id] = texture->Version();
     } else if (auto& tb = m_TextureBuffer.at(id);
-               texture->Version() > tb->Version()) {
-        tb = m_Driver.CreateTextureBuffer(texture);
+               texture->Version() > m_VersionsInfo.at(id)) {
+        tb                 = m_Driver.CreateTextureBuffer(texture);
+        m_VersionsInfo[id] = texture->Version();
     } else {
-        assert(texture->Version() == tb->Version());
+        assert(texture->Version() == m_VersionsInfo.at(id));
     }
 }
 
@@ -62,19 +64,23 @@ void ResourceManager::PrepareMaterialParameterBuffer(const std::shared_ptr<Mater
     auto id = material->GetGuid();
     if (m_MaterialParameterBuffer.count(id) == 0) {
         m_MaterialParameterBuffer.emplace(
-            material->GetGuid(),
+            id,
             m_Driver.CreateConstantBuffer(material->GetUniqueName(), {material->GetNumInstances(), material->GetParametersSize()}));
+        m_VersionsInfo[id] = material->Version();
 
     } else if (auto& mb = m_MaterialParameterBuffer.at(id);
-               material->Version() > mb->Version()) {
-        mb = m_Driver.CreateConstantBuffer(material->GetUniqueName(), {material->GetNumInstances(), material->GetParametersSize()});
+               material->Version() > m_VersionsInfo.at(id)) {
+        mb                 = m_Driver.CreateConstantBuffer(material->GetUniqueName(), {material->GetNumInstances(), material->GetParametersSize()});
+        m_VersionsInfo[id] = material->Version();
+
     } else {
-        assert(material->Version() == mb->Version());
+        assert(material->Version() == m_VersionsInfo.at(id));
     }
 }
 
 void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material) {
-    if (m_PipelineStates.count(material->GetGuid()) == 0) {
+    auto id = material->GetGuid();
+    if (m_PipelineStates.count(id) == 0) {
         RootSignature::Builder rootsig_builder;
         rootsig_builder
             .Add(FRAME_CONSTANT_BUFFER, ShaderVariableType::CBV, 0, 0)
@@ -108,7 +114,7 @@ void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material)
             }
         });
 
-        m_PipelineStates.emplace(material->GetGuid(), pso_builder.Build(m_Driver));
+        m_PipelineStates.emplace(id, pso_builder.Build(m_Driver));
     }
 }
 

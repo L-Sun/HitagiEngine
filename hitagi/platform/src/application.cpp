@@ -55,17 +55,17 @@ void Application::Finalize() {
         _module->Finalize();
     }
 
-    g_ThreadManager   = nullptr;
-    g_MemoryManager   = nullptr;
-    g_FileIoManager   = nullptr;
-    g_ConfigManager   = nullptr;
-    g_AssetManager    = nullptr;
-    g_InputManager    = nullptr;
-    g_GraphicsManager = nullptr;
-    g_SceneManager    = nullptr;
-    g_GuiManager      = nullptr;
-    g_DebugManager    = nullptr;
     g_GamePlay        = nullptr;
+    g_DebugManager    = nullptr;
+    g_GuiManager      = nullptr;
+    g_SceneManager    = nullptr;
+    g_GraphicsManager = nullptr;
+    g_InputManager    = nullptr;
+    g_AssetManager    = nullptr;
+    g_ConfigManager   = nullptr;
+    g_FileIoManager   = nullptr;
+    g_MemoryManager   = nullptr;
+    g_ThreadManager   = nullptr;
 
     m_Initialized = false;
     m_Logger->info("Finalized.");

@@ -55,6 +55,8 @@ private:
     std::pmr::unordered_map<xg::Guid, std::shared_ptr<Sampler>>        m_Samplers;
     std::pmr::unordered_map<xg::Guid, std::shared_ptr<ConstantBuffer>> m_MaterialParameterBuffer;
     std::pmr::unordered_map<xg::Guid, std::shared_ptr<PipelineState>>  m_PipelineStates;
+
+    std::pmr::unordered_map<xg::Guid, std::uint64_t> m_VersionsInfo;
 };
 
 }  // namespace hitagi::graphics

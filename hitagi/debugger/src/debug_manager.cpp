@@ -70,7 +70,7 @@ void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
     axis.meshes.emplace_back(m_DebugPrimitives["y_axis"]);
     axis.meshes.emplace_back(m_DebugPrimitives["z_axis"]);
 
-    AddPrimitive(std::move(axis), std::chrono::seconds::max(), depth_enabled);
+    AddPrimitive(std::move(axis), std::chrono::seconds(1), depth_enabled);
 }
 
 void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {

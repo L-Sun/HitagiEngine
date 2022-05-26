@@ -30,7 +30,6 @@ public:
     Resource& operator=(Resource&&) = default;
 
     inline std::string_view GetName() const noexcept { return m_Name; }
-    inline std::uint32_t    Version() const noexcept { return m_Version; }
 
     inline void SetResource(std::unique_ptr<backend::Resource> resource) noexcept { m_Resource = std::move(resource); }
 
@@ -43,7 +42,6 @@ public:
 protected:
     std::pmr::string                   m_Name;
     std::unique_ptr<backend::Resource> m_Resource;
-    std::uint32_t                      m_Version;
 };
 
 template <typename Desc>
