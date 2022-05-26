@@ -58,6 +58,7 @@ std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buff
             logger->error("Unkown vertex attributes {}", vertex_attri);
             return nullptr;
         }
+        builder.EnableSlot(slot.value());
     }
 
     if (json.contains("paramters")) {
@@ -135,7 +136,7 @@ std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buff
     auto material = builder.Build();
     auto iter     = std::find_if(materials.begin(), materials.end(), [material](const auto& m) {
         return *m == *material;
-    });
+        });
 
     auto instance = material->CreateInstance();
     // A new material type

@@ -12,8 +12,8 @@ public:
         float       near_clip = 1.0f,
         float       far_clip  = 1000.0f,
         float       fov       = 0.25 * std::numbers::pi,
-        math::vec3f position  = math::vec3f{0.0f, 0.0f, 0.0f},
-        math::vec3f up        = math::vec3f{0.0f, 0.0f, 0.0f},
+        math::vec3f position  = math::vec3f{3.0f, 3.0f, 3.0f},
+        math::vec3f up        = math::vec3f{0.0f, 0.0f, 1.0f},
         math::vec3f look_at   = math::vec3f{0.0f, 0.0f, 0.0f});
 
     void SetAspect(float value);

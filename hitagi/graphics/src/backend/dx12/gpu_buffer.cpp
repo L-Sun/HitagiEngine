@@ -1,4 +1,5 @@
 #include "gpu_buffer.hpp"
+#include "hitagi/graphics/resource.hpp"
 #include "hitagi/resource/enums.hpp"
 #include "magic_enum.hpp"
 #include "utils.hpp"
@@ -37,12 +38,12 @@ constexpr std::size_t calculate_total_vertex_buffer_size(graphics::VertexBufferD
     return result;
 }
 
-VertexBuffer::VertexBuffer(ID3D12Device* device, std::string_view name, graphics::VertexBufferDesc desc)
+VertexBuffer::VertexBuffer(ID3D12Device* device, graphics::VertexBuffer& vb)
     : GpuBuffer(device,
-                name,
-                calculate_total_vertex_buffer_size(desc),
+                vb.GetName(),
+                calculate_total_vertex_buffer_size(vb.desc),
                 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER),
-      m_Desc(desc) {
+      m_Desc(const_cast<graphics::VertexBufferDesc&>(vb.desc)) {
     for (std::size_t slot = 0; slot < m_Desc.slot_offset.size(); slot++) {
         m_Desc.slot_offset[slot] = GetSlotOffset(slot);
     }
@@ -77,20 +78,21 @@ std::size_t VertexBuffer::GetSlotElementSize(std::size_t slot) const {
     return resource::get_vertex_attribute_size(magic_enum::enum_cast<resource::VertexAttribute>(slot).value());
 }
 
-IndexBuffer::IndexBuffer(ID3D12Device* device, std::string_view name, graphics::IndexBufferDesc desc)
+IndexBuffer::IndexBuffer(ID3D12Device* device, graphics::IndexBuffer& ib)
     : GpuBuffer(device,
-                name,
-                desc.index_count * desc.index_size,
+                ib.GetName(),
+                ib.desc.index_count * ib.desc.index_size,
                 D3D12_RESOURCE_STATE_INDEX_BUFFER),
-      m_Desc(desc) {
+      m_Desc(const_cast<graphics::IndexBufferDesc&>(ib.desc)) {
 }
 
-ConstantBuffer::ConstantBuffer(std::string_view name, ID3D12Device* device, DescriptorAllocator& descritptor_allocator, graphics::ConstantBufferDesc desc)
-    : m_Desc(desc),
-      m_BlockSize(align(desc.element_size, 256)),
-      m_BufferSize(align(desc.element_size, 256) * desc.num_elements) {
+ConstantBuffer::ConstantBuffer(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, graphics::ConstantBuffer& cb)
+    : m_Desc(const_cast<graphics::ConstantBufferDesc&>(cb.desc)),
+      m_BlockSize(align(cb.desc.element_size, 256)),
+      m_BufferSize(align(cb.desc.element_size, 256) * cb.desc.num_elements) {
     m_UsageState = D3D12_RESOURCE_STATE_GENERIC_READ;
-    Resize(device, descritptor_allocator, desc.num_elements);
+    Resize(device, descritptor_allocator, cb.desc.num_elements);
+    auto name = cb.GetName();
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
 }
 

@@ -141,8 +141,9 @@ std::shared_ptr<graphics::VertexBuffer> DX12DriverAPI::CreateVertexBuffer(std::s
     auto                       name = vertices->GetUniqueName();
     graphics::VertexBufferDesc desc = {.vertex_count = vertices->VertexCount(), .slot_mask = vertices->GetSlotMask()};
 
-    auto vb     = std::make_unique<VertexBuffer>(m_Device.Get(), name, desc);
-    auto result = std::make_shared<graphics::VertexBuffer>(name, std::move(vb), desc);
+    auto result = std::make_shared<graphics::VertexBuffer>(name, nullptr, desc);
+    auto vb     = std::make_unique<VertexBuffer>(m_Device.Get(), *result);
+    result->SetResource(std::move(vb));
 
     GraphicsCommandContext context(*this);
 
@@ -166,8 +167,9 @@ std::shared_ptr<graphics::IndexBuffer> DX12DriverAPI::CreateIndexBuffer(std::sha
         .index_size  = indices->IndexSize(),
     };
 
-    auto buffer = std::make_unique<IndexBuffer>(m_Device.Get(), name, desc);
-    auto result = std::make_shared<graphics::IndexBuffer>(name, std::move(buffer), desc);
+    auto result = std::make_shared<graphics::IndexBuffer>(name, nullptr, desc);
+    auto buffer = std::make_unique<IndexBuffer>(m_Device.Get(), *result);
+    result->SetResource(std::move(buffer));
 
     GraphicsCommandContext context(*this);
     context.UpdateBuffer(result, 0, indices->Buffer().GetData(), indices->Buffer().GetDataSize());
@@ -177,9 +179,11 @@ std::shared_ptr<graphics::IndexBuffer> DX12DriverAPI::CreateIndexBuffer(std::sha
 }
 
 std::shared_ptr<graphics::ConstantBuffer> DX12DriverAPI::CreateConstantBuffer(std::string_view name, graphics::ConstantBufferDesc desc) {
-    auto cb = std::make_unique<ConstantBuffer>(name, m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV], desc);
+    auto result = std::make_shared<graphics::ConstantBuffer>(name, nullptr, desc);
+    auto cb     = std::make_unique<ConstantBuffer>(m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV], *result);
 
-    return std::make_shared<graphics::ConstantBuffer>(name, std::move(cb), desc);
+    result->SetResource(std::move(cb));
+    return result;
 }
 
 void DX12DriverAPI::ResizeConstantBuffer(std::shared_ptr<graphics::ConstantBuffer> buffer, size_t new_num_elements) {
@@ -360,6 +364,8 @@ void DX12DriverAPI::CreatePipelineState(std::shared_ptr<graphics::PipelineState>
 
     std::vector<D3D12_INPUT_ELEMENT_DESC> input_desc;
     for (std::size_t slot = 0; slot < pso->vertex_slot_mask.size(); slot++) {
+        if (!pso->vertex_slot_mask.test(slot)) continue;
+
         auto                     attr = magic_enum::enum_cast<resource::VertexAttribute>(slot).value();
         D3D12_INPUT_ELEMENT_DESC desc = {};
         desc.SemanticName             = hlsl_semantic_name(attr);

@@ -28,7 +28,7 @@ class Frame {
         math::mat4f object_transform;
         math::mat4f parent_transform;
         math::vec4f translation;
-        math::quatf rotation;
+        math::mat4f rotation;
         math::vec4f scaling;
     };
 

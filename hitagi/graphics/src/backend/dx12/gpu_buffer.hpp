@@ -17,7 +17,7 @@ protected:
 
 class VertexBuffer : public GpuBuffer {
 public:
-    VertexBuffer(ID3D12Device* device, std::string_view name, graphics::VertexBufferDesc desc);
+    VertexBuffer(ID3D12Device* device, graphics::VertexBuffer& vb);
 
     D3D12_VERTEX_BUFFER_VIEW VertexBufferView(std::size_t slot) const;
     std::size_t              GetVertexCount() const { return m_Desc.vertex_count; }
@@ -26,14 +26,15 @@ public:
     std::size_t GetSlotOffset(std::size_t slot) const;
     std::size_t GetSlotSize(std::size_t slot) const;
     std::size_t GetSlotElementSize(std::size_t slot) const;
+    const auto& GetDesc() const noexcept { return m_Desc; }
 
 private:
-    graphics::VertexBufferDesc m_Desc;
+    graphics::VertexBufferDesc& m_Desc;
 };
 
 class IndexBuffer : public GpuBuffer {
 public:
-    IndexBuffer(ID3D12Device* device, std::string_view name, graphics::IndexBufferDesc desc);
+    IndexBuffer(ID3D12Device* device, graphics::IndexBuffer& ib);
 
     D3D12_INDEX_BUFFER_VIEW IndexBufferView() const {
         D3D12_INDEX_BUFFER_VIEW ibv;
@@ -42,22 +43,24 @@ public:
         ibv.SizeInBytes    = m_BufferSize;
         return ibv;
     }
+    const auto& GetDesc() const noexcept { return m_Desc; }
 
 private:
-    graphics::IndexBufferDesc m_Desc;
+    graphics::IndexBufferDesc& m_Desc;
 };
 
 class ConstantBuffer : public GpuResource {
 public:
-    ConstantBuffer(std::string_view name, ID3D12Device* device, DescriptorAllocator& descritptor_allocator, graphics::ConstantBufferDesc desc);
+    ConstantBuffer(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, graphics::ConstantBuffer& cb);
     ~ConstantBuffer() override;
     void                     UpdateData(size_t index, const std::byte* data, size_t data_size);
     void                     Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t new_num_elements);
     inline const Descriptor& GetCBV(size_t index) const { return m_CBV.at(index); }
+    const auto&              GetDesc() const noexcept { return m_Desc; }
 
 private:
-    std::byte*                   m_CpuPtr = nullptr;
-    graphics::ConstantBufferDesc m_Desc;
+    std::byte*                    m_CpuPtr = nullptr;
+    graphics::ConstantBufferDesc& m_Desc;
 
     size_t                  m_BlockSize;  // align(dataSize, 256B)
     size_t                  m_BufferSize;

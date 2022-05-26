@@ -190,7 +190,7 @@ void Frame::PrepareData() {
             .object_transform = item.transform->GetTransform(),
             .parent_transform = item.transform->GetParentTransform(),
             .translation      = vec4f(item.transform->GetTranslation(), 1.0f),
-            .rotation         = item.transform->GetRotation(),
+            .rotation         = rotate(mat4f(1.0f), item.transform->GetRotation()),
             .scaling          = vec4f(item.transform->GetScaling(), 1.0f),
         };
         // since we share the object constant value and frame constant value in the same constant buffer,

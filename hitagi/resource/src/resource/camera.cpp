@@ -18,7 +18,7 @@ Camera::Camera(float       aspect,
       m_Fov(fov),
       m_Position(position),
       m_UpDirection(up),
-      m_LookDirection(look_at),
+      m_LookDirection(look_at - position),
       m_Transform(std::make_shared<Transform>()) {}
 
 void Camera::SetAspect(float value) { m_Aspect = value; }
