@@ -36,7 +36,8 @@ protected:
     void RetiredPrimitive();
     void DrawPrimitive() const;
 
-    std::shared_ptr<std::pmr::vector<DebugPrimitive>> m_DebugPrimitives;
+    std::pmr::vector<DebugPrimitive>                          m_DebugDrawItems;
+    std::pmr::unordered_map<std::pmr::string, resource::Mesh> m_DebugPrimitives;
 
     std::shared_ptr<resource::MaterialInstance> m_LineMaterial;
 

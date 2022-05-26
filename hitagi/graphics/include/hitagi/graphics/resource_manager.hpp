@@ -8,6 +8,10 @@
 #include <unordered_map>
 
 namespace hitagi::graphics {
+constexpr auto FRAME_CONSTANT_BUFFER    = "FrameConstant";
+constexpr auto OBJECT_CONSTANT_BUFFER   = "ObjectConstants";
+constexpr auto MATERIAL_CONSTANT_BUFFER = "MaterialConstants";
+
 class ResourceManager {
 public:
     ResourceManager(DriverAPI& driver);

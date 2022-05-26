@@ -1,5 +1,5 @@
 #pragma once
-#include "resource_manager.hpp"
+#include <hitagi/graphics/resource_manager.hpp>
 
 #include <hitagi/resource/renderable.hpp>
 #include <hitagi/resource/camera.hpp>

@@ -5,6 +5,7 @@ rule("clang-msvc")
 
         if target:is_plat("windows") and compiler == "clang++" then
             if is_mode("debug") then
+                target:add("defines", "_Debug")
                 target:add("syslinks", "libcmtd")
             else
                 target:add("syslinks", "libcmt")

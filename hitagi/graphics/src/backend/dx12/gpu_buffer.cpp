@@ -43,6 +43,9 @@ VertexBuffer::VertexBuffer(ID3D12Device* device, std::string_view name, graphics
                 calculate_total_vertex_buffer_size(desc),
                 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER),
       m_Desc(desc) {
+    for (std::size_t slot = 0; slot < m_Desc.slot_offset.size(); slot++) {
+        m_Desc.slot_offset[slot] = GetSlotOffset(slot);
+    }
 }
 
 D3D12_VERTEX_BUFFER_VIEW VertexBuffer::VertexBufferView(std::size_t slot) const {

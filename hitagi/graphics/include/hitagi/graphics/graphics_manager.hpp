@@ -2,12 +2,13 @@
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/graphics/driver_api.hpp>
 #include <hitagi/graphics/enums.hpp>
+#include <hitagi/graphics/resource_manager.hpp>
+#include <hitagi/graphics/frame.hpp>
 #include <hitagi/resource/renderable.hpp>
 #include <hitagi/resource/camera.hpp>
 
 namespace hitagi::graphics {
 class Frame;
-class ResourceManager;
 
 class GraphicsManager : public IRuntimeModule {
 public:

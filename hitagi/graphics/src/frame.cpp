@@ -1,4 +1,4 @@
-#include "frame.hpp"
+#include <hitagi/graphics/frame.hpp>
 
 #include <hitagi/graphics/driver_api.hpp>
 #include <hitagi/utils/overloaded.hpp>
@@ -97,16 +97,16 @@ void Frame::SetCamera(std::shared_ptr<Camera> camera) {
 void Frame::Draw(IGraphicsCommandContext* context) {
     for (const auto& item : m_Renderables) {
         context->SetPipelineState(m_ResMgr.GetPipelineState(item.material->GetGuid()));
-        context->SetParameter("FrameConstant",
+        context->SetParameter(FRAME_CONSTANT_BUFFER,
                               m_ConstantBuffer,
                               0);
-        context->SetParameter("ObjectConstants",
+        context->SetParameter(OBJECT_CONSTANT_BUFFER,
                               m_ConstantBuffer,
                               item.object_constant_offset);
 
         if (auto material_constant_buffer = m_ResMgr.GetMaterialParameterBuffer(item.material->GetGuid());
             material_constant_buffer) {
-            context->SetParameter("MaterialConstants", material_constant_buffer, item.material_constant_offset);
+            context->SetParameter(MATERIAL_CONSTANT_BUFFER, material_constant_buffer, item.material_constant_offset);
         }
 
         for (const auto& [name, texture] : item.material_instance->GetTextures()) {
@@ -171,7 +171,7 @@ void Frame::PrepareData() {
     // if new size is smaller, the expand function return directly.
     if (m_ConstantBuffer->desc.num_elements < m_Renderables.size() + 1)
         // becase capacity + needed > exsisted + needed
-        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_Renderables.size());
+        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_Renderables.size() + 1);
 
     std::sort(
         m_Renderables.begin(),
@@ -182,6 +182,9 @@ void Frame::PrepareData() {
 
     std::size_t index = 0;
     for (auto& item : m_Renderables) {
+        m_ResMgr.PrepareVertexBuffer(item.vertices);
+        m_ResMgr.PrepareIndexBuffer(item.indices);
+
         ObjectConstant constant{
             .word_transform   = item.transform->GetTransform(),
             .object_transform = item.transform->GetTransform(),

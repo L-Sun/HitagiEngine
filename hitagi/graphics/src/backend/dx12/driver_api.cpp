@@ -21,7 +21,7 @@ DX12DriverAPI::DX12DriverAPI()
       m_RetireResources(retire_resource_cmp) {
     unsigned dxgi_factory_flags = 0;
 
-#if defined(_DEBUG)
+#if defined(_Debug)
 
     // Enable d3d12 debug layer.
     {
@@ -32,7 +32,7 @@ DX12DriverAPI::DX12DriverAPI()
             dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
         }
     }
-#endif  // DEBUG
+#endif  // _Debug
     ThrowIfFailed(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&m_DxgiFactory)));
 
     // Create device.
@@ -142,20 +142,17 @@ std::shared_ptr<graphics::VertexBuffer> DX12DriverAPI::CreateVertexBuffer(std::s
     graphics::VertexBufferDesc desc = {.vertex_count = vertices->VertexCount(), .slot_mask = vertices->GetSlotMask()};
 
     auto vb     = std::make_unique<VertexBuffer>(m_Device.Get(), name, desc);
-    auto result = std::make_shared<graphics::VertexBuffer>(name, nullptr, desc);
+    auto result = std::make_shared<graphics::VertexBuffer>(name, std::move(vb), desc);
 
     GraphicsCommandContext context(*this);
-    context.ModifyBuffer(result, [&](std::byte* dest, std::size_t size) -> void {
-        for (std::size_t slot = 0; slot < magic_enum::enum_count<resource::VertexAttribute>(); slot++) {
-            if (desc.slot_mask.test(slot)) {
-                const auto&       buffer = vertices->GetBuffer(slot);
-                const std::size_t offset = vb->GetSlotOffset(slot);
-                assert(size - offset >= buffer.GetDataSize());
-                std::copy_n(buffer.GetData(), buffer.GetDataSize(), dest + offset);
-            }
+
+    for (std::size_t slot = 0; slot < magic_enum::enum_count<resource::VertexAttribute>(); slot++) {
+        if (desc.slot_mask.test(slot)) {
+            const auto&       buffer = vertices->GetBuffer(slot);
+            const std::size_t offset = result->desc.slot_offset[slot];
+            context.UpdateBuffer(result, offset, buffer.GetData(), buffer.GetDataSize());
         }
-    });
-    result->SetResource(std::move(vb));
+    }
 
     context.Finish(true);
     return result;

@@ -27,7 +27,7 @@ public:
     Resource(Resource&& other) = default;
 
     Resource& operator=(const Resource&) = delete;
-    Resource& operator=(Resource&&)      = default;
+    Resource& operator=(Resource&&) = default;
 
     inline std::string_view GetName() const noexcept { return m_Name; }
     inline std::uint32_t    Version() const noexcept { return m_Version; }
@@ -61,7 +61,8 @@ public:
 struct VertexBufferDesc {
     std::size_t vertex_count = 0;
     //  indicate which slot is enabled
-    std::bitset<magic_enum::enum_count<resource::VertexAttribute>()> slot_mask;
+    std::bitset<magic_enum::enum_count<resource::VertexAttribute>()>             slot_mask;
+    std::array<std::size_t, magic_enum::enum_count<resource::VertexAttribute>()> slot_offset;
 };
 using VertexBuffer = ResourceWithDesc<VertexBufferDesc>;
 

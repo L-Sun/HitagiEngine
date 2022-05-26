@@ -14,10 +14,10 @@ class DX12DriverAPI;
 class CommandContext {
 public:
     CommandContext(DX12DriverAPI& driver, D3D12_COMMAND_LIST_TYPE type);
-    CommandContext(const CommandContext&)            = delete;
+    CommandContext(const CommandContext&) = delete;
     CommandContext& operator=(const CommandContext&) = delete;
     CommandContext(CommandContext&&)                 = default;
-    CommandContext& operator=(CommandContext&&)      = delete;
+    CommandContext& operator=(CommandContext&&) = delete;
     ~CommandContext();
 
     auto GetCommandList() noexcept { return m_CommandList; }
@@ -92,7 +92,6 @@ public:
     void SetParameter(std::string_view name, std::shared_ptr<graphics::Sampler> sampler) final;
 
     void UpdateBuffer(std::shared_ptr<graphics::Resource> resource, std::size_t offset, const std::byte* data, std::size_t data_size) final;
-    void ModifyBuffer(std::shared_ptr<graphics::Resource> resource, std::function<void(std::byte*, std::size_t)>&&) final;
 
     void     Draw(std::shared_ptr<graphics::VertexBuffer> vb, std::shared_ptr<graphics::IndexBuffer> ib, resource::PrimitiveType) final;
     void     Present(std::shared_ptr<graphics::RenderTarget> rt) final;

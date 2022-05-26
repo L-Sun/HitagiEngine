@@ -1,4 +1,4 @@
-#include "resource_manager.hpp"
+#include <hitagi/graphics/resource_manager.hpp>
 
 #include <hitagi/core/file_io_manager.hpp>
 
@@ -77,9 +77,12 @@ void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material)
     if (m_PipelineStates.count(material->GetGuid()) == 0) {
         RootSignature::Builder rootsig_builder;
         rootsig_builder
-            .Add("FrameConstantBuffer", ShaderVariableType::CBV, 0, 0)
-            .Add("ObjectConstantBuffer", ShaderVariableType::CBV, 1, 0)
-            .Add("MaterialConstantBuffer", ShaderVariableType::CBV, 2, 0);  // TODO shader visibility
+            .Add(FRAME_CONSTANT_BUFFER, ShaderVariableType::CBV, 0, 0)
+            .Add(OBJECT_CONSTANT_BUFFER, ShaderVariableType::CBV, 1, 0);
+
+        if (material->GetParametersSize() != 0) {
+            rootsig_builder.Add(MATERIAL_CONSTANT_BUFFER, ShaderVariableType::CBV, 2, 0);
+        }
 
         {
             std::size_t i = 0;

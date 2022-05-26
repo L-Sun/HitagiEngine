@@ -57,9 +57,8 @@ private:
 struct Mesh : public SceneObject {
 public:
     Mesh(
-        std::shared_ptr<VertexArray> vertices,
-        std::shared_ptr<IndexArray>  indices,
-        // TODO use default material
+        std::shared_ptr<VertexArray>      vertices = nullptr,
+        std::shared_ptr<IndexArray>       indices  = nullptr,
         std::shared_ptr<MaterialInstance> material = nullptr);
 
     Mesh(const Mesh& other) = default;
@@ -67,9 +66,9 @@ public:
     Mesh(Mesh&& other)           = default;
     Mesh& operator=(Mesh&& rhs) = default;
 
-    std::shared_ptr<MaterialInstance> material;
     std::shared_ptr<VertexArray>      vertices;
     std::shared_ptr<IndexArray>       indices;
+    std::shared_ptr<MaterialInstance> material;
 };
 
 template <VertexAttribute Attr>

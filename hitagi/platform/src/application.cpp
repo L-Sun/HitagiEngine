@@ -53,8 +53,19 @@ void Application::Finalize() {
     for (auto iter = m_Modules.rbegin(); iter != m_Modules.rend(); iter++) {
         auto _module = *iter;
         _module->Finalize();
-        _module = nullptr;
     }
+
+    g_ThreadManager   = nullptr;
+    g_MemoryManager   = nullptr;
+    g_FileIoManager   = nullptr;
+    g_ConfigManager   = nullptr;
+    g_AssetManager    = nullptr;
+    g_InputManager    = nullptr;
+    g_GraphicsManager = nullptr;
+    g_SceneManager    = nullptr;
+    g_GuiManager      = nullptr;
+    g_DebugManager    = nullptr;
+    g_GamePlay        = nullptr;
 
     m_Initialized = false;
     m_Logger->info("Finalized.");

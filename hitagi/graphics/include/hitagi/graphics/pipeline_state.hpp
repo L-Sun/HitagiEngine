@@ -73,7 +73,7 @@ struct PipelineStateDetial {
     std::bitset<num_vertex_slot>   vertex_slot_mask;
     bool                           front_counter_clockwise = true;
     std::shared_ptr<RootSignature> root_signature          = nullptr;
-    Format                         render_format           = Format::UNKNOWN;
+    Format                         render_format           = Format::R8G8B8A8_UNORM;
     Format                         depth_buffer_format     = Format::UNKNOWN;
     resource::PrimitiveType        primitive_type          = resource::PrimitiveType::TriangleList;
     BlendDescription               blend_state;

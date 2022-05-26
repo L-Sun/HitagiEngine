@@ -24,21 +24,15 @@ inline auto hlsl_semantic_name(resource::VertexAttribute attr) noexcept {
         case resource::VertexAttribute::Bitangent:
             return "BITANGENT";
         case resource::VertexAttribute::Color0:
-            return "COLOR0";
         case resource::VertexAttribute::Color1:
-            return "COLOR1";
         case resource::VertexAttribute::Color2:
-            return "COLOR2";
         case resource::VertexAttribute::Color3:
-            return "COLOR3";
+            return "COLOR";
         case resource::VertexAttribute::UV0:
-            return "UV0";
         case resource::VertexAttribute::UV1:
-            return "UV1";
         case resource::VertexAttribute::UV2:
-            return "UV2";
         case resource::VertexAttribute::UV3:
-            return "UV3";
+            return "UV";
         case resource::VertexAttribute::BlendIndex:
             return "BLENDINDEX";
         case resource::VertexAttribute::BlendWeight:
@@ -72,8 +66,11 @@ inline auto hlsl_semantic_index(resource::VertexAttribute attr) noexcept {
             return 3;
         case resource::VertexAttribute::BlendIndex:
         case resource::VertexAttribute::BlendWeight:
-        default:
             return 0;
+        case resource::VertexAttribute::Custom0:
+            return 0;
+        case resource::VertexAttribute::Custom1:
+            return 1;
     }
 }
 

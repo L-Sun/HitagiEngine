@@ -5,6 +5,9 @@
 #include "utils.hpp"
 
 #include <hitagi/math/vector.hpp>
+
+#include <d3d12.h>
+
 #include <stdexcept>
 
 using namespace hitagi::math;
@@ -260,30 +263,6 @@ void GraphicsCommandContext::UpdateBuffer(std::shared_ptr<graphics::Resource> re
                                     upload_buffer.page_from.lock()->GetResource(),
                                     upload_buffer.page_offset,
                                     data_size);
-    TransitionResource(*dest, old_state, true);
-}
-
-void GraphicsCommandContext::ModifyBuffer(std::shared_ptr<graphics::Resource> resource, std::function<void(std::byte*, std::size_t)>&& modifer) {
-    auto dest          = resource->GetBackend<GpuBuffer>();
-    auto upload_buffer = m_CpuLinearAllocator.Allocate(dest->GetBufferSize());
-
-    auto old_state = dest->m_UsageState;
-    TransitionResource(*dest, D3D12_RESOURCE_STATE_COPY_DEST, true);
-
-    m_CommandList->CopyBufferRegion(upload_buffer.page_from.lock()->GetResource(),
-                                    upload_buffer.page_offset,
-                                    dest->GetResource(),
-                                    0,
-                                    dest->GetBufferSize());
-
-    modifer(upload_buffer.cpu_ptr, upload_buffer.size);
-
-    m_CommandList->CopyBufferRegion(dest->GetResource(),
-                                    0,
-                                    upload_buffer.page_from.lock()->GetResource(),
-                                    upload_buffer.page_offset,
-                                    upload_buffer.size);
-
     TransitionResource(*dest, old_state, true);
 }
 

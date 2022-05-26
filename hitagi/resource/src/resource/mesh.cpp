@@ -43,18 +43,9 @@ Mesh::Mesh(
     std::shared_ptr<VertexArray>      _vertices,
     std::shared_ptr<IndexArray>       _indices,
     std::shared_ptr<MaterialInstance> _material)
-    : material(std::move(_material)) {
-    if (_vertices == nullptr) {
-        if (auto logger = spdlog::get("AssetManager"))
-            logger->warn("Can not create mesh with empty vetex array!");
-    }
-    if (_indices == nullptr) {
-        if (auto logger = spdlog::get("AssetManager"))
-            logger->warn("Can not create mesh with empty index array!");
-    }
-
-    vertices = std::move(_vertices);
-    indices  = std::move(_indices);
+    : vertices(std::move(_vertices)),
+      indices(std::move(_indices)),
+      material(std::move(_material)) {
 }
 
 }  // namespace hitagi::resource

@@ -24,8 +24,7 @@ public:
     virtual void Draw(std::shared_ptr<VertexBuffer> vertices, std::shared_ptr<IndexBuffer> indices, resource::PrimitiveType type) = 0;
     virtual void Present(std::shared_ptr<RenderTarget> rt)                                                                        = 0;
 
-    virtual void UpdateBuffer(std::shared_ptr<Resource> resource, size_t offset, const std::byte* data, size_t size)      = 0;
-    virtual void ModifyBuffer(std::shared_ptr<Resource> resource, std::function<void(std::byte*, std::size_t)>&& modifer) = 0;
+    virtual void UpdateBuffer(std::shared_ptr<Resource> resource, size_t offset, const std::byte* data, size_t size) = 0;
 
     virtual uint64_t Finish(bool wait_for_complete = false) = 0;
 };

@@ -1,7 +1,7 @@
 #include "backend/dx12/driver_api.hpp"
 #include "frame_graph.hpp"
-#include "frame.hpp"
-#include "resource_manager.hpp"
+#include <hitagi/graphics/frame.hpp>
+#include <hitagi/graphics/resource_manager.hpp>
 
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
