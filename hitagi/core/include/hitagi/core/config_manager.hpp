@@ -6,11 +6,10 @@
 
 namespace hitagi::core {
 struct AppConfig {
-    std::pmr::string title     = "Hitagi Engine";
-    std::pmr::string version   = "v0.2.0";
-    std::uint32_t    width     = 1920;
-    std::uint32_t    height    = 1080;
-    double           dpi_ratio = 96.0f;
+    std::pmr::string title   = "Hitagi Engine";
+    std::pmr::string version = "v0.2.0";
+    std::uint32_t    width   = 1920;
+    std::uint32_t    height  = 1080;
 };
 
 class ConfigManager : public IRuntimeModule {

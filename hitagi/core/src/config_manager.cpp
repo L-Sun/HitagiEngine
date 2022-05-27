@@ -15,7 +15,7 @@ namespace hitagi::core {
 int ConfigManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("ConfigManager");
     m_Logger->info("Initialize...");
-
+    LoadConfig("hitagi.json");
     return 0;
 }
 

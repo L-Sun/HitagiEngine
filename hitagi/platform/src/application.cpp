@@ -26,23 +26,36 @@ int Application::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Application");
 
     int ret = 0;
-
-    m_Modules.emplace_back(g_ThreadManager.get());
-    m_Modules.emplace_back(g_MemoryManager.get());
-    m_Modules.emplace_back(g_FileIoManager.get());
-    m_Modules.emplace_back(g_ConfigManager.get());
-    m_Modules.emplace_back(g_AssetManager.get());
-    m_Modules.emplace_back(g_InputManager.get());
-    m_Modules.emplace_back(g_GraphicsManager.get());
-    m_Modules.emplace_back(g_SceneManager.get());
-    m_Modules.emplace_back(g_GuiManager.get());
-    m_Modules.emplace_back(g_DebugManager.get());
-    m_Modules.emplace_back(g_GamePlay.get());
-
     m_Logger->info("Initialize Moudules...");
-    for (auto _module : m_Modules) {
-        if ((ret = _module->Initialize()) != 0) return ret;
-    }
+    // Core
+    if ((ret = m_Modules.emplace_back(g_ThreadManager.get())->Initialize()) != 0)
+        return ret;
+    if ((ret = m_Modules.emplace_back(g_MemoryManager.get())->Initialize()) != 0)
+        return ret;
+    if ((ret = m_Modules.emplace_back(g_FileIoManager.get())->Initialize()) != 0)
+        return ret;
+    if ((ret = m_Modules.emplace_back(g_ConfigManager.get())->Initialize()) != 0)
+        return ret;
+
+    // Resource
+    if ((ret = m_Modules.emplace_back(g_AssetManager.get())->Initialize()) != 0)
+        return ret;
+    if ((ret = m_Modules.emplace_back(g_SceneManager.get())->Initialize()) != 0)
+        return ret;
+
+    // Windows
+    InitializeWindows();
+
+    if ((ret = m_Modules.emplace_back(g_InputManager.get())->Initialize()) != 0)
+        return ret;
+    if ((ret = m_Modules.emplace_back(g_GraphicsManager.get())->Initialize()) != 0)
+        return ret;
+    if ((ret = m_Modules.emplace_back(g_GuiManager.get())->Initialize()) != 0)
+        return ret;
+    if ((ret = m_Modules.emplace_back(g_DebugManager.get())->Initialize()) != 0)
+        return ret;
+    if ((ret = m_Modules.emplace_back(g_GamePlay.get())->Initialize()) != 0)
+        return ret;
 
     if (ret == 0) m_Initialized = true;
     return ret;

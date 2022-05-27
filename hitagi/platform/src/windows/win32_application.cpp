@@ -13,56 +13,7 @@ std::unique_ptr<Application> g_App = std::make_unique<Win32Application>();
 
 int Win32Application::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Win32Application");
-    m_Logger->info("Initialize");
-
-    auto config = g_ConfigManager->GetConfig();
-
-    // Set time period on windows
-    timeBeginPeriod(1);
-
-    SetProcessDPIAware();
-
-    // get the HINSTANCE of the Console Program
-    HINSTANCE h_instance = GetModuleHandle(nullptr);
-
-    // this struct holds information for the window class
-    WNDCLASSEX wc;
-
-    // clear out the window class for use
-    ZeroMemory(&wc, sizeof(WNDCLASSEX));
-
-    // fill in the struct with the needed information
-    wc.cbSize        = sizeof(WNDCLASSEX);
-    wc.style         = CS_HREDRAW | CS_VREDRAW;
-    wc.lpfnWndProc   = WindowProc;
-    wc.hInstance     = h_instance;
-    wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
-    wc.lpszClassName = L"hitagiEngine";
-
-    // register the window class
-    RegisterClassEx(&wc);
-    const std::wstring title(config.title.begin(), config.title.end());
-    m_Window = CreateWindowEx(
-        0,
-        L"hitagiEngine",
-        title.c_str(),                 // title
-        WS_OVERLAPPEDWINDOW,           // Window style
-        CW_USEDEFAULT, CW_USEDEFAULT,  // Position (x, y)
-        config.width,                  // Width
-        config.height,                 // Height
-        nullptr,                       // Parent window
-        nullptr,                       // Menu
-        h_instance,                    // Instance handle
-        this                           //  Pass pointer to current object
-    );
-    if (m_Window == nullptr) {
-        m_Logger->error("Create window failed.");
-        return 1;
-    }
-    ShowWindow(m_Window, SW_SHOW);
-    UpdateRect();
-    MapCursor();
+    m_Logger->info("Initialized");
 
     return Application::Initialize();
 }
@@ -87,6 +38,58 @@ void Win32Application::Tick() {
     } else {
         Application::Tick();
     }
+}
+
+void Win32Application::InitializeWindows() {
+    auto& config = g_ConfigManager->GetConfig();
+
+    std::wstring name{config.title.begin(), config.title.end()};
+
+    // Set time period on windows
+    timeBeginPeriod(1);
+
+    SetProcessDPIAware();
+
+    // get the HINSTANCE of the Console Program
+    HINSTANCE h_instance = GetModuleHandle(nullptr);
+
+    // this struct holds information for the window class
+    WNDCLASSEX wc;
+
+    // clear out the window class for use
+    ZeroMemory(&wc, sizeof(WNDCLASSEX));
+
+    // fill in the struct with the needed information
+    wc.cbSize        = sizeof(WNDCLASSEX);
+    wc.style         = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc   = WindowProc;
+    wc.hInstance     = h_instance;
+    wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+    wc.lpszClassName = name.c_str();
+
+    // register the window class
+    RegisterClassEx(&wc);
+    m_Window = CreateWindowEx(
+        0,
+        name.c_str(),
+        name.c_str(),
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        config.width,
+        config.height,
+        nullptr,
+        nullptr,
+        h_instance,
+        this);
+
+    if (m_Window == nullptr) {
+        m_Logger->error("Create window failed.");
+        return;
+    }
+    ShowWindow(m_Window, SW_SHOW);
+    UpdateRect();
+    MapCursor();
 }
 
 float Win32Application::GetDpiRatio() {

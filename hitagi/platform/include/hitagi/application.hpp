@@ -18,6 +18,7 @@ public:
     bool        WindowSizeChanged() const noexcept { return m_SizeChanged; }
 
     virtual void* GetWindow()                                    = 0;
+    virtual void  InitializeWindows()                            = 0;
     virtual void  SetInputScreenPosition(unsigned x, unsigned y) = 0;
 
     virtual float GetDpiRatio() = 0;

@@ -15,6 +15,7 @@ public:
     void Tick() final;
 
     void* GetWindow() final { return &m_Window; }
+    void  InitializeWindows() final;
     void  SetInputScreenPosition(unsigned x, unsigned y) final;
     float GetDpiRatio() final;
 
