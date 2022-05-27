@@ -1,0 +1,49 @@
+name: Build Hitagi Engine (Windows)
+on:
+  pubsh:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-2019, windows-latest]
+        compiler: [clang++, clang-cl, cl]
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Download ISPC (Windows)
+        if: runner.os == 'Windows'
+        run: Invoke-WebRequest -Uri "https://github.com/ispc/ispc/releases/download/v1.18.0/ispc-v1.18.0-windows.zip" -OutFile "ispc.zip" ; 7z x ispc.zip ; "ispc-v1.18.0-windows/bin" >> $env:GITHUB_PATH
+      - name: Download ISPC (Linux)
+        if: runner.os == 'Linux'
+        run: wget "https://github.com/ispc/ispc/releases/download/v1.18.0/ispc-v1.18.0-linux.tar.gz" && tar -zxvf ispc-v1.18.0-linux.tar.gz && echo "ispc-v1.18.0-linux/bin" >> $GITHUB_PATH
+      - name: Download ISPC (MacOS)
+        if: runner.os == 'macOS'
+        run: wget "https://github.com/ispc/ispc/releases/download/v1.18.0/ispc-v1.18.0-macOS.tar.gz" && tar -zxvf ispc-v1.18.0-macOS.tar.gz && echo "ispc-v1.18.0-macOS/bin" >> $GITHUB_PATH
+
+      - name: Retrieve xmake cache for packages
+        uses: actions/cache@v2
+        with:
+          path: xmake-cache
+          key: ${{ matrix.os }}-${{ matrix.compiler }}
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+
+      - name: Build
+        run: |
+          xmake f -vD -a x64 -m release --toolchain --cxx=${{ matrix.compiler }}
+          xmake -vD
+
+      - name: Test
+        run: |
+          xmake r -w . -g test/*
