@@ -1,0 +1,80 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "Ninja",
+            "hidden": true,
+            "displayName": "Ninja Multi-Config",
+            "description": "Configure with vcpkg toolchain and generate Ninja project files for all configurations",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "generator": "Ninja Multi-Config",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+                }
+            }
+        },
+        {
+            "name": "clang",
+            "inherits": "Ninja",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang.exe",
+                "CMAKE_CXX_COMPILER": "clang++.exe"
+            }
+        },
+        {
+            "name": "msvc",
+            "inherits": "Ninja",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "clang (Debug)",
+            "configurePreset": "clang",
+            "displayName": "clang Build Debug",
+            "configuration": "Debug"
+        },
+        {
+            "name": "clang (Release)",
+            "configurePreset": "clang",
+            "displayName": "clang Build Release",
+            "configuration": "Release"
+        },
+        {
+            "name": "msvc (Debug)",
+            "configurePreset": "msvc",
+            "displayName": "msvc Build Debug",
+            "configuration": "Debug"
+        },
+        {
+            "name": "msvc (Release)",
+            "configurePreset": "msvc",
+            "displayName": "msvc Build Release",
+            "configuration": "Release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "clang Test",
+            "configurePreset": "clang"
+        },
+        {
+            "name": "msvc Test",
+            "configurePreset": "msvc"
+        }
+    ]
+}
