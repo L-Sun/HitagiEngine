@@ -1,37 +1,28 @@
 #pragma once
-#include "image.hpp"
-
-#include <hitagi/core/buffer.hpp>
-
 #include <crossguid/guid.hpp>
-#include <fmt/format.h>
+#include <memory_resource>
 
-#include <filesystem>
-
-namespace hitagi::asset {
+namespace hitagi::resource {
 class SceneObject {
 public:
-    inline const xg::Guid&    GetGuid() const noexcept { return m_Guid; }
-    inline void               SetName(std::string name) noexcept { m_Name = std::move(name); }
-    inline const std::string& GetName() const noexcept { return m_Name; }
-    std::string               GetUniqueName(std::string_view sep = "") const noexcept { return fmt::format("{}{}{}", m_Name, sep, m_Guid.str()); }
-
-    friend std::ostream& operator<<(std::ostream& out, const SceneObject& obj);
+    const xg::Guid&  GetGuid() const noexcept;
+    void             SetName(std::string_view name) noexcept;
+    std::string_view GetName() const noexcept;
+    std::pmr::string GetUniqueName(std::string_view sep = "-") const noexcept;
+    std::uint32_t    Version() const noexcept;
 
 protected:
-    xg::Guid    m_Guid;
-    std::string m_Name;
+    explicit SceneObject();
+    SceneObject(const SceneObject& obj);
+    SceneObject(SceneObject&& obj);
 
-    SceneObject() : m_Guid(xg::newGuid()) {}
-    SceneObject(const SceneObject& obj) : m_Guid(xg::newGuid()) {}
-    SceneObject& operator=(const SceneObject& rhs) {
-        if (this != &rhs) {
-            m_Name = rhs.m_Name;
-        }
-        return *this;
-    }
+    SceneObject& operator=(const SceneObject& rhs);
+    SceneObject& operator=(SceneObject&& rhs) = default;
 
-    SceneObject(SceneObject&&) = default;
-    SceneObject& operator=(SceneObject&&) = default;
+    void RenewGuid() noexcept;
+
+    xg::Guid         m_Guid;
+    std::pmr::string m_Name;
+    std::uint32_t    m_Version = 0;
 };
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

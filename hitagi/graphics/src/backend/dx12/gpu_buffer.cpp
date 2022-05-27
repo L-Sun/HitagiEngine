@@ -1,17 +1,19 @@
 #include "gpu_buffer.hpp"
+#include "hitagi/graphics/resource.hpp"
+#include "hitagi/resource/enums.hpp"
+#include "magic_enum.hpp"
 #include "utils.hpp"
+
+#include <numeric>
 
 namespace hitagi::graphics::backend::DX12 {
 
 GpuBuffer::GpuBuffer(ID3D12Device*         device,
                      std::string_view      name,
-                     size_t                num_elements,
-                     size_t                element_size,
+                     std::size_t           size,
                      D3D12_RESOURCE_STATES usage)
     : GpuResource(nullptr, usage),
-      m_NumElements(num_elements),
-      m_ElementSize(element_size),
-      m_BufferSize(num_elements * element_size) {
+      m_BufferSize(size) {
     auto desc       = CD3DX12_RESOURCE_DESC::Buffer(m_BufferSize, m_ResourceFlags);
     auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
@@ -21,52 +23,105 @@ GpuBuffer::GpuBuffer(ID3D12Device*         device,
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
 }
 
-VertexBuffer::VertexBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size)
-    : GpuBuffer(device,
-                name,
-                num_elements,
-                element_size,
-                D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER) {
+constexpr std::size_t calculate_total_vertex_buffer_size(graphics::VertexBufferDesc desc) {
+    std::size_t result = 0;
+    for (std::size_t slot = 0; slot < desc.slot_mask.size(); slot++) {
+        const bool enabled = desc.slot_mask.test(slot);
+        if (enabled) continue;
+
+        const std::size_t attribute_size =
+            resource::get_vertex_attribute_size(
+                magic_enum::enum_cast<resource::VertexAttribute>(slot).value());
+
+        result += desc.vertex_count * attribute_size;
+    }
+    return result;
 }
 
-IndexBuffer::IndexBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size)
+VertexBuffer::VertexBuffer(ID3D12Device* device, graphics::VertexBuffer& vb)
     : GpuBuffer(device,
-                name,
-                num_elements,
-                element_size,
-                D3D12_RESOURCE_STATE_INDEX_BUFFER) {
+                vb.GetName(),
+                calculate_total_vertex_buffer_size(vb.desc),
+                D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER),
+      m_Desc(const_cast<graphics::VertexBufferDesc&>(vb.desc)) {
+    for (std::size_t slot = 0; slot < m_Desc.slot_offset.size(); slot++) {
+        m_Desc.slot_offset[slot] = GetSlotOffset(slot);
+    }
 }
 
-ConstantBuffer::ConstantBuffer(std::string_view name, ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t num_elements, size_t element_size)
-    : m_NumElements(num_elements),
-      m_ElementSize(element_size),
-      m_BlockSize(align(element_size, 256)),
-      m_BufferSize(align(element_size, 256) * num_elements) {
+D3D12_VERTEX_BUFFER_VIEW VertexBuffer::VertexBufferView(std::size_t slot) const {
+    assert(SlotEnabled(slot));
+
+    D3D12_VERTEX_BUFFER_VIEW vbv;
+    vbv.BufferLocation = m_Resource->GetGPUVirtualAddress() + GetSlotOffset(slot);
+    vbv.SizeInBytes    = GetSlotSize(slot);
+    vbv.StrideInBytes  = GetSlotElementSize(slot);
+    return vbv;
+}
+bool VertexBuffer::SlotEnabled(std::size_t slot) const {
+    return m_Desc.slot_mask.test(slot);
+}
+
+std::size_t VertexBuffer::GetSlotOffset(std::size_t slot) const {
+    std::size_t offset = 0;
+    for (std::size_t i = 0; i < slot; i++) {
+        offset += GetSlotSize(i);
+    }
+    return offset;
+}
+
+std::size_t VertexBuffer::GetSlotSize(std::size_t slot) const {
+    return SlotEnabled(slot) ? m_Desc.vertex_count * GetSlotElementSize(slot) : 0;
+}
+
+std::size_t VertexBuffer::GetSlotElementSize(std::size_t slot) const {
+    return resource::get_vertex_attribute_size(magic_enum::enum_cast<resource::VertexAttribute>(slot).value());
+}
+
+IndexBuffer::IndexBuffer(ID3D12Device* device, graphics::IndexBuffer& ib)
+    : GpuBuffer(device,
+                ib.GetName(),
+                ib.desc.index_count * ib.desc.index_size,
+                D3D12_RESOURCE_STATE_INDEX_BUFFER),
+      m_Desc(const_cast<graphics::IndexBufferDesc&>(ib.desc)) {
+}
+
+ConstantBuffer::ConstantBuffer(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, graphics::ConstantBuffer& cb)
+    : m_Desc(const_cast<graphics::ConstantBufferDesc&>(cb.desc)),
+      m_BlockSize(align(cb.desc.element_size, 256)),
+      m_BufferSize(align(cb.desc.element_size, 256) * cb.desc.num_elements) {
     m_UsageState = D3D12_RESOURCE_STATE_GENERIC_READ;
-    Resize(device, descritptor_allocator, num_elements);
+    Resize(device, descritptor_allocator, cb.desc.num_elements);
+    auto name = cb.GetName();
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
 }
 
-void ConstantBuffer::UpdateData(size_t index, const uint8_t* data, size_t data_size) {
+void ConstantBuffer::UpdateData(std::size_t index, const std::byte* data, std::size_t data_size) {
     assert(data != nullptr);
-    if (data_size > m_ElementSize) {
-        throw std::invalid_argument(fmt::format("the size of input data must be smaller than block size {}", m_ElementSize));
+    if (data_size > m_Desc.element_size) {
+        throw std::invalid_argument(fmt::format("the size of input data must be smaller than block size {}", m_Desc.element_size));
     }
-    if (index >= m_NumElements) {
+    if (index >= m_Desc.num_elements) {
         throw std::out_of_range("the input data is out of range of constant buffer!");
     }
     std::copy_n(data, data_size, m_CpuPtr + index * m_BlockSize);
 }
 
-void ConstantBuffer::Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t num_elements) {
-    size_t                 new_buffer_size = num_elements * m_BlockSize;
+void ConstantBuffer::Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, std::size_t num_elements) {
+    std::size_t            new_buffer_size = num_elements * m_BlockSize;
     ComPtr<ID3D12Resource> resource;
 
     auto desc       = CD3DX12_RESOURCE_DESC::Buffer(new_buffer_size);
     auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-    ThrowIfFailed(device->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&resource)));
+    ThrowIfFailed(device->CreateCommittedResource(
+        &heap_props,
+        D3D12_HEAP_FLAG_NONE,
+        &desc,
+        m_UsageState,
+        nullptr,
+        IID_PPV_ARGS(&resource)));
 
-    uint8_t* new_cpu_ptr = nullptr;
+    std::byte* new_cpu_ptr = nullptr;
     resource->Map(0, nullptr, reinterpret_cast<void**>(&new_cpu_ptr));
 
     if (m_Resource) {
@@ -80,14 +135,14 @@ void ConstantBuffer::Resize(ID3D12Device* device, DescriptorAllocator& descritpt
         m_Resource->Unmap(0, nullptr);
     }
 
-    m_CpuPtr      = new_cpu_ptr;
-    m_Resource    = resource;
-    m_BufferSize  = new_buffer_size;
-    m_NumElements = num_elements;
+    m_CpuPtr            = new_cpu_ptr;
+    m_Resource          = resource;
+    m_BufferSize        = new_buffer_size;
+    m_Desc.num_elements = num_elements;
 
     // Create CBV
     assert(descritptor_allocator.GetType() == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    m_CBV = descritptor_allocator.Allocate(m_NumElements);
+    m_CBV = descritptor_allocator.Allocate(num_elements);
     D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
     cbv_desc.SizeInBytes    = m_BlockSize;
     cbv_desc.BufferLocation = m_Resource->GetGPUVirtualAddress();

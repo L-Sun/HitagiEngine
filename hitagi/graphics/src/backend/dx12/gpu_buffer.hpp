@@ -7,55 +7,61 @@ namespace hitagi::graphics::backend::DX12 {
 
 class GpuBuffer : public GpuResource {
 public:
-    GpuBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size, D3D12_RESOURCE_STATES usage = D3D12_RESOURCE_STATE_COMMON);
-    size_t GetBufferSize() const { return m_BufferSize; }
-    size_t GetElementCount() const { return m_NumElements; }
+    GpuBuffer(ID3D12Device* device, std::string_view name, std::size_t size, D3D12_RESOURCE_STATES usage = D3D12_RESOURCE_STATE_COMMON);
+    std::size_t GetBufferSize() const { return m_BufferSize; }
 
 protected:
-    size_t               m_NumElements;
-    size_t               m_ElementSize;
-    size_t               m_BufferSize;
+    std::size_t          m_BufferSize    = 0;
     D3D12_RESOURCE_FLAGS m_ResourceFlags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 };
 
 class VertexBuffer : public GpuBuffer {
 public:
-    VertexBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size);
+    VertexBuffer(ID3D12Device* device, graphics::VertexBuffer& vb);
 
-    D3D12_VERTEX_BUFFER_VIEW VertexBufferView() const {
-        D3D12_VERTEX_BUFFER_VIEW vbv;
-        vbv.BufferLocation = m_Resource->GetGPUVirtualAddress();
-        vbv.SizeInBytes    = m_BufferSize;
-        vbv.StrideInBytes  = m_ElementSize;
-        return vbv;
-    }
+    D3D12_VERTEX_BUFFER_VIEW VertexBufferView(std::size_t slot) const;
+    std::size_t              GetVertexCount() const { return m_Desc.vertex_count; }
+
+    bool        SlotEnabled(std::size_t slot) const;
+    std::size_t GetSlotOffset(std::size_t slot) const;
+    std::size_t GetSlotSize(std::size_t slot) const;
+    std::size_t GetSlotElementSize(std::size_t slot) const;
+    const auto& GetDesc() const noexcept { return m_Desc; }
+
+private:
+    graphics::VertexBufferDesc& m_Desc;
 };
 
 class IndexBuffer : public GpuBuffer {
 public:
-    IndexBuffer(ID3D12Device* device, std::string_view name, size_t num_elements, size_t element_size);
+    IndexBuffer(ID3D12Device* device, graphics::IndexBuffer& ib);
 
     D3D12_INDEX_BUFFER_VIEW IndexBufferView() const {
         D3D12_INDEX_BUFFER_VIEW ibv;
         ibv.BufferLocation = m_Resource->GetGPUVirtualAddress();
-        ibv.Format         = index_size_to_dxgi_format(m_ElementSize);
+        ibv.Format         = index_size_to_dxgi_format(m_Desc.index_size);
         ibv.SizeInBytes    = m_BufferSize;
         return ibv;
     }
+    const auto& GetDesc() const noexcept { return m_Desc; }
+
+private:
+    graphics::IndexBufferDesc& m_Desc;
 };
 
 class ConstantBuffer : public GpuResource {
 public:
-    ConstantBuffer(std::string_view name, ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t num_elements, size_t element_size);
+    ConstantBuffer(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, graphics::ConstantBuffer& cb);
     ~ConstantBuffer() override;
-    void                     UpdateData(size_t index, const uint8_t* data, size_t data_size);
+    void                     UpdateData(size_t index, const std::byte* data, size_t data_size);
     void                     Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t new_num_elements);
     inline const Descriptor& GetCBV(size_t index) const { return m_CBV.at(index); }
+    const auto&              GetDesc() const noexcept { return m_Desc; }
 
 private:
-    uint8_t*                m_CpuPtr = nullptr;
-    size_t                  m_NumElements;
-    size_t                  m_ElementSize;
+    std::byte*                    m_CpuPtr = nullptr;
+    graphics::ConstantBufferDesc& m_Desc;
+
     size_t                  m_BlockSize;  // align(dataSize, 256B)
     size_t                  m_BufferSize;
     std::vector<Descriptor> m_CBV;

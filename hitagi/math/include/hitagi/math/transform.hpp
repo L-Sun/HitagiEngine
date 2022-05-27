@@ -1,5 +1,5 @@
 #pragma once
-#include "matrix.hpp"
+#include <hitagi/math/matrix.hpp>
 
 #include <numbers>
 
@@ -223,7 +223,7 @@ Vector<T, 3> get_scaling(const Matrix<T, 4>& mat) {
 
 // Return translation, rotation (ZYX), scaling
 template <typename T>
-std::tuple<Vector<T, 3>, Vector<T, 3>, Vector<T, 3>> decompose(const Matrix<T, 4>& transform) {
+std::tuple<Vector<T, 3>, Quaternion<T>, Vector<T, 3>> decompose(const Matrix<T, 4>& transform) {
     Vector<T, 3> translation = get_translation(transform);
     Vector<T, 3> scaling     = get_scaling(transform);
     Vector<T, 3> rotation{};
@@ -250,7 +250,7 @@ std::tuple<Vector<T, 3>, Vector<T, 3>, Vector<T, 3>> decompose(const Matrix<T, 4
         rotation.x = static_cast<T>(0);
         rotation.z = std::atan2(-m[1][0], m[0][0]);
     }
-    return {translation, rotation, scaling};
+    return {translation, euler_to_quaternion(rotation), scaling};
 }
 
 template <typename T>

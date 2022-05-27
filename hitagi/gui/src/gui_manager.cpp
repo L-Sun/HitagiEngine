@@ -1,9 +1,11 @@
 #include "imgui_keymaps.hpp"
 
 #include <hitagi/gui/gui_manager.hpp>
-#include <hitagi/application.hpp>
+#include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/file_io_manager.hpp>
+#include <hitagi/resource/texture.hpp>
 #include <hitagi/hid/input_manager.hpp>
+#include <hitagi/application.hpp>
 
 #include <imgui_freetype.h>
 #include <spdlog/spdlog.h>
@@ -21,11 +23,13 @@ int GuiManager::Initialize() {
     m_Clock.Start();
 
     ImGui::CreateContext();
-    ImGui::GetStyle().ScaleAllSizes(g_App->GetDpiRatio());
-    ImGui::GetIO().SetPlatformImeDataFn = [](ImGuiViewport* viewport, ImGuiPlatformImeData* data) -> void {
-        if (data->WantVisible)
-            g_App->SetInputScreenPosition(data->InputPos.x, data->InputPos.y);
-    };
+    if (g_App) {
+        ImGui::GetStyle().ScaleAllSizes(g_App->GetDpiRatio());
+        ImGui::GetIO().SetPlatformImeDataFn = [](ImGuiViewport* viewport, ImGuiPlatformImeData* data) -> void {
+            if (data->WantVisible && g_App)
+                g_App->SetInputScreenPosition(data->InputPos.x, data->InputPos.y);
+        };
+    }
 
     LoadFontTexture();
 
@@ -79,10 +83,10 @@ void GuiManager::LoadFontTexture() {
 
     /* for (const auto& font_file : std::filesystem::directory_iterator{"./Assets/Fonts"}) */ {
         ImFontConfig config;
-        config.SizePixels           = g_App->GetDpiRatio() * 18.0f;
+        config.SizePixels           = (g_App ? g_App->GetDpiRatio() : 1.0f) * 18.0f;
         config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
 
-        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./Assets/Fonts/Hasklig-Regular.otf"));
+        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/Hasklig-Regular.otf"));
         config.FontData     = m_FontsData.back().GetData();
         config.FontDataSize = m_FontsData.back().GetDataSize();
 
@@ -92,7 +96,7 @@ void GuiManager::LoadFontTexture() {
 
         config.MergeMode = true;
 
-        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./Assets/Fonts/NotoSansSC-Regular.otf"));
+        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansSC-Regular.otf"));
         config.FontData     = m_FontsData.back().GetData();
         config.FontDataSize = m_FontsData.back().GetDataSize();
         config.GlyphRanges  = io.Fonts->GetGlyphRangesChineseFull();
@@ -100,7 +104,7 @@ void GuiManager::LoadFontTexture() {
         std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
         io.Fonts->AddFont(&config);
 
-        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./Assets/Fonts/NotoSansJP-Regular.otf"));
+        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansJP-Regular.otf"));
         config.FontData     = m_FontsData.back().GetData();
         config.FontDataSize = m_FontsData.back().GetDataSize();
         config.GlyphRanges  = io.Fonts->GetGlyphRangesJapanese();
@@ -113,11 +117,13 @@ void GuiManager::LoadFontTexture() {
     int            width = 0, height = 0;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-    const uint32_t bitcount = 32;
-    const size_t   pitch    = width * bitcount / 8;
-    m_FontTexture           = std::make_shared<asset::Image>(width, height, 32, pitch, pitch * height);
-    uint8_t* p_texture      = m_FontTexture->GetData();
-    std::copy_n(reinterpret_cast<const uint8_t*>(pixels), m_FontTexture->GetDataSize(), p_texture);
+    const uint32_t bitcount       = 32;
+    const size_t   pitch          = width * bitcount / 8;
+    auto           texture_buffer = std::make_shared<resource::Image>(width, height, 32, pitch, pitch * height);
+
+    auto p_texture = texture_buffer->Buffer().GetData();
+    std::copy_n(reinterpret_cast<const std::byte*>(pixels), texture_buffer->Buffer().GetDataSize(), p_texture);
+    m_FontTexture = std::make_shared<resource::Texture>(texture_buffer);
 }
 
 void GuiManager::MouseEvent() {

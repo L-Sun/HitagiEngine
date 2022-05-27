@@ -1,48 +1,34 @@
 #pragma once
-#include "scene.hpp"
-#include "animation_manager.hpp"
+#include <hitagi/core/runtime_module.hpp>
+#include <hitagi/resource/scene.hpp>
 
-#include <set>
-
-namespace hitagi::asset {
-
+namespace hitagi::resource {
 class SceneManager : public IRuntimeModule {
 public:
-    int  Initialize() override;
-    void Finalize() override;
-    void Tick() override;
+    int  Initialize() final;
+    void Tick() final;
+    void Finalize() final;
 
-    std::shared_ptr<Scene> CreateScene(std::string name);
-    void                   AddScene(std::shared_ptr<Scene> scene);
-    inline auto            ListAllScene() noexcept { return m_Scenes; }
-    void                   SwitchScene(std::shared_ptr<Scene> scene);
-    void                   DeleteScene(std::shared_ptr<Scene> scene);
+    Scene& CurrentScene();
 
-    inline AnimationManager& GetAnimationManager() { return *m_AnimationManager; }
+    Scene& CreateEmptyScene(std::string_view name = "");
+    void   AddScene(Scene scene);
+    void   SwitchScene(std::size_t index);
+    void   DeleteScene(std::size_t index);
+    void   DeleteScenes(std::pmr::vector<std::size_t> index_array);
 
-    inline auto GetScene() { return m_CurrentScene; }
+    void SetCamera(std::shared_ptr<Camera> camera);
 
-    // TODO renderable culling
-    std::shared_ptr<Scene> GetSceneForRendering() const;
-    std::shared_ptr<Scene> GetSceneForPhysicsSimulation() const;
+private:
+    void CreateDefaultCamera(Scene& scene);
+    void CreateDefaultLight(Scene& scene);
 
-    std::weak_ptr<GeometryNode> GetSceneGeometryNode(const std::string& name);
-    std::weak_ptr<LightNode>    GetSceneLightNode(const std::string& name);
-
-    std::weak_ptr<CameraNode> GetCameraNode();
-
-protected:
-    static void CreateDefaultCamera(std::shared_ptr<Scene> scene);
-    static void CreateDefaultLight(std::shared_ptr<Scene> scene);
-
-    std::set<std::shared_ptr<Scene>> m_Scenes;
-    std::shared_ptr<Scene>           m_CurrentScene;
-
-    std::unique_ptr<AnimationManager> m_AnimationManager;
+    std::pmr::vector<Scene> m_Scenes;
+    std::size_t             m_CurrentScene;
+    std::shared_ptr<Camera> m_CurrentCamera;
 };
-
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource
 
 namespace hitagi {
-extern std::unique_ptr<asset::SceneManager> g_SceneManager;
+extern std::unique_ptr<resource::SceneManager> g_SceneManager;
 }

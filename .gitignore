@@ -3,7 +3,11 @@ assets/*
 !assets/shaders/
 !assets/fonts/
 !assets/test/
+.xmake
 temp
+.cache
+
+.vscode/compile_commands.json
 
 # ispc header will be generated during compilation
 *_ispc.h

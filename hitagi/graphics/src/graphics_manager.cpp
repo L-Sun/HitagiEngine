@@ -1,19 +1,18 @@
 #include "backend/dx12/driver_api.hpp"
 #include "frame_graph.hpp"
-#include "frame.hpp"
-#include "resource_manager.hpp"
+#include <hitagi/graphics/frame.hpp>
+#include <hitagi/graphics/resource_manager.hpp>
 
+#include <hitagi/core/memory_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/graphics/pipeline_state.hpp>
-
-#include <hitagi/resource/scene_manager.hpp>
 #include <hitagi/application.hpp>
-#include <hitagi/gui/gui_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 using namespace hitagi::math;
+using namespace hitagi::resource;
 
 namespace hitagi {
 std::unique_ptr<graphics::GraphicsManager> g_GraphicsManager = std::make_unique<graphics::GraphicsManager>();
@@ -24,128 +23,21 @@ namespace hitagi::graphics {
 int GraphicsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("GraphicsManager");
     m_Logger->info("Initialize...");
-    auto& config = g_App->GetConfiguration();
 
     // Initialize API
     m_Driver = std::make_unique<backend::DX12::DX12DriverAPI>();
+
     // Initialize ResourceManager
     m_ResMgr = std::make_unique<ResourceManager>(*m_Driver);
 
+    const auto          rect   = g_App->GetWindowsRect();
+    const std::uint32_t widht  = rect.right - rect.left,
+                        height = rect.bottom - rect.top;
+
     // Initialize frame
-    m_Driver->CreateSwapChain(config.screen_width, config.screen_height, sm_SwapChianSize, Format::R8G8B8A8_UNORM, g_App->GetWindow());
+    m_Driver->CreateSwapChain(widht, height, sm_SwapChianSize, Format::R8G8B8A8_UNORM, g_App->GetWindow());
     for (size_t index = 0; index < sm_SwapChianSize; index++)
         m_Frames.at(index) = std::make_unique<Frame>(*m_Driver, *m_ResMgr, index);
-
-    // Initialize Shader Manader
-    m_ShaderManager.Initialize();
-
-    // TODO get and load all shader from AssetManager
-    m_ShaderManager.LoadShader("Assets/Shaders/color.vs", ShaderType::Vertex);
-    m_ShaderManager.LoadShader("Assets/Shaders/color.ps", ShaderType::Pixel);
-    m_ShaderManager.LoadShader("Assets/Shaders/imgui.vs", ShaderType::Vertex);
-    m_ShaderManager.LoadShader("Assets/Shaders/imgui.ps", ShaderType::Pixel);
-    m_ShaderManager.LoadShader("Assets/Shaders/debug.vs", ShaderType::Vertex);
-    m_ShaderManager.LoadShader("Assets/Shaders/debug.ps", ShaderType::Pixel);
-
-    // ShaderVariables
-    auto root_sig = std::make_shared<RootSignature>("Color root signature");
-    (*root_sig)
-        .Add("FrameConstant", ShaderVariableType::CBV, 0, 0)
-        .Add("ObjectConstants", ShaderVariableType::CBV, 1, 0)
-        // textures
-        .Add("AmbientTexture", ShaderVariableType::SRV, 0, 0, ShaderVisibility::Pixel)
-        .Add("DiffuseTexture", ShaderVariableType::SRV, 1, 0, ShaderVisibility::Pixel)
-        .Add("EmissionTexture", ShaderVariableType::SRV, 2, 0, ShaderVisibility::Pixel)
-        .Add("SpecularTexture", ShaderVariableType::SRV, 3, 0, ShaderVisibility::Pixel)
-        .Add("PowerTexture", ShaderVariableType::SRV, 4, 0, ShaderVisibility::Pixel)
-        // sampler
-        .Add("BaseSampler", ShaderVariableType::Sampler, 0, 0, ShaderVisibility::Pixel)
-        .Create(*m_Driver);
-
-    // TODO use AssetManager to manage pipeline state object
-    m_PSO = std::make_unique<PipelineState>("Color");
-    (*m_PSO)
-        .SetInputLayout({{"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0},
-                         {"NORMAL", 0, Format::R32G32B32_FLOAT, 1, 0},
-                         {"TEXCOORD", 0, Format::R32G32_FLOAT, 2, 0}})
-        .SetVertexShader(m_ShaderManager.GetVertexShader("color.vs"))
-        .SetPixelShader(m_ShaderManager.GetPixelShader("color.ps"))
-        .SetRootSignautre(root_sig)
-        .SetPrimitiveType(PrimitiveType::TriangleList)
-        .SetRenderFormat(Format::R8G8B8A8_UNORM)
-        .SetDepthBufferFormat(Format::D32_FLOAT)
-        .Create(*m_Driver);
-
-    // TODO imgui pipeline state object
-    auto imgui_root_sig = std::make_shared<RootSignature>("Imgui Sig");
-    (*imgui_root_sig)
-        .Add("Constant", ShaderVariableType::CBV, 0, 0, ShaderVisibility::Vertex)
-        .Add("Texture", ShaderVariableType::SRV, 0, 0, ShaderVisibility::Pixel)
-        .AddStaticSampler("ImGuiSampler", {
-                                              .filter         = Filter::MIN_MAG_MIP_LINEAR,
-                                              .address_u      = TextureAddressMode::Wrap,
-                                              .address_v      = TextureAddressMode::Wrap,
-                                              .address_w      = TextureAddressMode::Wrap,
-                                              .mip_lod_bias   = 0.0f,
-                                              .max_anisotropy = 0,
-                                              .comp_func      = ComparisonFunc::Always,
-                                              .border_color   = vec4f(0.0f, 0.0f, 0.0f, 1.0f),
-                                              .min_lod        = 0.0f,
-                                              .max_lod        = 0.0f,
-                                          },
-                          0, 0, ShaderVisibility::Pixel)
-
-        .Create(*m_Driver);
-    m_ImGuiPSO = std::make_unique<PipelineState>("ImGui");
-    (*m_ImGuiPSO)
-        // here we use AOS fashion
-        .SetInputLayout({
-            {"POSITION", 0, Format::R32G32_FLOAT, 0, IM_OFFSETOF(ImDrawVert, pos)},
-            {"TEXCOORD", 0, Format::R32G32_FLOAT, 0, IM_OFFSETOF(ImDrawVert, uv)},
-            {"COLOR", 0, Format::R8G8B8A8_UNORM, 0, IM_OFFSETOF(ImDrawVert, col)},
-        })
-        .SetVertexShader(m_ShaderManager.GetVertexShader("imgui.vs"))
-        .SetPixelShader(m_ShaderManager.GetPixelShader("imgui.ps"))
-        .SetRootSignautre(imgui_root_sig)
-        .SetRenderFormat(Format::R8G8B8A8_UNORM)
-        .SetPrimitiveType(PrimitiveType::TriangleList)
-        .SetBlendState(BlendDescription{
-            .alpha_to_coverage_enable = false,
-            .enable_blend             = true,
-            .src_blend                = Blend::SrcAlpha,
-            .dest_blend               = Blend::InvSrcAlpha,
-            .blend_op                 = BlendOp::Add,
-            .src_blend_alpha          = Blend::One,
-            .dest_blend_alpha         = Blend::InvSrcAlpha,
-            .blend_op_alpha           = BlendOp::Add,
-        })
-        .SetRasterizerState(RasterizerDescription{
-            .cull_mode               = CullMode::None,
-            .front_counter_clockwise = false,
-            .depth_clip_enable       = true,
-        })
-        .Create(*m_Driver);
-
-    auto debug_root_sig = std::make_shared<RootSignature>("Debug sig");
-    (*debug_root_sig)
-        .Add("FrameConstant", ShaderVariableType::CBV, 0, 0)
-        .Add("ObjectConstants", ShaderVariableType::CBV, 1, 0)
-        .Create(*m_Driver);
-
-    m_DebugPSO = std::make_unique<PipelineState>("Debug");
-    (*m_DebugPSO)
-        .SetInputLayout({
-            {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0},
-        })
-        .SetVertexShader(m_ShaderManager.GetVertexShader("debug.vs"))
-        .SetPixelShader(m_ShaderManager.GetPixelShader("debug.ps"))
-        .SetPrimitiveType(PrimitiveType::LineList)
-        .SetRootSignautre(debug_root_sig)
-        .SetRenderFormat(Format::R8G8B8A8_UNORM)
-        .SetDepthBufferFormat(Format::D32_FLOAT)
-        .Create(*m_Driver);
-
-    m_DebugDepthDisabledPSO = std::make_unique<PipelineState>("Debug Depth Disabled");
 
     return 0;
 }
@@ -156,20 +48,12 @@ void GraphicsManager::Finalize() {
     // Release all resource
     {
         m_Driver->IdleGPU();
-
-        m_PSO      = nullptr;
-        m_DebugPSO = nullptr;
-        m_ImGuiPSO = nullptr;
-        m_ResMgr   = nullptr;
+        m_ResMgr = nullptr;
         for (auto&& frame : m_Frames)
             frame = nullptr;
 
         m_Driver = nullptr;
     }
-    backend::DX12::DX12DriverAPI::ReportDebugLog();
-
-    // Release shader resource
-    m_ShaderManager.Finalize();
 
     m_Logger = nullptr;
 }
@@ -179,12 +63,8 @@ void GraphicsManager::Tick() {
         OnSizeChanged();
     }
 
-    auto scene = g_SceneManager->GetSceneForRendering();
     // TODO change the parameter to View, if multiple view port is finished
-    // views = g_App->GetViewsForRendering();
-    // rendertargets =  views.foreach(view : Render(view))
-    // ...
-    if (scene) Render(*scene);
+    Render();
     m_Driver->Present(m_CurrBackBuffer);
     m_CurrBackBuffer = (m_CurrBackBuffer + 1) % sm_SwapChianSize;
 }
@@ -196,33 +76,36 @@ void GraphicsManager::OnSizeChanged() {
         frame->SetRenderTarget(nullptr);
     }
 
-    auto& config     = g_App->GetConfiguration();
-    m_CurrBackBuffer = m_Driver->ResizeSwapChain(config.screen_width, config.screen_height);
+    auto          rect   = g_App->GetWindowsRect();
+    std::uint32_t width  = rect.right - rect.left,
+                  height = rect.bottom - rect.top;
+
+    m_CurrBackBuffer = m_Driver->ResizeSwapChain(width, height);
 
     for (size_t index = 0; index < m_Frames.size(); index++) {
         m_Frames.at(index)->SetRenderTarget(m_Driver->CreateRenderFromSwapChain(index));
     }
 }
 
-void GraphicsManager::Render(const asset::Scene& scene) {
-    auto& config    = g_App->GetConfiguration();
-    auto  driver    = m_Driver.get();
-    auto& pso       = *m_PSO;
-    auto& gui_pso   = *m_ImGuiPSO;
-    auto& debug_pso = *m_DebugPSO;
-    auto  frame     = GetBcakFrameForRendering();
-    auto  context   = driver->GetGraphicsCommandContext();
+void GraphicsManager::SetCamera(std::shared_ptr<Camera> camera) {
+    GetBcakFrameForRendering()->SetCamera(std::move(camera));
+}
 
-    auto camera = scene.GetFirstCameraNode();
+void GraphicsManager::AppendRenderables(std::pmr::vector<Renderable> renderables) {
+    GetBcakFrameForRendering()->AddRenderables(std::move(renderables));
+}
 
-    frame->AddGeometries(scene.GetGeometries(), pso);
-    if (auto debug_primitives = g_DebugManager->GetDebugPrimitiveForRender(); debug_primitives.has_value()) {
-        frame->AddDebugPrimitives(debug_primitives.value(), debug_pso);
-    }
-    frame->PrepareImGuiData(g_GuiManager->GetGuiDrawData(), g_GuiManager->GetGuiFontTexture(), gui_pso);
+void GraphicsManager::Render() {
+    auto driver  = m_Driver.get();
+    auto frame   = GetBcakFrameForRendering();
+    auto context = driver->GetGraphicsCommandContext();
 
-    frame->SetCamera(*camera);
-    frame->SetLight(*scene.GetFirstLightNode());
+    frame->PrepareData();
+
+    const auto          rect          = g_App->GetWindowsRect();
+    const std::uint32_t screen_width  = rect.right - rect.left,
+                        screen_height = rect.bottom - rect.top;
+    const float camera_aspect         = frame->GetCamera()->GetAspect();
 
     FrameGraph fg;
 
@@ -240,10 +123,10 @@ void GraphicsManager::Render(const asset::Scene& scene) {
         [&](FrameGraph::Builder& builder, ColorPassData& data) {
             data.depth_buffer = builder.Create<DepthBuffer>(
                 "DepthBuffer",
-                DepthBuffer::Description{
+                DepthBufferDesc{
                     .format        = Format::D32_FLOAT,
-                    .width         = config.screen_width,
-                    .height        = config.screen_height,
+                    .width         = screen_width,
+                    .height        = screen_height,
                     .clear_depth   = 1.0f,
                     .clear_stencil = 0,
                 });
@@ -252,17 +135,17 @@ void GraphicsManager::Render(const asset::Scene& scene) {
         },
         // Excute function
         [=](const ResourceHelper& helper, ColorPassData& data) {
-            auto& depth_buffer  = helper.Get<DepthBuffer>(data.depth_buffer);
-            auto& render_target = helper.Get<RenderTarget>(data.output);
+            auto depth_buffer  = helper.Get<DepthBuffer>(data.depth_buffer);
+            auto render_target = helper.Get<RenderTarget>(data.output);
 
-            uint32_t height = config.screen_height;
-            uint32_t width  = height * camera->GetSceneObjectRef().lock()->GetAspect();
-            if (width > config.screen_width) {
-                width  = config.screen_width;
-                height = config.screen_width / camera->GetSceneObjectRef().lock()->GetAspect();
-                context->SetViewPortAndScissor(0, (config.screen_height - height) >> 1, width, height);
+            uint32_t height = screen_height;
+            uint32_t width  = height * camera_aspect;
+            if (width > screen_width) {
+                width  = screen_width;
+                height = screen_width / camera_aspect;
+                context->SetViewPortAndScissor(0, (screen_height - height) >> 1, width, height);
             } else {
-                context->SetViewPortAndScissor((config.screen_width - width) >> 1, 0, width, height);
+                context->SetViewPortAndScissor((screen_width - width) >> 1, 0, width, height);
             }
 
             context->SetRenderTargetAndDepthBuffer(render_target, depth_buffer);
@@ -272,54 +155,21 @@ void GraphicsManager::Render(const asset::Scene& scene) {
             frame->Draw(context.get());
         });
 
-    struct DebugPassData {
-        FrameHandle depth;
-        FrameHandle output;
-    };
-
-    auto debug_pass = fg.AddPass<DebugPassData>(
-        "DebugPass",
-        [&](FrameGraph::Builder& builder, DebugPassData& data) {
-            data.depth  = builder.Read(color_pass.GetData().depth_buffer);
-            data.output = builder.Write(color_pass.GetData().output);
-        },
-        [=](const ResourceHelper& helper, DebugPassData& data) {
-            auto& depth_buffer  = helper.Get<DepthBuffer>(data.depth);
-            auto& render_target = helper.Get<RenderTarget>(data.output);
-            context->SetRenderTargetAndDepthBuffer(render_target, depth_buffer);
-
-            frame->DebugDraw(context.get());
-        });
-
-    struct ImGuiPassData {
-        FrameHandle output;
-    };
-
-    auto imgui_pass = fg.AddPass<ImGuiPassData>(
-        "Imgui Pass",
-        [&](FrameGraph::Builder& builder, ImGuiPassData& data) {
-            data.output = builder.Write(color_pass.GetData().output);
-        },
-        [=](const ResourceHelper& helper, ImGuiPassData& data) {
-            auto& render_target = helper.Get<RenderTarget>(data.output);
-            context->SetViewPort(0, 0, config.screen_width, config.screen_height);
-            context->SetRenderTarget(render_target);
-            frame->GuiDraw(context.get());
-        });
-
     fg.Present(render_target_handle, context);
 
     fg.Compile();
 
     fg.Execute(*driver);
-    uint64_t fence = context->Finish();
+    std::uint64_t fence = context->Finish();
     frame->SetFenceValue(fence);
     fg.Retire(fence, *driver);
 }
 
 Frame* GraphicsManager::GetBcakFrameForRendering() {
     auto frame = m_Frames.at(m_CurrBackBuffer).get();
-    frame->ResetState();
+    if (frame->IsRenderingFinished() && frame->Locked()) {
+        frame->Reset();
+    }
     return frame;
 }
 

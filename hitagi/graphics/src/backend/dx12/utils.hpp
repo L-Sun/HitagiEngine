@@ -1,9 +1,9 @@
 #pragma once
 #include "d3d_pch.hpp"
-
+#include <hitagi/resource/enums.hpp>
 #include <hitagi/graphics/resource.hpp>
 
-#include <spdlog/spdlog.h>
+#include <dxgiformat.h>
 #include <magic_enum.hpp>
 
 // TODO change when integrate Vulkan
@@ -11,6 +11,93 @@ namespace hitagi::graphics::backend::DX12 {
 inline const size_t align(size_t x, size_t a) {
     assert(((a - 1) & a) == 0 && "alignment is not a power of two");
     return (x + a - 1) & ~(a - 1);
+}
+
+inline auto hlsl_semantic_name(resource::VertexAttribute attr) noexcept {
+    switch (attr) {
+        case resource::VertexAttribute::Position:
+            return "POSITION";
+        case resource::VertexAttribute::Normal:
+            return "NORMAL";
+        case resource::VertexAttribute::Tangent:
+            return "TANGENT";
+        case resource::VertexAttribute::Bitangent:
+            return "BITANGENT";
+        case resource::VertexAttribute::Color0:
+        case resource::VertexAttribute::Color1:
+        case resource::VertexAttribute::Color2:
+        case resource::VertexAttribute::Color3:
+            return "COLOR";
+        case resource::VertexAttribute::UV0:
+        case resource::VertexAttribute::UV1:
+        case resource::VertexAttribute::UV2:
+        case resource::VertexAttribute::UV3:
+            return "UV";
+        case resource::VertexAttribute::BlendIndex:
+            return "BLENDINDEX";
+        case resource::VertexAttribute::BlendWeight:
+            return "BLENDWEIGHT";
+        default:
+            return "PSIZE";
+    }
+}
+
+inline auto hlsl_semantic_index(resource::VertexAttribute attr) noexcept {
+    switch (attr) {
+        case resource::VertexAttribute::Position:
+        case resource::VertexAttribute::Normal:
+        case resource::VertexAttribute::Tangent:
+        case resource::VertexAttribute::Bitangent:
+        case resource::VertexAttribute::Color0:
+            return 0;
+        case resource::VertexAttribute::Color1:
+            return 1;
+        case resource::VertexAttribute::Color2:
+            return 2;
+        case resource::VertexAttribute::Color3:
+            return 3;
+        case resource::VertexAttribute::UV0:
+            return 0;
+        case resource::VertexAttribute::UV1:
+            return 1;
+        case resource::VertexAttribute::UV2:
+            return 2;
+        case resource::VertexAttribute::UV3:
+            return 3;
+        case resource::VertexAttribute::BlendIndex:
+        case resource::VertexAttribute::BlendWeight:
+            return 0;
+        case resource::VertexAttribute::Custom0:
+            return 0;
+        case resource::VertexAttribute::Custom1:
+            return 1;
+    }
+}
+
+inline auto hlsl_semantic_format(resource::VertexAttribute attr) noexcept {
+    switch (attr) {
+        case resource::VertexAttribute::Position:
+        case resource::VertexAttribute::Normal:
+        case resource::VertexAttribute::Tangent:
+        case resource::VertexAttribute::Bitangent:
+            return DXGI_FORMAT_R32G32B32_FLOAT;
+        case resource::VertexAttribute::Color0:
+        case resource::VertexAttribute::Color1:
+        case resource::VertexAttribute::Color2:
+        case resource::VertexAttribute::Color3:
+            return DXGI_FORMAT_R32G32B32A32_FLOAT;
+        case resource::VertexAttribute::UV0:
+        case resource::VertexAttribute::UV1:
+        case resource::VertexAttribute::UV2:
+        case resource::VertexAttribute::UV3:
+            return DXGI_FORMAT_R32G32_FLOAT;
+        case resource::VertexAttribute::BlendIndex:
+            return DXGI_FORMAT_R32_UINT;
+        case resource::VertexAttribute::BlendWeight:
+            return DXGI_FORMAT_R32_FLOAT;
+        default:
+            return DXGI_FORMAT_R32_FLOAT;
+    }
 }
 
 inline DXGI_FORMAT to_dxgi_format(graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
@@ -29,15 +116,9 @@ inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(graphics::TextureA
             return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
         case graphics::TextureAddressMode::MirrorOnce:
             return D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE;
-        default: {
-            auto logger = spdlog::get("GraphicsManager");
-            if (logger) {
-                logger->warn("Can not convert Texture Address Mode ({}) to D3D", magic_enum::enum_name(mode));
-                logger->warn("Will return default value!");
-            }
-        }
+        default:
+            return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     }
-    return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 }
 
 inline D3D12_COMPARISON_FUNC to_d3d_comp_func(graphics::ComparisonFunc func) {
@@ -58,15 +139,9 @@ inline D3D12_COMPARISON_FUNC to_d3d_comp_func(graphics::ComparisonFunc func) {
             return D3D12_COMPARISON_FUNC_GREATER_EQUAL;
         case graphics::ComparisonFunc::Always:
             return D3D12_COMPARISON_FUNC_ALWAYS;
-        default: {
-            auto logger = spdlog::get("GraphicsManager");
-            if (logger) {
-                logger->warn("Can not convert ComparisonFunc ({}) to D3D", magic_enum::enum_name(func));
-                logger->warn("Will return Never Func!");
-            }
-        }
+        default:
+            return D3D12_COMPARISON_FUNC_NEVER;
     }
-    return D3D12_COMPARISON_FUNC_NEVER;
 }
 
 // TODO change when integrate Vulkan
@@ -74,46 +149,48 @@ inline D3D12_FILTER to_d3d_filter(graphics::Filter filter) noexcept {
     return static_cast<D3D12_FILTER>(filter);
 }
 
-inline D3D12_PRIMITIVE_TOPOLOGY_TYPE to_dx_topology_type(PrimitiveType type) noexcept {
+inline D3D12_PRIMITIVE_TOPOLOGY_TYPE to_dx_topology_type(resource::PrimitiveType type) noexcept {
     switch (type) {
-        case PrimitiveType::PointList:
+        case resource::PrimitiveType::PointList:
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
-        case PrimitiveType::LineList:
-        case PrimitiveType::LineStrip:
-        case PrimitiveType::LineListAdjacency:
-        case PrimitiveType::LineStripAdjacency:
+        case resource::PrimitiveType::LineList:
+        case resource::PrimitiveType::LineStrip:
+        case resource::PrimitiveType::LineListAdjacency:
+        case resource::PrimitiveType::LineStripAdjacency:
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-        case PrimitiveType::TriangleList:
-        case PrimitiveType::TriangleStrip:
-        case PrimitiveType::TriangleListAdjacency:
-        case PrimitiveType::TriangleStripAdjacency:
+        case resource::PrimitiveType::TriangleList:
+        case resource::PrimitiveType::TriangleStrip:
+        case resource::PrimitiveType::TriangleListAdjacency:
+        case resource::PrimitiveType::TriangleStripAdjacency:
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        default:
+            return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
     }
-    return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 }
 
-inline D3D12_PRIMITIVE_TOPOLOGY to_dx_topology(PrimitiveType type) noexcept {
+inline D3D12_PRIMITIVE_TOPOLOGY to_dx_topology(resource::PrimitiveType type) noexcept {
     switch (type) {
-        case PrimitiveType::PointList:
+        case resource::PrimitiveType::PointList:
             return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
-        case PrimitiveType::LineList:
+        case resource::PrimitiveType::LineList:
             return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
-        case PrimitiveType::LineStrip:
+        case resource::PrimitiveType::LineStrip:
             return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
-        case PrimitiveType::LineListAdjacency:
+        case resource::PrimitiveType::LineListAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ;
-        case PrimitiveType::LineStripAdjacency:
+        case resource::PrimitiveType::LineStripAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ;
-        case PrimitiveType::TriangleList:
+        case resource::PrimitiveType::TriangleList:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-        case PrimitiveType::TriangleStrip:
+        case resource::PrimitiveType::TriangleStrip:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
-        case PrimitiveType::TriangleListAdjacency:
+        case resource::PrimitiveType::TriangleListAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
-        case PrimitiveType::TriangleStripAdjacency:
+        case resource::PrimitiveType::TriangleStripAdjacency:
             return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ;
+        default:
+            return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
     }
-    return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 }
 
 inline DXGI_FORMAT index_size_to_dxgi_format(size_t size) noexcept {
@@ -128,7 +205,7 @@ inline DXGI_FORMAT index_size_to_dxgi_format(size_t size) noexcept {
     }
 }
 
-inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(graphics::Sampler::Description desc) noexcept {
+inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(graphics::SamplerDesc desc) noexcept {
     D3D12_SAMPLER_DESC result{};
     result.AddressU       = to_d3d_texture_address_mode(desc.address_u);
     result.AddressV       = to_d3d_texture_address_mode(desc.address_v);
@@ -161,15 +238,9 @@ inline D3D12_SHADER_VISIBILITY to_d3d_shader_visibility(graphics::ShaderVisibili
             return D3D12_SHADER_VISIBILITY_GEOMETRY;
         case graphics::ShaderVisibility::Pixel:
             return D3D12_SHADER_VISIBILITY_PIXEL;
-        default: {
-            auto logger = spdlog::get("GraphicsManager");
-            if (logger) {
-                logger->warn("Can not convert Visibility ({}) to D3D", magic_enum::enum_name(visibility));
-                logger->warn("Will return D3D12_SHADER_VISIBILITY_ALL!");
-            }
-        }
+        default:
+            return D3D12_SHADER_VISIBILITY_ALL;
     }
-    return D3D12_SHADER_VISIBILITY_ALL;
 }
 
 inline D3D12_BLEND to_d3d_blend(graphics::Blend blend) {
@@ -208,16 +279,9 @@ inline D3D12_BLEND to_d3d_blend(graphics::Blend blend) {
             return D3D12_BLEND_SRC1_ALPHA;
         case graphics::Blend::InvSrc_1_Alpha:
             return D3D12_BLEND_INV_SRC1_ALPHA;
-        default: {
-            auto logger = spdlog::get("GraphicsManager");
-            if (logger) {
-                logger->warn("Can not convert Blend ({}) to D3D", magic_enum::enum_name(blend));
-                logger->warn("Will return D3D12_BLEND_ZERO!");
-            }
-        }
+        default:
+            return D3D12_BLEND_ZERO;
     }
-
-    return D3D12_BLEND_ZERO;
 }
 
 inline D3D12_BLEND_OP to_d3d_blend_op(graphics::BlendOp operation) {
@@ -232,15 +296,9 @@ inline D3D12_BLEND_OP to_d3d_blend_op(graphics::BlendOp operation) {
             return D3D12_BLEND_OP_MIN;
         case graphics::BlendOp::Max:
             return D3D12_BLEND_OP_MAX;
-        default: {
-            auto logger = spdlog::get("GraphicsManager");
-            if (logger) {
-                logger->warn("Can not convert BlendOp ({}) to D3D", magic_enum::enum_name(operation));
-                logger->warn("Will return D3D12_BLEND_OP_ADD!");
-            }
-        }
+        default:
+            return D3D12_BLEND_OP_ADD;
     }
-    return D3D12_BLEND_OP_ADD;
 }
 
 inline D3D12_LOGIC_OP to_d3d_logic_op(graphics::LogicOp operation) {
@@ -277,15 +335,9 @@ inline D3D12_LOGIC_OP to_d3d_logic_op(graphics::LogicOp operation) {
             return D3D12_LOGIC_OP_OR_REVERSE;
         case graphics::LogicOp::OrInverted:
             return D3D12_LOGIC_OP_OR_INVERTED;
-        default: {
-            auto logger = spdlog::get("GraphicsManager");
-            if (logger) {
-                logger->warn("Can not convert LogicOp ({}) to D3D", magic_enum::enum_name(operation));
-                logger->warn("Will return D3D12_LOGIC_OP_CLEAR!");
-            }
-        }
+        default:
+            return D3D12_LOGIC_OP_CLEAR;
     }
-    return D3D12_LOGIC_OP_CLEAR;
 }
 
 inline D3D12_BLEND_DESC to_d3d_blend_desc(graphics::BlendDescription desc) noexcept {
@@ -313,15 +365,9 @@ inline D3D12_FILL_MODE to_d3d_fill_mode(graphics::FillMode mode) {
             return D3D12_FILL_MODE_SOLID;
         case graphics::FillMode::Wireframe:
             return D3D12_FILL_MODE_WIREFRAME;
-        default: {
-            auto logger = spdlog::get("GraphicsManager");
-            if (logger) {
-                logger->warn("Can not convert FillMode ({}) to D3D", magic_enum::enum_name(mode));
-                logger->warn("Will return D3D12_FILL_MODE_SOLID!");
-            }
-        }
+        default:
+            return D3D12_FILL_MODE_SOLID;
     }
-    return D3D12_FILL_MODE_SOLID;
 }
 
 inline D3D12_CULL_MODE to_d3d_cull_mode(graphics::CullMode mode) {
@@ -332,15 +378,9 @@ inline D3D12_CULL_MODE to_d3d_cull_mode(graphics::CullMode mode) {
             return D3D12_CULL_MODE_FRONT;
         case graphics::CullMode::Back:
             return D3D12_CULL_MODE_BACK;
-        default: {
-            auto logger = spdlog::get("GraphicsManager");
-            if (logger) {
-                logger->warn("Can not convert CullMode ({}) to D3D", magic_enum::enum_name(mode));
-                logger->warn("Will return D3D12_CULL_MODE_NONE!");
-            }
-        }
+        default:
+            return D3D12_CULL_MODE_NONE;
     }
-    return D3D12_CULL_MODE_NONE;
 }
 
 inline D3D12_RASTERIZER_DESC to_d3d_rasterizer_desc(graphics::RasterizerDescription desc) noexcept {

@@ -2,7 +2,6 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <fmt/ostream.h>
 
 #include <fstream>
 
@@ -33,15 +32,15 @@ bool FileIOManager::IsFileChanged(const std::filesystem::path& file_path) const 
 
 const Buffer& FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& file_path) {
     if (!std::filesystem::exists(file_path)) {
-        m_Logger->warn("File dose not exist. {}", file_path);
+        m_Logger->warn("File dose not exist. {}", file_path.string());
         return m_EmptyBuffer;
     }
     if (!IsFileChanged(file_path)) {
-        m_Logger->debug("Use cahce: {}", file_path.filename());
+        m_Logger->debug("Use cahce: {}", file_path.filename().string());
         return m_FileCache.at(std::filesystem::hash_value(file_path));
     }
     auto file_size = std::filesystem::file_size(file_path);
-    m_Logger->info("Open file: {} ({} bytes)", file_path, file_size);
+    m_Logger->info("Open file: {} ({} bytes)", file_path.string(), file_size);
     Buffer        buffer(file_size);
     std::ifstream ifs(file_path, std::ios::binary);
     ifs.read(reinterpret_cast<char*>(buffer.GetData()), buffer.GetDataSize());
@@ -59,7 +58,7 @@ void FileIOManager::SaveBuffer(const Buffer& buffer, const std::filesystem::path
     auto fs = std::fstream(path, std::ios::binary | std::ios::out);
     fs.write(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
     fs.close();
-    m_Logger->info("Buffer has write to: {} ({} bytes)", path, buffer.GetDataSize());
+    m_Logger->info("Buffer has write to: {} ({} bytes)", path.string(), buffer.GetDataSize());
 }
 
 }  // namespace hitagi::core

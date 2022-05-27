@@ -1,5 +1,5 @@
-#include <hitagi/core/memory_manager.hpp>
 #include <hitagi/utils/test.hpp>
+#include <hitagi/core/memory_manager.hpp>
 
 #include <vector>
 

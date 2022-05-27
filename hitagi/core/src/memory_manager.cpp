@@ -16,12 +16,12 @@ MemoryPool::Page::Page(std::size_t size, std::size_t block_size)
       alignment(std::align_val_t(0x1 << std::countr_zero(block_size))),
       data(static_cast<std::byte*>(operator new[](size, alignment))) {}
 
-MemoryPool::Page::Page(Page&& other)
+MemoryPool::Page::Page(Page&& other) noexcept
     : size(other.size), alignment(other.alignment), data(other.data) {
     other.data = nullptr;
 }
 
-auto MemoryPool::Page::operator=(Page&& rhs) -> Page& {
+auto MemoryPool::Page::operator=(Page&& rhs) noexcept -> Page& {
     if (this != &rhs) {
         data     = rhs.data;
         rhs.data = nullptr;
@@ -122,13 +122,5 @@ void MemoryManager::Finalize() {
 }
 
 void MemoryManager::Tick() {}
-
-void* MemoryManager::Allocate(std::size_t bytes, std::size_t alignment) {
-    return m_Pools->allocate(bytes, alignment);
-}
-
-void MemoryManager::Free(void* p, std::size_t bytes, std::size_t alignment) {
-    m_Pools->deallocate(p, bytes, alignment);
-}
 
 }  // namespace hitagi::core

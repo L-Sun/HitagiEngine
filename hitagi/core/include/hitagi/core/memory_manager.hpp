@@ -1,10 +1,13 @@
 #pragma once
-#include "runtime_module.hpp"
+#include <hitagi/core/runtime_module.hpp>
 
 #include <list>
 #include <array>
 #include <memory_resource>
-#include <assert.h>
+#include <cassert>
+#include <type_traits>
+
+constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
 namespace hitagi::core {
 
@@ -12,8 +15,6 @@ inline const size_t align(size_t x, size_t a) {
     assert(((a - 1) & a) == 0 && "alignment is not a power of two");
     return (x + a - 1) & ~(a - 1);
 }
-
-constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
 class MemoryPool : public std::pmr::memory_resource {
 public:
@@ -37,12 +38,12 @@ private:
         Page(std::size_t page_size, std::size_t block_size);
         Page(const Page&) = delete;
         Page& operator=(const Page&) = delete;
-        Page(Page&&);
-        Page& operator=(Page&&);
+        Page(Page&&) noexcept;
+        Page& operator=(Page&&) noexcept;
         ~Page();
 
-        template <typename T>
-        inline auto get() noexcept { return reinterpret_cast<std::remove_cv_t<T>*>(data); }
+        template <typename T = std::byte>
+        inline auto get() noexcept { return reinterpret_cast<std::remove_cvref_t<T>*>(data); }
 
     private:
         const std::size_t      size;
@@ -90,12 +91,17 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    [[nodiscard]] void* Allocate(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t));
-    void                Free(void* p, std::size_t bytes, std::size_t alignment);
+    template <typename T = std::byte>
+    std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;
 
 private:
     std::unique_ptr<MemoryPool> m_Pools;
 };
+
+template <typename T>
+std::pmr::polymorphic_allocator<T> MemoryManager::GetAllocator() const noexcept {
+    return std::pmr::polymorphic_allocator<T>(m_Pools.get());
+}
 
 }  // namespace hitagi::core
 namespace hitagi {

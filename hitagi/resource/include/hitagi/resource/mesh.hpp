@@ -1,110 +1,92 @@
 #pragma once
-#include "scene_object.hpp"
-#include "bone.hpp"
-#include "material.hpp"
-
+#include <hitagi/resource/scene_object.hpp>
+#include <hitagi/resource/enums.hpp>
+#include <hitagi/resource/material_instance.hpp>
 #include <hitagi/core/buffer.hpp>
-#include <hitagi/graphics/types.hpp>
+#include <hitagi/utils/private_build.hpp>
 
-namespace hitagi::asset {
+#include <magic_enum.hpp>
 
-class VertexArray {
+#include <stdexcept>
+#include <bitset>
+
+namespace hitagi::resource {
+
+class VertexArray : public SceneObject {
 public:
-    enum struct DataType {
-        Float1,
-        Float2,
-        Float3,
-        Float4,
-        Double1,
-        Double2,
-        Double3,
-        Double4,
-    };
+    VertexArray(std::size_t vertex_count);
+    VertexArray(const VertexArray& other) = default;
+    VertexArray(VertexArray&& other)      = default;
 
-    VertexArray() = default;
-    VertexArray(std::string_view attr,
-                DataType         data_type,
-                core::Buffer&&   buffer)
-        : m_Attribute(attr),
-          m_DataType(data_type),
-          m_VertexCount(buffer.GetDataSize() / GetVertexSize()),
-          m_Data(std::move(buffer)) {}
+    inline std::size_t VertexCount() const noexcept { return m_VertexCount; }
 
-    inline const std::string& GetAttributeName() const noexcept { return m_Attribute; }
-    inline DataType           GetDataType() const noexcept { return m_DataType; }
-    inline size_t             GetDataSize() const noexcept { return m_Data.GetDataSize(); }
-    inline const uint8_t*     GetData() const noexcept { return m_Data.GetData(); }
-    inline size_t             GetVertexCount() const noexcept { return m_VertexCount; }
+    std::bitset<magic_enum::enum_count<VertexAttribute>()> GetSlotMask() const;
 
-    size_t               GetVertexSize() const;
-    friend std::ostream& operator<<(std::ostream& out, const VertexArray& obj);
+    core::Buffer& GetBuffer(VertexAttribute attr);
+    core::Buffer& GetBuffer(std::size_t slot);
+
+    // the buffer will be constructed if `GetVertices` is invoke first time with attribute Attr
+    template <VertexAttribute Attr>
+    std::span<VertexType<Attr>> GetVertices();
 
 private:
-    std::string  m_Attribute;
-    DataType     m_DataType;
-    size_t       m_VertexCount;
-    core::Buffer m_Data;
+    std::size_t                                                         m_VertexCount = 0;
+    std::array<core::Buffer, magic_enum::enum_count<VertexAttribute>()> m_Buffers;
 };
 
-class IndexArray {
+class IndexArray : public SceneObject {
 public:
-    enum struct DataType {
-        Int8,
-        Int16,
-        Int32,
-        Int64,
-    };
+    IndexArray(std::size_t index_count, IndexType type);
+    IndexArray(const IndexArray& other) = default;
+    IndexArray(IndexArray&& other)      = default;
 
-    IndexArray() = default;
-    IndexArray(
-        const DataType data_type,
-        core::Buffer&& data)
-        : m_DataType(data_type),
-          m_IndexCount(data.GetDataSize() / GetIndexSize()),
-          m_Data(std::move(data)) {}
+    auto  IndexSize() const noexcept { return get_index_type_size(m_IndexType); }
+    auto  IndexCount() const noexcept { return m_IndexCount; }
+    auto& Buffer() const noexcept { return m_Buffer; }
 
-    inline DataType       GetIndexType() const noexcept { return m_DataType; }
-    inline const uint8_t* GetData() const noexcept { return m_Data.GetData(); }
-    inline size_t         GetIndexCount() const noexcept { return m_IndexCount; }
-    inline size_t         GetDataSize() const noexcept { return m_Data.GetDataSize(); }
-    size_t                GetIndexSize() const;
-
-    friend std::ostream& operator<<(std::ostream& out, const IndexArray& obj);
+    // The template parameter need to be same with the type used by constructor
+    template <IndexType T>
+    std::span<IndexDataType<T>> GetIndices();
 
 private:
-    DataType     m_DataType   = DataType::Int32;
-    size_t       m_IndexCount = 0;
-    core::Buffer m_Data;
+    std::size_t  m_IndexCount = 0;
+    IndexType    m_IndexType  = IndexType::UINT32;
+    core::Buffer m_Buffer;
 };
 
-class Mesh : public SceneObject {
+struct Mesh : public SceneObject {
 public:
-    Mesh() = default;
+    Mesh(
+        std::shared_ptr<VertexArray>      vertices = nullptr,
+        std::shared_ptr<IndexArray>       indices  = nullptr,
+        std::shared_ptr<MaterialInstance> material = nullptr);
 
-    inline void SetIndexArray(IndexArray array) noexcept { m_IndexArray = std::move(array); }
-    inline void AddVertexArray(VertexArray array) noexcept { m_VertexArray.emplace_back(std::move(array)); }
-    inline void SetPrimitiveType(graphics::PrimitiveType type) noexcept { m_PrimitiveType = type; }
-    inline void SetMaterial(std::shared_ptr<Material> material) noexcept { m_MaterialRef = material; }
+    Mesh(const Mesh& other) = default;
+    Mesh& operator=(const Mesh&) = default;
+    Mesh(Mesh&& other)           = default;
+    Mesh& operator=(Mesh&& rhs) = default;
 
-    std::shared_ptr<Bone> CreateNewBone(std::string name);
-
-    const VertexArray& GetVertexByName(std::string_view name) const;
-    inline size_t      GetVertexArraysCount() const noexcept { return m_VertexArray.size(); }
-    inline const auto& GetVertexArrays() const noexcept { return m_VertexArray; }
-    inline const auto& GetIndexArray() const noexcept { return m_IndexArray; }
-    inline auto        GetPrimitiveType() const noexcept { return m_PrimitiveType; }
-
-    inline const auto& GetMaterial() const noexcept { return m_MaterialRef; }
-    bool               HasBones() const noexcept { return !m_Bones.empty(); }
-
-    friend std::ostream& operator<<(std::ostream& out, const Mesh& obj);
-
-private:
-    std::vector<VertexArray>           m_VertexArray;
-    IndexArray                         m_IndexArray;
-    graphics::PrimitiveType            m_PrimitiveType = graphics::PrimitiveType::TriangleList;
-    std::weak_ptr<Material>            m_MaterialRef;
-    std::vector<std::shared_ptr<Bone>> m_Bones;
+    std::shared_ptr<VertexArray>      vertices;
+    std::shared_ptr<IndexArray>       indices;
+    std::shared_ptr<MaterialInstance> material;
 };
 
-}  // namespace hitagi::asset
+template <VertexAttribute Attr>
+std::span<VertexType<Attr>> VertexArray::GetVertices() {
+    auto& buffer = m_Buffers.at(magic_enum::enum_index(Attr).value());
+    if (buffer.Empty()) buffer.Resize(m_VertexCount * get_vertex_attribute_size(Attr));
+    return buffer.Span<VertexType<Attr>>();
+}
+
+template <IndexType T>
+std::span<IndexDataType<T>> IndexArray::GetIndices() {
+    if (T != m_IndexType)
+        throw std::invalid_argument(fmt::format(
+            "expect template parameter: ({}), but get ({})",
+            magic_enum::enum_name(m_IndexType),
+            magic_enum::enum_name(T)));
+
+    return m_Buffer.Span<IndexDataType<T>>();
+}
+
+}  // namespace hitagi::resource

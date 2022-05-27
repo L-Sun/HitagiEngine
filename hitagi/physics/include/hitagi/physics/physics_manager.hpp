@@ -14,15 +14,15 @@ public:
     void Finalize() override   = 0;
     void Tick() override       = 0;
 
-    virtual std::array<math::vec3f, 2> GetAABB(asset::GeometryNode& node) = 0;
+    virtual std::array<math::vec3f, 2> GetAABB(resource::Geometry& node) = 0;
 
-    virtual void CreateRigidBody(asset::GeometryNode& node) = 0;
-    virtual void DeleteRigidBody(asset::GeometryNode& node) = 0;
+    virtual void CreateRigidBody(resource::Geometry& node) = 0;
+    virtual void DeleteRigidBody(resource::Geometry& node) = 0;
 
-    virtual math::mat4f GetRigidBodyTransform(asset::GeometryNode& node)    = 0;
-    virtual void        UpdateRigidBodyTransform(asset::GeometryNode& node) = 0;
+    virtual math::mat4f GetRigidBodyTransform(resource::Geometry& node)    = 0;
+    virtual void        UpdateRigidBodyTransform(resource::Geometry& node) = 0;
 
-    virtual void ApplyCentralForce(asset::GeometryNode& node, math::vec3f force) = 0;
+    virtual void ApplyCentralForce(resource::Geometry& node, math::vec3f force) = 0;
 };
 
 }  // namespace hitagi::physics

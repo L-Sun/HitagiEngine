@@ -122,7 +122,7 @@ void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
         auto scene = g_SceneManager->GetScene();
         if (ImGui::CollapsingHeader("Scene Nodes")) {
-            std::function<void(std::shared_ptr<asset::SceneNode>)> print_node = [&](std::shared_ptr<asset::SceneNode> node) -> void {
+            std::function<void(std::shared_ptr<resource::SceneNode>)> print_node = [&](std::shared_ptr<resource::SceneNode> node) -> void {
                 if (ImGui::TreeNode(GenName(node->GetName(), node).c_str())) {
                     {
                         auto position    = node->GetPosition();
@@ -179,10 +179,10 @@ void Editor::SceneExplorer() {
     ImGui::End();
 }
 
-std::string Editor::GenName(std::string_view name, std::shared_ptr<asset::SceneObject> obj) {
+std::string Editor::GenName(std::string_view name, std::shared_ptr<resource::SceneObject> obj) {
     return fmt::format("{}##{}", name, obj->GetGuid().str());
 }
-std::string Editor::GenName(std::string_view name, std::shared_ptr<asset::SceneNode> node) {
+std::string Editor::GenName(std::string_view name, std::shared_ptr<resource::SceneNode> node) {
     return fmt::format("{}##{}", name, fmt::ptr(node));
 }
 

@@ -1,239 +1,225 @@
-#include "frame.hpp"
-#include <hitagi/graphics/command_context.hpp>
+#include <hitagi/graphics/frame.hpp>
 
 #include <hitagi/graphics/driver_api.hpp>
-
 #include <hitagi/utils/overloaded.hpp>
 
 using namespace hitagi::math;
+using namespace hitagi::resource;
 
 namespace hitagi::graphics {
 Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index)
     : m_Driver(driver),
       m_ResMgr(resource_manager),
       m_FrameIndex(frame_index),
-      m_ConstantBuffer(m_Driver.CreateConstantBuffer("Object Constant", 1, std::max({sizeof(FrameConstant), sizeof(ObjectConstant)}))),
-      m_Output(m_Driver.CreateRenderFromSwapChain(frame_index)) {
+      m_Output(m_Driver.CreateRenderFromSwapChain(frame_index)),
+      m_ConstantBuffer(m_Driver.CreateConstantBuffer(
+          "Object Constant",
+          {.num_elements = 1,
+           .element_size = std::max({sizeof(FrameConstant), sizeof(ObjectConstant)})})) {}
+
+void Frame::AddRenderables(std::pmr::vector<Renderable> renderables) {
+    m_Renderables.insert(
+        m_Renderables.end(),
+        std::make_move_iterator(renderables.begin()),
+        std::make_move_iterator(renderables.end()));
 }
 
-void Frame::AddGeometries(const std::vector<std::shared_ptr<asset::GeometryNode>>& geometries, const PipelineState& pso) {
-    // Calculate need constant buffer size
-    size_t constant_count = geometries.size();
+// void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<resource::Image> font_texture, const PipelineState& pso) {
+//     // TODO auto resize constant buffer
+//     // we need a element to store gui projection
+//     if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < 1)
+//         m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + 1);
 
-    // TODO auto resize constant buffer
-    // if new size is smaller, the expand function return directly.
-    if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < constant_count)
-        // becase capacity + needed > exsisted + needed
-        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + constant_count);
+//     m_GuiDrawInfo = std::make_shared<GuiDrawInformation>(
+//         GuiDrawInformation{
+//             .pipeline        = pso,
+//             .font_texture    = m_ResMgr.GetTextureBuffer(font_texture),
+//             .constant_offset = m_ConstantCount++,
+//         });
 
-    for (auto node : geometries) {
-        if (auto geometry = node->GetSceneObjectRef().lock()) {
-            // need update
-            ObjectConstant data;
-            data.transform = node->GetCalculatedTransformation();
+//     const float left       = data->DisplayPos.x;
+//     const float right      = data->DisplayPos.x + data->DisplaySize.x;
+//     const float top        = data->DisplayPos.y;
+//     const float bottom     = data->DisplayPos.y + data->DisplaySize.y;
+//     const float near       = 3.0f;
+//     const float far        = -1.0f;
+//     const mat4f projection = ortho(left, right, bottom, top, near, far);
+//     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_GuiDrawInfo->constant_offset, reinterpret_cast<const uint8_t*>(&projection), sizeof(projection));
 
-            for (auto&& mesh : geometry->GetMeshes()) {
-                DrawItem item{
-                    .pipeline        = pso,
-                    .constant_offset = m_ConstantCount,
-                    .mesh            = m_ResMgr.GetMeshBuffer(mesh),
-                };
+//     m_ResMgr.MakeImGuiMesh(
+//         data,
+//         [&](std::shared_ptr<hitagi::graphics::MeshBuffer> mesh, ImDrawList* curr_cmd_list, const ImDrawCmd& curr_cmd) {
+//             vec2f clip_min(curr_cmd.ClipRect.x - data->DisplayPos.x, curr_cmd.ClipRect.y - data->DisplayPos.y);
+//             vec2f clip_max(curr_cmd.ClipRect.z - data->DisplayPos.x, curr_cmd.ClipRect.w - data->DisplayPos.y);
 
-                // Updata Material data
-                if (auto material = mesh.GetMaterial().lock()) {
-                    PopulateMaterial(material->GetAmbientColor(), data.ambient, item.ambient);
-                    PopulateMaterial(material->GetDiffuseColor(), data.diffuse, item.diffuse);
-                    PopulateMaterial(material->GetEmission(), data.emission, item.emission);
-                    PopulateMaterial(material->GetSpecularColor(), data.specular, item.specular);
-                    PopulateMaterial(material->GetSpecularPower(), data.specular_power, item.specular_power);
-                } else {
-                    item.ambient        = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
-                    item.diffuse        = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
-                    item.emission       = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
-                    item.specular       = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
-                    item.specular_power = m_ResMgr.GetDefaultTextureBuffer(Format::R8_UNORM);
-                }
+//             std::array<uint32_t, 4> scissor_rect = {
+//                 static_cast<uint32_t>(clip_min.x),
+//                 static_cast<uint32_t>(clip_min.y),
+//                 static_cast<uint32_t>(clip_max.x),
+//                 static_cast<uint32_t>(clip_max.y),
+//             };
 
-                m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
-                m_DrawItems.emplace_back(std::move(item));
-                m_ConstantCount++;
-            }
-        }
-    }
-}
+//             m_GuiDrawInfo->scissor_rects.emplace_back(scissor_rect);
+//             m_GuiDrawInfo->meshes.emplace_back(mesh);
+//         });
+// }
 
-void Frame::AddDebugPrimitives(const std::vector<debugger::DebugPrimitive>& primitives, const PipelineState& pso) {
-    // TODO auto resize constant buffer
-    // if new size is smaller, the expand function return directly.
-    if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < primitives.size())
-        // becase capacity + needed > exsisted + needed
-        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + primitives.size());
+void Frame::SetCamera(std::shared_ptr<Camera> camera) {
+    auto& data      = m_FrameConstant;
+    data.camera_pos = vec4f(camera->GetGlobalPosition(), 1.0f);
+    data.view       = camera->GetViewMatrix();
+    data.inv_view   = inverse(data.view);
 
-    for (auto&& primitive : primitives) {
-        if (auto geometry = primitive.geometry_node->GetSceneObjectRef().lock()) {
-            for (auto&& mesh : geometry->GetMeshes()) {
-                DebugDrawItem item{
-                    .pipeline        = pso,
-                    .mesh            = m_ResMgr.GetMeshBuffer(mesh),
-                    .constant_offset = m_ConstantCount};
-
-                // TODO
-                struct {
-                    mat4f transform;
-                    vec4f color;
-                } data;
-                data.transform = primitive.geometry_node->GetCalculatedTransformation();
-                data.color     = primitive.color;
-                m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_ConstantCount++, reinterpret_cast<const uint8_t*>(&data), sizeof(data));
-
-                m_DebugItems.emplace_back(std::move(item));
-            }
-        }
-    }
-}
-
-void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<asset::Image> font_texture, const PipelineState& pso) {
-    // TODO auto resize constant buffer
-    // we need a element to store gui projection
-    if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < 1)
-        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + 1);
-
-    m_GuiDrawInfo = std::make_shared<GuiDrawInformation>(
-        GuiDrawInformation{
-            .pipeline        = pso,
-            .font_texture    = m_ResMgr.GetTextureBuffer(font_texture),
-            .constant_offset = m_ConstantCount++,
-        });
-
-    const float left       = data->DisplayPos.x;
-    const float right      = data->DisplayPos.x + data->DisplaySize.x;
-    const float top        = data->DisplayPos.y;
-    const float bottom     = data->DisplayPos.y + data->DisplaySize.y;
-    const float near       = 3.0f;
-    const float far        = -1.0f;
-    const mat4f projection = ortho(left, right, bottom, top, near, far);
-    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_GuiDrawInfo->constant_offset, reinterpret_cast<const uint8_t*>(&projection), sizeof(projection));
-
-    m_ResMgr.MakeImGuiMesh(
-        data,
-        [&](std::shared_ptr<hitagi::graphics::MeshBuffer> mesh, ImDrawList* curr_cmd_list, const ImDrawCmd& curr_cmd) {
-            vec2f clip_min(curr_cmd.ClipRect.x - data->DisplayPos.x, curr_cmd.ClipRect.y - data->DisplayPos.y);
-            vec2f clip_max(curr_cmd.ClipRect.z - data->DisplayPos.x, curr_cmd.ClipRect.w - data->DisplayPos.y);
-
-            std::array<uint32_t, 4> scissor_rect = {
-                static_cast<uint32_t>(clip_min.x),
-                static_cast<uint32_t>(clip_min.y),
-                static_cast<uint32_t>(clip_max.x),
-                static_cast<uint32_t>(clip_max.y),
-            };
-
-            m_GuiDrawInfo->scissor_rects.emplace_back(scissor_rect);
-            m_GuiDrawInfo->meshes.emplace_back(mesh);
-        });
-}
-
-void Frame::SetCamera(asset::CameraNode& camera) {
-    auto& data         = m_FrameConstant;
-    data.camera_pos    = vec4f(camera.GetCameraPosition(), 1.0f);
-    data.view          = camera.GetViewMatrix();
-    data.inv_view      = inverse(data.view);
-    auto camera_object = camera.GetSceneObjectRef().lock();
-    assert(camera_object != nullptr);
-    // TODO orth camera
     data.projection = perspective(
-        camera_object->GetFov(),
-        camera_object->GetAspect(),
-        camera_object->GetNearClipDistance(),
-        camera_object->GetFarClipDistance());
+        camera->GetFov(),
+        camera->GetAspect(),
+        camera->GetNearClipDistance(),
+        camera->GetFarClipDistance());
     data.inv_projection = inverse(data.projection);
     data.proj_view      = data.projection * data.view;
     data.inv_proj_view  = inverse(data.proj_view);
 
-    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
+    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<std::byte*>(&data), sizeof(data));
+
+    m_Camera = std::move(camera);
 }
 
-void Frame::SetLight(asset::LightNode& light) {
-    auto& data             = m_FrameConstant;
-    data.light_position    = light.GetCalculatedTransformation() * vec4f(1.0f);
-    data.light_pos_in_view = data.view * data.light_position;
-    if (auto light_obj = light.GetSceneObjectRef().lock()) {
-        data.light_intensity = light_obj->GetIntensity() * light_obj->GetColor();
-    }
-    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
-}
+// void Frame::SetLight(resource::LightNode& light) {
+//     auto& data             = m_FrameConstant;
+//     data.light_position    = light.GetCalculatedTransformation() * vec4f(1.0f);
+//     data.light_pos_in_view = data.view * data.light_position;
+//     if (auto light_obj = light.GetSceneObjectRef().lock()) {
+//         data.light_intensity = light_obj->GetIntensity() * light_obj->GetColor();
+//     }
+//     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
+// }
 
 void Frame::Draw(IGraphicsCommandContext* context) {
-    for (const auto& item : m_DrawItems) {
-        context->SetPipelineState(item.pipeline);
-        context->SetParameter("FrameConstant", *m_ConstantBuffer, 0);
-        context->SetParameter("ObjectConstants", *m_ConstantBuffer, item.constant_offset);
-        context->SetParameter("BaseSampler", *m_ResMgr.GetSampler("BaseSampler"));
-        context->SetParameter("AmbientTexture", *item.ambient);
-        context->SetParameter("DiffuseTexture", *item.diffuse);
-        context->SetParameter("EmissionTexture", *item.emission);
-        context->SetParameter("SpecularTexture", *item.specular);
-        context->SetParameter("PowerTexture", *item.specular_power);
-        context->Draw(*item.mesh);
-    }
-}
-void Frame::GuiDraw(IGraphicsCommandContext* context) {
-    context->SetPipelineState(m_GuiDrawInfo->pipeline);
-    context->SetParameter("Constant", *m_ConstantBuffer, m_GuiDrawInfo->constant_offset);
-    context->SetParameter("Texture", *m_GuiDrawInfo->font_texture);
+    for (const auto& item : m_Renderables) {
+        context->SetPipelineState(m_ResMgr.GetPipelineState(item.material->GetGuid()));
+        context->SetParameter(FRAME_CONSTANT_BUFFER,
+                              m_ConstantBuffer,
+                              0);
+        context->SetParameter(OBJECT_CONSTANT_BUFFER,
+                              m_ConstantBuffer,
+                              item.object_constant_offset);
 
-    for (size_t i = 0; i < m_GuiDrawInfo->meshes.size(); i++) {
-        auto scissor_rects = m_GuiDrawInfo->scissor_rects[i];
-        context->SetScissorRect(scissor_rects[0], scissor_rects[1], scissor_rects[2], scissor_rects[3]);
-        context->Draw(*m_GuiDrawInfo->meshes[i]);
-    }
-}
+        if (auto material_constant_buffer = m_ResMgr.GetMaterialParameterBuffer(item.material->GetGuid());
+            material_constant_buffer) {
+            context->SetParameter(MATERIAL_CONSTANT_BUFFER, material_constant_buffer, item.material_constant_offset);
+        }
 
-void Frame::DebugDraw(IGraphicsCommandContext* context) {
-    for (const auto& item : m_DebugItems) {
-        context->SetPipelineState(item.pipeline);
-        context->SetParameter("FrameConstant", *m_ConstantBuffer, 0);
-        context->SetParameter("ObjectConstants", *m_ConstantBuffer, item.constant_offset);
-        context->Draw(*item.mesh);
+        for (const auto& [name, texture] : item.material_instance->GetTextures()) {
+            context->SetParameter(name, m_ResMgr.GetTextureBuffer(texture->GetGuid()));
+        }
+
+        context->Draw(m_ResMgr.GetVertexBuffer(item.vertices->GetGuid()),
+                      m_ResMgr.GetIndexBuffer(item.indices->GetGuid()),
+                      item.material->GetPrimitiveType());
     }
 }
 
-void Frame::ResetState() {
+void Frame::SetFenceValue(std::uint64_t fence_value) {
+    m_FenceValue = fence_value;
+    m_Lock       = true;
+}
+
+bool Frame::IsRenderingFinished() const {
+    return m_Driver.IsFenceComplete(m_FenceValue);
+}
+
+void Frame::Reset() {
     m_Driver.WaitFence(m_FenceValue);
-    m_DrawItems.clear();
-    m_GuiDrawInfo = nullptr;
-    m_DebugItems.clear();
+    m_Renderables.clear();
     m_ConstantCount = 1;
+    m_Lock          = false;
 }
 
 void Frame::SetRenderTarget(std::shared_ptr<RenderTarget> rt) {
     m_Driver.WaitFence(m_FenceValue);
-    m_Output = rt;
+    m_Output = std::move(rt);
 }
 
-void Frame::PopulateMaterial(const asset::Material::Color& color, vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
-    std::visit(utils::Overloaded{
-                   [&](const vec4f& value) {
-                       value_dest   = value;
-                       texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
-                   },
-                   [&](std::shared_ptr<asset::Texture> texutre) {
-                       value_dest   = vec4f(-1.0f);
-                       texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
-                   }},
-               color);
-}
+// void Frame::PopulateMaterial(const resource::Material::Color& color, vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
+//     std::visit(utils::Overloaded{
+//                    [&](const vec4f& value) {
+//                        value_dest   = value;
+//                        texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+//                    },
+//                    [&](std::shared_ptr<resource::Texture> texutre) {
+//                        value_dest   = vec4f(-1.0f);
+//                        texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
+//                    }},
+//                color);
+// }
 
-void Frame::PopulateMaterial(const asset::Material::SingleValue& value, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
-    std::visit(utils::Overloaded{
-                   [&](float value) {
-                       value_dest   = value;
-                       texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8_UNORM);
-                   },
-                   [&](std::shared_ptr<asset::Texture> texutre) {
-                       value_dest   = -1.0f;
-                       texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
-                   }},
-               value);
+// void Frame::PopulateMaterial(const resource::Material::SingleValue& value, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
+//     std::visit(utils::Overloaded{
+//                    [&](float value) {
+//                        value_dest   = value;
+//                        texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8_UNORM);
+//                    },
+//                    [&](std::shared_ptr<resource::Texture> texutre) {
+//                        value_dest   = -1.0f;
+//                        texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
+//                    }},
+//                value);
+// }
+
+void Frame::PrepareData() {
+    // TODO auto resize constant buffer
+    // if new size is smaller, the expand function return directly.
+    if (m_ConstantBuffer->desc.num_elements < m_Renderables.size() + 1)
+        // becase capacity + needed > exsisted + needed
+        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_Renderables.size() + 1);
+
+    std::sort(
+        m_Renderables.begin(),
+        m_Renderables.end(),
+        [](const Renderable& a, const Renderable& b) -> bool {
+            return a.material < b.material;
+        });
+
+    std::size_t index = 0;
+    for (auto& item : m_Renderables) {
+        m_ResMgr.PrepareVertexBuffer(item.vertices);
+        m_ResMgr.PrepareIndexBuffer(item.indices);
+
+        ObjectConstant constant{
+            .word_transform   = item.transform->GetTransform(),
+            .object_transform = item.transform->GetTransform(),
+            .parent_transform = item.transform->GetParentTransform(),
+            .translation      = vec4f(item.transform->GetTranslation(), 1.0f),
+            .rotation         = rotate(mat4f(1.0f), item.transform->GetRotation()),
+            .scaling          = vec4f(item.transform->GetScaling(), 1.0f),
+        };
+        // since we share the object constant value and frame constant value in the same constant buffer,
+        // and the first element of constant buffer is frame constant value, so we offset the index one element
+        m_Driver.UpdateConstantBuffer(m_ConstantBuffer,
+                                      1 + index,
+                                      reinterpret_cast<const std::byte*>(&constant),
+                                      sizeof(constant));
+        item.object_constant_offset = 1 + index;
+
+        // Material parameter data
+        auto material = item.material;
+        m_ResMgr.PrepareMaterial(material);
+        if (auto material_buffer = m_ResMgr.GetMaterialParameterBuffer(material->GetGuid()); material_buffer) {
+            auto& cpu_buffer = item.material_instance->GetParameterBuffer();
+
+            m_Driver.UpdateConstantBuffer(
+                material_buffer,
+                index,
+                cpu_buffer.GetData(),
+                cpu_buffer.GetDataSize());
+        }
+
+        // Texture
+        for (const auto& [name, texture] : item.material_instance->GetTextures()) {
+            m_ResMgr.PrepareTextureBuffer(texture);
+        }
+        index++;
+    }
 }
 
 }  // namespace hitagi::graphics

@@ -1,114 +1,107 @@
 #pragma once
-#include "types.hpp"
-#include "shader_manager.hpp"
-#include "resource.hpp"
+#include <hitagi/core/buffer.hpp>
+#include <hitagi/resource/enums.hpp>
+#include <hitagi/graphics/enums.hpp>
+#include <hitagi/graphics/resource.hpp>
+#include <hitagi/utils/private_build.hpp>
 
-#include <string>
-#include <optional>
-#include <cassert>
-#include <array>
-#include <set>
+#include <bitset>
 
 namespace hitagi::graphics {
 class DriverAPI;
 
-struct InputLayout {
-    std::string           semantic_name;
-    unsigned              semantic_index;
-    Format                format;
-    unsigned              input_slot;
-    size_t                aligned_by_offset;
-    std::optional<size_t> instance_count;
-};
-
-class RootSignature : public Resource {
+struct RootSignatureDetial {
+public:
     struct Parameter {
-        std::string        name;
+        std::pmr::string   name;
         ShaderVariableType type;
         unsigned           register_index;
         unsigned           space;
         ShaderVisibility   visibility;
     };
     struct StaticSamplerDescription {
-        std::string          name;
-        Sampler::Description desc;
-        unsigned             register_index;
-        unsigned             space;
-        ShaderVisibility     visibility;
+        std::pmr::string name;
+        SamplerDesc      desc;
+        unsigned         register_index;
+        unsigned         space;
+        ShaderVisibility visibility;
     };
-
-public:
-    RootSignature(std::string_view name) : Resource(name, nullptr) {}
-    RootSignature(const RootSignature&) = delete;
-    RootSignature& operator=(const RootSignature&) = delete;
-    RootSignature(RootSignature&&);
-    RootSignature& operator=(RootSignature&&);
-
-    RootSignature& Add(
-        std::string_view   name,
-        ShaderVariableType type,
-        unsigned           register_index,
-        unsigned           space,
-        ShaderVisibility   visibility = ShaderVisibility::All);
-    // TODO Sampler
-    RootSignature& AddStaticSampler(
-        std::string_view     name,
-        Sampler::Description desc,
-        unsigned             register_index,
-        unsigned             sapce,
-        ShaderVisibility     visibility = ShaderVisibility::All);
-    RootSignature& Create(DriverAPI& driver);
-
-    inline auto& GetParametes() const noexcept { return m_ParameterTable; }
-    inline auto& GetStaticSamplerDescs() const noexcept { return m_StaticSamplerDescs; }
-
-    operator bool() const noexcept { return m_Created; }
-
-protected:
-    bool                                  m_Created = false;
-    std::vector<Parameter>                m_ParameterTable;
-    std::vector<StaticSamplerDescription> m_StaticSamplerDescs;
+    std::pmr::string                           name;
+    std::pmr::vector<Parameter>                parameter_table;
+    std::pmr::vector<StaticSamplerDescription> static_sampler_descs;
 };
 
-class PipelineState : public Resource {
+class RootSignature : public Resource, private RootSignatureDetial, public utils::enable_private_make_shared_build<RootSignature> {
 public:
-    PipelineState(std::string_view name) : Resource(name, nullptr) {}
+    class Builder : private RootSignatureDetial {
+        friend class RootSignature;
 
-    PipelineState& SetVertexShader(std::shared_ptr<VertexShader> vs);
-    PipelineState& SetPixelShader(std::shared_ptr<PixelShader> ps);
-    PipelineState& SetInputLayout(const std::vector<InputLayout>& input_layout);
-    PipelineState& SetRootSignautre(std::shared_ptr<RootSignature> sig);
-    PipelineState& SetRenderFormat(Format format);
-    PipelineState& SetDepthBufferFormat(Format format);
-    PipelineState& SetPrimitiveType(PrimitiveType type);
-    PipelineState& SetRasterizerState(RasterizerDescription desc);
-    PipelineState& SetBlendState(BlendDescription desc);
-    void           Create(DriverAPI& driver);
+    public:
+        Builder& SetName(std::string_view name);
 
-    inline const std::string&              GetName() const noexcept { return m_Name; }
-    inline std::shared_ptr<VertexShader>   GetVS() const noexcept { return m_Vs; }
-    inline std::shared_ptr<PixelShader>    GetPS() const noexcept { return m_Ps; }
-    inline const std::vector<InputLayout>& GetInputLayout() const noexcept { return m_InputLayout; }
-    inline std::shared_ptr<RootSignature>  GetRootSignature() const noexcept { return m_RootSignature; }
-    inline Format                          GetRenderTargetFormat() const noexcept { return m_RenderFormat; }
-    inline Format                          GetDepthBufferFormat() const noexcept { return m_DepthBufferFormat; }
-    inline PrimitiveType                   GetPrimitiveType() const noexcept { return m_PrimitiveType; }
-    inline BlendDescription                GetBlendState() const noexcept { return m_BlendState; }
-    inline RasterizerDescription           GetRasterizerState() const noexcept { return m_RasterizerState; }
-    inline bool                            IsFontCounterClockwise() const noexcept { return m_FrontCounterClockwise; }
+        Builder& Add(
+            std::string_view   name,
+            ShaderVariableType type,
+            unsigned           register_index,
+            unsigned           space,
+            ShaderVisibility   visibility = ShaderVisibility::All);
 
-private:
-    bool                           m_Created = false;
-    std::shared_ptr<VertexShader>  m_Vs;
-    std::shared_ptr<PixelShader>   m_Ps;
-    std::vector<InputLayout>       m_InputLayout;
-    bool                           m_FrontCounterClockwise = true;
-    std::shared_ptr<RootSignature> m_RootSignature         = nullptr;
-    Format                         m_RenderFormat          = Format::UNKNOWN;
-    Format                         m_DepthBufferFormat     = Format::UNKNOWN;
-    PrimitiveType                  m_PrimitiveType         = PrimitiveType::TriangleList;
-    BlendDescription               m_BlendState;
-    RasterizerDescription          m_RasterizerState;
+        // TODO Sampler
+        Builder& AddStaticSampler(
+            std::string_view name,
+            SamplerDesc      desc,
+            unsigned         register_index,
+            unsigned         space,
+            ShaderVisibility visibility = ShaderVisibility::All);
+
+        std::shared_ptr<RootSignature> Create(DriverAPI& driver);
+    };
+
+    inline auto& GetParametes() const noexcept { return parameter_table; }
+    inline auto& GetStaticSamplerDescs() const noexcept { return static_sampler_descs; }
+
+protected:
+    RootSignature(const Builder&);
+};
+
+struct PipelineStateDetial {
+    constexpr static auto num_vertex_slot = magic_enum::enum_count<resource::VertexAttribute>();
+
+    std::pmr::string               name;
+    core::Buffer                   vertex_shader;
+    core::Buffer                   pixel_shader;
+    std::bitset<num_vertex_slot>   vertex_slot_mask;
+    bool                           front_counter_clockwise = true;
+    std::shared_ptr<RootSignature> root_signature          = nullptr;
+    Format                         render_format           = Format::R8G8B8A8_UNORM;
+    Format                         depth_buffer_format     = Format::UNKNOWN;
+    resource::PrimitiveType        primitive_type          = resource::PrimitiveType::TriangleList;
+    BlendDescription               blend_state;
+    RasterizerDescription          rasterizer_state;
+};
+
+class PipelineState : public Resource, public PipelineStateDetial, utils::enable_private_make_shared_build<PipelineState> {
+public:
+    class Builder : private PipelineStateDetial {
+        friend class PipelineState;
+
+    public:
+        Builder& SetName(std::string_view name);
+        Builder& SetVertexShader(core::Buffer vs);
+        Builder& SetPixelShader(core::Buffer ps);
+        Builder& EnableVertexSlot(resource::VertexAttribute slot);
+        Builder& SetRootSignautre(std::shared_ptr<RootSignature> sig);
+        Builder& SetRenderFormat(Format format);
+        Builder& SetDepthBufferFormat(Format format);
+        Builder& SetPrimitiveType(resource::PrimitiveType type);
+        Builder& SetRasterizerState(RasterizerDescription desc);
+        Builder& SetBlendState(BlendDescription desc);
+
+        std::shared_ptr<PipelineState> Build(DriverAPI& driver);
+    };
+
+protected:
+    PipelineState(const Builder& builder);
 };
 
 }  // namespace hitagi::graphics

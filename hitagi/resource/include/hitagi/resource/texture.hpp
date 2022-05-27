@@ -1,27 +1,27 @@
 #pragma once
-#include "image.hpp"
+#include <hitagi/resource/scene_object.hpp>
+#include <hitagi/resource/image.hpp>
 
 #include <filesystem>
-#include <memory>
-#include <string>
 
-namespace hitagi::asset {
-class Texture {
+namespace hitagi::resource {
+class Texture : public SceneObject {
 public:
-    Texture(const std::filesystem::path& path) : m_TexturePath(path) {}
-    Texture(std::string name, uint32_t coord_index, std::shared_ptr<Image> image)
-        : m_TexCoordIndex(coord_index), m_Image(std::move(image)) {}
-    Texture(Texture&)  = default;
-    Texture(Texture&&) = default;
+    Texture(std::filesystem::path path);
+    Texture(std::shared_ptr<Image> image);
+    Texture(uint32_t coord_index, std::shared_ptr<Image> image);
 
-    void                          LoadTexture();
-    inline std::shared_ptr<Image> GetTextureImage() const noexcept { return m_Image; }
-    friend std::ostream&          operator<<(std::ostream& out, const Texture& obj);
+    std::shared_ptr<Image> GetTextureImage() const noexcept;
+    std::filesystem::path  GetTexturePath() const noexcept;
+
+    void LoadImage(std::function<std::shared_ptr<Image>(std::filesystem::path)>&& loader);
+    void UnloadImage();
 
 protected:
-    uint32_t               m_TexCoordIndex = 0;
-    std::filesystem::path  m_TexturePath;
-    std::shared_ptr<Image> m_Image = nullptr;
+    uint32_t              m_TexCoordIndex = 0;
+    std::filesystem::path m_ImagePath;
+    // Use weak ptr, so we can unload image if the texture no used;
+    std::shared_ptr<Image> m_Image;
 };
 
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

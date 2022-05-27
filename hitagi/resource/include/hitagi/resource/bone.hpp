@@ -1,21 +1,20 @@
 #pragma once
-#include "scene_object.hpp"
-
+#include <hitagi/resource/scene_object.hpp>
 #include <hitagi/math/matrix.hpp>
 
 #include <map>
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 class Bone : public SceneObject {
 public:
-    using SceneObject::SceneObject;
+    Bone() = default;
 
     inline void SetWeight(size_t vertex_index, float weight) {
         m_Weights[vertex_index] = weight;
     }
 
     inline void SetBindTransformMatrix(math::mat4f transform) {
-        m_BindTransform = std::move(transform);
+        m_BindTransform = transform;
     }
 
     inline float GetWeight(size_t vertex_index) const {
@@ -29,8 +28,8 @@ public:
     }
 
 private:
-    std::map<size_t, float> m_Weights;
-    math::mat4f             m_BindTransform;
+    std::pmr::map<size_t, float> m_Weights;
+    math::mat4f                  m_BindTransform;
 };
 
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource

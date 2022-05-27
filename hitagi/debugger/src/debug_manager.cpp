@@ -1,68 +1,56 @@
 #include <hitagi/debugger/debug_manager.hpp>
-#include <hitagi/resource/geometry_factory.hpp>
-#include <hitagi/gui/gui_manager.hpp>
+#include <hitagi/core/memory_manager.hpp>
+#include <hitagi/resource/mesh_factory.hpp>
+#include <hitagi/resource/asset_manager.hpp>
+#include <hitagi/resource/renderable.hpp>
+#include <hitagi/graphics/graphics_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <fmt/chrono.h>
 
-#include <iostream>
 #include <algorithm>
+#include <iterator>
 
 using namespace hitagi::math;
+using namespace hitagi::resource;
 
 namespace hitagi {
 std::unique_ptr<debugger::DebugManager> g_DebugManager = std::make_unique<debugger::DebugManager>();
 }
 namespace hitagi::debugger {
-constexpr auto cmp = [](const DebugPrimitive& lhs, const DebugPrimitive& rhs) -> bool {
-    return lhs.expires_at > rhs.expires_at;
-};
 
 int DebugManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("DebugManager");
     m_Logger->info("Initialize...");
+
+    m_LineMaterial = g_AssetManager->ImportMaterial("assets/material/debug_line.json");
+
+    m_DebugPrimitives.emplace("x_axis", MeshFactory::Line({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}));
+    m_DebugPrimitives.emplace("y_axis", MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}));
+    m_DebugPrimitives.emplace("z_axis", MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}));
+
+    m_DebugPrimitives["x_axis"].material = m_LineMaterial;
+    m_DebugPrimitives["y_axis"].material = m_LineMaterial;
+    m_DebugPrimitives["z_axis"].material = m_LineMaterial;
+
+    m_DebugPrimitives.emplace("box", MeshFactory::BoxWireframe(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f), {0.0f, 0.0f, 0.0f, 1.0f}));
+    m_DebugPrimitives["box"].material = m_LineMaterial;
+
     return 0;
 }
 
 void DebugManager::Finalize() {
-    m_DebugLine = nullptr;
-    m_DebugBox  = nullptr;
+    m_LineMaterial = nullptr;
+    m_DebugPrimitives.clear();
+
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
 void DebugManager::Tick() {
-    while (!m_DebugPrimitives.empty() && m_DebugPrimitives.back().expires_at < std::chrono::high_resolution_clock::now()) {
-        std::pop_heap(m_DebugPrimitives.begin(), m_DebugPrimitives.end(), cmp);
-        m_DebugPrimitives.pop_back();
-    }
-    ShowProfilerInfo();
-    m_TimingInfo.clear();
-}
-
-void DebugManager::ShowProfilerInfo() {
-    g_GuiManager->DrawGui([timing_info = m_TimingInfo]() -> void {
-        if (ImGui::Begin("Profiler")) {
-            ImColor red(0.83f, 0.27f, 0.33f, 1.0f);
-            ImColor green(0.53f, 1.0f, 0.29f, 1.0f);
-
-            if (ImGui::BeginTable("Timing table", 2)) {
-                for (auto&& [name, timing] : timing_info) {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::Text("%s: ", name.c_str());
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::TextColored(
-                        timing.count() * 1000.0 > 1.0f ? red : green,
-                        "%s",
-                        fmt::format("{:>10.2%Q %q}", std::chrono::duration<double, std::milli>(timing)).c_str());
-                }
-                ImGui::EndTable();
-            }
-        }
-        ImGui::End();
-    });
+    RetiredPrimitive();
+    DrawPrimitive();
 }
 
 void DebugManager::ToggleDebugInfo() {
@@ -70,41 +58,65 @@ void DebugManager::ToggleDebugInfo() {
 }
 
 void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
-    if (m_DebugLine == nullptr)
-        m_DebugLine = asset::GeometryFactory::Line(vec3f(0.0f, 0.0f, 0.0f), vec3f(1.0f, 0.0f, 0.0f));
+    Geometry line(std::make_shared<Transform>());
+    line.meshes.emplace_back(MeshFactory::Line(from, to, color));
 
-    const vec3f dest_direction = normalize(to - from);
-    const float length         = (to - from).norm();
-    const vec3f rotate_axis    = cross(vec3f(1.0f, 0.0f, 0.0f), dest_direction);
-    const float theta          = std::acos(dot(vec3f(1.0f, 0.0f, 0.0f), dest_direction));
-
-    mat4f transform = translate(rotate(scale(mat4f(1.0f), length), theta, rotate_axis), from);
-    AddPrimitive(m_DebugLine, transform, color, duration, depth_enabled);
+    AddPrimitive(std::move(line), duration, depth_enabled);
 }
 
 void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
-    const vec3f origin{0.0f, 0.0f, 0.0f};
-    const vec4f x{1.0f, 0.0f, 0.0f, 1.0f};
-    const vec4f y{0.0f, 1.0f, 0.0f, 1.0f};
-    const vec4f z{0.0f, 0.0f, 1.0f, 1.0f};
-    DrawLine(origin, (transform * x).xyz, vec4f(1, 0, 0, 1), std::chrono::seconds(0), depth_enabled);
-    DrawLine(origin, (transform * y).xyz, vec4f(0, 1, 0, 1), std::chrono::seconds(0), depth_enabled);
-    DrawLine(origin, (transform * z).xyz, vec4f(0, 0, 1, 1), std::chrono::seconds(0), depth_enabled);
+    Geometry axis(std::make_shared<Transform>(decompose(transform)));
+    axis.meshes.emplace_back(m_DebugPrimitives["x_axis"]);
+    axis.meshes.emplace_back(m_DebugPrimitives["y_axis"]);
+    axis.meshes.emplace_back(m_DebugPrimitives["z_axis"]);
+
+    AddPrimitive(std::move(axis), std::chrono::seconds(0), depth_enabled);
 }
 
 void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
-    if (m_DebugBox == nullptr)
-        m_DebugBox = asset::GeometryFactory::Box(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f));
-    AddPrimitive(m_DebugBox, transform, color, duration, depth_enabled);
+    Geometry box(std::make_shared<Transform>(decompose(transform)));
+    box.meshes.emplace_back(m_DebugPrimitives["box"]);
+
+    AddPrimitive(std::move(box), duration, depth_enabled);
 }
 
-void DebugManager::AddPrimitive(std::shared_ptr<asset::Geometry> geometry, const mat4f& transform, const vec4f& color, std::chrono::seconds duration, bool depth_enabled) {
-    auto node = std::make_shared<asset::GeometryNode>();
-    node->SetSceneObjectRef(geometry);
-    node->ApplyTransform(transform);
-    m_DebugPrimitives.emplace_back(DebugPrimitive{node, color, std::chrono::high_resolution_clock::now() + duration});
-    // make min heap
-    std::push_heap(m_DebugPrimitives.begin(), m_DebugPrimitives.end(), cmp);
+void DebugManager::AddPrimitive(Geometry&& geometry, std::chrono::seconds duration, bool depth_enabled) {
+    m_DebugDrawItems.emplace_back(DebugPrimitive{std::move(geometry), std::chrono::high_resolution_clock::now() + duration});
+}
+
+void DebugManager::RetiredPrimitive() {
+    std::sort(m_DebugDrawItems.begin(), m_DebugDrawItems.end(),
+              [](const DebugPrimitive& lhs, const DebugPrimitive& rhs) -> bool {
+                  return lhs.expires_at > rhs.expires_at;
+              });
+
+    auto iter = std::find_if(m_DebugDrawItems.begin(), m_DebugDrawItems.end(),
+                             [](DebugPrimitive& item) {
+                                 if (item.dirty) {
+                                     item.dirty = false;
+                                     return false;
+                                 }
+                                 return item.expires_at < std::chrono::high_resolution_clock::now();
+                             });
+    m_DebugDrawItems.erase(iter, m_DebugDrawItems.end());
+}
+
+void DebugManager::DrawPrimitive() const {
+    std::pmr::vector<Renderable> renderables;
+    for (const auto& primitive : m_DebugDrawItems) {
+        auto& geometry = primitive.geometry;
+        for (const auto& mesh : geometry.meshes) {
+            Renderable item;
+            item.indices           = mesh.indices;
+            item.vertices          = mesh.vertices;
+            item.material          = mesh.material->GetMaterial().lock();
+            item.material_instance = mesh.material;
+            item.transform         = geometry.transform;
+            renderables.emplace_back(std::move(item));
+        }
+    }
+
+    g_GraphicsManager->AppendRenderables(renderables);
 }
 
 }  // namespace hitagi::debugger

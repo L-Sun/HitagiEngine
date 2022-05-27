@@ -47,6 +47,7 @@ void ThreadManager::Finalize() {
         thread.join();
     }
     m_Logger->info("Finalize.");
+    m_Logger = nullptr;
 }
 
 void ThreadManager::Tick() {}

@@ -2,55 +2,69 @@
 #include <hitagi/core/memory_manager.hpp>
 
 #include <algorithm>
+#include <memory_resource>
+#include <type_traits>
 
 namespace hitagi::core {
 
 Buffer::Buffer(size_t size, size_t alignment)
-    : m_Size(size),
+    : m_Allocator(g_MemoryManager->GetAllocator()),
+      m_Data(static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment))),
+      m_Size(size),
       m_Alignment(alignment) {
-    m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(size, m_Alignment));
 }
 
 Buffer::Buffer(const void* initial_data, size_t size, size_t alignment)
-    : m_Size(size),
+    : m_Allocator(g_MemoryManager->GetAllocator()),
+      m_Data(static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment))),
+      m_Size(size),
       m_Alignment(alignment) {
-    m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(size, m_Alignment));
     std::memcpy(m_Data, initial_data, m_Size);
 }
 
-Buffer::Buffer(const Buffer& buffer)
-    : m_Data(reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(buffer.m_Size, buffer.m_Alignment))),
-      m_Size(buffer.m_Size),
-      m_Alignment(buffer.m_Alignment) {
-    std::memcpy(m_Data, buffer.m_Data, buffer.m_Size);
+Buffer::Buffer(const Buffer& other)
+    : m_Allocator(other.m_Allocator),
+      m_Data(static_cast<std::byte*>(m_Allocator.allocate_bytes(other.m_Size, other.m_Alignment))),
+      m_Size(other.m_Size),
+      m_Alignment(other.m_Alignment) {
+    std::memcpy(m_Data, other.m_Data, other.m_Size);
 }
 
-Buffer::Buffer(Buffer&& buffer) : m_Data(buffer.m_Data), m_Size(buffer.m_Size), m_Alignment(buffer.m_Alignment) {
-    buffer.m_Data      = nullptr;
-    buffer.m_Size      = 0;
-    buffer.m_Alignment = 0;
+Buffer::Buffer(Buffer&& other) noexcept
+    : m_Allocator(other.m_Allocator),
+      m_Data(other.m_Data),
+      m_Size(other.m_Size),
+      m_Alignment(other.m_Alignment) {
 }
 
-auto Buffer::operator=(const Buffer& rhs) -> Buffer& {
+Buffer& Buffer::operator=(const Buffer& rhs) {
     if (this != &rhs) {
         if (m_Size >= rhs.m_Size && m_Alignment == rhs.m_Alignment)
             std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
         else {
-            if (m_Data) g_MemoryManager->Free(m_Data, m_Size, m_Alignment);
-            m_Data = reinterpret_cast<uint8_t*>(g_MemoryManager->Allocate(rhs.m_Size, rhs.m_Alignment));
+            if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
+            m_Data = static_cast<std::byte*>(m_Allocator.allocate_bytes(rhs.m_Size, rhs.m_Alignment));
             std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
             m_Size      = rhs.m_Size;
             m_Alignment = rhs.m_Alignment;
         }
     }
     return *this;
-}  // namespace hitagi::Core
-auto Buffer::operator=(Buffer&& rhs) -> Buffer& {
+}
+
+Buffer& Buffer::operator=(Buffer&& rhs) noexcept {
     if (this != &rhs) {
-        if (m_Data) g_MemoryManager->Free(m_Data, m_Size, m_Alignment);
-        m_Data          = rhs.m_Data;
-        m_Size          = rhs.m_Size;
-        m_Alignment     = rhs.m_Alignment;
+        if (m_Allocator != rhs.m_Allocator && m_Data != nullptr) {
+            m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
+            m_Data = static_cast<std::byte*>(m_Allocator.allocate_bytes(m_Size, m_Alignment));
+            std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
+        } else {
+            m_Data = rhs.m_Data;
+        }
+
+        m_Size      = rhs.m_Size;
+        m_Alignment = rhs.m_Alignment;
+
         rhs.m_Data      = nullptr;
         rhs.m_Size      = 0;
         rhs.m_Alignment = 0;
@@ -58,17 +72,21 @@ auto Buffer::operator=(Buffer&& rhs) -> Buffer& {
     return *this;
 }
 Buffer::~Buffer() {
-    if (m_Data) g_MemoryManager->Free(m_Data, m_Size, m_Alignment);
-    m_Data = nullptr;
+    Clear();
 }
 
-auto Buffer::GetData() -> uint8_t* {
-    return m_Data;
+void Buffer::Resize(std::size_t size, std::size_t alignment) {
+    if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
+    m_Data      = static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment));
+    m_Size      = size;
+    m_Alignment = alignment;
 }
-auto Buffer::GetData() const -> const uint8_t* {
-    return m_Data;
+
+void Buffer::Clear() {
+    if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
+    m_Data      = nullptr;
+    m_Size      = 0;
+    m_Alignment = 0;
 }
-auto Buffer::GetDataSize() const -> size_t {
-    return m_Size;
-}
+
 }  // namespace hitagi::core

@@ -1,156 +1,159 @@
-#include "resource_manager.hpp"
+#include <hitagi/graphics/resource_manager.hpp>
 
-#include <spdlog/spdlog.h>
-#include <fmt/format.h>
+#include <hitagi/core/file_io_manager.hpp>
 
-using namespace hitagi::math;
+#include <magic_enum.hpp>
+
+using namespace hitagi::resource;
 
 namespace hitagi::graphics {
-std::shared_ptr<MeshBuffer> ResourceManager::GetMeshBuffer(const asset::Mesh& mesh) {
-    auto id = mesh.GetGuid();
-    if (m_MeshBuffer.count(id) != 0)
-        return m_MeshBuffer.at(id);
 
-    auto result = std::make_shared<MeshBuffer>();
+ResourceManager::ResourceManager(DriverAPI& driver)
+    : m_Driver(driver) {}
 
-    // Create new vertex array
-    for (auto&& vertex : mesh.GetVertexArrays()) {
-        std::string_view name = vertex.GetAttributeName();
-        result->vertices.emplace(
-            name,                         // attribut name
-            m_Driver.CreateVertexBuffer(  // backend vertex buffer
-                fmt::format("{}-{}", name, id.str()),
-                vertex.GetVertexCount(),
-                vertex.GetVertexSize(),
-                vertex.GetData()));
+void ResourceManager::PrepareVertexBuffer(const std::shared_ptr<VertexArray>& vertices) {
+    auto id = vertices->GetGuid();
+    if (m_VertexBuffer.count(id) == 0) {
+        m_VertexBuffer.emplace(id, m_Driver.CreateVertexBuffer(vertices));
+        m_VersionsInfo[id] = vertices->Version();
+    } else if (auto& vb = m_VertexBuffer.at(id);
+               vertices->Version() > m_VersionsInfo.at(id)) {
+        vb                 = m_Driver.CreateVertexBuffer(vertices);
+        m_VersionsInfo[id] = vertices->Version();
+    } else {
+        assert(vertices->Version() == m_VersionsInfo.at(id));
     }
-    // Create Index array
-    auto& index_array = mesh.GetIndexArray();
-    result->indices   = m_Driver.CreateIndexBuffer(
-          fmt::format("index-{}", id.str()),
-          index_array.GetIndexCount(),
-          index_array.GetIndexSize(),
-          index_array.GetData());
-
-    result->primitive = mesh.GetPrimitiveType();
-
-    m_MeshBuffer.emplace(id, result);
-
-    return result;
 }
 
-std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(std::shared_ptr<asset::Image> texture) {
-    if (!texture) return GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
+void ResourceManager::PrepareIndexBuffer(const std::shared_ptr<IndexArray>& indices) {
+    auto id = indices->GetGuid();
+    if (m_IndexBuffer.count(id) == 0) {
+        m_IndexBuffer.emplace(id, m_Driver.CreateIndexBuffer(indices));
+        m_VersionsInfo[id] = indices->Version();
+    } else if (auto& ib = m_IndexBuffer.at(id);
+               indices->Version() > m_VersionsInfo.at(id)) {
+        ib                 = m_Driver.CreateIndexBuffer(indices);
+        m_VersionsInfo[id] = indices->Version();
+    } else {
+        assert(indices->Version() == m_VersionsInfo.at(id));
+    }
+}
 
+void ResourceManager::PrepareTextureBuffer(const std::shared_ptr<Texture>& texture) {
     auto id = texture->GetGuid();
-    if (m_TextureBuffer.count(id) != 0)
-        return m_TextureBuffer.at(id);
-
-    Format format;
-    if (auto bit_count = texture->GetBitcount(); bit_count == 8)
-        format = Format::R8_UNORM;
-    else if (bit_count == 16)
-        format = Format::R8G8_UNORM;
-    else if (bit_count == 24)
-        format = Format::R8G8B8A8_UNORM;
-    else if (bit_count == 32)
-        format = Format::R8G8B8A8_UNORM;
-    else
-        format = Format::UNKNOWN;
-
-    // Create new texture buffer
-    TextureBuffer::Description desc = {};
-    desc.format                     = format;
-    desc.width                      = texture->GetWidth();
-    desc.height                     = texture->GetHeight();
-    desc.pitch                      = texture->GetPitch();
-    desc.initial_data               = texture->GetData();
-    desc.initial_data_size          = texture->GetDataSize();
-
-    m_TextureBuffer.emplace(id, m_Driver.CreateTextureBuffer(id.str(), desc));
-    return m_TextureBuffer.at(id);
-}
-
-std::shared_ptr<TextureBuffer> ResourceManager::GetDefaultTextureBuffer(Format format) {
-    if (m_DefaultTextureBuffer.count(format) != 0)
-        return m_DefaultTextureBuffer.at(format);
-
-    TextureBuffer::Description desc = {};
-    desc.format                     = format;
-    desc.width                      = 100;
-    desc.height                     = 100;
-    desc.pitch                      = get_format_bit_size(format);
-    desc.sample_count               = 1;
-    desc.sample_quality             = 0;
-    m_DefaultTextureBuffer.emplace(format, m_Driver.CreateTextureBuffer("Default Texture", desc));
-    return m_DefaultTextureBuffer.at(format);
-}
-
-std::shared_ptr<Sampler> ResourceManager::GetSampler(std::string_view name) {
-    const std::string search_name(name);
-    if (m_Samplers.count(search_name) != 0) return m_Samplers.at(search_name);
-
-    // TODO should throw error
-    auto&& [iter, success] = m_Samplers.emplace(search_name, m_Driver.CreateSampler(name, {}));
-    return iter->second;
-}
-
-void ResourceManager::MakeImGuiMesh(ImDrawData* data, ImGuiMeshBuilder&& builder) {
-    if (data->DisplaySize.x <= 0.0f || data->DisplaySize.y <= 0.0f || data->TotalIdxCount == 0 || data->TotalIdxCount == 0)
-        return;
-
-    if (m_ImGuiVertexBuffer == nullptr || m_ImGuiVertexBuffer->vertex_count < data->TotalVtxCount) {
-        m_ImGuiVertexBuffer = m_Driver.CreateVertexBuffer("ImGui Vertex", data->TotalVtxCount, sizeof(ImDrawVert));
+    if (m_TextureBuffer.count(id) == 0) {
+        m_TextureBuffer.emplace(id, m_Driver.CreateTextureBuffer(texture));
+        m_VersionsInfo[id] = texture->Version();
+    } else if (auto& tb = m_TextureBuffer.at(id);
+               texture->Version() > m_VersionsInfo.at(id)) {
+        tb                 = m_Driver.CreateTextureBuffer(texture);
+        m_VersionsInfo[id] = texture->Version();
+    } else {
+        assert(texture->Version() == m_VersionsInfo.at(id));
     }
-    if (m_ImGuiIndexBuffer == nullptr || m_ImGuiIndexBuffer->index_count < data->TotalIdxCount) {
-        m_ImGuiIndexBuffer = m_Driver.CreateIndexBuffer("ImGui Index", data->TotalIdxCount, sizeof(ImDrawIdx));
+}
+
+void ResourceManager::PrepareMaterial(const std::shared_ptr<resource::Material>& material) {
+    PrepareMaterialParameterBuffer(material);
+    PreparePipeline(material);
+}
+
+void ResourceManager::PrepareMaterialParameterBuffer(const std::shared_ptr<Material>& material) {
+    if (material->GetParametersSize() == 0) return;
+
+    auto id = material->GetGuid();
+    if (m_MaterialParameterBuffer.count(id) == 0) {
+        m_MaterialParameterBuffer.emplace(
+            id,
+            m_Driver.CreateConstantBuffer(material->GetUniqueName(), {material->GetNumInstances(), material->GetParametersSize()}));
+        m_VersionsInfo[id] = material->Version();
+
+    } else if (auto& mb = m_MaterialParameterBuffer.at(id);
+               material->Version() > m_VersionsInfo.at(id)) {
+        mb                 = m_Driver.CreateConstantBuffer(material->GetUniqueName(), {material->GetNumInstances(), material->GetParametersSize()});
+        m_VersionsInfo[id] = material->Version();
+
+    } else {
+        assert(material->Version() == m_VersionsInfo.at(id));
     }
+}
 
-    auto cmd_context = m_Driver.GetGraphicsCommandContext();
+void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material) {
+    auto id = material->GetGuid();
+    if (m_PipelineStates.count(id) == 0) {
+        RootSignature::Builder rootsig_builder;
+        rootsig_builder
+            .Add(FRAME_CONSTANT_BUFFER, ShaderVariableType::CBV, 0, 0)
+            .Add(OBJECT_CONSTANT_BUFFER, ShaderVariableType::CBV, 1, 0);
 
-    size_t total_vertex_offset = 0;
-    size_t total_index_offset  = 0;
-    for (size_t i = 0; i < data->CmdListsCount; i++) {
-        const auto cmd_list = data->CmdLists[i];
+        if (material->GetParametersSize() != 0) {
+            rootsig_builder.Add(MATERIAL_CONSTANT_BUFFER, ShaderVariableType::CBV, 2, 0);
+        }
 
-        // Update vertex and index
         {
-            cmd_context->UpdateBuffer(
-                m_ImGuiVertexBuffer,
-                total_vertex_offset * sizeof(ImDrawVert),
-                reinterpret_cast<const uint8_t*>(cmd_list->VtxBuffer.Data),
-                cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-
-            cmd_context->UpdateBuffer(
-                m_ImGuiIndexBuffer,
-                total_index_offset * sizeof(ImDrawIdx),
-                reinterpret_cast<const uint8_t*>(cmd_list->IdxBuffer.Data),
-                cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+            std::size_t i = 0;
+            for (auto& texture_name : material->GetTextureNames()) {
+                rootsig_builder.Add(texture_name, ShaderVariableType::SRV, i++, 0);
+            }
         }
 
-        for (const auto& cmd : cmd_list->CmdBuffer) {
-            vec2f clip_min(cmd.ClipRect.x - data->DisplayPos.x, cmd.ClipRect.y - data->DisplayPos.y);
-            vec2f clip_max(cmd.ClipRect.z - data->DisplayPos.x, cmd.ClipRect.w - data->DisplayPos.y);
-            if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
-                continue;
+        auto shader_path = material->GetShaderPath();
 
-            auto mesh = std::make_shared<MeshBuffer>();
-            mesh->vertices.emplace("POSITION", m_ImGuiVertexBuffer);
-            mesh->vertices.emplace("TEXCOORD", m_ImGuiVertexBuffer);
-            mesh->vertices.emplace("COLOR", m_ImGuiVertexBuffer);
-            mesh->indices       = m_ImGuiIndexBuffer;
-            mesh->vertex_offset = total_vertex_offset + cmd.VtxOffset;
-            mesh->index_offset  = total_index_offset + cmd.IdxOffset;
-            mesh->index_count   = cmd.ElemCount;
-            mesh->primitive     = PrimitiveType::TriangleList;
+        PipelineState::Builder pso_builder;
+        // TODO more infomation
+        pso_builder
+            .SetName(material->GetName())
+            .SetVertexShader(g_FileIoManager->SyncOpenAndReadBinary(shader_path.replace_extension("vs")))
+            .SetPixelShader(g_FileIoManager->SyncOpenAndReadBinary(shader_path.replace_extension("ps")))
+            .SetRootSignautre(rootsig_builder.Create(m_Driver))
+            .SetPrimitiveType(material->GetPrimitiveType());
 
-            builder(mesh, cmd_list, cmd);
-        }
+        magic_enum::enum_for_each<VertexAttribute>([&](auto slot) {
+            if (material->IsSlotEnabled(slot)) {
+                pso_builder.EnableVertexSlot(slot);
+            }
+        });
 
-        total_vertex_offset += cmd_list->VtxBuffer.Size;
-        total_index_offset += cmd_list->IdxBuffer.Size;
+        m_PipelineStates.emplace(id, pso_builder.Build(m_Driver));
     }
-
-    cmd_context->Finish(true);
 }
+
+std::shared_ptr<VertexBuffer> ResourceManager::GetVertexBuffer(xg::Guid vertex_array_id) const noexcept {
+    if (m_VertexBuffer.count(vertex_array_id) != 0) {
+        return m_VertexBuffer.at(vertex_array_id);
+    }
+    return nullptr;
+}
+std::shared_ptr<IndexBuffer> ResourceManager::GetIndexBuffer(xg::Guid index_array_id) const noexcept {
+    if (m_IndexBuffer.count(index_array_id) != 0) {
+        return m_IndexBuffer.at(index_array_id);
+    }
+    return nullptr;
+}
+std::shared_ptr<TextureBuffer> ResourceManager::GetTextureBuffer(xg::Guid texture_id) const noexcept {
+    if (m_TextureBuffer.count(texture_id) != 0) {
+        return m_TextureBuffer.at(texture_id);
+    }
+    return nullptr;
+}
+std::shared_ptr<Sampler> ResourceManager::GetSampler(xg::Guid sampler_id) const noexcept {
+    if (m_Samplers.count(sampler_id) != 0) {
+        return m_Samplers.at(sampler_id);
+    }
+    return nullptr;
+}
+std::shared_ptr<ConstantBuffer> ResourceManager::GetMaterialParameterBuffer(xg::Guid material_id) const noexcept {
+    if (m_MaterialParameterBuffer.count(material_id) != 0) {
+        return m_MaterialParameterBuffer.at(material_id);
+    }
+    return nullptr;
+}
+
+std::shared_ptr<PipelineState> ResourceManager::GetPipelineState(xg::Guid material_id) const noexcept {
+    if (m_PipelineStates.count(material_id) != 0) {
+        return m_PipelineStates.at(material_id);
+    }
+    return nullptr;
+}
+
 }  // namespace hitagi::graphics

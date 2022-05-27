@@ -1,22 +1,21 @@
 #pragma once
-#include "scene_object.hpp"
-#include "mesh.hpp"
+#include <hitagi/resource/scene_object.hpp>
+#include <hitagi/resource/mesh.hpp>
+#include <hitagi/resource/transform.hpp>
 
-#include <map>
-#include <vector>
+namespace hitagi::resource {
 
-namespace hitagi::asset {
 class Geometry : public SceneObject {
-protected:
-    std::map<unsigned, std::vector<Mesh>> m_Meshes;
-
 public:
-    Geometry() = default;
-    void SetVisibility(bool visible);
+    Geometry(std::shared_ptr<Transform> transform);
+    void SetTransform(std::shared_ptr<Transform> transform) noexcept;
 
-    void               AddMesh(Mesh mesh, size_t level = 0);
-    inline const auto& GetMeshes(unsigned level = 0) const { return m_Meshes.at(level); };
+    bool IsVisiable() const noexcept;
+    void SetVisibility(bool visibility) noexcept;
 
-    friend std::ostream& operator<<(std::ostream& out, const Geometry& obj);
+    std::pmr::vector<Mesh>     meshes;
+    std::shared_ptr<Transform> transform;
+    bool                       visiable;
 };
-}  // namespace hitagi::asset
+
+}  // namespace hitagi::resource

@@ -1,27 +1,9 @@
-#include <hitagi/math/vector.hpp>
-#include <hitagi/math/matrix.hpp>
 #include <hitagi/math/transform.hpp>
 
-#include <iostream>
-#include <gtest/gtest.h>
+#include <hitagi/utils/test.hpp>
 
 using namespace hitagi::math;
-
-template <typename T, unsigned D>
-void vector_eq(const Vector<T, D>& v1, const Vector<T, D>& v2, double epsilon = 1E-5) {
-    for (size_t i = 0; i < D; i++) {
-        EXPECT_NEAR(v1[i], v2[i], epsilon) << "difference at index: " << i;
-    }
-}
-
-template <typename T, unsigned D>
-void matrix_eq(const Matrix<T, D>& mat1, const Matrix<T, D>& mat2, double epsilon = 1E-5) {
-    for (int i = 0; i < D; i++) {
-        for (int j = 0; j < D; j++) {
-            EXPECT_NEAR(mat1[i][j], mat2[i][j], epsilon) << "difference at index: [" << i << "][" << j << "]";
-        }
-    }
-}
+using namespace hitagi::testing;
 
 TEST(VectorTest, VectorInit) {
     vec2f v2(1, 2);
@@ -169,7 +151,7 @@ TEST(TransformTest, InverseSingularMatrix) {
 
 TEST(TransformTest, DecomposeTest) {
     vec3f translation(1.0f, 1.0f, 1.0f);
-    vec3f rotation = radians(vec3f(30.0f, 45.0f, 90.0f));
+    quatf rotation = euler_to_quaternion(radians(vec3f(30.0f, 45.0f, 90.0f)));
     vec3f scaling(1.0f, 2.0f, 3.0f);
     mat4f trans1      = translate(rotate(scale(mat4f(1.0f), scaling), rotation), translation);
     auto [_t, _r, _s] = decompose(trans1);

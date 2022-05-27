@@ -6,23 +6,30 @@ namespace hitagi::graphics::backend::DX12 {
 class AllocationPage;
 
 struct Allocation {
-    Allocation(std::weak_ptr<AllocationPage> page_from, size_t page_offset, size_t size, uint8_t* cpu_ptr, D3D12_GPU_VIRTUAL_ADDRESS gpu_addr)
-        : page_from(std::move(page_from)), page_offset(page_offset), size(size), cpu_ptr(cpu_ptr), gpu_addr(gpu_addr) {}
+    Allocation(std::weak_ptr<AllocationPage> page_from,
+               std::size_t page_offset, std::size_t size,
+               std::byte*                cpu_ptr,
+               D3D12_GPU_VIRTUAL_ADDRESS gpu_addr)
+        : page_from(std::move(page_from)),
+          page_offset(page_offset),
+          size(size),
+          cpu_ptr(cpu_ptr),
+          gpu_addr(gpu_addr) {}
 
-    Allocation(const Allocation&) = delete;
+    Allocation(const Allocation&)            = delete;
     Allocation& operator=(const Allocation&) = delete;
 
     ~Allocation();
 
     std::weak_ptr<AllocationPage> page_from;
-    size_t                        page_offset;
-    size_t                        size;
-    uint8_t*                      cpu_ptr;
+    std::size_t                   page_offset;
+    std::size_t                   size;
+    std::byte*                    cpu_ptr;
     D3D12_GPU_VIRTUAL_ADDRESS     gpu_addr;
 };
 class AllocationPage : public GpuResource {
 public:
-    AllocationPage(const AllocationPage&) = delete;
+    AllocationPage(const AllocationPage&)            = delete;
     AllocationPage& operator=(const AllocationPage&) = delete;
     AllocationPage(AllocationPage&&);
     AllocationPage& operator=(AllocationPage&&);
@@ -39,8 +46,8 @@ protected:
     AllocationPage(GpuResource&& resource, size_t size) : GpuResource(std::move(resource)), m_Size(size) {
         m_Resource->Map(0, nullptr, reinterpret_cast<void**>(&m_CpuPtr));
     }
-    size_t   m_Size;
-    uint8_t* m_CpuPtr = nullptr;
+    size_t     m_Size;
+    std::byte* m_CpuPtr = nullptr;
 };
 
 enum struct AllocationPageType {
@@ -75,10 +82,10 @@ public:
         sm_PageManager[static_cast<size_t>(m_Type)].UpdateAvailablePages(
             std::forward<FenceChecker>(fence_checker));
     }
-    LinearAllocator(const LinearAllocator&) = delete;
+    LinearAllocator(const LinearAllocator&)            = delete;
     LinearAllocator& operator=(const LinearAllocator&) = delete;
     LinearAllocator(LinearAllocator&&)                 = default;
-    LinearAllocator& operator=(LinearAllocator&&) = default;
+    LinearAllocator& operator=(LinearAllocator&&)      = default;
 
     ~LinearAllocator() {
         m_CurrPage = nullptr;
@@ -102,7 +109,7 @@ private:
 
     public:
         LinearAllocationPage(GpuResource&& resource, size_t size) : AllocationPage(std::move(resource), size) {}
-        LinearAllocationPage(LinearAllocationPage&&) = default;
+        LinearAllocationPage(LinearAllocationPage&&)            = default;
         LinearAllocationPage& operator=(LinearAllocationPage&&) = default;
 
         void DiscardAllocation(Allocation&) final { m_allocation_count--; }

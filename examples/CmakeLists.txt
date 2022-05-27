@@ -1,2 +1,0 @@
-add_subdirectory(game1)
-add_subdirectory(imgui_demo)

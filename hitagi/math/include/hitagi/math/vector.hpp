@@ -1,10 +1,10 @@
 #pragma once
+#include <fmt/format.h>
+
 #include <iostream>
 #include <array>
 #include <cassert>
 #include <concepts>
-
-#include <fmt/format.h>
 
 #if defined(USE_ISPC)
 #include "ispc_math.hpp"
@@ -108,11 +108,12 @@ template <typename T, unsigned D>
 struct Vector : public BaseVector<T, D> {
     using BaseVector<T, D>::data;
     using BaseVector<T, D>::BaseVector;
+    using value_type = T;
 
-    Vector(const Vector&) = default;
-    Vector(Vector&&)      = default;
-    Vector& operator=(const Vector&) = default;
-    Vector& operator=(Vector&&) = default;
+    Vector(const Vector&)                = default;
+    Vector(Vector&&) noexcept            = default;
+    Vector& operator=(const Vector&)     = default;
+    Vector& operator=(Vector&&) noexcept = default;
 
     explicit Vector(const T& num) { data.fill(num); }
 
@@ -122,9 +123,11 @@ struct Vector : public BaseVector<T, D> {
     }
 
     template <typename TT>
-    Vector(const TT* p) {
+    Vector(const TT* p) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] = static_cast<T>(*p++);
     }
+
+    constexpr static unsigned size() { return D; }
 
     const T norm() const noexcept {
         T result = 0;
@@ -171,8 +174,8 @@ struct Vector : public BaseVector<T, D> {
     }
     friend Vector operator*(const T& lhs, const Vector& rhs) noexcept { return rhs * lhs; }
     Vector        operator/(const T& rhs) const noexcept {
-        Vector result;
-        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
+               Vector result;
+               for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
         return result;
     }
     Vector operator/(const Vector& rhs) const noexcept {
@@ -281,17 +284,13 @@ using quatd = Quaternion<double>;
 
 using R8G8B8A8Unorm = Vector<uint8_t, 4>;
 
-using float2 = vec2f;
-using float3 = vec3f;
-using float4 = vec4f;
+using vec2i = Vector<std::int32_t, 2>;
+using vec3i = Vector<std::int32_t, 3>;
+using vec4i = Vector<std::int32_t, 4>;
 
-using int2 = Vector<int32_t, 2>;
-using int3 = Vector<int32_t, 3>;
-using int4 = Vector<int32_t, 4>;
-
-using uint2 = Vector<uint32_t, 2>;
-using uint3 = Vector<uint32_t, 3>;
-using uint4 = Vector<uint32_t, 4>;
+using vec2u = Vector<std::uint32_t, 2>;
+using vec3u = Vector<std::uint32_t, 3>;
+using vec4u = Vector<std::uint32_t, 4>;
 
 template <typename T, unsigned D>
 const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) noexcept {

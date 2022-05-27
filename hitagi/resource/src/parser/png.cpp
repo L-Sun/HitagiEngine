@@ -8,12 +8,12 @@
 
 using namespace hitagi::math;
 
-namespace hitagi::asset {
+namespace hitagi::resource {
 
 struct ImageSource {
-    const uint8_t* data;
-    int            size;
-    int            offset;
+    const std::byte* data;
+    int              size;
+    int              offset;
 };
 void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
     auto isource = reinterpret_cast<ImageSource*>(png_get_io_ptr(png_tr));
@@ -79,7 +79,7 @@ std::shared_ptr<Image> PngParser::Parse(const core::Buffer& buf) {
     auto img       = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
 
     png_bytepp rows = png_get_rows(png_tr, info_ptr);
-    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img->GetData());
+    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img->Buffer().GetData());
 
     switch (png_get_color_type(png_tr, info_ptr)) {
         case PNG_COLOR_TYPE_GRAY: {
@@ -135,4 +135,4 @@ std::shared_ptr<Image> PngParser::Parse(const core::Buffer& buf) {
     png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
     return img;
 }
-}  // namespace hitagi::asset
+}  // namespace hitagi::resource
