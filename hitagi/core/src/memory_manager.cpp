@@ -3,8 +3,6 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include <array>
-
 namespace hitagi {
 std::unique_ptr<core::MemoryManager> g_MemoryManager = std::make_unique<core::MemoryManager>();
 }

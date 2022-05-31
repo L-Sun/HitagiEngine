@@ -6,6 +6,7 @@
 #include <memory_resource>
 #include <cassert>
 #include <type_traits>
+#include <optional>
 
 constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
@@ -19,7 +20,7 @@ inline const size_t align(size_t x, size_t a) {
 class MemoryPool : public std::pmr::memory_resource {
 public:
     MemoryPool();
-    MemoryPool(const MemoryPool&) = delete;
+    MemoryPool(const MemoryPool&)            = delete;
     MemoryPool& operator=(const MemoryPool&) = delete;
 
 private:
@@ -36,7 +37,7 @@ private:
     class Page {
     public:
         Page(std::size_t page_size, std::size_t block_size);
-        Page(const Page&) = delete;
+        Page(const Page&)            = delete;
         Page& operator=(const Page&) = delete;
         Page(Page&&) noexcept;
         Page& operator=(Page&&) noexcept;

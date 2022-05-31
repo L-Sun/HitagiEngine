@@ -1,5 +1,5 @@
 target("ispc_math")
     set_kind("static")
     add_rules("ispc")
-    add_files("*.ispc")
+    add_files("*.ispc", "*.cpp")
     add_includedirs("./", {interface = true})

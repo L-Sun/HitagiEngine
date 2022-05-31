@@ -67,7 +67,7 @@ rule("ispc")
         })
         table.insert(target:objectfiles(), objectfile)
 
-        batchcmds:add_depfiles(sourcefile)
+        batchcmds:add_depfiles(sourcefile, headerfile)
         batchcmds:set_depmtime(os.mtime(objectfile))
         batchcmds:set_depcache(target:dependfile(objectfile))
     end)

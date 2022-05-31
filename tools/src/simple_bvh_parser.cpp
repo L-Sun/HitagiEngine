@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <string>
 #include <vector>
-
+#include <sstream>
 using namespace hitagi;
 using namespace hitagi::math;
 

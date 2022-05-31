@@ -4,6 +4,10 @@ set_languages("c++20")
 includes("xmake-rules/*.lua")
 add_rules("mode.debug", "mode.release", "clang-msvc", "copy-dll")
 
+if is_mode("debug") then
+    add_defines("Debug")
+end
+
 add_requireconfs("*", {configs = {shared = true}})
 add_requires("magic_enum", "crossguid", "gtest", "benchmark", "taskflow", "cxxopts", "nlohmann_json")
 add_requires("imgui", {configs = {freetype = true, wchar32 = true}})

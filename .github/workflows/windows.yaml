@@ -1,0 +1,43 @@
+name: Build Hitagi Engine (Windows)
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-2019, windows-latest]
+        compiler: ["--cc=clang-cl --cxx=clang-cl", "--toolchain=msvc"]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download ISPC (Windows)
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/ispc/ispc/releases/download/v1.18.0/ispc-v1.18.0-windows.zip" -OutFile "ispc.zip"
+          7z x ispc.zip
+          "ispc-v1.18.0-windows/bin" >> $env:GITHUB_PATH
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+
+      - name: Config
+        run: |
+          xmake f -y -a x64 -m release ${{ matrix.compiler }}
+
+      - name: Build
+        run: |
+          xmake
+
+      - name: Pull Test Files
+        run: git lfs pull "assets/test/*"
+
+      - name: Test
+        run: |
+          xmake r -w . -g test/*
