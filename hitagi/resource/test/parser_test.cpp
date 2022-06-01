@@ -50,7 +50,7 @@ TEST(SceneParserTest, Fbx) {
 }
 
 TEST(MaterialParserTest, Inner) {
-    auto instance = g_AssetManager->ImportMaterial("assets/test/test-mat.yaml");
+    auto instance = g_AssetManager->ImportMaterial("assets/test/test-mat.json");
     EXPECT_TRUE(instance != nullptr);
 
     auto mat = instance->GetMaterial().lock();

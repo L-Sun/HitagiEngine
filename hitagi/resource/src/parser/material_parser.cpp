@@ -61,9 +61,9 @@ std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buff
         builder.EnableSlot(slot.value());
     }
 
-    if (json.contains("paramters")) {
+    if (json.contains("parameters")) {
         if (!json["parameters"].is_array()) {
-            logger->error("paramters field must be a type of sequence");
+            logger->error("parameters field must be a type of sequence");
             return nullptr;
         }
 
@@ -136,7 +136,7 @@ std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buff
     auto material = builder.Build();
     auto iter     = std::find_if(materials.begin(), materials.end(), [material](const auto& m) {
         return *m == *material;
-        });
+    });
 
     auto instance = material->CreateInstance();
     // A new material type
