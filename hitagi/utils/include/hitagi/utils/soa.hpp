@@ -194,7 +194,7 @@ constexpr void SoA<Types...>::push_back(StructureForward values) {
 template <typename... Types>
 constexpr auto SoA<Types...>::emplace_back(Types&&... values) -> StructureRef {
     auto result = [&]<std::size_t... I>(std::index_sequence<I...>)->StructureRef {
-        return std::tie(std::get<I>(m_Data).emplace_back(std::forward<Types>(values)), ...);
+        return std::tie(std::get<I>(m_Data).emplace_back(std::forward<TypeAt<I>>(values))...);
     }
     (std::index_sequence_for<Types...>{});
 
