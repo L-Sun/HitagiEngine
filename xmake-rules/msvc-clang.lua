@@ -12,7 +12,7 @@ rule("clang-msvc")
                 target:add("syslinks", "libcmt")
             end
 
-            if compiler == "clang" then
+            if compiler == "clang-cl" then
                 target:add("cxxflags", "/EHa")
             end
         end
