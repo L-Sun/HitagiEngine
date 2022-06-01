@@ -23,6 +23,13 @@ jobs:
           7z x ispc.zip
           "ispc-v1.18.0-windows/bin" >> $env:GITHUB_PATH
 
+      - name: Cache Xmake Package
+        id: cache-xmake-package
+        uses: actions/cache@v3
+        with:
+          path: C:/Users/runneradmin/AppData/Local/.xmake/packages
+          key: ${{ runner.os }}-packages
+
       - uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
@@ -36,7 +43,7 @@ jobs:
           xmake
 
       - name: Pull Test Files
-        run: git lfs pull "assets/test/*"
+        run: git lfs pull -I "assets/test/*"
 
       - name: Test
         run: |
