@@ -27,7 +27,7 @@ public:
     Resource(Resource&& other) = default;
 
     Resource& operator=(const Resource&) = delete;
-    Resource& operator=(Resource&&) = default;
+    Resource& operator=(Resource&&)      = default;
 
     inline std::string_view GetName() const noexcept { return m_Name; }
 
@@ -53,7 +53,7 @@ public:
                      Desc                               desc)
         : Resource(name, std::move(res)), desc(desc) {}
 
-    const Desc desc;
+    Desc desc;
 };
 
 struct VertexBufferDesc {

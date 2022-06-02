@@ -9,7 +9,7 @@
 #include <vector>
 
 struct TRS {
-    hitagi::math::vec3f translation = {0.f, 0.f, 0.f};
+    hitagi::math::vec3f translation = {0.0f, 0.0f, 0.0f};
     hitagi::math::quatf rotation    = {0.0f, 0.0f, 0.0f, 1.0f};
 };
 

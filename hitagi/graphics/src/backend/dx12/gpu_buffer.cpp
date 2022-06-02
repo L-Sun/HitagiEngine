@@ -43,7 +43,7 @@ VertexBuffer::VertexBuffer(ID3D12Device* device, graphics::VertexBuffer& vb)
                 vb.GetName(),
                 calculate_total_vertex_buffer_size(vb.desc),
                 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER),
-      m_Desc(const_cast<graphics::VertexBufferDesc&>(vb.desc)) {
+      m_Desc(vb.desc) {
     for (std::size_t slot = 0; slot < m_Desc.slot_offset.size(); slot++) {
         m_Desc.slot_offset[slot] = GetSlotOffset(slot);
     }
@@ -83,11 +83,11 @@ IndexBuffer::IndexBuffer(ID3D12Device* device, graphics::IndexBuffer& ib)
                 ib.GetName(),
                 ib.desc.index_count * ib.desc.index_size,
                 D3D12_RESOURCE_STATE_INDEX_BUFFER),
-      m_Desc(const_cast<graphics::IndexBufferDesc&>(ib.desc)) {
+      m_Desc(ib.desc) {
 }
 
 ConstantBuffer::ConstantBuffer(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, graphics::ConstantBuffer& cb)
-    : m_Desc(const_cast<graphics::ConstantBufferDesc&>(cb.desc)),
+    : m_Desc(cb.desc),
       m_BlockSize(align(cb.desc.element_size, 256)),
       m_BufferSize(align(cb.desc.element_size, 256) * cb.desc.num_elements) {
     m_UsageState = D3D12_RESOURCE_STATE_GENERIC_READ;

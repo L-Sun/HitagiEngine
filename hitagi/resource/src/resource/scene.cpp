@@ -12,12 +12,9 @@ std::pmr::vector<Renderable> Scene::GetRenderable() {
         if (geometry.visiable) {
             for (const auto& mesh : geometry.meshes) {
                 Renderable item;
-                item.vertices          = mesh.vertices;
-                item.indices           = mesh.indices;
-                item.material          = mesh.material->GetMaterial().lock();
-                item.material_instance = mesh.material;
-                item.transform         = geometry.transform;
-
+                item.mesh      = mesh;
+                item.material  = mesh.material->GetMaterial().lock();
+                item.transform = geometry.transform;
                 result.emplace_back(std::move(item));
             }
         }

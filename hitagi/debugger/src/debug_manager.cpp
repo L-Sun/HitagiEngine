@@ -33,9 +33,13 @@ int DebugManager::Initialize() {
     m_DebugPrimitives["x_axis"].material = m_LineMaterial;
     m_DebugPrimitives["y_axis"].material = m_LineMaterial;
     m_DebugPrimitives["z_axis"].material = m_LineMaterial;
+    m_DebugPrimitives["x_axis"].SetName("x_axis");
+    m_DebugPrimitives["y_axis"].SetName("y_axis");
+    m_DebugPrimitives["z_axis"].SetName("z_axis");
 
     m_DebugPrimitives.emplace("box", MeshFactory::BoxWireframe(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f), {0.0f, 0.0f, 0.0f, 1.0f}));
     m_DebugPrimitives["box"].material = m_LineMaterial;
+    m_DebugPrimitives["box"].SetName("box");
 
     return 0;
 }
@@ -107,11 +111,9 @@ void DebugManager::DrawPrimitive() const {
         auto& geometry = primitive.geometry;
         for (const auto& mesh : geometry.meshes) {
             Renderable item;
-            item.indices           = mesh.indices;
-            item.vertices          = mesh.vertices;
-            item.material          = mesh.material->GetMaterial().lock();
-            item.material_instance = mesh.material;
-            item.transform         = geometry.transform;
+            item.mesh      = mesh;
+            item.material  = mesh.material->GetMaterial().lock();
+            item.transform = geometry.transform;
             renderables.emplace_back(std::move(item));
         }
     }

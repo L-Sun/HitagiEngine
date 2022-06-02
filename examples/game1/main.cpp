@@ -5,7 +5,7 @@ using namespace hitagi;
 
 #ifdef _WIN32
 #include <crtdbg.h>
-#ifdef _Debug
+#ifdef Debug
 
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
 #endif
@@ -30,6 +30,8 @@ auto main(int argc, char** argv) -> int {
     }
     g_App->Finalize();
 #ifdef _WIN32
+    std::cout << "Wins" << std::endl;
+
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
     _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG);
 #endif

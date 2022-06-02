@@ -32,7 +32,7 @@ inline auto hlsl_semantic_name(resource::VertexAttribute attr) noexcept {
         case resource::VertexAttribute::UV1:
         case resource::VertexAttribute::UV2:
         case resource::VertexAttribute::UV3:
-            return "UV";
+            return "TEXCOORD";
         case resource::VertexAttribute::BlendIndex:
             return "BLENDINDEX";
         case resource::VertexAttribute::BlendWeight:

@@ -18,7 +18,22 @@ void ResourceManager::PrepareVertexBuffer(const std::shared_ptr<VertexArray>& ve
         m_VersionsInfo[id] = vertices->Version();
     } else if (auto& vb = m_VertexBuffer.at(id);
                vertices->Version() > m_VersionsInfo.at(id)) {
-        vb                 = m_Driver.CreateVertexBuffer(vertices);
+        if (vb->desc.vertex_count < vertices->VertexCount() ||
+            vb->desc.slot_mask != vertices->GetSlotMask())
+            vb = m_Driver.CreateVertexBuffer(vertices);
+        else {
+            auto context = m_Driver.GetGraphicsCommandContext();
+            for (std::size_t slot = 0; slot < magic_enum::enum_count<resource::VertexAttribute>(); slot++) {
+                if (vb->desc.slot_mask.test(slot)) {
+                    const auto&       buffer = vertices->GetBuffer(slot);
+                    const std::size_t offset = vb->desc.slot_offset[slot];
+                    context->UpdateBuffer(vb, offset, buffer.GetData(), buffer.GetDataSize());
+                    vb->desc.vertex_count = vertices->VertexCount();
+                }
+            }
+            context->Finish(true);
+        }
+
         m_VersionsInfo[id] = vertices->Version();
     } else {
         assert(vertices->Version() == m_VersionsInfo.at(id));
@@ -32,7 +47,15 @@ void ResourceManager::PrepareIndexBuffer(const std::shared_ptr<IndexArray>& indi
         m_VersionsInfo[id] = indices->Version();
     } else if (auto& ib = m_IndexBuffer.at(id);
                indices->Version() > m_VersionsInfo.at(id)) {
-        ib                 = m_Driver.CreateIndexBuffer(indices);
+        if (ib->desc.index_count < indices->IndexCount() ||
+            ib->desc.index_size != indices->IndexSize()) {
+            ib = m_Driver.CreateIndexBuffer(indices);
+        } else {
+            auto context = m_Driver.GetGraphicsCommandContext();
+            context->UpdateBuffer(ib, 0, indices->Buffer().GetData(), indices->Buffer().GetDataSize());
+            context->Finish(true);
+            ib->desc.index_count = indices->IndexCount();
+        }
         m_VersionsInfo[id] = indices->Version();
     } else {
         assert(indices->Version() == m_VersionsInfo.at(id));

@@ -4,11 +4,13 @@
 #include <hitagi/core/thread_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
+#include <hitagi/gui/gui_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <queue>
+#include "imgui.h"
 
 using namespace hitagi;
 using namespace hitagi::math;
@@ -28,5 +30,9 @@ void MyGame::Finalize() {
 
 void MyGame::Tick() {
     g_DebugManager->DrawAxis(mat4f{1.0f});
+    g_GuiManager->DrawGui([]() {
+        bool open = true;
+        ImGui::ShowDemoWindow(&open);
+    });
     m_Clock.Tick();
 }

@@ -2,6 +2,7 @@
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/core/timer.hpp>
 #include <hitagi/resource/texture.hpp>
+#include <hitagi/resource/renderable.hpp>
 
 #include <imgui.h>
 
@@ -18,7 +19,6 @@ public:
     inline ImDrawData* GetGuiDrawData() {
         return ImGui::GetDrawData();
     }
-    inline auto GetGuiFontTexture() const noexcept { return m_FontTexture; }
 
     template <typename DrawFunc>
     inline void DrawGui(DrawFunc&& draw_func) {
@@ -26,14 +26,19 @@ public:
     }
 
 private:
-    void LoadFontTexture();
-    void MouseEvent();
-    void KeysEvent();
+    std::shared_ptr<resource::Texture> LoadFontTexture();
+    void                               MouseEvent();
+    void                               KeysEvent();
 
-    core::Clock                        m_Clock;
-    std::shared_ptr<resource::Texture> m_FontTexture;
-    std::list<core::Buffer>            m_FontsData;
-    std::queue<std::function<void()>>  m_GuiDrawTasks;
+    std::pmr::vector<resource::Renderable> PrepareImGuiRenderables();
+
+    core::Clock                       m_Clock;
+    std::list<core::Buffer>           m_FontsData;
+    std::queue<std::function<void()>> m_GuiDrawTasks;
+
+    std::shared_ptr<resource::MaterialInstance> m_ImGuiMaterial;
+    std::shared_ptr<resource::VertexArray>      m_Vertices;
+    std::shared_ptr<resource::IndexArray>       m_Indices;
 };
 
 }  // namespace hitagi::gui

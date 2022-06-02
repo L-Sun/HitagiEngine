@@ -76,8 +76,12 @@ Buffer::~Buffer() {
 }
 
 void Buffer::Resize(std::size_t size, std::size_t alignment) {
-    if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
-    m_Data      = static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment));
+    auto data = static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment));
+    if (m_Data) {
+        std::memcpy(data, m_Data, std::min(size, m_Size));
+        m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
+    }
+    m_Data      = data;
     m_Size      = size;
     m_Alignment = alignment;
 }
