@@ -101,7 +101,7 @@ inline HRESULT ReadDataFromFile(LPCWSTR filename, byte** data, UINT* size) {
 }
 
 // Assign a name to the object to aid with debugging.
-#if defined(Debug)
+#if defined(_Debug)
 inline void SetName(ID3D12Object* pObject, LPCWSTR name) { pObject->SetName(name); }
 inline void SetNameIndexed(ID3D12Object* pObject, LPCWSTR name, UINT index) {
     WCHAR fullName[50];
@@ -130,7 +130,7 @@ inline UINT CalculateConstantBufferByteSize(UINT byteSize) {
 inline Microsoft::WRL::ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines,
                                                       const std::string& entrypoint, const std::string& target) {
     UINT compileFlags = 0;
-#if defined(Debug) || defined(DBG)
+#if defined(_Debug) || defined(DBG)
     compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #endif
 

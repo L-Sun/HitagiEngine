@@ -5,7 +5,7 @@ includes("xmake-rules/*.lua")
 add_rules("mode.debug", "mode.release", "clang-msvc", "copy-dll")
 
 if is_mode("debug") then
-    add_defines("Debug")
+    add_defines("_Debug")
 end
 
 add_requireconfs("*", {configs = {shared = true}})

@@ -11,6 +11,8 @@
 #include <imgui_freetype.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#undef near
+#undef far
 
 using namespace hitagi::resource;
 using namespace hitagi::math;
@@ -163,6 +165,16 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
 
     std::pmr::vector<Renderable> result;
 
+    const float left       = draw_data->DisplayPos.x;
+    const float right      = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
+    const float top        = draw_data->DisplayPos.y;
+    const float bottom     = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
+    const float near       = 3.0f;
+    const float far        = -1.0f;
+    const mat4f projection = ortho(left, right, bottom, top, near, far);
+
+    m_ImGuiMaterial->SetParameter("orth_projection", projection);
+
     if (draw_data->TotalIdxCount > m_Indices->IndexCount()) {
         m_Indices->Resize(draw_data->TotalIdxCount);
     }
@@ -207,6 +219,7 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
             };
 
             Renderable item;
+            item.type      = Renderable::Type::UI;
             item.mesh      = Mesh(m_Vertices, m_Indices, m_ImGuiMaterial, cmd.VtxOffset, cmd.IdxOffset, cmd.ElemCount);
             item.material  = m_ImGuiMaterial->GetMaterial().lock();
             item.transform = std::make_shared<Transform>();

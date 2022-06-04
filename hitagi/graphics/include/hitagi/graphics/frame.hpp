@@ -39,12 +39,10 @@ public:
     // TODO generate pipeline state object from scene node infomation
     void AddRenderables(std::pmr::vector<resource::Renderable> renderables);
 
-    void SetCamera(std::shared_ptr<resource::Camera> camera);
+    void SetCamera(const std::shared_ptr<resource::Camera>& camera);
     void SetLight(std::shared_ptr<resource::Light> light);
 
-    std::shared_ptr<resource::Camera> GetCamera() const { return m_Camera; }
-
-    void Draw(IGraphicsCommandContext* context);
+    void Draw(IGraphicsCommandContext* context, resource::Renderable::Type type);
 
     bool IsRenderingFinished() const;
     bool Locked() const { return m_Lock; }
@@ -63,7 +61,6 @@ private:
     bool              m_Lock       = false;
 
     FrameConstant                          m_FrameConstant{};
-    std::shared_ptr<resource::Camera>      m_Camera;
     std::pmr::vector<resource::Renderable> m_Renderables;
     std::shared_ptr<RenderTarget>          m_Output;
 

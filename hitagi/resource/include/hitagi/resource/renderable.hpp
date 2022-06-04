@@ -13,6 +13,13 @@ struct PipelineParameters {
 
 struct Renderable {
 public:
+    enum struct Type : std::uint8_t {
+        Default,
+        UI,
+        Debug,
+    };
+
+    Type                                 type = Type::Default;
     resource::Mesh                       mesh;
     std::shared_ptr<resource::Material>  material;
     std::shared_ptr<resource::Transform> transform;

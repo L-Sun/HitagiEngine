@@ -36,6 +36,8 @@ protected:
     // TODO multiple RenderTarget is need if the application has multiple view port
     // if the class View is impletement, RenderTarget will be a member variable of View
     std::array<std::unique_ptr<Frame>, sm_SwapChianSize> m_Frames;
+
+    std::shared_ptr<resource::Camera> m_Camera;
 };
 
 }  // namespace hitagi::graphics

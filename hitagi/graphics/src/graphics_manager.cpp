@@ -88,7 +88,7 @@ void GraphicsManager::OnSizeChanged() {
 }
 
 void GraphicsManager::SetCamera(std::shared_ptr<Camera> camera) {
-    GetBcakFrameForRendering()->SetCamera(std::move(camera));
+    m_Camera = std::move(camera);
 }
 
 void GraphicsManager::AppendRenderables(std::pmr::vector<Renderable> renderables) {
@@ -105,7 +105,7 @@ void GraphicsManager::Render() {
     const auto          rect          = g_App->GetWindowsRect();
     const std::uint32_t screen_width  = rect.right - rect.left,
                         screen_height = rect.bottom - rect.top;
-    const float camera_aspect         = frame->GetCamera()->GetAspect();
+    const float camera_aspect         = m_Camera->GetAspect();
 
     FrameGraph fg;
 
@@ -151,8 +151,21 @@ void GraphicsManager::Render() {
             context->SetRenderTargetAndDepthBuffer(render_target, depth_buffer);
             context->ClearRenderTarget(render_target);
             context->ClearDepthBuffer(depth_buffer);
+            frame->SetCamera(m_Camera);
+            frame->Draw(context.get(), Renderable::Type::Default);
+        });
 
-            frame->Draw(context.get());
+    struct GuiPassData {
+        FrameHandle output;
+    };
+    auto gui_pass = fg.AddPass<GuiPassData>(
+        "GuiPass",
+        [&](FrameGraph::Builder& builder, GuiPassData& data) {
+            data.output = builder.Write(color_pass.GetData().output);
+        },
+        [=](const ResourceHelper& helper, GuiPassData& data) {
+            // TODO set a orth camera
+            frame->Draw(context.get(), Renderable::Type::UI);
         });
 
     fg.Present(render_target_handle, context);

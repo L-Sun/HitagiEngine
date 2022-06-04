@@ -16,10 +16,6 @@ public:
     void Tick() final;
     void Finalize() final;
 
-    inline ImDrawData* GetGuiDrawData() {
-        return ImGui::GetDrawData();
-    }
-
     template <typename DrawFunc>
     inline void DrawGui(DrawFunc&& draw_func) {
         m_GuiDrawTasks.emplace([func = std::forward<DrawFunc>(draw_func)] { func(); });

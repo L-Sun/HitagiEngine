@@ -2,6 +2,8 @@
 
 #include <hitagi/graphics/driver_api.hpp>
 #include <hitagi/utils/overloaded.hpp>
+#include <set>
+#include <unordered_map>
 
 using namespace hitagi::math;
 using namespace hitagi::resource;
@@ -24,7 +26,7 @@ void Frame::AddRenderables(std::pmr::vector<Renderable> renderables) {
         std::make_move_iterator(renderables.end()));
 }
 
-void Frame::SetCamera(std::shared_ptr<Camera> camera) {
+void Frame::SetCamera(const std::shared_ptr<Camera>& camera) {
     auto& data      = m_FrameConstant;
     data.camera_pos = vec4f(camera->GetGlobalPosition(), 1.0f);
     data.view       = camera->GetViewMatrix();
@@ -40,12 +42,12 @@ void Frame::SetCamera(std::shared_ptr<Camera> camera) {
     data.inv_proj_view  = inverse(data.proj_view);
 
     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<std::byte*>(&data), sizeof(data));
-
-    m_Camera = std::move(camera);
 }
 
-void Frame::Draw(IGraphicsCommandContext* context) {
+void Frame::Draw(IGraphicsCommandContext* context, Renderable::Type type) {
     for (const auto& item : m_Renderables) {
+        if (item.type != type) continue;
+
         context->SetPipelineState(m_ResMgr.GetPipelineState(item.material->GetGuid()));
         context->SetParameter(FRAME_CONSTANT_BUFFER,
                               m_ConstantBuffer,
@@ -109,10 +111,15 @@ void Frame::PrepareData() {
         m_Renderables.begin(),
         m_Renderables.end(),
         [](const Renderable& a, const Renderable& b) -> bool {
+            if (a.material == b.material)
+                return a.mesh.material < b.mesh.material;
             return a.material < b.material;
         });
 
-    std::size_t index = 0;
+    std::size_t                       index                  = 0;
+    std::shared_ptr<Material>         last_material          = nullptr;
+    std::shared_ptr<MaterialInstance> last_material_instance = nullptr;
+    std::size_t                       material_offset        = 0;
     for (auto& item : m_Renderables) {
         m_ResMgr.PrepareVertexBuffer(item.mesh.vertices);
         m_ResMgr.PrepareIndexBuffer(item.mesh.indices);
@@ -137,13 +144,23 @@ void Frame::PrepareData() {
         auto material = item.material;
         m_ResMgr.PrepareMaterial(material);
         if (auto material_buffer = m_ResMgr.GetMaterialParameterBuffer(material->GetGuid()); material_buffer) {
-            auto& cpu_buffer = item.mesh.material->GetParameterBuffer();
+            if (material != last_material || item.mesh.material != last_material_instance) {
+                if (material != last_material)
+                    material_offset = 0;
+                else if (item.mesh.material != last_material_instance)
+                    material_offset++;
 
-            m_Driver.UpdateConstantBuffer(
-                material_buffer,
-                index,
-                cpu_buffer.GetData(),
-                cpu_buffer.GetDataSize());
+                auto& cpu_buffer = item.mesh.material->GetParameterBuffer();
+                m_Driver.UpdateConstantBuffer(
+                    material_buffer,
+                    material_offset,
+                    cpu_buffer.GetData(),
+                    cpu_buffer.GetDataSize());
+
+                last_material          = material;
+                last_material_instance = item.mesh.material;
+            }
+            item.material_constant_offset = material_offset;
         }
 
         // Texture

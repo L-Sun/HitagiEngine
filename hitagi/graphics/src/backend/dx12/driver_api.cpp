@@ -21,7 +21,7 @@ DX12DriverAPI::DX12DriverAPI()
       m_RetireResources(retire_resource_cmp) {
     unsigned dxgi_factory_flags = 0;
 
-#if defined(Debug)
+#if defined(_Debug)
 
     // Enable d3d12 debug layer.
     {
