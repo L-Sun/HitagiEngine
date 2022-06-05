@@ -9,7 +9,7 @@ SceneObject::SceneObject(const SceneObject& obj)
     : m_Guid(xg::newGuid()),
       m_Name(obj.m_Name) {}
 
-SceneObject::SceneObject(SceneObject&& obj)
+SceneObject::SceneObject(SceneObject&& obj) noexcept
     : m_Guid(obj.m_Guid),
       m_Name(std::move(obj.m_Name)) {}
 
@@ -30,7 +30,9 @@ auto SceneObject::GetUniqueName(std::string_view sep) const noexcept -> std::pmr
     return std::pmr::string{fmt::format("{}{}{}", m_Name, sep, m_Guid.str())};
 }
 
-std::uint32_t SceneObject::Version() const noexcept { return m_Version; }
+std::uint64_t SceneObject::Version() const noexcept { return m_Version; }
+
+void SceneObject::IncreaseVersion() noexcept { m_Version++; }
 
 inline void SceneObject::RenewGuid() noexcept { m_Guid = xg::newGuid(); }
 

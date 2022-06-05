@@ -13,11 +13,16 @@ struct PipelineParameters {
 
 struct Renderable {
 public:
-    std::shared_ptr<resource::VertexArray>      vertices;
-    std::shared_ptr<resource::IndexArray>       indices;
-    std::shared_ptr<resource::Material>         material;
-    std::shared_ptr<resource::MaterialInstance> material_instance;
-    std::shared_ptr<resource::Transform>        transform;
+    enum struct Type : std::uint8_t {
+        Default,
+        UI,
+        Debug,
+    };
+
+    Type                                 type = Type::Default;
+    resource::Mesh                       mesh;
+    std::shared_ptr<resource::Material>  material;
+    std::shared_ptr<resource::Transform> transform;
 
     PipelineParameters pipeline_parameters;
 

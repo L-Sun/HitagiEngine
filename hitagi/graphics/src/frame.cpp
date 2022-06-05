@@ -1,7 +1,10 @@
 #include <hitagi/graphics/frame.hpp>
-
 #include <hitagi/graphics/driver_api.hpp>
 #include <hitagi/utils/overloaded.hpp>
+
+#include <spdlog/spdlog.h>
+
+#include <algorithm>
 
 using namespace hitagi::math;
 using namespace hitagi::resource;
@@ -24,47 +27,7 @@ void Frame::AddRenderables(std::pmr::vector<Renderable> renderables) {
         std::make_move_iterator(renderables.end()));
 }
 
-// void Frame::PrepareImGuiData(ImDrawData* data, std::shared_ptr<resource::Image> font_texture, const PipelineState& pso) {
-//     // TODO auto resize constant buffer
-//     // we need a element to store gui projection
-//     if (m_ConstantBuffer->GetNumElements() - m_ConstantCount < 1)
-//         m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_ConstantBuffer->GetNumElements() + 1);
-
-//     m_GuiDrawInfo = std::make_shared<GuiDrawInformation>(
-//         GuiDrawInformation{
-//             .pipeline        = pso,
-//             .font_texture    = m_ResMgr.GetTextureBuffer(font_texture),
-//             .constant_offset = m_ConstantCount++,
-//         });
-
-//     const float left       = data->DisplayPos.x;
-//     const float right      = data->DisplayPos.x + data->DisplaySize.x;
-//     const float top        = data->DisplayPos.y;
-//     const float bottom     = data->DisplayPos.y + data->DisplaySize.y;
-//     const float near       = 3.0f;
-//     const float far        = -1.0f;
-//     const mat4f projection = ortho(left, right, bottom, top, near, far);
-//     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, m_GuiDrawInfo->constant_offset, reinterpret_cast<const uint8_t*>(&projection), sizeof(projection));
-
-//     m_ResMgr.MakeImGuiMesh(
-//         data,
-//         [&](std::shared_ptr<hitagi::graphics::MeshBuffer> mesh, ImDrawList* curr_cmd_list, const ImDrawCmd& curr_cmd) {
-//             vec2f clip_min(curr_cmd.ClipRect.x - data->DisplayPos.x, curr_cmd.ClipRect.y - data->DisplayPos.y);
-//             vec2f clip_max(curr_cmd.ClipRect.z - data->DisplayPos.x, curr_cmd.ClipRect.w - data->DisplayPos.y);
-
-//             std::array<uint32_t, 4> scissor_rect = {
-//                 static_cast<uint32_t>(clip_min.x),
-//                 static_cast<uint32_t>(clip_min.y),
-//                 static_cast<uint32_t>(clip_max.x),
-//                 static_cast<uint32_t>(clip_max.y),
-//             };
-
-//             m_GuiDrawInfo->scissor_rects.emplace_back(scissor_rect);
-//             m_GuiDrawInfo->meshes.emplace_back(mesh);
-//         });
-// }
-
-void Frame::SetCamera(std::shared_ptr<Camera> camera) {
+void Frame::SetCamera(const std::shared_ptr<Camera>& camera) {
     auto& data      = m_FrameConstant;
     data.camera_pos = vec4f(camera->GetGlobalPosition(), 1.0f);
     data.view       = camera->GetViewMatrix();
@@ -80,22 +43,12 @@ void Frame::SetCamera(std::shared_ptr<Camera> camera) {
     data.inv_proj_view  = inverse(data.proj_view);
 
     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<std::byte*>(&data), sizeof(data));
-
-    m_Camera = std::move(camera);
 }
 
-// void Frame::SetLight(resource::LightNode& light) {
-//     auto& data             = m_FrameConstant;
-//     data.light_position    = light.GetCalculatedTransformation() * vec4f(1.0f);
-//     data.light_pos_in_view = data.view * data.light_position;
-//     if (auto light_obj = light.GetSceneObjectRef().lock()) {
-//         data.light_intensity = light_obj->GetIntensity() * light_obj->GetColor();
-//     }
-//     m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<uint8_t*>(&data), sizeof(data));
-// }
-
-void Frame::Draw(IGraphicsCommandContext* context) {
+void Frame::Draw(IGraphicsCommandContext* context, Renderable::Type type) {
     for (const auto& item : m_Renderables) {
+        if (item.type != type) continue;
+
         context->SetPipelineState(m_ResMgr.GetPipelineState(item.material->GetGuid()));
         context->SetParameter(FRAME_CONSTANT_BUFFER,
                               m_ConstantBuffer,
@@ -109,13 +62,21 @@ void Frame::Draw(IGraphicsCommandContext* context) {
             context->SetParameter(MATERIAL_CONSTANT_BUFFER, material_constant_buffer, item.material_constant_offset);
         }
 
-        for (const auto& [name, texture] : item.material_instance->GetTextures()) {
+        for (const auto& [name, texture] : item.mesh.material->GetTextures()) {
             context->SetParameter(name, m_ResMgr.GetTextureBuffer(texture->GetGuid()));
         }
 
-        context->Draw(m_ResMgr.GetVertexBuffer(item.vertices->GetGuid()),
-                      m_ResMgr.GetIndexBuffer(item.indices->GetGuid()),
-                      item.material->GetPrimitiveType());
+        if (item.pipeline_parameters.scissor_react) {
+            const auto scissor_react = item.pipeline_parameters.scissor_react.value();
+            context->SetScissorRect(scissor_react.x, scissor_react.y, scissor_react.z, scissor_react.w);
+        }
+
+        context->Draw(m_ResMgr.GetVertexBuffer(item.mesh.vertices->GetGuid()),
+                      m_ResMgr.GetIndexBuffer(item.mesh.indices->GetGuid()),
+                      item.material->GetPrimitiveType(),
+                      item.mesh.index_count,
+                      item.mesh.vertex_offset,
+                      item.mesh.index_offset);
     }
 }
 
@@ -140,32 +101,6 @@ void Frame::SetRenderTarget(std::shared_ptr<RenderTarget> rt) {
     m_Output = std::move(rt);
 }
 
-// void Frame::PopulateMaterial(const resource::Material::Color& color, vec4f& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
-//     std::visit(utils::Overloaded{
-//                    [&](const vec4f& value) {
-//                        value_dest   = value;
-//                        texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8G8B8A8_UNORM);
-//                    },
-//                    [&](std::shared_ptr<resource::Texture> texutre) {
-//                        value_dest   = vec4f(-1.0f);
-//                        texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
-//                    }},
-//                color);
-// }
-
-// void Frame::PopulateMaterial(const resource::Material::SingleValue& value, float& value_dest, std::shared_ptr<TextureBuffer>& texture_dest) {
-//     std::visit(utils::Overloaded{
-//                    [&](float value) {
-//                        value_dest   = value;
-//                        texture_dest = m_ResMgr.GetDefaultTextureBuffer(Format::R8_UNORM);
-//                    },
-//                    [&](std::shared_ptr<resource::Texture> texutre) {
-//                        value_dest   = -1.0f;
-//                        texture_dest = m_ResMgr.GetTextureBuffer(texutre->GetTextureImage());
-//                    }},
-//                value);
-// }
-
 void Frame::PrepareData() {
     // TODO auto resize constant buffer
     // if new size is smaller, the expand function return directly.
@@ -173,17 +108,22 @@ void Frame::PrepareData() {
         // becase capacity + needed > exsisted + needed
         m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_Renderables.size() + 1);
 
-    std::sort(
+    std::stable_sort(
         m_Renderables.begin(),
         m_Renderables.end(),
         [](const Renderable& a, const Renderable& b) -> bool {
+            if (a.material == b.material)
+                return a.mesh.material < b.mesh.material;
             return a.material < b.material;
         });
 
-    std::size_t index = 0;
+    std::size_t                       index                  = 0;
+    std::shared_ptr<Material>         last_material          = nullptr;
+    std::shared_ptr<MaterialInstance> last_material_instance = nullptr;
+    std::size_t                       material_offset        = 0;
     for (auto& item : m_Renderables) {
-        m_ResMgr.PrepareVertexBuffer(item.vertices);
-        m_ResMgr.PrepareIndexBuffer(item.indices);
+        m_ResMgr.PrepareVertexBuffer(item.mesh.vertices);
+        m_ResMgr.PrepareIndexBuffer(item.mesh.indices);
 
         ObjectConstant constant{
             .word_transform   = item.transform->GetTransform(),
@@ -205,17 +145,27 @@ void Frame::PrepareData() {
         auto material = item.material;
         m_ResMgr.PrepareMaterial(material);
         if (auto material_buffer = m_ResMgr.GetMaterialParameterBuffer(material->GetGuid()); material_buffer) {
-            auto& cpu_buffer = item.material_instance->GetParameterBuffer();
+            if (material != last_material || item.mesh.material != last_material_instance) {
+                if (material != last_material)
+                    material_offset = 0;
+                else if (item.mesh.material != last_material_instance)
+                    material_offset++;
 
-            m_Driver.UpdateConstantBuffer(
-                material_buffer,
-                index,
-                cpu_buffer.GetData(),
-                cpu_buffer.GetDataSize());
+                auto& cpu_buffer = item.mesh.material->GetParameterBuffer();
+                m_Driver.UpdateConstantBuffer(
+                    material_buffer,
+                    material_offset,
+                    cpu_buffer.GetData(),
+                    cpu_buffer.GetDataSize());
+
+                last_material          = material;
+                last_material_instance = item.mesh.material;
+            }
+            item.material_constant_offset = material_offset;
         }
 
         // Texture
-        for (const auto& [name, texture] : item.material_instance->GetTextures()) {
+        for (const auto& [name, texture] : item.mesh.material->GetTextures()) {
             m_ResMgr.PrepareTextureBuffer(texture);
         }
         index++;

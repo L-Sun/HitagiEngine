@@ -34,7 +34,7 @@ public:
 
     void RetireResource(std::shared_ptr<graphics::Resource> resource, std::uint64_t fence_value) final;
 
-    std::shared_ptr<graphics::Sampler> CreateSampler(std::string_view name, const graphics::SamplerDesc& desc) final;
+    std::shared_ptr<graphics::Sampler> CreateSampler(std::string_view name, const resource::SamplerDesc& desc) final;
 
     void CreateRootSignature(std::shared_ptr<graphics::RootSignature> root_signature) final;
     void CreatePipelineState(std::shared_ptr<graphics::PipelineState> pso) final;
@@ -46,12 +46,14 @@ public:
     void WaitFence(std::uint64_t fence_value) final;
     void IdleGPU() final;
 
-    void Test(graphics::RenderTarget& rt, const graphics::PipelineState& pso) final;
+    static void ReportDebugLog();
 
     ID3D12Device*       GetDevice() const noexcept { return m_Device.Get(); }
     CommandListManager& GetCmdMgr() noexcept { return m_CommandManager; }
 
 private:
+    static ComPtr<ID3D12DebugDevice1> sm_DebugInterface;
+
     ComPtr<ID3D12Device6> m_Device;
     ComPtr<IDXGIFactory4> m_DxgiFactory;
 

@@ -29,6 +29,8 @@ public:
     template <VertexAttribute Attr>
     std::span<VertexType<Attr>> GetVertices();
 
+    void Resize(std::size_t count);
+
 private:
     std::size_t                                                         m_VertexCount = 0;
     std::array<core::Buffer, magic_enum::enum_count<VertexAttribute>()> m_Buffers;
@@ -48,6 +50,8 @@ public:
     template <IndexType T>
     std::span<IndexDataType<T>> GetIndices();
 
+    void Resize(std::size_t count);
+
 private:
     std::size_t  m_IndexCount = 0;
     IndexType    m_IndexType  = IndexType::UINT32;
@@ -56,19 +60,26 @@ private:
 
 struct Mesh : public SceneObject {
 public:
+    // if `index_count` is not set, its value will be the size of indices
     Mesh(
-        std::shared_ptr<VertexArray>      vertices = nullptr,
-        std::shared_ptr<IndexArray>       indices  = nullptr,
-        std::shared_ptr<MaterialInstance> material = nullptr);
+        std::shared_ptr<VertexArray>      vertices      = nullptr,
+        std::shared_ptr<IndexArray>       indices       = nullptr,
+        std::shared_ptr<MaterialInstance> material      = nullptr,
+        std::size_t                       index_count   = 0,
+        std::size_t                       vertex_offset = 0,
+        std::size_t                       index_offset  = 0);
 
-    Mesh(const Mesh& other) = default;
+    Mesh(const Mesh& other)      = default;
     Mesh& operator=(const Mesh&) = default;
     Mesh(Mesh&& other)           = default;
-    Mesh& operator=(Mesh&& rhs) = default;
+    Mesh& operator=(Mesh&& rhs)  = default;
 
     std::shared_ptr<VertexArray>      vertices;
     std::shared_ptr<IndexArray>       indices;
     std::shared_ptr<MaterialInstance> material;
+    std::size_t                       index_count;
+    std::size_t                       vertex_offset;
+    std::size_t                       index_offset;
 };
 
 template <VertexAttribute Attr>
