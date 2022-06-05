@@ -23,6 +23,7 @@ bool Application::sm_Quit = false;
 
 // Parse command line, read configuration, initialize all sub modules
 int Application::Initialize() {
+    spdlog::set_level(spdlog::level::debug);
     m_Logger = spdlog::stdout_color_mt("Application");
 
     int ret = 0;

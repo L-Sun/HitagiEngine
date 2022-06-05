@@ -55,6 +55,8 @@ void GraphicsManager::Finalize() {
         m_Driver = nullptr;
     }
 
+    backend::DX12::DX12DriverAPI::ReportDebugLog();
+
     m_Logger = nullptr;
 }
 
@@ -161,10 +163,13 @@ void GraphicsManager::Render() {
     auto gui_pass = fg.AddPass<GuiPassData>(
         "GuiPass",
         [&](FrameGraph::Builder& builder, GuiPassData& data) {
-            data.output = builder.Write(color_pass.GetData().output);
+            data.output = builder.Write(render_target_handle);
         },
         [=](const ResourceHelper& helper, GuiPassData& data) {
             // TODO set a orth camera
+            auto render_target = helper.Get<RenderTarget>(data.output);
+            context->SetRenderTarget(render_target);
+            context->SetViewPort(0, 0, screen_width, screen_height);
             frame->Draw(context.get(), Renderable::Type::UI);
         });
 

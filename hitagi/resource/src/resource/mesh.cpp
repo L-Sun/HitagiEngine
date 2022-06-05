@@ -56,15 +56,15 @@ Mesh::Mesh(
     std::shared_ptr<VertexArray>      vertices,
     std::shared_ptr<IndexArray>       indices,
     std::shared_ptr<MaterialInstance> material,
+    std::size_t                       index_count,
     std::size_t                       vertex_offset,
-    std::size_t                       index_offset,
-    std::size_t                       index_count)
+    std::size_t                       index_offset)
     : vertices(std::move(vertices)),
       indices(std::move(indices)),
       material(std::move(material)),
+      index_count(index_count),
       vertex_offset(vertex_offset),
-      index_offset(index_offset),
-      index_count(index_count) {
+      index_offset(index_offset) {
     if (this->index_count == 0 && this->indices != nullptr)
         this->index_count = this->indices->IndexCount();
 }

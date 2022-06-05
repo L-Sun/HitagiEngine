@@ -39,11 +39,12 @@ int GuiManager::Initialize() {
         };
     }
 
-    ;
-    m_ImGuiMaterial->SetTexture("font", LoadFontTexture());
+    m_ImGuiMaterial->SetTexture("imgui-font", LoadFontTexture());
 
     m_Vertices = std::make_shared<VertexArray>(0);
     m_Indices  = std::make_shared<IndexArray>(0, IndexType::UINT16);
+    m_Vertices->SetName("imgui-vertices");
+    m_Indices->SetName("imgui-indices");
 
     return 0;
 }
@@ -139,7 +140,9 @@ std::shared_ptr<Texture> GuiManager::LoadFontTexture() {
 
     auto p_texture = texture_buffer->Buffer().GetData();
     std::copy_n(reinterpret_cast<const std::byte*>(pixels), texture_buffer->Buffer().GetDataSize(), p_texture);
-    return std::make_shared<Texture>(texture_buffer);
+    auto texture = std::make_shared<Texture>(texture_buffer);
+    texture->SetName("imgui-font");
+    return texture;
 }
 
 void GuiManager::MouseEvent() {
@@ -180,7 +183,7 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
     }
 
     if (draw_data->TotalVtxCount > m_Vertices->VertexCount()) {
-        m_Vertices->Resize(draw_data->TotalIdxCount);
+        m_Vertices->Resize(draw_data->TotalVtxCount);
     }
 
     auto position  = m_Vertices->GetVertices<VertexAttribute::Position>();
@@ -192,6 +195,36 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
     std::size_t index_offset  = 0;
     for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
         const auto cmd_list = draw_data->CmdLists[i];
+
+        for (const auto& cmd : cmd_list->CmdBuffer) {
+            vec2f clip_min(cmd.ClipRect.x - draw_data->DisplayPos.x, cmd.ClipRect.y - draw_data->DisplayPos.y);
+            vec2f clip_max(cmd.ClipRect.z - draw_data->DisplayPos.x, cmd.ClipRect.w - draw_data->DisplayPos.y);
+            if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+                continue;
+
+            vec4u scissor_rect = {
+                static_cast<std::uint32_t>(clip_min.x),
+                static_cast<std::uint32_t>(clip_min.y),
+                static_cast<std::uint32_t>(clip_max.x),
+                static_cast<std::uint32_t>(clip_max.y),
+            };
+
+            Renderable item;
+            item.type = Renderable::Type::UI;
+            item.mesh = Mesh(
+                m_Vertices,
+                m_Indices,
+                m_ImGuiMaterial,
+                cmd.ElemCount,
+                cmd.VtxOffset + vertex_offset,
+                cmd.IdxOffset + index_offset);
+            item.material                          = m_ImGuiMaterial->GetMaterial().lock();
+            item.transform                         = std::make_shared<Transform>();
+            item.pipeline_parameters.scissor_react = scissor_rect;
+
+            result.emplace_back(std::move(item));
+        }
+
         for (const auto& vertex : cmd_list->VtxBuffer) {
             auto _color = ImColor(vertex.col).Value;
 
@@ -204,30 +237,6 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
 
         std::copy(cmd_list->IdxBuffer.begin(), cmd_list->IdxBuffer.end(), indices.begin() + index_offset);
         index_offset += cmd_list->IdxBuffer.size();
-
-        for (const auto& cmd : cmd_list->CmdBuffer) {
-            vec2f clip_min(cmd.ClipRect.x - draw_data->DisplayPos.x, cmd.ClipRect.y - draw_data->DisplayPos.y);
-            vec2f clip_max(cmd.ClipRect.z - draw_data->DisplayPos.x, cmd.ClipRect.w - draw_data->DisplayPos.y);
-            if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
-                continue;
-
-            vec4u scissor_rect = {
-                static_cast<uint32_t>(clip_min.x),
-                static_cast<uint32_t>(clip_min.y),
-                static_cast<uint32_t>(clip_max.x),
-                static_cast<uint32_t>(clip_max.y),
-            };
-
-            Renderable item;
-            item.type      = Renderable::Type::UI;
-            item.mesh      = Mesh(m_Vertices, m_Indices, m_ImGuiMaterial, cmd.VtxOffset, cmd.IdxOffset, cmd.ElemCount);
-            item.material  = m_ImGuiMaterial->GetMaterial().lock();
-            item.transform = std::make_shared<Transform>();
-
-            item.pipeline_parameters.scissor_react = scissor_rect;
-
-            result.emplace_back(std::move(item));
-        }
     }
 
     m_Vertices->IncreaseVersion();

@@ -10,7 +10,6 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <queue>
-#include "imgui.h"
 
 using namespace hitagi;
 using namespace hitagi::math;

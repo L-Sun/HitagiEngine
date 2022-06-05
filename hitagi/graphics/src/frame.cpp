@@ -1,9 +1,10 @@
 #include <hitagi/graphics/frame.hpp>
-
 #include <hitagi/graphics/driver_api.hpp>
 #include <hitagi/utils/overloaded.hpp>
-#include <set>
-#include <unordered_map>
+
+#include <spdlog/spdlog.h>
+
+#include <algorithm>
 
 using namespace hitagi::math;
 using namespace hitagi::resource;
@@ -107,7 +108,7 @@ void Frame::PrepareData() {
         // becase capacity + needed > exsisted + needed
         m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_Renderables.size() + 1);
 
-    std::sort(
+    std::stable_sort(
         m_Renderables.begin(),
         m_Renderables.end(),
         [](const Renderable& a, const Renderable& b) -> bool {

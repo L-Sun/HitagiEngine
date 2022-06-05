@@ -65,9 +65,9 @@ public:
         std::shared_ptr<VertexArray>      vertices      = nullptr,
         std::shared_ptr<IndexArray>       indices       = nullptr,
         std::shared_ptr<MaterialInstance> material      = nullptr,
+        std::size_t                       index_count   = 0,
         std::size_t                       vertex_offset = 0,
-        std::size_t                       index_offset  = 0,
-        std::size_t                       index_count   = 0);
+        std::size_t                       index_offset  = 0);
 
     Mesh(const Mesh& other)      = default;
     Mesh& operator=(const Mesh&) = default;
@@ -77,9 +77,9 @@ public:
     std::shared_ptr<VertexArray>      vertices;
     std::shared_ptr<IndexArray>       indices;
     std::shared_ptr<MaterialInstance> material;
+    std::size_t                       index_count;
     std::size_t                       vertex_offset;
     std::size_t                       index_offset;
-    std::size_t                       index_count;
 };
 
 template <VertexAttribute Attr>
