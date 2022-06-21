@@ -5,7 +5,7 @@ using namespace hitagi;
 
 #ifdef _WIN32
 #include <crtdbg.h>
-#ifdef _DEBUG
+#ifdef HITAGI_DEBUG
 
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
 #endif

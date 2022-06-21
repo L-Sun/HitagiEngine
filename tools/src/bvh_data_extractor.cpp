@@ -27,7 +27,7 @@ enum struct Space {
 };
 
 int init() {
-#ifndef _DEBUG
+#ifndef HITAGI_DEBUG
     spdlog::set_level(spdlog::level::warn);
 #endif
     int result;
