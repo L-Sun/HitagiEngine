@@ -35,6 +35,8 @@ Buffer::Buffer(Buffer&& other) noexcept
       m_Data(other.m_Data),
       m_Size(other.m_Size),
       m_Alignment(other.m_Alignment) {
+    other.m_Data = nullptr;
+    other.m_Size = 0;
 }
 
 Buffer& Buffer::operator=(const Buffer& rhs) {
