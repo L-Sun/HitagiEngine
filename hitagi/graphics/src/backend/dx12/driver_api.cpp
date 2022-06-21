@@ -21,7 +21,7 @@ DX12DriverAPI::DX12DriverAPI()
       m_RetireResources(retire_resource_cmp) {
     unsigned dxgi_factory_flags = 0;
 
-#if defined(_Debug)
+#if defined(_DEBUG)
 
     // Enable d3d12 debug layer.
     {
@@ -32,7 +32,7 @@ DX12DriverAPI::DX12DriverAPI()
             dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
         }
     }
-#endif  // _Debug
+#endif  // _DEBUG
     ThrowIfFailed(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&m_DxgiFactory)));
 
     // Create device.

@@ -1,4 +1,5 @@
 #include "simple_bvh_parser.hpp"
+#include <exception>
 #include <hitagi/math/transform.hpp>
 
 #include <fmt/core.h>
@@ -14,7 +15,7 @@ std::vector<std::string> Tokenizer(std::stringstream& ss);
 
 std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer) {
     std::stringstream ss;
-    ss.write(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
+    ss.write(buffer.Span<char>().data(), buffer.GetDataSize());
 
     auto tokens = Tokenizer(ss);
 

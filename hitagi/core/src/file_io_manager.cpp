@@ -4,6 +4,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <fstream>
+#include <mutex>
 
 namespace hitagi {
 std::unique_ptr<core::FileIOManager> g_FileIoManager = std::make_unique<core::FileIOManager>();
@@ -47,11 +48,7 @@ const Buffer& FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& 
     ifs.close();
 
     // store cache
-    PathHash hash          = std::filesystem::hash_value(file_path);
-    m_FileStateCache[hash] = std::filesystem::last_write_time(file_path);
-    m_FileCache[hash]      = std::move(buffer);
-
-    return m_FileCache[hash];
+    return CacheFile(file_path, std::move(buffer));
 }
 
 void FileIOManager::SaveBuffer(const Buffer& buffer, const std::filesystem::path& path) {
@@ -59,6 +56,16 @@ void FileIOManager::SaveBuffer(const Buffer& buffer, const std::filesystem::path
     fs.write(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
     fs.close();
     m_Logger->info("Buffer has write to: {} ({} bytes)", path.string(), buffer.GetDataSize());
+}
+
+const Buffer& FileIOManager::CacheFile(const std::filesystem::path& path, Buffer buffer) {
+    std::lock_guard lock{m_CacheMutex};
+
+    PathHash hash          = std::filesystem::hash_value(path);
+    m_FileStateCache[hash] = std::filesystem::last_write_time(path);
+    m_FileCache[hash]      = std::move(buffer);
+
+    return m_FileCache[hash];
 }
 
 }  // namespace hitagi::core

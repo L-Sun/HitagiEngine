@@ -18,9 +18,12 @@ public:
     void          SaveBuffer(const Buffer& buffer, const std::filesystem::path& path);
 
 private:
-    bool IsFileChanged(const std::filesystem::path& file_path) const;
+    bool          IsFileChanged(const std::filesystem::path& file_path) const;
+    const Buffer& CacheFile(const std::filesystem::path& file_path, Buffer buffer);
 
     using PathHash = size_t;
+
+    std::mutex                                                    m_CacheMutex;
     std::unordered_map<PathHash, std::filesystem::file_time_type> m_FileStateCache;
     std::unordered_map<PathHash, Buffer>                          m_FileCache;
     Buffer                                                        m_EmptyBuffer;

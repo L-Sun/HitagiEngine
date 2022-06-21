@@ -1,6 +1,7 @@
 #pragma once
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <iostream>
 #include <array>
 #include <cassert>
@@ -110,9 +111,9 @@ struct Vector : public BaseVector<T, D> {
     using BaseVector<T, D>::BaseVector;
     using value_type = T;
 
-    Vector(const Vector&)                = default;
-    Vector(Vector&&) noexcept            = default;
-    Vector& operator=(const Vector&)     = default;
+    Vector(const Vector&)     = default;
+    Vector(Vector&&) noexcept = default;
+    Vector& operator=(const Vector&) = default;
     Vector& operator=(Vector&&) noexcept = default;
 
     explicit Vector(const T& num) { data.fill(num); }
@@ -174,8 +175,8 @@ struct Vector : public BaseVector<T, D> {
     }
     friend Vector operator*(const T& lhs, const Vector& rhs) noexcept { return rhs * lhs; }
     Vector        operator/(const T& rhs) const noexcept {
-               Vector result;
-               for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
+        Vector result;
+        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
         return result;
     }
     Vector operator/(const Vector& rhs) const noexcept {
