@@ -12,10 +12,9 @@ namespace hitagi::core {
 int ThreadManager::Initialize() {
     m_Logger         = spdlog::stdout_color_mt("ThreadManager");
     auto num_threads = std::thread::hardware_concurrency();
-    m_MaxTasks       = 1024;
     m_Stop           = false;
 
-    m_Logger->info("Initialize... Num of Thread: {}, Max Num of Task: {}", num_threads, m_MaxTasks);
+    m_Logger->info("Initialize... Num of Thread: {}", num_threads);
 
     for (decltype(num_threads) i = 0; i < num_threads; i++) {
         m_ThreadPools.emplace_back([this] {
@@ -28,7 +27,6 @@ int ThreadManager::Initialize() {
                         return;
                     task = std::move(m_Tasks.front());
                     m_Tasks.pop();
-                    m_ConditionForTask.notify_one();
                 }
                 task();
             }

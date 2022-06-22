@@ -1,6 +1,7 @@
 #pragma once
 #include "runtime_module.hpp"
 
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <future>
@@ -24,8 +25,6 @@ public:
     ThreadManager& operator=(const ThreadManager&) = delete;
 
 private:
-    size_t m_MaxTasks = 1;
-
     std::vector<std::thread>               m_ThreadPools;
     std::queue<std::packaged_task<void()>> m_Tasks;
 
@@ -49,7 +48,6 @@ decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
 
     {
         std::unique_lock lock(m_QueueMutex);
-        m_ConditionForQueueSize.wait(lock, [this] { return m_Tasks.size() < m_MaxTasks; });
         if (m_Stop)
             throw std::runtime_error("Run a task on stopped thread pool.");
 
