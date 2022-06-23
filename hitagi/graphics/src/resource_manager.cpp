@@ -5,6 +5,7 @@
 #include <magic_enum.hpp>
 
 using namespace hitagi::resource;
+using namespace hitagi::math;
 
 namespace hitagi::graphics {
 
@@ -18,7 +19,22 @@ void ResourceManager::PrepareVertexBuffer(const std::shared_ptr<VertexArray>& ve
         m_VersionsInfo[id] = vertices->Version();
     } else if (auto& vb = m_VertexBuffer.at(id);
                vertices->Version() > m_VersionsInfo.at(id)) {
-        vb                 = m_Driver.CreateVertexBuffer(vertices);
+        if (vb->desc.vertex_count < vertices->VertexCount() ||
+            vb->desc.slot_mask != vertices->GetSlotMask())
+            vb = m_Driver.CreateVertexBuffer(vertices);
+        else {
+            auto context = m_Driver.GetGraphicsCommandContext();
+            for (std::size_t slot = 0; slot < magic_enum::enum_count<resource::VertexAttribute>(); slot++) {
+                if (vb->desc.slot_mask.test(slot)) {
+                    const auto&       buffer = vertices->GetBuffer(slot);
+                    const std::size_t offset = vb->desc.slot_offset[slot];
+                    context->UpdateBuffer(vb, offset, buffer.GetData(), buffer.GetDataSize());
+                    vb->desc.vertex_count = vertices->VertexCount();
+                }
+            }
+            context->Finish(true);
+        }
+
         m_VersionsInfo[id] = vertices->Version();
     } else {
         assert(vertices->Version() == m_VersionsInfo.at(id));
@@ -32,7 +48,15 @@ void ResourceManager::PrepareIndexBuffer(const std::shared_ptr<IndexArray>& indi
         m_VersionsInfo[id] = indices->Version();
     } else if (auto& ib = m_IndexBuffer.at(id);
                indices->Version() > m_VersionsInfo.at(id)) {
-        ib                 = m_Driver.CreateIndexBuffer(indices);
+        if (ib->desc.index_count < indices->IndexCount() ||
+            ib->desc.index_size != indices->IndexSize()) {
+            ib = m_Driver.CreateIndexBuffer(indices);
+        } else {
+            auto context = m_Driver.GetGraphicsCommandContext();
+            context->UpdateBuffer(ib, 0, indices->Buffer().GetData(), indices->Buffer().GetDataSize());
+            context->Finish(true);
+            ib->desc.index_count = indices->IndexCount();
+        }
         m_VersionsInfo[id] = indices->Version();
     } else {
         assert(indices->Version() == m_VersionsInfo.at(id));
@@ -100,12 +124,43 @@ void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material)
         auto shader_path = material->GetShaderPath();
 
         PipelineState::Builder pso_builder;
+        // TODO more universe impletement
+        if (material->GetName() == "imgui") {
+            rootsig_builder.AddStaticSampler(
+                material->GetName(),
+                SamplerDesc{
+                    .filter         = Filter::Min_Mag_Mip_Linear,
+                    .address_u      = TextureAddressMode::Wrap,
+                    .address_v      = TextureAddressMode::Wrap,
+                    .address_w      = TextureAddressMode::Wrap,
+                    .mip_lod_bias   = 0.0f,
+                    .max_anisotropy = 0,
+                    .comp_func      = ComparisonFunc::Always,
+                    .border_color   = vec4f(0.0f, 0.0f, 0.0f, 1.0f),
+                    .min_lod        = 0.0f,
+                    .max_lod        = 0.0f,
+                },
+                0, 0, ShaderVisibility::Pixel);
+            pso_builder
+                .SetBlendState(BlendDescription{
+                    .alpha_to_coverage_enable = false,
+                    .enable_blend             = true,
+                    .src_blend                = Blend::SrcAlpha,
+                    .dest_blend               = Blend::InvSrcAlpha,
+                    .blend_op                 = BlendOp::Add,
+                    .src_blend_alpha          = Blend::One,
+                    .dest_blend_alpha         = Blend::InvSrcAlpha,
+                    .blend_op_alpha           = BlendOp::Add,
+                });
+        }
+
         // TODO more infomation
         pso_builder
             .SetName(material->GetName())
             .SetVertexShader(g_FileIoManager->SyncOpenAndReadBinary(shader_path.replace_extension("vs")))
             .SetPixelShader(g_FileIoManager->SyncOpenAndReadBinary(shader_path.replace_extension("ps")))
             .SetRootSignautre(rootsig_builder.Create(m_Driver))
+            .SetRenderFormat(Format::R8G8B8A8_UNORM)
             .SetPrimitiveType(material->GetPrimitiveType());
 
         magic_enum::enum_for_each<VertexAttribute>([&](auto slot) {

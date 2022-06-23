@@ -224,8 +224,17 @@ void GraphicsCommandContext::Present(std::shared_ptr<graphics::RenderTarget> ren
     TransitionResource(*rt, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 
-void GraphicsCommandContext::Draw(std::shared_ptr<graphics::VertexBuffer> vertex_buffer, std::shared_ptr<graphics::IndexBuffer> index_buffer, resource::PrimitiveType primitive) {
+void GraphicsCommandContext::Draw(
+    std::shared_ptr<graphics::VertexBuffer> vertex_buffer,
+    std::shared_ptr<graphics::IndexBuffer>  index_buffer,
+    resource::PrimitiveType                 primitive,
+    std::size_t                             index_count,
+    std::size_t                             vertex_offset,
+    std::size_t                             index_offset) {
     assert(vertex_buffer != nullptr && index_buffer != nullptr);
+    assert(vertex_offset < vertex_buffer->desc.vertex_count);
+    assert(index_offset + index_count <= index_buffer->desc.index_count);
+
     auto vb = vertex_buffer->GetBackend<VertexBuffer>();
     auto ib = index_buffer->GetBackend<IndexBuffer>();
 
@@ -246,7 +255,12 @@ void GraphicsCommandContext::Draw(std::shared_ptr<graphics::VertexBuffer> vertex
     m_DynamicViewDescriptorHeap.CommitStagedDescriptors(*this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);
     m_DynamicSamplerDescriptorHeap.CommitStagedDescriptors(*this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);
     m_CommandList->IASetPrimitiveTopology(to_dx_topology(primitive));
-    m_CommandList->DrawIndexedInstanced(index_buffer->desc.index_count, 1, 0, 0, 0);
+    m_CommandList->DrawIndexedInstanced(
+        index_count,
+        1,
+        index_offset,
+        vertex_offset,
+        0);
 }
 
 void GraphicsCommandContext::UpdateBuffer(std::shared_ptr<graphics::Resource> resource, std::size_t offset, const std::byte* data, std::size_t data_size) {

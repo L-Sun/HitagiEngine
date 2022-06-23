@@ -42,4 +42,5 @@ protected:
 
     std::shared_ptr<Transform> m_Transform;
 };
+
 }  // namespace hitagi::resource

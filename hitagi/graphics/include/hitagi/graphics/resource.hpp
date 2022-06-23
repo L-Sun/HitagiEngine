@@ -27,7 +27,7 @@ public:
     Resource(Resource&& other) = default;
 
     Resource& operator=(const Resource&) = delete;
-    Resource& operator=(Resource&&) = default;
+    Resource& operator=(Resource&&)      = default;
 
     inline std::string_view GetName() const noexcept { return m_Name; }
 
@@ -53,7 +53,7 @@ public:
                      Desc                               desc)
         : Resource(name, std::move(res)), desc(desc) {}
 
-    const Desc desc;
+    Desc desc;
 };
 
 struct VertexBufferDesc {
@@ -77,44 +77,32 @@ struct ConstantBufferDesc {
 using ConstantBuffer = ResourceWithDesc<ConstantBufferDesc>;
 
 struct TextureBufferDesc {
-    Format   format;
-    uint64_t width;
-    uint64_t height;
-    uint64_t pitch;
-    unsigned mip_level      = 1;
-    unsigned sample_count   = 1;
-    unsigned sample_quality = 0;
+    Format        format;
+    std::uint64_t width;
+    std::uint64_t height;
+    std::uint64_t pitch;
+    unsigned      mip_level      = 1;
+    unsigned      sample_count   = 1;
+    unsigned      sample_quality = 0;
 };
 using TextureBuffer = ResourceWithDesc<TextureBufferDesc>;
 
 struct DepthBufferDesc {
-    Format   format;
-    uint64_t width;
-    uint64_t height;
-    float    clear_depth;
-    uint8_t  clear_stencil;
+    Format        format;
+    std::uint64_t width;
+    std::uint64_t height;
+    float         clear_depth;
+    std::uint8_t  clear_stencil;
 };
 using DepthBuffer = ResourceWithDesc<DepthBufferDesc>;
 
 struct RenderTargetDesc {
-    Format   format;
-    uint64_t width;
-    uint64_t height;
+    Format        format;
+    std::uint64_t width;
+    std::uint64_t height;
 };
 using RenderTarget = ResourceWithDesc<RenderTargetDesc>;
 
-struct SamplerDesc {
-    Filter             filter         = Filter::ANISOTROPIC;
-    TextureAddressMode address_u      = TextureAddressMode::Wrap;
-    TextureAddressMode address_v      = TextureAddressMode::Wrap;
-    TextureAddressMode address_w      = TextureAddressMode::Wrap;
-    float              mip_lod_bias   = 0;
-    unsigned           max_anisotropy = 16;
-    ComparisonFunc     comp_func      = ComparisonFunc::LessEqual;
-    math::vec4f        border_color   = math::vec4f(0.0f);
-    float              min_lod        = 0.0f;
-    float              max_lod        = std::numeric_limits<float>::max();
-};
-using Sampler = ResourceWithDesc<SamplerDesc>;
+using Sampler = ResourceWithDesc<resource::SamplerDesc>;
 
 }  // namespace hitagi::graphics

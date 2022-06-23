@@ -1,15 +1,17 @@
 #pragma once
 #include <hitagi/resource/scene_object.hpp>
+#include <hitagi/resource/enums.hpp>
 #include <hitagi/resource/image.hpp>
 
 #include <filesystem>
 
 namespace hitagi::resource {
+
 class Texture : public SceneObject {
 public:
     Texture(std::filesystem::path path);
     Texture(std::shared_ptr<Image> image);
-    Texture(uint32_t coord_index, std::shared_ptr<Image> image);
+    Texture(std::uint32_t coord_index, std::shared_ptr<Image> image);
 
     std::shared_ptr<Image> GetTextureImage() const noexcept;
     std::filesystem::path  GetTexturePath() const noexcept;

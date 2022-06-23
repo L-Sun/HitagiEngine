@@ -42,7 +42,7 @@ public:
     // resource will relase after fence value and the ref count is zero!
     virtual void RetireResource(std::shared_ptr<Resource> resource, std::uint64_t fence_value) = 0;
     // Sampler
-    virtual std::shared_ptr<Sampler> CreateSampler(std::string_view name, const SamplerDesc& desc) = 0;
+    virtual std::shared_ptr<Sampler> CreateSampler(std::string_view name, const resource::SamplerDesc& desc) = 0;
 
     // Pipeline
     virtual void CreateRootSignature(std::shared_ptr<RootSignature> rootsignature) = 0;
@@ -57,8 +57,6 @@ public:
     virtual void IdleGPU()                                  = 0;
 
     APIType GetType() const { return m_Type; }
-
-    virtual void Test(RenderTarget& rt, const PipelineState& pso) = 0;
 
 protected:
     DriverAPI(APIType type) : m_Type(type) {}

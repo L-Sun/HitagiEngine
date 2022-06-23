@@ -131,6 +131,8 @@ void Material::InitDefaultMaterialInstance(const Builder& builder) {
 }
 
 bool Material::operator==(const Material& rhs) const {
+    if (parameters_info.size() != rhs.parameters_info.size()) return false;
+
     for (std::size_t i = 0; i < parameters_info.size(); i++) {
         bool result = parameters_info[i].name == rhs.parameters_info[i].name &&
                       parameters_info[i].size == rhs.parameters_info[i].size &&

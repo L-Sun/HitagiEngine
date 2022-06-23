@@ -16,6 +16,8 @@
 
 namespace hitagi::graphics::backend::DX12 {
 
+ComPtr<ID3D12DebugDevice1> DX12DriverAPI::sm_DebugInterface = nullptr;
+
 DX12DriverAPI::DX12DriverAPI()
     : DriverAPI(APIType::DirectX12),
       m_RetireResources(retire_resource_cmp) {
@@ -56,6 +58,11 @@ DX12DriverAPI::~DX12DriverAPI() {
     // Release the static variable that is allocation of DX12
     LinearAllocator::Destroy();
     DynamicDescriptorHeap::Destroy();
+    ThrowIfFailed(m_Device->QueryInterface(sm_DebugInterface.ReleaseAndGetAddressOf()));
+}
+
+void DX12DriverAPI::ReportDebugLog() {
+    sm_DebugInterface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
 }
 
 void DX12DriverAPI::Present(size_t frame_index) {
@@ -198,7 +205,7 @@ std::shared_ptr<graphics::TextureBuffer> DX12DriverAPI::CreateTextureBuffer(std:
     auto image = texture->GetTextureImage();
 
     graphics::TextureBufferDesc desc{
-        .format = graphics::Format::R8G8B8A8_UINT,
+        .format = graphics::Format::R8G8B8A8_UNORM,
         .width  = image->Width(),
         .height = image->Height(),
         .pitch  = image->Pitch(),
@@ -255,7 +262,7 @@ void DX12DriverAPI::RetireResource(std::shared_ptr<graphics::Resource> resource,
 }
 
 // TODO: Custom sampler
-std::shared_ptr<graphics::Sampler> DX12DriverAPI::CreateSampler(std::string_view name, const graphics::SamplerDesc& desc) {
+std::shared_ptr<graphics::Sampler> DX12DriverAPI::CreateSampler(std::string_view name, const resource::SamplerDesc& desc) {
     return std::make_shared<graphics::Sampler>(
         name,
         std::make_unique<Sampler>(m_Device.Get(), m_DescriptorAllocator[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Allocate(), to_d3d_sampler_desc(desc)),
@@ -411,12 +418,6 @@ void DX12DriverAPI::WaitFence(std::uint64_t fence_value) {
 
 void DX12DriverAPI::IdleGPU() {
     m_CommandManager.IdleGPU();
-}
-
-// ----------------------------
-//  For test
-// ----------------------------
-void DX12DriverAPI::Test(graphics::RenderTarget& rt, const graphics::PipelineState& pso) {
 }
 
 }  // namespace hitagi::graphics::backend::DX12

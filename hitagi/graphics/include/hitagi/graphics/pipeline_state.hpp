@@ -20,11 +20,11 @@ public:
         ShaderVisibility   visibility;
     };
     struct StaticSamplerDescription {
-        std::pmr::string name;
-        SamplerDesc      desc;
-        unsigned         register_index;
-        unsigned         space;
-        ShaderVisibility visibility;
+        std::pmr::string      name;
+        resource::SamplerDesc desc;
+        unsigned              register_index;
+        unsigned              space;
+        ShaderVisibility      visibility;
     };
     std::pmr::string                           name;
     std::pmr::vector<Parameter>                parameter_table;
@@ -48,11 +48,11 @@ public:
 
         // TODO Sampler
         Builder& AddStaticSampler(
-            std::string_view name,
-            SamplerDesc      desc,
-            unsigned         register_index,
-            unsigned         space,
-            ShaderVisibility visibility = ShaderVisibility::All);
+            std::string_view      name,
+            resource::SamplerDesc desc,
+            unsigned              register_index,
+            unsigned              space,
+            ShaderVisibility      visibility = ShaderVisibility::All);
 
         std::shared_ptr<RootSignature> Create(DriverAPI& driver);
     };
