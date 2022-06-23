@@ -10,6 +10,7 @@
 #include <spdlog/spdlog.h>
 #include <highfive/H5File.hpp>
 
+#include <sstream>
 #include <stdexcept>
 #include <algorithm>
 
@@ -28,7 +29,7 @@ enum struct Space {
 
 int init() {
 #ifndef HITAGI_DEBUG
-    spdlog::set_level(spdlog::level::warn);
+    spdlog::set_level(spdlog::level::info);
 #endif
     int result;
     if ((result = g_MemoryManager->Initialize()) != 0) return result;
@@ -68,7 +69,6 @@ std::pmr::vector<float> extract_frames(const Animation& anima, Space space_mode,
                     update_node(joint, TRS{});
                     break;
             }
-
             joint_index++;
         }
         for (const auto& joint : anima.joints) {
@@ -93,14 +93,14 @@ std::pmr::vector<float> extract_frames(const Animation& anima, Space space_mode,
     return result;
 }
 
-std::pmr::vector<std::size_t> extract_bones(const Animation& anima) {
-    std::pmr::vector<std::size_t> result;
+std::vector<std::size_t> extract_bones(const Animation& anima) {
+    std::vector<std::size_t> result;
     // Bone
     for (std::size_t i = 0; i < anima.joints.size(); i++) {
         auto        joint        = anima.joints[i];
         auto        iter         = std::find(std::begin(anima.joints), std::end(anima.joints), joint->parent.lock());
         std::size_t parent_index = std::distance(std::begin(anima.joints), iter);
-        result.emplace_back(parent_index);
+        result.emplace_back(parent_index == anima.joints.size() ? -1 : parent_index);
     }
     return result;
 };
@@ -214,8 +214,8 @@ int main(int argc, char** argv) {
     }
 
     // Get the first bones data
-    float                         frame_rate = 0;
-    std::pmr::vector<std::size_t> bones;
+    float                    frame_rate = 0;
+    std::vector<std::size_t> bones;
     {
         auto anima = parse_bvh(g_FileIoManager->SyncOpenAndReadBinary(all_bvh_files.front()));
         if (anima.has_value()) {
@@ -260,6 +260,7 @@ int main(int argc, char** argv) {
 
     DataSet dataset = file.createDataSet<float>("/motion", dataspace, props);
     dataset.createAttribute("frame_rate", frame_rate);
+    dataset.createAttribute("joints_parent", bones);
 
     std::size_t frames = 0;
     for (auto& job : jobs) {
@@ -271,7 +272,9 @@ int main(int argc, char** argv) {
             dataset.select({frames, 0, 0}, {new_frames, bones.size(), (3 + 4)}).write_raw(data.value().data());
             frames += new_frames;
         }
+        logger->info("writed {}", frames);
     }
+    logger->info("writed total {} frames", frames);
 
     clean_exit();
 }

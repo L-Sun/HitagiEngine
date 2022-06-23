@@ -60,9 +60,9 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer) {
             current_node->parent = parent;
         } else if (tokens[pos] == "OFFSET") {
             // ! Our engine is Z up, but bvh is Y up, so we need change the axis order here
-            float y = std::stof(tokens[++pos]) * 0.01;
-            float z = std::stof(tokens[++pos]) * 0.01;
-            float x = std::stof(tokens[++pos]) * 0.01;
+            float y = std::stof(tokens[++pos]) * 0.056444;
+            float z = std::stof(tokens[++pos]) * 0.056444;
+            float x = std::stof(tokens[++pos]) * 0.056444;
 
             current_node->offset    = hitagi::math::vec3f{x, y, z};
             current_node->transform = translate(current_node->transform, current_node->offset);
@@ -132,13 +132,13 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer) {
                 switch (channel) {
                     // ! Our engine is Z up, but bvh is Y up, so we need change the axis order here
                     case Channel::Xposition:
-                        translation.y += value * 0.01;
+                        translation.y += value * 0.056444;
                         break;
                     case Channel::Yposition:
-                        translation.z += value * 0.01;
+                        translation.z += value * 0.056444;
                         break;
                     case Channel::Zposition:
-                        translation.x += value * 0.01;
+                        translation.x += value * 0.056444;
                         break;
                     // ! Also we unkown the rotation order, so use axis rotation here
                     case Channel::Xrotation:
