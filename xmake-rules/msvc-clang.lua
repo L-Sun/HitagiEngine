@@ -14,7 +14,7 @@ rule("clang-msvc")
                 end
             end
 
-            if compiler == "clang-cl" then
+            if cxx_compiler == "clang-cl" then
                 target:add("cxxflags", "/EHa")
             end
         end
