@@ -6,7 +6,7 @@
 namespace hitagi::math {
 
 template <typename T>
-inline const T radians(T angle) {
+inline const T deg2rad(T angle) {
     return angle / 180.0 * std::numbers::pi;
 }
 

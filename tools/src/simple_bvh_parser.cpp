@@ -13,7 +13,7 @@ using namespace hitagi::math;
 
 std::vector<std::string> Tokenizer(std::stringstream& ss);
 
-std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer) {
+std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float metric_scale) {
     std::stringstream ss;
     ss.write(buffer.Span<char>().data(), buffer.GetDataSize());
 
@@ -60,9 +60,9 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer) {
             current_node->parent = parent;
         } else if (tokens[pos] == "OFFSET") {
             // ! Our engine is Z up, but bvh is Y up, so we need change the axis order here
-            float y = std::stof(tokens[++pos]) * 0.056444;
-            float z = std::stof(tokens[++pos]) * 0.056444;
-            float x = std::stof(tokens[++pos]) * 0.056444;
+            float x = std::stof(tokens[++pos]) * metric_scale;
+            float z = std::stof(tokens[++pos]) * metric_scale;
+            float y = -std::stof(tokens[++pos]) * metric_scale;
 
             current_node->offset    = hitagi::math::vec3f{x, y, z};
             current_node->transform = translate(current_node->transform, current_node->offset);
@@ -132,23 +132,23 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer) {
                 switch (channel) {
                     // ! Our engine is Z up, but bvh is Y up, so we need change the axis order here
                     case Channel::Xposition:
-                        translation.y += value * 0.056444;
+                        translation.x += value * metric_scale;
                         break;
                     case Channel::Yposition:
-                        translation.z += value * 0.056444;
+                        translation.z += value * metric_scale;
                         break;
                     case Channel::Zposition:
-                        translation.x += value * 0.056444;
+                        translation.y -= value * metric_scale;
                         break;
                     // ! Also we unkown the rotation order, so use axis rotation here
                     case Channel::Xrotation:
-                        rotation = rotation * rotate_y(mat4f(1.0f), radians(value));
+                        rotation = rotation * rotate_x(mat4f(1.0f), deg2rad(value));
                         break;
                     case Channel::Yrotation:
-                        rotation = rotation * rotate_z(mat4f(1.0f), radians(value));
+                        rotation = rotation * rotate_z(mat4f(1.0f), deg2rad(value));
                         break;
                     case Channel::Zrotation:
-                        rotation = rotation * rotate_x(mat4f(1.0f), radians(value));
+                        rotation = rotation * rotate_y(mat4f(1.0f), deg2rad(360.0f - value));
                         break;
                     default:
                         break;

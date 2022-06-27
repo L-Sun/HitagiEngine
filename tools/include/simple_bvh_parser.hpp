@@ -47,4 +47,4 @@ static const std::unordered_map<std::string, Channel> channel_map = {
     {"Zrotation", Channel::Zrotation},
 };
 
-std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer);
+std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float metric_sacle = 1.0);
