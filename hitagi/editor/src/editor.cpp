@@ -135,7 +135,7 @@ void Editor::SceneExplorer() {
                         ImGui::DragFloat3("Velocity", velocity, 0.0f, 0.0f, 0.0f, "%.03f °");
 
                         if (changed) {
-                            node->SetTRS(position, euler_to_quaternion(radians(orientation)), vec3f(1.0f));
+                            node->SetTRS(position, euler_to_quaternion(deg2rad(orientation)), vec3f(1.0f));
                         }
                     }
 

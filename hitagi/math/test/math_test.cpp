@@ -111,25 +111,25 @@ TEST(TransformTest, ScaleTest) {
 }
 
 TEST(TransformTest, RotateTest) {
-    vector_eq(rotate_x(mat4f(1.0f), radians(90.0f)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
-    vector_eq(rotate_y(mat4f(1.0f), radians(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 0, -1, 1));
-    vector_eq(rotate_z(mat4f(1.0f), radians(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
+    vector_eq(rotate_x(mat4f(1.0f), deg2rad(90.0f)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
+    vector_eq(rotate_y(mat4f(1.0f), deg2rad(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 0, -1, 1));
+    vector_eq(rotate_z(mat4f(1.0f), deg2rad(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
 
-    vector_eq(rotate(mat4f(1.0f), vec3f(0, 0, radians(90.0f))) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
-    vector_eq(rotate(mat4f(1.0f), vec3f(0, radians(180.0f), 0)) * vec4f(1, 0, 0, 1), vec4f(-1, 0, 0, 1));
-    vector_eq(rotate(mat4f(1.0f), vec3f(radians(90.0f), 0, 0)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
+    vector_eq(rotate(mat4f(1.0f), vec3f(0, 0, deg2rad(90.0f))) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
+    vector_eq(rotate(mat4f(1.0f), vec3f(0, deg2rad(180.0f), 0)) * vec4f(1, 0, 0, 1), vec4f(-1, 0, 0, 1));
+    vector_eq(rotate(mat4f(1.0f), vec3f(deg2rad(90.0f), 0, 0)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
 
     vector_eq(
-        rotate(mat4f(1.0f), radians(vec3f(30.0f, 45.0f, 90.0f))) * vec4f(1, 2, 1, 1),
+        rotate(mat4f(1.0f), deg2rad(vec3f(30.0f, 45.0f, 90.0f))) * vec4f(1, 2, 1, 1),
         rotate_z(
             rotate_y(
                 rotate_x(mat4f(1.0f),
-                         radians(30.0f)),
-                radians(45.0f)),
-            radians(90.0f)) *
+                         deg2rad(30.0f)),
+                deg2rad(45.0f)),
+            deg2rad(90.0f)) *
             vec4f(1, 2, 1, 1));
 
-    vector_eq(rotate(mat4f(1.0f), radians(90.0f), vec3f(0.0f, 0.0f, 1.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
+    vector_eq(rotate(mat4f(1.0f), deg2rad(90.0f), vec3f(0.0f, 0.0f, 1.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
 }
 
 TEST(TransformTest, Inverse) {
@@ -151,7 +151,7 @@ TEST(TransformTest, InverseSingularMatrix) {
 
 TEST(TransformTest, DecomposeTest) {
     vec3f translation(1.0f, 1.0f, 1.0f);
-    quatf rotation = euler_to_quaternion(radians(vec3f(30.0f, 45.0f, 90.0f)));
+    quatf rotation = euler_to_quaternion(deg2rad(vec3f(30.0f, 45.0f, 90.0f)));
     vec3f scaling(1.0f, 2.0f, 3.0f);
     mat4f trans1      = translate(rotate(scale(mat4f(1.0f), scaling), rotation), translation);
     auto [_t, _r, _s] = decompose(trans1);
@@ -162,30 +162,30 @@ TEST(TransformTest, DecomposeTest) {
 
 TEST(ConvertTest, AxisAngleToQuaternion) {
     vector_eq(
-        axis_angle_to_quternion(vec3f(1, 0, 0), radians(30.0f)),
+        axis_angle_to_quternion(vec3f(1, 0, 0), deg2rad(30.0f)),
         quatf(0.258819043, 0, 0, 0.9659258));
 
     vector_eq(
-        axis_angle_to_quternion(vec3f(1, 1, 1), radians(30.0f)),
+        axis_angle_to_quternion(vec3f(1, 1, 1), deg2rad(30.0f)),
         quatf(0.149429246, 0.149429246, 0.149429246, 0.9659258));
 
     vector_eq(
-        axis_angle_to_quternion(vec3f(1, 2, 3), radians(64.5f)),
+        axis_angle_to_quternion(vec3f(1, 2, 3), deg2rad(64.5f)),
         quatf(0.1426144689, 0.28522893786, 0.42784342169, 0.8457278609));
 }
 
 TEST(ConvertTest, QuaternionToEuler) {
     vector_eq(
         quaternion_to_euler(quatf(-0.092296, 0.4304593, 0.5609855, 0.7010574)),
-        radians(vec3f(30.0f, 45.0f, 90.0f)));
+        deg2rad(vec3f(30.0f, 45.0f, 90.0f)));
     vector_eq(
         quaternion_to_euler(quatf(0, 0.7071068, 0.7071068, 0)),
-        radians(vec3f(90.0f, 0.0f, 180.0f)));
+        deg2rad(vec3f(90.0f, 0.0f, 180.0f)));
 }
 
 TEST(ConvertTest, EulerToQuaternion) {
     vector_eq(
-        euler_to_quaternion(radians(vec3f(30.0f, 45.0f, 90.0f))),
+        euler_to_quaternion(deg2rad(vec3f(30.0f, 45.0f, 90.0f))),
         quatf(-0.092296, 0.4304593, 0.5609855, 0.7010574));
 }
 

@@ -138,13 +138,13 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
                         break;
                     // ! Also we unkown the rotation order, so use axis rotation here
                     case Channel::Xrotation:
-                        rotation = rotation * rotate_y(mat4f(1.0f), radians(value));
+                        rotation = rotation * rotate_y(mat4f(1.0f), deg2rad(value));
                         break;
                     case Channel::Yrotation:
-                        rotation = rotation * rotate_z(mat4f(1.0f), radians(value));
+                        rotation = rotation * rotate_z(mat4f(1.0f), deg2rad(value));
                         break;
                     case Channel::Zrotation:
-                        rotation = rotation * rotate_x(mat4f(1.0f), radians(value));
+                        rotation = rotation * rotate_x(mat4f(1.0f), deg2rad(value));
                         break;
                     default:
                         break;
