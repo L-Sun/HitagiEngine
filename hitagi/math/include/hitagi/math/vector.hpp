@@ -111,9 +111,9 @@ struct Vector : public BaseVector<T, D> {
     using BaseVector<T, D>::BaseVector;
     using value_type = T;
 
-    Vector(const Vector&)     = default;
-    Vector(Vector&&) noexcept = default;
-    Vector& operator=(const Vector&) = default;
+    Vector(const Vector&)                = default;
+    Vector(Vector&&) noexcept            = default;
+    Vector& operator=(const Vector&)     = default;
     Vector& operator=(Vector&&) noexcept = default;
 
     explicit Vector(const T& num) { data.fill(num); }
@@ -175,8 +175,8 @@ struct Vector : public BaseVector<T, D> {
     }
     friend Vector operator*(const T& lhs, const Vector& rhs) noexcept { return rhs * lhs; }
     Vector        operator/(const T& rhs) const noexcept {
-        Vector result;
-        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
+               Vector result;
+               for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
         return result;
     }
     Vector operator/(const Vector& rhs) const noexcept {
@@ -269,6 +269,24 @@ struct Quaternion : public Vector<T, 4> {
             data[2] * rhs.data[3] + data[3] * rhs.data[2] + data[0] * rhs.data[1] - data[1] * rhs.data[0],
             data[3] * rhs.data[3] - data[0] * rhs.data[0] - data[1] * rhs.data[1] - data[2] * rhs.data[2],
         };
+    }
+
+    Quaternion invert(const Quaternion& q) {
+        Quaternion result = q;
+
+        T length  = q.norm();
+        T length2 = length * length;
+
+        if (length2 != 0.0) {
+            float invLength = 1.0f / length2;
+
+            result.x *= -invLength;
+            result.y *= -invLength;
+            result.z *= -invLength;
+            result.w *= invLength;
+        }
+
+        return result;
     }
 };
 

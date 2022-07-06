@@ -104,5 +104,10 @@
     },
     "xmake.compileCommandsDirectory": "${workspaceRoot}/build",
     "C_Cpp.intelliSenseEngine": "Disabled",
-    "testMate.cpp.test.workingDirectory": "${workspaceFolder}"
+    "testMate.cpp.test.workingDirectory": "${workspaceFolder}",
+    "xmake.additionalConfigArguments": "--cc=clang --cxx=clang++",
+    "clangd.arguments": [
+        "-j=8",
+        "--pch-storage=memory"
+    ]
 }
