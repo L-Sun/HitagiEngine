@@ -24,7 +24,7 @@ namespace fs = std::filesystem;
 using namespace HighFive;
 
 int init() {
-#ifndef HITAGI_DEBUG
+#ifndef _DEBUG
     spdlog::set_level(spdlog::level::info);
 #endif
     int result;
