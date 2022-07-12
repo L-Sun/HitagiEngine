@@ -28,7 +28,7 @@ void from_json(const nlohmann::json& j, Matrix<T, N>& p) {
 
 namespace hitagi::resource {
 
-std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buffer, std::pmr::vector<std::shared_ptr<Material>>& materials) {
+std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) {
     if (buffer.Empty()) return nullptr;
 
     auto logger = spdlog::get("AssetManager");
@@ -133,20 +133,7 @@ std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buff
         builder.AppendTextureName(texture["name"], texture["path"]);
     }
 
-    auto material = builder.Build();
-    auto iter     = std::find_if(materials.begin(), materials.end(), [material](const auto& m) {
-        return *m == *material;
-    });
-
-    auto instance = material->CreateInstance();
-    // A new material type
-    if (iter == materials.end()) {
-        materials.emplace_back(material);
-    } else {
-        instance->SetMaterial(*iter);
-    }
-
-    return instance;
+    return builder.Build();
 }
 
 }  // namespace hitagi::resource

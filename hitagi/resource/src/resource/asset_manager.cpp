@@ -32,7 +32,7 @@ int AssetManager::Initialize() {
     m_ImageParser[static_cast<size_t>(ImageFormat::TGA)]  = std::make_unique<TgaParser>();
     m_ImageParser[static_cast<size_t>(ImageFormat::BMP)]  = std::make_unique<BmpParser>();
 
-    m_MaterialParser = std::make_unique<MaterialParser>();
+    m_MaterialJSONParser = std::make_unique<MaterialJSONParser>();
 
     // m_MoCapParser = std::make_unique<BvhParser>();
 
@@ -43,7 +43,7 @@ void AssetManager::Tick() {}
 void AssetManager::Finalize() {
     // m_MoCapParser = nullptr;
 
-    m_MaterialParser = nullptr;
+    m_MaterialJSONParser = nullptr;
 
     for (auto&& img_parser : m_ImageParser) {
         img_parser = nullptr;
@@ -75,7 +75,21 @@ std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& pa
 }
 
 std::shared_ptr<MaterialInstance> AssetManager::ImportMaterial(const std::filesystem::path& path) {
-    return m_MaterialParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), m_Materials);
+    
+    auto material = m_MaterialJSONParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
+
+    auto instance = material->CreateInstance();
+
+    auto iter = std::find_if(m_Materials.begin(), m_Materials.end(), [&material](const std::shared_ptr<Material>& mat) {
+        return *mat == *material;
+    });
+    if (iter != m_Materials.end()) {
+        instance->SetMaterial(*iter);
+    } else {
+        m_Materials.emplace_back(std::move(material));
+    }
+
+    return instance;
 }
 
 // std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> AssetManager::ImportAnimation(const std::filesystem::path& path) {

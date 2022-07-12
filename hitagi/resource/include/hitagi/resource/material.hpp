@@ -6,14 +6,10 @@
 #include <hitagi/math/matrix.hpp>
 #include <hitagi/utils/private_build.hpp>
 
-#include <memory>
-#include <string>
 #include <typeindex>
 #include <typeinfo>
-#include <memory_resource>
 #include <unordered_set>
 #include <bitset>
-#include <filesystem>
 
 namespace hitagi::resource {
 

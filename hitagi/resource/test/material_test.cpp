@@ -1,10 +1,9 @@
 #include <hitagi/resource/material.hpp>
 #include <hitagi/resource/material_instance.hpp>
+#include <hitagi/core/memory_manager.hpp>
 #include <hitagi/utils/test.hpp>
 
 #include <array>
-#include "gtest/gtest.h"
-#include "hitagi/core/memory_manager.hpp"
 
 using namespace hitagi::resource;
 using namespace hitagi::math;
