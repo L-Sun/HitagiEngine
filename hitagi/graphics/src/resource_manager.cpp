@@ -17,21 +17,27 @@ void ResourceManager::PrepareVertexBuffer(const std::shared_ptr<VertexArray>& ve
     if (m_VertexBuffer.count(id) == 0) {
         m_VertexBuffer.emplace(id, m_Driver.CreateVertexBuffer(vertices));
         m_VersionsInfo[id] = vertices->Version();
-    } else if (auto& vb = m_VertexBuffer.at(id);
-               vertices->Version() > m_VersionsInfo.at(id)) {
-        if (vb->desc.vertex_count < vertices->VertexCount() ||
-            vb->desc.slot_mask != vertices->GetSlotMask())
+    } else if (auto& vb = m_VertexBuffer.at(id); vertices->Version() > m_VersionsInfo.at(id)) {
+        if (vb->desc.vertex_count < vertices->VertexCount() || vb->desc.attr_mask != vertices->GetAttributeMask()) {
             vb = m_Driver.CreateVertexBuffer(vertices);
-        else {
+
+        } else {
             auto context = m_Driver.GetGraphicsCommandContext();
-            for (std::size_t slot = 0; slot < magic_enum::enum_count<resource::VertexAttribute>(); slot++) {
-                if (vb->desc.slot_mask.test(slot)) {
-                    const auto&       buffer = vertices->GetBuffer(slot);
-                    const std::size_t offset = vb->desc.slot_offset[slot];
-                    context->UpdateBuffer(vb, offset, buffer.GetData(), buffer.GetDataSize());
+            magic_enum::enum_for_each<resource::VertexAttribute>([&](auto attr) {
+                std::size_t i = magic_enum::enum_integer(attr());
+                if (vb->desc.attr_mask.test(i)) {
+                    const auto& buffer = vertices->GetBuffer(attr());
+
+                    context->UpdateBuffer(
+                        vb,
+                        vb->desc.attr_offset[i],
+                        buffer.GetData(),
+                        buffer.GetDataSize());
+
                     vb->desc.vertex_count = vertices->VertexCount();
                 }
-            }
+            });
+
             context->Finish(true);
         }
 
@@ -162,12 +168,6 @@ void ResourceManager::PreparePipeline(const std::shared_ptr<Material>& material)
             .SetRootSignautre(rootsig_builder.Create(m_Driver))
             .SetRenderFormat(Format::R8G8B8A8_UNORM)
             .SetPrimitiveType(material->GetPrimitiveType());
-
-        magic_enum::enum_for_each<VertexAttribute>([&](auto slot) {
-            if (material->IsSlotEnabled(slot)) {
-                pso_builder.EnableVertexSlot(slot);
-            }
-        });
 
         m_PipelineStates.emplace(id, pso_builder.Build(m_Driver));
     }

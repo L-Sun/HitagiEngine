@@ -70,7 +70,6 @@ struct PipelineStateDetial {
     std::pmr::string               name;
     core::Buffer                   vertex_shader;
     core::Buffer                   pixel_shader;
-    std::bitset<num_vertex_slot>   vertex_slot_mask;
     bool                           front_counter_clockwise = true;
     std::shared_ptr<RootSignature> root_signature          = nullptr;
     Format                         render_format           = Format::R8G8B8A8_UNORM;
@@ -89,7 +88,6 @@ public:
         Builder& SetName(std::string_view name);
         Builder& SetVertexShader(core::Buffer vs);
         Builder& SetPixelShader(core::Buffer ps);
-        Builder& EnableVertexSlot(resource::VertexAttribute slot);
         Builder& SetRootSignautre(std::shared_ptr<RootSignature> sig);
         Builder& SetRenderFormat(Format format);
         Builder& SetDepthBufferFormat(Format format);

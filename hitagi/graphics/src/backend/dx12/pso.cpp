@@ -1,4 +1,7 @@
 #include "pso.hpp"
+#include "utils.hpp"
+
+#include <magic_enum.hpp>
 
 namespace hitagi::graphics::backend::DX12 {
 void GraphicsPSO::SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& input_layout) {
@@ -38,6 +41,17 @@ void GraphicsPSO::Finalize(ID3D12Device* device) {
     assert(m_PSODesc.pRootSignature != nullptr);
     ThrowIfFailed(device->CreateGraphicsPipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
     m_PSO->SetName(std::wstring(m_Name.begin(), m_Name.end()).data());
+}
+
+int GraphicsPSO::GetAttributeSlot(resource::VertexAttribute attr) const {
+    for (const auto& input_element : m_InputLayouts) {
+        if (input_element.SemanticName == hlsl_semantic_name(attr) &&
+            input_element.SemanticIndex == hlsl_semantic_index(attr) &&
+            input_element.Format == hlsl_semantic_format(attr)) {
+            return input_element.InputSlot;
+        }
+    }
+    return -1;
 }
 
 GraphicsPSO GraphicsPSO::Copy() const {

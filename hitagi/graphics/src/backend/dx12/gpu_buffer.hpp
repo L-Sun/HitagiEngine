@@ -19,13 +19,12 @@ class VertexBuffer : public GpuBuffer {
 public:
     VertexBuffer(ID3D12Device* device, graphics::VertexBuffer& vb);
 
-    D3D12_VERTEX_BUFFER_VIEW VertexBufferView(std::size_t slot) const;
-    std::size_t              GetVertexCount() const { return m_Desc.vertex_count; }
+    D3D12_VERTEX_BUFFER_VIEW VertexBufferView(resource::VertexAttribute attr) const;
 
-    bool        SlotEnabled(std::size_t slot) const;
-    std::size_t GetSlotOffset(std::size_t slot) const;
-    std::size_t GetSlotSize(std::size_t slot) const;
-    std::size_t GetSlotElementSize(std::size_t slot) const;
+    bool        AttributeEnabled(resource::VertexAttribute attr) const;
+    std::size_t GetAttributeOffset(resource::VertexAttribute attr) const;
+    std::size_t GetAttributeSize(resource::VertexAttribute attr) const;
+    std::size_t GetAttributeElementSize(resource::VertexAttribute attr) const;
     const auto& GetDesc() const noexcept { return m_Desc; }
 
 private:

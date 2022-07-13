@@ -25,16 +25,13 @@ GpuBuffer::GpuBuffer(ID3D12Device*         device,
 
 constexpr std::size_t calculate_total_vertex_buffer_size(graphics::VertexBufferDesc desc) {
     std::size_t result = 0;
-    for (std::size_t slot = 0; slot < desc.slot_mask.size(); slot++) {
-        const bool enabled = desc.slot_mask.test(slot);
-        if (enabled) continue;
+    magic_enum::enum_for_each<resource::VertexAttribute>([&](auto e) {
+        const bool enabled = desc.attr_mask.test(magic_enum::enum_integer(e()));
+        if (enabled) return;
 
-        const std::size_t attribute_size =
-            resource::get_vertex_attribute_size(
-                magic_enum::enum_cast<resource::VertexAttribute>(slot).value());
-
+        const std::size_t attribute_size = resource::get_vertex_attribute_size(e());
         result += desc.vertex_count * attribute_size;
-    }
+    });
     return result;
 }
 
@@ -44,38 +41,38 @@ VertexBuffer::VertexBuffer(ID3D12Device* device, graphics::VertexBuffer& vb)
                 calculate_total_vertex_buffer_size(vb.desc),
                 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER),
       m_Desc(vb.desc) {
-    for (std::size_t slot = 0; slot < m_Desc.slot_offset.size(); slot++) {
-        m_Desc.slot_offset[slot] = GetSlotOffset(slot);
+    for (std::size_t i = 0; i < m_Desc.attr_offset.size(); i++) {
+        m_Desc.attr_offset[i] = GetAttributeOffset(magic_enum::enum_cast<resource::VertexAttribute>(i).value());
     }
 }
 
-D3D12_VERTEX_BUFFER_VIEW VertexBuffer::VertexBufferView(std::size_t slot) const {
-    assert(SlotEnabled(slot));
+D3D12_VERTEX_BUFFER_VIEW VertexBuffer::VertexBufferView(resource::VertexAttribute attr) const {
+    assert(AttributeEnabled(attr));
 
     D3D12_VERTEX_BUFFER_VIEW vbv;
-    vbv.BufferLocation = m_Resource->GetGPUVirtualAddress() + GetSlotOffset(slot);
-    vbv.SizeInBytes    = GetSlotSize(slot);
-    vbv.StrideInBytes  = GetSlotElementSize(slot);
+    vbv.BufferLocation = m_Resource->GetGPUVirtualAddress() + GetAttributeOffset(attr);
+    vbv.SizeInBytes    = GetAttributeSize(attr);
+    vbv.StrideInBytes  = GetAttributeElementSize(attr);
     return vbv;
 }
-bool VertexBuffer::SlotEnabled(std::size_t slot) const {
-    return m_Desc.slot_mask.test(slot);
+bool VertexBuffer::AttributeEnabled(resource::VertexAttribute attr) const {
+    return m_Desc.attr_mask.test(magic_enum::enum_integer(attr));
 }
 
-std::size_t VertexBuffer::GetSlotOffset(std::size_t slot) const {
+std::size_t VertexBuffer::GetAttributeOffset(resource::VertexAttribute attr) const {
     std::size_t offset = 0;
-    for (std::size_t i = 0; i < slot; i++) {
-        offset += GetSlotSize(i);
+    for (std::size_t i = 0; i < magic_enum::enum_integer(attr); i++) {
+        offset += GetAttributeSize(magic_enum::enum_cast<resource::VertexAttribute>(i).value());
     }
     return offset;
 }
 
-std::size_t VertexBuffer::GetSlotSize(std::size_t slot) const {
-    return SlotEnabled(slot) ? m_Desc.vertex_count * GetSlotElementSize(slot) : 0;
+std::size_t VertexBuffer::GetAttributeSize(resource::VertexAttribute attr) const {
+    return AttributeEnabled(attr) ? m_Desc.vertex_count * GetAttributeElementSize(attr) : 0;
 }
 
-std::size_t VertexBuffer::GetSlotElementSize(std::size_t slot) const {
-    return resource::get_vertex_attribute_size(magic_enum::enum_cast<resource::VertexAttribute>(slot).value());
+std::size_t VertexBuffer::GetAttributeElementSize(resource::VertexAttribute attr) const {
+    return resource::get_vertex_attribute_size(attr);
 }
 
 IndexBuffer::IndexBuffer(ID3D12Device* device, graphics::IndexBuffer& ib)

@@ -1,14 +1,16 @@
 #pragma once
 #include "root_signature.hpp"
 
+#include <magic_enum.hpp>
+
 namespace hitagi::graphics::backend::DX12 {
 class PSO : public backend::Resource {
 public:
     PSO(std::string_view name) : m_Name(name) {}
-    PSO(const PSO&) = delete;
+    PSO(const PSO&)            = delete;
     PSO& operator=(const PSO&) = delete;
     PSO(PSO&&)                 = default;
-    PSO& operator=(PSO&&) = default;
+    PSO& operator=(PSO&&)      = default;
 
     void                 SetRootSignature(const RootSignature& root_signature) { m_RootSignature = &root_signature; }
     ID3D12PipelineState* GetPSO() const { return m_PSO.Get(); }
@@ -34,6 +36,8 @@ public:
     void SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& rtv_formats, DXGI_FORMAT dsv_format, unsigned msaa_count = 1, unsigned msaa_quality = 0);
 
     void Finalize(ID3D12Device* device);
+
+    int GetAttributeSlot(resource::VertexAttribute attr) const;
 
     GraphicsPSO Copy() const;
 

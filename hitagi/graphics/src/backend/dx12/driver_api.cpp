@@ -1,18 +1,13 @@
 #include "driver_api.hpp"
-
 #include "gpu_buffer.hpp"
 #include "command_context.hpp"
-#include "hitagi/core/memory_manager.hpp"
-#include "hitagi/graphics/enums.hpp"
-#include "hitagi/graphics/resource.hpp"
-#include "hitagi/resource/enums.hpp"
-#include "magic_enum.hpp"
 #include "sampler.hpp"
 #include "utils.hpp"
 
-#include <dxgiformat.h>
-#include <windef.h>
-#include <algorithm>
+#include <hitagi/core/memory_manager.hpp>
+#include <hitagi/graphics/enums.hpp>
+#include <hitagi/graphics/resource.hpp>
+#include <hitagi/resource/enums.hpp>
 
 namespace hitagi::graphics::backend::DX12 {
 
@@ -146,7 +141,7 @@ std::shared_ptr<graphics::RenderTarget> DX12DriverAPI::CreateRenderFromSwapChain
 
 std::shared_ptr<graphics::VertexBuffer> DX12DriverAPI::CreateVertexBuffer(std::shared_ptr<resource::VertexArray> vertices) {
     auto                       name = vertices->GetUniqueName();
-    graphics::VertexBufferDesc desc = {.vertex_count = vertices->VertexCount(), .slot_mask = vertices->GetSlotMask()};
+    graphics::VertexBufferDesc desc = {.vertex_count = vertices->VertexCount(), .attr_mask = vertices->GetAttributeMask()};
 
     auto result = std::make_shared<graphics::VertexBuffer>(name, nullptr, desc);
     auto vb     = std::make_unique<VertexBuffer>(m_Device.Get(), *result);
@@ -154,13 +149,17 @@ std::shared_ptr<graphics::VertexBuffer> DX12DriverAPI::CreateVertexBuffer(std::s
 
     GraphicsCommandContext context(*this);
 
-    for (std::size_t slot = 0; slot < magic_enum::enum_count<resource::VertexAttribute>(); slot++) {
-        if (desc.slot_mask.test(slot)) {
-            const auto&       buffer = vertices->GetBuffer(slot);
-            const std::size_t offset = result->desc.slot_offset[slot];
-            context.UpdateBuffer(result, offset, buffer.GetData(), buffer.GetDataSize());
+    magic_enum::enum_for_each<resource::VertexAttribute>([&](auto attr) {
+        auto vb = result->GetBackend<VertexBuffer>();
+        if (vb->AttributeEnabled(attr())) {
+            const auto& buffer = vertices->GetBuffer(attr());
+            context.UpdateBuffer(
+                result,
+                vb->GetAttributeOffset(attr()),
+                buffer.GetData(),
+                buffer.GetDataSize());
         }
-    }
+    });
 
     context.Finish(true);
     return result;
@@ -369,25 +368,40 @@ void DX12DriverAPI::CreatePipelineState(std::shared_ptr<graphics::PipelineState>
     auto ps   = pso->pixel_shader;
     auto sig  = pso->root_signature->GetBackend<RootSignature>();
 
-    std::vector<D3D12_INPUT_ELEMENT_DESC> input_desc;
-    for (std::size_t slot = 0; slot < pso->vertex_slot_mask.size(); slot++) {
-        if (!pso->vertex_slot_mask.test(slot)) continue;
+    ComPtr<IDxcUtils> utils;
+    DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&utils));
 
-        auto                     attr = magic_enum::enum_cast<resource::VertexAttribute>(slot).value();
-        D3D12_INPUT_ELEMENT_DESC desc = {};
-        desc.SemanticName             = hlsl_semantic_name(attr);
-        desc.SemanticIndex            = hlsl_semantic_index(attr);
-        desc.Format                   = hlsl_semantic_format(attr);
-        desc.InputSlot                = slot;
-        desc.AlignedByteOffset        = D3D12_APPEND_ALIGNED_ELEMENT;
-        desc.InputSlotClass           = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-        desc.InstanceDataStepRate     = 0;
-        input_desc.emplace_back(desc);
+    DxcBuffer vs_buffer;
+    vs_buffer.Encoding = DXC_CP_ACP;
+    vs_buffer.Ptr      = vs.GetData();
+    vs_buffer.Size     = vs.GetDataSize();
+
+    ComPtr<ID3D12ShaderReflection> vs_reflection;
+    utils->CreateReflection(&vs_buffer, IID_PPV_ARGS(&vs_reflection));
+
+    D3D12_SHADER_DESC shader_desc;
+    vs_reflection->GetDesc(&shader_desc);
+
+    std::vector<D3D12_INPUT_ELEMENT_DESC> input_descs;
+    for (std::size_t slot = 0; slot < shader_desc.InputParameters; slot++) {
+        D3D12_SIGNATURE_PARAMETER_DESC vertex_attribute_desc;
+        vs_reflection->GetInputParameterDesc(slot, &vertex_attribute_desc);
+
+        D3D12_INPUT_ELEMENT_DESC desc;
+        desc.SemanticName         = hlsl_semantic_name(vertex_attribute_desc.SemanticName);
+        desc.SemanticIndex        = vertex_attribute_desc.SemanticIndex;
+        desc.InputSlot            = slot;
+        desc.Format               = to_dxgi_format(vertex_attribute_desc.ComponentType, vertex_attribute_desc.Mask);
+        desc.AlignedByteOffset    = D3D12_APPEND_ALIGNED_ELEMENT;
+        desc.InputSlotClass       = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+        desc.InstanceDataStepRate = 0;
+
+        input_descs.emplace_back(desc);
     }
 
     gpso->SetVertexShader(CD3DX12_SHADER_BYTECODE{vs.GetData(), vs.GetDataSize()});
     gpso->SetPixelShader(CD3DX12_SHADER_BYTECODE{ps.GetData(), ps.GetDataSize()});
-    gpso->SetInputLayout(input_desc);
+    gpso->SetInputLayout(input_descs);
     gpso->SetRootSignature(*sig);
     gpso->SetBlendState(to_d3d_blend_desc(pso->blend_state));
 

@@ -42,6 +42,19 @@ inline auto hlsl_semantic_name(resource::VertexAttribute attr) noexcept {
     }
 }
 
+constexpr inline auto hlsl_semantic_name(std::string_view semantic_name) {
+    if (semantic_name == "POSITION") return "POSITION";
+    if (semantic_name == "NORMAL") return "NORMAL";
+    if (semantic_name == "TANGENT") return "TANGENT";
+    if (semantic_name == "BITANGENT") return "BITANGENT";
+    if (semantic_name == "COLOR") return "COLOR";
+    if (semantic_name == "TEXCOORD") return "TEXCOORD";
+    if (semantic_name == "BLENDINDEX") return "BLENDINDEX";
+    if (semantic_name == "BLENDWEIGHT") return "BLENDWEIGHT";
+
+    return "PSIZE";
+}
+
 inline auto hlsl_semantic_index(resource::VertexAttribute attr) noexcept {
     switch (attr) {
         case resource::VertexAttribute::Position:
@@ -101,6 +114,61 @@ inline auto hlsl_semantic_format(resource::VertexAttribute attr) noexcept {
 }
 
 inline DXGI_FORMAT to_dxgi_format(graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
+inline DXGI_FORMAT to_dxgi_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
+    std::size_t num_components = std::countr_one(mask);
+    switch (num_components) {
+        case 1: {
+            switch (type) {
+                case D3D_REGISTER_COMPONENT_UNKNOWN:
+                    return DXGI_FORMAT_UNKNOWN;
+                case D3D_REGISTER_COMPONENT_UINT32:
+                    return DXGI_FORMAT_R32_UINT;
+                case D3D_REGISTER_COMPONENT_SINT32:
+                    return DXGI_FORMAT_R32_SINT;
+                case D3D_REGISTER_COMPONENT_FLOAT32:
+                    return DXGI_FORMAT_R32_FLOAT;
+            }
+        }
+        case 2: {
+            switch (type) {
+                case D3D_REGISTER_COMPONENT_UNKNOWN:
+                    return DXGI_FORMAT_UNKNOWN;
+                case D3D_REGISTER_COMPONENT_UINT32:
+                    return DXGI_FORMAT_R32G32_UINT;
+                case D3D_REGISTER_COMPONENT_SINT32:
+                    return DXGI_FORMAT_R32G32_SINT;
+                case D3D_REGISTER_COMPONENT_FLOAT32:
+                    return DXGI_FORMAT_R32G32_FLOAT;
+            }
+        }
+        case 3: {
+            switch (type) {
+                case D3D_REGISTER_COMPONENT_UNKNOWN:
+                    return DXGI_FORMAT_UNKNOWN;
+                case D3D_REGISTER_COMPONENT_UINT32:
+                    return DXGI_FORMAT_R32G32B32_UINT;
+                case D3D_REGISTER_COMPONENT_SINT32:
+                    return DXGI_FORMAT_R32G32B32_SINT;
+                case D3D_REGISTER_COMPONENT_FLOAT32:
+                    return DXGI_FORMAT_R32G32B32_FLOAT;
+            }
+        }
+        case 4: {
+            switch (type) {
+                case D3D_REGISTER_COMPONENT_UNKNOWN:
+                    return DXGI_FORMAT_UNKNOWN;
+                case D3D_REGISTER_COMPONENT_UINT32:
+                    return DXGI_FORMAT_R32G32B32A32_UINT;
+                case D3D_REGISTER_COMPONENT_SINT32:
+                    return DXGI_FORMAT_R32G32B32A32_SINT;
+                case D3D_REGISTER_COMPONENT_FLOAT32:
+                    return DXGI_FORMAT_R32G32B32A32_FLOAT;
+            }
+        }
+        default:
+            return DXGI_FORMAT_UNKNOWN;
+    }
+}
 
 inline graphics::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<graphics::Format>(format); }
 

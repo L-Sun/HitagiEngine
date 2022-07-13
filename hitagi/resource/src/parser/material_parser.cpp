@@ -52,15 +52,6 @@ std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) 
         logger->warn("Unkown primitive type: {}", json["name"]);
     }
 
-    for (const auto& vertex_attri : json["vertex_attributes"]) {
-        auto slot = magic_enum::enum_cast<VertexAttribute>(vertex_attri.get<std::string>());
-        if (!slot.has_value()) {
-            logger->error("Unkown vertex attributes {}", vertex_attri);
-            return nullptr;
-        }
-        builder.EnableSlot(slot.value());
-    }
-
     if (json.contains("parameters")) {
         if (!json["parameters"].is_array()) {
             logger->error("parameters field must be a type of sequence");

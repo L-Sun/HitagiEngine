@@ -20,10 +20,9 @@ public:
 
     inline std::size_t VertexCount() const noexcept { return m_VertexCount; }
 
-    std::bitset<magic_enum::enum_count<VertexAttribute>()> GetSlotMask() const;
+    std::bitset<magic_enum::enum_count<VertexAttribute>()> GetAttributeMask() const;
 
     core::Buffer& GetBuffer(VertexAttribute attr);
-    core::Buffer& GetBuffer(std::size_t slot);
 
     // the buffer will be constructed if `GetVertices` is invoke first time with attribute Attr
     template <VertexAttribute Attr>

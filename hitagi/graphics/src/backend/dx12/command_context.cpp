@@ -6,8 +6,9 @@
 
 #include <hitagi/math/vector.hpp>
 
-#include <d3d12.h>
+#include <magic_enum.hpp>
 
+#include <d3d12.h>
 #include <stdexcept>
 
 using namespace hitagi::math;
@@ -243,13 +244,16 @@ void GraphicsCommandContext::Draw(
     auto ibv = ib->IndexBufferView();
     m_CommandList->IASetIndexBuffer(&ibv);
 
-    for (std::size_t slot = 0; slot < vertex_buffer->desc.slot_mask.size(); slot++) {
-        // Make sure the slot is enabled in pipeline and vertex buffer
-        if (vertex_buffer->desc.slot_mask.test(slot) && m_CurrentPipeline->vertex_slot_mask.test(slot)) {
-            auto vbv = vertex_buffer->GetBackend<VertexBuffer>()->VertexBufferView(slot);
-            m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
+    auto gpso = m_CurrentPipeline->GetBackend<GraphicsPSO>();
+
+    magic_enum::enum_for_each<resource::VertexAttribute>([&](auto attr) {
+        if (vb->AttributeEnabled(attr())) {
+            if (int slot = gpso->GetAttributeSlot(attr()); slot != -1) {
+                auto vbv = vertex_buffer->GetBackend<VertexBuffer>()->VertexBufferView(attr());
+                m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
+            }
         }
-    }
+    });
 
     FlushResourceBarriers();
     m_DynamicViewDescriptorHeap.CommitStagedDescriptors(*this, &ID3D12GraphicsCommandList5::SetGraphicsRootDescriptorTable);

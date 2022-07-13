@@ -58,9 +58,9 @@ public:
 
 struct VertexBufferDesc {
     std::size_t vertex_count = 0;
-    //  indicate which slot is enabled
-    std::bitset<magic_enum::enum_count<resource::VertexAttribute>()>             slot_mask;
-    std::array<std::size_t, magic_enum::enum_count<resource::VertexAttribute>()> slot_offset;
+    //  indicate which attribute is enabled
+    std::bitset<magic_enum::enum_count<resource::VertexAttribute>()>             attr_mask;
+    std::array<std::size_t, magic_enum::enum_count<resource::VertexAttribute>()> attr_offset;
 };
 using VertexBuffer = ResourceWithDesc<VertexBufferDesc>;
 

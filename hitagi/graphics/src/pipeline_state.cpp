@@ -1,8 +1,9 @@
 #include <hitagi/graphics/pipeline_state.hpp>
 #include <hitagi/graphics/driver_api.hpp>
+
+#include <spdlog/spdlog.h>
+
 #include <string_view>
-#include "magic_enum.hpp"
-#include "spdlog/spdlog.h"
 
 namespace hitagi::graphics {
 
@@ -43,11 +44,6 @@ auto PipelineState::Builder::SetPixelShader(core::Buffer ps) -> Builder& {
     pixel_shader = std::move(ps);
     return *this;
 }
-auto PipelineState::Builder::EnableVertexSlot(resource::VertexAttribute slot) -> Builder& {
-    vertex_slot_mask.set(magic_enum::enum_integer(slot));
-    return *this;
-}
-
 auto PipelineState::Builder::SetRootSignautre(std::shared_ptr<RootSignature> sig) -> Builder& {
     root_signature = std::move(sig);
     return *this;

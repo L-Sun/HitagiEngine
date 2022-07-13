@@ -20,11 +20,10 @@ struct MaterialDetial {
         std::size_t      offset;
         std::size_t      size;
     };
-    PrimitiveType                                          primitive;
-    std::filesystem::path                                  shader;
-    std::bitset<magic_enum::enum_count<VertexAttribute>()> slot_mask;
-    std::pmr::vector<ParameterInfo>                        parameters_info;
-    std::pmr::unordered_set<std::pmr::string>              texture_name;
+    PrimitiveType                             primitive;
+    std::filesystem::path                     shader;
+    std::pmr::vector<ParameterInfo>           parameters_info;
+    std::pmr::unordered_set<std::pmr::string> texture_name;
 };
 
 class Material : public SceneObject,
@@ -43,8 +42,6 @@ public:
         Builder& SetPrimitive(PrimitiveType primitive);
 
         Builder& SetShader(const std::filesystem::path& path);
-
-        Builder& EnableSlot(VertexAttribute slot);
 
         // Set rasizer state
         // Builder& Cull();
@@ -90,9 +87,6 @@ public:
 
     bool        IsValidTextureParameter(std::string_view name) const noexcept;
     const auto& GetTextureNames() const noexcept { return texture_name; }
-
-    bool IsSlotEnabled(VertexAttribute slot) const;
-    auto GetSlotMask() const { return slot_mask; }
 
     bool operator==(const Material& rhs) const;
 
