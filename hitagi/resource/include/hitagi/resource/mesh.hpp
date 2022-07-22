@@ -12,7 +12,7 @@
 
 namespace hitagi::resource {
 
-class VertexArray : public SceneObject {
+class VertexArray : public ResourceObject {
 public:
     VertexArray(std::size_t vertex_count);
     VertexArray(const VertexArray& other) = default;
@@ -35,7 +35,7 @@ private:
     std::array<core::Buffer, magic_enum::enum_count<VertexAttribute>()> m_Buffers;
 };
 
-class IndexArray : public SceneObject {
+class IndexArray : public ResourceObject {
 public:
     IndexArray(std::size_t index_count, IndexType type);
     IndexArray(const IndexArray& other) = default;
@@ -57,7 +57,7 @@ private:
     core::Buffer m_Buffer;
 };
 
-struct Mesh : public SceneObject {
+struct Mesh : public ResourceObject {
 public:
     // if `index_count` is not set, its value will be the size of indices
     Mesh(

@@ -7,7 +7,7 @@
 #include <magic_enum.hpp>
 
 namespace hitagi::resource {
-class Scene : public SceneObject {
+class Scene : public ResourceObject {
 public:
     Scene() = default;
 

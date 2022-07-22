@@ -18,8 +18,12 @@ auto Material::Builder::SetPrimitive(PrimitiveType type) -> Builder& {
     return *this;
 }
 
-auto Material::Builder::SetShader(const std::filesystem::path& path) -> Builder& {
-    shader = path;
+auto Material::Builder::SetVertexShader(const std::filesystem::path& path) -> Builder& {
+    vertex_shader = std::make_shared<Shader>(Shader::Type::Vertex, path);
+    return *this;
+}
+auto Material::Builder::SetPixelShader(const std::filesystem::path& path) -> Builder& {
+    pixel_shader = std::make_shared<Shader>(Shader::Type::Pixel, path);
     return *this;
 }
 
@@ -132,7 +136,8 @@ bool Material::operator==(const Material& rhs) const {
         if (result == false) return false;
     }
 
-    return shader == rhs.shader &&
+    return vertex_shader == rhs.vertex_shader &&
+           pixel_shader == rhs.pixel_shader &&
            texture_name == rhs.texture_name;
 }
 

@@ -7,7 +7,7 @@
 
 namespace hitagi::resource {
 
-class MaterialInstance : public SceneObject {
+class MaterialInstance : public ResourceObject {
     friend class Material;
 
 public:

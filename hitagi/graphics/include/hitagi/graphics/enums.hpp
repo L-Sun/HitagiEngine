@@ -11,22 +11,6 @@ enum struct ShaderType {
     Compute,
 };
 
-enum struct ShaderVariableType {
-    CBV,
-    SRV,
-    UAV,
-    Sampler,
-};
-
-enum struct ShaderVisibility {
-    All,
-    Vertex,
-    Hull,
-    Domain,
-    Geometry,
-    Pixel,
-};
-
 // Texture
 enum struct Format : uint32_t {
     UNKNOWN                    = 0,

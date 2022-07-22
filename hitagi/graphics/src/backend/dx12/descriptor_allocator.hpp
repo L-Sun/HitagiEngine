@@ -1,8 +1,6 @@
 #pragma once
 #include "d3d_pch.hpp"
 
-#include <optional>
-
 // the DescriptorAllocator is CPU visiable only, for those used shader visiable descriptor,
 // use the dynamic descriptor heap (in context).
 namespace hitagi::graphics::backend::DX12 {
@@ -10,18 +8,26 @@ namespace hitagi::graphics::backend::DX12 {
 class DescriptorPage;
 
 struct Descriptor {
-    Descriptor(D3D12_CPU_DESCRIPTOR_HANDLE handle, std::shared_ptr<DescriptorPage> page_from);
-    Descriptor(const Descriptor& rhs) : handle(rhs.handle), page_from(nullptr) {}
-    Descriptor& operator=(const Descriptor& rhs) {
-        if (this != &rhs) handle = rhs.handle;
-        return *this;
-    }
-    Descriptor(Descriptor&&) = default;
-    Descriptor& operator=(Descriptor&&) = default;
+    enum struct Type : std::uint8_t {
+        CBV,
+        SRV,
+        UAV,
+        Sampler,
+        RTV,
+        DSV,
+    };
+
+    Descriptor() = default;
+    Descriptor(D3D12_CPU_DESCRIPTOR_HANDLE handle, std::shared_ptr<DescriptorPage> page_from, Type type);
+    Descriptor(const Descriptor&)            = delete;
+    Descriptor& operator=(const Descriptor&) = delete;
+    Descriptor(Descriptor&&)                 = default;
+    Descriptor& operator=(Descriptor&&)      = default;
 
     ~Descriptor();
-    D3D12_CPU_DESCRIPTOR_HANDLE     handle;
-    std::shared_ptr<DescriptorPage> page_from;
+    D3D12_CPU_DESCRIPTOR_HANDLE     handle    = {0};
+    std::shared_ptr<DescriptorPage> page_from = nullptr;
+    Type                            type;
 };
 
 class DescriptorPage : public std::enable_shared_from_this<DescriptorPage> {
@@ -37,7 +43,7 @@ public:
 
     void DiscardDescriptor(Descriptor& descriptor);
 
-    std::optional<std::vector<Descriptor>> Allocate(size_t num_descriptors);
+    std::pmr::vector<std::shared_ptr<Descriptor>> Allocate(size_t num_descriptors, Descriptor::Type type);
 
 protected:
     DescriptorPage(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, size_t num_descriptors);
@@ -47,15 +53,17 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE  m_Handle{};
     size_t                       m_IncrementSize;
 
+    D3D12_DESCRIPTOR_HEAP_TYPE m_Type;
+
     using BlockSize   = size_t;
     using BlockOffset = size_t;
-    using SizeIter    = std::multimap<size_t, size_t>::iterator;
+    using SearchMap   = std::pmr::multimap<BlockSize, BlockOffset>;
 
     // * according to cpp17 std www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/n4659.pdf [26.2.6/9] [26.2.6/10]
     // * For associative containers `insert` and `emplace` members shall not affect the validity of iterators to the container
     // * and `erase` and `extract` members invalidate only iterators to the erased elements that we will not use in the future
-    std::map<BlockOffset, SizeIter>       m_AvailableDescriptors;
-    std::multimap<BlockSize, BlockOffset> m_SearchMap;
+    std::pmr::map<BlockOffset, SearchMap::iterator> m_AvailableDescriptors;
+    SearchMap                                       m_SearchMap;
 };
 
 class DescriptorAllocator {
@@ -63,15 +71,15 @@ public:
     DescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type, size_t num_descriptor_per_page = 1024);
     void Initialize(ID3D12Device* device);
 
-    Descriptor                 Allocate();
-    std::vector<Descriptor>    Allocate(size_t num_descriptors);
-    D3D12_DESCRIPTOR_HEAP_TYPE GetType() const { return m_Type; }
+    std::shared_ptr<Descriptor>                   Allocate(Descriptor::Type type);
+    std::pmr::vector<std::shared_ptr<Descriptor>> Allocate(size_t num_descriptors, Descriptor::Type type);
+    D3D12_DESCRIPTOR_HEAP_TYPE                    GetHeapType() const { return m_HeapType; }
 
 private:
-    ID3D12Device*                              m_Device{};
-    D3D12_DESCRIPTOR_HEAP_TYPE                 m_Type;
-    size_t                                     m_NumDescriptorPerPage;
-    std::list<std::shared_ptr<DescriptorPage>> m_PagePool;
+    ID3D12Device*                                   m_Device{};
+    D3D12_DESCRIPTOR_HEAP_TYPE                      m_HeapType;
+    size_t                                          m_NumDescriptorPerPage;
+    std::pmr::list<std::shared_ptr<DescriptorPage>> m_PagePool;
 };
 
 }  // namespace hitagi::graphics::backend::DX12

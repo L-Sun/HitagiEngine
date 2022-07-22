@@ -1,20 +1,17 @@
 #pragma once
-#include <hitagi/graphics/driver_api.hpp>
+#include <hitagi/graphics/device_api.hpp>
 
 #include <hitagi/resource/mesh.hpp>
 #include <hitagi/resource/texture.hpp>
 #include <hitagi/resource/image.hpp>
+#include <hitagi/resource/shader.hpp>
 
 #include <unordered_map>
 
 namespace hitagi::graphics {
-constexpr auto FRAME_CONSTANT_BUFFER    = "FrameConstant";
-constexpr auto OBJECT_CONSTANT_BUFFER   = "ObjectConstants";
-constexpr auto MATERIAL_CONSTANT_BUFFER = "MaterialConstants";
-
 class ResourceManager {
 public:
-    ResourceManager(DriverAPI& driver);
+    ResourceManager(DeviceAPI& driver);
 
     // prepare vertex buffer in gpu. It will create new buffer in gpu if the vertices is not in gpu.
     void PrepareVertexBuffer(const std::shared_ptr<resource::VertexArray>& vertices);
@@ -48,7 +45,8 @@ private:
     // TODO
     void CompileShader(const std::filesystem::path& path);
 
-    DriverAPI&                                                         m_Driver;
+    DeviceAPI& m_Device;
+
     std::pmr::unordered_map<xg::Guid, std::shared_ptr<VertexBuffer>>   m_VertexBuffer;
     std::pmr::unordered_map<xg::Guid, std::shared_ptr<IndexBuffer>>    m_IndexBuffer;
     std::pmr::unordered_map<xg::Guid, std::shared_ptr<TextureBuffer>>  m_TextureBuffer;

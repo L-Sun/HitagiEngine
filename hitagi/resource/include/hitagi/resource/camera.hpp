@@ -5,7 +5,7 @@
 #include <numbers>
 
 namespace hitagi::resource {
-class Camera : public SceneObject {
+class Camera : public ResourceObject {
 public:
     Camera(
         float       aspect    = 16.0f / 9.0f,

@@ -179,7 +179,7 @@ void Editor::SceneExplorer() {
     ImGui::End();
 }
 
-std::string Editor::GenName(std::string_view name, std::shared_ptr<resource::SceneObject> obj) {
+std::string Editor::GenName(std::string_view name, std::shared_ptr<resource::ResourceObject> obj) {
     return fmt::format("{}##{}", name, obj->GetGuid().str());
 }
 std::string Editor::GenName(std::string_view name, std::shared_ptr<resource::SceneNode> node) {

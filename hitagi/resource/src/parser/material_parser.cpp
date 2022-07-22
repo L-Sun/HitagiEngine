@@ -44,7 +44,8 @@ std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) 
     Material::Builder builder;
     builder
         .SetName(json["name"])
-        .SetShader(json["shader"]);
+        .SetVertexShader(json["vertex_shader"])
+        .SetPixelShader(json["pixel_shader"]);
 
     if (auto primitive = magic_enum::enum_cast<PrimitiveType>(json["primitive"].get<std::string_view>()); primitive.has_value()) {
         builder.SetPrimitive(*primitive);

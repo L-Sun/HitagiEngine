@@ -1,18 +1,15 @@
 #pragma once
-#include "command_context.hpp"
 #include "command_list_manager.hpp"
 #include "descriptor_allocator.hpp"
-#include "root_signature.hpp"
-#include "pso.hpp"
 
-#include <hitagi/graphics/driver_api.hpp>
+#include <hitagi/graphics/device_api.hpp>
 
 namespace hitagi::graphics::backend::DX12 {
 
-class DX12DriverAPI : public DriverAPI {
+class DX12Device : public DeviceAPI {
 public:
-    DX12DriverAPI();
-    ~DX12DriverAPI() override;
+    DX12Device();
+    ~DX12Device() override;
 
     void Present(size_t frame_index) final;
 
@@ -36,8 +33,7 @@ public:
 
     std::shared_ptr<graphics::Sampler> CreateSampler(std::string_view name, const resource::SamplerDesc& desc) final;
 
-    void CreateRootSignature(std::shared_ptr<graphics::RootSignature> root_signature) final;
-    void CreatePipelineState(std::shared_ptr<graphics::PipelineState> pso) final;
+    std::shared_ptr<graphics::PipelineState> CreatePipelineState(std::string_view name, const graphics::PipelineStateDesc& desc) final;
 
     std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() final;
 
@@ -52,10 +48,19 @@ public:
     CommandListManager& GetCmdMgr() noexcept { return m_CommandManager; }
 
 private:
+    void CompileShader(const std::shared_ptr<resource::Shader>& shader);
+
+    std::pmr::vector<D3D12_INPUT_ELEMENT_DESC> CreateInputLayout(const std::shared_ptr<resource::Shader>& vs);
+
     static ComPtr<ID3D12DebugDevice1> sm_DebugInterface;
+
+    std::shared_ptr<spdlog::logger> m_Logger;
 
     ComPtr<ID3D12Device6> m_Device;
     ComPtr<IDXGIFactory4> m_DxgiFactory;
+
+    ComPtr<IDxcUtils>     m_Utils;
+    ComPtr<IDxcCompiler3> m_ShaderCompiler;
 
     ComPtr<IDXGISwapChain4> m_SwapChain;
 

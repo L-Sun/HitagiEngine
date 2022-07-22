@@ -3,7 +3,7 @@
 #include <memory_resource>
 
 namespace hitagi::resource {
-class SceneObject {
+class ResourceObject {
 public:
     const xg::Guid&  GetGuid() const noexcept;
     void             SetName(std::string_view name) noexcept;
@@ -13,12 +13,12 @@ public:
     void             IncreaseVersion() noexcept;
 
 protected:
-    explicit SceneObject();
-    SceneObject(const SceneObject& obj);
-    SceneObject(SceneObject&& obj) noexcept;
+    explicit ResourceObject();
+    ResourceObject(const ResourceObject& obj);
+    ResourceObject(ResourceObject&& obj) noexcept;
 
-    SceneObject& operator=(const SceneObject& rhs);
-    SceneObject& operator=(SceneObject&& rhs) = default;
+    ResourceObject& operator=(const ResourceObject& rhs);
+    ResourceObject& operator=(ResourceObject&& rhs) = default;
 
     void RenewGuid() noexcept;
 

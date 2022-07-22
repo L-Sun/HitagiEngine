@@ -6,7 +6,7 @@
 #include <hitagi/resource/light.hpp>
 
 namespace hitagi::graphics {
-class DriverAPI;
+class DeviceAPI;
 class IGraphicsCommandContext;
 
 class Frame {
@@ -33,7 +33,7 @@ class Frame {
     };
 
 public:
-    Frame(DriverAPI& driver, ResourceManager& resource_manager, std::size_t frame_index);
+    Frame(DeviceAPI& driver, ResourceManager& resource_manager, std::size_t frame_index);
 
     void SetFenceValue(std::uint64_t fence_value);
     // TODO generate pipeline state object from scene node infomation
@@ -54,7 +54,7 @@ public:
     void PrepareData();
 
 private:
-    DriverAPI&        m_Driver;
+    DeviceAPI&        m_Device;
     ResourceManager&  m_ResMgr;
     const std::size_t m_FrameIndex;
     std::uint64_t     m_FenceValue = 0;

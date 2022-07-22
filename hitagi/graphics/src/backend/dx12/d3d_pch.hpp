@@ -18,6 +18,8 @@
 #include <queue>
 #include <mutex>
 #include <array>
+#include <memory_resource>
+#include <bitset>
 
 // DX12
 #include "dx_helper.h"

@@ -138,13 +138,13 @@ void ConstantBuffer::Resize(ID3D12Device* device, DescriptorAllocator& descritpt
     m_Desc.num_elements = num_elements;
 
     // Create CBV
-    assert(descritptor_allocator.GetType() == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    m_CBV = descritptor_allocator.Allocate(num_elements);
+    assert(descritptor_allocator.GetHeapType() == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    m_CBV = descritptor_allocator.Allocate(num_elements, Descriptor::Type::CBV);
     D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
     cbv_desc.SizeInBytes    = m_BlockSize;
     cbv_desc.BufferLocation = m_Resource->GetGPUVirtualAddress();
     for (auto&& cbv : m_CBV) {
-        device->CreateConstantBufferView(&cbv_desc, cbv.handle);
+        device->CreateConstantBufferView(&cbv_desc, cbv->handle);
         cbv_desc.BufferLocation += m_BlockSize;
     }
 }
@@ -153,29 +153,29 @@ ConstantBuffer::~ConstantBuffer() {
     m_Resource->Unmap(0, nullptr);
 }
 
-TextureBuffer::TextureBuffer(std::string_view name, ID3D12Device* device, Descriptor&& srv, const D3D12_RESOURCE_DESC& desc)
+TextureBuffer::TextureBuffer(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> srv, const D3D12_RESOURCE_DESC& desc)
     : m_SRV(std::move(srv)) {
     auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ThrowIfFailed(device->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&m_Resource)));
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_SRV.handle);
+    device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_SRV->handle);
 }
 
-RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, Descriptor&& rtv, const D3D12_RESOURCE_DESC& desc)
+RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> rtv, const D3D12_RESOURCE_DESC& desc)
     : m_RTV(std::move(rtv)) {
     auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ThrowIfFailed(device->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&m_Resource)));
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV.handle);
+    device->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV->handle);
 }
 
-RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, Descriptor&& rtv, ID3D12Resource* res)
+RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> rtv, ID3D12Resource* res)
     : GpuResource(res), m_RTV(std::move(rtv)) {
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV.handle);
+    device->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV->handle);
 }
 
-DepthBuffer::DepthBuffer(std::string_view name, ID3D12Device* device, Descriptor&& dsv, const D3D12_RESOURCE_DESC& desc, float clear_depth, uint8_t clear_stencil)
+DepthBuffer::DepthBuffer(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> dsv, const D3D12_RESOURCE_DESC& desc, float clear_depth, uint8_t clear_stencil)
     : m_DSV(std::move(dsv)), m_ClearDepth(clear_depth), m_ClearStencil(clear_stencil) {
     auto              heap_props     = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_CLEAR_VALUE clear_value    = {};
@@ -191,7 +191,7 @@ DepthBuffer::DepthBuffer(std::string_view name, ID3D12Device* device, Descriptor
     dsv_desc.Texture2D.MipSlice            = 0;
     dsv_desc.Flags                         = D3D12_DSV_FLAG_NONE;
 
-    device->CreateDepthStencilView(m_Resource.Get(), &dsv_desc, m_DSV.handle);
+    device->CreateDepthStencilView(m_Resource.Get(), &dsv_desc, m_DSV->handle);
 }
 
 }  // namespace hitagi::graphics::backend::DX12

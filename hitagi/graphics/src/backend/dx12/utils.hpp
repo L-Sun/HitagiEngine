@@ -1,10 +1,14 @@
 #pragma once
 #include "d3d_pch.hpp"
+#include "descriptor_allocator.hpp"
+
 #include <hitagi/resource/enums.hpp>
 #include <hitagi/graphics/resource.hpp>
 
+#include <d3d12.h>
 #include <dxgiformat.h>
 #include <magic_enum.hpp>
+#include <stdexcept>
 
 // TODO change when integrate Vulkan
 namespace hitagi::graphics::backend::DX12 {
@@ -13,7 +17,66 @@ inline const size_t align(size_t x, size_t a) {
     return (x + a - 1) & ~(a - 1);
 }
 
-inline auto hlsl_semantic_name(resource::VertexAttribute attr) noexcept {
+constexpr auto range_type_to_descriptor_type(D3D12_DESCRIPTOR_RANGE_TYPE type) {
+    switch (type) {
+        case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
+            return Descriptor::Type::SRV;
+        case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
+            return Descriptor::Type::UAV;
+        case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
+            return Descriptor::Type::CBV;
+        case D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER:
+            return Descriptor::Type::Sampler;
+    }
+}
+
+inline auto root_parameter_type_to_descriptor_type(D3D12_ROOT_PARAMETER_TYPE type) {
+    switch (type) {
+        case D3D12_ROOT_PARAMETER_TYPE_CBV:
+            return Descriptor::Type::CBV;
+        case D3D12_ROOT_PARAMETER_TYPE_SRV:
+            return Descriptor::Type::SRV;
+        case D3D12_ROOT_PARAMETER_TYPE_UAV:
+            return Descriptor::Type::UAV;
+        default:
+            throw std::invalid_argument("only root descriptor type can be cast!");
+    }
+}
+
+constexpr auto descriptor_type_to_heap_type(Descriptor::Type type) {
+    switch (type) {
+        case Descriptor::Type::CBV:
+        case Descriptor::Type::UAV:
+        case Descriptor::Type::SRV:
+            return D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        case Descriptor::Type::Sampler:
+            return D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+        case Descriptor::Type::DSV:
+            return D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+        case Descriptor::Type::RTV:
+            return D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+    }
+}
+
+inline auto heap_type_to_descriptor_types(D3D12_DESCRIPTOR_HEAP_TYPE type) {
+    switch (type) {
+        case D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV:
+            return std::pmr::vector<Descriptor::Type>{
+                Descriptor::Type::CBV,
+                Descriptor::Type::UAV,
+                Descriptor::Type::SRV};
+        case D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER:
+            return std::pmr::vector<Descriptor::Type>{Descriptor::Type::Sampler};
+        case D3D12_DESCRIPTOR_HEAP_TYPE_DSV:
+            return std::pmr::vector<Descriptor::Type>{Descriptor::Type::DSV};
+        case D3D12_DESCRIPTOR_HEAP_TYPE_RTV:
+            return std::pmr::vector<Descriptor::Type>{Descriptor::Type::RTV};
+        default:
+            throw std::invalid_argument("Unkown descriptor heap type");
+    }
+}
+
+constexpr auto hlsl_semantic_name(resource::VertexAttribute attr) {
     switch (attr) {
         case resource::VertexAttribute::Position:
             return "POSITION";
@@ -290,25 +353,6 @@ inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(resource::SamplerDesc desc) noexce
     result.MipLODBias     = desc.mip_lod_bias;
 
     return result;
-}
-
-inline D3D12_SHADER_VISIBILITY to_d3d_shader_visibility(graphics::ShaderVisibility visibility) {
-    switch (visibility) {
-        case graphics::ShaderVisibility::All:
-            return D3D12_SHADER_VISIBILITY_ALL;
-        case graphics::ShaderVisibility::Vertex:
-            return D3D12_SHADER_VISIBILITY_VERTEX;
-        case graphics::ShaderVisibility::Hull:
-            return D3D12_SHADER_VISIBILITY_HULL;
-        case graphics::ShaderVisibility::Domain:
-            return D3D12_SHADER_VISIBILITY_DOMAIN;
-        case graphics::ShaderVisibility::Geometry:
-            return D3D12_SHADER_VISIBILITY_GEOMETRY;
-        case graphics::ShaderVisibility::Pixel:
-            return D3D12_SHADER_VISIBILITY_PIXEL;
-        default:
-            return D3D12_SHADER_VISIBILITY_ALL;
-    }
 }
 
 inline D3D12_BLEND to_d3d_blend(graphics::Blend blend) {
