@@ -1,7 +1,5 @@
 name: Build Hitagi Engine (Windows)
 on:
-  push:
-    branches: [dev]
   pull_request:
     branches: [dev]
 
