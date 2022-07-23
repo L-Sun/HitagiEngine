@@ -1,4 +1,12 @@
-# Hitagi Engine
+<div align="center">
+    <h1> Hitagi Engine</h1>
+    <div>
+        <a href="https://github.com/L-Sun/HitagiEngine/actions?query=workflow%3Awindows-build">
+            <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/L-Sun/HitagiEngine/windows-build?logo=windows&style=flat-square">
+        </a>
+    </div>
+    <hr>
+</div>
 
 Hitagi Engine 是以 C++20 开发的实验性游戏引擎，基本架构参考[从零开始手敲次世代游戏引擎](https://zhuanlan.zhihu.com/p/28587092)系列文章。目前能够完成基本的渲染功能，以及注册键盘鼠标监听事件。
 
