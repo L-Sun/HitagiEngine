@@ -180,7 +180,8 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
 
         // TODO adapte assimp shader
         builder
-            .SetShader("asset/assimp.hlsl")
+            .SetVertexShader("asset/assimp.hlsl")
+            .SetPixelShader("asset/assimp.hlsl")
             .SetPrimitive(primitive);
 
         auto material = builder.Build();
@@ -365,7 +366,7 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
         // // The node is bone
         // else if (bone_name_map.count(name) != 0) {
         //     auto bone_node = std::make_shared<BoneNode>(name);
-        //     bone_node->SetSceneObjectRef(bone_name_map.at(name));
+        //     bone_node->SetResourceObjectRef(bone_name_map.at(name));
         //     scene->bone_nodes.emplace_back(bone_node);
         //     node = bone_node;
         // }

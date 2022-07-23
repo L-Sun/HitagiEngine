@@ -9,4 +9,10 @@ inline void hash_combine(std::size_t& seed, const T& v, const Rest&... rest) {
     (hash_combine(seed, rest), ...);
 }
 
+template <typename T1, typename T2>
+inline std::size_t hash_combine(const T1& a, const T2& b, std::size_t seed = 0) {
+    hash_combine(seed, a, b);
+    return seed;
+}
+
 }  // namespace hitagi::utils

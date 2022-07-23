@@ -29,7 +29,7 @@ void FrameGraph::Compile() {
     //    generate valid resource id vector used by the next execute function.
 }
 
-void FrameGraph::Execute(DriverAPI& driver) {
+void FrameGraph::Execute(DeviceAPI& driver) {
     // Prepare all transiant resource used among the frame graph
     // TODO prepare the remaining resource after pruning.
     for (auto&& [id, desc] : m_InnerResourcesDesc) {
@@ -55,7 +55,7 @@ void FrameGraph::Execute(DriverAPI& driver) {
     }
 }
 
-void FrameGraph::Retire(uint64_t fence_value, DriverAPI& driver) noexcept {
+void FrameGraph::Retire(uint64_t fence_value, DeviceAPI& driver) noexcept {
     for (const auto& [id, desc] : m_InnerResourcesDesc) {
         driver.RetireResource(m_Resources.at(id), fence_value);
     }

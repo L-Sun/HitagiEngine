@@ -1,19 +1,16 @@
 #pragma once
-#include <filesystem>
 #include <hitagi/resource/enums.hpp>
 #include <hitagi/resource/scene_object.hpp>
+#include <hitagi/resource/shader.hpp>
 #include <hitagi/math/vector.hpp>
 #include <hitagi/math/matrix.hpp>
 #include <hitagi/utils/private_build.hpp>
 
-#include <memory>
-#include <string>
+#include <filesystem>
 #include <typeindex>
 #include <typeinfo>
-#include <memory_resource>
 #include <unordered_set>
 #include <bitset>
-#include <filesystem>
 
 namespace hitagi::resource {
 
@@ -24,14 +21,14 @@ struct MaterialDetial {
         std::size_t      offset;
         std::size_t      size;
     };
-    PrimitiveType                                          primitive;
-    std::filesystem::path                                  shader;
-    std::bitset<magic_enum::enum_count<VertexAttribute>()> slot_mask;
-    std::pmr::vector<ParameterInfo>                        parameters_info;
-    std::pmr::unordered_set<std::pmr::string>              texture_name;
+    PrimitiveType                             primitive;
+    std::shared_ptr<Shader>                   vertex_shader;
+    std::shared_ptr<Shader>                   pixel_shader;
+    std::pmr::vector<ParameterInfo>           parameters_info;
+    std::pmr::unordered_set<std::pmr::string> texture_name;
 };
 
-class Material : public SceneObject,
+class Material : public ResourceObject,
                  public utils::enable_private_make_shared_build<Material>,
                  public std::enable_shared_from_this<Material>,
                  private MaterialDetial {
@@ -43,12 +40,9 @@ public:
 
     public:
         Builder& SetName(std::string_view name);
-
         Builder& SetPrimitive(PrimitiveType primitive);
-
-        Builder& SetShader(const std::filesystem::path& path);
-
-        Builder& EnableSlot(VertexAttribute slot);
+        Builder& SetVertexShader(const std::filesystem::path& hlsl_path);
+        Builder& SetPixelShader(const std::filesystem::path& hlsl_path);
 
         // Set rasizer state
         // Builder& Cull();
@@ -79,7 +73,8 @@ public:
 
     PrimitiveType GetPrimitiveType() const noexcept { return primitive; }
 
-    const auto& GetShaderPath() const noexcept { return shader; }
+    const auto& GetVertexShader() const noexcept { return vertex_shader; }
+    const auto& GetPixelShader() const noexcept { return pixel_shader; }
 
     template <MaterialParametric T>
     bool IsValidParameter(std::string_view name) const noexcept;
@@ -94,9 +89,6 @@ public:
 
     bool        IsValidTextureParameter(std::string_view name) const noexcept;
     const auto& GetTextureNames() const noexcept { return texture_name; }
-
-    bool IsSlotEnabled(VertexAttribute slot) const;
-    auto GetSlotMask() const { return slot_mask; }
 
     bool operator==(const Material& rhs) const;
 

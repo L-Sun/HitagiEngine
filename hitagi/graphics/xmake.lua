@@ -11,7 +11,7 @@ target("graphics_dx12")
     add_files("src/backend/dx12/*.cpp")
     add_includedirs("include")
     add_deps("core", "math", "resource_enums", "utils")
-    add_syslinks("d3d12", "dxgi", "dxguid")
+    add_syslinks("d3d12", "dxgi", "dxguid", "dxcompiler")
 
 target("graphics")
     set_kind("static")

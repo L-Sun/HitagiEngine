@@ -23,7 +23,6 @@ public:
     ~Buffer();
 
     void Resize(std::size_t size, std::size_t alignment = 4);
-    void Clear();
 
     inline std::byte*       GetData() noexcept { return m_Data; }
     inline const std::byte* GetData() const noexcept { return m_Data; }

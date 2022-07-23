@@ -25,16 +25,13 @@ GpuBuffer::GpuBuffer(ID3D12Device*         device,
 
 constexpr std::size_t calculate_total_vertex_buffer_size(graphics::VertexBufferDesc desc) {
     std::size_t result = 0;
-    for (std::size_t slot = 0; slot < desc.slot_mask.size(); slot++) {
-        const bool enabled = desc.slot_mask.test(slot);
-        if (enabled) continue;
+    magic_enum::enum_for_each<resource::VertexAttribute>([&](auto e) {
+        const bool enabled = desc.attr_mask.test(magic_enum::enum_integer(e()));
+        if (enabled) return;
 
-        const std::size_t attribute_size =
-            resource::get_vertex_attribute_size(
-                magic_enum::enum_cast<resource::VertexAttribute>(slot).value());
-
+        const std::size_t attribute_size = resource::get_vertex_attribute_size(e());
         result += desc.vertex_count * attribute_size;
-    }
+    });
     return result;
 }
 
@@ -44,38 +41,38 @@ VertexBuffer::VertexBuffer(ID3D12Device* device, graphics::VertexBuffer& vb)
                 calculate_total_vertex_buffer_size(vb.desc),
                 D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER),
       m_Desc(vb.desc) {
-    for (std::size_t slot = 0; slot < m_Desc.slot_offset.size(); slot++) {
-        m_Desc.slot_offset[slot] = GetSlotOffset(slot);
+    for (std::size_t i = 0; i < m_Desc.attr_offset.size(); i++) {
+        m_Desc.attr_offset[i] = GetAttributeOffset(magic_enum::enum_cast<resource::VertexAttribute>(i).value());
     }
 }
 
-D3D12_VERTEX_BUFFER_VIEW VertexBuffer::VertexBufferView(std::size_t slot) const {
-    assert(SlotEnabled(slot));
+D3D12_VERTEX_BUFFER_VIEW VertexBuffer::VertexBufferView(resource::VertexAttribute attr) const {
+    assert(AttributeEnabled(attr));
 
     D3D12_VERTEX_BUFFER_VIEW vbv;
-    vbv.BufferLocation = m_Resource->GetGPUVirtualAddress() + GetSlotOffset(slot);
-    vbv.SizeInBytes    = GetSlotSize(slot);
-    vbv.StrideInBytes  = GetSlotElementSize(slot);
+    vbv.BufferLocation = m_Resource->GetGPUVirtualAddress() + GetAttributeOffset(attr);
+    vbv.SizeInBytes    = GetAttributeSize(attr);
+    vbv.StrideInBytes  = GetAttributeElementSize(attr);
     return vbv;
 }
-bool VertexBuffer::SlotEnabled(std::size_t slot) const {
-    return m_Desc.slot_mask.test(slot);
+bool VertexBuffer::AttributeEnabled(resource::VertexAttribute attr) const {
+    return m_Desc.attr_mask.test(magic_enum::enum_integer(attr));
 }
 
-std::size_t VertexBuffer::GetSlotOffset(std::size_t slot) const {
+std::size_t VertexBuffer::GetAttributeOffset(resource::VertexAttribute attr) const {
     std::size_t offset = 0;
-    for (std::size_t i = 0; i < slot; i++) {
-        offset += GetSlotSize(i);
+    for (std::size_t i = 0; i < magic_enum::enum_integer(attr); i++) {
+        offset += GetAttributeSize(magic_enum::enum_cast<resource::VertexAttribute>(i).value());
     }
     return offset;
 }
 
-std::size_t VertexBuffer::GetSlotSize(std::size_t slot) const {
-    return SlotEnabled(slot) ? m_Desc.vertex_count * GetSlotElementSize(slot) : 0;
+std::size_t VertexBuffer::GetAttributeSize(resource::VertexAttribute attr) const {
+    return AttributeEnabled(attr) ? m_Desc.vertex_count * GetAttributeElementSize(attr) : 0;
 }
 
-std::size_t VertexBuffer::GetSlotElementSize(std::size_t slot) const {
-    return resource::get_vertex_attribute_size(magic_enum::enum_cast<resource::VertexAttribute>(slot).value());
+std::size_t VertexBuffer::GetAttributeElementSize(resource::VertexAttribute attr) const {
+    return resource::get_vertex_attribute_size(attr);
 }
 
 IndexBuffer::IndexBuffer(ID3D12Device* device, graphics::IndexBuffer& ib)
@@ -141,13 +138,13 @@ void ConstantBuffer::Resize(ID3D12Device* device, DescriptorAllocator& descritpt
     m_Desc.num_elements = num_elements;
 
     // Create CBV
-    assert(descritptor_allocator.GetType() == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    m_CBV = descritptor_allocator.Allocate(num_elements);
+    assert(descritptor_allocator.GetHeapType() == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    m_CBV = descritptor_allocator.Allocate(num_elements, Descriptor::Type::CBV);
     D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
     cbv_desc.SizeInBytes    = m_BlockSize;
     cbv_desc.BufferLocation = m_Resource->GetGPUVirtualAddress();
     for (auto&& cbv : m_CBV) {
-        device->CreateConstantBufferView(&cbv_desc, cbv.handle);
+        device->CreateConstantBufferView(&cbv_desc, cbv->handle);
         cbv_desc.BufferLocation += m_BlockSize;
     }
 }
@@ -156,29 +153,29 @@ ConstantBuffer::~ConstantBuffer() {
     m_Resource->Unmap(0, nullptr);
 }
 
-TextureBuffer::TextureBuffer(std::string_view name, ID3D12Device* device, Descriptor&& srv, const D3D12_RESOURCE_DESC& desc)
+TextureBuffer::TextureBuffer(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> srv, const D3D12_RESOURCE_DESC& desc)
     : m_SRV(std::move(srv)) {
     auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ThrowIfFailed(device->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&m_Resource)));
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_SRV.handle);
+    device->CreateShaderResourceView(m_Resource.Get(), nullptr, m_SRV->handle);
 }
 
-RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, Descriptor&& rtv, const D3D12_RESOURCE_DESC& desc)
+RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> rtv, const D3D12_RESOURCE_DESC& desc)
     : m_RTV(std::move(rtv)) {
     auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ThrowIfFailed(device->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&m_Resource)));
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV.handle);
+    device->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV->handle);
 }
 
-RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, Descriptor&& rtv, ID3D12Resource* res)
+RenderTarget::RenderTarget(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> rtv, ID3D12Resource* res)
     : GpuResource(res), m_RTV(std::move(rtv)) {
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV.handle);
+    device->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV->handle);
 }
 
-DepthBuffer::DepthBuffer(std::string_view name, ID3D12Device* device, Descriptor&& dsv, const D3D12_RESOURCE_DESC& desc, float clear_depth, uint8_t clear_stencil)
+DepthBuffer::DepthBuffer(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> dsv, const D3D12_RESOURCE_DESC& desc, float clear_depth, uint8_t clear_stencil)
     : m_DSV(std::move(dsv)), m_ClearDepth(clear_depth), m_ClearStencil(clear_stencil) {
     auto              heap_props     = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_CLEAR_VALUE clear_value    = {};
@@ -194,7 +191,7 @@ DepthBuffer::DepthBuffer(std::string_view name, ID3D12Device* device, Descriptor
     dsv_desc.Texture2D.MipSlice            = 0;
     dsv_desc.Flags                         = D3D12_DSV_FLAG_NONE;
 
-    device->CreateDepthStencilView(m_Resource.Get(), &dsv_desc, m_DSV.handle);
+    device->CreateDepthStencilView(m_Resource.Get(), &dsv_desc, m_DSV->handle);
 }
 
 }  // namespace hitagi::graphics::backend::DX12

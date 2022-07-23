@@ -18,13 +18,12 @@ auto Material::Builder::SetPrimitive(PrimitiveType type) -> Builder& {
     return *this;
 }
 
-auto Material::Builder::SetShader(const std::filesystem::path& path) -> Builder& {
-    shader = path;
+auto Material::Builder::SetVertexShader(const std::filesystem::path& path) -> Builder& {
+    vertex_shader = std::make_shared<Shader>(Shader::Type::Vertex, path);
     return *this;
 }
-
-auto Material::Builder::EnableSlot(VertexAttribute slot) -> Builder& {
-    slot_mask.set(magic_enum::enum_integer(slot));
+auto Material::Builder::SetPixelShader(const std::filesystem::path& path) -> Builder& {
+    pixel_shader = std::make_shared<Shader>(Shader::Type::Pixel, path);
     return *this;
 }
 
@@ -108,10 +107,6 @@ auto Material::GetParameterInfo(std::string_view name) const noexcept -> std::op
     return std::nullopt;
 }
 
-bool Material::IsSlotEnabled(VertexAttribute slot) const {
-    return slot_mask.test(magic_enum::enum_integer(slot));
-}
-
 std::size_t Material::GetParametersSize() const noexcept {
     if (parameters_info.empty()) return 0;
     return parameters_info.back().size + parameters_info.back().offset;
@@ -121,9 +116,9 @@ void Material::InitDefaultMaterialInstance(const Builder& builder) {
     m_DefaultInstance = std::make_shared<MaterialInstance>(shared_from_this());
     m_DefaultInstance->SetName(fmt::format("{}-{}", builder.name, m_NumInstances));
 
-    const auto& end_parameter_info = parameters_info.back();
-    if (!builder.default_buffer.empty())
-        m_DefaultInstance->m_Parameters = core::Buffer(builder.default_buffer.data(), end_parameter_info.offset + end_parameter_info.size);
+    if (!builder.default_buffer.empty()) {
+        m_DefaultInstance->m_Parameters = core::Buffer(builder.default_buffer.data(), builder.default_buffer.size());
+    }
 
     for (const auto& texture : texture_name) {
         m_DefaultInstance->m_Textures.emplace(texture, std::make_shared<Texture>(builder.default_textures.at(texture)));
@@ -141,8 +136,8 @@ bool Material::operator==(const Material& rhs) const {
         if (result == false) return false;
     }
 
-    return shader == rhs.shader &&
-           slot_mask == rhs.slot_mask &&
+    return vertex_shader == rhs.vertex_shader &&
+           pixel_shader == rhs.pixel_shader &&
            texture_name == rhs.texture_name;
 }
 

@@ -16,7 +16,7 @@ MaterialInstance::MaterialInstance(const std::shared_ptr<Material>& material)
 }
 
 MaterialInstance::MaterialInstance(const MaterialInstance& other)
-    : SceneObject(other),
+    : ResourceObject(other),
       m_Parameters(other.m_Parameters),
       m_Textures(other.m_Textures) {
     if (auto material = m_Material.lock(); material) {

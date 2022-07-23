@@ -99,9 +99,6 @@
         "bitset": "cpp",
         "span": "cpp"
     },
-    "cmake.debugConfig": {
-        "cwd": "${workspaceFolder}"
-    },
     "xmake.compileCommandsDirectory": "${workspaceRoot}/build",
     "C_Cpp.intelliSenseEngine": "Disabled",
     "testMate.cpp.test.workingDirectory": "${workspaceFolder}",

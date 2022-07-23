@@ -19,13 +19,12 @@ class VertexBuffer : public GpuBuffer {
 public:
     VertexBuffer(ID3D12Device* device, graphics::VertexBuffer& vb);
 
-    D3D12_VERTEX_BUFFER_VIEW VertexBufferView(std::size_t slot) const;
-    std::size_t              GetVertexCount() const { return m_Desc.vertex_count; }
+    D3D12_VERTEX_BUFFER_VIEW VertexBufferView(resource::VertexAttribute attr) const;
 
-    bool        SlotEnabled(std::size_t slot) const;
-    std::size_t GetSlotOffset(std::size_t slot) const;
-    std::size_t GetSlotSize(std::size_t slot) const;
-    std::size_t GetSlotElementSize(std::size_t slot) const;
+    bool        AttributeEnabled(resource::VertexAttribute attr) const;
+    std::size_t GetAttributeOffset(resource::VertexAttribute attr) const;
+    std::size_t GetAttributeSize(resource::VertexAttribute attr) const;
+    std::size_t GetAttributeElementSize(resource::VertexAttribute attr) const;
     const auto& GetDesc() const noexcept { return m_Desc; }
 
 private:
@@ -53,52 +52,54 @@ class ConstantBuffer : public GpuResource {
 public:
     ConstantBuffer(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, graphics::ConstantBuffer& cb);
     ~ConstantBuffer() override;
-    void                     UpdateData(size_t index, const std::byte* data, size_t data_size);
-    void                     Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t new_num_elements);
-    inline const Descriptor& GetCBV(size_t index) const { return m_CBV.at(index); }
-    const auto&              GetDesc() const noexcept { return m_Desc; }
+    void        UpdateData(std::size_t index, const std::byte* data, std::size_t data_size);
+    void        Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, std::size_t new_num_elements);
+    const auto& GetCBV(std::size_t index) const { return m_CBV.at(index); }
+    const auto& GetDesc() const noexcept { return m_Desc; }
+
+    std::size_t GetBlockSize() const noexcept { return m_BlockSize; }
 
 private:
     std::byte*                    m_CpuPtr = nullptr;
     graphics::ConstantBufferDesc& m_Desc;
 
-    size_t                  m_BlockSize;  // align(dataSize, 256B)
-    size_t                  m_BufferSize;
-    std::vector<Descriptor> m_CBV;
+    std::size_t                                   m_BlockSize;  // align(dataSize, 256B)
+    std::size_t                                   m_BufferSize;
+    std::pmr::vector<std::shared_ptr<Descriptor>> m_CBV;
 };
 
 class TextureBuffer : public GpuResource {
 public:
-    TextureBuffer(std::string_view name, ID3D12Device* device, Descriptor&& srv, const D3D12_RESOURCE_DESC& desc);
-    const Descriptor& GetSRV() const noexcept { return m_SRV; }
+    TextureBuffer(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> srv, const D3D12_RESOURCE_DESC& desc);
+    const auto& GetSRV() const noexcept { return m_SRV; }
 
 private:
-    Descriptor m_SRV;
+    std::shared_ptr<Descriptor> m_SRV;
 };
 
 class RenderTarget : public GpuResource {
 public:
-    RenderTarget(std::string_view name, ID3D12Device* device, Descriptor&& rtv, const D3D12_RESOURCE_DESC& desc);
+    RenderTarget(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> rtv, const D3D12_RESOURCE_DESC& desc);
     // Create from exsited resource
-    RenderTarget(std::string_view name, ID3D12Device* device, Descriptor&& rtv, ID3D12Resource* res);
-    const Descriptor& GetRTV() const noexcept { return m_RTV; }
+    RenderTarget(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> rtv, ID3D12Resource* res);
+    const auto& GetRTV() const noexcept { return m_RTV; }
 
 private:
-    Descriptor m_RTV;
+    std::shared_ptr<Descriptor> m_RTV;
 };
 
 class DepthBuffer : public GpuResource {
 public:
-    DepthBuffer(std::string_view name, ID3D12Device* device, Descriptor&& dsv, const D3D12_RESOURCE_DESC& desc, float clear_depth, uint8_t clear_stencil);
-    const Descriptor& GetDSV() const noexcept { return m_DSV; }
+    DepthBuffer(std::string_view name, ID3D12Device* device, std::shared_ptr<Descriptor> dsv, const D3D12_RESOURCE_DESC& desc, float clear_depth, uint8_t clear_stencil);
+    const auto& GetDSV() const noexcept { return m_DSV; }
 
     float   GetClearDepth() const noexcept { return m_ClearDepth; }
     uint8_t GetClearStencil() const noexcept { return m_ClearStencil; }
 
 private:
-    Descriptor m_DSV;
-    float      m_ClearDepth;
-    uint8_t    m_ClearStencil;
+    std::shared_ptr<Descriptor> m_DSV;
+    float                       m_ClearDepth;
+    uint8_t                     m_ClearStencil;
 };
 
 }  // namespace hitagi::graphics::backend::DX12

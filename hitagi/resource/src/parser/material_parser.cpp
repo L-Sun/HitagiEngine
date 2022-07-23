@@ -28,7 +28,7 @@ void from_json(const nlohmann::json& j, Matrix<T, N>& p) {
 
 namespace hitagi::resource {
 
-std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buffer, std::pmr::vector<std::shared_ptr<Material>>& materials) {
+std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) {
     if (buffer.Empty()) return nullptr;
 
     auto logger = spdlog::get("AssetManager");
@@ -44,21 +44,13 @@ std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buff
     Material::Builder builder;
     builder
         .SetName(json["name"])
-        .SetShader(json["shader"]);
+        .SetVertexShader(json["vertex_shader"])
+        .SetPixelShader(json["pixel_shader"]);
 
     if (auto primitive = magic_enum::enum_cast<PrimitiveType>(json["primitive"].get<std::string_view>()); primitive.has_value()) {
         builder.SetPrimitive(*primitive);
     } else {
         logger->warn("Unkown primitive type: {}", json["name"]);
-    }
-
-    for (const auto& vertex_attri : json["vertex_attributes"]) {
-        auto slot = magic_enum::enum_cast<VertexAttribute>(vertex_attri.get<std::string>());
-        if (!slot.has_value()) {
-            logger->error("Unkown vertex attributes {}", vertex_attri);
-            return nullptr;
-        }
-        builder.EnableSlot(slot.value());
     }
 
     if (json.contains("parameters")) {
@@ -133,20 +125,7 @@ std::shared_ptr<MaterialInstance> MaterialParser::Parse(const core::Buffer& buff
         builder.AppendTextureName(texture["name"], texture["path"]);
     }
 
-    auto material = builder.Build();
-    auto iter     = std::find_if(materials.begin(), materials.end(), [material](const auto& m) {
-        return *m == *material;
-    });
-
-    auto instance = material->CreateInstance();
-    // A new material type
-    if (iter == materials.end()) {
-        materials.emplace_back(material);
-    } else {
-        instance->SetMaterial(*iter);
-    }
-
-    return instance;
+    return builder.Build();
 }
 
 }  // namespace hitagi::resource

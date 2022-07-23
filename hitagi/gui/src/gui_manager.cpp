@@ -86,7 +86,6 @@ void GuiManager::Tick() {
 
 void GuiManager::Finalize() {
     ImGui::DestroyContext();
-    m_FontsData.clear();
     m_ImGuiMaterial = nullptr;
     m_Vertices      = nullptr;
     m_Indices       = nullptr;
@@ -103,31 +102,37 @@ std::shared_ptr<Texture> GuiManager::LoadFontTexture() {
         config.SizePixels           = (g_App ? g_App->GetDpiRatio() : 1.0f) * 18.0f;
         config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
 
-        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/Hasklig-Regular.otf"));
-        config.FontData     = m_FontsData.back().GetData();
-        config.FontDataSize = m_FontsData.back().GetDataSize();
+        {
+            auto& font_buffer   = g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/Hasklig-Regular.otf");
+            config.FontData     = const_cast<std::byte*>(font_buffer.GetData());
+            config.FontDataSize = font_buffer.GetDataSize();
 
-        std::u8string name = u8"Hasklig-Regular";
-        std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
-        io.Fonts->AddFont(&config);
+            std::pmr::u8string name = u8"Hasklig-Regular";
+            std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
+            io.Fonts->AddFont(&config);
+        }
 
         config.MergeMode = true;
 
-        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansSC-Regular.otf"));
-        config.FontData     = m_FontsData.back().GetData();
-        config.FontDataSize = m_FontsData.back().GetDataSize();
-        config.GlyphRanges  = io.Fonts->GetGlyphRangesChineseFull();
-        name                = u8"NotoSansSC-Regular";
-        std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
-        io.Fonts->AddFont(&config);
+        {
+            auto& font_buffer       = g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansSC-Regular.otf");
+            config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
+            config.FontDataSize     = font_buffer.GetDataSize();
+            config.GlyphRanges      = io.Fonts->GetGlyphRangesChineseFull();
+            std::pmr::u8string name = u8"NotoSansSC-Regular";
+            std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
+            io.Fonts->AddFont(&config);
+        }
 
-        m_FontsData.emplace_back(g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansJP-Regular.otf"));
-        config.FontData     = m_FontsData.back().GetData();
-        config.FontDataSize = m_FontsData.back().GetDataSize();
-        config.GlyphRanges  = io.Fonts->GetGlyphRangesJapanese();
-        name                = u8"NotoSansJP-Regular";
-        std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
-        io.Fonts->AddFont(&config);
+        {
+            auto& font_buffer       = g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansJP-Regular.otf");
+            config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
+            config.FontDataSize     = font_buffer.GetDataSize();
+            config.GlyphRanges      = io.Fonts->GetGlyphRangesJapanese();
+            std::pmr::u8string name = u8"NotoSansJP-Regular";
+            std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
+            io.Fonts->AddFont(&config);
+        }
     }
 
     unsigned char* pixels = nullptr;

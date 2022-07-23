@@ -1,11 +1,10 @@
-#include "backend/dx12/driver_api.hpp"
+#include "backend/dx12/dx12_device.hpp"
 #include "frame_graph.hpp"
 #include <hitagi/graphics/frame.hpp>
 #include <hitagi/graphics/resource_manager.hpp>
 
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
-#include <hitagi/graphics/pipeline_state.hpp>
 #include <hitagi/application.hpp>
 
 #include <spdlog/spdlog.h>
@@ -25,38 +24,37 @@ int GraphicsManager::Initialize() {
     m_Logger->info("Initialize...");
 
     // Initialize API
-    m_Driver = std::make_unique<backend::DX12::DX12DriverAPI>();
+    m_Device = std::make_unique<backend::DX12::DX12Device>();
 
     // Initialize ResourceManager
-    m_ResMgr = std::make_unique<ResourceManager>(*m_Driver);
+    m_ResMgr = std::make_unique<ResourceManager>(*m_Device);
 
     const auto          rect   = g_App->GetWindowsRect();
     const std::uint32_t widht  = rect.right - rect.left,
                         height = rect.bottom - rect.top;
 
     // Initialize frame
-    m_Driver->CreateSwapChain(widht, height, sm_SwapChianSize, Format::R8G8B8A8_UNORM, g_App->GetWindow());
+    m_Device->CreateSwapChain(widht, height, sm_SwapChianSize, Format::R8G8B8A8_UNORM, g_App->GetWindow());
     for (size_t index = 0; index < sm_SwapChianSize; index++)
-        m_Frames.at(index) = std::make_unique<Frame>(*m_Driver, *m_ResMgr, index);
+        m_Frames.at(index) = std::make_unique<Frame>(*m_Device, *m_ResMgr, index);
 
     return 0;
 }
 
 void GraphicsManager::Finalize() {
-    m_Logger->info("Finalized.");
-
     // Release all resource
     {
-        m_Driver->IdleGPU();
+        m_Device->IdleGPU();
         m_ResMgr = nullptr;
         for (auto&& frame : m_Frames)
             frame = nullptr;
 
-        m_Driver = nullptr;
+        m_Device = nullptr;
     }
 
-    backend::DX12::DX12DriverAPI::ReportDebugLog();
+    backend::DX12::DX12Device::ReportDebugLog();
 
+    m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
@@ -67,12 +65,12 @@ void GraphicsManager::Tick() {
 
     // TODO change the parameter to View, if multiple view port is finished
     Render();
-    m_Driver->Present(m_CurrBackBuffer);
+    m_Device->Present(m_CurrBackBuffer);
     m_CurrBackBuffer = (m_CurrBackBuffer + 1) % sm_SwapChianSize;
 }
 
 void GraphicsManager::OnSizeChanged() {
-    m_Driver->IdleGPU();
+    m_Device->IdleGPU();
 
     for (auto&& frame : m_Frames) {
         frame->SetRenderTarget(nullptr);
@@ -82,10 +80,10 @@ void GraphicsManager::OnSizeChanged() {
     std::uint32_t width  = rect.right - rect.left,
                   height = rect.bottom - rect.top;
 
-    m_CurrBackBuffer = m_Driver->ResizeSwapChain(width, height);
+    m_CurrBackBuffer = m_Device->ResizeSwapChain(width, height);
 
     for (size_t index = 0; index < m_Frames.size(); index++) {
-        m_Frames.at(index)->SetRenderTarget(m_Driver->CreateRenderFromSwapChain(index));
+        m_Frames.at(index)->SetRenderTarget(m_Device->CreateRenderFromSwapChain(index));
     }
 }
 
@@ -98,7 +96,7 @@ void GraphicsManager::AppendRenderables(std::pmr::vector<Renderable> renderables
 }
 
 void GraphicsManager::Render() {
-    auto driver  = m_Driver.get();
+    auto driver  = m_Device.get();
     auto frame   = GetBcakFrameForRendering();
     auto context = driver->GetGraphicsCommandContext();
 
@@ -155,6 +153,20 @@ void GraphicsManager::Render() {
             context->ClearDepthBuffer(depth_buffer);
             frame->SetCamera(m_Camera);
             frame->Draw(context.get(), Renderable::Type::Default);
+        });
+
+    struct DebugPassData {
+        FrameHandle output;
+    };
+    auto debug_pass = fg.AddPass<DebugPassData>(
+        "DebugPass",
+        [&](FrameGraph::Builder& builder, DebugPassData& data) {
+            data.output = builder.Write(render_target_handle);
+        },
+        [=](const ResourceHelper& helper, DebugPassData& data) {
+            auto render_target = helper.Get<RenderTarget>(data.output);
+            context->SetRenderTarget(render_target);
+            frame->Draw(context.get(), Renderable::Type::Debug);
         });
 
     struct GuiPassData {

@@ -5,7 +5,7 @@
 #include <numbers>
 
 namespace hitagi::resource {
-class Light : public SceneObject {
+class Light : public ResourceObject {
 protected:
     Light(const math::vec4f& color = math::vec4f(1.0f), float intensity = 100.0f)
         : m_LightColor(color),

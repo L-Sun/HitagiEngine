@@ -17,26 +17,22 @@ VertexArray::VertexArray(std::size_t vertex_count)
               magic_enum::enum_count<VertexAttribute>()>()) {
 }
 
-std::bitset<magic_enum::enum_count<VertexAttribute>()> VertexArray::GetSlotMask() const {
+std::bitset<magic_enum::enum_count<VertexAttribute>()> VertexArray::GetAttributeMask() const {
     std::bitset<magic_enum::enum_count<VertexAttribute>()> mask;
-    for (std::size_t slot = 0; slot < m_Buffers.size(); slot++) {
-        mask.set(slot, !m_Buffers.at(slot).Empty());
+    for (std::size_t i = 0; i < m_Buffers.size(); i++) {
+        mask.set(i, !m_Buffers.at(i).Empty());
     }
     return mask;
 }
 
 core::Buffer& VertexArray::GetBuffer(VertexAttribute attr) {
-    return GetBuffer(magic_enum::enum_integer(attr));
-}
-
-core::Buffer& VertexArray::GetBuffer(std::size_t slot) {
-    return m_Buffers.at(slot);
+    return m_Buffers[magic_enum::enum_integer(attr)];
 }
 
 void VertexArray::Resize(std::size_t count) {
-    for (std::size_t slot = 0; slot < m_Buffers.size(); slot++) {
-        if (m_Buffers[slot].Empty()) continue;
-        m_Buffers[slot].Resize(count * get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(slot).value()));
+    for (std::size_t i = 0; i < m_Buffers.size(); i++) {
+        if (m_Buffers[i].Empty()) continue;
+        m_Buffers[i].Resize(count * get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(i).value()));
     }
     m_VertexCount = count;
 }

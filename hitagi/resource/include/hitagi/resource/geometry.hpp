@@ -5,7 +5,7 @@
 
 namespace hitagi::resource {
 
-class Geometry : public SceneObject {
+class Geometry : public ResourceObject {
 public:
     Geometry(std::shared_ptr<Transform> transform);
     void SetTransform(std::shared_ptr<Transform> transform) noexcept;

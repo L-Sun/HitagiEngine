@@ -1,5 +1,4 @@
 #include <hitagi/core/buffer.hpp>
-#include <hitagi/core/memory_manager.hpp>
 
 #include <algorithm>
 #include <memory_resource>
@@ -8,14 +7,14 @@
 namespace hitagi::core {
 
 Buffer::Buffer(size_t size, size_t alignment)
-    : m_Allocator(g_MemoryManager->GetAllocator()),
+    : m_Allocator(std::pmr::get_default_resource()),
       m_Data(static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment))),
       m_Size(size),
       m_Alignment(alignment) {
 }
 
 Buffer::Buffer(const void* initial_data, size_t size, size_t alignment)
-    : m_Allocator(g_MemoryManager->GetAllocator()),
+    : m_Allocator(std::pmr::get_default_resource()),
       m_Data(static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment))),
       m_Size(size),
       m_Alignment(alignment) {
@@ -74,7 +73,11 @@ Buffer& Buffer::operator=(Buffer&& rhs) noexcept {
     return *this;
 }
 Buffer::~Buffer() {
-    Clear();
+    if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
+
+    m_Data      = nullptr;
+    m_Size      = 0;
+    m_Alignment = 0;
 }
 
 void Buffer::Resize(std::size_t size, std::size_t alignment) {
@@ -86,13 +89,6 @@ void Buffer::Resize(std::size_t size, std::size_t alignment) {
     m_Data      = data;
     m_Size      = size;
     m_Alignment = alignment;
-}
-
-void Buffer::Clear() {
-    if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
-    m_Data      = nullptr;
-    m_Size      = 0;
-    m_Alignment = 0;
 }
 
 }  // namespace hitagi::core

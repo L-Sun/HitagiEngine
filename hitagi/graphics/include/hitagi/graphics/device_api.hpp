@@ -1,7 +1,6 @@
 #pragma once
 #include <hitagi/graphics/enums.hpp>
 #include <hitagi/graphics/resource.hpp>
-#include <hitagi/graphics/pipeline_state.hpp>
 #include <hitagi/graphics/command_context.hpp>
 #include <hitagi/resource/mesh.hpp>
 
@@ -15,9 +14,9 @@ enum struct APIType {
     OpenGL
 };
 
-class DriverAPI {
+class DeviceAPI {
 public:
-    virtual ~DriverAPI()                     = default;
+    virtual ~DeviceAPI()                     = default;
     virtual void Present(size_t frame_index) = 0;
 
     // Buffer
@@ -45,8 +44,7 @@ public:
     virtual std::shared_ptr<Sampler> CreateSampler(std::string_view name, const resource::SamplerDesc& desc) = 0;
 
     // Pipeline
-    virtual void CreateRootSignature(std::shared_ptr<RootSignature> rootsignature) = 0;
-    virtual void CreatePipelineState(std::shared_ptr<PipelineState> pso)           = 0;
+    virtual std::shared_ptr<PipelineState> CreatePipelineState(std::string_view name, const PipelineStateDesc& desc) = 0;
 
     // CommandList
     virtual std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() = 0;
@@ -59,7 +57,7 @@ public:
     APIType GetType() const { return m_Type; }
 
 protected:
-    DriverAPI(APIType type) : m_Type(type) {}
+    DeviceAPI(APIType type) : m_Type(type) {}
     const APIType m_Type;
 };
 

@@ -11,7 +11,8 @@
 
 #ifndef __D3DX12_H__
 #define __D3DX12_H__
-
+// NOLINTBEGIN
+#pragma clang diagnostic ignored "-Wunused-value"
 #include "d3d12.h"
 
 #if defined(__cplusplus)
@@ -1743,7 +1744,7 @@ struct CD3DX12_VIEW_INSTANCING_DESC : public D3D12_VIEW_INSTANCING_DESC {
 //------------------------------------------------------------------------------------------------
 // Row-by-row memcpy
 inline void MemcpySubresource(
-    _In_ const D3D12_MEMCPY_DEST* pDest,
+    _In_ const D3D12_MEMCPY_DEST*      pDest,
     _In_ const D3D12_SUBRESOURCE_DATA* pSrc,
     SIZE_T                             RowSizeInBytes,
     UINT                               NumRows,
@@ -1762,8 +1763,8 @@ inline void MemcpySubresource(
 //------------------------------------------------------------------------------------------------
 // Row-by-row memcpy
 inline void MemcpySubresource(
-    _In_ const D3D12_MEMCPY_DEST* pDest,
-    _In_ const void*              pResourceData,
+    _In_ const D3D12_MEMCPY_DEST*      pDest,
+    _In_ const void*                   pResourceData,
     _In_ const D3D12_SUBRESOURCE_INFO* pSrc,
     SIZE_T                             RowSizeInBytes,
     UINT                               NumRows,
@@ -1799,8 +1800,8 @@ inline UINT64 GetRequiredIntermediateSize(
 //------------------------------------------------------------------------------------------------
 // All arrays must be populated (e.g. by calling GetCopyableFootprints)
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList* pCmdList,
-    _In_ ID3D12Resource* pDestinationResource,
+    _In_ ID3D12GraphicsCommandList*                                       pCmdList,
+    _In_ ID3D12Resource*                                                  pDestinationResource,
     _In_ ID3D12Resource*                                                  pIntermediate,
     _In_range_(0, D3D12_REQ_SUBRESOURCES) UINT                            FirstSubresource,
     _In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT         NumSubresources,
@@ -1849,8 +1850,8 @@ inline UINT64 UpdateSubresources(
 //------------------------------------------------------------------------------------------------
 // All arrays must be populated (e.g. by calling GetCopyableFootprints)
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList* pCmdList,
-    _In_ ID3D12Resource* pDestinationResource,
+    _In_ ID3D12GraphicsCommandList*                                       pCmdList,
+    _In_ ID3D12Resource*                                                  pDestinationResource,
     _In_ ID3D12Resource*                                                  pIntermediate,
     _In_range_(0, D3D12_REQ_SUBRESOURCES) UINT                            FirstSubresource,
     _In_range_(0, D3D12_REQ_SUBRESOURCES - FirstSubresource) UINT         NumSubresources,
@@ -1900,8 +1901,8 @@ inline UINT64 UpdateSubresources(
 //------------------------------------------------------------------------------------------------
 // Heap-allocating UpdateSubresources implementation
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList* pCmdList,
-    _In_ ID3D12Resource* pDestinationResource,
+    _In_ ID3D12GraphicsCommandList*                               pCmdList,
+    _In_ ID3D12Resource*                                          pDestinationResource,
     _In_ ID3D12Resource*                                          pIntermediate,
     UINT64                                                        IntermediateOffset,
     _In_range_(0, D3D12_REQ_SUBRESOURCES) UINT                    FirstSubresource,
@@ -1934,8 +1935,8 @@ inline UINT64 UpdateSubresources(
 //------------------------------------------------------------------------------------------------
 // Heap-allocating UpdateSubresources implementation
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList* pCmdList,
-    _In_ ID3D12Resource* pDestinationResource,
+    _In_ ID3D12GraphicsCommandList*                               pCmdList,
+    _In_ ID3D12Resource*                                          pDestinationResource,
     _In_ ID3D12Resource*                                          pIntermediate,
     UINT64                                                        IntermediateOffset,
     _In_range_(0, D3D12_REQ_SUBRESOURCES) UINT                    FirstSubresource,
@@ -1970,8 +1971,8 @@ inline UINT64 UpdateSubresources(
 // Stack-allocating UpdateSubresources implementation
 template <UINT MaxSubresources>
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList* pCmdList,
-    _In_ ID3D12Resource* pDestinationResource,
+    _In_ ID3D12GraphicsCommandList*                           pCmdList,
+    _In_ ID3D12Resource*                                      pDestinationResource,
     _In_ ID3D12Resource*                                      pIntermediate,
     UINT64                                                    IntermediateOffset,
     _In_range_(0, MaxSubresources) UINT                       FirstSubresource,
@@ -1995,8 +1996,8 @@ inline UINT64 UpdateSubresources(
 // Stack-allocating UpdateSubresources implementation
 template <UINT MaxSubresources>
 inline UINT64 UpdateSubresources(
-    _In_ ID3D12GraphicsCommandList* pCmdList,
-    _In_ ID3D12Resource* pDestinationResource,
+    _In_ ID3D12GraphicsCommandList*                        pCmdList,
+    _In_ ID3D12Resource*                                   pDestinationResource,
     _In_ ID3D12Resource*                                   pIntermediate,
     UINT64                                                 IntermediateOffset,
     _In_range_(0, MaxSubresources) UINT                    FirstSubresource,
@@ -2036,8 +2037,8 @@ inline ID3D12CommandList* const* CommandListCast(t_CommandListType* const* pp) n
 // two code paths for building root signatures, this helper method reconstructs a 1.0 signature when
 // 1.1 is not supported.
 inline HRESULT D3DX12SerializeVersionedRootSignature(
-    _In_ const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* pRootSignatureDesc,
-    D3D_ROOT_SIGNATURE_VERSION                      MaxVersion,
+    _In_ const D3D12_VERSIONED_ROOT_SIGNATURE_DESC*    pRootSignatureDesc,
+    D3D_ROOT_SIGNATURE_VERSION                         MaxVersion,
     _Outptr_ ID3DBlob**                                ppBlob,
     _Always_(_Outptr_opt_result_maybenull_) ID3DBlob** ppErrorBlob) noexcept {
     if (ppErrorBlob != nullptr) {
@@ -2178,7 +2179,7 @@ public:
         _Inner = i;
         return *this;
     }
-                           operator InnerStructType const &() const noexcept { return _Inner; }
+                           operator InnerStructType const&() const noexcept { return _Inner; }
                            operator InnerStructType&() noexcept { return _Inner; }
     InnerStructType*       operator&() noexcept { return &_Inner; }
     InnerStructType const* operator&() const noexcept { return &_Inner; }
@@ -2310,29 +2311,29 @@ struct CD3DX12_PIPELINE_STATE_STREAM2 {
     CD3DX12_PIPELINE_STATE_STREAM_CACHED_PSO            CachedPSO;
     CD3DX12_PIPELINE_STATE_STREAM_VIEW_INSTANCING       ViewInstancingDesc;
     D3D12_GRAPHICS_PIPELINE_STATE_DESC                  GraphicsDescV0() const noexcept {
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC D;
-        D.Flags                 = this->Flags;
-        D.NodeMask              = this->NodeMask;
-        D.pRootSignature        = this->pRootSignature;
-        D.InputLayout           = this->InputLayout;
-        D.IBStripCutValue       = this->IBStripCutValue;
-        D.PrimitiveTopologyType = this->PrimitiveTopologyType;
-        D.VS                    = this->VS;
-        D.GS                    = this->GS;
-        D.StreamOutput          = this->StreamOutput;
-        D.HS                    = this->HS;
-        D.DS                    = this->DS;
-        D.PS                    = this->PS;
-        D.BlendState            = this->BlendState;
-        D.DepthStencilState     = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEPTH_STENCIL_DESC1(this->DepthStencilState));
-        D.DSVFormat             = this->DSVFormat;
-        D.RasterizerState       = this->RasterizerState;
-        D.NumRenderTargets      = D3D12_RT_FORMAT_ARRAY(this->RTVFormats).NumRenderTargets;
-        memcpy(D.RTVFormats, D3D12_RT_FORMAT_ARRAY(this->RTVFormats).RTFormats, sizeof(D.RTVFormats));
-        D.SampleDesc = this->SampleDesc;
-        D.SampleMask = this->SampleMask;
-        D.CachedPSO  = this->CachedPSO;
-        return D;
+                         D3D12_GRAPHICS_PIPELINE_STATE_DESC D;
+                         D.Flags                 = this->Flags;
+                         D.NodeMask              = this->NodeMask;
+                         D.pRootSignature        = this->pRootSignature;
+                         D.InputLayout           = this->InputLayout;
+                         D.IBStripCutValue       = this->IBStripCutValue;
+                         D.PrimitiveTopologyType = this->PrimitiveTopologyType;
+                         D.VS                    = this->VS;
+                         D.GS                    = this->GS;
+                         D.StreamOutput          = this->StreamOutput;
+                         D.HS                    = this->HS;
+                         D.DS                    = this->DS;
+                         D.PS                    = this->PS;
+                         D.BlendState            = this->BlendState;
+                         D.DepthStencilState     = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEPTH_STENCIL_DESC1(this->DepthStencilState));
+                         D.DSVFormat             = this->DSVFormat;
+                         D.RasterizerState       = this->RasterizerState;
+                         D.NumRenderTargets      = D3D12_RT_FORMAT_ARRAY(this->RTVFormats).NumRenderTargets;
+                         memcpy(D.RTVFormats, D3D12_RT_FORMAT_ARRAY(this->RTVFormats).RTFormats, sizeof(D.RTVFormats));
+                         D.SampleDesc = this->SampleDesc;
+                         D.SampleMask = this->SampleMask;
+                         D.CachedPSO  = this->CachedPSO;
+                         return D;
     }
     D3D12_COMPUTE_PIPELINE_STATE_DESC ComputeDescV0() const noexcept {
         D3D12_COMPUTE_PIPELINE_STATE_DESC D;
@@ -2384,29 +2385,29 @@ struct CD3DX12_PIPELINE_STATE_STREAM1 {
     CD3DX12_PIPELINE_STATE_STREAM_CACHED_PSO            CachedPSO;
     CD3DX12_PIPELINE_STATE_STREAM_VIEW_INSTANCING       ViewInstancingDesc;
     D3D12_GRAPHICS_PIPELINE_STATE_DESC                  GraphicsDescV0() const noexcept {
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC D;
-        D.Flags                 = this->Flags;
-        D.NodeMask              = this->NodeMask;
-        D.pRootSignature        = this->pRootSignature;
-        D.InputLayout           = this->InputLayout;
-        D.IBStripCutValue       = this->IBStripCutValue;
-        D.PrimitiveTopologyType = this->PrimitiveTopologyType;
-        D.VS                    = this->VS;
-        D.GS                    = this->GS;
-        D.StreamOutput          = this->StreamOutput;
-        D.HS                    = this->HS;
-        D.DS                    = this->DS;
-        D.PS                    = this->PS;
-        D.BlendState            = this->BlendState;
-        D.DepthStencilState     = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEPTH_STENCIL_DESC1(this->DepthStencilState));
-        D.DSVFormat             = this->DSVFormat;
-        D.RasterizerState       = this->RasterizerState;
-        D.NumRenderTargets      = D3D12_RT_FORMAT_ARRAY(this->RTVFormats).NumRenderTargets;
-        memcpy(D.RTVFormats, D3D12_RT_FORMAT_ARRAY(this->RTVFormats).RTFormats, sizeof(D.RTVFormats));
-        D.SampleDesc = this->SampleDesc;
-        D.SampleMask = this->SampleMask;
-        D.CachedPSO  = this->CachedPSO;
-        return D;
+                         D3D12_GRAPHICS_PIPELINE_STATE_DESC D;
+                         D.Flags                 = this->Flags;
+                         D.NodeMask              = this->NodeMask;
+                         D.pRootSignature        = this->pRootSignature;
+                         D.InputLayout           = this->InputLayout;
+                         D.IBStripCutValue       = this->IBStripCutValue;
+                         D.PrimitiveTopologyType = this->PrimitiveTopologyType;
+                         D.VS                    = this->VS;
+                         D.GS                    = this->GS;
+                         D.StreamOutput          = this->StreamOutput;
+                         D.HS                    = this->HS;
+                         D.DS                    = this->DS;
+                         D.PS                    = this->PS;
+                         D.BlendState            = this->BlendState;
+                         D.DepthStencilState     = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEPTH_STENCIL_DESC1(this->DepthStencilState));
+                         D.DSVFormat             = this->DSVFormat;
+                         D.RasterizerState       = this->RasterizerState;
+                         D.NumRenderTargets      = D3D12_RT_FORMAT_ARRAY(this->RTVFormats).NumRenderTargets;
+                         memcpy(D.RTVFormats, D3D12_RT_FORMAT_ARRAY(this->RTVFormats).RTFormats, sizeof(D.RTVFormats));
+                         D.SampleDesc = this->SampleDesc;
+                         D.SampleMask = this->SampleMask;
+                         D.CachedPSO  = this->CachedPSO;
+                         return D;
     }
     D3D12_COMPUTE_PIPELINE_STATE_DESC ComputeDescV0() const noexcept {
         D3D12_COMPUTE_PIPELINE_STATE_DESC D;
@@ -2440,23 +2441,23 @@ struct CD3DX12_PIPELINE_MESH_STATE_STREAM {
     CD3DX12_PIPELINE_STATE_STREAM_CACHED_PSO            CachedPSO;
     CD3DX12_PIPELINE_STATE_STREAM_VIEW_INSTANCING       ViewInstancingDesc;
     D3DX12_MESH_SHADER_PIPELINE_STATE_DESC              MeshShaderDescV0() const noexcept {
-        D3DX12_MESH_SHADER_PIPELINE_STATE_DESC D;
-        D.Flags             = this->Flags;
-        D.NodeMask          = this->NodeMask;
-        D.pRootSignature    = this->pRootSignature;
-        D.PS                = this->PS;
-        D.AS                = this->AS;
-        D.MS                = this->MS;
-        D.BlendState        = this->BlendState;
-        D.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEPTH_STENCIL_DESC1(this->DepthStencilState));
-        D.DSVFormat         = this->DSVFormat;
-        D.RasterizerState   = this->RasterizerState;
-        D.NumRenderTargets  = D3D12_RT_FORMAT_ARRAY(this->RTVFormats).NumRenderTargets;
-        memcpy(D.RTVFormats, D3D12_RT_FORMAT_ARRAY(this->RTVFormats).RTFormats, sizeof(D.RTVFormats));
-        D.SampleDesc = this->SampleDesc;
-        D.SampleMask = this->SampleMask;
-        D.CachedPSO  = this->CachedPSO;
-        return D;
+                     D3DX12_MESH_SHADER_PIPELINE_STATE_DESC D;
+                     D.Flags             = this->Flags;
+                     D.NodeMask          = this->NodeMask;
+                     D.pRootSignature    = this->pRootSignature;
+                     D.PS                = this->PS;
+                     D.AS                = this->AS;
+                     D.MS                = this->MS;
+                     D.BlendState        = this->BlendState;
+                     D.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEPTH_STENCIL_DESC1(this->DepthStencilState));
+                     D.DSVFormat         = this->DSVFormat;
+                     D.RasterizerState   = this->RasterizerState;
+                     D.NumRenderTargets  = D3D12_RT_FORMAT_ARRAY(this->RTVFormats).NumRenderTargets;
+                     memcpy(D.RTVFormats, D3D12_RT_FORMAT_ARRAY(this->RTVFormats).RTFormats, sizeof(D.RTVFormats));
+                     D.SampleDesc = this->SampleDesc;
+                     D.SampleMask = this->SampleMask;
+                     D.CachedPSO  = this->CachedPSO;
+                     return D;
     }
 };
 
@@ -2492,29 +2493,29 @@ struct CD3DX12_PIPELINE_STATE_STREAM {
     CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_MASK           SampleMask;
     CD3DX12_PIPELINE_STATE_STREAM_CACHED_PSO            CachedPSO;
     D3D12_GRAPHICS_PIPELINE_STATE_DESC                  GraphicsDescV0() const noexcept {
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC D;
-        D.Flags                 = this->Flags;
-        D.NodeMask              = this->NodeMask;
-        D.pRootSignature        = this->pRootSignature;
-        D.InputLayout           = this->InputLayout;
-        D.IBStripCutValue       = this->IBStripCutValue;
-        D.PrimitiveTopologyType = this->PrimitiveTopologyType;
-        D.VS                    = this->VS;
-        D.GS                    = this->GS;
-        D.StreamOutput          = this->StreamOutput;
-        D.HS                    = this->HS;
-        D.DS                    = this->DS;
-        D.PS                    = this->PS;
-        D.BlendState            = this->BlendState;
-        D.DepthStencilState     = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEPTH_STENCIL_DESC1(this->DepthStencilState));
-        D.DSVFormat             = this->DSVFormat;
-        D.RasterizerState       = this->RasterizerState;
-        D.NumRenderTargets      = D3D12_RT_FORMAT_ARRAY(this->RTVFormats).NumRenderTargets;
-        memcpy(D.RTVFormats, D3D12_RT_FORMAT_ARRAY(this->RTVFormats).RTFormats, sizeof(D.RTVFormats));
-        D.SampleDesc = this->SampleDesc;
-        D.SampleMask = this->SampleMask;
-        D.CachedPSO  = this->CachedPSO;
-        return D;
+                         D3D12_GRAPHICS_PIPELINE_STATE_DESC D;
+                         D.Flags                 = this->Flags;
+                         D.NodeMask              = this->NodeMask;
+                         D.pRootSignature        = this->pRootSignature;
+                         D.InputLayout           = this->InputLayout;
+                         D.IBStripCutValue       = this->IBStripCutValue;
+                         D.PrimitiveTopologyType = this->PrimitiveTopologyType;
+                         D.VS                    = this->VS;
+                         D.GS                    = this->GS;
+                         D.StreamOutput          = this->StreamOutput;
+                         D.HS                    = this->HS;
+                         D.DS                    = this->DS;
+                         D.PS                    = this->PS;
+                         D.BlendState            = this->BlendState;
+                         D.DepthStencilState     = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEPTH_STENCIL_DESC1(this->DepthStencilState));
+                         D.DSVFormat             = this->DSVFormat;
+                         D.RasterizerState       = this->RasterizerState;
+                         D.NumRenderTargets      = D3D12_RT_FORMAT_ARRAY(this->RTVFormats).NumRenderTargets;
+                         memcpy(D.RTVFormats, D3D12_RT_FORMAT_ARRAY(this->RTVFormats).RTFormats, sizeof(D.RTVFormats));
+                         D.SampleDesc = this->SampleDesc;
+                         D.SampleMask = this->SampleMask;
+                         D.CachedPSO  = this->CachedPSO;
+                         return D;
     }
     D3D12_COMPUTE_PIPELINE_STATE_DESC ComputeDescV0() const noexcept {
         D3D12_COMPUTE_PIPELINE_STATE_DESC D;
@@ -2871,7 +2872,7 @@ public:
     }
     void SetStateObjectType(D3D12_STATE_OBJECT_TYPE Type) noexcept { m_Desc.Type = Type; }
          operator const D3D12_STATE_OBJECT_DESC&() {
-        // Do final preparation work
+             // Do final preparation work
         m_RepointedAssociations.clear();
         m_SubobjectArray.clear();
         m_SubobjectArray.reserve(m_Desc.NumSubobjects);
@@ -2879,22 +2880,22 @@ public:
         // member that's a pointer to it's desc that's not flattened)
         for (auto Iter = m_SubobjectList.begin();
              Iter != m_SubobjectList.end(); Iter++) {
-            m_SubobjectArray.push_back(*Iter);
-            // Store new location in array so we can redirect pointers contained in subobjects
-            Iter->pSubobjectArrayLocation = &m_SubobjectArray.back();
+                 m_SubobjectArray.push_back(*Iter);
+                 // Store new location in array so we can redirect pointers contained in subobjects
+                 Iter->pSubobjectArrayLocation = &m_SubobjectArray.back();
         }
         // For subobjects with pointer fields, create a new copy of those subobject definitions
         // with fixed pointers
         for (UINT i = 0; i < m_Desc.NumSubobjects; i++) {
-            if (m_SubobjectArray[i].Type == D3D12_STATE_SUBOBJECT_TYPE_SUBOBJECT_TO_EXPORTS_ASSOCIATION) {
-                auto pOriginalSubobjectAssociation =
-                    static_cast<const D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION*>(m_SubobjectArray[i].pDesc);
-                D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION Repointed = *pOriginalSubobjectAssociation;
-                auto                                   pWrapper =
-                    static_cast<const SUBOBJECT_WRAPPER*>(pOriginalSubobjectAssociation->pSubobjectToAssociate);
-                Repointed.pSubobjectToAssociate = pWrapper->pSubobjectArrayLocation;
-                m_RepointedAssociations.push_back(Repointed);
-                m_SubobjectArray[i].pDesc = &m_RepointedAssociations.back();
+                 if (m_SubobjectArray[i].Type == D3D12_STATE_SUBOBJECT_TYPE_SUBOBJECT_TO_EXPORTS_ASSOCIATION) {
+                     auto pOriginalSubobjectAssociation =
+                         static_cast<const D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION*>(m_SubobjectArray[i].pDesc);
+                     D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION Repointed = *pOriginalSubobjectAssociation;
+                     auto                                   pWrapper =
+                         static_cast<const SUBOBJECT_WRAPPER*>(pOriginalSubobjectAssociation->pSubobjectToAssociate);
+                     Repointed.pSubobjectToAssociate = pWrapper->pSubobjectArrayLocation;
+                     m_RepointedAssociations.push_back(Repointed);
+                     m_SubobjectArray[i].pDesc = &m_RepointedAssociations.back();
             }
         }
         // Below: using ugly way to get pointer in case .data() is not defined
@@ -2997,7 +2998,7 @@ private:
         virtual ~SUBOBJECT_HELPER_BASE()                         = default;
         virtual D3D12_STATE_SUBOBJECT_TYPE Type() const noexcept = 0;
         void                               AddToStateObject(CD3DX12_STATE_OBJECT_DESC& ContainingStateObject) {
-            m_pSubobject = ContainingStateObject.TrackSubobject(Type(), Data());
+                                          m_pSubobject = ContainingStateObject.TrackSubobject(Type(), Data());
         }
 
     protected:
@@ -3520,3 +3521,5 @@ private:
 #endif  // defined( __cplusplus )
 
 #endif  //__D3DX12_H__
+
+// NOLINTEND

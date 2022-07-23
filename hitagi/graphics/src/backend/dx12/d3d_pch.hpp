@@ -18,10 +18,15 @@
 #include <queue>
 #include <mutex>
 #include <array>
+#include <memory_resource>
+#include <bitset>
 
 // DX12
 #include "dx_helper.h"
 #include "d3dx12.h"
+#include <d3dcompiler.h>
+#include <d3d12shader.h>
+#include <dxcapi.h>
 #include <dxgi1_6.h>
 
 #undef near

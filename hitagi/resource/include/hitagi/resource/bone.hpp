@@ -5,7 +5,7 @@
 #include <map>
 
 namespace hitagi::resource {
-class Bone : public SceneObject {
+class Bone : public ResourceObject {
 public:
     Bone() = default;
 

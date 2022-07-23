@@ -7,7 +7,7 @@
 
 namespace hitagi::resource {
 
-class Texture : public SceneObject {
+class Texture : public ResourceObject {
 public:
     Texture(std::filesystem::path path);
     Texture(std::shared_ptr<Image> image);

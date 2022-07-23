@@ -1,6 +1,7 @@
 #pragma once
 #include <hitagi/math/vector.hpp>
 #include <hitagi/resource/enums.hpp>
+#include <hitagi/resource/shader.hpp>
 #include <hitagi/graphics/enums.hpp>
 
 #include <bitset>
@@ -35,7 +36,7 @@ public:
 
     template <typename T>
     inline T* GetBackend() const noexcept {
-        using RT = std::remove_cv_t<T>;
+        using RT = std::remove_cvref_t<T>;
         return static_cast<RT*>(m_Resource.get());
     }
 
@@ -58,9 +59,9 @@ public:
 
 struct VertexBufferDesc {
     std::size_t vertex_count = 0;
-    //  indicate which slot is enabled
-    std::bitset<magic_enum::enum_count<resource::VertexAttribute>()>             slot_mask;
-    std::array<std::size_t, magic_enum::enum_count<resource::VertexAttribute>()> slot_offset;
+    //  indicate which attribute is enabled
+    std::bitset<magic_enum::enum_count<resource::VertexAttribute>()>             attr_mask;
+    std::array<std::size_t, magic_enum::enum_count<resource::VertexAttribute>()> attr_offset;
 };
 using VertexBuffer = ResourceWithDesc<VertexBufferDesc>;
 
@@ -104,5 +105,18 @@ struct RenderTargetDesc {
 using RenderTarget = ResourceWithDesc<RenderTargetDesc>;
 
 using Sampler = ResourceWithDesc<resource::SamplerDesc>;
+
+struct PipelineStateDesc {
+    std::shared_ptr<resource::Shader>       vs                      = nullptr;
+    std::shared_ptr<resource::Shader>       ps                      = nullptr;
+    resource::PrimitiveType                 primitive_type          = resource::PrimitiveType::TriangleList;
+    BlendDescription                        blend_state             = {};
+    RasterizerDescription                   rasterizer_state        = {};
+    Format                                  render_format           = Format::R8G8B8A8_UNORM;
+    Format                                  depth_buffer_format     = Format::UNKNOWN;
+    bool                                    front_counter_clockwise = true;
+    std::pmr::vector<resource::SamplerDesc> static_samplers;
+};
+using PipelineState = ResourceWithDesc<PipelineStateDesc>;
 
 }  // namespace hitagi::graphics

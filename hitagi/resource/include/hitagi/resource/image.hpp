@@ -3,7 +3,7 @@
 #include <hitagi/core/buffer.hpp>
 
 namespace hitagi::resource {
-class Image : public SceneObject {
+class Image : public ResourceObject {
 public:
     Image(std::uint32_t width,
           std::uint32_t height,

@@ -1,6 +1,6 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
-#include <hitagi/graphics/driver_api.hpp>
+#include <hitagi/graphics/device_api.hpp>
 #include <hitagi/graphics/enums.hpp>
 #include <hitagi/graphics/resource_manager.hpp>
 #include <hitagi/graphics/frame.hpp>
@@ -26,7 +26,7 @@ protected:
 
     void Render();
 
-    std::unique_ptr<DriverAPI>       m_Driver;
+    std::unique_ptr<DeviceAPI>       m_Device;
     std::unique_ptr<ResourceManager> m_ResMgr;
 
     static constexpr uint8_t sm_SwapChianSize    = 3;

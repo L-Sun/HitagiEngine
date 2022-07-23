@@ -1,5 +1,6 @@
 #pragma once
 #include "d3d_pch.hpp"
+#include "descriptor_allocator.hpp"
 
 #include <hitagi/graphics/resource.hpp>
 

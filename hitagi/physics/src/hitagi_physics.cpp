@@ -23,7 +23,7 @@ void hitagiPhysicsManager::Finalize() {
 void hitagiPhysicsManager::Tick() {}
 
 std::array<vec3f, 2> hitagiPhysicsManager::GetAABB(resource::Geometry& node) {
-    auto geometry = node.GetSceneObjectRef().lock();
+    auto geometry = node.GetResourceObjectRef().lock();
     if (!geometry) return {vec3f(0), vec3f(0)};
 
     vec3f aabb_min = vec3f(std::numeric_limits<float>::max());
@@ -84,24 +84,24 @@ std::array<vec3f, 2> hitagiPhysicsManager::GetAABB(resource::Geometry& node) {
 }
 
 void hitagiPhysicsManager::CreateRigidBody(resource::Geometry& node) {
-    // auto geometry = node.GetSceneObjectRef().lock();
+    // auto geometry = node.GetResourceObjectRef().lock();
     // if (!geometry) return;
 
     // const float*               param     = geometry->CollisionParameters();
     // std::shared_ptr<RigidBody> rigidBody = nullptr;
 
     // switch (geometry->CollisionType()) {
-    //     case Resource::SceneObjectCollisionType::SPHERE: {
+    //     case Resource::ResourceObjectCollisionType::SPHERE: {
     //         auto collisionBox = std::make_shared<Sphere>(param[0]);
     //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation());
     //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
     //     } break;
-    //     case Resource::SceneObjectCollisionType::BOX: {
+    //     case Resource::ResourceObjectCollisionType::BOX: {
     //         auto collisionBox = std::make_shared<Box>(vec3f(param));
     //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation());
     //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
     //     } break;
-    //     case Resource::SceneObjectCollisionType::PLANE: {
+    //     case Resource::ResourceObjectCollisionType::PLANE: {
     //         auto collisionBox = std::make_shared<Plane>(vec3f(param), param[3]);
     //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation());
     //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);

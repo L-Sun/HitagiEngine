@@ -1,5 +1,5 @@
 #include <hitagi/graphics/frame.hpp>
-#include <hitagi/graphics/driver_api.hpp>
+#include <hitagi/graphics/device_api.hpp>
 #include <hitagi/utils/overloaded.hpp>
 
 #include <spdlog/spdlog.h>
@@ -10,12 +10,12 @@ using namespace hitagi::math;
 using namespace hitagi::resource;
 
 namespace hitagi::graphics {
-Frame::Frame(DriverAPI& driver, ResourceManager& resource_manager, size_t frame_index)
-    : m_Driver(driver),
+Frame::Frame(DeviceAPI& driver, ResourceManager& resource_manager, size_t frame_index)
+    : m_Device(driver),
       m_ResMgr(resource_manager),
       m_FrameIndex(frame_index),
-      m_Output(m_Driver.CreateRenderFromSwapChain(frame_index)),
-      m_ConstantBuffer(m_Driver.CreateConstantBuffer(
+      m_Output(m_Device.CreateRenderFromSwapChain(frame_index)),
+      m_ConstantBuffer(m_Device.CreateConstantBuffer(
           "Object Constant",
           {.num_elements = 1,
            .element_size = std::max({sizeof(FrameConstant), sizeof(ObjectConstant)})})) {}
@@ -42,7 +42,7 @@ void Frame::SetCamera(const std::shared_ptr<Camera>& camera) {
     data.proj_view      = data.projection * data.view;
     data.inv_proj_view  = inverse(data.proj_view);
 
-    m_Driver.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<std::byte*>(&data), sizeof(data));
+    m_Device.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<std::byte*>(&data), sizeof(data));
 }
 
 void Frame::Draw(IGraphicsCommandContext* context, Renderable::Type type) {
@@ -50,20 +50,21 @@ void Frame::Draw(IGraphicsCommandContext* context, Renderable::Type type) {
         if (item.type != type) continue;
 
         context->SetPipelineState(m_ResMgr.GetPipelineState(item.material->GetGuid()));
-        context->SetParameter(FRAME_CONSTANT_BUFFER,
+        context->BindResource(0,
                               m_ConstantBuffer,
                               0);
-        context->SetParameter(OBJECT_CONSTANT_BUFFER,
+        context->BindResource(1,
                               m_ConstantBuffer,
                               item.object_constant_offset);
 
         if (auto material_constant_buffer = m_ResMgr.GetMaterialParameterBuffer(item.material->GetGuid());
             material_constant_buffer) {
-            context->SetParameter(MATERIAL_CONSTANT_BUFFER, material_constant_buffer, item.material_constant_offset);
+            context->BindResource(2, material_constant_buffer, item.material_constant_offset);
         }
 
+        std::uint32_t texture_slot = 0;
         for (const auto& [name, texture] : item.mesh.material->GetTextures()) {
-            context->SetParameter(name, m_ResMgr.GetTextureBuffer(texture->GetGuid()));
+            context->BindResource(texture_slot++, m_ResMgr.GetTextureBuffer(texture->GetGuid()));
         }
 
         if (item.pipeline_parameters.scissor_react) {
@@ -86,18 +87,18 @@ void Frame::SetFenceValue(std::uint64_t fence_value) {
 }
 
 bool Frame::IsRenderingFinished() const {
-    return m_Driver.IsFenceComplete(m_FenceValue);
+    return m_Device.IsFenceComplete(m_FenceValue);
 }
 
 void Frame::Reset() {
-    m_Driver.WaitFence(m_FenceValue);
+    m_Device.WaitFence(m_FenceValue);
     m_Renderables.clear();
     m_ConstantCount = 1;
     m_Lock          = false;
 }
 
 void Frame::SetRenderTarget(std::shared_ptr<RenderTarget> rt) {
-    m_Driver.WaitFence(m_FenceValue);
+    m_Device.WaitFence(m_FenceValue);
     m_Output = std::move(rt);
 }
 
@@ -106,7 +107,7 @@ void Frame::PrepareData() {
     // if new size is smaller, the expand function return directly.
     if (m_ConstantBuffer->desc.num_elements < m_Renderables.size() + 1)
         // becase capacity + needed > exsisted + needed
-        m_Driver.ResizeConstantBuffer(m_ConstantBuffer, m_Renderables.size() + 1);
+        m_Device.ResizeConstantBuffer(m_ConstantBuffer, m_Renderables.size() + 1);
 
     std::stable_sort(
         m_Renderables.begin(),
@@ -135,7 +136,7 @@ void Frame::PrepareData() {
         };
         // since we share the object constant value and frame constant value in the same constant buffer,
         // and the first element of constant buffer is frame constant value, so we offset the index one element
-        m_Driver.UpdateConstantBuffer(m_ConstantBuffer,
+        m_Device.UpdateConstantBuffer(m_ConstantBuffer,
                                       1 + index,
                                       reinterpret_cast<const std::byte*>(&constant),
                                       sizeof(constant));
@@ -152,7 +153,7 @@ void Frame::PrepareData() {
                     material_offset++;
 
                 auto& cpu_buffer = item.mesh.material->GetParameterBuffer();
-                m_Driver.UpdateConstantBuffer(
+                m_Device.UpdateConstantBuffer(
                     material_buffer,
                     material_offset,
                     cpu_buffer.GetData(),

@@ -29,7 +29,7 @@ void ConfigManager::Finalize() {
 
 void ConfigManager::LoadConfig(const std::filesystem::path& path) {
     m_Logger->info("lode config file: {}", path.string());
-    auto buffer = g_FileIoManager->SyncOpenAndReadBinary(path);
+    auto& buffer = g_FileIoManager->SyncOpenAndReadBinary(path);
 
     auto json = nlohmann::json::parse(buffer.Span<char>());
 

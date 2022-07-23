@@ -29,7 +29,6 @@ private:
     std::pmr::vector<resource::Renderable> PrepareImGuiRenderables();
 
     core::Clock                       m_Clock;
-    std::list<core::Buffer>           m_FontsData;
     std::queue<std::function<void()>> m_GuiDrawTasks;
 
     std::shared_ptr<resource::MaterialInstance> m_ImGuiMaterial;

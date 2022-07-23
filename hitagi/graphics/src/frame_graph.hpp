@@ -1,7 +1,7 @@
 #pragma once
 #include "render_pass.hpp"
 
-#include <hitagi/graphics/driver_api.hpp>
+#include <hitagi/graphics/device_api.hpp>
 
 #include <set>
 
@@ -84,8 +84,8 @@ public:
     void Present(FrameHandle render_target, const std::shared_ptr<hitagi::graphics::IGraphicsCommandContext>& contex);
 
     void Compile();
-    void Execute(DriverAPI& driver);
-    void Retire(uint64_t fence_value, DriverAPI& driver) noexcept;
+    void Execute(DeviceAPI& driver);
+    void Retire(uint64_t fence_value, DeviceAPI& driver) noexcept;
 
 private:
     using Desc = std::variant<DepthBufferDesc,
