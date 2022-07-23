@@ -38,8 +38,8 @@ void ResourceBinder::Reset(FenceValue fence_value) {
         m_NumFreeHandles[i]              = 0;
     }
 
-    m_RootParameterMask.reset();
-    m_RootParameterDirty.reset();
+    m_RootTableMask.reset();
+    m_RootTableDirty.reset();
 
     // Reset the table cache
     m_DescriptorCaches.fill({});
@@ -48,7 +48,7 @@ void ResourceBinder::Reset(FenceValue fence_value) {
 void ResourceBinder::ParseRootSignature(const D3D12_ROOT_SIGNATURE_DESC1& root_signature_desc) {
     auto logger = spdlog::get("GraphicsManager");
 
-    m_RootParameterMask.reset();
+    m_RootTableMask.reset();
     m_SlotInfos.fill({});
     m_RootIndexToHeapOffset.fill({});
 
@@ -70,7 +70,7 @@ void ResourceBinder::ParseRootSignature(const D3D12_ROOT_SIGNATURE_DESC1& root_s
                         logger->debug("Use space 0 to bind resource, other space will be extend in the future.");
                         continue;
                     }
-                    m_RootParameterMask.set(root_index);
+                    m_RootTableMask.set(root_index);
 
                     std::size_t heap_index = range.RangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER ? 1 : 0;
 
@@ -98,6 +98,10 @@ void ResourceBinder::ParseRootSignature(const D3D12_ROOT_SIGNATURE_DESC1& root_s
                 }
             } break;
             case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS: {
+                if (root_param.Constants.RegisterSpace != 0) {
+                    logger->debug("Use space 0 to bind resource, other space will be extend in the future.");
+                    continue;
+                }
                 m_SlotInfos[magic_enum::enum_integer(Descriptor::Type::CBV)].emplace(
                     root_param.Constants.ShaderRegister,
                     SlotInfo{
@@ -108,6 +112,10 @@ void ResourceBinder::ParseRootSignature(const D3D12_ROOT_SIGNATURE_DESC1& root_s
             case D3D12_ROOT_PARAMETER_TYPE_CBV:
             case D3D12_ROOT_PARAMETER_TYPE_SRV:
             case D3D12_ROOT_PARAMETER_TYPE_UAV: {
+                if (root_param.Descriptor.RegisterSpace != 0) {
+                    logger->debug("Use space 0 to bind resource, other space will be extend in the future.");
+                    continue;
+                }
                 m_SlotInfos[magic_enum::enum_integer(root_parameter_type_to_descriptor_type(root_param.ParameterType))].emplace(
                     root_param.Descriptor.ShaderRegister,
                     SlotInfo{
@@ -189,7 +197,7 @@ void ResourceBinder::StageDescriptors(std::uint32_t offset, const std::pmr::vect
     for (std::size_t i = 0; i < descriptors.size(); i++) {
         DescriptorCache& cache = m_DescriptorCaches[heap_index].at(offset + i);
         cache.descriptor       = descriptors[i];
-        m_RootParameterDirty.set(cache.root_index);
+        m_RootTableDirty.set(cache.root_index);
     }
 }
 
@@ -248,7 +256,7 @@ void ResourceBinder::CommitStagedDescriptors() {
 
             m_Context.SetDescriptorHeap(heap_type, m_CurrentDescriptorHeaps[heap_index].Get());
             // We need to update whole new descriptor heap
-            m_RootParameterDirty = m_RootParameterMask;
+            m_RootTableDirty = m_RootTableMask;
         }
 
         // calcuate continous range
@@ -256,7 +264,7 @@ void ResourceBinder::CommitStagedDescriptors() {
         std::pmr::vector<decltype(range)>                       ranges;
         for (const auto& cache : m_DescriptorCaches[heap_type]) {
             if (cache.descriptor == nullptr) break;
-            if (!m_RootParameterDirty.test(cache.root_index)) continue;
+            if (!m_RootTableDirty.test(cache.root_index)) continue;
 
             if (cache.descriptor->handle.ptr == range.first.ptr + range.second * m_HandleIncrementSizes[heap_type]) {
                 range.second++;
@@ -286,7 +294,7 @@ void ResourceBinder::CommitStagedDescriptors() {
         }
 
         for (auto [root_index, heap_offset] : m_RootIndexToHeapOffset[heap_type]) {
-            if (!m_RootParameterDirty.test(root_index)) continue;
+            if (!m_RootTableDirty.test(root_index)) continue;
 
             if (cmd_type == D3D12_COMMAND_LIST_TYPE_COMPUTE) {
                 cmd_list->SetComputeRootDescriptorTable(
@@ -306,7 +314,7 @@ void ResourceBinder::CommitStagedDescriptors() {
         }
     }
 
-    m_RootParameterDirty.reset();
+    m_RootTableDirty.reset();
     m_DescriptorCaches.fill({});
 }
 

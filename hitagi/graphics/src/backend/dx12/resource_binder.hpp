@@ -77,11 +77,11 @@ private:
     std::array<std::pmr::unordered_map<std::uint32_t, SlotInfo>, magic_enum::enum_count<Descriptor::Type>()> m_SlotInfos;
     std::array<std::pmr::map<std::uint32_t, std::uint64_t>, 2>                                               m_RootIndexToHeapOffset;
 
-    // Each bit indicates which root parameter is declarated in root signature.
-    std::bitset<sm_max_root_parameters> m_RootParameterMask;
-    // Each bit indicates the root parameter in the root signature that has
+    // Each bit indicates which root table is declarated in root signature.
+    std::bitset<sm_max_root_parameters> m_RootTableMask;
+    // Each bit indicates the root table in the root signature that has
     // changed since the last time the descriptors were copied.
-    std::bitset<sm_max_root_parameters> m_RootParameterDirty;
+    std::bitset<sm_max_root_parameters> m_RootTableDirty;
 
     std::array<ComPtr<ID3D12DescriptorHeap>, 2>  m_CurrentDescriptorHeaps;
     std::array<std::size_t, 2>                   m_HandleIncrementSizes;
