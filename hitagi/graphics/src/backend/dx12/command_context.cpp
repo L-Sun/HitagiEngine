@@ -16,7 +16,7 @@ CommandContext::CommandContext(DX12Device& device, D3D12_COMMAND_LIST_TYPE type)
     : m_Device(device),
       m_CpuLinearAllocator(device.GetDevice(), AllocationPageType::CPU_WRITABLE, [&device](uint64_t fence) { return device.GetCmdMgr().IsFenceComplete(fence); }),
       m_GpuLinearAllocator(device.GetDevice(), AllocationPageType::GPU_EXCLUSIVE, [&device](uint64_t fence) { return device.GetCmdMgr().IsFenceComplete(fence); }),
-      m_ResourceBinder(device.GetDevice(), [&device](uint64_t fence) { return device.GetCmdMgr().IsFenceComplete(fence); }),
+      m_ResourceBinder(device.GetDevice(), *this, [&device](uint64_t fence) { return device.GetCmdMgr().IsFenceComplete(fence); }),
       m_Type(type) {
     device.GetCmdMgr().CreateNewCommandList(m_Type, &m_CommandList, &m_CommandAllocator);
 }
@@ -187,7 +187,7 @@ void GraphicsCommandContext::BindResource(std::uint32_t slot, std::shared_ptr<gr
     if (m_CurrentPipeline == nullptr) {
         throw std::logic_error("pipeline must be set before setting parameters");
     }
-    m_ResourceBinder.StageDescriptor(slot, cb->GetBackend<ConstantBuffer>()->GetCBV(offset));
+    m_ResourceBinder.BindResource(slot, cb->GetBackend<ConstantBuffer>(), offset);
 }
 
 void GraphicsCommandContext::BindResource(std::uint32_t slot, std::shared_ptr<graphics::TextureBuffer> texture) {
@@ -196,7 +196,7 @@ void GraphicsCommandContext::BindResource(std::uint32_t slot, std::shared_ptr<gr
     if (m_CurrentPipeline == nullptr) {
         throw std::logic_error("pipeline must be set before setting parameters");
     }
-    m_ResourceBinder.StageDescriptor(slot, texture->GetBackend<TextureBuffer>()->GetSRV());
+    m_ResourceBinder.BindResource(slot, texture->GetBackend<TextureBuffer>());
 }
 
 void GraphicsCommandContext::BindResource(std::uint32_t slot, std::shared_ptr<graphics::Sampler> sampler) {
@@ -205,7 +205,15 @@ void GraphicsCommandContext::BindResource(std::uint32_t slot, std::shared_ptr<gr
     if (m_CurrentPipeline == nullptr) {
         throw std::logic_error("pipeline must be set before setting parameters");
     }
-    m_ResourceBinder.StageDescriptor(slot, sampler->GetBackend<Sampler>()->GetDescriptor());
+    m_ResourceBinder.BindResource(slot, sampler->GetBackend<Sampler>());
+}
+
+void GraphicsCommandContext::Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) {
+    if (data == nullptr || count == 0) return;
+    if (m_CurrentPipeline == nullptr) {
+        throw std::logic_error("pipeline must be set before setting parameters");
+    }
+    m_ResourceBinder.Set32BitsConstants(slot, data, count);
 }
 
 void GraphicsCommandContext::Present(std::shared_ptr<graphics::RenderTarget> render_target) {
@@ -246,7 +254,7 @@ void GraphicsCommandContext::Draw(
     });
 
     FlushResourceBarriers();
-    m_ResourceBinder.CommitStagedDescriptors(*this);
+    m_ResourceBinder.CommitStagedDescriptors();
     m_CommandList->IASetPrimitiveTopology(to_dx_topology(primitive));
     m_CommandList->DrawIndexedInstanced(
         index_count,

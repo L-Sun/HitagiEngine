@@ -76,6 +76,7 @@ public:
     void BindResource(std::uint32_t slot, std::shared_ptr<graphics::ConstantBuffer> cb, std::size_t offset) final;
     void BindResource(std::uint32_t slot, std::shared_ptr<graphics::TextureBuffer> texture) final;
     void BindResource(std::uint32_t slot, std::shared_ptr<graphics::Sampler> sampler) final;
+    void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) final;
 
     void UpdateBuffer(std::shared_ptr<graphics::Resource> resource, std::size_t offset, const std::byte* data, std::size_t data_size) final;
 

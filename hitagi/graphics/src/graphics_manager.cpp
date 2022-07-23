@@ -155,6 +155,20 @@ void GraphicsManager::Render() {
             frame->Draw(context.get(), Renderable::Type::Default);
         });
 
+    struct DebugPassData {
+        FrameHandle output;
+    };
+    auto debug_pass = fg.AddPass<DebugPassData>(
+        "DebugPass",
+        [&](FrameGraph::Builder& builder, DebugPassData& data) {
+            data.output = builder.Write(render_target_handle);
+        },
+        [=](const ResourceHelper& helper, DebugPassData& data) {
+            auto render_target = helper.Get<RenderTarget>(data.output);
+            context->SetRenderTarget(render_target);
+            frame->Draw(context.get(), Renderable::Type::Debug);
+        });
+
     struct GuiPassData {
         FrameHandle output;
     };

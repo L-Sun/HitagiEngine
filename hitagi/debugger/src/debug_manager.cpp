@@ -111,6 +111,7 @@ void DebugManager::DrawPrimitive() const {
         auto& geometry = primitive.geometry;
         for (const auto& mesh : geometry.meshes) {
             Renderable item;
+            item.type      = Renderable::Type::Debug;
             item.mesh      = mesh;
             item.material  = mesh.material->GetMaterial().lock();
             item.transform = geometry.transform;

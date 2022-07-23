@@ -54,8 +54,7 @@ PSInput VSMain(VSInput input) {
 }
 
 [RootSignature(RSDEF)] 
-float4 PSMain(PSInput input)
-    : SV_TARGET {
+float4 PSMain(PSInput input) : SV_TARGET {
   const float4 vN = normalize(input.normal);
   const float4 vL = normalize(lightPosInView - input.posInView);
   const float4 vV = normalize(-input.posInView);

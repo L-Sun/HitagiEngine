@@ -1,21 +1,18 @@
 #include "resource_binder.hpp"
-#include "magic_enum.hpp"
-#include "utils.hpp"
 #include "command_context.hpp"
+#include "utils.hpp"
 
 #include <hitagi/utils/utils.hpp>
 
 #include <spdlog/spdlog.h>
 
-#include <d3d12.h>
-#include <optional>
-
 namespace hitagi::graphics::backend::DX12 {
 
 std::mutex ResourceBinder::sm_Mutex;
 
-ResourceBinder::ResourceBinder(ID3D12Device* device, FenceChecker&& checker)
+ResourceBinder::ResourceBinder(ID3D12Device* device, CommandContext& context, FenceChecker&& checker)
     : m_Device(device),
+      m_Context(context),
       m_FenceChecker(std::move(checker)),
       m_CurrentDescriptorHeaps(
           utils::create_array<ComPtr<ID3D12DescriptorHeap>, 2>(nullptr)),
@@ -45,15 +42,15 @@ void ResourceBinder::Reset(FenceValue fence_value) {
     m_RootParameterDirty.reset();
 
     // Reset the table cache
-    for (auto& caches : m_DescriptorCaches) {
-        for (auto& cache : caches) {
-            cache.descriptor = {};
-        }
-    }
+    m_DescriptorCaches.fill({});
 }
 
 void ResourceBinder::ParseRootSignature(const D3D12_ROOT_SIGNATURE_DESC1& root_signature_desc) {
     auto logger = spdlog::get("GraphicsManager");
+
+    m_RootParameterMask.reset();
+    m_SlotInfos.fill({});
+    m_RootIndexToHeapOffset.fill({});
 
     auto current_ofssets = utils::create_array<std::uint32_t, 2>(0);
 
@@ -82,7 +79,13 @@ void ResourceBinder::ParseRootSignature(const D3D12_ROOT_SIGNATURE_DESC1& root_s
 
                         std::size_t heap_offset = current_ofssets[heap_index]++;
 
-                        m_SlotToHeapOffset[magic_enum::enum_integer(descriptor_type)].emplace(range.BaseShaderRegister + i, heap_offset);
+                        m_SlotInfos[magic_enum::enum_integer(descriptor_type)].emplace(
+                            range.BaseShaderRegister + i,
+                            SlotInfo{
+                                .in_table = true,
+                                .value    = heap_offset,
+                            });
+
                         // we use emplace here so, only the smallest heap_offset will insert!
                         m_RootIndexToHeapOffset[heap_index].emplace(root_index, heap_offset);
 
@@ -94,29 +97,78 @@ void ResourceBinder::ParseRootSignature(const D3D12_ROOT_SIGNATURE_DESC1& root_s
                     }
                 }
             } break;
-            default:
-                // since RootDescriptor only need the resource gpu address, and 32bit constant need cpu address,
-                // there are not descriptor need to be staged.
-                break;
+            case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS: {
+                m_SlotInfos[magic_enum::enum_integer(Descriptor::Type::CBV)].emplace(
+                    root_param.Constants.ShaderRegister,
+                    SlotInfo{
+                        .in_table = false,
+                        .value    = root_index,
+                    });
+            } break;
+            case D3D12_ROOT_PARAMETER_TYPE_CBV:
+            case D3D12_ROOT_PARAMETER_TYPE_SRV:
+            case D3D12_ROOT_PARAMETER_TYPE_UAV: {
+                m_SlotInfos[magic_enum::enum_integer(root_parameter_type_to_descriptor_type(root_param.ParameterType))].emplace(
+                    root_param.Descriptor.ShaderRegister,
+                    SlotInfo{
+                        .in_table = false,
+                        .value    = root_index,
+                    });
+            } break;
         }
     }
 }
-void ResourceBinder::StageDescriptor(std::uint32_t slot, const std::shared_ptr<Descriptor>& descriptor) {
-    assert(descriptor != nullptr);
 
-    auto descriptor_type = descriptor->type;
-    assert(descriptor_type != Descriptor::Type::DSV && descriptor_type != Descriptor::Type::RTV);
-
-    std::size_t heap_index = descriptor->type == Descriptor::Type::Sampler ? 1 : 0;
-
-    std::uint32_t    heap_offset = m_SlotToHeapOffset[magic_enum::enum_integer(descriptor->type)].at(slot);
-    DescriptorCache& cache       = m_DescriptorCaches[heap_index].at(heap_offset);
-
-    cache.descriptor = descriptor;
-    m_RootParameterDirty.set(cache.root_index);
+void ResourceBinder::BindResource(std::uint32_t slot, ConstantBuffer* cb, std::size_t offset) {
+    auto slot_info = m_SlotInfos[magic_enum::enum_integer(Descriptor::Type::CBV)].at(slot);
+    if (slot_info.in_table) {
+        StageDescriptor(slot_info.value, cb->GetCBV(offset));
+    } else {
+        D3D12_GPU_VIRTUAL_ADDRESS gpu_address = cb->GetResource()->GetGPUVirtualAddress() + offset * cb->GetBlockSize();
+        if (m_Context.GetType() == D3D12_COMMAND_LIST_TYPE_COMPUTE) {
+            m_Context.GetCommandList()->SetComputeRootConstantBufferView(slot_info.value, gpu_address);
+        } else {
+            m_Context.GetCommandList()->SetGraphicsRootConstantBufferView(slot_info.value, gpu_address);
+        }
+    }
+}
+void ResourceBinder::BindResource(std::uint32_t slot, TextureBuffer* tb) {
+    auto slot_info = m_SlotInfos[magic_enum::enum_integer(Descriptor::Type::SRV)].at(slot);
+    if (slot_info.in_table) {
+        StageDescriptor(slot_info.value, tb->GetSRV());
+    } else {
+        D3D12_GPU_VIRTUAL_ADDRESS gpu_address = tb->GetResource()->GetGPUVirtualAddress();
+        if (m_Context.GetType() == D3D12_COMMAND_LIST_TYPE_COMPUTE) {
+            m_Context.GetCommandList()->SetComputeRootShaderResourceView(slot_info.value, gpu_address);
+        } else {
+            m_Context.GetCommandList()->SetGraphicsRootShaderResourceView(slot_info.value, gpu_address);
+        }
+    }
+}
+void ResourceBinder::BindResource(std::uint32_t slot, Sampler* sampler) {
+    auto slot_info = m_SlotInfos[magic_enum::enum_integer(Descriptor::Type::Sampler)].at(slot);
+    assert(slot_info.in_table);
+    StageDescriptor(slot_info.value, sampler->GetDescriptor());
 }
 
-void ResourceBinder::StageDescriptors(std::uint32_t slot, const std::pmr::vector<std::shared_ptr<Descriptor>>& descriptors) {
+void ResourceBinder::Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) {
+    auto slot_info = m_SlotInfos[magic_enum::enum_integer(Descriptor::Type::CBV)].at(slot);
+    assert(!slot_info.in_table);
+    if (m_Context.GetType() == D3D12_COMMAND_LIST_TYPE_COMPUTE) {
+        m_Context.GetCommandList()->SetComputeRoot32BitConstants(slot_info.value, count, data, 0);
+    } else {
+        m_Context.GetCommandList()->SetGraphicsRoot32BitConstants(slot_info.value, count, data, 0);
+    }
+}
+
+void ResourceBinder::StageDescriptor(std::uint32_t offset, const std::shared_ptr<Descriptor>& descriptor) {
+    StageDescriptors(offset, {descriptor});
+}
+
+void ResourceBinder::StageDescriptors(std::uint32_t offset, const std::pmr::vector<std::shared_ptr<Descriptor>>& descriptors) {
+    if (descriptors.empty()) return;
+    assert(offset + descriptors.size() <= sm_heap_size);
+
     auto iter = std::adjacent_find(descriptors.begin(), descriptors.end(), [](const auto& a, const auto& b) -> bool {
         return a->type == b->type;
     });
@@ -129,9 +181,15 @@ void ResourceBinder::StageDescriptors(std::uint32_t slot, const std::pmr::vector
             magic_enum::enum_name(descriptors[index - 1]->type),
             index));
     }
+    auto descriptor_type = descriptors.front()->type;
+    assert(descriptor_type != Descriptor::Type::DSV && descriptor_type != Descriptor::Type::RTV);
+
+    std::size_t heap_index = descriptor_type == Descriptor::Type::Sampler ? 1 : 0;
 
     for (std::size_t i = 0; i < descriptors.size(); i++) {
-        StageDescriptor(slot + i, descriptors[i]);
+        DescriptorCache& cache = m_DescriptorCaches[heap_index].at(offset + i);
+        cache.descriptor       = descriptors[i];
+        m_RootParameterDirty.set(cache.root_index);
     }
 }
 
@@ -175,9 +233,9 @@ std::uint32_t ResourceBinder::StaleDescriptorCount(D3D12_DESCRIPTOR_HEAP_TYPE he
     return result;
 }
 
-void ResourceBinder::CommitStagedDescriptors(CommandContext& context) {
-    auto cmd_list = context.GetCommandList();
-    assert(cmd_list != nullptr);
+void ResourceBinder::CommitStagedDescriptors() {
+    D3D12_COMMAND_LIST_TYPE cmd_type = m_Context.GetType();
+    auto                    cmd_list = m_Context.GetCommandList();
 
     for (int heap_index = 0; heap_index < 2; heap_index++) {
         D3D12_DESCRIPTOR_HEAP_TYPE heap_type = heap_index == 0 ? D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV : D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
@@ -188,7 +246,7 @@ void ResourceBinder::CommitStagedDescriptors(CommandContext& context) {
             m_CurrentGPUDescriptorHandles[heap_index] = m_CurrentDescriptorHeaps[heap_index]->GetGPUDescriptorHandleForHeapStart();
             m_NumFreeHandles[heap_index]              = sm_heap_size;
 
-            context.SetDescriptorHeap(heap_type, m_CurrentDescriptorHeaps[heap_index].Get());
+            m_Context.SetDescriptorHeap(heap_type, m_CurrentDescriptorHeaps[heap_index].Get());
             // We need to update whole new descriptor heap
             m_RootParameterDirty = m_RootParameterMask;
         }
@@ -230,7 +288,7 @@ void ResourceBinder::CommitStagedDescriptors(CommandContext& context) {
         for (auto [root_index, heap_offset] : m_RootIndexToHeapOffset[heap_type]) {
             if (!m_RootParameterDirty.test(root_index)) continue;
 
-            if (context.GetType() == D3D12_COMMAND_LIST_TYPE_COMPUTE) {
+            if (cmd_type == D3D12_COMMAND_LIST_TYPE_COMPUTE) {
                 cmd_list->SetComputeRootDescriptorTable(
                     root_index,
                     CD3DX12_GPU_DESCRIPTOR_HANDLE(
@@ -247,7 +305,9 @@ void ResourceBinder::CommitStagedDescriptors(CommandContext& context) {
             }
         }
     }
+
     m_RootParameterDirty.reset();
+    m_DescriptorCaches.fill({});
 }
 
 }  // namespace hitagi::graphics::backend::DX12

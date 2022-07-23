@@ -1,5 +1,5 @@
 target("shader_reflection_test")
     add_files("shader_reflection_test.cpp")
-    add_deps("graphics_dx12", "core")
-    add_syslinks("dxcompiler")
+    add_deps("core", "utils")
+    add_syslinks("d3d12", "dxgi", "dxguid", "dxcompiler")
     set_rundir("$(projectdir)")

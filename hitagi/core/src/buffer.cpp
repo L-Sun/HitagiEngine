@@ -73,7 +73,11 @@ Buffer& Buffer::operator=(Buffer&& rhs) noexcept {
     return *this;
 }
 Buffer::~Buffer() {
-    Clear();
+    if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
+
+    m_Data      = nullptr;
+    m_Size      = 0;
+    m_Alignment = 0;
 }
 
 void Buffer::Resize(std::size_t size, std::size_t alignment) {
@@ -85,13 +89,6 @@ void Buffer::Resize(std::size_t size, std::size_t alignment) {
     m_Data      = data;
     m_Size      = size;
     m_Alignment = alignment;
-}
-
-void Buffer::Clear() {
-    if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
-    m_Data      = nullptr;
-    m_Size      = 0;
-    m_Alignment = 0;
 }
 
 }  // namespace hitagi::core

@@ -52,17 +52,19 @@ class ConstantBuffer : public GpuResource {
 public:
     ConstantBuffer(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, graphics::ConstantBuffer& cb);
     ~ConstantBuffer() override;
-    void        UpdateData(size_t index, const std::byte* data, size_t data_size);
-    void        Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, size_t new_num_elements);
-    const auto& GetCBV(size_t index) const { return m_CBV.at(index); }
+    void        UpdateData(std::size_t index, const std::byte* data, std::size_t data_size);
+    void        Resize(ID3D12Device* device, DescriptorAllocator& descritptor_allocator, std::size_t new_num_elements);
+    const auto& GetCBV(std::size_t index) const { return m_CBV.at(index); }
     const auto& GetDesc() const noexcept { return m_Desc; }
+
+    std::size_t GetBlockSize() const noexcept { return m_BlockSize; }
 
 private:
     std::byte*                    m_CpuPtr = nullptr;
     graphics::ConstantBufferDesc& m_Desc;
 
-    size_t                                        m_BlockSize;  // align(dataSize, 256B)
-    size_t                                        m_BufferSize;
+    std::size_t                                   m_BlockSize;  // align(dataSize, 256B)
+    std::size_t                                   m_BufferSize;
     std::pmr::vector<std::shared_ptr<Descriptor>> m_CBV;
 };
 

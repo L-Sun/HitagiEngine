@@ -20,6 +20,7 @@ public:
     virtual void BindResource(std::uint32_t slot, std::shared_ptr<ConstantBuffer> cb, size_t offset)                        = 0;
     virtual void BindResource(std::uint32_t slot, std::shared_ptr<TextureBuffer> texture)                                   = 0;
     virtual void BindResource(std::uint32_t slot, std::shared_ptr<Sampler> sampler)                                         = 0;
+    virtual void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count)                       = 0;
     virtual void Draw(std::shared_ptr<VertexBuffer> vertices,
                       std::shared_ptr<IndexBuffer>  indices,
                       resource::PrimitiveType       type,

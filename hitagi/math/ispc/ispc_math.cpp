@@ -1,4 +1,3 @@
-#pragma once
 #include "ispc_math.hpp"
 #include "vector_ispc.h"
 

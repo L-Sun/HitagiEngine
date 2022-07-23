@@ -18,11 +18,12 @@ cbuffer ObjectConstants : register(b1) {
   float4 translation;
   matrix rotation;
   float4 scaling;
-}
+};
 
 #define RSDEF \
-  "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), " \
-  "DescriptorTable(CBV(b0, numDescriptors = 2))"  
+  "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "  \
+  "CBV(b0),"                                         \
+  "CBV(b1)"                                         \
 
 struct VSInput {
   float3 position : POSITION;
