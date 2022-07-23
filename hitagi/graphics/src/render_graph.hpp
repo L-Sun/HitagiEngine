@@ -10,7 +10,7 @@ namespace hitagi::graphics {
 using FrameHandle     = std::size_t;
 using FrameResourceId = std::size_t;
 struct PassNode;
-class FrameGraph;
+class RenderGraph;
 
 struct ResourceNode {
     ResourceNode(std::string_view name, FrameResourceId resource)
@@ -26,7 +26,7 @@ struct PassNode {
         : name(name), executor(executor) {}
 
     FrameHandle Read(const FrameHandle input);
-    FrameHandle Write(FrameGraph& fg, const FrameHandle output);
+    FrameHandle Write(RenderGraph& fg, const FrameHandle output);
 
     std::pmr::string name;
     bool             side_effect = false;
@@ -37,13 +37,13 @@ struct PassNode {
     std::unique_ptr<PassExecutor> executor;
 };
 
-class FrameGraph {
+class RenderGraph {
     friend PassNode;
     friend class ResourceHelper;
 
 public:
     class Builder {
-        friend class FrameGraph;
+        friend class RenderGraph;
 
     public:
         template <typename T>
@@ -54,14 +54,14 @@ public:
         void        SideEffect() noexcept { m_Node.side_effect = true; }
 
     private:
-        Builder(FrameGraph& fg, PassNode& node) : m_Fg(fg), m_Node(node) {}
-        FrameGraph& m_Fg;
-        PassNode&   m_Node;
+        Builder(RenderGraph& fg, PassNode& node) : m_Fg(fg), m_Node(node) {}
+        RenderGraph& m_Fg;
+        PassNode&    m_Node;
     };
 
-    FrameGraph() = default;
+    RenderGraph() = default;
 
-    ~FrameGraph() { assert(m_Retired && "Frame graph must set a fence to retire its resources."); }
+    ~RenderGraph() { assert(m_Retired && "Frame graph must set a fence to retire its resources."); }
 
     template <typename PassData, typename SetupFunc, typename ExecuteFunc>
     RenderPass<PassData, ExecuteFunc> AddPass(std::string_view name, SetupFunc&& setup, ExecuteFunc&& execute) {
@@ -104,7 +104,7 @@ private:
 };
 
 class ResourceHelper {
-    friend FrameGraph;
+    friend RenderGraph;
 
 public:
     template <typename T>
@@ -117,9 +117,9 @@ public:
     }
 
 private:
-    ResourceHelper(FrameGraph& fg, PassNode& node) : m_Fg(fg), m_Node(node) {}
-    FrameGraph& m_Fg;
-    PassNode&   m_Node;
+    ResourceHelper(RenderGraph& fg, PassNode& node) : m_Fg(fg), m_Node(node) {}
+    RenderGraph& m_Fg;
+    PassNode&    m_Node;
 };
 
 }  // namespace hitagi::graphics

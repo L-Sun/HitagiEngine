@@ -1,4 +1,4 @@
-#include "frame_graph.hpp"
+#include "render_graph.hpp"
 
 #include <hitagi/utils/overloaded.hpp>
 
@@ -10,7 +10,7 @@ FrameHandle PassNode::Read(const FrameHandle input) {
 
     return input;
 }
-FrameHandle PassNode::Write(FrameGraph& fg, const FrameHandle output) {
+FrameHandle PassNode::Write(RenderGraph& fg, const FrameHandle output) {
     if (writes.contains(output)) return output;
     ResourceNode& old_node = fg.m_ResourceNodes[output];
     // Create new resource node
@@ -23,26 +23,26 @@ FrameHandle PassNode::Write(FrameGraph& fg, const FrameHandle output) {
     return ret;
 }
 
-void FrameGraph::Compile() {
+void RenderGraph::Compile() {
     // TODO pruning the FrameGragh
     // ...
     //    generate valid resource id vector used by the next execute function.
 }
 
-void FrameGraph::Execute(DeviceAPI& driver) {
+void RenderGraph::Execute(DeviceAPI& driver) {
     // Prepare all transiant resource used among the frame graph
     // TODO prepare the remaining resource after pruning.
     for (auto&& [id, desc] : m_InnerResourcesDesc) {
         m_Resources[id] = std::visit(
             utils::Overloaded{
                 [&, id = id](const TextureBufferDesc& desc) -> std::shared_ptr<Resource> {
-                    return driver.CreateTextureBuffer(fmt::format("FrameGraph-texture-{}", id), desc);
+                    return driver.CreateTextureBuffer(fmt::format("RenderGraph-texture-{}", id), desc);
                 },
                 [&, id = id](const DepthBufferDesc& desc) -> std::shared_ptr<Resource> {
-                    return driver.CreateDepthBuffer(fmt::format("FrameGraph-depth-buffer-{}", id), desc);
+                    return driver.CreateDepthBuffer(fmt::format("RenderGraph-depth-buffer-{}", id), desc);
                 },
                 [&, id = id](const RenderTargetDesc& desc) -> std::shared_ptr<Resource> {
-                    return driver.CreateRenderTarget(fmt::format("FrameGraph-render-target-{}", id), desc);
+                    return driver.CreateRenderTarget(fmt::format("RenderGraph-render-target-{}", id), desc);
                 },
             },
             desc);
@@ -55,14 +55,14 @@ void FrameGraph::Execute(DeviceAPI& driver) {
     }
 }
 
-void FrameGraph::Retire(uint64_t fence_value, DeviceAPI& driver) noexcept {
+void RenderGraph::Retire(uint64_t fence_value, DeviceAPI& driver) noexcept {
     for (const auto& [id, desc] : m_InnerResourcesDesc) {
         driver.RetireResource(m_Resources.at(id), fence_value);
     }
     m_Retired = true;
 }
 
-FrameHandle FrameGraph::Create(std::string_view name, Desc desc) {
+FrameHandle RenderGraph::Create(std::string_view name, Desc desc) {
     // create new resource node
     FrameResourceId id     = m_Resources.size();
     FrameHandle     handle = m_ResourceNodes.size();
@@ -72,13 +72,13 @@ FrameHandle FrameGraph::Create(std::string_view name, Desc desc) {
     return handle;
 }
 
-void FrameGraph::Present(FrameHandle render_target, const std::shared_ptr<hitagi::graphics::IGraphicsCommandContext>& context) {
+void RenderGraph::Present(FrameHandle render_target, const std::shared_ptr<hitagi::graphics::IGraphicsCommandContext>& context) {
     struct PassData {
         FrameHandle output;
     };
     auto present_pass = AddPass<PassData>(
         "Present",
-        [render_target](FrameGraph::Builder& builder, PassData& data) {
+        [render_target](RenderGraph::Builder& builder, PassData& data) {
             data.output = builder.Read(render_target);
             builder.SideEffect();
         },

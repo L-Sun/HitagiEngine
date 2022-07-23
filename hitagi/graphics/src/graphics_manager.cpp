@@ -1,5 +1,5 @@
 #include "backend/dx12/dx12_device.hpp"
-#include "frame_graph.hpp"
+#include "render_graph.hpp"
 #include <hitagi/graphics/frame.hpp>
 #include <hitagi/graphics/resource_manager.hpp>
 
@@ -107,7 +107,7 @@ void GraphicsManager::Render() {
                         screen_height = rect.bottom - rect.top;
     const float camera_aspect         = m_Camera->GetAspect();
 
-    FrameGraph fg;
+    RenderGraph fg;
 
     auto render_target_handle = fg.Import(frame->GetRenderTarget());
 
@@ -120,7 +120,7 @@ void GraphicsManager::Render() {
     auto color_pass = fg.AddPass<ColorPassData>(
         "ColorPass",
         // Setup function
-        [&](FrameGraph::Builder& builder, ColorPassData& data) {
+        [&](RenderGraph::Builder& builder, ColorPassData& data) {
             data.depth_buffer = builder.Create<DepthBuffer>(
                 "DepthBuffer",
                 DepthBufferDesc{
@@ -160,7 +160,7 @@ void GraphicsManager::Render() {
     };
     auto debug_pass = fg.AddPass<DebugPassData>(
         "DebugPass",
-        [&](FrameGraph::Builder& builder, DebugPassData& data) {
+        [&](RenderGraph::Builder& builder, DebugPassData& data) {
             data.output = builder.Write(render_target_handle);
         },
         [=](const ResourceHelper& helper, DebugPassData& data) {
@@ -174,7 +174,7 @@ void GraphicsManager::Render() {
     };
     auto gui_pass = fg.AddPass<GuiPassData>(
         "GuiPass",
-        [&](FrameGraph::Builder& builder, GuiPassData& data) {
+        [&](RenderGraph::Builder& builder, GuiPassData& data) {
             data.output = builder.Write(render_target_handle);
         },
         [=](const ResourceHelper& helper, GuiPassData& data) {
