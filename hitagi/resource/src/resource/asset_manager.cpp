@@ -1,12 +1,11 @@
 #include <hitagi/resource/asset_manager.hpp>
-#include <hitagi/core/memory_manager.hpp>
+#include <hitagi/core/core.hpp>
 #include <hitagi/math/vector.hpp>
 #include <hitagi/parser/png.hpp>
 #include <hitagi/parser/jpeg.hpp>
 #include <hitagi/parser/bmp.hpp>
 #include <hitagi/parser/tga.hpp>
 #include <hitagi/parser/assimp.hpp>
-#include "hitagi/core/file_io_manager.hpp"
 
 // #include <hitagi/parser/bvh.hpp>
 
@@ -16,12 +15,12 @@
 using namespace hitagi::math;
 
 namespace hitagi {
-std::unique_ptr<resource::AssetManager> g_AssetManager = std::make_unique<resource::AssetManager>();
+resource::AssetManager* asset_manager = nullptr;
 }
 
 namespace hitagi::resource {
 
-int AssetManager::Initialize() {
+bool AssetManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("AssetManager");
     m_Logger->info("Initialize...");
 
@@ -36,7 +35,7 @@ int AssetManager::Initialize() {
 
     // m_MoCapParser = std::make_unique<BvhParser>();
 
-    return 0;
+    return true;
 }
 
 void AssetManager::Tick() {}
@@ -60,7 +59,7 @@ void AssetManager::Finalize() {
 }
 
 void AssetManager::ImportScene(Scene& scene, const std::filesystem::path& path) {
-    m_SceneParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path), scene, m_Materials);
+    m_SceneParser->Parse(file_io_manager->SyncOpenAndReadBinary(path), scene, m_Materials);
 }
 
 std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& path) {
@@ -70,13 +69,13 @@ std::shared_ptr<Image> AssetManager::ImportImage(const std::filesystem::path& pa
         m_Logger->error("Unkown image format, and return a null");
         return nullptr;
     }
-    auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
+    auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(file_io_manager->SyncOpenAndReadBinary(path));
     return image;
 }
 
 std::shared_ptr<MaterialInstance> AssetManager::ImportMaterial(const std::filesystem::path& path) {
-    
-    auto material = m_MaterialJSONParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
+    auto material = m_MaterialJSONParser->Parse(file_io_manager->SyncOpenAndReadBinary(path));
+    if (material == nullptr) return nullptr;
 
     auto instance = material->CreateInstance();
 
@@ -100,7 +99,7 @@ std::shared_ptr<MaterialInstance> AssetManager::ImportMaterial(const std::filesy
 //         return {nullptr, nullptr};
 //     }
 
-//     auto result = m_MoCapParser->Parse(g_FileIoManager->SyncOpenAndReadBinary(path));
+//     auto result = m_MoCapParser->Parse(file_io_manager->SyncOpenAndReadBinary(path));
 //     result.second->SetName(path.stem().string());
 //     return result;
 // }

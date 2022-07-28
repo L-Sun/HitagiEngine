@@ -1,10 +1,10 @@
 #pragma once
+#include <hitagi/core/runtime_module.hpp>
 #include <hitagi/core/timer.hpp>
-#include <hitagi/gameplay.hpp>
 
-class MyGame : public hitagi::GamePlay {
+class MyGame : public hitagi::RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Finalize() final;
     void Tick() final;
 

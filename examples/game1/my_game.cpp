@@ -14,12 +14,11 @@
 using namespace hitagi;
 using namespace hitagi::math;
 
-int MyGame::Initialize() {
-    int ret  = 0;
+bool MyGame::Initialize() {
     m_Logger = spdlog::stdout_color_mt("MyGame");
     m_Logger->info("Initialize...");
 
-    return ret;
+    return true;
 }
 
 void MyGame::Finalize() {
@@ -28,8 +27,8 @@ void MyGame::Finalize() {
 }
 
 void MyGame::Tick() {
-    g_DebugManager->DrawAxis(mat4f{1.0f});
-    g_GuiManager->DrawGui([]() {
+    debug_manager->DrawAxis(mat4f{1.0f});
+    gui_manager->DrawGui([]() {
         bool open = true;
         ImGui::ShowDemoWindow(&open);
     });

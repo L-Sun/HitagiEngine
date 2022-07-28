@@ -3,19 +3,21 @@
 #include <hitagi/resource/scene.hpp>
 
 namespace hitagi::resource {
-class SceneManager : public IRuntimeModule {
+class SceneManager : public RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Tick() final;
     void Finalize() final;
 
     Scene& CurrentScene();
 
-    Scene& CreateEmptyScene(std::string_view name = "");
-    void   AddScene(Scene scene);
-    void   SwitchScene(std::size_t index);
-    void   DeleteScene(std::size_t index);
-    void   DeleteScenes(std::pmr::vector<std::size_t> index_array);
+    Scene&      CreateEmptyScene(std::string_view name = "");
+    std::size_t AddScene(Scene scene);
+    std::size_t GetNumScene() const noexcept;
+    Scene&      GetScene(std::size_t index);
+    void        SwitchScene(std::size_t index);
+    void        DeleteScene(std::size_t index);
+    void        DeleteScenes(std::pmr::vector<std::size_t> index_array);
 
     void SetCamera(std::shared_ptr<Camera> camera);
 
@@ -30,5 +32,5 @@ private:
 }  // namespace hitagi::resource
 
 namespace hitagi {
-extern std::unique_ptr<resource::SceneManager> g_SceneManager;
+extern resource::SceneManager* scene_manager;
 }

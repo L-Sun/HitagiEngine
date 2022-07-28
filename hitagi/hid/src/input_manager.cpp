@@ -6,14 +6,16 @@
 #include <magic_enum.hpp>
 
 namespace hitagi {
+hid::InputManager* input_manager = nullptr;
+}
 
-std::unique_ptr<InputManager> g_InputManager = std::make_unique<InputManager>();
+namespace hitagi::hid {
 
-int InputManager::Initialize() {
+bool InputManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("InputManager");
     m_Logger->info("Initialize...");
 
-    return 0;
+    return true;
 }
 
 void InputManager::Finalize() {
@@ -130,4 +132,4 @@ float InputManager::GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event
         event);
 }
 
-}  // namespace hitagi
+}  // namespace hitagi::hid

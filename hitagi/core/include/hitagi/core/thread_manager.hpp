@@ -10,18 +10,18 @@
 
 namespace hitagi::core {
 
-class ThreadManager : public IRuntimeModule {
+class ThreadManager : public RuntimeModule {
 public:
     ThreadManager() = default;
 
-    int  Initialize() final;
+    bool Initialize() final;
     void Finalize() final;
     void Tick() final;
 
     template <typename Func, typename... Args>
     decltype(auto) RunTask(Func&& func, Args&&... args);
 
-    ThreadManager(const ThreadManager&) = delete;
+    ThreadManager(const ThreadManager&)            = delete;
     ThreadManager& operator=(const ThreadManager&) = delete;
 
 private:
@@ -60,5 +60,5 @@ decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
 }  // namespace hitagi::core
 
 namespace hitagi {
-extern std::unique_ptr<core::ThreadManager> g_ThreadManager;
-}
+extern core::ThreadManager* thread_manager;
+}  // namespace hitagi

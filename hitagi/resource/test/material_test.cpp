@@ -119,10 +119,5 @@ TEST(MaterialTest, InstanceChangeValue) {
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    hitagi::g_MemoryManager->Initialize();
-
-    int result = RUN_ALL_TESTS();
-
-    hitagi::g_MemoryManager->Finalize();
-    return result;
+    return RUN_ALL_TESTS();
 }

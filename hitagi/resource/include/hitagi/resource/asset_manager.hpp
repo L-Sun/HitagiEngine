@@ -9,9 +9,9 @@
 
 namespace hitagi::resource {
 
-class AssetManager : public IRuntimeModule {
+class AssetManager : public RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Tick() final;
     void Finalize() final;
 
@@ -34,5 +34,5 @@ private:
 }  // namespace hitagi::resource
 
 namespace hitagi {
-extern std::unique_ptr<resource::AssetManager> g_AssetManager;
+extern resource::AssetManager* asset_manager;
 }

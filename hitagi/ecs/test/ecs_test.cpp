@@ -1,7 +1,6 @@
 #include <hitagi/utils/test.hpp>
 #include <hitagi/ecs/ecs_manager.hpp>
 #include <vector>
-#include "hitagi/core/memory_manager.hpp"
 #include "spdlog/common.h"
 #include "spdlog/spdlog.h"
 
@@ -98,11 +97,6 @@ TEST(EcsTest, RegisterSystem) {
 
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::err);
-    hitagi::g_MemoryManager->Initialize();
-
     ::testing::InitGoogleTest(&argc, argv);
-    int result = RUN_ALL_TESTS();
-
-    hitagi::g_MemoryManager->Finalize();
-    return result;
+    return RUN_ALL_TESTS();
 }

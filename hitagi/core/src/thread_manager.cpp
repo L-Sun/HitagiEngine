@@ -4,12 +4,12 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace hitagi {
-std::unique_ptr<core::ThreadManager> g_ThreadManager = std::make_unique<core::ThreadManager>();
+core::ThreadManager* thread_manager = nullptr;
 }
 
 namespace hitagi::core {
 
-int ThreadManager::Initialize() {
+bool ThreadManager::Initialize() {
     m_Logger         = spdlog::stdout_color_mt("ThreadManager");
     auto num_threads = std::thread::hardware_concurrency();
     m_Stop           = false;
@@ -33,7 +33,7 @@ int ThreadManager::Initialize() {
         });
     }
 
-    return 0;
+    return true;
 }
 void ThreadManager::Finalize() {
     {

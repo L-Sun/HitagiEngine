@@ -4,11 +4,11 @@
 
 #include <vector>
 
-using namespace hitagi;
+using namespace hitagi::core;
 
 TEST(MemoryTest, BufferSpan) {
-    core::Buffer buf(32);
-    auto         sp = buf.Span<int>();
+    Buffer buf(32);
+    auto   sp = buf.Span<int>();
     for (auto& item : sp) {
         item = 1;
     }
@@ -19,7 +19,7 @@ TEST(MemoryTest, BufferSpan) {
 }
 
 TEST(MemoryTest, Allocate) {
-    core::MemoryPool pool{};
+    MemoryPool pool{};
     EXPECT_NO_THROW({
         auto p = pool.allocate(16);
         pool.deallocate(p, 16);
@@ -27,7 +27,7 @@ TEST(MemoryTest, Allocate) {
 }
 
 TEST(MemoryTest, PmrContainer) {
-    core::MemoryPool      pool{};
+    MemoryPool            pool{};
     std::pmr::vector<int> vec{&pool};
     EXPECT_NO_THROW({
         for (size_t i = 0; i < 10000; i++) {
@@ -42,11 +42,13 @@ TEST(MemoryTest, PmrContainer) {
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
-    g_MemoryManager->Initialize();
+    auto memory_manager = std::make_unique<MemoryManager>();
+
+    memory_manager->Initialize();
 
     spdlog::set_level(spdlog::level::off);
     int result = RUN_ALL_TESTS();
 
-    g_MemoryManager->Finalize();
+    memory_manager->Finalize();
     return result;
 }

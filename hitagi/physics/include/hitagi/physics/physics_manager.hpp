@@ -8,9 +8,9 @@
 
 namespace hitagi::physics {
 
-class IPhysicsManager : public IRuntimeModule {
+class IPhysicsManager : public RuntimeModule {
 public:
-    int  Initialize() override = 0;
+    bool Initialize() override = 0;
     void Finalize() override   = 0;
     void Tick() override       = 0;
 

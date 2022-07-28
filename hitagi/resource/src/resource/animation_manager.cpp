@@ -4,11 +4,11 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace hitagi::asset {
-int AnimationManager::Initialize() {
+bool AnimationManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("AnimationManager");
     m_Logger->info("Initializing...");
 
-    return 0;
+    return true;
 }
 void AnimationManager::Tick() {
     std::vector<decltype(m_PlayQueue)::key_type> end_animations;

@@ -1,5 +1,4 @@
 #include <hitagi/utils/test.hpp>
-#include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/file_io_manager.hpp>
 
 #include <iostream>
@@ -33,7 +32,7 @@ TEST(FileIoManagerTest, ReadFile) {
 
     auto path = create_temp_file("ReadFile", content);
 
-    auto        buffer = g_FileIoManager->SyncOpenAndReadBinary(path);
+    auto        buffer = file_io_manager->SyncOpenAndReadBinary(path);
     std::string result(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
 
     EXPECT_STREQ(content, result.c_str());
@@ -46,8 +45,8 @@ TEST(FileIoManagerTest, SaveFile) {
     core::Buffer buffer(content.data(), content.size());
     auto         path = std::filesystem::temp_directory_path() / "SaveFile.tmp";
 
-    g_FileIoManager->SaveBuffer(buffer, path);
-    buffer = g_FileIoManager->SyncOpenAndReadBinary(std::filesystem::temp_directory_path() / "Save");
+    file_io_manager->SaveBuffer(buffer, path);
+    buffer = file_io_manager->SyncOpenAndReadBinary(std::filesystem::temp_directory_path() / "Save");
 
     EXPECT_STREQ(content.c_str(), std::string(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize()).c_str());
 
@@ -58,13 +57,15 @@ auto main(int argc, char* argv[]) -> int {
     spdlog::set_level(spdlog::level::off);
     ::testing::InitGoogleTest(&argc, argv);
 
-    g_MemoryManager->Initialize();
-    g_FileIoManager->Initialize();
+    auto file_io_manager = std::make_unique<core::FileIOManager>();
+
+    hitagi::file_io_manager = file_io_manager.get();
+
+    file_io_manager->Initialize();
 
     int result = RUN_ALL_TESTS();
 
-    g_FileIoManager->Finalize();
-    g_MemoryManager->Finalize();
+    file_io_manager->Finalize();
 
     return result;
 }

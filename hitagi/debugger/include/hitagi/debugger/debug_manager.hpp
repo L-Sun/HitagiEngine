@@ -14,9 +14,9 @@ struct DebugPrimitive {
     bool                                           dirty = true;
 };
 
-class DebugManager : public IRuntimeModule {
+class DebugManager : public RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Finalize() final;
     void Tick() final;
     void ToggleDebugInfo();
@@ -46,5 +46,5 @@ protected:
 
 }  // namespace hitagi::debugger
 namespace hitagi {
-extern std::unique_ptr<debugger::DebugManager> g_DebugManager;
+extern debugger::DebugManager* debug_manager;
 }

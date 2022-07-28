@@ -50,14 +50,14 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float met
             parent->children.emplace_back(current_node);
             current_node->parent = parent;
         } else if (tokens[pos] == "End Site") {
-            auto parent         = current_node;
-            current_node        = std::make_shared<BoneNode>();
-            current_node->index = anima.joints.size();
-            anima.joints.emplace_back(current_node);
-            current_node->name = parent->name + "-End";
+            // auto parent         = current_node;
+            // current_node        = std::make_shared<BoneNode>();
+            // current_node->index = anima.joints.size();
+            // anima.joints.emplace_back(current_node);
+            // current_node->name = parent->name + "-End";
 
-            parent->children.emplace_back(current_node);
-            current_node->parent = parent;
+            // parent->children.emplace_back(current_node);
+            // current_node->parent = parent;
         } else if (tokens[pos] == "OFFSET") {
             // ! Our engine is Z up, but bvh is Y up, so we need change the axis order here
             float x = std::stof(tokens[++pos]) * metric_scale;

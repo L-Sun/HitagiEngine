@@ -27,17 +27,25 @@ int init() {
 #ifndef _DEBUG
     spdlog::set_level(spdlog::level::info);
 #endif
+    memory_manager  = new MemoryManager;
+    file_io_manager = new FileIOManager;
+    thread_manager  = new ThreadManager;
     int result;
-    if ((result = g_MemoryManager->Initialize()) != 0) return result;
-    if ((result = g_FileIoManager->Initialize()) != 0) return result;
-    if ((result = g_ThreadManager->Initialize()) != 0) return result;
+    if ((result = memory_manager->Initialize()) != 0) return result;
+    if ((result = file_io_manager->Initialize()) != 0) return result;
+    if ((result = thread_manager->Initialize()) != 0) return result;
     return result;
 }
 
 void clean_exit(int exit_code = 0) {
-    g_ThreadManager->Finalize();
-    g_FileIoManager->Finalize();
-    g_MemoryManager->Finalize();
+    thread_manager->Finalize();
+    file_io_manager->Finalize();
+    memory_manager->Finalize();
+
+    memory_manager  = nullptr;
+    file_io_manager = nullptr;
+    thread_manager  = nullptr;
+
     exit(exit_code);
 }
 
@@ -127,7 +135,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> joints_name;
     std::vector<float>       bones_length;
     {
-        auto anima = parse_bvh(g_FileIoManager->SyncOpenAndReadBinary(all_bvh_files.front()), metric_scale);
+        auto anima = parse_bvh(file_io_manager->SyncOpenAndReadBinary(all_bvh_files.front()), metric_scale);
         if (anima.has_value()) {
             joints_parent = extract_parents(anima.value());
             joints_name   = extract_joints_name(anima.value());
@@ -146,8 +154,8 @@ int main(int argc, char** argv) {
     std::transform(
         all_bvh_files.begin(), all_bvh_files.end(),
         std::back_inserter(jobs), [=, &joints_parent](const fs::path& path) {
-            return g_ThreadManager->RunTask([&]() -> std::optional<std::vector<float>> {
-                auto anima = parse_bvh(g_FileIoManager->SyncOpenAndReadBinary(path), metric_scale);
+            return thread_manager->RunTask([&]() -> std::optional<std::vector<float>> {
+                auto anima = parse_bvh(file_io_manager->SyncOpenAndReadBinary(path), metric_scale);
                 if (!anima.has_value()) {
                     logger->warn("Can not parse and skip the file: {}", path.string());
                     return std::nullopt;

@@ -1,7 +1,7 @@
 #include <hitagi/engine.hpp>
 #include <hitagi/application.hpp>
 
-#include "my_game.hpp"
+#include "editor.hpp"
 
 #include <iostream>
 
@@ -21,7 +21,7 @@ auto main(int argc, char** argv) -> int {
         return -1;
     }
 
-    engine.LoadModuleInplace<MyGame>("MyGame", false);
+    engine.LoadModuleInplace<hitagi::Editor>("Editor", false);
 
 #ifdef _DEBUG
     try {

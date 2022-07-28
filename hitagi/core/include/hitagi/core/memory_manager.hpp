@@ -11,16 +11,35 @@
 constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
 namespace hitagi::core {
+class MemoryPool;
 
 inline const size_t align(size_t x, size_t a) {
     assert(((a - 1) & a) == 0 && "alignment is not a power of two");
     return (x + a - 1) & ~(a - 1);
 }
 
+class MemoryManager : public RuntimeModule {
+public:
+    bool Initialize() final;
+    void Finalize() final;
+    void Tick() final;
+
+    template <typename T = std::byte>
+    std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;
+
+private:
+    std::unique_ptr<MemoryPool> m_Pools;
+};
+
+template <typename T>
+std::pmr::polymorphic_allocator<T> MemoryManager::GetAllocator() const noexcept {
+    return std::pmr::polymorphic_allocator<T>(m_Pools.get());
+}
+
 class MemoryPool : public std::pmr::memory_resource {
 public:
     MemoryPool();
-    MemoryPool(const MemoryPool&) = delete;
+    MemoryPool(const MemoryPool&)            = delete;
     MemoryPool& operator=(const MemoryPool&) = delete;
 
 private:
@@ -37,7 +56,7 @@ private:
     class Page {
     public:
         Page(std::size_t page_size, std::size_t block_size);
-        Page(const Page&) = delete;
+        Page(const Page&)            = delete;
         Page& operator=(const Page&) = delete;
         Page(Page&&) noexcept;
         Page& operator=(Page&&) noexcept;
@@ -86,25 +105,8 @@ private:
     }
 };
 
-class MemoryManager : public IRuntimeModule {
-public:
-    int  Initialize() final;
-    void Finalize() final;
-    void Tick() final;
-
-    template <typename T = std::byte>
-    std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;
-
-private:
-    std::unique_ptr<MemoryPool> m_Pools;
-};
-
-template <typename T>
-std::pmr::polymorphic_allocator<T> MemoryManager::GetAllocator() const noexcept {
-    return std::pmr::polymorphic_allocator<T>(m_Pools.get());
-}
-
 }  // namespace hitagi::core
+
 namespace hitagi {
-extern std::unique_ptr<core::MemoryManager> g_MemoryManager;
-}
+extern core::MemoryManager* memory_manager;
+}  // namespace hitagi

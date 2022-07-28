@@ -8,9 +8,9 @@
 
 namespace hitagi::core {
 
-class FileIOManager : public IRuntimeModule {
+class FileIOManager : public RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Finalize() final;
     void Tick() final;
 
@@ -32,5 +32,5 @@ private:
 }  // namespace hitagi::core
 
 namespace hitagi {
-extern std::unique_ptr<core::FileIOManager> g_FileIoManager;
-}
+extern core::FileIOManager* file_io_manager;
+}  // namespace hitagi
