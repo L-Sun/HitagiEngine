@@ -232,7 +232,10 @@ void GraphicsCommandContext::Draw(
     std::size_t                             index_offset) {
     assert(vertex_buffer != nullptr && index_buffer != nullptr);
     assert(vertex_offset < vertex_buffer->desc.vertex_count);
-    assert(index_offset + index_count <= index_buffer->desc.index_count);
+    // assert(index_offset + index_count <= index_buffer->desc.index_count);
+    if (!(index_offset + index_count <= index_buffer->desc.index_count)) {
+        assert(false);
+    }
 
     auto vb = vertex_buffer->GetBackend<VertexBuffer>();
     auto ib = index_buffer->GetBackend<IndexBuffer>();

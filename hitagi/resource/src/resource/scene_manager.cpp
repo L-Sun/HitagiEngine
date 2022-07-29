@@ -7,12 +7,12 @@
 using namespace hitagi::math;
 
 namespace hitagi {
-std::unique_ptr<resource::SceneManager> g_SceneManager = std::make_unique<resource::SceneManager>();
+resource::SceneManager* scene_manager = nullptr;
 }
 
 namespace hitagi::resource {
 
-int SceneManager::Initialize() {
+bool SceneManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("SceneManager");
     m_Logger->info("Initialize...");
 
@@ -26,7 +26,7 @@ int SceneManager::Initialize() {
 
     m_CurrentCamera = *(CurrentScene().cameras.begin());
 
-    return 0;
+    return true;
 }
 void SceneManager::Finalize() {
     m_Scenes.clear();
@@ -36,8 +36,8 @@ void SceneManager::Finalize() {
 }
 
 void SceneManager::Tick() {
-    g_GraphicsManager->SetCamera(m_CurrentCamera);
-    g_GraphicsManager->AppendRenderables(CurrentScene().GetRenderable());
+    graphics_manager->SetCamera(m_CurrentCamera);
+    graphics_manager->AppendRenderables(CurrentScene().GetRenderable());
 }
 
 Scene& SceneManager::CurrentScene() {
@@ -54,9 +54,13 @@ Scene& SceneManager::CreateEmptyScene(std::string_view name) {
     return scene;
 }
 
-void SceneManager::AddScene(Scene scene) {
+std::size_t SceneManager::AddScene(Scene scene) {
     m_Scenes.emplace_back(scene);
+    return m_Scenes.size();
 }
+
+std::size_t SceneManager::GetNumScene() const noexcept { return m_Scenes.size(); }
+Scene&      SceneManager::GetScene(std::size_t index) { return m_Scenes.at(index); }
 
 void SceneManager::SwitchScene(std::size_t index) {
     if (index >= m_Scenes.size()) {

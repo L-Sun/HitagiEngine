@@ -3,7 +3,7 @@
 
 class ImGuiDemo : public hitagi::GameLogic {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Finalize() final;
     void Tick() final;
 

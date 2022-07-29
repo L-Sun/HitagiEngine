@@ -18,24 +18,28 @@ using namespace hitagi::resource;
 using namespace hitagi::math;
 
 namespace hitagi {
-std::unique_ptr<gui::GuiManager> g_GuiManager = std::make_unique<gui::GuiManager>();
+gui::GuiManager* gui_manager = nullptr;
 }
 
 namespace hitagi::gui {
 
-int GuiManager::Initialize() {
+bool GuiManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("GuiManager");
     m_Logger->info("Initialize...");
     m_Clock.Start();
 
-    m_ImGuiMaterial = g_AssetManager->ImportMaterial("assets/material/imgui.json");
+    m_ImGuiMaterial = asset_manager->ImportMaterial("assets/material/imgui.json");
+    if (m_ImGuiMaterial == nullptr) {
+        m_Logger->error("Failed to Initialize Gui Manager! Because it gets a empty gui material.");
+        return false;
+    }
 
     ImGui::CreateContext();
-    if (g_App) {
-        ImGui::GetStyle().ScaleAllSizes(g_App->GetDpiRatio());
+    if (app) {
+        ImGui::GetStyle().ScaleAllSizes(app->GetDpiRatio());
         ImGui::GetIO().SetPlatformImeDataFn = [](ImGuiViewport* viewport, ImGuiPlatformImeData* data) -> void {
-            if (data->WantVisible && g_App)
-                g_App->SetInputScreenPosition(data->InputPos.x, data->InputPos.y);
+            if (data->WantVisible && app)
+                app->SetInputScreenPosition(data->InputPos.x, data->InputPos.y);
         };
     }
 
@@ -46,7 +50,7 @@ int GuiManager::Initialize() {
     m_Vertices->SetName("imgui-vertices");
     m_Indices->SetName("imgui-indices");
 
-    return 0;
+    return true;
 }
 
 void GuiManager::Tick() {
@@ -54,7 +58,7 @@ void GuiManager::Tick() {
         auto& io = ImGui::GetIO();
 
         // Update window size info.
-        auto rect        = g_App->GetWindowsRect();
+        auto rect        = app->GetWindowsRect();
         io.DisplaySize.x = rect.right - rect.left;
         io.DisplaySize.y = rect.bottom - rect.top;
 
@@ -63,7 +67,7 @@ void GuiManager::Tick() {
         KeysEvent();
 
         // TODO IME
-        for (const auto character : g_InputManager->GetInputText()) {
+        for (const auto character : input_manager->GetInputText()) {
             io.AddInputCharacter(character);
         }
 
@@ -79,7 +83,7 @@ void GuiManager::Tick() {
 
     ImGui::Render();
 
-    g_GraphicsManager->AppendRenderables(PrepareImGuiRenderables());
+    graphics_manager->AppendRenderables(PrepareImGuiRenderables());
 
     m_Clock.Tick();
 }
@@ -99,11 +103,11 @@ std::shared_ptr<Texture> GuiManager::LoadFontTexture() {
 
     /* for (const auto& font_file : std::filesystem::directory_iterator{"./Assets/Fonts"}) */ {
         ImFontConfig config;
-        config.SizePixels           = (g_App ? g_App->GetDpiRatio() : 1.0f) * 18.0f;
+        config.SizePixels           = (app ? app->GetDpiRatio() : 1.0f) * 18.0f;
         config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
 
         {
-            auto& font_buffer   = g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/Hasklig-Regular.otf");
+            auto& font_buffer   = file_io_manager->SyncOpenAndReadBinary("./assets/fonts/Hasklig-Regular.otf");
             config.FontData     = const_cast<std::byte*>(font_buffer.GetData());
             config.FontDataSize = font_buffer.GetDataSize();
 
@@ -115,7 +119,7 @@ std::shared_ptr<Texture> GuiManager::LoadFontTexture() {
         config.MergeMode = true;
 
         {
-            auto& font_buffer       = g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansSC-Regular.otf");
+            auto& font_buffer       = file_io_manager->SyncOpenAndReadBinary("./assets/fonts/NotoSansSC-Regular.otf");
             config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
             config.FontDataSize     = font_buffer.GetDataSize();
             config.GlyphRanges      = io.Fonts->GetGlyphRangesChineseFull();
@@ -125,7 +129,7 @@ std::shared_ptr<Texture> GuiManager::LoadFontTexture() {
         }
 
         {
-            auto& font_buffer       = g_FileIoManager->SyncOpenAndReadBinary("./assets/fonts/NotoSansJP-Regular.otf");
+            auto& font_buffer       = file_io_manager->SyncOpenAndReadBinary("./assets/fonts/NotoSansJP-Regular.otf");
             config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
             config.FontDataSize     = font_buffer.GetDataSize();
             config.GlyphRanges      = io.Fonts->GetGlyphRangesJapanese();
@@ -153,18 +157,18 @@ std::shared_ptr<Texture> GuiManager::LoadFontTexture() {
 void GuiManager::MouseEvent() {
     auto& io = ImGui::GetIO();
 
-    io.AddMousePosEvent(g_InputManager->GetFloat(MouseEvent::MOVE_X), g_InputManager->GetFloat(MouseEvent::MOVE_Y));
-    io.AddMouseWheelEvent(g_InputManager->GetFloatDelta(MouseEvent::SCROLL_X), g_InputManager->GetFloatDelta(MouseEvent::SCROLL_Y));
-    io.AddMouseButtonEvent(ImGuiMouseButton_Left, g_InputManager->GetBool(VirtualKeyCode::MOUSE_L_BUTTON));
-    io.AddMouseButtonEvent(ImGuiMouseButton_Right, g_InputManager->GetBool(VirtualKeyCode::MOUSE_R_BUTTON));
-    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, g_InputManager->GetBool(VirtualKeyCode::MOUSE_M_BUTTON));
+    io.AddMousePosEvent(input_manager->GetFloat(MouseEvent::MOVE_X), input_manager->GetFloat(MouseEvent::MOVE_Y));
+    io.AddMouseWheelEvent(input_manager->GetFloatDelta(MouseEvent::SCROLL_X), input_manager->GetFloatDelta(MouseEvent::SCROLL_Y));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Left, input_manager->GetBool(VirtualKeyCode::MOUSE_L_BUTTON));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Right, input_manager->GetBool(VirtualKeyCode::MOUSE_R_BUTTON));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, input_manager->GetBool(VirtualKeyCode::MOUSE_M_BUTTON));
 }
 
 void GuiManager::KeysEvent() {
     auto& io = ImGui::GetIO();
 
     for (int key = ImGuiKey_NamedKey_BEGIN; key < ImGuiKey_NamedKey_END; key++) {
-        io.AddKeyEvent(key, g_InputManager->GetBool(convert_imgui_key(key)));
+        io.AddKeyEvent(key, input_manager->GetBool(convert_imgui_key(key)));
     }
 }
 
@@ -202,6 +206,8 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
         const auto cmd_list = draw_data->CmdLists[i];
 
         for (const auto& cmd : cmd_list->CmdBuffer) {
+            if (cmd.ElemCount == 0) continue;
+
             vec2f clip_min(cmd.ClipRect.x - draw_data->DisplayPos.x, cmd.ClipRect.y - draw_data->DisplayPos.y);
             vec2f clip_max(cmd.ClipRect.z - draw_data->DisplayPos.x, cmd.ClipRect.w - draw_data->DisplayPos.y);
             if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
@@ -226,7 +232,6 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
             item.material                          = m_ImGuiMaterial->GetMaterial().lock();
             item.transform                         = std::make_shared<Transform>();
             item.pipeline_parameters.scissor_react = scissor_rect;
-
             result.emplace_back(std::move(item));
         }
 

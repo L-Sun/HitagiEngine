@@ -4,7 +4,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace hitagi {
-std::unique_ptr<core::MemoryManager> g_MemoryManager = std::make_unique<core::MemoryManager>();
+core::MemoryManager* memory_manager = nullptr;
 }
 
 namespace hitagi::core {
@@ -100,7 +100,7 @@ auto MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment
     operator delete[](reinterpret_cast<std::byte*>(p), std::align_val_t{alignment});
 }
 
-int MemoryManager::Initialize() {
+bool MemoryManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("MemoryManager");
     m_Logger->info("Initialize...");
 
@@ -109,7 +109,7 @@ int MemoryManager::Initialize() {
 
     m_Logger->debug("Set pmr default resource");
     std::pmr::set_default_resource(m_Pools.get());
-    return 0;
+    return true;
 }
 
 void MemoryManager::Finalize() {

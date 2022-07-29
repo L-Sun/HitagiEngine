@@ -9,8 +9,7 @@
 namespace hitagi {
 class Win32Application : public Application {
 public:
-    using Application::Application;
-    int  Initialize() final;
+    bool Initialize() final;
     void Finalize() final;
     void Tick() final;
 

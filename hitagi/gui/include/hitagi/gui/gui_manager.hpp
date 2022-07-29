@@ -10,9 +10,9 @@
 #include <queue>
 
 namespace hitagi::gui {
-class GuiManager : public IRuntimeModule {
+class GuiManager : public RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Tick() final;
     void Finalize() final;
 
@@ -39,5 +39,5 @@ private:
 }  // namespace hitagi::gui
 
 namespace hitagi {
-extern std::unique_ptr<gui::GuiManager> g_GuiManager;
+extern gui::GuiManager* gui_manager;
 }

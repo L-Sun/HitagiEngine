@@ -32,12 +32,5 @@ int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::off);
     ::testing::InitGoogleTest(&argc, argv);
     auto p = spdlog::stdout_color_st(std::string{"AssetManager"});
-
-    hitagi::g_MemoryManager->Initialize();
-
-    int result = RUN_ALL_TESTS();
-
-    hitagi::g_MemoryManager->Finalize();
-
-    return result;
+    return RUN_ALL_TESTS();
 }

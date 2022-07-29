@@ -7,9 +7,9 @@
 
 using namespace hitagi;
 
-int ImGuiDemo::Initialize() {
+bool ImGuiDemo::Initialize() {
     m_Logger = spdlog::stdout_color_mt("ImGuiDemo");
-    return 0;
+    return true;
 }
 
 void ImGuiDemo::Finalize() {
@@ -19,7 +19,7 @@ void ImGuiDemo::Finalize() {
 
 void ImGuiDemo::Tick() {
     bool open = true;
-    g_GuiManager->DrawGui([&]() -> void {
+    gui_manager->DrawGui([&]() -> void {
         ImGui::ShowDemoWindow(&open);
     });
 }

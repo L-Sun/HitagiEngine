@@ -10,9 +10,9 @@
 namespace hitagi::graphics {
 class Frame;
 
-class GraphicsManager : public IRuntimeModule {
+class GraphicsManager : public RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Finalize() final;
     void Tick() final;
 
@@ -42,5 +42,5 @@ protected:
 
 }  // namespace hitagi::graphics
 namespace hitagi {
-extern std::unique_ptr<graphics::GraphicsManager> g_GraphicsManager;
+extern graphics::GraphicsManager* graphics_manager;
 }

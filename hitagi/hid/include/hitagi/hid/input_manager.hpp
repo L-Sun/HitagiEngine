@@ -6,11 +6,11 @@
 #include <optional>
 #include <unordered_map>
 
-namespace hitagi {
+namespace hitagi::hid {
 
-class InputManager : public IRuntimeModule {
+class InputManager : public RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Finalize() final;
     void Tick() final;
 
@@ -23,8 +23,8 @@ public:
     inline void UpdateWheelState(float delta_v, float delta_h) noexcept {
         m_MouseState.scroll.Update(m_MouseState.scroll.current + math::vec2f{delta_v, delta_h});
     }
-    inline void AppendInputText(std::u32string text) noexcept {
-        m_TextInput.append(std::move(text));
+    inline void AppendInputText(const std::u32string& text) noexcept {
+        m_TextInput.append(text);
         m_TextInputDirty = true;
     }
 
@@ -42,5 +42,8 @@ private:
     bool                                                           m_TextInputDirty = false;
 };
 
-extern std::unique_ptr<InputManager> g_InputManager;
-}  // namespace hitagi
+}  // namespace hitagi::hid
+
+namespace hitagi {
+extern hid::InputManager* input_manager;
+}

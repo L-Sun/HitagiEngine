@@ -7,16 +7,17 @@
 #include <nlohmann/json.hpp>
 
 namespace hitagi {
-std::unique_ptr<core::ConfigManager> g_ConfigManager = std::make_unique<core::ConfigManager>();
+core::ConfigManager* config_manager = nullptr;
 }
 
 namespace hitagi::core {
 
-int ConfigManager::Initialize() {
+bool ConfigManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("ConfigManager");
     m_Logger->info("Initialize...");
-    LoadConfig("hitagi.json");
-    return 0;
+    if (!LoadConfig("hitagi.json"))
+        return false;
+    return true;
 }
 
 void ConfigManager::Tick() {}
@@ -27,20 +28,29 @@ void ConfigManager::Finalize() {
     m_Logger = nullptr;
 }
 
-void ConfigManager::LoadConfig(const std::filesystem::path& path) {
+bool ConfigManager::LoadConfig(const std::filesystem::path& path) {
     m_Logger->info("lode config file: {}", path.string());
-    auto& buffer = g_FileIoManager->SyncOpenAndReadBinary(path);
+    auto& buffer = file_io_manager->SyncOpenAndReadBinary(path);
+    if (buffer.Empty())
+        return false;
 
-    auto json = nlohmann::json::parse(buffer.Span<char>());
+    try {
+        auto json = nlohmann::json::parse(buffer.Span<char>());
 
-    auto new_config = std::make_shared<AppConfig>();
+        auto new_config = std::make_shared<AppConfig>();
 
-    new_config->title   = json["title"].get<std::string>();
-    new_config->version = json["version"].get<std::string>();
-    new_config->width   = json["width"].get<std::uint32_t>();
-    new_config->height  = json["height"].get<std::uint32_t>();
+        new_config->title   = json["title"].get<std::string>();
+        new_config->version = json["version"].get<std::string>();
+        new_config->width   = json["width"].get<std::uint32_t>();
+        new_config->height  = json["height"].get<std::uint32_t>();
 
-    m_Config = std::move(new_config);
+        m_Config = std::move(new_config);
+
+    } catch (...) {
+        return false;
+    }
+
+    return true;
 }
 
 AppConfig& ConfigManager::GetConfig() {

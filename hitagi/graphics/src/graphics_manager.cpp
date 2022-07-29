@@ -14,12 +14,12 @@ using namespace hitagi::math;
 using namespace hitagi::resource;
 
 namespace hitagi {
-std::unique_ptr<graphics::GraphicsManager> g_GraphicsManager = std::make_unique<graphics::GraphicsManager>();
+graphics::GraphicsManager* graphics_manager = nullptr;
 }
 
 namespace hitagi::graphics {
 
-int GraphicsManager::Initialize() {
+bool GraphicsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("GraphicsManager");
     m_Logger->info("Initialize...");
 
@@ -29,22 +29,24 @@ int GraphicsManager::Initialize() {
     // Initialize ResourceManager
     m_ResMgr = std::make_unique<ResourceManager>(*m_Device);
 
-    const auto          rect   = g_App->GetWindowsRect();
+    const auto          rect   = app->GetWindowsRect();
     const std::uint32_t widht  = rect.right - rect.left,
                         height = rect.bottom - rect.top;
 
     // Initialize frame
-    m_Device->CreateSwapChain(widht, height, sm_SwapChianSize, Format::R8G8B8A8_UNORM, g_App->GetWindow());
+    m_Device->CreateSwapChain(widht, height, sm_SwapChianSize, Format::R8G8B8A8_UNORM, app->GetWindow());
     for (size_t index = 0; index < sm_SwapChianSize; index++)
         m_Frames.at(index) = std::make_unique<Frame>(*m_Device, *m_ResMgr, index);
 
-    return 0;
+    return true;
 }
 
 void GraphicsManager::Finalize() {
     // Release all resource
     {
-        m_Device->IdleGPU();
+        if (m_Device) {
+            m_Device->IdleGPU();
+        }
         m_ResMgr = nullptr;
         for (auto&& frame : m_Frames)
             frame = nullptr;
@@ -59,7 +61,7 @@ void GraphicsManager::Finalize() {
 }
 
 void GraphicsManager::Tick() {
-    if (g_App->WindowSizeChanged()) {
+    if (app->WindowSizeChanged()) {
         OnSizeChanged();
     }
 
@@ -76,7 +78,7 @@ void GraphicsManager::OnSizeChanged() {
         frame->SetRenderTarget(nullptr);
     }
 
-    auto          rect   = g_App->GetWindowsRect();
+    auto          rect   = app->GetWindowsRect();
     std::uint32_t width  = rect.right - rect.left,
                   height = rect.bottom - rect.top;
 
@@ -102,7 +104,7 @@ void GraphicsManager::Render() {
 
     frame->PrepareData();
 
-    const auto          rect          = g_App->GetWindowsRect();
+    const auto          rect          = app->GetWindowsRect();
     const std::uint32_t screen_width  = rect.right - rect.left,
                         screen_height = rect.bottom - rect.top;
     const float camera_aspect         = m_Camera->GetAspect();

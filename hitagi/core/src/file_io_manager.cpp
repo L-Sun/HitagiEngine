@@ -7,15 +7,15 @@
 #include <mutex>
 
 namespace hitagi {
-std::unique_ptr<core::FileIOManager> g_FileIoManager = std::make_unique<core::FileIOManager>();
+core::FileIOManager* file_io_manager = nullptr;
 }
 
 namespace hitagi::core {
 
-int FileIOManager::Initialize() {
+bool FileIOManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("FileIOManager");
     m_Logger->info("Initialize...");
-    return 0;
+    return true;
 }
 void FileIOManager::Finalize() {
     m_FileStateCache.clear();

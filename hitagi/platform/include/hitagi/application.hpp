@@ -4,15 +4,17 @@
 #include <vector>
 
 namespace hitagi {
-class Application : public IRuntimeModule {
+class Application : public RuntimeModule {
 public:
     struct Rect {
         long left = 0, top = 0, right = 0, bottom = 0;
     };
 
-    int  Initialize() override;
+    bool Initialize() override;
     void Finalize() override;
     void Tick() override;
+
+    static std::unique_ptr<Application> CreateApp();
 
     const Rect& GetWindowsRect() const noexcept { return m_Rect; }
     bool        WindowSizeChanged() const noexcept { return m_SizeChanged; }
@@ -27,13 +29,12 @@ public:
 
 protected:
     static bool sm_Quit;
-    bool        m_Initialized = false;
-    int         m_ArgSize     = 0;
-    char**      m_Arg         = nullptr;
+    int         m_ArgSize = 0;
+    char**      m_Arg     = nullptr;
     Rect        m_Rect{};
     bool        m_SizeChanged = false;
 
-    std::vector<IRuntimeModule*> m_Modules;
+    std::vector<RuntimeModule*> m_Modules;
 };
-extern std::unique_ptr<Application> g_App;
+extern Application* app;
 }  // namespace hitagi

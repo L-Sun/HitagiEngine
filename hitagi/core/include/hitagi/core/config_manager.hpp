@@ -12,13 +12,13 @@ struct AppConfig {
     std::uint32_t    height  = 1080;
 };
 
-class ConfigManager : public IRuntimeModule {
+class ConfigManager : public RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Tick() final;
     void Finalize() final;
 
-    void       LoadConfig(const std::filesystem::path& path);
+    bool       LoadConfig(const std::filesystem::path& path);
     AppConfig& GetConfig();
 
 private:
@@ -27,5 +27,5 @@ private:
 }  // namespace hitagi::core
 
 namespace hitagi {
-extern std::unique_ptr<core::ConfigManager> g_ConfigManager;
-}
+extern core::ConfigManager* config_manager;
+}  // namespace hitagi

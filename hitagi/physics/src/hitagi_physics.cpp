@@ -7,10 +7,10 @@ using namespace hitagi::math;
 
 namespace hitagi::physics {
 
-int hitagiPhysicsManager::Initialize() {
+bool hitagiPhysicsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("HitagiPhysicsManager");
     m_Logger->info("Initialize.");
-    return 0;
+    return true;
 }
 
 void hitagiPhysicsManager::Finalize() {

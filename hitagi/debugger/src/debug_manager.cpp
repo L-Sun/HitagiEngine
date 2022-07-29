@@ -16,15 +16,19 @@ using namespace hitagi::math;
 using namespace hitagi::resource;
 
 namespace hitagi {
-std::unique_ptr<debugger::DebugManager> g_DebugManager = std::make_unique<debugger::DebugManager>();
+debugger::DebugManager* debug_manager = nullptr;
 }
 namespace hitagi::debugger {
 
-int DebugManager::Initialize() {
+bool DebugManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("DebugManager");
     m_Logger->info("Initialize...");
 
-    m_LineMaterial = g_AssetManager->ImportMaterial("assets/material/debug_line.json");
+    m_LineMaterial = asset_manager->ImportMaterial("assets/material/debug_line.json");
+    if (m_LineMaterial == nullptr) {
+        m_Logger->error("Can not load debug material!");
+        return false;
+    }
 
     m_DebugPrimitives.emplace("x_axis", MeshFactory::Line({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}));
     m_DebugPrimitives.emplace("y_axis", MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}));
@@ -41,7 +45,7 @@ int DebugManager::Initialize() {
     m_DebugPrimitives["box"].material = m_LineMaterial;
     m_DebugPrimitives["box"].SetName("box");
 
-    return 0;
+    return true;
 }
 
 void DebugManager::Finalize() {
@@ -119,7 +123,7 @@ void DebugManager::DrawPrimitive() const {
         }
     }
 
-    g_GraphicsManager->AppendRenderables(renderables);
+    graphics_manager->AppendRenderables(renderables);
 }
 
 }  // namespace hitagi::debugger

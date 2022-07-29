@@ -6,10 +6,10 @@
 
 namespace hitagi::ecs {
 
-int EcsManager::Initialize() {
+bool EcsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("EcsManager");
     m_Logger->info("Initialize...");
-    return 0;
+    return true;
 }
 void EcsManager::Tick() {}
 void EcsManager::Finalize() {

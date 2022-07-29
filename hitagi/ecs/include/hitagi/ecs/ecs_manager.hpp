@@ -7,9 +7,9 @@
 #include <unordered_map>
 
 namespace hitagi::ecs {
-class EcsManager : public IRuntimeModule {
+class EcsManager : public RuntimeModule {
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Tick() final;
     void Finalize() final;
 

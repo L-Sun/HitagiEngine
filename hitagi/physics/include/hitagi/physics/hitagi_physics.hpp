@@ -8,7 +8,7 @@ namespace hitagi::physics {
 class hitagiPhysicsManager : public IPhysicsManager {
 public:
 public:
-    int  Initialize() final;
+    bool Initialize() final;
     void Finalize() final;
     void Tick() final;
 

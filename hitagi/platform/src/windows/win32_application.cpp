@@ -9,9 +9,7 @@
 
 namespace hitagi {
 
-std::unique_ptr<Application> g_App = std::make_unique<Win32Application>();
-
-int Win32Application::Initialize() {
+bool Win32Application::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Win32Application");
     m_Logger->info("Initialized");
 
@@ -41,7 +39,7 @@ void Win32Application::Tick() {
 }
 
 void Win32Application::InitializeWindows() {
-    auto& config = g_ConfigManager->GetConfig();
+    auto& config = config_manager->GetConfig();
 
     std::wstring name{config.title.begin(), config.title.end()};
 
@@ -175,13 +173,13 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_XBUTTONDOWN:
         case WM_XBUTTONDBLCLK: {
             if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK)
-                g_InputManager->UpdateKeyState(VirtualKeyCode::MOUSE_L_BUTTON, true);
+                input_manager->UpdateKeyState(VirtualKeyCode::MOUSE_L_BUTTON, true);
 
             if (message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK)
-                g_InputManager->UpdateKeyState(VirtualKeyCode::MOUSE_R_BUTTON, true);
+                input_manager->UpdateKeyState(VirtualKeyCode::MOUSE_R_BUTTON, true);
 
             if (message == WM_MBUTTONDOWN || message == WM_MBUTTONDBLCLK)
-                g_InputManager->UpdateKeyState(VirtualKeyCode::MOUSE_M_BUTTON, true);
+                input_manager->UpdateKeyState(VirtualKeyCode::MOUSE_M_BUTTON, true);
 
             return 0;
         }
@@ -189,13 +187,13 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_RBUTTONUP:
         case WM_MBUTTONUP: {
             if (message == WM_LBUTTONUP)
-                g_InputManager->UpdateKeyState(VirtualKeyCode::MOUSE_L_BUTTON, false);
+                input_manager->UpdateKeyState(VirtualKeyCode::MOUSE_L_BUTTON, false);
 
             if (message == WM_RBUTTONUP)
-                g_InputManager->UpdateKeyState(VirtualKeyCode::MOUSE_R_BUTTON, false);
+                input_manager->UpdateKeyState(VirtualKeyCode::MOUSE_R_BUTTON, false);
 
             if (message == WM_MBUTTONUP)
-                g_InputManager->UpdateKeyState(VirtualKeyCode::MOUSE_M_BUTTON, false);
+                input_manager->UpdateKeyState(VirtualKeyCode::MOUSE_M_BUTTON, false);
 
             return 0;
         }
@@ -205,32 +203,32 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_SYSKEYUP: {
             bool down = (message == WM_KEYDOWN || message == WM_SYSKEYDOWN);
             if (w_param < static_cast<int>(VirtualKeyCode::NUM))
-                g_InputManager->UpdateKeyState(static_cast<VirtualKeyCode>(w_param), down);
+                input_manager->UpdateKeyState(static_cast<VirtualKeyCode>(w_param), down);
 
-            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_L_CTRL, w_param & static_cast<int>(VirtualKeyCode::KEY_L_CTRL));
-            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_CTRL, w_param & static_cast<int>(VirtualKeyCode::KEY_R_CTRL));
-            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_L_SHIFT, w_param & static_cast<int>(VirtualKeyCode::KEY_L_SHIFT));
-            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_SHIFT, w_param & static_cast<int>(VirtualKeyCode::KEY_R_SHIFT));
-            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_L_ALT, w_param & static_cast<int>(VirtualKeyCode::KEY_L_ALT));
-            g_InputManager->UpdateKeyState(VirtualKeyCode::KEY_R_ALT, w_param & static_cast<int>(VirtualKeyCode::KEY_R_ALT));
+            input_manager->UpdateKeyState(VirtualKeyCode::KEY_L_CTRL, w_param & static_cast<int>(VirtualKeyCode::KEY_L_CTRL));
+            input_manager->UpdateKeyState(VirtualKeyCode::KEY_R_CTRL, w_param & static_cast<int>(VirtualKeyCode::KEY_R_CTRL));
+            input_manager->UpdateKeyState(VirtualKeyCode::KEY_L_SHIFT, w_param & static_cast<int>(VirtualKeyCode::KEY_L_SHIFT));
+            input_manager->UpdateKeyState(VirtualKeyCode::KEY_R_SHIFT, w_param & static_cast<int>(VirtualKeyCode::KEY_R_SHIFT));
+            input_manager->UpdateKeyState(VirtualKeyCode::KEY_L_ALT, w_param & static_cast<int>(VirtualKeyCode::KEY_L_ALT));
+            input_manager->UpdateKeyState(VirtualKeyCode::KEY_R_ALT, w_param & static_cast<int>(VirtualKeyCode::KEY_R_ALT));
             return 0;
         }
         case WM_MOUSEMOVE:
-            g_InputManager->UpdatePointerState(static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param)));
+            input_manager->UpdatePointerState(static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param)));
             return 0;
         case WM_MOUSEWHEEL:
-            g_InputManager->UpdateWheelState(0.0f, static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA));
+            input_manager->UpdateWheelState(0.0f, static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA));
             return 0;
         case WM_MOUSEHWHEEL:
-            g_InputManager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
+            input_manager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
             return 0;
         case WM_CHAR: {
             size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
-            g_InputManager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
+            input_manager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
         }
             return 0;
         case WM_IME_CHAR: {
-            g_InputManager->AppendInputText(std::u32string(1, static_cast<char32_t>(w_param)));
+            input_manager->AppendInputText(std::u32string(1, static_cast<char32_t>(w_param)));
         }
             return 0;
         case WM_SIZE:
@@ -240,9 +238,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             }
             return 0;
         case WM_PAINT:
-            if (p_this->m_Initialized) {
-                p_this->Application::Tick();
-            }
+            p_this->Application::Tick();
             return 0;
     }
     return DefWindowProc(h_wnd, message, w_param, l_param);
