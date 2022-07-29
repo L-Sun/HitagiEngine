@@ -19,7 +19,7 @@ static void BM_ECS(benchmark::State& state) {
 
     struct Mover {
         static void OnUpdate(ecs::Schedule& schedule, std::chrono::duration<double> delta) {
-            schedule.Register("Move", [&](Moveable& data) {
+            schedule.Register("Move", [=](Moveable& data) {
                 data.position += data.velocity * delta.count();
                 data.velocity *= 1.01;
             });
@@ -28,9 +28,9 @@ static void BM_ECS(benchmark::State& state) {
 
     world->RegisterSystem<Mover>();
 
+    world->CreateEntities<Moveable>(1000000);
+
     for (auto _ : state) {
-        if (world->NumEntities() != 100000)
-            world->CreateEntity<Moveable>();
         world->Update();
     }
 }

@@ -13,6 +13,7 @@ void World::Update() {
     for (auto&& system_fn : m_Systems) {
         system_fn(schedule, m_Timer.DeltaTime());
     }
+    m_Timer.Tick();
 
     schedule.Run();
 }

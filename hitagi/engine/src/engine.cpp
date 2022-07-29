@@ -1,13 +1,13 @@
 #include <hitagi/engine.hpp>
 #include <hitagi/core/core.hpp>
+#include <hitagi/ecs/ecs_manager.hpp>
+#include <hitagi/application.hpp>
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
 #include <hitagi/hid/input_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
-#include <hitagi/application.hpp>
-#include "hitagi/core/config_manager.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -28,6 +28,7 @@ bool Engine::Initialize() {
     thread_manager   = add_inner_module(std::make_unique<core::ThreadManager>());
     file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>());
     config_manager   = add_inner_module(std::make_unique<core::ConfigManager>());
+    ecs_manager      = add_inner_module(std::make_unique<ecs::EcsManager>());
     app              = add_inner_module(Application::CreateApp());
     asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>());
     scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>());

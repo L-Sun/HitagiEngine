@@ -19,3 +19,6 @@ private:
     std::pmr::unordered_map<std::string, std::shared_ptr<World>> m_Worlds;
 };
 }  // namespace hitagi::ecs
+namespace hitagi {
+extern ecs::EcsManager* ecs_manager;
+}

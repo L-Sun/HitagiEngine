@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <hitagi/ecs/entity.hpp>
 #include <hitagi/ecs/archetype.hpp>
 #include <hitagi/core/timer.hpp>
@@ -29,20 +30,24 @@ public:
 
     inline std::size_t NumEntities() const noexcept { return m_EnitiesMap.size(); }
 
-    // create a entity that has multiple components.
+    // create an entity that has multiple components.
     template <typename... Components>
-    requires utils::UniqueTypes<Components...>
-        Entity CreateEntity();
+    Entity CreateEntity() requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...);
+
+    template <typename... Components>
+    std::pmr::vector<Entity> CreateEntities(std::size_t num) requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...);
 
     void DestoryEntity(const Entity& entity);
 
     // Get a array of archetype which contains the interseted components
     template <typename... Components>
-    requires utils::UniqueTypes<Components...>
-        std::vector<std::shared_ptr<IArchetype>> GetArchetypes();
+    std::vector<std::shared_ptr<IArchetype>> GetArchetypes() requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...);
 
     template <typename Component>
-    std::optional<std::reference_wrapper<Component>> AccessEntity(const Entity& entity);
+    std::optional<std::reference_wrapper<Component>> AccessEntity(const Entity& entity) requires utils::NoCVRef<Component>;
+
+    template <typename Component>
+    bool HasEntity(const Entity& entity) requires utils::NoCVRef<Component>;
 
 private:
     core::Clock                                                       m_Timer;
@@ -59,31 +64,57 @@ void World::RegisterSystem() {
 }
 
 template <typename... Components>
-requires utils::UniqueTypes<Components...>
-    Entity World::CreateEntity() {
+Entity World::CreateEntity() requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...) {
     auto id = get_archetype_id<Components...>();
     if (m_Archetypes.count(id) == 0) {
         m_Archetypes.emplace(id, Archetype<Components...>::Create());
     }
 
-    auto archetype         = m_Archetypes.at(id);
-    auto&& [iter, success] = m_EnitiesMap.emplace(Entity{.index = m_Counter++}, archetype);
-    archetype->CreateInstance(iter->first);
+    std::shared_ptr<IArchetype> archetype = m_Archetypes.at(id);
+
+    auto&& [iter, success] = m_EnitiesMap.emplace(Entity{.id = m_Counter++}, archetype);
+    assert(success);
+    archetype->CreateInstances({iter->first});
 
     return iter->first;
 }
 
+template <typename... Components>
+std::pmr::vector<Entity> World::CreateEntities(std::size_t num) requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...) {
+    auto id = get_archetype_id<Components...>();
+    if (m_Archetypes.count(id) == 0) {
+        m_Archetypes.emplace(id, Archetype<Components...>::Create());
+    }
+
+    std::shared_ptr<IArchetype> archetype = m_Archetypes.at(id);
+
+    std::pmr::vector<Entity> result;
+    result.reserve(num);
+
+    m_EnitiesMap.reserve(m_EnitiesMap.size() + num);
+    for (std::size_t i = 0; i < num; i++) {
+        auto&& [iter, success] = m_EnitiesMap.emplace(Entity{.id = m_Counter++}, archetype);
+        assert(success);
+        result.emplace_back(iter->first);
+    }
+    archetype->CreateInstances(result);
+
+    return result;
+}
+
 template <typename Component>
-auto World::AccessEntity(const Entity& entity) -> std::optional<std::reference_wrapper<Component>> {
-    if (m_EnitiesMap.count(entity) == 0) {
+std::optional<std::reference_wrapper<Component>> World::AccessEntity(const Entity& entity) requires utils::NoCVRef<Component> {
+    auto iter = std::lower_bound(m_EnitiesMap.begin(), m_EnitiesMap.end(), entity.id, [](const auto& pair, std::uint64_t id) {
+        return pair.first.id < id;
+    });
+    if (iter == m_EnitiesMap.end() || iter->first.id != entity.id) {
         return std::nullopt;
     }
-    return m_EnitiesMap.at(entity)->GetComponent<Component>(entity);
+    return iter->second->template GetComponent<Component>(entity);
 }
 
 template <typename... Components>
-requires utils::UniqueTypes<Components...>
-    std::vector<std::shared_ptr<IArchetype>> World::GetArchetypes() {
+std::vector<std::shared_ptr<IArchetype>> World::GetArchetypes() requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...) {
     std::vector<std::shared_ptr<IArchetype>> result;
     for (auto& [id, archetype] : m_Archetypes) {
         auto has_components = (true && ... && archetype->HasComponents<Components>());
@@ -91,6 +122,13 @@ requires utils::UniqueTypes<Components...>
             result.emplace_back(archetype);
     }
     return result;
+}
+
+template <typename Component>
+bool World::HasEntity(const Entity& entity) requires utils::NoCVRef<Component> {
+    return std::binary_search(m_EnitiesMap.begin(), m_EnitiesMap.end(), entity.id, [](const auto& pair, std::uint64_t id) {
+        return pair.first.id == id;
+    });
 }
 
 }  // namespace hitagi::ecs

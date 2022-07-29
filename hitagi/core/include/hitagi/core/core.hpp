@@ -5,4 +5,5 @@
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/core/thread_manager.hpp>
+#include <hitagi/core/config_manager.hpp>
 #include <hitagi/core/timer.hpp>

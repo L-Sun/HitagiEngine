@@ -40,8 +40,8 @@ public:
 
     virtual std::size_t NumEntities() const = 0;
 
-    virtual void CreateInstance(const Entity& entity) = 0;
-    virtual void DeleteInstance(const Entity& entity) = 0;
+    virtual void CreateInstances(const std::pmr::vector<Entity>& entities) = 0;
+    virtual void DeleteInstance(const Entity& entity)                      = 0;
 
     template <typename Component>
     std::optional<std::reference_wrapper<Component>> GetComponent(const Entity& entity);
@@ -61,8 +61,7 @@ protected:
 };
 
 template <typename... Components>
-requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
-    class Archetype : public IArchetype {
+requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...) class Archetype : public IArchetype {
 public:
     Archetype() = default;
 
@@ -93,7 +92,7 @@ public:
 
     std::size_t NumEntities() const final { return m_Data.size(); }
 
-    void CreateInstance(const Entity& entity) final;
+    void CreateInstances(const std::pmr::vector<Entity>& entities) final;
     void DeleteInstance(const Entity& entity) final;
 
 private:
@@ -166,8 +165,10 @@ requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  
 
 template <typename... Components>
 requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
-    void Archetype<Components...>::CreateInstance(const Entity& entity) {
-    m_Data.emplace_back(Entity{entity.index}, Components{}...);
+    void Archetype<Components...>::CreateInstances(const std::pmr::vector<Entity>& entities) {
+    m_Data.reserve(m_Data.size() + entities.size());
+    for (const auto& entity : entities)
+        m_Data.emplace_back(Entity{entity.id}, Components{}...);
 }
 
 template <typename... Components>
@@ -183,9 +184,8 @@ requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  
 }
 
 template <typename... Components>
-requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
-    std::size_t Archetype<Components...>::GetEntityIndex(const Entity& entity)
-        const {
+requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)
+    std::size_t Archetype<Components...>::GetEntityIndex(const Entity& entity) const {
     auto iter = std::find_if(
         m_Data.begin(), m_Data.end(),
         [&](const auto& item) {

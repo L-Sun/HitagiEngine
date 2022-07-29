@@ -2,7 +2,7 @@ set_project("HitagiEngine")
 set_languages("c++20")
 
 includes("xmake-rules/*.lua")
-add_rules("mode.debug", "mode.release", "clang-msvc", "copy-dll")
+add_rules("mode.debug", "mode.release", "mode.releasedbg", "clang-msvc", "copy-dll")
 
 if is_mode("debug") then
     add_defines("_DEBUG")

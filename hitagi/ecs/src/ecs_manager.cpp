@@ -4,11 +4,15 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+namespace hitagi {
+ecs::EcsManager* ecs_manager = nullptr;
+}
 namespace hitagi::ecs {
 
 bool EcsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("EcsManager");
     m_Logger->info("Initialize...");
+
     return true;
 }
 void EcsManager::Tick() {}
