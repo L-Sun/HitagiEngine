@@ -1,14 +1,14 @@
 #include <hitagi/utils/test.hpp>
-#include <hitagi/ecs/ecs_manager.hpp>
+#include <hitagi/ecs/world.hpp>
+#include <hitagi/ecs/schedule.hpp>
 #include <vector>
-#include "spdlog/common.h"
-#include "spdlog/spdlog.h"
+
+#include <spdlog/spdlog.h>
 
 using namespace hitagi::ecs;
 
 TEST(EcsTest, CreateEntity) {
-    EcsManager ecs_mgr;
-    World&     world = *ecs_mgr.CreateEcsWorld("EcsTest.CreateEntity");
+    World world("EcsTest.CreateEntity");
 
     struct Position {
         int value = 1;
@@ -39,11 +39,47 @@ TEST(EcsTest, CreateEntity) {
 
         world.DestoryEntity(pos_vel_entity);
     }
+
+    {
+        Position pos;
+        Velocity vel;
+        auto     pos_vel_entity = world.CreateEntity(pos, vel);
+
+        auto pos_component = world.AccessEntity<Position>(pos_vel_entity);
+        EXPECT_TRUE(pos_component.has_value());
+        EXPECT_EQ(pos_component->get().value, 1);
+
+        auto vel_component = world.AccessEntity<Velocity>(pos_vel_entity);
+        EXPECT_TRUE(vel_component.has_value());
+        EXPECT_EQ(vel_component->get().value, 2);
+        world.DestoryEntity(pos_vel_entity);
+    }
+}
+
+TEST(EcsTest, SameID) {
+    struct Position {
+        hitagi::math::vec3f value;
+    };
+    struct Velocity {
+        hitagi::math::vec2f value;
+    };
+    struct Transform {
+        hitagi::math::mat4f value;
+    };
+    auto id1 = get_archetype_id<Position, Velocity, Transform>();
+    auto id2 = get_archetype_id<Transform, Velocity, Position>();
+    EXPECT_EQ(id1, id2);
+
+    World world("EcsTest.SameID");
+    world.CreateEntity<Position, Velocity, Transform>();
+    world.CreateEntity<Transform, Velocity, Position>();
+    auto archetype = world.GetArchetypes<Position, Velocity, Transform>();
+    EXPECT_EQ(archetype.size(), 1);
+    EXPECT_EQ(archetype.front()->NumEntities(), 2);
 }
 
 TEST(EcsTest, ModifyEntity) {
-    EcsManager ecs_mgr;
-    World&     world = *ecs_mgr.CreateEcsWorld("EcsTest.ModifyEntity");
+    World world("EcsTest.ModifyEntity");
 
     struct Position {
         int value = 1;
@@ -61,8 +97,7 @@ TEST(EcsTest, ModifyEntity) {
 }
 
 TEST(EcsTest, RegisterSystem) {
-    EcsManager ecs_mgr;
-    World&     world = *ecs_mgr.CreateEcsWorld("EcsTest.RegisterSystem");
+    World world("EcsTest.RegisterSystem");
 
     struct Position {
         int value = 1;
@@ -74,12 +109,12 @@ TEST(EcsTest, RegisterSystem) {
     struct Mover {
         static void OnUpdate(Schedule& schedule, std::chrono::duration<double> delta) {
             schedule
-                .Register(
+                .Request(
                     "Update Position",
                     [](Position& position) {
                         position.value++;
                     })
-                .Register("Update Velocity", [](Velocity& velocity) {
+                .Request("Update Velocity", [](Velocity& velocity) {
                     velocity.value = 3;
                 });
         }

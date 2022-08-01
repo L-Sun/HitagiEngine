@@ -1,5 +1,4 @@
 #include <hitagi/resource/material.hpp>
-#include <hitagi/resource/material_instance.hpp>
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/utils/test.hpp>
 
@@ -66,21 +65,22 @@ TEST(MaterialTest, InstanceDefaultValue) {
 
     auto instance = mat->CreateInstance();
     {
-        auto _param1 = instance->GetValue<vec2f>("param1");
+        auto _param1 = instance.GetValue<vec2f>("param1");
         EXPECT_TRUE(_param1.has_value());
         vector_eq(*_param1, param1);
     }
 
     {
-        auto _param2 = instance->GetValue<vec4f, 2>("param2");
+        auto _param2 = instance.GetValue<vec4f, 2>("param2");
         EXPECT_TRUE(_param2.has_value());
         for (std::size_t index = 0; index < 2; index++) {
             vector_eq((*_param2)[index], param2[index]);
         }
     }
     {
-        auto _param3 = instance->GetTexture("texture");
-        EXPECT_STREQ(_param3->GetTexturePath().string().c_str(), "test.png");
+        auto texture = instance.GetTexture("texture");
+        EXPECT_TRUE(texture != nullptr);
+        EXPECT_STREQ(texture->path.string().c_str(), "test.png");
     }
 }
 
@@ -95,26 +95,25 @@ TEST(MaterialTest, InstanceChangeValue) {
     std::pmr::vector<vec4f> param2 = {{{1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 0.0f}}};
 
     auto instance = mat->CreateInstance();
-    (*instance)
-        .SetParameter("param1", param1)
+    instance.SetParameter("param1", param1)
         .SetParameter("param2", param2);
     {
-        auto _param1 = instance->GetValue<vec2f>("param1");
+        auto _param1 = instance.GetValue<vec2f>("param1");
         EXPECT_TRUE(_param1.has_value());
         vector_eq(*_param1, param1);
     }
 
     {
-        auto _param2 = instance->GetValue<vec4f, 2>("param2");
+        auto _param2 = instance.GetValue<vec4f, 2>("param2");
         EXPECT_TRUE(_param2.has_value());
         for (std::size_t index = 0; index < 2; index++) {
             vector_eq((*_param2)[index], param2[index]);
         }
     }
 
-    EXPECT_FALSE((instance->GetValue<vec2f>("param-no-exists").has_value()));
-    EXPECT_FALSE((instance->GetValue<vec3f>("param1").has_value()));
-    EXPECT_FALSE((instance->GetValue<vec4f, 3>("param2").has_value()));
+    EXPECT_FALSE((instance.GetValue<vec2f>("param-no-exists").has_value()));
+    EXPECT_FALSE((instance.GetValue<vec3f>("param1").has_value()));
+    EXPECT_FALSE((instance.GetValue<vec4f, 3>("param2").has_value()));
 }
 
 int main(int argc, char** argv) {

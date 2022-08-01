@@ -1,102 +1,189 @@
 #pragma once
-#include <hitagi/resource/scene_object.hpp>
-#include <hitagi/resource/enums.hpp>
-#include <hitagi/resource/material_instance.hpp>
 #include <hitagi/core/buffer.hpp>
-#include <hitagi/utils/private_build.hpp>
+#include <hitagi/math/vector.hpp>
+#include <hitagi/resource/material.hpp>
+#include <hitagi/resource/resource.hpp>
 
 #include <magic_enum.hpp>
 
-#include <stdexcept>
-#include <bitset>
+#include <functional>
 
 namespace hitagi::resource {
+enum struct VertexAttribute : std::uint8_t {
+    Position    = 0,   // vec3f
+    Normal      = 1,   // vec3f
+    Tangent     = 2,   // vec3f
+    Bitangent   = 3,   // vec3f
+    Color0      = 4,   // vec4f
+    Color1      = 5,   // vec4f
+    Color2      = 6,   // vec4f
+    Color3      = 7,   // vec4f
+    UV0         = 8,   // vec2f
+    UV1         = 9,   // vec2f
+    UV2         = 10,  // vec2f
+    UV3         = 11,  // vec2f
+    BlendIndex  = 12,  // uint
+    BlendWeight = 13,  // float
 
-class VertexArray : public ResourceObject {
-public:
-    VertexArray(std::size_t vertex_count);
-    VertexArray(const VertexArray& other) = default;
-    VertexArray(VertexArray&& other)      = default;
+    // Custom the default value type is float
+    Custom1 = 14,
+    Custom0 = 15,
+};
 
-    inline std::size_t VertexCount() const noexcept { return m_VertexCount; }
+namespace detial {
+template <VertexAttribute e>
+constexpr auto vertex_attr() noexcept {
+    /**/ if constexpr (e == VertexAttribute::Position ||
+                       e == VertexAttribute::Normal ||
+                       e == VertexAttribute::Tangent ||
+                       e == VertexAttribute::Bitangent)
+        return math::vec3f{};
+    else if constexpr (e == VertexAttribute::Color0 ||
+                       e == VertexAttribute::Color1 ||
+                       e == VertexAttribute::Color2 ||
+                       e == VertexAttribute::Color3)
+        return math::vec4f{};
+    else if constexpr (e == VertexAttribute::UV0 ||
+                       e == VertexAttribute::UV1 ||
+                       e == VertexAttribute::UV2 ||
+                       e == VertexAttribute::UV3)
+        return math::vec2f{};
+    else if constexpr (e == VertexAttribute::BlendIndex)
+        return std::uint32_t{};
+    else if constexpr (e == VertexAttribute::BlendWeight)
+        return float{};
+    else
+        return float{};
+}
+}  // namespace detial
 
-    std::bitset<magic_enum::enum_count<VertexAttribute>()> GetAttributeMask() const;
+template <VertexAttribute e>
+using VertexType = std::invoke_result_t<decltype(detial::vertex_attr<e>)>;
 
-    core::Buffer& GetBuffer(VertexAttribute attr);
+constexpr std::size_t get_vertex_attribute_size(VertexAttribute attribute) {
+    return magic_enum::enum_switch(
+        [](auto e) {
+            return sizeof(VertexType<e>);
+        },
+        attribute, 4);
+}
 
-    // the buffer will be constructed if `GetVertices` is invoke first time with attribute Attr
+enum struct IndexType : std::uint8_t {
+    UINT16,
+    UINT32,
+};
+
+template <IndexType T>
+using IndexDataType = std::conditional_t<T == IndexType::UINT16, std::uint16_t, std::uint32_t>;
+
+constexpr auto get_index_type_size(IndexType type) {
+    return type == IndexType::UINT16 ? sizeof(std::uint16_t) : sizeof(std::uint32_t);
+}
+
+struct VertexArray : public Resource {
+    VertexArray(VertexArray&&)            = default;
+    VertexArray& operator=(VertexArray&&) = default;
+
+    VertexArray(std::size_t count) : vertex_count(count) {}
+
+    void Resize(std::size_t new_count);
+    void Enable(VertexAttribute attr);
+    bool IsEnabled(VertexAttribute attr) const;
+
     template <VertexAttribute Attr>
-    std::span<VertexType<Attr>> GetVertices();
+    auto GetVertices() const;
 
-    void Resize(std::size_t count);
+    template <VertexAttribute Attr>
+    void Modify(std::function<void(std::span<VertexType<Attr>>)>&& modifier);
 
-private:
-    std::size_t                                                         m_VertexCount = 0;
-    std::array<core::Buffer, magic_enum::enum_count<VertexAttribute>()> m_Buffers;
+    std::size_t                                            vertex_count = 0;
+    std::bitset<magic_enum::enum_count<VertexAttribute>()> attribute_mask;
 };
 
-class IndexArray : public ResourceObject {
-public:
-    IndexArray(std::size_t index_count, IndexType type);
-    IndexArray(const IndexArray& other) = default;
-    IndexArray(IndexArray&& other)      = default;
+struct IndexArray : public Resource {
+    IndexArray(IndexArray&&)            = default;
+    IndexArray& operator=(IndexArray&&) = default;
 
-    auto  IndexSize() const noexcept { return get_index_type_size(m_IndexType); }
-    auto  IndexCount() const noexcept { return m_IndexCount; }
-    auto& Buffer() const noexcept { return m_Buffer; }
+    IndexArray(std::size_t count, IndexType type, std::string_view name = "")
+        : Resource(count * get_index_type_size(type)), index_count(count), type(type) {}
 
-    // The template parameter need to be same with the type used by constructor
+    void Concat(const IndexArray& other);
+    void Resize(std::size_t new_count);
+
     template <IndexType T>
-    std::span<IndexDataType<T>> GetIndices();
+    auto GetIndices() const;
 
-    void Resize(std::size_t count);
+    template <IndexType T>
+    void Modify(std::function<void(std::span<IndexDataType<T>>)>&& modifier);
 
-private:
-    std::size_t  m_IndexCount = 0;
-    IndexType    m_IndexType  = IndexType::UINT32;
-    core::Buffer m_Buffer;
+    std::size_t index_count = 0;
+    IndexType   type        = IndexType::UINT32;
 };
 
-struct Mesh : public ResourceObject {
-public:
-    // if `index_count` is not set, its value will be the size of indices
-    Mesh(
-        std::shared_ptr<VertexArray>      vertices      = nullptr,
-        std::shared_ptr<IndexArray>       indices       = nullptr,
-        std::shared_ptr<MaterialInstance> material      = nullptr,
-        std::size_t                       index_count   = 0,
-        std::size_t                       vertex_offset = 0,
-        std::size_t                       index_offset  = 0);
+struct Mesh {
+    std::shared_ptr<VertexArray> vertices;
+    std::shared_ptr<IndexArray>  indices;
 
-    Mesh(const Mesh& other)      = default;
-    Mesh& operator=(const Mesh&) = default;
-    Mesh(Mesh&& other)           = default;
-    Mesh& operator=(Mesh&& rhs)  = default;
-
-    std::shared_ptr<VertexArray>      vertices;
-    std::shared_ptr<IndexArray>       indices;
-    std::shared_ptr<MaterialInstance> material;
-    std::size_t                       index_count;
-    std::size_t                       vertex_offset;
-    std::size_t                       index_offset;
+    struct SubMesh {
+        std::size_t      index_count;
+        std::size_t      vertex_offset;
+        std::size_t      index_offset;
+        MaterialInstance material;
+    };
+    bool                      visiable = true;
+    std::pmr::vector<SubMesh> sub_meshes;
 };
+
+Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes);
 
 template <VertexAttribute Attr>
-std::span<VertexType<Attr>> VertexArray::GetVertices() {
-    auto& buffer = m_Buffers.at(magic_enum::enum_index(Attr).value());
-    if (buffer.Empty()) buffer.Resize(m_VertexCount * get_vertex_attribute_size(Attr));
-    return buffer.Span<VertexType<Attr>>();
+auto VertexArray::GetVertices() const {
+    std::size_t buffer_offset = 0;
+    for (std::size_t i = 0; i < magic_enum::enum_integer(Attr); i++) {
+        if (attribute_mask.test(i)) buffer_offset += vertex_count * get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(i).value());
+    }
+    return std::span<const VertexType<Attr>>(
+        reinterpret_cast<const VertexType<Attr>*>(cpu_buffer.GetData() + buffer_offset),
+        vertex_count);
+}
+
+template <VertexAttribute Attr>
+void VertexArray::Modify(std::function<void(std::span<VertexType<Attr>>)>&& modifier) {
+    if (!IsEnabled(Attr)) {
+        Enable(Attr);
+    };
+
+    std::size_t buffer_offset = 0;
+    for (std::size_t i = 0; i < magic_enum::enum_integer(Attr); i++) {
+        if (attribute_mask.test(i)) buffer_offset += vertex_count * get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(i).value());
+    }
+    modifier(std::span<VertexType<Attr>>(
+        reinterpret_cast<VertexType<Attr>*>(cpu_buffer.GetData() + buffer_offset),
+        vertex_count));
+    dirty = true;
 }
 
 template <IndexType T>
-std::span<IndexDataType<T>> IndexArray::GetIndices() {
-    if (T != m_IndexType)
+auto IndexArray::GetIndices() const {
+    if (T != type)
         throw std::invalid_argument(fmt::format(
             "expect template parameter: ({}), but get ({})",
-            magic_enum::enum_name(m_IndexType),
+            magic_enum::enum_name(type),
             magic_enum::enum_name(T)));
 
-    return m_Buffer.Span<IndexDataType<T>>();
+    return cpu_buffer.Span<const IndexDataType<T>>();
+}
+
+template <IndexType T>
+void IndexArray::Modify(std::function<void(std::span<IndexDataType<T>>)>&& func) {
+    if (T != type)
+        throw std::invalid_argument(fmt::format(
+            "expect template parameter: ({}), but get ({})",
+            magic_enum::enum_name(type),
+            magic_enum::enum_name(T)));
+
+    dirty = true;
+    func(cpu_buffer.Span<IndexDataType<T>>());
 }
 
 }  // namespace hitagi::resource

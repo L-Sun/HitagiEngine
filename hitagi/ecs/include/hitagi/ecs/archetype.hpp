@@ -15,9 +15,14 @@ using ArchetypeId = std::size_t;
 template <typename... Components>
 requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
     constexpr ArchetypeId get_archetype_id() {
-    std::size_t seed = 0;
-    utils::hash_combine(seed, std::type_index(typeid(std::remove_cvref_t<Components>))...);
-    return seed;
+    return []<std::size_t... I>(std::index_sequence<I...>) {
+        auto type_index_array = std::array{std::type_index(typeid(Components))...};
+        std::sort(type_index_array.begin(), type_index_array.end());
+        std::size_t seed = 0;
+        utils::hash_combine(seed, type_index_array.at(I)...);
+        return seed;
+    }
+    (std::index_sequence_for<Components...>{});
 }
 
 class IArchetype {

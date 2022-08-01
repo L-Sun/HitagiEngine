@@ -1,4 +1,5 @@
 #include <hitagi/application.hpp>
+#include <hitagi/core/config_manager.hpp>
 
 #ifdef WIN32
 #include "windows/win32_application.hpp"
@@ -17,6 +18,7 @@ bool Application::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Application");
 
     m_Logger->info("Initialize Application");
+    m_Clock.Start();
 
     // Windows
     InitializeWindows();
@@ -30,7 +32,9 @@ void Application::Finalize() {
     m_Logger = nullptr;
 }
 
-void Application::Tick() {}
+void Application::Tick() {
+    m_Clock.Tick();
+}
 
 void Application::SetCommandLineParameters(int argc, char** argv) {
     m_ArgSize = argc;

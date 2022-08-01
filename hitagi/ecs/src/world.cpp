@@ -3,7 +3,7 @@
 #include <hitagi/ecs/schedule.hpp>
 
 namespace hitagi::ecs {
-World::World() {
+World::World(std::string_view name) : m_Name(name) {
     m_Timer.Start();
 }
 

@@ -1,6 +1,8 @@
 #pragma once
 #include <hitagi/math/vector.hpp>
+#include <hitagi/utils/utils.hpp>
 #include <cassert>
+#include <type_traits>
 
 namespace hitagi::math {
 
@@ -16,13 +18,22 @@ struct Matrix {
     Matrix& operator=(const Matrix&)     = default;
     Matrix& operator=(Matrix&&) noexcept = default;
 
-    explicit Matrix(const T num) {
-        std::fill_n(&data[0][0], D * D, static_cast<T>(0));
-        for (size_t i = 0; i < D; i++)
-            data[i][i] = num;
+    constexpr static Matrix zero() noexcept {
+        return {utils::create_array<RowVec, D>(RowVec{0})};
     }
-    Matrix(std::initializer_list<RowVec>&& l) { std::move(l.begin(), l.end(), data.begin()); }
-    Matrix(std::array<RowVec, D> a) : data(a) {}
+
+    constexpr static Matrix identity() noexcept {
+        constexpr auto init_row = []<std::size_t I, std::size_t... J>(std::integral_constant<std::size_t, I>, std::index_sequence<J...>)->RowVec {
+            return RowVec{{static_cast<T>(I == J ? 1 : 0)...}};
+        };
+        return [init_row]<std::size_t... I>(std::index_sequence<I...>) {
+            return Matrix(std::array<RowVec, D>{init_row(std::integral_constant<std::size_t, I>{}, std::make_index_sequence<D>{})...});
+        }
+        (std::make_index_sequence<D>{});
+    }
+
+    constexpr Matrix(std::initializer_list<RowVec> l) { std::move(l.begin(), l.end(), data.begin()); }
+    constexpr Matrix(std::array<RowVec, D> a) : data{a} {}
 
     template <typename TT>
     Matrix(const TT* p) noexcept {
@@ -117,12 +128,6 @@ struct Matrix {
         return *this;
     }
 #if defined(USE_ISPC)
-    explicit Matrix(const T num) requires IspcSpeedable<T> {
-        ispc::zero(*this, D * D);
-        for (size_t i = 0; i < D; i++)
-            data[i][i] = num;
-    }
-
     Matrix operator+(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
         Matrix result{};
         ispc::vector_add(*this, rhs, result, D * D);
@@ -220,7 +225,7 @@ Matrix<T, 3> inverse(const Matrix<T, 3>& mat) {
     T det = determinant(mat);
     if (det == 0) {
         std::cerr << "[Math] Warning: the matrix is singular! Function will return a identity matrix!" << std::endl;
-        return Matrix<T, 3>(static_cast<T>(1));
+        return Matrix<T, 3>::identity();
     }
     T inv_det = static_cast<T>(1) / det;
 
@@ -267,7 +272,7 @@ Matrix<T, 4> inverse(const Matrix<T, 4>& mat) {
 
     if (det == 0) {
         std::cerr << "[Math] Warning: the matrix is singular! Function will return a identity matrix!" << std::endl;
-        return Matrix<T, 4>(static_cast<T>(1));
+        return Matrix<T, 4>::identity();
     }
     T inv_det = static_cast<T>(1) / det;
 

@@ -1,11 +1,10 @@
 #pragma once
-#include <hitagi/resource/scene_object.hpp>
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/utils/private_build.hpp>
 
 namespace hitagi::resource {
 
-class Shader : public ResourceObject {
+class Shader {
 public:
     enum struct Type : std::uint8_t {
         Vertex,

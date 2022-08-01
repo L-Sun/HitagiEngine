@@ -1,6 +1,7 @@
 #include "resource_binder.hpp"
 #include "command_context.hpp"
 #include "utils.hpp"
+#include "dx12_device.hpp"
 
 #include <hitagi/utils/utils.hpp>
 
@@ -10,7 +11,7 @@ namespace hitagi::graphics::backend::DX12 {
 
 std::mutex ResourceBinder::sm_Mutex;
 
-ResourceBinder::ResourceBinder(ID3D12Device* device, CommandContext& context, FenceChecker&& checker)
+ResourceBinder::ResourceBinder(DX12Device* device, CommandContext& context, FenceChecker&& checker)
     : m_Device(device),
       m_Context(context),
       m_FenceChecker(std::move(checker)),
@@ -23,8 +24,8 @@ ResourceBinder::ResourceBinder(ID3D12Device* device, CommandContext& context, Fe
       m_NumFreeHandles(
           utils::create_array<std::uint32_t, 2>(0))  //
 {
-    m_HandleIncrementSizes[0] = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    m_HandleIncrementSizes[1] = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+    m_HandleIncrementSizes[0] = m_Device->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    m_HandleIncrementSizes[1] = m_Device->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 }
 
 void ResourceBinder::Reset(FenceValue fence_value) {
@@ -140,7 +141,7 @@ void ResourceBinder::BindResource(std::uint32_t slot, ConstantBuffer* cb, std::s
         }
     }
 }
-void ResourceBinder::BindResource(std::uint32_t slot, TextureBuffer* tb) {
+void ResourceBinder::BindResource(std::uint32_t slot, Texture* tb) {
     auto slot_info = m_SlotInfos[magic_enum::enum_integer(Descriptor::Type::SRV)].at(slot);
     if (slot_info.in_table) {
         StageDescriptor(slot_info.value, tb->GetSRV());
@@ -218,7 +219,7 @@ ComPtr<ID3D12DescriptorHeap> ResourceBinder::RequestDescriptorHeap(D3D12_DESCRIP
 }
 
 ComPtr<ID3D12DescriptorHeap> ResourceBinder::CreateDescriptorHeap(
-    ID3D12Device*              device,
+    DX12Device*                device,
     D3D12_DESCRIPTOR_HEAP_TYPE type) {
     D3D12_DESCRIPTOR_HEAP_DESC descriptor_heap_desc = {};
     descriptor_heap_desc.Type                       = type;
@@ -226,7 +227,7 @@ ComPtr<ID3D12DescriptorHeap> ResourceBinder::CreateDescriptorHeap(
     descriptor_heap_desc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
     ComPtr<ID3D12DescriptorHeap> descriptor_heap;
-    ThrowIfFailed(device->CreateDescriptorHeap(&descriptor_heap_desc, IID_PPV_ARGS(&descriptor_heap)));
+    ThrowIfFailed(device->GetDevice()->CreateDescriptorHeap(&descriptor_heap_desc, IID_PPV_ARGS(&descriptor_heap)));
 
     return descriptor_heap;
 }
@@ -282,7 +283,7 @@ void ResourceBinder::CommitStagedDescriptors() {
 
         auto heap_gpu_handle = m_CurrentGPUDescriptorHandles[heap_type];
         for (const auto& [cpu_handle, num_descriptors] : ranges) {
-            m_Device->CopyDescriptorsSimple(
+            m_Device->GetDevice()->CopyDescriptorsSimple(
                 num_descriptors,
                 m_CurrentCPUDescriptorHandles[heap_type],
                 cpu_handle,

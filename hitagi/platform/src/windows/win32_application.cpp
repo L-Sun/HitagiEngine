@@ -109,6 +109,11 @@ void Win32Application::UpdateRect() {
     }
 }
 
+void Win32Application::SetWindowTitle(std::string_view title) {
+    std::pmr::wstring text{title.begin(), title.end()};
+    SetWindowTextW(m_Window, text.data());
+}
+
 void Win32Application::MapCursor() {
     if (m_LockCursor) {
         POINT ul;

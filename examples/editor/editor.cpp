@@ -24,7 +24,7 @@ void Editor::Finalize() {
 }
 
 void Editor::Tick() {
-    debug_manager->DrawAxis(scale(mat4f(1.0f), 100.0f));
+    debug_manager->DrawAxis(scale(100.0f));
     gui_manager->DrawGui([this]() -> void { Draw(); });
 }
 
@@ -52,7 +52,7 @@ void Editor::MainMenu() {
     if (ImGui::Begin("Scenes")) {
         for (std::size_t index = 0; index < scene_manager->GetNumScene(); index++) {
             const auto& scene = scene_manager->GetScene(index);
-            if (ImGui::Selectable(scene.GetName().data())) {
+            if (ImGui::Selectable(scene.name.data())) {
                 scene_manager->SwitchScene(index);
             }
         }

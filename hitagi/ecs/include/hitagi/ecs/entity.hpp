@@ -2,12 +2,17 @@
 
 #include <compare>
 #include <cstdint>
+#include <limits>
 
 namespace hitagi::ecs {
+
 struct Entity {
     std::uint64_t id = 0;
 
-    constexpr      operator const bool() const { return id != static_cast<std::uint64_t>(-1); }
+    static constexpr Entity InvalidEntity() {
+        return {.id = std::numeric_limits<std::uint64_t>::max()};
+    }
+    constexpr      operator const bool() const { return id != std::numeric_limits<std::uint64_t>::max(); }
     constexpr auto operator<=>(const Entity&) const = default;
 };
 

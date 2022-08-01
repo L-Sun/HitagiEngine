@@ -1,5 +1,6 @@
 #include <hitagi/parser/material_parser.hpp>
 
+#include <magic_enum.hpp>
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 

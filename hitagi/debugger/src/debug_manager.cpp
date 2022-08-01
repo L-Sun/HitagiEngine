@@ -1,8 +1,8 @@
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/core/memory_manager.hpp>
+#include <hitagi/ecs/schedule.hpp>
 #include <hitagi/resource/mesh_factory.hpp>
 #include <hitagi/resource/asset_manager.hpp>
-#include <hitagi/resource/renderable.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 
 #include <spdlog/spdlog.h>
@@ -24,33 +24,38 @@ bool DebugManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("DebugManager");
     m_Logger->info("Initialize...");
 
-    m_LineMaterial = asset_manager->ImportMaterial("assets/material/debug_line.json");
-    if (m_LineMaterial == nullptr) {
+    auto material = asset_manager->ImportMaterial("assets/material/debug_line.json");
+    if (!material.has_value()) {
         m_Logger->error("Can not load debug material!");
         return false;
     }
+    m_LineMaterialInstance = material.value();
 
-    m_DebugPrimitives.emplace("x_axis", MeshFactory::Line({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}));
-    m_DebugPrimitives.emplace("y_axis", MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}));
-    m_DebugPrimitives.emplace("z_axis", MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}));
+    auto x_axis = MeshFactory::Line({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f});
+    auto y_axis = MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f});
+    auto z_axis = MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f});
 
-    m_DebugPrimitives["x_axis"].material = m_LineMaterial;
-    m_DebugPrimitives["y_axis"].material = m_LineMaterial;
-    m_DebugPrimitives["z_axis"].material = m_LineMaterial;
-    m_DebugPrimitives["x_axis"].SetName("x_axis");
-    m_DebugPrimitives["y_axis"].SetName("y_axis");
-    m_DebugPrimitives["z_axis"].SetName("z_axis");
+    m_DebugPrimitivePrototypes["axis"] = merge_meshes({x_axis, y_axis, z_axis});
+    m_DebugPrimitivePrototypes["box"]  = MeshFactory::BoxWireframe(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f), {0.0f, 0.0f, 0.0f, 1.0f});
 
-    m_DebugPrimitives.emplace("box", MeshFactory::BoxWireframe(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f), {0.0f, 0.0f, 0.0f, 1.0f}));
-    m_DebugPrimitives["box"].material = m_LineMaterial;
-    m_DebugPrimitives["box"].SetName("box");
+    m_DebugPrimitivePrototypes["axis"].vertices->name = "debug_axis";
+    m_DebugPrimitivePrototypes["box"].vertices->name  = "debug_box";
+    m_DebugPrimitivePrototypes["axis"].indices->name  = "debug_axis";
+    m_DebugPrimitivePrototypes["box"].indices->name   = "debug_box";
+
+    for (auto& [name, mesh] : m_DebugPrimitivePrototypes) {
+        for (auto& sub_mesh : mesh.sub_meshes) {
+            sub_mesh.material = m_LineMaterialInstance;
+        }
+    }
 
     return true;
 }
 
 void DebugManager::Finalize() {
-    m_LineMaterial = nullptr;
-    m_DebugPrimitives.clear();
+    m_LineMaterialInstance = {};
+    m_DebugDrawItems.clear();
+    m_DebugPrimitivePrototypes.clear();
 
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
@@ -58,7 +63,8 @@ void DebugManager::Finalize() {
 
 void DebugManager::Tick() {
     RetiredPrimitive();
-    DrawPrimitive();
+    if (m_DrawDebugInfo)
+        DrawPrimitive();
 }
 
 void DebugManager::ToggleDebugInfo() {
@@ -66,30 +72,15 @@ void DebugManager::ToggleDebugInfo() {
 }
 
 void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
-    Geometry line(std::make_shared<Transform>());
-    line.meshes.emplace_back(MeshFactory::Line(from, to, color));
-
-    AddPrimitive(std::move(line), duration, depth_enabled);
+    AddPrimitive(MeshFactory::Line(from, to, color), {}, duration, depth_enabled);
 }
 
 void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
-    Geometry axis(std::make_shared<Transform>(decompose(transform)));
-    axis.meshes.emplace_back(m_DebugPrimitives["x_axis"]);
-    axis.meshes.emplace_back(m_DebugPrimitives["y_axis"]);
-    axis.meshes.emplace_back(m_DebugPrimitives["z_axis"]);
-
-    AddPrimitive(std::move(axis), std::chrono::seconds(0), depth_enabled);
+    AddPrimitive(m_DebugPrimitivePrototypes["axis"], {transform}, std::chrono::seconds(0), depth_enabled);
 }
 
 void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
-    Geometry box(std::make_shared<Transform>(decompose(transform)));
-    box.meshes.emplace_back(m_DebugPrimitives["box"]);
-
-    AddPrimitive(std::move(box), duration, depth_enabled);
-}
-
-void DebugManager::AddPrimitive(Geometry&& geometry, std::chrono::seconds duration, bool depth_enabled) {
-    m_DebugDrawItems.emplace_back(DebugPrimitive{std::move(geometry), std::chrono::high_resolution_clock::now() + duration});
+    AddPrimitive(m_DebugPrimitivePrototypes["box"], {transform}, duration, depth_enabled);
 }
 
 void DebugManager::RetiredPrimitive() {
@@ -109,21 +100,30 @@ void DebugManager::RetiredPrimitive() {
     m_DebugDrawItems.erase(iter, m_DebugDrawItems.end());
 }
 
-void DebugManager::DrawPrimitive() const {
-    std::pmr::vector<Renderable> renderables;
-    for (const auto& primitive : m_DebugDrawItems) {
-        auto& geometry = primitive.geometry;
-        for (const auto& mesh : geometry.meshes) {
-            Renderable item;
-            item.type      = Renderable::Type::Debug;
-            item.mesh      = mesh;
-            item.material  = mesh.material->GetMaterial().lock();
-            item.transform = geometry.transform;
-            renderables.emplace_back(std::move(item));
-        }
+void DebugManager::AddPrimitive(const Mesh& mesh, Transform transform, std::chrono::seconds duration, bool depth_enabled) {
+    DebugPrimitive item;
+    item.type       = Renderable::Type::Debug;
+    item.vertices   = mesh.vertices;
+    item.indices    = mesh.indices;
+    item.transform  = transform;
+    item.material   = m_LineMaterialInstance.GetMaterial().lock();
+    item.expires_at = std::chrono::high_resolution_clock::now() + duration;
+    item.dirty      = true;
+
+    for (const auto& sub_mesh : mesh.sub_meshes) {
+        item.sub_mesh = sub_mesh;
     }
 
-    graphics_manager->AppendRenderables(renderables);
+    m_DebugDrawItems.emplace_back(std::move(item));
+}
+
+void DebugManager::DrawPrimitive() const {
+    std::pmr::vector<Renderable> result;
+    result.reserve(m_DebugPrimitivePrototypes.size());
+    std::transform(m_DebugDrawItems.begin(), m_DebugDrawItems.end(), std::back_inserter(result), [](const DebugPrimitive& item) {
+        return static_cast<Renderable>(item);
+    });
+    graphics_manager->AppendRenderables(result);
 }
 
 }  // namespace hitagi::debugger

@@ -1,9 +1,5 @@
 #include <hitagi/parser/assimp.hpp>
-#include <hitagi/resource/camera.hpp>
-#include <hitagi/resource/light.hpp>
-#include <hitagi/resource/material_instance.hpp>
-#include <hitagi/resource/bone.hpp>
-#include <hitagi/math/transform.hpp>
+#include <hitagi/core/timer.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -17,6 +13,32 @@ using namespace hitagi::math;
 
 namespace hitagi::resource {
 
+mat4f get_matrix(const aiMatrix4x4& _mat) {
+    mat4f ret(reinterpret_cast<const ai_real*>(&_mat));
+    return transpose(ret);
+};
+vec3f get_vec3(const aiVector3D& v) {
+    return {v.x, v.y, v.z};
+};
+vec3f get_vec3(const aiColor3D& v) {
+    return {v.r, v.g, v.b};
+};
+vec4f get_vec4(const aiColor4D& c) {
+    return {c.r, c.g, c.b, c.a};
+};
+
+PrimitiveType get_primitive(unsigned int primitives) {
+    if (primitives & aiPrimitiveType::aiPrimitiveType_LINE)
+        return PrimitiveType::LineList;
+    else if (primitives & aiPrimitiveType::aiPrimitiveType_POINT)
+        return PrimitiveType::PointList;
+    else if (primitives & aiPrimitiveType::aiPrimitiveType_TRIANGLE)
+        return PrimitiveType::TriangleList;
+    else {
+        return PrimitiveType::Unkown;
+    }
+}
+
 void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vector<std::shared_ptr<Material>>& materials) {
     auto logger = spdlog::get("AssetManager");
 
@@ -25,7 +47,7 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
         return;
     }
 
-    auto begin = std::chrono::high_resolution_clock::now();
+    core::Clock clock;
 
     Assimp::Importer importer;
     auto             flag =
@@ -34,56 +56,49 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
         aiPostProcessSteps::aiProcess_GenSmoothNormals |
         aiPostProcessSteps::aiProcess_JoinIdenticalVertices;
 
+    clock.Start();
     const aiScene* ai_scene = importer.ReadFileFromMemory(buffer.GetData(), buffer.GetDataSize(), flag);
     if (!ai_scene) {
         logger->error("[Assimp] Can not parse the scene.");
         return;
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    logger->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+    logger->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    clock.Tick();
 
-    begin = std::chrono::high_resolution_clock::now();
-    scene.SetName(ai_scene->mName.C_Str());
-
-    constexpr auto get_matrix = [](const aiMatrix4x4& _mat) -> const mat4f {
-        mat4f ret(reinterpret_cast<const ai_real*>(&_mat));
-        return transpose(ret);
-    };
-
-    constexpr auto get_vec3 = [](const aiVector3D& v) -> const vec3f {
-        return vec3f(v.x, v.y, v.z);
-    };
-    constexpr auto get_color = [](const aiColor4D& c) -> const vec4f {
-        return vec4f(c.r, c.g, c.b, c.a);
-    };
+    scene.name = ai_scene->mName.C_Str();
 
     // process camera
-    std::unordered_map<std::string_view, std::shared_ptr<Camera>> camera_name_map;
+    std::unordered_map<std::string_view, Camera> camera_name_map;
+    logger->debug("Parse cameras... Num: {}", ai_scene->mNumCameras);
     for (size_t i = 0; i < ai_scene->mNumCameras; i++) {
         const auto _camera = ai_scene->mCameras[i];
 
-        auto perspective_camera =
-            std::make_shared<Camera>(
-                _camera->mAspect,
-                _camera->mClipPlaneNear,
-                _camera->mClipPlaneFar,
-                _camera->mHorizontalFOV,
-                get_vec3(_camera->mPosition),
-                get_vec3(_camera->mUp),
-                get_vec3(_camera->mLookAt));
+        Camera camera;
+        camera.aspect    = _camera->mAspect;
+        camera.near_clip = _camera->mClipPlaneNear;
+        camera.far_clip  = _camera->mClipPlaneFar;
+        camera.fov       = _camera->mHorizontalFOV;
+        camera.eye       = get_vec3(_camera->mPosition);
+        camera.look_dir  = get_vec3(_camera->mUp);
+        camera.up        = get_vec3(_camera->mLookAt);
+        camera.Update();
 
-        perspective_camera->SetName(_camera->mName.C_Str());
-
-        auto&& [result, success] = camera_name_map.emplace(perspective_camera->GetName(), perspective_camera);
+        auto&& [result, success] = camera_name_map.emplace(_camera->mName.C_Str(), camera);
         if (!success)
-            logger->warn("A camera[{}] with the same name already exists!", perspective_camera->GetName());
+            logger->warn("A camera[{}] with the same name already exists!", _camera->mName.C_Str());
     }
+    logger->info("[Assimp] Parsing cameras costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    clock.Tick();
 
     // process light
-    std::pmr::unordered_map<std::string_view, std::shared_ptr<Light>> light_name_map;
+    std::pmr::unordered_map<std::string_view, Light> light_name_map;
+    logger->debug("Parse cameras... Num: {}", ai_scene->mNumLights);
     for (size_t i = 0; i < ai_scene->mNumLights; i++) {
-        const auto             _light = ai_scene->mLights[i];
-        std::shared_ptr<Light> light;
+        const auto _light = ai_scene->mLights[i];
+
+        Light light;
+        light.color = get_vec3(_light->mColorDiffuse);
+
         switch (_light->mType) {
             case aiLightSourceType::aiLightSource_AMBIENT:
                 std::cerr << "[AssimpParser] " << std::endl;
@@ -92,25 +107,21 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
             case aiLightSourceType::aiLightSource_AREA:
                 logger->warn("[Assimp] Unsupport light type: AREA");
                 break;
-            case aiLightSourceType::aiLightSource_DIRECTIONAL:
-                logger->warn("[Assimp] Unsupport light type: DIRECTIONAL");
-                break;
+            case aiLightSourceType::aiLightSource_DIRECTIONAL: {
+                light.type      = Light::Type::Point;
+                light.direction = normalize(get_vec3(_light->mDirection));
+            } break;
             case aiLightSourceType::aiLightSource_POINT: {
-                vec4f color(1.0f);
-                color.rgb       = normalize(vec3f(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b));
-                float intensity = _light->mColorDiffuse.r / color.r;
-                light           = std::make_shared<PointLight>(color, intensity);
+                light.type     = Light::Type::Point;
+                light.position = get_vec3(_light->mPosition);
             } break;
             case aiLightSourceType::aiLightSource_SPOT: {
-                vec4f diffuseColor(_light->mColorDiffuse.r, _light->mColorDiffuse.g, _light->mColorDiffuse.b, 1.0f);
-                float intensity = _light->mColorDiffuse.r / diffuseColor.r;
-                vec3f direction(_light->mDirection.x, _light->mDirection.y, _light->mDirection.z);
-                light = std::make_shared<SpotLight>(
-                    diffuseColor,
-                    intensity,
-                    direction,
-                    _light->mAngleInnerCone,
-                    _light->mAngleOuterCone);
+                light.type             = Light::Type::Spot;
+                light.inner_cone_angle = _light->mAngleInnerCone;
+                light.outer_cone_angle = _light->mAngleOuterCone;
+                light.position         = get_vec3(_light->mPosition);
+                light.up               = normalize(get_vec3(_light->mUp));
+                light.direction        = normalize(get_vec3(_light->mDirection));
             } break;
             case aiLightSourceType::aiLightSource_UNDEFINED:
                 logger->warn("[Assimp] Unsupport light type: UNDEFINED");
@@ -122,14 +133,18 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
                 logger->warn("[Assimp] Unknown light type.");
                 break;
         }
-        light->SetName(_light->mName.C_Str());
-        auto&& [result, success] = light_name_map.emplace(light->GetName(), light);
+        auto&& [result, success] = light_name_map.emplace(_light->mName.C_Str(), light);
         if (!success)
-            logger->warn("A light[{}] with the same name already exists!", light->GetName());
+            logger->warn("A light[{}] with the same name already exists!", _light->mName.C_Str());
     }
+    logger->info("[Assimp] Parsing lights costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    clock.Tick();
 
     // process material
-    auto convert_material = [&](const aiMaterial* _material, PrimitiveType primitive) -> std::shared_ptr<MaterialInstance> {
+    logger->debug("Parse materials... Num: {}", ai_scene->mNumMaterials);
+    std::pmr::vector<MaterialInstance> material_instances;
+    for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
+        auto              _material = ai_scene->mMaterials[i];
         Material::Builder builder;
 
         // set material diffuse color
@@ -169,9 +184,6 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
             for (size_t i = 0; i < _material->GetTextureCount(key2); i++) {
                 aiString _path;
                 if (AI_SUCCESS == _material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, i, &_path)) {
-                    std::filesystem::path path(_path.C_Str());
-                    auto                  texture = std::make_shared<Texture>(path);
-                    texture->SetName(_path.C_Str());
                     builder.AppendTextureName(key1, _path.C_Str());
                 }
                 break;  // unsupport blend for now.
@@ -181,12 +193,10 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
         // TODO adapte assimp shader
         builder
             .SetVertexShader("asset/assimp.hlsl")
-            .SetPixelShader("asset/assimp.hlsl")
-            .SetPrimitive(primitive);
+            .SetPixelShader("asset/assimp.hlsl");
 
         auto material = builder.Build();
         auto instance = material->CreateInstance();
-        instance->SetName(material->GetName());
 
         auto iter = std::find_if(materials.begin(),
                                  materials.end(),
@@ -200,33 +210,43 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
         }
         // A exists material type
         else {
-            instance->SetMaterial(*iter);
+            instance.SetMaterial(*iter);
         }
 
-        // set material name
-        if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
-            instance->SetName(name.C_Str());
-
-        return instance;
+        material_instances.emplace_back(std::move(instance));
     };
+    logger->info("[Assimp] Parsing materials costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    clock.Tick();
 
     std::pmr::unordered_map<aiMesh*, Mesh> meshes;
+    logger->debug("Parse meshes... Num: {}", ai_scene->mNumMeshes);
+    for (size_t i = 0; i < ai_scene->mNumMeshes; i++) {
+        auto ai_mesh = ai_scene->mMeshes[i];
+        // Read Indices
+        std::size_t num_indices = 0;
+        for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++) {
+            num_indices += ai_mesh->mFaces[face].mNumIndices;
+        }
 
-    auto covert_mesh = [&](const aiMesh* ai_mesh) -> Mesh {
-        auto vertices = std::make_shared<VertexArray>(ai_mesh->mNumVertices);
+        Mesh mesh{
+            .vertices = std::make_shared<VertexArray>(ai_mesh->mNumVertices),
+            .indices  = std::make_shared<IndexArray>(num_indices, IndexType::UINT32),
+        };
 
         // Read Position
         if (ai_mesh->HasPositions()) {
-            auto       position  = vertices->GetVertices<VertexAttribute::Position>();
-            const auto _position = std::span<aiVector3D>(ai_mesh->mVertices, ai_mesh->mNumVertices);
-            std::transform(_position.begin(), _position.end(), position.begin(), get_vec3);
+            mesh.vertices->Modify<VertexAttribute::Position>([&](auto positions) {
+                const auto _positions = std::span<aiVector3D>(ai_mesh->mVertices, ai_mesh->mNumVertices);
+                std::transform(_positions.begin(), _positions.end(), positions.begin(), [](const auto& v) { return get_vec3(v); });
+            });
         }
 
         // Read Normal
         if (ai_mesh->HasNormals()) {
-            auto       normal  = vertices->GetVertices<VertexAttribute::Normal>();
-            const auto _normal = std::span<aiVector3D>(ai_mesh->mNormals, ai_mesh->mNumVertices);
-            std::transform(_normal.begin(), _normal.end(), normal.begin(), get_vec3);
+            mesh.vertices->Modify<VertexAttribute::Normal>([&](auto normals) {
+                const auto _normals = std::span<aiVector3D>(ai_mesh->mNormals, ai_mesh->mNumVertices);
+                std::transform(_normals.begin(), _normals.end(), normals.begin(), [](const auto& v) { return get_vec3(v); });
+            });
         }
 
         // Read Color
@@ -237,9 +257,10 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
             constexpr std::array channels    = {VertexAttribute::Color0, VertexAttribute::Color1, VertexAttribute::Color2, VertexAttribute::Color3};
             auto                 build_color = [&]<std::size_t I>(std::integral_constant<std::size_t, I>) {
                 if (ai_mesh->HasVertexColors(I)) {
-                    auto       color  = vertices->GetVertices<channels.at(I)>();
-                    const auto _color = std::span<aiColor4D>(ai_mesh->mColors[I], ai_mesh->mNumVertices);
-                    std::transform(_color.begin(), _color.end(), color.begin(), get_color);
+                    mesh.vertices->Modify<channels.at(I)>([&](auto colors) {
+                        const auto _colors = std::span<aiColor4D>(ai_mesh->mColors[I], ai_mesh->mNumVertices);
+                        std::transform(_colors.begin(), _colors.end(), colors.begin(), [](const auto& c) { return get_vec4(c); });
+                    });
                 }
             };
             [&]<std::size_t... I>(std::index_sequence<I...>) {
@@ -256,9 +277,10 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
             constexpr std::array channels    = {VertexAttribute::UV0, VertexAttribute::UV1, VertexAttribute::UV2, VertexAttribute::UV3};
             auto                 build_color = [&]<std::size_t I>(std::integral_constant<std::size_t, I>) {
                 if (ai_mesh->HasTextureCoords(I)) {
-                    auto       uv  = vertices->GetVertices<channels.at(I)>();
-                    const auto _uv = std::span<aiVector3D>(ai_mesh->mTextureCoords[I], ai_mesh->mNumVertices);
-                    std::transform(_uv.begin(), _uv.end(), uv.begin(), [](const aiVector3D& uv) { return vec2f(uv.x, uv.y); });
+                    mesh.vertices->Modify<channels.at(I)>([&](auto uvs) {
+                        const auto _uvs = std::span<aiVector3D>(ai_mesh->mTextureCoords[I], ai_mesh->mNumVertices);
+                        std::transform(_uvs.begin(), _uvs.end(), uvs.begin(), [](const aiVector3D& uv) { return vec2f(uv.x, uv.y); });
+                    });
                 }
             };
             [&]<std::size_t... I>(std::index_sequence<I...>) {
@@ -269,41 +291,25 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
 
         // Read Tangent and Bitangent
         if (ai_mesh->HasTangentsAndBitangents()) {
-            auto       tangent  = vertices->GetVertices<VertexAttribute::Tangent>();
-            const auto _tangent = std::span<aiVector3D>(ai_mesh->mTangents, ai_mesh->mNumVertices);
-            std::transform(_tangent.begin(), _tangent.end(), tangent.begin(), get_vec3);
+            mesh.vertices->Modify<VertexAttribute::Tangent>([&](auto tangents) {
+                const auto _tangents = std::span<aiVector3D>(ai_mesh->mTangents, ai_mesh->mNumVertices);
+                std::transform(_tangents.begin(), _tangents.end(), tangents.begin(), [](const auto& v) { return get_vec3(v); });
+            });
 
-            auto       bi_tangent  = vertices->GetVertices<VertexAttribute::Bitangent>();
-            const auto _bi_tangent = std::span<aiVector3D>(ai_mesh->mBitangents, ai_mesh->mBitangents);
-            std::transform(_bi_tangent.begin(), _bi_tangent.end(), bi_tangent.begin(), get_vec3);
+            mesh.vertices->Modify<VertexAttribute::Bitangent>([&](auto bi_tangents) {
+                const auto _bi_tangents = std::span<aiVector3D>(ai_mesh->mBitangents, ai_mesh->mBitangents);
+                std::transform(_bi_tangents.begin(), _bi_tangents.end(), bi_tangents.begin(), [](const auto& v) { return get_vec3(v); });
+            });
         }
 
         // Read Indices
-        std::size_t num_indices = 0;
-        for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++)
-            num_indices += ai_mesh->mFaces[face].mNumIndices;
-
-        auto        indices       = std::make_shared<IndexArray>(num_indices, IndexType::UINT32);
-        auto        indices_array = indices->GetIndices<IndexType::UINT32>();
-        std::size_t p             = 0;
-        for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++)
-            for (std::size_t i = 0; i < ai_mesh->mFaces[face].mNumIndices; i++)
-                indices_array[p++] = ai_mesh->mFaces[face].mIndices[i];
-
-        PrimitiveType primitive;
-        if (ai_mesh->mPrimitiveTypes & aiPrimitiveType::aiPrimitiveType_LINE)
-            primitive = PrimitiveType::LineList;
-        else if (ai_mesh->mPrimitiveTypes & aiPrimitiveType::aiPrimitiveType_POINT)
-            primitive = PrimitiveType::PointList;
-        else if (ai_mesh->mPrimitiveTypes & aiPrimitiveType::aiPrimitiveType_TRIANGLE)
-            primitive = PrimitiveType::TriangleList;
-        else {
-            primitive = PrimitiveType::Unkown;
-            logger->error("[Assimp] Unsupport Primitive Type");
-        }
-
-        // material
-        std::shared_ptr<MaterialInstance> material = convert_material(ai_scene->mMaterials[ai_mesh->mMaterialIndex], primitive);
+        mesh.indices->Modify<IndexType::UINT32>([&](auto array) {
+            std::size_t p = 0;
+            for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++) {
+                std::copy_n(ai_mesh->mFaces[face].mIndices, ai_mesh->mFaces[face].mNumIndices, array.data() + p);
+                p += ai_mesh->mFaces[face].mNumIndices;
+            }
+        });
 
         // // bone
         // if (ai_mesh->HasBones()) {
@@ -318,50 +324,53 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
         //         bone->SetBindTransformMatrix(get_matrix(_bone->mOffsetMatrix));
         //     }
         // }
+        mesh.vertices->name = ai_mesh->mName.C_Str();
+        mesh.indices->name  = ai_mesh->mName.C_Str();
+        mesh.sub_meshes.emplace_back(Mesh::SubMesh{
+            .index_count   = mesh.indices->index_count,
+            .vertex_offset = mesh.vertices->vertex_count,
+            .index_offset  = 0,
+            .material      = material_instances.at(ai_mesh->mMaterialIndex),
+        });
 
-        Mesh mesh{vertices, indices, material};
-        mesh.SetName(ai_mesh->mName.C_Str());
-        return mesh;
-    };
-
-    for (size_t i = 0; i < ai_scene->mNumMeshes; i++) {
-        auto ai_mesh = ai_scene->mMeshes[i];
-        meshes.emplace(ai_mesh, covert_mesh(ai_mesh));
-    }
-
-    auto create_geometry = [&](const aiNode* _node, const std::shared_ptr<Transform>& transform) -> Geometry {
-        Geometry geometry(transform);
-        for (size_t i = 0; i < _node->mNumMeshes; i++) {
-            auto ai_mesh     = ai_scene->mMeshes[_node->mMeshes[i]];
-            auto mesh_handle = meshes.extract(ai_mesh);
-            assert(!mesh_handle.empty());
-            geometry.meshes.emplace_back(std::move(mesh_handle.mapped()));
+        if (auto material = material_instances[ai_mesh->mMaterialIndex].GetMaterial().lock(); material) {
+            if (material->primitive == PrimitiveType::Unkown) {
+                material->primitive = get_primitive(ai_mesh->mPrimitiveTypes);
+            }
         }
-        return geometry;
+
+        meshes.emplace(ai_mesh, std::move(mesh));
+    };
+    logger->info("[Assimp] Parsing meshes costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    clock.Tick();
+
+    auto create_mesh = [&](const aiNode* _node) -> Mesh {
+        std::pmr::vector<Mesh> sub_meshes;
+        for (size_t i = 0; i < _node->mNumMeshes; i++) {
+            sub_meshes.emplace_back(meshes.at(ai_scene->mMeshes[_node->mMeshes[i]]));
+        }
+        return merge_meshes(sub_meshes);
     };
 
-    std::function<void(const aiNode*, const std::shared_ptr<Transform>&)>
-        convert = [&](const aiNode* _node, std::shared_ptr<Transform> parent) -> void {
-        std::string_view name = _node->mName.C_Str();
+    std::function<void(const aiNode*, ecs::Entity parent)>
+        convert = [&](const aiNode* _node, ecs::Entity parent) -> void {
+        std::pmr::string name = _node->mName.C_Str();
 
-        auto transform = std::make_shared<Transform>(decompose(get_matrix(_node->mTransformation)));
-        transform->SetParent(parent);
+        ecs::Entity node;
+        Hierarchy   hierarchy_componet{.parentID = parent};
+        Transform   transform_component{get_matrix(_node->mTransformation)};
 
         // The node is a geometry
         if (_node->mNumMeshes > 0) {
-            auto geometry = create_geometry(_node, transform);
-            geometry.SetName(name);
-            scene.geometries.emplace_back(std::move(geometry));
+            node = scene.geometries.emplace_back(scene.world.CreateEntity(create_mesh(_node), hierarchy_componet, transform_component));
         }
         // The node is a camera
         else if (camera_name_map.count(name) != 0) {
-            auto camera = camera_name_map.at(name);
-            camera->SetTransform(transform);
-            scene.cameras.emplace(camera);
+            node = scene.cameras.emplace_back(scene.world.CreateEntity(camera_name_map.at(name), hierarchy_componet, transform_component));
         }
         // The node is a light
         else if (light_name_map.count(name) != 0) {
-            scene.lights.emplace(light_name_map.at(name));
+            node = scene.lights.emplace_back(scene.world.CreateEntity(light_name_map.at(name), hierarchy_componet, transform_component));
         }
         // // The node is bone
         // else if (bone_name_map.count(name) != 0) {
@@ -376,13 +385,14 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
         }
 
         for (std::size_t i = 0; i < _node->mNumChildren; i++) {
-            convert(_node->mChildren[i], transform);
+            convert(_node->mChildren[i], node);
         }
     };
-    convert(ai_scene->mRootNode, nullptr);
+    convert(ai_scene->mRootNode, ecs::Entity::InvalidEntity());
+    logger->info("[Assimp] Parsing scnene graph costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    clock.Tick();
 
-    end = std::chrono::high_resolution_clock::now();
-    logger->info("[Assimp] Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+    logger->info("[Assimp] Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.TotalTime()).count());
 }
 
 }  // namespace hitagi::resource

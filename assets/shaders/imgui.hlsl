@@ -12,13 +12,8 @@ cbuffer FrameConstants : register(b0) {
 };
 
 cbuffer ObjectConstants : register(b1) {
-  matrix word_transform;
-  matrix object_transform;
-  matrix parent_transform;
-  float4 translation;
-  matrix rotation;
-  float4 scaling;
-}
+  matrix world_transform;
+};
 
 cbuffer ImGuiConstants : register(b2) { matrix orth_projection; }
 

@@ -21,7 +21,7 @@ concept SystemLike = requires(Schedule& s, std::chrono::duration<double> delta) 
 
 class World {
 public:
-    World();
+    World(std::string_view name);
 
     void Update();
 
@@ -30,26 +30,35 @@ public:
 
     inline std::size_t NumEntities() const noexcept { return m_EnitiesMap.size(); }
 
-    // create an entity that has multiple components.
+    // create an entity that has multiple order independent components.
     template <typename... Components>
     Entity CreateEntity() requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...);
+
+    // create an entity that has multiple order independent components.
+    template <typename... Components>
+    Entity CreateEntity(Components&&... components) requires utils::UniqueTypes<std::remove_cvref_t<Components>...>;
 
     template <typename... Components>
     std::pmr::vector<Entity> CreateEntities(std::size_t num) requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...);
 
     void DestoryEntity(const Entity& entity);
-
     // Get a array of archetype which contains the interseted components
     template <typename... Components>
     std::vector<std::shared_ptr<IArchetype>> GetArchetypes() requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...);
+    template <typename... Components>
+    std::vector<std::shared_ptr<IArchetype>> GetArchetypes() const requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...);
 
     template <typename Component>
     std::optional<std::reference_wrapper<Component>> AccessEntity(const Entity& entity) requires utils::NoCVRef<Component>;
 
     template <typename Component>
+    std::optional<std::reference_wrapper<const Component>> AccessEntity(const Entity& entity) const requires utils::NoCVRef<Component>;
+
+    template <typename Component>
     bool HasEntity(const Entity& entity) requires utils::NoCVRef<Component>;
 
 private:
+    std::pmr::string                                                  m_Name;
     core::Clock                                                       m_Timer;
     std::size_t                                                       m_Counter = 0;
     std::pmr::unordered_map<Entity, std::shared_ptr<IArchetype>>      m_EnitiesMap;
@@ -79,6 +88,14 @@ Entity World::CreateEntity() requires utils::UniqueTypes<Components...> &&(utils
     return iter->first;
 }
 
+// create an entity that has multiple order independent components.
+template <typename... Components>
+Entity World::CreateEntity(Components&&... components) requires utils::UniqueTypes<std::remove_cvref_t<Components>...> {
+    auto entity = CreateEntity<std::remove_cvref_t<Components>...>();
+    ((AccessEntity<std::remove_cvref_t<Components>>(entity)->get() = std::forward<Components>(components)), ...);
+    return entity;
+}
+
 template <typename... Components>
 std::pmr::vector<Entity> World::CreateEntities(std::size_t num) requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...) {
     auto id = get_archetype_id<Components...>();
@@ -104,6 +121,16 @@ std::pmr::vector<Entity> World::CreateEntities(std::size_t num) requires utils::
 
 template <typename Component>
 std::optional<std::reference_wrapper<Component>> World::AccessEntity(const Entity& entity) requires utils::NoCVRef<Component> {
+    auto result = const_cast<const World*>(this)->AccessEntity<Component>(entity);
+    if (result.has_value()) {
+        return const_cast<Component&>(result->get());
+    } else {
+        return std::nullopt;
+    }
+}
+
+template <typename Component>
+std::optional<std::reference_wrapper<const Component>> World::AccessEntity(const Entity& entity) const requires utils::NoCVRef<Component> {
     auto iter = std::lower_bound(m_EnitiesMap.begin(), m_EnitiesMap.end(), entity.id, [](const auto& pair, std::uint64_t id) {
         return pair.first.id < id;
     });
@@ -114,7 +141,7 @@ std::optional<std::reference_wrapper<Component>> World::AccessEntity(const Entit
 }
 
 template <typename... Components>
-std::vector<std::shared_ptr<IArchetype>> World::GetArchetypes() requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...) {
+std::vector<std::shared_ptr<IArchetype>> World::GetArchetypes() const requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...) {
     std::vector<std::shared_ptr<IArchetype>> result;
     for (auto& [id, archetype] : m_Archetypes) {
         auto has_components = (true && ... && archetype->HasComponents<Components>());
@@ -122,6 +149,11 @@ std::vector<std::shared_ptr<IArchetype>> World::GetArchetypes() requires utils::
             result.emplace_back(archetype);
     }
     return result;
+}
+
+template <typename... Components>
+std::vector<std::shared_ptr<IArchetype>> World::GetArchetypes() requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...) {
+    return const_cast<const World*>(this)->GetArchetypes<Components...>();
 }
 
 template <typename Component>

@@ -27,7 +27,7 @@ void MyGame::Finalize() {
 }
 
 void MyGame::Tick() {
-    debug_manager->DrawAxis(mat4f{1.0f});
+    debug_manager->DrawAxis(mat4f::identity());
     gui_manager->DrawGui([]() {
         bool open = true;
         ImGui::ShowDemoWindow(&open);

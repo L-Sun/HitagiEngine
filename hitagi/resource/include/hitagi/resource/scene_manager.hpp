@@ -19,15 +19,12 @@ public:
     void        DeleteScene(std::size_t index);
     void        DeleteScenes(std::pmr::vector<std::size_t> index_array);
 
-    void SetCamera(std::shared_ptr<Camera> camera);
+    void SetCamera(ecs::Entity camera);
 
 private:
-    void CreateDefaultCamera(Scene& scene);
-    void CreateDefaultLight(Scene& scene);
-
     std::pmr::vector<Scene> m_Scenes;
     std::size_t             m_CurrentScene;
-    std::shared_ptr<Camera> m_CurrentCamera;
+    ecs::Entity             m_CurrentCamera;
 };
 }  // namespace hitagi::resource
 

@@ -2,8 +2,7 @@
 #include "d3d_pch.hpp"
 #include "descriptor_allocator.hpp"
 
-#include <hitagi/resource/enums.hpp>
-#include <hitagi/graphics/resource.hpp>
+#include <hitagi/graphics/gpu_resource.hpp>
 
 #include <d3d12.h>
 #include <dxgiformat.h>
@@ -176,7 +175,7 @@ inline auto hlsl_semantic_format(resource::VertexAttribute attr) noexcept {
     }
 }
 
-inline DXGI_FORMAT to_dxgi_format(graphics::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
+inline DXGI_FORMAT to_dxgi_format(resource::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
 inline DXGI_FORMAT to_dxgi_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
     std::size_t num_components = std::countr_one(mask);
     switch (num_components) {
@@ -233,42 +232,42 @@ inline DXGI_FORMAT to_dxgi_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
     }
 }
 
-inline graphics::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<graphics::Format>(format); }
+inline resource::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<resource::Format>(format); }
 
-inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(resource::TextureAddressMode mode) {
+inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(TextureAddressMode mode) {
     switch (mode) {
-        case resource::TextureAddressMode::Wrap:
+        case TextureAddressMode::Wrap:
             return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        case resource::TextureAddressMode::Mirror:
+        case TextureAddressMode::Mirror:
             return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
-        case resource::TextureAddressMode::Clamp:
+        case TextureAddressMode::Clamp:
             return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-        case resource::TextureAddressMode::Border:
+        case TextureAddressMode::Border:
             return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-        case resource::TextureAddressMode::MirrorOnce:
+        case TextureAddressMode::MirrorOnce:
             return D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE;
         default:
             return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     }
 }
 
-inline D3D12_COMPARISON_FUNC to_d3d_comp_func(resource::ComparisonFunc func) {
+inline D3D12_COMPARISON_FUNC to_d3d_comp_func(ComparisonFunc func) {
     switch (func) {
-        case resource::ComparisonFunc::Never:
+        case ComparisonFunc::Never:
             return D3D12_COMPARISON_FUNC_NEVER;
-        case resource::ComparisonFunc::Less:
+        case ComparisonFunc::Less:
             return D3D12_COMPARISON_FUNC_LESS;
-        case resource::ComparisonFunc::Equal:
+        case ComparisonFunc::Equal:
             return D3D12_COMPARISON_FUNC_EQUAL;
-        case resource::ComparisonFunc::LessEqual:
+        case ComparisonFunc::LessEqual:
             return D3D12_COMPARISON_FUNC_LESS_EQUAL;
-        case resource::ComparisonFunc::Greater:
+        case ComparisonFunc::Greater:
             return D3D12_COMPARISON_FUNC_GREATER;
-        case resource::ComparisonFunc::NotEqual:
+        case ComparisonFunc::NotEqual:
             return D3D12_COMPARISON_FUNC_NOT_EQUAL;
-        case resource::ComparisonFunc::GreaterEqual:
+        case ComparisonFunc::GreaterEqual:
             return D3D12_COMPARISON_FUNC_GREATER_EQUAL;
-        case resource::ComparisonFunc::Always:
+        case ComparisonFunc::Always:
             return D3D12_COMPARISON_FUNC_ALWAYS;
         default:
             return D3D12_COMPARISON_FUNC_NEVER;
@@ -276,7 +275,7 @@ inline D3D12_COMPARISON_FUNC to_d3d_comp_func(resource::ComparisonFunc func) {
 }
 
 // TODO change when integrate Vulkan
-inline D3D12_FILTER to_d3d_filter(resource::Filter filter) noexcept {
+inline D3D12_FILTER to_d3d_filter(Filter filter) noexcept {
     return static_cast<D3D12_FILTER>(filter);
 }
 
@@ -324,33 +323,30 @@ inline D3D12_PRIMITIVE_TOPOLOGY to_dx_topology(resource::PrimitiveType type) noe
     }
 }
 
-inline DXGI_FORMAT index_size_to_dxgi_format(size_t size) noexcept {
-    if (size == 4) {
-        return DXGI_FORMAT_R32_UINT;
-    } else if (size == 2) {
-        return DXGI_FORMAT_R16_UINT;
-    } else if (size == 1) {
-        return DXGI_FORMAT_R8_UINT;
-    } else {
-        return DXGI_FORMAT_UNKNOWN;
+inline DXGI_FORMAT index_type_to_dxgi_format(resource::IndexType type) noexcept {
+    switch (type) {
+        case resource::IndexType::UINT16:
+            return DXGI_FORMAT_R16_UINT;
+        case resource::IndexType::UINT32:
+            return DXGI_FORMAT_R32_UINT;
     }
 }
 
-inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(resource::SamplerDesc desc) noexcept {
+inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(const graphics::Sampler& sampler) noexcept {
     D3D12_SAMPLER_DESC result{};
-    result.AddressU       = to_d3d_texture_address_mode(desc.address_u);
-    result.AddressV       = to_d3d_texture_address_mode(desc.address_v);
-    result.AddressW       = to_d3d_texture_address_mode(desc.address_w);
-    result.BorderColor[0] = desc.border_color.r;
-    result.BorderColor[1] = desc.border_color.g;
-    result.BorderColor[2] = desc.border_color.b;
-    result.BorderColor[3] = desc.border_color.a;
-    result.ComparisonFunc = to_d3d_comp_func(desc.comp_func);
-    result.Filter         = to_d3d_filter(desc.filter);
-    result.MaxAnisotropy  = desc.max_anisotropy;
-    result.MaxLOD         = desc.max_lod;
-    result.MinLOD         = desc.min_lod;
-    result.MipLODBias     = desc.mip_lod_bias;
+    result.AddressU       = to_d3d_texture_address_mode(sampler.address_u);
+    result.AddressV       = to_d3d_texture_address_mode(sampler.address_v);
+    result.AddressW       = to_d3d_texture_address_mode(sampler.address_w);
+    result.BorderColor[0] = sampler.border_color.r;
+    result.BorderColor[1] = sampler.border_color.g;
+    result.BorderColor[2] = sampler.border_color.b;
+    result.BorderColor[3] = sampler.border_color.a;
+    result.ComparisonFunc = to_d3d_comp_func(sampler.comp_func);
+    result.Filter         = to_d3d_filter(sampler.filter);
+    result.MaxAnisotropy  = sampler.max_anisotropy;
+    result.MaxLOD         = sampler.max_lod;
+    result.MinLOD         = sampler.min_lod;
+    result.MipLODBias     = sampler.mip_lod_bias;
 
     return result;
 }

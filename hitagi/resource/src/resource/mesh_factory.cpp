@@ -1,26 +1,36 @@
 #include <hitagi/resource/mesh_factory.hpp>
-#include "hitagi/resource/asset_manager.hpp"
 
 using namespace hitagi::math;
 
 namespace hitagi::resource {
 
 Mesh MeshFactory::Line(const vec3f& from, const vec3f& to, const vec4f& color) {
-    auto vertices = std::make_shared<VertexArray>(2);
-    auto pos      = vertices->GetVertices<VertexAttribute::Position>();
-    pos[0]        = from;
-    pos[1]        = to;
+    Mesh mesh{
+        .vertices = std::make_shared<VertexArray>(2),
+        .indices  = std::make_shared<IndexArray>(2, IndexType::UINT32),
+    };
 
-    auto _color = vertices->GetVertices<VertexAttribute::Color0>();
-    _color[0]   = color;
-    _color[1]   = color;
+    mesh.vertices->Modify<VertexAttribute::Position>([&](auto pos) {
+        pos[0] = from;
+        pos[1] = to;
+    });
 
-    auto indices     = std::make_shared<IndexArray>(2, IndexType::UINT32);
-    auto indices_arr = indices->GetIndices<IndexType::UINT32>();
-    indices_arr[0]   = 0;
-    indices_arr[1]   = 1;
+    mesh.vertices->Modify<VertexAttribute::Color0>([&](auto _color) {
+        _color[0] = color;
+        _color[1] = color;
+    });
 
-    return {vertices, indices, nullptr};
+    mesh.indices->Modify<IndexType::UINT32>([](auto array) {
+        array[0] = 0;
+        array[1] = 1;
+    });
+
+    mesh.sub_meshes.emplace_back(Mesh::SubMesh{
+        .index_count   = 2,
+        .vertex_offset = 0,
+        .index_offset  = 0,
+    });
+    return mesh;
 }
 
 Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max, const vec4f& color) {
@@ -41,18 +51,30 @@ Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max, const v
         0u, 2u, 1u, 7u, 6u, 4u, 3u, 5u   // connect two plane
     };
 
-    auto vertices = std::make_shared<VertexArray>(vertex_data.size());
-    auto pos      = vertices->GetVertices<VertexAttribute::Position>();
-    std::copy(vertex_data.cbegin(), vertex_data.cend(), pos.begin());
+    Mesh mesh{
+        .vertices = std::make_shared<VertexArray>(vertex_data.size()),
+        .indices  = std::make_shared<IndexArray>(index_data.size(), IndexType::UINT32),
+    };
 
-    auto _color = vertices->GetVertices<VertexAttribute::Color0>();
-    std::fill(_color.begin(), _color.end(), color);
+    mesh.vertices->Modify<VertexAttribute::Position>([&](auto pos) {
+        std::copy(vertex_data.cbegin(), vertex_data.cend(), pos.begin());
+    });
 
-    auto indices       = std::make_shared<IndexArray>(index_data.size(), IndexType::UINT32);
-    auto indices_array = indices->GetIndices<IndexType::UINT32>();
-    std::copy(index_data.cbegin(), index_data.cend(), indices_array.begin());
+    mesh.vertices->Modify<VertexAttribute::Color0>([&](auto _color) {
+        std::fill(_color.begin(), _color.end(), color);
+    });
 
-    return {vertices, indices, nullptr};
+    mesh.indices->Modify<IndexType::UINT32>([&](auto array) {
+        std::copy(index_data.cbegin(), index_data.cend(), array.begin());
+    });
+
+    mesh.sub_meshes.emplace_back(Mesh::SubMesh{
+        .index_count   = mesh.indices->index_count,
+        .vertex_offset = 0,
+        .index_offset  = 0,
+    });
+
+    return mesh;
 }
 
 }  // namespace hitagi::resource

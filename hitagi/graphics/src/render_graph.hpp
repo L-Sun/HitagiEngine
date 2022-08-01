@@ -42,12 +42,13 @@ class RenderGraph {
     friend class ResourceHelper;
 
 public:
+    using ResourceType = std::variant<DepthBuffer, resource::Texture, RenderTarget>;
+
     class Builder {
         friend class RenderGraph;
 
     public:
-        template <typename T>
-        FrameHandle Create(std::string_view name, typename T::DescType desc) const noexcept { return m_Fg.Create(name, desc); }
+        FrameHandle Create(std::string_view name, ResourceType res) const noexcept { return m_Fg.Create(name, std::move(res)); }
 
         FrameHandle Read(const FrameHandle input) const noexcept { return m_Node.Read(input); }
         FrameHandle Write(const FrameHandle output) const noexcept { return m_Node.Write(m_Fg, output); }
@@ -59,7 +60,7 @@ public:
         PassNode&    m_Node;
     };
 
-    RenderGraph() = default;
+    RenderGraph(DeviceAPI& device) : m_Device(device) {}
 
     ~RenderGraph() { assert(m_Retired && "Frame graph must set a fence to retire its resources."); }
 
@@ -73,34 +74,33 @@ public:
         return *pass;
     }
 
-    FrameHandle Import(const std::shared_ptr<RenderTarget>& render_target) {
+    FrameHandle Import(RenderTarget* render_target) {
         FrameResourceId id     = m_Resources.size();
         FrameHandle     handle = m_ResourceNodes.size();
         m_Resources.emplace_back(render_target);
-        m_ResourceNodes.emplace_back(render_target->GetName(), id);
+        m_BlackBoard.emplace_back(render_target);
+        m_ResourceNodes.emplace_back(render_target->name, id);
         return handle;
     }
 
     void Present(FrameHandle render_target, const std::shared_ptr<hitagi::graphics::IGraphicsCommandContext>& contex);
 
     void Compile();
-    void Execute(DeviceAPI& driver);
-    void Retire(uint64_t fence_value, DeviceAPI& driver) noexcept;
+    void Execute();
+    void SetFenceValue(std::uint64_t fence_value);
 
 private:
-    using Desc = std::variant<DepthBufferDesc,
-                              TextureBufferDesc,
-                              RenderTargetDesc>;
+    FrameHandle Create(std::string_view name, ResourceType resource);
 
-    FrameHandle Create(std::string_view name, Desc desc);
-
-    bool m_Retired = false;
+    DeviceAPI& m_Device;
+    bool       m_Retired = false;
 
     std::pmr::vector<ResourceNode> m_ResourceNodes;
     std::pmr::vector<PassNode>     m_PassNodes;
 
-    std::pmr::vector<std::shared_ptr<Resource>>    m_Resources;
-    std::pmr::unordered_map<FrameResourceId, Desc> m_InnerResourcesDesc;
+    std::pmr::vector<resource::Resource*> m_Resources;  // All the resource including inner and black board
+    std::pmr::vector<ResourceType>        m_InnerResources;
+    std::pmr::vector<resource::Resource*> m_BlackBoard;
 };
 
 class ResourceHelper {
@@ -108,12 +108,12 @@ class ResourceHelper {
 
 public:
     template <typename T>
-    std::shared_ptr<T> Get(FrameHandle handle) const {
+    T& Get(FrameHandle handle) const {
         assert((m_Node.reads.contains(handle) || m_Node.writes.contains(handle)) && "This pass node do not operate the handle in graph!");
         auto id     = m_Fg.m_ResourceNodes[handle].resource;
         auto result = m_Fg.m_Resources[id];
         assert(result != nullptr && "Access a invalid resource in excution phase, which may be pruned in compile phase!");
-        return std::static_pointer_cast<T>(result);
+        return *static_cast<T*>(result);
     }
 
 private:

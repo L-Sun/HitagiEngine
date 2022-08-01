@@ -7,13 +7,13 @@
 
 namespace hitagi::resource {
 
-std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
+std::optional<Texture> JpegParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
-        return nullptr;
+        return std::nullopt;
     }
-    std::shared_ptr<Image> img;
+    Texture                image;
     jpeg_decompress_struct cinfo{};
     jpeg_error_mgr         jerr{};
     cinfo.err       = jpeg_std_error(&jerr);
@@ -25,18 +25,18 @@ std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
         jpeg_read_header(&cinfo, true);
         cinfo.out_color_space = JCS_EXT_RGBA;
 
-        auto width     = static_cast<uint32_t>(cinfo.image_width);
-        auto height    = static_cast<uint32_t>(cinfo.image_height);
-        auto bitcount  = 32;
-        auto pitch     = ((width * bitcount >> 3) + 3) & ~3;
-        auto data_size = pitch * height;
-        img            = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
+        image.width      = static_cast<std::uint32_t>(cinfo.image_width);
+        image.height     = static_cast<std::uint32_t>(cinfo.image_height);
+        image.format     = Format::R8G8B8A8_UNORM;
+        image.pitch      = ((image.width * 4) + 3) & ~3;
+        image.cpu_buffer = core::Buffer(image.pitch * image.height);
         jpeg_start_decompress(&cinfo);
 
         int row_stride = cinfo.output_width * cinfo.output_components;
 
         auto row_buffer = std::pmr::vector<JSAMPLE>(row_stride);
-        auto p          = reinterpret_cast<uint8_t*>(img->Buffer().GetData()) + (height - 1) * row_stride;
+        auto p          = image.cpu_buffer.GetData() + (image.height - 1) * row_stride;
+
         while (cinfo.output_scanline < cinfo.output_height) {
             auto p_row = row_buffer.data();
             jpeg_read_scanlines(&cinfo, &p_row, 1);
@@ -53,6 +53,6 @@ std::shared_ptr<Image> JpegParser::Parse(const core::Buffer& buf) {
 
         logger->error(error_message.data());
     }
-    return img;
+    return image;
 }
 }  // namespace hitagi::resource

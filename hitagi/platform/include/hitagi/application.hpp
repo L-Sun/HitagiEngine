@@ -1,5 +1,6 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
+#include <hitagi/core/timer.hpp>
 
 #include <vector>
 
@@ -22,6 +23,7 @@ public:
     virtual void* GetWindow()                                    = 0;
     virtual void  InitializeWindows()                            = 0;
     virtual void  SetInputScreenPosition(unsigned x, unsigned y) = 0;
+    virtual void  SetWindowTitle(std::string_view name)          = 0;
 
     virtual float GetDpiRatio() = 0;
     virtual bool  IsQuit();
@@ -31,6 +33,8 @@ protected:
     static bool sm_Quit;
     int         m_ArgSize = 0;
     char**      m_Arg     = nullptr;
+
+    core::Clock m_Clock;
     Rect        m_Rect{};
     bool        m_SizeChanged = false;
 

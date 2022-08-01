@@ -13,12 +13,15 @@ cbuffer FrameConstants : register(b0) {
 
 cbuffer ObjectConstants : register(b1) {
   matrix model;
+};
+
+cbuffer MaterialConstants : register(b2) {
   float4 ambient;
   float4 diffuse;
   float4 emission;
   float4 specular;
   float specularPower;
-};
+}
 
 Texture2D<float4> materialTexutrues[4] : register(t0);
 sampler baseSampler : register(s0);
