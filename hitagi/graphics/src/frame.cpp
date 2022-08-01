@@ -28,8 +28,8 @@ void Frame::SetCamera(resource::Camera camera) {
     camera.Update();
     m_FrameConstant.camera_pos     = vec4f(camera.eye, 1.0f);
     m_FrameConstant.view           = camera.GetView();
-    m_FrameConstant.projection     = camera.GetProjectionView();
-    m_FrameConstant.proj_view      = camera.GetInvProjectionView();
+    m_FrameConstant.projection     = camera.GetProjection();
+    m_FrameConstant.proj_view      = camera.GetProjectionView();
     m_FrameConstant.inv_view       = camera.GetInvView();
     m_FrameConstant.inv_projection = camera.GetInvProjection();
     m_FrameConstant.inv_proj_view  = camera.GetInvProjectionView();

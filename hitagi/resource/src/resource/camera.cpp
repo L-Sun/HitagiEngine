@@ -14,8 +14,8 @@ void Camera::Update() {
 }
 
 void Camera::ApplyTransform(const Transform& transform) {
-    eye      = (transform.world_matrix * vec4f(0, 0, 0, 1)).xyz;
-    look_dir = normalize(transform.world_matrix * vec4f(0, 1, 0, 0)).xyz;
+    eye      = (transform.world_matrix * vec4f(1, 1, 1, 1)).xyz;
+    look_dir = normalize(transform.world_matrix * vec4f(-1, -1, -1, 0)).xyz;
     up       = normalize(transform.world_matrix * vec4f(0, 0, 1, 0)).xyz;
 
     m_View = look_at(eye, look_dir, up);

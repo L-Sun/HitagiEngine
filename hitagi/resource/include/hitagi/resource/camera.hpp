@@ -9,11 +9,11 @@ public:
     float aspect    = 16.0f / 9.0f;
     float near_clip = 1.0f;
     float far_clip  = 1000.0f;
-    float fov       = 0.25 * std::numbers::pi;
+    float fov       = math::deg2rad(60.0f);
 
     // if camera is associated with Transform, then the following data will be updated by invoking `ApplyTransform`
-    math::vec3f eye      = math::vec3f(0.0f);
-    math::vec3f look_dir = math::vec3f{0.0f, 1.0f, 0.0f};
+    math::vec3f eye      = math::vec3f{2.0f, 2.0f, 2.0f};
+    math::vec3f look_dir = math::vec3f{-1.0f, -1.0f, -1.0f};
     math::vec3f up       = math::vec3f{0.0f, 0.0f, 1.0f};
 
     void Update();

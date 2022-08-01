@@ -192,8 +192,8 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
 
         // TODO adapte assimp shader
         builder
-            .SetVertexShader("asset/assimp.hlsl")
-            .SetPixelShader("asset/assimp.hlsl");
+            .SetVertexShader("assets/shaders/color.hlsl")
+            .SetPixelShader("assets/shaders/color.hlsl");
 
         auto material = builder.Build();
         auto instance = material->CreateInstance();
@@ -328,7 +328,7 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
         mesh.indices->name  = ai_mesh->mName.C_Str();
         mesh.sub_meshes.emplace_back(Mesh::SubMesh{
             .index_count   = mesh.indices->index_count,
-            .vertex_offset = mesh.vertices->vertex_count,
+            .vertex_offset = 0,
             .index_offset  = 0,
             .material      = material_instances.at(ai_mesh->mMaterialIndex),
         });

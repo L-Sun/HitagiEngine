@@ -76,6 +76,15 @@ TEST(MatrixTest, MatInit) {
     mat3f m3 = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
 }
 
+TEST(MatrixTest, MatAssignment) {
+    mat3f m1 = mat3f::identity();
+    matrix_eq(m1, mat3f({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}));
+
+    mat3f m2 = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
+    mat3f m3 = m2;
+    matrix_eq(m3, m2);
+}
+
 TEST(MatrixTest, ScalarProduct) {
     mat3f m3 = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
 

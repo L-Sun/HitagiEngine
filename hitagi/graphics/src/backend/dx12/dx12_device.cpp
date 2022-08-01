@@ -293,9 +293,9 @@ void DX12Device::CompileShader(const std::shared_ptr<resource::Shader>& shader) 
             m_Logger->warn("Unsupported shader: {}", magic_enum::enum_name(shader->GetType()));
         }
     }
-    args.emplace_back(L"-Zi");
     args.emplace_back(L"-Zpr");
 #ifdef _DEBUG
+    args.emplace_back(L"-Zi");
     args.emplace_back(L"-O0");
     args.emplace_back(L"-Qembed_debug");
 #endif
