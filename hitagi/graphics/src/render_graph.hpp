@@ -87,7 +87,7 @@ public:
 
     void Compile();
     void Execute();
-    void SetFenceValue(std::uint64_t fence_value);
+    void Retire(std::uint64_t fence_value);
 
 private:
     FrameHandle Create(std::string_view name, ResourceType resource);

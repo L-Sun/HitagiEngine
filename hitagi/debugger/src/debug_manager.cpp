@@ -1,5 +1,6 @@
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/core/memory_manager.hpp>
+#include <hitagi/core/config_manager.hpp>
 #include <hitagi/ecs/schedule.hpp>
 #include <hitagi/resource/mesh_factory.hpp>
 #include <hitagi/resource/asset_manager.hpp>
@@ -101,14 +102,17 @@ void DebugManager::RetiredPrimitive() {
 }
 
 void DebugManager::AddPrimitive(const Mesh& mesh, Transform transform, std::chrono::seconds duration, bool depth_enabled) {
+    auto& config = config_manager->GetConfig();
+
     DebugPrimitive item;
-    item.type       = Renderable::Type::Debug;
-    item.vertices   = mesh.vertices;
-    item.indices    = mesh.indices;
-    item.transform  = transform;
-    item.material   = m_LineMaterialInstance.GetMaterial().lock();
-    item.expires_at = std::chrono::high_resolution_clock::now() + duration;
-    item.dirty      = true;
+    item.type                = Renderable::Type::Debug;
+    item.vertices            = mesh.vertices;
+    item.indices             = mesh.indices;
+    item.transform           = transform;
+    item.pipeline_parameters = {.view_port = vec4u{0, 0, config.width, config.height}, .scissor_react = vec4u{0, 0, config.width, config.height}};
+    item.material            = m_LineMaterialInstance.GetMaterial().lock();
+    item.expires_at          = std::chrono::high_resolution_clock::now() + duration;
+    item.dirty               = true;
 
     for (const auto& sub_mesh : mesh.sub_meshes) {
         item.sub_mesh = sub_mesh;

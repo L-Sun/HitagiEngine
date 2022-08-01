@@ -208,7 +208,6 @@ void GraphicsManager::Render() {
             // TODO set a orth camera
             auto& render_target = helper.Get<RenderTarget>(data.output);
             context->SetRenderTarget(render_target);
-            context->SetViewPort(0, 0, screen_width, screen_height);
             frame->Render(context.get(), resource::Renderable::Type::UI);
         });
 
@@ -218,7 +217,7 @@ void GraphicsManager::Render() {
 
     fg.Execute();
     std::uint64_t fence = context->Finish();
-    fg.SetFenceValue(fence);
+    fg.Retire(fence);
     frame->SetFenceValue(fence);
 }
 

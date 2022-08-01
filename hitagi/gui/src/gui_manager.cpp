@@ -197,7 +197,8 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
         .sub_mesh = {
             .material = m_ImGuiMaterialInstance,
         },
-        .material = m_ImGuiMaterialInstance.GetMaterial().lock(),
+        .material            = m_ImGuiMaterialInstance.GetMaterial().lock(),
+        .pipeline_parameters = {.view_port = vec4u{draw_data->DisplayPos.x, draw_data->DisplayPos.y, draw_data->DisplaySize.x, draw_data->DisplaySize.y}},
     };
 
     m_ImGuiMaterialInstance.SetParameter("orth_projection", projection);
@@ -230,10 +231,10 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
                 static_cast<std::uint32_t>(clip_max.y),
             };
 
-            item.sub_mesh.index_count   = cmd.ElemCount,
-            item.sub_mesh.vertex_offset = cmd.VtxOffset + vertex_offset;
-            item.sub_mesh.index_offset  = cmd.IdxOffset + index_offset;
-            item.pipeline_parameters    = {.scissor_react = scissor_rect};
+            item.sub_mesh.index_count              = cmd.ElemCount,
+            item.sub_mesh.vertex_offset            = cmd.VtxOffset + vertex_offset;
+            item.sub_mesh.index_offset             = cmd.IdxOffset + index_offset;
+            item.pipeline_parameters.scissor_react = scissor_rect;
 
             result.emplace_back(item);
         }

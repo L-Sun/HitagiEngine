@@ -90,7 +90,7 @@ void RenderGraph::Present(FrameHandle render_target, const std::shared_ptr<hitag
         });
 }
 
-void RenderGraph::SetFenceValue(std::uint64_t fence_value) {
+void RenderGraph::Retire(std::uint64_t fence_value) {
     for (auto res : m_Resources) {
         if (auto gpu_resource = res->gpu_resource.lock(); gpu_resource) {
             gpu_resource->fence_value = fence_value;
