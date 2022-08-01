@@ -29,23 +29,23 @@ void RenderGraph::Compile() {
     //    generate valid resource id vector used by the next execute function.
 }
 
-void RenderGraph::Execute(DeviceAPI& driver) {
+void RenderGraph::Execute() {
     // Prepare all transiant resource used among the frame graph
     // TODO prepare the remaining resource after pruning.
-    for (auto&& [id, desc] : m_InnerResourcesDesc) {
-        m_Resources[id] = std::visit(
+    for (auto&& res : m_InnerResources) {
+        std::visit(
             utils::Overloaded{
-                [&, id = id](const TextureBufferDesc& desc) -> std::shared_ptr<Resource> {
-                    return driver.CreateTextureBuffer(fmt::format("RenderGraph-texture-{}", id), desc);
+                [&](resource::Texture& res) {
+                    m_Device.InitTexture(res);
                 },
-                [&, id = id](const DepthBufferDesc& desc) -> std::shared_ptr<Resource> {
-                    return driver.CreateDepthBuffer(fmt::format("RenderGraph-depth-buffer-{}", id), desc);
+                [&](DepthBuffer& res) {
+                    m_Device.InitDepthBuffer(res);
                 },
-                [&, id = id](const RenderTargetDesc& desc) -> std::shared_ptr<Resource> {
-                    return driver.CreateRenderTarget(fmt::format("RenderGraph-render-target-{}", id), desc);
+                [&](RenderTarget& res) {
+                    m_Device.InitRenderTarget(res);
                 },
             },
-            desc);
+            res);
     }
 
     // execute all pass
@@ -55,20 +55,23 @@ void RenderGraph::Execute(DeviceAPI& driver) {
     }
 }
 
-void RenderGraph::Retire(uint64_t fence_value, DeviceAPI& driver) noexcept {
-    for (const auto& [id, desc] : m_InnerResourcesDesc) {
-        driver.RetireResource(m_Resources.at(id), fence_value);
-    }
-    m_Retired = true;
-}
-
-FrameHandle RenderGraph::Create(std::string_view name, Desc desc) {
+FrameHandle RenderGraph::Create(std::string_view name, ResourceType resource) {
     // create new resource node
     FrameResourceId id     = m_Resources.size();
     FrameHandle     handle = m_ResourceNodes.size();
-    m_Resources.emplace_back(nullptr);
-    m_InnerResourcesDesc.emplace(id, desc);
+
+    m_InnerResources.emplace_back(std::move(resource));
     m_ResourceNodes.emplace_back(name, id);
+
+    std::visit(
+        utils::Overloaded{
+            [&](resource::Resource& res) {
+                res.name = name;
+                m_Resources.emplace_back(&res);
+            },
+        },
+        m_InnerResources.back());
+
     return handle;
 }
 
@@ -85,6 +88,26 @@ void RenderGraph::Present(FrameHandle render_target, const std::shared_ptr<hitag
         [=](const ResourceHelper& helper, PassData& data) {
             context->Present(helper.Get<RenderTarget>(data.output));
         });
+}
+
+void RenderGraph::Retire(std::uint64_t fence_value) {
+    for (auto res : m_Resources) {
+        if (auto gpu_resource = res->gpu_resource.lock(); gpu_resource) {
+            gpu_resource->fence_value = fence_value;
+        }
+    }
+    for (const auto& res : m_InnerResources) {
+        std::visit(
+            utils::Overloaded{
+                [&](const resource::Resource& res) {
+                    if (auto gpu_resource = res.gpu_resource.lock(); gpu_resource) {
+                        m_Device.RetireResource(gpu_resource);
+                    }
+                },
+            },
+            res);
+    }
+    m_Retired = true;
 }
 
 }  // namespace hitagi::graphics

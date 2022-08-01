@@ -8,24 +8,26 @@ namespace hitagi::core {
 
 Buffer::Buffer(size_t size, size_t alignment)
     : m_Allocator(std::pmr::get_default_resource()),
-      m_Data(static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment))),
+      m_Data(size != 0 ? static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment)) : nullptr),
       m_Size(size),
       m_Alignment(alignment) {
 }
 
 Buffer::Buffer(const void* initial_data, size_t size, size_t alignment)
     : m_Allocator(std::pmr::get_default_resource()),
-      m_Data(static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment))),
+      m_Data(size != 0 ? static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment)) : nullptr),
       m_Size(size),
       m_Alignment(alignment) {
+    if (size == 0 || initial_data == nullptr) return;
     std::memcpy(m_Data, initial_data, m_Size);
 }
 
 Buffer::Buffer(const Buffer& other)
     : m_Allocator(other.m_Allocator),
-      m_Data(static_cast<std::byte*>(m_Allocator.allocate_bytes(other.m_Size, other.m_Alignment))),
+      m_Data(other.m_Size != 0 ? static_cast<std::byte*>(m_Allocator.allocate_bytes(other.m_Size, other.m_Alignment)) : nullptr),
       m_Size(other.m_Size),
       m_Alignment(other.m_Alignment) {
+    if (m_Size == 0) return;
     std::memcpy(m_Data, other.m_Data, other.m_Size);
 }
 
@@ -40,29 +42,32 @@ Buffer::Buffer(Buffer&& other) noexcept
 
 Buffer& Buffer::operator=(const Buffer& rhs) {
     if (this != &rhs) {
-        if (m_Size >= rhs.m_Size && m_Alignment == rhs.m_Alignment)
-            std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
-        else {
+        if (m_Size >= rhs.m_Size && m_Alignment == rhs.m_Alignment) {
+            if (rhs.m_Size != 0) {
+                std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
+            }
+        } else {
             if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
-            m_Data = static_cast<std::byte*>(m_Allocator.allocate_bytes(rhs.m_Size, rhs.m_Alignment));
-            std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
-            m_Size      = rhs.m_Size;
-            m_Alignment = rhs.m_Alignment;
+            if (rhs.m_Size != 0) {
+                m_Data = static_cast<std::byte*>(m_Allocator.allocate_bytes(rhs.m_Size, rhs.m_Alignment));
+                std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
+            }
         }
+        m_Size      = rhs.m_Size;
+        m_Alignment = rhs.m_Alignment;
     }
     return *this;
 }
 
 Buffer& Buffer::operator=(Buffer&& rhs) noexcept {
     if (this != &rhs) {
-        if (m_Allocator != rhs.m_Allocator && m_Data != nullptr) {
-            m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
-            m_Data = static_cast<std::byte*>(m_Allocator.allocate_bytes(m_Size, m_Alignment));
-            std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
+        // use copy
+        if (m_Allocator != rhs.m_Allocator) {
+            return this->operator=(std::cref(rhs));
         } else {
-            m_Data = rhs.m_Data;
+            if (m_Data != nullptr) m_Allocator.deallocate(m_Data, m_Size);
         }
-
+        m_Data      = rhs.m_Data;
         m_Size      = rhs.m_Size;
         m_Alignment = rhs.m_Alignment;
 

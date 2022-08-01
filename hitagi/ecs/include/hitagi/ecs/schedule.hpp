@@ -36,7 +36,7 @@ public:
     // Do task on the entities that contains components indicated at parameters.
     template <typename Func>
     requires utils::unique_parameter_types<Func>
-        Schedule& Register(std::string_view name, Func&& task);
+        Schedule& Request(std::string_view name, Func&& task);
 
     void Run() {
         for (auto&& task : m_Tasks) {
@@ -51,7 +51,7 @@ private:
 
 template <typename Func>
 requires utils::unique_parameter_types<Func>
-    Schedule& Schedule::Register(std::string_view name, Func&& task) {
+    Schedule& Schedule::Request(std::string_view name, Func&& task) {
     std::shared_ptr<ITask> task_info = std::make_shared<Task<Func>>(name, std::forward<Func>(task));
 
     m_Tasks.emplace_back(std::move(task_info));
@@ -64,9 +64,9 @@ void Schedule::Task<Func>::Run(World& world) {
     [&]<std::size_t... I>(std::index_sequence<I...>) {
         using traits = utils::function_traits<Func>;
 
-        for (const std::shared_ptr<IArchetype>& archetype : world.GetArchetypes<typename traits::template arg<I>::type...>()) {
+        for (const std::shared_ptr<IArchetype>& archetype : world.GetArchetypes<typename traits::template no_cvref_arg<I>::type...>()) {
             auto num_entities     = archetype->NumEntities();
-            auto components_array = std::make_tuple(archetype->GetComponentArray<typename traits::template arg<I>::type>()...);
+            auto components_array = std::make_tuple(archetype->GetComponentArray<typename traits::template no_cvref_arg<I>::type>()...);
 
             for (std::size_t index = 0; index < num_entities; index++) {
                 task(std::get<I>(components_array)[index]...);

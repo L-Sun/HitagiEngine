@@ -6,6 +6,7 @@
 
 #include <imgui.h>
 
+#include <functional>
 #include <list>
 #include <queue>
 
@@ -31,9 +32,8 @@ private:
     core::Clock                       m_Clock;
     std::queue<std::function<void()>> m_GuiDrawTasks;
 
-    std::shared_ptr<resource::MaterialInstance> m_ImGuiMaterial;
-    std::shared_ptr<resource::VertexArray>      m_Vertices;
-    std::shared_ptr<resource::IndexArray>       m_Indices;
+    resource::MaterialInstance m_ImGuiMaterialInstance;
+    resource::Mesh             m_ImGuiMesh;
 };
 
 }  // namespace hitagi::gui

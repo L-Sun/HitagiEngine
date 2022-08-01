@@ -6,6 +6,7 @@ assets/*
 .xmake
 temp
 .cache
+vtune
 
 .vscode/compile_commands.json
 

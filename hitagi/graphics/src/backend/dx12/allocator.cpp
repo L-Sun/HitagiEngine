@@ -1,5 +1,6 @@
 #include "allocator.hpp"
 #include "utils.hpp"
+#include "dx12_device.hpp"
 
 namespace hitagi::graphics::backend::DX12 {
 
@@ -7,13 +8,13 @@ Allocation::~Allocation() {
     if (auto page = page_from.lock())
         page->DiscardAllocation(*this);
 }
-AllocationPage::AllocationPage(AllocationPage&& rhs)
+AllocationPage::AllocationPage(AllocationPage&& rhs) noexcept
     : GpuResource(std::move(rhs)),
       m_Size(rhs.m_Size),
       m_CpuPtr(rhs.m_CpuPtr) {
     rhs.m_CpuPtr = nullptr;
 }
-AllocationPage& AllocationPage::operator=(AllocationPage&& rhs) {
+AllocationPage& AllocationPage::operator=(AllocationPage&& rhs) noexcept {
     if (&rhs != this) {
         GpuResource::operator=(std::move(rhs));
         m_Size       = rhs.m_Size;
@@ -24,15 +25,15 @@ AllocationPage& AllocationPage::operator=(AllocationPage&& rhs) {
     return *this;
 };
 
-std::array<LinearAllocator::PageManager, static_cast<size_t>(AllocationPageType::NUM_TYPES)>
+std::array<LinearAllocator::PageManager, static_cast<std::size_t>(AllocationPageType::NUM_TYPES)>
     LinearAllocator::sm_PageManager = {
         PageManager(AllocationPageType::GPU_EXCLUSIVE, sm_GpuAllocatorPageSize),
         PageManager(AllocationPageType::CPU_WRITABLE, sm_CpuAllocatorPageSize),
 };
 
-Allocation LinearAllocator::Allocate(size_t size, size_t alignment) {
-    size_t aligned_size = align(size, alignment);
-    auto&  mgr          = sm_PageManager[static_cast<size_t>(m_Type)];
+Allocation LinearAllocator::Allocate(std::size_t size, std::size_t alignment) {
+    std::size_t aligned_size = align(size, alignment);
+    auto&       mgr          = sm_PageManager[static_cast<std::size_t>(m_Type)];
 
     // need large page
     if (aligned_size > GetDefaultSize(m_Type)) {
@@ -44,7 +45,7 @@ Allocation LinearAllocator::Allocate(size_t size, size_t alignment) {
     if (m_CurrPage == nullptr || aligned_size > m_CurrPage->GetFreeSize())
         m_CurrPage = m_Pages.emplace_back(mgr.RequesetPage(m_Device));
 
-    size_t                    offset  = m_CurrPage->m_offset;
+    std::size_t               offset  = m_CurrPage->m_offset;
     std::byte*                cpu_ptr = m_CurrPage->m_CpuPtr + m_CurrPage->m_offset;
     D3D12_GPU_VIRTUAL_ADDRESS gpu_ptr = m_CurrPage->m_Resource->GetGPUVirtualAddress() + m_CurrPage->m_offset;
 
@@ -56,7 +57,7 @@ Allocation LinearAllocator::Allocate(size_t size, size_t alignment) {
 
 void LinearAllocator::SetFence(FenceValue fence) noexcept {
     // no allocation occur, just return.
-    auto& mgr = sm_PageManager[static_cast<size_t>(m_Type)];
+    auto& mgr = sm_PageManager[static_cast<std::size_t>(m_Type)];
     for (auto&& page : m_Pages)
         mgr.DiscardPage(std::move(page), fence);
     m_Pages.clear();
@@ -66,7 +67,7 @@ void LinearAllocator::SetFence(FenceValue fence) noexcept {
     m_LargePages.clear();
 }
 
-std::shared_ptr<LinearAllocator::LinearAllocationPage> LinearAllocator::PageManager::CreateNewPage(ID3D12Device* device, AllocationPageType type, size_t size) {
+std::shared_ptr<LinearAllocator::LinearAllocationPage> LinearAllocator::PageManager::CreateNewPage(DX12Device* device, AllocationPageType type, std::size_t size) {
     CD3DX12_HEAP_PROPERTIES heap_prop;
     D3D12_RESOURCE_STATES   default_usage;
     CD3DX12_RESOURCE_DESC   desc;
@@ -87,10 +88,10 @@ std::shared_ptr<LinearAllocator::LinearAllocationPage> LinearAllocator::PageMana
         }
     }
     ID3D12Resource* resource = nullptr;
-    ThrowIfFailed(device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &desc, default_usage, nullptr, IID_PPV_ARGS(&resource)));
+    ThrowIfFailed(device->GetDevice()->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &desc, default_usage, nullptr, IID_PPV_ARGS(&resource)));
     resource->SetName(L"Linear Allocation Page");
     // resource ownership transfer to GpuResource
-    auto ret = std::make_shared<LinearAllocationPage>(GpuResource{resource}, size);
+    auto ret = std::make_shared<LinearAllocationPage>(GpuResource{device, resource}, size);
     return ret;
 }
 
@@ -118,7 +119,7 @@ void LinearAllocator::PageManager::UpdateAvailablePages(std::function<bool(Fence
     }
 }
 
-std::shared_ptr<LinearAllocator::LinearAllocationPage> LinearAllocator::PageManager::RequesetPage(ID3D12Device* device) {
+std::shared_ptr<LinearAllocator::LinearAllocationPage> LinearAllocator::PageManager::RequesetPage(DX12Device* device) {
     {
         std::lock_guard lock(m_Mutex);
         if (!m_AvailablePages.empty()) {

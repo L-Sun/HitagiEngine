@@ -3,12 +3,13 @@ option("ispc")
     set_default(true)
     set_showmenu(true)
     add_defines("USE_ISPC")
-
+    includes("ispc")
 
 target("math")
     set_kind("static")
     add_files("src/*.cpp")
     add_includedirs("include", {public = true})
+    add_deps("utils")
     add_packages("fmt", {public = true})
     set_options("ispc", {public = true})
     if has_config("ispc") then 

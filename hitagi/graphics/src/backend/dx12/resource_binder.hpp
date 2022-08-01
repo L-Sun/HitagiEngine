@@ -8,6 +8,7 @@
 // Stage, commit  CPU visible descriptor to GPU visible descriptor.
 namespace hitagi::graphics::backend::DX12 {
 class CommandContext;
+class DX12Device;
 
 class ResourceBinder {
     using FenceValue   = std::uint64_t;
@@ -17,10 +18,10 @@ class ResourceBinder {
     static constexpr std::size_t sm_heap_size           = 1024;
 
 public:
-    ResourceBinder(ID3D12Device* device, CommandContext& context, FenceChecker&& checker);
+    ResourceBinder(DX12Device* device, CommandContext& context, FenceChecker&& checker);
 
     void BindResource(std::uint32_t slot, ConstantBuffer* cb, std::size_t offset);
-    void BindResource(std::uint32_t slot, TextureBuffer* tb);
+    void BindResource(std::uint32_t slot, Texture* tb);
     void BindResource(std::uint32_t slot, Sampler* sampler);
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count);
 
@@ -40,7 +41,7 @@ public:
 
 private:
     ComPtr<ID3D12DescriptorHeap>        RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
-    static ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type);
+    static ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(DX12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type);
     std::uint32_t                       StaleDescriptorCount(D3D12_DESCRIPTOR_HEAP_TYPE heap_type) const;
 
     void StageDescriptor(std::uint32_t heap_offset, const std::shared_ptr<Descriptor>& descriptor);
@@ -68,7 +69,7 @@ private:
     inline static std::array<AvailableHeapPool, 2>  sm_AvailableDescriptorHeaps;
     static std::mutex                               sm_Mutex;
 
-    ID3D12Device*   m_Device;
+    DX12Device*     m_Device;
     CommandContext& m_Context;
     FenceChecker    m_FenceChecker;
 

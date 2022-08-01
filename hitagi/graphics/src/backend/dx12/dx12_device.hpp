@@ -13,29 +13,25 @@ public:
 
     void Present(size_t frame_index) final;
 
-    void                                      CreateSwapChain(uint32_t width, uint32_t height, unsigned frame_count, Format format, void* window) final;
-    std::shared_ptr<graphics::RenderTarget>   CreateRenderTarget(std::string_view name, const graphics::RenderTargetDesc& desc) final;
-    std::shared_ptr<graphics::RenderTarget>   CreateRenderFromSwapChain(size_t frame_index) final;
-    std::shared_ptr<graphics::VertexBuffer>   CreateVertexBuffer(std::shared_ptr<resource::VertexArray> vertices) final;
-    std::shared_ptr<graphics::IndexBuffer>    CreateIndexBuffer(std::shared_ptr<resource::IndexArray> indices) final;
-    std::shared_ptr<graphics::ConstantBuffer> CreateConstantBuffer(std::string_view name, graphics::ConstantBufferDesc desc) final;
-    std::shared_ptr<graphics::TextureBuffer>  CreateTextureBuffer(std::shared_ptr<resource::Texture> textrue) final;
-    std::shared_ptr<graphics::DepthBuffer>    CreateDepthBuffer(std::string_view name, const graphics::DepthBufferDesc& desc) final;
+    void        CreateSwapChain(std::uint32_t width, std::uint32_t height, unsigned frame_count, resource::Format format, void* window) final;
+    std::size_t ResizeSwapChain(std::uint32_t width, std::uint32_t height) final;
 
-    std::shared_ptr<graphics::TextureBuffer> CreateTextureBuffer(std::string_view name, graphics::TextureBufferDesc desc) final;
+    void InitRenderTarget(graphics::RenderTarget& rt) final;
+    void InitRenderFromSwapChain(graphics::RenderTarget& rt, std::size_t frame_index) final;
+    void InitVertexBuffer(resource::VertexArray& vb) final;
+    void InitIndexBuffer(resource::IndexArray& ib) final;
+    void InitTexture(resource::Texture& tb) final;
+    void InitConstantBuffer(graphics::ConstantBuffer& cb) final;
+    void InitDepthBuffer(graphics::DepthBuffer& db) final;
+    void InitSampler(graphics::Sampler& sampler) final;
+    void InitPipelineState(graphics::PipelineState& pipeline) final;
 
-    size_t ResizeSwapChain(uint32_t width, uint32_t height) final;
+    void UpdateConstantBuffer(graphics::ConstantBuffer& buffer, std::size_t offset, const std::byte* src, std::size_t size) final;
+    void ResizeConstantBuffer(graphics::ConstantBuffer& buffer, std::size_t new_num_elements) final;
 
-    void UpdateConstantBuffer(std::shared_ptr<graphics::ConstantBuffer> buffer, size_t offset, const std::byte* data, size_t size) final;
-    void ResizeConstantBuffer(std::shared_ptr<graphics::ConstantBuffer> buffer, size_t new_num_elements) final;
+    std::shared_ptr<IGraphicsCommandContext> CreateGraphicsCommandContext() final;
 
-    void RetireResource(std::shared_ptr<graphics::Resource> resource, std::uint64_t fence_value) final;
-
-    std::shared_ptr<graphics::Sampler> CreateSampler(std::string_view name, const resource::SamplerDesc& desc) final;
-
-    std::shared_ptr<graphics::PipelineState> CreatePipelineState(std::string_view name, const graphics::PipelineStateDesc& desc) final;
-
-    std::shared_ptr<IGraphicsCommandContext> GetGraphicsCommandContext() final;
+    void RetireResource(std::shared_ptr<backend::Resource> resource) final;
 
     // Fence
     bool IsFenceComplete(std::uint64_t fence_value) final;
@@ -46,6 +42,8 @@ public:
 
     ID3D12Device*       GetDevice() const noexcept { return m_Device.Get(); }
     CommandListManager& GetCmdMgr() noexcept { return m_CommandManager; }
+
+    DescriptorAllocator& GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type);
 
 private:
     void CompileShader(const std::shared_ptr<resource::Shader>& shader);
@@ -71,12 +69,12 @@ private:
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_RTV},
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_DSV}};
 
-    // resource will release after fence complete
-    using ReiterResource = std::pair<std::uint64_t, std::shared_ptr<graphics::Resource>>;
+    std::pmr::set<std::shared_ptr<backend::Resource>> m_Resources;
 
-    constexpr static auto retire_resource_cmp = [](const ReiterResource& r1, const ReiterResource& r2) {
-        return r1.first < r2.first;
+    // resource will release after fence complete
+    constexpr static auto retire_resource_cmp = [](const std::shared_ptr<backend::Resource>& r1, const std::shared_ptr<backend::Resource>& r2) {
+        return r1->fence_value < r2->fence_value;
     };
-    std::priority_queue<ReiterResource, std::pmr::vector<ReiterResource>, decltype(retire_resource_cmp)> m_RetireResources;
+    std::priority_queue<std::shared_ptr<backend::Resource>, std::pmr::vector<std::shared_ptr<backend::Resource>>, decltype(retire_resource_cmp)> m_RetireResources;
 };
 }  // namespace hitagi::graphics::backend::DX12

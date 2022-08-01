@@ -12,12 +12,7 @@ cbuffer FrameConstants : register(b0) {
 };
 
 cbuffer ObjectConstants : register(b1) {
-  matrix word_transform;
-  matrix object_transform;
-  matrix parent_transform;
-  float4 translation;
-  matrix rotation;
-  float4 scaling;
+  matrix world_transform;
 };
 
 #define RSDEF \
@@ -39,8 +34,7 @@ struct PSInput {
 [RootSignature(RSDEF)]
 PSInput VSMain(VSInput input) {
   PSInput output;
-  output.position =
-      mul(proj_view, mul(object_transform, float4(input.position, 1.0f)));
+  output.position = mul(proj_view, mul(world_transform, float4(input.position, 1.0f)));
 
   output.color = input.color;
   return output;

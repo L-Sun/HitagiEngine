@@ -1,8 +1,7 @@
 #pragma once
 #include "d3d_pch.hpp"
 
-#include <hitagi/graphics/resource.hpp>
-#include <hitagi/resource/enums.hpp>
+#include <hitagi/graphics/gpu_resource.hpp>
 
 #include <magic_enum.hpp>
 

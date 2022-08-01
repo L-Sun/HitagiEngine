@@ -17,11 +17,11 @@ struct TgaFileheader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf) {
+std::optional<Texture> TgaParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
-        logger->warn("[TGA] Parsing a empty buffer will return nullptr");
-        return nullptr;
+        logger->warn("[TGA] Parsing a empty buffer will return null");
+        return std::nullopt;
     }
 
     auto data       = reinterpret_cast<const std::uint8_t*>(buf.GetData());
@@ -38,27 +38,24 @@ std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf) {
 
     if (file_header->color_map_type) {
         logger->warn("[TGA] Unsupported Color Map. Only Type 0 is supported.");
-        return {};
+        return std::nullopt;
     }
 
     if (file_header->image_type != 2) {
         logger->warn("[TGA] Unsupported Image Type. Only Type 2 is supported.");
-        return {};
+        return std::nullopt;
     }
-    // tga all values are little-endian
-    auto         width       = (file_header->image_spec[5] << 8) + file_header->image_spec[4];
-    auto         height      = (file_header->image_spec[7] << 8) + file_header->image_spec[6];
-    std::uint8_t pixel_depth = file_header->image_spec[8];
-    // rendering the pixel data
-    auto bitcount = 32;
-    // for GPU address alignment
-    auto pitch     = (width * (bitcount >> 3) + 3) & ~3u;
-    auto data_size = pitch * height;
-    auto img       = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
+
+    Texture image;
+    image.width      = (file_header->image_spec[5] << 8) + file_header->image_spec[4];
+    image.height     = (file_header->image_spec[7] << 8) + file_header->image_spec[6];
+    image.pitch      = (image.width * 4 + 3) & ~3u;
+    image.cpu_buffer = core::Buffer(image.pitch * image.height);
 
     std::uint8_t alpha_depth = file_header->image_spec[9] & 0x0F;
-    logger->debug("[TGA] Image width:       {}", width);
-    logger->debug("[TGA] Image height:      {}", height);
+    int          pixel_depth = file_header->image_spec[8];
+    logger->debug("[TGA] Image width:       {}", image.width);
+    logger->debug("[TGA] Image height:      {}", image.height);
     logger->debug("[TGA] Image Pixel Depth: {}", pixel_depth);
     logger->debug("[TGA] Image Alpha Depth: {}", alpha_depth);
     // skip Image ID
@@ -66,43 +63,43 @@ std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf) {
     // skip the Color Map. since we assume the Color Map Type is 0,
     // nothing to skip
 
-    auto out = img->Buffer().Span<std::uint8_t>();
-    for (auto i = 0; i < height; i++) {
-        for (auto j = 0; j < width; j++) {
+    auto out = image.cpu_buffer.Span<std::uint8_t>();
+    for (auto i = 0; i < image.height; i++) {
+        for (auto j = 0; j < image.width; j++) {
             switch (pixel_depth) {
                 case 15: {
                     std::uint16_t color = *reinterpret_cast<const std::uint16_t*>(data);
                     data += 2;
-                    out[pitch * i + j * 4]     = ((color & 0x7C00) >> 10);  // R
-                    out[pitch * i + j * 4 + 1] = ((color & 0x03E0) >> 5);   // G
-                    out[pitch * i + j * 4 + 2] = ((color & 0x001F) >> 10);  // B
-                    out[pitch * i + j * 4 + 3] = 0xFF;                      // A
+                    out[image.pitch * i + j * 4]     = ((color & 0x7C00) >> 10);  // R
+                    out[image.pitch * i + j * 4 + 1] = ((color & 0x03E0) >> 5);   // G
+                    out[image.pitch * i + j * 4 + 2] = ((color & 0x001F) >> 10);  // B
+                    out[image.pitch * i + j * 4 + 3] = 0xFF;                      // A
                 } break;
                 case 16: {
                     std::uint16_t color = *reinterpret_cast<const std::uint16_t*>(data);
                     data += 2;
-                    out[pitch * i + j * 4]     = ((color & 0x7C00) >> 10);          // R
-                    out[pitch * i + j * 4 + 1] = ((color & 0x03E0) >> 5);           // G
-                    out[pitch * i + j * 4 + 2] = ((color & 0x001F) >> 10);          // B
-                    out[pitch * i + j * 4 + 3] = ((color & 0x8000) ? 0xFF : 0x00);  // A
+                    out[image.pitch * i + j * 4]     = ((color & 0x7C00) >> 10);          // R
+                    out[image.pitch * i + j * 4 + 1] = ((color & 0x03E0) >> 5);           // G
+                    out[image.pitch * i + j * 4 + 2] = ((color & 0x001F) >> 10);          // B
+                    out[image.pitch * i + j * 4 + 3] = ((color & 0x8000) ? 0xFF : 0x00);  // A
                 } break;
                 case 24: {
-                    out[pitch * i + j * 4] = *data;  // R
+                    out[image.pitch * i + j * 4] = *data;  // R
                     data++;
-                    out[pitch * i + j * 4 + 1] = *data;  // G
+                    out[image.pitch * i + j * 4 + 1] = *data;  // G
                     data++;
-                    out[pitch * i + j * 4 + 2] = *data;  // B
+                    out[image.pitch * i + j * 4 + 2] = *data;  // B
                     data++;
-                    out[pitch * i + j * 4 + 3] = 0xFF;  // A
+                    out[image.pitch * i + j * 4 + 3] = 0xFF;  // A
                 } break;
                 case 32: {
-                    out[pitch * i + j * 4] = *data;  // R
+                    out[image.pitch * i + j * 4] = *data;  // R
                     data++;
-                    out[pitch * i + j * 4 + 1] = *data;  // G
+                    out[image.pitch * i + j * 4 + 1] = *data;  // G
                     data++;
-                    out[pitch * i + j * 4 + 2] = *data;  // B
+                    out[image.pitch * i + j * 4 + 2] = *data;  // B
                     data++;
-                    out[pitch * i + j * 4 + 3] = *data;  // A
+                    out[image.pitch * i + j * 4 + 3] = *data;  // A
                     data++;
                 } break;
                 default:
@@ -111,6 +108,6 @@ std::shared_ptr<Image> TgaParser::Parse(const core::Buffer& buf) {
         }
     }
     assert(data <= p_data_end);
-    return img;
+    return image;
 }
 }  // namespace hitagi::resource

@@ -1,5 +1,4 @@
 #include <hitagi/resource/material.hpp>
-#include <hitagi/resource/material_instance.hpp>
 
 #include <spdlog/spdlog.h>
 #include <magic_enum.hpp>
@@ -57,7 +56,7 @@ auto Material::Builder::AppendTextureName(std::string_view name, std::filesystem
     std::pmr::string param_name{name};
     AddName(param_name);
     texture_name.emplace(name);
-    default_textures.emplace(name, std::move(default_path));
+    default_texture_paths.emplace(name, std::move(default_path));
     return *this;
 }
 
@@ -78,12 +77,10 @@ std::shared_ptr<Material> Material::Builder::Build() {
 
 Material::Material(const Builder& builder)
     : MaterialDetial{builder} {
-    SetName(builder.name);
 }
 
-auto Material::CreateInstance() const noexcept -> std::shared_ptr<MaterialInstance> {
-    // we increase the num instances in the constructor of MaterialInstance
-    return std::make_shared<MaterialInstance>(*m_DefaultInstance);
+MaterialInstance Material::CreateInstance() const noexcept {
+    return *m_DefaultInstance;
 }
 
 std::size_t Material::GetNumInstances() const noexcept {
@@ -113,15 +110,17 @@ std::size_t Material::GetParametersSize() const noexcept {
 }
 
 void Material::InitDefaultMaterialInstance(const Builder& builder) {
-    m_DefaultInstance = std::make_shared<MaterialInstance>(shared_from_this());
-    m_DefaultInstance->SetName(fmt::format("{}-{}", builder.name, m_NumInstances));
+    m_DefaultInstance = std::make_unique<MaterialInstance>(shared_from_this());
 
     if (!builder.default_buffer.empty()) {
         m_DefaultInstance->m_Parameters = core::Buffer(builder.default_buffer.data(), builder.default_buffer.size());
     }
 
-    for (const auto& texture : texture_name) {
-        m_DefaultInstance->m_Textures.emplace(texture, std::make_shared<Texture>(builder.default_textures.at(texture)));
+    for (const auto& [name, path] : builder.default_texture_paths) {
+        auto texture  = std::make_shared<Texture>();
+        texture->name = name;
+        texture->path = path;
+        m_DefaultInstance->m_Textures.emplace(name, texture);
     }
 }
 
@@ -139,6 +138,85 @@ bool Material::operator==(const Material& rhs) const {
     return vertex_shader == rhs.vertex_shader &&
            pixel_shader == rhs.pixel_shader &&
            texture_name == rhs.texture_name;
+}
+
+MaterialInstance::MaterialInstance(const std::shared_ptr<Material>& material)
+    : m_Material(material) {
+    if (material == nullptr) {
+        if (auto logger = spdlog::get("AssetManager"); logger) {
+            logger->error("Can not create a material instance without the material info, since the pointer of material is null!");
+        }
+        throw std::invalid_argument("Can not create a material instance without the material info, since the pointer of material is null!");
+    }
+    material->m_NumInstances++;
+}
+
+MaterialInstance::MaterialInstance(const MaterialInstance& other)
+    : m_Parameters(other.m_Parameters),
+      m_Textures(other.m_Textures) {
+    if (auto material = m_Material.lock(); material) {
+        material->m_NumInstances--;
+    }
+
+    m_Material = other.GetMaterial();
+    if (auto material = m_Material.lock(); material) {
+        material->m_NumInstances++;
+    }
+}
+
+MaterialInstance& MaterialInstance::operator=(const MaterialInstance& rhs) {
+    if (this != &rhs) {
+        if (auto material = m_Material.lock(); material) {
+            material->m_NumInstances--;
+        }
+
+        m_Material = rhs.GetMaterial();
+        if (auto material = m_Material.lock(); material) {
+            material->m_NumInstances++;
+        }
+
+        m_Parameters = rhs.m_Parameters;
+        m_Textures   = rhs.m_Textures;
+    }
+    return *this;
+}
+
+MaterialInstance::~MaterialInstance() {
+    if (auto material = m_Material.lock(); material) {
+        material->m_NumInstances--;
+    }
+}
+
+MaterialInstance& MaterialInstance::SetTexture(std::string_view name, std::shared_ptr<Texture> texture) noexcept {
+    auto material = m_Material.lock();
+    if (material && material->IsValidTextureParameter(name)) {
+        m_Textures[std::pmr::string(name)] = std::move(texture);
+    } else {
+        Warn(fmt::format("You are setting a invalid parameter: {}", name));
+    }
+
+    return *this;
+}
+
+MaterialInstance& MaterialInstance::SetMaterial(const std::shared_ptr<Material>& material) noexcept {
+    auto _m = m_Material.lock();
+    if (_m) _m->m_NumInstances--;
+
+    material->m_NumInstances++;
+
+    m_Material = material;
+    return *this;
+}
+
+std::shared_ptr<Texture> MaterialInstance::GetTexture(std::string_view name) const noexcept {
+    std::pmr::string _name(name);
+    if (m_Textures.count(_name) == 0) return nullptr;
+    return m_Textures.at(_name);
+}
+
+void MaterialInstance::Warn(std::string_view message) const {
+    auto logger = spdlog::get("AssetManager");
+    if (logger) logger->warn(message);
 }
 
 }  // namespace hitagi::resource

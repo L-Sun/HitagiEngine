@@ -1,58 +1,24 @@
 #include <hitagi/resource/camera.hpp>
 
-#include <spdlog/spdlog.h>
-
 using namespace hitagi::math;
 
 namespace hitagi::resource {
-Camera::Camera(float       aspect,
-               float       near_clip,
-               float       far_clip,
-               float       fov,
-               math::vec3f position,
-               math::vec3f up,
-               math::vec3f look_at)
-    : m_Aspect(aspect),
-      m_NearClipDistance(near_clip),
-      m_FarClipDistance(far_clip),
-      m_Fov(fov),
-      m_Position(position),
-      m_UpDirection(up),
-      m_LookDirection(look_at - position),
-      m_Transform(std::make_shared<Transform>()) {}
+void Camera::Update() {
+    m_View       = look_at(eye, look_dir, up);
+    m_Projection = perspective(fov, aspect, near_clip, far_clip);
+    m_PV         = m_Projection * m_View;
 
-void Camera::SetAspect(float value) { m_Aspect = value; }
-void Camera::SetNearClipDistance(float value) { m_NearClipDistance = value; }
-void Camera::SetFarClipDistance(float value) { m_FarClipDistance = value; }
-void Camera::SetFov(float value) { m_Fov = value; }
-void Camera::SetTransform(std::shared_ptr<Transform> transform) {
-    if (transform == nullptr) {
-        if (auto logger = spdlog::get("AssetManager"); logger)
-            logger->warn("you are setting a empty transform to camera! Nothing happend!");
-        return;
-    }
-    m_Transform = std::move(transform);
+    m_InvView       = inverse(m_View);
+    m_InvProjection = inverse(m_Projection);
+    m_InvPV         = inverse(m_PV);
 }
 
-auto Camera::GetTransform() const -> Transform& {
-    assert(m_Transform != nullptr);
-    return *m_Transform;
+void Camera::ApplyTransform(const Transform& transform) {
+    eye      = (transform.world_matrix * vec4f(1, 1, 1, 1)).xyz;
+    look_dir = normalize(transform.world_matrix * vec4f(-1, -1, -1, 0)).xyz;
+    up       = normalize(transform.world_matrix * vec4f(0, 0, 1, 0)).xyz;
+
+    m_View = look_at(eye, look_dir, up);
 }
-
-mat4f Camera::GetViewMatrix() const {
-    return look_at(m_Position, m_LookDirection, m_UpDirection) * inverse(m_Transform->GetTransform());
-}
-
-math::vec3f Camera::GetGlobalPosition() const {
-    return (m_Transform->GetTransform() * vec4f(m_Position, 1.0f)).xyz;
-}
-
-float Camera::GetAspect() const noexcept { return m_Aspect; }
-
-float Camera::GetNearClipDistance() const noexcept { return m_NearClipDistance; }
-
-float Camera::GetFarClipDistance() const noexcept { return m_FarClipDistance; }
-
-float Camera::GetFov() const noexcept { return m_Fov; }
 
 }  // namespace hitagi::resource

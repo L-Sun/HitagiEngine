@@ -1,46 +1,36 @@
 #pragma once
-#include <hitagi/resource/scene_object.hpp>
 #include <hitagi/resource/transform.hpp>
 
 #include <numbers>
 
 namespace hitagi::resource {
-class Camera : public ResourceObject {
+struct Camera {
 public:
-    Camera(
-        float       aspect    = 16.0f / 9.0f,
-        float       near_clip = 1.0f,
-        float       far_clip  = 1000.0f,
-        float       fov       = 0.25 * std::numbers::pi,
-        math::vec3f position  = math::vec3f{3.0f, 3.0f, 3.0f},
-        math::vec3f up        = math::vec3f{0.0f, 0.0f, 1.0f},
-        math::vec3f look_at   = math::vec3f{0.0f, 0.0f, 0.0f});
+    float aspect    = 16.0f / 9.0f;
+    float near_clip = 1.0f;
+    float far_clip  = 1000.0f;
+    float fov       = math::deg2rad(60.0f);
 
-    void SetAspect(float value);
-    void SetNearClipDistance(float value);
-    void SetFarClipDistance(float value);
-    void SetFov(float value);
-    void SetTransform(std::shared_ptr<Transform> transform);
+    // if camera is associated with Transform, then the following data will be updated by invoking `ApplyTransform`
+    math::vec3f eye      = math::vec3f{2.0f, 2.0f, 2.0f};
+    math::vec3f look_dir = math::vec3f{-1.0f, -1.0f, -1.0f};
+    math::vec3f up       = math::vec3f{0.0f, 0.0f, 1.0f};
 
-    Transform&  GetTransform() const;
-    math::mat4f GetViewMatrix() const;
-    math::vec3f GetGlobalPosition() const;
-    float       GetAspect() const noexcept;
-    float       GetNearClipDistance() const noexcept;
-    float       GetFarClipDistance() const noexcept;
-    float       GetFov() const noexcept;
+    void Update();
+    void ApplyTransform(const Transform& transform);
 
-protected:
-    float m_Aspect;
-    float m_NearClipDistance;
-    float m_FarClipDistance;
-    float m_Fov;
+    inline bool        IsDirty() const noexcept { return m_Dirty; }
+    inline math::mat4f GetView() const noexcept { return m_View; }
+    inline math::mat4f GetProjection() const noexcept { return m_Projection; }
+    inline math::mat4f GetProjectionView() const noexcept { return m_PV; }
+    inline math::mat4f GetInvView() const noexcept { return m_InvView; }
+    inline math::mat4f GetInvProjection() const noexcept { return m_InvProjection; }
+    inline math::mat4f GetInvProjectionView() const noexcept { return m_InvPV; }
 
-    math::vec3f m_Position;
-    math::vec3f m_UpDirection;
-    math::vec3f m_LookDirection;
-
-    std::shared_ptr<Transform> m_Transform;
+private:
+    bool        m_Dirty = false;
+    math::mat4f m_View, m_Projection, m_PV;
+    math::mat4f m_InvView, m_InvProjection, m_InvPV;
 };
 
 }  // namespace hitagi::resource

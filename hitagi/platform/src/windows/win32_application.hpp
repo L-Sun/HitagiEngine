@@ -17,6 +17,7 @@ public:
     void  InitializeWindows() final;
     void  SetInputScreenPosition(unsigned x, unsigned y) final;
     float GetDpiRatio() final;
+    void  SetWindowTitle(std::string_view title) final;
 
 private:
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);

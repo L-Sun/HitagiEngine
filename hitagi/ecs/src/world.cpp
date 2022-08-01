@@ -3,7 +3,7 @@
 #include <hitagi/ecs/schedule.hpp>
 
 namespace hitagi::ecs {
-World::World() {
+World::World(std::string_view name) : m_Name(name) {
     m_Timer.Start();
 }
 
@@ -13,6 +13,7 @@ void World::Update() {
     for (auto&& system_fn : m_Systems) {
         system_fn(schedule, m_Timer.DeltaTime());
     }
+    m_Timer.Tick();
 
     schedule.Run();
 }

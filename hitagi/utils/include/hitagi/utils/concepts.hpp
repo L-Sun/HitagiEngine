@@ -45,11 +45,18 @@ struct function_traits<ReturnType (ClassType::*)(Args...) const> {
 
     constexpr static bool unique_parameter_types = is_unique_v<Args...>;
 
-    using args = std::tuple<Args...>;
+    using args          = std::tuple<Args...>;
+    using no_cvref_args = std::tuple<std::remove_cvref_t<Args>...>;
 
     template <std::size_t i>
     struct arg {
         using type = typename std::tuple_element<i, std::tuple<Args...>>::type;
+        // the i-th argument is equivalent to the i-th tuple element of a tuple
+        // composed of those arguments.
+    };
+    template <std::size_t i>
+    struct no_cvref_arg {
+        using type = typename std::tuple_element<i, std::tuple<std::remove_cvref_t<Args>...>>::type;
         // the i-th argument is equivalent to the i-th tuple element of a tuple
         // composed of those arguments.
     };

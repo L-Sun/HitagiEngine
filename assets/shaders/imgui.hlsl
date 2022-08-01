@@ -12,13 +12,8 @@ cbuffer FrameConstants : register(b0) {
 };
 
 cbuffer ObjectConstants : register(b1) {
-  matrix word_transform;
-  matrix object_transform;
-  matrix parent_transform;
-  float4 translation;
-  matrix rotation;
-  float4 scaling;
-}
+  matrix world_transform;
+};
 
 cbuffer ImGuiConstants : register(b2) { matrix orth_projection; }
 
@@ -50,8 +45,7 @@ struct PS_INPUT {
   return output;
 }
 
-    [RootSignature(RSDEF)] float4 PSMain(PS_INPUT input)
-    : SV_TARGET {
+[RootSignature(RSDEF)] float4 PSMain(PS_INPUT input) : SV_TARGET {
   float4 out_col = input.col * texture0.Sample(sampler0, input.uv);
   return out_col;
 }

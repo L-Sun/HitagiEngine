@@ -1,6 +1,6 @@
 #pragma once
 #include <hitagi/core/buffer.hpp>
-#include <hitagi/resource/image.hpp>
+#include <hitagi/resource/texture.hpp>
 
 namespace hitagi::resource {
 enum class ImageFormat : unsigned {
@@ -25,7 +25,7 @@ inline ImageFormat get_image_format(std::string_view ext) {
 
 class ImageParser {
 public:
-    virtual std::shared_ptr<Image> Parse(const core::Buffer& buffer) = 0;
+    virtual std::optional<Texture> Parse(const core::Buffer& buffer) = 0;
     virtual ~ImageParser()                                           = default;
 };
 }  // namespace hitagi::resource

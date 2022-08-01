@@ -1,13 +1,12 @@
 #include <hitagi/engine.hpp>
 #include <hitagi/core/core.hpp>
+#include <hitagi/application.hpp>
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
 #include <hitagi/hid/input_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
-#include <hitagi/application.hpp>
-#include "hitagi/core/config_manager.hpp"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>

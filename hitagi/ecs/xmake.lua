@@ -3,4 +3,3 @@ target("ecs")
     add_files("src/*.cpp")
     add_includedirs("include", {public = true})
     add_deps("core", "utils")
-

@@ -12,7 +12,7 @@ class DX12Device;
 
 class CommandContext {
 public:
-    CommandContext(DX12Device& driver, D3D12_COMMAND_LIST_TYPE type);
+    CommandContext(DX12Device* device, D3D12_COMMAND_LIST_TYPE type);
     CommandContext(const CommandContext&)            = delete;
     CommandContext& operator=(const CommandContext&) = delete;
     CommandContext(CommandContext&&)                 = default;
@@ -38,7 +38,7 @@ public:
 protected:
     void BindDescriptorHeaps();
 
-    DX12Device&                 m_Device;
+    DX12Device*                 m_Device;
     ID3D12GraphicsCommandList5* m_CommandList      = nullptr;
     ID3D12CommandAllocator*     m_CommandAllocator = nullptr;
 
@@ -60,51 +60,50 @@ protected:
 
 class GraphicsCommandContext : public CommandContext, public graphics::IGraphicsCommandContext {
 public:
-    GraphicsCommandContext(DX12Device& driver)
-        : CommandContext(driver, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
+    GraphicsCommandContext(DX12Device* device) : CommandContext(device, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
 
     // Front end interface
     void SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
     void SetScissorRect(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom) final;
     void SetViewPortAndScissor(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
-    void SetRenderTarget(std::shared_ptr<graphics::RenderTarget> rt) final;
+    void SetRenderTarget(const graphics::RenderTarget& rt) final;
     void UnsetRenderTarget() final;
-    void SetRenderTargetAndDepthBuffer(std::shared_ptr<graphics::RenderTarget> rt, std::shared_ptr<graphics::DepthBuffer> depth_buffer) final;
-    void ClearRenderTarget(std::shared_ptr<graphics::RenderTarget> rt) final;
-    void ClearDepthBuffer(std::shared_ptr<graphics::DepthBuffer> depth_buffer) final;
-    void SetPipelineState(std::shared_ptr<graphics::PipelineState> pipeline) final;
-    void BindResource(std::uint32_t slot, std::shared_ptr<graphics::ConstantBuffer> cb, std::size_t offset) final;
-    void BindResource(std::uint32_t slot, std::shared_ptr<graphics::TextureBuffer> texture) final;
-    void BindResource(std::uint32_t slot, std::shared_ptr<graphics::Sampler> sampler) final;
+    void SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& rt, const graphics::DepthBuffer& depth_buffer) final;
+    void ClearRenderTarget(const graphics::RenderTarget& rt) final;
+    void ClearDepthBuffer(const graphics::DepthBuffer& depth_buffer) final;
+    void SetPipelineState(const graphics::PipelineState& pipeline) final;
+    void BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, std::size_t offset) final;
+    void BindResource(std::uint32_t slot, const resource::Texture& texture) final;
+    void BindResource(std::uint32_t slot, const graphics::Sampler& sampler) final;
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) final;
 
-    void UpdateBuffer(std::shared_ptr<graphics::Resource> resource, std::size_t offset, const std::byte* data, std::size_t data_size) final;
+    void UpdateBuffer(Resource* resource, std::size_t offset, const std::byte* data, std::size_t data_size) final;
+    void UpdateVertexBuffer(resource::VertexArray& vertices) final;
+    void UpdateIndexBuffer(resource::IndexArray& indices) final;
 
-    void     Draw(std::shared_ptr<graphics::VertexBuffer> vb,
-                  std::shared_ptr<graphics::IndexBuffer>  ib,
-                  resource::PrimitiveType,
-                  std::size_t index_count,
-                  std::size_t vertex_offset,
-                  std::size_t index_offset) final;
-    void     Present(std::shared_ptr<graphics::RenderTarget> rt) final;
-    uint64_t Finish(bool wait_for_complete = false) final { return CommandContext::Finish(wait_for_complete); }
+    void          Draw(const resource::VertexArray& vb,
+                       const resource::IndexArray&  ib,
+                       resource::PrimitiveType,
+                       std::size_t index_count,
+                       std::size_t vertex_offset,
+                       std::size_t index_offset) final;
+    void          Present(const graphics::RenderTarget& rt) final;
+    std::uint64_t Finish(bool wait_for_complete = false) final { return CommandContext::Finish(wait_for_complete); }
 };
 
 class ComputeCommandContext : public CommandContext {
 public:
-    ComputeCommandContext(DX12Device& driver)
-        : CommandContext(driver, D3D12_COMMAND_LIST_TYPE_COMPUTE) {}
+    ComputeCommandContext(DX12Device* device) : CommandContext(device, D3D12_COMMAND_LIST_TYPE_COMPUTE) {}
 
     void SetPipelineState(const std::shared_ptr<graphics::PipelineState>& pipeline);
 };
 
 class CopyCommandContext : public CommandContext {
 public:
-    CopyCommandContext(DX12Device& driver)
-        : CommandContext(driver, D3D12_COMMAND_LIST_TYPE_COPY) {}
+    CopyCommandContext(DX12Device* device) : CommandContext(device, D3D12_COMMAND_LIST_TYPE_COPY) {}
 
-    void InitializeBuffer(GpuResource& dest, const std::byte* data, size_t data_size);
-    void InitializeTexture(GpuResource& dest, const std::vector<D3D12_SUBRESOURCE_DATA>& sub_data);
+    void InitializeBuffer(GpuBuffer& dest, const std::byte* data, size_t data_size);
+    void InitializeTexture(resource::Texture& texture, const std::vector<D3D12_SUBRESOURCE_DATA>& sub_data);
 };
 
 }  // namespace hitagi::graphics::backend::DX12

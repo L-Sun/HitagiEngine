@@ -4,6 +4,6 @@
 namespace hitagi::resource {
 class BmpParser : public ImageParser {
 public:
-    std::shared_ptr<resource::Image> Parse(const core::Buffer& buf) final;
+    std::optional<Texture> Parse(const core::Buffer& buffer) final;
 };
 }  // namespace hitagi::resource

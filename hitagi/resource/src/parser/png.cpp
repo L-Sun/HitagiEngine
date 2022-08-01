@@ -25,44 +25,44 @@ void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
         png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
-std::shared_ptr<Image> PngParser::Parse(const core::Buffer& buf) {
+std::optional<Texture> PngParser::Parse(const core::Buffer& buffer) {
     auto logger = spdlog::get("AssetManager");
-    if (buf.Empty()) {
-        logger->warn("[PNG] Parsing a empty buffer will return nullptr.");
-        return nullptr;
+    if (buffer.Empty()) {
+        logger->warn("[PNG] Parsing a empty bufferfer will return nullptr.");
+        return std::nullopt;
     }
 
     enum { PNG_BYTES_TO_CHECK = 4 };
 
-    if (buf.GetDataSize() < PNG_BYTES_TO_CHECK ||
-        png_sig_cmp(reinterpret_cast<png_const_bytep>(buf.GetData()), 0,
+    if (buffer.GetDataSize() < PNG_BYTES_TO_CHECK ||
+        png_sig_cmp(reinterpret_cast<png_const_bytep>(buffer.GetData()), 0,
                     PNG_BYTES_TO_CHECK)) {
         logger->warn("[PNG] File format is not png!");
-        return {};
+        return std::nullopt;
     }
 
     png_structp png_tr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr,
                                                 nullptr, nullptr);
     if (!png_tr) {
         logger->error("[PNG] Can not create read struct.");
-        return {};
+        return std::nullopt;
     }
     png_infop info_ptr = png_create_info_struct(png_tr);
     if (!info_ptr) {
         logger->error("[PNG] Can not create info struct.");
         png_destroy_read_struct(&png_tr, nullptr, nullptr);
-        return {};
+        return std::nullopt;
     }
 
     if (setjmp(png_jmpbuf(png_tr))) {
         logger->error("[PNG] Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
-        return {};
+        return std::nullopt;
     }
 
     ImageSource img_source{};
-    img_source.data   = buf.GetData();
-    img_source.size   = buf.GetDataSize();
+    img_source.data   = buffer.GetData();
+    img_source.size   = buffer.GetDataSize();
     img_source.offset = 0;
 
     png_set_read_fn(png_tr, &img_source, png_read_callback);
@@ -71,68 +71,67 @@ std::shared_ptr<Image> PngParser::Parse(const core::Buffer& buf) {
         PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_PACKING,
         nullptr);
 
-    auto width     = png_get_image_width(png_tr, info_ptr);
-    auto height    = png_get_image_height(png_tr, info_ptr);
-    auto bitcount  = 32;
-    auto pitch     = ((width * bitcount >> 3) + 3) & ~3;
-    auto data_size = pitch * height;
-    auto img       = std::make_shared<Image>(width, height, bitcount, pitch, data_size);
+    Texture image;
+    image.width      = png_get_image_width(png_tr, info_ptr);
+    image.height     = png_get_image_height(png_tr, info_ptr);
+    image.pitch      = ((image.width * 4) + 3) & ~3;
+    image.cpu_buffer = core::Buffer(image.pitch * image.height);
 
     png_bytepp rows = png_get_rows(png_tr, info_ptr);
-    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(img->Buffer().GetData());
+    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(image.cpu_buffer.GetData());
 
     switch (png_get_color_type(png_tr, info_ptr)) {
         case PNG_COLOR_TYPE_GRAY: {
-            for (int i = height - 1; i >= 0; i--) {
-                for (int j = 0; j < width; j++) {
+            for (int i = image.height - 1; i >= 0; i--) {
+                for (int j = 0; j < image.width; j++) {
                     p[j].r = rows[i][j];
                     p[j].g = rows[i][j];
                     p[j].b = rows[i][j];
                     p[j].a = 255;
                 }
                 // to next line
-                p += width;
+                p += image.width;
             }
         } break;
         case PNG_COLOR_TYPE_GRAY_ALPHA: {
-            for (int i = height - 1; i >= 0; i--) {
-                for (int j = 0; j < width; j++) {
+            for (int i = image.height - 1; i >= 0; i--) {
+                for (int j = 0; j < image.width; j++) {
                     p[j].r = rows[i][2 * j + 0];
                     p[j].g = rows[i][2 * j + 0];
                     p[j].b = rows[i][2 * j + 0];
                     p[j].a = rows[i][2 * j + 1];
                 }
                 // to next line
-                p += width;
+                p += image.width;
             }
         } break;
         case PNG_COLOR_TYPE_RGB: {
-            for (int i = height - 1; i >= 0; i--) {
-                for (int j = 0; j < width; j++) {
+            for (int i = image.height - 1; i >= 0; i--) {
+                for (int j = 0; j < image.width; j++) {
                     p[j].r = rows[i][3 * j + 0];
                     p[j].g = rows[i][3 * j + 1];
                     p[j].b = rows[i][3 * j + 2];
                     p[j].a = 255;
                 }
                 // to next line
-                p += width;
+                p += image.width;
             }
         } break;
         case PNG_COLOR_TYPE_RGBA: {
-            for (int i = height - 1; i >= 0; i--) {
+            for (int i = image.height - 1; i >= 0; i--) {
                 auto q = reinterpret_cast<R8G8B8A8Unorm*>(rows[i]);
-                std::copy(q, q + width, p);
+                std::copy(q, q + image.width, p);
                 // to next line
-                p += width;
+                p += image.width;
             }
         } break;
         default:
             logger->error("[PNG] Unsupport color type.");
-            return img;
+            return std::nullopt;
             break;
     }
 
     png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
-    return img;
+    return image;
 }
 }  // namespace hitagi::resource

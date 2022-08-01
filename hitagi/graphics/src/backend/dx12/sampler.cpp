@@ -1,11 +1,12 @@
 #include "sampler.hpp"
+#include "dx12_device.hpp"
+
+#include <d3d12.h>
 
 namespace hitagi::graphics::backend::DX12 {
-Sampler::Sampler(ID3D12Device* device, std::shared_ptr<Descriptor> sampler, const D3D12_SAMPLER_DESC& desc)
-    : m_Sampler(std::move(sampler)) {
-    device->CreateSampler(&desc, m_Sampler->handle);
+Sampler::Sampler(DX12Device* device, const D3D12_SAMPLER_DESC& desc)
+    : m_Device(device), m_Sampler(device->GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER).Allocate(Descriptor::Type::Sampler)) {
+    device->GetDevice()->CreateSampler(&desc, m_Sampler->handle);
 }
-
-// ! Why the destructor does not exsist?
 
 }  // namespace hitagi::graphics::backend::DX12

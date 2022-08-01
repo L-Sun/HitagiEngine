@@ -13,11 +13,11 @@ TEST(VectorTest, VectorInit) {
 
     vector_eq(vec4f(1, 2, 3, 4), vec4f{1, 2, 3, 4});
     vector_eq(vec4f(1), vec4f(1));
-    Vector<float, 6> v6({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f});
 }
 TEST(VectorTest, VectorCopy) {
     vec3f v3(1);
     vec3f v4 = v3;
+    vector_eq(v3, v4);
 }
 TEST(VectorTest, VectorOperator) {
     vec3d v3(1, 2, 3);
@@ -70,10 +70,19 @@ TEST(SwizzleTest, SwizzleTest) {
 }
 
 TEST(MatrixTest, MatInit) {
-    mat3f m1(1);
+    mat3f m1 = mat3f::identity();
     matrix_eq(m1, mat3f({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}));
 
     mat3f m3 = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
+}
+
+TEST(MatrixTest, MatAssignment) {
+    mat3f m1 = mat3f::identity();
+    matrix_eq(m1, mat3f({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}));
+
+    mat3f m2 = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
+    mat3f m3 = m2;
+    matrix_eq(m3, m2);
 }
 
 TEST(MatrixTest, ScalarProduct) {
@@ -88,7 +97,7 @@ TEST(MatrixTest, ScalarProduct) {
 TEST(MatrixTest, MatAddSubtract) {
     mat3f m1{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
     matrix_eq(m1 + m1, 2 * m1);
-    matrix_eq(m1 - m1, mat3f(0));
+    matrix_eq(m1 - m1, mat3f::zero());
 }
 TEST(MatrixTest, MatProducts) {
     mat3f l = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
@@ -102,34 +111,28 @@ TEST(MatrixTest, VecProducts) {
 }
 
 TEST(TransformTest, TranslateTest) {
-    vector_eq(translate(mat4f(1.0f), vec3f(1, 2, 3)) * vec4f(2, 4, 2, 1), vec4f(3, 6, 5, 1));
-    vector_eq(translate(mat4f(1.0f), vec3f(1, 2, 3)) * vec4f(2, 4, 2, 0), vec4f(2, 4, 2, 0));
+    vector_eq(translate(vec3f(1, 2, 3)) * vec4f(2, 4, 2, 1), vec4f(3, 6, 5, 1));
+    vector_eq(translate(vec3f(1, 2, 3)) * vec4f(2, 4, 2, 0), vec4f(2, 4, 2, 0));
 }
 
 TEST(TransformTest, ScaleTest) {
-    vector_eq(scale(mat4f(1.0f), vec3f(1.0f, 2.0f, 3.0f)) * vec4f(1, 2, 3, 1), vec4f(1, 4, 9, 1));
+    vector_eq(scale(vec3f(1.0f, 2.0f, 3.0f)) * vec4f(1, 2, 3, 1), vec4f(1, 4, 9, 1));
 }
 
 TEST(TransformTest, RotateTest) {
-    vector_eq(rotate_x(mat4f(1.0f), deg2rad(90.0f)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
-    vector_eq(rotate_y(mat4f(1.0f), deg2rad(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 0, -1, 1));
-    vector_eq(rotate_z(mat4f(1.0f), deg2rad(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
+    vector_eq(rotate_x(deg2rad(90.0f)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
+    vector_eq(rotate_y(deg2rad(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 0, -1, 1));
+    vector_eq(rotate_z(deg2rad(90.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
 
-    vector_eq(rotate(mat4f(1.0f), vec3f(0, 0, deg2rad(90.0f))) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
-    vector_eq(rotate(mat4f(1.0f), vec3f(0, deg2rad(180.0f), 0)) * vec4f(1, 0, 0, 1), vec4f(-1, 0, 0, 1));
-    vector_eq(rotate(mat4f(1.0f), vec3f(deg2rad(90.0f), 0, 0)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
+    vector_eq(rotate(vec3f(0, 0, deg2rad(90.0f))) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
+    vector_eq(rotate(vec3f(0, deg2rad(180.0f), 0)) * vec4f(1, 0, 0, 1), vec4f(-1, 0, 0, 1));
+    vector_eq(rotate(vec3f(deg2rad(90.0f), 0, 0)) * vec4f(1, 0, 0, 1), vec4f(1, 0, 0, 1));
 
     vector_eq(
-        rotate(mat4f(1.0f), deg2rad(vec3f(30.0f, 45.0f, 90.0f))) * vec4f(1, 2, 1, 1),
-        rotate_z(
-            rotate_y(
-                rotate_x(mat4f(1.0f),
-                         deg2rad(30.0f)),
-                deg2rad(45.0f)),
-            deg2rad(90.0f)) *
-            vec4f(1, 2, 1, 1));
+        rotate(deg2rad(vec3f(30.0f, 45.0f, 90.0f))) * vec4f(1, 2, 1, 1),
+        rotate_z(deg2rad(90.0f)) * rotate_y(deg2rad(45.0f)) * rotate_x(deg2rad(30.0f)) * vec4f(1, 2, 1, 1));
 
-    vector_eq(rotate(mat4f(1.0f), deg2rad(90.0f), vec3f(0.0f, 0.0f, 1.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
+    vector_eq(rotate(deg2rad(90.0f), vec3f(0.0f, 0.0f, 1.0f)) * vec4f(1, 0, 0, 1), vec4f(0, 1, 0, 1));
 }
 
 TEST(TransformTest, Inverse) {
@@ -146,14 +149,14 @@ TEST(TransformTest, Inverse) {
 
 TEST(TransformTest, InverseSingularMatrix) {
     mat3f a = {{1, 2, 3}, {1, 2, 3}, {3, 7, -4}};
-    matrix_eq(inverse(a), mat3f(1.0f));
+    matrix_eq(inverse(a), mat3f::identity());
 }
 
 TEST(TransformTest, DecomposeTest) {
     vec3f translation(1.0f, 1.0f, 1.0f);
     quatf rotation = euler_to_quaternion(deg2rad(vec3f(30.0f, 45.0f, 90.0f)));
     vec3f scaling(1.0f, 2.0f, 3.0f);
-    mat4f trans1      = translate(rotate(scale(mat4f(1.0f), scaling), rotation), translation);
+    mat4f trans1      = translate(translation) * rotate(rotation) * scale(scaling);
     auto [_t, _r, _s] = decompose(trans1);
     vector_eq(_t, translation);
     vector_eq(_r, rotation);

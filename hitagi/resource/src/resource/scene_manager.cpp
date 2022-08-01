@@ -4,6 +4,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include <algorithm>
+
 using namespace hitagi::math;
 
 namespace hitagi {
@@ -16,15 +18,8 @@ bool SceneManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("SceneManager");
     m_Logger->info("Initialize...");
 
-    m_Scenes.emplace_back(Scene{});
+    CreateEmptyScene("Default Scene");
     m_CurrentScene = 0;
-
-    CurrentScene().SetName("DefaultScene");
-
-    CreateDefaultCamera(CurrentScene());
-    CreateDefaultLight(CurrentScene());
-
-    m_CurrentCamera = *(CurrentScene().cameras.begin());
 
     return true;
 }
@@ -36,8 +31,7 @@ void SceneManager::Finalize() {
 }
 
 void SceneManager::Tick() {
-    graphics_manager->SetCamera(m_CurrentCamera);
-    graphics_manager->AppendRenderables(CurrentScene().GetRenderable());
+    graphics_manager->Draw(CurrentScene());
 }
 
 Scene& SceneManager::CurrentScene() {
@@ -45,17 +39,17 @@ Scene& SceneManager::CurrentScene() {
 }
 
 Scene& SceneManager::CreateEmptyScene(std::string_view name) {
-    auto& scene = m_Scenes.emplace_back(Scene{});
-    scene.SetName(name);
+    auto& scene = m_Scenes.emplace_back(Scene{name});
 
-    CreateDefaultCamera(scene);
-    CreateDefaultLight(scene);
+    scene.cameras.emplace_back(scene.world.CreateEntity<Camera, Transform, Hierarchy>());
+    scene.lights.emplace_back(scene.world.CreateEntity<Light, Transform, Hierarchy>());
+    scene.curr_camera_index = 0;
 
     return scene;
 }
 
 std::size_t SceneManager::AddScene(Scene scene) {
-    m_Scenes.emplace_back(scene);
+    m_Scenes.emplace_back(std::move(scene));
     return m_Scenes.size();
 }
 
@@ -89,21 +83,8 @@ void SceneManager::DeleteScenes(std::pmr::vector<std::size_t> index_array) {
     m_Scenes.erase(iter, m_Scenes.end());
 }
 
-void SceneManager::SetCamera(std::shared_ptr<Camera> camera) {
-    m_CurrentCamera = std::move(camera);
-}
-
-void SceneManager::CreateDefaultCamera(Scene& scene) {
-    auto camera = std::make_shared<Camera>();
-    camera->SetName("default-camera");
-    scene.cameras.emplace(camera);
-}
-
-void SceneManager::CreateDefaultLight(Scene& scene) {
-    auto light = std::make_shared<PointLight>();
-    light->SetName("default-light");
-
-    scene.lights.emplace(light);
+void SceneManager::SetCamera(ecs::Entity camera) {
+    m_CurrentCamera = camera;
 }
 
 }  // namespace hitagi::resource

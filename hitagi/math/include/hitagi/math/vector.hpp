@@ -1,4 +1,6 @@
 #pragma once
+#include <hitagi/utils/utils.hpp>
+
 #include <fmt/format.h>
 
 #include <algorithm>
@@ -40,18 +42,18 @@ public:
     operator Vector<T, sizeof...(Indexs)>() const noexcept { return Vector<T, sizeof...(Indexs)>{data[Indexs]...}; }
 };
 
-// clang-format off
 template <typename T, unsigned D>
 struct BaseVector {
     union {
-         std::array<T, D> data;
+        std::array<T, D> data;
     };
-    BaseVector()=default;
-    BaseVector(std::array<T,D> a):data{a}{}
+    BaseVector() = default;
+    constexpr BaseVector(std::array<T, D> a) : data{a} {}
 };
 
 template <typename T>
 struct BaseVector<T, 2> {
+    // clang-format off
     union {
         std::array<T, 2> data;
         struct { T x, y; };
@@ -59,13 +61,15 @@ struct BaseVector<T, 2> {
         Swizzle<T, 2, 0, 1> xy, uv;
         Swizzle<T, 2, 1, 0> yx, vu;
     };
-    BaseVector()=default;
-    BaseVector(std::array<T,2> a):data{a}{}
-    BaseVector(const T& x, const T& y) : data{x, y} {}
+    // clang-format on
+    BaseVector() = default;
+    constexpr BaseVector(std::array<T, 2> a) : data{a} {}
+    constexpr BaseVector(const T& x, const T& y) : data{x, y} {}
 };
 
 template <typename T>
 struct BaseVector<T, 3> {
+    // clang-format off
     union {
         std::array<T, 3> data;
         struct { T x, y, z; };
@@ -78,13 +82,15 @@ struct BaseVector<T, 3> {
         Swizzle<T, 3, 2, 0, 1> zxy, brg;
         Swizzle<T, 3, 2, 1, 0> zyx, bgr;
     };
-    BaseVector()=default;
-    BaseVector(std::array<T,3> a):data{a}{}
-    BaseVector(const T& x, const T& y, const T& z) : data{x, y, z} {}
+    // clang-format on
+    BaseVector() = default;
+    constexpr BaseVector(std::array<T, 3> a) : data{a} {}
+    constexpr BaseVector(const T& x, const T& y, const T& z) : data{x, y, z} {}
 };
 
 template <typename T>
 struct BaseVector<T, 4> {
+    // clang-format off
     union {
         std::array<T, 4> data;
         struct { T x, y, z, w; };
@@ -99,11 +105,11 @@ struct BaseVector<T, 4> {
         Swizzle<T, 4, 0, 1, 2, 3> xyzw, rgba;
         Swizzle<T, 4, 2, 1, 0, 3> zyxw, bgra;
     };
-    BaseVector()=default;
-    BaseVector(std::array<T,4> a):data{a}{}
-    BaseVector(const T& x, const T& y, const T& z,const T& w) : data{x, y, z, w} {}
+    // clang-format on
+    BaseVector() = default;
+    constexpr BaseVector(std::array<T, 4> a) : data{a} {}
+    constexpr BaseVector(const T& x, const T& y, const T& z, const T& w) : data{x, y, z, w} {}
 };
-// clang-format on
 
 template <typename T, unsigned D>
 struct Vector : public BaseVector<T, D> {
@@ -116,7 +122,7 @@ struct Vector : public BaseVector<T, D> {
     Vector& operator=(const Vector&)     = default;
     Vector& operator=(Vector&&) noexcept = default;
 
-    explicit Vector(const T& num) { data.fill(num); }
+    constexpr explicit Vector(const T& num) : BaseVector<T, D>(utils::create_array<T, D>(num)) {}
 
     Vector(const Vector<T, D - 1>& v, const T& num) {
         std::copy_n(v.data.begin(), D - 1, data.begin());
@@ -130,7 +136,7 @@ struct Vector : public BaseVector<T, D> {
 
     constexpr static unsigned size() { return D; }
 
-    const T norm() const noexcept {
+    constexpr const T norm() const noexcept {
         T result = 0;
         for (auto&& val : data) result += val * val;
         return std::sqrt(result);
@@ -146,57 +152,57 @@ struct Vector : public BaseVector<T, D> {
         return out << fmt::format("[{:6}]", fmt::join(v.data, ", ")) << std::flush;
     }
 
-    Vector operator+(const Vector& rhs) const noexcept {
+    constexpr Vector operator+(const Vector& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] + rhs[i];
         return result;
     }
 
-    Vector operator-() const noexcept {
+    constexpr Vector operator-() const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = -data[i];
         return result;
     }
-    Vector operator-(const Vector& rhs) const noexcept {
+    constexpr Vector operator-(const Vector& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] - rhs[i];
         return result;
     }
 
-    Vector operator*(const Vector& rhs) const noexcept {
+    constexpr Vector operator*(const Vector& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] * rhs[i];
         return result;
     }
-    Vector operator*(const T& rhs) const noexcept {
+    constexpr Vector operator*(const T& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] * rhs;
         return result;
     }
-    friend Vector operator*(const T& lhs, const Vector& rhs) noexcept { return rhs * lhs; }
-    Vector        operator/(const T& rhs) const noexcept {
-               Vector result;
-               for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
+    friend Vector    operator*(const T& lhs, const Vector& rhs) noexcept { return rhs * lhs; }
+    constexpr Vector operator/(const T& rhs) const noexcept {
+        Vector result;
+        for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs;
         return result;
     }
-    Vector operator/(const Vector& rhs) const noexcept {
+    constexpr Vector operator/(const Vector& rhs) const noexcept {
         Vector result;
         for (unsigned i = 0; i < D; i++) result.data[i] = data[i] / rhs[i];
         return result;
     }
-    Vector& operator+=(const Vector& rhs) noexcept {
+    constexpr Vector& operator+=(const Vector& rhs) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] += rhs[i];
         return *this;
     }
-    Vector& operator-=(const Vector& rhs) noexcept {
+    constexpr Vector& operator-=(const Vector& rhs) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] -= rhs[i];
         return *this;
     }
-    Vector& operator*=(const T& rhs) noexcept {
+    constexpr Vector& operator*=(const T& rhs) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] *= rhs;
         return *this;
     }
-    Vector& operator/=(const T& rhs) noexcept {
+    constexpr Vector& operator/=(const T& rhs) noexcept {
         for (unsigned i = 0; i < D; i++) data[i] /= rhs;
         return *this;
     }
@@ -262,7 +268,7 @@ struct Quaternion : public Vector<T, 4> {
     using Vector<T, 4>::Vector;
     using Vector<T, 4>::data;
 
-    Quaternion operator*(const Quaternion& rhs) const noexcept {
+    constexpr Quaternion operator*(const Quaternion& rhs) const noexcept {
         return {
             data[0] * rhs.data[3] + data[3] * rhs.data[0] + data[1] * rhs.data[2] - data[2] * rhs.data[1],
             data[1] * rhs.data[3] + data[3] * rhs.data[1] + data[2] * rhs.data[0] - data[0] * rhs.data[2],
@@ -271,7 +277,7 @@ struct Quaternion : public Vector<T, 4> {
         };
     }
 
-    Quaternion invert(const Quaternion& q) {
+    constexpr Quaternion invert(const Quaternion& q) {
         Quaternion result = q;
 
         T length  = q.norm();
@@ -312,7 +318,7 @@ using vec3u = Vector<std::uint32_t, 3>;
 using vec4u = Vector<std::uint32_t, 4>;
 
 template <typename T, unsigned D>
-const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) noexcept {
+constexpr const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) noexcept {
     T result = 0;
     for (unsigned i = 0; i < D; i++) result += lhs[i] * rhs[i];
     return result;
@@ -326,49 +332,47 @@ const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) {
 #endif  // USE_ISPC
 
 template <typename T, unsigned D>
-Vector<T, D> normalize(const Vector<T, D>& v) {
+constexpr Vector<T, D> normalize(const Vector<T, D>& v) {
     return v / v.norm();
 }
 
 template <typename T>
-Vector<T, 3> cross(const Vector<T, 3>& v1, const Vector<T, 3>& v2) {
-    Vector<T, 3> result;
-    result.x = v1.y * v2.z - v1.z * v2.y;
-    result.y = v1.z * v2.x - v1.x * v2.z;
-    result.z = v1.x * v2.y - v1.y * v2.x;
-    return result;
+constexpr Vector<T, 3> cross(const Vector<T, 3>& v1, const Vector<T, 3>& v2) {
+    return {v1.y * v2.z - v1.z * v2.y,
+            v1.z * v2.x - v1.x * v2.z,
+            v1.x * v2.y - v1.y * v2.x};
 }
 
 template <typename T, unsigned D>
-Vector<T, D> absolute(const Vector<T, D>& a) {
+constexpr Vector<T, D> absolute(const Vector<T, D>& a) {
     Vector<T, D> res;
     for (unsigned i = 0; i < D; i++) res[i] = std::abs(a[i]);
     return res;
 }
 
 template <typename T, unsigned D>
-Vector<T, D> max(const Vector<T, D>& a, const T& b) {
+constexpr Vector<T, D> max(const Vector<T, D>& a, const T& b) {
     Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b);
     return res;
 }
 
 template <typename T, unsigned D>
-Vector<T, D> max(const Vector<T, D>& a, const Vector<T, D>& b) {
+constexpr Vector<T, D> max(const Vector<T, D>& a, const Vector<T, D>& b) {
     Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b[i]);
     return res;
 }
 
 template <typename T, unsigned D>
-Vector<T, D> min(const Vector<T, D>& a, const T& b) {
+constexpr Vector<T, D> min(const Vector<T, D>& a, const T& b) {
     Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b);
     return res;
 }
 
 template <typename T, unsigned D>
-Vector<T, D> min(const Vector<T, D>& a, const Vector<T, D>& b) {
+constexpr Vector<T, D> min(const Vector<T, D>& a, const Vector<T, D>& b) {
     Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b[i]);
     return res;
