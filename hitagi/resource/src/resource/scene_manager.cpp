@@ -1,4 +1,5 @@
 #include <hitagi/resource/scene_manager.hpp>
+#include <hitagi/graphics/graphics_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -29,7 +30,9 @@ void SceneManager::Finalize() {
     m_Logger = nullptr;
 }
 
-void SceneManager::Tick() {}
+void SceneManager::Tick() {
+    graphics_manager->Draw(CurrentScene());
+}
 
 Scene& SceneManager::CurrentScene() {
     return m_Scenes[m_CurrentScene];

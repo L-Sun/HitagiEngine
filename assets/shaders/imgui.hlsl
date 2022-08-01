@@ -45,8 +45,7 @@ struct PS_INPUT {
   return output;
 }
 
-    [RootSignature(RSDEF)] float4 PSMain(PS_INPUT input)
-    : SV_TARGET {
+[RootSignature(RSDEF)] float4 PSMain(PS_INPUT input) : SV_TARGET {
   float4 out_col = input.col * texture0.Sample(sampler0, input.uv);
   return out_col;
 }

@@ -50,9 +50,7 @@ void AssetManager::Finalize() {
 
     m_SceneParser = nullptr;
 
-    for (auto&& materail : m_Materials) {
-        materail = nullptr;
-    }
+    m_Materials.clear();
 
     m_Logger->info("Finalized.");
     m_Logger = nullptr;

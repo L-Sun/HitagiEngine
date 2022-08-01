@@ -299,13 +299,13 @@ void GraphicsCommandContext::Draw(
     std::size_t vb_offset = 0;
     magic_enum::enum_for_each<resource::VertexAttribute>([&](auto attr) {
         if (vertex_buffer.IsEnabled(attr())) {
+            D3D12_VERTEX_BUFFER_VIEW vbv{
+                .BufferLocation = vb->GetResource()->GetGPUVirtualAddress() + vb_offset,
+                .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(attr()) * vertex_buffer.vertex_count),
+                .StrideInBytes  = get_vertex_attribute_size(attr()),
+            };
+            vb_offset += vbv.SizeInBytes;
             if (int slot = gpso->GetAttributeSlot(attr()); slot != -1) {
-                D3D12_VERTEX_BUFFER_VIEW vbv{
-                    .BufferLocation = vb->GetResource()->GetGPUVirtualAddress() + vb_offset,
-                    .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(attr()) * vertex_buffer.vertex_count),
-                    .StrideInBytes  = get_vertex_attribute_size(attr()),
-                };
-                vb_offset += vbv.StrideInBytes;
                 m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
             }
         }

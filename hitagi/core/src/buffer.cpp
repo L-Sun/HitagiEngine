@@ -61,18 +61,13 @@ Buffer& Buffer::operator=(const Buffer& rhs) {
 
 Buffer& Buffer::operator=(Buffer&& rhs) noexcept {
     if (this != &rhs) {
-        if (m_Allocator != rhs.m_Allocator && m_Data != nullptr) {
-            m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
-            if (rhs.m_Size != 0) {
-                m_Data = static_cast<std::byte*>(m_Allocator.allocate_bytes(m_Size, m_Alignment));
-                std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
-            } else {
-                m_Data = nullptr;
-            }
+        // use copy
+        if (m_Allocator != rhs.m_Allocator) {
+            return this->operator=(std::cref(rhs));
         } else {
-            m_Data = rhs.m_Data;
+            if (m_Data != nullptr) m_Allocator.deallocate(m_Data, m_Size);
         }
-
+        m_Data      = rhs.m_Data;
         m_Size      = rhs.m_Size;
         m_Alignment = rhs.m_Alignment;
 

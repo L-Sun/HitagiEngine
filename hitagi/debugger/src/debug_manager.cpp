@@ -112,14 +112,13 @@ void DebugManager::AddPrimitive(const Mesh& mesh, Transform transform, std::chro
 
     for (const auto& sub_mesh : mesh.sub_meshes) {
         item.sub_mesh = sub_mesh;
+        m_DebugDrawItems.emplace_back(item);
     }
-
-    m_DebugDrawItems.emplace_back(std::move(item));
 }
 
 void DebugManager::DrawPrimitive() const {
     std::pmr::vector<Renderable> result;
-    result.reserve(m_DebugPrimitivePrototypes.size());
+    result.reserve(m_DebugDrawItems.size());
     std::transform(m_DebugDrawItems.begin(), m_DebugDrawItems.end(), std::back_inserter(result), [](const DebugPrimitive& item) {
         return static_cast<Renderable>(item);
     });

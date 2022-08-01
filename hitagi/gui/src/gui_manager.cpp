@@ -91,9 +91,9 @@ void GuiManager::Tick() {
 
 void GuiManager::Finalize() {
     ImGui::DestroyContext();
-    m_ImGuiMesh.vertices    = nullptr;
-    m_ImGuiMesh.indices     = nullptr;
+    m_ImGuiMesh             = {};
     m_ImGuiMaterialInstance = {};
+    m_GuiDrawTasks          = {};
     m_Logger->info("Finalize.");
     m_Logger = nullptr;
 }

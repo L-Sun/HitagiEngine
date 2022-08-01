@@ -25,6 +25,7 @@ void Frame::AppendRenderables(std::pmr::vector<resource::Renderable> renderables
 }
 
 void Frame::SetCamera(resource::Camera camera) {
+    camera.Update();
     m_FrameConstant.camera_pos     = vec4f(camera.eye, 1.0f);
     m_FrameConstant.view           = camera.GetView();
     m_FrameConstant.projection     = camera.GetProjectionView();
@@ -123,6 +124,7 @@ void Frame::PrepareData() {
 
         // Prepare object constant buffer
         {
+            item.object_constant_offset = object_constant_offset;
             ObjectConstant constant{
                 .word_transform = item.transform.world_matrix,
             };
@@ -165,10 +167,10 @@ void Frame::PrepareData() {
                     cpu_buffer.GetData(),
                     cpu_buffer.GetDataSize());
 
+                item.material_constant_offset = material_offset;
                 material_offset++;
                 last_material = material;
             }
-            item.material_constant_offset = material_offset;
         }
 
         // Prepare texture
