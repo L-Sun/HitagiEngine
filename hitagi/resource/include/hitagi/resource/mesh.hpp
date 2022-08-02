@@ -7,6 +7,8 @@
 #include <magic_enum.hpp>
 
 #include <functional>
+#include <type_traits>
+#include "hitagi/utils/utils.hpp"
 
 namespace hitagi::resource {
 enum struct VertexAttribute : std::uint8_t {
@@ -93,8 +95,8 @@ struct VertexArray : public Resource {
     template <VertexAttribute Attr>
     auto GetVertices() const;
 
-    template <VertexAttribute Attr>
-    void Modify(std::function<void(std::span<VertexType<Attr>>)>&& modifier);
+    template <VertexAttribute... Attrs>
+    void Modify(std::function<void(std::span<VertexType<Attrs>>...)>&& modifier);
 
     std::size_t                                            vertex_count = 0;
     std::bitset<magic_enum::enum_count<VertexAttribute>()> attribute_mask;
@@ -147,19 +149,23 @@ auto VertexArray::GetVertices() const {
         vertex_count);
 }
 
-template <VertexAttribute Attr>
-void VertexArray::Modify(std::function<void(std::span<VertexType<Attr>>)>&& modifier) {
-    if (!IsEnabled(Attr)) {
-        Enable(Attr);
+template <VertexAttribute... Attrs>
+void VertexArray::Modify(std::function<void(std::span<VertexType<Attrs>>...)>&& modifier) {
+    if (!(IsEnabled(Attrs) && ... && true)) {
+        (Enable(Attrs), ...);
     };
 
-    std::size_t buffer_offset = 0;
-    for (std::size_t i = 0; i < magic_enum::enum_integer(Attr); i++) {
-        if (attribute_mask.test(i)) buffer_offset += vertex_count * get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(i).value());
-    }
-    modifier(std::span<VertexType<Attr>>(
-        reinterpret_cast<VertexType<Attr>*>(cpu_buffer.GetData() + buffer_offset),
-        vertex_count));
+    auto get_array = [&](auto attr) {
+        auto buffer_offset = 0;
+        for (std::size_t i = 0; i < magic_enum::enum_integer(attr()); i++) {
+            if (attribute_mask.test(i)) buffer_offset += vertex_count * get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(i).value());
+        }
+        return std::span<VertexType<attr()>>(
+            reinterpret_cast<VertexType<attr()>*>(cpu_buffer.GetData() + buffer_offset),
+            vertex_count);
+    };
+
+    modifier(get_array(magic_enum::enum_constant<Attrs>{})...);
     dirty = true;
 }
 
