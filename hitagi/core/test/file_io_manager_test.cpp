@@ -46,7 +46,7 @@ TEST(FileIoManagerTest, SaveFile) {
     auto         path = std::filesystem::temp_directory_path() / "SaveFile.tmp";
 
     file_io_manager->SaveBuffer(buffer, path);
-    buffer = file_io_manager->SyncOpenAndReadBinary(std::filesystem::temp_directory_path() / "Save");
+    buffer = file_io_manager->SyncOpenAndReadBinary(path);
 
     EXPECT_STREQ(content.c_str(), std::string(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize()).c_str());
 
