@@ -6,6 +6,7 @@
 #include <magic_enum.hpp>
 
 // Stage, commit  CPU visible descriptor to GPU visible descriptor.
+// TODO make it as a part of pipeline to reduce parser rootsignature cost
 namespace hitagi::graphics::backend::DX12 {
 class CommandContext;
 class DX12Device;
@@ -42,13 +43,12 @@ public:
 private:
     ComPtr<ID3D12DescriptorHeap>        RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
     static ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(DX12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type);
-    std::uint32_t                       StaleDescriptorCount(D3D12_DESCRIPTOR_HEAP_TYPE heap_type) const;
 
-    void StageDescriptor(std::uint32_t heap_offset, const std::shared_ptr<Descriptor>& descriptor);
-    void StageDescriptors(std::uint32_t heap_offset, const std::pmr::vector<std::shared_ptr<Descriptor>>& descriptors);
+    void StageDescriptor(std::uint32_t heap_offset, const Descriptor& descriptor);
+    void StageDescriptors(std::uint32_t heap_offset, const std::pmr::vector<std::reference_wrapper<const Descriptor>>& descriptors);
 
     struct DescriptorCache {
-        std::shared_ptr<Descriptor> descriptor = nullptr;
+        D3D12_CPU_DESCRIPTOR_HANDLE handle     = {0};
         std::uint32_t               root_index = 0;
     };
 
@@ -89,5 +89,6 @@ private:
     std::array<CD3DX12_CPU_DESCRIPTOR_HANDLE, 2> m_CurrentCPUDescriptorHandles;
     std::array<CD3DX12_GPU_DESCRIPTOR_HANDLE, 2> m_CurrentGPUDescriptorHandles;
     std::array<std::uint32_t, 2>                 m_NumFreeHandles;
+    std::array<std::uint32_t, 2>                 m_StaleDescriptorCount = {0, 0};
 };
 }  // namespace hitagi::graphics::backend::DX12

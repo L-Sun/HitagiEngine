@@ -27,7 +27,7 @@ void FileIOManager::Tick() {}
 
 bool FileIOManager::IsFileChanged(const std::filesystem::path& file_path) const {
     PathHash hash = std::filesystem::hash_value(file_path);
-    if (m_FileStateCache.count(hash) == 0) return true;
+    if (!m_FileStateCache.contains(hash)) return true;
     return m_FileStateCache.at(hash) < std::filesystem::last_write_time(file_path);
 }
 

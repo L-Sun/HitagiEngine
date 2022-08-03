@@ -92,7 +92,7 @@ void ResourceBinder::ParseRootSignature(const D3D12_ROOT_SIGNATURE_DESC1& root_s
 
                         m_DescriptorCaches[heap_index].at(heap_offset) =
                             DescriptorCache{
-                                .descriptor = nullptr,
+                                .handle     = {0},
                                 .root_index = root_index,
                             };
                     }
@@ -170,34 +170,35 @@ void ResourceBinder::Set32BitsConstants(std::uint32_t slot, const std::uint32_t*
     }
 }
 
-void ResourceBinder::StageDescriptor(std::uint32_t offset, const std::shared_ptr<Descriptor>& descriptor) {
-    StageDescriptors(offset, {descriptor});
+void ResourceBinder::StageDescriptor(std::uint32_t offset, const Descriptor& descriptor) {
+    StageDescriptors(offset, {std::cref(descriptor)});
 }
 
-void ResourceBinder::StageDescriptors(std::uint32_t offset, const std::pmr::vector<std::shared_ptr<Descriptor>>& descriptors) {
+void ResourceBinder::StageDescriptors(std::uint32_t offset, const std::pmr::vector<std::reference_wrapper<const Descriptor>>& descriptors) {
     if (descriptors.empty()) return;
     assert(offset + descriptors.size() <= sm_heap_size);
 
     auto iter = std::adjacent_find(descriptors.begin(), descriptors.end(), [](const auto& a, const auto& b) -> bool {
-        return a->type == b->type;
+        return a.get().type == b.get().type;
     });
 
     if (iter != descriptors.end()) {
         std::size_t index = std::distance(iter, descriptors.end());
         throw std::invalid_argument(fmt::format(
             "Expect all descriptor have same type, but its type ({}) is diffrent from ({}) at index {}",
-            magic_enum::enum_name(descriptors[index]->type),
-            magic_enum::enum_name(descriptors[index - 1]->type),
+            magic_enum::enum_name(descriptors[index].get().type),
+            magic_enum::enum_name(descriptors[index - 1].get().type),
             index));
     }
-    auto descriptor_type = descriptors.front()->type;
+    auto descriptor_type = descriptors.front().get().type;
     assert(descriptor_type != Descriptor::Type::DSV && descriptor_type != Descriptor::Type::RTV);
 
     std::size_t heap_index = descriptor_type == Descriptor::Type::Sampler ? 1 : 0;
 
+    m_StaleDescriptorCount[heap_index] += descriptors.size();
     for (std::size_t i = 0; i < descriptors.size(); i++) {
         DescriptorCache& cache = m_DescriptorCaches[heap_index].at(offset + i);
-        cache.descriptor       = descriptors[i];
+        cache.handle           = descriptors[i].get().handle;
         m_RootTableDirty.set(cache.root_index);
     }
 }
@@ -232,16 +233,6 @@ ComPtr<ID3D12DescriptorHeap> ResourceBinder::CreateDescriptorHeap(
     return descriptor_heap;
 }
 
-std::uint32_t ResourceBinder::StaleDescriptorCount(D3D12_DESCRIPTOR_HEAP_TYPE heap_type) const {
-    std::uint32_t result = 0;
-    for (const auto& cache : m_DescriptorCaches[heap_type]) {
-        if (cache.descriptor != nullptr) {
-            result++;
-        }
-    }
-    return result;
-}
-
 void ResourceBinder::CommitStagedDescriptors() {
     D3D12_COMMAND_LIST_TYPE cmd_type = m_Context.GetType();
     auto                    cmd_list = m_Context.GetCommandList();
@@ -249,7 +240,7 @@ void ResourceBinder::CommitStagedDescriptors() {
     for (int heap_index = 0; heap_index < 2; heap_index++) {
         D3D12_DESCRIPTOR_HEAP_TYPE heap_type = heap_index == 0 ? D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV : D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
 
-        if (m_NumFreeHandles[heap_index] < StaleDescriptorCount(heap_type)) {
+        if (m_NumFreeHandles[heap_index] < m_StaleDescriptorCount[heap_type]) {
             m_CurrentDescriptorHeaps[heap_index]      = RequestDescriptorHeap(heap_type);
             m_CurrentCPUDescriptorHandles[heap_index] = m_CurrentDescriptorHeaps[heap_index]->GetCPUDescriptorHandleForHeapStart();
             m_CurrentGPUDescriptorHandles[heap_index] = m_CurrentDescriptorHeaps[heap_index]->GetGPUDescriptorHandleForHeapStart();
@@ -264,16 +255,16 @@ void ResourceBinder::CommitStagedDescriptors() {
         std::pair<CD3DX12_CPU_DESCRIPTOR_HANDLE, std::uint32_t> range = {{}, 0};
         std::pmr::vector<decltype(range)>                       ranges;
         for (const auto& cache : m_DescriptorCaches[heap_type]) {
-            if (cache.descriptor == nullptr) break;
+            if (cache.handle.ptr == 0) break;
             if (!m_RootTableDirty.test(cache.root_index)) continue;
 
-            if (cache.descriptor->handle.ptr == range.first.ptr + range.second * m_HandleIncrementSizes[heap_type]) {
+            if (cache.handle.ptr == range.first.ptr + range.second * m_HandleIncrementSizes[heap_type]) {
                 range.second++;
             } else {
                 if (range.second != 0) {
                     ranges.emplace_back(range);
                 }
-                range.first  = cache.descriptor->handle;
+                range.first  = cache.handle;
                 range.second = 1;
             }
         }

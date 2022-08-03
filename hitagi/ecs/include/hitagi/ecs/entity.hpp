@@ -7,7 +7,7 @@
 namespace hitagi::ecs {
 
 struct Entity {
-    std::uint64_t id = 0;
+    std::uint64_t id = InvalidEntity();
 
     static constexpr Entity InvalidEntity() {
         return {.id = std::numeric_limits<std::uint64_t>::max()};

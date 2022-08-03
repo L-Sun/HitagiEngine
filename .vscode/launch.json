@@ -22,7 +22,7 @@
             ],
             "console": "externalTerminal",
             "logging": {
-                "moduleLoad": true
+                "moduleLoad": false
             }
         }
     ]

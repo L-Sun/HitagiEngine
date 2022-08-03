@@ -61,7 +61,7 @@ auto Material::Builder::AppendTextureName(std::string_view name, std::filesystem
 }
 
 void Material::Builder::AddName(const std::pmr::string& name) {
-    if (exsisted_names.count(name) != 0) {
+    if (exsisted_names.contains(name)) {
         auto logger = spdlog::get("AssetManager");
         if (logger) logger->error("Duplicated material parameter name: ({})", name);
         throw std::invalid_argument(fmt::format("Duplicated material parameter name: ({})", name));
@@ -210,7 +210,7 @@ MaterialInstance& MaterialInstance::SetMaterial(const std::shared_ptr<Material>&
 
 std::shared_ptr<Texture> MaterialInstance::GetTexture(std::string_view name) const noexcept {
     std::pmr::string _name(name);
-    if (m_Textures.count(_name) == 0) return nullptr;
+    if (!m_Textures.contains(_name)) return nullptr;
     return m_Textures.at(_name);
 }
 

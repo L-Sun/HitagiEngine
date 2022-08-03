@@ -11,6 +11,11 @@ constexpr T deg2rad(T angle) {
 }
 
 template <typename T>
+constexpr T rad2deg(T radians) {
+    return radians * 180.0 * std::numbers::inv_pi;
+}
+
+template <typename T>
 constexpr Matrix<T, 4> translate(const Vector<T, 3>& v) {
     // clang-format off
     return {

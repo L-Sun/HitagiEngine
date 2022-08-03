@@ -8,7 +8,6 @@
 
 #include <functional>
 #include <type_traits>
-#include "hitagi/utils/utils.hpp"
 
 namespace hitagi::resource {
 enum struct VertexAttribute : std::uint8_t {
@@ -24,8 +23,8 @@ enum struct VertexAttribute : std::uint8_t {
     UV1         = 9,   // vec2f
     UV2         = 10,  // vec2f
     UV3         = 11,  // vec2f
-    BlendIndex  = 12,  // uint
-    BlendWeight = 13,  // float
+    BlendIndex  = 12,  // vec4u
+    BlendWeight = 13,  // vec4f
 
     // Custom the default value type is float
     Custom1 = 14,
@@ -51,9 +50,9 @@ constexpr auto vertex_attr() noexcept {
                        e == VertexAttribute::UV3)
         return math::vec2f{};
     else if constexpr (e == VertexAttribute::BlendIndex)
-        return std::uint32_t{};
+        return math::vec4u{};
     else if constexpr (e == VertexAttribute::BlendWeight)
-        return float{};
+        return math::vec4f{};
     else
         return float{};
 }

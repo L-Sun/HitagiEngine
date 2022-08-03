@@ -23,10 +23,10 @@ private:
 
     using PathHash = size_t;
 
-    std::mutex                                                    m_CacheMutex;
-    std::unordered_map<PathHash, std::filesystem::file_time_type> m_FileStateCache;
-    std::unordered_map<PathHash, Buffer>                          m_FileCache;
-    Buffer                                                        m_EmptyBuffer;
+    std::mutex                                                         m_CacheMutex;
+    std::pmr::unordered_map<PathHash, std::filesystem::file_time_type> m_FileStateCache;
+    std::pmr::unordered_map<PathHash, Buffer>                          m_FileCache;
+    Buffer                                                             m_EmptyBuffer;
 };
 
 }  // namespace hitagi::core

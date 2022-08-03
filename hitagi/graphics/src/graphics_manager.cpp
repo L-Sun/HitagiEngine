@@ -71,7 +71,7 @@ void GraphicsManager::AppendRenderables(std::pmr::vector<resource::Renderable> r
 }
 
 PipelineState& GraphicsManager::GetPipelineState(const std::shared_ptr<resource::Material>& material) {
-    if (m_Pipelines.count(material) == 0) {
+    if (!m_Pipelines.contains(material)) {
         // TODO more infomation
         PipelineState pipeline;
         pipeline.vs             = material->GetVertexShader();
@@ -119,6 +119,7 @@ void GraphicsManager::OnSizeChanged() {
 
     for (auto& frame : m_Frames) {
         m_Device->RetireResource(frame->GetRenderTarget().gpu_resource.lock());
+        m_Device->RetireResource(frame->GetDepthBuffer().gpu_resource.lock());
         m_Device->IdleGPU();
     }
 
@@ -126,6 +127,7 @@ void GraphicsManager::OnSizeChanged() {
 
     for (size_t index = 0; index < m_Frames.size(); index++) {
         m_Device->InitRenderFromSwapChain(m_Frames.at(index)->GetRenderTarget(), index);
+        m_Device->InitDepthBuffer(m_Frames.at(index)->GetDepthBuffer());
     }
 }
 
@@ -136,16 +138,14 @@ void GraphicsManager::Render() {
     if (m_CurrScene)
         frame->AppendRenderables(m_CurrScene->GetRenderables());
 
-    frame->PrepareData();
+    auto          context1 = device->CreateGraphicsCommandContext();
+    std::uint64_t fence1   = frame->PrepareData(context1.get());
 
-    const auto          rect          = app->GetWindowsRect();
-    const std::uint32_t screen_width  = rect.right - rect.left,
-                        screen_height = rect.bottom - rect.top;
-
-    auto        context = device->CreateGraphicsCommandContext();
+    auto        context2 = device->CreateGraphicsCommandContext();
     RenderGraph fg(*device);
 
     auto render_target_handle = fg.Import(&frame->GetRenderTarget());
+    auto depth_buffer_handle  = fg.Import(&frame->GetDepthBuffer());
 
     struct ColorPassData {
         FrameHandle depth_buffer;
@@ -157,15 +157,7 @@ void GraphicsManager::Render() {
         "ColorPass",
         // Setup function
         [&](RenderGraph::Builder& builder, ColorPassData& data) {
-            data.depth_buffer = builder.Create("DepthBuffer",
-                                               DepthBuffer{
-                                                   .format        = resource::Format::D32_FLOAT,
-                                                   .width         = screen_width,
-                                                   .height        = screen_height,
-                                                   .clear_depth   = 1.0f,
-                                                   .clear_stencil = 0,
-                                               });
-            data.depth_buffer = builder.Write(data.depth_buffer);
+            data.depth_buffer = builder.Write(depth_buffer_handle);
             data.output       = builder.Write(render_target_handle);
         },
         // Excute function
@@ -176,10 +168,10 @@ void GraphicsManager::Render() {
             if (m_CurrScene)
                 frame->SetCamera(m_CurrScene->GetCurrentCamera());
 
-            context->SetRenderTargetAndDepthBuffer(render_target, depth_buffer);
-            context->ClearRenderTarget(render_target);
-            context->ClearDepthBuffer(depth_buffer);
-            frame->Render(context.get(), resource::Renderable::Type::Default);
+            context2->SetRenderTargetAndDepthBuffer(render_target, depth_buffer);
+            context2->ClearRenderTarget(render_target);
+            context2->ClearDepthBuffer(depth_buffer);
+            frame->Render(context2.get(), resource::Renderable::Type::Default);
         });
 
     struct DebugPassData {
@@ -192,8 +184,8 @@ void GraphicsManager::Render() {
         },
         [=](const ResourceHelper& helper, DebugPassData& data) {
             auto& render_target = helper.Get<RenderTarget>(data.output);
-            context->SetRenderTarget(render_target);
-            frame->Render(context.get(), resource::Renderable::Type::Debug);
+            context2->SetRenderTarget(render_target);
+            frame->Render(context2.get(), resource::Renderable::Type::Debug);
         });
 
     struct GuiPassData {
@@ -207,18 +199,18 @@ void GraphicsManager::Render() {
         [=](const ResourceHelper& helper, GuiPassData& data) {
             // TODO set a orth camera
             auto& render_target = helper.Get<RenderTarget>(data.output);
-            context->SetRenderTarget(render_target);
-            frame->Render(context.get(), resource::Renderable::Type::UI);
+            context2->SetRenderTarget(render_target);
+            frame->Render(context2.get(), resource::Renderable::Type::UI);
         });
 
-    fg.Present(render_target_handle, context);
+    fg.Present(render_target_handle, context2);
 
     fg.Compile();
 
     fg.Execute();
-    std::uint64_t fence = context->Finish();
-    fg.Retire(fence);
-    frame->SetFenceValue(fence);
+    std::uint64_t fence2 = context2->Finish();
+    fg.Retire(fence2);
+    frame->SetFenceValue(fence2);
 }
 
 Frame* GraphicsManager::GetBcakFrameForRendering() {

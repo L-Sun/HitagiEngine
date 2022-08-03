@@ -33,22 +33,18 @@ bool DebugManager::Initialize() {
     }
     m_LineMaterialInstance = material.value();
 
-    auto x_axis = MeshFactory::Line({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f});
-    auto y_axis = MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f});
-    auto z_axis = MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f});
+    auto box = MeshFactory::BoxWireframe(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f), {0.0f, 0.0f, 0.0f, 1.0f});
 
-    m_DebugPrimitivePrototypes["axis"] = merge_meshes({x_axis, y_axis, z_axis});
-    m_DebugPrimitivePrototypes["box"]  = MeshFactory::BoxWireframe(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f), {0.0f, 0.0f, 0.0f, 1.0f});
+    m_MeshBuffer.vertices       = std::make_shared<VertexArray>(1);
+    m_MeshBuffer.indices        = std::make_shared<IndexArray>(1, IndexType::UINT32);
+    m_MeshBuffer.vertices->name = "Debug vertices";
+    m_MeshBuffer.indices->name  = "Debug indices";
 
-    m_DebugPrimitivePrototypes["axis"].vertices->name = "debug_axis";
-    m_DebugPrimitivePrototypes["box"].vertices->name  = "debug_box";
-    m_DebugPrimitivePrototypes["axis"].indices->name  = "debug_axis";
-    m_DebugPrimitivePrototypes["box"].indices->name   = "debug_box";
+    m_VertexOffset = m_MeshBuffer.vertices->vertex_count;
+    m_IndexOffset  = m_MeshBuffer.indices->index_count;
 
-    for (auto& [name, mesh] : m_DebugPrimitivePrototypes) {
-        for (auto& sub_mesh : mesh.sub_meshes) {
-            sub_mesh.material = m_LineMaterialInstance;
-        }
+    for (auto& sub_mesh : m_MeshBuffer.sub_meshes) {
+        sub_mesh.material = m_LineMaterialInstance;
     }
 
     return true;
@@ -57,14 +53,16 @@ bool DebugManager::Initialize() {
 void DebugManager::Finalize() {
     m_LineMaterialInstance = {};
     m_DebugDrawItems.clear();
-    m_DebugPrimitivePrototypes.clear();
+    m_MeshBuffer = {};
 
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
 void DebugManager::Tick() {
-    RetiredPrimitive();
+    ClearDirty();
+    m_VertexOffset = 0;
+    m_IndexOffset  = 0;
     if (m_DrawDebugInfo)
         DrawPrimitive();
 }
@@ -73,49 +71,62 @@ void DebugManager::ToggleDebugInfo() {
     m_DrawDebugInfo = !m_DrawDebugInfo;
 }
 
-void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
-    AddPrimitive(MeshFactory::Line(from, to, color), {}, duration, depth_enabled);
+void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, bool depth_enabled) {
+    AddPrimitive(MeshFactory::Line(from, to, color), {}, depth_enabled);
 }
 
 void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
-    AddPrimitive(m_DebugPrimitivePrototypes["axis"], {transform}, std::chrono::seconds(0), depth_enabled);
+    auto axis = merge_meshes({
+        MeshFactory::Line({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}),
+        MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}),
+        MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}),
+    });
+
+    AddPrimitive(axis, {transform}, depth_enabled);
 }
 
-void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, const std::chrono::seconds duration, bool depth_enabled) {
-    AddPrimitive(m_DebugPrimitivePrototypes["box"], {transform}, duration, depth_enabled);
+void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, bool depth_enabled) {
+    AddPrimitive(MeshFactory::BoxWireframe({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}), {transform}, depth_enabled);
 }
 
-void DebugManager::RetiredPrimitive() {
-    std::sort(m_DebugDrawItems.begin(), m_DebugDrawItems.end(),
-              [](const DebugPrimitive& lhs, const DebugPrimitive& rhs) -> bool {
-                  return lhs.expires_at > rhs.expires_at;
-              });
+void DebugManager::ClearDirty() {
+    m_DebugDrawItems.erase(std::remove_if(m_DebugDrawItems.begin(), m_DebugDrawItems.end(),
+                                          [](const DebugPrimitive& item) {
+                                              return item.dirty == false;
+                                          }),
+                           m_DebugDrawItems.end());
 
-    auto iter = std::find_if(m_DebugDrawItems.begin(), m_DebugDrawItems.end(),
-                             [](DebugPrimitive& item) {
-                                 if (item.dirty) {
-                                     item.dirty = false;
-                                     return false;
-                                 }
-                                 return item.expires_at < std::chrono::high_resolution_clock::now();
-                             });
-    m_DebugDrawItems.erase(iter, m_DebugDrawItems.end());
+    for (auto& item : m_DebugDrawItems) {
+        item.dirty = false;
+    }
 }
 
-void DebugManager::AddPrimitive(const Mesh& mesh, Transform transform, std::chrono::seconds duration, bool depth_enabled) {
-    DebugPrimitive item;
-    item.type       = Renderable::Type::Debug;
-    item.vertices   = mesh.vertices;
-    item.indices    = mesh.indices;
-    item.transform  = transform;
-    item.material   = m_LineMaterialInstance.GetMaterial().lock();
-    item.expires_at = std::chrono::high_resolution_clock::now() + duration;
-    item.dirty      = true;
+void DebugManager::AddPrimitive(const Mesh& mesh, Transform transform, bool depth_enabled) {
+    // Update mesh buffer
+    if (m_MeshBuffer.vertices->vertex_count - m_VertexOffset < mesh.vertices->vertex_count) {
+        m_MeshBuffer.vertices->Resize(2 * (m_MeshBuffer.vertices->vertex_count) + mesh.vertices->vertex_count);
+    }
+    if (m_MeshBuffer.indices->index_count - m_IndexOffset < mesh.indices->index_count) {
+        m_MeshBuffer.indices->Resize(2 * (m_MeshBuffer.indices->index_count) + mesh.indices->index_count);
+    }
+    m_MeshBuffer.vertices->Modify<VertexAttribute::Position, VertexAttribute::Color0>([&](auto positions, auto colors) {
+        auto _pos = mesh.vertices->GetVertices<VertexAttribute::Position>();
+        std::copy(_pos.begin(), _pos.end(), std::next(positions.begin(), m_VertexOffset));
 
-    math::vec4u view_port, scissor;
+        auto color = mesh.vertices->GetVertices<VertexAttribute::Color0>();
+        std::copy(color.begin(), color.end(), std::next(colors.begin(), m_VertexOffset));
+    });
+
+    m_MeshBuffer.indices->Modify<IndexType::UINT32>([&](auto array) {
+        auto _array = mesh.indices->GetIndices<IndexType::UINT32>();
+        std::copy(_array.begin(), _array.end(), std::next(array.begin(), m_IndexOffset));
+    });
+
+    vec4u view_port,
+        scissor;
     {
-        auto          camera = scene_manager->CurrentScene().GetCurrentCamera();
-        auto          config = config_manager->GetConfig();
+        auto&         camera = scene_manager->CurrentScene().GetCurrentCamera();
+        auto&         config = config_manager->GetConfig();
         std::uint32_t height = config.height;
         std::uint32_t width  = height * camera.aspect;
         if (width > config.width) {
@@ -127,12 +138,24 @@ void DebugManager::AddPrimitive(const Mesh& mesh, Transform transform, std::chro
         }
         scissor = {view_port.x, view_port.y, view_port.x + width, view_port.y + height};
     }
+    DebugPrimitive item;
+    item.type                = Renderable::Type::Debug;
+    item.vertices            = m_MeshBuffer.vertices;
+    item.indices             = m_MeshBuffer.indices;
+    item.transform           = transform;
+    item.material            = m_LineMaterialInstance.GetMaterial().lock();
+    item.dirty               = true;
     item.pipeline_parameters = {.view_port = view_port, .scissor_react = scissor};
 
     for (const auto& sub_mesh : mesh.sub_meshes) {
         item.sub_mesh = sub_mesh;
+        item.sub_mesh.index_offset += m_IndexOffset;
+        item.sub_mesh.vertex_offset += m_VertexOffset;
         m_DebugDrawItems.emplace_back(item);
     }
+
+    m_VertexOffset += mesh.vertices->vertex_count;
+    m_IndexOffset += mesh.indices->index_count;
 }
 
 void DebugManager::DrawPrimitive() const {
@@ -141,7 +164,7 @@ void DebugManager::DrawPrimitive() const {
     std::transform(m_DebugDrawItems.begin(), m_DebugDrawItems.end(), std::back_inserter(result), [](const DebugPrimitive& item) {
         return static_cast<Renderable>(item);
     });
-    graphics_manager->AppendRenderables(result);
+    // graphics_manager->AppendRenderables(result);
 }
 
 }  // namespace hitagi::debugger

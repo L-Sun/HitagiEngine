@@ -103,7 +103,7 @@ public:
     CopyCommandContext(DX12Device* device) : CommandContext(device, D3D12_COMMAND_LIST_TYPE_COPY) {}
 
     void InitializeBuffer(GpuBuffer& dest, const std::byte* data, size_t data_size);
-    void InitializeTexture(resource::Texture& texture, const std::vector<D3D12_SUBRESOURCE_DATA>& sub_data);
+    void InitializeTexture(resource::Texture& texture, const std::pmr::vector<D3D12_SUBRESOURCE_DATA>& sub_data);
 };
 
 }  // namespace hitagi::graphics::backend::DX12

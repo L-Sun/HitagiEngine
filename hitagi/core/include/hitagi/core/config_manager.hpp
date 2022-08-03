@@ -19,6 +19,7 @@ public:
     void Finalize() final;
 
     bool       LoadConfig(const std::filesystem::path& path);
+    void       SaveConfig(const std::filesystem::path& path);
     AppConfig& GetConfig();
 
 private:

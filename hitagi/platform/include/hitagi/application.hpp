@@ -37,8 +37,6 @@ protected:
     core::Clock m_Clock;
     Rect        m_Rect{};
     bool        m_SizeChanged = false;
-
-    std::vector<RuntimeModule*> m_Modules;
 };
 extern Application* app;
 }  // namespace hitagi

@@ -18,6 +18,15 @@ Frame::Frame(DeviceAPI& device, std::size_t frame_index)
       m_ConstantBuffer{.num_elements = 1, .element_size = std::max({sizeof(FrameConstant), sizeof(ObjectConstant)})} {
     m_ConstantBuffer.name = "Frame and Object Constant";
     m_Device.InitRenderFromSwapChain(m_Output, frame_index);
+
+    m_DepthBuffer = DepthBuffer{
+        .format        = resource::Format::D32_FLOAT,
+        .width         = m_Output.width,
+        .height        = m_Output.height,
+        .clear_depth   = 1.0f,
+        .clear_stencil = 0,
+    };
+    m_Device.InitDepthBuffer(m_DepthBuffer);
     m_Device.InitConstantBuffer(m_ConstantBuffer);
 }
 void Frame::AppendRenderables(std::pmr::vector<resource::Renderable> renderables) {
@@ -45,7 +54,7 @@ void Frame::Render(IGraphicsCommandContext* context, resource::Renderable::Type 
         context->BindResource(0, m_ConstantBuffer, 0);
         context->BindResource(1, m_ConstantBuffer, item.object_constant_offset);
 
-        if (m_MaterialBuffers.count(item.material) != 0) {
+        if (m_MaterialBuffers.contains(item.material)) {
             context->BindResource(2, m_MaterialBuffers.at(item.material), item.material_constant_offset);
         }
 
@@ -86,8 +95,7 @@ void Frame::Reset() {
     m_Lock = false;
 }
 
-void Frame::PrepareData() {
-    auto context = m_Device.CreateGraphicsCommandContext();
+std::uint64_t Frame::PrepareData(IGraphicsCommandContext* context) {
     assert(context);
 
     std::stable_sort(m_RenderItems.begin(), m_RenderItems.end(), [](const Renderable& a, const Renderable& b) {
@@ -139,7 +147,7 @@ void Frame::PrepareData() {
         {
             auto material = item.material;
             if (material->GetParametersSize() != 0) {
-                if (m_MaterialBuffers.count(material) == 0) {
+                if (!m_MaterialBuffers.contains(material)) {
                     ConstantBuffer constant_buffer{
                         .num_elements = material->GetNumInstances(),
                         .element_size = material->GetParametersSize(),
@@ -152,7 +160,7 @@ void Frame::PrepareData() {
                 }
             }
 
-            if (m_MaterialBuffers.count(material) != 0) {
+            if (m_MaterialBuffers.contains(material)) {
                 auto& material_buffer = m_MaterialBuffers.at(material);
 
                 // Since we sort rendere items by its material, we need reset the offset we processing new material
@@ -180,6 +188,6 @@ void Frame::PrepareData() {
             }
         }
     }
-    context->Finish(true);
+    return context->Finish();
 }
 }  // namespace hitagi::graphics

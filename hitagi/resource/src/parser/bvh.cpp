@@ -9,7 +9,7 @@
 using namespace hitagi::math;
 
 namespace hitagi::asset {
-const std::unordered_map<std::string, BvhParser::Channel> BvhParser::m_ChannelMap = {
+const std::pmr::unordered_map<std::pmr::string, BvhParser::Channel> BvhParser::m_ChannelMap = {
     {"Xposition", Channel::Xposition},
     {"Yposition", Channel::Yposition},
     {"Zposition", Channel::Zposition},
@@ -31,11 +31,11 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
     std::shared_ptr<BoneNode> root;
     std::shared_ptr<BoneNode> current_node;
 
-    std::vector<std::pair<decltype(root), std::vector<Channel>>> joints_channels;
+    std::pmr::vector<std::pair<decltype(root), std::pmr::vector<Channel>>> joints_channels;
 
-    std::vector<decltype(root)> stack;
-    size_t                      pos            = 0;
-    size_t                      total_channels = 0;
+    std::pmr::vector<decltype(root)> stack;
+    size_t                           pos            = 0;
+    size_t                           total_channels = 0;
     for (; pos < tokens.size(); pos++) {
         if (tokens[pos] == "HIERARCHY") {
             continue;
@@ -67,7 +67,7 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
         else if (tokens[pos] == "CHANNELS") {
             size_t channels_count = std::stoi(tokens[pos + 1]);
             total_channels += channels_count;
-            auto& [_, channels] = joints_channels.emplace_back(current_node, std::vector<Channel>{});
+            auto& [_, channels] = joints_channels.emplace_back(current_node, std::pmr::vector<Channel>{});
 
             for (size_t i = 0; i < channels_count; i++) {
                 channels.emplace_back(m_ChannelMap.at(tokens[pos + 2 + i]));
@@ -169,9 +169,9 @@ std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Pars
     return {root, anima_builder.Finish()};
 }
 
-std::vector<std::string> BvhParser::Tokenizer(std::stringstream& ss) {
-    std::vector<std::string> result;
-    std::string              token;
+std::pmr::vector<std::pmr::string> BvhParser::Tokenizer(std::stringstream& ss) {
+    std::pmr::vector<std::pmr::string> result;
+    std::pmr::string                   token;
 
     while (ss >> token) {
         if (token == "End") {

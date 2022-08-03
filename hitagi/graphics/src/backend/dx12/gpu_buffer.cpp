@@ -90,7 +90,7 @@ void ConstantBuffer::Resize(std::size_t num_elements) {
     cbv_desc.SizeInBytes    = m_BlockSize;
     cbv_desc.BufferLocation = m_Resource->GetGPUVirtualAddress();
     for (auto&& cbv : m_CBV) {
-        m_Device->GetDevice()->CreateConstantBufferView(&cbv_desc, cbv->handle);
+        m_Device->GetDevice()->CreateConstantBufferView(&cbv_desc, cbv.handle);
         cbv_desc.BufferLocation += m_BlockSize;
     }
 }
@@ -105,7 +105,7 @@ Texture::Texture(DX12Device* device, std::string_view name, const D3D12_RESOURCE
     auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ThrowIfFailed(device->GetDevice()->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&m_Resource)));
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->GetDevice()->CreateShaderResourceView(m_Resource.Get(), nullptr, m_SRV->handle);
+    device->GetDevice()->CreateShaderResourceView(m_Resource.Get(), nullptr, m_SRV.handle);
 }
 
 RenderTarget::RenderTarget(DX12Device* device, std::string_view name, const D3D12_RESOURCE_DESC& desc)
@@ -114,14 +114,14 @@ RenderTarget::RenderTarget(DX12Device* device, std::string_view name, const D3D1
     auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     ThrowIfFailed(device->GetDevice()->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_UsageState, nullptr, IID_PPV_ARGS(&m_Resource)));
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->GetDevice()->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV->handle);
+    device->GetDevice()->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV.handle);
 }
 
 RenderTarget::RenderTarget(DX12Device* device, std::string_view name, ID3D12Resource* res)
     : GpuResource(device, res),
       m_RTV(device->GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_RTV).Allocate(Descriptor::Type::RTV)) {
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->GetDevice()->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV->handle);
+    device->GetDevice()->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV.handle);
 }
 
 DepthBuffer::DepthBuffer(DX12Device* device, std::string_view name, const D3D12_RESOURCE_DESC& desc, float clear_depth, uint8_t clear_stencil)
@@ -143,7 +143,7 @@ DepthBuffer::DepthBuffer(DX12Device* device, std::string_view name, const D3D12_
     dsv_desc.Texture2D.MipSlice            = 0;
     dsv_desc.Flags                         = D3D12_DSV_FLAG_NONE;
 
-    device->GetDevice()->CreateDepthStencilView(m_Resource.Get(), &dsv_desc, m_DSV->handle);
+    device->GetDevice()->CreateDepthStencilView(m_Resource.Get(), &dsv_desc, m_DSV.handle);
 }
 
 }  // namespace hitagi::graphics::backend::DX12

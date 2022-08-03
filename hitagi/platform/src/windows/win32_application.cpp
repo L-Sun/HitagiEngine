@@ -105,7 +105,9 @@ void Win32Application::UpdateRect() {
     auto curr_height = m_Rect.bottom - m_Rect.top;
 
     if (last_width != curr_width || last_height != curr_height) {
-        m_SizeChanged = true;
+        m_SizeChanged                      = true;
+        config_manager->GetConfig().width  = curr_width;
+        config_manager->GetConfig().height = curr_height;
     }
 }
 

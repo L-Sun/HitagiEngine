@@ -31,18 +31,21 @@ void SceneManager::Finalize() {
 }
 
 void SceneManager::Tick() {
+    for (auto& scene : m_Scenes) {
+        scene.world.Update();
+    }
     graphics_manager->Draw(CurrentScene());
 }
 
 Scene& SceneManager::CurrentScene() {
-    return m_Scenes[m_CurrentScene];
+    return m_Scenes.at(m_CurrentScene);
 }
 
 Scene& SceneManager::CreateEmptyScene(std::string_view name) {
     auto& scene = m_Scenes.emplace_back(Scene{name});
 
-    scene.cameras.emplace_back(scene.world.CreateEntity<Camera, Transform, Hierarchy>());
-    scene.lights.emplace_back(scene.world.CreateEntity<Light, Transform, Hierarchy>());
+    scene.cameras.emplace_back(scene.world.CreateEntity(MetaInfo{.name = "Default Camera"}, Hierarchy{.parentID = scene.root}, Transform{}, Camera{}));
+    scene.lights.emplace_back(scene.world.CreateEntity(MetaInfo{.name = "Default Light"}, Hierarchy{.parentID = scene.root}, Transform{}, Camera{}));
     scene.curr_camera_index = 0;
 
     return scene;
@@ -50,7 +53,7 @@ Scene& SceneManager::CreateEmptyScene(std::string_view name) {
 
 std::size_t SceneManager::AddScene(Scene scene) {
     m_Scenes.emplace_back(std::move(scene));
-    return m_Scenes.size();
+    return m_Scenes.size() - 1;
 }
 
 std::size_t SceneManager::GetNumScene() const noexcept { return m_Scenes.size(); }
@@ -58,7 +61,6 @@ Scene&      SceneManager::GetScene(std::size_t index) { return m_Scenes.at(index
 
 void SceneManager::SwitchScene(std::size_t index) {
     if (index >= m_Scenes.size()) {
-        m_Logger->warn("You are setting a exsist scene!");
         return;
     }
     m_CurrentScene = index;

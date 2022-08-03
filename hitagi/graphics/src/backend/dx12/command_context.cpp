@@ -124,7 +124,7 @@ void GraphicsCommandContext::SetRenderTarget(const graphics::RenderTarget& rende
     auto rt = render_target.gpu_resource.lock()->GetBackend<RenderTarget>();
     TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->OMSetRenderTargets(1,
-                                      &(rt->GetRTV()->handle),
+                                      &(rt->GetRTV().handle),
                                       false,
                                       nullptr);
 }
@@ -145,9 +145,9 @@ void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(const graphics::Rende
     TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET);
     TransitionResource(*db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
     m_CommandList->OMSetRenderTargets(1,
-                                      &(rt->GetRTV()->handle),
+                                      &(rt->GetRTV().handle),
                                       false,
-                                      &(db->GetDSV()->handle));
+                                      &(db->GetDSV().handle));
 }
 
 void GraphicsCommandContext::ClearRenderTarget(const graphics::RenderTarget& render_target) {
@@ -158,7 +158,7 @@ void GraphicsCommandContext::ClearRenderTarget(const graphics::RenderTarget& ren
     auto rt = render_target.gpu_resource.lock()->GetBackend<RenderTarget>();
 
     TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
-    m_CommandList->ClearRenderTargetView(rt->GetRTV()->handle,
+    m_CommandList->ClearRenderTargetView(rt->GetRTV().handle,
                                          vec4f(0, 0, 0, 1),
                                          0,
                                          nullptr);
@@ -172,7 +172,7 @@ void GraphicsCommandContext::ClearDepthBuffer(const graphics::DepthBuffer& depth
     auto db = depth_buffer.gpu_resource.lock()->GetBackend<DepthBuffer>();
     TransitionResource(*db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
     m_CommandList->ClearDepthStencilView(
-        db->GetDSV()->handle,
+        db->GetDSV().handle,
         D3D12_CLEAR_FLAG_DEPTH,
         db->GetClearDepth(),
         db->GetClearStencil(),
@@ -377,7 +377,7 @@ void CopyCommandContext::InitializeBuffer(GpuBuffer& dest, const std::byte* data
     Finish(true);
 }
 
-void CopyCommandContext::InitializeTexture(resource::Texture& texture, const std::vector<D3D12_SUBRESOURCE_DATA>& sub_data) {
+void CopyCommandContext::InitializeTexture(resource::Texture& texture, const std::pmr::vector<D3D12_SUBRESOURCE_DATA>& sub_data) {
     auto dest = texture.gpu_resource.lock()->GetBackend<Texture>();
 
     const UINT64 upload_buffer_size = GetRequiredIntermediateSize(dest->GetResource(), 0, sub_data.size());

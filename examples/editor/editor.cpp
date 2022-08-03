@@ -4,6 +4,7 @@
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
+#include "hitagi/math/transform.hpp"
 
 #include <imgui.h>
 #include <spdlog/logger.h>
@@ -15,6 +16,8 @@ namespace hitagi {
 bool Editor::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Editor");
     m_Logger->info("Initialize...");
+    scene_manager->CurrentScene().world.RegisterSystem<DrawBone>("DrawBone");
+
     return true;
 }
 
@@ -32,7 +35,8 @@ void Editor::Draw() {
     // Draw
     MainMenu();
     FileExplorer();
-    SceneExplorer();
+    // SceneExplorer();
+    DebugPanel();
 }
 
 void Editor::MainMenu() {
@@ -74,43 +78,40 @@ void Editor::FileExplorer() {
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-    static std::unordered_set<std::string> file_paths;
     if (ImGui::BeginPopupModal("File browser", nullptr, ImGuiWindowFlags_Modal)) {
         for (const auto& directory : std::filesystem::directory_iterator(folder)) {
             if (!directory.is_regular_file()) continue;
 
             const auto& path = directory.path();
             if (path.extension() != m_OpenFileExt) continue;
-            auto path_string = path.string();
+            std::pmr::string path_string{path.string()};
 
-            if (ImGui::Selectable(path_string.c_str(), file_paths.count(path_string) != 0, ImGuiSelectableFlags_DontClosePopups)) {
+            if (ImGui::Selectable(path_string.c_str(), m_SelectedFiles.contains(path_string), ImGuiSelectableFlags_DontClosePopups)) {
                 if (!ImGui::GetIO().KeyCtrl) {
-                    file_paths.clear();
+                    m_SelectedFiles.clear();
                 }
-                file_paths.emplace(path_string);
+                m_SelectedFiles.emplace(path_string);
             }
         }
 
         if (ImGui::Button("Open")) {
             if (m_OpenFileExt == ".fbx") {
-                for (auto&& path : file_paths) {
-                    resource::Scene scene;
-                    asset_manager->ImportScene(scene, path);
-                    scene_manager->SwitchScene(scene_manager->AddScene(scene));
+                for (auto&& path : m_SelectedFiles) {
+                    asset_manager->ImportScene(scene_manager->CurrentScene(), path);
                 }
             } else if (m_OpenFileExt == ".bvh") {
-                // for (auto&& path : file_paths) {
+                // for (auto&& path : m_SelectedFiles) {
                 // auto [skeleton, animation] = asset_manager->ImportAnimation(path);
                 // scene_manager->GetScene()->AddSkeleton(skeleton);
                 // scene_manager->GetScene()->AddAnimation(animation);
                 // }
             }
-            file_paths.clear();
+            m_SelectedFiles.clear();
             m_OpenFileExt.clear();
         }
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
-            file_paths.clear();
+            m_SelectedFiles.clear();
             m_OpenFileExt.clear();
             ImGui::CloseCurrentPopup();
         }
@@ -120,33 +121,46 @@ void Editor::FileExplorer() {
 
 void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
-        const auto& scene = scene_manager->CurrentScene();
+        auto& scene = scene_manager->CurrentScene();
         if (ImGui::CollapsingHeader("Scene Nodes")) {
-            // std::function<void(std::shared_ptr<resource::SceneNode>)> print_node = [&](std::shared_ptr<resource::SceneNode> node) -> void {
-            //     if (ImGui::TreeNode(GenName(node->GetName(), node).c_str())) {
-            //         {
-            //             auto position    = node->GetPosition();
-            //             auto orientation = 180.0f * std::numbers::inv_pi * node->GetOrientation();
-            //             auto velocity    = node->GetVelocity();
+            std::function<void(ecs::Entity)> print_node = [&](ecs::Entity node) -> void {
+                auto meta      = scene.world.AccessEntity<resource::MetaInfo>(node);
+                auto transform = scene.world.AccessEntity<resource::Transform>(node);
 
-            //             bool changed = false;
-            //             changed      = ImGui::DragFloat3("Translation", position, 1.0f, 0.0f, 0.0f, "%.02f m") || changed;
-            //             changed      = ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °") || changed;
-            //             ImGui::DragFloat3("Velocity", velocity, 0.0f, 0.0f, 0.0f, "%.03f °");
+                std::pmr::vector<ecs::Entity> children;
+                for (const auto& arche : scene.world.GetArchetypes<resource::Hierarchy>()) {
+                    auto entities = arche->GetComponentArray<ecs::Entity>();
+                    auto hiers    = arche->GetComponentArray<resource::Hierarchy>();
+                    for (std::size_t i = 0; i < entities.size(); i++) {
+                        if (hiers[i].parentID == node) {
+                            children.emplace_back(entities[i]);
+                        }
+                    }
+                }
+                std::sort(children.begin(), children.end());
 
-            //             if (changed) {
-            //                 node->SetTRS(position, euler_to_quaternion(deg2rad(orientation)), vec3f(1.0f));
-            //             }
-            //         }
+                if (ImGui::TreeNode(meta.has_value() ? meta->get().name.c_str() : "Unkown")) {
+                    if (transform.has_value()) {
+                        auto& translation = transform->get().local_translation;
+                        auto  orientation = rad2deg(quaternion_to_euler(transform->get().local_rotation));
+                        auto& scaling     = transform->get().local_scaling;
 
-            //         // print children
-            //         for (auto&& child : node->GetChildren()) {
-            //             print_node(child);
-            //         }
-            //         ImGui::TreePop();
-            //     }
-            // };
-            // print_node(scene->scene_graph);
+                        ImGui::DragFloat3("Translation", translation, 1.0f, 0.0f, 0.0f, "%.02f m");
+
+                        if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °"))
+                            transform->get().local_rotation = euler_to_quaternion(deg2rad(orientation));
+
+                        ImGui::DragFloat3("Scaling", scaling, 1.0f, 0.0f, 0.0f, "%.03f °");
+                    }
+
+                    // print children
+                    for (auto&& child : children) {
+                        print_node(child);
+                    }
+                    ImGui::TreePop();
+                }
+            };
+            print_node(scene.root);
         }
 
         if (ImGui::CollapsingHeader("Animation")) {
@@ -177,6 +191,37 @@ void Editor::SceneExplorer() {
     }
 
     ImGui::End();
+}
+
+void Editor::DebugPanel() {
+    gui_manager->DrawGui([]() {
+        if (ImGui::Begin("Debug Pannel")) {
+            ImGui::Text("%s", fmt::format("Num debug primitives: {}", debug_manager->GetNumPrimitives()).c_str());
+            ImGui::NewLine();
+            ImGui::Checkbox("DrawBone", &DrawBone::enable);
+            ImGui::NewLine();
+            ImGui::Checkbox("Transform", &resource::TransformSystem::enable);
+        }
+        ImGui::End();
+        bool open = true;
+        ImGui::ShowMetricsWindow(&open);
+    });
+}
+
+bool Editor::DrawBone::enable = false;
+
+void Editor::DrawBone::OnUpdate(ecs::Schedule& schedule, std::chrono::duration<double> delta) {
+    if (!enable) return;
+    schedule.Request("DrawBone", [&](ecs::Entity id, const resource::Armature& armature) {
+        for (auto bone : armature.bone_collection) {
+            auto parent = schedule.world.AccessEntity<resource::Hierarchy>(bone)->get().parentID;
+            if (parent != id) {
+                auto from = schedule.world.AccessEntity<resource::Transform>(bone)->get().GetPosition();
+                auto to   = schedule.world.AccessEntity<resource::Transform>(parent)->get().GetPosition();
+                debug_manager->DrawLine(from, to, vec4f{0.2, 0.3, 0.7, 1.0});
+            }
+        }
+    });
 }
 
 }  // namespace hitagi

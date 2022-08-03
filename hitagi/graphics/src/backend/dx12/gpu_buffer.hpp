@@ -30,10 +30,10 @@ public:
 private:
     std::byte* m_CpuPtr = nullptr;
 
-    std::size_t                                   m_ElementSize;
-    std::size_t                                   m_BlockSize;  // align(dataSize, 256B)
-    std::size_t                                   m_BufferSize;
-    std::pmr::vector<std::shared_ptr<Descriptor>> m_CBV;
+    std::size_t                  m_ElementSize;
+    std::size_t                  m_BlockSize;  // align(dataSize, 256B)
+    std::size_t                  m_BufferSize;
+    std::pmr::vector<Descriptor> m_CBV;
 };
 
 class Texture : public GpuResource {
@@ -42,7 +42,7 @@ public:
     const auto& GetSRV() const noexcept { return m_SRV; }
 
 private:
-    std::shared_ptr<Descriptor> m_SRV;
+    Descriptor m_SRV;
 };
 
 class RenderTarget : public GpuResource {
@@ -53,7 +53,7 @@ public:
     const auto& GetRTV() const noexcept { return m_RTV; }
 
 private:
-    std::shared_ptr<Descriptor> m_RTV;
+    Descriptor m_RTV;
 };
 
 class DepthBuffer : public GpuResource {
@@ -65,9 +65,9 @@ public:
     uint8_t GetClearStencil() const noexcept { return m_ClearStencil; }
 
 private:
-    std::shared_ptr<Descriptor> m_DSV;
-    float                       m_ClearDepth;
-    uint8_t                     m_ClearStencil;
+    Descriptor m_DSV;
+    float      m_ClearDepth;
+    uint8_t    m_ClearStencil;
 };
 
 }  // namespace hitagi::graphics::backend::DX12

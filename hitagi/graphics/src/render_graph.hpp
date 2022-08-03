@@ -74,12 +74,12 @@ public:
         return *pass;
     }
 
-    FrameHandle Import(RenderTarget* render_target) {
+    FrameHandle Import(resource::Resource* res) {
         FrameResourceId id     = m_Resources.size();
         FrameHandle     handle = m_ResourceNodes.size();
-        m_Resources.emplace_back(render_target);
-        m_BlackBoard.emplace_back(render_target);
-        m_ResourceNodes.emplace_back(render_target->name, id);
+        m_Resources.emplace_back(res);
+        m_BlackBoard.emplace_back(res);
+        m_ResourceNodes.emplace_back(res->name, id);
         return handle;
     }
 

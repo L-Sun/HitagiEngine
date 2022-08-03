@@ -198,7 +198,12 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
             .material = m_ImGuiMaterialInstance,
         },
         .material            = m_ImGuiMaterialInstance.GetMaterial().lock(),
-        .pipeline_parameters = {.view_port = vec4u{draw_data->DisplayPos.x, draw_data->DisplayPos.y, draw_data->DisplaySize.x, draw_data->DisplaySize.y}},
+        .pipeline_parameters = {.view_port = vec4u{
+                                    static_cast<std::uint32_t>(draw_data->DisplayPos.x),
+                                    static_cast<std::uint32_t>(draw_data->DisplayPos.y),
+                                    static_cast<std::uint32_t>(draw_data->DisplaySize.x),
+                                    static_cast<std::uint32_t>(draw_data->DisplaySize.y),
+                                }},
     };
 
     m_ImGuiMaterialInstance.SetParameter("orth_projection", projection);

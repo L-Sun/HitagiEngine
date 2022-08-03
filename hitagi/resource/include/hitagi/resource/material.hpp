@@ -48,7 +48,7 @@ struct MaterialDetial {
         std::size_t      size;
     };
     std::pmr::string                          name;
-    PrimitiveType                             primitive;
+    PrimitiveType                             primitive = PrimitiveType::TriangleList;
     std::shared_ptr<Shader>                   vertex_shader;
     std::shared_ptr<Shader>                   pixel_shader;
     std::pmr::vector<ParameterInfo>           parameters_info;

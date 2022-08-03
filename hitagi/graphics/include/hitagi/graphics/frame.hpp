@@ -34,14 +34,15 @@ public:
 
     void SetCamera(resource::Camera camera);
 
-    void PrepareData();
-    void Render(IGraphicsCommandContext* context, resource::Renderable::Type type);
+    std::uint64_t PrepareData(IGraphicsCommandContext* context);
+    void          Render(IGraphicsCommandContext* context, resource::Renderable::Type type);
 
     bool        IsRenderingFinished() const;
     inline bool Locked() const { return m_Lock; }
     void        Reset();
 
     inline auto& GetRenderTarget() noexcept { return m_Output; }
+    inline auto& GetDepthBuffer() noexcept { return m_DepthBuffer; }
 
 private:
     ConstantBuffer& GetMaterialBuffer(const std::shared_ptr<resource::Material>& material);
@@ -53,6 +54,7 @@ private:
 
     FrameConstant                          m_FrameConstant{};
     std::pmr::vector<resource::Renderable> m_RenderItems;
+    DepthBuffer                            m_DepthBuffer;
     RenderTarget                           m_Output;
 
     // the constant data used among the frame, including camera, light, etc.

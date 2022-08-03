@@ -31,21 +31,25 @@ class Schedule {
     };
 
 public:
-    Schedule(World& world) : m_World(world) {}
+    Schedule(World& world) : world(world) {}
 
     // Do task on the entities that contains components indicated at parameters.
+    // TODO filter
     template <typename Func>
     requires utils::unique_parameter_types<Func>
         Schedule& Request(std::string_view name, Func&& task);
 
+    // Schedule& RequestOnce(std::string_view name, std::function<void()>&& task);
+
     void Run() {
         for (auto&& task : m_Tasks) {
-            task->Run(m_World);
+            task->Run(world);
         }
     }
 
+    World& world;
+
 private:
-    World&                                   m_World;
     std::pmr::vector<std::shared_ptr<ITask>> m_Tasks;
 };
 
@@ -59,14 +63,21 @@ requires utils::unique_parameter_types<Func>
     return *this;
 }
 
+// Schedule& Schedule::RequestOnce(std::string_view name, std::function<void()>&& task) {
+//     std::shared_ptr<ITask> task_info = std::make_shared<Task<decltype(task)>>(name, std::forward<decltype(task)>(task));
+//     m_Tasks.emplace_back(std::move(task_info));
+//     return *this;
+// }
+
 template <typename Func>
 void Schedule::Task<Func>::Run(World& world) {
     [&]<std::size_t... I>(std::index_sequence<I...>) {
-        using traits = utils::function_traits<Func>;
+        using traits          = utils::function_traits<Func>;
+        using component_types = std::tuple<typename traits::template no_cvref_arg<I>::type...>;
 
-        for (const std::shared_ptr<IArchetype>& archetype : world.GetArchetypes<typename traits::template no_cvref_arg<I>::type...>()) {
+        for (const std::shared_ptr<IArchetype>& archetype : world.GetArchetypes<std::tuple_element_t<I, component_types>...>()) {
             auto num_entities     = archetype->NumEntities();
-            auto components_array = std::make_tuple(archetype->GetComponentArray<typename traits::template no_cvref_arg<I>::type>()...);
+            auto components_array = std::make_tuple(archetype->GetComponentArray<std::tuple_element_t<I, component_types>>()...);
 
             for (std::size_t index = 0; index < num_entities; index++) {
                 task(std::get<I>(components_array)[index]...);

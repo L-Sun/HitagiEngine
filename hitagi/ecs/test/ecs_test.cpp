@@ -121,7 +121,7 @@ TEST(EcsTest, RegisterSystem) {
     };
 
     auto entity = world.CreateEntity<Position, Velocity>();
-    world.RegisterSystem<Mover>();
+    world.RegisterSystem<Mover>("Mover");
     world.Update();
 
     auto pos = world.AccessEntity<Position>(entity)->get();

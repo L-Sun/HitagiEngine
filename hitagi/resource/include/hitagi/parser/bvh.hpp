@@ -17,8 +17,8 @@ private:
         Yrotation,
         Zrotation,
     };
-    static const std::unordered_map<std::string, Channel> m_ChannelMap;
+    static const std::pmr::unordered_map<std::pmr::string, Channel> m_ChannelMap;
 
-    static std::vector<std::string> Tokenizer(std::stringstream& ss);
+    static std::pmr::vector<std::pmr::string> Tokenizer(std::stringstream& ss);
 };
 }  // namespace hitagi::asset

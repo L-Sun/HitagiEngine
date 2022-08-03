@@ -22,6 +22,6 @@ public:
     void ApplyCentralForce(resource::Geometry& node, math::vec3f force) final;
 
 private:
-    std::unordered_map<std::string, RigidBody> m_RigidBodies;
+    std::pmr::unordered_map<std::pmr::string, RigidBody> m_RigidBodies;
 };
 }  // namespace hitagi::physics

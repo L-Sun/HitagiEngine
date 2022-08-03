@@ -29,8 +29,9 @@ private:
 
     std::pmr::vector<resource::Renderable> PrepareImGuiRenderables();
 
-    core::Clock                       m_Clock;
-    std::queue<std::function<void()>> m_GuiDrawTasks;
+    core::Clock m_Clock;
+
+    std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
 
     resource::MaterialInstance m_ImGuiMaterialInstance;
     resource::Mesh             m_ImGuiMesh;

@@ -5,7 +5,12 @@
 #include <algorithm>
 
 namespace hitagi::resource {
-Scene::Scene(std::string_view name) : name(name), world(name) {}
+Scene::Scene(std::string_view name)
+    : name(name),
+      world(name),
+      root(world.CreateEntity(MetaInfo{std::pmr::string(name), xg::newGuid()})) {
+    world.RegisterSystem<TransformSystem>("TransformSystem");
+}
 
 std::pmr::vector<Renderable> Scene::GetRenderables() const {
     std::pmr::vector<Renderable> result;
@@ -62,12 +67,14 @@ std::pmr::vector<Renderable> Scene::GetRenderables() const {
     return result;
 }
 
-const Camera& Scene::GetCurrentCamera() const {
+Camera& Scene::GetCurrentCamera() {
+    if (cameras.empty()) {
+        cameras.emplace_back(world.CreateEntity(MetaInfo{.name = "Default Camera"}, Hierarchy{.parentID = root}, Transform{}, Camera{}));
+        curr_camera_index = 0;
+    }
     return world.AccessEntity<Camera>(cameras.at(curr_camera_index))->get();
 }
-
-Camera& Scene::GetCurrentCamera() {
-    return const_cast<Camera&>(const_cast<const Scene*>(this)->GetCurrentCamera());
+const Camera& Scene::GetCurrentCamera() const {
+    return const_cast<Scene*>(this)->GetCurrentCamera();
 }
-
 }  // namespace hitagi::resource
