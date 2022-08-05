@@ -1,4 +1,5 @@
 #include "simple_bvh_parser.hpp"
+#include "highfive_pmr.hpp"
 
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/file_io_manager.hpp>
@@ -8,7 +9,6 @@
 #include <cxxopts.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-#include <highfive/H5File.hpp>
 
 #include <iterator>
 #include <memory>
