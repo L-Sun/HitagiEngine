@@ -73,15 +73,18 @@ auto MemoryPool::Pool::deallocate(Block* block) -> void {
     free_list   = block;
 }
 
-MemoryPool::MemoryPool() : m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})) {}
+MemoryPool::MemoryPool() : m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})) {
+    std::size_t block_index = 0;
+    for (std::size_t i = 0; i < pool_map.size(); i++) {
+        if (i > block_size[block_index]) block_index++;
+        pool_map[i] = block_index;
+    }
+    assert(block_index == block_size.size() - 1);
+}
 
 auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrapper<Pool>> {
-    auto        iter  = std::lower_bound(std::begin(block_size), std::end(block_size), bytes);
-    std::size_t index = std::distance(std::begin(block_size), iter);
-    if (index == m_Pools.size()) {
-        return std::nullopt;
-    }
-    return m_Pools.at(index);
+    if (bytes > block_size.back()) return std::nullopt;
+    return m_Pools.at(pool_map[bytes]);
 }
 
 auto MemoryPool::do_allocate(std::size_t bytes, std::size_t alignment) -> void* {

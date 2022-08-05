@@ -95,7 +95,8 @@ private:
         // 64-increments
         704u, 768u, 832u, 896u, 960u, 1024u};
 
-    std::optional<std::reference_wrapper<Pool>> GetPool(std::size_t bytes);
+    std::array<std::size_t, block_size.back() + 1> pool_map;
+    std::optional<std::reference_wrapper<Pool>>    GetPool(std::size_t bytes);
 
     std::array<Pool, block_size.size()> m_Pools;
 

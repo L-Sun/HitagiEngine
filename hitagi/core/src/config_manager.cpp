@@ -15,8 +15,9 @@ namespace hitagi::core {
 bool ConfigManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("ConfigManager");
     m_Logger->info("Initialize...");
-    if (!LoadConfig("hitagi.json"))
-        return false;
+    if (!LoadConfig("hitagi.json")) {
+        auto new_config = std::make_shared<AppConfig>();
+    }
     return true;
 }
 

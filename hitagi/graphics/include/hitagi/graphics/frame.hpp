@@ -37,9 +37,7 @@ public:
     std::uint64_t PrepareData(IGraphicsCommandContext* context);
     void          Render(IGraphicsCommandContext* context, resource::Renderable::Type type);
 
-    bool        IsRenderingFinished() const;
-    inline bool Locked() const { return m_Lock; }
-    void        Reset();
+    void Wait();
 
     inline auto& GetRenderTarget() noexcept { return m_Output; }
     inline auto& GetDepthBuffer() noexcept { return m_DepthBuffer; }
@@ -50,7 +48,7 @@ private:
     DeviceAPI&        m_Device;
     const std::size_t m_FrameIndex;
     std::uint64_t     m_FenceValue = 0;
-    bool              m_Lock       = false;
+    mutable bool      m_Dirty      = false;
 
     FrameConstant                          m_FrameConstant{};
     std::pmr::vector<resource::Renderable> m_RenderItems;
@@ -63,7 +61,7 @@ private:
     // the first element in constant buffer is frame constant, including camera light
     std::size_t m_ConstantCount = 1;
 
-    std::pmr::unordered_map<std::shared_ptr<resource::Material>, ConstantBuffer> m_MaterialBuffers;
+    std::pmr::unordered_map<const resource::Material*, ConstantBuffer> m_MaterialBuffers;
 };
 
 }  // namespace hitagi::graphics

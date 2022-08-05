@@ -70,7 +70,8 @@ void GraphicsManager::AppendRenderables(std::pmr::vector<resource::Renderable> r
     GetBcakFrameForRendering()->AppendRenderables(std::move(renderables));
 }
 
-PipelineState& GraphicsManager::GetPipelineState(const std::shared_ptr<resource::Material>& material) {
+PipelineState& GraphicsManager::GetPipelineState(const resource::Material* material) {
+    assert(material);
     if (!m_Pipelines.contains(material)) {
         // TODO more infomation
         PipelineState pipeline;
@@ -80,7 +81,7 @@ PipelineState& GraphicsManager::GetPipelineState(const std::shared_ptr<resource:
         pipeline.render_format  = resource::Format::R8G8B8A8_UNORM;
 
         // TODO more universe impletement
-        if (material->name == "imgui") {
+        if (material->name == "imgui-material") {
             pipeline.static_samplers.emplace_back(Sampler{
                 .filter         = Filter::Min_Mag_Mip_Linear,
                 .address_u      = TextureAddressMode::Wrap,
@@ -126,8 +127,13 @@ void GraphicsManager::OnSizeChanged() {
     m_CurrBackBuffer = m_Device->ResizeSwapChain(width, height);
 
     for (size_t index = 0; index < m_Frames.size(); index++) {
-        m_Device->InitRenderFromSwapChain(m_Frames.at(index)->GetRenderTarget(), index);
-        m_Device->InitDepthBuffer(m_Frames.at(index)->GetDepthBuffer());
+        auto& rt = m_Frames.at(index)->GetRenderTarget();
+        m_Device->InitRenderFromSwapChain(rt, index);
+
+        auto& db  = m_Frames.at(index)->GetDepthBuffer();
+        db.width  = rt.width;
+        db.height = rt.height;
+        m_Device->InitDepthBuffer(db);
     }
 }
 
@@ -215,9 +221,7 @@ void GraphicsManager::Render() {
 
 Frame* GraphicsManager::GetBcakFrameForRendering() {
     auto frame = m_Frames.at(m_CurrBackBuffer).get();
-    if (frame->IsRenderingFinished() && frame->Locked()) {
-        frame->Reset();
-    }
+    frame->Wait();
     return frame;
 }
 

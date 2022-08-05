@@ -15,12 +15,18 @@ struct Renderable {
         Debug,
     };
 
-    Type                                   type = Type::Default;
-    std::shared_ptr<resource::VertexArray> vertices;
-    std::shared_ptr<resource::IndexArray>  indices;
-    resource::Mesh::SubMesh                sub_mesh;
-    resource::Transform                    transform;
-    std::shared_ptr<resource::Material>    material = nullptr;
+    Type         type     = Type::Default;
+    VertexArray* vertices = nullptr;
+    IndexArray*  indices  = nullptr;
+
+    std::size_t index_count   = 0;
+    std::size_t vertex_offset = 0;
+    std::size_t index_offset  = 0;
+
+    Material*               material          = nullptr;
+    const MaterialInstance* material_instance = nullptr;
+
+    Transform transform;
 
     PipelineParameters pipeline_parameters;
 

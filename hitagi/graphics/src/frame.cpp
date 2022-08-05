@@ -59,7 +59,7 @@ void Frame::Render(IGraphicsCommandContext* context, resource::Renderable::Type 
         }
 
         std::uint32_t texture_slot = 0;
-        for (const auto& [name, texture] : item.sub_mesh.material.GetTextures()) {
+        for (const auto& [name, texture] : item.material_instance->GetTextures()) {
             context->BindResource(texture_slot++, *texture);
         }
 
@@ -74,25 +74,23 @@ void Frame::Render(IGraphicsCommandContext* context, resource::Renderable::Type 
 
         context->Draw(*item.vertices, *item.indices,
                       item.material->primitive,
-                      item.sub_mesh.index_count,
-                      item.sub_mesh.vertex_offset,
-                      item.sub_mesh.index_offset);
+                      item.index_count,
+                      item.vertex_offset,
+                      item.index_offset);
     }
 }
 
 void Frame::SetFenceValue(std::uint64_t fence_value) {
     m_FenceValue = fence_value;
-    m_Lock       = true;
+    m_Dirty      = true;
 }
 
-bool Frame::IsRenderingFinished() const {
-    return m_Device.IsFenceComplete(m_FenceValue);
-}
-
-void Frame::Reset() {
+void Frame::Wait() {
     m_Device.WaitFence(m_FenceValue);
-    m_RenderItems.clear();
-    m_Lock = false;
+    if (m_Dirty) {
+        m_RenderItems.clear();
+        m_Dirty = false;
+    }
 }
 
 std::uint64_t Frame::PrepareData(IGraphicsCommandContext* context) {
@@ -109,11 +107,14 @@ std::uint64_t Frame::PrepareData(IGraphicsCommandContext* context) {
 
     // since we share the object constant value and frame constant value in the same constant buffer,
     // and the first element of constant buffer is frame constant value, so we offset the index one element
-    std::size_t               object_constant_offset = 1;
-    std::shared_ptr<Material> last_material          = nullptr;
-    std::size_t               material_offset        = 0;
+    std::size_t             object_constant_offset = 1;
+    Material*               last_material          = nullptr;
+    const MaterialInstance* last_material_instance = nullptr;
+    std::size_t             material_offset        = 0;
 
     for (auto& item : m_RenderItems) {
+        assert(item.vertices && item.indices && item.material_instance && item.material);
+
         // Prepare mesh buffer
         if (item.vertices->gpu_resource.lock() == nullptr) {
             m_Device.InitVertexBuffer(*item.vertices);
@@ -168,21 +169,25 @@ std::uint64_t Frame::PrepareData(IGraphicsCommandContext* context) {
                     material_offset = 0;
                 }
 
-                auto& cpu_buffer = item.sub_mesh.material.GetParameterBuffer();
-                m_Device.UpdateConstantBuffer(
-                    material_buffer,
-                    material_offset,
-                    cpu_buffer.GetData(),
-                    cpu_buffer.GetDataSize());
+                if (item.material_instance != last_material_instance) {
+                    auto& cpu_buffer = item.material_instance->GetParameterBuffer();
+                    m_Device.UpdateConstantBuffer(
+                        material_buffer,
+                        material_offset,
+                        cpu_buffer.GetData(),
+                        cpu_buffer.GetDataSize());
 
-                item.material_constant_offset = material_offset;
-                material_offset++;
+                    item.material_constant_offset = material_offset;
+                    material_offset++;
+                    last_material_instance = item.material_instance;
+                }
+
                 last_material = material;
             }
         }
 
         // Prepare texture
-        for (const auto& [name, texture] : item.sub_mesh.material.GetTextures()) {
+        for (const auto& [name, texture] : item.material_instance->GetTextures()) {
             if (texture->gpu_resource.lock() == nullptr) {
                 m_Device.InitTexture(*texture);
             }

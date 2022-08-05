@@ -4,7 +4,8 @@
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
-#include "hitagi/math/transform.hpp"
+#include <hitagi/application.hpp>
+#include <hitagi/hid/input_manager.hpp>
 
 #include <imgui.h>
 #include <spdlog/logger.h>
@@ -37,6 +38,7 @@ void Editor::Draw() {
     FileExplorer();
     // SceneExplorer();
     DebugPanel();
+    debug_manager->DrawAxis(mat4f::identity());
 }
 
 void Editor::MainMenu() {
@@ -194,12 +196,15 @@ void Editor::SceneExplorer() {
 }
 
 void Editor::DebugPanel() {
+    if (input_manager->GetBoolNew(VirtualKeyCode::KEY_D)) {
+        debug_manager->ToggleDebugInfo();
+    }
+
     gui_manager->DrawGui([]() {
         if (ImGui::Begin("Debug Pannel")) {
             ImGui::Text("%s", fmt::format("Num debug primitives: {}", debug_manager->GetNumPrimitives()).c_str());
-            ImGui::NewLine();
+            ImGui::Text("%s", fmt::format("Memory Usage: {}Mb", app->GetMemoryUsage() >> 20).c_str());
             ImGui::Checkbox("DrawBone", &DrawBone::enable);
-            ImGui::NewLine();
             ImGui::Checkbox("Transform", &resource::TransformSystem::enable);
         }
         ImGui::End();

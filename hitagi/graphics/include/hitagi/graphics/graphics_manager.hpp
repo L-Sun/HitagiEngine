@@ -15,7 +15,7 @@ public:
     void Draw(const resource::Scene& scene);
     void AppendRenderables(std::pmr::vector<resource::Renderable> renderables);
 
-    PipelineState& GetPipelineState(const std::shared_ptr<resource::Material>& material);
+    PipelineState& GetPipelineState(const resource::Material* material);
 
 protected:
     // TODO change the parameter to View, if multiple view port is finished
@@ -36,7 +36,7 @@ protected:
     // if the class View is impletement, RenderTarget will be a member variable of View
     std::array<std::unique_ptr<Frame>, sm_SwapChianSize> m_Frames;
 
-    std::pmr::unordered_map<std::shared_ptr<resource::Material>, PipelineState> m_Pipelines;
+    std::pmr::unordered_map<const resource::Material*, PipelineState> m_Pipelines;
 };
 
 }  // namespace hitagi::graphics

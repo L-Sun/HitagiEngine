@@ -9,7 +9,7 @@ Scene::Scene(std::string_view name)
     : name(name),
       world(name),
       root(world.CreateEntity(MetaInfo{std::pmr::string(name), xg::newGuid()})) {
-    world.RegisterSystem<TransformSystem>("TransformSystem");
+    // world.RegisterSystem<TransformSystem>("TransformSystem");
 }
 
 std::pmr::vector<Renderable> Scene::GetRenderables() const {
@@ -44,10 +44,13 @@ std::pmr::vector<Renderable> Scene::GetRenderables() const {
             if (mesh.visiable) {
                 for (const auto& sub_mesh : mesh.sub_meshes) {
                     result.emplace_back(Renderable{
-                        .vertices            = mesh.vertices,
-                        .indices             = mesh.indices,
-                        .sub_mesh            = sub_mesh,
-                        .material            = sub_mesh.material.GetMaterial().lock(),
+                        .vertices            = mesh.vertices.get(),
+                        .indices             = mesh.indices.get(),
+                        .index_count         = sub_mesh.index_count,
+                        .vertex_offset       = sub_mesh.vertex_offset,
+                        .index_offset        = sub_mesh.index_offset,
+                        .material            = sub_mesh.material.GetMaterial().lock().get(),
+                        .material_instance   = &sub_mesh.material,
                         .pipeline_parameters = {.view_port     = scissor,
                                                 .scissor_react = scissor},
                     });

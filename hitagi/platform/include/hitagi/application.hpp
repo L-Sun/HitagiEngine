@@ -17,26 +17,19 @@ public:
 
     static std::unique_ptr<Application> CreateApp();
 
-    const Rect& GetWindowsRect() const noexcept { return m_Rect; }
-    bool        WindowSizeChanged() const noexcept { return m_SizeChanged; }
+    virtual void InitializeWindows()                            = 0;
+    virtual void SetInputScreenPosition(unsigned x, unsigned y) = 0;
+    virtual void SetWindowTitle(std::string_view name)          = 0;
 
-    virtual void* GetWindow()                                    = 0;
-    virtual void  InitializeWindows()                            = 0;
-    virtual void  SetInputScreenPosition(unsigned x, unsigned y) = 0;
-    virtual void  SetWindowTitle(std::string_view name)          = 0;
-
-    virtual float GetDpiRatio() = 0;
-    virtual bool  IsQuit();
-    virtual void  SetCommandLineParameters(int argc, char** argv);
+    virtual void*       GetWindow()               = 0;
+    virtual float       GetDpiRatio() const       = 0;
+    virtual std::size_t GetMemoryUsage() const    = 0;
+    virtual Rect        GetWindowsRect() const    = 0;
+    virtual bool        WindowSizeChanged() const = 0;
+    virtual bool        IsQuit() const            = 0;
 
 protected:
-    static bool sm_Quit;
-    int         m_ArgSize = 0;
-    char**      m_Arg     = nullptr;
-
     core::Clock m_Clock;
-    Rect        m_Rect{};
-    bool        m_SizeChanged = false;
 };
 extern Application* app;
 }  // namespace hitagi

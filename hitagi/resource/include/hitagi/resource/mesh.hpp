@@ -34,10 +34,10 @@ enum struct VertexAttribute : std::uint8_t {
 namespace detial {
 template <VertexAttribute e>
 constexpr auto vertex_attr() noexcept {
-    /**/ if constexpr (e == VertexAttribute::Position ||
-                       e == VertexAttribute::Normal ||
-                       e == VertexAttribute::Tangent ||
-                       e == VertexAttribute::Bitangent)
+    if constexpr (e == VertexAttribute::Position ||
+                  e == VertexAttribute::Normal ||
+                  e == VertexAttribute::Tangent ||
+                  e == VertexAttribute::Bitangent)
         return math::vec3f{};
     else if constexpr (e == VertexAttribute::Color0 ||
                        e == VertexAttribute::Color1 ||

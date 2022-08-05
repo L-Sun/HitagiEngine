@@ -13,11 +13,16 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    void* GetWindow() final { return &m_Window; }
-    void  InitializeWindows() final;
-    void  SetInputScreenPosition(unsigned x, unsigned y) final;
-    float GetDpiRatio() final;
-    void  SetWindowTitle(std::string_view title) final;
+    void InitializeWindows() final;
+    void SetInputScreenPosition(unsigned x, unsigned y) final;
+    void SetWindowTitle(std::string_view name) final;
+
+    inline void* GetWindow() final { return &m_Window; };
+    float        GetDpiRatio() const final;
+    std::size_t  GetMemoryUsage() const final;
+    inline Rect  GetWindowsRect() const final { return m_Rect; }
+    inline bool  WindowSizeChanged() const final { return m_SizeChanged; }
+    inline bool  IsQuit() const final { return m_Quit; }
 
 private:
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
@@ -25,7 +30,12 @@ private:
     void UpdateRect();
     void MapCursor();
 
-    bool m_LockCursor = false;
+    bool m_LockCursor  = false;
+    bool m_SizeChanged = false;
+    bool m_Quit        = false;
+
+    Rect m_Rect;
+
     HWND m_Window{};
 };
 }  // namespace hitagi

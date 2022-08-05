@@ -191,13 +191,11 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
     const mat4f projection = ortho(left, right, bottom, top, near, far);
 
     Renderable item{
-        .type     = Renderable::Type::UI,
-        .vertices = m_ImGuiMesh.vertices,
-        .indices  = m_ImGuiMesh.indices,
-        .sub_mesh = {
-            .material = m_ImGuiMaterialInstance,
-        },
-        .material            = m_ImGuiMaterialInstance.GetMaterial().lock(),
+        .type                = Renderable::Type::UI,
+        .vertices            = m_ImGuiMesh.vertices.get(),
+        .indices             = m_ImGuiMesh.indices.get(),
+        .material            = m_ImGuiMaterialInstance.GetMaterial().lock().get(),
+        .material_instance   = &m_ImGuiMaterialInstance,
         .pipeline_parameters = {.view_port = vec4u{
                                     static_cast<std::uint32_t>(draw_data->DisplayPos.x),
                                     static_cast<std::uint32_t>(draw_data->DisplayPos.y),
@@ -216,6 +214,7 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
         m_ImGuiMesh.indices->Resize(draw_data->TotalIdxCount);
     }
 
+    m_ImGuiMesh.sub_meshes.clear();
     std::size_t vertex_offset = 0;
     std::size_t index_offset  = 0;
     for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
@@ -236,10 +235,11 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
                 static_cast<std::uint32_t>(clip_max.y),
             };
 
-            item.sub_mesh.index_count              = cmd.ElemCount,
-            item.sub_mesh.vertex_offset            = cmd.VtxOffset + vertex_offset;
-            item.sub_mesh.index_offset             = cmd.IdxOffset + index_offset;
             item.pipeline_parameters.scissor_react = scissor_rect;
+
+            item.index_count   = cmd.ElemCount;
+            item.vertex_offset = cmd.VtxOffset + vertex_offset;
+            item.index_offset  = cmd.IdxOffset + index_offset;
 
             result.emplace_back(item);
         }

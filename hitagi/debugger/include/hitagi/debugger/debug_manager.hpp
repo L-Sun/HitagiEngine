@@ -7,10 +7,6 @@
 #include <functional>
 
 namespace hitagi::debugger {
-struct DebugPrimitive : resource::Renderable {
-    bool dirty = true;
-};
-
 class DebugManager : public RuntimeModule {
 public:
     bool Initialize() final;
@@ -26,11 +22,10 @@ public:
     inline std::size_t GetNumPrimitives() const noexcept { return m_DebugDrawItems.size(); }
 
 protected:
-    void AddPrimitive(const resource::Mesh& mesh, resource::Transform transform, bool depth_enabled);
-    void ClearDirty();
-    void DrawPrimitive() const;
+    void AddPrimitive(resource::Mesh mesh, resource::Transform transform, bool depth_enabled);
+    void DrawPrimitive();
 
-    std::pmr::vector<DebugPrimitive> m_DebugDrawItems;
+    std::pmr::vector<resource::Renderable> m_DebugDrawItems;
 
     resource::Mesh m_MeshBuffer;
     // Indicate the current vertex used
