@@ -9,7 +9,7 @@ Scene::Scene(std::string_view name)
     : name(name),
       world(name),
       root(world.CreateEntity(MetaInfo{std::pmr::string(name), xg::newGuid()})) {
-    // world.RegisterSystem<TransformSystem>("TransformSystem");
+    world.RegisterSystem<TransformSystem>("TransformSystem");
 }
 
 std::pmr::vector<Renderable> Scene::GetRenderables() const {

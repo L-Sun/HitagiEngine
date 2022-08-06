@@ -35,6 +35,7 @@ void Frame::AppendRenderables(std::pmr::vector<resource::Renderable> renderables
 
 void Frame::SetCamera(resource::Camera camera) {
     camera.Update();
+    m_CurrentCamera                = camera;
     m_FrameConstant.camera_pos     = vec4f(camera.eye, 1.0f);
     m_FrameConstant.view           = camera.GetView();
     m_FrameConstant.projection     = camera.GetProjection();
@@ -63,13 +64,30 @@ void Frame::Render(IGraphicsCommandContext* context, resource::Renderable::Type 
             context->BindResource(texture_slot++, *texture);
         }
 
-        if (item.pipeline_parameters.scissor_react) {
-            const auto scissor_react = item.pipeline_parameters.scissor_react.value();
-            context->SetScissorRect(scissor_react.x, scissor_react.y, scissor_react.z, scissor_react.w);
-        }
-        if (item.pipeline_parameters.view_port) {
-            const auto view_port = item.pipeline_parameters.view_port.value();
+        {
+            vec4u view_port, scissor_react;
+            if (item.pipeline_parameters.view_port) {
+                view_port = item.pipeline_parameters.view_port.value();
+            } else {
+                std::uint32_t height = m_Output.height;
+                std::uint32_t width  = height * m_CurrentCamera.aspect;
+                if (width > m_Output.width) {
+                    width     = m_Output.width;
+                    height    = m_Output.width / m_CurrentCamera.aspect;
+                    view_port = {0, (m_Output.height - height) >> 1, width, height};
+                } else {
+                    view_port = {(m_Output.width - width) >> 1, 0, width, height};
+                }
+            }
+
+            if (item.pipeline_parameters.scissor_react) {
+                scissor_react = item.pipeline_parameters.scissor_react.value();
+            } else {
+                scissor_react = {view_port.x, view_port.y, view_port.x + view_port.z, view_port.y + view_port.w};
+            }
+
             context->SetViewPort(view_port.x, view_port.y, view_port.z, view_port.w);
+            context->SetScissorRect(scissor_react.x, scissor_react.y, scissor_react.z, scissor_react.w);
         }
 
         context->Draw(*item.vertices, *item.indices,
@@ -96,8 +114,13 @@ void Frame::Wait() {
 std::uint64_t Frame::PrepareData(IGraphicsCommandContext* context) {
     assert(context);
 
-    std::stable_sort(m_RenderItems.begin(), m_RenderItems.end(), [](const Renderable& a, const Renderable& b) {
-        return a.material < b.material;
+    std::sort(m_RenderItems.begin(), m_RenderItems.end(), [](const Renderable& a, const Renderable& b) {
+        if (a.material < b.material)
+            return true;
+        else if (a.material == b.material)
+            return a.material_instance < b.material_instance;
+        else
+            return false;
     });
 
     // if new size is smaller, the expand function return directly.
@@ -135,7 +158,7 @@ std::uint64_t Frame::PrepareData(IGraphicsCommandContext* context) {
         {
             item.object_constant_offset = object_constant_offset;
             ObjectConstant constant{
-                .word_transform = item.transform.world_matrix,
+                .word_transform = item.transform,
             };
 
             m_Device.UpdateConstantBuffer(m_ConstantBuffer,

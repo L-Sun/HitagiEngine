@@ -150,8 +150,6 @@ public:
     // TODO set a sampler
     MaterialInstance& SetTexture(std::string_view name, std::shared_ptr<Texture> texture) noexcept;
 
-    MaterialInstance& SetMaterial(const std::shared_ptr<Material>& material) noexcept;
-
     template <MaterialParametric T>
     std::optional<T> GetValue(std::string_view name) const noexcept;
 

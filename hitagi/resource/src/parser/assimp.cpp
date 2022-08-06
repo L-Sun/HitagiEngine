@@ -213,7 +213,11 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene, std::pmr::vec
         }
         // A exists material type
         else {
-            instance.SetMaterial(*iter);
+            instance  = (*iter)->CreateInstance();
+            auto temp = material->CreateInstance();
+
+            const_cast<core::Buffer&>(instance.GetParameterBuffer())                                                 = temp.GetParameterBuffer();
+            const_cast<std::pmr::unordered_map<std::pmr::string, std::shared_ptr<Texture>>&>(instance.GetTextures()) = temp.GetTextures();
         }
 
         material_instances.emplace_back(std::move(instance));

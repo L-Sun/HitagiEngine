@@ -15,19 +15,20 @@ cbuffer ObjectConstants : register(b1) {
   matrix world_transform;
 };
 
+cbuffer MaterialConstants: register(b2) {
+  float4 color;
+};
+
 #define RSDEF \
   "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "  \
-  "CBV(b0),"                                         \
-  "CBV(b1)"                                         \
+  "DescriptorTable(CBV(b0, numDescriptors = 3))"      \
 
 struct VSInput {
   float3 position : POSITION;
-  float4 color : COLOR;
 };
 
 struct PSInput {
   float4 position : SV_POSITION;
-  float4 color : COLOR;
 };
 
 
@@ -36,9 +37,8 @@ PSInput VSMain(VSInput input) {
   PSInput output;
   output.position = mul(proj_view, mul(world_transform, float4(input.position, 1.0f)));
 
-  output.color = input.color;
   return output;
 }
 
 [RootSignature(RSDEF)] 
-float4 PSMain(PSInput input) : SV_TARGET { return input.color; }
+float4 PSMain(PSInput input) : SV_TARGET { return color; }

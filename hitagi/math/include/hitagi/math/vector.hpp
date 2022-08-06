@@ -351,6 +351,11 @@ constexpr Vector<T, D> absolute(const Vector<T, D>& a) {
 }
 
 template <typename T, unsigned D>
+constexpr T max(const Vector<T, D>& v) {
+    return *std::max_element(v.data.begin(), v.data.end());
+}
+
+template <typename T, unsigned D>
 constexpr Vector<T, D> max(const Vector<T, D>& a, const T& b) {
     Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::max(a[i], b);
@@ -365,6 +370,11 @@ constexpr Vector<T, D> max(const Vector<T, D>& a, const Vector<T, D>& b) {
 }
 
 template <typename T, unsigned D>
+constexpr T min(const Vector<T, D>& v) {
+    return *std::min_element(v.data.begin(), v.data.end());
+}
+
+template <typename T, unsigned D>
 constexpr Vector<T, D> min(const Vector<T, D>& a, const T& b) {
     Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b);
@@ -376,6 +386,16 @@ constexpr Vector<T, D> min(const Vector<T, D>& a, const Vector<T, D>& b) {
     Vector<T, D> res{};
     for (unsigned i = 0; i < D; i++) res[i] = std::min(a[i], b[i]);
     return res;
+}
+
+template <typename T, unsigned D>
+constexpr unsigned max_index(const Vector<T, D>& v) {
+    return std::distance(v.data.begin(), std::max_element(v.data.begin(), v.data.end()));
+}
+
+template <typename T, unsigned D>
+constexpr unsigned min_index(const Vector<T, D>& v) {
+    return std::distance(v.data.begin(), std::min_element(v.data.begin(), v.data.end()));
 }
 
 }  // namespace hitagi::math

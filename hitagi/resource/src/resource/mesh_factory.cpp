@@ -4,7 +4,7 @@ using namespace hitagi::math;
 
 namespace hitagi::resource {
 
-Mesh MeshFactory::Line(const vec3f& from, const vec3f& to, const vec4f& color) {
+Mesh MeshFactory::Line(const vec3f& from, const vec3f& to) {
     Mesh mesh{
         .vertices = std::make_shared<VertexArray>(2),
         .indices  = std::make_shared<IndexArray>(2, IndexType::UINT32),
@@ -13,11 +13,6 @@ Mesh MeshFactory::Line(const vec3f& from, const vec3f& to, const vec4f& color) {
     mesh.vertices->Modify<VertexAttribute::Position>([&](auto pos) {
         pos[0] = from;
         pos[1] = to;
-    });
-
-    mesh.vertices->Modify<VertexAttribute::Color0>([&](auto _color) {
-        _color[0] = color;
-        _color[1] = color;
     });
 
     mesh.indices->Modify<IndexType::UINT32>([](auto array) {
@@ -33,7 +28,7 @@ Mesh MeshFactory::Line(const vec3f& from, const vec3f& to, const vec4f& color) {
     return mesh;
 }
 
-Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max, const vec4f& color) {
+Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max) {
     std::array vertex_data = {
         bb_min,                               // 0
         vec3f(bb_max.x, bb_min.y, bb_min.z),  // 1
@@ -58,10 +53,6 @@ Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max, const v
 
     mesh.vertices->Modify<VertexAttribute::Position>([&](auto pos) {
         std::copy(vertex_data.cbegin(), vertex_data.cend(), pos.begin());
-    });
-
-    mesh.vertices->Modify<VertexAttribute::Color0>([&](auto _color) {
-        std::fill(_color.begin(), _color.end(), color);
     });
 
     mesh.indices->Modify<IndexType::UINT32>([&](auto array) {

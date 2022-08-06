@@ -46,7 +46,7 @@ struct Matrix {
     const Vector<T, D>& operator[](unsigned row) const { return data[row]; }
 
     // TODO make a reference so that we can remove the `const`
-    const Vector<T, D> col(unsigned index) const {
+    constexpr const Vector<T, D> col(unsigned index) const {
         Vector<T, D> result;
         for (unsigned i = 0; i < D; i++)
             result[i] = data[i][index];

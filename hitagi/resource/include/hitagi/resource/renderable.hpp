@@ -26,7 +26,7 @@ struct Renderable {
     Material*               material          = nullptr;
     const MaterialInstance* material_instance = nullptr;
 
-    Transform transform;
+    math::mat4f transform;
 
     PipelineParameters pipeline_parameters;
 

@@ -22,17 +22,13 @@ public:
     inline std::size_t GetNumPrimitives() const noexcept { return m_DebugDrawItems.size(); }
 
 protected:
-    void AddPrimitive(resource::Mesh mesh, resource::Transform transform, bool depth_enabled);
     void DrawPrimitive();
 
-    std::pmr::vector<resource::Renderable> m_DebugDrawItems;
+    std::pmr::vector<resource::Renderable>       m_DebugDrawItems;
+    std::pmr::vector<resource::MaterialInstance> m_DrawItemColors;
 
-    resource::Mesh m_MeshBuffer;
-    // Indicate the current vertex used
-    std::size_t m_VertexOffset = 0;
-    std::size_t m_IndexOffset  = 0;
-
-    resource::MaterialInstance m_LineMaterialInstance;
+    resource::Mesh                      m_MeshPrototype;
+    std::shared_ptr<resource::Material> m_LineMaterial;
 
     bool m_DrawDebugInfo = true;
 };

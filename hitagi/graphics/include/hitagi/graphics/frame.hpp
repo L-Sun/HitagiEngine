@@ -54,6 +54,7 @@ private:
     std::pmr::vector<resource::Renderable> m_RenderItems;
     DepthBuffer                            m_DepthBuffer;
     RenderTarget                           m_Output;
+    resource::Camera                       m_CurrentCamera;
 
     // the constant data used among the frame, including camera, light, etc.
     // TODO object constant buffer layout depending on different object
