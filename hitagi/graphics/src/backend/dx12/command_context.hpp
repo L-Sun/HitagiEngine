@@ -62,31 +62,40 @@ class GraphicsCommandContext : public CommandContext, public graphics::IGraphics
 public:
     GraphicsCommandContext(DX12Device* device) : CommandContext(device, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
 
-    // Front end interface
+    void ClearRenderTarget(const graphics::RenderTarget& rt) final;
+    void ClearDepthBuffer(const graphics::DepthBuffer& depth_buffer) final;
+
+    void SetRenderTarget(const graphics::RenderTarget& rt) final;
+    void SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& rt, const graphics::DepthBuffer& depth_buffer) final;
+    void SetPipelineState(const graphics::PipelineState& pipeline) final;
+
     void SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
     void SetScissorRect(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom) final;
     void SetViewPortAndScissor(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
-    void SetRenderTarget(const graphics::RenderTarget& rt) final;
-    void UnsetRenderTarget() final;
-    void SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& rt, const graphics::DepthBuffer& depth_buffer) final;
-    void ClearRenderTarget(const graphics::RenderTarget& rt) final;
-    void ClearDepthBuffer(const graphics::DepthBuffer& depth_buffer) final;
-    void SetPipelineState(const graphics::PipelineState& pipeline) final;
+    void SetBlendFactor(math::vec4f color) final;
+
     void BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, std::size_t offset) final;
     void BindResource(std::uint32_t slot, const resource::Texture& texture) final;
     void BindResource(std::uint32_t slot, const graphics::Sampler& sampler) final;
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) final;
+    void BindDynamicTextureBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) final;
+    void BindDynamicConstantBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) final;
+
+    void BindVertexBuffer(const resource::VertexArray& vertices) final;
+    void BindIndexBuffer(const resource::IndexArray& indices) final;
+
+    void BindDynamicVertexBuffer(const resource::VertexArray& vertices) final;
+    void BindDynamicIndexBuffer(const resource::IndexArray& indices) final;
+
+    void Draw(std::size_t vertex_count, std::size_t vertex_start_offset) final;
+    void DrawIndexed(std::size_t index_count, std::size_t start_index_location, std::size_t base_vertex_location) final;
+    void DrawInstanced(std::size_t vertex_count, std::size_t instance_count, std::size_t start_vertex_location, std::size_t start_instance_location) final;
+    void DrawIndexedInstanced(std::size_t index_count, std::size_t instance_count, std::size_t start_index_location, std::size_t base_vertex_location, std::size_t start_instance_location) final;
 
     void UpdateBuffer(Resource* resource, std::size_t offset, const std::byte* data, std::size_t data_size) final;
     void UpdateVertexBuffer(resource::VertexArray& vertices) final;
     void UpdateIndexBuffer(resource::IndexArray& indices) final;
 
-    void          Draw(const resource::VertexArray& vb,
-                       const resource::IndexArray&  ib,
-                       resource::PrimitiveType,
-                       std::size_t index_count,
-                       std::size_t vertex_offset,
-                       std::size_t index_offset) final;
     void          Present(const graphics::RenderTarget& rt) final;
     std::uint64_t Finish(bool wait_for_complete = false) final { return CommandContext::Finish(wait_for_complete); }
 };

@@ -93,8 +93,8 @@ public:
         std::pmr::vector<std::byte>                                      default_buffer;
     };
 
-    MaterialInstance CreateInstance() const noexcept;
-    std::size_t      GetNumInstances() const noexcept;
+    std::shared_ptr<MaterialInstance> CreateInstance() const noexcept;
+    std::size_t                       GetNumInstances() const noexcept;
 
     const auto& GetVertexShader() const noexcept { return vertex_shader; }
     const auto& GetPixelShader() const noexcept { return pixel_shader; }

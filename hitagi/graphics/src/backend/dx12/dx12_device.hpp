@@ -11,10 +11,9 @@ public:
     DX12Device();
     ~DX12Device() override;
 
-    void Present(size_t frame_index) final;
-
     void        CreateSwapChain(std::uint32_t width, std::uint32_t height, unsigned frame_count, resource::Format format, void* window) final;
     std::size_t ResizeSwapChain(std::uint32_t width, std::uint32_t height) final;
+    void        Present() final;
 
     void InitRenderTarget(graphics::RenderTarget& rt) final;
     void InitRenderFromSwapChain(graphics::RenderTarget& rt, std::size_t frame_index) final;
@@ -26,12 +25,9 @@ public:
     void InitSampler(graphics::Sampler& sampler) final;
     void InitPipelineState(graphics::PipelineState& pipeline) final;
 
-    void UpdateConstantBuffer(graphics::ConstantBuffer& buffer, std::size_t offset, const std::byte* src, std::size_t size) final;
-    void ResizeConstantBuffer(graphics::ConstantBuffer& buffer, std::size_t new_num_elements) final;
-
     std::shared_ptr<IGraphicsCommandContext> CreateGraphicsCommandContext() final;
 
-    void RetireResource(std::shared_ptr<backend::Resource> resource) final;
+    void RetireResource(std::unique_ptr<backend::Resource> resource) final;
 
     // Fence
     bool IsFenceComplete(std::uint64_t fence_value) final;
@@ -46,9 +42,10 @@ public:
     DescriptorAllocator& GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type);
 
 private:
-    void CompileShader(const std::shared_ptr<resource::Shader>& shader);
-
+    void                                       CompileShader(const std::shared_ptr<resource::Shader>& shader);
     std::pmr::vector<D3D12_INPUT_ELEMENT_DESC> CreateInputLayout(const std::shared_ptr<resource::Shader>& vs);
+
+    void RetireResources();
 
     static ComPtr<ID3D12DebugDevice1> sm_DebugInterface;
 
@@ -69,12 +66,10 @@ private:
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_RTV},
         DescriptorAllocator{D3D12_DESCRIPTOR_HEAP_TYPE_DSV}};
 
-    std::pmr::set<std::shared_ptr<backend::Resource>> m_Resources;
-
     // resource will release after fence complete
-    constexpr static auto retire_resource_cmp = [](const std::shared_ptr<backend::Resource>& r1, const std::shared_ptr<backend::Resource>& r2) {
+    constexpr static auto retire_resource_cmp = [](const std::unique_ptr<backend::Resource>& r1, const std::unique_ptr<backend::Resource>& r2) {
         return r1->fence_value < r2->fence_value;
     };
-    std::priority_queue<std::shared_ptr<backend::Resource>, std::pmr::vector<std::shared_ptr<backend::Resource>>, decltype(retire_resource_cmp)> m_RetireResources;
+    std::priority_queue<std::unique_ptr<backend::Resource>, std::pmr::vector<std::unique_ptr<backend::Resource>>, decltype(retire_resource_cmp)> m_RetiredResources;
 };
 }  // namespace hitagi::graphics::backend::DX12

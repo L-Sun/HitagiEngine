@@ -26,6 +26,9 @@ public:
     void BindResource(std::uint32_t slot, Sampler* sampler);
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count);
 
+    void BindDynamicTextureBuffer(std::uint32_t slot, const D3D12_GPU_VIRTUAL_ADDRESS& gpu_address);
+    void BindDynamicConstantBuffer(std::uint32_t slot, const D3D12_GPU_VIRTUAL_ADDRESS& gpu_address);
+
     void CommitStagedDescriptors();
 
     // Paser root signature to get information about the layout of descriptors.
@@ -41,8 +44,10 @@ public:
     }
 
 private:
-    ComPtr<ID3D12DescriptorHeap>        RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
+    ID3D12DescriptorHeap*               RequestDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type);
     static ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(DX12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type);
+
+    bool SlotCheck(Descriptor::Type type, std::uint32_t slot);
 
     void StageDescriptor(std::uint32_t heap_offset, const Descriptor& descriptor);
     void StageDescriptors(std::uint32_t heap_offset, const std::pmr::vector<std::reference_wrapper<const Descriptor>>& descriptors);
@@ -59,15 +64,15 @@ private:
         std::uint64_t value = 0;
     };
 
-    using DescriptorHeapPool = std::queue<ComPtr<ID3D12DescriptorHeap>, std::pmr::deque<ComPtr<ID3D12DescriptorHeap>>>;
-    using AvailableHeapPool  = std::queue<
-        std::pair<ComPtr<ID3D12DescriptorHeap>, FenceValue>,
-        std::pmr::deque<std::pair<ComPtr<ID3D12DescriptorHeap>, FenceValue>>>;
+    using DescriptorHeapPool  = std::queue<ComPtr<ID3D12DescriptorHeap>, std::pmr::deque<ComPtr<ID3D12DescriptorHeap>>>;
+    using RetiredHeapsQueue   = std::queue<std::pair<ID3D12DescriptorHeap*, FenceValue>, std::pmr::deque<std::pair<ID3D12DescriptorHeap*, FenceValue>>>;
+    using AvaliableHeapsQueue = std::queue<ID3D12DescriptorHeap*, std::pmr::deque<ID3D12DescriptorHeap*>>;
 
     // only cbv_srv_uav and sampler heap supported
-    inline static std::array<DescriptorHeapPool, 2> sm_DescriptorHeapPool;
-    inline static std::array<AvailableHeapPool, 2>  sm_AvailableDescriptorHeaps;
-    static std::mutex                               sm_Mutex;
+    inline static std::array<DescriptorHeapPool, 2>  sm_DescriptorHeapPool;
+    inline static std::array<RetiredHeapsQueue, 2>   sm_RetiredDescriptorHeaps;
+    inline static std::array<AvaliableHeapsQueue, 2> sm_AvailableDescriptorHeaps;
+    static std::mutex                                sm_Mutex;
 
     DX12Device*     m_Device;
     CommandContext& m_Context;
@@ -84,7 +89,9 @@ private:
     // changed since the last time the descriptors were copied.
     std::bitset<sm_max_root_parameters> m_RootTableDirty;
 
-    std::array<ComPtr<ID3D12DescriptorHeap>, 2>  m_CurrentDescriptorHeaps;
+    std::array<ID3D12DescriptorHeap*, 2>                   m_CurrentDescriptorHeaps;
+    std::array<std::pmr::vector<ID3D12DescriptorHeap*>, 2> m_RetiredDescriptorHeaps;
+
     std::array<std::size_t, 2>                   m_HandleIncrementSizes;
     std::array<CD3DX12_CPU_DESCRIPTOR_HANDLE, 2> m_CurrentCPUDescriptorHandles;
     std::array<CD3DX12_GPU_DESCRIPTOR_HANDLE, 2> m_CurrentGPUDescriptorHandles;

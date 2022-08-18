@@ -1,8 +1,5 @@
 #pragma once
 #include <hitagi/math/transform.hpp>
-#include <hitagi/ecs/entity.hpp>
-#include <hitagi/ecs/schedule.hpp>
-#include <hitagi/ecs/world.hpp>
 
 #include <unordered_set>
 
@@ -22,11 +19,5 @@ struct Transform {
     inline math::vec3f GetPosition() const { return math::get_translation(world_matrix); }
     inline math::quatf GetRotation() const { return math::get_rotation(world_matrix); }
     inline math::vec3f GetScale() const { return math::get_scaling(world_matrix); }
-};
-
-struct TransformSystem {
-    static bool enable;
-    static void update_world_matrix(ecs::Entity node, const std::shared_ptr<std::pmr::unordered_set<ecs::Entity>>& updated_set, ecs::World& world);
-    static void OnUpdate(ecs::Schedule& schedule, std::chrono::duration<double> delta);
 };
 }  // namespace hitagi::resource

@@ -22,10 +22,10 @@ struct Resource {
     Resource(std::size_t buffer_size = 0, std::string_view name = "") : name(name), cpu_buffer(buffer_size) {}
     Resource(core::Buffer cpu_buffer, std::string_view name = "") : name(name), cpu_buffer(std::move(cpu_buffer)) {}
 
-    std::pmr::string                           name;
-    bool                                       dirty = true;
-    core::Buffer                               cpu_buffer;
-    std::weak_ptr<graphics::backend::Resource> gpu_resource;
+    std::pmr::string                             name;
+    bool                                         dirty = true;
+    core::Buffer                                 cpu_buffer;
+    std::unique_ptr<graphics::backend::Resource> gpu_resource;
 
     // TODO
     // for more efficient update gpu resource, we mark cpu buffer per 1 kB if the region is modified!

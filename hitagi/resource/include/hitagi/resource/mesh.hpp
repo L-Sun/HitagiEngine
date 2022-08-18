@@ -3,6 +3,7 @@
 #include <hitagi/math/vector.hpp>
 #include <hitagi/resource/material.hpp>
 #include <hitagi/resource/resource.hpp>
+#include <hitagi/resource/scene_node.hpp>
 
 #include <magic_enum.hpp>
 
@@ -62,11 +63,29 @@ template <VertexAttribute e>
 using VertexType = std::invoke_result_t<decltype(detial::vertex_attr<e>)>;
 
 constexpr std::size_t get_vertex_attribute_size(VertexAttribute attribute) {
-    return magic_enum::enum_switch(
-        [](auto e) {
-            return sizeof(VertexType<e>);
-        },
-        attribute, 4);
+    switch (attribute) {
+        case VertexAttribute::Position:
+        case VertexAttribute::Normal:
+        case VertexAttribute::Tangent:
+        case VertexAttribute::Bitangent:
+            return sizeof(math::vec3f);
+        case VertexAttribute::Color0:
+        case VertexAttribute::Color1:
+        case VertexAttribute::Color2:
+        case VertexAttribute::Color3:
+            return sizeof(math::vec4f);
+        case VertexAttribute::UV0:
+        case VertexAttribute::UV1:
+        case VertexAttribute::UV2:
+        case VertexAttribute::UV3:
+            return sizeof(math::vec2f);
+        case VertexAttribute::BlendIndex:
+            return sizeof(math::vec4u);
+        case VertexAttribute::BlendWeight:
+            return sizeof(math::vec4f);
+        default:
+            return sizeof(float);
+    }
 }
 
 enum struct IndexType : std::uint8_t {
@@ -82,10 +101,13 @@ constexpr auto get_index_type_size(IndexType type) {
 }
 
 struct VertexArray : public Resource {
+    VertexArray(std::size_t count = 0, std::string_view name = "", const std::pmr::vector<VertexAttribute>& attributes = {VertexAttribute::Position});
+
+    VertexArray(const VertexArray&);
+    VertexArray& operator=(const VertexArray&);
+
     VertexArray(VertexArray&&)            = default;
     VertexArray& operator=(VertexArray&&) = default;
-
-    VertexArray(std::size_t count) : vertex_count(count) {}
 
     void Resize(std::size_t new_count);
     void Enable(VertexAttribute attr);
@@ -102,13 +124,14 @@ struct VertexArray : public Resource {
 };
 
 struct IndexArray : public Resource {
+    IndexArray(std::size_t count = 0, std::string_view name = "", IndexType type = IndexType::UINT32)
+        : Resource(count * get_index_type_size(type), name), index_count(count), type(type) {}
+
+    IndexArray(const IndexArray&);
+    IndexArray& operator=(const IndexArray&);
     IndexArray(IndexArray&&)            = default;
     IndexArray& operator=(IndexArray&&) = default;
 
-    IndexArray(std::size_t count, IndexType type, std::string_view name = "")
-        : Resource(count * get_index_type_size(type)), index_count(count), type(type) {}
-
-    void Concat(const IndexArray& other);
     void Resize(std::size_t new_count);
 
     template <IndexType T>
@@ -117,8 +140,8 @@ struct IndexArray : public Resource {
     template <IndexType T>
     void Modify(std::function<void(std::span<IndexDataType<T>>)>&& modifier);
 
-    std::size_t index_count = 0;
-    IndexType   type        = IndexType::UINT32;
+    std::size_t index_count;
+    IndexType   type;
 };
 
 struct Mesh {
@@ -126,14 +149,16 @@ struct Mesh {
     std::shared_ptr<IndexArray>  indices;
 
     struct SubMesh {
-        std::size_t      index_count;
-        std::size_t      vertex_offset;
-        std::size_t      index_offset;
-        MaterialInstance material;
+        std::size_t                       index_count;
+        std::size_t                       index_offset;
+        std::size_t                       vertex_offset;
+        std::shared_ptr<MaterialInstance> material_instance;
     };
-    bool                      visiable = true;
     std::pmr::vector<SubMesh> sub_meshes;
+
+    inline operator bool() const noexcept { return vertices != nullptr && !vertices->cpu_buffer.Empty() && !sub_meshes.empty(); }
 };
+using MeshNode = SceneNodeWithObject<Mesh>;
 
 Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes);
 

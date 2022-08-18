@@ -1,8 +1,7 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/core/timer.hpp>
-#include <hitagi/resource/texture.hpp>
-#include <hitagi/resource/renderable.hpp>
+#include <hitagi/graphics/draw_data.hpp>
 
 #include <imgui.h>
 
@@ -22,19 +21,18 @@ public:
         m_GuiDrawTasks.emplace([func = std::forward<DrawFunc>(draw_func)] { func(); });
     }
 
-private:
-    std::shared_ptr<resource::Texture> LoadFontTexture();
-    void                               MouseEvent();
-    void                               KeysEvent();
+    const graphics::GuiDrawData& GetDrawData();
 
-    std::pmr::vector<resource::Renderable> PrepareImGuiRenderables();
+private:
+    void LoadFontTexture();
+    void MouseEvent();
+    void KeysEvent();
 
     core::Clock m_Clock;
 
     std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
 
-    resource::MaterialInstance m_ImGuiMaterialInstance;
-    resource::Mesh             m_ImGuiMesh;
+    graphics::GuiDrawData m_DrawData;
 };
 
 }  // namespace hitagi::gui

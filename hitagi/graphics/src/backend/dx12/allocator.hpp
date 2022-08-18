@@ -115,10 +115,10 @@ private:
 
         void DiscardAllocation(Allocation&) final { m_allocation_count--; }
 
-        std::size_t GetFreeSize() const noexcept { return m_Size - m_offset; }
+        std::size_t GetFreeSize() const noexcept { return m_Size - m_Offset; }
         bool        IsPageFree() const noexcept final { return m_allocation_count == 0; }
 
-        std::size_t m_offset           = 0;
+        std::size_t m_Offset           = 0;
         std::size_t m_allocation_count = 0;
     };
 

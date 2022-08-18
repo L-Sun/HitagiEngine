@@ -6,8 +6,8 @@ namespace hitagi::resource {
 
 Mesh MeshFactory::Line(const vec3f& from, const vec3f& to) {
     Mesh mesh{
-        .vertices = std::make_shared<VertexArray>(2),
-        .indices  = std::make_shared<IndexArray>(2, IndexType::UINT32),
+        .vertices = std::make_shared<VertexArray>(2, "line"),
+        .indices  = std::make_shared<IndexArray>(2, "line"),
     };
 
     mesh.vertices->Modify<VertexAttribute::Position>([&](auto pos) {
@@ -22,8 +22,8 @@ Mesh MeshFactory::Line(const vec3f& from, const vec3f& to) {
 
     mesh.sub_meshes.emplace_back(Mesh::SubMesh{
         .index_count   = 2,
-        .vertex_offset = 0,
         .index_offset  = 0,
+        .vertex_offset = 0,
     });
     return mesh;
 }
@@ -47,8 +47,8 @@ Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max) {
     };
 
     Mesh mesh{
-        .vertices = std::make_shared<VertexArray>(vertex_data.size()),
-        .indices  = std::make_shared<IndexArray>(index_data.size(), IndexType::UINT32),
+        .vertices = std::make_shared<VertexArray>(vertex_data.size(), "box"),
+        .indices  = std::make_shared<IndexArray>(index_data.size(), "box"),
     };
 
     mesh.vertices->Modify<VertexAttribute::Position>([&](auto pos) {
@@ -61,8 +61,8 @@ Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max) {
 
     mesh.sub_meshes.emplace_back(Mesh::SubMesh{
         .index_count   = mesh.indices->index_count,
-        .vertex_offset = 0,
         .index_offset  = 0,
+        .vertex_offset = 0,
     });
 
     return mesh;

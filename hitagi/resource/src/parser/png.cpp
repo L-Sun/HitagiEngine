@@ -25,11 +25,11 @@ void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
         png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
-std::optional<Texture> PngParser::Parse(const core::Buffer& buffer) {
+std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer) {
     auto logger = spdlog::get("AssetManager");
     if (buffer.Empty()) {
         logger->warn("[PNG] Parsing a empty bufferfer will return nullptr.");
-        return std::nullopt;
+        return nullptr;
     }
 
     enum { PNG_BYTES_TO_CHECK = 4 };
@@ -38,26 +38,26 @@ std::optional<Texture> PngParser::Parse(const core::Buffer& buffer) {
         png_sig_cmp(reinterpret_cast<png_const_bytep>(buffer.GetData()), 0,
                     PNG_BYTES_TO_CHECK)) {
         logger->warn("[PNG] File format is not png!");
-        return std::nullopt;
+        return nullptr;
     }
 
     png_structp png_tr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr,
                                                 nullptr, nullptr);
     if (!png_tr) {
         logger->error("[PNG] Can not create read struct.");
-        return std::nullopt;
+        return nullptr;
     }
     png_infop info_ptr = png_create_info_struct(png_tr);
     if (!info_ptr) {
         logger->error("[PNG] Can not create info struct.");
         png_destroy_read_struct(&png_tr, nullptr, nullptr);
-        return std::nullopt;
+        return nullptr;
     }
 
     if (setjmp(png_jmpbuf(png_tr))) {
         logger->error("[PNG] Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
-        return std::nullopt;
+        return nullptr;
     }
 
     ImageSource img_source{};
@@ -71,63 +71,63 @@ std::optional<Texture> PngParser::Parse(const core::Buffer& buffer) {
         PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_PACKING,
         nullptr);
 
-    Texture image;
-    image.width      = png_get_image_width(png_tr, info_ptr);
-    image.height     = png_get_image_height(png_tr, info_ptr);
-    image.pitch      = ((image.width * 4) + 3) & ~3;
-    image.cpu_buffer = core::Buffer(image.pitch * image.height);
+    auto image        = std::make_shared<Texture>();
+    image->width      = png_get_image_width(png_tr, info_ptr);
+    image->height     = png_get_image_height(png_tr, info_ptr);
+    image->pitch      = ((image->width * 4) + 3) & ~3;
+    image->cpu_buffer = core::Buffer(image->pitch * image->height);
 
     png_bytepp rows = png_get_rows(png_tr, info_ptr);
-    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(image.cpu_buffer.GetData());
+    auto       p    = reinterpret_cast<R8G8B8A8Unorm*>(image->cpu_buffer.GetData());
 
     switch (png_get_color_type(png_tr, info_ptr)) {
         case PNG_COLOR_TYPE_GRAY: {
-            for (int i = image.height - 1; i >= 0; i--) {
-                for (int j = 0; j < image.width; j++) {
+            for (int i = image->height - 1; i >= 0; i--) {
+                for (int j = 0; j < image->width; j++) {
                     p[j].r = rows[i][j];
                     p[j].g = rows[i][j];
                     p[j].b = rows[i][j];
                     p[j].a = 255;
                 }
                 // to next line
-                p += image.width;
+                p += image->width;
             }
         } break;
         case PNG_COLOR_TYPE_GRAY_ALPHA: {
-            for (int i = image.height - 1; i >= 0; i--) {
-                for (int j = 0; j < image.width; j++) {
+            for (int i = image->height - 1; i >= 0; i--) {
+                for (int j = 0; j < image->width; j++) {
                     p[j].r = rows[i][2 * j + 0];
                     p[j].g = rows[i][2 * j + 0];
                     p[j].b = rows[i][2 * j + 0];
                     p[j].a = rows[i][2 * j + 1];
                 }
                 // to next line
-                p += image.width;
+                p += image->width;
             }
         } break;
         case PNG_COLOR_TYPE_RGB: {
-            for (int i = image.height - 1; i >= 0; i--) {
-                for (int j = 0; j < image.width; j++) {
+            for (int i = image->height - 1; i >= 0; i--) {
+                for (int j = 0; j < image->width; j++) {
                     p[j].r = rows[i][3 * j + 0];
                     p[j].g = rows[i][3 * j + 1];
                     p[j].b = rows[i][3 * j + 2];
                     p[j].a = 255;
                 }
                 // to next line
-                p += image.width;
+                p += image->width;
             }
         } break;
         case PNG_COLOR_TYPE_RGBA: {
-            for (int i = image.height - 1; i >= 0; i--) {
+            for (int i = image->height - 1; i >= 0; i--) {
                 auto q = reinterpret_cast<R8G8B8A8Unorm*>(rows[i]);
-                std::copy(q, q + image.width, p);
+                std::copy(q, q + image->width, p);
                 // to next line
-                p += image.width;
+                p += image->width;
             }
         } break;
         default:
             logger->error("[PNG] Unsupport color type.");
-            return std::nullopt;
+            return nullptr;
             break;
     }
 

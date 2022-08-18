@@ -12,12 +12,12 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 using namespace hitagi::math;
+using namespace hitagi::resource;
 
 namespace hitagi {
 bool Editor::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Editor");
     m_Logger->info("Initialize...");
-    scene_manager->CurrentScene().world.RegisterSystem<DrawBone>("DrawBone");
 
     return true;
 }
@@ -36,7 +36,7 @@ void Editor::Draw() {
     // Draw
     MainMenu();
     FileExplorer();
-    // SceneExplorer();
+    SceneExplorer();
     DebugPanel();
     debug_manager->DrawAxis(mat4f::identity());
 }
@@ -125,38 +125,21 @@ void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
         auto& scene = scene_manager->CurrentScene();
         if (ImGui::CollapsingHeader("Scene Nodes")) {
-            std::function<void(ecs::Entity)> print_node = [&](ecs::Entity node) -> void {
-                auto meta      = scene.world.AccessEntity<resource::MetaInfo>(node);
-                auto transform = scene.world.AccessEntity<resource::Transform>(node);
+            std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](std::shared_ptr<SceneNode> node) -> void {
+                if (ImGui::TreeNode(node->name.c_str())) {
+                    auto& translation = node->transform.local_translation;
+                    auto  orientation = rad2deg(quaternion_to_euler(node->transform.local_rotation));
+                    auto& scaling     = node->transform.local_scaling;
 
-                std::pmr::vector<ecs::Entity> children;
-                for (const auto& arche : scene.world.GetArchetypes<resource::Hierarchy>()) {
-                    auto entities = arche->GetComponentArray<ecs::Entity>();
-                    auto hiers    = arche->GetComponentArray<resource::Hierarchy>();
-                    for (std::size_t i = 0; i < entities.size(); i++) {
-                        if (hiers[i].parentID == node) {
-                            children.emplace_back(entities[i]);
-                        }
-                    }
-                }
-                std::sort(children.begin(), children.end());
+                    ImGui::DragFloat3("Translation", translation, 1.0f, 0.0f, 0.0f, "%.02f m");
 
-                if (ImGui::TreeNode(meta.has_value() ? meta->get().name.c_str() : "Unkown")) {
-                    if (transform.has_value()) {
-                        auto& translation = transform->get().local_translation;
-                        auto  orientation = rad2deg(quaternion_to_euler(transform->get().local_rotation));
-                        auto& scaling     = transform->get().local_scaling;
+                    if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °"))
+                        node->transform.local_rotation = euler_to_quaternion(deg2rad(orientation));
 
-                        ImGui::DragFloat3("Translation", translation, 1.0f, 0.0f, 0.0f, "%.02f m");
-
-                        if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °"))
-                            transform->get().local_rotation = euler_to_quaternion(deg2rad(orientation));
-
-                        ImGui::DragFloat3("Scaling", scaling, 1.0f, 0.0f, 0.0f, "%.03f °");
-                    }
+                    ImGui::DragFloat3("Scaling", scaling, 1.0f, 0.0f, 0.0f, "%.03f °");
 
                     // print children
-                    for (auto&& child : children) {
+                    for (auto&& child : node->GetChildren()) {
                         print_node(child);
                     }
                     ImGui::TreePop();
@@ -202,30 +185,11 @@ void Editor::DebugPanel() {
 
     gui_manager->DrawGui([]() {
         if (ImGui::Begin("Debug Pannel")) {
-            ImGui::Text("%s", fmt::format("Num debug primitives: {}", debug_manager->GetNumPrimitives()).c_str());
             ImGui::Text("%s", fmt::format("Memory Usage: {}Mb", app->GetMemoryUsage() >> 20).c_str());
-            ImGui::Checkbox("DrawBone", &DrawBone::enable);
-            ImGui::Checkbox("Transform", &resource::TransformSystem::enable);
         }
         ImGui::End();
         bool open = true;
         ImGui::ShowMetricsWindow(&open);
-    });
-}
-
-bool Editor::DrawBone::enable = false;
-
-void Editor::DrawBone::OnUpdate(ecs::Schedule& schedule, std::chrono::duration<double> delta) {
-    if (!enable) return;
-    schedule.Request("DrawBone", [&](ecs::Entity id, const resource::Armature& armature) {
-        for (auto bone : armature.bone_collection) {
-            auto parent = schedule.world.AccessEntity<resource::Hierarchy>(bone)->get().parentID;
-            if (parent != id) {
-                auto from = schedule.world.AccessEntity<resource::Transform>(bone)->get().GetPosition();
-                auto to   = schedule.world.AccessEntity<resource::Transform>(parent)->get().GetPosition();
-                debug_manager->DrawLine(from, to, vec4f{0.2, 0.3, 0.7, 1.0});
-            }
-        }
     });
 }
 

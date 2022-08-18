@@ -23,4 +23,12 @@ void Camera::ApplyTransform(const Transform& transform) {
     m_View = look_at(eye, look_dir, up);
 }
 
+void CameraNode::Update() {
+    SceneNode::Update();
+    if (object) {
+        object->ApplyTransform(transform);
+        object->Update();
+    }
+}
+
 }  // namespace hitagi::resource

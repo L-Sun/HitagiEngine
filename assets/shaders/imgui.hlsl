@@ -1,28 +1,14 @@
-cbuffer FrameConstants : register(b0) {
-  matrix proj_view;
-  matrix view;
+cbuffer ImGuiConstants : register(b0) {
   matrix projection;
-  matrix inv_projection;
-  matrix inv_view;
-  matrix inv_proj_view;
-  float4 camera_pos;
-  float4 light_position;
-  float4 light_pos_in_view;
-  float4 light_intensity;
 };
-
-cbuffer ObjectConstants : register(b1) {
-  matrix world_transform;
-};
-
-cbuffer ImGuiConstants : register(b2) { matrix orth_projection; }
 
 SamplerState sampler0 : register(s0);
 Texture2D texture0 : register(t0);
 
 #define RSDEF                                                                  \
   "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "                            \
-  "DescriptorTable(CBV(b0, numDescriptors = 3), SRV(t0)),"                     \
+  "CBV(b0),"                                                                   \
+  "DescriptorTable(SRV(t0)),"                                                  \
   "StaticSampler(s0)"
 
 struct VS_INPUT {
@@ -39,7 +25,7 @@ struct PS_INPUT {
 
 [RootSignature(RSDEF)] PS_INPUT VSMain(VS_INPUT input) {
   PS_INPUT output;
-  output.pos = mul(orth_projection, float4(input.pos.xyz, 1.f));
+  output.pos = mul(projection, float4(input.pos.xyz, 1.f));
   output.col = input.col;
   output.uv = input.uv;
   return output;

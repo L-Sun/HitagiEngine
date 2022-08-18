@@ -17,9 +17,9 @@ public:
 
     Scene CreateEmptyScene(std::string_view name);
 
-    void                            ImportScene(Scene& scene, const std::filesystem::path& path);
-    std::optional<Texture>          ImportImage(const std::filesystem::path& path);
-    std::optional<MaterialInstance> ImportMaterial(const std::filesystem::path& path);
+    void                              ImportScene(Scene& scene, const std::filesystem::path& path);
+    std::shared_ptr<Texture>          ImportImage(const std::filesystem::path& path);
+    std::shared_ptr<MaterialInstance> ImportMaterial(const std::filesystem::path& path);
 
     // std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> ImportAnimation(const std::filesystem::path& path);
 

@@ -29,8 +29,8 @@ GpuBuffer::GpuBuffer(DX12Device*           device,
 ConstantBuffer::ConstantBuffer(DX12Device* device, std::string_view name, const graphics::ConstantBuffer& desc)
     : GpuResource(device),
       m_ElementSize(desc.element_size),
-      m_BlockSize(align(desc.element_size, 256)),
-      m_BufferSize(align(desc.element_size, 256) * desc.num_elements) {
+      m_BlockSize(utils::align(desc.element_size, 256)),
+      m_BufferSize(utils::align(desc.element_size, 256) * desc.num_elements) {
     m_UsageState = D3D12_RESOURCE_STATE_GENERIC_READ;
     Resize(desc.num_elements);
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());

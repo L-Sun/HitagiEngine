@@ -42,7 +42,7 @@ TEST(FileIoManagerTest, ReadFile) {
 
 TEST(FileIoManagerTest, SaveFile) {
     std::pmr::string content = "Hello world!";
-    core::Buffer     buffer(content.data(), content.size());
+    core::Buffer     buffer(content.size(), reinterpret_cast<const std::byte*>(content.data()));
     auto             path = std::filesystem::temp_directory_path() / "SaveFile.tmp";
 
     file_io_manager->SaveBuffer(buffer, path);

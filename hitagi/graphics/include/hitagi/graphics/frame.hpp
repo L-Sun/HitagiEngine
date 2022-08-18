@@ -2,67 +2,51 @@
 #include <hitagi/math/matrix.hpp>
 #include <hitagi/resource/scene.hpp>
 #include <hitagi/graphics/gpu_resource.hpp>
+#include <hitagi/graphics/draw_data.hpp>
+
+#include <unordered_map>
 
 namespace hitagi::graphics {
 class DeviceAPI;
 class IGraphicsCommandContext;
 
 class Frame {
-    struct FrameConstant {
-        math::mat4f proj_view;
-        math::mat4f view;
-        math::mat4f projection;
-        math::mat4f inv_projection;
-        math::mat4f inv_view;
-        math::mat4f inv_proj_view;
-        math::vec4f camera_pos;
-        math::vec4f light_position;
-        math::vec4f light_pos_in_view;
-        math::vec4f light_intensity;
-    };
-
-    struct ObjectConstant {
-        math::mat4f word_transform;
-    };
-
 public:
     Frame(DeviceAPI& device, std::size_t frame_index);
 
-    void SetFenceValue(std::uint64_t fence_value);
+    void DrawScene(const resource::Scene& scene);
+    void DrawDebug(const DebugDrawData& data);
+    void DrawGUI(const GuiDrawData& gui_data);
 
-    void AppendRenderables(std::pmr::vector<resource::Renderable> renderables);
+    // DebugDraw
+    void DrawLine(math::vec3f from, math::vec3f to, math::vec4f color);
 
-    void SetCamera(resource::Camera camera);
+    void BeforeSwapchainSizeChanged();
+    void AfterSwapchainSizeChanged();
 
-    std::uint64_t PrepareData(IGraphicsCommandContext* context);
-    void          Render(IGraphicsCommandContext* context, resource::Renderable::Type type);
-
+    void Execute();
     void Wait();
-
-    inline auto& GetRenderTarget() noexcept { return m_Output; }
-    inline auto& GetDepthBuffer() noexcept { return m_DepthBuffer; }
+    void Reset();
 
 private:
     ConstantBuffer& GetMaterialBuffer(const std::shared_ptr<resource::Material>& material);
 
-    DeviceAPI&        m_Device;
-    const std::size_t m_FrameIndex;
-    std::uint64_t     m_FenceValue = 0;
-    mutable bool      m_Dirty      = false;
+    IGraphicsCommandContext* NewContext();
 
-    FrameConstant                          m_FrameConstant{};
-    std::pmr::vector<resource::Renderable> m_RenderItems;
-    DepthBuffer                            m_DepthBuffer;
-    RenderTarget                           m_Output;
-    resource::Camera                       m_CurrentCamera;
+    DeviceAPI&                                                 m_Device;
+    const std::size_t                                          m_FrameIndex;
+    std::pmr::vector<std::shared_ptr<IGraphicsCommandContext>> m_CommandContexts;
+    std::uint64_t                                              m_FenceValue = 0;
 
-    // the constant data used among the frame, including camera, light, etc.
-    // TODO object constant buffer layout depending on different object
-    ConstantBuffer m_ConstantBuffer;
-    // the first element in constant buffer is frame constant, including camera light
-    std::size_t m_ConstantCount = 1;
+    DepthBuffer  m_DepthBuffer;
+    RenderTarget m_Output;
 
-    std::pmr::unordered_map<const resource::Material*, ConstantBuffer> m_MaterialBuffers;
+    ConstantBuffer m_FrameCB;
+    ConstantBuffer m_ObjCB;
+    ConstantBuffer m_DebugCB;
+
+    std::pmr::unordered_map<const resource::Material*, std::pair<ConstantBuffer, std::size_t>>
+        m_MaterialBuffers;
 };
 
 }  // namespace hitagi::graphics

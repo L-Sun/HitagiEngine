@@ -53,10 +53,10 @@ public:
     std::pmr::vector<ecs::Entity> GetEntities() const requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...);
 
     template <typename Component>
-    std::optional<std::reference_wrapper<Component>> AccessEntity(const Entity& entity) requires utils::NoCVRef<Component>;
+    std::optional<std::reference_wrapper<Component>> GetComponent(const Entity& entity) requires utils::NoCVRef<Component>;
 
     template <typename Component>
-    std::optional<std::reference_wrapper<const Component>> AccessEntity(const Entity& entity) const requires utils::NoCVRef<Component>;
+    std::optional<std::reference_wrapper<const Component>> GetComponent(const Entity& entity) const requires utils::NoCVRef<Component>;
 
     template <typename Component>
     bool HasEntity(const Entity& entity) requires utils::NoCVRef<Component>;
@@ -105,7 +105,7 @@ Entity World::CreateEntity() requires utils::UniqueTypes<Components...> &&(utils
 template <typename... Components>
 Entity World::CreateEntity(Components&&... components) requires utils::UniqueTypes<std::remove_cvref_t<Components>...> {
     auto entity = CreateEntity<std::remove_cvref_t<Components>...>();
-    ((AccessEntity<std::remove_cvref_t<Components>>(entity)->get() = std::forward<Components>(components)), ...);
+    ((GetComponent<std::remove_cvref_t<Components>>(entity)->get() = std::forward<Components>(components)), ...);
     return entity;
 }
 
@@ -133,8 +133,8 @@ std::pmr::vector<Entity> World::CreateEntities(std::size_t num) requires utils::
 }
 
 template <typename Component>
-std::optional<std::reference_wrapper<Component>> World::AccessEntity(const Entity& entity) requires utils::NoCVRef<Component> {
-    auto result = const_cast<const World*>(this)->AccessEntity<Component>(entity);
+std::optional<std::reference_wrapper<Component>> World::GetComponent(const Entity& entity) requires utils::NoCVRef<Component> {
+    auto result = const_cast<const World*>(this)->GetComponent<Component>(entity);
     if (result.has_value()) {
         return const_cast<Component&>(result->get());
     } else {
@@ -143,7 +143,7 @@ std::optional<std::reference_wrapper<Component>> World::AccessEntity(const Entit
 }
 
 template <typename Component>
-std::optional<std::reference_wrapper<const Component>> World::AccessEntity(const Entity& entity) const requires utils::NoCVRef<Component> {
+std::optional<std::reference_wrapper<const Component>> World::GetComponent(const Entity& entity) const requires utils::NoCVRef<Component> {
     if (!m_EnitiesMap.contains(entity)) return std::nullopt;
     return m_EnitiesMap.at(entity)->GetComponent<Component>(entity);
 }

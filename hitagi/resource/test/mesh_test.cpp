@@ -1,6 +1,6 @@
-#include <hitagi/utils/test.hpp>
 #include <hitagi/resource/mesh.hpp>
 #include <hitagi/core/memory_manager.hpp>
+#include <hitagi/utils/test.hpp>
 
 #include <string>
 
@@ -17,7 +17,7 @@ TEST(MeshTest, CreateValidVertex) {
 }
 
 TEST(MeshTest, CreateValidIndex) {
-    auto ib = IndexArray(20, IndexType::UINT32);
+    auto ib = IndexArray(20, "CreateValidIndex", IndexType::UINT32);
 
     EXPECT_EQ(ib.index_count, 20);
     EXPECT_EQ(ib.type, IndexType::UINT32);
@@ -32,7 +32,7 @@ TEST(MeshTest, Resize) {
     auto pos = vb.GetVertices<VertexAttribute::Position>();
     EXPECT_EQ(pos.size(), 128);
 
-    auto ib = IndexArray(256, IndexType::UINT32);
+    auto ib = IndexArray(256);
     ib.Resize(128);
     EXPECT_EQ(ib.index_count, 128);
     EXPECT_EQ(ib.cpu_buffer.GetDataSize(), 128 * sizeof(std::uint32_t));
@@ -56,7 +56,7 @@ TEST(MeshTest, Modify) {
     vector_eq(vb.GetVertices<VertexAttribute::Color0>()[0], hitagi::math::vec4f{2.0f, 3.0f, 4.0f, 1.0f});
     vector_eq(vb.GetVertices<VertexAttribute::Color0>()[16], hitagi::math::vec4f{7.0f, 8.0f, 9.0f, 1.0f});
 
-    auto ib = IndexArray(32, IndexType::UINT32);
+    auto ib = IndexArray(32);
 
     ib.Modify<IndexType::UINT32>([](auto array) {
         array[0]  = 1234;
@@ -71,21 +71,21 @@ TEST(MeshTest, Modify) {
 TEST(MeshTest, Merge) {
     Mesh mesh1{
         .vertices = std::make_shared<VertexArray>(2),
-        .indices  = std::make_shared<IndexArray>(2, IndexType::UINT32),
+        .indices  = std::make_shared<IndexArray>(2),
     };
     mesh1.sub_meshes.emplace_back(Mesh::SubMesh{
         .index_count   = 2,
-        .vertex_offset = 0,
         .index_offset  = 0,
+        .vertex_offset = 0,
     });
     Mesh mesh2{
         .vertices = std::make_shared<VertexArray>(2),
-        .indices  = std::make_shared<IndexArray>(2, IndexType::UINT32),
+        .indices  = std::make_shared<IndexArray>(2),
     };
     mesh2.sub_meshes.emplace_back(Mesh::SubMesh{
         .index_count   = 2,
-        .vertex_offset = 0,
         .index_offset  = 0,
+        .vertex_offset = 0,
     });
 
     std::size_t i = 0;

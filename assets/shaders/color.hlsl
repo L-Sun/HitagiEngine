@@ -1,14 +1,14 @@
 cbuffer FrameConstants : register(b0) {
-  matrix projView;
+  float4 camera_pos;
   matrix view;
   matrix projection;
-  matrix invProjection;
-  matrix invView;
-  matrix invProjView;
-  float4 cameraPos;
-  float4 lightPosition;
-  float4 lightPosInView;
-  float4 lightIntensity;
+  matrix proj_view;
+  matrix inv_view;
+  matrix inv_projection;
+  matrix inv_proj_view;
+  float4 light_position;
+  float4 light_pos_in_view;
+  float4 light_intensity;
 };
 
 cbuffer ObjectConstants : register(b1) {
@@ -42,8 +42,10 @@ struct PSInput {
 };
 
 #define RSDEF                                                                  \
-  "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),"                              \
-  "DescriptorTable(CBV(b0, numDescriptors = 3)),"   \
+  "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),"                             \
+  "CBV(b0),"                                                                   \
+  "CBV(b1),"                                                                   \
+  "CBV(b2),"                                                                   \
   "StaticSampler(s0)"
 
 [RootSignature(RSDEF)] 

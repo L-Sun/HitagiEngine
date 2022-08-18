@@ -32,7 +32,7 @@ std::array<LinearAllocator::PageManager, static_cast<std::size_t>(AllocationPage
 };
 
 Allocation LinearAllocator::Allocate(std::size_t size, std::size_t alignment) {
-    std::size_t aligned_size = align(size, alignment);
+    std::size_t aligned_size = utils::align(size, alignment);
     auto&       mgr          = sm_PageManager[static_cast<std::size_t>(m_Type)];
 
     // need large page
@@ -40,16 +40,21 @@ Allocation LinearAllocator::Allocate(std::size_t size, std::size_t alignment) {
         auto& page = m_LargePages.emplace_back(mgr.RequesetLargePage(m_Device, aligned_size));
         return {page, 0, aligned_size, page->m_CpuPtr, (*page)->GetGPUVirtualAddress()};
     }
-    // use default size page
-    // requeset new page
-    if (m_CurrPage == nullptr || aligned_size > m_CurrPage->GetFreeSize())
+
+    if (m_CurrPage == nullptr) {
+        m_CurrPage = m_Pages.emplace_back(mgr.RequesetPage(m_Device));
+    }
+
+    m_CurrPage->m_Offset = utils::align(m_CurrPage->m_Offset, alignment);
+
+    if (aligned_size > m_CurrPage->GetFreeSize())
         m_CurrPage = m_Pages.emplace_back(mgr.RequesetPage(m_Device));
 
-    std::size_t               offset  = m_CurrPage->m_offset;
-    std::byte*                cpu_ptr = m_CurrPage->m_CpuPtr + m_CurrPage->m_offset;
-    D3D12_GPU_VIRTUAL_ADDRESS gpu_ptr = m_CurrPage->m_Resource->GetGPUVirtualAddress() + m_CurrPage->m_offset;
+    std::size_t               offset  = m_CurrPage->m_Offset;
+    std::byte*                cpu_ptr = m_CurrPage->m_CpuPtr + m_CurrPage->m_Offset;
+    D3D12_GPU_VIRTUAL_ADDRESS gpu_ptr = m_CurrPage->m_Resource->GetGPUVirtualAddress() + m_CurrPage->m_Offset;
 
-    m_CurrPage->m_offset += size;
+    m_CurrPage->m_Offset += aligned_size;
     m_CurrPage->m_allocation_count++;
 
     return {m_CurrPage, offset, size, cpu_ptr, gpu_ptr};
@@ -101,7 +106,7 @@ void LinearAllocator::PageManager::UpdateAvailablePages(std::function<bool(Fence
     for (auto iter = m_RetiredPages.begin(); iter != m_RetiredPages.end();) {
         auto&& [page, fence] = *iter;
         if (fence_checker(fence) && page->m_allocation_count == 0) {
-            page->m_offset = 0;
+            page->m_Offset = 0;
             m_AvailablePages.emplace(std::move(page));
             iter = m_RetiredPages.erase(iter);
         } else {

@@ -66,7 +66,7 @@ void ConfigManager::SaveConfig(const std::filesystem::path& path) {
     json["height"]  = m_Config->height;
 
     auto content = json.dump();
-    file_io_manager->SaveBuffer(core::Buffer(content.data(), content.size()), path);
+    file_io_manager->SaveBuffer(core::Buffer(content.size(), reinterpret_cast<const std::byte*>(content.data())), path);
 }
 
 AppConfig& ConfigManager::GetConfig() {

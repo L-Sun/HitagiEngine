@@ -31,10 +31,8 @@ void SceneManager::Finalize() {
 }
 
 void SceneManager::Tick() {
-    for (auto& scene : m_Scenes) {
-        scene.world.Update();
-    }
-    graphics_manager->Draw(CurrentScene());
+    for (auto& scene : m_Scenes)
+        scene.root->Update();
 }
 
 Scene& SceneManager::CurrentScene() {
@@ -44,9 +42,14 @@ Scene& SceneManager::CurrentScene() {
 Scene& SceneManager::CreateEmptyScene(std::string_view name) {
     auto& scene = m_Scenes.emplace_back(Scene{name});
 
-    scene.cameras.emplace_back(scene.world.CreateEntity(MetaInfo{.name = "Default Camera"}, Hierarchy{.parentID = scene.root}, Transform{}, Camera{}));
-    scene.lights.emplace_back(scene.world.CreateEntity(MetaInfo{.name = "Default Light"}, Hierarchy{.parentID = scene.root}, Transform{}, Camera{}));
-    scene.curr_camera_index = 0;
+    auto camera_node    = scene.camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
+    camera_node->object = scene.cameras.emplace_back(std::make_shared<Camera>());
+    camera_node->SetParent(scene.root);
+    scene.curr_camera = camera_node;
+
+    auto light_node    = scene.light_nodes.emplace_back(std::make_shared<LightNode>("Default Light"));
+    light_node->object = scene.lights.emplace_back(std::make_shared<Light>());
+    light_node->SetParent(scene.root);
 
     return scene;
 }
@@ -83,10 +86,6 @@ void SceneManager::DeleteScenes(std::pmr::vector<std::size_t> index_array) {
         return false;
     });
     m_Scenes.erase(iter, m_Scenes.end());
-}
-
-void SceneManager::SetCamera(ecs::Entity camera) {
-    m_CurrentCamera = camera;
 }
 
 }  // namespace hitagi::resource

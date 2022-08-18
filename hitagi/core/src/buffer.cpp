@@ -6,20 +6,14 @@
 
 namespace hitagi::core {
 
-Buffer::Buffer(size_t size, size_t alignment)
+Buffer::Buffer(size_t size, const std::byte* data, size_t alignment)
     : m_Allocator(std::pmr::get_default_resource()),
       m_Data(size != 0 ? static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment)) : nullptr),
       m_Size(size),
       m_Alignment(alignment) {
-}
-
-Buffer::Buffer(const void* initial_data, size_t size, size_t alignment)
-    : m_Allocator(std::pmr::get_default_resource()),
-      m_Data(size != 0 ? static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment)) : nullptr),
-      m_Size(size),
-      m_Alignment(alignment) {
-    if (size == 0 || initial_data == nullptr) return;
-    std::memcpy(m_Data, initial_data, m_Size);
+    if (data != nullptr) {
+        std::memcpy(m_Data, data, m_Size);
+    }
 }
 
 Buffer::Buffer(const Buffer& other)

@@ -20,11 +20,6 @@ public:
     void DebugPanel();
 
 private:
-    struct DrawBone {
-        static bool enable;
-        static void OnUpdate(ecs::Schedule& schedule, std::chrono::duration<double> delta);
-    };
-
     std::pmr::string                          m_OpenFileExt;
     std::pmr::unordered_set<std::pmr::string> m_SelectedFiles;
 };

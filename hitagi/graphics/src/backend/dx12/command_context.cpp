@@ -101,6 +101,85 @@ void CommandContext::Reset() {
     m_NumBarriersToFlush = 0;
 }
 
+void GraphicsCommandContext::ClearRenderTarget(const graphics::RenderTarget& render_target) {
+    if (render_target.gpu_resource == nullptr) {
+        spdlog::get("GraphicsManager")->error("Can clear an uninitialized render target ({})!", render_target.name);
+        return;
+    }
+    auto rt = render_target.gpu_resource->GetBackend<RenderTarget>();
+
+    TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+    m_CommandList->ClearRenderTargetView(rt->GetRTV().handle,
+                                         vec4f(0, 0, 0, 1),
+                                         0,
+                                         nullptr);
+}
+
+void GraphicsCommandContext::ClearDepthBuffer(const graphics::DepthBuffer& depth_buffer) {
+    if (depth_buffer.gpu_resource == nullptr) {
+        spdlog::get("GraphicsManager")->error("Can clear an uninitialized depth buffer ({})!", depth_buffer.name);
+        return;
+    }
+    auto db = depth_buffer.gpu_resource->GetBackend<DepthBuffer>();
+    TransitionResource(*db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
+    m_CommandList->ClearDepthStencilView(
+        db->GetDSV().handle,
+        D3D12_CLEAR_FLAG_DEPTH,
+        db->GetClearDepth(),
+        db->GetClearStencil(),
+        0,
+        nullptr);
+}
+
+void GraphicsCommandContext::SetRenderTarget(const graphics::RenderTarget& render_target) {
+    if (render_target.gpu_resource == nullptr) {
+        spdlog::get("GraphicsManager")->error("Can not set an uninitialized render target ({})!", render_target.name);
+        return;
+    }
+    auto rt = render_target.gpu_resource->GetBackend<RenderTarget>();
+    TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+    m_CommandList->OMSetRenderTargets(1,
+                                      &(rt->GetRTV().handle),
+                                      false,
+                                      nullptr);
+}
+
+void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& render_target, const graphics::DepthBuffer& depth_buffer) {
+    if (render_target.gpu_resource == nullptr || depth_buffer.gpu_resource == nullptr) {
+        spdlog::get("GraphicsManager")->error("Can not set an uninitialized render target ({}) or depth buffer ({})!", render_target.name, depth_buffer.name);
+        return;
+    }
+
+    auto rt = render_target.gpu_resource->GetBackend<RenderTarget>();
+    auto db = depth_buffer.gpu_resource->GetBackend<DepthBuffer>();
+
+    TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    TransitionResource(*db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
+    m_CommandList->OMSetRenderTargets(1,
+                                      &(rt->GetRTV().handle),
+                                      false,
+                                      &(db->GetDSV().handle));
+}
+
+void GraphicsCommandContext::SetPipelineState(const graphics::PipelineState& pipeline) {
+    if (pipeline.gpu_resource == nullptr) {
+        spdlog::get("GraphicsManager")->error("Can Set an uninitialized pipeline ({})!", pipeline.name);
+        return;
+    }
+    auto pso = pipeline.gpu_resource->GetBackend<PSO>();
+    if (m_CurrentPipeline == pso) return;
+
+    m_CurrentPipeline = pso;
+    m_CommandList->SetPipelineState(m_CurrentPipeline->GetPSO());
+    m_CommandList->IASetPrimitiveTopology(to_dx_topology(pipeline.primitive_type));
+
+    if (m_CurrRootSignature != m_CurrentPipeline->GetRootSignature().Get()) {
+        m_CurrRootSignature = m_CurrentPipeline->GetRootSignature().Get();
+        m_CommandList->SetGraphicsRootSignature(m_CurrRootSignature);
+        m_ResourceBinder.ParseRootSignature(m_CurrentPipeline->GetRootSignatureDesc());
+    }
+}
+
 void GraphicsCommandContext::SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
     auto vp = CD3DX12_VIEWPORT(x, y, width, height);
     m_CommandList->RSSetViewports(1, &vp);
@@ -116,90 +195,12 @@ void GraphicsCommandContext::SetViewPortAndScissor(uint32_t x, uint32_t y, uint3
     SetScissorRect(x, y, x + width, y + height);
 }
 
-void GraphicsCommandContext::SetRenderTarget(const graphics::RenderTarget& render_target) {
-    if (render_target.gpu_resource.lock() == nullptr) {
-        spdlog::get("GraphicsManager")->error("Can not set an uninitialized render target ({})!", render_target.name);
-        return;
-    }
-    auto rt = render_target.gpu_resource.lock()->GetBackend<RenderTarget>();
-    TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
-    m_CommandList->OMSetRenderTargets(1,
-                                      &(rt->GetRTV().handle),
-                                      false,
-                                      nullptr);
-}
-
-void GraphicsCommandContext::UnsetRenderTarget() {
-    m_CommandList->OMSetRenderTargets(0, nullptr, false, nullptr);
-}
-
-void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& render_target, const graphics::DepthBuffer& depth_buffer) {
-    if (render_target.gpu_resource.lock() == nullptr || depth_buffer.gpu_resource.lock() == nullptr) {
-        spdlog::get("GraphicsManager")->error("Can not set an uninitialized render target ({}) or depth buffer ({})!", render_target.name, depth_buffer.name);
-        return;
-    }
-
-    auto rt = render_target.gpu_resource.lock()->GetBackend<RenderTarget>();
-    auto db = depth_buffer.gpu_resource.lock()->GetBackend<DepthBuffer>();
-
-    TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    TransitionResource(*db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
-    m_CommandList->OMSetRenderTargets(1,
-                                      &(rt->GetRTV().handle),
-                                      false,
-                                      &(db->GetDSV().handle));
-}
-
-void GraphicsCommandContext::ClearRenderTarget(const graphics::RenderTarget& render_target) {
-    if (render_target.gpu_resource.lock() == nullptr) {
-        spdlog::get("GraphicsManager")->error("Can clear an uninitialized render target ({})!", render_target.name);
-        return;
-    }
-    auto rt = render_target.gpu_resource.lock()->GetBackend<RenderTarget>();
-
-    TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
-    m_CommandList->ClearRenderTargetView(rt->GetRTV().handle,
-                                         vec4f(0, 0, 0, 1),
-                                         0,
-                                         nullptr);
-}
-
-void GraphicsCommandContext::ClearDepthBuffer(const graphics::DepthBuffer& depth_buffer) {
-    if (depth_buffer.gpu_resource.lock() == nullptr) {
-        spdlog::get("GraphicsManager")->error("Can clear an uninitialized depth buffer ({})!", depth_buffer.name);
-        return;
-    }
-    auto db = depth_buffer.gpu_resource.lock()->GetBackend<DepthBuffer>();
-    TransitionResource(*db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
-    m_CommandList->ClearDepthStencilView(
-        db->GetDSV().handle,
-        D3D12_CLEAR_FLAG_DEPTH,
-        db->GetClearDepth(),
-        db->GetClearStencil(),
-        0,
-        nullptr);
-}
-
-void GraphicsCommandContext::SetPipelineState(const graphics::PipelineState& pipeline) {
-    if (pipeline.gpu_resource.lock() == nullptr) {
-        spdlog::get("GraphicsManager")->error("Can Set an uninitialized pipeline ({})!", pipeline.name);
-        return;
-    }
-    auto pso = pipeline.gpu_resource.lock()->GetBackend<PSO>();
-    if (m_CurrentPipeline == pso) return;
-
-    m_CurrentPipeline = pso;
-    m_CommandList->SetPipelineState(m_CurrentPipeline->GetPSO());
-
-    if (m_CurrRootSignature != m_CurrentPipeline->GetRootSignature().Get()) {
-        m_CurrRootSignature = m_CurrentPipeline->GetRootSignature().Get();
-        m_CommandList->SetGraphicsRootSignature(m_CurrRootSignature);
-        m_ResourceBinder.ParseRootSignature(m_CurrentPipeline->GetRootSignatureDesc());
-    }
+void GraphicsCommandContext::SetBlendFactor(math::vec4f color) {
+    m_CommandList->OMSetBlendFactor(color);
 }
 
 void GraphicsCommandContext::BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, size_t offset) {
-    if (constant_buffer.gpu_resource.lock() == nullptr) {
+    if (constant_buffer.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can Set an uninitialized constant buffer ({})!", constant_buffer.name);
         return;
     }
@@ -209,11 +210,11 @@ void GraphicsCommandContext::BindResource(std::uint32_t slot, const graphics::Co
         return;
     }
 
-    m_ResourceBinder.BindResource(slot, constant_buffer.gpu_resource.lock()->GetBackend<ConstantBuffer>(), offset);
+    m_ResourceBinder.BindResource(slot, constant_buffer.gpu_resource->GetBackend<ConstantBuffer>(), offset);
 }
 
 void GraphicsCommandContext::BindResource(std::uint32_t slot, const resource::Texture& texture) {
-    if (texture.gpu_resource.lock() == nullptr) {
+    if (texture.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can Set an uninitialized texture ({})!", texture.name);
         return;
     }
@@ -223,11 +224,11 @@ void GraphicsCommandContext::BindResource(std::uint32_t slot, const resource::Te
         return;
     }
 
-    m_ResourceBinder.BindResource(slot, texture.gpu_resource.lock()->GetBackend<Texture>());
+    m_ResourceBinder.BindResource(slot, texture.gpu_resource->GetBackend<Texture>());
 }
 
 void GraphicsCommandContext::BindResource(std::uint32_t slot, const graphics::Sampler& sampler) {
-    if (sampler.gpu_resource.lock() == nullptr) {
+    if (sampler.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can Set an uninitialized sampler ({})!", sampler.name);
         return;
     }
@@ -237,7 +238,7 @@ void GraphicsCommandContext::BindResource(std::uint32_t slot, const graphics::Sa
         return;
     }
 
-    m_ResourceBinder.BindResource(slot, sampler.gpu_resource.lock()->GetBackend<Sampler>());
+    m_ResourceBinder.BindResource(slot, sampler.gpu_resource->GetBackend<Sampler>());
 }
 
 void GraphicsCommandContext::Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) {
@@ -251,57 +252,31 @@ void GraphicsCommandContext::Set32BitsConstants(std::uint32_t slot, const std::u
     m_ResourceBinder.Set32BitsConstants(slot, data, count);
 }
 
-void GraphicsCommandContext::Present(const graphics::RenderTarget& render_target) {
-    if (render_target.gpu_resource.lock() == nullptr) {
-        spdlog::get("GraphicsManager")->error("Can clear an uninitialized render target ({})!", render_target.name);
-        return;
-    }
-    auto rt = render_target.gpu_resource.lock()->GetBackend<RenderTarget>();
-    TransitionResource(*rt, D3D12_RESOURCE_STATE_PRESENT, true);
+void GraphicsCommandContext::BindDynamicTextureBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) {
+    Allocation cb = m_CpuLinearAllocator.Allocate(size);
+    std::copy_n(data, size, cb.cpu_ptr);
+    m_ResourceBinder.BindDynamicTextureBuffer(slot, cb.gpu_addr);
 }
 
-void GraphicsCommandContext::Draw(
-    const resource::VertexArray& vertex_buffer,
-    const resource::IndexArray&  index_buffer,
-    resource::PrimitiveType      primitive,
-    std::size_t                  index_count,
-    std::size_t                  vertex_offset,
-    std::size_t                  index_offset) {
-    if (m_CurrentPipeline == nullptr) {
-        spdlog::get("GraphicsManager")->error("pipeline must be set before setting parameters!");
+void GraphicsCommandContext::BindDynamicConstantBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) {
+    Allocation cb = m_CpuLinearAllocator.Allocate(size);
+    std::copy_n(data, size, cb.cpu_ptr);
+    m_ResourceBinder.BindDynamicConstantBuffer(slot, cb.gpu_addr);
+}
+
+void GraphicsCommandContext::BindVertexBuffer(const resource::VertexArray& vertices) {
+    auto vb = vertices.gpu_resource->GetBackend<GpuBuffer>();
+    if (vb == nullptr) {
+        spdlog::get("GraphicsManager")->warn("Can not bind an uninitialized vertex buffer: ({})!", vertices.name);
         return;
     }
-
-    auto vb = vertex_buffer.gpu_resource.lock()->GetBackend<GpuBuffer>();
-    auto ib = index_buffer.gpu_resource.lock()->GetBackend<GpuBuffer>();
-
-    if (vb == nullptr || ib == nullptr) {
-        spdlog::get("GraphicsManager")->error("Can not draw mesh on an uninitialized vertex buffer: ({}) or index buffer: ({})!", vertex_buffer.name, index_buffer.name);
-        return;
-    }
-    if (vertex_offset >= vertex_buffer.vertex_count) {
-        spdlog::get("GraphicsManager")->error("You are draw vertex (offset:{}) out of vertex range (size:{})", vertex_offset, vertex_buffer.vertex_count);
-        return;
-    }
-    if (index_offset >= index_buffer.index_count) {
-        spdlog::get("GraphicsManager")->error("You are draw indices ({}, {}) out of range (size:{})", index_offset, index_count, index_buffer.index_count);
-        return;
-    }
-    D3D12_INDEX_BUFFER_VIEW ibv{
-        .BufferLocation = ib->GetResource()->GetGPUVirtualAddress(),
-        .SizeInBytes    = static_cast<UINT>(ib->GetBufferSize()),
-        .Format         = index_type_to_dxgi_format(index_buffer.type),
-    };
-    m_CommandList->IASetIndexBuffer(&ibv);
-
-    auto gpso = static_cast<GraphicsPSO*>(m_CurrentPipeline);
-
+    auto        gpso      = static_cast<GraphicsPSO*>(m_CurrentPipeline);
     std::size_t vb_offset = 0;
     magic_enum::enum_for_each<resource::VertexAttribute>([&](auto attr) {
-        if (vertex_buffer.IsEnabled(attr())) {
+        if (vertices.IsEnabled(attr())) {
             D3D12_VERTEX_BUFFER_VIEW vbv{
                 .BufferLocation = vb->GetResource()->GetGPUVirtualAddress() + vb_offset,
-                .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(attr()) * vertex_buffer.vertex_count),
+                .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(attr()) * vertices.vertex_count),
                 .StrideInBytes  = get_vertex_attribute_size(attr()),
             };
             vb_offset += vbv.SizeInBytes;
@@ -310,16 +285,90 @@ void GraphicsCommandContext::Draw(
             }
         }
     });
+}
 
+void GraphicsCommandContext::BindIndexBuffer(const resource::IndexArray& indices) {
+    auto ib = indices.gpu_resource->GetBackend<GpuBuffer>();
+    if (ib == nullptr) {
+        spdlog::get("GraphicsManager")->warn("Can not bind an uninitialized index buffer: ({})!", indices.name);
+        return;
+    }
+    D3D12_INDEX_BUFFER_VIEW ibv{
+        .BufferLocation = ib->GetResource()->GetGPUVirtualAddress(),
+        .SizeInBytes    = static_cast<UINT>(ib->GetBufferSize()),
+        .Format         = index_type_to_dxgi_format(indices.type),
+    };
+    m_CommandList->IASetIndexBuffer(&ibv);
+}
+
+void GraphicsCommandContext::BindDynamicVertexBuffer(const resource::VertexArray& vertices) {
+    if (vertices.cpu_buffer.Empty()) {
+        spdlog::get("GraphicsManager")->warn("Can not bind an empty vertex buffer: ({})!", vertices.name);
+        return;
+    }
+    Allocation vb = m_CpuLinearAllocator.Allocate(vertices.cpu_buffer.GetDataSize());
+    std::copy_n(vertices.cpu_buffer.GetData(), vertices.cpu_buffer.GetDataSize(), vb.cpu_ptr);
+
+    auto        gpso      = static_cast<GraphicsPSO*>(m_CurrentPipeline);
+    std::size_t vb_offset = 0;
+    magic_enum::enum_for_each<resource::VertexAttribute>([&](auto attr) {
+        if (vertices.IsEnabled(attr())) {
+            D3D12_VERTEX_BUFFER_VIEW vbv{
+                .BufferLocation = vb.gpu_addr + vb_offset,
+                .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(attr()) * vertices.vertex_count),
+                .StrideInBytes  = get_vertex_attribute_size(attr()),
+            };
+            vb_offset += vbv.SizeInBytes;
+            if (int slot = gpso->GetAttributeSlot(attr()); slot != -1) {
+                m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
+            }
+        }
+    });
+}
+
+void GraphicsCommandContext::BindDynamicIndexBuffer(const resource::IndexArray& indices) {
+    if (indices.cpu_buffer.Empty()) {
+        spdlog::get("GraphicsManager")->warn("Can not bind an empty index buffer: ({})!", indices.name);
+        return;
+    }
+    Allocation ib = m_CpuLinearAllocator.Allocate(indices.cpu_buffer.GetDataSize());
+    std::copy_n(indices.cpu_buffer.GetData(), indices.cpu_buffer.GetDataSize(), ib.cpu_ptr);
+
+    D3D12_INDEX_BUFFER_VIEW ibv{
+        .BufferLocation = ib.gpu_addr,
+        .SizeInBytes    = static_cast<UINT>(ib.size),
+        .Format         = index_type_to_dxgi_format(indices.type),
+    };
+    m_CommandList->IASetIndexBuffer(&ibv);
+}
+
+void GraphicsCommandContext::Draw(std::size_t vertex_count, std::size_t vertex_start_offset) {
+    DrawInstanced(vertex_count, 1, vertex_start_offset, 0);
+}
+
+void GraphicsCommandContext::DrawIndexed(std::size_t index_count, std::size_t start_index_location, std::size_t base_vertex_location) {
+    DrawIndexedInstanced(index_count, 1, start_index_location, base_vertex_location, 0);
+}
+
+void GraphicsCommandContext::DrawInstanced(std::size_t vertex_count, std::size_t instance_count, std::size_t start_vertex_location, std::size_t start_instance_location) {
     FlushResourceBarriers();
     m_ResourceBinder.CommitStagedDescriptors();
-    m_CommandList->IASetPrimitiveTopology(to_dx_topology(primitive));
-    m_CommandList->DrawIndexedInstanced(
-        index_count,
-        1,
-        index_offset,
-        vertex_offset,
-        0);
+    m_CommandList->DrawInstanced(vertex_count, instance_count, start_vertex_location, start_instance_location);
+}
+
+void GraphicsCommandContext::DrawIndexedInstanced(std::size_t index_count, std::size_t instance_count, std::size_t start_index_location, std::size_t base_vertex_location, std::size_t start_instance_location) {
+    FlushResourceBarriers();
+    m_ResourceBinder.CommitStagedDescriptors();
+    m_CommandList->DrawIndexedInstanced(index_count, instance_count, start_index_location, base_vertex_location, start_instance_location);
+}
+
+void GraphicsCommandContext::Present(const graphics::RenderTarget& render_target) {
+    if (render_target.gpu_resource == nullptr) {
+        spdlog::get("GraphicsManager")->error("Can clear an uninitialized render target ({})!", render_target.name);
+        return;
+    }
+    auto rt = render_target.gpu_resource->GetBackend<RenderTarget>();
+    TransitionResource(*rt, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 
 void GraphicsCommandContext::UpdateBuffer(Resource* resource, std::size_t offset, const std::byte* data, std::size_t data_size) {
@@ -340,28 +389,36 @@ void GraphicsCommandContext::UpdateBuffer(Resource* resource, std::size_t offset
 }
 
 void GraphicsCommandContext::UpdateVertexBuffer(resource::VertexArray& vertices) {
-    if (vertices.cpu_buffer.GetDataSize() > vertices.gpu_resource.lock()->GetBackend<GpuBuffer>()->GetBufferSize())
-        m_Device->InitVertexBuffer(vertices);
+    if (!vertices.dirty) return;
 
-    UpdateBuffer(vertices.gpu_resource.lock().get(), 0, vertices.cpu_buffer.GetData(), vertices.cpu_buffer.GetDataSize());
+    if (vertices.gpu_resource == nullptr || vertices.cpu_buffer.GetDataSize() > vertices.gpu_resource->GetBackend<GpuBuffer>()->GetBufferSize()) {
+        m_Device->InitVertexBuffer(vertices);
+    }
+
+    UpdateBuffer(vertices.gpu_resource.get(), 0, vertices.cpu_buffer.GetData(), vertices.cpu_buffer.GetDataSize());
 }
+
 void GraphicsCommandContext::UpdateIndexBuffer(resource::IndexArray& indices) {
-    if (indices.cpu_buffer.GetDataSize() > indices.gpu_resource.lock()->GetBackend<GpuBuffer>()->GetBufferSize())
+    if (!indices.dirty) return;
+
+    if (indices.gpu_resource == nullptr || indices.cpu_buffer.GetDataSize() > indices.gpu_resource->GetBackend<GpuBuffer>()->GetBufferSize())
         m_Device->InitIndexBuffer(indices);
 
-    UpdateBuffer(indices.gpu_resource.lock().get(), 0, indices.cpu_buffer.GetData(), indices.cpu_buffer.GetDataSize());
+    UpdateBuffer(indices.gpu_resource.get(), 0, indices.cpu_buffer.GetData(), indices.cpu_buffer.GetDataSize());
 }
 
 void ComputeCommandContext::SetPipelineState(const std::shared_ptr<graphics::PipelineState>& pipeline) {
-    assert(pipeline != nullptr && pipeline->gpu_resource.lock() != nullptr);
-    if (m_CurrentPipeline == pipeline->gpu_resource.lock()->GetBackend<PSO>()) return;
+    assert(pipeline != nullptr && pipeline->gpu_resource != nullptr);
+    if (m_CurrentPipeline == pipeline->gpu_resource->GetBackend<PSO>()) return;
 
-    m_CurrentPipeline = pipeline->gpu_resource.lock()->GetBackend<PSO>();
+    m_CurrentPipeline = pipeline->gpu_resource->GetBackend<PSO>();
     m_CommandList->SetPipelineState(m_CurrentPipeline->GetPSO());
+    m_CommandList->IASetPrimitiveTopology(to_dx_topology(pipeline->primitive_type));
 
     if (m_CurrRootSignature != m_CurrentPipeline->GetRootSignature().Get()) {
         m_CurrRootSignature = m_CurrentPipeline->GetRootSignature().Get();
         m_CommandList->SetComputeRootSignature(m_CurrRootSignature);
+        m_ResourceBinder.ParseRootSignature(m_CurrentPipeline->GetRootSignatureDesc());
     }
 }
 
@@ -378,7 +435,7 @@ void CopyCommandContext::InitializeBuffer(GpuBuffer& dest, const std::byte* data
 }
 
 void CopyCommandContext::InitializeTexture(resource::Texture& texture, const std::pmr::vector<D3D12_SUBRESOURCE_DATA>& sub_data) {
-    auto dest = texture.gpu_resource.lock()->GetBackend<Texture>();
+    auto dest = texture.gpu_resource->GetBackend<Texture>();
 
     const UINT64 upload_buffer_size = GetRequiredIntermediateSize(dest->GetResource(), 0, sub_data.size());
     auto         upload_buffer      = m_CpuLinearAllocator.Allocate(upload_buffer_size);

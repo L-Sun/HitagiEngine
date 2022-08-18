@@ -20,7 +20,7 @@ TEST(EcsTest, CreateEntity) {
     {
         auto pos_entity = world.CreateEntity<Position>();
         EXPECT_TRUE(pos_entity);
-        auto component = world.AccessEntity<Position>(pos_entity);
+        auto component = world.GetComponent<Position>(pos_entity);
         EXPECT_TRUE(component.has_value());
         EXPECT_EQ(component->get().value, 1);
         world.DestoryEntity(pos_entity);
@@ -29,11 +29,11 @@ TEST(EcsTest, CreateEntity) {
     {
         auto pos_vel_entity = world.CreateEntity<Position, Velocity>();
         EXPECT_TRUE(pos_vel_entity);
-        auto pos_component = world.AccessEntity<Position>(pos_vel_entity);
+        auto pos_component = world.GetComponent<Position>(pos_vel_entity);
         EXPECT_TRUE(pos_component.has_value());
         EXPECT_EQ(pos_component->get().value, 1);
 
-        auto vel_component = world.AccessEntity<Velocity>(pos_vel_entity);
+        auto vel_component = world.GetComponent<Velocity>(pos_vel_entity);
         EXPECT_TRUE(vel_component.has_value());
         EXPECT_EQ(vel_component->get().value, 2);
 
@@ -45,11 +45,11 @@ TEST(EcsTest, CreateEntity) {
         Velocity vel;
         auto     pos_vel_entity = world.CreateEntity(pos, vel);
 
-        auto pos_component = world.AccessEntity<Position>(pos_vel_entity);
+        auto pos_component = world.GetComponent<Position>(pos_vel_entity);
         EXPECT_TRUE(pos_component.has_value());
         EXPECT_EQ(pos_component->get().value, 1);
 
-        auto vel_component = world.AccessEntity<Velocity>(pos_vel_entity);
+        auto vel_component = world.GetComponent<Velocity>(pos_vel_entity);
         EXPECT_TRUE(vel_component.has_value());
         EXPECT_EQ(vel_component->get().value, 2);
         world.DestoryEntity(pos_vel_entity);
@@ -87,11 +87,11 @@ TEST(EcsTest, ModifyEntity) {
 
     auto pos_entity = world.CreateEntity<Position>();
     {
-        Position& component = world.AccessEntity<Position>(pos_entity)->get();
+        Position& component = world.GetComponent<Position>(pos_entity)->get();
         component.value     = 2;
     }
     {
-        Position& component = world.AccessEntity<Position>(pos_entity)->get();
+        Position& component = world.GetComponent<Position>(pos_entity)->get();
         EXPECT_EQ(component.value, 2);
     }
 }
@@ -124,8 +124,8 @@ TEST(EcsTest, RegisterSystem) {
     world.RegisterSystem<Mover>("Mover");
     world.Update();
 
-    auto pos = world.AccessEntity<Position>(entity)->get();
-    auto vel = world.AccessEntity<Velocity>(entity)->get();
+    auto pos = world.GetComponent<Position>(entity)->get();
+    auto vel = world.GetComponent<Velocity>(entity)->get();
     EXPECT_EQ(pos.value, 2);
     EXPECT_EQ(vel.value, 3);
 }

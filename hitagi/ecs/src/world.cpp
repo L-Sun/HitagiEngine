@@ -13,7 +13,6 @@ World::World(std::string_view name)
 }
 
 void World::Update() {
-    if (stop) return;
     Schedule schedule(*this);
 
     for (auto&& [name, update_fn] : m_Systems) {

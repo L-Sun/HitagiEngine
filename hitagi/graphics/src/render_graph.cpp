@@ -92,17 +92,13 @@ void RenderGraph::Present(FrameHandle render_target, const std::shared_ptr<hitag
 
 void RenderGraph::Retire(std::uint64_t fence_value) {
     for (auto res : m_Resources) {
-        if (auto gpu_resource = res->gpu_resource.lock(); gpu_resource) {
-            gpu_resource->fence_value = fence_value;
-        }
+        res->gpu_resource->fence_value = fence_value;
     }
-    for (const auto& res : m_InnerResources) {
+    for (auto& res : m_InnerResources) {
         std::visit(
             utils::Overloaded{
-                [&](const resource::Resource& res) {
-                    if (auto gpu_resource = res.gpu_resource.lock(); gpu_resource) {
-                        m_Device.RetireResource(gpu_resource);
-                    }
+                [&](resource::Resource& res) {
+                    m_Device.RetireResource(std::move(res.gpu_resource));
                 },
             },
             res);

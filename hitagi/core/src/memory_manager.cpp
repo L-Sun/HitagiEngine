@@ -1,4 +1,5 @@
 #include <hitagi/core/memory_manager.hpp>
+#include <hitagi/utils/utils.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -88,7 +89,7 @@ auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrap
 }
 
 auto MemoryPool::do_allocate(std::size_t bytes, std::size_t alignment) -> void* {
-    if (auto pool = GetPool(align(bytes, alignment)); pool.has_value()) {
+    if (auto pool = GetPool(utils::align(bytes, alignment)); pool.has_value()) {
         auto result = pool->get().allocate();
         return result;
     }
@@ -97,7 +98,7 @@ auto MemoryPool::do_allocate(std::size_t bytes, std::size_t alignment) -> void* 
 }
 
 auto MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment) -> void {
-    if (auto pool = GetPool(align(bytes, alignment)); pool.has_value())
+    if (auto pool = GetPool(utils::align(bytes, alignment)); pool.has_value())
         return pool->get().deallocate(reinterpret_cast<Block*>(p));
 
     operator delete[](reinterpret_cast<std::byte*>(p), std::align_val_t{alignment});

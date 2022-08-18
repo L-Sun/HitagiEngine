@@ -1,7 +1,6 @@
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/config_manager.hpp>
-#include <hitagi/ecs/schedule.hpp>
 #include <hitagi/resource/mesh_factory.hpp>
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
@@ -13,7 +12,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include "hitagi/resource/mesh.hpp"
 
 using namespace hitagi::math;
 using namespace hitagi::resource;
@@ -27,49 +25,42 @@ bool DebugManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("DebugManager");
     m_Logger->info("Initialize...");
 
-    auto material_instance = asset_manager->ImportMaterial("assets/material/debug_line.json");
-    if (!material_instance.has_value()) {
-        m_Logger->error("Can not load debug material!");
-        return false;
-    }
-    m_LineMaterial = material_instance->GetMaterial().lock();
-
     auto x_axis = MeshFactory::Line({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f});
     auto y_axis = MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
     auto z_axis = MeshFactory::Line({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f});
     auto box    = MeshFactory::BoxWireframe(vec3f(-0.5f, -0.5f, -0.5f), vec3f(0.5f, 0.5f, 0.5f));
 
-    m_MeshPrototype = merge_meshes({x_axis, y_axis, z_axis, box});
-
-    for (auto& sub_meshe : m_MeshPrototype.sub_meshes) {
-        sub_meshe.material = m_LineMaterial->CreateInstance();
-    }
-
-    m_MeshPrototype.sub_meshes[0].material.SetParameter("color", vec4f(1, 0, 0, 1));
-    m_MeshPrototype.sub_meshes[1].material.SetParameter("color", vec4f(0, 1, 0, 1));
-    m_MeshPrototype.sub_meshes[2].material.SetParameter("color", vec4f(0, 0, 1, 1));
-
-    m_MeshPrototype.vertices->name = "Debug vertices";
-    m_MeshPrototype.indices->name  = "Debug indices";
+    // Vertex offset:
+    // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+    // |<- x |<- y |<- z |<- box
+    // Indices offset:
+    // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, ... , 29
+    // |<- x |<- y |<-z  |<- box
+    m_DebugPrimitives    = merge_meshes({x_axis, y_axis, z_axis, box});
+    m_DebugDrawData.mesh = m_DebugPrimitives;
+    m_DebugDrawData.mesh.sub_meshes.clear();
 
     return true;
 }
 
 void DebugManager::Finalize() {
-    m_LineMaterial = nullptr;
-    m_DebugDrawItems.clear();
-    m_DrawItemColors.clear();
-    m_MeshPrototype = {};
+    m_DebugPrimitives = {};
+    m_DebugDrawData   = {};
 
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
 void DebugManager::Tick() {
-    if (m_DrawDebugInfo)
-        DrawPrimitive();
+    if (m_DrawDebugInfo) {
+        auto camera                  = scene_manager->CurrentScene().curr_camera->object;
+        m_DebugDrawData.project_view = camera->GetProjectionView();
+        m_DebugDrawData.view_port    = camera->GetViewPort(config_manager->GetConfig().width, config_manager->GetConfig().height);
+        graphics_manager->DrawDebug(m_DebugDrawData);
+    }
 
-    m_DrawItemColors.clear();
+    m_DebugDrawData.constants.clear();
+    m_DebugDrawData.mesh.sub_meshes.clear();
 }
 
 void DebugManager::ToggleDebugInfo() {
@@ -81,60 +72,32 @@ void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& col
     vec3f dir = normalize(to - from);
 
     vec3f axis(0);
+    // The axis that the angle between it and dir is maximum
     axis[min_index(dir)] = 1;
 
     mat4f transform = translate(from) * rotate(std::numbers::pi_v<float>, normalize(dir + axis)) * scale((to - from).norm());
 
-    m_DebugDrawItems.emplace_back(Renderable{
-        .type              = Renderable::Type::Debug,
-        .vertices          = m_MeshPrototype.vertices.get(),
-        .indices           = m_MeshPrototype.indices.get(),
-        .index_count       = m_MeshPrototype.sub_meshes[min_index(dir)].index_count,
-        .vertex_offset     = m_MeshPrototype.sub_meshes[min_index(dir)].vertex_offset,
-        .index_offset      = m_MeshPrototype.sub_meshes[min_index(dir)].index_offset,
-        .material          = m_LineMaterial.get(),
-        .material_instance = &m_MeshPrototype.sub_meshes[min_index(dir)].material,
-        .transform         = transform,
-    });
+    m_DebugDrawData.constants.emplace_back(transform, color);
+    m_DebugDrawData.mesh.sub_meshes.emplace_back(m_DebugPrimitives.sub_meshes[min_index(dir)]);
 }
 
 void DebugManager::DrawAxis(const mat4f& transform, bool depth_enabled) {
     if (!m_DrawDebugInfo) return;
+
     for (std::size_t axis = 0; axis < 3; axis++) {
-        m_DebugDrawItems.emplace_back(Renderable{
-            .type              = Renderable::Type::Debug,
-            .vertices          = m_MeshPrototype.vertices.get(),
-            .indices           = m_MeshPrototype.indices.get(),
-            .index_count       = m_MeshPrototype.sub_meshes[axis].index_count,
-            .vertex_offset     = m_MeshPrototype.sub_meshes[axis].vertex_offset,
-            .index_offset      = m_MeshPrototype.sub_meshes[axis].index_offset,
-            .material          = m_LineMaterial.get(),
-            .material_instance = &m_MeshPrototype.sub_meshes[axis].material,
-            .transform         = transform,
-        });
+        vec4f color = {0, 0, 0, 1};
+        color[axis] = 1;
+
+        m_DebugDrawData.constants.emplace_back(transform, color);
+        m_DebugDrawData.mesh.sub_meshes.emplace_back(m_DebugPrimitives.sub_meshes[axis]);
     }
 }
 
 void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, bool depth_enabled) {
     if (!m_DrawDebugInfo) return;
-    auto& material_instance = m_DrawItemColors.emplace_back(m_MeshPrototype.sub_meshes[3].material);
-    material_instance.SetParameter("color", color);
 
-    m_DebugDrawItems.emplace_back(Renderable{
-        .type              = Renderable::Type::Debug,
-        .vertices          = m_MeshPrototype.vertices.get(),
-        .indices           = m_MeshPrototype.indices.get(),
-        .index_count       = m_MeshPrototype.sub_meshes[3].index_count,
-        .vertex_offset     = m_MeshPrototype.sub_meshes[3].vertex_offset,
-        .index_offset      = m_MeshPrototype.sub_meshes[3].index_offset,
-        .material          = m_LineMaterial.get(),
-        .material_instance = &material_instance,
-        .transform         = transform,
-    });
-}
-
-void DebugManager::DrawPrimitive() {
-    graphics_manager->AppendRenderables(std::move(m_DebugDrawItems));
+    m_DebugDrawData.constants.emplace_back(transform, color);
+    m_DebugDrawData.mesh.sub_meshes.emplace_back(m_DebugPrimitives.sub_meshes.back());
 }
 
 }  // namespace hitagi::debugger

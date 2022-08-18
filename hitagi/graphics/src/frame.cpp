@@ -12,210 +12,224 @@ using namespace hitagi::math;
 using namespace hitagi::resource;
 
 namespace hitagi::graphics {
+struct FrameConstant {
+    math::vec4f camera_pos;
+    math::mat4f view;
+    math::mat4f projection;
+    math::mat4f proj_view;
+    math::mat4f inv_view;
+    math::mat4f inv_projection;
+    math::mat4f inv_proj_view;
+    math::vec4f light_position;
+    math::vec4f light_pos_in_view;
+    math::vec4f light_intensity;
+};
+
+struct ObjectConstant {
+    math::mat4f word_transform;
+};
+
 Frame::Frame(DeviceAPI& device, std::size_t frame_index)
     : m_Device(device),
       m_FrameIndex(frame_index),
-      m_ConstantBuffer{.num_elements = 1, .element_size = std::max({sizeof(FrameConstant), sizeof(ObjectConstant)})} {
-    m_ConstantBuffer.name = "Frame and Object Constant";
+      m_FrameCB{.num_elements = 1, .element_size = sizeof(FrameConstant)},
+      m_ObjCB{.num_elements = 100, .element_size = sizeof(ObjectConstant)},
+      m_DebugCB{.num_elements = 100, .element_size = /*transform*/ sizeof(mat4f) + /*color*/ sizeof(vec4f)} {
+    m_ObjCB.name = "Frame and Object Constant";
     m_Device.InitRenderFromSwapChain(m_Output, frame_index);
 
     m_DepthBuffer = DepthBuffer{
-        .format        = resource::Format::D32_FLOAT,
+        .format        = Format::D32_FLOAT,
         .width         = m_Output.width,
         .height        = m_Output.height,
         .clear_depth   = 1.0f,
         .clear_stencil = 0,
     };
     m_Device.InitDepthBuffer(m_DepthBuffer);
-    m_Device.InitConstantBuffer(m_ConstantBuffer);
-}
-void Frame::AppendRenderables(std::pmr::vector<resource::Renderable> renderables) {
-    m_RenderItems.insert(m_RenderItems.end(), std::make_move_iterator(renderables.begin()), std::make_move_iterator(renderables.end()));
-}
-
-void Frame::SetCamera(resource::Camera camera) {
-    camera.Update();
-    m_CurrentCamera                = camera;
-    m_FrameConstant.camera_pos     = vec4f(camera.eye, 1.0f);
-    m_FrameConstant.view           = camera.GetView();
-    m_FrameConstant.projection     = camera.GetProjection();
-    m_FrameConstant.proj_view      = camera.GetProjectionView();
-    m_FrameConstant.inv_view       = camera.GetInvView();
-    m_FrameConstant.inv_projection = camera.GetInvProjection();
-    m_FrameConstant.inv_proj_view  = camera.GetInvProjectionView();
-    m_Device.UpdateConstantBuffer(m_ConstantBuffer, 0, reinterpret_cast<std::byte*>(&m_FrameConstant), sizeof(m_FrameConstant));
+    m_Device.InitConstantBuffer(m_FrameCB);
+    m_Device.InitConstantBuffer(m_ObjCB);
+    m_Device.InitConstantBuffer(m_DebugCB);
 }
 
-void Frame::Render(IGraphicsCommandContext* context, resource::Renderable::Type type) {
-    assert(context);
-    for (const auto& item : m_RenderItems) {
-        if (item.type != type) continue;
+void Frame::DrawScene(const resource::Scene& scene) {
+    auto context = NewContext();
 
-        context->SetPipelineState(graphics_manager->GetPipelineState(item.material));
-        context->BindResource(0, m_ConstantBuffer, 0);
-        context->BindResource(1, m_ConstantBuffer, item.object_constant_offset);
-
-        if (m_MaterialBuffers.contains(item.material)) {
-            context->BindResource(2, m_MaterialBuffers.at(item.material), item.material_constant_offset);
+    // grow constant buffer if need
+    if (m_ObjCB.num_elements < scene.instance_nodes.size()) {
+        m_ObjCB.Resize(m_ObjCB.num_elements + scene.instance_nodes.size());
+    }
+    for (const auto& material : scene.materials) {
+        if (!m_MaterialBuffers.contains(material.get())) {
+            auto [iter, success] = m_MaterialBuffers.emplace(
+                material.get(),
+                std::make_pair(
+                    ConstantBuffer{material->GetNumInstances(), material->GetParametersSize()},
+                    0  // Used
+                    ));
+            m_Device.InitConstantBuffer(iter->second.first);
+        } else if (auto& [cb, used] = m_MaterialBuffers.at(material.get()); cb.num_elements - used < material->GetNumInstances()) {
+            cb.Resize(cb.num_elements + material->GetNumInstances());
         }
+    }
 
-        std::uint32_t texture_slot = 0;
-        for (const auto& [name, texture] : item.material_instance->GetTextures()) {
-            context->BindResource(texture_slot++, *texture);
-        }
+    const auto&   camera = scene.curr_camera->object;
+    FrameConstant frame_constant{
+        .camera_pos     = vec4f(camera->eye, 1.0f),
+        .view           = camera->GetView(),
+        .projection     = camera->GetProjection(),
+        .proj_view      = camera->GetProjectionView(),
+        .inv_view       = camera->GetInvView(),
+        .inv_projection = camera->GetInvProjection(),
+        .inv_proj_view  = camera->GetInvProjectionView(),
+    };
+    m_FrameCB.Update(0, frame_constant);
+    context->BindResource(0, m_FrameCB, 0);
 
-        {
-            vec4u view_port, scissor_react;
-            if (item.pipeline_parameters.view_port) {
-                view_port = item.pipeline_parameters.view_port.value();
-            } else {
-                std::uint32_t height = m_Output.height;
-                std::uint32_t width  = height * m_CurrentCamera.aspect;
-                if (width > m_Output.width) {
-                    width     = m_Output.width;
-                    height    = m_Output.width / m_CurrentCamera.aspect;
-                    view_port = {0, (m_Output.height - height) >> 1, width, height};
-                } else {
-                    view_port = {(m_Output.width - width) >> 1, 0, width, height};
+    auto instances = scene.instance_nodes;
+    std::sort(instances.begin(), instances.end(), [](const std::shared_ptr<MeshNode>& a, const std::shared_ptr<MeshNode>& b) {
+        return a->object < b->object;
+    });
+
+    struct InstancedBatch {
+        Mesh*                   mesh           = nullptr;
+        std::size_t             instance_count = 0;
+        std::pmr::vector<mat4f> transforms;
+    } instanced_batch = {};
+
+    std::size_t batch_index = 0;
+    for (const auto& node : instances) {
+        if (instanced_batch.mesh != node->object.get() && instanced_batch.mesh != nullptr) {
+            context->BindVertexBuffer(*instanced_batch.mesh->vertices);
+            context->BindIndexBuffer(*instanced_batch.mesh->indices);
+            context->BindResource(1, m_ObjCB, batch_index++);
+
+            for (const auto& submesh : instanced_batch.mesh->sub_meshes) {
+                auto material = submesh.material_instance->GetMaterial().lock();
+                if (!material) continue;
+
+                context->SetPipelineState(graphics_manager->GetPipelineState(material.get()));
+                if (const auto& material_buffer = submesh.material_instance->GetParameterBuffer(); !material_buffer.Empty()) {
+                    auto&& [material_cb, used] = m_MaterialBuffers.at(material.get());
+                    material_cb.Update(used, material_buffer.GetData(), material_buffer.GetDataSize());
+                    context->BindResource(2, material_cb, used);
+                    used++;
                 }
-            }
 
-            if (item.pipeline_parameters.scissor_react) {
-                scissor_react = item.pipeline_parameters.scissor_react.value();
-            } else {
-                scissor_react = {view_port.x, view_port.y, view_port.x + view_port.z, view_port.y + view_port.w};
+                context->DrawIndexedInstanced(submesh.index_count, instanced_batch.instance_count, submesh.index_offset, submesh.vertex_offset, 0);
             }
-
-            context->SetViewPort(view_port.x, view_port.y, view_port.z, view_port.w);
-            context->SetScissorRect(scissor_react.x, scissor_react.y, scissor_react.z, scissor_react.w);
         }
 
-        context->Draw(*item.vertices, *item.indices,
-                      item.material->primitive,
-                      item.index_count,
-                      item.vertex_offset,
-                      item.index_offset);
+        instanced_batch.instance_count++;
+        instanced_batch.transforms.emplace_back(node->transform.world_matrix);
     }
 }
 
-void Frame::SetFenceValue(std::uint64_t fence_value) {
-    m_FenceValue = fence_value;
-    m_Dirty      = true;
+void Frame::DrawDebug(const DebugDrawData& debug_data) {
+    if (!debug_data.mesh) return;
+    auto context = NewContext();
+
+    if (debug_data.mesh.vertices->dirty) {
+        context->UpdateVertexBuffer(*debug_data.mesh.vertices);
+    }
+    if (debug_data.mesh.indices->dirty) {
+        context->UpdateIndexBuffer(*debug_data.mesh.indices);
+    }
+
+    if (m_DebugCB.num_elements < debug_data.mesh.sub_meshes.size()) {
+        m_DebugCB.Resize(m_DebugCB.num_elements + debug_data.mesh.sub_meshes.size());
+    }
+    for (std::size_t i = 0; i < debug_data.constants.size(); i++) {
+        m_DebugCB.Update(i, debug_data.constants[i]);
+    }
+
+    context->SetPipelineState(graphics_manager->builtin_pipeline.debug);
+    context->SetRenderTarget(m_Output);
+    context->BindVertexBuffer(*debug_data.mesh.vertices);
+    context->BindIndexBuffer(*debug_data.mesh.indices);
+    context->BindDynamicConstantBuffer(0, reinterpret_cast<const std::byte*>(&debug_data.project_view), sizeof(debug_data.project_view));
+    context->SetViewPortAndScissor(debug_data.view_port.x, debug_data.view_port.y, debug_data.view_port.z, debug_data.view_port.w);
+
+    std::size_t index = 0;
+    for (const auto& sub_mesh : debug_data.mesh.sub_meshes) {
+        context->BindResource(1, m_DebugCB, index++);
+        context->DrawIndexed(sub_mesh.index_count, sub_mesh.index_offset, sub_mesh.vertex_offset);
+    }
+}
+
+void Frame::DrawGUI(const GuiDrawData& gui_data) {
+    if (!gui_data.mesh) return;
+
+    auto context = NewContext();
+
+    if (gui_data.mesh.vertices->dirty) {
+        context->UpdateVertexBuffer(*gui_data.mesh.vertices);
+    }
+    if (gui_data.mesh.indices->dirty) {
+        context->UpdateIndexBuffer(*gui_data.mesh.indices);
+    }
+    if (gui_data.texture->gpu_resource == nullptr) {
+        m_Device.InitTexture(*gui_data.texture);
+    }
+
+    context->SetRenderTarget(m_Output);
+    context->SetPipelineState(graphics_manager->builtin_pipeline.gui);
+    context->BindVertexBuffer(*gui_data.mesh.vertices);
+    context->BindIndexBuffer(*gui_data.mesh.indices);
+    context->BindDynamicConstantBuffer(0, reinterpret_cast<const std::byte*>(&gui_data.projection), sizeof(gui_data.projection));
+    context->BindResource(0, *gui_data.texture);
+    context->SetViewPort(gui_data.view_port.x, gui_data.view_port.y, gui_data.view_port.z, gui_data.view_port.w);
+
+    for (std::size_t i = 0; i < gui_data.mesh.sub_meshes.size(); i++) {
+        const auto& scissor = gui_data.scissor_rects.at(i);
+        const auto& submesh = gui_data.mesh.sub_meshes.at(i);
+
+        context->SetScissorRect(scissor.x, scissor.y, scissor.z, scissor.w);
+        context->DrawIndexed(submesh.index_count, submesh.index_offset, submesh.vertex_offset);
+    }
+}
+
+IGraphicsCommandContext* Frame::NewContext() {
+    return m_CommandContexts.emplace_back(m_Device.CreateGraphicsCommandContext()).get();
+}
+
+void Frame::Execute() {
+    auto context = NewContext();
+    context->Present(m_Output);
+
+    for (auto& context : m_CommandContexts) {
+        m_FenceValue = std::max(m_FenceValue, context->Finish());
+    }
+
+    m_Output.gpu_resource->fence_value      = m_FenceValue;
+    m_DepthBuffer.gpu_resource->fence_value = m_FenceValue;
+
+    m_CommandContexts.clear();
 }
 
 void Frame::Wait() {
     m_Device.WaitFence(m_FenceValue);
-    if (m_Dirty) {
-        m_RenderItems.clear();
-        m_Dirty = false;
-    }
 }
 
-std::uint64_t Frame::PrepareData(IGraphicsCommandContext* context) {
-    assert(context);
+void Frame::Reset() {
+    auto context = NewContext();
 
-    std::sort(m_RenderItems.begin(), m_RenderItems.end(), [](const Renderable& a, const Renderable& b) {
-        if (a.material < b.material)
-            return true;
-        else if (a.material == b.material)
-            return a.material_instance < b.material_instance;
-        else
-            return false;
-    });
-
-    // if new size is smaller, the expand function return directly.
-    if (m_ConstantBuffer.num_elements < m_RenderItems.size() + 1)
-        // becase capacity + needed > exsisted + needed
-        m_Device.ResizeConstantBuffer(m_ConstantBuffer, m_RenderItems.size() + 1);
-
-    // since we share the object constant value and frame constant value in the same constant buffer,
-    // and the first element of constant buffer is frame constant value, so we offset the index one element
-    std::size_t             object_constant_offset = 1;
-    Material*               last_material          = nullptr;
-    const MaterialInstance* last_material_instance = nullptr;
-    std::size_t             material_offset        = 0;
-
-    for (auto& item : m_RenderItems) {
-        assert(item.vertices && item.indices && item.material_instance && item.material);
-
-        // Prepare mesh buffer
-        if (item.vertices->gpu_resource.lock() == nullptr) {
-            m_Device.InitVertexBuffer(*item.vertices);
-        }
-        if (item.indices->gpu_resource.lock() == nullptr) {
-            m_Device.InitIndexBuffer(*item.indices);
-        }
-        if (item.vertices->dirty) {
-            context->UpdateVertexBuffer(*item.vertices);
-            item.vertices->dirty = false;
-        }
-        if (item.indices->dirty) {
-            context->UpdateIndexBuffer(*item.indices);
-            item.indices->dirty = false;
-        }
-
-        // Prepare object constant buffer
-        {
-            item.object_constant_offset = object_constant_offset;
-            ObjectConstant constant{
-                .word_transform = item.transform,
-            };
-
-            m_Device.UpdateConstantBuffer(m_ConstantBuffer,
-                                          object_constant_offset++,
-                                          reinterpret_cast<const std::byte*>(&constant),
-                                          sizeof(constant));
-        }
-
-        // Material constant buffer
-        {
-            auto material = item.material;
-            if (material->GetParametersSize() != 0) {
-                if (!m_MaterialBuffers.contains(material)) {
-                    ConstantBuffer constant_buffer{
-                        .num_elements = material->GetNumInstances(),
-                        .element_size = material->GetParametersSize(),
-                    };
-                    constant_buffer.name = material->name;
-                    m_Device.InitConstantBuffer(constant_buffer);
-                    m_MaterialBuffers[material] = std::move(constant_buffer);
-                } else if (material->GetNumInstances() > m_MaterialBuffers.at(material).num_elements) {
-                    m_Device.ResizeConstantBuffer(m_MaterialBuffers.at(material), material->GetNumInstances());
-                }
-            }
-
-            if (m_MaterialBuffers.contains(material)) {
-                auto& material_buffer = m_MaterialBuffers.at(material);
-
-                // Since we sort rendere items by its material, we need reset the offset we processing new material
-                if (material != last_material) {
-                    material_offset = 0;
-                }
-
-                if (item.material_instance != last_material_instance) {
-                    auto& cpu_buffer = item.material_instance->GetParameterBuffer();
-                    m_Device.UpdateConstantBuffer(
-                        material_buffer,
-                        material_offset,
-                        cpu_buffer.GetData(),
-                        cpu_buffer.GetDataSize());
-
-                    item.material_constant_offset = material_offset;
-                    material_offset++;
-                    last_material_instance = item.material_instance;
-                }
-
-                last_material = material;
-            }
-        }
-
-        // Prepare texture
-        for (const auto& [name, texture] : item.material_instance->GetTextures()) {
-            if (texture->gpu_resource.lock() == nullptr) {
-                m_Device.InitTexture(*texture);
-            }
-        }
-    }
-    return context->Finish();
+    context->ClearRenderTarget(m_Output);
+    context->ClearDepthBuffer(m_DepthBuffer);
 }
+
+void Frame::BeforeSwapchainSizeChanged() {
+    m_CommandContexts.clear();
+    Wait();
+    m_Device.RetireResource(std::move(m_Output.gpu_resource));
+    m_Device.RetireResource(std::move(m_DepthBuffer.gpu_resource));
+}
+
+void Frame::AfterSwapchainSizeChanged() {
+    m_Device.InitRenderFromSwapChain(m_Output, m_FrameIndex);
+    m_DepthBuffer.width  = m_Output.width;
+    m_DepthBuffer.height = m_Output.height;
+
+    m_Device.InitDepthBuffer(m_DepthBuffer);
+}
+
 }  // namespace hitagi::graphics

@@ -1,6 +1,5 @@
 #pragma once
 #include "d3d_pch.hpp"
-#include "descriptor_allocator.hpp"
 
 #include <hitagi/graphics/gpu_resource.hpp>
 
@@ -22,8 +21,6 @@ public:
     const ID3D12Resource* GetResource() const { return m_Resource.Get(); }
 
 protected:
-    bool m_Retired = false;
-
     DX12Device*            m_Device;
     ComPtr<ID3D12Resource> m_Resource;
     D3D12_RESOURCE_STATES  m_UsageState;

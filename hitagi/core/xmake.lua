@@ -8,7 +8,7 @@ target("memory_manager")
     set_kind("static")
     add_files("src/buffer.cpp", "src/memory_manager.cpp")
     add_includedirs("include", {public = true})
-    add_deps("runtime_module_interface")
+    add_deps("runtime_module_interface", "utils")
     
 target("file_io_manager")
     set_kind("static")

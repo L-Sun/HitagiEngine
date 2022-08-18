@@ -79,8 +79,8 @@ Material::Material(const Builder& builder)
     : MaterialDetial{builder} {
 }
 
-MaterialInstance Material::CreateInstance() const noexcept {
-    return *m_DefaultInstance;
+std::shared_ptr<MaterialInstance> Material::CreateInstance() const noexcept {
+    return std::make_shared<MaterialInstance>(*m_DefaultInstance);
 }
 
 std::size_t Material::GetNumInstances() const noexcept {
@@ -113,7 +113,7 @@ void Material::InitDefaultMaterialInstance(const Builder& builder) {
     m_DefaultInstance = std::make_unique<MaterialInstance>(shared_from_this());
 
     if (!builder.default_buffer.empty()) {
-        m_DefaultInstance->m_Parameters = core::Buffer(builder.default_buffer.data(), builder.default_buffer.size());
+        m_DefaultInstance->m_Parameters = core::Buffer(builder.default_buffer.size(), builder.default_buffer.data());
     }
 
     for (const auto& [name, path] : builder.default_texture_paths) {
