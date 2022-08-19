@@ -126,7 +126,14 @@ constexpr Matrix<T, 4> rotate(const Quaternion<T>& quatv) {
 }
 template <typename T>
 constexpr Matrix<T, 4> scale(T s) {
-    return s * Matrix<T, 4>::identity();
+    // clang-format off
+    return {
+        { s, 0, 0, 0},
+        { 0, s, 0, 0},
+        { 0, 0, s, 0},
+        { 0, 0, 0, 1},
+    };
+    // clang-format on
 }
 template <typename T>
 constexpr Matrix<T, 4> scale(const Vector<T, 3>& v) {

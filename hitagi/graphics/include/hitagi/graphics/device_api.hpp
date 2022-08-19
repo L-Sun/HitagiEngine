@@ -34,7 +34,7 @@ public:
     virtual void InitPipelineState(PipelineState& pipeline)                         = 0;
 
     // CommandList
-    virtual std::shared_ptr<IGraphicsCommandContext> CreateGraphicsCommandContext() = 0;
+    virtual std::shared_ptr<IGraphicsCommandContext> CreateGraphicsCommandContext(std::string_view name = "") = 0;
 
     virtual void RetireResource(std::unique_ptr<backend::Resource> resource) = 0;
 

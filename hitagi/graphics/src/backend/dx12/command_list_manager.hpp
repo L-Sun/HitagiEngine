@@ -44,14 +44,14 @@ class CommandListManager {
 public:
     CommandListManager();
 
-    CommandListManager(const CommandListManager&) = delete;
+    CommandListManager(const CommandListManager&)            = delete;
     CommandListManager& operator=(const CommandListManager&) = delete;
     CommandListManager(CommandListManager&&)                 = default;
-    CommandListManager& operator=(CommandListManager&&) = default;
+    CommandListManager& operator=(CommandListManager&&)      = default;
 
     void Initialize(ID3D12Device6* device);
 
-    void CreateNewCommandList(D3D12_COMMAND_LIST_TYPE type, ID3D12GraphicsCommandList5** list,
+    void CreateNewCommandList(std::string_view name, D3D12_COMMAND_LIST_TYPE type, ID3D12GraphicsCommandList5** list,
                               ID3D12CommandAllocator** allocator);
     void WaitForFence(uint64_t fence_value);
     bool IsFenceComplete(uint64_t fence_value) {

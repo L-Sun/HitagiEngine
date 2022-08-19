@@ -18,10 +18,11 @@ struct Scene {
 
     std::pmr::string name;
 
-    std::shared_ptr<SceneNode>  root;
-    SharedPtrVector<MeshNode>   instance_nodes;
-    SharedPtrVector<CameraNode> camera_nodes;
-    SharedPtrVector<LightNode>  light_nodes;
+    std::shared_ptr<SceneNode>    root;
+    SharedPtrVector<MeshNode>     instance_nodes;
+    SharedPtrVector<CameraNode>   camera_nodes;
+    SharedPtrVector<LightNode>    light_nodes;
+    SharedPtrVector<ArmatureNode> armature_nodes;
 
     std::shared_ptr<CameraNode> curr_camera;
 

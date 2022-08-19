@@ -12,13 +12,13 @@ using namespace hitagi::math;
 
 namespace hitagi::graphics::backend::DX12 {
 
-CommandContext::CommandContext(DX12Device* device, D3D12_COMMAND_LIST_TYPE type)
+CommandContext::CommandContext(std::string_view name, DX12Device* device, D3D12_COMMAND_LIST_TYPE type)
     : m_Device(device),
       m_CpuLinearAllocator(device, AllocationPageType::CPU_WRITABLE, [device](uint64_t fence) { return device->GetCmdMgr().IsFenceComplete(fence); }),
       m_GpuLinearAllocator(device, AllocationPageType::GPU_EXCLUSIVE, [device](uint64_t fence) { return device->GetCmdMgr().IsFenceComplete(fence); }),
       m_ResourceBinder(device, *this, [device](uint64_t fence) { return device->GetCmdMgr().IsFenceComplete(fence); }),
       m_Type(type) {
-    device->GetCmdMgr().CreateNewCommandList(m_Type, &m_CommandList, &m_CommandAllocator);
+    device->GetCmdMgr().CreateNewCommandList(name, m_Type, &m_CommandList, &m_CommandAllocator);
 }
 CommandContext::~CommandContext() {
     if (m_CommandList) m_CommandList->Release();
@@ -252,10 +252,10 @@ void GraphicsCommandContext::Set32BitsConstants(std::uint32_t slot, const std::u
     m_ResourceBinder.Set32BitsConstants(slot, data, count);
 }
 
-void GraphicsCommandContext::BindDynamicTextureBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) {
+void GraphicsCommandContext::BindDynamicStructuredBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) {
     Allocation cb = m_CpuLinearAllocator.Allocate(size);
     std::copy_n(data, size, cb.cpu_ptr);
-    m_ResourceBinder.BindDynamicTextureBuffer(slot, cb.gpu_addr);
+    m_ResourceBinder.BindDynamicStructuredBuffer(slot, cb.gpu_addr);
 }
 
 void GraphicsCommandContext::BindDynamicConstantBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) {
@@ -396,6 +396,7 @@ void GraphicsCommandContext::UpdateVertexBuffer(resource::VertexArray& vertices)
     }
 
     UpdateBuffer(vertices.gpu_resource.get(), 0, vertices.cpu_buffer.GetData(), vertices.cpu_buffer.GetDataSize());
+    vertices.dirty = false;
 }
 
 void GraphicsCommandContext::UpdateIndexBuffer(resource::IndexArray& indices) {
@@ -405,6 +406,7 @@ void GraphicsCommandContext::UpdateIndexBuffer(resource::IndexArray& indices) {
         m_Device->InitIndexBuffer(indices);
 
     UpdateBuffer(indices.gpu_resource.get(), 0, indices.cpu_buffer.GetData(), indices.cpu_buffer.GetDataSize());
+    indices.dirty = false;
 }
 
 void ComputeCommandContext::SetPipelineState(const std::shared_ptr<graphics::PipelineState>& pipeline) {

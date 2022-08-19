@@ -12,7 +12,7 @@ class DX12Device;
 
 class CommandContext {
 public:
-    CommandContext(DX12Device* device, D3D12_COMMAND_LIST_TYPE type);
+    CommandContext(std::string_view name, DX12Device* device, D3D12_COMMAND_LIST_TYPE type);
     CommandContext(const CommandContext&)            = delete;
     CommandContext& operator=(const CommandContext&) = delete;
     CommandContext(CommandContext&&)                 = default;
@@ -60,7 +60,7 @@ protected:
 
 class GraphicsCommandContext : public CommandContext, public graphics::IGraphicsCommandContext {
 public:
-    GraphicsCommandContext(DX12Device* device) : CommandContext(device, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
+    GraphicsCommandContext(std::string_view name, DX12Device* device) : CommandContext(name, device, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
 
     void ClearRenderTarget(const graphics::RenderTarget& rt) final;
     void ClearDepthBuffer(const graphics::DepthBuffer& depth_buffer) final;
@@ -78,7 +78,7 @@ public:
     void BindResource(std::uint32_t slot, const resource::Texture& texture) final;
     void BindResource(std::uint32_t slot, const graphics::Sampler& sampler) final;
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) final;
-    void BindDynamicTextureBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) final;
+    void BindDynamicStructuredBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) final;
     void BindDynamicConstantBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) final;
 
     void BindVertexBuffer(const resource::VertexArray& vertices) final;
@@ -102,14 +102,14 @@ public:
 
 class ComputeCommandContext : public CommandContext {
 public:
-    ComputeCommandContext(DX12Device* device) : CommandContext(device, D3D12_COMMAND_LIST_TYPE_COMPUTE) {}
+    ComputeCommandContext(std::string_view name, DX12Device* device) : CommandContext(name, device, D3D12_COMMAND_LIST_TYPE_COMPUTE) {}
 
     void SetPipelineState(const std::shared_ptr<graphics::PipelineState>& pipeline);
 };
 
 class CopyCommandContext : public CommandContext {
 public:
-    CopyCommandContext(DX12Device* device) : CommandContext(device, D3D12_COMMAND_LIST_TYPE_COPY) {}
+    CopyCommandContext(std::string_view name, DX12Device* device) : CommandContext(name, device, D3D12_COMMAND_LIST_TYPE_COPY) {}
 
     void InitializeBuffer(GpuBuffer& dest, const std::byte* data, size_t data_size);
     void InitializeTexture(resource::Texture& texture, const std::pmr::vector<D3D12_SUBRESOURCE_DATA>& sub_data);

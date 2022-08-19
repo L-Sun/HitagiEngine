@@ -25,7 +25,7 @@ public:
     void InitSampler(graphics::Sampler& sampler) final;
     void InitPipelineState(graphics::PipelineState& pipeline) final;
 
-    std::shared_ptr<IGraphicsCommandContext> CreateGraphicsCommandContext() final;
+    std::shared_ptr<IGraphicsCommandContext> CreateGraphicsCommandContext(std::string_view name = "") final;
 
     void RetireResource(std::unique_ptr<backend::Resource> resource) final;
 

@@ -31,7 +31,7 @@ public:
 private:
     ConstantBuffer& GetMaterialBuffer(const std::shared_ptr<resource::Material>& material);
 
-    IGraphicsCommandContext* NewContext();
+    IGraphicsCommandContext* NewContext(std::string_view name);
 
     DeviceAPI&                                                 m_Device;
     const std::size_t                                          m_FrameIndex;
@@ -45,8 +45,7 @@ private:
     ConstantBuffer m_ObjCB;
     ConstantBuffer m_DebugCB;
 
-    std::pmr::unordered_map<const resource::Material*, std::pair<ConstantBuffer, std::size_t>>
-        m_MaterialBuffers;
+    std::pmr::unordered_map<const resource::Material*, ConstantBuffer> m_MaterialBuffers;
 };
 
 }  // namespace hitagi::graphics

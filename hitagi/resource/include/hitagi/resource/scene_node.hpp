@@ -2,7 +2,7 @@
 #include <hitagi/resource/transform.hpp>
 
 #include <limits>
-#include <vector>
+#include <set>
 #include <memory>
 
 namespace hitagi::resource {
@@ -12,8 +12,8 @@ public:
         : name(name), transform(transform) {
     }
 
-    inline void SetParent(const std::shared_ptr<SceneNode>& parent) noexcept;
-    inline void AppendChild(const std::shared_ptr<SceneNode>& child) noexcept;
+    inline void Attach(const std::shared_ptr<SceneNode>& parent) noexcept;
+    inline void Detach() noexcept;
 
     virtual void Update();
 
@@ -24,8 +24,8 @@ public:
     Transform        transform;
 
 private:
-    std::pmr::vector<std::shared_ptr<SceneNode>> m_Children;
-    std::weak_ptr<SceneNode>                     m_Parent;
+    std::pmr::set<std::shared_ptr<SceneNode>> m_Children;
+    std::weak_ptr<SceneNode>                  m_Parent;
 };
 
 template <typename T>
@@ -34,15 +34,22 @@ struct SceneNodeWithObject : public SceneNode {
     std::shared_ptr<T> object;
 };
 
-inline void SceneNode::SetParent(const std::shared_ptr<SceneNode>& parent) noexcept {
-    m_Parent = parent;
+inline void SceneNode::Attach(const std::shared_ptr<SceneNode>& parent) noexcept {
+    if (parent.get() == this) {
+        return;
+    }
+    Detach();
     if (parent) {
-        parent->AppendChild(shared_from_this());
+        m_Parent = parent;
+        parent->m_Children.emplace(shared_from_this());
     }
 }
 
-inline void SceneNode::AppendChild(const std::shared_ptr<SceneNode>& child) noexcept {
-    m_Children.emplace_back(child)->m_Parent = shared_from_this();
+inline void SceneNode::Detach() noexcept {
+    if (auto parent = m_Parent.lock(); parent) {
+        parent->m_Children.erase(shared_from_this());
+    }
+    m_Parent.reset();
 }
 
 inline void SceneNode::Update() {

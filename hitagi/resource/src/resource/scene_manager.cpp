@@ -33,6 +33,8 @@ void SceneManager::Finalize() {
 void SceneManager::Tick() {
     for (auto& scene : m_Scenes)
         scene.root->Update();
+
+    graphics_manager->DrawScene(CurrentScene());
 }
 
 Scene& SceneManager::CurrentScene() {
@@ -44,12 +46,12 @@ Scene& SceneManager::CreateEmptyScene(std::string_view name) {
 
     auto camera_node    = scene.camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
     camera_node->object = scene.cameras.emplace_back(std::make_shared<Camera>());
-    camera_node->SetParent(scene.root);
+    camera_node->Attach(scene.root);
     scene.curr_camera = camera_node;
 
     auto light_node    = scene.light_nodes.emplace_back(std::make_shared<LightNode>("Default Light"));
     light_node->object = scene.lights.emplace_back(std::make_shared<Light>());
-    light_node->SetParent(scene.root);
+    light_node->Attach(scene.root);
 
     return scene;
 }

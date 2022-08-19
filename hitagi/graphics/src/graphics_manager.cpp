@@ -80,37 +80,15 @@ PipelineState& GraphicsManager::GetPipelineState(const resource::Material* mater
     assert(material);
     if (!m_Pipelines.contains(material)) {
         // TODO more infomation
-        PipelineState pipeline;
-        pipeline.vs             = material->GetVertexShader();
-        pipeline.ps             = material->GetPixelShader();
-        pipeline.primitive_type = material->primitive;
-        pipeline.render_format  = resource::Format::R8G8B8A8_UNORM;
+        PipelineState pipeline{
+            .vs                  = material->GetVertexShader(),
+            .ps                  = material->GetPixelShader(),
+            .primitive_type      = material->primitive,
+            .render_format       = resource::Format::R8G8B8A8_UNORM,
+            .depth_buffer_format = resource::Format::D32_FLOAT,
+        };
+        pipeline.name = material->name;
 
-        // TODO more universe impletement
-        if (material->name == "imgui-material") {
-            pipeline.static_samplers.emplace_back(Sampler{
-                .filter         = Filter::Min_Mag_Mip_Linear,
-                .address_u      = TextureAddressMode::Wrap,
-                .address_v      = TextureAddressMode::Wrap,
-                .address_w      = TextureAddressMode::Wrap,
-                .mip_lod_bias   = 0.0f,
-                .max_anisotropy = 0,
-                .comp_func      = ComparisonFunc::Always,
-                .border_color   = vec4f(0.0f, 0.0f, 0.0f, 1.0f),
-                .min_lod        = 0.0f,
-                .max_lod        = 0.0f,
-            });
-            pipeline.blend_state = {
-                .alpha_to_coverage_enable = false,
-                .enable_blend             = true,
-                .src_blend                = Blend::SrcAlpha,
-                .dest_blend               = Blend::InvSrcAlpha,
-                .blend_op                 = BlendOp::Add,
-                .src_blend_alpha          = Blend::One,
-                .dest_blend_alpha         = Blend::InvSrcAlpha,
-                .blend_op_alpha           = BlendOp::Add,
-            };
-        }
         m_Device->InitPipelineState(pipeline);
         m_Pipelines.emplace(material, std::move(pipeline));
     }
@@ -181,9 +159,10 @@ void GraphicsManager::InitBuiltInPipeline() {
     m_Device->InitPipelineState(builtin_pipeline.gui);
 
     builtin_pipeline.debug = {
-        .vs             = std::make_shared<resource::Shader>(resource::Shader::Type::Vertex, "assets/shaders/debug.hlsl"),
-        .ps             = std::make_shared<resource::Shader>(resource::Shader::Type::Pixel, "assets/shaders/debug.hlsl"),
-        .primitive_type = resource::PrimitiveType::LineList,
+        .vs                  = std::make_shared<resource::Shader>(resource::Shader::Type::Vertex, "assets/shaders/debug.hlsl"),
+        .ps                  = std::make_shared<resource::Shader>(resource::Shader::Type::Pixel, "assets/shaders/debug.hlsl"),
+        .primitive_type      = resource::PrimitiveType::LineList,
+        .depth_buffer_format = resource::Format::D32_FLOAT,
     };
     builtin_pipeline.debug.name = "debug";
     m_Device->InitPipelineState(builtin_pipeline.debug);

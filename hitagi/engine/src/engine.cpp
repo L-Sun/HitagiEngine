@@ -31,9 +31,9 @@ bool Engine::Initialize() {
     graphics_manager = add_inner_module(std::make_unique<graphics::GraphicsManager>());
     asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>());
     input_manager    = add_inner_module(std::make_unique<hid::InputManager>());
-    gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>());
     scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>());
     debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>());
+    gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>());
 
     std::pmr::list<RuntimeModule*> intialized_modules = {};
     for (auto& inner_module : m_InnerModules) {

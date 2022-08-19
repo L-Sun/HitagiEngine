@@ -56,8 +56,8 @@ void AssetManager::Finalize() {
     m_Logger = nullptr;
 }
 
-void AssetManager::ImportScene(Scene& scene, const std::filesystem::path& path) {
-    m_SceneParser->Parse(file_io_manager->SyncOpenAndReadBinary(path), scene);
+std::optional<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
+    return m_SceneParser->Parse(file_io_manager->SyncOpenAndReadBinary(path));
 }
 
 std::shared_ptr<Texture> AssetManager::ImportImage(const std::filesystem::path& path) {

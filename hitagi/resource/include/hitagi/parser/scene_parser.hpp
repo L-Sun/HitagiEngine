@@ -5,7 +5,7 @@
 namespace hitagi::resource {
 class SceneParser {
 public:
-    virtual void Parse(const core::Buffer& buffer, Scene& scene) = 0;
+    virtual std::optional<Scene> Parse(const core::Buffer& buffer) = 0;
 
     virtual ~SceneParser() = default;
 };

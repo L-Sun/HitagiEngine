@@ -40,12 +40,12 @@ PrimitiveType get_primitive(unsigned int primitives) {
     }
 }
 
-void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene) {
+std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
     auto logger = spdlog::get("AssetManager");
 
     if (buffer.Empty()) {
         logger->warn("[Assimp] Parsing a empty buffer");
-        return;
+        return std::nullopt;
     }
 
     core::Clock clock;
@@ -63,11 +63,12 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene) {
     const aiScene* ai_scene = importer.ReadFileFromMemory(buffer.GetData(), buffer.GetDataSize(), flag);
     if (!ai_scene) {
         logger->error("[Assimp] Can not parse the scene.");
-        return;
+        return std::nullopt;
     }
     logger->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
+    Scene scene;
     scene.name = ai_scene->mName.C_Str();
 
     // process camera
@@ -410,8 +411,8 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene) {
         return armature;
     };
 
-    std::function<void(const aiNode*, const std::shared_ptr<SceneNode>&)>
-        convert = [&](const aiNode* _node, const std::shared_ptr<SceneNode>& parent) -> void {
+    std::function<std::shared_ptr<SceneNode>(const aiNode*)>
+        convert = [&](const aiNode* _node) -> std::shared_ptr<SceneNode> {
         std::shared_ptr<SceneNode> node;
 
         std::string_view name = _node->mName.C_Str();
@@ -421,6 +422,7 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene) {
             auto mesh_node    = std::make_shared<MeshNode>();
             mesh_node->object = create_mesh(_node);
             scene.meshes.emplace_back(mesh_node->object);
+            scene.instance_nodes.emplace_back(mesh_node);
             node = mesh_node;
         }
         // This node is a camera
@@ -428,6 +430,7 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene) {
             auto camera_node    = std::make_shared<CameraNode>();
             camera_node->object = camera_name_map.at(name);
             scene.cameras.emplace_back(camera_node->object);
+            scene.camera_nodes.emplace_back(camera_node);
             node = camera_node;
         }
         // This node is a light
@@ -435,6 +438,7 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene) {
             auto light_node    = std::make_shared<LightNode>();
             light_node->object = light_name_map.at(name);
             scene.lights.emplace_back(light_node->object);
+            scene.light_nodes.emplace_back(light_node);
             node = light_node;
         }
         // This node is armature, it may contain multiple bone
@@ -442,31 +446,40 @@ void AssimpParser::Parse(const core::Buffer& buffer, Scene& scene) {
             auto armature_node    = std::make_shared<ArmatureNode>();
             armature_node->object = create_armature(_node);
             scene.armatures.emplace_back(armature_node->object);
+            scene.armature_nodes.emplace_back(armature_node);
             node = armature_node;
         }
         // This node is bone,
         else if (bone_nodes.contains(_node)) {
             // Skip bone node because it has processed in `create_armature()`
-            return;
+            return nullptr;
         }
         // This node is empty
         else {
             node = std::make_shared<SceneNode>();
         }
 
-        node->name = name;
-        node->SetParent(parent);
+        node->name      = name;
         node->transform = get_matrix(_node->mTransformation);
 
         for (std::size_t i = 0; i < _node->mNumChildren; i++) {
-            convert(_node->mChildren[i], node);
+            if (auto child = convert(_node->mChildren[i]); child)
+                child->Attach(node);
         }
+
+        return node;
     };
-    convert(ai_scene->mRootNode, scene.root);
+    scene.root = convert(ai_scene->mRootNode);
+    if (scene.camera_nodes.empty()) {
+    }
+    scene.curr_camera = scene.camera_nodes.front();
+
     logger->info("[Assimp] Parsing scnene graph costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
     logger->info("[Assimp] Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.TotalTime()).count());
+
+    return scene;
 }
 
 }  // namespace hitagi::resource

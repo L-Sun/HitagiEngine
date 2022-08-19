@@ -176,7 +176,7 @@ void DX12Device::InitTexture(resource::Texture& texture) {
 
     texture.gpu_resource = std::make_unique<Texture>(this, texture.name, d3d_desc);
 
-    CopyCommandContext     context(this);
+    CopyCommandContext     context("InitTexture", this);
     D3D12_SUBRESOURCE_DATA sub_data;
     sub_data.pData      = texture.cpu_buffer.GetData();
     sub_data.RowPitch   = texture.pitch;
@@ -240,8 +240,8 @@ void DX12Device::RetireResource(std::unique_ptr<backend::Resource> resource) {
     m_RetiredResources.emplace(std::move(resource));
 }
 
-std::shared_ptr<IGraphicsCommandContext> DX12Device::CreateGraphicsCommandContext() {
-    return std::make_unique<GraphicsCommandContext>(this);
+std::shared_ptr<IGraphicsCommandContext> DX12Device::CreateGraphicsCommandContext(std::string_view name) {
+    return std::make_unique<GraphicsCommandContext>(name, this);
 }
 
 void DX12Device::CompileShader(const std::shared_ptr<resource::Shader>& shader) {

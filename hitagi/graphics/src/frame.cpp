@@ -35,7 +35,6 @@ Frame::Frame(DeviceAPI& device, std::size_t frame_index)
       m_FrameCB{.num_elements = 1, .element_size = sizeof(FrameConstant)},
       m_ObjCB{.num_elements = 100, .element_size = sizeof(ObjectConstant)},
       m_DebugCB{.num_elements = 100, .element_size = /*transform*/ sizeof(mat4f) + /*color*/ sizeof(vec4f)} {
-    m_ObjCB.name = "Frame and Object Constant";
     m_Device.InitRenderFromSwapChain(m_Output, frame_index);
 
     m_DepthBuffer = DepthBuffer{
@@ -46,30 +45,40 @@ Frame::Frame(DeviceAPI& device, std::size_t frame_index)
         .clear_stencil = 0,
     };
     m_Device.InitDepthBuffer(m_DepthBuffer);
+
+    m_FrameCB.name = "Frame Constant";
+    m_ObjCB.name   = "Object Constant";
+    m_DebugCB.name = "Debug Constant";
+
     m_Device.InitConstantBuffer(m_FrameCB);
     m_Device.InitConstantBuffer(m_ObjCB);
     m_Device.InitConstantBuffer(m_DebugCB);
 }
 
 void Frame::DrawScene(const resource::Scene& scene) {
-    auto context = NewContext();
+    auto context = NewContext("SceneDraw");
 
     // grow constant buffer if need
     if (m_ObjCB.num_elements < scene.instance_nodes.size()) {
         m_ObjCB.Resize(m_ObjCB.num_elements + scene.instance_nodes.size());
     }
+
+    std::pmr::unordered_map<const resource::Material*, std::size_t>         material_counter;
+    std::pmr::unordered_map<const resource::MaterialInstance*, std::size_t> material_cb_index;
     for (const auto& material : scene.materials) {
         if (!m_MaterialBuffers.contains(material.get())) {
             auto [iter, success] = m_MaterialBuffers.emplace(
                 material.get(),
-                std::make_pair(
-                    ConstantBuffer{material->GetNumInstances(), material->GetParametersSize()},
-                    0  // Used
-                    ));
-            m_Device.InitConstantBuffer(iter->second.first);
-        } else if (auto& [cb, used] = m_MaterialBuffers.at(material.get()); cb.num_elements - used < material->GetNumInstances()) {
-            cb.Resize(cb.num_elements + material->GetNumInstances());
+                ConstantBuffer{
+                    .num_elements = material->GetNumInstances(),
+                    .element_size = material->GetParametersSize(),
+                });
+            iter->second.name = fmt::format("material cb ({})", material->name);
+            m_Device.InitConstantBuffer(iter->second);
+        } else if (m_MaterialBuffers.at(material.get()).num_elements < material->GetNumInstances()) {
+            m_MaterialBuffers.at(material.get()).Resize(material->GetNumInstances());
         }
+        material_counter.emplace(material.get(), 0);
     }
 
     const auto&   camera = scene.curr_camera->object;
@@ -82,58 +91,70 @@ void Frame::DrawScene(const resource::Scene& scene) {
         .inv_projection = camera->GetInvProjection(),
         .inv_proj_view  = camera->GetInvProjectionView(),
     };
+
     m_FrameCB.Update(0, frame_constant);
-    context->BindResource(0, m_FrameCB, 0);
+
+    auto view_port = camera->GetViewPort(m_Output.width, m_Output.height);
+    context->SetViewPortAndScissor(view_port.x, view_port.y, view_port.z, view_port.w);
+    context->SetRenderTargetAndDepthBuffer(m_Output, m_DepthBuffer);
 
     auto instances = scene.instance_nodes;
     std::sort(instances.begin(), instances.end(), [](const std::shared_ptr<MeshNode>& a, const std::shared_ptr<MeshNode>& b) {
         return a->object < b->object;
     });
 
-    struct InstancedBatch {
-        Mesh*                   mesh           = nullptr;
-        std::size_t             instance_count = 0;
-        std::pmr::vector<mat4f> transforms;
-    } instanced_batch = {};
-
-    std::size_t batch_index = 0;
+    std::size_t instance_index = 0;
     for (const auto& node : instances) {
-        if (instanced_batch.mesh != node->object.get() && instanced_batch.mesh != nullptr) {
-            context->BindVertexBuffer(*instanced_batch.mesh->vertices);
-            context->BindIndexBuffer(*instanced_batch.mesh->indices);
-            context->BindResource(1, m_ObjCB, batch_index++);
+        auto mesh = node->object;
 
-            for (const auto& submesh : instanced_batch.mesh->sub_meshes) {
-                auto material = submesh.material_instance->GetMaterial().lock();
-                if (!material) continue;
+        context->UpdateVertexBuffer(*mesh->vertices);
+        context->UpdateIndexBuffer(*mesh->indices);
+        bool vertices_indices_bind = false;
 
-                context->SetPipelineState(graphics_manager->GetPipelineState(material.get()));
-                if (const auto& material_buffer = submesh.material_instance->GetParameterBuffer(); !material_buffer.Empty()) {
-                    auto&& [material_cb, used] = m_MaterialBuffers.at(material.get());
-                    material_cb.Update(used, material_buffer.GetData(), material_buffer.GetDataSize());
-                    context->BindResource(2, material_cb, used);
-                    used++;
+        m_ObjCB.Update(instance_index, node->transform.world_matrix);
+
+        for (const auto& submesh : mesh->sub_meshes) {
+            auto material_instance = submesh.material_instance.get();
+            if (!submesh.material_instance) return;
+            auto material = submesh.material_instance->GetMaterial().lock();
+            if (!material) continue;
+
+            context->SetPipelineState(graphics_manager->GetPipelineState(material.get()));
+            if (!vertices_indices_bind) {
+                context->BindVertexBuffer(*mesh->vertices);
+                context->BindIndexBuffer(*mesh->indices);
+                vertices_indices_bind = true;
+            }
+
+            context->BindResource(0, m_FrameCB, 0);
+            context->BindResource(1, m_ObjCB, instance_index);
+
+            if (const auto& material_buffer = material_instance->GetParameterBuffer(); !material_buffer.Empty()) {
+                auto& material_cb = m_MaterialBuffers.at(material.get());
+
+                if (!material_cb_index.contains(material_instance)) {
+                    auto& counter = material_counter.at(material.get());
+                    material_cb_index.emplace(material_instance, counter);
+                    material_cb.Update(counter, material_buffer.GetData(), material_buffer.GetDataSize());
+                    counter++;
                 }
 
-                context->DrawIndexedInstanced(submesh.index_count, instanced_batch.instance_count, submesh.index_offset, submesh.vertex_offset, 0);
+                context->BindResource(2, material_cb, material_cb_index.at(material_instance));
             }
+
+            context->DrawIndexed(submesh.index_count, submesh.index_offset, submesh.vertex_offset);
         }
 
-        instanced_batch.instance_count++;
-        instanced_batch.transforms.emplace_back(node->transform.world_matrix);
+        instance_index++;
     }
 }
 
 void Frame::DrawDebug(const DebugDrawData& debug_data) {
     if (!debug_data.mesh) return;
-    auto context = NewContext();
+    auto context = NewContext("DebugDraw");
 
-    if (debug_data.mesh.vertices->dirty) {
-        context->UpdateVertexBuffer(*debug_data.mesh.vertices);
-    }
-    if (debug_data.mesh.indices->dirty) {
-        context->UpdateIndexBuffer(*debug_data.mesh.indices);
-    }
+    context->UpdateVertexBuffer(*debug_data.mesh.vertices);
+    context->UpdateIndexBuffer(*debug_data.mesh.indices);
 
     if (m_DebugCB.num_elements < debug_data.mesh.sub_meshes.size()) {
         m_DebugCB.Resize(m_DebugCB.num_elements + debug_data.mesh.sub_meshes.size());
@@ -143,7 +164,7 @@ void Frame::DrawDebug(const DebugDrawData& debug_data) {
     }
 
     context->SetPipelineState(graphics_manager->builtin_pipeline.debug);
-    context->SetRenderTarget(m_Output);
+    context->SetRenderTargetAndDepthBuffer(m_Output, m_DepthBuffer);
     context->BindVertexBuffer(*debug_data.mesh.vertices);
     context->BindIndexBuffer(*debug_data.mesh.indices);
     context->BindDynamicConstantBuffer(0, reinterpret_cast<const std::byte*>(&debug_data.project_view), sizeof(debug_data.project_view));
@@ -159,14 +180,11 @@ void Frame::DrawDebug(const DebugDrawData& debug_data) {
 void Frame::DrawGUI(const GuiDrawData& gui_data) {
     if (!gui_data.mesh) return;
 
-    auto context = NewContext();
+    auto context = NewContext("GuiDraw");
 
-    if (gui_data.mesh.vertices->dirty) {
-        context->UpdateVertexBuffer(*gui_data.mesh.vertices);
-    }
-    if (gui_data.mesh.indices->dirty) {
-        context->UpdateIndexBuffer(*gui_data.mesh.indices);
-    }
+    context->UpdateVertexBuffer(*gui_data.mesh.vertices);
+    context->UpdateIndexBuffer(*gui_data.mesh.indices);
+
     if (gui_data.texture->gpu_resource == nullptr) {
         m_Device.InitTexture(*gui_data.texture);
     }
@@ -188,12 +206,12 @@ void Frame::DrawGUI(const GuiDrawData& gui_data) {
     }
 }
 
-IGraphicsCommandContext* Frame::NewContext() {
-    return m_CommandContexts.emplace_back(m_Device.CreateGraphicsCommandContext()).get();
+IGraphicsCommandContext* Frame::NewContext(std::string_view name) {
+    return m_CommandContexts.emplace_back(m_Device.CreateGraphicsCommandContext(name)).get();
 }
 
 void Frame::Execute() {
-    auto context = NewContext();
+    auto context = NewContext("Present");
     context->Present(m_Output);
 
     for (auto& context : m_CommandContexts) {
@@ -211,7 +229,7 @@ void Frame::Wait() {
 }
 
 void Frame::Reset() {
-    auto context = NewContext();
+    auto context = NewContext("Clear RT and DB");
 
     context->ClearRenderTarget(m_Output);
     context->ClearDepthBuffer(m_DepthBuffer);

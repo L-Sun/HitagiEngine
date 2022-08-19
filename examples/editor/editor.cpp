@@ -38,7 +38,6 @@ void Editor::Draw() {
     FileExplorer();
     SceneExplorer();
     DebugPanel();
-    debug_manager->DrawAxis(mat4f::identity());
 }
 
 void Editor::MainMenu() {
@@ -99,7 +98,15 @@ void Editor::FileExplorer() {
         if (ImGui::Button("Open")) {
             if (m_OpenFileExt == ".fbx") {
                 for (auto&& path : m_SelectedFiles) {
-                    asset_manager->ImportScene(scene_manager->CurrentScene(), path);
+                    auto scene   = asset_manager->ImportScene(path);
+                    bool success = scene.has_value();
+                    if (ImGui::BeginPopupModal("Fbx import failed", &success)) {
+                        ImGui::Text("%s", fmt::format("failed to import scene: {}", path).c_str());
+                        ImGui::EndPopup();
+                    }
+                    if (success) {
+                        scene_manager->SwitchScene(scene_manager->AddScene(std::move(scene.value())));
+                    }
                 }
             } else if (m_OpenFileExt == ".bvh") {
                 // for (auto&& path : m_SelectedFiles) {

@@ -183,7 +183,7 @@ void ResourceBinder::Set32BitsConstants(std::uint32_t slot, const std::uint32_t*
     }
 }
 
-void ResourceBinder::BindDynamicTextureBuffer(std::uint32_t slot, const D3D12_GPU_VIRTUAL_ADDRESS& gpu_address) {
+void ResourceBinder::BindDynamicStructuredBuffer(std::uint32_t slot, const D3D12_GPU_VIRTUAL_ADDRESS& gpu_address) {
     if (!SlotCheck(Descriptor::Type::SRV, slot)) return;
 
     auto slot_info = m_SlotInfos[magic_enum::enum_integer(Descriptor::Type::SRV)].at(slot);

@@ -26,7 +26,7 @@ public:
     void BindResource(std::uint32_t slot, Sampler* sampler);
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count);
 
-    void BindDynamicTextureBuffer(std::uint32_t slot, const D3D12_GPU_VIRTUAL_ADDRESS& gpu_address);
+    void BindDynamicStructuredBuffer(std::uint32_t slot, const D3D12_GPU_VIRTUAL_ADDRESS& gpu_address);
     void BindDynamicConstantBuffer(std::uint32_t slot, const D3D12_GPU_VIRTUAL_ADDRESS& gpu_address);
 
     void CommitStagedDescriptors();

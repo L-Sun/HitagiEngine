@@ -36,7 +36,7 @@ struct VSInput {
 struct PSInput {
   float4 position : SV_POSITION;
   float4 color : COLOR;
-  float4 posInView : POSITION;
+  float4 pos_in_view : POSITION;
   float4 normal : NORMAL;
   float2 uv : TEXCOORD0;
 };
@@ -52,11 +52,11 @@ struct PSInput {
 PSInput VSMain(VSInput input) {
   PSInput output;
 
-  matrix MVP = mul(projView, model);
+  matrix MVP = mul(proj_view, model);
   output.position = mul(MVP, float4(input.position, 1.0f));
   output.normal = mul(view, mul(model, float4(input.normal, 0.0f)));
   output.uv = input.uv;
-  output.posInView = mul(view, mul(model, float4(input.position, 1.0f)));
+  output.pos_in_view = mul(view, mul(model, float4(input.position, 1.0f)));
   output.color = input.color;
   return output;
 }
@@ -64,10 +64,10 @@ PSInput VSMain(VSInput input) {
 [RootSignature(RSDEF)] 
 float4 PSMain(PSInput input) : SV_TARGET {
   const float4 vN = normalize(input.normal);
-  const float4 vL = normalize(lightPosInView - input.posInView);
-  const float4 vV = normalize(-input.posInView);
+  const float4 vL = normalize(light_pos_in_view - input.pos_in_view);
+  const float4 vV = normalize(-input.pos_in_view);
   const float4 vH = normalize(vL + vV);
-  const float r = length(lightPosInView - input.posInView);
+  const float r = length(light_pos_in_view - input.pos_in_view);
   const float invd = 1.0f / (r * r + 1.0f);
   // color
   // const float4 _ambient =
@@ -88,5 +88,5 @@ float4 PSMain(PSInput input) : SV_TARGET {
   //                    (_diffuse * max(dot(vN, vL), 0.0f) +
   //                     _specular * pow(max(dot(vH, vN), 0.0f), _specularPower));
 
-  return input.color;
+  return diffuse;
 }
