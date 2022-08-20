@@ -6,8 +6,12 @@
 
 namespace hitagi::ecs {
 World::World(std::string_view name)
-    : m_Name(name),
-      m_Logger(spdlog::stdout_color_mt(name.data())) {
+    : m_Name(name) {
+    if (auto logger = spdlog::get(std::string{name}); logger)
+        m_Logger = logger;
+    else
+        m_Logger = spdlog::stdout_color_mt(name.data());
+
     m_Logger->debug("Create {} world!", name);
     m_Timer.Start();
 }
