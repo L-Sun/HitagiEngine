@@ -52,6 +52,9 @@ void ConstantBuffer::UpdateData(std::size_t index, const std::byte* data, std::s
 }
 
 void ConstantBuffer::Resize(std::size_t num_elements) {
+    if (m_Resource != nullptr && num_elements == m_BufferSize / m_BlockSize)
+        return;
+
     std::size_t            new_buffer_size = num_elements * m_BlockSize;
     ComPtr<ID3D12Resource> resource;
 

@@ -192,6 +192,7 @@ void DX12Device::InitConstantBuffer(graphics::ConstantBuffer& cb) {
     };
     cb.resize_fn = [&cb](std::size_t new_num_elements) {
         cb.gpu_resource->GetBackend<ConstantBuffer>()->Resize(new_num_elements);
+        cb.num_elements = new_num_elements;
     };
 }
 
