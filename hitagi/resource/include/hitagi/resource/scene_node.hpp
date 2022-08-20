@@ -23,7 +23,7 @@ public:
     std::pmr::string name;
     Transform        transform;
 
-private:
+protected:
     std::pmr::set<std::shared_ptr<SceneNode>> m_Children;
     std::weak_ptr<SceneNode>                  m_Parent;
 };

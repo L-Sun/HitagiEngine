@@ -20,8 +20,8 @@ using namespace hitagi::math;
 bool MyGame::Initialize() {
     m_Logger = spdlog::stdout_color_mt("MyGame");
     m_Logger->info("Initialize...");
-    resource::Scene scene("test");
-    asset_manager->ImportScene(scene, "./assets/scenes/test.fbx");
+    auto scene = asset_manager->ImportScene("./assets/scenes/test.fbx");
+    if (!scene.has_value()) return false;
 
     return true;
 }

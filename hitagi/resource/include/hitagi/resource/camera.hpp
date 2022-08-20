@@ -16,10 +16,8 @@ public:
     math::vec3f look_dir = math::vec3f{-1.0f, -1.0f, -1.0f};
     math::vec3f up       = math::vec3f{0.0f, 0.0f, 1.0f};
 
-    void Update();
-    void ApplyTransform(const Transform& transform);
+    void Update(const Transform& transform);
 
-    inline bool        IsDirty() const noexcept { return m_Dirty; }
     inline math::vec4u GetViewPort(std::uint32_t screen_width, std::uint32_t screen_height) const noexcept;
     inline math::mat4f GetView() const noexcept { return m_View; }
     inline math::mat4f GetProjection() const noexcept { return m_Projection; }
@@ -29,7 +27,6 @@ public:
     inline math::mat4f GetInvProjectionView() const noexcept { return m_InvPV; }
 
 private:
-    bool        m_Dirty = false;
     math::mat4f m_View, m_Projection, m_PV;
     math::mat4f m_InvView, m_InvProjection, m_InvPV;
 };

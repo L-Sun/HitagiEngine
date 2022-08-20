@@ -15,8 +15,12 @@ using namespace hitagi::math;
 namespace hitagi::resource {
 
 mat4f get_matrix(const aiMatrix4x4& _mat) {
-    mat4f ret(reinterpret_cast<const ai_real*>(&_mat));
-    return transpose(ret);
+    return {
+        {_mat.a1, _mat.a2, _mat.a3, _mat.a4},
+        {_mat.b1, _mat.b2, _mat.b3, _mat.b4},
+        {_mat.c1, _mat.c2, _mat.c3, _mat.c4},
+        {_mat.d1, _mat.d2, _mat.d3, _mat.d4},
+    };
 };
 vec3f get_vec3(const aiVector3D& v) {
     return {v.x, v.y, v.z};
@@ -83,9 +87,8 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
         camera->far_clip  = _camera->mClipPlaneFar;
         camera->fov       = _camera->mHorizontalFOV;
         camera->eye       = get_vec3(_camera->mPosition);
-        camera->look_dir  = get_vec3(_camera->mUp);
-        camera->up        = get_vec3(_camera->mLookAt);
-        camera->Update();
+        camera->look_dir  = get_vec3(_camera->mLookAt);
+        camera->up        = get_vec3(_camera->mUp);
 
         auto&& [result, success] = camera_name_map.emplace(_camera->mName.C_Str(), camera);
         if (!success)
@@ -471,6 +474,9 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
     };
     scene.root = convert(ai_scene->mRootNode);
     if (scene.camera_nodes.empty()) {
+        auto camera_node    = scene.camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
+        camera_node->object = scene.cameras.emplace_back(std::make_shared<Camera>());
+        camera_node->Attach(scene.root);
     }
     scene.curr_camera = scene.camera_nodes.front();
 

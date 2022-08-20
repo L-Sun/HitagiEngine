@@ -42,11 +42,11 @@ TEST(ImageParserTest, Bmp) {
 }
 
 TEST(SceneParserTest, Fbx) {
-    Scene scene("FbxTest");
-    asset_manager->ImportScene(scene, "assets/test/test.fbx");
-    EXPECT_EQ(scene.cameras.size(), 1);
-    EXPECT_EQ(scene.meshes.size(), 1);
-    EXPECT_EQ(scene.lights.size(), 1);
+    auto scene = asset_manager->ImportScene("assets/test/test.fbx");
+    EXPECT_TRUE(scene.has_value());
+    EXPECT_EQ(scene->cameras.size(), 1);
+    EXPECT_EQ(scene->meshes.size(), 1);
+    EXPECT_EQ(scene->lights.size(), 1);
 }
 
 TEST(MaterialParserTest, Inner) {
