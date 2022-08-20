@@ -9,7 +9,7 @@
 using namespace hitagi;
 
 static void BM_ECS(benchmark::State& state) {
-    auto world = ecs::World("Benchmark");
+    auto world = ecs::World(fmt::format("Benchmark-{}", state.thread_index()));
 
     struct Moveable {
         math::vec3f position;
@@ -25,7 +25,7 @@ static void BM_ECS(benchmark::State& state) {
         }
     };
 
-    world.RegisterSystem<Mover>();
+    world.RegisterSystem<Mover>("Mover");
 
     world.CreateEntities<Moveable>(1000000);
 

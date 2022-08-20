@@ -8,10 +8,11 @@
 #include <string>
 #include <vector>
 #include <sstream>
+
 using namespace hitagi;
 using namespace hitagi::math;
 
-std::vector<std::string> Tokenizer(std::stringstream& ss);
+std::pmr::vector<std::pmr::string> Tokenizer(std::stringstream& ss);
 
 std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float metric_scale) {
     std::stringstream ss;
@@ -24,11 +25,11 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float met
     std::shared_ptr<BoneNode> root;
     std::shared_ptr<BoneNode> current_node;
 
-    std::vector<std::pair<decltype(root), std::vector<Channel>>> joints_channels;
+    std::pmr::vector<std::pair<decltype(root), std::pmr::vector<Channel>>> joints_channels;
 
-    std::vector<decltype(root)> stack;
-    size_t                      pos            = 0;
-    size_t                      total_channels = 0;
+    std::pmr::vector<decltype(root)> stack;
+    size_t                           pos            = 0;
+    size_t                           total_channels = 0;
     for (; pos < tokens.size(); pos++) {
         if (tokens[pos] == "HIERARCHY") {
             continue;
@@ -60,18 +61,18 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float met
             // current_node->parent = parent;
         } else if (tokens[pos] == "OFFSET") {
             // ! Our engine is Z up, but bvh is Y up, so we need change the axis order here
-            float x = std::stof(tokens[++pos]) * metric_scale;
-            float z = std::stof(tokens[++pos]) * metric_scale;
-            float y = -std::stof(tokens[++pos]) * metric_scale;
+            float x = std::stof(tokens[++pos].c_str()) * metric_scale;
+            float z = std::stof(tokens[++pos].c_str()) * metric_scale;
+            float y = -std::stof(tokens[++pos].c_str()) * metric_scale;
 
             current_node->offset    = hitagi::math::vec3f{x, y, z};
-            current_node->transform = translate(current_node->transform, current_node->offset);
+            current_node->transform = translate(current_node->offset) * current_node->transform;
         }
         // ! the means of CHANNELS of .bvh format is not same as our engine
         else if (tokens[pos] == "CHANNELS") {
-            size_t channels_count = std::stoi(tokens[pos + 1]);
+            size_t channels_count = std::stoi(tokens[pos + 1].c_str());
             total_channels += channels_count;
-            auto& [_, channels] = joints_channels.emplace_back(current_node, std::vector<Channel>{});
+            auto& [_, channels] = joints_channels.emplace_back(current_node, std::pmr::vector<Channel>{});
 
             for (size_t i = 0; i < channels_count; i++) {
                 channels.emplace_back(channel_map.at(tokens[pos + 2 + i]));
@@ -95,9 +96,9 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float met
     double frame_time = 0;
     while (pos < tokens.size()) {
         if (tokens[pos] == "Frames") {
-            num_frames = std::stoi(tokens[pos + 1]);
+            num_frames = std::stoi(tokens[pos + 1].c_str());
         } else if (tokens[pos] == "Frame Time") {
-            frame_time = std::stod(tokens[pos + 1]);
+            frame_time = std::stod(tokens[pos + 1].c_str());
             pos += 2;
             break;
         }
@@ -117,18 +118,18 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float met
     anima.frame_rate = (1.0 / frame_time);
 
     for (size_t i = 0; i < num_frames; i++) {
-        anima.frames.emplace_back(std::vector<TRS>(anima.joints.size()));
+        anima.frames.emplace_back(std::pmr::vector<TRS>(anima.joints.size()));
 
         for (auto&& [joint, channels] : joints_channels) {
             vec3f translation = joint->offset;
-            mat4f rotation(1.0f);
+            mat4f rotation    = mat4f::identity();
 
             for (auto channel : channels) {
                 if (pos == tokens.size()) {
                     fmt::print("the parsing of animation is terminated early!");
                     return std::nullopt;
                 }
-                float value = std::stof(tokens[pos]);
+                float value = std::stof(tokens[pos].c_str());
                 switch (channel) {
                     // ! Our engine is Z up, but bvh is Y up, so we need change the axis order here
                     case Channel::Xposition:
@@ -142,13 +143,13 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float met
                         break;
                     // ! Also we unkown the rotation order, so use axis rotation here
                     case Channel::Xrotation:
-                        rotation = rotation * rotate_x(mat4f(1.0f), deg2rad(value));
+                        rotation = rotation * rotate_x(deg2rad(value));
                         break;
                     case Channel::Yrotation:
-                        rotation = rotation * rotate_z(mat4f(1.0f), deg2rad(value));
+                        rotation = rotation * rotate_z(deg2rad(value));
                         break;
                     case Channel::Zrotation:
-                        rotation = rotation * rotate_y(mat4f(1.0f), deg2rad(360.0f - value));
+                        rotation = rotation * rotate_y(deg2rad(360.0f - value));
                         break;
                     default:
                         break;
@@ -174,9 +175,9 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float met
     return anima;
 }
 
-std::vector<std::string> Tokenizer(std::stringstream& ss) {
-    std::vector<std::string> result;
-    std::string              token;
+std::pmr::vector<std::pmr::string> Tokenizer(std::stringstream& ss) {
+    std::pmr::vector<std::pmr::string> result;
+    std::pmr::string                   token;
 
     while (ss >> token) {
         if (token == "End") {

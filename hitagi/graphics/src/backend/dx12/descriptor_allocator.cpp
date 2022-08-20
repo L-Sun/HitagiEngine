@@ -69,7 +69,7 @@ void DescriptorPage::DiscardDescriptor(Descriptor& descriptor) {
     m_AvailableDescriptors.emplace(offset, m_SearchMap.emplace(size, offset));
 }
 
-std::pmr::vector<std::shared_ptr<Descriptor>> DescriptorPage::Allocate(std::size_t num_descriptors, Descriptor::Type type) {
+std::pmr::vector<Descriptor> DescriptorPage::Allocate(std::size_t num_descriptors, Descriptor::Type type) {
     assert(num_descriptors != 0);
     auto iter = m_SearchMap.lower_bound(num_descriptors);
     if (iter == m_SearchMap.end()) return {};
@@ -80,12 +80,12 @@ std::pmr::vector<std::shared_ptr<Descriptor>> DescriptorPage::Allocate(std::size
     auto        block      = m_AvailableDescriptors.extract(offset);
 
     // Now, we have the block info, offset and size, and then generate descriptors from the back of block
-    std::pmr::vector<std::shared_ptr<Descriptor>> result;
-    CD3DX12_CPU_DESCRIPTOR_HANDLE                 handle;
+    std::pmr::vector<Descriptor>  result;
+    CD3DX12_CPU_DESCRIPTOR_HANDLE handle;
     handle.InitOffsetted(m_Handle, offset, m_IncrementSize);
 
     for (std::size_t i = 0; i < num_descriptors; i++) {
-        result.emplace_back(std::make_shared<Descriptor>(handle, shared_from_this(), type));
+        result.emplace_back(Descriptor(handle, shared_from_this(), type));
         handle.Offset(m_IncrementSize);
     }
 
@@ -109,12 +109,12 @@ void DescriptorAllocator::Initialize(ID3D12Device* device) {
     m_Device = device;
 }
 
-std::shared_ptr<Descriptor> DescriptorAllocator::Allocate(Descriptor::Type type) {
+Descriptor DescriptorAllocator::Allocate(Descriptor::Type type) {
     auto ret = Allocate(1, type);
     return std::move(ret[0]);
 }
 
-std::pmr::vector<std::shared_ptr<Descriptor>> DescriptorAllocator::Allocate(std::size_t num_descriptors, Descriptor::Type type) {
+std::pmr::vector<Descriptor> DescriptorAllocator::Allocate(std::size_t num_descriptors, Descriptor::Type type) {
     switch (type) {
         case Descriptor::Type::CBV:
         case Descriptor::Type::SRV:
@@ -137,7 +137,7 @@ std::pmr::vector<std::shared_ptr<Descriptor>> DescriptorAllocator::Allocate(std:
     // and create large page
     m_NumDescriptorPerPage = std::max(m_NumDescriptorPerPage, num_descriptors);
 
-    std::pmr::vector<std::shared_ptr<Descriptor>> ret;
+    std::pmr::vector<Descriptor> ret;
     // Search page that have enough size to allocate descriptors.
     for (auto&& page : m_PagePool) {
         ret = page->Allocate(num_descriptors, type);

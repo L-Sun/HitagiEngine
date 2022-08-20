@@ -11,11 +11,6 @@
 
 // TODO change when integrate Vulkan
 namespace hitagi::graphics::backend::DX12 {
-inline const size_t align(size_t x, size_t a) {
-    assert(((a - 1) & a) == 0 && "alignment is not a power of two");
-    return (x + a - 1) & ~(a - 1);
-}
-
 constexpr auto range_type_to_descriptor_type(D3D12_DESCRIPTOR_RANGE_TYPE type) {
     switch (type) {
         case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:

@@ -83,7 +83,7 @@ GraphicsPSO& GraphicsPSO::SetShader(const std::shared_ptr<resource::Shader>& sha
 }
 
 GraphicsPSO& GraphicsPSO::SetRenderTargetFormats(
-    const std::vector<DXGI_FORMAT>& rtv_formats, DXGI_FORMAT dsv_format, unsigned msaa_count, unsigned msaa_quality) {
+    const std::pmr::vector<DXGI_FORMAT>& rtv_formats, DXGI_FORMAT dsv_format, unsigned msaa_count, unsigned msaa_quality) {
     for (int i = 0; i < rtv_formats.size(); i++) m_PSODesc.RTVFormats[i] = rtv_formats[i];
     for (int i = rtv_formats.size(); i < m_PSODesc.NumRenderTargets; i++) m_PSODesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
     m_PSODesc.NumRenderTargets   = rtv_formats.size();

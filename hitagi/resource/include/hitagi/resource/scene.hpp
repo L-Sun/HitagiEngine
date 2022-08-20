@@ -4,25 +4,34 @@
 #include <hitagi/resource/camera.hpp>
 #include <hitagi/resource/light.hpp>
 #include <hitagi/resource/mesh.hpp>
-#include <hitagi/resource/renderable.hpp>
-#include <hitagi/ecs/world.hpp>
+#include <hitagi/resource/armature.hpp>
+#include <hitagi/resource/scene_node.hpp>
+
+#include <crossguid/guid.hpp>
 
 namespace hitagi::resource {
 struct Scene {
-    Scene(std::string_view name = "");
-    std::pmr::vector<Renderable> GetRenderables() const;
+    template <typename T>
+    using SharedPtrVector = std::pmr::vector<std::shared_ptr<T>>;
 
-    Camera&       GetCurrentCamera();
-    const Camera& GetCurrentCamera() const;
+    Scene(std::string_view name = "");
 
     std::pmr::string name;
-    ecs::World       world;
 
-    std::pmr::vector<ecs::Entity> geometries;
-    std::pmr::vector<ecs::Entity> cameras;
-    std::pmr::vector<ecs::Entity> lights;
+    std::shared_ptr<SceneNode>    root;
+    SharedPtrVector<MeshNode>     instance_nodes;
+    SharedPtrVector<CameraNode>   camera_nodes;
+    SharedPtrVector<LightNode>    light_nodes;
+    SharedPtrVector<ArmatureNode> armature_nodes;
 
-    std::size_t curr_camera_index = 0;
+    std::shared_ptr<CameraNode> curr_camera;
+
+    // TODO move this resource to asset manager so that we can reuse these in different scene
+    SharedPtrVector<Mesh>     meshes;
+    SharedPtrVector<Camera>   cameras;
+    SharedPtrVector<Light>    lights;
+    SharedPtrVector<Armature> armatures;
+    SharedPtrVector<Material> materials;
 };
 
 }  // namespace hitagi::resource

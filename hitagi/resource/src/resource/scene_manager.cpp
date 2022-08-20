@@ -31,26 +31,34 @@ void SceneManager::Finalize() {
 }
 
 void SceneManager::Tick() {
-    graphics_manager->Draw(CurrentScene());
+    for (auto& scene : m_Scenes)
+        scene.root->Update();
+
+    graphics_manager->DrawScene(CurrentScene());
 }
 
 Scene& SceneManager::CurrentScene() {
-    return m_Scenes[m_CurrentScene];
+    return m_Scenes.at(m_CurrentScene);
 }
 
 Scene& SceneManager::CreateEmptyScene(std::string_view name) {
     auto& scene = m_Scenes.emplace_back(Scene{name});
 
-    scene.cameras.emplace_back(scene.world.CreateEntity<Camera, Transform, Hierarchy>());
-    scene.lights.emplace_back(scene.world.CreateEntity<Light, Transform, Hierarchy>());
-    scene.curr_camera_index = 0;
+    auto camera_node    = scene.camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
+    camera_node->object = scene.cameras.emplace_back(std::make_shared<Camera>());
+    camera_node->Attach(scene.root);
+    scene.curr_camera = camera_node;
+
+    auto light_node    = scene.light_nodes.emplace_back(std::make_shared<LightNode>("Default Light"));
+    light_node->object = scene.lights.emplace_back(std::make_shared<Light>());
+    light_node->Attach(scene.root);
 
     return scene;
 }
 
 std::size_t SceneManager::AddScene(Scene scene) {
     m_Scenes.emplace_back(std::move(scene));
-    return m_Scenes.size();
+    return m_Scenes.size() - 1;
 }
 
 std::size_t SceneManager::GetNumScene() const noexcept { return m_Scenes.size(); }
@@ -58,7 +66,6 @@ Scene&      SceneManager::GetScene(std::size_t index) { return m_Scenes.at(index
 
 void SceneManager::SwitchScene(std::size_t index) {
     if (index >= m_Scenes.size()) {
-        m_Logger->warn("You are setting a exsist scene!");
         return;
     }
     m_CurrentScene = index;
@@ -81,10 +88,6 @@ void SceneManager::DeleteScenes(std::pmr::vector<std::size_t> index_array) {
         return false;
     });
     m_Scenes.erase(iter, m_Scenes.end());
-}
-
-void SceneManager::SetCamera(ecs::Entity camera) {
-    m_CurrentCamera = camera;
 }
 
 }  // namespace hitagi::resource

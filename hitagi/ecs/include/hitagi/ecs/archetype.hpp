@@ -8,6 +8,8 @@
 #include <typeindex>
 #include <span>
 #include <cassert>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace hitagi::ecs {
 using ArchetypeId = std::size_t;
@@ -27,10 +29,7 @@ requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  
 
 class IArchetype {
 protected:
-    struct ComponentInfo {
-        std::type_index type;
-        std::size_t     size;
-    };
+    using ComponentInfo = std::type_index;
 
 public:
     IArchetype() = default;
@@ -62,7 +61,7 @@ protected:
 
     virtual std::size_t GetEntityIndex(const Entity& entity) const = 0;
 
-    std::pmr::vector<ComponentInfo> m_MetaInfo;
+    std::pmr::unordered_map<ComponentInfo, std::size_t> m_MetaInfo;
 };
 
 template <typename... Components>
@@ -73,20 +72,10 @@ public:
     static std::shared_ptr<IArchetype> Create() {
         auto result = std::make_shared<Archetype>();
 
-        // entity info also is a component
-        result->m_MetaInfo.emplace_back(
-            ComponentInfo{
-                .type = std::type_index(typeid(Entity)),
-                .size = sizeof(Entity),
-            });
+        result->m_MetaInfo.emplace(typeid(std::remove_cvref_t<Entity>), result->m_MetaInfo.size());
 
         [&]<std::size_t... I>(std::index_sequence<I...>) {
-            (result->m_MetaInfo.emplace_back(
-                 ComponentInfo{
-                     .type = std::type_index(typeid(std::remove_cvref_t<Components>)),
-                     .size = sizeof(Components),
-                 }),
-             ...);
+            (result->m_MetaInfo.emplace(typeid(std::remove_cvref_t<Components>), result->m_MetaInfo.size()), ...);
         }
         (std::index_sequence_for<Components...>{});
 
@@ -95,26 +84,23 @@ public:
 
     ArchetypeId Id() const final { return get_archetype_id<Components...>(); }
 
-    std::size_t NumEntities() const final { return m_Data.size(); }
+    inline std::size_t NumEntities() const final { return m_Data.size(); }
 
     void CreateInstances(const std::pmr::vector<Entity>& entities) final;
     void DeleteInstance(const Entity& entity) final;
 
+    inline std::size_t GetEntityIndex(const Entity& entity) const final { return m_IndexMap.at(entity); }
+
 private:
     std::tuple<void*, std::size_t> GetComponentRawData(const std::size_t index) final;
-    std::size_t                    GetEntityIndex(const Entity& entity) const final;
 
-    utils::SoA<Entity, Components...> m_Data;
+    std::pmr::unordered_map<Entity, std::size_t> m_IndexMap;
+    utils::SoA<Entity, Components...>            m_Data;
 };
 
 template <typename Component>
 bool IArchetype::HasComponent() const {
-    auto iter = std::find_if(
-        m_MetaInfo.begin(), m_MetaInfo.end(),
-        [&](const ComponentInfo& info) {
-            return info.type == std::type_index(typeid(std::remove_cvref_t<Component>));
-        });
-    return iter != m_MetaInfo.end();
+    return m_MetaInfo.contains(typeid(std::remove_cvref_t<Component>));
 }
 
 template <typename... Components>
@@ -124,7 +110,6 @@ bool IArchetype::HasComponents() const {
 
 template <typename Component>
 auto IArchetype::GetComponentArray() -> std::span<std::remove_cvref_t<Component>> {
-    assert(HasComponent<Component>());
     auto [pointer, size] = GetComponentRawData(GetComponentIndex<Component>());
 
     using _Component = std::remove_cvref_t<Component>;
@@ -143,14 +128,7 @@ auto IArchetype::GetComponent(const Entity& entity) -> std::optional<std::refere
 
 template <typename Component>
 std::size_t IArchetype::GetComponentIndex() const {
-    assert(HasComponent<Component>());
-
-    auto iter = std::find_if(
-        m_MetaInfo.begin(), m_MetaInfo.end(),
-        [&](const ComponentInfo& info) {
-            return info.type == std::type_index(typeid(Component));
-        });
-    return std::distance(m_MetaInfo.begin(), iter);
+    return m_MetaInfo.at(typeid(std::remove_cvref_t<Component>));
 }
 
 template <typename... Components>
@@ -172,31 +150,26 @@ template <typename... Components>
 requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
     void Archetype<Components...>::CreateInstances(const std::pmr::vector<Entity>& entities) {
     m_Data.reserve(m_Data.size() + entities.size());
-    for (const auto& entity : entities)
+    for (const auto& entity : entities) {
+        m_IndexMap.emplace(entity, m_Data.size());
         m_Data.emplace_back(Entity{entity.id}, Components{}...);
+    }
 }
 
 template <typename... Components>
 requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)  //
     void Archetype<Components...>::DeleteInstance(const Entity& entity) {
-    std::size_t index = GetEntityIndex(entity);
+    std::size_t index = m_IndexMap.at(entity);
 
+    // This is a reference
     auto a = m_Data.at(index);
     auto b = m_Data.back();
 
+    m_IndexMap.at(std::get<0>(b)) = index;
+
     std::swap(a, b);
     m_Data.pop_back();
+    m_IndexMap.erase(entity);
 }
 
-template <typename... Components>
-requires utils::UniqueTypes<Components...> &&(utils::NoCVRef<Components>&&...)
-    std::size_t Archetype<Components...>::GetEntityIndex(const Entity& entity) const {
-    auto iter = std::find_if(
-        m_Data.begin(), m_Data.end(),
-        [&](const auto& item) {
-            return std::get<0>(item) == entity;
-        });
-
-    return std::distance(m_Data.begin(), iter);
-}
 }  // namespace hitagi::ecs

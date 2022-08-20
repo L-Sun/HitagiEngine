@@ -4,6 +4,7 @@
 #include <hitagi/graphics/enums.hpp>
 #include <hitagi/graphics/frame.hpp>
 #include <hitagi/resource/scene.hpp>
+#include <hitagi/graphics/draw_data.hpp>
 
 namespace hitagi::graphics {
 class GraphicsManager : public RuntimeModule {
@@ -12,31 +13,33 @@ public:
     void Finalize() final;
     void Tick() final;
 
-    void Draw(const resource::Scene& scene);
-    void AppendRenderables(std::pmr::vector<resource::Renderable> renderables);
+    void DrawScene(const resource::Scene& scene);
+    void DrawDebug(const DebugDrawData& debug_data);
+    void DrawGui(const GuiDrawData& gui_data);
 
-    PipelineState& GetPipelineState(const std::shared_ptr<resource::Material>& material);
+    PipelineState& GetPipelineState(const resource::Material* material);
+
+    struct {
+        PipelineState gui;
+        PipelineState debug;
+    } builtin_pipeline;
 
 protected:
     // TODO change the parameter to View, if multiple view port is finished
-    void   OnSizeChanged();
-    Frame* GetBcakFrameForRendering();
-
-    void Render();
+    void OnSizeChanged();
+    void InitBuiltInPipeline();
 
     std::unique_ptr<DeviceAPI> m_Device;
 
-    static constexpr uint8_t          sm_SwapChianSize    = 2;
+    static constexpr std::uint8_t     sm_SwapChianSize    = 3;
     static constexpr resource::Format sm_BackBufferFormat = resource::Format::R8G8B8A8_UNORM;
     int                               m_CurrBackBuffer    = 0;
-
-    const resource::Scene* m_CurrScene = nullptr;
 
     // TODO multiple RenderTarget is need if the application has multiple view port
     // if the class View is impletement, RenderTarget will be a member variable of View
     std::array<std::unique_ptr<Frame>, sm_SwapChianSize> m_Frames;
 
-    std::pmr::unordered_map<std::shared_ptr<resource::Material>, PipelineState> m_Pipelines;
+    std::pmr::unordered_map<const resource::Material*, PipelineState> m_Pipelines;
 };
 
 }  // namespace hitagi::graphics

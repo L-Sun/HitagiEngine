@@ -1,12 +1,15 @@
 #include <hitagi/resource/transform.hpp>
+#include <hitagi/resource/camera.hpp>
+#include <hitagi/resource/scene.hpp>
+
+#include <memory>
+
+using namespace hitagi::math;
 
 namespace hitagi::resource {
-Transform::Transform(const math::mat4f& local_matrix) {
-    auto&& [translation, rotation, scaling] = math::decompose(local_matrix);
-
-    local_translation = translation;
-    local_rotation    = rotation;
-    local_scaling     = scaling;
+Transform::Transform(const math::mat4f& local_matrix)
+    : local_translation(std::get<0>(decompose(local_matrix))),
+      local_rotation(std::get<1>(decompose(local_matrix))),
+      local_scaling(std::get<2>(decompose(local_matrix))) {
 }
-
 }  // namespace hitagi::resource

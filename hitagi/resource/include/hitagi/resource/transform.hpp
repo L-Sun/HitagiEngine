@@ -1,6 +1,7 @@
 #pragma once
 #include <hitagi/math/transform.hpp>
-#include <hitagi/ecs/entity.hpp>
+
+#include <unordered_set>
 
 namespace hitagi::resource {
 
@@ -14,12 +15,9 @@ struct Transform {
 
     math::mat4f world_matrix = math::mat4f::identity();
 
-    inline math::vec3f GetPosition() const { return std::get<0>(decompose(world_matrix)); }
-    inline math::quatf GetRotation() const { return std::get<1>(decompose(world_matrix)); }
-    inline math::vec3f GetScale() const { return std::get<2>(decompose(world_matrix)); }
-};
-
-struct Hierarchy {
-    ecs::Entity parentID = ecs::Entity::InvalidEntity();
+    inline math::mat4f GetLocalMatrix() const { return math::translate(local_translation) * math::rotate(local_rotation) * math::scale(local_scaling); }
+    inline math::vec3f GetPosition() const { return math::get_translation(world_matrix); }
+    inline math::quatf GetRotation() const { return math::get_rotation(world_matrix); }
+    inline math::vec3f GetScale() const { return math::get_scaling(world_matrix); }
 };
 }  // namespace hitagi::resource

@@ -28,12 +28,12 @@ bool Engine::Initialize() {
     file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>());
     config_manager   = add_inner_module(std::make_unique<core::ConfigManager>());
     app              = add_inner_module(Application::CreateApp());
-    asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>());
-    scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>());
-    input_manager    = add_inner_module(std::make_unique<hid::InputManager>());
-    gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>());
-    debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>());
     graphics_manager = add_inner_module(std::make_unique<graphics::GraphicsManager>());
+    asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>());
+    input_manager    = add_inner_module(std::make_unique<hid::InputManager>());
+    scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>());
+    debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>());
+    gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>());
 
     std::pmr::list<RuntimeModule*> intialized_modules = {};
     for (auto& inner_module : m_InnerModules) {

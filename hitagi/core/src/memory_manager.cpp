@@ -1,4 +1,5 @@
 #include <hitagi/core/memory_manager.hpp>
+#include <hitagi/utils/utils.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -73,19 +74,22 @@ auto MemoryPool::Pool::deallocate(Block* block) -> void {
     free_list   = block;
 }
 
-MemoryPool::MemoryPool() : m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})) {}
+MemoryPool::MemoryPool() : m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})) {
+    std::size_t block_index = 0;
+    for (std::size_t i = 0; i < pool_map.size(); i++) {
+        if (i > block_size[block_index]) block_index++;
+        pool_map[i] = block_index;
+    }
+    assert(block_index == block_size.size() - 1);
+}
 
 auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrapper<Pool>> {
-    auto        iter  = std::lower_bound(std::begin(block_size), std::end(block_size), bytes);
-    std::size_t index = std::distance(std::begin(block_size), iter);
-    if (index == m_Pools.size()) {
-        return std::nullopt;
-    }
-    return m_Pools.at(index);
+    if (bytes > block_size.back()) return std::nullopt;
+    return m_Pools.at(pool_map[bytes]);
 }
 
 auto MemoryPool::do_allocate(std::size_t bytes, std::size_t alignment) -> void* {
-    if (auto pool = GetPool(align(bytes, alignment)); pool.has_value()) {
+    if (auto pool = GetPool(utils::align(bytes, alignment)); pool.has_value()) {
         auto result = pool->get().allocate();
         return result;
     }
@@ -94,7 +98,7 @@ auto MemoryPool::do_allocate(std::size_t bytes, std::size_t alignment) -> void* 
 }
 
 auto MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment) -> void {
-    if (auto pool = GetPool(align(bytes, alignment)); pool.has_value())
+    if (auto pool = GetPool(utils::align(bytes, alignment)); pool.has_value())
         return pool->get().deallocate(reinterpret_cast<Block*>(p));
 
     operator delete[](reinterpret_cast<std::byte*>(p), std::align_val_t{alignment});

@@ -3,8 +3,13 @@
 using namespace hitagi::math;
 
 namespace hitagi::resource {
-void Camera::Update() {
-    m_View       = look_at(eye, look_dir, up);
+void Camera::Update(const Transform& transform) {
+    auto [t, r, s]        = decompose(transform.world_matrix);
+    vec3f global_eye      = (translate(t) * vec4f(eye, 1)).xyz;
+    vec3f global_look_dir = (rotate(r) * vec4f(look_dir, 0)).xyz;
+    vec3f global_up       = (rotate(r) * vec4f(up, 0)).xyz;
+
+    m_View       = look_at(global_eye, global_look_dir, global_up);
     m_Projection = perspective(fov, aspect, near_clip, far_clip);
     m_PV         = m_Projection * m_View;
 
@@ -13,12 +18,11 @@ void Camera::Update() {
     m_InvPV         = inverse(m_PV);
 }
 
-void Camera::ApplyTransform(const Transform& transform) {
-    eye      = (transform.world_matrix * vec4f(1, 1, 1, 1)).xyz;
-    look_dir = normalize(transform.world_matrix * vec4f(-1, -1, -1, 0)).xyz;
-    up       = normalize(transform.world_matrix * vec4f(0, 0, 1, 0)).xyz;
-
-    m_View = look_at(eye, look_dir, up);
+void CameraNode::Update() {
+    SceneNode::Update();
+    if (object) {
+        object->Update(transform);
+    }
 }
 
 }  // namespace hitagi::resource

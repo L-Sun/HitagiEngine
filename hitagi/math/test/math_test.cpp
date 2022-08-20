@@ -94,17 +94,20 @@ TEST(MatrixTest, ScalarProduct) {
     matrix_eq(m3 / 2, mat3f{{1, 1, 1}, {1, 1, 1}, {1, 1, 1}});
     matrix_eq(m3 /= 2, mat3f{{1, 1, 1}, {1, 1, 1}, {1, 1, 1}});
 }
+
 TEST(MatrixTest, MatAddSubtract) {
     mat3f m1{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
     matrix_eq(m1 + m1, 2 * m1);
     matrix_eq(m1 - m1, mat3f::zero());
 }
+
 TEST(MatrixTest, MatProducts) {
     mat3f l = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
     mat3f r = {{9, 8, 7}, {6, 5, 4}, {3, 2, 1}};
     matrix_eq(l * r, mat3f{{30, 24, 18}, {84, 69, 54}, {138, 114, 90}});
     matrix_eq(r * l, mat3f{{90, 114, 138}, {54, 69, 84}, {18, 24, 30}});
 }
+
 TEST(MatrixTest, VecProducts) {
     mat3f l = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};
     vector_eq(l * vec3f(1, 2, 3), vec3f(14, 32, 50));
@@ -116,6 +119,7 @@ TEST(TransformTest, TranslateTest) {
 }
 
 TEST(TransformTest, ScaleTest) {
+    vector_eq(scale(3.0f) * vec4f(1, 2, 3, 1), vec4f(3, 6, 9, 1));
     vector_eq(scale(vec3f(1.0f, 2.0f, 3.0f)) * vec4f(1, 2, 3, 1), vec4f(1, 4, 9, 1));
 }
 

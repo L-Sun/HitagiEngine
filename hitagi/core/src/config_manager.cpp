@@ -15,14 +15,16 @@ namespace hitagi::core {
 bool ConfigManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("ConfigManager");
     m_Logger->info("Initialize...");
-    if (!LoadConfig("hitagi.json"))
-        return false;
+    if (!LoadConfig("hitagi.json")) {
+        auto new_config = std::make_shared<AppConfig>();
+    }
     return true;
 }
 
 void ConfigManager::Tick() {}
 
 void ConfigManager::Finalize() {
+    SaveConfig("hitagi.json");
     m_Config = nullptr;
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
@@ -51,6 +53,20 @@ bool ConfigManager::LoadConfig(const std::filesystem::path& path) {
     }
 
     return true;
+}
+
+void ConfigManager::SaveConfig(const std::filesystem::path& path) {
+    m_Logger->info("save config to file: {}", path.string());
+
+    auto json = nlohmann::json();
+
+    json["title"]   = m_Config->title;
+    json["version"] = m_Config->version;
+    json["width"]   = m_Config->width;
+    json["height"]  = m_Config->height;
+
+    auto content = json.dump();
+    file_io_manager->SaveBuffer(core::Buffer(content.size(), reinterpret_cast<const std::byte*>(content.data())), path);
 }
 
 AppConfig& ConfigManager::GetConfig() {

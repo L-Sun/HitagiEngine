@@ -11,6 +11,11 @@ constexpr T deg2rad(T angle) {
 }
 
 template <typename T>
+constexpr T rad2deg(T radians) {
+    return radians * 180.0 * std::numbers::inv_pi;
+}
+
+template <typename T>
 constexpr Matrix<T, 4> translate(const Vector<T, 3>& v) {
     // clang-format off
     return {
@@ -121,7 +126,14 @@ constexpr Matrix<T, 4> rotate(const Quaternion<T>& quatv) {
 }
 template <typename T>
 constexpr Matrix<T, 4> scale(T s) {
-    return s * Matrix<T, 4>::identity();
+    // clang-format off
+    return {
+        { s, 0, 0, 0},
+        { 0, s, 0, 0},
+        { 0, 0, s, 0},
+        { 0, 0, 0, 1},
+    };
+    // clang-format on
 }
 template <typename T>
 constexpr Matrix<T, 4> scale(const Vector<T, 3>& v) {
@@ -197,7 +209,7 @@ constexpr Vector<T, 3> get_translation(const Matrix<T, 4>& mat) {
 }
 
 template <typename T>
-Vector<T, 3> get_scaling(const Matrix<T, 4>& mat) {
+constexpr Vector<T, 3> get_scaling(const Matrix<T, 4>& mat) {
     return {
         Vector<T, 3>(mat.col(0).xyz).norm(),
         Vector<T, 3>(mat.col(1).xyz).norm(),
@@ -205,11 +217,9 @@ Vector<T, 3> get_scaling(const Matrix<T, 4>& mat) {
     };
 }
 
-// Return translation, rotation (ZYX), scaling
 template <typename T>
-std::tuple<Vector<T, 3>, Quaternion<T>, Vector<T, 3>> decompose(const Matrix<T, 4>& transform) {
-    Vector<T, 3> translation = get_translation(transform);
-    Vector<T, 3> scaling     = get_scaling(transform);
+constexpr Quaternion<T> get_rotation(const Matrix<T, 4>& transform) {
+    Vector<T, 3> scaling = get_scaling(transform);
     Vector<T, 3> rotation{};
 
     if (determinant(transform) < 0) scaling = -scaling;
@@ -234,11 +244,18 @@ std::tuple<Vector<T, 3>, Quaternion<T>, Vector<T, 3>> decompose(const Matrix<T, 
         rotation.x = static_cast<T>(0);
         rotation.z = std::atan2(-m[1][0], m[0][0]);
     }
-    return {translation, euler_to_quaternion(rotation), scaling};
+
+    return euler_to_quaternion(rotation);
+}
+
+// Return translation, rotation, scaling
+template <typename T>
+constexpr std::tuple<Vector<T, 3>, Quaternion<T>, Vector<T, 3>> decompose(const Matrix<T, 4>& transform) {
+    return {get_translation(transform), get_rotation(transform), get_scaling(transform)};
 }
 
 template <typename T>
-std::tuple<Vector<T, 3>, T> quaternion_to_axis_angle(const Quaternion<T>& quat) {
+constexpr std::tuple<Vector<T, 3>, T> quaternion_to_axis_angle(const Quaternion<T>& quat) {
     T angle      = 2 * std::acos(quat.w);
     T inv_factor = static_cast<T>(1) / std::sqrt(static_cast<T>(1) - quat.w * quat.w);
 
@@ -246,7 +263,7 @@ std::tuple<Vector<T, 3>, T> quaternion_to_axis_angle(const Quaternion<T>& quat) 
 }
 
 template <typename T>
-Quaternion<T> axis_angle_to_quternion(const Vector<T, 3>& axis, T angle) {
+constexpr Quaternion<T> axis_angle_to_quternion(const Vector<T, 3>& axis, T angle) {
     auto a = normalize(axis);
     return {
         a.x * std::sin(static_cast<T>(0.5) * angle),

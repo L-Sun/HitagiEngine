@@ -11,7 +11,7 @@ bool AnimationManager::Initialize() {
     return true;
 }
 void AnimationManager::Tick() {
-    std::vector<decltype(m_PlayQueue)::key_type> end_animations;
+    std::pmr::vector<decltype(m_PlayQueue)::key_type> end_animations;
     for (auto& animation : m_PlayQueue) {
         if (animation->Animate()) {
             end_animations.emplace_back(animation);

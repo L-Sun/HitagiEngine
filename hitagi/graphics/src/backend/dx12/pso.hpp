@@ -21,7 +21,7 @@ public:
 protected:
     void CreateRootSignature(const std::shared_ptr<resource::Shader>& shader);
 
-    std::string                                      m_Name;
+    std::pmr::string                                 m_Name;
     ID3D12Device*                                    m_Device;
     ComPtr<ID3D12VersionedRootSignatureDeserializer> m_RootSignatureDeserializer;
     ComPtr<ID3D12RootSignature>                      m_RootSignature;
@@ -40,7 +40,7 @@ public:
     GraphicsPSO& SetDepthStencilState(const D3D12_DEPTH_STENCIL_DESC& desc);
     GraphicsPSO& SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE type);
     GraphicsPSO& SetSampleMask(unsigned mask);
-    GraphicsPSO& SetRenderTargetFormats(const std::vector<DXGI_FORMAT>& rtv_formats, DXGI_FORMAT dsv_format, unsigned msaa_count = 1, unsigned msaa_quality = 0);
+    GraphicsPSO& SetRenderTargetFormats(const std::pmr::vector<DXGI_FORMAT>& rtv_formats, DXGI_FORMAT dsv_format, unsigned msaa_count = 1, unsigned msaa_quality = 0);
 
     void Finalize();
 

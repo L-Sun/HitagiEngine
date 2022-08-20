@@ -32,8 +32,8 @@ TEST(FileIoManagerTest, ReadFile) {
 
     auto path = create_temp_file("ReadFile", content);
 
-    auto        buffer = file_io_manager->SyncOpenAndReadBinary(path);
-    std::string result(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
+    auto             buffer = file_io_manager->SyncOpenAndReadBinary(path);
+    std::pmr::string result(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
 
     EXPECT_STREQ(content, result.c_str());
 
@@ -41,14 +41,14 @@ TEST(FileIoManagerTest, ReadFile) {
 }
 
 TEST(FileIoManagerTest, SaveFile) {
-    std::string  content = "Hello world!";
-    core::Buffer buffer(content.data(), content.size());
-    auto         path = std::filesystem::temp_directory_path() / "SaveFile.tmp";
+    std::pmr::string content = "Hello world!";
+    core::Buffer     buffer(content.size(), reinterpret_cast<const std::byte*>(content.data()));
+    auto             path = std::filesystem::temp_directory_path() / "SaveFile.tmp";
 
     file_io_manager->SaveBuffer(buffer, path);
     buffer = file_io_manager->SyncOpenAndReadBinary(path);
 
-    EXPECT_STREQ(content.c_str(), std::string(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize()).c_str());
+    EXPECT_STREQ(content.c_str(), std::pmr::string(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize()).c_str());
 
     remove_temp_file(path);
 }

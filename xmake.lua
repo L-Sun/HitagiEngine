@@ -17,4 +17,4 @@ add_requires("spdlog", {configs = {fmt_external = true}})
 
 includes("hitagi/**/xmake.lua")
 includes("examples/**/xmake.lua")
--- includes("tools/xmake.lua")
+includes("tools/xmake.lua")

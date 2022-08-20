@@ -3,8 +3,35 @@
 #include <spdlog/spdlog.h>
 
 #include <numeric>
+#include <algorithm>
 
 namespace hitagi::resource {
+VertexArray::VertexArray(std::size_t count, std::string_view name, const std::pmr::vector<VertexAttribute>& attributes)
+    : Resource(core::Buffer(count * std::accumulate(attributes.begin(), attributes.end(), 0, [](std::size_t size, const VertexAttribute& attr) { return size + get_vertex_attribute_size(attr); })),
+               name),
+      vertex_count(count) {
+    for (const VertexAttribute& attr : attributes) {
+        attribute_mask.set(magic_enum::enum_integer(attr));
+    }
+}
+
+VertexArray::VertexArray(const VertexArray& other)
+    : Resource(other.cpu_buffer, other.name),
+      vertex_count(other.vertex_count),
+      attribute_mask(other.attribute_mask) {
+}
+
+VertexArray& VertexArray::operator=(const VertexArray& rhs) {
+    if (this != &rhs) {
+        cpu_buffer     = rhs.cpu_buffer;
+        name           = rhs.name;
+        dirty          = true;
+        vertex_count   = rhs.vertex_count;
+        attribute_mask = rhs.attribute_mask;
+    }
+    return *this;
+}
+
 void VertexArray::Enable(VertexAttribute attr) {
     if (IsEnabled(attr)) return;
 
@@ -54,39 +81,29 @@ void VertexArray::Resize(std::size_t new_count) {
     cpu_buffer.Resize(new_size);
 }
 
+IndexArray::IndexArray(const IndexArray& other)
+    : Resource(other.cpu_buffer, other.name),
+      index_count(other.index_count),
+      type(other.type) {
+}
+
+IndexArray& IndexArray::operator=(const IndexArray& rhs) {
+    if (this != &rhs) {
+        cpu_buffer  = rhs.cpu_buffer;
+        dirty       = true;
+        name        = rhs.name;
+        index_count = rhs.index_count;
+        type        = rhs.type;
+    }
+    return *this;
+}
+
 void IndexArray::Resize(std::size_t new_count) {
     if (new_count == index_count) return;
 
     index_count = new_count;
     cpu_buffer.Resize(new_count * get_index_type_size(type));
     dirty = true;
-}
-
-void IndexArray::Concat(const IndexArray& other) {
-    std::size_t old_buffer_size = cpu_buffer.GetDataSize();
-
-    Resize(index_count + other.index_count);
-    if (type == other.type) {
-        std::copy_n(other.cpu_buffer.GetData(), other.cpu_buffer.GetDataSize(), cpu_buffer.GetData() + old_buffer_size);
-    } else {
-        if (other.type == IndexType::UINT32) {
-            auto array       = cpu_buffer.Span<std::uint16_t>();
-            auto other_array = other.GetIndices<IndexType::UINT32>();
-            std::transform(
-                other_array.begin(),
-                other_array.end(),
-                std::next(array.begin(), index_count - other.index_count),
-                [](std::uint32_t value) { return static_cast<std::uint16_t>(value); });
-        } else {
-            auto array       = cpu_buffer.Span<std::uint32_t>();
-            auto other_array = other.GetIndices<IndexType::UINT16>();
-            std::transform(
-                other_array.begin(),
-                other_array.end(),
-                std::next(array.begin(), index_count - other.index_count),
-                [](std::uint16_t value) { return static_cast<std::uint32_t>(value); });
-        }
-    }
 }
 
 Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes) {
@@ -114,7 +131,7 @@ Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes) {
 
     Mesh result{
         .vertices = std::make_shared<VertexArray>(total_vertex_count),
-        .indices  = std::make_shared<IndexArray>(total_index_count, IndexType::UINT32),
+        .indices  = std::make_shared<IndexArray>(total_index_count),
     };
     magic_enum::enum_for_each<VertexAttribute>([&](auto attr) {
         if (meshes.front().vertices->IsEnabled(attr())) {
@@ -151,10 +168,10 @@ Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes) {
         // merge submeshes
         for (const auto& sub_mesh : mesh.sub_meshes) {
             result.sub_meshes.emplace_back(Mesh::SubMesh{
-                .index_count   = sub_mesh.index_count,
-                .vertex_offset = total_vertex_offset + sub_mesh.vertex_offset,
-                .index_offset  = total_index_offset + sub_mesh.index_offset,
-                .material      = sub_mesh.material,
+                .index_count       = sub_mesh.index_count,
+                .index_offset      = total_index_offset + sub_mesh.index_offset,
+                .vertex_offset     = total_vertex_offset + sub_mesh.vertex_offset,
+                .material_instance = sub_mesh.material_instance,
             });
         }
 

@@ -115,10 +115,10 @@ private:
 
         void DiscardAllocation(Allocation&) final { m_allocation_count--; }
 
-        std::size_t GetFreeSize() const noexcept { return m_Size - m_offset; }
+        std::size_t GetFreeSize() const noexcept { return m_Size - m_Offset; }
         bool        IsPageFree() const noexcept final { return m_allocation_count == 0; }
 
-        std::size_t m_offset           = 0;
+        std::size_t m_Offset           = 0;
         std::size_t m_allocation_count = 0;
     };
 
@@ -160,11 +160,11 @@ private:
 
     static std::array<PageManager, static_cast<size_t>(AllocationPageType::NUM_TYPES)> sm_PageManager;
 
-    DX12Device*                                        m_Device = nullptr;
-    AllocationPageType                                 m_Type;
-    std::shared_ptr<LinearAllocationPage>              m_CurrPage = nullptr;
-    std::vector<std::shared_ptr<LinearAllocationPage>> m_Pages;
-    std::vector<std::shared_ptr<LinearAllocationPage>> m_LargePages;
+    DX12Device*                                             m_Device = nullptr;
+    AllocationPageType                                      m_Type;
+    std::shared_ptr<LinearAllocationPage>                   m_CurrPage = nullptr;
+    std::pmr::vector<std::shared_ptr<LinearAllocationPage>> m_Pages;
+    std::pmr::vector<std::shared_ptr<LinearAllocationPage>> m_LargePages;
 };
 
 }  // namespace hitagi::graphics::backend::DX12

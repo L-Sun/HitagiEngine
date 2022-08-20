@@ -61,7 +61,7 @@ auto Material::Builder::AppendTextureName(std::string_view name, std::filesystem
 }
 
 void Material::Builder::AddName(const std::pmr::string& name) {
-    if (exsisted_names.count(name) != 0) {
+    if (exsisted_names.contains(name)) {
         auto logger = spdlog::get("AssetManager");
         if (logger) logger->error("Duplicated material parameter name: ({})", name);
         throw std::invalid_argument(fmt::format("Duplicated material parameter name: ({})", name));
@@ -79,8 +79,8 @@ Material::Material(const Builder& builder)
     : MaterialDetial{builder} {
 }
 
-MaterialInstance Material::CreateInstance() const noexcept {
-    return *m_DefaultInstance;
+std::shared_ptr<MaterialInstance> Material::CreateInstance() const noexcept {
+    return std::make_shared<MaterialInstance>(*m_DefaultInstance);
 }
 
 std::size_t Material::GetNumInstances() const noexcept {
@@ -113,7 +113,7 @@ void Material::InitDefaultMaterialInstance(const Builder& builder) {
     m_DefaultInstance = std::make_unique<MaterialInstance>(shared_from_this());
 
     if (!builder.default_buffer.empty()) {
-        m_DefaultInstance->m_Parameters = core::Buffer(builder.default_buffer.data(), builder.default_buffer.size());
+        m_DefaultInstance->m_Parameters = core::Buffer(builder.default_buffer.size(), builder.default_buffer.data());
     }
 
     for (const auto& [name, path] : builder.default_texture_paths) {
@@ -198,19 +198,9 @@ MaterialInstance& MaterialInstance::SetTexture(std::string_view name, std::share
     return *this;
 }
 
-MaterialInstance& MaterialInstance::SetMaterial(const std::shared_ptr<Material>& material) noexcept {
-    auto _m = m_Material.lock();
-    if (_m) _m->m_NumInstances--;
-
-    material->m_NumInstances++;
-
-    m_Material = material;
-    return *this;
-}
-
 std::shared_ptr<Texture> MaterialInstance::GetTexture(std::string_view name) const noexcept {
     std::pmr::string _name(name);
-    if (m_Textures.count(_name) == 0) return nullptr;
+    if (!m_Textures.contains(_name)) return nullptr;
     return m_Textures.at(_name);
 }
 

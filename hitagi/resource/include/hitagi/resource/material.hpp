@@ -48,7 +48,7 @@ struct MaterialDetial {
         std::size_t      size;
     };
     std::pmr::string                          name;
-    PrimitiveType                             primitive;
+    PrimitiveType                             primitive = PrimitiveType::TriangleList;
     std::shared_ptr<Shader>                   vertex_shader;
     std::shared_ptr<Shader>                   pixel_shader;
     std::pmr::vector<ParameterInfo>           parameters_info;
@@ -93,8 +93,8 @@ public:
         std::pmr::vector<std::byte>                                      default_buffer;
     };
 
-    MaterialInstance CreateInstance() const noexcept;
-    std::size_t      GetNumInstances() const noexcept;
+    std::shared_ptr<MaterialInstance> CreateInstance() const noexcept;
+    std::size_t                       GetNumInstances() const noexcept;
 
     const auto& GetVertexShader() const noexcept { return vertex_shader; }
     const auto& GetPixelShader() const noexcept { return pixel_shader; }
@@ -149,8 +149,6 @@ public:
 
     // TODO set a sampler
     MaterialInstance& SetTexture(std::string_view name, std::shared_ptr<Texture> texture) noexcept;
-
-    MaterialInstance& SetMaterial(const std::shared_ptr<Material>& material) noexcept;
 
     template <MaterialParametric T>
     std::optional<T> GetValue(std::string_view name) const noexcept;

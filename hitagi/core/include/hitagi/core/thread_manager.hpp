@@ -25,8 +25,8 @@ public:
     ThreadManager& operator=(const ThreadManager&) = delete;
 
 private:
-    std::vector<std::thread>               m_ThreadPools;
-    std::queue<std::packaged_task<void()>> m_Tasks;
+    std::pmr::vector<std::thread>                                                       m_ThreadPools;
+    std::queue<std::packaged_task<void()>, std::pmr::deque<std::packaged_task<void()>>> m_Tasks;
 
     std::mutex              m_QueueMutex;
     std::condition_variable m_ConditionForTask;

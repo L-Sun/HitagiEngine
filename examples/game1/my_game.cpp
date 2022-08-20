@@ -10,6 +10,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include <imgui.h>
+
 #include <queue>
 
 using namespace hitagi;
@@ -18,6 +20,8 @@ using namespace hitagi::math;
 bool MyGame::Initialize() {
     m_Logger = spdlog::stdout_color_mt("MyGame");
     m_Logger->info("Initialize...");
+    auto scene = asset_manager->ImportScene("./assets/scenes/test.fbx");
+    if (!scene.has_value()) return false;
 
     return true;
 }
@@ -30,7 +34,8 @@ void MyGame::Finalize() {
 void MyGame::Tick() {
     debug_manager->DrawAxis(mat4f::identity());
     gui_manager->DrawGui([]() {
-
+        static bool open = true;
+        ImGui::ShowDemoWindow(&open);
     });
     m_Clock.Tick();
 }

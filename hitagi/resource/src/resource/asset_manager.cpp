@@ -56,37 +56,41 @@ void AssetManager::Finalize() {
     m_Logger = nullptr;
 }
 
-void AssetManager::ImportScene(Scene& scene, const std::filesystem::path& path) {
-    m_SceneParser->Parse(file_io_manager->SyncOpenAndReadBinary(path), scene, m_Materials);
+std::optional<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
+    return m_SceneParser->Parse(file_io_manager->SyncOpenAndReadBinary(path));
 }
 
-std::optional<Texture> AssetManager::ImportImage(const std::filesystem::path& path) {
+std::shared_ptr<Texture> AssetManager::ImportImage(const std::filesystem::path& path) {
     auto format = get_image_format(path.extension().string());
 
     if (format == ImageFormat::UNKOWN) {
         m_Logger->error("Unkown image format, and return a null");
-        return std::nullopt;
+        return nullptr;
     }
     auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(file_io_manager->SyncOpenAndReadBinary(path));
     return image;
 }
 
-std::optional<MaterialInstance> AssetManager::ImportMaterial(const std::filesystem::path& path) {
+std::shared_ptr<MaterialInstance> AssetManager::ImportMaterial(const std::filesystem::path& path) {
     auto material = m_MaterialJSONParser->Parse(file_io_manager->SyncOpenAndReadBinary(path));
-    if (material == nullptr) return std::nullopt;
 
-    auto instance = material->CreateInstance();
+    if (material == nullptr) return nullptr;
 
     auto iter = std::find_if(m_Materials.begin(), m_Materials.end(), [&material](const std::shared_ptr<Material>& mat) {
         return *mat == *material;
     });
     if (iter != m_Materials.end()) {
-        instance.SetMaterial(*iter);
-    } else {
-        m_Materials.emplace_back(std::move(material));
-    }
+        auto instance = (*iter)->CreateInstance();
+        auto temp     = material->CreateInstance();
 
-    return instance;
+        const_cast<core::Buffer&>(instance->GetParameterBuffer())                                                 = temp->GetParameterBuffer();
+        const_cast<std::pmr::unordered_map<std::pmr::string, std::shared_ptr<Texture>>&>(instance->GetTextures()) = temp->GetTextures();
+
+        return instance;
+    } else {
+        m_Materials.emplace_back(material);
+        return material->CreateInstance();
+    }
 }
 
 // std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> AssetManager::ImportAnimation(const std::filesystem::path& path) {

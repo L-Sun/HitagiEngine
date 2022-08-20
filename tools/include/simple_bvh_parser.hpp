@@ -14,19 +14,19 @@ struct TRS {
 };
 
 struct BoneNode {
-    std::string                            name;
-    std::weak_ptr<BoneNode>                parent;
-    std::vector<std::shared_ptr<BoneNode>> children;
-    hitagi::math::vec3f                    offset;
-    size_t                                 index;
+    std::pmr::string                            name;
+    std::weak_ptr<BoneNode>                     parent;
+    std::pmr::vector<std::shared_ptr<BoneNode>> children;
+    hitagi::math::vec3f                         offset;
+    size_t                                      index;
 
-    hitagi::math::mat4f transform{1.0f};
+    hitagi::math::mat4f transform = hitagi::math::mat4f::identity();
 };
 
 struct Animation {
-    float                                  frame_rate;
-    std::vector<std::vector<TRS>>          frames;
-    std::vector<std::shared_ptr<BoneNode>> joints;
+    float                                       frame_rate;
+    std::pmr::vector<std::pmr::vector<TRS>>     frames;
+    std::pmr::vector<std::shared_ptr<BoneNode>> joints;
 };
 
 enum struct Channel : uint8_t {
@@ -38,7 +38,7 @@ enum struct Channel : uint8_t {
     Zrotation,
 };
 
-static const std::unordered_map<std::string, Channel> channel_map = {
+static const std::pmr::unordered_map<std::pmr::string, Channel> channel_map = {
     {"Xposition", Channel::Xposition},
     {"Yposition", Channel::Yposition},
     {"Zposition", Channel::Zposition},

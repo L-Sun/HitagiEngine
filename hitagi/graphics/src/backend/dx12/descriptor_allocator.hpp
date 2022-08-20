@@ -43,7 +43,7 @@ public:
 
     void DiscardDescriptor(Descriptor& descriptor);
 
-    std::pmr::vector<std::shared_ptr<Descriptor>> Allocate(size_t num_descriptors, Descriptor::Type type);
+    std::pmr::vector<Descriptor> Allocate(size_t num_descriptors, Descriptor::Type type);
 
 protected:
     DescriptorPage(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, size_t num_descriptors);
@@ -71,9 +71,9 @@ public:
     DescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type, size_t num_descriptor_per_page = 1024);
     void Initialize(ID3D12Device* device);
 
-    std::shared_ptr<Descriptor>                   Allocate(Descriptor::Type type);
-    std::pmr::vector<std::shared_ptr<Descriptor>> Allocate(size_t num_descriptors, Descriptor::Type type);
-    D3D12_DESCRIPTOR_HEAP_TYPE                    GetHeapType() const { return m_HeapType; }
+    Descriptor                   Allocate(Descriptor::Type type);
+    std::pmr::vector<Descriptor> Allocate(size_t num_descriptors, Descriptor::Type type);
+    D3D12_DESCRIPTOR_HEAP_TYPE   GetHeapType() const { return m_HeapType; }
 
 private:
     ID3D12Device*                                   m_Device{};

@@ -11,8 +11,6 @@
 namespace hitagi {
 Application* app = nullptr;
 
-bool Application::sm_Quit = false;
-
 // Parse command line, read configuration, initialize all sub modules
 bool Application::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Application");
@@ -35,13 +33,6 @@ void Application::Finalize() {
 void Application::Tick() {
     m_Clock.Tick();
 }
-
-void Application::SetCommandLineParameters(int argc, char** argv) {
-    m_ArgSize = argc;
-    m_Arg     = argv;
-}
-
-bool Application::IsQuit() { return sm_Quit; }
 
 #ifdef WIN32
 std::unique_ptr<Application> Application::CreateApp() {

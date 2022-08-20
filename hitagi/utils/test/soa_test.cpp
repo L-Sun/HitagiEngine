@@ -10,7 +10,7 @@ class debug_memory_resource : public std::pmr::memory_resource {
 public:
     debug_memory_resource(std::string_view name, std::pmr::memory_resource* upstream = std::pmr::get_default_resource())
         : name(name), upstream(upstream) {}
-    debug_memory_resource(const debug_memory_resource&) = delete;
+    debug_memory_resource(const debug_memory_resource&)            = delete;
     debug_memory_resource& operator=(const debug_memory_resource&) = delete;
 
 private:
@@ -26,7 +26,7 @@ private:
         return this == &other;
     }
 
-    std::string                name;
+    std::pmr::string           name;
     std::pmr::memory_resource* upstream;
 };
 

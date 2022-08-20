@@ -25,4 +25,8 @@ constexpr std::array<T, N> create_array_inplcae(Args&&... args) {
     (std::make_index_sequence<N>{});
 }
 
+constexpr size_t align(size_t x, size_t a) {
+    return (x + a - 1) & ~(a - 1);
+}
+
 }  // namespace hitagi::utils

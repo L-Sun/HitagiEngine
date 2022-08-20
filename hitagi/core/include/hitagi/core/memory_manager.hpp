@@ -13,11 +13,6 @@ constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; 
 namespace hitagi::core {
 class MemoryPool;
 
-inline const size_t align(size_t x, size_t a) {
-    assert(((a - 1) & a) == 0 && "alignment is not a power of two");
-    return (x + a - 1) & ~(a - 1);
-}
-
 class MemoryManager : public RuntimeModule {
 public:
     bool Initialize() final;
@@ -95,7 +90,8 @@ private:
         // 64-increments
         704u, 768u, 832u, 896u, 960u, 1024u};
 
-    std::optional<std::reference_wrapper<Pool>> GetPool(std::size_t bytes);
+    std::array<std::size_t, block_size.back() + 1> pool_map;
+    std::optional<std::reference_wrapper<Pool>>    GetPool(std::size_t bytes);
 
     std::array<Pool, block_size.size()> m_Pools;
 

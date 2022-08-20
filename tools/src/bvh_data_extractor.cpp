@@ -1,4 +1,5 @@
 #include "simple_bvh_parser.hpp"
+#include "highfive_pmr.hpp"
 
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/file_io_manager.hpp>
@@ -8,7 +9,6 @@
 #include <cxxopts.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-#include <highfive/H5File.hpp>
 
 #include <iterator>
 #include <memory>
@@ -49,11 +49,11 @@ void clean_exit(int exit_code = 0) {
     exit(exit_code);
 }
 
-std::vector<fs::path>    get_all_bvh(const fs::path& dir, const std::regex& filter);
-std::vector<float>       extract_frames(const Animation& anima, bool standard_quaternion);
-std::vector<int>         extract_parents(const Animation& anima);
-std::vector<std::string> extract_joints_name(const Animation& anima);
-std::vector<float>       extract_bones_length(const Animation& anima);
+std::pmr::vector<fs::path>         get_all_bvh(const fs::path& dir, const std::regex& filter);
+std::pmr::vector<float>            extract_frames(const Animation& anima, bool standard_quaternion);
+std::pmr::vector<int>              extract_parents(const Animation& anima);
+std::pmr::vector<std::pmr::string> extract_joints_name(const Animation& anima);
+std::pmr::vector<float>            extract_bones_length(const Animation& anima);
 
 int main(int argc, char** argv) {
     if (int success = init(); success != 0) return success;
@@ -130,10 +130,10 @@ int main(int argc, char** argv) {
     }
 
     // Get the first bones data
-    float                    frame_rate = 0;
-    std::vector<int>         joints_parent;
-    std::vector<std::string> joints_name;
-    std::vector<float>       bones_length;
+    float                              frame_rate = 0;
+    std::pmr::vector<int>              joints_parent;
+    std::pmr::vector<std::pmr::string> joints_name;
+    std::pmr::vector<float>            bones_length;
     {
         auto anima = parse_bvh(file_io_manager->SyncOpenAndReadBinary(all_bvh_files.front()), metric_scale);
         if (anima.has_value()) {
@@ -148,13 +148,13 @@ int main(int argc, char** argv) {
     }
 
     // extract data paralle
-    std::vector<std::future<std::optional<std::vector<float>>>> jobs;
+    std::pmr::vector<std::future<std::optional<std::pmr::vector<float>>>> jobs;
 
     // parallel extract
     std::transform(
         all_bvh_files.begin(), all_bvh_files.end(),
         std::back_inserter(jobs), [=, &joints_parent](const fs::path& path) {
-            return thread_manager->RunTask([&]() -> std::optional<std::vector<float>> {
+            return thread_manager->RunTask([&]() -> std::optional<std::pmr::vector<float>> {
                 auto anima = parse_bvh(file_io_manager->SyncOpenAndReadBinary(path), metric_scale);
                 if (!anima.has_value()) {
                     logger->warn("Can not parse and skip the file: {}", path.string());
@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
 
     DataSpace          dataspace({1000, joints_parent.size(), (3 + 4)}, {DataSpace::UNLIMITED, joints_parent.size(), (3 + 4)});
     DataSetCreateProps props;
-    props.add(Chunking(std::vector<std::size_t>{300, joints_parent.size(), (3 + 4)}));
+    props.add(Chunking({300, joints_parent.size(), (3 + 4)}));
 
     file.createAttribute("joints_parent", joints_parent);
     file.createAttribute("joints_name", joints_name);
@@ -188,8 +188,8 @@ int main(int argc, char** argv) {
 
     DataSet dataset = file.createDataSet<float>("/motion", dataspace, props);
 
-    std::size_t              frames = 0;
-    std::vector<std::size_t> split_index;
+    std::size_t                   frames = 0;
+    std::pmr::vector<std::size_t> split_index;
     for (auto& job : jobs) {
         job.wait();
         auto data = job.get();
@@ -208,9 +208,9 @@ int main(int argc, char** argv) {
     clean_exit();
 }
 
-std::vector<fs::path> get_all_bvh(const fs::path& dir, const std::regex& filter) {
-    std::vector<fs::path>  result;
-    fs::directory_iterator dir_iter{dir};
+std::pmr::vector<fs::path> get_all_bvh(const fs::path& dir, const std::regex& filter) {
+    std::pmr::vector<fs::path> result;
+    fs::directory_iterator     dir_iter{dir};
     std::copy_if(
         fs::begin(dir_iter), fs::end(dir_iter),
         std::back_inserter(result),
@@ -221,8 +221,8 @@ std::vector<fs::path> get_all_bvh(const fs::path& dir, const std::regex& filter)
     return result;
 }
 
-std::vector<int> extract_parents(const Animation& anima) {
-    std::vector<int> result;
+std::pmr::vector<int> extract_parents(const Animation& anima) {
+    std::pmr::vector<int> result;
     // Bone
     for (std::size_t i = 0; i < anima.joints.size(); i++) {
         auto        joint        = anima.joints[i];
@@ -233,14 +233,14 @@ std::vector<int> extract_parents(const Animation& anima) {
     return result;
 };
 
-std::vector<float> extract_frames(const Animation& anima, bool standard_quaternion) {
+std::pmr::vector<float> extract_frames(const Animation& anima, bool standard_quaternion) {
     auto update_node = [](const std::shared_ptr<BoneNode>& node, const TRS& trs) {
         auto parent       = node->parent.lock();
-        auto parent_space = parent ? parent->transform : mat4f(1.0f);
-        node->transform   = parent_space * translate(rotate(mat4f(1.0f), trs.rotation), trs.translation);
+        auto parent_space = parent ? parent->transform : mat4f::identity();
+        node->transform   = parent_space * translate(trs.translation) * rotate(trs.rotation);
     };
 
-    std::vector<float> result;
+    std::pmr::vector<float> result;
     result.reserve(anima.frames.size() * anima.joints.size() * (3 + 4));
 
     for (std::size_t frame_index = 0; frame_index < anima.frames.size(); frame_index++) {
@@ -283,8 +283,8 @@ std::vector<float> extract_frames(const Animation& anima, bool standard_quaterni
     return result;
 }
 
-std::vector<std::string> extract_joints_name(const Animation& anima) {
-    std::vector<std::string> result;
+std::pmr::vector<std::pmr::string> extract_joints_name(const Animation& anima) {
+    std::pmr::vector<std::pmr::string> result;
     std::transform(
         anima.joints.begin(), anima.joints.end(),
         std::back_inserter(result),
@@ -294,8 +294,8 @@ std::vector<std::string> extract_joints_name(const Animation& anima) {
     return result;
 }
 
-std::vector<float> extract_bones_length(const Animation& anima) {
-    std::vector<float> result;
+std::pmr::vector<float> extract_bones_length(const Animation& anima) {
+    std::pmr::vector<float> result;
     std::transform(
         anima.joints.begin(), anima.joints.end(),
         std::back_insert_iterator(result),

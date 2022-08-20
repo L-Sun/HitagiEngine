@@ -1,1 +1,0 @@
-#include <hitagi/resource/bone.hpp>

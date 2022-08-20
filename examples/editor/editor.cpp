@@ -4,17 +4,21 @@
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
+#include <hitagi/application.hpp>
+#include <hitagi/hid/input_manager.hpp>
 
 #include <imgui.h>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 using namespace hitagi::math;
+using namespace hitagi::resource;
 
 namespace hitagi {
 bool Editor::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Editor");
     m_Logger->info("Initialize...");
+
     return true;
 }
 
@@ -33,6 +37,7 @@ void Editor::Draw() {
     MainMenu();
     FileExplorer();
     SceneExplorer();
+    DebugPanel();
 }
 
 void Editor::MainMenu() {
@@ -74,43 +79,48 @@ void Editor::FileExplorer() {
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-    static std::unordered_set<std::string> file_paths;
     if (ImGui::BeginPopupModal("File browser", nullptr, ImGuiWindowFlags_Modal)) {
         for (const auto& directory : std::filesystem::directory_iterator(folder)) {
             if (!directory.is_regular_file()) continue;
 
             const auto& path = directory.path();
             if (path.extension() != m_OpenFileExt) continue;
-            auto path_string = path.string();
+            std::pmr::string path_string{path.string()};
 
-            if (ImGui::Selectable(path_string.c_str(), file_paths.count(path_string) != 0, ImGuiSelectableFlags_DontClosePopups)) {
+            if (ImGui::Selectable(path_string.c_str(), m_SelectedFiles.contains(path_string), ImGuiSelectableFlags_DontClosePopups)) {
                 if (!ImGui::GetIO().KeyCtrl) {
-                    file_paths.clear();
+                    m_SelectedFiles.clear();
                 }
-                file_paths.emplace(path_string);
+                m_SelectedFiles.emplace(path_string);
             }
         }
 
         if (ImGui::Button("Open")) {
             if (m_OpenFileExt == ".fbx") {
-                for (auto&& path : file_paths) {
-                    resource::Scene scene;
-                    asset_manager->ImportScene(scene, path);
-                    scene_manager->SwitchScene(scene_manager->AddScene(scene));
+                for (auto&& path : m_SelectedFiles) {
+                    auto scene   = asset_manager->ImportScene(path);
+                    bool success = scene.has_value();
+                    if (ImGui::BeginPopupModal("Fbx import failed", &success)) {
+                        ImGui::Text("%s", fmt::format("failed to import scene: {}", path).c_str());
+                        ImGui::EndPopup();
+                    }
+                    if (success) {
+                        scene_manager->SwitchScene(scene_manager->AddScene(std::move(scene.value())));
+                    }
                 }
             } else if (m_OpenFileExt == ".bvh") {
-                // for (auto&& path : file_paths) {
+                // for (auto&& path : m_SelectedFiles) {
                 // auto [skeleton, animation] = asset_manager->ImportAnimation(path);
                 // scene_manager->GetScene()->AddSkeleton(skeleton);
                 // scene_manager->GetScene()->AddAnimation(animation);
                 // }
             }
-            file_paths.clear();
+            m_SelectedFiles.clear();
             m_OpenFileExt.clear();
         }
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
-            file_paths.clear();
+            m_SelectedFiles.clear();
             m_OpenFileExt.clear();
             ImGui::CloseCurrentPopup();
         }
@@ -120,33 +130,29 @@ void Editor::FileExplorer() {
 
 void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
-        const auto& scene = scene_manager->CurrentScene();
+        auto& scene = scene_manager->CurrentScene();
         if (ImGui::CollapsingHeader("Scene Nodes")) {
-            // std::function<void(std::shared_ptr<resource::SceneNode>)> print_node = [&](std::shared_ptr<resource::SceneNode> node) -> void {
-            //     if (ImGui::TreeNode(GenName(node->GetName(), node).c_str())) {
-            //         {
-            //             auto position    = node->GetPosition();
-            //             auto orientation = 180.0f * std::numbers::inv_pi * node->GetOrientation();
-            //             auto velocity    = node->GetVelocity();
+            std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](std::shared_ptr<SceneNode> node) -> void {
+                if (ImGui::TreeNode(node->name.c_str())) {
+                    auto& translation = node->transform.local_translation;
+                    auto  orientation = rad2deg(quaternion_to_euler(node->transform.local_rotation));
+                    auto& scaling     = node->transform.local_scaling;
 
-            //             bool changed = false;
-            //             changed      = ImGui::DragFloat3("Translation", position, 1.0f, 0.0f, 0.0f, "%.02f m") || changed;
-            //             changed      = ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °") || changed;
-            //             ImGui::DragFloat3("Velocity", velocity, 0.0f, 0.0f, 0.0f, "%.03f °");
+                    ImGui::DragFloat3("Translation", translation, 1.0f, 0.0f, 0.0f, "%.02f m");
 
-            //             if (changed) {
-            //                 node->SetTRS(position, euler_to_quaternion(deg2rad(orientation)), vec3f(1.0f));
-            //             }
-            //         }
+                    if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °"))
+                        node->transform.local_rotation = euler_to_quaternion(deg2rad(orientation));
 
-            //         // print children
-            //         for (auto&& child : node->GetChildren()) {
-            //             print_node(child);
-            //         }
-            //         ImGui::TreePop();
-            //     }
-            // };
-            // print_node(scene->scene_graph);
+                    ImGui::DragFloat3("Scaling", scaling, 1.0f, 0.0f, 0.0f, "%.03f °");
+
+                    // print children
+                    for (auto&& child : node->GetChildren()) {
+                        print_node(child);
+                    }
+                    ImGui::TreePop();
+                }
+            };
+            print_node(scene.root);
         }
 
         if (ImGui::CollapsingHeader("Animation")) {
@@ -177,6 +183,31 @@ void Editor::SceneExplorer() {
     }
 
     ImGui::End();
+}
+
+void Editor::DebugPanel() {
+    gui_manager->DrawGui([]() {
+        if (ImGui::Begin("Debug Pannel")) {
+            // Memory usage
+            {
+                ImGui::Text("%s", fmt::format("Memory Usage: {}Mb", app->GetMemoryUsage() >> 20).c_str());
+            }
+
+            // Debug draw
+            {
+                static bool debug_draw = true;
+                ImGui::Checkbox("Enable Debug Draw", &debug_draw);
+                if (debug_draw) {
+                    debug_manager->EnableDebugDraw();
+                } else {
+                    debug_manager->DisableDebugDraw();
+                }
+            }
+        }
+        ImGui::End();
+        bool open = true;
+        ImGui::ShowMetricsWindow(&open);
+    });
 }
 
 }  // namespace hitagi

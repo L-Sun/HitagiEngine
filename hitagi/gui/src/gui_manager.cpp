@@ -4,9 +4,9 @@
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/resource/texture.hpp>
 #include <hitagi/resource/asset_manager.hpp>
-#include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/hid/input_manager.hpp>
 #include <hitagi/application.hpp>
+#include <hitagi/graphics/graphics_manager.hpp>
 
 #include <imgui_freetype.h>
 #include <spdlog/spdlog.h>
@@ -28,13 +28,6 @@ bool GuiManager::Initialize() {
     m_Logger->info("Initialize...");
     m_Clock.Start();
 
-    auto material = asset_manager->ImportMaterial("assets/material/imgui.json");
-    if (!material.has_value()) {
-        m_Logger->error("Failed to Initialize Gui Manager! Because it gets a empty gui material.");
-        return false;
-    }
-    m_ImGuiMaterialInstance = material.value();
-
     ImGui::CreateContext();
     if (app) {
         ImGui::GetStyle().ScaleAllSizes(app->GetDpiRatio());
@@ -44,12 +37,11 @@ bool GuiManager::Initialize() {
         };
     }
 
-    m_ImGuiMaterialInstance.SetTexture("imgui-font", LoadFontTexture());
-
-    m_ImGuiMesh.vertices       = std::make_shared<VertexArray>(1);
-    m_ImGuiMesh.indices        = std::make_shared<IndexArray>(1, IndexType::UINT16);
-    m_ImGuiMesh.vertices->name = "imgui-vertices";
-    m_ImGuiMesh.indices->name  = "imgui-indices";
+    m_DrawData.mesh = {
+        .vertices = std::make_shared<VertexArray>(1, "imgui-vertex", std::pmr::vector<VertexAttribute>{VertexAttribute::Position, VertexAttribute::Color0, VertexAttribute::UV0}),
+        .indices  = std::make_shared<IndexArray>(1, "imgui-indices", IndexType::UINT16),
+    };
+    LoadFontTexture();
 
     return true;
 }
@@ -84,21 +76,19 @@ void GuiManager::Tick() {
 
     ImGui::Render();
 
-    graphics_manager->AppendRenderables(PrepareImGuiRenderables());
-
+    graphics_manager->DrawGui(GetDrawData());
     m_Clock.Tick();
 }
 
 void GuiManager::Finalize() {
     ImGui::DestroyContext();
-    m_ImGuiMesh             = {};
-    m_ImGuiMaterialInstance = {};
-    m_GuiDrawTasks          = {};
+    m_GuiDrawTasks = {};
+    m_DrawData     = {};
     m_Logger->info("Finalize.");
     m_Logger = nullptr;
 }
 
-std::shared_ptr<Texture> GuiManager::LoadFontTexture() {
+void GuiManager::LoadFontTexture() {
     auto& io                = ImGui::GetIO();
     io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
 
@@ -144,19 +134,17 @@ std::shared_ptr<Texture> GuiManager::LoadFontTexture() {
     int            width = 0, height = 0;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-    const std::uint32_t bitcount = 32;
-    const std::size_t   pitch    = width * bitcount / 8;
-    auto                texture  = std::make_shared<Texture>();
-    texture->name                = "imgui-font";
-    texture->format              = Format::R8G8B8A8_UNORM;
-    texture->width               = width;
-    texture->height              = height;
-    texture->pitch               = pitch;
-    texture->cpu_buffer          = core::Buffer(pitch * height);
+    const std::uint32_t bitcount   = 32;
+    const std::size_t   pitch      = width * bitcount / 8;
+    m_DrawData.texture             = std::make_shared<Texture>();
+    m_DrawData.texture->name       = "imgui-font";
+    m_DrawData.texture->format     = Format::R8G8B8A8_UNORM;
+    m_DrawData.texture->width      = width;
+    m_DrawData.texture->height     = height;
+    m_DrawData.texture->pitch      = pitch;
+    m_DrawData.texture->cpu_buffer = core::Buffer(pitch * height);
 
-    std::copy_n(reinterpret_cast<const std::byte*>(pixels), texture->cpu_buffer.GetDataSize(), texture->cpu_buffer.GetData());
-
-    return texture;
+    std::copy_n(reinterpret_cast<const std::byte*>(pixels), m_DrawData.texture->cpu_buffer.GetDataSize(), m_DrawData.texture->cpu_buffer.GetData());
 }
 
 void GuiManager::MouseEvent() {
@@ -177,39 +165,30 @@ void GuiManager::KeysEvent() {
     }
 }
 
-std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
+auto GuiManager::GetDrawData() -> const graphics::GuiDrawData& {
     auto draw_data = ImGui::GetDrawData();
 
-    std::pmr::vector<Renderable> result;
+    // std::pmr::vector<Renderable> result;
 
-    const float left       = draw_data->DisplayPos.x;
-    const float right      = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
-    const float top        = draw_data->DisplayPos.y;
-    const float bottom     = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
-    const float near       = 3.0f;
-    const float far        = -1.0f;
-    const mat4f projection = ortho(left, right, bottom, top, near, far);
+    const float left      = draw_data->DisplayPos.x;
+    const float right     = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
+    const float top       = draw_data->DisplayPos.y;
+    const float bottom    = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
+    const float near      = 3.0f;
+    const float far       = -1.0f;
+    m_DrawData.view_port  = {left, top, draw_data->DisplaySize.x, draw_data->DisplaySize.y};
+    m_DrawData.projection = ortho(left, right, bottom, top, near, far);
 
-    Renderable item{
-        .type     = Renderable::Type::UI,
-        .vertices = m_ImGuiMesh.vertices,
-        .indices  = m_ImGuiMesh.indices,
-        .sub_mesh = {
-            .material = m_ImGuiMaterialInstance,
-        },
-        .material            = m_ImGuiMaterialInstance.GetMaterial().lock(),
-        .pipeline_parameters = {.view_port = vec4u{draw_data->DisplayPos.x, draw_data->DisplayPos.y, draw_data->DisplaySize.x, draw_data->DisplaySize.y}},
-    };
-
-    m_ImGuiMaterialInstance.SetParameter("orth_projection", projection);
-
-    if (draw_data->TotalVtxCount > m_ImGuiMesh.vertices->vertex_count) {
-        m_ImGuiMesh.vertices->Resize(draw_data->TotalVtxCount);
+    if (draw_data->TotalVtxCount > m_DrawData.mesh.vertices->vertex_count) {
+        m_DrawData.mesh.vertices->Resize(draw_data->TotalVtxCount);
     }
 
-    if (draw_data->TotalIdxCount > m_ImGuiMesh.indices->index_count) {
-        m_ImGuiMesh.indices->Resize(draw_data->TotalIdxCount);
+    if (draw_data->TotalIdxCount > m_DrawData.mesh.indices->index_count) {
+        m_DrawData.mesh.indices->Resize(draw_data->TotalIdxCount);
     }
+
+    m_DrawData.mesh.sub_meshes.clear();
+    m_DrawData.scissor_rects.clear();
 
     std::size_t vertex_offset = 0;
     std::size_t index_offset  = 0;
@@ -230,37 +209,36 @@ std::pmr::vector<Renderable> GuiManager::PrepareImGuiRenderables() {
                 static_cast<std::uint32_t>(clip_max.x),
                 static_cast<std::uint32_t>(clip_max.y),
             };
-
-            item.sub_mesh.index_count              = cmd.ElemCount,
-            item.sub_mesh.vertex_offset            = cmd.VtxOffset + vertex_offset;
-            item.sub_mesh.index_offset             = cmd.IdxOffset + index_offset;
-            item.pipeline_parameters.scissor_react = scissor_rect;
-
-            result.emplace_back(item);
+            m_DrawData.mesh.sub_meshes.emplace_back(Mesh::SubMesh{
+                .index_count   = cmd.ElemCount,
+                .index_offset  = cmd.IdxOffset + index_offset,
+                .vertex_offset = cmd.VtxOffset + vertex_offset,
+            });
+            m_DrawData.scissor_rects.emplace_back(scissor_rect);
         }
 
         for (const auto& vertex : cmd_list->VtxBuffer) {
             auto _color = ImColor(vertex.col).Value;
 
-            m_ImGuiMesh.vertices->Modify<VertexAttribute::Position>([&](auto positions) {
+            m_DrawData.mesh.vertices->Modify<VertexAttribute::Position>([&](auto positions) {
                 positions[vertex_offset] = {vertex.pos.x, vertex.pos.y, 0};
             });
-            m_ImGuiMesh.vertices->Modify<VertexAttribute::Color0>([&](auto colors) {
+            m_DrawData.mesh.vertices->Modify<VertexAttribute::Color0>([&](auto colors) {
                 colors[vertex_offset] = {_color.x, _color.y, _color.z, _color.w};
             });
-            m_ImGuiMesh.vertices->Modify<VertexAttribute::UV0>([&](auto tex_coords) {
+            m_DrawData.mesh.vertices->Modify<VertexAttribute::UV0>([&](auto tex_coords) {
                 tex_coords[vertex_offset] = {vertex.uv.x, vertex.uv.y};
             });
 
             vertex_offset++;
         }
-        m_ImGuiMesh.indices->Modify<IndexType::UINT16>([&](auto array) {
+        m_DrawData.mesh.indices->Modify<IndexType::UINT16>([&](auto array) {
             std::copy(cmd_list->IdxBuffer.begin(), cmd_list->IdxBuffer.end(), array.begin() + index_offset);
         });
         index_offset += cmd_list->IdxBuffer.size();
     }
 
-    return result;
+    return m_DrawData;
 }
 
 }  // namespace hitagi::gui

@@ -25,7 +25,7 @@ inline ImageFormat get_image_format(std::string_view ext) {
 
 class ImageParser {
 public:
-    virtual std::optional<Texture> Parse(const core::Buffer& buffer) = 0;
-    virtual ~ImageParser()                                           = default;
+    virtual std::shared_ptr<Texture> Parse(const core::Buffer& buffer) = 0;
+    virtual ~ImageParser()                                             = default;
 };
 }  // namespace hitagi::resource

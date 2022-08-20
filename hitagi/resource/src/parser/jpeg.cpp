@@ -7,13 +7,14 @@
 
 namespace hitagi::resource {
 
-std::optional<Texture> JpegParser::Parse(const core::Buffer& buf) {
+std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
         logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
-        return std::nullopt;
+        return nullptr;
     }
-    Texture                image;
+    auto image = std::make_shared<Texture>();
+
     jpeg_decompress_struct cinfo{};
     jpeg_error_mgr         jerr{};
     cinfo.err       = jpeg_std_error(&jerr);
@@ -25,17 +26,17 @@ std::optional<Texture> JpegParser::Parse(const core::Buffer& buf) {
         jpeg_read_header(&cinfo, true);
         cinfo.out_color_space = JCS_EXT_RGBA;
 
-        image.width      = static_cast<std::uint32_t>(cinfo.image_width);
-        image.height     = static_cast<std::uint32_t>(cinfo.image_height);
-        image.format     = Format::R8G8B8A8_UNORM;
-        image.pitch      = ((image.width * 4) + 3) & ~3;
-        image.cpu_buffer = core::Buffer(image.pitch * image.height);
+        image->width      = static_cast<std::uint32_t>(cinfo.image_width);
+        image->height     = static_cast<std::uint32_t>(cinfo.image_height);
+        image->format     = Format::R8G8B8A8_UNORM;
+        image->pitch      = ((image->width * 4) + 3) & ~3;
+        image->cpu_buffer = core::Buffer(image->pitch * image->height);
         jpeg_start_decompress(&cinfo);
 
         int row_stride = cinfo.output_width * cinfo.output_components;
 
         auto row_buffer = std::pmr::vector<JSAMPLE>(row_stride);
-        auto p          = image.cpu_buffer.GetData() + (image.height - 1) * row_stride;
+        auto p          = image->cpu_buffer.GetData() + (image->height - 1) * row_stride;
 
         while (cinfo.output_scanline < cinfo.output_height) {
             auto p_row = row_buffer.data();

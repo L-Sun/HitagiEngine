@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <windowsx.h>
+#include <psapi.h>
 
 namespace hitagi {
 
@@ -90,9 +91,36 @@ void Win32Application::InitializeWindows() {
     MapCursor();
 }
 
-float Win32Application::GetDpiRatio() {
+void Win32Application::SetInputScreenPosition(unsigned x, unsigned y) {
+    if (HIMC himc = ::ImmGetContext(m_Window)) {
+        COMPOSITIONFORM composition_form = {};
+        composition_form.ptCurrentPos.x  = x;
+        composition_form.ptCurrentPos.y  = y;
+        composition_form.dwStyle         = CFS_FORCE_POSITION;
+        ::ImmSetCompositionWindow(himc, &composition_form);
+        CANDIDATEFORM candidate_form  = {};
+        candidate_form.dwStyle        = CFS_CANDIDATEPOS;
+        candidate_form.ptCurrentPos.x = x;
+        candidate_form.ptCurrentPos.y = y;
+        ::ImmSetCandidateWindow(himc, &candidate_form);
+        ::ImmReleaseContext(m_Window, himc);
+    }
+}
+
+void Win32Application::SetWindowTitle(std::string_view title) {
+    std::pmr::wstring text{title.begin(), title.end()};
+    SetWindowTextW(m_Window, text.data());
+}
+
+float Win32Application::GetDpiRatio() const {
     unsigned dpi = GetDpiForWindow(m_Window);
     return dpi / 96.0f;
+}
+
+std::size_t Win32Application::GetMemoryUsage() const {
+    PROCESS_MEMORY_COUNTERS_EX pmc;
+    GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+    return pmc.PrivateUsage;
 }
 
 void Win32Application::UpdateRect() {
@@ -105,13 +133,10 @@ void Win32Application::UpdateRect() {
     auto curr_height = m_Rect.bottom - m_Rect.top;
 
     if (last_width != curr_width || last_height != curr_height) {
-        m_SizeChanged = true;
+        m_SizeChanged                      = true;
+        config_manager->GetConfig().width  = curr_width;
+        config_manager->GetConfig().height = curr_height;
     }
-}
-
-void Win32Application::SetWindowTitle(std::string_view title) {
-    std::pmr::wstring text{title.begin(), title.end()};
-    SetWindowTextW(m_Window, text.data());
 }
 
 void Win32Application::MapCursor() {
@@ -136,21 +161,6 @@ void Win32Application::MapCursor() {
     }
 }
 
-void Win32Application::SetInputScreenPosition(unsigned x, unsigned y) {
-    if (HIMC himc = ::ImmGetContext(m_Window)) {
-        COMPOSITIONFORM composition_form = {};
-        composition_form.ptCurrentPos.x  = x;
-        composition_form.ptCurrentPos.y  = y;
-        composition_form.dwStyle         = CFS_FORCE_POSITION;
-        ::ImmSetCompositionWindow(himc, &composition_form);
-        CANDIDATEFORM candidate_form  = {};
-        candidate_form.dwStyle        = CFS_CANDIDATEPOS;
-        candidate_form.ptCurrentPos.x = x;
-        candidate_form.ptCurrentPos.y = y;
-        ::ImmSetCandidateWindow(himc, &candidate_form);
-        ::ImmReleaseContext(m_Window, himc);
-    }
-}
 LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w_param, LPARAM l_param) {
     Win32Application* p_this = nullptr;
     if (message == WM_NCCREATE) {
@@ -166,7 +176,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
     switch (message) {
         case WM_DESTROY:
             PostQuitMessage(0);
-            sm_Quit = true;
+            p_this->m_Quit = true;
             ClipCursor(nullptr);
             return 0;
         case WM_LBUTTONDOWN:

@@ -18,7 +18,7 @@ ComPtr<ID3D12DebugDevice1> DX12Device::sm_DebugInterface = nullptr;
 DX12Device::DX12Device()
     : DeviceAPI(APIType::DirectX12),
       m_Logger(spdlog::get("GraphicsManager")),
-      m_RetireResources(retire_resource_cmp) {
+      m_RetiredResources(retire_resource_cmp) {
     unsigned dxgi_factory_flags = 0;
 
 #if defined(_DEBUG)
@@ -61,9 +61,8 @@ DX12Device::DX12Device()
 
 DX12Device::~DX12Device() {
     m_CommandManager.IdleGPU();
-    // Release the static variable that is allocation of DX12
-    m_Resources.clear();
 
+    // Release the static variable that is allocation of DX12
     LinearAllocator::Destroy();
     ResourceBinder::ResetHeapPool();
 #ifdef _DEBUG
@@ -77,7 +76,7 @@ void DX12Device::ReportDebugLog() {
 #endif
 }
 
-void DX12Device::Present(size_t frame_index) {
+void DX12Device::Present() {
     ThrowIfFailed(m_SwapChain->Present(0, 0));
 }
 
@@ -105,12 +104,11 @@ void DX12Device::CreateSwapChain(uint32_t width, uint32_t height, unsigned frame
     ThrowIfFailed(m_DxgiFactory->MakeWindowAssociation(h_wnd, DXGI_MWA_NO_ALT_ENTER));
 }
 
-size_t DX12Device::ResizeSwapChain(uint32_t width, uint32_t height) {
+std::size_t DX12Device::ResizeSwapChain(uint32_t width, uint32_t height) {
     assert(m_SwapChain && "No swap chain created.");
     DXGI_SWAP_CHAIN_DESC1 desc;
     m_SwapChain->GetDesc1(&desc);
     ThrowIfFailed(m_SwapChain->ResizeBuffers(desc.BufferCount, width, height, desc.Format, desc.Flags));
-
     return m_SwapChain->GetCurrentBackBufferIndex();
 }
 
@@ -120,16 +118,14 @@ void DX12Device::InitRenderFromSwapChain(graphics::RenderTarget& rt, std::size_t
     m_SwapChain->GetBuffer(frame_index, IID_PPV_ARGS(&res));
     auto desc = res->GetDesc();
 
-    rt.name   = fmt::format("CreateFromSwapChain-{}", frame_index);
-    rt.format = to_format(desc.Format);
-    rt.width  = desc.Width,
-    rt.height = desc.Height;
-
-    auto&& [iter, success] = m_Resources.emplace(std::make_shared<RenderTarget>(
+    rt.name         = fmt::format("CreateFromSwapChain-{}", frame_index);
+    rt.format       = to_format(desc.Format);
+    rt.width        = desc.Width,
+    rt.height       = desc.Height;
+    rt.gpu_resource = std::make_unique<RenderTarget>(
         this,
         fmt::format("RT for SwapChain {}", frame_index),
-        res.Detach()));
-    rt.gpu_resource        = *iter;
+        res.Detach());
 }
 
 void DX12Device::InitRenderTarget(graphics::RenderTarget& rt) {
@@ -143,30 +139,27 @@ void DX12Device::InitRenderTarget(graphics::RenderTarget& rt) {
     d3d_desc.Flags               = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     d3d_desc.Format              = to_dxgi_format(rt.format);
 
-    auto&& [iter, success] = m_Resources.emplace(std::make_shared<RenderTarget>(this, rt.name, d3d_desc));
-    rt.gpu_resource        = *iter;
+    rt.gpu_resource = std::make_unique<RenderTarget>(this, rt.name, d3d_desc);
 }
 
 void DX12Device::InitVertexBuffer(resource::VertexArray& vertices) {
     if (vertices.cpu_buffer.GetDataSize() == 0) return;
 
-    auto&& [iter, success] = m_Resources.emplace(std::make_shared<GpuBuffer>(
+    vertices.gpu_resource = std::make_unique<GpuBuffer>(
         this,
         vertices.name,
         vertices.cpu_buffer.GetDataSize(),
-        D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
-    vertices.gpu_resource  = *iter;
+        D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 }
 
 void DX12Device::InitIndexBuffer(resource::IndexArray& indices) {
     if (indices.cpu_buffer.GetDataSize() == 0) return;
 
-    auto&& [iter, success] = m_Resources.emplace(std::make_shared<GpuBuffer>(
+    indices.gpu_resource = std::make_unique<GpuBuffer>(
         this,
         indices.name,
         indices.cpu_buffer.GetDataSize(),
-        D3D12_RESOURCE_STATE_INDEX_BUFFER));
-    indices.gpu_resource   = *iter;
+        D3D12_RESOURCE_STATE_INDEX_BUFFER);
 }
 
 void DX12Device::InitTexture(resource::Texture& texture) {
@@ -181,13 +174,9 @@ void DX12Device::InitTexture(resource::Texture& texture) {
     d3d_desc.SampleDesc.Quality = texture.sample_quality;
     d3d_desc.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
-    auto&& [iter, success] = m_Resources.emplace(std::make_shared<Texture>(
-        this,
-        texture.name,
-        d3d_desc));
-    texture.gpu_resource   = *iter;
+    texture.gpu_resource = std::make_unique<Texture>(this, texture.name, d3d_desc);
 
-    CopyCommandContext     context(this);
+    CopyCommandContext     context("InitTexture", this);
     D3D12_SUBRESOURCE_DATA sub_data;
     sub_data.pData      = texture.cpu_buffer.GetData();
     sub_data.RowPitch   = texture.pitch;
@@ -197,26 +186,30 @@ void DX12Device::InitTexture(resource::Texture& texture) {
 }
 
 void DX12Device::InitConstantBuffer(graphics::ConstantBuffer& cb) {
-    auto&& [iter, success] = m_Resources.emplace(std::make_shared<ConstantBuffer>(this, cb.name, cb));
-    cb.gpu_resource        = *iter;
+    cb.gpu_resource = std::make_unique<ConstantBuffer>(this, cb.name, cb);
+    cb.update_fn    = [&cb](std::size_t index, const std::byte* data, std::size_t data_size) {
+        cb.gpu_resource->GetBackend<ConstantBuffer>()->UpdateData(index, data, data_size);
+    };
+    cb.resize_fn = [&cb](std::size_t new_num_elements) {
+        cb.gpu_resource->GetBackend<ConstantBuffer>()->Resize(new_num_elements);
+        cb.num_elements = new_num_elements;
+    };
 }
 
 void DX12Device::InitDepthBuffer(graphics::DepthBuffer& db) {
     auto d3d_desc  = CD3DX12_RESOURCE_DESC::Tex2D(to_dxgi_format(db.format), db.width, db.height);
     d3d_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
-    auto&& [iter, success] = m_Resources.emplace(std::make_shared<DepthBuffer>(this, db.name, d3d_desc, db.clear_depth, db.clear_stencil));
-    db.gpu_resource        = *iter;
+    db.gpu_resource = std::make_unique<DepthBuffer>(this, db.name, d3d_desc, db.clear_depth, db.clear_stencil);
 }
 
 // TODO: Custom sampler
 void DX12Device::InitSampler(graphics::Sampler& sampler) {
-    auto&& [iter, success] = m_Resources.emplace(std::make_shared<Sampler>(this, to_d3d_sampler_desc(sampler)));
-    sampler.gpu_resource   = *iter;
+    sampler.gpu_resource = std::make_unique<Sampler>(this, to_d3d_sampler_desc(sampler));
 }
 
 void DX12Device::InitPipelineState(graphics::PipelineState& pipeline) {
-    auto gpso = std::make_shared<GraphicsPSO>(pipeline.name, m_Device.Get());
+    auto gpso = std::make_unique<GraphicsPSO>(pipeline.name, m_Device.Get());
 
     for (const auto& shader : {pipeline.vs, pipeline.ps}) {
         if (shader != nullptr) {
@@ -239,39 +232,17 @@ void DX12Device::InitPipelineState(graphics::PipelineState& pipeline) {
         .SetSampleMask(UINT_MAX)
         .Finalize();
 
-    auto&& [iter, success] = m_Resources.emplace(gpso);
-    pipeline.gpu_resource  = *iter;
+    pipeline.gpu_resource = std::move(gpso);
 }
 
-void DX12Device::ResizeConstantBuffer(graphics::ConstantBuffer& buffer, size_t new_num_elements) {
-    if (buffer.gpu_resource.lock() == nullptr) {
-        spdlog::get("GraphicsManager")->error("Can not resize an uninitialized constant buffer ({})!", buffer.name);
-        return;
-    }
-    auto cb = buffer.gpu_resource.lock()->GetBackend<ConstantBuffer>();
-    cb->Resize(new_num_elements);
-    buffer.num_elements = new_num_elements;
+void DX12Device::RetireResource(std::unique_ptr<backend::Resource> resource) {
+    RetireResources();
+    if (resource == nullptr) return;
+    m_RetiredResources.emplace(std::move(resource));
 }
 
-void DX12Device::UpdateConstantBuffer(graphics::ConstantBuffer& buffer, std::size_t index, const std::byte* data, size_t size) {
-    if (buffer.gpu_resource.lock() == nullptr) {
-        spdlog::get("GraphicsManager")->error("Can not update an uninitialized constant buffer ({})!", buffer.name);
-        return;
-    }
-    buffer.gpu_resource.lock()->GetBackend<ConstantBuffer>()->UpdateData(index, data, size);
-}
-
-void DX12Device::RetireResource(std::shared_ptr<backend::Resource> resource) {
-    while (!m_RetireResources.empty() && m_CommandManager.IsFenceComplete(m_RetireResources.top()->fence_value)) {
-        m_Resources.erase(m_RetireResources.top());
-        m_RetireResources.pop();
-    }
-
-    m_RetireResources.emplace(std::move(resource));
-}
-
-std::shared_ptr<IGraphicsCommandContext> DX12Device::CreateGraphicsCommandContext() {
-    return std::make_unique<GraphicsCommandContext>(this);
+std::shared_ptr<IGraphicsCommandContext> DX12Device::CreateGraphicsCommandContext(std::string_view name) {
+    return std::make_unique<GraphicsCommandContext>(name, this);
 }
 
 void DX12Device::CompileShader(const std::shared_ptr<resource::Shader>& shader) {
@@ -344,7 +315,7 @@ void DX12Device::CompileShader(const std::shared_ptr<resource::Shader>& shader) 
 
     compile_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), &shader_name);
     if (shader_buffer != nullptr) {
-        shader->Program() = core::Buffer(shader_buffer->GetBufferPointer(), shader_buffer->GetBufferSize());
+        shader->Program() = core::Buffer(shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer()));
     }
 }
 
@@ -394,22 +365,23 @@ bool DX12Device::IsFenceComplete(std::uint64_t fence_value) {
 
 void DX12Device::WaitFence(std::uint64_t fence_value) {
     m_CommandManager.WaitForFence(fence_value);
-    while (!m_RetireResources.empty() && m_CommandManager.IsFenceComplete(m_RetireResources.top()->fence_value)) {
-        m_Resources.erase(m_RetireResources.top());
-        m_RetireResources.pop();
-    }
+    RetireResources();
 }
 
 void DX12Device::IdleGPU() {
     m_CommandManager.IdleGPU();
-    while (!m_RetireResources.empty() && m_CommandManager.IsFenceComplete(m_RetireResources.top()->fence_value)) {
-        m_Resources.erase(m_RetireResources.top());
-        m_RetireResources.pop();
-    }
+    RetireResources();
+    assert(m_RetiredResources.empty());
 }
 
 DescriptorAllocator& DX12Device::GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type) {
     return m_DescriptorAllocator[type];
+}
+
+void DX12Device::RetireResources() {
+    while (!m_RetiredResources.empty() && m_CommandManager.IsFenceComplete(m_RetiredResources.top()->fence_value)) {
+        m_RetiredResources.pop();
+    }
 }
 
 }  // namespace hitagi::graphics::backend::DX12

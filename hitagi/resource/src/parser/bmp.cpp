@@ -31,11 +31,11 @@ using BITMAP_HEADER = struct BitmapHeader {
 };
 #pragma pack(pop)
 
-std::optional<Texture> BmpParser::Parse(const core::Buffer& buffer) {
+std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer) {
     auto logger = spdlog::get("AssetManager");
     if (buffer.Empty()) {
         logger->warn("[BMP] Parsing a empty buffer will return nullptr");
-        return std::nullopt;
+        return nullptr;
     }
 
     auto file_header = reinterpret_cast<const BITMAP_FILEHEADER*>(buffer.GetData());
@@ -55,29 +55,29 @@ std::optional<Texture> BmpParser::Parse(const core::Buffer& buffer) {
 
         if (bmp_header->bit_count < 24) {
             logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
-            return std::nullopt;
+            return nullptr;
         }
 
-        Texture image;
-        image.width      = std::abs(bmp_header->width);
-        image.height     = std::abs(bmp_header->height);
-        image.format     = Format::R8G8B8A8_UNORM;
-        image.pitch      = ((image.width * 4) + 3) & ~3;
-        image.cpu_buffer = core::Buffer(image.pitch * image.height);
+        auto image        = std::make_shared<Texture>();
+        image->width      = std::abs(bmp_header->width);
+        image->height     = std::abs(bmp_header->height);
+        image->format     = Format::R8G8B8A8_UNORM;
+        image->pitch      = ((image->width * 4) + 3) & ~3;
+        image->cpu_buffer = core::Buffer(image->pitch * image->height);
 
-        auto           dest_data   = image.cpu_buffer.Span<math::R8G8B8A8Unorm>();
+        auto           dest_data   = image->cpu_buffer.Span<math::R8G8B8A8Unorm>();
         const uint8_t* source_data = reinterpret_cast<const uint8_t*>(buffer.GetData()) + file_header->bits_offset;
         size_t         index       = 0;
-        for (std::int32_t y = image.height - 1; y >= 0; y--) {
-            for (std::uint32_t x = 0; x < image.width; x++) {
+        for (std::int32_t y = image->height - 1; y >= 0; y--) {
+            for (std::uint32_t x = 0; x < image->width; x++) {
                 dest_data[index].bgra = *reinterpret_cast<const R8G8B8A8Unorm*>(
-                    source_data + image.pitch * y + x * 8);
+                    source_data + image->pitch * y + x * 8);
                 index++;
             }
         }
 
         return image;
     }
-    return std::nullopt;
+    return nullptr;
 }
 }  // namespace hitagi::resource

@@ -20,7 +20,7 @@ auto main(int argc, char** argv) -> int {
         std::cout << "Engine Initialize failed, will exit now." << std::endl;
         return -1;
     }
-
+ 
     engine.LoadModuleInplace<hitagi::Editor>("Editor", false);
 
 #ifdef _DEBUG
