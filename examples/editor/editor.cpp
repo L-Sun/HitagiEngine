@@ -186,13 +186,23 @@ void Editor::SceneExplorer() {
 }
 
 void Editor::DebugPanel() {
-    if (input_manager->GetBoolNew(VirtualKeyCode::KEY_D)) {
-        debug_manager->ToggleDebugInfo();
-    }
-
     gui_manager->DrawGui([]() {
         if (ImGui::Begin("Debug Pannel")) {
-            ImGui::Text("%s", fmt::format("Memory Usage: {}Mb", app->GetMemoryUsage() >> 20).c_str());
+            // Memory usage
+            {
+                ImGui::Text("%s", fmt::format("Memory Usage: {}Mb", app->GetMemoryUsage() >> 20).c_str());
+            }
+
+            // Debug draw
+            {
+                static bool debug_draw = true;
+                ImGui::Checkbox("Enable Debug Draw", &debug_draw);
+                if (debug_draw) {
+                    debug_manager->EnableDebugDraw();
+                } else {
+                    debug_manager->DisableDebugDraw();
+                }
+            }
         }
         ImGui::End();
         bool open = true;

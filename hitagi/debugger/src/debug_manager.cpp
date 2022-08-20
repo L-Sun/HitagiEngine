@@ -63,10 +63,6 @@ void DebugManager::Tick() {
     m_DebugDrawData.mesh.sub_meshes.clear();
 }
 
-void DebugManager::ToggleDebugInfo() {
-    m_DrawDebugInfo = !m_DrawDebugInfo;
-}
-
 void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, bool depth_enabled) {
     if (!m_DrawDebugInfo) return;
     vec3f dir = normalize(to - from);

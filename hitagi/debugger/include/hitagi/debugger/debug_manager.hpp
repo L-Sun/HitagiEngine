@@ -13,8 +13,9 @@ public:
     bool Initialize() final;
     void Finalize() final;
     void Tick() final;
-    void ToggleDebugInfo();
-    void DrawDebugInfo();
+
+    inline void EnableDebugDraw() noexcept { m_DrawDebugInfo = true; }
+    inline void DisableDebugDraw() noexcept { m_DrawDebugInfo = false; }
 
     void DrawLine(const math::vec3f& from, const math::vec3f& to, const math::vec4f& color, bool depth_enabled = true);
     void DrawAxis(const math::mat4f& transform, bool depth_enabled = true);
