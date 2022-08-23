@@ -25,9 +25,9 @@ public:
 
 private:
     // Parser
-    std::array<std::unique_ptr<ImageParser>, magic_enum::enum_count<ImageFormat>()> m_ImageParser;
-    std::unique_ptr<SceneParser>                                                    m_SceneParser;
-    std::unique_ptr<MaterialJSONParser>                                             m_MaterialJSONParser;
+    std::pmr::unordered_map<ImageFormat, std::unique_ptr<ImageParser>> m_ImageParsers;
+    std::pmr::unordered_map<SceneFormat, std::unique_ptr<SceneParser>> m_SceneParsers;
+    std::unique_ptr<MaterialJSONParser>                                m_MaterialJSONParser;
 
     std::pmr::vector<std::shared_ptr<Material>> m_Materials;
 };

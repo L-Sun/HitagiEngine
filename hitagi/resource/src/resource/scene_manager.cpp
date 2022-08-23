@@ -45,12 +45,12 @@ Scene& SceneManager::CreateEmptyScene(std::string_view name) {
     auto& scene = m_Scenes.emplace_back(Scene{name});
 
     auto camera_node    = scene.camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
-    camera_node->object = scene.cameras.emplace_back(std::make_shared<Camera>());
+    camera_node->object = std::make_shared<Camera>();
     camera_node->Attach(scene.root);
     scene.curr_camera = camera_node;
 
     auto light_node    = scene.light_nodes.emplace_back(std::make_shared<LightNode>("Default Light"));
-    light_node->object = scene.lights.emplace_back(std::make_shared<Light>());
+    light_node->object = std::make_shared<Light>();
     light_node->Attach(scene.root);
 
     return scene;
@@ -58,6 +58,11 @@ Scene& SceneManager::CreateEmptyScene(std::string_view name) {
 
 std::size_t SceneManager::AddScene(Scene scene) {
     m_Scenes.emplace_back(std::move(scene));
+    return m_Scenes.size() - 1;
+}
+
+std::size_t SceneManager::AddScenes(std::pmr::vector<Scene> scenes) {
+    m_Scenes.insert(m_Scenes.end(), std::make_move_iterator(scenes.begin()), std::make_move_iterator(scenes.end()));
     return m_Scenes.size() - 1;
 }
 

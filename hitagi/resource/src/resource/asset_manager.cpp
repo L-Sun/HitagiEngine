@@ -24,12 +24,16 @@ bool AssetManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("AssetManager");
     m_Logger->info("Initialize...");
 
-    m_SceneParser = std::make_unique<AssimpParser>();
+    m_SceneParsers[SceneFormat::UNKOWN] = std::make_unique<AssimpParser>("");
+    m_SceneParsers[SceneFormat::GLTF]   = std::make_unique<AssimpParser>(".gltf");
+    m_SceneParsers[SceneFormat::GLB]    = std::make_unique<AssimpParser>(".glb");
+    m_SceneParsers[SceneFormat::BLEND]  = std::make_unique<AssimpParser>(".blend");
+    m_SceneParsers[SceneFormat::FBX]    = std::make_unique<AssimpParser>(".fbx");
 
-    m_ImageParser[static_cast<size_t>(ImageFormat::PNG)]  = std::make_unique<PngParser>();
-    m_ImageParser[static_cast<size_t>(ImageFormat::JPEG)] = std::make_unique<JpegParser>();
-    m_ImageParser[static_cast<size_t>(ImageFormat::TGA)]  = std::make_unique<TgaParser>();
-    m_ImageParser[static_cast<size_t>(ImageFormat::BMP)]  = std::make_unique<BmpParser>();
+    m_ImageParsers[ImageFormat::PNG]  = std::make_unique<PngParser>();
+    m_ImageParsers[ImageFormat::JPEG] = std::make_unique<JpegParser>();
+    m_ImageParsers[ImageFormat::TGA]  = std::make_unique<TgaParser>();
+    m_ImageParsers[ImageFormat::BMP]  = std::make_unique<BmpParser>();
 
     m_MaterialJSONParser = std::make_unique<MaterialJSONParser>();
 
@@ -43,13 +47,8 @@ void AssetManager::Finalize() {
     // m_MoCapParser = nullptr;
 
     m_MaterialJSONParser = nullptr;
-
-    for (auto&& img_parser : m_ImageParser) {
-        img_parser = nullptr;
-    }
-
-    m_SceneParser = nullptr;
-
+    m_ImageParsers.clear();
+    m_SceneParsers.clear();
     m_Materials.clear();
 
     m_Logger->info("Finalized.");
@@ -57,7 +56,8 @@ void AssetManager::Finalize() {
 }
 
 std::optional<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
-    return m_SceneParser->Parse(file_io_manager->SyncOpenAndReadBinary(path));
+    auto format = get_scene_format(path.extension().string());
+    return m_SceneParsers[format]->Parse(file_io_manager->SyncOpenAndReadBinary(path), path.parent_path());
 }
 
 std::shared_ptr<Texture> AssetManager::ImportImage(const std::filesystem::path& path) {
@@ -67,7 +67,7 @@ std::shared_ptr<Texture> AssetManager::ImportImage(const std::filesystem::path& 
         m_Logger->error("Unkown image format, and return a null");
         return nullptr;
     }
-    auto image = m_ImageParser[static_cast<size_t>(format)]->Parse(file_io_manager->SyncOpenAndReadBinary(path));
+    auto image = m_ImageParsers[format]->Parse(file_io_manager->SyncOpenAndReadBinary(path));
     return image;
 }
 

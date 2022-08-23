@@ -25,10 +25,10 @@ mat4f get_matrix(const aiMatrix4x4& _mat) {
 vec3f get_vec3(const aiVector3D& v) {
     return {v.x, v.y, v.z};
 };
-vec3f get_vec3(const aiColor3D& v) {
-    return {v.r, v.g, v.b};
-};
-vec4f get_vec4(const aiColor4D& c) {
+vec4f get_color(const aiColor3D& c) {
+    return {c.r, c.g, c.b, 1.0f};
+}
+vec4f get_color(const aiColor4D& c) {
     return {c.r, c.g, c.b, c.a};
 };
 
@@ -44,11 +44,59 @@ PrimitiveType get_primitive(unsigned int primitives) {
     }
 }
 
-std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
+constexpr std::array<std::pair<std::string_view, aiTextureType>, 20> texture_key_map = {
+    {
+        {"diffuse", aiTextureType_DIFFUSE},
+        {"specular", aiTextureType_SPECULAR},
+        {"ambient", aiTextureType_AMBIENT},
+        {"emissive", aiTextureType_EMISSIVE},
+        {"height", aiTextureType_HEIGHT},
+        {"normal", aiTextureType_NORMALS},
+        {"shininess", aiTextureType_SHININESS},
+        {"opacity", aiTextureType_OPACITY},
+        {"dispacement", aiTextureType_DISPLACEMENT},
+        {"lightmap", aiTextureType_LIGHTMAP},
+        {"reflection", aiTextureType_REFLECTION},
+        // PBR Material
+        {"base_color", aiTextureType_BASE_COLOR},
+        {"normal_camera", aiTextureType_NORMAL_CAMERA},
+        {"emission_color", aiTextureType_EMISSION_COLOR},
+        {"metalness", aiTextureType_METALNESS},
+        {"diffuse_roughness", aiTextureType_DIFFUSE_ROUGHNESS},
+        {"occlusion", aiTextureType_AMBIENT_OCCLUSION},
+        // ---------
+        {"sheen", aiTextureType_SHEEN},
+        {"clearcoat", aiTextureType_CLEARCOAT},
+        {"transmission", aiTextureType_TRANSMISSION},
+    }};
+
+constexpr std::array mat_color_keys = {
+    "diffuse",
+    "specular",
+    "ambient",
+    "emissive",
+    "transparent",
+    "reflective",
+    // PBR
+    "base",
+    "sheen.factor"};
+constexpr std::array mat_float_keys = {
+    "reflectivity",
+    "opacity",
+    "shininess",
+    "shinpercent",
+    "refracti",
+    // PBR
+    "metallicFactor",
+};
+
+AssimpParser::AssimpParser(std::filesystem::path ext) : m_Hint(std::move(ext)) {}
+
+std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::filesystem::path& root_path) {
     auto logger = spdlog::get("AssetManager");
 
     if (buffer.Empty()) {
-        logger->warn("[Assimp] Parsing a empty buffer");
+        logger->warn("Parsing a empty buffer");
         return std::nullopt;
     }
 
@@ -64,12 +112,13 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
         aiPostProcessSteps::aiProcess_PopulateArmatureData;
 
     clock.Start();
-    const aiScene* ai_scene = importer.ReadFileFromMemory(buffer.GetData(), buffer.GetDataSize(), flag);
+    const aiScene* ai_scene = importer.ReadFileFromMemory(buffer.GetData(), buffer.GetDataSize(), flag, m_Hint.string().c_str());
     if (!ai_scene) {
-        logger->error("[Assimp] Can not parse the scene.");
+        logger->error("Can not parse the scene.");
+        logger->error(importer.GetErrorString());
         return std::nullopt;
     }
-    logger->info("[Assimp] Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    logger->info("Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
     Scene scene;
@@ -94,25 +143,25 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
         if (!success)
             logger->warn("A camera[{}] with the same name already exists!", _camera->mName.C_Str());
     }
-    logger->info("[Assimp] Parsing cameras costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    logger->info("Parsing cameras costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
     // process light
     std::pmr::unordered_map<std::string_view, std::shared_ptr<Light>> light_name_map;
-    logger->debug("Parse cameras... Num: {}", ai_scene->mNumLights);
+    logger->debug("Parse lights... Num: {}", ai_scene->mNumLights);
     for (size_t i = 0; i < ai_scene->mNumLights; i++) {
         const auto _light = ai_scene->mLights[i];
 
         auto light   = std::make_shared<Light>();
-        light->color = get_vec3(_light->mColorDiffuse);
+        light->color = get_color(_light->mColorDiffuse);
 
         switch (_light->mType) {
             case aiLightSourceType::aiLightSource_AMBIENT:
                 std::cerr << "[AssimpParser] " << std::endl;
-                logger->warn("[Assimp] Unsupport light type: AMBIEN");
+                logger->warn("Unsupport light type: AMBIEN");
                 break;
             case aiLightSourceType::aiLightSource_AREA:
-                logger->warn("[Assimp] Unsupport light type: AREA");
+                logger->warn("Unsupport light type: AREA");
                 break;
             case aiLightSourceType::aiLightSource_DIRECTIONAL: {
                 light->type      = Light::Type::Point;
@@ -131,102 +180,92 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
                 light->direction        = normalize(get_vec3(_light->mDirection));
             } break;
             case aiLightSourceType::aiLightSource_UNDEFINED:
-                logger->warn("[Assimp] Unsupport light type: UNDEFINED");
+                logger->warn("Unsupport light type: UNDEFINED");
                 break;
             case aiLightSourceType::_aiLightSource_Force32Bit:
-                logger->warn("[Assimp] Unsupport light type: Force32Bit");
+                logger->warn("Unsupport light type: Force32Bit");
                 break;
             default:
-                logger->warn("[Assimp] Unknown light type.");
+                logger->warn("Unknown light type.");
                 break;
         }
         auto&& [result, success] = light_name_map.emplace(_light->mName.C_Str(), light);
         if (!success)
             logger->warn("A light[{}] with the same name already exists!", _light->mName.C_Str());
     }
-    logger->info("[Assimp] Parsing lights costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    logger->info("Parsing lights costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
     // process material
     logger->debug("Parse materials... Num: {}", ai_scene->mNumMaterials);
     std::pmr::vector<std::shared_ptr<MaterialInstance>> material_instances;
-    for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
-        auto              _material = ai_scene->mMaterials[i];
-        Material::Builder builder;
+    {
+        for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
+            auto _material = ai_scene->mMaterials[i];
 
-        // set material diffuse color
-        if (aiColor3D ambientColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_AMBIENT, ambientColor))
-            builder.AppendParameterInfo("ambient", vec4f(ambientColor.r, ambientColor.g, ambientColor.b, 1.0f));
-        if (aiColor3D diffuseColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor))
-            builder.AppendParameterInfo("diffuse", vec4f(diffuseColor.r, diffuseColor.g, diffuseColor.b, 1.0f));
-        // set material specular color
-        if (aiColor3D specularColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_SPECULAR, specularColor))
-            builder.AppendParameterInfo("specular", vec4f(specularColor.r, specularColor.g, specularColor.b, 1.0f));
+            Material::Builder builder;
+            if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
+                builder.SetName(name.C_Str());
 
-        // set material emission color
-        if (aiColor3D emissiveColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor))
-            builder.AppendParameterInfo("emission", vec4f(emissiveColor.r, emissiveColor.g, emissiveColor.b, 1.0f));
-        // set material transparent color
-        if (aiColor3D transparentColor; AI_SUCCESS == _material->Get(AI_MATKEY_COLOR_TRANSPARENT, transparentColor))
-            builder.AppendParameterInfo("transparency", vec4f(transparentColor.r, transparentColor.g, transparentColor.b, 1.0f));
-        // set material shiness
-        if (float shininess = 0; AI_SUCCESS == _material->Get(AI_MATKEY_SHININESS, shininess))
-            builder.AppendParameterInfo("specular_power", shininess);
-        // set material opacity
-        if (float opacity = 0; AI_SUCCESS == _material->Get(AI_MATKEY_OPACITY, opacity))
-            builder.AppendParameterInfo("opacity", opacity);
+            if (aiShadingMode shading_mode; _material->Get(AI_MATKEY_SHADING_MODEL, shading_mode))
+                logger->debug("Shading Mode: {}", magic_enum::enum_name(shading_mode));
 
-        // set diffuse texture
-        // TODO: blend mutiple texture
-        const std::pmr::unordered_map<std::pmr::string, aiTextureType> map = {
-            {
-                {"diffuse", aiTextureType::aiTextureType_DIFFUSE},
-                {"specular", aiTextureType::aiTextureType_SPECULAR},
-                {"emission", aiTextureType::aiTextureType_EMISSIVE},
-                {"opacity", aiTextureType::aiTextureType_OPACITY},
-                // {"transparency", },
-                {"normal", aiTextureType::aiTextureType_NORMALS},
-            }};
-        for (auto&& [key1, key2] : map) {
-            for (size_t i = 0; i < _material->GetTextureCount(key2); i++) {
-                aiString _path;
-                if (AI_SUCCESS == _material->GetTexture(aiTextureType::aiTextureType_DIFFUSE, i, &_path)) {
-                    builder.AppendTextureName(key1, _path.C_Str());
-                }
-                break;  // unsupport blend for now.
+            if (bool enable_wireframe; AI_SUCCESS == _material->Get(AI_MATKEY_ENABLE_WIREFRAME, enable_wireframe))
+                builder.SetWireFrame(enable_wireframe);
+
+            for (const auto& key : mat_color_keys) {
+                if (aiColor3D color; AI_SUCCESS == _material->Get(fmt::format("$clr.{}", key).c_str(), 0, 0, color))
+                    builder.AppendParameterInfo(key, get_color(color));
             }
+
+            for (const auto& key : mat_float_keys) {
+                if (float scale; AI_SUCCESS == _material->Get(fmt::format("$mat.{}", key).c_str(), 0, 0, scale))
+                    builder.AppendParameterInfo(key, scale);
+            }
+
+            // set diffuse texture
+            // TODO: blend mutiple texture
+            for (const auto& [name, ai_key] : texture_key_map) {
+                for (size_t i = 0; i < _material->GetTextureCount(ai_key); i++) {
+                    aiString _path;
+                    if (AI_SUCCESS == _material->GetTexture(ai_key, i, &_path)) {
+                        builder.AppendTextureName(name, _path.C_Str());
+                    }
+                    break;  // unsupport blend for now.
+                }
+            }
+
+            // TODO adapte assimp shader
+            builder
+                .SetVertexShader("assets/shaders/color.hlsl")
+                .SetPixelShader("assets/shaders/color.hlsl");
+
+            auto material = builder.Build();
+            auto instance = material->CreateInstance();
+
+            auto iter = std::find_if(scene.materials.begin(),
+                                     scene.materials.end(),
+                                     [material](auto m) -> bool {
+                                         return *m == *material;
+                                     });
+
+            // A new material type
+            if (iter == scene.materials.end()) {
+                scene.materials.emplace_back(material);
+            }
+            // A exists material type
+            else {
+                instance  = (*iter)->CreateInstance();
+                auto temp = material->CreateInstance();
+
+                const_cast<core::Buffer&>(instance->GetParameterBuffer())                                                 = temp->GetParameterBuffer();
+                const_cast<std::pmr::unordered_map<std::pmr::string, std::shared_ptr<Texture>>&>(instance->GetTextures()) = temp->GetTextures();
+            }
+
+            material_instances.emplace_back(std::move(instance));
         }
-
-        // TODO adapte assimp shader
-        builder
-            .SetVertexShader("assets/shaders/color.hlsl")
-            .SetPixelShader("assets/shaders/color.hlsl");
-
-        auto material = builder.Build();
-        auto instance = material->CreateInstance();
-
-        auto iter = std::find_if(scene.materials.begin(),
-                                 scene.materials.end(),
-                                 [material](auto m) -> bool {
-                                     return *m == *material;
-                                 });
-
-        // A new material type
-        if (iter == scene.materials.end()) {
-            scene.materials.emplace_back(material);
-        }
-        // A exists material type
-        else {
-            instance  = (*iter)->CreateInstance();
-            auto temp = material->CreateInstance();
-
-            const_cast<core::Buffer&>(instance->GetParameterBuffer())                                                 = temp->GetParameterBuffer();
-            const_cast<std::pmr::unordered_map<std::pmr::string, std::shared_ptr<Texture>>&>(instance->GetTextures()) = temp->GetTextures();
-        }
-
-        material_instances.emplace_back(std::move(instance));
-    };
-    logger->info("[Assimp] Parsing materials costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    }
+    logger->info("Parsing materials costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
     std::pmr::unordered_map<const aiMesh*, Mesh>        meshes;
@@ -272,7 +311,7 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
                 if (ai_mesh->HasVertexColors(I)) {
                     mesh.vertices->Modify<channels.at(I)>([&](auto colors) {
                         const auto _colors = std::span<aiColor4D>(ai_mesh->mColors[I], ai_mesh->mNumVertices);
-                        std::transform(_colors.begin(), _colors.end(), colors.begin(), [](const auto& c) { return get_vec4(c); });
+                        std::transform(_colors.begin(), _colors.end(), colors.begin(), [](const auto& c) { return get_color(c); });
                     });
                 }
             };
@@ -378,7 +417,7 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
 
         meshes.emplace(ai_mesh, std::move(mesh));
     };
-    logger->info("[Assimp] Parsing meshes costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    logger->info("Parsing meshes costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
     auto create_mesh = [&](const aiNode* _node) -> std::shared_ptr<Mesh> {
@@ -424,7 +463,6 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
         if (_node->mNumMeshes > 0) {
             auto mesh_node    = std::make_shared<MeshNode>();
             mesh_node->object = create_mesh(_node);
-            scene.meshes.emplace_back(mesh_node->object);
             scene.instance_nodes.emplace_back(mesh_node);
             node = mesh_node;
         }
@@ -432,7 +470,6 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
         else if (camera_name_map.contains(name)) {
             auto camera_node    = std::make_shared<CameraNode>();
             camera_node->object = camera_name_map.at(name);
-            scene.cameras.emplace_back(camera_node->object);
             scene.camera_nodes.emplace_back(camera_node);
             node = camera_node;
         }
@@ -440,7 +477,6 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
         else if (light_name_map.contains(name)) {
             auto light_node    = std::make_shared<LightNode>();
             light_node->object = light_name_map.at(name);
-            scene.lights.emplace_back(light_node->object);
             scene.light_nodes.emplace_back(light_node);
             node = light_node;
         }
@@ -448,7 +484,6 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
         else if (armature_nodes.contains(_node)) {
             auto armature_node    = std::make_shared<ArmatureNode>();
             armature_node->object = create_armature(_node);
-            scene.armatures.emplace_back(armature_node->object);
             scene.armature_nodes.emplace_back(armature_node);
             node = armature_node;
         }
@@ -474,16 +509,15 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer) {
     };
     scene.root = convert(ai_scene->mRootNode);
     if (scene.camera_nodes.empty()) {
-        auto camera_node    = scene.camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
-        camera_node->object = scene.cameras.emplace_back(std::make_shared<Camera>());
+        auto camera_node = scene.camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
         camera_node->Attach(scene.root);
     }
     scene.curr_camera = scene.camera_nodes.front();
 
-    logger->info("[Assimp] Parsing scnene graph costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    logger->info("Parsing scnene graph costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
-    logger->info("[Assimp] Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.TotalTime()).count());
+    logger->info("Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.TotalTime()).count());
 
     return scene;
 }

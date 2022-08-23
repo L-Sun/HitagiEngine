@@ -26,6 +26,11 @@ auto Material::Builder::SetPixelShader(const std::filesystem::path& path) -> Bui
     return *this;
 }
 
+auto Material::Builder::SetWireFrame(bool enable) -> Builder& {
+    wireframe = enable;
+    return *this;
+}
+
 auto Material::Builder::AppendParameterImpl(std::string_view name, const std::type_info& type_id, std::size_t size, std::byte* default_values) -> Builder& {
     std::pmr::string param_name{name};
     AddName(param_name);

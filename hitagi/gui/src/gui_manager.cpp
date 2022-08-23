@@ -38,7 +38,7 @@ bool GuiManager::Initialize() {
     }
 
     m_DrawData.mesh = {
-        .vertices = std::make_shared<VertexArray>(1, "imgui-vertex", std::pmr::vector<VertexAttribute>{VertexAttribute::Position, VertexAttribute::Color0, VertexAttribute::UV0}),
+        .vertices = std::make_shared<VertexArray>(1, "imgui-vertex", create_vertex_attr_mask<VertexAttribute::Position, VertexAttribute::Color0, VertexAttribute::UV0>()),
         .indices  = std::make_shared<IndexArray>(1, "imgui-indices", IndexType::UINT16),
     };
     LoadFontTexture();

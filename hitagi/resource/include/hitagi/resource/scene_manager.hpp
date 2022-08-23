@@ -13,6 +13,7 @@ public:
 
     Scene&      CreateEmptyScene(std::string_view name = "");
     std::size_t AddScene(Scene scene);
+    std::size_t AddScenes(std::pmr::vector<Scene> scenes);
     std::size_t GetNumScene() const noexcept;
     Scene&      GetScene(std::size_t index);
     void        SwitchScene(std::size_t index);
