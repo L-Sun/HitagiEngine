@@ -122,8 +122,10 @@ std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) 
         }
     }
 
-    for (auto texture : json["textures"]) {
-        builder.AppendTextureName(texture["name"], texture["path"]);
+    for (auto texture_info : json["textures"]) {
+        auto texture  = std::make_shared<Texture>();
+        texture->path = std::string(texture_info["path"]);
+        builder.AppendParameterInfo(texture_info["name"], std::move(texture));
     }
 
     return builder.Build();

@@ -204,7 +204,7 @@ void DX12Device::InitDepthBuffer(graphics::DepthBuffer& db) {
 }
 
 // TODO: Custom sampler
-void DX12Device::InitSampler(graphics::Sampler& sampler) {
+void DX12Device::InitSampler(resource::Sampler& sampler) {
     sampler.gpu_resource = std::make_unique<Sampler>(this, to_d3d_sampler_desc(sampler));
 }
 

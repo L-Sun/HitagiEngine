@@ -22,7 +22,7 @@ public:
     void InitTexture(resource::Texture& tb) final;
     void InitConstantBuffer(graphics::ConstantBuffer& cb) final;
     void InitDepthBuffer(graphics::DepthBuffer& db) final;
-    void InitSampler(graphics::Sampler& sampler) final;
+    void InitSampler(resource::Sampler& sampler) final;
     void InitPipelineState(graphics::PipelineState& pipeline) final;
 
     std::shared_ptr<IGraphicsCommandContext> CreateGraphicsCommandContext(std::string_view name = "") final;

@@ -229,40 +229,40 @@ inline DXGI_FORMAT to_dxgi_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
 
 inline resource::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<resource::Format>(format); }
 
-inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(TextureAddressMode mode) {
+inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(resource::TextureAddressMode mode) {
     switch (mode) {
-        case TextureAddressMode::Wrap:
+        case resource::TextureAddressMode::Wrap:
             return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        case TextureAddressMode::Mirror:
+        case resource::TextureAddressMode::Mirror:
             return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
-        case TextureAddressMode::Clamp:
+        case resource::TextureAddressMode::Clamp:
             return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-        case TextureAddressMode::Border:
+        case resource::TextureAddressMode::Border:
             return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-        case TextureAddressMode::MirrorOnce:
+        case resource::TextureAddressMode::MirrorOnce:
             return D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE;
         default:
             return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
     }
 }
 
-inline D3D12_COMPARISON_FUNC to_d3d_comp_func(ComparisonFunc func) {
+inline D3D12_COMPARISON_FUNC to_d3d_comp_func(resource::ComparisonFunc func) {
     switch (func) {
-        case ComparisonFunc::Never:
+        case resource::ComparisonFunc::Never:
             return D3D12_COMPARISON_FUNC_NEVER;
-        case ComparisonFunc::Less:
+        case resource::ComparisonFunc::Less:
             return D3D12_COMPARISON_FUNC_LESS;
-        case ComparisonFunc::Equal:
+        case resource::ComparisonFunc::Equal:
             return D3D12_COMPARISON_FUNC_EQUAL;
-        case ComparisonFunc::LessEqual:
+        case resource::ComparisonFunc::LessEqual:
             return D3D12_COMPARISON_FUNC_LESS_EQUAL;
-        case ComparisonFunc::Greater:
+        case resource::ComparisonFunc::Greater:
             return D3D12_COMPARISON_FUNC_GREATER;
-        case ComparisonFunc::NotEqual:
+        case resource::ComparisonFunc::NotEqual:
             return D3D12_COMPARISON_FUNC_NOT_EQUAL;
-        case ComparisonFunc::GreaterEqual:
+        case resource::ComparisonFunc::GreaterEqual:
             return D3D12_COMPARISON_FUNC_GREATER_EQUAL;
-        case ComparisonFunc::Always:
+        case resource::ComparisonFunc::Always:
             return D3D12_COMPARISON_FUNC_ALWAYS;
         default:
             return D3D12_COMPARISON_FUNC_NEVER;
@@ -270,7 +270,7 @@ inline D3D12_COMPARISON_FUNC to_d3d_comp_func(ComparisonFunc func) {
 }
 
 // TODO change when integrate Vulkan
-inline D3D12_FILTER to_d3d_filter(Filter filter) noexcept {
+inline D3D12_FILTER to_d3d_filter(resource::Filter filter) noexcept {
     return static_cast<D3D12_FILTER>(filter);
 }
 
@@ -327,7 +327,7 @@ inline DXGI_FORMAT index_type_to_dxgi_format(resource::IndexType type) noexcept 
     }
 }
 
-inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(const graphics::Sampler& sampler) noexcept {
+inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(const resource::Sampler& sampler) noexcept {
     D3D12_SAMPLER_DESC result{};
     result.AddressU       = to_d3d_texture_address_mode(sampler.address_u);
     result.AddressV       = to_d3d_texture_address_mode(sampler.address_v);

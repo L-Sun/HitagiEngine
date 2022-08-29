@@ -1,5 +1,6 @@
 #include <hitagi/parser/assimp.hpp>
 #include <hitagi/core/timer.hpp>
+#include <hitagi/resource/asset_manager.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -25,8 +26,8 @@ mat4f get_matrix(const aiMatrix4x4& _mat) {
 vec3f get_vec3(const aiVector3D& v) {
     return {v.x, v.y, v.z};
 };
-vec4f get_color(const aiColor3D& c) {
-    return {c.r, c.g, c.b, 1.0f};
+vec3f get_color(const aiColor3D& c) {
+    return {c.r, c.g, c.b};
 }
 vec4f get_color(const aiColor4D& c) {
     return {c.r, c.g, c.b, c.a};
@@ -196,74 +197,117 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::
     logger->info("Parsing lights costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
+    // process textures
+    logger->debug("Parse embedded texture... Num: {}", ai_scene->mNumTextures);
+    std::pmr::unordered_map<const aiTexture*, std::shared_ptr<Texture>> textures;
+    for (std::size_t i = 0; i < ai_scene->mNumTextures; i++) {
+        auto                     _texture = ai_scene->mTextures[i];
+        std::shared_ptr<Texture> texture  = nullptr;
+
+        if (_texture->mHeight != 0) {
+            texture             = std::make_shared<Texture>();
+            texture->width      = _texture->mWidth;
+            texture->height     = _texture->mHeight;
+            texture->format     = Format::R8G8B8A8_UINT;
+            texture->cpu_buffer = core::Buffer(texture->width * texture->height * 4);
+            auto dest           = texture->cpu_buffer.Span<Vector<std::uint8_t, 4>>();
+            auto src            = std::span<aiTexel>(_texture->pcData, _texture->mWidth * _texture->mHeight);
+            std::transform(src.begin(), src.end(), dest.begin(), [](const aiTexel& color) {
+                return Vector<std::uint8_t, 4>{color.r, color.g, color.b, color.a};
+            });
+        } else {
+            logger->debug("texture path: {}", _texture->mFilename.C_Str());
+            auto buffer = core::Buffer(_texture->mWidth, reinterpret_cast<const std::byte*>(_texture->pcData));
+            if (_texture->CheckFormat("jpg")) {
+                texture = asset_manager->ImportTexture(buffer, ImageFormat::JPEG);
+            } else if (_texture->CheckFormat("png")) {
+                texture = asset_manager->ImportTexture(buffer, ImageFormat::PNG);
+            } else if (_texture->CheckFormat("bmp")) {
+                texture = asset_manager->ImportTexture(buffer, ImageFormat::BMP);
+            } else if (_texture->CheckFormat("tga")) {
+                texture = asset_manager->ImportTexture(buffer, ImageFormat::TGA);
+            } else {
+                logger->warn("Unsupport texture format: {}", _texture->achFormatHint);
+            }
+        }
+
+        textures.emplace(_texture, texture);
+    }
+    logger->info("Parsing texture costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    clock.Tick();
+
     // process material
     logger->debug("Parse materials... Num: {}", ai_scene->mNumMaterials);
     std::pmr::vector<std::shared_ptr<MaterialInstance>> material_instances;
-    {
-        for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
-            auto _material = ai_scene->mMaterials[i];
+    for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
+        auto _material = ai_scene->mMaterials[i];
 
-            Material::Builder builder;
-            if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
-                builder.SetName(name.C_Str());
+        Material::Builder builder;
+        if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
+            builder.SetName(name.C_Str());
 
-            if (aiShadingMode shading_mode; _material->Get(AI_MATKEY_SHADING_MODEL, shading_mode))
-                logger->debug("Shading Mode: {}", magic_enum::enum_name(shading_mode));
+        if (aiShadingMode shading_mode; _material->Get(AI_MATKEY_SHADING_MODEL, shading_mode))
+            logger->debug("Shading Mode: {}", magic_enum::enum_name(shading_mode));
 
-            if (bool enable_wireframe; AI_SUCCESS == _material->Get(AI_MATKEY_ENABLE_WIREFRAME, enable_wireframe))
-                builder.SetWireFrame(enable_wireframe);
+        if (bool enable_wireframe; AI_SUCCESS == _material->Get(AI_MATKEY_ENABLE_WIREFRAME, enable_wireframe))
+            builder.SetWireFrame(enable_wireframe);
 
-            for (const auto& key : mat_color_keys) {
-                if (aiColor3D color; AI_SUCCESS == _material->Get(fmt::format("$clr.{}", key).c_str(), 0, 0, color))
-                    builder.AppendParameterInfo(key, get_color(color));
-            }
-
-            for (const auto& key : mat_float_keys) {
-                if (float scale; AI_SUCCESS == _material->Get(fmt::format("$mat.{}", key).c_str(), 0, 0, scale))
-                    builder.AppendParameterInfo(key, scale);
-            }
-
-            // set diffuse texture
-            // TODO: blend mutiple texture
-            for (const auto& [name, ai_key] : texture_key_map) {
-                for (size_t i = 0; i < _material->GetTextureCount(ai_key); i++) {
-                    aiString _path;
-                    if (AI_SUCCESS == _material->GetTexture(ai_key, i, &_path)) {
-                        builder.AppendTextureName(name, _path.C_Str());
-                    }
-                    break;  // unsupport blend for now.
-                }
-            }
-
-            // TODO adapte assimp shader
-            builder
-                .SetVertexShader("assets/shaders/color.hlsl")
-                .SetPixelShader("assets/shaders/color.hlsl");
-
-            auto material = builder.Build();
-            auto instance = material->CreateInstance();
-
-            auto iter = std::find_if(scene.materials.begin(),
-                                     scene.materials.end(),
-                                     [material](auto m) -> bool {
-                                         return *m == *material;
-                                     });
-
-            // A new material type
-            if (iter == scene.materials.end()) {
-                scene.materials.emplace_back(material);
-            }
-            // A exists material type
-            else {
-                instance  = (*iter)->CreateInstance();
-                auto temp = material->CreateInstance();
-
-                const_cast<core::Buffer&>(instance->GetParameterBuffer())                                                 = temp->GetParameterBuffer();
-                const_cast<std::pmr::unordered_map<std::pmr::string, std::shared_ptr<Texture>>&>(instance->GetTextures()) = temp->GetTextures();
-            }
-
-            material_instances.emplace_back(std::move(instance));
+        for (const auto& key : mat_color_keys) {
+            if (aiColor3D color; AI_SUCCESS == _material->Get(fmt::format("$clr.{}", key).c_str(), 0, 0, color))
+                builder.AppendParameterInfo(key, get_color(color));
         }
+
+        for (const auto& key : mat_float_keys) {
+            if (float scale; AI_SUCCESS == _material->Get(fmt::format("$mat.{}", key).c_str(), 0, 0, scale))
+                builder.AppendParameterInfo(key, scale);
+        }
+
+        // set diffuse texture
+        // TODO: blend mutiple texture
+        for (const auto& [name, ai_key] : texture_key_map) {
+            for (size_t i = 0; i < _material->GetTextureCount(ai_key); i++) {
+                aiString                 _path;
+                std::shared_ptr<Texture> texture;
+
+                if (AI_SUCCESS == _material->GetTexture(ai_key, i, &_path)) {
+                    if (auto _texture = ai_scene->GetEmbeddedTexture(_path.C_Str()); _texture) {
+                        texture = textures.at(_texture);
+                    } else {
+                        auto texture  = std::make_shared<Texture>();
+                        texture->path = _path.C_Str();
+                    }
+                    builder.AppendParameterInfo(name, texture);
+                }
+
+                break;  // unsupport blend for now.
+            }
+        }
+
+        // TODO adapte assimp shader
+        builder
+            .SetVertexShader("assets/shaders/color.hlsl")
+            .SetPixelShader("assets/shaders/color.hlsl");
+
+        auto material = builder.Build();
+        auto instance = material->CreateInstance();
+
+        auto iter = std::find_if(scene.materials.begin(),
+                                 scene.materials.end(),
+                                 [material](auto m) -> bool {
+                                     return *m == *material;
+                                 });
+
+        // A new material type
+        if (iter == scene.materials.end()) {
+            scene.materials.emplace_back(material);
+        }
+        // A exists material type
+        else {
+            instance  = (*iter)->CreateInstance();
+            auto temp = material->CreateInstance();
+        }
+
+        material_instances.emplace_back(std::move(instance));
     }
     logger->info("Parsing materials costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
@@ -408,12 +452,9 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::
             .index_count       = mesh.indices->index_count,
             .index_offset      = 0,
             .vertex_offset     = 0,
+            .primitive         = get_primitive(ai_mesh->mPrimitiveTypes),
             .material_instance = material_instances.at(ai_mesh->mMaterialIndex),
         });
-
-        if (auto material = material_instances[ai_mesh->mMaterialIndex]->GetMaterial().lock(); material) {
-            material->primitive = get_primitive(ai_mesh->mPrimitiveTypes);
-        }
 
         meshes.emplace(ai_mesh, std::move(mesh));
     };

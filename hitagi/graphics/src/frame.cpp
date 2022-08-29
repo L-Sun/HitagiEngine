@@ -71,9 +71,9 @@ void Frame::DrawScene(const resource::Scene& scene) {
                 material.get(),
                 ConstantBuffer{
                     .num_elements = material->GetNumInstances(),
-                    .element_size = material->GetParametersSize(),
+                    .element_size = material->GetParametersBufferSize(),
                 });
-            iter->second.name = fmt::format("material cb ({})", material->name);
+            iter->second.name = fmt::format("material cb ({})", material->GetName());
             m_Device.InitConstantBuffer(iter->second);
         } else if (m_MaterialBuffers.at(material.get()).num_elements < material->GetNumInstances()) {
             m_MaterialBuffers.at(material.get()).Resize(material->GetNumInstances());
@@ -116,7 +116,7 @@ void Frame::DrawScene(const resource::Scene& scene) {
         for (const auto& submesh : mesh->sub_meshes) {
             auto material_instance = submesh.material_instance.get();
             if (!submesh.material_instance) return;
-            auto material = submesh.material_instance->GetMaterial().lock();
+            auto material = submesh.material_instance->GetMaterial();
             if (!material) continue;
 
             context->SetPipelineState(graphics_manager->GetPipelineState(material.get()));

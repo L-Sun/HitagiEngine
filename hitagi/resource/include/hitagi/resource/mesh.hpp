@@ -166,6 +166,7 @@ struct Mesh {
         std::size_t                       index_count;
         std::size_t                       index_offset;
         std::size_t                       vertex_offset;
+        PrimitiveType                     primitive;
         std::shared_ptr<MaterialInstance> material_instance;
     };
     std::pmr::vector<SubMesh> sub_meshes;

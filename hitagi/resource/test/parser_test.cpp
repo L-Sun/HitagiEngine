@@ -9,33 +9,33 @@ using namespace hitagi::math;
 using namespace hitagi::testing;
 
 TEST(ImageParserTest, ErrorPath) {
-    auto image = asset_manager->ImportImage("assets/test/azcxxcacas.jpg");
+    auto image = asset_manager->ImportTexture("assets/test/azcxxcacas.jpg");
     EXPECT_TRUE(!image);
 }
 
 TEST(ImageParserTest, Jpeg) {
-    auto image = asset_manager->ImportImage("assets/test/test.jpg");
+    auto image = asset_manager->ImportTexture("assets/test/test.jpg");
     EXPECT_TRUE(image);
     EXPECT_EQ(image->width, 278);
     EXPECT_EQ(image->height, 152);
 }
 
 TEST(ImageParserTest, Tga) {
-    auto image = asset_manager->ImportImage("assets/test/test.tga");
+    auto image = asset_manager->ImportTexture("assets/test/test.tga");
     EXPECT_TRUE(image);
     EXPECT_EQ(image->width, 278);
     EXPECT_EQ(image->height, 152);
 }
 
 TEST(ImageParserTest, Png) {
-    auto image = asset_manager->ImportImage("assets/test/test.png");
+    auto image = asset_manager->ImportTexture("assets/test/test.png");
     EXPECT_TRUE(image);
     EXPECT_EQ(image->width, 278);
     EXPECT_EQ(image->height, 152);
 }
 
 TEST(ImageParserTest, Bmp) {
-    auto image = asset_manager->ImportImage("assets/test/test.bmp");
+    auto image = asset_manager->ImportTexture("assets/test/test.bmp");
     EXPECT_TRUE(image);
     EXPECT_EQ(image->width, 278);
     EXPECT_EQ(image->height, 152);
@@ -44,29 +44,20 @@ TEST(ImageParserTest, Bmp) {
 TEST(SceneParserTest, Fbx) {
     auto scene = asset_manager->ImportScene("assets/test/test.fbx");
     EXPECT_TRUE(scene.has_value());
-    EXPECT_EQ(scene->cameras.size(), 1);
-    EXPECT_EQ(scene->meshes.size(), 1);
-    EXPECT_EQ(scene->lights.size(), 1);
+    EXPECT_EQ(scene->camera_nodes.size(), 1);
+    EXPECT_EQ(scene->instance_nodes.size(), 1);
+    EXPECT_EQ(scene->light_nodes.size(), 1);
 }
 
-TEST(MaterialParserTest, Inner) {
-    auto instance = asset_manager->ImportMaterial("assets/test/test-mat.json");
-    EXPECT_TRUE(instance);
-
-    auto mat = instance->GetMaterial().lock();
-    EXPECT_TRUE(mat != nullptr);
-    EXPECT_EQ(mat->GetNumInstances(), 1);
-    EXPECT_EQ(mat->primitive, PrimitiveType::TriangleList);
-
-    EXPECT_TRUE(instance->GetValue<vec4f>("diffuse").has_value());
-    EXPECT_TRUE(instance->GetValue<vec4f>("ambient").has_value());
-    EXPECT_TRUE(instance->GetValue<vec4f>("specular").has_value());
-    EXPECT_TRUE(instance->GetValue<float>("specular_power").has_value());
-
-    vector_eq(instance->GetValue<vec4f>("diffuse").value(), vec4f(1.0f, 0.8f, 0.5f, 1.0f));
-    vector_eq(instance->GetValue<vec4f>("ambient").value(), vec4f(0.5f, 0.8f, 0.5f, 1.0f));
-    vector_eq(instance->GetValue<vec4f>("specular").value(), vec4f(0.0f, 0.8f, 0.5f, 1.0f));
-    EXPECT_DOUBLE_EQ(instance->GetValue<float>("specular_power").value(), 23.0);
+TEST(SceneParserTest, gltf) {
+    auto scene = asset_manager->ImportScene("assets/test/test.gltf");
+    EXPECT_TRUE(scene.has_value());
+    if (scene.has_value()) {
+        fmt::print("Name: {}\n", scene->name);
+        fmt::print("Materials:\n");
+        for (auto material : asset_manager->m_Assets.materials) {
+        }
+    }
 }
 
 int main(int argc, char* argv[]) {

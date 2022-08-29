@@ -1,5 +1,6 @@
 #pragma once
 #include <hitagi/math/matrix.hpp>
+#include <hitagi/resource/enums.hpp>
 
 #include <magic_enum.hpp>
 
@@ -7,66 +8,6 @@
 #include <type_traits>
 
 namespace hitagi::graphics {
-
-enum struct TextureAddressMode {
-    Wrap,
-    Mirror,
-    Clamp,
-    Border,
-    MirrorOnce
-};
-
-enum struct ComparisonFunc {
-    Never,
-    Less,
-    Equal,
-    LessEqual,
-    Greater,
-    NotEqual,
-    GreaterEqual,
-    Always
-};
-
-enum struct Filter : std::uint32_t {
-    Min_Mag_Mip_Point                          = 0,
-    Min_Mag_Point_Mip_Linear                   = 0x1,
-    Min_Point_Mag_Linear_Mip_Point             = 0x4,
-    Min_Point_Mag_Mip_Linear                   = 0x5,
-    Min_Linear_Mag_Mip_Point                   = 0x10,
-    Min_Linear_Mag_Point_Mip_Linear            = 0x11,
-    Min_Mag_Linear_Mip_Point                   = 0x14,
-    Min_Mag_Mip_Linear                         = 0x15,
-    Anisotropic                                = 0x55,
-    Comparison_Min_Mag_Mip_Point               = 0x80,
-    Comparison_Min_Mag_Point_Mip_Linear        = 0x81,
-    Comparison_Min_Point_Mag_Linear_Mip_Point  = 0x84,
-    Comparison_Min_Point_Mag_Mip_Linear        = 0x85,
-    Comparison_Min_Linear_Mag_Mip_Point        = 0x90,
-    Comparison_Min_Linear_Mag_Point_Mip_Linear = 0x91,
-    Comparison_Min_Mag_Linear_Mip_Point        = 0x94,
-    Comparison_Min_Mag_Mip_Linear              = 0x95,
-    Comparison_Anisotropic                     = 0xd5,
-    Minimum_Min_Mag_Mip_Point                  = 0x100,
-    Minimum_Min_Mag_Point_Mip_Linear           = 0x101,
-    Minimum_Min_Point_Mag_Linear_Mip_Point     = 0x104,
-    Minimum_Min_Point_Mag_Mip_Linear           = 0x105,
-    Minimum_Min_Linear_Mag_Mip_Point           = 0x110,
-    Minimum_Min_Linear_Mag_Point_Mip_Linear    = 0x111,
-    Minimum_Min_Mag_Linear_Mip_Point           = 0x114,
-    Minimum_Min_Mag_Mip_Linear                 = 0x115,
-    Minimum_Anisotropic                        = 0x155,
-    Maximum_Min_Mag_Mip_Point                  = 0x180,
-    Maximum_Min_Mag_Point_Mip_Linear           = 0x181,
-    Maximum_Min_Point_Mag_Linear_Mip_Point     = 0x184,
-    Maximum_Min_Point_Mag_Mip_Linear           = 0x185,
-    Maximum_Min_Linear_Mag_Mip_Point           = 0x190,
-    Maximum_Min_Linear_Mag_Point_Mip_Linear    = 0x191,
-    Maximum_Min_Mag_Linear_Mip_Point           = 0x194,
-    Maximum_Min_Mag_Mip_Linear                 = 0x195,
-    Maximum_Anisotropic                        = 0x1d5
-};
-
-// Pipeline
 enum struct Blend {
     Zero,
     One,
