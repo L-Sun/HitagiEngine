@@ -24,7 +24,7 @@ public:
     // Resource Binding
     virtual void BindResource(std::uint32_t slot, const ConstantBuffer& cb, size_t offset)                = 0;
     virtual void BindResource(std::uint32_t slot, const resource::Texture& texture)                       = 0;
-    virtual void BindResource(std::uint32_t slot, const Sampler& sampler)                                 = 0;
+    virtual void BindResource(std::uint32_t slot, const resource::Sampler& sampler)                       = 0;
     virtual void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count)     = 0;
     virtual void BindDynamicStructuredBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) = 0;
     virtual void BindDynamicConstantBuffer(std::uint32_t slot, const std::byte* data, std::size_t size)   = 0;

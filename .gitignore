@@ -1,8 +1,11 @@
 build
 assets/*
+!assets/materials
 !assets/shaders/
 !assets/fonts/
 !assets/test/
+!assets/utils/
+
 .xmake
 temp
 .cache

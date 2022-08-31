@@ -3,7 +3,7 @@
 #include <hitagi/resource/texture.hpp>
 
 namespace hitagi::resource {
-enum class ImageFormat : unsigned {
+enum struct ImageFormat : std::uint8_t {
     UNKOWN,
     PNG,
     JPEG,
@@ -11,7 +11,7 @@ enum class ImageFormat : unsigned {
     BMP,
 };
 
-inline ImageFormat get_image_format(std::string_view ext) {
+constexpr inline ImageFormat get_image_format(std::string_view ext) {
     if (ext == ".jpeg" || ext == ".jpg")
         return ImageFormat::JPEG;
     else if (ext == ".bmp")

@@ -11,17 +11,16 @@ public:
 
     Scene& CurrentScene();
 
-    Scene&      CreateEmptyScene(std::string_view name = "");
-    std::size_t AddScene(Scene scene);
-    std::size_t GetNumScene() const noexcept;
-    Scene&      GetScene(std::size_t index);
-    void        SwitchScene(std::size_t index);
-    void        DeleteScene(std::size_t index);
-    void        DeleteScenes(std::pmr::vector<std::size_t> index_array);
+    std::shared_ptr<Scene> CreateEmptyScene(std::string_view name = "");
+    std::size_t            AddScene(std::shared_ptr<Scene> scene);
+    std::size_t            GetNumScene() const noexcept;
+    std::shared_ptr<Scene> GetScene(std::size_t index);
+    void                   SwitchScene(std::size_t index);
+    void                   DeleteScene(std::size_t index);
 
 private:
-    std::pmr::vector<Scene> m_Scenes;
-    std::size_t             m_CurrentScene;
+    std::pmr::vector<std::shared_ptr<Scene>> m_Scenes;
+    std::size_t                              m_CurrentScene;
 };
 }  // namespace hitagi::resource
 

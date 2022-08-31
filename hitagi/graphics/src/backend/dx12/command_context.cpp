@@ -227,7 +227,7 @@ void GraphicsCommandContext::BindResource(std::uint32_t slot, const resource::Te
     m_ResourceBinder.BindResource(slot, texture.gpu_resource->GetBackend<Texture>());
 }
 
-void GraphicsCommandContext::BindResource(std::uint32_t slot, const graphics::Sampler& sampler) {
+void GraphicsCommandContext::BindResource(std::uint32_t slot, const resource::Sampler& sampler) {
     if (sampler.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can Set an uninitialized sampler ({})!", sampler.name);
         return;

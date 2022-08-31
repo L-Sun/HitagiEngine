@@ -57,7 +57,7 @@ void Editor::MainMenu() {
     if (ImGui::Begin("Scenes")) {
         for (std::size_t index = 0; index < scene_manager->GetNumScene(); index++) {
             const auto& scene = scene_manager->GetScene(index);
-            if (ImGui::Selectable(scene.name.data())) {
+            if (ImGui::Selectable(scene->name.data())) {
                 scene_manager->SwitchScene(index);
             }
         }
@@ -99,13 +99,13 @@ void Editor::FileExplorer() {
             if (m_OpenFileExt == ".fbx") {
                 for (auto&& path : m_SelectedFiles) {
                     auto scene   = asset_manager->ImportScene(path);
-                    bool success = scene.has_value();
+                    bool success = scene != nullptr;
                     if (ImGui::BeginPopupModal("Fbx import failed", &success)) {
                         ImGui::Text("%s", fmt::format("failed to import scene: {}", path).c_str());
                         ImGui::EndPopup();
                     }
                     if (success) {
-                        scene_manager->SwitchScene(scene_manager->AddScene(std::move(scene.value())));
+                        scene_manager->SwitchScene(scene_manager->AddScene(std::move(scene)));
                     }
                 }
             } else if (m_OpenFileExt == ".bvh") {

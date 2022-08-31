@@ -1,0 +1,45 @@
+{
+    "$schema": "../utils/material_schema.json",
+    "name": "Phong",
+    "vertex_shader": "assets/shaders/phong.hlsl",
+    "pixel_shader": "assets/shaders/phong.hlsl",
+    "primitive": "TriangleList",
+    "parameters": [
+        {
+            "name": "diffuse",
+            "type": "vec3f"
+        },
+        {
+            "name": "diffuse_texture",
+            "type": "texture"
+        },
+        {
+            "name": "specular",
+            "type": "vec3f"
+        },
+        {
+            "name": "specular_texture",
+            "type": "texture"
+        },
+        {
+            "name": "ambient",
+            "type": "vec3f"
+        },
+        {
+            "name": "ambient_texture",
+            "type": "texture"
+        },
+        {
+            "name": "emissive",
+            "type": "vec3f"
+        },
+        {
+            "name": "emissive_texture",
+            "type": "texture"
+        },
+        {
+            "name": "shininess",
+            "type": "float"
+        }
+    ]
+}

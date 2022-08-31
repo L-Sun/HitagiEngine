@@ -7,113 +7,90 @@
 using namespace hitagi::resource;
 using namespace hitagi::math;
 using namespace hitagi::testing;
+using namespace hitagi::utils;
 
 TEST(MaterialTest, InitMaterial) {
     auto mat = Material::Builder()
                    .AppendParameterInfo<vec2f>("param1")
                    .AppendParameterInfo<vec4f>("param2")
                    .AppendParameterInfo<vec2f>("param3")
-                   .AppendParameterArrayInfo<vec2f>("param4", 3)
-                   .AppendTextureName("texture")
+                   .AppendParameterInfo<std::shared_ptr<Texture>>("texture")
                    .Build();
 
     EXPECT_TRUE(mat->IsValidParameter<vec2f>("param1"));
     EXPECT_TRUE(mat->IsValidParameter<vec4f>("param2"));
     EXPECT_TRUE(mat->IsValidParameter<vec2f>("param3"));
-    EXPECT_TRUE((mat->IsValidParameterArray<vec2f>("param4", 3)));
-    EXPECT_TRUE(mat->IsValidTextureParameter("texture"));
+    EXPECT_TRUE(mat->IsValidParameter<std::shared_ptr<Texture>>("texture"));
 
     EXPECT_FALSE(mat->IsValidParameter<vec3f>("param1"));
     EXPECT_FALSE(mat->IsValidParameter<vec4f>("param-no-exists"));
-    EXPECT_FALSE(mat->IsValidParameterArray<vec2f>("param4", 4));
-    EXPECT_FALSE(mat->IsValidTextureParameter("texture-no-exists"));
 }
 
 TEST(MaterialTest, ParameterLayout) {
     auto mat = Material::Builder()
-                   .AppendParameterInfo<vec2f>("param1")
-                   .AppendParameterInfo<float>("param2")
-                   .AppendParameterInfo<vec4f>("param3")
-                   .AppendParameterInfo<vec2f>("param4")
-                   .AppendParameterArrayInfo<vec2f>("param5", 3)
-                   .AppendParameterInfo<vec3f>("param6")
+                   .AppendParameterInfo("param1", vec2f(1, 2))                        //  8 bytes                     =  8 bytes
+                   .AppendParameterInfo("param2", 1.0f)                               //  4 bytes + (4 bytes padding) = 16 bytes
+                   .AppendParameterInfo("param3", vec4f(1, 2, 3, 4))                  // 16 bytes + (0 bytes padding) = 32 bytes
+                   .AppendParameterInfo("param4", std::shared_ptr<Texture>(nullptr))  //  4 bytes + (0 bytes padding) = 36 bytes
+                   .AppendParameterInfo("param5", vec2f(1, 2))                        //  8 bytes + (4 bytes padding) = 48 bytes
+                   .AppendParameterInfo("param6", vec3f(1, 2, 3))                     // 12 bytes + (4 bytes padding) = 64 bytes
                    .Build();
 
-    EXPECT_EQ(mat->GetParameterInfo("param1")->offset, 0);
-    EXPECT_EQ(mat->GetParameterInfo("param2")->offset, 8);
-    EXPECT_EQ(mat->GetParameterInfo("param3")->offset, 16);
-    EXPECT_EQ(mat->GetParameterInfo("param4")->offset, 32);
-    EXPECT_EQ(mat->GetParameterInfo("param5")->offset, 48);
-    EXPECT_EQ(mat->GetParameterInfo("param6")->offset, 80);
+    EXPECT_EQ(mat->GetParametersBufferSize(), 64);
+    auto instance = mat->CreateInstance();
+    auto buffer   = instance->GetParameterBuffer();
 
-    EXPECT_EQ(mat->GetParameterInfo("param1")->size, sizeof(vec2f));
-    EXPECT_EQ(mat->GetParameterInfo("param2")->size, sizeof(float));
-    EXPECT_EQ(mat->GetParameterInfo("param3")->size, sizeof(vec4f));
-    EXPECT_EQ(mat->GetParameterInfo("param4")->size, sizeof(vec2f));
-    EXPECT_EQ(mat->GetParameterInfo("param5")->size, sizeof(vec2f) * 3);
-    EXPECT_EQ(mat->GetParameterInfo("param6")->size, sizeof(vec3f));
+    vector_eq(*reinterpret_cast<vec2f*>(buffer.GetData() + 0), vec2f(1, 2));
+    EXPECT_EQ(*reinterpret_cast<float*>(buffer.GetData() + 8), 1.0f);
+    vector_eq(*reinterpret_cast<vec4f*>(buffer.GetData() + 16), vec4f(1, 2, 3, 4));
+    EXPECT_EQ(*reinterpret_cast<std::uint32_t*>(buffer.GetData() + 32), -1);  // texture index
+    vector_eq(*reinterpret_cast<vec2f*>(buffer.GetData() + 36), vec2f(1, 2));
+    vector_eq(*reinterpret_cast<vec3f*>(buffer.GetData() + 48), vec3f(1, 2, 3));
 }
-TEST(MaterialTest, InstanceDefaultValue) {
-    vec2f                   param1{0.0f, 1.0f};
-    std::pmr::vector<vec4f> param2 = {{{0.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 1.0f, 0.0f}}};
 
-    auto mat = Material::Builder()
-                   .AppendParameterInfo<vec2f>("param1", param1)
-                   .AppendParameterArrayInfo<vec4f>("param2", 2, param2)
-                   .AppendTextureName("texture", "test.png")
+TEST(MaterialTest, InstanceDefaultValue) {
+    auto texture = std::make_shared<Texture>();
+    auto mat     = Material::Builder()
+                   .AppendParameterInfo("param1", 1.0f)
+                   .AppendParameterInfo("param2", vec2f(1, 2))
+                   .AppendParameterInfo("tex1", texture)
                    .Build();
 
     auto instance = mat->CreateInstance();
-    {
-        auto _param1 = instance->GetValue<vec2f>("param1");
-        EXPECT_TRUE(_param1.has_value());
-        vector_eq(*_param1, param1);
-    }
-
-    {
-        auto _param2 = instance->GetValue<vec4f, 2>("param2");
-        EXPECT_TRUE(_param2.has_value());
-        for (std::size_t index = 0; index < 2; index++) {
-            vector_eq((*_param2)[index], param2[index]);
-        }
-    }
-    {
-        auto texture = instance->GetTexture("texture");
-        EXPECT_TRUE(texture != nullptr);
-        EXPECT_STREQ(texture->path.string().c_str(), "test.png");
-    }
+    EXPECT_EQ(instance->GetParameter<float>("param1").value(), 1.0f);
+    vector_eq(instance->GetParameter<vec2f>("param2").value(), vec2f(1, 2));
+    EXPECT_EQ(instance->GetParameter<decltype(texture)>("tex1").value(), texture);
+    EXPECT_FALSE(instance->GetParameter<vec3f>("param-no-exists").has_value());
 }
 
 TEST(MaterialTest, InstanceChangeValue) {
-    auto mat = Material::Builder()
-                   .AppendParameterInfo<vec2f>("param1")
-                   .AppendParameterArrayInfo<vec4f>("param2", 2)
-                   .AppendTextureName("texture", "test.png")
+    auto texture = std::make_shared<Texture>();
+    auto mat     = Material::Builder()
+                   .AppendParameterInfo("param1", 1.0f)
+                   .AppendParameterInfo("param2", vec2f(1, 2))
+                   .AppendParameterInfo("tex1", texture)
                    .Build();
 
-    vec2f                   param1 = {0.0f, 1.0f};
-    std::pmr::vector<vec4f> param2 = {{{1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 0.0f}}};
-
     auto instance = mat->CreateInstance();
-    instance->SetParameter("param1", param1)
-        .SetParameter("param2", param2);
     {
-        auto _param1 = instance->GetValue<vec2f>("param1");
+        EXPECT_TRUE(instance->SetParameter("param1", 2.0f));
+        auto _param1 = instance->GetParameter<float>("param1");
         EXPECT_TRUE(_param1.has_value());
-        vector_eq(*_param1, param1);
+        EXPECT_EQ(_param1.value(), 2.0f);
     }
 
     {
-        auto _param2 = instance->GetValue<vec4f, 2>("param2");
+        EXPECT_TRUE(instance->SetParameter("param2", vec2f(3.0f, 4.0f)));
+        auto _param2 = instance->GetParameter<vec2f>("param2");
         EXPECT_TRUE(_param2.has_value());
-        for (std::size_t index = 0; index < 2; index++) {
-            vector_eq((*_param2)[index], param2[index]);
-        }
+        vector_eq(_param2.value(), vec2f(3.0f, 4.0f));
     }
 
-    EXPECT_FALSE((instance->GetValue<vec2f>("param-no-exists").has_value()));
-    EXPECT_FALSE((instance->GetValue<vec3f>("param1").has_value()));
-    EXPECT_FALSE((instance->GetValue<vec4f, 3>("param2").has_value()));
+    {
+        EXPECT_FALSE(instance->SetParameter("param1", vec2f(3.0f, 4.0f)));
+        EXPECT_FALSE(instance->SetParameter("param2", 3.0f));
+        EXPECT_FALSE(instance->SetParameter("param-no-exists", 3.0f));
+    }
 }
 
 int main(int argc, char** argv) {

@@ -25,13 +25,6 @@ struct Scene {
     SharedPtrVector<ArmatureNode> armature_nodes;
 
     std::shared_ptr<CameraNode> curr_camera;
-
-    // TODO move this resource to asset manager so that we can reuse these in different scene
-    SharedPtrVector<Mesh>     meshes;
-    SharedPtrVector<Camera>   cameras;
-    SharedPtrVector<Light>    lights;
-    SharedPtrVector<Armature> armatures;
-    SharedPtrVector<Material> materials;
 };
 
 }  // namespace hitagi::resource

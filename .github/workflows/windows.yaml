@@ -41,7 +41,7 @@ jobs:
 
       - name: Build
         run: |
-          xmake
+          xmake -vD
 
       - name: Pull Test Files
         run: git lfs pull -I "assets/test/*"

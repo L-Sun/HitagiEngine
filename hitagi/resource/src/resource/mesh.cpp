@@ -6,13 +6,17 @@
 #include <algorithm>
 
 namespace hitagi::resource {
-VertexArray::VertexArray(std::size_t count, std::string_view name, const std::pmr::vector<VertexAttribute>& attributes)
-    : Resource(core::Buffer(count * std::accumulate(attributes.begin(), attributes.end(), 0, [](std::size_t size, const VertexAttribute& attr) { return size + get_vertex_attribute_size(attr); })),
-               name),
-      vertex_count(count) {
-    for (const VertexAttribute& attr : attributes) {
-        attribute_mask.set(magic_enum::enum_integer(attr));
+VertexArray::VertexArray(std::size_t count, std::string_view name, VertexAttributeMask attributes)
+    : Resource(core::Buffer{}, name),
+      vertex_count(count),
+      attribute_mask(attributes) {
+    std::size_t size_per_element = 0;
+    for (std::size_t attr = 0; attr < attributes.size(); attr++) {
+        if (attributes.test(attr)) {
+            size_per_element += get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(attr).value());
+        }
     }
+    cpu_buffer = core::Buffer(count * size_per_element);
 }
 
 VertexArray::VertexArray(const VertexArray& other)

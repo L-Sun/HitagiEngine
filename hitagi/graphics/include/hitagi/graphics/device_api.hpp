@@ -30,7 +30,7 @@ public:
     virtual void InitTexture(resource::Texture& tb)                                 = 0;
     virtual void InitConstantBuffer(ConstantBuffer& cb)                             = 0;
     virtual void InitDepthBuffer(DepthBuffer& db)                                   = 0;
-    virtual void InitSampler(Sampler& sampler)                                      = 0;
+    virtual void InitSampler(resource::Sampler& sampler)                            = 0;
     virtual void InitPipelineState(PipelineState& pipeline)                         = 0;
 
     // CommandList

@@ -76,7 +76,7 @@ public:
 
     void BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, std::size_t offset) final;
     void BindResource(std::uint32_t slot, const resource::Texture& texture) final;
-    void BindResource(std::uint32_t slot, const graphics::Sampler& sampler) final;
+    void BindResource(std::uint32_t slot, const resource::Sampler& sampler) final;
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) final;
     void BindDynamicStructuredBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) final;
     void BindDynamicConstantBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) final;

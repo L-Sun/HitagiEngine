@@ -9,6 +9,7 @@
 #include <typeinfo>
 #include <unordered_set>
 #include <bitset>
+#include <variant>
 
 namespace hitagi::resource {
 enum struct PrimitiveType : std::uint8_t {
@@ -24,44 +25,48 @@ enum struct PrimitiveType : std::uint8_t {
     Unkown,
 };
 
+using MaterialParameterValue = std::variant<
+    float,
+    std::int32_t,
+    std::uint32_t,
+    math::vec2i,
+    math::vec2u,
+    math::vec2f,
+    math::vec3i,
+    math::vec3u,
+    math::vec3f,
+    math::vec4i,
+    math::vec4u,
+    math::mat4f,
+    math::vec4f,
+    std::shared_ptr<Texture>>;
+
 template <typename T>
-concept MaterialParametric =
-    std::same_as<float, T> ||
-    std::same_as<std::int32_t, T> ||
-    std::same_as<std::uint32_t, T> ||
-    std::same_as<math::vec2i, T> ||
-    std::same_as<math::vec2u, T> ||
-    std::same_as<math::vec2f, T> ||
-    std::same_as<math::vec3i, T> ||
-    std::same_as<math::vec3u, T> ||
-    std::same_as<math::vec3f, T> ||
-    std::same_as<math::vec4i, T> ||
-    std::same_as<math::vec4u, T> ||
-    std::same_as<math::mat4f, T> ||
-    std::same_as<math::vec4f, T>;
+concept MaterialParametric = requires(const MaterialParameterValue& parameter) {
+    { std::get<T>(parameter) } -> std::same_as<const T&>;
+};
+
+struct MaterialParameter {
+    std::pmr::string       name;
+    MaterialParameterValue value;
+};
 
 struct MaterialDetial {
-    struct ParameterInfo {
-        std::pmr::string name;
-        std::type_index  type;
-        std::size_t      offset;
-        std::size_t      size;
-    };
-    std::pmr::string                          name;
-    PrimitiveType                             primitive = PrimitiveType::TriangleList;
-    std::shared_ptr<Shader>                   vertex_shader;
-    std::shared_ptr<Shader>                   pixel_shader;
-    std::pmr::vector<ParameterInfo>           parameters_info;
-    std::pmr::unordered_set<std::pmr::string> texture_name;
+    std::pmr::string                    name;
+    PrimitiveType                       primitive = PrimitiveType::TriangleList;
+    std::shared_ptr<Shader>             vertex_shader;
+    std::shared_ptr<Shader>             pixel_shader;
+    std::pmr::vector<MaterialParameter> parameters;
+    bool                                wireframe = false;
 };
 
 class Material : public utils::enable_private_make_shared_build<Material>,
                  public std::enable_shared_from_this<Material>,
-                 public MaterialDetial {
+                 private MaterialDetial {
     friend class MaterialInstance;
 
 public:
-    class Builder : MaterialDetial {
+    class Builder : private MaterialDetial {
         friend class Material;
 
     public:
@@ -69,6 +74,7 @@ public:
         Builder& SetPrimitive(PrimitiveType primitive);
         Builder& SetVertexShader(const std::filesystem::path& hlsl_path);
         Builder& SetPixelShader(const std::filesystem::path& hlsl_path);
+        Builder& SetWireFrame(bool enable);
 
         // Set rasizer state
         // Builder& Cull();
@@ -77,41 +83,26 @@ public:
         template <MaterialParametric T>
         Builder& AppendParameterInfo(std::string_view name, T default_value = {});
 
-        template <MaterialParametric T>
-        Builder& AppendParameterArrayInfo(std::string_view name, std::size_t count, std::pmr::vector<T> default_values = {});
-
-        Builder& AppendTextureName(std::string_view name, std::filesystem::path default_value = {});
-
         std::shared_ptr<Material> Build();
 
     private:
-        Builder& AppendParameterImpl(std::string_view name, const std::type_info& type_id, std::size_t size, std::byte* default_value);
-        void     AddName(const std::pmr::string& name);
-
-        std::pmr::unordered_set<std::pmr::string>                        exsisted_names;
-        std::pmr::unordered_map<std::pmr::string, std::filesystem::path> default_texture_paths;
-        std::pmr::vector<std::byte>                                      default_buffer;
+        std::pmr::unordered_set<std::pmr::string> exsisted_names;
     };
 
-    std::shared_ptr<MaterialInstance> CreateInstance() const noexcept;
-    std::size_t                       GetNumInstances() const noexcept;
+    std::shared_ptr<MaterialInstance> CreateInstance(std::string_view name = "") noexcept;
+    inline const std::size_t          GetNumInstances() const noexcept { return m_NumInstances; }
 
-    const auto& GetVertexShader() const noexcept { return vertex_shader; }
-    const auto& GetPixelShader() const noexcept { return pixel_shader; }
+    inline std::string_view GetName() const noexcept { return name; }
+    inline PrimitiveType    GetPrimitiveType() const noexcept { return primitive; }
+    inline auto             GetVertexShader() const noexcept { return vertex_shader; }
+    inline auto             GetPixelShader() const noexcept { return pixel_shader; }
+    inline bool             WireframeEnabled() const noexcept { return wireframe; }
 
     template <MaterialParametric T>
     bool IsValidParameter(std::string_view name) const noexcept;
 
-    template <MaterialParametric T>
-    bool IsValidParameterArray(std::string_view name, std::size_t count) const noexcept;
-
-    std::optional<ParameterInfo>           GetParameterInfo(std::string_view name) const noexcept;
-    const std::pmr::vector<ParameterInfo>& GetParameterInfos() const noexcept;
     // Get total parameters size
-    std::size_t GetParametersSize() const noexcept;
-
-    bool        IsValidTextureParameter(std::string_view name) const noexcept;
-    const auto& GetTextureNames() const noexcept { return texture_name; }
+    const std::size_t GetParametersBufferSize() const noexcept;
 
     bool operator==(const Material& rhs) const;
 
@@ -120,18 +111,14 @@ protected:
     Material(const Builder&);
 
 private:
-    void InitDefaultMaterialInstance(const Builder& buider);
-
-    std::unique_ptr<MaterialInstance> m_DefaultInstance;
-    std::size_t                       m_NumInstances = 0;
+    std::size_t m_NumInstances = 0;
 };
 
 class MaterialInstance {
     friend class Material;
 
 public:
-    MaterialInstance() = default;
-    MaterialInstance(const std::shared_ptr<Material>& material);
+    MaterialInstance(const std::shared_ptr<Material>& material, std::string_view name = "");
 
     MaterialInstance(const MaterialInstance& other);
     MaterialInstance(MaterialInstance&&) = default;
@@ -141,147 +128,59 @@ public:
 
     ~MaterialInstance();
 
-    template <MaterialParametric T>
-    MaterialInstance& SetParameter(std::string_view name, const T& value) noexcept;
+    inline std::string_view GetName() const noexcept { return m_Name; }
 
     template <MaterialParametric T>
-    MaterialInstance& SetParameter(std::string_view name, const std::pmr::vector<T> value) noexcept;
-
-    // TODO set a sampler
-    MaterialInstance& SetTexture(std::string_view name, std::shared_ptr<Texture> texture) noexcept;
+    bool SetParameter(std::string_view name, T value) noexcept;
 
     template <MaterialParametric T>
-    std::optional<T> GetValue(std::string_view name) const noexcept;
-
-    template <MaterialParametric T, std::size_t N>
-    std::optional<std::array<T, N>> GetValue(std::string_view name) const noexcept;
-
-    std::shared_ptr<Texture> GetTexture(std::string_view name) const noexcept;
+    std::optional<T> GetParameter(std::string_view name) const noexcept;
 
     inline auto GetMaterial() const noexcept { return m_Material; }
 
-    inline auto& GetParameterBuffer() const noexcept { return m_Parameters; }
-
-    inline auto& GetTextures() const noexcept { return m_Textures; }
+    core::Buffer                               GetParameterBuffer() const;
+    std::pmr::vector<std::shared_ptr<Texture>> GetTextures() const;
 
 private:
-    void Warn(std::string_view message) const;
-
-    template <typename T>
-    const T& GetParameter(std::string_view name) const noexcept;
-
-    template <typename T>
-    T& GetParameter(std::string_view name) noexcept;
-
-    std::weak_ptr<Material> m_Material;
-
-    core::Buffer                                                        m_Parameters;
-    std::pmr::unordered_map<std::pmr::string, std::shared_ptr<Texture>> m_Textures;
+    std::pmr::string                    m_Name;
+    std::shared_ptr<Material>           m_Material;
+    std::pmr::vector<MaterialParameter> m_Parameters;
 };
 
 template <MaterialParametric T>
 auto Material::Builder::AppendParameterInfo(std::string_view name, T default_value) -> Builder& {
-    return AppendParameterImpl(name, typeid(T), sizeof(T), reinterpret_cast<std::byte*>(&default_value));
-}
-
-template <MaterialParametric T>
-auto Material::Builder::AppendParameterArrayInfo(std::string_view name, std::size_t count, std::pmr::vector<T> default_values) -> Builder& {
-    default_values.resize(count);
-    return AppendParameterImpl(name, typeid(T), sizeof(T) * count, reinterpret_cast<std::byte*>(default_values.data()));
+    parameters.emplace_back(MaterialParameter{.name = std::pmr::string(name), .value = default_value});
+    exsisted_names.emplace(std::pmr::string(name));
+    return *this;
 }
 
 template <MaterialParametric T>
 bool Material::IsValidParameter(std::string_view name) const noexcept {
-    auto iter = std::find_if(
-        parameters_info.cbegin(),
-        parameters_info.cend(),
-        [&](const ParameterInfo& item) {
-            if (name != item.name) return false;
-            if (std::type_index(typeid(std::remove_cvref_t<T>)) == item.type)
-                return true;
-            return false;
-        });
-
-    return iter != parameters_info.cend();
-}
-
-template <MaterialParametric T>
-bool Material::IsValidParameterArray(std::string_view name, std::size_t count) const noexcept {
-    auto iter = std::find_if(
-        parameters_info.cbegin(),
-        parameters_info.cend(),
-        [&](const ParameterInfo& item) {
-            if (name != item.name) return false;
-            if (std::type_index(typeid(std::remove_cvref_t<T>)) == item.type)
-                return sizeof(T) * count == item.size;
-            return false;
-        });
-
-    return iter != parameters_info.cend();
-}
-
-template <MaterialParametric T>
-MaterialInstance& MaterialInstance::SetParameter(std::string_view name, const T& value) noexcept {
-    auto material = m_Material.lock();
-
-    if (material && material->IsValidParameter<T>(name)) {
-        GetParameter<T>(name) = value;
-    } else {
-        Warn(fmt::format("You are setting a invalid parameter: {}", name));
+    if (auto iter = std::find_if(parameters.begin(), parameters.end(), [&](const auto& parameter) { return parameter.name == name; }); iter != parameters.end()) {
+        return std::holds_alternative<T>(iter->value);
     }
-
-    return *this;
+    return false;
 }
 
 template <MaterialParametric T>
-MaterialInstance& MaterialInstance::SetParameter(std::string_view name, std::pmr::vector<T> values) noexcept {
-    auto material = m_Material.lock();
-
-    if (material && material->IsValidParameterArray<T>(name, values.size())) {
-        std::copy(values.begin(), values.end(), &GetParameter<T>(name));
-    } else {
-        Warn(fmt::format("You are setting a invalid parameter: {}", name));
+bool MaterialInstance::SetParameter(std::string_view name, T value) noexcept {
+    if (auto iter = std::find_if(m_Parameters.begin(), m_Parameters.end(), [&](const auto& parameter) { return parameter.name == name; }); iter != m_Parameters.end()) {
+        if (std::holds_alternative<T>(iter->value)) {
+            iter->value = std::move(value);
+            return true;
+        }
     }
-
-    return *this;
+    return false;
 }
 
 template <MaterialParametric T>
-auto MaterialInstance::GetValue(std::string_view name) const noexcept -> std::optional<T> {
-    auto material = m_Material.lock();
-    if (material && material->IsValidParameter<T>(name)) {
-        return GetParameter<T>(name);
-    } else {
-        Warn(fmt::format("You are setting a invalid parameter: {}", name));
-    }
-
-    return std::nullopt;
-}
-
-template <MaterialParametric T, std::size_t N>
-auto MaterialInstance::GetValue(std::string_view name) const noexcept -> std::optional<std::array<T, N>> {
-    auto material = m_Material.lock();
-
-    if (material && material->IsValidParameterArray<T>(name, N)) {
-        std::array<T, N> result{};
-        std::copy_n(&GetParameter<T>(name), N, result.data());
-        return result;
-    } else {
-        Warn(fmt::format("You are setting a invalid parameter: {}", name));
+std::optional<T> MaterialInstance::GetParameter(std::string_view name) const noexcept {
+    if (auto iter = std::find_if(m_Parameters.begin(), m_Parameters.end(), [&](const auto& parameter) { return parameter.name == name; }); iter != m_Parameters.end()) {
+        if (std::holds_alternative<T>(iter->value)) {
+            return std::get<T>(iter->value);
+        }
     }
     return std::nullopt;
-}
-
-template <typename T>
-const T& MaterialInstance::GetParameter(std::string_view name) const noexcept {
-    auto material = m_Material.lock();
-    auto info     = *material->GetParameterInfo(name);
-    return *reinterpret_cast<const T*>(m_Parameters.GetData() + info.offset);
-}
-
-template <typename T>
-T& MaterialInstance::GetParameter(std::string_view name) noexcept {
-    return const_cast<T&>(const_cast<const MaterialInstance*>(this)->GetParameter<T>(name));
 }
 
 }  // namespace hitagi::resource

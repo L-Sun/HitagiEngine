@@ -25,14 +25,35 @@ template <typename T, unsigned N>
 void from_json(const nlohmann::json& j, Matrix<T, N>& p) {
     p.data = j;
 }
+
 }  // namespace hitagi::math
 
 namespace hitagi::resource {
+
+NLOHMANN_JSON_SERIALIZE_ENUM(PrimitiveType,
+                             {
+                                 {PrimitiveType::PointList, "PointList"},
+                                 {PrimitiveType::LineList, "LineList"},
+                                 {PrimitiveType::LineStrip, "LineStrip"},
+                                 {PrimitiveType::TriangleList, "TriangleList"},
+                                 {PrimitiveType::TriangleStrip, "TriangleStrip"},
+                                 {PrimitiveType::LineListAdjacency, "LineListAdjacency"},
+                                 {PrimitiveType::LineStripAdjacency, "LineStripAdjacency"},
+                                 {PrimitiveType::TriangleListAdjacency, "TriangleListAdjacency"},
+                                 {PrimitiveType::TriangleStripAdjacency, "TriangleStripAdjacency"},
+                                 {PrimitiveType::Unkown, nullptr},
+                             })
 
 std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) {
     if (buffer.Empty()) return nullptr;
 
     auto logger = spdlog::get("AssetManager");
+
+    auto check_field = [logger](std::string_view name, const nlohmann::json& json) {
+        if (json.contains(name)) return true;
+        logger->error("[MaterialPaser] missing field: {}", name);
+        return false;
+    };
 
     nlohmann::json json;
     try {
@@ -41,89 +62,64 @@ std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) 
         logger->error(ex.what());
         return nullptr;
     }
+    if (!(check_field("name", json) &&
+          check_field("vertex_shader", json) &&
+          check_field("pixel_shader", json) &&
+          check_field("primitive", json))) return nullptr;
 
     Material::Builder builder;
     builder
         .SetName(json["name"])
         .SetVertexShader(json["vertex_shader"])
-        .SetPixelShader(json["pixel_shader"]);
-
-    if (auto primitive = magic_enum::enum_cast<PrimitiveType>(json["primitive"].get<std::string_view>()); primitive.has_value()) {
-        builder.SetPrimitive(*primitive);
-    } else {
-        logger->warn("Unkown primitive type: {}", json["name"]);
-    }
+        .SetPixelShader(json["pixel_shader"])
+        .SetPrimitive(json["primitive"]);
 
     if (json.contains("parameters")) {
         if (!json["parameters"].is_array()) {
-            logger->error("parameters field must be a type of sequence");
+            logger->error("parameters is not an array!");
             return nullptr;
         }
 
         for (auto param : json["parameters"]) {
+            if (!(check_field("name", param) && check_field("type", param))) {
+                return nullptr;
+            }
+
             std::string_view type = param["type"], name = param["name"];
 
             if (type == "float")
-                builder.AppendParameterInfo<float>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", 0.0f));
             else if (type == "int32")
-                builder.AppendParameterInfo<std::int32_t>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", std::int32_t{0}));
             else if (type == "uint32")
-                builder.AppendParameterInfo<std::uint32_t>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", std::uint32_t{0}));
             else if (type == "vec2i") {
-                builder.AppendParameterInfo<vec2i>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", vec2i{}));
             } else if (type == "vec2u")
-                builder.AppendParameterInfo<vec2u>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", vec2u{}));
             else if (type == "vec2f")
-                builder.AppendParameterInfo<vec2f>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", vec2f{}));
             else if (type == "vec3i")
-                builder.AppendParameterInfo<vec3i>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", vec3i{}));
             else if (type == "vec3u")
-                builder.AppendParameterInfo<vec3u>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", vec3u{}));
             else if (type == "vec3f")
-                builder.AppendParameterInfo<vec3f>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", vec3f{}));
             else if (type == "vec4i")
-                builder.AppendParameterInfo<vec4i>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", vec4i{}));
             else if (type == "vec4u")
-                builder.AppendParameterInfo<vec4u>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", vec4u{}));
             else if (type == "vec4f")
-                builder.AppendParameterInfo<vec4f>(name, param["value"]);
+                builder.AppendParameterInfo(name, param.value("default", vec4f{}));
             else if (type == "mat4f")
-                builder.AppendParameterInfo<mat4f>(name, param["value"]);
-            // else if (type == "float[]")
-            //     builder.AppendParameterArrayInfo<float>(name, param["value"].size());
-            // else if (type == "int32[]")
-            //     builder.AppendParameterArrayInfo<std::int32_t>(name, param["value"].size());
-            // else if (type == "uint32[]")
-            //     builder.AppendParameterArrayInfo<std::uint32_t>(name, param["value"].size());
-            // else if (type == "vec2i[]")
-            //     builder.AppendParameterArrayInfo<vec2i>(name, param["value"].size());
-            // else if (type == "vec2u[]")
-            //     builder.AppendParameterArrayInfo<vec2u>(name, param["value"].size());
-            // else if (type == "vec2f[]")
-            //     builder.AppendParameterArrayInfo<vec2f>(name, param["value"].size());
-            // else if (type == "vec3i[]")
-            //     builder.AppendParameterArrayInfo<vec3i>(name, param["value"].size());
-            // else if (type == "vec3u[]")
-            //     builder.AppendParameterArrayInfo<vec3u>(name, param["value"].size());
-            // else if (type == "vec3f[]")
-            //     builder.AppendParameterArrayInfo<vec3f>(name, param["value"].size());
-            // else if (type == "vec4i[]")
-            //     builder.AppendParameterArrayInfo<vec4i>(name, param["value"].size());
-            // else if (type == "vec4u[]")
-            //     builder.AppendParameterArrayInfo<vec4u>(name, param["value"].size());
-            // else if (type == "vec4f[]")
-            //     builder.AppendParameterArrayInfo<vec4f>(name, param["value"].size());
-            // else if (type == "mat4f[]")
-            //     builder.AppendParameterArrayInfo<vec4f>(name, param["value"].size());
+                builder.AppendParameterInfo(name, param.value("default", mat4f{}));
+            else if (type == "texture")
+                builder.AppendParameterInfo<std::shared_ptr<Texture>>(name, nullptr);
             else {
                 logger->error("Unkown parameter type: {}", param["type"]);
                 return nullptr;
             }
         }
-    }
-
-    for (auto texture : json["textures"]) {
-        builder.AppendTextureName(texture["name"], texture["path"]);
     }
 
     return builder.Build();

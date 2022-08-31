@@ -11,6 +11,7 @@
 #include <type_traits>
 
 namespace hitagi::resource {
+
 enum struct VertexAttribute : std::uint8_t {
     Position    = 0,   // vec3f
     Normal      = 1,   // vec3f
@@ -31,6 +32,18 @@ enum struct VertexAttribute : std::uint8_t {
     Custom1 = 14,
     Custom0 = 15,
 };
+
+using VertexAttributeMask = std::bitset<magic_enum::enum_count<VertexAttribute>()>;
+
+template <VertexAttribute... attrs>
+constexpr VertexAttributeMask create_vertex_attr_mask() {
+    constexpr std::array<VertexAttribute, sizeof...(attrs)> attrs_array{attrs...};
+
+    VertexAttributeMask result;
+    for (auto attr : attrs_array)
+        result.set(magic_enum::enum_integer(attr));
+    return result;
+}
 
 namespace detial {
 template <VertexAttribute e>
@@ -101,7 +114,7 @@ constexpr auto get_index_type_size(IndexType type) {
 }
 
 struct VertexArray : public Resource {
-    VertexArray(std::size_t count = 0, std::string_view name = "", const std::pmr::vector<VertexAttribute>& attributes = {VertexAttribute::Position});
+    VertexArray(std::size_t count = 0, std::string_view name = "", VertexAttributeMask attribute_mask = {});
 
     VertexArray(const VertexArray&);
     VertexArray& operator=(const VertexArray&);
@@ -119,8 +132,8 @@ struct VertexArray : public Resource {
     template <VertexAttribute... Attrs>
     void Modify(std::function<void(std::span<VertexType<Attrs>>...)>&& modifier);
 
-    std::size_t                                            vertex_count = 0;
-    std::bitset<magic_enum::enum_count<VertexAttribute>()> attribute_mask;
+    std::size_t         vertex_count = 0;
+    VertexAttributeMask attribute_mask;
 };
 
 struct IndexArray : public Resource {
@@ -145,6 +158,7 @@ struct IndexArray : public Resource {
 };
 
 struct Mesh {
+    std::pmr::string             name;
     std::shared_ptr<VertexArray> vertices;
     std::shared_ptr<IndexArray>  indices;
 
@@ -152,6 +166,7 @@ struct Mesh {
         std::size_t                       index_count;
         std::size_t                       index_offset;
         std::size_t                       vertex_offset;
+        PrimitiveType                     primitive;
         std::shared_ptr<MaterialInstance> material_instance;
     };
     std::pmr::vector<SubMesh> sub_meshes;

@@ -83,11 +83,11 @@ PipelineState& GraphicsManager::GetPipelineState(const resource::Material* mater
         PipelineState pipeline{
             .vs                  = material->GetVertexShader(),
             .ps                  = material->GetPixelShader(),
-            .primitive_type      = material->primitive,
+            .primitive_type      = material->GetPrimitiveType(),
             .render_format       = resource::Format::R8G8B8A8_UNORM,
             .depth_buffer_format = resource::Format::D32_FLOAT,
         };
-        pipeline.name = material->name;
+        pipeline.name = material->GetName();
 
         m_Device->InitPipelineState(pipeline);
         m_Pipelines.emplace(material, std::move(pipeline));
