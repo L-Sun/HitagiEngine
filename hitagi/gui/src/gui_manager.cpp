@@ -170,13 +170,17 @@ auto GuiManager::GetDrawData() -> const graphics::GuiDrawData& {
 
     // std::pmr::vector<Renderable> result;
 
-    const float left      = draw_data->DisplayPos.x;
-    const float right     = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
-    const float top       = draw_data->DisplayPos.y;
-    const float bottom    = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
-    const float near      = 3.0f;
-    const float far       = -1.0f;
-    m_DrawData.view_port  = {left, top, draw_data->DisplaySize.x, draw_data->DisplaySize.y};
+    const float left     = draw_data->DisplayPos.x;
+    const float right    = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
+    const float top      = draw_data->DisplayPos.y;
+    const float bottom   = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
+    const float near     = 3.0f;
+    const float far      = -1.0f;
+    m_DrawData.view_port = {
+        static_cast<std::uint32_t>(left),
+        static_cast<std::uint32_t>(top),
+        static_cast<std::uint32_t>(draw_data->DisplaySize.x),
+        static_cast<std::uint32_t>(draw_data->DisplaySize.y)};
     m_DrawData.projection = ortho(left, right, bottom, top, near, far);
 
     if (draw_data->TotalVtxCount > m_DrawData.mesh.vertices->vertex_count) {
