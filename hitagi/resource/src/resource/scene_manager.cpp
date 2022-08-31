@@ -32,42 +32,39 @@ void SceneManager::Finalize() {
 
 void SceneManager::Tick() {
     for (auto& scene : m_Scenes)
-        scene.root->Update();
+        scene->root->Update();
 
     graphics_manager->DrawScene(CurrentScene());
 }
 
 Scene& SceneManager::CurrentScene() {
-    return m_Scenes.at(m_CurrentScene);
+    return *m_Scenes.at(m_CurrentScene);
 }
 
-Scene& SceneManager::CreateEmptyScene(std::string_view name) {
-    auto& scene = m_Scenes.emplace_back(Scene{name});
+std::shared_ptr<Scene> SceneManager::CreateEmptyScene(std::string_view name) {
+    auto& scene = m_Scenes.emplace_back(std::make_shared<Scene>(name));
 
-    auto camera_node    = scene.camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
+    auto camera_node    = scene->camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
     camera_node->object = std::make_shared<Camera>();
-    camera_node->Attach(scene.root);
-    scene.curr_camera = camera_node;
+    camera_node->Attach(scene->root);
+    scene->curr_camera = camera_node;
 
-    auto light_node    = scene.light_nodes.emplace_back(std::make_shared<LightNode>("Default Light"));
+    auto light_node    = scene->light_nodes.emplace_back(std::make_shared<LightNode>("Default Light"));
     light_node->object = std::make_shared<Light>();
-    light_node->Attach(scene.root);
+    light_node->Attach(scene->root);
 
     return scene;
 }
 
-std::size_t SceneManager::AddScene(Scene scene) {
-    m_Scenes.emplace_back(std::move(scene));
+std::size_t SceneManager::AddScene(std::shared_ptr<Scene> scene) {
+    if (scene) {
+        m_Scenes.emplace_back(std::move(scene));
+    }
     return m_Scenes.size() - 1;
 }
 
-std::size_t SceneManager::AddScenes(std::pmr::vector<Scene> scenes) {
-    m_Scenes.insert(m_Scenes.end(), std::make_move_iterator(scenes.begin()), std::make_move_iterator(scenes.end()));
-    return m_Scenes.size() - 1;
-}
-
-std::size_t SceneManager::GetNumScene() const noexcept { return m_Scenes.size(); }
-Scene&      SceneManager::GetScene(std::size_t index) { return m_Scenes.at(index); }
+std::size_t            SceneManager::GetNumScene() const noexcept { return m_Scenes.size(); }
+std::shared_ptr<Scene> SceneManager::GetScene(std::size_t index) { return m_Scenes.at(index); }
 
 void SceneManager::SwitchScene(std::size_t index) {
     if (index >= m_Scenes.size()) {
@@ -77,22 +74,7 @@ void SceneManager::SwitchScene(std::size_t index) {
 }
 
 void SceneManager::DeleteScene(std::size_t index) {
-    DeleteScenes({index});
-}
-
-void SceneManager::DeleteScenes(std::pmr::vector<std::size_t> index_array) {
-    std::size_t i = 0, j = 0;
-    std::sort(index_array.begin(), index_array.end());
-    auto iter = std::remove_if(m_Scenes.begin(), m_Scenes.end(), [&](const Scene& scene) {
-        if (i == index_array[j]) {
-            i++;
-            j++;
-            return true;
-        }
-        i++;
-        return false;
-    });
-    m_Scenes.erase(iter, m_Scenes.end());
+    m_Scenes.erase(std::next(m_Scenes.begin(), index));
 }
 
 }  // namespace hitagi::resource

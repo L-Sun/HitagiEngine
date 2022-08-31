@@ -59,9 +59,11 @@ void AssetManager::Finalize() {
     m_Logger = nullptr;
 }
 
-std::optional<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
+std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
     auto format = get_scene_format(path.extension().string());
-    return m_SceneParsers[format]->Parse(file_io_manager->SyncOpenAndReadBinary(path), path.parent_path());
+    auto scene  = m_SceneParsers[format]->Parse(file_io_manager->SyncOpenAndReadBinary(path), path.parent_path());
+    AddScene(scene);
+    return scene;
 }
 
 std::shared_ptr<Texture> AssetManager::ImportTexture(const std::filesystem::path& path) {
@@ -99,24 +101,28 @@ std::shared_ptr<Material> AssetManager::AddMaterial(std::shared_ptr<Material> ma
     return material;
 }
 
+void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
+    if (scene) m_Assets.scenes.emplace(std::move(scene));
+}
+
 void AssetManager::AddCamera(std::shared_ptr<Camera> camera) {
-    m_Assets.cameras.emplace(std::move(camera));
+    if (camera) m_Assets.cameras.emplace(std::move(camera));
 }
 
 void AssetManager::AddLight(std::shared_ptr<Light> light) {
-    m_Assets.lights.emplace(std::move(light));
+    if (light) m_Assets.lights.emplace(std::move(light));
 }
 
 void AssetManager::AddMesh(std::shared_ptr<Mesh> mesh) {
-    m_Assets.meshes.emplace(std::move(mesh));
+    if (mesh) m_Assets.meshes.emplace(std::move(mesh));
 }
 
 void AssetManager::AddArmature(std::shared_ptr<Armature> armature) {
-    m_Assets.armatures.emplace(std::move(armature));
+    if (armature) m_Assets.armatures.emplace(std::move(armature));
 }
 
 void AssetManager::AddTexture(std::shared_ptr<Texture> texture) {
-    m_Assets.textures.emplace(std::move(texture));
+    if (texture) m_Assets.textures.emplace(std::move(texture));
 }
 
 auto AssetManager::GetMaterial(std::string_view name) -> std::shared_ptr<Material> {

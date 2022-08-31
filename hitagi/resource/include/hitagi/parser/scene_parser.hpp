@@ -25,7 +25,7 @@ constexpr inline SceneFormat get_scene_format(std::string_view ext) {
 
 class SceneParser {
 public:
-    virtual std::optional<Scene> Parse(const core::Buffer& buffer, const std::filesystem::path& root_path) = 0;
+    virtual std::shared_ptr<Scene> Parse(const core::Buffer& buffer, const std::filesystem::path& root_path) = 0;
 
     virtual ~SceneParser() = default;
 };

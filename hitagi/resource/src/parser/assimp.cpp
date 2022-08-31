@@ -94,12 +94,12 @@ constexpr std::array mat_float_keys = {
 
 AssimpParser::AssimpParser(std::filesystem::path ext) : m_Hint(std::move(ext)) {}
 
-std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::filesystem::path& root_path) {
+std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::filesystem::path& root_path) {
     auto logger = spdlog::get("AssetManager");
 
     if (buffer.Empty()) {
         logger->warn("Parsing a empty buffer");
-        return std::nullopt;
+        return nullptr;
     }
 
     core::Clock clock;
@@ -118,13 +118,12 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::
     if (!ai_scene) {
         logger->error("Can not parse the scene.");
         logger->error(importer.GetErrorString());
-        return std::nullopt;
+        return nullptr;
     }
     logger->info("Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
-    Scene scene;
-    scene.name = ai_scene->mName.C_Str();
+    auto scene = std::make_shared<Scene>(ai_scene->mName.C_Str());
 
     // process camera
     std::pmr::unordered_map<std::string_view, std::shared_ptr<Camera>> camera_name_map;
@@ -142,6 +141,7 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::
         camera->up        = get_vec3(_camera->mUp);
 
         auto&& [result, success] = camera_name_map.emplace(_camera->mName.C_Str(), camera);
+        asset_manager->AddCamera(camera);
         if (!success)
             logger->warn("A camera[{}] with the same name already exists!", _camera->mName.C_Str());
     }
@@ -192,6 +192,7 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::
                 break;
         }
         auto&& [result, success] = light_name_map.emplace(_light->mName.C_Str(), light);
+        asset_manager->AddLight(light);
         if (!success)
             logger->warn("A light[{}] with the same name already exists!", _light->mName.C_Str());
     }
@@ -231,8 +232,8 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::
                 logger->warn("Unsupport texture format: {}", _texture->achFormatHint);
             }
         }
-
         textures.emplace(_texture, texture);
+        asset_manager->AddTexture(texture);
     }
     logger->info("Parsing texture costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
@@ -490,29 +491,33 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::
         // This node is a geometry
         if (_node->mNumMeshes > 0) {
             auto mesh_node    = std::make_shared<MeshNode>();
-            mesh_node->object = create_mesh(_node);
-            scene.instance_nodes.emplace_back(mesh_node);
+            auto mesh         = create_mesh(_node);
+            mesh_node->object = mesh;
+            asset_manager->AddMesh(mesh);
+            scene->instance_nodes.emplace_back(mesh_node);
             node = mesh_node;
         }
         // This node is a camera
         else if (camera_name_map.contains(name)) {
             auto camera_node    = std::make_shared<CameraNode>();
             camera_node->object = camera_name_map.at(name);
-            scene.camera_nodes.emplace_back(camera_node);
+            scene->camera_nodes.emplace_back(camera_node);
             node = camera_node;
         }
         // This node is a light
         else if (light_name_map.contains(name)) {
             auto light_node    = std::make_shared<LightNode>();
             light_node->object = light_name_map.at(name);
-            scene.light_nodes.emplace_back(light_node);
+            scene->light_nodes.emplace_back(light_node);
             node = light_node;
         }
         // This node is armature, it may contain multiple bone
         else if (armature_nodes.contains(_node)) {
             auto armature_node    = std::make_shared<ArmatureNode>();
-            armature_node->object = create_armature(_node);
-            scene.armature_nodes.emplace_back(armature_node);
+            auto armature         = create_armature(_node);
+            armature_node->object = armature;
+            asset_manager->AddArmature(armature);
+            scene->armature_nodes.emplace_back(armature_node);
             node = armature_node;
         }
         // This node is bone,
@@ -535,12 +540,12 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::
 
         return node;
     };
-    scene.root = convert(ai_scene->mRootNode);
-    if (scene.camera_nodes.empty()) {
-        auto camera_node = scene.camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
-        camera_node->Attach(scene.root);
+    scene->root = convert(ai_scene->mRootNode);
+    if (scene->camera_nodes.empty()) {
+        auto camera_node = scene->camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
+        camera_node->Attach(scene->root);
     }
-    scene.curr_camera = scene.camera_nodes.front();
+    scene->curr_camera = scene->camera_nodes.front();
 
     logger->info("Parsing scnene graph costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();

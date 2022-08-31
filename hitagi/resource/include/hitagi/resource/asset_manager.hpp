@@ -17,7 +17,7 @@ public:
 
     Scene CreateEmptyScene(std::string_view name);
 
-    std::optional<Scene>      ImportScene(const std::filesystem::path& path);
+    std::shared_ptr<Scene>    ImportScene(const std::filesystem::path& path);
     std::shared_ptr<Texture>  ImportTexture(const std::filesystem::path& path);
     std::shared_ptr<Texture>  ImportTexture(const core::Buffer& buffer, ImageFormat format);
     std::shared_ptr<Material> ImportMaterial(const std::filesystem::path& path);
@@ -25,6 +25,7 @@ public:
     // If there is a same material, then ignore the input material and return the exist material
     std::shared_ptr<Material> AddMaterial(std::shared_ptr<Material> material);
 
+    void AddScene(std::shared_ptr<Scene> scene);
     void AddCamera(std::shared_ptr<Camera> camera);
     void AddLight(std::shared_ptr<Light> light);
     void AddMesh(std::shared_ptr<Mesh> mesh);
