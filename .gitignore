@@ -4,6 +4,8 @@ assets/*
 !assets/shaders/
 !assets/fonts/
 !assets/test/
+!assets/utils/
+
 .xmake
 temp
 .cache

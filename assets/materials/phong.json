@@ -1,3 +1,45 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:e1f16c756cf02bd9093f78fd1b73cee9b55bde2f6049be32098594b145a10f6e
-size 1039
+{
+    "$schema": "../utils/material_schema.json",
+    "name": "Phong",
+    "vertex_shader": "assets/shaders/phong.hlsl",
+    "pixel_shader": "assets/shaders/phong.hlsl",
+    "primitive": "TriangleList",
+    "parameters": [
+        {
+            "name": "diffuse",
+            "type": "vec3f"
+        },
+        {
+            "name": "diffuse_texture",
+            "type": "texture"
+        },
+        {
+            "name": "specular",
+            "type": "vec3f"
+        },
+        {
+            "name": "specular_texture",
+            "type": "texture"
+        },
+        {
+            "name": "ambient",
+            "type": "vec3f"
+        },
+        {
+            "name": "ambient_texture",
+            "type": "texture"
+        },
+        {
+            "name": "emissive",
+            "type": "vec3f"
+        },
+        {
+            "name": "emissive_texture",
+            "type": "texture"
+        },
+        {
+            "name": "shininess",
+            "type": "float"
+        }
+    ]
+}
