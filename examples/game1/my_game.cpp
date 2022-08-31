@@ -21,7 +21,7 @@ bool MyGame::Initialize() {
     m_Logger = spdlog::stdout_color_mt("MyGame");
     m_Logger->info("Initialize...");
     auto scene = asset_manager->ImportScene("./assets/scenes/test.fbx");
-    if (!scene.has_value()) return false;
+    if (scene == nullptr) return false;
 
     return true;
 }

@@ -43,7 +43,7 @@ TEST(ImageParserTest, Bmp) {
 
 TEST(SceneParserTest, Fbx) {
     auto scene = asset_manager->ImportScene("assets/test/test.fbx");
-    EXPECT_TRUE(scene.has_value());
+    EXPECT_TRUE(scene != nullptr);
     EXPECT_EQ(scene->camera_nodes.size(), 1);
     EXPECT_EQ(scene->instance_nodes.size(), 1);
     EXPECT_EQ(scene->light_nodes.size(), 1);
@@ -51,7 +51,7 @@ TEST(SceneParserTest, Fbx) {
 
 TEST(SceneParserTest, gltf) {
     auto scene = asset_manager->ImportScene("assets/test/test.gltf");
-    EXPECT_TRUE(scene.has_value());
+    EXPECT_TRUE(scene != nullptr);
 }
 
 int main(int argc, char* argv[]) {
