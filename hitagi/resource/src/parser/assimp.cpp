@@ -80,7 +80,8 @@ constexpr std::array mat_color_keys = {
     "reflective",
     // PBR
     "base",
-    "sheen.factor"};
+    "sheen.factor",
+};
 constexpr std::array mat_float_keys = {
     "reflectivity",
     "opacity",
@@ -240,74 +241,60 @@ std::optional<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::
     logger->debug("Parse materials... Num: {}", ai_scene->mNumMaterials);
     std::pmr::vector<std::shared_ptr<MaterialInstance>> material_instances;
     for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
-        auto _material = ai_scene->mMaterials[i];
+        auto _material_instance = ai_scene->mMaterials[i];
 
-        Material::Builder builder;
-        if (aiString name; AI_SUCCESS == _material->Get(AI_MATKEY_NAME, name))
-            builder.SetName(name.C_Str());
+        std::shared_ptr<Material> material = nullptr;
 
-        if (aiShadingMode shading_mode; _material->Get(AI_MATKEY_SHADING_MODEL, shading_mode))
-            logger->debug("Shading Mode: {}", magic_enum::enum_name(shading_mode));
-
-        if (bool enable_wireframe; AI_SUCCESS == _material->Get(AI_MATKEY_ENABLE_WIREFRAME, enable_wireframe))
-            builder.SetWireFrame(enable_wireframe);
-
-        for (const auto& key : mat_color_keys) {
-            if (aiColor3D color; AI_SUCCESS == _material->Get(fmt::format("$clr.{}", key).c_str(), 0, 0, color))
-                builder.AppendParameterInfo(key, get_color(color));
+        // Use Phong
+        if (aiColor3D color; AI_SUCCESS == _material_instance->Get(AI_MATKEY_COLOR_DIFFUSE, color)) {
+            material = asset_manager->GetMaterial("Phong");
+        }
+        // Use PBR
+        if (aiColor3D color; AI_SUCCESS == _material_instance->Get(AI_MATKEY_BASE_COLOR, color)) {
+            material = asset_manager->GetMaterial("PBR");
         }
 
-        for (const auto& key : mat_float_keys) {
-            if (float scale; AI_SUCCESS == _material->Get(fmt::format("$mat.{}", key).c_str(), 0, 0, scale))
-                builder.AppendParameterInfo(key, scale);
+        if (material == nullptr) {
+            logger->error("Missing builtin material! Please check the folder: assets/materials");
+            break;
+        }
+
+        std::shared_ptr<MaterialInstance> material_instance;
+
+        if (aiString name; AI_SUCCESS == _material_instance->Get(AI_MATKEY_NAME, name))
+            material_instance = material->CreateInstance(name.C_Str());
+
+        if (aiShadingMode shading_mode; _material_instance->Get(AI_MATKEY_SHADING_MODEL, shading_mode))
+            logger->debug("Shading Mode: {}", magic_enum::enum_name(shading_mode));
+
+        for (auto key : mat_color_keys) {
+            if (aiColor3D _color; AI_SUCCESS == _material_instance->Get(fmt::format("$clr.{}", key).c_str(), 0, 0, _color)) {
+                material_instance->SetParameter(key, get_color(_color));
+            }
         }
 
         // set diffuse texture
         // TODO: blend mutiple texture
         for (const auto& [name, ai_key] : texture_key_map) {
-            for (size_t i = 0; i < _material->GetTextureCount(ai_key); i++) {
+            for (size_t i = 0; i < _material_instance->GetTextureCount(ai_key); i++) {
                 aiString                 _path;
                 std::shared_ptr<Texture> texture;
 
-                if (AI_SUCCESS == _material->GetTexture(ai_key, i, &_path)) {
+                if (AI_SUCCESS == _material_instance->GetTexture(ai_key, i, &_path)) {
                     if (auto _texture = ai_scene->GetEmbeddedTexture(_path.C_Str()); _texture) {
                         texture = textures.at(_texture);
                     } else {
                         auto texture  = std::make_shared<Texture>();
                         texture->path = _path.C_Str();
                     }
-                    builder.AppendParameterInfo(name, texture);
+                    material_instance->SetParameter(name, texture);
                 }
 
                 break;  // unsupport blend for now.
             }
         }
 
-        // TODO adapte assimp shader
-        builder
-            .SetVertexShader("assets/shaders/color.hlsl")
-            .SetPixelShader("assets/shaders/color.hlsl");
-
-        auto material = builder.Build();
-        auto instance = material->CreateInstance();
-
-        auto iter = std::find_if(scene.materials.begin(),
-                                 scene.materials.end(),
-                                 [material](auto m) -> bool {
-                                     return *m == *material;
-                                 });
-
-        // A new material type
-        if (iter == scene.materials.end()) {
-            scene.materials.emplace_back(material);
-        }
-        // A exists material type
-        else {
-            instance  = (*iter)->CreateInstance();
-            auto temp = material->CreateInstance();
-        }
-
-        material_instances.emplace_back(std::move(instance));
+        material_instances.emplace_back(std::move(material_instance));
     }
     logger->info("Parsing materials costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();

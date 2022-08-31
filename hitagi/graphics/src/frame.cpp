@@ -1,6 +1,7 @@
 #include <hitagi/graphics/frame.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/graphics/device_api.hpp>
+#include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/utils/overloaded.hpp>
 
 #include <spdlog/spdlog.h>
@@ -22,7 +23,8 @@ struct FrameConstant {
     math::mat4f inv_proj_view;
     math::vec4f light_position;
     math::vec4f light_pos_in_view;
-    math::vec4f light_intensity;
+    math::vec3f light_color;
+    float       light_intensity;
 };
 
 struct ObjectConstant {
@@ -65,8 +67,8 @@ void Frame::DrawScene(const resource::Scene& scene) {
 
     std::pmr::unordered_map<const resource::Material*, std::size_t>         material_counter;
     std::pmr::unordered_map<const resource::MaterialInstance*, std::size_t> material_cb_index;
-    for (const auto& material : scene.materials) {
-        if (!m_MaterialBuffers.contains(material.get())) {
+    for (const auto& material : asset_manager->GetAllMaterials()) {
+        if (!m_MaterialBuffers.contains(material.get()) && material->GetNumInstances() != 0 && material->GetParametersBufferSize() != 0) {
             auto [iter, success] = m_MaterialBuffers.emplace(
                 material.get(),
                 ConstantBuffer{
@@ -75,21 +77,29 @@ void Frame::DrawScene(const resource::Scene& scene) {
                 });
             iter->second.name = fmt::format("material cb ({})", material->GetName());
             m_Device.InitConstantBuffer(iter->second);
-        } else if (m_MaterialBuffers.at(material.get()).num_elements < material->GetNumInstances()) {
+        }
+        if (m_MaterialBuffers.contains(material.get()) && m_MaterialBuffers.at(material.get()).num_elements < material->GetNumInstances()) {
             m_MaterialBuffers.at(material.get()).Resize(material->GetNumInstances());
         }
         material_counter.emplace(material.get(), 0);
     }
 
-    const auto&   camera = scene.curr_camera->object;
+    // TODO multiple light
+    const auto&   camera     = scene.curr_camera->object;
+    const auto&   light_node = scene.light_nodes.front();
+    const auto&   light      = light_node->object;
     FrameConstant frame_constant{
-        .camera_pos     = vec4f(camera->eye, 1.0f),
-        .view           = camera->GetView(),
-        .projection     = camera->GetProjection(),
-        .proj_view      = camera->GetProjectionView(),
-        .inv_view       = camera->GetInvView(),
-        .inv_projection = camera->GetInvProjection(),
-        .inv_proj_view  = camera->GetInvProjectionView(),
+        .camera_pos        = vec4f(camera->eye, 1.0f),
+        .view              = camera->GetView(),
+        .projection        = camera->GetProjection(),
+        .proj_view         = camera->GetProjectionView(),
+        .inv_view          = camera->GetInvView(),
+        .inv_projection    = camera->GetInvProjection(),
+        .inv_proj_view     = camera->GetInvProjectionView(),
+        .light_position    = vec4f(light_node->transform.GetPosition(), 1.0f),
+        .light_pos_in_view = camera->GetView() * vec4f(light_node->transform.GetPosition(), 1.0f),
+        .light_color       = light->color,
+        .light_intensity   = light->intensity,
     };
 
     m_FrameCB.Update(0, frame_constant);
@@ -140,6 +150,14 @@ void Frame::DrawScene(const resource::Scene& scene) {
                 }
 
                 context->BindResource(2, material_cb, material_cb_index.at(material_instance));
+            }
+
+            // Bind texture
+            {
+                std::size_t slot = 0;
+                for (const auto& texture : material_instance->GetTextures()) {
+                    if (texture) context->BindResource(slot++, *texture);
+                }
             }
 
             context->DrawIndexed(submesh.index_count, submesh.index_offset, submesh.vertex_offset);

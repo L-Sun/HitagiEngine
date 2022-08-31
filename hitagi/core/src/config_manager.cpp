@@ -41,10 +41,11 @@ bool ConfigManager::LoadConfig(const std::filesystem::path& path) {
 
         auto new_config = std::make_shared<AppConfig>();
 
-        new_config->title   = json["title"].get<std::string>();
-        new_config->version = json["version"].get<std::string>();
-        new_config->width   = json["width"].get<std::uint32_t>();
-        new_config->height  = json["height"].get<std::uint32_t>();
+        new_config->title           = json["title"].get<std::string>();
+        new_config->version         = json["version"].get<std::string>();
+        new_config->width           = json["width"].get<std::uint32_t>();
+        new_config->height          = json["height"].get<std::uint32_t>();
+        new_config->asset_root_path = json["asset_root_path"].get<std::string>();
 
         m_Config = std::move(new_config);
 
@@ -60,10 +61,11 @@ void ConfigManager::SaveConfig(const std::filesystem::path& path) {
 
     auto json = nlohmann::json();
 
-    json["title"]   = m_Config->title;
-    json["version"] = m_Config->version;
-    json["width"]   = m_Config->width;
-    json["height"]  = m_Config->height;
+    json["title"]           = m_Config->title;
+    json["version"]         = m_Config->version;
+    json["width"]           = m_Config->width;
+    json["height"]          = m_Config->height;
+    json["asset_root_path"] = m_Config->asset_root_path.string();
 
     auto content = json.dump();
     file_io_manager->SaveBuffer(core::Buffer(content.size(), reinterpret_cast<const std::byte*>(content.data())), path);

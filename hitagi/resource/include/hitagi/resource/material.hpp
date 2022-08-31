@@ -89,7 +89,7 @@ public:
         std::pmr::unordered_set<std::pmr::string> exsisted_names;
     };
 
-    std::shared_ptr<MaterialInstance> CreateInstance() noexcept;
+    std::shared_ptr<MaterialInstance> CreateInstance(std::string_view name = "") noexcept;
     inline const std::size_t          GetNumInstances() const noexcept { return m_NumInstances; }
 
     inline std::string_view GetName() const noexcept { return name; }
@@ -118,7 +118,7 @@ class MaterialInstance {
     friend class Material;
 
 public:
-    MaterialInstance(const std::shared_ptr<Material>& material);
+    MaterialInstance(const std::shared_ptr<Material>& material, std::string_view name = "");
 
     MaterialInstance(const MaterialInstance& other);
     MaterialInstance(MaterialInstance&&) = default;
@@ -128,6 +128,8 @@ public:
 
     ~MaterialInstance();
 
+    inline std::string_view GetName() const noexcept { return m_Name; }
+
     template <MaterialParametric T>
     bool SetParameter(std::string_view name, T value) noexcept;
 
@@ -136,9 +138,11 @@ public:
 
     inline auto GetMaterial() const noexcept { return m_Material; }
 
-    core::Buffer GetParameterBuffer() const;
+    core::Buffer                               GetParameterBuffer() const;
+    std::pmr::vector<std::shared_ptr<Texture>> GetTextures() const;
 
 private:
+    std::pmr::string                    m_Name;
     std::shared_ptr<Material>           m_Material;
     std::pmr::vector<MaterialParameter> m_Parameters;
 };

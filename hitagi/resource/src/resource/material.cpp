@@ -4,6 +4,7 @@
 #include <magic_enum.hpp>
 
 #include <stdexcept>
+#include <variant>
 
 namespace hitagi::resource {
 
@@ -39,23 +40,28 @@ Material::Material(const Builder& builder)
     : MaterialDetial{builder} {
 }
 
-auto Material::CreateInstance() noexcept -> std::shared_ptr<MaterialInstance> {
-    return std::make_shared<MaterialInstance>(shared_from_this());
+auto Material::CreateInstance(std::string_view name) noexcept -> std::shared_ptr<MaterialInstance> {
+    return std::make_shared<MaterialInstance>(shared_from_this(), name);
 }
 
 const std::size_t Material::GetParametersBufferSize() const noexcept {
     std::size_t offset = 0;
     for (const auto& parameter : parameters) {
-        if (std::holds_alternative<std::shared_ptr<Texture>>(parameter.value))
-            continue;
-
-        std::visit([&](auto&& value) {
+        // We use int32_t to indicate its index in texture array
+        if (std::holds_alternative<std::shared_ptr<Texture>>(parameter.value)) {
             const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-            offset += remaining >= sizeof(value) ? 0 : remaining;
+            offset += remaining >= sizeof(std::int32_t) ? 0 : remaining;
 
-            offset += sizeof(value);
-        },
-                   parameter.value);
+            offset += sizeof(std::int32_t);
+        } else {
+            std::visit([&](auto&& value) {
+                const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
+                offset += remaining >= sizeof(value) ? 0 : remaining;
+
+                offset += sizeof(value);
+            },
+                       parameter.value);
+        }
     }
     return utils::align(offset, 16);
 }
@@ -75,8 +81,9 @@ bool Material::operator==(const Material& rhs) const {
            wireframe == rhs.wireframe;
 }
 
-MaterialInstance::MaterialInstance(const std::shared_ptr<Material>& material)
-    : m_Material(material),
+MaterialInstance::MaterialInstance(const std::shared_ptr<Material>& material, std::string_view name)
+    : m_Name(name),
+      m_Material(material),
       m_Parameters(material->parameters) {
     if (material == nullptr) {
         if (auto logger = spdlog::get("AssetManager"); logger) {
@@ -111,22 +118,39 @@ MaterialInstance::~MaterialInstance() {
 core::Buffer MaterialInstance::GetParameterBuffer() const {
     core::Buffer result(m_Material->GetParametersBufferSize());
 
-    std::size_t offset = 0;
+    std::size_t  offset        = 0;
+    std::int32_t texture_index = 0;
+    std::int32_t no_texture    = -1;
     for (const auto& parameter : m_Parameters) {
-        if (std::holds_alternative<std::shared_ptr<Texture>>(parameter.value))
-            continue;
-
-        std::visit([&](auto&& value) {
+        if (std::holds_alternative<std::shared_ptr<Texture>>(parameter.value)) {
             const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-            offset += remaining >= sizeof(value) ? 0 : remaining;
+            offset += remaining >= sizeof(texture_index) ? 0 : remaining;
 
-            std::memcpy(result.GetData() + offset, &value, sizeof(value));
+            (*reinterpret_cast<std::int32_t*>(result.GetData() + offset)) = std::get<std::shared_ptr<Texture>>(parameter.value) ? texture_index++ : no_texture;
 
-            offset += sizeof(value);
-        },
-                   parameter.value);
+            offset += sizeof(texture_index);
+        } else {
+            std::visit([&](auto&& value) {
+                const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
+                offset += remaining >= sizeof(value) ? 0 : remaining;
+
+                std::memcpy(result.GetData() + offset, &value, sizeof(value));
+
+                offset += sizeof(value);
+            },
+                       parameter.value);
+        }
     }
 
+    return result;
+}
+auto MaterialInstance::GetTextures() const -> std::pmr::vector<std::shared_ptr<Texture>> {
+    std::pmr::vector<std::shared_ptr<Texture>> result;
+    for (const auto& parameter : m_Parameters) {
+        if (std::holds_alternative<std::shared_ptr<Texture>>(parameter.value)) {
+            result.emplace_back(std::get<std::shared_ptr<Texture>>(parameter.value));
+        }
+    }
     return result;
 }
 

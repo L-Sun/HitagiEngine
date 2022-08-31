@@ -6,10 +6,11 @@
 
 namespace hitagi::core {
 struct AppConfig {
-    std::pmr::string title   = "Hitagi Engine";
-    std::pmr::string version = "v0.2.0";
-    std::uint32_t    width   = 1920;
-    std::uint32_t    height  = 1080;
+    std::pmr::string      title           = "Hitagi Engine";
+    std::pmr::string      version         = "v0.2.0";
+    std::uint32_t         width           = 1920;
+    std::uint32_t         height          = 1080;
+    std::filesystem::path asset_root_path = "assets";
 };
 
 class ConfigManager : public RuntimeModule {

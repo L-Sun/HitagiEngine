@@ -52,12 +52,6 @@ TEST(SceneParserTest, Fbx) {
 TEST(SceneParserTest, gltf) {
     auto scene = asset_manager->ImportScene("assets/test/test.gltf");
     EXPECT_TRUE(scene.has_value());
-    if (scene.has_value()) {
-        fmt::print("Name: {}\n", scene->name);
-        fmt::print("Materials:\n");
-        for (auto material : asset_manager->m_Assets.materials) {
-        }
-    }
 }
 
 int main(int argc, char* argv[]) {

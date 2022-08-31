@@ -28,13 +28,13 @@ TEST(MaterialTest, InitMaterial) {
 
 TEST(MaterialTest, ParameterLayout) {
     auto mat = Material::Builder()
-                   .AppendParameterInfo("param1", vec2f(1, 2))                        //  8 bytes
-                   .AppendParameterInfo("param2", 1.0f)                               //  4 bytes + (4 bytes padding)
-                   .AppendParameterInfo("param3", vec4f(1, 2, 3, 4))                  // 16 bytes + (0 bytes padding)
-                   .AppendParameterInfo("param4", std::shared_ptr<Texture>(nullptr))  //  skip
-                   .AppendParameterInfo("param5", vec2f(1, 2))                        //  8 bytes + (8 bytes padding)
-                   .AppendParameterInfo("param6", vec3f(1, 2, 3))                     // 12 bytes + (4 bytes padding)
-                   .Build();                                                          // total 64 bytes
+                   .AppendParameterInfo("param1", vec2f(1, 2))                        //  8 bytes                     =  8 bytes
+                   .AppendParameterInfo("param2", 1.0f)                               //  4 bytes + (4 bytes padding) = 16 bytes
+                   .AppendParameterInfo("param3", vec4f(1, 2, 3, 4))                  // 16 bytes + (0 bytes padding) = 32 bytes
+                   .AppendParameterInfo("param4", std::shared_ptr<Texture>(nullptr))  //  4 bytes + (0 bytes padding) = 36 bytes
+                   .AppendParameterInfo("param5", vec2f(1, 2))                        //  8 bytes + (4 bytes padding) = 48 bytes
+                   .AppendParameterInfo("param6", vec3f(1, 2, 3))                     // 12 bytes + (4 bytes padding) = 64 bytes
+                   .Build();
 
     EXPECT_EQ(mat->GetParametersBufferSize(), 64);
     auto instance = mat->CreateInstance();
@@ -43,7 +43,8 @@ TEST(MaterialTest, ParameterLayout) {
     vector_eq(*reinterpret_cast<vec2f*>(buffer.GetData() + 0), vec2f(1, 2));
     EXPECT_EQ(*reinterpret_cast<float*>(buffer.GetData() + 8), 1.0f);
     vector_eq(*reinterpret_cast<vec4f*>(buffer.GetData() + 16), vec4f(1, 2, 3, 4));
-    vector_eq(*reinterpret_cast<vec2f*>(buffer.GetData() + 32), vec2f(1, 2));
+    EXPECT_EQ(*reinterpret_cast<std::uint32_t*>(buffer.GetData() + 32), -1);  // texture index
+    vector_eq(*reinterpret_cast<vec2f*>(buffer.GetData() + 36), vec2f(1, 2));
     vector_eq(*reinterpret_cast<vec3f*>(buffer.GetData() + 48), vec3f(1, 2, 3));
 }
 
