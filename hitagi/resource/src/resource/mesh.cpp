@@ -6,83 +6,34 @@
 #include <algorithm>
 
 namespace hitagi::resource {
-VertexArray::VertexArray(std::size_t count, std::string_view name, VertexAttributeMask attributes)
-    : Resource(core::Buffer{}, name),
-      vertex_count(count),
-      attribute_mask(attributes) {
-    std::size_t size_per_element = 0;
-    for (std::size_t attr = 0; attr < attributes.size(); attr++) {
-        if (attributes.test(attr)) {
-            size_per_element += get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(attr).value());
-        }
-    }
-    cpu_buffer = core::Buffer(count * size_per_element);
+VertexArray::VertexArray(VertexAttribute attribute, std::size_t count, std::string_view name)
+    : Resource(core::Buffer{count * get_vertex_attribute_size(attribute)}, name),
+      attribute(attribute),
+      vertex_count(count) {
 }
 
 VertexArray::VertexArray(const VertexArray& other)
     : Resource(other.cpu_buffer, other.name),
-      vertex_count(other.vertex_count),
-      attribute_mask(other.attribute_mask) {
-}
+      attribute(other.attribute),
+      vertex_count(other.vertex_count) {}
 
 VertexArray& VertexArray::operator=(const VertexArray& rhs) {
     if (this != &rhs) {
-        cpu_buffer     = rhs.cpu_buffer;
-        name           = rhs.name;
-        dirty          = true;
-        vertex_count   = rhs.vertex_count;
-        attribute_mask = rhs.attribute_mask;
+        cpu_buffer   = rhs.cpu_buffer;
+        name         = rhs.name;
+        dirty        = true;
+        vertex_count = rhs.vertex_count;
+        attribute    = rhs.attribute;
     }
     return *this;
-}
-
-void VertexArray::Enable(VertexAttribute attr) {
-    if (IsEnabled(attr)) return;
-
-    dirty                = true;
-    std::size_t new_size = 0;
-    magic_enum::enum_for_each<VertexAttribute>([&](auto e) {
-        if (IsEnabled(e()) || attr == e()) {
-            new_size += vertex_count * get_vertex_attribute_size(e());
-        }
-    });
-
-    core::Buffer new_buffer(new_size);
-    std::size_t  src_buffer_offset  = 0;
-    std::size_t  dest_buffer_offset = 0;
-    magic_enum::enum_for_each<VertexAttribute>([&](auto e) {
-        if (IsEnabled(e())) {
-            std::copy_n(
-                cpu_buffer.GetData() + src_buffer_offset,
-                vertex_count * get_vertex_attribute_size(e()),
-                new_buffer.GetData() + dest_buffer_offset);
-            src_buffer_offset += vertex_count * get_vertex_attribute_size(e());
-            dest_buffer_offset += vertex_count * get_vertex_attribute_size(e());
-        } else if (e() == attr) {
-            dest_buffer_offset += vertex_count * get_vertex_attribute_size(e());
-        }
-    });
-    assert(dest_buffer_offset == new_buffer.GetDataSize());
-    cpu_buffer = std::move(new_buffer);
-    attribute_mask.set(magic_enum::enum_integer(attr));
-}
-
-bool VertexArray::IsEnabled(VertexAttribute attr) const {
-    return attribute_mask.test(magic_enum::enum_integer(attr));
 }
 
 void VertexArray::Resize(std::size_t new_count) {
     if (new_count == vertex_count) return;
 
-    dirty                = true;
-    vertex_count         = new_count;
-    std::size_t new_size = 0;
-    magic_enum::enum_for_each<VertexAttribute>([&](auto attr) {
-        if (IsEnabled(attr())) {
-            new_size += vertex_count * get_vertex_attribute_size(attr());
-        }
-    });
-    cpu_buffer.Resize(new_size);
+    dirty        = true;
+    vertex_count = new_count;
+    cpu_buffer.Resize(vertex_count * get_vertex_attribute_size(attribute));
 }
 
 IndexArray::IndexArray(const IndexArray& other)
@@ -110,12 +61,42 @@ void IndexArray::Resize(std::size_t new_count) {
     dirty = true;
 }
 
+Mesh::operator bool() const noexcept {
+    // vertex array exists
+    auto iter = std::find_if(vertices.begin(), vertices.end(), [](const std::shared_ptr<VertexArray>& attribute_array) { return attribute_array != nullptr; });
+    if (iter == vertices.end()) return false;
+
+    // all vertex array has same count
+    iter = std::find_if_not(iter, vertices.end(), [&](const std::shared_ptr<VertexArray>& attribute_array) {
+        return attribute_array == nullptr || attribute_array->vertex_count == (*iter)->vertex_count;
+    });
+    if (iter != vertices.end()) return false;
+
+    // index array exists and has sub_meshes
+    return indices != nullptr && !indices->Empty() && !sub_meshes.empty();
+}
+
 Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes) {
     if (meshes.size() == 1) return meshes.front();
 
+    if (auto iter = std::find_if(meshes.begin(), meshes.end(), [](const Mesh& mesh) -> bool { return mesh; }); iter != meshes.end()) {
+        auto logger = spdlog::get("AssetManager");
+        if (logger) {
+            logger->warn("The mesh ({}) is invalid", iter->name);
+        } else {
+            fmt::print("The mesh ({}) is invalid\n", iter->name);
+        }
+    }
+
     auto iter = std::adjacent_find(meshes.begin(), meshes.end(), [](const Mesh& a, const Mesh& b) {
-        return a.vertices->attribute_mask != a.vertices->attribute_mask;
+        bool matched = true;
+        for (std::size_t index = 0; index < magic_enum::enum_count<VertexAttribute>(); index++) {
+            matched = matched & (a.vertices[index] != nullptr && b.vertices[index] != nullptr) || (a.vertices[index] == nullptr && b.vertices[index] == nullptr);
+        }
+        // find the no match index
+        return !matched;
     });
+
     if (iter != meshes.end()) {
         auto logger = spdlog::get("AssetManager");
         if (logger) {
@@ -126,43 +107,43 @@ Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes) {
         return {};
     }
 
-    auto total_vertex_count = std::reduce(meshes.begin(), meshes.end(), 0, [](std::size_t total, const Mesh& mesh) {
-        return total + mesh.vertices->vertex_count;
+    std::pmr::vector<std::size_t> vertex_counts;
+    std::transform(meshes.begin(), meshes.end(), std::back_insert_iterator(vertex_counts), [](const Mesh& mesh) {
+        return std::find_if(mesh.vertices.begin(), mesh.vertices.end(), [](auto attribute) { return attribute != nullptr; })->get()->vertex_count;
+    });
+    auto total_vertex_count = std::reduce(vertex_counts.begin(), vertex_counts.end(), 0, [](std::size_t total, const std::size_t& count) {
+        return total + count;
     });
     auto total_index_count  = std::reduce(meshes.begin(), meshes.end(), 0, [](std::size_t total, const Mesh& mesh) {
         return total + mesh.indices->index_count;
     });
 
     Mesh result{
-        .vertices = std::make_shared<VertexArray>(total_vertex_count),
-        .indices  = std::make_shared<IndexArray>(total_index_count),
+        .indices = std::make_shared<IndexArray>(total_index_count),
     };
-    magic_enum::enum_for_each<VertexAttribute>([&](auto attr) {
-        if (meshes.front().vertices->IsEnabled(attr())) {
-            result.vertices->Enable(attr());
-        }
-    });
 
-    std::size_t total_vertex_offset = 0, total_index_offset = 0;
+    std::size_t index = 0, total_vertex_offset = 0, total_index_offset = 0;
     for (const auto& mesh : meshes) {
         // Copy vertices
-        magic_enum::enum_for_each<VertexAttribute>([&](auto attr) {
-            if (mesh.vertices->IsEnabled(attr())) {
-                result.vertices->Modify<attr()>([&](auto dest_array) {
-                    auto src_array = mesh.vertices->GetVertices<attr()>();
-                    std::copy(src_array.begin(), src_array.end(), std::next(dest_array.begin(), total_vertex_offset));
-                });
+        for (std::size_t slot = 0; slot < magic_enum::enum_count<VertexAttribute>(); slot++) {
+            VertexAttribute attribute = magic_enum::enum_cast<VertexAttribute>(slot).value();
+            if (mesh.vertices[slot] == nullptr) continue;
+            if (result.vertices[slot] == nullptr) {
+                result.vertices[slot] = std::make_shared<VertexArray>(attribute, total_vertex_count);
             }
-        });
+            std::memcpy(result.vertices[slot]->cpu_buffer.GetData() + total_vertex_offset * get_vertex_attribute_size(attribute),
+                        mesh.vertices[slot]->cpu_buffer.GetData(),
+                        mesh.vertices[slot]->cpu_buffer.GetDataSize());
+        }
 
         // Copy indices
         {
             auto dest_array = result.indices->cpu_buffer.Span<std::uint32_t>();
             if (mesh.indices->type == IndexType::UINT32) {
-                auto src_array = mesh.indices->GetIndices<IndexType::UINT32>();
+                auto src_array = mesh.Span<IndexType::UINT32>();
                 std::copy(src_array.begin(), src_array.end(), std::next(dest_array.begin(), total_index_offset));
             } else {
-                auto src_array = mesh.indices->GetIndices<IndexType::UINT16>();
+                auto src_array = mesh.Span<IndexType::UINT16>();
                 std::transform(src_array.begin(), src_array.end(), std::next(dest_array.begin(), total_index_offset), [](std::uint16_t value) {
                     return static_cast<std::uint32_t>(value);
                 });
@@ -179,7 +160,7 @@ Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes) {
             });
         }
 
-        total_index_offset += mesh.vertices->vertex_count;
+        total_index_offset += vertex_counts[index++];
         total_vertex_offset += mesh.indices->index_count;
     }
     return result;

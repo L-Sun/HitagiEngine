@@ -81,6 +81,7 @@ public:
     void BindDynamicStructuredBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) final;
     void BindDynamicConstantBuffer(std::uint32_t slot, const std::byte* data, std::size_t size) final;
 
+    void BindMeshBuffer(const resource::Mesh& mesh) final;
     void BindVertexBuffer(const resource::VertexArray& vertices) final;
     void BindIndexBuffer(const resource::IndexArray& indices) final;
 

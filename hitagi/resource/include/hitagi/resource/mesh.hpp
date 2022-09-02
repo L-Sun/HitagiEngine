@@ -33,18 +33,6 @@ enum struct VertexAttribute : std::uint8_t {
     Custom0 = 15,
 };
 
-using VertexAttributeMask = std::bitset<magic_enum::enum_count<VertexAttribute>()>;
-
-template <VertexAttribute... attrs>
-constexpr VertexAttributeMask create_vertex_attr_mask() {
-    constexpr std::array<VertexAttribute, sizeof...(attrs)> attrs_array{attrs...};
-
-    VertexAttributeMask result;
-    for (auto attr : attrs_array)
-        result.set(magic_enum::enum_integer(attr));
-    return result;
-}
-
 namespace detial {
 template <VertexAttribute e>
 constexpr auto vertex_attr() noexcept {
@@ -73,7 +61,7 @@ constexpr auto vertex_attr() noexcept {
 }  // namespace detial
 
 template <VertexAttribute e>
-using VertexType = std::invoke_result_t<decltype(detial::vertex_attr<e>)>;
+using VertexDataType = std::invoke_result_t<decltype(detial::vertex_attr<e>)>;
 
 constexpr std::size_t get_vertex_attribute_size(VertexAttribute attribute) {
     switch (attribute) {
@@ -101,20 +89,8 @@ constexpr std::size_t get_vertex_attribute_size(VertexAttribute attribute) {
     }
 }
 
-enum struct IndexType : std::uint8_t {
-    UINT16,
-    UINT32,
-};
-
-template <IndexType T>
-using IndexDataType = std::conditional_t<T == IndexType::UINT16, std::uint16_t, std::uint32_t>;
-
-constexpr auto get_index_type_size(IndexType type) {
-    return type == IndexType::UINT16 ? sizeof(std::uint16_t) : sizeof(std::uint32_t);
-}
-
 struct VertexArray : public Resource {
-    VertexArray(std::size_t count = 0, std::string_view name = "", VertexAttributeMask attribute_mask = {});
+    VertexArray(VertexAttribute attribute, std::size_t count, std::string_view name = "");
 
     VertexArray(const VertexArray&);
     VertexArray& operator=(const VertexArray&);
@@ -122,22 +98,26 @@ struct VertexArray : public Resource {
     VertexArray(VertexArray&&)            = default;
     VertexArray& operator=(VertexArray&&) = default;
 
-    void Resize(std::size_t new_count);
-    void Enable(VertexAttribute attr);
-    bool IsEnabled(VertexAttribute attr) const;
+    inline std::size_t Empty() const noexcept { return vertex_count == 0; }
+    void               Resize(std::size_t new_count);
 
-    template <VertexAttribute Attr>
-    auto GetVertices() const;
-
-    template <VertexAttribute... Attrs>
-    void Modify(std::function<void(std::span<VertexType<Attrs>>...)>&& modifier);
-
-    std::size_t         vertex_count = 0;
-    VertexAttributeMask attribute_mask;
+    VertexAttribute attribute;
+    std::size_t     vertex_count = 0;
 };
 
+enum struct IndexType : std::uint8_t {
+    UINT16,
+    UINT32,
+};
+constexpr auto get_index_type_size(IndexType type) {
+    return type == IndexType::UINT16 ? sizeof(std::uint16_t) : sizeof(std::uint32_t);
+}
+
+template <IndexType T>
+using IndexDataType = std::conditional_t<T == IndexType::UINT16, std::uint16_t, std::uint32_t>;
+
 struct IndexArray : public Resource {
-    IndexArray(std::size_t count = 0, std::string_view name = "", IndexType type = IndexType::UINT32)
+    IndexArray(std::size_t count, std::string_view name = "", IndexType type = IndexType::UINT32)
         : Resource(count * get_index_type_size(type), name), index_count(count), type(type) {}
 
     IndexArray(const IndexArray&);
@@ -145,22 +125,17 @@ struct IndexArray : public Resource {
     IndexArray(IndexArray&&)            = default;
     IndexArray& operator=(IndexArray&&) = default;
 
-    void Resize(std::size_t new_count);
-
-    template <IndexType T>
-    auto GetIndices() const;
-
-    template <IndexType T>
-    void Modify(std::function<void(std::span<IndexDataType<T>>)>&& modifier);
+    inline std::size_t Empty() const noexcept { return index_count == 0; }
+    void               Resize(std::size_t new_count);
 
     std::size_t index_count;
     IndexType   type;
 };
 
 struct Mesh {
-    std::pmr::string             name;
-    std::shared_ptr<VertexArray> vertices;
-    std::shared_ptr<IndexArray>  indices;
+    std::pmr::string                                                name;
+    utils::EnumArray<std::shared_ptr<VertexArray>, VertexAttribute> vertices = utils::create_enum_array<std::shared_ptr<VertexArray>, VertexAttribute>(nullptr);
+    std::shared_ptr<IndexArray>                                     indices  = nullptr;
 
     struct SubMesh {
         std::size_t                       index_count;
@@ -171,64 +146,56 @@ struct Mesh {
     };
     std::pmr::vector<SubMesh> sub_meshes;
 
-    inline operator bool() const noexcept { return vertices != nullptr && !vertices->cpu_buffer.Empty() && !sub_meshes.empty(); }
+    operator bool() const noexcept;
+
+    template <VertexAttribute... Attrs>
+    void Modify(std::function<void(std::span<VertexDataType<Attrs>>...)>&& modifier);
+
+    template <IndexType T>
+    void Modify(std::function<void(std::span<IndexDataType<T>>)>&& modifier);
+
+    template <VertexAttribute T>
+    std::span<const VertexDataType<T>> Span() const;
+
+    template <IndexType T>
+    std::span<const IndexDataType<T>> Span() const;
 };
 using MeshNode = SceneNodeWithObject<Mesh>;
 
 Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes);
 
-template <VertexAttribute Attr>
-auto VertexArray::GetVertices() const {
-    std::size_t buffer_offset = 0;
-    for (std::size_t i = 0; i < magic_enum::enum_integer(Attr); i++) {
-        if (attribute_mask.test(i)) buffer_offset += vertex_count * get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(i).value());
-    }
-    return std::span<const VertexType<Attr>>(
-        reinterpret_cast<const VertexType<Attr>*>(cpu_buffer.GetData() + buffer_offset),
-        vertex_count);
+template <VertexAttribute T>
+std::span<const VertexDataType<T>> Mesh::Span() const {
+    if (vertices[T] == nullptr || vertices[T]->attribute != T) return {};
+
+    return {reinterpret_cast<const VertexDataType<T>*>(vertices[T]->cpu_buffer.GetData()), vertices[T]->vertex_count};
 }
 
 template <VertexAttribute... Attrs>
-void VertexArray::Modify(std::function<void(std::span<VertexType<Attrs>>...)>&& modifier) {
-    if (!(IsEnabled(Attrs) && ... && true)) {
-        (Enable(Attrs), ...);
-    };
-
+void Mesh::Modify(std::function<void(std::span<VertexDataType<Attrs>>...)>&& modifier) {
     auto get_array = [&](auto attr) {
-        auto buffer_offset = 0;
-        for (std::size_t i = 0; i < magic_enum::enum_integer(attr()); i++) {
-            if (attribute_mask.test(i)) buffer_offset += vertex_count * get_vertex_attribute_size(magic_enum::enum_cast<VertexAttribute>(i).value());
-        }
-        return std::span<VertexType<attr()>>(
-            reinterpret_cast<VertexType<attr()>*>(cpu_buffer.GetData() + buffer_offset),
-            vertex_count);
+        if (vertices[attr()] == nullptr) return std::span<VertexDataType<attr()>>{};
+
+        vertices[attr()]->dirty = true;
+        return vertices[attr()]->cpu_buffer.template Span<VertexDataType<attr()>>();
     };
 
     modifier(get_array(magic_enum::enum_constant<Attrs>{})...);
-    dirty = true;
 }
 
 template <IndexType T>
-auto IndexArray::GetIndices() const {
-    if (T != type)
-        throw std::invalid_argument(fmt::format(
-            "expect template parameter: ({}), but get ({})",
-            magic_enum::enum_name(type),
-            magic_enum::enum_name(T)));
+std::span<const IndexDataType<T>> Mesh::Span() const {
+    if (indices == nullptr || indices->type != T) return {};
 
-    return cpu_buffer.Span<const IndexDataType<T>>();
+    return indices->cpu_buffer.Span<const IndexDataType<T>>();
 }
 
 template <IndexType T>
-void IndexArray::Modify(std::function<void(std::span<IndexDataType<T>>)>&& func) {
-    if (T != type)
-        throw std::invalid_argument(fmt::format(
-            "expect template parameter: ({}), but get ({})",
-            magic_enum::enum_name(type),
-            magic_enum::enum_name(T)));
+void Mesh::Modify(std::function<void(std::span<IndexDataType<T>>)>&& modifier) {
+    if (indices == nullptr || indices->type != T) return;
 
-    dirty = true;
-    func(cpu_buffer.Span<IndexDataType<T>>());
+    modifier(indices->cpu_buffer.Span<IndexDataType<T>>());
+    indices->dirty = true;
 }
 
 }  // namespace hitagi::resource
