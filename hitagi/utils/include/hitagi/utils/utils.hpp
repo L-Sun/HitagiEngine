@@ -36,7 +36,6 @@ template <typename T, typename E>
 requires std::is_enum_v<E>
 struct EnumArray : public std::array<T, magic_enum::enum_count<E>()> {
     using array_t = typename std::array<T, magic_enum::enum_count<E>()>;
-    using typename array_t::array;
 
     T&       operator[](std::size_t index) { return std::array<T, magic_enum::enum_count<E>()>::operator[](index); }
     const T& operator[](std::size_t index) const { return std::array<T, magic_enum::enum_count<E>()>::operator[](index); }
