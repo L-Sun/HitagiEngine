@@ -313,13 +313,13 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
         }
 
         Mesh mesh{
-            .vertices = std::make_shared<VertexArray>(ai_mesh->mNumVertices, ai_mesh->mName.C_Str()),
-            .indices  = std::make_shared<IndexArray>(num_indices, ai_mesh->mName.C_Str()),
+            .indices = std::make_shared<IndexArray>(num_indices, ai_mesh->mName.C_Str()),
         };
 
         // Read Position
         if (ai_mesh->HasPositions()) {
-            mesh.vertices->Modify<VertexAttribute::Position>([&](auto positions) {
+            mesh.vertices[VertexAttribute::Position] = std::make_shared<VertexArray>(VertexAttribute::Position, ai_mesh->mNumVertices);
+            mesh.Modify<VertexAttribute::Position>([&](auto positions) {
                 const auto _positions = std::span<aiVector3D>(ai_mesh->mVertices, ai_mesh->mNumVertices);
                 std::transform(_positions.begin(), _positions.end(), positions.begin(), [](const auto& v) { return get_vec3(v); });
             });
@@ -327,7 +327,8 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
 
         // Read Normal
         if (ai_mesh->HasNormals()) {
-            mesh.vertices->Modify<VertexAttribute::Normal>([&](auto normals) {
+            mesh.vertices[VertexAttribute::Normal] = std::make_shared<VertexArray>(VertexAttribute::Normal, ai_mesh->mNumVertices);
+            mesh.Modify<VertexAttribute::Normal>([&](auto normals) {
                 const auto _normals = std::span<aiVector3D>(ai_mesh->mNormals, ai_mesh->mNumVertices);
                 std::transform(_normals.begin(), _normals.end(), normals.begin(), [](const auto& v) { return get_vec3(v); });
             });
@@ -341,7 +342,8 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
             constexpr std::array channels    = {VertexAttribute::Color0, VertexAttribute::Color1, VertexAttribute::Color2, VertexAttribute::Color3};
             auto                 build_color = [&]<std::size_t I>(std::integral_constant<std::size_t, I>) {
                 if (ai_mesh->HasVertexColors(I)) {
-                    mesh.vertices->Modify<channels.at(I)>([&](auto colors) {
+                    mesh.vertices[channels.at(I)] = std::make_shared<VertexArray>(channels.at(I), ai_mesh->mNumVertices);
+                    mesh.Modify<channels.at(I)>([&](auto colors) {
                         const auto _colors = std::span<aiColor4D>(ai_mesh->mColors[I], ai_mesh->mNumVertices);
                         std::transform(_colors.begin(), _colors.end(), colors.begin(), [](const auto& c) { return get_color(c); });
                     });
@@ -361,7 +363,8 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
             constexpr std::array channels    = {VertexAttribute::UV0, VertexAttribute::UV1, VertexAttribute::UV2, VertexAttribute::UV3};
             auto                 build_color = [&]<std::size_t I>(std::integral_constant<std::size_t, I>) {
                 if (ai_mesh->HasTextureCoords(I)) {
-                    mesh.vertices->Modify<channels.at(I)>([&](auto uvs) {
+                    mesh.vertices[channels.at(I)] = std::make_shared<VertexArray>(channels.at(I), ai_mesh->mNumVertices);
+                    mesh.Modify<channels.at(I)>([&](auto uvs) {
                         const auto _uvs = std::span<aiVector3D>(ai_mesh->mTextureCoords[I], ai_mesh->mNumVertices);
                         std::transform(_uvs.begin(), _uvs.end(), uvs.begin(), [](const aiVector3D& uv) { return vec2f(uv.x, uv.y); });
                     });
@@ -375,12 +378,14 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
 
         // Read Tangent and Bitangent
         if (ai_mesh->HasTangentsAndBitangents()) {
-            mesh.vertices->Modify<VertexAttribute::Tangent>([&](auto tangents) {
+            mesh.vertices[VertexAttribute::Tangent] = std::make_shared<VertexArray>(VertexAttribute::Tangent, ai_mesh->mNumVertices);
+            mesh.Modify<VertexAttribute::Tangent>([&](auto tangents) {
                 const auto _tangents = std::span<aiVector3D>(ai_mesh->mTangents, ai_mesh->mNumVertices);
                 std::transform(_tangents.begin(), _tangents.end(), tangents.begin(), [](const auto& v) { return get_vec3(v); });
             });
 
-            mesh.vertices->Modify<VertexAttribute::Bitangent>([&](auto bi_tangents) {
+            mesh.vertices[VertexAttribute::Bitangent] = std::make_shared<VertexArray>(VertexAttribute::Bitangent, ai_mesh->mNumVertices);
+            mesh.Modify<VertexAttribute::Bitangent>([&](auto bi_tangents) {
                 const auto _bi_tangents = std::span<aiVector3D>(ai_mesh->mBitangents, ai_mesh->mBitangents);
                 std::transform(_bi_tangents.begin(), _bi_tangents.end(), bi_tangents.begin(), [](const auto& v) { return get_vec3(v); });
             });
@@ -388,7 +393,10 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
 
         // Read bone blend parameters
         if (ai_mesh->HasBones()) {
-            mesh.vertices->Modify<VertexAttribute::BlendIndex, VertexAttribute::BlendWeight>([&](auto blend_indices, auto blend_weight) {
+            mesh.vertices[VertexAttribute::BlendIndex]  = std::make_shared<VertexArray>(VertexAttribute::BlendIndex, ai_mesh->mNumVertices);
+            mesh.vertices[VertexAttribute::BlendWeight] = std::make_shared<VertexArray>(VertexAttribute::BlendWeight, ai_mesh->mNumVertices);
+
+            mesh.Modify<VertexAttribute::BlendIndex, VertexAttribute::BlendWeight>([&](auto blend_indices, auto blend_weight) {
                 aiNode* armature_node = ai_mesh->mBones[0]->mArmature;
                 armature_nodes.emplace(armature_node);
 
@@ -428,7 +436,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
         }
 
         // Read Indices
-        mesh.indices->Modify<IndexType::UINT32>([&](auto array) {
+        mesh.Modify<IndexType::UINT32>([&](auto array) {
             std::size_t p = 0;
             for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++) {
                 std::copy_n(ai_mesh->mFaces[face].mIndices, ai_mesh->mFaces[face].mNumIndices, array.data() + p);

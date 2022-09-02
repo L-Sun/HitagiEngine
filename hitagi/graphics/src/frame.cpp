@@ -116,10 +116,13 @@ void Frame::DrawScene(const resource::Scene& scene) {
     std::size_t instance_index = 0;
     for (const auto& node : instances) {
         auto mesh = node->object;
+        if (mesh == nullptr || !mesh) continue;
 
-        context->UpdateVertexBuffer(*mesh->vertices);
+        for (const auto& attribute_array : mesh->vertices) {
+            if (attribute_array) context->UpdateVertexBuffer(*attribute_array);
+        }
         context->UpdateIndexBuffer(*mesh->indices);
-        bool vertices_indices_bind = false;
+        bool mesh_bind = false;
 
         m_ObjCB.Update(instance_index, node->transform.world_matrix);
 
@@ -130,10 +133,8 @@ void Frame::DrawScene(const resource::Scene& scene) {
             if (!material) continue;
 
             context->SetPipelineState(graphics_manager->GetPipelineState(material.get()));
-            if (!vertices_indices_bind) {
-                context->BindVertexBuffer(*mesh->vertices);
-                context->BindIndexBuffer(*mesh->indices);
-                vertices_indices_bind = true;
+            if (!mesh_bind) {
+                context->BindMeshBuffer(*mesh);
             }
 
             context->BindResource(0, m_FrameCB, 0);
@@ -171,7 +172,9 @@ void Frame::DrawDebug(const DebugDrawData& debug_data) {
     if (!debug_data.mesh) return;
     auto context = NewContext("DebugDraw");
 
-    context->UpdateVertexBuffer(*debug_data.mesh.vertices);
+    for (const auto& attribute_array : debug_data.mesh.vertices) {
+        if (attribute_array) context->UpdateVertexBuffer(*attribute_array);
+    }
     context->UpdateIndexBuffer(*debug_data.mesh.indices);
 
     if (m_DebugCB.num_elements < debug_data.mesh.sub_meshes.size()) {
@@ -183,8 +186,7 @@ void Frame::DrawDebug(const DebugDrawData& debug_data) {
 
     context->SetPipelineState(graphics_manager->builtin_pipeline.debug);
     context->SetRenderTargetAndDepthBuffer(m_Output, m_DepthBuffer);
-    context->BindVertexBuffer(*debug_data.mesh.vertices);
-    context->BindIndexBuffer(*debug_data.mesh.indices);
+    context->BindMeshBuffer(debug_data.mesh);
     context->BindDynamicConstantBuffer(0, reinterpret_cast<const std::byte*>(&debug_data.project_view), sizeof(debug_data.project_view));
     context->SetViewPortAndScissor(debug_data.view_port.x, debug_data.view_port.y, debug_data.view_port.z, debug_data.view_port.w);
 
@@ -200,7 +202,9 @@ void Frame::DrawGUI(const GuiDrawData& gui_data) {
 
     auto context = NewContext("GuiDraw");
 
-    context->UpdateVertexBuffer(*gui_data.mesh.vertices);
+    for (const auto& attribute_array : gui_data.mesh.vertices) {
+        if (attribute_array) context->UpdateVertexBuffer(*attribute_array);
+    }
     context->UpdateIndexBuffer(*gui_data.mesh.indices);
 
     if (gui_data.texture->gpu_resource == nullptr) {
@@ -209,8 +213,7 @@ void Frame::DrawGUI(const GuiDrawData& gui_data) {
 
     context->SetRenderTarget(m_Output);
     context->SetPipelineState(graphics_manager->builtin_pipeline.gui);
-    context->BindVertexBuffer(*gui_data.mesh.vertices);
-    context->BindIndexBuffer(*gui_data.mesh.indices);
+    context->BindMeshBuffer(gui_data.mesh);
     context->BindDynamicConstantBuffer(0, reinterpret_cast<const std::byte*>(&gui_data.projection), sizeof(gui_data.projection));
     context->BindResource(0, *gui_data.texture);
     context->SetViewPort(gui_data.view_port.x, gui_data.view_port.y, gui_data.view_port.z, gui_data.view_port.w);

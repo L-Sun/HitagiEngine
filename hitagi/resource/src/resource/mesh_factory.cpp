@@ -6,16 +6,16 @@ namespace hitagi::resource {
 
 Mesh MeshFactory::Line(const vec3f& from, const vec3f& to) {
     Mesh mesh{
-        .vertices = std::make_shared<VertexArray>(2, "line"),
+        .vertices = {std::make_shared<VertexArray>(VertexAttribute::Position, 2, "line")},
         .indices  = std::make_shared<IndexArray>(2, "line"),
     };
 
-    mesh.vertices->Modify<VertexAttribute::Position>([&](auto pos) {
+    mesh.Modify<VertexAttribute::Position>([&](auto pos) {
         pos[0] = from;
         pos[1] = to;
     });
 
-    mesh.indices->Modify<IndexType::UINT32>([](auto array) {
+    mesh.Modify<IndexType::UINT32>([](auto array) {
         array[0] = 0;
         array[1] = 1;
     });
@@ -47,15 +47,15 @@ Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max) {
     };
 
     Mesh mesh{
-        .vertices = std::make_shared<VertexArray>(vertex_data.size(), "box"),
+        .vertices = {std::make_shared<VertexArray>(VertexAttribute::Position, vertex_data.size(), "box")},
         .indices  = std::make_shared<IndexArray>(index_data.size(), "box"),
     };
 
-    mesh.vertices->Modify<VertexAttribute::Position>([&](auto pos) {
+    mesh.Modify<VertexAttribute::Position>([&](auto pos) {
         std::copy(vertex_data.cbegin(), vertex_data.cend(), pos.begin());
     });
 
-    mesh.indices->Modify<IndexType::UINT32>([&](auto array) {
+    mesh.Modify<IndexType::UINT32>([&](auto array) {
         std::copy(index_data.cbegin(), index_data.cend(), array.begin());
     });
 

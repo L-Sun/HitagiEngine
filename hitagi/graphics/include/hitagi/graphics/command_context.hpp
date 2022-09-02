@@ -30,6 +30,7 @@ public:
     virtual void BindDynamicConstantBuffer(std::uint32_t slot, const std::byte* data, std::size_t size)   = 0;
 
     // when dirty is set, it will be upload to gpu, (reallocated if buffer has been expanded)
+    virtual void BindMeshBuffer(const resource::Mesh& mesh)              = 0;
     virtual void BindVertexBuffer(const resource::VertexArray& vertices) = 0;
     virtual void BindIndexBuffer(const resource::IndexArray& indices)    = 0;
 

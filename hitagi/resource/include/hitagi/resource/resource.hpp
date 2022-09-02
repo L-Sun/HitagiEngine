@@ -22,6 +22,12 @@ struct Resource {
     Resource(std::size_t buffer_size = 0, std::string_view name = "") : name(name), cpu_buffer(buffer_size) {}
     Resource(core::Buffer cpu_buffer, std::string_view name = "") : name(name), cpu_buffer(std::move(cpu_buffer)) {}
 
+    Resource(const Resource& other);
+    Resource& operator=(const Resource& rhs);
+
+    Resource(Resource&& rhs)            = default;
+    Resource& operator=(Resource&& rhs) = default;
+
     std::pmr::string                             name;
     bool                                         dirty = true;
     core::Buffer                                 cpu_buffer;

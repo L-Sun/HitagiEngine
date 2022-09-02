@@ -264,35 +264,41 @@ void GraphicsCommandContext::BindDynamicConstantBuffer(std::uint32_t slot, const
     m_ResourceBinder.BindDynamicConstantBuffer(slot, cb.gpu_addr);
 }
 
-void GraphicsCommandContext::BindVertexBuffer(const resource::VertexArray& vertices) {
-    auto vb = vertices.gpu_resource->GetBackend<GpuBuffer>();
-    if (vb == nullptr) {
-        spdlog::get("GraphicsManager")->warn("Can not bind an uninitialized vertex buffer: ({})!", vertices.name);
+void GraphicsCommandContext::BindMeshBuffer(const resource::Mesh& mesh) {
+    if (!mesh) {
+        spdlog::get("GraphicsManager")->warn("The mesh is invalid! the binding of vertex buffer and indices buffer were skipped.");
         return;
     }
-    auto        gpso      = static_cast<GraphicsPSO*>(m_CurrentPipeline);
-    std::size_t vb_offset = 0;
-    magic_enum::enum_for_each<resource::VertexAttribute>([&](auto attr) {
-        if (vertices.IsEnabled(attr())) {
-            D3D12_VERTEX_BUFFER_VIEW vbv{
-                .BufferLocation = vb->GetResource()->GetGPUVirtualAddress() + vb_offset,
-                .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(attr()) * vertices.vertex_count),
-                .StrideInBytes  = get_vertex_attribute_size(attr()),
-            };
-            vb_offset += vbv.SizeInBytes;
-            if (int slot = gpso->GetAttributeSlot(attr()); slot != -1) {
-                m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
-            }
-        }
-    });
+
+    for (const auto& attribute_array : mesh.vertices) {
+        if (attribute_array) BindVertexBuffer(*attribute_array);
+    }
+
+    BindIndexBuffer(*mesh.indices);
+}
+
+void GraphicsCommandContext::BindVertexBuffer(const resource::VertexArray& vertices) {
+    auto gpso = static_cast<GraphicsPSO*>(m_CurrentPipeline);
+    if (m_CurrentPipeline == nullptr) {
+        spdlog::get("GraphicsManager")->error("pipeline must be set before setting parameters!");
+        return;
+    }
+
+    if (int slot = gpso->GetAttributeSlot(vertices.attribute); slot != -1) {
+        auto vb = vertices.gpu_resource->GetBackend<GpuBuffer>();
+
+        D3D12_VERTEX_BUFFER_VIEW vbv{
+            .BufferLocation = vb->GetResource()->GetGPUVirtualAddress(),
+            .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(vertices.attribute) * vertices.vertex_count),
+            .StrideInBytes  = static_cast<UINT>(get_vertex_attribute_size(vertices.attribute)),
+        };
+        m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
+    }
 }
 
 void GraphicsCommandContext::BindIndexBuffer(const resource::IndexArray& indices) {
     auto ib = indices.gpu_resource->GetBackend<GpuBuffer>();
-    if (ib == nullptr) {
-        spdlog::get("GraphicsManager")->warn("Can not bind an uninitialized index buffer: ({})!", indices.name);
-        return;
-    }
+
     D3D12_INDEX_BUFFER_VIEW ibv{
         .BufferLocation = ib->GetResource()->GetGPUVirtualAddress(),
         .SizeInBytes    = static_cast<UINT>(ib->GetBufferSize()),
@@ -302,28 +308,27 @@ void GraphicsCommandContext::BindIndexBuffer(const resource::IndexArray& indices
 }
 
 void GraphicsCommandContext::BindDynamicVertexBuffer(const resource::VertexArray& vertices) {
-    if (vertices.cpu_buffer.Empty()) {
+    if (m_CurrentPipeline == nullptr) {
+        spdlog::get("GraphicsManager")->error("pipeline must be set before setting parameters!");
+        return;
+    }
+
+    if (vertices.Empty()) {
         spdlog::get("GraphicsManager")->warn("Can not bind an empty vertex buffer: ({})!", vertices.name);
         return;
     }
     Allocation vb = m_CpuLinearAllocator.Allocate(vertices.cpu_buffer.GetDataSize());
     std::copy_n(vertices.cpu_buffer.GetData(), vertices.cpu_buffer.GetDataSize(), vb.cpu_ptr);
 
-    auto        gpso      = static_cast<GraphicsPSO*>(m_CurrentPipeline);
-    std::size_t vb_offset = 0;
-    magic_enum::enum_for_each<resource::VertexAttribute>([&](auto attr) {
-        if (vertices.IsEnabled(attr())) {
-            D3D12_VERTEX_BUFFER_VIEW vbv{
-                .BufferLocation = vb.gpu_addr + vb_offset,
-                .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(attr()) * vertices.vertex_count),
-                .StrideInBytes  = get_vertex_attribute_size(attr()),
-            };
-            vb_offset += vbv.SizeInBytes;
-            if (int slot = gpso->GetAttributeSlot(attr()); slot != -1) {
-                m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
-            }
-        }
-    });
+    auto gpso = static_cast<GraphicsPSO*>(m_CurrentPipeline);
+    if (int slot = gpso->GetAttributeSlot(vertices.attribute); slot != -1) {
+        D3D12_VERTEX_BUFFER_VIEW vbv{
+            .BufferLocation = vb.gpu_addr,
+            .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(vertices.attribute) * vertices.vertex_count),
+            .StrideInBytes  = static_cast<UINT>(get_vertex_attribute_size(vertices.attribute)),
+        };
+        m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
+    }
 }
 
 void GraphicsCommandContext::BindDynamicIndexBuffer(const resource::IndexArray& indices) {

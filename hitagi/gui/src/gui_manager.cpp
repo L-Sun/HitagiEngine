@@ -38,9 +38,11 @@ bool GuiManager::Initialize() {
     }
 
     m_DrawData.mesh = {
-        .vertices = std::make_shared<VertexArray>(1, "imgui-vertex", create_vertex_attr_mask<VertexAttribute::Position, VertexAttribute::Color0, VertexAttribute::UV0>()),
-        .indices  = std::make_shared<IndexArray>(1, "imgui-indices", IndexType::UINT16),
+        .indices = std::make_shared<IndexArray>(1, "imgui-indices", IndexType::UINT16),
     };
+    m_DrawData.mesh.vertices[VertexAttribute::Position] = std::make_shared<VertexArray>(VertexAttribute::Position, 1, "imgui-vertex-pos");
+    m_DrawData.mesh.vertices[VertexAttribute::Color0]   = std::make_shared<VertexArray>(VertexAttribute::Color0, 1, "imgui-vertex-pos");
+    m_DrawData.mesh.vertices[VertexAttribute::UV0]      = std::make_shared<VertexArray>(VertexAttribute::UV0, 1, "imgui-vertex-pos");
     LoadFontTexture();
 
     return true;
@@ -183,8 +185,8 @@ auto GuiManager::GetDrawData() -> const graphics::GuiDrawData& {
         static_cast<std::uint32_t>(draw_data->DisplaySize.y)};
     m_DrawData.projection = ortho(left, right, bottom, top, near, far);
 
-    if (draw_data->TotalVtxCount > m_DrawData.mesh.vertices->vertex_count) {
-        m_DrawData.mesh.vertices->Resize(draw_data->TotalVtxCount);
+    for (const auto& attribute_array : m_DrawData.mesh.vertices) {
+        if (attribute_array) attribute_array->Resize(draw_data->TotalVtxCount);
     }
 
     if (draw_data->TotalIdxCount > m_DrawData.mesh.indices->index_count) {
@@ -224,19 +226,19 @@ auto GuiManager::GetDrawData() -> const graphics::GuiDrawData& {
         for (const auto& vertex : cmd_list->VtxBuffer) {
             auto _color = ImColor(vertex.col).Value;
 
-            m_DrawData.mesh.vertices->Modify<VertexAttribute::Position>([&](auto positions) {
+            m_DrawData.mesh.Modify<VertexAttribute::Position>([&](auto positions) {
                 positions[vertex_offset] = {vertex.pos.x, vertex.pos.y, 0};
             });
-            m_DrawData.mesh.vertices->Modify<VertexAttribute::Color0>([&](auto colors) {
+            m_DrawData.mesh.Modify<VertexAttribute::Color0>([&](auto colors) {
                 colors[vertex_offset] = {_color.x, _color.y, _color.z, _color.w};
             });
-            m_DrawData.mesh.vertices->Modify<VertexAttribute::UV0>([&](auto tex_coords) {
+            m_DrawData.mesh.Modify<VertexAttribute::UV0>([&](auto tex_coords) {
                 tex_coords[vertex_offset] = {vertex.uv.x, vertex.uv.y};
             });
 
             vertex_offset++;
         }
-        m_DrawData.mesh.indices->Modify<IndexType::UINT16>([&](auto array) {
+        m_DrawData.mesh.Modify<IndexType::UINT16>([&](auto array) {
             std::copy(cmd_list->IdxBuffer.begin(), cmd_list->IdxBuffer.end(), array.begin() + index_offset);
         });
         index_offset += cmd_list->IdxBuffer.size();
