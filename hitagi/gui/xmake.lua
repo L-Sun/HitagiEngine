@@ -1,3 +1,5 @@
+add_requires("imgui v1.88-docking", {configs = {freetype = true, wchar32 = true}})
+
 target("gui")
     set_kind("static")
     add_files("src/*.cpp")

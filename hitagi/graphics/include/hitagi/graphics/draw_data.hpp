@@ -4,11 +4,11 @@
 
 namespace hitagi::graphics {
 struct GuiDrawData {
-    math::mat4f                        projection;
-    math::vec4u                        view_port;
-    resource::Mesh                     mesh;
-    std::shared_ptr<resource::Texture> texture;
-    std::pmr::vector<math::vec4u>      scissor_rects;
+    math::mat4f                          projection;
+    math::vec4u                          view_port;
+    resource::Mesh                       mesh;
+    std::pmr::vector<math::vec4u>        scissor_rects;
+    std::pmr::vector<resource::Texture*> textures;
 };
 
 struct DebugDrawData {

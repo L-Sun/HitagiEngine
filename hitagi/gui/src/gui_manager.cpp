@@ -8,6 +8,7 @@
 #include <hitagi/application.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 
+#include <imgui.h>
 #include <imgui_freetype.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -36,6 +37,7 @@ bool GuiManager::Initialize() {
                 app->SetInputScreenPosition(data->InputPos.x, data->InputPos.y);
         };
     }
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_DpiEnableScaleFonts;
 
     m_DrawData.mesh = {
         .indices = std::make_shared<IndexArray>(1, "imgui-indices", IndexType::UINT16),
@@ -136,17 +138,18 @@ void GuiManager::LoadFontTexture() {
     int            width = 0, height = 0;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-    const std::uint32_t bitcount   = 32;
-    const std::size_t   pitch      = width * bitcount / 8;
-    m_DrawData.texture             = std::make_shared<Texture>();
-    m_DrawData.texture->name       = "imgui-font";
-    m_DrawData.texture->format     = Format::R8G8B8A8_UNORM;
-    m_DrawData.texture->width      = width;
-    m_DrawData.texture->height     = height;
-    m_DrawData.texture->pitch      = pitch;
-    m_DrawData.texture->cpu_buffer = core::Buffer(pitch * height);
+    const std::uint32_t bitcount = 32;
+    const std::size_t   pitch    = width * bitcount / 8;
+    m_FontTexture                = std::make_shared<Texture>();
+    m_FontTexture->name          = "imgui-font";
+    m_FontTexture->format        = Format::R8G8B8A8_UNORM;
+    m_FontTexture->width         = width;
+    m_FontTexture->height        = height;
+    m_FontTexture->pitch         = pitch;
+    m_FontTexture->cpu_buffer    = core::Buffer(pitch * height);
 
-    std::copy_n(reinterpret_cast<const std::byte*>(pixels), m_DrawData.texture->cpu_buffer.GetDataSize(), m_DrawData.texture->cpu_buffer.GetData());
+    std::copy_n(reinterpret_cast<const std::byte*>(pixels), m_FontTexture->cpu_buffer.GetDataSize(), m_FontTexture->cpu_buffer.GetData());
+    io.Fonts->SetTexID(m_FontTexture.get());
 }
 
 void GuiManager::MouseEvent() {
@@ -221,6 +224,7 @@ auto GuiManager::GetDrawData() -> const graphics::GuiDrawData& {
                 .vertex_offset = cmd.VtxOffset + vertex_offset,
             });
             m_DrawData.scissor_rects.emplace_back(scissor_rect);
+            m_DrawData.textures.emplace_back(static_cast<resource::Texture*>(cmd.GetTexID()));
         }
 
         for (const auto& vertex : cmd_list->VtxBuffer) {

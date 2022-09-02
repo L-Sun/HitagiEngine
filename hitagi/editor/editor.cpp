@@ -34,6 +34,7 @@ void Editor::Tick() {
 
 void Editor::Draw() {
     // Draw
+    ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
     MainMenu();
     FileExplorer();
     SceneExplorer();

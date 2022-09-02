@@ -14,7 +14,7 @@ class Frame {
 public:
     Frame(DeviceAPI& device, std::size_t frame_index);
 
-    void DrawScene(const resource::Scene& scene);
+    void DrawScene(const resource::Scene& scene, const std::shared_ptr<resource::Texture>& render_texture = nullptr);
     void DrawDebug(const DebugDrawData& data);
     void DrawGUI(const GuiDrawData& gui_data);
 

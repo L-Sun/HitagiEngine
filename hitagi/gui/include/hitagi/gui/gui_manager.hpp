@@ -32,7 +32,8 @@ private:
 
     std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
 
-    graphics::GuiDrawData m_DrawData;
+    graphics::GuiDrawData              m_DrawData;
+    std::shared_ptr<resource::Texture> m_FontTexture;
 };
 
 }  // namespace hitagi::gui

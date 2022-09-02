@@ -57,7 +57,7 @@ Frame::Frame(DeviceAPI& device, std::size_t frame_index)
     m_Device.InitConstantBuffer(m_DebugCB);
 }
 
-void Frame::DrawScene(const resource::Scene& scene) {
+void Frame::DrawScene(const resource::Scene& scene, const std::shared_ptr<resource::Texture>& render_texture) {
     auto context = NewContext("SceneDraw");
 
     // grow constant buffer if need
@@ -207,15 +207,16 @@ void Frame::DrawGUI(const GuiDrawData& gui_data) {
     }
     context->UpdateIndexBuffer(*gui_data.mesh.indices);
 
-    if (gui_data.texture->gpu_resource == nullptr) {
-        m_Device.InitTexture(*gui_data.texture);
+    for (auto texture : gui_data.textures) {
+        if (texture && texture->gpu_resource == nullptr) {
+            m_Device.InitTexture(*texture);
+        }
     }
 
     context->SetRenderTarget(m_Output);
     context->SetPipelineState(graphics_manager->builtin_pipeline.gui);
     context->BindMeshBuffer(gui_data.mesh);
     context->BindDynamicConstantBuffer(0, reinterpret_cast<const std::byte*>(&gui_data.projection), sizeof(gui_data.projection));
-    context->BindResource(0, *gui_data.texture);
     context->SetViewPort(gui_data.view_port.x, gui_data.view_port.y, gui_data.view_port.z, gui_data.view_port.w);
 
     for (std::size_t i = 0; i < gui_data.mesh.sub_meshes.size(); i++) {
@@ -223,6 +224,7 @@ void Frame::DrawGUI(const GuiDrawData& gui_data) {
         const auto& submesh = gui_data.mesh.sub_meshes.at(i);
 
         context->SetScissorRect(scissor.x, scissor.y, scissor.z, scissor.w);
+        if (gui_data.textures[i]) context->BindResource(0, *gui_data.textures[i]);
         context->DrawIndexed(submesh.index_count, submesh.index_offset, submesh.vertex_offset);
     }
 }
