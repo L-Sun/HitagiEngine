@@ -123,6 +123,4 @@ void MemoryManager::Finalize() {
     m_Logger = nullptr;
 }
 
-void MemoryManager::Tick() {}
-
 }  // namespace hitagi::core

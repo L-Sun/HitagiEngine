@@ -20,8 +20,6 @@ void hitagiPhysicsManager::Finalize() {
     m_Logger = nullptr;
 }
 
-void hitagiPhysicsManager::Tick() {}
-
 std::array<vec3f, 2> hitagiPhysicsManager::GetAABB(resource::Geometry& node) {
     auto geometry = node.GetResourceObjectRef().lock();
     if (!geometry) return {vec3f(0), vec3f(0)};

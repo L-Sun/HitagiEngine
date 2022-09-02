@@ -12,8 +12,8 @@ class RuntimeModule {
 public:
     virtual ~RuntimeModule()  = default;
     virtual bool Initialize() = 0;
-    virtual void Finalize()   = 0;
-    virtual void Tick()       = 0;
+    virtual void Finalize();
+    virtual void Tick();
 
     virtual std::string_view GetName() const = 0;
 

@@ -12,7 +12,6 @@ class FileIOManager : public RuntimeModule {
 public:
     bool Initialize() final;
     void Finalize() final;
-    void Tick() final;
 
     inline std::string_view GetName() const noexcept final { return "FileIOManager"; }
 

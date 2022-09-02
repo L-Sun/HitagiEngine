@@ -23,7 +23,6 @@ void FileIOManager::Finalize() {
     m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
-void FileIOManager::Tick() {}
 
 bool FileIOManager::IsFileChanged(const std::filesystem::path& file_path) const {
     PathHash hash = std::filesystem::hash_value(file_path);

@@ -1,4 +1,6 @@
 #include "editor.hpp"
+#include "scene_viewport.hpp"
+
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
 #include <hitagi/resource/asset_manager.hpp>
@@ -19,6 +21,8 @@ bool Editor::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Editor");
     m_Logger->info("Initialize...");
 
+    LoadModule(std::make_unique<SceneViewPort>());
+
     return true;
 }
 
@@ -28,6 +32,8 @@ void Editor::Finalize() {
 }
 
 void Editor::Tick() {
+    RuntimeModule::Tick();
+
     debug_manager->DrawAxis(scale(100.0f));
     gui_manager->DrawGui([this]() -> void { Draw(); });
 }

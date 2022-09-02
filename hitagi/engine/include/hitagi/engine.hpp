@@ -9,7 +9,6 @@ namespace hitagi {
 class Engine : public RuntimeModule {
 public:
     bool Initialize() final;
-    void Tick() final;
     void Finalize() final;
 
     inline std::string_view GetName() const noexcept final { return "Engine"; }

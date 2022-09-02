@@ -44,23 +44,17 @@ bool Engine::Initialize() {
     return true;
 }
 
-void Engine::Tick() {
-    for (const auto& submodule : m_SubModules) submodule->Tick();
-}
-
 void Engine::Finalize() {
     // make sure all pmr resources allcated in module are released before the memory manager finalization
     auto _memory_manager_module = std::move(m_SubModules.front());
     m_SubModules.pop_front();
 
-    for (auto iter = m_SubModules.rbegin(); iter != m_SubModules.rend(); iter++) {
-        (*iter)->Finalize();
-    }
-    m_SubModules.clear();
+    RuntimeModule::Finalize();
 
     _memory_manager_module->Finalize();
     _memory_manager_module = nullptr;
 
+    m_Logger->info("Finalized");
     m_Logger = nullptr;
 }
 
