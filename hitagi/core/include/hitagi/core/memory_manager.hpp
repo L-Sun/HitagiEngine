@@ -19,6 +19,8 @@ public:
     void Finalize() final;
     void Tick() final;
 
+    inline std::string_view GetName() const noexcept final { return "MemoryManager"; }
+
     template <typename T = std::byte>
     std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;
 

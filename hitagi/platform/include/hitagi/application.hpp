@@ -15,6 +15,8 @@ public:
     void Finalize() override;
     void Tick() override;
 
+    inline std::string_view GetName() const noexcept final { return "Application"; }
+
     static std::unique_ptr<Application> CreateApp();
 
     virtual void InitializeWindows()                            = 0;

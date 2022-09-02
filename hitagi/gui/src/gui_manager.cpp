@@ -88,7 +88,8 @@ void GuiManager::Finalize() {
     ImGui::DestroyContext();
     m_GuiDrawTasks = {};
     m_DrawData     = {};
-    m_Logger->info("Finalize.");
+    m_FontTexture  = nullptr;
+    m_Logger->info("Finalized.");
     m_Logger = nullptr;
 }
 
@@ -198,6 +199,7 @@ auto GuiManager::GetDrawData() -> const graphics::GuiDrawData& {
 
     m_DrawData.mesh.sub_meshes.clear();
     m_DrawData.scissor_rects.clear();
+    m_DrawData.textures.clear();
 
     std::size_t vertex_offset = 0;
     std::size_t index_offset  = 0;

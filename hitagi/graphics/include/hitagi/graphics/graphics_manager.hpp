@@ -13,6 +13,8 @@ public:
     void Finalize() final;
     void Tick() final;
 
+    inline std::string_view GetName() const noexcept final { return "GraphicsManager"; }
+
     // If texture is set, the scene will be render to texture
     void DrawScene(const resource::Scene& scene, const std::shared_ptr<resource::Texture>& render_texture = nullptr);
     void DrawDebug(const DebugDrawData& debug_data);

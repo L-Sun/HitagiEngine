@@ -20,111 +20,48 @@ bool Engine::Initialize() {
     m_Logger->info("Initialize Engine");
 
     auto add_inner_module = [&]<typename T>(std::unique_ptr<T> module) -> T* {
-        return static_cast<T*>(m_InnerModules.emplace_back(std::unique_ptr<RuntimeModule>{module.release()}).get());
+        return static_cast<T*>(LoadModule(std::unique_ptr<RuntimeModule>{module.release()}));
     };
 
-    memory_manager   = add_inner_module(std::make_unique<core::MemoryManager>());
-    thread_manager   = add_inner_module(std::make_unique<core::ThreadManager>());
-    file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>());
-    config_manager   = add_inner_module(std::make_unique<core::ConfigManager>());
-    app              = add_inner_module(Application::CreateApp());
-    graphics_manager = add_inner_module(std::make_unique<graphics::GraphicsManager>());
-    asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>());
-    input_manager    = add_inner_module(std::make_unique<hid::InputManager>());
-    scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>());
-    debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>());
-    gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>());
-
-    std::pmr::list<RuntimeModule*> intialized_modules = {};
-    for (auto& inner_module : m_InnerModules) {
-        if (inner_module->Initialize()) {
-            intialized_modules.emplace_back(inner_module.get());
-        } else {
-            while (!intialized_modules.empty()) {
-                intialized_modules.back()->Finalize();
-                intialized_modules.pop_back();
-            }
-            return false;
-        }
+    // clang-format off
+    if (   !(memory_manager   = add_inner_module(std::make_unique<core::MemoryManager>()))      
+        || !(thread_manager   = add_inner_module(std::make_unique<core::ThreadManager>()))      
+        || !(file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>()))      
+        || !(config_manager   = add_inner_module(std::make_unique<core::ConfigManager>()))      
+        || !(app              = add_inner_module(Application::CreateApp()))                     
+        || !(graphics_manager = add_inner_module(std::make_unique<graphics::GraphicsManager>()))
+        || !(asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>()))   
+        || !(input_manager    = add_inner_module(std::make_unique<hid::InputManager>()))        
+        || !(scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>()))   
+        || !(debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>()))   
+        || !(gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>()))
+    ) {
+        Finalize();
+        return false;
     }
-
-    // it will use pmr
-    m_CreatedModules = std::pmr::set<std::unique_ptr<RuntimeModule>>{};
-    m_OutterModules  = std::pmr::set<RuntimeModule*>{};
+    // clang-format on
 
     return true;
 }
 
 void Engine::Tick() {
-    for (auto& inner_module : m_InnerModules) {
-        inner_module->Tick();
-    }
-
-    for (auto outter_module : m_OutterModules) {
-        outter_module->Tick();
-    }
+    for (const auto& submodule : m_SubModules) submodule->Tick();
 }
 
 void Engine::Finalize() {
-    auto memory_manager = std::move(m_InnerModules.front());
+    // make sure all pmr resources allcated in module are released before the memory manager finalization
+    auto _memory_manager_module = std::move(m_SubModules.front());
+    m_SubModules.pop_front();
 
-    for (auto iter = m_OutterModules.rbegin(); iter != m_OutterModules.rend(); iter++) {
-        auto outter_module = *iter;
-        outter_module->Finalize();
+    for (auto iter = m_SubModules.rbegin(); iter != m_SubModules.rend(); iter++) {
+        (*iter)->Finalize();
     }
+    m_SubModules.clear();
 
-    for (auto iter = m_InnerModules.rbegin(); iter != m_InnerModules.rend(); iter++) {
-        auto inner_module = iter->get();
-        if (inner_module != nullptr) inner_module->Finalize();
-    }
+    _memory_manager_module->Finalize();
+    _memory_manager_module = nullptr;
 
-    m_OutterModules.clear();
-    m_CreatedModules.clear();
-    m_InnerModules.clear();
-    memory_manager->Finalize();
-}
-
-bool Engine::LoadModule(RuntimeModule* module, bool force) {
-    assert(module != nullptr);
-    if (module == nullptr) {
-        m_Logger->warn("You can not add nullptr module! This operation is ommited!");
-        return false;
-    }
-    if (
-        std::find_if(m_InnerModules.begin(), m_InnerModules.end(),
-                     [&](auto& _m) { return _m->GetName() == module->GetName(); }) != m_InnerModules.end()) {
-        m_Logger->warn("The name of module can not be ({})!. This operation is ommited!", module->GetName());
-        return false;
-    }
-    if (std::find(m_OutterModules.begin(), m_OutterModules.end(), module) != m_OutterModules.end()) {
-        m_Logger->warn("You are repeatly load a module ({})! This operation is ommited!", module->GetName());
-        return false;
-    }
-    if (!force &&
-        std::find_if(m_OutterModules.begin(), m_OutterModules.end(),
-                     [&](RuntimeModule* _m) { return _m->GetName() == module->GetName(); }) != m_OutterModules.end()) {
-        m_Logger->warn("There are a same name module ({})! This operation is ommited!", module->GetName());
-        return false;
-    }
-    module->Initialize();
-    m_OutterModules.emplace(module);
-    return true;
-}
-
-void Engine::UnloadModule(RuntimeModule* module) {
-    if (auto iter = std::find(m_OutterModules.begin(), m_OutterModules.end(), module); iter == m_OutterModules.end()) {
-        m_Logger->warn("You are unload an unexisted module ({})! This operation is ommited!", module->GetName());
-        return;
-    } else {
-        m_OutterModules.erase(iter);
-    }
-
-    if (auto iter = std::find_if(m_CreatedModules.begin(), m_CreatedModules.end(), [module](const auto& _m) {
-            return _m.get() == module;
-        });
-        iter != m_CreatedModules.end()) {
-        m_CreatedModules.erase(iter);
-    }
+    m_Logger = nullptr;
 }
 
 }  // namespace hitagi

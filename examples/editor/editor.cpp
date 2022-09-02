@@ -131,7 +131,7 @@ void Editor::FileExplorer() {
 
 void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
-        auto& scene = scene_manager->CurrentScene();
+        auto scene = scene_manager->CurrentScene();
         if (ImGui::CollapsingHeader("Scene Nodes")) {
             std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](std::shared_ptr<SceneNode> node) -> void {
                 if (ImGui::TreeNode(node->name.c_str())) {
@@ -153,7 +153,7 @@ void Editor::SceneExplorer() {
                     ImGui::TreePop();
                 }
             };
-            print_node(scene.root);
+            print_node(scene->root);
         }
 
         if (ImGui::CollapsingHeader("Animation")) {

@@ -12,6 +12,8 @@ public:
     void Finalize() final;
     void Tick() final;
 
+    inline std::string_view GetName() const noexcept final { return "Editor"; }
+
     void Draw();
 
     void MainMenu();

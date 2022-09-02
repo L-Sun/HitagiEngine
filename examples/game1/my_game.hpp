@@ -8,6 +8,8 @@ public:
     void Finalize() final;
     void Tick() final;
 
+    inline std::string_view GetName() const noexcept final { return "MyGame"; }
+
 private:
     hitagi::core::Clock m_Clock;
 };

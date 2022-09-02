@@ -21,7 +21,7 @@ auto main(int argc, char** argv) -> int {
         return -1;
     }
 
-    engine.LoadModuleInplace<hitagi::Editor>("Editor", false);
+    engine.LoadModule(std::make_unique<hitagi::Editor>());
 
 #ifdef _DEBUG
     try {

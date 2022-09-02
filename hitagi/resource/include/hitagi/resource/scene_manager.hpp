@@ -9,7 +9,9 @@ public:
     void Tick() final;
     void Finalize() final;
 
-    Scene& CurrentScene();
+    inline std::string_view GetName() const noexcept final { return "SceneManager"; }
+
+    std::shared_ptr<Scene> CurrentScene();
 
     std::shared_ptr<Scene> CreateEmptyScene(std::string_view name = "");
     std::size_t            AddScene(std::shared_ptr<Scene> scene);

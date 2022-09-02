@@ -20,7 +20,7 @@ auto main(int argc, char** argv) -> int {
         return -1;
     }
 
-    engine.LoadModuleInplace<MyGame>("MyGame", false);
+    engine.LoadModule(std::make_unique<MyGame>());
 
 #ifdef _DEBUG
     try {

@@ -15,6 +15,8 @@ public:
     void Tick() final;
     void Finalize() final;
 
+    inline std::string_view GetName() const noexcept final { return "AssetManager"; }
+
     Scene CreateEmptyScene(std::string_view name);
 
     std::shared_ptr<Scene>    ImportScene(const std::filesystem::path& path);

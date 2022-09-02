@@ -19,8 +19,7 @@ auto main(int argc, char** argv) -> int {
         std::cout << "Engine Initialize failed, will exit now." << std::endl;
         return -1;
     }
-
-    engine.LoadModuleInplace<ImGuiDemo>("ImGuiDemo", false);
+    engine.LoadModule(std::make_unique<ImGuiDemo>());
 
 #ifdef _DEBUG
     try {
