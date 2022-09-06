@@ -36,7 +36,6 @@ void SceneViewPort::Tick() {
                 rt->dirty  = true;
             }
             if (m_CurrentScene) {
-                graphics_manager->DrawScene(*m_CurrentScene);
                 graphics_manager->DrawScene(*m_CurrentScene, rt);
                 ImGui::Image(rt.get(), {static_cast<float>(rt->width), static_cast<float>(rt->height)});
             }

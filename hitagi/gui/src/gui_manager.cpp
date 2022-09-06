@@ -207,6 +207,9 @@ auto GuiManager::GetDrawData() -> const graphics::GuiDrawData& {
         const auto cmd_list = draw_data->CmdLists[i];
 
         for (const auto& cmd : cmd_list->CmdBuffer) {
+            if (cmd.UserCallback != nullptr) {
+                cmd.UserCallback(cmd_list, &cmd);
+            }
             if (cmd.ElemCount == 0) continue;
 
             vec2f clip_min(cmd.ClipRect.x - draw_data->DisplayPos.x, cmd.ClipRect.y - draw_data->DisplayPos.y);
