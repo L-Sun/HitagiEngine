@@ -48,7 +48,7 @@ private:
 
 class Texture : public GpuResource {
 public:
-    Texture(DX12Device* device, const resource::Texture& texture);
+    Texture(DX12Device* device, const resource::Texture& texture, ID3D12Resource* resource = nullptr);
     const auto& GetRTV() const noexcept { return m_RTV; }
     const auto& GetDSV() const noexcept { return m_DSV; }
     const auto& GetSRV() const noexcept { return m_SRV; }
@@ -59,17 +59,6 @@ private:
     Descriptor m_UAV;
     Descriptor m_RTV;
     Descriptor m_DSV;
-};
-
-class RenderTarget : public GpuResource {
-public:
-    RenderTarget(DX12Device* device, std::string_view name, const D3D12_RESOURCE_DESC& desc);
-    // Create from exsited resource
-    RenderTarget(DX12Device* device, std::string_view name, ID3D12Resource* res);
-    const auto& GetRTV() const noexcept { return m_RTV; }
-
-private:
-    Descriptor m_RTV;
 };
 
 }  // namespace hitagi::graphics::backend::DX12

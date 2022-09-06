@@ -101,12 +101,17 @@ void CommandContext::Reset() {
     m_NumBarriersToFlush = 0;
 }
 
-void GraphicsCommandContext::ClearRenderTarget(const graphics::RenderTarget& render_target) {
+void GraphicsCommandContext::ClearRenderTarget(const resource::Texture& render_target) {
     if (render_target.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can clear an uninitialized render target ({})!", render_target.name);
         return;
     }
-    auto rt = render_target.gpu_resource->GetBackend<RenderTarget>();
+    if (!utils::has_flag(render_target.bind_flags, resource::Texture::BindFlag::RenderTarget)) {
+        spdlog::get("GraphicsManager")->error("The texture is not render target ({})!", render_target.name);
+        return;
+    }
+    auto rt = render_target.gpu_resource->GetBackend<Texture>();
+    assert(rt->GetRTV());
 
     TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->ClearRenderTargetView(rt->GetRTV().handle,
@@ -138,12 +143,18 @@ void GraphicsCommandContext::ClearDepthBuffer(const resource::Texture& depth_buf
         nullptr);
 }
 
-void GraphicsCommandContext::SetRenderTarget(const graphics::RenderTarget& render_target) {
+void GraphicsCommandContext::SetRenderTarget(const resource::Texture& render_target) {
     if (render_target.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can not set an uninitialized render target ({})!", render_target.name);
         return;
     }
-    auto rt = render_target.gpu_resource->GetBackend<RenderTarget>();
+    if (!utils::has_flag(render_target.bind_flags, resource::Texture::BindFlag::RenderTarget)) {
+        spdlog::get("GraphicsManager")->error("The texture is not render target ({})!", render_target.name);
+        return;
+    }
+    auto rt = render_target.gpu_resource->GetBackend<Texture>();
+    assert(rt->GetRTV());
+
     TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->OMSetRenderTargets(1,
                                       &(rt->GetRTV().handle),
@@ -151,7 +162,7 @@ void GraphicsCommandContext::SetRenderTarget(const graphics::RenderTarget& rende
                                       nullptr);
 }
 
-void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& render_target, const resource::Texture& depth_buffer) {
+void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(const resource::Texture& render_target, const resource::Texture& depth_buffer) {
     if (render_target.gpu_resource == nullptr || depth_buffer.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can not set an uninitialized render target ({}) or depth buffer ({})!", render_target.name, depth_buffer.name);
         return;
@@ -160,8 +171,12 @@ void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(const graphics::Rende
         spdlog::get("GraphicsManager")->error("This texture is not for depth buffer usage!");
         return;
     }
-
-    auto rt = render_target.gpu_resource->GetBackend<RenderTarget>();
+    if (!utils::has_flag(render_target.bind_flags, resource::Texture::BindFlag::RenderTarget)) {
+        spdlog::get("GraphicsManager")->error("The texture is not render target ({})!", render_target.name);
+        return;
+    }
+    auto rt = render_target.gpu_resource->GetBackend<Texture>();
+    assert(rt->GetRTV());
 
     auto db = depth_buffer.gpu_resource->GetBackend<Texture>();
     assert(db->GetDSV());
@@ -380,12 +395,18 @@ void GraphicsCommandContext::DrawIndexedInstanced(std::size_t index_count, std::
     m_CommandList->DrawIndexedInstanced(index_count, instance_count, start_index_location, base_vertex_location, start_instance_location);
 }
 
-void GraphicsCommandContext::Present(const graphics::RenderTarget& render_target) {
+void GraphicsCommandContext::Present(const resource::Texture& render_target) {
     if (render_target.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can clear an uninitialized render target ({})!", render_target.name);
         return;
     }
-    auto rt = render_target.gpu_resource->GetBackend<RenderTarget>();
+    if (!utils::has_flag(render_target.bind_flags, resource::Texture::BindFlag::RenderTarget)) {
+        spdlog::get("GraphicsManager")->error("The texture is not render target ({})!", render_target.name);
+        return;
+    }
+    auto rt = render_target.gpu_resource->GetBackend<Texture>();
+    assert(rt->GetRTV());
+
     TransitionResource(*rt, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 

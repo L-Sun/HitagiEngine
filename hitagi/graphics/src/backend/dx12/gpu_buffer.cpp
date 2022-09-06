@@ -131,65 +131,68 @@ ConstantBuffer::~ConstantBuffer() {
     m_Resource->Unmap(0, nullptr);
 }
 
-Texture::Texture(DX12Device* device, const resource::Texture& texture) : GpuResource(device) {
-    auto desc = CD3DX12_RESOURCE_DESC::Tex2D(
-        to_dxgi_format(texture.format),
-        texture.width,
-        texture.height,
-        texture.array_size,
-        texture.mip_level,
-        texture.sample_count,
-        texture.sample_quality);
+Texture::Texture(DX12Device* device, const resource::Texture& texture, ID3D12Resource* resource) : GpuResource(device) {
+    if (resource != nullptr) {
+        m_Resource.Attach(resource);
+    } else {
+        auto desc = CD3DX12_RESOURCE_DESC::Tex2D(
+            to_dxgi_format(texture.format),
+            texture.width,
+            texture.height,
+            texture.array_size,
+            texture.mip_level,
+            texture.sample_count,
+            texture.sample_quality);
 
-    if (utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::DepthBuffer)) {
-        desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-        if (!utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::ShaderResource)) {
-            desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+        if (utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::DepthBuffer)) {
+            desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+            if (!utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::ShaderResource)) {
+                desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+            }
         }
+        if (utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::RenderTarget)) {
+            desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        }
+        if (utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::UnorderedAccess)) {
+            desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+        }
+
+        CD3DX12_CLEAR_VALUE optimized_clear_value;
+        optimized_clear_value.Color[0]             = texture.clear_value.color[0];
+        optimized_clear_value.Color[1]             = texture.clear_value.color[1];
+        optimized_clear_value.Color[2]             = texture.clear_value.color[2];
+        optimized_clear_value.Color[3]             = texture.clear_value.color[3];
+        optimized_clear_value.DepthStencil.Depth   = texture.clear_value.depth_stencil.depth;
+        optimized_clear_value.DepthStencil.Stencil = texture.clear_value.depth_stencil.stencil;
+        optimized_clear_value.Format               = to_dxgi_format(texture.format);
+
+        if (optimized_clear_value.Format == DXGI_FORMAT_R16_TYPELESS) {
+            optimized_clear_value.Format = DXGI_FORMAT_D16_UNORM;
+        } else if (optimized_clear_value.Format == DXGI_FORMAT_R32_TYPELESS) {
+            optimized_clear_value.Format = DXGI_FORMAT_D32_FLOAT;
+        } else if (optimized_clear_value.Format == DXGI_FORMAT_R32G8X24_TYPELESS) {
+            optimized_clear_value.Format = DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+        }
+        bool use_clear_value = utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::RenderTarget) || utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::DepthBuffer);
+
+        m_ResourceState = D3D12_RESOURCE_STATE_COMMON;
+
+        auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
+        ThrowIfFailed(device->GetDevice()->CreateCommittedResource(
+            &heap_props,
+            D3D12_HEAP_FLAG_NONE,
+            &desc,
+            m_ResourceState,
+            use_clear_value ? &optimized_clear_value : nullptr,
+            IID_PPV_ARGS(&m_Resource)));
     }
-    if (utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::RenderTarget)) {
-        desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-    }
-    if (utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::UnorderedAccess)) {
-        desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-    }
-
-    CD3DX12_CLEAR_VALUE optimized_clear_value;
-    optimized_clear_value.Color[0]             = texture.clear_value.color[0];
-    optimized_clear_value.Color[1]             = texture.clear_value.color[1];
-    optimized_clear_value.Color[2]             = texture.clear_value.color[2];
-    optimized_clear_value.Color[3]             = texture.clear_value.color[3];
-    optimized_clear_value.DepthStencil.Depth   = texture.clear_value.depth_stencil.depth;
-    optimized_clear_value.DepthStencil.Stencil = texture.clear_value.depth_stencil.stencil;
-    optimized_clear_value.Format               = to_dxgi_format(texture.format);
-
-    if (optimized_clear_value.Format == DXGI_FORMAT_R16_TYPELESS) {
-        optimized_clear_value.Format = DXGI_FORMAT_D16_UNORM;
-    } else if (optimized_clear_value.Format == DXGI_FORMAT_R32_TYPELESS) {
-        optimized_clear_value.Format = DXGI_FORMAT_D32_FLOAT;
-    } else if (optimized_clear_value.Format == DXGI_FORMAT_R32G8X24_TYPELESS) {
-        optimized_clear_value.Format = DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
-    }
-    bool use_clear_value = utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::RenderTarget) || utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::DepthBuffer);
-
-    m_ResourceState = D3D12_RESOURCE_STATE_COMMON;
-
-    auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-
-    ThrowIfFailed(device->GetDevice()->CreateCommittedResource(
-        &heap_props,
-        D3D12_HEAP_FLAG_NONE,
-        &desc,
-        m_ResourceState,
-        use_clear_value ? &optimized_clear_value : nullptr,
-        IID_PPV_ARGS(&m_Resource)));
-
     if (!texture.name.empty())
         m_Resource->SetName(std::wstring(texture.name.begin(), texture.name.end()).data());
 
     if (utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::ShaderResource)) {
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-        srv_desc.Format                          = desc.Format;
+        srv_desc.Format                          = to_dxgi_format(texture.format);
         srv_desc.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         // TODO support diffrent dimension texture
         srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -233,7 +236,7 @@ Texture::Texture(DX12Device* device, const resource::Texture& texture) : GpuReso
     }
     if (utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::DepthBuffer)) {
         D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc;
-        dsv_desc.Format             = desc.Format;
+        dsv_desc.Format             = to_dxgi_format(texture.format);
         dsv_desc.ViewDimension      = D3D12_DSV_DIMENSION_TEXTURE2D;
         dsv_desc.Texture2D.MipSlice = 0;
         dsv_desc.Flags              = D3D12_DSV_FLAG_NONE;
@@ -241,22 +244,6 @@ Texture::Texture(DX12Device* device, const resource::Texture& texture) : GpuReso
         m_DSV = m_Device->GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_DSV).Allocate(Descriptor::Type::DSV);
         device->GetDevice()->CreateDepthStencilView(m_Resource.Get(), &dsv_desc, m_DSV.handle);
     }
-}
-
-RenderTarget::RenderTarget(DX12Device* device, std::string_view name, const D3D12_RESOURCE_DESC& desc)
-    : GpuResource(device),
-      m_RTV(device->GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_RTV).Allocate(Descriptor::Type::RTV)) {
-    auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    ThrowIfFailed(device->GetDevice()->CreateCommittedResource(&heap_props, D3D12_HEAP_FLAG_NONE, &desc, m_ResourceState, nullptr, IID_PPV_ARGS(&m_Resource)));
-    m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->GetDevice()->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV.handle);
-}
-
-RenderTarget::RenderTarget(DX12Device* device, std::string_view name, ID3D12Resource* res)
-    : GpuResource(device, res),
-      m_RTV(device->GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_RTV).Allocate(Descriptor::Type::RTV)) {
-    m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
-    device->GetDevice()->CreateRenderTargetView(m_Resource.Get(), nullptr, m_RTV.handle);
 }
 
 }  // namespace hitagi::graphics::backend::DX12

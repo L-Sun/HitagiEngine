@@ -112,27 +112,18 @@ std::size_t DX12Device::ResizeSwapChain(uint32_t width, uint32_t height) {
     return m_SwapChain->GetCurrentBackBufferIndex();
 }
 
-void DX12Device::InitRenderFromSwapChain(graphics::RenderTarget& rt, std::size_t frame_index) {
+void DX12Device::InitRenderTargetFromSwapChain(resource::Texture& rt, std::size_t frame_index) {
     assert(m_SwapChain && "No swap chain created.");
     ComPtr<ID3D12Resource> res;
     m_SwapChain->GetBuffer(frame_index, IID_PPV_ARGS(&res));
     auto desc = res->GetDesc();
 
     rt.name         = fmt::format("CreateFromSwapChain-{}", frame_index);
+    rt.bind_flags   = resource::Texture::BindFlag::RenderTarget;
     rt.format       = to_format(desc.Format);
     rt.width        = desc.Width,
     rt.height       = desc.Height;
-    rt.gpu_resource = std::make_unique<RenderTarget>(
-        this,
-        fmt::format("RT for SwapChain {}", frame_index),
-        res.Detach());
-}
-
-void DX12Device::InitRenderTarget(graphics::RenderTarget& rt) {
-    auto d3d_desc  = CD3DX12_RESOURCE_DESC::Tex2D(to_dxgi_format(rt.format), rt.width, rt.height);
-    d3d_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
-    rt.gpu_resource = std::make_unique<RenderTarget>(this, rt.name, d3d_desc);
+    rt.gpu_resource = std::make_unique<Texture>(this, rt, res.Detach());
 }
 
 void DX12Device::InitVertexBuffer(resource::VertexArray& vertices) {

@@ -37,7 +37,7 @@ Frame::Frame(DeviceAPI& device, std::size_t frame_index)
       m_FrameCB{.num_elements = 1, .element_size = sizeof(FrameConstant)},
       m_ObjCB{.num_elements = 100, .element_size = sizeof(ObjectConstant)},
       m_DebugCB{.num_elements = 100, .element_size = /*transform*/ sizeof(mat4f) + /*color*/ sizeof(vec4f)} {
-    m_Device.InitRenderFromSwapChain(m_Output, frame_index);
+    m_Device.InitRenderTargetFromSwapChain(m_Output, frame_index);
 
     m_DepthBuffer = resource::Texture{
         .bind_flags = resource::Texture::BindFlag::DepthBuffer,
@@ -268,7 +268,7 @@ void Frame::BeforeSwapchainSizeChanged() {
 }
 
 void Frame::AfterSwapchainSizeChanged() {
-    m_Device.InitRenderFromSwapChain(m_Output, m_FrameIndex);
+    m_Device.InitRenderTargetFromSwapChain(m_Output, m_FrameIndex);
     m_DepthBuffer.width  = m_Output.width;
     m_DepthBuffer.height = m_Output.height;
 

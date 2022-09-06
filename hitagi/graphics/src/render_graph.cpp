@@ -37,11 +37,7 @@ void RenderGraph::Execute() {
             utils::Overloaded{
                 [&](resource::Texture& res) {
                     m_Device.InitTexture(res);
-                },
-                [&](RenderTarget& res) {
-                    m_Device.InitRenderTarget(res);
-                },
-            },
+                }},
             res);
     }
 
@@ -83,7 +79,7 @@ void RenderGraph::Present(FrameHandle render_target, const std::shared_ptr<hitag
             builder.SideEffect();
         },
         [=](const ResourceHelper& helper, PassData& data) {
-            context->Present(helper.Get<RenderTarget>(data.output));
+            context->Present(helper.Get<resource::Texture>(data.output));
         });
 }
 

@@ -15,8 +15,7 @@ public:
     std::size_t ResizeSwapChain(std::uint32_t width, std::uint32_t height) final;
     void        Present() final;
 
-    void InitRenderTarget(graphics::RenderTarget& rt) final;
-    void InitRenderFromSwapChain(graphics::RenderTarget& rt, std::size_t frame_index) final;
+    void InitRenderTargetFromSwapChain(resource::Texture& rt, std::size_t frame_index) final;
     void InitVertexBuffer(resource::VertexArray& vb) final;
     void InitIndexBuffer(resource::IndexArray& ib) final;
     void InitTexture(resource::Texture& tb) final;

@@ -33,12 +33,6 @@ struct ConstantBuffer : public resource::Resource {
     }
 };
 
-struct RenderTarget : public resource::Resource {
-    resource::Format format;
-    std::uint32_t    width;
-    std::uint32_t    height;
-};
-
 struct PipelineState : public resource::Resource {
     std::shared_ptr<resource::Shader>   vs                  = nullptr;
     std::shared_ptr<resource::Shader>   ps                  = nullptr;

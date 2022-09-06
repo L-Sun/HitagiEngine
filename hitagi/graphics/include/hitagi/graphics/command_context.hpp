@@ -9,12 +9,12 @@ class IGraphicsCommandContext {
 public:
     virtual ~IGraphicsCommandContext() = default;
 
-    virtual void ClearRenderTarget(const RenderTarget& rt)               = 0;
+    virtual void ClearRenderTarget(const resource::Texture& rt)          = 0;
     virtual void ClearDepthBuffer(const resource::Texture& depth_buffer) = 0;
 
-    virtual void SetRenderTarget(const RenderTarget& rt)                                                      = 0;
-    virtual void SetRenderTargetAndDepthBuffer(const RenderTarget& rt, const resource::Texture& depth_buffer) = 0;
-    virtual void SetPipelineState(const PipelineState& pipeline)                                              = 0;
+    virtual void SetRenderTarget(const resource::Texture& rt)                                                      = 0;
+    virtual void SetRenderTargetAndDepthBuffer(const resource::Texture& rt, const resource::Texture& depth_buffer) = 0;
+    virtual void SetPipelineState(const PipelineState& pipeline)                                                   = 0;
 
     virtual void SetViewPort(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height)           = 0;
     virtual void SetScissorRect(std::uint32_t left, std::uint32_t top, std::uint32_t right, std::uint32_t bottom)   = 0;
@@ -47,7 +47,7 @@ public:
     virtual void DrawInstanced(std::size_t vertex_count, std::size_t instance_count, std::size_t start_vertex_location = 0, std::size_t start_instance_location = 0)                                            = 0;
     virtual void DrawIndexedInstanced(std::size_t index_count, std::size_t instance_count, std::size_t start_index_location = 0, std::size_t base_vertex_location = 0, std::size_t start_instance_location = 0) = 0;
 
-    virtual void Present(const RenderTarget& rt) = 0;
+    virtual void Present(const resource::Texture& rt) = 0;
 
     virtual std::uint64_t Finish(bool wait_for_complete = false) = 0;
 };

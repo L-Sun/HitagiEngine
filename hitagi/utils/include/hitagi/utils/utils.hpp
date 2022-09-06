@@ -64,41 +64,42 @@ struct enable_bitmask_operators {
 template <typename E>
 concept EnumFlag = enable_bitmask_operators<E>::enable;
 
-template <EnumFlag E>
+}  // namespace hitagi::utils
+
+template <hitagi::utils::EnumFlag E>
 constexpr E operator|(E lhs, E rhs) {
     using underlying = std::underlying_type_t<E>;
     return static_cast<E>(static_cast<underlying>(lhs) | static_cast<underlying>(rhs));
 }
 
-template <EnumFlag E>
-constexpr E operator|=(E& lhs, E rhs) {
+template <hitagi::utils::EnumFlag E>
+constexpr E& operator|=(E& lhs, const E& rhs) {
     using underlying = std::underlying_type_t<E>;
     lhs              = static_cast<E>(static_cast<underlying>(lhs) | static_cast<underlying>(rhs));
     return lhs;
 }
 
-template <EnumFlag E>
+template <hitagi::utils::EnumFlag E>
 constexpr E operator&(E lhs, E rhs) {
     using underlying = std::underlying_type_t<E>;
     return static_cast<E>(static_cast<underlying>(lhs) & static_cast<underlying>(rhs));
 }
 
-template <EnumFlag E>
-constexpr E operator&=(E& lhs, E rhs) {
+template <hitagi::utils::EnumFlag E>
+constexpr E& operator&=(E& lhs, E rhs) {
     using underlying = std::underlying_type_t<E>;
     lhs              = static_cast<E>(static_cast<underlying>(lhs) & static_cast<underlying>(rhs));
     return lhs;
 }
 
-template <EnumFlag E>
+template <hitagi::utils::EnumFlag E>
 constexpr E operator~(E rhs) {
     using underlying = std::underlying_type_t<E>;
     return static_cast<E>(~static_cast<underlying>(rhs));
 }
-
+namespace hitagi::utils {
 template <EnumFlag E>
 constexpr bool has_flag(E lhs, E rhs) {
     return (lhs & rhs) == rhs;
 }
-
 }  // namespace hitagi::utils

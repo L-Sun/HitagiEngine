@@ -62,11 +62,11 @@ class GraphicsCommandContext : public CommandContext, public graphics::IGraphics
 public:
     GraphicsCommandContext(std::string_view name, DX12Device* device) : CommandContext(name, device, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
 
-    void ClearRenderTarget(const graphics::RenderTarget& rt) final;
+    void ClearRenderTarget(const resource::Texture& rt) final;
     void ClearDepthBuffer(const resource::Texture& depth_buffer) final;
 
-    void SetRenderTarget(const graphics::RenderTarget& rt) final;
-    void SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& rt, const resource::Texture& depth_buffer) final;
+    void SetRenderTarget(const resource::Texture& rt) final;
+    void SetRenderTargetAndDepthBuffer(const resource::Texture& rt, const resource::Texture& depth_buffer) final;
     void SetPipelineState(const graphics::PipelineState& pipeline) final;
 
     void SetViewPort(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height) final;
@@ -97,7 +97,7 @@ public:
     void UpdateVertexBuffer(resource::VertexArray& vertices) final;
     void UpdateIndexBuffer(resource::IndexArray& indices) final;
 
-    void          Present(const graphics::RenderTarget& rt) final;
+    void          Present(const resource::Texture& rt) final;
     std::uint64_t Finish(bool wait_for_complete = false) final { return CommandContext::Finish(wait_for_complete); }
 };
 

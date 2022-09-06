@@ -42,7 +42,7 @@ class RenderGraph {
     friend class ResourceHelper;
 
 public:
-    using ResourceType = std::variant<resource::Texture, RenderTarget>;
+    using ResourceType = std::variant<resource::Texture>;
 
     class Builder {
         friend class RenderGraph;
