@@ -21,7 +21,6 @@ public:
     void InitIndexBuffer(resource::IndexArray& ib) final;
     void InitTexture(resource::Texture& tb) final;
     void InitConstantBuffer(graphics::ConstantBuffer& cb) final;
-    void InitDepthBuffer(graphics::DepthBuffer& db) final;
     void InitSampler(resource::Sampler& sampler) final;
     void InitPipelineState(graphics::PipelineState& pipeline) final;
 

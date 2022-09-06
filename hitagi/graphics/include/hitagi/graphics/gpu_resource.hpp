@@ -33,18 +33,10 @@ struct ConstantBuffer : public resource::Resource {
     }
 };
 
-struct DepthBuffer : public resource::Resource {
-    resource::Format format;
-    std::uint64_t    width;
-    std::uint64_t    height;
-    float            clear_depth;
-    std::uint8_t     clear_stencil;
-};
-
 struct RenderTarget : public resource::Resource {
     resource::Format format;
-    std::uint64_t    width;
-    std::uint64_t    height;
+    std::uint32_t    width;
+    std::uint32_t    height;
 };
 
 struct PipelineState : public resource::Resource {

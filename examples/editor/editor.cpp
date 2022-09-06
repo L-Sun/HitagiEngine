@@ -32,10 +32,10 @@ void Editor::Finalize() {
 }
 
 void Editor::Tick() {
-    RuntimeModule::Tick();
-
     debug_manager->DrawAxis(scale(100.0f));
     gui_manager->DrawGui([this]() -> void { Draw(); });
+
+    RuntimeModule::Tick();
 }
 
 void Editor::Draw() {

@@ -133,14 +133,14 @@ void ResourceBinder::ParseRootSignature(const D3D12_ROOT_SIGNATURE_DESC1& root_s
     }
 }
 
-void ResourceBinder::BindResource(std::uint32_t slot, ConstantBuffer* cb, std::size_t offset) {
+void ResourceBinder::BindResource(std::uint32_t slot, ConstantBuffer* cb, std::size_t index) {
     if (!SlotCheck(Descriptor::Type::CBV, slot)) return;
 
     auto slot_info = m_SlotInfos[magic_enum::enum_integer(Descriptor::Type::CBV)].at(slot);
     if (slot_info.in_table) {
-        StageDescriptor(slot_info.value, cb->GetCBV(offset));
+        StageDescriptor(slot_info.value, cb->GetCBV(index));
     } else {
-        D3D12_GPU_VIRTUAL_ADDRESS gpu_address = cb->GetResource()->GetGPUVirtualAddress() + offset * cb->GetBlockSize();
+        D3D12_GPU_VIRTUAL_ADDRESS gpu_address = cb->GetResource()->GetGPUVirtualAddress() + index * cb->GetBlockSize(index);
         if (m_Context.GetType() == D3D12_COMMAND_LIST_TYPE_COMPUTE) {
             m_Context.GetCommandList()->SetComputeRootConstantBufferView(slot_info.value, gpu_address);
         } else {

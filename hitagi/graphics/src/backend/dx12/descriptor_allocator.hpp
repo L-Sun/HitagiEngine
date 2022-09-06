@@ -24,6 +24,8 @@ struct Descriptor {
     Descriptor(Descriptor&&)                 = default;
     Descriptor& operator=(Descriptor&&)      = default;
 
+    operator bool() const noexcept { return handle.ptr != 0 && page_from != nullptr; }
+
     ~Descriptor();
     D3D12_CPU_DESCRIPTOR_HANDLE     handle    = {0};
     std::shared_ptr<DescriptorPage> page_from = nullptr;

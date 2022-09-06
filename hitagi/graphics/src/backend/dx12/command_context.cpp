@@ -31,7 +31,7 @@ CommandContext::~CommandContext() {
 }
 
 void CommandContext::TransitionResource(GpuResource& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate) {
-    D3D12_RESOURCE_STATES old_state = resource.m_UsageState;
+    D3D12_RESOURCE_STATES old_state = resource.m_ResourceState;
     if (old_state != new_state) {
         assert(m_NumBarriersToFlush < 16 && "Exceeded arbitrary limit on buffered barriers");
         D3D12_RESOURCE_BARRIER& barrier_desc = m_Barriers[m_NumBarriersToFlush++];
@@ -47,7 +47,7 @@ void CommandContext::TransitionResource(GpuResource& resource, D3D12_RESOURCE_ST
         } else {
             barrier_desc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
         }
-        resource.m_UsageState = new_state;
+        resource.m_ResourceState = new_state;
     }
 
     if (flush_immediate || m_NumBarriersToFlush == 16) FlushResourceBarriers();
@@ -115,18 +115,25 @@ void GraphicsCommandContext::ClearRenderTarget(const graphics::RenderTarget& ren
                                          nullptr);
 }
 
-void GraphicsCommandContext::ClearDepthBuffer(const graphics::DepthBuffer& depth_buffer) {
+void GraphicsCommandContext::ClearDepthBuffer(const resource::Texture& depth_buffer) {
     if (depth_buffer.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can clear an uninitialized depth buffer ({})!", depth_buffer.name);
         return;
     }
-    auto db = depth_buffer.gpu_resource->GetBackend<DepthBuffer>();
+    if (!utils::has_flag(depth_buffer.bind_flags, resource::Texture::BindFlag::DepthBuffer)) {
+        spdlog::get("GraphicsManager")->error("This texture is not for depth buffer usage!");
+        return;
+    }
+
+    auto db = depth_buffer.gpu_resource->GetBackend<Texture>();
+    assert(db->GetDSV());
+
     TransitionResource(*db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
     m_CommandList->ClearDepthStencilView(
         db->GetDSV().handle,
         D3D12_CLEAR_FLAG_DEPTH,
-        db->GetClearDepth(),
-        db->GetClearStencil(),
+        depth_buffer.clear_value.depth_stencil.depth,
+        depth_buffer.clear_value.depth_stencil.stencil,
         0,
         nullptr);
 }
@@ -144,14 +151,20 @@ void GraphicsCommandContext::SetRenderTarget(const graphics::RenderTarget& rende
                                       nullptr);
 }
 
-void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& render_target, const graphics::DepthBuffer& depth_buffer) {
+void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& render_target, const resource::Texture& depth_buffer) {
     if (render_target.gpu_resource == nullptr || depth_buffer.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can not set an uninitialized render target ({}) or depth buffer ({})!", render_target.name, depth_buffer.name);
         return;
     }
+    if (!utils::has_flag(depth_buffer.bind_flags, resource::Texture::BindFlag::DepthBuffer)) {
+        spdlog::get("GraphicsManager")->error("This texture is not for depth buffer usage!");
+        return;
+    }
 
     auto rt = render_target.gpu_resource->GetBackend<RenderTarget>();
-    auto db = depth_buffer.gpu_resource->GetBackend<DepthBuffer>();
+
+    auto db = depth_buffer.gpu_resource->GetBackend<Texture>();
+    assert(db->GetDSV());
 
     TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET);
     TransitionResource(*db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
@@ -199,7 +212,7 @@ void GraphicsCommandContext::SetBlendFactor(math::vec4f color) {
     m_CommandList->OMSetBlendFactor(color);
 }
 
-void GraphicsCommandContext::BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, size_t offset) {
+void GraphicsCommandContext::BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, size_t index) {
     if (constant_buffer.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can Set an uninitialized constant buffer ({})!", constant_buffer.name);
         return;
@@ -210,7 +223,7 @@ void GraphicsCommandContext::BindResource(std::uint32_t slot, const graphics::Co
         return;
     }
 
-    m_ResourceBinder.BindResource(slot, constant_buffer.gpu_resource->GetBackend<ConstantBuffer>(), offset);
+    m_ResourceBinder.BindResource(slot, constant_buffer.gpu_resource->GetBackend<ConstantBuffer>(), index);
 }
 
 void GraphicsCommandContext::BindResource(std::uint32_t slot, const resource::Texture& texture) {
@@ -383,7 +396,7 @@ void GraphicsCommandContext::UpdateBuffer(Resource* resource, std::size_t offset
     auto upload_buffer = m_CpuLinearAllocator.Allocate(data_size);
     std::copy_n(data, data_size, upload_buffer.cpu_ptr);
 
-    auto old_state = dest->m_UsageState;
+    auto old_state = dest->m_ResourceState;
     TransitionResource(*dest, D3D12_RESOURCE_STATE_COPY_DEST, true);
     m_CommandList->CopyBufferRegion(dest->GetResource(),
                                     offset,
@@ -398,6 +411,7 @@ void GraphicsCommandContext::UpdateVertexBuffer(resource::VertexArray& vertices)
 
     if (vertices.gpu_resource == nullptr || vertices.cpu_buffer.GetDataSize() > vertices.gpu_resource->GetBackend<GpuBuffer>()->GetBufferSize()) {
         m_Device->InitVertexBuffer(vertices);
+        TransitionResource(*vertices.gpu_resource.get()->GetBackend<GpuBuffer>(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, true);
     }
 
     UpdateBuffer(vertices.gpu_resource.get(), 0, vertices.cpu_buffer.GetData(), vertices.cpu_buffer.GetDataSize());
@@ -407,8 +421,10 @@ void GraphicsCommandContext::UpdateVertexBuffer(resource::VertexArray& vertices)
 void GraphicsCommandContext::UpdateIndexBuffer(resource::IndexArray& indices) {
     if (!indices.dirty) return;
 
-    if (indices.gpu_resource == nullptr || indices.cpu_buffer.GetDataSize() > indices.gpu_resource->GetBackend<GpuBuffer>()->GetBufferSize())
+    if (indices.gpu_resource == nullptr || indices.cpu_buffer.GetDataSize() > indices.gpu_resource->GetBackend<GpuBuffer>()->GetBufferSize()) {
         m_Device->InitIndexBuffer(indices);
+        TransitionResource(*indices.gpu_resource.get()->GetBackend<GpuBuffer>(), D3D12_RESOURCE_STATE_INDEX_BUFFER, true);
+    }
 
     UpdateBuffer(indices.gpu_resource.get(), 0, indices.cpu_buffer.GetData(), indices.cpu_buffer.GetDataSize());
     indices.dirty = false;
@@ -437,21 +453,28 @@ void CopyCommandContext::InitializeBuffer(GpuBuffer& dest, const std::byte* data
     m_CommandList->CopyBufferRegion(dest.GetResource(), 0, upload_buffer.page_from.lock()->GetResource(),
                                     upload_buffer.page_offset, data_size);
     TransitionResource(dest, D3D12_RESOURCE_STATE_COMMON, true);
-
-    Finish(true);
 }
 
-void CopyCommandContext::InitializeTexture(resource::Texture& texture, const std::pmr::vector<D3D12_SUBRESOURCE_DATA>& sub_data) {
+void CopyCommandContext::InitializeTexture(resource::Texture& texture) {
+    if (texture.cpu_buffer.Empty() || texture.gpu_resource == nullptr) {
+        return;
+    }
+
     auto dest = texture.gpu_resource->GetBackend<Texture>();
 
-    const UINT64 upload_buffer_size = GetRequiredIntermediateSize(dest->GetResource(), 0, sub_data.size());
+    std::pmr::vector<D3D12_SUBRESOURCE_DATA> sub_datas;
+    sub_datas.emplace_back(D3D12_SUBRESOURCE_DATA{
+        .pData      = texture.cpu_buffer.GetData(),
+        .RowPitch   = texture.pitch,
+        .SlicePitch = static_cast<LONG_PTR>(texture.cpu_buffer.GetDataSize()),
+    });
+
+    const UINT64 upload_buffer_size = GetRequiredIntermediateSize(dest->GetResource(), 0, sub_datas.size());
     auto         upload_buffer      = m_CpuLinearAllocator.Allocate(upload_buffer_size);
 
     UpdateSubresources(m_CommandList, dest->GetResource(), upload_buffer.page_from.lock()->GetResource(),
-                       upload_buffer.page_offset, 0, sub_data.size(), const_cast<D3D12_SUBRESOURCE_DATA*>(sub_data.data()));
+                       upload_buffer.page_offset, 0, sub_datas.size(), sub_datas.data());
     TransitionResource(*dest, D3D12_RESOURCE_STATE_COMMON);
-
-    Finish(true);
 }
 
 }  // namespace hitagi::graphics::backend::DX12

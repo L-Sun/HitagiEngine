@@ -30,7 +30,7 @@ struct Resource {
 
     std::pmr::string                             name;
     bool                                         dirty = true;
-    core::Buffer                                 cpu_buffer;
+    core::Buffer                                 cpu_buffer{};
     std::unique_ptr<graphics::backend::Resource> gpu_resource;
 
     // TODO

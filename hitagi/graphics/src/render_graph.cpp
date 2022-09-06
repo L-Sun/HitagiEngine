@@ -38,9 +38,6 @@ void RenderGraph::Execute() {
                 [&](resource::Texture& res) {
                     m_Device.InitTexture(res);
                 },
-                [&](DepthBuffer& res) {
-                    m_Device.InitDepthBuffer(res);
-                },
                 [&](RenderTarget& res) {
                     m_Device.InitRenderTarget(res);
                 },

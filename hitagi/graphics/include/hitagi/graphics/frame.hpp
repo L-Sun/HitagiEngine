@@ -38,8 +38,8 @@ private:
     std::pmr::vector<std::shared_ptr<IGraphicsCommandContext>> m_CommandContexts;
     std::uint64_t                                              m_FenceValue = 0;
 
-    DepthBuffer  m_DepthBuffer;
-    RenderTarget m_Output;
+    resource::Texture m_DepthBuffer;
+    RenderTarget      m_Output;
 
     ConstantBuffer m_FrameCB;
     ConstantBuffer m_ObjCB;

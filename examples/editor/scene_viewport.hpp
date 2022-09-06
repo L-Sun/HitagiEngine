@@ -14,7 +14,9 @@ public:
     void SetScene(std::shared_ptr<resource::Scene> scene);
 
 private:
-    bool                               m_Open         = true;
+    bool        m_Open     = true;
+    math::vec2u m_PrevSize = {0, 0};
+
     std::shared_ptr<resource::Scene>   m_CurrentScene = nullptr;
     std::shared_ptr<resource::Texture> m_RenderTexture;
 };

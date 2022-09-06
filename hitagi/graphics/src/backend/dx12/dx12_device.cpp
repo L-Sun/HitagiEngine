@@ -129,15 +129,8 @@ void DX12Device::InitRenderFromSwapChain(graphics::RenderTarget& rt, std::size_t
 }
 
 void DX12Device::InitRenderTarget(graphics::RenderTarget& rt) {
-    D3D12_RESOURCE_DESC d3d_desc = {};
-    d3d_desc.Dimension           = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    d3d_desc.SampleDesc.Count    = 1;
-    d3d_desc.SampleDesc.Quality  = 0;
-    d3d_desc.Width               = rt.width;
-    d3d_desc.Height              = rt.height;
-    d3d_desc.DepthOrArraySize    = 1;
-    d3d_desc.Flags               = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-    d3d_desc.Format              = to_dxgi_format(rt.format);
+    auto d3d_desc  = CD3DX12_RESOURCE_DESC::Tex2D(to_dxgi_format(rt.format), rt.width, rt.height);
+    d3d_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
     rt.gpu_resource = std::make_unique<RenderTarget>(this, rt.name, d3d_desc);
 }
@@ -149,7 +142,8 @@ void DX12Device::InitVertexBuffer(resource::VertexArray& vertices) {
         this,
         vertices.name,
         vertices.cpu_buffer.GetDataSize(),
-        D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+        GpuBuffer::Usage::Default,
+        D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 }
 
 void DX12Device::InitIndexBuffer(resource::IndexArray& indices) {
@@ -159,48 +153,20 @@ void DX12Device::InitIndexBuffer(resource::IndexArray& indices) {
         this,
         indices.name,
         indices.cpu_buffer.GetDataSize(),
-        D3D12_RESOURCE_STATE_INDEX_BUFFER);
+        GpuBuffer::Usage::Default,
+        D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 }
 
 void DX12Device::InitTexture(resource::Texture& texture) {
-    D3D12_RESOURCE_DESC d3d_desc = {};
-    d3d_desc.Width               = texture.width;
-    d3d_desc.Height              = texture.height;
-    // TODO support diffrent format
-    d3d_desc.Format             = to_dxgi_format(texture.format);
-    d3d_desc.MipLevels          = texture.mip_level;
-    d3d_desc.DepthOrArraySize   = 1;
-    d3d_desc.SampleDesc.Count   = texture.sample_count;
-    d3d_desc.SampleDesc.Quality = texture.sample_quality;
-    d3d_desc.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    texture.gpu_resource = std::make_unique<Texture>(this, texture);
 
-    texture.gpu_resource = std::make_unique<Texture>(this, texture.name, d3d_desc);
-
-    CopyCommandContext     context("InitTexture", this);
-    D3D12_SUBRESOURCE_DATA sub_data;
-    sub_data.pData      = texture.cpu_buffer.GetData();
-    sub_data.RowPitch   = texture.pitch;
-    sub_data.SlicePitch = texture.cpu_buffer.GetDataSize();
-    context.InitializeTexture(texture, {sub_data});
-    texture.dirty = false;
+    CopyCommandContext context("InitTexture", this);
+    context.InitializeTexture(texture);
+    context.Finish(true);
 }
 
 void DX12Device::InitConstantBuffer(graphics::ConstantBuffer& cb) {
     cb.gpu_resource = std::make_unique<ConstantBuffer>(this, cb.name, cb);
-    cb.update_fn    = [&cb](std::size_t index, const std::byte* data, std::size_t data_size) {
-        cb.gpu_resource->GetBackend<ConstantBuffer>()->UpdateData(index, data, data_size);
-    };
-    cb.resize_fn = [&cb](std::size_t new_num_elements) {
-        cb.gpu_resource->GetBackend<ConstantBuffer>()->Resize(new_num_elements);
-        cb.num_elements = new_num_elements;
-    };
-}
-
-void DX12Device::InitDepthBuffer(graphics::DepthBuffer& db) {
-    auto d3d_desc  = CD3DX12_RESOURCE_DESC::Tex2D(to_dxgi_format(db.format), db.width, db.height);
-    d3d_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-    db.gpu_resource = std::make_unique<DepthBuffer>(this, db.name, d3d_desc, db.clear_depth, db.clear_stencil);
 }
 
 // TODO: Custom sampler

@@ -29,7 +29,6 @@ public:
     virtual void InitIndexBuffer(resource::IndexArray& ib)                          = 0;
     virtual void InitTexture(resource::Texture& tb)                                 = 0;
     virtual void InitConstantBuffer(ConstantBuffer& cb)                             = 0;
-    virtual void InitDepthBuffer(DepthBuffer& db)                                   = 0;
     virtual void InitSampler(resource::Sampler& sampler)                            = 0;
     virtual void InitPipelineState(PipelineState& pipeline)                         = 0;
 

@@ -39,14 +39,16 @@ Frame::Frame(DeviceAPI& device, std::size_t frame_index)
       m_DebugCB{.num_elements = 100, .element_size = /*transform*/ sizeof(mat4f) + /*color*/ sizeof(vec4f)} {
     m_Device.InitRenderFromSwapChain(m_Output, frame_index);
 
-    m_DepthBuffer = DepthBuffer{
-        .format        = Format::D32_FLOAT,
-        .width         = m_Output.width,
-        .height        = m_Output.height,
-        .clear_depth   = 1.0f,
-        .clear_stencil = 0,
+    m_DepthBuffer = resource::Texture{
+        .bind_flags = resource::Texture::BindFlag::DepthBuffer,
+        .format     = Format::D32_FLOAT,
+        .width      = m_Output.width,
+        .height     = m_Output.height,
     };
-    m_Device.InitDepthBuffer(m_DepthBuffer);
+    m_DepthBuffer.clear_value.depth_stencil.depth   = 1.0f;
+    m_DepthBuffer.clear_value.depth_stencil.stencil = 0;
+
+    m_Device.InitTexture(m_DepthBuffer);
 
     m_FrameCB.name = "Frame Constant";
     m_ObjCB.name   = "Object Constant";
@@ -270,7 +272,7 @@ void Frame::AfterSwapchainSizeChanged() {
     m_DepthBuffer.width  = m_Output.width;
     m_DepthBuffer.height = m_Output.height;
 
-    m_Device.InitDepthBuffer(m_DepthBuffer);
+    m_Device.InitTexture(m_DepthBuffer);
 }
 
 }  // namespace hitagi::graphics
