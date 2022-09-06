@@ -48,6 +48,4 @@ void ThreadManager::Finalize() {
     m_Logger = nullptr;
 }
 
-void ThreadManager::Tick() {}
-
 }  // namespace hitagi::core

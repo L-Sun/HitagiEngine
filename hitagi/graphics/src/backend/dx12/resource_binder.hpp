@@ -21,7 +21,7 @@ class ResourceBinder {
 public:
     ResourceBinder(DX12Device* device, CommandContext& context, FenceChecker&& checker);
 
-    void BindResource(std::uint32_t slot, ConstantBuffer* cb, std::size_t offset);
+    void BindResource(std::uint32_t slot, ConstantBuffer* cb, std::size_t index);
     void BindResource(std::uint32_t slot, Texture* tb);
     void BindResource(std::uint32_t slot, Sampler* sampler);
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count);

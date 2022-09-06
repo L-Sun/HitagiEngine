@@ -53,7 +53,7 @@ void DebugManager::Finalize() {
 
 void DebugManager::Tick() {
     if (m_DrawDebugInfo) {
-        auto camera                  = scene_manager->CurrentScene().curr_camera->object;
+        auto camera                  = scene_manager->CurrentScene()->curr_camera->object;
         m_DebugDrawData.project_view = camera->GetProjectionView();
         m_DebugDrawData.view_port    = camera->GetViewPort(config_manager->GetConfig().width, config_manager->GetConfig().height);
         graphics_manager->DrawDebug(m_DebugDrawData);

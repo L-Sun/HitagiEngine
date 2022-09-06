@@ -396,43 +396,43 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
             mesh.vertices[VertexAttribute::BlendIndex]  = std::make_shared<VertexArray>(VertexAttribute::BlendIndex, ai_mesh->mNumVertices);
             mesh.vertices[VertexAttribute::BlendWeight] = std::make_shared<VertexArray>(VertexAttribute::BlendWeight, ai_mesh->mNumVertices);
 
-            mesh.Modify<VertexAttribute::BlendIndex, VertexAttribute::BlendWeight>([&](auto blend_indices, auto blend_weight) {
-                aiNode* armature_node = ai_mesh->mBones[0]->mArmature;
-                armature_nodes.emplace(armature_node);
+            aiNode* armature_node = ai_mesh->mBones[0]->mArmature;
+            armature_nodes.emplace(armature_node);
 
-                for (std::size_t j = 0; j < ai_mesh->mNumBones; j++) {
-                    aiBone* _bone = ai_mesh->mBones[j];
+            for (std::size_t j = 0; j < ai_mesh->mNumBones; j++) {
+                aiBone* _bone = ai_mesh->mBones[j];
 
-                    if (_bone->mArmature != armature_node) {
-                        logger->warn("there are bones come from the same mesh, but releated to diffrent armature!");
+                if (_bone->mArmature != armature_node) {
+                    logger->warn("there are bones come from the same mesh, but releated to diffrent armature!");
+                }
+
+                // Calculate all bone index
+                if (!bone_nodes.contains(_bone->mNode)) {
+                    std::size_t bone_index_in_armature = 0;
+
+                    std::function<void(aiNode*)> calculate_bone_index = [&](aiNode* node) -> void {
+                        bone_nodes.emplace(node, bone_index_in_armature++);
+                        for (auto child : std::span<aiNode*>(node->mChildren, node->mNumChildren))
+                            calculate_bone_index(child);
+                    };
+                    for (auto skeleton : std::span<aiNode*>(armature_node->mChildren, armature_node->mNumChildren)) {
+                        calculate_bone_index(skeleton);
                     }
+                }
+                std::size_t bone_index = bone_nodes.at(_bone->mNode);
 
-                    // Calculate all bone index
-                    if (!bone_nodes.contains(_bone->mNode)) {
-                        std::size_t bone_index_in_armature = 0;
-
-                        std::function<void(aiNode*)> calculate_bone_index = [&](aiNode* node) -> void {
-                            bone_nodes.emplace(node, bone_index_in_armature++);
-                            for (auto child : std::span<aiNode*>(node->mChildren, node->mNumChildren))
-                                calculate_bone_index(child);
-                        };
-                        for (auto skeleton : std::span<aiNode*>(armature_node->mChildren, armature_node->mNumChildren)) {
-                            calculate_bone_index(skeleton);
-                        }
-                    }
-                    std::size_t bone_index = bone_nodes.at(_bone->mNode);
-
+                mesh.Modify<VertexAttribute::BlendIndex, VertexAttribute::BlendWeight>([&](auto blend_indices, auto blend_weight) {
                     for (auto weight : std::span<aiVertexWeight>(_bone->mWeights, _bone->mNumWeights)) {
-                        for (std::size_t j = 0; j < 4; j++) {
-                            if (blend_indices[weight.mVertexId][j] == 0) {
-                                blend_indices[weight.mVertexId][j] = bone_index;
-                                blend_weight[weight.mVertexId][j]  = weight.mWeight;
+                        for (std::size_t k = 0; k < 4; j++) {
+                            if (blend_indices[weight.mVertexId][k] == 0) {
+                                blend_indices[weight.mVertexId][k] = bone_index;
+                                blend_weight[weight.mVertexId][k]  = weight.mWeight;
                                 break;
                             }
                         }
                     }
-                }
-            });
+                });
+            }
         }
 
         // Read Indices

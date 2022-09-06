@@ -62,19 +62,19 @@ class GraphicsCommandContext : public CommandContext, public graphics::IGraphics
 public:
     GraphicsCommandContext(std::string_view name, DX12Device* device) : CommandContext(name, device, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
 
-    void ClearRenderTarget(const graphics::RenderTarget& rt) final;
-    void ClearDepthBuffer(const graphics::DepthBuffer& depth_buffer) final;
+    void ClearRenderTarget(const resource::Texture& rt) final;
+    void ClearDepthBuffer(const resource::Texture& depth_buffer) final;
 
-    void SetRenderTarget(const graphics::RenderTarget& rt) final;
-    void SetRenderTargetAndDepthBuffer(const graphics::RenderTarget& rt, const graphics::DepthBuffer& depth_buffer) final;
+    void SetRenderTarget(const resource::Texture& rt) final;
+    void SetRenderTargetAndDepthBuffer(const resource::Texture& rt, const resource::Texture& depth_buffer) final;
     void SetPipelineState(const graphics::PipelineState& pipeline) final;
 
-    void SetViewPort(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
-    void SetScissorRect(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom) final;
-    void SetViewPortAndScissor(uint32_t x, uint32_t y, uint32_t width, uint32_t height) final;
+    void SetViewPort(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height) final;
+    void SetScissorRect(std::uint32_t left, std::uint32_t top, std::uint32_t right, std::uint32_t bottom) final;
+    void SetViewPortAndScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height) final;
     void SetBlendFactor(math::vec4f color) final;
 
-    void BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, std::size_t offset) final;
+    void BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, std::size_t index) final;
     void BindResource(std::uint32_t slot, const resource::Texture& texture) final;
     void BindResource(std::uint32_t slot, const resource::Sampler& sampler) final;
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) final;
@@ -97,7 +97,7 @@ public:
     void UpdateVertexBuffer(resource::VertexArray& vertices) final;
     void UpdateIndexBuffer(resource::IndexArray& indices) final;
 
-    void          Present(const graphics::RenderTarget& rt) final;
+    void          Present(const resource::Texture& rt) final;
     std::uint64_t Finish(bool wait_for_complete = false) final { return CommandContext::Finish(wait_for_complete); }
 };
 
@@ -113,7 +113,7 @@ public:
     CopyCommandContext(std::string_view name, DX12Device* device) : CommandContext(name, device, D3D12_COMMAND_LIST_TYPE_COPY) {}
 
     void InitializeBuffer(GpuBuffer& dest, const std::byte* data, size_t data_size);
-    void InitializeTexture(resource::Texture& texture, const std::pmr::vector<D3D12_SUBRESOURCE_DATA>& sub_data);
+    void InitializeTexture(resource::Texture& texture);
 };
 
 }  // namespace hitagi::graphics::backend::DX12

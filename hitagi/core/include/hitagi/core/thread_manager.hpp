@@ -16,7 +16,8 @@ public:
 
     bool Initialize() final;
     void Finalize() final;
-    void Tick() final;
+
+    inline std::string_view GetName() const noexcept final { return "ThreadManager"; }
 
     template <typename Func, typename... Args>
     decltype(auto) RunTask(Func&& func, Args&&... args);

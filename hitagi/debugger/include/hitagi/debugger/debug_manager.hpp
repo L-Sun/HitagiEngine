@@ -14,6 +14,8 @@ public:
     void Finalize() final;
     void Tick() final;
 
+    inline std::string_view GetName() const noexcept final { return "DebugManager"; }
+
     inline void EnableDebugDraw() noexcept { m_DrawDebugInfo = true; }
     inline void DisableDebugDraw() noexcept { m_DrawDebugInfo = false; }
 

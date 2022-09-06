@@ -14,7 +14,7 @@ class Frame {
 public:
     Frame(DeviceAPI& device, std::size_t frame_index);
 
-    void DrawScene(const resource::Scene& scene);
+    void DrawScene(const resource::Scene& scene, const std::shared_ptr<resource::Texture>& render_texture = nullptr);
     void DrawDebug(const DebugDrawData& data);
     void DrawGUI(const GuiDrawData& gui_data);
 
@@ -38,8 +38,10 @@ private:
     std::pmr::vector<std::shared_ptr<IGraphicsCommandContext>> m_CommandContexts;
     std::uint64_t                                              m_FenceValue = 0;
 
-    DepthBuffer  m_DepthBuffer;
-    RenderTarget m_Output;
+    resource::Texture m_DepthBuffer;
+    resource::Texture m_Output;
+
+    std::pmr::vector<std::shared_ptr<resource::Texture>> m_TempResources;
 
     ConstantBuffer m_FrameCB;
     ConstantBuffer m_ObjCB;

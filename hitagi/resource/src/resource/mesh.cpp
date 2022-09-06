@@ -79,7 +79,7 @@ Mesh::operator bool() const noexcept {
 Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes) {
     if (meshes.size() == 1) return meshes.front();
 
-    if (auto iter = std::find_if(meshes.begin(), meshes.end(), [](const Mesh& mesh) -> bool { return mesh; }); iter != meshes.end()) {
+    if (auto iter = std::find_if(meshes.begin(), meshes.end(), [](const Mesh& mesh) -> bool { return !mesh; }); iter != meshes.end()) {
         auto logger = spdlog::get("AssetManager");
         if (logger) {
             logger->warn("The mesh ({}) is invalid", iter->name);

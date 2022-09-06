@@ -45,8 +45,6 @@ bool AssetManager::Initialize() {
     return true;
 }
 
-void AssetManager::Tick() {}
-
 void AssetManager::Finalize() {
     // m_MoCapParser = nullptr;
 

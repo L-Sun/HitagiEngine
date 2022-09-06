@@ -14,6 +14,8 @@ public:
     void Finalize() final;
     void Tick() final;
 
+    inline std::string_view GetName() const noexcept final { return "InputManager"; }
+
     inline void UpdateKeyState(VirtualKeyCode key, bool state) noexcept {
         m_KeyState[static_cast<size_t>(key)].Update(state);
     }

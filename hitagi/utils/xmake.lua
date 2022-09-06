@@ -1,3 +1,7 @@
+add_requires("magic_enum", "crossguid", "gtest", "benchmark")
+add_requires("fmt", {configs = {header_only = true}})
+add_requires("spdlog", {configs = {fmt_external = true}})
+
 target("utils")
     set_kind("headeronly")
     add_headerfiles(
@@ -8,7 +12,8 @@ target("utils")
         "include/hitagi/utils/private_build.hpp"
     )
     add_includedirs("include", {public = true})
-    add_packages("fmt", "magic_enum", {public = true})
+    add_packages("fmt", "magic_enum", "spdlog", {public = true})
+
 
 target("test_utils")
     set_kind("static")

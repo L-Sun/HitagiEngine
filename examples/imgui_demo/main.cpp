@@ -1,7 +1,7 @@
 #include <hitagi/engine.hpp>
 #include <hitagi/application.hpp>
 
-#include "my_game.hpp"
+#include "imgui_demo.hpp"
 
 #include <iostream>
 
@@ -19,8 +19,7 @@ auto main(int argc, char** argv) -> int {
         std::cout << "Engine Initialize failed, will exit now." << std::endl;
         return -1;
     }
-
-    engine.LoadModule(std::make_unique<MyGame>());
+    engine.LoadModule(std::make_unique<ImGuiDemo>());
 
 #ifdef _DEBUG
     try {

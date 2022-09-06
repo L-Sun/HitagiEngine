@@ -1,5 +1,4 @@
 #include <hitagi/resource/scene_manager.hpp>
-#include <hitagi/graphics/graphics_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -33,12 +32,10 @@ void SceneManager::Finalize() {
 void SceneManager::Tick() {
     for (auto& scene : m_Scenes)
         scene->root->Update();
-
-    graphics_manager->DrawScene(CurrentScene());
 }
 
-Scene& SceneManager::CurrentScene() {
-    return *m_Scenes.at(m_CurrentScene);
+std::shared_ptr<Scene> SceneManager::CurrentScene() {
+    return m_Scenes.at(m_CurrentScene);
 }
 
 std::shared_ptr<Scene> SceneManager::CreateEmptyScene(std::string_view name) {

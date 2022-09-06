@@ -12,7 +12,8 @@ class FileIOManager : public RuntimeModule {
 public:
     bool Initialize() final;
     void Finalize() final;
-    void Tick() final;
+
+    inline std::string_view GetName() const noexcept final { return "FileIOManager"; }
 
     const Buffer& SyncOpenAndReadBinary(const std::filesystem::path& file_path);
     void          SaveBuffer(const Buffer& buffer, const std::filesystem::path& path);

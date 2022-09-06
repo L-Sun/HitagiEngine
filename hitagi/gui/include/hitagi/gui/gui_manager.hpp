@@ -16,6 +16,8 @@ public:
     void Tick() final;
     void Finalize() final;
 
+    inline std::string_view GetName() const noexcept final { return "GuiManager"; }
+
     template <typename DrawFunc>
     inline void DrawGui(DrawFunc&& draw_func) {
         m_GuiDrawTasks.emplace([func = std::forward<DrawFunc>(draw_func)] { func(); });
@@ -32,7 +34,8 @@ private:
 
     std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
 
-    graphics::GuiDrawData m_DrawData;
+    graphics::GuiDrawData              m_DrawData;
+    std::shared_ptr<resource::Texture> m_FontTexture;
 };
 
 }  // namespace hitagi::gui

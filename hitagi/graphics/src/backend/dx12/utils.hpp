@@ -37,7 +37,7 @@ inline auto root_parameter_type_to_descriptor_type(D3D12_ROOT_PARAMETER_TYPE typ
     }
 }
 
-constexpr auto descriptor_type_to_heap_type(Descriptor::Type type) {
+inline constexpr auto descriptor_type_to_heap_type(Descriptor::Type type) {
     switch (type) {
         case Descriptor::Type::CBV:
         case Descriptor::Type::UAV:
@@ -70,7 +70,7 @@ inline auto heap_type_to_descriptor_types(D3D12_DESCRIPTOR_HEAP_TYPE type) {
     }
 }
 
-constexpr auto hlsl_semantic_name(resource::VertexAttribute attr) {
+inline constexpr auto hlsl_semantic_name(resource::VertexAttribute attr) {
     switch (attr) {
         case resource::VertexAttribute::Position:
             return "POSITION";
@@ -99,7 +99,7 @@ constexpr auto hlsl_semantic_name(resource::VertexAttribute attr) {
     }
 }
 
-constexpr inline auto hlsl_semantic_name(std::string_view semantic_name) {
+inline constexpr auto hlsl_semantic_name(std::string_view semantic_name) {
     if (semantic_name == "POSITION") return "POSITION";
     if (semantic_name == "NORMAL") return "NORMAL";
     if (semantic_name == "TANGENT") return "TANGENT";
@@ -112,7 +112,7 @@ constexpr inline auto hlsl_semantic_name(std::string_view semantic_name) {
     return "PSIZE";
 }
 
-inline auto hlsl_semantic_index(resource::VertexAttribute attr) noexcept {
+inline constexpr auto hlsl_semantic_index(resource::VertexAttribute attr) noexcept {
     switch (attr) {
         case resource::VertexAttribute::Position:
         case resource::VertexAttribute::Normal:
@@ -144,7 +144,7 @@ inline auto hlsl_semantic_index(resource::VertexAttribute attr) noexcept {
     }
 }
 
-inline auto hlsl_semantic_format(resource::VertexAttribute attr) noexcept {
+inline constexpr auto hlsl_semantic_format(resource::VertexAttribute attr) noexcept {
     switch (attr) {
         case resource::VertexAttribute::Position:
         case resource::VertexAttribute::Normal:
@@ -170,8 +170,8 @@ inline auto hlsl_semantic_format(resource::VertexAttribute attr) noexcept {
     }
 }
 
-inline DXGI_FORMAT to_dxgi_format(resource::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
-inline DXGI_FORMAT to_dxgi_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
+inline constexpr DXGI_FORMAT to_dxgi_format(resource::Format format) noexcept { return static_cast<DXGI_FORMAT>(format); }
+inline constexpr DXGI_FORMAT to_dxgi_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
     std::size_t num_components = std::countr_one(mask);
     switch (num_components) {
         case 1: {
@@ -226,10 +226,24 @@ inline DXGI_FORMAT to_dxgi_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
             return DXGI_FORMAT_UNKNOWN;
     }
 }
+inline constexpr DXGI_FORMAT to_srv_format(DXGI_FORMAT format) noexcept {
+    switch (format) {
+        case DXGI_FORMAT_D16_UNORM:
+            return DXGI_FORMAT_R16_UNORM;
+        case DXGI_FORMAT_D32_FLOAT:
+            return DXGI_FORMAT_R32_FLOAT;
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+            return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+            return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+        default:
+            return format;
+    }
+}
 
-inline resource::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<resource::Format>(format); }
+inline constexpr resource::Format to_format(DXGI_FORMAT format) noexcept { return static_cast<resource::Format>(format); }
 
-inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(resource::TextureAddressMode mode) {
+inline constexpr D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(resource::TextureAddressMode mode) {
     switch (mode) {
         case resource::TextureAddressMode::Wrap:
             return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -246,7 +260,7 @@ inline D3D12_TEXTURE_ADDRESS_MODE to_d3d_texture_address_mode(resource::TextureA
     }
 }
 
-inline D3D12_COMPARISON_FUNC to_d3d_comp_func(resource::ComparisonFunc func) {
+inline constexpr D3D12_COMPARISON_FUNC to_d3d_comp_func(resource::ComparisonFunc func) {
     switch (func) {
         case resource::ComparisonFunc::Never:
             return D3D12_COMPARISON_FUNC_NEVER;

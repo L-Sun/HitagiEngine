@@ -113,8 +113,8 @@ void GraphicsManager::OnSizeChanged() {
     }
 }
 
-void GraphicsManager::DrawScene(const resource::Scene& scene) {
-    m_Frames.at(m_CurrBackBuffer)->DrawScene(scene);
+void GraphicsManager::DrawScene(const resource::Scene& scene, const std::shared_ptr<resource::Texture>& render_texture) {
+    m_Frames.at(m_CurrBackBuffer)->DrawScene(scene, render_texture);
 }
 
 void GraphicsManager::DrawDebug(const DebugDrawData& debug_data) {

@@ -1,4 +1,6 @@
 #include "editor.hpp"
+#include "scene_viewport.hpp"
+
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
 #include <hitagi/resource/asset_manager.hpp>
@@ -19,6 +21,8 @@ bool Editor::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Editor");
     m_Logger->info("Initialize...");
 
+    m_SceneViewPort = static_cast<SceneViewPort*>(LoadModule(std::make_unique<SceneViewPort>()));
+
     return true;
 }
 
@@ -30,10 +34,13 @@ void Editor::Finalize() {
 void Editor::Tick() {
     debug_manager->DrawAxis(scale(100.0f));
     gui_manager->DrawGui([this]() -> void { Draw(); });
+
+    RuntimeModule::Tick();
 }
 
 void Editor::Draw() {
     // Draw
+    // ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
     MainMenu();
     FileExplorer();
     SceneExplorer();
@@ -105,7 +112,8 @@ void Editor::FileExplorer() {
                         ImGui::EndPopup();
                     }
                     if (success) {
-                        scene_manager->SwitchScene(scene_manager->AddScene(std::move(scene)));
+                        scene_manager->SwitchScene(scene_manager->AddScene(scene));
+                        m_SceneViewPort->SetScene(scene);
                     }
                 }
             } else if (m_OpenFileExt == ".bvh") {
@@ -130,7 +138,7 @@ void Editor::FileExplorer() {
 
 void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
-        auto& scene = scene_manager->CurrentScene();
+        auto scene = scene_manager->CurrentScene();
         if (ImGui::CollapsingHeader("Scene Nodes")) {
             std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](std::shared_ptr<SceneNode> node) -> void {
                 if (ImGui::TreeNode(node->name.c_str())) {
@@ -152,7 +160,7 @@ void Editor::SceneExplorer() {
                     ImGui::TreePop();
                 }
             };
-            print_node(scene.root);
+            print_node(scene->root);
         }
 
         if (ImGui::CollapsingHeader("Animation")) {

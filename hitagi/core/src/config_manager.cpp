@@ -21,8 +21,6 @@ bool ConfigManager::Initialize() {
     return true;
 }
 
-void ConfigManager::Tick() {}
-
 void ConfigManager::Finalize() {
     SaveConfig("hitagi.json");
     m_Config = nullptr;

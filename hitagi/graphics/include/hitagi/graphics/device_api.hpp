@@ -23,15 +23,13 @@ public:
     virtual void        Present()                                                  = 0;
 
     // Buffer
-    virtual void InitRenderTarget(RenderTarget& rt)                                 = 0;
-    virtual void InitRenderFromSwapChain(RenderTarget& rt, std::size_t frame_index) = 0;
-    virtual void InitVertexBuffer(resource::VertexArray& vb)                        = 0;
-    virtual void InitIndexBuffer(resource::IndexArray& ib)                          = 0;
-    virtual void InitTexture(resource::Texture& tb)                                 = 0;
-    virtual void InitConstantBuffer(ConstantBuffer& cb)                             = 0;
-    virtual void InitDepthBuffer(DepthBuffer& db)                                   = 0;
-    virtual void InitSampler(resource::Sampler& sampler)                            = 0;
-    virtual void InitPipelineState(PipelineState& pipeline)                         = 0;
+    virtual void InitRenderTargetFromSwapChain(resource::Texture& rt, std::size_t frame_index) = 0;
+    virtual void InitVertexBuffer(resource::VertexArray& vb)                                   = 0;
+    virtual void InitIndexBuffer(resource::IndexArray& ib)                                     = 0;
+    virtual void InitTexture(resource::Texture& tb)                                            = 0;
+    virtual void InitConstantBuffer(ConstantBuffer& cb)                                        = 0;
+    virtual void InitSampler(resource::Sampler& sampler)                                       = 0;
+    virtual void InitPipelineState(PipelineState& pipeline)                                    = 0;
 
     // CommandList
     virtual std::shared_ptr<IGraphicsCommandContext> CreateGraphicsCommandContext(std::string_view name = "") = 0;

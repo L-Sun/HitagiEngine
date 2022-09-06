@@ -16,8 +16,9 @@ struct AppConfig {
 class ConfigManager : public RuntimeModule {
 public:
     bool Initialize() final;
-    void Tick() final;
     void Finalize() final;
+
+    inline std::string_view GetName() const noexcept final { return "ConfigManager"; }
 
     bool       LoadConfig(const std::filesystem::path& path);
     void       SaveConfig(const std::filesystem::path& path);
