@@ -41,6 +41,8 @@ private:
     resource::Texture m_DepthBuffer;
     resource::Texture m_Output;
 
+    std::pmr::vector<std::shared_ptr<resource::Texture>> m_TempResources;
+
     ConstantBuffer m_FrameCB;
     ConstantBuffer m_ObjCB;
     ConstantBuffer m_DebugCB;

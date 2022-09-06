@@ -6,6 +6,7 @@
 #include <hitagi/math/vector.hpp>
 
 #include <magic_enum.hpp>
+#include <d3d12.h>
 #include <spdlog/spdlog.h>
 
 using namespace hitagi::math;
@@ -72,7 +73,7 @@ void CommandContext::BindDescriptorHeaps() {
     if (non_null_heaps > 0) m_CommandList->SetDescriptorHeaps(non_null_heaps, heaps_to_bind.data());
 }
 
-uint64_t CommandContext::Finish(bool wait_for_complete) {
+std::uint64_t CommandContext::Finish(bool wait_for_complete) {
     FlushResourceBarriers();
 
     CommandQueue& queue = m_Device->GetCmdMgr().GetQueue(m_Type);
@@ -115,7 +116,7 @@ void GraphicsCommandContext::ClearRenderTarget(const resource::Texture& render_t
 
     TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->ClearRenderTargetView(rt->GetRTV().handle,
-                                         vec4f(0, 0, 0, 1),
+                                         render_target.clear_value.color,
                                          0,
                                          nullptr);
 }
@@ -247,11 +248,16 @@ void GraphicsCommandContext::BindResource(std::uint32_t slot, const resource::Te
         return;
     }
 
+    if (!utils::has_flag(texture.bind_flags, resource::Texture::BindFlag::ShaderResource)) {
+        spdlog::get("GraphicsManager")->error("This texture is not for shader resource view", texture.name);
+        return;
+    }
+
     if (m_CurrentPipeline == nullptr) {
         spdlog::get("GraphicsManager")->error("pipeline must be set before setting parameters!");
         return;
     }
-
+    TransitionResource(*texture.gpu_resource->GetBackend<Texture>(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     m_ResourceBinder.BindResource(slot, texture.gpu_resource->GetBackend<Texture>());
 }
 

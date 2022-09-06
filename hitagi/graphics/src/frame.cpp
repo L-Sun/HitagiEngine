@@ -62,6 +62,30 @@ Frame::Frame(DeviceAPI& device, std::size_t frame_index)
 void Frame::DrawScene(const resource::Scene& scene, const std::shared_ptr<resource::Texture>& render_texture) {
     auto context = NewContext("SceneDraw");
 
+    std::shared_ptr<resource::Texture> p_depth_buffer = nullptr;
+    if (render_texture != nullptr) {
+        if (render_texture->dirty) {
+            m_Device.RetireResource(std::move(render_texture->gpu_resource));
+            m_Device.InitTexture(*render_texture);
+        }
+        context->ClearRenderTarget(*render_texture);
+        m_TempResources.emplace_back(render_texture);
+
+        p_depth_buffer                                    = std::make_shared<resource::Texture>();
+        p_depth_buffer->bind_flags                        = resource::Texture::BindFlag::DepthBuffer,
+        p_depth_buffer->format                            = Format::D32_FLOAT,
+        p_depth_buffer->width                             = render_texture->width,
+        p_depth_buffer->height                            = render_texture->height,
+        p_depth_buffer->clear_value.depth_stencil.depth   = 1.0f;
+        p_depth_buffer->clear_value.depth_stencil.stencil = 0;
+        m_Device.InitTexture(*p_depth_buffer);
+
+        context->ClearDepthBuffer(*p_depth_buffer);
+        m_TempResources.emplace_back(p_depth_buffer);
+    }
+    resource::Texture& render_target = render_texture ? *render_texture : m_Output;
+    resource::Texture& depth_buffer  = render_texture ? *p_depth_buffer : m_DepthBuffer;
+
     // grow constant buffer if need
     if (m_ObjCB.num_elements < scene.instance_nodes.size()) {
         m_ObjCB.Resize(m_ObjCB.num_elements + scene.instance_nodes.size());
@@ -106,9 +130,9 @@ void Frame::DrawScene(const resource::Scene& scene, const std::shared_ptr<resour
 
     m_FrameCB.Update(0, frame_constant);
 
-    auto view_port = camera->GetViewPort(m_Output.width, m_Output.height);
+    auto view_port = camera->GetViewPort(render_target.width, render_target.height);
     context->SetViewPortAndScissor(view_port.x, view_port.y, view_port.z, view_port.w);
-    context->SetRenderTargetAndDepthBuffer(m_Output, m_DepthBuffer);
+    context->SetRenderTargetAndDepthBuffer(render_target, depth_buffer);
 
     auto instances = scene.instance_nodes;
     std::sort(instances.begin(), instances.end(), [](const std::shared_ptr<MeshNode>& a, const std::shared_ptr<MeshNode>& b) {
@@ -245,6 +269,9 @@ void Frame::Execute() {
 
     m_Output.gpu_resource->fence_value      = m_FenceValue;
     m_DepthBuffer.gpu_resource->fence_value = m_FenceValue;
+    for (const auto& temp_res : m_TempResources) {
+        temp_res->gpu_resource->fence_value = m_FenceValue;
+    }
 
     m_CommandContexts.clear();
 }
@@ -254,6 +281,8 @@ void Frame::Wait() {
 }
 
 void Frame::Reset() {
+    m_TempResources.clear();
+
     auto context = NewContext("Clear RT and DB");
 
     context->ClearRenderTarget(m_Output);

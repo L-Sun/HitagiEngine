@@ -32,7 +32,7 @@ struct Texture : public Resource {
     std::uint32_t sample_quality = 0;
 
     union {
-        hitagi::math::vec4f color;
+        hitagi::math::vec4f color = {0, 0, 0, 1};
         struct {
             float         depth;
             std::uint32_t stencil;

@@ -20,12 +20,17 @@ public:
     void DrawDebug(const DebugDrawData& debug_data);
     void DrawGui(const GuiDrawData& gui_data);
 
-    PipelineState& GetPipelineState(const resource::Material* material);
+    inline DeviceAPI* GetDevice() const noexcept { return m_Device.get(); }
+    PipelineState&    GetPipelineState(const resource::Material* material);
+    unsigned          GetCurrentBackBufferIndex() const noexcept { return m_CurrBackBuffer; }
 
     struct {
         PipelineState gui;
         PipelineState debug;
     } builtin_pipeline;
+
+    static constexpr std::uint8_t     sm_SwapChianSize    = 3;
+    static constexpr resource::Format sm_BackBufferFormat = resource::Format::R8G8B8A8_UNORM;
 
 protected:
     // TODO change the parameter to View, if multiple view port is finished
@@ -33,10 +38,7 @@ protected:
     void InitBuiltInPipeline();
 
     std::unique_ptr<DeviceAPI> m_Device;
-
-    static constexpr std::uint8_t     sm_SwapChianSize    = 3;
-    static constexpr resource::Format sm_BackBufferFormat = resource::Format::R8G8B8A8_UNORM;
-    int                               m_CurrBackBuffer    = 0;
+    int                        m_CurrBackBuffer = 0;
 
     // TODO multiple RenderTarget is need if the application has multiple view port
     // if the class View is impletement, RenderTarget will be a member variable of View

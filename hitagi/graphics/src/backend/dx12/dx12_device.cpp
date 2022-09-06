@@ -154,6 +154,7 @@ void DX12Device::InitTexture(resource::Texture& texture) {
     CopyCommandContext context("InitTexture", this);
     context.InitializeTexture(texture);
     context.Finish(true);
+    texture.dirty = false;
 }
 
 void DX12Device::InitConstantBuffer(graphics::ConstantBuffer& cb) {

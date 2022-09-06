@@ -21,7 +21,7 @@ bool Editor::Initialize() {
     m_Logger = spdlog::stdout_color_mt("Editor");
     m_Logger->info("Initialize...");
 
-    LoadModule(std::make_unique<SceneViewPort>());
+    m_SceneViewPort = static_cast<SceneViewPort*>(LoadModule(std::make_unique<SceneViewPort>()));
 
     return true;
 }
@@ -40,7 +40,7 @@ void Editor::Tick() {
 
 void Editor::Draw() {
     // Draw
-    ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+    // ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
     MainMenu();
     FileExplorer();
     SceneExplorer();
@@ -112,7 +112,8 @@ void Editor::FileExplorer() {
                         ImGui::EndPopup();
                     }
                     if (success) {
-                        scene_manager->SwitchScene(scene_manager->AddScene(std::move(scene)));
+                        scene_manager->SwitchScene(scene_manager->AddScene(scene));
+                        m_SceneViewPort->SetScene(scene);
                     }
                 }
             } else if (m_OpenFileExt == ".bvh") {

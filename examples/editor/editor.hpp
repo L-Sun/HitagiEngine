@@ -1,4 +1,6 @@
 #pragma once
+#include "scene_viewport.hpp"
+
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/ecs/schedule.hpp>
 
@@ -24,6 +26,7 @@ public:
 private:
     std::pmr::string                          m_OpenFileExt;
     std::pmr::unordered_set<std::pmr::string> m_SelectedFiles;
+    SceneViewPort*                            m_SceneViewPort = nullptr;
 };
 
 }  // namespace hitagi
