@@ -3,7 +3,7 @@
 
 #include <hitagi/graphics/gpu_resource.hpp>
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 class DX12Device;
 
 class GpuResource : public backend::Resource {
@@ -26,4 +26,4 @@ protected:
     D3D12_RESOURCE_STATES  m_ResourceState = D3D12_RESOURCE_STATE_COMMON;
     D3D12_RESOURCE_STATES  m_TransitioningState;
 };
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

@@ -8,7 +8,7 @@
 
 using namespace hitagi;
 using namespace hitagi::resource;
-using namespace hitagi::graphics;
+using namespace hitagi::gfx;
 
 bool SceneViewPort::Initialize() {
     m_Logger = spdlog::get("Editor");

@@ -10,10 +10,10 @@
 using namespace hitagi::math;
 
 namespace hitagi {
-graphics::GraphicsManager* graphics_manager = nullptr;
+gfx::GraphicsManager* graphics_manager = nullptr;
 }
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 
 bool GraphicsManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("GraphicsManager");
@@ -168,4 +168,4 @@ void GraphicsManager::InitBuiltInPipeline() {
     m_Device->InitPipelineState(builtin_pipeline.debug);
 }
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

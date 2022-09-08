@@ -14,7 +14,7 @@
 #include <string>
 #include <optional>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 struct ConstantBuffer : public resource::Resource {
     std::size_t                                                     num_elements = 0;
     std::size_t                                                     element_size = 0;
@@ -44,4 +44,4 @@ struct PipelineState : public resource::Resource {
     std::pmr::vector<resource::Sampler> static_samplers;
 };
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

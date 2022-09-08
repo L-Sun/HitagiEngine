@@ -8,7 +8,7 @@
 
 #include <spdlog/spdlog.h>
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 
 std::mutex ResourceBinder::sm_Mutex;
 
@@ -388,4 +388,4 @@ bool ResourceBinder::SlotCheck(Descriptor::Type type, std::uint32_t slot) {
     return true;
 }
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

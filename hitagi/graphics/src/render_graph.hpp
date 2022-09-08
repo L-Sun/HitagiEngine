@@ -5,7 +5,7 @@
 
 #include <set>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 
 using FrameHandle     = std::size_t;
 using FrameResourceId = std::size_t;
@@ -83,7 +83,7 @@ public:
         return handle;
     }
 
-    void Present(FrameHandle render_target, const std::shared_ptr<hitagi::graphics::IGraphicsCommandContext>& contex);
+    void Present(FrameHandle render_target, const std::shared_ptr<hitagi::gfx::IGraphicsCommandContext>& contex);
 
     void Compile();
     void Execute();
@@ -122,4 +122,4 @@ private:
     PassNode&    m_Node;
 };
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

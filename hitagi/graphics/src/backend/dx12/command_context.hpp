@@ -7,7 +7,7 @@
 
 #include <hitagi/graphics/command_context.hpp>
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 class DX12Device;
 
 class CommandContext {
@@ -58,7 +58,7 @@ protected:
     D3D12_COMMAND_LIST_TYPE m_Type;
 };
 
-class GraphicsCommandContext : public CommandContext, public graphics::IGraphicsCommandContext {
+class GraphicsCommandContext : public CommandContext, public gfx::IGraphicsCommandContext {
 public:
     GraphicsCommandContext(std::string_view name, DX12Device* device) : CommandContext(name, device, D3D12_COMMAND_LIST_TYPE_DIRECT) {}
 
@@ -67,14 +67,14 @@ public:
 
     void SetRenderTarget(const resource::Texture& rt) final;
     void SetRenderTargetAndDepthBuffer(const resource::Texture& rt, const resource::Texture& depth_buffer) final;
-    void SetPipelineState(const graphics::PipelineState& pipeline) final;
+    void SetPipelineState(const gfx::PipelineState& pipeline) final;
 
     void SetViewPort(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height) final;
     void SetScissorRect(std::uint32_t left, std::uint32_t top, std::uint32_t right, std::uint32_t bottom) final;
     void SetViewPortAndScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height) final;
     void SetBlendFactor(math::vec4f color) final;
 
-    void BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, std::size_t index) final;
+    void BindResource(std::uint32_t slot, const gfx::ConstantBuffer& constant_buffer, std::size_t index) final;
     void BindResource(std::uint32_t slot, const resource::Texture& texture) final;
     void BindResource(std::uint32_t slot, const resource::Sampler& sampler) final;
     void Set32BitsConstants(std::uint32_t slot, const std::uint32_t* data, std::size_t count) final;
@@ -105,7 +105,7 @@ class ComputeCommandContext : public CommandContext {
 public:
     ComputeCommandContext(std::string_view name, DX12Device* device) : CommandContext(name, device, D3D12_COMMAND_LIST_TYPE_COMPUTE) {}
 
-    void SetPipelineState(const std::shared_ptr<graphics::PipelineState>& pipeline);
+    void SetPipelineState(const std::shared_ptr<gfx::PipelineState>& pipeline);
 };
 
 class CopyCommandContext : public CommandContext {
@@ -116,4 +116,4 @@ public:
     void InitializeTexture(resource::Texture& texture);
 };
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

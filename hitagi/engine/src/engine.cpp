@@ -29,7 +29,7 @@ bool Engine::Initialize() {
         || !(file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>()))      
         || !(config_manager   = add_inner_module(std::make_unique<core::ConfigManager>()))      
         || !(app              = add_inner_module(Application::CreateApp()))                     
-        || !(graphics_manager = add_inner_module(std::make_unique<graphics::GraphicsManager>()))
+        || !(graphics_manager = add_inner_module(std::make_unique<gfx::GraphicsManager>()))
         || !(asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>()))   
         || !(input_manager    = add_inner_module(std::make_unique<hid::InputManager>()))        
         || !(scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>()))   

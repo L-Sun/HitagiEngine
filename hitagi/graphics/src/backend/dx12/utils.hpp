@@ -10,7 +10,7 @@
 #include <stdexcept>
 
 // TODO change when integrate Vulkan
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 constexpr auto range_type_to_descriptor_type(D3D12_DESCRIPTOR_RANGE_TYPE type) {
     switch (type) {
         case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
@@ -360,104 +360,104 @@ inline D3D12_SAMPLER_DESC to_d3d_sampler_desc(const resource::Sampler& sampler) 
     return result;
 }
 
-inline D3D12_BLEND to_d3d_blend(graphics::Blend blend) {
+inline D3D12_BLEND to_d3d_blend(gfx::Blend blend) {
     switch (blend) {
-        case graphics::Blend::Zero:
+        case gfx::Blend::Zero:
             return D3D12_BLEND_ZERO;
-        case graphics::Blend::One:
+        case gfx::Blend::One:
             return D3D12_BLEND_ONE;
-        case graphics::Blend::SrcColor:
+        case gfx::Blend::SrcColor:
             return D3D12_BLEND_SRC_COLOR;
-        case graphics::Blend::InvSrcColor:
+        case gfx::Blend::InvSrcColor:
             return D3D12_BLEND_INV_SRC_COLOR;
-        case graphics::Blend::SrcAlpha:
+        case gfx::Blend::SrcAlpha:
             return D3D12_BLEND_SRC_ALPHA;
-        case graphics::Blend::InvSrcAlpha:
+        case gfx::Blend::InvSrcAlpha:
             return D3D12_BLEND_INV_SRC_ALPHA;
-        case graphics::Blend::DestAlpha:
+        case gfx::Blend::DestAlpha:
             return D3D12_BLEND_DEST_ALPHA;
-        case graphics::Blend::InvDestAlpha:
+        case gfx::Blend::InvDestAlpha:
             return D3D12_BLEND_INV_DEST_ALPHA;
-        case graphics::Blend::DestColor:
+        case gfx::Blend::DestColor:
             return D3D12_BLEND_DEST_COLOR;
-        case graphics::Blend::InvDestColor:
+        case gfx::Blend::InvDestColor:
             return D3D12_BLEND_INV_DEST_COLOR;
-        case graphics::Blend::SrcAlphaSat:
+        case gfx::Blend::SrcAlphaSat:
             return D3D12_BLEND_SRC_ALPHA_SAT;
-        case graphics::Blend::BlendFactor:
+        case gfx::Blend::BlendFactor:
             return D3D12_BLEND_BLEND_FACTOR;
-        case graphics::Blend::InvBlendFactor:
+        case gfx::Blend::InvBlendFactor:
             return D3D12_BLEND_INV_BLEND_FACTOR;
-        case graphics::Blend::Src1Color:
+        case gfx::Blend::Src1Color:
             return D3D12_BLEND_SRC1_COLOR;
-        case graphics::Blend::InvSrc_1_Color:
+        case gfx::Blend::InvSrc_1_Color:
             return D3D12_BLEND_INV_SRC1_COLOR;
-        case graphics::Blend::Src1Alpha:
+        case gfx::Blend::Src1Alpha:
             return D3D12_BLEND_SRC1_ALPHA;
-        case graphics::Blend::InvSrc_1_Alpha:
+        case gfx::Blend::InvSrc_1_Alpha:
             return D3D12_BLEND_INV_SRC1_ALPHA;
         default:
             return D3D12_BLEND_ZERO;
     }
 }
 
-inline D3D12_BLEND_OP to_d3d_blend_op(graphics::BlendOp operation) {
+inline D3D12_BLEND_OP to_d3d_blend_op(gfx::BlendOp operation) {
     switch (operation) {
-        case graphics::BlendOp::Add:
+        case gfx::BlendOp::Add:
             return D3D12_BLEND_OP_ADD;
-        case graphics::BlendOp::Subtract:
+        case gfx::BlendOp::Subtract:
             return D3D12_BLEND_OP_SUBTRACT;
-        case graphics::BlendOp::RevSubtract:
+        case gfx::BlendOp::RevSubtract:
             return D3D12_BLEND_OP_REV_SUBTRACT;
-        case graphics::BlendOp::Min:
+        case gfx::BlendOp::Min:
             return D3D12_BLEND_OP_MIN;
-        case graphics::BlendOp::Max:
+        case gfx::BlendOp::Max:
             return D3D12_BLEND_OP_MAX;
         default:
             return D3D12_BLEND_OP_ADD;
     }
 }
 
-inline D3D12_LOGIC_OP to_d3d_logic_op(graphics::LogicOp operation) {
+inline D3D12_LOGIC_OP to_d3d_logic_op(gfx::LogicOp operation) {
     switch (operation) {
-        case graphics::LogicOp::Clear:
+        case gfx::LogicOp::Clear:
             return D3D12_LOGIC_OP_CLEAR;
-        case graphics::LogicOp::Set:
+        case gfx::LogicOp::Set:
             return D3D12_LOGIC_OP_SET;
-        case graphics::LogicOp::Copy:
+        case gfx::LogicOp::Copy:
             return D3D12_LOGIC_OP_COPY;
-        case graphics::LogicOp::CopyInverted:
+        case gfx::LogicOp::CopyInverted:
             return D3D12_LOGIC_OP_COPY_INVERTED;
-        case graphics::LogicOp::Noop:
+        case gfx::LogicOp::Noop:
             return D3D12_LOGIC_OP_NOOP;
-        case graphics::LogicOp::Invert:
+        case gfx::LogicOp::Invert:
             return D3D12_LOGIC_OP_INVERT;
-        case graphics::LogicOp::And:
+        case gfx::LogicOp::And:
             return D3D12_LOGIC_OP_AND;
-        case graphics::LogicOp::Nand:
+        case gfx::LogicOp::Nand:
             return D3D12_LOGIC_OP_NAND;
-        case graphics::LogicOp::Or:
+        case gfx::LogicOp::Or:
             return D3D12_LOGIC_OP_OR;
-        case graphics::LogicOp::Nor:
+        case gfx::LogicOp::Nor:
             return D3D12_LOGIC_OP_NOR;
-        case graphics::LogicOp::Xor:
+        case gfx::LogicOp::Xor:
             return D3D12_LOGIC_OP_XOR;
-        case graphics::LogicOp::Equiv:
+        case gfx::LogicOp::Equiv:
             return D3D12_LOGIC_OP_EQUIV;
-        case graphics::LogicOp::AndReverse:
+        case gfx::LogicOp::AndReverse:
             return D3D12_LOGIC_OP_AND_REVERSE;
-        case graphics::LogicOp::AndInverted:
+        case gfx::LogicOp::AndInverted:
             return D3D12_LOGIC_OP_AND_INVERTED;
-        case graphics::LogicOp::OrReverse:
+        case gfx::LogicOp::OrReverse:
             return D3D12_LOGIC_OP_OR_REVERSE;
-        case graphics::LogicOp::OrInverted:
+        case gfx::LogicOp::OrInverted:
             return D3D12_LOGIC_OP_OR_INVERTED;
         default:
             return D3D12_LOGIC_OP_CLEAR;
     }
 }
 
-inline D3D12_BLEND_DESC to_d3d_blend_desc(graphics::BlendDescription desc) noexcept {
+inline D3D12_BLEND_DESC to_d3d_blend_desc(gfx::BlendDescription desc) noexcept {
     D3D12_BLEND_DESC result{};
     result.AlphaToCoverageEnable  = desc.alpha_to_coverage_enable;
     result.IndependentBlendEnable = desc.independent_blend_enable;
@@ -476,31 +476,31 @@ inline D3D12_BLEND_DESC to_d3d_blend_desc(graphics::BlendDescription desc) noexc
     return result;
 }
 
-inline D3D12_FILL_MODE to_d3d_fill_mode(graphics::FillMode mode) {
+inline D3D12_FILL_MODE to_d3d_fill_mode(gfx::FillMode mode) {
     switch (mode) {
-        case graphics::FillMode::Solid:
+        case gfx::FillMode::Solid:
             return D3D12_FILL_MODE_SOLID;
-        case graphics::FillMode::Wireframe:
+        case gfx::FillMode::Wireframe:
             return D3D12_FILL_MODE_WIREFRAME;
         default:
             return D3D12_FILL_MODE_SOLID;
     }
 }
 
-inline D3D12_CULL_MODE to_d3d_cull_mode(graphics::CullMode mode) {
+inline D3D12_CULL_MODE to_d3d_cull_mode(gfx::CullMode mode) {
     switch (mode) {
-        case graphics::CullMode::None:
+        case gfx::CullMode::None:
             return D3D12_CULL_MODE_NONE;
-        case graphics::CullMode::Front:
+        case gfx::CullMode::Front:
             return D3D12_CULL_MODE_FRONT;
-        case graphics::CullMode::Back:
+        case gfx::CullMode::Back:
             return D3D12_CULL_MODE_BACK;
         default:
             return D3D12_CULL_MODE_NONE;
     }
 }
 
-inline D3D12_RASTERIZER_DESC to_d3d_rasterizer_desc(graphics::RasterizerDescription desc) noexcept {
+inline D3D12_RASTERIZER_DESC to_d3d_rasterizer_desc(gfx::RasterizerDescription desc) noexcept {
     D3D12_RASTERIZER_DESC result = {};
     result.FillMode              = to_d3d_fill_mode(desc.fill_mode);
     result.CullMode              = to_d3d_cull_mode(desc.cull_mode);
@@ -517,4 +517,4 @@ inline D3D12_RASTERIZER_DESC to_d3d_rasterizer_desc(graphics::RasterizerDescript
     return result;
 }
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

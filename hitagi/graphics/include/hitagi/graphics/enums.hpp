@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 enum struct Blend {
     Zero,
     One,
@@ -94,4 +94,4 @@ struct RasterizerDescription {
     bool     conservative_raster     = false;
 };
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

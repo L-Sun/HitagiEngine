@@ -2,7 +2,7 @@
 #include <hitagi/resource/mesh.hpp>
 #include <hitagi/resource/texture.hpp>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 struct GuiDrawData {
     math::mat4f                          projection;
     math::vec4u                          view_port;
@@ -26,4 +26,4 @@ struct DebugDrawData {
     std::pmr::vector<DebugConstant> constants;
 };
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

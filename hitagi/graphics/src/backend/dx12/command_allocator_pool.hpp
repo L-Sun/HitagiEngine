@@ -1,7 +1,7 @@
 #pragma once
 #include "d3d_pch.hpp"
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 class CommandAllocatorPool {
 public:
     CommandAllocatorPool(D3D12_COMMAND_LIST_TYPE type);
@@ -23,4 +23,4 @@ private:
                std::pmr::deque<std::pair<uint64_t, ID3D12CommandAllocator*>>>
         m_ReadyAllocators;
 };
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

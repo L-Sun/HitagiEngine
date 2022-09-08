@@ -1,7 +1,7 @@
 #pragma once
 #include <utility>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 class ResourceHelper;
 
 class PassExecutor {
@@ -23,4 +23,4 @@ private:
     ExecuteFunc m_Execute;
 };
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

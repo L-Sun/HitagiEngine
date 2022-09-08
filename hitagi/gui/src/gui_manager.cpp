@@ -171,7 +171,7 @@ void GuiManager::KeysEvent() {
     }
 }
 
-auto GuiManager::GetDrawData() -> const graphics::GuiDrawData& {
+auto GuiManager::GetDrawData() -> const gfx::GuiDrawData& {
     auto draw_data = ImGui::GetDrawData();
 
     // std::pmr::vector<Renderable> result;

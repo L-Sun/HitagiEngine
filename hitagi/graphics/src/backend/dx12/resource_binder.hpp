@@ -7,7 +7,7 @@
 
 // Stage, commit  CPU visible descriptor to GPU visible descriptor.
 // TODO make it as a part of pipeline to reduce parser rootsignature cost
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 class CommandContext;
 class DX12Device;
 
@@ -98,4 +98,4 @@ private:
     std::array<std::uint32_t, 2>                 m_NumFreeHandles;
     std::array<std::uint32_t, 2>                 m_StaleDescriptorCount = {0, 0};
 };
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

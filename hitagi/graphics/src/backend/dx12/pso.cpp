@@ -4,7 +4,7 @@
 #include <spdlog/spdlog.h>
 #include <magic_enum.hpp>
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 void PSO::CreateRootSignature(const std::shared_ptr<resource::Shader>& shader) {
     auto hr = D3D12CreateVersionedRootSignatureDeserializer(
         shader->Program().GetData(),
@@ -136,4 +136,4 @@ void ComputePSO::Finalize(ID3D12Device* device) {
     ThrowIfFailed(device->CreateComputePipelineState(&m_PSODesc, IID_PPV_ARGS(&m_PSO)));
 }
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

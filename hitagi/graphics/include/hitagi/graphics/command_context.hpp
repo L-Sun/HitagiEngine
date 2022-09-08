@@ -4,7 +4,7 @@
 
 #include <functional>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 class IGraphicsCommandContext {
 public:
     virtual ~IGraphicsCommandContext() = default;
@@ -38,9 +38,9 @@ public:
     virtual void BindDynamicVertexBuffer(const resource::VertexArray& vertices) = 0;
     virtual void BindDynamicIndexBuffer(const resource::IndexArray& indices)    = 0;
 
-    virtual void UpdateBuffer(graphics::backend::Resource* resource, std::size_t offset, const std::byte* data, std::size_t data_size) = 0;
-    virtual void UpdateVertexBuffer(resource::VertexArray& vertices)                                                                   = 0;
-    virtual void UpdateIndexBuffer(resource::IndexArray& indices)                                                                      = 0;
+    virtual void UpdateBuffer(gfx::backend::Resource* resource, std::size_t offset, const std::byte* data, std::size_t data_size) = 0;
+    virtual void UpdateVertexBuffer(resource::VertexArray& vertices)                                                              = 0;
+    virtual void UpdateIndexBuffer(resource::IndexArray& indices)                                                                 = 0;
 
     virtual void Draw(std::size_t vertex_count, std::size_t vertex_start_offset = 0)                                                                                                                            = 0;
     virtual void DrawIndexed(std::size_t index_count, std::size_t start_index_location = 0, std::size_t base_vertex_location = 0)                                                                               = 0;
@@ -54,4 +54,4 @@ public:
 
 class IComputeCommadnContext {};
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

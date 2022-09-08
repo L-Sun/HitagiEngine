@@ -2,7 +2,7 @@
 #include "gpu_resource.hpp"
 #include "command_list_manager.hpp"
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 class AllocationPage;
 class DX12Device;
 
@@ -167,4 +167,4 @@ private:
     std::pmr::vector<std::shared_ptr<LinearAllocationPage>> m_LargePages;
 };
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

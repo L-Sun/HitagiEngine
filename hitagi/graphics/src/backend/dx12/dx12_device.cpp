@@ -11,7 +11,7 @@
 #include <d3d12.h>
 #include <spdlog/spdlog.h>
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 
 ComPtr<ID3D12DebugDevice1> DX12Device::sm_DebugInterface = nullptr;
 
@@ -157,7 +157,7 @@ void DX12Device::InitTexture(resource::Texture& texture) {
     texture.dirty = false;
 }
 
-void DX12Device::InitConstantBuffer(graphics::ConstantBuffer& cb) {
+void DX12Device::InitConstantBuffer(gfx::ConstantBuffer& cb) {
     cb.gpu_resource = std::make_unique<ConstantBuffer>(this, cb.name, cb);
 }
 
@@ -166,7 +166,7 @@ void DX12Device::InitSampler(resource::Sampler& sampler) {
     sampler.gpu_resource = std::make_unique<Sampler>(this, to_d3d_sampler_desc(sampler));
 }
 
-void DX12Device::InitPipelineState(graphics::PipelineState& pipeline) {
+void DX12Device::InitPipelineState(gfx::PipelineState& pipeline) {
     auto gpso = std::make_unique<GraphicsPSO>(pipeline.name, m_Device.Get());
 
     for (const auto& shader : {pipeline.vs, pipeline.ps}) {
@@ -342,4 +342,4 @@ void DX12Device::RetireResources() {
     }
 }
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

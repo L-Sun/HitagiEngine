@@ -12,7 +12,7 @@
 using namespace hitagi::math;
 using namespace hitagi::resource;
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 struct FrameConstant {
     math::vec4f camera_pos;
     math::mat4f view;
@@ -304,4 +304,4 @@ void Frame::AfterSwapchainSizeChanged() {
     m_Device.InitTexture(m_DepthBuffer);
 }
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

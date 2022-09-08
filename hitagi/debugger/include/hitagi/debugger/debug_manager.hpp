@@ -27,8 +27,8 @@ public:
 protected:
     bool m_DrawDebugInfo = true;
 
-    resource::Mesh          m_DebugPrimitives;
-    graphics::DebugDrawData m_DebugDrawData;
+    resource::Mesh     m_DebugPrimitives;
+    gfx::DebugDrawData m_DebugDrawData;
 };
 
 }  // namespace hitagi::debugger

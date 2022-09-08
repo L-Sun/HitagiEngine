@@ -2,7 +2,7 @@
 
 #include <hitagi/utils/overloaded.hpp>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 
 FrameHandle PassNode::Read(const FrameHandle input) {
     if (!reads.contains(input))
@@ -68,7 +68,7 @@ FrameHandle RenderGraph::Create(std::string_view name, ResourceType resource) {
     return handle;
 }
 
-void RenderGraph::Present(FrameHandle render_target, const std::shared_ptr<hitagi::graphics::IGraphicsCommandContext>& context) {
+void RenderGraph::Present(FrameHandle render_target, const std::shared_ptr<hitagi::gfx::IGraphicsCommandContext>& context) {
     struct PassData {
         FrameHandle output;
     };
@@ -99,4 +99,4 @@ void RenderGraph::Retire(std::uint64_t fence_value) {
     m_Retired = true;
 }
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

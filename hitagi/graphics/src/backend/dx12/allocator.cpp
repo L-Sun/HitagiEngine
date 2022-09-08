@@ -2,7 +2,7 @@
 #include "utils.hpp"
 #include "dx12_device.hpp"
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 
 Allocation::~Allocation() {
     if (auto page = page_from.lock())
@@ -152,4 +152,4 @@ void LinearAllocator::PageManager::Reset() {
     m_AvailablePages = {};  // use a empty queue to clear
     m_LargePages.clear();
 }
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

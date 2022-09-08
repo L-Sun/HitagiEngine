@@ -11,7 +11,7 @@
 
 using namespace hitagi::math;
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 
 CommandContext::CommandContext(std::string_view name, DX12Device* device, D3D12_COMMAND_LIST_TYPE type)
     : m_Device(device),
@@ -190,7 +190,7 @@ void GraphicsCommandContext::SetRenderTargetAndDepthBuffer(const resource::Textu
                                       &(db->GetDSV().handle));
 }
 
-void GraphicsCommandContext::SetPipelineState(const graphics::PipelineState& pipeline) {
+void GraphicsCommandContext::SetPipelineState(const gfx::PipelineState& pipeline) {
     if (pipeline.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can Set an uninitialized pipeline ({})!", pipeline.name);
         return;
@@ -228,7 +228,7 @@ void GraphicsCommandContext::SetBlendFactor(math::vec4f color) {
     m_CommandList->OMSetBlendFactor(color);
 }
 
-void GraphicsCommandContext::BindResource(std::uint32_t slot, const graphics::ConstantBuffer& constant_buffer, size_t index) {
+void GraphicsCommandContext::BindResource(std::uint32_t slot, const gfx::ConstantBuffer& constant_buffer, size_t index) {
     if (constant_buffer.gpu_resource == nullptr) {
         spdlog::get("GraphicsManager")->error("Can Set an uninitialized constant buffer ({})!", constant_buffer.name);
         return;
@@ -457,7 +457,7 @@ void GraphicsCommandContext::UpdateIndexBuffer(resource::IndexArray& indices) {
     indices.dirty = false;
 }
 
-void ComputeCommandContext::SetPipelineState(const std::shared_ptr<graphics::PipelineState>& pipeline) {
+void ComputeCommandContext::SetPipelineState(const std::shared_ptr<gfx::PipelineState>& pipeline) {
     assert(pipeline != nullptr && pipeline->gpu_resource != nullptr);
     if (m_CurrentPipeline == pipeline->gpu_resource->GetBackend<PSO>()) return;
 
@@ -504,4 +504,4 @@ void CopyCommandContext::InitializeTexture(resource::Texture& texture) {
     TransitionResource(*dest, D3D12_RESOURCE_STATE_COMMON);
 }
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

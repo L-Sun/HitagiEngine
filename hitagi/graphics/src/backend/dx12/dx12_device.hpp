@@ -4,7 +4,7 @@
 
 #include <hitagi/graphics/device_api.hpp>
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 
 class DX12Device : public DeviceAPI {
 public:
@@ -19,9 +19,9 @@ public:
     void InitVertexBuffer(resource::VertexArray& vb) final;
     void InitIndexBuffer(resource::IndexArray& ib) final;
     void InitTexture(resource::Texture& tb) final;
-    void InitConstantBuffer(graphics::ConstantBuffer& cb) final;
+    void InitConstantBuffer(gfx::ConstantBuffer& cb) final;
     void InitSampler(resource::Sampler& sampler) final;
-    void InitPipelineState(graphics::PipelineState& pipeline) final;
+    void InitPipelineState(gfx::PipelineState& pipeline) final;
 
     std::shared_ptr<IGraphicsCommandContext> CreateGraphicsCommandContext(std::string_view name = "") final;
 
@@ -70,4 +70,4 @@ private:
     };
     std::priority_queue<std::unique_ptr<backend::Resource>, std::pmr::vector<std::unique_ptr<backend::Resource>>, decltype(retire_resource_cmp)> m_RetiredResources;
 };
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

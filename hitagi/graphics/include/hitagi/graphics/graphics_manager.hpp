@@ -6,7 +6,7 @@
 #include <hitagi/resource/scene.hpp>
 #include <hitagi/graphics/draw_data.hpp>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 class GraphicsManager : public RuntimeModule {
 public:
     bool Initialize() final;
@@ -47,7 +47,7 @@ protected:
     std::pmr::unordered_map<const resource::Material*, PipelineState> m_Pipelines;
 };
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx
 namespace hitagi {
-extern graphics::GraphicsManager* graphics_manager;
+extern gfx::GraphicsManager* graphics_manager;
 }

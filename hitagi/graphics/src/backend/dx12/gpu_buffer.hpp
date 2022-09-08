@@ -2,7 +2,7 @@
 #include "gpu_resource.hpp"
 #include "descriptor_allocator.hpp"
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 class DX12Device;
 
 class GpuBuffer : public GpuResource {
@@ -28,7 +28,7 @@ protected:
 
 class ConstantBuffer : public GpuBuffer {
 public:
-    ConstantBuffer(DX12Device* device, std::string_view name, graphics::ConstantBuffer& desc);
+    ConstantBuffer(DX12Device* device, std::string_view name, gfx::ConstantBuffer& desc);
 
     ~ConstantBuffer() override;
 
@@ -61,4 +61,4 @@ private:
     Descriptor m_DSV;
 };
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

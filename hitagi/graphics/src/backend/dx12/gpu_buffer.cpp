@@ -10,7 +10,7 @@
 
 #include <numeric>
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 
 GpuBuffer::GpuBuffer(DX12Device* device, std::string_view name, std::size_t size, Usage usage, D3D12_RESOURCE_FLAGS flags)
     : GpuResource(device, nullptr), m_BufferSize(size), m_ResourceFlags(flags) {
@@ -42,7 +42,7 @@ GpuBuffer::GpuBuffer(DX12Device* device, std::string_view name, std::size_t size
     m_Resource->SetName(std::wstring(name.begin(), name.end()).data());
 }
 
-ConstantBuffer::ConstantBuffer(DX12Device* device, std::string_view name, graphics::ConstantBuffer& desc)
+ConstantBuffer::ConstantBuffer(DX12Device* device, std::string_view name, gfx::ConstantBuffer& desc)
     : GpuBuffer(device, name, desc.num_elements * utils::align(desc.element_size, 256), Usage::Upload),
       m_NumElements(desc.num_elements),
       m_ElementSize(desc.element_size),
@@ -246,4 +246,4 @@ Texture::Texture(DX12Device* device, const resource::Texture& texture, ID3D12Res
     }
 }
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

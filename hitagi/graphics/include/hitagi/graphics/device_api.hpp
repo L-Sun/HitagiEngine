@@ -5,7 +5,7 @@
 
 #include <vector>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 enum struct APIType {
     DirectX12,
     Vulkan,
@@ -48,4 +48,4 @@ protected:
     const APIType m_Type;
 };
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

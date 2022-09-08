@@ -1,7 +1,7 @@
 #pragma once
 #include "linear_allocator.hpp"
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 class FrameResourceLinearAllocator {
 protected:
     inline static LinearAllocator sm_CpuLineraAllocator = LinearAllocator(LinearAllocatorType::CPU_WRITABLE);
@@ -28,7 +28,7 @@ public:
     inline size_t FrameConstantSize() const { return m_FrameConstantBuffer.size; }
     inline size_t ObjectSize() const { return m_SizeObject; }
 
-    FrameResource(const FrameResource& rhs) = delete;
+    FrameResource(const FrameResource& rhs)           = delete;
     FrameResource operator=(const FrameResource& rhs) = delete;
     ~FrameResource()                                  = default;
 
@@ -38,4 +38,4 @@ public:
     LinearAllocation m_FrameConstantBuffer, m_ObjectConstantBuffer;
 };
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

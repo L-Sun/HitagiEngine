@@ -6,7 +6,7 @@
 
 #include <unordered_map>
 
-namespace hitagi::graphics {
+namespace hitagi::gfx {
 class DeviceAPI;
 class IGraphicsCommandContext;
 
@@ -50,4 +50,4 @@ private:
     std::pmr::unordered_map<const resource::Material*, ConstantBuffer> m_MaterialBuffers;
 };
 
-}  // namespace hitagi::graphics
+}  // namespace hitagi::gfx

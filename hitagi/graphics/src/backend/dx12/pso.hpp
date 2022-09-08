@@ -5,7 +5,7 @@
 
 #include <magic_enum.hpp>
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 class PSO : public backend::Resource {
 public:
     PSO(std::string_view name, ID3D12Device* device) : m_Name(name), m_Device(device) {}
@@ -62,4 +62,4 @@ private:
     D3D12_COMPUTE_PIPELINE_STATE_DESC m_PSODesc{};
 };
 
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12

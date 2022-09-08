@@ -3,7 +3,7 @@
 
 #include <hitagi/graphics/gpu_resource.hpp>
 
-namespace hitagi::graphics::backend::DX12 {
+namespace hitagi::gfx::backend::DX12 {
 class DX12Device;
 class Sampler : public backend::Resource {
 public:
@@ -14,4 +14,4 @@ private:
     DX12Device* m_Device = nullptr;
     Descriptor  m_Sampler;
 };
-}  // namespace hitagi::graphics::backend::DX12
+}  // namespace hitagi::gfx::backend::DX12
