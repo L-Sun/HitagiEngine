@@ -41,6 +41,9 @@ public:
     virtual void UpdateBuffer(gfx::backend::Resource* resource, std::size_t offset, const std::byte* data, std::size_t data_size) = 0;
     virtual void UpdateVertexBuffer(resource::VertexArray& vertices)                                                              = 0;
     virtual void UpdateIndexBuffer(resource::IndexArray& indices)                                                                 = 0;
+    // src_box = {left, top, front, right, bootom, back}
+    // dest_point = {x, y, z}
+    virtual void CopyTextureRegion(resource::Texture& src, std::array<std::uint32_t, 6> src_box, resource::Texture& dest, std::array<std::uint32_t, 3> dest_point) = 0;
 
     virtual void Draw(std::size_t vertex_count, std::size_t vertex_start_offset = 0)                                                                                                                            = 0;
     virtual void DrawIndexed(std::size_t index_count, std::size_t start_index_location = 0, std::size_t base_vertex_location = 0)                                                                               = 0;
@@ -50,6 +53,7 @@ public:
     virtual void Present(const resource::Texture& rt) = 0;
 
     virtual std::uint64_t Finish(bool wait_for_complete = false) = 0;
+    virtual void          Reset()                                = 0;
 };
 
 class IComputeCommadnContext {};

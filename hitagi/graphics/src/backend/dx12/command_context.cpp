@@ -457,6 +457,40 @@ void GraphicsCommandContext::UpdateIndexBuffer(resource::IndexArray& indices) {
     indices.dirty = false;
 }
 
+void GraphicsCommandContext::CopyTextureRegion(resource::Texture& src, std::array<std::uint32_t, 6> src_box, resource::Texture& dest, std::array<std::uint32_t, 3> dest_point) {
+    if (src.gpu_resource == nullptr) {
+        m_Device->InitTexture(src);
+    }
+    if (dest.gpu_resource == nullptr) {
+        m_Device->InitTexture(dest);
+    }
+
+    D3D12_TEXTURE_COPY_LOCATION src_location{
+        .pResource        = src.gpu_resource->GetBackend<Texture>()->GetResource(),
+        .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
+    D3D12_TEXTURE_COPY_LOCATION dest_location{
+        .pResource        = dest.gpu_resource->GetBackend<Texture>()->GetResource(),
+        .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
+    D3D12_BOX box{
+        .left   = src_box[0],
+        .top    = src_box[1],
+        .front  = src_box[2],
+        .right  = src_box[3],
+        .bottom = src_box[4],
+        .back   = src_box[5],
+    };
+
+    m_CommandList->CopyTextureRegion(
+        &dest_location,
+        dest_point[0], dest_point[1], dest_point[2],
+        &src_location,
+        &box);
+}
+
 void ComputeCommandContext::SetPipelineState(const std::shared_ptr<gfx::PipelineState>& pipeline) {
     assert(pipeline != nullptr && pipeline->gpu_resource != nullptr);
     if (m_CurrentPipeline == pipeline->gpu_resource->GetBackend<PSO>()) return;

@@ -10,7 +10,8 @@ enum struct APIType {
     DirectX12,
     Vulkan,
     Melta,
-    OpenGL
+    OpenGL,
+    Mock
 };
 
 class DeviceAPI {

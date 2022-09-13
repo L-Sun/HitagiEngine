@@ -5,6 +5,7 @@
 #include <hitagi/graphics/frame.hpp>
 #include <hitagi/resource/scene.hpp>
 #include <hitagi/graphics/draw_data.hpp>
+#include <hitagi/graphics/render_graph.hpp>
 
 namespace hitagi::gfx {
 class GraphicsManager : public RuntimeModule {
@@ -23,6 +24,8 @@ public:
     inline DeviceAPI* GetDevice() const noexcept { return m_Device.get(); }
     PipelineState&    GetPipelineState(const resource::Material* material);
     unsigned          GetCurrentBackBufferIndex() const noexcept { return m_CurrBackBuffer; }
+
+    RenderGraph* GetRenderGraph() const noexcept;
 
     struct {
         PipelineState gui;
@@ -43,6 +46,7 @@ protected:
     // TODO multiple RenderTarget is need if the application has multiple view port
     // if the class View is impletement, RenderTarget will be a member variable of View
     std::array<std::unique_ptr<Frame>, sm_SwapChianSize> m_Frames;
+    std::unique_ptr<RenderGraph>                         m_RenderGraph;
 
     std::pmr::unordered_map<const resource::Material*, PipelineState> m_Pipelines;
 };

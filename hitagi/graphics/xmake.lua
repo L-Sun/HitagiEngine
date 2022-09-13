@@ -17,6 +17,7 @@ target("graphics")
     set_kind("static")
     add_files("src/*.cpp")
     add_includedirs("include", {public = true})
+    add_packages("taskflow", {public = true})
     add_deps("core", "math", "resource", "application", "utils")
     if is_config("graphics_api", "dx12") then
         add_deps("graphics_dx12")

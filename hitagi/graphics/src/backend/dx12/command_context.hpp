@@ -2,6 +2,7 @@
 
 #include "gpu_resource.hpp"
 #include "allocator.hpp"
+#include "hitagi/resource/texture.hpp"
 #include "resource_binder.hpp"
 #include "pso.hpp"
 
@@ -96,9 +97,11 @@ public:
     void UpdateBuffer(Resource* resource, std::size_t offset, const std::byte* data, std::size_t data_size) final;
     void UpdateVertexBuffer(resource::VertexArray& vertices) final;
     void UpdateIndexBuffer(resource::IndexArray& indices) final;
+    void CopyTextureRegion(resource::Texture& src, std::array<std::uint32_t, 6> src_box, resource::Texture& dest, std::array<std::uint32_t, 3> dest_point) final;
 
     void          Present(const resource::Texture& rt) final;
     std::uint64_t Finish(bool wait_for_complete = false) final { return CommandContext::Finish(wait_for_complete); }
+    void          Reset() final { return CommandContext::Reset(); }
 };
 
 class ComputeCommandContext : public CommandContext {

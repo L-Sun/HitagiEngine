@@ -31,6 +31,8 @@ bool GraphicsManager::Initialize() {
     for (size_t index = 0; index < sm_SwapChianSize; index++)
         m_Frames[index] = std::make_unique<Frame>(*m_Device, index);
 
+    m_RenderGraph = std::make_unique<RenderGraph>(*m_Device);
+
     InitBuiltInPipeline();
 
     return true;
@@ -123,6 +125,10 @@ void GraphicsManager::DrawDebug(const DebugDrawData& debug_data) {
 
 void GraphicsManager::DrawGui(const GuiDrawData& gui_data) {
     m_Frames.at(m_CurrBackBuffer)->DrawGUI(gui_data);
+}
+
+RenderGraph* GraphicsManager::GetRenderGraph() const noexcept {
+    return m_RenderGraph.get();
 }
 
 void GraphicsManager::InitBuiltInPipeline() {
