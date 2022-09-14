@@ -1,7 +1,7 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/core/timer.hpp>
-#include <hitagi/graphics/draw_data.hpp>
+#include <hitagi/graphics/render_graph.hpp>
 
 #include <imgui.h>
 
@@ -23,18 +23,29 @@ public:
         m_GuiDrawTasks.emplace([func = std::forward<DrawFunc>(draw_func)] { func(); });
     }
 
-    const gfx::GuiDrawData& GetDrawData();
+    struct GuiRenderPass {
+        gfx::ResourceHandle output;
+    };
+
+    GuiRenderPass Render(gfx::RenderGraph* render_graph);
 
 private:
     void LoadFontTexture();
+    void InitRenderPipeline();
     void MouseEvent();
     void KeysEvent();
+    void UpdateMeshData();
 
     core::Clock m_Clock;
 
     std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
 
-    gfx::GuiDrawData                   m_DrawData;
+    gfx::PipelineState m_Pipeline;
+    struct DrawData {
+        resource::Mesh                       mesh_data;
+        std::pmr::vector<math::vec4u>        scissor_rects;
+        std::pmr::vector<resource::Texture*> textures;
+    } m_DrawData;
     std::shared_ptr<resource::Texture> m_FontTexture;
 };
 

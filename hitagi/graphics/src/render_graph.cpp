@@ -4,24 +4,61 @@
 #include <taskflow/taskflow.hpp>
 
 namespace hitagi::gfx {
-void RenderGraph::PresentPass(ResourceHandle tex, const std::shared_ptr<resource::Texture>& back_buffer) {
+void RenderGraph::PresentPass(ResourceHandle tex, resource::Texture* back_buffer) {
     assert(tex < m_ResourceNodes.size());
 
     m_PresentPassNode.name = "Present";
     m_PresentPassNode.Read(tex);
-    m_PresentPassNode.executor = [=, this](IGraphicsCommandContext* context) {
-        if (!back_buffer) {
-            context->Present(*static_cast<resource::Texture*>(m_ResourceNodes.at(tex).resource));
-        } else {
-            auto texture = static_cast<resource::Texture*>(m_ResourceNodes.at(tex).resource);
+    m_PresentPassNode.executor = [&, tex, back_buffer](IGraphicsCommandContext* context) {
+        auto texture = static_cast<resource::Texture*>(m_ResourceNodes.at(tex).resource);
 
+        if (back_buffer) {
             context->CopyTextureRegion(
                 *texture,
-                {0, 0, 0, texture->width, texture->height, 0},
+                {0, 0, 0, texture->width, texture->height, 1},
                 *back_buffer,
                 {0, 0, 0});
+            context->Present(*back_buffer);
+        } else {
+            context->Present(*static_cast<resource::Texture*>(m_ResourceNodes.at(tex).resource));
         }
+        m_LastFence = context->Finish();
     };
+}
+
+ResourceHandle RenderGraph::Import(resource::Resource* res) {
+    if (auto iter = std::find_if(m_ResourceNodes.begin(),
+                                 m_ResourceNodes.end(),
+                                 [res](const auto& res_node) {
+                                     return res == res_node.resource;
+                                 });
+        iter != m_ResourceNodes.end()) {
+        return std::distance(m_ResourceNodes.begin(), iter);
+    }
+    ResourceHandle handle = m_ResourceNodes.size();
+    m_Resources.emplace_back(res);
+    m_BlackBoard.emplace_back(res);
+    m_ResourceNodes.emplace_back(res->name, res);
+    return handle;
+}
+
+ResourceHandle RenderGraph::CreateResource(std::string_view name, ResourceType resource) {
+    // create new resource node
+    ResourceHandle handle = m_ResourceNodes.size();
+
+    m_InnerResources.emplace_back(std::move(resource));
+
+    std::visit(
+        utils::Overloaded{
+            [&](resource::Resource& res) {
+                res.name = name;
+                m_ResourceNodes.emplace_back(name, &res);
+                m_Resources.emplace_back(&res);
+            },
+        },
+        m_InnerResources.back());
+
+    return handle;
 }
 
 bool RenderGraph::Compile() {
@@ -66,42 +103,22 @@ void RenderGraph::Execute() {
             utils::Overloaded{
                 [&](resource::Texture& res) {
                     m_Device.InitTexture(res);
+                },
+                [&](gfx::ConstantBuffer& buffer) {
+                    m_Device.InitConstantBuffer(buffer);
                 }},
             res);
     }
-    tf::Executor executor;
-    try {
-        executor.run(m_Taskflow).wait();
-    } catch (const std::exception& ex) {
-        fmt::print("{}", ex.what());
-    }
-}
 
-ResourceHandle RenderGraph::CreateResource(std::string_view name, ResourceType resource) {
-    // create new resource node
-    ResourceHandle handle = m_ResourceNodes.size();
-
-    m_InnerResources.emplace_back(std::move(resource));
-
-    std::visit(
-        utils::Overloaded{
-            [&](resource::Resource& res) {
-                res.name = name;
-                m_ResourceNodes.emplace_back(name, &res);
-                m_Resources.emplace_back(&res);
-            },
-        },
-        m_InnerResources.back());
-
-    return handle;
-}
-
-void RenderGraph::Retire(std::uint64_t fence_value) {
-    m_Taskflow.clear();
+    m_Executor.run(m_Taskflow).wait();
 
     for (auto res : m_Resources) {
-        res->gpu_resource->fence_value = fence_value;
+        if (res->gpu_resource) res->gpu_resource->fence_value = m_LastFence;
     }
+}
+
+void RenderGraph::Reset() {
+    m_Device.WaitFence(m_LastFence);
     for (auto& res : m_InnerResources) {
         std::visit(
             utils::Overloaded{
@@ -111,7 +128,13 @@ void RenderGraph::Retire(std::uint64_t fence_value) {
             },
             res);
     }
-    m_Retired = true;
+
+    m_ResourceNodes.clear();
+    m_PassNodes.clear();
+    m_Resources.clear();
+    m_InnerResources.clear();
+    m_BlackBoard.clear();
+    m_Taskflow.clear();
 }
 
 }  // namespace hitagi::gfx

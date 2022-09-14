@@ -17,6 +17,7 @@ public:
     inline std::string_view GetName() const noexcept final { return "Editor"; }
 
     void Draw();
+    void Render();
 
     void MainMenu();
     void FileExplorer();

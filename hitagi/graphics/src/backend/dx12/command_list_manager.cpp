@@ -43,6 +43,7 @@ void CommandQueue::DiscardAllocator(uint64_t fence_value, ID3D12CommandAllocator
     m_AllocatorPool.DiscardAllocator(fence_value, allocator);
 }
 
+// TODO expose command queue
 uint64_t CommandQueue::ExecuteCommandList(ID3D12CommandList* list) {
     ThrowIfFailed(reinterpret_cast<ID3D12GraphicsCommandList5*>(list)->Close());
     m_CommandQueue->ExecuteCommandLists(1, &list);

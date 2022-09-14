@@ -342,36 +342,35 @@ void GraphicsCommandContext::BindIndexBuffer(const resource::IndexArray& indices
 }
 
 void GraphicsCommandContext::BindDynamicVertexBuffer(const resource::VertexArray& vertices) {
-    if (m_CurrentPipeline == nullptr) {
-        spdlog::get("GraphicsManager")->error("pipeline must be set before setting parameters!");
-        return;
-    }
-
     if (vertices.Empty()) {
         spdlog::get("GraphicsManager")->warn("Can not bind an empty vertex buffer: ({})!", vertices.name);
         return;
     }
-    Allocation vb = m_CpuLinearAllocator.Allocate(vertices.cpu_buffer.GetDataSize());
-    std::copy_n(vertices.cpu_buffer.GetData(), vertices.cpu_buffer.GetDataSize(), vb.cpu_ptr);
-
+    if (m_CurrentPipeline == nullptr) {
+        spdlog::get("GraphicsManager")->error("pipeline must be set before setting parameters!");
+        return;
+    }
     auto gpso = static_cast<GraphicsPSO*>(m_CurrentPipeline);
     if (int slot = gpso->GetAttributeSlot(vertices.attribute); slot != -1) {
+        Allocation vb = m_CpuLinearAllocator.Allocate(vertices.cpu_buffer.GetDataSize());
+        std::memcpy(vb.cpu_ptr, vertices.cpu_buffer.GetData(), vertices.cpu_buffer.GetDataSize());
+
         D3D12_VERTEX_BUFFER_VIEW vbv{
             .BufferLocation = vb.gpu_addr,
-            .SizeInBytes    = static_cast<UINT>(get_vertex_attribute_size(vertices.attribute) * vertices.vertex_count),
-            .StrideInBytes  = static_cast<UINT>(get_vertex_attribute_size(vertices.attribute)),
+            .SizeInBytes    = static_cast<UINT>(vb.size),
+            .StrideInBytes  = static_cast<UINT>(resource::get_vertex_attribute_size(vertices.attribute)),
         };
         m_CommandList->IASetVertexBuffers(slot, 1, &vbv);
     }
 }
 
 void GraphicsCommandContext::BindDynamicIndexBuffer(const resource::IndexArray& indices) {
-    if (indices.cpu_buffer.Empty()) {
+    if (indices.cpu_buffer.Empty() || indices.index_count == 0) {
         spdlog::get("GraphicsManager")->warn("Can not bind an empty index buffer: ({})!", indices.name);
         return;
     }
     Allocation ib = m_CpuLinearAllocator.Allocate(indices.cpu_buffer.GetDataSize());
-    std::copy_n(indices.cpu_buffer.GetData(), indices.cpu_buffer.GetDataSize(), ib.cpu_ptr);
+    std::memcpy(ib.cpu_ptr, indices.cpu_buffer.GetData(), indices.cpu_buffer.GetDataSize());
 
     D3D12_INDEX_BUFFER_VIEW ibv{
         .BufferLocation = ib.gpu_addr,
@@ -465,13 +464,16 @@ void GraphicsCommandContext::CopyTextureRegion(resource::Texture& src, std::arra
         m_Device->InitTexture(dest);
     }
 
+    auto src_tex  = src.gpu_resource->GetBackend<Texture>();
+    auto dest_tex = dest.gpu_resource->GetBackend<Texture>();
+
     D3D12_TEXTURE_COPY_LOCATION src_location{
-        .pResource        = src.gpu_resource->GetBackend<Texture>()->GetResource(),
+        .pResource        = src_tex->GetResource(),
         .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
         .SubresourceIndex = 0,
     };
     D3D12_TEXTURE_COPY_LOCATION dest_location{
-        .pResource        = dest.gpu_resource->GetBackend<Texture>()->GetResource(),
+        .pResource        = dest_tex->GetResource(),
         .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
         .SubresourceIndex = 0,
     };
@@ -483,6 +485,9 @@ void GraphicsCommandContext::CopyTextureRegion(resource::Texture& src, std::arra
         .bottom = src_box[4],
         .back   = src_box[5],
     };
+
+    TransitionResource(*src_tex, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    TransitionResource(*dest_tex, D3D12_RESOURCE_STATE_COPY_DEST, true);
 
     m_CommandList->CopyTextureRegion(
         &dest_location,

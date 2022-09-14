@@ -6,6 +6,7 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <winuser.h>
 
 using namespace hitagi::math;
 
@@ -28,10 +29,10 @@ bool GraphicsManager::Initialize() {
 
     // Initialize frame
     m_Device->CreateSwapChain(widht, height, sm_SwapChianSize, sm_BackBufferFormat, app->GetWindow());
-    for (size_t index = 0; index < sm_SwapChianSize; index++)
-        m_Frames[index] = std::make_unique<Frame>(*m_Device, index);
-
-    m_RenderGraph = std::make_unique<RenderGraph>(*m_Device);
+    for (std::size_t frame_index = 0; frame_index < m_FrameBuffers.size(); frame_index++) {
+        m_Device->InitRenderTargetFromSwapChain(m_FrameBuffers[frame_index], frame_index);
+        m_RenderGraphs[frame_index] = std::make_unique<RenderGraph>(*m_Device);
+    }
 
     InitBuiltInPipeline();
 
@@ -41,16 +42,17 @@ bool GraphicsManager::Initialize() {
 void GraphicsManager::Finalize() {
     // Release all resource
     {
-        for (auto&& frame : m_Frames) {
-            frame->Wait();
-            frame = nullptr;
+        for (auto& render_graph : m_RenderGraphs) {
+            render_graph = nullptr;
         }
 
-        m_Device->RetireResource(std::move(builtin_pipeline.gui.gpu_resource));
         m_Device->RetireResource(std::move(builtin_pipeline.debug.gpu_resource));
 
         for (auto&& [_, pipeline] : m_Pipelines) {
             m_Device->RetireResource(std::move(pipeline.gpu_resource));
+        }
+        for (auto& frame : m_FrameBuffers) {
+            m_Device->RetireResource(std::move(frame.gpu_resource));
         }
 
         if (m_Device) {
@@ -66,9 +68,9 @@ void GraphicsManager::Finalize() {
 }
 
 void GraphicsManager::Tick() {
-    m_Frames[(m_CurrBackBuffer + 0) % sm_SwapChianSize]->Execute();
-    m_Frames[(m_CurrBackBuffer + 1) % sm_SwapChianSize]->Wait();
-    m_Frames[(m_CurrBackBuffer + 2) % sm_SwapChianSize]->Reset();
+    m_RenderGraphs[(m_CurrBackBuffer + 0) % sm_SwapChianSize]->Execute();
+    m_RenderGraphs[(m_CurrBackBuffer + 1) % sm_SwapChianSize]->Compile();
+    m_RenderGraphs[(m_CurrBackBuffer + 2) % sm_SwapChianSize]->Reset();
 
     m_Device->Present();
     m_CurrBackBuffer = (m_CurrBackBuffer + 1) % sm_SwapChianSize;
@@ -97,73 +99,41 @@ PipelineState& GraphicsManager::GetPipelineState(const resource::Material* mater
     return m_Pipelines.at(material);
 }
 
+resource::Texture& GraphicsManager::GetBackBuffer() noexcept {
+    return m_FrameBuffers[(m_CurrBackBuffer + 1) % sm_SwapChianSize];
+}
+
+RenderGraph* GraphicsManager::GetRenderGraph() const noexcept {
+    return m_RenderGraphs[(m_CurrBackBuffer + 1) % sm_SwapChianSize].get();
+}
+
 void GraphicsManager::OnSizeChanged() {
+    for (auto& frame : m_FrameBuffers) {
+        m_Device->RetireResource(std::move(frame.gpu_resource));
+    }
+    for (auto& render_graph : m_RenderGraphs) {
+        render_graph->Reset();
+    }
     m_Device->IdleGPU();
 
     auto          rect   = app->GetWindowsRect();
     std::uint32_t width  = rect.right - rect.left,
                   height = rect.bottom - rect.top;
 
-    for (auto& frame : m_Frames) {
-        frame->BeforeSwapchainSizeChanged();
-    }
-
     m_CurrBackBuffer = m_Device->ResizeSwapChain(width, height);
 
-    for (auto& frame : m_Frames) {
-        frame->AfterSwapchainSizeChanged();
+    for (std::size_t frame_index = 0; frame_index < m_FrameBuffers.size(); frame_index++) {
+        m_Device->InitRenderTargetFromSwapChain(m_FrameBuffers[frame_index], frame_index);
     }
 }
 
 void GraphicsManager::DrawScene(const resource::Scene& scene, const std::shared_ptr<resource::Texture>& render_texture) {
-    m_Frames.at(m_CurrBackBuffer)->DrawScene(scene, render_texture);
 }
 
 void GraphicsManager::DrawDebug(const DebugDrawData& debug_data) {
-    m_Frames.at(m_CurrBackBuffer)->DrawDebug(debug_data);
-}
-
-void GraphicsManager::DrawGui(const GuiDrawData& gui_data) {
-    m_Frames.at(m_CurrBackBuffer)->DrawGUI(gui_data);
-}
-
-RenderGraph* GraphicsManager::GetRenderGraph() const noexcept {
-    return m_RenderGraph.get();
 }
 
 void GraphicsManager::InitBuiltInPipeline() {
-    builtin_pipeline.gui = {
-        .vs             = std::make_shared<resource::Shader>(resource::Shader::Type::Vertex, "assets/shaders/imgui.hlsl"),
-        .ps             = std::make_shared<resource::Shader>(resource::Shader::Type::Pixel, "assets/shaders/imgui.hlsl"),
-        .primitive_type = resource::PrimitiveType::TriangleList,
-        .blend_state    = {
-               .alpha_to_coverage_enable = false,
-               .enable_blend             = true,
-               .src_blend                = Blend::SrcAlpha,
-               .dest_blend               = Blend::InvSrcAlpha,
-               .blend_op                 = BlendOp::Add,
-               .src_blend_alpha          = Blend::One,
-               .dest_blend_alpha         = Blend::InvSrcAlpha,
-               .blend_op_alpha           = BlendOp::Add,
-        },
-        .rasterizer_state = {
-            .fill_mode               = FillMode::Solid,
-            .cull_mode               = CullMode::None,
-            .front_counter_clockwise = false,
-            .depth_bias              = 0,
-            .depth_bias_clamp        = 0.0f,
-            .slope_scaled_depth_bias = 0.0f,
-            .depth_clip_enable       = true,
-            .multisample_enable      = false,
-            .antialiased_line_enable = false,
-            .forced_sample_count     = 0,
-            .conservative_raster     = false,
-        },
-        .render_format = resource::Format::R8G8B8A8_UNORM,
-    };
-    builtin_pipeline.gui.name = "gui";
-    m_Device->InitPipelineState(builtin_pipeline.gui);
-
     builtin_pipeline.debug = {
         .vs                  = std::make_shared<resource::Shader>(resource::Shader::Type::Vertex, "assets/shaders/debug.hlsl"),
         .ps                  = std::make_shared<resource::Shader>(resource::Shader::Type::Pixel, "assets/shaders/debug.hlsl"),

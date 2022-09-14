@@ -3,13 +3,6 @@
 #include <hitagi/resource/texture.hpp>
 
 namespace hitagi::gfx {
-struct GuiDrawData {
-    math::mat4f                          projection;
-    math::vec4u                          view_port;
-    resource::Mesh                       mesh;
-    std::pmr::vector<math::vec4u>        scissor_rects;
-    std::pmr::vector<resource::Texture*> textures;
-};
 
 struct DebugDrawData {
     math::mat4f    project_view;

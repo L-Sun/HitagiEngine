@@ -223,38 +223,6 @@ void Frame::DrawDebug(const DebugDrawData& debug_data) {
     }
 }
 
-void Frame::DrawGUI(const GuiDrawData& gui_data) {
-    if (!gui_data.mesh) return;
-
-    auto context = NewContext("GuiDraw");
-
-    for (const auto& attribute_array : gui_data.mesh.vertices) {
-        if (attribute_array) context->UpdateVertexBuffer(*attribute_array);
-    }
-    context->UpdateIndexBuffer(*gui_data.mesh.indices);
-
-    for (auto texture : gui_data.textures) {
-        if (texture && texture->gpu_resource == nullptr) {
-            m_Device.InitTexture(*texture);
-        }
-    }
-
-    context->SetRenderTarget(m_Output);
-    context->SetPipelineState(graphics_manager->builtin_pipeline.gui);
-    context->BindMeshBuffer(gui_data.mesh);
-    context->BindDynamicConstantBuffer(0, reinterpret_cast<const std::byte*>(&gui_data.projection), sizeof(gui_data.projection));
-    context->SetViewPort(gui_data.view_port.x, gui_data.view_port.y, gui_data.view_port.z, gui_data.view_port.w);
-
-    for (std::size_t i = 0; i < gui_data.mesh.sub_meshes.size(); i++) {
-        const auto& scissor = gui_data.scissor_rects.at(i);
-        const auto& submesh = gui_data.mesh.sub_meshes.at(i);
-
-        context->SetScissorRect(scissor.x, scissor.y, scissor.z, scissor.w);
-        if (gui_data.textures[i]) context->BindResource(0, *gui_data.textures[i]);
-        context->DrawIndexed(submesh.index_count, submesh.index_offset, submesh.vertex_offset);
-    }
-}
-
 IGraphicsCommandContext* Frame::NewContext(std::string_view name) {
     return m_CommandContexts.emplace_back(m_Device.CreateGraphicsCommandContext(name)).get();
 }

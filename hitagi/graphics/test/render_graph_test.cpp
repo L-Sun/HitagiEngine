@@ -112,11 +112,9 @@ TEST_F(RenderGraphTest, GraphBuild) {
                 });
             data.output = builder.Write(data.texture);
         },
-        [](const ResourceHelper& helper, const ColorPass& data, IGraphicsCommandContext* context) {
+        [](RenderGraph::ResourceHelper& helper, const ColorPass& data, IGraphicsCommandContext* context) {
             EXPECT_EQ(data.output, 1);
         });
-
-    render_graph.PresentPass(color_pass.output);
 
     EXPECT_EQ(color_pass.output, 1);
     EXPECT_CALL(*device, InitTexture(_))
@@ -131,7 +129,6 @@ TEST_F(RenderGraphTest, GraphBuild) {
 
     EXPECT_TRUE(render_graph.Compile());
     render_graph.Execute();
-    render_graph.Retire(1);
 }
 
 int main(int argc, char** argv) {

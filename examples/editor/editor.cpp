@@ -36,6 +36,13 @@ void Editor::Tick() {
     gui_manager->DrawGui([this]() -> void { Draw(); });
 
     RuntimeModule::Tick();
+
+    Render();
+}
+
+void Editor::Render() {
+    auto gui_pass = gui_manager->Render(graphics_manager->GetRenderGraph());
+    graphics_manager->GetRenderGraph()->PresentPass(gui_pass.output);
 }
 
 void Editor::Draw() {

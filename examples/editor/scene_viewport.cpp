@@ -25,9 +25,9 @@ bool SceneViewPort::Initialize() {
 }
 
 void SceneViewPort::Tick() {
-    gui_manager->DrawGui([&]() {
+    gui_manager->DrawGui([&, frame_index = m_FrameIndex]() {
         if (ImGui::Begin("Scene Viewer", &m_Open)) {
-            auto rt        = m_RenderTextures.at(graphics_manager->GetCurrentBackBufferIndex());
+            auto rt        = m_RenderTextures.at(frame_index % 3);
             auto curr_size = ImGui::GetWindowSize();
             if (curr_size.x != rt->width || curr_size.y != rt->height) {
                 rt->width  = curr_size.x;
@@ -42,6 +42,7 @@ void SceneViewPort::Tick() {
         }
         ImGui::End();
     });
+    m_FrameIndex++;
 }
 
 void SceneViewPort::Finalize() {}

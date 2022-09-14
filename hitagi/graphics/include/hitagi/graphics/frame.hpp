@@ -16,7 +16,6 @@ public:
 
     void DrawScene(const resource::Scene& scene, const std::shared_ptr<resource::Texture>& render_texture = nullptr);
     void DrawDebug(const DebugDrawData& data);
-    void DrawGUI(const GuiDrawData& gui_data);
 
     // DebugDraw
     void DrawLine(math::vec3f from, math::vec3f to, math::vec4f color);
