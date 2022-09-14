@@ -11,8 +11,8 @@ class ResourceHelper;
 class RenderGraph;
 
 struct PassNode {
-    ResourceHandle Read(const ResourceHandle input);
-    ResourceHandle Write(RenderGraph& fg, const ResourceHandle output);
+    ResourceHandle Read(const ResourceHandle res);
+    ResourceHandle Write(RenderGraph& fg, const ResourceHandle res);
 
     template <typename PassData>
     PassData& GetData() { return *reinterpret_cast<PassData*>(data.GetData()); }

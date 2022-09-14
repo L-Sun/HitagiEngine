@@ -11,6 +11,8 @@ ResourceHandle PassNode::Read(const ResourceHandle input) {
 }
 ResourceHandle PassNode::Write(RenderGraph& fg, const ResourceHandle output) {
     if (writes.contains(output)) return output;
+    Read(output);
+
     ResourceNode& old_node = fg.m_ResourceNodes[output];
     // Create new resource node
     ResourceHandle ret      = fg.m_ResourceNodes.size();

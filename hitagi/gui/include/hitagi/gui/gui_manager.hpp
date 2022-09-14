@@ -8,6 +8,7 @@
 #include <functional>
 #include <list>
 #include <queue>
+#include "hitagi/graphics/resource_node.hpp"
 
 namespace hitagi::gui {
 class GuiManager : public RuntimeModule {
@@ -24,10 +25,10 @@ public:
     }
 
     struct GuiRenderPass {
+        gfx::ResourceHandle font_texture;
         gfx::ResourceHandle output;
     };
-
-    GuiRenderPass Render(gfx::RenderGraph* render_graph);
+    GuiRenderPass Render(gfx::RenderGraph* render_graph, gfx::ResourceHandle output);
 
 private:
     void LoadFontTexture();
@@ -42,9 +43,9 @@ private:
 
     gfx::PipelineState m_Pipeline;
     struct DrawData {
-        resource::Mesh                       mesh_data;
-        std::pmr::vector<math::vec4u>        scissor_rects;
-        std::pmr::vector<resource::Texture*> textures;
+        resource::Mesh                        mesh_data;
+        std::pmr::vector<math::vec4u>         scissor_rects;
+        std::pmr::vector<gfx::ResourceHandle> textures;
     } m_DrawData;
     std::shared_ptr<resource::Texture> m_FontTexture;
 };

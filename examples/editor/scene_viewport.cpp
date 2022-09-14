@@ -12,37 +12,41 @@ using namespace hitagi::gfx;
 
 bool SceneViewPort::Initialize() {
     m_Logger = spdlog::get("Editor");
-
-    std::size_t index = 0;
-    for (auto& rt : m_RenderTextures) {
-        rt             = std::make_shared<Texture>();
-        rt->name       = fmt::format("SceneViewPort-{}", index++);
-        rt->bind_flags = Texture::BindFlag::RenderTarget | Texture::BindFlag::ShaderResource;
-        rt->format     = Format::R8G8B8A8_UNORM;
-    }
-
     return true;
 }
 
 void SceneViewPort::Tick() {
-    gui_manager->DrawGui([&, frame_index = m_FrameIndex]() {
+    struct SceneViewPortPass {
+        ResourceHandle scene_output;
+    };
+
+    gui_manager->DrawGui([&]() {
         if (ImGui::Begin("Scene Viewer", &m_Open)) {
-            auto rt        = m_RenderTextures.at(frame_index % 3);
-            auto curr_size = ImGui::GetWindowSize();
-            if (curr_size.x != rt->width || curr_size.y != rt->height) {
-                rt->width  = curr_size.x;
-                rt->height = curr_size.y;
-                rt->pitch  = get_format_bit_size(rt->format) * curr_size.x;
-                rt->dirty  = true;
-            }
             if (m_CurrentScene) {
-                graphics_manager->DrawScene(*m_CurrentScene, rt);
-                ImGui::Image(rt.get(), {static_cast<float>(rt->width), static_cast<float>(rt->height)});
+                auto render_graph = graphics_manager->GetRenderGraph();
+                auto curr_size    = ImGui::GetWindowSize();
+
+                auto pass_data = render_graph->AddPass<SceneViewPortPass>(
+                    "SceneViewPortPass",
+                    [&](RenderGraph::Builder& builder, SceneViewPortPass& data) {
+                        data.scene_output = builder.Create(
+                            "SceneOutput",
+                            Texture{
+                                .bind_flags = Texture::BindFlag::RenderTarget | Texture::BindFlag::ShaderResource,
+                                .format     = graphics_manager->sm_BackBufferFormat,
+                                .width      = static_cast<std::uint32_t>(curr_size.x),
+                                .height     = static_cast<std::uint32_t>(curr_size.y),
+                            });
+                    },
+                    [=](RenderGraph::ResourceHelper& helper, const SceneViewPortPass& data, IGraphicsCommandContext* context) {
+
+                    });
+
+                ImGui::Image((void*)pass_data.scene_output, curr_size);
             }
         }
         ImGui::End();
     });
-    m_FrameIndex++;
 }
 
 void SceneViewPort::Finalize() {}

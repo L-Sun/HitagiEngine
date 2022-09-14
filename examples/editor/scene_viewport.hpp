@@ -17,8 +17,6 @@ public:
 private:
     bool m_Open = true;
 
-    std::shared_ptr<resource::Scene>                                                   m_CurrentScene = nullptr;
-    std::array<std::shared_ptr<resource::Texture>, graphics_manager->sm_SwapChianSize> m_RenderTextures;
-    std::size_t                                                                        m_FrameIndex = 0;
+    std::shared_ptr<resource::Scene> m_CurrentScene = nullptr;
 };
 }  // namespace hitagi

@@ -80,10 +80,6 @@ void GuiManager::Tick() {
         m_GuiDrawTasks.pop();
     }
 
-    ImGui::Render();
-
-    UpdateMeshData();
-
     m_Clock.Tick();
 }
 
@@ -154,7 +150,6 @@ void GuiManager::LoadFontTexture() {
     m_FontTexture->cpu_buffer    = core::Buffer(pitch * height);
 
     std::copy_n(reinterpret_cast<const std::byte*>(pixels), m_FontTexture->cpu_buffer.GetDataSize(), m_FontTexture->cpu_buffer.GetData());
-    io.Fonts->SetTexID(m_FontTexture.get());
     graphics_manager->GetDevice()->InitTexture(*m_FontTexture);
 }
 
@@ -254,7 +249,7 @@ void GuiManager::UpdateMeshData() {
                 static_cast<std::uint32_t>(clip_min.y),
                 static_cast<std::uint32_t>(clip_max.x),
                 static_cast<std::uint32_t>(clip_max.y));
-            m_DrawData.textures.emplace_back(static_cast<Texture*>(cmd.TextureId));
+            m_DrawData.textures.emplace_back((gfx::ResourceHandle)cmd.TextureId);
         }
         for (const auto& vertex : cmd_list->VtxBuffer) {
             auto _color = ImColor(vertex.col).Value;
@@ -278,8 +273,14 @@ void GuiManager::UpdateMeshData() {
     }
 }
 
-auto GuiManager::Render(gfx::RenderGraph* render_graph) -> GuiRenderPass {
-    auto back_buffer = render_graph->Import(&graphics_manager->GetBackBuffer());
+auto GuiManager::Render(gfx::RenderGraph* render_graph, gfx::ResourceHandle output) -> GuiRenderPass {
+    auto font_texture = render_graph->Import(m_FontTexture.get());
+
+    auto& io = ImGui::GetIO();
+    io.Fonts->SetTexID((void*)font_texture);
+
+    ImGui::Render();
+    UpdateMeshData();
 
     auto draw_data = ImGui::GetDrawData();
 
@@ -300,7 +301,8 @@ auto GuiManager::Render(gfx::RenderGraph* render_graph) -> GuiRenderPass {
     return render_graph->AddPass<GuiRenderPass>(
         "GuiPass",
         [&](gfx::RenderGraph::Builder& builder, GuiRenderPass& data) {
-            data.output = builder.Write(back_buffer);
+            data.font_texture = builder.Read(font_texture);
+            data.output       = builder.Write(output);
         },
         [=, this](gfx::RenderGraph::ResourceHelper& helper, const GuiRenderPass& data, gfx::IGraphicsCommandContext* context) {
             if (m_DrawData.mesh_data.sub_meshes.size() == 0) return;
@@ -318,10 +320,10 @@ auto GuiManager::Render(gfx::RenderGraph* render_graph) -> GuiRenderPass {
             for (std::size_t i = 0; i < m_DrawData.mesh_data.sub_meshes.size(); i++) {
                 const auto& sub_mesh = m_DrawData.mesh_data.sub_meshes.at(i);
                 const auto& scissor  = m_DrawData.scissor_rects.at(i);
-                const auto& texture  = m_DrawData.textures.at(i);
+                const auto& texture  = helper.Get<Texture>(m_DrawData.textures.at(i));
 
                 context->SetScissorRect(scissor.x, scissor.y, scissor.z, scissor.w);
-                context->BindResource(0, *texture);
+                context->BindResource(0, texture);
                 context->DrawIndexed(sub_mesh.index_count, sub_mesh.index_offset, sub_mesh.vertex_offset);
             }
 

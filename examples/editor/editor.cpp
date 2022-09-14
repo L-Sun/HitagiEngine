@@ -41,8 +41,24 @@ void Editor::Tick() {
 }
 
 void Editor::Render() {
-    auto gui_pass = gui_manager->Render(graphics_manager->GetRenderGraph());
-    graphics_manager->GetRenderGraph()->PresentPass(gui_pass.output);
+    auto render_graph = graphics_manager->GetRenderGraph();
+    auto back_buffer  = render_graph->Import(&graphics_manager->GetBackBuffer());
+
+    struct ClearPass {
+        gfx::ResourceHandle back_buffer;
+    };
+    auto clear_pass = render_graph->AddPass<ClearPass>(
+        "ClearPass",
+        [&](gfx::RenderGraph::Builder& builder, ClearPass& data) {
+            data.back_buffer = builder.Write(back_buffer);
+        },
+        [=](gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::IGraphicsCommandContext* context) {
+            context->ClearRenderTarget(helper.Get<resource::Texture>(data.back_buffer));
+            context->Finish();
+        });
+
+    auto gui_pass = gui_manager->Render(render_graph, clear_pass.back_buffer);
+    render_graph->PresentPass(gui_pass.output);
 }
 
 void Editor::Draw() {

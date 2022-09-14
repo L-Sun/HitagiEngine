@@ -82,7 +82,7 @@ private:
     tf::Executor m_Executor;
 
     std::pmr::vector<ResourceNode> m_ResourceNodes;
-    std::pmr::vector<PassNode>     m_PassNodes;
+    std::pmr::list<PassNode>       m_PassNodes;
     PassNode                       m_PresentPassNode;
 
     std::pmr::vector<resource::Resource*> m_Resources;  // All the resource including inner and black board
