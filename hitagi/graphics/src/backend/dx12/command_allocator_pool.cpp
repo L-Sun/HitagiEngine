@@ -5,6 +5,8 @@ namespace hitagi::gfx::backend::DX12 {
 CommandAllocatorPool::CommandAllocatorPool(D3D12_COMMAND_LIST_TYPE type) : m_Type(type) {}
 
 ID3D12CommandAllocator* CommandAllocatorPool::GetAllocator(uint64_t completed_fence_value) {
+    std::lock_guard lock{m_Mutex};
+
     if (!m_ReadyAllocators.empty()) {
         auto& [fenceValue, allocator] = m_ReadyAllocators.front();
         if (fenceValue <= completed_fence_value) {
@@ -23,6 +25,8 @@ ID3D12CommandAllocator* CommandAllocatorPool::GetAllocator(uint64_t completed_fe
 }
 
 void CommandAllocatorPool::DiscardAllocator(uint64_t fence_value, ID3D12CommandAllocator* allocator) {
+    std::lock_guard lock{m_Mutex};
+
     m_ReadyAllocators.push({fence_value, allocator});
 }
 }  // namespace hitagi::gfx::backend::DX12

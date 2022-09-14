@@ -301,8 +301,10 @@ auto GuiManager::Render(gfx::RenderGraph* render_graph, gfx::ResourceHandle outp
     return render_graph->AddPass<GuiRenderPass>(
         "GuiPass",
         [&](gfx::RenderGraph::Builder& builder, GuiRenderPass& data) {
-            data.font_texture = builder.Read(font_texture);
-            data.output       = builder.Write(output);
+            for (auto tex : m_DrawData.textures) {
+                data.textures.emplace_back(builder.Read(tex));
+            }
+            data.output = builder.Write(output);
         },
         [=, this](gfx::RenderGraph::ResourceHelper& helper, const GuiRenderPass& data, gfx::IGraphicsCommandContext* context) {
             if (m_DrawData.mesh_data.sub_meshes.size() == 0) return;
@@ -326,8 +328,6 @@ auto GuiManager::Render(gfx::RenderGraph* render_graph, gfx::ResourceHandle outp
                 context->BindResource(0, texture);
                 context->DrawIndexed(sub_mesh.index_count, sub_mesh.index_offset, sub_mesh.vertex_offset);
             }
-
-            context->Finish();
         });
 }
 

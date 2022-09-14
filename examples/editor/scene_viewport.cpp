@@ -17,6 +17,7 @@ bool SceneViewPort::Initialize() {
 
 void SceneViewPort::Tick() {
     struct SceneViewPortPass {
+        ResourceHandle depth_buffer;
         ResourceHandle scene_output;
     };
 
@@ -29,17 +30,30 @@ void SceneViewPort::Tick() {
                 auto pass_data = render_graph->AddPass<SceneViewPortPass>(
                     "SceneViewPortPass",
                     [&](RenderGraph::Builder& builder, SceneViewPortPass& data) {
+                        data.depth_buffer = builder.Create(
+                            "SceneDepthBuffer",
+                            Texture{
+                                .bind_flags  = Texture::BindFlag::DepthBuffer,
+                                .format      = Format::D32_FLOAT,
+                                .width       = static_cast<std::uint32_t>(curr_size.x),
+                                .height      = static_cast<std::uint32_t>(curr_size.y),
+                                .clear_value = Texture::DepthStencil{
+                                    .depth   = 1.0f,
+                                    .stencil = 0,
+                                },
+                            });
                         data.scene_output = builder.Create(
                             "SceneOutput",
                             Texture{
-                                .bind_flags = Texture::BindFlag::RenderTarget | Texture::BindFlag::ShaderResource,
-                                .format     = graphics_manager->sm_BackBufferFormat,
-                                .width      = static_cast<std::uint32_t>(curr_size.x),
-                                .height     = static_cast<std::uint32_t>(curr_size.y),
+                                .bind_flags  = Texture::BindFlag::RenderTarget | Texture::BindFlag::ShaderResource,
+                                .format      = graphics_manager->sm_BackBufferFormat,
+                                .width       = static_cast<std::uint32_t>(curr_size.x),
+                                .height      = static_cast<std::uint32_t>(curr_size.y),
+                                .clear_value = math::vec4f(0.2, 0.4, 0.2, 1.0),
                             });
                     },
                     [=](RenderGraph::ResourceHelper& helper, const SceneViewPortPass& data, IGraphicsCommandContext* context) {
-
+                        context->ClearRenderTarget(helper.Get<Texture>(data.scene_output));
                     });
 
                 ImGui::Image((void*)pass_data.scene_output, curr_size);

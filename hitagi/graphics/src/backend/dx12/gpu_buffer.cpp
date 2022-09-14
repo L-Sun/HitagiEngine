@@ -3,6 +3,7 @@
 #include "utils.hpp"
 
 #include <hitagi/graphics/gpu_resource.hpp>
+#include <hitagi/utils/overloaded.hpp>
 
 #include <d3d12.h>
 #include <spdlog/spdlog.h>
@@ -158,13 +159,20 @@ Texture::Texture(DX12Device* device, const resource::Texture& texture, ID3D12Res
         }
 
         CD3DX12_CLEAR_VALUE optimized_clear_value;
-        optimized_clear_value.Color[0]             = texture.clear_value.color[0];
-        optimized_clear_value.Color[1]             = texture.clear_value.color[1];
-        optimized_clear_value.Color[2]             = texture.clear_value.color[2];
-        optimized_clear_value.Color[3]             = texture.clear_value.color[3];
-        optimized_clear_value.DepthStencil.Depth   = texture.clear_value.depth_stencil.depth;
-        optimized_clear_value.DepthStencil.Stencil = texture.clear_value.depth_stencil.stencil;
-        optimized_clear_value.Format               = to_dxgi_format(texture.format);
+        std::visit(utils::Overloaded{
+                       [&](const math::vec4f& color) {
+                           optimized_clear_value.Color[0] = color[0];
+                           optimized_clear_value.Color[1] = color[1];
+                           optimized_clear_value.Color[2] = color[2];
+                           optimized_clear_value.Color[3] = color[3];
+                       },
+                       [&](const resource::Texture::DepthStencil& depth_stencil) {
+                           optimized_clear_value.DepthStencil.Depth   = depth_stencil.depth;
+                           optimized_clear_value.DepthStencil.Stencil = depth_stencil.stencil;
+                       }},
+                   texture.clear_value);
+
+        optimized_clear_value.Format = to_dxgi_format(texture.format);
 
         if (optimized_clear_value.Format == DXGI_FORMAT_R16_TYPELESS) {
             optimized_clear_value.Format = DXGI_FORMAT_D16_UNORM;

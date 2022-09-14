@@ -80,6 +80,14 @@ void GraphicsManager::Tick() {
     }
 }
 
+resource::Texture& GraphicsManager::GetBackBuffer() noexcept {
+    return m_FrameBuffers[(m_CurrBackBuffer + 1) % sm_SwapChianSize];
+}
+
+RenderGraph* GraphicsManager::GetRenderGraph() const noexcept {
+    return m_RenderGraphs[(m_CurrBackBuffer + 1) % sm_SwapChianSize].get();
+}
+
 PipelineState& GraphicsManager::GetPipelineState(const resource::Material* material) {
     assert(material);
     if (!m_Pipelines.contains(material)) {
@@ -97,14 +105,6 @@ PipelineState& GraphicsManager::GetPipelineState(const resource::Material* mater
         m_Pipelines.emplace(material, std::move(pipeline));
     }
     return m_Pipelines.at(material);
-}
-
-resource::Texture& GraphicsManager::GetBackBuffer() noexcept {
-    return m_FrameBuffers[(m_CurrBackBuffer + 1) % sm_SwapChianSize];
-}
-
-RenderGraph* GraphicsManager::GetRenderGraph() const noexcept {
-    return m_RenderGraphs[(m_CurrBackBuffer + 1) % sm_SwapChianSize].get();
 }
 
 void GraphicsManager::OnSizeChanged() {

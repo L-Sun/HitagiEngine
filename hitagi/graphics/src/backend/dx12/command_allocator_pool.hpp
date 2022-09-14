@@ -16,6 +16,7 @@ public:
     inline bool             Size() const noexcept { return m_AllocatorPool.size(); }
 
 private:
+    std::mutex                                                       m_Mutex;
     ID3D12Device*                                                    m_Device = nullptr;
     D3D12_COMMAND_LIST_TYPE                                          m_Type;
     std::pmr::vector<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>> m_AllocatorPool;

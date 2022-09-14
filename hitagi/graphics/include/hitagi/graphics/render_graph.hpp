@@ -22,16 +22,16 @@ public:
 
     public:
         ResourceHandle Create(std::string_view name, ResourceType res) const noexcept {
-            return m_Node.Write(m_Fg, m_Fg.CreateResource(name, std::move(res)));
+            return m_Node->Write(m_Fg, m_Fg.CreateResource(name, std::move(res)));
         }
 
-        ResourceHandle Read(const ResourceHandle input) const noexcept { return m_Node.Read(input); }
-        ResourceHandle Write(const ResourceHandle output) const noexcept { return m_Node.Write(m_Fg, output); }
+        ResourceHandle Read(const ResourceHandle input) const noexcept { return m_Node->Read(input); }
+        ResourceHandle Write(const ResourceHandle output) const noexcept { return m_Node->Write(m_Fg, output); }
 
     private:
-        Builder(RenderGraph& fg, PassNode& node) : m_Fg(fg), m_Node(node) {}
+        Builder(RenderGraph& fg, PassNode* node) : m_Fg(fg), m_Node(node) {}
         RenderGraph& m_Fg;
-        PassNode&    m_Node;
+        PassNode*    m_Node;
     };
 
     class ResourceHelper {
@@ -40,16 +40,18 @@ public:
     public:
         template <typename T>
         T& Get(ResourceHandle handle) const {
-            assert((m_Node.reads.contains(handle) || m_Node.writes.contains(handle)) && "This pass node do not operate the handle in graph!");
+            if (!(m_Node->reads.contains(handle) || m_Node->writes.contains(handle))) {
+                throw std::logic_error(fmt::format("This pass node do not operate the handle{} in graph", handle));
+            }
             auto result = m_Fg.m_ResourceNodes[handle].resource;
             assert(result != nullptr && "Access a invalid resource in excution phase, which may be pruned in compile phase!");
             return *static_cast<T*>(result);
         }
 
     private:
-        ResourceHelper(RenderGraph& fg, PassNode& node) : m_Fg(fg), m_Node(node) {}
+        ResourceHelper(RenderGraph& fg, PassNode* node) : m_Fg(fg), m_Node(node) {}
         RenderGraph& m_Fg;
-        PassNode&    m_Node;
+        PassNode*    m_Node;
     };
 
     RenderGraph(DeviceAPI& device) : m_Device(device) {}
@@ -78,33 +80,34 @@ private:
     DeviceAPI&    m_Device;
     std::uint64_t m_LastFence = 0;
 
-    tf::Taskflow m_Taskflow;
     tf::Executor m_Executor;
 
-    std::pmr::vector<ResourceNode> m_ResourceNodes;
-    std::pmr::list<PassNode>       m_PassNodes;
-    PassNode                       m_PresentPassNode;
+    std::pmr::vector<ResourceNode>              m_ResourceNodes;
+    std::pmr::vector<std::shared_ptr<PassNode>> m_PassNodes;
+    std::shared_ptr<PassNode>                   m_PresentPassNode = nullptr;
 
     std::pmr::vector<resource::Resource*> m_Resources;  // All the resource including inner and black board
     std::pmr::vector<ResourceType>        m_InnerResources;
     std::pmr::vector<resource::Resource*> m_BlackBoard;
+
+    std::pmr::vector<std::pair<const PassNode*, std::shared_ptr<IGraphicsCommandContext>>> m_CommitQueue;
 };
 
 template <typename PassData>
 const PassData& RenderGraph::AddPass(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData> executor) {
     // Transfer ownership to pass node
-    PassNode& node = m_PassNodes.emplace_back(PassNode{
-        .name = std::pmr::string(name),
-        .data = core::Buffer(sizeof(PassData)),
-    });
-    node.executor  = [exec = std::move(executor), &node, this](IGraphicsCommandContext* context) {
-        ResourceHelper helper(*this, node);
-        exec(helper, node.GetData<PassData>(), context);
+    auto node = std::make_shared<PassNodeWithData<PassData>>();
+    m_PassNodes.emplace_back(node);
+
+    node->name     = name;
+    node->executor = [exec = std::move(executor), _node = node.get(), this](IGraphicsCommandContext* context) {
+        ResourceHelper helper(*this, _node);
+        exec(helper, _node->data, context);
     };
 
-    Builder builder(*this, node);
-    setup(builder, node.GetData<PassData>());
-    return node.GetData<PassData>();
+    Builder builder(*this, node.get());
+    setup(builder, node->data);
+    return node->data;
 }
 
 }  // namespace hitagi::gfx

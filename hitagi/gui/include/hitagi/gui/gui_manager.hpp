@@ -25,8 +25,8 @@ public:
     }
 
     struct GuiRenderPass {
-        gfx::ResourceHandle font_texture;
-        gfx::ResourceHandle output;
+        std::pmr::vector<gfx::ResourceHandle> textures;
+        gfx::ResourceHandle                   output;
     };
     GuiRenderPass Render(gfx::RenderGraph* render_graph, gfx::ResourceHandle output);
 

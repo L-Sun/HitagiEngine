@@ -40,13 +40,14 @@ Frame::Frame(DeviceAPI& device, std::size_t frame_index)
     m_Device.InitRenderTargetFromSwapChain(m_Output, frame_index);
 
     m_DepthBuffer = resource::Texture{
-        .bind_flags = resource::Texture::BindFlag::DepthBuffer,
-        .format     = Format::D32_FLOAT,
-        .width      = m_Output.width,
-        .height     = m_Output.height,
+        .bind_flags  = resource::Texture::BindFlag::DepthBuffer,
+        .format      = Format::D32_FLOAT,
+        .width       = m_Output.width,
+        .height      = m_Output.height,
+        .clear_value = Texture::DepthStencil{
+            .depth   = 1.0f,
+            .stencil = 0},
     };
-    m_DepthBuffer.clear_value.depth_stencil.depth   = 1.0f;
-    m_DepthBuffer.clear_value.depth_stencil.stencil = 0;
 
     m_Device.InitTexture(m_DepthBuffer);
 
@@ -71,13 +72,15 @@ void Frame::DrawScene(const resource::Scene& scene, const std::shared_ptr<resour
         context->ClearRenderTarget(*render_texture);
         m_TempResources.emplace_back(render_texture);
 
-        p_depth_buffer                                    = std::make_shared<resource::Texture>();
-        p_depth_buffer->bind_flags                        = resource::Texture::BindFlag::DepthBuffer,
-        p_depth_buffer->format                            = Format::D32_FLOAT,
-        p_depth_buffer->width                             = render_texture->width,
-        p_depth_buffer->height                            = render_texture->height,
-        p_depth_buffer->clear_value.depth_stencil.depth   = 1.0f;
-        p_depth_buffer->clear_value.depth_stencil.stencil = 0;
+        p_depth_buffer              = std::make_shared<resource::Texture>();
+        p_depth_buffer->bind_flags  = resource::Texture::BindFlag::DepthBuffer,
+        p_depth_buffer->format      = Format::D32_FLOAT,
+        p_depth_buffer->width       = render_texture->width,
+        p_depth_buffer->height      = render_texture->height,
+        p_depth_buffer->clear_value = Texture::DepthStencil{
+            .depth   = 1.0f,
+            .stencil = 0,
+        };
         m_Device.InitTexture(*p_depth_buffer);
 
         context->ClearDepthBuffer(*p_depth_buffer);

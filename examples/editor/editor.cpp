@@ -54,7 +54,6 @@ void Editor::Render() {
         },
         [=](gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::IGraphicsCommandContext* context) {
             context->ClearRenderTarget(helper.Get<resource::Texture>(data.back_buffer));
-            context->Finish();
         });
 
     auto gui_pass = gui_manager->Render(render_graph, clear_pass.back_buffer);

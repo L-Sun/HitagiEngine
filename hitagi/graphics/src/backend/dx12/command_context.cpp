@@ -116,7 +116,7 @@ void GraphicsCommandContext::ClearRenderTarget(const resource::Texture& render_t
 
     TransitionResource(*rt, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
     m_CommandList->ClearRenderTargetView(rt->GetRTV().handle,
-                                         render_target.clear_value.color,
+                                         std::get<math::vec4f>(render_target.clear_value),
                                          0,
                                          nullptr);
 }
@@ -135,11 +135,12 @@ void GraphicsCommandContext::ClearDepthBuffer(const resource::Texture& depth_buf
     assert(db->GetDSV());
 
     TransitionResource(*db, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
+    auto& depth_stencil = std::get<resource::Texture::DepthStencil>(depth_buffer.clear_value);
     m_CommandList->ClearDepthStencilView(
         db->GetDSV().handle,
         D3D12_CLEAR_FLAG_DEPTH,
-        depth_buffer.clear_value.depth_stencil.depth,
-        depth_buffer.clear_value.depth_stencil.stencil,
+        depth_stencil.depth,
+        depth_stencil.stencil,
         0,
         nullptr);
 }
