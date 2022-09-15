@@ -1,6 +1,7 @@
 #include "backend/dx12/dx12_device.hpp"
 
 #include <hitagi/core/memory_manager.hpp>
+#include <hitagi/core/thread_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/application.hpp>
 
@@ -74,7 +75,6 @@ void GraphicsManager::Tick() {
 
     m_Device->Present();
     m_CurrBackBuffer = (m_CurrBackBuffer + 1) % sm_SwapChianSize;
-
     if (app->WindowSizeChanged()) {
         OnSizeChanged();
     }

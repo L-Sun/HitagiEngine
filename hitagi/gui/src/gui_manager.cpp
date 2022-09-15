@@ -73,12 +73,6 @@ void GuiManager::Tick() {
         // Update delta time
         io.DeltaTime = m_Clock.DeltaTime().count();
     }
-    ImGui::NewFrame();
-
-    while (!m_GuiDrawTasks.empty()) {
-        m_GuiDrawTasks.front()();
-        m_GuiDrawTasks.pop();
-    }
 
     m_Clock.Tick();
 }
@@ -274,11 +268,17 @@ void GuiManager::UpdateMeshData() {
 }
 
 auto GuiManager::Render(gfx::RenderGraph* render_graph, gfx::ResourceHandle output) -> GuiRenderPass {
-    auto font_texture = render_graph->Import(m_FontTexture.get());
+    auto font_texture = graphics_manager->GetRenderGraph()->Import(m_FontTexture.get());
 
     auto& io = ImGui::GetIO();
     io.Fonts->SetTexID((void*)font_texture);
 
+    ImGui::NewFrame();
+
+    while (!m_GuiDrawTasks.empty()) {
+        m_GuiDrawTasks.front()();
+        m_GuiDrawTasks.pop();
+    }
     ImGui::Render();
     UpdateMeshData();
 
@@ -319,10 +319,11 @@ auto GuiManager::Render(gfx::RenderGraph* render_graph, gfx::ResourceHandle outp
             }
             context->BindDynamicIndexBuffer(*m_DrawData.mesh_data.indices);
 
-            for (std::size_t i = 0; i < m_DrawData.mesh_data.sub_meshes.size(); i++) {
-                const auto& sub_mesh = m_DrawData.mesh_data.sub_meshes.at(i);
-                const auto& scissor  = m_DrawData.scissor_rects.at(i);
-                const auto& texture  = helper.Get<Texture>(m_DrawData.textures.at(i));
+            const std::size_t num_sub_meshes = m_DrawData.mesh_data.sub_meshes.size();
+            for (std::size_t i = 0; i < num_sub_meshes; i++) {
+                const auto& sub_mesh = m_DrawData.mesh_data.sub_meshes[i];
+                const auto& scissor  = m_DrawData.scissor_rects[i];
+                const auto& texture  = helper.Get<Texture>(m_DrawData.textures[i]);
 
                 context->SetScissorRect(scissor.x, scissor.y, scissor.z, scissor.w);
                 context->BindResource(0, texture);

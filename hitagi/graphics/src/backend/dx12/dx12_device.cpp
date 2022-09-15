@@ -200,7 +200,7 @@ void DX12Device::RetireResource(std::unique_ptr<backend::Resource> resource) {
 }
 
 std::shared_ptr<IGraphicsCommandContext> DX12Device::CreateGraphicsCommandContext(std::string_view name) {
-    return std::make_unique<GraphicsCommandContext>(name, this);
+    return std::make_shared<GraphicsCommandContext>(name, this);
 }
 
 void DX12Device::CompileShader(const std::shared_ptr<resource::Shader>& shader) {

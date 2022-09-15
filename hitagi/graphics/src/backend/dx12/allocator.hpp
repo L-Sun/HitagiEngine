@@ -79,9 +79,8 @@ class LinearAllocator {
 
 public:
     LinearAllocator(DX12Device* device, AllocationPageType type, FenceChecker&& fence_checker)
-        : m_Device(device), m_Type(type) {
-        sm_PageManager[static_cast<size_t>(m_Type)].UpdateAvailablePages(
-            std::forward<FenceChecker>(fence_checker));
+        : m_Device(device), m_Type(type), m_FenceChecker(std::move(fence_checker)) {
+        sm_PageManager[static_cast<size_t>(m_Type)].UpdateAvailablePages(std::forward<FenceChecker>(m_FenceChecker));
     }
     LinearAllocator(const LinearAllocator&)            = delete;
     LinearAllocator& operator=(const LinearAllocator&) = delete;
@@ -113,10 +112,12 @@ private:
         LinearAllocationPage(LinearAllocationPage&&)            = default;
         LinearAllocationPage& operator=(LinearAllocationPage&&) = default;
 
-        void DiscardAllocation(Allocation&) final { m_allocation_count--; }
+        void DiscardAllocation(Allocation&) final {
+            if (m_allocation_count != 0)
+                m_allocation_count--;
+        }
 
-        std::size_t GetFreeSize() const noexcept { return m_Size - m_Offset; }
-        bool        IsPageFree() const noexcept final { return m_allocation_count == 0; }
+        bool IsPageFree() const noexcept final { return m_allocation_count == 0; }
 
         std::size_t m_Offset           = 0;
         std::size_t m_allocation_count = 0;
@@ -165,6 +166,7 @@ private:
     std::shared_ptr<LinearAllocationPage>                   m_CurrPage = nullptr;
     std::pmr::vector<std::shared_ptr<LinearAllocationPage>> m_Pages;
     std::pmr::vector<std::shared_ptr<LinearAllocationPage>> m_LargePages;
+    FenceChecker                                            m_FenceChecker;
 };
 
 }  // namespace hitagi::gfx::backend::DX12

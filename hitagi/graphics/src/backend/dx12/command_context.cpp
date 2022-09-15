@@ -85,7 +85,6 @@ std::uint64_t CommandContext::Finish(bool wait_for_complete) {
     m_CommandAllocator = nullptr;
 
     m_ResourceBinder.Reset(fence_value);
-    m_CurrentDescriptorHeaps = {};
 
     if (wait_for_complete) m_Device->GetCmdMgr().WaitForFence(fence_value);
 
@@ -93,10 +92,18 @@ std::uint64_t CommandContext::Finish(bool wait_for_complete) {
 }
 
 void CommandContext::Reset() {
-    // We only call Reset() on previously freed contexts.  The command list persists, but we must
-    // request a new allocator.
-    assert(m_CommandList != nullptr && m_CommandAllocator == nullptr);
-    m_CommandAllocator = m_Device->GetCmdMgr().GetQueue(m_Type).RequestAllocator();
+    CommandQueue& queue = m_Device->GetCmdMgr().GetQueue(m_Type);
+
+    if (m_CommandAllocator != nullptr) {
+        ThrowIfFailed(m_CommandList->Close());
+        queue.DiscardAllocator(queue.GetLastCompletedFenceValue(), m_CommandAllocator);
+        m_CommandAllocator = nullptr;
+    }
+    m_CurrentDescriptorHeaps = {nullptr, nullptr};
+    m_CurrentPipeline        = nullptr;
+    m_CurrRootSignature      = nullptr;
+
+    m_CommandAllocator = queue.RequestAllocator();
     m_CommandList->Reset(m_CommandAllocator, nullptr);
 
     m_NumBarriersToFlush = 0;

@@ -56,8 +56,6 @@ public:
 
     RenderGraph(DeviceAPI& device) : m_Device(device) {}
 
-    ~RenderGraph() { Reset(); }
-
     template <typename PassData>
     using SetupFunc = std::function<void(Builder&, PassData&)>;
     template <typename PassData>
@@ -90,7 +88,8 @@ private:
     std::pmr::vector<ResourceType>        m_InnerResources;
     std::pmr::vector<resource::Resource*> m_BlackBoard;
 
-    std::pmr::vector<std::pair<const PassNode*, std::shared_ptr<IGraphicsCommandContext>>> m_CommitQueue;
+    std::pmr::vector<const PassNode*>                          m_ExecuteQueue;
+    std::pmr::vector<std::shared_ptr<IGraphicsCommandContext>> m_CommandContexPool;
 };
 
 template <typename PassData>

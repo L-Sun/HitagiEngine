@@ -45,9 +45,10 @@ Allocation LinearAllocator::Allocate(std::size_t size, std::size_t alignment) {
         m_CurrPage = m_Pages.emplace_back(mgr.RequesetPage(m_Device));
     }
 
-    m_CurrPage->m_Offset = utils::align(m_CurrPage->m_Offset, alignment);
+    std::size_t aligned_offset     = utils::align(m_CurrPage->m_Offset, alignment);
+    std::size_t remaining_capacity = aligned_offset > m_CurrPage->m_Size ? 0 : m_CurrPage->m_Size - aligned_offset;
 
-    if (aligned_size > m_CurrPage->GetFreeSize())
+    if (aligned_size > remaining_capacity)
         m_CurrPage = m_Pages.emplace_back(mgr.RequesetPage(m_Device));
 
     std::size_t               offset  = m_CurrPage->m_Offset;
@@ -61,7 +62,6 @@ Allocation LinearAllocator::Allocate(std::size_t size, std::size_t alignment) {
 }
 
 void LinearAllocator::SetFence(FenceValue fence) noexcept {
-    // no allocation occur, just return.
     auto& mgr = sm_PageManager[static_cast<std::size_t>(m_Type)];
     for (auto&& page : m_Pages)
         mgr.DiscardPage(std::move(page), fence);
@@ -70,6 +70,8 @@ void LinearAllocator::SetFence(FenceValue fence) noexcept {
     for (auto&& page : m_LargePages)
         mgr.DiscardLargePage(std::move(page), fence);
     m_LargePages.clear();
+
+    mgr.UpdateAvailablePages(std::forward<FenceChecker>(m_FenceChecker));
 }
 
 std::shared_ptr<LinearAllocator::LinearAllocationPage> LinearAllocator::PageManager::CreateNewPage(DX12Device* device, AllocationPageType type, std::size_t size) {
@@ -116,7 +118,7 @@ void LinearAllocator::PageManager::UpdateAvailablePages(std::function<bool(Fence
 
     for (auto iter = m_LargePages.begin(); iter != m_LargePages.end();) {
         auto&& [page, fence] = *iter;
-        if (fence_checker(fence)) {
+        if (fence_checker(fence) && page->m_allocation_count == 0) {
             iter = m_LargePages.erase(iter);
         } else {
             iter++;
@@ -128,7 +130,8 @@ std::shared_ptr<LinearAllocator::LinearAllocationPage> LinearAllocator::PageMana
     {
         std::lock_guard lock(m_Mutex);
         if (!m_AvailablePages.empty()) {
-            auto page = std::move(m_AvailablePages.front());
+            auto page      = std::move(m_AvailablePages.front());
+            page->m_Offset = 0;
             m_AvailablePages.pop();
             return page;
         }

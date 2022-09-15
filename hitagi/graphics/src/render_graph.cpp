@@ -85,14 +85,19 @@ bool RenderGraph::Compile() {
         if (task_map.contains(node))
             return task_map.at(node);
 
-        auto context = m_CommitQueue.emplace_back(node, m_Device.CreateGraphicsCommandContext(node->name)).second.get();
-        auto task    = taskflow.emplace([=]() { node->executor(context); }).name(std::string(node->name));
+        std::size_t index = m_ExecuteQueue.size();
+        m_ExecuteQueue.emplace_back(node);
+        if (m_ExecuteQueue.size() > m_CommandContexPool.size()) {
+            m_CommandContexPool.emplace_back(m_Device.CreateGraphicsCommandContext());
+        }
+        auto context = m_CommandContexPool[index].get();
+
+        auto task = taskflow.emplace([=]() { node->executor(context); }).name(std::string(node->name));
         task_map.emplace(node, task);
 
         for (auto read_res : node->reads) {
             if (auto writer = m_ResourceNodes.at(read_res).writer; writer != nullptr) {
-                auto pre_task = create_task(writer);
-                task.succeed(pre_task);
+                task.succeed(create_task(writer));
             }
         }
 
@@ -106,16 +111,18 @@ bool RenderGraph::Compile() {
 }
 
 void RenderGraph::Execute() {
-    // Since we build the taskflow from bottom to top, we need commit all command context from the end of commit queue
-    for (auto iter = m_CommitQueue.rbegin(); iter != m_CommitQueue.rend(); iter++) {
-        auto&& [pass, context] = *iter;
+    assert(m_ExecuteQueue.size() <= m_CommandContexPool.size());
 
-        m_LastFence = context->Finish();
-        for (auto read_res : pass->reads) {
+    // Since we build the taskflow from bottom to top, we need commit all command context from the end of commit queue
+    for (int index = m_ExecuteQueue.size() - 1; index >= 0; index--) {
+        m_LastFence = m_CommandContexPool[index]->Finish();
+
+        auto pass_node = m_ExecuteQueue[index];
+        for (auto read_res : pass_node->reads) {
             auto res = m_ResourceNodes.at(read_res).resource;
             if (res->gpu_resource) res->gpu_resource->fence_value = m_LastFence;
         }
-        for (auto writes_res : pass->writes) {
+        for (auto writes_res : pass_node->writes) {
             auto res = m_ResourceNodes.at(writes_res).resource;
             if (res->gpu_resource) res->gpu_resource->fence_value = m_LastFence;
         }
@@ -140,7 +147,10 @@ void RenderGraph::Reset() {
     m_Resources.clear();
     m_InnerResources.clear();
     m_BlackBoard.clear();
-    m_CommitQueue.clear();
+    m_ExecuteQueue.clear();
+    for (auto& context : m_CommandContexPool) {
+        context->Reset();
+    }
 }
 
 }  // namespace hitagi::gfx

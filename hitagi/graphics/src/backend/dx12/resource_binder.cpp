@@ -33,11 +33,15 @@ void ResourceBinder::Reset(FenceValue fence_value) {
     std::lock_guard lock{sm_Mutex};
 
     for (std::size_t heap_index = 0; heap_index < 2; heap_index++) {
-        if (m_CurrentDescriptorHeaps[heap_index] != nullptr)
+        if (m_CurrentDescriptorHeaps[heap_index] != nullptr) {
             sm_RetiredDescriptorHeaps[heap_index].push({m_CurrentDescriptorHeaps[heap_index], fence_value});
+        }
+        m_CurrentDescriptorHeaps.fill(nullptr);
 
-        for (auto heap : m_RetiredDescriptorHeaps[heap_index])
+        for (auto heap : m_RetiredDescriptorHeaps[heap_index]) {
             sm_RetiredDescriptorHeaps[heap_index].push({heap, fence_value});
+        }
+        m_RetiredDescriptorHeaps[heap_index].clear();
 
         m_CurrentCPUDescriptorHandles[heap_index] = D3D12_DEFAULT;
         m_CurrentGPUDescriptorHandles[heap_index] = D3D12_DEFAULT;
@@ -307,10 +311,10 @@ void ResourceBinder::CommitStagedDescriptors() {
             m_CurrentGPUDescriptorHandles[heap_index] = m_CurrentDescriptorHeaps[heap_index]->GetGPUDescriptorHandleForHeapStart();
             m_NumFreeHandles[heap_index]              = sm_heap_size;
 
-            m_Context.SetDescriptorHeap(heap_type, m_CurrentDescriptorHeaps[heap_index]);
             // We need to update whole new descriptor heap
             m_RootTableDirty = m_RootTableMask;
         }
+        m_Context.SetDescriptorHeap(heap_type, m_CurrentDescriptorHeaps[heap_index]);
 
         // calcuate continous range
         std::size_t                                                     num_src_descriptor_ranges = 0;
