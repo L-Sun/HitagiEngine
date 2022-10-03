@@ -52,7 +52,7 @@ void SceneViewPort::Tick() {
                                 .clear_value = math::vec4f(0.2, 0.4, 0.2, 1.0),
                             });
                     },
-                    [=](RenderGraph::ResourceHelper& helper, const SceneViewPortPass& data, IGraphicsCommandContext* context) {
+                    [=](const RenderGraph::ResourceHelper& helper, const SceneViewPortPass& data, IGraphicsCommandContext* context) {
                         context->ClearRenderTarget(helper.Get<Texture>(data.scene_output));
                     });
 

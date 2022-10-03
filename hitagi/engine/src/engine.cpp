@@ -3,7 +3,6 @@
 #include <hitagi/application.hpp>
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
-#include <hitagi/hid/input_manager.hpp>
 #include <hitagi/graphics/graphics_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
@@ -31,7 +30,6 @@ bool Engine::Initialize() {
         || !(config_manager   = add_inner_module(std::make_unique<core::ConfigManager>()))      
         || !(asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>()))   
         || !(app              = add_inner_module(Application::CreateApp()))                     
-        || !(input_manager    = add_inner_module(std::make_unique<hid::InputManager>()))        
         || !(graphics_manager = add_inner_module(std::make_unique<gfx::GraphicsManager>()))
         || !(scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>()))   
         || !(debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>()))   

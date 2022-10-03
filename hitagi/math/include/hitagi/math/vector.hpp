@@ -122,7 +122,7 @@ struct Vector : public BaseVector<T, D> {
     Vector& operator=(const Vector&)     = default;
     Vector& operator=(Vector&&) noexcept = default;
 
-    constexpr explicit Vector(const T& num) : BaseVector<T, D>(utils::create_array<T, D>(num)) {}
+    constexpr explicit Vector(T&& num) : BaseVector<T, D>(utils::create_array<T, D>(std::forward<T>(num))) {}
 
     Vector(const Vector<T, D - 1>& v, const T& num) {
         std::copy_n(v.data.begin(), D - 1, data.begin());

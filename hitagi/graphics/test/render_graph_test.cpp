@@ -112,7 +112,7 @@ TEST_F(RenderGraphTest, GraphBuild) {
                 });
             data.output = builder.Write(data.texture);
         },
-        [](RenderGraph::ResourceHelper& helper, const ColorPass& data, IGraphicsCommandContext* context) {
+        [](const RenderGraph::ResourceHelper& helper, const ColorPass& data, IGraphicsCommandContext* context) {
             EXPECT_EQ(data.output, 1);
         });
 

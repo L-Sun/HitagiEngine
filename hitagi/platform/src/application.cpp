@@ -1,5 +1,6 @@
 #include <hitagi/application.hpp>
 #include <hitagi/core/config_manager.hpp>
+#include <hitagi/hid/input_manager.hpp>
 
 #ifdef WIN32
 #include "windows/win32_application.hpp"
@@ -13,9 +14,10 @@ Application* app = nullptr;
 
 // Parse command line, read configuration, initialize all sub modules
 bool Application::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("Application");
-
-    m_Logger->info("Initialize Application");
+    if (!input_manager) {
+        input_manager = static_cast<decltype(input_manager)>(LoadModule(std::make_unique<hid::InputManager>()));
+    }
+    RuntimeModule::Initialize();
     m_Clock.Start();
 
     // Windows
@@ -24,14 +26,9 @@ bool Application::Initialize() {
     return true;
 }
 
-// Finalize all sub modules and clean up all runtime temporary files.
-void Application::Finalize() {
-    m_Logger->info("Finalized.");
-    m_Logger = nullptr;
-}
-
 void Application::Tick() {
     m_Clock.Tick();
+    RuntimeModule::Tick();
 }
 
 #ifdef WIN32

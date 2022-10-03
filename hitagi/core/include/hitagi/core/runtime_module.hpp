@@ -10,8 +10,8 @@ class logger;
 namespace hitagi {
 class RuntimeModule {
 public:
-    virtual ~RuntimeModule()  = default;
-    virtual bool Initialize() = 0;
+    virtual ~RuntimeModule() = default;
+    virtual bool Initialize();
     virtual void Finalize();
     virtual void Tick();
 

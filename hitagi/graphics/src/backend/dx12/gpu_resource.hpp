@@ -24,6 +24,5 @@ protected:
     DX12Device*            m_Device;
     ComPtr<ID3D12Resource> m_Resource;
     D3D12_RESOURCE_STATES  m_ResourceState = D3D12_RESOURCE_STATE_COMMON;
-    D3D12_RESOURCE_STATES  m_TransitioningState;
 };
 }  // namespace hitagi::gfx::backend::DX12

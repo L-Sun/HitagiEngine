@@ -52,7 +52,7 @@ void Editor::Render() {
         [&](gfx::RenderGraph::Builder& builder, ClearPass& data) {
             data.back_buffer = builder.Write(back_buffer);
         },
-        [=](gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::IGraphicsCommandContext* context) {
+        [=](const gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::IGraphicsCommandContext* context) {
             context->ClearRenderTarget(helper.Get<resource::Texture>(data.back_buffer));
         });
 
@@ -162,7 +162,7 @@ void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
         auto scene = scene_manager->CurrentScene();
         if (ImGui::CollapsingHeader("Scene Nodes")) {
-            std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](std::shared_ptr<SceneNode> node) -> void {
+            std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](const std::shared_ptr<SceneNode>& node) -> void {
                 if (ImGui::TreeNode(node->name.c_str())) {
                     auto& translation = node->transform.local_translation;
                     auto  orientation = rad2deg(quaternion_to_euler(node->transform.local_rotation));

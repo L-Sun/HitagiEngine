@@ -306,7 +306,7 @@ auto GuiManager::Render(gfx::RenderGraph* render_graph, gfx::ResourceHandle outp
             }
             data.output = builder.Write(output);
         },
-        [=, this](gfx::RenderGraph::ResourceHelper& helper, const GuiRenderPass& data, gfx::IGraphicsCommandContext* context) {
+        [=, this](const gfx::RenderGraph::ResourceHelper& helper, const GuiRenderPass& data, gfx::IGraphicsCommandContext* context) {
             if (m_DrawData.mesh_data.sub_meshes.size() == 0) return;
 
             context->SetPipelineState(m_Pipeline);

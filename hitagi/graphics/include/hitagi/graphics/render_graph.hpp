@@ -59,7 +59,7 @@ public:
     template <typename PassData>
     using SetupFunc = std::function<void(Builder&, PassData&)>;
     template <typename PassData>
-    using ExecFunc = std::function<void(ResourceHelper&, const PassData&, IGraphicsCommandContext* context)>;
+    using ExecFunc = std::function<void(const ResourceHelper&, const PassData&, IGraphicsCommandContext* context)>;
 
     template <typename PassData>
     const PassData& AddPass(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData> executor);
@@ -94,14 +94,13 @@ private:
 
 template <typename PassData>
 const PassData& RenderGraph::AddPass(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData> executor) {
-    // Transfer ownership to pass node
     auto node = std::make_shared<PassNodeWithData<PassData>>();
     m_PassNodes.emplace_back(node);
 
-    node->name     = name;
+    node->name = name;
+    // _node is to void shared_ptr cycle dependency
     node->executor = [exec = std::move(executor), _node = node.get(), this](IGraphicsCommandContext* context) {
-        ResourceHelper helper(*this, _node);
-        exec(helper, _node->data, context);
+        exec(ResourceHelper(*this, _node), _node->data, context);
     };
 
     Builder builder(*this, node.get());

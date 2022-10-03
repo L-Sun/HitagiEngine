@@ -1,6 +1,6 @@
 #pragma once
 #include <hitagi/math/matrix.hpp>
-#include <hitagi/resource/enums.hpp>
+#include <hitagi/utils/utils.hpp>
 
 #include <magic_enum.hpp>
 
@@ -95,3 +95,14 @@ struct RasterizerDescription {
 };
 
 }  // namespace hitagi::gfx
+
+namespace hitagi::utils {
+template <>
+struct utils::enable_bitmask_operators<hitagi::gfx::TextureUsageFlags> {
+    static constexpr bool enable = true;
+};
+template <>
+struct utils::enable_bitmask_operators<hitagi::gfx::ResourceState> {
+    static constexpr bool enable = true;
+};
+}  // namespace hitagi::utils

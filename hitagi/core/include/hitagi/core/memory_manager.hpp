@@ -1,5 +1,6 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
+#include <hitagi/utils/utils.hpp>
 
 #include <list>
 #include <array>
@@ -7,8 +8,6 @@
 #include <cassert>
 #include <type_traits>
 #include <optional>
-
-constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
 namespace hitagi::core {
 class MemoryPool;
