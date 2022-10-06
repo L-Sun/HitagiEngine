@@ -1,5 +1,5 @@
-#include <hitagi/graphics/pass_node.hpp>
-#include <hitagi/graphics/render_graph.hpp>
+#include <hitagi/gfx/pass_node.hpp>
+#include <hitagi/gfx/render_graph.hpp>
 
 namespace hitagi::gfx {
 
@@ -16,7 +16,7 @@ ResourceHandle PassNode::Write(RenderGraph& fg, const ResourceHandle output) {
     ResourceNode& old_node = fg.m_ResourceNodes[output];
     // Create new resource node
     ResourceHandle ret      = fg.m_ResourceNodes.size();
-    auto&          new_node = fg.m_ResourceNodes.emplace_back(old_node.name, old_node.resource);
+    auto&          new_node = fg.m_ResourceNodes.emplace_back(old_node.name, old_node.res_idx);
     new_node.writer         = this;
     new_node.version        = old_node.version + 1;
 

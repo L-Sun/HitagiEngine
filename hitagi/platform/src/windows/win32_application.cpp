@@ -44,7 +44,7 @@ void Win32Application::InitializeWindows() {
     } else {
         title  = L"HitagiEngine";
         width  = 800;
-        height = 600;
+        height = 800;
     }
 
     // Set time period on windows

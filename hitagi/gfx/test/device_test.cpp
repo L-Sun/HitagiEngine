@@ -499,51 +499,37 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
             .vs           = vs_shader,
             .ps           = ps_shader,
             .input_layout = {
-                {"POSITION", 0, 0, 0, Format::R32G32B32_FLOAT},
-                {"COLOR", 0, 1, 0, Format::R32G32B32_FLOAT},
+                // clang-format off
+                {"POSITION", 0, 0,             0, Format::R32G32B32_FLOAT},
+                {   "COLOR", 0, 1, sizeof(vec3f), Format::R32G32B32_FLOAT},
+                // clang-format on
             },
             .rasterizer_config = {
                 .front_counter_clockwise = false,
             },
         });
 
-        float aspect = static_cast<float>(rect.right - rect.left) / static_cast<float>(rect.bottom - rect.top);
+        // clang-format off
+        constexpr std::array<vec3f, 6> triangle = {{
+            /*         pos       */  /*    color     */
+            {-0.25f, -0.25f, 0.00f}, {1.0f, 0.0f, 0.0f},  // point 0
+            { 0.00f,  0.25f, 0.00f}, {0.0f, 1.0f, 0.0f},  // point 1
+            { 0.25f, -0.25f, 0.00f}, {0.0f, 0.0f, 1.0f},  // point 2
+        }};
+        // clang-format on
 
-        std::array triangle_positions = {
-            vec3f(0, 0.5 * aspect, 0),
-            vec3f(0.5, -0.5 * aspect, 0),
-            vec3f(-0.5, -0.5 * aspect, 0),
-        };
-        constexpr std::array triangle_colors = {
-            vec3f(1, 0, 0),
-            vec3f(0, 1, 0),
-            vec3f(0, 0, 1),
-        };
-        auto positions_buffer = device->CreateBufferView(
+        auto vertex_buffer = device->CreateBufferView(
             {
                 .buffer = device->CreateBuffer(
                     {
                         .name = "I know DirectX12 positions buffer",
-                        .size = triangle_positions.size() * sizeof(vec3f),
+                        .size = triangle.size() * sizeof(vec3f),
                     },
-                    {reinterpret_cast<const std::byte*>(triangle_positions.data()), triangle_positions.size() * sizeof(vec3f)}),
-                .size   = triangle_positions.size() * sizeof(vec3f),
-                .stride = sizeof(vec3f),
+                    {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)}),
+                .stride = 2 * sizeof(vec3f),
                 .usages = GpuBufferView::UsageFlags::Vertex,
             });
 
-        auto colors_buffer = device->CreateBufferView(
-            {
-                .buffer = device->CreateBuffer(
-                    {
-                        .name = "I know DirectX12 color buffer",
-                        .size = triangle_colors.size() * sizeof(vec3f),
-                    },
-                    {reinterpret_cast<const std::byte*>(triangle_colors.data()), triangle_colors.size() * sizeof(vec3f)}),
-                .size   = triangle_colors.size() * sizeof(vec3f),
-                .stride = sizeof(vec3f),
-                .usages = GpuBufferView::UsageFlags::Vertex,
-            });
         auto constant_buffer = device->CreateBufferView(
             {
                 .buffer = device->CreateBuffer(
@@ -582,8 +568,8 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
         });
         context->ClearRenderTarget(*rtv);
         context->SetPipeline(*pipeline);
-        context->SetVertexBuffer(0, *positions_buffer);
-        context->SetVertexBuffer(1, *colors_buffer);
+        context->SetVertexBuffer(0, *vertex_buffer);
+        context->SetVertexBuffer(1, *vertex_buffer);
 
         rotation = rotate_z(deg2rad(90.0f));
         context->BindConstantBuffer(0, *constant_buffer);

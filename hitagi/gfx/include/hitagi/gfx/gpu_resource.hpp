@@ -47,7 +47,7 @@ struct GpuBufferView : public Resource {
     struct Desc {
         std::shared_ptr<GpuBuffer> buffer = nullptr;
         std::size_t                offset = 0;
-        std::size_t                size;
+        std::size_t                size   = 0;
         std::size_t                stride;
         UsageFlags                 usages;
     };
@@ -69,7 +69,7 @@ struct Texture : public Resource {
 
     struct Desc {
         std::string_view name       = UNKOWN_NAME;
-        std::uint64_t    width      = 1;
+        std::uint32_t    width      = 1;
         std::uint32_t    height     = 1;
         std::uint16_t    depth      = 1;
         std::uint16_t    array_size = 1;

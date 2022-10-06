@@ -12,7 +12,7 @@ ResourceBinder::ResourceBinder(DX12CommandContext& context)
 
 ResourceBinder::~ResourceBinder() {
     while (!m_UsedHeaps.empty()) {
-        m_Context.m_Device->RetireDynamicDescriptors(std::move(m_UsedHeaps.back()), m_FenceValue);
+        m_Context.m_Device->RetireDynamicDescriptors(std::move(m_UsedHeaps.back()), m_Context.m_FenceValue);
         m_UsedHeaps.pop_back();
     }
 }

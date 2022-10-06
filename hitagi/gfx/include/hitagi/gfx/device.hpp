@@ -3,7 +3,9 @@
 #include <hitagi/gfx/command_queue.hpp>
 #include <hitagi/gfx/gpu_resource.hpp>
 
-#include <spdlog/logger.h>
+namespace spdlog {
+class logger;
+}
 
 namespace hitagi::gfx {
 class Device {

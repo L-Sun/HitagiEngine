@@ -50,14 +50,13 @@ auto DX12CommandQueue::Submit(std::pmr::vector<CommandContext*> contexts) -> std
 
     std::pmr::vector<ID3D12CommandList*> d3d_cmd_lists;
     for (const auto& context : contexts) {
-        auto d3d_context = dynamic_cast<DX12CommandContext*>(context);
-        d3d_context->m_ResourceBinder.SetFenceValue(m_NextFenceValue);
-        d3d_cmd_lists.emplace_back(d3d_context->m_CmdList.Get());
+        context->fence_value = m_NextFenceValue;
+        d3d_cmd_lists.emplace_back(dynamic_cast<DX12CommandContext*>(context)->m_CmdList.Get());
     }
 
     m_Queue->ExecuteCommandLists(d3d_cmd_lists.size(), d3d_cmd_lists.data());
-    m_Queue->Signal(m_Fence.Get(), m_NextFenceValue);
-    return m_NextFenceValue++;
+    // When queue finished all command list, it will set a new fence value `m_NextFenceValue`
+    return InsertFence();
 }
 
 bool DX12CommandQueue::IsFenceComplete(std::uint64_t fence_value) const {
@@ -69,7 +68,7 @@ bool DX12CommandQueue::IsFenceComplete(std::uint64_t fence_value) const {
 
 void DX12CommandQueue::WaitForFence(std::uint64_t fence_value) {
     if (IsFenceComplete(fence_value)) return;
-    m_Fence->SetEventOnCompletion(fence_value, m_FenceHandle);
+    ThrowIfFailed(m_Fence->SetEventOnCompletion(fence_value, m_FenceHandle));
     WaitForSingleObject(m_FenceHandle, INFINITE);
     m_LastCompletedFenceValue = fence_value;
 }
@@ -81,9 +80,12 @@ void DX12CommandQueue::WaitForQueue(const CommandQueue& other) {
 }
 
 void DX12CommandQueue::WaitIdle() {
-    m_Queue->Signal(m_Fence.Get(), m_NextFenceValue);
-    WaitForFence(m_NextFenceValue);
-    m_NextFenceValue++;
+    WaitForFence(m_NextFenceValue - 1);
+}
+
+std::uint64_t DX12CommandQueue::InsertFence() {
+    ThrowIfFailed(m_Queue->Signal(m_Fence.Get(), m_NextFenceValue));
+    return m_NextFenceValue++;
 }
 
 }  // namespace hitagi::gfx

@@ -86,7 +86,6 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
 }
 
 DX12Device::~DX12Device() {
-    WaitIdle();
     UnregisterIntegratedD3D12Logger();
 #ifdef _DEBUG
     ThrowIfFailed(m_Device->QueryInterface(g_debug_interface.ReleaseAndGetAddressOf()));
@@ -214,7 +213,8 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
 
     Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain;
 
-    auto d3d_direct_queue = m_CommandQueues[CommandType::Graphics]->GetD3DCommandQueue();
+    result->associated_queue = m_CommandQueues[CommandType::Graphics].get();
+    auto d3d_direct_queue    = m_CommandQueues[CommandType::Graphics]->GetD3DCommandQueue();
     if (FAILED(m_Factory->CreateSwapChainForHwnd(d3d_direct_queue, h_wnd, &d3d_desc, nullptr, nullptr, &swap_chain))) {
         m_Logger->error("Failed to create swap chain: {}", desc.name);
         return nullptr;
@@ -343,15 +343,11 @@ auto DX12Device::CreateBufferView(GpuBufferView::Desc desc) -> std::shared_ptr<G
         m_Logger->error("Can not create buffer view on nullptr!");
         return nullptr;
     }
-    if (desc.size == 0) {
-        m_Logger->error("The stride(value: {}) of GpuBufferView(name: {}) must be non-zero!",
-                        fmt::styled(desc.size, fmt::fg(fmt::color::red)),
-                        fmt::styled(desc.buffer->desc.name, fmt::fg(fmt::color::green)));
-        return nullptr;
-    }
+
+    if (desc.size == 0) desc.size = desc.buffer->desc.size;
+
     if (desc.stride == 0) {
-        m_Logger->error("The stride(value: {}) of GpuBufferView(name: {}) must be non-zero!",
-                        fmt::styled(desc.stride, fmt::fg(fmt::color::red)),
+        m_Logger->error("The stride of GpuBufferView(name: {}) must be non-zero!",
                         fmt::styled(desc.buffer->desc.name, fmt::fg(fmt::color::green)));
         return nullptr;
     }

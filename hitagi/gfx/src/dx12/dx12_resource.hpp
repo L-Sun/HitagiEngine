@@ -1,5 +1,6 @@
 #pragma once
 #include "descriptor_heap.hpp"
+#include "dx12_command_queue.hpp"
 #include <hitagi/gfx/gpu_resource.hpp>
 
 #include <dxgi1_6.h>
@@ -57,11 +58,13 @@ struct DX12SwapChain : public SwapChain {
     auto        GetBuffer(std::uint8_t index) -> std::shared_ptr<Texture> final;
     inline void Present() final {
         swap_chain->Present(1, 0);
+        associated_queue->InsertFence();
     }
 
     ComPtr<IDXGISwapChain4>                                         swap_chain;
     std::pmr::vector<std::shared_ptr<DX12ResourceWrapper<Texture>>> back_buffers;
     std::pmr::vector<std::pmr::string>                              back_buffer_names;
+    DX12CommandQueue*                                               associated_queue;
 };
 
 }  // namespace hitagi::gfx

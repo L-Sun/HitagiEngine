@@ -31,8 +31,6 @@ public:
 
     // Commit all bind cpu descriptor to gpu
     void FlushDescriptors();
-    // This will invoke when the command context submit to command queue
-    inline void SetFenceValue(std::uint64_t fence_value) noexcept { m_FenceValue = fence_value; }
 
 private:
     constexpr static std::uint8_t sm_MaxRootParameters = 32;
@@ -65,6 +63,5 @@ private:
     std::bitset<sm_MaxRootParameters>             m_TableMask;
 
     std::pmr::vector<Descriptor> m_UsedHeaps;
-    std::uint64_t                m_FenceValue = 0;
 };
 }  // namespace hitagi::gfx

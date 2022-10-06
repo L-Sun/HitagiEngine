@@ -14,7 +14,7 @@ class DX12Device;
 
 class DX12CommandContext {
 public:
-    DX12CommandContext(DX12Device* device, CommandType type, std::string_view name);
+    DX12CommandContext(DX12Device* device, CommandType type, std::string_view name, std::uint64_t& fence_value);
 
     template <typename T>
     void TransitionResource(DX12ResourceWrapper<T>& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate = false);
@@ -32,11 +32,14 @@ protected:
 
     ID3D12PipelineState* m_CurrentPSO = nullptr;
     ResourceBinder       m_ResourceBinder;
+
+    std::uint64_t& m_FenceValue;
 };
 
 class DX12GraphicsCommandContext : public GraphicsCommandContext, public DX12CommandContext {
 public:
     DX12GraphicsCommandContext(DX12Device* device, std::string_view name);
+    void SetName(std::string_view name) final;
 
     void SetViewPort(const ViewPort& view_port) final;
     void SetScissorRect(const Rect& scissor_rect) final;
@@ -66,6 +69,7 @@ public:
 class DX12ComputeCommandContext : public ComputeCommandContext, public DX12CommandContext {
 public:
     DX12ComputeCommandContext(DX12Device* device, std::string_view name);
+    void SetName(std::string_view name) final;
 
     void End() final;
 };
@@ -73,8 +77,10 @@ public:
 class DX12CopyCommandContext : public CopyCommandContext, public DX12CommandContext {
 public:
     DX12CopyCommandContext(DX12Device* device, std::string_view name);
+    void SetName(std::string_view name) final;
 
     void CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) final;
+    void CopyTextureRegion();
     void End() final;
 
     ID3D12GraphicsCommandList5* GetCmdList() const noexcept { return m_CmdList.Get(); }

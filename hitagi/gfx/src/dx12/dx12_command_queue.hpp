@@ -21,6 +21,7 @@ public:
     void WaitIdle() final;
 
     inline ID3D12CommandQueue* GetD3DCommandQueue() const noexcept { return m_Queue.Get(); }
+    std::uint64_t              InsertFence();
 
 private:
     ComPtr<ID3D12CommandQueue>   m_Queue;

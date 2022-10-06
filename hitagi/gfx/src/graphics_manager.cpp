@@ -8,6 +8,7 @@ bool GraphicsManager::Initialize() {
     RuntimeModule::Initialize();
 
     try {
+        // TODO loading config to create other device
         m_Device = Device::Create(Device::Type::DX12);
     } catch (utils::NoImplemented ex) {
         m_Logger->warn("Create device failed! The error message is:");
@@ -16,6 +17,13 @@ bool GraphicsManager::Initialize() {
     }
 
     return true;
+}
+
+void GraphicsManager::Finalize() {
+    m_Device.reset();
+}
+
+void GraphicsManager::Tick() {
 }
 
 }  // namespace hitagi::gfx
