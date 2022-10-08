@@ -4,7 +4,7 @@
 namespace hitagi::gfx {
 struct PassNode;
 
-using ResourceHandle = std::size_t;
+using ResourceHandle = std::int64_t;
 
 struct ResourceNode {
     ResourceNode(std::string_view name, std::size_t res_idx)

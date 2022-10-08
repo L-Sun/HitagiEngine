@@ -538,6 +538,10 @@ auto DX12Device::CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<Te
         m_Logger->error("Can not create texture view on nullptr!");
         return nullptr;
     }
+    if (desc.format == Format::UNKNOWN) {
+        desc.format = desc.textuer->desc.format;
+    }
+
     auto result         = std::make_shared<DX12DescriptorWrapper<TextureView>>(std::move(desc));
     bool create_succeed = false;
 

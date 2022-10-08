@@ -575,7 +575,7 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
         context->BindConstantBuffer(0, *constant_buffer);
 
         context->Draw(3);
-        context->Present(*rtv);
+        context->Present(*rtv->desc.textuer);
 
         context->End();
 

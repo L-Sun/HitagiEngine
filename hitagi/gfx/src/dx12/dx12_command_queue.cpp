@@ -45,6 +45,12 @@ auto DX12CommandQueue::Submit(std::pmr::vector<CommandContext*> contexts) -> std
             "Can not submit {} command to this {} command queue",
             fmt::styled(magic_enum::enum_name((*iter)->type), fmt::fg(fmt::color::red)),
             fmt::styled(magic_enum::enum_name(type), fmt::fg(fmt::color::green)));
+
+        throw std::invalid_argument(fmt::format(
+            "Can not submit {} command to this {} command queue",
+            magic_enum::enum_name((*iter)->type),
+            magic_enum::enum_name(type)));
+
         return 0;
     }
 

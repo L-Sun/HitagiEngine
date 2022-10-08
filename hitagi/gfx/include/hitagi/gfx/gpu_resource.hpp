@@ -87,13 +87,13 @@ struct Texture : public Resource {
 
 struct TextureView : public Resource {
     struct Desc {
-        std::shared_ptr<Texture> textuer = nullptr;
-        Format                   format;
-        bool                     is_cube        = false;
-        std::uint16_t            base_mip_level = 0;
-        std::uint16_t            mip_level_count;
-        std::uint32_t            base_array_layer = 0;
-        std::uint32_t            array_layer_count;
+        std::shared_ptr<Texture> textuer           = nullptr;
+        Format                   format            = Format::UNKNOWN;
+        bool                     is_cube           = false;
+        std::uint16_t            base_mip_level    = 0;
+        std::uint16_t            mip_level_count   = 1;
+        std::uint32_t            base_array_layer  = 0;
+        std::uint32_t            array_layer_count = 1;
     };
 
     TextureView(Desc desc) : desc(std::move(desc)) {}

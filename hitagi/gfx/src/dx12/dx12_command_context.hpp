@@ -17,7 +17,7 @@ public:
     DX12CommandContext(DX12Device* device, CommandType type, std::string_view name, std::uint64_t& fence_value);
 
     template <typename T>
-    void TransitionResource(DX12ResourceWrapper<T>& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate = false);
+    void TransitionResource(T& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate = false);
     void FlushBarriers();
 
 protected:
@@ -40,6 +40,8 @@ class DX12GraphicsCommandContext : public GraphicsCommandContext, public DX12Com
 public:
     DX12GraphicsCommandContext(DX12Device* device, std::string_view name);
     void SetName(std::string_view name) final;
+    void ResetState(GpuBuffer& buffer) final;
+    void ResetState(Texture& texture) final;
 
     void SetViewPort(const ViewPort& view_port) final;
     void SetScissorRect(const Rect& scissor_rect) final;
@@ -61,7 +63,7 @@ public:
     void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;
     void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final;
 
-    void Present(const TextureView& render_target) final;
+    void Present(Texture& back_buffer, std::optional<std::reference_wrapper<Texture>> color = std::nullopt) final;
 
     void End() final;
 };
@@ -70,6 +72,8 @@ class DX12ComputeCommandContext : public ComputeCommandContext, public DX12Comma
 public:
     DX12ComputeCommandContext(DX12Device* device, std::string_view name);
     void SetName(std::string_view name) final;
+    void ResetState(GpuBuffer& buffer) final;
+    void ResetState(Texture& texture) final;
 
     void End() final;
 };
@@ -78,30 +82,33 @@ class DX12CopyCommandContext : public CopyCommandContext, public DX12CommandCont
 public:
     DX12CopyCommandContext(DX12Device* device, std::string_view name);
     void SetName(std::string_view name) final;
+    void ResetState(GpuBuffer& buffer) final;
+    void ResetState(Texture& texture) final;
 
     void CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) final;
-    void CopyTextureRegion();
+    void CopyTexture(const Texture& src, const Texture& dest) final;
     void End() final;
 
     ID3D12GraphicsCommandList5* GetCmdList() const noexcept { return m_CmdList.Get(); }
 };
 
 template <typename T>
-void DX12CommandContext::TransitionResource(DX12ResourceWrapper<T>& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate) {
-    if (resource.state != new_state) {
+void DX12CommandContext::TransitionResource(T& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate) {
+    auto& d3d_res = static_cast<DX12ResourceWrapper<T>&>(resource);
+    if (d3d_res.state != new_state) {
         m_Barriers.emplace_back(D3D12_RESOURCE_BARRIER{
             .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
             // TODO use split barrier for more paralle performence
             .Flags      = D3D12_RESOURCE_BARRIER_FLAG_NONE,
             .Transition = {
-                .pResource   = resource.resource.Get(),
+                .pResource   = d3d_res.resource.Get(),
                 .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-                .StateBefore = resource.state,
+                .StateBefore = d3d_res.state,
                 .StateAfter  = new_state,
             },
         });
 
-        resource.state = new_state;
+        d3d_res.state = new_state;
     }
     if (flush_immediate || m_Barriers.size() >= 16) FlushBarriers();
 }

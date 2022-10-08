@@ -1,4 +1,5 @@
 #include <hitagi/gfx/render_graph.hpp>
+#include <hitagi/application.hpp>
 #include <hitagi/utils/test.hpp>
 
 using namespace hitagi::gfx;
@@ -11,7 +12,18 @@ public:
 };
 
 TEST_F(RenderGraphTest, RenderPass) {
-    constexpr std::string_view shader_code = R"""(
+    auto app = hitagi::Application::CreateApp();
+    app->Initialize();
+    {
+        auto swap_chain = device->CreateSwapChain(
+            {
+                .name       = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .window_ptr = app->GetWindow(),
+                .format     = Format::R8G8B8A8_UNORM,
+            });
+        auto back_buffer = swap_chain->GetCurrentBackBuffer();
+
+        constexpr std::string_view shader_code = R"""(
             #define RSDEF                                    \
             "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)"  \
 
@@ -38,98 +50,107 @@ TEST_F(RenderGraphTest, RenderPass) {
             }
         )""";
 
-    auto vs_shader = device->CompileShader(
-        {
-            .name        = "I know DirectX12 vertex shader",
-            .type        = Shader::Type::Vertex,
-            .entry       = "VSMain",
-            .source_code = shader_code,
+        auto vs_shader = device->CompileShader(
+            {
+                .name        = "I know DirectX12 vertex shader",
+                .type        = Shader::Type::Vertex,
+                .entry       = "VSMain",
+                .source_code = shader_code,
+            });
+        auto ps_shader = device->CompileShader(
+            {
+                .name        = "I know DirectX12 pixel shader",
+                .type        = Shader::Type::Pixel,
+                .entry       = "PSMain",
+                .source_code = shader_code,
+            });
+        auto pipeline = device->CreateRenderPipeline({
+            .name         = "I know DirectX12 pipeline",
+            .vs           = vs_shader,
+            .ps           = ps_shader,
+            .input_layout = {
+                // clang-format off
+                {"POSITION", 0, 0,             0, Format::R32G32B32_FLOAT},
+                {   "COLOR", 0, 1, sizeof(vec3f), Format::R32G32B32_FLOAT},
+                // clang-format on
+            },
+            .rasterizer_config = {
+                .front_counter_clockwise = false,
+            },
         });
-    auto ps_shader = device->CompileShader(
-        {
-            .name        = "I know DirectX12 pixel shader",
-            .type        = Shader::Type::Pixel,
-            .entry       = "PSMain",
-            .source_code = shader_code,
-        });
-    auto pipeline = device->CreateRenderPipeline({
-        .name         = "I know DirectX12 pipeline",
-        .vs           = vs_shader,
-        .ps           = ps_shader,
-        .input_layout = {
-            {"POSITION", 0, 0, 0, Format::R32G32B32_FLOAT},
-            {"COLOR", 0, 1, 3 * sizeof(float), Format::R32G32B32_FLOAT},
-        },
-        .rasterizer_config = {
-            .front_counter_clockwise = false,
-        },
-    });
-    // clang-format off
-    constexpr std::array<vec3f, 6> triangle = {{
+        // clang-format off
+        constexpr std::array<vec3f, 6> triangle = {{
         /*         pos       */  /*    color     */
         {-0.25f, -0.25f, 0.00f}, {1.0f, 0.0f, 0.0f},  // point 0
         { 0.00f,  0.25f, 0.00f}, {0.0f, 1.0f, 0.0f},  // point 1
         { 0.25f, -0.25f, 0.00f}, {0.0f, 0.0f, 1.0f},  // point 2
-    }};
-    // clang-format on
+        }};
+        // clang-format on
 
-    auto vertex_buffer = device->CreateBufferView(
-        {
-            .buffer = device->CreateBuffer(
-                {
-                    .name = "triangle",
-                    .size = sizeof(vec3f) * triangle.size(),
-                },
-                {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(float)}),
-            .stride = 2 * sizeof(vec3f),
-            .usages = GpuBufferView::UsageFlags::Vertex,
-        });
-
-    RenderGraph rg(*device);
-    struct ColorPass {
-        ResourceHandle output;
-    };
-    auto color_pass = rg.AddPass<ColorPass>(
-        "color",
-        [&](RenderGraph::Builder& builder, ColorPass& data) {
-            data.output = builder.Create(Texture::Desc{
-                .name   = "output",
-                .width  = 300,
-                .height = 300,
-                .format = Format::R8G8B8A8_UNORM,
-                .usages = Texture::UsageFlags::RTV,
+        auto vertex_buffer = device->CreateBufferView(
+            {
+                .buffer = device->CreateBuffer(
+                    {
+                        .name = "triangle",
+                        .size = sizeof(vec3f) * triangle.size(),
+                    },
+                    {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)}),
+                .stride = 2 * sizeof(vec3f),
+                .usages = GpuBufferView::UsageFlags::Vertex,
             });
-        },
-        [=](const RenderGraph::ResourceHelper& helper, const ColorPass& data, GraphicsCommandContext* context) {
-            const auto& render_target = helper.Get<Texture>(data.output);
 
-            auto rtv = device->CreateTextureView(
-                {
-                    .textuer = render_target,
-                    .format  = render_target->desc.format,
+        RenderGraph rg(*device);
+
+        auto output = rg.Import("Output", back_buffer);
+
+        struct ColorPass {
+            ResourceHandle output;
+        };
+        auto color_pass = rg.AddPass<ColorPass>(
+            "color",
+            [&](RenderGraph::Builder& builder, ColorPass& data) {
+                data.output = builder.Create(Texture::Desc{
+                    .name   = "output",
+                    .width  = 300,
+                    .height = 300,
+                    .format = Format::R8G8B8A8_UNORM,
+                    .usages = Texture::UsageFlags::RTV,
                 });
+            },
+            [=](const RenderGraph::ResourceHelper& helper, const ColorPass& data, GraphicsCommandContext* context) {
+                const auto& render_target = helper.Get<Texture>(data.output);
 
-            context->SetPipeline(*pipeline);
-            context->SetRenderTarget(*rtv);
-            context->SetViewPort(ViewPort{
-                .x      = 0,
-                .y      = 0,
-                .width  = static_cast<float>(render_target->desc.width),
-                .height = static_cast<float>(render_target->desc.height),
+                auto rtv = device->CreateTextureView(
+                    {
+                        .textuer = render_target,
+                        .format  = render_target->desc.format,
+                    });
+
+                context->SetPipeline(*pipeline);
+                context->SetRenderTarget(*rtv);
+                context->SetViewPort(ViewPort{
+                    .x      = 0,
+                    .y      = 0,
+                    .width  = static_cast<float>(render_target->desc.width),
+                    .height = static_cast<float>(render_target->desc.height),
+                });
+                context->SetScissorRect(hitagi::gfx::Rect{
+                    .x      = 0,
+                    .y      = 0,
+                    .width  = render_target->desc.width,
+                    .height = render_target->desc.height,
+                });
+                context->SetVertexBuffer(0, *vertex_buffer);
+                context->SetVertexBuffer(1, *vertex_buffer);
+                context->Draw(3);
             });
-            context->SetScissorRect(hitagi::gfx::Rect{
-                .x      = 0,
-                .y      = 0,
-                .width  = render_target->desc.width,
-                .height = render_target->desc.height,
-            });
-            context->SetVertexBuffer(0, *vertex_buffer);
-            context->SetVertexBuffer(1, *vertex_buffer);
-            context->Draw(3);
-        });
-    rg.PresentPass(color_pass.output);
-    EXPECT_TRUE(rg.Compile());
-    rg.Execute();
+        rg.PresentPass(color_pass.output, output);
+        EXPECT_TRUE(rg.Compile());
+        rg.Execute();
+
+        swap_chain->Present();
+    }
+    app->Finalize();
 }
 
 int main(int argc, char** argv) {

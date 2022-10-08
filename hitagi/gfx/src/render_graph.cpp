@@ -5,27 +5,32 @@
 #include <taskflow/taskflow.hpp>
 
 namespace hitagi::gfx {
-void RenderGraph::PresentPass(ResourceHandle tex, Texture* back_buffer) {
+void RenderGraph::PresentPass(ResourceHandle tex, ResourceHandle back_buffer) {
     assert(tex < m_ResourceNodes.size());
 
-    auto present_node  = std::make_shared<PassNodeWithData<CopyCommandContext, void>>();
-    present_node->name = "Present";
-    present_node->Read(tex);
-    present_node->executor = [&, tex, back_buffer](CopyCommandContext* context) {
-        auto texture = std::static_pointer_cast<Texture>(m_Resources[m_ResourceNodes.at(tex).res_idx]);
-        // if (back_buffer) {
-        //     context->CopyTextureRegion(
-        //         *texture,
-        //         {0, 0, 0, texture->width, texture->height, 1},
-        //         *back_buffer,
-        //         {0, 0, 0});
-        //     context->Present(*back_buffer);
-        // } else {
-        //     context->Present(*static_cast<Texture*>(m_ResourceNodes.at(tex).resource));
-        // }
+    auto present_pass  = std::make_shared<PassNodeWithData<GraphicsCommandContext, ResourceHandle>>();
+    present_pass->name = "PresentPass";
+
+    struct PresentPassData {
+        ResourceHandle color = -1;
+        ResourceHandle output;
+    } data;
+
+    data.output = present_pass->Write(*this, back_buffer);
+
+    if (back_buffer != -1) {
+        data.color = present_pass->Read(tex);
+    }
+
+    present_pass->executor = [data, helper = ResourceHelper(*this, present_pass.get())](GraphicsCommandContext* context) {
+        if (data.color == -1) {
+            context->Present(*helper.Get<Texture>(data.output));
+        } else {
+            context->Present(*helper.Get<Texture>(data.output), *helper.Get<Texture>(data.color));
+        }
     };
 
-    m_PresentPassNode = present_node;
+    m_PresentPassNode = present_pass;
 }
 
 auto RenderGraph::Import(std::string_view name, std::shared_ptr<Resource> res) -> ResourceHandle {
@@ -74,8 +79,18 @@ auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {
 auto RenderGraph::RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext> {
     std::shared_ptr<CommandContext> context = nullptr;
     if (m_ContextPool[type].empty() ||
-        !m_Device.GetCommandQueue(CommandType::Graphics)->IsFenceComplete(m_ContextPool[type].front()->fence_value)) {
-        context = m_Device.CreateGraphicsContext();
+        !m_Device.GetCommandQueue(type)->IsFenceComplete(m_ContextPool[type].front()->fence_value)) {
+        switch (type) {
+            case CommandType::Graphics:
+                context = m_Device.CreateGraphicsContext();
+                break;
+            case CommandType::Compute:
+                context = m_Device.CreateComputeContext();
+                break;
+            case CommandType::Copy:
+                context = m_Device.CreateCopyContext();
+                break;
+        }
     } else {
         context = std::move(m_ContextPool[type].front());
         m_ContextPool[type].pop_front();

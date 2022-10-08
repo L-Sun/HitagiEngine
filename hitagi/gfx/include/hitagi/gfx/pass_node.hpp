@@ -27,21 +27,23 @@ struct PassNode {
 
 template <typename Context, typename PassData>
 struct PassNodeWithData : public PassNode {
+    PassNodeWithData() {
+        if constexpr (std::is_same_v<Context, GraphicsCommandContext>) {
+            type = CommandType::Graphics;
+        }
+        if constexpr (std::is_same_v<Context, ComputeCommandContext>) {
+            type = CommandType::Compute;
+        }
+        if constexpr (std::is_same_v<Context, CopyCommandContext>) {
+            type = CommandType::Copy;
+        }
+    }
     void Execute() final {
         executor(std::static_pointer_cast<Context>(context).get());
     }
 
     std::function<void(Context*)> executor;
     PassData                      data = {};
-};
-
-template <typename Context>
-struct PassNodeWithData<Context, void> : public PassNode {
-    void Execute() final {
-        executor(std::static_pointer_cast<Context>(context).get());
-    }
-
-    std::function<void(Context*)> executor;
 };
 
 }  // namespace hitagi::gfx

@@ -70,7 +70,8 @@ public:
     auto AddPass(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData, CopyCommandContext> executor) -> const PassData&;
 
     auto Import(std::string_view name, std::shared_ptr<Resource> res) -> ResourceHandle;
-    void PresentPass(ResourceHandle texture, Texture* back_buffer = nullptr);
+
+    void PresentPass(ResourceHandle color, ResourceHandle back_buffer = -1);
 
     bool Compile();
     void Execute();

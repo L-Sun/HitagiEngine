@@ -18,7 +18,10 @@ class CommandContext {
 public:
     virtual ~CommandContext()                   = default;
     virtual void SetName(std::string_view name) = 0;
-    virtual void End()                          = 0;
+    // When a resource will be used on other type command queue, you should reset the resource state
+    virtual void ResetState(GpuBuffer& buffer) = 0;
+    virtual void ResetState(Texture& texture)  = 0;
+    virtual void End()                         = 0;
 
     Device* const     device;
     const CommandType type;
@@ -64,7 +67,7 @@ public:
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
 
-    virtual void Present(const TextureView& render_target) = 0;
+    virtual void Present(Texture& back_buffer, std::optional<std::reference_wrapper<Texture>> color = std::nullopt) = 0;
 };
 
 class ComputeCommandContext : public CommandContext {
@@ -77,6 +80,7 @@ public:
     using CommandContext::CommandContext;
 
     virtual void CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) = 0;
+    virtual void CopyTexture(const Texture& src, const Texture& dest)                                                                 = 0;
 };
 
 template <CommandType T>

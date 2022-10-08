@@ -72,6 +72,30 @@ void DX12CopyCommandContext::SetName(std::string_view name) {
     ThrowIfFailed(m_CmdAllocator->SetName(std::pmr::wstring(name.begin(), name.end()).c_str()));
 }
 
+void DX12GraphicsCommandContext::ResetState(GpuBuffer& buffer) {
+    TransitionResource(buffer, D3D12_RESOURCE_STATE_COMMON);
+}
+
+void DX12GraphicsCommandContext::ResetState(Texture& texture) {
+    TransitionResource(texture, D3D12_RESOURCE_STATE_COMMON);
+}
+
+void DX12ComputeCommandContext::ResetState(GpuBuffer& buffer) {
+    TransitionResource(buffer, D3D12_RESOURCE_STATE_COMMON);
+}
+
+void DX12ComputeCommandContext::ResetState(Texture& texture) {
+    TransitionResource(texture, D3D12_RESOURCE_STATE_COMMON);
+}
+
+void DX12CopyCommandContext::ResetState(GpuBuffer& buffer) {
+    TransitionResource(buffer, D3D12_RESOURCE_STATE_COMMON);
+}
+
+void DX12CopyCommandContext::ResetState(Texture& texture) {
+    TransitionResource(texture, D3D12_RESOURCE_STATE_COMMON);
+}
+
 void DX12GraphicsCommandContext::End() {
     ThrowIfFailed(m_CmdList->Close());
 }
@@ -99,21 +123,15 @@ void DX12GraphicsCommandContext::SetBlendColor(const math::vec4f& color) {
 }
 
 void DX12GraphicsCommandContext::SetRenderTarget(const TextureView& target) {
-    auto logger = static_cast<DX12Device*>(device)->GetLogger();
-
-    auto target_resource = std::static_pointer_cast<DX12ResourceWrapper<Texture>>(target.desc.textuer);
-    TransitionResource(*target_resource, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+    TransitionResource(*target.desc.textuer, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
 
     const auto& rtv = static_cast<const DX12DescriptorWrapper<TextureView>&>(target).rtv;
     m_CmdList->OMSetRenderTargets(1, &rtv.cpu_handle, false, nullptr);
 }
 
 void DX12GraphicsCommandContext::SetRenderTargetAndDepthStencil(const TextureView& target, const TextureView& depth_stencil) {
-    auto target_resource        = std::static_pointer_cast<DX12ResourceWrapper<Texture>>(target.desc.textuer);
-    auto depth_stencil_resource = std::static_pointer_cast<DX12ResourceWrapper<Texture>>(depth_stencil.desc.textuer);
-
-    TransitionResource(*target_resource, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    TransitionResource(*depth_stencil_resource, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
+    TransitionResource(*target.desc.textuer, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    TransitionResource(*depth_stencil.desc.textuer, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
 
     const auto& dx12_texture_view = static_cast<const DX12DescriptorWrapper<TextureView>&>(target);
     m_CmdList->OMSetRenderTargets(1, &dx12_texture_view.rtv.cpu_handle, false, &dx12_texture_view.dsv.cpu_handle);
@@ -170,9 +188,35 @@ void DX12GraphicsCommandContext::DrawIndexed(std::uint32_t index_count, std::uin
     m_CmdList->DrawIndexedInstanced(index_count, instance_count, first_index, base_vertex, first_instance);
 }
 
-void DX12GraphicsCommandContext::Present(const TextureView& render_target) {
-    auto target_resource = std::static_pointer_cast<DX12ResourceWrapper<Texture>>(render_target.desc.textuer);
-    TransitionResource(*target_resource, D3D12_RESOURCE_STATE_PRESENT, true);
+void DX12GraphicsCommandContext::Present(Texture& back_buffer, std::optional<std::reference_wrapper<Texture>> color) {
+    if (color) {
+        TransitionResource(color->get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
+        TransitionResource(back_buffer, D3D12_RESOURCE_STATE_COPY_DEST, true);
+
+        auto& d3d_src_tex = static_cast<DX12ResourceWrapper<Texture>&>(color->get());
+        auto& d3d_dst_tex = static_cast<DX12ResourceWrapper<Texture>&>(back_buffer);
+
+        D3D12_TEXTURE_COPY_LOCATION src_desc{
+            .pResource        = d3d_src_tex.resource.Get(),
+            .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+            .SubresourceIndex = 0,
+        };
+        D3D12_TEXTURE_COPY_LOCATION dst_desc{
+            .pResource        = d3d_dst_tex.resource.Get(),
+            .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+            .SubresourceIndex = 0,
+        };
+        D3D12_BOX region{
+            .left   = 0,
+            .top    = 0,
+            .front  = 0,
+            .right  = d3d_src_tex.desc.width,
+            .bottom = d3d_src_tex.desc.height,
+            .back   = d3d_src_tex.desc.depth,
+        };
+        m_CmdList->CopyTextureRegion(&dst_desc, 0, 0, 0, &src_desc, &region);
+    }
+    TransitionResource(back_buffer, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 
 void DX12CopyCommandContext::CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) {
@@ -182,7 +226,29 @@ void DX12CopyCommandContext::CopyBuffer(const GpuBuffer& src, std::size_t src_of
     m_CmdList->CopyBufferRegion(dest_res.resource.Get(), dest_offset, src_res.resource.Get(), src_offset, size);
 }
 
-void DX12CopyCommandContext::CopyTextureRegion() {
+void DX12CopyCommandContext::CopyTexture(const Texture& src, const Texture& dest) {
+    auto& d3d_src_tex = static_cast<const DX12ResourceWrapper<Texture>&>(src);
+    auto& d3d_dst_tex = static_cast<const DX12ResourceWrapper<Texture>&>(dest);
+
+    D3D12_TEXTURE_COPY_LOCATION src_desc{
+        .pResource        = d3d_src_tex.resource.Get(),
+        .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
+    D3D12_TEXTURE_COPY_LOCATION dst_desc{
+        .pResource        = d3d_dst_tex.resource.Get(),
+        .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
+    D3D12_BOX region{
+        .left   = 0,
+        .top    = 0,
+        .front  = 0,
+        .right  = src.desc.width,
+        .bottom = src.desc.height,
+        .back   = src.desc.depth,
+    };
+    m_CmdList->CopyTextureRegion(&dst_desc, 0, 0, 0, &src_desc, &region);
 }
 
 }  // namespace hitagi::gfx
