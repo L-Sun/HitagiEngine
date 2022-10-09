@@ -11,7 +11,7 @@ namespace hitagi::core {
 
 bool ThreadManager::Initialize() {
     m_Logger         = spdlog::stdout_color_mt("ThreadManager");
-    auto num_threads = std::thread::hardware_concurrency();
+    auto num_threads = 16;
     m_Stop           = false;
 
     m_Logger->info("Initialize... Num of Thread: {}", num_threads);

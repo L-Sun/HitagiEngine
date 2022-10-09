@@ -124,6 +124,7 @@ constexpr Matrix<T, 4> rotate(const Quaternion<T>& quatv) {
     };
     // clang-format on
 }
+
 template <typename T>
 constexpr Matrix<T, 4> scale(T s) {
     // clang-format off
@@ -135,6 +136,7 @@ constexpr Matrix<T, 4> scale(T s) {
     };
     // clang-format on
 }
+
 template <typename T>
 constexpr Matrix<T, 4> scale(const Vector<T, 3>& v) {
     // clang-format off
@@ -246,6 +248,24 @@ constexpr Quaternion<T> get_rotation(const Matrix<T, 4>& transform) {
     }
 
     return euler_to_quaternion(rotation);
+}
+
+// Using for 6D rotation representation
+template <typename T>
+constexpr Vector<T, 3> get_right(const Matrix<T, 4>& transform) {
+    return normalize(Vector<T, 3>{transform.col(0).xyz});
+}
+
+// Using for 6D rotation representation
+template <typename T>
+constexpr Vector<T, 3> get_up(const Matrix<T, 4>& transform) {
+    return normalize(Vector<T, 3>{transform.col(1).xyz});
+}
+
+// Using for 6D rotation representation
+template <typename T>
+constexpr Vector<T, 3> get_forward(const Matrix<T, 4>& transform) {
+    return normalize(Vector<T, 3>{transform.col(2).xyz});
 }
 
 // Return translation, rotation, scaling
