@@ -1,14 +1,13 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/core/timer.hpp>
-#include <hitagi/graphics/render_graph.hpp>
+#include <hitagi/gfx/render_graph.hpp>
 
 #include <imgui.h>
 
 #include <functional>
 #include <list>
 #include <queue>
-#include "hitagi/graphics/resource_node.hpp"
 
 namespace hitagi::gui {
 class GuiManager : public RuntimeModule {
@@ -24,30 +23,30 @@ public:
         m_GuiDrawTasks.emplace([func = std::forward<DrawFunc>(draw_func)] { func(); });
     }
 
-    struct GuiRenderPass {
-        std::pmr::vector<gfx::ResourceHandle> textures;
-        gfx::ResourceHandle                   output;
-    };
-    GuiRenderPass Render(gfx::RenderGraph* render_graph, gfx::ResourceHandle output);
+    auto ReadTexture(gfx::ResourceHandle tex) -> gfx::ResourceHandle;
+    auto GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) -> gfx::ResourceHandle;
 
 private:
-    void LoadFontTexture();
-    void InitRenderPipeline();
+    void LoadFont();
+    void InitFontTexture(gfx::Device& gfx_device);
+    void InitRenderPipeline(gfx::Device& gfx_device);
     void MouseEvent();
     void KeysEvent();
-    void UpdateMeshData();
 
     core::Clock m_Clock;
 
     std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
 
-    gfx::PipelineState m_Pipeline;
-    struct DrawData {
-        resource::Mesh                        mesh_data;
-        std::pmr::vector<math::vec4u>         scissor_rects;
-        std::pmr::vector<gfx::ResourceHandle> textures;
-    } m_DrawData;
-    std::shared_ptr<resource::Texture> m_FontTexture;
+    struct GraphicsData {
+        std::shared_ptr<gfx::RenderPipeline> pipeline;
+        std::shared_ptr<gfx::GpuBuffer>      vertices_buffer;
+        std::shared_ptr<gfx::GpuBuffer>      indices_buffer;
+        std::shared_ptr<gfx::Texture>        font_texture;
+        // TODO render graph
+        std::shared_ptr<gfx::GpuBuffer> upload_heap;
+    } m_GfxData;
+
+    std::pmr::vector<gfx::ResourceHandle> m_ReadTextures;
 };
 
 }  // namespace hitagi::gui

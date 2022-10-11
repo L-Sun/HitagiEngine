@@ -10,11 +10,8 @@ namespace hitagi::gfx {
 ResourceBinder::ResourceBinder(DX12CommandContext& context)
     : m_Context(context) {}
 
-ResourceBinder::~ResourceBinder() {
-    while (!m_UsedHeaps.empty()) {
-        m_Context.m_Device->RetireDynamicDescriptors(std::move(m_UsedHeaps.back()), m_Context.m_FenceValue);
-        m_UsedHeaps.pop_back();
-    }
+void ResourceBinder::Reset() {
+    m_UsedHeaps.clear();
 }
 
 void ResourceBinder::SetRootSignature(const D3D12_ROOT_SIGNATURE_DESC1* root_sig_desc) {
@@ -111,10 +108,10 @@ void ResourceBinder::PushConstant(std::uint32_t slot, const std::span<const std:
     }
     switch (m_Context.m_Type) {
         case CommandType::Graphics:
-            m_Context.m_CmdList->SetGraphicsRoot32BitConstants(slot_info.param_index, std::min(1ull, data.size() / 4), data.data(), 0);
+            m_Context.m_CmdList->SetGraphicsRoot32BitConstants(slot_info.param_index, std::max(1ull, data.size() / 4), data.data(), 0);
             break;
         case CommandType::Compute:
-            m_Context.m_CmdList->SetComputeRoot32BitConstants(slot_info.param_index, std::min(1ull, data.size() / 4), data.data(), 0);
+            m_Context.m_CmdList->SetComputeRoot32BitConstants(slot_info.param_index, std::max(1ull, data.size() / 4), data.data(), 0);
             break;
         case CommandType::Copy:
             throw std::logic_error("Can push constant in copy command");
@@ -150,7 +147,11 @@ void ResourceBinder::BindConstantBuffer(std::uint32_t slot, const GpuBufferView&
     }
 }
 
-void ResourceBinder::BindResource(std::uint32_t slot, const TextureView& resource) {
+void ResourceBinder::BindTexture(std::uint32_t slot, const TextureView& texture) {
+    const auto& slot_info = m_SlotInfos[SlotType::SRV].at(slot);
+    assert(slot_info.binding_type == BindingType::DescriptorTable);
+    const auto& d3d_texture_view = static_cast<const DX12DescriptorWrapper<TextureView>&>(texture);
+    CacheDescriptor(SlotType::SRV, d3d_texture_view.srv, 0, slot_info.offset_in_heap);
 }
 
 void ResourceBinder::FlushDescriptors() {
@@ -170,14 +171,15 @@ void ResourceBinder::FlushDescriptors() {
 
         for (const auto& [slot, info] : m_SlotInfos[slot_type]) {
             if (info.binding_type != BindingType::DescriptorTable) continue;
+            if (cache.at(info.offset_in_heap).ptr == 0) continue;
 
             m_Context.m_Device->GetDevice()->CopyDescriptorsSimple(
                 1,
                 CD3DX12_CPU_DESCRIPTOR_HANDLE(heap.cpu_handle, info.offset_in_heap, heap.increament_size),
                 cache.at(info.offset_in_heap),
-                slot_type == SlotType::CBV
-                    ? D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
-                    : D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+                slot_type == SlotType::Sampler
+                    ? D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER
+                    : D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         }
     });
 

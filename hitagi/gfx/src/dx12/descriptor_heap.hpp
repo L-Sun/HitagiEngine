@@ -28,9 +28,9 @@ struct Descriptor {
     D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = {0};
     D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle = {0};
     // When it contains multiple descriptor, the following member variable may be useful
-    std::size_t     num = 0;
-    std::size_t     increament_size;
-    DescriptorHeap* heap_from = nullptr;
+    std::size_t     num             = 0;
+    std::size_t     increament_size = 0;
+    DescriptorHeap* heap_from       = nullptr;
 };
 
 class DescriptorHeap {

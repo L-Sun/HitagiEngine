@@ -14,25 +14,29 @@ Descriptor::Descriptor(Descriptor&& other) noexcept
     : cpu_handle(other.cpu_handle),
       gpu_handle(other.gpu_handle),
       num(other.num),
+      increament_size(other.increament_size),
       heap_from(other.heap_from) {
-    other.cpu_handle.ptr = 0;
-    other.gpu_handle.ptr = 0;
-    other.num            = 0;
-    other.heap_from      = nullptr;
+    other.cpu_handle.ptr  = 0;
+    other.gpu_handle.ptr  = 0;
+    other.num             = 0;
+    other.increament_size = 0;
+    other.heap_from       = nullptr;
 }
 
 Descriptor& Descriptor::operator=(Descriptor&& rhs) noexcept {
     if (this != &rhs) {
         if (heap_from) heap_from->DiscardDescriptor(*this);
-        cpu_handle = rhs.cpu_handle;
-        gpu_handle = rhs.gpu_handle;
-        num        = rhs.num;
-        heap_from  = rhs.heap_from;
+        cpu_handle      = rhs.cpu_handle;
+        gpu_handle      = rhs.gpu_handle;
+        num             = rhs.num;
+        increament_size = rhs.increament_size,
+        heap_from       = rhs.heap_from;
 
-        rhs.cpu_handle.ptr = 0;
-        rhs.gpu_handle.ptr = 0;
-        rhs.num            = 0;
-        rhs.heap_from      = nullptr;
+        rhs.cpu_handle.ptr  = 0;
+        rhs.gpu_handle.ptr  = 0;
+        rhs.num             = 0;
+        rhs.increament_size = 0,
+        rhs.heap_from       = nullptr;
     }
     return *this;
 }

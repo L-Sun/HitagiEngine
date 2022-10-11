@@ -7,6 +7,7 @@
 #include <hitagi/utils/exceptions.hpp>
 
 #include <magic_enum.hpp>
+#include <dxcapi.h>
 #include <dxgiformat.h>
 #include <fmt/color.h>
 
@@ -344,7 +345,9 @@ auto DX12Device::CreateBufferView(GpuBufferView::Desc desc) -> std::shared_ptr<G
         return nullptr;
     }
 
-    if (desc.size == 0) desc.size = desc.buffer->desc.size;
+    if (desc.size == 0) {
+        desc.size = desc.buffer->desc.size - desc.offset;
+    }
 
     if (desc.stride == 0) {
         m_Logger->error("The stride of GpuBufferView(name: {}) must be non-zero!",
@@ -370,11 +373,11 @@ auto DX12Device::CreateBufferView(GpuBufferView::Desc desc) -> std::shared_ptr<G
         };
     }
     if (utils::has_flag(result->desc.usages, GpuBufferView::UsageFlags::Index)) {
-        if (result->desc.stride != sizeof(std::uint16_t) || result->desc.stride != sizeof(std::uint32_t)) {
+        if (result->desc.stride != sizeof(std::uint16_t) && result->desc.stride != sizeof(std::uint32_t)) {
             m_Logger->error("the stride of GpuBufferView({}) for {} must be 16 bits or 32 bits, but get {} bits",
                             fmt::styled(result->desc.buffer->desc.name, fmt::fg(fmt::color::green)),
                             fmt::styled(magic_enum::enum_name(GpuBufferView::UsageFlags::Index), fmt::fg(fmt::color::green)),
-                            fmt::styled(result->desc.stride, fmt::fg(fmt::color::red)));
+                            fmt::styled(8 * result->desc.stride, fmt::fg(fmt::color::red)));
             return nullptr;
         }
         result->ibv = D3D12_INDEX_BUFFER_VIEW{
@@ -512,7 +515,7 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
 
         D3D12_SUBRESOURCE_DATA textureData = {
             .pData      = initial_data.data(),
-            .RowPitch   = static_cast<LONG_PTR>(sizeof(math::vec4f) * desc.width),
+            .RowPitch   = static_cast<LONG_PTR>(desc.width * (get_format_bit_size(desc.format) >> 3)),
             .SlicePitch = textureData.RowPitch * desc.height,
         };
 
@@ -631,10 +634,10 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
     args.emplace_back(to_shader_model_compile_flag(desc.type, m_FeatureSupport.HighestShaderModel()));
 
     // We use row major order
-    args.emplace_back(L"-Zpr");
+    args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
 #ifdef _DEBUG
-    args.emplace_back(L"-Zi");
-    args.emplace_back(L"-O0");
+    args.emplace_back(DXC_ARG_DEBUG);
+    args.emplace_back(DXC_ARG_OPTIMIZATION_LEVEL0);
     args.emplace_back(L"-Qembed_debug");
 #endif
     std::pmr::vector<const wchar_t*> p_args;
@@ -657,12 +660,13 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
     };
 
     ComPtr<IDxcResult> compile_result;
-    m_ShaderCompiler->Compile(
+
+    ThrowIfFailed(m_ShaderCompiler->Compile(
         &source_buffer,
         p_args.data(),
         p_args.size(),
         include_handler.Get(),
-        IID_PPV_ARGS(&compile_result));
+        IID_PPV_ARGS(&compile_result)));
 
     ComPtr<IDxcBlobUtf8> compile_errors;
     compile_result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&compile_errors), nullptr);
@@ -781,14 +785,6 @@ auto DX12Device::RequestDynamicDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEA
         m_Logger->error(err_msg);
         throw std::invalid_argument(err_msg.c_str());
     }
-}
-
-void DX12Device::RetireDynamicDescriptors(Descriptor&& descriptor, std::uint64_t fence_value) {
-    while (!m_ReiteredGpuDescriptors.empty() && FenceFinished(m_ReiteredGpuDescriptors.front().second)) {
-        m_ReiteredGpuDescriptors.pop_front();
-    }
-
-    m_ReiteredGpuDescriptors.emplace_back(std::move(descriptor), fence_value);
 }
 
 bool DX12Device::FenceFinished(std::uint64_t fence_value) {

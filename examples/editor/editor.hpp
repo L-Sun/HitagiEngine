@@ -3,6 +3,7 @@
 
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/ecs/schedule.hpp>
+#include <hitagi/gfx/gpu_resource.hpp>
 
 #include <string>
 #include <unordered_set>
@@ -28,6 +29,8 @@ private:
     std::pmr::string                          m_OpenFileExt;
     std::pmr::unordered_set<std::pmr::string> m_SelectedFiles;
     SceneViewPort*                            m_SceneViewPort = nullptr;
+
+    std::shared_ptr<gfx::SwapChain> m_SwapChain;
 };
 
 }  // namespace hitagi

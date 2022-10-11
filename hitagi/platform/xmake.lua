@@ -6,6 +6,6 @@ target("application")
 
     if is_plat("windows") then
         add_files("src/windows/*.cpp")
-        add_syslinks("winmm", "imm32")
+        add_syslinks("winmm", "imm32", "User32")
         add_defines("UNICODE", "WIN32")
     end

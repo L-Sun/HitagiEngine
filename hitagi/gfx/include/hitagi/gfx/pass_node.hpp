@@ -11,9 +11,6 @@ class ResourceHelper;
 class RenderGraph;
 
 struct PassNode {
-    ResourceHandle Read(const ResourceHandle res);
-    ResourceHandle Write(RenderGraph& fg, const ResourceHandle res);
-
     virtual void Execute() = 0;
 
     std::pmr::string name;

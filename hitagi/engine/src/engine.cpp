@@ -3,7 +3,7 @@
 #include <hitagi/application.hpp>
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
-#include <hitagi/graphics/graphics_manager.hpp>
+#include <hitagi/gfx/graphics_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
 
@@ -52,9 +52,6 @@ void Engine::Finalize() {
 
     _memory_manager_module->Finalize();
     _memory_manager_module = nullptr;
-
-    m_Logger->info("Finalized");
-    m_Logger = nullptr;
 }
 
 }  // namespace hitagi

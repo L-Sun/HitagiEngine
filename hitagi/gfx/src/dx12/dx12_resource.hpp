@@ -13,7 +13,7 @@ using namespace Microsoft::WRL;
 
 namespace hitagi::gfx {
 template <typename T>
-requires std::derived_from<T, Resource>
+    requires std::derived_from<T, Resource>
 struct DX12ResourceWrapper : public T {
     using T::T;
 
@@ -22,7 +22,7 @@ struct DX12ResourceWrapper : public T {
 };
 
 template <typename T>
-requires std::derived_from<T, Resource>
+    requires std::derived_from<T, Resource>
 struct DX12DescriptorWrapper : public T {
     using T::T;
 
@@ -57,7 +57,7 @@ struct DX12SwapChain : public SwapChain {
     }
     auto        GetBuffer(std::uint8_t index) -> std::shared_ptr<Texture> final;
     inline void Present() final {
-        swap_chain->Present(1, 0);
+        swap_chain->Present(0, 0);
         associated_queue->InsertFence();
     }
 

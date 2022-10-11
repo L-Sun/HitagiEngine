@@ -21,16 +21,13 @@ public:
         friend class RenderGraph;
 
     public:
-        ResourceHandle Create(ResourceDesc desc) const noexcept {
-            return m_Node->Write(m_Fg, m_Fg.CreateResource(desc));
-        }
-
-        ResourceHandle Read(const ResourceHandle input) const noexcept { return m_Node->Read(input); }
-        ResourceHandle Write(const ResourceHandle output) const noexcept { return m_Node->Write(m_Fg, output); }
+        auto Create(ResourceDesc desc) const noexcept -> ResourceHandle;
+        auto Read(ResourceHandle input) const noexcept -> ResourceHandle;
+        auto Write(ResourceHandle output) const noexcept -> ResourceHandle;
 
     private:
-        Builder(RenderGraph& fg, PassNode* node) : m_Fg(fg), m_Node(node) {}
-        RenderGraph& m_Fg;
+        Builder(RenderGraph& render_graph, PassNode* node) : m_RenderGraph(render_graph), m_Node(node) {}
+        RenderGraph& m_RenderGraph;
         PassNode*    m_Node;
     };
 
@@ -41,9 +38,9 @@ public:
         template <typename T>
         std::shared_ptr<T> Get(ResourceHandle handle) const {
             if (!(m_Node->reads.contains(handle) || m_Node->writes.contains(handle))) {
-                throw std::logic_error(fmt::format("This pass node do not operate the handle{} in graph", handle));
+                throw std::logic_error(fmt::format("This pass node do not operate the handle{} in graph", handle.id));
             }
-            auto result = m_Fg.m_Resources[m_Fg.m_ResourceNodes[handle].res_idx];
+            auto result = m_Fg.m_Resources[m_Fg.m_ResourceNodes[handle.id - 1].res_idx];
             assert(result != nullptr && "Access a invalid resource in excution phase, which may be pruned in compile phase!");
             return std::static_pointer_cast<T>(result);
         }
@@ -54,7 +51,7 @@ public:
         PassNode*    m_Node;
     };
 
-    RenderGraph(Device& device) : m_Device(device) {}
+    RenderGraph(Device& device) : device(device) {}
 
     template <typename PassData>
     using SetupFunc = std::function<void(Builder&, PassData&)>;
@@ -71,19 +68,21 @@ public:
 
     auto Import(std::string_view name, std::shared_ptr<Resource> res) -> ResourceHandle;
 
-    void PresentPass(ResourceHandle color, ResourceHandle back_buffer = -1);
+    void PresentPass(ResourceHandle back_buffer);
 
     bool Compile();
     void Execute();
-    void Reset();
+
+    Device& device;
 
 private:
     template <typename PassData, typename Context>
     auto AddPassImpl(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData, Context> executor) -> const PassData&;
     auto CreateResource(ResourceDesc desc) -> ResourceHandle;
     auto RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext>;
+    auto GetResrouceNode(ResourceHandle handle) -> ResourceNode&;
+    void Clear();
 
-    Device&       m_Device;
     std::uint64_t m_LastFence = 0;
 
     tf::Executor m_Executor;
@@ -101,6 +100,7 @@ private:
 
     std::pmr::vector<PassNode*> m_ExecuteQueue;
 
+    utils::EnumArray<std::pmr::deque<std::shared_ptr<Resource>>, CommandType>      m_RetiredResources;
     utils::EnumArray<std::pmr::list<std::shared_ptr<CommandContext>>, CommandType> m_ContextPool;
 };
 

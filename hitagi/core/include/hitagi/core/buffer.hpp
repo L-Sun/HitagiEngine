@@ -46,6 +46,10 @@ public:
         return std::span<T>(reinterpret_cast<T*>(m_Data), m_Size / sizeof(T));
     }
 
+    auto Str() const noexcept {
+        return std::string_view{reinterpret_cast<const char*>(m_Data), m_Size};
+    }
+
 private:
     std::pmr::polymorphic_allocator<> m_Allocator;
     std::byte*                        m_Data      = nullptr;

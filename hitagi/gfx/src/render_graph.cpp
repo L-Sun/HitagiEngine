@@ -4,30 +4,44 @@
 
 #include <taskflow/taskflow.hpp>
 
-namespace hitagi::gfx {
-void RenderGraph::PresentPass(ResourceHandle tex, ResourceHandle back_buffer) {
-    assert(tex < m_ResourceNodes.size());
+#include <algorithm>
 
+namespace hitagi::gfx {
+
+auto RenderGraph::Builder::Create(ResourceDesc desc) const noexcept -> ResourceHandle {
+    auto ret = Write(m_RenderGraph.CreateResource(desc));
+    m_Node->writes.emplace(ret);
+    return ret;
+}
+
+auto RenderGraph::Builder::Read(ResourceHandle input) const noexcept -> ResourceHandle {
+    m_Node->reads.emplace(input);
+    return input;
+}
+
+auto RenderGraph::Builder::Write(ResourceHandle output) const noexcept -> ResourceHandle {
+    m_Node->reads.emplace(output);
+
+    ResourceNode& old_res_node = m_RenderGraph.GetResrouceNode(output);
+    // Create new resource node
+    auto& new_res_node   = m_RenderGraph.m_ResourceNodes.emplace_back(old_res_node.name, old_res_node.res_idx);
+    new_res_node.writer  = m_Node;
+    new_res_node.version = old_res_node.version + 1;
+
+    output = {m_RenderGraph.m_ResourceNodes.size()};
+    m_Node->writes.emplace(output);
+    return output;
+}
+
+void RenderGraph::PresentPass(ResourceHandle back_buffer) {
     auto present_pass  = std::make_shared<PassNodeWithData<GraphicsCommandContext, ResourceHandle>>();
     present_pass->name = "PresentPass";
 
-    struct PresentPassData {
-        ResourceHandle color = -1;
-        ResourceHandle output;
-    } data;
+    Builder builder(*this, present_pass.get());
+    builder.Read(back_buffer);
 
-    data.output = present_pass->Write(*this, back_buffer);
-
-    if (back_buffer != -1) {
-        data.color = present_pass->Read(tex);
-    }
-
-    present_pass->executor = [data, helper = ResourceHelper(*this, present_pass.get())](GraphicsCommandContext* context) {
-        if (data.color == -1) {
-            context->Present(*helper.Get<Texture>(data.output));
-        } else {
-            context->Present(*helper.Get<Texture>(data.output), *helper.Get<Texture>(data.color));
-        }
+    present_pass->executor = [back_buffer, helper = ResourceHelper(*this, present_pass.get())](GraphicsCommandContext* context) {
+        context->Present(*helper.Get<Texture>(back_buffer));
     };
 
     m_PresentPassNode = present_pass;
@@ -42,20 +56,18 @@ auto RenderGraph::Import(std::string_view name, std::shared_ptr<Resource> res) -
                                  });
 
         assert(iter != m_ResourceNodes.end());
-        return std::distance(m_ResourceNodes.begin(), iter);
+        return {std::distance(m_ResourceNodes.begin(), iter) + 1ull};
     }
 
-    ResourceHandle handle  = m_ResourceNodes.size();
-    std::size_t    res_idx = m_Resources.size();
+    std::size_t res_idx = m_Resources.size();
     m_Resources.emplace_back(res);
     m_BlackBoard.emplace(std::pmr::string(name), res_idx);
     m_ResourceNodes.emplace_back(name, res_idx);
-    return handle;
+    return {m_ResourceNodes.size()};
 }
 
 auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {
     // create new resource node
-    ResourceHandle handle = m_ResourceNodes.size();
 
     std::string_view name = std::visit(
         utils::Overloaded{
@@ -73,29 +85,35 @@ auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {
     m_InnerResourcesDesc.emplace_back(desc, res_idx);
     m_ResourceNodes.emplace_back(name, res_idx);
 
-    return handle;
+    return {m_ResourceNodes.size()};
 }
 
 auto RenderGraph::RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext> {
     std::shared_ptr<CommandContext> context = nullptr;
     if (m_ContextPool[type].empty() ||
-        !m_Device.GetCommandQueue(type)->IsFenceComplete(m_ContextPool[type].front()->fence_value)) {
+        !device.GetCommandQueue(type)->IsFenceComplete(m_ContextPool[type].front()->fence_value)) {
         switch (type) {
             case CommandType::Graphics:
-                context = m_Device.CreateGraphicsContext();
+                context = device.CreateGraphicsContext();
                 break;
             case CommandType::Compute:
-                context = m_Device.CreateComputeContext();
+                context = device.CreateComputeContext();
                 break;
             case CommandType::Copy:
-                context = m_Device.CreateCopyContext();
+                context = device.CreateCopyContext();
                 break;
         }
     } else {
         context = std::move(m_ContextPool[type].front());
         m_ContextPool[type].pop_front();
+        context->Reset();
     }
+
     return context;
+}
+
+auto RenderGraph::GetResrouceNode(ResourceHandle handle) -> ResourceNode& {
+    return m_ResourceNodes.at(handle.id - 1);
 }
 
 bool RenderGraph::Compile() {
@@ -121,7 +139,7 @@ bool RenderGraph::Compile() {
         task_map.emplace(node, task);
 
         for (auto read_res : node->reads) {
-            if (auto writer = m_ResourceNodes.at(read_res).writer; writer != nullptr) {
+            if (auto writer = GetResrouceNode(read_res).writer; writer != nullptr) {
                 task.succeed(create_task(writer));
             }
         }
@@ -142,10 +160,10 @@ void RenderGraph::Execute() {
         std::visit(
             utils::Overloaded{
                 [&](const GpuBuffer::Desc& buffer_desc) {
-                    res = m_Device.CreateBuffer(buffer_desc);
+                    res = device.CreateBuffer(buffer_desc);
                 },
                 [&](const Texture::Desc& txture_desc) {
-                    res = m_Device.CreateTexture(txture_desc);
+                    res = device.CreateTexture(txture_desc);
                 },
             },
             desc);
@@ -153,7 +171,7 @@ void RenderGraph::Execute() {
     m_Executor.run(m_Taskflow).wait();
 
     std::pmr::vector<CommandContext*> contexts;
-    CommandQueue*                     prev_queue = nullptr;
+    std::uint64_t                     fence_value;
 
     auto left  = m_ExecuteQueue.begin();
     auto right = left;
@@ -163,25 +181,69 @@ void RenderGraph::Execute() {
             continue;
         }
 
-        std::transform(left, right, std::back_inserter(contexts), [](const PassNode* node) {
+        auto queue = device.GetCommandQueue((*left)->type);
+
+        std::transform(left, right, std::back_inserter(contexts), [&](const PassNode* node) {
+            for (auto res_handle : node->reads) {
+                auto res = m_Resources.at(GetResrouceNode(res_handle).res_idx);
+                if (res->last_used_queue && res->last_used_queue != queue) {
+                    queue->WaitForQueue(*res->last_used_queue);
+                }
+            }
+            for (auto res_handle : node->writes) {
+                auto res = m_Resources.at(GetResrouceNode(res_handle).res_idx);
+                if (res->last_used_queue && res->last_used_queue != queue) {
+                    queue->WaitForQueue(*res->last_used_queue);
+                }
+            }
             return node->context.get();
         });
 
-        auto queue = m_Device.GetCommandQueue((*left)->type);
-        if (prev_queue) queue->WaitForQueue(*prev_queue);
-        queue->Submit(contexts);
+        fence_value = queue->Submit(contexts);
 
-        std::for_each(left, right, [this](PassNode* node) {
+        std::for_each(left, right, [&](PassNode* node) {
             m_ContextPool[node->type].emplace_back(std::move(node->context));
+            for (auto res_handle : node->reads) {
+                auto res             = m_Resources.at(GetResrouceNode(res_handle).res_idx);
+                res->fence_value     = fence_value;
+                res->last_used_queue = queue;
+            }
+            for (auto res_handle : node->writes) {
+                auto res             = m_Resources.at(GetResrouceNode(res_handle).res_idx);
+                res->fence_value     = fence_value;
+                res->last_used_queue = queue;
+            }
         });
 
-        prev_queue = queue;
-        left       = right;
+        left = right;
         contexts.clear();
     }
+    Clear();
 }
 
-void RenderGraph::Reset() {
+void RenderGraph::Clear() {
+    for (auto& retired_resources : m_RetiredResources) {
+        while (!retired_resources.empty()) {
+            auto& retired_res = retired_resources.front();
+            if (retired_res->last_used_queue->IsFenceComplete(retired_res->fence_value)) {
+                retired_resources.pop_front();
+            } else {
+                break;
+            }
+        }
+    }
+
+    for (const auto& res : m_Resources) {
+        if (std::find(m_RetiredResources[res->last_used_queue->type].begin(), m_RetiredResources[res->last_used_queue->type].end(), res) == m_RetiredResources[res->last_used_queue->type].end()) {
+            m_RetiredResources[res->last_used_queue->type].emplace_back(res);
+        }
+    }
+    for (auto& retired_resources : m_RetiredResources) {
+        std::sort(retired_resources.begin(), retired_resources.end(), [](const auto& lhs, const auto& rhs) {
+            return lhs->fence_value < rhs->fence_value;
+        });
+    }
+
     m_ResourceNodes.clear();
     m_PassNodes.clear();
     m_PresentPassNode = nullptr;

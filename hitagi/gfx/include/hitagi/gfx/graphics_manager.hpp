@@ -1,6 +1,7 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/gfx/device.hpp>
+#include <hitagi/gfx/render_graph.hpp>
 
 namespace hitagi::gfx {
 class GraphicsManager : public RuntimeModule {
@@ -11,10 +12,12 @@ public:
 
     inline std::string_view GetName() const noexcept final { return "GraphicsManager"; }
 
-    inline Device* GetDevice() const noexcept { return m_Device.get(); }
+    inline auto& GetDevice() const noexcept { return *m_Device; }
+    inline auto& GetRenderGraph() const noexcept { return *m_RenderGraph; };
 
 private:
-    std::unique_ptr<Device> m_Device;
+    std::unique_ptr<Device>      m_Device;
+    std::unique_ptr<RenderGraph> m_RenderGraph;
 };
 
 }  // namespace hitagi::gfx

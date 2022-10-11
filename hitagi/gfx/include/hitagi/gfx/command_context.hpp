@@ -21,7 +21,9 @@ public:
     // When a resource will be used on other type command queue, you should reset the resource state
     virtual void ResetState(GpuBuffer& buffer) = 0;
     virtual void ResetState(Texture& texture)  = 0;
-    virtual void End()                         = 0;
+
+    virtual void Reset() = 0;
+    virtual void End()   = 0;
 
     Device* const     device;
     const CommandType type;
@@ -53,12 +55,13 @@ public:
     virtual void SetVertexBuffer(std::uint8_t slot, const GpuBufferView& buffer) = 0;
 
     template <typename T>
-    requires utils::not_same_as<std::remove_cvref<T>, std::span<const std::byte>>
+        requires utils::not_same_as<std::remove_cvref<T>, std::span<const std::byte>>
     void PushConstant(std::uint32_t slot, T&& data) {
         PushConstant(slot, {reinterpret_cast<const std::byte*>(&data), sizeof(T)});
     }
     virtual void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data)                   = 0;
     virtual void BindConstantBuffer(std::uint32_t slot, const GpuBufferView& buffer, std::size_t index = 0) = 0;
+    virtual void BindTexture(std::uint32_t slot, const TextureView& texture)                                = 0;
 
     // Bindless resource
     virtual int GetBindless(const TextureView& texture_view) = 0;
@@ -67,7 +70,8 @@ public:
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
 
-    virtual void Present(Texture& back_buffer, std::optional<std::reference_wrapper<Texture>> color = std::nullopt) = 0;
+    virtual void CopyTexture(const Texture& src, const Texture& dest) = 0;
+    virtual void Present(Texture& back_buffer)                        = 0;
 };
 
 class ComputeCommandContext : public CommandContext {

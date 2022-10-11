@@ -101,7 +101,7 @@ TEST_F(RenderGraphTest, RenderPass) {
 
         RenderGraph rg(*device);
 
-        auto output = rg.Import("Output", back_buffer);
+        auto back_buffer_handle = rg.Import("back_buffer", back_buffer);
 
         struct ColorPass {
             ResourceHandle output;
@@ -109,13 +109,7 @@ TEST_F(RenderGraphTest, RenderPass) {
         auto color_pass = rg.AddPass<ColorPass>(
             "color",
             [&](RenderGraph::Builder& builder, ColorPass& data) {
-                data.output = builder.Create(Texture::Desc{
-                    .name   = "output",
-                    .width  = 300,
-                    .height = 300,
-                    .format = Format::R8G8B8A8_UNORM,
-                    .usages = Texture::UsageFlags::RTV,
-                });
+                data.output = builder.Write(back_buffer_handle);
             },
             [=](const RenderGraph::ResourceHelper& helper, const ColorPass& data, GraphicsCommandContext* context) {
                 const auto& render_target = helper.Get<Texture>(data.output);
@@ -144,7 +138,8 @@ TEST_F(RenderGraphTest, RenderPass) {
                 context->SetVertexBuffer(1, *vertex_buffer);
                 context->Draw(3);
             });
-        rg.PresentPass(color_pass.output, output);
+
+        rg.PresentPass(color_pass.output);
         EXPECT_TRUE(rg.Compile());
         rg.Execute();
 

@@ -8,6 +8,7 @@
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/application.hpp>
 #include <hitagi/hid/input_manager.hpp>
+#include <hitagi/gfx/graphics_manager.hpp>
 
 #include <imgui.h>
 #include <spdlog/logger.h>
@@ -18,17 +19,22 @@ using namespace hitagi::resource;
 
 namespace hitagi {
 bool Editor::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("Editor");
-    m_Logger->info("Initialize...");
+    RuntimeModule::Initialize();
 
     m_SceneViewPort = static_cast<SceneViewPort*>(LoadModule(std::make_unique<SceneViewPort>()));
+
+    m_SwapChain = graphics_manager->GetDevice().CreateSwapChain({
+        .name       = "Editor",
+        .window_ptr = app->GetWindow(),
+    });
 
     return true;
 }
 
 void Editor::Finalize() {
-    m_Logger->info("Editor Finalize");
-    m_Logger = nullptr;
+    m_SwapChain.reset();
+
+    RuntimeModule::Finalize();
 }
 
 void Editor::Tick() {
@@ -37,27 +43,31 @@ void Editor::Tick() {
 
     RuntimeModule::Tick();
 
+    m_SwapChain->Present();
     Render();
 }
 
 void Editor::Render() {
-    auto render_graph = graphics_manager->GetRenderGraph();
-    auto back_buffer  = render_graph->Import(&graphics_manager->GetBackBuffer());
+    auto& render_graph = graphics_manager->GetRenderGraph();
+
+    auto back_buffer = render_graph.Import("BackBuffer", m_SwapChain->GetCurrentBackBuffer());
 
     struct ClearPass {
         gfx::ResourceHandle back_buffer;
     };
-    auto clear_pass = render_graph->AddPass<ClearPass>(
+    auto clear_pass = render_graph.AddPass<ClearPass>(
         "ClearPass",
         [&](gfx::RenderGraph::Builder& builder, ClearPass& data) {
             data.back_buffer = builder.Write(back_buffer);
         },
-        [=](const gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::IGraphicsCommandContext* context) {
-            context->ClearRenderTarget(helper.Get<resource::Texture>(data.back_buffer));
+        [=](const gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::GraphicsCommandContext* context) {
+            auto rtv = context->device->CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.back_buffer)});
+            context->SetRenderTarget(*rtv);
+            context->ClearRenderTarget(*rtv);
         });
 
-    auto gui_pass = gui_manager->Render(render_graph, clear_pass.back_buffer);
-    render_graph->PresentPass(gui_pass.output);
+    auto output = gui_manager->GuiRenderPass(render_graph, clear_pass.back_buffer);
+    render_graph.PresentPass(output);
 }
 
 void Editor::Draw() {

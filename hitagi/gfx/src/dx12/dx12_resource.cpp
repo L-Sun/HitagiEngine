@@ -10,7 +10,7 @@ auto DX12SwapChain::GetBuffer(std::uint8_t index) -> std::shared_ptr<Texture> {
         back_buffer_names.reserve(desc.frame_count);
 
         for (std::size_t i = 0; i < desc.frame_count; i++) {
-            back_buffer_names.emplace_back(fmt::format("{}-buffer-{}", desc.name, index));
+            back_buffer_names.emplace_back(fmt::format("{}-buffer-{}", desc.name, i));
 
             ComPtr<ID3D12Resource> texture;
             ThrowIfFailed(swap_chain->GetBuffer(i, IID_PPV_ARGS(&texture)));

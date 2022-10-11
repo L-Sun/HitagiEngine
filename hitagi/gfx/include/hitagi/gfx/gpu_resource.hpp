@@ -6,10 +6,14 @@
 #include <functional>
 
 namespace hitagi::gfx {
+class CommandQueue;
+
 constexpr auto UNKOWN_NAME = "Unkown";
 
 struct Resource {
-    virtual ~Resource() = default;
+    virtual ~Resource()           = default;
+    std::uint64_t fence_value     = 0;
+    CommandQueue* last_used_queue = nullptr;
 };
 
 struct GpuBuffer : public Resource {
@@ -47,7 +51,7 @@ struct GpuBufferView : public Resource {
     struct Desc {
         std::shared_ptr<GpuBuffer> buffer = nullptr;
         std::size_t                offset = 0;
-        std::size_t                size   = 0;
+        std::size_t                size   = 0;  // When `size == 0`, it will be re-calculated with `buffer.size - offset`
         std::size_t                stride;
         UsageFlags                 usages;
     };
@@ -68,12 +72,12 @@ struct Texture : public Resource {
     };
 
     struct Desc {
-        std::string_view name       = UNKOWN_NAME;
-        std::uint32_t    width      = 1;
-        std::uint32_t    height     = 1;
-        std::uint16_t    depth      = 1;
-        std::uint16_t    array_size = 1;
-        Format           format;
+        std::string_view name         = UNKOWN_NAME;
+        std::uint32_t    width        = 1;
+        std::uint32_t    height       = 1;
+        std::uint16_t    depth        = 1;
+        std::uint16_t    array_size   = 1;
+        Format           format       = Format::UNKNOWN;
         std::uint16_t    mip_levels   = 1;
         std::uint32_t    sample_count = 1;
         ClearValue       clear_value;
@@ -135,8 +139,8 @@ struct SwapChain : public Resource {
     struct Desc {
         std::string_view name = UNKOWN_NAME;
         void*            window_ptr;
-        std::uint8_t     frame_count = 2;
-        Format           format;
+        std::uint8_t     frame_count  = 2;
+        Format           format       = Format::R8G8B8A8_UNORM;
         std::uint32_t    sample_count = 1;
     };
 

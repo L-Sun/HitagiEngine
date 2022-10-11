@@ -96,6 +96,24 @@ void DX12CopyCommandContext::ResetState(Texture& texture) {
     TransitionResource(texture, D3D12_RESOURCE_STATE_COMMON);
 }
 
+void DX12GraphicsCommandContext::Reset() {
+    m_CmdAllocator->Reset();
+    m_ResourceBinder.Reset();
+    m_CmdList->Reset(m_CmdAllocator.Get(), nullptr);
+}
+
+void DX12ComputeCommandContext::Reset() {
+    m_CmdAllocator->Reset();
+    m_ResourceBinder.Reset();
+    m_CmdList->Reset(m_CmdAllocator.Get(), nullptr);
+}
+
+void DX12CopyCommandContext::Reset() {
+    m_CmdAllocator->Reset();
+    m_ResourceBinder.Reset();
+    m_CmdList->Reset(m_CmdAllocator.Get(), nullptr);
+}
+
 void DX12GraphicsCommandContext::End() {
     ThrowIfFailed(m_CmdList->Close());
 }
@@ -175,7 +193,12 @@ void DX12GraphicsCommandContext::BindConstantBuffer(std::uint32_t slot, const Gp
     m_ResourceBinder.BindConstantBuffer(slot, buffer, index);
 }
 
+void DX12GraphicsCommandContext::BindTexture(std::uint32_t slot, const TextureView& texture) {
+    m_ResourceBinder.BindTexture(slot, texture);
+}
+
 int DX12GraphicsCommandContext::GetBindless(const TextureView& texture_view) {
+    return -1;
 }
 
 void DX12GraphicsCommandContext::Draw(std::uint32_t vertex_count, std::uint32_t instance_count, std::uint32_t first_vertex, std::uint32_t first_instance) {
@@ -188,34 +211,32 @@ void DX12GraphicsCommandContext::DrawIndexed(std::uint32_t index_count, std::uin
     m_CmdList->DrawIndexedInstanced(index_count, instance_count, first_index, base_vertex, first_instance);
 }
 
-void DX12GraphicsCommandContext::Present(Texture& back_buffer, std::optional<std::reference_wrapper<Texture>> color) {
-    if (color) {
-        TransitionResource(color->get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
-        TransitionResource(back_buffer, D3D12_RESOURCE_STATE_COPY_DEST, true);
+void DX12GraphicsCommandContext::CopyTexture(const Texture& src, const Texture& dest) {
+    auto& d3d_src_tex = static_cast<const DX12ResourceWrapper<Texture>&>(src);
+    auto& d3d_dst_tex = static_cast<const DX12ResourceWrapper<Texture>&>(dest);
 
-        auto& d3d_src_tex = static_cast<DX12ResourceWrapper<Texture>&>(color->get());
-        auto& d3d_dst_tex = static_cast<DX12ResourceWrapper<Texture>&>(back_buffer);
+    D3D12_TEXTURE_COPY_LOCATION src_desc{
+        .pResource        = d3d_src_tex.resource.Get(),
+        .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
+    D3D12_TEXTURE_COPY_LOCATION dst_desc{
+        .pResource        = d3d_dst_tex.resource.Get(),
+        .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0,
+    };
+    D3D12_BOX region{
+        .left   = 0,
+        .top    = 0,
+        .front  = 0,
+        .right  = src.desc.width,
+        .bottom = src.desc.height,
+        .back   = src.desc.depth,
+    };
+    m_CmdList->CopyTextureRegion(&dst_desc, 0, 0, 0, &src_desc, &region);
+}
 
-        D3D12_TEXTURE_COPY_LOCATION src_desc{
-            .pResource        = d3d_src_tex.resource.Get(),
-            .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-            .SubresourceIndex = 0,
-        };
-        D3D12_TEXTURE_COPY_LOCATION dst_desc{
-            .pResource        = d3d_dst_tex.resource.Get(),
-            .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-            .SubresourceIndex = 0,
-        };
-        D3D12_BOX region{
-            .left   = 0,
-            .top    = 0,
-            .front  = 0,
-            .right  = d3d_src_tex.desc.width,
-            .bottom = d3d_src_tex.desc.height,
-            .back   = d3d_src_tex.desc.depth,
-        };
-        m_CmdList->CopyTextureRegion(&dst_desc, 0, 0, 0, &src_desc, &region);
-    }
+void DX12GraphicsCommandContext::Present(Texture& back_buffer) {
     TransitionResource(back_buffer, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 

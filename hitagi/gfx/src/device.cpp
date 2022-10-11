@@ -25,9 +25,7 @@ auto Device::Create(Type type, std::string_view name) -> std::unique_ptr<Device>
         case Type::DX12:
             return std::make_unique<DX12Device>(name);
         default:
-            throw utils::NoImplemented(fmt::format("The device of type({}) is not implemented", magic_enum::enum_name(type)));
+            return nullptr;
     }
-
-    return nullptr;
 }
 }  // namespace hitagi::gfx

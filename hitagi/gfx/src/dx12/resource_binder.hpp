@@ -21,16 +21,17 @@ public:
     };
 
     ResourceBinder(DX12CommandContext& context);
-    ~ResourceBinder();
 
     void SetRootSignature(const D3D12_ROOT_SIGNATURE_DESC1* root_sig_desc);
 
     void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data);
     void BindConstantBuffer(std::uint32_t slot, const GpuBufferView& buffer, std::size_t index = 0);
-    void BindResource(std::uint32_t slot, const TextureView& resource);
+    void BindTexture(std::uint32_t slot, const TextureView& resource);
 
     // Commit all bind cpu descriptor to gpu
     void FlushDescriptors();
+
+    void Reset();
 
 private:
     constexpr static std::uint8_t sm_MaxRootParameters = 32;

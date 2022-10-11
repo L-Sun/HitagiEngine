@@ -3,27 +3,32 @@
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+namespace hitagi {
+gfx::GraphicsManager* graphics_manager = nullptr;
+}
 namespace hitagi::gfx {
 bool GraphicsManager::Initialize() {
     RuntimeModule::Initialize();
 
-    try {
-        // TODO loading config to create other device
-        m_Device = Device::Create(Device::Type::DX12);
-    } catch (utils::NoImplemented ex) {
-        m_Logger->warn("Create device failed! The error message is:");
-        m_Logger->error(ex.what());
+    if (m_Device = Device::Create(Device::Type::DX12); m_Device == nullptr) {
+        m_Logger->warn("Create device failed!");
         return false;
     }
+
+    m_RenderGraph = std::make_unique<RenderGraph>(GetDevice());
 
     return true;
 }
 
 void GraphicsManager::Finalize() {
+    m_RenderGraph.reset();
     m_Device.reset();
 }
 
 void GraphicsManager::Tick() {
+    if (m_RenderGraph->Compile()) {
+        m_RenderGraph->Execute();
+    }
 }
 
 }  // namespace hitagi::gfx

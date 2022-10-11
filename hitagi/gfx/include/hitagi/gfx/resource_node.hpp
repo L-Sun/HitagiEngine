@@ -4,7 +4,15 @@
 namespace hitagi::gfx {
 struct PassNode;
 
-using ResourceHandle = std::int64_t;
+struct ResourceHandle {
+    std::uint64_t id = 0;
+
+    constexpr static auto InvalidHandle() { return ResourceHandle{.id = 0}; }
+
+    constexpr bool operator!() const { return id == 0; }
+    constexpr auto operator<=>(const ResourceHandle&) const = default;
+    constexpr auto operator!=(const ResourceHandle& rhs) const { return id != rhs.id; }
+};
 
 struct ResourceNode {
     ResourceNode(std::string_view name, std::size_t res_idx)
