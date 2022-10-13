@@ -52,7 +52,7 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float met
             current_node->parent = parent;
         } else if (tokens[pos] == "End Site") {
             // auto parent         = current_node;
-            // current_node        = std::make_shared<BoneNode>();
+            current_node = std::make_shared<BoneNode>();
             // current_node->index = anima.joints.size();
             // anima.joints.emplace_back(current_node);
             // current_node->name = parent->name + "-End";
@@ -177,7 +177,8 @@ std::optional<Animation> parse_bvh(const hitagi::core::Buffer& buffer, float met
 
 std::pmr::vector<std::pmr::string> Tokenizer(std::stringstream& ss) {
     std::pmr::vector<std::pmr::string> result;
-    std::pmr::string                   token;
+    result.reserve(10000);
+    std::pmr::string token;
 
     while (ss >> token) {
         if (token == "End") {
