@@ -568,7 +568,7 @@ inline constexpr auto to_d3d_rect(const Rect& rect) noexcept {
     };
 }
 
-inline constexpr auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
+inline auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
         .Format                  = to_dxgi_format(desc.format),
         .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
@@ -686,7 +686,7 @@ inline constexpr auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
     return srv_desc;
 }
 
-inline constexpr auto to_d3d_uav_desc(const TextureView::Desc& desc) noexcept {
+inline auto to_d3d_uav_desc(const TextureView::Desc& desc) noexcept {
     D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
         .Format = to_dxgi_format(desc.format),
     };
@@ -754,7 +754,7 @@ inline constexpr auto to_d3d_uav_desc(const TextureView::Desc& desc) noexcept {
     return uav_desc;
 }
 
-inline constexpr auto to_d3d_rtv_desc(const TextureView::Desc& desc) noexcept {
+inline auto to_d3d_rtv_desc(const TextureView::Desc& desc) noexcept {
     D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
         .Format = to_dxgi_format(desc.format),
     };

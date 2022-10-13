@@ -1,8 +1,9 @@
 #include "dx12_command_context.hpp"
-#include <d3d12.h>
 #include "dx12_device.hpp"
 #include "dx12_resource.hpp"
 #include "utils.hpp"
+
+#include <pix.h>
 
 namespace hitagi::gfx {
 template <typename T>
@@ -115,14 +116,17 @@ void DX12CopyCommandContext::Reset() {
 }
 
 void DX12GraphicsCommandContext::End() {
+    FlushBarriers();
     ThrowIfFailed(m_CmdList->Close());
 }
 
 void DX12ComputeCommandContext::End() {
+    FlushBarriers();
     ThrowIfFailed(m_CmdList->Close());
 }
 
 void DX12CopyCommandContext::End() {
+    FlushBarriers();
     ThrowIfFailed(m_CmdList->Close());
 }
 
@@ -178,10 +182,12 @@ void DX12GraphicsCommandContext::SetPipeline(const RenderPipeline& pipeline) {
 }
 
 void DX12GraphicsCommandContext::SetIndexBuffer(const GpuBufferView& buffer) {
+    TransitionResource(*buffer.desc.buffer, D3D12_RESOURCE_STATE_INDEX_BUFFER, true);
     m_CmdList->IASetIndexBuffer(&static_cast<const DX12GpuBufferView&>(buffer).ibv.value());
 }
 
 void DX12GraphicsCommandContext::SetVertexBuffer(std::uint8_t slot, const GpuBufferView& buffer) {
+    TransitionResource(*buffer.desc.buffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, true);
     m_CmdList->IASetVertexBuffers(slot, 1, &static_cast<const DX12GpuBufferView&>(buffer).vbv.value());
 }
 
@@ -237,7 +243,9 @@ void DX12GraphicsCommandContext::CopyTexture(const Texture& src, const Texture& 
 }
 
 void DX12GraphicsCommandContext::Present(Texture& back_buffer) {
+    PIXBeginEvent(m_CmdList.Get(), PIX_COLOR(244, 12, 128), "Present");
     TransitionResource(back_buffer, D3D12_RESOURCE_STATE_PRESENT, true);
+    PIXEndEvent(m_CmdList.Get());
 }
 
 void DX12CopyCommandContext::CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) {

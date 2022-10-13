@@ -106,5 +106,17 @@
     "clangd.arguments": [
         "-j=8",
         "--pch-storage=memory"
-    ]
+    ],
+    "xmake.debuggingTargetsArguments": {
+        "bvh_extractor": [
+            "-d",
+            "G:/MoCap/lafan1/",
+            "-f",
+            ".*.bvh",
+            "-o",
+            "lafan_data.hdf5",
+            "--metric_scale",
+            "0.01",
+        ]
+    }
 }

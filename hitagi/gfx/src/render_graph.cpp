@@ -151,10 +151,6 @@ bool RenderGraph::Compile() {
 
     create_task(m_PresentPassNode.get());
 
-    return true;
-}
-
-void RenderGraph::Execute() {
     for (auto&& [desc, res_idx] : m_InnerResourcesDesc) {
         auto& res = m_Resources[res_idx];
         std::visit(
@@ -168,6 +164,11 @@ void RenderGraph::Execute() {
             },
             desc);
     }
+
+    return true;
+}
+
+void RenderGraph::Execute() {
     m_Executor.run(m_Taskflow).wait();
 
     std::pmr::vector<CommandContext*> contexts;
@@ -185,12 +186,6 @@ void RenderGraph::Execute() {
 
         std::transform(left, right, std::back_inserter(contexts), [&](const PassNode* node) {
             for (auto res_handle : node->reads) {
-                auto res = m_Resources.at(GetResrouceNode(res_handle).res_idx);
-                if (res->last_used_queue && res->last_used_queue != queue) {
-                    queue->WaitForQueue(*res->last_used_queue);
-                }
-            }
-            for (auto res_handle : node->writes) {
                 auto res = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 if (res->last_used_queue && res->last_used_queue != queue) {
                     queue->WaitForQueue(*res->last_used_queue);

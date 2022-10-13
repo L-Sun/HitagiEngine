@@ -93,7 +93,8 @@ void ResourceBinder::SetRootSignature(const D3D12_ROOT_SIGNATURE_DESC1* root_sig
             } break;
         }
     }
-
+    m_CBV_UAV_SRV_Cache.clear();
+    m_Sampler_Cache.clear();
     m_CBV_UAV_SRV_Cache.resize(curr_heap_offset[0], {.ptr = 0});
     m_Sampler_Cache.resize(curr_heap_offset[1], {.ptr = 0});
 }
@@ -172,6 +173,7 @@ void ResourceBinder::FlushDescriptors() {
         for (const auto& [slot, info] : m_SlotInfos[slot_type]) {
             if (info.binding_type != BindingType::DescriptorTable) continue;
             if (cache.at(info.offset_in_heap).ptr == 0) continue;
+            // clear dirty
 
             m_Context.m_Device->GetDevice()->CopyDescriptorsSimple(
                 1,
@@ -204,18 +206,18 @@ void ResourceBinder::FlushDescriptors() {
                          ? sampler_heap
                          : cbv_uav_srv_heap;
 
+        auto base_descriptor_handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(heap.gpu_handle, m_TableHeapOffset[param_index], heap.increament_size);
+
         switch (m_Context.m_Type) {
             case CommandType::Graphics:
-                // TODO
                 m_Context.m_CmdList->SetGraphicsRootDescriptorTable(
                     param_index,
-                    CD3DX12_GPU_DESCRIPTOR_HANDLE(heap.gpu_handle, m_TableHeapOffset[param_index], heap.increament_size));
+                    base_descriptor_handle);
                 break;
             case CommandType::Compute:
-                // TODO
                 m_Context.m_CmdList->SetComputeRootDescriptorTable(
                     param_index,
-                    CD3DX12_GPU_DESCRIPTOR_HANDLE(heap.gpu_handle, m_TableHeapOffset[param_index], heap.increament_size));
+                    base_descriptor_handle);
             case CommandType::Copy:
                 throw std::logic_error("Can bind descriptor table in copy command");
         }
@@ -226,16 +228,17 @@ void ResourceBinder::FlushDescriptors() {
 }
 
 void ResourceBinder::CacheDescriptor(SlotType slot_type, const Descriptor& descriptor, std::size_t descriptor_index, std::size_t heap_offset) {
+    CD3DX12_CPU_DESCRIPTOR_HANDLE descriptor_handle(descriptor.cpu_handle, descriptor_index, descriptor.increament_size);
     switch (slot_type) {
         case SlotType::CBV:
         case SlotType::UAV:
         case SlotType::SRV: {
             // TODO: may use a unbound (Bindless) root signature
             assert(heap_offset < m_CBV_UAV_SRV_Cache.size());
-            m_CBV_UAV_SRV_Cache[heap_offset] = CD3DX12_CPU_DESCRIPTOR_HANDLE(descriptor.cpu_handle, descriptor_index, descriptor.increament_size);
+            m_CBV_UAV_SRV_Cache[heap_offset] = descriptor_handle;
         } break;
         case SlotType::Sampler: {
-            m_Sampler_Cache[heap_offset] = CD3DX12_CPU_DESCRIPTOR_HANDLE(descriptor.cpu_handle, descriptor_index, descriptor.increament_size);
+            m_Sampler_Cache[heap_offset] = descriptor_handle;
         } break;
     }
 }

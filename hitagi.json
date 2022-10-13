@@ -1,1 +1,7 @@
-{"asset_root_path":"assets","height":773,"title":"Hitagi Engine","version":"v0.2.0","width":1225}
+{
+    "asset_root_path": "assets",
+    "height": 792,
+    "title": "Hitagi Engine",
+    "version": "v0.2.0",
+    "width": 1024
+}
