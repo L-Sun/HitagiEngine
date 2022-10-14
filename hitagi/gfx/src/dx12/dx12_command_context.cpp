@@ -3,8 +3,6 @@
 #include "dx12_resource.hpp"
 #include "utils.hpp"
 
-#include <pix.h>
-
 namespace hitagi::gfx {
 template <typename T>
 auto initialize_command_context(DX12Device* device, CommandType type, std::string_view name, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<T>& cmd_list) {
@@ -243,9 +241,7 @@ void DX12GraphicsCommandContext::CopyTexture(const Texture& src, const Texture& 
 }
 
 void DX12GraphicsCommandContext::Present(Texture& back_buffer) {
-    PIXBeginEvent(m_CmdList.Get(), PIX_COLOR(244, 12, 128), "Present");
     TransitionResource(back_buffer, D3D12_RESOURCE_STATE_PRESENT, true);
-    PIXEndEvent(m_CmdList.Get());
 }
 
 void DX12CopyCommandContext::CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) {

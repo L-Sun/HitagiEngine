@@ -6,6 +6,7 @@
 #include "d3dx12.h"
 #include <hitagi/utils/exceptions.hpp>
 
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <magic_enum.hpp>
 #include <dxcapi.h>
 #include <dxgiformat.h>
@@ -78,18 +79,13 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
     // Initial Gpu Descriptor Allocator, cbv uav srv share same descriptor heap
     m_GpuDescriptorAllocators[0] = std::make_unique<DescriptorAllocator>(this, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
     m_GpuDescriptorAllocators[1] = std::make_unique<DescriptorAllocator>(this, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, true);
-
-    // Initiali bindless root signature
-
-    report_debug_error_after_destory_fn = []() {
-        DX12Device::ReportDebugLog();
-    };
 }
 
 DX12Device::~DX12Device() {
     UnregisterIntegratedD3D12Logger();
 #ifdef _DEBUG
     ThrowIfFailed(m_Device->QueryInterface(g_debug_interface.ReleaseAndGetAddressOf()));
+    DX12Device::ReportDebugLog();
 #endif
 }
 
@@ -198,8 +194,12 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
         result = std::make_shared<DX12SwapChain>(desc);
     }
 
+    bool allow_tearing = false;
+    m_Factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
+
     DXGI_SWAP_CHAIN_DESC1 d3d_desc = {
         .Format     = to_dxgi_format(desc.format),
+        .Stereo     = false,
         .SampleDesc = {
             .Count   = desc.sample_count,
             .Quality = 0,
@@ -209,7 +209,7 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
         .Scaling     = DXGI_SCALING_STRETCH,
         .SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD,
         .AlphaMode   = DXGI_ALPHA_MODE_UNSPECIFIED,
-        .Flags       = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH,
+        .Flags       = allow_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u,
     };
 
     Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain;

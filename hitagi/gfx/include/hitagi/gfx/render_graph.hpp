@@ -51,7 +51,7 @@ public:
         PassNode*    m_Node;
     };
 
-    RenderGraph(Device& device) : device(device) {}
+    RenderGraph(Device& device) : device(device), m_Executor(1) {}
 
     template <typename PassData>
     using SetupFunc = std::function<void(Builder&, PassData&)>;
@@ -100,7 +100,8 @@ private:
 
     std::pmr::vector<PassNode*> m_ExecuteQueue;
 
-    utils::EnumArray<std::pmr::deque<std::shared_ptr<Resource>>, CommandType>      m_RetiredResources;
+    using RetiredResource = std::pair<std::shared_ptr<Resource>, std::uint64_t>;
+    utils::EnumArray<std::pmr::deque<RetiredResource>, CommandType>                m_RetiredResources;
     utils::EnumArray<std::pmr::list<std::shared_ptr<CommandContext>>, CommandType> m_ContextPool;
 };
 

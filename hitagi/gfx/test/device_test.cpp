@@ -547,45 +547,55 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
 
         auto render_queue = device->GetCommandQueue(CommandType::Graphics);
         auto context      = device->CreateGraphicsContext("I know DirectX12 context");
-        // while (!app->IsQuit()) {
-        auto rtv = device->CreateTextureView(
-            {
-                .textuer = swap_chain->GetBuffer(swap_chain->GetCurrentBackIndex()),
-                .format  = swap_chain->desc.format,
+
+        hitagi::core::Clock timer;
+        timer.Start();
+        std::uint64_t frames = 0;
+        while (!app->IsQuit()) {
+            auto rtv = device->CreateTextureView(
+                {
+                    .textuer = swap_chain->GetBuffer(swap_chain->GetCurrentBackIndex()),
+                    .format  = swap_chain->desc.format,
+                });
+
+            context->SetRenderTarget(*rtv);
+            context->SetViewPort(ViewPort{
+                .x      = 0,
+                .y      = 0,
+                .width  = static_cast<float>(rect.right - rect.left),
+                .height = static_cast<float>(rect.bottom - rect.top),
             });
+            context->SetScissorRect(hitagi::gfx::Rect{
+                .x      = rect.left,
+                .y      = rect.top,
+                .width  = rect.right - rect.left,
+                .height = rect.bottom - rect.top,
+            });
+            context->ClearRenderTarget(*rtv);
+            context->SetPipeline(*pipeline);
+            context->SetVertexBuffer(0, *vertex_buffer);
+            context->SetVertexBuffer(1, *vertex_buffer);
 
-        context->SetRenderTarget(*rtv);
-        context->SetViewPort(ViewPort{
-            .x      = 0,
-            .y      = 0,
-            .width  = static_cast<float>(rect.right - rect.left),
-            .height = static_cast<float>(rect.bottom - rect.top),
-        });
-        context->SetScissorRect(hitagi::gfx::Rect{
-            .x      = rect.left,
-            .y      = rect.top,
-            .width  = rect.right - rect.left,
-            .height = rect.bottom - rect.top,
-        });
-        context->ClearRenderTarget(*rtv);
-        context->SetPipeline(*pipeline);
-        context->SetVertexBuffer(0, *vertex_buffer);
-        context->SetVertexBuffer(1, *vertex_buffer);
+            rotation = rotate_z(deg2rad(90.0f));
+            context->BindConstantBuffer(0, *constant_buffer);
 
-        rotation = rotate_z(deg2rad(90.0f));
-        context->BindConstantBuffer(0, *constant_buffer);
+            context->Draw(3);
+            context->Present(*rtv->desc.textuer);
 
-        context->Draw(3);
-        context->Present(*rtv->desc.textuer);
+            context->End();
 
-        context->End();
-
-        render_queue->Submit({context.get()});
-        swap_chain->Present();
-        render_queue->WaitIdle();
-        context->Reset();
-        app->Tick();
-        // }
+            render_queue->Submit({context.get()});
+            swap_chain->Present();
+            render_queue->WaitIdle();
+            context->Reset();
+            app->Tick();
+            frames++;
+            if (timer.DeltaTime().count() > 1.0) {
+                std::cout << frames / timer.DeltaTime().count() << std::endl;
+                timer.Tick();
+                frames = 0;
+            }
+        }
     }
 
     app->Finalize();

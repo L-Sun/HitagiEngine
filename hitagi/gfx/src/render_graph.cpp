@@ -1,6 +1,7 @@
 #include <hitagi/gfx/render_graph.hpp>
 #include <hitagi/utils/overloaded.hpp>
 #include <hitagi/utils/exceptions.hpp>
+#include <hitagi/utils/utils.hpp>
 
 #include <taskflow/taskflow.hpp>
 
@@ -119,34 +120,36 @@ auto RenderGraph::GetResrouceNode(ResourceHandle handle) -> ResourceNode& {
 bool RenderGraph::Compile() {
     if (m_PresentPassNode == nullptr) return false;
 
-    std::pmr::unordered_map<const PassNode*, tf::Task> task_map;
+    std::pmr::unordered_set<const PassNode*> task_map;
+    std::deque<PassNode*>                    execute_queue;
 
     // bottom-up build taskflow
     // TODO: batch command context submit
-    std::function<tf::Task(PassNode*)> create_task = [&](PassNode* node) -> tf::Task {
+    std::function<void(PassNode*)> create_task = [&](PassNode* node) -> void {
         if (task_map.contains(node))
-            return task_map.at(node);
+            return;
 
         node->context = RequestCommandContext(node->type);
         node->context->SetName(node->name);
 
-        auto task = m_Taskflow.emplace([=]() {
-            node->Execute();
-            node->context->End();
-        });
+        // auto task = m_Taskflow.emplace([=]() {
+        //     node->Execute();
+        //     node->context->End();
+        // });
 
-        task.name(std::string(node->name));
-        task_map.emplace(node, task);
+        // task.name(std::string(node->name));
+        // task_map.emplace(node, task);
 
         for (auto read_res : node->reads) {
-            if (auto writer = GetResrouceNode(read_res).writer; writer != nullptr) {
-                task.succeed(create_task(writer));
+            std::pmr::set<PassNode*> waited;
+            if (auto writer = GetResrouceNode(read_res).writer; writer != nullptr && !waited.contains(writer)) {
+                create_task(writer);
+                // m_ExecuteQueue.emplace_back(writer);
+                waited.emplace(writer);
             }
         }
 
         m_ExecuteQueue.emplace_back(node);
-
-        return task;
     };
 
     create_task(m_PresentPassNode.get());
@@ -165,14 +168,18 @@ bool RenderGraph::Compile() {
             desc);
     }
 
+    // m_Executor.run(m_Taskflow).wait();
+
     return true;
 }
 
 void RenderGraph::Execute() {
-    m_Executor.run(m_Taskflow).wait();
-
     std::pmr::vector<CommandContext*> contexts;
     std::uint64_t                     fence_value;
+    for (auto pass : m_ExecuteQueue) {
+        pass->Execute();
+        pass->context->End();
+    }
 
     auto left  = m_ExecuteQueue.begin();
     auto right = left;
@@ -185,10 +192,11 @@ void RenderGraph::Execute() {
         auto queue = device.GetCommandQueue((*left)->type);
 
         std::transform(left, right, std::back_inserter(contexts), [&](const PassNode* node) {
+            auto waited = utils::create_enum_array<bool, CommandType>(false);
             for (auto res_handle : node->reads) {
-                auto res = m_Resources.at(GetResrouceNode(res_handle).res_idx);
-                if (res->last_used_queue && res->last_used_queue != queue) {
-                    queue->WaitForQueue(*res->last_used_queue);
+                auto& res_node = GetResrouceNode(res_handle);
+                if (res_node.writer && res_node.writer->type != node->type && !waited[res_node.writer->type]) {
+                    queue->WaitForQueue(*device.GetCommandQueue(res_node.writer->type));
                 }
             }
             return node->context.get();
@@ -199,14 +207,12 @@ void RenderGraph::Execute() {
         std::for_each(left, right, [&](PassNode* node) {
             m_ContextPool[node->type].emplace_back(std::move(node->context));
             for (auto res_handle : node->reads) {
-                auto res             = m_Resources.at(GetResrouceNode(res_handle).res_idx);
-                res->fence_value     = fence_value;
-                res->last_used_queue = queue;
+                auto res = m_Resources.at(GetResrouceNode(res_handle).res_idx);
+                m_RetiredResources[queue->type].emplace_back(res, fence_value);
             }
             for (auto res_handle : node->writes) {
-                auto res             = m_Resources.at(GetResrouceNode(res_handle).res_idx);
-                res->fence_value     = fence_value;
-                res->last_used_queue = queue;
+                auto res = m_Resources.at(GetResrouceNode(res_handle).res_idx);
+                m_RetiredResources[queue->type].emplace_back(res, fence_value);
             }
         });
 
@@ -217,27 +223,17 @@ void RenderGraph::Execute() {
 }
 
 void RenderGraph::Clear() {
-    for (auto& retired_resources : m_RetiredResources) {
-        while (!retired_resources.empty()) {
-            auto& retired_res = retired_resources.front();
-            if (retired_res->last_used_queue->IsFenceComplete(retired_res->fence_value)) {
-                retired_resources.pop_front();
+    magic_enum::enum_for_each<CommandType>([this](CommandType type) {
+        auto queue = device.GetCommandQueue(type);
+        while (!m_RetiredResources[type].empty()) {
+            const auto& [retired_res, fence_value] = m_RetiredResources[type].front();
+            if (queue->IsFenceComplete(fence_value)) {
+                m_RetiredResources[type].pop_front();
             } else {
                 break;
             }
         }
-    }
-
-    for (const auto& res : m_Resources) {
-        if (std::find(m_RetiredResources[res->last_used_queue->type].begin(), m_RetiredResources[res->last_used_queue->type].end(), res) == m_RetiredResources[res->last_used_queue->type].end()) {
-            m_RetiredResources[res->last_used_queue->type].emplace_back(res);
-        }
-    }
-    for (auto& retired_resources : m_RetiredResources) {
-        std::sort(retired_resources.begin(), retired_resources.end(), [](const auto& lhs, const auto& rhs) {
-            return lhs->fence_value < rhs->fence_value;
-        });
-    }
+    });
 
     m_ResourceNodes.clear();
     m_PassNodes.clear();
@@ -246,6 +242,7 @@ void RenderGraph::Clear() {
     m_BlackBoard.clear();
     m_ExecuteQueue.clear();
     m_Taskflow.clear();
+    device.WaitIdle();
 }
 
 }  // namespace hitagi::gfx

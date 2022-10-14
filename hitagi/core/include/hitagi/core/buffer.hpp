@@ -5,6 +5,7 @@
 #include <span>
 #include <memory_resource>
 #include <cassert>
+#include <cstddef>
 
 namespace hitagi::core {
 

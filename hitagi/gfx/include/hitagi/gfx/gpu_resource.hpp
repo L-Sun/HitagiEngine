@@ -11,9 +11,7 @@ class CommandQueue;
 constexpr auto UNKOWN_NAME = "Unkown";
 
 struct Resource {
-    virtual ~Resource()           = default;
-    std::uint64_t fence_value     = 0;
-    CommandQueue* last_used_queue = nullptr;
+    virtual ~Resource() = default;
 };
 
 struct GpuBuffer : public Resource {
