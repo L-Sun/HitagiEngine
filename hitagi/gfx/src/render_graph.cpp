@@ -148,8 +148,8 @@ bool RenderGraph::Compile() {
                 waited.emplace(writer);
             }
         }
-
-        m_ExecuteQueue.emplace_back(node);
+        if (std::find(m_ExecuteQueue.begin(), m_ExecuteQueue.end(), node) == m_ExecuteQueue.end())
+            m_ExecuteQueue.emplace_back(node);
     };
 
     create_task(m_PresentPassNode.get());
@@ -191,12 +191,13 @@ void RenderGraph::Execute() {
 
         auto queue = device.GetCommandQueue((*left)->type);
 
+        auto waited = utils::create_enum_array<bool, CommandType>(false);
         std::transform(left, right, std::back_inserter(contexts), [&](const PassNode* node) {
-            auto waited = utils::create_enum_array<bool, CommandType>(false);
             for (auto res_handle : node->reads) {
                 auto& res_node = GetResrouceNode(res_handle);
                 if (res_node.writer && res_node.writer->type != node->type && !waited[res_node.writer->type]) {
                     queue->WaitForQueue(*device.GetCommandQueue(res_node.writer->type));
+                    waited[res_node.writer->type] = true;
                 }
             }
             return node->context.get();
@@ -242,7 +243,6 @@ void RenderGraph::Clear() {
     m_BlackBoard.clear();
     m_ExecuteQueue.clear();
     m_Taskflow.clear();
-    device.WaitIdle();
 }
 
 }  // namespace hitagi::gfx

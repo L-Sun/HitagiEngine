@@ -96,21 +96,21 @@ void DX12CopyCommandContext::ResetState(Texture& texture) {
 }
 
 void DX12GraphicsCommandContext::Reset() {
-    m_CmdAllocator->Reset();
+    ThrowIfFailed(m_CmdAllocator->Reset());
     m_ResourceBinder.Reset();
-    m_CmdList->Reset(m_CmdAllocator.Get(), nullptr);
+    ThrowIfFailed(m_CmdList->Reset(m_CmdAllocator.Get(), nullptr));
 }
 
 void DX12ComputeCommandContext::Reset() {
-    m_CmdAllocator->Reset();
+    ThrowIfFailed(m_CmdAllocator->Reset());
     m_ResourceBinder.Reset();
     m_CmdList->Reset(m_CmdAllocator.Get(), nullptr);
 }
 
 void DX12CopyCommandContext::Reset() {
-    m_CmdAllocator->Reset();
+    ThrowIfFailed(m_CmdAllocator->Reset());
     m_ResourceBinder.Reset();
-    m_CmdList->Reset(m_CmdAllocator.Get(), nullptr);
+    ThrowIfFailed(m_CmdList->Reset(m_CmdAllocator.Get(), nullptr));
 }
 
 void DX12GraphicsCommandContext::End() {

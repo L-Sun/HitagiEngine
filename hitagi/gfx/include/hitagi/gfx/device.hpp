@@ -16,7 +16,7 @@ public:
         Mock
     } const device_type;
 
-    virtual ~Device() = default;
+    virtual ~Device();
 
     static auto  Create(Type type, std::string_view name = "") -> std::unique_ptr<Device>;
     virtual void WaitIdle() = 0;
@@ -41,5 +41,6 @@ protected:
     Device(Type type, std::string_view name);
 
     std::shared_ptr<spdlog::logger> m_Logger;
+    std::function<void()>           report_debug_error_after_destory_fn;
 };
 }  // namespace hitagi::gfx

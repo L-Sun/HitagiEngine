@@ -85,7 +85,7 @@ DX12Device::~DX12Device() {
     UnregisterIntegratedD3D12Logger();
 #ifdef _DEBUG
     ThrowIfFailed(m_Device->QueryInterface(g_debug_interface.ReleaseAndGetAddressOf()));
-    DX12Device::ReportDebugLog();
+    report_debug_error_after_destory_fn = []() { DX12Device::ReportDebugLog(); };
 #endif
 }
 
@@ -194,8 +194,10 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
         result = std::make_shared<DX12SwapChain>(desc);
     }
 
-    bool allow_tearing = false;
-    m_Factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
+    BOOL allow_tearing = false;
+    if (ComPtr<IDXGIFactory5> factory5; SUCCEEDED(m_Factory.As(&factory5))) {
+        factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
+    }
 
     DXGI_SWAP_CHAIN_DESC1 d3d_desc = {
         .Format     = to_dxgi_format(desc.format),
