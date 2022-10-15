@@ -14,7 +14,7 @@ public:
     virtual ~CommandQueue() = default;
 
     virtual auto Submit(std::pmr::vector<CommandContext*> context) -> std::uint64_t = 0;
-    virtual bool IsFenceComplete(std::uint64_t fence_value) const                   = 0;
+    virtual bool IsFenceComplete(std::uint64_t fence_value)                         = 0;
     virtual void WaitForFence(std::uint64_t fence_value)                            = 0;
     virtual void WaitForQueue(const CommandQueue& other)                            = 0;
     virtual void WaitIdle()                                                         = 0;

@@ -143,29 +143,29 @@ void DX12GraphicsCommandContext::SetBlendColor(const math::vec4f& color) {
 }
 
 void DX12GraphicsCommandContext::SetRenderTarget(const TextureView& target) {
-    TransitionResource(*target.desc.textuer, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+    TransitionResource(target.desc.textuer, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
 
     const auto& rtv = static_cast<const DX12DescriptorWrapper<TextureView>&>(target).rtv;
     m_CmdList->OMSetRenderTargets(1, &rtv.cpu_handle, false, nullptr);
 }
 
 void DX12GraphicsCommandContext::SetRenderTargetAndDepthStencil(const TextureView& target, const TextureView& depth_stencil) {
-    TransitionResource(*target.desc.textuer, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    TransitionResource(*depth_stencil.desc.textuer, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
+    TransitionResource(target.desc.textuer, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    TransitionResource(depth_stencil.desc.textuer, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
 
     const auto& dx12_texture_view = static_cast<const DX12DescriptorWrapper<TextureView>&>(target);
     m_CmdList->OMSetRenderTargets(1, &dx12_texture_view.rtv.cpu_handle, false, &dx12_texture_view.dsv.cpu_handle);
 }
 
 void DX12GraphicsCommandContext::ClearRenderTarget(const TextureView& target) {
-    const auto& clear_color = target.desc.textuer->desc.clear_value.color;
+    const auto& clear_color = target.desc.textuer.desc.clear_value.color;
 
     const auto& rtv = static_cast<const DX12DescriptorWrapper<TextureView>&>(target).rtv;
     m_CmdList->ClearRenderTargetView(rtv.cpu_handle, clear_color, 0, nullptr);
 }
 
 void DX12GraphicsCommandContext::ClearDepthStencil(const TextureView& depth_stencil) {
-    const auto& clear_value = depth_stencil.desc.textuer->desc.clear_value;
+    const auto& clear_value = depth_stencil.desc.textuer.desc.clear_value;
 
     const auto& dsv = static_cast<const DX12DescriptorWrapper<TextureView>&>(depth_stencil).dsv;
     m_CmdList->ClearDepthStencilView(dsv.cpu_handle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_value.depth, clear_value.stencil, 0, nullptr);
@@ -180,12 +180,12 @@ void DX12GraphicsCommandContext::SetPipeline(const RenderPipeline& pipeline) {
 }
 
 void DX12GraphicsCommandContext::SetIndexBuffer(const GpuBufferView& buffer) {
-    TransitionResource(*buffer.desc.buffer, D3D12_RESOURCE_STATE_INDEX_BUFFER, true);
+    TransitionResource(buffer.desc.buffer, D3D12_RESOURCE_STATE_INDEX_BUFFER, true);
     m_CmdList->IASetIndexBuffer(&static_cast<const DX12GpuBufferView&>(buffer).ibv.value());
 }
 
 void DX12GraphicsCommandContext::SetVertexBuffer(std::uint8_t slot, const GpuBufferView& buffer) {
-    TransitionResource(*buffer.desc.buffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, true);
+    TransitionResource(buffer.desc.buffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, true);
     m_CmdList->IASetVertexBuffers(slot, 1, &static_cast<const DX12GpuBufferView&>(buffer).vbv.value());
 }
 

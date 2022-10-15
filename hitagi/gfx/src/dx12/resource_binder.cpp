@@ -129,7 +129,7 @@ void ResourceBinder::BindConstantBuffer(std::uint32_t slot, const GpuBufferView&
             return;
         } break;
         case BindingType::RootDescriptor: {
-            auto buffer_location = std::static_pointer_cast<DX12ResourceWrapper<GpuBuffer>>(buffer.desc.buffer)->resource->GetGPUVirtualAddress() + buffer.desc.offset;
+            auto buffer_location = static_cast<DX12ResourceWrapper<GpuBuffer>&>(buffer.desc.buffer).resource->GetGPUVirtualAddress() + buffer.desc.offset;
             switch (m_Context.m_Type) {
                 case CommandType::Graphics:
                     m_Context.m_CmdList->SetGraphicsRootConstantBufferView(slot_info.param_index, buffer_location);

@@ -18,6 +18,8 @@ public:
 private:
     std::unique_ptr<Device>      m_Device;
     std::unique_ptr<RenderGraph> m_RenderGraph;
+
+    utils::EnumArray<std::uint64_t, CommandType> m_LastFenceValues = utils::create_enum_array<std::uint64_t, CommandType>(0);
 };
 
 }  // namespace hitagi::gfx

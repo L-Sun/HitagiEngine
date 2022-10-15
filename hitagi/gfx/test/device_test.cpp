@@ -196,7 +196,7 @@ TEST_F(D3DDeviceTest, CreateTextureView) {
         });
     auto texture_view = device->CreateTextureView(
         {
-            .textuer           = texture,
+            .textuer           = *texture,
             .format            = texture->desc.format,
             .is_cube           = true,
             .mip_level_count   = texture->desc.mip_levels,
@@ -312,9 +312,13 @@ TEST_F(D3DDeviceTest, CommandContextTest) {
         constexpr auto vs_code = R"""(
             #define RSDEF                                    \
             "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)," \
-            "RootConstants(num32BitConstants=1, b0)"                                        \
+            "RootConstants(num32BitConstants=4, b0),"        \
+            "CBV(b1),"                                       \
 
-            cbuffer ConstantData : register(b0) {
+            cbuffer PushtData : register(b0) {
+                float4 push_data;
+            };
+            cbuffer ConstantData : register(b1) {
                 float4 constant_data;
             };
 
@@ -328,7 +332,7 @@ TEST_F(D3DDeviceTest, CommandContextTest) {
             [RootSignature(RSDEF)]
             PS_INPUT VSMain(VS_INPUT input) {
                 PS_INPUT output;
-                output.pos = float4(input.pos, 1.0f);
+                output.pos = float4(input.pos, 1.0f) + push_data + constant_data;
                 return output;
             }
         )""";
@@ -351,8 +355,16 @@ TEST_F(D3DDeviceTest, CommandContextTest) {
             {
                 .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
                 .size   = sizeof(vec4f),
-                .usages = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
+                .usages = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc | GpuBuffer::UsageFlags::Constant,
             });
+
+        auto cbv = device->CreateBufferView(
+            {
+                .buffer = *constant_buffer,
+                .stride = sizeof(vec4f),
+                .usages = GpuBufferView::UsageFlags::Constant,
+            });
+
         auto constant_buffer_span = std::span<vec4f>{
             reinterpret_cast<vec4f*>(constant_buffer->mapped_ptr),
             constant_buffer->desc.size / sizeof(vec4f)};
@@ -362,7 +374,8 @@ TEST_F(D3DDeviceTest, CommandContextTest) {
         ASSERT_TRUE(graphics_context);
         EXPECT_NO_THROW({
             graphics_context->SetPipeline(*render_pipeline);
-            graphics_context->PushConstant(0, *constant_buffer);
+            graphics_context->PushConstant(0, vec4f(1, 2, 3, 4));
+            graphics_context->BindConstantBuffer(1, *cbv);
             graphics_context->End();
         });
     }
@@ -417,12 +430,12 @@ TEST_F(D3DDeviceTest, SwapChainTest) {
             });
         ASSERT_TRUE(swap_chain);
 
-        auto back_buffer = swap_chain->GetBuffer(0);
-        ASSERT_TRUE(back_buffer);
-        EXPECT_EQ(back_buffer->desc.width, rect.right - rect.left);
-        EXPECT_EQ(back_buffer->desc.height, rect.bottom - rect.top);
-        EXPECT_EQ(back_buffer->desc.format, swap_chain->desc.format);
-        EXPECT_TRUE(hitagi::utils::has_flag(back_buffer->desc.usages, Texture::UsageFlags::RTV));
+        ASSERT_NO_THROW(swap_chain->GetBuffer(0));
+        auto& back_buffer = swap_chain->GetBuffer(0);
+        EXPECT_EQ(back_buffer.desc.width, rect.right - rect.left);
+        EXPECT_EQ(back_buffer.desc.height, rect.bottom - rect.top);
+        EXPECT_EQ(back_buffer.desc.format, swap_chain->desc.format);
+        EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.desc.usages, Texture::UsageFlags::RTV));
 
         auto same_swapchan = device->CreateSwapChain(
             {
@@ -449,9 +462,9 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
             });
 
         constexpr std::string_view shader_code = R"""(
-            #define RSDEF                                    \
-            "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)," \
-            "DescriptorTable(CBV(b0))"                       \
+            #define RSDEF                                                                     \
+            "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),"                                  \
+            "RootConstants(num32BitConstants=16, b0,  visibility=SHADER_VISIBILITY_VERTEX)"   \
 
             cbuffer Rotation : register(b0) {
                 matrix rotation;
@@ -501,7 +514,7 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
             .input_layout = {
                 // clang-format off
                 {"POSITION", 0, 0,             0, Format::R32G32B32_FLOAT},
-                {   "COLOR", 0, 1, sizeof(vec3f), Format::R32G32B32_FLOAT},
+                {   "COLOR", 0, 0, sizeof(vec3f), Format::R32G32B32_FLOAT},
                 // clang-format on
             },
             .rasterizer_config = {
@@ -517,87 +530,59 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
             { 0.25f, -0.25f, 0.00f}, {0.0f, 0.0f, 1.0f},  // point 2
         }};
         // clang-format on
-
-        auto vertex_buffer = device->CreateBufferView(
+        auto vertex_buffer = device->CreateBuffer(
             {
-                .buffer = device->CreateBuffer(
-                    {
-                        .name = "I know DirectX12 positions buffer",
-                        .size = triangle.size() * sizeof(vec3f),
-                    },
-                    {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)}),
+                .name = "I know DirectX12 positions buffer",
+                .size = triangle.size() * sizeof(vec3f),
+            },
+            {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
+
+        auto vbv = device->CreateBufferView(
+            {
+                .buffer = *vertex_buffer,
                 .stride = 2 * sizeof(vec3f),
                 .usages = GpuBufferView::UsageFlags::Vertex,
             });
-
-        auto constant_buffer = device->CreateBufferView(
-            {
-                .buffer = device->CreateBuffer(
-                    {
-                        .name   = "Rotation",
-                        .size   = sizeof(mat4f),
-                        .usages = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::Constant,
-                    }),
-                .size   = sizeof(mat4f),
-                .stride = sizeof(mat4f),
-                .usages = GpuBufferView::UsageFlags::Constant,
-            });
-
-        auto& rotation = *reinterpret_cast<mat4f*>(constant_buffer->desc.buffer->mapped_ptr);
 
         auto render_queue = device->GetCommandQueue(CommandType::Graphics);
         auto context      = device->CreateGraphicsContext("I know DirectX12 context");
 
         hitagi::core::Clock timer;
         timer.Start();
-        std::uint64_t frames = 0;
-        while (!app->IsQuit()) {
-            auto rtv = device->CreateTextureView(
-                {
-                    .textuer = swap_chain->GetBuffer(swap_chain->GetCurrentBackIndex()),
-                    .format  = swap_chain->desc.format,
-                });
-
-            context->SetRenderTarget(*rtv);
-            context->SetViewPort(ViewPort{
-                .x      = 0,
-                .y      = 0,
-                .width  = static_cast<float>(rect.right - rect.left),
-                .height = static_cast<float>(rect.bottom - rect.top),
+        auto rtv = device->CreateTextureView(
+            {
+                .textuer = swap_chain->GetCurrentBackBuffer(),
+                .format  = swap_chain->desc.format,
             });
-            context->SetScissorRect(hitagi::gfx::Rect{
-                .x      = rect.left,
-                .y      = rect.top,
-                .width  = rect.right - rect.left,
-                .height = rect.bottom - rect.top,
-            });
-            context->ClearRenderTarget(*rtv);
-            context->SetPipeline(*pipeline);
-            context->SetVertexBuffer(0, *vertex_buffer);
-            context->SetVertexBuffer(1, *vertex_buffer);
 
-            rotation = rotate_z(deg2rad(90.0f));
-            context->BindConstantBuffer(0, *constant_buffer);
+        context->SetRenderTarget(*rtv);
+        context->SetViewPort(ViewPort{
+            .x      = 0,
+            .y      = 0,
+            .width  = static_cast<float>(rect.right - rect.left),
+            .height = static_cast<float>(rect.bottom - rect.top),
+        });
+        context->SetScissorRect(hitagi::gfx::Rect{
+            .x      = rect.left,
+            .y      = rect.top,
+            .width  = rect.right - rect.left,
+            .height = rect.bottom - rect.top,
+        });
+        context->ClearRenderTarget(*rtv);
+        context->SetPipeline(*pipeline);
+        context->SetVertexBuffer(0, *vbv);
 
-            context->Draw(3);
-            context->Present(*rtv->desc.textuer);
+        context->PushConstant(0, rotate_z(deg2rad(90.0f)));
 
-            context->End();
+        context->Draw(3);
+        context->Present(rtv->desc.textuer);
+        context->End();
 
-            render_queue->Submit({context.get()});
-            swap_chain->Present();
-            render_queue->WaitIdle();
-            context->Reset();
-            app->Tick();
-            frames++;
-            if (timer.DeltaTime().count() > 1.0) {
-                std::cout << frames / timer.DeltaTime().count() << std::endl;
-                timer.Tick();
-                frames = 0;
-            }
-        }
+        render_queue->Submit({context.get()});
+        swap_chain->Present();
+        render_queue->WaitIdle();
+        context->Reset();
     }
-
     app->Finalize();
 }
 

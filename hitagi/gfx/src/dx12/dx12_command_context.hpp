@@ -15,7 +15,9 @@ class DX12Device;
 class DX12CommandContext {
 public:
     DX12CommandContext(DX12Device* device, CommandType type, std::string_view name, std::uint64_t& fence_value);
-
+    ~DX12CommandContext() {
+        int i = 0;
+    }
     template <typename T>
     void TransitionResource(T& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate = false);
     void FlushBarriers();

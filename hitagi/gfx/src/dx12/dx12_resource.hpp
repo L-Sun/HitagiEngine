@@ -52,16 +52,18 @@ struct DX12SwapChain : public SwapChain {
     inline auto GetCurrentBackIndex() -> std::uint8_t final {
         return swap_chain->GetCurrentBackBufferIndex();
     }
-    inline auto GetCurrentBackBuffer() -> std::shared_ptr<Texture> final {
+    inline auto GetCurrentBackBuffer() -> Texture& final {
         return GetBuffer(GetCurrentBackIndex());
     }
-    auto        GetBuffer(std::uint8_t index) -> std::shared_ptr<Texture> final;
+    auto        GetBuffer(std::uint8_t index) -> Texture& final;
     inline void Present() final {
-        swap_chain->Present(0, 0);
+        swap_chain->Present(desc.vsync ? 1 : 0, allow_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0);
         associated_queue->InsertFence();
     }
+    void Resize() final;
 
     ComPtr<IDXGISwapChain4>                                         swap_chain;
+    bool                                                            allow_tearing = false;
     std::pmr::vector<std::shared_ptr<DX12ResourceWrapper<Texture>>> back_buffers;
     std::pmr::vector<std::pmr::string>                              back_buffer_names;
     DX12CommandQueue*                                               associated_queue;

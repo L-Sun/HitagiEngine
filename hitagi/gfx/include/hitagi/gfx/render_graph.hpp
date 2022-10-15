@@ -36,13 +36,13 @@ public:
 
     public:
         template <typename T>
-        std::shared_ptr<T> Get(ResourceHandle handle) const {
+        T& Get(ResourceHandle handle) const {
             if (!(m_Node->reads.contains(handle) || m_Node->writes.contains(handle))) {
                 throw std::logic_error(fmt::format("This pass node do not operate the handle{} in graph", handle.id));
             }
             auto result = m_Fg.m_Resources[m_Fg.m_ResourceNodes[handle.id - 1].res_idx];
             assert(result != nullptr && "Access a invalid resource in excution phase, which may be pruned in compile phase!");
-            return std::static_pointer_cast<T>(result);
+            return *static_cast<T*>(result);
         }
 
     private:
@@ -51,7 +51,7 @@ public:
         PassNode*    m_Node;
     };
 
-    RenderGraph(Device& device) : device(device), m_Executor(1) {}
+    RenderGraph(Device& device) : device(device), m_Executor() {}
 
     template <typename PassData>
     using SetupFunc = std::function<void(Builder&, PassData&)>;
@@ -66,24 +66,32 @@ public:
     template <typename PassData>
     auto AddPass(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData, CopyCommandContext> executor) -> const PassData&;
 
-    auto Import(std::string_view name, std::shared_ptr<Resource> res) -> ResourceHandle;
+    // render graph will keep the resource life until the command context finish its execution
+    auto Import(std::string_view name, std::shared_ptr<Resource>) -> ResourceHandle;
+    // render graph don not keep the resource life
+    auto ImportWithoutLifeTrack(std::string_view name, Resource* res) -> ResourceHandle;
 
     void PresentPass(ResourceHandle back_buffer);
 
     bool Compile();
-    void Execute();
+    auto Execute() -> utils::EnumArray<std::uint64_t, CommandType>;
 
     Device& device;
 
 private:
+    struct InnerResource {
+        ResourceDesc              desc;
+        std::shared_ptr<Resource> resource       = nullptr;
+        std::size_t               resource_index = 0;  //`index` points to m_Resources
+    };
+
     template <typename PassData, typename Context>
     auto AddPassImpl(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData, Context> executor) -> const PassData&;
     auto CreateResource(ResourceDesc desc) -> ResourceHandle;
     auto RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext>;
     auto GetResrouceNode(ResourceHandle handle) -> ResourceNode&;
+    auto GetLifeTrackResource(const Resource* res) -> std::shared_ptr<Resource>;
     void Clear();
-
-    std::uint64_t m_LastFence = 0;
 
     tf::Executor m_Executor;
     tf::Taskflow m_Taskflow;
@@ -92,12 +100,13 @@ private:
     std::pmr::vector<std::shared_ptr<PassNode>> m_PassNodes;
     std::shared_ptr<PassNode>                   m_PresentPassNode = nullptr;
 
-    std::pmr::vector<std::shared_ptr<Resource>> m_Resources;
+    std::pmr::vector<Resource*> m_Resources;
     // dict<name, index>, where the `index` points to m_Resources
     std::pmr::unordered_map<std::pmr::string, std::size_t> m_BlackBoard;
-    // dict<desc, index>, where the `index` points to m_Resources
-    std::pmr::vector<std::pair<ResourceDesc, std::size_t>> m_InnerResourcesDesc;
+    std::pmr::vector<std::shared_ptr<Resource>>            m_OutterResources;
+    std::pmr::vector<InnerResource>                        m_InnerResources;
 
+    std::mutex                  m_ExecuteQueueMutex;
     std::pmr::vector<PassNode*> m_ExecuteQueue;
 
     using RetiredResource = std::pair<std::shared_ptr<Resource>, std::uint64_t>;

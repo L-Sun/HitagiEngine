@@ -21,7 +21,7 @@ TEST_F(RenderGraphTest, RenderPass) {
                 .window_ptr = app->GetWindow(),
                 .format     = Format::R8G8B8A8_UNORM,
             });
-        auto back_buffer = swap_chain->GetCurrentBackBuffer();
+        auto& back_buffer = swap_chain->GetCurrentBackBuffer();
 
         constexpr std::string_view shader_code = R"""(
             #define RSDEF                                    \
@@ -71,7 +71,7 @@ TEST_F(RenderGraphTest, RenderPass) {
             .input_layout = {
                 // clang-format off
                 {"POSITION", 0, 0,             0, Format::R32G32B32_FLOAT},
-                {   "COLOR", 0, 1, sizeof(vec3f), Format::R32G32B32_FLOAT},
+                {   "COLOR", 0, 0, sizeof(vec3f), Format::R32G32B32_FLOAT},
                 // clang-format on
             },
             .rasterizer_config = {
@@ -86,38 +86,41 @@ TEST_F(RenderGraphTest, RenderPass) {
         { 0.25f, -0.25f, 0.00f}, {0.0f, 0.0f, 1.0f},  // point 2
         }};
         // clang-format on
-
-        auto vertex_buffer = device->CreateBufferView(
+        auto vertex_buffer = device->CreateBuffer(
             {
-                .buffer = device->CreateBuffer(
-                    {
-                        .name = "triangle",
-                        .size = sizeof(vec3f) * triangle.size(),
-                    },
-                    {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)}),
-                .stride = 2 * sizeof(vec3f),
-                .usages = GpuBufferView::UsageFlags::Vertex,
-            });
+                .name = "triangle",
+                .size = sizeof(vec3f) * triangle.size(),
+            },
+            {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
         RenderGraph rg(*device);
 
-        auto back_buffer_handle = rg.Import("back_buffer", back_buffer);
+        auto vertex_buffer_handle = rg.Import("vertex_buffer", vertex_buffer.get());
+        auto back_buffer_handle   = rg.Import("back_buffer", &back_buffer);
 
         struct ColorPass {
+            ResourceHandle vertices;
             ResourceHandle output;
         };
         auto color_pass = rg.AddPass<ColorPass>(
             "color",
             [&](RenderGraph::Builder& builder, ColorPass& data) {
-                data.output = builder.Write(back_buffer_handle);
+                data.vertices = builder.Read(vertex_buffer_handle);
+                data.output   = builder.Write(back_buffer_handle);
             },
             [=](const RenderGraph::ResourceHelper& helper, const ColorPass& data, GraphicsCommandContext* context) {
-                const auto& render_target = helper.Get<Texture>(data.output);
+                auto& render_target = helper.Get<Texture>(data.output);
+
+                auto vbv = device->CreateBufferView(
+                    {
+                        .buffer = helper.Get<GpuBuffer>(data.vertices),
+                        .stride = 2 * sizeof(vec3f),
+                        .usages = GpuBufferView::UsageFlags::Vertex,
+                    });
 
                 auto rtv = device->CreateTextureView(
                     {
                         .textuer = render_target,
-                        .format  = render_target->desc.format,
                     });
 
                 context->SetPipeline(*pipeline);
@@ -125,17 +128,16 @@ TEST_F(RenderGraphTest, RenderPass) {
                 context->SetViewPort(ViewPort{
                     .x      = 0,
                     .y      = 0,
-                    .width  = static_cast<float>(render_target->desc.width),
-                    .height = static_cast<float>(render_target->desc.height),
+                    .width  = static_cast<float>(render_target.desc.width),
+                    .height = static_cast<float>(render_target.desc.height),
                 });
                 context->SetScissorRect(hitagi::gfx::Rect{
                     .x      = 0,
                     .y      = 0,
-                    .width  = render_target->desc.width,
-                    .height = render_target->desc.height,
+                    .width  = render_target.desc.width,
+                    .height = render_target.desc.height,
                 });
-                context->SetVertexBuffer(0, *vertex_buffer);
-                context->SetVertexBuffer(1, *vertex_buffer);
+                context->SetVertexBuffer(0, *vbv);
                 context->Draw(3);
             });
 

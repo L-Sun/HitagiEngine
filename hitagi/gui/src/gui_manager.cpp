@@ -123,8 +123,8 @@ void GuiManager::InitRenderPipeline(gfx::Device& gfx_device) {
     SamplerState sampler0       : register(s0);
     Texture2D    texture0       : register(t0);
 
-    #define RSDEF                                                                    \
-      "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "                              \
+    #define RSDEF                                                                      \
+      "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "                                \
       "RootConstants(num32BitConstants=16, b0,  visibility=SHADER_VISIBILITY_VERTEX)," \
       "DescriptorTable(                SRV(t0), visibility=SHADER_VISIBILITY_PIXEL),"  \
       "StaticSampler(                      s0,  visibility=SHADER_VISIBILITY_PIXEL)"
@@ -311,9 +311,9 @@ auto GuiManager::GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) ->
             data.upload_heap     = builder.Write(upload_heap);
         },
         [=](const gfx::RenderGraph::ResourceHelper& helper, const GuiVertexCopyPass& data, gfx::CopyCommandContext* context) {
-            auto upload_heap = helper.Get<gfx::GpuBuffer>(data.upload_heap);
+            auto& upload_heap = helper.Get<gfx::GpuBuffer>(data.upload_heap);
 
-            std::byte* curr_pointer = upload_heap->mapped_ptr;
+            std::byte* curr_pointer = upload_heap.mapped_ptr;
             for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
                 const auto cmd_list = draw_data->CmdLists[i];
 
@@ -324,7 +324,7 @@ auto GuiManager::GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) ->
 
                 curr_pointer += cmd_list->VtxBuffer.Size * sizeof(ImDrawVert);
             }
-            std::size_t vertex_total_size = curr_pointer - upload_heap->mapped_ptr;
+            std::size_t vertex_total_size = curr_pointer - upload_heap.mapped_ptr;
 
             for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
                 const auto cmd_list = draw_data->CmdLists[i];
@@ -334,13 +334,13 @@ auto GuiManager::GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) ->
                     cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
                 curr_pointer += cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx);
             }
-            std::size_t index_total_size = (curr_pointer - upload_heap->mapped_ptr) - vertex_total_size;
+            std::size_t index_total_size = (curr_pointer - upload_heap.mapped_ptr) - vertex_total_size;
 
-            auto vetices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
-            auto indices_buffer = helper.Get<gfx::GpuBuffer>(data.indices_buffer);
+            auto& vetices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
+            auto& indices_buffer = helper.Get<gfx::GpuBuffer>(data.indices_buffer);
 
-            context->CopyBuffer(*upload_heap, 0, *vetices_buffer, 0, vertex_total_size);
-            context->CopyBuffer(*upload_heap, vertex_total_size, *indices_buffer, 0, index_total_size);
+            context->CopyBuffer(upload_heap, 0, vetices_buffer, 0, vertex_total_size);
+            context->CopyBuffer(upload_heap, vertex_total_size, indices_buffer, 0, index_total_size);
         });
 
     struct GuiRenderPass {
@@ -367,9 +367,9 @@ auto GuiManager::GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) ->
             const float near   = 3.0f;
             const float far    = -1.0f;
 
-            auto rtv             = context->device->CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.output)});
-            auto vertices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
-            auto indices_buffer  = helper.Get<gfx::GpuBuffer>(data.indices_buffer);
+            auto  rtv             = context->device->CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.output)});
+            auto& vertices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
+            auto& indices_buffer  = helper.Get<gfx::GpuBuffer>(data.indices_buffer);
 
             context->SetPipeline(*m_GfxData.pipeline);
             context->SetViewPort({

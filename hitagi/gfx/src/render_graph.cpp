@@ -42,13 +42,20 @@ void RenderGraph::PresentPass(ResourceHandle back_buffer) {
     builder.Read(back_buffer);
 
     present_pass->executor = [back_buffer, helper = ResourceHelper(*this, present_pass.get())](GraphicsCommandContext* context) {
-        context->Present(*helper.Get<Texture>(back_buffer));
+        context->Present(helper.Get<Texture>(back_buffer));
     };
 
     m_PresentPassNode = present_pass;
 }
 
 auto RenderGraph::Import(std::string_view name, std::shared_ptr<Resource> res) -> ResourceHandle {
+    if (std::find(m_OutterResources.begin(), m_OutterResources.end(), res) == m_OutterResources.end()) {
+        m_OutterResources.emplace_back(res);
+    }
+    return ImportWithoutLifeTrack(name, res.get());
+}
+
+auto RenderGraph::ImportWithoutLifeTrack(std::string_view name, Resource* res) -> ResourceHandle {
     if (m_BlackBoard.contains(std::pmr::string(name))) {
         auto iter = std::find_if(m_ResourceNodes.begin(),
                                  m_ResourceNodes.end(),
@@ -83,7 +90,10 @@ auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {
 
     std::size_t res_idx = m_Resources.size();
     m_Resources.emplace_back(nullptr);
-    m_InnerResourcesDesc.emplace_back(desc, res_idx);
+    m_InnerResources.emplace_back(InnerResource{
+        .desc           = desc,
+        .resource_index = res_idx,
+    });
     m_ResourceNodes.emplace_back(name, res_idx);
 
     return {m_ResourceNodes.size()};
@@ -117,69 +127,80 @@ auto RenderGraph::GetResrouceNode(ResourceHandle handle) -> ResourceNode& {
     return m_ResourceNodes.at(handle.id - 1);
 }
 
+auto RenderGraph::GetLifeTrackResource(const Resource* res) -> std::shared_ptr<Resource> {
+    if (auto iter = std::find_if(m_InnerResources.begin(), m_InnerResources.end(), [res](const auto& inner_res) {
+            return inner_res.resource.get() == res;
+        });
+        iter != m_InnerResources.end()) {
+        return iter->resource;
+    }
+    if (auto iter = std::find_if(m_OutterResources.begin(), m_OutterResources.end(), [res](const auto& outer_res) {
+            return outer_res.get() == res;
+        });
+        iter != m_OutterResources.end()) {
+        return *iter;
+    }
+
+    return nullptr;
+}
+
 bool RenderGraph::Compile() {
     if (m_PresentPassNode == nullptr) return false;
 
-    std::pmr::unordered_set<const PassNode*> task_map;
-    std::deque<PassNode*>                    execute_queue;
+    std::pmr::unordered_map<const PassNode*, tf::Task> task_map;
 
     // bottom-up build taskflow
     // TODO: batch command context submit
-    std::function<void(PassNode*)> create_task = [&](PassNode* node) -> void {
+    std::function<tf::Task(PassNode*)> create_task = [&](PassNode* node) -> tf::Task {
         if (task_map.contains(node))
-            return;
+            return task_map[node];
 
         node->context = RequestCommandContext(node->type);
         node->context->SetName(node->name);
 
-        // auto task = m_Taskflow.emplace([=]() {
-        //     node->Execute();
-        //     node->context->End();
-        // });
+        auto task = m_Taskflow.emplace([=, this]() {
+            node->Execute();
+            node->context->End();
+            std::lock_guard lock{m_ExecuteQueueMutex};
+            m_ExecuteQueue.emplace_back(node);
+        });
 
-        // task.name(std::string(node->name));
-        // task_map.emplace(node, task);
+        task.name(std::string(node->name));
+        task_map.emplace(node, task);
 
         for (auto read_res : node->reads) {
-            std::pmr::set<PassNode*> waited;
-            if (auto writer = GetResrouceNode(read_res).writer; writer != nullptr && !waited.contains(writer)) {
-                create_task(writer);
-                // m_ExecuteQueue.emplace_back(writer);
-                waited.emplace(writer);
+            if (auto writer = GetResrouceNode(read_res).writer; writer != nullptr) {
+                task.succeed(create_task(writer));
             }
         }
-        if (std::find(m_ExecuteQueue.begin(), m_ExecuteQueue.end(), node) == m_ExecuteQueue.end())
-            m_ExecuteQueue.emplace_back(node);
+        return task;
     };
 
     create_task(m_PresentPassNode.get());
 
-    for (auto&& [desc, res_idx] : m_InnerResourcesDesc) {
-        auto& res = m_Resources[res_idx];
+    for (auto&& inner_resource : m_InnerResources) {
         std::visit(
             utils::Overloaded{
                 [&](const GpuBuffer::Desc& buffer_desc) {
-                    res = device.CreateBuffer(buffer_desc);
+                    inner_resource.resource                    = device.CreateBuffer(buffer_desc);
+                    m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
                 },
                 [&](const Texture::Desc& txture_desc) {
-                    res = device.CreateTexture(txture_desc);
+                    inner_resource.resource                    = device.CreateTexture(txture_desc);
+                    m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
                 },
             },
-            desc);
+            inner_resource.desc);
     }
 
-    // m_Executor.run(m_Taskflow).wait();
+    m_Executor.run(m_Taskflow).wait();
 
     return true;
 }
 
-void RenderGraph::Execute() {
+auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
     std::pmr::vector<CommandContext*> contexts;
-    std::uint64_t                     fence_value;
-    for (auto pass : m_ExecuteQueue) {
-        pass->Execute();
-        pass->context->End();
-    }
+    auto                              fence_values = utils::create_enum_array<std::uint64_t, CommandType>(0);
 
     auto left  = m_ExecuteQueue.begin();
     auto right = left;
@@ -203,24 +224,33 @@ void RenderGraph::Execute() {
             return node->context.get();
         });
 
-        fence_value = queue->Submit(contexts);
+        fence_values[queue->type] = queue->Submit(contexts);
 
         std::for_each(left, right, [&](PassNode* node) {
             m_ContextPool[node->type].emplace_back(std::move(node->context));
             for (auto res_handle : node->reads) {
-                auto res = m_Resources.at(GetResrouceNode(res_handle).res_idx);
-                m_RetiredResources[queue->type].emplace_back(res, fence_value);
+                auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
+                auto track_res = GetLifeTrackResource(res);
+                if (track_res) {
+                    m_RetiredResources[queue->type].emplace_back(track_res, fence_values[queue->type]);
+                }
             }
             for (auto res_handle : node->writes) {
-                auto res = m_Resources.at(GetResrouceNode(res_handle).res_idx);
-                m_RetiredResources[queue->type].emplace_back(res, fence_value);
+                auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
+                auto track_res = GetLifeTrackResource(res);
+                if (track_res) {
+                    m_RetiredResources[queue->type].emplace_back(track_res, fence_values[queue->type]);
+                }
             }
         });
 
         left = right;
         contexts.clear();
     }
+
     Clear();
+
+    return fence_values;
 }
 
 void RenderGraph::Clear() {
@@ -241,6 +271,8 @@ void RenderGraph::Clear() {
     m_PresentPassNode = nullptr;
     m_Resources.clear();
     m_BlackBoard.clear();
+    m_InnerResources.clear();
+    m_OutterResources.clear();
     m_ExecuteQueue.clear();
     m_Taskflow.clear();
 }

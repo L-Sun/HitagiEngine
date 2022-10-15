@@ -568,7 +568,7 @@ inline constexpr auto to_d3d_rect(const Rect& rect) noexcept {
     };
 }
 
-inline auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
+inline constexpr auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
         .Format                  = to_dxgi_format(desc.format),
         .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
@@ -576,18 +576,18 @@ inline auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
 
     // Dimension detect
     {
-        if (desc.textuer->desc.height == 1 && desc.textuer->desc.depth == 1) {
-            if (desc.textuer->desc.array_size == 1) {
+        if (desc.textuer.desc.height == 1 && desc.textuer.desc.depth == 1) {
+            if (desc.textuer.desc.array_size == 1) {
                 srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
             } else {
                 srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
             }
 
-        } else if (desc.textuer->desc.depth == 1) {
-            if (desc.textuer->desc.array_size == 1) {
+        } else if (desc.textuer.desc.depth == 1) {
+            if (desc.textuer.desc.array_size == 1) {
                 if (desc.is_cube) {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-                } else if (desc.textuer->desc.sample_count > 1) {
+                } else if (desc.textuer.desc.sample_count > 1) {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DMS;
                 } else {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -595,7 +595,7 @@ inline auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
             } else {
                 if (desc.is_cube) {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
-                } else if (desc.textuer->desc.sample_count > 1) {
+                } else if (desc.textuer.desc.sample_count > 1) {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY;
                 } else {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
@@ -686,21 +686,21 @@ inline auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
     return srv_desc;
 }
 
-inline auto to_d3d_uav_desc(const TextureView::Desc& desc) noexcept {
+inline constexpr auto to_d3d_uav_desc(const TextureView::Desc& desc) noexcept {
     D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
         .Format = to_dxgi_format(desc.format),
     };
 
     // Dimension detect
     {
-        if (desc.textuer->desc.height == 1 && desc.textuer->desc.depth == 1) {
-            if (desc.textuer->desc.array_size == 1) {
+        if (desc.textuer.desc.height == 1 && desc.textuer.desc.depth == 1) {
+            if (desc.textuer.desc.array_size == 1) {
                 uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1D;
             } else {
                 uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1DARRAY;
             }
-        } else if (desc.textuer->desc.depth == 1) {
-            if (desc.textuer->desc.array_size == 1) {
+        } else if (desc.textuer.desc.depth == 1) {
+            if (desc.textuer.desc.array_size == 1) {
                 uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
             } else {
                 uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
@@ -743,7 +743,7 @@ inline auto to_d3d_uav_desc(const TextureView::Desc& desc) noexcept {
                 uav_desc.Texture3D = {
                     .MipSlice    = desc.base_mip_level,
                     .FirstWSlice = 0,
-                    .WSize       = desc.textuer->desc.depth,
+                    .WSize       = desc.textuer.desc.depth,
                 };
             } break;
             default: {
@@ -761,22 +761,22 @@ inline auto to_d3d_rtv_desc(const TextureView::Desc& desc) noexcept {
 
     // Dimension detect
     {
-        if (desc.textuer->desc.height == 1 && desc.textuer->desc.depth == 1) {
-            if (desc.textuer->desc.array_size == 1) {
+        if (desc.textuer.desc.height == 1 && desc.textuer.desc.depth == 1) {
+            if (desc.textuer.desc.array_size == 1) {
                 rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1D;
             } else {
                 rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1DARRAY;
             }
 
-        } else if (desc.textuer->desc.depth == 1) {
-            if (desc.textuer->desc.array_size == 1) {
-                if (desc.textuer->desc.sample_count > 1) {
+        } else if (desc.textuer.desc.depth == 1) {
+            if (desc.textuer.desc.array_size == 1) {
+                if (desc.textuer.desc.sample_count > 1) {
                     rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMS;
                 } else {
                     rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
                 }
             } else {
-                if (desc.textuer->desc.sample_count > 1) {
+                if (desc.textuer.desc.sample_count > 1) {
                     rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY;
                 } else {
                     rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;

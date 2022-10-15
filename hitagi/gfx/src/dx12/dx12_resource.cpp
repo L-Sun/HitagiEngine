@@ -2,7 +2,7 @@
 #include "utils.hpp"
 
 namespace hitagi::gfx {
-auto DX12SwapChain::GetBuffer(std::uint8_t index) -> std::shared_ptr<Texture> {
+auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
     assert(swap_chain);
     if (back_buffers.empty()) {
         // it is important to reserve the capacity for no to reallocate,
@@ -36,6 +36,24 @@ auto DX12SwapChain::GetBuffer(std::uint8_t index) -> std::shared_ptr<Texture> {
         }
     }
 
-    return back_buffers.at(index);
+    return *back_buffers.at(index);
 }
+
+void DX12SwapChain::Resize() {
+    associated_queue->WaitIdle();
+    back_buffers.clear();
+
+    HWND h_wnd = *reinterpret_cast<HWND*>(desc.window_ptr);
+    RECT rect;
+    GetClientRect(h_wnd, &rect);
+    std::uint32_t width  = rect.right - rect.left;
+    std::uint32_t height = rect.bottom - rect.top;
+
+    UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+    if (allow_tearing) {
+        flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+    }
+    ThrowIfFailed(swap_chain->ResizeBuffers(desc.frame_count, width, height, to_dxgi_format(desc.format), flags));
+}
+
 }  // namespace hitagi::gfx

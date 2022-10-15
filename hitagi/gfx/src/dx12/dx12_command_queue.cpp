@@ -65,7 +65,7 @@ auto DX12CommandQueue::Submit(std::pmr::vector<CommandContext*> contexts) -> std
     return InsertFence();
 }
 
-bool DX12CommandQueue::IsFenceComplete(std::uint64_t fence_value) const {
+bool DX12CommandQueue::IsFenceComplete(std::uint64_t fence_value) {
     if (fence_value > m_LastCompletedFenceValue) {
         m_LastCompletedFenceValue = m_Fence->GetCompletedValue();
     }
@@ -74,6 +74,9 @@ bool DX12CommandQueue::IsFenceComplete(std::uint64_t fence_value) const {
 
 void DX12CommandQueue::WaitForFence(std::uint64_t fence_value) {
     if (IsFenceComplete(fence_value)) return;
+
+    std::lock_guard<std::mutex> lock{m_EventMutex};
+
     ThrowIfFailed(m_Fence->SetEventOnCompletion(fence_value, m_FenceHandle));
     WaitForSingleObject(m_FenceHandle, INFINITE);
     m_LastCompletedFenceValue = fence_value;
@@ -90,6 +93,8 @@ void DX12CommandQueue::WaitIdle() {
 }
 
 std::uint64_t DX12CommandQueue::InsertFence() {
+    std::lock_guard lock{m_FenceMutex};
+
     ThrowIfFailed(m_Queue->Signal(m_Fence.Get(), m_NextFenceValue));
     return m_NextFenceValue++;
 }

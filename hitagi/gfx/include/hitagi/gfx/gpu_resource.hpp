@@ -11,7 +11,10 @@ class CommandQueue;
 constexpr auto UNKOWN_NAME = "Unkown";
 
 struct Resource {
-    virtual ~Resource() = default;
+    virtual ~Resource()                  = default;
+    Resource()                           = default;
+    Resource(const Resource&)            = delete;
+    Resource& operator=(const Resource&) = delete;
 };
 
 struct GpuBuffer : public Resource {
@@ -47,14 +50,14 @@ struct GpuBufferView : public Resource {
     };
 
     struct Desc {
-        std::shared_ptr<GpuBuffer> buffer = nullptr;
-        std::size_t                offset = 0;
-        std::size_t                size   = 0;  // When `size == 0`, it will be re-calculated with `buffer.size - offset`
-        std::size_t                stride;
-        UsageFlags                 usages;
+        GpuBuffer&  buffer;
+        std::size_t offset = 0;
+        std::size_t size   = 0;  // When `size == 0`, it will be re-calculated with `buffer.size - offset`
+        std::size_t stride;
+        UsageFlags  usages;
     };
 
-    GpuBufferView(Desc desc) : desc(std::move(desc)) {}
+    GpuBufferView(Desc desc) : desc(desc) {}
 
     const Desc desc;
 };
@@ -89,16 +92,16 @@ struct Texture : public Resource {
 
 struct TextureView : public Resource {
     struct Desc {
-        std::shared_ptr<Texture> textuer           = nullptr;
-        Format                   format            = Format::UNKNOWN;
-        bool                     is_cube           = false;
-        std::uint16_t            base_mip_level    = 0;
-        std::uint16_t            mip_level_count   = 1;
-        std::uint32_t            base_array_layer  = 0;
-        std::uint32_t            array_layer_count = 1;
+        Texture&      textuer;
+        Format        format            = Format::UNKNOWN;
+        bool          is_cube           = false;
+        std::uint16_t base_mip_level    = 0;
+        std::uint16_t mip_level_count   = 1;
+        std::uint32_t base_array_layer  = 0;
+        std::uint32_t array_layer_count = 1;
     };
 
-    TextureView(Desc desc) : desc(std::move(desc)) {}
+    TextureView(Desc desc) : desc(desc) {}
 
     const Desc desc;
 };
@@ -140,16 +143,18 @@ struct SwapChain : public Resource {
         std::uint8_t     frame_count  = 2;
         Format           format       = Format::R8G8B8A8_UNORM;
         std::uint32_t    sample_count = 1;
+        bool             vsync        = false;
     };
 
     SwapChain(Desc desc) : desc(desc) {}
 
     const Desc desc;
 
-    virtual auto GetCurrentBackIndex() -> std::uint8_t                     = 0;
-    virtual auto GetCurrentBackBuffer() -> std::shared_ptr<Texture>        = 0;
-    virtual auto GetBuffer(std::uint8_t index) -> std::shared_ptr<Texture> = 0;
-    virtual void Present()                                                 = 0;
+    virtual auto GetCurrentBackIndex() -> std::uint8_t     = 0;
+    virtual auto GetCurrentBackBuffer() -> Texture&        = 0;
+    virtual auto GetBuffer(std::uint8_t index) -> Texture& = 0;
+    virtual void Present()                                 = 0;
+    virtual void Resize()                                  = 0;
 };
 
 struct Shader : public Resource {

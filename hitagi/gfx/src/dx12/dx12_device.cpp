@@ -194,9 +194,16 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
         result = std::make_shared<DX12SwapChain>(desc);
     }
 
-    BOOL allow_tearing = false;
-    if (ComPtr<IDXGIFactory5> factory5; SUCCEEDED(m_Factory.As(&factory5))) {
-        factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
+    UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+    if (!result->desc.vsync) {
+        if (ComPtr<IDXGIFactory5> factory5; SUCCEEDED(m_Factory.As(&factory5))) {
+            BOOL allow_tearing = false;
+            factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
+            if (allow_tearing) {
+                flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+                result->allow_tearing = allow_tearing;
+            }
+        }
     }
 
     DXGI_SWAP_CHAIN_DESC1 d3d_desc = {
@@ -211,7 +218,7 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
         .Scaling     = DXGI_SCALING_STRETCH,
         .SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD,
         .AlphaMode   = DXGI_ALPHA_MODE_UNSPECIFIED,
-        .Flags       = allow_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u,
+        .Flags       = flags,
     };
 
     Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain;
@@ -342,30 +349,25 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
 }
 
 auto DX12Device::CreateBufferView(GpuBufferView::Desc desc) -> std::shared_ptr<GpuBufferView> {
-    if (desc.buffer == nullptr) {
-        m_Logger->error("Can not create buffer view on nullptr!");
-        return nullptr;
-    }
-
     if (desc.size == 0) {
-        desc.size = desc.buffer->desc.size - desc.offset;
+        desc.size = desc.buffer.desc.size - desc.offset;
     }
 
     if (desc.stride == 0) {
         m_Logger->error("The stride of GpuBufferView(name: {}) must be non-zero!",
-                        fmt::styled(desc.buffer->desc.name, fmt::fg(fmt::color::green)));
+                        fmt::styled(desc.buffer.desc.name, fmt::fg(fmt::color::green)));
         return nullptr;
     }
     if (desc.stride > desc.size) {
         m_Logger->warn("The stride(value: {}) of GpuBufferView(name: {}) is truncated to its size(value: {})",
                        fmt::styled(desc.stride, fmt::fg(fmt::color::red)),
-                       fmt::styled(desc.buffer->desc.name, fmt::fg(fmt::color::green)),
+                       fmt::styled(desc.buffer.desc.name, fmt::fg(fmt::color::green)),
                        fmt::styled(desc.size, fmt::fg(fmt::color::green)));
         desc.stride = desc.size;
     }
 
-    auto result          = std::make_shared<DX12GpuBufferView>(std::move(desc));
-    auto buffer_location = std::static_pointer_cast<DX12ResourceWrapper<GpuBuffer>>(result->desc.buffer)->resource->GetGPUVirtualAddress() + result->desc.offset;
+    auto result          = std::make_shared<DX12GpuBufferView>(desc);
+    auto buffer_location = static_cast<DX12ResourceWrapper<GpuBuffer>&>(result->desc.buffer).resource->GetGPUVirtualAddress() + result->desc.offset;
 
     if (utils::has_flag(result->desc.usages, GpuBufferView::UsageFlags::Vertex)) {
         result->vbv = D3D12_VERTEX_BUFFER_VIEW{
@@ -377,7 +379,7 @@ auto DX12Device::CreateBufferView(GpuBufferView::Desc desc) -> std::shared_ptr<G
     if (utils::has_flag(result->desc.usages, GpuBufferView::UsageFlags::Index)) {
         if (result->desc.stride != sizeof(std::uint16_t) && result->desc.stride != sizeof(std::uint32_t)) {
             m_Logger->error("the stride of GpuBufferView({}) for {} must be 16 bits or 32 bits, but get {} bits",
-                            fmt::styled(result->desc.buffer->desc.name, fmt::fg(fmt::color::green)),
+                            fmt::styled(result->desc.buffer.desc.name, fmt::fg(fmt::color::green)),
                             fmt::styled(magic_enum::enum_name(GpuBufferView::UsageFlags::Index), fmt::fg(fmt::color::green)),
                             fmt::styled(8 * result->desc.stride, fmt::fg(fmt::color::red)));
             return nullptr;
@@ -539,27 +541,23 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
 }
 
 auto DX12Device::CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<TextureView> {
-    if (desc.textuer == nullptr) {
-        m_Logger->error("Can not create texture view on nullptr!");
-        return nullptr;
-    }
     if (desc.format == Format::UNKNOWN) {
-        desc.format = desc.textuer->desc.format;
+        desc.format = desc.textuer.desc.format;
     }
 
-    auto result         = std::make_shared<DX12DescriptorWrapper<TextureView>>(std::move(desc));
+    auto result         = std::make_shared<DX12DescriptorWrapper<TextureView>>(desc);
+    auto d3d_res        = static_cast<DX12ResourceWrapper<Texture>&>(result->desc.textuer).resource.Get();
     bool create_succeed = false;
 
-    if (utils::has_flag(result->desc.textuer->desc.usages, Texture::UsageFlags::SRV)) {
+    if (utils::has_flag(result->desc.textuer.desc.usages, Texture::UsageFlags::SRV)) {
         auto srv_desc = to_d3d_srv_desc(result->desc);
         result->srv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->Allocate();
 
-        auto d3d_res = std::static_pointer_cast<DX12ResourceWrapper<Texture>>(result->desc.textuer)->resource.Get();
         m_Device->CreateShaderResourceView(d3d_res, &srv_desc, result->srv.cpu_handle);
         create_succeed = true;
     }
 
-    if (utils::has_flag(result->desc.textuer->desc.usages, Texture::UsageFlags::UAV)) {
+    if (utils::has_flag(result->desc.textuer.desc.usages, Texture::UsageFlags::UAV)) {
         m_Logger->warn("Unimplement for {}",
                        fmt::styled(magic_enum::enum_name(Texture::UsageFlags::RTV), fmt::fg(fmt::color::red)));
         // auto uav_desc                              = to_d3d_uav_desc(result->desc);
@@ -569,23 +567,22 @@ auto DX12Device::CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<Te
         // m_Device->CreateUnorderedAccessView(d3d_res, &uav_desc, result->descriptors[Descriptor::Type::UAV].handle);
     }
 
-    if (utils::has_flag(result->desc.textuer->desc.usages, Texture::UsageFlags::RTV)) {
+    if (utils::has_flag(result->desc.textuer.desc.usages, Texture::UsageFlags::RTV)) {
         auto rtv_desc = to_d3d_rtv_desc(result->desc);
         result->rtv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_RTV]->Allocate();
 
-        auto d3d_res = std::static_pointer_cast<DX12ResourceWrapper<Texture>>(result->desc.textuer)->resource.Get();
         m_Device->CreateRenderTargetView(d3d_res, &rtv_desc, result->rtv.cpu_handle);
         create_succeed = true;
     }
 
-    if (utils::has_flag(result->desc.textuer->desc.usages, Texture::UsageFlags::DSV)) {
+    if (utils::has_flag(result->desc.textuer.desc.usages, Texture::UsageFlags::DSV)) {
         m_Logger->warn("Unimplement for {}",
                        fmt::styled(magic_enum::enum_name(Texture::UsageFlags::DSV), fmt::fg(fmt::color::red)));
     }
 
     if (!create_succeed) {
         m_Logger->warn("create failed since the texture usages() is not for TextureView",
-                       fmt::styled(magic_enum::enum_flags_name(result->desc.textuer->desc.usages), fmt::fg(fmt::color::red)));
+                       fmt::styled(magic_enum::enum_flags_name(result->desc.textuer.desc.usages), fmt::fg(fmt::color::red)));
         return nullptr;
     }
 

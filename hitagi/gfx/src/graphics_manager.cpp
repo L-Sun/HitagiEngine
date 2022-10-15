@@ -1,5 +1,6 @@
 #include <hitagi/gfx/graphics_manager.hpp>
 #include <hitagi/utils/exceptions.hpp>
+#include <hitagi/core/thread_manager.hpp>
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -26,9 +27,18 @@ void GraphicsManager::Finalize() {
 }
 
 void GraphicsManager::Tick() {
-    if (m_RenderGraph->Compile()) {
-        m_RenderGraph->Execute();
-    }
+    auto compile         = thread_manager->RunTask([this]() {
+        return m_RenderGraph->Compile();
+    });
+    auto wait_last_frame = thread_manager->RunTask([this]() {
+        magic_enum::enum_for_each<CommandType>([this](auto type) {
+            m_Device->GetCommandQueue(type())->WaitForFence(m_LastFenceValues[type()]);
+        });
+    });
+    compile.wait();
+    auto fence_value = m_RenderGraph->Execute();
+    wait_last_frame.wait();
+    m_LastFenceValues = fence_value;
 }
 
 }  // namespace hitagi::gfx

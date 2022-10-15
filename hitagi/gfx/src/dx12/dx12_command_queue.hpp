@@ -15,7 +15,7 @@ public:
     ~DX12CommandQueue() final;
 
     auto Submit(std::pmr::vector<CommandContext*> context) -> std::uint64_t final;
-    bool IsFenceComplete(std::uint64_t fence_value) const final;
+    bool IsFenceComplete(std::uint64_t fence_value) final;
     void WaitForFence(std::uint64_t fence_value) final;
     void WaitForQueue(const CommandQueue& other) final;
     void WaitIdle() final;
@@ -24,10 +24,13 @@ public:
     std::uint64_t              InsertFence();
 
 private:
-    ComPtr<ID3D12CommandQueue>   m_Queue;
-    ComPtr<ID3D12Fence>          m_Fence;
-    HANDLE                       m_FenceHandle;
-    std::atomic_uint64_t         m_NextFenceValue          = 1;
-    mutable std::atomic_uint64_t m_LastCompletedFenceValue = 0;
+    std::mutex m_FenceMutex;
+    std::mutex m_EventMutex;
+
+    ComPtr<ID3D12CommandQueue> m_Queue;
+    ComPtr<ID3D12Fence>        m_Fence;
+    HANDLE                     m_FenceHandle;
+    std::uint64_t              m_NextFenceValue          = 1;
+    std::uint64_t              m_LastCompletedFenceValue = 0;
 };
 }  // namespace hitagi::gfx

@@ -44,13 +44,16 @@ void Editor::Tick() {
     RuntimeModule::Tick();
 
     m_SwapChain->Present();
+    if (app->WindowSizeChanged()) {
+        m_SwapChain->Resize();
+    }
     Render();
 }
 
 void Editor::Render() {
     auto& render_graph = graphics_manager->GetRenderGraph();
 
-    auto back_buffer = render_graph.Import("BackBuffer", m_SwapChain->GetCurrentBackBuffer());
+    auto back_buffer = render_graph.ImportWithoutLifeTrack("BackBuffer", &m_SwapChain->GetCurrentBackBuffer());
 
     struct ClearPass {
         gfx::ResourceHandle back_buffer;
