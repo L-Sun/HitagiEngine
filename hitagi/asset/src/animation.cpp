@@ -1,4 +1,4 @@
-#include <hitagi/resource/animation.hpp>
+#include <hitagi/asset/animation.hpp>
 
 using namespace hitagi::math;
 

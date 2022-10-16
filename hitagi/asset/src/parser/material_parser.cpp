@@ -1,4 +1,4 @@
-#include <hitagi/parser/material_parser.hpp>
+#include <hitagi/asset/parser/material_parser.hpp>
 
 #include <magic_enum.hpp>
 #include <spdlog/spdlog.h>
@@ -28,7 +28,7 @@ void from_json(const nlohmann::json& j, Matrix<T, N>& p) {
 
 }  // namespace hitagi::math
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 NLOHMANN_JSON_SERIALIZE_ENUM(PrimitiveType,
                              {
@@ -125,4 +125,4 @@ std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) 
     return builder.Build();
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

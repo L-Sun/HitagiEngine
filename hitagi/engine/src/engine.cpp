@@ -1,8 +1,8 @@
 #include <hitagi/engine.hpp>
 #include <hitagi/core/core.hpp>
 #include <hitagi/application.hpp>
-#include <hitagi/resource/asset_manager.hpp>
-#include <hitagi/resource/scene_manager.hpp>
+#include <hitagi/asset/asset_manager.hpp>
+#include <hitagi/asset/scene_manager.hpp>
 #include <hitagi/gfx/graphics_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
@@ -28,10 +28,10 @@ bool Engine::Initialize() {
         || !(thread_manager   = add_inner_module(std::make_unique<core::ThreadManager>()))      
         || !(file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>()))      
         || !(config_manager   = add_inner_module(std::make_unique<core::ConfigManager>()))      
-        || !(asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>()))   
+        || !(asset_manager    = add_inner_module(std::make_unique<asset::AssetManager>()))   
         || !(app              = add_inner_module(Application::CreateApp()))                     
         || !(graphics_manager = add_inner_module(std::make_unique<gfx::GraphicsManager>()))
-        || !(scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>()))   
+        || !(scene_manager    = add_inner_module(std::make_unique<asset::SceneManager>()))   
         || !(debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>()))   
         || !(gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>()))
     ) {

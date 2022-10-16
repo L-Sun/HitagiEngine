@@ -1,4 +1,4 @@
-#include <hitagi/resource/scene_manager.hpp>
+#include <hitagi/asset/scene_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -8,10 +8,10 @@
 using namespace hitagi::math;
 
 namespace hitagi {
-resource::SceneManager* scene_manager = nullptr;
+asset::SceneManager* scene_manager = nullptr;
 }
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 bool SceneManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("SceneManager");
@@ -74,4 +74,4 @@ void SceneManager::DeleteScene(std::size_t index) {
     m_Scenes.erase(std::next(m_Scenes.begin(), index));
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

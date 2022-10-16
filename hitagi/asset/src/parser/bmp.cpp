@@ -1,11 +1,11 @@
-#include <hitagi/parser/bmp.hpp>
+#include <hitagi/asset/parser/bmp.hpp>
 #include <hitagi/math/vector.hpp>
 
 #include <spdlog/spdlog.h>
 
 using namespace hitagi::math;
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 #pragma pack(push, 1)
 using BITMAP_FILEHEADER = struct BitmapFileheader {
@@ -80,4 +80,4 @@ std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer) {
     }
     return nullptr;
 }
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

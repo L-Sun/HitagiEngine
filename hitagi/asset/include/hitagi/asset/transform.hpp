@@ -3,7 +3,7 @@
 
 #include <unordered_set>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 struct Transform {
     Transform() = default;
@@ -20,4 +20,4 @@ struct Transform {
     inline math::quatf GetRotation() const { return math::get_rotation(world_matrix); }
     inline math::vec3f GetScale() const { return math::get_scaling(world_matrix); }
 };
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

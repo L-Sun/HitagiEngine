@@ -1,11 +1,11 @@
-#include <hitagi/parser/tga.hpp>
+#include <hitagi/asset/parser/tga.hpp>
 #include <hitagi/math/vector.hpp>
 
 #include <spdlog/spdlog.h>
 
 using namespace hitagi::math;
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 #pragma pack(push, 1)
 struct TgaFileheader {
@@ -110,4 +110,4 @@ std::shared_ptr<Texture> TgaParser::Parse(const core::Buffer& buf) {
     assert(data <= p_data_end);
     return image;
 }
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

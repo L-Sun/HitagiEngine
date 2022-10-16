@@ -2,7 +2,7 @@
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/utils/private_build.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 class Shader {
 public:
@@ -34,4 +34,4 @@ private:
     core::Buffer          m_BinaryData;
 };
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

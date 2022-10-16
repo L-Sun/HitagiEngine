@@ -1,10 +1,10 @@
-#include <hitagi/resource/material.hpp>
+#include <hitagi/asset/material.hpp>
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/utils/test.hpp>
 
 #include <array>
 
-using namespace hitagi::resource;
+using namespace hitagi::asset;
 using namespace hitagi::math;
 using namespace hitagi::testing;
 using namespace hitagi::utils;

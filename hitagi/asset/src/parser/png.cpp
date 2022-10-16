@@ -1,4 +1,4 @@
-#include <hitagi/parser/png.hpp>
+#include <hitagi/asset/parser/png.hpp>
 #include <hitagi/math/vector.hpp>
 
 #include <spdlog/spdlog.h>
@@ -8,7 +8,7 @@
 
 using namespace hitagi::math;
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 struct ImageSource {
     const std::byte* data;
@@ -134,4 +134,4 @@ std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer) {
     png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
     return image;
 }
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

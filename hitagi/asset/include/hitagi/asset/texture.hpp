@@ -1,13 +1,13 @@
 #pragma once
 #include <hitagi/core/buffer.hpp>
-#include <hitagi/resource/resource.hpp>
-#include <hitagi/resource/enums.hpp>
+#include <hitagi/asset/resource.hpp>
+#include <hitagi/asset/enums.hpp>
 #include <hitagi/math/vector.hpp>
 #include <hitagi/utils/utils.hpp>
 
 #include <filesystem>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 enum struct Format : std::uint32_t;
 
 // TODO support 1D and 3D texture
@@ -40,9 +40,9 @@ struct Texture : public Resource {
     std::filesystem::path path;
 };
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset
 
 template <>
-struct hitagi::utils::enable_bitmask_operators<hitagi::resource::Texture::BindFlag> {
+struct hitagi::utils::enable_bitmask_operators<hitagi::asset::Texture::BindFlag> {
     static constexpr bool enable = true;
 };

@@ -1,11 +1,11 @@
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/core/config_manager.hpp>
-#include <hitagi/resource/asset_manager.hpp>
+#include <hitagi/asset/asset_manager.hpp>
 
 #include <hitagi/utils/test.hpp>
 
 using namespace hitagi;
-using namespace hitagi::resource;
+using namespace hitagi::asset;
 using namespace hitagi::math;
 using namespace hitagi::testing;
 

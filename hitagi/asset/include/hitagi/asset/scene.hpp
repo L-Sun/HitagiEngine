@@ -1,15 +1,15 @@
 #pragma once
-#include <hitagi/resource/transform.hpp>
-#include <hitagi/resource/material.hpp>
-#include <hitagi/resource/camera.hpp>
-#include <hitagi/resource/light.hpp>
-#include <hitagi/resource/mesh.hpp>
-#include <hitagi/resource/armature.hpp>
-#include <hitagi/resource/scene_node.hpp>
+#include <hitagi/asset/transform.hpp>
+#include <hitagi/asset/material.hpp>
+#include <hitagi/asset/camera.hpp>
+#include <hitagi/asset/light.hpp>
+#include <hitagi/asset/mesh.hpp>
+#include <hitagi/asset/armature.hpp>
+#include <hitagi/asset/scene_node.hpp>
 
 #include <crossguid/guid.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 struct Scene {
     template <typename T>
     using SharedPtrVector = std::pmr::vector<std::shared_ptr<T>>;
@@ -27,4 +27,4 @@ struct Scene {
     std::shared_ptr<CameraNode> curr_camera;
 };
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

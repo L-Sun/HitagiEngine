@@ -1,4 +1,4 @@
-#include <hitagi/resource/animation_manager.hpp>
+#include <hitagi/asset/animation_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>

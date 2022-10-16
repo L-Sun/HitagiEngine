@@ -51,6 +51,6 @@ void SceneViewPort::Tick() {
     RuntimeModule::Tick();
 }
 
-void SceneViewPort::SetScene(std::shared_ptr<resource::Scene> scene) {
+void SceneViewPort::SetScene(std::shared_ptr<asset::Scene> scene) {
     m_CurrentScene = std::move(scene);
 }

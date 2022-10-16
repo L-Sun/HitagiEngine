@@ -1,14 +1,14 @@
-#include <hitagi/resource/asset_manager.hpp>
+#include <hitagi/asset/asset_manager.hpp>
 #include <hitagi/core/core.hpp>
 #include <hitagi/core/config_manager.hpp>
 #include <hitagi/math/vector.hpp>
-#include <hitagi/parser/png.hpp>
-#include <hitagi/parser/jpeg.hpp>
-#include <hitagi/parser/bmp.hpp>
-#include <hitagi/parser/tga.hpp>
-#include <hitagi/parser/assimp.hpp>
+#include <hitagi/asset/parser/png.hpp>
+#include <hitagi/asset/parser/jpeg.hpp>
+#include <hitagi/asset/parser/bmp.hpp>
+#include <hitagi/asset/parser/tga.hpp>
+#include <hitagi/asset/parser/assimp.hpp>
 
-// #include <hitagi/parser/bvh.hpp>
+// #include <hitagi/asset/parser/bvh.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -16,10 +16,10 @@
 using namespace hitagi::math;
 
 namespace hitagi {
-resource::AssetManager* asset_manager = nullptr;
+asset::AssetManager* asset_manager = nullptr;
 }
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 bool AssetManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("AssetManager");
@@ -145,4 +145,4 @@ void AssetManager::InitBuiltinMaterial() {
     }
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

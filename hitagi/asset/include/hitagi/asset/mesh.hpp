@@ -1,16 +1,16 @@
 #pragma once
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/math/vector.hpp>
-#include <hitagi/resource/material.hpp>
-#include <hitagi/resource/resource.hpp>
-#include <hitagi/resource/scene_node.hpp>
+#include <hitagi/asset/material.hpp>
+#include <hitagi/asset/resource.hpp>
+#include <hitagi/asset/scene_node.hpp>
 
 #include <magic_enum.hpp>
 
 #include <functional>
 #include <type_traits>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 enum struct VertexAttribute : std::uint8_t {
     Position    = 0,   // vec3f
@@ -198,4 +198,4 @@ void Mesh::Modify(std::function<void(std::span<IndexDataType<T>>)>&& modifier) {
     indices->dirty = true;
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

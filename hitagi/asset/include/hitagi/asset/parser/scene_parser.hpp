@@ -1,8 +1,8 @@
 #pragma once
 #include <hitagi/core/buffer.hpp>
-#include <hitagi/resource/scene.hpp>
+#include <hitagi/asset/scene.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 enum struct SceneFormat : std::uint8_t {
     UNKOWN,
     GLTF,
@@ -29,4 +29,4 @@ public:
 
     virtual ~SceneParser() = default;
 };
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

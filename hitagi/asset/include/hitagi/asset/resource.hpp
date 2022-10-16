@@ -17,7 +17,7 @@ struct Resource {
 };
 }  // namespace hitagi::gfx::backend
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 struct Resource {
     Resource(std::size_t buffer_size = 0, std::string_view name = "") : name(name), cpu_buffer(buffer_size) {}
     Resource(core::Buffer cpu_buffer, std::string_view name = "") : name(name), cpu_buffer(std::move(cpu_buffer)) {}
@@ -38,4 +38,4 @@ struct Resource {
     // constexpr static std::size_t dirty_range_size = 4_kB;
     // std::pmr::set<std::size_t>   buffer_range_dirty;
 };
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

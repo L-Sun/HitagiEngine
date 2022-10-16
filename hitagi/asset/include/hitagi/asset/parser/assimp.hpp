@@ -1,7 +1,7 @@
 #pragma once
-#include <hitagi/parser/scene_parser.hpp>
+#include <hitagi/asset/parser/scene_parser.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 class AssimpParser : public SceneParser {
 public:
     AssimpParser(std::filesystem::path ext);
@@ -10,4 +10,4 @@ public:
 private:
     std::filesystem::path m_Hint;
 };
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

@@ -1,7 +1,7 @@
 #pragma once
-#include <hitagi/resource/scene_node.hpp>
+#include <hitagi/asset/scene_node.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 struct Bone {
     std::pmr::string name;
 
@@ -16,4 +16,4 @@ struct Armature {
 };
 using ArmatureNode = SceneNodeWithObject<Armature>;
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

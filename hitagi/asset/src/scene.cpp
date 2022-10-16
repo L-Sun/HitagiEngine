@@ -1,11 +1,11 @@
-#include <hitagi/resource/scene.hpp>
+#include <hitagi/asset/scene.hpp>
 
 #include <algorithm>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 Scene::Scene(std::string_view name)
     : name(name),
       root(std::make_shared<SceneNode>()) {
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

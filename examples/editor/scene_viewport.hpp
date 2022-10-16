@@ -1,6 +1,6 @@
 #pragma once
-#include <hitagi/resource/texture.hpp>
-#include <hitagi/resource/scene.hpp>
+#include <hitagi/asset/texture.hpp>
+#include <hitagi/asset/scene.hpp>
 #include <hitagi/gfx/render_graph.hpp>
 
 namespace hitagi {
@@ -11,10 +11,10 @@ public:
 
     inline std::string_view GetName() const noexcept final { return "SceneViewPort"; }
 
-    void SetScene(std::shared_ptr<resource::Scene> scene);
+    void SetScene(std::shared_ptr<asset::Scene> scene);
 
 private:
-    bool                             m_Open         = true;
-    std::shared_ptr<resource::Scene> m_CurrentScene = nullptr;
+    bool                          m_Open         = true;
+    std::shared_ptr<asset::Scene> m_CurrentScene = nullptr;
 };
 }  // namespace hitagi

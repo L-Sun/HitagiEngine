@@ -1,7 +1,7 @@
 #pragma once
 #include <hitagi/core/buffer.hpp>
-#include <hitagi/resource/scene_node.hpp>
-#include <hitagi/resource/animation.hpp>
+#include <hitagi/asset/scene_node.hpp>
+#include <hitagi/asset/animation.hpp>
 
 namespace hitagi::asset {
 enum class MoCapFormat : unsigned {

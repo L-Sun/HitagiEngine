@@ -1,7 +1,7 @@
 #pragma once
-#include <hitagi/resource/material.hpp>
+#include <hitagi/asset/material.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 class MaterialParser {
 public:
     virtual ~MaterialParser() = default;
@@ -13,4 +13,4 @@ class MaterialJSONParser : public MaterialParser {
 public:
     std::shared_ptr<Material> Parse(const core::Buffer& buffer) final;
 };
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

@@ -1,4 +1,4 @@
-#include <hitagi/parser/gltf.hpp>
+#include <hitagi/asset/parser/gltf.hpp>
 #include <hitagi/utils/buffer_stream.hpp>
 #include <hitagi/core/timer.hpp>
 
@@ -7,7 +7,7 @@
 
 using namespace hitagi::math;
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 constexpr PrimitiveType convert_primitive(fx::gltf::Primitive::Mode mode) {
     switch (mode) {
         case fx::gltf::Primitive::Mode::Points:
@@ -491,4 +491,4 @@ std::pmr::vector<Scene> GltfParser::Parse(const core::Buffer& buffer, const std:
     return {};
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

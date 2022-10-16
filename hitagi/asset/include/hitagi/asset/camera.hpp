@@ -1,9 +1,9 @@
 #pragma once
-#include <hitagi/resource/scene_node.hpp>
+#include <hitagi/asset/scene_node.hpp>
 
 #include <numbers>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 struct Camera {
 public:
     float aspect    = 16.0f / 9.0f;
@@ -55,4 +55,4 @@ inline math::vec4u Camera::GetViewPort(std::uint32_t screen_width, std::uint32_t
     }
     return view_port;
 }
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

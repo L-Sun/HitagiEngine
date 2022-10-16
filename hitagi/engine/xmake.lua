@@ -8,7 +8,7 @@ target("engine")
         "hid",
         "ecs",
         "gfx",
-        "resource",
+        "asset",
         "debugger",
         "asset_manager",
         "scene_manager",

@@ -1,6 +1,6 @@
 #pragma once
-#include <hitagi/resource/shader.hpp>
-#include <hitagi/resource/texture.hpp>
+#include <hitagi/asset/shader.hpp>
+#include <hitagi/asset/texture.hpp>
 #include <hitagi/math/vector.hpp>
 #include <hitagi/math/matrix.hpp>
 #include <hitagi/utils/private_build.hpp>
@@ -11,7 +11,7 @@
 #include <bitset>
 #include <variant>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 enum struct PrimitiveType : std::uint8_t {
     PointList,
     LineList,
@@ -43,8 +43,8 @@ using MaterialParameterValue = std::variant<
 
 template <typename T>
 concept MaterialParametric = requires(const MaterialParameterValue& parameter) {
-    { std::get<T>(parameter) } -> std::same_as<const T&>;
-};
+                                 { std::get<T>(parameter) } -> std::same_as<const T&>;
+                             };
 
 struct MaterialParameter {
     std::pmr::string       name;
@@ -183,4 +183,4 @@ std::optional<T> MaterialInstance::GetParameter(std::string_view name) const noe
     return std::nullopt;
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

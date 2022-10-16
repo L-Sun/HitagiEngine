@@ -1,13 +1,13 @@
 #pragma once
 #include <hitagi/core/file_io_manager.hpp>
-#include <hitagi/parser/image_parser.hpp>
-#include <hitagi/parser/scene_parser.hpp>
-#include <hitagi/parser/material_parser.hpp>
+#include <hitagi/asset/parser/image_parser.hpp>
+#include <hitagi/asset/parser/scene_parser.hpp>
+#include <hitagi/asset/parser/material_parser.hpp>
 
 #include <magic_enum.hpp>
-#include "hitagi/resource/mesh.hpp"
+#include "hitagi/asset/mesh.hpp"
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 class AssetManager : public RuntimeModule {
 public:
@@ -58,8 +58,8 @@ private:
         SharedPtrSet<Texture>  textures;
     } m_Assets;
 };
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset
 
 namespace hitagi {
-extern resource::AssetManager* asset_manager;
+extern asset::AssetManager* asset_manager;
 }

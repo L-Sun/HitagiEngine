@@ -1,11 +1,11 @@
-#include <hitagi/parser/jpeg.hpp>
+#include <hitagi/asset/parser/jpeg.hpp>
 
 #include <jpeglib.h>
 #include <spdlog/spdlog.h>
 
 #include <string>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buf) {
     auto logger = spdlog::get("AssetManager");
@@ -56,4 +56,4 @@ std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buf) {
     }
     return image;
 }
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

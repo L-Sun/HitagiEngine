@@ -1,11 +1,11 @@
-#include <hitagi/resource/mesh.hpp>
+#include <hitagi/asset/mesh.hpp>
 
 #include <spdlog/spdlog.h>
 
 #include <numeric>
 #include <algorithm>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 VertexArray::VertexArray(VertexAttribute attribute, std::size_t count, std::string_view name)
     : Resource(core::Buffer{count * get_vertex_attribute_size(attribute)}, name),
       attribute(attribute),
@@ -166,4 +166,4 @@ Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes) {
     return result;
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

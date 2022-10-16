@@ -1,10 +1,10 @@
 #pragma once
 #include <hitagi/math/vector.hpp>
-#include <hitagi/resource/scene_node.hpp>
+#include <hitagi/asset/scene_node.hpp>
 
 #include <numbers>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 struct Light {
     enum struct Type : std::uint8_t {
@@ -26,4 +26,4 @@ struct Light {
 
 using LightNode = SceneNodeWithObject<Light>;
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

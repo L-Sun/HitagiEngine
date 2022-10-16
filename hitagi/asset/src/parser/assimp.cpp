@@ -1,6 +1,6 @@
-#include <hitagi/parser/assimp.hpp>
+#include <hitagi/asset/parser/assimp.hpp>
 #include <hitagi/core/timer.hpp>
-#include <hitagi/resource/asset_manager.hpp>
+#include <hitagi/asset/asset_manager.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -13,7 +13,7 @@
 
 using namespace hitagi::math;
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 mat4f get_matrix(const aiMatrix4x4& _mat) {
     return {
@@ -563,4 +563,4 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
     return scene;
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

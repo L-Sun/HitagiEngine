@@ -1,8 +1,8 @@
-#include <hitagi/resource/camera.hpp>
+#include <hitagi/asset/camera.hpp>
 
 using namespace hitagi::math;
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 void Camera::Update(const Transform& transform) {
     auto [t, r, s]        = decompose(transform.world_matrix);
     vec3f global_eye      = (translate(t) * vec4f(eye, 1)).xyz;
@@ -25,4 +25,4 @@ void CameraNode::Update() {
     }
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

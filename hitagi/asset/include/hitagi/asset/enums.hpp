@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 enum struct Format : std::uint32_t {
     UNKNOWN                    = 0,
     R32G32B32A32_TYPELESS      = 1,
@@ -242,4 +242,4 @@ constexpr inline size_t get_format_bit_size(Format format) {
             return 0;
     }
 }
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

@@ -1,8 +1,8 @@
-#include <hitagi/resource/mesh_factory.hpp>
+#include <hitagi/asset/mesh_factory.hpp>
 
 using namespace hitagi::math;
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 Mesh MeshFactory::Line(const vec3f& from, const vec3f& to) {
     Mesh mesh{
@@ -68,4 +68,4 @@ Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max) {
     return mesh;
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

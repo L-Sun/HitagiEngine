@@ -1,9 +1,9 @@
 #pragma once
-#include <hitagi/resource/enums.hpp>
-#include <hitagi/resource/resource.hpp>
+#include <hitagi/asset/enums.hpp>
+#include <hitagi/asset/resource.hpp>
 #include <hitagi/math/vector.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 struct Sampler : public Resource {
     Filter             filter         = Filter::Anisotropic;
     TextureAddressMode address_u      = TextureAddressMode::Wrap;
@@ -17,4 +17,4 @@ struct Sampler : public Resource {
     float              max_lod        = std::numeric_limits<float>::max();
 };
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

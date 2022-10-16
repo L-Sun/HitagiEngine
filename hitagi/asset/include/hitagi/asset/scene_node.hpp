@@ -1,11 +1,11 @@
 #pragma once
-#include <hitagi/resource/transform.hpp>
+#include <hitagi/asset/transform.hpp>
 
 #include <limits>
 #include <set>
 #include <memory>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 class SceneNode : public std::enable_shared_from_this<SceneNode> {
 public:
     SceneNode(std::string_view name = "", Transform transform = {})
@@ -62,4 +62,4 @@ inline void SceneNode::Update() {
     }
 };
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

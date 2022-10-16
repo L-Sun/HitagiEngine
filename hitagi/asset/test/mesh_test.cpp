@@ -1,11 +1,11 @@
-#include <hitagi/resource/mesh.hpp>
+#include <hitagi/asset/mesh.hpp>
 #include <hitagi/core/memory_manager.hpp>
 #include <hitagi/utils/test.hpp>
 
 #include <string>
 
 using namespace hitagi::testing;
-using namespace hitagi::resource;
+using namespace hitagi::asset;
 
 TEST(MeshTest, CreateValidVertex) {
     auto vb = VertexArray(VertexAttribute::Position, 256);

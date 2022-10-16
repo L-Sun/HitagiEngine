@@ -1,4 +1,4 @@
-#include <hitagi/parser/bvh.hpp>
+#include <hitagi/asset/parser/bvh.hpp>
 
 #include <spdlog/spdlog.h>
 

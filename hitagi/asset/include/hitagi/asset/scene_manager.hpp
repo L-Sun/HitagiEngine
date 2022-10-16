@@ -1,8 +1,8 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
-#include <hitagi/resource/scene.hpp>
+#include <hitagi/asset/scene.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 class SceneManager : public RuntimeModule {
 public:
     bool Initialize() final;
@@ -24,8 +24,8 @@ private:
     std::pmr::vector<std::shared_ptr<Scene>> m_Scenes;
     std::size_t                              m_CurrentScene;
 };
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset
 
 namespace hitagi {
-extern resource::SceneManager* scene_manager;
+extern asset::SceneManager* scene_manager;
 }

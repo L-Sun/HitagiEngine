@@ -1,8 +1,8 @@
 #pragma once
 #include <hitagi/core/buffer.hpp>
-#include <hitagi/resource/texture.hpp>
+#include <hitagi/asset/texture.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 enum struct ImageFormat : std::uint8_t {
     UNKOWN,
     PNG,
@@ -28,4 +28,4 @@ public:
     virtual std::shared_ptr<Texture> Parse(const core::Buffer& buffer) = 0;
     virtual ~ImageParser()                                             = default;
 };
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

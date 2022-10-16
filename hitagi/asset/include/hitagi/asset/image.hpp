@@ -1,10 +1,10 @@
 #pragma once
 #include <hitagi/core/buffer.hpp>
-#include <hitagi/resource/enums.hpp>
+#include <hitagi/asset/enums.hpp>
 
 #include <filesystem>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 struct Image {
     Format                format;
     std::uint64_t         width;
@@ -13,4 +13,4 @@ struct Image {
     core::Buffer          data;
     std::filesystem::path path;
 };
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

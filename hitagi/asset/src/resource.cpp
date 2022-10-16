@@ -1,6 +1,6 @@
-#include <hitagi/resource/resource.hpp>
+#include <hitagi/asset/resource.hpp>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 Resource::Resource(const Resource& other)
     : name(other.name),
       cpu_buffer(other.cpu_buffer),
@@ -16,4 +16,4 @@ Resource& Resource::operator=(const Resource& rhs) {
     return *this;
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset

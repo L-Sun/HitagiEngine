@@ -3,9 +3,9 @@
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/core/thread_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
-#include <hitagi/resource/scene_manager.hpp>
+#include <hitagi/asset/scene_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
-#include <hitagi/resource/asset_manager.hpp>
+#include <hitagi/asset/asset_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>

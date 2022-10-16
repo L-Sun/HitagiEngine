@@ -1,4 +1,4 @@
-#include <hitagi/resource/material.hpp>
+#include <hitagi/asset/material.hpp>
 
 #include <spdlog/spdlog.h>
 #include <magic_enum.hpp>
@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <variant>
 
-namespace hitagi::resource {
+namespace hitagi::asset {
 
 auto Material::Builder::SetName(std::string_view _name) -> Builder& {
     name = _name;
@@ -154,4 +154,4 @@ auto MaterialInstance::GetTextures() const -> std::pmr::vector<std::shared_ptr<T
     return result;
 }
 
-}  // namespace hitagi::resource
+}  // namespace hitagi::asset
