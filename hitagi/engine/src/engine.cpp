@@ -3,8 +3,7 @@
 #include <hitagi/application.hpp>
 #include <hitagi/resource/asset_manager.hpp>
 #include <hitagi/resource/scene_manager.hpp>
-#include <hitagi/hid/input_manager.hpp>
-#include <hitagi/graphics/graphics_manager.hpp>
+#include <hitagi/gfx/graphics_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
 
@@ -24,14 +23,14 @@ bool Engine::Initialize() {
     };
 
     // clang-format off
-    if (   !(memory_manager   = add_inner_module(std::make_unique<core::MemoryManager>()))      
+    if (false
+        || !(memory_manager   = add_inner_module(std::make_unique<core::MemoryManager>()))      
         || !(thread_manager   = add_inner_module(std::make_unique<core::ThreadManager>()))      
         || !(file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>()))      
         || !(config_manager   = add_inner_module(std::make_unique<core::ConfigManager>()))      
-        || !(app              = add_inner_module(Application::CreateApp()))                     
-        || !(graphics_manager = add_inner_module(std::make_unique<graphics::GraphicsManager>()))
         || !(asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>()))   
-        || !(input_manager    = add_inner_module(std::make_unique<hid::InputManager>()))        
+        || !(app              = add_inner_module(Application::CreateApp()))                     
+        || !(graphics_manager = add_inner_module(std::make_unique<gfx::GraphicsManager>()))
         || !(scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>()))   
         || !(debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>()))   
         || !(gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>()))
@@ -53,9 +52,6 @@ void Engine::Finalize() {
 
     _memory_manager_module->Finalize();
     _memory_manager_module = nullptr;
-
-    m_Logger->info("Finalized");
-    m_Logger = nullptr;
 }
 
 }  // namespace hitagi

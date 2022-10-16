@@ -7,7 +7,7 @@ target("engine")
         "math",
         "hid",
         "ecs",
-        "graphics",
+        "gfx",
         "resource",
         "debugger",
         "asset_manager",

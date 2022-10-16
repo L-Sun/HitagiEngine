@@ -8,14 +8,13 @@ namespace hitagi {
 class Application : public RuntimeModule {
 public:
     struct Rect {
-        long left = 0, top = 0, right = 0, bottom = 0;
+        std::uint32_t left = 0, top = 0, right = 0, bottom = 0;
     };
 
     bool Initialize() override;
-    void Finalize() override;
     void Tick() override;
 
-    inline std::string_view GetName() const noexcept final { return "Application"; }
+    inline std::string_view GetName() const noexcept override { return "Application"; }
 
     static std::unique_ptr<Application> CreateApp();
 

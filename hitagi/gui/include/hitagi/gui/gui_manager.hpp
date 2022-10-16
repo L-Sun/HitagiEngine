@@ -1,7 +1,7 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/core/timer.hpp>
-#include <hitagi/graphics/draw_data.hpp>
+#include <hitagi/gfx/render_graph.hpp>
 
 #include <imgui.h>
 
@@ -23,10 +23,13 @@ public:
         m_GuiDrawTasks.emplace([func = std::forward<DrawFunc>(draw_func)] { func(); });
     }
 
-    const graphics::GuiDrawData& GetDrawData();
+    auto ReadTexture(gfx::ResourceHandle tex) -> gfx::ResourceHandle;
+    auto GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) -> gfx::ResourceHandle;
 
 private:
-    void LoadFontTexture();
+    void LoadFont();
+    void InitFontTexture(gfx::Device& gfx_device);
+    void InitRenderPipeline(gfx::Device& gfx_device);
     void MouseEvent();
     void KeysEvent();
 
@@ -34,8 +37,16 @@ private:
 
     std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
 
-    graphics::GuiDrawData              m_DrawData;
-    std::shared_ptr<resource::Texture> m_FontTexture;
+    struct GraphicsData {
+        std::shared_ptr<gfx::RenderPipeline> pipeline;
+        std::shared_ptr<gfx::GpuBuffer>      vertices_buffer;
+        std::shared_ptr<gfx::GpuBuffer>      indices_buffer;
+        std::shared_ptr<gfx::Texture>        font_texture;
+        // TODO render graph
+        std::shared_ptr<gfx::GpuBuffer> upload_heap;
+    } m_GfxData;
+
+    std::pmr::vector<gfx::ResourceHandle> m_ReadTextures;
 };
 
 }  // namespace hitagi::gui

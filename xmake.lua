@@ -10,7 +10,7 @@ end
 set_runtimes(is_mode("debug") and "MTd" or "MT")
 
 add_requireconfs("*", {configs = {shared = true}})
-add_requires("taskflow", "cxxopts", "nlohmann_json", "yaml-cpp")
+add_requires("taskflow", "cxxopts", "nlohmann_json", "yaml-cpp", "directxshadercompiler")
 
 includes("hitagi/**/xmake.lua")
 includes("examples/**/xmake.lua")

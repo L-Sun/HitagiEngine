@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <set>
 
-namespace hitagi::graphics::backend {
+namespace hitagi::gfx::backend {
 struct Resource {
     virtual ~Resource() = default;
     template <typename T>
@@ -15,7 +15,7 @@ struct Resource {
     }
     std::uint64_t fence_value = 0;
 };
-}  // namespace hitagi::graphics::backend
+}  // namespace hitagi::gfx::backend
 
 namespace hitagi::resource {
 struct Resource {
@@ -28,10 +28,10 @@ struct Resource {
     Resource(Resource&& rhs)            = default;
     Resource& operator=(Resource&& rhs) = default;
 
-    std::pmr::string                             name;
-    bool                                         dirty = true;
-    core::Buffer                                 cpu_buffer{};
-    std::unique_ptr<graphics::backend::Resource> gpu_resource;
+    std::pmr::string                        name;
+    bool                                    dirty = true;
+    core::Buffer                            cpu_buffer{};
+    std::unique_ptr<gfx::backend::Resource> gpu_resource;
 
     // TODO
     // for more efficient update gpu resource, we mark cpu buffer per 1 kB if the region is modified!

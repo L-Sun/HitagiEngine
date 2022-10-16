@@ -47,5 +47,6 @@ target("core")
         "timer",
         "thread_manager"
     )
+    add_deps("utils", {public = true})
     add_includedirs("include", {public = true})
     add_packages("crossguid", {public = true})

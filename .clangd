@@ -7,12 +7,18 @@ CompileFlags:
 Diagnostics:
   # Tweak Clang-Tidy checks.
   ClangTidy:
-    Add: [
+    Add:
+      [
         performance*,
         modernize*,
         cppcoreguidelines-avoid-goto,
         cppcoreguidelines-prefer-member-initializer,
-        cppcoreguidelines-avoid-c-arrays
-    ]
-    Remove: [modernize-use-trailing-return-type, modernize-use-nodiscard]
+        cppcoreguidelines-avoid-c-arrays,
+      ]
+    Remove:
+      [
+        modernize-use-trailing-return-type,
+        modernize-use-nodiscard,
+        performance-no-int-to-ptr,
+      ]
   UnusedIncludes: Strict

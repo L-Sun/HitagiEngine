@@ -1,3 +1,4 @@
+#include "hitagi/math/transform.hpp"
 #include "simple_bvh_parser.hpp"
 #include "highfive_pmr.hpp"
 
@@ -16,25 +17,29 @@
 #include <stdexcept>
 #include <algorithm>
 
-using namespace hitagi;
 using namespace hitagi::core;
 using namespace hitagi::math;
 
 namespace fs = std::filesystem;
 using namespace HighFive;
 
+auto memory_manager  = std::make_shared<MemoryManager>();
+auto file_io_manager = std::make_shared<FileIOManager>();
+auto thread_manager  = std::make_shared<ThreadManager>();
+
 int init() {
 #ifndef _DEBUG
     spdlog::set_level(spdlog::level::info);
 #endif
-    memory_manager  = new MemoryManager;
-    file_io_manager = new FileIOManager;
-    thread_manager  = new ThreadManager;
-    int result;
-    if ((result = memory_manager->Initialize()) != 0) return result;
-    if ((result = file_io_manager->Initialize()) != 0) return result;
-    if ((result = thread_manager->Initialize()) != 0) return result;
-    return result;
+    hitagi::memory_manager  = memory_manager.get();
+    hitagi::file_io_manager = file_io_manager.get();
+    hitagi::thread_manager  = thread_manager.get();
+
+    if (!memory_manager->Initialize()) return false;
+    if (!file_io_manager->Initialize()) return false;
+    if (!thread_manager->Initialize()) return false;
+
+    return true;
 }
 
 void clean_exit(int exit_code = 0) {
@@ -42,28 +47,32 @@ void clean_exit(int exit_code = 0) {
     file_io_manager->Finalize();
     memory_manager->Finalize();
 
-    memory_manager  = nullptr;
-    file_io_manager = nullptr;
-    thread_manager  = nullptr;
+    thread_manager.reset();
+    file_io_manager.reset();
+    memory_manager.reset();
+
+    hitagi::memory_manager  = nullptr;
+    hitagi::file_io_manager = nullptr;
+    hitagi::thread_manager  = nullptr;
 
     exit(exit_code);
 }
 
 std::pmr::vector<fs::path>         get_all_bvh(const fs::path& dir, const std::regex& filter);
-std::pmr::vector<float>            extract_frames(const Animation& anima, bool standard_quaternion);
+std::pmr::vector<float>            extract_frames(const Animation& anima);
 std::pmr::vector<int>              extract_parents(const Animation& anima);
 std::pmr::vector<std::pmr::string> extract_joints_name(const Animation& anima);
 std::pmr::vector<float>            extract_bones_length(const Animation& anima);
 
 int main(int argc, char** argv) {
-    if (int success = init(); success != 0) return success;
+    if (!init()) return 1;
 
     auto logger = spdlog::stdout_color_mt("BVH Extractor");
 
     cxxopts::Options options(
         "bvh_extractor",
         "Dump and merge all bvh data to hdf5.\n"
-        "The data format is num_frames x num_joints x (3 position + 4 quaternion)");
+        "The data format is num_frames x num_joints x (3 position + 6D rotation)");
     // clang-format off
     options.add_options()
         ("d,dir",
@@ -74,9 +83,6 @@ int main(int argc, char** argv) {
         ("f,filter",
             "Apply a filter to the BVH files list.",
             cxxopts::value<std::string>()->default_value("*")
-        )
-        ("standard_quat",
-            "Use (w,x,y,z) to presentate quaternion, since the format in Hitagi Engine is (x,y,z,w)."
         )
         ("metric_scale",
             "Apply metric scale to skeleton",
@@ -99,14 +105,12 @@ int main(int argc, char** argv) {
 
     fs::path   bvh_dir, output;
     std::regex filter;
-    bool       standard_quat = false;
-    float      metric_scale  = args["metric_scale"].as<float>();
+    float      metric_scale = args["metric_scale"].as<float>();
 
     try {
-        bvh_dir       = args["dir"].as<std::string>();
-        filter        = std::regex{args["filter"].as<std::string>()};
-        output        = args["output"].as<std::string>();
-        standard_quat = args["standard_quat"].count() != 0;
+        bvh_dir = args["dir"].as<std::string>();
+        filter  = std::regex{args["filter"].as<std::string>()};
+        output  = args["output"].as<std::string>();
 
         if (!fs::exists(bvh_dir) || !fs::is_directory(bvh_dir)) {
             throw cxxopts::option_syntax_exception(fmt::format("\"{}\" is not a directory", bvh_dir.string()));
@@ -169,7 +173,7 @@ int main(int argc, char** argv) {
                     return std::nullopt;
                 }
 
-                auto positions_rotations = extract_frames(anima.value(), standard_quat);
+                auto positions_rotations = extract_frames(anima.value());
 
                 return positions_rotations;
             });
@@ -177,9 +181,11 @@ int main(int argc, char** argv) {
 
     File file(output.string(), File::ReadWrite | File::Create | File::Truncate);
 
-    DataSpace          dataspace({1000, joints_parent.size(), (3 + 4)}, {DataSpace::UNLIMITED, joints_parent.size(), (3 + 4)});
+    std::size_t feature_dim = 3 + 6;  // pos + 6D rotation
+
+    DataSpace          dataspace({1000, joints_parent.size(), feature_dim}, {DataSpace::UNLIMITED, joints_parent.size(), feature_dim});
     DataSetCreateProps props;
-    props.add(Chunking({300, joints_parent.size(), (3 + 4)}));
+    props.add(Chunking({300, joints_parent.size(), feature_dim}));
 
     file.createAttribute("joints_parent", joints_parent);
     file.createAttribute("joints_name", joints_name);
@@ -194,9 +200,9 @@ int main(int argc, char** argv) {
         job.wait();
         auto data = job.get();
         if (data.has_value()) {
-            std::size_t new_frames = data.value().size() / (joints_parent.size() * (3 + 4));
-            dataset.resize({frames + new_frames, joints_parent.size(), (3 + 4)});
-            dataset.select({frames, 0, 0}, {new_frames, joints_parent.size(), (3 + 4)}).write_raw(data.value().data());
+            std::size_t new_frames = data.value().size() / (joints_parent.size() * feature_dim);
+            dataset.resize({frames + new_frames, joints_parent.size(), feature_dim});
+            dataset.select({frames, 0, 0}, {new_frames, joints_parent.size(), feature_dim}).write_raw(data.value().data());
             frames += new_frames;
             split_index.emplace_back(frames);
         }
@@ -233,7 +239,7 @@ std::pmr::vector<int> extract_parents(const Animation& anima) {
     return result;
 };
 
-std::pmr::vector<float> extract_frames(const Animation& anima, bool standard_quaternion) {
+std::pmr::vector<float> extract_frames(const Animation& anima) {
     auto update_node = [](const std::shared_ptr<BoneNode>& node, const TRS& trs) {
         auto parent       = node->parent.lock();
         auto parent_space = parent ? parent->transform : mat4f::identity();
@@ -253,30 +259,27 @@ std::pmr::vector<float> extract_frames(const Animation& anima, bool standard_qua
 
         for (const auto& joint : anima.joints) {
             vec3f translation;
-            quatf rotation;
+            vec3f up, forward;
             if (joint == anima.joints.front()) {
-                translation = frame[0].translation;
-                rotation    = frame[0].rotation;
+                translation          = frame[0].translation;
+                auto rotation_matrix = rotate(frame[0].rotation);
+                up                   = get_up(rotation_matrix);
+                forward              = get_forward(rotation_matrix);
             } else {
-                auto [_t, _r, _s] = decompose(joint->transform);
-                translation       = _t;
-                rotation          = _r;
+                translation = get_translation(joint->transform);
+                up          = get_up(joint->transform);
+                forward     = get_forward(joint->transform);
             }
 
             result.emplace_back(translation.x);
             result.emplace_back(translation.y);
             result.emplace_back(translation.z);
-            if (standard_quaternion) {
-                result.emplace_back(rotation.w);
-                result.emplace_back(rotation.x);
-                result.emplace_back(rotation.y);
-                result.emplace_back(rotation.z);
-            } else {
-                result.emplace_back(rotation.x);
-                result.emplace_back(rotation.y);
-                result.emplace_back(rotation.z);
-                result.emplace_back(rotation.w);
-            }
+            result.emplace_back(up.x);
+            result.emplace_back(up.y);
+            result.emplace_back(up.z);
+            result.emplace_back(forward.x);
+            result.emplace_back(forward.y);
+            result.emplace_back(forward.z);
         }
     }
 
