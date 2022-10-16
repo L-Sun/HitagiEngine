@@ -106,7 +106,7 @@ struct VertexArray : public Resource {
 };
 
 enum struct IndexType : std::uint8_t {
-    UINT16,
+    UINT16 = 16,  // trick to fix overload of `Modify` for the MSVC
     UINT32,
 };
 constexpr auto get_index_type_size(IndexType type) {

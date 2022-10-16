@@ -95,8 +95,8 @@ TEST_F(RenderGraphTest, RenderPass) {
 
         RenderGraph rg(*device);
 
-        auto vertex_buffer_handle = rg.Import("vertex_buffer", vertex_buffer.get());
-        auto back_buffer_handle   = rg.Import("back_buffer", &back_buffer);
+        auto vertex_buffer_handle = rg.Import("vertex_buffer", vertex_buffer);
+        auto back_buffer_handle   = rg.ImportWithoutLifeTrack("back_buffer", &back_buffer);
 
         struct ColorPass {
             ResourceHandle vertices;
