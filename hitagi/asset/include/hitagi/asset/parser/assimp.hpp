@@ -4,10 +4,8 @@
 namespace hitagi::asset {
 class AssimpParser : public SceneParser {
 public:
-    AssimpParser(std::filesystem::path ext);
-    auto Parse(const core::Buffer& buffer, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> final;
+    using SceneParser::SceneParser;
 
-private:
-    std::filesystem::path m_Hint;
+    auto Parse(const core::Buffer& buffer, const std::filesystem::path& path = {}, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> final;
 };
 }  // namespace hitagi::asset

@@ -7,16 +7,13 @@
 #include <hitagi/asset/armature.hpp>
 #include <hitagi/asset/scene_node.hpp>
 
-#include <crossguid/guid.hpp>
-
 namespace hitagi::asset {
-struct Scene {
+class Scene : public Resource {
+public:
+    using Resource::Resource;
+
     template <typename T>
     using SharedPtrVector = std::pmr::vector<std::shared_ptr<T>>;
-
-    Scene(std::string_view name = "");
-
-    std::pmr::string name;
 
     std::shared_ptr<SceneNode>    root;
     SharedPtrVector<MeshNode>     instance_nodes;

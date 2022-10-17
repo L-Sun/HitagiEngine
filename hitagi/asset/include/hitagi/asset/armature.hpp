@@ -11,7 +11,9 @@ struct Bone {
     Transform transform;
 };
 
-struct Armature {
+struct Armature : public Resource {
+    using Resource::Resource;
+
     std::pmr::vector<std::shared_ptr<Bone>> bone_collection;
 };
 using ArmatureNode = SceneNodeWithObject<Armature>;

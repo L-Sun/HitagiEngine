@@ -1,47 +1,43 @@
 #include <hitagi/asset/parser/assimp.hpp>
-#include <hitagi/core/timer.hpp>
 #include <hitagi/asset/asset_manager.hpp>
+#include <hitagi/core/timer.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <spdlog/spdlog.h>
-
-#include <algorithm>
-#include <unordered_set>
-#include <stack>
+#include <fmt/chrono.h>
 
 using namespace hitagi::math;
 
 namespace hitagi::asset {
 
-mat4f get_matrix(const aiMatrix4x4& _mat) {
-    return {
+inline constexpr auto get_matrix(const aiMatrix4x4& _mat) noexcept {
+    return mat4f{
         {_mat.a1, _mat.a2, _mat.a3, _mat.a4},
         {_mat.b1, _mat.b2, _mat.b3, _mat.b4},
         {_mat.c1, _mat.c2, _mat.c3, _mat.c4},
         {_mat.d1, _mat.d2, _mat.d3, _mat.d4},
     };
 };
-vec3f get_vec3(const aiVector3D& v) {
-    return {v.x, v.y, v.z};
+inline constexpr auto get_vec3(const aiVector3D& v) noexcept {
+    return vec3f{v.x, v.y, v.z};
 };
-vec3f get_color(const aiColor3D& c) {
-    return {c.r, c.g, c.b};
+inline constexpr auto get_color(const aiColor3D& c) noexcept {
+    return vec3f{c.r, c.g, c.b};
 }
-vec4f get_color(const aiColor4D& c) {
-    return {c.r, c.g, c.b, c.a};
+inline constexpr auto get_color(const aiColor4D& c) noexcept {
+    return vec4f{c.r, c.g, c.b, c.a};
 };
-
-PrimitiveType get_primitive(unsigned int primitives) {
+inline constexpr auto get_primitive(unsigned int primitives) noexcept {
     if (primitives & aiPrimitiveType::aiPrimitiveType_LINE)
-        return PrimitiveType::LineList;
+        return gfx::PrimitiveTopology::LineList;
     else if (primitives & aiPrimitiveType::aiPrimitiveType_POINT)
-        return PrimitiveType::PointList;
+        return gfx::PrimitiveTopology::PointList;
     else if (primitives & aiPrimitiveType::aiPrimitiveType_TRIANGLE)
-        return PrimitiveType::TriangleList;
+        return gfx::PrimitiveTopology::TriangleList;
     else {
-        return PrimitiveType::Unkown;
+        return gfx::PrimitiveTopology::Unkown;
     }
 }
 
@@ -92,11 +88,8 @@ constexpr std::array mat_float_keys = {
     "metallicFactor",
 };
 
-AssimpParser::AssimpParser(std::filesystem::path ext) : m_Hint(std::move(ext)) {}
-
-std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::filesystem::path& root_path) {
-    auto logger = asset_manager ? asset_manager->GetLogger() : spdlog::default_logger();
-
+auto AssimpParser::Parse(const core::Buffer& buffer, const std::filesystem::path& path, const std::filesystem::path& resource_base_path) -> std::shared_ptr<Scene> {
+    auto logger = m_AssetManager.GetLogger();
     if (buffer.Empty()) {
         logger->warn("Parsing a empty buffer");
         return nullptr;
@@ -105,7 +98,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
     core::Clock clock;
 
     Assimp::Importer importer;
-    auto             flag =
+    constexpr auto   flags =
         aiPostProcessSteps::aiProcess_Triangulate |
         aiPostProcessSteps::aiProcess_CalcTangentSpace |
         aiPostProcessSteps::aiProcess_GenSmoothNormals |
@@ -114,13 +107,13 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
         aiPostProcessSteps::aiProcess_PopulateArmatureData;
 
     clock.Start();
-    const aiScene* ai_scene = importer.ReadFileFromMemory(buffer.GetData(), buffer.GetDataSize(), flag, m_Hint.string().c_str());
+    const aiScene* ai_scene = importer.ReadFileFromMemory(buffer.GetData(), buffer.GetDataSize(), flags, path.extension().string().c_str());
     if (!ai_scene) {
         logger->error("Can not parse the scene.");
         logger->error(importer.GetErrorString());
         return nullptr;
     }
-    logger->info("Parsing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    logger->info("Parsing costs {:.3}.", clock.DeltaTime());
     clock.Tick();
 
     auto scene = std::make_shared<Scene>(ai_scene->mName.C_Str());
@@ -131,21 +124,24 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
     for (size_t i = 0; i < ai_scene->mNumCameras; i++) {
         const auto _camera = ai_scene->mCameras[i];
 
-        auto camera       = std::make_shared<Camera>();
-        camera->aspect    = _camera->mAspect;
-        camera->near_clip = _camera->mClipPlaneNear;
-        camera->far_clip  = _camera->mClipPlaneFar;
-        camera->fov       = _camera->mHorizontalFOV;
-        camera->eye       = get_vec3(_camera->mPosition);
-        camera->look_dir  = get_vec3(_camera->mLookAt);
-        camera->up        = get_vec3(_camera->mUp);
+        auto camera = std::make_shared<Camera>(
+            Camera::Parameters{
+                .aspect    = _camera->mAspect,
+                .near_clip = _camera->mClipPlaneNear,
+                .far_clip  = _camera->mClipPlaneFar,
+                .fov       = _camera->mHorizontalFOV,
+                .eye       = get_vec3(_camera->mPosition),
+                .look_dir  = get_vec3(_camera->mLookAt),
+                .up        = get_vec3(_camera->mUp),
+            },
+            _camera->mName.C_Str());
 
         auto&& [result, success] = camera_name_map.emplace(_camera->mName.C_Str(), camera);
-        asset_manager->AddCamera(camera);
+        m_AssetManager.AddCamera(camera);
         if (!success)
             logger->warn("A camera[{}] with the same name already exists!", _camera->mName.C_Str());
     }
-    logger->info("Parsing cameras costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    logger->info("Parsing cameras costs {:.3}.", clock.DeltaTime());
     clock.Tick();
 
     // process light
@@ -154,8 +150,8 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
     for (size_t i = 0; i < ai_scene->mNumLights; i++) {
         const auto _light = ai_scene->mLights[i];
 
-        auto light   = std::make_shared<Light>();
-        light->color = get_color(_light->mColorDiffuse);
+        Light::Parameters light_paramters;
+        light_paramters.color = get_color(_light->mColorDiffuse);
 
         switch (_light->mType) {
             case aiLightSourceType::aiLightSource_AMBIENT:
@@ -166,20 +162,20 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
                 logger->warn("Unsupport light type: AREA");
                 break;
             case aiLightSourceType::aiLightSource_DIRECTIONAL: {
-                light->type      = Light::Type::Point;
-                light->direction = normalize(get_vec3(_light->mDirection));
+                light_paramters.type      = Light::Type::Point;
+                light_paramters.direction = normalize(get_vec3(_light->mDirection));
             } break;
             case aiLightSourceType::aiLightSource_POINT: {
-                light->type     = Light::Type::Point;
-                light->position = get_vec3(_light->mPosition);
+                light_paramters.type     = Light::Type::Point;
+                light_paramters.position = get_vec3(_light->mPosition);
             } break;
             case aiLightSourceType::aiLightSource_SPOT: {
-                light->type             = Light::Type::Spot;
-                light->inner_cone_angle = _light->mAngleInnerCone;
-                light->outer_cone_angle = _light->mAngleOuterCone;
-                light->position         = get_vec3(_light->mPosition);
-                light->up               = normalize(get_vec3(_light->mUp));
-                light->direction        = normalize(get_vec3(_light->mDirection));
+                light_paramters.type             = Light::Type::Spot;
+                light_paramters.inner_cone_angle = _light->mAngleInnerCone;
+                light_paramters.outer_cone_angle = _light->mAngleOuterCone;
+                light_paramters.position         = get_vec3(_light->mPosition);
+                light_paramters.up               = normalize(get_vec3(_light->mUp));
+                light_paramters.direction        = normalize(get_vec3(_light->mDirection));
             } break;
             case aiLightSourceType::aiLightSource_UNDEFINED:
                 logger->warn("Unsupport light type: UNDEFINED");
@@ -191,43 +187,45 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
                 logger->warn("Unknown light type.");
                 break;
         }
+        auto light               = std::make_shared<Light>(light_paramters, _light->mName.C_Str());
         auto&& [result, success] = light_name_map.emplace(_light->mName.C_Str(), light);
         asset_manager->AddLight(light);
         if (!success)
             logger->warn("A light[{}] with the same name already exists!", _light->mName.C_Str());
     }
-    logger->info("Parsing lights costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    logger->info("Parsing lights costs {}.", clock.DeltaTime());
     clock.Tick();
 
     // process textures
     logger->debug("Parse embedded texture... Num: {}", ai_scene->mNumTextures);
     std::pmr::unordered_map<const aiTexture*, std::shared_ptr<Texture>> textures;
     for (std::size_t i = 0; i < ai_scene->mNumTextures; i++) {
-        auto                     _texture = ai_scene->mTextures[i];
-        std::shared_ptr<Texture> texture  = nullptr;
+        auto                  _texture = ai_scene->mTextures[i];
+        std::filesystem::path tex_path(_texture->mFilename.C_Str());
+
+        std::shared_ptr<Texture> texture = nullptr;
 
         if (_texture->mHeight != 0) {
-            texture             = std::make_shared<Texture>();
-            texture->width      = _texture->mWidth;
-            texture->height     = _texture->mHeight;
-            texture->format     = Format::R8G8B8A8_UINT;
-            texture->cpu_buffer = core::Buffer(texture->width * texture->height * 4);
-            auto dest           = texture->cpu_buffer.Span<Vector<std::uint8_t, 4>>();
-            auto src            = std::span<aiTexel>(_texture->pcData, _texture->mWidth * _texture->mHeight);
-            std::transform(src.begin(), src.end(), dest.begin(), [](const aiTexel& color) {
-                return Vector<std::uint8_t, 4>{color.r, color.g, color.b, color.a};
-            });
+            texture = std::make_shared<Texture>(
+                _texture->mWidth,
+                _texture->mHeight,
+                gfx::Format::B8G8R8A8_UNORM,
+                core::Buffer(
+                    _texture->mWidth * _texture->mHeight * get_format_bit_size(gfx::Format::B8G8R8A8_UNORM) >> 3,
+                    reinterpret_cast<const std::byte*>(_texture->pcData)),
+                tex_path,
+                _texture->mFilename);
         } else {
             logger->debug("texture path: {}", _texture->mFilename.C_Str());
-            auto buffer = core::Buffer(_texture->mWidth, reinterpret_cast<const std::byte*>(_texture->pcData));
+            core::Buffer src_data(_texture->mWidth, reinterpret_cast<const std::byte*>(_texture->pcData));
             if (_texture->CheckFormat("jpg")) {
-                texture = asset_manager->ImportTexture(buffer, ImageFormat::JPEG);
+                texture = m_AssetManager.ImportTexture(tex_path, src_data);
             } else if (_texture->CheckFormat("png")) {
-                texture = asset_manager->ImportTexture(buffer, ImageFormat::PNG);
+                texture = m_AssetManager.ImportTexture(tex_path, src_data);
             } else if (_texture->CheckFormat("bmp")) {
-                texture = asset_manager->ImportTexture(buffer, ImageFormat::BMP);
+                texture = m_AssetManager.ImportTexture(tex_path, src_data);
             } else if (_texture->CheckFormat("tga")) {
-                texture = asset_manager->ImportTexture(buffer, ImageFormat::TGA);
+                texture = m_AssetManager.ImportTexture(tex_path, src_data);
             } else {
                 logger->warn("Unsupport texture format: {}", _texture->achFormatHint);
             }
@@ -235,7 +233,7 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
         textures.emplace(_texture, texture);
         asset_manager->AddTexture(texture);
     }
-    logger->info("Parsing texture costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    logger->info("Parsing texture costs {}.", clock.DeltaTime());
     clock.Tick();
 
     // process material
@@ -262,305 +260,305 @@ std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std
 
         std::shared_ptr<MaterialInstance> material_instance;
 
-        if (aiString name; AI_SUCCESS == _material_instance->Get(AI_MATKEY_NAME, name))
-            material_instance = material->CreateInstance(name.C_Str());
+        //         if (aiString name; AI_SUCCESS == _material_instance->Get(AI_MATKEY_NAME, name))
+        //             material_instance = material->CreateInstance(name.C_Str());
 
-        if (aiShadingMode shading_mode; _material_instance->Get(AI_MATKEY_SHADING_MODEL, shading_mode))
-            logger->debug("Shading Mode: {}", magic_enum::enum_name(shading_mode));
+        //         if (aiShadingMode shading_mode; _material_instance->Get(AI_MATKEY_SHADING_MODEL, shading_mode))
+        //             logger->debug("Shading Mode: {}", magic_enum::enum_name(shading_mode));
 
-        for (auto key : mat_color_keys) {
-            if (aiColor3D _color; AI_SUCCESS == _material_instance->Get(fmt::format("$clr.{}", key).c_str(), 0, 0, _color)) {
-                material_instance->SetParameter(key, get_color(_color));
-            }
-        }
+        //         for (auto key : mat_color_keys) {
+        //             if (aiColor3D _color; AI_SUCCESS == _material_instance->Get(fmt::format("$clr.{}", key).c_str(), 0, 0, _color)) {
+        //                 material_instance->SetParameter(key, get_color(_color));
+        //             }
+        //         }
 
-        // set diffuse texture
-        // TODO: blend mutiple texture
-        for (const auto& [name, ai_key] : texture_key_map) {
-            for (size_t i = 0; i < _material_instance->GetTextureCount(ai_key); i++) {
-                aiString                 _path;
-                std::shared_ptr<Texture> texture;
+        //         // set diffuse texture
+        //         // TODO: blend mutiple texture
+        //         for (const auto& [name, ai_key] : texture_key_map) {
+        //             for (size_t i = 0; i < _material_instance->GetTextureCount(ai_key); i++) {
+        //                 aiString                 _path;
+        //                 std::shared_ptr<Texture> texture;
 
-                if (AI_SUCCESS == _material_instance->GetTexture(ai_key, i, &_path)) {
-                    if (auto _texture = ai_scene->GetEmbeddedTexture(_path.C_Str()); _texture) {
-                        texture = textures.at(_texture);
-                    } else {
-                        auto texture  = std::make_shared<Texture>();
-                        texture->path = _path.C_Str();
-                    }
-                    material_instance->SetParameter(name, texture);
-                }
+        //                 if (AI_SUCCESS == _material_instance->GetTexture(ai_key, i, &_path)) {
+        //                     if (auto _texture = ai_scene->GetEmbeddedTexture(_path.C_Str()); _texture) {
+        //                         texture = textures.at(_texture);
+        //                     } else {
+        //                         auto texture  = std::make_shared<Texture>();
+        //                         texture->path = _path.C_Str();
+        //                     }
+        //                     material_instance->SetParameter(name, texture);
+        //                 }
 
-                break;  // unsupport blend for now.
-            }
-        }
+        //                 break;  // unsupport blend for now.
+        //             }
+        //         }
 
-        material_instances.emplace_back(std::move(material_instance));
+        //         material_instances.emplace_back(std::move(material_instance));
     }
     logger->info("Parsing materials costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     clock.Tick();
 
-    std::pmr::unordered_map<const aiMesh*, Mesh>        meshes;
-    std::pmr::unordered_set<const aiNode*>              armature_nodes;
-    std::pmr::unordered_map<const aiNode*, std::size_t> bone_nodes;  // bone and its index in the skeleton
-    logger->debug("Parse meshes... Num: {}", ai_scene->mNumMeshes);
-    for (size_t i = 0; i < ai_scene->mNumMeshes; i++) {
-        auto ai_mesh = ai_scene->mMeshes[i];
-        // Read Indices
-        std::size_t num_indices = 0;
-        for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++) {
-            num_indices += ai_mesh->mFaces[face].mNumIndices;
-        }
+    //     std::pmr::unordered_map<const aiMesh*, Mesh>        meshes;
+    //     std::pmr::unordered_set<const aiNode*>              armature_nodes;
+    //     std::pmr::unordered_map<const aiNode*, std::size_t> bone_nodes;  // bone and its index in the skeleton
+    //     logger->debug("Parse meshes... Num: {}", ai_scene->mNumMeshes);
+    //     for (size_t i = 0; i < ai_scene->mNumMeshes; i++) {
+    //         auto ai_mesh = ai_scene->mMeshes[i];
+    //         // Read Indices
+    //         std::size_t num_indices = 0;
+    //         for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++) {
+    //             num_indices += ai_mesh->mFaces[face].mNumIndices;
+    //         }
 
-        Mesh mesh{
-            .indices = std::make_shared<IndexArray>(num_indices, ai_mesh->mName.C_Str()),
-        };
+    //         Mesh mesh{
+    //             .indices = std::make_shared<IndexArray>(num_indices, ai_mesh->mName.C_Str()),
+    //         };
 
-        // Read Position
-        if (ai_mesh->HasPositions()) {
-            mesh.vertices[VertexAttribute::Position] = std::make_shared<VertexArray>(VertexAttribute::Position, ai_mesh->mNumVertices);
-            mesh.Modify<VertexAttribute::Position>([&](auto positions) {
-                const auto _positions = std::span<aiVector3D>(ai_mesh->mVertices, ai_mesh->mNumVertices);
-                std::transform(_positions.begin(), _positions.end(), positions.begin(), [](const auto& v) { return get_vec3(v); });
-            });
-        }
+    //         // Read Position
+    //         if (ai_mesh->HasPositions()) {
+    //             mesh.vertices[VertexAttribute::Position] = std::make_shared<VertexArray>(VertexAttribute::Position, ai_mesh->mNumVertices);
+    //             mesh.Modify<VertexAttribute::Position>([&](auto positions) {
+    //                 const auto _positions = std::span<aiVector3D>(ai_mesh->mVertices, ai_mesh->mNumVertices);
+    //                 std::transform(_positions.begin(), _positions.end(), positions.begin(), [](const auto& v) { return get_vec3(v); });
+    //             });
+    //         }
 
-        // Read Normal
-        if (ai_mesh->HasNormals()) {
-            mesh.vertices[VertexAttribute::Normal] = std::make_shared<VertexArray>(VertexAttribute::Normal, ai_mesh->mNumVertices);
-            mesh.Modify<VertexAttribute::Normal>([&](auto normals) {
-                const auto _normals = std::span<aiVector3D>(ai_mesh->mNormals, ai_mesh->mNumVertices);
-                std::transform(_normals.begin(), _normals.end(), normals.begin(), [](const auto& v) { return get_vec3(v); });
-            });
-        }
+    //         // Read Normal
+    //         if (ai_mesh->HasNormals()) {
+    //             mesh.vertices[VertexAttribute::Normal] = std::make_shared<VertexArray>(VertexAttribute::Normal, ai_mesh->mNumVertices);
+    //             mesh.Modify<VertexAttribute::Normal>([&](auto normals) {
+    //                 const auto _normals = std::span<aiVector3D>(ai_mesh->mNormals, ai_mesh->mNumVertices);
+    //                 std::transform(_normals.begin(), _normals.end(), normals.begin(), [](const auto& v) { return get_vec3(v); });
+    //             });
+    //         }
 
-        // Read Color
-        {
-            if (ai_mesh->GetNumColorChannels() >= 4) {
-                logger->warn("Only 4 color channels are supported now!");
-            }
-            constexpr std::array channels    = {VertexAttribute::Color0, VertexAttribute::Color1, VertexAttribute::Color2, VertexAttribute::Color3};
-            auto                 build_color = [&]<std::size_t I>(std::integral_constant<std::size_t, I>) {
-                if (ai_mesh->HasVertexColors(I)) {
-                    mesh.vertices[channels.at(I)] = std::make_shared<VertexArray>(channels.at(I), ai_mesh->mNumVertices);
-                    mesh.Modify<channels.at(I)>([&](auto colors) {
-                        const auto _colors = std::span<aiColor4D>(ai_mesh->mColors[I], ai_mesh->mNumVertices);
-                        std::transform(_colors.begin(), _colors.end(), colors.begin(), [](const auto& c) { return get_color(c); });
-                    });
-                }
-            };
-            [&]<std::size_t... I>(std::index_sequence<I...>) {
-                (build_color(std::integral_constant<std::size_t, I>{}), ...);
-            }
-            (std::make_index_sequence<4>{});
-        }
+    //         // Read Color
+    //         {
+    //             if (ai_mesh->GetNumColorChannels() >= 4) {
+    //                 logger->warn("Only 4 color channels are supported now!");
+    //             }
+    //             constexpr std::array channels    = {VertexAttribute::Color0, VertexAttribute::Color1, VertexAttribute::Color2, VertexAttribute::Color3};
+    //             auto                 build_color = [&]<std::size_t I>(std::integral_constant<std::size_t, I>) {
+    //                 if (ai_mesh->HasVertexColors(I)) {
+    //                     mesh.vertices[channels.at(I)] = std::make_shared<VertexArray>(channels.at(I), ai_mesh->mNumVertices);
+    //                     mesh.Modify<channels.at(I)>([&](auto colors) {
+    //                         const auto _colors = std::span<aiColor4D>(ai_mesh->mColors[I], ai_mesh->mNumVertices);
+    //                         std::transform(_colors.begin(), _colors.end(), colors.begin(), [](const auto& c) { return get_color(c); });
+    //                     });
+    //                 }
+    //             };
+    //             [&]<std::size_t... I>(std::index_sequence<I...>) {
+    //                 (build_color(std::integral_constant<std::size_t, I>{}), ...);
+    //             }
+    //             (std::make_index_sequence<4>{});
+    //         }
 
-        // Read UV
-        {
-            if (ai_mesh->GetNumUVChannels() >= 4) {
-                logger->warn("Only 4 uv channels are supported now!");
-            }
-            constexpr std::array channels    = {VertexAttribute::UV0, VertexAttribute::UV1, VertexAttribute::UV2, VertexAttribute::UV3};
-            auto                 build_color = [&]<std::size_t I>(std::integral_constant<std::size_t, I>) {
-                if (ai_mesh->HasTextureCoords(I)) {
-                    mesh.vertices[channels.at(I)] = std::make_shared<VertexArray>(channels.at(I), ai_mesh->mNumVertices);
-                    mesh.Modify<channels.at(I)>([&](auto uvs) {
-                        const auto _uvs = std::span<aiVector3D>(ai_mesh->mTextureCoords[I], ai_mesh->mNumVertices);
-                        std::transform(_uvs.begin(), _uvs.end(), uvs.begin(), [](const aiVector3D& uv) { return vec2f(uv.x, uv.y); });
-                    });
-                }
-            };
-            [&]<std::size_t... I>(std::index_sequence<I...>) {
-                (build_color(std::integral_constant<std::size_t, I>{}), ...);
-            }
-            (std::make_index_sequence<4>{});
-        }
+    //         // Read UV
+    //         {
+    //             if (ai_mesh->GetNumUVChannels() >= 4) {
+    //                 logger->warn("Only 4 uv channels are supported now!");
+    //             }
+    //             constexpr std::array channels    = {VertexAttribute::UV0, VertexAttribute::UV1, VertexAttribute::UV2, VertexAttribute::UV3};
+    //             auto                 build_color = [&]<std::size_t I>(std::integral_constant<std::size_t, I>) {
+    //                 if (ai_mesh->HasTextureCoords(I)) {
+    //                     mesh.vertices[channels.at(I)] = std::make_shared<VertexArray>(channels.at(I), ai_mesh->mNumVertices);
+    //                     mesh.Modify<channels.at(I)>([&](auto uvs) {
+    //                         const auto _uvs = std::span<aiVector3D>(ai_mesh->mTextureCoords[I], ai_mesh->mNumVertices);
+    //                         std::transform(_uvs.begin(), _uvs.end(), uvs.begin(), [](const aiVector3D& uv) { return vec2f(uv.x, uv.y); });
+    //                     });
+    //                 }
+    //             };
+    //             [&]<std::size_t... I>(std::index_sequence<I...>) {
+    //                 (build_color(std::integral_constant<std::size_t, I>{}), ...);
+    //             }
+    //             (std::make_index_sequence<4>{});
+    //         }
 
-        // Read Tangent and Bitangent
-        if (ai_mesh->HasTangentsAndBitangents()) {
-            mesh.vertices[VertexAttribute::Tangent] = std::make_shared<VertexArray>(VertexAttribute::Tangent, ai_mesh->mNumVertices);
-            mesh.Modify<VertexAttribute::Tangent>([&](auto tangents) {
-                const auto _tangents = std::span<aiVector3D>(ai_mesh->mTangents, ai_mesh->mNumVertices);
-                std::transform(_tangents.begin(), _tangents.end(), tangents.begin(), [](const auto& v) { return get_vec3(v); });
-            });
+    //         // Read Tangent and Bitangent
+    //         if (ai_mesh->HasTangentsAndBitangents()) {
+    //             mesh.vertices[VertexAttribute::Tangent] = std::make_shared<VertexArray>(VertexAttribute::Tangent, ai_mesh->mNumVertices);
+    //             mesh.Modify<VertexAttribute::Tangent>([&](auto tangents) {
+    //                 const auto _tangents = std::span<aiVector3D>(ai_mesh->mTangents, ai_mesh->mNumVertices);
+    //                 std::transform(_tangents.begin(), _tangents.end(), tangents.begin(), [](const auto& v) { return get_vec3(v); });
+    //             });
 
-            mesh.vertices[VertexAttribute::Bitangent] = std::make_shared<VertexArray>(VertexAttribute::Bitangent, ai_mesh->mNumVertices);
-            mesh.Modify<VertexAttribute::Bitangent>([&](auto bi_tangents) {
-                const auto _bi_tangents = std::span<aiVector3D>(ai_mesh->mBitangents, ai_mesh->mBitangents);
-                std::transform(_bi_tangents.begin(), _bi_tangents.end(), bi_tangents.begin(), [](const auto& v) { return get_vec3(v); });
-            });
-        }
+    //             mesh.vertices[VertexAttribute::Bitangent] = std::make_shared<VertexArray>(VertexAttribute::Bitangent, ai_mesh->mNumVertices);
+    //             mesh.Modify<VertexAttribute::Bitangent>([&](auto bi_tangents) {
+    //                 const auto _bi_tangents = std::span<aiVector3D>(ai_mesh->mBitangents, ai_mesh->mBitangents);
+    //                 std::transform(_bi_tangents.begin(), _bi_tangents.end(), bi_tangents.begin(), [](const auto& v) { return get_vec3(v); });
+    //             });
+    //         }
 
-        // Read bone blend parameters
-        if (ai_mesh->HasBones()) {
-            mesh.vertices[VertexAttribute::BlendIndex]  = std::make_shared<VertexArray>(VertexAttribute::BlendIndex, ai_mesh->mNumVertices);
-            mesh.vertices[VertexAttribute::BlendWeight] = std::make_shared<VertexArray>(VertexAttribute::BlendWeight, ai_mesh->mNumVertices);
+    //         // Read bone blend parameters
+    //         if (ai_mesh->HasBones()) {
+    //             mesh.vertices[VertexAttribute::BlendIndex]  = std::make_shared<VertexArray>(VertexAttribute::BlendIndex, ai_mesh->mNumVertices);
+    //             mesh.vertices[VertexAttribute::BlendWeight] = std::make_shared<VertexArray>(VertexAttribute::BlendWeight, ai_mesh->mNumVertices);
 
-            aiNode* armature_node = ai_mesh->mBones[0]->mArmature;
-            armature_nodes.emplace(armature_node);
+    //             aiNode* armature_node = ai_mesh->mBones[0]->mArmature;
+    //             armature_nodes.emplace(armature_node);
 
-            for (std::size_t j = 0; j < ai_mesh->mNumBones; j++) {
-                aiBone* _bone = ai_mesh->mBones[j];
+    //             for (std::size_t j = 0; j < ai_mesh->mNumBones; j++) {
+    //                 aiBone* _bone = ai_mesh->mBones[j];
 
-                if (_bone->mArmature != armature_node) {
-                    logger->warn("there are bones come from the same mesh, but releated to diffrent armature!");
-                }
+    //                 if (_bone->mArmature != armature_node) {
+    //                     logger->warn("there are bones come from the same mesh, but releated to diffrent armature!");
+    //                 }
 
-                // Calculate all bone index
-                if (!bone_nodes.contains(_bone->mNode)) {
-                    std::size_t bone_index_in_armature = 0;
+    //                 // Calculate all bone index
+    //                 if (!bone_nodes.contains(_bone->mNode)) {
+    //                     std::size_t bone_index_in_armature = 0;
 
-                    std::function<void(aiNode*)> calculate_bone_index = [&](aiNode* node) -> void {
-                        bone_nodes.emplace(node, bone_index_in_armature++);
-                        for (auto child : std::span<aiNode*>(node->mChildren, node->mNumChildren))
-                            calculate_bone_index(child);
-                    };
-                    for (auto skeleton : std::span<aiNode*>(armature_node->mChildren, armature_node->mNumChildren)) {
-                        calculate_bone_index(skeleton);
-                    }
-                }
-                std::size_t bone_index = bone_nodes.at(_bone->mNode);
+    //                     std::function<void(aiNode*)> calculate_bone_index = [&](aiNode* node) -> void {
+    //                         bone_nodes.emplace(node, bone_index_in_armature++);
+    //                         for (auto child : std::span<aiNode*>(node->mChildren, node->mNumChildren))
+    //                             calculate_bone_index(child);
+    //                     };
+    //                     for (auto skeleton : std::span<aiNode*>(armature_node->mChildren, armature_node->mNumChildren)) {
+    //                         calculate_bone_index(skeleton);
+    //                     }
+    //                 }
+    //                 std::size_t bone_index = bone_nodes.at(_bone->mNode);
 
-                mesh.Modify<VertexAttribute::BlendIndex, VertexAttribute::BlendWeight>([&](auto blend_indices, auto blend_weight) {
-                    for (auto weight : std::span<aiVertexWeight>(_bone->mWeights, _bone->mNumWeights)) {
-                        for (std::size_t k = 0; k < 4; j++) {
-                            if (blend_indices[weight.mVertexId][k] == 0) {
-                                blend_indices[weight.mVertexId][k] = bone_index;
-                                blend_weight[weight.mVertexId][k]  = weight.mWeight;
-                                break;
-                            }
-                        }
-                    }
-                });
-            }
-        }
+    //                 mesh.Modify<VertexAttribute::BlendIndex, VertexAttribute::BlendWeight>([&](auto blend_indices, auto blend_weight) {
+    //                     for (auto weight : std::span<aiVertexWeight>(_bone->mWeights, _bone->mNumWeights)) {
+    //                         for (std::size_t k = 0; k < 4; j++) {
+    //                             if (blend_indices[weight.mVertexId][k] == 0) {
+    //                                 blend_indices[weight.mVertexId][k] = bone_index;
+    //                                 blend_weight[weight.mVertexId][k]  = weight.mWeight;
+    //                                 break;
+    //                             }
+    //                         }
+    //                     }
+    //                 });
+    //             }
+    //         }
 
-        // Read Indices
-        mesh.Modify<IndexType::UINT32>([&](auto array) {
-            std::size_t p = 0;
-            for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++) {
-                std::copy_n(ai_mesh->mFaces[face].mIndices, ai_mesh->mFaces[face].mNumIndices, array.data() + p);
-                p += ai_mesh->mFaces[face].mNumIndices;
-            }
-        });
+    //         // Read Indices
+    //         mesh.Modify<IndexType::UINT32>([&](auto array) {
+    //             std::size_t p = 0;
+    //             for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++) {
+    //                 std::copy_n(ai_mesh->mFaces[face].mIndices, ai_mesh->mFaces[face].mNumIndices, array.data() + p);
+    //                 p += ai_mesh->mFaces[face].mNumIndices;
+    //             }
+    //         });
 
-        mesh.sub_meshes.emplace_back(Mesh::SubMesh{
-            .index_count       = mesh.indices->index_count,
-            .index_offset      = 0,
-            .vertex_offset     = 0,
-            .primitive         = get_primitive(ai_mesh->mPrimitiveTypes),
-            .material_instance = material_instances.at(ai_mesh->mMaterialIndex),
-        });
+    //         mesh.sub_meshes.emplace_back(Mesh::SubMesh{
+    //             .index_count       = mesh.indices->index_count,
+    //             .index_offset      = 0,
+    //             .vertex_offset     = 0,
+    //             .primitive         = get_primitive(ai_mesh->mPrimitiveTypes),
+    //             .material_instance = material_instances.at(ai_mesh->mMaterialIndex),
+    //         });
 
-        meshes.emplace(ai_mesh, std::move(mesh));
-    };
-    logger->info("Parsing meshes costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
-    clock.Tick();
+    //         meshes.emplace(ai_mesh, std::move(mesh));
+    //     };
+    //     logger->info("Parsing meshes costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    //     clock.Tick();
 
-    auto create_mesh = [&](const aiNode* _node) -> std::shared_ptr<Mesh> {
-        std::pmr::vector<Mesh> sub_meshes;
-        for (size_t i = 0; i < _node->mNumMeshes; i++) {
-            sub_meshes.emplace_back(meshes.at(ai_scene->mMeshes[_node->mMeshes[i]]));
-        }
-        return std::make_shared<Mesh>(merge_meshes(sub_meshes));
-    };
+    //     auto create_mesh = [&](const aiNode* _node) -> std::shared_ptr<Mesh> {
+    //         std::pmr::vector<Mesh> sub_meshes;
+    //         for (size_t i = 0; i < _node->mNumMeshes; i++) {
+    //             sub_meshes.emplace_back(meshes.at(ai_scene->mMeshes[_node->mMeshes[i]]));
+    //         }
+    //         return std::make_shared<Mesh>(merge_meshes(sub_meshes));
+    //     };
 
-    auto create_armature = [&](const aiNode* _node) -> std::shared_ptr<Armature> {
-        auto armature = std::make_shared<Armature>();
+    //     auto create_armature = [&](const aiNode* _node) -> std::shared_ptr<Armature> {
+    //         auto armature = std::make_shared<Armature>();
 
-        std::function<void(const aiNode*, const std::shared_ptr<Bone>&)> traversal = [&](const aiNode* _node, const std::shared_ptr<Bone>& parent) {
-            auto bone       = std::make_shared<Bone>();
-            bone->name      = _node->mName.C_Str();
-            bone->transform = get_matrix(_node->mTransformation);
-            bone->parent    = parent;
-            parent->children.emplace_back(bone);
+    //         std::function<void(const aiNode*, const std::shared_ptr<Bone>&)> traversal = [&](const aiNode* _node, const std::shared_ptr<Bone>& parent) {
+    //             auto bone       = std::make_shared<Bone>();
+    //             bone->name      = _node->mName.C_Str();
+    //             bone->transform = get_matrix(_node->mTransformation);
+    //             bone->parent    = parent;
+    //             parent->children.emplace_back(bone);
 
-            armature->bone_collection.emplace_back(bone);
+    //             armature->bone_collection.emplace_back(bone);
 
-            for (auto child_bone : std::span<aiNode*>(_node->mChildren, _node->mNumChildren))
-                traversal(child_bone, bone);
-        };
+    //             for (auto child_bone : std::span<aiNode*>(_node->mChildren, _node->mNumChildren))
+    //                 traversal(child_bone, bone);
+    //         };
 
-        for (auto bone_node : std::span<aiNode*>(_node->mChildren, _node->mNumChildren)) {
-            auto root_bone = std::make_shared<Bone>();
-            armature->bone_collection.emplace_back(root_bone);
-            traversal(bone_node, root_bone);
-        }
+    //         for (auto bone_node : std::span<aiNode*>(_node->mChildren, _node->mNumChildren)) {
+    //             auto root_bone = std::make_shared<Bone>();
+    //             armature->bone_collection.emplace_back(root_bone);
+    //             traversal(bone_node, root_bone);
+    //         }
 
-        return armature;
-    };
+    //         return armature;
+    //     };
 
-    std::function<std::shared_ptr<SceneNode>(const aiNode*)>
-        convert = [&](const aiNode* _node) -> std::shared_ptr<SceneNode> {
-        std::shared_ptr<SceneNode> node;
+    //     std::function<std::shared_ptr<SceneNode>(const aiNode*)>
+    //         convert = [&](const aiNode* _node) -> std::shared_ptr<SceneNode> {
+    //         std::shared_ptr<SceneNode> node;
 
-        std::string_view name = _node->mName.C_Str();
+    //         std::string_view name = _node->mName.C_Str();
 
-        // This node is a geometry
-        if (_node->mNumMeshes > 0) {
-            auto mesh_node    = std::make_shared<MeshNode>();
-            auto mesh         = create_mesh(_node);
-            mesh_node->object = mesh;
-            asset_manager->AddMesh(mesh);
-            scene->instance_nodes.emplace_back(mesh_node);
-            node = mesh_node;
-        }
-        // This node is a camera
-        else if (camera_name_map.contains(name)) {
-            auto camera_node    = std::make_shared<CameraNode>();
-            camera_node->object = camera_name_map.at(name);
-            scene->camera_nodes.emplace_back(camera_node);
-            node = camera_node;
-        }
-        // This node is a light
-        else if (light_name_map.contains(name)) {
-            auto light_node    = std::make_shared<LightNode>();
-            light_node->object = light_name_map.at(name);
-            scene->light_nodes.emplace_back(light_node);
-            node = light_node;
-        }
-        // This node is armature, it may contain multiple bone
-        else if (armature_nodes.contains(_node)) {
-            auto armature_node    = std::make_shared<ArmatureNode>();
-            auto armature         = create_armature(_node);
-            armature_node->object = armature;
-            asset_manager->AddArmature(armature);
-            scene->armature_nodes.emplace_back(armature_node);
-            node = armature_node;
-        }
-        // This node is bone,
-        else if (bone_nodes.contains(_node)) {
-            // Skip bone node because it has processed in `create_armature()`
-            return nullptr;
-        }
-        // This node is empty
-        else {
-            node = std::make_shared<SceneNode>();
-        }
+    //         // This node is a geometry
+    //         if (_node->mNumMeshes > 0) {
+    //             auto mesh_node    = std::make_shared<MeshNode>();
+    //             auto mesh         = create_mesh(_node);
+    //             mesh_node->object = mesh;
+    //             asset_manager->AddMesh(mesh);
+    //             scene->instance_nodes.emplace_back(mesh_node);
+    //             node = mesh_node;
+    //         }
+    //         // This node is a camera
+    //         else if (camera_name_map.contains(name)) {
+    //             auto camera_node    = std::make_shared<CameraNode>();
+    //             camera_node->object = camera_name_map.at(name);
+    //             scene->camera_nodes.emplace_back(camera_node);
+    //             node = camera_node;
+    //         }
+    //         // This node is a light
+    //         else if (light_name_map.contains(name)) {
+    //             auto light_node    = std::make_shared<LightNode>();
+    //             light_node->object = light_name_map.at(name);
+    //             scene->light_nodes.emplace_back(light_node);
+    //             node = light_node;
+    //         }
+    //         // This node is armature, it may contain multiple bone
+    //         else if (armature_nodes.contains(_node)) {
+    //             auto armature_node    = std::make_shared<ArmatureNode>();
+    //             auto armature         = create_armature(_node);
+    //             armature_node->object = armature;
+    //             asset_manager->AddArmature(armature);
+    //             scene->armature_nodes.emplace_back(armature_node);
+    //             node = armature_node;
+    //         }
+    //         // This node is bone,
+    //         else if (bone_nodes.contains(_node)) {
+    //             // Skip bone node because it has processed in `create_armature()`
+    //             return nullptr;
+    //         }
+    //         // This node is empty
+    //         else {
+    //             node = std::make_shared<SceneNode>();
+    //         }
 
-        node->name      = name;
-        node->transform = get_matrix(_node->mTransformation);
+    //         node->name      = name;
+    //         node->transform = get_matrix(_node->mTransformation);
 
-        for (std::size_t i = 0; i < _node->mNumChildren; i++) {
-            if (auto child = convert(_node->mChildren[i]); child)
-                child->Attach(node);
-        }
+    //         for (std::size_t i = 0; i < _node->mNumChildren; i++) {
+    //             if (auto child = convert(_node->mChildren[i]); child)
+    //                 child->Attach(node);
+    //         }
 
-        return node;
-    };
-    scene->root = convert(ai_scene->mRootNode);
-    if (scene->camera_nodes.empty()) {
-        auto camera_node = scene->camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
-        camera_node->Attach(scene->root);
-    }
-    scene->curr_camera = scene->camera_nodes.front();
+    //         return node;
+    //     };
+    //     scene->root = convert(ai_scene->mRootNode);
+    //     if (scene->camera_nodes.empty()) {
+    //         auto camera_node = scene->camera_nodes.emplace_back(std::make_shared<CameraNode>("Default Camera"));
+    //         camera_node->Attach(scene->root);
+    //     }
+    //     scene->curr_camera = scene->camera_nodes.front();
 
-    logger->info("Parsing scnene graph costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
-    clock.Tick();
+    //     logger->info("Parsing scnene graph costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+    //     clock.Tick();
 
-    logger->info("Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.TotalTime()).count());
+    //     logger->info("Processing costs {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.TotalTime()).count());
 
-    return scene;
+    //     return scene;
 }
 
 }  // namespace hitagi::asset

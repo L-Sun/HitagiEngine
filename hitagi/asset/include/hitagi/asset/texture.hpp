@@ -10,7 +10,17 @@ class ImageParser;
 
 class Texture : public Resource {
 public:
-    Texture(std::uint32_t width, std::uint32_t height, gfx::Format format = gfx::Format::R8G8B8A8_UNORM, core::Buffer data = {}, std::string_view name = "", xg::Guid guid = {});
+    Texture(std::uint32_t         width,
+            std::uint32_t         height,
+            gfx::Format           format = gfx::Format::R8G8B8A8_UNORM,
+            core::Buffer          data   = {},
+            std::filesystem::path path   = {},
+            std::string_view      name   = "",
+            xg::Guid              guid   = {});
+    Texture(const Texture&);
+    Texture& operator=(const Texture&);
+    Texture(Texture&&)            = default;
+    Texture& operator=(Texture&&) = default;
 
     inline auto  Width() const noexcept { return m_Width; }
     inline auto  Height() const noexcept { return m_Height; }

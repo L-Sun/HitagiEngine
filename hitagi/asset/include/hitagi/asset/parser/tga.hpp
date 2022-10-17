@@ -6,6 +6,6 @@ class TgaParser : public ImageParser {
 public:
     using ImageParser::ImageParser;
 
-    std::shared_ptr<Texture> Parse(const core::Buffer& buf) final;
+    std::shared_ptr<Texture> Parse(const core::Buffer& buf, const std::filesystem::path& path = {}) final;
 };
 }  // namespace hitagi::asset

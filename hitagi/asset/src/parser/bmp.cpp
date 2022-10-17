@@ -1,4 +1,5 @@
 #include <hitagi/asset/parser/bmp.hpp>
+#include <hitagi/asset/asset_manager.hpp>
 #include <hitagi/math/vector.hpp>
 
 #include <spdlog/logger.h>
@@ -31,29 +32,30 @@ using BITMAP_HEADER = struct BitmapHeader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer) {
+std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer, const std::filesystem::path& path) {
+    auto logger = m_AssetManager.GetLogger();
     if (buffer.Empty()) {
-        m_Logger->warn("[BMP] Parsing a empty buffer will return nullptr");
+        logger->warn("[BMP] Parsing a empty buffer will return nullptr");
         return nullptr;
     }
 
     auto file_header = reinterpret_cast<const BITMAP_FILEHEADER*>(buffer.GetData());
     auto bmp_header  = reinterpret_cast<const BITMAP_HEADER*>(buffer.GetData() + BITMAP_FILEHEADER_SIZE);
     if (file_header->signature == 0x4D42 /* 'B''M' */) {
-        m_Logger->debug("[BMP] Asset is Windows BMP file");
-        m_Logger->debug("[BMP] BMP Header");
-        m_Logger->debug("[BMP] -----------------------------------");
-        m_Logger->debug("[BMP] File Size:          {}", file_header->size);
-        m_Logger->debug("[BMP] Data Offset:        {}", file_header->bits_offset);
-        m_Logger->debug("[BMP] Image Width:        {}", bmp_header->width);
-        m_Logger->debug("[BMP] Image Height:       {}", bmp_header->height);
-        m_Logger->debug("[BMP] Image Planes:       {}", bmp_header->planes);
-        m_Logger->debug("[BMP] Image BitCount:     {}", bmp_header->bit_count);
-        m_Logger->debug("[BMP] Image Comperession: {}", bmp_header->compression);
-        m_Logger->debug("[BMP] Image Size:         {}", bmp_header->size_image);
+        logger->debug("[BMP] Asset is Windows BMP file");
+        logger->debug("[BMP] BMP Header");
+        logger->debug("[BMP] -----------------------------------");
+        logger->debug("[BMP] File Size:          {}", file_header->size);
+        logger->debug("[BMP] Data Offset:        {}", file_header->bits_offset);
+        logger->debug("[BMP] Image Width:        {}", bmp_header->width);
+        logger->debug("[BMP] Image Height:       {}", bmp_header->height);
+        logger->debug("[BMP] Image Planes:       {}", bmp_header->planes);
+        logger->debug("[BMP] Image BitCount:     {}", bmp_header->bit_count);
+        logger->debug("[BMP] Image Comperession: {}", bmp_header->compression);
+        logger->debug("[BMP] Image Size:         {}", bmp_header->size_image);
 
         if (bmp_header->bit_count < 24) {
-            m_Logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
+            logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
             return nullptr;
         }
 
@@ -73,7 +75,7 @@ std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer) {
             }
         }
 
-        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
+        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer), path);
     }
     return nullptr;
 }

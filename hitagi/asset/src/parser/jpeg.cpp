@@ -6,9 +6,11 @@
 
 namespace hitagi::asset {
 
-std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buf) {
-    if (buf.Empty()) {
-        m_Logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
+std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buffer, const std::filesystem::path& path) {
+    auto logger = m_AssetManager.GetLogger();
+
+    if (buffer.Empty()) {
+        logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
         return nullptr;
     }
 
@@ -19,7 +21,7 @@ std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buf) {
 
     try {
         jpeg_create_decompress(&cinfo);
-        jpeg_mem_src(&cinfo, reinterpret_cast<const std::uint8_t*>(buf.GetData()), buf.GetDataSize());
+        jpeg_mem_src(&cinfo, reinterpret_cast<const std::uint8_t*>(buffer.GetData()), buffer.GetDataSize());
         jpeg_read_header(&cinfo, true);
         cinfo.out_color_space = JCS_EXT_RGBA;
 
@@ -44,13 +46,13 @@ std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buf) {
         jpeg_finish_decompress(&cinfo);
         jpeg_destroy_decompress(&cinfo);
 
-        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
+        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer), path);
 
     } catch (struct jpeg_error_mgr* err) {
         std::array<char, 1024> error_message;
         (cinfo.err->format_message)((j_common_ptr)&cinfo, error_message.data());
 
-        m_Logger->error(error_message.data());
+        logger->error(error_message.data());
     }
     return nullptr;
 }

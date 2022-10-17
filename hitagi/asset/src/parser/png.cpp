@@ -1,6 +1,6 @@
 #include <hitagi/asset/parser/png.hpp>
-#include <hitagi/math/vector.hpp>
 #include <hitagi/asset/asset_manager.hpp>
+#include <hitagi/math/vector.hpp>
 
 #include <spdlog/logger.h>
 #include <png.h>
@@ -24,9 +24,10 @@ void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
         png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
-std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer) {
+std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer, const std::filesystem::path& path) {
+    auto logger = m_AssetManager.GetLogger();
     if (buffer.Empty()) {
-        m_Logger->warn("[PNG] Parsing a empty bufferfer will return nullptr.");
+        logger->warn("[PNG] Parsing a empty bufferfer will return nullptr.");
         return nullptr;
     }
 
@@ -35,25 +36,25 @@ std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer) {
     if (buffer.GetDataSize() < PNG_BYTES_TO_CHECK ||
         png_sig_cmp(reinterpret_cast<png_const_bytep>(buffer.GetData()), 0,
                     PNG_BYTES_TO_CHECK)) {
-        m_Logger->warn("[PNG] File format is not png!");
+        logger->warn("[PNG] File format is not png!");
         return nullptr;
     }
 
     png_structp png_tr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr,
                                                 nullptr, nullptr);
     if (!png_tr) {
-        m_Logger->error("[PNG] Can not create read struct.");
+        logger->error("[PNG] Can not create read struct.");
         return nullptr;
     }
     png_infop info_ptr = png_create_info_struct(png_tr);
     if (!info_ptr) {
-        m_Logger->error("[PNG] Can not create info struct.");
+        logger->error("[PNG] Can not create info struct.");
         png_destroy_read_struct(&png_tr, nullptr, nullptr);
         return nullptr;
     }
 
     if (setjmp(png_jmpbuf(png_tr))) {
-        m_Logger->error("[PNG] Error occur during read_image.");
+        logger->error("[PNG] Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
         return nullptr;
     }
@@ -123,12 +124,12 @@ std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer) {
             }
         } break;
         default:
-            m_Logger->error("[PNG] Unsupport color type.");
+            logger->error("[PNG] Unsupport color type.");
             return nullptr;
             break;
     }
 
     png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
-    return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
+    return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer), path);
 }
 }  // namespace hitagi::asset

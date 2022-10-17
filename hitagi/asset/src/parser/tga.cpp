@@ -18,31 +18,32 @@ struct TgaFileheader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Texture> TgaParser::Parse(const core::Buffer& buf) {
-    if (buf.Empty()) {
-        m_Logger->warn("[TGA] Parsing a empty buffer will return null");
+std::shared_ptr<Texture> TgaParser::Parse(const core::Buffer& buffer, const std::filesystem::path& path) {
+    auto logger = m_AssetManager.GetLogger();
+    if (buffer.Empty()) {
+        logger->warn("[TGA] Parsing a empty buffer will return null");
         return nullptr;
     }
 
-    auto data       = reinterpret_cast<const std::uint8_t*>(buf.GetData());
-    auto p_data_end = data + buf.GetDataSize();
+    auto data       = reinterpret_cast<const std::uint8_t*>(buffer.GetData());
+    auto p_data_end = data + buffer.GetDataSize();
 
-    m_Logger->debug("[TGA] Parsing as TGA file:");
+    logger->debug("[TGA] Parsing as TGA file:");
     const auto* file_header =
         reinterpret_cast<const TgaFileheader*>(data);
     data += sizeof(TgaFileheader);
 
-    m_Logger->debug("[TGA] ID Length:         {}", file_header->id_length);
-    m_Logger->debug("[TGA] Color Map Type:    {}", file_header->color_map_type);
-    m_Logger->debug("[TGA] Image Type:        {}", file_header->image_type);
+    logger->debug("[TGA] ID Length:         {}", file_header->id_length);
+    logger->debug("[TGA] Color Map Type:    {}", file_header->color_map_type);
+    logger->debug("[TGA] Image Type:        {}", file_header->image_type);
 
     if (file_header->color_map_type) {
-        m_Logger->warn("[TGA] Unsupported Color Map. Only Type 0 is supported.");
+        logger->warn("[TGA] Unsupported Color Map. Only Type 0 is supported.");
         return nullptr;
     }
 
     if (file_header->image_type != 2) {
-        m_Logger->warn("[TGA] Unsupported Image Type. Only Type 2 is supported.");
+        logger->warn("[TGA] Unsupported Image Type. Only Type 2 is supported.");
         return nullptr;
     }
 
@@ -53,10 +54,10 @@ std::shared_ptr<Texture> TgaParser::Parse(const core::Buffer& buf) {
 
     std::uint8_t alpha_depth = file_header->image_spec[9] & 0x0F;
     int          pixel_depth = file_header->image_spec[8];
-    m_Logger->debug("[TGA] Image width:       {}", width);
-    m_Logger->debug("[TGA] Image height:      {}", height);
-    m_Logger->debug("[TGA] Image Pixel Depth: {}", pixel_depth);
-    m_Logger->debug("[TGA] Image Alpha Depth: {}", alpha_depth);
+    logger->debug("[TGA] Image width:       {}", width);
+    logger->debug("[TGA] Image height:      {}", height);
+    logger->debug("[TGA] Image Pixel Depth: {}", pixel_depth);
+    logger->debug("[TGA] Image Alpha Depth: {}", alpha_depth);
     // skip Image ID
     data += file_header->id_length;
     // skip the Color Map. since we assume the Color Map Type is 0,
@@ -108,6 +109,6 @@ std::shared_ptr<Texture> TgaParser::Parse(const core::Buffer& buf) {
     }
     assert(data <= p_data_end);
 
-    return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
+    return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer), path);
 }
 }  // namespace hitagi::asset

@@ -3,6 +3,10 @@
 
 #include <numbers>
 
+constexpr double operator""_deg(long double angle) {
+    return angle / 180.0 * std::numbers::pi;
+}
+
 namespace hitagi::math {
 
 template <typename T>
@@ -260,23 +264,23 @@ constexpr Vector<T, 3> get_right(const Matrix<T, 4>& transform) {
     });
 }
 
-// Using for forward direction (a.k.a Y-axis direction)
+// Using for forward direction (a.k.a Z-axis direction)
 template <typename T>
 constexpr Vector<T, 3> get_forward(const Matrix<T, 4>& transform) {
-    return normalize(Vector<T, 3>{
-        transform[0][1],
-        transform[1][1],
-        transform[2][1],
-    });
-}
-
-// Get up direction (a.k.a Z-axis direction)
-template <typename T>
-constexpr Vector<T, 3> get_up(const Matrix<T, 4>& transform) {
     return normalize(Vector<T, 3>{
         transform[0][2],
         transform[1][2],
         transform[2][2],
+    });
+}
+
+// Get up direction (a.k.a Y-axis direction)
+template <typename T>
+constexpr Vector<T, 3> get_up(const Matrix<T, 4>& transform) {
+    return normalize(Vector<T, 3>{
+        transform[0][1],
+        transform[1][1],
+        transform[2][1],
     });
 }
 

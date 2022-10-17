@@ -3,12 +3,40 @@
 #include <hitagi/core/file_io_manager.hpp>
 
 namespace hitagi::asset {
-Texture::Texture(std::uint32_t width, std::uint32_t height, gfx::Format format, core::Buffer data, std::string_view name, xg::Guid guid)
+Texture::Texture(std::uint32_t width, std::uint32_t height, gfx::Format format, core::Buffer data, std::filesystem::path path, std::string_view name, xg::Guid guid)
     : Resource(name, guid),
       m_Width(width),
       m_Height(height),
       m_Format(format),
+      m_Path(std::move(path)),
       m_CpuData(std::move(data)) {}
+
+Texture::Texture(const Texture& other)
+    : Resource(other),
+      m_Width(other.m_Width),
+      m_Height(other.m_Height),
+      m_Format(other.m_Format),
+      m_Path(other.m_Path),
+      m_CpuData(other.m_CpuData) {
+    m_Path.replace_filename(m_Path.filename().concat("_copy"));
+}
+
+Texture& Texture::operator=(const Texture& rhs) {
+    if (this != &rhs) {
+        Resource::operator=(rhs);
+        m_Width   = rhs.m_Width;
+        m_Height  = rhs.m_Height;
+        m_Format  = rhs.m_Format;
+        m_Path    = rhs.m_Path;
+        m_CpuData = rhs.m_CpuData;
+
+        if (m_GpuData) {
+            InitGpuData(m_GpuData->device);
+        }
+        m_Path.replace_filename(m_Path.filename().concat("_copy"));
+    }
+    return *this;
+}
 
 bool Texture::SetPath(const std::filesystem::path& path) {
     if (get_image_format(path.string()) == ImageFormat::UNKOWN) {

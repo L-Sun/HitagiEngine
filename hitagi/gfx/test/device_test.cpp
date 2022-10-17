@@ -2,11 +2,13 @@
 #include <hitagi/math/transform.hpp>
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/application.hpp>
+#include <hitagi/utils/literals.hpp>
 #include <hitagi/utils/test.hpp>
 
 using namespace hitagi::core;
 using namespace hitagi::gfx;
 using namespace hitagi::math;
+using namespace hitagi::utils::literals;
 
 TEST(CreateDeviceTest, CreateD3D) {
     EXPECT_NO_THROW({

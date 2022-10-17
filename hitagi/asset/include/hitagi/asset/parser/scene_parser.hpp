@@ -3,6 +3,8 @@
 #include <hitagi/asset/scene.hpp>
 
 namespace hitagi::asset {
+class AssetManager;
+
 enum struct SceneFormat : std::uint8_t {
     UNKOWN,
     GLTF,
@@ -25,12 +27,12 @@ inline constexpr SceneFormat get_scene_format(std::string_view ext) noexcept {
 
 class SceneParser {
 public:
-    SceneParser(std::shared_ptr<spdlog::logger> logger = nullptr);
-    virtual auto Parse(const core::Buffer& buffer, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> = 0;
+    SceneParser(AssetManager& asset_manager) : m_AssetManager(asset_manager) {}
+    virtual auto Parse(const core::Buffer& buffer, const std::filesystem::path& path = {}, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> = 0;
 
     virtual ~SceneParser() = default;
 
 protected:
-    std::shared_ptr<spdlog::logger> m_Logger;
+    AssetManager& m_AssetManager;
 };
 }  // namespace hitagi::asset
