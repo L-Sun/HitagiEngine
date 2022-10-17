@@ -19,7 +19,7 @@ const std::pmr::unordered_map<std::pmr::string, BvhParser::Channel> BvhParser::m
 };
 
 std::pair<std::shared_ptr<BoneNode>, std::shared_ptr<Animation>> BvhParser::Parse(const core::Buffer& buffer) {
-    auto logger = spdlog::get("AssetManager");
+    auto logger = asset_manager ? asset_manager->GetLogger() : spdlog::default_logger();
 
     std::stringstream ss;
     ss.write(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());

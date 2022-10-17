@@ -1,167 +1,146 @@
 #include <hitagi/asset/mesh.hpp>
 
-#include <spdlog/spdlog.h>
-
-#include <numeric>
-#include <algorithm>
-
 namespace hitagi::asset {
-VertexArray::VertexArray(VertexAttribute attribute, std::size_t count, std::string_view name)
-    : Resource(core::Buffer{count * get_vertex_attribute_size(attribute)}, name),
-      attribute(attribute),
-      vertex_count(count) {
+VertexArray::VertexArray(std::size_t vertex_count, std::string_view name, xg::Guid guid)
+    : Resource(name, guid),
+      m_VertexCount(vertex_count) {
 }
 
 VertexArray::VertexArray(const VertexArray& other)
-    : Resource(other.cpu_buffer, other.name),
-      attribute(other.attribute),
-      vertex_count(other.vertex_count) {}
+    : Resource(other),
+      m_VertexCount(other.m_VertexCount),
+      m_Attributes(other.m_Attributes) {
+    for (auto& attribute : m_Attributes) {
+        attribute.dirty = true;
+    }
+}
 
 VertexArray& VertexArray::operator=(const VertexArray& rhs) {
     if (this != &rhs) {
-        cpu_buffer   = rhs.cpu_buffer;
-        name         = rhs.name;
-        dirty        = true;
-        vertex_count = rhs.vertex_count;
-        attribute    = rhs.attribute;
+        Resource::operator=(rhs);
+
+        m_VertexCount = rhs.m_VertexCount;
+        m_Attributes  = rhs.m_Attributes;
+
+        for (auto& attribute : m_Attributes) {
+            attribute.dirty = true;
+        }
     }
     return *this;
 }
 
 void VertexArray::Resize(std::size_t new_count) {
-    if (new_count == vertex_count) return;
+    if (new_count == m_VertexCount) return;
 
-    dirty        = true;
-    vertex_count = new_count;
-    cpu_buffer.Resize(vertex_count * get_vertex_attribute_size(attribute));
+    for (auto& attribute : m_Attributes) {
+        // This attribute is not enable
+        if (attribute.cpu_buffer.Empty()) continue;
+
+        attribute.cpu_buffer.Resize(m_VertexCount * get_vertex_attribute_size(attribute.type));
+        attribute.dirty = true;
+    }
+    m_VertexCount = new_count;
+}
+
+bool VertexArray::Empty() const noexcept {
+    if (m_VertexCount == 0) return true;
+    for (const auto& attribute : m_Attributes) {
+        if (!attribute.cpu_buffer.Empty()) return false;
+    }
+    return true;
+}
+
+IndexArray::IndexArray(std::size_t count, IndexType type, std::string_view name, xg::Guid guid)
+    : Resource(name, guid), m_IndexCount(count), m_Data{.type = type, .cpu_buffer = core::Buffer(count * get_index_type_size(type))} {
 }
 
 IndexArray::IndexArray(const IndexArray& other)
-    : Resource(other.cpu_buffer, other.name),
-      index_count(other.index_count),
-      type(other.type) {
+    : Resource(other),
+      m_IndexCount(other.m_IndexCount),
+      m_Data(other.m_Data) {
+    m_Data.dirty = true;
 }
 
 IndexArray& IndexArray::operator=(const IndexArray& rhs) {
     if (this != &rhs) {
-        cpu_buffer  = rhs.cpu_buffer;
-        dirty       = true;
-        name        = rhs.name;
-        index_count = rhs.index_count;
-        type        = rhs.type;
+        Resource::operator=(rhs);
+
+        m_IndexCount = rhs.m_IndexCount;
+        m_Data       = rhs.m_Data;
+        m_Data.dirty = true;
     }
     return *this;
 }
 
 void IndexArray::Resize(std::size_t new_count) {
-    if (new_count == index_count) return;
+    if (new_count == m_IndexCount) return;
 
-    index_count = new_count;
-    cpu_buffer.Resize(new_count * get_index_type_size(type));
-    dirty = true;
+    m_Data.cpu_buffer.Resize(new_count * get_index_type_size(m_Data.type));
+    m_IndexCount = new_count;
+    m_Data.dirty = true;
 }
 
-Mesh::operator bool() const noexcept {
-    // vertex array exists
-    auto iter = std::find_if(vertices.begin(), vertices.end(), [](const std::shared_ptr<VertexArray>& attribute_array) { return attribute_array != nullptr; });
-    if (iter == vertices.end()) return false;
+Mesh::Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name, xg::Guid guid)
+    : Resource(name, guid),
+      m_Vertices(std::move(vertices)),
+      m_Indices(std::move(indices)) {}
 
-    // all vertex array has same count
-    iter = std::find_if_not(iter, vertices.end(), [&](const std::shared_ptr<VertexArray>& attribute_array) {
-        return attribute_array == nullptr || attribute_array->vertex_count == (*iter)->vertex_count;
-    });
-    if (iter != vertices.end()) return false;
+Mesh Mesh::operator+(const Mesh& rhs) const {
+    if (Empty()) return rhs;
+    if (rhs.Empty()) return *this;
 
-    // index array exists and has sub_meshes
-    return indices != nullptr && !indices->Empty() && !sub_meshes.empty();
-}
+    auto new_vertices = std::make_shared<VertexArray>(m_Vertices->Size() + rhs.m_Vertices->Size());
 
-Mesh merge_meshes(const std::pmr::vector<Mesh>& meshes) {
-    if (meshes.size() == 1) return meshes.front();
+    magic_enum::enum_for_each<VertexAttribute>([&](auto attr) {
+        auto lhs_attr = m_Vertices->Span<attr()>();
+        auto rhs_attr = rhs.m_Vertices->Span<attr()>();
 
-    if (auto iter = std::find_if(meshes.begin(), meshes.end(), [](const Mesh& mesh) -> bool { return !mesh; }); iter != meshes.end()) {
-        auto logger = spdlog::get("AssetManager");
-        if (logger) {
-            logger->warn("The mesh ({}) is invalid", iter->name);
-        } else {
-            fmt::print("The mesh ({}) is invalid\n", iter->name);
-        }
-    }
+        if (lhs_attr.empty() && rhs_attr.empty()) return;
 
-    auto iter = std::adjacent_find(meshes.begin(), meshes.end(), [](const Mesh& a, const Mesh& b) {
-        bool matched = true;
-        for (std::size_t index = 0; index < magic_enum::enum_count<VertexAttribute>(); index++) {
-            matched = matched & (a.vertices[index] != nullptr && b.vertices[index] != nullptr) || (a.vertices[index] == nullptr && b.vertices[index] == nullptr);
-        }
-        // find the no match index
-        return !matched;
-    });
-
-    if (iter != meshes.end()) {
-        auto logger = spdlog::get("AssetManager");
-        if (logger) {
-            logger->warn("there are vertices of meshes have unmatched attirbutes");
-        } else {
-            std::cout << "there are vertices of meshes have unmatched attirbutes" << std::endl;
-        }
-        return {};
-    }
-
-    std::pmr::vector<std::size_t> vertex_counts;
-    std::transform(meshes.begin(), meshes.end(), std::back_insert_iterator(vertex_counts), [](const Mesh& mesh) {
-        return std::find_if(mesh.vertices.begin(), mesh.vertices.end(), [](auto attribute) { return attribute != nullptr; })->get()->vertex_count;
-    });
-    auto total_vertex_count = std::reduce(vertex_counts.begin(), vertex_counts.end(), 0, [](std::size_t total, const std::size_t& count) {
-        return total + count;
-    });
-    auto total_index_count  = std::reduce(meshes.begin(), meshes.end(), 0, [](std::size_t total, const Mesh& mesh) {
-        return total + mesh.indices->index_count;
-    });
-
-    Mesh result{
-        .indices = std::make_shared<IndexArray>(total_index_count),
-    };
-
-    std::size_t index = 0, total_vertex_offset = 0, total_index_offset = 0;
-    for (const auto& mesh : meshes) {
-        // Copy vertices
-        for (std::size_t slot = 0; slot < magic_enum::enum_count<VertexAttribute>(); slot++) {
-            VertexAttribute attribute = magic_enum::enum_cast<VertexAttribute>(slot).value();
-            if (mesh.vertices[slot] == nullptr) continue;
-            if (result.vertices[slot] == nullptr) {
-                result.vertices[slot] = std::make_shared<VertexArray>(attribute, total_vertex_count);
-            }
-            std::memcpy(result.vertices[slot]->cpu_buffer.GetData() + total_vertex_offset * get_vertex_attribute_size(attribute),
-                        mesh.vertices[slot]->cpu_buffer.GetData(),
-                        mesh.vertices[slot]->cpu_buffer.GetDataSize());
-        }
-
-        // Copy indices
-        {
-            auto dest_array = result.indices->cpu_buffer.Span<std::uint32_t>();
-            if (mesh.indices->type == IndexType::UINT32) {
-                auto src_array = mesh.Span<IndexType::UINT32>();
-                std::copy(src_array.begin(), src_array.end(), std::next(dest_array.begin(), total_index_offset));
+        new_vertices->Modify<attr()>([&](auto values) {
+            if (lhs_attr.empty()) {
+                std::fill(values.begin(), std::next(values.begin(), m_Vertices->Size()), VertexDataType<attr()>{});
+                std::copy(rhs_attr.begin(), rhs_attr.end(), std::next(values.begin(), m_Vertices->Size()));
+            } else if (rhs_attr.empty()) {
+                std::copy(lhs_attr.begin(), lhs_attr.end(), values.begin());
+                std::fill(std::next(values.begin(), m_Vertices->Size()), values.end(), VertexDataType<attr()>{});
             } else {
-                auto src_array = mesh.Span<IndexType::UINT16>();
-                std::transform(src_array.begin(), src_array.end(), std::next(dest_array.begin(), total_index_offset), [](std::uint16_t value) {
-                    return static_cast<std::uint32_t>(value);
-                });
+                std::copy(lhs_attr.begin(), lhs_attr.end(), values.begin());
+                std::copy(rhs_attr.begin(), rhs_attr.end(), std::next(values.begin(), m_Vertices->Size()));
             }
-        }
+        });
+    });
 
-        // merge submeshes
-        for (const auto& sub_mesh : mesh.sub_meshes) {
-            result.sub_meshes.emplace_back(Mesh::SubMesh{
-                .index_count       = sub_mesh.index_count,
-                .index_offset      = total_index_offset + sub_mesh.index_offset,
-                .vertex_offset     = total_vertex_offset + sub_mesh.vertex_offset,
-                .material_instance = sub_mesh.material_instance,
-            });
-        }
+    std::shared_ptr<IndexArray> new_indices = nullptr;
+    if (m_Indices->Type() != rhs.m_Indices->Type()) {
+        new_indices = std::make_shared<IndexArray>(m_Indices->Size() + rhs.m_Indices->Size(), IndexType::UINT32);
+    } else {
+        new_indices = std::make_shared<IndexArray>(m_Indices->Size() + rhs.m_Indices->Size(), m_Indices->Type());
+    }
+    magic_enum::enum_for_each<IndexType>([&](auto type) {
+        if (new_indices->Type() != type()) return;
+        auto lhs_values = m_Indices->Span<type()>();
+        auto rhs_values = rhs.m_Indices->Span<type()>();
 
-        total_index_offset += vertex_counts[index++];
-        total_vertex_offset += mesh.indices->index_count;
+        new_indices->Modify<type()>([&](auto values) {
+            std::copy(lhs_values.begin(), lhs_values.end(), values.begin());
+            std::copy(rhs_values.begin(), rhs_values.end(), std::next(values.begin(), lhs_values.size()));
+        });
+    });
+
+    Mesh result(new_vertices, new_indices);
+    // merge submeshes
+    for (const auto& lhs_sub_mesh : m_SubMeshes) {
+        result.AddSubMesh(lhs_sub_mesh);
+    }
+    for (const auto& rhs_sub_mesh : rhs.m_SubMeshes) {
+        result.AddSubMesh({
+            .index_count       = rhs_sub_mesh.index_count,
+            .index_offset      = rhs_sub_mesh.index_offset + m_Indices->Size(),
+            .vertex_offset     = rhs_sub_mesh.vertex_offset + m_Vertices->Size(),
+            .primitive         = rhs_sub_mesh.primitive,
+            .material_instance = rhs_sub_mesh.material_instance,
+        });
     }
     return result;
 }

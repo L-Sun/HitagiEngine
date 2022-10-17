@@ -5,7 +5,6 @@
 #include <hitagi/asset/parser/material_parser.hpp>
 
 #include <magic_enum.hpp>
-#include "hitagi/asset/mesh.hpp"
 
 namespace hitagi::asset {
 
@@ -62,4 +61,4 @@ private:
 
 namespace hitagi {
 extern asset::AssetManager* asset_manager;
-}
+}  // namespace hitagi

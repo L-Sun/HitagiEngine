@@ -1,19 +1,16 @@
 #include <hitagi/asset/parser/jpeg.hpp>
+#include <hitagi/asset/asset_manager.hpp>
 
 #include <jpeglib.h>
-#include <spdlog/spdlog.h>
-
-#include <string>
+#include <spdlog/logger.h>
 
 namespace hitagi::asset {
 
 std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buf) {
-    auto logger = spdlog::get("AssetManager");
     if (buf.Empty()) {
-        logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
+        m_Logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
         return nullptr;
     }
-    auto image = std::make_shared<Texture>();
 
     jpeg_decompress_struct cinfo{};
     jpeg_error_mgr         jerr{};
@@ -26,17 +23,16 @@ std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buf) {
         jpeg_read_header(&cinfo, true);
         cinfo.out_color_space = JCS_EXT_RGBA;
 
-        image->width      = static_cast<std::uint32_t>(cinfo.image_width);
-        image->height     = static_cast<std::uint32_t>(cinfo.image_height);
-        image->format     = Format::R8G8B8A8_UNORM;
-        image->pitch      = ((image->width * 4) + 3) & ~3;
-        image->cpu_buffer = core::Buffer(image->pitch * image->height);
+        auto width      = static_cast<std::uint32_t>(cinfo.image_width);
+        auto height     = static_cast<std::uint32_t>(cinfo.image_height);
+        auto pitch      = ((width * 4) + 3) & ~3;
+        auto cpu_buffer = core::Buffer(pitch * height);
         jpeg_start_decompress(&cinfo);
 
         int row_stride = cinfo.output_width * cinfo.output_components;
 
         auto row_buffer = std::pmr::vector<JSAMPLE>(row_stride);
-        auto p          = image->cpu_buffer.GetData() + (image->height - 1) * row_stride;
+        auto p          = cpu_buffer.GetData() + (height - 1) * row_stride;
 
         while (cinfo.output_scanline < cinfo.output_height) {
             auto p_row = row_buffer.data();
@@ -48,12 +44,14 @@ std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buf) {
         jpeg_finish_decompress(&cinfo);
         jpeg_destroy_decompress(&cinfo);
 
+        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
+
     } catch (struct jpeg_error_mgr* err) {
         std::array<char, 1024> error_message;
         (cinfo.err->format_message)((j_common_ptr)&cinfo, error_message.data());
 
-        logger->error(error_message.data());
+        m_Logger->error(error_message.data());
     }
-    return image;
+    return nullptr;
 }
 }  // namespace hitagi::asset

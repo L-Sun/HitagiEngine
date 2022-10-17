@@ -1,7 +1,6 @@
 #pragma once
 #include <hitagi/asset/scene_node.hpp>
-
-#include <numbers>
+#include <hitagi/asset/transform.hpp>
 
 namespace hitagi::asset {
 struct Camera {
@@ -18,7 +17,7 @@ public:
 
     void Update(const Transform& transform);
 
-    inline math::vec4u GetViewPort(std::uint32_t screen_width, std::uint32_t screen_height) const noexcept;
+    math::vec4u        GetViewPort(std::uint32_t screen_width, std::uint32_t screen_height) const noexcept;
     inline math::mat4f GetView() const noexcept { return m_View; }
     inline math::mat4f GetProjection() const noexcept { return m_Projection; }
     inline math::mat4f GetProjectionView() const noexcept { return m_PV; }
@@ -40,19 +39,4 @@ struct SceneNodeWithObject<Camera> : public SceneNode {
 };
 using CameraNode = SceneNodeWithObject<Camera>;
 
-inline math::vec4u Camera::GetViewPort(std::uint32_t screen_width, std::uint32_t screen_height) const noexcept {
-    math::vec4u view_port;
-    {
-        std::uint32_t height = screen_height;
-        std::uint32_t width  = height * aspect;
-        if (width > screen_width) {
-            width     = screen_width;
-            height    = screen_width / aspect;
-            view_port = {0, (screen_height - height) >> 1, width, height};
-        } else {
-            view_port = {(screen_width - width) >> 1, 0, width, height};
-        }
-    }
-    return view_port;
-}
 }  // namespace hitagi::asset

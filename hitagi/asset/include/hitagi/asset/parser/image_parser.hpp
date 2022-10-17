@@ -3,6 +3,7 @@
 #include <hitagi/asset/texture.hpp>
 
 namespace hitagi::asset {
+
 enum struct ImageFormat : std::uint8_t {
     UNKOWN,
     PNG,
@@ -11,7 +12,7 @@ enum struct ImageFormat : std::uint8_t {
     BMP,
 };
 
-constexpr inline ImageFormat get_image_format(std::string_view ext) {
+inline constexpr ImageFormat get_image_format(std::string_view ext) noexcept {
     if (ext == ".jpeg" || ext == ".jpg")
         return ImageFormat::JPEG;
     else if (ext == ".bmp")
@@ -25,7 +26,12 @@ constexpr inline ImageFormat get_image_format(std::string_view ext) {
 
 class ImageParser {
 public:
-    virtual std::shared_ptr<Texture> Parse(const core::Buffer& buffer) = 0;
-    virtual ~ImageParser()                                             = default;
+    ImageParser(std::shared_ptr<spdlog::logger> logger);
+
+    virtual auto Parse(const core::Buffer& buffer) -> std::shared_ptr<Texture> = 0;
+    virtual ~ImageParser()                                                     = default;
+
+protected:
+    std::shared_ptr<spdlog::logger> m_Logger;
 };
 }  // namespace hitagi::asset

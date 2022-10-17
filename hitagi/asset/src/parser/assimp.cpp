@@ -95,7 +95,7 @@ constexpr std::array mat_float_keys = {
 AssimpParser::AssimpParser(std::filesystem::path ext) : m_Hint(std::move(ext)) {}
 
 std::shared_ptr<Scene> AssimpParser::Parse(const core::Buffer& buffer, const std::filesystem::path& root_path) {
-    auto logger = spdlog::get("AssetManager");
+    auto logger = asset_manager ? asset_manager->GetLogger() : spdlog::default_logger();
 
     if (buffer.Empty()) {
         logger->warn("Parsing a empty buffer");

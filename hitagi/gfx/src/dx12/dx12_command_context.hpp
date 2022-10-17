@@ -14,7 +14,7 @@ class DX12Device;
 
 class DX12CommandContext {
 public:
-    DX12CommandContext(DX12Device* device, CommandType type, std::string_view name, std::uint64_t& fence_value);
+    DX12CommandContext(DX12Device& device, CommandType type, std::string_view name, std::uint64_t& fence_value);
     ~DX12CommandContext() {
         int i = 0;
     }
@@ -26,7 +26,7 @@ protected:
     friend class DX12CommandQueue;
     friend class ResourceBinder;
 
-    DX12Device*                              m_Device;
+    DX12Device&                              m_Device;
     CommandType                              m_Type;
     ComPtr<ID3D12CommandAllocator>           m_CmdAllocator;
     ComPtr<ID3D12GraphicsCommandList5>       m_CmdList;
@@ -40,7 +40,7 @@ protected:
 
 class DX12GraphicsCommandContext : public GraphicsCommandContext, public DX12CommandContext {
 public:
-    DX12GraphicsCommandContext(DX12Device* device, std::string_view name);
+    DX12GraphicsCommandContext(DX12Device& device, std::string_view name);
     void SetName(std::string_view name) final;
     void ResetState(GpuBuffer& buffer) final;
     void ResetState(Texture& texture) final;
@@ -75,7 +75,7 @@ public:
 
 class DX12ComputeCommandContext : public ComputeCommandContext, public DX12CommandContext {
 public:
-    DX12ComputeCommandContext(DX12Device* device, std::string_view name);
+    DX12ComputeCommandContext(DX12Device& device, std::string_view name);
     void SetName(std::string_view name) final;
     void ResetState(GpuBuffer& buffer) final;
     void ResetState(Texture& texture) final;
@@ -86,7 +86,7 @@ public:
 
 class DX12CopyCommandContext : public CopyCommandContext, public DX12CommandContext {
 public:
-    DX12CopyCommandContext(DX12Device* device, std::string_view name);
+    DX12CopyCommandContext(DX12Device& device, std::string_view name);
     void SetName(std::string_view name) final;
     void ResetState(GpuBuffer& buffer) final;
     void ResetState(Texture& texture) final;

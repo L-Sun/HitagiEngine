@@ -1,8 +1,6 @@
 #pragma once
 #include <hitagi/math/transform.hpp>
 
-#include <unordered_set>
-
 namespace hitagi::asset {
 
 struct Transform {

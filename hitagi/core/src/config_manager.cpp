@@ -3,7 +3,6 @@
 #include <hitagi/core/memory_manager.hpp>
 
 #include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <nlohmann/json.hpp>
 
 namespace hitagi {
@@ -13,8 +12,7 @@ core::ConfigManager* config_manager = nullptr;
 namespace hitagi::core {
 
 bool ConfigManager::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("ConfigManager");
-    m_Logger->info("Initialize...");
+    RuntimeModule::Initialize();
     if (!LoadConfig("hitagi.json")) {
         auto new_config = std::make_shared<AppConfig>();
     }
@@ -24,8 +22,7 @@ bool ConfigManager::Initialize() {
 void ConfigManager::Finalize() {
     SaveConfig("hitagi.json");
     m_Config = nullptr;
-    m_Logger->info("Finalized.");
-    m_Logger = nullptr;
+    RuntimeModule::Finalize();
 }
 
 bool ConfigManager::LoadConfig(const std::filesystem::path& path) {

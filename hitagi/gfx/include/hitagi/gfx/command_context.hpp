@@ -25,13 +25,13 @@ public:
     virtual void Reset() = 0;
     virtual void End()   = 0;
 
-    Device* const     device;
+    Device&           device;
     const CommandType type;
 
     std::uint64_t fence_value = 0;
 
 protected:
-    CommandContext(Device* device, CommandType type, std::string_view name)
+    CommandContext(Device& device, CommandType type, std::string_view name)
         : device(device), type(type), m_Name(name) {}
 
     std::pmr::string m_Name;

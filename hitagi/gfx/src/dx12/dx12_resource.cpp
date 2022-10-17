@@ -19,6 +19,7 @@ auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
             auto d3d_desc = texture->GetDesc();
 
             auto result = std::make_shared<DX12ResourceWrapper<Texture>>(
+                device,
                 Texture::Desc{
                     .name         = back_buffer_names.back(),
                     .width        = static_cast<std::uint32_t>(d3d_desc.Width),

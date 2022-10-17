@@ -1,8 +1,5 @@
 #pragma once
-#include <hitagi/math/vector.hpp>
 #include <hitagi/asset/scene_node.hpp>
-
-#include <numbers>
 
 namespace hitagi::asset {
 
@@ -23,7 +20,6 @@ struct Light {
     math::vec3f direction = math::vec3f(0, 0, -1);
     math::vec3f up        = math::vec3f(0, 0, 1);
 };
-
 using LightNode = SceneNodeWithObject<Light>;
 
 }  // namespace hitagi::asset

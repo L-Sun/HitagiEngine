@@ -1,4 +1,5 @@
 #pragma once
+#include <hitagi/asset/resource.hpp>
 #include <hitagi/asset/transform.hpp>
 
 #include <limits>
@@ -6,14 +7,12 @@
 #include <memory>
 
 namespace hitagi::asset {
-class SceneNode : public std::enable_shared_from_this<SceneNode> {
+class SceneNode : public Resource, public std::enable_shared_from_this<SceneNode> {
 public:
-    SceneNode(std::string_view name = "", Transform transform = {})
-        : name(name), transform(transform) {
-    }
+    SceneNode(Transform transform = {}, std::string_view name = "", xg::Guid guid = {});
 
-    inline void Attach(const std::shared_ptr<SceneNode>& parent) noexcept;
-    inline void Detach() noexcept;
+    void Attach(const std::shared_ptr<SceneNode>& parent) noexcept;
+    void Detach() noexcept;
 
     virtual void Update();
 
@@ -32,34 +31,6 @@ template <typename T>
 struct SceneNodeWithObject : public SceneNode {
     using SceneNode::SceneNode;
     std::shared_ptr<T> object;
-};
-
-inline void SceneNode::Attach(const std::shared_ptr<SceneNode>& parent) noexcept {
-    if (parent.get() == this) {
-        return;
-    }
-    Detach();
-    if (parent) {
-        m_Parent = parent;
-        parent->m_Children.emplace(shared_from_this());
-    }
-}
-
-inline void SceneNode::Detach() noexcept {
-    if (auto parent = m_Parent.lock(); parent) {
-        parent->m_Children.erase(shared_from_this());
-    }
-    m_Parent.reset();
-}
-
-inline void SceneNode::Update() {
-    auto        parent        = m_Parent.lock();
-    math::mat4f parent_matrix = parent ? parent->transform.world_matrix : math::mat4f::identity();
-    transform.world_matrix    = parent_matrix * translate(transform.local_translation) * rotate(transform.local_rotation) * scale(transform.local_scaling);
-
-    for (const auto& child : m_Children) {
-        child->Update();
-    }
 };
 
 }  // namespace hitagi::asset

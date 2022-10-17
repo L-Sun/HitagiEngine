@@ -5,22 +5,22 @@ using namespace hitagi::math;
 namespace hitagi::asset {
 
 Mesh MeshFactory::Line(const vec3f& from, const vec3f& to) {
-    Mesh mesh{
-        .vertices = {std::make_shared<VertexArray>(VertexAttribute::Position, 2, "line")},
-        .indices  = std::make_shared<IndexArray>(2, "line"),
-    };
+    Mesh mesh(
+        std::make_shared<VertexArray>(2, "line"),
+        std::make_shared<IndexArray>(2, IndexType::UINT32, "line"),
+        "line");
 
-    mesh.Modify<VertexAttribute::Position>([&](auto pos) {
+    mesh.GetVertexArray()->Modify<VertexAttribute::Position>([&](auto pos) {
         pos[0] = from;
         pos[1] = to;
     });
 
-    mesh.Modify<IndexType::UINT32>([](auto array) {
+    mesh.GetIndexArray()->Modify<IndexType::UINT32>([](auto array) {
         array[0] = 0;
         array[1] = 1;
     });
 
-    mesh.sub_meshes.emplace_back(Mesh::SubMesh{
+    mesh.AddSubMesh({
         .index_count   = 2,
         .index_offset  = 0,
         .vertex_offset = 0,
@@ -45,22 +45,21 @@ Mesh MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max) {
         2u, 7u, 7u, 4u, 4u, 5u, 5u, 2u,  // back
         0u, 2u, 1u, 7u, 6u, 4u, 3u, 5u   // connect two plane
     };
+    Mesh mesh(
+        std::make_shared<VertexArray>(vertex_data.size(), "box"),
+        std::make_shared<IndexArray>(index_data.size(), IndexType::UINT32, "box"),
+        "box");
 
-    Mesh mesh{
-        .vertices = {std::make_shared<VertexArray>(VertexAttribute::Position, vertex_data.size(), "box")},
-        .indices  = std::make_shared<IndexArray>(index_data.size(), "box"),
-    };
-
-    mesh.Modify<VertexAttribute::Position>([&](auto pos) {
+    mesh.GetVertexArray()->Modify<VertexAttribute::Position>([&](auto pos) {
         std::copy(vertex_data.cbegin(), vertex_data.cend(), pos.begin());
     });
 
-    mesh.Modify<IndexType::UINT32>([&](auto array) {
+    mesh.GetIndexArray()->Modify<IndexType::UINT32>([&](auto array) {
         std::copy(index_data.cbegin(), index_data.cend(), array.begin());
     });
 
-    mesh.sub_meshes.emplace_back(Mesh::SubMesh{
-        .index_count   = mesh.indices->index_count,
+    mesh.AddSubMesh({
+        .index_count   = index_data.size(),
         .index_offset  = 0,
         .vertex_offset = 0,
     });

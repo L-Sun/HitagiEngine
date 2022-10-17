@@ -1,48 +1,37 @@
 #pragma once
-#include <hitagi/core/buffer.hpp>
 #include <hitagi/asset/resource.hpp>
-#include <hitagi/asset/enums.hpp>
-#include <hitagi/math/vector.hpp>
-#include <hitagi/utils/utils.hpp>
+#include <hitagi/gfx/gpu_resource.hpp>
+#include <hitagi/gfx/device.hpp>
 
 #include <filesystem>
 
 namespace hitagi::asset {
-enum struct Format : std::uint32_t;
+class ImageParser;
 
-// TODO support 1D and 3D texture
-struct Texture : public Resource {
-    enum struct BindFlag {
-        None            = 0,
-        ShaderResource  = 1 << 0,
-        UnorderedAccess = 1 << 1,
-        RenderTarget    = 1 << 2,
-        DepthBuffer     = 1 << 3,
-    };
-    struct DepthStencil {
-        float         depth;
-        std::uint32_t stencil;
-    };
+class Texture : public Resource {
+public:
+    Texture(std::uint32_t width, std::uint32_t height, gfx::Format format = gfx::Format::R8G8B8A8_UNORM, core::Buffer data = {}, std::string_view name = "", xg::Guid guid = {});
 
-    BindFlag      bind_flags = BindFlag::ShaderResource;
-    Format        format     = Format::UNKNOWN;
-    std::uint32_t width      = 1;
-    std::uint32_t height     = 1;
-    std::uint32_t pitch      = 1;
+    inline auto  Width() const noexcept { return m_Width; }
+    inline auto  Height() const noexcept { return m_Height; }
+    inline auto  Format() const noexcept { return m_Format; }
+    inline auto  GetData() const noexcept { return m_CpuData.Span<const std::byte>(); }
+    inline auto& GetPath() const noexcept { return m_Path; }
+    inline auto  GetGpuData() const noexcept { return m_GpuData; }
 
-    std::uint32_t array_size     = 1;
-    std::uint32_t mip_level      = 1;
-    std::uint32_t sample_count   = 1;
-    std::uint32_t sample_quality = 0;
+    bool SetPath(const std::filesystem::path& path);
+    bool Load(const std::shared_ptr<ImageParser>& parser);
+    void Unload();
 
-    std::variant<math::vec4f, DepthStencil> clear_value;
+    bool InitGpuData(gfx::Device& device);
 
-    std::filesystem::path path;
+private:
+    std::uint32_t         m_Width = 0, m_Height = 0;
+    gfx::Format           m_Format;
+    std::filesystem::path m_Path;
+
+    core::Buffer                  m_CpuData;
+    std::shared_ptr<gfx::Texture> m_GpuData;
 };
 
 }  // namespace hitagi::asset
-
-template <>
-struct hitagi::utils::enable_bitmask_operators<hitagi::asset::Texture::BindFlag> {
-    static constexpr bool enable = true;
-};

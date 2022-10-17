@@ -1,5 +1,4 @@
-#include <hitagi/core/memory_manager.hpp>
-#include <hitagi/core/config_manager.hpp>
+#include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/asset/asset_manager.hpp>
 
 #include <hitagi/utils/test.hpp>
@@ -53,22 +52,18 @@ TEST(SceneParserTest, Fbx) {
 int main(int argc, char* argv[]) {
     spdlog::set_level(spdlog::level::debug);
     auto file_io_manager = std::make_unique<core::FileIOManager>();
-    auto config_manager  = std::make_unique<core::ConfigManager>();
     auto asset_manager   = std::make_unique<AssetManager>();
 
     hitagi::file_io_manager = file_io_manager.get();
-    hitagi::config_manager  = config_manager.get();
     hitagi::asset_manager   = asset_manager.get();
 
     file_io_manager->Initialize();
-    config_manager->Initialize();
     asset_manager->Initialize();
 
     ::testing::InitGoogleTest(&argc, argv);
     int test_result = RUN_ALL_TESTS();
 
     asset_manager->Finalize();
-    config_manager->Finalize();
     file_io_manager->Finalize();
 
     return test_result;

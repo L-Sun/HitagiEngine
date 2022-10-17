@@ -30,18 +30,18 @@ void from_json(const nlohmann::json& j, Matrix<T, N>& p) {
 
 namespace hitagi::asset {
 
-NLOHMANN_JSON_SERIALIZE_ENUM(PrimitiveType,
+NLOHMANN_JSON_SERIALIZE_ENUM(gfx::PrimitiveTopology,
                              {
-                                 {PrimitiveType::PointList, "PointList"},
-                                 {PrimitiveType::LineList, "LineList"},
-                                 {PrimitiveType::LineStrip, "LineStrip"},
-                                 {PrimitiveType::TriangleList, "TriangleList"},
-                                 {PrimitiveType::TriangleStrip, "TriangleStrip"},
-                                 {PrimitiveType::LineListAdjacency, "LineListAdjacency"},
-                                 {PrimitiveType::LineStripAdjacency, "LineStripAdjacency"},
-                                 {PrimitiveType::TriangleListAdjacency, "TriangleListAdjacency"},
-                                 {PrimitiveType::TriangleStripAdjacency, "TriangleStripAdjacency"},
-                                 {PrimitiveType::Unkown, nullptr},
+                                 {gfx::PrimitiveTopology::PointList, "PointList"},
+                                 {gfx::PrimitiveTopology::LineList, "LineList"},
+                                 {gfx::PrimitiveTopology::LineStrip, "LineStrip"},
+                                 {gfx::PrimitiveTopology::TriangleList, "TriangleList"},
+                                 {gfx::PrimitiveTopology::TriangleStrip, "TriangleStrip"},
+                                 {gfx::PrimitiveTopology::LineListAdjacency, "LineListAdjacency"},
+                                 {gfx::PrimitiveTopology::LineStripAdjacency, "LineStripAdjacency"},
+                                 {gfx::PrimitiveTopology::TriangleListAdjacency, "TriangleListAdjacency"},
+                                 {gfx::PrimitiveTopology::TriangleStripAdjacency, "TriangleStripAdjacency"},
+                                 {gfx::PrimitiveTopology::Unkown, nullptr},
                              })
 
 std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) {
@@ -67,9 +67,9 @@ std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) 
           check_field("pixel_shader", json) &&
           check_field("primitive", json))) return nullptr;
 
+    std::string_view  name = json["name"];
     Material::Builder builder;
     builder
-        .SetName(json["name"])
         .SetVertexShader(json["vertex_shader"])
         .SetPixelShader(json["pixel_shader"])
         .SetPrimitive(json["primitive"]);

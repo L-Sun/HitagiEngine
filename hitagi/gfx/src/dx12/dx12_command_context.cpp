@@ -5,12 +5,12 @@
 
 namespace hitagi::gfx {
 template <typename T>
-auto initialize_command_context(DX12Device* device, CommandType type, std::string_view name, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<T>& cmd_list) {
-    ThrowIfFailed(device->GetDevice()->CreateCommandAllocator(
+auto initialize_command_context(DX12Device& device, CommandType type, std::string_view name, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<T>& cmd_list) {
+    ThrowIfFailed(device.GetDevice()->CreateCommandAllocator(
         to_d3d_command_type(type),
         IID_PPV_ARGS(&cmd_allocator)));
 
-    device->GetDevice()->CreateCommandList(
+    device.GetDevice()->CreateCommandList(
         0,
         to_d3d_command_type(type),
         cmd_allocator.Get(),
@@ -23,7 +23,7 @@ auto initialize_command_context(DX12Device* device, CommandType type, std::strin
     }
 };
 
-DX12CommandContext::DX12CommandContext(DX12Device* device, CommandType type, std::string_view name, std::uint64_t& fence_value)
+DX12CommandContext::DX12CommandContext(DX12Device& device, CommandType type, std::string_view name, std::uint64_t& fence_value)
     : m_Device(device),
       m_Type(type),
       m_ResourceBinder(*this),
@@ -38,17 +38,17 @@ void DX12CommandContext::FlushBarriers() {
     }
 }
 
-DX12GraphicsCommandContext::DX12GraphicsCommandContext(DX12Device* device, std::string_view name)
+DX12GraphicsCommandContext::DX12GraphicsCommandContext(DX12Device& device, std::string_view name)
     : GraphicsCommandContext(device, CommandType::Graphics, name),
       DX12CommandContext(device, CommandType::Graphics, name, fence_value) {
 }
 
-DX12ComputeCommandContext::DX12ComputeCommandContext(DX12Device* device, std::string_view name)
+DX12ComputeCommandContext::DX12ComputeCommandContext(DX12Device& device, std::string_view name)
     : ComputeCommandContext(device, CommandType::Compute, name),
       DX12CommandContext(device, CommandType::Compute, name, fence_value) {
 }
 
-DX12CopyCommandContext::DX12CopyCommandContext(DX12Device* device, std::string_view name)
+DX12CopyCommandContext::DX12CopyCommandContext(DX12Device& device, std::string_view name)
     : CopyCommandContext(device, CommandType::Copy, name),
       DX12CommandContext(device, CommandType::Copy, name, fence_value) {
 }

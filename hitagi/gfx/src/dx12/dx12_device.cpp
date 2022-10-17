@@ -68,7 +68,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
     }
 
     magic_enum::enum_for_each<CommandType>([this](auto type) {
-        m_CommandQueues[type] = std::make_shared<DX12CommandQueue>(this, type, fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type())));
+        m_CommandQueues[type] = std::static_pointer_cast<DX12CommandQueue>(CreateCommandQueue(type(), fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type()))));
     });
 
     // Initial Descriptor Allocator
@@ -143,19 +143,19 @@ auto DX12Device::GetCommandQueue(CommandType type) const -> CommandQueue* {
 }
 
 auto DX12Device::CreateCommandQueue(CommandType type, std::string_view name) -> std::shared_ptr<CommandQueue> {
-    return std::make_shared<DX12CommandQueue>(this, type, name);
+    return std::make_shared<DX12CommandQueue>(*this, type, name);
 }
 
 auto DX12Device::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {
-    return std::make_shared<DX12GraphicsCommandContext>(this, name);
+    return std::make_shared<DX12GraphicsCommandContext>(*this, name);
 }
 
 auto DX12Device::CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> {
-    return std::make_shared<DX12ComputeCommandContext>(this, name);
+    return std::make_shared<DX12ComputeCommandContext>(*this, name);
 }
 
 auto DX12Device::CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> {
-    return std::make_shared<DX12CopyCommandContext>(this, name);
+    return std::make_shared<DX12CopyCommandContext>(*this, name);
 }
 
 auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> {
@@ -191,7 +191,7 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
             result->swap_chain = nullptr;
         }
     } else {
-        result = std::make_shared<DX12SwapChain>(desc);
+        result = std::make_shared<DX12SwapChain>(*this, desc);
     }
 
     UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
@@ -313,7 +313,7 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
         }
     }
 
-    auto result      = std::make_shared<DX12ResourceWrapper<GpuBuffer>>(desc, cpu_ptr);
+    auto result      = std::make_shared<DX12ResourceWrapper<GpuBuffer>>(*this, desc, cpu_ptr);
     result->resource = std::move(resource);
     result->state    = initial_state;
 
@@ -366,7 +366,7 @@ auto DX12Device::CreateBufferView(GpuBufferView::Desc desc) -> std::shared_ptr<G
         desc.stride = desc.size;
     }
 
-    auto result          = std::make_shared<DX12GpuBufferView>(desc);
+    auto result          = std::make_shared<DX12GpuBufferView>(*this, desc);
     auto buffer_location = static_cast<DX12ResourceWrapper<GpuBuffer>&>(result->desc.buffer).resource->GetGPUVirtualAddress() + result->desc.offset;
 
     if (utils::has_flag(result->desc.usages, GpuBufferView::UsageFlags::Vertex)) {
@@ -533,7 +533,7 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
         copy_queue->WaitForFence(fence_value);
     }
 
-    auto result      = std::make_shared<DX12ResourceWrapper<Texture>>(desc);
+    auto result      = std::make_shared<DX12ResourceWrapper<Texture>>(*this, desc);
     result->resource = resource;
     result->state    = D3D12_RESOURCE_STATE_COMMON;
 
@@ -545,7 +545,7 @@ auto DX12Device::CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<Te
         desc.format = desc.textuer.desc.format;
     }
 
-    auto result         = std::make_shared<DX12DescriptorWrapper<TextureView>>(desc);
+    auto result         = std::make_shared<DX12DescriptorWrapper<TextureView>>(*this, desc);
     auto d3d_res        = static_cast<DX12ResourceWrapper<Texture>&>(result->desc.textuer).resource.Get();
     bool create_succeed = false;
 
@@ -610,7 +610,7 @@ auto DX12Device::CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> {
         .MaxLOD         = desc.max_load,
     };
 
-    auto result = std::make_shared<DX12DescriptorWrapper<Sampler>>(desc);
+    auto result = std::make_shared<DX12DescriptorWrapper<Sampler>>(*this, desc);
 
     result->sampler = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]->Allocate();
     m_Device->CreateSampler(&d3d_desc, result->sampler.cpu_handle);
@@ -691,45 +691,42 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
     if (shader_buffer == nullptr) {
         return nullptr;
     }
-    return std::make_shared<Shader>(desc, core::Buffer{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())});
+    return std::make_shared<Shader>(*this, desc, core::Buffer{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())});
 }
 
 auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> {
-    auto result = std::make_shared<DX12RenderPipeline>(std::move(desc));
+    auto result = std::make_shared<DX12RenderPipeline>(*this, std::move(desc));
 
-    if (result->desc.bindless) {
-    } else {
-        // try to deserializer root signature from shader code
-        {
-            for (const auto& shader : {result->desc.vs, result->desc.ps, result->desc.gs}) {
-                if (shader == nullptr || shader->binary_data.Empty()) continue;
+    // try to deserializer root signature from shader code
+    {
+        for (const auto& shader : {result->desc.vs, result->desc.ps, result->desc.gs}) {
+            if (shader == nullptr || shader->binary_data.Empty()) continue;
 
-                HRESULT hr = D3D12CreateVersionedRootSignatureDeserializer(
-                    shader->binary_data.GetData(),
-                    shader->binary_data.GetDataSize(),
-                    IID_PPV_ARGS(&result->root_signature_deserializer));
+            HRESULT hr = D3D12CreateVersionedRootSignatureDeserializer(
+                shader->binary_data.GetData(),
+                shader->binary_data.GetDataSize(),
+                IID_PPV_ARGS(&result->root_signature_deserializer));
 
-                if (SUCCEEDED(hr)) {
-                    const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* p_desc = nullptr;
-                    result->root_signature_deserializer->GetRootSignatureDescAtVersion(D3D_ROOT_SIGNATURE_VERSION_1_1, &p_desc);
-                    assert(p_desc->Version == D3D_ROOT_SIGNATURE_VERSION_1_1);
-                    result->root_signature_desc = p_desc->Desc_1_1;
+            if (SUCCEEDED(hr)) {
+                const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* p_desc = nullptr;
+                result->root_signature_deserializer->GetRootSignatureDescAtVersion(D3D_ROOT_SIGNATURE_VERSION_1_1, &p_desc);
+                assert(p_desc->Version == D3D_ROOT_SIGNATURE_VERSION_1_1);
+                result->root_signature_desc = p_desc->Desc_1_1;
 
-                    if (SUCCEEDED(m_Device->CreateRootSignature(
-                            0,
-                            shader->binary_data.GetData(),
-                            shader->binary_data.GetDataSize(),
-                            IID_PPV_ARGS(&result->root_signature)))) {
-                        break;
-                    }
+                if (SUCCEEDED(m_Device->CreateRootSignature(
+                        0,
+                        shader->binary_data.GetData(),
+                        shader->binary_data.GetDataSize(),
+                        IID_PPV_ARGS(&result->root_signature)))) {
+                    break;
                 }
             }
+        }
 
-            if (result->root_signature == nullptr) {
-                m_Logger->warn("Faild create root signature from shader. May you create root signature in shader? Pipeline Name: {}",
-                               fmt::styled(result->desc.name, fmt::fg(fmt::color::red)));
-                return nullptr;
-            }
+        if (result->root_signature == nullptr) {
+            m_Logger->warn("Faild create root signature from shader. May you create root signature in shader? Pipeline Name: {}",
+                           fmt::styled(result->desc.name, fmt::fg(fmt::color::red)));
+            return nullptr;
         }
     }
 

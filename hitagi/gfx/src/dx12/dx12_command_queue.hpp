@@ -11,7 +11,7 @@ class DX12Device;
 
 class DX12CommandQueue final : public CommandQueue {
 public:
-    DX12CommandQueue(DX12Device* device, CommandType type, std::string_view name);
+    DX12CommandQueue(DX12Device& device, CommandType type, std::string_view name);
     ~DX12CommandQueue() final;
 
     auto Submit(std::pmr::vector<CommandContext*> context) -> std::uint64_t final;

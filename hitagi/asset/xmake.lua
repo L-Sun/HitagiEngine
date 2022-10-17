@@ -1,4 +1,4 @@
-add_requires("libpng", "assimp", "libjpeg-turbo", "fx-gltf")
+add_requires("crossguid", "libpng", "assimp", "libjpeg-turbo", "fx-gltf")
 
 target("asset")
     set_kind("static")
@@ -10,15 +10,17 @@ target("asset")
         "src/scene_manager.cpp"
     )
     add_includedirs("include", {public = true})
-    add_deps("core", "math", "utils")
-    add_packages("fmt")
+    add_deps("core", "math", "gfx", "utils")
+    add_packages("crossguid")
 
 target("parser")
     set_kind("static")
     add_files("src/parser/*.cpp")
     remove_files(
+        -- "src/parser/assimp.cpp",
         "src/parser/bvh.cpp",
-        "src/parser/gltf.cpp"
+        "src/parser/gltf.cpp",
+        "src/parser/material_parser.cpp"
     )
     add_includedirs("include", {public = true})
     add_deps("core", "math", "asset")

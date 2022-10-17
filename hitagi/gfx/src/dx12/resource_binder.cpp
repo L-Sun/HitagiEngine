@@ -26,7 +26,7 @@ void ResourceBinder::SetRootSignature(const D3D12_ROOT_SIGNATURE_DESC1* root_sig
 
     if (m_CurrRootSignatureDesc->NumParameters > sm_MaxRootParameters) {
         auto err_msg = fmt::format("Too much root paramters(Num: {}) are set. It supports up to {} root parameters.", m_CurrRootSignatureDesc->NumParameters, sm_MaxRootParameters);
-        m_Context.m_Device->GetLogger()->error(err_msg);
+        m_Context.m_Device.GetLogger()->error(err_msg);
         throw std::runtime_error(err_msg.c_str());
     }
 
@@ -43,7 +43,7 @@ void ResourceBinder::SetRootSignature(const D3D12_ROOT_SIGNATURE_DESC1* root_sig
 
                     // use the space0 to bind resource, other space will be extend in the future.
                     if (range.RegisterSpace != 0) {
-                        m_Context.m_Device->GetLogger()->warn("Use space 0 to bind resource, other space will be extend in the future.");
+                        m_Context.m_Device.GetLogger()->warn("Use space 0 to bind resource, other space will be extend in the future.");
                         continue;
                     }
 
@@ -67,7 +67,7 @@ void ResourceBinder::SetRootSignature(const D3D12_ROOT_SIGNATURE_DESC1* root_sig
             } break;
             case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS: {
                 if (root_param.Constants.RegisterSpace != 0) {
-                    m_Context.m_Device->GetLogger()->warn("Use space 0 to bind resource, other space will be extend in the future.");
+                    m_Context.m_Device.GetLogger()->warn("Use space 0 to bind resource, other space will be extend in the future.");
                     continue;
                 }
                 m_SlotInfos[magic_enum::enum_integer(SlotType::CBV)].emplace(
@@ -81,7 +81,7 @@ void ResourceBinder::SetRootSignature(const D3D12_ROOT_SIGNATURE_DESC1* root_sig
             case D3D12_ROOT_PARAMETER_TYPE_SRV:
             case D3D12_ROOT_PARAMETER_TYPE_UAV: {
                 if (root_param.Descriptor.RegisterSpace != 0) {
-                    m_Context.m_Device->GetLogger()->warn("Use space 0 to bind resource, other space will be extend in the future.");
+                    m_Context.m_Device.GetLogger()->warn("Use space 0 to bind resource, other space will be extend in the future.");
                     continue;
                 }
                 m_SlotInfos[root_parameter_type_to_slot_type(root_param.ParameterType)].emplace(
@@ -102,7 +102,7 @@ void ResourceBinder::SetRootSignature(const D3D12_ROOT_SIGNATURE_DESC1* root_sig
 void ResourceBinder::PushConstant(std::uint32_t slot, const std::span<const std::byte>& data) {
     const auto& slot_info = m_SlotInfos[SlotType::CBV].at(slot);
     if (slot_info.binding_type != BindingType::RootConstant) {
-        m_Context.m_Device->GetLogger()->error(
+        m_Context.m_Device.GetLogger()->error(
             "Can push constant to slot(BindingType:{})",
             fmt::styled(magic_enum::enum_name(slot_info.binding_type), fmt::fg(fmt::color::red)));
         return;
@@ -123,7 +123,7 @@ void ResourceBinder::BindConstantBuffer(std::uint32_t slot, const GpuBufferView&
     const auto& slot_info = m_SlotInfos[SlotType::CBV].at(slot);
     switch (slot_info.binding_type) {
         case BindingType::RootConstant: {
-            m_Context.m_Device->GetLogger()->error(
+            m_Context.m_Device.GetLogger()->error(
                 "Can bind constant buffer to slot(BindingType:{})",
                 fmt::styled(magic_enum::enum_name(slot_info.binding_type), fmt::fg(fmt::color::red)));
             return;
@@ -160,10 +160,10 @@ void ResourceBinder::FlushDescriptors() {
 
     Descriptor cbv_uav_srv_heap, sampler_heap;
     if (!m_CBV_UAV_SRV_Cache.empty()) {
-        cbv_uav_srv_heap = m_Context.m_Device->RequestDynamicDescriptors(m_CBV_UAV_SRV_Cache.size(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        cbv_uav_srv_heap = m_Context.m_Device.RequestDynamicDescriptors(m_CBV_UAV_SRV_Cache.size(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     }
     if (!m_Sampler_Cache.empty()) {
-        sampler_heap = m_Context.m_Device->RequestDynamicDescriptors(m_Sampler_Cache.size(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+        sampler_heap = m_Context.m_Device.RequestDynamicDescriptors(m_Sampler_Cache.size(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
     }
 
     magic_enum::enum_for_each<SlotType>([&](SlotType slot_type) {
@@ -175,7 +175,7 @@ void ResourceBinder::FlushDescriptors() {
             if (cache.at(info.offset_in_heap).ptr == 0) continue;
             // clear dirty
 
-            m_Context.m_Device->GetDevice()->CopyDescriptorsSimple(
+            m_Context.m_Device.GetDevice()->CopyDescriptorsSimple(
                 1,
                 CD3DX12_CPU_DESCRIPTOR_HANDLE(heap.cpu_handle, info.offset_in_heap, heap.increament_size),
                 cache.at(info.offset_in_heap),

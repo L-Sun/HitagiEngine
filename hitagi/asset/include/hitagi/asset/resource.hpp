@@ -1,41 +1,25 @@
 #pragma once
-#include <hitagi/core/memory_manager.hpp>
-#include <hitagi/core/buffer.hpp>
-
-#include <cstdint>
-#include <type_traits>
-#include <set>
-
-namespace hitagi::gfx::backend {
-struct Resource {
-    virtual ~Resource() = default;
-    template <typename T>
-    T* GetBackend() {
-        return reinterpret_cast<T*>(this);
-    }
-    std::uint64_t fence_value = 0;
-};
-}  // namespace hitagi::gfx::backend
+#include <crossguid/guid.hpp>
 
 namespace hitagi::asset {
-struct Resource {
-    Resource(std::size_t buffer_size = 0, std::string_view name = "") : name(name), cpu_buffer(buffer_size) {}
-    Resource(core::Buffer cpu_buffer, std::string_view name = "") : name(name), cpu_buffer(std::move(cpu_buffer)) {}
+class Resource {
+public:
+    Resource(std::string_view name = "", xg::Guid guid = {})
+        : m_Name(name), m_Guid(guid.isValid() ? guid : xg::Guid()) {}
 
-    Resource(const Resource& other);
-    Resource& operator=(const Resource& rhs);
+    Resource(const Resource&);
+    Resource& operator=(const Resource&);
 
-    Resource(Resource&& rhs)            = default;
-    Resource& operator=(Resource&& rhs) = default;
+    Resource& operator=(Resource&&) = default;
+    Resource(Resource&&)            = default;
 
-    std::pmr::string                        name;
-    bool                                    dirty = true;
-    core::Buffer                            cpu_buffer{};
-    std::unique_ptr<gfx::backend::Resource> gpu_resource;
+    inline const auto& GetName() const noexcept { return m_Name; }
+    inline const auto& GetGuid() const noexcept { return m_Guid; }
 
-    // TODO
-    // for more efficient update gpu resource, we mark cpu buffer per 1 kB if the region is modified!
-    // constexpr static std::size_t dirty_range_size = 4_kB;
-    // std::pmr::set<std::size_t>   buffer_range_dirty;
+    inline void SetName(std::string_view name) noexcept { m_Name = name; }
+
+protected:
+    std::pmr::string m_Name;
+    xg::Guid         m_Guid;
 };
 }  // namespace hitagi::asset

@@ -7,14 +7,13 @@
 
 namespace hitagi::gfx {
 class CommandQueue;
+class Device;
 
 constexpr auto UNKOWN_NAME = "Unkown";
-
 struct Resource {
-    virtual ~Resource()                  = default;
-    Resource()                           = default;
-    Resource(const Resource&)            = delete;
-    Resource& operator=(const Resource&) = delete;
+    virtual ~Resource() = default;
+    Resource(Device& device) : device(device) {}
+    Device& device;
 };
 
 struct GpuBuffer : public Resource {
@@ -35,7 +34,7 @@ struct GpuBuffer : public Resource {
         UsageFlags       usages = UsageFlags::Unkown;
     };
 
-    GpuBuffer(Desc desc, std::byte* mapped_ptr) : desc(desc), mapped_ptr(mapped_ptr) {}
+    GpuBuffer(Device& device, Desc desc, std::byte* mapped_ptr) : Resource(device), desc(desc), mapped_ptr(mapped_ptr) {}
 
     const Desc       desc;
     std::byte* const mapped_ptr;
@@ -57,7 +56,7 @@ struct GpuBufferView : public Resource {
         UsageFlags  usages;
     };
 
-    GpuBufferView(Desc desc) : desc(desc) {}
+    GpuBufferView(Device& device, Desc desc) : Resource(device), desc(desc) {}
 
     const Desc desc;
 };
@@ -85,7 +84,7 @@ struct Texture : public Resource {
         UsageFlags       usages = UsageFlags::SRV;
     };
 
-    Texture(Desc desc) : desc(desc) {}
+    Texture(Device& device, Desc desc) : Resource(device), desc(desc) {}
 
     const Desc desc;
 };
@@ -101,7 +100,7 @@ struct TextureView : public Resource {
         std::uint32_t array_layer_count = 1;
     };
 
-    TextureView(Desc desc) : desc(desc) {}
+    TextureView(Device& device, Desc desc) : Resource(device), desc(desc) {}
 
     const Desc desc;
 };
@@ -131,7 +130,7 @@ struct Sampler : public Resource {
         CompareFunction  compare;
     };
 
-    Sampler(Desc desc) : desc(desc) {}
+    Sampler(Device& device, Desc desc) : Resource(device), desc(desc) {}
 
     const Desc desc;
 };
@@ -146,7 +145,7 @@ struct SwapChain : public Resource {
         bool             vsync        = false;
     };
 
-    SwapChain(Desc desc) : desc(desc) {}
+    SwapChain(Device& device, Desc desc) : Resource(device), desc(desc) {}
 
     const Desc desc;
 
@@ -172,7 +171,7 @@ struct Shader : public Resource {
         std::string_view source_code;
     };
 
-    Shader(Desc desc, core::Buffer binary_data) : desc(desc), binary_data(std::move(binary_data)) {}
+    Shader(Device& device, Desc desc, core::Buffer binary_data) : Resource(device), desc(desc), binary_data(std::move(binary_data)) {}
 
     const Desc desc;
     // Complied result
@@ -186,8 +185,8 @@ struct RenderPipeline : public Resource {
         std::shared_ptr<Shader> vs;  // vertex shader
         std::shared_ptr<Shader> ps;  // pixel shader
         std::shared_ptr<Shader> gs;  // geometry shader
-                                     // std::shared_ptr<Shader> ds;
-                                     // std::shared_ptr<Shader> hs;
+        std::shared_ptr<Shader> ds;
+        std::shared_ptr<Shader> hs;
 
         PrimitiveTopology     topology = PrimitiveTopology::TriangleList;
         InputLayout           input_layout;
@@ -195,11 +194,9 @@ struct RenderPipeline : public Resource {
         BlendDescription      blend_config;
         Format                render_format        = Format::R8G8B8A8_UNORM;
         Format                depth_sentcil_format = Format::UNKNOWN;
-
-        bool bindless = false;
     };
 
-    RenderPipeline(Desc desc) : desc(std::move(desc)) {}
+    RenderPipeline(Device& device, Desc desc) : Resource(device), desc(std::move(desc)) {}
 
     const Desc desc;
 };
@@ -209,7 +206,7 @@ struct ComputePipeline : public Resource {
         std::shared_ptr<Shader> cs;  // computer shader
     };
 
-    ComputePipeline(Desc desc) : desc(std::move(desc)) {}
+    ComputePipeline(Device& device, Desc desc) : Resource(device), desc(std::move(desc)) {}
 
     const Desc desc;
 };

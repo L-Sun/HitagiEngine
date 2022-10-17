@@ -11,7 +11,7 @@ enum struct SceneFormat : std::uint8_t {
     FBX,
 };
 
-constexpr inline SceneFormat get_scene_format(std::string_view ext) {
+inline constexpr SceneFormat get_scene_format(std::string_view ext) noexcept {
     if (ext == ".gltf")
         return SceneFormat::GLTF;
     if (ext == "glb")
@@ -25,8 +25,12 @@ constexpr inline SceneFormat get_scene_format(std::string_view ext) {
 
 class SceneParser {
 public:
-    virtual std::shared_ptr<Scene> Parse(const core::Buffer& buffer, const std::filesystem::path& root_path) = 0;
+    SceneParser(std::shared_ptr<spdlog::logger> logger = nullptr);
+    virtual auto Parse(const core::Buffer& buffer, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> = 0;
 
     virtual ~SceneParser() = default;
+
+protected:
+    std::shared_ptr<spdlog::logger> m_Logger;
 };
 }  // namespace hitagi::asset

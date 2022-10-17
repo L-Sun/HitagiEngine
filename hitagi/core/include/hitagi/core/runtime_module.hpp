@@ -21,6 +21,8 @@ public:
     virtual RuntimeModule* LoadModule(std::unique_ptr<RuntimeModule> module);
     virtual void           UnloadModule(std::string_view name);
 
+    inline auto GetLogger() const noexcept { return m_Logger; }
+
 protected:
     std::shared_ptr<spdlog::logger>                m_Logger;
     std::pmr::list<std::unique_ptr<RuntimeModule>> m_SubModules;

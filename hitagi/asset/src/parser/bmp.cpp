@@ -1,7 +1,7 @@
 #include <hitagi/asset/parser/bmp.hpp>
 #include <hitagi/math/vector.hpp>
 
-#include <spdlog/spdlog.h>
+#include <spdlog/logger.h>
 
 using namespace hitagi::math;
 
@@ -32,51 +32,48 @@ using BITMAP_HEADER = struct BitmapHeader {
 #pragma pack(pop)
 
 std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer) {
-    auto logger = spdlog::get("AssetManager");
     if (buffer.Empty()) {
-        logger->warn("[BMP] Parsing a empty buffer will return nullptr");
+        m_Logger->warn("[BMP] Parsing a empty buffer will return nullptr");
         return nullptr;
     }
 
     auto file_header = reinterpret_cast<const BITMAP_FILEHEADER*>(buffer.GetData());
     auto bmp_header  = reinterpret_cast<const BITMAP_HEADER*>(buffer.GetData() + BITMAP_FILEHEADER_SIZE);
     if (file_header->signature == 0x4D42 /* 'B''M' */) {
-        logger->debug("[BMP] Asset is Windows BMP file");
-        logger->debug("[BMP] BMP Header");
-        logger->debug("[BMP] -----------------------------------");
-        logger->debug("[BMP] File Size:          {}", file_header->size);
-        logger->debug("[BMP] Data Offset:        {}", file_header->bits_offset);
-        logger->debug("[BMP] Image Width:        {}", bmp_header->width);
-        logger->debug("[BMP] Image Height:       {}", bmp_header->height);
-        logger->debug("[BMP] Image Planes:       {}", bmp_header->planes);
-        logger->debug("[BMP] Image BitCount:     {}", bmp_header->bit_count);
-        logger->debug("[BMP] Image Comperession: {}", bmp_header->compression);
-        logger->debug("[BMP] Image Size:         {}", bmp_header->size_image);
+        m_Logger->debug("[BMP] Asset is Windows BMP file");
+        m_Logger->debug("[BMP] BMP Header");
+        m_Logger->debug("[BMP] -----------------------------------");
+        m_Logger->debug("[BMP] File Size:          {}", file_header->size);
+        m_Logger->debug("[BMP] Data Offset:        {}", file_header->bits_offset);
+        m_Logger->debug("[BMP] Image Width:        {}", bmp_header->width);
+        m_Logger->debug("[BMP] Image Height:       {}", bmp_header->height);
+        m_Logger->debug("[BMP] Image Planes:       {}", bmp_header->planes);
+        m_Logger->debug("[BMP] Image BitCount:     {}", bmp_header->bit_count);
+        m_Logger->debug("[BMP] Image Comperession: {}", bmp_header->compression);
+        m_Logger->debug("[BMP] Image Size:         {}", bmp_header->size_image);
 
         if (bmp_header->bit_count < 24) {
-            logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
+            m_Logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
             return nullptr;
         }
 
-        auto image        = std::make_shared<Texture>();
-        image->width      = std::abs(bmp_header->width);
-        image->height     = std::abs(bmp_header->height);
-        image->format     = Format::R8G8B8A8_UNORM;
-        image->pitch      = ((image->width * 4) + 3) & ~3;
-        image->cpu_buffer = core::Buffer(image->pitch * image->height);
+        auto width      = std::abs(bmp_header->width);
+        auto height     = std::abs(bmp_header->height);
+        auto pitch      = ((width * 4) + 3) & ~3;
+        auto cpu_buffer = core::Buffer(pitch * height);
 
-        auto           dest_data   = image->cpu_buffer.Span<math::R8G8B8A8Unorm>();
+        auto           dest_data   = cpu_buffer.Span<math::R8G8B8A8Unorm>();
         const uint8_t* source_data = reinterpret_cast<const uint8_t*>(buffer.GetData()) + file_header->bits_offset;
         size_t         index       = 0;
-        for (std::int32_t y = image->height - 1; y >= 0; y--) {
-            for (std::uint32_t x = 0; x < image->width; x++) {
+        for (std::int32_t y = height - 1; y >= 0; y--) {
+            for (std::uint32_t x = 0; x < width; x++) {
                 dest_data[index].bgra = *reinterpret_cast<const R8G8B8A8Unorm*>(
-                    source_data + image->pitch * y + x * 8);
+                    source_data + pitch * y + x * 8);
                 index++;
             }
         }
 
-        return image;
+        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
     }
     return nullptr;
 }
