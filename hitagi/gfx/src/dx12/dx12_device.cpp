@@ -618,19 +618,19 @@ auto DX12Device::CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> {
     return result;
 }
 
-auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
+void DX12Device::CompileShader(Shader& shader) {
     std::pmr::vector<std::pmr::wstring> args;
 
     // shader name
-    args.emplace_back(std::pmr::wstring(desc.name.begin(), desc.name.end()));
+    args.emplace_back(std::pmr::wstring(shader.name.begin(), shader.name.end()));
 
     // shader entry
     args.emplace_back(L"-E");
-    args.emplace_back(desc.entry.begin(), desc.entry.end());
+    args.emplace_back(shader.entry.begin(), shader.entry.end());
 
     // shader model
     args.emplace_back(L"-T");
-    args.emplace_back(to_shader_model_compile_flag(desc.type, m_FeatureSupport.HighestShaderModel()));
+    args.emplace_back(to_shader_model_compile_flag(shader.type, m_FeatureSupport.HighestShaderModel()));
 
     // We use row major order
     args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
@@ -655,8 +655,8 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
 
     m_Utils->CreateDefaultIncludeHandler(&include_handler);
     DxcBuffer source_buffer{
-        .Ptr      = desc.source_code.data(),
-        .Size     = desc.source_code.size(),
+        .Ptr      = shader.source_code.data(),
+        .Size     = shader.source_code.size(),
         .Encoding = DXC_CP_ACP,
     };
 
@@ -681,7 +681,7 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
     compile_result->GetStatus(&hr);
     if (FAILED(hr)) {
         m_Logger->error("compilation Failed\n");
-        return nullptr;
+        return;
     }
 
     ComPtr<IDxcBlob>      shader_buffer;
@@ -689,22 +689,29 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
 
     compile_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), &shader_name);
     if (shader_buffer == nullptr) {
-        return nullptr;
+        return;
     }
-    return std::make_shared<Shader>(*this, desc, core::Buffer{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())});
+
+    shader.binary_data = core::Buffer{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())};
 }
 
 auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> {
+    for (Shader& shader : std::array{std::ref(desc.vs), std::ref(desc.ps), std::ref(desc.gs)}) {
+        if (shader.binary_data.Empty() && !shader.source_code.empty()) {
+            CompileShader(shader);
+        }
+    }
+
     auto result = std::make_shared<DX12RenderPipeline>(*this, std::move(desc));
 
     // try to deserializer root signature from shader code
     {
-        for (const auto& shader : {result->desc.vs, result->desc.ps, result->desc.gs}) {
-            if (shader == nullptr || shader->binary_data.Empty()) continue;
+        for (auto& shader : {result->desc.vs, result->desc.ps, result->desc.gs}) {
+            if (shader.binary_data.Empty()) continue;
 
             HRESULT hr = D3D12CreateVersionedRootSignatureDeserializer(
-                shader->binary_data.GetData(),
-                shader->binary_data.GetDataSize(),
+                shader.binary_data.GetData(),
+                shader.binary_data.GetDataSize(),
                 IID_PPV_ARGS(&result->root_signature_deserializer));
 
             if (SUCCEEDED(hr)) {
@@ -715,8 +722,8 @@ auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_
 
                 if (SUCCEEDED(m_Device->CreateRootSignature(
                         0,
-                        shader->binary_data.GetData(),
-                        shader->binary_data.GetDataSize(),
+                        shader.binary_data.GetData(),
+                        shader.binary_data.GetDataSize(),
                         IID_PPV_ARGS(&result->root_signature)))) {
                     break;
                 }
@@ -738,16 +745,16 @@ auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_
             .pRootSignature = result->root_signature.Get(),
 
             .VS = {
-                .pShaderBytecode = result->desc.vs ? result->desc.vs->binary_data.GetData() : nullptr,
-                .BytecodeLength  = result->desc.vs ? result->desc.vs->binary_data.GetDataSize() : 0,
+                .pShaderBytecode = result->desc.vs.binary_data.GetData(),
+                .BytecodeLength  = result->desc.vs.binary_data.GetDataSize(),
             },
             .PS = {
-                .pShaderBytecode = result->desc.ps ? result->desc.ps->binary_data.GetData() : nullptr,
-                .BytecodeLength  = result->desc.ps ? result->desc.ps->binary_data.GetDataSize() : 0,
+                .pShaderBytecode = result->desc.ps.binary_data.GetData(),
+                .BytecodeLength  = result->desc.ps.binary_data.GetDataSize(),
             },
             .GS = {
-                .pShaderBytecode = result->desc.gs ? result->desc.gs->binary_data.GetData() : nullptr,
-                .BytecodeLength  = result->desc.gs ? result->desc.gs->binary_data.GetDataSize() : 0,
+                .pShaderBytecode = result->desc.gs.binary_data.GetData(),
+                .BytecodeLength  = result->desc.gs.binary_data.GetDataSize(),
             },
             .BlendState            = to_d3d_blend_desc(result->desc.blend_config),
             .SampleMask            = UINT_MAX,

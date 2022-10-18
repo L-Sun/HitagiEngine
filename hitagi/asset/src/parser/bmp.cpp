@@ -2,7 +2,7 @@
 #include <hitagi/asset/asset_manager.hpp>
 #include <hitagi/math/vector.hpp>
 
-#include <spdlog/logger.h>
+#include <spdlog/spdlog.h>
 
 using namespace hitagi::math;
 
@@ -32,8 +32,8 @@ using BITMAP_HEADER = struct BitmapHeader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer, const std::filesystem::path& path) {
-    auto logger = m_AssetManager.GetLogger();
+std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer) {
+    auto logger = m_Logger ? m_Logger : spdlog::default_logger();
     if (buffer.Empty()) {
         logger->warn("[BMP] Parsing a empty buffer will return nullptr");
         return nullptr;
@@ -75,7 +75,7 @@ std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer, const std:
             }
         }
 
-        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer), path);
+        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
     }
     return nullptr;
 }

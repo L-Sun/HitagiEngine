@@ -27,12 +27,12 @@ inline constexpr SceneFormat get_scene_format(std::string_view ext) noexcept {
 
 class SceneParser {
 public:
-    SceneParser(AssetManager& asset_manager) : m_AssetManager(asset_manager) {}
-    virtual auto Parse(const core::Buffer& buffer, const std::filesystem::path& path = {}, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> = 0;
+    SceneParser(std::shared_ptr<spdlog::logger> logger = nullptr) : m_Logger(std::move(logger)) {}
+    virtual auto Parse(const core::Buffer& buffer, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> = 0;
 
     virtual ~SceneParser() = default;
 
 protected:
-    AssetManager& m_AssetManager;
+    std::shared_ptr<spdlog::logger> m_Logger;
 };
 }  // namespace hitagi::asset

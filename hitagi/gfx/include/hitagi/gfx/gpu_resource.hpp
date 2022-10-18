@@ -156,38 +156,13 @@ struct SwapChain : public Resource {
     virtual void Resize()                                  = 0;
 };
 
-struct Shader : public Resource {
-    enum struct Type : std::uint8_t {
-        Vertex,
-        Pixel,
-        Geometry,
-        Compute,
-    };
-
-    struct Desc {
-        std::string_view name = UNKOWN_NAME;
-        Type             type;
-        std::string_view entry;
-        std::string_view source_code;
-    };
-
-    Shader(Device& device, Desc desc, core::Buffer binary_data) : Resource(device), desc(desc), binary_data(std::move(binary_data)) {}
-
-    const Desc desc;
-    // Complied result
-    const core::Buffer binary_data;
-};
-
 struct RenderPipeline : public Resource {
     struct Desc {
         std::string_view name = UNKOWN_NAME;
         // Shader config
-        std::shared_ptr<Shader> vs;  // vertex shader
-        std::shared_ptr<Shader> ps;  // pixel shader
-        std::shared_ptr<Shader> gs;  // geometry shader
-        std::shared_ptr<Shader> ds;
-        std::shared_ptr<Shader> hs;
-
+        Shader                vs;  // vertex shader
+        Shader                ps;  // pixel shader
+        Shader                gs;  // geometry shader
         PrimitiveTopology     topology = PrimitiveTopology::TriangleList;
         InputLayout           input_layout;
         RasterizerDescription rasterizer_config;

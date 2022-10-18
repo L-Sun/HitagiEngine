@@ -10,18 +10,21 @@ class ImageParser;
 
 class Texture : public Resource {
 public:
-    Texture(std::uint32_t         width,
-            std::uint32_t         height,
-            gfx::Format           format = gfx::Format::R8G8B8A8_UNORM,
-            core::Buffer          data   = {},
-            std::filesystem::path path   = {},
-            std::string_view      name   = "",
-            xg::Guid              guid   = {});
+    Texture(std::uint32_t    width,
+            std::uint32_t    height,
+            gfx::Format      format = gfx::Format::R8G8B8A8_UNORM,
+            core::Buffer     data   = {},
+            std::string_view name   = "",
+            xg::Guid         guid   = {});
+
+    Texture(std::filesystem::path path, std::string_view name = "", xg::Guid guid = {});
+
     Texture(const Texture&);
     Texture& operator=(const Texture&);
     Texture(Texture&&)            = default;
     Texture& operator=(Texture&&) = default;
 
+    inline auto  Empty() const noexcept { return m_CpuData.Empty(); }
     inline auto  Width() const noexcept { return m_Width; }
     inline auto  Height() const noexcept { return m_Height; }
     inline auto  Format() const noexcept { return m_Format; }
@@ -36,12 +39,13 @@ public:
     bool InitGpuData(gfx::Device& device);
 
 private:
-    std::uint32_t         m_Width = 0, m_Height = 0;
-    gfx::Format           m_Format;
+    std::uint32_t m_Width = 0, m_Height = 0;
+    gfx::Format   m_Format;
+
     std::filesystem::path m_Path;
 
-    core::Buffer                  m_CpuData;
-    std::shared_ptr<gfx::Texture> m_GpuData;
+    core::Buffer                  m_CpuData = {};
+    std::shared_ptr<gfx::Texture> m_GpuData = nullptr;
 };
 
 }  // namespace hitagi::asset

@@ -2,12 +2,12 @@
 #include <hitagi/asset/asset_manager.hpp>
 
 #include <jpeglib.h>
-#include <spdlog/logger.h>
+#include <spdlog/spdlog.h>
 
 namespace hitagi::asset {
 
-std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buffer, const std::filesystem::path& path) {
-    auto logger = m_AssetManager.GetLogger();
+std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buffer) {
+    auto logger = m_Logger ? m_Logger : spdlog::default_logger();
 
     if (buffer.Empty()) {
         logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
@@ -46,7 +46,7 @@ std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buffer, const std
         jpeg_finish_decompress(&cinfo);
         jpeg_destroy_decompress(&cinfo);
 
-        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer), path);
+        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
 
     } catch (struct jpeg_error_mgr* err) {
         std::array<char, 1024> error_message;

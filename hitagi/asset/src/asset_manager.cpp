@@ -27,16 +27,16 @@ bool AssetManager::Initialize() {
 
     m_MaterialParser = std::make_unique<MaterialJSONParser>();
 
-    m_SceneParsers[SceneFormat::UNKOWN] = std::make_unique<AssimpParser>(*this);
-    m_SceneParsers[SceneFormat::GLTF]   = std::make_unique<AssimpParser>(*this);
-    m_SceneParsers[SceneFormat::GLB]    = std::make_unique<AssimpParser>(*this);
-    m_SceneParsers[SceneFormat::BLEND]  = std::make_unique<AssimpParser>(*this);
-    m_SceneParsers[SceneFormat::FBX]    = std::make_unique<AssimpParser>(*this);
+    m_SceneParsers[SceneFormat::UNKOWN] = std::make_unique<AssimpParser>("", m_Logger);
+    m_SceneParsers[SceneFormat::GLTF]   = std::make_unique<AssimpParser>(".gltf", m_Logger);
+    m_SceneParsers[SceneFormat::GLB]    = std::make_unique<AssimpParser>(".glb", m_Logger);
+    m_SceneParsers[SceneFormat::BLEND]  = std::make_unique<AssimpParser>(".blend", m_Logger);
+    m_SceneParsers[SceneFormat::FBX]    = std::make_unique<AssimpParser>(".fbx", m_Logger);
 
-    m_ImageParsers[ImageFormat::PNG]  = std::make_unique<PngParser>(*this);
-    m_ImageParsers[ImageFormat::JPEG] = std::make_unique<JpegParser>(*this);
-    m_ImageParsers[ImageFormat::TGA]  = std::make_unique<TgaParser>(*this);
-    m_ImageParsers[ImageFormat::BMP]  = std::make_unique<BmpParser>(*this);
+    m_ImageParsers[ImageFormat::PNG]  = std::make_unique<PngParser>(m_Logger);
+    m_ImageParsers[ImageFormat::JPEG] = std::make_unique<JpegParser>(m_Logger);
+    m_ImageParsers[ImageFormat::TGA]  = std::make_unique<TgaParser>(m_Logger);
+    m_ImageParsers[ImageFormat::BMP]  = std::make_unique<BmpParser>(m_Logger);
 
     // m_MoCapParser = std::make_unique<BvhParser>();
 
@@ -59,14 +59,14 @@ void AssetManager::Finalize() {
 
 std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path, const core::Buffer& buffer) {
     auto format = get_scene_format(path.extension().string());
-    auto scene  = m_SceneParsers[format]->Parse(buffer.Empty() ? file_io_manager->SyncOpenAndReadBinary(path) : buffer, path, path.parent_path());
+    auto scene  = m_SceneParsers[format]->Parse(buffer.Empty() ? file_io_manager->SyncOpenAndReadBinary(path) : buffer, path.parent_path());
     AddScene(scene);
     return scene;
 }
 
 std::shared_ptr<Texture> AssetManager::ImportTexture(const std::filesystem::path& path, const core::Buffer& buffer) {
     auto format = get_image_format(path.extension().string());
-    auto image  = m_ImageParsers[format]->Parse(buffer.Empty() ? file_io_manager->SyncOpenAndReadBinary(path) : buffer, path);
+    auto image  = m_ImageParsers[format]->Parse(buffer.Empty() ? file_io_manager->SyncOpenAndReadBinary(path) : buffer);
     AddTexture(image);
     return image;
 }

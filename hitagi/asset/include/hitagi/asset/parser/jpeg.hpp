@@ -6,7 +6,7 @@ class JpegParser : public ImageParser {
 public:
     using ImageParser::ImageParser;
 
-    std::shared_ptr<Texture> Parse(const core::Buffer& buffer, const std::filesystem::path& path = {}) final;
+    std::shared_ptr<Texture> Parse(const core::Buffer& buffer) final;
 };
 
 }  // namespace hitagi::asset

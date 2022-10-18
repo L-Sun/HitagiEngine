@@ -173,7 +173,7 @@ public:
         gfx::PrimitiveTopology            primitive     = gfx::PrimitiveTopology::TriangleList;
         std::shared_ptr<MaterialInstance> material_instance;
     };
-
+    Mesh() = default;
     Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name = "", xg::Guid guid = {});
     // merge two mesh
     Mesh operator+(const Mesh& rhs) const;

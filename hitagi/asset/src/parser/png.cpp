@@ -2,7 +2,7 @@
 #include <hitagi/asset/asset_manager.hpp>
 #include <hitagi/math/vector.hpp>
 
-#include <spdlog/logger.h>
+#include <spdlog/spdlog.h>
 #include <png.h>
 
 using namespace hitagi::math;
@@ -24,8 +24,9 @@ void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
         png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
-std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer, const std::filesystem::path& path) {
-    auto logger = m_AssetManager.GetLogger();
+std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer) {
+    auto logger = m_Logger ? m_Logger : spdlog::default_logger();
+
     if (buffer.Empty()) {
         logger->warn("[PNG] Parsing a empty bufferfer will return nullptr.");
         return nullptr;
@@ -130,6 +131,6 @@ std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer, const std:
     }
 
     png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
-    return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer), path);
+    return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
 }
 }  // namespace hitagi::asset

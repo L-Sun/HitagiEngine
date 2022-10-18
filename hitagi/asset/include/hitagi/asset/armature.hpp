@@ -8,7 +8,8 @@ struct Bone {
     std::pmr::vector<std::shared_ptr<Bone>> children;
     std::weak_ptr<Bone>                     parent;
 
-    Transform transform;
+    math::mat4f offset_matrix;
+    Transform   transform;
 };
 
 struct Armature : public Resource {

@@ -38,7 +38,7 @@ public:
     auto CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<TextureView> final;
     auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> final;
 
-    auto CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> final;
+    void CompileShader(Shader& shader) final;
     auto CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> final;
 
     static void ReportDebugLog();

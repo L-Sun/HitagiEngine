@@ -34,7 +34,7 @@ public:
     virtual auto CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<TextureView>                                      = 0;
     virtual auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler>                                                   = 0;
 
-    virtual auto CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader>                        = 0;
+    virtual void CompileShader(Shader& shader)                                                      = 0;
     virtual auto CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> = 0;
 
 protected:

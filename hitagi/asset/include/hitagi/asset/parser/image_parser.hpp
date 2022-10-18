@@ -3,7 +3,6 @@
 #include <hitagi/asset/texture.hpp>
 
 namespace hitagi::asset {
-class AssetManager;
 
 enum struct ImageFormat : std::uint8_t {
     UNKOWN,
@@ -27,12 +26,12 @@ inline constexpr ImageFormat get_image_format(std::string_view ext) noexcept {
 
 class ImageParser {
 public:
-    ImageParser(AssetManager& asset_manager) : m_AssetManager(asset_manager) {}
+    ImageParser(std::shared_ptr<spdlog::logger> logger = nullptr) : m_Logger(std::move(logger)) {}
 
-    virtual auto Parse(const core::Buffer& buffer, const std::filesystem::path& path = {}) -> std::shared_ptr<Texture> = 0;
-    virtual ~ImageParser()                                                                                             = default;
+    virtual auto Parse(const core::Buffer& buffer) -> std::shared_ptr<Texture> = 0;
+    virtual ~ImageParser()                                                     = default;
 
 protected:
-    AssetManager& m_AssetManager;
+    std::shared_ptr<spdlog::logger> m_Logger;
 };
 }  // namespace hitagi::asset

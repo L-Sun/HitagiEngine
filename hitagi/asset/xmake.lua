@@ -17,10 +17,8 @@ target("parser")
     set_kind("static")
     add_files("src/parser/*.cpp")
     remove_files(
-        -- "src/parser/assimp.cpp",
         "src/parser/bvh.cpp",
-        "src/parser/gltf.cpp",
-        "src/parser/material_parser.cpp"
+        "src/parser/gltf.cpp"
     )
     add_includedirs("include", {public = true})
     add_deps("core", "math", "asset")

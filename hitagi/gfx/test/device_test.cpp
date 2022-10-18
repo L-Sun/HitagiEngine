@@ -2,13 +2,11 @@
 #include <hitagi/math/transform.hpp>
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/application.hpp>
-#include <hitagi/utils/literals.hpp>
 #include <hitagi/utils/test.hpp>
 
 using namespace hitagi::core;
 using namespace hitagi::gfx;
 using namespace hitagi::math;
-using namespace hitagi::utils::literals;
 
 TEST(CreateDeviceTest, CreateD3D) {
     EXPECT_NO_THROW({
@@ -224,12 +222,12 @@ TEST_F(D3DDeviceTest, CreateSampler) {
 TEST_F(D3DDeviceTest, CompileShader) {
     // Test Vertex Shader
     {
-        auto vs_shader = device->CompileShader(
-            {
-                .name        = "vertex_test_shader",
-                .type        = Shader::Type::Vertex,
-                .entry       = "VSMain",
-                .source_code = R"""(
+        Shader vs_shader{
+
+            .name        = "vertex_test_shader",
+            .type        = Shader::Type::Vertex,
+            .entry       = "VSMain",
+            .source_code = R"""(
                 struct VS_INPUT {
                     float3 pos : POSITION;
                 };
@@ -244,18 +242,16 @@ TEST_F(D3DDeviceTest, CompileShader) {
                     return output;
                 }
             )""",
-            });
-
-        ASSERT_TRUE(vs_shader != nullptr);
-        EXPECT_FALSE(vs_shader->binary_data.Empty());
+        };
+        device->CompileShader(vs_shader);
+        EXPECT_FALSE(vs_shader.binary_data.Empty());
     }
     {
-        auto ps_shader = device->CompileShader(
-            {
-                .name        = "pixel_test_shader",
-                .type        = Shader::Type::Pixel,
-                .entry       = "PSMain",
-                .source_code = R"""(
+        Shader ps_shader{
+            .name        = "pixel_test_shader",
+            .type        = Shader::Type::Pixel,
+            .entry       = "PSMain",
+            .source_code = R"""(
                 struct PS_INPUT{
                     float4 pos : SV_POSITION;
                 };
@@ -264,9 +260,9 @@ TEST_F(D3DDeviceTest, CompileShader) {
                     return input.pos;
                 }
             )""",
-            });
-        ASSERT_TRUE(ps_shader != nullptr);
-        EXPECT_FALSE(ps_shader->binary_data.Empty());
+        };
+        device->CompileShader(ps_shader);
+        EXPECT_FALSE(ps_shader.binary_data.Empty());
     }
 }
 
@@ -294,13 +290,12 @@ TEST_F(D3DDeviceTest, CreatePipeline) {
         auto render_pipeline = device->CreateRenderPipeline(
             {
                 .name = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .vs   = device->CompileShader(
-                    {
-                          .name        = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                          .type        = Shader::Type::Vertex,
-                          .entry       = "VSMain",
-                          .source_code = vs_code,
-                    }),
+                .vs   = {
+                      .name        = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                      .type        = Shader::Type::Vertex,
+                      .entry       = "VSMain",
+                      .source_code = vs_code,
+                },
                 .input_layout = {{"POSITION", 0, 0, 0, Format::R32G32B32_FLOAT, false, 0}},
 
             });
@@ -342,13 +337,12 @@ TEST_F(D3DDeviceTest, CommandContextTest) {
         auto render_pipeline = device->CreateRenderPipeline(
             {
                 .name = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .vs   = device->CompileShader(
-                    {
-                          .name        = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                          .type        = Shader::Type::Vertex,
-                          .entry       = "VSMain",
-                          .source_code = vs_code,
-                    }),
+                .vs   = {
+                      .name        = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                      .type        = Shader::Type::Vertex,
+                      .entry       = "VSMain",
+                      .source_code = vs_code,
+                },
                 .input_layout = {{"POSITION", 0, 0, 0, Format::R32G32B32_FLOAT, false, 0}},
             });
         ASSERT_TRUE(render_pipeline);
@@ -495,24 +489,20 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
             }
         )""";
 
-        auto vs_shader = device->CompileShader(
-            {
-                .name        = "I know DirectX12 vertex shader",
-                .type        = Shader::Type::Vertex,
-                .entry       = "VSMain",
-                .source_code = shader_code,
-            });
-        auto ps_shader = device->CompileShader(
-            {
+        auto pipeline = device->CreateRenderPipeline({
+            .name = "I know DirectX12 pipeline",
+            .vs   = {
+                  .name        = "I know DirectX12 vertex shader",
+                  .type        = Shader::Type::Vertex,
+                  .entry       = "VSMain",
+                  .source_code = std::pmr::string(shader_code),
+            },
+            .ps = {
                 .name        = "I know DirectX12 pixel shader",
                 .type        = Shader::Type::Pixel,
                 .entry       = "PSMain",
-                .source_code = shader_code,
-            });
-        auto pipeline = device->CreateRenderPipeline({
-            .name         = "I know DirectX12 pipeline",
-            .vs           = vs_shader,
-            .ps           = ps_shader,
+                .source_code = std::pmr::string(shader_code),
+            },
             .input_layout = {
                 // clang-format off
                 {"POSITION", 0, 0,             0, Format::R32G32B32_FLOAT},

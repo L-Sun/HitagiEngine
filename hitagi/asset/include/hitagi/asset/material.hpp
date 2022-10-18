@@ -69,7 +69,7 @@ protected:
 
 class MaterialInstance : public Resource {
 public:
-    MaterialInstance(std::pmr::vector<Material::Parameter> parameters, std::string_view name = "", xg::Guid guid = {});
+    MaterialInstance(std::pmr::vector<Material::Parameter> parameters = {}, std::string_view name = "", xg::Guid guid = {});
     MaterialInstance(const MaterialInstance&);
     MaterialInstance& operator=(const MaterialInstance&);
     MaterialInstance(MaterialInstance&&) = default;

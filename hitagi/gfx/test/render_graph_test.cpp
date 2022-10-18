@@ -50,24 +50,20 @@ TEST_F(RenderGraphTest, RenderPass) {
             }
         )""";
 
-        auto vs_shader = device->CompileShader(
-            {
-                .name        = "I know DirectX12 vertex shader",
-                .type        = Shader::Type::Vertex,
-                .entry       = "VSMain",
-                .source_code = shader_code,
-            });
-        auto ps_shader = device->CompileShader(
-            {
+        auto pipeline = device->CreateRenderPipeline({
+            .name = "I know DirectX12 pipeline",
+            .vs   = {
+                  .name        = "I know DirectX12 vertex shader",
+                  .type        = Shader::Type::Vertex,
+                  .entry       = "VSMain",
+                  .source_code = std::pmr::string(shader_code),
+            },
+            .ps = {
                 .name        = "I know DirectX12 pixel shader",
                 .type        = Shader::Type::Pixel,
                 .entry       = "PSMain",
-                .source_code = shader_code,
-            });
-        auto pipeline = device->CreateRenderPipeline({
-            .name         = "I know DirectX12 pipeline",
-            .vs           = vs_shader,
-            .ps           = ps_shader,
+                .source_code = std::pmr::string(shader_code),
+            },
             .input_layout = {
                 // clang-format off
                 {"POSITION", 0, 0,             0, Format::R32G32B32_FLOAT},

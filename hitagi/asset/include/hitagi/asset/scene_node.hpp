@@ -40,6 +40,8 @@ protected:
 
 class CameraNode : public SceneNodeWithObject<Camera> {
 public:
+    using SceneNodeWithObject<Camera>::SceneNodeWithObject;
+
     inline math::mat4f GetView() const noexcept { return m_View; }
     inline math::mat4f GetProjection() const noexcept { return m_Projection; }
     inline math::mat4f GetProjectionView() const noexcept { return m_PV; }
@@ -56,11 +58,11 @@ private:
 
 class LightNode : public SceneNodeWithObject<Light> {
 public:
+    using SceneNodeWithObject<Light>::SceneNodeWithObject;
+
     math::vec3f GetLightGlobalPosition() const;
     math::vec3f GetLightGlobalDirection() const;
     math::vec3f GetLightGlobalUp() const;
-
-    void Update() final;
 };
 
 }  // namespace hitagi::asset
