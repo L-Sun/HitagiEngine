@@ -28,7 +28,8 @@ inline constexpr SceneFormat get_scene_format(std::string_view ext) noexcept {
 class SceneParser {
 public:
     SceneParser(std::shared_ptr<spdlog::logger> logger = nullptr) : m_Logger(std::move(logger)) {}
-    virtual auto Parse(const core::Buffer& buffer, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> = 0;
+
+    virtual auto Parse(const std::filesystem::path& path, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> = 0;
 
     virtual ~SceneParser() = default;
 

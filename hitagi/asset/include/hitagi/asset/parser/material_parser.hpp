@@ -7,7 +7,8 @@ public:
     virtual ~MaterialParser() = default;
     MaterialParser(std::shared_ptr<spdlog::logger> logger = nullptr) : m_Logger(std::move(logger)) {}
 
-    virtual std::shared_ptr<Material> Parse(const core::Buffer& buffer) = 0;
+    virtual auto Parse(const std::filesystem::path& path) -> std::shared_ptr<Material>;
+    virtual auto Parse(const core::Buffer& buffer) -> std::shared_ptr<Material> = 0;
 
 protected:
     std::shared_ptr<spdlog::logger> m_Logger;
@@ -17,6 +18,7 @@ class MaterialJSONParser : public MaterialParser {
 public:
     using MaterialParser::MaterialParser;
 
-    std::shared_ptr<Material> Parse(const core::Buffer& buffer) final;
+    using MaterialParser::Parse;
+    auto Parse(const core::Buffer& buffer) -> std::shared_ptr<Material> final;
 };
 }  // namespace hitagi::asset

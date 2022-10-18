@@ -14,4 +14,6 @@ public:
     inline std::string_view GetName() const noexcept final { return "Engine"; }
 };
 
+extern Engine* engine;
+
 }  // namespace hitagi

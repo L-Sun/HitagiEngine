@@ -37,8 +37,8 @@ void SceneViewPort::Tick() {
                         });
                     },
                     [=](const gfx::RenderGraph::ResourceHelper& helper, const SceneRenderPass& data, gfx::GraphicsCommandContext* context) {
-                        auto rtv = context->device->CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.output)});
-                        auto dsv = context->device->CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.depth_buffer)});
+                        auto rtv = context->device.CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.output)});
+                        auto dsv = context->device.CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.depth_buffer)});
                         // TODO draw scene
                     });
 
@@ -49,8 +49,4 @@ void SceneViewPort::Tick() {
     });
 
     RuntimeModule::Tick();
-}
-
-void SceneViewPort::SetScene(std::shared_ptr<asset::Scene> scene) {
-    m_CurrentScene = std::move(scene);
 }

@@ -2,6 +2,7 @@ target("runtime_module_interface")
     set_kind("static")
     add_files("src/runtime_module.cpp")
     add_includedirs("include", {public = true})
+    add_deps("timer")
     add_packages("spdlog", {public = true})
 
 target("memory_manager")

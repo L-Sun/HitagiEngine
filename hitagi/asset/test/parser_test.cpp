@@ -16,7 +16,7 @@ using namespace hitagi::testing;
 
 TEST(ImageParserTest, Jpeg) {
     auto parser = std::make_shared<JpegParser>();
-    auto image  = parser->Parse(file_io_manager->SyncOpenAndReadBinary("assets/test/test.jpg"));
+    auto image  = parser->Parse("assets/test/test.jpg");
 
     ASSERT_TRUE(image);
     EXPECT_EQ(image->Width(), 278);
@@ -25,7 +25,7 @@ TEST(ImageParserTest, Jpeg) {
 
 TEST(ImageParserTest, Tga) {
     auto parser = std::make_shared<TgaParser>();
-    auto image  = parser->Parse(file_io_manager->SyncOpenAndReadBinary("assets/test/test.tga"));
+    auto image  = parser->Parse("assets/test/test.tga");
     ASSERT_TRUE(image);
     EXPECT_EQ(image->Width(), 278);
     EXPECT_EQ(image->Height(), 152);
@@ -33,7 +33,7 @@ TEST(ImageParserTest, Tga) {
 
 TEST(ImageParserTest, Png) {
     auto parser = std::make_shared<PngParser>();
-    auto image  = parser->Parse(file_io_manager->SyncOpenAndReadBinary("assets/test/test.png"));
+    auto image  = parser->Parse("assets/test/test.png");
     ASSERT_TRUE(image);
     EXPECT_EQ(image->Width(), 278);
     EXPECT_EQ(image->Height(), 152);
@@ -41,7 +41,7 @@ TEST(ImageParserTest, Png) {
 
 TEST(ImageParserTest, Bmp) {
     auto parser = std::make_shared<BmpParser>();
-    auto image  = parser->Parse(file_io_manager->SyncOpenAndReadBinary("assets/test/test.bmp"));
+    auto image  = parser->Parse("assets/test/test.bmp");
     ASSERT_TRUE(image);
     EXPECT_EQ(image->Width(), 278);
     EXPECT_EQ(image->Height(), 152);
@@ -49,7 +49,7 @@ TEST(ImageParserTest, Bmp) {
 
 TEST(MaterialParserTest, JSON) {
     auto parser = std::make_shared<MaterialJSONParser>();
-    auto mat    = parser->Parse(file_io_manager->SyncOpenAndReadBinary("assets/test/test-mat.json"));
+    auto mat    = parser->Parse("assets/test/test-mat.json");
     ASSERT_TRUE(mat);
     EXPECT_EQ(mat->GetDefaultParameters()[0].name, "diffuse");
     EXPECT_EQ(mat->GetDefaultParameters()[1].name, "ambient");
@@ -73,7 +73,7 @@ TEST(MaterialParserTest, JSON) {
 
 TEST(SceneParserTest, Fbx) {
     auto parser = std::make_shared<AssimpParser>();
-    auto scene  = parser->Parse(file_io_manager->SyncOpenAndReadBinary("assets/test/test.fbx"));
+    auto scene  = parser->Parse("assets/test/test.fbx");
     ASSERT_TRUE(scene != nullptr);
     EXPECT_EQ(scene->camera_nodes.size(), 1);
     EXPECT_EQ(scene->instance_nodes.size(), 1);

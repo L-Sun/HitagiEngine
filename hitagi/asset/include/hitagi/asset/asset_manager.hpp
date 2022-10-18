@@ -17,9 +17,9 @@ public:
 
     Scene CreateEmptyScene(std::string_view name);
 
-    std::shared_ptr<Scene>    ImportScene(const std::filesystem::path& path, const core::Buffer& buffer = {});
-    std::shared_ptr<Texture>  ImportTexture(const std::filesystem::path& path, const core::Buffer& buffer = {});
-    std::shared_ptr<Material> ImportMaterial(const std::filesystem::path& path, const core::Buffer& buffer = {});
+    std::shared_ptr<Scene>    ImportScene(const std::filesystem::path& path);
+    std::shared_ptr<Texture>  ImportTexture(const std::filesystem::path& path);
+    std::shared_ptr<Material> ImportMaterial(const std::filesystem::path& path);
 
     void AddScene(std::shared_ptr<Scene> scene);
     void AddCamera(std::shared_ptr<Camera> camera);

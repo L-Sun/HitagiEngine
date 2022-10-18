@@ -28,6 +28,7 @@ class ImageParser {
 public:
     ImageParser(std::shared_ptr<spdlog::logger> logger = nullptr) : m_Logger(std::move(logger)) {}
 
+    virtual auto Parse(const std::filesystem::path& path) -> std::shared_ptr<Texture>;
     virtual auto Parse(const core::Buffer& buffer) -> std::shared_ptr<Texture> = 0;
     virtual ~ImageParser()                                                     = default;
 

@@ -1,8 +1,8 @@
 #include "editor.hpp"
 #include "scene_viewport.hpp"
+#include "profiler.hpp"
 
 #include <hitagi/core/file_io_manager.hpp>
-#include <hitagi/asset/scene_manager.hpp>
 #include <hitagi/asset/asset_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
@@ -22,6 +22,7 @@ bool Editor::Initialize() {
     RuntimeModule::Initialize();
 
     m_SceneViewPort = static_cast<SceneViewPort*>(LoadModule(std::make_unique<SceneViewPort>()));
+    LoadModule(std::make_unique<Profiler>());
 
     m_SwapChain = graphics_manager->GetDevice().CreateSwapChain({
         .name       = "Editor",
@@ -64,7 +65,7 @@ void Editor::Render() {
             data.back_buffer = builder.Write(back_buffer);
         },
         [=](const gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::GraphicsCommandContext* context) {
-            auto rtv = context->device->CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.back_buffer)});
+            auto rtv = context->device.CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.back_buffer)});
             context->SetRenderTarget(*rtv);
             context->ClearRenderTarget(*rtv);
         });
@@ -96,14 +97,6 @@ void Editor::MainMenu() {
         ImGui::EndMainMenuBar();
     }
 
-    if (ImGui::Begin("Scenes")) {
-        for (std::size_t index = 0; index < scene_manager->GetNumScene(); index++) {
-            const auto& scene = scene_manager->GetScene(index);
-            if (ImGui::Selectable(scene->name.data())) {
-                scene_manager->SwitchScene(index);
-            }
-        }
-    }
     ImGui::End();
 }
 
@@ -147,7 +140,6 @@ void Editor::FileExplorer() {
                         ImGui::EndPopup();
                     }
                     if (success) {
-                        scene_manager->SwitchScene(scene_manager->AddScene(scene));
                         m_SceneViewPort->SetScene(scene);
                     }
                 }
@@ -173,10 +165,11 @@ void Editor::FileExplorer() {
 
 void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
-        auto scene = scene_manager->CurrentScene();
+        auto scene = m_SceneViewPort->GetScene();
         if (ImGui::CollapsingHeader("Scene Nodes")) {
             std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](const std::shared_ptr<SceneNode>& node) -> void {
-                if (ImGui::TreeNode(node->name.c_str())) {
+                if (node == nullptr) return;
+                if (ImGui::TreeNode(node->GetName().c_str())) {
                     auto& translation = node->transform.local_translation;
                     auto  orientation = rad2deg(quaternion_to_euler(node->transform.local_rotation));
                     auto& scaling     = node->transform.local_scaling;
@@ -231,11 +224,6 @@ void Editor::SceneExplorer() {
 void Editor::DebugPanel() {
     gui_manager->DrawGui([]() {
         if (ImGui::Begin("Debug Pannel")) {
-            // Memory usage
-            {
-                ImGui::Text("%s", fmt::format("Memory Usage: {}Mb", app->GetMemoryUsage() >> 20).c_str());
-            }
-
             // Debug draw
             {
                 static bool debug_draw = true;

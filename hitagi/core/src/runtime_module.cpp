@@ -1,4 +1,5 @@
 #include <hitagi/core/runtime_module.hpp>
+#include <hitagi/core/timer.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -25,12 +26,24 @@ void RuntimeModule::Finalize() {
 }
 
 void RuntimeModule::Tick() {
-    for (const auto& module : m_SubModules) module->Tick();
+    core::Clock clock;
+    clock.Start();
+    for (const auto& module : m_SubModules) {
+        clock.Tick();
+        module->Tick();
+        module->SetProfileTime(clock.DeltaTime());
+    }
 }
 
-auto RuntimeModule::GetModule(std::string_view name) -> RuntimeModule* {
+auto RuntimeModule::GetSubModule(std::string_view name) -> RuntimeModule* {
     auto iter = std::find_if(m_SubModules.begin(), m_SubModules.end(), [&](auto& _mod) -> bool { return _mod->GetName() == name; });
     return iter != m_SubModules.end() ? (*iter).get() : nullptr;
+}
+
+auto RuntimeModule::GetSubModules() const noexcept -> std::pmr::vector<RuntimeModule*> {
+    std::pmr::vector<RuntimeModule*> result;
+    std::transform(m_SubModules.begin(), m_SubModules.end(), std::back_inserter(result), [](const auto& submodule) { return submodule.get(); });
+    return result;
 }
 
 auto RuntimeModule::LoadModule(std::unique_ptr<RuntimeModule> module) -> RuntimeModule* {

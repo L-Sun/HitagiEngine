@@ -1,4 +1,5 @@
 #include <hitagi/asset/parser/material_parser.hpp>
+#include <hitagi/core/file_io_manager.hpp>
 
 #include <magic_enum.hpp>
 #include <spdlog/spdlog.h>
@@ -42,7 +43,11 @@ NLOHMANN_JSON_SERIALIZE_ENUM(PrimitiveTopology,
 
 namespace hitagi::asset {
 
-std::shared_ptr<Material> MaterialJSONParser::Parse(const core::Buffer& buffer) {
+auto MaterialParser::Parse(const std::filesystem::path& path) -> std::shared_ptr<Material> {
+    return Parse(file_io_manager->SyncOpenAndReadBinary(path));
+}
+
+auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Material> {
     auto logger = m_Logger ? m_Logger : spdlog::default_logger();
 
     if (buffer.Empty()) {

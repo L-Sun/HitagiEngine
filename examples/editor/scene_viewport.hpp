@@ -1,4 +1,5 @@
 #pragma once
+#include <hitagi/core/runtime_module.hpp>
 #include <hitagi/asset/texture.hpp>
 #include <hitagi/asset/scene.hpp>
 #include <hitagi/gfx/render_graph.hpp>
@@ -11,7 +12,9 @@ public:
 
     inline std::string_view GetName() const noexcept final { return "SceneViewPort"; }
 
-    void SetScene(std::shared_ptr<asset::Scene> scene);
+    inline void SetScene(std::shared_ptr<asset::Scene> scene) noexcept { m_CurrentScene = std::move(scene); };
+
+    inline auto GetScene() const noexcept { return m_CurrentScene; };
 
 private:
     bool                          m_Open         = true;

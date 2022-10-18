@@ -159,20 +159,18 @@ void GuiManager::InitRenderPipeline(gfx::Device& gfx_device) {
 
     m_GfxData.pipeline = gfx_device.CreateRenderPipeline({
         .name = "imgui",
-
-        .vs = gfx_device.CompileShader({
-            .name        = "imgui-vs",
-            .type        = gfx::Shader::Type::Vertex,
-            .entry       = "VSMain",
-            .source_code = imgui_shader,
-        }),
-        .ps = gfx_device.CompileShader({
+        .vs   = {
+              .name        = "imgui-vs",
+              .type        = gfx::Shader::Type::Vertex,
+              .entry       = "VSMain",
+              .source_code = std::pmr::string(imgui_shader),
+        },
+        .ps = {
             .name        = "imgui-ps",
             .type        = gfx::Shader::Type::Pixel,
             .entry       = "PSMain",
-            .source_code = imgui_shader,
-        }),
-
+            .source_code = std::pmr::string(imgui_shader),
+        },
         .topology     = gfx::PrimitiveTopology::TriangleList,
         .input_layout = {
             // clang-format off
@@ -273,7 +271,7 @@ auto GuiManager::GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) ->
     if (m_GfxData.vertices_buffer == nullptr || m_GfxData.vertices_buffer->desc.size < draw_data->TotalVtxCount * sizeof(ImDrawVert)) {
         m_GfxData.vertices_buffer = rg.device.CreateBuffer({
             .name   = "imgui-vertices",
-            .size   = draw_data->TotalVtxCount * sizeof(ImDrawVert),
+            .size   = std::max(1ull, draw_data->TotalVtxCount * sizeof(ImDrawVert)),
             .usages = gfx::GpuBuffer::UsageFlags::CopyDst,
         });
     }
@@ -281,7 +279,7 @@ auto GuiManager::GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) ->
     if (m_GfxData.indices_buffer == nullptr || m_GfxData.indices_buffer->desc.size < draw_data->TotalIdxCount * sizeof(ImDrawIdx)) {
         m_GfxData.indices_buffer = rg.device.CreateBuffer({
             .name   = "imgui-indices",
-            .size   = draw_data->TotalIdxCount * sizeof(ImDrawIdx),
+            .size   = std::max(1ull, draw_data->TotalIdxCount * sizeof(ImDrawIdx)),
             .usages = gfx::GpuBuffer::UsageFlags::CopyDst,
         });
     }
@@ -367,7 +365,7 @@ auto GuiManager::GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) ->
             const float near   = 3.0f;
             const float far    = -1.0f;
 
-            auto  rtv             = context->device->CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.output)});
+            auto  rtv             = context->device.CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.output)});
             auto& vertices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
             auto& indices_buffer  = helper.Get<gfx::GpuBuffer>(data.indices_buffer);
 
@@ -405,19 +403,19 @@ auto GuiManager::GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) ->
                     });
 
                     if (cmd.TextureId) {
-                        auto tex = context->device->CreateTextureView({
+                        auto tex = context->device.CreateTextureView({
                             .textuer = helper.Get<gfx::Texture>({(std::uint64_t)cmd.TextureId}),
                         });
                         context->BindTexture(0, *tex);
                     }
 
-                    auto vbv = context->device->CreateBufferView({
+                    auto vbv = context->device.CreateBufferView({
                         .buffer = vertices_buffer,
                         .offset = vertex_offset * sizeof(ImDrawVert),
                         .stride = sizeof(ImDrawVert),
                         .usages = gfx::GpuBufferView::UsageFlags::Vertex,
                     });
-                    auto ibv = context->device->CreateBufferView({
+                    auto ibv = context->device.CreateBufferView({
                         .buffer = indices_buffer,
                         .offset = index_offset * sizeof(ImDrawIdx),
                         .stride = sizeof(ImDrawIdx),

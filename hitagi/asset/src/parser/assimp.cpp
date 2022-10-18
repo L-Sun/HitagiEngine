@@ -1,5 +1,6 @@
 #include <hitagi/asset/parser/assimp.hpp>
 #include <hitagi/core/timer.hpp>
+#include <hitagi/core/file_io_manager.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -89,8 +90,10 @@ constexpr std::array mat_float_keys = {
     "metallicFactor",
 };
 
-auto AssimpParser::Parse(const core::Buffer& buffer, const std::filesystem::path& resource_base_path) -> std::shared_ptr<Scene> {
+auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesystem::path& resource_base_path) -> std::shared_ptr<Scene> {
     auto logger = m_Logger ? m_Logger : spdlog::default_logger();
+
+    auto buffer = file_io_manager->SyncOpenAndReadBinary(path);
 
     if (buffer.Empty()) {
         logger->warn("Parsing a empty buffer");
@@ -109,7 +112,7 @@ auto AssimpParser::Parse(const core::Buffer& buffer, const std::filesystem::path
         aiPostProcessSteps::aiProcess_PopulateArmatureData;
 
     clock.Start();
-    const aiScene* ai_scene = importer.ReadFileFromMemory(buffer.GetData(), buffer.GetDataSize(), flags, m_Hint.string().c_str());
+    const aiScene* ai_scene = importer.ReadFileFromMemory(buffer.GetData(), buffer.GetDataSize(), flags, path.extension().string().c_str());
     if (!ai_scene) {
         logger->error("Can not parse the scene.");
         logger->error(importer.GetErrorString());

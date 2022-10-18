@@ -1,25 +1,51 @@
 #include "imgui_demo.hpp"
 
+#include <hitagi/gfx/graphics_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
-
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include <hitagi/application.hpp>
 
 using namespace hitagi;
 
 bool ImGuiDemo::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("ImGuiDemo");
+    RuntimeModule::Initialize();
+    m_SwapChain = graphics_manager->GetDevice().CreateSwapChain({
+        .name       = "ImGuiDemo",
+        .window_ptr = app->GetWindow(),
+    });
     return true;
 }
 
-void ImGuiDemo::Finalize() {
-    m_Logger->info("ImGuiDemo Finalize");
-    m_Logger = nullptr;
-}
-
 void ImGuiDemo::Tick() {
+    m_SwapChain->Present();
+    if (app->WindowSizeChanged()) {
+        m_SwapChain->Resize();
+    }
+
     bool open = true;
     gui_manager->DrawGui([&]() -> void {
         ImGui::ShowDemoWindow(&open);
     });
+
+    auto& render_graph = graphics_manager->GetRenderGraph();
+
+    auto back_buffer = render_graph.ImportWithoutLifeTrack("BackBuffer", &m_SwapChain->GetCurrentBackBuffer());
+
+    struct ClearPass {
+        gfx::ResourceHandle back_buffer;
+    };
+    auto clear_pass = render_graph.AddPass<ClearPass>(
+        "ClearPass",
+        [&](gfx::RenderGraph::Builder& builder, ClearPass& data) {
+            data.back_buffer = builder.Write(back_buffer);
+        },
+        [=](const gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::GraphicsCommandContext* context) {
+            auto rtv = context->device.CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.back_buffer)});
+            context->SetRenderTarget(*rtv);
+            context->ClearRenderTarget(*rtv);
+        });
+
+    auto output = gui_manager->GuiRenderPass(render_graph, clear_pass.back_buffer);
+    render_graph.PresentPass(output);
+
+    RuntimeModule::Tick();
 }
