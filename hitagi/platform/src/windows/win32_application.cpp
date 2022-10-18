@@ -3,7 +3,7 @@
 #include <hitagi/hid/input_manager.hpp>
 #include <hitagi/core/config_manager.hpp>
 
-#include <spdlog/spdlog.h>
+#include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <windowsx.h>
 #include <psapi.h>
@@ -11,14 +11,7 @@
 namespace hitagi {
 
 bool Win32Application::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("Win32Application");
-    m_Logger->info("Initialized");
-
     return Application::Initialize();
-}
-
-void Win32Application::Finalize() {
-    Application::Finalize();
 }
 
 void Win32Application::Tick() {
@@ -40,9 +33,19 @@ void Win32Application::Tick() {
 }
 
 void Win32Application::InitializeWindows() {
-    auto& config = config_manager->GetConfig();
+    std::wstring  title;
+    std::uint32_t width, height;
 
-    std::wstring name{config.title.begin(), config.title.end()};
+    if (config_manager) {
+        auto& config = config_manager->GetConfig();
+        title        = std::wstring{config.title.begin(), config.title.end()};
+        width        = config.width;
+        height       = config.height;
+    } else {
+        title  = L"HitagiEngine";
+        width  = 800;
+        height = 800;
+    }
 
     // Set time period on windows
     timeBeginPeriod(1);
@@ -65,18 +68,18 @@ void Win32Application::InitializeWindows() {
     wc.hInstance     = h_instance;
     wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
-    wc.lpszClassName = name.c_str();
+    wc.lpszClassName = title.c_str();
 
     // register the window class
     RegisterClassEx(&wc);
     m_Window = CreateWindowEx(
         0,
-        name.c_str(),
-        name.c_str(),
+        title.c_str(),
+        title.c_str(),
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        config.width,
-        config.height,
+        width,
+        height,
         nullptr,
         nullptr,
         h_instance,
@@ -133,9 +136,11 @@ void Win32Application::UpdateRect() {
     auto curr_height = m_Rect.bottom - m_Rect.top;
 
     if (last_width != curr_width || last_height != curr_height) {
-        m_SizeChanged                      = true;
-        config_manager->GetConfig().width  = curr_width;
-        config_manager->GetConfig().height = curr_height;
+        m_SizeChanged = true;
+        if (config_manager) {
+            config_manager->GetConfig().width  = curr_width;
+            config_manager->GetConfig().height = curr_height;
+        }
     }
 }
 

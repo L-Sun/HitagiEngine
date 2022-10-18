@@ -5,6 +5,7 @@
 #include <span>
 #include <memory_resource>
 #include <cassert>
+#include <cstddef>
 
 namespace hitagi::core {
 
@@ -44,6 +45,10 @@ public:
             "Create span from buffer failed,"
             " since the buffer size is not multiple of sizeof(T)");
         return std::span<T>(reinterpret_cast<T*>(m_Data), m_Size / sizeof(T));
+    }
+
+    auto Str() const noexcept {
+        return std::string_view{reinterpret_cast<const char*>(m_Data), m_Size};
     }
 
 private:

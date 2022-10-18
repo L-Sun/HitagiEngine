@@ -65,4 +65,7 @@ struct function_traits<ReturnType (ClassType::*)(Args...) const> {
 template <typename Func>
 concept unique_parameter_types = function_traits<Func>::unique_parameter_types;
 
+template <typename Ty1, typename Ty2>
+concept not_same_as = !std::is_same_v<Ty1, Ty2>;
+
 }  // namespace hitagi::utils

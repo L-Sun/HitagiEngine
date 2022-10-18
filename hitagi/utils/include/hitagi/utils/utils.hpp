@@ -5,11 +5,13 @@
 #include <array>
 #include <type_traits>
 
+constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
+
 namespace hitagi::utils {
 template <typename T, std::size_t N>
-constexpr std::array<T, N> create_array(const T& value) {
+constexpr std::array<T, N> create_array(T&& value) {
     return [&]<std::size_t... I>(std::index_sequence<I...>) {
-        return std::array<T, N>{(static_cast<void>(I), value)...};
+        return std::array<T, N>{(static_cast<void>(I), std::forward<T>(value))...};
     }
     (std::make_index_sequence<N>{});
 }
@@ -19,7 +21,7 @@ constexpr std::array<T, N> create_array_inplcae(Args&&... args) {
     static_assert(std::is_constructible_v<T, Args...>, "Can not construct array inplace");
 
     auto construct_fn = [&](std::size_t i) -> T {
-        return T{args...};
+        return T{std::forward<Args>(args)...};
     };
 
     return [&]<std::size_t... I>(std::index_sequence<I...>) {
@@ -50,8 +52,8 @@ struct EnumArray : public std::array<T, magic_enum::enum_count<E>()> {
 
 template <typename T, typename E>
 requires std::is_enum_v<E>
-constexpr EnumArray<T, E> create_enum_array(const T& initial_value) {
-    return {create_array<T, magic_enum::enum_count<E>()>(initial_value)};
+constexpr EnumArray<T, E> create_enum_array(T&& initial_value) {
+    return {create_array<T, magic_enum::enum_count<E>()>(std::forward<T>(initial_value))};
 }
 
 // Enable enum flags

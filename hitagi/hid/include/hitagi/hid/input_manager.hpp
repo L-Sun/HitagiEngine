@@ -2,12 +2,14 @@
 #include <hitagi/hid/input_event.hpp>
 #include <hitagi/core/runtime_module.hpp>
 
+#include <string_view>
 #include <variant>
 #include <optional>
 #include <unordered_map>
 
 namespace hitagi::hid {
 
+// TODO multiple window input handle
 class InputManager : public RuntimeModule {
 public:
     bool Initialize() final;

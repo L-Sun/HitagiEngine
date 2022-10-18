@@ -1,12 +1,27 @@
 #include <hitagi/core/runtime_module.hpp>
 
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 namespace hitagi {
 
+bool RuntimeModule::Initialize() {
+    m_Logger = spdlog::get(std::string(GetName()));
+    if (m_Logger == nullptr) {
+        m_Logger = spdlog::stdout_color_mt(std::string(GetName()));
+    }
+    m_Logger->info("Initialize {}...", GetName());
+    return true;
+}
+
 void RuntimeModule::Finalize() {
+    m_Logger->info("Finalize {}...", GetName());
+
     for (auto iter = m_SubModules.rbegin(); iter != m_SubModules.rend(); iter++) {
         (*iter)->Finalize();
     }
     m_SubModules.clear();
+    m_Logger = nullptr;
 }
 
 void RuntimeModule::Tick() {

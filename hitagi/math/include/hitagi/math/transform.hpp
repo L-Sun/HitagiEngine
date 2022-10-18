@@ -124,6 +124,7 @@ constexpr Matrix<T, 4> rotate(const Quaternion<T>& quatv) {
     };
     // clang-format on
 }
+
 template <typename T>
 constexpr Matrix<T, 4> scale(T s) {
     // clang-format off
@@ -135,6 +136,7 @@ constexpr Matrix<T, 4> scale(T s) {
     };
     // clang-format on
 }
+
 template <typename T>
 constexpr Matrix<T, 4> scale(const Vector<T, 3>& v) {
     // clang-format off
@@ -246,6 +248,36 @@ constexpr Quaternion<T> get_rotation(const Matrix<T, 4>& transform) {
     }
 
     return euler_to_quaternion(rotation);
+}
+
+// Get right direction (a.k.a X-axis direction)
+template <typename T>
+constexpr Vector<T, 3> get_right(const Matrix<T, 4>& transform) {
+    return normalize(Vector<T, 3>{
+        transform[0][0],
+        transform[1][0],
+        transform[2][0],
+    });
+}
+
+// Using for forward direction (a.k.a Y-axis direction)
+template <typename T>
+constexpr Vector<T, 3> get_forward(const Matrix<T, 4>& transform) {
+    return normalize(Vector<T, 3>{
+        transform[0][1],
+        transform[1][1],
+        transform[2][1],
+    });
+}
+
+// Get up direction (a.k.a Z-axis direction)
+template <typename T>
+constexpr Vector<T, 3> get_up(const Matrix<T, 4>& transform) {
+    return normalize(Vector<T, 3>{
+        transform[0][2],
+        transform[1][2],
+        transform[2][2],
+    });
 }
 
 // Return translation, rotation, scaling

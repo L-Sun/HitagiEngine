@@ -19,6 +19,10 @@ struct Texture : public Resource {
         RenderTarget    = 1 << 2,
         DepthBuffer     = 1 << 3,
     };
+    struct DepthStencil {
+        float         depth;
+        std::uint32_t stencil;
+    };
 
     BindFlag      bind_flags = BindFlag::ShaderResource;
     Format        format     = Format::UNKNOWN;
@@ -31,13 +35,7 @@ struct Texture : public Resource {
     std::uint32_t sample_count   = 1;
     std::uint32_t sample_quality = 0;
 
-    union {
-        hitagi::math::vec4f color = {0, 0, 0, 1};
-        struct {
-            float         depth;
-            std::uint32_t stencil;
-        } depth_stencil;
-    } clear_value;
+    std::variant<math::vec4f, DepthStencil> clear_value;
 
     std::filesystem::path path;
 };
