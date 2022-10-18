@@ -39,15 +39,13 @@ void Editor::Finalize() {
 }
 
 void Editor::Tick() {
-    debug_manager->DrawAxis(scale(100.0f));
-    gui_manager->DrawGui([this]() -> void { Draw(); });
-
-    RuntimeModule::Tick();
-
     m_SwapChain->Present();
     if (app->WindowSizeChanged()) {
         m_SwapChain->Resize();
     }
+
+    gui_manager->DrawGui([this]() -> void { Draw(); });
+    RuntimeModule::Tick();
     Render();
 }
 

@@ -7,6 +7,8 @@
 #include <hitagi/asset/armature.hpp>
 #include <hitagi/asset/scene_node.hpp>
 
+#include <hitagi/gfx/render_graph.hpp>
+
 namespace hitagi::asset {
 class Scene : public Resource {
 public:

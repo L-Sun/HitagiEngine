@@ -576,8 +576,11 @@ auto DX12Device::CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<Te
     }
 
     if (utils::has_flag(result->desc.textuer.desc.usages, Texture::UsageFlags::DSV)) {
-        m_Logger->warn("Unimplement for {}",
-                       fmt::styled(magic_enum::enum_name(Texture::UsageFlags::DSV), fmt::fg(fmt::color::red)));
+        auto dsv_desc = to_d3d_dsv_desc(result->desc);
+        result->dsv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->Allocate();
+
+        m_Device->CreateDepthStencilView(d3d_res, &dsv_desc, result->dsv.cpu_handle);
+        create_succeed = true;
     }
 
     if (!create_succeed) {

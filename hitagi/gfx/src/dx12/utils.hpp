@@ -841,6 +841,86 @@ inline auto to_d3d_rtv_desc(const TextureView::Desc& desc) noexcept {
     return rtv_desc;
 }
 
+inline auto to_d3d_dsv_desc(const TextureView::Desc& desc) noexcept {
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{
+        .Format = to_dxgi_format(desc.format),
+    };
+
+    // Dimension detect
+    {
+        if (desc.textuer.desc.height == 1 && desc.textuer.desc.depth == 1) {
+            if (desc.textuer.desc.array_size == 1) {
+                dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE1D;
+            } else {
+                dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE1DARRAY;
+            }
+
+        } else if (desc.textuer.desc.depth == 1) {
+            if (desc.textuer.desc.array_size == 1) {
+                if (desc.textuer.desc.sample_count > 1) {
+                    dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMS;
+                } else {
+                    dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+                }
+            } else {
+                if (desc.textuer.desc.sample_count > 1) {
+                    dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY;
+                } else {
+                    dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+                }
+            }
+        } else {
+            dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_UNKNOWN;
+        }
+    }
+
+    // fill data
+    {
+        switch (dsv_desc.ViewDimension) {
+            case D3D12_DSV_DIMENSION_TEXTURE1D: {
+                dsv_desc.Texture1D = {
+                    .MipSlice = desc.base_mip_level,
+                };
+            } break;
+            case D3D12_DSV_DIMENSION_TEXTURE1DARRAY: {
+                dsv_desc.Texture1DArray = {
+                    .MipSlice        = desc.base_mip_level,
+                    .FirstArraySlice = desc.base_array_layer,
+                    .ArraySize       = desc.array_layer_count,
+                };
+            } break;
+            case D3D12_DSV_DIMENSION_TEXTURE2D: {
+                dsv_desc.Texture2D = {
+                    .MipSlice = desc.base_mip_level,
+                };
+            } break;
+            case D3D12_DSV_DIMENSION_TEXTURE2DARRAY: {
+                dsv_desc.Texture2DArray = {
+                    .MipSlice        = desc.base_mip_level,
+                    .FirstArraySlice = desc.base_array_layer,
+                    .ArraySize       = desc.array_layer_count,
+                };
+            } break;
+            case D3D12_DSV_DIMENSION_TEXTURE2DMS: {
+                dsv_desc.Texture2DMS = {
+                    // UnusedField_NothingToDefine
+                };
+            } break;
+            case D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY: {
+                dsv_desc.Texture2DMSArray = {
+                    .FirstArraySlice = desc.base_array_layer,
+                    .ArraySize       = desc.array_layer_count,
+                };
+            } break;
+            default: {
+                // Nothing to do
+            }
+        }
+    }
+
+    return dsv_desc;
+}
+
 inline constexpr auto range_type_to_slot_type(D3D12_DESCRIPTOR_RANGE_TYPE type) noexcept {
     switch (type) {
         case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
