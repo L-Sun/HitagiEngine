@@ -12,6 +12,11 @@ bool SceneViewPort::Initialize() {
 }
 
 void SceneViewPort::Tick() {
+    struct SceneRenderPass {
+        gfx::ResourceHandle depth_buffer;
+        gfx::ResourceHandle output;
+    };
+
     gui_manager->DrawGui([&]() {
         if (ImGui::Begin("Scene Viewer", &m_Open)) {
             if (m_CurrentScene) {
