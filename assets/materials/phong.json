@@ -7,7 +7,8 @@
     "parameters": [
         {
             "name": "diffuse",
-            "type": "vec3f"
+            "type": "vec3f",
+            "default": [1.0, 1.0, 1.0]
         },
         {
             "name": "diffuse_texture",
@@ -15,7 +16,8 @@
         },
         {
             "name": "specular",
-            "type": "vec3f"
+            "type": "vec3f",
+            "default": [1.0, 1.0, 1.0]
         },
         {
             "name": "specular_texture",
@@ -23,7 +25,8 @@
         },
         {
             "name": "ambient",
-            "type": "vec3f"
+            "type": "vec3f",
+            "default": [1.0, 1.0, 1.0]
         },
         {
             "name": "ambient_texture",
@@ -31,7 +34,8 @@
         },
         {
             "name": "emissive",
-            "type": "vec3f"
+            "type": "vec3f",
+            "default": [1.0, 1.0, 1.0]
         },
         {
             "name": "emissive_texture",
@@ -39,7 +43,8 @@
         },
         {
             "name": "shininess",
-            "type": "float"
+            "type": "float",
+            "default": 1.0
         }
     ]
 }

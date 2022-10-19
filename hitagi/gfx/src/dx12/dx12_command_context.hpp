@@ -15,9 +15,6 @@ class DX12Device;
 class DX12CommandContext {
 public:
     DX12CommandContext(DX12Device& device, CommandType type, std::string_view name, std::uint64_t& fence_value);
-    ~DX12CommandContext() {
-        int i = 0;
-    }
     template <typename T>
     void TransitionResource(T& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate = false);
     void FlushBarriers();
@@ -48,25 +45,25 @@ public:
     void SetViewPort(const ViewPort& view_port) final;
     void SetScissorRect(const Rect& scissor_rect) final;
     void SetBlendColor(const math::vec4f& color) final;
-    void SetRenderTarget(const TextureView& target) final;
-    void SetRenderTargetAndDepthStencil(const TextureView& target, const TextureView& depth_stencil) final;
+    void SetRenderTarget(Texture& target) final;
+    void SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) final;
 
-    void ClearRenderTarget(const TextureView& target) final;
-    void ClearDepthStencil(const TextureView& depth_stencil) final;
+    void ClearRenderTarget(Texture& target) final;
+    void ClearDepthStencil(Texture& depth_stencil) final;
 
     void SetPipeline(const RenderPipeline& pipeline) final;
-    void SetIndexBuffer(const GpuBufferView& buffer) final;
-    void SetVertexBuffer(std::uint8_t slot, const GpuBufferView& buffer) final;
+    void SetIndexBuffer(GpuBuffer& buffer) final;
+    void SetVertexBuffer(std::uint8_t slot, GpuBuffer& buffer) final;
 
     void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data) final;
-    void BindConstantBuffer(std::uint32_t slot, const GpuBufferView& buffer, std::size_t index = 0) final;
-    void BindTexture(std::uint32_t slot, const TextureView& texture) final;
-    int  GetBindless(const TextureView& texture_view) final;
+    void BindConstantBuffer(std::uint32_t slot, const GpuBuffer& buffer, std::size_t index = 0) final;
+    void BindTexture(std::uint32_t slot, const Texture& texture) final;
+    int  GetBindless(const Texture& texture) final;
 
     void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;
     void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final;
 
-    void CopyTexture(const Texture& src, const Texture& dest) final;
+    void CopyTexture(const Texture& src, Texture& dest) final;
     void Present(Texture& back_buffer) final;
 
     void Reset() final;

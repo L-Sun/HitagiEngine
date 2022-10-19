@@ -568,7 +568,7 @@ inline constexpr auto to_d3d_rect(const Rect& rect) noexcept {
     };
 }
 
-inline constexpr auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
+inline constexpr auto to_d3d_srv_desc(const Texture::Desc& desc) noexcept {
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
         .Format                  = to_dxgi_format(desc.format),
         .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
@@ -576,18 +576,18 @@ inline constexpr auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
 
     // Dimension detect
     {
-        if (desc.textuer.desc.height == 1 && desc.textuer.desc.depth == 1) {
-            if (desc.textuer.desc.array_size == 1) {
+        if (desc.height == 1 && desc.depth == 1) {
+            if (desc.array_size == 1) {
                 srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
             } else {
                 srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
             }
 
-        } else if (desc.textuer.desc.depth == 1) {
-            if (desc.textuer.desc.array_size == 1) {
+        } else if (desc.depth == 1) {
+            if (desc.array_size == 1) {
                 if (desc.is_cube) {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-                } else if (desc.textuer.desc.sample_count > 1) {
+                } else if (desc.sample_count > 1) {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DMS;
                 } else {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -595,7 +595,7 @@ inline constexpr auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
             } else {
                 if (desc.is_cube) {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
-                } else if (desc.textuer.desc.sample_count > 1) {
+                } else if (desc.sample_count > 1) {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY;
                 } else {
                     srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
@@ -611,34 +611,34 @@ inline constexpr auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
         switch (srv_desc.ViewDimension) {
             case D3D12_SRV_DIMENSION_TEXTURE1D: {
                 srv_desc.Texture1D = {
-                    .MostDetailedMip     = desc.base_mip_level,
-                    .MipLevels           = desc.mip_level_count,
+                    .MostDetailedMip     = 0,
+                    .MipLevels           = desc.mip_levels,
                     .ResourceMinLODClamp = 0.0f,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE1DARRAY: {
                 srv_desc.Texture1DArray = {
-                    .MostDetailedMip     = desc.base_mip_level,
-                    .MipLevels           = desc.mip_level_count,
-                    .FirstArraySlice     = desc.base_array_layer,
-                    .ArraySize           = desc.array_layer_count,
+                    .MostDetailedMip     = 0,
+                    .MipLevels           = desc.mip_levels,
+                    .FirstArraySlice     = 0,
+                    .ArraySize           = desc.array_size,
                     .ResourceMinLODClamp = 0.0f,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE2D: {
                 srv_desc.Texture2D = {
-                    .MostDetailedMip     = desc.base_mip_level,
-                    .MipLevels           = desc.mip_level_count,
+                    .MostDetailedMip     = 0,
+                    .MipLevels           = desc.mip_levels,
                     .PlaneSlice          = 0,
                     .ResourceMinLODClamp = 0.0f,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE2DARRAY: {
                 srv_desc.Texture2DArray = {
-                    .MostDetailedMip     = desc.base_mip_level,
-                    .MipLevels           = desc.mip_level_count,
-                    .FirstArraySlice     = desc.base_array_layer,
-                    .ArraySize           = desc.array_layer_count,
+                    .MostDetailedMip     = 0,
+                    .MipLevels           = desc.mip_levels,
+                    .FirstArraySlice     = 0,
+                    .ArraySize           = desc.array_size,
                     .PlaneSlice          = 0,
                     .ResourceMinLODClamp = 0.0f,
                 };
@@ -650,30 +650,30 @@ inline constexpr auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY: {
                 srv_desc.Texture2DMSArray = {
-                    .FirstArraySlice = desc.base_array_layer,
-                    .ArraySize       = desc.array_layer_count,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE3D: {
                 srv_desc.Texture3D = {
-                    .MostDetailedMip     = desc.base_mip_level,
-                    .MipLevels           = desc.mip_level_count,
+                    .MostDetailedMip     = 0,
+                    .MipLevels           = desc.mip_levels,
                     .ResourceMinLODClamp = 0.0f,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURECUBE: {
                 srv_desc.TextureCube = {
-                    .MostDetailedMip     = desc.base_mip_level,
-                    .MipLevels           = desc.mip_level_count,
+                    .MostDetailedMip     = 0,
+                    .MipLevels           = desc.mip_levels,
                     .ResourceMinLODClamp = 0.0f,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURECUBEARRAY: {
                 srv_desc.TextureCubeArray = {
-                    .MostDetailedMip     = desc.base_mip_level,
-                    .MipLevels           = desc.mip_level_count,
-                    .First2DArrayFace    = desc.base_array_layer,
-                    .NumCubes            = desc.array_layer_count,
+                    .MostDetailedMip     = 0,
+                    .MipLevels           = desc.mip_levels,
+                    .First2DArrayFace    = 0,
+                    .NumCubes            = desc.array_size,
                     .ResourceMinLODClamp = 0.0f,
                 };
             } break;
@@ -686,21 +686,21 @@ inline constexpr auto to_d3d_srv_desc(const TextureView::Desc& desc) noexcept {
     return srv_desc;
 }
 
-inline constexpr auto to_d3d_uav_desc(const TextureView::Desc& desc) noexcept {
+inline constexpr auto to_d3d_uav_desc(const Texture::Desc& desc) noexcept {
     D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
         .Format = to_dxgi_format(desc.format),
     };
 
     // Dimension detect
     {
-        if (desc.textuer.desc.height == 1 && desc.textuer.desc.depth == 1) {
-            if (desc.textuer.desc.array_size == 1) {
+        if (desc.height == 1 && desc.depth == 1) {
+            if (desc.array_size == 1) {
                 uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1D;
             } else {
                 uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1DARRAY;
             }
-        } else if (desc.textuer.desc.depth == 1) {
-            if (desc.textuer.desc.array_size == 1) {
+        } else if (desc.depth == 1) {
+            if (desc.array_size == 1) {
                 uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
             } else {
                 uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
@@ -715,35 +715,35 @@ inline constexpr auto to_d3d_uav_desc(const TextureView::Desc& desc) noexcept {
         switch (uav_desc.ViewDimension) {
             case D3D12_UAV_DIMENSION_TEXTURE1D: {
                 uav_desc.Texture1D = {
-                    .MipSlice = desc.base_mip_level,
+                    .MipSlice = 0,
                 };
             } break;
             case D3D12_UAV_DIMENSION_TEXTURE1DARRAY: {
                 uav_desc.Texture1DArray = {
-                    .MipSlice        = desc.base_mip_level,
-                    .FirstArraySlice = desc.base_array_layer,
-                    .ArraySize       = desc.array_layer_count,
+                    .MipSlice        = 0,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                 };
             } break;
             case D3D12_UAV_DIMENSION_TEXTURE2D: {
                 uav_desc.Texture2D = {
-                    .MipSlice   = desc.base_mip_level,
+                    .MipSlice   = 0,
                     .PlaneSlice = 0,
                 };
             } break;
             case D3D12_UAV_DIMENSION_TEXTURE2DARRAY: {
                 uav_desc.Texture2DArray = {
-                    .MipSlice        = desc.base_mip_level,
-                    .FirstArraySlice = desc.base_array_layer,
-                    .ArraySize       = desc.array_layer_count,
+                    .MipSlice        = 0,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                     .PlaneSlice      = 0,
                 };
             } break;
             case D3D12_UAV_DIMENSION_TEXTURE3D: {
                 uav_desc.Texture3D = {
-                    .MipSlice    = desc.base_mip_level,
+                    .MipSlice    = 0,
                     .FirstWSlice = 0,
-                    .WSize       = desc.textuer.desc.depth,
+                    .WSize       = desc.depth,
                 };
             } break;
             default: {
@@ -754,29 +754,29 @@ inline constexpr auto to_d3d_uav_desc(const TextureView::Desc& desc) noexcept {
     return uav_desc;
 }
 
-inline auto to_d3d_rtv_desc(const TextureView::Desc& desc) noexcept {
+inline auto to_d3d_rtv_desc(const Texture::Desc& desc) noexcept {
     D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
         .Format = to_dxgi_format(desc.format),
     };
 
     // Dimension detect
     {
-        if (desc.textuer.desc.height == 1 && desc.textuer.desc.depth == 1) {
-            if (desc.textuer.desc.array_size == 1) {
+        if (desc.height == 1 && desc.depth == 1) {
+            if (desc.array_size == 1) {
                 rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1D;
             } else {
                 rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE1DARRAY;
             }
 
-        } else if (desc.textuer.desc.depth == 1) {
-            if (desc.textuer.desc.array_size == 1) {
-                if (desc.textuer.desc.sample_count > 1) {
+        } else if (desc.depth == 1) {
+            if (desc.array_size == 1) {
+                if (desc.sample_count > 1) {
                     rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMS;
                 } else {
                     rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
                 }
             } else {
-                if (desc.textuer.desc.sample_count > 1) {
+                if (desc.sample_count > 1) {
                     rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY;
                 } else {
                     rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
@@ -792,27 +792,27 @@ inline auto to_d3d_rtv_desc(const TextureView::Desc& desc) noexcept {
         switch (rtv_desc.ViewDimension) {
             case D3D12_RTV_DIMENSION_TEXTURE1D: {
                 rtv_desc.Texture1D = {
-                    .MipSlice = desc.base_mip_level,
+                    .MipSlice = 0,
                 };
             } break;
             case D3D12_RTV_DIMENSION_TEXTURE1DARRAY: {
                 rtv_desc.Texture1DArray = {
-                    .MipSlice        = desc.base_mip_level,
-                    .FirstArraySlice = desc.base_array_layer,
-                    .ArraySize       = desc.array_layer_count,
+                    .MipSlice        = 0,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                 };
             } break;
             case D3D12_RTV_DIMENSION_TEXTURE2D: {
                 rtv_desc.Texture2D = {
-                    .MipSlice   = desc.base_mip_level,
+                    .MipSlice   = 0,
                     .PlaneSlice = 0,
                 };
             } break;
             case D3D12_RTV_DIMENSION_TEXTURE2DARRAY: {
                 rtv_desc.Texture2DArray = {
-                    .MipSlice        = desc.base_mip_level,
-                    .FirstArraySlice = desc.base_array_layer,
-                    .ArraySize       = desc.array_layer_count,
+                    .MipSlice        = 0,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                     .PlaneSlice      = 0,
                 };
             } break;
@@ -823,13 +823,13 @@ inline auto to_d3d_rtv_desc(const TextureView::Desc& desc) noexcept {
             } break;
             case D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY: {
                 rtv_desc.Texture2DMSArray = {
-                    .FirstArraySlice = desc.base_array_layer,
-                    .ArraySize       = desc.array_layer_count,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                 };
             } break;
             case D3D12_RTV_DIMENSION_TEXTURE3D: {
                 rtv_desc.Texture3D = {
-                    .MipSlice = desc.base_mip_level,
+                    .MipSlice = 0,
                 };
             } break;
             default: {
@@ -841,29 +841,29 @@ inline auto to_d3d_rtv_desc(const TextureView::Desc& desc) noexcept {
     return rtv_desc;
 }
 
-inline auto to_d3d_dsv_desc(const TextureView::Desc& desc) noexcept {
+inline auto to_d3d_dsv_desc(const Texture::Desc& desc) noexcept {
     D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{
         .Format = to_dxgi_format(desc.format),
     };
 
     // Dimension detect
     {
-        if (desc.textuer.desc.height == 1 && desc.textuer.desc.depth == 1) {
-            if (desc.textuer.desc.array_size == 1) {
+        if (desc.height == 1 && desc.depth == 1) {
+            if (desc.array_size == 1) {
                 dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE1D;
             } else {
                 dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE1DARRAY;
             }
 
-        } else if (desc.textuer.desc.depth == 1) {
-            if (desc.textuer.desc.array_size == 1) {
-                if (desc.textuer.desc.sample_count > 1) {
+        } else if (desc.depth == 1) {
+            if (desc.array_size == 1) {
+                if (desc.sample_count > 1) {
                     dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMS;
                 } else {
                     dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
                 }
             } else {
-                if (desc.textuer.desc.sample_count > 1) {
+                if (desc.sample_count > 1) {
                     dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY;
                 } else {
                     dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
@@ -879,26 +879,26 @@ inline auto to_d3d_dsv_desc(const TextureView::Desc& desc) noexcept {
         switch (dsv_desc.ViewDimension) {
             case D3D12_DSV_DIMENSION_TEXTURE1D: {
                 dsv_desc.Texture1D = {
-                    .MipSlice = desc.base_mip_level,
+                    .MipSlice = 0,
                 };
             } break;
             case D3D12_DSV_DIMENSION_TEXTURE1DARRAY: {
                 dsv_desc.Texture1DArray = {
-                    .MipSlice        = desc.base_mip_level,
-                    .FirstArraySlice = desc.base_array_layer,
-                    .ArraySize       = desc.array_layer_count,
+                    .MipSlice        = 0,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                 };
             } break;
             case D3D12_DSV_DIMENSION_TEXTURE2D: {
                 dsv_desc.Texture2D = {
-                    .MipSlice = desc.base_mip_level,
+                    .MipSlice = 0,
                 };
             } break;
             case D3D12_DSV_DIMENSION_TEXTURE2DARRAY: {
                 dsv_desc.Texture2DArray = {
-                    .MipSlice        = desc.base_mip_level,
-                    .FirstArraySlice = desc.base_array_layer,
-                    .ArraySize       = desc.array_layer_count,
+                    .MipSlice        = 0,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                 };
             } break;
             case D3D12_DSV_DIMENSION_TEXTURE2DMS: {
@@ -908,8 +908,8 @@ inline auto to_d3d_dsv_desc(const TextureView::Desc& desc) noexcept {
             } break;
             case D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY: {
                 dsv_desc.Texture2DMSArray = {
-                    .FirstArraySlice = desc.base_array_layer,
-                    .ArraySize       = desc.array_layer_count,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                 };
             } break;
             default: {
@@ -944,6 +944,62 @@ inline constexpr auto root_parameter_type_to_slot_type(D3D12_ROOT_PARAMETER_TYPE
             return ResourceBinder::SlotType::UAV;
         default:
             throw std::invalid_argument("only root descriptor type can be cast!");
+    }
+}
+
+inline Format get_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
+    std::size_t num_components = std::countr_one(mask);
+    switch (num_components) {
+        case 1: {
+            switch (type) {
+                case D3D_REGISTER_COMPONENT_UNKNOWN:
+                    return Format::UNKNOWN;
+                case D3D_REGISTER_COMPONENT_UINT32:
+                    return Format::R32_UINT;
+                case D3D_REGISTER_COMPONENT_SINT32:
+                    return Format::R32_SINT;
+                case D3D_REGISTER_COMPONENT_FLOAT32:
+                    return Format::R32_FLOAT;
+            }
+        }
+        case 2: {
+            switch (type) {
+                case D3D_REGISTER_COMPONENT_UNKNOWN:
+                    return Format::UNKNOWN;
+                case D3D_REGISTER_COMPONENT_UINT32:
+                    return Format::R32G32_UINT;
+                case D3D_REGISTER_COMPONENT_SINT32:
+                    return Format::R32G32_SINT;
+                case D3D_REGISTER_COMPONENT_FLOAT32:
+                    return Format::R32G32_FLOAT;
+            }
+        }
+        case 3: {
+            switch (type) {
+                case D3D_REGISTER_COMPONENT_UNKNOWN:
+                    return Format::UNKNOWN;
+                case D3D_REGISTER_COMPONENT_UINT32:
+                    return Format::R32G32B32_UINT;
+                case D3D_REGISTER_COMPONENT_SINT32:
+                    return Format::R32G32B32_SINT;
+                case D3D_REGISTER_COMPONENT_FLOAT32:
+                    return Format::R32G32B32_FLOAT;
+            }
+        }
+        case 4: {
+            switch (type) {
+                case D3D_REGISTER_COMPONENT_UNKNOWN:
+                    return Format::UNKNOWN;
+                case D3D_REGISTER_COMPONENT_UINT32:
+                    return Format::R32G32B32A32_UINT;
+                case D3D_REGISTER_COMPONENT_SINT32:
+                    return Format::R32G32B32A32_SINT;
+                case D3D_REGISTER_COMPONENT_FLOAT32:
+                    return Format::R32G32B32A32_FLOAT;
+            }
+        }
+        default:
+            return Format::UNKNOWN;
     }
 }
 

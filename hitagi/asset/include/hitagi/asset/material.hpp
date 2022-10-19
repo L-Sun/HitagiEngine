@@ -54,6 +54,8 @@ public:
     auto CalculateMaterialBufferSize() const noexcept -> std::size_t;
     auto CreateInstance() -> std::shared_ptr<MaterialInstance>;
 
+    void InitPipeline(gfx::Device& device);
+
 protected:
     Material(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {});
 

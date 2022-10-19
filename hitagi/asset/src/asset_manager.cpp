@@ -25,18 +25,18 @@ bool AssetManager::Initialize() {
     m_Logger = spdlog::stdout_color_mt("AssetManager");
     m_Logger->info("Initialize...");
 
-    m_MaterialParser = std::make_unique<MaterialJSONParser>();
+    m_MaterialParser = std::make_shared<MaterialJSONParser>();
 
-    m_SceneParsers[SceneFormat::UNKOWN] = std::make_unique<AssimpParser>(m_Logger);
-    m_SceneParsers[SceneFormat::GLTF]   = std::make_unique<AssimpParser>(m_Logger);
-    m_SceneParsers[SceneFormat::GLB]    = std::make_unique<AssimpParser>(m_Logger);
-    m_SceneParsers[SceneFormat::BLEND]  = std::make_unique<AssimpParser>(m_Logger);
-    m_SceneParsers[SceneFormat::FBX]    = std::make_unique<AssimpParser>(m_Logger);
+    m_SceneParsers[SceneFormat::UNKOWN] = std::make_shared<AssimpParser>(m_Logger);
+    m_SceneParsers[SceneFormat::GLTF]   = std::make_shared<AssimpParser>(m_Logger);
+    m_SceneParsers[SceneFormat::GLB]    = std::make_shared<AssimpParser>(m_Logger);
+    m_SceneParsers[SceneFormat::BLEND]  = std::make_shared<AssimpParser>(m_Logger);
+    m_SceneParsers[SceneFormat::FBX]    = std::make_shared<AssimpParser>(m_Logger);
 
-    m_ImageParsers[ImageFormat::PNG]  = std::make_unique<PngParser>(m_Logger);
-    m_ImageParsers[ImageFormat::JPEG] = std::make_unique<JpegParser>(m_Logger);
-    m_ImageParsers[ImageFormat::TGA]  = std::make_unique<TgaParser>(m_Logger);
-    m_ImageParsers[ImageFormat::BMP]  = std::make_unique<BmpParser>(m_Logger);
+    m_ImageParsers[ImageFormat::PNG]  = std::make_shared<PngParser>(m_Logger);
+    m_ImageParsers[ImageFormat::JPEG] = std::make_shared<JpegParser>(m_Logger);
+    m_ImageParsers[ImageFormat::TGA]  = std::make_shared<TgaParser>(m_Logger);
+    m_ImageParsers[ImageFormat::BMP]  = std::make_shared<BmpParser>(m_Logger);
 
     // m_MoCapParser = std::make_unique<BvhParser>();
 
@@ -77,7 +77,38 @@ std::shared_ptr<Material> AssetManager::ImportMaterial(const std::filesystem::pa
 }
 
 void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
-    if (scene) m_Assets.scenes.emplace(std::move(scene));
+    if (scene == nullptr) return;
+
+    auto&& [_, success] = m_Assets.scenes.emplace(scene);
+
+    if (success) {
+        for (const auto& node : scene->camera_nodes) {
+            AddCamera(node->GetObjectRef());
+        }
+        for (const auto& node : scene->light_nodes) {
+            AddLight(node->GetObjectRef());
+        }
+        for (const auto& node : scene->armature_nodes) {
+            AddArmature(node->GetObjectRef());
+        }
+        for (const auto& node : scene->instance_nodes) {
+            auto mesh = node->GetObjectRef();
+            AddMesh(node->GetObjectRef());
+
+            for (const auto& submesh : mesh->GetSubMeshes()) {
+                if (submesh.material_instance->GetMaterial() == nullptr) {
+                    submesh.material_instance->SetMaterial(GetMaterial("Phong"));
+                }
+                for (const auto& texture : submesh.material_instance->GetTextures()) {
+                    if (texture->Empty()) {
+                        auto image_format = get_image_format(texture->GetPath().extension().string());
+                        texture->Load(m_ImageParsers[image_format]);
+                    }
+                    AddTexture(texture);
+                }
+            }
+        }
+    }
 }
 
 void AssetManager::AddCamera(std::shared_ptr<Camera> camera) {

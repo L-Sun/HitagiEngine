@@ -63,9 +63,8 @@ void Editor::Render() {
             data.back_buffer = builder.Write(back_buffer);
         },
         [=](const gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::GraphicsCommandContext* context) {
-            auto rtv = context->device.CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.back_buffer)});
-            context->SetRenderTarget(*rtv);
-            context->ClearRenderTarget(*rtv);
+            context->SetRenderTarget(helper.Get<gfx::Texture>(data.back_buffer));
+            context->ClearRenderTarget(helper.Get<gfx::Texture>(data.back_buffer));
         });
 
     auto output = gui_manager->GuiRenderPass(render_graph, clear_pass.back_buffer);
@@ -164,7 +163,7 @@ void Editor::FileExplorer() {
 void Editor::SceneExplorer() {
     if (ImGui::Begin("Scene Explorer")) {
         auto scene = m_SceneViewPort->GetScene();
-        if (ImGui::CollapsingHeader("Scene Nodes")) {
+        if (scene && scene->root && ImGui::CollapsingHeader("Scene Nodes")) {
             std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](const std::shared_ptr<SceneNode>& node) -> void {
                 if (node == nullptr) return;
                 if (ImGui::TreeNode(node->GetName().c_str())) {

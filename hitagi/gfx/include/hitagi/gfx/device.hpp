@@ -29,9 +29,7 @@ public:
 
     virtual auto CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain>                                            = 0;
     virtual auto CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GpuBuffer> = 0;
-    virtual auto CreateBufferView(GpuBufferView::Desc desc) -> std::shared_ptr<GpuBufferView>                                   = 0;
     virtual auto CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture>    = 0;
-    virtual auto CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<TextureView>                                      = 0;
     virtual auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler>                                                   = 0;
 
     virtual void CompileShader(Shader& shader)                                                      = 0;

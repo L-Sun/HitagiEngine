@@ -326,7 +326,7 @@ union ClearValue {
 };
 
 struct VertexAttribute {
-    std::string_view semantic_name;
+    std::pmr::string semantic_name;
     std::uint8_t     semantic_index;
     std::uint8_t     slot;
     std::uint32_t    aligned_offset;

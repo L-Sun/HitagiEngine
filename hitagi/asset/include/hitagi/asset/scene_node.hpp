@@ -32,7 +32,7 @@ public:
     SceneNodeWithObject(std::shared_ptr<T> obj_ref, Transform transform = {}, std::string_view name = "", xg::Guid guid = {})
         : SceneNode(transform, name, guid), m_ObjectRef(obj_ref) {}
 
-    inline auto GetObject() const noexcept { return m_ObjectRef; }
+    inline auto GetObjectRef() const noexcept { return m_ObjectRef; }
 
 protected:
     std::shared_ptr<T> m_ObjectRef;

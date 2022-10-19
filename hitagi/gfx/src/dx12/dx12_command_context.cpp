@@ -142,32 +142,33 @@ void DX12GraphicsCommandContext::SetBlendColor(const math::vec4f& color) {
     m_CmdList->OMSetBlendFactor(color);
 }
 
-void DX12GraphicsCommandContext::SetRenderTarget(const TextureView& target) {
-    TransitionResource(target.desc.textuer, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+void DX12GraphicsCommandContext::SetRenderTarget(Texture& target) {
+    TransitionResource(target, D3D12_RESOURCE_STATE_RENDER_TARGET, true);
 
-    const auto& rtv = static_cast<const DX12DescriptorWrapper<TextureView>&>(target).rtv;
+    const auto& rtv = static_cast<DX12Texture&>(target).rtv;
     m_CmdList->OMSetRenderTargets(1, &rtv.cpu_handle, false, nullptr);
 }
 
-void DX12GraphicsCommandContext::SetRenderTargetAndDepthStencil(const TextureView& target, const TextureView& depth_stencil) {
-    TransitionResource(target.desc.textuer, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    TransitionResource(depth_stencil.desc.textuer, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
+void DX12GraphicsCommandContext::SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) {
+    TransitionResource(target, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    TransitionResource(depth_stencil, D3D12_RESOURCE_STATE_DEPTH_WRITE, true);
 
-    const auto& dx12_texture_view = static_cast<const DX12DescriptorWrapper<TextureView>&>(target);
-    m_CmdList->OMSetRenderTargets(1, &dx12_texture_view.rtv.cpu_handle, false, &dx12_texture_view.dsv.cpu_handle);
+    const auto& dx12_render_target = static_cast<DX12Texture&>(target);
+    const auto& dx12_depth_stencil = static_cast<DX12Texture&>(depth_stencil);
+    m_CmdList->OMSetRenderTargets(1, &dx12_render_target.rtv.cpu_handle, false, &dx12_depth_stencil.dsv.cpu_handle);
 }
 
-void DX12GraphicsCommandContext::ClearRenderTarget(const TextureView& target) {
-    const auto& clear_color = target.desc.textuer.desc.clear_value.color;
+void DX12GraphicsCommandContext::ClearRenderTarget(Texture& target) {
+    const auto& clear_color = target.desc.clear_value.color;
 
-    const auto& rtv = static_cast<const DX12DescriptorWrapper<TextureView>&>(target).rtv;
+    const auto& rtv = static_cast<DX12Texture&>(target).rtv;
     m_CmdList->ClearRenderTargetView(rtv.cpu_handle, clear_color, 0, nullptr);
 }
 
-void DX12GraphicsCommandContext::ClearDepthStencil(const TextureView& depth_stencil) {
-    const auto& clear_value = depth_stencil.desc.textuer.desc.clear_value;
+void DX12GraphicsCommandContext::ClearDepthStencil(Texture& depth_stencil) {
+    const auto& clear_value = depth_stencil.desc.clear_value;
 
-    const auto& dsv = static_cast<const DX12DescriptorWrapper<TextureView>&>(depth_stencil).dsv;
+    const auto& dsv = static_cast<DX12Texture&>(depth_stencil).dsv;
     m_CmdList->ClearDepthStencilView(dsv.cpu_handle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_value.depth, clear_value.stencil, 0, nullptr);
 }
 
@@ -179,29 +180,29 @@ void DX12GraphicsCommandContext::SetPipeline(const RenderPipeline& pipeline) {
     m_CmdList->IASetPrimitiveTopology(to_d3d_primitive_topology(pipeline.desc.topology));
 }
 
-void DX12GraphicsCommandContext::SetIndexBuffer(const GpuBufferView& buffer) {
-    TransitionResource(buffer.desc.buffer, D3D12_RESOURCE_STATE_INDEX_BUFFER, true);
-    m_CmdList->IASetIndexBuffer(&static_cast<const DX12GpuBufferView&>(buffer).ibv.value());
+void DX12GraphicsCommandContext::SetIndexBuffer(GpuBuffer& buffer) {
+    TransitionResource(buffer, D3D12_RESOURCE_STATE_INDEX_BUFFER, true);
+    m_CmdList->IASetIndexBuffer(&static_cast<DX12GpuBuffer&>(buffer).ibv.value());
 }
 
-void DX12GraphicsCommandContext::SetVertexBuffer(std::uint8_t slot, const GpuBufferView& buffer) {
-    TransitionResource(buffer.desc.buffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, true);
-    m_CmdList->IASetVertexBuffers(slot, 1, &static_cast<const DX12GpuBufferView&>(buffer).vbv.value());
+void DX12GraphicsCommandContext::SetVertexBuffer(std::uint8_t slot, GpuBuffer& buffer) {
+    TransitionResource(buffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, true);
+    m_CmdList->IASetVertexBuffers(slot, 1, &static_cast<DX12GpuBuffer&>(buffer).vbv.value());
 }
 
 void DX12GraphicsCommandContext::PushConstant(std::uint32_t slot, const std::span<const std::byte>& data) {
     m_ResourceBinder.PushConstant(slot, data);
 }
 
-void DX12GraphicsCommandContext::BindConstantBuffer(std::uint32_t slot, const GpuBufferView& buffer, std::size_t index) {
+void DX12GraphicsCommandContext::BindConstantBuffer(std::uint32_t slot, const GpuBuffer& buffer, std::size_t index) {
     m_ResourceBinder.BindConstantBuffer(slot, buffer, index);
 }
 
-void DX12GraphicsCommandContext::BindTexture(std::uint32_t slot, const TextureView& texture) {
+void DX12GraphicsCommandContext::BindTexture(std::uint32_t slot, const Texture& texture) {
     m_ResourceBinder.BindTexture(slot, texture);
 }
 
-int DX12GraphicsCommandContext::GetBindless(const TextureView& texture_view) {
+int DX12GraphicsCommandContext::GetBindless(const Texture& texture_view) {
     return -1;
 }
 
@@ -215,9 +216,9 @@ void DX12GraphicsCommandContext::DrawIndexed(std::uint32_t index_count, std::uin
     m_CmdList->DrawIndexedInstanced(index_count, instance_count, first_index, base_vertex, first_instance);
 }
 
-void DX12GraphicsCommandContext::CopyTexture(const Texture& src, const Texture& dest) {
-    auto& d3d_src_tex = static_cast<const DX12ResourceWrapper<Texture>&>(src);
-    auto& d3d_dst_tex = static_cast<const DX12ResourceWrapper<Texture>&>(dest);
+void DX12GraphicsCommandContext::CopyTexture(const Texture& src, Texture& dest) {
+    auto& d3d_src_tex = static_cast<const DX12Texture&>(src);
+    auto& d3d_dst_tex = static_cast<DX12Texture&>(dest);
 
     D3D12_TEXTURE_COPY_LOCATION src_desc{
         .pResource        = d3d_src_tex.resource.Get(),

@@ -33,9 +33,7 @@ public:
 
     auto CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> final;
     auto CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GpuBuffer> final;
-    auto CreateBufferView(GpuBufferView::Desc desc) -> std::shared_ptr<GpuBufferView> final;
     auto CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
-    auto CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<TextureView> final;
     auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> final;
 
     void CompileShader(Shader& shader) final;
@@ -46,14 +44,13 @@ public:
     inline auto GetLogger() const noexcept { return m_Logger; };
     inline auto GetDevice() const noexcept { return m_Device; }
 
-    auto RequestDynamicDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEAP_TYPE type) -> Descriptor;
-    void RetireDynamicDescriptors(Descriptor&& descriptor, std::uint64_t fence_value);
-
-    bool FenceFinished(std::uint64_t fence_value);
+    auto AllocateDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEAP_TYPE type) -> Descriptor;
+    auto AllocateDynamicDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEAP_TYPE type) -> Descriptor;
 
 private:
     void IntegrateD3D12Logger();
     void UnregisterIntegratedD3D12Logger();
+    auto CreateInputLayout(Shader& vs) -> InputLayout;
 
     ComPtr<IDXGIFactory6> m_Factory;
     ComPtr<ID3D12Device9> m_Device;
@@ -67,7 +64,6 @@ private:
     utils::EnumArray<std::unique_ptr<DescriptorAllocator>, D3D12_DESCRIPTOR_HEAP_TYPE> m_DescriptorAllocators;
     // Only cbv_uav_srv and sampler allocator
     std::array<std::unique_ptr<DescriptorAllocator>, 2> m_GpuDescriptorAllocators;
-    std::deque<std::pair<Descriptor, std::uint64_t>>    m_ReiteredGpuDescriptors;
 
     std::pmr::unordered_map<void*, std::shared_ptr<DX12SwapChain>> m_SwapChains;
 

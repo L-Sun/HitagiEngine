@@ -36,9 +36,9 @@ private:
     void InitBuiltinMaterial();
 
     // Parser
-    std::unique_ptr<MaterialParser>                                    m_MaterialParser;
-    std::pmr::unordered_map<ImageFormat, std::unique_ptr<ImageParser>> m_ImageParsers;
-    std::pmr::unordered_map<SceneFormat, std::unique_ptr<SceneParser>> m_SceneParsers;
+    std::shared_ptr<MaterialParser>                                    m_MaterialParser;
+    std::pmr::unordered_map<ImageFormat, std::shared_ptr<ImageParser>> m_ImageParsers;
+    std::pmr::unordered_map<SceneFormat, std::shared_ptr<SceneParser>> m_SceneParsers;
 
     struct Assets {
         template <typename T>

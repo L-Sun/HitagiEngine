@@ -13,6 +13,7 @@ constexpr auto UNKOWN_NAME = "Unkown";
 struct Resource {
     virtual ~Resource() = default;
     Resource(Device& device) : device(device) {}
+    Resource(const Resource&) = delete;
     Device& device;
 };
 
@@ -25,40 +26,46 @@ struct GpuBuffer : public Resource {
         MapWrite = (MapRead << 1),
         CopySrc  = (MapWrite << 1),
         CopyDst  = (CopySrc << 1),
-        Constant = (CopyDst << 1),
+        Vertex   = (CopyDst << 1),
+        Index    = (Vertex << 1),
+        Constant = (Index << 1),
     };
 
     struct Desc {
         std::string_view name = UNKOWN_NAME;
-        std::uint64_t    size;
-        UsageFlags       usages = UsageFlags::Unkown;
+        std::uint64_t    element_size;
+        std::uint64_t    element_count = 1;
+        UsageFlags       usages        = UsageFlags::Unkown;
     };
 
-    GpuBuffer(Device& device, Desc desc, std::byte* mapped_ptr) : Resource(device), desc(desc), mapped_ptr(mapped_ptr) {}
+    GpuBuffer(Device& device, Desc desc, std::size_t size, std::byte* mapped_ptr)
+        : Resource(device), desc(desc), size(size), mapped_ptr(mapped_ptr) {}
 
-    const Desc       desc;
-    std::byte* const mapped_ptr;
-};
+    template <typename T>
+    void Update(std::size_t index, T data) {
+        if (update_fn) {
+            assert(sizeof(T) == desc.element_size);
+            update_fn(index, std::span(reinterpret_cast<const std::byte*>(&data), sizeof(T)));
+        }
+    }
+    template <>
+    void Update(std::size_t index, std::span<const std::byte> data) {
+        if (update_fn) {
+            update_fn(index, data);
+        }
+    }
+    template <>
+    void Update(std::size_t index, std::span<std::byte> data) {
+        if (update_fn) {
+            update_fn(index, data);
+        }
+    }
 
-struct GpuBufferView : public Resource {
-    enum struct UsageFlags : std::uint32_t {
-        Vertex   = 0x1,
-        Index    = (Vertex << 1),
-        Constant = (Index << 1),
-        Indirect = (Constant << 1),
-    };
+    const Desc        desc;
+    const std::size_t size;
+    std::byte* const  mapped_ptr = nullptr;
 
-    struct Desc {
-        GpuBuffer&  buffer;
-        std::size_t offset = 0;
-        std::size_t size   = 0;  // When `size == 0`, it will be re-calculated with `buffer.size - offset`
-        std::size_t stride;
-        UsageFlags  usages;
-    };
-
-    GpuBufferView(Device& device, Desc desc) : Resource(device), desc(desc) {}
-
-    const Desc desc;
+    std::function<void(std::size_t, std::span<const std::byte>)> update_fn;
 };
 
 struct Texture : public Resource {
@@ -80,27 +87,12 @@ struct Texture : public Resource {
         Format           format       = Format::UNKNOWN;
         std::uint16_t    mip_levels   = 1;
         std::uint32_t    sample_count = 1;
+        bool             is_cube      = false;
         ClearValue       clear_value;
         UsageFlags       usages = UsageFlags::SRV;
     };
 
     Texture(Device& device, Desc desc) : Resource(device), desc(desc) {}
-
-    const Desc desc;
-};
-
-struct TextureView : public Resource {
-    struct Desc {
-        Texture&      textuer;
-        Format        format            = Format::UNKNOWN;
-        bool          is_cube           = false;
-        std::uint16_t base_mip_level    = 0;
-        std::uint16_t mip_level_count   = 1;
-        std::uint32_t base_array_layer  = 0;
-        std::uint32_t array_layer_count = 1;
-    };
-
-    TextureView(Device& device, Desc desc) : Resource(device), desc(desc) {}
 
     const Desc desc;
 };
@@ -190,10 +182,6 @@ struct ComputePipeline : public Resource {
 
 template <>
 struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::GpuBuffer::UsageFlags> {
-    static constexpr bool enable = true;
-};
-template <>
-struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::GpuBufferView::UsageFlags> {
     static constexpr bool enable = true;
 };
 template <>

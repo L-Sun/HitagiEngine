@@ -3,7 +3,7 @@
     "$id": "http://example.com/example.json",
     "type": "object",
     "default": {},
-    "Material define": "Root Schema",
+    "title": "Root Schema",
     "required": [
         "name",
         "vertex_shader",
@@ -14,7 +14,10 @@
         "name": {
             "type": "string",
             "default": "",
-            "title": "The name of material"
+            "title": "The name Schema",
+            "examples": [
+                "Phong"
+            ]
         },
         "vertex_shader": {
             "type": "string",
@@ -22,8 +25,7 @@
             "title": "vertex shader path",
             "examples": [
                 "assets/shaders/phong.hlsl"
-            ],
-            "description": "The HLSL vertex shader path with entry `VSMain`"
+            ]
         },
         "pixel_shader": {
             "type": "string",
@@ -31,12 +33,11 @@
             "title": "pixel shader path",
             "examples": [
                 "assets/shaders/phong.hlsl"
-            ],
-            "description": "The HLSL pixel shader path with entry `PSMain`"
+            ]
         },
         "primitive": {
             "type": "string",
-            "default": "TriangleList",
+            "default": "",
             "title": "Primitive type",
             "examples": [
                 "TriangleList"
@@ -62,80 +63,158 @@
                 "title": "Material parameter",
                 "required": [
                     "name",
-                    "type"
+                    "type",
+                    "default"
                 ],
                 "properties": {
                     "name": {
                         "type": "string",
-                        "title": "The name of parameter",
+                        "title": "The name Schema",
                         "examples": [
-                            "ambient",
                             "diffuse",
-                            "emission",
+                            "ambient",
+                            "specular",
                             "specular_power",
-                            "ambient_texture",
-                            "diffuse_texture"
+                            "skin"
                         ]
                     },
                     "type": {
                         "type": "string",
-                        "title": "The type of parameter",
+                        "title": "The type Schema",
                         "examples": [
                             "vec4f",
-                            "vec2f",
-                            "vec3f",
                             "float",
-                            "texture"
-                        ],
-                        "enum": [
-                            "float",
-                            "int32",
-                            "uint32",
-                            "vec2i",
-                            "vec2u",
-                            "vec2f",
-                            "vec3i",
-                            "vec3u",
-                            "vec3f",
-                            "vec4i",
-                            "vec4u",
-                            "mat4f",
-                            "vec4f",
                             "texture"
                         ]
                     },
                     "default": {
                         "type": [
                             "array",
-                            "number"
+                            "number",
+                            "string"
                         ],
                         "title": "The default Schema",
                         "items": {
                             "type": "number",
                             "title": "A Schema",
                             "examples": [
-                                0.1,
-                                0.2,
-                                0.3,
-                                0.4
+                                1.0,
+                                0.8,
+                                0.5,
+                                0.0
                             ]
-                        }
+                        },
+                        "examples": [
+                            [
+                                1.0,
+                                0.8,
+                                0.5,
+                                1.0
+                            ],
+                            [
+                                0.5,
+                                0.8,
+                                0.5,
+                                1.0
+                            ],
+                            [
+                                0.0,
+                                0.8,
+                                0.5,
+                                1.0
+                            ],
+                            23.0,
+                            "assets/test/test.jpg"
+                        ]
                     }
                 },
                 "examples": [
                     {
+                        "name": "diffuse",
+                        "type": "vec4f",
+                        "default": [
+                            1.0,
+                            0.8,
+                            0.5,
+                            1.0
+                        ]
+                    },
+                    {
                         "name": "ambient",
                         "type": "vec4f",
                         "default": [
-                            0.1,
-                            0.2,
-                            0.3,
-                            0.4
+                            0.5,
+                            0.8,
+                            0.5,
+                            1.0
                         ]
+                    },
+                    {
+                        "name": "specular",
+                        "type": "vec4f",
+                        "default": [
+                            0.0,
+                            0.8,
+                            0.5,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "specular_power",
+                        "type": "float",
+                        "default": 23.0
+                    },
+                    {
+                        "name": "skin",
+                        "type": "texture",
+                        "default": "assets/test/test.jpg"
                     }
                 ]
             },
-            "description": "The parameters of material, which must be matched with the material constant buffer in shader."
+            "examples": [
+                [
+                    {
+                        "name": "diffuse",
+                        "type": "vec4f",
+                        "default": [
+                            1.0,
+                            0.8,
+                            0.5,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "ambient",
+                        "type": "vec4f",
+                        "default": [
+                            0.5,
+                            0.8,
+                            0.5,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "specular",
+                        "type": "vec4f",
+                        "default": [
+                            0.0,
+                            0.8,
+                            0.5,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "specular_power",
+                        "type": "float",
+                        "default": 23.0
+                    },
+                    {
+                        "name": "skin",
+                        "type": "texture",
+                        "default": "assets/test/test.jpg"
+                    }
+                ]
+            ]
         }
     },
     "examples": [
@@ -146,40 +225,44 @@
             "primitive": "TriangleList",
             "parameters": [
                 {
-                    "name": "ambient",
+                    "name": "diffuse",
                     "type": "vec4f",
                     "default": [
-                        0.1,
-                        0.2,
-                        0.3,
-                        0.4
+                        1.0,
+                        0.8,
+                        0.5,
+                        1.0
                     ]
                 },
                 {
-                    "name": "diffuse",
-                    "type": "vec2f"
+                    "name": "ambient",
+                    "type": "vec4f",
+                    "default": [
+                        0.5,
+                        0.8,
+                        0.5,
+                        1.0
+                    ]
                 },
                 {
-                    "name": "emission",
-                    "type": "vec3f",
+                    "name": "specular",
+                    "type": "vec4f",
                     "default": [
-                        0.1,
-                        0.2,
-                        0.3
+                        0.0,
+                        0.8,
+                        0.5,
+                        1.0
                     ]
                 },
                 {
                     "name": "specular_power",
                     "type": "float",
-                    "default": 1.0
+                    "default": 23.0
                 },
                 {
-                    "name": "ambient_texture",
-                    "type": "texture"
-                },
-                {
-                    "name": "diffuse_texture",
-                    "type": "texture"
+                    "name": "skin",
+                    "type": "texture",
+                    "default": "assets/test/test.jpg"
                 }
             ]
         }

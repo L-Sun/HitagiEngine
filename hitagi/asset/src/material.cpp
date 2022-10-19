@@ -12,6 +12,8 @@ Material::Material(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Par
     : Resource(name, guid),
       m_PipelineDesc(std::move(pipeline_desc)),
       m_DefaultParameters(std::move(parameters)) {
+    m_PipelineDesc.name = m_Name;
+
     auto iter = std::unique(m_DefaultParameters.rbegin(), m_DefaultParameters.rend(), [](const auto& lhs, const auto& rhs) {
         return lhs.name == rhs.name;
     });
@@ -53,6 +55,10 @@ auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
     auto result        = std::make_shared<MaterialInstance>(m_DefaultParameters, instance_name);
     result->SetMaterial(shared_from_this());
     return result;
+}
+
+void Material::InitPipeline(gfx::Device& device) {
+    m_Pipeline = device.CreateRenderPipeline(m_PipelineDesc);
 }
 
 MaterialInstance::MaterialInstance(std::pmr::vector<Material::Parameter> parameters, std::string_view name, xg::Guid guid)

@@ -1,4 +1,5 @@
 #include "dx12_resource.hpp"
+#include "dx12_device.hpp"
 #include "utils.hpp"
 
 namespace hitagi::gfx {
@@ -18,7 +19,7 @@ auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
 
             auto d3d_desc = texture->GetDesc();
 
-            auto result = std::make_shared<DX12ResourceWrapper<Texture>>(
+            auto result = std::make_shared<DX12Texture>(
                 device,
                 Texture::Desc{
                     .name         = back_buffer_names.back(),
@@ -33,6 +34,12 @@ auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
                 });
             result->resource = std::move(texture);
             result->state    = D3D12_RESOURCE_STATE_COMMON;
+
+            if (utils::has_flag(result->desc.usages, Texture::UsageFlags::RTV)) {
+                auto rtv_desc = to_d3d_rtv_desc(result->desc);
+                result->rtv   = static_cast<DX12Device&>(device).AllocateDescriptors(1, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+                static_cast<DX12Device&>(device).GetDevice()->CreateRenderTargetView(result->resource.Get(), &rtv_desc, result->rtv.cpu_handle);
+            }
             back_buffers.emplace_back(std::move(result));
         }
     }

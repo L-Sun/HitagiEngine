@@ -84,8 +84,10 @@ TEST_F(RenderGraphTest, RenderPass) {
         // clang-format on
         auto vertex_buffer = device->CreateBuffer(
             {
-                .name = "triangle",
-                .size = sizeof(vec3f) * triangle.size(),
+                .name          = "triangle",
+                .element_size  = sizeof(vec3f),
+                .element_count = triangle.size(),
+                .usages        = GpuBuffer::UsageFlags::Vertex,
             },
             {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
@@ -107,20 +109,8 @@ TEST_F(RenderGraphTest, RenderPass) {
             [=](const RenderGraph::ResourceHelper& helper, const ColorPass& data, GraphicsCommandContext* context) {
                 auto& render_target = helper.Get<Texture>(data.output);
 
-                auto vbv = device->CreateBufferView(
-                    {
-                        .buffer = helper.Get<GpuBuffer>(data.vertices),
-                        .stride = 2 * sizeof(vec3f),
-                        .usages = GpuBufferView::UsageFlags::Vertex,
-                    });
-
-                auto rtv = device->CreateTextureView(
-                    {
-                        .textuer = render_target,
-                    });
-
                 context->SetPipeline(*pipeline);
-                context->SetRenderTarget(*rtv);
+                context->SetRenderTarget(render_target);
                 context->SetViewPort(ViewPort{
                     .x      = 0,
                     .y      = 0,
@@ -133,7 +123,7 @@ TEST_F(RenderGraphTest, RenderPass) {
                     .width  = render_target.desc.width,
                     .height = render_target.desc.height,
                 });
-                context->SetVertexBuffer(0, *vbv);
+                context->SetVertexBuffer(0, helper.Get<GpuBuffer>(data.vertices));
                 context->Draw(3);
             });
 
