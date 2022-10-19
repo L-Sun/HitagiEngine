@@ -1,4 +1,5 @@
 #include "dx12_command_context.hpp"
+#include <d3d12.h>
 #include "dx12_device.hpp"
 #include "dx12_resource.hpp"
 #include "utils.hpp"
@@ -194,11 +195,12 @@ void DX12GraphicsCommandContext::PushConstant(std::uint32_t slot, const std::spa
     m_ResourceBinder.PushConstant(slot, data);
 }
 
-void DX12GraphicsCommandContext::BindConstantBuffer(std::uint32_t slot, const GpuBuffer& buffer, std::size_t index) {
+void DX12GraphicsCommandContext::BindConstantBuffer(std::uint32_t slot, GpuBuffer& buffer, std::size_t index) {
     m_ResourceBinder.BindConstantBuffer(slot, buffer, index);
 }
 
-void DX12GraphicsCommandContext::BindTexture(std::uint32_t slot, const Texture& texture) {
+void DX12GraphicsCommandContext::BindTexture(std::uint32_t slot, Texture& texture) {
+    TransitionResource(texture, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, true);
     m_ResourceBinder.BindTexture(slot, texture);
 }
 

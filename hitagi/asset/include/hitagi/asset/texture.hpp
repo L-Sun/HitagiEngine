@@ -24,6 +24,9 @@ public:
     Texture(Texture&&)            = default;
     Texture& operator=(Texture&&) = default;
 
+    static auto DefaultTexture() -> std::shared_ptr<Texture>;
+    static void DestoryDefaultTexture();
+
     inline auto  Empty() const noexcept { return m_CpuData.Empty(); }
     inline auto  Width() const noexcept { return m_Width; }
     inline auto  Height() const noexcept { return m_Height; }
@@ -36,7 +39,7 @@ public:
     bool Load(const std::shared_ptr<ImageParser>& parser);
     void Unload();
 
-    bool InitGpuData(gfx::Device& device);
+    void InitGpuData(gfx::Device& device);
 
 private:
     std::uint32_t m_Width = 0, m_Height = 0;
@@ -44,8 +47,11 @@ private:
 
     std::filesystem::path m_Path;
 
+    bool                          m_Dirty   = true;
     core::Buffer                  m_CpuData = {};
     std::shared_ptr<gfx::Texture> m_GpuData = nullptr;
+
+    static std::shared_ptr<Texture> m_DefaultTexture;
 };
 
 }  // namespace hitagi::asset

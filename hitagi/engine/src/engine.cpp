@@ -29,9 +29,9 @@ bool Engine::Initialize() {
         || !(thread_manager   = add_inner_module(std::make_unique<core::ThreadManager>()))      
         || !(file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>()))      
         || !(config_manager   = add_inner_module(std::make_unique<core::ConfigManager>()))      
-        || !(asset_manager    = add_inner_module(std::make_unique<asset::AssetManager>()))   
         || !(app              = add_inner_module(Application::CreateApp()))                     
         || !(graphics_manager = add_inner_module(std::make_unique<gfx::GraphicsManager>()))
+        || !(asset_manager    = add_inner_module(std::make_unique<asset::AssetManager>()))   
         || !(debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>()))   
         || !(gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>()))
     ) {

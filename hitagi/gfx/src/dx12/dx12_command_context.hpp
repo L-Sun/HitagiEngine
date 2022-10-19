@@ -56,8 +56,8 @@ public:
     void SetVertexBuffer(std::uint8_t slot, GpuBuffer& buffer) final;
 
     void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data) final;
-    void BindConstantBuffer(std::uint32_t slot, const GpuBuffer& buffer, std::size_t index = 0) final;
-    void BindTexture(std::uint32_t slot, const Texture& texture) final;
+    void BindConstantBuffer(std::uint32_t slot, GpuBuffer& buffer, std::size_t index = 0) final;
+    void BindTexture(std::uint32_t slot, Texture& texture) final;
     int  GetBindless(const Texture& texture) final;
 
     void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;

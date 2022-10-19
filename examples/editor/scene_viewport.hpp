@@ -12,12 +12,13 @@ public:
 
     inline std::string_view GetName() const noexcept final { return "SceneViewPort"; }
 
-    inline void SetScene(std::shared_ptr<asset::Scene> scene) noexcept { m_CurrentScene = std::move(scene); };
+    void SetScene(std::shared_ptr<asset::Scene> scene) noexcept;
 
     inline auto GetScene() const noexcept { return m_CurrentScene; };
 
 private:
-    bool                          m_Open         = true;
-    std::shared_ptr<asset::Scene> m_CurrentScene = nullptr;
+    bool                               m_Open         = true;
+    std::shared_ptr<asset::Scene>      m_CurrentScene = nullptr;
+    std::shared_ptr<asset::CameraNode> m_Camera       = nullptr;
 };
 }  // namespace hitagi

@@ -59,9 +59,9 @@ public:
     void PushConstant(std::uint32_t slot, T&& data) {
         PushConstant(slot, {reinterpret_cast<const std::byte*>(&data), sizeof(T)});
     }
-    virtual void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data)               = 0;
-    virtual void BindConstantBuffer(std::uint32_t slot, const GpuBuffer& buffer, std::size_t index = 0) = 0;
-    virtual void BindTexture(std::uint32_t slot, const Texture& texture)                                = 0;
+    virtual void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data)         = 0;
+    virtual void BindConstantBuffer(std::uint32_t slot, GpuBuffer& buffer, std::size_t index = 0) = 0;
+    virtual void BindTexture(std::uint32_t slot, Texture& texture)                                = 0;
 
     // Bindless resource
     virtual int GetBindless(const Texture& texture) = 0;

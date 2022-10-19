@@ -65,6 +65,7 @@ protected:
     gfx::RenderPipeline::Desc   m_PipelineDesc;
     std::pmr::vector<Parameter> m_DefaultParameters;
 
+    bool                                 m_Dirty                  = true;
     std::shared_ptr<gfx::RenderPipeline> m_Pipeline               = nullptr;
     std::shared_ptr<gfx::GpuBuffer>      m_MaterialConstantBuffer = nullptr;
 };

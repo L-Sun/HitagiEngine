@@ -164,6 +164,10 @@ void ResourceBinder::BindTexture(std::uint32_t slot, const Texture& texture) {
 void ResourceBinder::FlushDescriptors() {
     if (m_TableMask.none()) return;
 
+    if (m_CBV_UAV_SRV_Cache.empty() && m_Sampler_Cache.empty()) {
+        return;
+    }
+
     Descriptor cbv_uav_srv_heap, sampler_heap;
     if (!m_CBV_UAV_SRV_Cache.empty()) {
         cbv_uav_srv_heap = m_Context.m_Device.AllocateDynamicDescriptors(m_CBV_UAV_SRV_Cache.size(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -178,7 +182,12 @@ void ResourceBinder::FlushDescriptors() {
 
         for (const auto& [slot, info] : m_SlotInfos[slot_type]) {
             if (info.binding_type != BindingType::DescriptorTable) continue;
-            if (cache.at(info.offset_in_heap).ptr == 0) continue;
+            if (cache.at(info.offset_in_heap).ptr == 0) {
+                m_Context.m_Device.GetLogger()->error(
+                    "No descriptor bind to the descriptor table({}:{})!",
+                    fmt::styled(info.param_index, fmt::fg(fmt::color::green)),
+                    fmt::styled(magic_enum::enum_name(info.binding_type), fmt::fg(fmt::color::green)));
+            }
             // clear dirty
 
             m_Context.m_Device.GetDevice()->CopyDescriptorsSimple(

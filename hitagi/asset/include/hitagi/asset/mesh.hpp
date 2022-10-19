@@ -104,8 +104,8 @@ public:
 
     bool        Empty() const noexcept;
     inline auto Size() const noexcept { return m_VertexCount; }
-    template <VertexAttribute T>
-    inline const auto& GetAttributeData() const noexcept { return m_Attributes[T]; }
+    auto        GetAttributeData(VertexAttribute attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>>;
+    auto        GetAttributeData(const gfx::VertexAttribute& attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>>;
 
     template <VertexAttribute T>
     auto Span() const noexcept -> std::span<const VertexDataType<T>>;
@@ -113,6 +113,8 @@ public:
     template <VertexAttribute T>
     void Modify(std::function<void(std::span<VertexDataType<T>>)> modifier);
     void Resize(std::size_t new_count);
+
+    void InitGpuData(gfx::Device& device);
 
 private:
     std::size_t                                      m_VertexCount;
@@ -158,6 +160,8 @@ public:
     template <IndexType T>
     void Modify(std::function<void(std::span<IndexDataType<T>>)> modifier);
     void Resize(std::size_t new_count);
+
+    void InitGpuData(gfx::Device& device);
 
 private:
     std::size_t m_IndexCount;

@@ -47,6 +47,7 @@ bool AssetManager::Initialize() {
 
 void AssetManager::Finalize() {
     // m_MoCapParser = nullptr;
+    Texture::DestoryDefaultTexture();
 
     m_MaterialParser = nullptr;
     m_ImageParsers.clear();

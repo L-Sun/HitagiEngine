@@ -17,7 +17,7 @@ public:
         Type        type             = Type::Spot;
         float       intensity        = 1.0f;
         math::vec3f color            = {1.0f, 1.0f, 1.0f};
-        math::vec3f position         = {0.0f, 1.0f, 0.0f};
+        math::vec3f position         = {3.0f, 3.0f, 3.0f};
         math::vec3f direction        = {0.0f, -1.0f, 0.0f};
         math::vec3f up               = {0.0f, 1.0f, 0.0f};
         float       inner_cone_angle = 30.0_deg;

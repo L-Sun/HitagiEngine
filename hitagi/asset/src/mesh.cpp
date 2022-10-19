@@ -1,9 +1,13 @@
 #include <hitagi/asset/mesh.hpp>
+#include <hitagi/gfx/device.hpp>
 
 namespace hitagi::asset {
 VertexArray::VertexArray(std::size_t vertex_count, std::string_view name, xg::Guid guid)
     : Resource(name, guid),
       m_VertexCount(vertex_count) {
+    magic_enum::enum_for_each<VertexAttribute>([this](VertexAttribute attr) {
+        m_Attributes[attr].type = attr;
+    });
 }
 
 VertexArray::VertexArray(const VertexArray& other)
@@ -50,6 +54,76 @@ bool VertexArray::Empty() const noexcept {
     return true;
 }
 
+auto VertexArray::GetAttributeData(VertexAttribute attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>> {
+    if (m_Attributes[attr].cpu_buffer.Empty()) return std::nullopt;
+    return m_Attributes[attr];
+}
+
+auto VertexArray::GetAttributeData(const gfx::VertexAttribute& attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>> {
+    if (attr.semantic_name == "POSITION") {
+        return GetAttributeData(VertexAttribute::Position);
+    }
+    if (attr.semantic_name == "NORMAL") {
+        return GetAttributeData(VertexAttribute::Normal);
+    }
+    if (attr.semantic_name == "TANGENT") {
+        return GetAttributeData(VertexAttribute::Tangent);
+    }
+    if (attr.semantic_name == "BINORMAL") {
+        return GetAttributeData(VertexAttribute::Bitangent);
+    }
+    if (attr.semantic_name == "COLOR") {
+        if (attr.semantic_index == 0) {
+            return GetAttributeData(VertexAttribute::Color0);
+        }
+        if (attr.semantic_index == 1) {
+            return GetAttributeData(VertexAttribute::Color1);
+        }
+        if (attr.semantic_index == 2) {
+            return GetAttributeData(VertexAttribute::Color2);
+        }
+        if (attr.semantic_index == 3) {
+            return GetAttributeData(VertexAttribute::Color3);
+        }
+    }
+    if (attr.semantic_name == "TEXCOORD") {
+        if (attr.semantic_index == 0) {
+            return GetAttributeData(VertexAttribute::UV0);
+        }
+        if (attr.semantic_index == 1) {
+            return GetAttributeData(VertexAttribute::UV1);
+        }
+        if (attr.semantic_index == 2) {
+            return GetAttributeData(VertexAttribute::UV2);
+        }
+        if (attr.semantic_index == 3) {
+            return GetAttributeData(VertexAttribute::UV3);
+        }
+    }
+    if (attr.semantic_name == "BLENDINDICES") {
+        return GetAttributeData(VertexAttribute::BlendIndex);
+    }
+    if (attr.semantic_name == "BLENDWEIGHT") {
+        return GetAttributeData(VertexAttribute::BlendWeight);
+    }
+    return std::nullopt;
+}
+
+void VertexArray::InitGpuData(gfx::Device& device) {
+    for (auto& attribute : m_Attributes) {
+        if (attribute.cpu_buffer.Empty() || !attribute.dirty) continue;
+        attribute.gpu_buffer = device.CreateBuffer(
+            {
+                .name          = fmt::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type)),
+                .element_size  = get_vertex_attribute_size(attribute.type),
+                .element_count = m_VertexCount,
+                .usages        = gfx::GpuBuffer::UsageFlags::Vertex,
+            },
+            attribute.cpu_buffer.Span<const std::byte>());
+        attribute.dirty = false;
+    }
+}
+
 IndexArray::IndexArray(std::size_t count, IndexType type, std::string_view name, xg::Guid guid)
     : Resource(name, guid), m_IndexCount(count), m_Data{.type = type, .cpu_buffer = core::Buffer(count * get_index_type_size(type))} {
 }
@@ -78,6 +152,19 @@ void IndexArray::Resize(std::size_t new_count) {
     m_Data.cpu_buffer.Resize(new_count * get_index_type_size(m_Data.type));
     m_IndexCount = new_count;
     m_Data.dirty = true;
+}
+
+void IndexArray::InitGpuData(gfx::Device& device) {
+    if (m_Data.cpu_buffer.Empty() || !m_Data.dirty) return;
+    m_Data.gpu_buffer = device.CreateBuffer(
+        {
+            .name          = m_Name,
+            .element_size  = get_index_type_size(m_Data.type),
+            .element_count = m_IndexCount,
+            .usages        = gfx::GpuBuffer::UsageFlags::Index,
+        },
+        m_Data.cpu_buffer.Span<const std::byte>());
+    m_Data.dirty = false;
 }
 
 Mesh::Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name, xg::Guid guid)

@@ -58,7 +58,9 @@ auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
 }
 
 void Material::InitPipeline(gfx::Device& device) {
+    if (!m_Dirty) return;
     m_Pipeline = device.CreateRenderPipeline(m_PipelineDesc);
+    m_Dirty    = false;
 }
 
 MaterialInstance::MaterialInstance(std::pmr::vector<Material::Parameter> parameters, std::string_view name, xg::Guid guid)
@@ -124,9 +126,9 @@ auto MaterialInstance::GetMateriaBufferData() const noexcept -> core::Buffer {
             auto tex         = GetParameter<std::shared_ptr<Texture>>(default_param.name);
 
             if (tex.has_value()) {
-                (*reinterpret_cast<std::int32_t*>(result.GetData() + offset)) = tex.value() != nullptr ? texture_index++ : no_texture;
+                (*reinterpret_cast<std::int32_t*>(result.GetData() + offset)) = tex.value() != Texture::DefaultTexture() ? texture_index++ : no_texture;
             } else {
-                (*reinterpret_cast<std::int32_t*>(result.GetData() + offset)) = default_tex != nullptr ? texture_index++ : no_texture;
+                (*reinterpret_cast<std::int32_t*>(result.GetData() + offset)) = default_tex != Texture::DefaultTexture() ? texture_index++ : no_texture;
             }
 
             offset += sizeof(texture_index);

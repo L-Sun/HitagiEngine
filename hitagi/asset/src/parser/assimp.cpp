@@ -290,7 +290,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
     for (size_t i = 0; i < ai_scene->mNumMeshes; i++) {
         auto ai_mesh = ai_scene->mMeshes[i];
 
-        auto vertices = std::make_shared<VertexArray>(ai_mesh->mNumVertices, ai_mesh->mName.C_Str());
+        auto vertices = std::make_shared<VertexArray>(ai_mesh->mNumVertices, fmt::format("{}-vertices", ai_mesh->mName.C_Str()));
 
         // Read Position
         if (ai_mesh->HasPositions()) {
@@ -413,7 +413,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++) {
             indices_count += ai_mesh->mFaces[face].mNumIndices;
         }
-        auto indices = std::make_shared<IndexArray>(indices_count, IndexType::UINT32, ai_mesh->mName.C_Str());
+        auto indices = std::make_shared<IndexArray>(indices_count, IndexType::UINT32, fmt::format("{}-indices", ai_mesh->mName.C_Str()));
 
         // Read Indices
         indices->Modify<IndexType::UINT32>([&](auto values) {

@@ -657,7 +657,8 @@ void DX12Device::CompileShader(Shader& shader) {
     args.emplace_back(DXC_ARG_ALL_RESOURCES_BOUND);
 #ifdef _DEBUG
     args.emplace_back(DXC_ARG_OPTIMIZATION_LEVEL0);
-    args.emplace_back(L"-Zs");  // dynamic shader editing
+    args.emplace_back(DXC_ARG_DEBUG);
+    args.emplace_back(L"-Qembed_debug");
 #endif
     std::pmr::vector<const wchar_t*> p_args;
     std::transform(args.begin(), args.end(), std::back_insert_iterator(p_args), [](const auto& arg) { return arg.data(); });
