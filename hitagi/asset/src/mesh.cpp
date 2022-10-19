@@ -179,18 +179,21 @@ Mesh Mesh::operator+(const Mesh& rhs) const {
     auto new_vertices = std::make_shared<VertexArray>(m_Vertices->Size() + rhs.m_Vertices->Size());
 
     magic_enum::enum_for_each<VertexAttribute>([&](auto attr) {
-        auto lhs_attr = m_Vertices->Span<attr()>();
-        auto rhs_attr = rhs.m_Vertices->Span<attr()>();
+        constexpr VertexAttribute Attr = attr;
+        using DataType                 = VertexDataType<Attr>;
+
+        auto lhs_attr = m_Vertices->Span<Attr>();
+        auto rhs_attr = rhs.m_Vertices->Span<Attr>();
 
         if (lhs_attr.empty() && rhs_attr.empty()) return;
 
-        new_vertices->Modify<attr()>([&](auto values) {
+        new_vertices->Modify<Attr>([&](auto values) {
             if (lhs_attr.empty()) {
-                std::fill(values.begin(), std::next(values.begin(), m_Vertices->Size()), VertexDataType<attr()>{});
+                std::fill(values.begin(), std::next(values.begin(), m_Vertices->Size()), DataType{});
                 std::copy(rhs_attr.begin(), rhs_attr.end(), std::next(values.begin(), m_Vertices->Size()));
             } else if (rhs_attr.empty()) {
                 std::copy(lhs_attr.begin(), lhs_attr.end(), values.begin());
-                std::fill(std::next(values.begin(), m_Vertices->Size()), values.end(), VertexDataType<attr()>{});
+                std::fill(std::next(values.begin(), m_Vertices->Size()), values.end(), DataType{});
             } else {
                 std::copy(lhs_attr.begin(), lhs_attr.end(), values.begin());
                 std::copy(rhs_attr.begin(), rhs_attr.end(), std::next(values.begin(), m_Vertices->Size()));

@@ -68,7 +68,7 @@ TEST(MaterialTest, ParameterLayout) {
     vector_eq(*reinterpret_cast<vec2f*>(buffer.GetData() + 0), vec2f(1, 2));
     EXPECT_EQ(*reinterpret_cast<float*>(buffer.GetData() + 8), 1.0f);
     vector_eq(*reinterpret_cast<vec4f*>(buffer.GetData() + 16), vec4f(1, 2, 3, 4));
-    EXPECT_EQ(*reinterpret_cast<std::uint32_t*>(buffer.GetData() + 32), -1);  // texture index
+    EXPECT_EQ(*reinterpret_cast<std::uint32_t*>(buffer.GetData() + 32), 0);  // texture index
     vector_eq(*reinterpret_cast<vec2f*>(buffer.GetData() + 36), vec2f(1, 2));
     vector_eq(*reinterpret_cast<vec3f*>(buffer.GetData() + 48), vec3f(1, 2, 3));
 }
