@@ -43,28 +43,28 @@ TEST_F(D3DDeviceTest, CreateGpuBuffer) {
     {
         auto gpu_buffer = device->CreateBuffer(
             {
-                .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .size   = 1024_kB,
-                .usages = GpuBuffer::UsageFlags::MapRead | GpuBuffer::UsageFlags::CopyDst,
+                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .element_size = 1024_kB,
+                .usages       = GpuBuffer::UsageFlags::MapRead | GpuBuffer::UsageFlags::CopyDst,
             });
 
         ASSERT_TRUE(gpu_buffer != nullptr);
         EXPECT_TRUE(gpu_buffer->mapped_ptr != nullptr);
-        EXPECT_EQ(gpu_buffer->desc.size, 1024_kB);
+        EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB);
     }
 
     // Create upload buffer
     {
         auto gpu_buffer = device->CreateBuffer(
             {
-                .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .size   = 1024_kB,
-                .usages = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
+                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .element_size = 1024_kB,
+                .usages       = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
             });
 
         ASSERT_TRUE(gpu_buffer != nullptr);
         EXPECT_TRUE(gpu_buffer->mapped_ptr != nullptr);
-        EXPECT_EQ(gpu_buffer->desc.size, 1024_kB);
+        EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB);
 
         Buffer cpu_buffer(1024_kB);
         std::memcpy(gpu_buffer->mapped_ptr, cpu_buffer.GetData(), 1024_kB);
@@ -74,13 +74,13 @@ TEST_F(D3DDeviceTest, CreateGpuBuffer) {
     {
         auto gpu_buffer = device->CreateBuffer(
             {
-                .name = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .size = 1024_kB,
+                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .element_size = 1024_kB,
             });
 
         ASSERT_TRUE(gpu_buffer != nullptr);
         EXPECT_TRUE(gpu_buffer->mapped_ptr == nullptr);
-        EXPECT_EQ(gpu_buffer->desc.size, 1024_kB);
+        EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB);
     }
 
     // Create upload buffer with initial data
@@ -89,15 +89,15 @@ TEST_F(D3DDeviceTest, CreateGpuBuffer) {
 
         auto gpu_buffer = device->CreateBuffer(
             {
-                .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .size   = initial_data.size(),
-                .usages = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
+                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .element_size = initial_data.size(),
+                .usages       = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
             },
             {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
 
         ASSERT_TRUE(gpu_buffer != nullptr);
         EXPECT_TRUE(gpu_buffer->mapped_ptr != nullptr);
-        EXPECT_EQ(gpu_buffer->desc.size, initial_data.size());
+        EXPECT_EQ(gpu_buffer->desc.element_size, initial_data.size());
         EXPECT_STREQ(initial_data.data(), reinterpret_cast<const char*>(gpu_buffer->mapped_ptr));
     }
 
@@ -107,14 +107,14 @@ TEST_F(D3DDeviceTest, CreateGpuBuffer) {
 
         auto gpu_buffer = device->CreateBuffer(
             {
-                .name = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .size = initial_data.size(),
+                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .element_size = initial_data.size(),
             },
             {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
 
         ASSERT_TRUE(gpu_buffer != nullptr);
         EXPECT_TRUE(gpu_buffer->mapped_ptr == nullptr);
-        EXPECT_EQ(gpu_buffer->desc.size, initial_data.size());
+        EXPECT_EQ(gpu_buffer->desc.element_size, initial_data.size());
     }
 }
 
@@ -185,26 +185,6 @@ TEST_F(D3DDeviceTest, CreateTexture) {
     }
 }
 
-TEST_F(D3DDeviceTest, CreateTextureView) {
-    auto texture = device->CreateTexture(
-        {
-            .name        = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-            .width       = 128,
-            .height      = 128,
-            .format      = Format::R8G8B8A8_UNORM,
-            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
-        });
-    auto texture_view = device->CreateTextureView(
-        {
-            .textuer           = *texture,
-            .format            = texture->desc.format,
-            .is_cube           = true,
-            .mip_level_count   = texture->desc.mip_levels,
-            .array_layer_count = texture->desc.array_size,
-        });
-    EXPECT_TRUE(texture_view);
-}
-
 TEST_F(D3DDeviceTest, CreateSampler) {
     auto sampler = device->CreatSampler(
 
@@ -222,12 +202,12 @@ TEST_F(D3DDeviceTest, CreateSampler) {
 TEST_F(D3DDeviceTest, CompileShader) {
     // Test Vertex Shader
     {
-        auto vs_shader = device->CompileShader(
-            {
-                .name        = "vertex_test_shader",
-                .type        = Shader::Type::Vertex,
-                .entry       = "VSMain",
-                .source_code = R"""(
+        Shader vs_shader{
+
+            .name        = "vertex_test_shader",
+            .type        = Shader::Type::Vertex,
+            .entry       = "VSMain",
+            .source_code = R"""(
                 struct VS_INPUT {
                     float3 pos : POSITION;
                 };
@@ -242,18 +222,16 @@ TEST_F(D3DDeviceTest, CompileShader) {
                     return output;
                 }
             )""",
-            });
-
-        ASSERT_TRUE(vs_shader != nullptr);
-        EXPECT_FALSE(vs_shader->binary_data.Empty());
+        };
+        device->CompileShader(vs_shader);
+        EXPECT_FALSE(vs_shader.binary_data.Empty());
     }
     {
-        auto ps_shader = device->CompileShader(
-            {
-                .name        = "pixel_test_shader",
-                .type        = Shader::Type::Pixel,
-                .entry       = "PSMain",
-                .source_code = R"""(
+        Shader ps_shader{
+            .name        = "pixel_test_shader",
+            .type        = Shader::Type::Pixel,
+            .entry       = "PSMain",
+            .source_code = R"""(
                 struct PS_INPUT{
                     float4 pos : SV_POSITION;
                 };
@@ -262,9 +240,9 @@ TEST_F(D3DDeviceTest, CompileShader) {
                     return input.pos;
                 }
             )""",
-            });
-        ASSERT_TRUE(ps_shader != nullptr);
-        EXPECT_FALSE(ps_shader->binary_data.Empty());
+        };
+        device->CompileShader(ps_shader);
+        EXPECT_FALSE(ps_shader.binary_data.Empty());
     }
 }
 
@@ -292,13 +270,12 @@ TEST_F(D3DDeviceTest, CreatePipeline) {
         auto render_pipeline = device->CreateRenderPipeline(
             {
                 .name = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .vs   = device->CompileShader(
-                    {
-                          .name        = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                          .type        = Shader::Type::Vertex,
-                          .entry       = "VSMain",
-                          .source_code = vs_code,
-                    }),
+                .vs   = {
+                      .name        = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                      .type        = Shader::Type::Vertex,
+                      .entry       = "VSMain",
+                      .source_code = vs_code,
+                },
                 .input_layout = {{"POSITION", 0, 0, 0, Format::R32G32B32_FLOAT, false, 0}},
 
             });
@@ -340,42 +317,31 @@ TEST_F(D3DDeviceTest, CommandContextTest) {
         auto render_pipeline = device->CreateRenderPipeline(
             {
                 .name = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .vs   = device->CompileShader(
-                    {
-                          .name        = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                          .type        = Shader::Type::Vertex,
-                          .entry       = "VSMain",
-                          .source_code = vs_code,
-                    }),
+                .vs   = {
+                      .name        = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                      .type        = Shader::Type::Vertex,
+                      .entry       = "VSMain",
+                      .source_code = vs_code,
+                },
                 .input_layout = {{"POSITION", 0, 0, 0, Format::R32G32B32_FLOAT, false, 0}},
             });
         ASSERT_TRUE(render_pipeline);
 
         auto constant_buffer = device->CreateBuffer(
             {
-                .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .size   = sizeof(vec4f),
-                .usages = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc | GpuBuffer::UsageFlags::Constant,
+                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .element_size = sizeof(vec4f),
+                .usages       = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc | GpuBuffer::UsageFlags::Constant,
             });
 
-        auto cbv = device->CreateBufferView(
-            {
-                .buffer = *constant_buffer,
-                .stride = sizeof(vec4f),
-                .usages = GpuBufferView::UsageFlags::Constant,
-            });
-
-        auto constant_buffer_span = std::span<vec4f>{
-            reinterpret_cast<vec4f*>(constant_buffer->mapped_ptr),
-            constant_buffer->desc.size / sizeof(vec4f)};
-        constant_buffer_span[0] = vec4f(1, 2, 3, 4);
+        constant_buffer->Update(0, vec4f(1, 2, 3, 4));
 
         auto graphics_context = device->CreateGraphicsContext(::testing::UnitTest::GetInstance()->current_test_info()->name());
         ASSERT_TRUE(graphics_context);
         EXPECT_NO_THROW({
             graphics_context->SetPipeline(*render_pipeline);
             graphics_context->PushConstant(0, vec4f(1, 2, 3, 4));
-            graphics_context->BindConstantBuffer(1, *cbv);
+            graphics_context->BindConstantBuffer(1, *constant_buffer);
             graphics_context->End();
         });
     }
@@ -393,16 +359,16 @@ TEST_F(D3DDeviceTest, CommandContextTest) {
 
         auto upload_buffer = device->CreateBuffer(
             {
-                .name   = fmt::format("Upload-{}", ::testing::UnitTest::GetInstance()->current_test_info()->name()),
-                .size   = initial_data.size(),
-                .usages = GpuBuffer::UsageFlags::CopySrc | GpuBuffer::UsageFlags::MapWrite,
+                .name         = fmt::format("Upload-{}", ::testing::UnitTest::GetInstance()->current_test_info()->name()),
+                .element_size = initial_data.size(),
+                .usages       = GpuBuffer::UsageFlags::CopySrc | GpuBuffer::UsageFlags::MapWrite,
             },
             {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
         auto readback_buffer = device->CreateBuffer(
             {
-                .name   = fmt::format("Upload-{}", ::testing::UnitTest::GetInstance()->current_test_info()->name()),
-                .size   = initial_data.size(),
-                .usages = GpuBuffer::UsageFlags::CopyDst | GpuBuffer::UsageFlags::MapRead,
+                .name         = fmt::format("Upload-{}", ::testing::UnitTest::GetInstance()->current_test_info()->name()),
+                .element_size = initial_data.size(),
+                .usages       = GpuBuffer::UsageFlags::CopyDst | GpuBuffer::UsageFlags::MapRead,
             });
 
         copy_context->CopyBuffer(*upload_buffer, 0, *readback_buffer, 0, initial_data.size());
@@ -493,24 +459,20 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
             }
         )""";
 
-        auto vs_shader = device->CompileShader(
-            {
-                .name        = "I know DirectX12 vertex shader",
-                .type        = Shader::Type::Vertex,
-                .entry       = "VSMain",
-                .source_code = shader_code,
-            });
-        auto ps_shader = device->CompileShader(
-            {
+        auto pipeline = device->CreateRenderPipeline({
+            .name = "I know DirectX12 pipeline",
+            .vs   = {
+                  .name        = "I know DirectX12 vertex shader",
+                  .type        = Shader::Type::Vertex,
+                  .entry       = "VSMain",
+                  .source_code = std::pmr::string(shader_code),
+            },
+            .ps = {
                 .name        = "I know DirectX12 pixel shader",
                 .type        = Shader::Type::Pixel,
                 .entry       = "PSMain",
-                .source_code = shader_code,
-            });
-        auto pipeline = device->CreateRenderPipeline({
-            .name         = "I know DirectX12 pipeline",
-            .vs           = vs_shader,
-            .ps           = ps_shader,
+                .source_code = std::pmr::string(shader_code),
+            },
             .input_layout = {
                 // clang-format off
                 {"POSITION", 0, 0,             0, Format::R32G32B32_FLOAT},
@@ -532,30 +494,20 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
         // clang-format on
         auto vertex_buffer = device->CreateBuffer(
             {
-                .name = "I know DirectX12 positions buffer",
-                .size = triangle.size() * sizeof(vec3f),
+                .name          = "I know DirectX12 positions buffer",
+                .element_size  = 2 * sizeof(vec3f),
+                .element_count = 3,
+                .usages        = GpuBuffer::UsageFlags::Vertex,
             },
             {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
-
-        auto vbv = device->CreateBufferView(
-            {
-                .buffer = *vertex_buffer,
-                .stride = 2 * sizeof(vec3f),
-                .usages = GpuBufferView::UsageFlags::Vertex,
-            });
 
         auto render_queue = device->GetCommandQueue(CommandType::Graphics);
         auto context      = device->CreateGraphicsContext("I know DirectX12 context");
 
         hitagi::core::Clock timer;
         timer.Start();
-        auto rtv = device->CreateTextureView(
-            {
-                .textuer = swap_chain->GetCurrentBackBuffer(),
-                .format  = swap_chain->desc.format,
-            });
 
-        context->SetRenderTarget(*rtv);
+        context->SetRenderTarget(swap_chain->GetCurrentBackBuffer());
         context->SetViewPort(ViewPort{
             .x      = 0,
             .y      = 0,
@@ -568,14 +520,14 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
             .width  = rect.right - rect.left,
             .height = rect.bottom - rect.top,
         });
-        context->ClearRenderTarget(*rtv);
+        context->ClearRenderTarget(swap_chain->GetCurrentBackBuffer());
         context->SetPipeline(*pipeline);
-        context->SetVertexBuffer(0, *vbv);
+        context->SetVertexBuffer(0, *vertex_buffer);
 
         context->PushConstant(0, rotate_z(deg2rad(90.0f)));
 
         context->Draw(3);
-        context->Present(rtv->desc.textuer);
+        context->Present(swap_chain->GetCurrentBackBuffer());
         context->End();
 
         render_queue->Submit({context.get()});

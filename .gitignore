@@ -5,6 +5,7 @@ assets/*
 !assets/fonts/
 !assets/test/
 !assets/utils/
+hitagi.json
 
 .xmake
 temp

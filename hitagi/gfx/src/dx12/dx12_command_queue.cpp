@@ -7,7 +7,7 @@
 #include <fmt/color.h>
 
 namespace hitagi::gfx {
-DX12CommandQueue::DX12CommandQueue(DX12Device* device, CommandType type, std::string_view name)
+DX12CommandQueue::DX12CommandQueue(DX12Device& device, CommandType type, std::string_view name)
     : CommandQueue(device, type, name) {
     D3D12_COMMAND_QUEUE_DESC desc{
         .Type     = to_d3d_command_type(type),
@@ -15,8 +15,8 @@ DX12CommandQueue::DX12CommandQueue(DX12Device* device, CommandType type, std::st
         .Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE,
         .NodeMask = 0,
     };
-    ThrowIfFailed(device->GetDevice()->CreateCommandQueue(&desc, IID_PPV_ARGS(&m_Queue)));
-    ThrowIfFailed(device->GetDevice()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_Fence)));
+    ThrowIfFailed(device.GetDevice()->CreateCommandQueue(&desc, IID_PPV_ARGS(&m_Queue)));
+    ThrowIfFailed(device.GetDevice()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_Fence)));
 
     m_Fence->Signal(m_LastCompletedFenceValue);
 
@@ -41,7 +41,7 @@ auto DX12CommandQueue::Submit(std::pmr::vector<CommandContext*> contexts) -> std
             return cmd->type != type;
         });
         iter != contexts.cend()) {
-        static_cast<DX12Device*>(device)->GetLogger()->error(
+        static_cast<DX12Device&>(device).GetLogger()->error(
             "Can not submit {} command to this {} command queue",
             fmt::styled(magic_enum::enum_name((*iter)->type), fmt::fg(fmt::color::red)),
             fmt::styled(magic_enum::enum_name(type), fmt::fg(fmt::color::green)));

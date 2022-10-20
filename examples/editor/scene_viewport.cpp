@@ -1,8 +1,11 @@
 #include "scene_viewport.hpp"
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/gfx/graphics_manager.hpp>
+#include <hitagi/asset/asset_manager.hpp>
 
 using namespace hitagi;
+using namespace hitagi::math;
+using namespace hitagi::asset;
 
 bool SceneViewPort::Initialize() {
     return RuntimeModule::Initialize();
@@ -17,32 +20,16 @@ void SceneViewPort::Tick() {
     gui_manager->DrawGui([&]() {
         if (ImGui::Begin("Scene Viewer", &m_Open)) {
             if (m_CurrentScene) {
-                auto window_size = ImGui::GetWindowSize();
+                const auto v_min       = ImGui::GetWindowContentRegionMin();
+                const auto v_max       = ImGui::GetWindowContentRegionMax();
+                const auto window_size = ImVec2(v_max.x - v_min.x, v_max.y - v_min.y);
 
-                auto pass = graphics_manager->GetRenderGraph().AddPass<SceneRenderPass>(
-                    "SceneViewPortRenderPass",
-                    [&](gfx::RenderGraph::Builder& builder, SceneRenderPass& data) {
-                        data.output = builder.Create(gfx::Texture::Desc{
-                            .name   = "scene-output",
-                            .width  = static_cast<std::uint32_t>(window_size.x),
-                            .height = static_cast<std::uint32_t>(window_size.x),
-                            .usages = gfx::Texture::UsageFlags::SRV | gfx::Texture::UsageFlags::RTV,
-                        });
+                m_Camera->GetObjectRef()->parameters.aspect = window_size.x / window_size.y;
+                m_Camera->Update();
 
-                        data.depth_buffer = builder.Create(gfx::Texture::Desc{
-                            .name   = "scene-depth",
-                            .width  = static_cast<std::uint32_t>(window_size.x),
-                            .height = static_cast<std::uint32_t>(window_size.x),
-                            .usages = gfx::Texture::UsageFlags::DSV,
-                        });
-                    },
-                    [=](const gfx::RenderGraph::ResourceHelper& helper, const SceneRenderPass& data, gfx::GraphicsCommandContext* context) {
-                        auto rtv = context->device->CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.output)});
-                        auto dsv = context->device->CreateTextureView({.textuer = helper.Get<gfx::Texture>(data.depth_buffer)});
-                        // TODO draw scene
-                    });
-
-                ImGui::Image((void*)gui_manager->ReadTexture(pass.output).id, window_size);
+                const auto view_port = m_Camera->GetObjectRef()->GetViewPort(window_size.x, window_size.y);
+                const auto output    = m_CurrentScene->Render(graphics_manager->GetRenderGraph(), view_port, m_Camera);
+                ImGui::Image((void*)gui_manager->ReadTexture(output.render_target).id, window_size);
             }
         }
         ImGui::End();
@@ -51,6 +38,10 @@ void SceneViewPort::Tick() {
     RuntimeModule::Tick();
 }
 
-void SceneViewPort::SetScene(std::shared_ptr<resource::Scene> scene) {
+void SceneViewPort::SetScene(std::shared_ptr<asset::Scene> scene) noexcept {
     m_CurrentScene = std::move(scene);
+    if (m_Camera == nullptr && m_CurrentScene != nullptr) {
+        auto camera = std::make_shared<Camera>(m_CurrentScene->curr_camera->GetObjectRef()->parameters);
+        m_Camera    = std::make_shared<CameraNode>(camera, m_CurrentScene->curr_camera->transform);
+    }
 }

@@ -35,7 +35,7 @@ constexpr size_t align(size_t x, size_t a) {
 }
 
 template <typename T, typename E>
-requires std::is_enum_v<E>
+    requires std::is_enum_v<E>
 struct EnumArray : public std::array<T, magic_enum::enum_count<E>()> {
     using array_t = typename std::array<T, magic_enum::enum_count<E>()>;
 
@@ -51,14 +51,14 @@ struct EnumArray : public std::array<T, magic_enum::enum_count<E>()> {
 };
 
 template <typename T, typename E>
-requires std::is_enum_v<E>
+    requires std::is_enum_v<E>
 constexpr EnumArray<T, E> create_enum_array(T&& initial_value) {
     return {create_array<T, magic_enum::enum_count<E>()>(std::forward<T>(initial_value))};
 }
 
 // Enable enum flags
 template <typename E>
-requires std::is_enum_v<E>
+    requires std::is_enum_v<E>
 struct enable_bitmask_operators {
     static constexpr bool enable = false;
 };

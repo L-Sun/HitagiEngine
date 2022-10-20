@@ -20,7 +20,7 @@ void hitagiPhysicsManager::Finalize() {
     m_Logger = nullptr;
 }
 
-std::array<vec3f, 2> hitagiPhysicsManager::GetAABB(resource::Geometry& node) {
+std::array<vec3f, 2> hitagiPhysicsManager::GetAABB(asset::Geometry& node) {
     auto geometry = node.GetResourceObjectRef().lock();
     if (!geometry) return {vec3f(0), vec3f(0)};
 
@@ -35,14 +35,14 @@ std::array<vec3f, 2> hitagiPhysicsManager::GetAABB(resource::Geometry& node) {
         auto  data         = positions.GetData();
 
         switch (data_type) {
-            case resource::VertexArray::DataType::Float3: {
+            case asset::VertexArray::DataType::Float3: {
                 auto vertex = reinterpret_cast<const vec3f*>(data);
                 for (auto i = 0; i < vertex_count; i++, vertex++) {
                     aabb_min = min(aabb_min, vertex[i]);
                     aabb_max = max(aabb_max, vertex[i]);
                 }
             } break;
-            case resource::VertexArray::DataType::Double3: {
+            case asset::VertexArray::DataType::Double3: {
                 auto vertex = reinterpret_cast<const vec3d*>(data);
                 for (auto i = 0; i < vertex_count; i++, vertex++) {
                     aabb_min.x = std::min(static_cast<double>(aabb_min.x), vertex->x);
@@ -81,7 +81,7 @@ std::array<vec3f, 2> hitagiPhysicsManager::GetAABB(resource::Geometry& node) {
     return {std::move(new_aabb_min), std::move(new_aabb_max)};
 }
 
-void hitagiPhysicsManager::CreateRigidBody(resource::Geometry& node) {
+void hitagiPhysicsManager::CreateRigidBody(asset::Geometry& node) {
     // auto geometry = node.GetResourceObjectRef().lock();
     // if (!geometry) return;
 
@@ -89,17 +89,17 @@ void hitagiPhysicsManager::CreateRigidBody(resource::Geometry& node) {
     // std::shared_ptr<RigidBody> rigidBody = nullptr;
 
     // switch (geometry->CollisionType()) {
-    //     case Resource::ResourceObjectCollisionType::SPHERE: {
+    //     case asset::ResourceObjectCollisionType::SPHERE: {
     //         auto collisionBox = std::make_shared<Sphere>(param[0]);
     //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation());
     //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
     //     } break;
-    //     case Resource::ResourceObjectCollisionType::BOX: {
+    //     case asset::ResourceObjectCollisionType::BOX: {
     //         auto collisionBox = std::make_shared<Box>(vec3f(param));
     //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation());
     //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
     //     } break;
-    //     case Resource::ResourceObjectCollisionType::PLANE: {
+    //     case asset::ResourceObjectCollisionType::PLANE: {
     //         auto collisionBox = std::make_shared<Plane>(vec3f(param), param[3]);
     //         auto motionState  = std::make_shared<MotionState>(node.GetCalculatedTransformation());
     //         rigidBody         = std::make_shared<RigidBody>(collisionBox, motionState);
@@ -114,15 +114,15 @@ void hitagiPhysicsManager::CreateRigidBody(resource::Geometry& node) {
     // }
 }
 
-void hitagiPhysicsManager::UpdateRigidBodyTransform(resource::Geometry& node) {
+void hitagiPhysicsManager::UpdateRigidBodyTransform(asset::Geometry& node) {
     // auto rigidBody   = node.RigidBody();
     // auto motionState = std::static_pointer_cast<RigidBody>(rigidBody)->GetMotionState();
     // motionState->SetTransition(node.GetCalculatedTransformation());
 }
 
-void hitagiPhysicsManager::DeleteRigidBody(resource::Geometry& node) {}
+void hitagiPhysicsManager::DeleteRigidBody(asset::Geometry& node) {}
 
-mat4f hitagiPhysicsManager::GetRigidBodyTransform(resource::Geometry& node) {
+mat4f hitagiPhysicsManager::GetRigidBodyTransform(asset::Geometry& node) {
     mat4f trans;
     // auto  _rigidBody  = std::static_pointer_cast<RigidBody>(rigidBody);
     // auto  motionState = _rigidBody->GetMotionState();
@@ -130,6 +130,6 @@ mat4f hitagiPhysicsManager::GetRigidBodyTransform(resource::Geometry& node) {
     return trans;
 }
 
-void hitagiPhysicsManager::ApplyCentralForce(resource::Geometry& node, vec3f force) {}
+void hitagiPhysicsManager::ApplyCentralForce(asset::Geometry& node, vec3f force) {}
 
 }  // namespace hitagi::physics

@@ -1,5 +1,6 @@
 #pragma once
 #include <hitagi/math/vector.hpp>
+#include <hitagi/core/buffer.hpp>
 
 #include <cstdint>
 #include <vector>
@@ -188,6 +189,21 @@ inline constexpr std::size_t get_format_bit_size(Format format) noexcept {
     }
 }
 
+struct Shader {
+    enum struct Type : std::uint8_t {
+        Vertex,
+        Pixel,
+        Geometry,
+        Compute,
+    };
+
+    std::pmr::string name;
+    Type             type;
+    std::pmr::string entry;
+    std::pmr::string source_code;
+    core::Buffer     binary_data = {};
+};
+
 enum struct PrimitiveTopology : std::uint8_t {
     PointList,
     LineList,
@@ -310,7 +326,7 @@ union ClearValue {
 };
 
 struct VertexAttribute {
-    std::string_view semantic_name;
+    std::pmr::string semantic_name;
     std::uint8_t     semantic_index;
     std::uint8_t     slot;
     std::uint32_t    aligned_offset;

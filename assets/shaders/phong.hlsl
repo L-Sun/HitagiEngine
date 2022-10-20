@@ -41,8 +41,8 @@ struct VSInput {
 struct PSInput {
   float4 position    : SV_POSITION;
   float4 color       : COLOR;
-  float4 pos_in_view : POSITION;
-  float4 normal      : NORMAL;
+  float3 pos_in_view : POSITION;
+  float3 normal      : NORMAL;
   float2 uv          : TEXCOORD0;
 };
 
@@ -61,8 +61,8 @@ PSInput VSMain(VSInput input) {
   matrix MVP = mul(proj_view, model);
 
   output.position    = mul( MVP, float4(input.position, 1.0f));
-  output.normal      = mul(view, mul(model, float4(input.normal,   0.0f)));
-  output.pos_in_view = mul(view, mul(model, float4(input.position, 1.0f)));
+  output.normal      = mul(view, mul(model, float4(input.normal,   0.0f))).xyz;
+  output.pos_in_view = mul(view, mul(model, float4(input.position, 1.0f))).xyz;
   output.color       = input.color;
   output.uv          = input.uv;
   return output;
@@ -70,19 +70,19 @@ PSInput VSMain(VSInput input) {
 
 [RootSignature(RSDEF)] 
 float4 PSMain(PSInput input) : SV_TARGET {
-  const float4  vN = normalize( input.normal);
-  const float4  vL = normalize( light_pos_in_view - input.pos_in_view);
-  const float4  vV = normalize(-input.pos_in_view);
-  const float4  vH = normalize( vL + vV);
-  const float    r =    length( light_pos_in_view - input.pos_in_view);
+  const float3  vN = normalize( input.normal);
+  const float3  vL = normalize( light_pos_in_view.xyz - input.pos_in_view);
+  const float3  vV = normalize(-input.pos_in_view);
+  const float3  vH = normalize( vL + vV);
+  const float    r =    length( light_pos_in_view.xyz - input.pos_in_view);
   const float invd = 1.0f / (r * r + 1.0f);
   // color
-  const float4 _diffuse  = diffuse_texture  == -1 ? float4( diffuse, 1.0f)  : materialTexutrues[ diffuse_texture].Sample(baseSampler, input.uv);
-  const float4 _specular = specular_texture == -1 ? float4(specular, 1.0f) : materialTexutrues[specular_texture].Sample(baseSampler, input.uv);
-  const float4 _ambient  = ambient_texture  == -1 ? float4( ambient, 1.0f)  : materialTexutrues[ ambient_texture].Sample(baseSampler, input.uv);
-  const float4 _emissive = emissive_texture == -1 ? float4(emissive, 1.0f) : materialTexutrues[emissive_texture].Sample(baseSampler, input.uv);
+  const float3 _diffuse  = diffuse_texture  == -1 ?  diffuse  : materialTexutrues[ diffuse_texture].Sample(baseSampler, input.uv).xyz;
+  const float3 _specular = specular_texture == -1 ? specular  : materialTexutrues[specular_texture].Sample(baseSampler, input.uv).xyz;
+  const float3 _ambient  = ambient_texture  == -1 ?  ambient  : materialTexutrues[ ambient_texture].Sample(baseSampler, input.uv).xyz;
+  const float3 _emissive = emissive_texture == -1 ? emissive  : materialTexutrues[emissive_texture].Sample(baseSampler, input.uv).xyz;
 
-  float4 vLightInts = _ambient + (float4(light_color, 1.0f) * light_intensity) * invd * (_diffuse * max(dot(vN, vL), 0.0f) + _specular * pow(max(dot(vH, vN), 0.0f), shininess));
+  float3 vLightInts = _ambient + (light_color * light_intensity) * invd * (_diffuse * max(dot(vN, vL), 0.0f) + _specular * pow(max(dot(vH, vN), 0.0f), shininess));
 
-  return vLightInts;
+  return float4(vLightInts, 1.0f);
 }

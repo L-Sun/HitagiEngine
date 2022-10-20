@@ -1,8 +1,7 @@
 #include <hitagi/engine.hpp>
 #include <hitagi/core/core.hpp>
 #include <hitagi/application.hpp>
-#include <hitagi/resource/asset_manager.hpp>
-#include <hitagi/resource/scene_manager.hpp>
+#include <hitagi/asset/asset_manager.hpp>
 #include <hitagi/gfx/graphics_manager.hpp>
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/debugger/debug_manager.hpp>
@@ -11,6 +10,8 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace hitagi {
+Engine* engine = nullptr;
+
 bool Engine::Initialize() {
 #ifdef _DEBUG
     spdlog::set_level(spdlog::level::debug);
@@ -28,10 +29,9 @@ bool Engine::Initialize() {
         || !(thread_manager   = add_inner_module(std::make_unique<core::ThreadManager>()))      
         || !(file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>()))      
         || !(config_manager   = add_inner_module(std::make_unique<core::ConfigManager>()))      
-        || !(asset_manager    = add_inner_module(std::make_unique<resource::AssetManager>()))   
         || !(app              = add_inner_module(Application::CreateApp()))                     
         || !(graphics_manager = add_inner_module(std::make_unique<gfx::GraphicsManager>()))
-        || !(scene_manager    = add_inner_module(std::make_unique<resource::SceneManager>()))   
+        || !(asset_manager    = add_inner_module(std::make_unique<asset::AssetManager>()))   
         || !(debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>()))   
         || !(gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>()))
     ) {
@@ -52,6 +52,16 @@ void Engine::Finalize() {
 
     _memory_manager_module->Finalize();
     _memory_manager_module = nullptr;
+
+    memory_manager   = nullptr;
+    thread_manager   = nullptr;
+    file_io_manager  = nullptr;
+    config_manager   = nullptr;
+    asset_manager    = nullptr;
+    app              = nullptr;
+    graphics_manager = nullptr;
+    debug_manager    = nullptr;
+    gui_manager      = nullptr;
 }
 
 }  // namespace hitagi

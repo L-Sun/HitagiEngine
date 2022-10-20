@@ -21,20 +21,22 @@ struct DX12ResourceWrapper : public T {
     D3D12_RESOURCE_STATES  state;
 };
 
-template <typename T>
-    requires std::derived_from<T, Resource>
-struct DX12DescriptorWrapper : public T {
-    using T::T;
-
-    Descriptor cbv, uav, srv, rtv, dsv, sampler;
+struct DX12Texture : public DX12ResourceWrapper<Texture> {
+    using DX12ResourceWrapper<Texture>::DX12ResourceWrapper;
+    Descriptor uav, srv, rtv, dsv;
 };
 
-struct DX12GpuBufferView : public GpuBufferView {
-    using GpuBufferView::GpuBufferView;
+struct DX12GpuBuffer : public DX12ResourceWrapper<GpuBuffer> {
+    using DX12ResourceWrapper<GpuBuffer>::DX12ResourceWrapper;
 
     std::optional<D3D12_VERTEX_BUFFER_VIEW> vbv;
     std::optional<D3D12_INDEX_BUFFER_VIEW>  ibv;
     Descriptor                              cbvs;
+};
+
+struct DX12Sampler : public Sampler {
+    using Sampler::Sampler;
+    Descriptor sampler;
 };
 
 struct DX12RenderPipeline : public RenderPipeline {

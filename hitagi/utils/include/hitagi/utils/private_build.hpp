@@ -3,28 +3,26 @@
 #include <memory>
 namespace hitagi::utils {
 template <typename T>
-class enable_private_make_shared_build {
+class enable_private_make_shared {
 public:
-    template <typename Builder>
-    static std::shared_ptr<T> Create(const Builder& builder) {
+    template <typename... Args>
+    static auto Create(Args&&... args) -> std::shared_ptr<T> {
         struct CreateTemp : public T {
-            CreateTemp(const Builder& builder) : T(builder) {}
+            CreateTemp(Args&&... args) : T(std::forward<Args>(args)...) {}
         };
-
-        return std::static_pointer_cast<T>(std::make_shared<CreateTemp>(builder));
+        return std::static_pointer_cast<T>(std::make_shared<CreateTemp>(std::forward<Args>(args)...));
     }
 };
 
 template <typename T>
-class enable_private_allocate_shared_build {
+class enable_private_allocate_shared {
 public:
-    template <typename Builder, typename Alloc>
-    static std::shared_ptr<T> Create(const Builder& builder, const Alloc& alloc) {
+    template <typename Alloc, typename... Args>
+    static std::shared_ptr<T> Create(Alloc&& alloc, Args&&... args) {
         struct CreateTemp : public T {
-            CreateTemp(const Builder& builder, const Alloc& alloc) : T(builder, alloc) {}
+            using T::T;
         };
-
-        return std::static_pointer_cast<T>(std::allocate_shared<CreateTemp>(alloc, builder));
+        return std::static_pointer_cast<T>(std::allocate_shared<CreateTemp>(std::forward<Alloc>(alloc), std::forward<Args>(args)...));
     }
 };
 }  // namespace hitagi::utils

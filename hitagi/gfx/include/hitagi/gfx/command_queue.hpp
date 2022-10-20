@@ -9,7 +9,7 @@ class Device;
 
 class CommandQueue {
 public:
-    CommandQueue(Device* device, CommandType type, std::string_view name)
+    CommandQueue(Device& device, CommandType type, std::string_view name)
         : device(device), type(type), name(name) {}
     virtual ~CommandQueue() = default;
 
@@ -19,7 +19,7 @@ public:
     virtual void WaitForQueue(const CommandQueue& other)                            = 0;
     virtual void WaitIdle()                                                         = 0;
 
-    Device* const          device;
+    Device&                device;
     const CommandType      type;
     const std::pmr::string name;
 };

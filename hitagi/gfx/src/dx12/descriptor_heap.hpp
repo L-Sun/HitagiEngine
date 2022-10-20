@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <mutex>
 #include <vector>
 #include <list>
 #include <memory>
@@ -37,13 +38,15 @@ class DescriptorHeap {
 public:
     DescriptorHeap(DX12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, bool shader_visiable, std::size_t num_descriptors);
 
-    auto AvaliableSize() -> std::size_t;
+    auto AvaliableSize() const -> std::size_t;
     auto Allocate(std::size_t num_descriptors) -> Descriptor;
     void DiscardDescriptor(Descriptor& descriptor);
 
     inline ID3D12DescriptorHeap* GetHeap() const noexcept { return m_DescriptorHeap.Get(); }
 
 private:
+    mutable std::mutex m_Mutex;
+
     ComPtr<ID3D12DescriptorHeap> m_DescriptorHeap;
     D3D12_CPU_DESCRIPTOR_HANDLE  m_HeapCpuStart;
     D3D12_GPU_DESCRIPTOR_HANDLE  m_HeapGpuStart;

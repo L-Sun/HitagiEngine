@@ -68,12 +68,15 @@ DescriptorHeap::DescriptorHeap(DX12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE ty
     m_AvailableDescriptors.emplace(0, iter);
 }
 
-auto DescriptorHeap::AvaliableSize() -> std::size_t {
+auto DescriptorHeap::AvaliableSize() const -> std::size_t {
+    std::lock_guard lock{m_Mutex};
     if (m_SearchMap.empty()) return 0;
     return m_SearchMap.rbegin()->first;
 }
 
 auto DescriptorHeap::Allocate(std::size_t num_descriptors) -> Descriptor {
+    std::lock_guard lock{m_Mutex};
+
     assert(num_descriptors != 0);
     auto iter = m_SearchMap.lower_bound(num_descriptors);
     if (iter == m_SearchMap.end()) return {};
@@ -113,6 +116,8 @@ auto DescriptorHeap::Allocate(std::size_t num_descriptors) -> Descriptor {
 }
 
 void DescriptorHeap::DiscardDescriptor(Descriptor& descriptor) {
+    std::lock_guard lock{m_Mutex};
+
     auto        offset = (descriptor.cpu_handle.ptr - m_HeapCpuStart.ptr) / m_IncrementSize;
     std::size_t size   = descriptor.num;
     if (m_AvailableDescriptors.empty()) {

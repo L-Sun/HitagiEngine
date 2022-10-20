@@ -1,4 +1,4 @@
-add_requires("magic_enum", "crossguid", "gtest", "benchmark")
+add_requires("magic_enum", "gtest", "benchmark")
 add_requires("fmt", {configs = {header_only = true}})
 add_requires("spdlog")
 

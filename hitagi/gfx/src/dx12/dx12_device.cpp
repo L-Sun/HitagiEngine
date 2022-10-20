@@ -15,6 +15,7 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <d3d12sdklayers.h>
+#include <d3d12shader.h>
 #include <concepts>
 #include <algorithm>
 
@@ -68,7 +69,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
     }
 
     magic_enum::enum_for_each<CommandType>([this](auto type) {
-        m_CommandQueues[type] = std::make_shared<DX12CommandQueue>(this, type, fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type())));
+        m_CommandQueues[type] = std::static_pointer_cast<DX12CommandQueue>(CreateCommandQueue(type(), fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type()))));
     });
 
     // Initial Descriptor Allocator
@@ -132,6 +133,45 @@ void DX12Device::UnregisterIntegratedD3D12Logger() {
     }
 }
 
+auto DX12Device::CreateInputLayout(Shader& vs) -> InputLayout {
+    assert(vs.type == Shader::Type::Vertex);
+
+    if (vs.binary_data.Empty()) {
+        CompileShader(vs);
+        assert(!vs.binary_data.Empty());
+    }
+
+    DxcBuffer vs_buffer{
+        .Ptr      = vs.binary_data.GetData(),
+        .Size     = vs.binary_data.GetDataSize(),
+        .Encoding = DXC_CP_ACP,
+    };
+
+    ComPtr<ID3D12ShaderReflection> vs_reflection;
+    m_Utils->CreateReflection(&vs_buffer, IID_PPV_ARGS(&vs_reflection));
+
+    D3D12_SHADER_DESC shader_desc;
+    vs_reflection->GetDesc(&shader_desc);
+
+    InputLayout result;
+    for (std::size_t slot = 0; slot < shader_desc.InputParameters; slot++) {
+        D3D12_SIGNATURE_PARAMETER_DESC vertex_attribute_desc;
+        vs_reflection->GetInputParameterDesc(slot, &vertex_attribute_desc);
+
+        VertexAttribute attribute{
+            .semantic_name  = std::pmr::string(vertex_attribute_desc.SemanticName),
+            .semantic_index = static_cast<std::uint8_t>(vertex_attribute_desc.SemanticIndex),
+            .slot           = static_cast<std::uint8_t>(slot),
+            .aligned_offset = 0,
+            .format         = get_format(vertex_attribute_desc.ComponentType, vertex_attribute_desc.Mask),
+        };
+
+        result.emplace_back(std::move(attribute));
+    }
+
+    return result;
+}
+
 void DX12Device::WaitIdle() {
     for (auto& queue : m_CommandQueues) {
         queue->WaitIdle();
@@ -143,19 +183,19 @@ auto DX12Device::GetCommandQueue(CommandType type) const -> CommandQueue* {
 }
 
 auto DX12Device::CreateCommandQueue(CommandType type, std::string_view name) -> std::shared_ptr<CommandQueue> {
-    return std::make_shared<DX12CommandQueue>(this, type, name);
+    return std::make_shared<DX12CommandQueue>(*this, type, name);
 }
 
 auto DX12Device::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {
-    return std::make_shared<DX12GraphicsCommandContext>(this, name);
+    return std::make_shared<DX12GraphicsCommandContext>(*this, name);
 }
 
 auto DX12Device::CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> {
-    return std::make_shared<DX12ComputeCommandContext>(this, name);
+    return std::make_shared<DX12ComputeCommandContext>(*this, name);
 }
 
 auto DX12Device::CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> {
-    return std::make_shared<DX12CopyCommandContext>(this, name);
+    return std::make_shared<DX12CopyCommandContext>(*this, name);
 }
 
 auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> {
@@ -191,7 +231,7 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
             result->swap_chain = nullptr;
         }
     } else {
-        result = std::make_shared<DX12SwapChain>(desc);
+        result = std::make_shared<DX12SwapChain>(*this, desc);
     }
 
     UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
@@ -286,7 +326,7 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
     }
 
     auto resource_desc = CD3DX12_RESOURCE_DESC::Buffer(
-        utils::has_flag(desc.usages, GpuBuffer::UsageFlags::Constant) ? utils::align(desc.size, 256) : desc.size,
+        desc.element_count * (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::Constant) ? utils::align(desc.element_size, 256) : desc.element_size),
         D3D12_RESOURCE_FLAG_NONE);
 
     ComPtr<ID3D12Resource> resource;
@@ -304,105 +344,104 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
 
     resource->SetName(std::pmr::wstring(desc.name.begin(), desc.name.end()).data());
 
-    std::byte* cpu_ptr = nullptr;
+    std::byte* mapped_ptr = nullptr;
     if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::MapRead) ||
         utils::has_flag(desc.usages, GpuBuffer::UsageFlags::MapWrite)) {
-        if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&cpu_ptr)))) {
+        if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
             m_Logger->warn("Failed to map gpu buffer: {}", desc.name);
             return nullptr;
         }
     }
 
-    auto result      = std::make_shared<DX12ResourceWrapper<GpuBuffer>>(desc, cpu_ptr);
+    auto result      = std::make_shared<DX12GpuBuffer>(*this, desc, resource_desc.Width, mapped_ptr);
     result->resource = std::move(resource);
     result->state    = initial_state;
 
+    result->update_fn = [p = result.get()](std::size_t index, std::span<const std::byte> data) {
+        if (utils::has_flag(p->desc.usages, GpuBuffer::UsageFlags::Constant)) {
+            std::memcpy(p->mapped_ptr + index * utils::align(p->desc.element_size, 256), data.data(), data.size());
+        } else {
+            std::memcpy(p->mapped_ptr + index * p->desc.element_size, data.data(), data.size());
+        }
+    };
+
+    auto buffer_location = result->resource->GetGPUVirtualAddress();
+
+    if (utils::has_flag(result->desc.usages, GpuBuffer::UsageFlags::Vertex)) {
+        result->vbv = D3D12_VERTEX_BUFFER_VIEW{
+            .BufferLocation = buffer_location,
+            .SizeInBytes    = static_cast<UINT>(result->size),
+            .StrideInBytes  = static_cast<UINT>(result->desc.element_size),
+        };
+    }
+    if (utils::has_flag(result->desc.usages, GpuBuffer::UsageFlags::Index)) {
+        if (result->desc.element_size != sizeof(std::uint16_t) && result->desc.element_size != sizeof(std::uint32_t)) {
+            m_Logger->error("the element_size of GpuBuffer({}) for {} must be 16 bits or 32 bits, but get {} bits",
+                            fmt::styled(result->desc.name, fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GpuBuffer::UsageFlags::Index), fmt::fg(fmt::color::green)),
+                            fmt::styled(8 * result->desc.element_size, fmt::fg(fmt::color::red)));
+            return nullptr;
+        }
+        result->ibv = D3D12_INDEX_BUFFER_VIEW{
+            .BufferLocation = buffer_location,
+            .SizeInBytes    = static_cast<UINT>(result->size),
+            .Format         = result->desc.element_size == sizeof(std::uint16_t) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT,
+        };
+    }
+    if (utils::has_flag(result->desc.usages, GpuBuffer::UsageFlags::Constant)) {
+        if (utils::has_flag(result->desc.usages, GpuBuffer::UsageFlags::Vertex) ||
+            utils::has_flag(result->desc.usages, GpuBuffer::UsageFlags::Index)) {
+            m_Logger->error("Can not create constant buffer({}) with the flag {} or {}, the actual flags are {}",
+                            fmt::styled(result->desc.name, fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GpuBuffer::UsageFlags::Vertex), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GpuBuffer::UsageFlags::Index), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_flags_name(result->desc.usages), fmt::fg(fmt::color::red)));
+            return nullptr;
+        }
+
+        result->cbvs = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->Allocate(result->desc.element_count);
+        CD3DX12_CPU_DESCRIPTOR_HANDLE handle(result->cbvs.cpu_handle);
+
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
+            .BufferLocation = buffer_location,
+            .SizeInBytes    = static_cast<UINT>(utils::align(result->desc.element_size, 256)),
+        };
+        for (std::size_t i = 0; i < result->cbvs.num; i++) {
+            m_Device->CreateConstantBufferView(&cbv_desc, handle);
+            cbv_desc.BufferLocation += cbv_desc.SizeInBytes;
+            handle.Offset(result->cbvs.increament_size);
+        }
+    }
+
     if (!initial_data.empty()) {
-        if (initial_data.size() > desc.size) {
+        if (initial_data.size() > result->desc.element_size * result->desc.element_count) {
             m_Logger->warn("the initial data size({}) is larger than gpu buffer({}) size({}), so the exceed data will not be copied!",
                            fmt::styled(initial_data.size(), fmt::fg(fmt::color::red)),
-                           fmt::styled(desc.size, fmt::fg(fmt::color::green)),
+                           fmt::styled(result->desc.element_size * result->desc.element_count, fmt::fg(fmt::color::green)),
                            fmt::styled(desc.name, fmt::fg(fmt::color::green)));
         }
-        if (cpu_ptr) {
-            std::memcpy(cpu_ptr, initial_data.data(), std::min(initial_data.size(), desc.size));
+        if (utils::has_flag(result->desc.usages, GpuBuffer::UsageFlags::Constant)) {
+            m_Logger->warn("Initialize a constant buffer when create it may occur unexpect result, since each element of D3D12 ConstantBuffer aligned to 256 bytes");
+        }
+
+        if (result->mapped_ptr) {
+            std::memcpy(result->mapped_ptr, initial_data.data(), std::min(initial_data.size(), result->desc.element_size * result->desc.element_count));
         } else {
             auto upload_buffer = CreateBuffer(
                 {
-                    .name   = "UploadBuffer",
-                    .size   = std::min(initial_data.size(), desc.size),
-                    .usages = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
+                    .name         = "UploadBuffer",
+                    .element_size = std::min(initial_data.size(), result->desc.element_size * result->desc.element_count),
+                    .usages       = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
                 },
-                {initial_data.data(), std::min(initial_data.size(), desc.size)});
+                {initial_data.data(), std::min(initial_data.size(), result->desc.element_size * result->desc.element_count)});
 
             auto copy_context = CreateCopyContext("CreateBuffer");
-            copy_context->CopyBuffer(*upload_buffer, 0, *result, 0, upload_buffer->desc.size);
+            copy_context->CopyBuffer(*upload_buffer, 0, *result, 0, upload_buffer->desc.element_size);
             copy_context->End();
 
             auto          copy_queue  = m_CommandQueues[CommandType::Copy];
             std::uint64_t fence_value = copy_queue->Submit({copy_context.get()});
             copy_queue->WaitForFence(fence_value);
-        }
-    }
-
-    return result;
-}
-
-auto DX12Device::CreateBufferView(GpuBufferView::Desc desc) -> std::shared_ptr<GpuBufferView> {
-    if (desc.size == 0) {
-        desc.size = desc.buffer.desc.size - desc.offset;
-    }
-
-    if (desc.stride == 0) {
-        m_Logger->error("The stride of GpuBufferView(name: {}) must be non-zero!",
-                        fmt::styled(desc.buffer.desc.name, fmt::fg(fmt::color::green)));
-        return nullptr;
-    }
-    if (desc.stride > desc.size) {
-        m_Logger->warn("The stride(value: {}) of GpuBufferView(name: {}) is truncated to its size(value: {})",
-                       fmt::styled(desc.stride, fmt::fg(fmt::color::red)),
-                       fmt::styled(desc.buffer.desc.name, fmt::fg(fmt::color::green)),
-                       fmt::styled(desc.size, fmt::fg(fmt::color::green)));
-        desc.stride = desc.size;
-    }
-
-    auto result          = std::make_shared<DX12GpuBufferView>(desc);
-    auto buffer_location = static_cast<DX12ResourceWrapper<GpuBuffer>&>(result->desc.buffer).resource->GetGPUVirtualAddress() + result->desc.offset;
-
-    if (utils::has_flag(result->desc.usages, GpuBufferView::UsageFlags::Vertex)) {
-        result->vbv = D3D12_VERTEX_BUFFER_VIEW{
-            .BufferLocation = buffer_location,
-            .SizeInBytes    = static_cast<UINT>(result->desc.size),
-            .StrideInBytes  = static_cast<UINT>(result->desc.stride),
-        };
-    }
-    if (utils::has_flag(result->desc.usages, GpuBufferView::UsageFlags::Index)) {
-        if (result->desc.stride != sizeof(std::uint16_t) && result->desc.stride != sizeof(std::uint32_t)) {
-            m_Logger->error("the stride of GpuBufferView({}) for {} must be 16 bits or 32 bits, but get {} bits",
-                            fmt::styled(result->desc.buffer.desc.name, fmt::fg(fmt::color::green)),
-                            fmt::styled(magic_enum::enum_name(GpuBufferView::UsageFlags::Index), fmt::fg(fmt::color::green)),
-                            fmt::styled(8 * result->desc.stride, fmt::fg(fmt::color::red)));
-            return nullptr;
-        }
-        result->ibv = D3D12_INDEX_BUFFER_VIEW{
-            .BufferLocation = buffer_location,
-            .SizeInBytes    = static_cast<UINT>(result->desc.size),
-            .Format         = result->desc.stride == sizeof(std::uint16_t) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT,
-        };
-    }
-    if (utils::has_flag(result->desc.usages, GpuBufferView::UsageFlags::Constant)) {
-        std::size_t element_count = result->desc.size / desc.stride;
-        result->cbvs              = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->Allocate(element_count);
-        CD3DX12_CPU_DESCRIPTOR_HANDLE handle(result->cbvs.cpu_handle);
-
-        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
-            .BufferLocation = buffer_location,
-            .SizeInBytes    = static_cast<UINT>(utils::align(result->desc.stride, 256)),
-        };
-        for (std::size_t i = 0; i < result->cbvs.num; i++) {
-            m_Device->CreateConstantBufferView(&cbv_desc, handle);
-            cbv_desc.BufferLocation += result->desc.stride;
-            handle.Offset(result->cbvs.increament_size);
         }
     }
 
@@ -512,9 +551,9 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
     if (!initial_data.empty()) {
         auto upload_buffer = std::static_pointer_cast<DX12ResourceWrapper<GpuBuffer>>(CreateBuffer(
             {
-                .name   = "UploadTexture",
-                .size   = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(m_Device.Get())),
-                .usages = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
+                .name         = "UploadTexture",
+                .element_size = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(m_Device.Get())),
+                .usages       = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
             }));
 
         D3D12_SUBRESOURCE_DATA textureData = {
@@ -533,33 +572,19 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
         copy_queue->WaitForFence(fence_value);
     }
 
-    auto result      = std::make_shared<DX12ResourceWrapper<Texture>>(desc);
-    result->resource = resource;
+    auto result      = std::make_shared<DX12Texture>(*this, desc);
+    result->resource = std::move(resource);
     result->state    = D3D12_RESOURCE_STATE_COMMON;
 
-    return result;
-}
-
-auto DX12Device::CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<TextureView> {
-    if (desc.format == Format::UNKNOWN) {
-        desc.format = desc.textuer.desc.format;
-    }
-
-    auto result         = std::make_shared<DX12DescriptorWrapper<TextureView>>(desc);
-    auto d3d_res        = static_cast<DX12ResourceWrapper<Texture>&>(result->desc.textuer).resource.Get();
-    bool create_succeed = false;
-
-    if (utils::has_flag(result->desc.textuer.desc.usages, Texture::UsageFlags::SRV)) {
+    if (utils::has_flag(result->desc.usages, Texture::UsageFlags::SRV)) {
         auto srv_desc = to_d3d_srv_desc(result->desc);
         result->srv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->Allocate();
-
-        m_Device->CreateShaderResourceView(d3d_res, &srv_desc, result->srv.cpu_handle);
-        create_succeed = true;
+        m_Device->CreateShaderResourceView(result->resource.Get(), &srv_desc, result->srv.cpu_handle);
     }
 
-    if (utils::has_flag(result->desc.textuer.desc.usages, Texture::UsageFlags::UAV)) {
+    if (utils::has_flag(result->desc.usages, Texture::UsageFlags::UAV)) {
         m_Logger->warn("Unimplement for {}",
-                       fmt::styled(magic_enum::enum_name(Texture::UsageFlags::RTV), fmt::fg(fmt::color::red)));
+                       fmt::styled(magic_enum::enum_name(Texture::UsageFlags::UAV), fmt::fg(fmt::color::red)));
         // auto uav_desc                              = to_d3d_uav_desc(result->desc);
         // result->descriptors[Descriptor::Type::UAV] = m_DescriptorAllocators[Descriptor::Type::UAV]->Allocate();
 
@@ -567,23 +592,16 @@ auto DX12Device::CreateTextureView(TextureView::Desc desc) -> std::shared_ptr<Te
         // m_Device->CreateUnorderedAccessView(d3d_res, &uav_desc, result->descriptors[Descriptor::Type::UAV].handle);
     }
 
-    if (utils::has_flag(result->desc.textuer.desc.usages, Texture::UsageFlags::RTV)) {
+    if (utils::has_flag(result->desc.usages, Texture::UsageFlags::RTV)) {
         auto rtv_desc = to_d3d_rtv_desc(result->desc);
         result->rtv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_RTV]->Allocate();
-
-        m_Device->CreateRenderTargetView(d3d_res, &rtv_desc, result->rtv.cpu_handle);
-        create_succeed = true;
+        m_Device->CreateRenderTargetView(result->resource.Get(), &rtv_desc, result->rtv.cpu_handle);
     }
 
-    if (utils::has_flag(result->desc.textuer.desc.usages, Texture::UsageFlags::DSV)) {
-        m_Logger->warn("Unimplement for {}",
-                       fmt::styled(magic_enum::enum_name(Texture::UsageFlags::DSV), fmt::fg(fmt::color::red)));
-    }
-
-    if (!create_succeed) {
-        m_Logger->warn("create failed since the texture usages() is not for TextureView",
-                       fmt::styled(magic_enum::enum_flags_name(result->desc.textuer.desc.usages), fmt::fg(fmt::color::red)));
-        return nullptr;
+    if (utils::has_flag(result->desc.usages, Texture::UsageFlags::DSV)) {
+        auto dsv_desc = to_d3d_dsv_desc(result->desc);
+        result->dsv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->Allocate();
+        m_Device->CreateDepthStencilView(result->resource.Get(), &dsv_desc, result->dsv.cpu_handle);
     }
 
     return result;
@@ -610,7 +628,7 @@ auto DX12Device::CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> {
         .MaxLOD         = desc.max_load,
     };
 
-    auto result = std::make_shared<DX12DescriptorWrapper<Sampler>>(desc);
+    auto result = std::make_shared<DX12Sampler>(*this, desc);
 
     result->sampler = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]->Allocate();
     m_Device->CreateSampler(&d3d_desc, result->sampler.cpu_handle);
@@ -618,19 +636,19 @@ auto DX12Device::CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> {
     return result;
 }
 
-auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
+void DX12Device::CompileShader(Shader& shader) {
     std::pmr::vector<std::pmr::wstring> args;
 
     // shader name
-    args.emplace_back(std::pmr::wstring(desc.name.begin(), desc.name.end()));
+    args.emplace_back(std::pmr::wstring(shader.name.begin(), shader.name.end()));
 
     // shader entry
     args.emplace_back(L"-E");
-    args.emplace_back(desc.entry.begin(), desc.entry.end());
+    args.emplace_back(shader.entry.begin(), shader.entry.end());
 
     // shader model
     args.emplace_back(L"-T");
-    args.emplace_back(to_shader_model_compile_flag(desc.type, m_FeatureSupport.HighestShaderModel()));
+    args.emplace_back(to_shader_model_compile_flag(shader.type, m_FeatureSupport.HighestShaderModel()));
 
     // We use row major order
     args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
@@ -639,7 +657,8 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
     args.emplace_back(DXC_ARG_ALL_RESOURCES_BOUND);
 #ifdef _DEBUG
     args.emplace_back(DXC_ARG_OPTIMIZATION_LEVEL0);
-    args.emplace_back(L"-Zs");  // dynamic shader editing
+    args.emplace_back(DXC_ARG_DEBUG);
+    args.emplace_back(L"-Qembed_debug");
 #endif
     std::pmr::vector<const wchar_t*> p_args;
     std::transform(args.begin(), args.end(), std::back_insert_iterator(p_args), [](const auto& arg) { return arg.data(); });
@@ -655,8 +674,8 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
 
     m_Utils->CreateDefaultIncludeHandler(&include_handler);
     DxcBuffer source_buffer{
-        .Ptr      = desc.source_code.data(),
-        .Size     = desc.source_code.size(),
+        .Ptr      = shader.source_code.data(),
+        .Size     = shader.source_code.size(),
         .Encoding = DXC_CP_ACP,
     };
 
@@ -681,7 +700,7 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
     compile_result->GetStatus(&hr);
     if (FAILED(hr)) {
         m_Logger->error("compilation Failed\n");
-        return nullptr;
+        return;
     }
 
     ComPtr<IDxcBlob>      shader_buffer;
@@ -689,47 +708,56 @@ auto DX12Device::CompileShader(Shader::Desc desc) -> std::shared_ptr<Shader> {
 
     compile_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), &shader_name);
     if (shader_buffer == nullptr) {
-        return nullptr;
+        return;
     }
-    return std::make_shared<Shader>(desc, core::Buffer{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())});
+
+    shader.binary_data = core::Buffer{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())};
 }
 
 auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> {
-    auto result = std::make_shared<DX12RenderPipeline>(std::move(desc));
+    for (Shader& shader : std::array{std::ref(desc.vs), std::ref(desc.ps), std::ref(desc.gs)}) {
+        if (shader.binary_data.Empty() && !shader.source_code.empty()) {
+            CompileShader(shader);
+        }
+    }
 
-    if (result->desc.bindless) {
-    } else {
-        // try to deserializer root signature from shader code
-        {
-            for (const auto& shader : {result->desc.vs, result->desc.ps, result->desc.gs}) {
-                if (shader == nullptr || shader->binary_data.Empty()) continue;
+    if (desc.input_layout.empty()) {
+        m_Logger->warn("Missing input layout when create pipline({})", fmt::styled(desc.name, fmt::fg(fmt::color::red)));
+        desc.input_layout = CreateInputLayout(desc.vs);
+    }
 
-                HRESULT hr = D3D12CreateVersionedRootSignatureDeserializer(
-                    shader->binary_data.GetData(),
-                    shader->binary_data.GetDataSize(),
-                    IID_PPV_ARGS(&result->root_signature_deserializer));
+    auto result = std::make_shared<DX12RenderPipeline>(*this, std::move(desc));
 
-                if (SUCCEEDED(hr)) {
-                    const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* p_desc = nullptr;
-                    result->root_signature_deserializer->GetRootSignatureDescAtVersion(D3D_ROOT_SIGNATURE_VERSION_1_1, &p_desc);
-                    assert(p_desc->Version == D3D_ROOT_SIGNATURE_VERSION_1_1);
-                    result->root_signature_desc = p_desc->Desc_1_1;
+    // try to deserializer root signature from shader code
+    {
+        for (auto& shader : {result->desc.vs, result->desc.ps, result->desc.gs}) {
+            if (shader.binary_data.Empty()) continue;
 
-                    if (SUCCEEDED(m_Device->CreateRootSignature(
-                            0,
-                            shader->binary_data.GetData(),
-                            shader->binary_data.GetDataSize(),
-                            IID_PPV_ARGS(&result->root_signature)))) {
-                        break;
-                    }
+            HRESULT hr = D3D12CreateVersionedRootSignatureDeserializer(
+                shader.binary_data.GetData(),
+                shader.binary_data.GetDataSize(),
+                IID_PPV_ARGS(&result->root_signature_deserializer));
+
+            if (SUCCEEDED(hr)) {
+                const D3D12_VERSIONED_ROOT_SIGNATURE_DESC* p_desc = nullptr;
+                result->root_signature_deserializer->GetRootSignatureDescAtVersion(D3D_ROOT_SIGNATURE_VERSION_1_1, &p_desc);
+                assert(p_desc->Version == D3D_ROOT_SIGNATURE_VERSION_1_1);
+                result->root_signature_desc = p_desc->Desc_1_1;
+
+                if (SUCCEEDED(m_Device->CreateRootSignature(
+                        0,
+                        shader.binary_data.GetData(),
+                        shader.binary_data.GetDataSize(),
+                        IID_PPV_ARGS(&result->root_signature)))) {
+                    break;
                 }
             }
+        }
 
-            if (result->root_signature == nullptr) {
-                m_Logger->warn("Faild create root signature from shader. May you create root signature in shader? Pipeline Name: {}",
-                               fmt::styled(result->desc.name, fmt::fg(fmt::color::red)));
-                return nullptr;
-            }
+        if (result->root_signature == nullptr) {
+            m_Logger->warn("Faild create root signature from shader. May you create root signature in shader? Pipeline Name: {}",
+                           fmt::styled(result->desc.name, fmt::fg(fmt::color::red)));
+            return nullptr;
         }
     }
 
@@ -741,16 +769,16 @@ auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_
             .pRootSignature = result->root_signature.Get(),
 
             .VS = {
-                .pShaderBytecode = result->desc.vs ? result->desc.vs->binary_data.GetData() : nullptr,
-                .BytecodeLength  = result->desc.vs ? result->desc.vs->binary_data.GetDataSize() : 0,
+                .pShaderBytecode = result->desc.vs.binary_data.GetData(),
+                .BytecodeLength  = result->desc.vs.binary_data.GetDataSize(),
             },
             .PS = {
-                .pShaderBytecode = result->desc.ps ? result->desc.ps->binary_data.GetData() : nullptr,
-                .BytecodeLength  = result->desc.ps ? result->desc.ps->binary_data.GetDataSize() : 0,
+                .pShaderBytecode = result->desc.ps.binary_data.GetData(),
+                .BytecodeLength  = result->desc.ps.binary_data.GetDataSize(),
             },
             .GS = {
-                .pShaderBytecode = result->desc.gs ? result->desc.gs->binary_data.GetData() : nullptr,
-                .BytecodeLength  = result->desc.gs ? result->desc.gs->binary_data.GetDataSize() : 0,
+                .pShaderBytecode = result->desc.gs.binary_data.GetData(),
+                .BytecodeLength  = result->desc.gs.binary_data.GetDataSize(),
             },
             .BlendState            = to_d3d_blend_desc(result->desc.blend_config),
             .SampleMask            = UINT_MAX,
@@ -776,7 +804,11 @@ auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_
     return result;
 }
 
-auto DX12Device::RequestDynamicDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEAP_TYPE type) -> Descriptor {
+auto DX12Device::AllocateDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEAP_TYPE type) -> Descriptor {
+    return m_DescriptorAllocators[type]->Allocate(num);
+}
+
+auto DX12Device::AllocateDynamicDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEAP_TYPE type) -> Descriptor {
     if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
         return m_GpuDescriptorAllocators[0]->Allocate(num);
     } else if (type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
@@ -786,15 +818,6 @@ auto DX12Device::RequestDynamicDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEA
         m_Logger->error(err_msg);
         throw std::invalid_argument(err_msg.c_str());
     }
-}
-
-bool DX12Device::FenceFinished(std::uint64_t fence_value) {
-    for (auto& queue : m_CommandQueues) {
-        if (!queue->IsFenceComplete(m_ReiteredGpuDescriptors.front().second)) {
-            return false;
-        }
-    }
-    return true;
 }
 
 }  // namespace hitagi::gfx

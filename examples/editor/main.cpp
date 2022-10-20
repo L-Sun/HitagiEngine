@@ -13,20 +13,21 @@
 #endif
 
 auto main(int argc, char** argv) -> int {
-    hitagi::Engine engine;
+    auto engine    = std::make_unique<hitagi::Engine>();
+    hitagi::engine = engine.get();
 
-    if (!engine.Initialize()) {
+    if (!engine->Initialize()) {
         std::cout << "Engine Initialize failed, will exit now." << std::endl;
         return -1;
     }
 
-    engine.LoadModule(std::make_unique<hitagi::Editor>());
+    engine->LoadModule(std::make_unique<hitagi::Editor>());
 
 #ifdef _DEBUG
     try {
 #endif
         while (!hitagi::app->IsQuit()) {
-            engine.Tick();
+            engine->Tick();
         }
 #ifdef _DEBUG
     } catch (std::exception ex) {
@@ -34,7 +35,8 @@ auto main(int argc, char** argv) -> int {
     }
 #endif
 
-    engine.Finalize();
+    engine->Finalize();
+    hitagi::engine = nullptr;
 
 #ifdef _WIN32
 #ifdef _DEBUG

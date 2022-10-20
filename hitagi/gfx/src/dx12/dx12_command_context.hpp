@@ -14,10 +14,7 @@ class DX12Device;
 
 class DX12CommandContext {
 public:
-    DX12CommandContext(DX12Device* device, CommandType type, std::string_view name, std::uint64_t& fence_value);
-    ~DX12CommandContext() {
-        int i = 0;
-    }
+    DX12CommandContext(DX12Device& device, CommandType type, std::string_view name, std::uint64_t& fence_value);
     template <typename T>
     void TransitionResource(T& resource, D3D12_RESOURCE_STATES new_state, bool flush_immediate = false);
     void FlushBarriers();
@@ -26,7 +23,7 @@ protected:
     friend class DX12CommandQueue;
     friend class ResourceBinder;
 
-    DX12Device*                              m_Device;
+    DX12Device&                              m_Device;
     CommandType                              m_Type;
     ComPtr<ID3D12CommandAllocator>           m_CmdAllocator;
     ComPtr<ID3D12GraphicsCommandList5>       m_CmdList;
@@ -40,7 +37,7 @@ protected:
 
 class DX12GraphicsCommandContext : public GraphicsCommandContext, public DX12CommandContext {
 public:
-    DX12GraphicsCommandContext(DX12Device* device, std::string_view name);
+    DX12GraphicsCommandContext(DX12Device& device, std::string_view name);
     void SetName(std::string_view name) final;
     void ResetState(GpuBuffer& buffer) final;
     void ResetState(Texture& texture) final;
@@ -48,25 +45,25 @@ public:
     void SetViewPort(const ViewPort& view_port) final;
     void SetScissorRect(const Rect& scissor_rect) final;
     void SetBlendColor(const math::vec4f& color) final;
-    void SetRenderTarget(const TextureView& target) final;
-    void SetRenderTargetAndDepthStencil(const TextureView& target, const TextureView& depth_stencil) final;
+    void SetRenderTarget(Texture& target) final;
+    void SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) final;
 
-    void ClearRenderTarget(const TextureView& target) final;
-    void ClearDepthStencil(const TextureView& depth_stencil) final;
+    void ClearRenderTarget(Texture& target) final;
+    void ClearDepthStencil(Texture& depth_stencil) final;
 
     void SetPipeline(const RenderPipeline& pipeline) final;
-    void SetIndexBuffer(const GpuBufferView& buffer) final;
-    void SetVertexBuffer(std::uint8_t slot, const GpuBufferView& buffer) final;
+    void SetIndexBuffer(GpuBuffer& buffer) final;
+    void SetVertexBuffer(std::uint8_t slot, GpuBuffer& buffer) final;
 
     void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data) final;
-    void BindConstantBuffer(std::uint32_t slot, const GpuBufferView& buffer, std::size_t index = 0) final;
-    void BindTexture(std::uint32_t slot, const TextureView& texture) final;
-    int  GetBindless(const TextureView& texture_view) final;
+    void BindConstantBuffer(std::uint32_t slot, GpuBuffer& buffer, std::size_t index = 0) final;
+    void BindTexture(std::uint32_t slot, Texture& texture) final;
+    int  GetBindless(const Texture& texture) final;
 
     void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;
     void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final;
 
-    void CopyTexture(const Texture& src, const Texture& dest) final;
+    void CopyTexture(const Texture& src, Texture& dest) final;
     void Present(Texture& back_buffer) final;
 
     void Reset() final;
@@ -75,7 +72,7 @@ public:
 
 class DX12ComputeCommandContext : public ComputeCommandContext, public DX12CommandContext {
 public:
-    DX12ComputeCommandContext(DX12Device* device, std::string_view name);
+    DX12ComputeCommandContext(DX12Device& device, std::string_view name);
     void SetName(std::string_view name) final;
     void ResetState(GpuBuffer& buffer) final;
     void ResetState(Texture& texture) final;
@@ -86,7 +83,7 @@ public:
 
 class DX12CopyCommandContext : public CopyCommandContext, public DX12CommandContext {
 public:
-    DX12CopyCommandContext(DX12Device* device, std::string_view name);
+    DX12CopyCommandContext(DX12Device& device, std::string_view name);
     void SetName(std::string_view name) final;
     void ResetState(GpuBuffer& buffer) final;
     void ResetState(Texture& texture) final;

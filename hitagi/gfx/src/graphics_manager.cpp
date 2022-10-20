@@ -36,8 +36,8 @@ void GraphicsManager::Tick() {
         });
     });
     compile.wait();
-    auto fence_value = m_RenderGraph->Execute();
     wait_last_frame.wait();
+    auto fence_value  = m_RenderGraph->Execute();
     m_LastFenceValues = fence_value;
 }
 

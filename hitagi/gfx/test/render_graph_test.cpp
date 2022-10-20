@@ -50,24 +50,20 @@ TEST_F(RenderGraphTest, RenderPass) {
             }
         )""";
 
-        auto vs_shader = device->CompileShader(
-            {
-                .name        = "I know DirectX12 vertex shader",
-                .type        = Shader::Type::Vertex,
-                .entry       = "VSMain",
-                .source_code = shader_code,
-            });
-        auto ps_shader = device->CompileShader(
-            {
+        auto pipeline = device->CreateRenderPipeline({
+            .name = "I know DirectX12 pipeline",
+            .vs   = {
+                  .name        = "I know DirectX12 vertex shader",
+                  .type        = Shader::Type::Vertex,
+                  .entry       = "VSMain",
+                  .source_code = std::pmr::string(shader_code),
+            },
+            .ps = {
                 .name        = "I know DirectX12 pixel shader",
                 .type        = Shader::Type::Pixel,
                 .entry       = "PSMain",
-                .source_code = shader_code,
-            });
-        auto pipeline = device->CreateRenderPipeline({
-            .name         = "I know DirectX12 pipeline",
-            .vs           = vs_shader,
-            .ps           = ps_shader,
+                .source_code = std::pmr::string(shader_code),
+            },
             .input_layout = {
                 // clang-format off
                 {"POSITION", 0, 0,             0, Format::R32G32B32_FLOAT},
@@ -88,8 +84,10 @@ TEST_F(RenderGraphTest, RenderPass) {
         // clang-format on
         auto vertex_buffer = device->CreateBuffer(
             {
-                .name = "triangle",
-                .size = sizeof(vec3f) * triangle.size(),
+                .name          = "triangle",
+                .element_size  = sizeof(vec3f),
+                .element_count = triangle.size(),
+                .usages        = GpuBuffer::UsageFlags::Vertex,
             },
             {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
@@ -111,20 +109,8 @@ TEST_F(RenderGraphTest, RenderPass) {
             [=](const RenderGraph::ResourceHelper& helper, const ColorPass& data, GraphicsCommandContext* context) {
                 auto& render_target = helper.Get<Texture>(data.output);
 
-                auto vbv = device->CreateBufferView(
-                    {
-                        .buffer = helper.Get<GpuBuffer>(data.vertices),
-                        .stride = 2 * sizeof(vec3f),
-                        .usages = GpuBufferView::UsageFlags::Vertex,
-                    });
-
-                auto rtv = device->CreateTextureView(
-                    {
-                        .textuer = render_target,
-                    });
-
                 context->SetPipeline(*pipeline);
-                context->SetRenderTarget(*rtv);
+                context->SetRenderTarget(render_target);
                 context->SetViewPort(ViewPort{
                     .x      = 0,
                     .y      = 0,
@@ -137,7 +123,7 @@ TEST_F(RenderGraphTest, RenderPass) {
                     .width  = render_target.desc.width,
                     .height = render_target.desc.height,
                 });
-                context->SetVertexBuffer(0, *vbv);
+                context->SetVertexBuffer(0, helper.Get<GpuBuffer>(data.vertices));
                 context->Draw(3);
             });
 
