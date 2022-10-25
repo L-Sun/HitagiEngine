@@ -223,12 +223,12 @@ void DX12GraphicsCommandContext::CopyTexture(const Texture& src, Texture& dest) 
     auto& d3d_dst_tex = static_cast<DX12Texture&>(dest);
 
     D3D12_TEXTURE_COPY_LOCATION src_desc{
-        .pResource        = d3d_src_tex.resource.Get(),
+        .pResource        = d3d_src_tex.resource,
         .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
         .SubresourceIndex = 0,
     };
     D3D12_TEXTURE_COPY_LOCATION dst_desc{
-        .pResource        = d3d_dst_tex.resource.Get(),
+        .pResource        = d3d_dst_tex.resource,
         .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
         .SubresourceIndex = 0,
     };
@@ -251,7 +251,7 @@ void DX12CopyCommandContext::CopyBuffer(const GpuBuffer& src, std::size_t src_of
     auto& src_res  = static_cast<const DX12ResourceWrapper<GpuBuffer>&>(src);
     auto& dest_res = static_cast<const DX12ResourceWrapper<GpuBuffer>&>(dest);
 
-    m_CmdList->CopyBufferRegion(dest_res.resource.Get(), dest_offset, src_res.resource.Get(), src_offset, size);
+    m_CmdList->CopyBufferRegion(dest_res.resource, dest_offset, src_res.resource, src_offset, size);
 }
 
 void DX12CopyCommandContext::CopyTexture(const Texture& src, const Texture& dest) {
@@ -259,12 +259,12 @@ void DX12CopyCommandContext::CopyTexture(const Texture& src, const Texture& dest
     auto& d3d_dst_tex = static_cast<const DX12ResourceWrapper<Texture>&>(dest);
 
     D3D12_TEXTURE_COPY_LOCATION src_desc{
-        .pResource        = d3d_src_tex.resource.Get(),
+        .pResource        = d3d_src_tex.resource,
         .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
         .SubresourceIndex = 0,
     };
     D3D12_TEXTURE_COPY_LOCATION dst_desc{
-        .pResource        = d3d_dst_tex.resource.Get(),
+        .pResource        = d3d_dst_tex.resource,
         .Type             = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
         .SubresourceIndex = 0,
     };

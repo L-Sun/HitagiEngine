@@ -3,10 +3,11 @@
 #include "dx12_command_queue.hpp"
 #include <hitagi/gfx/gpu_resource.hpp>
 
+#include <D3D12MemAlloc.h>
+
 #include <dxgi1_6.h>
 #include <d3d12.h>
 #include <wrl.h>
-
 #include <concepts>
 
 using namespace Microsoft::WRL;
@@ -17,8 +18,9 @@ template <typename T>
 struct DX12ResourceWrapper : public T {
     using T::T;
 
-    ComPtr<ID3D12Resource> resource;
-    D3D12_RESOURCE_STATES  state;
+    ComPtr<D3D12MA::Allocation> allocation;
+    ID3D12Resource*             resource;  // a reference to the allocation
+    D3D12_RESOURCE_STATES       state;
 };
 
 struct DX12Texture : public DX12ResourceWrapper<Texture> {

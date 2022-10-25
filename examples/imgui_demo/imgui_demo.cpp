@@ -6,21 +6,7 @@
 
 using namespace hitagi;
 
-bool ImGuiDemo::Initialize() {
-    RuntimeModule::Initialize();
-    m_SwapChain = graphics_manager->GetDevice().CreateSwapChain({
-        .name       = "ImGuiDemo",
-        .window_ptr = app->GetWindow(),
-    });
-    return true;
-}
-
 void ImGuiDemo::Tick() {
-    m_SwapChain->Present();
-    if (app->WindowSizeChanged()) {
-        m_SwapChain->Resize();
-    }
-
     bool open = true;
     gui_manager->DrawGui([&]() -> void {
         ImGui::ShowDemoWindow(&open);
@@ -28,7 +14,7 @@ void ImGuiDemo::Tick() {
 
     auto& render_graph = graphics_manager->GetRenderGraph();
 
-    auto back_buffer = render_graph.ImportWithoutLifeTrack("BackBuffer", &m_SwapChain->GetCurrentBackBuffer());
+    auto back_buffer = render_graph.ImportWithoutLifeTrack("BackBuffer", &graphics_manager->GetSwapChain().GetCurrentBackBuffer());
 
     struct ClearPass {
         gfx::ResourceHandle back_buffer;

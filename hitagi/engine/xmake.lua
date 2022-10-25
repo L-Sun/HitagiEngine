@@ -12,6 +12,6 @@ target("engine")
         "debugger",
         "asset_manager",
         "gui",
-        "application",
+        "app",
         {public = true}
     )

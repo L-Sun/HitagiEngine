@@ -29,12 +29,15 @@ void Profiler::Tick() {
             ImGui::Separator();
             // Module time cost
             {
-                static ImGuiTableFlags flags           = ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody;
-                static float           TEXT_BASE_WIDTH = ImGui::CalcTextSize("A").x;
+                static ImGuiTableFlags flags = ImGuiTableFlags_BordersV |
+                                               ImGuiTableFlags_BordersOuterH |
+                                               ImGuiTableFlags_Resizable |
+                                               ImGuiTableFlags_RowBg |
+                                               ImGuiTableFlags_NoBordersInBody;
 
                 if (ImGui::BeginTable("Module inspector", 2, flags)) {
                     ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
-                    ImGui::TableSetupColumn("Time cost", ImGuiTableColumnFlags_WidthFixed, TEXT_BASE_WIDTH * 4.0f);
+                    ImGui::TableSetupColumn("Time cost", ImGuiTableColumnFlags_WidthFixed);
                     ImGui::TableHeadersRow();
 
                     auto time_cost_text = [](const RuntimeModule* module) {
@@ -47,7 +50,9 @@ void Profiler::Tick() {
                         } else {
                             color = ImVec4(0.53f, 1.0f, 0.29f, 1.0f);
                         }
-                        ImGui::TextColored(color, "%s", fmt::format("{}", time_cost).c_str());
+                        auto text = fmt::format("{}", time_cost);
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(text.c_str()).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                        ImGui::TextColored(color, "%s", text.c_str());
                     };
 
                     std::function<void(const RuntimeModule*)> module_inspector = [&](const RuntimeModule* module) {
@@ -59,7 +64,7 @@ void Profiler::Tick() {
                         auto sub_modules = module->GetSubModules();
                         ImGui::TableSetColumnIndex(0);
                         if (!sub_modules.empty()) {
-                            if (ImGui::TreeNodeEx(module->GetName().data(), ImGuiTreeNodeFlags_SpanFullWidth)) {
+                            if (ImGui::TreeNodeEx(module->GetName().data(), ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_DefaultOpen)) {
                                 for (const auto& sub_module : module->GetSubModules()) {
                                     module_inspector(sub_module);
                                 }

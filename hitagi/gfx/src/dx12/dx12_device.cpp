@@ -41,9 +41,17 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
 
     ThrowIfFailed(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&m_Factory)));
 
+    m_Logger->debug("Enum video adapter...");
+    {
+        ComPtr<IDXGIAdapter> p_adapter;
+        if (m_Factory->EnumAdapters(0, &p_adapter) != DXGI_ERROR_NOT_FOUND) {
+            p_adapter.As(&m_Adapter);
+        }
+    }
+
     m_Logger->debug("Create D3D12 device...");
     {
-        if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_1, IID_PPV_ARGS(&m_Device)))) {
+        if (FAILED(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_11_1, IID_PPV_ARGS(&m_Device)))) {
             ComPtr<IDXGIAdapter4> p_warpa_adapter;
             ThrowIfFailed(m_Factory->EnumWarpAdapter(IID_PPV_ARGS(&p_warpa_adapter)));
             ThrowIfFailed(D3D12CreateDevice(p_warpa_adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_Device)));
@@ -52,6 +60,15 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
         if (!name.empty()) {
             m_Device->SetName(std::wstring(name.begin(), name.end()).c_str());
         }
+    }
+
+    m_Logger->debug("Create D3D12 Memory Allocator");
+    {
+        D3D12MA::ALLOCATOR_DESC desc{
+            .pDevice  = m_Device.Get(),
+            .pAdapter = m_Adapter.Get(),
+        };
+        D3D12MA::CreateAllocator(&desc, &m_MemoryAllocator);
     }
 
     m_Logger->debug("Create feature support checker...");
@@ -294,8 +311,8 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
         return nullptr;
     }
 
-    CD3DX12_HEAP_PROPERTIES heap_props;
-    D3D12_RESOURCE_STATES   initial_state = D3D12_RESOURCE_STATE_COMMON;
+    D3D12MA::ALLOCATION_DESC allocation_desc = {};
+    D3D12_RESOURCE_STATES    initial_state   = D3D12_RESOURCE_STATE_COMMON;
 
     if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::MapRead)) {
         if (desc.usages != (GpuBuffer::UsageFlags::MapRead | GpuBuffer::UsageFlags::CopyDst)) {
@@ -306,7 +323,7 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
                             fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
             return nullptr;
         }
-        heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK);
+        allocation_desc.HeapType = D3D12_HEAP_TYPE_READBACK;
         initial_state |= D3D12_RESOURCE_STATE_COPY_DEST;
 
     } else if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::MapWrite)) {
@@ -318,30 +335,30 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
                             fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
             return nullptr;
         }
-        heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+        allocation_desc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
         initial_state |= D3D12_RESOURCE_STATE_GENERIC_READ;
 
     } else {
-        heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+        allocation_desc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
     }
 
     auto resource_desc = CD3DX12_RESOURCE_DESC::Buffer(
         desc.element_count * (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::Constant) ? utils::align(desc.element_size, 256) : desc.element_size),
         D3D12_RESOURCE_FLAG_NONE);
 
-    ComPtr<ID3D12Resource> resource;
+    ComPtr<D3D12MA::Allocation> allocation;
 
-    if (FAILED(m_Device->CreateCommittedResource(
-            &heap_props,
-            D3D12_HEAP_FLAG_NONE,
+    if (FAILED(m_MemoryAllocator->CreateResource(
+            &allocation_desc,
             &resource_desc,
             initial_state,
             nullptr,
-            IID_PPV_ARGS(&resource)))) {
+            &allocation,
+            IID_NULL, nullptr))) {
         m_Logger->warn("Failed to create gpu buffer: {}", desc.name);
         return nullptr;
     }
-
+    auto resource = allocation->GetResource();
     resource->SetName(std::pmr::wstring(desc.name.begin(), desc.name.end()).data());
 
     std::byte* mapped_ptr = nullptr;
@@ -353,9 +370,10 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
         }
     }
 
-    auto result      = std::make_shared<DX12GpuBuffer>(*this, desc, resource_desc.Width, mapped_ptr);
-    result->resource = std::move(resource);
-    result->state    = initial_state;
+    auto result        = std::make_shared<DX12GpuBuffer>(*this, desc, resource_desc.Width, mapped_ptr);
+    result->allocation = std::move(allocation);
+    result->resource   = resource;
+    result->state      = initial_state;
 
     result->update_fn = [p = result.get()](std::size_t index, std::span<const std::byte> data) {
         if (utils::has_flag(p->desc.usages, GpuBuffer::UsageFlags::Constant)) {
@@ -365,7 +383,7 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
         }
     };
 
-    auto buffer_location = result->resource->GetGPUVirtualAddress();
+    auto buffer_location = resource->GetGPUVirtualAddress();
 
     if (utils::has_flag(result->desc.usages, GpuBuffer::UsageFlags::Vertex)) {
         result->vbv = D3D12_VERTEX_BUFFER_VIEW{
@@ -531,28 +549,30 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
     }
     bool use_clear_value = utils::has_flag(desc.usages, Texture::UsageFlags::RTV) || utils::has_flag(desc.usages, Texture::UsageFlags::DSV);
 
-    auto heap_props = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12MA::ALLOCATION_DESC allocation_desc{
+        .HeapType = D3D12_HEAP_TYPE_DEFAULT,
+    };
 
-    ComPtr<ID3D12Resource> resource;
-    if (FAILED(m_Device->CreateCommittedResource(
-            &heap_props,
-            D3D12_HEAP_FLAG_NONE,
+    ComPtr<D3D12MA::Allocation> allocation;
+    if (FAILED(m_MemoryAllocator->CreateResource(
+            &allocation_desc,
             &resource_desc,
             D3D12_RESOURCE_STATE_COMMON,
             use_clear_value ? &optimized_clear_value : nullptr,
-            IID_PPV_ARGS(&resource)))) {
+            &allocation,
+            IID_NULL, nullptr))) {
         m_Logger->warn("Failed to create texture. Name: {}",
                        fmt::styled(desc.name, fmt::fg(fmt::color::red)));
         return nullptr;
     }
-
+    auto resource = allocation->GetResource();
     resource->SetName(std::pmr::wstring(desc.name.begin(), desc.name.end()).data());
 
     if (!initial_data.empty()) {
         auto upload_buffer = std::static_pointer_cast<DX12ResourceWrapper<GpuBuffer>>(CreateBuffer(
             {
                 .name         = "UploadTexture",
-                .element_size = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(m_Device.Get())),
+                .element_size = GetRequiredIntermediateSize(resource, 0, resource_desc.Subresources(m_Device.Get())),
                 .usages       = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
             }));
 
@@ -564,7 +584,7 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
 
         auto copy_context = std::static_pointer_cast<DX12CopyCommandContext>(CreateCopyContext("UploadTexture"));
         auto cmd_list     = copy_context->GetCmdList();
-        UpdateSubresources(cmd_list, resource.Get(), upload_buffer->resource.Get(), 0, 0, resource_desc.Subresources(m_Device.Get()), &textureData);
+        UpdateSubresources(cmd_list, resource, upload_buffer->resource, 0, 0, resource_desc.Subresources(m_Device.Get()), &textureData);
         copy_context->End();
 
         auto          copy_queue  = m_CommandQueues[CommandType::Copy];
@@ -572,14 +592,15 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
         copy_queue->WaitForFence(fence_value);
     }
 
-    auto result      = std::make_shared<DX12Texture>(*this, desc);
-    result->resource = std::move(resource);
-    result->state    = D3D12_RESOURCE_STATE_COMMON;
+    auto result        = std::make_shared<DX12Texture>(*this, desc);
+    result->allocation = std::move(allocation);
+    result->resource   = resource;
+    result->state      = D3D12_RESOURCE_STATE_COMMON;
 
     if (utils::has_flag(result->desc.usages, Texture::UsageFlags::SRV)) {
         auto srv_desc = to_d3d_srv_desc(result->desc);
         result->srv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->Allocate();
-        m_Device->CreateShaderResourceView(result->resource.Get(), &srv_desc, result->srv.cpu_handle);
+        m_Device->CreateShaderResourceView(result->resource, &srv_desc, result->srv.cpu_handle);
     }
 
     if (utils::has_flag(result->desc.usages, Texture::UsageFlags::UAV)) {
@@ -595,13 +616,13 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
     if (utils::has_flag(result->desc.usages, Texture::UsageFlags::RTV)) {
         auto rtv_desc = to_d3d_rtv_desc(result->desc);
         result->rtv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_RTV]->Allocate();
-        m_Device->CreateRenderTargetView(result->resource.Get(), &rtv_desc, result->rtv.cpu_handle);
+        m_Device->CreateRenderTargetView(result->resource, &rtv_desc, result->rtv.cpu_handle);
     }
 
     if (utils::has_flag(result->desc.usages, Texture::UsageFlags::DSV)) {
         auto dsv_desc = to_d3d_dsv_desc(result->desc);
         result->dsv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->Allocate();
-        m_Device->CreateDepthStencilView(result->resource.Get(), &dsv_desc, result->dsv.cpu_handle);
+        m_Device->CreateDepthStencilView(result->resource, &dsv_desc, result->dsv.cpu_handle);
     }
 
     return result;

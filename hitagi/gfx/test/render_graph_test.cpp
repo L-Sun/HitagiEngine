@@ -85,8 +85,8 @@ TEST_F(RenderGraphTest, RenderPass) {
         auto vertex_buffer = device->CreateBuffer(
             {
                 .name          = "triangle",
-                .element_size  = sizeof(vec3f),
-                .element_count = triangle.size(),
+                .element_size  = 2 * sizeof(vec3f),
+                .element_count = 3,
                 .usages        = GpuBuffer::UsageFlags::Vertex,
             },
             {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});

@@ -1,4 +1,4 @@
-target("application")
+target("app")
     set_kind("static")
     add_files("src/application.cpp")
     add_includedirs("include", {public = true})

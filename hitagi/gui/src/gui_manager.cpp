@@ -289,7 +289,7 @@ auto GuiManager::GuiRenderPass(gfx::RenderGraph& rg, gfx::ResourceHandle tex) ->
     if (m_GfxData.upload_heap == nullptr || m_GfxData.upload_heap->desc.element_size < total_upload_size) {
         m_GfxData.upload_heap = rg.device.CreateBuffer({
             .name         = "imgui-upload-heap",
-            .element_size = total_upload_size,
+            .element_size = std::max(1ull, total_upload_size),
             .usages       = gfx::GpuBuffer::UsageFlags::MapWrite | gfx::GpuBuffer::UsageFlags::CopySrc,
         });
     }

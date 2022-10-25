@@ -1,6 +1,7 @@
 #include <hitagi/gfx/graphics_manager.hpp>
 #include <hitagi/utils/exceptions.hpp>
 #include <hitagi/core/thread_manager.hpp>
+#include <hitagi/application.hpp>
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -15,6 +16,13 @@ bool GraphicsManager::Initialize() {
         m_Logger->warn("Create device failed!");
         return false;
     }
+    m_SwapChain = m_Device->CreateSwapChain(
+        {
+            .name        = "SwapChain",
+            .window_ptr  = app->GetWindow(),
+            .frame_count = 2,
+            .format      = Format::R8G8B8A8_UNORM,
+        });
 
     m_RenderGraph = std::make_unique<RenderGraph>(GetDevice());
 
@@ -23,6 +31,7 @@ bool GraphicsManager::Initialize() {
 
 void GraphicsManager::Finalize() {
     m_RenderGraph.reset();
+    m_SwapChain.reset();
     m_Device.reset();
 }
 
@@ -39,6 +48,12 @@ void GraphicsManager::Tick() {
     wait_last_frame.wait();
     auto fence_value  = m_RenderGraph->Execute();
     m_LastFenceValues = fence_value;
+
+    m_SwapChain->Present();
+
+    if (app->WindowSizeChanged()) {
+        m_SwapChain->Resize();
+    }
 }
 
 }  // namespace hitagi::gfx

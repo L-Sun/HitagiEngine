@@ -13,7 +13,7 @@ auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
         for (std::size_t i = 0; i < desc.frame_count; i++) {
             back_buffer_names.emplace_back(fmt::format("{}-buffer-{}", desc.name, i));
 
-            ComPtr<ID3D12Resource> texture;
+            ID3D12Resource* texture;
             ThrowIfFailed(swap_chain->GetBuffer(i, IID_PPV_ARGS(&texture)));
             texture->SetName(std::pmr::wstring(back_buffer_names.back().begin(), back_buffer_names.back().end()).data());
 
@@ -32,13 +32,13 @@ auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
                     .sample_count = d3d_desc.SampleDesc.Count,
                     .usages       = Texture::UsageFlags::RTV | Texture::UsageFlags::CopyDst | Texture::UsageFlags::CopySrc,
                 });
-            result->resource = std::move(texture);
+            result->resource = texture;
             result->state    = D3D12_RESOURCE_STATE_COMMON;
 
             if (utils::has_flag(result->desc.usages, Texture::UsageFlags::RTV)) {
                 auto rtv_desc = to_d3d_rtv_desc(result->desc);
                 result->rtv   = static_cast<DX12Device&>(device).AllocateDescriptors(1, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-                static_cast<DX12Device&>(device).GetDevice()->CreateRenderTargetView(result->resource.Get(), &rtv_desc, result->rtv.cpu_handle);
+                static_cast<DX12Device&>(device).GetDevice()->CreateRenderTargetView(result->resource, &rtv_desc, result->rtv.cpu_handle);
             }
             back_buffers.emplace_back(std::move(result));
         }

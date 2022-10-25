@@ -106,7 +106,7 @@ void DX12CommandContext::TransitionResource(T& resource, D3D12_RESOURCE_STATES n
             // TODO use split barrier for more paralle performence
             .Flags      = D3D12_RESOURCE_BARRIER_FLAG_NONE,
             .Transition = {
-                .pResource   = d3d_res.resource.Get(),
+                .pResource   = d3d_res.resource,
                 .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
                 .StateBefore = d3d_res.state,
                 .StateAfter  = new_state,

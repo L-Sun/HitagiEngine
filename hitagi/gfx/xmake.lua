@@ -1,3 +1,6 @@
+add_requires("d3d12-memory-allocator", {optional = true})
+add_requires("directxshadercompiler")
+
 target("dx12")
     -- TODO try use dll
     set_kind("static")
@@ -6,6 +9,7 @@ target("dx12")
     add_deps("core", "math", "utils")
     add_syslinks("d3d12", "dxgi", "dxguid")
     add_packages("directxshadercompiler")
+    add_packages("d3d12-memory-allocator", {public = true})
     add_defines("NOMINMAX")
 
     if not is_plat("windows") then 
@@ -23,5 +27,5 @@ target("gfx")
     set_kind("static")
     add_includedirs("include", {public = true})
     add_files("src/*.cpp")
-    add_deps("core", "math", "$(graphics_api)", {public = true})
+    add_deps("core", "math", "app", "$(graphics_api)", {public = true})
     add_packages("taskflow", {public = true})

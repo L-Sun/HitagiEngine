@@ -8,6 +8,7 @@
 #include <hitagi/gfx/device.hpp>
 
 #include <spdlog/logger.h>
+#include <D3D12MemAlloc.h>
 
 #include <wrl.h>
 #include <d3d12.h>
@@ -52,9 +53,11 @@ private:
     void UnregisterIntegratedD3D12Logger();
     auto CreateInputLayout(Shader& vs) -> InputLayout;
 
-    ComPtr<IDXGIFactory6> m_Factory;
-    ComPtr<ID3D12Device9> m_Device;
-    CD3DX12FeatureSupport m_FeatureSupport;
+    ComPtr<IDXGIFactory6>      m_Factory;
+    ComPtr<IDXGIAdapter4>      m_Adapter;
+    ComPtr<ID3D12Device9>      m_Device;
+    ComPtr<D3D12MA::Allocator> m_MemoryAllocator;
+    CD3DX12FeatureSupport      m_FeatureSupport;
 
     DWORD m_DebugCookie;
 
