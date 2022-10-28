@@ -1,9 +1,5 @@
-#include <hitagi/engine.hpp>
-#include <hitagi/application.hpp>
-
 #include "editor.hpp"
-
-#include <iostream>
+#include <tracy/Tracy.hpp>
 
 #ifdef _WIN32
 #ifdef _DEBUG
@@ -26,6 +22,7 @@ auto main(int argc, char** argv) -> int {
 #ifdef _DEBUG
     try {
 #endif
+        ZoneScopedN("Run");
         while (!hitagi::app->IsQuit()) {
             engine->Tick();
         }

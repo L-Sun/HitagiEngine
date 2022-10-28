@@ -1,9 +1,15 @@
+option("profiling")
+    set_default(false)
+    add_defines("TRACY_ENABLE")
+
 target("runtime_module_interface")
     set_kind("static")
     add_files("src/runtime_module.cpp")
     add_includedirs("include", {public = true})
     add_deps("timer")
     add_packages("spdlog", {public = true})
+    add_packages("tracy", {public = true})
+    add_options("profiling")
 
 target("memory_manager")
     set_kind("static")

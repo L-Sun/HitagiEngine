@@ -4,6 +4,7 @@
 #include <hitagi/application.hpp>
 
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <tracy/Tracy.hpp>
 
 namespace hitagi {
 gfx::GraphicsManager* graphics_manager = nullptr;
@@ -36,6 +37,8 @@ void GraphicsManager::Finalize() {
 }
 
 void GraphicsManager::Tick() {
+    ZoneScopedN("GraphicsManager");
+
     auto compile         = thread_manager->RunTask([this]() {
         return m_RenderGraph->Compile();
     });
@@ -54,6 +57,8 @@ void GraphicsManager::Tick() {
     if (app->WindowSizeChanged()) {
         m_SwapChain->Resize();
     }
+
+    FrameMark;
 }
 
 }  // namespace hitagi::gfx

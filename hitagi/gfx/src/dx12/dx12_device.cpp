@@ -347,7 +347,6 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
         D3D12_RESOURCE_FLAG_NONE);
 
     ComPtr<D3D12MA::Allocation> allocation;
-
     if (FAILED(m_MemoryAllocator->CreateResource(
             &allocation_desc,
             &resource_desc,

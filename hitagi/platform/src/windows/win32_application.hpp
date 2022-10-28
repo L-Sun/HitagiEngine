@@ -24,6 +24,7 @@ public:
     inline Rect  GetWindowsRect() const final { return m_Rect; }
     inline bool  WindowSizeChanged() const final { return m_SizeChanged; }
     inline bool  IsQuit() const final { return m_Quit; }
+    inline void  Quit() final { m_Quit = true; }
 
 private:
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);

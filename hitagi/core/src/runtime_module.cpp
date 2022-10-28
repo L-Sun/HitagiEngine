@@ -6,6 +6,7 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <tracy/Tracy.hpp>
 
 namespace hitagi {
 
@@ -29,12 +30,10 @@ void RuntimeModule::Finalize() {
 }
 
 void RuntimeModule::Tick() {
-    core::Clock clock;
-    clock.Start();
-    for (const auto& module : m_SubModules) {
-        clock.Tick();
-        module->Tick();
-        module->SetProfileTime(clock.DeltaTime());
+    for (const auto& sub_module : m_SubModules) {
+        ZoneScoped;
+        ZoneName(sub_module->GetName().data(), sub_module->GetName().size());
+        sub_module->Tick();
     }
 }
 

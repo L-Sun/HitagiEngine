@@ -28,6 +28,7 @@ public:
     virtual Rect        GetWindowsRect() const    = 0;
     virtual bool        WindowSizeChanged() const = 0;
     virtual bool        IsQuit() const            = 0;
+    virtual void        Quit()                    = 0;
 
 protected:
     core::Clock m_Clock;

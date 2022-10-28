@@ -2,6 +2,7 @@
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/gfx/graphics_manager.hpp>
 #include <hitagi/asset/asset_manager.hpp>
+#include <hitagi/hid/input_manager.hpp>
 
 using namespace hitagi;
 using namespace hitagi::math;

@@ -98,7 +98,7 @@ TEST_F(D3DDeviceTest, CreateGpuBuffer) {
         ASSERT_TRUE(gpu_buffer != nullptr);
         EXPECT_TRUE(gpu_buffer->mapped_ptr != nullptr);
         EXPECT_EQ(gpu_buffer->desc.element_size, initial_data.size());
-        EXPECT_STREQ(initial_data.data(), reinterpret_cast<const char*>(gpu_buffer->mapped_ptr));
+        EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->mapped_ptr), gpu_buffer->desc.element_size).c_str());
     }
 
     // Create default buffer with initial data

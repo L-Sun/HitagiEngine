@@ -49,6 +49,9 @@ auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
 
 void DX12SwapChain::Resize() {
     associated_queue->WaitIdle();
+    for (auto& back_buffer : back_buffers) {
+        if (back_buffer->resource) back_buffer->resource->Release();
+    }
     back_buffers.clear();
 
     HWND h_wnd = *reinterpret_cast<HWND*>(desc.window_ptr);
@@ -62,6 +65,12 @@ void DX12SwapChain::Resize() {
         flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
     }
     ThrowIfFailed(swap_chain->ResizeBuffers(desc.frame_count, width, height, to_dxgi_format(desc.format), flags));
+}
+
+DX12SwapChain::~DX12SwapChain() {
+    for (auto& back_buffer : back_buffers) {
+        if (back_buffer->resource) back_buffer->resource->Release();
+    }
 }
 
 }  // namespace hitagi::gfx

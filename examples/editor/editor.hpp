@@ -2,9 +2,8 @@
 #include "scene_viewport.hpp"
 #include "imfilebrowser.hpp"
 
-#include <hitagi/core/runtime_module.hpp>
 #include <hitagi/ecs/schedule.hpp>
-#include <hitagi/gfx/gpu_resource.hpp>
+#include <hitagi/engine.hpp>
 
 #include <string>
 #include <unordered_set>
@@ -20,10 +19,15 @@ public:
     void Render();
 
 private:
-    std::pmr::string                          m_OpenFileExt;
-    std::pmr::unordered_set<std::pmr::string> m_SelectedFiles;
-    SceneViewPort*                            m_SceneViewPort = nullptr;
-    ImGui::FileBrowser                        m_FileDialog;
+    void MenuBar();
+    void FileImporter();
+    void SystemInfo();
+    void SceneGraphViewer();
+    void AssetExploer();
+
+    core::Clock        m_Clock;
+    SceneViewPort*     m_SceneViewPort = nullptr;
+    ImGui::FileBrowser m_FileDialog;
 };
 
 }  // namespace hitagi

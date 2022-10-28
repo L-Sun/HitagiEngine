@@ -1,13 +1,10 @@
 #include <hitagi/engine.hpp>
-#include <hitagi/core/core.hpp>
-#include <hitagi/application.hpp>
-#include <hitagi/asset/asset_manager.hpp>
-#include <hitagi/gfx/graphics_manager.hpp>
-#include <hitagi/gui/gui_manager.hpp>
-#include <hitagi/debugger/debug_manager.hpp>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <tracy/Tracy.hpp>
+
+using namespace std::literals;
 
 namespace hitagi {
 Engine* engine = nullptr;
@@ -41,6 +38,11 @@ bool Engine::Initialize() {
     // clang-format on
 
     return true;
+}
+
+void Engine::Tick() {
+    ZoneScopedN("Engine");
+    RuntimeModule::Tick();
 }
 
 void Engine::Finalize() {

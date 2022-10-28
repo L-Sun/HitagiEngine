@@ -292,7 +292,7 @@ enum struct CompareFunction : std::uint8_t {
 struct RasterizerDescription {
     FillMode fill_mode               = FillMode::Solid;
     CullMode cull_mode               = CullMode::Back;
-    bool     front_counter_clockwise = false;
+    bool     front_counter_clockwise = true;
     int      depth_bias              = 0;
     float    depth_bias_clamp        = 0.0f;
     float    slope_scaled_depth_bias = 0.0f;

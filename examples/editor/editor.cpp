@@ -1,28 +1,22 @@
 #include "editor.hpp"
 #include "scene_viewport.hpp"
-#include "profiler.hpp"
-#include "imfilebrowser.hpp"
-
-#include <hitagi/core/file_io_manager.hpp>
-#include <hitagi/asset/asset_manager.hpp>
-#include <hitagi/debugger/debug_manager.hpp>
-#include <hitagi/gui/gui_manager.hpp>
-#include <hitagi/hid/input_manager.hpp>
-#include <hitagi/gfx/graphics_manager.hpp>
 
 #include <imgui.h>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <fmt/chrono.h>
 
 using namespace hitagi::math;
 using namespace hitagi::asset;
+using namespace std::literals;
 
 namespace hitagi {
 bool Editor::Initialize() {
     RuntimeModule::Initialize();
+    m_Clock.Start();
 
     m_SceneViewPort = static_cast<SceneViewPort*>(LoadModule(std::make_unique<SceneViewPort>()));
-    LoadModule(std::make_unique<Profiler>());
+    m_FileDialog.SetPwd(std::filesystem::current_path() / "assets");
 
     return true;
 }
@@ -30,31 +24,16 @@ bool Editor::Initialize() {
 void Editor::Tick() {
     gui_manager->DrawGui([this]() {
         ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-
-        if (ImGui::BeginMainMenuBar()) {
-            if (ImGui::BeginMenu("File")) {
-                if (ImGui::MenuItem("Open Scene")) {
-                    m_FileDialog.SetTitle("Open Scene");
-                    m_FileDialog.SetTypeFilters({".fbx"});
-                    m_FileDialog.Open();
-                }
-                if (ImGui::MenuItem("Import MoCap")) {
-                }
-                ImGui::EndMenu();
-            }
-            ImGui::EndMainMenuBar();
-        }
-
-        m_FileDialog.Display();
-
-        if (m_FileDialog.HasSelected()) {
-            m_SceneViewPort->SetScene(asset_manager->ImportScene(m_FileDialog.GetSelected()));
-            m_FileDialog.ClearSelected();
-        }
+        MenuBar();
+        FileImporter();
+        SystemInfo();
+        SceneGraphViewer();
     });
 
     RuntimeModule::Tick();
     Render();
+
+    m_Clock.Tick();
 }
 
 void Editor::Render() {
@@ -79,142 +58,129 @@ void Editor::Render() {
     render_graph.PresentPass(output);
 }
 
-// void Editor::MainMenu() {
-//     if (ImGui::BeginMainMenuBar()) {
-//         if (ImGui::BeginMenu("File")) {
-//             if (ImGui::MenuItem("Open Scene")) {
-//                 m_OpenFileExt = ".fbx";
-//             }
-//             if (ImGui::MenuItem("Import MoCap")) {
-//                 m_OpenFileExt = ".bvh";
-//             }
-//             ImGui::EndMenu();
-//         }
-//         ImGui::EndMainMenuBar();
-//     }
+void Editor::MenuBar() {
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("Menu")) {
+            if (ImGui::BeginMenu("Import")) {
+                if (ImGui::MenuItem("Motion Capture (.bvh)")) {
+                    m_FileDialog.SetTitle("Import Motion Capture");
+                    m_FileDialog.SetTypeFilters({".bvh"});
+                    m_FileDialog.Open();
+                }
+                if (ImGui::MenuItem("FBX (.fbx)")) {
+                    m_FileDialog.SetTitle("Import FBX");
+                    m_FileDialog.SetTypeFilters({".fbx"});
+                    m_FileDialog.Open();
+                }
+                if (ImGui::MenuItem("glTF 2.0 (.glb/.gltf)")) {
+                    m_FileDialog.SetTitle("Import glTF");
+                    m_FileDialog.SetTypeFilters({".glb", ".gltf"});
+                    m_FileDialog.Open();
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::MenuItem("Quit", "Alt+F4")) {
+                app->Quit();
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
 
-//     ImGui::End();
-// }
+    ImGui::End();
+}
 
-// void Editor::FileExplorer() {
-//     std::filesystem::path folder;
-//     if (m_OpenFileExt == ".fbx") {
-//         folder = "./assets/scenes";
-//     } else if (m_OpenFileExt == ".bvh") {
-//         folder = "./assets/motions";
-//     } else {
-//         return;
-//     }
+void Editor::FileImporter() {
+    m_FileDialog.Display();
 
-//     ImGui::OpenPopup("File browser");
-//     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-//     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (m_FileDialog.HasSelected()) {
+        auto ext = m_FileDialog.GetSelected().extension();
+        if (ext == ".bvh") {
+        }
+        if (ext == ".fbx") {
+            m_SceneViewPort->SetScene(asset_manager->ImportScene(m_FileDialog.GetSelected()));
+        }
+        m_FileDialog.ClearSelected();
+    }
+}
 
-//     if (ImGui::BeginPopupModal("File browser", nullptr, ImGuiWindowFlags_Modal)) {
-//         for (const auto& directory : std::filesystem::directory_iterator(folder)) {
-//             if (!directory.is_regular_file()) continue;
+void Editor::SystemInfo() {
+    static bool open = true;
+    if (ImGui::Begin("System Infomation", &open)) {
+        // Memory usage
+        {
+            float    frame_time = m_Clock.DeltaTime().count() * 1000.0;
+            unsigned fps        = 1000.0f / frame_time;
+            ImGui::Text("%s", fmt::format("Time costing: {:>3.2} ms / {:>3} FPS", frame_time, fps).c_str());
+            ImGui::Text("%s", fmt::format("Memory Usage: {} Mb", app->GetMemoryUsage() >> 20).c_str());
+        }
+    }
+    ImGui::End();
+}
 
-//             const auto& path = directory.path();
-//             if (path.extension() != m_OpenFileExt) continue;
-//             std::pmr::string path_string{path.string()};
+void Editor::SceneGraphViewer() {
+    if (ImGui::Begin("Scene Graph Viewer")) {
+        auto scene = m_SceneViewPort->GetScene();
+        if (scene && scene->root && ImGui::CollapsingHeader("Scene Nodes")) {
+            std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](const std::shared_ptr<SceneNode>& node) -> void {
+                if (node == nullptr) return;
+                if (ImGui::TreeNode(node->GetName().c_str())) {
+                    auto& translation = node->transform.local_translation;
+                    auto  orientation = rad2deg(quaternion_to_euler(node->transform.local_rotation));
+                    auto& scaling     = node->transform.local_scaling;
 
-//             if (ImGui::Selectable(path_string.c_str(), m_SelectedFiles.contains(path_string), ImGuiSelectableFlags_DontClosePopups)) {
-//                 if (!ImGui::GetIO().KeyCtrl) {
-//                     m_SelectedFiles.clear();
-//                 }
-//                 m_SelectedFiles.emplace(path_string);
-//             }
-//         }
+                    ImGui::DragFloat3("Translation", translation, 1.0f, 0.0f, 0.0f, "%.02f m");
 
-//         if (ImGui::Button("Open")) {
-//             if (m_OpenFileExt == ".fbx") {
-//                 for (auto&& path : m_SelectedFiles) {
-//                     auto scene   = asset_manager->ImportScene(path);
-//                     bool success = scene != nullptr;
-//                     if (ImGui::BeginPopupModal("Fbx import failed", &success)) {
-//                         ImGui::Text("%s", fmt::format("failed to import scene: {}", path).c_str());
-//                         ImGui::EndPopup();
-//                     }
-//                     if (success) {
-//                         m_SceneViewPort->SetScene(scene);
-//                     }
-//                 }
-//             } else if (m_OpenFileExt == ".bvh") {
-//                 // for (auto&& path : m_SelectedFiles) {
-//                 // auto [skeleton, animation] = asset_manager->ImportAnimation(path);
-//                 // scene_manager->GetScene()->AddSkeleton(skeleton);
-//                 // scene_manager->GetScene()->AddAnimation(animation);
-//                 // }
-//             }
-//             m_SelectedFiles.clear();
-//             m_OpenFileExt.clear();
-//         }
-//         ImGui::SameLine();
-//         if (ImGui::Button("Cancel")) {
-//             m_SelectedFiles.clear();
-//             m_OpenFileExt.clear();
-//             ImGui::CloseCurrentPopup();
-//         }
-//         ImGui::EndPopup();
-//     }
-// }
+                    if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °"))
+                        node->transform.local_rotation = euler_to_quaternion(deg2rad(orientation));
 
-// void Editor::SceneExplorer() {
-//     if (ImGui::Begin("Scene Explorer")) {
-//         auto scene = m_SceneViewPort->GetScene();
-//         if (scene && scene->root && ImGui::CollapsingHeader("Scene Nodes")) {
-//             std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](const std::shared_ptr<SceneNode>& node) -> void {
-//                 if (node == nullptr) return;
-//                 if (ImGui::TreeNode(node->GetName().c_str())) {
-//                     auto& translation = node->transform.local_translation;
-//                     auto  orientation = rad2deg(quaternion_to_euler(node->transform.local_rotation));
-//                     auto& scaling     = node->transform.local_scaling;
+                    ImGui::DragFloat3("Scaling", scaling, 1.0f, 0.0f, 0.0f, "%.03f °");
 
-//                     ImGui::DragFloat3("Translation", translation, 1.0f, 0.0f, 0.0f, "%.02f m");
+                    // print children
+                    for (auto&& child : node->GetChildren()) {
+                        print_node(child);
+                    }
+                    ImGui::TreePop();
+                }
+            };
+            print_node(scene->root);
+        }
 
-//                     if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °"))
-//                         node->transform.local_rotation = euler_to_quaternion(deg2rad(orientation));
+        if (ImGui::CollapsingHeader("Animation")) {
+            // auto& animation_manager = scene_manager->GetAnimationManager();
+            // for (auto&& animation : scene->animations) {
+            //     auto name = animation->GetName();
+            //     ImGui::SetNextItemWidth(100);
+            //     if (ImGui::InputText(GenName("Name", animation).c_str(), &name)) {
+            //         animation->SetName(name);
+            //     }
 
-//                     ImGui::DragFloat3("Scaling", scaling, 1.0f, 0.0f, 0.0f, "%.03f °");
+            //     ImGui::SameLine();
+            //     if (ImGui::SmallButton(GenName("Play", animation).c_str())) {
+            //         animation_manager.AddToPlayQueue(animation);
+            //         animation->Play();
+            //     }
+            //     ImGui::SameLine();
+            //     if (ImGui::SmallButton(GenName("Pause", animation).c_str())) {
+            //         animation->Pause();
+            //     }
+            //     ImGui::SameLine();
+            //     bool anima_loop = animation->IsLoop();
+            //     if (ImGui::Checkbox(GenName("Loop", animation).c_str(), &anima_loop)) {
+            //         animation->SetLoop(anima_loop);
+            //     }
+            // }
+        }
+    }
 
-//                     // print children
-//                     for (auto&& child : node->GetChildren()) {
-//                         print_node(child);
-//                     }
-//                     ImGui::TreePop();
-//                 }
-//             };
-//             print_node(scene->root);
-//         }
+    ImGui::End();
+}
 
-//         if (ImGui::CollapsingHeader("Animation")) {
-//             // auto& animation_manager = scene_manager->GetAnimationManager();
-//             // for (auto&& animation : scene->animations) {
-//             //     auto name = animation->GetName();
-//             //     ImGui::SetNextItemWidth(100);
-//             //     if (ImGui::InputText(GenName("Name", animation).c_str(), &name)) {
-//             //         animation->SetName(name);
-//             //     }
-
-//             //     ImGui::SameLine();
-//             //     if (ImGui::SmallButton(GenName("Play", animation).c_str())) {
-//             //         animation_manager.AddToPlayQueue(animation);
-//             //         animation->Play();
-//             //     }
-//             //     ImGui::SameLine();
-//             //     if (ImGui::SmallButton(GenName("Pause", animation).c_str())) {
-//             //         animation->Pause();
-//             //     }
-//             //     ImGui::SameLine();
-//             //     bool anima_loop = animation->IsLoop();
-//             //     if (ImGui::Checkbox(GenName("Loop", animation).c_str(), &anima_loop)) {
-//             //         animation->SetLoop(anima_loop);
-//             //     }
-//             // }
-//         }
-//     }
-
-//     ImGui::End();
-// }
+void Editor::AssetExploer() {
+    static bool open = true;
+    if (ImGui::Begin("Asset Exploer", &open)) {
+    }
+    ImGui::End();
+}
 
 }  // namespace hitagi

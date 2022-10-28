@@ -8,6 +8,8 @@
 constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
 namespace hitagi::utils {
+consteval auto as_constexpr(auto x) { return x; }
+
 template <typename T, std::size_t N>
 constexpr std::array<T, N> create_array(T&& value) {
     return [&]<std::size_t... I>(std::index_sequence<I...>) {

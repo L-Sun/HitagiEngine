@@ -90,6 +90,13 @@ void Win32Application::InitializeWindows() {
         return;
     }
     ShowWindow(m_Window, SW_SHOW);
+    RECT client_rect{
+        .left   = CW_USEDEFAULT,
+        .top    = CW_USEDEFAULT,
+        .right  = CW_USEDEFAULT + static_cast<LONG>(width),
+        .bottom = CW_USEDEFAULT + static_cast<LONG>(height),
+    };
+    AdjustWindowRect(&client_rect, WS_OVERLAPPEDWINDOW, false);
     UpdateRect();
     MapCursor();
 }
@@ -123,7 +130,7 @@ float Win32Application::GetDpiRatio() const {
 std::size_t Win32Application::GetMemoryUsage() const {
     PROCESS_MEMORY_COUNTERS_EX pmc;
     GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
-    return pmc.PrivateUsage;
+    return pmc.WorkingSetSize;
 }
 
 void Win32Application::UpdateRect() {

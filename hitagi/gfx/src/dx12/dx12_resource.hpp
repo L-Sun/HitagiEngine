@@ -53,6 +53,8 @@ struct DX12RenderPipeline : public RenderPipeline {
 struct DX12SwapChain : public SwapChain {
     using SwapChain::SwapChain;
 
+    ~DX12SwapChain();
+
     inline auto GetCurrentBackIndex() -> std::uint8_t final {
         return swap_chain->GetCurrentBackBufferIndex();
     }
