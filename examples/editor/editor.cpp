@@ -26,7 +26,6 @@ void Editor::Tick() {
         ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
         MenuBar();
         FileImporter();
-        SystemInfo();
         SceneGraphViewer();
     });
 
@@ -84,10 +83,21 @@ void Editor::MenuBar() {
             }
             ImGui::EndMenu();
         }
+        // System info
+        {
+            unsigned fps  = 1.0f / m_Clock.DeltaTime().count();
+            auto     info = fmt::format("Memory: {} MiB | {:>3} FPS", app->GetMemoryUsage() >> 20, fps);
+
+            ImVec2 info_size = ImGui::CalcTextSize(info.c_str());
+
+            ImGuiStyle& style = ImGui::GetStyle();
+            info_size.x += 2 * style.FramePadding.x + style.ItemSpacing.x;
+
+            ImGui::SetCursorPos(ImVec2(ImGui::GetIO().DisplaySize.x - info_size.x, 0));
+            ImGui::Text("%s", info.c_str());
+        }
         ImGui::EndMainMenuBar();
     }
-
-    ImGui::End();
 }
 
 void Editor::FileImporter() {
@@ -104,72 +114,48 @@ void Editor::FileImporter() {
     }
 }
 
-void Editor::SystemInfo() {
-    static bool open = true;
-    if (ImGui::Begin("System Infomation", &open)) {
-        // Memory usage
-        {
-            float    frame_time = m_Clock.DeltaTime().count() * 1000.0;
-            unsigned fps        = 1000.0f / frame_time;
-            ImGui::Text("%s", fmt::format("Time costing: {:>3.2} ms / {:>3} FPS", frame_time, fps).c_str());
-            ImGui::Text("%s", fmt::format("Memory Usage: {} Mb", app->GetMemoryUsage() >> 20).c_str());
-        }
-    }
-    ImGui::End();
-}
-
 void Editor::SceneGraphViewer() {
     if (ImGui::Begin("Scene Graph Viewer")) {
         auto scene = m_SceneViewPort->GetScene();
-        if (scene && scene->root && ImGui::CollapsingHeader("Scene Nodes")) {
+
+        constexpr ImGuiTableFlags table_flags = ImGuiTableFlags_BordersV |
+                                                ImGuiTableFlags_BordersOuterH |
+                                                ImGuiTableFlags_Resizable |
+                                                ImGuiTableFlags_RowBg |
+                                                ImGuiTableFlags_NoBordersInBody;
+
+        constexpr ImGuiTreeNodeFlags node_flags =
+            ImGuiTreeNodeFlags_OpenOnArrow |
+            ImGuiTreeNodeFlags_NoTreePushOnOpen |
+            ImGuiTreeNodeFlags_SpanFullWidth;
+        constexpr ImGuiTreeNodeFlags leaf_node_flags =
+            ImGuiTreeNodeFlags_Leaf |
+            ImGuiTreeNodeFlags_NoTreePushOnOpen |
+            ImGuiTreeNodeFlags_SpanFullWidth;
+
+        if (ImGui::BeginTable("Module inspector", 1, table_flags)) {
+            ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
+
             std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](const std::shared_ptr<SceneNode>& node) -> void {
-                if (node == nullptr) return;
-                if (ImGui::TreeNode(node->GetName().c_str())) {
-                    auto& translation = node->transform.local_translation;
-                    auto  orientation = rad2deg(quaternion_to_euler(node->transform.local_rotation));
-                    auto& scaling     = node->transform.local_scaling;
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
 
-                    ImGui::DragFloat3("Translation", translation, 1.0f, 0.0f, 0.0f, "%.02f m");
-
-                    if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °"))
-                        node->transform.local_rotation = euler_to_quaternion(deg2rad(orientation));
-
-                    ImGui::DragFloat3("Scaling", scaling, 1.0f, 0.0f, 0.0f, "%.03f °");
-
-                    // print children
-                    for (auto&& child : node->GetChildren()) {
-                        print_node(child);
+                if (node->GetChildren().empty()) {
+                    ImGui::TreeNodeEx(node->GetName().c_str(), leaf_node_flags);
+                } else {
+                    if (ImGui::TreeNodeEx(node->GetName().c_str(), node_flags)) {
+                        // print children
+                        for (auto&& child : node->GetChildren()) {
+                            print_node(child);
+                        }
+                        ImGui::TreePop();
                     }
-                    ImGui::TreePop();
                 }
             };
-            print_node(scene->root);
-        }
 
-        if (ImGui::CollapsingHeader("Animation")) {
-            // auto& animation_manager = scene_manager->GetAnimationManager();
-            // for (auto&& animation : scene->animations) {
-            //     auto name = animation->GetName();
-            //     ImGui::SetNextItemWidth(100);
-            //     if (ImGui::InputText(GenName("Name", animation).c_str(), &name)) {
-            //         animation->SetName(name);
-            //     }
+            if (scene) print_node(scene->root);
 
-            //     ImGui::SameLine();
-            //     if (ImGui::SmallButton(GenName("Play", animation).c_str())) {
-            //         animation_manager.AddToPlayQueue(animation);
-            //         animation->Play();
-            //     }
-            //     ImGui::SameLine();
-            //     if (ImGui::SmallButton(GenName("Pause", animation).c_str())) {
-            //         animation->Pause();
-            //     }
-            //     ImGui::SameLine();
-            //     bool anima_loop = animation->IsLoop();
-            //     if (ImGui::Checkbox(GenName("Loop", animation).c_str(), &anima_loop)) {
-            //         animation->SetLoop(anima_loop);
-            //     }
-            // }
+            ImGui::EndTable();
         }
     }
 

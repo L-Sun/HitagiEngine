@@ -21,7 +21,6 @@ public:
 private:
     void MenuBar();
     void FileImporter();
-    void SystemInfo();
     void SceneGraphViewer();
     void AssetExploer();
 

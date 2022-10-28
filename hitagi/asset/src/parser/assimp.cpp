@@ -476,31 +476,32 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         convert = [&](const aiNode* _node) -> std::shared_ptr<SceneNode> {
         std::shared_ptr<SceneNode> node;
 
-        std::string_view name = _node->mName.C_Str();
+        std::string_view name      = _node->mName.C_Str();
+        auto             transform = get_matrix(_node->mTransformation);
 
         // This node is a geometry
         if (_node->mNumMeshes > 0) {
             auto mesh      = create_mesh(_node);
-            auto mesh_node = std::make_shared<MeshNode>(mesh, get_matrix(_node->mTransformation), name);
+            auto mesh_node = std::make_shared<MeshNode>(mesh, transform, name);
             scene->instance_nodes.emplace_back(mesh_node);
             node = mesh_node;
         }
         // This node is a camera
         else if (camera_name_map.contains(name)) {
-            auto camera_node = std::make_shared<CameraNode>(camera_name_map.at(name), get_matrix(_node->mTransformation), name);
+            auto camera_node = std::make_shared<CameraNode>(camera_name_map.at(name), transform, name);
             scene->camera_nodes.emplace_back(camera_node);
             node = camera_node;
         }
         // This node is a light
         else if (light_name_map.contains(name)) {
-            auto light_node = std::make_shared<LightNode>(light_name_map.at(name), get_matrix(_node->mTransformation), name);
+            auto light_node = std::make_shared<LightNode>(light_name_map.at(name), transform, name);
             scene->light_nodes.emplace_back(light_node);
             node = light_node;
         }
         // This node is armature, it may contain multiple bone
         else if (armature_nodes.contains(_node)) {
             auto armature      = create_armature(_node);
-            auto armature_node = std::make_shared<ArmatureNode>(armature, get_matrix(_node->mTransformation), name);
+            auto armature_node = std::make_shared<ArmatureNode>(armature, transform, name);
             scene->armature_nodes.emplace_back(armature_node);
             node = armature_node;
         }
@@ -511,7 +512,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         }
         // This node is empty
         else {
-            node = std::make_shared<SceneNode>();
+            node = std::make_shared<SceneNode>(transform, name);
         }
 
         for (std::size_t i = 0; i < _node->mNumChildren; i++) {
