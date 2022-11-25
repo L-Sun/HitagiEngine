@@ -87,11 +87,11 @@ struct inspector<std::pmr::vector<T>> {
         }
     }
 
-    static void unserialize(const hdf5_type*                vec_align,
-                            const std::pmr::vector<size_t>& dims,
-                            type&                           val) {
-        std::pmr::vector<size_t> next_dims(dims.begin() + 1, dims.end());
-        size_t                   next_size = compute_total_size(next_dims);
+    static void unserialize(const hdf5_type*           vec_align,
+                            const std::vector<size_t>& dims,
+                            type&                      val) {
+        std::vector<size_t> next_dims(dims.begin() + 1, dims.end());
+        size_t              next_size = compute_total_size(next_dims);
         for (size_t i = 0; i < dims[0]; ++i) {
             inspector<value_type>::unserialize(vec_align + i * next_size, next_dims, val[i]);
         }

@@ -1,133 +1,276 @@
-#include <hitagi/utils/test.hpp>
+#include <hitagi/math/transform.hpp>
 #include <hitagi/ecs/world.hpp>
 #include <hitagi/ecs/schedule.hpp>
-#include <vector>
-
-#include <spdlog/spdlog.h>
+#include <hitagi/utils/test.hpp>
 
 using namespace hitagi::ecs;
+using namespace hitagi::math;
 
-TEST(EcsTest, CreateEntity) {
-    World world("EcsTest.CreateEntity");
+template <Component T, typename V>
+auto componet_value_eq(const char* expr_world, const char* expr_entity, const char* expr_value, const World& world, Entity entity, const V& value) -> ::testing::AssertionResult {
+    static_assert(std::is_same_v<decltype(T::value), V>);
 
-    struct Position {
-        int value = 1;
-    };
-    struct Velocity {
-        int value = 2;
-    };
-
-    {
-        auto pos_entity = world.CreateEntity<Position>();
-        EXPECT_TRUE(pos_entity);
-        auto component = world.GetComponent<Position>(pos_entity);
-        EXPECT_TRUE(component.has_value());
-        EXPECT_EQ(component->get().value, 1);
-        world.DestoryEntity(pos_entity);
-    }
-
-    {
-        auto pos_vel_entity = world.CreateEntity<Position, Velocity>();
-        EXPECT_TRUE(pos_vel_entity);
-        auto pos_component = world.GetComponent<Position>(pos_vel_entity);
-        EXPECT_TRUE(pos_component.has_value());
-        EXPECT_EQ(pos_component->get().value, 1);
-
-        auto vel_component = world.GetComponent<Velocity>(pos_vel_entity);
-        EXPECT_TRUE(vel_component.has_value());
-        EXPECT_EQ(vel_component->get().value, 2);
-
-        world.DestoryEntity(pos_vel_entity);
-    }
-
-    {
-        Position pos;
-        Velocity vel;
-        auto     pos_vel_entity = world.CreateEntity(pos, vel);
-
-        auto pos_component = world.GetComponent<Position>(pos_vel_entity);
-        EXPECT_TRUE(pos_component.has_value());
-        EXPECT_EQ(pos_component->get().value, 1);
-
-        auto vel_component = world.GetComponent<Velocity>(pos_vel_entity);
-        EXPECT_TRUE(vel_component.has_value());
-        EXPECT_EQ(vel_component->get().value, 2);
-        world.DestoryEntity(pos_vel_entity);
+    auto component = world.GetEntityManager().GetComponent<T>(entity);
+    if (component.has_value()) {
+        if (auto cmpt_value = component->get().value; cmpt_value == value) {
+            return ::testing::AssertionSuccess();
+        } else {
+            return ::testing::AssertionFailure() << fmt::format("Expectd component value of entity({}) is {}, but actual is {}", expr_entity, value, cmpt_value);
+        }
+    } else {
+        return testing::AssertionFailure() << fmt::format("The Entity({}) does not have component", expr_entity) << std::endl;
     }
 }
 
-TEST(EcsTest, SameID) {
-    struct Position {
-        hitagi::math::vec3f value;
+class EcsTest : public ::testing::Test {
+public:
+    EcsTest() : world(::testing::UnitTest::GetInstance()->current_test_info()->name()) {}
+    World world;
+};
+
+TEST_F(EcsTest, CreateEntity) {
+    struct Component_1 {
+        int value;
     };
-    struct Velocity {
-        hitagi::math::vec2f value;
+    struct Component_2 {
+        int value;
+    };
+
+    auto entity_1 = world.GetEntityManager().Create<Component_1>();
+    EXPECT_TRUE(entity_1);
+    EXPECT_TRUE(world.GetEntityManager().Has(entity_1));
+    auto entity_2 = world.GetEntityManager().Create<Component_1, Component_2>();
+    EXPECT_TRUE(entity_2);
+    EXPECT_TRUE(world.GetEntityManager().Has(entity_2));
+    EXPECT_NE(entity_1, entity_2);
+
+    DynamicComponent dynamic_component{
+        .name = "DynamicComponent",
+        .size = 8,
+    };
+    auto dynamic_entity = world.GetEntityManager().Create({dynamic_component});
+    EXPECT_TRUE(dynamic_entity);
+    EXPECT_TRUE(world.GetEntityManager().Has(dynamic_entity));
+    EXPECT_NE(dynamic_entity, entity_1);
+    EXPECT_NE(dynamic_entity, entity_2);
+
+    auto entites = world.GetEntityManager().CreateMany<Component_1, Component_2>(100, {dynamic_component});
+    EXPECT_EQ(entites.size(), 100);
+    for (auto entity : entites) {
+        EXPECT_TRUE(entity);
+        EXPECT_TRUE(world.GetEntityManager().Has(entity));
+    }
+
+    EXPECT_EQ(world.GetEntityManager().NumEntities(), 103);
+}
+
+TEST_F(EcsTest, DestoryEntity) {
+    struct Component_1 {
+        int value;
+    };
+    auto entity = world.GetEntityManager().Create<Component_1>();
+    EXPECT_EQ(world.GetEntityManager().NumEntities(), 1);
+    world.GetEntityManager().Destory(entity);
+    EXPECT_EQ(world.GetEntityManager().NumEntities(), 0);
+}
+
+TEST_F(EcsTest, DiffrentComponents) {
+    struct Component_1 {
+        vec3f value;
+    };
+    struct Component_2 {
+        vec2f value;
+    };
+    DynamicComponent dynamic_component_1{
+        .name = "DynamicComponent_1",
+        .size = 8,
+    };
+    DynamicComponent dynamic_component_2{
+        .name = "DynamicComponent_2",
+        .size = 8,
+    };
+    auto id1 = detials::get_archetype_id<Component_1>({dynamic_component_1});
+    auto id2 = detials::get_archetype_id<Component_2>({dynamic_component_2});
+    EXPECT_NE(id1, id2);
+}
+
+TEST_F(EcsTest, DiffrentOrderComponents) {
+    struct Component_1 {
+        vec3f value;
+    };
+    struct Component_2 {
+        vec2f value;
     };
     struct Transform {
-        hitagi::math::mat4f value;
+        mat4f value;
     };
-    auto id1 = get_archetype_id<Position, Velocity, Transform>();
-    auto id2 = get_archetype_id<Transform, Velocity, Position>();
+    DynamicComponent dynamic_component_1{
+        .name = "DynamicComponent_1",
+        .size = 8,
+    };
+    DynamicComponent dynamic_component_2{
+        .name = "DynamicComponent_2",
+        .size = 8,
+    };
+
+    auto id1 = detials::get_archetype_id<Component_1, Component_2, Transform>({dynamic_component_1, dynamic_component_2});
+    auto id2 = detials::get_archetype_id<Transform, Component_2, Component_1>({dynamic_component_2, dynamic_component_1});
     EXPECT_EQ(id1, id2);
 
-    World world("EcsTest.SameID");
-    world.CreateEntity<Position, Velocity, Transform>();
-    world.CreateEntity<Transform, Velocity, Position>();
-    auto archetype = world.GetArchetypes<Position, Velocity, Transform>();
-    EXPECT_EQ(archetype.size(), 1);
-    EXPECT_EQ(archetype.front()->NumEntities(), 2);
-}
-
-TEST(EcsTest, ModifyEntity) {
-    World world("EcsTest.ModifyEntity");
-
-    struct Position {
-        int value = 1;
-    };
-
-    auto pos_entity = world.CreateEntity<Position>();
-    {
-        Position& component = world.GetComponent<Position>(pos_entity)->get();
-        component.value     = 2;
-    }
-    {
-        Position& component = world.GetComponent<Position>(pos_entity)->get();
-        EXPECT_EQ(component.value, 2);
+    World world(::testing::UnitTest::GetInstance()->current_test_info()->name());
+    world.GetEntityManager().Create<Component_1, Component_2, Transform>({dynamic_component_1, dynamic_component_2});
+    world.GetEntityManager().Create<Transform, Component_2, Component_1>({dynamic_component_2, dynamic_component_1});
+    auto archetype = world.GetEntityManager().GetArchetype(Filter{}.All<Component_1, Component_2, Transform>());
+    EXPECT_FALSE(archetype.empty());
+    if (!archetype.empty()) {
+        EXPECT_EQ(archetype.front()->NumEntities(), 2);
     }
 }
 
-TEST(EcsTest, RegisterSystem) {
-    World world("EcsTest.RegisterSystem");
-
-    struct Position {
+TEST_F(EcsTest, AccessComponent) {
+    struct Component_1 {
         int value = 1;
     };
-    struct Velocity {
+    struct Component_2 {
+        int value = 2;
+    };
+    auto entity = world.GetEntityManager().Create<Component_1, Component_2>();
+
+    EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity, 1);
+    EXPECT_PRED_FORMAT3(componet_value_eq<Component_2>, world, entity, 2);
+}
+
+TEST_F(EcsTest, ModifyEntity) {
+    struct Component_1 {
         int value = 1;
     };
 
-    struct Mover {
-        static void OnUpdate(Schedule& schedule, std::chrono::duration<double> delta) {
+    auto entity = world.GetEntityManager().Create<Component_1>();
+    {
+        auto component = world.GetEntityManager().GetComponent<Component_1>(entity);
+        EXPECT_TRUE(component.has_value());
+        if (component.has_value())
+            component->get().value = 2;
+    }
+    EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity, 2);
+}
+
+TEST_F(EcsTest, RegisterSystem) {
+    struct Component_1 {
+        int value = 1;
+    };
+    struct Component_2 {
+        int value = 1;
+    };
+
+    struct System1 {
+        static void OnUpdate(Schedule& schedule) {
             schedule
                 .Request(
-                    "Update Position",
-                    [](Position& position) {
-                        position.value++;
+                    "Update Component_1",
+                    [](Component_1& Component_1) {
+                        Component_1.value++;
                     })
-                .Request("Update Velocity", [](Velocity& velocity) {
-                    velocity.value = 3;
-                });
+                .Request(
+                    "Update Component_2",
+                    [](Component_2& Component_2) {
+                        Component_2.value = 3;
+                    });
         }
     };
 
-    auto entity = world.CreateEntity<Position, Velocity>();
-    world.RegisterSystem<Mover>("Mover");
+    auto entity = world.GetEntityManager().Create<Component_1, Component_2>();
+    world.RegisterSystem<System1>("System1");
     world.Update();
 
-    auto pos = world.GetComponent<Position>(entity)->get();
-    auto vel = world.GetComponent<Velocity>(entity)->get();
-    EXPECT_EQ(pos.value, 2);
-    EXPECT_EQ(vel.value, 3);
+    EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity, 2);
+    EXPECT_PRED_FORMAT3(componet_value_eq<Component_2>, world, entity, 3);
+}
+
+TEST_F(EcsTest, FilterTest) {
+    World world(::testing::UnitTest::GetInstance()->current_test_info()->name());
+
+    struct Component_1 {
+        int value = 0;
+    };
+    struct Component_2 {
+        int value = 0;
+    };
+    struct Component_3 {
+        int value = 0;
+    };
+    struct Component_4 {
+        int value = 0;
+    };
+    struct Component_5 {
+        int value = 0;
+    };
+    struct Component_6 {
+        int value = 0;
+    };
+    struct System {
+        static void OnUpdate(Schedule& schedule) {
+            schedule
+                .Request(
+                    "AllFilter", [&](Entity entity, Component_1& a) {
+                        a.value = 1;
+                        if (auto component_2 = schedule.world.GetEntityManager().GetComponent<Component_2>(entity);
+                            component_2.has_value()) {
+                            component_2->get().value = 2;
+                        }
+                        if (auto component_3 = schedule.world.GetEntityManager().GetComponent<Component_3>(entity);
+                            component_3.has_value()) {
+                            component_3->get().value = 2;
+                        }
+                    },
+                    Filter().All<Component_2, Component_3>())
+                .Request(
+                    "AnyFilter", [&](Entity entity) {
+                        if (auto component_3 = schedule.world.GetEntityManager().GetComponent<Component_3>(entity);
+                            component_3.has_value()) {
+                            component_3->get().value = 3;
+                        }
+                        if (auto component_4 = schedule.world.GetEntityManager().GetComponent<Component_4>(entity);
+                            component_4.has_value()) {
+                            component_4->get().value = 4;
+                        }
+                    },
+                    Filter().Any<Component_3, Component_4>())
+                .Request(
+                    "NoneFilter", [&](Component_5& a, Component_6& b) {
+                        a.value = 5;
+                        b.value = 6;
+                    },
+                    Filter().None<Component_1>());
+        }
+    };
+    world.RegisterSystem<System>("FilterTestSystem");
+
+    auto entity_1 = world.GetEntityManager().Create<Component_1, Component_2, Component_3>();
+    auto entity_2 = world.GetEntityManager().Create<Component_1, Component_3>();
+    auto entity_3 = world.GetEntityManager().Create<Component_2, Component_4>();
+    auto entity_4 = world.GetEntityManager().Create<Component_1, Component_5, Component_6>();
+
+    world.Update();
+    {
+        SCOPED_TRACE("Filter::All");
+        EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity_1, 1);
+        EXPECT_PRED_FORMAT3(componet_value_eq<Component_2>, world, entity_1, 2);
+    }
+
+    {
+        SCOPED_TRACE("Filter::Any");
+        EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity_2, 0);
+        EXPECT_PRED_FORMAT3(componet_value_eq<Component_3>, world, entity_2, 3);
+        EXPECT_PRED_FORMAT3(componet_value_eq<Component_2>, world, entity_3, 0);
+        EXPECT_PRED_FORMAT3(componet_value_eq<Component_4>, world, entity_3, 4);
+    }
+
+    {
+        SCOPED_TRACE("Filter::None");
+        EXPECT_PRED_FORMAT3(componet_value_eq<Component_5>, world, entity_4, 0);
+        EXPECT_PRED_FORMAT3(componet_value_eq<Component_6>, world, entity_4, 0);
+    }
 }
 
 int main(int argc, char** argv) {

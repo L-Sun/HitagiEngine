@@ -1,5 +1,5 @@
 #pragma once
-#include <hitagi/utils/utils.hpp>
+#include <hitagi/utils/array.hpp>
 
 #include <fmt/format.h>
 
@@ -208,55 +208,77 @@ struct Vector : public BaseVector<T, D> {
     }
 
 #if defined(USE_ISPC)
-    Vector operator+(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator+(const Vector& rhs) const noexcept
+        requires IspcSpeedable<T>
+    {
         Vector result;
         ispc::vector_add(*this, rhs, result, D);
         return result;
     }
 
-    Vector operator-() const noexcept requires IspcSpeedable<T> {
+    Vector operator-() const noexcept
+        requires IspcSpeedable<T>
+    {
         Vector result;
         ispc::vector_inverse(*this, result, D);
         return result;
     }
-    Vector operator-(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator-(const Vector& rhs) const noexcept
+        requires IspcSpeedable<T>
+    {
         Vector result;
         ispc::vector_sub(*this, rhs, result, D);
         return result;
     }
-    Vector operator*(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator*(const Vector& rhs) const noexcept
+        requires IspcSpeedable<T>
+    {
         Vector result;
         ispc::vector_mult_vector(*this, rhs, result, D);
         return result;
     }
-    Vector operator*(const T& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator*(const T& rhs) const noexcept
+        requires IspcSpeedable<T>
+    {
         Vector result;
         ispc::vector_mult(*this, rhs, result, D);
         return result;
     }
-    Vector operator/(const T& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator/(const T& rhs) const noexcept
+        requires IspcSpeedable<T>
+    {
         Vector result;
         ispc::vector_div(*this, rhs, result, D);
         return result;
     }
-    Vector operator/(const Vector& rhs) const noexcept requires IspcSpeedable<T> {
+    Vector operator/(const Vector& rhs) const noexcept
+        requires IspcSpeedable<T>
+    {
         Vector result;
         ispc::vector_div_vector(*this, rhs, result, D);
         return result;
     }
-    Vector& operator+=(const Vector& rhs) noexcept requires IspcSpeedable<T> {
+    Vector& operator+=(const Vector& rhs) noexcept
+        requires IspcSpeedable<T>
+    {
         ispc::vector_add_assgin(*this, rhs, D);
         return *this;
     }
-    Vector& operator-=(const Vector& rhs) noexcept requires IspcSpeedable<T> {
+    Vector& operator-=(const Vector& rhs) noexcept
+        requires IspcSpeedable<T>
+    {
         ispc::vector_sub_assgin(*this, rhs, D);
         return *this;
     }
-    Vector& operator*=(const T& rhs) noexcept requires IspcSpeedable<T> {
+    Vector& operator*=(const T& rhs) noexcept
+        requires IspcSpeedable<T>
+    {
         ispc::vector_mult_assgin(*this, rhs, D);
         return *this;
     }
-    Vector& operator/=(const T& rhs) noexcept requires IspcSpeedable<T> {
+    Vector& operator/=(const T& rhs) noexcept
+        requires IspcSpeedable<T>
+    {
         ispc::vector_div_assign(*this, rhs, D);
         return *this;
     }

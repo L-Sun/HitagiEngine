@@ -16,8 +16,8 @@ class Schedule {
 
     template <typename Func>
     struct Task : public ITask {
-        Task(std::string_view name, Func&& task)
-            : task_name(name), task(std::move(task)) {}
+        Task(std::string_view name, Func&& task, Filter filter)
+            : task_name(name), task(std::move(task)), filter(std::move(filter)) {}
 
         Task(const Task&)                = delete;
         Task& operator=(const Task&)     = delete;
@@ -28,16 +28,16 @@ class Schedule {
 
         std::pmr::string task_name;
         Func             task;
+        Filter           filter;
     };
 
 public:
     Schedule(World& world) : world(world) {}
 
     // Do task on the entities that contains components indicated at parameters.
-    // TODO filter
     template <typename Func>
-    requires utils::unique_parameter_types<Func>
-        Schedule& Request(std::string_view name, Func&& task);
+    Schedule& Request(std::string_view name, Func&& task, Filter filter = {})
+        requires utils::unique_parameter_types<Func>;
 
     // Schedule& RequestOnce(std::string_view name, std::function<void()>&& task);
 
@@ -54,20 +54,15 @@ private:
 };
 
 template <typename Func>
-requires utils::unique_parameter_types<Func>
-    Schedule& Schedule::Request(std::string_view name, Func&& task) {
-    std::shared_ptr<ITask> task_info = std::make_shared<Task<Func>>(name, std::forward<Func>(task));
+Schedule& Schedule::Request(std::string_view name, Func&& task, Filter filter)
+    requires utils::unique_parameter_types<Func>
+{
+    std::shared_ptr<ITask> task_info = std::make_shared<Task<Func>>(name, std::forward<Func>(task), std::move(filter));
 
     m_Tasks.emplace_back(std::move(task_info));
 
     return *this;
 }
-
-// Schedule& Schedule::RequestOnce(std::string_view name, std::function<void()>&& task) {
-//     std::shared_ptr<ITask> task_info = std::make_shared<Task<decltype(task)>>(name, std::forward<decltype(task)>(task));
-//     m_Tasks.emplace_back(std::move(task_info));
-//     return *this;
-// }
 
 template <typename Func>
 void Schedule::Task<Func>::Run(World& world) {
@@ -75,7 +70,9 @@ void Schedule::Task<Func>::Run(World& world) {
         using traits          = utils::function_traits<Func>;
         using component_types = std::tuple<typename traits::template no_cvref_arg<I>::type...>;
 
-        for (const std::shared_ptr<IArchetype>& archetype : world.GetArchetypes<std::tuple_element_t<I, component_types>...>()) {
+        filter.All<std::tuple_element_t<I, component_types>...>();
+
+        for (auto archetype : world.GetEntityManager().GetArchetype(filter)) {
             auto num_entities     = archetype->NumEntities();
             auto components_array = std::make_tuple(archetype->GetComponentArray<std::tuple_element_t<I, component_types>>()...);
 
