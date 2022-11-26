@@ -21,6 +21,16 @@ struct InstanceConstant {
     math::mat4f model;
 };
 
+Scene::Scene(std::string_view name, xg::Guid guid)
+    : Resource(name, guid),
+      world(name) {
+    world.RegisterSystem<TransformSystem>("TransformSystem");
+}
+
+void Scene::Update() {
+    world.Update();
+}
+
 auto Scene::Render(gfx::RenderGraph& render_graph, gfx::ViewPort viewport, const std::shared_ptr<CameraNode>& camera) -> RenderPass {
     if (camera != nullptr) curr_camera = camera;
 

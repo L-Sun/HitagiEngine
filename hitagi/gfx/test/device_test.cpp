@@ -1,4 +1,5 @@
 #include <hitagi/core/buffer.hpp>
+#include <hitagi/core/memory_manager.hpp>
 #include <hitagi/math/transform.hpp>
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/application.hpp>
@@ -202,8 +203,18 @@ TEST_F(D3DDeviceTest, CreateSampler) {
 TEST_F(D3DDeviceTest, CompileShader) {
     // Test Vertex Shader
     {
+        std::vector<std::wstring> strs;
+        for (std::size_t i = 0; i < 1; i++) {
+            strs.emplace_back(L"xxzs");
+            if (!strs.empty()) {
+                for (std::size_t char_index = strs.back().size(); char_index < 8; char_index++) {
+                    EXPECT_EQ((int)(strs.back().c_str()[char_index]), 0);
+                }
+            }
+        }
+    }
+    {
         Shader vs_shader{
-
             .name        = "vertex_test_shader",
             .type        = Shader::Type::Vertex,
             .entry       = "VSMain",

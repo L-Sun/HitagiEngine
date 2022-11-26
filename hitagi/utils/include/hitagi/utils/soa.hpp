@@ -14,6 +14,7 @@ class SoA {
 public:
     using allocator_type = std::pmr::polymorphic_allocator<std::byte>;
 
+    constexpr static std::size_t NumTypes = sizeof...(Types);
     template <std::size_t N>
     using TypeAt = typename std::tuple_element_t<N, std::tuple<Types...>>;
 
@@ -87,7 +88,7 @@ public:
     /* Iterator */
 
     template <typename SoAPointer>
-    requires remove_const_pointer_same<SoAPointer, SoA*>
+        requires remove_const_pointer_same<SoAPointer, SoA*>
     class Iterator {
         friend class SoA;
         SoAPointer  soa;
@@ -137,10 +138,10 @@ public:
     [[nodiscard]] constexpr bool empty() const noexcept { return m_Size == 0; }
     constexpr std::size_t        size() const noexcept { return m_Size; }
     constexpr void               reserve(std::size_t n) {
-                      [&]<std::size_t... I>(std::index_sequence<I...>) {
-                          (std::get<I>(m_Data).reserve(n), ...);
+        [&]<std::size_t... I>(std::index_sequence<I...>) {
+            (std::get<I>(m_Data).reserve(n), ...);
         }
-                      (std::index_sequence_for<Types...>{});
+        (std::index_sequence_for<Types...>{});
     }
     constexpr void shrink_to_fit() {
         [&]<std::size_t... I>(std::index_sequence<I...>) {

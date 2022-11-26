@@ -660,25 +660,25 @@ void DX12Device::CompileShader(Shader& shader) {
     std::pmr::vector<std::pmr::wstring> args;
 
     // shader name
-    args.emplace_back(std::pmr::wstring(shader.name.begin(), shader.name.end()));
+    args.push_back(std::pmr::wstring(shader.name.begin(), shader.name.end()));
 
     // shader entry
-    args.emplace_back(L"-E");
-    args.emplace_back(shader.entry.begin(), shader.entry.end());
+    args.push_back(L"-E");
+    args.emplace_back(std::pmr::wstring(shader.entry.begin(), shader.entry.end()));
 
     // shader model
-    args.emplace_back(L"-T");
-    args.emplace_back(to_shader_model_compile_flag(shader.type, m_FeatureSupport.HighestShaderModel()));
+    args.push_back(L"-T");
+    args.push_back(to_shader_model_compile_flag(shader.type, m_FeatureSupport.HighestShaderModel()));
 
     // We use row major order
-    args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
+    args.push_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
 
     // make sure all resource bound
-    args.emplace_back(DXC_ARG_ALL_RESOURCES_BOUND);
+    args.push_back(DXC_ARG_ALL_RESOURCES_BOUND);
 #ifdef _DEBUG
-    args.emplace_back(DXC_ARG_OPTIMIZATION_LEVEL0);
-    args.emplace_back(DXC_ARG_DEBUG);
-    args.emplace_back(L"-Qembed_debug");
+    args.push_back(DXC_ARG_OPTIMIZATION_LEVEL0);
+    args.push_back(DXC_ARG_DEBUG);
+    args.push_back(L"-Qembed_debug");
 #endif
     std::pmr::vector<const wchar_t*> p_args;
     std::transform(args.begin(), args.end(), std::back_insert_iterator(p_args), [](const auto& arg) { return arg.data(); });

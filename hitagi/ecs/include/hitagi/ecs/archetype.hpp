@@ -96,8 +96,8 @@ private:
 
     using DynamicComponentArray = std::pmr::vector<std::byte>;
 
-    utils::SoA<Entity, Components...>                               m_StaticComponents;
-    std::pmr::vector<std::pair<DynamicComponentArray, std::size_t>> m_DynamicComponents;
+    utils::SoA<Entity, Components...>                                    m_StaticComponents;
+    std::pmr::vector<std::pair<DynamicComponentArray, DynamicComponent>> m_DynamicComponents;
 };
 
 template <typename Component>
@@ -148,7 +148,7 @@ Archetype<Components...>::Archetype(const DynamicComponents& dynamic_components)
 
     for (const auto& dynamic_components_info : dynamic_components) {
         utils::TypeID dynamic_component_id{dynamic_components_info.name};
-        m_DynamicComponents.emplace_back(DynamicComponentArray{}, dynamic_components_info.size);
+        m_DynamicComponents.emplace_back(DynamicComponentArray{}, dynamic_components_info);
         m_ComponentIndexMap.emplace(dynamic_component_id, m_ComponentIndexMap.size());
     }
 }
@@ -169,8 +169,8 @@ auto Archetype<Components...>::GetComponentRawData(std::size_t component_index, 
 
         return result;
     } else {
-        auto& [dynamic_component_array, dynamic_component_size] = m_DynamicComponents.at(component_index - m_StaticComponents.NumTypes);
-        return dynamic_component_array.data() + entity_index * dynamic_component_size;
+        auto& [dynamic_component_array, dynamic_component_info] = m_DynamicComponents.at(component_index - m_StaticComponents.NumTypes);
+        return dynamic_component_array.data() + entity_index * dynamic_component_info.size;
     }
 }
 
@@ -182,8 +182,12 @@ void Archetype<Components...>::CreateEntities(const std::pmr::vector<Entity>& en
         m_EntityMap.emplace(entity, m_StaticComponents.size());
         m_StaticComponents.emplace_back(Entity{entity.id}, Components{}...);
     }
-    for (auto& [dyanmic_component_array, dynamic_component_size] : m_DynamicComponents) {
-        dyanmic_component_array.resize(NumEntities() * dynamic_component_size);
+    for (auto& [dynamic_component_array, dynamic_component_info] : m_DynamicComponents) {
+        dynamic_component_array.resize(NumEntities() * dynamic_component_info.size);
+        if (dynamic_component_info.constructor) {
+            std::byte* p_dynamic_component = dynamic_component_array.data() + (NumEntities() - 1) * dynamic_component_info.size;
+            dynamic_component_info.constructor(p_dynamic_component);
+        }
     }
 }
 
@@ -204,13 +208,20 @@ void Archetype<Components...>::DeleteEntity(Entity entity) {
         m_StaticComponents.pop_back();
     }
     // delete dynamic components
-    for (auto& [dynamic_component_array, dynamic_component_size] : m_DynamicComponents) {
+    for (auto& [dynamic_component_array, dynamic_component_info] : m_DynamicComponents) {
         std::swap_ranges(
             // b_ref
-            std::prev(dynamic_component_array.end(), dynamic_component_size),
+            std::prev(dynamic_component_array.end(), dynamic_component_info.size),
             dynamic_component_array.end(),
             // a_ref
-            std::next(dynamic_component_array.begin(), index * dynamic_component_size));
+            std::next(dynamic_component_array.begin(), index * dynamic_component_info.size));
+
+        if (dynamic_component_info.deconstructor) {
+            std::byte* p_dynamic_component = dynamic_component_array.data() + (NumEntities() - 1) * dynamic_component_info.size;
+            dynamic_component_info.deconstructor(p_dynamic_component);
+        }
+
+        dynamic_component_array.erase(std::prev(dynamic_component_array.end(), dynamic_component_info.size), dynamic_component_array.end());
     }
     m_EntityMap.erase(entity);
 }

@@ -1,6 +1,6 @@
 #pragma once
 #include <hitagi/gfx/common_types.hpp>
-#include <hitagi/utils/utils.hpp>
+#include <hitagi/utils/flags.hpp>
 #include <hitagi/core/buffer.hpp>
 
 #include <functional>

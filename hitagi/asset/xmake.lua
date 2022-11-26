@@ -9,7 +9,7 @@ target("asset")
         "src/animation_manager.cpp"
     )
     add_includedirs("include", {public = true})
-    add_deps("core", "math", "gfx", "utils")
+    add_deps("core", "math", "gfx", "ecs", "utils")
     add_packages("crossguid", {public = true})
 
 target("parser")

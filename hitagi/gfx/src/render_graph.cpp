@@ -4,6 +4,7 @@
 #include <hitagi/utils/utils.hpp>
 
 #include <taskflow/taskflow.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <algorithm>
 
@@ -145,6 +146,8 @@ auto RenderGraph::GetLifeTrackResource(const Resource* res) -> std::shared_ptr<R
 }
 
 bool RenderGraph::Compile() {
+    ZoneScopedN("RenderGraph::Compile");
+
     if (m_PresentPassNode == nullptr) return false;
 
     std::pmr::unordered_map<const PassNode*, tf::Task> task_map;
@@ -199,6 +202,8 @@ bool RenderGraph::Compile() {
 }
 
 auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
+    ZoneScopedN("RenderGraph::Execute");
+
     std::pmr::vector<CommandContext*> contexts;
     auto                              fence_values = utils::create_enum_array<std::uint64_t, CommandType>(0);
 

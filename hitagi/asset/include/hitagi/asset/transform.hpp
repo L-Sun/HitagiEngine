@@ -1,5 +1,6 @@
 #pragma once
 #include <hitagi/math/transform.hpp>
+#include <hitagi/ecs/schedule.hpp>
 
 namespace hitagi::asset {
 
@@ -18,4 +19,35 @@ struct Transform {
     inline math::quatf GetRotation() const { return math::get_rotation(world_matrix); }
     inline math::vec3f GetScale() const { return math::get_scaling(world_matrix); }
 };
+
+struct Parent {
+    ecs::Entity value;
+};
+
+struct Children {
+    std::pmr::vector<ecs::Entity> values;
+};
+
+struct LocalToWorld {
+    math::mat4f value;
+};
+
+struct LocalToParent {
+    math::mat4f value;
+};
+
+struct Translation {
+    math::vec3f value;
+};
+struct Rotation {
+    math::vec3f euler;
+};
+struct Scale {
+    math::vec3f value;
+};
+
+struct TransformSystem {
+    static void OnUpdate(ecs::Schedule& schedule);
+};
+
 }  // namespace hitagi::asset

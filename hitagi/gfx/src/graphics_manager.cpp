@@ -12,6 +12,7 @@ gfx::GraphicsManager* graphics_manager = nullptr;
 namespace hitagi::gfx {
 bool GraphicsManager::Initialize() {
     RuntimeModule::Initialize();
+    m_Clock.Start();
 
     if (m_Device = Device::Create(Device::Type::DX12); m_Device == nullptr) {
         m_Logger->warn("Create device failed!");
@@ -34,6 +35,8 @@ void GraphicsManager::Finalize() {
     m_RenderGraph.reset();
     m_SwapChain.reset();
     m_Device.reset();
+
+    m_Clock.Reset();
 }
 
 void GraphicsManager::Tick() {
@@ -59,6 +62,7 @@ void GraphicsManager::Tick() {
     }
 
     FrameMark;
+    m_Clock.Tick();
 }
 
 }  // namespace hitagi::gfx

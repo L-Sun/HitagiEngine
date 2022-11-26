@@ -11,6 +11,10 @@ using namespace hitagi::asset;
 using namespace std::literals;
 
 namespace hitagi {
+auto get_resource_label(Resource* res) {
+    return fmt::format("{}##{}", res->GetName(), res->GetGuid().str());
+}
+
 bool Editor::Initialize() {
     RuntimeModule::Initialize();
     m_Clock.Start();
@@ -27,12 +31,18 @@ void Editor::Tick() {
         MenuBar();
         FileImporter();
         SceneGraphViewer();
+        SceneNodeModifier();
     });
 
     RuntimeModule::Tick();
     Render();
 
     m_Clock.Tick();
+}
+
+void Editor::Finalize() {
+    m_SelectedNode.reset();
+    RuntimeModule::Finalize();
 }
 
 void Editor::Render() {
@@ -85,8 +95,14 @@ void Editor::MenuBar() {
         }
         // System info
         {
-            unsigned fps  = 1.0f / m_Clock.DeltaTime().count();
-            auto     info = fmt::format("Memory: {} MiB | {:>3} FPS", app->GetMemoryUsage() >> 20, fps);
+            static std::uint64_t smooth_count = 0;
+            static float         frame_time   = 0;
+            if (smooth_count < m_Clock.TotalTime().count()) {
+                smooth_count++;
+                frame_time = graphics_manager->GetFrameTime().count();
+            }
+
+            auto info = fmt::format("Memory: {:>4} MiB | {:>4} FPS", app->GetMemoryUsage() >> 20, static_cast<unsigned>(1.0f / frame_time));
 
             ImVec2 info_size = ImGui::CalcTextSize(info.c_str());
 
@@ -115,56 +131,103 @@ void Editor::FileImporter() {
 }
 
 void Editor::SceneGraphViewer() {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
     if (ImGui::Begin("Scene Graph Viewer")) {
         auto scene = m_SceneViewPort->GetScene();
 
-        constexpr ImGuiTableFlags table_flags = ImGuiTableFlags_BordersV |
-                                                ImGuiTableFlags_BordersOuterH |
-                                                ImGuiTableFlags_Resizable |
-                                                ImGuiTableFlags_RowBg |
-                                                ImGuiTableFlags_NoBordersInBody;
-
-        constexpr ImGuiTreeNodeFlags node_flags =
-            ImGuiTreeNodeFlags_OpenOnArrow |
-            ImGuiTreeNodeFlags_NoTreePushOnOpen |
-            ImGuiTreeNodeFlags_SpanFullWidth;
-        constexpr ImGuiTreeNodeFlags leaf_node_flags =
-            ImGuiTreeNodeFlags_Leaf |
+        constexpr ImGuiTableFlags table_flags =
+            ImGuiTableFlags_Resizable |
+            ImGuiTableFlags_RowBg;
+        constexpr ImGuiTreeNodeFlags base_node_flags =
             ImGuiTreeNodeFlags_NoTreePushOnOpen |
             ImGuiTreeNodeFlags_SpanFullWidth;
 
-        if (ImGui::BeginTable("Module inspector", 1, table_flags)) {
+        if (ImGui::BeginTable("Scene Graph", 1, table_flags)) {
             ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
+            int num_row = 0;
 
             std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](const std::shared_ptr<SceneNode>& node) -> void {
+                num_row++;
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
 
-                if (node->GetChildren().empty()) {
-                    ImGui::TreeNodeEx(node->GetName().c_str(), leaf_node_flags);
-                } else {
-                    if (ImGui::TreeNodeEx(node->GetName().c_str(), node_flags)) {
-                        // print children
-                        for (auto&& child : node->GetChildren()) {
-                            print_node(child);
-                        }
-                        ImGui::TreePop();
+                auto node_flags = base_node_flags;
+                if (m_SelectedNode == node) {
+                    node_flags |= ImGuiTreeNodeFlags_Selected;
+                }
+                node_flags |= node->GetChildren().empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow;
+
+                bool node_open = ImGui::TreeNodeEx(node.get(), node_flags, "%s", node->GetName().c_str());
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen())
+                    m_SelectedNode = node;
+
+                if (node_open && !(node_flags & ImGuiTreeNodeFlags_Leaf)) {
+                    // print children
+                    for (auto&& child : node->GetChildren()) {
+                        print_node(child);
                     }
+                    ImGui::TreePop();
                 }
             };
 
             if (scene) print_node(scene->root);
 
+            // Add empty row
+            for (int i = 0; i < std::max(0, 10 - num_row); i++) {
+                ImGui::TableNextRow(0, ImGui::GetTextLineHeight());
+            }
+
             ImGui::EndTable();
+        }
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+            m_SelectedNode = nullptr;
         }
     }
 
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
+void Editor::SceneNodeModifier() {
+    if (ImGui::Begin("Scene Node Modifier")) {
+        if (m_SelectedNode == nullptr) {
+            ImGui::Text("No Scene Node Selected!");
+        } else if (ImGui::BeginTable("Space Properties", 2, ImGuiTableFlags_Resizable)) {
+            ImGui::TableSetupColumn("Property Name", ImGuiTableColumnFlags_NoHide);
+
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Translation");
+                ImGui::TableNextColumn();
+                ImGui::DragFloat3("##Translation", m_SelectedNode->transform.local_translation);
+            }
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Rotation");
+                ImGui::TableNextColumn();
+                ImGui::DragFloat3("##Rotation", m_SelectedNode->transform.local_rotation);
+            }
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Scaling");
+                ImGui::TableNextColumn();
+                ImGui::DragFloat3("##Scaling", m_SelectedNode->transform.local_scaling);
+            }
+
+            ImGui::EndTable();
+        }
+    }
     ImGui::End();
 }
 
 void Editor::AssetExploer() {
     static bool open = true;
     if (ImGui::Begin("Asset Exploer", &open)) {
+        for (auto mat : asset_manager->GetAllMaterials()) {
+        }
     }
     ImGui::End();
 }

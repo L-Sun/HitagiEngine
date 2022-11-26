@@ -52,6 +52,14 @@ void Win32Application::InitializeWindows() {
 
     SetProcessDPIAware();
 
+    RECT window_rect{
+        .left   = CW_USEDEFAULT,
+        .top    = CW_USEDEFAULT,
+        .right  = CW_USEDEFAULT + static_cast<LONG>(width),
+        .bottom = CW_USEDEFAULT + static_cast<LONG>(height),
+    };
+    AdjustWindowRect(&window_rect, WS_OVERLAPPEDWINDOW, false);
+
     // get the HINSTANCE of the Console Program
     HINSTANCE h_instance = GetModuleHandle(nullptr);
 
@@ -78,8 +86,8 @@ void Win32Application::InitializeWindows() {
         title.c_str(),
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        width,
-        height,
+        window_rect.right - window_rect.left,
+        window_rect.bottom - window_rect.top,
         nullptr,
         nullptr,
         h_instance,
@@ -90,28 +98,22 @@ void Win32Application::InitializeWindows() {
         return;
     }
     ShowWindow(m_Window, SW_SHOW);
-    RECT client_rect{
-        .left   = CW_USEDEFAULT,
-        .top    = CW_USEDEFAULT,
-        .right  = CW_USEDEFAULT + static_cast<LONG>(width),
-        .bottom = CW_USEDEFAULT + static_cast<LONG>(height),
-    };
-    AdjustWindowRect(&client_rect, WS_OVERLAPPEDWINDOW, false);
+
     UpdateRect();
     MapCursor();
 }
 
-void Win32Application::SetInputScreenPosition(unsigned x, unsigned y) {
+void Win32Application::SetInputScreenPosition(const math::vec2u& position) {
     if (HIMC himc = ::ImmGetContext(m_Window)) {
         COMPOSITIONFORM composition_form = {};
-        composition_form.ptCurrentPos.x  = x;
-        composition_form.ptCurrentPos.y  = y;
+        composition_form.ptCurrentPos.x  = position.x;
+        composition_form.ptCurrentPos.y  = position.y;
         composition_form.dwStyle         = CFS_FORCE_POSITION;
         ::ImmSetCompositionWindow(himc, &composition_form);
         CANDIDATEFORM candidate_form  = {};
         candidate_form.dwStyle        = CFS_CANDIDATEPOS;
-        candidate_form.ptCurrentPos.x = x;
-        candidate_form.ptCurrentPos.y = y;
+        candidate_form.ptCurrentPos.x = position.x;
+        candidate_form.ptCurrentPos.y = position.y;
         ::ImmSetCandidateWindow(himc, &candidate_form);
         ::ImmReleaseContext(m_Window, himc);
     }
@@ -120,6 +122,50 @@ void Win32Application::SetInputScreenPosition(unsigned x, unsigned y) {
 void Win32Application::SetWindowTitle(std::string_view title) {
     std::pmr::wstring text{title.begin(), title.end()};
     SetWindowTextW(m_Window, text.data());
+}
+
+void Win32Application::SetCursor(Cursor cursor) {
+    LPTSTR win32_cursor = IDC_ARROW;
+    switch (cursor) {
+        case Cursor::None:
+            win32_cursor = nullptr;
+        case Cursor::Arrow:
+            win32_cursor = IDC_ARROW;
+            break;
+        case Cursor::TextInput:
+            win32_cursor = IDC_IBEAM;
+            break;
+        case Cursor::ResizeAll:
+            win32_cursor = IDC_SIZEALL;
+            break;
+        case Cursor::ResizeEW:
+            win32_cursor = IDC_SIZEWE;
+            break;
+        case Cursor::ResizeNS:
+            win32_cursor = IDC_SIZENS;
+            break;
+        case Cursor::ResizeNESW:
+            win32_cursor = IDC_SIZENESW;
+            break;
+        case Cursor::ResizeNWSE:
+            win32_cursor = IDC_SIZENWSE;
+            break;
+        case Cursor::Hand:
+            win32_cursor = IDC_HAND;
+            break;
+        case Cursor::Forbid:
+            win32_cursor = IDC_NO;
+            break;
+    }
+    if (win32_cursor == nullptr) {
+        ::SetCursor(nullptr);
+    } else {
+        ::SetCursor(::LoadCursor(nullptr, win32_cursor));
+    }
+}
+
+void Win32Application::SetMousePosition(const math::vec2u& position) {
+    ::SetCursorPos(position.x, position.y);
 }
 
 float Win32Application::GetDpiRatio() const {
