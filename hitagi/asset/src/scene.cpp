@@ -1,5 +1,7 @@
 #include <hitagi/asset/scene.hpp>
 
+#include <tracy/Tracy.hpp>
+
 #include <vector>
 
 namespace hitagi::asset {
@@ -32,6 +34,8 @@ void Scene::Update() {
 }
 
 auto Scene::Render(gfx::RenderGraph& render_graph, gfx::ViewPort viewport, const std::shared_ptr<CameraNode>& camera) -> RenderPass {
+    ZoneScopedN("Scene::Render");
+
     if (camera != nullptr) curr_camera = camera;
 
     root->Update();

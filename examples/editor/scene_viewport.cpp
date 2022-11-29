@@ -29,8 +29,10 @@ void SceneViewPort::Tick() {
                 m_Camera->Update();
 
                 const auto view_port = m_Camera->GetObjectRef()->GetViewPort(window_size.x, window_size.y);
-                const auto output    = m_CurrentScene->Render(graphics_manager->GetRenderGraph(), view_port, m_Camera);
-                ImGui::Image((void*)gui_manager->ReadTexture(output.render_target).id, window_size);
+                if (view_port.width != 0 && view_port.height != 0) {
+                    const auto output = m_CurrentScene->Render(graphics_manager->GetRenderGraph(), view_port, m_Camera);
+                    ImGui::Image((void*)gui_manager->ReadTexture(output.render_target).id, window_size);
+                }
             }
         }
         ImGui::End();
