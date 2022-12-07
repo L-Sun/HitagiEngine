@@ -21,7 +21,8 @@ public:
     inline auto GetFrameTime() const noexcept { return m_Clock.DeltaTime(); }
 
 private:
-    core::Clock m_Clock;
+    core::Clock   m_Clock;
+    std::uint64_t m_FrameIndex = 0;
 
     std::unique_ptr<Device>      m_Device;
     std::unique_ptr<RenderGraph> m_RenderGraph;

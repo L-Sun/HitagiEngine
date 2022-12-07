@@ -2,6 +2,7 @@
 #include <hitagi/gfx/common_types.hpp>
 #include <hitagi/utils/flags.hpp>
 #include <hitagi/core/buffer.hpp>
+#include <hitagi/utils/hash.hpp>
 
 #include <functional>
 
@@ -36,6 +37,8 @@ struct GpuBuffer : public Resource {
         std::uint64_t    element_size;
         std::uint64_t    element_count = 1;
         UsageFlags       usages        = UsageFlags::Unkown;
+
+        constexpr bool operator==(const Desc&) const noexcept;
     };
 
     GpuBuffer(Device& device, Desc desc, std::size_t size, std::byte* mapped_ptr)
@@ -90,6 +93,8 @@ struct Texture : public Resource {
         bool             is_cube      = false;
         ClearValue       clear_value;
         UsageFlags       usages = UsageFlags::SRV;
+
+        constexpr bool operator==(const Desc&) const noexcept;
     };
 
     Texture(Device& device, Desc desc) : Resource(device), desc(desc) {}
@@ -120,6 +125,8 @@ struct Sampler : public Resource {
         float            max_load       = 32;
         std::uint32_t    max_anisotropy = 1;
         CompareFunction  compare;
+
+        constexpr bool operator==(const Desc&) const noexcept;
     };
 
     Sampler(Device& device, Desc desc) : Resource(device), desc(desc) {}
@@ -170,13 +177,59 @@ struct RenderPipeline : public Resource {
 
 struct ComputePipeline : public Resource {
     struct Desc {
-        std::shared_ptr<Shader> cs;  // computer shader
+        Shader cs;  // computer shader
     };
 
     ComputePipeline(Device& device, Desc desc) : Resource(device), desc(std::move(desc)) {}
 
     const Desc desc;
 };
+
+constexpr bool GpuBuffer::Desc::operator==(const Desc& rhs) const noexcept {
+    // clang-format off
+    return 
+        name          == rhs.name          &&
+        element_size  == rhs.element_size  &&
+        element_count == rhs.element_count &&
+        usages        == rhs.usages;
+    // clang-format on
+}
+
+constexpr bool Texture::Desc::operator==(const Desc& rhs) const noexcept {
+    // clang-format off
+    return 
+        name                == rhs.name                &&
+        width               == rhs.width               &&
+        height              == rhs.height              &&
+        depth               == rhs.depth               &&
+        array_size          == rhs.array_size          &&
+        format              == rhs.format              &&
+        mip_levels          == rhs.mip_levels          &&
+        sample_count        == rhs.sample_count        &&
+        is_cube             == rhs.is_cube             &&
+        clear_value.color   == rhs.clear_value.color   &&
+        clear_value.depth   == rhs.clear_value.depth   &&
+        clear_value.stencil == rhs.clear_value.stencil &&
+        usages              == rhs.usages;
+    // clang-format on
+}
+
+constexpr bool Sampler::Desc::operator==(const Desc& rhs) const noexcept {
+    // clang-format off
+    return
+        name           == rhs.name           &&           
+        address_u      == rhs.address_u      &&      
+        address_v      == rhs.address_v      &&      
+        address_w      == rhs.address_w      &&      
+        mag_filter     == rhs.mag_filter     &&     
+        min_filter     == rhs.min_filter     &&     
+        mipmap_filter  == rhs.mipmap_filter  &&  
+        min_lod        == rhs.min_lod        &&        
+        max_load       == rhs.max_load       &&       
+        max_anisotropy == rhs.max_anisotropy && 
+        compare        == rhs.compare;
+    // clang-format on
+}
 
 }  // namespace hitagi::gfx
 
@@ -188,3 +241,55 @@ template <>
 struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::Texture::UsageFlags> {
     static constexpr bool enable = true;
 };
+
+namespace std {
+template <>
+struct hash<hitagi::gfx::GpuBuffer::Desc> {
+    constexpr std::size_t operator()(const hitagi::gfx::GpuBuffer::Desc& desc) const noexcept {
+        return hitagi::utils::combine_hash(std::array{
+            hitagi::utils::hash(desc.name),
+            hitagi::utils::hash(desc.element_size),
+            hitagi::utils::hash(desc.element_count),
+            hitagi::utils::hash(desc.usages),
+        });
+    }
+};
+
+template <>
+struct hash<hitagi::gfx::Texture::Desc> {
+    constexpr std::size_t operator()(const hitagi::gfx::Texture::Desc& desc) const noexcept {
+        return hitagi::utils::combine_hash(std::array{
+            hitagi::utils::hash(desc.name),
+            hitagi::utils::hash(desc.width),
+            hitagi::utils::hash(desc.height),
+            hitagi::utils::hash(desc.depth),
+            hitagi::utils::hash(desc.array_size),
+            hitagi::utils::hash(desc.format),
+            hitagi::utils::hash(desc.mip_levels),
+            hitagi::utils::hash(desc.sample_count),
+            hitagi::utils::hash(desc.is_cube),
+            hitagi::utils::hash(desc.usages),
+        });
+    }
+};
+
+template <>
+struct hash<hitagi::gfx::Sampler::Desc> {
+    constexpr std::size_t operator()(const hitagi::gfx::Sampler::Desc& desc) const noexcept {
+        return hitagi::utils::combine_hash(std::array{
+            hitagi::utils::hash(desc.name),
+            hitagi::utils::hash(desc.address_u),
+            hitagi::utils::hash(desc.address_v),
+            hitagi::utils::hash(desc.address_w),
+            hitagi::utils::hash(desc.mag_filter),
+            hitagi::utils::hash(desc.min_filter),
+            hitagi::utils::hash(desc.mipmap_filter),
+            hitagi::utils::hash(desc.min_lod),
+            hitagi::utils::hash(desc.max_load),
+            hitagi::utils::hash(desc.max_anisotropy),
+            hitagi::utils::hash(desc.compare),
+        });
+    }
+};
+
+}  // namespace std

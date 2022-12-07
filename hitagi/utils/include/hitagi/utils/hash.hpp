@@ -4,16 +4,20 @@
 #include <string_view>
 
 namespace hitagi::utils {
+template <typename T>
+constexpr inline std::size_t hash(const T& obj) noexcept {
+    return std::hash<T>{}(obj);
+}
 
 template <std::size_t N>
-constexpr inline std::size_t combine_hash(const std::array<std::size_t, N>& hash_values, std::size_t seed = 0) {
+constexpr inline std::size_t combine_hash(const std::array<std::size_t, N>& hash_values, std::size_t seed = 0) noexcept {
     for (std::size_t hash : hash_values) {
         seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
     return seed;
 }
 
-constexpr inline std::size_t combine_hash(const std::pmr::vector<std::size_t>& hash_values, std::size_t seed = 0) {
+constexpr inline std::size_t combine_hash(const std::pmr::vector<std::size_t>& hash_values, std::size_t seed = 0) noexcept {
     for (std::size_t hash : hash_values) {
         seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
@@ -21,13 +25,13 @@ constexpr inline std::size_t combine_hash(const std::pmr::vector<std::size_t>& h
 }
 
 template <typename T, typename... Rest>
-inline void hash_combine(std::size_t& seed, const T& v, const Rest&... rest) {
+inline void hash_combine(std::size_t& seed, const T& v, const Rest&... rest) noexcept {
     seed ^= std::hash<T>{}(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     (hash_combine(seed, rest), ...);
 }
 
 template <typename T1, typename T2>
-constexpr inline std::size_t combine_hash(const T1& a, const T2& b, std::size_t seed = 0) {
+constexpr inline std::size_t combine_hash(const T1& a, const T2& b, std::size_t seed = 0) noexcept {
     return combine_hash(seed, a, b);
 }
 

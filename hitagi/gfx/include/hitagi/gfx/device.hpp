@@ -1,5 +1,4 @@
 #pragma once
-#include <cstddef>
 #include <hitagi/gfx/command_queue.hpp>
 #include <hitagi/gfx/gpu_resource.hpp>
 
@@ -34,6 +33,8 @@ public:
 
     virtual void CompileShader(Shader& shader)                                                      = 0;
     virtual auto CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> = 0;
+
+    virtual void Profile(std::size_t frame_index) const = 0;
 
 protected:
     Device(Type type, std::string_view name);

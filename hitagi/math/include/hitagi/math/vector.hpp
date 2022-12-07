@@ -207,6 +207,13 @@ struct Vector : public BaseVector<T, D> {
         return *this;
     }
 
+    constexpr bool operator==(const Vector& rhs) const noexcept {
+        return data == rhs.data;
+    }
+    constexpr bool operator!=(const Vector& rhs) const noexcept {
+        return data != rhs.data;
+    }
+
 #if defined(USE_ISPC)
     Vector operator+(const Vector& rhs) const noexcept
         requires IspcSpeedable<T>

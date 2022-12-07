@@ -5,6 +5,8 @@
 
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <tracy/Tracy.hpp>
+
 #include <windowsx.h>
 #include <psapi.h>
 
@@ -27,9 +29,8 @@ void Win32Application::Tick() {
 
         // send the message to the WindowProc function
         DispatchMessage(&msg);
-    } else {
-        Application::Tick();
     }
+    Application::Tick();
 }
 
 void Win32Application::InitializeWindows() {
@@ -220,6 +221,8 @@ void Win32Application::MapCursor() {
 }
 
 LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w_param, LPARAM l_param) {
+    ZoneScoped;
+
     Win32Application* p_this = nullptr;
     if (message == WM_NCCREATE) {
         p_this = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(l_param)->lpCreateParams);
@@ -296,7 +299,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             input_manager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
             return 0;
         case WM_CHAR: {
-            size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
+            std::size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
             input_manager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
         }
             return 0;
@@ -309,9 +312,6 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
                 p_this->UpdateRect();
                 p_this->MapCursor();
             }
-            return 0;
-        case WM_PAINT:
-            p_this->Application::Tick();
             return 0;
     }
     return DefWindowProc(h_wnd, message, w_param, l_param);

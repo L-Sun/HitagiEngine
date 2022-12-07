@@ -3,6 +3,7 @@
 #include "utils.hpp"
 
 namespace hitagi::gfx {
+
 auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
     assert(swap_chain);
     if (back_buffers.empty()) {

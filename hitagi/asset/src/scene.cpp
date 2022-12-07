@@ -108,7 +108,7 @@ auto Scene::Render(gfx::RenderGraph& render_graph, gfx::ViewPort viewport, const
                 .name        = "scene-depth",
                 .width       = static_cast<std::uint32_t>(viewport.width),
                 .height      = static_cast<std::uint32_t>(viewport.height),
-                .format      = gfx::Format::D32_FLOAT,
+                .format      = gfx::Format::D16_UNORM,
                 .clear_value = {
                     .depth   = 1.0f,
                     .stencil = 0,

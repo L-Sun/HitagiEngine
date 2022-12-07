@@ -16,6 +16,9 @@ option_end()
 
 if has_config("profile") then 
     add_defines("TRACY_ENABLE")
+    if is_plat("windows") then
+        add_defines("TRACY_IMPORTS")
+    end
 end
 
 add_requireconfs("*", {configs = {shared = true}})

@@ -3,6 +3,7 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <tracy/Tracy.hpp>
 
 namespace hitagi {
 core::MemoryManager* memory_manager = nullptr;
@@ -89,19 +90,25 @@ auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrap
 }
 
 auto MemoryPool::do_allocate(std::size_t bytes, std::size_t alignment) -> void* {
+    void* result = nullptr;
     if (auto pool = GetPool(utils::align(bytes, alignment)); pool.has_value()) {
-        auto result = pool->get().allocate();
-        return result;
+        result = pool->get().allocate();
+        TracyAllocN(result, bytes, "Pool");
+    } else {
+        result = operator new[](bytes, std::align_val_t(alignment));
+        TracyAllocN(result, bytes, "Built In");
     }
-
-    return operator new[](bytes, std::align_val_t(alignment));
+    return result;
 }
 
-auto MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment) -> void {
-    if (auto pool = GetPool(utils::align(bytes, alignment)); pool.has_value())
-        return pool->get().deallocate(reinterpret_cast<Block*>(p));
-
-    operator delete[](reinterpret_cast<std::byte*>(p), std::align_val_t{alignment});
+void MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment) {
+    if (auto pool = GetPool(utils::align(bytes, alignment)); pool.has_value()) {
+        TracyFreeN(p, "Pool");
+        pool->get().deallocate(reinterpret_cast<Block*>(p));
+    } else {
+        TracyFreeN(p, "Built In");
+        operator delete[](reinterpret_cast<std::byte*>(p), std::align_val_t{alignment});
+    }
 }
 
 bool MemoryManager::Initialize() {

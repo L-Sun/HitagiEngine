@@ -23,8 +23,9 @@ void Clock::Tick() {
     if (m_Paused) {
         return;
     }
-    m_Deltatime = std::chrono::high_resolution_clock::now() - m_TickTime;
-    m_TickTime  = std::chrono::high_resolution_clock::now();
+    auto now    = std::chrono::high_resolution_clock::now();
+    m_Deltatime = now - m_TickTime;
+    m_TickTime  = now;
 }
 
 auto Clock::GetBaseTime() const -> std::chrono::high_resolution_clock::time_point {

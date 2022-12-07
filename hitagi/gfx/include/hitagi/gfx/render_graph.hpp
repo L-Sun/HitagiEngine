@@ -75,6 +75,7 @@ public:
 
     bool Compile();
     auto Execute() -> utils::EnumArray<std::uint64_t, CommandType>;
+    void Reset();
 
     Device& device;
 
@@ -91,7 +92,6 @@ private:
     auto RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext>;
     auto GetResrouceNode(ResourceHandle handle) -> ResourceNode&;
     auto GetLifeTrackResource(const Resource* res) -> std::shared_ptr<Resource>;
-    void Clear();
 
     tf::Executor m_Executor;
     tf::Taskflow m_Taskflow;
@@ -110,7 +110,10 @@ private:
     std::pmr::vector<PassNode*> m_ExecuteQueue;
 
     using RetiredResource = std::pair<std::shared_ptr<Resource>, std::uint64_t>;
-    utils::EnumArray<std::pmr::deque<RetiredResource>, CommandType>                m_RetiredResources;
+    utils::EnumArray<std::pmr::deque<RetiredResource>, CommandType> m_RetiredResources;
+
+    std::unordered_map<GpuBuffer::Desc, std::shared_ptr<GpuBuffer>>                m_GpuBfferPool;
+    std::unordered_map<Texture::Desc, std::shared_ptr<Texture>>                    m_TexturePool;
     utils::EnumArray<std::pmr::list<std::shared_ptr<CommandContext>>, CommandType> m_ContextPool;
 };
 
