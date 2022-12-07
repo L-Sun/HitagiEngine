@@ -109,11 +109,12 @@ private:
     std::mutex                  m_ExecuteQueueMutex;
     std::pmr::vector<PassNode*> m_ExecuteQueue;
 
-    using RetiredResource = std::pair<std::shared_ptr<Resource>, std::uint64_t>;
-    utils::EnumArray<std::pmr::deque<RetiredResource>, CommandType> m_RetiredResources;
+    utils::EnumArray<std::pmr::deque<std::pair<std::shared_ptr<Resource>, std::uint64_t>>, CommandType> m_RetiredResources;
 
-    std::unordered_map<GpuBuffer::Desc, std::shared_ptr<GpuBuffer>>                m_GpuBfferPool;
-    std::unordered_map<Texture::Desc, std::shared_ptr<Texture>>                    m_TexturePool;
+    constexpr static unsigned                                                                 sm_CacheLifeSpan = 5;
+    std::unordered_map<GpuBuffer::Desc, std::pair<std::shared_ptr<GpuBuffer>, std::uint64_t>> m_GpuBfferPool;
+    std::unordered_map<Texture::Desc, std::pair<std::shared_ptr<Texture>, std::uint64_t>>     m_TexturePool;
+
     utils::EnumArray<std::pmr::list<std::shared_ptr<CommandContext>>, CommandType> m_ContextPool;
 };
 

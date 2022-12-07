@@ -193,16 +193,18 @@ bool RenderGraph::Compile() {
                 utils::Overloaded{
                     [&](const GpuBuffer::Desc& buffer_desc) {
                         if (!m_GpuBfferPool.contains(buffer_desc)) {
-                            m_GpuBfferPool.emplace(buffer_desc, device.CreateBuffer(buffer_desc));
+                            m_GpuBfferPool.emplace(buffer_desc, std::pair{device.CreateBuffer(buffer_desc), sm_CacheLifeSpan});
                         }
-                        inner_resource.resource                    = m_GpuBfferPool.at(buffer_desc);
+                        m_GpuBfferPool.at(buffer_desc).second      = sm_CacheLifeSpan;
+                        inner_resource.resource                    = m_GpuBfferPool.at(buffer_desc).first;
                         m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
                     },
                     [&](const Texture::Desc& texture_desc) {
                         if (!m_TexturePool.contains(texture_desc)) {
-                            m_TexturePool.emplace(texture_desc, device.CreateTexture(texture_desc));
+                            m_TexturePool.emplace(texture_desc, std::pair{device.CreateTexture(texture_desc), sm_CacheLifeSpan});
                         }
-                        inner_resource.resource                    = m_TexturePool.at(texture_desc);
+                        m_TexturePool.at(texture_desc).second      = sm_CacheLifeSpan;
+                        inner_resource.resource                    = m_TexturePool.at(texture_desc).first;
                         m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
                     },
                 },
@@ -295,6 +297,15 @@ void RenderGraph::Reset() {
             }
         }
     });
+
+    const auto discard_cache_fn = [](auto& item) {
+        auto& [res, life_conter] = item.second;
+        life_conter--;
+        return life_conter == 0;
+    };
+
+    std::erase_if(m_GpuBfferPool, discard_cache_fn);
+    std::erase_if(m_TexturePool, discard_cache_fn);
 
     m_ResourceNodes.clear();
     m_PassNodes.clear();
