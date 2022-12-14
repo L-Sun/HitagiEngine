@@ -11,6 +11,10 @@ using namespace hitagi::asset;
 using namespace std::literals;
 
 namespace hitagi {
+auto get_resource_label(Resource* res) {
+    return fmt::format("{}##{}", res->GetName(), res->GetGuid().str());
+}
+
 bool Editor::Initialize() {
     RuntimeModule::Initialize();
     m_Clock.Start();
@@ -26,14 +30,19 @@ void Editor::Tick() {
         ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
         MenuBar();
         FileImporter();
-        SystemInfo();
         SceneGraphViewer();
+        SceneNodeModifier();
     });
 
     RuntimeModule::Tick();
     Render();
 
     m_Clock.Tick();
+}
+
+void Editor::Finalize() {
+    m_SelectedNode.reset();
+    RuntimeModule::Finalize();
 }
 
 void Editor::Render() {
@@ -84,10 +93,27 @@ void Editor::MenuBar() {
             }
             ImGui::EndMenu();
         }
+        // System info
+        {
+            static std::uint64_t smooth_count = 0;
+            static float         frame_time   = 0;
+            if (smooth_count < m_Clock.TotalTime().count()) {
+                smooth_count++;
+                frame_time = graphics_manager->GetFrameTime().count();
+            }
+
+            auto info = fmt::format("Memory: {:>4} MiB | {:>4} FPS", app->GetMemoryUsage() >> 20, static_cast<unsigned>(1.0f / frame_time));
+
+            ImVec2 info_size = ImGui::CalcTextSize(info.c_str());
+
+            ImGuiStyle& style = ImGui::GetStyle();
+            info_size.x += 2 * style.FramePadding.x + style.ItemSpacing.x;
+
+            ImGui::SetCursorPos(ImVec2(ImGui::GetIO().DisplaySize.x - info_size.x, 0));
+            ImGui::Text("%s", info.c_str());
+        }
         ImGui::EndMainMenuBar();
     }
-
-    ImGui::End();
 }
 
 void Editor::FileImporter() {
@@ -104,38 +130,38 @@ void Editor::FileImporter() {
     }
 }
 
-void Editor::SystemInfo() {
-    static bool open = true;
-    if (ImGui::Begin("System Infomation", &open)) {
-        // Memory usage
-        {
-            float    frame_time = m_Clock.DeltaTime().count() * 1000.0;
-            unsigned fps        = 1000.0f / frame_time;
-            ImGui::Text("%s", fmt::format("Time costing: {:>3.2} ms / {:>3} FPS", frame_time, fps).c_str());
-            ImGui::Text("%s", fmt::format("Memory Usage: {} Mb", app->GetMemoryUsage() >> 20).c_str());
-        }
-    }
-    ImGui::End();
-}
-
 void Editor::SceneGraphViewer() {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
     if (ImGui::Begin("Scene Graph Viewer")) {
         auto scene = m_SceneViewPort->GetScene();
-        if (scene && scene->root && ImGui::CollapsingHeader("Scene Nodes")) {
+
+        constexpr ImGuiTableFlags table_flags =
+            ImGuiTableFlags_Resizable |
+            ImGuiTableFlags_RowBg;
+        constexpr ImGuiTreeNodeFlags base_node_flags =
+            ImGuiTreeNodeFlags_NoTreePushOnOpen |
+            ImGuiTreeNodeFlags_SpanFullWidth;
+
+        if (ImGui::BeginTable("Scene Graph", 1, table_flags)) {
+            ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
+            int num_row = 0;
+
             std::function<void(std::shared_ptr<SceneNode>)> print_node = [&](const std::shared_ptr<SceneNode>& node) -> void {
-                if (node == nullptr) return;
-                if (ImGui::TreeNode(node->GetName().c_str())) {
-                    auto& translation = node->transform.local_translation;
-                    auto  orientation = rad2deg(quaternion_to_euler(node->transform.local_rotation));
-                    auto& scaling     = node->transform.local_scaling;
+                num_row++;
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
 
-                    ImGui::DragFloat3("Translation", translation, 1.0f, 0.0f, 0.0f, "%.02f m");
+                auto node_flags = base_node_flags;
+                if (m_SelectedNode == node) {
+                    node_flags |= ImGuiTreeNodeFlags_Selected;
+                }
+                node_flags |= node->GetChildren().empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow;
 
-                    if (ImGui::DragFloat3("Rotation", orientation, 1.0f, 0.0f, 0.0f, "%.03f °"))
-                        node->transform.local_rotation = euler_to_quaternion(deg2rad(orientation));
+                bool node_open = ImGui::TreeNodeEx(node.get(), node_flags, "%s", node->GetName().c_str());
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen())
+                    m_SelectedNode = node;
 
-                    ImGui::DragFloat3("Scaling", scaling, 1.0f, 0.0f, 0.0f, "%.03f °");
-
+                if (node_open && !(node_flags & ImGuiTreeNodeFlags_Leaf)) {
                     // print children
                     for (auto&& child : node->GetChildren()) {
                         print_node(child);
@@ -143,42 +169,65 @@ void Editor::SceneGraphViewer() {
                     ImGui::TreePop();
                 }
             };
-            print_node(scene->root);
+
+            if (scene) print_node(scene->root);
+
+            // Add empty row
+            for (int i = 0; i < std::max(0, 10 - num_row); i++) {
+                ImGui::TableNextRow(0, ImGui::GetTextLineHeight());
+            }
+
+            ImGui::EndTable();
         }
-
-        if (ImGui::CollapsingHeader("Animation")) {
-            // auto& animation_manager = scene_manager->GetAnimationManager();
-            // for (auto&& animation : scene->animations) {
-            //     auto name = animation->GetName();
-            //     ImGui::SetNextItemWidth(100);
-            //     if (ImGui::InputText(GenName("Name", animation).c_str(), &name)) {
-            //         animation->SetName(name);
-            //     }
-
-            //     ImGui::SameLine();
-            //     if (ImGui::SmallButton(GenName("Play", animation).c_str())) {
-            //         animation_manager.AddToPlayQueue(animation);
-            //         animation->Play();
-            //     }
-            //     ImGui::SameLine();
-            //     if (ImGui::SmallButton(GenName("Pause", animation).c_str())) {
-            //         animation->Pause();
-            //     }
-            //     ImGui::SameLine();
-            //     bool anima_loop = animation->IsLoop();
-            //     if (ImGui::Checkbox(GenName("Loop", animation).c_str(), &anima_loop)) {
-            //         animation->SetLoop(anima_loop);
-            //     }
-            // }
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+            m_SelectedNode = nullptr;
         }
     }
 
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
+void Editor::SceneNodeModifier() {
+    if (ImGui::Begin("Scene Node Modifier")) {
+        if (m_SelectedNode == nullptr) {
+            ImGui::Text("No Scene Node Selected!");
+        } else if (ImGui::BeginTable("Space Properties", 2, ImGuiTableFlags_Resizable)) {
+            ImGui::TableSetupColumn("Property Name", ImGuiTableColumnFlags_NoHide);
+
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Translation");
+                ImGui::TableNextColumn();
+                ImGui::DragFloat3("##Translation", m_SelectedNode->transform.local_translation);
+            }
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Rotation");
+                ImGui::TableNextColumn();
+                ImGui::DragFloat3("##Rotation", m_SelectedNode->transform.local_rotation);
+            }
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Scaling");
+                ImGui::TableNextColumn();
+                ImGui::DragFloat3("##Scaling", m_SelectedNode->transform.local_scaling);
+            }
+
+            ImGui::EndTable();
+        }
+    }
     ImGui::End();
 }
 
 void Editor::AssetExploer() {
     static bool open = true;
     if (ImGui::Begin("Asset Exploer", &open)) {
+        for (auto mat : asset_manager->GetAllMaterials()) {
+        }
     }
     ImGui::End();
 }

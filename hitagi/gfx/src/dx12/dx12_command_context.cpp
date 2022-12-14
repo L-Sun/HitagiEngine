@@ -1,12 +1,11 @@
 #include "dx12_command_context.hpp"
-#include <d3d12.h>
 #include "dx12_device.hpp"
 #include "dx12_resource.hpp"
 #include "utils.hpp"
 
 namespace hitagi::gfx {
 template <typename T>
-auto initialize_command_context(DX12Device& device, CommandType type, std::string_view name, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<T>& cmd_list) {
+auto initialize_command_context(DX12Device& device, CommandType type, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<T>& cmd_list) {
     ThrowIfFailed(device.GetDevice()->CreateCommandAllocator(
         to_d3d_command_type(type),
         IID_PPV_ARGS(&cmd_allocator)));
@@ -17,11 +16,6 @@ auto initialize_command_context(DX12Device& device, CommandType type, std::strin
         cmd_allocator.Get(),
         nullptr,
         IID_PPV_ARGS(&cmd_list));
-
-    if (!name.empty()) {
-        ThrowIfFailed(cmd_list->SetName(std::pmr::wstring(name.begin(), name.end()).data()));
-        ThrowIfFailed(cmd_allocator->SetName(std::pmr::wstring(name.begin(), name.end()).c_str()));
-    }
 };
 
 DX12CommandContext::DX12CommandContext(DX12Device& device, CommandType type, std::string_view name, std::uint64_t& fence_value)
@@ -29,7 +23,13 @@ DX12CommandContext::DX12CommandContext(DX12Device& device, CommandType type, std
       m_Type(type),
       m_ResourceBinder(*this),
       m_FenceValue(fence_value) {
-    initialize_command_context(device, type, name, m_CmdAllocator, m_CmdList);
+    initialize_command_context(device, type, m_CmdAllocator, m_CmdList);
+    SetName(name);
+}
+
+void DX12CommandContext::SetName(std::string_view name) {
+    ThrowIfFailed(m_CmdList->SetName(std::pmr::wstring(name.begin(), name.end()).data()));
+    ThrowIfFailed(m_CmdAllocator->SetName(std::pmr::wstring(name.begin(), name.end()).c_str()));
 }
 
 void DX12CommandContext::FlushBarriers() {
@@ -37,6 +37,11 @@ void DX12CommandContext::FlushBarriers() {
         m_CmdList->ResourceBarrier(m_Barriers.size(), m_Barriers.data());
         m_Barriers.clear();
     }
+}
+
+void DX12CommandContext::End() {
+    FlushBarriers();
+    ThrowIfFailed(m_CmdList->Close());
 }
 
 DX12GraphicsCommandContext::DX12GraphicsCommandContext(DX12Device& device, std::string_view name)
@@ -56,20 +61,17 @@ DX12CopyCommandContext::DX12CopyCommandContext(DX12Device& device, std::string_v
 
 void DX12GraphicsCommandContext::SetName(std::string_view name) {
     m_Name = name;
-    ThrowIfFailed(m_CmdList->SetName(std::pmr::wstring(name.begin(), name.end()).c_str()));
-    ThrowIfFailed(m_CmdAllocator->SetName(std::pmr::wstring(name.begin(), name.end()).c_str()));
+    DX12CommandContext::SetName(name);
 }
 
 void DX12ComputeCommandContext::SetName(std::string_view name) {
     m_Name = name;
-    ThrowIfFailed(m_CmdList->SetName(std::pmr::wstring(name.begin(), name.end()).c_str()));
-    ThrowIfFailed(m_CmdAllocator->SetName(std::pmr::wstring(name.begin(), name.end()).c_str()));
+    DX12CommandContext::SetName(name);
 }
 
 void DX12CopyCommandContext::SetName(std::string_view name) {
     m_Name = name;
-    ThrowIfFailed(m_CmdList->SetName(std::pmr::wstring(name.begin(), name.end()).c_str()));
-    ThrowIfFailed(m_CmdAllocator->SetName(std::pmr::wstring(name.begin(), name.end()).c_str()));
+    DX12CommandContext::SetName(name);
 }
 
 void DX12GraphicsCommandContext::ResetState(GpuBuffer& buffer) {
@@ -115,18 +117,15 @@ void DX12CopyCommandContext::Reset() {
 }
 
 void DX12GraphicsCommandContext::End() {
-    FlushBarriers();
-    ThrowIfFailed(m_CmdList->Close());
+    DX12CommandContext::End();
 }
 
 void DX12ComputeCommandContext::End() {
-    FlushBarriers();
-    ThrowIfFailed(m_CmdList->Close());
+    DX12CommandContext::End();
 }
 
 void DX12CopyCommandContext::End() {
-    FlushBarriers();
-    ThrowIfFailed(m_CmdList->Close());
+    DX12CommandContext::End();
 }
 
 void DX12GraphicsCommandContext::SetViewPort(const ViewPort& view_port) {

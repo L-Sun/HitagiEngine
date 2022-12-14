@@ -5,6 +5,7 @@ AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AlignTrailingComments: true
 DerivePointerAlignment: false
+AlignOperands: true
 PointerAlignment: Left
 AccessModifierOffset: -4
 ColumnLimit: 0

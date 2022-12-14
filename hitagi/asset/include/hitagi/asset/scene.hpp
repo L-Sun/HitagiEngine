@@ -7,13 +7,14 @@
 #include <hitagi/asset/armature.hpp>
 #include <hitagi/asset/scene_node.hpp>
 #include <hitagi/gfx/render_graph.hpp>
+#include <hitagi/ecs/world.hpp>
 
 #include <unordered_map>
 
 namespace hitagi::asset {
 class Scene : public Resource {
 public:
-    using Resource::Resource;
+    Scene(std::string_view name = "", xg::Guid guid = {});
 
     struct RenderPass {
         // output
@@ -25,6 +26,7 @@ public:
         std::pmr::unordered_map<Material*, gfx::ResourceHandle> material_constants;
     };
     auto Render(gfx::RenderGraph& render_graph, gfx::ViewPort viewport, const std::shared_ptr<CameraNode>& camera = nullptr) -> RenderPass;
+    void Update();
 
     template <typename T>
     using SharedPtrVector = std::pmr::vector<std::shared_ptr<T>>;
@@ -35,6 +37,8 @@ public:
     SharedPtrVector<ArmatureNode> armature_nodes;
 
     std::shared_ptr<CameraNode> curr_camera;
+
+    ecs::World world;
 };
 
 }  // namespace hitagi::asset

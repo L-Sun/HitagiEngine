@@ -43,6 +43,7 @@ bool Engine::Initialize() {
 void Engine::Tick() {
     ZoneScopedN("Engine");
     RuntimeModule::Tick();
+    FrameMark;
 }
 
 void Engine::Finalize() {

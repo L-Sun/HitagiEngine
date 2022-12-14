@@ -25,14 +25,20 @@ bool GuiManager::Initialize() {
     m_Clock.Start();
 
     ImGui::CreateContext();
-    if (app) {
-        ImGui::GetStyle().ScaleAllSizes(app->GetDpiRatio());
-        ImGui::GetIO().SetPlatformImeDataFn = [](ImGuiViewport* viewport, ImGuiPlatformImeData* data) -> void {
-            if (data->WantVisible && app)
-                app->SetInputScreenPosition(data->InputPos.x, data->InputPos.y);
-        };
-    }
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_DpiEnableScaleFonts;
+    ImGui::GetStyle().ScaleAllSizes(app->GetDpiRatio());
+
+    auto& io = ImGui::GetIO();
+
+    io.SetPlatformImeDataFn = [](ImGuiViewport* viewport, ImGuiPlatformImeData* data) -> void {
+        if (data->WantVisible)
+            app->SetInputScreenPosition({static_cast<unsigned>(data->InputPos.x), static_cast<unsigned>(data->InputPos.y)});
+    };
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_DpiEnableScaleFonts;
+    io.ConfigWindowsResizeFromEdges = true;
+    io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_HasSetMousePos;
+
+    ImGuiViewport* main_viewport  = ImGui::GetMainViewport();
+    main_viewport->PlatformHandle = main_viewport->PlatformHandleRaw = app->GetWindow();
 
     LoadFont();
 
@@ -228,6 +234,45 @@ void GuiManager::InitFontTexture(gfx::Device& gfx_device) {
 
 void GuiManager::MouseEvent() {
     auto& io = ImGui::GetIO();
+
+    if (!(io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange)) {
+        if (io.MouseDrawCursor) {
+            app->SetCursor(Cursor::None);
+        } else {
+            ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
+            switch (imgui_cursor) {
+                case ImGuiMouseCursor_None:
+
+                case ImGuiMouseCursor_Arrow:
+                    app->SetCursor(Cursor::Arrow);
+                    break;
+                case ImGuiMouseCursor_TextInput:
+                    app->SetCursor(Cursor::TextInput);
+                    break;
+                case ImGuiMouseCursor_ResizeAll:
+                    app->SetCursor(Cursor::ResizeAll);
+                    break;
+                case ImGuiMouseCursor_ResizeEW:
+                    app->SetCursor(Cursor::ResizeEW);
+                    break;
+                case ImGuiMouseCursor_ResizeNS:
+                    app->SetCursor(Cursor::ResizeNS);
+                    break;
+                case ImGuiMouseCursor_ResizeNESW:
+                    app->SetCursor(Cursor::ResizeNESW);
+                    break;
+                case ImGuiMouseCursor_ResizeNWSE:
+                    app->SetCursor(Cursor::ResizeNWSE);
+                    break;
+                case ImGuiMouseCursor_Hand:
+                    app->SetCursor(Cursor::Hand);
+                    break;
+                case ImGuiMouseCursor_NotAllowed:
+                    app->SetCursor(Cursor::Forbid);
+                    break;
+            }
+        }
+    }
 
     io.AddMousePosEvent(input_manager->GetFloat(MouseEvent::MOVE_X), input_manager->GetFloat(MouseEvent::MOVE_Y));
     io.AddMouseWheelEvent(input_manager->GetFloatDelta(MouseEvent::SCROLL_X), input_manager->GetFloatDelta(MouseEvent::SCROLL_Y));

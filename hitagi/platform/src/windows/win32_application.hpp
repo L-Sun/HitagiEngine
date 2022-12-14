@@ -15,8 +15,10 @@ public:
     inline std::string_view GetName() const noexcept override { return "Win32Application"; }
 
     void InitializeWindows() final;
-    void SetInputScreenPosition(unsigned x, unsigned y) final;
+    void SetInputScreenPosition(const math::vec2u& position) final;
     void SetWindowTitle(std::string_view name) final;
+    void SetCursor(Cursor cursor) final;
+    void SetMousePosition(const math::vec2u& position) final;
 
     inline void* GetWindow() final { return &m_Window; };
     float        GetDpiRatio() const final;

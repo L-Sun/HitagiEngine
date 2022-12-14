@@ -9,6 +9,18 @@ if is_mode("debug") then
 end
 set_runtimes(is_mode("debug") and "MTd" or "MT")
 
+option("profile")
+    set_default(false)
+    set_description("Enable tracy profiling.")
+option_end()
+
+if has_config("profile") then 
+    add_defines("TRACY_ENABLE")
+    if is_plat("windows") then
+        add_defines("TRACY_IMPORTS")
+    end
+end
+
 add_requireconfs("*", {configs = {shared = true}})
 add_requires("taskflow", "cxxopts", "nlohmann_json", "tracy")
 

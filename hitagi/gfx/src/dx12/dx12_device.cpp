@@ -4,14 +4,14 @@
 #include "dx12_resource.hpp"
 #include "utils.hpp"
 #include "d3dx12.h"
-#include <hitagi/utils/exceptions.hpp>
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <magic_enum.hpp>
-#include <dxcapi.h>
-#include <dxgiformat.h>
 #include <fmt/color.h>
+#include <tracy/Tracy.hpp>
+#include <dxcapi.h>
 
+#include <dxgiformat.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <d3d12sdklayers.h>
@@ -64,9 +64,28 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
 
     m_Logger->debug("Create D3D12 Memory Allocator");
     {
+        m_CustomAllocationCallback.pAllocate =
+            [](std::size_t size, std::size_t alignment, void* p_this) {
+                auto allocator = std::pmr::get_default_resource();
+                auto ptr       = allocator->allocate(size, alignment);
+                reinterpret_cast<DX12Device*>(p_this)->m_CustomAllocationInfos.emplace(ptr, std::make_pair(size, alignment));
+                return ptr;
+            };
+        m_CustomAllocationCallback.pFree =
+            [](void* ptr, void* p_this) {
+                if (ptr == nullptr) return;
+                auto [size, alignment] = reinterpret_cast<DX12Device*>(p_this)->m_CustomAllocationInfos.at(ptr);
+                reinterpret_cast<DX12Device*>(p_this)->m_CustomAllocationInfos.erase(ptr);
+                auto allocator = std::pmr::get_default_resource();
+                allocator->deallocate(ptr, size, alignment);
+            };
+        m_CustomAllocationCallback.pPrivateData = this;
+
         D3D12MA::ALLOCATOR_DESC desc{
-            .pDevice  = m_Device.Get(),
-            .pAdapter = m_Adapter.Get(),
+            .Flags                = D3D12MA::ALLOCATOR_FLAG_SINGLETHREADED,
+            .pDevice              = m_Device.Get(),
+            .pAllocationCallbacks = &m_CustomAllocationCallback,
+            .pAdapter             = m_Adapter.Get(),
         };
         D3D12MA::CreateAllocator(&desc, &m_MemoryAllocator);
     }
@@ -301,6 +320,7 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
 }
 
 auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GpuBuffer> {
+    ZoneScoped;
     if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::MapRead) &&
         utils::has_flag(desc.usages, GpuBuffer::UsageFlags::MapWrite)) {
         m_Logger->error("The GpuBuffer::UsageFlags can not be {} and {} at same time! Name: {}, the actual flags is {}",
@@ -466,6 +486,8 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
 }
 
 auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
+    ZoneScoped;
+
     if (desc.width == 0 || desc.height == 0 || desc.depth == 0 || desc.array_size == 0) {
         m_Logger->error("Can not create zero size texture, Name: {}, the actual size is ({} x {} x {})[{}]",
                         fmt::styled(desc.name, fmt::fg(fmt::color::red)),
@@ -660,25 +682,25 @@ void DX12Device::CompileShader(Shader& shader) {
     std::pmr::vector<std::pmr::wstring> args;
 
     // shader name
-    args.emplace_back(std::pmr::wstring(shader.name.begin(), shader.name.end()));
+    args.push_back(std::pmr::wstring(shader.name.begin(), shader.name.end()));
 
     // shader entry
-    args.emplace_back(L"-E");
-    args.emplace_back(shader.entry.begin(), shader.entry.end());
+    args.push_back(L"-E");
+    args.emplace_back(std::pmr::wstring(shader.entry.begin(), shader.entry.end()));
 
     // shader model
-    args.emplace_back(L"-T");
-    args.emplace_back(to_shader_model_compile_flag(shader.type, m_FeatureSupport.HighestShaderModel()));
+    args.push_back(L"-T");
+    args.push_back(to_shader_model_compile_flag(shader.type, m_FeatureSupport.HighestShaderModel()));
 
     // We use row major order
-    args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
+    args.push_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
 
     // make sure all resource bound
-    args.emplace_back(DXC_ARG_ALL_RESOURCES_BOUND);
+    args.push_back(DXC_ARG_ALL_RESOURCES_BOUND);
 #ifdef _DEBUG
-    args.emplace_back(DXC_ARG_OPTIMIZATION_LEVEL0);
-    args.emplace_back(DXC_ARG_DEBUG);
-    args.emplace_back(L"-Qembed_debug");
+    args.push_back(DXC_ARG_OPTIMIZATION_LEVEL0);
+    args.push_back(DXC_ARG_DEBUG);
+    args.push_back(L"-Qembed_debug");
 #endif
     std::pmr::vector<const wchar_t*> p_args;
     std::transform(args.begin(), args.end(), std::back_insert_iterator(p_args), [](const auto& arg) { return arg.data(); });
@@ -742,7 +764,7 @@ auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_
     }
 
     if (desc.input_layout.empty()) {
-        m_Logger->warn("Missing input layout when create pipline({})", fmt::styled(desc.name, fmt::fg(fmt::color::red)));
+        m_Logger->warn("Missing input layout when create pipline({}). It will try to create an input layout from the vertex shader.", fmt::styled(desc.name, fmt::fg(fmt::color::red)));
         desc.input_layout = CreateInputLayout(desc.vs);
     }
 
@@ -822,6 +844,20 @@ auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_
     }
 
     return result;
+}
+
+void DX12Device::Profile(std::size_t frame_index) const {
+    static bool configured = false;
+    if (!configured) {
+        TracyPlotConfig("GPU Allocations", tracy::PlotFormatType::Number, true, true, 0);
+        TracyPlotConfig("GPU Memory", tracy::PlotFormatType::Memory, false, true, 0);
+        configured = true;
+    }
+    m_MemoryAllocator->SetCurrentFrameIndex(frame_index);
+    D3D12MA::Budget local_budget;
+    m_MemoryAllocator->GetBudget(&local_budget, nullptr);
+    TracyPlot("GPU Allocations", static_cast<std::int64_t>(local_budget.Stats.AllocationCount));
+    TracyPlot("GPU Memory", static_cast<std::int64_t>(local_budget.Stats.AllocationBytes));
 }
 
 auto DX12Device::AllocateDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEAP_TYPE type) -> Descriptor {

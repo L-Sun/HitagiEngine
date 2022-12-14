@@ -40,6 +40,8 @@ public:
     void CompileShader(Shader& shader) final;
     auto CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> final;
 
+    void Profile(std::size_t frame_index) const final;
+
     static void ReportDebugLog();
 
     inline auto GetLogger() const noexcept { return m_Logger; };
@@ -53,11 +55,15 @@ private:
     void UnregisterIntegratedD3D12Logger();
     auto CreateInputLayout(Shader& vs) -> InputLayout;
 
-    ComPtr<IDXGIFactory6>      m_Factory;
-    ComPtr<IDXGIAdapter4>      m_Adapter;
-    ComPtr<ID3D12Device9>      m_Device;
-    ComPtr<D3D12MA::Allocator> m_MemoryAllocator;
-    CD3DX12FeatureSupport      m_FeatureSupport;
+    ComPtr<IDXGIFactory6> m_Factory;
+    ComPtr<IDXGIAdapter4> m_Adapter;
+    ComPtr<ID3D12Device9> m_Device;
+
+    D3D12MA::ALLOCATION_CALLBACKS                                       m_CustomAllocationCallback;
+    std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>> m_CustomAllocationInfos;
+    ComPtr<D3D12MA::Allocator>                                          m_MemoryAllocator;
+
+    CD3DX12FeatureSupport m_FeatureSupport;
 
     DWORD m_DebugCookie;
 

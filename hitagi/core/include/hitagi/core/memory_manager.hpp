@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <optional>
 
+constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
+
 namespace hitagi::core {
 class MemoryPool;
 

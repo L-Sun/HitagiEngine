@@ -4,6 +4,7 @@
 #include <hitagi/gfx/gpu_resource.hpp>
 
 #include <D3D12MemAlloc.h>
+#include <tracy/Tracy.hpp>
 
 #include <dxgi1_6.h>
 #include <d3d12.h>
@@ -50,10 +51,10 @@ struct DX12RenderPipeline : public RenderPipeline {
     ComPtr<ID3D12PipelineState>                      pso            = nullptr;
 };
 
-struct DX12SwapChain : public SwapChain {
+struct DX12SwapChain final : public SwapChain {
     using SwapChain::SwapChain;
 
-    ~DX12SwapChain();
+    ~DX12SwapChain() final;
 
     inline auto GetCurrentBackIndex() -> std::uint8_t final {
         return swap_chain->GetCurrentBackBufferIndex();

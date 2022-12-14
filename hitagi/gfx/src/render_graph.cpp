@@ -4,6 +4,7 @@
 #include <hitagi/utils/utils.hpp>
 
 #include <taskflow/taskflow.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <algorithm>
 
@@ -145,6 +146,8 @@ auto RenderGraph::GetLifeTrackResource(const Resource* res) -> std::shared_ptr<R
 }
 
 bool RenderGraph::Compile() {
+    ZoneScopedN("RenderGraph::Compile");
+
     if (m_PresentPassNode == nullptr) return false;
 
     std::pmr::unordered_map<const PassNode*, tf::Task> task_map;
@@ -159,6 +162,8 @@ bool RenderGraph::Compile() {
         node->context->SetName(node->name);
 
         auto task = m_Taskflow.emplace([=, this]() {
+            ZoneScopedNS("NodePass", 10);
+            ZoneName(node->name.c_str(), node->name.size());
             node->Execute();
             node->context->End();
             std::lock_guard lock{m_ExecuteQueueMutex};
@@ -176,29 +181,48 @@ bool RenderGraph::Compile() {
         return task;
     };
 
-    create_task(m_PresentPassNode.get());
-
-    for (auto&& inner_resource : m_InnerResources) {
-        std::visit(
-            utils::Overloaded{
-                [&](const GpuBuffer::Desc& buffer_desc) {
-                    inner_resource.resource                    = device.CreateBuffer(buffer_desc);
-                    m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
-                },
-                [&](const Texture::Desc& txture_desc) {
-                    inner_resource.resource                    = device.CreateTexture(txture_desc);
-                    m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
-                },
-            },
-            inner_resource.desc);
+    {
+        ZoneScopedN("Create Taksflow");
+        create_task(m_PresentPassNode.get());
     }
 
-    m_Executor.run(m_Taskflow).wait();
+    {
+        ZoneScopedN("Create Inner Resource");
+        for (auto&& inner_resource : m_InnerResources) {
+            std::visit(
+                utils::Overloaded{
+                    [&](const GpuBuffer::Desc& buffer_desc) {
+                        if (!m_GpuBfferPool.contains(buffer_desc)) {
+                            m_GpuBfferPool.emplace(buffer_desc, std::pair{device.CreateBuffer(buffer_desc), sm_CacheLifeSpan});
+                        }
+                        m_GpuBfferPool.at(buffer_desc).second      = sm_CacheLifeSpan;
+                        inner_resource.resource                    = m_GpuBfferPool.at(buffer_desc).first;
+                        m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
+                    },
+                    [&](const Texture::Desc& texture_desc) {
+                        if (!m_TexturePool.contains(texture_desc)) {
+                            m_TexturePool.emplace(texture_desc, std::pair{device.CreateTexture(texture_desc), sm_CacheLifeSpan});
+                        }
+                        m_TexturePool.at(texture_desc).second      = sm_CacheLifeSpan;
+                        inner_resource.resource                    = m_TexturePool.at(texture_desc).first;
+                        m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
+                    },
+                },
+                inner_resource.desc);
+        }
+    }
+
+    {
+        ZoneScopedN("Run PassNode");
+        m_Executor.run(m_Taskflow).wait();
+    }
 
     return true;
 }
 
 auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
+    ZoneScopedN("RenderGraph::Execute");
+
     std::pmr::vector<CommandContext*> contexts;
     auto                              fence_values = utils::create_enum_array<std::uint64_t, CommandType>(0);
 
@@ -247,13 +271,21 @@ auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
         left = right;
         contexts.clear();
     }
-
-    Clear();
+    magic_enum::enum_for_each<CommandType>([this](CommandType type) {
+        std::pmr::string retired_res_message{magic_enum::enum_name(type).data()};
+        for (const auto& [retired_res, fence_value] : m_RetiredResources[type]) {
+            retired_res_message += fmt::format("{}, ", fence_value);
+        }
+        TracyPlot(magic_enum::enum_name(type).data(), static_cast<std::int64_t>(m_RetiredResources[type].size()));
+        TracyMessage(retired_res_message.c_str(), retired_res_message.size());
+    });
 
     return fence_values;
 }
 
-void RenderGraph::Clear() {
+void RenderGraph::Reset() {
+    ZoneScoped;
+
     magic_enum::enum_for_each<CommandType>([this](CommandType type) {
         auto queue = device.GetCommandQueue(type);
         while (!m_RetiredResources[type].empty()) {
@@ -265,6 +297,15 @@ void RenderGraph::Clear() {
             }
         }
     });
+
+    const auto discard_cache_fn = [](auto& item) {
+        auto& [res, life_conter] = item.second;
+        life_conter--;
+        return life_conter == 0;
+    };
+
+    std::erase_if(m_GpuBfferPool, discard_cache_fn);
+    std::erase_if(m_TexturePool, discard_cache_fn);
 
     m_ResourceNodes.clear();
     m_PassNodes.clear();

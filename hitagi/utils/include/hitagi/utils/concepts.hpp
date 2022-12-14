@@ -17,14 +17,14 @@ concept remove_const_pointer_same =
 // clang-format on
 
 template <typename...>
-constexpr auto is_unique_v = std::true_type{};
+constexpr auto is_unique_v = true;
 
 template <typename T, typename... Rest>
 constexpr auto is_unique_v<T, Rest...> =
     !std::disjunction_v<std::is_same<T, Rest>...> && is_unique_v<Rest...>;
 
 template <typename T>
-concept NoCVRef = !std::is_reference_v<T> && !std::is_const_v<T> && !std::is_volatile_v<T>;
+concept NoCVRef = (!std::is_reference_v<T>) && !(std::is_const_v<T>) && (!std::is_volatile_v<T>);
 
 template <typename... Types>
 concept UniqueTypes = is_unique_v<Types...>;
@@ -66,6 +66,6 @@ template <typename Func>
 concept unique_parameter_types = function_traits<Func>::unique_parameter_types;
 
 template <typename Ty1, typename Ty2>
-concept not_same_as = !std::is_same_v<Ty1, Ty2>;
+concept not_same_as = (!std::is_same_v<Ty1, Ty2>);
 
 }  // namespace hitagi::utils

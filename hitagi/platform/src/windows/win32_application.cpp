@@ -5,6 +5,8 @@
 
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <tracy/Tracy.hpp>
+
 #include <windowsx.h>
 #include <psapi.h>
 
@@ -27,9 +29,8 @@ void Win32Application::Tick() {
 
         // send the message to the WindowProc function
         DispatchMessage(&msg);
-    } else {
-        Application::Tick();
     }
+    Application::Tick();
 }
 
 void Win32Application::InitializeWindows() {
@@ -51,6 +52,14 @@ void Win32Application::InitializeWindows() {
     timeBeginPeriod(1);
 
     SetProcessDPIAware();
+
+    RECT window_rect{
+        .left   = CW_USEDEFAULT,
+        .top    = CW_USEDEFAULT,
+        .right  = CW_USEDEFAULT + static_cast<LONG>(width),
+        .bottom = CW_USEDEFAULT + static_cast<LONG>(height),
+    };
+    AdjustWindowRect(&window_rect, WS_OVERLAPPEDWINDOW, false);
 
     // get the HINSTANCE of the Console Program
     HINSTANCE h_instance = GetModuleHandle(nullptr);
@@ -78,8 +87,8 @@ void Win32Application::InitializeWindows() {
         title.c_str(),
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        width,
-        height,
+        window_rect.right - window_rect.left,
+        window_rect.bottom - window_rect.top,
         nullptr,
         nullptr,
         h_instance,
@@ -90,28 +99,22 @@ void Win32Application::InitializeWindows() {
         return;
     }
     ShowWindow(m_Window, SW_SHOW);
-    RECT client_rect{
-        .left   = CW_USEDEFAULT,
-        .top    = CW_USEDEFAULT,
-        .right  = CW_USEDEFAULT + static_cast<LONG>(width),
-        .bottom = CW_USEDEFAULT + static_cast<LONG>(height),
-    };
-    AdjustWindowRect(&client_rect, WS_OVERLAPPEDWINDOW, false);
+
     UpdateRect();
     MapCursor();
 }
 
-void Win32Application::SetInputScreenPosition(unsigned x, unsigned y) {
+void Win32Application::SetInputScreenPosition(const math::vec2u& position) {
     if (HIMC himc = ::ImmGetContext(m_Window)) {
         COMPOSITIONFORM composition_form = {};
-        composition_form.ptCurrentPos.x  = x;
-        composition_form.ptCurrentPos.y  = y;
+        composition_form.ptCurrentPos.x  = position.x;
+        composition_form.ptCurrentPos.y  = position.y;
         composition_form.dwStyle         = CFS_FORCE_POSITION;
         ::ImmSetCompositionWindow(himc, &composition_form);
         CANDIDATEFORM candidate_form  = {};
         candidate_form.dwStyle        = CFS_CANDIDATEPOS;
-        candidate_form.ptCurrentPos.x = x;
-        candidate_form.ptCurrentPos.y = y;
+        candidate_form.ptCurrentPos.x = position.x;
+        candidate_form.ptCurrentPos.y = position.y;
         ::ImmSetCandidateWindow(himc, &candidate_form);
         ::ImmReleaseContext(m_Window, himc);
     }
@@ -120,6 +123,50 @@ void Win32Application::SetInputScreenPosition(unsigned x, unsigned y) {
 void Win32Application::SetWindowTitle(std::string_view title) {
     std::pmr::wstring text{title.begin(), title.end()};
     SetWindowTextW(m_Window, text.data());
+}
+
+void Win32Application::SetCursor(Cursor cursor) {
+    LPTSTR win32_cursor = IDC_ARROW;
+    switch (cursor) {
+        case Cursor::None:
+            win32_cursor = nullptr;
+        case Cursor::Arrow:
+            win32_cursor = IDC_ARROW;
+            break;
+        case Cursor::TextInput:
+            win32_cursor = IDC_IBEAM;
+            break;
+        case Cursor::ResizeAll:
+            win32_cursor = IDC_SIZEALL;
+            break;
+        case Cursor::ResizeEW:
+            win32_cursor = IDC_SIZEWE;
+            break;
+        case Cursor::ResizeNS:
+            win32_cursor = IDC_SIZENS;
+            break;
+        case Cursor::ResizeNESW:
+            win32_cursor = IDC_SIZENESW;
+            break;
+        case Cursor::ResizeNWSE:
+            win32_cursor = IDC_SIZENWSE;
+            break;
+        case Cursor::Hand:
+            win32_cursor = IDC_HAND;
+            break;
+        case Cursor::Forbid:
+            win32_cursor = IDC_NO;
+            break;
+    }
+    if (win32_cursor == nullptr) {
+        ::SetCursor(nullptr);
+    } else {
+        ::SetCursor(::LoadCursor(nullptr, win32_cursor));
+    }
+}
+
+void Win32Application::SetMousePosition(const math::vec2u& position) {
+    ::SetCursorPos(position.x, position.y);
 }
 
 float Win32Application::GetDpiRatio() const {
@@ -174,6 +221,8 @@ void Win32Application::MapCursor() {
 }
 
 LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w_param, LPARAM l_param) {
+    ZoneScoped;
+
     Win32Application* p_this = nullptr;
     if (message == WM_NCCREATE) {
         p_this = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(l_param)->lpCreateParams);
@@ -250,7 +299,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             input_manager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
             return 0;
         case WM_CHAR: {
-            size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
+            std::size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
             input_manager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
         }
             return 0;
@@ -263,9 +312,6 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
                 p_this->UpdateRect();
                 p_this->MapCursor();
             }
-            return 0;
-        case WM_PAINT:
-            p_this->Application::Tick();
             return 0;
     }
     return DefWindowProc(h_wnd, message, w_param, l_param);

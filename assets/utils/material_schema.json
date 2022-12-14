@@ -6,52 +6,65 @@
     "title": "Root Schema",
     "required": [
         "name",
-        "vertex_shader",
-        "pixel_shader",
-        "primitive"
+        "pipeline"
     ],
     "properties": {
         "name": {
             "type": "string",
             "default": "",
-            "title": "The name Schema",
+            "title": "The name of material",
             "examples": [
                 "Phong"
             ]
         },
-        "vertex_shader": {
-            "type": "string",
-            "default": "",
-            "title": "vertex shader path",
-            "examples": [
-                "assets/shaders/phong.hlsl"
-            ]
-        },
-        "pixel_shader": {
-            "type": "string",
-            "default": "",
-            "title": "pixel shader path",
-            "examples": [
-                "assets/shaders/phong.hlsl"
-            ]
-        },
-        "primitive": {
-            "type": "string",
-            "default": "",
-            "title": "Primitive type",
-            "examples": [
-                "TriangleList"
+        "pipeline": {
+            "type": "object",
+            "default": {},
+            "title": "The pipeline infomation",
+            "required": [
+                "vs",
+                "ps"
             ],
-            "enum": [
-                "PointList",
-                "LineList",
-                "LineStrip",
-                "TriangleList",
-                "TriangleStrip",
-                "LineListAdjacency",
-                "LineStripAdjacency",
-                "TriangleListAdjacency",
-                "TriangleStripAdjacency"
+            "properties": {
+                "vs": {
+                    "type": "string",
+                    "default": "",
+                    "title": "vertex shader path",
+                    "examples": [
+                        "assets/shaders/phong.hlsl"
+                    ]
+                },
+                "ps": {
+                    "type": "string",
+                    "default": "",
+                    "title": "pixel shader path",
+                    "examples": [
+                        "assets/shaders/phong.hlsl"
+                    ]
+                },
+                "primitive": {
+                    "type": "string",
+                    "default": "TriangleList",
+                    "title": "Primitive type",
+                    "enum": [
+                        "PointList",
+                        "LineList",
+                        "LineStrip",
+                        "TriangleList",
+                        "TriangleStrip",
+                        "LineListAdjacency",
+                        "LineStripAdjacency",
+                        "TriangleListAdjacency",
+                        "TriangleStripAdjacency"
+                    ]
+                }
+            },
+            "examples": [
+                {
+                    "vs": "assets/shaders/phong.hlsl",
+                    "ps": "assets/shaders/phong.hlsl",
+                    "primitive": "TriangleList"
+                }
             ]
         },
         "parameters": {
@@ -63,13 +76,12 @@
                 "title": "Material parameter",
                 "required": [
                     "name",
-                    "type",
-                    "default"
+                    "type"
                 ],
                 "properties": {
                     "name": {
                         "type": "string",
-                        "title": "The name Schema",
+                        "title": "The name of paramter",
                         "examples": [
                             "diffuse",
                             "ambient",
@@ -80,10 +92,26 @@
                     },
                     "type": {
                         "type": "string",
-                        "title": "The type Schema",
+                        "title": "The type of paramter",
                         "examples": [
                             "vec4f",
                             "float",
+                            "texture"
+                        ],
+                        "enum": [
+                            "float",
+                            "int32",
+                            "uint32",
+                            "vec2i",
+                            "vec2u",
+                            "vec2f",
+                            "vec3i",
+                            "vec3u",
+                            "vec3f",
+                            "vec4i",
+                            "vec4u",
+                            "vec4f",
+                            "mat4f",
                             "texture"
                         ]
                     },
@@ -93,7 +121,7 @@
                             "number",
                             "string"
                         ],
-                        "title": "The default Schema",
+                        "title": "The default value of paramter",
                         "items": {
                             "type": "number",
                             "title": "A Schema",
@@ -220,9 +248,11 @@
     "examples": [
         {
             "name": "Phong",
-            "vertex_shader": "assets/shaders/phong.hlsl",
-            "pixel_shader": "assets/shaders/phong.hlsl",
-            "primitive": "TriangleList",
+            "pipeline": {
+                "vs": "assets/shaders/phong.hlsl",
+                "ps": "assets/shaders/phong.hlsl",
+                "primitive": "TriangleList"
+            },
             "parameters": [
                 {
                     "name": "diffuse",

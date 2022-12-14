@@ -1,4 +1,5 @@
 #include <hitagi/core/buffer.hpp>
+#include <hitagi/core/memory_manager.hpp>
 #include <hitagi/math/transform.hpp>
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/application.hpp>
@@ -203,7 +204,6 @@ TEST_F(D3DDeviceTest, CompileShader) {
     // Test Vertex Shader
     {
         Shader vs_shader{
-
             .name        = "vertex_test_shader",
             .type        = Shader::Type::Vertex,
             .entry       = "VSMain",

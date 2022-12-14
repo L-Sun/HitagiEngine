@@ -1,10 +1,24 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/core/timer.hpp>
+#include <hitagi/math/vector.hpp>
 
 #include <vector>
 
 namespace hitagi {
+enum struct Cursor : std::uint8_t {
+    None,
+    Arrow,
+    TextInput,
+    ResizeAll,
+    ResizeEW,
+    ResizeNS,
+    ResizeNESW,
+    ResizeNWSE,
+    Hand,
+    Forbid,
+};
+
 class Application : public RuntimeModule {
 public:
     struct Rect {
@@ -18,9 +32,11 @@ public:
 
     static std::unique_ptr<Application> CreateApp();
 
-    virtual void InitializeWindows()                            = 0;
-    virtual void SetInputScreenPosition(unsigned x, unsigned y) = 0;
-    virtual void SetWindowTitle(std::string_view name)          = 0;
+    virtual void InitializeWindows()                                 = 0;
+    virtual void SetInputScreenPosition(const math::vec2u& position) = 0;
+    virtual void SetWindowTitle(std::string_view name)               = 0;
+    virtual void SetCursor(Cursor cursor)                            = 0;
+    virtual void SetMousePosition(const math::vec2u& position)       = 0;
 
     virtual void*       GetWindow()               = 0;
     virtual float       GetDpiRatio() const       = 0;

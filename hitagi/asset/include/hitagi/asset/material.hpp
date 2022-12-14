@@ -21,8 +21,8 @@ using MaterialParameterValue = std::variant<
     math::vec3f,
     math::vec4i,
     math::vec4u,
-    math::mat4f,
     math::vec4f,
+    math::mat4f,
     std::shared_ptr<Texture>>;
 
 template <typename T>
