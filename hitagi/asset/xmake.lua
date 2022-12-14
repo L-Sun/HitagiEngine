@@ -5,7 +5,6 @@ target("asset")
     add_files("src/*.cpp")
     remove_files(
         "src/asset_manager.cpp",
-        "src/animation.cpp",
         "src/animation_manager.cpp"
     )
     add_includedirs("include", {public = true})

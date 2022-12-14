@@ -4,7 +4,6 @@
 #include "dx12_resource.hpp"
 #include "utils.hpp"
 #include "d3dx12.h"
-#include <hitagi/core/memory_manager.hpp>
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <magic_enum.hpp>
@@ -67,7 +66,8 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
     {
         m_CustomAllocationCallback.pAllocate =
             [](std::size_t size, std::size_t alignment, void* p_this) {
-                auto ptr = memory_manager->GetAllocator().allocate_bytes(size, alignment);
+                auto allocator = std::pmr::get_default_resource();
+                auto ptr       = allocator->allocate(size, alignment);
                 reinterpret_cast<DX12Device*>(p_this)->m_CustomAllocationInfos.emplace(ptr, std::make_pair(size, alignment));
                 return ptr;
             };
@@ -76,7 +76,8 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
                 if (ptr == nullptr) return;
                 auto [size, alignment] = reinterpret_cast<DX12Device*>(p_this)->m_CustomAllocationInfos.at(ptr);
                 reinterpret_cast<DX12Device*>(p_this)->m_CustomAllocationInfos.erase(ptr);
-                memory_manager->GetAllocator().deallocate_bytes(ptr, size, alignment);
+                auto allocator = std::pmr::get_default_resource();
+                allocator->deallocate(ptr, size, alignment);
             };
         m_CustomAllocationCallback.pPrivateData = this;
 
@@ -763,7 +764,7 @@ auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_
     }
 
     if (desc.input_layout.empty()) {
-        m_Logger->warn("Missing input layout when create pipline({})", fmt::styled(desc.name, fmt::fg(fmt::color::red)));
+        m_Logger->warn("Missing input layout when create pipline({}). It will try to create an input layout from the vertex shader.", fmt::styled(desc.name, fmt::fg(fmt::color::red)));
         desc.input_layout = CreateInputLayout(desc.vs);
     }
 
