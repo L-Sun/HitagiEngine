@@ -1,10 +1,5 @@
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/core/memory_manager.hpp>
-#include <hitagi/core/config_manager.hpp>
-
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <fmt/chrono.h>
 
 #include <algorithm>
 #include <iterator>
@@ -15,18 +10,6 @@ namespace hitagi {
 debugger::DebugManager* debug_manager = nullptr;
 }
 namespace hitagi::debugger {
-
-bool DebugManager::Initialize() {
-    RuntimeModule::Initialize();
-
-    return true;
-}
-
-void DebugManager::Finalize() {
-    m_GfxData = {};
-    m_Logger->info("Finalized.");
-    m_Logger = nullptr;
-}
 
 void DebugManager::Tick() {
     if (m_DrawDebugInfo) {

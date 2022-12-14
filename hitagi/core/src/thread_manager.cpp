@@ -1,7 +1,6 @@
 #include <hitagi/core/thread_manager.hpp>
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/logger.h>
 
 namespace hitagi {
 core::ThreadManager* thread_manager = nullptr;
@@ -9,20 +8,16 @@ core::ThreadManager* thread_manager = nullptr;
 
 namespace hitagi::core {
 
-bool ThreadManager::Initialize() {
-    m_Logger         = spdlog::stdout_color_mt("ThreadManager");
-    auto num_threads = 16;
-    m_Stop           = false;
-
+ThreadManager::ThreadManager(std::uint8_t num_threads) : RuntimeModule("ThreadManager"), m_Stop(false) {
     m_Logger->info("Initialize... Num of Thread: {}", num_threads);
 
-    for (decltype(num_threads) i = 0; i < num_threads; i++) {
+    for (std::uint8_t i = 0; i < num_threads; i++) {
         m_ThreadPools.emplace_back([this] {
             while (true) {
                 std::packaged_task<void()> task;
                 {
                     std::unique_lock lock(m_QueueMutex);
-                    m_ConditionForTask.wait(lock, [this] { return m_Stop || !m_Tasks.empty(); });
+                    m_ConditionForTask.wait(lock, [this] { return !m_Tasks.empty(); });
                     if (m_Stop && m_Tasks.empty())
                         return;
                     task = std::move(m_Tasks.front());
@@ -32,10 +27,9 @@ bool ThreadManager::Initialize() {
             }
         });
     }
-
-    return true;
 }
-void ThreadManager::Finalize() {
+
+ThreadManager::~ThreadManager() {
     {
         std::unique_lock lock(m_QueueMutex);
         m_Stop = true;
@@ -45,7 +39,6 @@ void ThreadManager::Finalize() {
         thread.join();
     }
     m_Logger->info("Finalize.");
-    m_Logger = nullptr;
 }
 
 }  // namespace hitagi::core

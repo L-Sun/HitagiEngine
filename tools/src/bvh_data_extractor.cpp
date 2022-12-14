@@ -23,41 +23,6 @@ using namespace hitagi::math;
 namespace fs = std::filesystem;
 using namespace HighFive;
 
-auto memory_manager  = std::make_shared<MemoryManager>();
-auto file_io_manager = std::make_shared<FileIOManager>();
-auto thread_manager  = std::make_shared<ThreadManager>();
-
-int init() {
-#ifndef _DEBUG
-    spdlog::set_level(spdlog::level::info);
-#endif
-    hitagi::memory_manager  = memory_manager.get();
-    hitagi::file_io_manager = file_io_manager.get();
-    hitagi::thread_manager  = thread_manager.get();
-
-    if (!memory_manager->Initialize()) return false;
-    if (!file_io_manager->Initialize()) return false;
-    if (!thread_manager->Initialize()) return false;
-
-    return true;
-}
-
-void clean_exit(int exit_code = 0) {
-    thread_manager->Finalize();
-    file_io_manager->Finalize();
-    memory_manager->Finalize();
-
-    thread_manager.reset();
-    file_io_manager.reset();
-    memory_manager.reset();
-
-    hitagi::memory_manager  = nullptr;
-    hitagi::file_io_manager = nullptr;
-    hitagi::thread_manager  = nullptr;
-
-    exit(exit_code);
-}
-
 std::pmr::vector<fs::path>         get_all_bvh(const fs::path& dir, const std::regex& filter);
 std::pmr::vector<float>            extract_frames(const Animation& anima);
 std::pmr::vector<int>              extract_parents(const Animation& anima);
@@ -65,7 +30,9 @@ std::pmr::vector<std::pmr::string> extract_joints_name(const Animation& anima);
 std::pmr::vector<float>            extract_bones_length(const Animation& anima);
 
 int main(int argc, char** argv) {
-    if (!init()) return 1;
+    auto memory_manager  = std::make_shared<MemoryManager>();
+    auto file_io_manager = std::make_shared<FileIOManager>();
+    auto thread_manager  = std::make_shared<ThreadManager>();
 
     auto logger = spdlog::stdout_color_mt("BVH Extractor");
 
@@ -100,7 +67,7 @@ int main(int argc, char** argv) {
 
     if (args["help"].count() == 1) {
         fmt::print("{}", options.help());
-        clean_exit();
+        return -1;
     }
 
     fs::path   bvh_dir, output;
@@ -118,19 +85,19 @@ int main(int argc, char** argv) {
 
     } catch (const fs::filesystem_error& err) {
         logger->error("{}\n", err.what());
-        clean_exit(1);
+        return -1;
     } catch (const cxxopts::OptionException& ex) {
         logger->error("{}\n", ex.what());
-        clean_exit(1);
+        return -1;
     } catch (const std::exception& ex) {
         logger->error("{}\n", ex.what());
-        clean_exit(1);
+        return -1;
     }
 
     auto all_bvh_files = get_all_bvh(bvh_dir, filter);
     if (all_bvh_files.empty()) {
         logger->warn("No file is processing! exit.");
-        clean_exit();
+        return 0;
     }
 
     // Get the first bones data
@@ -147,7 +114,7 @@ int main(int argc, char** argv) {
             bones_length  = extract_bones_length(anima.value());
         } else {
             logger->error("Can not parse the first file: {}", all_bvh_files.front().string());
-            clean_exit(1);
+            return -1;
         }
     }
 
@@ -211,7 +178,7 @@ int main(int argc, char** argv) {
     file.createAttribute("split_index", split_index);
     logger->info("writed total {} frames", frames);
 
-    clean_exit();
+    return 0;
 }
 
 std::pmr::vector<fs::path> get_all_bvh(const fs::path& dir, const std::regex& filter) {

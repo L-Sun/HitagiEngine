@@ -12,11 +12,8 @@ namespace hitagi::hid {
 // TODO multiple window input handle
 class InputManager : public RuntimeModule {
 public:
-    bool Initialize() final;
-    void Finalize() final;
+    InputManager() : RuntimeModule("InputManager") {}
     void Tick() final;
-
-    inline std::string_view GetName() const noexcept final { return "InputManager"; }
 
     inline void UpdateKeyState(VirtualKeyCode key, bool state) noexcept {
         m_KeyState[static_cast<size_t>(key)].Update(state);

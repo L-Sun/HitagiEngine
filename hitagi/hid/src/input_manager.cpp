@@ -2,7 +2,6 @@
 #include <hitagi/utils/overloaded.hpp>
 
 #include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <magic_enum.hpp>
 
 namespace hitagi {
@@ -11,17 +10,6 @@ hid::InputManager* input_manager = nullptr;
 
 namespace hitagi::hid {
 
-bool InputManager::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("InputManager");
-    m_Logger->info("Initialize...");
-
-    return true;
-}
-
-void InputManager::Finalize() {
-    m_Logger->info("Finalized.");
-    m_Logger = nullptr;
-}
 void InputManager::Tick() {
     for (auto&& state : m_KeyState) {
         state.ClearDirty();
@@ -35,6 +23,7 @@ void InputManager::Tick() {
     } else {
         m_TextInput.clear();
     }
+    RuntimeModule::Tick();
 }
 
 bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const {

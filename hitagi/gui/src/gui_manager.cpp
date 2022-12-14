@@ -19,9 +19,7 @@ gui::GuiManager* gui_manager = nullptr;
 
 namespace hitagi::gui {
 
-bool GuiManager::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("GuiManager");
-    m_Logger->info("Initialize...");
+GuiManager::GuiManager() : RuntimeModule("GuiManager") {
     m_Clock.Start();
 
     ImGui::CreateContext();
@@ -41,8 +39,16 @@ bool GuiManager::Initialize() {
     main_viewport->PlatformHandle = main_viewport->PlatformHandleRaw = app->GetWindow();
 
     LoadFont();
+}
 
-    return true;
+GuiManager::~GuiManager() {
+    ImGui::DestroyContext();
+
+    m_GuiDrawTasks = {};
+    m_GfxData      = {};
+
+    m_Logger->info("Finalized.");
+    m_Logger = nullptr;
 }
 
 void GuiManager::Tick() {
@@ -68,16 +74,6 @@ void GuiManager::Tick() {
     m_ReadTextures.clear();
 
     m_Clock.Tick();
-}
-
-void GuiManager::Finalize() {
-    ImGui::DestroyContext();
-
-    m_GuiDrawTasks = {};
-    m_GfxData      = {};
-
-    m_Logger->info("Finalized.");
-    m_Logger = nullptr;
 }
 
 void GuiManager::LoadFont() {

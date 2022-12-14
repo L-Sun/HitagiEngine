@@ -6,7 +6,6 @@ using namespace hitagi;
 
 class ImGuiDemo : public hitagi::RuntimeModule {
 public:
+    ImGuiDemo() : hitagi::RuntimeModule("ImGuiDemo") {}
     void Tick() final;
-
-    inline std::string_view GetName() const noexcept final { return "ImGuiDemo"; }
 };

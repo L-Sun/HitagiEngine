@@ -6,9 +6,6 @@
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/asset/asset_manager.hpp>
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
 #include <imgui.h>
 
 #include <queue>
@@ -16,18 +13,8 @@
 using namespace hitagi;
 using namespace hitagi::math;
 
-bool MyGame::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("MyGame");
-    m_Logger->info("Initialize...");
+MyGame::MyGame() : RuntimeModule("MyGame") {
     auto scene = asset_manager->ImportScene("./assets/scenes/test.fbx");
-    if (scene == nullptr) return false;
-
-    return true;
-}
-
-void MyGame::Finalize() {
-    m_Logger->info("MyGame Finalize");
-    m_Logger = nullptr;
 }
 
 void MyGame::Tick() {

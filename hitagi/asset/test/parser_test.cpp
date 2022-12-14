@@ -85,12 +85,6 @@ int main(int argc, char* argv[]) {
     auto file_io_manager    = std::make_unique<core::FileIOManager>();
     hitagi::file_io_manager = file_io_manager.get();
 
-    file_io_manager->Initialize();
-
     ::testing::InitGoogleTest(&argc, argv);
-    int test_result = RUN_ALL_TESTS();
-
-    file_io_manager->Finalize();
-
-    return test_result;
+    return RUN_ALL_TESTS();
 }

@@ -4,11 +4,8 @@
 
 class MyGame : public hitagi::RuntimeModule {
 public:
-    bool Initialize() final;
-    void Finalize() final;
+    MyGame();
     void Tick() final;
-
-    inline std::string_view GetName() const noexcept final { return "MyGame"; }
 
 private:
     hitagi::core::Clock m_Clock;

@@ -10,13 +10,11 @@
 #include <queue>
 
 namespace hitagi::gui {
-class GuiManager : public RuntimeModule {
+class GuiManager final : public RuntimeModule {
 public:
-    bool Initialize() final;
+    GuiManager();
+    ~GuiManager() final;
     void Tick() final;
-    void Finalize() final;
-
-    inline std::string_view GetName() const noexcept final { return "GuiManager"; }
 
     template <typename DrawFunc>
     inline void DrawGui(DrawFunc&& draw_func) {

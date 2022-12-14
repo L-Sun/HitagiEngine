@@ -43,12 +43,6 @@ TEST(MemoryTest, PmrContainer) {
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     auto memory_manager = std::make_unique<MemoryManager>();
-
-    memory_manager->Initialize();
-
     spdlog::set_level(spdlog::level::off);
-    int result = RUN_ALL_TESTS();
-
-    memory_manager->Finalize();
-    return result;
+    return RUN_ALL_TESTS();
 }

@@ -9,12 +9,10 @@
 namespace hitagi {
 class Win32Application : public Application {
 public:
-    bool Initialize() final;
+    Win32Application(AppConfig config);
+
     void Tick() final;
 
-    inline std::string_view GetName() const noexcept override { return "Win32Application"; }
-
-    void InitializeWindows() final;
     void SetInputScreenPosition(const math::vec2u& position) final;
     void SetWindowTitle(std::string_view name) final;
     void SetCursor(Cursor cursor) final;
@@ -29,6 +27,8 @@ public:
     inline void  Quit() final { m_Quit = true; }
 
 private:
+    void InitializeWindows();
+
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 
     void UpdateRect();

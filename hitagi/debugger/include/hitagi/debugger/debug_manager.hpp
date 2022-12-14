@@ -9,11 +9,8 @@
 namespace hitagi::debugger {
 class DebugManager : public RuntimeModule {
 public:
-    bool Initialize() final;
-    void Finalize() final;
+    DebugManager() : RuntimeModule("DebugManager") {}
     void Tick() final;
-
-    inline std::string_view GetName() const noexcept final { return "DebugManager"; }
 
     inline void EnableDebugDraw() noexcept { m_DrawDebugInfo = true; }
     inline void DisableDebugDraw() noexcept { m_DrawDebugInfo = false; }

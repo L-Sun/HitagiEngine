@@ -13,13 +13,9 @@
 #endif
 
 auto main(int argc, char** argv) -> int {
-    hitagi::Engine engine;
+    hitagi::Engine engine(hitagi::Application::CreateApp());
 
-    if (!engine.Initialize()) {
-        std::cout << "Engine Initialize failed, will exit now." << std::endl;
-        return -1;
-    }
-    engine.LoadModule(std::make_unique<ImGuiDemo>());
+    engine.AddSubModule(std::make_unique<ImGuiDemo>());
 
 #ifdef _DEBUG
     try {
@@ -32,8 +28,6 @@ auto main(int argc, char** argv) -> int {
         std::cout << ex.what() << std::endl;
     }
 #endif
-
-    engine.Finalize();
 
 #ifdef _WIN32
     _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);

@@ -2,7 +2,6 @@
 #include <hitagi/utils/utils.hpp>
 
 #include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <tracy/Tracy.hpp>
 
 namespace hitagi {
@@ -111,23 +110,17 @@ void MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment
     }
 }
 
-bool MemoryManager::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("MemoryManager");
-    m_Logger->info("Initialize...");
-
-    m_Logger->info("Initial Memory Pool...");
+MemoryManager::MemoryManager() : RuntimeModule("MemoryManager") {
+    m_Logger->info("Create Memory Pool...");
     m_Pools = std::make_unique<MemoryPool>();
 
     m_Logger->debug("Set pmr default resource");
     std::pmr::set_default_resource(m_Pools.get());
-    return true;
 }
 
-void MemoryManager::Finalize() {
+MemoryManager::~MemoryManager() {
     m_Logger->debug("Unset pmr default resource");
     std::pmr::set_default_resource(std::pmr::new_delete_resource());
-    m_Logger->info("Finalize.");
-    m_Logger = nullptr;
 }
 
 }  // namespace hitagi::core

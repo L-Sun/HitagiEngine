@@ -1,6 +1,5 @@
 #include <hitagi/asset/asset_manager.hpp>
 #include <hitagi/core/core.hpp>
-#include <hitagi/core/config_manager.hpp>
 #include <hitagi/math/vector.hpp>
 #include <hitagi/asset/parser/png.hpp>
 #include <hitagi/asset/parser/jpeg.hpp>
@@ -21,10 +20,9 @@ asset::AssetManager* asset_manager = nullptr;
 
 namespace hitagi::asset {
 
-bool AssetManager::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("AssetManager");
-    m_Logger->info("Initialize...");
-
+AssetManager::AssetManager(std::filesystem::path asset_base_path)
+    : RuntimeModule("AssetManager"),
+      m_BasePath(std::move(asset_base_path)) {
     m_MaterialParser = std::make_shared<MaterialJSONParser>();
 
     m_SceneParsers[SceneFormat::UNKOWN] = std::make_shared<AssimpParser>(m_Logger);
@@ -41,21 +39,11 @@ bool AssetManager::Initialize() {
     // m_MoCapParser = std::make_unique<BvhParser>();
 
     InitBuiltinMaterial();
-
-    return true;
 }
 
-void AssetManager::Finalize() {
+AssetManager::~AssetManager() {
     // m_MoCapParser = nullptr;
     Texture::DestoryDefaultTexture();
-
-    m_MaterialParser = nullptr;
-    m_ImageParsers.clear();
-    m_SceneParsers.clear();
-    m_Assets = {};
-
-    m_Logger->info("Finalized.");
-    m_Logger = nullptr;
 }
 
 std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
@@ -141,8 +129,8 @@ auto AssetManager::GetMaterial(std::string_view name) -> std::shared_ptr<Materia
 }
 
 void AssetManager::InitBuiltinMaterial() {
-    auto material_path = config_manager->GetConfig().asset_root_path / "materials";
-    if (!std::filesystem::exists(material_path)) {
+    auto material_path = m_BasePath / "materials";
+    if (!std::filesystem::exists(m_BasePath / "materials")) {
         m_Logger->warn("Missing material folder: assets/materials");
         return;
     }

@@ -15,14 +15,11 @@ auto get_resource_label(Resource* res) {
     return fmt::format("{}##{}", res->GetName(), res->GetGuid().str());
 }
 
-bool Editor::Initialize() {
-    RuntimeModule::Initialize();
+Editor::Editor() : RuntimeModule("Editor") {
     m_Clock.Start();
 
-    m_SceneViewPort = static_cast<SceneViewPort*>(LoadModule(std::make_unique<SceneViewPort>()));
-    m_FileDialog.SetPwd(std::filesystem::current_path() / "assets");
-
-    return true;
+    m_SceneViewPort = static_cast<SceneViewPort*>(AddSubModule(std::make_unique<SceneViewPort>()));
+    m_FileDialog.SetPwd(app->GetConfig().asset_root_path);
 }
 
 void Editor::Tick() {
@@ -38,11 +35,6 @@ void Editor::Tick() {
     Render();
 
     m_Clock.Tick();
-}
-
-void Editor::Finalize() {
-    m_SelectedNode.reset();
-    RuntimeModule::Finalize();
 }
 
 void Editor::Render() {

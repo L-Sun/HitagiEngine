@@ -2,7 +2,7 @@
 #include <memory>
 #include <string_view>
 #include <list>
-#include <chrono>
+#include <vector>
 
 namespace spdlog {
 class logger;
@@ -11,21 +11,19 @@ class logger;
 namespace hitagi {
 class RuntimeModule {
 public:
-    virtual ~RuntimeModule() = default;
-    virtual bool Initialize();
-    virtual void Finalize();
+    RuntimeModule(std::string_view name);
+    virtual ~RuntimeModule();
     virtual void Tick();
 
-    virtual std::string_view GetName() const = 0;
+    inline auto GetName() const noexcept -> std::string_view { return m_Name; };
 
-    RuntimeModule*         GetSubModule(std::string_view name);
-    auto                   GetSubModules() const noexcept -> std::pmr::vector<RuntimeModule*>;
-    virtual RuntimeModule* LoadModule(std::unique_ptr<RuntimeModule> module);
-    virtual void           UnloadModule(std::string_view name);
-
-    inline auto GetLogger() const noexcept { return m_Logger; }
+    auto         GetSubModule(std::string_view name) -> RuntimeModule*;
+    auto         GetSubModules() const noexcept -> std::pmr::vector<RuntimeModule*>;
+    virtual auto AddSubModule(std::unique_ptr<RuntimeModule> module) -> RuntimeModule*;
+    virtual void UnloadSubModule(std::string_view name);
 
 protected:
+    std::pmr::string                               m_Name;
     std::shared_ptr<spdlog::logger>                m_Logger;
     std::pmr::list<std::unique_ptr<RuntimeModule>> m_SubModules;
 };

@@ -17,13 +17,6 @@ target("file_io_manager")
     add_includedirs("include", {public = true})
     add_deps("memory_manager", "runtime_module_interface")
     
-target("config_manager")
-    set_kind("static")
-    add_files("src/config_manager.cpp")
-    add_includedirs("include", {public = true})
-    add_deps("file_io_manager", "runtime_module_interface")
-    add_packages("nlohmann_json")
-    
 target("timer")
     set_kind("static")
     add_files("src/timer.cpp")
@@ -44,7 +37,6 @@ target("core")
         "runtime_module_interface",
         "memory_manager",
         "file_io_manager",
-        "config_manager",
         "timer",
         "thread_manager"
     )

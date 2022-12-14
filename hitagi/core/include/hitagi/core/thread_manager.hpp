@@ -1,5 +1,5 @@
 #pragma once
-#include "runtime_module.hpp"
+#include <hitagi/core/runtime_module.hpp>
 
 #include <limits>
 #include <memory>
@@ -10,14 +10,10 @@
 
 namespace hitagi::core {
 
-class ThreadManager : public RuntimeModule {
+class ThreadManager final : public RuntimeModule {
 public:
-    ThreadManager() = default;
-
-    bool Initialize() final;
-    void Finalize() final;
-
-    inline std::string_view GetName() const noexcept final { return "ThreadManager"; }
+    ThreadManager(std::uint8_t num_threads = 8);
+    ~ThreadManager() final;
 
     template <typename Func, typename... Args>
     decltype(auto) RunTask(Func&& func, Args&&... args);
@@ -32,14 +28,11 @@ private:
     std::mutex              m_QueueMutex;
     std::condition_variable m_ConditionForTask;
     std::condition_variable m_ConditionForQueueSize;
-    bool                    m_Stop = true;
+    bool                    m_Stop;
 };
 
 template <typename Func, typename... Args>
 decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
-    if (m_Stop)
-        throw std::runtime_error("Run a task on stopped thread pool.");
-
     using return_type = std::invoke_result_t<Func, Args...>;
 
     auto task = std::make_shared<std::packaged_task<return_type()>>(
@@ -49,11 +42,9 @@ decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
 
     {
         std::unique_lock lock(m_QueueMutex);
-        if (m_Stop)
-            throw std::runtime_error("Run a task on stopped thread pool.");
-
         m_Tasks.emplace([task] { (*task)(); });
     }
+
     m_ConditionForTask.notify_one();
     return res;
 }

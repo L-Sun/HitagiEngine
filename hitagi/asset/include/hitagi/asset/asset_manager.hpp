@@ -8,12 +8,10 @@
 
 namespace hitagi::asset {
 
-class AssetManager : public RuntimeModule {
+class AssetManager final : public RuntimeModule {
 public:
-    bool Initialize() final;
-    void Finalize() final;
-
-    inline std::string_view GetName() const noexcept final { return "AssetManager"; }
+    AssetManager(std::filesystem::path asset_base_path);
+    ~AssetManager() final;
 
     Scene CreateEmptyScene(std::string_view name);
 
@@ -34,6 +32,8 @@ public:
 
 private:
     void InitBuiltinMaterial();
+
+    std::filesystem::path m_BasePath;
 
     // Parser
     std::shared_ptr<MaterialParser>                                    m_MaterialParser;

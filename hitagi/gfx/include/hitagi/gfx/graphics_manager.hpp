@@ -6,13 +6,11 @@
 #include <hitagi/gfx/gpu_resource.hpp>
 
 namespace hitagi::gfx {
-class GraphicsManager : public RuntimeModule {
+class GraphicsManager final : public RuntimeModule {
 public:
-    bool Initialize() final;
-    void Finalize() final;
+    GraphicsManager();
+    ~GraphicsManager() final;
     void Tick() final;
-
-    inline std::string_view GetName() const noexcept final { return "GraphicsManager"; }
 
     inline auto& GetDevice() const noexcept { return *m_Device; }
     inline auto& GetRenderGraph() const noexcept { return *m_RenderGraph; };
@@ -25,8 +23,8 @@ private:
     std::uint64_t m_FrameIndex = 0;
 
     std::unique_ptr<Device>      m_Device;
-    std::unique_ptr<RenderGraph> m_RenderGraph;
     std::shared_ptr<SwapChain>   m_SwapChain;
+    std::unique_ptr<RenderGraph> m_RenderGraph;
 
     utils::EnumArray<std::uint64_t, CommandType> m_LastFenceValues = utils::create_enum_array<std::uint64_t, CommandType>(0);
 };

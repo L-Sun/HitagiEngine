@@ -14,12 +14,10 @@ constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; 
 namespace hitagi::core {
 class MemoryPool;
 
-class MemoryManager : public RuntimeModule {
+class MemoryManager final : public RuntimeModule {
 public:
-    bool Initialize() final;
-    void Finalize() final;
-
-    inline std::string_view GetName() const noexcept final { return "MemoryManager"; }
+    MemoryManager();
+    ~MemoryManager() final;
 
     template <typename T = std::byte>
     std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;

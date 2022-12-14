@@ -7,10 +7,9 @@
 namespace hitagi {
 class SceneViewPort : public RuntimeModule {
 public:
-    bool Initialize() final;
-    void Tick() final;
+    SceneViewPort() : RuntimeModule("SceneViewPort") {}
 
-    inline std::string_view GetName() const noexcept final { return "SceneViewPort"; }
+    void Tick() final;
 
     void SetScene(std::shared_ptr<asset::Scene> scene) noexcept;
 

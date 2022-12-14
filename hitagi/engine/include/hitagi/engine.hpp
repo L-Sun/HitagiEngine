@@ -14,11 +14,9 @@
 namespace hitagi {
 class Engine : public RuntimeModule {
 public:
-    bool Initialize() final;
-    void Tick() final;
-    void Finalize() final;
+    Engine(std::unique_ptr<Application> application);
 
-    inline std::string_view GetName() const noexcept final { return "Engine"; }
+    void Tick() final;
 
 private:
     std::uint64_t m_FrameIndex = 0;

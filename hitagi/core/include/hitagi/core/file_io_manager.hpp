@@ -1,6 +1,6 @@
 #pragma once
-#include "runtime_module.hpp"
-#include "buffer.hpp"
+#include <hitagi/core/runtime_module.hpp>
+#include <hitagi/core/buffer.hpp>
 
 #include <filesystem>
 #include <unordered_map>
@@ -10,19 +10,18 @@ namespace hitagi::core {
 
 class FileIOManager : public RuntimeModule {
 public:
-    bool Initialize() final;
-    void Finalize() final;
+    FileIOManager() : RuntimeModule("FileIOManager") {}
 
-    inline std::string_view GetName() const noexcept final { return "FileIOManager"; }
-
-    const Buffer& SyncOpenAndReadBinary(const std::filesystem::path& file_path);
-    void          SaveBuffer(const Buffer& buffer, const std::filesystem::path& path);
+    auto SyncOpenAndReadBinary(const std::filesystem::path& file_path) -> const Buffer&;
+    void SaveString(std::string_view str, const std::filesystem::path& path);
+    void SaveBuffer(const Buffer& buffer, const std::filesystem::path& path);
+    void SaveBuffer(std::span<const std::byte> buffer, const std::filesystem::path& path);
 
 private:
     bool          IsFileChanged(const std::filesystem::path& file_path) const;
     const Buffer& CacheFile(const std::filesystem::path& file_path, Buffer buffer);
 
-    using PathHash = size_t;
+    using PathHash = std::size_t;
 
     std::mutex                                                         m_CacheMutex;
     std::pmr::unordered_map<PathHash, std::filesystem::file_time_type> m_FileStateCache;

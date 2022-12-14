@@ -8,10 +8,6 @@ using namespace hitagi;
 using namespace hitagi::math;
 using namespace hitagi::asset;
 
-bool SceneViewPort::Initialize() {
-    return RuntimeModule::Initialize();
-}
-
 void SceneViewPort::Tick() {
     struct SceneRenderPass {
         gfx::ResourceHandle depth_buffer;

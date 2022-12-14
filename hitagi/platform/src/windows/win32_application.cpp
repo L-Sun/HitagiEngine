@@ -1,7 +1,6 @@
 #include "win32_application.hpp"
 
 #include <hitagi/hid/input_manager.hpp>
-#include <hitagi/core/config_manager.hpp>
 
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -12,8 +11,8 @@
 
 namespace hitagi {
 
-bool Win32Application::Initialize() {
-    return Application::Initialize();
+Win32Application::Win32Application(AppConfig config) : Application(std::move(config)) {
+    InitializeWindows();
 }
 
 void Win32Application::Tick() {
@@ -34,19 +33,7 @@ void Win32Application::Tick() {
 }
 
 void Win32Application::InitializeWindows() {
-    std::wstring  title;
-    std::uint32_t width, height;
-
-    if (config_manager) {
-        auto& config = config_manager->GetConfig();
-        title        = std::wstring{config.title.begin(), config.title.end()};
-        width        = config.width;
-        height       = config.height;
-    } else {
-        title  = L"HitagiEngine";
-        width  = 800;
-        height = 800;
-    }
+    std::wstring title{m_Config.title.begin(), m_Config.title.end()};
 
     // Set time period on windows
     timeBeginPeriod(1);
@@ -56,8 +43,8 @@ void Win32Application::InitializeWindows() {
     RECT window_rect{
         .left   = CW_USEDEFAULT,
         .top    = CW_USEDEFAULT,
-        .right  = CW_USEDEFAULT + static_cast<LONG>(width),
-        .bottom = CW_USEDEFAULT + static_cast<LONG>(height),
+        .right  = CW_USEDEFAULT + static_cast<LONG>(m_Config.width),
+        .bottom = CW_USEDEFAULT + static_cast<LONG>(m_Config.height),
     };
     AdjustWindowRect(&window_rect, WS_OVERLAPPEDWINDOW, false);
 
@@ -99,7 +86,13 @@ void Win32Application::InitializeWindows() {
         return;
     }
     ShowWindow(m_Window, SW_SHOW);
-
+    RECT client_rect{
+        .left   = CW_USEDEFAULT,
+        .top    = CW_USEDEFAULT,
+        .right  = CW_USEDEFAULT + static_cast<LONG>(m_Config.width),
+        .bottom = CW_USEDEFAULT + static_cast<LONG>(m_Config.height),
+    };
+    AdjustWindowRect(&client_rect, WS_OVERLAPPEDWINDOW, false);
     UpdateRect();
     MapCursor();
 }
@@ -190,11 +183,9 @@ void Win32Application::UpdateRect() {
     auto curr_height = m_Rect.bottom - m_Rect.top;
 
     if (last_width != curr_width || last_height != curr_height) {
-        m_SizeChanged = true;
-        if (config_manager) {
-            config_manager->GetConfig().width  = curr_width;
-            config_manager->GetConfig().height = curr_height;
-        }
+        m_SizeChanged   = true;
+        m_Config.width  = curr_width;
+        m_Config.height = curr_height;
     }
 }
 

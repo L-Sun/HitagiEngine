@@ -13,7 +13,6 @@ public:
 
 TEST_F(RenderGraphTest, RenderPass) {
     auto app = hitagi::Application::CreateApp();
-    app->Initialize();
     {
         auto swap_chain = device->CreateSwapChain(
             {
@@ -133,7 +132,6 @@ TEST_F(RenderGraphTest, RenderPass) {
 
         swap_chain->Present();
     }
-    app->Finalize();
 }
 
 int main(int argc, char** argv) {

@@ -383,8 +383,10 @@ TEST_F(D3DDeviceTest, CommandContextTest) {
 }
 
 TEST_F(D3DDeviceTest, SwapChainTest) {
-    auto app = hitagi::Application::CreateApp();
-    app->Initialize();
+    auto app = hitagi::Application::CreateApp(
+        hitagi::AppConfig{
+            .title = "SwapChainTest_Test",
+        });
     {
         auto rect = app->GetWindowsRect();
 
@@ -411,12 +413,13 @@ TEST_F(D3DDeviceTest, SwapChainTest) {
             });
         EXPECT_EQ(same_swapchan, swap_chain);
     }
-    app->Finalize();
 }
 
 TEST_F(D3DDeviceTest, IKownDirectX12) {
-    auto app = hitagi::Application::CreateApp();
-    app->Initialize();
+    auto app = hitagi::Application::CreateApp(
+        hitagi::AppConfig{
+            .title = "IKownDirectX12_Test",
+        });
     {
         auto rect = app->GetWindowsRect();
 
@@ -535,7 +538,6 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
         render_queue->WaitIdle();
         context->Reset();
     }
-    app->Finalize();
 }
 
 int main(int argc, char** argv) {

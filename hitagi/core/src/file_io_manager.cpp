@@ -1,8 +1,6 @@
 #include <hitagi/core/file_io_manager.hpp>
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
+#include <spdlog/logger.h>
 #include <fstream>
 #include <mutex>
 
@@ -12,25 +10,13 @@ core::FileIOManager* file_io_manager = nullptr;
 
 namespace hitagi::core {
 
-bool FileIOManager::Initialize() {
-    m_Logger = spdlog::stdout_color_mt("FileIOManager");
-    m_Logger->info("Initialize...");
-    return true;
-}
-void FileIOManager::Finalize() {
-    m_FileStateCache.clear();
-    m_FileCache.clear();
-    m_Logger->info("Finalized.");
-    m_Logger = nullptr;
-}
-
 bool FileIOManager::IsFileChanged(const std::filesystem::path& file_path) const {
     PathHash hash = std::filesystem::hash_value(file_path);
     if (!m_FileStateCache.contains(hash)) return true;
     return m_FileStateCache.at(hash) < std::filesystem::last_write_time(file_path);
 }
 
-const Buffer& FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& file_path) {
+auto FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& file_path) -> const Buffer& {
     if (!std::filesystem::exists(file_path)) {
         m_Logger->warn("File dose not exist. {}", file_path.string());
         return m_EmptyBuffer;
@@ -50,11 +36,19 @@ const Buffer& FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& 
     return CacheFile(file_path, std::move(buffer));
 }
 
+void FileIOManager::SaveString(std::string_view str, const std::filesystem::path& path) {
+    SaveBuffer(std::span{reinterpret_cast<const std::byte*>(str.data()), str.size()}, path);
+}
+
 void FileIOManager::SaveBuffer(const Buffer& buffer, const std::filesystem::path& path) {
+    SaveBuffer(buffer.Span<const std::byte>(), path);
+}
+
+void FileIOManager::SaveBuffer(std::span<const std::byte> buffer, const std::filesystem::path& path) {
     auto fs = std::fstream(path, std::ios::binary | std::ios::out);
-    fs.write(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
+    fs.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
     fs.close();
-    m_Logger->info("Buffer has write to: {} ({} bytes)", path.string(), buffer.GetDataSize());
+    m_Logger->info("Buffer has write to: {} ({} bytes)", path.string(), buffer.size());
 }
 
 const Buffer& FileIOManager::CacheFile(const std::filesystem::path& path, Buffer buffer) {

@@ -11,11 +11,9 @@
 namespace hitagi {
 class Editor : public RuntimeModule {
 public:
-    bool Initialize() final;
+    Editor();
     void Tick() final;
     void Finalize() final;
-
-    inline std::string_view GetName() const noexcept final { return "Editor"; }
 
     void Render();
 

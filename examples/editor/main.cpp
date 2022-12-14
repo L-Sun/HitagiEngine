@@ -9,31 +9,22 @@
 #endif
 
 auto main(int argc, char** argv) -> int {
-    auto engine    = std::make_unique<hitagi::Engine>();
-    hitagi::engine = engine.get();
+    hitagi::Engine engine(hitagi::Application::CreateApp());
 
-    if (!engine->Initialize()) {
-        std::cout << "Engine Initialize failed, will exit now." << std::endl;
-        return -1;
-    }
-
-    engine->LoadModule(std::make_unique<hitagi::Editor>());
+    engine.AddSubModule(std::make_unique<hitagi::Editor>());
 
 #ifdef _DEBUG
     try {
 #endif
         ZoneScopedN("Run");
         while (!hitagi::app->IsQuit()) {
-            engine->Tick();
+            engine.Tick();
         }
 #ifdef _DEBUG
     } catch (std::exception ex) {
         std::cout << ex.what() << std::endl;
     }
 #endif
-
-    engine->Finalize();
-    hitagi::engine = nullptr;
 
 #ifdef _WIN32
 #ifdef _DEBUG

@@ -61,11 +61,5 @@ auto main(int argc, char* argv[]) -> int {
 
     hitagi::file_io_manager = file_io_manager.get();
 
-    file_io_manager->Initialize();
-
-    int result = RUN_ALL_TESTS();
-
-    file_io_manager->Finalize();
-
-    return result;
+    return RUN_ALL_TESTS();
 }
