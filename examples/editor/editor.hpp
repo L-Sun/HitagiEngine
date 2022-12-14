@@ -13,7 +13,6 @@ class Editor : public RuntimeModule {
 public:
     Editor();
     void Tick() final;
-    void Finalize() final;
 
     void Render();
 
