@@ -21,6 +21,9 @@ public:
         friend class RenderGraph;
 
     public:
+        Builder(const Builder&) = delete;
+        Builder(Builder&&)      = delete;
+
         auto Create(ResourceDesc desc) const noexcept -> ResourceHandle;
         auto Read(ResourceHandle input) const noexcept -> ResourceHandle;
         auto Write(ResourceHandle output) const noexcept -> ResourceHandle;
@@ -60,11 +63,11 @@ public:
     using ExecFunc = std::function<void(const ResourceHelper&, const PassData&, Context* context)>;
 
     template <typename PassData>
-    auto AddPass(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData, GraphicsCommandContext> executor) -> const PassData&;
+    auto AddPass(std::string_view name, SetupFunc<PassData&> setup, ExecFunc<const PassData&, GraphicsCommandContext> executor) -> const PassData&;
     template <typename PassData>
-    auto AddPass(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData, ComputeCommandContext> executor) -> const PassData&;
+    auto AddPass(std::string_view name, SetupFunc<PassData&> setup, ExecFunc<const PassData&, ComputeCommandContext> executor) -> const PassData&;
     template <typename PassData>
-    auto AddPass(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData, CopyCommandContext> executor) -> const PassData&;
+    auto AddPass(std::string_view name, SetupFunc<PassData&> setup, ExecFunc<const PassData&, CopyCommandContext> executor) -> const PassData&;
 
     // render graph will keep the resource life until the command context finish its execution
     auto Import(std::string_view name, std::shared_ptr<Resource>) -> ResourceHandle;
@@ -87,7 +90,7 @@ private:
     };
 
     template <typename PassData, typename Context>
-    auto AddPassImpl(std::string_view name, SetupFunc<PassData> setup, ExecFunc<PassData, Context> executor) -> const PassData&;
+    auto AddPassImpl(std::string_view name, SetupFunc<PassData&> setup, ExecFunc<const PassData&, Context> executor) -> const PassData&;
     auto CreateResource(ResourceDesc desc) -> ResourceHandle;
     auto RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext>;
     auto GetResrouceNode(ResourceHandle handle) -> ResourceNode&;

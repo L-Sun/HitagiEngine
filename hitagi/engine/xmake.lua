@@ -13,5 +13,6 @@ target("engine")
         "asset_manager",
         "gui",
         "app",
+        "render",
         {public = true}
     )

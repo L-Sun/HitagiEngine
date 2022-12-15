@@ -1,6 +1,5 @@
 #include "scene_viewport.hpp"
 #include <hitagi/gui/gui_manager.hpp>
-#include <hitagi/gfx/graphics_manager.hpp>
 #include <hitagi/asset/asset_manager.hpp>
 #include <hitagi/hid/input_manager.hpp>
 
@@ -14,9 +13,10 @@ void SceneViewPort::Tick() {
         gfx::ResourceHandle output;
     };
 
-    gui_manager->DrawGui([&]() {
+    m_GuiManager.DrawGui([&]() {
         if (ImGui::Begin("Scene Viewer", &m_Open)) {
             if (m_CurrentScene) {
+                m_CurrentScene->Update();
                 const auto v_min       = ImGui::GetWindowContentRegionMin();
                 const auto v_max       = ImGui::GetWindowContentRegionMax();
                 const auto window_size = ImVec2(v_max.x - v_min.x, v_max.y - v_min.y);
@@ -26,8 +26,8 @@ void SceneViewPort::Tick() {
 
                 const auto view_port = m_Camera->GetObjectRef()->GetViewPort(window_size.x, window_size.y);
                 if (view_port.width != 0 && view_port.height != 0) {
-                    const auto output = m_CurrentScene->Render(graphics_manager->GetRenderGraph(), view_port, m_Camera);
-                    ImGui::Image((void*)gui_manager->ReadTexture(output.render_target).id, window_size);
+                    const auto output = m_Render.RenderScene(*m_CurrentScene, view_port, m_Camera);
+                    ImGui::Image((void*)m_GuiManager.ReadTexture(output).id, window_size);
                 }
             }
         }

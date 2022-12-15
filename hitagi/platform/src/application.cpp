@@ -10,7 +10,6 @@
 #include <nlohmann/json.hpp>
 
 namespace hitagi {
-Application* app = nullptr;
 
 auto load_app_config(const std::filesystem::path& config_path) -> AppConfig {
     if (config_path.empty()) return {};
@@ -40,6 +39,9 @@ auto load_app_config(const std::filesystem::path& config_path) -> AppConfig {
 Application::Application(AppConfig config)
     : RuntimeModule(config.title),
       m_Config(std::move(config)) {
+    if (!input_manager) {
+        input_manager = static_cast<decltype(input_manager)>(AddSubModule(std::make_unique<hid::InputManager>()));
+    }
     m_Clock.Start();
 }
 

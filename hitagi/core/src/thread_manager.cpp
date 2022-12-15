@@ -17,7 +17,7 @@ ThreadManager::ThreadManager(std::uint8_t num_threads) : RuntimeModule("ThreadMa
                 std::packaged_task<void()> task;
                 {
                     std::unique_lock lock(m_QueueMutex);
-                    m_ConditionForTask.wait(lock, [this] { return !m_Tasks.empty(); });
+                    m_ConditionForTask.wait(lock, [this] { return m_Stop || !m_Tasks.empty(); });
                     if (m_Stop && m_Tasks.empty())
                         return;
                     task = std::move(m_Tasks.front());
@@ -38,7 +38,6 @@ ThreadManager::~ThreadManager() {
     for (std::thread& thread : m_ThreadPools) {
         thread.join();
     }
-    m_Logger->info("Finalize.");
 }
 
 }  // namespace hitagi::core

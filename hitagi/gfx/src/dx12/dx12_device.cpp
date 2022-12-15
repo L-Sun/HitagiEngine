@@ -240,7 +240,7 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
                         fmt::styled("nullptr", fmt::fg(fmt::color::red)));
         return nullptr;
     }
-    HWND h_wnd = *reinterpret_cast<HWND*>(desc.window_ptr);
+    HWND h_wnd = static_cast<HWND>(desc.window_ptr);
     if (!IsWindow(h_wnd)) {
         m_Logger->error("The window ptr({}) is not a valid window.", desc.window_ptr);
         // Remove retired window

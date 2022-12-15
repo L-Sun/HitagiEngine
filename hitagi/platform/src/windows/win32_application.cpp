@@ -86,13 +86,7 @@ void Win32Application::InitializeWindows() {
         return;
     }
     ShowWindow(m_Window, SW_SHOW);
-    RECT client_rect{
-        .left   = CW_USEDEFAULT,
-        .top    = CW_USEDEFAULT,
-        .right  = CW_USEDEFAULT + static_cast<LONG>(m_Config.width),
-        .bottom = CW_USEDEFAULT + static_cast<LONG>(m_Config.height),
-    };
-    AdjustWindowRect(&client_rect, WS_OVERLAPPEDWINDOW, false);
+
     UpdateRect();
     MapCursor();
 }

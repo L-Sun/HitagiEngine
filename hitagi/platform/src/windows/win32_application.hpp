@@ -18,13 +18,14 @@ public:
     void SetCursor(Cursor cursor) final;
     void SetMousePosition(const math::vec2u& position) final;
 
-    inline void* GetWindow() final { return &m_Window; };
-    float        GetDpiRatio() const final;
-    std::size_t  GetMemoryUsage() const final;
-    inline Rect  GetWindowsRect() const final { return m_Rect; }
-    inline bool  WindowSizeChanged() const final { return m_SizeChanged; }
-    inline bool  IsQuit() const final { return m_Quit; }
-    inline void  Quit() final { m_Quit = true; }
+    inline auto GetWindow() const -> void* final { return m_Window; };
+    inline auto GetWindowsRect() const -> Rect final { return m_Rect; }
+    inline bool WindowSizeChanged() const final { return m_SizeChanged; }
+    inline bool IsQuit() const final { return m_Quit; }
+    inline void Quit() final { m_Quit = true; }
+
+    auto GetDpiRatio() const -> float final;
+    auto GetMemoryUsage() const -> std::size_t final;
 
 private:
     void InitializeWindows();
@@ -40,6 +41,6 @@ private:
 
     Rect m_Rect;
 
-    HWND m_Window{};
+    mutable HWND m_Window{};
 };
 }  // namespace hitagi

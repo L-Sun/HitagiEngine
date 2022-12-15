@@ -12,11 +12,11 @@ namespace hitagi::hid {
 // TODO multiple window input handle
 class InputManager : public RuntimeModule {
 public:
-    InputManager() : RuntimeModule("InputManager") {}
+    InputManager();
     void Tick() final;
 
     inline void UpdateKeyState(VirtualKeyCode key, bool state) noexcept {
-        m_KeyState[static_cast<size_t>(key)].Update(state);
+        m_KeyState[static_cast<std::size_t>(key)].Update(state);
     }
     inline void UpdatePointerState(float x, float y) noexcept {
         m_MouseState.position.Update(math::vec2f{x, y});
@@ -37,10 +37,10 @@ public:
     const std::u32string& GetInputText() const noexcept { return m_TextInput; };
 
 private:
-    std::array<KeyState, static_cast<size_t>(VirtualKeyCode::NUM)> m_KeyState;
-    MouseState                                                     m_MouseState{};
-    std::u32string                                                 m_TextInput;
-    bool                                                           m_TextInputDirty = false;
+    std::array<KeyState, static_cast<std::size_t>(VirtualKeyCode::NUM)> m_KeyState;
+    MouseState                                                          m_MouseState{};
+    std::u32string                                                      m_TextInput;
+    bool                                                                m_TextInputDirty = false;
 };
 
 }  // namespace hitagi::hid

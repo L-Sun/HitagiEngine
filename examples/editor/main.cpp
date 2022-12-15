@@ -11,13 +11,13 @@
 auto main(int argc, char** argv) -> int {
     hitagi::Engine engine(hitagi::Application::CreateApp());
 
-    engine.AddSubModule(std::make_unique<hitagi::Editor>());
+    engine.AddSubModule(std::make_unique<hitagi::Editor>(engine));
 
 #ifdef _DEBUG
     try {
 #endif
         ZoneScopedN("Run");
-        while (!hitagi::app->IsQuit()) {
+        while (!engine.App().IsQuit()) {
             engine.Tick();
         }
 #ifdef _DEBUG

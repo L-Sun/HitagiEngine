@@ -46,13 +46,13 @@ public:
     virtual void SetCursor(Cursor cursor)                            = 0;
     virtual void SetMousePosition(const math::vec2u& position)       = 0;
 
-    virtual void*       GetWindow()               = 0;
-    virtual float       GetDpiRatio() const       = 0;
-    virtual std::size_t GetMemoryUsage() const    = 0;
-    virtual Rect        GetWindowsRect() const    = 0;
-    virtual bool        WindowSizeChanged() const = 0;
-    virtual bool        IsQuit() const            = 0;
-    virtual void        Quit()                    = 0;
+    virtual auto GetWindow() const -> void*            = 0;
+    virtual auto GetDpiRatio() const -> float          = 0;
+    virtual auto GetMemoryUsage() const -> std::size_t = 0;
+    virtual auto GetWindowsRect() const -> Rect        = 0;
+    virtual bool WindowSizeChanged() const             = 0;
+    virtual bool IsQuit() const                        = 0;
+    virtual void Quit()                                = 0;
 
     inline auto GetConfig() const noexcept { return m_Config; }
 
@@ -60,5 +60,4 @@ protected:
     core::Clock m_Clock;
     AppConfig   m_Config;
 };
-extern Application* app;
 }  // namespace hitagi

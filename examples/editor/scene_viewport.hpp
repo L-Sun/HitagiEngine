@@ -1,13 +1,11 @@
 #pragma once
-#include <hitagi/core/runtime_module.hpp>
-#include <hitagi/asset/texture.hpp>
-#include <hitagi/asset/scene.hpp>
-#include <hitagi/gfx/render_graph.hpp>
+#include <hitagi/engine.hpp>
 
 namespace hitagi {
 class SceneViewPort : public RuntimeModule {
 public:
-    SceneViewPort() : RuntimeModule("SceneViewPort") {}
+    SceneViewPort(const Engine& engine)
+        : RuntimeModule("SceneViewPort"), m_Render(engine.Renderer()), m_GuiManager(engine.GuiManager()) {}
 
     void Tick() final;
 
@@ -16,6 +14,8 @@ public:
     inline auto GetScene() const noexcept { return m_CurrentScene; };
 
 private:
+    render::IRenderer&                 m_Render;
+    gui::GuiManager&                   m_GuiManager;
     bool                               m_Open         = true;
     std::shared_ptr<asset::Scene>      m_CurrentScene = nullptr;
     std::shared_ptr<asset::CameraNode> m_Camera       = nullptr;

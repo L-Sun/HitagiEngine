@@ -13,6 +13,9 @@ RuntimeModule::RuntimeModule(std::string_view name)
 }
 
 RuntimeModule::~RuntimeModule() {
+    while (!m_SubModules.empty()) {
+        m_SubModules.pop_back();
+    }
     m_Logger->debug("Finalize...");
 }
 

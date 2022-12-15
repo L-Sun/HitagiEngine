@@ -15,15 +15,16 @@ auto get_resource_label(Resource* res) {
     return fmt::format("{}##{}", res->GetName(), res->GetGuid().str());
 }
 
-Editor::Editor() : RuntimeModule("Editor") {
+Editor::Editor(Engine& engine)
+    : RuntimeModule("Editor"), m_Engine(engine), m_App(engine.App()) {
     m_Clock.Start();
 
-    m_SceneViewPort = static_cast<SceneViewPort*>(AddSubModule(std::make_unique<SceneViewPort>()));
-    m_FileDialog.SetPwd(app->GetConfig().asset_root_path);
+    m_SceneViewPort = static_cast<SceneViewPort*>(AddSubModule(std::make_unique<SceneViewPort>(engine)));
+    m_FileDialog.SetPwd(m_App.GetConfig().asset_root_path);
 }
 
 void Editor::Tick() {
-    gui_manager->DrawGui([this]() {
+    m_Engine.GuiManager().DrawGui([this]() {
         ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
         MenuBar();
         FileImporter();
@@ -32,31 +33,8 @@ void Editor::Tick() {
     });
 
     RuntimeModule::Tick();
-    Render();
 
     m_Clock.Tick();
-}
-
-void Editor::Render() {
-    auto& render_graph = graphics_manager->GetRenderGraph();
-
-    auto back_buffer = render_graph.ImportWithoutLifeTrack("BackBuffer", &graphics_manager->GetSwapChain().GetCurrentBackBuffer());
-
-    struct ClearPass {
-        gfx::ResourceHandle back_buffer;
-    };
-    auto clear_pass = render_graph.AddPass<ClearPass>(
-        "ClearPass",
-        [&](gfx::RenderGraph::Builder& builder, ClearPass& data) {
-            data.back_buffer = builder.Write(back_buffer);
-        },
-        [=](const gfx::RenderGraph::ResourceHelper& helper, const ClearPass& data, gfx::GraphicsCommandContext* context) {
-            context->SetRenderTarget(helper.Get<gfx::Texture>(data.back_buffer));
-            context->ClearRenderTarget(helper.Get<gfx::Texture>(data.back_buffer));
-        });
-
-    auto output = gui_manager->GuiRenderPass(render_graph, clear_pass.back_buffer);
-    render_graph.PresentPass(output);
 }
 
 void Editor::MenuBar() {
@@ -81,7 +59,7 @@ void Editor::MenuBar() {
                 ImGui::EndMenu();
             }
             if (ImGui::MenuItem("Quit", "Alt+F4")) {
-                app->Quit();
+                m_App.Quit();
             }
             ImGui::EndMenu();
         }
@@ -91,10 +69,10 @@ void Editor::MenuBar() {
             static float         frame_time   = 0;
             if (smooth_count < m_Clock.TotalTime().count()) {
                 smooth_count++;
-                frame_time = graphics_manager->GetFrameTime().count();
+                frame_time = m_Engine.Renderer().GetFrameTime().count();
             }
 
-            auto info = fmt::format("Memory: {:>4} MiB | {:>4} FPS", app->GetMemoryUsage() >> 20, static_cast<unsigned>(1.0f / frame_time));
+            auto info = fmt::format("Memory: {:>4} MiB | {:>4} FPS", m_App.GetMemoryUsage() >> 20, static_cast<unsigned>(1.0f / frame_time));
 
             ImVec2 info_size = ImGui::CalcTextSize(info.c_str());
 

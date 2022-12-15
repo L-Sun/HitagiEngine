@@ -9,6 +9,14 @@ hid::InputManager* input_manager = nullptr;
 }
 
 namespace hitagi::hid {
+InputManager::InputManager()
+    : RuntimeModule("InputManager"),
+      m_KeyState(utils::create_array<KeyState, static_cast<std::size_t>(VirtualKeyCode::NUM)>(
+          KeyState{
+              .current  = false,
+              .previous = false,
+              .dirty    = false,
+          })) {}
 
 void InputManager::Tick() {
     for (auto&& state : m_KeyState) {

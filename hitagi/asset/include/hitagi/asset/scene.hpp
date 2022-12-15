@@ -16,16 +16,6 @@ class Scene : public Resource {
 public:
     Scene(std::string_view name = "", xg::Guid guid = {});
 
-    struct RenderPass {
-        // output
-        gfx::ResourceHandle render_target;
-        gfx::ResourceHandle depth_buffer;
-        gfx::ResourceHandle frame_constant;
-        gfx::ResourceHandle instance_constant;
-
-        std::pmr::unordered_map<Material*, gfx::ResourceHandle> material_constants;
-    };
-    auto Render(gfx::RenderGraph& render_graph, gfx::ViewPort viewport, const std::shared_ptr<CameraNode>& camera = nullptr) -> RenderPass;
     void Update();
 
     template <typename T>

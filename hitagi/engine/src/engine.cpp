@@ -1,4 +1,5 @@
 #include <hitagi/engine.hpp>
+#include <hitagi/render/forward_renderer.hpp>
 #include <hitagi/utils/exceptions.hpp>
 
 #include <spdlog/spdlog.h>
@@ -18,21 +19,33 @@ Engine::Engine(std::unique_ptr<Application> application) : RuntimeModule("Engine
         return static_cast<T*>(AddSubModule(std::unique_ptr<RuntimeModule>{module.release()}));
     };
 
-    memory_manager   = add_inner_module(std::make_unique<core::MemoryManager>());
-    thread_manager   = add_inner_module(std::make_unique<core::ThreadManager>());
-    file_io_manager  = add_inner_module(std::make_unique<core::FileIOManager>());
-    app              = add_inner_module(std::move(application));
-    graphics_manager = add_inner_module(std::make_unique<gfx::GraphicsManager>());
-    asset_manager    = add_inner_module(std::make_unique<asset::AssetManager>(app->GetConfig().asset_root_path));
-    debug_manager    = add_inner_module(std::make_unique<debugger::DebugManager>());
-    gui_manager      = add_inner_module(std::make_unique<gui::GuiManager>());
-    // clang-format on
+    memory_manager  = add_inner_module(std::make_unique<core::MemoryManager>());
+    thread_manager  = add_inner_module(std::make_unique<core::ThreadManager>());
+    file_io_manager = add_inner_module(std::make_unique<core::FileIOManager>());
+    m_App           = add_inner_module(std::move(application));
+    m_GuiManager    = add_inner_module(std::make_unique<gui::GuiManager>(*m_App));
+    m_Renderer      = add_inner_module(std::make_unique<render::ForwardRenderer>(*m_App, gfx::Device::Type::DX12, m_GuiManager));
+    asset_manager   = add_inner_module(std::make_unique<asset::AssetManager>(m_App->GetConfig().asset_root_path));
+    debug_manager   = add_inner_module(std::make_unique<debugger::DebugManager>());
 }
 
 void Engine::Tick() {
     ZoneScopedN("Engine");
     RuntimeModule::Tick();
     FrameMark;
+}
+
+void Engine::SetRenderer(std::unique_ptr<render::IRenderer> renderer) {
+    if (renderer == nullptr) {
+        m_Logger->warn("Can not set a empty renderer!");
+        return;
+    }
+    auto old_renderer_iter = std::find_if(m_SubModules.begin(), m_SubModules.end(), [&](const auto& mod) {
+        return mod.get() == m_Renderer;
+    });
+
+    *old_renderer_iter = std::unique_ptr<RuntimeModule>{renderer.release()};
+    m_Renderer         = static_cast<render::IRenderer*>(old_renderer_iter->get());
 }
 
 }  // namespace hitagi

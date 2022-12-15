@@ -11,10 +11,8 @@
 namespace hitagi {
 class Editor : public RuntimeModule {
 public:
-    Editor();
+    Editor(Engine& engine);
     void Tick() final;
-
-    void Render();
 
 private:
     void MenuBar();
@@ -22,6 +20,9 @@ private:
     void SceneGraphViewer();
     void SceneNodeModifier();
     void AssetExploer();
+
+    Engine&      m_Engine;
+    Application& m_App;
 
     core::Clock                       m_Clock;
     SceneViewPort*                    m_SceneViewPort = nullptr;

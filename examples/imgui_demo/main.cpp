@@ -15,12 +15,12 @@
 auto main(int argc, char** argv) -> int {
     hitagi::Engine engine(hitagi::Application::CreateApp());
 
-    engine.AddSubModule(std::make_unique<ImGuiDemo>());
+    engine.AddSubModule(std::make_unique<ImGuiDemo>(engine.GuiManager()));
 
 #ifdef _DEBUG
     try {
 #endif
-        while (!hitagi::app->IsQuit()) {
+        while (!engine.App().IsQuit()) {
             engine.Tick();
         }
 #ifdef _DEBUG
