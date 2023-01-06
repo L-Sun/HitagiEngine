@@ -10,8 +10,10 @@ class IRenderer : public RuntimeModule {
 public:
     using RuntimeModule::RuntimeModule;
 
-    virtual auto RenderScene(const asset::Scene& scene, const gfx::ViewPort& viewport, std::shared_ptr<asset::CameraNode> camera = nullptr) -> gfx::ResourceHandle = 0;
-    virtual auto GetFrameTime() const noexcept -> std::chrono::duration<double>                                                                                    = 0;
+    // Render a scene in the viewport given camera
+    virtual auto RenderScene(const asset::Scene& scene, const gfx::ViewPort& viewport, const asset::CameraNode& camera) -> gfx::ResourceHandle = 0;
+
+    virtual auto GetFrameTime() const noexcept -> std::chrono::duration<double> = 0;
 };
 
 }  // namespace hitagi::render

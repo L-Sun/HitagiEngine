@@ -2,7 +2,6 @@
 #include "scene_viewport.hpp"
 #include "imfilebrowser.hpp"
 
-#include <hitagi/ecs/schedule.hpp>
 #include <hitagi/engine.hpp>
 
 #include <string>

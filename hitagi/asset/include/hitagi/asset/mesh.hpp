@@ -177,22 +177,17 @@ public:
         gfx::PrimitiveTopology            primitive     = gfx::PrimitiveTopology::TriangleList;
         std::shared_ptr<MaterialInstance> material_instance;
     };
+
     Mesh() = default;
     Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name = "", xg::Guid guid = {});
     // merge two mesh
     Mesh operator+(const Mesh& rhs) const;
 
-    bool         Empty() const noexcept { return m_Vertices == nullptr || m_Indices == nullptr || m_SubMeshes.empty(); }
-    inline auto& GetVertexArray() const noexcept { return m_Vertices; }
-    inline auto& GetIndexArray() const noexcept { return m_Indices; }
-    inline auto& GetSubMeshes() const noexcept { return m_SubMeshes; }
+    bool Empty() const noexcept { return vertices == nullptr || indices == nullptr || sub_meshes.empty(); }
 
-    inline void AddSubMesh(SubMesh submesh) noexcept { m_SubMeshes.emplace_back(std::move(submesh)); }
-
-private:
-    std::shared_ptr<VertexArray> m_Vertices;
-    std::shared_ptr<IndexArray>  m_Indices;
-    std::pmr::vector<SubMesh>    m_SubMeshes;
+    std::pmr::vector<SubMesh>    sub_meshes;
+    std::shared_ptr<VertexArray> vertices;
+    std::shared_ptr<IndexArray>  indices;
 };
 
 using MeshNode = SceneNodeWithObject<Mesh>;

@@ -28,6 +28,8 @@ public:
 
     std::shared_ptr<CameraNode> curr_camera;
 
+    std::pmr::vector<ecs::Entity> test_instances;
+
     ecs::World world;
 };
 

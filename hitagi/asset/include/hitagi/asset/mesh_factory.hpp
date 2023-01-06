@@ -4,7 +4,8 @@
 namespace hitagi::asset {
 class MeshFactory {
 public:
-    static Mesh Line(const math::vec3f& from, const math::vec3f& to);
-    static Mesh BoxWireframe(const math::vec3f& bb_min, const math::vec3f& bb_max);
+    static auto Line(const math::vec3f& from, const math::vec3f& to) -> std::shared_ptr<Mesh>;
+    static auto BoxWireframe(const math::vec3f& bb_min, const math::vec3f& bb_max) -> std::shared_ptr<Mesh>;
+    static auto Cube() -> std::shared_ptr<Mesh>;
 };
 }  // namespace hitagi::asset

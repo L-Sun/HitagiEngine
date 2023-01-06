@@ -25,12 +25,14 @@ struct InstanceConstant {
 
 Scene::Scene(std::string_view name, xg::Guid guid)
     : Resource(name, guid),
+      root(std::make_shared<SceneNode>(Transform{}, "name")),
       world(name) {
     world.RegisterSystem<TransformSystem>("TransformSystem");
 }
 
 void Scene::Update() {
     root->Update();
+    world.Update();
 }
 
 }  // namespace hitagi::asset

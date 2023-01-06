@@ -169,48 +169,48 @@ void IndexArray::InitGpuData(gfx::Device& device) {
 
 Mesh::Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name, xg::Guid guid)
     : Resource(name, guid),
-      m_Vertices(std::move(vertices)),
-      m_Indices(std::move(indices)) {}
+      vertices(std::move(vertices)),
+      indices(std::move(indices)) {}
 
 Mesh Mesh::operator+(const Mesh& rhs) const {
     if (Empty()) return rhs;
     if (rhs.Empty()) return *this;
 
-    auto new_vertices = std::make_shared<VertexArray>(m_Vertices->Size() + rhs.m_Vertices->Size());
+    auto new_vertices = std::make_shared<VertexArray>(vertices->Size() + rhs.vertices->Size());
 
     magic_enum::enum_for_each<VertexAttribute>([&](auto attr) {
         constexpr VertexAttribute Attr = attr;
         using DataType                 = VertexDataType<Attr>;
 
-        auto lhs_attr = m_Vertices->Span<Attr>();
-        auto rhs_attr = rhs.m_Vertices->Span<Attr>();
+        auto lhs_attr = vertices->Span<Attr>();
+        auto rhs_attr = rhs.vertices->Span<Attr>();
 
         if (lhs_attr.empty() && rhs_attr.empty()) return;
 
         new_vertices->Modify<Attr>([&](auto values) {
             if (lhs_attr.empty()) {
-                std::fill(values.begin(), std::next(values.begin(), m_Vertices->Size()), DataType{});
-                std::copy(rhs_attr.begin(), rhs_attr.end(), std::next(values.begin(), m_Vertices->Size()));
+                std::fill(values.begin(), std::next(values.begin(), vertices->Size()), DataType{});
+                std::copy(rhs_attr.begin(), rhs_attr.end(), std::next(values.begin(), vertices->Size()));
             } else if (rhs_attr.empty()) {
                 std::copy(lhs_attr.begin(), lhs_attr.end(), values.begin());
-                std::fill(std::next(values.begin(), m_Vertices->Size()), values.end(), DataType{});
+                std::fill(std::next(values.begin(), vertices->Size()), values.end(), DataType{});
             } else {
                 std::copy(lhs_attr.begin(), lhs_attr.end(), values.begin());
-                std::copy(rhs_attr.begin(), rhs_attr.end(), std::next(values.begin(), m_Vertices->Size()));
+                std::copy(rhs_attr.begin(), rhs_attr.end(), std::next(values.begin(), vertices->Size()));
             }
         });
     });
 
     std::shared_ptr<IndexArray> new_indices = nullptr;
-    if (m_Indices->Type() != rhs.m_Indices->Type()) {
-        new_indices = std::make_shared<IndexArray>(m_Indices->Size() + rhs.m_Indices->Size(), IndexType::UINT32);
+    if (indices->Type() != rhs.indices->Type()) {
+        new_indices = std::make_shared<IndexArray>(indices->Size() + rhs.indices->Size(), IndexType::UINT32);
     } else {
-        new_indices = std::make_shared<IndexArray>(m_Indices->Size() + rhs.m_Indices->Size(), m_Indices->Type());
+        new_indices = std::make_shared<IndexArray>(indices->Size() + rhs.indices->Size(), indices->Type());
     }
     magic_enum::enum_for_each<IndexType>([&](auto type) {
         if (new_indices->Type() != type()) return;
-        auto lhs_values = m_Indices->Span<type()>();
-        auto rhs_values = rhs.m_Indices->Span<type()>();
+        auto lhs_values = indices->Span<type()>();
+        auto rhs_values = rhs.indices->Span<type()>();
 
         new_indices->Modify<type()>([&](auto values) {
             std::copy(lhs_values.begin(), lhs_values.end(), values.begin());
@@ -220,14 +220,14 @@ Mesh Mesh::operator+(const Mesh& rhs) const {
 
     Mesh result(new_vertices, new_indices);
     // merge submeshes
-    for (const auto& lhs_sub_mesh : m_SubMeshes) {
-        result.AddSubMesh(lhs_sub_mesh);
+    for (const auto& lhs_sub_mesh : sub_meshes) {
+        result.sub_meshes.emplace_back(lhs_sub_mesh);
     }
-    for (const auto& rhs_sub_mesh : rhs.m_SubMeshes) {
-        result.AddSubMesh({
+    for (const auto& rhs_sub_mesh : rhs.sub_meshes) {
+        result.sub_meshes.emplace_back(SubMesh{
             .index_count       = rhs_sub_mesh.index_count,
-            .index_offset      = rhs_sub_mesh.index_offset + m_Indices->Size(),
-            .vertex_offset     = rhs_sub_mesh.vertex_offset + m_Vertices->Size(),
+            .index_offset      = rhs_sub_mesh.index_offset + indices->Size(),
+            .vertex_offset     = rhs_sub_mesh.vertex_offset + vertices->Size(),
             .primitive         = rhs_sub_mesh.primitive,
             .material_instance = rhs_sub_mesh.material_instance,
         });

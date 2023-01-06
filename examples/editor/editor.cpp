@@ -94,7 +94,8 @@ void Editor::FileImporter() {
         if (ext == ".bvh") {
         }
         if (ext == ".fbx") {
-            m_SceneViewPort->SetScene(asset_manager->ImportScene(m_FileDialog.GetSelected()));
+            auto scene = asset_manager->ImportScene(m_FileDialog.GetSelected());
+            m_SceneViewPort->SetScene(scene);
         }
         m_FileDialog.ClearSelected();
     }

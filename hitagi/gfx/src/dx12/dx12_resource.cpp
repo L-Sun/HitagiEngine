@@ -55,7 +55,7 @@ void DX12SwapChain::Resize() {
     }
     back_buffers.clear();
 
-    HWND h_wnd = *reinterpret_cast<HWND*>(desc.window_ptr);
+    HWND h_wnd = static_cast<HWND>(desc.window_ptr);
     RECT rect;
     GetClientRect(h_wnd, &rect);
     std::uint32_t width  = rect.right - rect.left;

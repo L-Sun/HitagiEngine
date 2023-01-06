@@ -426,7 +426,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
 
         Mesh mesh(vertices, indices, ai_mesh->mName.C_Str());
 
-        mesh.AddSubMesh({
+        mesh.sub_meshes.emplace_back(Mesh::SubMesh{
             .index_count       = indices_count,
             .index_offset      = 0,
             .vertex_offset     = 0,

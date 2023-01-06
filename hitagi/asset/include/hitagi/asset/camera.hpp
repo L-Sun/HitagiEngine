@@ -14,9 +14,9 @@ public:
         float far_clip  = 1000.0f;
         float fov       = 60.0_deg;
 
-        math::vec3f eye      = {0.0f, 0.0f, 0.0f};
-        math::vec3f look_dir = {0.0f, 0.0f, 1.0f};
-        math::vec3f up       = {0.0f, 1.0f, 0.0f};
+        math::vec3f eye      = {0.0f, -1.0f, 0.0f};
+        math::vec3f look_dir = {0.0f, 1.0f, 0.0f};
+        math::vec3f up       = {0.0f, 0.0f, 1.0f};
     } parameters;
 
     Camera(Parameters parameters, std::string_view name = "", xg::Guid guid = {})

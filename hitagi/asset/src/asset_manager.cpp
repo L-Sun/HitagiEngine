@@ -84,7 +84,7 @@ void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
             auto mesh = node->GetObjectRef();
             AddMesh(node->GetObjectRef());
 
-            for (const auto& submesh : mesh->GetSubMeshes()) {
+            for (const auto& submesh : mesh->sub_meshes) {
                 if (submesh.material_instance->GetMaterial() == nullptr) {
                     submesh.material_instance->SetMaterial(GetMaterial("Phong"));
                 }

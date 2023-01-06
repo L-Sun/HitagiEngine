@@ -26,7 +26,7 @@ void SceneViewPort::Tick() {
 
                 const auto view_port = m_Camera->GetObjectRef()->GetViewPort(window_size.x, window_size.y);
                 if (view_port.width != 0 && view_port.height != 0) {
-                    const auto output = m_Render.RenderScene(*m_CurrentScene, view_port, m_Camera);
+                    const auto output = m_Render.RenderScene(*m_CurrentScene, view_port, *m_Camera);
                     ImGui::Image((void*)m_GuiManager.ReadTexture(output).id, window_size);
                 }
             }

@@ -25,7 +25,7 @@ public:
     ~ForwardRenderer() override;
 
     void        Tick() override;
-    auto        RenderScene(const asset::Scene& scene, const gfx::ViewPort& viewport, std::shared_ptr<asset::CameraNode> camera = nullptr) -> gfx::ResourceHandle override;
+    auto        RenderScene(const asset::Scene& scene, const gfx::ViewPort& viewport, const asset::CameraNode& camera) -> gfx::ResourceHandle override;
     inline auto GetFrameTime() const noexcept -> std::chrono::duration<double> override { return m_Clock.DeltaTime(); }
 
     inline auto GetColorPass() const noexcept { return m_ColorPass; }

@@ -66,67 +66,67 @@ TEST(MeshTest, Modify) {
 
 TEST(MeshTest, Merge) {
     Mesh mesh1(std::make_shared<VertexArray>(2), std::make_shared<IndexArray>(2, IndexType::UINT16));
-    mesh1.AddSubMesh({
+    mesh1.sub_meshes.emplace_back(Mesh::SubMesh{
         .index_count   = 2,
         .index_offset  = 0,
         .vertex_offset = 0,
     });
     Mesh mesh2(std::make_shared<VertexArray>(2), std::make_shared<IndexArray>(2, IndexType::UINT16));
-    mesh2.AddSubMesh({
+    mesh2.sub_meshes.emplace_back(Mesh::SubMesh{
         .index_count   = 2,
         .index_offset  = 0,
         .vertex_offset = 0,
     });
 
     std::size_t i = 0;
-    mesh1.GetVertexArray()->Modify<VertexAttribute::Position>([&](auto positions) {
+    mesh1.vertices->Modify<VertexAttribute::Position>([&](auto positions) {
         for (auto& pos : positions) {
             pos.x = i++;
             pos.y = i++;
             pos.z = i++;
         }
     });
-    mesh2.GetVertexArray()->Modify<VertexAttribute::Position>([&](auto positions) {
+    mesh2.vertices->Modify<VertexAttribute::Position>([&](auto positions) {
         for (auto& pos : positions) {
             pos.x = i++;
             pos.y = i++;
             pos.z = i++;
         }
     });
-    mesh1.GetIndexArray()->Modify<IndexType::UINT16>([](auto array) {
+    mesh1.indices->Modify<IndexType::UINT16>([](auto array) {
         array[0] = 0;
         array[1] = 1;
     });
-    mesh2.GetIndexArray()->Modify<IndexType::UINT16>([](auto array) {
+    mesh2.indices->Modify<IndexType::UINT16>([](auto array) {
         array[0] = 0;
         array[1] = 1;
     });
 
     auto mesh = mesh1 + mesh2;
-    EXPECT_TRUE(mesh.GetVertexArray() != nullptr);
-    EXPECT_EQ(mesh.GetVertexArray()->Size(), mesh1.GetVertexArray()->Size() + mesh2.GetVertexArray()->Size());
-    EXPECT_FALSE(mesh.GetVertexArray()->Span<VertexAttribute::Position>().empty());
+    EXPECT_TRUE(mesh.vertices != nullptr);
+    EXPECT_EQ(mesh.vertices->Size(), mesh1.vertices->Size() + mesh2.vertices->Size());
+    EXPECT_FALSE(mesh.vertices->Span<VertexAttribute::Position>().empty());
 
-    EXPECT_TRUE(mesh.GetIndexArray() != nullptr);
-    EXPECT_EQ(mesh.GetIndexArray()->Size(), mesh1.GetIndexArray()->Size() + mesh2.GetIndexArray()->Size());
+    EXPECT_TRUE(mesh.indices != nullptr);
+    EXPECT_EQ(mesh.indices->Size(), mesh1.indices->Size() + mesh2.indices->Size());
 
     i = 0;
-    for (auto pos : mesh.GetVertexArray()->Span<VertexAttribute::Position>()) {
+    for (auto pos : mesh.vertices->Span<VertexAttribute::Position>()) {
         EXPECT_EQ(pos.x, i++);
         EXPECT_EQ(pos.y, i++);
         EXPECT_EQ(pos.z, i++);
     }
     i = 0;
-    for (auto index : mesh.GetIndexArray()->Span<IndexType::UINT16>()) {
+    for (auto index : mesh.indices->Span<IndexType::UINT16>()) {
         EXPECT_EQ(index, i);
         i = !i;
     }
-    EXPECT_EQ(mesh.GetSubMeshes()[0].index_count, 2);
-    EXPECT_EQ(mesh.GetSubMeshes()[0].vertex_offset, 0);
-    EXPECT_EQ(mesh.GetSubMeshes()[0].index_offset, 0);
-    EXPECT_EQ(mesh.GetSubMeshes()[1].index_count, 2);
-    EXPECT_EQ(mesh.GetSubMeshes()[1].vertex_offset, 2);
-    EXPECT_EQ(mesh.GetSubMeshes()[1].index_offset, 2);
+    EXPECT_EQ(mesh.sub_meshes[0].index_count, 2);
+    EXPECT_EQ(mesh.sub_meshes[0].vertex_offset, 0);
+    EXPECT_EQ(mesh.sub_meshes[0].index_offset, 0);
+    EXPECT_EQ(mesh.sub_meshes[1].index_count, 2);
+    EXPECT_EQ(mesh.sub_meshes[1].vertex_offset, 2);
+    EXPECT_EQ(mesh.sub_meshes[1].index_offset, 2);
 }
 
 int main(int argc, char** argv) {

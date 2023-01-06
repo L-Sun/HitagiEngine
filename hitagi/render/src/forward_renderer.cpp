@@ -11,10 +11,7 @@
 
 namespace hitagi::render {
 
-ForwardRenderer::ForwardRenderer(
-    const Application& app,
-    gfx::Device::Type  gfx_device_type,
-    gui::GuiManager*   gui_manager)
+ForwardRenderer::ForwardRenderer(const Application& app, gfx::Device::Type gfx_device_type, gui::GuiManager* gui_manager)
     : IRenderer("ForwardRenderer"),
       m_App(app),
       m_GfxDevice(gfx::Device::Create(gfx_device_type)),
@@ -80,7 +77,7 @@ void ForwardRenderer::Tick() {
 
 ForwardRenderer::~ForwardRenderer() { m_GfxDevice->WaitIdle(); }
 
-auto ForwardRenderer::RenderScene(const asset::Scene& scene, const gfx::ViewPort& viewport, std::shared_ptr<asset::CameraNode> camera) -> gfx::ResourceHandle {
+auto ForwardRenderer::RenderScene(const asset::Scene& scene, const gfx::ViewPort& viewport, const asset::CameraNode& camera) -> gfx::ResourceHandle {
     struct DrawItem {
         std::shared_ptr<asset::MeshNode>    instance;
         std::shared_ptr<asset::Material>    material;
@@ -110,10 +107,10 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const gfx::ViewPort
 
     for (const auto& node : scene.instance_nodes) {
         auto mesh = node->GetObjectRef();
-        mesh->GetVertexArray()->InitGpuData(*m_GfxDevice);
-        mesh->GetIndexArray()->InitGpuData(*m_GfxDevice);
+        mesh->vertices->InitGpuData(*m_GfxDevice);
+        mesh->indices->InitGpuData(*m_GfxDevice);
 
-        for (const auto& submesh : mesh->GetSubMeshes()) {
+        for (const auto& submesh : mesh->sub_meshes) {
             auto material = submesh.material_instance->GetMaterial();
             material->InitPipeline(*m_GfxDevice);
 
@@ -125,29 +122,28 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const gfx::ViewPort
             draw_items.emplace_back(DrawItem{
                 .instance = node,
                 .material = material,
-                .vertices = mesh->GetVertexArray(),
-                .inidices = mesh->GetIndexArray(),
+                .vertices = mesh->vertices,
+                .inidices = mesh->indices,
                 .submesh  = submesh,
             });
         }
     }
 
-    auto curr_camera = camera ? camera : scene.curr_camera;
-    auto lignt_node  = scene.light_nodes.front();
+    auto lignt_node = scene.light_nodes.empty() ? nullptr : scene.light_nodes.front();
 
     FrameConstant frame_constant = {
-        .camera_pos     = math::vec4f(curr_camera->transform.GetPosition(), 1.0f),
-        .view           = curr_camera->GetView(),
-        .projection     = curr_camera->GetProjection(),
-        .proj_view      = curr_camera->GetProjectionView(),
-        .inv_view       = curr_camera->GetInvView(),
-        .inv_projection = curr_camera->GetInvProjection(),
-        .inv_proj_view  = curr_camera->GetInvProjectionView(),
+        .camera_pos     = math::vec4f(camera.transform.GetPosition(), 1.0f),
+        .view           = camera.GetView(),
+        .projection     = camera.GetProjection(),
+        .proj_view      = camera.GetProjectionView(),
+        .inv_view       = camera.GetInvView(),
+        .inv_projection = camera.GetInvProjection(),
+        .inv_proj_view  = camera.GetInvProjectionView(),
         // multiple light,
-        .light_position    = math::vec4f(lignt_node->GetLightGlobalPosition(), 1.0f),
-        .light_pos_in_view = curr_camera->GetView() * math::vec4f(lignt_node->GetLightGlobalPosition(), 1.0f),
-        .light_color       = lignt_node->GetObjectRef()->parameters.color,
-        .light_intensity   = lignt_node->GetObjectRef()->parameters.intensity,
+        .light_position    = lignt_node ? math::vec4f(lignt_node->GetLightGlobalPosition(), 1.0f) : math::vec4f(0, 0, 0, 0),
+        .light_pos_in_view = lignt_node ? camera.GetView() * math::vec4f(lignt_node->GetLightGlobalPosition(), 1.0f) : math::vec4f(0, 0, 0, 0),
+        .light_color       = lignt_node ? lignt_node->GetObjectRef()->parameters.color : math::vec4f(0, 0, 0, 0),
+        .light_intensity   = lignt_node ? lignt_node->GetObjectRef()->parameters.intensity : 0,
     };
 
     std::sort(draw_items.begin(), draw_items.end(), [](const auto& lhs, const auto& rhs) -> bool {

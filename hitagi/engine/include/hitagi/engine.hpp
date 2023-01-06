@@ -7,14 +7,10 @@
 #include <hitagi/debugger/debug_manager.hpp>
 #include <hitagi/render/renderer.hpp>
 
-#include <vector>
-#include <set>
-#include <concepts>
-
 namespace hitagi {
 class Engine : public RuntimeModule {
 public:
-    Engine(std::unique_ptr<Application> application);
+    Engine();
 
     void Tick() final;
 

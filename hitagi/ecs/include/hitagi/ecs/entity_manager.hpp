@@ -85,6 +85,7 @@ auto EntityManager::CreateMany(std::size_t num, const DynamicComponents& dynamic
     return result;
 }
 
+// TODO
 template <Component... Components>
 void EntityManager::Attach(Entity entity, const DynamicComponents& dynamic_components)
     requires utils::UniqueTypes<Components...>

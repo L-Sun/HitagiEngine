@@ -9,7 +9,7 @@
 #endif
 
 auto main(int argc, char** argv) -> int {
-    hitagi::Engine engine(hitagi::Application::CreateApp());
+    hitagi::Engine engine;
 
     engine.AddSubModule(std::make_unique<hitagi::Editor>(engine));
 

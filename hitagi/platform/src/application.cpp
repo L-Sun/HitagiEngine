@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 namespace hitagi {
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, title, version, width, height, asset_root_path);
 
 auto load_app_config(const std::filesystem::path& config_path) -> AppConfig {
     if (config_path.empty()) return {};
@@ -21,19 +22,7 @@ auto load_app_config(const std::filesystem::path& config_path) -> AppConfig {
         std::ifstream ifs(config_path);
         json = nlohmann::json::parse(ifs);
     }
-
-    try {
-        return AppConfig{
-            .title           = json.at("title"),
-            .version         = json.at("version"),
-            .width           = json.at("width").get<std::uint32_t>(),
-            .height          = json.at("height").get<std::uint32_t>(),
-            .asset_root_path = json.at("asset_root_path"),
-        };
-
-    } catch (nlohmann::json::exception& ex) {
-        return {};
-    }
+    return json.get<AppConfig>();
 }
 
 Application::Application(AppConfig config)
@@ -49,15 +38,10 @@ Application::~Application() {
     if (file_io_manager) {
         std::filesystem::path path = "hitagi.json";
         m_Logger->info("save config to file: {}", path.string());
-        auto json = nlohmann::json();
 
-        json["title"]           = m_Config.title;
-        json["version"]         = m_Config.version;
-        json["width"]           = m_Config.width;
-        json["height"]          = m_Config.height;
-        json["asset_root_path"] = m_Config.asset_root_path.string();
+        nlohmann::json json = m_Config;
 
-        auto content = json.dump();
+        auto content = json.dump(4);
         file_io_manager->SaveBuffer(core::Buffer(content.size(), reinterpret_cast<const std::byte*>(content.data())), path);
     }
 }
