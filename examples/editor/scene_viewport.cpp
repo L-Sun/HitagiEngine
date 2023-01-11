@@ -18,7 +18,9 @@ void SceneViewPort::Tick() {
             if (m_CurrentScene) {
                 const auto v_min       = ImGui::GetWindowContentRegionMin();
                 const auto v_max       = ImGui::GetWindowContentRegionMax();
-                const auto window_size = math::vec2u{v_max.x - v_min.x, v_max.y - v_min.y};
+                const auto window_size = math::vec2u{
+                    static_cast<std::uint32_t>(v_max.x - v_min.x),
+                    static_cast<std::uint32_t>(v_max.y - v_min.y)};
 
                 m_Camera->GetObjectRef()->parameters.aspect = window_size.x / window_size.y;
                 m_Camera->Update();
