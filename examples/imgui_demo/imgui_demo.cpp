@@ -20,10 +20,10 @@ void ImGuiDemo::Tick() {
                                   .c_str());
             ImGui::Separator();
 
-            ImGui::Text("%s", fmt::format("({}, {})", input_manager->GetFloat(MouseEvent::MOVE_X), input_manager->GetFloat(MouseEvent::MOVE_Y)).c_str());
+            ImGui::Text("%s", fmt::format("({}, {})", input_manager->GetFloat(hid::MouseEvent::MOVE_X), input_manager->GetFloat(hid::MouseEvent::MOVE_Y)).c_str());
             ImGui::Text("%s", fmt::format("Left: {}, Right: {}",
-                                          input_manager->GetBool(VirtualKeyCode::MOUSE_L_BUTTON),
-                                          input_manager->GetBool(VirtualKeyCode::MOUSE_R_BUTTON))
+                                          input_manager->GetBool(hid::VirtualKeyCode::MOUSE_L_BUTTON),
+                                          input_manager->GetBool(hid::VirtualKeyCode::MOUSE_R_BUTTON))
                                   .c_str());
         }
         ImGui::End();

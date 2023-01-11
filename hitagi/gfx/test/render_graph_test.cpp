@@ -12,7 +12,9 @@ public:
 };
 
 TEST_F(RenderGraphTest, RenderPass) {
-    auto app = hitagi::Application::CreateApp();
+    auto app = hitagi::Application::CreateApp(hitagi::AppConfig{
+        .title = "RenderPass_Test",
+    });
     {
         auto swap_chain = device->CreateSwapChain(
             {
@@ -135,6 +137,7 @@ TEST_F(RenderGraphTest, RenderPass) {
 }
 
 int main(int argc, char** argv) {
+    spdlog::set_level(spdlog::level::debug);
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

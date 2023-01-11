@@ -36,8 +36,8 @@ public:
     Application(AppConfig config);
     ~Application() override;
 
-    static auto CreateApp(AppConfig config) -> std::unique_ptr<Application>;
-    static auto CreateApp(const std::filesystem::path& config_path = "hitagi.json") -> std::unique_ptr<Application>;
+    static auto CreateApp(AppConfig config = {}) -> std::unique_ptr<Application>;
+    static auto CreateApp(const std::filesystem::path& config_path) -> std::unique_ptr<Application>;
 
     void Tick() override;
 
