@@ -25,7 +25,7 @@ public:
     }
 
     auto        ReadTexture(gfx::ResourceHandle tex) -> gfx::ResourceHandle;
-    inline auto PopReadedTextures() noexcept { return std::move(m_ReadTextures); }
+    inline auto PopReadTextures() noexcept { return std::move(m_ReadTextures); }
 
 private:
     void LoadFont();

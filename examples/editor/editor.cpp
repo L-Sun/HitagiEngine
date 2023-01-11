@@ -24,6 +24,8 @@ Editor::Editor(Engine& engine)
 }
 
 void Editor::Tick() {
+    if (m_CurrScene) m_CurrScene->Update();
+
     m_Engine.GuiManager().DrawGui([this]() {
         ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
         MenuBar();
@@ -35,6 +37,8 @@ void Editor::Tick() {
     RuntimeModule::Tick();
 
     m_Clock.Tick();
+
+    m_Engine.Renderer().RenderGui();
 }
 
 void Editor::MenuBar() {
@@ -94,8 +98,8 @@ void Editor::FileImporter() {
         if (ext == ".bvh") {
         }
         if (ext == ".fbx") {
-            auto scene = asset_manager->ImportScene(m_FileDialog.GetSelected());
-            m_SceneViewPort->SetScene(scene);
+            m_CurrScene = asset_manager->ImportScene(m_FileDialog.GetSelected());
+            m_SceneViewPort->SetScene(m_CurrScene);
         }
         m_FileDialog.ClearSelected();
     }

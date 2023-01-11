@@ -17,11 +17,14 @@ auto RenderGraph::Builder::Create(ResourceDesc desc) const noexcept -> ResourceH
 }
 
 auto RenderGraph::Builder::Read(ResourceHandle input) const noexcept -> ResourceHandle {
+    assert(input.id <= m_RenderGraph.m_ResourceNodes.size() && "Invalid resource handle");
     m_Node->reads.emplace(input);
     return input;
 }
 
 auto RenderGraph::Builder::Write(ResourceHandle output) const noexcept -> ResourceHandle {
+    assert(output.id <= m_RenderGraph.m_ResourceNodes.size() && "Invalid resource handle");
+
     m_Node->reads.emplace(output);
 
     ResourceNode& old_res_node = m_RenderGraph.GetResrouceNode(output);
@@ -50,29 +53,44 @@ void RenderGraph::PresentPass(ResourceHandle back_buffer) {
 }
 
 auto RenderGraph::Import(std::string_view name, std::shared_ptr<Resource> res) -> ResourceHandle {
+    if (m_BlackBoard.contains(std::pmr::string(name))) {
+        return ResourceHandle::InvalidHandle();
+    }
+
     if (std::find(m_OutterResources.begin(), m_OutterResources.end(), res) == m_OutterResources.end()) {
         m_OutterResources.emplace_back(res);
     }
+
     return ImportWithoutLifeTrack(name, res.get());
 }
 
 auto RenderGraph::ImportWithoutLifeTrack(std::string_view name, Resource* res) -> ResourceHandle {
     if (m_BlackBoard.contains(std::pmr::string(name))) {
-        auto iter = std::find_if(m_ResourceNodes.begin(),
-                                 m_ResourceNodes.end(),
-                                 [&](const auto& res_node) {
-                                     return res == m_Resources[res_node.res_idx];
-                                 });
-
-        assert(iter != m_ResourceNodes.end());
-        return {std::distance(m_ResourceNodes.begin(), iter) + 1ull};
+        return ResourceHandle::InvalidHandle();
     }
 
     std::size_t res_idx = m_Resources.size();
     m_Resources.emplace_back(res);
     m_BlackBoard.emplace(std::pmr::string(name), res_idx);
     m_ResourceNodes.emplace_back(name, res_idx);
-    return {m_ResourceNodes.size()};
+    return ResourceHandle{m_ResourceNodes.size()};
+}
+
+auto RenderGraph::GetImportedResourceHandle(std::string_view name) -> ResourceHandle {
+    if (const auto _name = std::pmr::string{name}; m_BlackBoard.contains(_name)) {
+        std::size_t res_idx = m_BlackBoard[_name];
+
+        // we need to find the newest resource node, so we use the reversed iterator
+        // because the version of posted nodes always less than the previous nodes in the sub-array that all nodes point to the same resource
+        auto iter = std::find_if(m_ResourceNodes.rbegin(), m_ResourceNodes.rend(), [&](const ResourceNode& node) {
+            // Note that the following code does not use `node.name` to compare with `_name` because the `node.name` is not identifier from black board
+            return node.res_idx == res_idx;
+        });
+
+        // note that the resource handle is start from 1, so the follwing code do not add -1
+        return ResourceHandle{static_cast<std::uint64_t>(std::distance(iter, m_ResourceNodes.rend()))};
+    }
+    return ResourceHandle::InvalidHandle();
 }
 
 auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {

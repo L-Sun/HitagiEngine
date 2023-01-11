@@ -58,8 +58,9 @@ void DX12SwapChain::Resize() {
     HWND h_wnd = static_cast<HWND>(desc.window_ptr);
     RECT rect;
     GetClientRect(h_wnd, &rect);
-    std::uint32_t width  = rect.right - rect.left;
-    std::uint32_t height = rect.bottom - rect.top;
+
+    width  = rect.right - rect.left;
+    height = rect.bottom - rect.top;
 
     UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
     if (allow_tearing) {

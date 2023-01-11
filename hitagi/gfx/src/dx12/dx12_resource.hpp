@@ -67,6 +67,8 @@ struct DX12SwapChain final : public SwapChain {
         swap_chain->Present(desc.vsync ? 1 : 0, allow_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0);
         associated_queue->InsertFence();
     }
+    auto Width() -> std::uint32_t final { return width; };
+    auto Height() -> std::uint32_t final { return height; };
     void Resize() final;
 
     ComPtr<IDXGISwapChain4>                                         swap_chain;
@@ -74,6 +76,7 @@ struct DX12SwapChain final : public SwapChain {
     std::pmr::vector<std::shared_ptr<DX12ResourceWrapper<Texture>>> back_buffers;
     std::pmr::vector<std::pmr::string>                              back_buffer_names;
     DX12CommandQueue*                                               associated_queue;
+    std::uint32_t                                                   width, height;
 };
 
 }  // namespace hitagi::gfx

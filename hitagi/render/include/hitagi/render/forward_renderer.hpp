@@ -17,21 +17,21 @@ private:
     std::pmr::unordered_map<asset::Material*, gfx::ResourceHandle> material_constants;
 };
 
-struct GuiPass {};
-
 class ForwardRenderer : public IRenderer {
 public:
     ForwardRenderer(const Application& app, gfx::Device::Type gfx_device_type, gui::GuiManager* gui_manager = nullptr);
     ~ForwardRenderer() override;
 
-    void        Tick() override;
-    auto        RenderScene(const asset::Scene& scene, const gfx::ViewPort& viewport, const asset::CameraNode& camera) -> gfx::ResourceHandle override;
-    inline auto GetFrameTime() const noexcept -> std::chrono::duration<double> override { return m_Clock.DeltaTime(); }
+    void Tick() override;
+
+    auto RenderScene(const asset::Scene& scene, const asset::CameraNode& camera, const gfx::ViewPort& viewport, std::optional<math::vec2u> texture_size = std::nullopt) -> gfx::ResourceHandle override;
+    auto RenderGui(std::optional<gfx::ResourceHandle> target = std::nullopt) -> gfx::ResourceHandle override;
+    auto GetFrameTime() const noexcept -> std::chrono::duration<double> override { return m_Clock.DeltaTime(); }
 
     inline auto GetColorPass() const noexcept { return m_ColorPass; }
 
 private:
-    void BuildPasses();
+    void ClearPass();
 
     const Application& m_App;
 
@@ -41,6 +41,7 @@ private:
     std::unique_ptr<gfx::Device>                      m_GfxDevice;
     std::shared_ptr<gfx::SwapChain>                   m_SwapChain;
     gfx::RenderGraph                                  m_RenderGraph;
+    gfx::ResourceHandle                               m_BackBufferHandle;
     utils::EnumArray<std::uint64_t, gfx::CommandType> m_LastFenceValues;
 
     std::unique_ptr<GuiRenderUtils> m_GuiRenderUtils;

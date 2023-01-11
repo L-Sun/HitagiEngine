@@ -161,11 +161,11 @@ void GuiManager::MouseEvent() {
         }
     }
 
-    io.AddMousePosEvent(input_manager->GetFloat(MouseEvent::MOVE_X), input_manager->GetFloat(MouseEvent::MOVE_Y));
-    io.AddMouseWheelEvent(input_manager->GetFloatDelta(MouseEvent::SCROLL_X), input_manager->GetFloatDelta(MouseEvent::SCROLL_Y));
-    io.AddMouseButtonEvent(ImGuiMouseButton_Left, input_manager->GetBool(VirtualKeyCode::MOUSE_L_BUTTON));
-    io.AddMouseButtonEvent(ImGuiMouseButton_Right, input_manager->GetBool(VirtualKeyCode::MOUSE_R_BUTTON));
-    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, input_manager->GetBool(VirtualKeyCode::MOUSE_M_BUTTON));
+    io.AddMousePosEvent(input_manager->GetFloat(hid::MouseEvent::MOVE_X), input_manager->GetFloat(hid::MouseEvent::MOVE_Y));
+    io.AddMouseWheelEvent(input_manager->GetFloatDelta(hid::MouseEvent::SCROLL_X), input_manager->GetFloatDelta(hid::MouseEvent::SCROLL_Y));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Left, input_manager->GetBool(hid::VirtualKeyCode::MOUSE_L_BUTTON));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Right, input_manager->GetBool(hid::VirtualKeyCode::MOUSE_R_BUTTON));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, input_manager->GetBool(hid::VirtualKeyCode::MOUSE_M_BUTTON));
 }
 
 void GuiManager::KeysEvent() {

@@ -16,18 +16,17 @@ void SceneViewPort::Tick() {
     m_GuiManager.DrawGui([&]() {
         if (ImGui::Begin("Scene Viewer", &m_Open)) {
             if (m_CurrentScene) {
-                m_CurrentScene->Update();
                 const auto v_min       = ImGui::GetWindowContentRegionMin();
                 const auto v_max       = ImGui::GetWindowContentRegionMax();
-                const auto window_size = ImVec2(v_max.x - v_min.x, v_max.y - v_min.y);
+                const auto window_size = math::vec2u{v_max.x - v_min.x, v_max.y - v_min.y};
 
                 m_Camera->GetObjectRef()->parameters.aspect = window_size.x / window_size.y;
                 m_Camera->Update();
 
                 const auto view_port = m_Camera->GetObjectRef()->GetViewPort(window_size.x, window_size.y);
-                if (view_port.width != 0 && view_port.height != 0) {
-                    const auto output = m_Render.RenderScene(*m_CurrentScene, view_port, *m_Camera);
-                    ImGui::Image((void*)m_GuiManager.ReadTexture(output).id, window_size);
+                if (window_size.x != 0 && window_size.y != 0) {
+                    const auto output = m_Render.RenderScene(*m_CurrentScene, *m_Camera, view_port, window_size);
+                    ImGui::Image((void*)m_GuiManager.ReadTexture(output).id, ImVec2(window_size.x, window_size.y));
                 }
             }
         }

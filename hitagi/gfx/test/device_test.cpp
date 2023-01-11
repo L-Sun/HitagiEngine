@@ -397,6 +397,8 @@ TEST_F(D3DDeviceTest, SwapChainTest) {
                 .format     = Format::R8G8B8A8_UNORM,
             });
         ASSERT_TRUE(swap_chain);
+        EXPECT_EQ(swap_chain->Width(), rect.right - rect.left);
+        EXPECT_EQ(swap_chain->Height(), rect.bottom - rect.top);
 
         ASSERT_NO_THROW(swap_chain->GetBuffer(0));
         auto& back_buffer = swap_chain->GetBuffer(0);

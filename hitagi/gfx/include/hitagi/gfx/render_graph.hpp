@@ -73,6 +73,8 @@ public:
     auto Import(std::string_view name, std::shared_ptr<Resource>) -> ResourceHandle;
     // render graph don not keep the resource life
     auto ImportWithoutLifeTrack(std::string_view name, Resource* res) -> ResourceHandle;
+    // get the newest resource handle from back board
+    auto GetImportedResourceHandle(std::string_view name) -> ResourceHandle;
 
     void PresentPass(ResourceHandle back_buffer);
 

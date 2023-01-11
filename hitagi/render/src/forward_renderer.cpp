@@ -25,10 +25,13 @@ ForwardRenderer::ForwardRenderer(const Application& app, gfx::Device::Type gfx_d
       m_LastFenceValues(utils::create_enum_array<std::uint64_t, gfx::CommandType>(0)),
       m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, *m_GfxDevice) : nullptr) {
     m_Clock.Start();
+    ClearPass();
 }
 
+ForwardRenderer::~ForwardRenderer() { m_GfxDevice->WaitIdle(); }
+
 void ForwardRenderer::Tick() {
-    BuildPasses();
+    m_RenderGraph.PresentPass(m_RenderGraph.GetImportedResourceHandle("BackBuffer"));
 
     // if (thread_manager) {
     //     auto compile         = thread_manager->RunTask([this]() {
@@ -73,11 +76,11 @@ void ForwardRenderer::Tick() {
 
     m_GfxDevice->Profile(m_FrameIndex);
     m_Clock.Tick();
+
+    ClearPass();
 }
 
-ForwardRenderer::~ForwardRenderer() { m_GfxDevice->WaitIdle(); }
-
-auto ForwardRenderer::RenderScene(const asset::Scene& scene, const gfx::ViewPort& viewport, const asset::CameraNode& camera) -> gfx::ResourceHandle {
+auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::CameraNode& camera, const gfx::ViewPort& viewport, std::optional<math::vec2u> texture_size) -> gfx::ResourceHandle {
     struct DrawItem {
         std::shared_ptr<asset::MeshNode>    instance;
         std::shared_ptr<asset::Material>    material;
@@ -153,25 +156,39 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const gfx::ViewPort
     m_ColorPass = m_RenderGraph.AddPass<ColorPass>(
         "ColorPass",
         [&](gfx::RenderGraph::Builder& builder, ColorPass& data) {
-            data.color = builder.Create(gfx::Texture::Desc{
-                .name   = "scene-output",
-                .width  = static_cast<std::uint32_t>(viewport.width),
-                .height = static_cast<std::uint32_t>(viewport.height),
-                .format = gfx::Format::R8G8B8A8_UNORM,
-                .usages = gfx::Texture::UsageFlags::SRV | gfx::Texture::UsageFlags::RTV,
-            });
-
-            data.depth = builder.Create(gfx::Texture::Desc{
-                .name        = "scene-depth",
-                .width       = static_cast<std::uint32_t>(viewport.width),
-                .height      = static_cast<std::uint32_t>(viewport.height),
-                .format      = gfx::Format::D16_UNORM,
-                .clear_value = {
-                    .depth   = 1.0f,
-                    .stencil = 0,
-                },
-                .usages = gfx::Texture::UsageFlags::DSV,
-            });
+            if (texture_size.has_value()) {
+                data.color = builder.Create(gfx::Texture::Desc{
+                    .name   = "scene-output",
+                    .width  = static_cast<std::uint32_t>(texture_size->x),
+                    .height = static_cast<std::uint32_t>(texture_size->y),
+                    .format = gfx::Format::R8G8B8A8_UNORM,
+                    .usages = gfx::Texture::UsageFlags::SRV | gfx::Texture::UsageFlags::RTV,
+                });
+                data.depth = builder.Create(gfx::Texture::Desc{
+                    .name        = "scene-depth",
+                    .width       = static_cast<std::uint32_t>(texture_size->x),
+                    .height      = static_cast<std::uint32_t>(texture_size->y),
+                    .format      = gfx::Format::D16_UNORM,
+                    .clear_value = {
+                        .depth   = 1.0f,
+                        .stencil = 0,
+                    },
+                    .usages = gfx::Texture::UsageFlags::DSV,
+                });
+            } else {
+                data.color = builder.Write(m_BackBufferHandle);
+                data.depth = builder.Create(gfx::Texture::Desc{
+                    .name        = "scene-depth",
+                    .width       = static_cast<std::uint32_t>(m_SwapChain->Width()),
+                    .height      = static_cast<std::uint32_t>(m_SwapChain->Height()),
+                    .format      = gfx::Format::D16_UNORM,
+                    .clear_value = {
+                        .depth   = 1.0f,
+                        .stencil = 0,
+                    },
+                    .usages = gfx::Texture::UsageFlags::DSV,
+                });
+            }
 
             data.frame_constant = builder.Create(gfx::GpuBuffer::Desc{
                 .name         = "frame-constant",
@@ -302,23 +319,33 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const gfx::ViewPort
                     draw_call.submesh.vertex_offset);
             }
         });
+
+    if (!texture_size.has_value()) {
+        m_BackBufferHandle = m_ColorPass.color;
+    }
     return m_ColorPass.color;
 }
 
-void ForwardRenderer::BuildPasses() {
-    auto back_buffer = m_RenderGraph.ImportWithoutLifeTrack("BackBuffer", &m_SwapChain->GetCurrentBackBuffer());
+auto ForwardRenderer::RenderGui(std::optional<gfx::ResourceHandle> target) -> gfx::ResourceHandle {
+    auto gui_pass = m_GuiRenderUtils->GuiPass(m_RenderGraph, target.has_value() ? target.value() : m_BackBufferHandle);
 
-    auto cleared_back_buffer = m_RenderGraph.AddPass<gfx::ResourceHandle>(
+    if (target.has_value()) {
+        m_BackBufferHandle = gui_pass;
+    }
+
+    return gui_pass;
+}
+
+void ForwardRenderer::ClearPass() {
+    m_BackBufferHandle = m_RenderGraph.AddPass<gfx::ResourceHandle>(
         "ClearPass",
         [&](gfx::RenderGraph::Builder& builder, auto& cleared_back_buffer) {
-            cleared_back_buffer = builder.Write(back_buffer);
+            cleared_back_buffer = builder.Write(m_RenderGraph.ImportWithoutLifeTrack("BackBuffer", &m_SwapChain->GetCurrentBackBuffer()));
         },
         [=](const gfx::RenderGraph::ResourceHelper& helper, auto& cleared_back_buffer, gfx::GraphicsCommandContext* context) {
             context->SetRenderTarget(helper.Get<gfx::Texture>(cleared_back_buffer));
             context->ClearRenderTarget(helper.Get<gfx::Texture>(cleared_back_buffer));
         });
-
-    m_RenderGraph.PresentPass(m_GuiRenderUtils->GuiPass(m_RenderGraph, cleared_back_buffer));
 }
 
 }  // namespace hitagi::render

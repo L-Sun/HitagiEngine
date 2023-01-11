@@ -151,6 +151,8 @@ struct SwapChain : public Resource {
     virtual auto GetCurrentBackIndex() -> std::uint8_t     = 0;
     virtual auto GetCurrentBackBuffer() -> Texture&        = 0;
     virtual auto GetBuffer(std::uint8_t index) -> Texture& = 0;
+    virtual auto Width() -> std::uint32_t                  = 0;
+    virtual auto Height() -> std::uint32_t                 = 0;
     virtual void Present()                                 = 0;
     virtual void Resize()                                  = 0;
 };

@@ -1,7 +1,7 @@
 #pragma once
 #include <hitagi/math/vector.hpp>
 
-namespace hitagi {
+namespace hitagi::hid {
 
 template <typename T>
 struct DoubleState {
@@ -177,4 +177,4 @@ enum class VirtualKeyCode {
     NUM
 };
 
-}  // namespace hitagi
+}  // namespace hitagi::hid

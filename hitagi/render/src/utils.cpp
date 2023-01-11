@@ -109,14 +109,14 @@ GuiRenderUtils::GuiRenderUtils(gui::GuiManager& gui_manager, gfx::Device& gfx_de
         {reinterpret_cast<const std::byte*>(pixels), size});
 }
 
-auto GuiRenderUtils::GuiPass(gfx::RenderGraph& rg, gfx::ResourceHandle target) -> gfx::ResourceHandle {
+auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle target) -> gfx::ResourceHandle {
     struct GuiRenderPass {
         gfx::ResourceHandle vertices_buffer;
         gfx::ResourceHandle indices_buffer;
         gfx::ResourceHandle output;
     } gui_pass;
 
-    auto font_tex_handle = m_GuiManager.ReadTexture(rg.Import("imgui-font", m_GfxData.font_texture));
+    auto font_tex_handle = m_GuiManager.ReadTexture(render_graph.Import("imgui-font", m_GfxData.font_texture));
     ImGui::GetIO().Fonts->SetTexID((void*)(font_tex_handle.id));
 
     m_GuiManager.Render();
@@ -125,7 +125,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& rg, gfx::ResourceHandle target) -
     if (draw_data == nullptr) return target;
 
     if (m_GfxData.vertices_buffer == nullptr || m_GfxData.vertices_buffer->desc.element_count < draw_data->TotalVtxCount) {
-        m_GfxData.vertices_buffer = rg.device.CreateBuffer({
+        m_GfxData.vertices_buffer = render_graph.device.CreateBuffer({
             .name          = "imgui-vertices",
             .element_size  = sizeof(ImDrawVert),
             .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalVtxCount)),
@@ -134,7 +134,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& rg, gfx::ResourceHandle target) -
     }
 
     if (m_GfxData.indices_buffer == nullptr || m_GfxData.indices_buffer->desc.element_count < draw_data->TotalIdxCount) {
-        m_GfxData.indices_buffer = rg.device.CreateBuffer({
+        m_GfxData.indices_buffer = render_graph.device.CreateBuffer({
             .name          = "imgui-indices",
             .element_size  = sizeof(ImDrawIdx),
             .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalIdxCount)),
@@ -144,16 +144,16 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& rg, gfx::ResourceHandle target) -
 
     std::size_t total_upload_size = draw_data->TotalVtxCount * sizeof(ImDrawVert) + draw_data->TotalIdxCount * sizeof(ImDrawIdx);
     if (m_GfxData.upload_heap == nullptr || m_GfxData.upload_heap->desc.element_size < total_upload_size) {
-        m_GfxData.upload_heap = rg.device.CreateBuffer({
+        m_GfxData.upload_heap = render_graph.device.CreateBuffer({
             .name         = "imgui-upload-heap",
             .element_size = std::max(1ull, total_upload_size),
             .usages       = gfx::GpuBuffer::UsageFlags::MapWrite | gfx::GpuBuffer::UsageFlags::CopySrc,
         });
     }
 
-    auto vertices_buffer = rg.Import(m_GfxData.vertices_buffer->desc.name, m_GfxData.vertices_buffer);
-    auto indices_buffer  = rg.Import(m_GfxData.indices_buffer->desc.name, m_GfxData.indices_buffer);
-    auto upload_heap     = rg.Import(m_GfxData.upload_heap->desc.name, m_GfxData.upload_heap);
+    auto vertices_buffer = render_graph.Import(m_GfxData.vertices_buffer->desc.name, m_GfxData.vertices_buffer);
+    auto indices_buffer  = render_graph.Import(m_GfxData.indices_buffer->desc.name, m_GfxData.indices_buffer);
+    auto upload_heap     = render_graph.Import(m_GfxData.upload_heap->desc.name, m_GfxData.upload_heap);
 
     struct GuiVertexCopyPass {
         gfx::ResourceHandle upload_heap;
@@ -161,7 +161,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& rg, gfx::ResourceHandle target) -
         gfx::ResourceHandle indices_buffer;
     };
 
-    auto gui_vertex_copy_pass = rg.AddPass<GuiVertexCopyPass>(
+    auto gui_vertex_copy_pass = render_graph.AddPass<GuiVertexCopyPass>(
         "gui_copy_pass",
         [&](gfx::RenderGraph::Builder& builder, GuiVertexCopyPass& data) {
             data.vertices_buffer = builder.Write(vertices_buffer);
@@ -201,14 +201,14 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& rg, gfx::ResourceHandle target) -
             context->CopyBuffer(upload_heap, vertex_total_size, indices_buffer, 0, index_total_size);
         });
 
-    gui_pass = rg.AddPass<GuiRenderPass>(
+    gui_pass = render_graph.AddPass<GuiRenderPass>(
         "GuiRenderPass",
         [&](gfx::RenderGraph::Builder& builder, GuiRenderPass& data) {
             data.vertices_buffer = builder.Read(gui_vertex_copy_pass.vertices_buffer);
             data.indices_buffer  = builder.Read(gui_vertex_copy_pass.indices_buffer);
             data.output          = builder.Write(target);
 
-            auto textures = m_GuiManager.PopReadedTextures();
+            auto textures = m_GuiManager.PopReadTextures();
             for (const auto& tex : textures) {
                 builder.Read(tex);
             }

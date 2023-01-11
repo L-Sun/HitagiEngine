@@ -316,6 +316,9 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
 
     m_SwapChains.emplace(desc.window_ptr, result);
 
+    result->width  = result->GetCurrentBackBuffer().desc.width;
+    result->height = result->GetCurrentBackBuffer().desc.height;
+
     return result;
 }
 

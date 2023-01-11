@@ -9,4 +9,5 @@ public:
     hitagi::Engine&                            engine;
     hitagi::asset::Scene                       scene;
     std::shared_ptr<hitagi::asset::CameraNode> camera;
+    std::shared_ptr<hitagi::asset::MeshNode>   cube;
 };

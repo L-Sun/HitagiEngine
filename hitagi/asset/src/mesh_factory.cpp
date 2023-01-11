@@ -77,21 +77,22 @@ auto MeshFactory::Cube() -> std::shared_ptr<Mesh> {
     //  0 -------- 1
     constexpr std::array cube_positions = {
         vec3f{-0.5, -0.5, -0.5},
-        vec3f{+0.5, -0.5, +0.5},
         vec3f{+0.5, -0.5, -0.5},
+        vec3f{+0.5, -0.5, +0.5},
         vec3f{-0.5, -0.5, +0.5},
         vec3f{-0.5, +0.5, -0.5},
-        vec3f{+0.5, +0.5, +0.5},
         vec3f{+0.5, +0.5, -0.5},
+        vec3f{+0.5, +0.5, +0.5},
         vec3f{-0.5, +0.5, +0.5},
     };
     constexpr std::array<std::uint16_t, 36> cube_indices = {
-        0, 1, 2, 2, 3, 0,
-        1, 5, 6, 6, 2, 1,
-        5, 4, 7, 7, 6, 5,
-        0, 3, 7, 7, 4, 3,
-        0, 4, 5, 5, 1, 0,
-        3, 7, 6, 6, 2, 3};
+        0, 1, 2, 2, 3, 0,  // front
+        1, 5, 6, 6, 2, 1,  // right
+        5, 4, 7, 7, 6, 5,  // back
+        0, 3, 7, 7, 4, 0,  // left
+        0, 4, 5, 5, 1, 0,  // back
+        3, 2, 6, 6, 7, 3,  // top
+    };
 
     auto vertices = std::make_shared<VertexArray>(8, "cube");
     vertices->Modify<VertexAttribute::Position>([&](std::span<vec3f> pos) {
