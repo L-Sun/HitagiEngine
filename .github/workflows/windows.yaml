@@ -27,6 +27,7 @@ jobs:
       - uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
+          actions-cache-folder: ".xmake-cache"
 
       - name: Cache Xmake Package
         id: cache-xmake-package

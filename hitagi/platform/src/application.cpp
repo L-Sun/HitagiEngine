@@ -12,8 +12,9 @@
 namespace hitagi {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, title, version, width, height, asset_root_path);
 
-auto load_app_config(const std::filesystem::path& config_path) -> AppConfig {
-    if (config_path.empty()) return {};
+auto load_app_config(const std::filesystem::path& config_path) -> std::optional<AppConfig> {
+    if (config_path.empty() || !std::filesystem::exists(config_path))
+        return std::nullopt;
 
     nlohmann::json json;
     if (file_io_manager) {
@@ -52,7 +53,8 @@ void Application::Tick() {
 }
 
 auto Application::CreateApp(const std::filesystem::path& config_path) -> std::unique_ptr<Application> {
-    return Application::CreateApp(load_app_config(config_path));
+    auto config = load_app_config(config_path);
+    return Application::CreateApp(config.has_value() ? config.value() : AppConfig{});
 }
 
 auto Application::CreateApp(AppConfig config) -> std::unique_ptr<Application> {
