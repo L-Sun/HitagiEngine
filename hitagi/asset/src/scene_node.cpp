@@ -44,7 +44,7 @@ void CameraNode::Update() {
     math::vec3f global_up       = (rotate(r) * vec4f(camera_param.up, 0.0f)).xyz;
 
     m_View       = look_at(global_eye, global_look_dir, global_up);
-    m_Projection = perspective(camera_param.fov, camera_param.aspect, camera_param.near_clip, camera_param.far_clip);
+    m_Projection = perspective(camera_param.horizontal_fov, camera_param.aspect, camera_param.near_clip, camera_param.far_clip);
     m_PV         = m_Projection * m_View;
 
     m_InvView       = inverse(m_View);

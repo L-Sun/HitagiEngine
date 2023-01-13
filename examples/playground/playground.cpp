@@ -45,10 +45,9 @@ void Playground::Tick() {
     });
 
     auto window_rect = engine.App().GetWindowsRect();
-    auto viewport    = camera->GetObjectRef()->GetViewPort(
-        window_rect.right - window_rect.left,
-        window_rect.bottom - window_rect.top);
+
+    camera->GetObjectRef()->parameters.aspect = (window_rect.right - window_rect.left) / (window_rect.bottom - window_rect.top);
 
     auto& renderer = engine.Renderer();
-    renderer.RenderGui(renderer.RenderScene(scene, *camera, viewport));
+    renderer.RenderGui(renderer.RenderScene(scene, *camera));
 }

@@ -33,21 +33,20 @@ ForwardRenderer::~ForwardRenderer() { m_GfxDevice->WaitIdle(); }
 void ForwardRenderer::Tick() {
     m_RenderGraph.PresentPass(m_RenderGraph.GetImportedResourceHandle("BackBuffer"));
 
-    // if (thread_manager) {
-    //     auto compile         = thread_manager->RunTask([this]() {
-    //         ZoneScopedN("RenderGraph Compile");
-    //         return m_RenderGraph.Compile();
-    //     });
-    //     auto wait_last_frame = thread_manager->RunTask([this]() {
-    //         ZoneScopedN("Wait Last Frame");
-    //         magic_enum::enum_for_each<gfx::CommandType>([this](auto type) {
-    //             m_GfxDevice->GetCommandQueue(type())->WaitForFence(m_LastFenceValues[type()]);
-    //         });
-    //     });
-    //     compile.wait();
-    //     wait_last_frame.wait();
-    // } else
-    {
+    if (thread_manager) {
+        auto compile         = thread_manager->RunTask([this]() {
+            ZoneScopedN("RenderGraph Compile");
+            return m_RenderGraph.Compile();
+        });
+        auto wait_last_frame = thread_manager->RunTask([this]() {
+            ZoneScopedN("Wait Last Frame");
+            magic_enum::enum_for_each<gfx::CommandType>([this](auto type) {
+                m_GfxDevice->GetCommandQueue(type())->WaitForFence(m_LastFenceValues[type()]);
+            });
+        });
+        compile.wait();
+        wait_last_frame.wait();
+    } else {
         {
             ZoneScopedN("RenderGraph Compile");
             m_RenderGraph.Compile();
@@ -80,7 +79,7 @@ void ForwardRenderer::Tick() {
     ClearPass();
 }
 
-auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::CameraNode& camera, const gfx::ViewPort& viewport, std::optional<math::vec2u> texture_size) -> gfx::ResourceHandle {
+auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::CameraNode& camera, std::optional<gfx::ViewPort> viewport, std::optional<math::vec2u> texture_size) -> gfx::ResourceHandle {
     struct DrawItem {
         std::shared_ptr<asset::MeshNode>    instance;
         std::shared_ptr<asset::Material>    material;
@@ -226,7 +225,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 }
             }
         },
-        [=, draw_calls = std::move(draw_items)](const gfx::RenderGraph::ResourceHelper& helper, const ColorPass& data, gfx::GraphicsCommandContext* context) {
+        [=, draw_calls = std::move(draw_items)](const gfx::RenderGraph::ResourceHelper& helper, const ColorPass& data, gfx::GraphicsCommandContext* context) mutable {
             helper.Get<gfx::GpuBuffer>(data.frame_constant).Update(0, frame_constant);
 
             auto& instance_constant = helper.Get<gfx::GpuBuffer>(data.instance_constant);
@@ -262,18 +261,27 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 }
             }
 
-            context->SetViewPort(viewport);
-            context->SetScissorRect(gfx::Rect{
-                .x      = static_cast<std::uint32_t>(viewport.x),
-                .y      = static_cast<std::uint32_t>(viewport.y),
-                .width  = static_cast<std::uint32_t>(viewport.width),
-                .height = static_cast<std::uint32_t>(viewport.height)});
-
             auto& render_target = helper.Get<gfx::Texture>(data.color);
             auto& depth_buffer  = helper.Get<gfx::Texture>(data.depth);
             context->SetRenderTargetAndDepthStencil(render_target, depth_buffer);
             context->ClearRenderTarget(render_target);
             context->ClearDepthStencil(depth_buffer);
+
+            if (!viewport.has_value()) {
+                viewport = gfx::ViewPort{
+                    .x      = 0,
+                    .y      = 0,
+                    .width  = static_cast<float>(render_target.desc.width),
+                    .height = static_cast<float>(render_target.desc.height),
+                };
+            }
+
+            context->SetViewPort(viewport.value());
+            context->SetScissorRect(gfx::Rect{
+                .x      = static_cast<std::uint32_t>(viewport->x),
+                .y      = static_cast<std::uint32_t>(viewport->y),
+                .width  = static_cast<std::uint32_t>(viewport->width),
+                .height = static_cast<std::uint32_t>(viewport->height)});
 
             gfx::RenderPipeline* curr_pipeline     = nullptr;
             asset::VertexArray*  curr_vertices     = nullptr;

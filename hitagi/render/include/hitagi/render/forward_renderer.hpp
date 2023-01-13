@@ -24,7 +24,7 @@ public:
 
     void Tick() override;
 
-    auto RenderScene(const asset::Scene& scene, const asset::CameraNode& camera, const gfx::ViewPort& viewport, std::optional<math::vec2u> texture_size = std::nullopt) -> gfx::ResourceHandle override;
+    auto RenderScene(const asset::Scene& scene, const asset::CameraNode& camera, std::optional<gfx::ViewPort> viewport = std::nullopt, std::optional<math::vec2u> texture_size = std::nullopt) -> gfx::ResourceHandle override;
     auto RenderGui(std::optional<gfx::ResourceHandle> target = std::nullopt) -> gfx::ResourceHandle override;
     auto GetFrameTime() const noexcept -> std::chrono::duration<double> override { return m_Clock.DeltaTime(); }
 

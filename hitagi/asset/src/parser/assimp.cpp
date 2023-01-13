@@ -131,13 +131,13 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
 
         auto camera = std::make_shared<Camera>(
             Camera::Parameters{
-                .aspect    = _camera->mAspect,
-                .near_clip = _camera->mClipPlaneNear,
-                .far_clip  = _camera->mClipPlaneFar,
-                .fov       = _camera->mHorizontalFOV,
-                .eye       = get_vec3(_camera->mPosition),
-                .look_dir  = get_vec3(_camera->mLookAt),
-                .up        = get_vec3(_camera->mUp),
+                .aspect         = _camera->mAspect,
+                .near_clip      = _camera->mClipPlaneNear,
+                .far_clip       = _camera->mClipPlaneFar,
+                .horizontal_fov = _camera->mHorizontalFOV,
+                .eye            = get_vec3(_camera->mPosition),
+                .look_dir       = get_vec3(_camera->mLookAt),
+                .up             = get_vec3(_camera->mUp),
             },
             _camera->mName.C_Str());
 

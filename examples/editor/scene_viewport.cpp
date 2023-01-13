@@ -22,12 +22,11 @@ void SceneViewPort::Tick() {
                     static_cast<std::uint32_t>(v_max.x - v_min.x),
                     static_cast<std::uint32_t>(v_max.y - v_min.y)};
 
-                m_Camera->GetObjectRef()->parameters.aspect = window_size.x / window_size.y;
+                m_Camera->GetObjectRef()->parameters.aspect = static_cast<float>(window_size.x) / static_cast<float>(window_size.y);
                 m_Camera->Update();
 
-                const auto view_port = m_Camera->GetObjectRef()->GetViewPort(window_size.x, window_size.y);
                 if (window_size.x != 0 && window_size.y != 0) {
-                    const auto output = m_Render.RenderScene(*m_CurrentScene, *m_Camera, view_port, window_size);
+                    const auto output = m_Render.RenderScene(*m_CurrentScene, *m_Camera, std::nullopt, window_size);
                     ImGui::Image((void*)m_GuiManager.ReadTexture(output).id, ImVec2(window_size.x, window_size.y));
                 }
             }
