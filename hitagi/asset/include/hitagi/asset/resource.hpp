@@ -15,6 +15,7 @@ public:
 
     inline const auto& GetName() const noexcept { return m_Name; }
     inline const auto& GetGuid() const noexcept { return m_Guid; }
+    auto               GetUniqueName() const noexcept -> std::pmr::string;
 
     inline void SetName(std::string_view name) noexcept { m_Name = name; }
 

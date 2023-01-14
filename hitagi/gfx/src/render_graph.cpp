@@ -5,29 +5,52 @@
 
 #include <taskflow/taskflow.hpp>
 #include <tracy/Tracy.hpp>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <fmt/color.h>
 
 #include <algorithm>
 
 namespace hitagi::gfx {
 
-auto RenderGraph::Builder::Create(ResourceDesc desc) const noexcept -> ResourceHandle {
+RenderGraph::RenderGraph(Device& device)
+    : device(device),
+      m_Executor(),
+      m_Logger(spdlog::stdout_color_mt("RenderGraph")) {
+}
+
+auto RenderGraph::Builder::Create(ResourceDesc desc) const -> ResourceHandle {
     auto ret = Write(m_RenderGraph.CreateResource(desc));
     m_Node->writes.emplace(ret);
     return ret;
 }
 
-auto RenderGraph::Builder::Read(ResourceHandle input) const noexcept -> ResourceHandle {
+auto RenderGraph::Builder::Read(ResourceHandle input) const -> ResourceHandle {
     assert(input.id <= m_RenderGraph.m_ResourceNodes.size() && "Invalid resource handle");
     m_Node->reads.emplace(input);
     return input;
 }
 
-auto RenderGraph::Builder::Write(ResourceHandle output) const noexcept -> ResourceHandle {
+auto RenderGraph::Builder::Write(ResourceHandle output) const -> ResourceHandle {
     assert(output.id <= m_RenderGraph.m_ResourceNodes.size() && "Invalid resource handle");
 
-    m_Node->reads.emplace(output);
+    auto& old_res_node = m_RenderGraph.GetResrouceNode(output);
+    // We must make sure the version `old_res_node` is newest now.
+    if (auto iter = std::find_if(
+            m_RenderGraph.m_ResourceNodes.rbegin(),
+            m_RenderGraph.m_ResourceNodes.rend(),
+            [&](const ResourceNode& res_node) -> bool {
+                return res_node.res_idx == old_res_node.res_idx;
+            });
+        iter->version > old_res_node.version) {
+        m_RenderGraph.m_Logger->warn(
+            "Could wirte to old version({}) resource ({})",
+            fmt::styled(old_res_node.version, fmt::fg(fmt::color::orange)),
+            fmt::styled(m_RenderGraph.m_Resources[old_res_node.res_idx]->name.c_str(), fmt::fg(fmt::color::orange)));
 
-    ResourceNode& old_res_node = m_RenderGraph.GetResrouceNode(output);
+        return ResourceHandle::InvalidHandle();
+    }
+
+    m_Node->reads.emplace(output);
     // Create new resource node
     auto& new_res_node   = m_RenderGraph.m_ResourceNodes.emplace_back(old_res_node.name, old_res_node.res_idx);
     new_res_node.writer  = m_Node;
@@ -36,6 +59,26 @@ auto RenderGraph::Builder::Write(ResourceHandle output) const noexcept -> Resour
     output = {m_RenderGraph.m_ResourceNodes.size()};
     m_Node->writes.emplace(output);
     return output;
+}
+
+void RenderGraph::Builder::UseRenderPipeline(std::shared_ptr<RenderPipeline> pipeline) const {
+    if (m_Node->type != CommandType::Graphics) {
+        m_RenderGraph.m_Logger->warn(
+            "Pass node (type: {}) can not use RenderPipeline({})",
+            fmt::styled(magic_enum::enum_name(m_Node->type), fmt::fg(fmt::color::green)),
+            fmt::styled(pipeline->name.c_str(), fmt::fg(fmt::color::orange)));
+    }
+    m_Node->render_pipelines.emplace_back(std::move(pipeline));
+}
+
+void RenderGraph::Builder::UseComputePipeline(std::shared_ptr<ComputePipeline> pipeline) const {
+    if (m_Node->type != CommandType::Compute) {
+        m_RenderGraph.m_Logger->warn(
+            "Pass node (type: {}) can not use ComputePipeline({})",
+            fmt::styled(magic_enum::enum_name(m_Node->type), fmt::fg(fmt::color::green)),
+            fmt::styled(pipeline->name.c_str(), fmt::fg(fmt::color::orange)));
+    }
+    m_Node->compute_pipelines.emplace_back(std::move(pipeline));
 }
 
 void RenderGraph::PresentPass(ResourceHandle back_buffer) {
@@ -53,26 +96,44 @@ void RenderGraph::PresentPass(ResourceHandle back_buffer) {
 }
 
 auto RenderGraph::Import(std::string_view name, std::shared_ptr<Resource> res) -> ResourceHandle {
-    if (m_BlackBoard.contains(std::pmr::string(name))) {
-        return ResourceHandle::InvalidHandle();
+    if (std::pmr::string _name = {name.begin(), name.end()}; m_BlackBoard.contains(_name)) {
+        auto iter = std::find_if(
+            m_ResourceNodes.rbegin(),
+            m_ResourceNodes.rend(),
+            [&, res_idx = m_BlackBoard.at(_name)](const ResourceNode& res_node) -> bool {
+                return res_node.res_idx == res_idx;
+            });
+        return {static_cast<std::uint64_t>(std::distance(iter, m_ResourceNodes.rend()))};
     }
 
     if (std::find(m_OutterResources.begin(), m_OutterResources.end(), res) == m_OutterResources.end()) {
         m_OutterResources.emplace_back(res);
     }
 
-    return ImportWithoutLifeTrack(name, res.get());
+    const std::size_t res_idx = m_Resources.size();
+    m_Resources.emplace_back(res.get());
+    m_BlackBoard.emplace(std::pmr::string(name), res_idx);
+    m_ResourceNodes.emplace_back(name, res_idx);
+
+    return ResourceHandle{m_ResourceNodes.size()};
 }
 
 auto RenderGraph::ImportWithoutLifeTrack(std::string_view name, Resource* res) -> ResourceHandle {
-    if (m_BlackBoard.contains(std::pmr::string(name))) {
-        return ResourceHandle::InvalidHandle();
+    if (std::pmr::string _name = {name.begin(), name.end()}; m_BlackBoard.contains(_name)) {
+        auto iter = std::find_if(
+            m_ResourceNodes.rbegin(),
+            m_ResourceNodes.rend(),
+            [&, res_idx = m_BlackBoard.at(_name)](const ResourceNode& res_node) -> bool {
+                return res_node.res_idx == res_idx;
+            });
+        return {static_cast<std::uint64_t>(std::distance(iter, m_ResourceNodes.rend()))};
     }
 
-    std::size_t res_idx = m_Resources.size();
+    const std::size_t res_idx = m_Resources.size();
     m_Resources.emplace_back(res);
     m_BlackBoard.emplace(std::pmr::string(name), res_idx);
     m_ResourceNodes.emplace_back(name, res_idx);
+
     return ResourceHandle{m_ResourceNodes.size()};
 }
 
@@ -269,6 +330,8 @@ auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
         fence_values[queue->type] = queue->Submit(contexts);
 
         std::for_each(left, right, [&](PassNode* node) {
+            assert(node->type == queue->type);
+
             m_ContextPool[node->type].emplace_back(std::move(node->context));
             for (auto res_handle : node->reads) {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
@@ -282,6 +345,15 @@ auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
                     m_RetiredResources[queue->type].emplace_back(track_res, fence_values[queue->type]);
+                }
+            }
+            if (node->type == CommandType::Graphics) {
+                for (auto render_pipeline : node->render_pipelines) {
+                    m_RetiredResources[queue->type].emplace_back(render_pipeline, fence_values[queue->type]);
+                }
+            } else if (node->type == CommandType::Compute) {
+                for (auto compute_pipeline : node->compute_pipelines) {
+                    m_RetiredResources[queue->type].emplace_back(compute_pipeline, fence_values[queue->type]);
                 }
             }
         });

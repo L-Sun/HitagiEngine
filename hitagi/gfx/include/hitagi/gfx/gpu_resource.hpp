@@ -13,9 +13,10 @@ class Device;
 constexpr auto UNKOWN_NAME = "Unkown";
 struct Resource {
     virtual ~Resource() = default;
-    Resource(Device& device) : device(device) {}
+    Resource(Device& device, std::string_view name = UNKOWN_NAME) : device(device), name(name) {}
     Resource(const Resource&) = delete;
-    Device& device;
+    Device&          device;
+    std::pmr::string name;
 };
 
 struct GpuBuffer : public Resource {
@@ -42,7 +43,9 @@ struct GpuBuffer : public Resource {
     };
 
     GpuBuffer(Device& device, Desc desc, std::size_t size, std::byte* mapped_ptr)
-        : Resource(device), desc(desc), size(size), mapped_ptr(mapped_ptr) {}
+        : Resource(device, desc.name), desc(desc), size(size), mapped_ptr(mapped_ptr) {
+        desc.name = name;
+    }
 
     template <typename T>
     void Update(std::size_t index, T data) {
@@ -97,7 +100,9 @@ struct Texture : public Resource {
         constexpr bool operator==(const Desc&) const noexcept;
     };
 
-    Texture(Device& device, Desc desc) : Resource(device), desc(desc) {}
+    Texture(Device& device, Desc desc) : Resource(device, desc.name), desc(desc) {
+        desc.name = name;
+    }
 
     const Desc desc;
 };
@@ -129,7 +134,9 @@ struct Sampler : public Resource {
         constexpr bool operator==(const Desc&) const noexcept;
     };
 
-    Sampler(Device& device, Desc desc) : Resource(device), desc(desc) {}
+    Sampler(Device& device, Desc desc) : Resource(device, desc.name), desc(desc) {
+        desc.name = name;
+    }
 
     const Desc desc;
 };
@@ -144,7 +151,9 @@ struct SwapChain : public Resource {
         bool             vsync        = false;
     };
 
-    SwapChain(Device& device, Desc desc) : Resource(device), desc(desc) {}
+    SwapChain(Device& device, Desc desc) : Resource(device, desc.name), desc(desc) {
+        desc.name = name;
+    }
 
     const Desc desc;
 
@@ -172,17 +181,22 @@ struct RenderPipeline : public Resource {
         Format                depth_sentcil_format = Format::UNKNOWN;
     };
 
-    RenderPipeline(Device& device, Desc desc) : Resource(device), desc(std::move(desc)) {}
+    RenderPipeline(Device& device, Desc desc) : Resource(device, desc.name), desc(std::move(desc)) {
+        desc.name = name;
+    }
 
     const Desc desc;
 };
 
 struct ComputePipeline : public Resource {
     struct Desc {
-        Shader cs;  // computer shader
+        std::string_view name = UNKOWN_NAME;
+        Shader           cs;  // computer shader
     };
 
-    ComputePipeline(Device& device, Desc desc) : Resource(device), desc(std::move(desc)) {}
+    ComputePipeline(Device& device, Desc desc) : Resource(device, desc.name), desc(std::move(desc)) {
+        desc.name = name;
+    }
 
     const Desc desc;
 };

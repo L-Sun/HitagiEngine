@@ -24,9 +24,11 @@ public:
         Builder(const Builder&) = delete;
         Builder(Builder&&)      = delete;
 
-        auto Create(ResourceDesc desc) const noexcept -> ResourceHandle;
-        auto Read(ResourceHandle input) const noexcept -> ResourceHandle;
-        auto Write(ResourceHandle output) const noexcept -> ResourceHandle;
+        auto Create(ResourceDesc desc) const -> ResourceHandle;
+        auto Read(ResourceHandle input) const -> ResourceHandle;
+        auto Write(ResourceHandle output) const -> ResourceHandle;
+        void UseRenderPipeline(std::shared_ptr<RenderPipeline> pipeline) const;
+        void UseComputePipeline(std::shared_ptr<ComputePipeline> pipeline) const;
 
     private:
         Builder(RenderGraph& render_graph, PassNode* node) : m_RenderGraph(render_graph), m_Node(node) {}
@@ -54,7 +56,7 @@ public:
         PassNode*    m_Node;
     };
 
-    RenderGraph(Device& device) : device(device), m_Executor() {}
+    RenderGraph(Device& device);
 
     template <typename PassData>
     using SetupFunc = std::function<void(Builder&, PassData&)>;
@@ -121,6 +123,8 @@ private:
     std::unordered_map<Texture::Desc, std::pair<std::shared_ptr<Texture>, std::uint64_t>>     m_TexturePool;
 
     utils::EnumArray<std::pmr::list<std::shared_ptr<CommandContext>>, CommandType> m_ContextPool;
+
+    std::shared_ptr<spdlog::logger> m_Logger;
 };
 
 template <typename PassData>

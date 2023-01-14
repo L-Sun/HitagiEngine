@@ -204,6 +204,8 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
     gui_pass = render_graph.AddPass<GuiRenderPass>(
         "GuiRenderPass",
         [&](gfx::RenderGraph::Builder& builder, GuiRenderPass& data) {
+            builder.UseRenderPipeline(m_GfxData.pipeline);
+
             data.vertices_buffer = builder.Read(gui_vertex_copy_pass.vertices_buffer);
             data.indices_buffer  = builder.Read(gui_vertex_copy_pass.indices_buffer);
             data.output          = builder.Write(target);

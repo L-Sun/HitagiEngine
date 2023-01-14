@@ -212,20 +212,21 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
             }
 
             for (const auto& item : draw_items) {
+                builder.UseRenderPipeline(item.material->GetPipeline());
                 // FIXME: need match the pipeline
                 magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
                     auto attribute_data = item.vertices->GetAttributeData(attr);
                     if (attribute_data.has_value()) {
-                        builder.Read(m_RenderGraph.Import(item.vertices->GetName(), attribute_data->get().gpu_buffer));
+                        builder.Read(m_RenderGraph.Import(item.vertices->GetUniqueName(), attribute_data->get().gpu_buffer));
                     }
                 });
-                builder.Read(m_RenderGraph.Import(item.inidices->GetName(), item.inidices->GetIndexData().gpu_buffer));
+                builder.Read(m_RenderGraph.Import(item.inidices->GetUniqueName(), item.inidices->GetIndexData().gpu_buffer));
                 for (const auto& texture : item.submesh.material_instance->GetTextures()) {
-                    builder.Read(m_RenderGraph.Import(texture->GetName(), texture->GetGpuData()));
+                    builder.Read(m_RenderGraph.Import(texture->GetUniqueName(), texture->GetGpuData()));
                 }
             }
         },
-        [=, draw_calls = std::move(draw_items)](const gfx::RenderGraph::ResourceHelper& helper, const ColorPass& data, gfx::GraphicsCommandContext* context) mutable {
+        [=](const gfx::RenderGraph::ResourceHelper& helper, const ColorPass& data, gfx::GraphicsCommandContext* context) mutable {
             helper.Get<gfx::GpuBuffer>(data.frame_constant).Update(0, frame_constant);
 
             auto& instance_constant = helper.Get<gfx::GpuBuffer>(data.instance_constant);
@@ -233,7 +234,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
             std::pmr::unordered_map<asset::MeshNode*, std::size_t> instance_constant_offset;
             {
                 std::size_t offset = 0;
-                for (const auto& draw_call : draw_calls) {
+                for (const auto& draw_call : draw_items) {
                     if (instance_constant_offset.contains(draw_call.instance.get())) continue;
                     instance_constant.Update(
                         offset,
@@ -246,9 +247,9 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
 
             std::pmr::unordered_map<asset::MaterialInstance*, std::size_t> material_constant_offset;
             {
-                material_constant_offset.reserve(draw_calls.size());
+                material_constant_offset.reserve(draw_items.size());
                 std::size_t offset = 0;
-                for (const auto& draw_call : draw_calls) {
+                for (const auto& draw_call : draw_items) {
                     auto material_instance = draw_call.submesh.material_instance.get();
                     auto material          = draw_call.material.get();
                     if (material_constant_offset.contains(material_instance)) continue;
@@ -288,7 +289,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
             asset::IndexArray*   curr_indices      = nullptr;
             asset::MeshNode*     curr_instance     = nullptr;
             gfx::GpuBuffer*      material_constant = nullptr;
-            for (const auto& draw_call : draw_calls) {
+            for (const auto& draw_call : draw_items) {
                 if (draw_call.material->GetPipeline() == nullptr) continue;
 
                 if (curr_pipeline != draw_call.material->GetPipeline().get()) {
