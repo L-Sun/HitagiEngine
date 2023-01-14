@@ -104,7 +104,9 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
         math::mat4f model;
     };
 
-    std::pmr::vector<DrawItem>                      draw_items;
+    // use shared_ptr to avoid unnecessory copying
+    auto draw_items = std::make_shared<std::pmr::vector<DrawItem>>();
+
     std::pmr::set<std::shared_ptr<asset::Material>> materials;
 
     for (const auto& node : scene.instance_nodes) {
@@ -121,7 +123,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
             }
 
             materials.emplace(material);
-            draw_items.emplace_back(DrawItem{
+            draw_items->emplace_back(DrawItem{
                 .instance = node,
                 .material = material,
                 .vertices = mesh->vertices,
@@ -148,7 +150,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
         .light_intensity   = lignt_node ? lignt_node->GetObjectRef()->parameters.intensity : 0,
     };
 
-    std::sort(draw_items.begin(), draw_items.end(), [](const auto& lhs, const auto& rhs) -> bool {
+    std::sort(draw_items->begin(), draw_items->end(), [](const auto& lhs, const auto& rhs) -> bool {
         return lhs.material < rhs.material;
     });
 
@@ -211,7 +213,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 });
             }
 
-            for (const auto& item : draw_items) {
+            for (const auto& item : *draw_items) {
                 builder.UseRenderPipeline(item.material->GetPipeline());
                 // FIXME: need match the pipeline
                 magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
@@ -234,7 +236,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
             std::pmr::unordered_map<asset::MeshNode*, std::size_t> instance_constant_offset;
             {
                 std::size_t offset = 0;
-                for (const auto& draw_call : draw_items) {
+                for (const auto& draw_call : *draw_items) {
                     if (instance_constant_offset.contains(draw_call.instance.get())) continue;
                     instance_constant.Update(
                         offset,
@@ -247,9 +249,9 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
 
             std::pmr::unordered_map<asset::MaterialInstance*, std::size_t> material_constant_offset;
             {
-                material_constant_offset.reserve(draw_items.size());
+                material_constant_offset.reserve(draw_items->size());
                 std::size_t offset = 0;
-                for (const auto& draw_call : draw_items) {
+                for (const auto& draw_call : *draw_items) {
                     auto material_instance = draw_call.submesh.material_instance.get();
                     auto material          = draw_call.material.get();
                     if (material_constant_offset.contains(material_instance)) continue;
@@ -289,7 +291,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
             asset::IndexArray*   curr_indices      = nullptr;
             asset::MeshNode*     curr_instance     = nullptr;
             gfx::GpuBuffer*      material_constant = nullptr;
-            for (const auto& draw_call : draw_items) {
+            for (const auto& draw_call : *draw_items) {
                 if (draw_call.material->GetPipeline() == nullptr) continue;
 
                 if (curr_pipeline != draw_call.material->GetPipeline().get()) {
