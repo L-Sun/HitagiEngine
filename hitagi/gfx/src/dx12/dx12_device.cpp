@@ -162,6 +162,7 @@ void DX12Device::IntegrateD3D12Logger() {
 }
 
 void DX12Device::UnregisterIntegratedD3D12Logger() {
+    m_Logger->debug("Unregister D3D12 Logger");
     ComPtr<ID3D12InfoQueue1> info_queue;
     if (SUCCEEDED(m_Device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
         m_Logger->debug("Unable D3D12 debug logger");

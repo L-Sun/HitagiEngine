@@ -18,6 +18,7 @@ Device::~Device() {
     if (report_debug_error_after_destory_fn) {
         report_debug_error_after_destory_fn();
     }
+    m_Logger->debug("graphics device removed successfully!");
 }
 
 auto Device::Create(Type type, std::string_view name) -> std::unique_ptr<Device> {

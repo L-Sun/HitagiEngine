@@ -7,7 +7,9 @@ using namespace hitagi::math;
 
 class RenderGraphTest : public ::testing::Test {
 public:
-    RenderGraphTest() : device(Device::Create(Device::Type::DX12, ::testing::UnitTest::GetInstance()->current_test_info()->name())) {}
+    RenderGraphTest() : device(Device::Create(
+                            Device::Type::DX12,
+                            fmt::format("{}-Device", ::testing::UnitTest::GetInstance()->current_test_info()->name()))) {}
     std::unique_ptr<Device> device;
 };
 
