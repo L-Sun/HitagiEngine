@@ -1,9 +1,8 @@
 CompileFlags:
-  Add: [-xc++, -std=c++20, -Wall, -Wno-missing-prototypes]
+  Add: [-xc++, -std=c++20, -W4, -Wno-missing-prototypes]
   # Remove extra warnings specified in compile commands.
   # Single value is also acceptable, same as "Remove: [-mabi]"
-  Remove: -mabi
-  Compiler: clang++
+  Compiler: clang-cl
 Diagnostics:
   # Tweak Clang-Tidy checks.
   ClangTidy:

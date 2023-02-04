@@ -7,11 +7,9 @@ rule("clang-msvc")
             local c_compiler = config.get("c")
             
             if cxx_compiler == "clang++" or c_compiler == "clang" then
-                if is_mode("debug") then
-                    target:add("syslinks", "libcmtd")
-                else
-                    target:add("syslinks", "libcmt")
-                end
+                -- This flag may be enabled in newer versions
+                -- https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fms-runtime-lib
+                target:add("cxxflags", "-fms-runtime-lib=dll")
             end
 
             if cxx_compiler == "clang-cl" then

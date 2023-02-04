@@ -5,9 +5,9 @@ includes("xmake-rules/*.lua")
 add_rules("mode.debug", "mode.release", "mode.releasedbg", "clang-msvc", "copy-dll")
 
 if is_mode("debug") then
-    add_defines("_DEBUG")
+    add_defines("HITAGI_DEBUG")
 end
-set_runtimes(is_mode("debug") and "MTd" or "MT")
+set_runtimes("MD")
 
 option("profile")
     set_default(false)

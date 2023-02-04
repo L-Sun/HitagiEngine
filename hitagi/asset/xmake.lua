@@ -1,4 +1,4 @@
-add_requires("crossguid", "libpng", "assimp", "libjpeg-turbo", "fx-gltf")
+add_requires("crossguid", "libpng", "assimp", "libjpeg-turbo", "fx-gltf", "usd")
 
 target("asset")
     set_kind("static")
