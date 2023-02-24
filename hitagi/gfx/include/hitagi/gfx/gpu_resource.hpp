@@ -21,11 +21,9 @@ struct Resource {
 
 struct GpuBuffer : public Resource {
     enum struct UsageFlags : std::uint32_t {
-        Unkown = 0,
-        // CPU can read data from mapped pointer
-        MapRead = 0x1,
-        // CPU can write data to mapped pointer
-        MapWrite = (MapRead << 1),
+        Unkown   = 0x1,
+        MapRead  = (Unkown << 1),   // CPU can read data from mapped pointer
+        MapWrite = (MapRead << 1),  // CPU can write data to mapped pointer
         CopySrc  = (MapWrite << 1),
         CopyDst  = (CopySrc << 1),
         Vertex   = (CopyDst << 1),
