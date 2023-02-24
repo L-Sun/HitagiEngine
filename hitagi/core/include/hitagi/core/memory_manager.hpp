@@ -67,8 +67,7 @@ private:
     };
 
     struct Pool {
-        std::mutex m_Mutex{};
-
+        std::mutex      mutex{};
         std::list<Page> pages{};
         Block*          free_list       = nullptr;
         std::size_t     page_size       = 8_kB;
