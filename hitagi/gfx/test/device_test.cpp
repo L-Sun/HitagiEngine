@@ -9,19 +9,22 @@ using namespace hitagi::core;
 using namespace hitagi::gfx;
 using namespace hitagi::math;
 
-TEST(CreateDeviceTest, CreateD3D) {
-    EXPECT_NO_THROW({
-        auto device = Device::Create(Device::Type::DX12, ::testing::UnitTest::GetInstance()->current_test_info()->name());
-    });
+namespace hitagi::gfx {
+std::ostream& operator<<(std::ostream& os, const Device::Type& type) {
+    return os << magic_enum::enum_name(type);
 }
+}  // namespace hitagi::gfx
 
-class D3DDeviceTest : public ::testing::Test {
-public:
-    D3DDeviceTest() : device(Device::Create(Device::Type::DX12, ::testing::UnitTest::GetInstance()->current_test_info()->name())) {}
+class DeviceTest : public ::testing::TestWithParam<Device::Type> {
+protected:
+    DeviceTest() : device(Device::Create(GetParam(), ::testing::UnitTest::GetInstance()->current_test_info()->name())) {}
+
+    void SetUp() override { ASSERT_TRUE(device != nullptr); }
+
     std::unique_ptr<Device> device;
 };
 
-TEST_F(D3DDeviceTest, CreateCommandQueue) {
+TEST_P(DeviceTest, CreateCommandQueue) {
     {
         auto graphics_queue = device->CreateCommandQueue(CommandType::Graphics);
         ASSERT_TRUE(graphics_queue);
@@ -39,7 +42,7 @@ TEST_F(D3DDeviceTest, CreateCommandQueue) {
     }
 }
 
-TEST_F(D3DDeviceTest, CreateGpuBuffer) {
+TEST_P(DeviceTest, CreateGpuBuffer) {
     // Create read back buffer
     {
         auto gpu_buffer = device->CreateBuffer(
@@ -119,7 +122,7 @@ TEST_F(D3DDeviceTest, CreateGpuBuffer) {
     }
 }
 
-TEST_F(D3DDeviceTest, CreateTexture) {
+TEST_P(DeviceTest, CreateTexture) {
     // Create 1D texture
     {
         auto texture = device->CreateTexture(
@@ -186,7 +189,7 @@ TEST_F(D3DDeviceTest, CreateTexture) {
     }
 }
 
-TEST_F(D3DDeviceTest, CreateSampler) {
+TEST_P(DeviceTest, CreateSampler) {
     auto sampler = device->CreatSampler(
 
         {
@@ -200,7 +203,7 @@ TEST_F(D3DDeviceTest, CreateSampler) {
     ASSERT_TRUE(sampler != nullptr);
 }
 
-TEST_F(D3DDeviceTest, CompileShader) {
+TEST_P(DeviceTest, CompileShader) {
     // Test Vertex Shader
     {
         Shader vs_shader{
@@ -246,7 +249,7 @@ TEST_F(D3DDeviceTest, CompileShader) {
     }
 }
 
-TEST_F(D3DDeviceTest, CreatePipeline) {
+TEST_P(DeviceTest, CreatePipeline) {
     {
         constexpr auto vs_code = R"""(
             #define RSDEF                                   \
@@ -283,7 +286,7 @@ TEST_F(D3DDeviceTest, CreatePipeline) {
     }
 }
 
-TEST_F(D3DDeviceTest, CommandContextTest) {
+TEST_P(DeviceTest, CommandContextTest) {
     // Graphics context test
     {
         constexpr auto vs_code = R"""(
@@ -382,7 +385,7 @@ TEST_F(D3DDeviceTest, CommandContextTest) {
     }
 }
 
-TEST_F(D3DDeviceTest, SwapChainTest) {
+TEST_P(DeviceTest, SwapChainTest) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
             .title = "SwapChainTest_Test",
@@ -417,7 +420,7 @@ TEST_F(D3DDeviceTest, SwapChainTest) {
     }
 }
 
-TEST_F(D3DDeviceTest, IKownDirectX12) {
+TEST_P(DeviceTest, IKownDirectX12) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
             .title = "IKownDirectX12_Test",
@@ -541,6 +544,14 @@ TEST_F(D3DDeviceTest, IKownDirectX12) {
         context->Reset();
     }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    DeviceTest,
+    DeviceTest,
+    ::testing::Values(Device::Type::DX12),
+    [](const ::testing::TestParamInfo<Device::Type>& info) -> std::string {
+        return std::string{magic_enum::enum_name(info.param)};
+    });
 
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::debug);
