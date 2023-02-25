@@ -1,6 +1,7 @@
 #pragma once
 #include "descriptor_heap.hpp"
 #include "dx12_command_queue.hpp"
+
 #include <hitagi/gfx/gpu_resource.hpp>
 
 #include <D3D12MemAlloc.h>

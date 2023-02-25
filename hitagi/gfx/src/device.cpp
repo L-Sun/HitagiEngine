@@ -4,6 +4,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "dx12/dx12_device.hpp"
+#include "vulkan/vulkan_device.hpp"
 
 namespace hitagi::gfx {
 
@@ -25,6 +26,8 @@ auto Device::Create(Type type, std::string_view name) -> std::unique_ptr<Device>
     switch (type) {
         case Type::DX12:
             return std::make_unique<DX12Device>(name);
+        case Type::Vulkan:
+            return std::make_unique<VulkanDevice>(name);
         default:
             return nullptr;
     }

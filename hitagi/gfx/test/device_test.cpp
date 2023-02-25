@@ -18,11 +18,20 @@ std::ostream& operator<<(std::ostream& os, const Device::Type& type) {
 class DeviceTest : public ::testing::TestWithParam<Device::Type> {
 protected:
     DeviceTest() : device(Device::Create(GetParam(), ::testing::UnitTest::GetInstance()->current_test_info()->name())) {}
-
-    void SetUp() override { ASSERT_TRUE(device != nullptr); }
-
     std::unique_ptr<Device> device;
 };
+
+INSTANTIATE_TEST_SUITE_P(
+    DeviceTest,
+    DeviceTest,
+    ::testing::Values(Device::Type::DX12, Device::Type::Vulkan),
+    [](const ::testing::TestParamInfo<Device::Type>& info) -> std::string {
+        return std::string{magic_enum::enum_name(info.param)};
+    });
+
+TEST_P(DeviceTest, CreateDevice) {
+    ASSERT_TRUE(device != nullptr);
+}
 
 TEST_P(DeviceTest, CreateCommandQueue) {
     {
@@ -544,14 +553,6 @@ TEST_P(DeviceTest, IKownDirectX12) {
         context->Reset();
     }
 }
-
-INSTANTIATE_TEST_SUITE_P(
-    DeviceTest,
-    DeviceTest,
-    ::testing::Values(Device::Type::DX12),
-    [](const ::testing::TestParamInfo<Device::Type>& info) -> std::string {
-        return std::string{magic_enum::enum_name(info.param)};
-    });
 
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::debug);

@@ -137,7 +137,7 @@ void DX12Device::IntegrateD3D12Logger() {
     if (SUCCEEDED(m_Device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
         m_Logger->debug("Enabled D3D12 debug logger");
         info_queue->RegisterMessageCallback(
-            [](D3D12_MESSAGE_CATEGORY category, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID id, LPCSTR description, void* context) {
+            [](D3D12_MESSAGE_CATEGORY, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID, LPCSTR description, void* context) {
                 auto p_this = reinterpret_cast<DX12Device*>(context);
                 switch (severity) {
                     case D3D12_MESSAGE_SEVERITY_CORRUPTION:
