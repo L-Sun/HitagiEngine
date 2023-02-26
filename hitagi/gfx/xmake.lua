@@ -22,6 +22,7 @@ target("vulkan-device")
     add_includedirs("include")
     add_deps("core", "math", "utils")
     add_packages("vulkansdk", {public = true})
+    add_defines("VULKAN_HPP_NO_CONSTRUCTORS")
 
 
 target("gfx")

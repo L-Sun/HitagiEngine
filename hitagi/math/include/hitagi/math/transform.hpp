@@ -19,8 +19,16 @@ constexpr T rad2deg(T radians) {
     return radians * 180.0 * std::numbers::inv_pi;
 }
 
+constexpr auto to_hex(const vec3f& v) noexcept -> Vector<std::uint8_t, 3> {
+    return {
+        static_cast<std::uint8_t>(round(v[0] * 255)),
+        static_cast<std::uint8_t>(round(v[1] * 255)),
+        static_cast<std::uint8_t>(round(v[2] * 255)),
+    };
+}
+
 template <typename T>
-constexpr Matrix<T, 4> translate(const Vector<T, 3>& v) {
+constexpr auto translate(const Vector<T, 3>& v) noexcept -> Matrix<T, 4> {
     // clang-format off
     return {
         {1, 0, 0, v.x},
@@ -32,7 +40,7 @@ constexpr Matrix<T, 4> translate(const Vector<T, 3>& v) {
 }
 
 template <typename T>
-constexpr Matrix<T, 4> rotate_x(const T angle) {
+constexpr auto rotate_x(const T angle) noexcept -> Matrix<T, 4> {
     const T c = std::cos(angle), s = std::sin(angle);
     // clang-format off
     return {
@@ -44,7 +52,7 @@ constexpr Matrix<T, 4> rotate_x(const T angle) {
     // clang-format on
 }
 template <typename T>
-constexpr Matrix<T, 4> rotate_y(const T angle) {
+constexpr auto rotate_y(const T angle) noexcept -> Matrix<T, 4> {
     const T c = std::cos(angle), s = std::sin(angle);
 
     // clang-format off
@@ -57,7 +65,7 @@ constexpr Matrix<T, 4> rotate_y(const T angle) {
     // clang-format on
 }
 template <typename T>
-constexpr Matrix<T, 4> rotate_z(const T angle) {
+constexpr auto rotate_z(const T angle) noexcept -> Matrix<T, 4> {
     const T c = std::cos(angle), s = std::sin(angle);
 
     // clang-format off
@@ -70,7 +78,7 @@ constexpr Matrix<T, 4> rotate_z(const T angle) {
     // clang-format on
 }
 template <typename T>
-constexpr Matrix<T, 4> rotate(const T angle, const Vector<T, 3>& axis) {
+constexpr auto rotate(const T angle, const Vector<T, 3>& axis) noexcept -> Matrix<T, 4> {
     if (std::abs(angle) < std::numeric_limits<T>::epsilon() ||
         (std::abs(axis.x) < std::numeric_limits<T>::epsilon() &&
          std::abs(axis.y) < std::numeric_limits<T>::epsilon() &&
@@ -92,7 +100,7 @@ constexpr Matrix<T, 4> rotate(const T angle, const Vector<T, 3>& axis) {
 
 // euler: [rotate about X, then Y and Z]
 template <typename T>
-constexpr Matrix<T, 4> rotate(const Vector<T, 3>& euler) {
+constexpr auto rotate(const Vector<T, 3>& euler) noexcept -> Matrix<T, 4> {
     T c3, c2, c1, s3, s2, s1;
     c1 = std::cos(euler.x);
     c2 = std::cos(euler.y);
@@ -113,7 +121,7 @@ constexpr Matrix<T, 4> rotate(const Vector<T, 3>& euler) {
 }
 
 template <typename T>
-constexpr Matrix<T, 4> rotate(const Quaternion<T>& quatv) {
+constexpr auto rotate(const Quaternion<T>& quatv) noexcept -> Matrix<T, 4> {
     auto    normalized_quatv = normalize(quatv);
     const T x = normalized_quatv.x, y = normalized_quatv.y, z = normalized_quatv.z, w = normalized_quatv.w;
     const T _2x2 = 2 * x * x, _2y2 = 2 * y * y, _2z2 = 2 * z * z, _2xy = 2 * x * y, _2xz = 2 * x * z,
@@ -130,7 +138,7 @@ constexpr Matrix<T, 4> rotate(const Quaternion<T>& quatv) {
 }
 
 template <typename T>
-constexpr Matrix<T, 4> scale(T s) {
+constexpr auto scale(T s) noexcept -> Matrix<T, 4> {
     // clang-format off
     return {
         { s, 0, 0, 0},
@@ -142,7 +150,7 @@ constexpr Matrix<T, 4> scale(T s) {
 }
 
 template <typename T>
-constexpr Matrix<T, 4> scale(const Vector<T, 3>& v) {
+constexpr auto scale(const Vector<T, 3>& v) noexcept -> Matrix<T, 4> {
     // clang-format off
     return {
         {v.x,   0,   0, 0},
@@ -154,7 +162,7 @@ constexpr Matrix<T, 4> scale(const Vector<T, 3>& v) {
 }
 
 template <typename T>
-constexpr Matrix<T, 4> perspective_fov(T fov, T width, T height, T near, T far) {
+constexpr auto perspective_fov(T fov, T width, T height, T near, T far) noexcept -> Matrix<T, 4> {
     const T h   = std::tan(0.5 * fov);
     const T w   = h * width / height;
     const T nmf = near - far;
@@ -169,7 +177,7 @@ constexpr Matrix<T, 4> perspective_fov(T fov, T width, T height, T near, T far) 
     // clang-format on
 }
 template <typename T>
-constexpr Matrix<T, 4> perspective(T fov, T aspect, T near, T far) {
+constexpr auto perspective(T fov, T aspect, T near, T far) noexcept -> Matrix<T, 4> {
     const T h   = std::tan(0.5 * fov);
     const T w   = h * aspect;
     const T nmf = near - far;
@@ -184,7 +192,7 @@ constexpr Matrix<T, 4> perspective(T fov, T aspect, T near, T far) {
     // clang-format on
 }
 template <typename T>
-constexpr Matrix<T, 4> ortho(T left, T right, T bottom, T top, T near, T far) {
+constexpr auto ortho(T left, T right, T bottom, T top, T near, T far) noexcept -> Matrix<T, 4> {
     // clang-format off
     return {
         {2 / (right - left),                  0,                0, (right + left) / (left - right)},
@@ -196,7 +204,7 @@ constexpr Matrix<T, 4> ortho(T left, T right, T bottom, T top, T near, T far) {
 }
 
 template <typename T>
-constexpr Matrix<T, 4> look_at(const Vector<T, 3>& position, const Vector<T, 3>& direction, const Vector<T, 3>& up) {
+constexpr auto look_at(const Vector<T, 3>& position, const Vector<T, 3>& direction, const Vector<T, 3>& up) noexcept -> Matrix<T, 4> {
     Vector<T, 3> direct    = normalize(direction);
     Vector<T, 3> right     = normalize(cross(direct, up));
     Vector<T, 3> camera_up = normalize(cross(right, direct));
@@ -210,12 +218,12 @@ constexpr Matrix<T, 4> look_at(const Vector<T, 3>& position, const Vector<T, 3>&
 }
 
 template <typename T>
-constexpr Vector<T, 3> get_translation(const Matrix<T, 4>& mat) {
+constexpr auto get_translation(const Matrix<T, 4>& mat) noexcept -> Vector<T, 3> {
     return {mat[0][3], mat[1][3], mat[2][3]};
 }
 
 template <typename T>
-constexpr Vector<T, 3> get_scaling(const Matrix<T, 4>& mat) {
+constexpr auto get_scaling(const Matrix<T, 4>& mat) noexcept -> Vector<T, 3> {
     return {
         Vector<T, 3>(mat.col(0).xyz).norm(),
         Vector<T, 3>(mat.col(1).xyz).norm(),
@@ -224,7 +232,7 @@ constexpr Vector<T, 3> get_scaling(const Matrix<T, 4>& mat) {
 }
 
 template <typename T>
-constexpr Quaternion<T> get_rotation(const Matrix<T, 4>& transform) {
+constexpr auto get_rotation(const Matrix<T, 4>& transform) noexcept -> Quaternion<T> {
     Vector<T, 3> scaling = get_scaling(transform);
     Vector<T, 3> rotation{};
 
@@ -256,7 +264,7 @@ constexpr Quaternion<T> get_rotation(const Matrix<T, 4>& transform) {
 
 // Get right direction (a.k.a X-axis direction)
 template <typename T>
-constexpr Vector<T, 3> get_right(const Matrix<T, 4>& transform) {
+constexpr auto get_right(const Matrix<T, 4>& transform) noexcept -> Vector<T, 3> {
     return normalize(Vector<T, 3>{
         transform[0][0],
         transform[1][0],
@@ -266,7 +274,7 @@ constexpr Vector<T, 3> get_right(const Matrix<T, 4>& transform) {
 
 // Using for forward direction (a.k.a Z-axis direction)
 template <typename T>
-constexpr Vector<T, 3> get_forward(const Matrix<T, 4>& transform) {
+constexpr auto get_forward(const Matrix<T, 4>& transform) noexcept -> Vector<T, 3> {
     return normalize(Vector<T, 3>{
         transform[0][2],
         transform[1][2],
@@ -276,7 +284,7 @@ constexpr Vector<T, 3> get_forward(const Matrix<T, 4>& transform) {
 
 // Get up direction (a.k.a Y-axis direction)
 template <typename T>
-constexpr Vector<T, 3> get_up(const Matrix<T, 4>& transform) {
+constexpr auto get_up(const Matrix<T, 4>& transform) noexcept -> Vector<T, 3> {
     return normalize(Vector<T, 3>{
         transform[0][1],
         transform[1][1],
@@ -286,12 +294,12 @@ constexpr Vector<T, 3> get_up(const Matrix<T, 4>& transform) {
 
 // Return translation, rotation, scaling
 template <typename T>
-constexpr std::tuple<Vector<T, 3>, Quaternion<T>, Vector<T, 3>> decompose(const Matrix<T, 4>& transform) {
+constexpr auto decompose(const Matrix<T, 4>& transform) noexcept -> std::tuple<Vector<T, 3>, Quaternion<T>, Vector<T, 3>> {
     return {get_translation(transform), get_rotation(transform), get_scaling(transform)};
 }
 
 template <typename T>
-constexpr std::tuple<Vector<T, 3>, T> quaternion_to_axis_angle(const Quaternion<T>& quat) {
+constexpr auto quaternion_to_axis_angle(const Quaternion<T>& quat) noexcept -> std::tuple<Vector<T, 3>, T> {
     T angle      = 2 * std::acos(quat.w);
     T inv_factor = static_cast<T>(1) / std::sqrt(static_cast<T>(1) - quat.w * quat.w);
 
@@ -299,7 +307,7 @@ constexpr std::tuple<Vector<T, 3>, T> quaternion_to_axis_angle(const Quaternion<
 }
 
 template <typename T>
-constexpr Quaternion<T> axis_angle_to_quternion(const Vector<T, 3>& axis, T angle) {
+constexpr auto axis_angle_to_quternion(const Vector<T, 3>& axis, T angle) noexcept -> Quaternion<T> {
     auto a = normalize(axis);
     return {
         a.x * std::sin(static_cast<T>(0.5) * angle),
@@ -311,7 +319,7 @@ constexpr Quaternion<T> axis_angle_to_quternion(const Vector<T, 3>& axis, T angl
 
 // euler is (ZYX), rotate about x, y, z, sequentially.
 template <typename T>
-constexpr Vector<T, 3> quaternion_to_euler(const Quaternion<T>& quat) {
+constexpr auto quaternion_to_euler(const Quaternion<T>& quat) noexcept -> Vector<T, 3> {
     T xz = quat.w * quat.y - quat.x * quat.z;
     T x;
     T z = std::atan2(quat.x * quat.y + quat.w * quat.z, static_cast<T>(0.5) - (quat.y * quat.y + quat.z * quat.z));
@@ -327,7 +335,7 @@ constexpr Vector<T, 3> quaternion_to_euler(const Quaternion<T>& quat) {
 
 // euler is [x, y, z] (ZYX), rotate about x, y, z, sequentially.
 template <typename T>
-constexpr Quaternion<T> euler_to_quaternion(const Vector<T, 3>& euler) {
+constexpr auto euler_to_quaternion(const Vector<T, 3>& euler) noexcept -> Quaternion<T> {
     T c1 = std::cos(static_cast<T>(0.5) * euler.x),
       c2 = std::cos(static_cast<T>(0.5) * euler.y),
       c3 = std::cos(static_cast<T>(0.5) * euler.z),

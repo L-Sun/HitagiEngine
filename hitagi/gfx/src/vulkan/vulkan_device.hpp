@@ -1,5 +1,7 @@
 #pragma once
 #include <hitagi/gfx/device.hpp>
+#include <hitagi/gfx/command_context.hpp>
+#include <hitagi/utils/array.hpp>
 
 #include <vulkan/vulkan_raii.hpp>
 #include <vma/vk_mem_alloc.h>
@@ -37,10 +39,19 @@ private:
     void* CustomReallocateFn(void* orign_ptr, std::size_t new_size, std::size_t alignment);
     void  CustomFreeFn(void* ptr);
 
+    auto GetInstanceLayers() const -> std::pmr::vector<const char*>;
+    auto GetInstanceExtensions() const -> std::pmr::vector<const char*>;
+
     vk::AllocationCallbacks                                             m_CustomAllocationCallback;
     std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>> m_CustomAllocationInfos;
 
-    std::unique_ptr<vk::raii::Instance> m_Instance;
-    std::unique_ptr<vk::raii::Device>   m_Device;
+    vk::raii::Context                                 m_Context;
+    std::unique_ptr<vk::raii::Instance>               m_Instance;
+    std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> m_DebugUtilsMessager;
+
+    std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
+    std::unique_ptr<vk::raii::Device>         m_Device;
+
+    utils::EnumArray<std::unique_ptr<vk::raii::Queue>, CommandType> m_CommandQueues;
 };
 }  // namespace hitagi::gfx
