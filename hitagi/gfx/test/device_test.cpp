@@ -377,38 +377,64 @@ TEST_P(DeviceTest, CommandContextTest) {
     }
 }
 
-TEST_P(DeviceTest, SwapChainTest) {
+TEST_P(DeviceTest, CreateSwapChain) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
             .title = std::pmr::string{fmt::format("App/{}", test_name)},
         });
-    {
-        auto rect = app->GetWindowsRect();
+    auto rect = app->GetWindowsRect();
 
-        auto swap_chain = device->CreateSwapChain(
-            {
-                .name       = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .window_ptr = app->GetWindow(),
-                .format     = Format::B8G8R8A8_UNORM,
-            });
-        ASSERT_TRUE(swap_chain);
-        EXPECT_EQ(swap_chain->Width(), rect.right - rect.left);
-        EXPECT_EQ(swap_chain->Height(), rect.bottom - rect.top);
+    auto swap_chain = device->CreateSwapChain(
+        {
+            .name       = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .window_ptr = app->GetWindow(),
+            .format     = Format::B8G8R8A8_UNORM,
+        });
+    ASSERT_TRUE(swap_chain);
+    EXPECT_EQ(swap_chain->Width(), rect.right - rect.left);
+    EXPECT_EQ(swap_chain->Height(), rect.bottom - rect.top);
 
-        EXPECT_EQ(swap_chain->GetBuffers().size(), swap_chain->desc.frame_count);
-        auto& back_buffer = swap_chain->GetCurrentBackBuffer();
-        EXPECT_EQ(back_buffer.desc.width, rect.right - rect.left);
-        EXPECT_EQ(back_buffer.desc.height, rect.bottom - rect.top);
-        EXPECT_EQ(back_buffer.desc.format, swap_chain->desc.format);
-        EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.desc.usages, Texture::UsageFlags::RTV));
+    EXPECT_EQ(swap_chain->GetBuffers().size(), swap_chain->desc.frame_count);
+    auto& back_buffer = swap_chain->GetCurrentBackBuffer();
+    EXPECT_EQ(back_buffer.desc.width, rect.right - rect.left);
+    EXPECT_EQ(back_buffer.desc.height, rect.bottom - rect.top);
+    EXPECT_EQ(back_buffer.desc.format, swap_chain->desc.format);
+    EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.desc.usages, Texture::UsageFlags::RTV));
 
-        auto same_swapchan = device->CreateSwapChain(
-            {
-                .name       = "Same-Swaichain",
-                .window_ptr = app->GetWindow(),
-                .format     = Format::B8G8R8A8_UNORM,
-            });
-        EXPECT_EQ(same_swapchan, swap_chain);
+    auto same_swapchan = device->CreateSwapChain(
+        {
+            .name       = "Same-Swaichain",
+            .window_ptr = app->GetWindow(),
+            .format     = Format::B8G8R8A8_UNORM,
+        });
+    EXPECT_EQ(same_swapchan, swap_chain);
+}
+
+TEST_P(DeviceTest, SwapChainResizing) {
+    auto app = hitagi::Application::CreateApp(
+        hitagi::AppConfig{
+            .title = std::pmr::string{fmt::format("App/{}", test_name)},
+        });
+    auto rect = app->GetWindowsRect();
+
+    auto swap_chain = device->CreateSwapChain(
+        {
+            .name       = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .window_ptr = app->GetWindow(),
+            .format     = Format::B8G8R8A8_UNORM,
+        });
+    ASSERT_TRUE(swap_chain);
+
+    // Resize swapchain
+    app->ResizeWindow(800, 600);
+    rect = app->GetWindowsRect();
+    swap_chain->Resize();
+    EXPECT_EQ(swap_chain->Width(), rect.right - rect.left);
+    EXPECT_EQ(swap_chain->Height(), rect.bottom - rect.top);
+
+    for (const Texture& buffer : swap_chain->GetBuffers()) {
+        EXPECT_EQ(buffer.desc.width, rect.right - rect.left);
+        EXPECT_EQ(buffer.desc.height, rect.bottom - rect.top);
     }
 }
 
