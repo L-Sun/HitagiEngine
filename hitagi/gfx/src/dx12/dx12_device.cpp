@@ -104,8 +104,12 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
         ThrowIfFailed(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_ShaderCompiler)));
     }
 
-    magic_enum::enum_for_each<CommandType>([this](auto type) {
-        m_CommandQueues[type] = std::static_pointer_cast<DX12CommandQueue>(CreateCommandQueue(type(), fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type()))));
+    magic_enum::enum_for_each<CommandType>([this](CommandType type) {
+        m_CommandQueues[type] = std::static_pointer_cast<DX12CommandQueue>(
+            std::make_shared<DX12CommandQueue>(
+                *this,
+                type,
+                fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type))));
     });
 
     // Initial Descriptor Allocator
@@ -215,12 +219,8 @@ void DX12Device::WaitIdle() {
     }
 }
 
-auto DX12Device::GetCommandQueue(CommandType type) const -> CommandQueue* {
-    return m_CommandQueues[type].get();
-}
-
-auto DX12Device::CreateCommandQueue(CommandType type, std::string_view name) -> std::shared_ptr<CommandQueue> {
-    return std::make_shared<DX12CommandQueue>(*this, type, name);
+auto DX12Device::GetCommandQueue(CommandType type) const -> CommandQueue& {
+    return *m_CommandQueues[type];
 }
 
 auto DX12Device::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {

@@ -4,7 +4,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "dx12/dx12_device.hpp"
-#include "vulkan/vulkan_device.hpp"
+#include "vulkan/vk_device.hpp"
 
 namespace hitagi::gfx {
 

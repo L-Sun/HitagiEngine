@@ -20,11 +20,10 @@ public:
     static auto  Create(Type type, std::string_view name = "") -> std::unique_ptr<Device>;
     virtual void WaitIdle() = 0;
 
-    virtual auto GetCommandQueue(CommandType type) const -> CommandQueue*                                          = 0;
-    virtual auto CreateCommandQueue(CommandType type, std::string_view name = "") -> std::shared_ptr<CommandQueue> = 0;
-    virtual auto CreateGraphicsContext(std::string_view name = "") -> std::shared_ptr<GraphicsCommandContext>      = 0;
-    virtual auto CreateComputeContext(std::string_view name = "") -> std::shared_ptr<ComputeCommandContext>        = 0;
-    virtual auto CreateCopyContext(std::string_view name = "") -> std::shared_ptr<CopyCommandContext>              = 0;
+    virtual auto GetCommandQueue(CommandType type) const -> CommandQueue&                                     = 0;
+    virtual auto CreateGraphicsContext(std::string_view name = "") -> std::shared_ptr<GraphicsCommandContext> = 0;
+    virtual auto CreateComputeContext(std::string_view name = "") -> std::shared_ptr<ComputeCommandContext>   = 0;
+    virtual auto CreateCopyContext(std::string_view name = "") -> std::shared_ptr<CopyCommandContext>         = 0;
 
     virtual auto CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain>                                            = 0;
     virtual auto CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GpuBuffer> = 0;

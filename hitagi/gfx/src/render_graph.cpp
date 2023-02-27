@@ -182,7 +182,7 @@ auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {
 auto RenderGraph::RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext> {
     std::shared_ptr<CommandContext> context = nullptr;
     if (m_ContextPool[type].empty() ||
-        !device.GetCommandQueue(type)->IsFenceComplete(m_ContextPool[type].front()->fence_value)) {
+        !device.GetCommandQueue(type).IsFenceComplete(m_ContextPool[type].front()->fence_value)) {
         switch (type) {
             case CommandType::Graphics:
                 context = device.CreateGraphicsContext();
@@ -313,47 +313,47 @@ auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
             continue;
         }
 
-        auto queue = device.GetCommandQueue((*left)->type);
+        auto& queue = device.GetCommandQueue((*left)->type);
 
         auto waited = utils::create_enum_array<bool, CommandType>(false);
         std::transform(left, right, std::back_inserter(contexts), [&](const PassNode* node) {
             for (auto res_handle : node->reads) {
                 auto& res_node = GetResrouceNode(res_handle);
                 if (res_node.writer && res_node.writer->type != node->type && !waited[res_node.writer->type]) {
-                    queue->WaitForQueue(*device.GetCommandQueue(res_node.writer->type));
+                    queue.WaitForQueue(device.GetCommandQueue(res_node.writer->type));
                     waited[res_node.writer->type] = true;
                 }
             }
             return node->context.get();
         });
 
-        fence_values[queue->type] = queue->Submit(contexts);
+        fence_values[queue.type] = queue.Submit(contexts);
 
         std::for_each(left, right, [&](PassNode* node) {
-            assert(node->type == queue->type);
+            assert(node->type == queue.type);
 
             m_ContextPool[node->type].emplace_back(std::move(node->context));
             for (auto res_handle : node->reads) {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources[queue->type].emplace_back(track_res, fence_values[queue->type]);
+                    m_RetiredResources[queue.type].emplace_back(track_res, fence_values[queue.type]);
                 }
             }
             for (auto res_handle : node->writes) {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources[queue->type].emplace_back(track_res, fence_values[queue->type]);
+                    m_RetiredResources[queue.type].emplace_back(track_res, fence_values[queue.type]);
                 }
             }
             if (node->type == CommandType::Graphics) {
                 for (auto render_pipeline : node->render_pipelines) {
-                    m_RetiredResources[queue->type].emplace_back(render_pipeline, fence_values[queue->type]);
+                    m_RetiredResources[queue.type].emplace_back(render_pipeline, fence_values[queue.type]);
                 }
             } else if (node->type == CommandType::Compute) {
                 for (auto compute_pipeline : node->compute_pipelines) {
-                    m_RetiredResources[queue->type].emplace_back(compute_pipeline, fence_values[queue->type]);
+                    m_RetiredResources[queue.type].emplace_back(compute_pipeline, fence_values[queue.type]);
                 }
             }
         });
@@ -377,10 +377,10 @@ void RenderGraph::Reset() {
     ZoneScoped;
 
     magic_enum::enum_for_each<CommandType>([this](CommandType type) {
-        auto queue = device.GetCommandQueue(type);
+        auto& queue = device.GetCommandQueue(type);
         while (!m_RetiredResources[type].empty()) {
             const auto& [retired_res, fence_value] = m_RetiredResources[type].front();
-            if (queue->IsFenceComplete(fence_value)) {
+            if (queue.IsFenceComplete(fence_value)) {
                 m_RetiredResources[type].pop_front();
             } else {
                 break;

@@ -41,7 +41,7 @@ void ForwardRenderer::Tick() {
         auto wait_last_frame = thread_manager->RunTask([this]() {
             ZoneScopedN("Wait Last Frame");
             magic_enum::enum_for_each<gfx::CommandType>([this](auto type) {
-                m_GfxDevice->GetCommandQueue(type())->WaitForFence(m_LastFenceValues[type()]);
+                m_GfxDevice->GetCommandQueue(type()).WaitForFence(m_LastFenceValues[type()]);
             });
         });
         compile.wait();
@@ -54,7 +54,7 @@ void ForwardRenderer::Tick() {
         {
             ZoneScopedN("Wait Last Frame");
             magic_enum::enum_for_each<gfx::CommandType>([this](auto type) {
-                m_GfxDevice->GetCommandQueue(type())->WaitForFence(m_LastFenceValues[type()]);
+                m_GfxDevice->GetCommandQueue(type()).WaitForFence(m_LastFenceValues[type()]);
             });
         }
     }

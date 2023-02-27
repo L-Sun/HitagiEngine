@@ -1,4 +1,6 @@
 #pragma once
+#include "vk_command_queue.hpp"
+
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
@@ -14,8 +16,7 @@ public:
 
     void WaitIdle() final;
 
-    auto GetCommandQueue(CommandType type) const -> CommandQueue* final;
-    auto CreateCommandQueue(CommandType type, std::string_view name) -> std::shared_ptr<CommandQueue> final;
+    auto GetCommandQueue(CommandType type) const -> CommandQueue& final;
     auto CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> final;
     auto CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> final;
     auto CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> final;
@@ -33,6 +34,8 @@ public:
     inline auto GetLogger() const noexcept {
         return m_Logger;
     }
+
+    inline auto& GetDevice() const noexcept { return *m_Device; }
 
 private:
     void* CustomAllocateFn(std::size_t size, std::size_t alignment);
@@ -52,6 +55,6 @@ private:
     std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
     std::unique_ptr<vk::raii::Device>         m_Device;
 
-    utils::EnumArray<std::unique_ptr<vk::raii::Queue>, CommandType> m_CommandQueues;
+    utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType> m_CommandQueues;
 };
 }  // namespace hitagi::gfx

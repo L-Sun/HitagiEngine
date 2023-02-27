@@ -1,8 +1,8 @@
-#include "vulkan_device.hpp"
+#include "vk_device.hpp"
 #include "configs.hpp"
-#include "hitagi/math/transform.hpp"
-#include "magic_enum.hpp"
 #include "utils.hpp"
+
+#include <hitagi/math/transform.hpp>
 
 #include <fmt/color.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -99,20 +99,20 @@ VulkanDevice::VulkanDevice(std::string_view name)
 
         m_Logger->debug("Retrival command queues ...");
         magic_enum::enum_for_each<CommandType>([&](CommandType type) {
-            auto queue_framily_index = queue_create_infos[magic_enum::enum_integer(type)].queueFamilyIndex;
-            m_CommandQueues[type]    = std::make_unique<vk::raii::Queue>(m_Device->getQueue(queue_framily_index, 0));
+            auto queue_family_index = queue_create_infos[magic_enum::enum_integer(type)].queueFamilyIndex;
+            m_CommandQueues[type]   = std::make_unique<VulkanCommandQueue>(
+                *this,
+                type,
+                fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type)),
+                queue_family_index);
         });
     }
 }
 
 void VulkanDevice::WaitIdle() {}
 
-auto VulkanDevice::GetCommandQueue(CommandType type) const -> CommandQueue* {
-    return nullptr;
-}
-
-auto VulkanDevice::CreateCommandQueue(CommandType type, std::string_view name) -> std::shared_ptr<CommandQueue> {
-    return nullptr;
+auto VulkanDevice::GetCommandQueue(CommandType type) const -> CommandQueue& {
+    return *m_CommandQueues[type];
 }
 
 auto VulkanDevice::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {

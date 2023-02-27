@@ -33,24 +33,6 @@ TEST_P(DeviceTest, CreateDevice) {
     ASSERT_TRUE(device != nullptr);
 }
 
-TEST_P(DeviceTest, CreateCommandQueue) {
-    {
-        auto graphics_queue = device->CreateCommandQueue(CommandType::Graphics);
-        ASSERT_TRUE(graphics_queue);
-        EXPECT_EQ(graphics_queue->type, CommandType::Graphics);
-    }
-    {
-        auto compute_queue = device->CreateCommandQueue(CommandType::Compute);
-        ASSERT_TRUE(compute_queue);
-        EXPECT_EQ(compute_queue->type, CommandType::Compute);
-    }
-    {
-        auto copy_queue = device->CreateCommandQueue(CommandType::Copy);
-        ASSERT_TRUE(copy_queue);
-        EXPECT_EQ(copy_queue->type, CommandType::Copy);
-    }
-}
-
 TEST_P(DeviceTest, CreateGpuBuffer) {
     // Create read back buffer
     {
@@ -386,9 +368,9 @@ TEST_P(DeviceTest, CommandContextTest) {
         copy_context->CopyBuffer(*upload_buffer, 0, *readback_buffer, 0, initial_data.size());
         copy_context->End();
 
-        auto copy_queue  = device->GetCommandQueue(CommandType::Copy);
-        auto fence_value = copy_queue->Submit({copy_context.get()});
-        copy_queue->WaitForFence(fence_value);
+        auto& copy_queue  = device->GetCommandQueue(CommandType::Copy);
+        auto  fence_value = copy_queue.Submit({copy_context.get()});
+        copy_queue.WaitForFence(fence_value);
 
         EXPECT_STREQ(reinterpret_cast<const char*>(readback_buffer->mapped_ptr), initial_data.data());
     }
@@ -518,8 +500,8 @@ TEST_P(DeviceTest, IKownDirectX12) {
             },
             {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
-        auto render_queue = device->GetCommandQueue(CommandType::Graphics);
-        auto context      = device->CreateGraphicsContext("I know DirectX12 context");
+        auto& render_queue = device->GetCommandQueue(CommandType::Graphics);
+        auto  context      = device->CreateGraphicsContext("I know DirectX12 context");
 
         hitagi::core::Clock timer;
         timer.Start();
@@ -547,9 +529,9 @@ TEST_P(DeviceTest, IKownDirectX12) {
         context->Present(swap_chain->GetCurrentBackBuffer());
         context->End();
 
-        render_queue->Submit({context.get()});
+        render_queue.Submit({context.get()});
         swap_chain->Present();
-        render_queue->WaitIdle();
+        render_queue.WaitIdle();
         context->Reset();
     }
 }

@@ -26,8 +26,7 @@ public:
 
     void WaitIdle() final;
 
-    auto GetCommandQueue(CommandType type) const -> CommandQueue* final;
-    auto CreateCommandQueue(CommandType type, std::string_view name) -> std::shared_ptr<CommandQueue> final;
+    auto GetCommandQueue(CommandType type) const -> CommandQueue& final;
     auto CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> final;
     auto CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> final;
     auto CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> final;
