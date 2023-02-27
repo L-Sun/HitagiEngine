@@ -98,7 +98,9 @@ VulkanDevice::VulkanDevice(std::string_view name)
     }
 }
 
-void VulkanDevice::WaitIdle() {}
+void VulkanDevice::WaitIdle() {
+    m_Device->waitIdle();
+}
 
 auto VulkanDevice::GetCommandQueue(CommandType type) const -> CommandQueue& {
     return *m_CommandQueues[type];
