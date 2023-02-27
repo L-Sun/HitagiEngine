@@ -41,10 +41,11 @@ public:
 
     void Tick() override;
 
-    virtual void SetInputScreenPosition(const math::vec2u& position) = 0;
-    virtual void SetWindowTitle(std::string_view name)               = 0;
-    virtual void SetCursor(Cursor cursor)                            = 0;
-    virtual void SetMousePosition(const math::vec2u& position)       = 0;
+    virtual void SetInputScreenPosition(const math::vec2u& position)     = 0;
+    virtual void SetWindowTitle(std::string_view name)                   = 0;
+    virtual void SetCursor(Cursor cursor)                                = 0;
+    virtual void SetMousePosition(const math::vec2u& position)           = 0;
+    virtual void ResizeWindow(std::uint32_t width, std::uint32_t height) = 0;
 
     virtual auto GetWindow() const -> void*            = 0;
     virtual auto GetDpiRatio() const -> float          = 0;

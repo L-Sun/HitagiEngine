@@ -1,3 +1,4 @@
+
 #include <hitagi/application.hpp>
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/hid/input_manager.hpp>

@@ -156,6 +156,25 @@ void Win32Application::SetMousePosition(const math::vec2u& position) {
     ::SetCursorPos(position.x, position.y);
 }
 
+void Win32Application::ResizeWindow(std::uint32_t width, std::uint32_t height) {
+    RECT client_rect{
+        .left   = static_cast<LONG>(m_Rect.left),
+        .top    = static_cast<LONG>(m_Rect.top),
+        .right  = static_cast<LONG>(m_Rect.left + width),
+        .bottom = static_cast<LONG>(m_Rect.top + height),
+    };
+
+    // Get window position using WIN32 API
+    RECT window_rect;
+    GetWindowRect(m_Window, &window_rect);
+
+    AdjustWindowRect(&client_rect, WS_OVERLAPPEDWINDOW, false);
+    SetWindowPos(m_Window, nullptr, window_rect.left, window_rect.top,
+                 client_rect.right - client_rect.left, client_rect.bottom - client_rect.top,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+    UpdateRect();
+}
+
 float Win32Application::GetDpiRatio() const {
     unsigned dpi = GetDpiForWindow(m_Window);
     return dpi / 96.0f;
