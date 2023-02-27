@@ -2,9 +2,14 @@
 #include "dx12_device.hpp"
 #include "utils.hpp"
 
-namespace hitagi::gfx {
+#include <algorithm>
 
-auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
+namespace hitagi::gfx {
+auto DX12SwapChain::GetCurrentBackBuffer() -> Texture& {
+    return GetBuffers().at(swap_chain->GetCurrentBackBufferIndex());
+}
+
+auto DX12SwapChain::GetBuffers() -> std::pmr::vector<std::reference_wrapper<Texture>> {
     assert(swap_chain);
     if (back_buffers.empty()) {
         // it is important to reserve the capacity for no to reallocate,
@@ -45,7 +50,13 @@ auto DX12SwapChain::GetBuffer(std::uint8_t index) -> Texture& {
         }
     }
 
-    return *back_buffers.at(index);
+    std::pmr::vector<std::reference_wrapper<Texture>> result;
+    std::transform(
+        back_buffers.begin(),
+        back_buffers.end(),
+        std::back_inserter(result),
+        [](const auto& ptr) { return std::ref(*ptr); });
+    return result;
 }
 
 void DX12SwapChain::Resize() {

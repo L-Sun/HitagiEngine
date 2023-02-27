@@ -17,7 +17,8 @@ std::ostream& operator<<(std::ostream& os, const Device::Type& type) {
 
 class DeviceTest : public ::testing::TestWithParam<Device::Type> {
 protected:
-    DeviceTest() : device(Device::Create(GetParam(), ::testing::UnitTest::GetInstance()->current_test_info()->name())) {}
+    DeviceTest() : test_name(::testing::UnitTest::GetInstance()->current_test_info()->name()), device(Device::Create(GetParam(), test_name)) {}
+    std::pmr::string        test_name;
     std::unique_ptr<Device> device;
 };
 
@@ -379,7 +380,7 @@ TEST_P(DeviceTest, CommandContextTest) {
 TEST_P(DeviceTest, SwapChainTest) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
-            .title = "SwapChainTest_Test",
+            .title = std::pmr::string{fmt::format("App/{}", test_name)},
         });
     {
         auto rect = app->GetWindowsRect();
@@ -388,14 +389,14 @@ TEST_P(DeviceTest, SwapChainTest) {
             {
                 .name       = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
                 .window_ptr = app->GetWindow(),
-                .format     = Format::R8G8B8A8_UNORM,
+                .format     = Format::B8G8R8A8_UNORM,
             });
         ASSERT_TRUE(swap_chain);
         EXPECT_EQ(swap_chain->Width(), rect.right - rect.left);
         EXPECT_EQ(swap_chain->Height(), rect.bottom - rect.top);
 
-        ASSERT_NO_THROW(swap_chain->GetBuffer(0));
-        auto& back_buffer = swap_chain->GetBuffer(0);
+        EXPECT_EQ(swap_chain->GetBuffers().size(), swap_chain->desc.frame_count);
+        auto& back_buffer = swap_chain->GetCurrentBackBuffer();
         EXPECT_EQ(back_buffer.desc.width, rect.right - rect.left);
         EXPECT_EQ(back_buffer.desc.height, rect.bottom - rect.top);
         EXPECT_EQ(back_buffer.desc.format, swap_chain->desc.format);
@@ -405,7 +406,7 @@ TEST_P(DeviceTest, SwapChainTest) {
             {
                 .name       = "Same-Swaichain",
                 .window_ptr = app->GetWindow(),
-                .format     = Format::R8G8B8A8_UNORM,
+                .format     = Format::B8G8R8A8_UNORM,
             });
         EXPECT_EQ(same_swapchan, swap_chain);
     }
@@ -414,7 +415,7 @@ TEST_P(DeviceTest, SwapChainTest) {
 TEST_P(DeviceTest, IKownDirectX12) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
-            .title = "IKownDirectX12_Test",
+            .title = std::pmr::string{fmt::format("App/{}", test_name)},
         });
     {
         auto rect = app->GetWindowsRect();

@@ -17,9 +17,11 @@ public:
     void WaitForQueue(const CommandQueue& other) final;
     void WaitIdle() final;
 
+    inline auto  GetFramilyIndex() const noexcept { return m_FamilyIndex; }
     inline auto& GetVkQueue() const noexcept { return m_Queue; }
 
 private:
+    std::uint32_t   m_FamilyIndex;
     vk::raii::Queue m_Queue;
 };
 

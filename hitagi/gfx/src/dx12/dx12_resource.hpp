@@ -57,13 +57,9 @@ struct DX12SwapChain final : public SwapChain {
 
     ~DX12SwapChain() final;
 
-    inline auto GetCurrentBackIndex() -> std::uint8_t final {
-        return swap_chain->GetCurrentBackBufferIndex();
-    }
-    inline auto GetCurrentBackBuffer() -> Texture& final {
-        return GetBuffer(GetCurrentBackIndex());
-    }
-    auto        GetBuffer(std::uint8_t index) -> Texture& final;
+    auto GetCurrentBackBuffer() -> Texture& final;
+    auto GetBuffers() -> std::pmr::vector<std::reference_wrapper<Texture>> final;
+
     inline void Present() final {
         swap_chain->Present(desc.vsync ? 1 : 0, allow_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0);
         associated_queue->InsertFence();

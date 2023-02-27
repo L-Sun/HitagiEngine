@@ -253,8 +253,9 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
 
     std::shared_ptr<DX12SwapChain> result = nullptr;
     if (m_SwapChains.contains(desc.window_ptr)) {
-        result = m_SwapChains.at(desc.window_ptr);
-        if (result->desc.format == desc.format &&
+        result = m_SwapChains.at(desc.window_ptr).lock();
+        if (result != nullptr &&
+            result->desc.format == desc.format &&
             result->desc.frame_count == desc.frame_count &&
             result->desc.sample_count == desc.sample_count) {
             if (result->desc.name != desc.name) {
@@ -263,13 +264,10 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
             return result;
         } else {
             // Recreate swapchain
-            const_cast<SwapChain::Desc&>(result->desc) = desc;
             WaitIdle();
-            result->swap_chain = nullptr;
         }
-    } else {
-        result = std::make_shared<DX12SwapChain>(*this, desc);
     }
+    result = std::make_shared<DX12SwapChain>(*this, desc);
 
     UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
     if (!result->desc.vsync) {

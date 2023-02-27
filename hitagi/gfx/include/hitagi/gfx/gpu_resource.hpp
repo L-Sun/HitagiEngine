@@ -144,7 +144,7 @@ struct SwapChain : public Resource {
         std::string_view name = UNKOWN_NAME;
         void*            window_ptr;
         std::uint8_t     frame_count  = 2;
-        Format           format       = Format::R8G8B8A8_UNORM;
+        Format           format       = Format::B8G8R8A8_UNORM;
         std::uint32_t    sample_count = 1;
         bool             vsync        = false;
     };
@@ -155,13 +155,12 @@ struct SwapChain : public Resource {
 
     const Desc desc;
 
-    virtual auto GetCurrentBackIndex() -> std::uint8_t     = 0;
-    virtual auto GetCurrentBackBuffer() -> Texture&        = 0;
-    virtual auto GetBuffer(std::uint8_t index) -> Texture& = 0;
-    virtual auto Width() -> std::uint32_t                  = 0;
-    virtual auto Height() -> std::uint32_t                 = 0;
-    virtual void Present()                                 = 0;
-    virtual void Resize()                                  = 0;
+    virtual auto GetCurrentBackBuffer() -> Texture&                                = 0;
+    virtual auto GetBuffers() -> std::pmr::vector<std::reference_wrapper<Texture>> = 0;
+    virtual auto Width() -> std::uint32_t                                          = 0;
+    virtual auto Height() -> std::uint32_t                                         = 0;
+    virtual void Present()                                                         = 0;
+    virtual void Resize()                                                          = 0;
 };
 
 struct RenderPipeline : public Resource {

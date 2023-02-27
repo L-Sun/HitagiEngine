@@ -22,7 +22,12 @@ target("vulkan-device")
     add_includedirs("include")
     add_deps("core", "math", "utils")
     add_packages("vulkansdk", {public = true})
+    add_defines("NOMINMAX", {public = true})
+    
     add_defines("VULKAN_HPP_NO_CONSTRUCTORS")
+    if is_plat("windows") then
+        add_defines("VK_USE_PLATFORM_WIN32_KHR")
+    end 
 
 
 target("gfx")

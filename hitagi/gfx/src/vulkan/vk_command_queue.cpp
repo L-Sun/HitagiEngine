@@ -8,7 +8,8 @@ constexpr std::array copy_color     = {0.88f, 0.39f, 0.35f, 1.0f};
 
 VulkanCommandQueue::VulkanCommandQueue(VulkanDevice& device, CommandType type, std::string_view name, std::uint32_t queue_family_index)
     : CommandQueue(device, type, name),
-      m_Queue(device.GetDevice().getQueue(queue_family_index, 0))
+      m_FamilyIndex(queue_family_index),
+      m_Queue(device.GetDevice().getQueue(queue_family_index, magic_enum::enum_integer(type)))
 
 {
     m_Queue.insertDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{

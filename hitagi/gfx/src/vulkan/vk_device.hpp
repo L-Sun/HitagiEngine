@@ -1,5 +1,6 @@
 #pragma once
 #include "vk_command_queue.hpp"
+#include "vk_resource.hpp"
 
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/gfx/command_context.hpp>
@@ -35,18 +36,16 @@ public:
         return m_Logger;
     }
 
+    inline auto& GetInstance() const noexcept { return *m_Instance; }
+    inline auto& GetCustomAllocator() const noexcept { return m_CustomAllocator; }
+    inline auto& GetCustomAllocationRecord() noexcept { return m_CustomAllocationRecord; }
+    inline auto& GetPhysicalDevice() const noexcept { return *m_PhysicalDevice; }
     inline auto& GetDevice() const noexcept { return *m_Device; }
 
 private:
-    void* CustomAllocateFn(std::size_t size, std::size_t alignment);
-    void* CustomReallocateFn(void* orign_ptr, std::size_t new_size, std::size_t alignment);
-    void  CustomFreeFn(void* ptr);
-
-    auto GetInstanceLayers() const -> std::pmr::vector<const char*>;
-    auto GetInstanceExtensions() const -> std::pmr::vector<const char*>;
-
-    vk::AllocationCallbacks                                             m_CustomAllocationCallback;
-    std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>> m_CustomAllocationInfos;
+    vk::AllocationCallbacks m_CustomAllocator;
+    using AllocationRecord = std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>>;
+    AllocationRecord m_CustomAllocationRecord;
 
     vk::raii::Context                                 m_Context;
     std::unique_ptr<vk::raii::Instance>               m_Instance;
@@ -54,6 +53,8 @@ private:
 
     std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
     std::unique_ptr<vk::raii::Device>         m_Device;
+
+    std::pmr::unordered_map<void*, std::weak_ptr<VulkanSwapChain>> m_SwapChains;
 
     utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType> m_CommandQueues;
 };

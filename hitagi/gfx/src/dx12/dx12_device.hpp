@@ -15,6 +15,7 @@
 #include <dxgi1_6.h>
 #include <dxcapi.h>
 #include <deque>
+#include <memory>
 
 using namespace Microsoft::WRL;
 
@@ -73,7 +74,7 @@ private:
     // Only cbv_uav_srv and sampler allocator
     std::array<std::unique_ptr<DescriptorAllocator>, 2> m_GpuDescriptorAllocators;
 
-    std::pmr::unordered_map<void*, std::shared_ptr<DX12SwapChain>> m_SwapChains;
+    std::pmr::unordered_map<void*, std::weak_ptr<DX12SwapChain>> m_SwapChains;
 
     utils::EnumArray<std::shared_ptr<DX12CommandQueue>, CommandType> m_CommandQueues;
 };
