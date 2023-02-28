@@ -7,7 +7,9 @@ add_rules("mode.debug", "mode.release", "mode.releasedbg", "clang-msvc", "copy-d
 if is_mode("debug") then
     add_defines("HITAGI_DEBUG")
 end
-set_runtimes("MD")
+if is_plat("windows") then 
+    set_runtimes("MD")
+end
 
 option("profile")
     set_default(false)

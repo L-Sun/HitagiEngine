@@ -190,7 +190,7 @@ constexpr Matrix<T, 4> ortho(T left, T right, T bottom, T top, T near, T far) {
         {2 / (right - left),                  0,                0, (right + left) / (left - right)},
         {                 0, 2 / (top - bottom),                0, (top + bottom) / (bottom - top)},
         {                 0,                  0, 2 / (near - far),     (far + near) / (near - far)},
-        {                 0,                  0,               -1,                               1},
+        {                 0,                  0,                0,                               1},
     };
     // clang-format on
 }
