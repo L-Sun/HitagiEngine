@@ -699,7 +699,7 @@ void DX12Device::CompileShader(Shader& shader) {
 
     // make sure all resource bound
     args.push_back(DXC_ARG_ALL_RESOURCES_BOUND);
-#ifdef _DEBUG
+#ifdef HITAGI_DEBUG
     args.push_back(DXC_ARG_OPTIMIZATION_LEVEL0);
     args.push_back(DXC_ARG_DEBUG);
     args.push_back(L"-Qembed_debug");

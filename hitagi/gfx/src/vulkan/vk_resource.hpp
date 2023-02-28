@@ -6,14 +6,8 @@
 namespace hitagi::gfx {
 class VulkanDevice;
 
-template <typename T>
-    requires std::derived_from<T, Resource>
-struct VulkanResourceWrapper : public T {
-    using T::T;
-};
-
-struct VulkanImage : public VulkanResourceWrapper<Texture> {
-    using VulkanResourceWrapper<Texture>::VulkanResourceWrapper;
+struct VulkanImage : public Texture {
+    using Texture::Texture;
     std::optional<vk::raii::Image>     image;
     std::optional<vk::raii::ImageView> image_view;
 };
