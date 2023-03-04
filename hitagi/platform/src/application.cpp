@@ -3,10 +3,6 @@
 #include <hitagi/core/file_io_manager.hpp>
 #include <hitagi/hid/input_manager.hpp>
 
-#ifdef WIN32
-#include "windows/win32_application.hpp"
-#endif
-
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 
@@ -58,10 +54,21 @@ auto Application::CreateApp(const std::filesystem::path& config_path) -> std::un
     return Application::CreateApp(config.has_value() ? config.value() : AppConfig{});
 }
 
+}  // namespace hitagi
+
+#if defined(_WIN32)
+#include "windows/win32_application.hpp"
+#elif defined(__linux__)
+#include "sdl2/sdl2_application.hpp"
+#endif
+
+namespace hitagi {
 auto Application::CreateApp(AppConfig config) -> std::unique_ptr<Application> {
     std::unique_ptr<Application> result = nullptr;
-#ifdef WIN32
+#if defined(_WIN32)
     result = std::make_unique<Win32Application>(std::move(config));
+#elif defined(__linux__)
+    result = std::make_unique<SDL2Application>(std::move(config));
 #endif
     return result;
 }

@@ -3,7 +3,10 @@
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#ifdef _WIN32
 #include "dx12/dx12_device.hpp"
+#endif
+
 #include "vulkan/vk_device.hpp"
 
 namespace hitagi::gfx {

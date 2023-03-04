@@ -1,8 +1,10 @@
 #pragma once
 #include <memory>
+#include <string>
 #include <string_view>
 #include <list>
 #include <vector>
+#include <memory_resource>
 
 namespace spdlog {
 class logger;

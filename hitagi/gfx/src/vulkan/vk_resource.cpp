@@ -7,7 +7,7 @@ namespace hitagi::gfx {
 VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChain::Desc desc) : SwapChain(device, desc) {
     auto window_size = math::vec2u{};
 
-#ifdef _WIN32
+#if defined(_WIN32)
     vk::Win32SurfaceCreateInfoKHR surface_create_info{
         .hinstance = GetModuleHandle(nullptr),
         .hwnd      = static_cast<HWND>(desc.window_ptr),
@@ -19,6 +19,10 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChain::Desc desc) : S
         window_size.x = rect.right - rect.left;
         window_size.y = rect.bottom - rect.top;
     }
+#elif defined(__linux__)
+    vk::XcbSurfaceCreateInfoKHR surface_create_info{
+
+    };
 #endif
 
     surface = std::make_unique<vk::raii::SurfaceKHR>(

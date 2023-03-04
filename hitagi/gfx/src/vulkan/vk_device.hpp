@@ -7,7 +7,7 @@
 #include <hitagi/utils/array.hpp>
 
 #include <vulkan/vulkan_raii.hpp>
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 
 namespace hitagi::gfx {
 class VulkanDevice final : public Device {

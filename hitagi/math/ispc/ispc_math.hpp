@@ -1,5 +1,6 @@
 #pragma once
 #include <concepts>
+#include <cstdint>
 
 template <typename T>
 concept IspcSpeedable =

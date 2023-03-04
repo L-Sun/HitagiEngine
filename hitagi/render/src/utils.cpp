@@ -146,7 +146,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
     if (m_GfxData.upload_heap == nullptr || m_GfxData.upload_heap->desc.element_size < total_upload_size) {
         m_GfxData.upload_heap = render_graph.device.CreateBuffer({
             .name         = "imgui-upload-heap",
-            .element_size = std::max(1ull, total_upload_size),
+            .element_size = std::max(1ul, total_upload_size),
             .usages       = gfx::GpuBuffer::UsageFlags::MapWrite | gfx::GpuBuffer::UsageFlags::CopySrc,
         });
     }

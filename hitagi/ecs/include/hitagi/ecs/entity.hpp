@@ -3,6 +3,7 @@
 #include <compare>
 #include <cstdint>
 #include <limits>
+#include <functional>
 
 namespace hitagi::ecs {
 

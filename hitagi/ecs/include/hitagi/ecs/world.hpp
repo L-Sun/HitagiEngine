@@ -1,6 +1,8 @@
 #pragma once
 #include <hitagi/ecs/entity_manager.hpp>
 
+#include <memory_resource>
+
 namespace spdlog {
 class logger;
 }

@@ -1,6 +1,13 @@
 #pragma once
 #include <vulkan/vulkan_raii.hpp>
 
+#if defined(_WIN32)
+#include <vulkan/vulkan_win32.h>
+#elif defined(__linux__)
+#include <xcb/xcb.h>
+#include <vulkan/vulkan_xcb.h>
+#endif
+
 #include <array>
 
 namespace hitagi::gfx {
@@ -14,8 +21,10 @@ constexpr std::array required_instance_layers = {
 constexpr std::array required_instance_extensions = {
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
     VK_KHR_SURFACE_EXTENSION_NAME,
-#ifdef _WIN32
+#if defined(_WIN32)
     VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+#elif defined(__linux__)
+    VK_KHR_XCB_SURFACE_EXTENSION_NAME,
 #endif
 };
 

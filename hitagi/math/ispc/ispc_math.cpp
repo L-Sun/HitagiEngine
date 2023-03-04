@@ -1,5 +1,5 @@
 #include "ispc_math.hpp"
-#include "vector_ispc.h"
+#include "vector.ispc.h"
 
 namespace ispc {
 // float

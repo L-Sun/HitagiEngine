@@ -1,6 +1,10 @@
 #pragma once
 #include <crossguid/guid.hpp>
 
+#include <string>
+#include <string_view>
+#include <memory_resource>
+
 namespace hitagi::asset {
 class Resource {
 public:

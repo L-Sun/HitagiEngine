@@ -388,7 +388,7 @@ void RenderGraph::Reset() {
         }
     });
 
-    const auto discard_cache_fn = [](auto& item) {
+    auto discard_cache_fn = [](auto& item) {
         auto& [res, life_conter] = item.second;
         life_conter--;
         return life_conter == 0;

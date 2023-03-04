@@ -18,7 +18,7 @@ namespace hitagi::ecs::detials {
 using ArchetypeID = std::size_t;
 
 template <utils::NoCVRef... Components>
-constexpr auto get_archetype_id(const DynamicComponents& dynamic_components = {}) -> ArchetypeID
+auto get_archetype_id(const DynamicComponents& dynamic_components = {}) -> ArchetypeID
     requires utils::UniqueTypes<Components...>
 {
     ArchetypeID archetype_id = 0;
@@ -162,7 +162,7 @@ auto Archetype<Components...>::GetComponentRawData(std::size_t component_index, 
     if (component_index < m_StaticComponents.NumTypes) {
         auto result = [&]<std::size_t... I>(std::index_sequence<I...>) {
             void* result = nullptr;
-            ((I == component_index ? (result = &m_StaticComponents.template elements<I>().at(entity_index)) : false), ...);
+            ((I == component_index ? (result = &m_StaticComponents.template elements<I>().at(entity_index)) : nullptr), ...);
             return result;
         }
         (std::index_sequence_for<Entity, Components...>{});

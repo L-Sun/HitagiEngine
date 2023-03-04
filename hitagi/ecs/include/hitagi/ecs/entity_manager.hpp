@@ -6,6 +6,7 @@
 #include <hitagi/utils/type.hpp>
 
 namespace hitagi::ecs {
+class World;
 
 class EntityManager {
 public:

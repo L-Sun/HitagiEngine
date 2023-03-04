@@ -105,5 +105,46 @@
     "clangd.arguments": [
         "-j=8",
         "--pch-storage=memory"
-    ]
+    ],
+    "testMate.cpp.test.advancedExecutables": [
+        {
+            "cwd": "${workspaceFolder}",
+            "win32": {
+                "pattern": "{build,Build,BUILD,out,Out,OUT}/**/*{benchmark,test,Test,TEST}.exe",
+                "env": {
+                    "PATH": "${os_env:PATH}${osPathEnvSep}${relDirpath}",
+                    "TRACY_NO_INVARIANT_CHECK": 1
+                }
+            },
+            "linux": {
+                "pattern": "{build,Build,BUILD,out,Out,OUT}/**/*{benchmark,test,Test,TEST}",
+                "env": {
+                    "LD_LIBRARY_PATH": "${relDirpath}",
+                    "TRACY_NO_INVARIANT_CHECK": 1,
+                    "SDL_VIDEODRIVER": "wayland"
+                }
+            },
+        }
+    ],
+    "testMate.cpp.debug.configTemplate": {
+        "type": "cppvsdbg",
+        "linux": {
+            "type": "cppdbg",
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+        },
+        "darwin": {
+            "type": "cppdbg",
+            "MIMode": "lldb"
+        },
+        "win32": {
+            "type": "cppvsdbg"
+        },
+        "program": "${exec}",
+        "args": "${argsArray}",
+        "cwd": "${cwd}",
+        "env": "${envObj}",
+        "environment": "${envObjArray}",
+        "sourceFileMap": "${sourceFileMapObj}",
+    }
 }
