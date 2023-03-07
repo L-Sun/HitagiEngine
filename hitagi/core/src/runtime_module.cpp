@@ -16,7 +16,7 @@ RuntimeModule::~RuntimeModule() {
     while (!m_SubModules.empty()) {
         m_SubModules.pop_back();
     }
-    m_Logger->debug("Finalized");
+    m_Logger->info("Finalized");
 }
 
 void RuntimeModule::Tick() {

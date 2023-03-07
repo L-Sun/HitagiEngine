@@ -1,6 +1,5 @@
 add_requires("d3d12-memory-allocator", {optional = true})
-add_requires("vulkan", "vulkan-memory-allocator")
-add_requires("libxcb", {optional = true})
+add_requires("vulkan", "vulkan-memory-allocator", "directx-shader-compiler")
 
 target("dx12-device")
     -- TODO try use dll
@@ -9,7 +8,7 @@ target("dx12-device")
     add_includedirs("include")
     add_deps("core", "math", "utils")
     add_syslinks("d3d12", "dxgi", "dxguid")
-    add_packages("directxshadercompiler")
+    add_packages("directx-shader-compiler")
     add_packages("d3d12-memory-allocator", {public = true})
     add_defines("NOMINMAX", {public = true})
 

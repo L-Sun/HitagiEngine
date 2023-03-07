@@ -126,6 +126,7 @@
             },
         }
     ],
+    "testMate.cpp.log.logpanel": true,
     "testMate.cpp.debug.configTemplate": {
         "type": "cppvsdbg",
         "linux": {
@@ -146,5 +147,19 @@
         "env": "${envObj}",
         "environment": "${envObjArray}",
         "sourceFileMap": "${sourceFileMapObj}",
-    }
+    },
+    "cSpell.words": [
+        "HIGHDPI",
+        "hitagi",
+        "IBEAM",
+        "NESW",
+        "SIZEALL",
+        "SIZENESW",
+        "SIZENS",
+        "SIZENWSE",
+        "SIZEWE",
+        "spdlog",
+        "WINDOWEVENT",
+        "WINDOWPOS"
+    ]
 }

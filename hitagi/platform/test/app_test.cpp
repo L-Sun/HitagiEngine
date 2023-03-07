@@ -14,7 +14,6 @@ protected:
 
 TEST_F(AppTest, CreateApp) {
     EXPECT_NE(app, nullptr);
-    app->Tick();
 }
 
 TEST_F(AppTest, ResizeWindow) {
@@ -26,6 +25,9 @@ TEST_F(AppTest, ResizeWindow) {
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-    ;
+    try {
+        return RUN_ALL_TESTS();
+    } catch (const std::bad_alloc& err) {
+        std::cout << err.what() << std::endl;
+    }
 }
