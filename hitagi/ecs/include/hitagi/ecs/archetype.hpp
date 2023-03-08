@@ -1,7 +1,7 @@
 #pragma once
 #include <hitagi/ecs/entity.hpp>
 #include <hitagi/ecs/component.hpp>
-#include <hitagi/utils/type.hpp>
+#include <hitagi/utils/types.hpp>
 #include <hitagi/utils/hash.hpp>
 #include <hitagi/utils/soa.hpp>
 

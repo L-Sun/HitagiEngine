@@ -22,10 +22,16 @@ protected:
     std::unique_ptr<Device> device;
 };
 
+#ifdef _WIN32
+constexpr std::array supported_device_types = {Device::Type::DX12, Device::Type::Vulkan};
+#else
+constexpr std::array supported_device_types = {Device::Type::Vulkan};
+#endif
+
 INSTANTIATE_TEST_SUITE_P(
     DeviceTest,
     DeviceTest,
-    ::testing::Values(Device::Type::DX12, Device::Type::Vulkan),
+    ::testing::ValuesIn(supported_device_types),
     [](const ::testing::TestParamInfo<Device::Type>& info) -> std::string {
         return std::string{magic_enum::enum_name(info.param)};
     });
@@ -386,9 +392,9 @@ TEST_P(DeviceTest, CreateSwapChain) {
 
     auto swap_chain = device->CreateSwapChain(
         {
-            .name       = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-            .window_ptr = app->GetWindow(),
-            .format     = Format::B8G8R8A8_UNORM,
+            .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .window = app->GetWindow(),
+            .format = Format::B8G8R8A8_UNORM,
         });
     ASSERT_TRUE(swap_chain);
     EXPECT_EQ(swap_chain->Width(), rect.right - rect.left);
@@ -400,14 +406,6 @@ TEST_P(DeviceTest, CreateSwapChain) {
     EXPECT_EQ(back_buffer.desc.height, rect.bottom - rect.top);
     EXPECT_EQ(back_buffer.desc.format, swap_chain->desc.format);
     EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.desc.usages, Texture::UsageFlags::RTV));
-
-    auto same_swapchan = device->CreateSwapChain(
-        {
-            .name       = "Same-Swaichain",
-            .window_ptr = app->GetWindow(),
-            .format     = Format::B8G8R8A8_UNORM,
-        });
-    EXPECT_EQ(same_swapchan, swap_chain);
 }
 
 TEST_P(DeviceTest, SwapChainResizing) {
@@ -419,9 +417,9 @@ TEST_P(DeviceTest, SwapChainResizing) {
 
     auto swap_chain = device->CreateSwapChain(
         {
-            .name       = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-            .window_ptr = app->GetWindow(),
-            .format     = Format::B8G8R8A8_UNORM,
+            .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .window = app->GetWindow(),
+            .format = Format::B8G8R8A8_UNORM,
         });
     ASSERT_TRUE(swap_chain);
 
@@ -448,9 +446,9 @@ TEST_P(DeviceTest, IKownDirectX12) {
 
         auto swap_chain = device->CreateSwapChain(
             {
-                .name       = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .window_ptr = app->GetWindow(),
-                .format     = Format::R8G8B8A8_UNORM,
+                .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .window = app->GetWindow(),
+                .format = Format::R8G8B8A8_UNORM,
             });
 
         constexpr std::string_view shader_code = R"""(

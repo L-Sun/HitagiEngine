@@ -28,7 +28,11 @@ Device::~Device() {
 auto Device::Create(Type type, std::string_view name) -> std::unique_ptr<Device> {
     switch (type) {
         case Type::DX12:
+#ifdef _WIN32
             return std::make_unique<DX12Device>(name);
+#else
+            return nullptr;
+#endif
         case Type::Vulkan:
             return std::make_unique<VulkanDevice>(name);
         default:

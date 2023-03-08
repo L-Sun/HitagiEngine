@@ -86,7 +86,7 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
             }
 
             for (auto param : json["parameters"]) {
-                std::string_view    type = param.at("type");
+                const std::string&  type = param.at("type");
                 Material::Parameter mat_param{.name = param.at("name")};
                 if (type == "float")
                     mat_param.value = param.value("default", 0.0f);
@@ -126,8 +126,8 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                 parameters.emplace_back(std::move(mat_param));
             }
         }
-
-        return Material::Create(std::move(pipeline_desc), std::move(parameters), json.at("name"));
+        const std::string& name = json.at("name");
+        return Material::Create(std::move(pipeline_desc), std::move(parameters), name);
     } catch (nlohmann::json::exception& ex) {
         logger->error(ex.what());
         return nullptr;

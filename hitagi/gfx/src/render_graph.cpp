@@ -388,12 +388,18 @@ void RenderGraph::Reset() {
         }
     });
 
+    auto decrese_conter_fn = [](auto& item) {
+        auto& [res, life_conter] = item.second;
+
+        life_conter = life_conter == 0 ? 0 : life_conter - 1;
+    };
+    std::for_each(m_GpuBfferPool.begin(), m_GpuBfferPool.end(), decrese_conter_fn);
+    std::for_each(m_TexturePool.begin(), m_TexturePool.end(), decrese_conter_fn);
+
     auto discard_cache_fn = [](auto& item) {
         auto& [res, life_conter] = item.second;
-        life_conter--;
         return life_conter == 0;
     };
-
     std::erase_if(m_GpuBfferPool, discard_cache_fn);
     std::erase_if(m_TexturePool, discard_cache_fn);
 

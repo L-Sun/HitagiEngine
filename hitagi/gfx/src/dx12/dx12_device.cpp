@@ -236,38 +236,22 @@ auto DX12Device::CreateCopyContext(std::string_view name) -> std::shared_ptr<Cop
 }
 
 auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> {
-    if (desc.window_ptr == nullptr) {
-        m_Logger->error("Failed to create swap chain beacuse the window_ptr is {}",
+    if (desc.window.ptr == nullptr) {
+        m_Logger->error("Failed to create swap chain beacuse the window.ptr is {}",
                         fmt::styled("nullptr", fmt::fg(fmt::color::red)));
         return nullptr;
     }
-    HWND h_wnd = static_cast<HWND>(desc.window_ptr);
+    HWND h_wnd = static_cast<HWND>(desc.window.ptr);
     if (!IsWindow(h_wnd)) {
-        m_Logger->error("The window ptr({}) is not a valid window.", desc.window_ptr);
+        m_Logger->error("The window ptr({}) is not a valid window.", desc.window.ptr);
         // Remove retired window
-        if (m_SwapChains.contains(desc.window_ptr)) {
-            m_SwapChains.erase(desc.window_ptr);
+        if (m_SwapChains.contains(desc.window.ptr)) {
+            m_SwapChains.erase(desc.window.ptr);
         }
         return nullptr;
     }
 
-    std::shared_ptr<DX12SwapChain> result = nullptr;
-    if (m_SwapChains.contains(desc.window_ptr)) {
-        result = m_SwapChains.at(desc.window_ptr).lock();
-        if (result != nullptr &&
-            result->desc.format == desc.format &&
-            result->desc.frame_count == desc.frame_count &&
-            result->desc.sample_count == desc.sample_count) {
-            if (result->desc.name != desc.name) {
-                const_cast<SwapChain::Desc&>(result->desc).name = desc.name;
-            }
-            return result;
-        } else {
-            // Recreate swapchain
-            WaitIdle();
-        }
-    }
-    result = std::make_shared<DX12SwapChain>(*this, desc);
+    auto result = std::make_shared<DX12SwapChain>(*this, desc);
 
     UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
     if (!result->desc.vsync) {
@@ -312,8 +296,6 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
         m_Logger->error("Failed to create swap chain: {}", desc.name);
         return nullptr;
     }
-
-    m_SwapChains.emplace(desc.window_ptr, result);
 
     result->width  = result->GetCurrentBackBuffer().desc.width;
     result->height = result->GetCurrentBackBuffer().desc.height;

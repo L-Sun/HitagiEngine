@@ -3,7 +3,7 @@
 #include <hitagi/ecs/archetype.hpp>
 #include <hitagi/ecs/filter.hpp>
 #include <hitagi/utils/concepts.hpp>
-#include <hitagi/utils/type.hpp>
+#include <hitagi/utils/types.hpp>
 
 namespace hitagi::ecs {
 class World;

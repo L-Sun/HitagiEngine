@@ -1,10 +1,12 @@
 #pragma once
 #include "configs.hpp"
+#include "hitagi/math/vector.hpp"
 
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
 
 #include <vulkan/vulkan_raii.hpp>
+#include <SDL2/SDL_vulkan.h>
 
 #include <set>
 
@@ -193,6 +195,12 @@ inline constexpr auto to_vk_format(Format format) noexcept -> vk::Format {
         default:
             return vk::Format::eUndefined;
     }
+}
+
+inline auto get_sdl2_drawable_size(SDL_Window* window) -> math::vec2u {
+    int width, height;
+    SDL_Vulkan_GetDrawableSize(window, &width, &height);
+    return {width, height};
 }
 
 }  // namespace hitagi::gfx

@@ -17,7 +17,7 @@ public:
     void SetMousePosition(const math::vec2u& position) final;
     void ResizeWindow(std::uint32_t width, std::uint32_t height) final;
 
-    auto GetWindow() const -> void* final;
+    auto GetWindow() const -> utils::Window final;
     auto GetDpiRatio() const -> float final;
     auto GetMemoryUsage() const -> std::size_t final;
     auto GetWindowsRect() const -> Rect final;
@@ -27,9 +27,7 @@ public:
     inline bool IsQuit() const final { return m_Quit; }
 
 private:
-    SDL_Window*   m_Window   = nullptr;
-    SDL_Surface*  m_Surface  = nullptr;
-    SDL_Renderer* m_Renderer = nullptr;
+    SDL_Window* m_Window = nullptr;
 
     bool m_Quit        = false;
     bool m_SizeChanged = false;

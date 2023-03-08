@@ -54,8 +54,6 @@ private:
     std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
     std::unique_ptr<vk::raii::Device>         m_Device;
 
-    std::pmr::unordered_map<void*, std::weak_ptr<VulkanSwapChain>> m_SwapChains;
-
     utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType> m_CommandQueues;
 };
 }  // namespace hitagi::gfx

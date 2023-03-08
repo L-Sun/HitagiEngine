@@ -35,7 +35,7 @@ GuiManager::GuiManager(Application& app) : RuntimeModule("GuiManager"), m_App(ap
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_HasSetMousePos;
 
     ImGuiViewport* main_viewport  = ImGui::GetMainViewport();
-    main_viewport->PlatformHandle = main_viewport->PlatformHandleRaw = app.GetWindow();
+    main_viewport->PlatformHandle = main_viewport->PlatformHandleRaw = app.GetWindow().ptr;
 
     LoadFont();
 }

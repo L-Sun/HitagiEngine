@@ -65,14 +65,19 @@ VulkanDevice::VulkanDevice(std::string_view name)
     m_Logger->debug("Pick GPU...");
     {
         auto physical_devices = m_Instance->enumeratePhysicalDevices();
+        m_Logger->debug("Found {} Vulkan physical devices", physical_devices.size());
+        for (const auto& device : physical_devices) {
+            m_Logger->debug("\t {}", device.getProperties().deviceName);
+        }
+
         std::erase_if(physical_devices, [](const auto& device) { return !is_physcial_suitable(device); });
         std::ranges::sort(physical_devices, std::ranges::greater(), compute_physical_device_scroe);
         if (physical_devices.empty()) {
-            throw std::runtime_error("Failed to find GPUs with Vulkan support!");
+            throw std::runtime_error("Failed to find physical device Vulkan supported!");
         }
         m_PhysicalDevice = std::make_unique<vk::raii::PhysicalDevice>(std::move(physical_devices.front()));
     }
-    m_Logger->debug("Pick GPU: {}", fmt::styled(std::string_view{m_PhysicalDevice->getProperties().deviceName}, fmt::fg(fmt::color::green)));
+    m_Logger->debug("Pick physical device: {}", fmt::styled(std::string_view{m_PhysicalDevice->getProperties().deviceName}, fmt::fg(fmt::color::green)));
 
     m_Logger->debug("Create logical device...");
     {
@@ -119,41 +124,7 @@ auto VulkanDevice::CreateCopyContext(std::string_view name) -> std::shared_ptr<C
 }
 
 auto VulkanDevice::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> {
-    if (desc.window_ptr == nullptr) {
-        m_Logger->error("Failed to create swap chain beacuse the window_ptr is {}",
-                        fmt::styled("nullptr", fmt::fg(fmt::color::red)));
-        return nullptr;
-    }
-    HWND h_wnd = static_cast<HWND>(desc.window_ptr);
-    if (!IsWindow(h_wnd)) {
-        m_Logger->error("The window ptr({}) is not a valid window.", desc.window_ptr);
-        // Remove retired window
-        if (m_SwapChains.contains(desc.window_ptr)) {
-            m_SwapChains.erase(desc.window_ptr);
-        }
-        return nullptr;
-    }
-
-    std::shared_ptr<VulkanSwapChain> result = nullptr;
-    if (m_SwapChains.contains(desc.window_ptr)) {
-        result = m_SwapChains.at(desc.window_ptr).lock();
-        if (result != nullptr &&
-            result->desc.format == desc.format &&
-            result->desc.frame_count == desc.frame_count &&
-            result->desc.sample_count == desc.sample_count) {
-            if (result->desc.name != desc.name) {
-                const_cast<SwapChain::Desc&>(result->desc).name = desc.name;
-            }
-            return result;
-        } else {
-            WaitIdle();
-            m_SwapChains.erase(desc.window_ptr);
-        }
-    }
-    result = std::make_shared<VulkanSwapChain>(*this, desc);
-    m_SwapChains.emplace(desc.window_ptr, result);
-
-    return result;
+    return std::make_shared<VulkanSwapChain>(*this, desc);
 }
 
 auto VulkanDevice::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GpuBuffer> {

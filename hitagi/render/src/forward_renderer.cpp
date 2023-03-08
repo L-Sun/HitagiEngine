@@ -17,7 +17,7 @@ ForwardRenderer::ForwardRenderer(const Application& app, gfx::Device::Type gfx_d
       m_GfxDevice(gfx::Device::Create(gfx_device_type)),
       m_SwapChain(m_GfxDevice->CreateSwapChain({
           .name        = "SwapChain",
-          .window_ptr  = app.GetWindow(),
+          .window      = app.GetWindow(),
           .frame_count = 2,
           .format      = gfx::Format::R8G8B8A8_UNORM,
       })),

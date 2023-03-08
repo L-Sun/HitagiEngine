@@ -175,6 +175,13 @@ void Win32Application::ResizeWindow(std::uint32_t width, std::uint32_t height) {
     UpdateRect();
 }
 
+auto Win32Application::GetWindow() const -> utils::Window {
+    return {
+        .type = utils::Window::Type::Win32,
+        .ptr  = m_Window,
+    };
+}
+
 float Win32Application::GetDpiRatio() const {
     unsigned dpi = GetDpiForWindow(m_Window);
     return dpi / 96.0f;

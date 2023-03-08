@@ -6,6 +6,7 @@
 #include <vector>
 
 namespace hitagi::gfx {
+
 enum struct Format : std::uint32_t {
     UNKNOWN                    = 0,
     R32G32B32A32_TYPELESS      = 1,

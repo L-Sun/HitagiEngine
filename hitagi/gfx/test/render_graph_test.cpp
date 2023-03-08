@@ -11,6 +11,10 @@ public:
                             Device::Type::DX12,
                             fmt::format("{}-Device", ::testing::UnitTest::GetInstance()->current_test_info()->name()))) {}
     std::unique_ptr<Device> device;
+
+    void SetUp() final {
+        ASSERT_TRUE(device != nullptr);
+    }
 };
 
 TEST_F(RenderGraphTest, RenderPass) {
@@ -20,9 +24,9 @@ TEST_F(RenderGraphTest, RenderPass) {
     {
         auto swap_chain = device->CreateSwapChain(
             {
-                .name       = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .window_ptr = app->GetWindow(),
-                .format     = Format::R8G8B8A8_UNORM,
+                .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .window = app->GetWindow(),
+                .format = Format::R8G8B8A8_UNORM,
             });
         auto& back_buffer = swap_chain->GetCurrentBackBuffer();
 

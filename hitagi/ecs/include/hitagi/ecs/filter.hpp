@@ -1,6 +1,6 @@
 #pragma once
 #include <hitagi/ecs/component.hpp>
-#include <hitagi/utils/type.hpp>
+#include <hitagi/utils/types.hpp>
 
 namespace hitagi::ecs {
 

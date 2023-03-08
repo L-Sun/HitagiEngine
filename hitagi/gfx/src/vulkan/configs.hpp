@@ -4,8 +4,7 @@
 #if defined(_WIN32)
 #include <vulkan/vulkan_win32.h>
 #elif defined(__linux__)
-#include <xcb/xcb.h>
-#include <vulkan/vulkan_xcb.h>
+#include <vulkan/vulkan_wayland.h>
 #endif
 
 #include <array>
@@ -24,7 +23,7 @@ constexpr std::array required_instance_extensions = {
 #if defined(_WIN32)
     VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #elif defined(__linux__)
-    VK_KHR_XCB_SURFACE_EXTENSION_NAME,
+    VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
 #endif
 };
 

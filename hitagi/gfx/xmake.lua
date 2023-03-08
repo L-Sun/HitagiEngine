@@ -28,8 +28,7 @@ target("vulkan-device")
         add_defines("NOMINMAX", {public = true})
         add_defines("VK_USE_PLATFORM_WIN32_KHR")
     elseif is_plat("linux") then
-        add_packages("libxcb")
-        add_defines("VK_USE_PLATFORM_XCB_KHR")
+        add_defines("VK_USE_PLATFORM_WAYLAND_KHR")
     end
 
 

@@ -33,6 +33,17 @@ private:
     std::size_t m_Value;
 };
 
+struct Window {
+    enum struct Type : std::uint8_t {
+#ifdef _WIN32
+        Win32,
+#endif
+        SDL2,
+    };
+    Type  type;
+    void* ptr;
+};
+
 }  // namespace hitagi::utils
 
 namespace std {

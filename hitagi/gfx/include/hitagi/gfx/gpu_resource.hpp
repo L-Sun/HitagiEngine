@@ -2,6 +2,7 @@
 #include <hitagi/gfx/common_types.hpp>
 #include <hitagi/utils/flags.hpp>
 #include <hitagi/core/buffer.hpp>
+#include <hitagi/utils/types.hpp>
 #include <hitagi/utils/hash.hpp>
 
 #include <functional>
@@ -142,7 +143,7 @@ struct Sampler : public Resource {
 struct SwapChain : public Resource {
     struct Desc {
         std::string_view name = UNKOWN_NAME;
-        void*            window_ptr;
+        utils::Window    window;
         std::uint8_t     frame_count  = 2;
         Format           format       = Format::B8G8R8A8_UNORM;
         std::uint32_t    sample_count = 1;

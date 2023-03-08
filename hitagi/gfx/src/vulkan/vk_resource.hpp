@@ -23,6 +23,9 @@ struct VulkanSwapChain final : public SwapChain {
     void Present() final;
     void Resize() final;
 
+    void CreateSwapchain();
+    void CreateImageViews();
+
     std::unique_ptr<vk::raii::SurfaceKHR>   surface;
     std::unique_ptr<vk::raii::SwapchainKHR> swapchain;
     math::vec2u                             size;

@@ -3,13 +3,11 @@
 #include <hitagi/utils/exceptions.hpp>
 
 #include <spdlog/logger.h>
-#include <SDL2/SDL_vulkan.h>
 
 namespace hitagi {
 SDL2Application::SDL2Application(AppConfig config) : Application(std::move(config)) {
-    std::string error_message;
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        error_message = fmt::format("SDL_Init failed: {}", SDL_GetError());
+        const auto error_message = fmt::format("SDL_Init failed: {}", SDL_GetError());
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
@@ -22,24 +20,9 @@ SDL2Application::SDL2Application(AppConfig config) : Application(std::move(confi
         m_Config.height,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_VULKAN);
     if (!m_Window) {
-        error_message = fmt::format("SDL_CreateWindow failed: {}", SDL_GetError());
+        const auto error_message = fmt::format("SDL_CreateWindow failed: {}", SDL_GetError());
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);
-    }
-
-    m_Surface = SDL_GetWindowSurface(m_Window);
-    if (!m_Surface) {
-        error_message = fmt::format("SDL_GetWindowSurface failed: {}", SDL_GetError());
-        m_Logger->error(error_message);
-        throw std::runtime_error(error_message);
-    }
-
-    unsigned num_exts;
-    SDL_Vulkan_GetInstanceExtensions(m_Window, &num_exts, nullptr);
-    std::vector<const char*> extensions(num_exts);
-    SDL_Vulkan_GetInstanceExtensions(m_Window, &num_exts, extensions.data());
-    for (auto ext : extensions) {
-        m_Logger->info("SDL2 Vulkan Extension: {}", ext);
     }
 }
 
@@ -124,8 +107,11 @@ void SDL2Application::ResizeWindow(std::uint32_t width, std::uint32_t height) {
     SDL_SetWindowSize(m_Window, width, height);
 }
 
-auto SDL2Application::GetWindow() const -> void* {
-    return m_Window;
+auto SDL2Application::GetWindow() const -> utils::Window {
+    return {
+        .type = utils::Window::Type::SDL2,
+        .ptr  = m_Window,
+    };
 }
 
 auto SDL2Application::GetDpiRatio() const -> float {
