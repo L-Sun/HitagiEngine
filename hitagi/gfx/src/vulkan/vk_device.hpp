@@ -1,6 +1,5 @@
 #pragma once
 #include "vk_command_queue.hpp"
-#include "vk_resource.hpp"
 
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/gfx/command_context.hpp>
@@ -23,7 +22,7 @@ public:
     auto CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> final;
 
     auto CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> final;
-    auto CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GpuBuffer> final;
+    auto CreateGpuBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GpuBuffer> final;
     auto CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
     auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> final;
 

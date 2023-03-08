@@ -303,7 +303,7 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
     return result;
 }
 
-auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GpuBuffer> {
+auto DX12Device::CreateGpuBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GpuBuffer> {
     ZoneScoped;
     if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::MapRead) &&
         utils::has_flag(desc.usages, GpuBuffer::UsageFlags::MapWrite)) {
@@ -448,7 +448,7 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
         if (result->mapped_ptr) {
             std::memcpy(result->mapped_ptr, initial_data.data(), std::min(initial_data.size(), result->desc.element_size * result->desc.element_count));
         } else {
-            auto upload_buffer = CreateBuffer(
+            auto upload_buffer = CreateGpuBuffer(
                 {
                     .name         = "UploadBuffer",
                     .element_size = std::min(initial_data.size(), result->desc.element_size * result->desc.element_count),
@@ -456,7 +456,7 @@ auto DX12Device::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> i
                 },
                 {initial_data.data(), std::min(initial_data.size(), result->desc.element_size * result->desc.element_count)});
 
-            auto copy_context = CreateCopyContext("CreateBuffer");
+            auto copy_context = CreateCopyContext("CreateGpuBuffer");
             copy_context->CopyBuffer(*upload_buffer, 0, *result, 0, upload_buffer->desc.element_size);
             copy_context->End();
 
@@ -574,7 +574,7 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
     resource->SetName(std::pmr::wstring(desc.name.begin(), desc.name.end()).data());
 
     if (!initial_data.empty()) {
-        auto upload_buffer = std::static_pointer_cast<DX12ResourceWrapper<GpuBuffer>>(CreateBuffer(
+        auto upload_buffer = std::static_pointer_cast<DX12ResourceWrapper<GpuBuffer>>(CreateGpuBuffer(
             {
                 .name         = "UploadTexture",
                 .element_size = GetRequiredIntermediateSize(resource, 0, resource_desc.Subresources(m_Device.Get())),

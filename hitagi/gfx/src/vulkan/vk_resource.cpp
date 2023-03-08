@@ -2,12 +2,41 @@
 #include "vk_device.hpp"
 #include "utils.hpp"
 
-#include <spdlog/logger.h>
+#include <hitagi/utils/flags.hpp>
 
+#include <spdlog/logger.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
 namespace hitagi::gfx {
+
+VulkanBuffer::VulkanBuffer(VulkanDevice& device, GpuBuffer::Desc desc)
+    : GpuBuffer(device, desc, desc.element_size * desc.element_count, nullptr) {
+    vk::BufferCreateInfo buffer_create_info{
+        .size        = desc.element_size * desc.element_count,
+        .sharingMode = vk::SharingMode::eExclusive,
+    };
+
+    if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::CopySrc)) {
+        buffer_create_info.usage |= vk::BufferUsageFlagBits::eTransferSrc;
+    }
+    if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::CopyDst)) {
+        buffer_create_info.usage |= vk::BufferUsageFlagBits::eTransferDst;
+    }
+    if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::Vertex)) {
+        buffer_create_info.usage |= vk::BufferUsageFlagBits::eVertexBuffer;
+    }
+    if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::Index)) {
+        buffer_create_info.usage |= vk::BufferUsageFlagBits::eIndexBuffer;
+    }
+    if (utils::has_flag(desc.usages, GpuBuffer::UsageFlags::Constant)) {
+        buffer_create_info.usage |= vk::BufferUsageFlagBits::eUniformBuffer;
+    }
+
+    buffer = std::make_unique<vk::raii::Buffer>(device.GetDevice(), buffer_create_info, device.GetCustomAllocator());
+
+    auto memory_requirements = buffer->getMemoryRequirements();
+}
 
 VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChain::Desc desc) : SwapChain(device, desc) {
     auto window_size = math::vec2u{};

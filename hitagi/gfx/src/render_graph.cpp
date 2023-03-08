@@ -272,7 +272,7 @@ bool RenderGraph::Compile() {
                 utils::Overloaded{
                     [&](const GpuBuffer::Desc& buffer_desc) {
                         if (!m_GpuBfferPool.contains(buffer_desc)) {
-                            m_GpuBfferPool.emplace(buffer_desc, std::pair{device.CreateBuffer(buffer_desc), sm_CacheLifeSpan});
+                            m_GpuBfferPool.emplace(buffer_desc, std::pair{device.CreateGpuBuffer(buffer_desc), sm_CacheLifeSpan});
                         }
                         m_GpuBfferPool.at(buffer_desc).second      = sm_CacheLifeSpan;
                         inner_resource.resource                    = m_GpuBfferPool.at(buffer_desc).first;

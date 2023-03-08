@@ -112,7 +112,7 @@ auto VertexArray::GetAttributeData(const gfx::VertexAttribute& attr) const noexc
 void VertexArray::InitGpuData(gfx::Device& device) {
     for (auto& attribute : m_Attributes) {
         if (attribute.cpu_buffer.Empty() || !attribute.dirty) continue;
-        attribute.gpu_buffer = device.CreateBuffer(
+        attribute.gpu_buffer = device.CreateGpuBuffer(
             {
                 .name          = fmt::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type)),
                 .element_size  = get_vertex_attribute_size(attribute.type),
@@ -156,7 +156,7 @@ void IndexArray::Resize(std::size_t new_count) {
 
 void IndexArray::InitGpuData(gfx::Device& device) {
     if (m_Data.cpu_buffer.Empty() || !m_Data.dirty) return;
-    m_Data.gpu_buffer = device.CreateBuffer(
+    m_Data.gpu_buffer = device.CreateGpuBuffer(
         {
             .name          = m_Name,
             .element_size  = get_index_type_size(m_Data.type),

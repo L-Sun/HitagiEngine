@@ -1,4 +1,5 @@
 #include "vk_device.hpp"
+#include "vk_resource.hpp"
 #include "configs.hpp"
 #include "utils.hpp"
 
@@ -127,8 +128,8 @@ auto VulkanDevice::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<Swap
     return std::make_shared<VulkanSwapChain>(*this, desc);
 }
 
-auto VulkanDevice::CreateBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GpuBuffer> {
-    return nullptr;
+auto VulkanDevice::CreateGpuBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GpuBuffer> {
+    return std::make_shared<VulkanBuffer>(*this, desc);
 }
 
 auto VulkanDevice::CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {

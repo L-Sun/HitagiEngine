@@ -89,7 +89,7 @@ TEST_F(RenderGraphTest, RenderPass) {
         { 0.25f, -0.25f, 0.00f}, {0.0f, 0.0f, 1.0f},  // point 2
         }};
         // clang-format on
-        auto vertex_buffer = device->CreateBuffer(
+        auto vertex_buffer = device->CreateGpuBuffer(
             {
                 .name          = "triangle",
                 .element_size  = 2 * sizeof(vec3f),

@@ -22,11 +22,12 @@ protected:
     std::unique_ptr<Device> device;
 };
 
+constexpr std::array supported_device_types = {
 #ifdef _WIN32
-constexpr std::array supported_device_types = {Device::Type::DX12, Device::Type::Vulkan};
-#else
-constexpr std::array supported_device_types = {Device::Type::Vulkan};
+    Device::Type::DX12,
 #endif
+    Device::Type::Vulkan,
+};
 
 INSTANTIATE_TEST_SUITE_P(
     DeviceTest,
@@ -40,84 +41,78 @@ TEST_P(DeviceTest, CreateDevice) {
     ASSERT_TRUE(device != nullptr);
 }
 
-TEST_P(DeviceTest, CreateGpuBuffer) {
-    // Create read back buffer
-    {
-        auto gpu_buffer = device->CreateBuffer(
-            {
-                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .element_size = 1024_kB,
-                .usages       = GpuBuffer::UsageFlags::MapRead | GpuBuffer::UsageFlags::CopyDst,
-            });
+TEST_P(DeviceTest, CreateVertexBuffer) {
+    auto gpu_buffer = device->CreateGpuBuffer(
+        {
+            .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .element_size = 1024_kB,
+            .usages       = GpuBuffer::UsageFlags::Vertex | GpuBuffer::UsageFlags::MapRead | GpuBuffer::UsageFlags::CopyDst,
+        });
 
-        ASSERT_TRUE(gpu_buffer != nullptr);
-        EXPECT_TRUE(gpu_buffer->mapped_ptr != nullptr);
-        EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB);
-    }
+    ASSERT_TRUE(gpu_buffer != nullptr);
+    EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB) << "The size of the buffer must be the same as described";
+}
 
-    // Create upload buffer
-    {
-        auto gpu_buffer = device->CreateBuffer(
-            {
-                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .element_size = 1024_kB,
-                .usages       = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
-            });
+TEST_P(DeviceTest, CreateIndexBuffer) {
+    auto gpu_buffer = device->CreateGpuBuffer(
+        {
+            .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .element_size = 1024_kB,
+            .usages       = GpuBuffer::UsageFlags::Index,
+        });
 
-        ASSERT_TRUE(gpu_buffer != nullptr);
-        EXPECT_TRUE(gpu_buffer->mapped_ptr != nullptr);
-        EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB);
+    ASSERT_TRUE(gpu_buffer != nullptr);
+    EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB) << "The size of the buffer must be the same as described";
+}
 
-        Buffer cpu_buffer(1024_kB);
-        std::memcpy(gpu_buffer->mapped_ptr, cpu_buffer.GetData(), 1024_kB);
-    }
+TEST_P(DeviceTest, CreateConstantBuffer) {
+    constexpr std::string_view initial_data = "abcdefg";
 
-    // Create default buffer
-    {
-        auto gpu_buffer = device->CreateBuffer(
-            {
-                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .element_size = 1024_kB,
-            });
+    auto gpu_buffer = device->CreateGpuBuffer(
+        {
+            .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .element_size = 1024_kB,
+            .usages       = GpuBuffer::UsageFlags::Constant | GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
+        },
+        {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
 
-        ASSERT_TRUE(gpu_buffer != nullptr);
-        EXPECT_TRUE(gpu_buffer->mapped_ptr == nullptr);
-        EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB);
-    }
+    ASSERT_TRUE(gpu_buffer != nullptr);
+    EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB) << "The size of the buffer must be the same as described";
+    ASSERT_TRUE(gpu_buffer->mapped_ptr != nullptr) << "An upload buffer must contain a mapped pointer";
+    EXPECT_EQ(gpu_buffer->desc.element_size, initial_data.size()) << "The size of the buffer must be the same as described";
+    EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->mapped_ptr), gpu_buffer->desc.element_size).c_str())
+        << "The content of the buffer must be the same as initial data";
+}
 
-    // Create upload buffer with initial data
-    {
-        constexpr std::string_view initial_data = "abcdefg";
+TEST_P(DeviceTest, CreateUploadBuffer) {
+    constexpr std::string_view initial_data = "abcdefg";
 
-        auto gpu_buffer = device->CreateBuffer(
-            {
-                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .element_size = initial_data.size(),
-                .usages       = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
-            },
-            {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
+    auto gpu_buffer = device->CreateGpuBuffer(
+        {
+            .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .element_size = initial_data.size(),
+            .usages       = GpuBuffer::UsageFlags::MapWrite | GpuBuffer::UsageFlags::CopySrc,
+        },
+        {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
 
-        ASSERT_TRUE(gpu_buffer != nullptr);
-        EXPECT_TRUE(gpu_buffer->mapped_ptr != nullptr);
-        EXPECT_EQ(gpu_buffer->desc.element_size, initial_data.size());
-        EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->mapped_ptr), gpu_buffer->desc.element_size).c_str());
-    }
+    ASSERT_TRUE(gpu_buffer != nullptr);
+    ASSERT_TRUE(gpu_buffer->mapped_ptr != nullptr) << "An upload buffer must contain a mapped pointer";
+    EXPECT_EQ(gpu_buffer->desc.element_size, initial_data.size()) << "The size of the buffer must be the same as described";
+    EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->mapped_ptr), gpu_buffer->desc.element_size).c_str())
+        << "The content of the buffer must be the same as initial data";
+}
 
-    // Create default buffer with initial data
-    {
-        std::string initial_data = "abcdefg";
+TEST_P(DeviceTest, CreateReadBackBuffer) {
+    auto gpu_buffer = device->CreateGpuBuffer(
+        {
+            .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .element_size = 1024_kB,
+            .usages       = GpuBuffer::UsageFlags::MapRead | GpuBuffer::UsageFlags::CopyDst,
+        });
 
-        auto gpu_buffer = device->CreateBuffer(
-            {
-                .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-                .element_size = initial_data.size(),
-            },
-            {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
-
-        ASSERT_TRUE(gpu_buffer != nullptr);
-        EXPECT_TRUE(gpu_buffer->mapped_ptr == nullptr);
-        EXPECT_EQ(gpu_buffer->desc.element_size, initial_data.size());
-    }
+    ASSERT_TRUE(gpu_buffer != nullptr);
+    EXPECT_TRUE(gpu_buffer->mapped_ptr != nullptr) << "A read back buffer must contain a mapped pointer";
+    EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB) << "The size of the buffer must be the same as described";
 }
 
 TEST_P(DeviceTest, CreateTexture) {
@@ -284,6 +279,21 @@ TEST_P(DeviceTest, CreatePipeline) {
     }
 }
 
+TEST_P(DeviceTest, CreateGraphicsCommandContext) {
+    auto command_context = device->CreateGraphicsContext();
+    EXPECT_TRUE(command_context);
+}
+
+TEST_P(DeviceTest, CreateComputeCommandContext) {
+    auto command_context = device->CreateComputeContext();
+    EXPECT_TRUE(command_context);
+}
+
+TEST_P(DeviceTest, CreateCopyComandContext) {
+    auto command_context = device->CreateCopyContext();
+    EXPECT_TRUE(command_context);
+}
+
 TEST_P(DeviceTest, CommandContextTest) {
     // Graphics context test
     {
@@ -328,7 +338,7 @@ TEST_P(DeviceTest, CommandContextTest) {
             });
         ASSERT_TRUE(render_pipeline);
 
-        auto constant_buffer = device->CreateBuffer(
+        auto constant_buffer = device->CreateGpuBuffer(
             {
                 .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
                 .element_size = sizeof(vec4f),
@@ -358,14 +368,14 @@ TEST_P(DeviceTest, CommandContextTest) {
 
         constexpr std::string_view initial_data = "abcdefg";
 
-        auto upload_buffer = device->CreateBuffer(
+        auto upload_buffer = device->CreateGpuBuffer(
             {
                 .name         = fmt::format("Upload-{}", ::testing::UnitTest::GetInstance()->current_test_info()->name()),
                 .element_size = initial_data.size(),
                 .usages       = GpuBuffer::UsageFlags::CopySrc | GpuBuffer::UsageFlags::MapWrite,
             },
             {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
-        auto readback_buffer = device->CreateBuffer(
+        auto readback_buffer = device->CreateGpuBuffer(
             {
                 .name         = fmt::format("Upload-{}", ::testing::UnitTest::GetInstance()->current_test_info()->name()),
                 .element_size = initial_data.size(),
@@ -436,7 +446,7 @@ TEST_P(DeviceTest, SwapChainResizing) {
     }
 }
 
-TEST_P(DeviceTest, IKownDirectX12) {
+TEST_P(DeviceTest, DrawTriangle) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
             .title = std::pmr::string{fmt::format("App/{}", test_name)},
@@ -516,7 +526,7 @@ TEST_P(DeviceTest, IKownDirectX12) {
             { 0.25f, -0.25f, 0.00f}, {0.0f, 0.0f, 1.0f},  // point 2
         }};
         // clang-format on
-        auto vertex_buffer = device->CreateBuffer(
+        auto vertex_buffer = device->CreateGpuBuffer(
             {
                 .name          = "I know DirectX12 positions buffer",
                 .element_size  = 2 * sizeof(vec3f),

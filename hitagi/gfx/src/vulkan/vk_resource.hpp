@@ -6,6 +6,13 @@
 namespace hitagi::gfx {
 class VulkanDevice;
 
+struct VulkanBuffer final : public GpuBuffer {
+    VulkanBuffer(VulkanDevice& device, GpuBuffer::Desc desc);
+    ~VulkanBuffer() final = default;
+
+    std::unique_ptr<vk::raii::Buffer> buffer;
+};
+
 struct VulkanImage : public Texture {
     using Texture::Texture;
     std::optional<vk::raii::Image>     image;

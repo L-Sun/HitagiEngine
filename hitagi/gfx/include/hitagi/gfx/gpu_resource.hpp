@@ -22,8 +22,7 @@ struct Resource {
 
 struct GpuBuffer : public Resource {
     enum struct UsageFlags : std::uint32_t {
-        Unkown   = 0x1,
-        MapRead  = (Unkown << 1),   // CPU can read data from mapped pointer
+        MapRead  = 0x1,             // CPU can read data from mapped pointer
         MapWrite = (MapRead << 1),  // CPU can write data to mapped pointer
         CopySrc  = (MapWrite << 1),
         CopyDst  = (CopySrc << 1),
@@ -36,7 +35,7 @@ struct GpuBuffer : public Resource {
         std::string_view name = UNKOWN_NAME;
         std::uint64_t    element_size;
         std::uint64_t    element_count = 1;
-        UsageFlags       usages        = UsageFlags::Unkown;
+        UsageFlags       usages;
 
         constexpr bool operator==(const Desc&) const noexcept;
     };
@@ -249,11 +248,11 @@ constexpr bool Sampler::Desc::operator==(const Desc& rhs) const noexcept {
 
 template <>
 struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::GpuBuffer::UsageFlags> {
-    static constexpr bool enable = true;
+    static constexpr bool is_flags = true;
 };
 template <>
 struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::Texture::UsageFlags> {
-    static constexpr bool enable = true;
+    static constexpr bool is_flags = true;
 };
 
 namespace std {

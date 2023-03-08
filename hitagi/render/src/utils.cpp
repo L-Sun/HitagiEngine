@@ -125,7 +125,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
     if (draw_data == nullptr) return target;
 
     if (m_GfxData.vertices_buffer == nullptr || m_GfxData.vertices_buffer->desc.element_count < draw_data->TotalVtxCount) {
-        m_GfxData.vertices_buffer = render_graph.device.CreateBuffer({
+        m_GfxData.vertices_buffer = render_graph.device.CreateGpuBuffer({
             .name          = "imgui-vertices",
             .element_size  = sizeof(ImDrawVert),
             .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalVtxCount)),
@@ -134,7 +134,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
     }
 
     if (m_GfxData.indices_buffer == nullptr || m_GfxData.indices_buffer->desc.element_count < draw_data->TotalIdxCount) {
-        m_GfxData.indices_buffer = render_graph.device.CreateBuffer({
+        m_GfxData.indices_buffer = render_graph.device.CreateGpuBuffer({
             .name          = "imgui-indices",
             .element_size  = sizeof(ImDrawIdx),
             .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalIdxCount)),
@@ -144,7 +144,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
 
     std::size_t total_upload_size = draw_data->TotalVtxCount * sizeof(ImDrawVert) + draw_data->TotalIdxCount * sizeof(ImDrawIdx);
     if (m_GfxData.upload_heap == nullptr || m_GfxData.upload_heap->desc.element_size < total_upload_size) {
-        m_GfxData.upload_heap = render_graph.device.CreateBuffer({
+        m_GfxData.upload_heap = render_graph.device.CreateGpuBuffer({
             .name         = "imgui-upload-heap",
             .element_size = std::max(1ul, total_upload_size),
             .usages       = gfx::GpuBuffer::UsageFlags::MapWrite | gfx::GpuBuffer::UsageFlags::CopySrc,

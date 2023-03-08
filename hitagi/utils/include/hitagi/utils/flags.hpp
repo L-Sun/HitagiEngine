@@ -1,17 +1,17 @@
 #pragma once
 #include <type_traits>
 
+#include <magic_enum.hpp>
+
 namespace hitagi::utils {
 
 // Enable enum flags
 template <typename E>
     requires std::is_enum_v<E>
-struct enable_bitmask_operators {
-    static constexpr bool enable = false;
-};
+struct enable_bitmask_operators : public magic_enum::customize::enum_range<E> {};
 
 template <typename E>
-concept EnumFlag = enable_bitmask_operators<E>::enable;
+concept EnumFlag = enable_bitmask_operators<E>::is_flags;
 
 }  // namespace hitagi::utils
 
