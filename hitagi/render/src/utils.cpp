@@ -124,7 +124,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
     auto draw_data = ImGui::GetDrawData();
     if (draw_data == nullptr) return target;
 
-    if (m_GfxData.vertices_buffer == nullptr || m_GfxData.vertices_buffer->desc.element_count < draw_data->TotalVtxCount) {
+    if (m_GfxData.vertices_buffer == nullptr || m_GfxData.vertices_buffer->GetDesc().element_count < draw_data->TotalVtxCount) {
         m_GfxData.vertices_buffer = render_graph.device.CreateGpuBuffer({
             .name          = "imgui-vertices",
             .element_size  = sizeof(ImDrawVert),
@@ -133,7 +133,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
         });
     }
 
-    if (m_GfxData.indices_buffer == nullptr || m_GfxData.indices_buffer->desc.element_count < draw_data->TotalIdxCount) {
+    if (m_GfxData.indices_buffer == nullptr || m_GfxData.indices_buffer->GetDesc().element_count < draw_data->TotalIdxCount) {
         m_GfxData.indices_buffer = render_graph.device.CreateGpuBuffer({
             .name          = "imgui-indices",
             .element_size  = sizeof(ImDrawIdx),
@@ -143,7 +143,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
     }
 
     std::size_t total_upload_size = draw_data->TotalVtxCount * sizeof(ImDrawVert) + draw_data->TotalIdxCount * sizeof(ImDrawIdx);
-    if (m_GfxData.upload_heap == nullptr || m_GfxData.upload_heap->desc.element_size < total_upload_size) {
+    if (m_GfxData.upload_heap == nullptr || m_GfxData.upload_heap->GetDesc().element_size < total_upload_size) {
         m_GfxData.upload_heap = render_graph.device.CreateGpuBuffer({
             .name         = "imgui-upload-heap",
             .element_size = std::max(1ul, total_upload_size),
@@ -151,9 +151,9 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
         });
     }
 
-    auto vertices_buffer = render_graph.Import(m_GfxData.vertices_buffer->desc.name, m_GfxData.vertices_buffer);
-    auto indices_buffer  = render_graph.Import(m_GfxData.indices_buffer->desc.name, m_GfxData.indices_buffer);
-    auto upload_heap     = render_graph.Import(m_GfxData.upload_heap->desc.name, m_GfxData.upload_heap);
+    auto vertices_buffer = render_graph.Import(m_GfxData.vertices_buffer->GetDesc().name, m_GfxData.vertices_buffer);
+    auto indices_buffer  = render_graph.Import(m_GfxData.indices_buffer->GetDesc().name, m_GfxData.indices_buffer);
+    auto upload_heap     = render_graph.Import(m_GfxData.upload_heap->GetDesc().name, m_GfxData.upload_heap);
 
     struct GuiVertexCopyPass {
         gfx::ResourceHandle upload_heap;
@@ -171,7 +171,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
         [=](const gfx::RenderGraph::ResourceHelper& helper, const GuiVertexCopyPass& data, gfx::CopyCommandContext* context) {
             auto& upload_heap = helper.Get<gfx::GpuBuffer>(data.upload_heap);
 
-            std::byte* curr_pointer = upload_heap.mapped_ptr;
+            std::byte* curr_pointer = upload_heap.GetMappedPtr();
             for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
                 const auto cmd_list = draw_data->CmdLists[i];
 
@@ -182,7 +182,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
 
                 curr_pointer += cmd_list->VtxBuffer.Size * sizeof(ImDrawVert);
             }
-            std::size_t vertex_total_size = curr_pointer - upload_heap.mapped_ptr;
+            std::size_t vertex_total_size = curr_pointer - upload_heap.GetMappedPtr();
 
             for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
                 const auto cmd_list = draw_data->CmdLists[i];
@@ -192,7 +192,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
                     cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
                 curr_pointer += cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx);
             }
-            std::size_t index_total_size = (curr_pointer - upload_heap.mapped_ptr) - vertex_total_size;
+            std::size_t index_total_size = (curr_pointer - upload_heap.GetMappedPtr()) - vertex_total_size;
 
             auto& vetices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
             auto& indices_buffer = helper.Get<gfx::GpuBuffer>(data.indices_buffer);

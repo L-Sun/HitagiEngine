@@ -35,7 +35,7 @@ Texture& Texture::operator=(const Texture& rhs) {
         m_Dirty   = true;
 
         if (m_GpuData) {
-            InitGpuData(m_GpuData->device);
+            InitGpuData(m_GpuData->GetDevice());
         }
         m_Path.replace_filename(m_Path.filename().concat("_copy"));
     }
@@ -82,7 +82,7 @@ bool Texture::Load(const std::shared_ptr<ImageParser>& parser) {
         m_CpuData = std::move(image->m_CpuData);
         m_Dirty   = true;
         if (m_GpuData) {
-            InitGpuData(m_GpuData->device);
+            InitGpuData(m_GpuData->GetDevice());
         }
         return true;
     }

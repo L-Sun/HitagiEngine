@@ -45,7 +45,7 @@ auto RenderGraph::Builder::Write(ResourceHandle output) const -> ResourceHandle 
         m_RenderGraph.m_Logger->warn(
             "Could wirte to old version({}) resource ({})",
             fmt::styled(old_res_node.version, fmt::fg(fmt::color::orange)),
-            fmt::styled(m_RenderGraph.m_Resources[old_res_node.res_idx]->name.c_str(), fmt::fg(fmt::color::orange)));
+            fmt::styled(m_RenderGraph.m_Resources[old_res_node.res_idx]->GetName(), fmt::fg(fmt::color::orange)));
 
         return ResourceHandle::InvalidHandle();
     }
@@ -66,7 +66,7 @@ void RenderGraph::Builder::UseRenderPipeline(std::shared_ptr<RenderPipeline> pip
         m_RenderGraph.m_Logger->warn(
             "Pass node (type: {}) can not use RenderPipeline({})",
             fmt::styled(magic_enum::enum_name(m_Node->type), fmt::fg(fmt::color::green)),
-            fmt::styled(pipeline->name.c_str(), fmt::fg(fmt::color::orange)));
+            fmt::styled(pipeline->GetName(), fmt::fg(fmt::color::orange)));
     }
     m_Node->render_pipelines.emplace_back(std::move(pipeline));
 }
@@ -76,7 +76,7 @@ void RenderGraph::Builder::UseComputePipeline(std::shared_ptr<ComputePipeline> p
         m_RenderGraph.m_Logger->warn(
             "Pass node (type: {}) can not use ComputePipeline({})",
             fmt::styled(magic_enum::enum_name(m_Node->type), fmt::fg(fmt::color::green)),
-            fmt::styled(pipeline->name.c_str(), fmt::fg(fmt::color::orange)));
+            fmt::styled(pipeline->GetName(), fmt::fg(fmt::color::orange)));
     }
     m_Node->compute_pipelines.emplace_back(std::move(pipeline));
 }

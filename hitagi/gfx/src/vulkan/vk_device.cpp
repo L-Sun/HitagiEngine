@@ -102,6 +102,22 @@ VulkanDevice::VulkanDevice(std::string_view name)
                 queue_create_info.queueFamilyIndex);
         });
     }
+
+    m_Logger->debug("Create VMA Allocator");
+    {
+        VmaAllocatorCreateInfo allocator_info = {
+            .physicalDevice       = **m_PhysicalDevice,
+            .device               = **m_Device,
+            .pAllocationCallbacks = &static_cast<VkAllocationCallbacks&>(m_CustomAllocator),
+            .instance             = **m_Instance,
+            .vulkanApiVersion     = m_Context.enumerateInstanceVersion(),
+        };
+        vmaCreateAllocator(&allocator_info, &m_VmaAllocator);
+    }
+}
+
+VulkanDevice::~VulkanDevice() {
+    vmaDestroyAllocator(m_VmaAllocator);
 }
 
 void VulkanDevice::WaitIdle() {
@@ -129,7 +145,7 @@ auto VulkanDevice::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<Swap
 }
 
 auto VulkanDevice::CreateGpuBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GpuBuffer> {
-    return std::make_shared<VulkanBuffer>(*this, desc);
+    return std::make_shared<VulkanBuffer>(*this, desc, initial_data);
 }
 
 auto VulkanDevice::CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {

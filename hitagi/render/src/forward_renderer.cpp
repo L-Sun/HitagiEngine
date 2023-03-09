@@ -274,8 +274,8 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 viewport = gfx::ViewPort{
                     .x      = 0,
                     .y      = 0,
-                    .width  = static_cast<float>(render_target.desc.width),
-                    .height = static_cast<float>(render_target.desc.height),
+                    .width  = static_cast<float>(render_target.GetDesc().width),
+                    .height = static_cast<float>(render_target.GetDesc().height),
                 };
             }
 
@@ -302,7 +302,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 }
                 if (curr_vertices != draw_call.vertices.get()) {
                     curr_vertices = draw_call.vertices.get();
-                    for (const auto& vertex_attr : curr_pipeline->desc.input_layout) {
+                    for (const auto& vertex_attr : curr_pipeline->GetDesc().input_layout) {
                         auto attribute_data = curr_vertices->GetAttributeData(vertex_attr);
                         if (attribute_data.has_value()) {
                             context->SetVertexBuffer(vertex_attr.slot, *attribute_data->get().gpu_buffer);

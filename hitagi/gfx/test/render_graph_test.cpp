@@ -121,14 +121,14 @@ TEST_F(RenderGraphTest, RenderPass) {
                 context->SetViewPort(ViewPort{
                     .x      = 0,
                     .y      = 0,
-                    .width  = static_cast<float>(render_target.desc.width),
-                    .height = static_cast<float>(render_target.desc.height),
+                    .width  = static_cast<float>(render_target.GetDesc().width),
+                    .height = static_cast<float>(render_target.GetDesc().height),
                 });
                 context->SetScissorRect(hitagi::gfx::Rect{
                     .x      = 0,
                     .y      = 0,
-                    .width  = render_target.desc.width,
-                    .height = render_target.desc.height,
+                    .width  = render_target.GetDesc().width,
+                    .height = render_target.GetDesc().height,
                 });
                 context->SetVertexBuffer(0, helper.Get<GpuBuffer>(data.vertices));
                 context->Draw(3);

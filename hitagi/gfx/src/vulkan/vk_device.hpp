@@ -12,7 +12,7 @@ namespace hitagi::gfx {
 class VulkanDevice final : public Device {
 public:
     VulkanDevice(std::string_view name);
-    ~VulkanDevice() final = default;
+    ~VulkanDevice() final;
 
     void WaitIdle() final;
 
@@ -40,6 +40,7 @@ public:
     inline auto& GetCustomAllocationRecord() noexcept { return m_CustomAllocationRecord; }
     inline auto& GetPhysicalDevice() const noexcept { return *m_PhysicalDevice; }
     inline auto& GetDevice() const noexcept { return *m_Device; }
+    inline auto& GetVmaAllocator() const noexcept { return m_VmaAllocator; }
 
 private:
     vk::AllocationCallbacks m_CustomAllocator;
@@ -54,5 +55,7 @@ private:
     std::unique_ptr<vk::raii::Device>         m_Device;
 
     utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType> m_CommandQueues;
+
+    VmaAllocator m_VmaAllocator;
 };
 }  // namespace hitagi::gfx

@@ -7,6 +7,8 @@
 
 #include <fmt/color.h>
 #include <spdlog/logger.h>
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
 
 namespace hitagi::gfx {
 auto custom_vk_allocation_fn(void* p_this, std::size_t size, std::size_t alignment, VkSystemAllocationScope) -> void* {
@@ -80,48 +82,32 @@ auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, V
     messages.emplace_back(p_data->pMessage);
 
     if (p_data->queueLabelCount > 0) {
-        std::pmr::string queue_labels;
+        messages.emplace_back("Queue Labels:");
         for (std::uint32_t i = 0; i < p_data->queueLabelCount; i++) {
-            auto color = math::to_hex(p_data->pQueueLabels->color);
-            queue_labels += fmt::format("{}, ", fmt::styled(p_data->pQueueLabels[i].pLabelName, fmt::fg(fmt::rgb(color.r, color.g, color.b))));
-            // remove last ", "
-            if (i == p_data->queueLabelCount - 1) {
-                queue_labels.pop_back();
-                queue_labels.pop_back();
-            }
+            auto color     = math::to_hex(p_data->pQueueLabels->color);
+            auto fmt_color = fmt::rgb(color.r, color.g, color.b);
+            messages.emplace_back(fmt::format("{}, ", fmt::styled(p_data->pQueueLabels[i].pLabelName, fmt::fg(fmt_color))));
         }
-        messages.emplace_back(fmt::format("Queue Labels: {}", queue_labels));
     }
 
     if (p_data->cmdBufLabelCount > 0) {
-        std::pmr::string cmd_buf_labels;
+        messages.emplace_back("Command Buffer Labels: ");
         for (std::uint32_t i = 0; i < p_data->cmdBufLabelCount; i++) {
-            auto color = math::to_hex(p_data->pCmdBufLabels->color);
-            cmd_buf_labels += fmt::format("{}, ", fmt::styled(p_data->pCmdBufLabels[i].pLabelName, fmt::fg(fmt::rgb(color.r, color.g, color.b))));
-            // remove last ", "
-            if (i == p_data->cmdBufLabelCount - 1) {
-                cmd_buf_labels.pop_back();
-                cmd_buf_labels.pop_back();
-            }
+            auto color     = math::to_hex(p_data->pCmdBufLabels->color);
+            auto fmt_color = fmt::rgb(color.r, color.g, color.b);
+            messages.emplace_back(fmt::format("{}, ", fmt::styled(p_data->pCmdBufLabels[i].pLabelName, fmt::fg(fmt_color))));
         }
-        messages.emplace_back(fmt::format("Command Buffer Labels: {}", cmd_buf_labels));
     }
 
     if (p_data->objectCount > 0) {
-        std::pmr::string objects;
+        messages.emplace_back("Objects:");
         for (std::uint32_t i = 0; i < p_data->objectCount; i++) {
-            objects += fmt::format(
-                "{}({}, {}), ",
+            messages.emplace_back(fmt::format(
+                "\t {}({:>12}, {:#018x})",
                 p_data->pObjects->pObjectName == nullptr ? "" : p_data->pObjects->pObjectName,
                 vk::to_string(static_cast<vk::ObjectType>(p_data->pObjects[i].objectType)),
-                p_data->pObjects[i].objectHandle);
-            // remove last ", "
-            if (i == p_data->objectCount - 1) {
-                objects.pop_back();
-                objects.pop_back();
-            }
+                p_data->pObjects[i].objectHandle));
         }
-        messages.emplace_back(fmt::format("Objects: {}", objects));
     }
 
     messages.emplace_back(messages.front() + "End");

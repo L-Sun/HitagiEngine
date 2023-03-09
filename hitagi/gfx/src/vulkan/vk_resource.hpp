@@ -1,20 +1,26 @@
 #pragma once
 #include <hitagi/gfx/gpu_resource.hpp>
 
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace hitagi::gfx {
 class VulkanDevice;
 
 struct VulkanBuffer final : public GpuBuffer {
-    VulkanBuffer(VulkanDevice& device, GpuBuffer::Desc desc);
-    ~VulkanBuffer() final = default;
+    VulkanBuffer(VulkanDevice& device, GpuBuffer::Desc desc, std::span<const std::byte> initial_data);
+    ~VulkanBuffer() final;
+
+    void UpdateRaw(std::size_t index, std::span<const std::byte> data) final;
+    auto GetMappedPtr() const noexcept -> std::byte* final;
 
     std::unique_ptr<vk::raii::Buffer> buffer;
+    VmaAllocation                     allocation;
+    std::byte*                        mapped_ptr = nullptr;
 };
 
 struct VulkanImage : public Texture {
-    using Texture::Texture;
+    VulkanImage(VulkanDevice& device, Texture::Desc desc);
     std::optional<vk::raii::Image>     image;
     std::optional<vk::raii::ImageView> image_view;
 };

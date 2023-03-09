@@ -42,27 +42,33 @@ TEST_P(DeviceTest, CreateDevice) {
 }
 
 TEST_P(DeviceTest, CreateVertexBuffer) {
+    constexpr std::string_view initial_data = "abcdefg";
+
     auto gpu_buffer = device->CreateGpuBuffer(
         {
             .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
             .element_size = 1024_kB,
-            .usages       = GpuBuffer::UsageFlags::Vertex | GpuBuffer::UsageFlags::MapRead | GpuBuffer::UsageFlags::CopyDst,
-        });
+            .usages       = GpuBuffer::UsageFlags::Vertex,
+        },
+        {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
 
     ASSERT_TRUE(gpu_buffer != nullptr);
-    EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB) << "The size of the buffer must be the same as described";
+    EXPECT_EQ(gpu_buffer->GetDesc().element_size, 1024_kB) << "The size of the buffer must be the same as described";
 }
 
 TEST_P(DeviceTest, CreateIndexBuffer) {
+    constexpr std::string_view initial_data = "abcdefg";
+
     auto gpu_buffer = device->CreateGpuBuffer(
         {
             .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
             .element_size = 1024_kB,
             .usages       = GpuBuffer::UsageFlags::Index,
-        });
+        },
+        {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
 
     ASSERT_TRUE(gpu_buffer != nullptr);
-    EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB) << "The size of the buffer must be the same as described";
+    EXPECT_EQ(gpu_buffer->GetDesc().element_size, 1024_kB) << "The size of the buffer must be the same as described";
 }
 
 TEST_P(DeviceTest, CreateConstantBuffer) {
@@ -77,10 +83,9 @@ TEST_P(DeviceTest, CreateConstantBuffer) {
         {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
 
     ASSERT_TRUE(gpu_buffer != nullptr);
-    EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB) << "The size of the buffer must be the same as described";
-    ASSERT_TRUE(gpu_buffer->mapped_ptr != nullptr) << "An upload buffer must contain a mapped pointer";
-    EXPECT_EQ(gpu_buffer->desc.element_size, initial_data.size()) << "The size of the buffer must be the same as described";
-    EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->mapped_ptr), gpu_buffer->desc.element_size).c_str())
+    EXPECT_EQ(gpu_buffer->GetDesc().element_size, 1024_kB) << "The size of the buffer must be the same as described";
+    ASSERT_TRUE(gpu_buffer->GetMappedPtr() != nullptr) << "An upload buffer must contain a mapped pointer";
+    EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->GetMappedPtr()), gpu_buffer->GetDesc().element_size).c_str())
         << "The content of the buffer must be the same as initial data";
 }
 
@@ -96,9 +101,9 @@ TEST_P(DeviceTest, CreateUploadBuffer) {
         {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
 
     ASSERT_TRUE(gpu_buffer != nullptr);
-    ASSERT_TRUE(gpu_buffer->mapped_ptr != nullptr) << "An upload buffer must contain a mapped pointer";
-    EXPECT_EQ(gpu_buffer->desc.element_size, initial_data.size()) << "The size of the buffer must be the same as described";
-    EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->mapped_ptr), gpu_buffer->desc.element_size).c_str())
+    ASSERT_TRUE(gpu_buffer->GetMappedPtr() != nullptr) << "An upload buffer must contain a mapped pointer";
+    EXPECT_EQ(gpu_buffer->GetDesc().element_size, initial_data.size()) << "The size of the buffer must be the same as described";
+    EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->GetMappedPtr()), gpu_buffer->GetDesc().element_size).c_str())
         << "The content of the buffer must be the same as initial data";
 }
 
@@ -111,8 +116,8 @@ TEST_P(DeviceTest, CreateReadBackBuffer) {
         });
 
     ASSERT_TRUE(gpu_buffer != nullptr);
-    EXPECT_TRUE(gpu_buffer->mapped_ptr != nullptr) << "A read back buffer must contain a mapped pointer";
-    EXPECT_EQ(gpu_buffer->desc.element_size, 1024_kB) << "The size of the buffer must be the same as described";
+    EXPECT_TRUE(gpu_buffer->GetMappedPtr() != nullptr) << "A read back buffer must contain a mapped pointer";
+    EXPECT_EQ(gpu_buffer->GetDesc().element_size, 1024_kB) << "The size of the buffer must be the same as described";
 }
 
 TEST_P(DeviceTest, CreateTexture) {
@@ -126,9 +131,9 @@ TEST_P(DeviceTest, CreateTexture) {
                 .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
             });
         ASSERT_TRUE(texture != nullptr);
-        EXPECT_EQ(texture->desc.width, 128);
-        EXPECT_EQ(texture->desc.height, 1);
-        EXPECT_EQ(texture->desc.depth, 1);
+        EXPECT_EQ(texture->GetDesc().width, 128);
+        EXPECT_EQ(texture->GetDesc().height, 1);
+        EXPECT_EQ(texture->GetDesc().depth, 1);
     }
     // Create 2D texture
     {
@@ -143,9 +148,9 @@ TEST_P(DeviceTest, CreateTexture) {
             {});
 
         ASSERT_TRUE(texture != nullptr);
-        EXPECT_EQ(texture->desc.width, 128);
-        EXPECT_EQ(texture->desc.height, 128);
-        EXPECT_EQ(texture->desc.depth, 1);
+        EXPECT_EQ(texture->GetDesc().width, 128);
+        EXPECT_EQ(texture->GetDesc().height, 128);
+        EXPECT_EQ(texture->GetDesc().depth, 1);
     }
     // Create 3D texture
     {
@@ -160,9 +165,9 @@ TEST_P(DeviceTest, CreateTexture) {
             });
 
         ASSERT_TRUE(texture != nullptr);
-        EXPECT_EQ(texture->desc.width, 128);
-        EXPECT_EQ(texture->desc.height, 128);
-        EXPECT_EQ(texture->desc.depth, 128);
+        EXPECT_EQ(texture->GetDesc().width, 128);
+        EXPECT_EQ(texture->GetDesc().height, 128);
+        EXPECT_EQ(texture->GetDesc().depth, 128);
     }
     // Create 2D texture array
     {
@@ -177,8 +182,8 @@ TEST_P(DeviceTest, CreateTexture) {
             });
 
         ASSERT_TRUE(texture != nullptr);
-        EXPECT_EQ(texture->desc.width, 128);
-        EXPECT_EQ(texture->desc.height, 128);
+        EXPECT_EQ(texture->GetDesc().width, 128);
+        EXPECT_EQ(texture->GetDesc().height, 128);
     }
 }
 
@@ -389,7 +394,7 @@ TEST_P(DeviceTest, CommandContextTest) {
         auto  fence_value = copy_queue.Submit({copy_context.get()});
         copy_queue.WaitForFence(fence_value);
 
-        EXPECT_STREQ(reinterpret_cast<const char*>(readback_buffer->mapped_ptr), initial_data.data());
+        EXPECT_STREQ(reinterpret_cast<const char*>(readback_buffer->GetMappedPtr()), initial_data.data());
     }
 }
 
@@ -410,12 +415,12 @@ TEST_P(DeviceTest, CreateSwapChain) {
     EXPECT_EQ(swap_chain->Width(), rect.right - rect.left);
     EXPECT_EQ(swap_chain->Height(), rect.bottom - rect.top);
 
-    EXPECT_EQ(swap_chain->GetBuffers().size(), swap_chain->desc.frame_count);
+    EXPECT_EQ(swap_chain->GetBuffers().size(), swap_chain->GetDesc().frame_count);
     auto& back_buffer = swap_chain->GetCurrentBackBuffer();
-    EXPECT_EQ(back_buffer.desc.width, rect.right - rect.left);
-    EXPECT_EQ(back_buffer.desc.height, rect.bottom - rect.top);
-    EXPECT_EQ(back_buffer.desc.format, swap_chain->desc.format);
-    EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.desc.usages, Texture::UsageFlags::RTV));
+    EXPECT_EQ(back_buffer.GetDesc().width, rect.right - rect.left);
+    EXPECT_EQ(back_buffer.GetDesc().height, rect.bottom - rect.top);
+    EXPECT_EQ(back_buffer.GetDesc().format, swap_chain->GetDesc().format);
+    EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.GetDesc().usages, Texture::UsageFlags::RTV));
 }
 
 TEST_P(DeviceTest, SwapChainResizing) {
@@ -441,8 +446,8 @@ TEST_P(DeviceTest, SwapChainResizing) {
     EXPECT_EQ(swap_chain->Height(), rect.bottom - rect.top);
 
     for (const Texture& buffer : swap_chain->GetBuffers()) {
-        EXPECT_EQ(buffer.desc.width, rect.right - rect.left);
-        EXPECT_EQ(buffer.desc.height, rect.bottom - rect.top);
+        EXPECT_EQ(buffer.GetDesc().width, rect.right - rect.left);
+        EXPECT_EQ(buffer.GetDesc().height, rect.bottom - rect.top);
     }
 }
 

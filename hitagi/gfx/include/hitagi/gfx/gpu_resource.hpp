@@ -12,15 +12,23 @@ class CommandQueue;
 class Device;
 
 constexpr auto UNKOWN_NAME = "Unkown";
-struct Resource {
-    virtual ~Resource() = default;
-    Resource(Device& device, std::string_view name = UNKOWN_NAME) : device(device), name(name) {}
+class Resource {
+public:
     Resource(const Resource&) = delete;
-    Device&          device;
-    std::pmr::string name;
+    virtual ~Resource()       = default;
+
+    inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
+    inline auto& GetDevice() const noexcept { return m_Device; }
+
+protected:
+    Resource(Device& device, std::string_view name = UNKOWN_NAME) : m_Device(device), m_Name(name) {}
+
+    Device&          m_Device;
+    std::pmr::string m_Name;
 };
 
-struct GpuBuffer : public Resource {
+class GpuBuffer : public Resource {
+public:
     enum struct UsageFlags : std::uint32_t {
         MapRead  = 0x1,             // CPU can read data from mapped pointer
         MapWrite = (MapRead << 1),  // CPU can write data to mapped pointer
@@ -37,42 +45,34 @@ struct GpuBuffer : public Resource {
         std::uint64_t    element_count = 1;
         UsageFlags       usages;
 
-        constexpr bool operator==(const Desc&) const noexcept;
+        inline constexpr bool operator==(const Desc&) const noexcept;
     };
-
-    GpuBuffer(Device& device, Desc desc, std::size_t size, std::byte* mapped_ptr)
-        : Resource(device, desc.name), desc(desc), size(size), mapped_ptr(mapped_ptr) {
-        desc.name = name;
-    }
 
     template <typename T>
     void Update(std::size_t index, T data) {
-        if (update_fn) {
-            assert(sizeof(T) == desc.element_size);
-            update_fn(index, std::span(reinterpret_cast<const std::byte*>(&data), sizeof(T)));
-        }
+        assert(sizeof(T) == m_Desc.element_size);
+        UpdateRaw(index, std::span(reinterpret_cast<const std::byte*>(&data), sizeof(T)));
     }
     template <>
     void Update(std::size_t index, std::span<const std::byte> data) {
-        if (update_fn) {
-            update_fn(index, data);
-        }
+        UpdateRaw(index, data);
     }
     template <>
     void Update(std::size_t index, std::span<std::byte> data) {
-        if (update_fn) {
-            update_fn(index, data);
-        }
+        UpdateRaw(index, data);
     }
+    virtual void UpdateRaw(std::size_t index, std::span<const std::byte> data) = 0;
+    virtual auto GetMappedPtr() const noexcept -> std::byte*                   = 0;
 
-    const Desc        desc;
-    const std::size_t size;
-    std::byte* const  mapped_ptr = nullptr;
+    inline const auto& GetDesc() const noexcept { return m_Desc; }
 
-    std::function<void(std::size_t, std::span<const std::byte>)> update_fn;
+protected:
+    GpuBuffer(Device& device, Desc desc);
+    Desc m_Desc;
 };
 
-struct Texture : public Resource {
+class Texture : public Resource {
+public:
     enum struct UsageFlags : std::uint8_t {
         CopySrc = 0x1,
         CopyDst = (CopySrc << 1),
@@ -95,17 +95,18 @@ struct Texture : public Resource {
         ClearValue       clear_value;
         UsageFlags       usages = UsageFlags::SRV;
 
-        constexpr bool operator==(const Desc&) const noexcept;
+        inline constexpr bool operator==(const Desc&) const noexcept;
     };
 
-    Texture(Device& device, Desc desc) : Resource(device, desc.name), desc(desc) {
-        desc.name = name;
-    }
+    inline const auto& GetDesc() const noexcept { return m_Desc; }
 
-    const Desc desc;
+protected:
+    Texture(Device& device, Desc desc);
+    Desc m_Desc;
 };
 
-struct Sampler : public Resource {
+class Sampler : public Resource {
+public:
     enum struct AddressMode : std::uint8_t {
         Clamp,
         Repeat,
@@ -129,17 +130,18 @@ struct Sampler : public Resource {
         std::uint32_t    max_anisotropy = 1;
         CompareFunction  compare;
 
-        constexpr bool operator==(const Desc&) const noexcept;
+        inline constexpr bool operator==(const Desc&) const noexcept;
     };
 
-    Sampler(Device& device, Desc desc) : Resource(device, desc.name), desc(desc) {
-        desc.name = name;
-    }
+    inline const auto& GetDesc() const noexcept { return m_Desc; }
 
-    const Desc desc;
+protected:
+    Sampler(Device& device, Desc desc);
+    Desc m_Desc;
 };
 
-struct SwapChain : public Resource {
+class SwapChain : public Resource {
+public:
     struct Desc {
         std::string_view name = UNKOWN_NAME;
         utils::Window    window;
@@ -149,11 +151,7 @@ struct SwapChain : public Resource {
         bool             vsync        = false;
     };
 
-    SwapChain(Device& device, Desc desc) : Resource(device, desc.name), desc(desc) {
-        desc.name = name;
-    }
-
-    const Desc desc;
+    inline const auto& GetDesc() const noexcept { return m_Desc; }
 
     virtual auto GetCurrentBackBuffer() -> Texture&                                = 0;
     virtual auto GetBuffers() -> std::pmr::vector<std::reference_wrapper<Texture>> = 0;
@@ -161,9 +159,15 @@ struct SwapChain : public Resource {
     virtual auto Height() -> std::uint32_t                                         = 0;
     virtual void Present()                                                         = 0;
     virtual void Resize()                                                          = 0;
+
+protected:
+    SwapChain(Device& device, Desc desc);
+
+    Desc m_Desc;
 };
 
-struct RenderPipeline : public Resource {
+class RenderPipeline : public Resource {
+public:
     struct Desc {
         std::string_view name = UNKOWN_NAME;
         // Shader config
@@ -178,27 +182,30 @@ struct RenderPipeline : public Resource {
         Format                depth_sentcil_format = Format::UNKNOWN;
     };
 
-    RenderPipeline(Device& device, Desc desc) : Resource(device, desc.name), desc(std::move(desc)) {
-        desc.name = name;
-    }
+    inline const auto& GetDesc() const noexcept { return m_Desc; }
 
-    const Desc desc;
+protected:
+    RenderPipeline(Device& device, Desc desc);
+
+    Desc m_Desc;
 };
 
-struct ComputePipeline : public Resource {
+class ComputePipeline : public Resource {
+public:
     struct Desc {
         std::string_view name = UNKOWN_NAME;
         Shader           cs;  // computer shader
     };
 
-    ComputePipeline(Device& device, Desc desc) : Resource(device, desc.name), desc(std::move(desc)) {
-        desc.name = name;
-    }
+    inline const auto& GetDesc() const noexcept { return m_Desc; }
 
-    const Desc desc;
+protected:
+    ComputePipeline(Device& device, Desc desc);
+
+    Desc m_Desc;
 };
 
-constexpr bool GpuBuffer::Desc::operator==(const Desc& rhs) const noexcept {
+inline constexpr bool GpuBuffer::Desc::operator==(const Desc& rhs) const noexcept {
     // clang-format off
     return 
         name          == rhs.name          &&
@@ -208,7 +215,7 @@ constexpr bool GpuBuffer::Desc::operator==(const Desc& rhs) const noexcept {
     // clang-format on
 }
 
-constexpr bool Texture::Desc::operator==(const Desc& rhs) const noexcept {
+inline constexpr bool Texture::Desc::operator==(const Desc& rhs) const noexcept {
     // clang-format off
     return 
         name                == rhs.name                &&
@@ -227,7 +234,7 @@ constexpr bool Texture::Desc::operator==(const Desc& rhs) const noexcept {
     // clang-format on
 }
 
-constexpr bool Sampler::Desc::operator==(const Desc& rhs) const noexcept {
+inline constexpr bool Sampler::Desc::operator==(const Desc& rhs) const noexcept {
     // clang-format off
     return
         name           == rhs.name           &&           
