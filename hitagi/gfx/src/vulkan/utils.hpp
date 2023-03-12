@@ -1,6 +1,5 @@
 #pragma once
-#include "configs.hpp"
-#include "hitagi/math/vector.hpp"
+#include "vk_configs.hpp"
 
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
@@ -11,6 +10,7 @@
 #include <set>
 
 namespace hitagi::gfx {
+
 auto custom_vk_allocation_fn(void* p_this, std::size_t size, std::size_t alignment, VkSystemAllocationScope) -> void*;
 auto custom_vk_reallocation_fn(void* p_this, void* orign_ptr, std::size_t new_size, std::size_t alignment, VkSystemAllocationScope) -> void*;
 auto custom_vk_free_fn(void* p_this, void* ptr) -> void;
@@ -50,7 +50,7 @@ inline auto is_physcial_suitable(const vk::raii::PhysicalDevice& physical_device
     }
 
     const auto                      supported_extensions = physical_device.enumerateDeviceExtensionProperties();
-    std::pmr::set<std::pmr::string> required_extensions  = {required_physical_device_extensions.begin(), required_physical_device_extensions.end()};
+    std::pmr::set<std::pmr::string> required_extensions  = {required_device_extensions.begin(), required_device_extensions.end()};
 
     for (const auto& extension : supported_extensions) {
         required_extensions.erase(std::pmr::string{extension.extensionName});
@@ -201,6 +201,26 @@ inline auto get_sdl2_drawable_size(SDL_Window* window) -> math::vec2u {
     int width, height;
     SDL_Vulkan_GetDrawableSize(window, &width, &height);
     return {width, height};
+}
+
+inline constexpr auto get_command_label_color(CommandType type) {
+    constexpr std::array graphics_color = {0.48f, 0.76f, 0.47f, 1.0f};
+    constexpr std::array compute_color  = {0.38f, 0.69f, 0.94f, 1.0f};
+    constexpr std::array copy_color     = {0.88f, 0.39f, 0.35f, 1.0f};
+
+    switch (type) {
+        case CommandType::Graphics:
+            return graphics_color;
+        case CommandType::Compute:
+            return compute_color;
+        case CommandType::Copy:
+            return copy_color;
+    };
+}
+
+template <typename T>
+inline constexpr auto get_vk_handle(const T& handle) {
+    return reinterpret_cast<std::uintptr_t>(static_cast<typename T::CType>(*handle));
 }
 
 }  // namespace hitagi::gfx

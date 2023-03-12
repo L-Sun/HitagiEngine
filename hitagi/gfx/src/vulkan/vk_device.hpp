@@ -31,15 +31,13 @@ public:
 
     void Profile(std::size_t frame_index) const final;
 
-    inline auto GetLogger() const noexcept {
-        return m_Logger;
-    }
-
     inline auto& GetInstance() const noexcept { return *m_Instance; }
     inline auto& GetCustomAllocator() const noexcept { return m_CustomAllocator; }
     inline auto& GetCustomAllocationRecord() noexcept { return m_CustomAllocationRecord; }
     inline auto& GetPhysicalDevice() const noexcept { return *m_PhysicalDevice; }
     inline auto& GetDevice() const noexcept { return *m_Device; }
+    inline auto& GetCommandPool(CommandType type) const noexcept { return *m_CommandPools[type]; }
+    inline auto& GetVkCommandQueue(CommandType type) const noexcept { return *m_CommandQueues[type]; }
     inline auto& GetVmaAllocator() const noexcept { return m_VmaAllocator; }
 
 private:
@@ -54,7 +52,8 @@ private:
     std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
     std::unique_ptr<vk::raii::Device>         m_Device;
 
-    utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType> m_CommandQueues;
+    utils::EnumArray<std::unique_ptr<vk::raii::CommandPool>, CommandType> m_CommandPools;
+    utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType>    m_CommandQueues;
 
     VmaAllocator m_VmaAllocator;
 };

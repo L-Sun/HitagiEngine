@@ -41,6 +41,21 @@ TEST_P(DeviceTest, CreateDevice) {
     ASSERT_TRUE(device != nullptr);
 }
 
+TEST_P(DeviceTest, CreateGraphicsCommandContext) {
+    auto command_context = device->CreateGraphicsContext();
+    EXPECT_TRUE(command_context);
+}
+
+TEST_P(DeviceTest, CreateComputeCommandContext) {
+    auto command_context = device->CreateComputeContext();
+    EXPECT_TRUE(command_context);
+}
+
+TEST_P(DeviceTest, CreateCopyComandContext) {
+    auto command_context = device->CreateCopyContext();
+    EXPECT_TRUE(command_context);
+}
+
 TEST_P(DeviceTest, CreateVertexBuffer) {
     constexpr std::string_view initial_data = "abcdefg";
 
@@ -284,19 +299,37 @@ TEST_P(DeviceTest, CreatePipeline) {
     }
 }
 
-TEST_P(DeviceTest, CreateGraphicsCommandContext) {
-    auto command_context = device->CreateGraphicsContext();
-    EXPECT_TRUE(command_context);
-}
+TEST_P(DeviceTest, CopyBufferCommandTest) {
+    constexpr std::string_view initial_data = "abcdefg";
 
-TEST_P(DeviceTest, CreateComputeCommandContext) {
-    auto command_context = device->CreateComputeContext();
-    EXPECT_TRUE(command_context);
-}
+    auto src_buffer = device->CreateGpuBuffer(
+        {
+            .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .element_size = initial_data.size(),
+            .usages       = GpuBuffer::UsageFlags::CopySrc | GpuBuffer::UsageFlags::MapWrite,
+        });
+    auto dst_buffer = device->CreateGpuBuffer(
+        {
+            .name         = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+            .element_size = 1024_kB,
+            .usages       = GpuBuffer::UsageFlags::CopyDst | GpuBuffer::UsageFlags::MapRead,
+        });
 
-TEST_P(DeviceTest, CreateCopyComandContext) {
-    auto command_context = device->CreateCopyContext();
-    EXPECT_TRUE(command_context);
+    ASSERT_TRUE(src_buffer != nullptr);
+    ASSERT_TRUE(dst_buffer != nullptr);
+
+    ASSERT_TRUE(src_buffer->GetMappedPtr() != nullptr);
+    std::memcpy(src_buffer->GetMappedPtr(), initial_data.data(), initial_data.size());
+
+    auto context = device->CreateCopyContext();
+    context->Begin();
+    context->CopyBuffer(*src_buffer, 0, *dst_buffer, 0, initial_data.size());
+    context->End();
+    auto& copy_queue        = device->GetCommandQueue(CommandType::Copy);
+    auto [semaphore, value] = copy_queue.Submit({context.get()});
+    semaphore->Wait(value);
+
+    EXPECT_STREQ(reinterpret_cast<const char*>(dst_buffer->GetMappedPtr()), initial_data.data());
 }
 
 TEST_P(DeviceTest, CommandContextTest) {
@@ -390,9 +423,9 @@ TEST_P(DeviceTest, CommandContextTest) {
         copy_context->CopyBuffer(*upload_buffer, 0, *readback_buffer, 0, initial_data.size());
         copy_context->End();
 
-        auto& copy_queue  = device->GetCommandQueue(CommandType::Copy);
-        auto  fence_value = copy_queue.Submit({copy_context.get()});
-        copy_queue.WaitForFence(fence_value);
+        auto& copy_queue        = device->GetCommandQueue(CommandType::Copy);
+        auto [semaphore, value] = copy_queue.Submit({copy_context.get()});
+        semaphore->Wait(value);
 
         EXPECT_STREQ(reinterpret_cast<const char*>(readback_buffer->GetMappedPtr()), initial_data.data());
     }

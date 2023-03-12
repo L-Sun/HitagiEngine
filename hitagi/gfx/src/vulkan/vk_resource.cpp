@@ -104,38 +104,15 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GpuBuffer::Desc desc, std::span
         }
     }
 
-    // debug info
-    {
-        vk::DebugUtilsObjectNameInfoEXT name_info{
-            .objectType   = vk::ObjectType::eBuffer,
-            .objectHandle = reinterpret_cast<std::uint64_t>(static_cast<VkBuffer>(**buffer)),
-            .pObjectName  = m_Name.c_str(),
-        };
-        device.GetDevice().setDebugUtilsObjectNameEXT(name_info);
-    }
+    device.GetDevice().setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType   = vk::ObjectType::eBuffer,
+        .objectHandle = get_vk_handle(*buffer),
+        .pObjectName  = m_Name.c_str(),
+    });
 }
 
 VulkanBuffer::~VulkanBuffer() {
     vmaFreeMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
-}
-
-void VulkanBuffer::UpdateRaw(std::size_t index, std::span<const std::byte> data) {
-    if (mapped_ptr == nullptr) {
-        static_cast<VulkanDevice&>(m_Device).GetLogger()->error(
-            "Can not update buffer({}) because it is not mapped!",
-            fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::red)));
-        return;
-    }
-    if (data.size_bytes() > m_Desc.element_size) {
-        static_cast<VulkanDevice&>(m_Device).GetLogger()->error(
-            "Can not update buffer({}) at index({}) because the data size({}) large than element size({})!",
-            fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::red)),
-            fmt::styled(index, fmt::fg(fmt::color::red)),
-            fmt::styled(data.size_bytes(), fmt::fg(fmt::color::red)),
-            fmt::styled(m_Desc.element_size, fmt::fg(fmt::color::green)));
-        return;
-    }
-    std::memcpy(mapped_ptr + index * m_Desc.element_size, data.data(), data.size_bytes());
 }
 
 auto VulkanBuffer::GetMappedPtr() const noexcept -> std::byte* {
@@ -302,7 +279,7 @@ void VulkanSwapChain::CreateSwapchain() {
                                                                                                           : vk::CompositeAlphaFlagBitsKHR::eOpaque;
     vk::SwapchainCreateInfoKHR swapchain_create_info{
         .surface          = **surface,
-        .minImageCount    = m_Desc.frame_count,
+        .minImageCount    = surface_capabilities.minImageCount,
         .imageFormat      = to_vk_format(m_Desc.format),
         .imageExtent      = vk::Extent2D{size.x, size.y},
         .imageArrayLayers = 1,

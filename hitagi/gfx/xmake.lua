@@ -42,6 +42,7 @@ target("gfx")
     set_kind("static")
     add_includedirs("include", {public = true})
     add_files("src/*.cpp")
+    remove_files("src/render_graph.cpp")
     add_deps("gfx-resource", "vulkan-device")
     if is_plat("windows") then
         add_deps("dx12-device")

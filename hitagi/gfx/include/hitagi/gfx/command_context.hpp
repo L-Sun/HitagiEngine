@@ -16,25 +16,31 @@ enum struct CommandType : std::uint8_t {
 
 class CommandContext {
 public:
-    virtual ~CommandContext()                   = default;
-    virtual void SetName(std::string_view name) = 0;
+    virtual ~CommandContext() = default;
     // When a resource will be used on other type command queue, you should reset the resource state
     virtual void ResetState(GpuBuffer& buffer) = 0;
     virtual void ResetState(Texture& texture)  = 0;
 
-    virtual void Reset() = 0;
+    virtual void Begin() = 0;
     virtual void End()   = 0;
 
-    Device&           device;
-    const CommandType type;
+    virtual void Reset() = 0;
+
+    virtual void SetName(std::string_view name) = 0;
+
+    inline auto& GetDevice() const noexcept { return m_Device; }
+    inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
+    inline auto  GetType() const noexcept { return m_Type; }
 
     std::uint64_t fence_value = 0;
 
 protected:
     CommandContext(Device& device, CommandType type, std::string_view name)
-        : device(device), type(type), m_Name(name) {}
+        : m_Device(device), m_Type(type), m_Name(name) {}
 
-    std::pmr::string m_Name;
+    Device&           m_Device;
+    const CommandType m_Type;
+    std::pmr::string  m_Name;
 };
 
 class GraphicsCommandContext : public CommandContext {
@@ -86,8 +92,5 @@ public:
     virtual void CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) = 0;
     virtual void CopyTexture(const Texture& src, const Texture& dest)                                                                 = 0;
 };
-
-template <CommandType T>
-using ContextType = std::conditional_t<T == CommandType::Graphics, GraphicsCommandContext, std::conditional_t<T == CommandType::Compute, ComputeCommandContext, CopyCommandContext>>;
 
 }  // namespace hitagi::gfx

@@ -302,9 +302,7 @@ bool RenderGraph::Compile() {
 auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
     ZoneScopedN("RenderGraph::Execute");
 
-    std::pmr::vector<CommandContext*> contexts;
-    auto                              fence_values = utils::create_enum_array<std::uint64_t, CommandType>(0);
-
+    // batch command context submit
     auto left  = m_ExecuteQueue.begin();
     auto right = left;
     while (left != m_ExecuteQueue.end()) {
@@ -313,10 +311,12 @@ auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
             continue;
         }
 
-        auto& queue = device.GetCommandQueue((*left)->type);
+        std::pmr::vector<CommandContext*> contexts;
 
-        auto waited = utils::create_enum_array<bool, CommandType>(false);
+        auto& queue  = device.GetCommandQueue((*left)->type);
+        auto  waited = utils::create_enum_array<bool, CommandType>(false);
         std::transform(left, right, std::back_inserter(contexts), [&](const PassNode* node) {
+            // wait for resource writer who write to resources that this node read
             for (auto res_handle : node->reads) {
                 auto& res_node = GetResrouceNode(res_handle);
                 if (res_node.writer && res_node.writer->type != node->type && !waited[res_node.writer->type]) {
@@ -327,39 +327,38 @@ auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
             return node->context.get();
         });
 
-        fence_values[queue.type] = queue.Submit(contexts);
+        auto fence = queue.Submit(std::move(contexts));
 
         std::for_each(left, right, [&](PassNode* node) {
-            assert(node->type == queue.type);
+            assert(node->type == queue.GetType());
 
             m_ContextPool[node->type].emplace_back(std::move(node->context));
             for (auto res_handle : node->reads) {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources[queue.type].emplace_back(track_res, fence_values[queue.type]);
+                    m_RetiredResources.emplace_back(track_res, fence);
                 }
             }
             for (auto res_handle : node->writes) {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources[queue.type].emplace_back(track_res, fence_values[queue.type]);
+                    m_RetiredResources.emplace_back(track_res, fence);
                 }
             }
             if (node->type == CommandType::Graphics) {
                 for (auto render_pipeline : node->render_pipelines) {
-                    m_RetiredResources[queue.type].emplace_back(render_pipeline, fence_values[queue.type]);
+                    m_RetiredResources.emplace_back(render_pipeline, fence);
                 }
             } else if (node->type == CommandType::Compute) {
                 for (auto compute_pipeline : node->compute_pipelines) {
-                    m_RetiredResources[queue.type].emplace_back(compute_pipeline, fence_values[queue.type]);
+                    m_RetiredResources.emplace_back(compute_pipeline, fence);
                 }
             }
         });
 
         left = right;
-        contexts.clear();
     }
     magic_enum::enum_for_each<CommandType>([this](CommandType type) {
         std::pmr::string retired_res_message{magic_enum::enum_name(type).data()};

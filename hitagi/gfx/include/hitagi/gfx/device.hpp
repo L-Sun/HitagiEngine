@@ -35,6 +35,8 @@ public:
 
     virtual void Profile(std::size_t frame_index) const = 0;
 
+    inline auto GetLogger()const noexcept ->std::shared_ptr<spdlog::logger>{return m_Logger;}
+
 protected:
     Device(Type type, std::string_view name);
 

@@ -27,8 +27,12 @@ constexpr std::array required_instance_extensions = {
 #endif
 };
 
-constexpr std::array required_physical_device_extensions = {
+constexpr std::array required_device_extensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+};
+
+constexpr vk::PhysicalDeviceVulkan12Features required_physical_device_features = {
+    .timelineSemaphore = true,
 };
 
 }  // namespace hitagi::gfx

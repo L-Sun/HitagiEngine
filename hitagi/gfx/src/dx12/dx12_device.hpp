@@ -44,7 +44,6 @@ public:
 
     static void ReportDebugLog();
 
-    inline auto GetLogger() const noexcept { return m_Logger; };
     inline auto GetDevice() const noexcept { return m_Device; }
 
     auto AllocateDescriptors(std::size_t num, D3D12_DESCRIPTOR_HEAP_TYPE type) -> Descriptor;

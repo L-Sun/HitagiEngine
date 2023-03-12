@@ -50,23 +50,15 @@ public:
 
     template <typename T>
     void Update(std::size_t index, T data) {
-        assert(sizeof(T) == m_Desc.element_size);
         UpdateRaw(index, std::span(reinterpret_cast<const std::byte*>(&data), sizeof(T)));
     }
-    template <>
-    void Update(std::size_t index, std::span<const std::byte> data) {
-        UpdateRaw(index, data);
-    }
-    template <>
-    void Update(std::size_t index, std::span<std::byte> data) {
-        UpdateRaw(index, data);
-    }
-    virtual void UpdateRaw(std::size_t index, std::span<const std::byte> data) = 0;
     virtual auto GetMappedPtr() const noexcept -> std::byte*                   = 0;
 
     inline const auto& GetDesc() const noexcept { return m_Desc; }
 
 protected:
+    void UpdateRaw(std::size_t index, std::span<const std::byte> data);
+
     GpuBuffer(Device& device, Desc desc);
     Desc m_Desc;
 };

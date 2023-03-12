@@ -1,4 +1,6 @@
 #pragma once
+#include "vk_sync.hpp"
+
 #include <hitagi/gfx/command_queue.hpp>
 
 #include <vulkan/vulkan_raii.hpp>
@@ -11,10 +13,10 @@ public:
     VulkanCommandQueue(VulkanDevice& device, CommandType type, std::string_view name, std::uint32_t queue_family_index);
     ~VulkanCommandQueue() final = default;
 
-    auto Submit(std::pmr::vector<CommandContext*> context) -> std::uint64_t final;
-    bool IsFenceComplete(std::uint64_t fence_value) final;
-    void WaitForFence(std::uint64_t fence_value) final;
-    void WaitForQueue(const CommandQueue& other) final;
+    auto Submit(
+        std::pmr::vector<CommandContext*>   contexts,
+        std::pmr::vector<SemaphoreWaitPair> wait_semaphores = {}) -> SemaphoreWaitPair final;
+
     void WaitIdle() final;
 
     inline auto  GetFramilyIndex() const noexcept { return m_FamilyIndex; }
@@ -23,6 +25,9 @@ public:
 private:
     std::uint32_t   m_FamilyIndex;
     vk::raii::Queue m_Queue;
+
+    std::shared_ptr<VulkanSemaphore> m_Semaphore;
+    std::uint64_t                    m_SubmitCount = 0;
 };
 
 }  // namespace hitagi::gfx

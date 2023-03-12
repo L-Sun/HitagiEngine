@@ -1,12 +1,13 @@
 #include "vk_device.hpp"
 #include "vk_resource.hpp"
-#include "configs.hpp"
+#include "vk_command_buffer.hpp"
+#include "vk_configs.hpp"
 #include "utils.hpp"
 
 #include <fmt/color.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace hitagi::gfx {
 auto custom_vk_allocation_fn(void*, std::size_t, std::size_t, VkSystemAllocationScope) -> void*;
@@ -32,6 +33,10 @@ VulkanDevice::VulkanDevice(std::string_view name)
             .engineVersion      = VK_MAKE_VERSION(0, 0, 1),
             .apiVersion         = m_Context.enumerateInstanceVersion(),
         };
+        m_Logger->debug("Vulkan API Version: {}.{}.{}",
+                        VK_VERSION_MAJOR(app_info.apiVersion),
+                        VK_VERSION_MINOR(app_info.apiVersion),
+                        VK_VERSION_PATCH(app_info.apiVersion));
 
         m_Instance = std::make_unique<vk::raii::Instance>(
             m_Context,
@@ -68,7 +73,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         auto physical_devices = m_Instance->enumeratePhysicalDevices();
         m_Logger->debug("Found {} Vulkan physical devices", physical_devices.size());
         for (const auto& device : physical_devices) {
-            m_Logger->debug("\t {}", device.getProperties().deviceName);
+            m_Logger->debug("\t - {}", device.getProperties().deviceName);
         }
 
         std::erase_if(physical_devices, [](const auto& device) { return !is_physcial_suitable(device); });
@@ -86,10 +91,11 @@ VulkanDevice::VulkanDevice(std::string_view name)
 
         m_Device = std::make_unique<vk::raii::Device>(m_PhysicalDevice->createDevice(
             vk::DeviceCreateInfo{
+                .pNext                   = &required_physical_device_features,
                 .queueCreateInfoCount    = 1,
                 .pQueueCreateInfos       = &queue_create_info,
-                .enabledExtensionCount   = static_cast<std::uint32_t>(required_physical_device_extensions.size()),
-                .ppEnabledExtensionNames = required_physical_device_extensions.data(),
+                .enabledExtensionCount   = static_cast<std::uint32_t>(required_device_extensions.size()),
+                .ppEnabledExtensionNames = required_device_extensions.data(),
             },
             GetCustomAllocator()));
 
@@ -100,6 +106,21 @@ VulkanDevice::VulkanDevice(std::string_view name)
                 type,
                 fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type)),
                 queue_create_info.queueFamilyIndex);
+        });
+    }
+
+    m_Logger->debug("Create Command Pools");
+    {
+        magic_enum::enum_for_each<CommandType>([&](CommandType type) {
+            vk::CommandPoolCreateInfo command_pool_create_info{
+                .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer |
+                         vk::CommandPoolCreateFlagBits::eTransient,
+                .queueFamilyIndex = m_CommandQueues[type]->GetFramilyIndex(),
+            };
+            m_CommandPools[type] = std::make_unique<vk::raii::CommandPool>(
+                *m_Device,
+                command_pool_create_info,
+                GetCustomAllocator());
         });
     }
 
@@ -137,7 +158,7 @@ auto VulkanDevice::CreateComputeContext(std::string_view name) -> std::shared_pt
 }
 
 auto VulkanDevice::CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> {
-    return nullptr;
+    return std::make_shared<VulkanTransferCommandBuffer>(*this, name);
 }
 
 auto VulkanDevice::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> {

@@ -11,7 +11,6 @@ struct VulkanBuffer final : public GpuBuffer {
     VulkanBuffer(VulkanDevice& device, GpuBuffer::Desc desc, std::span<const std::byte> initial_data);
     ~VulkanBuffer() final;
 
-    void UpdateRaw(std::size_t index, std::span<const std::byte> data) final;
     auto GetMappedPtr() const noexcept -> std::byte* final;
 
     std::unique_ptr<vk::raii::Buffer> buffer;

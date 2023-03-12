@@ -41,7 +41,7 @@ auto DX12CommandQueue::Submit(std::pmr::vector<CommandContext*> contexts) -> std
             return cmd->type != type;
         });
         iter != contexts.cend()) {
-        static_cast<DX12Device&>(device).GetLogger()->error(
+        device.GetLogger()->error(
             "Can not submit {} command to this {} command queue",
             fmt::styled(magic_enum::enum_name((*iter)->type), fmt::fg(fmt::color::red)),
             fmt::styled(magic_enum::enum_name(type), fmt::fg(fmt::color::green)));
