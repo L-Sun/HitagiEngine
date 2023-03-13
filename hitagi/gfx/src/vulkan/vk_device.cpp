@@ -76,8 +76,8 @@ VulkanDevice::VulkanDevice(std::string_view name)
             m_Logger->debug("\t - {}", device.getProperties().deviceName);
         }
 
-        std::erase_if(physical_devices, [](const auto& device) { return !is_physcial_suitable(device); });
-        std::ranges::sort(physical_devices, std::ranges::greater(), compute_physical_device_scroe);
+        std::erase_if(physical_devices, [](const auto& device) { return !is_physical_suitable(device); });
+        std::ranges::sort(physical_devices, std::ranges::greater(), compute_physical_device_score);
         if (physical_devices.empty()) {
             throw std::runtime_error("Failed to find physical device Vulkan supported!");
         }
@@ -115,7 +115,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
             vk::CommandPoolCreateInfo command_pool_create_info{
                 .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer |
                          vk::CommandPoolCreateFlagBits::eTransient,
-                .queueFamilyIndex = m_CommandQueues[type]->GetFramilyIndex(),
+                .queueFamilyIndex = m_CommandQueues[type]->GetFamilyIndex(),
             };
             m_CommandPools[type] = std::make_unique<vk::raii::CommandPool>(
                 *m_Device,
@@ -143,6 +143,10 @@ VulkanDevice::~VulkanDevice() {
 
 void VulkanDevice::WaitIdle() {
     m_Device->waitIdle();
+}
+
+auto VulkanDevice::CreateSemaphore(std::uint64_t initial_value, std::string_view name) -> std::shared_ptr<Semaphore> {
+    return std::make_shared<VulkanSemaphore>(*this, initial_value, name);
 }
 
 auto VulkanDevice::GetCommandQueue(CommandType type) const -> CommandQueue& {

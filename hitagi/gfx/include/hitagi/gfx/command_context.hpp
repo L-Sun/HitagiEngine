@@ -32,8 +32,6 @@ public:
     inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
     inline auto  GetType() const noexcept { return m_Type; }
 
-    std::uint64_t fence_value = 0;
-
 protected:
     CommandContext(Device& device, CommandType type, std::string_view name)
         : m_Device(device), m_Type(type), m_Name(name) {}

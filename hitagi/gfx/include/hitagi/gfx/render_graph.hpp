@@ -46,7 +46,7 @@ public:
                 throw std::logic_error(fmt::format("This pass node do not operate the handle{} in graph", handle.id));
             }
             auto result = m_Fg.m_Resources[m_Fg.m_ResourceNodes[handle.id - 1].res_idx];
-            assert(result != nullptr && "Access a invalid resource in excution phase, which may be pruned in compile phase!");
+            assert(result != nullptr && "Access a invalid resource in execution phase, which may be pruned in compile phase!");
             return *static_cast<T*>(result);
         }
 
@@ -81,7 +81,7 @@ public:
     void PresentPass(ResourceHandle back_buffer);
 
     bool Compile();
-    auto Execute() -> utils::EnumArray<std::uint64_t, CommandType>;
+    auto Execute() -> utils::EnumArray<SemaphoreWaitPair, CommandType>;
     void Reset();
 
     Device& device;
@@ -110,20 +110,20 @@ private:
     std::pmr::vector<Resource*> m_Resources;
     // dict<name, index>, where the `index` points to m_Resources
     std::pmr::unordered_map<std::pmr::string, std::size_t> m_BlackBoard;
-    std::pmr::vector<std::shared_ptr<Resource>>            m_OutterResources;
+    std::pmr::vector<std::shared_ptr<Resource>>            m_OuterResources;
     std::pmr::vector<InnerResource>                        m_InnerResources;
 
     std::mutex                  m_ExecuteQueueMutex;
     std::pmr::vector<PassNode*> m_ExecuteQueue;
 
-    using RetiredResource = std::pair<std::shared_ptr<Resource>, std::shared_ptr<Semaphore>>;
+    using RetiredResource = std::pair<std::shared_ptr<Resource>, SemaphoreWaitPair>;
     std::pmr::vector<RetiredResource> m_RetiredResources;
 
-    constexpr static unsigned                                                                              sm_CacheLifeSpan = 5;
-    std::unordered_map<GpuBuffer::Desc, std::pair<std::shared_ptr<GpuBuffer>, std::shared_ptr<Semaphore>>> m_GpuBfferPool;
-    std::unordered_map<Texture::Desc, std::pair<std::shared_ptr<Texture>, std::shared_ptr<Semaphore>>>     m_TexturePool;
+    utils::EnumArray<SemaphoreWaitPair, CommandType> m_SemaphoreWaitPairs;
 
-    utils::EnumArray<std::pmr::list<std::shared_ptr<CommandContext>>, CommandType> m_ContextPool;
+    constexpr static unsigned                                                            sm_CacheLifeSpan = 5;
+    std::unordered_map<GpuBuffer::Desc, std::pair<std::shared_ptr<GpuBuffer>, unsigned>> m_GpuBufferPool;
+    std::unordered_map<Texture::Desc, std::pair<std::shared_ptr<Texture>, unsigned>>     m_TexturePool;
 
     std::shared_ptr<spdlog::logger> m_Logger;
 };

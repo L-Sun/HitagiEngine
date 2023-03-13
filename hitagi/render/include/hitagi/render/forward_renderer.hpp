@@ -38,11 +38,11 @@ private:
     core::Clock   m_Clock;
     std::uint64_t m_FrameIndex = 0;
 
-    std::unique_ptr<gfx::Device>                      m_GfxDevice;
-    std::shared_ptr<gfx::SwapChain>                   m_SwapChain;
-    gfx::RenderGraph                                  m_RenderGraph;
-    gfx::ResourceHandle                               m_BackBufferHandle;
-    utils::EnumArray<std::uint64_t, gfx::CommandType> m_LastFenceValues;
+    std::unique_ptr<gfx::Device>                               m_GfxDevice;
+    std::shared_ptr<gfx::SwapChain>                            m_SwapChain;
+    gfx::RenderGraph                                           m_RenderGraph;
+    gfx::ResourceHandle                                        m_BackBufferHandle;
+    utils::EnumArray<gfx::SemaphoreWaitPair, gfx::CommandType> m_SemaphoreWaitPairs;
 
     std::unique_ptr<GuiRenderUtils> m_GuiRenderUtils;
 

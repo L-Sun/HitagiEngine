@@ -170,7 +170,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChain::Desc desc) : S
         } break;
     }
 
-    CreateSwapchain();
+    CreateSwapChain();
     CreateImageViews();
 }
 
@@ -197,12 +197,12 @@ void VulkanSwapChain::Present() {
 
 void VulkanSwapChain::Resize() {
     m_Device.WaitIdle();
-    CreateSwapchain();
+    CreateSwapChain();
     CreateImageViews();
 }
 
-void VulkanSwapChain::CreateSwapchain() {
-    swapchain = nullptr;
+void VulkanSwapChain::CreateSwapChain() {
+    swap_chain = nullptr;
 
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
@@ -224,26 +224,26 @@ void VulkanSwapChain::CreateSwapchain() {
     }
 
     // we use graphics queue as present queue
-    const auto& graphics_queue = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics));
-    const auto& physcal_device = vk_device.GetPhysicalDevice();
-    if (!physcal_device.getSurfaceSupportKHR(graphics_queue.GetFramilyIndex(), **surface)) {
+    const auto& graphics_queue  = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics));
+    const auto& physical_device = vk_device.GetPhysicalDevice();
+    if (!physical_device.getSurfaceSupportKHR(graphics_queue.GetFamilyIndex(), **surface)) {
         throw std::runtime_error(fmt::format(
             "The graphics queue({}) of physical device({}) can not support surface(window.ptr: {})",
-            graphics_queue.GetFramilyIndex(),
-            physcal_device.getProperties().deviceName,
+            graphics_queue.GetFamilyIndex(),
+            physical_device.getProperties().deviceName,
             m_Desc.window.ptr));
     }
 
-    const auto surface_capabilities    = physcal_device.getSurfaceCapabilitiesKHR(**surface);
-    const auto supported_formats       = physcal_device.getSurfaceFormatsKHR(**surface);
-    const auto supported_present_modes = physcal_device.getSurfacePresentModesKHR(**surface);
+    const auto surface_capabilities    = physical_device.getSurfaceCapabilitiesKHR(**surface);
+    const auto supported_formats       = physical_device.getSurfaceFormatsKHR(**surface);
+    const auto supported_present_modes = physical_device.getSurfacePresentModesKHR(**surface);
 
     if (std::find_if(supported_formats.begin(), supported_formats.end(), [this](const auto& surface_format) {
             return surface_format.format == to_vk_format(m_Desc.format);
         }) == supported_formats.end()) {
         throw std::runtime_error(fmt::format(
             "The physical device({}) can not support surface(window.ptr: {}) with format: {}",
-            physcal_device.getProperties().deviceName,
+            physical_device.getProperties().deviceName,
             m_Desc.window.ptr,
             magic_enum::enum_name(m_Desc.format)));
     }
@@ -253,7 +253,7 @@ void VulkanSwapChain::CreateSwapchain() {
         }) == supported_present_modes.end()) {
         throw std::runtime_error(fmt::format(
             "The physical device({}) can not support surface(window.ptr: {}) with present mode: VK_PRESENT_MODE_FIFO_KHR",
-            physcal_device.getProperties().deviceName,
+            physical_device.getProperties().deviceName,
             m_Desc.window.ptr));
     }
 
@@ -290,15 +290,15 @@ void VulkanSwapChain::CreateSwapchain() {
         .clipped          = true,
     };
 
-    // We use graphics queue as present queue, so we do not care the owership of images
-    swapchain = std::make_unique<vk::raii::SwapchainKHR>(vk_device.GetDevice(), swapchain_create_info, vk_device.GetCustomAllocator());
+    // We use graphics queue as present queue, so we do not care the ownership of images
+    swap_chain = std::make_unique<vk::raii::SwapchainKHR>(vk_device.GetDevice(), swapchain_create_info, vk_device.GetCustomAllocator());
 }
 
 void VulkanSwapChain::CreateImageViews() {
     images.clear();
 
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
-    auto  _images   = swapchain->getImages();
+    auto  _images   = swap_chain->getImages();
 
     vk::ImageViewCreateInfo image_view_create_info{
         .viewType         = vk::ImageViewType::e2D,

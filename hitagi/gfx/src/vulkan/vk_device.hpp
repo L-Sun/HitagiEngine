@@ -16,6 +16,8 @@ public:
 
     void WaitIdle() final;
 
+    auto CreateSemaphore(std::uint64_t initial_value = 0, std::string_view name = "") -> std::shared_ptr<Semaphore> final;
+
     auto GetCommandQueue(CommandType type) const -> CommandQueue& final;
     auto CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> final;
     auto CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> final;

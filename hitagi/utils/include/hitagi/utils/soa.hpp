@@ -1,5 +1,5 @@
 #pragma once
-#include "concepts.hpp"
+#include <hitagi/utils/concepts.hpp>
 
 #include <fmt/format.h>
 
@@ -159,7 +159,7 @@ public:
         (std::index_sequence_for<Types...>{});
         m_Size = 0;
     }
-    constexpr void         push_back(StructureForward values);
+    constexpr void         push_back(StructureConstRef values);
     constexpr StructureRef emplace_back(Types&&... values);
     constexpr void         pop_back();
     constexpr void         resize(std::size_t count);
@@ -183,9 +183,9 @@ private:
 };
 
 template <typename... Types>
-constexpr void SoA<Types...>::push_back(StructureForward values) {
+constexpr void SoA<Types...>::push_back(StructureConstRef values) {
     [&]<std::size_t... I>(std::index_sequence<I...>) {
-        (std::get<I>(m_Data).push_back(std::forward<TypeAt<I>>(std::get<I>(values))), ...);
+        (std::get<I>(m_Data).push_back(std::forward<const TypeAt<I>&>(std::get<I>(values))), ...);
     }
     (std::index_sequence_for<Types...>{});
 
@@ -232,3 +232,32 @@ constexpr void SoA<Types...>::resize(std::size_t count, StructureConstRef values
 }
 
 };  // namespace hitagi::utils
+
+template <typename... Types>
+class std::back_insert_iterator<hitagi::utils::SoA<Types...>> {
+public:
+    using container_type = hitagi::utils::SoA<Types...>;
+
+    explicit back_insert_iterator(container_type& container)
+        : container_(container) {}
+
+    back_insert_iterator<container_type>& operator=(typename container_type::StructureConstRef value) {
+        container_.push_back(value);
+        return *this;
+    }
+
+    back_insert_iterator<container_type>& operator*() {
+        return *this;
+    }
+
+    back_insert_iterator<container_type>& operator++() {
+        return *this;
+    }
+
+    back_insert_iterator<container_type>& operator++(int) {
+        return *this;
+    }
+
+private:
+    container_type& container_;
+};

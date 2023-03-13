@@ -16,13 +16,12 @@ ForwardRenderer::ForwardRenderer(const Application& app, gfx::Device::Type gfx_d
       m_App(app),
       m_GfxDevice(gfx::Device::Create(gfx_device_type)),
       m_SwapChain(m_GfxDevice->CreateSwapChain({
-          .name        = "SwapChain",
-          .window      = app.GetWindow(),
-          .frame_count = 2,
-          .format      = gfx::Format::R8G8B8A8_UNORM,
+          .name   = "SwapChain",
+          .window = app.GetWindow(),
+          .format = gfx::Format::R8G8B8A8_UNORM,
       })),
       m_RenderGraph(*m_GfxDevice),
-      m_LastFenceValues(utils::create_enum_array<std::uint64_t, gfx::CommandType>(0)),
+      m_SemaphoreWaitPairs(utils::create_enum_array<gfx::SemaphoreWaitPair, gfx::CommandType>({nullptr, 0})),
       m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, *m_GfxDevice) : nullptr) {
     m_Clock.Start();
     ClearPass();
@@ -41,7 +40,7 @@ void ForwardRenderer::Tick() {
         auto wait_last_frame = thread_manager->RunTask([this]() {
             ZoneScopedN("Wait Last Frame");
             magic_enum::enum_for_each<gfx::CommandType>([this](auto type) {
-                m_GfxDevice->GetCommandQueue(type()).WaitForFence(m_LastFenceValues[type()]);
+                m_GfxDevice->GetCommandQueue(type);
             });
         });
         compile.wait();
@@ -53,13 +52,14 @@ void ForwardRenderer::Tick() {
         }
         {
             ZoneScopedN("Wait Last Frame");
-            magic_enum::enum_for_each<gfx::CommandType>([this](auto type) {
-                m_GfxDevice->GetCommandQueue(type()).WaitForFence(m_LastFenceValues[type()]);
+            magic_enum::enum_for_each<gfx::CommandType>([this](gfx::CommandType type) {
+                auto [semaphore, value] = m_SemaphoreWaitPairs[type];
+                if (semaphore) semaphore->Wait(value);
             });
         }
     }
 
-    m_LastFenceValues = m_RenderGraph.Execute();
+    m_SemaphoreWaitPairs = m_RenderGraph.Execute();
     m_RenderGraph.Reset();
     m_ColorPass = {};
 
@@ -84,8 +84,8 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
         std::shared_ptr<asset::MeshNode>    instance;
         std::shared_ptr<asset::Material>    material;
         std::shared_ptr<asset::VertexArray> vertices;
-        std::shared_ptr<asset::IndexArray>  inidices;
-        asset::Mesh::SubMesh                submesh;
+        std::shared_ptr<asset::IndexArray>  indices;
+        asset::Mesh::SubMesh                sub_mesh;
     };
     struct FrameConstant {
         math::vec4f camera_pos;
@@ -127,8 +127,8 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 .instance = node,
                 .material = material,
                 .vertices = mesh->vertices,
-                .inidices = mesh->indices,
-                .submesh  = submesh,
+                .indices  = mesh->indices,
+                .sub_mesh = submesh,
             });
         }
     }
@@ -222,8 +222,8 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                         builder.Read(m_RenderGraph.Import(item.vertices->GetUniqueName(), attribute_data->get().gpu_buffer));
                     }
                 });
-                builder.Read(m_RenderGraph.Import(item.inidices->GetUniqueName(), item.inidices->GetIndexData().gpu_buffer));
-                for (const auto& texture : item.submesh.material_instance->GetTextures()) {
+                builder.Read(m_RenderGraph.Import(item.indices->GetUniqueName(), item.indices->GetIndexData().gpu_buffer));
+                for (const auto& texture : item.sub_mesh.material_instance->GetTextures()) {
                     builder.Read(m_RenderGraph.Import(texture->GetUniqueName(), texture->GetGpuData()));
                 }
             }
@@ -252,13 +252,13 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 material_constant_offset.reserve(draw_items->size());
                 std::size_t offset = 0;
                 for (const auto& draw_call : *draw_items) {
-                    auto material_instance = draw_call.submesh.material_instance.get();
+                    auto material_instance = draw_call.sub_mesh.material_instance.get();
                     auto material          = draw_call.material.get();
                     if (material_constant_offset.contains(material_instance)) continue;
                     helper.Get<gfx::GpuBuffer>(data.material_constants.at(material))
                         .Update(
                             offset,
-                            draw_call.submesh.material_instance->GetMateriaBufferData().Span<const std::byte>());
+                            draw_call.sub_mesh.material_instance->GetMateriaBufferData().Span<const std::byte>());
 
                     material_constant_offset.emplace(material_instance, offset++);
                 }
@@ -309,25 +309,25 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                         }
                     }
                 }
-                if (curr_indices != draw_call.inidices.get()) {
-                    curr_indices = draw_call.inidices.get();
+                if (curr_indices != draw_call.indices.get()) {
+                    curr_indices = draw_call.indices.get();
                     context->SetIndexBuffer(*curr_indices->GetIndexData().gpu_buffer);
                 }
                 if (curr_instance != draw_call.instance.get()) {
                     curr_instance = draw_call.instance.get();
                     context->BindConstantBuffer(1, instance_constant, instance_constant_offset.at(curr_instance));
                 }
-                context->BindConstantBuffer(2, *material_constant, material_constant_offset.at(draw_call.submesh.material_instance.get()));
+                context->BindConstantBuffer(2, *material_constant, material_constant_offset.at(draw_call.sub_mesh.material_instance.get()));
 
-                for (std::size_t texture_index = 0; const auto& texture : draw_call.submesh.material_instance->GetTextures()) {
+                for (std::size_t texture_index = 0; const auto& texture : draw_call.sub_mesh.material_instance->GetTextures()) {
                     context->BindTexture(texture_index++, *texture->GetGpuData());
                 }
 
                 context->DrawIndexed(
-                    draw_call.submesh.index_count,
+                    draw_call.sub_mesh.index_count,
                     1,
-                    draw_call.submesh.index_offset,
-                    draw_call.submesh.vertex_offset);
+                    draw_call.sub_mesh.index_offset,
+                    draw_call.sub_mesh.vertex_offset);
             }
         });
 

@@ -37,14 +37,18 @@ target("vulkan-device")
         add_defines("VK_USE_PLATFORM_WAYLAND_KHR")
     end
 
+target("gfx_device")
+    set_kind("static")
+    add_includedirs("include", {public = true})
+    add_files("src/device.cpp")
+    add_deps("vulkan-device")
+    if is_plat("windows") then
+        add_deps("dx12-device")
+    end
 
 target("gfx")
     set_kind("static")
     add_includedirs("include", {public = true})
-    add_files("src/*.cpp")
-    remove_files("src/render_graph.cpp")
-    add_deps("gfx-resource", "vulkan-device")
-    if is_plat("windows") then
-        add_deps("dx12-device")
-    end
+    add_files("src/render_graph.cpp")
+    add_deps("gfx-resource", "gfx_device")
     add_packages("taskflow", {public = true})

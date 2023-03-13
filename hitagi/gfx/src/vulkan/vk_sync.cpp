@@ -3,18 +3,21 @@
 #include "utils.hpp"
 
 namespace hitagi::gfx {
-const vk::StructureChain semaphore_create_info = {
-    vk::SemaphoreCreateInfo{},
-    vk::SemaphoreTypeCreateInfoKHR{
-        .semaphoreType = vk::SemaphoreType::eTimeline,
-        .initialValue  = 0,
-    },
-};
 
-VulkanSemaphore::VulkanSemaphore(VulkanDevice& device, std::string_view name)
+auto semaphore_create_info(std::uint64_t initial_value) {
+    return vk::StructureChain{
+        vk::SemaphoreCreateInfo{},
+        vk::SemaphoreTypeCreateInfoKHR{
+            .semaphoreType = vk::SemaphoreType::eTimeline,
+            .initialValue  = initial_value,
+        },
+    };
+}
+
+VulkanSemaphore::VulkanSemaphore(VulkanDevice& device, std::uint64_t initial_value, std::string_view name)
     : Semaphore(device, name),
       semaphore(device.GetDevice(),
-                semaphore_create_info.get(),
+                semaphore_create_info(initial_value).get(),
                 device.GetCustomAllocator())
 
 {
@@ -52,6 +55,10 @@ bool VulkanSemaphore::WaitFor(std::uint64_t value, std::chrono::duration<double>
         .pValues        = &value,
     };
     return vk::Result::eTimeout != vk_device.waitSemaphores(wait_info, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
+}
+
+auto VulkanSemaphore::GetCurrentValue() -> std::uint64_t {
+    return semaphore.getCounterValue();
 }
 
 }  // namespace hitagi::gfx

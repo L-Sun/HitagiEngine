@@ -16,6 +16,9 @@ RenderGraph::RenderGraph(Device& device)
     : device(device),
       m_Executor(),
       m_Logger(spdlog::stdout_color_mt("RenderGraph")) {
+    magic_enum::enum_for_each<CommandType>([&](CommandType type) {
+        m_SemaphoreWaitPairs[type] = {device.CreateSemaphore(), 0};
+    });
 }
 
 auto RenderGraph::Builder::Create(ResourceDesc desc) const -> ResourceHandle {
@@ -43,7 +46,7 @@ auto RenderGraph::Builder::Write(ResourceHandle output) const -> ResourceHandle 
             });
         iter->version > old_res_node.version) {
         m_RenderGraph.m_Logger->warn(
-            "Could wirte to old version({}) resource ({})",
+            "Could write to old version({}) resource ({})",
             fmt::styled(old_res_node.version, fmt::fg(fmt::color::orange)),
             fmt::styled(m_RenderGraph.m_Resources[old_res_node.res_idx]->GetName(), fmt::fg(fmt::color::orange)));
 
@@ -106,8 +109,8 @@ auto RenderGraph::Import(std::string_view name, std::shared_ptr<Resource> res) -
         return {static_cast<std::uint64_t>(std::distance(iter, m_ResourceNodes.rend()))};
     }
 
-    if (std::find(m_OutterResources.begin(), m_OutterResources.end(), res) == m_OutterResources.end()) {
-        m_OutterResources.emplace_back(res);
+    if (std::find(m_OuterResources.begin(), m_OuterResources.end(), res) == m_OuterResources.end()) {
+        m_OuterResources.emplace_back(res);
     }
 
     const std::size_t res_idx = m_Resources.size();
@@ -148,7 +151,7 @@ auto RenderGraph::GetImportedResourceHandle(std::string_view name) -> ResourceHa
             return node.res_idx == res_idx;
         });
 
-        // note that the resource handle is start from 1, so the follwing code do not add -1
+        // note that the resource handle is start from 1, so the following code do not add -1
         return ResourceHandle{static_cast<std::uint64_t>(std::distance(iter, m_ResourceNodes.rend()))};
     }
     return ResourceHandle::InvalidHandle();
@@ -181,25 +184,17 @@ auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {
 
 auto RenderGraph::RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext> {
     std::shared_ptr<CommandContext> context = nullptr;
-    if (m_ContextPool[type].empty() ||
-        !device.GetCommandQueue(type).IsFenceComplete(m_ContextPool[type].front()->fence_value)) {
-        switch (type) {
-            case CommandType::Graphics:
-                context = device.CreateGraphicsContext();
-                break;
-            case CommandType::Compute:
-                context = device.CreateComputeContext();
-                break;
-            case CommandType::Copy:
-                context = device.CreateCopyContext();
-                break;
-        }
-    } else {
-        context = std::move(m_ContextPool[type].front());
-        m_ContextPool[type].pop_front();
-        context->Reset();
+    switch (type) {
+        case CommandType::Graphics:
+            context = device.CreateGraphicsContext();
+            break;
+        case CommandType::Compute:
+            context = device.CreateComputeContext();
+            break;
+        case CommandType::Copy:
+            context = device.CreateCopyContext();
+            break;
     }
-
     return context;
 }
 
@@ -214,10 +209,10 @@ auto RenderGraph::GetLifeTrackResource(const Resource* res) -> std::shared_ptr<R
         iter != m_InnerResources.end()) {
         return iter->resource;
     }
-    if (auto iter = std::find_if(m_OutterResources.begin(), m_OutterResources.end(), [res](const auto& outer_res) {
+    if (auto iter = std::find_if(m_OuterResources.begin(), m_OuterResources.end(), [res](const auto& outer_res) {
             return outer_res.get() == res;
         });
-        iter != m_OutterResources.end()) {
+        iter != m_OuterResources.end()) {
         return *iter;
     }
 
@@ -261,7 +256,7 @@ bool RenderGraph::Compile() {
     };
 
     {
-        ZoneScopedN("Create Taksflow");
+        ZoneScopedN("Create Taskflow");
         create_task(m_PresentPassNode.get());
     }
 
@@ -271,11 +266,11 @@ bool RenderGraph::Compile() {
             std::visit(
                 utils::Overloaded{
                     [&](const GpuBuffer::Desc& buffer_desc) {
-                        if (!m_GpuBfferPool.contains(buffer_desc)) {
-                            m_GpuBfferPool.emplace(buffer_desc, std::pair{device.CreateGpuBuffer(buffer_desc), sm_CacheLifeSpan});
+                        if (!m_GpuBufferPool.contains(buffer_desc)) {
+                            m_GpuBufferPool.emplace(buffer_desc, std::pair{device.CreateGpuBuffer(buffer_desc), sm_CacheLifeSpan});
                         }
-                        m_GpuBfferPool.at(buffer_desc).second      = sm_CacheLifeSpan;
-                        inner_resource.resource                    = m_GpuBfferPool.at(buffer_desc).first;
+                        m_GpuBufferPool.at(buffer_desc).second     = sm_CacheLifeSpan;
+                        inner_resource.resource                    = m_GpuBufferPool.at(buffer_desc).first;
                         m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
                     },
                     [&](const Texture::Desc& texture_desc) {
@@ -299,7 +294,7 @@ bool RenderGraph::Compile() {
     return true;
 }
 
-auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
+auto RenderGraph::Execute() -> utils::EnumArray<SemaphoreWaitPair, CommandType> {
     ZoneScopedN("RenderGraph::Execute");
 
     // batch command context submit
@@ -313,21 +308,25 @@ auto RenderGraph::Execute() -> utils::EnumArray<std::uint64_t, CommandType> {
 
         std::pmr::vector<CommandContext*> contexts;
 
-        auto& queue  = device.GetCommandQueue((*left)->type);
-        auto  waited = utils::create_enum_array<bool, CommandType>(false);
+        std::pmr::unordered_map<SemaphoreWaitPair::first_type, SemaphoreWaitPair::second_type> wait_semaphores;
         std::transform(left, right, std::back_inserter(contexts), [&](const PassNode* node) {
             // wait for resource writer who write to resources that this node read
             for (auto res_handle : node->reads) {
                 auto& res_node = GetResrouceNode(res_handle);
-                if (res_node.writer && res_node.writer->type != node->type && !waited[res_node.writer->type]) {
-                    queue.WaitForQueue(device.GetCommandQueue(res_node.writer->type));
-                    waited[res_node.writer->type] = true;
+
+                if (res_node.writer) {
+                    // synchronize between different command queue
+                    if (res_node.writer->type != node->type) {
+                        wait_semaphores[m_SemaphoreWaitPairs[node->type].first] = m_SemaphoreWaitPairs[node->type].second;
+                        m_SemaphoreWaitPairs[node->type].second++;
+                    }
                 }
             }
             return node->context.get();
         });
 
-        auto fence = queue.Submit(std::move(contexts));
+        auto& queue = device.GetCommandQueue((*left)->type);
+        queue.Submit(std::move(contexts));
 
         std::for_each(left, right, [&](PassNode* node) {
             assert(node->type == queue.GetType());
@@ -392,14 +391,14 @@ void RenderGraph::Reset() {
 
         life_conter = life_conter == 0 ? 0 : life_conter - 1;
     };
-    std::for_each(m_GpuBfferPool.begin(), m_GpuBfferPool.end(), decrese_conter_fn);
+    std::for_each(m_GpuBufferPool.begin(), m_GpuBufferPool.end(), decrese_conter_fn);
     std::for_each(m_TexturePool.begin(), m_TexturePool.end(), decrese_conter_fn);
 
     auto discard_cache_fn = [](auto& item) {
         auto& [res, life_conter] = item.second;
         return life_conter == 0;
     };
-    std::erase_if(m_GpuBfferPool, discard_cache_fn);
+    std::erase_if(m_GpuBufferPool, discard_cache_fn);
     std::erase_if(m_TexturePool, discard_cache_fn);
 
     m_ResourceNodes.clear();
@@ -408,7 +407,7 @@ void RenderGraph::Reset() {
     m_Resources.clear();
     m_BlackBoard.clear();
     m_InnerResources.clear();
-    m_OutterResources.clear();
+    m_OuterResources.clear();
     m_ExecuteQueue.clear();
     m_Taskflow.clear();
 }

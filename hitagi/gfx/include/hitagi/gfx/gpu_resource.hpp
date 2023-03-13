@@ -52,7 +52,7 @@ public:
     void Update(std::size_t index, T data) {
         UpdateRaw(index, std::span(reinterpret_cast<const std::byte*>(&data), sizeof(T)));
     }
-    virtual auto GetMappedPtr() const noexcept -> std::byte*                   = 0;
+    virtual auto GetMappedPtr() const noexcept -> std::byte* = 0;
 
     inline const auto& GetDesc() const noexcept { return m_Desc; }
 
@@ -137,7 +137,6 @@ public:
     struct Desc {
         std::string_view name = UNKOWN_NAME;
         utils::Window    window;
-        std::uint8_t     frame_count  = 2;
         Format           format       = Format::B8G8R8A8_UNORM;
         std::uint32_t    sample_count = 1;
         bool             vsync        = false;
@@ -171,7 +170,7 @@ public:
         RasterizerDescription rasterizer_config;
         BlendDescription      blend_config;
         Format                render_format        = Format::R8G8B8A8_UNORM;
-        Format                depth_sentcil_format = Format::UNKNOWN;
+        Format                depth_stencil_format = Format::UNKNOWN;
     };
 
     inline const auto& GetDesc() const noexcept { return m_Desc; }

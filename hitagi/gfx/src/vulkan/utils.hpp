@@ -1,8 +1,10 @@
 #pragma once
 #include "vk_configs.hpp"
+#include "vk_sync.hpp"
 
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
+#include <hitagi/utils/soa.hpp>
 
 #include <vulkan/vulkan_raii.hpp>
 #include <SDL2/SDL_vulkan.h>
@@ -12,38 +14,38 @@
 namespace hitagi::gfx {
 
 auto custom_vk_allocation_fn(void* p_this, std::size_t size, std::size_t alignment, VkSystemAllocationScope) -> void*;
-auto custom_vk_reallocation_fn(void* p_this, void* orign_ptr, std::size_t new_size, std::size_t alignment, VkSystemAllocationScope) -> void*;
+auto custom_vk_reallocation_fn(void* p_this, void* origin_ptr, std::size_t new_size, std::size_t alignment, VkSystemAllocationScope) -> void*;
 auto custom_vk_free_fn(void* p_this, void* ptr) -> void;
 auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, VkDebugUtilsMessageTypeFlagsEXT _type, VkDebugUtilsMessengerCallbackDataEXT const* p_data, void* p_logger) -> VkBool32;
 
-inline auto compute_physical_device_scroe(const vk::raii::PhysicalDevice& device) noexcept {
-    int scroe = 0;
+inline auto compute_physical_device_score(const vk::raii::PhysicalDevice& device) noexcept {
+    int score = 0;
 
     const auto device_properties = device.getProperties();
     const auto device_features   = device.getFeatures();
 
     if (device_properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
-        scroe += 1000;
+        score += 1000;
     }
 
-    scroe += device_properties.limits.maxImageDimension2D;
+    score += device_properties.limits.maxImageDimension2D;
 
     if (!device_features.geometryShader) {
-        scroe = 0;
+        score = 0;
     }
 
-    return scroe;
+    return score;
 }
 
-inline auto is_physcial_suitable(const vk::raii::PhysicalDevice& physical_device) -> bool {
+inline auto is_physical_suitable(const vk::raii::PhysicalDevice& physical_device) -> bool {
     const auto queue_family_properties = physical_device.getQueueFamilyProperties();
 
     bool queue_family_found = false;
-    for (const auto& queue_family_propertie : queue_family_properties) {
-        if (queue_family_propertie.queueCount >= magic_enum::enum_count<CommandType>() &&
-            (queue_family_propertie.queueFlags & vk::QueueFlagBits::eGraphics) &&
-            (queue_family_propertie.queueFlags & vk::QueueFlagBits::eCompute) &&
-            (queue_family_propertie.queueFlags & vk::QueueFlagBits::eTransfer)) {
+    for (const auto& queue_family_properties : queue_family_properties) {
+        if (queue_family_properties.queueCount >= magic_enum::enum_count<CommandType>() &&
+            (queue_family_properties.queueFlags & vk::QueueFlagBits::eGraphics) &&
+            (queue_family_properties.queueFlags & vk::QueueFlagBits::eCompute) &&
+            (queue_family_properties.queueFlags & vk::QueueFlagBits::eTransfer)) {
             queue_family_found = true;
             break;
         }
@@ -221,6 +223,17 @@ inline constexpr auto get_command_label_color(CommandType type) {
 template <typename T>
 inline constexpr auto get_vk_handle(const T& handle) {
     return reinterpret_cast<std::uintptr_t>(static_cast<typename T::CType>(*handle));
+}
+
+inline auto convert_to_sao_vk_semaphore_wait_pairs(const std::pmr::vector<SemaphoreWaitPair>& pairs) {
+    utils::SoA<vk::Semaphore, std::uint64_t> result;
+    std::transform(pairs.begin(), pairs.end(), std::back_inserter(result), [](const SemaphoreWaitPair& pair) {
+        auto&& [semaphore, value] = pair;
+        auto& vk_semaphore        = std::static_pointer_cast<VulkanSemaphore>(semaphore)->semaphore;
+        return std::make_pair(*vk_semaphore, value);
+    });
+
+    return result;
 }
 
 }  // namespace hitagi::gfx

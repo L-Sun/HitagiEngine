@@ -19,8 +19,8 @@ Device::Device(Type type, std::string_view name)
               : fmt::format("{}-Device", magic_enum::enum_name(device_type)))) {}
 
 Device::~Device() {
-    if (report_debug_error_after_destory_fn) {
-        report_debug_error_after_destory_fn();
+    if (report_debug_error_after_destroy_fn) {
+        report_debug_error_after_destroy_fn();
     }
     m_Logger->debug("graphics device removed successfully!");
 }

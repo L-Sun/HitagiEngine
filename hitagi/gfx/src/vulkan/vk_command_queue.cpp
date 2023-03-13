@@ -4,6 +4,8 @@
 #include "vk_sync.hpp"
 #include "utils.hpp"
 
+#include <hitagi/utils/soa.hpp>
+
 #include <fmt/color.h>
 #include <spdlog/logger.h>
 
@@ -14,8 +16,7 @@ namespace hitagi::gfx {
 VulkanCommandQueue::VulkanCommandQueue(VulkanDevice& device, CommandType type, std::string_view name, std::uint32_t queue_family_index)
     : CommandQueue(device, type, name),
       m_FamilyIndex(queue_family_index),
-      m_Queue(device.GetDevice().getQueue(queue_family_index, magic_enum::enum_integer(type))),
-      m_Semaphore(std::make_shared<VulkanSemaphore>(device, fmt::format("{}-Semaphore", m_Name)))
+      m_Queue(device.GetDevice().getQueue(queue_family_index, magic_enum::enum_integer(type)))
 
 {
     device.GetDevice().setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
@@ -25,7 +26,7 @@ VulkanCommandQueue::VulkanCommandQueue(VulkanDevice& device, CommandType type, s
     });
 }
 
-auto VulkanCommandQueue::Submit(std::pmr::vector<CommandContext*> contexts, std::pmr::vector<SemaphoreWaitPair> wait_semaphores) -> SemaphoreWaitPair {
+void VulkanCommandQueue::Submit(std::pmr::vector<CommandContext*> contexts, std::pmr::vector<SemaphoreWaitPair> wait_semaphores, std::pmr::vector<SemaphoreWaitPair> signal_semaphores) {
     // make sure all context are same command type
     if (auto iter = std::find_if(
             contexts.begin(), contexts.end(),
@@ -36,7 +37,7 @@ auto VulkanCommandQueue::Submit(std::pmr::vector<CommandContext*> contexts, std:
             fmt::styled(magic_enum::enum_name(m_Type), fmt::fg(fmt::color::red)),
             fmt::styled(magic_enum::enum_name((*iter)->GetType()), fmt::fg(fmt::color::green)));
 
-        return {m_Semaphore, m_SubmitCount};
+        contexts.clear();
     }
 
     std::pmr::vector<vk::CommandBuffer> command_buffers;
@@ -54,39 +55,30 @@ auto VulkanCommandQueue::Submit(std::pmr::vector<CommandContext*> contexts, std:
             }
         });
 
-    std::pmr::vector<vk::Semaphore>          _wait_semaphores;
-    std::pmr::vector<std::uint64_t>          _wait_values;
-    std::pmr::vector<vk::PipelineStageFlags> _stage_flags;
+    const auto _wait_semaphores   = convert_to_sao_vk_semaphore_wait_pairs(wait_semaphores);
+    const auto _signal_semaphores = convert_to_sao_vk_semaphore_wait_pairs(signal_semaphores);
 
-    for (auto& [semaphore, value] : wait_semaphores) {
-        _wait_semaphores.emplace_back(*static_cast<VulkanSemaphore*>(semaphore.get())->semaphore);
-        _wait_values.emplace_back(value);
-        // ! Please imporve me
-        _stage_flags.emplace_back(vk::PipelineStageFlagBits::eAllCommands);
-    }
+    std::pmr::vector<vk::PipelineStageFlags> _stage_flags(wait_semaphores.size(), vk::PipelineStageFlagBits::eAllCommands);
 
-    m_SubmitCount++;
     vk::StructureChain submit_info{
         vk::SubmitInfo{
             .waitSemaphoreCount   = static_cast<std::uint32_t>(_wait_semaphores.size()),
-            .pWaitSemaphores      = _wait_semaphores.data(),
+            .pWaitSemaphores      = _wait_semaphores.elements<0>().data(),
             .pWaitDstStageMask    = _stage_flags.data(),
             .commandBufferCount   = static_cast<std::uint32_t>(command_buffers.size()),
             .pCommandBuffers      = command_buffers.data(),
-            .signalSemaphoreCount = 1,
-            .pSignalSemaphores    = &(*m_Semaphore->semaphore),
+            .signalSemaphoreCount = static_cast<std::uint32_t>(_signal_semaphores.size()),
+            .pSignalSemaphores    = _signal_semaphores.elements<0>().data(),
         },
         vk::TimelineSemaphoreSubmitInfo{
-            .waitSemaphoreValueCount   = static_cast<std::uint32_t>(_wait_values.size()),
-            .pWaitSemaphoreValues      = _wait_values.data(),
-            .signalSemaphoreValueCount = 1,
-            .pSignalSemaphoreValues    = &m_SubmitCount,
+            .waitSemaphoreValueCount   = static_cast<std::uint32_t>(_wait_semaphores.size()),
+            .pWaitSemaphoreValues      = _wait_semaphores.elements<1>().data(),
+            .signalSemaphoreValueCount = static_cast<std::uint32_t>(_signal_semaphores.size()),
+            .pSignalSemaphoreValues    = _signal_semaphores.elements<1>().data(),
         },
     };
 
     m_Queue.submit(submit_info.get());
-
-    return {m_Semaphore, m_SubmitCount};
 }
 
 void VulkanCommandQueue::WaitIdle() {

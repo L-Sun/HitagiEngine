@@ -20,6 +20,8 @@ public:
     static auto  Create(Type type, std::string_view name = "") -> std::unique_ptr<Device>;
     virtual void WaitIdle() = 0;
 
+    virtual auto CreateSemaphore(std::uint64_t initial_value = 0, std ::string_view name = "") -> std::shared_ptr<Semaphore> = 0;
+
     virtual auto GetCommandQueue(CommandType type) const -> CommandQueue&                                     = 0;
     virtual auto CreateGraphicsContext(std::string_view name = "") -> std::shared_ptr<GraphicsCommandContext> = 0;
     virtual auto CreateComputeContext(std::string_view name = "") -> std::shared_ptr<ComputeCommandContext>   = 0;
@@ -35,12 +37,12 @@ public:
 
     virtual void Profile(std::size_t frame_index) const = 0;
 
-    inline auto GetLogger()const noexcept ->std::shared_ptr<spdlog::logger>{return m_Logger;}
+    inline auto GetLogger() const noexcept -> std::shared_ptr<spdlog::logger> { return m_Logger; }
 
 protected:
     Device(Type type, std::string_view name);
 
     std::shared_ptr<spdlog::logger> m_Logger;
-    std::function<void()>           report_debug_error_after_destory_fn;
+    std::function<void()>           report_debug_error_after_destroy_fn;
 };
 }  // namespace hitagi::gfx

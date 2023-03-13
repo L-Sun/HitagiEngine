@@ -26,6 +26,8 @@ public:
     // return true if the fence is signaled within the timeout
     virtual bool WaitFor(std::uint64_t value, std::chrono::duration<double> timeout) = 0;
 
+    virtual auto GetCurrentValue() -> std::uint64_t = 0;
+
 protected:
     Device&          m_Device;
     std::pmr::string m_Name;

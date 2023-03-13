@@ -57,6 +57,14 @@
             "}",
         ]
     },
+    "Google Unit Value-Parameterized Test": {
+        "prefix": "gutp",
+        "body": [
+            "TEST_P(${1:${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/g}}, ${2:Case}) {",
+            "    ${3:/* code */}",
+            "}",
+        ]
+    },
     "Google Mock": {
         "prefix": "gm",
         "body": [

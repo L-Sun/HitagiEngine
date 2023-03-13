@@ -17,9 +17,10 @@ public:
     inline auto  GetType() const noexcept { return m_Type; }
     inline auto& GetName() const noexcept { return m_Name; }
 
-    virtual auto Submit(
+    virtual void Submit(
         std::pmr::vector<CommandContext*>   contexts,
-        std::pmr::vector<SemaphoreWaitPair> wait_semaphores = {}) -> SemaphoreWaitPair = 0;
+        std::pmr::vector<SemaphoreWaitPair> wait_semaphores   = {},
+        std::pmr::vector<SemaphoreWaitPair> signal_semaphores = {}) = 0;
 
     virtual void WaitIdle() = 0;
 
