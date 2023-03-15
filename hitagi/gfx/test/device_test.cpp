@@ -353,6 +353,7 @@ TEST_P(DeviceTest, CompileShader) {
             )""",
         };
         device->CompileShader(vs_shader);
+        std::cout << vs_shader.binary_data.Str() << std::endl;
         EXPECT_FALSE(vs_shader.binary_data.Empty());
     }
     {
@@ -586,7 +587,7 @@ TEST_P(DeviceTest, DrawTriangle) {
             {
                 .name   = UnitTest::GetInstance()->current_test_info()->name(),
                 .window = app->GetWindow(),
-                .format = Format::R8G8B8A8_UNORM,
+                .format = device->device_type == Device::Type::Vulkan ? Format::B8G8R8A8_UNORM : Format::R8G8B8A8_UNORM,
             });
 
         constexpr std::string_view shader_code = R"""(

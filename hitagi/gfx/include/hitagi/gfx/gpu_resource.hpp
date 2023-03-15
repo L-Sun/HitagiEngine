@@ -157,7 +157,7 @@ protected:
     Desc m_Desc;
 };
 
-class RenderPipeline : public Resource {
+class GraphicsPipeline : public Resource {
 public:
     struct Desc {
         std::string_view name = UNKOWN_NAME;
@@ -176,7 +176,7 @@ public:
     inline const auto& GetDesc() const noexcept { return m_Desc; }
 
 protected:
-    RenderPipeline(Device& device, Desc desc);
+    GraphicsPipeline(Device& device, Desc desc);
 
     Desc m_Desc;
 };

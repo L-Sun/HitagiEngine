@@ -4,6 +4,7 @@
 #include "vk_configs.hpp"
 #include "utils.hpp"
 
+#include <dxc/dxcapi.h>
 #include <fmt/color.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <vulkan/vulkan.hpp>
@@ -52,7 +53,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
 
     m_Logger->debug("Enable validation message logger...");
     {
-        m_DebugUtilsMessager = std::make_unique<vk::raii::DebugUtilsMessengerEXT>(
+        m_DebugUtilsMessenger = std::make_unique<vk::raii::DebugUtilsMessengerEXT>(
             *m_Instance,
             vk::DebugUtilsMessengerCreateInfoEXT{
                 .messageSeverity =
@@ -99,7 +100,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
             },
             GetCustomAllocator()));
 
-        m_Logger->debug("Retrival command queues ...");
+        m_Logger->debug("Retrieval command queues ...");
         magic_enum::enum_for_each<CommandType>([&](CommandType type) {
             m_CommandQueues[type] = std::make_unique<VulkanCommandQueue>(
                 *this,
@@ -134,6 +135,16 @@ VulkanDevice::VulkanDevice(std::string_view name)
             .vulkanApiVersion     = m_Context.enumerateInstanceVersion(),
         };
         vmaCreateAllocator(&allocator_info, &m_VmaAllocator);
+    }
+
+    m_Logger->debug("Create shader compiler");
+    {
+        if (FAILED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&m_DxcUtils)))) {
+            throw std::runtime_error("Failed to create DXC utils!");
+        }
+        if (FAILED(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_ShaderCompiler)))) {
+            throw std::runtime_error("Failed to create DXC shader compiler!");
+        }
     }
 }
 
@@ -181,9 +192,91 @@ auto VulkanDevice::CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> 
     return nullptr;
 }
 
-void VulkanDevice::CompileShader(Shader& shader) {}
+void VulkanDevice::CompileShader(Shader& shader) {
+    std::pmr::vector<std::pmr::wstring> args;
 
-auto VulkanDevice::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> {
+    // shader name
+    args.push_back(std::pmr::wstring(shader.name.begin(), shader.name.end()));
+
+    // shader entry
+    args.push_back(L"-E");
+    args.emplace_back(std::pmr::wstring(shader.entry.begin(), shader.entry.end()));
+
+    // shader model
+    args.push_back(L"-T");
+    args.push_back(get_shader_model_version(shader.type));
+
+    // We use SPIR-V here
+    args.push_back(L"-spirv");
+
+    // We use row major order
+    args.push_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
+
+    // make sure all resource bound
+    args.push_back(DXC_ARG_ALL_RESOURCES_BOUND);
+#ifdef HITAGI_DEBUG
+    args.push_back(DXC_ARG_OPTIMIZATION_LEVEL0);
+    args.push_back(DXC_ARG_DEBUG);
+    args.push_back(L"-Qembed_debug");
+#endif
+    std::pmr::vector<const wchar_t*> p_args;
+    std::transform(args.begin(), args.end(), std::back_insert_iterator(p_args), [](const auto& arg) { return arg.data(); });
+
+    std::pmr::string compile_command;
+    for (std::pmr::wstring arg : args) {
+        compile_command.append(arg.begin(), arg.end());
+        compile_command.push_back(' ');
+    }
+    m_Logger->debug("Compile Shader: {}", compile_command);
+
+    CComPtr<IDxcIncludeHandler> include_handler;
+
+    m_DxcUtils->CreateDefaultIncludeHandler(&include_handler);
+    DxcBuffer source_buffer{
+        .Ptr      = shader.source_code.data(),
+        .Size     = shader.source_code.size(),
+        .Encoding = DXC_CP_ACP,
+    };
+
+    CComPtr<IDxcResult> compile_result;
+
+    if (FAILED(m_ShaderCompiler->Compile(
+            &source_buffer,
+            p_args.data(),
+            p_args.size(),
+            include_handler.p,
+            IID_PPV_ARGS(&compile_result)))) {
+        m_Logger->error("Failed to compile shader {} with entry {}", shader.name, shader.entry);
+        return;
+    }
+
+    CComPtr<IDxcBlobUtf8> compile_errors;
+    compile_result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&compile_errors), nullptr);
+    // Note that DirectX compiler would return null if no errors or warnings are present.
+    // IDxcCompiler3::Compile will always return an error buffer, but its length will be zero if there are no warnings or errors.
+    if (compile_errors != nullptr && compile_errors->GetStringLength() != 0) {
+        m_Logger->warn("Warnings and Errors:\n{}\n", compile_errors->GetStringPointer());
+    }
+
+    HRESULT hr;
+    compile_result->GetStatus(&hr);
+    if (FAILED(hr)) {
+        m_Logger->error("Failed to compile shader {} with entry {}", shader.name, shader.entry);
+        return;
+    }
+
+    CComPtr<IDxcBlob>     shader_buffer;
+    CComPtr<IDxcBlobWide> shader_name;
+
+    compile_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), &shader_name);
+    if (shader_buffer == nullptr) {
+        return;
+    }
+
+    shader.binary_data = core::Buffer{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())};
+}
+
+auto VulkanDevice::CreateRenderPipeline(GraphicsPipeline::Desc desc) -> std::shared_ptr<GraphicsPipeline> {
     return nullptr;
 }
 

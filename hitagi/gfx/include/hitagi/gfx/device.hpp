@@ -32,8 +32,8 @@ public:
     virtual auto CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture>       = 0;
     virtual auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler>                                                      = 0;
 
-    virtual void CompileShader(Shader& shader)                                                      = 0;
-    virtual auto CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> = 0;
+    virtual void CompileShader(Shader& shader)                                                          = 0;
+    virtual auto CreateRenderPipeline(GraphicsPipeline::Desc desc) -> std::shared_ptr<GraphicsPipeline> = 0;
 
     virtual void Profile(std::size_t frame_index) const = 0;
 

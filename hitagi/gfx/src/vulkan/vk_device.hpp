@@ -5,6 +5,7 @@
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
 
+#include <dxc/dxcapi.h>
 #include <vulkan/vulkan_raii.hpp>
 #include <vk_mem_alloc.h>
 
@@ -29,7 +30,7 @@ public:
     auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> final;
 
     void CompileShader(Shader& shader) final;
-    auto CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_ptr<RenderPipeline> final;
+    auto CreateRenderPipeline(GraphicsPipeline::Desc desc) -> std::shared_ptr<GraphicsPipeline> final;
 
     void Profile(std::size_t frame_index) const final;
 
@@ -49,7 +50,7 @@ private:
 
     vk::raii::Context                                 m_Context;
     std::unique_ptr<vk::raii::Instance>               m_Instance;
-    std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> m_DebugUtilsMessager;
+    std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> m_DebugUtilsMessenger;
 
     std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
     std::unique_ptr<vk::raii::Device>         m_Device;
@@ -58,5 +59,8 @@ private:
     utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType>    m_CommandQueues;
 
     VmaAllocator m_VmaAllocator;
+
+    CComPtr<IDxcUtils>     m_DxcUtils;
+    CComPtr<IDxcCompiler3> m_ShaderCompiler;
 };
 }  // namespace hitagi::gfx

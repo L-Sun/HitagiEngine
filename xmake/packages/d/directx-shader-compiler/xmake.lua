@@ -38,6 +38,7 @@ package("directx-shader-compiler")
         os.vrunv("chmod", {"+x", path.join(package:installdir("bin"), "dxc")})
         if package:has_tool("cxx", "clang") then
             package:add("cxxflags", "-fms-extensions")
+            package:add("defines", "__EMULATE_UUID")
         end
         package:addenv("PATH", "bin")
     end)

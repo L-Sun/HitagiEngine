@@ -39,7 +39,7 @@ public:
         MaterialParameterValue value;
     };
 
-    static auto Create(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {}) -> std::shared_ptr<Material>;
+    static auto Create(gfx::GraphicsPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {}) -> std::shared_ptr<Material>;
 
     Material(const Material&)            = delete;
     Material(Material&&)                 = delete;
@@ -57,17 +57,17 @@ public:
     void InitPipeline(gfx::Device& device);
 
 protected:
-    Material(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {});
+    Material(gfx::GraphicsPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {});
 
     friend class MaterialInstance;
 
     std::size_t                 m_NumInstance = 0;
-    gfx::RenderPipeline::Desc   m_PipelineDesc;
+    gfx::GraphicsPipeline::Desc m_PipelineDesc;
     std::pmr::vector<Parameter> m_DefaultParameters;
 
-    bool                                 m_Dirty                  = true;
-    std::shared_ptr<gfx::RenderPipeline> m_Pipeline               = nullptr;
-    std::shared_ptr<gfx::GpuBuffer>      m_MaterialConstantBuffer = nullptr;
+    bool                                   m_Dirty                  = true;
+    std::shared_ptr<gfx::GraphicsPipeline> m_Pipeline               = nullptr;
+    std::shared_ptr<gfx::GpuBuffer>        m_MaterialConstantBuffer = nullptr;
 };
 
 class MaterialInstance : public Resource {

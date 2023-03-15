@@ -236,4 +236,17 @@ inline auto convert_to_sao_vk_semaphore_wait_pairs(const std::pmr::vector<Semaph
     return result;
 }
 
+inline constexpr auto get_shader_model_version(Shader::Type type) noexcept {
+    switch (type) {
+        case Shader::Type::Vertex:
+            return L"vs_6_7";
+        case Shader::Type::Pixel:
+            return L"ps_6_7";
+        case Shader::Type::Geometry:
+            return L"gs_6_7";
+        case Shader::Type::Compute:
+            return L"cs_6_7";
+    }
+}
+
 }  // namespace hitagi::gfx

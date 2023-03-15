@@ -330,4 +330,8 @@ void VulkanSwapChain::CreateImageViews() {
     }
 }
 
+VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipeline::Desc desc)
+    : GraphicsPipeline(device, std::move(desc)) {
+}
+
 }  // namespace hitagi::gfx

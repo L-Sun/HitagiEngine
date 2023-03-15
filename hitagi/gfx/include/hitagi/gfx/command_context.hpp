@@ -54,7 +54,7 @@ public:
     virtual void ClearRenderTarget(Texture& target)        = 0;
     virtual void ClearDepthStencil(Texture& depth_stencil) = 0;
 
-    virtual void SetPipeline(const RenderPipeline& pipeline)           = 0;
+    virtual void SetPipeline(const GraphicsPipeline& pipeline)         = 0;
     virtual void SetIndexBuffer(GpuBuffer& buffer)                     = 0;
     virtual void SetVertexBuffer(std::uint8_t slot, GpuBuffer& buffer) = 0;
 

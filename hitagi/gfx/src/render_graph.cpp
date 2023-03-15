@@ -64,7 +64,7 @@ auto RenderGraph::Builder::Write(ResourceHandle output) const -> ResourceHandle 
     return output;
 }
 
-void RenderGraph::Builder::UseRenderPipeline(std::shared_ptr<RenderPipeline> pipeline) const {
+void RenderGraph::Builder::UseRenderPipeline(std::shared_ptr<GraphicsPipeline> pipeline) const {
     if (m_Node->type != CommandType::Graphics) {
         m_RenderGraph.m_Logger->warn(
             "Pass node (type: {}) can not use RenderPipeline({})",
@@ -238,6 +238,7 @@ bool RenderGraph::Compile() {
         auto task = m_Taskflow.emplace([=, this]() {
             ZoneScopedNS("NodePass", 10);
             ZoneName(node->name.c_str(), node->name.size());
+            node->context->Begin();
             node->Execute();
             node->context->End();
             std::lock_guard lock{m_ExecuteQueueMutex};
@@ -294,7 +295,7 @@ bool RenderGraph::Compile() {
     return true;
 }
 
-auto RenderGraph::Execute() -> utils::EnumArray<SemaphoreWaitPair, CommandType> {
+void RenderGraph::Execute() {
     ZoneScopedN("RenderGraph::Execute");
 
     // batch command context submit
@@ -308,7 +309,7 @@ auto RenderGraph::Execute() -> utils::EnumArray<SemaphoreWaitPair, CommandType> 
 
         std::pmr::vector<CommandContext*> contexts;
 
-        std::pmr::unordered_map<SemaphoreWaitPair::first_type, SemaphoreWaitPair::second_type> wait_semaphores;
+        auto wait_values = utils::create_enum_array<std::uint64_t, CommandType>(0);
         std::transform(left, right, std::back_inserter(contexts), [&](const PassNode* node) {
             // wait for resource writer who write to resources that this node read
             for (auto res_handle : node->reads) {
@@ -317,86 +318,83 @@ auto RenderGraph::Execute() -> utils::EnumArray<SemaphoreWaitPair, CommandType> 
                 if (res_node.writer) {
                     // synchronize between different command queue
                     if (res_node.writer->type != node->type) {
-                        wait_semaphores[m_SemaphoreWaitPairs[node->type].first] = m_SemaphoreWaitPairs[node->type].second;
-                        m_SemaphoreWaitPairs[node->type].second++;
+                        wait_values[node->type] = m_SemaphoreWaitPairs[node->type].second;
                     }
                 }
             }
             return node->context.get();
         });
 
+        auto& semaphore_wait_pair = m_SemaphoreWaitPairs[(*left)->type];
+        semaphore_wait_pair.second++;
         auto& queue = device.GetCommandQueue((*left)->type);
-        queue.Submit(std::move(contexts));
+        queue.Submit(
+            std::move(contexts),
+            {
+                {m_SemaphoreWaitPairs[CommandType::Graphics].first, wait_values[CommandType::Graphics]},
+                {m_SemaphoreWaitPairs[CommandType::Compute].first, wait_values[CommandType::Compute]},
+                {m_SemaphoreWaitPairs[CommandType::Copy].first, wait_values[CommandType::Copy]},
+            },
+            {
+                semaphore_wait_pair,
+            });
 
         std::for_each(left, right, [&](PassNode* node) {
             assert(node->type == queue.GetType());
 
-            m_ContextPool[node->type].emplace_back(std::move(node->context));
             for (auto res_handle : node->reads) {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources.emplace_back(track_res, fence);
+                    m_RetiredResources.emplace_back(track_res, semaphore_wait_pair);
                 }
             }
             for (auto res_handle : node->writes) {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources.emplace_back(track_res, fence);
+                    m_RetiredResources.emplace_back(track_res, semaphore_wait_pair);
                 }
             }
             if (node->type == CommandType::Graphics) {
                 for (auto render_pipeline : node->render_pipelines) {
-                    m_RetiredResources.emplace_back(render_pipeline, fence);
+                    m_RetiredResources.emplace_back(render_pipeline, semaphore_wait_pair);
                 }
             } else if (node->type == CommandType::Compute) {
                 for (auto compute_pipeline : node->compute_pipelines) {
-                    m_RetiredResources.emplace_back(compute_pipeline, fence);
+                    m_RetiredResources.emplace_back(compute_pipeline, semaphore_wait_pair);
                 }
             }
         });
 
         left = right;
     }
-    magic_enum::enum_for_each<CommandType>([this](CommandType type) {
-        std::pmr::string retired_res_message{magic_enum::enum_name(type).data()};
-        for (const auto& [retired_res, fence_value] : m_RetiredResources[type]) {
-            retired_res_message += fmt::format("{}, ", fence_value);
-        }
-        TracyPlot(magic_enum::enum_name(type).data(), static_cast<std::int64_t>(m_RetiredResources[type].size()));
-        TracyMessage(retired_res_message.c_str(), retired_res_message.size());
-    });
 
-    return fence_values;
+    TracyPlot("RetiredResources", static_cast<std::int64_t>(m_RetiredResources.size()));
 }
 
 void RenderGraph::Reset() {
     ZoneScoped;
+    while (!m_RetiredResources.empty()) {
+        const auto& [retired_res, semaphore_wait_pair] = m_RetiredResources.front();
 
-    magic_enum::enum_for_each<CommandType>([this](CommandType type) {
-        auto& queue = device.GetCommandQueue(type);
-        while (!m_RetiredResources[type].empty()) {
-            const auto& [retired_res, fence_value] = m_RetiredResources[type].front();
-            if (queue.IsFenceComplete(fence_value)) {
-                m_RetiredResources[type].pop_front();
-            } else {
-                break;
-            }
+        auto [semaphore, value] = semaphore_wait_pair;
+        if (semaphore->GetCurrentValue() < value) {
+            m_RetiredResources.pop_front();
         }
-    });
+    }
 
-    auto decrese_conter_fn = [](auto& item) {
-        auto& [res, life_conter] = item.second;
+    auto decrease_counter_fn = [](auto& item) {
+        auto& [res, life_counter] = item.second;
 
-        life_conter = life_conter == 0 ? 0 : life_conter - 1;
+        life_counter = life_counter == 0 ? 0 : life_counter - 1;
     };
-    std::for_each(m_GpuBufferPool.begin(), m_GpuBufferPool.end(), decrese_conter_fn);
-    std::for_each(m_TexturePool.begin(), m_TexturePool.end(), decrese_conter_fn);
+    std::for_each(m_GpuBufferPool.begin(), m_GpuBufferPool.end(), decrease_counter_fn);
+    std::for_each(m_TexturePool.begin(), m_TexturePool.end(), decrease_counter_fn);
 
     auto discard_cache_fn = [](auto& item) {
-        auto& [res, life_conter] = item.second;
-        return life_conter == 0;
+        auto& [res, life_counter] = item.second;
+        return life_counter == 0;
     };
     std::erase_if(m_GpuBufferPool, discard_cache_fn);
     std::erase_if(m_TexturePool, discard_cache_fn);

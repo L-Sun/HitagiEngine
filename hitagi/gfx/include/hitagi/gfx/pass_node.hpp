@@ -18,8 +18,8 @@ struct PassNode {
     std::pmr::set<ResourceHandle> reads;
     std::pmr::set<ResourceHandle> writes;
 
-    std::pmr::vector<std::shared_ptr<RenderPipeline>>  render_pipelines;
-    std::pmr::vector<std::shared_ptr<ComputePipeline>> compute_pipelines;
+    std::pmr::vector<std::shared_ptr<GraphicsPipeline>> render_pipelines;
+    std::pmr::vector<std::shared_ptr<ComputePipeline>>  compute_pipelines;
 
     CommandType                     type;
     std::shared_ptr<CommandContext> context = nullptr;

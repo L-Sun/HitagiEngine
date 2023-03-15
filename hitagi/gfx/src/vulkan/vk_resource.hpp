@@ -45,4 +45,10 @@ struct VulkanSwapChain final : public SwapChain {
     std::pmr::vector<std::shared_ptr<VulkanImage>> images;
     std::pmr::vector<std::pmr::string>             image_names;
 };
+
+class VulkanGraphicsPipeline : public GraphicsPipeline {
+public:
+    VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipeline::Desc desc);
+};
+
 }  // namespace hitagi::gfx

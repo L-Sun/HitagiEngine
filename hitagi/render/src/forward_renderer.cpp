@@ -21,7 +21,6 @@ ForwardRenderer::ForwardRenderer(const Application& app, gfx::Device::Type gfx_d
           .format = gfx::Format::R8G8B8A8_UNORM,
       })),
       m_RenderGraph(*m_GfxDevice),
-      m_SemaphoreWaitPairs(utils::create_enum_array<gfx::SemaphoreWaitPair, gfx::CommandType>({nullptr, 0})),
       m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, *m_GfxDevice) : nullptr) {
     m_Clock.Start();
     ClearPass();
@@ -50,16 +49,9 @@ void ForwardRenderer::Tick() {
             ZoneScopedN("RenderGraph Compile");
             m_RenderGraph.Compile();
         }
-        {
-            ZoneScopedN("Wait Last Frame");
-            magic_enum::enum_for_each<gfx::CommandType>([this](gfx::CommandType type) {
-                auto [semaphore, value] = m_SemaphoreWaitPairs[type];
-                if (semaphore) semaphore->Wait(value);
-            });
-        }
     }
 
-    m_SemaphoreWaitPairs = m_RenderGraph.Execute();
+    m_RenderGraph.Execute();
     m_RenderGraph.Reset();
     m_ColorPass = {};
 
@@ -104,7 +96,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
         math::mat4f model;
     };
 
-    // use shared_ptr to avoid unnecessory copying
+    // use shared_ptr to avoid unnecessary copying
     auto draw_items = std::make_shared<std::pmr::vector<DrawItem>>();
 
     std::pmr::set<std::shared_ptr<asset::Material>> materials;
@@ -114,11 +106,11 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
         mesh->vertices->InitGpuData(*m_GfxDevice);
         mesh->indices->InitGpuData(*m_GfxDevice);
 
-        for (const auto& submesh : mesh->sub_meshes) {
-            auto material = submesh.material_instance->GetMaterial();
+        for (const auto& sub_mesh : mesh->sub_meshes) {
+            auto material = sub_mesh.material_instance->GetMaterial();
             material->InitPipeline(*m_GfxDevice);
 
-            for (const auto& texture : submesh.material_instance->GetTextures()) {
+            for (const auto& texture : sub_mesh.material_instance->GetTextures()) {
                 texture->InitGpuData(*m_GfxDevice);
             }
 
@@ -128,12 +120,12 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 .material = material,
                 .vertices = mesh->vertices,
                 .indices  = mesh->indices,
-                .sub_mesh = submesh,
+                .sub_mesh = sub_mesh,
             });
         }
     }
 
-    auto lignt_node = scene.light_nodes.empty() ? nullptr : scene.light_nodes.front();
+    auto light_node = scene.light_nodes.empty() ? nullptr : scene.light_nodes.front();
 
     FrameConstant frame_constant = {
         .camera_pos     = math::vec4f(camera.transform.GetPosition(), 1.0f),
@@ -144,10 +136,10 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
         .inv_projection = camera.GetInvProjection(),
         .inv_proj_view  = camera.GetInvProjectionView(),
         // multiple light,
-        .light_position    = lignt_node ? math::vec4f(lignt_node->GetLightGlobalPosition(), 1.0f) : math::vec4f(0, 0, 0, 0),
-        .light_pos_in_view = lignt_node ? camera.GetView() * math::vec4f(lignt_node->GetLightGlobalPosition(), 1.0f) : math::vec4f(0, 0, 0, 0),
-        .light_color       = lignt_node ? lignt_node->GetObjectRef()->parameters.color : math::vec4f(0, 0, 0, 0),
-        .light_intensity   = lignt_node ? lignt_node->GetObjectRef()->parameters.intensity : 0,
+        .light_position    = light_node ? math::vec4f(light_node->GetLightGlobalPosition(), 1.0f) : math::vec4f(0, 0, 0, 0),
+        .light_pos_in_view = light_node ? camera.GetView() * math::vec4f(light_node->GetLightGlobalPosition(), 1.0f) : math::vec4f(0, 0, 0, 0),
+        .light_color       = light_node ? light_node->GetObjectRef()->parameters.color : math::vec4f(0, 0, 0, 0),
+        .light_intensity   = light_node ? light_node->GetObjectRef()->parameters.intensity : 0,
     };
 
     std::sort(draw_items->begin(), draw_items->end(), [](const auto& lhs, const auto& rhs) -> bool {
@@ -286,11 +278,11 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 .width  = static_cast<std::uint32_t>(viewport->width),
                 .height = static_cast<std::uint32_t>(viewport->height)});
 
-            gfx::RenderPipeline* curr_pipeline     = nullptr;
-            asset::VertexArray*  curr_vertices     = nullptr;
-            asset::IndexArray*   curr_indices      = nullptr;
-            asset::MeshNode*     curr_instance     = nullptr;
-            gfx::GpuBuffer*      material_constant = nullptr;
+            gfx::GraphicsPipeline* curr_pipeline     = nullptr;
+            asset::VertexArray*    curr_vertices     = nullptr;
+            asset::IndexArray*     curr_indices      = nullptr;
+            asset::MeshNode*       curr_instance     = nullptr;
+            gfx::GpuBuffer*        material_constant = nullptr;
             for (const auto& draw_call : *draw_items) {
                 if (draw_call.material->GetPipeline() == nullptr) continue;
 

@@ -27,7 +27,7 @@ public:
         auto Create(ResourceDesc desc) const -> ResourceHandle;
         auto Read(ResourceHandle input) const -> ResourceHandle;
         auto Write(ResourceHandle output) const -> ResourceHandle;
-        void UseRenderPipeline(std::shared_ptr<RenderPipeline> pipeline) const;
+        void UseRenderPipeline(std::shared_ptr<GraphicsPipeline> pipeline) const;
         void UseComputePipeline(std::shared_ptr<ComputePipeline> pipeline) const;
 
     private:
@@ -81,7 +81,7 @@ public:
     void PresentPass(ResourceHandle back_buffer);
 
     bool Compile();
-    auto Execute() -> utils::EnumArray<SemaphoreWaitPair, CommandType>;
+    void Execute();
     void Reset();
 
     Device& device;
@@ -117,7 +117,7 @@ private:
     std::pmr::vector<PassNode*> m_ExecuteQueue;
 
     using RetiredResource = std::pair<std::shared_ptr<Resource>, SemaphoreWaitPair>;
-    std::pmr::vector<RetiredResource> m_RetiredResources;
+    std::pmr::deque<RetiredResource> m_RetiredResources;
 
     utils::EnumArray<SemaphoreWaitPair, CommandType> m_SemaphoreWaitPairs;
 

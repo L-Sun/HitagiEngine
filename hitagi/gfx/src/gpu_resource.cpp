@@ -42,7 +42,7 @@ SwapChain::SwapChain(Device& device, Desc desc) : Resource(device, desc.name), m
     m_Desc.name = m_Name;
 }
 
-RenderPipeline::RenderPipeline(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(std::move(desc)) {
+GraphicsPipeline::GraphicsPipeline(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(std::move(desc)) {
     m_Desc.name = m_Name;
 }
 

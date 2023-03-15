@@ -8,7 +8,7 @@
 
 namespace hitagi::asset {
 
-Material::Material(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid)
+Material::Material(gfx::GraphicsPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid)
     : Resource(name, guid),
       m_PipelineDesc(std::move(pipeline_desc)),
       m_DefaultParameters(std::move(parameters)) {
@@ -20,9 +20,9 @@ Material::Material(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Par
     m_DefaultParameters.erase(m_DefaultParameters.rend().base(), iter.base());
 }
 
-auto Material::Create(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid) -> std::shared_ptr<Material> {
+auto Material::Create(gfx::GraphicsPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid) -> std::shared_ptr<Material> {
     struct CreateTemp : public Material {
-        CreateTemp(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid)
+        CreateTemp(gfx::GraphicsPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid)
             : Material(std::move(pipeline_desc), std::move(parameters), name, guid) {}
     };
     return std::make_shared<CreateTemp>(std::move(pipeline_desc), std::move(parameters), name, guid);
