@@ -25,7 +25,7 @@ public:
     void SetRootSignature(const D3D12_ROOT_SIGNATURE_DESC1* root_sig_desc);
 
     void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data);
-    void BindConstantBuffer(std::uint32_t slot, const GpuBuffer& buffer, std::size_t index = 0);
+    void BindConstantBuffer(std::uint32_t slot, const GPUBuffer& buffer, std::size_t index = 0);
     void BindTexture(std::uint32_t slot, const Texture& resource);
 
     // Commit all bind cpu descriptor to gpu

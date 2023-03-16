@@ -103,15 +103,15 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
 
     for (const auto& node : scene.instance_nodes) {
         auto mesh = node->GetObjectRef();
-        mesh->vertices->InitGpuData(*m_GfxDevice);
-        mesh->indices->InitGpuData(*m_GfxDevice);
+        mesh->vertices->InitGPUData(*m_GfxDevice);
+        mesh->indices->InitGPUData(*m_GfxDevice);
 
         for (const auto& sub_mesh : mesh->sub_meshes) {
             auto material = sub_mesh.material_instance->GetMaterial();
             material->InitPipeline(*m_GfxDevice);
 
             for (const auto& texture : sub_mesh.material_instance->GetTextures()) {
-                texture->InitGpuData(*m_GfxDevice);
+                texture->InitGPUData(*m_GfxDevice);
             }
 
             materials.emplace(material);
@@ -183,25 +183,25 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 });
             }
 
-            data.frame_constant = builder.Create(gfx::GpuBuffer::Desc{
+            data.frame_constant = builder.Create(gfx::GPUBuffer::Desc{
                 .name         = "frame-constant",
                 .element_size = sizeof(FrameConstant),
-                .usages       = gfx::GpuBuffer::UsageFlags::MapWrite | gfx::GpuBuffer::UsageFlags::Constant,
+                .usages       = gfx::GPUBuffer::UsageFlags::MapWrite | gfx::GPUBuffer::UsageFlags::Constant,
             });
 
-            data.instance_constant = builder.Create(gfx::GpuBuffer::Desc{
+            data.instance_constant = builder.Create(gfx::GPUBuffer::Desc{
                 .name          = "instant-constant",
                 .element_size  = sizeof(InstanceConstant),
                 .element_count = scene.instance_nodes.size(),
-                .usages        = gfx::GpuBuffer::UsageFlags::MapWrite | gfx::GpuBuffer::UsageFlags::Constant,
+                .usages        = gfx::GPUBuffer::UsageFlags::MapWrite | gfx::GPUBuffer::UsageFlags::Constant,
             });
 
             for (const auto& material : materials) {
-                data.material_constants[material.get()] = builder.Create(gfx::GpuBuffer::Desc{
+                data.material_constants[material.get()] = builder.Create(gfx::GPUBuffer::Desc{
                     .name          = material->GetName(),
                     .element_size  = material->CalculateMaterialBufferSize(),
                     .element_count = material->GetNumInstances(),
-                    .usages        = gfx::GpuBuffer::UsageFlags::MapWrite | gfx::GpuBuffer::UsageFlags::Constant,
+                    .usages        = gfx::GPUBuffer::UsageFlags::MapWrite | gfx::GPUBuffer::UsageFlags::Constant,
                 });
             }
 
@@ -216,14 +216,14 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 });
                 builder.Read(m_RenderGraph.Import(item.indices->GetUniqueName(), item.indices->GetIndexData().gpu_buffer));
                 for (const auto& texture : item.sub_mesh.material_instance->GetTextures()) {
-                    builder.Read(m_RenderGraph.Import(texture->GetUniqueName(), texture->GetGpuData()));
+                    builder.Read(m_RenderGraph.Import(texture->GetUniqueName(), texture->GetGPUData()));
                 }
             }
         },
         [=](const gfx::RenderGraph::ResourceHelper& helper, const ColorPass& data, gfx::GraphicsCommandContext* context) mutable {
-            helper.Get<gfx::GpuBuffer>(data.frame_constant).Update(0, frame_constant);
+            helper.Get<gfx::GPUBuffer>(data.frame_constant).Update(0, frame_constant);
 
-            auto& instance_constant = helper.Get<gfx::GpuBuffer>(data.instance_constant);
+            auto& instance_constant = helper.Get<gfx::GPUBuffer>(data.instance_constant);
 
             std::pmr::unordered_map<asset::MeshNode*, std::size_t> instance_constant_offset;
             {
@@ -247,7 +247,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                     auto material_instance = draw_call.sub_mesh.material_instance.get();
                     auto material          = draw_call.material.get();
                     if (material_constant_offset.contains(material_instance)) continue;
-                    helper.Get<gfx::GpuBuffer>(data.material_constants.at(material))
+                    helper.Get<gfx::GPUBuffer>(data.material_constants.at(material))
                         .Update(
                             offset,
                             draw_call.sub_mesh.material_instance->GetMateriaBufferData().Span<const std::byte>());
@@ -282,15 +282,15 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
             asset::VertexArray*    curr_vertices     = nullptr;
             asset::IndexArray*     curr_indices      = nullptr;
             asset::MeshNode*       curr_instance     = nullptr;
-            gfx::GpuBuffer*        material_constant = nullptr;
+            gfx::GPUBuffer*        material_constant = nullptr;
             for (const auto& draw_call : *draw_items) {
                 if (draw_call.material->GetPipeline() == nullptr) continue;
 
                 if (curr_pipeline != draw_call.material->GetPipeline().get()) {
                     curr_pipeline = draw_call.material->GetPipeline().get();
                     context->SetPipeline(*curr_pipeline);
-                    context->BindConstantBuffer(0, helper.Get<gfx::GpuBuffer>(data.frame_constant));
-                    material_constant = &helper.Get<gfx::GpuBuffer>(data.material_constants.at(draw_call.material.get()));
+                    context->BindConstantBuffer(0, helper.Get<gfx::GPUBuffer>(data.frame_constant));
+                    material_constant = &helper.Get<gfx::GPUBuffer>(data.material_constants.at(draw_call.material.get()));
                 }
                 if (curr_vertices != draw_call.vertices.get()) {
                     curr_vertices = draw_call.vertices.get();
@@ -312,7 +312,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 context->BindConstantBuffer(2, *material_constant, material_constant_offset.at(draw_call.sub_mesh.material_instance.get()));
 
                 for (std::size_t texture_index = 0; const auto& texture : draw_call.sub_mesh.material_instance->GetTextures()) {
-                    context->BindTexture(texture_index++, *texture->GetGpuData());
+                    context->BindTexture(texture_index++, *texture->GetGPUData());
                 }
 
                 context->DrawIndexed(

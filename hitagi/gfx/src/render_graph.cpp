@@ -162,7 +162,7 @@ auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {
 
     std::string_view name = std::visit(
         utils::Overloaded{
-            [](const GpuBuffer::Desc& _desc) {
+            [](const GPUBuffer::Desc& _desc) {
                 return _desc.name;
             },
             [](const Texture::Desc& _desc) {
@@ -266,12 +266,12 @@ bool RenderGraph::Compile() {
         for (auto&& inner_resource : m_InnerResources) {
             std::visit(
                 utils::Overloaded{
-                    [&](const GpuBuffer::Desc& buffer_desc) {
-                        if (!m_GpuBufferPool.contains(buffer_desc)) {
-                            m_GpuBufferPool.emplace(buffer_desc, std::pair{device.CreateGpuBuffer(buffer_desc), sm_CacheLifeSpan});
+                    [&](const GPUBuffer::Desc& buffer_desc) {
+                        if (!m_GPUBufferPool.contains(buffer_desc)) {
+                            m_GPUBufferPool.emplace(buffer_desc, std::pair{device.CreateGPUBuffer(buffer_desc), sm_CacheLifeSpan});
                         }
-                        m_GpuBufferPool.at(buffer_desc).second     = sm_CacheLifeSpan;
-                        inner_resource.resource                    = m_GpuBufferPool.at(buffer_desc).first;
+                        m_GPUBufferPool.at(buffer_desc).second     = sm_CacheLifeSpan;
+                        inner_resource.resource                    = m_GPUBufferPool.at(buffer_desc).first;
                         m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
                     },
                     [&](const Texture::Desc& texture_desc) {
@@ -389,14 +389,14 @@ void RenderGraph::Reset() {
 
         life_counter = life_counter == 0 ? 0 : life_counter - 1;
     };
-    std::for_each(m_GpuBufferPool.begin(), m_GpuBufferPool.end(), decrease_counter_fn);
+    std::for_each(m_GPUBufferPool.begin(), m_GPUBufferPool.end(), decrease_counter_fn);
     std::for_each(m_TexturePool.begin(), m_TexturePool.end(), decrease_counter_fn);
 
     auto discard_cache_fn = [](auto& item) {
         auto& [res, life_counter] = item.second;
         return life_counter == 0;
     };
-    std::erase_if(m_GpuBufferPool, discard_cache_fn);
+    std::erase_if(m_GPUBufferPool, discard_cache_fn);
     std::erase_if(m_TexturePool, discard_cache_fn);
 
     m_ResourceNodes.clear();

@@ -1,5 +1,6 @@
 #pragma once
 #include <hitagi/gfx/common_types.hpp>
+#include <hitagi/gfx/sync.hpp>
 #include <hitagi/utils/flags.hpp>
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/utils/types.hpp>
@@ -27,7 +28,7 @@ protected:
     std::pmr::string m_Name;
 };
 
-class GpuBuffer : public Resource {
+class GPUBuffer : public Resource {
 public:
     enum struct UsageFlags : std::uint32_t {
         MapRead  = 0x1,             // CPU can read data from mapped pointer
@@ -59,7 +60,7 @@ public:
 protected:
     void UpdateRaw(std::size_t index, std::span<const std::byte> data);
 
-    GpuBuffer(Device& device, Desc desc);
+    GPUBuffer(Device& device, Desc desc);
     Desc m_Desc;
 };
 
@@ -120,7 +121,7 @@ public:
         float            min_lod        = 0;
         float            max_load       = 32;
         std::uint32_t    max_anisotropy = 1;
-        CompareFunction  compare;
+        CompareOp        compare;
 
         inline constexpr bool operator==(const Desc&) const noexcept;
     };
@@ -157,20 +158,47 @@ protected:
     Desc m_Desc;
 };
 
+class Shader : public Resource {
+public:
+    enum struct Type : std::uint8_t {
+        Vertex,
+        Pixel,
+        Geometry,
+        Compute,
+    };
+    struct Desc {
+        std::string_view name;
+        Type             type;
+        std::string_view entry;
+        std::string_view source_code;
+    };
+
+    inline const auto& GetDesc() const noexcept { return m_Desc; }
+
+    virtual auto GetDXILData() const noexcept -> std::span<const std::byte>;
+    virtual auto GetSPIRVData() const noexcept -> std::span<const std::byte>;
+
+protected:
+    Shader(Device& device, Desc desc);
+
+    Desc m_Desc;
+};
+
 class GraphicsPipeline : public Resource {
 public:
     struct Desc {
         std::string_view name = UNKOWN_NAME;
         // Shader config
-        Shader                vs;  // vertex shader
-        Shader                ps;  // pixel shader
-        Shader                gs;  // geometry shader
-        PrimitiveTopology     topology = PrimitiveTopology::TriangleList;
-        InputLayout           input_layout;
-        RasterizerDescription rasterizer_config;
-        BlendDescription      blend_config;
-        Format                render_format        = Format::R8G8B8A8_UNORM;
-        Format                depth_stencil_format = Format::UNKNOWN;
+        std::shared_ptr<Shader> vs;  // vertex shader
+        std::shared_ptr<Shader> ps;  // pixel shader
+        std::shared_ptr<Shader> gs;  // geometry shader
+        AssemblyState           assembly_state = {};
+        VertexBufferLayouts     vertex_input_layout;
+        RasterizationState      rasterization_state;
+        DepthStencilState       depth_stencil_state;
+        BlendState              blend_state;
+        Format                  render_format        = Format::R8G8B8A8_UNORM;
+        Format                  depth_stencil_format = Format::UNKNOWN;
     };
 
     inline const auto& GetDesc() const noexcept { return m_Desc; }
@@ -184,8 +212,8 @@ protected:
 class ComputePipeline : public Resource {
 public:
     struct Desc {
-        std::string_view name = UNKOWN_NAME;
-        Shader           cs;  // computer shader
+        std::string_view        name = UNKOWN_NAME;
+        std::shared_ptr<Shader> cs;  // computer shader
     };
 
     inline const auto& GetDesc() const noexcept { return m_Desc; }
@@ -196,7 +224,7 @@ protected:
     Desc m_Desc;
 };
 
-inline constexpr bool GpuBuffer::Desc::operator==(const Desc& rhs) const noexcept {
+inline constexpr bool GPUBuffer::Desc::operator==(const Desc& rhs) const noexcept {
     // clang-format off
     return 
         name          == rhs.name          &&
@@ -245,7 +273,7 @@ inline constexpr bool Sampler::Desc::operator==(const Desc& rhs) const noexcept 
 }  // namespace hitagi::gfx
 
 template <>
-struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::GpuBuffer::UsageFlags> {
+struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::GPUBuffer::UsageFlags> {
     static constexpr bool is_flags = true;
 };
 template <>
@@ -255,8 +283,8 @@ struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::Texture::UsageFlags>
 
 namespace std {
 template <>
-struct hash<hitagi::gfx::GpuBuffer::Desc> {
-    constexpr std::size_t operator()(const hitagi::gfx::GpuBuffer::Desc& desc) const noexcept {
+struct hash<hitagi::gfx::GPUBuffer::Desc> {
+    constexpr std::size_t operator()(const hitagi::gfx::GPUBuffer::Desc& desc) const noexcept {
         return hitagi::utils::combine_hash(std::array{
             hitagi::utils::hash(desc.name),
             hitagi::utils::hash(desc.element_size),

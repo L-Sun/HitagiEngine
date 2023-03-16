@@ -146,9 +146,13 @@
         "sourceFileMap": "${sourceFileMapObj}",
     },
     "cSpell.words": [
+        "bindless",
+        "bugprone",
         "cbuffer",
         "CLSID",
+        "cppcoreguidelines",
         "DXGI",
+        "dxil",
         "HIGHDPI",
         "hinstance",
         "hitagi",
@@ -156,11 +160,14 @@
         "HWND",
         "IBEAM",
         "mipmap",
+        "Multisample",
         "NESW",
+        "nodiscard",
         "Qembed",
         "readback",
         "RSDEF",
         "Sfloat",
+        "SHAREDEXP",
         "SIZEALL",
         "SIZENESW",
         "SIZENS",
@@ -175,10 +182,13 @@
         "Swapchain",
         "SYSWM",
         "Taskflow",
+        "TYPELESS",
         "Ufloat",
+        "Viewports",
         "vsync",
         "WINDOWEVENT",
-        "WINDOWPOS"
+        "WINDOWPOS",
+        "Wireframe"
     ],
     "testMate.cpp.test.parallelExecutionLimit": 8
 }

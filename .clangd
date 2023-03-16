@@ -10,6 +10,7 @@ Diagnostics:
       [
         performance*,
         modernize*,
+        bugprone-use-after-move,
         cppcoreguidelines-avoid-goto,
         cppcoreguidelines-prefer-member-initializer,
         cppcoreguidelines-avoid-c-arrays,

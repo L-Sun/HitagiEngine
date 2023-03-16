@@ -1,16 +1,17 @@
 #include <hitagi/gfx/gpu_resource.hpp>
 #include <hitagi/gfx/device.hpp>
+#include <hitagi/utils/flags.hpp>
 
 #include <spdlog/logger.h>
 #include <fmt/color.h>
 
 namespace hitagi::gfx {
 
-GpuBuffer::GpuBuffer(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(desc) {
+GPUBuffer::GPUBuffer(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(desc) {
     m_Desc.name = m_Name;
 }
 
-void GpuBuffer::UpdateRaw(std::size_t index, std::span<const std::byte> data) {
+void GPUBuffer::UpdateRaw(std::size_t index, std::span<const std::byte> data) {
     auto mapped_ptr = GetMappedPtr();
     if (mapped_ptr == nullptr) {
         m_Device.GetLogger()->error(
@@ -40,6 +41,18 @@ Sampler::Sampler(Device& device, Desc desc) : Resource(device, desc.name), m_Des
 
 SwapChain::SwapChain(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(desc) {
     m_Desc.name = m_Name;
+}
+
+Shader::Shader(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(desc) {
+    m_Desc.name = m_Name;
+}
+
+auto Shader::GetDXILData() const noexcept -> std::span<const std::byte> {
+    return {};
+}
+
+auto Shader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
+    return {};
 }
 
 GraphicsPipeline::GraphicsPipeline(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(std::move(desc)) {

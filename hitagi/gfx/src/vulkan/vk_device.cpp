@@ -90,15 +90,22 @@ VulkanDevice::VulkanDevice(std::string_view name)
     {
         const auto queue_create_info = get_queue_create_info(*m_PhysicalDevice).value();
 
-        m_Device = std::make_unique<vk::raii::Device>(m_PhysicalDevice->createDevice(
+        vk::StructureChain device_create_info = {
             vk::DeviceCreateInfo{
-                .pNext                   = &required_physical_device_features,
                 .queueCreateInfoCount    = 1,
                 .pQueueCreateInfos       = &queue_create_info,
                 .enabledExtensionCount   = static_cast<std::uint32_t>(required_device_extensions.size()),
                 .ppEnabledExtensionNames = required_device_extensions.data(),
             },
-            GetCustomAllocator()));
+            vk::PhysicalDeviceVulkan12Features{
+                .timelineSemaphore = true,
+            },
+            vk::PhysicalDeviceVulkan13Features{
+                .dynamicRendering = true,
+            },
+        };
+
+        m_Device = std::make_unique<vk::raii::Device>(m_PhysicalDevice->createDevice(device_create_info.get(), GetCustomAllocator()));
 
         m_Logger->debug("Retrieval command queues ...");
         magic_enum::enum_for_each<CommandType>([&](CommandType type) {
@@ -110,7 +117,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         });
     }
 
-    m_Logger->debug("Create Command Pools");
+    m_Logger->debug("Create Command Pools...");
     {
         magic_enum::enum_for_each<CommandType>([&](CommandType type) {
             vk::CommandPoolCreateInfo command_pool_create_info{
@@ -125,7 +132,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         });
     }
 
-    m_Logger->debug("Create VMA Allocator");
+    m_Logger->debug("Create VMA Allocator...");
     {
         VmaAllocatorCreateInfo allocator_info = {
             .physicalDevice       = **m_PhysicalDevice,
@@ -137,7 +144,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         vmaCreateAllocator(&allocator_info, &m_VmaAllocator);
     }
 
-    m_Logger->debug("Create shader compiler");
+    m_Logger->debug("Create shader compiler...");
     {
         if (FAILED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&m_DxcUtils)))) {
             throw std::runtime_error("Failed to create DXC utils!");
@@ -180,7 +187,7 @@ auto VulkanDevice::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<Swap
     return std::make_shared<VulkanSwapChain>(*this, desc);
 }
 
-auto VulkanDevice::CreateGpuBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GpuBuffer> {
+auto VulkanDevice::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GPUBuffer> {
     return std::make_shared<VulkanBuffer>(*this, desc, initial_data);
 }
 
@@ -192,19 +199,23 @@ auto VulkanDevice::CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> 
     return nullptr;
 }
 
-void VulkanDevice::CompileShader(Shader& shader) {
+auto VulkanDevice::CreateShader(Shader::Desc desc, std::span<const std::byte> binary_program) -> std::shared_ptr<Shader> {
+    if (!binary_program.empty()) {
+        return std::make_shared<VulkanShader>(*this, desc, core::Buffer(binary_program));
+    }
+
     std::pmr::vector<std::pmr::wstring> args;
 
     // shader name
-    args.push_back(std::pmr::wstring(shader.name.begin(), shader.name.end()));
+    args.push_back(std::pmr::wstring(desc.name.begin(), desc.name.end()));
 
     // shader entry
     args.push_back(L"-E");
-    args.emplace_back(std::pmr::wstring(shader.entry.begin(), shader.entry.end()));
+    args.emplace_back(std::pmr::wstring(desc.entry.begin(), desc.entry.end()));
 
     // shader model
     args.push_back(L"-T");
-    args.push_back(get_shader_model_version(shader.type));
+    args.push_back(get_shader_model_version(desc.type));
 
     // We use SPIR-V here
     args.push_back(L"-spirv");
@@ -233,8 +244,8 @@ void VulkanDevice::CompileShader(Shader& shader) {
 
     m_DxcUtils->CreateDefaultIncludeHandler(&include_handler);
     DxcBuffer source_buffer{
-        .Ptr      = shader.source_code.data(),
-        .Size     = shader.source_code.size(),
+        .Ptr      = desc.source_code.data(),
+        .Size     = desc.source_code.size(),
         .Encoding = DXC_CP_ACP,
     };
 
@@ -246,8 +257,8 @@ void VulkanDevice::CompileShader(Shader& shader) {
             p_args.size(),
             include_handler.p,
             IID_PPV_ARGS(&compile_result)))) {
-        m_Logger->error("Failed to compile shader {} with entry {}", shader.name, shader.entry);
-        return;
+        m_Logger->error("Failed to compile shader {} with entry {}", desc.name, desc.entry);
+        return nullptr;
     }
 
     CComPtr<IDxcBlobUtf8> compile_errors;
@@ -261,8 +272,8 @@ void VulkanDevice::CompileShader(Shader& shader) {
     HRESULT hr;
     compile_result->GetStatus(&hr);
     if (FAILED(hr)) {
-        m_Logger->error("Failed to compile shader {} with entry {}", shader.name, shader.entry);
-        return;
+        m_Logger->error("Failed to compile shader {} with entry {}", desc.name, desc.entry);
+        return nullptr;
     }
 
     CComPtr<IDxcBlob>     shader_buffer;
@@ -270,14 +281,19 @@ void VulkanDevice::CompileShader(Shader& shader) {
 
     compile_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), &shader_name);
     if (shader_buffer == nullptr) {
-        return;
+        return nullptr;
     }
 
-    shader.binary_data = core::Buffer{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())};
+    return std::make_shared<VulkanShader>(
+        *this,
+        desc,
+        core::Buffer{
+            shader_buffer->GetBufferSize(),
+            reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())});
 }
 
 auto VulkanDevice::CreateRenderPipeline(GraphicsPipeline::Desc desc) -> std::shared_ptr<GraphicsPipeline> {
-    return nullptr;
+    return std::make_shared<VulkanGraphicsPipeline>(*this, std::move(desc));
 }
 
 void VulkanDevice::Profile(std::size_t frame_index) const {}

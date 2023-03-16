@@ -28,12 +28,12 @@ public:
     virtual auto CreateCopyContext(std::string_view name = "") -> std::shared_ptr<CopyCommandContext>         = 0;
 
     virtual auto CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain>                                               = 0;
-    virtual auto CreateGpuBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GpuBuffer> = 0;
+    virtual auto CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> = 0;
     virtual auto CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture>       = 0;
     virtual auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler>                                                      = 0;
 
-    virtual void CompileShader(Shader& shader)                                                          = 0;
-    virtual auto CreateRenderPipeline(GraphicsPipeline::Desc desc) -> std::shared_ptr<GraphicsPipeline> = 0;
+    virtual auto CreateShader(Shader::Desc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> = 0;
+    virtual auto CreateRenderPipeline(GraphicsPipeline::Desc desc) -> std::shared_ptr<GraphicsPipeline>                     = 0;
 
     virtual void Profile(std::size_t frame_index) const = 0;
 

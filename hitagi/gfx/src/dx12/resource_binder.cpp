@@ -125,7 +125,7 @@ void ResourceBinder::PushConstant(std::uint32_t slot, const std::span<const std:
     }
 }
 
-void ResourceBinder::BindConstantBuffer(std::uint32_t slot, const GpuBuffer& buffer, std::size_t index) {
+void ResourceBinder::BindConstantBuffer(std::uint32_t slot, const GPUBuffer& buffer, std::size_t index) {
     const auto& slot_info = m_SlotInfos[SlotType::CBV].at(slot);
     switch (slot_info.binding_type) {
         case BindingType::RootConstant: {
@@ -135,7 +135,7 @@ void ResourceBinder::BindConstantBuffer(std::uint32_t slot, const GpuBuffer& buf
             return;
         } break;
         case BindingType::RootDescriptor: {
-            auto buffer_location = static_cast<const DX12GpuBuffer&>(buffer).resource->GetGPUVirtualAddress();
+            auto buffer_location = static_cast<const DX12GPUBuffer&>(buffer).resource->GetGPUVirtualAddress();
             switch (m_Context.m_Type) {
                 case CommandType::Graphics:
                     m_Context.m_CmdList->SetGraphicsRootConstantBufferView(slot_info.param_index, buffer_location);
@@ -148,7 +148,7 @@ void ResourceBinder::BindConstantBuffer(std::uint32_t slot, const GpuBuffer& buf
             }
         } break;
         case BindingType::DescriptorTable: {
-            const auto& d3d_buffer = static_cast<const DX12GpuBuffer&>(buffer);
+            const auto& d3d_buffer = static_cast<const DX12GPUBuffer&>(buffer);
             CacheDescriptor(SlotType::CBV, d3d_buffer.cbvs, index, slot_info.offset_in_heap);
         } break;
     }

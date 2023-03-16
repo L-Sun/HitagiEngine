@@ -74,7 +74,7 @@ void DX12CopyCommandContext::SetName(std::string_view name) {
     DX12CommandContext::SetName(name);
 }
 
-void DX12GraphicsCommandContext::ResetState(GpuBuffer& buffer) {
+void DX12GraphicsCommandContext::ResetState(GPUBuffer& buffer) {
     TransitionResource(buffer, D3D12_RESOURCE_STATE_COMMON);
 }
 
@@ -82,7 +82,7 @@ void DX12GraphicsCommandContext::ResetState(Texture& texture) {
     TransitionResource(texture, D3D12_RESOURCE_STATE_COMMON);
 }
 
-void DX12ComputeCommandContext::ResetState(GpuBuffer& buffer) {
+void DX12ComputeCommandContext::ResetState(GPUBuffer& buffer) {
     TransitionResource(buffer, D3D12_RESOURCE_STATE_COMMON);
 }
 
@@ -90,7 +90,7 @@ void DX12ComputeCommandContext::ResetState(Texture& texture) {
     TransitionResource(texture, D3D12_RESOURCE_STATE_COMMON);
 }
 
-void DX12CopyCommandContext::ResetState(GpuBuffer& buffer) {
+void DX12CopyCommandContext::ResetState(GPUBuffer& buffer) {
     TransitionResource(buffer, D3D12_RESOURCE_STATE_COMMON);
 }
 
@@ -180,21 +180,21 @@ void DX12GraphicsCommandContext::SetPipeline(const RenderPipeline& pipeline) {
     m_CmdList->IASetPrimitiveTopology(to_d3d_primitive_topology(pipeline.desc.topology));
 }
 
-void DX12GraphicsCommandContext::SetIndexBuffer(GpuBuffer& buffer) {
+void DX12GraphicsCommandContext::SetIndexBuffer(GPUBuffer& buffer) {
     TransitionResource(buffer, D3D12_RESOURCE_STATE_INDEX_BUFFER, true);
-    m_CmdList->IASetIndexBuffer(&static_cast<DX12GpuBuffer&>(buffer).ibv.value());
+    m_CmdList->IASetIndexBuffer(&static_cast<DX12GPUBuffer&>(buffer).ibv.value());
 }
 
-void DX12GraphicsCommandContext::SetVertexBuffer(std::uint8_t slot, GpuBuffer& buffer) {
+void DX12GraphicsCommandContext::SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) {
     TransitionResource(buffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, true);
-    m_CmdList->IASetVertexBuffers(slot, 1, &static_cast<DX12GpuBuffer&>(buffer).vbv.value());
+    m_CmdList->IASetVertexBuffers(slot, 1, &static_cast<DX12GPUBuffer&>(buffer).vbv.value());
 }
 
 void DX12GraphicsCommandContext::PushConstant(std::uint32_t slot, const std::span<const std::byte>& data) {
     m_ResourceBinder.PushConstant(slot, data);
 }
 
-void DX12GraphicsCommandContext::BindConstantBuffer(std::uint32_t slot, GpuBuffer& buffer, std::size_t index) {
+void DX12GraphicsCommandContext::BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index) {
     m_ResourceBinder.BindConstantBuffer(slot, buffer, index);
 }
 
@@ -246,9 +246,9 @@ void DX12GraphicsCommandContext::Present(Texture& back_buffer) {
     TransitionResource(back_buffer, D3D12_RESOURCE_STATE_PRESENT, true);
 }
 
-void DX12CopyCommandContext::CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) {
-    auto& src_res  = static_cast<const DX12ResourceWrapper<GpuBuffer>&>(src);
-    auto& dest_res = static_cast<const DX12ResourceWrapper<GpuBuffer>&>(dest);
+void DX12CopyCommandContext::CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dest, std::size_t dest_offset, std::size_t size) {
+    auto& src_res  = static_cast<const DX12ResourceWrapper<GPUBuffer>&>(src);
+    auto& dest_res = static_cast<const DX12ResourceWrapper<GPUBuffer>&>(dest);
 
     m_CmdList->CopyBufferRegion(dest_res.resource, dest_offset, src_res.resource, src_offset, size);
 }

@@ -1,7 +1,6 @@
 #include "vk_command_queue.hpp"
 #include "vk_device.hpp"
 #include "vk_command_buffer.hpp"
-#include "vk_sync.hpp"
 #include "utils.hpp"
 
 #include <hitagi/utils/soa.hpp>
@@ -19,11 +18,7 @@ VulkanCommandQueue::VulkanCommandQueue(VulkanDevice& device, CommandType type, s
       m_Queue(device.GetDevice().getQueue(queue_family_index, magic_enum::enum_integer(type)))
 
 {
-    device.GetDevice().setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-        .objectType   = vk::ObjectType::eQueue,
-        .objectHandle = get_vk_handle(m_Queue),
-        .pObjectName  = m_Name.c_str(),
-    });
+    create_vk_debug_object_info(m_Queue, m_Name, device.GetDevice());
 }
 
 void VulkanCommandQueue::Submit(std::pmr::vector<CommandContext*> contexts, std::pmr::vector<SemaphoreWaitPair> wait_semaphores, std::pmr::vector<SemaphoreWaitPair> signal_semaphores) {

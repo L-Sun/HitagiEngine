@@ -33,7 +33,7 @@ public:
     auto CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> final;
 
     auto CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> final;
-    auto CreateGpuBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GpuBuffer> final;
+    auto CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> final;
     auto CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
     auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> final;
 
@@ -71,7 +71,7 @@ private:
 
     utils::EnumArray<std::unique_ptr<DescriptorAllocator>, D3D12_DESCRIPTOR_HEAP_TYPE> m_DescriptorAllocators;
     // Only cbv_uav_srv and sampler allocator
-    std::array<std::unique_ptr<DescriptorAllocator>, 2> m_GpuDescriptorAllocators;
+    std::array<std::unique_ptr<DescriptorAllocator>, 2> m_GPUDescriptorAllocators;
 
     utils::EnumArray<std::shared_ptr<DX12CommandQueue>, CommandType> m_CommandQueues;
 };

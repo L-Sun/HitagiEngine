@@ -48,8 +48,8 @@ private:
     mutable std::mutex m_Mutex;
 
     ComPtr<ID3D12DescriptorHeap> m_DescriptorHeap;
-    D3D12_CPU_DESCRIPTOR_HANDLE  m_HeapCpuStart;
-    D3D12_GPU_DESCRIPTOR_HANDLE  m_HeapGpuStart;
+    D3D12_CPU_DESCRIPTOR_HANDLE  m_HeapCPUStart;
+    D3D12_GPU_DESCRIPTOR_HANDLE  m_HeapGPUStart;
     std::size_t                  m_IncrementSize;
     D3D12_DESCRIPTOR_HEAP_TYPE   m_Type;
 

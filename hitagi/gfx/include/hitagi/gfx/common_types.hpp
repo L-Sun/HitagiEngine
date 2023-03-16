@@ -190,21 +190,6 @@ inline constexpr std::size_t get_format_bit_size(Format format) noexcept {
     }
 }
 
-struct Shader {
-    enum struct Type : std::uint8_t {
-        Vertex,
-        Pixel,
-        Geometry,
-        Compute,
-    };
-
-    std::pmr::string name;
-    Type             type;
-    std::pmr::string entry;
-    std::pmr::string source_code;
-    core::Buffer     binary_data = {};
-};
-
 enum struct PrimitiveTopology : std::uint8_t {
     PointList,
     LineList,
@@ -232,30 +217,49 @@ enum struct FrontFace : std::uint8_t {
     CCW,
 };
 
-enum struct Blend : std::uint8_t {
+enum struct ColorMask : std::uint8_t {
+    R   = 1,
+    G   = (R << 1),
+    B   = (G << 1),
+    A   = (B << 1),
+    All = R | G | B | A,
+};
+
+enum struct StencilOp {
+    Keep,
+    Zero,
+    Replace,
+    Invert,
+    IncrementClamp,
+    DecrementClamp,
+    IncrementWrap,
+    DecrementWrap,
+};
+
+enum struct BlendFactor : std::uint8_t {
     Zero,
     One,
+
     SrcColor,
     InvSrcColor,
     SrcAlpha,
     InvSrcAlpha,
-    DestAlpha,
-    InvDestAlpha,
-    DestColor,
-    InvDestColor,
+
+    DstColor,
+    InvDstColor,
+    DstAlpha,
+    InvDstAlpha,
+
+    Constant,
+    InvConstant,
+
     SrcAlphaSat,
-    BlendFactor,
-    InvBlendFactor,
-    Src1Color,
-    InvSrc_1_Color,
-    Src1Alpha,
-    InvSrc_1_Alpha,
 };
 
 enum struct BlendOp : std::uint8_t {
     Add,
     Subtract,
-    RevSubtract,
+    ReverseSubtract,
     Min,
     Max
 };
@@ -265,7 +269,7 @@ enum struct LogicOp : std::uint8_t {
     Set,
     Copy,
     CopyInverted,
-    Noop,
+    NoOp,
     Invert,
     And,
     Nand,
@@ -279,7 +283,7 @@ enum struct LogicOp : std::uint8_t {
     OrInverted,
 };
 
-enum struct CompareFunction : std::uint8_t {
+enum struct CompareOp : std::uint8_t {
     Never,
     Less,
     Equal,
@@ -290,32 +294,54 @@ enum struct CompareFunction : std::uint8_t {
     Always
 };
 
-struct RasterizerDescription {
+struct RasterizationState {
     FillMode fill_mode               = FillMode::Solid;
     CullMode cull_mode               = CullMode::Back;
     bool     front_counter_clockwise = true;
-    int      depth_bias              = 0;
-    float    depth_bias_clamp        = 0.0f;
-    float    slope_scaled_depth_bias = 0.0f;
-    bool     depth_clip_enable       = true;
-    bool     multisample_enable      = false;
-    bool     antialiased_line_enable = false;
-    unsigned forced_sample_count     = 0;
-    bool     conservative_raster     = false;
+
+    bool  depth_clamp_enable      = false;
+    bool  depth_bias_enable       = false;
+    float depth_bias              = 0;
+    float depth_bias_clamp        = 0.0f;
+    float depth_bias_slope_factor = 0.0f;
 };
 
-struct BlendDescription {
-    bool    alpha_to_coverage_enable = false;
-    bool    independent_blend_enable = false;
-    bool    enable_blend             = false;
-    bool    enable_logic_operation   = false;
-    Blend   src_blend                = Blend::One;
-    Blend   dest_blend               = Blend::Zero;
-    BlendOp blend_op                 = BlendOp::Add;
-    Blend   src_blend_alpha          = Blend::One;
-    Blend   dest_blend_alpha         = Blend::Zero;
-    BlendOp blend_op_alpha           = BlendOp::Add;
-    LogicOp logic_op                 = LogicOp::Noop;
+struct StencilOpState {
+    StencilOp     fail_op       = StencilOp::Keep;
+    StencilOp     pass_op       = StencilOp::Keep;
+    StencilOp     depth_fail_op = StencilOp::Keep;
+    CompareOp     compare_op    = CompareOp::Always;
+    std::uint32_t compare_mask  = 0xFFFFFFFF;
+    std::uint32_t write_mask    = 0xFFFFFFFF;
+    std::uint32_t reference     = 0xFFFFFFFF;
+};
+
+struct DepthStencilState {
+    bool      depth_test_enable  = false;
+    bool      depth_write_enable = false;
+    CompareOp depth_compare_op   = CompareOp::Less;
+
+    bool           stencil_test_enable = false;
+    StencilOpState front               = {};
+    StencilOpState back                = {};
+
+    bool        depth_bounds_test_enable = false;
+    math::vec2f depth_bounds             = math::vec2f(0.0f, 1.0f);
+};
+
+struct BlendState {
+    bool        blend_enable           = false;
+    BlendFactor src_color_blend_factor = BlendFactor::One;
+    BlendFactor dst_color_blend_factor = BlendFactor::Zero;
+    BlendOp     color_blend_op         = BlendOp::Add;
+    BlendFactor src_alpha_blend_factor = BlendFactor::One;
+    BlendFactor dst_alpha_blend_factor = BlendFactor::Zero;
+    BlendOp     alpha_blend_op         = BlendOp::Add;
+    math::vec4f blend_constants        = math::vec4f(1.0f);
+    ColorMask   color_write_mask       = ColorMask::All;
+
+    bool    logic_operation_enable = false;
+    LogicOp logic_op               = LogicOp::NoOp;
 };
 
 union ClearValue {
@@ -326,16 +352,28 @@ union ClearValue {
     };
 };
 
-struct VertexAttribute {
-    std::pmr::string semantic_name;
-    std::uint8_t     semantic_index;
-    std::uint8_t     slot;
-    std::uint32_t    aligned_offset;
-    Format           format;
-    bool             per_instance            = false;
-    std::uint32_t    instance_data_step_rate = 0;
+struct AssemblyState {
+    PrimitiveTopology primitive      = PrimitiveTopology::TriangleList;
+    bool              restart_enable = false;
 };
-using InputLayout = std::pmr::vector<VertexAttribute>;
+
+struct VertexAttribute {
+    std::string_view semantic_name;
+    std::uint8_t     semantic_index;
+    Format           format;
+    std::uint64_t    offset;
+};
+
+struct VertexBufferLayout {
+    std::uint64_t                     stride;
+    std::pmr::vector<VertexAttribute> attributes;
+
+    bool          per_instance = false;
+    std::uint64_t step_rate    = 0;
+};
+
+// Improve me with fixed_vector
+using VertexBufferLayouts = std::pmr::vector<VertexBufferLayout>;
 
 struct ViewPort {
     float x, y;  // the top left start point

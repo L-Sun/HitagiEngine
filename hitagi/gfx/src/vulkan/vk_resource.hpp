@@ -7,8 +7,8 @@
 namespace hitagi::gfx {
 class VulkanDevice;
 
-struct VulkanBuffer final : public GpuBuffer {
-    VulkanBuffer(VulkanDevice& device, GpuBuffer::Desc desc, std::span<const std::byte> initial_data);
+struct VulkanBuffer final : public GPUBuffer {
+    VulkanBuffer(VulkanDevice& device, GPUBuffer::Desc desc, std::span<const std::byte> initial_data);
     ~VulkanBuffer() final;
 
     auto GetMappedPtr() const noexcept -> std::byte* final;
@@ -35,20 +35,31 @@ struct VulkanSwapChain final : public SwapChain {
     void Present() final;
     void Resize() final;
 
-    void CreateSwapChain();
-    void CreateImageViews();
-
     std::unique_ptr<vk::raii::SurfaceKHR>   surface;
     std::unique_ptr<vk::raii::SwapchainKHR> swap_chain;
     math::vec2u                             size;
 
     std::pmr::vector<std::shared_ptr<VulkanImage>> images;
-    std::pmr::vector<std::pmr::string>             image_names;
+
+private:
+    void CreateSwapChain();
+    void CreateImageViews();
 };
 
-class VulkanGraphicsPipeline : public GraphicsPipeline {
-public:
+struct VulkanShader : public Shader {
+    VulkanShader(VulkanDevice& device, Shader::Desc desc, core::Buffer binary_program);
+
+    auto GetSPIRVData() const noexcept -> std::span<const std::byte> final;
+
+    core::Buffer           binary_program;
+    vk::raii::ShaderModule shader;
+};
+
+struct VulkanGraphicsPipeline : public GraphicsPipeline {
     VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipeline::Desc desc);
+
+    std::unique_ptr<vk::raii::PipelineLayout> pipeline_layout;
+    std::unique_ptr<vk::raii::Pipeline>       pipeline;
 };
 
 }  // namespace hitagi::gfx

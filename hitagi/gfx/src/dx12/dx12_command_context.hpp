@@ -42,7 +42,7 @@ class DX12GraphicsCommandContext : public GraphicsCommandContext, public DX12Com
 public:
     DX12GraphicsCommandContext(DX12Device& device, std::string_view name);
     void SetName(std::string_view name) final;
-    void ResetState(GpuBuffer& buffer) final;
+    void ResetState(GPUBuffer& buffer) final;
     void ResetState(Texture& texture) final;
 
     void SetViewPort(const ViewPort& view_port) final;
@@ -55,11 +55,11 @@ public:
     void ClearDepthStencil(Texture& depth_stencil) final;
 
     void SetPipeline(const RenderPipeline& pipeline) final;
-    void SetIndexBuffer(GpuBuffer& buffer) final;
-    void SetVertexBuffer(std::uint8_t slot, GpuBuffer& buffer) final;
+    void SetIndexBuffer(GPUBuffer& buffer) final;
+    void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) final;
 
     void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data) final;
-    void BindConstantBuffer(std::uint32_t slot, GpuBuffer& buffer, std::size_t index = 0) final;
+    void BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index = 0) final;
     void BindTexture(std::uint32_t slot, Texture& texture) final;
     int  GetBindless(const Texture& texture) final;
 
@@ -77,7 +77,7 @@ class DX12ComputeCommandContext : public ComputeCommandContext, public DX12Comma
 public:
     DX12ComputeCommandContext(DX12Device& device, std::string_view name);
     void SetName(std::string_view name) final;
-    void ResetState(GpuBuffer& buffer) final;
+    void ResetState(GPUBuffer& buffer) final;
     void ResetState(Texture& texture) final;
 
     void Reset() final;
@@ -88,10 +88,10 @@ class DX12CopyCommandContext : public CopyCommandContext, public DX12CommandCont
 public:
     DX12CopyCommandContext(DX12Device& device, std::string_view name);
     void SetName(std::string_view name) final;
-    void ResetState(GpuBuffer& buffer) final;
+    void ResetState(GPUBuffer& buffer) final;
     void ResetState(Texture& texture) final;
 
-    void CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) final;
+    void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dest, std::size_t dest_offset, std::size_t size) final;
     void CopyTexture(const Texture& src, const Texture& dest) final;
 
     void Reset() final;

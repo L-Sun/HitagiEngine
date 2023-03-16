@@ -93,7 +93,7 @@ public:
         VertexAttribute                 type;
         bool                            dirty      = true;
         core::Buffer                    cpu_buffer = {};
-        std::shared_ptr<gfx::GpuBuffer> gpu_buffer = nullptr;
+        std::shared_ptr<gfx::GPUBuffer> gpu_buffer = nullptr;
     };
 
     VertexArray(std::size_t vertex_count, std::string_view name = "", xg::Guid guid = {});
@@ -114,7 +114,7 @@ public:
     void Modify(std::function<void(std::span<VertexDataType<T>>)> modifier);
     void Resize(std::size_t new_count);
 
-    void InitGpuData(gfx::Device& device);
+    void InitGPUData(gfx::Device& device);
 
 private:
     std::size_t                                      m_VertexCount;
@@ -139,7 +139,7 @@ public:
         IndexType                       type;
         bool                            dirty      = true;
         core::Buffer                    cpu_buffer = {};
-        std::shared_ptr<gfx::GpuBuffer> gpu_buffer = nullptr;
+        std::shared_ptr<gfx::GPUBuffer> gpu_buffer = nullptr;
     };
 
     IndexArray(std::size_t count, IndexType type = IndexType::UINT16, std::string_view name = "", xg::Guid guid = {});
@@ -161,7 +161,7 @@ public:
     void Modify(std::function<void(std::span<IndexDataType<T>>)> modifier);
     void Resize(std::size_t new_count);
 
-    void InitGpuData(gfx::Device& device);
+    void InitGPUData(gfx::Device& device);
 
 private:
     std::size_t m_IndexCount;

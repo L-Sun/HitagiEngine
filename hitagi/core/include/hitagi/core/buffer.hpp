@@ -13,6 +13,7 @@ class Buffer {
 public:
     Buffer() = default;
     Buffer(std::size_t size, const std::byte* data = nullptr, std::size_t alignment = 4);
+    Buffer(std::span<const std::byte> data, std::size_t alignment = 4);
 
     Buffer(const Buffer& buffer);
     Buffer(Buffer&& buffer) noexcept;

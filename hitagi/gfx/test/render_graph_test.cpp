@@ -89,12 +89,12 @@ TEST_F(RenderGraphTest, RenderPass) {
         { 0.25f, -0.25f, 0.00f}, {0.0f, 0.0f, 1.0f},  // point 2
         }};
         // clang-format on
-        auto vertex_buffer = device->CreateGpuBuffer(
+        auto vertex_buffer = device->CreateGPUBuffer(
             {
                 .name          = "triangle",
                 .element_size  = 2 * sizeof(vec3f),
                 .element_count = 3,
-                .usages        = GpuBuffer::UsageFlags::Vertex,
+                .usages        = GPUBuffer::UsageFlags::Vertex,
             },
             {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
@@ -130,7 +130,7 @@ TEST_F(RenderGraphTest, RenderPass) {
                     .width  = render_target.GetDesc().width,
                     .height = render_target.GetDesc().height,
                 });
-                context->SetVertexBuffer(0, helper.Get<GpuBuffer>(data.vertices));
+                context->SetVertexBuffer(0, helper.Get<GPUBuffer>(data.vertices));
                 context->Draw(3);
             });
 

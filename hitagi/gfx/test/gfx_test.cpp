@@ -7,13 +7,13 @@ using namespace hitagi::gfx;
 
 TEST(GfxTest, DescHashTest) {
     {
-        GpuBuffer::Desc
+        GPUBuffer::Desc
             buffer_desc_1 = {},
             buffer_desc_2 = {
                 .name          = "buffer_desc_1",
                 .element_size  = 16,
                 .element_count = 32,
-                .usages        = GpuBuffer::UsageFlags::Vertex,
+                .usages        = GPUBuffer::UsageFlags::Vertex,
             };
 
         buffer_desc_2.name = "buffer_desc_2";

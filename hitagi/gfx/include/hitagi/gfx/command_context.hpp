@@ -18,7 +18,7 @@ class CommandContext {
 public:
     virtual ~CommandContext() = default;
     // When a resource will be used on other type command queue, you should reset the resource state
-    virtual void ResetState(GpuBuffer& buffer) = 0;
+    virtual void ResetState(GPUBuffer& buffer) = 0;
     virtual void ResetState(Texture& texture)  = 0;
 
     virtual void Begin() = 0;
@@ -55,8 +55,8 @@ public:
     virtual void ClearDepthStencil(Texture& depth_stencil) = 0;
 
     virtual void SetPipeline(const GraphicsPipeline& pipeline)         = 0;
-    virtual void SetIndexBuffer(GpuBuffer& buffer)                     = 0;
-    virtual void SetVertexBuffer(std::uint8_t slot, GpuBuffer& buffer) = 0;
+    virtual void SetIndexBuffer(GPUBuffer& buffer)                     = 0;
+    virtual void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) = 0;
 
     template <typename T>
         requires utils::not_same_as<std::remove_cvref<T>, std::span<const std::byte>>
@@ -64,12 +64,12 @@ public:
         PushConstant(slot, {reinterpret_cast<const std::byte*>(&data), sizeof(T)});
     }
     virtual void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data)         = 0;
-    virtual void BindConstantBuffer(std::uint32_t slot, GpuBuffer& buffer, std::size_t index = 0) = 0;
+    virtual void BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index = 0) = 0;
     virtual void BindTexture(std::uint32_t slot, Texture& texture)                                = 0;
 
     // Bindless resource
     virtual int GetBindless(const Texture& texture) = 0;
-    // virtual int GetBindless(const GpuBuffer& constant_buffer, std::size_t offset = 0, std::size_t size = 0) = 0;
+    // virtual int GetBindless(const GPUBuffer& constant_buffer, std::size_t offset = 0, std::size_t size = 0) = 0;
 
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
@@ -87,7 +87,7 @@ class CopyCommandContext : public CommandContext {
 public:
     using CommandContext::CommandContext;
 
-    virtual void CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) = 0;
+    virtual void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dest, std::size_t dest_offset, std::size_t size) = 0;
     virtual void CopyTexture(const Texture& src, const Texture& dest)                                                                 = 0;
 };
 

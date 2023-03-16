@@ -109,15 +109,15 @@ auto VertexArray::GetAttributeData(const gfx::VertexAttribute& attr) const noexc
     return std::nullopt;
 }
 
-void VertexArray::InitGpuData(gfx::Device& device) {
+void VertexArray::InitGPUData(gfx::Device& device) {
     for (auto& attribute : m_Attributes) {
         if (attribute.cpu_buffer.Empty() || !attribute.dirty) continue;
-        attribute.gpu_buffer = device.CreateGpuBuffer(
+        attribute.gpu_buffer = device.CreateGPUBuffer(
             {
                 .name          = fmt::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type)),
                 .element_size  = get_vertex_attribute_size(attribute.type),
                 .element_count = m_VertexCount,
-                .usages        = gfx::GpuBuffer::UsageFlags::Vertex,
+                .usages        = gfx::GPUBuffer::UsageFlags::Vertex,
             },
             attribute.cpu_buffer.Span<const std::byte>());
         attribute.dirty = false;
@@ -154,14 +154,14 @@ void IndexArray::Resize(std::size_t new_count) {
     m_Data.dirty = true;
 }
 
-void IndexArray::InitGpuData(gfx::Device& device) {
+void IndexArray::InitGPUData(gfx::Device& device) {
     if (m_Data.cpu_buffer.Empty() || !m_Data.dirty) return;
-    m_Data.gpu_buffer = device.CreateGpuBuffer(
+    m_Data.gpu_buffer = device.CreateGPUBuffer(
         {
             .name          = m_Name,
             .element_size  = get_index_type_size(m_Data.type),
             .element_count = m_IndexCount,
-            .usages        = gfx::GpuBuffer::UsageFlags::Index,
+            .usages        = gfx::GPUBuffer::UsageFlags::Index,
         },
         m_Data.cpu_buffer.Span<const std::byte>());
     m_Data.dirty = false;

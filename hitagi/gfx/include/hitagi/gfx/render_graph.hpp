@@ -15,7 +15,7 @@ class RenderGraph {
     friend struct PassNode;
 
 public:
-    using ResourceDesc = std::variant<GpuBuffer::Desc, Texture::Desc>;
+    using ResourceDesc = std::variant<GPUBuffer::Desc, Texture::Desc>;
 
     class Builder {
         friend class RenderGraph;
@@ -122,7 +122,7 @@ private:
     utils::EnumArray<SemaphoreWaitPair, CommandType> m_SemaphoreWaitPairs;
 
     constexpr static unsigned                                                            sm_CacheLifeSpan = 5;
-    std::unordered_map<GpuBuffer::Desc, std::pair<std::shared_ptr<GpuBuffer>, unsigned>> m_GpuBufferPool;
+    std::unordered_map<GPUBuffer::Desc, std::pair<std::shared_ptr<GPUBuffer>, unsigned>> m_GPUBufferPool;
     std::unordered_map<Texture::Desc, std::pair<std::shared_ptr<Texture>, unsigned>>     m_TexturePool;
 
     std::shared_ptr<spdlog::logger> m_Logger;

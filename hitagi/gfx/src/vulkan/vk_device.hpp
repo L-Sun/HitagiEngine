@@ -25,11 +25,11 @@ public:
     auto CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> final;
 
     auto CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> final;
-    auto CreateGpuBuffer(GpuBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GpuBuffer> final;
+    auto CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> final;
     auto CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
     auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> final;
 
-    void CompileShader(Shader& shader) final;
+    auto CreateShader(Shader::Desc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> final;
     auto CreateRenderPipeline(GraphicsPipeline::Desc desc) -> std::shared_ptr<GraphicsPipeline> final;
 
     void Profile(std::size_t frame_index) const final;

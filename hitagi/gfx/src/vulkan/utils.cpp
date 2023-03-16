@@ -20,21 +20,21 @@ auto custom_vk_allocation_fn(void* p_this, std::size_t size, std::size_t alignme
     return ptr;
 }
 
-auto custom_vk_reallocation_fn(void* p_this, void* orign_ptr, std::size_t new_size, std::size_t alignment, VkSystemAllocationScope) -> void* {
+auto custom_vk_reallocation_fn(void* p_this, void* origin_ptr, std::size_t new_size, std::size_t alignment, VkSystemAllocationScope) -> void* {
     auto& allocation_record = static_cast<VulkanDevice*>(p_this)->GetCustomAllocationRecord();
 
     auto allocator = std::pmr::get_default_resource();
     // just like allocation
-    if (orign_ptr == nullptr) {
+    if (origin_ptr == nullptr) {
         auto new_ptr = allocator->allocate(new_size, alignment);
         allocation_record.emplace(new_ptr, std::make_pair(new_size, alignment));
         return new_ptr;
     }
     // just like free
     else if (new_size == 0) {
-        auto [old_size, old_alignment] = allocation_record.at(orign_ptr);
-        allocation_record.erase(orign_ptr);
-        allocator->deallocate(orign_ptr, old_size);
+        auto [old_size, old_alignment] = allocation_record.at(origin_ptr);
+        allocation_record.erase(origin_ptr);
+        allocator->deallocate(origin_ptr, old_size);
         return nullptr;
     }
     // reallocation
@@ -43,14 +43,14 @@ auto custom_vk_reallocation_fn(void* p_this, void* orign_ptr, std::size_t new_si
         auto new_ptr = allocator->allocate(new_size, alignment);
         allocation_record.emplace(new_ptr, std::make_pair(new_size, alignment));
 
-        auto [old_size, old_alignment] = allocation_record.at(orign_ptr);
-        allocation_record.erase(orign_ptr);
+        auto [old_size, old_alignment] = allocation_record.at(origin_ptr);
+        allocation_record.erase(origin_ptr);
 
         // copy origin data to new one
-        std::memcpy(new_ptr, orign_ptr, std::min(old_size, new_size));
+        std::memcpy(new_ptr, origin_ptr, std::min(old_size, new_size));
 
         // free origin data
-        allocator->deallocate(orign_ptr, old_size);
+        allocator->deallocate(origin_ptr, old_size);
 
         return new_ptr;
     }
@@ -68,18 +68,22 @@ auto custom_vk_free_fn(void* p_this, void* ptr) -> void {
 }
 
 auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, VkDebugUtilsMessageTypeFlagsEXT _type, VkDebugUtilsMessengerCallbackDataEXT const* p_data, void* p_logger) -> VkBool32 {
-    auto logger    = static_cast<spdlog::logger*>(p_logger);
-    auto serverity = static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(_severity);
-    auto type      = static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(_type);
+    auto logger   = static_cast<spdlog::logger*>(p_logger);
+    auto severity = static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(_severity);
+    auto type     = static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(_type);
 
     std::pmr::vector<std::pmr::string> messages;
+
+    auto message_id = fmt::format("{:#x}", static_cast<std::uint32_t>(p_data->messageIdNumber));
     messages.emplace_back(fmt::format(
-        "{}[{}]:{} -------------",
+        "{}[ {} ]:{} -------------",
         fmt::styled(vk::to_string(type), fmt::fg(type == vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance ? fmt::color::orange : fmt::color::red)),
         p_data->pMessageIdName,
-        p_data->messageIdNumber));
+        message_id));
 
-    messages.emplace_back(p_data->pMessage);
+    std::string_view detail{p_data->pMessage};
+    detail.remove_prefix(detail.find(message_id) + message_id.size() + 3);
+    messages.emplace_back(detail);
 
     if (p_data->queueLabelCount > 0) {
         messages.emplace_back("Queue Labels:");
@@ -113,7 +117,7 @@ auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, V
     messages.emplace_back(messages.front() + "End");
 
     for (const auto& message : messages) {
-        switch (serverity) {
+        switch (severity) {
             case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
                 logger->trace(message);
                 break;
@@ -132,4 +136,5 @@ auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, V
     }
     return false;
 }
+
 }  // namespace hitagi::gfx

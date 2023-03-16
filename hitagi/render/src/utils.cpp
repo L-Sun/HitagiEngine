@@ -71,22 +71,22 @@ GuiRenderUtils::GuiRenderUtils(gui::GuiManager& gui_manager, gfx::Device& gfx_de
             .depth_bias              = 0,
             .depth_bias_clamp        = 0.0f,
             .slope_scaled_depth_bias = 0.0f,
-            .depth_clip_enable       = true,
-            .multisample_enable      = false,
-            .antialiased_line_enable = false,
+            .depth_clip              = true,
+            .multi_sample_enable     = false,
+            .antialiased_line        = false,
             .forced_sample_count     = 0,
             .conservative_raster     = false,
         },
 
-        .blend_config = {
-            .alpha_to_coverage_enable = false,
-            .enable_blend             = true,
-            .src_blend                = gfx::Blend::SrcAlpha,
-            .dest_blend               = gfx::Blend::InvSrcAlpha,
-            .blend_op                 = gfx::BlendOp::Add,
-            .src_blend_alpha          = gfx::Blend::One,
-            .dest_blend_alpha         = gfx::Blend::InvSrcAlpha,
-            .blend_op_alpha           = gfx::BlendOp::Add,
+        .blend_state = {
+            .alpha_to_coverage = false,
+            .enable_blend      = true,
+            .src_blend         = gfx::Blend::SrcAlpha,
+            .dest_blend        = gfx::Blend::InvSrcAlpha,
+            .blend_op          = gfx::BlendOp::Add,
+            .src_blend_alpha   = gfx::Blend::One,
+            .dest_blend_alpha  = gfx::Blend::InvSrcAlpha,
+            .blend_op_alpha    = gfx::BlendOp::Add,
         },
         .render_format = gfx::Format::R8G8B8A8_UNORM,
     });
@@ -125,29 +125,29 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
     if (draw_data == nullptr) return target;
 
     if (m_GfxData.vertices_buffer == nullptr || m_GfxData.vertices_buffer->GetDesc().element_count < draw_data->TotalVtxCount) {
-        m_GfxData.vertices_buffer = render_graph.device.CreateGpuBuffer({
+        m_GfxData.vertices_buffer = render_graph.device.CreateGPUBuffer({
             .name          = "imgui-vertices",
             .element_size  = sizeof(ImDrawVert),
             .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalVtxCount)),
-            .usages        = gfx::GpuBuffer::UsageFlags::Vertex | gfx::GpuBuffer::UsageFlags::CopyDst,
+            .usages        = gfx::GPUBuffer::UsageFlags::Vertex | gfx::GPUBuffer::UsageFlags::CopyDst,
         });
     }
 
     if (m_GfxData.indices_buffer == nullptr || m_GfxData.indices_buffer->GetDesc().element_count < draw_data->TotalIdxCount) {
-        m_GfxData.indices_buffer = render_graph.device.CreateGpuBuffer({
+        m_GfxData.indices_buffer = render_graph.device.CreateGPUBuffer({
             .name          = "imgui-indices",
             .element_size  = sizeof(ImDrawIdx),
             .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalIdxCount)),
-            .usages        = gfx::GpuBuffer::UsageFlags::Index | gfx::GpuBuffer::UsageFlags::CopyDst,
+            .usages        = gfx::GPUBuffer::UsageFlags::Index | gfx::GPUBuffer::UsageFlags::CopyDst,
         });
     }
 
     std::size_t total_upload_size = draw_data->TotalVtxCount * sizeof(ImDrawVert) + draw_data->TotalIdxCount * sizeof(ImDrawIdx);
     if (m_GfxData.upload_heap == nullptr || m_GfxData.upload_heap->GetDesc().element_size < total_upload_size) {
-        m_GfxData.upload_heap = render_graph.device.CreateGpuBuffer({
+        m_GfxData.upload_heap = render_graph.device.CreateGPUBuffer({
             .name         = "imgui-upload-heap",
             .element_size = std::max(1ul, total_upload_size),
-            .usages       = gfx::GpuBuffer::UsageFlags::MapWrite | gfx::GpuBuffer::UsageFlags::CopySrc,
+            .usages       = gfx::GPUBuffer::UsageFlags::MapWrite | gfx::GPUBuffer::UsageFlags::CopySrc,
         });
     }
 
@@ -169,7 +169,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
             data.upload_heap     = builder.Write(upload_heap);
         },
         [=](const gfx::RenderGraph::ResourceHelper& helper, const GuiVertexCopyPass& data, gfx::CopyCommandContext* context) {
-            auto& upload_heap = helper.Get<gfx::GpuBuffer>(data.upload_heap);
+            auto& upload_heap = helper.Get<gfx::GPUBuffer>(data.upload_heap);
 
             std::byte* curr_pointer = upload_heap.GetMappedPtr();
             for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
@@ -194,10 +194,10 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
             }
             std::size_t index_total_size = (curr_pointer - upload_heap.GetMappedPtr()) - vertex_total_size;
 
-            auto& vetices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
-            auto& indices_buffer = helper.Get<gfx::GpuBuffer>(data.indices_buffer);
+            auto& vertices_buffer = helper.Get<gfx::GPUBuffer>(data.vertices_buffer);
+            auto& indices_buffer  = helper.Get<gfx::GPUBuffer>(data.indices_buffer);
 
-            context->CopyBuffer(upload_heap, 0, vetices_buffer, 0, vertex_total_size);
+            context->CopyBuffer(upload_heap, 0, vertices_buffer, 0, vertex_total_size);
             context->CopyBuffer(upload_heap, vertex_total_size, indices_buffer, 0, index_total_size);
         });
 
@@ -223,8 +223,8 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
             const float near   = 3.0f;
             const float far    = -1.0f;
 
-            auto& vertices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
-            auto& indices_buffer  = helper.Get<gfx::GpuBuffer>(data.indices_buffer);
+            auto& vertices_buffer = helper.Get<gfx::GPUBuffer>(data.vertices_buffer);
+            auto& indices_buffer  = helper.Get<gfx::GPUBuffer>(data.indices_buffer);
 
             context->SetPipeline(*m_GfxData.pipeline);
             context->SetViewPort({

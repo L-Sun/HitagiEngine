@@ -8,7 +8,7 @@ Texture::Texture(std::uint32_t width, std::uint32_t height, gfx::Format format, 
       m_Width(width),
       m_Height(height),
       m_Format(format),
-      m_CpuData(std::move(data)) {}
+      m_CPUData(std::move(data)) {}
 
 Texture::Texture(std::filesystem::path path, std::string_view name, xg::Guid guid)
     : Resource(name.empty() ? path.string() : name, guid),
@@ -20,7 +20,7 @@ Texture::Texture(const Texture& other)
       m_Height(other.m_Height),
       m_Format(other.m_Format),
       m_Path(other.m_Path),
-      m_CpuData(other.m_CpuData) {
+      m_CPUData(other.m_CPUData) {
     m_Path.replace_filename(m_Path.filename().concat("_copy"));
 }
 
@@ -31,11 +31,11 @@ Texture& Texture::operator=(const Texture& rhs) {
         m_Height  = rhs.m_Height;
         m_Format  = rhs.m_Format;
         m_Path    = rhs.m_Path;
-        m_CpuData = rhs.m_CpuData;
+        m_CPUData = rhs.m_CPUData;
         m_Dirty   = true;
 
-        if (m_GpuData) {
-            InitGpuData(m_GpuData->GetDevice());
+        if (m_GPUData) {
+            InitGPUData(m_GPUData->GetDevice());
         }
         m_Path.replace_filename(m_Path.filename().concat("_copy"));
     }
@@ -79,10 +79,10 @@ bool Texture::Load(const std::shared_ptr<ImageParser>& parser) {
         m_Width   = image->m_Width;
         m_Height  = image->m_Height;
         m_Format  = image->m_Format;
-        m_CpuData = std::move(image->m_CpuData);
+        m_CPUData = std::move(image->m_CPUData);
         m_Dirty   = true;
-        if (m_GpuData) {
-            InitGpuData(m_GpuData->GetDevice());
+        if (m_GPUData) {
+            InitGPUData(m_GPUData->GetDevice());
         }
         return true;
     }
@@ -92,14 +92,14 @@ bool Texture::Load(const std::shared_ptr<ImageParser>& parser) {
 
 void Texture::Unload() {
     if (!m_Path.empty() && std::filesystem::is_regular_file(m_Path)) {
-        m_CpuData = {};
+        m_CPUData = {};
     }
-    m_GpuData = nullptr;
+    m_GPUData = nullptr;
 }
 
-void Texture::InitGpuData(gfx::Device& device) {
+void Texture::InitGPUData(gfx::Device& device) {
     if (!m_Dirty) return;
-    m_GpuData = device.CreateTexture({
+    m_GPUData = device.CreateTexture({
         .name   = m_Name,
         .width  = m_Width,
         .height = m_Height,

@@ -30,8 +30,8 @@ struct DX12Texture : public DX12ResourceWrapper<Texture> {
     Descriptor uav, srv, rtv, dsv;
 };
 
-struct DX12GpuBuffer : public DX12ResourceWrapper<GpuBuffer> {
-    using DX12ResourceWrapper<GpuBuffer>::DX12ResourceWrapper;
+struct DX12GPUBuffer : public DX12ResourceWrapper<GPUBuffer> {
+    using DX12ResourceWrapper<GPUBuffer>::DX12ResourceWrapper;
 
     std::optional<D3D12_VERTEX_BUFFER_VIEW> vbv;
     std::optional<D3D12_INDEX_BUFFER_VIEW>  ibv;

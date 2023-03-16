@@ -417,8 +417,8 @@ inline constexpr auto to_d3d_logic_op(LogicOp operation) noexcept {
 
 inline constexpr auto to_d3d_blend_desc(BlendDescription desc) noexcept {
     D3D12_BLEND_DESC result{};
-    result.AlphaToCoverageEnable  = desc.alpha_to_coverage_enable;
-    result.IndependentBlendEnable = desc.independent_blend_enable;
+    result.AlphaToCoverageEnable  = desc.alpha_to_coverage;
+    result.IndependentBlendEnable = desc.independent_blend;
 
     result.RenderTarget[0].BlendEnable           = desc.enable_blend;
     result.RenderTarget[0].LogicOpEnable         = desc.enable_logic_operation;
@@ -466,9 +466,9 @@ inline constexpr auto to_d3d_rasterizer_desc(RasterizerDescription desc) noexcep
     result.DepthBias             = desc.depth_bias;
     result.DepthBiasClamp        = desc.depth_bias_clamp;
     result.SlopeScaledDepthBias  = desc.slope_scaled_depth_bias;
-    result.DepthClipEnable       = desc.depth_clip_enable;
-    result.MultisampleEnable     = desc.multisample_enable;
-    result.AntialiasedLineEnable = desc.antialiased_line_enable;
+    result.DepthClipEnable       = desc.depth_clip;
+    result.MultisampleEnable     = desc.multi_sample_enable;
+    result.AntialiasedLineEnable = desc.antialiased_line;
     result.ForcedSampleCount     = desc.forced_sample_count;
     result.ConservativeRaster    = desc.conservative_raster ? D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON : D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
 

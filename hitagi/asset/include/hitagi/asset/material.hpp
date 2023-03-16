@@ -67,7 +67,7 @@ protected:
 
     bool                                   m_Dirty                  = true;
     std::shared_ptr<gfx::GraphicsPipeline> m_Pipeline               = nullptr;
-    std::shared_ptr<gfx::GpuBuffer>        m_MaterialConstantBuffer = nullptr;
+    std::shared_ptr<gfx::GPUBuffer>        m_MaterialConstantBuffer = nullptr;
 };
 
 class MaterialInstance : public Resource {

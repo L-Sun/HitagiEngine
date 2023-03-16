@@ -22,14 +22,10 @@ VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(VulkanDevice& device, s
 
 void VulkanTransferCommandBuffer::SetName(std::string_view name) {
     m_Name = name;
-    static_cast<VulkanDevice&>(m_Device).GetDevice().setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-        .objectType   = vk::ObjectType::eCommandBuffer,
-        .objectHandle = get_vk_handle(command_buffer),
-        .pObjectName  = m_Name.c_str(),
-    });
+    create_vk_debug_object_info(command_buffer, m_Name, static_cast<VulkanDevice&>(m_Device).GetDevice());
 }
 
-void VulkanTransferCommandBuffer::ResetState(GpuBuffer& buffer) {}
+void VulkanTransferCommandBuffer::ResetState(GPUBuffer& buffer) {}
 
 void VulkanTransferCommandBuffer::ResetState(Texture& texture) {}
 
@@ -47,7 +43,7 @@ void VulkanTransferCommandBuffer::Reset() {
     command_buffer.reset({});
 }
 
-void VulkanTransferCommandBuffer::CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) {
+void VulkanTransferCommandBuffer::CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dest, std::size_t dest_offset, std::size_t size) {
     command_buffer.copyBuffer(
         **static_cast<const VulkanBuffer&>(src).buffer,
         **static_cast<VulkanBuffer&>(dest).buffer,

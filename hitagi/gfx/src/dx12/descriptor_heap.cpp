@@ -58,11 +58,11 @@ DescriptorHeap::DescriptorHeap(DX12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE ty
 
     ThrowIfFailed(device->GetDevice()->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_DescriptorHeap)));
     m_DescriptorHeap->SetName(L"Descriptor Heap");
-    m_HeapCpuStart = m_DescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+    m_HeapCPUStart = m_DescriptorHeap->GetCPUDescriptorHandleForHeapStart();
     if (shader_visibale)
-        m_HeapGpuStart = m_DescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+        m_HeapGPUStart = m_DescriptorHeap->GetGPUDescriptorHandleForHeapStart();
     else
-        m_HeapGpuStart.ptr = 0;
+        m_HeapGPUStart.ptr = 0;
 
     auto iter = m_SearchMap.emplace(num_descriptors, 0);
     m_AvailableDescriptors.emplace(0, iter);
@@ -89,13 +89,13 @@ auto DescriptorHeap::Allocate(std::size_t num_descriptors) -> Descriptor {
     // Now, we have the block info, offset and size, and then generate descriptors from the back of block
     Descriptor result;
     result.cpu_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE{
-        m_HeapCpuStart,
+        m_HeapCPUStart,
         static_cast<INT>(offset),
         static_cast<UINT>(m_IncrementSize),
     };
-    if (m_HeapGpuStart.ptr != 0) {
+    if (m_HeapGPUStart.ptr != 0) {
         result.gpu_handle = CD3DX12_GPU_DESCRIPTOR_HANDLE{
-            m_HeapGpuStart,
+            m_HeapGPUStart,
             static_cast<INT>(offset),
             static_cast<UINT>(m_IncrementSize),
         };
@@ -118,7 +118,7 @@ auto DescriptorHeap::Allocate(std::size_t num_descriptors) -> Descriptor {
 void DescriptorHeap::DiscardDescriptor(Descriptor& descriptor) {
     std::lock_guard lock{m_Mutex};
 
-    auto        offset = (descriptor.cpu_handle.ptr - m_HeapCpuStart.ptr) / m_IncrementSize;
+    auto        offset = (descriptor.cpu_handle.ptr - m_HeapCPUStart.ptr) / m_IncrementSize;
     std::size_t size   = descriptor.num;
     if (m_AvailableDescriptors.empty()) {
         auto iter = m_SearchMap.emplace(1, offset);

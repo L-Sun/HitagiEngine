@@ -13,7 +13,7 @@ auto DX12SwapChain::GetBuffers() -> std::pmr::vector<std::reference_wrapper<Text
     assert(swap_chain);
     if (back_buffers.empty()) {
         // it is important to reserve the capacity for no to reallocate,
-        // the name in desc is always avaliable
+        // the name in desc is always available
         back_buffer_names.reserve(desc.frame_count);
 
         for (std::size_t i = 0; i < desc.frame_count; i++) {

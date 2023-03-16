@@ -21,11 +21,7 @@ VulkanSemaphore::VulkanSemaphore(VulkanDevice& device, std::uint64_t initial_val
                 device.GetCustomAllocator())
 
 {
-    device.GetDevice().setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-        .objectType   = vk::ObjectType::eSemaphore,
-        .objectHandle = get_vk_handle(semaphore),
-        .pObjectName  = m_Name.c_str(),
-    });
+    create_vk_debug_object_info(semaphore, name, device.GetDevice());
 }
 
 void VulkanSemaphore::Signal(std::uint64_t value) {
