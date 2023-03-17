@@ -1,4 +1,6 @@
 #pragma once
+#include "vk_resource.hpp"
+
 #include <hitagi/gfx/command_context.hpp>
 
 #include <vulkan/vulkan_raii.hpp>
@@ -6,16 +8,57 @@
 namespace hitagi::gfx {
 class VulkanDevice;
 
-class VulkanTransferCommandBuffer final : public CopyCommandContext {
+class VulkanGraphicsCommandBuffer final : public GraphicsCommandContext {
 public:
-    VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name);
-    void SetName(std::string_view name) final;
+    VulkanGraphicsCommandBuffer(VulkanDevice& device, std::string_view name);
+
     void ResetState(GPUBuffer& buffer) final;
     void ResetState(Texture& texture) final;
 
     void Begin() final;
     void End() final;
+    void Reset() final;
 
+    void SetViewPort(const ViewPort& view_port) final;
+    void SetScissorRect(const Rect& scissor_rect) final;
+    void SetBlendColor(const math::vec4f& color) final;
+    void SetRenderTarget(Texture& target) final;
+    void SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) final;
+
+    void ClearRenderTarget(Texture& target) final;
+    void ClearDepthStencil(Texture& depth_stencil) final;
+
+    void SetPipeline(const GraphicsPipeline& pipeline) final;
+    void SetIndexBuffer(GPUBuffer& buffer) final;
+    void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) final;
+
+    void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data) final;
+    void BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index = 0) final;
+    void BindTexture(std::uint32_t slot, Texture& texture) final;
+
+    // Bindless resource
+    int GetBindless(const Texture& texture) final;
+    //  int GetBindless(const GPUBuffer& constant_buffer, std::size_t offset = 0, std::size_t size = 0) final;
+
+    void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;
+    void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final;
+
+    void CopyTexture(const Texture& src, Texture& dest) final;
+
+    vk::raii::CommandBuffer command_buffer;
+
+private:
+    const VulkanGraphicsPipeline* m_Pipeline = nullptr;
+};
+
+class VulkanTransferCommandBuffer final : public CopyCommandContext {
+public:
+    VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name);
+    void ResetState(GPUBuffer& buffer) final;
+    void ResetState(Texture& texture) final;
+
+    void Begin() final;
+    void End() final;
     void Reset() final;
 
     void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dest, std::size_t dest_offset, std::size_t size) final;

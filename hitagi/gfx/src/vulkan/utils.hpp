@@ -506,4 +506,15 @@ inline constexpr auto to_vk_blend_attachment_state(BlendState blend_state) noexc
     };
 }
 
+inline constexpr auto to_vk_viewport(ViewPort view_port) noexcept {
+    return vk::Viewport{
+        .x        = view_port.x,
+        .y        = view_port.y,
+        .width    = view_port.width,
+        .height   = view_port.height,
+        .minDepth = view_port.min_depth,
+        .maxDepth = view_port.max_depth,
+    };
+}
+
 }  // namespace hitagi::gfx

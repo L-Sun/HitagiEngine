@@ -26,8 +26,6 @@ public:
 
     virtual void Reset() = 0;
 
-    virtual void SetName(std::string_view name) = 0;
-
     inline auto& GetDevice() const noexcept { return m_Device; }
     inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
     inline auto  GetType() const noexcept { return m_Type; }
@@ -75,7 +73,6 @@ public:
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
 
     virtual void CopyTexture(const Texture& src, Texture& dest) = 0;
-    virtual void Present(Texture& back_buffer)                  = 0;
 };
 
 class ComputeCommandContext : public CommandContext {
