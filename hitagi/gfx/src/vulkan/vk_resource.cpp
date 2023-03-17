@@ -11,28 +11,28 @@
 
 namespace hitagi::gfx {
 
-VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBuffer::Desc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, desc) {
+VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, desc) {
     auto logger = device.GetLogger();
 
-    logger->debug("Create buffer({})", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
+    logger->debug("Create buffer({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
         vk::BufferCreateInfo buffer_create_info = {
             .size = desc.element_size * desc.element_count,
         };
 
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::CopySrc)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopySrc)) {
             buffer_create_info.usage |= vk::BufferUsageFlagBits::eTransferSrc;
         }
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::CopyDst)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopyDst)) {
             buffer_create_info.usage |= vk::BufferUsageFlagBits::eTransferDst;
         }
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::Vertex)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Vertex)) {
             buffer_create_info.usage |= vk::BufferUsageFlagBits::eVertexBuffer;
         }
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::Index)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Index)) {
             buffer_create_info.usage |= vk::BufferUsageFlagBits::eIndexBuffer;
         }
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::Constant)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Constant)) {
             buffer_create_info.usage |= vk::BufferUsageFlagBits::eUniformBuffer;
             // We use bindless here
             buffer_create_info.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
@@ -44,29 +44,29 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBuffer::Desc desc, std::span
     logger->debug("Allocate buffer({}) memory", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
     {
         VmaAllocationCreateInfo allocation_create_info{};
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapRead) ||
-            utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapWrite)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead) ||
+            utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
             allocation_create_info.requiredFlags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
             allocation_create_info.flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-            if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::Vertex) ||
-                utils::has_flag(desc.usages, GPUBuffer::UsageFlags::Index) ||
-                utils::has_flag(desc.usages, GPUBuffer::UsageFlags::Constant)) {
+            if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Vertex) ||
+                utils::has_flag(desc.usages, GPUBufferUsageFlags::Index) ||
+                utils::has_flag(desc.usages, GPUBufferUsageFlags::Constant)) {
                 allocation_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
             }
         } else {
             allocation_create_info.requiredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         }
 
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::Constant)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Constant)) {
             // For bindless usage we need enable the flag
             allocation_create_info.requiredFlags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
         }
 
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapRead)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead)) {
             allocation_create_info.preferredFlags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
         }
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapWrite)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
             allocation_create_info.requiredFlags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         }
 
@@ -84,8 +84,8 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBuffer::Desc desc, std::span
         vmaBindBufferMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation, **buffer);
 
         logger->debug("Map buffer({}) memory", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapRead) ||
-            utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapWrite)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead) ||
+            utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
             mapped_ptr = static_cast<std::byte*>(allocation_info.pMappedData);
         }
     }
@@ -99,16 +99,16 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBuffer::Desc desc, std::span
                 fmt::styled(desc.element_size * desc.element_count, fmt::fg(fmt::color::green)),
                 fmt::styled(desc.name, fmt::fg(fmt::color::green)));
         }
-        if (mapped_ptr != nullptr && utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapWrite)) {
+        if (mapped_ptr != nullptr && utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
             std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), desc.element_size * desc.element_count));
-        } else if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::CopyDst)) {
+        } else if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopyDst)) {
             logger->debug("Using stage buffer to initial...");
             VulkanBuffer staging_buffer(
-                device, GPUBuffer::Desc{
+                device, GPUBufferDesc{
                             .name          = fmt::format("{}_staging", desc.name),
                             .element_size  = desc.element_size * desc.element_count,
                             .element_count = 1,
-                            .usages        = GPUBuffer::UsageFlags::CopySrc | GPUBuffer::UsageFlags::MapWrite,
+                            .usages        = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
                         },
                 initial_data);
 
@@ -126,7 +126,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBuffer::Desc desc, std::span
             auto error_message = fmt::format(
                 "the gpu buffer({}) can not initialize with staging buffer without {}, the actual flags are {}",
                 fmt::styled(desc.name, fmt::fg(fmt::color::red)),
-                fmt::styled(magic_enum::enum_flags_name(GPUBuffer::UsageFlags::CopyDst), fmt::fg(fmt::color::green)),
+                fmt::styled(magic_enum::enum_flags_name(GPUBufferUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
                 fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::runtime_error(error_message);
@@ -144,9 +144,9 @@ auto VulkanBuffer::GetMappedPtr() const noexcept -> std::byte* {
     return mapped_ptr;
 }
 
-VulkanImage::VulkanImage(VulkanDevice& device, Texture::Desc desc) : Texture(device, desc) {}
+VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc) : Texture(device, desc) {}
 
-VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChain::Desc desc) : SwapChain(device, desc) {
+VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc) : SwapChain(device, desc) {
     auto window_size = math::vec2u{};
 
     switch (desc.window.type) {
@@ -339,11 +339,11 @@ void VulkanSwapChain::CreateImageViews() {
         },
     };
 
-    Texture::Desc texture_desc{
+    TextureDesc texture_desc{
         .width  = size.x,
         .height = size.y,
         .format = m_Desc.format,
-        .usages = Texture::UsageFlags::RTV,
+        .usages = TextureUsageFlags::RTV,
     };
 
     for (std::size_t i = 0; i < _images.size(); i++) {
@@ -358,7 +358,7 @@ void VulkanSwapChain::CreateImageViews() {
     }
 }
 
-VulkanShader::VulkanShader(VulkanDevice& device, Shader::Desc desc, core::Buffer _binary_program)
+VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc, core::Buffer _binary_program)
     : Shader(device, desc),
       binary_program(std::move(_binary_program)),
       shader(
@@ -377,7 +377,7 @@ auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
     return binary_program.Span<const std::byte>();
 }
 
-VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipeline::Desc desc)
+VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipelineDesc desc)
     : GraphicsPipeline(device, std::move(desc))
 
 {

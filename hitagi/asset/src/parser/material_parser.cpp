@@ -62,13 +62,13 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
         gfx::GraphicsPipeline::Desc pipeline_desc{
             .vs = {
                 .name        = json.at("pipeline").at("vs"),
-                .type        = gfx::Shader::Type::Vertex,
+                .type        = gfx::ShaderType::Vertex,
                 .entry       = "VSMain",
                 .source_code = std::pmr::string{file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("vs")).Str()},
             },
             .ps = {
                 .name        = json.at("pipeline").at("ps"),
-                .type        = gfx::Shader::Type::Pixel,
+                .type        = gfx::ShaderType::Pixel,
                 .entry       = "PSMain",
                 .source_code = std::pmr::string{file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("ps")).Str()},
             },

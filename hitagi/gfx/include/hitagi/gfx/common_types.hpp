@@ -1,11 +1,38 @@
 #pragma once
 #include <hitagi/math/vector.hpp>
 #include <hitagi/core/buffer.hpp>
+#include <hitagi/utils/flags.hpp>
 
 #include <cstdint>
 #include <vector>
 
 namespace hitagi::gfx {
+
+enum struct GPUBufferUsageFlags : std::uint8_t {
+    MapRead  = 0x1,             // CPU can read data from mapped pointer
+    MapWrite = (MapRead << 1),  // CPU can write data to mapped pointer
+    CopySrc  = (MapWrite << 1),
+    CopyDst  = (CopySrc << 1),
+    Vertex   = (CopyDst << 1),
+    Index    = (Vertex << 1),
+    Constant = (Index << 1),
+};
+
+enum struct TextureUsageFlags : std::uint8_t {
+    CopySrc = 0x1,
+    CopyDst = (CopySrc << 1),
+    SRV     = (CopyDst << 1),
+    UAV     = (SRV << 1),
+    RTV     = (UAV << 1),
+    DSV     = (RTV << 1),
+};
+
+enum struct ShaderType : std::uint8_t {
+    Vertex,
+    Pixel,
+    Geometry,
+    Compute,
+};
 
 enum struct Format : std::uint32_t {
     UNKNOWN                    = 0,
@@ -375,6 +402,17 @@ struct VertexBufferLayout {
 // Improve me with fixed_vector
 using VertexBufferLayouts = std::pmr::vector<VertexBufferLayout>;
 
+enum struct AddressMode : std::uint8_t {
+    Clamp,
+    Repeat,
+    MirrorRepeat
+};
+
+enum struct FilterMode {
+    Point,
+    Linear
+};
+
 struct ViewPort {
     float x, y;  // the top left start point
     float width, height;
@@ -390,3 +428,12 @@ struct Rect {
 };
 
 }  // namespace hitagi::gfx
+
+template <>
+struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::GPUBufferUsageFlags> {
+    static constexpr bool is_flags = true;
+};
+template <>
+struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::TextureUsageFlags> {
+    static constexpr bool is_flags = true;
+};

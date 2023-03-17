@@ -123,15 +123,15 @@ inline auto get_queue_create_info(const vk::raii::PhysicalDevice& device) -> std
     return std::nullopt;
 }
 
-inline constexpr auto get_shader_model_version(Shader::Type type) noexcept {
+inline constexpr auto get_shader_model_version(ShaderType type) noexcept {
     switch (type) {
-        case Shader::Type::Vertex:
+        case ShaderType::Vertex:
             return L"vs_6_7";
-        case Shader::Type::Pixel:
+        case ShaderType::Pixel:
             return L"ps_6_7";
-        case Shader::Type::Geometry:
+        case ShaderType::Geometry:
             return L"gs_6_7";
-        case Shader::Type::Compute:
+        case ShaderType::Compute:
             return L"cs_6_7";
     }
 }

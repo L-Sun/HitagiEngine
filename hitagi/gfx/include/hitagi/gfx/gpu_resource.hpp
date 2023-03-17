@@ -1,7 +1,6 @@
 #pragma once
 #include <hitagi/gfx/common_types.hpp>
 #include <hitagi/gfx/sync.hpp>
-#include <hitagi/utils/flags.hpp>
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/utils/types.hpp>
 #include <hitagi/utils/hash.hpp>
@@ -9,142 +8,93 @@
 #include <functional>
 
 namespace hitagi::gfx {
-class CommandQueue;
 class Device;
 
 constexpr auto UNKOWN_NAME = "Unkown";
+
+template <typename Desc>
 class Resource {
 public:
     Resource(const Resource&) = delete;
     virtual ~Resource()       = default;
 
-    inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
+    inline auto  GetName() const noexcept -> std::string_view { return m_Desc.name; }
     inline auto& GetDevice() const noexcept { return m_Device; }
+    inline auto& GetDesc() const noexcept { return m_Desc; }
 
 protected:
-    Resource(Device& device, std::string_view name = UNKOWN_NAME) : m_Device(device), m_Name(name) {}
+    Resource(Device& device, Desc desc) : m_Device(device), m_Name(desc.name), m_Desc(std::move(desc)) { m_Desc.name = m_Name; }
 
     Device&          m_Device;
     std::pmr::string m_Name;
+    Desc             m_Desc;
 };
 
-class GPUBuffer : public Resource {
+struct GPUBufferDesc {
+    std::string_view    name = UNKOWN_NAME;
+    std::uint64_t       element_size;
+    std::uint64_t       element_count = 1;
+    GPUBufferUsageFlags usages;
+
+    inline constexpr bool operator==(const GPUBufferDesc&) const noexcept;
+};
+
+class GPUBuffer : public Resource<GPUBufferDesc> {
 public:
-    enum struct UsageFlags : std::uint32_t {
-        MapRead  = 0x1,             // CPU can read data from mapped pointer
-        MapWrite = (MapRead << 1),  // CPU can write data to mapped pointer
-        CopySrc  = (MapWrite << 1),
-        CopyDst  = (CopySrc << 1),
-        Vertex   = (CopyDst << 1),
-        Index    = (Vertex << 1),
-        Constant = (Index << 1),
-    };
-
-    struct Desc {
-        std::string_view name = UNKOWN_NAME;
-        std::uint64_t    element_size;
-        std::uint64_t    element_count = 1;
-        UsageFlags       usages;
-
-        inline constexpr bool operator==(const Desc&) const noexcept;
-    };
-
     template <typename T>
     void Update(std::size_t index, T data) {
         UpdateRaw(index, std::span(reinterpret_cast<const std::byte*>(&data), sizeof(T)));
     }
     virtual auto GetMappedPtr() const noexcept -> std::byte* = 0;
 
-    inline const auto& GetDesc() const noexcept { return m_Desc; }
-
 protected:
+    using Resource::Resource;
     void UpdateRaw(std::size_t index, std::span<const std::byte> data);
-
-    GPUBuffer(Device& device, Desc desc);
-    Desc m_Desc;
 };
 
-class Texture : public Resource {
-public:
-    enum struct UsageFlags : std::uint8_t {
-        CopySrc = 0x1,
-        CopyDst = (CopySrc << 1),
-        SRV     = (CopyDst << 1),
-        UAV     = (SRV << 1),
-        RTV     = (UAV << 1),
-        DSV     = (RTV << 1),
-    };
+struct TextureDesc {
+    std::string_view  name         = UNKOWN_NAME;
+    std::uint32_t     width        = 1;
+    std::uint32_t     height       = 1;
+    std::uint16_t     depth        = 1;
+    std::uint16_t     array_size   = 1;
+    Format            format       = Format::UNKNOWN;
+    std::uint16_t     mip_levels   = 1;
+    std::uint32_t     sample_count = 1;
+    bool              is_cube      = false;
+    ClearValue        clear_value;
+    TextureUsageFlags usages = TextureUsageFlags::SRV;
 
-    struct Desc {
-        std::string_view name         = UNKOWN_NAME;
-        std::uint32_t    width        = 1;
-        std::uint32_t    height       = 1;
-        std::uint16_t    depth        = 1;
-        std::uint16_t    array_size   = 1;
-        Format           format       = Format::UNKNOWN;
-        std::uint16_t    mip_levels   = 1;
-        std::uint32_t    sample_count = 1;
-        bool             is_cube      = false;
-        ClearValue       clear_value;
-        UsageFlags       usages = UsageFlags::SRV;
-
-        inline constexpr bool operator==(const Desc&) const noexcept;
-    };
-
-    inline const auto& GetDesc() const noexcept { return m_Desc; }
-
-protected:
-    Texture(Device& device, Desc desc);
-    Desc m_Desc;
+    inline constexpr bool operator==(const TextureDesc&) const noexcept;
 };
+using Texture = Resource<TextureDesc>;
 
-class Sampler : public Resource {
-public:
-    enum struct AddressMode : std::uint8_t {
-        Clamp,
-        Repeat,
-        MirrorRepeat
-    };
-    enum struct FilterMode {
-        Point,
-        Linear
-    };
+struct SamplerDesc {
+    std::string_view name           = UNKOWN_NAME;
+    AddressMode      address_u      = AddressMode::Clamp;
+    AddressMode      address_v      = AddressMode::Clamp;
+    AddressMode      address_w      = AddressMode::Clamp;
+    FilterMode       mag_filter     = FilterMode::Point;
+    FilterMode       min_filter     = FilterMode::Point;
+    FilterMode       mipmap_filter  = FilterMode::Point;
+    float            min_lod        = 0;
+    float            max_load       = 32;
+    std::uint32_t    max_anisotropy = 1;
+    CompareOp        compare;
 
-    struct Desc {
-        std::string_view name           = UNKOWN_NAME;
-        AddressMode      address_u      = AddressMode::Clamp;
-        AddressMode      address_v      = AddressMode::Clamp;
-        AddressMode      address_w      = AddressMode::Clamp;
-        FilterMode       mag_filter     = FilterMode::Point;
-        FilterMode       min_filter     = FilterMode::Point;
-        FilterMode       mipmap_filter  = FilterMode::Point;
-        float            min_lod        = 0;
-        float            max_load       = 32;
-        std::uint32_t    max_anisotropy = 1;
-        CompareOp        compare;
-
-        inline constexpr bool operator==(const Desc&) const noexcept;
-    };
-
-    inline const auto& GetDesc() const noexcept { return m_Desc; }
-
-protected:
-    Sampler(Device& device, Desc desc);
-    Desc m_Desc;
+    inline constexpr bool operator==(const SamplerDesc&) const noexcept;
 };
+using Sampler = Resource<SamplerDesc>;
 
-class SwapChain : public Resource {
+struct SwapChainDesc {
+    std::string_view name = UNKOWN_NAME;
+    utils::Window    window;
+    Format           format       = Format::B8G8R8A8_UNORM;
+    std::uint32_t    sample_count = 1;
+    bool             vsync        = false;
+};
+class SwapChain : public Resource<SwapChainDesc> {
 public:
-    struct Desc {
-        std::string_view name = UNKOWN_NAME;
-        utils::Window    window;
-        Format           format       = Format::B8G8R8A8_UNORM;
-        std::uint32_t    sample_count = 1;
-        bool             vsync        = false;
-    };
-
-    inline const auto& GetDesc() const noexcept { return m_Desc; }
-
     virtual auto GetCurrentBackBuffer() -> Texture&                                = 0;
     virtual auto GetBuffers() -> std::pmr::vector<std::reference_wrapper<Texture>> = 0;
     virtual auto Width() -> std::uint32_t                                          = 0;
@@ -153,78 +103,53 @@ public:
     virtual void Resize()                                                          = 0;
 
 protected:
-    SwapChain(Device& device, Desc desc);
-
-    Desc m_Desc;
+    using Resource::Resource;
 };
 
-class Shader : public Resource {
+struct ShaderDesc {
+    std::string_view name;
+    ShaderType       type;
+    std::string_view entry;
+    std::string_view source_code;
+};
+
+class Shader : public Resource<ShaderDesc> {
 public:
-    enum struct Type : std::uint8_t {
-        Vertex,
-        Pixel,
-        Geometry,
-        Compute,
-    };
-    struct Desc {
-        std::string_view name;
-        Type             type;
-        std::string_view entry;
-        std::string_view source_code;
-    };
-
-    inline const auto& GetDesc() const noexcept { return m_Desc; }
-
     virtual auto GetDXILData() const noexcept -> std::span<const std::byte>;
     virtual auto GetSPIRVData() const noexcept -> std::span<const std::byte>;
 
 protected:
-    Shader(Device& device, Desc desc);
-
-    Desc m_Desc;
+    using Resource::Resource;
 };
 
-class GraphicsPipeline : public Resource {
-public:
-    struct Desc {
-        std::string_view name = UNKOWN_NAME;
-        // Shader config
-        std::shared_ptr<Shader> vs;  // vertex shader
-        std::shared_ptr<Shader> ps;  // pixel shader
-        std::shared_ptr<Shader> gs;  // geometry shader
-        AssemblyState           assembly_state = {};
-        VertexBufferLayouts     vertex_input_layout;
-        RasterizationState      rasterization_state;
-        DepthStencilState       depth_stencil_state;
-        BlendState              blend_state;
-        Format                  render_format        = Format::R8G8B8A8_UNORM;
-        Format                  depth_stencil_format = Format::UNKNOWN;
-    };
-
-    inline const auto& GetDesc() const noexcept { return m_Desc; }
-
-protected:
-    GraphicsPipeline(Device& device, Desc desc);
-
-    Desc m_Desc;
+struct RootSignatureDesc {
+    std::string_view name;
 };
+using RootSignature = Resource<RootSignatureDesc>;
 
-class ComputePipeline : public Resource {
-public:
-    struct Desc {
-        std::string_view        name = UNKOWN_NAME;
-        std::shared_ptr<Shader> cs;  // computer shader
-    };
-
-    inline const auto& GetDesc() const noexcept { return m_Desc; }
-
-protected:
-    ComputePipeline(Device& device, Desc desc);
-
-    Desc m_Desc;
+struct GraphicsPipelineDesc {
+    std::string_view name = UNKOWN_NAME;
+    // Shader config
+    std::shared_ptr<Shader> vs;  // vertex shader
+    std::shared_ptr<Shader> ps;  // pixel shader
+    std::shared_ptr<Shader> gs;  // geometry shader
+    AssemblyState           assembly_state = {};
+    VertexBufferLayouts     vertex_input_layout;
+    RasterizationState      rasterization_state;
+    DepthStencilState       depth_stencil_state;
+    BlendState              blend_state;
+    Format                  render_format        = Format::R8G8B8A8_UNORM;
+    Format                  depth_stencil_format = Format::UNKNOWN;
 };
+using GraphicsPipeline = Resource<GraphicsPipelineDesc>;
 
-inline constexpr bool GPUBuffer::Desc::operator==(const Desc& rhs) const noexcept {
+struct ComputePipelineDesc {
+    std::string_view        name = UNKOWN_NAME;
+    std::shared_ptr<Shader> cs;  // computer shader
+};
+using ComputePipeline = Resource<ComputePipelineDesc>;
+
+inline constexpr bool GPUBufferDesc::operator==(const GPUBufferDesc& rhs) const noexcept {
     // clang-format off
     return 
         name          == rhs.name          &&
@@ -234,7 +159,7 @@ inline constexpr bool GPUBuffer::Desc::operator==(const Desc& rhs) const noexcep
     // clang-format on
 }
 
-inline constexpr bool Texture::Desc::operator==(const Desc& rhs) const noexcept {
+inline constexpr bool TextureDesc::operator==(const TextureDesc& rhs) const noexcept {
     // clang-format off
     return 
         name                == rhs.name                &&
@@ -253,7 +178,7 @@ inline constexpr bool Texture::Desc::operator==(const Desc& rhs) const noexcept 
     // clang-format on
 }
 
-inline constexpr bool Sampler::Desc::operator==(const Desc& rhs) const noexcept {
+inline constexpr bool SamplerDesc::operator==(const SamplerDesc& rhs) const noexcept {
     // clang-format off
     return
         name           == rhs.name           &&           
@@ -272,19 +197,10 @@ inline constexpr bool Sampler::Desc::operator==(const Desc& rhs) const noexcept 
 
 }  // namespace hitagi::gfx
 
-template <>
-struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::GPUBuffer::UsageFlags> {
-    static constexpr bool is_flags = true;
-};
-template <>
-struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::Texture::UsageFlags> {
-    static constexpr bool is_flags = true;
-};
-
 namespace std {
 template <>
-struct hash<hitagi::gfx::GPUBuffer::Desc> {
-    constexpr std::size_t operator()(const hitagi::gfx::GPUBuffer::Desc& desc) const noexcept {
+struct hash<hitagi::gfx::GPUBufferDesc> {
+    constexpr std::size_t operator()(const hitagi::gfx::GPUBufferDesc& desc) const noexcept {
         return hitagi::utils::combine_hash(std::array{
             hitagi::utils::hash(desc.name),
             hitagi::utils::hash(desc.element_size),
@@ -295,8 +211,8 @@ struct hash<hitagi::gfx::GPUBuffer::Desc> {
 };
 
 template <>
-struct hash<hitagi::gfx::Texture::Desc> {
-    constexpr std::size_t operator()(const hitagi::gfx::Texture::Desc& desc) const noexcept {
+struct hash<hitagi::gfx::TextureDesc> {
+    constexpr std::size_t operator()(const hitagi::gfx::TextureDesc& desc) const noexcept {
         return hitagi::utils::combine_hash(std::array{
             hitagi::utils::hash(desc.name),
             hitagi::utils::hash(desc.width),
@@ -313,8 +229,8 @@ struct hash<hitagi::gfx::Texture::Desc> {
 };
 
 template <>
-struct hash<hitagi::gfx::Sampler::Desc> {
-    constexpr std::size_t operator()(const hitagi::gfx::Sampler::Desc& desc) const noexcept {
+struct hash<hitagi::gfx::SamplerDesc> {
+    constexpr std::size_t operator()(const hitagi::gfx::SamplerDesc& desc) const noexcept {
         return hitagi::utils::combine_hash(std::array{
             hitagi::utils::hash(desc.name),
             hitagi::utils::hash(desc.address_u),

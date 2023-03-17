@@ -7,9 +7,6 @@
 
 namespace hitagi::gfx {
 
-GPUBuffer::GPUBuffer(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(desc) {
-    m_Desc.name = m_Name;
-}
 
 void GPUBuffer::UpdateRaw(std::size_t index, std::span<const std::byte> data) {
     auto mapped_ptr = GetMappedPtr();
@@ -31,21 +28,7 @@ void GPUBuffer::UpdateRaw(std::size_t index, std::span<const std::byte> data) {
     std::memcpy(mapped_ptr + index * m_Desc.element_size, data.data(), data.size_bytes());
 }
 
-Texture::Texture(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(desc) {
-    m_Desc.name = m_Name;
-}
 
-Sampler::Sampler(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(desc) {
-    m_Desc.name = m_Name;
-}
-
-SwapChain::SwapChain(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(desc) {
-    m_Desc.name = m_Name;
-}
-
-Shader::Shader(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(desc) {
-    m_Desc.name = m_Name;
-}
 
 auto Shader::GetDXILData() const noexcept -> std::span<const std::byte> {
     return {};
@@ -55,12 +38,6 @@ auto Shader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
     return {};
 }
 
-GraphicsPipeline::GraphicsPipeline(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(std::move(desc)) {
-    m_Desc.name = m_Name;
-}
 
-ComputePipeline::ComputePipeline(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(std::move(desc)) {
-    m_Desc.name = m_Name;
-}
 
 }  // namespace hitagi::gfx

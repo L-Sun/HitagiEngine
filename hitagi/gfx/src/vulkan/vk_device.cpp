@@ -183,23 +183,23 @@ auto VulkanDevice::CreateCopyContext(std::string_view name) -> std::shared_ptr<C
     return std::make_shared<VulkanTransferCommandBuffer>(*this, name);
 }
 
-auto VulkanDevice::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> {
+auto VulkanDevice::CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> {
     return std::make_shared<VulkanSwapChain>(*this, desc);
 }
 
-auto VulkanDevice::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GPUBuffer> {
+auto VulkanDevice::CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GPUBuffer> {
     return std::make_shared<VulkanBuffer>(*this, desc, initial_data);
 }
 
-auto VulkanDevice::CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
+auto VulkanDevice::CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
     return nullptr;
 }
 
-auto VulkanDevice::CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> {
+auto VulkanDevice::CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
     return nullptr;
 }
 
-auto VulkanDevice::CreateShader(Shader::Desc desc, std::span<const std::byte> binary_program) -> std::shared_ptr<Shader> {
+auto VulkanDevice::CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program) -> std::shared_ptr<Shader> {
     if (!binary_program.empty()) {
         return std::make_shared<VulkanShader>(*this, desc, core::Buffer(binary_program));
     }
@@ -292,7 +292,11 @@ auto VulkanDevice::CreateShader(Shader::Desc desc, std::span<const std::byte> bi
             reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())});
 }
 
-auto VulkanDevice::CreateRenderPipeline(GraphicsPipeline::Desc desc) -> std::shared_ptr<GraphicsPipeline> {
+auto VulkanDevice::CreateRootSignature(RootSignatureDesc desc) -> std::shared_ptr<RootSignature> {
+    return nullptr;
+}
+
+auto VulkanDevice::CreateRenderPipeline(GraphicsPipelineDesc desc) -> std::shared_ptr<GraphicsPipeline> {
     return std::make_shared<VulkanGraphicsPipeline>(*this, std::move(desc));
 }
 

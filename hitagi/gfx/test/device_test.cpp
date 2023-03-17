@@ -115,7 +115,7 @@ TEST_P(SemaphoreTest, Wait) {
     EXPECT_EQ(semaphore->GetCurrentValue(), 1) << "The value of the semaphore should be 1 after wait";
 };
 
-class GPUBufferTest : public TestWithParam<std::tuple<Device::Type, GPUBuffer::UsageFlags>> {
+class GPUBufferTest : public TestWithParam<std::tuple<Device::Type, GPUBufferUsageFlags>> {
 protected:
     GPUBufferTest()
         : test_name(::testing::UnitTest::GetInstance()->current_test_info()->name()),
@@ -124,7 +124,7 @@ protected:
 
     std::pmr::string        test_name;
     std::unique_ptr<Device> device;
-    GPUBuffer::UsageFlags   usages;
+    GPUBufferUsageFlags     usages;
 };
 INSTANTIATE_TEST_SUITE_P(
     GPUBufferTest,
@@ -132,12 +132,12 @@ INSTANTIATE_TEST_SUITE_P(
     Combine(
         ValuesIn(supported_device_types),
         Values(
-            GPUBuffer::UsageFlags::Vertex | GPUBuffer::UsageFlags::CopyDst,
-            GPUBuffer::UsageFlags::Index | GPUBuffer::UsageFlags::CopyDst | GPUBuffer::UsageFlags::MapRead,
-            GPUBuffer::UsageFlags::Constant | GPUBuffer::UsageFlags::MapWrite | GPUBuffer::UsageFlags::CopySrc,
-            GPUBuffer::UsageFlags::MapWrite | GPUBuffer::UsageFlags::CopySrc,
-            GPUBuffer::UsageFlags::MapRead | GPUBuffer::UsageFlags::CopyDst)),
-    [](const TestParamInfo<std::tuple<Device::Type, GPUBuffer::UsageFlags>>& info) -> std::string {
+            GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
+            GPUBufferUsageFlags::Index | GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
+            GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
+            GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
+            GPUBufferUsageFlags::MapRead | GPUBufferUsageFlags::CopyDst)),
+    [](const TestParamInfo<std::tuple<Device::Type, GPUBufferUsageFlags>>& info) -> std::string {
         return fmt::format(
             "{}_{}",
             magic_enum::enum_name(std::get<0>(info.param)),
@@ -158,12 +158,12 @@ TEST_P(GPUBufferTest, Create) {
     ASSERT_TRUE(gpu_buffer != nullptr);
     EXPECT_EQ(gpu_buffer->GetDesc().element_size, initial_data.size()) << "The size of the buffer must be the same as described";
 
-    if (has_flag(usages, GPUBuffer::UsageFlags::MapRead)) {
+    if (has_flag(usages, GPUBufferUsageFlags::MapRead)) {
         ASSERT_TRUE(gpu_buffer->GetMappedPtr() != nullptr) << "A mapped buffer must contain a mapped pointer";
         EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->GetMappedPtr()), gpu_buffer->GetDesc().element_size).c_str())
             << "The content of the buffer must be the same as initial data";
     }
-    if (has_flag(usages, GPUBuffer::UsageFlags::MapWrite)) {
+    if (has_flag(usages, GPUBufferUsageFlags::MapWrite)) {
         ASSERT_TRUE(gpu_buffer->GetMappedPtr() != nullptr) << "A mapped buffer must contain a mapped pointer";
         std::string_view new_data = "hello";
         std::memcpy(gpu_buffer->GetMappedPtr(), new_data.data(), new_data.size());
@@ -221,13 +221,13 @@ TEST_P(CommandTest, CopyBuffer) {
         {
             .name         = fmt::format("{}_src", test_name),
             .element_size = initial_data.size(),
-            .usages       = GPUBuffer::UsageFlags::MapWrite | GPUBuffer::UsageFlags::CopySrc,
+            .usages       = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
         });
     auto dst_buffer = device->CreateGPUBuffer(
         {
             .name         = fmt::format("{}_dst", test_name),
             .element_size = initial_data.size(),
-            .usages       = GPUBuffer::UsageFlags::MapRead | GPUBuffer::UsageFlags::CopyDst,
+            .usages       = GPUBufferUsageFlags::MapRead | GPUBufferUsageFlags::CopyDst,
         });
     ASSERT_TRUE(src_buffer != nullptr);
     ASSERT_TRUE(dst_buffer != nullptr);
@@ -323,9 +323,9 @@ TEST_P(DeviceTest, CreateSampler) {
 
         {
             .name      = UnitTest::GetInstance()->current_test_info()->name(),
-            .address_u = Sampler::AddressMode::Repeat,
-            .address_v = Sampler::AddressMode::Repeat,
-            .address_w = Sampler::AddressMode::Repeat,
+            .address_u = AddressMode::Repeat,
+            .address_v = AddressMode::Repeat,
+            .address_w = AddressMode::Repeat,
             .compare   = CompareOp::Always,
         });
 
@@ -355,7 +355,7 @@ TEST_P(DeviceTest, CompileShader) {
     {
         auto vs_shader = device->CreateShader({
             .name        = "vertex_test_shader",
-            .type        = Shader::Type::Vertex,
+            .type        = ShaderType::Vertex,
             .entry       = "VSMain",
             .source_code = shader_code,
         });
@@ -373,7 +373,7 @@ TEST_P(DeviceTest, CompileShader) {
     {
         auto ps_shader = device->CreateShader({
             .name        = "pixel_test_shader",
-            .type        = Shader::Type::Pixel,
+            .type        = ShaderType::Pixel,
             .entry       = "PSMain",
             .source_code = shader_code,
         });
@@ -413,7 +413,7 @@ TEST_P(DeviceTest, CreatePipeline) {
 
         auto vs_shader = device->CreateShader({
             .name        = test_name,
-            .type        = Shader::Type::Vertex,
+            .type        = ShaderType::Vertex,
             .entry       = "VSMain",
             .source_code = vs_code,
         });
@@ -467,7 +467,7 @@ TEST_P(DeviceTest, CommandContextTest) {
 
         auto vs_shader = device->CreateShader({
             .name        = test_name,
-            .type        = Shader::Type::Vertex,
+            .type        = ShaderType::Vertex,
             .entry       = "VSMain",
             .source_code = vs_code,
         });
@@ -490,7 +490,7 @@ TEST_P(DeviceTest, CommandContextTest) {
             {
                 .name         = UnitTest::GetInstance()->current_test_info()->name(),
                 .element_size = sizeof(vec4f),
-                .usages       = GPUBuffer::UsageFlags::MapWrite | GPUBuffer::UsageFlags::CopySrc | GPUBuffer::UsageFlags::Constant,
+                .usages       = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::Constant,
             });
         ASSERT_TRUE(constant_buffer);
         constant_buffer->Update(0, vec4f(1, 2, 3, 4));
@@ -524,14 +524,14 @@ TEST_P(DeviceTest, CommandContextTest) {
             {
                 .name         = fmt::format("Upload-{}", test_name),
                 .element_size = initial_data.size(),
-                .usages       = GPUBuffer::UsageFlags::CopySrc | GPUBuffer::UsageFlags::MapWrite,
+                .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
             },
             {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
         auto readback_buffer = device->CreateGPUBuffer(
             {
                 .name         = fmt::format("Upload-{}", UnitTest::GetInstance()->current_test_info()->name()),
                 .element_size = initial_data.size(),
-                .usages       = GPUBuffer::UsageFlags::CopyDst | GPUBuffer::UsageFlags::MapRead,
+                .usages       = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
             });
 
         copy_context->CopyBuffer(*upload_buffer, 0, *readback_buffer, 0, initial_data.size());
@@ -587,7 +587,7 @@ TEST_P(SwapChainTest, GetBackBuffer) {
         EXPECT_EQ(back_buffer.GetDesc().width, rect.right - rect.left) << "Each back buffer should have the same size as the swap chain after resizing";
         EXPECT_EQ(back_buffer.GetDesc().height, rect.bottom - rect.top) << "Each back buffer should have the same size as the swap chain after resizing";
         EXPECT_EQ(back_buffer.GetDesc().format, swap_chain->GetDesc().format) << "Each back buffer should have the same format as the swap chain";
-        EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.GetDesc().usages, Texture::UsageFlags::RTV)) << "Back buffer should have RTV usage";
+        EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.GetDesc().usages, TextureUsageFlags::RTV)) << "Back buffer should have RTV usage";
     }
 }
 
@@ -656,19 +656,20 @@ TEST_P(DeviceTest, DrawTriangle) {
         )""";
 
         auto pipeline = device->CreateRenderPipeline({
-            .name                = "I know DirectX12 pipeline",
-            .vs                  = device->CreateShader({
-                                 .name        = fmt::format("VS-{}", test_name),
-                                 .type        = Shader::Type::Vertex,
-                                 .entry       = "VSMain",
-                                 .source_code = shader_code,
+            .name = "I know DirectX12 pipeline",
+            .vs   = device->CreateShader({
+                  .name        = fmt::format("VS-{}", test_name),
+                  .type        = ShaderType::Vertex,
+                  .entry       = "VSMain",
+                  .source_code = shader_code,
             }),
-            .ps                  = device->CreateShader({
-                                 .name        = fmt::format("PS-{}", test_name),
-                                 .type        = Shader::Type::Pixel,
-                                 .entry       = "PSMain",
-                                 .source_code = shader_code,
+            .ps   = device->CreateShader({
+                  .name        = fmt::format("PS-{}", test_name),
+                  .type        = ShaderType::Pixel,
+                  .entry       = "PSMain",
+                  .source_code = shader_code,
             }),
+
             .vertex_input_layout = {
                 {
                     .stride     = 2 * sizeof(vec3f),
@@ -696,7 +697,7 @@ TEST_P(DeviceTest, DrawTriangle) {
                 .name          = "I know DirectX12 positions buffer",
                 .element_size  = 2 * sizeof(vec3f),
                 .element_count = 3,
-                .usages        = GPUBuffer::UsageFlags::Vertex,
+                .usages        = GPUBufferUsageFlags::Vertex,
             },
             {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
@@ -726,7 +727,6 @@ TEST_P(DeviceTest, DrawTriangle) {
         context->PushConstant(0, rotate_z(deg2rad(90.0f)));
 
         context->Draw(3);
-        context->Present(swap_chain->GetCurrentBackBuffer());
         context->End();
 
         gfx_queue.Submit({context.get()});

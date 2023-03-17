@@ -8,7 +8,7 @@ namespace hitagi::gfx {
 class VulkanDevice;
 
 struct VulkanBuffer final : public GPUBuffer {
-    VulkanBuffer(VulkanDevice& device, GPUBuffer::Desc desc, std::span<const std::byte> initial_data);
+    VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data);
     ~VulkanBuffer() final;
 
     auto GetMappedPtr() const noexcept -> std::byte* final;
@@ -19,13 +19,13 @@ struct VulkanBuffer final : public GPUBuffer {
 };
 
 struct VulkanImage : public Texture {
-    VulkanImage(VulkanDevice& device, Texture::Desc desc);
+    VulkanImage(VulkanDevice& device, TextureDesc desc);
     std::optional<vk::raii::Image>     image;
     std::optional<vk::raii::ImageView> image_view;
 };
 
 struct VulkanSwapChain final : public SwapChain {
-    VulkanSwapChain(VulkanDevice& device, SwapChain::Desc desc);
+    VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc);
     ~VulkanSwapChain() final = default;
 
     auto GetCurrentBackBuffer() -> Texture& final;
@@ -47,7 +47,7 @@ private:
 };
 
 struct VulkanShader : public Shader {
-    VulkanShader(VulkanDevice& device, Shader::Desc desc, core::Buffer binary_program);
+    VulkanShader(VulkanDevice& device, ShaderDesc desc, core::Buffer binary_program);
 
     auto GetSPIRVData() const noexcept -> std::span<const std::byte> final;
 
@@ -56,7 +56,7 @@ struct VulkanShader : public Shader {
 };
 
 struct VulkanGraphicsPipeline : public GraphicsPipeline {
-    VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipeline::Desc desc);
+    VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipelineDesc desc);
 
     std::unique_ptr<vk::raii::PipelineLayout> pipeline_layout;
     std::unique_ptr<vk::raii::Pipeline>       pipeline;

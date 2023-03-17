@@ -117,7 +117,7 @@ void VertexArray::InitGPUData(gfx::Device& device) {
                 .name          = fmt::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type)),
                 .element_size  = get_vertex_attribute_size(attribute.type),
                 .element_count = m_VertexCount,
-                .usages        = gfx::GPUBuffer::UsageFlags::Vertex,
+                .usages        = gfx::GPUBufferUsageFlags::Vertex,
             },
             attribute.cpu_buffer.Span<const std::byte>());
         attribute.dirty = false;
@@ -161,7 +161,7 @@ void IndexArray::InitGPUData(gfx::Device& device) {
             .name          = m_Name,
             .element_size  = get_index_type_size(m_Data.type),
             .element_count = m_IndexCount,
-            .usages        = gfx::GPUBuffer::UsageFlags::Index,
+            .usages        = gfx::GPUBufferUsageFlags::Index,
         },
         m_Data.cpu_buffer.Span<const std::byte>());
     m_Data.dirty = false;

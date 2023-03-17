@@ -46,13 +46,13 @@ GuiRenderUtils::GuiRenderUtils(gui::GuiManager& gui_manager, gfx::Device& gfx_de
         .name = "imgui",
         .vs   = {
               .name        = "imgui-vs",
-              .type        = gfx::Shader::Type::Vertex,
+              .type        = gfx::ShaderType::Vertex,
               .entry       = "VSMain",
               .source_code = std::pmr::string(imgui_shader),
         },
         .ps = {
             .name        = "imgui-ps",
-            .type        = gfx::Shader::Type::Pixel,
+            .type        = gfx::ShaderType::Pixel,
             .entry       = "PSMain",
             .source_code = std::pmr::string(imgui_shader),
         },
@@ -129,7 +129,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
             .name          = "imgui-vertices",
             .element_size  = sizeof(ImDrawVert),
             .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalVtxCount)),
-            .usages        = gfx::GPUBuffer::UsageFlags::Vertex | gfx::GPUBuffer::UsageFlags::CopyDst,
+            .usages        = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::CopyDst,
         });
     }
 
@@ -138,7 +138,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
             .name          = "imgui-indices",
             .element_size  = sizeof(ImDrawIdx),
             .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalIdxCount)),
-            .usages        = gfx::GPUBuffer::UsageFlags::Index | gfx::GPUBuffer::UsageFlags::CopyDst,
+            .usages        = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::CopyDst,
         });
     }
 
@@ -147,7 +147,7 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
         m_GfxData.upload_heap = render_graph.device.CreateGPUBuffer({
             .name         = "imgui-upload-heap",
             .element_size = std::max(1ul, total_upload_size),
-            .usages       = gfx::GPUBuffer::UsageFlags::MapWrite | gfx::GPUBuffer::UsageFlags::CopySrc,
+            .usages       = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::CopySrc,
         });
     }
 

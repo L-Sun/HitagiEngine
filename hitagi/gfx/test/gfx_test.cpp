@@ -13,7 +13,7 @@ TEST(GfxTest, DescHashTest) {
                 .name          = "buffer_desc_1",
                 .element_size  = 16,
                 .element_count = 32,
-                .usages        = GPUBuffer::UsageFlags::Vertex,
+                .usages        = GPUBufferUsageFlags::Vertex,
             };
 
         buffer_desc_2.name = "buffer_desc_2";
@@ -41,7 +41,7 @@ TEST(GfxTest, DescHashTest) {
                 .clear_value  = {
                      .color = math::vec4f{1, 0, 0, 1},
                 },
-                .usages = Texture::UsageFlags::RTV,
+                .usages = TextureUsageFlags::RTV,
             };
         EXPECT_NE(tex_desc_1, tex_desc_2);
         EXPECT_NE(utils::hash(tex_desc_1), utils::hash(tex_desc_2));

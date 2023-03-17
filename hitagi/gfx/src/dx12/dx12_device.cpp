@@ -175,7 +175,7 @@ void DX12Device::UnregisterIntegratedD3D12Logger() {
 }
 
 auto DX12Device::CreateInputLayout(Shader& vs) -> InputLayout {
-    assert(vs.type == Shader::Type::Vertex);
+    assert(vs.type == ShaderType::Vertex);
 
     if (vs.binary_data.Empty()) {
         CompileShader(vs);
@@ -305,11 +305,11 @@ auto DX12Device::CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapCh
 
 auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GPUBuffer> {
     ZoneScoped;
-    if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapRead) &&
-        utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapWrite)) {
-        m_Logger->error("The GPUBuffer::UsageFlags can not be {} and {} at same time! Name: {}, the actual flags is {}",
-                        fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::MapRead), fmt::fg(fmt::color::green)),
-                        fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::MapWrite), fmt::fg(fmt::color::green)),
+    if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead) &&
+        utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
+        m_Logger->error("The GPUBufferUsageFlags can not be {} and {} at same time! Name: {}, the actual flags is {}",
+                        fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::MapRead), fmt::fg(fmt::color::green)),
+                        fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::MapWrite), fmt::fg(fmt::color::green)),
                         fmt::styled(desc.name, fmt::fg(fmt::color::red)),
                         fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
         return nullptr;
@@ -318,11 +318,11 @@ auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte
     D3D12MA::ALLOCATION_DESC allocation_desc = {};
     D3D12_RESOURCE_STATES    initial_state   = D3D12_RESOURCE_STATE_COMMON;
 
-    if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapRead)) {
-        if (desc.usages != (GPUBuffer::UsageFlags::MapRead | GPUBuffer::UsageFlags::CopyDst)) {
+    if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead)) {
+        if (desc.usages != (GPUBufferUsageFlags::MapRead | GPUBufferUsageFlags::CopyDst)) {
             m_Logger->error("The GPUBuffer usage flag {} can only be combined with {}. Name: {}, the actual flags: {}",
-                            fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::MapRead), fmt::fg(fmt::color::green)),
-                            fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::CopyDst), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::MapRead), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
                             fmt::styled(desc.name, fmt::fg(fmt::color::red)),
                             fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
             return nullptr;
@@ -330,11 +330,11 @@ auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte
         allocation_desc.HeapType = D3D12_HEAP_TYPE_READBACK;
         initial_state |= D3D12_RESOURCE_STATE_COPY_DEST;
 
-    } else if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapWrite)) {
-        if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::CopyDst)) {
+    } else if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopyDst)) {
             m_Logger->error("The GPUBuffer usage flag {} can not be combined with {}. Name: {}, the actual flags: {}",
-                            fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::MapWrite), fmt::fg(fmt::color::green)),
-                            fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::CopySrc), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::MapWrite), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::CopySrc), fmt::fg(fmt::color::green)),
                             fmt::styled(desc.name, fmt::fg(fmt::color::red)),
                             fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
             return nullptr;
@@ -347,7 +347,7 @@ auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte
     }
 
     auto resource_desc = CD3DX12_RESOURCE_DESC::Buffer(
-        desc.element_count * (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::Constant) ? utils::align(desc.element_size, 256) : desc.element_size),
+        desc.element_count * (utils::has_flag(desc.usages, GPUBufferUsageFlags::Constant) ? utils::align(desc.element_size, 256) : desc.element_size),
         D3D12_RESOURCE_FLAG_NONE);
 
     ComPtr<D3D12MA::Allocation> allocation;
@@ -365,8 +365,8 @@ auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte
     resource->SetName(std::pmr::wstring(desc.name.begin(), desc.name.end()).data());
 
     std::byte* mapped_ptr = nullptr;
-    if (utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapRead) ||
-        utils::has_flag(desc.usages, GPUBuffer::UsageFlags::MapWrite)) {
+    if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead) ||
+        utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
         if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
             m_Logger->warn("Failed to map gpu buffer: {}", desc.name);
             return nullptr;
@@ -379,7 +379,7 @@ auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte
     result->state      = initial_state;
 
     result->update_fn = [p = result.get()](std::size_t index, std::span<const std::byte> data) {
-        if (utils::has_flag(p->desc.usages, GPUBuffer::UsageFlags::Constant)) {
+        if (utils::has_flag(p->desc.usages, GPUBufferUsageFlags::Constant)) {
             std::memcpy(p->mapped_ptr + index * utils::align(p->desc.element_size, 256), data.data(), data.size());
         } else {
             std::memcpy(p->mapped_ptr + index * p->desc.element_size, data.data(), data.size());
@@ -388,18 +388,18 @@ auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte
 
     auto buffer_location = resource->GetGPUVirtualAddress();
 
-    if (utils::has_flag(result->desc.usages, GPUBuffer::UsageFlags::Vertex)) {
+    if (utils::has_flag(result->desc.usages, GPUBufferUsageFlags::Vertex)) {
         result->vbv = D3D12_VERTEX_BUFFER_VIEW{
             .BufferLocation = buffer_location,
             .SizeInBytes    = static_cast<UINT>(result->size),
             .StrideInBytes  = static_cast<UINT>(result->desc.element_size),
         };
     }
-    if (utils::has_flag(result->desc.usages, GPUBuffer::UsageFlags::Index)) {
+    if (utils::has_flag(result->desc.usages, GPUBufferUsageFlags::Index)) {
         if (result->desc.element_size != sizeof(std::uint16_t) && result->desc.element_size != sizeof(std::uint32_t)) {
             m_Logger->error("the element_size of GPUBuffer({}) for {} must be 16 bits or 32 bits, but get {} bits",
                             fmt::styled(result->desc.name, fmt::fg(fmt::color::green)),
-                            fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::Index), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::Index), fmt::fg(fmt::color::green)),
                             fmt::styled(8 * result->desc.element_size, fmt::fg(fmt::color::red)));
             return nullptr;
         }
@@ -409,13 +409,13 @@ auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte
             .Format         = result->desc.element_size == sizeof(std::uint16_t) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT,
         };
     }
-    if (utils::has_flag(result->desc.usages, GPUBuffer::UsageFlags::Constant)) {
-        if (utils::has_flag(result->desc.usages, GPUBuffer::UsageFlags::Vertex) ||
-            utils::has_flag(result->desc.usages, GPUBuffer::UsageFlags::Index)) {
+    if (utils::has_flag(result->desc.usages, GPUBufferUsageFlags::Constant)) {
+        if (utils::has_flag(result->desc.usages, GPUBufferUsageFlags::Vertex) ||
+            utils::has_flag(result->desc.usages, GPUBufferUsageFlags::Index)) {
             m_Logger->error("Can not create constant buffer({}) with the flag {} or {}, the actual flags are {}",
                             fmt::styled(result->desc.name, fmt::fg(fmt::color::green)),
-                            fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::Vertex), fmt::fg(fmt::color::green)),
-                            fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::Index), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::Vertex), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::Index), fmt::fg(fmt::color::green)),
                             fmt::styled(magic_enum::enum_flags_name(result->desc.usages), fmt::fg(fmt::color::red)));
             return nullptr;
         }
@@ -441,18 +441,18 @@ auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte
                            fmt::styled(result->desc.element_size * result->desc.element_count, fmt::fg(fmt::color::green)),
                            fmt::styled(desc.name, fmt::fg(fmt::color::green)));
         }
-        if (utils::has_flag(result->desc.usages, GPUBuffer::UsageFlags::Constant)) {
+        if (utils::has_flag(result->desc.usages, GPUBufferUsageFlags::Constant)) {
             m_Logger->warn("Initialize a constant buffer when create it may occur unexpect result, since each element of D3D12 ConstantBuffer aligned to 256 bytes");
         }
 
-        if (result->mapped_ptr && utils::has_flag(result->desc.usages, GPUBuffer::UsageFlags::MapWrite)) {
+        if (result->mapped_ptr && utils::has_flag(result->desc.usages, GPUBufferUsageFlags::MapWrite)) {
             std::memcpy(result->mapped_ptr, initial_data.data(), std::min(initial_data.size(), result->desc.element_size * result->desc.element_count));
-        } else if (utils::has_flag(result->desc.usages, GPUBuffer::UsageFlags::CopyDst)) {
+        } else if (utils::has_flag(result->desc.usages, GPUBufferUsageFlags::CopyDst)) {
             auto upload_buffer = CreateGPUBuffer(
                 {
                     .name         = "UploadBuffer",
                     .element_size = std::min(initial_data.size(), result->desc.element_size * result->desc.element_count),
-                    .usages       = GPUBuffer::UsageFlags::MapWrite | GPUBuffer::UsageFlags::CopySrc,
+                    .usages       = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
                 },
                 {initial_data.data(), std::min(initial_data.size(), result->desc.element_size * result->desc.element_count)});
 
@@ -466,7 +466,7 @@ auto DX12Device::CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte
         } else {
             m_Logger->error("Can not initialize gpu buffer({}) using upload heap without the flag {}, the actual flags are {}",
                             fmt::styled(result->desc.name, fmt::fg(fmt::color::green)),
-                            fmt::styled(magic_enum::enum_name(GPUBuffer::UsageFlags::CopyDst), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
                             fmt::styled(magic_enum::enum_flags_name(result->desc.usages), fmt::fg(fmt::color::red)));
             return nullptr;
         }
@@ -489,20 +489,20 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
     }
 
     D3D12_RESOURCE_FLAGS resource_flag = D3D12_RESOURCE_FLAG_NONE;
-    if (utils::has_flag(desc.usages, Texture::UsageFlags::UAV)) {
+    if (utils::has_flag(desc.usages, TextureUsageFlags::UAV)) {
         resource_flag |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
-    if (utils::has_flag(desc.usages, Texture::UsageFlags::RTV)) {
+    if (utils::has_flag(desc.usages, TextureUsageFlags::RTV)) {
         resource_flag |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     }
-    if (utils::has_flag(desc.usages, Texture::UsageFlags::DSV)) {
-        if (utils::has_flag(desc.usages, Texture::UsageFlags::RTV) ||
-            utils::has_flag(desc.usages, Texture::UsageFlags::UAV)) {
-            m_Logger->error("Texture::UsageFlags can not set {} with {} and {}. Name: {}, the actual usage is {}",
+    if (utils::has_flag(desc.usages, TextureUsageFlags::DSV)) {
+        if (utils::has_flag(desc.usages, TextureUsageFlags::RTV) ||
+            utils::has_flag(desc.usages, TextureUsageFlags::UAV)) {
+            m_Logger->error("TextureUsageFlags can not set {} with {} and {}. Name: {}, the actual usage is {}",
                             fmt::styled(desc.name, fmt::fg(fmt::color::red)),
-                            fmt::styled(magic_enum::enum_name(Texture::UsageFlags::DSV), fmt::fg(fmt::color::green)),
-                            fmt::styled(magic_enum::enum_name(Texture::UsageFlags::RTV), fmt::fg(fmt::color::green)),
-                            fmt::styled(magic_enum::enum_name(Texture::UsageFlags::UAV), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(TextureUsageFlags::DSV), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(TextureUsageFlags::RTV), fmt::fg(fmt::color::green)),
+                            fmt::styled(magic_enum::enum_name(TextureUsageFlags::UAV), fmt::fg(fmt::color::green)),
                             fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
             return nullptr;
         }
@@ -558,7 +558,7 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
     } else if (optimized_clear_value.Format == DXGI_FORMAT_R32G8X24_TYPELESS) {
         optimized_clear_value.Format = DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
     }
-    bool use_clear_value = utils::has_flag(desc.usages, Texture::UsageFlags::RTV) || utils::has_flag(desc.usages, Texture::UsageFlags::DSV);
+    bool use_clear_value = utils::has_flag(desc.usages, TextureUsageFlags::RTV) || utils::has_flag(desc.usages, TextureUsageFlags::DSV);
 
     D3D12MA::ALLOCATION_DESC allocation_desc{
         .HeapType = D3D12_HEAP_TYPE_DEFAULT,
@@ -584,7 +584,7 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
             {
                 .name         = "UploadTexture",
                 .element_size = GetRequiredIntermediateSize(resource, 0, resource_desc.Subresources(m_Device.Get())),
-                .usages       = GPUBuffer::UsageFlags::MapWrite | GPUBuffer::UsageFlags::CopySrc,
+                .usages       = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
             }));
 
         D3D12_SUBRESOURCE_DATA textureData = {
@@ -608,15 +608,15 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
     result->resource   = resource;
     result->state      = D3D12_RESOURCE_STATE_COMMON;
 
-    if (utils::has_flag(result->desc.usages, Texture::UsageFlags::SRV)) {
+    if (utils::has_flag(result->desc.usages, TextureUsageFlags::SRV)) {
         auto srv_desc = to_d3d_srv_desc(result->desc);
         result->srv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->Allocate();
         m_Device->CreateShaderResourceView(result->resource, &srv_desc, result->srv.cpu_handle);
     }
 
-    if (utils::has_flag(result->desc.usages, Texture::UsageFlags::UAV)) {
+    if (utils::has_flag(result->desc.usages, TextureUsageFlags::UAV)) {
         m_Logger->warn("Unimplement for {}",
-                       fmt::styled(magic_enum::enum_name(Texture::UsageFlags::UAV), fmt::fg(fmt::color::red)));
+                       fmt::styled(magic_enum::enum_name(TextureUsageFlags::UAV), fmt::fg(fmt::color::red)));
         // auto uav_desc                              = to_d3d_uav_desc(result->desc);
         // result->descriptors[Descriptor::Type::UAV] = m_DescriptorAllocators[Descriptor::Type::UAV]->Allocate();
 
@@ -624,13 +624,13 @@ auto DX12Device::CreateTexture(Texture::Desc desc, std::span<const std::byte> in
         // m_Device->CreateUnorderedAccessView(d3d_res, &uav_desc, result->descriptors[Descriptor::Type::UAV].handle);
     }
 
-    if (utils::has_flag(result->desc.usages, Texture::UsageFlags::RTV)) {
+    if (utils::has_flag(result->desc.usages, TextureUsageFlags::RTV)) {
         auto rtv_desc = to_d3d_rtv_desc(result->desc);
         result->rtv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_RTV]->Allocate();
         m_Device->CreateRenderTargetView(result->resource, &rtv_desc, result->rtv.cpu_handle);
     }
 
-    if (utils::has_flag(result->desc.usages, Texture::UsageFlags::DSV)) {
+    if (utils::has_flag(result->desc.usages, TextureUsageFlags::DSV)) {
         auto dsv_desc = to_d3d_dsv_desc(result->desc);
         result->dsv   = m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_DSV]->Allocate();
         m_Device->CreateDepthStencilView(result->resource, &dsv_desc, result->dsv.cpu_handle);

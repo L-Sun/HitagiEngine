@@ -277,13 +277,13 @@ inline constexpr auto to_d3d_primitive_topology(PrimitiveTopology type) {
     }
 }
 
-inline constexpr auto to_d3d_address_mode(Sampler::AddressMode mode) noexcept {
+inline constexpr auto to_d3d_address_mode(AddressMode mode) noexcept {
     switch (mode) {
-        case Sampler::AddressMode::Clamp:
+        case AddressMode::Clamp:
             return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-        case Sampler::AddressMode::Repeat:
+        case AddressMode::Repeat:
             return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        case Sampler::AddressMode::MirrorRepeat:
+        case AddressMode::MirrorRepeat:
             return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
     }
 }
@@ -500,19 +500,19 @@ inline constexpr auto to_d3d_input_layout_desc(const InputLayout& layout) noexce
     return result;
 }
 
-inline constexpr auto to_shader_model_compile_flag(Shader::Type type, D3D_SHADER_MODEL version) noexcept {
+inline constexpr auto to_shader_model_compile_flag(ShaderType type, D3D_SHADER_MODEL version) noexcept {
     std::pmr::wstring result;
     switch (type) {
-        case Shader::Type::Vertex:
+        case ShaderType::Vertex:
             result = L"vs_";
             break;
-        case Shader::Type::Pixel:
+        case ShaderType::Pixel:
             result = L"ps_";
             break;
-        case Shader::Type::Geometry:
+        case ShaderType::Geometry:
             result = L"gs_";
             break;
-        case Shader::Type::Compute:
+        case ShaderType::Compute:
             result = L"cs_";
             break;
     }

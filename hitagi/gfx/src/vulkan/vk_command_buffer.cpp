@@ -20,6 +20,9 @@ VulkanGraphicsCommandBuffer::VulkanGraphicsCommandBuffer(VulkanDevice& device, s
     create_vk_debug_object_info(command_buffer, m_Name, static_cast<VulkanDevice&>(m_Device).GetDevice());
 }
 
+void VulkanGraphicsCommandBuffer::ResetState(GPUBuffer& buffer) {}
+void VulkanGraphicsCommandBuffer::ResetState(Texture& texture) {}
+
 void VulkanGraphicsCommandBuffer::Begin() {
     command_buffer.begin({
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
@@ -52,9 +55,6 @@ void VulkanGraphicsCommandBuffer::SetBlendColor(const math::vec4f& color) {
 }
 
 void VulkanGraphicsCommandBuffer::SetRenderTarget(Texture& target) {
-    auto color_attachment = &static_cast<VulkanImage&>(target);
-    command_buffer.s
-        command_buffer.bindFramebuffer(vk::FramebufferBindPoint::eGraphics, **m_RenderTarget->framebuffer);
 }
 
 void VulkanGraphicsCommandBuffer::SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) {}

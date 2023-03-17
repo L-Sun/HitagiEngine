@@ -155,7 +155,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                     .width  = static_cast<std::uint32_t>(texture_size->x),
                     .height = static_cast<std::uint32_t>(texture_size->y),
                     .format = gfx::Format::R8G8B8A8_UNORM,
-                    .usages = gfx::Texture::UsageFlags::SRV | gfx::Texture::UsageFlags::RTV,
+                    .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::RTV,
                 });
                 data.depth = builder.Create(gfx::Texture::Desc{
                     .name        = "scene-depth",
@@ -166,7 +166,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                         .depth   = 1.0f,
                         .stencil = 0,
                     },
-                    .usages = gfx::Texture::UsageFlags::DSV,
+                    .usages = gfx::TextureUsageFlags::DSV,
                 });
             } else {
                 data.color = builder.Write(m_BackBufferHandle);
@@ -179,21 +179,21 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                         .depth   = 1.0f,
                         .stencil = 0,
                     },
-                    .usages = gfx::Texture::UsageFlags::DSV,
+                    .usages = gfx::TextureUsageFlags::DSV,
                 });
             }
 
             data.frame_constant = builder.Create(gfx::GPUBuffer::Desc{
                 .name         = "frame-constant",
                 .element_size = sizeof(FrameConstant),
-                .usages       = gfx::GPUBuffer::UsageFlags::MapWrite | gfx::GPUBuffer::UsageFlags::Constant,
+                .usages       = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
             });
 
             data.instance_constant = builder.Create(gfx::GPUBuffer::Desc{
                 .name          = "instant-constant",
                 .element_size  = sizeof(InstanceConstant),
                 .element_count = scene.instance_nodes.size(),
-                .usages        = gfx::GPUBuffer::UsageFlags::MapWrite | gfx::GPUBuffer::UsageFlags::Constant,
+                .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
             });
 
             for (const auto& material : materials) {
@@ -201,7 +201,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                     .name          = material->GetName(),
                     .element_size  = material->CalculateMaterialBufferSize(),
                     .element_count = material->GetNumInstances(),
-                    .usages        = gfx::GPUBuffer::UsageFlags::MapWrite | gfx::GPUBuffer::UsageFlags::Constant,
+                    .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
                 });
             }
 

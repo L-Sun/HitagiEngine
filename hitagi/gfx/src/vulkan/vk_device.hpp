@@ -24,13 +24,14 @@ public:
     auto CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> final;
     auto CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> final;
 
-    auto CreateSwapChain(SwapChain::Desc desc) -> std::shared_ptr<SwapChain> final;
-    auto CreateGPUBuffer(GPUBuffer::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> final;
-    auto CreateTexture(Texture::Desc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
-    auto CreatSampler(Sampler::Desc desc) -> std::shared_ptr<Sampler> final;
+    auto CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> final;
+    auto CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> final;
+    auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
+    auto CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> final;
 
-    auto CreateShader(Shader::Desc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> final;
-    auto CreateRenderPipeline(GraphicsPipeline::Desc desc) -> std::shared_ptr<GraphicsPipeline> final;
+    auto CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> final;
+    auto CreateRootSignature(RootSignatureDesc desc) -> std::shared_ptr<RootSignature> final;
+    auto CreateRenderPipeline(GraphicsPipelineDesc desc) -> std::shared_ptr<GraphicsPipeline> final;
 
     void Profile(std::size_t frame_index) const final;
 
