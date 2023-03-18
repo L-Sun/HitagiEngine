@@ -71,6 +71,171 @@ TEST_P(DeviceTest, CreateCopyCommandContext) {
     EXPECT_TRUE(context != nullptr) << "Failed to create copy context";
 }
 
+TEST_P(DeviceTest, CreateShader) {
+    constexpr std::string_view shader_code = R"""(
+        cbuffer cb : register(b0, space0) {
+            matrix mvp;
+        };
+        cbuffer cb : register(b0, space1) {
+            matrix mvp2;
+        };
+        Texture2D<float4> materialTextures[4] : register(t0);
+
+        struct VS_INPUT {
+            float3 pos : POSITION;
+        };
+        struct PS_INPUT {
+            float4 pos : SV_POSITION;
+        };
+        
+        PS_INPUT VSMain(VS_INPUT input) {
+            PS_INPUT output;
+            output.pos = mul(mvp, float4(input.pos, 1.0f));
+            return output;
+        }
+        float4 PSMain(VS_INPUT input) : SV_TARGET {
+            PS_INPUT output;
+            return float4(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+    )""";
+
+    // Test Vertex Shader
+    {
+        auto vs_shader = device->CreateShader({
+            .name        = "vertex_test_shader",
+            .type        = ShaderType::Vertex,
+            .entry       = "VSMain",
+            .source_code = shader_code,
+        });
+        switch (device->device_type) {
+            case Device::Type::DX12:
+                EXPECT_FALSE(vs_shader->GetDXILData().empty()) << "When using DirectX 12, the shader must be compile to DXIL";
+                break;
+            case Device::Type::Vulkan:
+                EXPECT_FALSE(vs_shader->GetSPIRVData().empty()) << "When using Vulkan, the shader must be compile to SPIRV";
+                break;
+            default:
+                EXPECT_FALSE(true) << "Would not happen";
+        }
+    }
+    {
+        auto ps_shader = device->CreateShader({
+            .name        = "pixel_test_shader",
+            .type        = ShaderType::Pixel,
+            .entry       = "PSMain",
+            .source_code = shader_code,
+        });
+        switch (device->device_type) {
+            case Device::Type::DX12:
+                EXPECT_FALSE(ps_shader->GetDXILData().empty()) << "When using DirectX 12, the shader must be compile to DXIL";
+                break;
+            case Device::Type::Vulkan:
+                EXPECT_FALSE(ps_shader->GetSPIRVData().empty()) << "When using Vulkan, the shader must be compile to SPIRV";
+                break;
+            default:
+                EXPECT_FALSE(true) << "Would not happen";
+        }
+    }
+}
+
+TEST_P(DeviceTest, CreateRootSignature) {
+    constexpr std::string_view shader_code = R"""(
+        cbuffer cb : register(b0, space1) {
+            matrix mvp;
+        };
+        cbuffer cb : register(b1, space1) {
+            matrix mvp2;
+        };
+        Texture2D<float4> materialTextures[4] : register(t0);
+
+        struct VS_INPUT {
+            float3 pos : POSITION;
+        };
+        struct PS_INPUT {
+            float4 pos : SV_POSITION;
+        };
+        
+        PS_INPUT VSMain(VS_INPUT input) {
+            PS_INPUT output;
+            output.pos = mul(mvp, float4(input.pos, 1.0f));
+            return output;
+        }
+        float4 PSMain(VS_INPUT input) : SV_TARGET {
+            PS_INPUT output;
+            return float4(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+    )""";
+
+    auto vs_shader = device->CreateShader({
+        .name        = "vertex_test_shader",
+        .type        = ShaderType::Vertex,
+        .entry       = "VSMain",
+        .source_code = shader_code,
+    });
+    ASSERT_TRUE(vs_shader);
+
+    auto ps_shader = device->CreateShader({
+        .name        = "pixel_test_shader",
+        .type        = ShaderType::Pixel,
+        .entry       = "PSMain",
+        .source_code = shader_code,
+    });
+    ASSERT_TRUE(ps_shader);
+
+    auto root_signature = device->CreateRootSignature({
+        .name    = "test_root_signature",
+        .shaders = {vs_shader, ps_shader},
+    });
+    EXPECT_TRUE(root_signature);
+}
+
+TEST_P(DeviceTest, CreatePipeline) {
+    {
+        constexpr auto vs_code = R"""(
+            struct VS_INPUT {
+                float3 pos : POSITION;
+            };
+            struct PS_INPUT {
+                float4 pos : SV_POSITION;
+            };
+            
+            PS_INPUT VSMain(VS_INPUT input) {
+                PS_INPUT output;
+                output.pos = float4(input.pos, 1.0f);
+                return output;
+            }
+        )""";
+
+        auto vs_shader = device->CreateShader({
+            .name        = test_name,
+            .type        = ShaderType::Vertex,
+            .entry       = "VSMain",
+            .source_code = vs_code,
+        });
+        ASSERT_TRUE(vs_shader);
+
+        auto root_signature = device->CreateRootSignature({
+            .name    = test_name,
+            .shaders = {vs_shader},
+        });
+        ASSERT_TRUE(root_signature);
+
+        auto render_pipeline = device->CreateRenderPipeline(
+            {
+                .name                = test_name,
+                .shaders             = {vs_shader},
+                .root_signature      = root_signature,
+                .vertex_input_layout = {
+                    {
+                        .stride     = sizeof(vec3f),
+                        .attributes = {{"POSITION", 0, Format::R32G32B32_FLOAT, 0}},
+                    },
+                },
+            });
+        EXPECT_TRUE(render_pipeline);
+    }
+}
+
 class SemaphoreTest : public DeviceTest {
 protected:
     SemaphoreTest() : semaphore(device->CreateSemaphore()) {}
@@ -332,117 +497,10 @@ TEST_P(DeviceTest, CreateSampler) {
     ASSERT_TRUE(sampler != nullptr);
 }
 
-TEST_P(DeviceTest, CompileShader) {
-    constexpr std::string_view shader_code = R"""(
-                struct VS_INPUT {
-                    float3 pos : POSITION;
-                };
-                struct PS_INPUT {
-                    float4 pos : SV_POSITION;
-                };
-                PS_INPUT VSMain(VS_INPUT input) {
-                    PS_INPUT output;
-                    output.pos = float4(input.pos, 1.0f);
-                    return output;
-                }
-                float4 PSMain(VS_INPUT input) : SV_TARGET {
-                    PS_INPUT output;
-                    return float4(1.0f, 1.0f, 1.0f, 1.0f);
-                }
-            )""";
-
-    // Test Vertex Shader
-    {
-        auto vs_shader = device->CreateShader({
-            .name        = "vertex_test_shader",
-            .type        = ShaderType::Vertex,
-            .entry       = "VSMain",
-            .source_code = shader_code,
-        });
-        switch (device->device_type) {
-            case Device::Type::DX12:
-                EXPECT_FALSE(vs_shader->GetDXILData().empty()) << "When using DirectX 12, the shader must be compile to DXIL";
-                break;
-            case Device::Type::Vulkan:
-                EXPECT_FALSE(vs_shader->GetSPIRVData().empty()) << "When using Vulkan, the shader must be compile to SPIRV";
-                break;
-            default:
-                EXPECT_FALSE(true) << "Would not happen";
-        }
-    }
-    {
-        auto ps_shader = device->CreateShader({
-            .name        = "pixel_test_shader",
-            .type        = ShaderType::Pixel,
-            .entry       = "PSMain",
-            .source_code = shader_code,
-        });
-        switch (device->device_type) {
-            case Device::Type::DX12:
-                EXPECT_FALSE(ps_shader->GetDXILData().empty()) << "When using DirectX 12, the shader must be compile to DXIL";
-                break;
-            case Device::Type::Vulkan:
-                EXPECT_FALSE(ps_shader->GetSPIRVData().empty()) << "When using Vulkan, the shader must be compile to SPIRV";
-                break;
-            default:
-                EXPECT_FALSE(true) << "Would not happen";
-        }
-    }
-}
-
-TEST_P(DeviceTest, CreatePipeline) {
-    {
-        constexpr auto vs_code = R"""(
-            #define RSDEF                                   \
-            "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)" \
-
-            struct VS_INPUT {
-                float3 pos : POSITION;
-            };
-            struct PS_INPUT {
-                float4 pos : SV_POSITION;
-            };
-            
-            [RootSignature(RSDEF)]
-            PS_INPUT VSMain(VS_INPUT input) {
-                PS_INPUT output;
-                output.pos = float4(input.pos, 1.0f);
-                return output;
-            }
-        )""";
-
-        auto vs_shader = device->CreateShader({
-            .name        = test_name,
-            .type        = ShaderType::Vertex,
-            .entry       = "VSMain",
-            .source_code = vs_code,
-        });
-        ASSERT_TRUE(vs_shader);
-
-        auto render_pipeline = device->CreateRenderPipeline(
-            {
-                .name                = test_name,
-                .vs                  = vs_shader,
-                .vertex_input_layout = {
-                    {
-                        .stride     = sizeof(vec3f),
-                        .attributes = {{"POSITION", 0, Format::R32G32B32_FLOAT, 0}},
-                    },
-                },
-            });
-        EXPECT_TRUE(render_pipeline);
-    }
-}
-
 TEST_P(DeviceTest, CommandContextTest) {
     // Graphics context test
     {
         constexpr auto vs_code = R"""(
-            #define RSDEF                                    \
-            "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)," \
-            "RootConstants(num32BitConstants=4, b0),"        \
-            "CBV(b1),"                                       \
-
             cbuffer PushData : register(b0) {
                 float4 push_data;
             };
@@ -476,7 +534,7 @@ TEST_P(DeviceTest, CommandContextTest) {
         auto render_pipeline = device->CreateRenderPipeline(
             {
                 .name                = UnitTest::GetInstance()->current_test_info()->name(),
-                .vs                  = vs_shader,
+                .shaders             = {vs_shader},
                 .vertex_input_layout = {
                     {
                         .stride     = sizeof(vec3f),
@@ -624,10 +682,6 @@ TEST_P(DeviceTest, DrawTriangle) {
             });
 
         constexpr std::string_view shader_code = R"""(
-            #define RSDEF                                                                     \
-            "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),"                                  \
-            "RootConstants(num32BitConstants=16, b0,  visibility=SHADER_VISIBILITY_VERTEX)"   \
-
             cbuffer Rotation : register(b0) {
                 matrix rotation;
             };
@@ -642,7 +696,6 @@ TEST_P(DeviceTest, DrawTriangle) {
                 float3 col : COLOR;
             };
 
-            [RootSignature(RSDEF)]
             PS_INPUT VSMain(VS_INPUT input) {
                 PS_INPUT output;
                 output.pos = mul(rotation, input.pos);
@@ -655,21 +708,35 @@ TEST_P(DeviceTest, DrawTriangle) {
             }
         )""";
 
-        auto pipeline = device->CreateRenderPipeline({
-            .name = "I know DirectX12 pipeline",
-            .vs   = device->CreateShader({
-                  .name        = fmt::format("VS-{}", test_name),
-                  .type        = ShaderType::Vertex,
-                  .entry       = "VSMain",
-                  .source_code = shader_code,
-            }),
-            .ps   = device->CreateShader({
-                  .name        = fmt::format("PS-{}", test_name),
-                  .type        = ShaderType::Pixel,
-                  .entry       = "PSMain",
-                  .source_code = shader_code,
-            }),
+        auto vertex_shader = device->CreateShader({
+            .name        = fmt::format("VS-{}", test_name),
+            .type        = ShaderType::Vertex,
+            .entry       = "VSMain",
+            .source_code = shader_code,
+        });
+        ASSERT_TRUE(vertex_shader);
 
+        auto pixel_shader = device->CreateShader({
+            .name        = fmt::format("PS-{}", test_name),
+            .type        = ShaderType::Pixel,
+            .entry       = "PSMain",
+            .source_code = shader_code,
+        });
+        ASSERT_TRUE(pixel_shader);
+
+        auto root_signature = device->CreateRootSignature({
+            .name    = fmt::format("RootSignature-{}", test_name),
+            .shaders = {vertex_shader, pixel_shader},
+        });
+        ASSERT_TRUE(root_signature);
+
+        auto pipeline = device->CreateRenderPipeline({
+            .name    = "I know DirectX12 pipeline",
+            .shaders = {
+                vertex_shader,
+                pixel_shader,
+            },
+            .root_signature      = root_signature,
             .vertex_input_layout = {
                 {
                     .stride     = 2 * sizeof(vec3f),
@@ -697,16 +764,14 @@ TEST_P(DeviceTest, DrawTriangle) {
                 .name          = "I know DirectX12 positions buffer",
                 .element_size  = 2 * sizeof(vec3f),
                 .element_count = 3,
-                .usages        = GPUBufferUsageFlags::Vertex,
+                .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
             },
             {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
         auto& gfx_queue = device->GetCommandQueue(CommandType::Graphics);
         auto  context   = device->CreateGraphicsContext("I know DirectX12 context");
 
-        hitagi::core::Clock timer;
-        timer.Start();
-
+        context->Begin();
         context->SetRenderTarget(swap_chain->GetCurrentBackBuffer());
         context->SetViewPort(ViewPort{
             .x      = 0,
@@ -730,9 +795,7 @@ TEST_P(DeviceTest, DrawTriangle) {
         context->End();
 
         gfx_queue.Submit({context.get()});
-        swap_chain->Present();
         gfx_queue.WaitIdle();
-        context->Reset();
     }
 }
 

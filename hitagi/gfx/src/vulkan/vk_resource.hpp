@@ -47,12 +47,22 @@ private:
 };
 
 struct VulkanShader : public Shader {
-    VulkanShader(VulkanDevice& device, ShaderDesc desc, core::Buffer binary_program);
+    VulkanShader(VulkanDevice& device, ShaderDesc desc, std::span<const std::byte> binary_program);
 
     auto GetSPIRVData() const noexcept -> std::span<const std::byte> final;
 
     core::Buffer           binary_program;
     vk::raii::ShaderModule shader;
+
+private:
+    void Compile();
+};
+
+struct VulkanPipelineLayout : public RootSignature {
+    VulkanPipelineLayout(VulkanDevice& device, RootSignatureDesc desc);
+
+    std::pmr::vector<vk::raii::DescriptorSetLayout> descriptor_set_layouts;
+    std::unique_ptr<vk::raii::PipelineLayout>       pipeline_layout;
 };
 
 struct VulkanGraphicsPipeline : public GraphicsPipeline {

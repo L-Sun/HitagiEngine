@@ -172,7 +172,7 @@ auto VulkanDevice::GetCommandQueue(CommandType type) const -> CommandQueue& {
 }
 
 auto VulkanDevice::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {
-    return nullptr;
+    return std::make_shared<VulkanGraphicsCommandBuffer>(*this, name);
 }
 
 auto VulkanDevice::CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> {
@@ -200,10 +200,20 @@ auto VulkanDevice::CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
 }
 
 auto VulkanDevice::CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program) -> std::shared_ptr<Shader> {
-    if (!binary_program.empty()) {
-        return std::make_shared<VulkanShader>(*this, desc, core::Buffer(binary_program));
-    }
+    return std::make_shared<VulkanShader>(*this, desc, binary_program);
+}
 
+auto VulkanDevice::CreateRootSignature(RootSignatureDesc desc) -> std::shared_ptr<RootSignature> {
+    return std::make_shared<VulkanPipelineLayout>(*this, std::move(desc));
+}
+
+auto VulkanDevice::CreateRenderPipeline(GraphicsPipelineDesc desc) -> std::shared_ptr<GraphicsPipeline> {
+    return std::make_shared<VulkanGraphicsPipeline>(*this, std::move(desc));
+}
+
+void VulkanDevice::Profile(std::size_t frame_index) const {}
+
+auto VulkanDevice::CompileShader(const ShaderDesc& desc) const -> core::Buffer {
     std::pmr::vector<std::pmr::wstring> args;
 
     // shader name
@@ -258,7 +268,7 @@ auto VulkanDevice::CreateShader(ShaderDesc desc, std::span<const std::byte> bina
             include_handler.p,
             IID_PPV_ARGS(&compile_result)))) {
         m_Logger->error("Failed to compile shader {} with entry {}", desc.name, desc.entry);
-        return nullptr;
+        return {};
     }
 
     CComPtr<IDxcBlobUtf8> compile_errors;
@@ -273,7 +283,7 @@ auto VulkanDevice::CreateShader(ShaderDesc desc, std::span<const std::byte> bina
     compile_result->GetStatus(&hr);
     if (FAILED(hr)) {
         m_Logger->error("Failed to compile shader {} with entry {}", desc.name, desc.entry);
-        return nullptr;
+        return {};
     }
 
     CComPtr<IDxcBlob>     shader_buffer;
@@ -281,25 +291,10 @@ auto VulkanDevice::CreateShader(ShaderDesc desc, std::span<const std::byte> bina
 
     compile_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), &shader_name);
     if (shader_buffer == nullptr) {
-        return nullptr;
+        return {};
     }
 
-    return std::make_shared<VulkanShader>(
-        *this,
-        desc,
-        core::Buffer{
-            shader_buffer->GetBufferSize(),
-            reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())});
+    return {shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())};
 }
-
-auto VulkanDevice::CreateRootSignature(RootSignatureDesc desc) -> std::shared_ptr<RootSignature> {
-    return nullptr;
-}
-
-auto VulkanDevice::CreateRenderPipeline(GraphicsPipelineDesc desc) -> std::shared_ptr<GraphicsPipeline> {
-    return std::make_shared<VulkanGraphicsPipeline>(*this, std::move(desc));
-}
-
-void VulkanDevice::Profile(std::size_t frame_index) const {}
 
 }  // namespace hitagi::gfx

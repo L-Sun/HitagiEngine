@@ -8,6 +8,9 @@
 #include <spdlog/logger.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
+#include <spirv_reflect.h>
+
+#include <numeric>
 
 namespace hitagi::gfx {
 
@@ -34,8 +37,6 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
         }
         if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Constant)) {
             buffer_create_info.usage |= vk::BufferUsageFlagBits::eUniformBuffer;
-            // We use bindless here
-            buffer_create_info.usage |= vk::BufferUsageFlagBits::eShaderDeviceAddress;
         }
 
         buffer = std::make_unique<vk::raii::Buffer>(device.GetDevice(), buffer_create_info, device.GetCustomAllocator());
@@ -56,11 +57,6 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             }
         } else {
             allocation_create_info.requiredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        }
-
-        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Constant)) {
-            // For bindless usage we need enable the flag
-            allocation_create_info.requiredFlags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
         }
 
         if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead)) {
@@ -358,9 +354,9 @@ void VulkanSwapChain::CreateImageViews() {
     }
 }
 
-VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc, core::Buffer _binary_program)
+VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc, std::span<const std::byte> _binary_program)
     : Shader(device, desc),
-      binary_program(std::move(_binary_program)),
+      binary_program(_binary_program.empty() ? device.CompileShader(m_Desc) : _binary_program),
       shader(
           device.GetDevice(),
           {
@@ -377,13 +373,118 @@ auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
     return binary_program.Span<const std::byte>();
 }
 
+VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDesc desc)
+    : RootSignature(device, std::move(desc)) {
+    auto logger = device.GetLogger();
+
+    logger->debug("Creating pipeline layout {} ...", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+
+    logger->debug("Create reflection data from shaders");
+    std::pmr::vector<spv_reflect::ShaderModule> reflections;
+    for (const auto& _shader : m_Desc.shaders) {
+        auto shader = _shader.lock();
+        if (shader == nullptr) continue;
+
+        auto spirv_data = shader->GetSPIRVData();
+        reflections.emplace_back(spirv_data.size_bytes(), spirv_data.data());
+    }
+
+    logger->debug("Enumerate descriptor sets...");
+    std::pmr::set<std::uint32_t> set_indices;
+    for (const auto& reflection : reflections) {
+        std::uint32_t num_sets;
+        reflection.EnumerateDescriptorSets(&num_sets, nullptr);
+        std::pmr::vector<SpvReflectDescriptorSet*> sets(num_sets);
+        reflection.EnumerateDescriptorSets(&num_sets, sets.data());
+
+        for (const auto& set : sets) set_indices.insert(set->set);
+    }
+
+    // Verify set index
+    {
+        std::uint32_t i = 0;
+        for (auto set_index : set_indices) {
+            if (set_index != i) throw std::runtime_error("Set index is not continuous");
+            i++;
+        }
+    }
+
+    logger->debug("Create bindings for each descriptor set layout...");
+    for (auto set_index : set_indices) {
+        std::pmr::vector<vk::DescriptorSetLayoutBinding> bindings;
+        for (const auto& reflection : reflections) {
+            auto spv_set = reflection.GetEntryPointDescriptorSet(reflection.GetEntryPointName(), set_index);
+            if (spv_set == nullptr) continue;
+
+            auto spv_bindings = std::span(spv_set->bindings, spv_set->binding_count);
+
+            for (const auto& spv_binding : spv_bindings) {
+                if (auto iter = std::find_if(
+                        bindings.begin(), bindings.end(),
+                        [&](const auto& binding) {
+                            return binding.binding == spv_binding->binding &&
+                                   binding.descriptorType != to_vk_descriptor_type(spv_binding->descriptor_type);
+                        });
+                    iter != bindings.end()) {
+                    if (iter->descriptorCount != spv_binding->count)
+                        throw std::runtime_error("Descriptor count is not same");
+
+                    iter->stageFlags |= to_vk_shader_stage(reflection.GetShaderStage());
+                    logger->debug("Merge shader stage to {}", vk::to_string(iter->stageFlags));
+                } else {
+                    const auto& binding = bindings.emplace_back(vk::DescriptorSetLayoutBinding{
+                        .binding            = spv_binding->binding,
+                        .descriptorType     = to_vk_descriptor_type(spv_binding->descriptor_type),
+                        .descriptorCount    = spv_binding->count,
+                        .stageFlags         = to_vk_shader_stage(reflection.GetShaderStage()),
+                        .pImmutableSamplers = nullptr,
+                    });
+                    logger->debug("Create binding {} for stage {} in set {}", binding.binding, vk::to_string(binding.stageFlags), set_index);
+                }
+            }
+        }
+
+        const auto& descriptor_set_layout = descriptor_set_layouts.emplace_back(
+            device.GetDevice(),
+            vk::DescriptorSetLayoutCreateInfo{
+                .bindingCount = static_cast<std::uint32_t>(bindings.size()),
+                .pBindings    = bindings.data(),
+                .flags        = vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR,
+            },
+            device.GetCustomAllocator());
+
+        create_vk_debug_object_info(descriptor_set_layout, fmt::format("{}_Descriptor_Set_Layout_{}", m_Desc.name, set_index), device.GetDevice());
+    }
+
+    std::pmr::vector<vk::DescriptorSetLayout> vk_descriptor_set_layouts;
+    std::transform(
+        descriptor_set_layouts.begin(), descriptor_set_layouts.end(),
+        std::back_inserter(vk_descriptor_set_layouts),
+        [](const auto& layout) { return *layout; });
+
+    pipeline_layout = std::make_unique<vk::raii::PipelineLayout>(
+        device.GetDevice(),
+        vk::PipelineLayoutCreateInfo{
+            .setLayoutCount = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
+            .pSetLayouts    = vk_descriptor_set_layouts.data(),
+        },
+        device.GetCustomAllocator());
+
+    create_vk_debug_object_info(*pipeline_layout, m_Desc.name, device.GetDevice());
+}
+
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipelineDesc desc)
     : GraphicsPipeline(device, std::move(desc))
 
 {
     auto logger = device.GetLogger();
 
-    if (m_Desc.vs == nullptr) {
+    if (std::find_if(
+            m_Desc.shaders.begin(), m_Desc.shaders.end(),
+            [](const auto& _shader) {
+                auto shader = _shader.lock();
+                return shader && shader->GetDesc().type == ShaderType::Vertex;
+            }) == m_Desc.shaders.end()) {
         auto error_message = fmt::format(
             "Vertex shader is not specified for pipeline({})",
             fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
@@ -391,32 +492,17 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPip
         throw std::runtime_error(error_message);
     }
 
-    std::pmr::vector<vk::PipelineShaderStageCreateInfo> shader_stage_create_infos = {
-        vk::PipelineShaderStageCreateInfo{
-            .stage  = vk::ShaderStageFlagBits::eVertex,
-            .module = *std::static_pointer_cast<VulkanShader>(m_Desc.vs)->shader,
-            .pName  = m_Desc.vs->GetDesc().entry.data(),
-        },
-
-    };
-
-    if (m_Desc.ps != nullptr) {
-        shader_stage_create_infos.emplace_back(
-            vk::PipelineShaderStageCreateInfo{
-                .stage  = vk::ShaderStageFlagBits::eFragment,
-                .module = *std::static_pointer_cast<VulkanShader>(m_Desc.ps)->shader,
-                .pName  = m_Desc.ps->GetDesc().entry.data(),
-            });
-    }
-
-    if (m_Desc.gs != nullptr) {
-        shader_stage_create_infos.emplace_back(
-            vk::PipelineShaderStageCreateInfo{
-                .stage  = vk::ShaderStageFlagBits::eGeometry,
-                .module = *std::static_pointer_cast<VulkanShader>(m_Desc.gs)->shader,
-                .pName  = m_Desc.gs->GetDesc().entry.data(),
-            });
-    }
+    std::pmr::vector<vk::PipelineShaderStageCreateInfo> shader_stage_create_infos;
+    std::transform(
+        m_Desc.shaders.begin(), m_Desc.shaders.end(), std::back_inserter(shader_stage_create_infos),
+        [](const auto& _shader) {
+            auto shader = _shader.lock();
+            return vk::PipelineShaderStageCreateInfo{
+                .stage  = to_vk_shader_stage(shader->GetDesc().type),
+                .module = *std::static_pointer_cast<VulkanShader>(shader)->shader,
+                .pName  = shader->GetDesc().entry.data(),
+            };
+        });
 
     const auto assembly_state = to_vk_assembly_state(m_Desc.assembly_state);
 
@@ -473,20 +559,16 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPip
 
     const auto render_format = to_vk_format(desc.render_format);
 
-    logger->debug("Create pipeline layout ({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
-    {
-        pipeline_layout = std::make_unique<vk::raii::PipelineLayout>(
-            device.GetDevice(),
-            vk::PipelineLayoutCreateInfo{
-                .setLayoutCount         = 0,  // We use bindless
-                .pSetLayouts            = nullptr,
-                .pushConstantRangeCount = 0,
-                .pPushConstantRanges    = nullptr,
-            },
-            device.GetCustomAllocator());
-
-        create_vk_debug_object_info(*pipeline_layout, m_Name, device.GetDevice());
+    auto root_signature = std::static_pointer_cast<VulkanPipelineLayout>(m_Desc.root_signature.lock());
+    if (root_signature == nullptr) {
+        auto error_message = fmt::format(
+            "Root signature is not specified for pipeline({})",
+            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+        logger->error(error_message);
+        throw std::runtime_error(error_message);
     }
+
+    const auto& pipeline_layout = root_signature->pipeline_layout;
 
     logger->debug("Create pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {

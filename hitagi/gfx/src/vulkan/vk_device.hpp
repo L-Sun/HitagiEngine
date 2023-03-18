@@ -44,6 +44,8 @@ public:
     inline auto& GetVkCommandQueue(CommandType type) const noexcept { return *m_CommandQueues[type]; }
     inline auto& GetVmaAllocator() const noexcept { return m_VmaAllocator; }
 
+    auto CompileShader(const ShaderDesc& desc) const -> core::Buffer;
+
 private:
     vk::AllocationCallbacks m_CustomAllocator;
     using AllocationRecord = std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>>;

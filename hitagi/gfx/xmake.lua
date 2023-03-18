@@ -1,5 +1,5 @@
 add_requires("d3d12-memory-allocator", {optional = true})
-add_requires("vulkan", "vulkan-memory-allocator", "directx-shader-compiler")
+add_requires("vulkan", "vulkan-memory-allocator", "directx-shader-compiler", "spirv-reflect")
 
 target("gfx-resource")
     set_kind("static")
@@ -32,6 +32,7 @@ target("vulkan-device")
         "directx-shader-compiler",
         {public = true}
     )
+    add_packages("spirv-reflect")
     add_defines("VULKAN_HPP_NO_CONSTRUCTORS")
     if is_plat("windows") then
         add_defines("NOMINMAX", "VK_USE_PLATFORM_WIN32_KHR")

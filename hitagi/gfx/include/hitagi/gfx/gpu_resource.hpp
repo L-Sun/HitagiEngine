@@ -123,29 +123,30 @@ protected:
 };
 
 struct RootSignatureDesc {
-    std::string_view name;
+    std::string_view                        name;
+    std::pmr::vector<std::weak_ptr<Shader>> shaders;
 };
 using RootSignature = Resource<RootSignatureDesc>;
 
 struct GraphicsPipelineDesc {
     std::string_view name = UNKOWN_NAME;
-    // Shader config
-    std::shared_ptr<Shader> vs;  // vertex shader
-    std::shared_ptr<Shader> ps;  // pixel shader
-    std::shared_ptr<Shader> gs;  // geometry shader
-    AssemblyState           assembly_state = {};
-    VertexBufferLayouts     vertex_input_layout;
-    RasterizationState      rasterization_state;
-    DepthStencilState       depth_stencil_state;
-    BlendState              blend_state;
-    Format                  render_format        = Format::R8G8B8A8_UNORM;
-    Format                  depth_stencil_format = Format::UNKNOWN;
+
+    std::pmr::vector<std::weak_ptr<Shader>> shaders;
+
+    std::weak_ptr<RootSignature> root_signature = {};
+    AssemblyState                assembly_state = {};
+    VertexBufferLayouts          vertex_input_layout;
+    RasterizationState           rasterization_state;
+    DepthStencilState            depth_stencil_state;
+    BlendState                   blend_state;
+    Format                       render_format        = Format::R8G8B8A8_UNORM;
+    Format                       depth_stencil_format = Format::UNKNOWN;
 };
 using GraphicsPipeline = Resource<GraphicsPipelineDesc>;
 
 struct ComputePipelineDesc {
-    std::string_view        name = UNKOWN_NAME;
-    std::shared_ptr<Shader> cs;  // computer shader
+    std::string_view      name = UNKOWN_NAME;
+    std::weak_ptr<Shader> cs;  // computer shader
 };
 using ComputePipeline = Resource<ComputePipelineDesc>;
 

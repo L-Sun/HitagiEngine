@@ -1,7 +1,6 @@
 #pragma once
 #include "vk_configs.hpp"
 #include "vk_sync.hpp"
-#include "vk_resource.hpp"
 
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
@@ -9,6 +8,7 @@
 
 #include <vulkan/vulkan_raii.hpp>
 #include <SDL2/SDL_vulkan.h>
+#include <spirv_reflect.h>
 
 #include <set>
 
@@ -252,6 +252,63 @@ inline constexpr auto to_vk_format(Format format) noexcept -> vk::Format {
             return vk::Format::eBc7SrgbBlock;
         default:
             return vk::Format::eUndefined;
+    }
+}
+
+inline constexpr auto to_vk_shader_stage(ShaderType type) noexcept -> vk::ShaderStageFlagBits {
+    switch (type) {
+        case ShaderType::Vertex:
+            return vk::ShaderStageFlagBits::eVertex;
+        case ShaderType::Pixel:
+            return vk::ShaderStageFlagBits::eFragment;
+        case ShaderType::Geometry:
+            return vk::ShaderStageFlagBits::eGeometry;
+        case ShaderType::Compute:
+            return vk::ShaderStageFlagBits::eCompute;
+    }
+}
+
+inline constexpr auto to_vk_shader_stage(SpvReflectShaderStageFlagBits stage) noexcept -> vk::ShaderStageFlagBits {
+    switch (stage) {
+        case SPV_REFLECT_SHADER_STAGE_VERTEX_BIT:
+            return vk::ShaderStageFlagBits::eVertex;
+        case SPV_REFLECT_SHADER_STAGE_FRAGMENT_BIT:
+            return vk::ShaderStageFlagBits::eFragment;
+        case SPV_REFLECT_SHADER_STAGE_GEOMETRY_BIT:
+            return vk::ShaderStageFlagBits::eGeometry;
+        case SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT:
+            return vk::ShaderStageFlagBits::eCompute;
+        default:
+            return vk::ShaderStageFlagBits::eAll;
+    }
+}
+
+inline constexpr auto to_vk_descriptor_type(SpvReflectDescriptorType type) noexcept -> vk::DescriptorType {
+    switch (type) {
+        case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
+            return vk::DescriptorType::eSampler;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+            return vk::DescriptorType::eCombinedImageSampler;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+            return vk::DescriptorType::eSampledImage;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+            return vk::DescriptorType::eStorageImage;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+            return vk::DescriptorType::eUniformTexelBuffer;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+            return vk::DescriptorType::eStorageTexelBuffer;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+            return vk::DescriptorType::eUniformBuffer;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+            return vk::DescriptorType::eStorageBuffer;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+            return vk::DescriptorType::eUniformBufferDynamic;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+            return vk::DescriptorType::eStorageBufferDynamic;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+            return vk::DescriptorType::eInputAttachment;
+        case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+            return vk::DescriptorType::eAccelerationStructureKHR;
     }
 }
 
