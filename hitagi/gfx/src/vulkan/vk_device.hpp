@@ -1,13 +1,28 @@
 #pragma once
 #include "vk_command_queue.hpp"
+#undef CreateSemaphore
 
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
 
-#include <dxc/dxcapi.h>
 #include <vulkan/vulkan_raii.hpp>
 #include <vk_mem_alloc.h>
+
+#if defined(_WIN32)
+#include <unknwn.h>
+#include <wrl.h>
+template <typename T>
+using ComPtr = Microsoft::WRL::ComPtr<T>;
+#elif defined(__linux__)
+
+template <typename T>
+struct ComPtr : public CComPtr<T> {
+    inline auto Get() noexcept const { return this->p; }
+};
+
+#endif
+#include <dxc/dxcapi.h>
 
 namespace hitagi::gfx {
 class VulkanDevice final : public Device {
@@ -17,7 +32,8 @@ public:
 
     void WaitIdle() final;
 
-    auto CreateSemaphore(std::uint64_t initial_value = 0, std::string_view name = "") -> std::shared_ptr<Semaphore> final;
+    auto CreateFence(std::string_view name = "") -> std::shared_ptr<Fence> final;
+    auto CreateSemaphore(std::string_view name = "") -> std::shared_ptr<Semaphore> final;
 
     auto GetCommandQueue(CommandType type) const -> CommandQueue& final;
     auto CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> final;
@@ -63,7 +79,7 @@ private:
 
     VmaAllocator m_VmaAllocator;
 
-    CComPtr<IDxcUtils>     m_DxcUtils;
-    CComPtr<IDxcCompiler3> m_ShaderCompiler;
+    ComPtr<IDxcUtils>     m_DxcUtils;
+    ComPtr<IDxcCompiler3> m_ShaderCompiler;
 };
 }  // namespace hitagi::gfx

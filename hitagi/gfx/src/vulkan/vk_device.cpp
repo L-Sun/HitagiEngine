@@ -1,10 +1,10 @@
 #include "vk_device.hpp"
+#include "vk_sync.hpp"
 #include "vk_resource.hpp"
 #include "vk_command_buffer.hpp"
 #include "vk_configs.hpp"
 #include "utils.hpp"
 
-#include <dxc/dxcapi.h>
 #include <fmt/color.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <vulkan/vulkan.hpp>
@@ -163,8 +163,12 @@ void VulkanDevice::WaitIdle() {
     m_Device->waitIdle();
 }
 
-auto VulkanDevice::CreateSemaphore(std::uint64_t initial_value, std::string_view name) -> std::shared_ptr<Semaphore> {
-    return std::make_shared<VulkanSemaphore>(*this, initial_value, name);
+auto VulkanDevice::CreateFence(std::string_view name) -> std::shared_ptr<Fence> {
+    return std::make_shared<VulkanFence>(*this, name);
+}
+
+auto VulkanDevice::CreateSemaphore(std::string_view name) -> std::shared_ptr<Semaphore> {
+    return std::make_shared<VulkanSemaphore>(*this, name);
 }
 
 auto VulkanDevice::GetCommandQueue(CommandType type) const -> CommandQueue& {
@@ -250,7 +254,7 @@ auto VulkanDevice::CompileShader(const ShaderDesc& desc) const -> core::Buffer {
     }
     m_Logger->debug("Compile Shader: {}", compile_command);
 
-    CComPtr<IDxcIncludeHandler> include_handler;
+    ComPtr<IDxcIncludeHandler> include_handler;
 
     m_DxcUtils->CreateDefaultIncludeHandler(&include_handler);
     DxcBuffer source_buffer{
@@ -259,19 +263,19 @@ auto VulkanDevice::CompileShader(const ShaderDesc& desc) const -> core::Buffer {
         .Encoding = DXC_CP_ACP,
     };
 
-    CComPtr<IDxcResult> compile_result;
+    ComPtr<IDxcResult> compile_result;
 
     if (FAILED(m_ShaderCompiler->Compile(
             &source_buffer,
             p_args.data(),
             p_args.size(),
-            include_handler.p,
+            include_handler.Get(),
             IID_PPV_ARGS(&compile_result)))) {
         m_Logger->error("Failed to compile shader {} with entry {}", desc.name, desc.entry);
         return {};
     }
 
-    CComPtr<IDxcBlobUtf8> compile_errors;
+    ComPtr<IDxcBlobUtf8> compile_errors;
     compile_result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&compile_errors), nullptr);
     // Note that DirectX compiler would return null if no errors or warnings are present.
     // IDxcCompiler3::Compile will always return an error buffer, but its length will be zero if there are no warnings or errors.
@@ -286,15 +290,17 @@ auto VulkanDevice::CompileShader(const ShaderDesc& desc) const -> core::Buffer {
         return {};
     }
 
-    CComPtr<IDxcBlob>     shader_buffer;
-    CComPtr<IDxcBlobWide> shader_name;
+    ComPtr<IDxcBlob>     shader_buffer;
+    ComPtr<IDxcBlobWide> shader_name;
 
     compile_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), &shader_name);
     if (shader_buffer == nullptr) {
         return {};
     }
 
-    return {shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())};
+    core::Buffer result{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())};
+
+    return result;
 }
 
 }  // namespace hitagi::gfx

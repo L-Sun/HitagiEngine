@@ -17,7 +17,7 @@ RenderGraph::RenderGraph(Device& device)
       m_Executor(),
       m_Logger(spdlog::stdout_color_mt("RenderGraph")) {
     magic_enum::enum_for_each<CommandType>([&](CommandType type) {
-        m_SemaphoreWaitPairs[type] = {device.CreateSemaphore(), 0};
+        m_FenceWaitPairs[type] = {device.CreateFence(), 0};
     });
 }
 
@@ -318,25 +318,25 @@ void RenderGraph::Execute() {
                 if (res_node.writer) {
                     // synchronize between different command queue
                     if (res_node.writer->type != node->type) {
-                        wait_values[node->type] = m_SemaphoreWaitPairs[node->type].second;
+                        wait_values[node->type] = m_FenceWaitPairs[node->type].second;
                     }
                 }
             }
             return node->context.get();
         });
 
-        auto& semaphore_wait_pair = m_SemaphoreWaitPairs[(*left)->type];
-        semaphore_wait_pair.second++;
+        auto& fence_wait_pair = m_FenceWaitPairs[(*left)->type];
+        fence_wait_pair.second++;
         auto& queue = device.GetCommandQueue((*left)->type);
         queue.Submit(
             std::move(contexts),
             {
-                {m_SemaphoreWaitPairs[CommandType::Graphics].first, wait_values[CommandType::Graphics]},
-                {m_SemaphoreWaitPairs[CommandType::Compute].first, wait_values[CommandType::Compute]},
-                {m_SemaphoreWaitPairs[CommandType::Copy].first, wait_values[CommandType::Copy]},
+                {m_FenceWaitPairs[CommandType::Graphics].first, wait_values[CommandType::Graphics]},
+                {m_FenceWaitPairs[CommandType::Compute].first, wait_values[CommandType::Compute]},
+                {m_FenceWaitPairs[CommandType::Copy].first, wait_values[CommandType::Copy]},
             },
             {
-                semaphore_wait_pair,
+                fence_wait_pair,
             });
 
         std::for_each(left, right, [&](PassNode* node) {
@@ -346,23 +346,23 @@ void RenderGraph::Execute() {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources.emplace_back(track_res, semaphore_wait_pair);
+                    m_RetiredResources.emplace_back(track_res, fence_wait_pair);
                 }
             }
             for (auto res_handle : node->writes) {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources.emplace_back(track_res, semaphore_wait_pair);
+                    m_RetiredResources.emplace_back(track_res, fence_wait_pair);
                 }
             }
             if (node->type == CommandType::Graphics) {
                 for (auto render_pipeline : node->render_pipelines) {
-                    m_RetiredResources.emplace_back(render_pipeline, semaphore_wait_pair);
+                    m_RetiredResources.emplace_back(render_pipeline, fence_wait_pair);
                 }
             } else if (node->type == CommandType::Compute) {
                 for (auto compute_pipeline : node->compute_pipelines) {
-                    m_RetiredResources.emplace_back(compute_pipeline, semaphore_wait_pair);
+                    m_RetiredResources.emplace_back(compute_pipeline, fence_wait_pair);
                 }
             }
         });
@@ -376,10 +376,10 @@ void RenderGraph::Execute() {
 void RenderGraph::Reset() {
     ZoneScoped;
     while (!m_RetiredResources.empty()) {
-        const auto& [retired_res, semaphore_wait_pair] = m_RetiredResources.front();
+        const auto& [retired_res, fence_wait_pair] = m_RetiredResources.front();
 
-        auto [semaphore, value] = semaphore_wait_pair;
-        if (semaphore->GetCurrentValue() < value) {
+        auto [fence, value] = fence_wait_pair;
+        if (fence->GetCurrentValue() < value) {
             m_RetiredResources.pop_front();
         }
     }

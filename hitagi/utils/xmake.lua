@@ -1,4 +1,5 @@
-add_requires("spdlog", "magic_enum", "gtest", "benchmark")
+add_requires("magic_enum", "gtest", "benchmark")
+add_requires("spdlog", {configs = {fmt_external = true}})
 add_requires("fmt", {configs = {header_only = true}})
 
 target("utils")

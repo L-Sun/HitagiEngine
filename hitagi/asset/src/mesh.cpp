@@ -54,12 +54,12 @@ bool VertexArray::Empty() const noexcept {
     return true;
 }
 
-auto VertexArray::GetAttributeData(VertexAttribute attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>> {
+auto VertexArray::GetAttributeData(VertexAttribute attr) const noexcept -> utils::optional_ref<const AttributeData> {
     if (m_Attributes[attr].cpu_buffer.Empty()) return std::nullopt;
     return m_Attributes[attr];
 }
 
-auto VertexArray::GetAttributeData(const gfx::VertexAttribute& attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>> {
+auto VertexArray::GetAttributeData(const gfx::VertexAttribute& attr) const noexcept -> utils::optional_ref<const AttributeData> {
     if (attr.semantic_name == "POSITION") {
         return GetAttributeData(VertexAttribute::Position);
     }

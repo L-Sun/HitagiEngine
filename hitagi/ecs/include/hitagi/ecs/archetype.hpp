@@ -64,7 +64,7 @@ public:
     virtual void DeleteEntity(Entity entity)                              = 0;
 
     template <typename Component>
-    auto GetComponent(Entity entity) -> std::optional<std::reference_wrapper<Component>>;
+    auto GetComponent(Entity entity) -> utils::optional_ref<Component>;
     auto GetDynamicComponent(Entity entity, std::string_view name) -> void*;
 
 protected:
@@ -114,7 +114,7 @@ auto IArchetype::GetComponentArray() -> std::span<std::remove_cvref_t<Component>
 }
 
 template <typename Component>
-auto IArchetype::GetComponent(Entity entity) -> std::optional<std::reference_wrapper<Component>> {
+auto IArchetype::GetComponent(Entity entity) -> utils::optional_ref<Component> {
     const std::size_t index = GetEntityIndex(entity);
     if (index == NumEntities()) return std::nullopt;
 

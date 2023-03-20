@@ -7,7 +7,6 @@
 
 namespace hitagi::gfx {
 
-
 void GPUBuffer::UpdateRaw(std::size_t index, std::span<const std::byte> data) {
     auto mapped_ptr = GetMappedPtr();
     if (mapped_ptr == nullptr) {
@@ -28,8 +27,6 @@ void GPUBuffer::UpdateRaw(std::size_t index, std::span<const std::byte> data) {
     std::memcpy(mapped_ptr + index * m_Desc.element_size, data.data(), data.size_bytes());
 }
 
-
-
 auto Shader::GetDXILData() const noexcept -> std::span<const std::byte> {
     return {};
 }
@@ -37,7 +34,5 @@ auto Shader::GetDXILData() const noexcept -> std::span<const std::byte> {
 auto Shader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
     return {};
 }
-
-
 
 }  // namespace hitagi::gfx

@@ -1,6 +1,7 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/utils/utils.hpp>
+#include <hitagi/utils/types.hpp>
 
 #include <list>
 #include <array>
@@ -90,7 +91,7 @@ private:
         704u, 768u, 832u, 896u, 960u, 1024u};
 
     std::array<std::size_t, block_size.back() + 1> pool_map;
-    std::optional<std::reference_wrapper<Pool>>    GetPool(std::size_t bytes);
+    utils::optional_ref<Pool>                      GetPool(std::size_t bytes);
 
     std::array<Pool, block_size.size()> m_Pools;
 

@@ -1,5 +1,6 @@
 #include "vk_resource.hpp"
 #include "vk_device.hpp"
+#include "vk_sync.hpp"
 #include "utils.hpp"
 
 #include <hitagi/utils/flags.hpp>
@@ -116,7 +117,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             context->End();
             copy_queue.Submit({context.get()});
 
-            // ! improve me
+            // improve me
             copy_queue.WaitIdle();
         } else {
             auto error_message = fmt::format(
@@ -142,7 +143,13 @@ auto VulkanBuffer::GetMappedPtr() const noexcept -> std::byte* {
 
 VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc) : Texture(device, desc) {}
 
-VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc) : SwapChain(device, desc) {
+VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
+    : SwapChain(device, desc),
+      semaphore(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())
+
+{
+    create_vk_debug_object_info(semaphore, "SwapChainSemaphore", device.GetDevice());
+
     auto window_size = math::vec2u{};
 
     switch (desc.window.type) {
@@ -195,25 +202,46 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc) : Swa
     CreateImageViews();
 }
 
-auto VulkanSwapChain::GetCurrentBackBuffer() -> Texture& {
-    return GetBuffers()[0];
+auto VulkanSwapChain::AcquireNextBuffer(
+    utils::optional_ref<Semaphore> signal_semaphore,
+    utils::optional_ref<Fence>     signal_fence) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> {
+    auto [result, index] = swap_chain->acquireNextImage(
+        std::numeric_limits<std::uint64_t>::max(),
+        signal_semaphore ? *(static_cast<VulkanSemaphore&>(signal_semaphore->get()).semaphore) : vk::Semaphore{},
+        signal_fence ? *(static_cast<VulkanFence&>(signal_fence->get()).fence) : vk::Fence{});
+
+    if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) {
+        throw std::runtime_error("failed to acquire next image");
+    }
+
+    return {std::ref(*images[index]), index};
 }
 
-auto VulkanSwapChain::GetBuffers() -> std::pmr::vector<std::reference_wrapper<Texture>> {
+auto VulkanSwapChain::GetBuffer(std::uint32_t index) const -> Texture& {
+    return *images[index];
+}
+
+auto VulkanSwapChain::GetBuffers() const -> std::pmr::vector<std::reference_wrapper<Texture>> {
     std::pmr::vector<std::reference_wrapper<Texture>> result;
     std::transform(images.begin(), images.end(), std::back_inserter(result), [](const auto& image) { return std::ref(*image); });
     return result;
 }
 
-auto VulkanSwapChain::Width() -> std::uint32_t {
-    return size.x;
-}
+void VulkanSwapChain::Present(std::uint32_t index, utils::optional_ref<Semaphore> wait_semaphore) {
+    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
+    auto& queue     = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics)).GetVkQueue();
 
-auto VulkanSwapChain::Height() -> std::uint32_t {
-    return size.y;
-}
+    auto result = queue.presentKHR(vk::PresentInfoKHR{
+        .waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphore ? 1 : 0),
+        .pWaitSemaphores    = wait_semaphore ? &(*static_cast<VulkanSemaphore&>(wait_semaphore->get()).semaphore) : nullptr,
+        .swapchainCount     = 1,
+        .pSwapchains        = &(**swap_chain),
+        .pImageIndices      = &index,
+    });
 
-void VulkanSwapChain::Present() {
+    if (result != vk::Result::eSuccess) {
+        vk_device.GetLogger()->error("failed to present swap chain image");
+    }
 }
 
 void VulkanSwapChain::Resize() {
@@ -231,10 +259,8 @@ void VulkanSwapChain::CreateSwapChain() {
     switch (m_Desc.window.type) {
 #ifdef _WIN32
         case utils::Window::Type::Win32: {
-            auto h_wnd = static_cast<HWND>(desc.window.ptr);
-
             RECT rect;
-            GetClientRect(static_cast<HWND>(desc.window.ptr), &rect);
+            GetClientRect(static_cast<HWND>(m_Desc.window.ptr), &rect);
             window_size.x = rect.right - rect.left;
             window_size.y = rect.bottom - rect.top;
         } break;
@@ -259,15 +285,7 @@ void VulkanSwapChain::CreateSwapChain() {
     const auto supported_formats       = physical_device.getSurfaceFormatsKHR(**surface);
     const auto supported_present_modes = physical_device.getSurfacePresentModesKHR(**surface);
 
-    if (std::find_if(supported_formats.begin(), supported_formats.end(), [this](const auto& surface_format) {
-            return surface_format.format == to_vk_format(m_Desc.format);
-        }) == supported_formats.end()) {
-        throw std::runtime_error(fmt::format(
-            "The physical device({}) can not support surface(window.ptr: {}) with format: {}",
-            physical_device.getProperties().deviceName,
-            m_Desc.window.ptr,
-            magic_enum::enum_name(m_Desc.format)));
-    }
+    format = from_vk_format(supported_formats.front().format);
 
     if (std::find_if(supported_present_modes.begin(), supported_present_modes.end(), [](const auto& present_mode) {
             return present_mode == vk::PresentModeKHR::eFifo;
@@ -301,7 +319,7 @@ void VulkanSwapChain::CreateSwapChain() {
     vk::SwapchainCreateInfoKHR swapchain_create_info{
         .surface          = **surface,
         .minImageCount    = surface_capabilities.minImageCount,
-        .imageFormat      = to_vk_format(m_Desc.format),
+        .imageFormat      = to_vk_format(format),
         .imageExtent      = vk::Extent2D{size.x, size.y},
         .imageArrayLayers = 1,
         .imageUsage       = vk::ImageUsageFlagBits::eColorAttachment,
@@ -325,7 +343,7 @@ void VulkanSwapChain::CreateImageViews() {
 
     vk::ImageViewCreateInfo image_view_create_info{
         .viewType         = vk::ImageViewType::e2D,
-        .format           = to_vk_format(m_Desc.format),
+        .format           = to_vk_format(format),
         .subresourceRange = {
             .aspectMask     = vk::ImageAspectFlagBits::eColor,
             .baseMipLevel   = 0,
@@ -338,7 +356,7 @@ void VulkanSwapChain::CreateImageViews() {
     TextureDesc texture_desc{
         .width  = size.x,
         .height = size.y,
-        .format = m_Desc.format,
+        .format = format,
         .usages = TextureUsageFlags::RTV,
     };
 
@@ -350,6 +368,7 @@ void VulkanSwapChain::CreateImageViews() {
         images.emplace_back(std::make_shared<VulkanImage>(vk_device, texture_desc));
 
         image_view_create_info.image = _images[i];
+        images.back()->image_handle  = _images[i];
         images.back()->image_view    = vk::raii::ImageView(vk_device.GetDevice(), image_view_create_info, vk_device.GetCustomAllocator());
     }
 }
@@ -449,7 +468,6 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDe
             vk::DescriptorSetLayoutCreateInfo{
                 .bindingCount = static_cast<std::uint32_t>(bindings.size()),
                 .pBindings    = bindings.data(),
-                .flags        = vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR,
             },
             device.GetCustomAllocator());
 
@@ -514,7 +532,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPip
         vertex_input_binding_descriptions.emplace_back(
             vk::VertexInputBindingDescription{
                 .binding   = binding,
-                .stride    = m_Desc.vertex_input_layout[binding].stride,
+                .stride    = static_cast<std::uint32_t>(m_Desc.vertex_input_layout[binding].stride),
                 .inputRate = m_Desc.vertex_input_layout[binding].per_instance
                                  ? vk::VertexInputRate::eInstance
                                  : vk::VertexInputRate::eVertex,
@@ -525,7 +543,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPip
                     .location = location++,
                     .binding  = binding,
                     .format   = to_vk_format(attribute.format),
-                    .offset   = attribute.offset,
+                    .offset   = static_cast<std::uint32_t>(attribute.offset),
                 });
         }
     }
@@ -559,7 +577,7 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPip
 
     const auto render_format = to_vk_format(desc.render_format);
 
-    auto root_signature = std::static_pointer_cast<VulkanPipelineLayout>(m_Desc.root_signature.lock());
+    auto root_signature = std::static_pointer_cast<VulkanPipelineLayout>(m_Desc.root_signature);
     if (root_signature == nullptr) {
         auto error_message = fmt::format(
             "Root signature is not specified for pipeline({})",

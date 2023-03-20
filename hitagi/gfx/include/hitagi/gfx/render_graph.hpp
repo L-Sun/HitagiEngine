@@ -116,10 +116,10 @@ private:
     std::mutex                  m_ExecuteQueueMutex;
     std::pmr::vector<PassNode*> m_ExecuteQueue;
 
-    using RetiredResource = std::pair<std::shared_ptr<Resource>, SemaphoreWaitPair>;
+    using RetiredResource = std::pair<std::shared_ptr<Resource>, FenceWaitPair>;
     std::pmr::deque<RetiredResource> m_RetiredResources;
 
-    utils::EnumArray<SemaphoreWaitPair, CommandType> m_SemaphoreWaitPairs;
+    utils::EnumArray<FenceWaitPair, CommandType> m_FenceWaitPairs;
 
     constexpr static unsigned                                                            sm_CacheLifeSpan = 5;
     std::unordered_map<GPUBuffer::Desc, std::pair<std::shared_ptr<GPUBuffer>, unsigned>> m_GPUBufferPool;

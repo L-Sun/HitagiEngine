@@ -20,7 +20,8 @@ public:
     static auto  Create(Type type, std::string_view name = "") -> std::unique_ptr<Device>;
     virtual void WaitIdle() = 0;
 
-    virtual auto CreateSemaphore(std::uint64_t initial_value = 0, std ::string_view name = "") -> std::shared_ptr<Semaphore> = 0;
+    virtual auto CreateFence(std::string_view name = "") -> std::shared_ptr<Fence>         = 0;
+    virtual auto CreateSemaphore(std::string_view name = "") -> std::shared_ptr<Semaphore> = 0;
 
     virtual auto GetCommandQueue(CommandType type) const -> CommandQueue&                                     = 0;
     virtual auto CreateGraphicsContext(std::string_view name = "") -> std::shared_ptr<GraphicsCommandContext> = 0;

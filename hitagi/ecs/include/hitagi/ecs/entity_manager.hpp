@@ -33,10 +33,10 @@ public:
     inline auto NumEntities() const noexcept { return m_EntityMaps.size(); }
 
     template <Component T>
-    auto GetComponent(Entity entity) -> std::optional<std::reference_wrapper<T>>;
+    auto GetComponent(Entity entity) -> utils::optional_ref<T>;
 
     template <Component T>
-    auto GetComponent(Entity entity) const -> std::optional<std::reference_wrapper<const T>>;
+    auto GetComponent(Entity entity) const -> utils::optional_ref<const T>;
 
     auto GetArchetype(const Filter& filter) const -> std::pmr::vector<detials::IArchetype*>;
 
@@ -105,14 +105,14 @@ void EntityManager::Detach(Entity entity, const DynamicComponents& dynamic_compo
 {}
 
 template <Component T>
-auto EntityManager::GetComponent(Entity entity) -> std::optional<std::reference_wrapper<T>> {
+auto EntityManager::GetComponent(Entity entity) -> utils::optional_ref<T> {
     if (!m_EntityMaps.contains(entity)) return std::nullopt;
 
     return m_EntityMaps[entity]->GetComponent<T>(entity);
 }
 
 template <Component T>
-auto EntityManager::GetComponent(Entity entity) const -> std::optional<std::reference_wrapper<const T>> {
+auto EntityManager::GetComponent(Entity entity) const -> utils::optional_ref<const T> {
     if (!m_EntityMaps.contains(entity)) return std::nullopt;
 
     return m_EntityMaps.at(entity)->GetComponent<const T>(entity);

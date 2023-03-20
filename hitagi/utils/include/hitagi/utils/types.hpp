@@ -3,6 +3,7 @@
 
 #include <typeinfo>
 #include <type_traits>
+#include <optional>
 
 namespace hitagi::utils {
 class TypeID {
@@ -21,7 +22,7 @@ public:
     constexpr auto GetValue() const noexcept { return m_Value; }
 
     template <typename T>
-    const bool Is() const noexcept { return m_Value == Create<T>(); }
+    bool Is() const noexcept { return m_Value == Create<T>(); }
 
     constexpr bool Valid() const noexcept { return m_Value != InvalidValue(); }
 
@@ -43,6 +44,9 @@ struct Window {
     Type  type;
     void* ptr;
 };
+
+template <typename T>
+using optional_ref = std::optional<std::reference_wrapper<T>>;
 
 }  // namespace hitagi::utils
 

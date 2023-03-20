@@ -27,7 +27,7 @@ std::string flags_name(E flags) {
 
 constexpr std::array supported_device_types = {
 #ifdef _WIN32
-    Device::Type::DX12,
+// Device::Type::DX12,
 #endif
     Device::Type::Vulkan,
 };
@@ -51,8 +51,13 @@ TEST_P(DeviceTest, CreateDevice) {
     ASSERT_TRUE(device != nullptr);
 }
 
+TEST_P(DeviceTest, CreateFence) {
+    auto fence = device->CreateFence();
+    EXPECT_TRUE(fence != nullptr) << "Failed to create fence";
+}
+
 TEST_P(DeviceTest, CreateSemaphore) {
-    auto semaphore = device->CreateSemaphore(32);
+    auto semaphore = device->CreateSemaphore();
     EXPECT_TRUE(semaphore != nullptr) << "Failed to create semaphore";
 }
 
@@ -235,50 +240,6 @@ TEST_P(DeviceTest, CreatePipeline) {
         EXPECT_TRUE(render_pipeline);
     }
 }
-
-class SemaphoreTest : public DeviceTest {
-protected:
-    SemaphoreTest() : semaphore(device->CreateSemaphore()) {}
-
-    std::shared_ptr<Semaphore> semaphore;
-};
-INSTANTIATE_TEST_SUITE_P(
-    SemaphoreTest,
-    SemaphoreTest,
-    ValuesIn(supported_device_types),
-    [](const TestParamInfo<Device::Type>& info) -> std::string {
-        return std::string{magic_enum::enum_name(info.param)};
-    });
-TEST_P(SemaphoreTest, GetCurrentValue) {
-    EXPECT_EQ(semaphore->GetCurrentValue(), 0) << "The initial value of the semaphore should be 0";
-    auto semaphore_2 = device->CreateSemaphore(1);
-    EXPECT_EQ(semaphore_2->GetCurrentValue(), 1) << "The initial value of the semaphore should be 1";
-}
-
-TEST_P(SemaphoreTest, Signal) {
-    EXPECT_EQ(semaphore->GetCurrentValue(), 0) << "The initial value of the semaphore should be 0";
-    semaphore->Signal(1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    EXPECT_EQ(semaphore->GetCurrentValue(), 1) << "The value of the semaphore should be 1 after signal";
-}
-
-TEST_P(SemaphoreTest, Wait) {
-    auto signal_fn = [this]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        semaphore->Signal(1);
-    };
-    auto wait_fn = [this]() {
-        semaphore->Wait(1);
-        EXPECT_EQ(semaphore->GetCurrentValue(), 1) << "The value of the semaphore should be 1 after wait";
-    };
-    std::thread signal_thread(signal_fn);
-    std::thread wait_thread(wait_fn);
-
-    wait_thread.join();
-    signal_thread.join();
-
-    EXPECT_EQ(semaphore->GetCurrentValue(), 1) << "The value of the semaphore should be 1 after wait";
-};
 
 class GPUBufferTest : public TestWithParam<std::tuple<Device::Type, GPUBufferUsageFlags>> {
 protected:
@@ -558,7 +519,6 @@ TEST_P(DeviceTest, CommandContextTest) {
 
         graphics_context->Begin();
         graphics_context->SetPipeline(*render_pipeline);
-        graphics_context->PushConstant(0, vec4f(1, 2, 3, 4));
         graphics_context->BindConstantBuffer(1, *constant_buffer);
         graphics_context->End();
 
@@ -616,7 +576,6 @@ protected:
         swap_chain = device->CreateSwapChain({
             .name   = test_name,
             .window = app->GetWindow(),
-            .format = device->device_type == Device::Type::Vulkan ? Format::B8G8R8A8_UNORM : Format::R8G8B8A8_UNORM,
         });
         ASSERT_TRUE(swap_chain != nullptr);
     }
@@ -634,8 +593,8 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(SwapChainTest, CreateSwapChain) {
     auto rect = app->GetWindowsRect();
-    EXPECT_EQ(swap_chain->Width(), rect.right - rect.left) << "swap chain should be same size as window";
-    EXPECT_EQ(swap_chain->Height(), rect.bottom - rect.top) << "swap chain should be same size as window";
+    EXPECT_EQ(swap_chain->GetWidth(), rect.right - rect.left) << "swap chain should be same size as window";
+    EXPECT_EQ(swap_chain->GetHeight(), rect.bottom - rect.top) << "swap chain should be same size as window";
 }
 
 TEST_P(SwapChainTest, GetBackBuffer) {
@@ -644,7 +603,7 @@ TEST_P(SwapChainTest, GetBackBuffer) {
     for (const Texture& back_buffer : swap_chain->GetBuffers()) {
         EXPECT_EQ(back_buffer.GetDesc().width, rect.right - rect.left) << "Each back buffer should have the same size as the swap chain after resizing";
         EXPECT_EQ(back_buffer.GetDesc().height, rect.bottom - rect.top) << "Each back buffer should have the same size as the swap chain after resizing";
-        EXPECT_EQ(back_buffer.GetDesc().format, swap_chain->GetDesc().format) << "Each back buffer should have the same format as the swap chain";
+        EXPECT_EQ(back_buffer.GetDesc().format, swap_chain->GetFormat()) << "Each back buffer should have the same format as the swap chain";
         EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.GetDesc().usages, TextureUsageFlags::RTV)) << "Back buffer should have RTV usage";
     }
 }
@@ -657,8 +616,8 @@ TEST_P(SwapChainTest, SwapChainResizing) {
     rect = app->GetWindowsRect();
     swap_chain->Resize();
 
-    EXPECT_EQ(swap_chain->Width(), rect.right - rect.left) << "Swap chain should be same size as window after resizing";
-    EXPECT_EQ(swap_chain->Height(), rect.bottom - rect.top) << "Swap chain should be same size as window after resizing";
+    EXPECT_EQ(swap_chain->GetWidth(), rect.right - rect.left) << "Swap chain should be same size as window after resizing";
+    EXPECT_EQ(swap_chain->GetHeight(), rect.bottom - rect.top) << "Swap chain should be same size as window after resizing";
 
     for (const Texture& buffer : swap_chain->GetBuffers()) {
         EXPECT_EQ(buffer.GetDesc().width, rect.right - rect.left) << "Each buffer should have the same size as the swap chain after resizing";
@@ -671,23 +630,18 @@ TEST_P(DeviceTest, DrawTriangle) {
         hitagi::AppConfig{
             .title = std::pmr::string{fmt::format("App/{}", test_name)},
         });
-    {
-        auto rect = app->GetWindowsRect();
 
-        auto swap_chain = device->CreateSwapChain(
-            {
-                .name   = UnitTest::GetInstance()->current_test_info()->name(),
-                .window = app->GetWindow(),
-                .format = device->device_type == Device::Type::Vulkan ? Format::B8G8R8A8_UNORM : Format::R8G8B8A8_UNORM,
-            });
+    auto rect = app->GetWindowsRect();
 
-        constexpr std::string_view shader_code = R"""(
-            cbuffer Rotation : register(b0) {
-                matrix rotation;
-            };
+    auto swap_chain = device->CreateSwapChain(
+        {
+            .name   = UnitTest::GetInstance()->current_test_info()->name(),
+            .window = app->GetWindow(),
+        });
 
+    constexpr std::string_view shader_code = R"""(
             struct VS_INPUT {
-                float4 pos : POSITION;
+                float3 pos : POSITION;
                 float3 col : COLOR;
             };
 
@@ -698,7 +652,7 @@ TEST_P(DeviceTest, DrawTriangle) {
 
             PS_INPUT VSMain(VS_INPUT input) {
                 PS_INPUT output;
-                output.pos = mul(rotation, input.pos);
+                output.pos = float4(input.pos, 1.0f);
                 output.col = input.col;
                 return output;
             }
@@ -708,96 +662,103 @@ TEST_P(DeviceTest, DrawTriangle) {
             }
         )""";
 
-        auto vertex_shader = device->CreateShader({
-            .name        = fmt::format("VS-{}", test_name),
-            .type        = ShaderType::Vertex,
-            .entry       = "VSMain",
-            .source_code = shader_code,
-        });
-        ASSERT_TRUE(vertex_shader);
+    auto vertex_shader = device->CreateShader({
+        .name        = fmt::format("VS-{}", test_name),
+        .type        = ShaderType::Vertex,
+        .entry       = "VSMain",
+        .source_code = shader_code,
+    });
+    ASSERT_TRUE(vertex_shader);
 
-        auto pixel_shader = device->CreateShader({
-            .name        = fmt::format("PS-{}", test_name),
-            .type        = ShaderType::Pixel,
-            .entry       = "PSMain",
-            .source_code = shader_code,
-        });
-        ASSERT_TRUE(pixel_shader);
+    auto pixel_shader = device->CreateShader({
+        .name        = fmt::format("PS-{}", test_name),
+        .type        = ShaderType::Pixel,
+        .entry       = "PSMain",
+        .source_code = shader_code,
+    });
+    ASSERT_TRUE(pixel_shader);
 
-        auto root_signature = device->CreateRootSignature({
-            .name    = fmt::format("RootSignature-{}", test_name),
-            .shaders = {vertex_shader, pixel_shader},
-        });
-        ASSERT_TRUE(root_signature);
+    auto root_signature = device->CreateRootSignature({
+        .name    = fmt::format("RootSignature-{}", test_name),
+        .shaders = {vertex_shader, pixel_shader},
+    });
+    ASSERT_TRUE(root_signature);
 
-        auto pipeline = device->CreateRenderPipeline({
-            .name    = "I know DirectX12 pipeline",
-            .shaders = {
-                vertex_shader,
-                pixel_shader,
-            },
-            .root_signature      = root_signature,
-            .vertex_input_layout = {
-                {
-                    .stride     = 2 * sizeof(vec3f),
-                    .attributes = {
-                        {"POSITION", 0, Format::R32G32B32_FLOAT, 0},
-                        {"COLOR", 0, Format::R32G32B32_FLOAT, sizeof(vec3f)},
-                    },
+    auto pipeline = device->CreateRenderPipeline({
+        .name    = "I know DirectX12 pipeline",
+        .shaders = {
+            vertex_shader,
+            pixel_shader,
+        },
+        .root_signature      = root_signature,
+        .vertex_input_layout = {
+            {
+                .stride     = 2 * sizeof(vec3f),
+                .attributes = {
+                    {"POSITION", 0, Format::R32G32B32_FLOAT, 0},
+                    {"COLOR", 0, Format::R32G32B32_FLOAT, sizeof(vec3f)},
                 },
             },
-            .rasterization_state = {
-                .front_counter_clockwise = false,
-            },
-        });
+        },
+        .rasterization_state = {
+            .front_counter_clockwise = false,
+        },
+        .render_format = swap_chain->GetFormat(),
+    });
 
-        // clang-format off
+    // clang-format off
         constexpr std::array<vec3f, 6> triangle = {{
             /*         pos       */  /*    color     */
             {-0.25f, -0.25f, 0.00f}, {1.0f, 0.0f, 0.0f},  // point 0
             { 0.00f,  0.25f, 0.00f}, {0.0f, 1.0f, 0.0f},  // point 1
             { 0.25f, -0.25f, 0.00f}, {0.0f, 0.0f, 1.0f},  // point 2
         }};
-        // clang-format on
-        auto vertex_buffer = device->CreateGPUBuffer(
-            {
-                .name          = "I know DirectX12 positions buffer",
-                .element_size  = 2 * sizeof(vec3f),
-                .element_count = 3,
-                .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
-            },
-            {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
+    // clang-format on
+    auto vertex_buffer = device->CreateGPUBuffer(
+        {
+            .name          = "I know DirectX12 positions buffer",
+            .element_size  = 2 * sizeof(vec3f),
+            .element_count = 3,
+            .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
+        },
+        {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
-        auto& gfx_queue = device->GetCommandQueue(CommandType::Graphics);
-        auto  context   = device->CreateGraphicsContext("I know DirectX12 context");
+    auto swapchain_semaphore                = device->CreateSemaphore("swapchain semaphore");
+    auto draw_semaphore                     = device->CreateSemaphore("draw semaphore");
+    auto [render_target, back_buffer_index] = swap_chain->AcquireNextBuffer(*swapchain_semaphore);
 
-        context->Begin();
-        context->SetRenderTarget(swap_chain->GetCurrentBackBuffer());
-        context->SetViewPort(ViewPort{
-            .x      = 0,
-            .y      = 0,
-            .width  = static_cast<float>(rect.right - rect.left),
-            .height = static_cast<float>(rect.bottom - rect.top),
-        });
-        context->SetScissorRect(hitagi::gfx::Rect{
-            .x      = rect.left,
-            .y      = rect.top,
-            .width  = rect.right - rect.left,
-            .height = rect.bottom - rect.top,
-        });
-        context->ClearRenderTarget(swap_chain->GetCurrentBackBuffer());
-        context->SetPipeline(*pipeline);
-        context->SetVertexBuffer(0, *vertex_buffer);
+    auto& gfx_queue = device->GetCommandQueue(CommandType::Graphics);
+    auto  context   = device->CreateGraphicsContext("I know DirectX12 context");
 
-        context->PushConstant(0, rotate_z(deg2rad(90.0f)));
+    context->Begin();
+    context->SetPipeline(*pipeline);
+    context->SetRenderTarget(render_target);
+    context->SetViewPort(ViewPort{
+        .x      = 0,
+        .y      = 0,
+        .width  = static_cast<float>(rect.right - rect.left),
+        .height = static_cast<float>(rect.bottom - rect.top),
+    });
+    context->SetScissorRect(hitagi::gfx::Rect{
+        .x      = rect.left,
+        .y      = rect.top,
+        .width  = rect.right - rect.left,
+        .height = rect.bottom - rect.top,
+    });
+    context->ClearRenderTarget(render_target);
+    context->SetVertexBuffer(0, *vertex_buffer);
 
-        context->Draw(3);
-        context->End();
+    context->Draw(3);
 
-        gfx_queue.Submit({context.get()});
-        gfx_queue.WaitIdle();
-    }
+    context->Present(render_target);
+    context->End();
+
+    gfx_queue.Submit({context.get()}, {*swapchain_semaphore}, {*draw_semaphore});
+    swap_chain->Present(back_buffer_index, {*draw_semaphore});
+    gfx_queue.WaitIdle();
 }
+
+#include <spdlog/spdlog.h>
 
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::debug);

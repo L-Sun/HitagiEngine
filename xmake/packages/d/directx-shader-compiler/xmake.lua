@@ -25,7 +25,7 @@ package("directx-shader-compiler")
 
     on_install("windows|x64", function (package)
         os.cp("bin/x64/*", package:installdir("bin"))
-        os.cp("inc/*", package:installdir("include"))
+        os.cp("inc/*", package:installdir("include/dxc"))
         os.cp("lib/x64/*", package:installdir("lib"))
         package:addenv("PATH", "bin")
     end)

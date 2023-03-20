@@ -1,6 +1,5 @@
 #pragma once
 #include "vk_configs.hpp"
-#include "vk_sync.hpp"
 
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
@@ -65,7 +64,7 @@ inline auto is_physical_suitable(const vk::raii::PhysicalDevice& physical_device
 inline auto get_sdl2_drawable_size(SDL_Window* window) -> math::vec2u {
     int width, height;
     SDL_Vulkan_GetDrawableSize(window, &width, &height);
-    return {width, height};
+    return {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
 }
 
 inline constexpr auto get_command_label_color(CommandType type) {
@@ -92,17 +91,6 @@ inline void create_vk_debug_object_info(const T& obj, std::string_view name, con
     });
 }
 
-inline auto convert_to_sao_vk_semaphore_wait_pairs(const std::pmr::vector<SemaphoreWaitPair>& pairs) {
-    utils::SoA<vk::Semaphore, std::uint64_t> result;
-    std::transform(pairs.begin(), pairs.end(), std::back_inserter(result), [](const SemaphoreWaitPair& pair) {
-        auto&& [semaphore, value] = pair;
-        auto& vk_semaphore        = std::static_pointer_cast<VulkanSemaphore>(semaphore)->semaphore;
-        return std::make_pair(*vk_semaphore, value);
-    });
-
-    return result;
-}
-
 inline auto get_queue_create_info(const vk::raii::PhysicalDevice& device) -> std::optional<vk::DeviceQueueCreateInfo> {
     const auto queue_family_properties = device.getQueueFamilyProperties();
 
@@ -126,13 +114,13 @@ inline auto get_queue_create_info(const vk::raii::PhysicalDevice& device) -> std
 inline constexpr auto get_shader_model_version(ShaderType type) noexcept {
     switch (type) {
         case ShaderType::Vertex:
-            return L"vs_6_7";
+            return L"vs_6_0";
         case ShaderType::Pixel:
-            return L"ps_6_7";
+            return L"ps_6_0";
         case ShaderType::Geometry:
-            return L"gs_6_7";
+            return L"gs_6_0";
         case ShaderType::Compute:
-            return L"cs_6_7";
+            return L"cs_6_0";
     }
 }
 
@@ -252,6 +240,119 @@ inline constexpr auto to_vk_format(Format format) noexcept -> vk::Format {
             return vk::Format::eBc7SrgbBlock;
         default:
             return vk::Format::eUndefined;
+    }
+}
+
+inline constexpr auto from_vk_format(vk::Format format) noexcept -> Format {
+    switch (format) {
+        case vk::Format::eR32G32B32A32Sfloat:
+            return Format::R32G32B32A32_FLOAT;
+        case vk::Format::eR32G32B32A32Uint:
+            return Format::R32G32B32A32_UINT;
+        case vk::Format::eR32G32B32A32Sint:
+            return Format::R32G32B32A32_SINT;
+        case vk::Format::eR32G32B32Sfloat:
+            return Format::R32G32B32_FLOAT;
+        case vk::Format::eR32G32B32Uint:
+            return Format::R32G32B32_UINT;
+        case vk::Format::eR32G32B32Sint:
+            return Format::R32G32B32_SINT;
+        case vk::Format::eR16G16B16A16Sfloat:
+            return Format::R16G16B16A16_FLOAT;
+        case vk::Format::eR16G16B16A16Unorm:
+            return Format::R16G16B16A16_UNORM;
+        case vk::Format::eR16G16B16A16Uint:
+            return Format::R16G16B16A16_UINT;
+        case vk::Format::eR16G16B16A16Snorm:
+            return Format::R16G16B16A16_SNORM;
+        case vk::Format::eR16G16B16A16Sint:
+            return Format::R16G16B16A16_SINT;
+        case vk::Format::eR32G32Sfloat:
+            return Format::R32G32_FLOAT;
+        case vk::Format::eR32G32Uint:
+            return Format::R32G32_UINT;
+        case vk::Format::eR32G32Sint:
+            return Format::R32G32_SINT;
+        case vk::Format::eD32SfloatS8Uint:
+            return Format::D32_FLOAT_S8X24_UINT;
+        case vk::Format::eB10G11R11UfloatPack32:
+            return Format::R11G11B10_FLOAT;
+        case vk::Format::eR8G8B8A8Unorm:
+            return Format::R8G8B8A8_UNORM;
+        case vk::Format::eR8G8B8A8Srgb:
+            return Format::R8G8B8A8_UNORM_SRGB;
+        case vk::Format::eR8G8B8A8Uint:
+            return Format::R8G8B8A8_UINT;
+        case vk::Format::eR8G8B8A8Snorm:
+            return Format::R8G8B8A8_SNORM;
+        case vk::Format::eR8G8B8A8Sint:
+            return Format::R8G8B8A8_SINT;
+        case vk::Format::eR16G16Sfloat:
+            return Format::R16G16_FLOAT;
+        case vk::Format::eR16G16Unorm:
+            return Format::R16G16_UNORM;
+        case vk::Format::eR16G16Uint:
+            return Format::R16G16_UINT;
+        case vk::Format::eR16G16Snorm:
+            return Format::R16G16_SNORM;
+        case vk::Format::eR16G16Sint:
+            return Format::R16G16_SINT;
+        case vk::Format::eD32Sfloat:
+            return Format::D32_FLOAT;
+        case vk::Format::eR32Sfloat:
+            return Format::R32_FLOAT;
+        case vk::Format::eR32Uint:
+            return Format::R32_UINT;
+        case vk::Format::eR32Sint:
+            return Format::R32_SINT;
+        case vk::Format::eD24UnormS8Uint:
+            return Format::D24_UNORM_S8_UINT;
+        case vk::Format::eR8G8Unorm:
+            return Format::R8G8_UNORM;
+        case vk::Format::eR8G8Uint:
+            return Format::R8G8_UINT;
+        case vk::Format::eR8G8Snorm:
+            return Format::R8G8_SNORM;
+        case vk::Format::eR8G8Sint:
+            return Format::R8G8_SINT;
+        case vk::Format::eR16Sfloat:
+            return Format::R16_FLOAT;
+        case vk::Format::eD16Unorm:
+            return Format::D16_UNORM;
+        case vk::Format::eR16Unorm:
+            return Format::R16_UNORM;
+        case vk::Format::eR16Uint:
+            return Format::R16_UINT;
+        case vk::Format::eR16Snorm:
+            return Format::R16_SNORM;
+        case vk::Format::eR16Sint:
+            return Format::R16_SINT;
+        case vk::Format::eR8Unorm:
+            return Format::R8_UNORM;
+        case vk::Format::eR8Uint:
+            return Format::R8_UINT;
+        case vk::Format::eR8Snorm:
+            return Format::R8_SNORM;
+        case vk::Format::eR8Sint:
+            return Format::R8_SINT;
+        case vk::Format::eB5G6R5UnormPack16:
+            return Format::B5G6R5_UNORM;
+        case vk::Format::eB5G5R5A1UnormPack16:
+            return Format::B5G5R5A1_UNORM;
+        case vk::Format::eB8G8R8A8Unorm:
+            return Format::B8G8R8A8_UNORM;
+        case vk::Format::eB8G8R8A8Srgb:
+            return Format::B8G8R8A8_UNORM_SRGB;
+        case vk::Format::eBc6HUfloatBlock:
+            return Format::BC6H_UF16;
+        case vk::Format::eBc6HSfloatBlock:
+            return Format::BC6H_SF16;
+        case vk::Format::eBc7UnormBlock:
+            return Format::BC7_UNORM;
+        case vk::Format::eBc7SrgbBlock:
+            return Format::BC7_UNORM_SRGB;
+        default:
+            return Format::UNKNOWN;
     }
 }
 
@@ -564,11 +665,12 @@ inline constexpr auto to_vk_blend_attachment_state(BlendState blend_state) noexc
 }
 
 inline constexpr auto to_vk_viewport(ViewPort view_port) noexcept {
+    // we need flip viewport here, since NDC is y-up in our engine .
     return vk::Viewport{
         .x        = view_port.x,
-        .y        = view_port.y,
+        .y        = view_port.y + view_port.height,
         .width    = view_port.width,
-        .height   = view_port.height,
+        .height   = -view_port.height,
         .minDepth = view_port.min_depth,
         .maxDepth = view_port.max_depth,
     };

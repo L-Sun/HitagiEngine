@@ -1,5 +1,6 @@
 #include "vk_command_queue.hpp"
 #include "vk_device.hpp"
+#include "vk_sync.hpp"
 #include "vk_command_buffer.hpp"
 #include "utils.hpp"
 
@@ -21,7 +22,11 @@ VulkanCommandQueue::VulkanCommandQueue(VulkanDevice& device, CommandType type, s
     create_vk_debug_object_info(m_Queue, m_Name, device.GetDevice());
 }
 
-void VulkanCommandQueue::Submit(std::pmr::vector<CommandContext*> contexts, std::pmr::vector<SemaphoreWaitPair> wait_semaphores, std::pmr::vector<SemaphoreWaitPair> signal_semaphores) {
+void VulkanCommandQueue::Submit(
+    std::pmr::vector<CommandContext*>                         contexts,
+    std::pmr::vector<std::reference_wrapper<const Semaphore>> wait_semaphores,
+    std::pmr::vector<std::reference_wrapper<const Semaphore>> signal_semaphores,
+    utils::optional_ref<const Fence>                          fence) {
     // make sure all context are same command type
     if (auto iter = std::find_if(
             contexts.begin(), contexts.end(),
@@ -50,30 +55,25 @@ void VulkanCommandQueue::Submit(std::pmr::vector<CommandContext*> contexts, std:
             }
         });
 
-    const auto _wait_semaphores   = convert_to_sao_vk_semaphore_wait_pairs(wait_semaphores);
-    const auto _signal_semaphores = convert_to_sao_vk_semaphore_wait_pairs(signal_semaphores);
-
     std::pmr::vector<vk::PipelineStageFlags> _stage_flags(wait_semaphores.size(), vk::PipelineStageFlagBits::eAllCommands);
 
-    vk::StructureChain submit_info{
-        vk::SubmitInfo{
-            .waitSemaphoreCount   = static_cast<std::uint32_t>(_wait_semaphores.size()),
-            .pWaitSemaphores      = _wait_semaphores.elements<0>().data(),
-            .pWaitDstStageMask    = _stage_flags.data(),
-            .commandBufferCount   = static_cast<std::uint32_t>(command_buffers.size()),
-            .pCommandBuffers      = command_buffers.data(),
-            .signalSemaphoreCount = static_cast<std::uint32_t>(_signal_semaphores.size()),
-            .pSignalSemaphores    = _signal_semaphores.elements<0>().data(),
-        },
-        vk::TimelineSemaphoreSubmitInfo{
-            .waitSemaphoreValueCount   = static_cast<std::uint32_t>(_wait_semaphores.size()),
-            .pWaitSemaphoreValues      = _wait_semaphores.elements<1>().data(),
-            .signalSemaphoreValueCount = static_cast<std::uint32_t>(_signal_semaphores.size()),
-            .pSignalSemaphoreValues    = _signal_semaphores.elements<1>().data(),
-        },
-    };
+    auto extract_vk_semaphpre_fn = [](const Semaphore& semaphore) { return *static_cast<const VulkanSemaphore&>(semaphore).semaphore; };
 
-    m_Queue.submit(submit_info.get());
+    std::pmr::vector<vk::Semaphore> wait_vk_semaphores;
+    std::pmr::vector<vk::Semaphore> signal_vk_semaphores;
+    std::transform(wait_semaphores.begin(), wait_semaphores.end(), std::back_inserter(wait_vk_semaphores), extract_vk_semaphpre_fn);
+    std::transform(signal_semaphores.begin(), signal_semaphores.end(), std::back_inserter(signal_vk_semaphores), extract_vk_semaphpre_fn);
+
+    m_Queue.submit(vk::SubmitInfo{
+                       .waitSemaphoreCount   = static_cast<std::uint32_t>(wait_vk_semaphores.size()),
+                       .pWaitSemaphores      = wait_vk_semaphores.data(),
+                       .pWaitDstStageMask    = _stage_flags.data(),
+                       .commandBufferCount   = static_cast<std::uint32_t>(command_buffers.size()),
+                       .pCommandBuffers      = command_buffers.data(),
+                       .signalSemaphoreCount = static_cast<std::uint32_t>(signal_vk_semaphores.size()),
+                       .pSignalSemaphores    = signal_vk_semaphores.data(),
+                   },
+                   fence ? *static_cast<const VulkanFence&>(fence->get()).fence : vk::Fence{});
 }
 
 void VulkanCommandQueue::WaitIdle() {

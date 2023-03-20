@@ -37,6 +37,16 @@ void VulkanGraphicsCommandBuffer::Reset() {
     command_buffer.reset();
 }
 
+void VulkanGraphicsCommandBuffer::SetPipeline(const GraphicsPipeline& pipeline) {
+    auto vk_pipeline = &static_cast<const VulkanGraphicsPipeline&>(pipeline);
+    if (m_Pipeline == vk_pipeline) return;
+    m_Pipeline = vk_pipeline;
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, **m_Pipeline->pipeline);
+
+    m_PipelineLayout = std::static_pointer_cast<VulkanPipelineLayout>(pipeline.GetDesc().root_signature).get();
+    // TODO bind pipeline layout set
+}
+
 void VulkanGraphicsCommandBuffer::SetViewPort(const ViewPort& view_port) {
     command_buffer.setViewport(0, to_vk_viewport(view_port));
 }
@@ -45,7 +55,7 @@ void VulkanGraphicsCommandBuffer::SetScissorRect(const Rect& scissor_rect) {
     command_buffer.setScissor(
         0,
         vk::Rect2D{
-            .offset = {scissor_rect.x, scissor_rect.y},
+            .offset = {static_cast<std::int32_t>(scissor_rect.x), static_cast<std::int32_t>(scissor_rect.y)},
             .extent = {scissor_rect.width, scissor_rect.height},
         });
 }
@@ -55,6 +65,47 @@ void VulkanGraphicsCommandBuffer::SetBlendColor(const math::vec4f& color) {
 }
 
 void VulkanGraphicsCommandBuffer::SetRenderTarget(Texture& target) {
+    vk::ImageMemoryBarrier image_memory_barrier{
+        .dstAccessMask    = vk::AccessFlagBits::eColorAttachmentWrite,
+        .oldLayout        = vk::ImageLayout::eUndefined,
+        .newLayout        = vk::ImageLayout::eColorAttachmentOptimal,
+        .image            = static_cast<VulkanImage&>(target).image_handle,
+        .subresourceRange = {
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        }};
+
+    command_buffer.pipelineBarrier(
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::DependencyFlagBits::eByRegion,
+        {},
+        {},
+        image_memory_barrier);
+
+    vk::RenderingAttachmentInfo color_attachment{
+        .imageView   = *static_cast<VulkanImage&>(target).image_view.value(),
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .clearValue  = vk::ClearValue{
+             .color = vk::ClearColorValue{
+                 .float32 = math::vec4f(0, 0, 0, 1).data,
+            },
+        },
+    };
+    command_buffer.beginRendering(vk::RenderingInfo{
+        .renderArea = {
+            .offset = {0, 0},
+            .extent = {target.GetDesc().width, target.GetDesc().height},
+        },
+        .layerCount           = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments    = &color_attachment,
+        .pDepthAttachment     = nullptr,
+        .pStencilAttachment   = nullptr,
+    });
 }
 
 void VulkanGraphicsCommandBuffer::SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) {}
@@ -62,13 +113,6 @@ void VulkanGraphicsCommandBuffer::SetRenderTargetAndDepthStencil(Texture& target
 void VulkanGraphicsCommandBuffer::ClearRenderTarget(Texture& target) {}
 
 void VulkanGraphicsCommandBuffer::ClearDepthStencil(Texture& depth_stencil) {}
-
-void VulkanGraphicsCommandBuffer::SetPipeline(const GraphicsPipeline& pipeline) {
-    auto vk_pipeline = &static_cast<const VulkanGraphicsPipeline&>(pipeline);
-    if (m_Pipeline == vk_pipeline) return;
-    m_Pipeline = vk_pipeline;
-    command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, **m_Pipeline->pipeline);
-}
 
 void VulkanGraphicsCommandBuffer::SetIndexBuffer(GPUBuffer& buffer) {
     vk::IndexType index_type;
@@ -88,12 +132,6 @@ void VulkanGraphicsCommandBuffer::SetVertexBuffer(std::uint8_t slot, GPUBuffer& 
     command_buffer.bindVertexBuffers(slot, **static_cast<VulkanBuffer&>(buffer).buffer, {0});
 }
 
-void VulkanGraphicsCommandBuffer::PushConstant(std::uint32_t slot, const std::span<const std::byte>& data) {
-    vk::ArrayProxy<const std::byte> data_proxy(data.size(), data.data());
-    // TODO get visibility from pipeline
-    command_buffer.pushConstants(**m_Pipeline->pipeline_layout, vk::ShaderStageFlagBits::eAll, slot, data_proxy);
-}
-
 void VulkanGraphicsCommandBuffer::BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index) {
 }
 
@@ -104,6 +142,34 @@ void VulkanGraphicsCommandBuffer::Draw(std::uint32_t vertex_count, std::uint32_t
 }
 
 void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::uint32_t base_vertex, std::uint32_t first_instance) {}
+
+void VulkanGraphicsCommandBuffer::Present(Texture& texture) {
+    auto& vulkan_texture = static_cast<VulkanImage&>(texture);
+    command_buffer.endRendering();
+
+    vk::ImageMemoryBarrier image_memory_barrier = {
+        .srcAccessMask    = vk::AccessFlagBits::eColorAttachmentWrite,
+        .dstAccessMask    = vk::AccessFlagBits::eMemoryRead,
+        .oldLayout        = vk::ImageLayout::eColorAttachmentOptimal,
+        .newLayout        = vk::ImageLayout::ePresentSrcKHR,
+        .image            = vulkan_texture.image_handle,
+        .subresourceRange = {
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        },
+    };
+
+    command_buffer.pipelineBarrier(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits::eBottomOfPipe,
+        {},
+        {},
+        {},
+        image_memory_barrier);
+}
 
 void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dest) {}
 

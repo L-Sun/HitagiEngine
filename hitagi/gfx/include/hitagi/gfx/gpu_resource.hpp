@@ -89,18 +89,23 @@ using Sampler = Resource<SamplerDesc>;
 struct SwapChainDesc {
     std::string_view name = UNKOWN_NAME;
     utils::Window    window;
-    Format           format       = Format::B8G8R8A8_UNORM;
     std::uint32_t    sample_count = 1;
     bool             vsync        = false;
 };
 class SwapChain : public Resource<SwapChainDesc> {
 public:
-    virtual auto GetCurrentBackBuffer() -> Texture&                                = 0;
-    virtual auto GetBuffers() -> std::pmr::vector<std::reference_wrapper<Texture>> = 0;
-    virtual auto Width() -> std::uint32_t                                          = 0;
-    virtual auto Height() -> std::uint32_t                                         = 0;
-    virtual void Present()                                                         = 0;
-    virtual void Resize()                                                          = 0;
+    // Return the buffer and index
+    virtual auto AcquireNextBuffer(
+        utils::optional_ref<Semaphore> signal_semaphore = {},
+        utils::optional_ref<Fence>     signal_fence     = {}) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> = 0;
+
+    virtual auto GetBuffer(std::uint32_t index) const -> Texture&                                 = 0;
+    virtual auto GetBuffers() const -> std::pmr::vector<std::reference_wrapper<Texture>>          = 0;
+    virtual auto GetWidth() const noexcept -> std::uint32_t                                       = 0;
+    virtual auto GetHeight() const noexcept -> std::uint32_t                                      = 0;
+    virtual auto GetFormat() const noexcept -> Format                                             = 0;
+    virtual void Present(std::uint32_t index, utils::optional_ref<Semaphore> wait_semaphore = {}) = 0;
+    virtual void Resize()                                                                         = 0;
 
 protected:
     using Resource::Resource;
@@ -133,14 +138,14 @@ struct GraphicsPipelineDesc {
 
     std::pmr::vector<std::weak_ptr<Shader>> shaders;
 
-    std::weak_ptr<RootSignature> root_signature = {};
-    AssemblyState                assembly_state = {};
-    VertexBufferLayouts          vertex_input_layout;
-    RasterizationState           rasterization_state;
-    DepthStencilState            depth_stencil_state;
-    BlendState                   blend_state;
-    Format                       render_format        = Format::R8G8B8A8_UNORM;
-    Format                       depth_stencil_format = Format::UNKNOWN;
+    std::shared_ptr<RootSignature> root_signature = {};
+    AssemblyState                  assembly_state = {};
+    VertexBufferLayouts            vertex_input_layout;
+    RasterizationState             rasterization_state;
+    DepthStencilState              depth_stencil_state;
+    BlendState                     blend_state;
+    Format                         render_format        = Format::R8G8B8A8_UNORM;
+    Format                         depth_stencil_format = Format::UNKNOWN;
 };
 using GraphicsPipeline = Resource<GraphicsPipelineDesc>;
 

@@ -43,6 +43,8 @@ class GraphicsCommandContext : public CommandContext {
 public:
     using CommandContext::CommandContext;
 
+    virtual void SetPipeline(const GraphicsPipeline& pipeline) = 0;
+
     virtual void SetViewPort(const ViewPort& view_port)                                  = 0;
     virtual void SetScissorRect(const Rect& scissor_rect)                                = 0;
     virtual void SetBlendColor(const math::vec4f& color)                                 = 0;
@@ -52,21 +54,16 @@ public:
     virtual void ClearRenderTarget(Texture& target)        = 0;
     virtual void ClearDepthStencil(Texture& depth_stencil) = 0;
 
-    virtual void SetPipeline(const GraphicsPipeline& pipeline)         = 0;
     virtual void SetIndexBuffer(GPUBuffer& buffer)                     = 0;
     virtual void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) = 0;
 
-    template <typename T>
-        requires utils::not_same_as<std::remove_cvref<T>, std::span<const std::byte>>
-    void PushConstant(std::uint32_t slot, T&& data) {
-        PushConstant(slot, {reinterpret_cast<const std::byte*>(&data), sizeof(T)});
-    }
-    virtual void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data)         = 0;
     virtual void BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index = 0) = 0;
     virtual void BindTexture(std::uint32_t slot, Texture& texture)                                = 0;
 
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
+
+    virtual void Present(Texture& texture) = 0;
 
     virtual void CopyTexture(const Texture& src, Texture& dest) = 0;
 };

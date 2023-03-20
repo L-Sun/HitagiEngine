@@ -104,8 +104,8 @@ public:
 
     bool        Empty() const noexcept;
     inline auto Size() const noexcept { return m_VertexCount; }
-    auto        GetAttributeData(VertexAttribute attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>>;
-    auto        GetAttributeData(const gfx::VertexAttribute& attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>>;
+    auto        GetAttributeData(VertexAttribute attr) const noexcept -> utils::optional_ref<const AttributeData>;
+    auto        GetAttributeData(const gfx::VertexAttribute& attr) const noexcept -> utils::optional_ref<const AttributeData>;
 
     template <VertexAttribute T>
     auto Span() const noexcept -> std::span<const VertexDataType<T>>;

@@ -1,8 +1,11 @@
 #pragma once
+#include <hitagi/gfx/sync.hpp>
 #include <hitagi/gfx/gpu_resource.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_raii.hpp>
+
+#include <variant>
 
 namespace hitagi::gfx {
 class VulkanDevice;
@@ -21,6 +24,7 @@ struct VulkanBuffer final : public GPUBuffer {
 struct VulkanImage : public Texture {
     VulkanImage(VulkanDevice& device, TextureDesc desc);
     std::optional<vk::raii::Image>     image;
+    vk::Image                          image_handle;
     std::optional<vk::raii::ImageView> image_view;
 };
 
@@ -28,18 +32,28 @@ struct VulkanSwapChain final : public SwapChain {
     VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc);
     ~VulkanSwapChain() final = default;
 
-    auto GetCurrentBackBuffer() -> Texture& final;
-    auto GetBuffers() -> std::pmr::vector<std::reference_wrapper<Texture>> final;
-    auto Width() -> std::uint32_t final;
-    auto Height() -> std::uint32_t final;
-    void Present() final;
+    auto AcquireNextBuffer(
+        utils::optional_ref<Semaphore> signal_semaphore = {},
+        utils::optional_ref<Fence>     signal_fence     = {}) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> final;
+
+    auto GetBuffer(std::uint32_t index) const -> Texture& final;
+    auto GetBuffers() const -> std::pmr::vector<std::reference_wrapper<Texture>> final;
+
+    inline auto GetWidth() const noexcept -> std::uint32_t final { return size.x; };
+    inline auto GetHeight() const noexcept -> std::uint32_t final { return size.y; };
+    inline auto GetFormat() const noexcept -> Format final { return format; }
+
+    void Present(std::uint32_t index, utils::optional_ref<Semaphore> wait_semaphore = {}) final;
     void Resize() final;
 
-    std::unique_ptr<vk::raii::SurfaceKHR>   surface;
-    std::unique_ptr<vk::raii::SwapchainKHR> swap_chain;
-    math::vec2u                             size;
-
+    std::unique_ptr<vk::raii::SurfaceKHR>          surface;
+    std::unique_ptr<vk::raii::SwapchainKHR>        swap_chain;
+    math::vec2u                                    size;
+    Format                                         format;
     std::pmr::vector<std::shared_ptr<VulkanImage>> images;
+    // Binary semaphore
+    vk::raii::Semaphore semaphore;
+    std::uint32_t       crrent_index;
 
 private:
     void CreateSwapChain();
@@ -68,8 +82,7 @@ struct VulkanPipelineLayout : public RootSignature {
 struct VulkanGraphicsPipeline : public GraphicsPipeline {
     VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipelineDesc desc);
 
-    std::unique_ptr<vk::raii::PipelineLayout> pipeline_layout;
-    std::unique_ptr<vk::raii::Pipeline>       pipeline;
+    std::unique_ptr<vk::raii::Pipeline> pipeline;
 };
 
 }  // namespace hitagi::gfx

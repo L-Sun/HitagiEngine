@@ -1,6 +1,4 @@
 #pragma once
-#include "vk_sync.hpp"
-
 #include <hitagi/gfx/command_queue.hpp>
 
 #include <vulkan/vulkan_raii.hpp>
@@ -14,9 +12,10 @@ public:
     ~VulkanCommandQueue() final = default;
 
     void Submit(
-        std::pmr::vector<CommandContext*>   contexts,
-        std::pmr::vector<SemaphoreWaitPair> wait_semaphores   = {},
-        std::pmr::vector<SemaphoreWaitPair> signal_semaphores = {}) final;
+        std::pmr::vector<CommandContext*>                         contexts,
+        std::pmr::vector<std::reference_wrapper<const Semaphore>> wait_semaphore   = {},
+        std::pmr::vector<std::reference_wrapper<const Semaphore>> signal_semaphore = {},
+        utils::optional_ref<const Fence>                          signal_fence     = {}) final;
 
     void WaitIdle() final;
 

@@ -83,7 +83,7 @@ MemoryPool::MemoryPool() : m_Pools(InitPools(std::make_index_sequence<block_size
     assert(block_index == block_size.size() - 1);
 }
 
-auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrapper<Pool>> {
+auto MemoryPool::GetPool(std::size_t bytes) -> utils::optional_ref<Pool> {
     if (bytes > block_size.back()) return std::nullopt;
     return m_Pools.at(pool_map[bytes]);
 }

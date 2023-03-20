@@ -239,10 +239,10 @@ public:
     using container_type = hitagi::utils::SoA<Types...>;
 
     explicit back_insert_iterator(container_type& container)
-        : container_(container) {}
+        : container_(std::addressof(container)) {}
 
     back_insert_iterator<container_type>& operator=(typename container_type::StructureConstRef value) {
-        container_.push_back(value);
+        container_->push_back(value);
         return *this;
     }
 
@@ -259,5 +259,5 @@ public:
     }
 
 private:
-    container_type& container_;
+    container_type* container_;
 };

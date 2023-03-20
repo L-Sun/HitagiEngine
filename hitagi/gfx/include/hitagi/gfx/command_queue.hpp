@@ -18,9 +18,10 @@ public:
     inline auto& GetName() const noexcept { return m_Name; }
 
     virtual void Submit(
-        std::pmr::vector<CommandContext*>   contexts,
-        std::pmr::vector<SemaphoreWaitPair> wait_semaphores   = {},
-        std::pmr::vector<SemaphoreWaitPair> signal_semaphores = {}) = 0;
+        std::pmr::vector<CommandContext*>                         contexts,
+        std::pmr::vector<std::reference_wrapper<const Semaphore>> wait_semaphores   = {},
+        std::pmr::vector<std::reference_wrapper<const Semaphore>> signal_semaphores = {},
+        utils::optional_ref<const Fence>                          signal_fence      = {}) = 0;
 
     virtual void WaitIdle() = 0;
 
