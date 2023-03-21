@@ -32,12 +32,12 @@ struct VulkanSwapChain final : public SwapChain {
     VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc);
     ~VulkanSwapChain() final = default;
 
-    auto AcquireNextBuffer(
+    auto AcquireNextTexture(
         utils::optional_ref<Semaphore> signal_semaphore = {},
         utils::optional_ref<Fence>     signal_fence     = {}) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> final;
 
     auto GetBuffer(std::uint32_t index) const -> Texture& final;
-    auto GetBuffers() const -> std::pmr::vector<std::reference_wrapper<Texture>> final;
+    auto GetTextures() const -> std::pmr::vector<std::reference_wrapper<Texture>> final;
 
     inline auto GetWidth() const noexcept -> std::uint32_t final { return size.x; };
     inline auto GetHeight() const noexcept -> std::uint32_t final { return size.y; };
@@ -74,6 +74,9 @@ private:
 
 struct VulkanPipelineLayout : public RootSignature {
     VulkanPipelineLayout(VulkanDevice& device, RootSignatureDesc desc);
+
+    // For bindless
+    VulkanPipelineLayout(VulkanDevice& device, std::span<vk::DescriptorPoolSize> pool_sizes);
 
     std::pmr::vector<vk::raii::DescriptorSetLayout> descriptor_set_layouts;
     std::unique_ptr<vk::raii::PipelineLayout>       pipeline_layout;

@@ -48,6 +48,22 @@ private:
     const VulkanGraphicsPipeline* m_Pipeline       = nullptr;
 };
 
+class VulkanComputeCommandBuffer final : public ComputeCommandContext {
+public:
+    VulkanComputeCommandBuffer(VulkanDevice& device, std::string_view name);
+
+    void Begin() final;
+    void End() final;
+    void Reset() final;
+
+    void ResourceBarrier(
+        const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
+        const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
+        const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final;
+
+    vk::raii::CommandBuffer command_buffer;
+};
+
 class VulkanTransferCommandBuffer final : public CopyCommandContext {
 public:
     VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name);

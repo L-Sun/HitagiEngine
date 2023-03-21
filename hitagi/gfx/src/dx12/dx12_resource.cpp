@@ -6,10 +6,10 @@
 
 namespace hitagi::gfx {
 auto DX12SwapChain::GetCurrentBackBuffer() -> Texture& {
-    return GetBuffers().at(swap_chain->GetCurrentBackBufferIndex());
+    return GetTextures().at(swap_chain->GetCurrentBackBufferIndex());
 }
 
-auto DX12SwapChain::GetBuffers() -> std::pmr::vector<std::reference_wrapper<Texture>> {
+auto DX12SwapChain::GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>> {
     assert(swap_chain);
     if (back_buffers.empty()) {
         // it is important to reserve the capacity for no to reallocate,

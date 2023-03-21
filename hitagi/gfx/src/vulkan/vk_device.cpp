@@ -27,7 +27,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
 {
     m_Logger->debug("Create Vulkan Instance...");
     {
-        vk::ApplicationInfo app_info = {
+        const vk::ApplicationInfo app_info{
             .pApplicationName   = "Hitagi",
             .applicationVersion = VK_MAKE_VERSION(0, 0, 1),
             .pEngineName        = "Hitagi",
@@ -84,14 +84,14 @@ VulkanDevice::VulkanDevice(std::string_view name)
             throw std::runtime_error("Failed to find physical device Vulkan supported!");
         }
         m_PhysicalDevice = std::make_unique<vk::raii::PhysicalDevice>(std::move(physical_devices.front()));
+        m_Logger->debug("Pick physical device: {}", fmt::styled(std::string_view{m_PhysicalDevice->getProperties().deviceName}, fmt::fg(fmt::color::green)));
     }
-    m_Logger->debug("Pick physical device: {}", fmt::styled(std::string_view{m_PhysicalDevice->getProperties().deviceName}, fmt::fg(fmt::color::green)));
 
     m_Logger->debug("Create logical device...");
     {
         const auto queue_create_info = get_queue_create_info(*m_PhysicalDevice).value();
 
-        vk::StructureChain device_create_info = {
+        const vk::StructureChain device_create_info = {
             vk::DeviceCreateInfo{
                 .queueCreateInfoCount    = 1,
                 .pQueueCreateInfos       = &queue_create_info,
@@ -99,7 +99,16 @@ VulkanDevice::VulkanDevice(std::string_view name)
                 .ppEnabledExtensionNames = required_device_extensions.data(),
             },
             vk::PhysicalDeviceVulkan12Features{
-                .timelineSemaphore = true,
+                .descriptorIndexing                            = true,
+                .shaderInputAttachmentArrayDynamicIndexing     = true,
+                .shaderInputAttachmentArrayNonUniformIndexing  = true,
+                .descriptorBindingUniformBufferUpdateAfterBind = true,
+                .descriptorBindingSampledImageUpdateAfterBind  = true,
+                .descriptorBindingStorageImageUpdateAfterBind  = true,
+                .descriptorBindingStorageBufferUpdateAfterBind = true,
+                .descriptorBindingPartiallyBound               = true,
+                .descriptorBindingVariableDescriptorCount      = true,
+                .timelineSemaphore                             = true,
             },
             vk::PhysicalDeviceVulkan13Features{
                 .synchronization2 = true,
@@ -119,6 +128,18 @@ VulkanDevice::VulkanDevice(std::string_view name)
         });
     }
 
+    m_Logger->debug("Create VMA Allocator...");
+    {
+        const VmaAllocatorCreateInfo allocator_info = {
+            .physicalDevice       = **m_PhysicalDevice,
+            .device               = **m_Device,
+            .pAllocationCallbacks = &static_cast<VkAllocationCallbacks&>(m_CustomAllocator),
+            .instance             = **m_Instance,
+            .vulkanApiVersion     = m_Context.enumerateInstanceVersion(),
+        };
+        vmaCreateAllocator(&allocator_info, &m_VmaAllocator);
+    }
+
     m_Logger->debug("Create Command Pools...");
     {
         magic_enum::enum_for_each<CommandType>([&](CommandType type) {
@@ -134,16 +155,31 @@ VulkanDevice::VulkanDevice(std::string_view name)
         });
     }
 
-    m_Logger->debug("Create VMA Allocator...");
+    m_Logger->debug("Create Descriptor Set Pools...");
     {
-        VmaAllocatorCreateInfo allocator_info = {
-            .physicalDevice       = **m_PhysicalDevice,
-            .device               = **m_Device,
-            .pAllocationCallbacks = &static_cast<VkAllocationCallbacks&>(m_CustomAllocator),
-            .instance             = **m_Instance,
-            .vulkanApiVersion     = m_Context.enumerateInstanceVersion(),
+        const auto limits = m_PhysicalDevice->getProperties().limits;
+
+        std::array<vk::DescriptorPoolSize, 4> pool_sizes = {{
+            {vk::DescriptorType::eSampledImage, limits.maxDescriptorSetSampledImages},
+            {vk::DescriptorType::eStorageImage, limits.maxDescriptorSetStorageImages},
+            {vk::DescriptorType::eUniformBuffer, limits.maxDescriptorSetUniformBuffersDynamic},
+            {vk::DescriptorType::eStorageBuffer, limits.maxDescriptorSetStorageBuffersDynamic},
+            // TODO ray tracing
+        }};
+
+        const vk::DescriptorPoolCreateInfo descriptor_pool_create_info{
+            .flags         = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind,
+            .maxSets       = pool_sizes.size(),  // we will make sure each set only contains one descriptor type
+            .poolSizeCount = pool_sizes.size(),
+            .pPoolSizes    = pool_sizes.data(),
         };
-        vmaCreateAllocator(&allocator_info, &m_VmaAllocator);
+
+        m_DescriptorPool = std::make_unique<vk::raii::DescriptorPool>(
+            *m_Device,
+            descriptor_pool_create_info,
+            GetCustomAllocator());
+
+        m_BindlessRootSignature = std::make_shared<VulkanPipelineLayout>(*this, std::span{pool_sizes.data(), pool_sizes.size()});
     }
 
     m_Logger->debug("Create shader compiler...");
@@ -182,7 +218,7 @@ auto VulkanDevice::CreateGraphicsContext(std::string_view name) -> std::shared_p
 }
 
 auto VulkanDevice::CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> {
-    return nullptr;
+    return std::make_shared<VulkanComputeCommandBuffer>(*this, name);
 }
 
 auto VulkanDevice::CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> {
@@ -223,28 +259,28 @@ auto VulkanDevice::CompileShader(const ShaderDesc& desc) const -> core::Buffer {
     std::pmr::vector<std::pmr::wstring> args;
 
     // shader name
-    args.push_back(std::pmr::wstring(desc.name.begin(), desc.name.end()));
+    args.emplace_back(std::pmr::wstring(desc.name.begin(), desc.name.end()));
 
     // shader entry
-    args.push_back(L"-E");
+    args.emplace_back(L"-E");
     args.emplace_back(std::pmr::wstring(desc.entry.begin(), desc.entry.end()));
 
     // shader model
-    args.push_back(L"-T");
-    args.push_back(get_shader_model_version(desc.type));
+    args.emplace_back(L"-T");
+    args.emplace_back(get_shader_model_version(desc.type));
 
     // We use SPIR-V here
-    args.push_back(L"-spirv");
+    args.emplace_back(L"-spirv");
 
     // We use row major order
-    args.push_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
+    args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
 
     // make sure all resource bound
-    args.push_back(DXC_ARG_ALL_RESOURCES_BOUND);
+    args.emplace_back(DXC_ARG_ALL_RESOURCES_BOUND);
 #ifdef HITAGI_DEBUG
-    args.push_back(DXC_ARG_OPTIMIZATION_LEVEL0);
-    args.push_back(DXC_ARG_DEBUG);
-    args.push_back(L"-Qembed_debug");
+    args.emplace_back(DXC_ARG_OPTIMIZATION_LEVEL0);
+    args.emplace_back(DXC_ARG_DEBUG);
+    args.emplace_back(L"-Qembed_debug");
 #endif
     std::pmr::vector<const wchar_t*> p_args;
     std::transform(args.begin(), args.end(), std::back_insert_iterator(p_args), [](const auto& arg) { return arg.data(); });

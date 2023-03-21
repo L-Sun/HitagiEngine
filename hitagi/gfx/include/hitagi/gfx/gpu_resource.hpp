@@ -96,12 +96,12 @@ struct SwapChainDesc {
 class SwapChain : public Resource<SwapChainDesc> {
 public:
     // Return the buffer and index
-    virtual auto AcquireNextBuffer(
+    [[nodiscard]] virtual auto AcquireNextTexture(
         utils::optional_ref<Semaphore> signal_semaphore = {},
         utils::optional_ref<Fence>     signal_fence     = {}) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> = 0;
 
     virtual auto GetBuffer(std::uint32_t index) const -> Texture&                                 = 0;
-    virtual auto GetBuffers() const -> std::pmr::vector<std::reference_wrapper<Texture>>          = 0;
+    virtual auto GetTextures() const -> std::pmr::vector<std::reference_wrapper<Texture>>         = 0;
     virtual auto GetWidth() const noexcept -> std::uint32_t                                       = 0;
     virtual auto GetHeight() const noexcept -> std::uint32_t                                      = 0;
     virtual auto GetFormat() const noexcept -> Format                                             = 0;

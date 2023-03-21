@@ -74,10 +74,14 @@ private:
     std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
     std::unique_ptr<vk::raii::Device>         m_Device;
 
+    VmaAllocator m_VmaAllocator;
+
     utils::EnumArray<std::unique_ptr<vk::raii::CommandPool>, CommandType> m_CommandPools;
     utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType>    m_CommandQueues;
 
-    VmaAllocator m_VmaAllocator;
+    std::unique_ptr<vk::raii::DescriptorPool> m_DescriptorPool;
+
+    std::shared_ptr<RootSignature> m_BindlessRootSignature;
 
     ComPtr<IDxcUtils>     m_DxcUtils;
     ComPtr<IDxcCompiler3> m_ShaderCompiler;

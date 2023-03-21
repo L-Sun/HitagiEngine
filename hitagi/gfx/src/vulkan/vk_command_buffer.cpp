@@ -7,10 +7,10 @@
 
 namespace hitagi::gfx {
 
-void pipeline_barrier_fn(vk::raii::CommandBuffer&                  command_buffer,
-                         const std::pmr::vector<GlobalBarrier>&    global_barriers,
-                         const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
-                         const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+inline void pipeline_barrier_fn(vk::raii::CommandBuffer&                  command_buffer,
+                                const std::pmr::vector<GlobalBarrier>&    global_barriers,
+                                const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
+                                const std::pmr::vector<TextureBarrier>&   texture_barriers) {
     // convert to vulkan barriers
     std::pmr::vector<vk::MemoryBarrier2>       vk_moemory_barriers;
     std::pmr::vector<vk::BufferMemoryBarrier2> vk_buffer_barriers;
@@ -30,19 +30,22 @@ void pipeline_barrier_fn(vk::raii::CommandBuffer&                  command_buffe
     });
 }
 
+inline auto create_command_buffer(const VulkanDevice& device, CommandType type, std::string_view name) -> vk::raii::CommandBuffer {
+    vk::raii::CommandBuffer command_buffer = std::move(vk::raii::CommandBuffers(
+                                                           device.GetDevice(),
+                                                           {
+                                                               .commandPool        = *device.GetCommandPool(type),
+                                                               .level              = vk::CommandBufferLevel::ePrimary,
+                                                               .commandBufferCount = 1,
+                                                           })
+                                                           .front());
+    create_vk_debug_object_info(command_buffer, name, device.GetDevice());
+    return command_buffer;
+}
+
 VulkanGraphicsCommandBuffer::VulkanGraphicsCommandBuffer(VulkanDevice& device, std::string_view name)
     : GraphicsCommandContext(device, CommandType::Graphics, name),
-      command_buffer(std::move(
-          vk::raii::CommandBuffers(
-              device.GetDevice(),
-              {
-                  .commandPool        = *device.GetCommandPool(CommandType::Graphics),
-                  .level              = vk::CommandBufferLevel::ePrimary,
-                  .commandBufferCount = 1,
-              })
-              .front())) {
-    create_vk_debug_object_info(command_buffer, m_Name, static_cast<VulkanDevice&>(m_Device).GetDevice());
-}
+      command_buffer(create_command_buffer(device, CommandType::Graphics, name)) {}
 
 void VulkanGraphicsCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
                                                   const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
@@ -169,19 +172,33 @@ void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::ui
 
 void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dest) {}
 
+VulkanComputeCommandBuffer::VulkanComputeCommandBuffer(VulkanDevice& device, std::string_view name)
+    : ComputeCommandContext(device, CommandType::Compute, name),
+      command_buffer(create_command_buffer(device, CommandType::Compute, name)) {}
+
+void VulkanComputeCommandBuffer::Begin() {
+    command_buffer.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
+}
+
+void VulkanComputeCommandBuffer::End() {
+    command_buffer.end();
+}
+
+void VulkanComputeCommandBuffer::Reset() {
+    command_buffer.reset({});
+}
+
+void VulkanComputeCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
+                                                 const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
+                                                 const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+    pipeline_barrier_fn(command_buffer, global_barriers, buffer_barriers, texture_barriers);
+}
+
 VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name)
     : CopyCommandContext(device, CommandType::Copy, name),
-      command_buffer(
-          std::move(vk::raii::CommandBuffers(
-                        device.GetDevice(),
-                        {
-                            .commandPool        = *device.GetCommandPool(CommandType::Copy),
-                            .level              = vk::CommandBufferLevel::ePrimary,
-                            .commandBufferCount = 1,
-                        })
-                        .front())) {
-    create_vk_debug_object_info(command_buffer, m_Name, static_cast<VulkanDevice&>(m_Device).GetDevice());
-}
+      command_buffer(create_command_buffer(device, CommandType::Copy, name)) {}
 
 void VulkanTransferCommandBuffer::Begin() {
     command_buffer.begin(vk::CommandBufferBeginInfo{

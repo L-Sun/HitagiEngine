@@ -31,9 +31,9 @@ constexpr std::array supported_device_types = {
 #endif
     Device::Type::Vulkan,
 };
-class DeviceTest : public TestWithParam<Device::Type> {
+class CreateTest : public TestWithParam<Device::Type> {
 protected:
-    DeviceTest()
+    CreateTest()
         : test_name(::testing::UnitTest::GetInstance()->current_test_info()->name()),
           device(Device::Create(GetParam(), test_name)) {}
 
@@ -41,42 +41,108 @@ protected:
     std::unique_ptr<Device> device;
 };
 INSTANTIATE_TEST_SUITE_P(
-    DeviceTest,
-    DeviceTest,
+    CreateTest,
+    CreateTest,
     ValuesIn(supported_device_types),
     [](const TestParamInfo<Device::Type>& info) -> std::string {
         return std::string{magic_enum::enum_name(info.param)};
     });
-TEST_P(DeviceTest, CreateDevice) {
+TEST_P(CreateTest, CreateDevice) {
     ASSERT_TRUE(device != nullptr);
 }
 
-TEST_P(DeviceTest, CreateFence) {
+TEST_P(CreateTest, CreateFence) {
     auto fence = device->CreateFence();
     EXPECT_TRUE(fence != nullptr) << "Failed to create fence";
 }
 
-TEST_P(DeviceTest, CreateSemaphore) {
+TEST_P(CreateTest, CreateSemaphore) {
     auto semaphore = device->CreateSemaphore();
     EXPECT_TRUE(semaphore != nullptr) << "Failed to create semaphore";
 }
 
-TEST_P(DeviceTest, CreateGraphicsCommandContext) {
+TEST_P(CreateTest, CreateGraphicsCommandContext) {
     auto context = device->CreateGraphicsContext();
     EXPECT_TRUE(context != nullptr) << "Failed to create graphics context";
 }
 
-TEST_P(DeviceTest, CreateComputeCommandContext) {
+TEST_P(CreateTest, CreateComputeCommandContext) {
     auto context = device->CreateComputeContext();
     EXPECT_TRUE(context != nullptr) << "Failed to create compute context";
 }
 
-TEST_P(DeviceTest, CreateCopyCommandContext) {
+TEST_P(CreateTest, CreateCopyCommandContext) {
     auto context = device->CreateCopyContext();
     EXPECT_TRUE(context != nullptr) << "Failed to create copy context";
 }
 
-TEST_P(DeviceTest, CreateShader) {
+TEST_P(CreateTest, CreateTexture1D) {
+    auto texture = device->CreateTexture(
+        {
+            .name        = test_name,
+            .width       = 128,
+            .format      = Format::R8G8B8A8_UNORM,
+            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+        });
+    EXPECT_TRUE(texture != nullptr);
+}
+
+TEST_P(CreateTest, CreateTexture2D) {
+    auto texture = device->CreateTexture(
+        {
+            .name        = test_name,
+            .width       = 128,
+            .height      = 128,
+            .format      = Format::R8G8B8A8_UNORM,
+            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+        },
+        {});
+
+    EXPECT_TRUE(texture != nullptr);
+}
+
+TEST_P(CreateTest, CreateTexture3D) {
+    auto texture = device->CreateTexture(
+        {
+            .name        = test_name,
+            .width       = 128,
+            .height      = 128,
+            .depth       = 128,
+            .format      = Format::R8G8B8A8_UNORM,
+            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+        });
+
+    EXPECT_TRUE(texture != nullptr);
+}
+
+TEST_P(CreateTest, CreateTexture2DArray) {
+    auto texture = device->CreateTexture(
+        {
+            .name        = test_name,
+            .width       = 128,
+            .height      = 128,
+            .array_size  = 6,
+            .format      = Format::R8G8B8A8_UNORM,
+            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+        });
+
+    EXPECT_TRUE(texture != nullptr);
+}
+
+TEST_P(CreateTest, CreateSampler) {
+    auto sampler = device->CreatSampler(
+        {
+            .name      = test_name,
+            .address_u = AddressMode::Repeat,
+            .address_v = AddressMode::Repeat,
+            .address_w = AddressMode::Repeat,
+            .compare   = CompareOp::Always,
+        });
+
+    ASSERT_TRUE(sampler != nullptr);
+}
+
+TEST_P(CreateTest, CreateShader) {
     constexpr std::string_view shader_code = R"""(
         cbuffer cb : register(b0, space0) {
             matrix mvp;
@@ -143,15 +209,18 @@ TEST_P(DeviceTest, CreateShader) {
     }
 }
 
-TEST_P(DeviceTest, CreateRootSignature) {
-    constexpr std::string_view shader_code = R"""(
-        cbuffer cb : register(b0, space1) {
+TEST_P(CreateTest, CreateRootSignature) {
+    constexpr std::string_view vs_shader_code = R"""(
+        struct PushConstant {
+            float value;
+        };
+        struct FrameConstant {
             matrix mvp;
         };
-        cbuffer cb : register(b1, space1) {
-            matrix mvp2;
-        };
-        Texture2D<float4> materialTextures[4] : register(t0);
+
+        [[vk::push_constant]]
+        ConstantBuffer<PushConstant>     push_constant;
+        ConstantBuffer<FrameConstant>    frame_constant : register(b0, space0);
 
         struct VS_INPUT {
             float3 pos : POSITION;
@@ -159,15 +228,31 @@ TEST_P(DeviceTest, CreateRootSignature) {
         struct PS_INPUT {
             float4 pos : SV_POSITION;
         };
-        
         PS_INPUT VSMain(VS_INPUT input) {
             PS_INPUT output;
-            output.pos = mul(mvp, float4(input.pos, 1.0f));
+            output.pos = mul(frame_constant.mvp, float4(input.pos, push_constant.value));
             return output;
         }
-        float4 PSMain(VS_INPUT input) : SV_TARGET {
+    )""";
+
+    constexpr std::string_view ps_shader_code = R"""(
+        struct PushConstant {
+            float value;
+        };
+        struct MaterialConstant {
+            float3 diffuse;
+        };
+        [[vk::push_constant]]
+        ConstantBuffer<PushConstant>     push_constant;
+        ConstantBuffer<MaterialConstant> material    : register(b0, space1);
+        Texture2D<float4>                textures[4] : register(t0);
+
+        struct PS_INPUT {
+            float4 pos : SV_POSITION;
+        };
+        float4 PSMain(PS_INPUT input) : SV_TARGET {
             PS_INPUT output;
-            return float4(1.0f, 1.0f, 1.0f, 1.0f);
+            return float4(material.diffuse, push_constant.value);
         }
     )""";
 
@@ -175,7 +260,7 @@ TEST_P(DeviceTest, CreateRootSignature) {
         .name        = "vertex_test_shader",
         .type        = ShaderType::Vertex,
         .entry       = "VSMain",
-        .source_code = shader_code,
+        .source_code = vs_shader_code,
     });
     ASSERT_TRUE(vs_shader);
 
@@ -183,7 +268,7 @@ TEST_P(DeviceTest, CreateRootSignature) {
         .name        = "pixel_test_shader",
         .type        = ShaderType::Pixel,
         .entry       = "PSMain",
-        .source_code = shader_code,
+        .source_code = ps_shader_code,
     });
     ASSERT_TRUE(ps_shader);
 
@@ -194,7 +279,7 @@ TEST_P(DeviceTest, CreateRootSignature) {
     EXPECT_TRUE(root_signature);
 }
 
-TEST_P(DeviceTest, CreatePipeline) {
+TEST_P(CreateTest, CreatePipeline) {
     {
         constexpr auto vs_code = R"""(
             struct VS_INPUT {
@@ -324,9 +409,14 @@ protected:
     std::unique_ptr<Device>         device;
     std::shared_ptr<CommandContext> context;
 };
+
+class CopyCommandTest : public CommandTest {
+protected:
+    using CommandTest::CommandTest;
+};
 INSTANTIATE_TEST_SUITE_P(
-    CommandTest,
-    CommandTest,
+    CopyCommandTest,
+    CopyCommandTest,
     Combine(
         ValuesIn(supported_device_types),
         Values(CommandType::Graphics, CommandType::Compute, CommandType::Copy)),
@@ -337,7 +427,7 @@ INSTANTIATE_TEST_SUITE_P(
             magic_enum::enum_name(std::get<1>(info.param)));
     });
 
-TEST_P(CommandTest, CopyBuffer) {
+TEST_P(CopyCommandTest, CopyBuffer) {
     constexpr std::string_view initial_data = "abcdefg";
 
     auto src_buffer = device->CreateGPUBuffer(
@@ -374,193 +464,49 @@ TEST_P(CommandTest, CopyBuffer) {
     }
 }
 
-TEST_P(DeviceTest, CreateTexture) {
-    // Create 1D texture
-    {
-        auto texture = device->CreateTexture(
-            {
-                .name        = UnitTest::GetInstance()->current_test_info()->name(),
-                .width       = 128,
-                .format      = Format::R8G8B8A8_UNORM,
-                .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
-            });
-        ASSERT_TRUE(texture != nullptr);
-        EXPECT_EQ(texture->GetDesc().width, 128);
-        EXPECT_EQ(texture->GetDesc().height, 1);
-        EXPECT_EQ(texture->GetDesc().depth, 1);
-    }
-    // Create 2D texture
-    {
-        auto texture = device->CreateTexture(
-            {
-                .name        = UnitTest::GetInstance()->current_test_info()->name(),
-                .width       = 128,
-                .height      = 128,
-                .format      = Format::R8G8B8A8_UNORM,
-                .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
-            },
-            {});
+class BindCommandTest : public CommandTest {
+protected:
+    using CommandTest::CommandTest;
+};
+INSTANTIATE_TEST_SUITE_P(
+    BindCommandTest,
+    BindCommandTest,
+    Combine(
+        ValuesIn(supported_device_types),
+        Values(CommandType::Graphics, CommandType::Compute)),
+    [](const TestParamInfo<std::tuple<Device::Type, CommandType>>& info) -> std::string {
+        return fmt::format(
+            "{}_{}",
+            magic_enum::enum_name(std::get<0>(info.param)),
+            magic_enum::enum_name(std::get<1>(info.param)));
+    });
+TEST_P(BindCommandTest, PushConstant) {
+    constexpr std::string_view vs_shader_code = R"""(
+        struct Constant {
+            float value;
+        };
+        
+        [[vk::push_constant]]
+        ConstantBuffer<Constant> value;
 
-        ASSERT_TRUE(texture != nullptr);
-        EXPECT_EQ(texture->GetDesc().width, 128);
-        EXPECT_EQ(texture->GetDesc().height, 128);
-        EXPECT_EQ(texture->GetDesc().depth, 1);
-    }
-    // Create 3D texture
-    {
-        auto texture = device->CreateTexture(
-            {
-                .name        = UnitTest::GetInstance()->current_test_info()->name(),
-                .width       = 128,
-                .height      = 128,
-                .depth       = 128,
-                .format      = Format::R8G8B8A8_UNORM,
-                .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
-            });
+        float4 main() : POSITION {
+            return float4(value.value, 0.0, 0.0, 1.0);
+        }
+    )""";
 
-        ASSERT_TRUE(texture != nullptr);
-        EXPECT_EQ(texture->GetDesc().width, 128);
-        EXPECT_EQ(texture->GetDesc().height, 128);
-        EXPECT_EQ(texture->GetDesc().depth, 128);
-    }
-    // Create 2D texture array
-    {
-        auto texture = device->CreateTexture(
-            {
-                .name        = UnitTest::GetInstance()->current_test_info()->name(),
-                .width       = 128,
-                .height      = 128,
-                .array_size  = 6,
-                .format      = Format::R8G8B8A8_UNORM,
-                .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
-            });
-
-        ASSERT_TRUE(texture != nullptr);
-        EXPECT_EQ(texture->GetDesc().width, 128);
-        EXPECT_EQ(texture->GetDesc().height, 128);
-    }
+    auto vs_shader = device->CreateShader({
+        .name        = fmt::format("{}-vs", test_name),
+        .type        = ShaderType::Vertex,
+        .entry       = "main",
+        .source_code = vs_shader_code,
+    });
+    ASSERT_TRUE(vs_shader);
 }
 
-TEST_P(DeviceTest, CreateSampler) {
-    auto sampler = device->CreatSampler(
-
-        {
-            .name      = UnitTest::GetInstance()->current_test_info()->name(),
-            .address_u = AddressMode::Repeat,
-            .address_v = AddressMode::Repeat,
-            .address_w = AddressMode::Repeat,
-            .compare   = CompareOp::Always,
-        });
-
-    ASSERT_TRUE(sampler != nullptr);
-}
-
-TEST_P(DeviceTest, CommandContextTest) {
-    // Graphics context test
-    {
-        constexpr auto vs_code = R"""(
-            cbuffer PushData : register(b0) {
-                float4 push_data;
-            };
-            cbuffer ConstantData : register(b1) {
-                float4 constant_data;
-            };
-
-            struct VS_INPUT {
-                float3 pos : POSITION;
-            };
-            struct PS_INPUT {
-                float4 pos : SV_POSITION;
-            };
-            
-            [RootSignature(RSDEF)]
-            PS_INPUT VSMain(VS_INPUT input) {
-                PS_INPUT output;
-                output.pos = float4(input.pos, 1.0f) + push_data + constant_data;
-                return output;
-            }
-        )""";
-
-        auto vs_shader = device->CreateShader({
-            .name        = test_name,
-            .type        = ShaderType::Vertex,
-            .entry       = "VSMain",
-            .source_code = vs_code,
-        });
-        ASSERT_TRUE(vs_shader);
-
-        auto render_pipeline = device->CreateRenderPipeline(
-            {
-                .name                = UnitTest::GetInstance()->current_test_info()->name(),
-                .shaders             = {vs_shader},
-                .vertex_input_layout = {
-                    {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 0},
-                },
-            });
-        ASSERT_TRUE(render_pipeline);
-
-        auto constant_buffer = device->CreateGPUBuffer(
-            {
-                .name         = UnitTest::GetInstance()->current_test_info()->name(),
-                .element_size = sizeof(vec4f),
-                .usages       = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::Constant,
-            });
-        ASSERT_TRUE(constant_buffer);
-        constant_buffer->Update(0, vec4f(1, 2, 3, 4));
-
-        auto graphics_context = device->CreateGraphicsContext(fmt::format("GraphicsContext-{}", test_name));
-        ASSERT_TRUE(graphics_context);
-
-        graphics_context->Begin();
-        graphics_context->SetPipeline(*render_pipeline);
-        graphics_context->BindConstantBuffer(1, *constant_buffer);
-        graphics_context->End();
-
-        auto& queue = device->GetCommandQueue(graphics_context->GetType());
-        queue.Submit({graphics_context.get()});
-        queue.WaitIdle();
-    }
-    // Compute context test
-    {
-        auto compute_context = device->CreateComputeContext(fmt::format("ComputeContext-{}", test_name));
-        EXPECT_TRUE(compute_context);
-    }
-    // Copy context test
-    {
-        auto copy_context = device->CreateCopyContext(fmt::format("CopyContext-{}", test_name));
-        ASSERT_TRUE(copy_context);
-
-        constexpr std::string_view initial_data = "abcdefg";
-
-        auto upload_buffer = device->CreateGPUBuffer(
-            {
-                .name         = fmt::format("Upload-{}", test_name),
-                .element_size = initial_data.size(),
-                .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
-            },
-            {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
-        auto readback_buffer = device->CreateGPUBuffer(
-            {
-                .name         = fmt::format("Upload-{}", UnitTest::GetInstance()->current_test_info()->name()),
-                .element_size = initial_data.size(),
-                .usages       = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
-            });
-
-        copy_context->CopyBuffer(*upload_buffer, 0, *readback_buffer, 0, initial_data.size());
-        copy_context->End();
-
-        auto& queue = device->GetCommandQueue(copy_context->GetType());
-        queue.Submit({copy_context.get()});
-        queue.WaitIdle();
-
-        EXPECT_STREQ(reinterpret_cast<const char*>(readback_buffer->GetMappedPtr()), initial_data.data());
-    }
-}
-
-class SwapChainTest : public DeviceTest {
+class SwapChainTest : public CreateTest {
 protected:
     SwapChainTest()
-        : DeviceTest(),
+        : CreateTest(),
           app(hitagi::Application::CreateApp(hitagi::AppConfig{
               .title = std::pmr::string{fmt::format("App/{}", test_name)},
           })) {}
@@ -591,14 +537,27 @@ TEST_P(SwapChainTest, CreateSwapChain) {
     EXPECT_EQ(swap_chain->GetHeight(), rect.bottom - rect.top) << "swap chain should be same size as window";
 }
 
-TEST_P(SwapChainTest, GetBackBuffer) {
+TEST_P(SwapChainTest, AcquireNextTexture) {
     auto rect = app->GetWindowsRect();
 
-    for (const Texture& back_buffer : swap_chain->GetBuffers()) {
-        EXPECT_EQ(back_buffer.GetDesc().width, rect.right - rect.left) << "Each back buffer should have the same size as the swap chain after resizing";
-        EXPECT_EQ(back_buffer.GetDesc().height, rect.bottom - rect.top) << "Each back buffer should have the same size as the swap chain after resizing";
-        EXPECT_EQ(back_buffer.GetDesc().format, swap_chain->GetFormat()) << "Each back buffer should have the same format as the swap chain";
-        EXPECT_TRUE(hitagi::utils::has_flag(back_buffer.GetDesc().usages, TextureUsageFlags::RTV)) << "Back buffer should have RTV usage";
+    auto fence = device->CreateFence(fmt::format("{}-Fence", test_name));
+    ASSERT_TRUE(fence);
+    auto&& [texture, index] = swap_chain->AcquireNextTexture({}, *fence);
+    fence->Wait();
+
+    EXPECT_EQ(texture.get().GetDesc().width, rect.right - rect.left) << "texture should have the same size as the swap chain after resizing";
+    EXPECT_EQ(texture.get().GetDesc().height, rect.bottom - rect.top) << "texture should have the same size as the swap chain after resizing";
+    EXPECT_EQ(texture.get().GetDesc().format, swap_chain->GetFormat()) << "texture should have the same format as the swap chain";
+}
+
+TEST_P(SwapChainTest, GetBackBuffers) {
+    auto rect = app->GetWindowsRect();
+
+    for (const Texture& back_texture : swap_chain->GetTextures()) {
+        EXPECT_EQ(back_texture.GetDesc().width, rect.right - rect.left) << "Each back texture should have the same size as the swap chain after resizing";
+        EXPECT_EQ(back_texture.GetDesc().height, rect.bottom - rect.top) << "Each back texture should have the same size as the swap chain after resizing";
+        EXPECT_EQ(back_texture.GetDesc().format, swap_chain->GetFormat()) << "Each back texture should have the same format as the swap chain";
+        EXPECT_TRUE(hitagi::utils::has_flag(back_texture.GetDesc().usages, TextureUsageFlags::RTV)) << "Back texture should have RTV usage";
     }
 }
 
@@ -613,13 +572,13 @@ TEST_P(SwapChainTest, SwapChainResizing) {
     EXPECT_EQ(swap_chain->GetWidth(), rect.right - rect.left) << "Swap chain should be same size as window after resizing";
     EXPECT_EQ(swap_chain->GetHeight(), rect.bottom - rect.top) << "Swap chain should be same size as window after resizing";
 
-    for (const Texture& buffer : swap_chain->GetBuffers()) {
+    for (const Texture& buffer : swap_chain->GetTextures()) {
         EXPECT_EQ(buffer.GetDesc().width, rect.right - rect.left) << "Each buffer should have the same size as the swap chain after resizing";
         EXPECT_EQ(buffer.GetDesc().height, rect.bottom - rect.top) << "Each buffer should have the same size as the swap chain after resizing";
     }
 }
 
-TEST_P(DeviceTest, DrawTriangle) {
+TEST_P(CreateTest, DrawTriangle) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
             .title = std::pmr::string{fmt::format("App/{}", test_name)},
@@ -714,7 +673,7 @@ TEST_P(DeviceTest, DrawTriangle) {
 
     auto swapchain_semaphore                = device->CreateSemaphore("swapchain semaphore");
     auto draw_semaphore                     = device->CreateSemaphore("draw semaphore");
-    auto [render_target, back_buffer_index] = swap_chain->AcquireNextBuffer(*swapchain_semaphore);
+    auto [render_target, back_buffer_index] = swap_chain->AcquireNextTexture(*swapchain_semaphore);
 
     auto& gfx_queue = device->GetCommandQueue(CommandType::Graphics);
     auto  context   = device->CreateGraphicsContext("I know DirectX12 context");

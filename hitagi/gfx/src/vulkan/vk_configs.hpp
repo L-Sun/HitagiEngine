@@ -31,7 +31,6 @@ constexpr std::array required_instance_extensions = {
 
 constexpr std::array required_device_extensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_KHR_MAINTENANCE1_EXTENSION_NAME,
     VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
 };
 

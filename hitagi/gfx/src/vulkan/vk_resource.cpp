@@ -202,7 +202,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
     CreateImageViews();
 }
 
-auto VulkanSwapChain::AcquireNextBuffer(
+auto VulkanSwapChain::AcquireNextTexture(
     utils::optional_ref<Semaphore> signal_semaphore,
     utils::optional_ref<Fence>     signal_fence) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> {
     auto [result, index] = swap_chain->acquireNextImage(
@@ -221,7 +221,7 @@ auto VulkanSwapChain::GetBuffer(std::uint32_t index) const -> Texture& {
     return *images[index];
 }
 
-auto VulkanSwapChain::GetBuffers() const -> std::pmr::vector<std::reference_wrapper<Texture>> {
+auto VulkanSwapChain::GetTextures() const -> std::pmr::vector<std::reference_wrapper<Texture>> {
     std::pmr::vector<std::reference_wrapper<Texture>> result;
     std::transform(images.begin(), images.end(), std::back_inserter(result), [](const auto& image) { return std::ref(*image); });
     return result;
@@ -401,10 +401,10 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDe
     logger->debug("Create reflection data from shaders");
     std::pmr::vector<spv_reflect::ShaderModule> reflections;
     for (const auto& _shader : m_Desc.shaders) {
-        auto shader = _shader.lock();
+        const auto shader = _shader.lock();
         if (shader == nullptr) continue;
 
-        auto spirv_data = shader->GetSPIRVData();
+        const auto spirv_data = shader->GetSPIRVData();
         reflections.emplace_back(spirv_data.size_bytes(), spirv_data.data());
     }
 
@@ -432,7 +432,7 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDe
     for (auto set_index : set_indices) {
         std::pmr::vector<vk::DescriptorSetLayoutBinding> bindings;
         for (const auto& reflection : reflections) {
-            auto spv_set = reflection.GetEntryPointDescriptorSet(reflection.GetEntryPointName(), set_index);
+            const auto spv_set = reflection.GetEntryPointDescriptorSet(reflection.GetEntryPointName(), set_index);
             if (spv_set == nullptr) continue;
 
             auto spv_bindings = std::span(spv_set->bindings, spv_set->binding_count);
@@ -474,6 +474,24 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDe
         create_vk_debug_object_info(descriptor_set_layout, fmt::format("{}_Descriptor_Set_Layout_{}", m_Desc.name, set_index), device.GetDevice());
     }
 
+    logger->debug("Create push constant ranges...");
+    std::pmr::vector<vk::PushConstantRange> push_constant_range;
+    for (const auto& reflection : reflections) {
+        std::uint32_t num_ranges;
+        reflection.EnumerateEntryPointPushConstantBlocks(reflection.GetEntryPointName(), &num_ranges, nullptr);
+        std::pmr::vector<SpvReflectBlockVariable*> ranges(num_ranges);
+        reflection.EnumerateEntryPointPushConstantBlocks(reflection.GetEntryPointName(), &num_ranges, ranges.data());
+
+        for (const auto& range : ranges) {
+            const auto& vk_range = push_constant_range.emplace_back(vk::PushConstantRange{
+                .stageFlags = to_vk_shader_stage(reflection.GetShaderStage()),
+                .offset     = range->offset,
+                .size       = range->size,
+            });
+            logger->debug("Create push constant range for stage {} with offset {} and size {}", vk::to_string(vk_range.stageFlags), vk_range.offset, vk_range.size);
+        }
+    }
+
     std::pmr::vector<vk::DescriptorSetLayout> vk_descriptor_set_layouts;
     std::transform(
         descriptor_set_layouts.begin(), descriptor_set_layouts.end(),
@@ -483,12 +501,72 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDe
     pipeline_layout = std::make_unique<vk::raii::PipelineLayout>(
         device.GetDevice(),
         vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
-            .pSetLayouts    = vk_descriptor_set_layouts.data(),
+            .setLayoutCount         = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
+            .pSetLayouts            = vk_descriptor_set_layouts.data(),
+            .pushConstantRangeCount = static_cast<std::uint32_t>(push_constant_range.size()),
+            .pPushConstantRanges    = push_constant_range.data(),
         },
         device.GetCustomAllocator());
 
     create_vk_debug_object_info(*pipeline_layout, m_Desc.name, device.GetDevice());
+}
+
+VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, std::span<vk::DescriptorPoolSize> pool_sizes)
+    : RootSignature(device, {.name = "BindlessRootSignature"}) {
+    device.GetLogger()->debug("Create Bindless Layout...");
+
+    std::transform(
+        pool_sizes.begin(), pool_sizes.end(),
+        std::back_inserter(descriptor_set_layouts),
+        [&](const auto& pool_size) {
+            const vk::DescriptorSetLayoutBinding binding{
+                .binding            = 0,
+                .descriptorType     = pool_size.type,
+                .descriptorCount    = pool_size.descriptorCount,
+                .stageFlags         = vk::ShaderStageFlagBits::eAll,
+                .pImmutableSamplers = nullptr,
+            };
+
+            constexpr auto ext_flags = vk::DescriptorBindingFlagBits::eUpdateAfterBind |
+                                       vk::DescriptorBindingFlagBits::ePartiallyBound |
+                                       vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+
+            const vk::StructureChain descriptor_set_layout_create_info{
+                vk::DescriptorSetLayoutCreateInfo{
+                    .flags        = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
+                    .bindingCount = 1,
+                    .pBindings    = &binding,
+                },
+                vk::DescriptorSetLayoutBindingFlagsCreateInfo{
+                    .bindingCount  = 1,
+                    .pBindingFlags = &ext_flags,
+                },
+            };
+
+            return vk::raii::DescriptorSetLayout(device.GetDevice(), descriptor_set_layout_create_info.get(), device.GetCustomAllocator());
+        });
+
+    const vk::PushConstantRange push_constant_range{
+        .stageFlags = vk::ShaderStageFlagBits::eAll,
+        .offset     = 0,
+        .size       = 4 * sizeof(std::uint32_t),
+    };
+
+    std::pmr::vector<vk::DescriptorSetLayout> vk_descriptor_set_layouts;
+    std::transform(
+        descriptor_set_layouts.begin(), descriptor_set_layouts.end(),
+        std::back_inserter(vk_descriptor_set_layouts),
+        [](const auto& layout) { return *layout; });
+
+    pipeline_layout = std::make_unique<vk::raii::PipelineLayout>(
+        device.GetDevice(),
+        vk::PipelineLayoutCreateInfo{
+            .setLayoutCount         = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
+            .pSetLayouts            = vk_descriptor_set_layouts.data(),
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges    = &push_constant_range,
+        },
+        device.GetCustomAllocator());
 }
 
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipelineDesc desc)
