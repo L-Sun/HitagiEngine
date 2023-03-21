@@ -66,7 +66,8 @@ VulkanDevice::VulkanDevice(std::string_view name)
                     vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
                 .pfnUserCallback = custom_debug_message_fn,
                 .pUserData       = m_Logger.get(),
-            });
+            },
+            GetCustomAllocator());
     }
 
     m_Logger->debug("Pick GPU...");

@@ -86,11 +86,13 @@ inline constexpr auto get_command_label_color(CommandType type) {
 
 template <typename T>
 inline void create_vk_debug_object_info(const T& obj, std::string_view name, const vk::raii::Device& vk_device) {
+#ifdef HITAGI_DEBUG
     vk_device.setDebugUtilsObjectNameEXT({
         .objectType   = obj.objectType,
         .objectHandle = reinterpret_cast<std::uintptr_t>(static_cast<typename T::CType>(*obj)),
         .pObjectName  = name.data(),
     });
+#endif
 }
 
 inline auto get_queue_create_info(const vk::raii::PhysicalDevice& device) -> std::optional<vk::DeviceQueueCreateInfo> {

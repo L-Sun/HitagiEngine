@@ -18,8 +18,10 @@ constexpr std::array required_instance_layers = {
 };
 
 constexpr std::array required_instance_extensions = {
-    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
     VK_KHR_SURFACE_EXTENSION_NAME,
+#ifdef HITAGI_DEBUG
+    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#endif
 #if defined(_WIN32)
     VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #elif defined(__linux__)
