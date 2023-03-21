@@ -101,6 +101,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
                 .timelineSemaphore = true,
             },
             vk::PhysicalDeviceVulkan13Features{
+                .synchronization2 = true,
                 .dynamicRendering = true,
             },
         };

@@ -231,10 +231,7 @@ TEST_P(DeviceTest, CreatePipeline) {
                 .shaders             = {vs_shader},
                 .root_signature      = root_signature,
                 .vertex_input_layout = {
-                    {
-                        .stride     = sizeof(vec3f),
-                        .attributes = {{"POSITION", 0, Format::R32G32B32_FLOAT, 0}},
-                    },
+                    {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 0},
                 },
             });
         EXPECT_TRUE(render_pipeline);
@@ -497,10 +494,7 @@ TEST_P(DeviceTest, CommandContextTest) {
                 .name                = UnitTest::GetInstance()->current_test_info()->name(),
                 .shaders             = {vs_shader},
                 .vertex_input_layout = {
-                    {
-                        .stride     = sizeof(vec3f),
-                        .attributes = {{"POSITION", 0, Format::R32G32B32_FLOAT, 0}},
-                    },
+                    {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 0},
                 },
             });
         ASSERT_TRUE(render_pipeline);
@@ -692,13 +686,8 @@ TEST_P(DeviceTest, DrawTriangle) {
         },
         .root_signature      = root_signature,
         .vertex_input_layout = {
-            {
-                .stride     = 2 * sizeof(vec3f),
-                .attributes = {
-                    {"POSITION", 0, Format::R32G32B32_FLOAT, 0},
-                    {"COLOR", 0, Format::R32G32B32_FLOAT, sizeof(vec3f)},
-                },
-            },
+            {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 2 * sizeof(vec3f)},
+            {"COLOR", 0, Format::R32G32B32_FLOAT, 0, sizeof(vec3f), 2 * sizeof(vec3f)},
         },
         .rasterization_state = {
             .front_counter_clockwise = false,
@@ -732,7 +721,6 @@ TEST_P(DeviceTest, DrawTriangle) {
 
     context->Begin();
     context->SetPipeline(*pipeline);
-    context->SetRenderTarget(render_target);
     context->SetViewPort(ViewPort{
         .x      = 0,
         .y      = 0,
@@ -745,12 +733,44 @@ TEST_P(DeviceTest, DrawTriangle) {
         .width  = rect.right - rect.left,
         .height = rect.bottom - rect.top,
     });
-    context->ClearRenderTarget(render_target);
     context->SetVertexBuffer(0, *vertex_buffer);
 
-    context->Draw(3);
+    // Render target barrier
+    context->ResourceBarrier(
+        {}, {},
+        {
+            TextureBarrier{
+                .src_access = BarrierAccess::Unkown,
+                .dst_access = BarrierAccess::RenderTarget,
+                .src_stage  = BarrierStage::None,
+                .dst_stage  = BarrierStage::Render,
+                .src_layout = BarrierLayout::Unkown,
+                .dst_layout = BarrierLayout::RenderTarget,
+                .texture    = render_target,
+            },
+        });
 
-    context->Present(render_target);
+    context->BeginRendering({
+        .render_target             = render_target,
+        .render_target_clear_value = vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+    });
+    context->Draw(3);
+    context->EndRendering();
+
+    context->ResourceBarrier(
+        {}, {},
+        {
+            TextureBarrier{
+                .src_access = BarrierAccess::RenderTarget,
+                .dst_access = BarrierAccess::Present,
+                .src_stage  = BarrierStage::Render,
+                .dst_stage  = BarrierStage::None,
+                .src_layout = BarrierLayout::RenderTarget,
+                .dst_layout = BarrierLayout::Present,
+                .texture    = render_target,
+            },
+        });
+
     context->End();
 
     gfx_queue.Submit({context.get()}, {*swapchain_semaphore}, {*draw_semaphore});

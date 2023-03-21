@@ -12,23 +12,23 @@ class VulkanGraphicsCommandBuffer final : public GraphicsCommandContext {
 public:
     VulkanGraphicsCommandBuffer(VulkanDevice& device, std::string_view name);
 
-    void ResetState(GPUBuffer& buffer) final;
-    void ResetState(Texture& texture) final;
-
     void Begin() final;
     void End() final;
     void Reset() final;
+
+    void ResourceBarrier(
+        const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
+        const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
+        const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final;
+
+    void BeginRendering(const RenderingInfo& info) final;
+    void EndRendering() final;
 
     void SetPipeline(const GraphicsPipeline& pipeline) final;
 
     void SetViewPort(const ViewPort& view_port) final;
     void SetScissorRect(const Rect& scissor_rect) final;
     void SetBlendColor(const math::vec4f& color) final;
-    void SetRenderTarget(Texture& target) final;
-    void SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) final;
-
-    void ClearRenderTarget(Texture& target) final;
-    void ClearDepthStencil(Texture& depth_stencil) final;
 
     void SetIndexBuffer(GPUBuffer& buffer) final;
     void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) final;
@@ -38,8 +38,6 @@ public:
 
     void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;
     void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final;
-
-    void Present(Texture& texture) final;
 
     void CopyTexture(const Texture& src, Texture& dest) final;
 
@@ -53,12 +51,15 @@ private:
 class VulkanTransferCommandBuffer final : public CopyCommandContext {
 public:
     VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name);
-    void ResetState(GPUBuffer& buffer) final;
-    void ResetState(Texture& texture) final;
 
     void Begin() final;
     void End() final;
     void Reset() final;
+
+    void ResourceBarrier(
+        const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
+        const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
+        const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final;
 
     void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dest, std::size_t dest_offset, std::size_t size) final;
     void CopyTexture(const Texture& src, const Texture& dest) final;

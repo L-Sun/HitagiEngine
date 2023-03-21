@@ -4,6 +4,7 @@
 #include <hitagi/utils/flags.hpp>
 
 #include <cstdint>
+#include <variant>
 #include <vector>
 
 namespace hitagi::gfx {
@@ -371,13 +372,12 @@ struct BlendState {
     LogicOp logic_op               = LogicOp::NoOp;
 };
 
-union ClearValue {
-    math::vec4f color;
-    struct {
-        float         depth;
-        std::uint32_t stencil;
-    };
+using ClearColor = math::vec4f;
+struct ClearDepthStencil {
+    float         depth   = 1.0f;
+    std::uint32_t stencil = 0;
 };
+using ClearValue = std::variant<ClearColor, ClearDepthStencil>;
 
 struct AssemblyState {
     PrimitiveTopology primitive      = PrimitiveTopology::TriangleList;
@@ -388,19 +388,13 @@ struct VertexAttribute {
     std::string_view semantic_name;
     std::uint8_t     semantic_index;
     Format           format;
+    std::uint32_t    binding;
     std::uint64_t    offset;
+    std::uint64_t    stride;
+    bool             per_instance = false;
 };
-
-struct VertexBufferLayout {
-    std::uint64_t                     stride;
-    std::pmr::vector<VertexAttribute> attributes;
-
-    bool          per_instance = false;
-    std::uint64_t step_rate    = 0;
-};
-
 // Improve me with fixed_vector
-using VertexBufferLayouts = std::pmr::vector<VertexBufferLayout>;
+using VertexLayout = std::pmr::vector<VertexAttribute>;
 
 enum struct AddressMode : std::uint8_t {
     Clamp,

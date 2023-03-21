@@ -524,29 +524,43 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPip
 
     const auto assembly_state = to_vk_assembly_state(m_Desc.assembly_state);
 
-    std::pmr::vector<vk::VertexInputBindingDescription>   vertex_input_binding_descriptions;
     std::pmr::vector<vk::VertexInputAttributeDescription> vertex_input_attribute_descriptions;
+    std::transform(
+        m_Desc.vertex_input_layout.begin(), m_Desc.vertex_input_layout.end(),
+        std::back_inserter(vertex_input_attribute_descriptions),
+        [&](const auto& attribute) {
+            return vk::VertexInputAttributeDescription{
+                .location = static_cast<std::uint32_t>(vertex_input_attribute_descriptions.size()),
+                .binding  = attribute.binding,
+                .format   = to_vk_format(attribute.format),
+                .offset   = static_cast<std::uint32_t>(attribute.offset),
+            };
+        });
+
+    std::pmr::vector<vk::VertexInputBindingDescription> vertex_input_binding_descriptions;
     // Then sort all semantic strings according to declaration and assign Location numbers sequentially to the corresponding SPIR-V variables.
     // https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#implicit-location-number-assignment
-    for (std::uint32_t binding = 0, location = 0; binding < m_Desc.vertex_input_layout.size(); binding++) {
-        vertex_input_binding_descriptions.emplace_back(
-            vk::VertexInputBindingDescription{
-                .binding   = binding,
-                .stride    = static_cast<std::uint32_t>(m_Desc.vertex_input_layout[binding].stride),
-                .inputRate = m_Desc.vertex_input_layout[binding].per_instance
-                                 ? vk::VertexInputRate::eInstance
-                                 : vk::VertexInputRate::eVertex,
+    {
+        std::transform(
+            m_Desc.vertex_input_layout.begin(), m_Desc.vertex_input_layout.end(),
+            std::back_inserter(vertex_input_binding_descriptions),
+            [](const auto& attribute) {
+                return vk::VertexInputBindingDescription{
+                    .binding   = attribute.binding,
+                    .stride    = static_cast<std::uint32_t>(attribute.stride),
+                    .inputRate = attribute.per_instance
+                                     ? vk::VertexInputRate::eInstance
+                                     : vk::VertexInputRate::eVertex,
+                };
             });
-        for (const auto& attribute : m_Desc.vertex_input_layout[binding].attributes) {
-            vertex_input_attribute_descriptions.emplace_back(
-                vk::VertexInputAttributeDescription{
-                    .location = location++,
-                    .binding  = binding,
-                    .format   = to_vk_format(attribute.format),
-                    .offset   = static_cast<std::uint32_t>(attribute.offset),
-                });
-        }
+        auto iter = std::unique(vertex_input_binding_descriptions.begin(), vertex_input_binding_descriptions.end(), [](const auto& lhs, const auto& rhs) {
+            if (lhs.binding == rhs.binding && (lhs.stride != rhs.stride || lhs.inputRate != rhs.inputRate))
+                throw std::runtime_error("Vertex input binding description is not same");
+            return lhs.binding == rhs.binding;
+        });
+        vertex_input_binding_descriptions.erase(iter, vertex_input_binding_descriptions.end());
     }
+
     const vk::PipelineVertexInputStateCreateInfo vertex_state = {
         .vertexBindingDescriptionCount   = static_cast<std::uint32_t>(vertex_input_binding_descriptions.size()),
         .pVertexBindingDescriptions      = vertex_input_binding_descriptions.data(),

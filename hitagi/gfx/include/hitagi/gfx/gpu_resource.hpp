@@ -1,6 +1,5 @@
 #pragma once
 #include <hitagi/gfx/common_types.hpp>
-#include <hitagi/gfx/sync.hpp>
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/utils/types.hpp>
 #include <hitagi/utils/hash.hpp>
@@ -9,6 +8,8 @@
 
 namespace hitagi::gfx {
 class Device;
+class Fence;
+class Semaphore;
 
 constexpr auto UNKOWN_NAME = "Unkown";
 
@@ -140,7 +141,7 @@ struct GraphicsPipelineDesc {
 
     std::shared_ptr<RootSignature> root_signature = {};
     AssemblyState                  assembly_state = {};
-    VertexBufferLayouts            vertex_input_layout;
+    VertexLayout                   vertex_input_layout;
     RasterizationState             rasterization_state;
     DepthStencilState              depth_stencil_state;
     BlendState                     blend_state;
@@ -167,21 +168,29 @@ inline constexpr bool GPUBufferDesc::operator==(const GPUBufferDesc& rhs) const 
 
 inline constexpr bool TextureDesc::operator==(const TextureDesc& rhs) const noexcept {
     // clang-format off
-    return 
-        name                == rhs.name                &&
-        width               == rhs.width               &&
-        height              == rhs.height              &&
-        depth               == rhs.depth               &&
-        array_size          == rhs.array_size          &&
-        format              == rhs.format              &&
-        mip_levels          == rhs.mip_levels          &&
-        sample_count        == rhs.sample_count        &&
-        is_cube             == rhs.is_cube             &&
-        clear_value.color   == rhs.clear_value.color   &&
-        clear_value.depth   == rhs.clear_value.depth   &&
-        clear_value.stencil == rhs.clear_value.stencil &&
+    bool result = 
+        name                == rhs.name                  &&
+        width               == rhs.width                 &&
+        height              == rhs.height                &&
+        depth               == rhs.depth                 &&
+        array_size          == rhs.array_size            &&
+        format              == rhs.format                &&
+        mip_levels          == rhs.mip_levels            &&
+        sample_count        == rhs.sample_count          &&
+        is_cube             == rhs.is_cube               &&
+        clear_value.index() == rhs.clear_value.index()   &&
         usages              == rhs.usages;
     // clang-format on
+    if (std::holds_alternative<ClearColor>(clear_value) && std::holds_alternative<ClearColor>(rhs.clear_value)) {
+        result = result && (std::get<ClearColor>(clear_value) == std::get<ClearColor>(rhs.clear_value));
+    }
+    if (std::holds_alternative<ClearDepthStencil>(clear_value) && std::holds_alternative<ClearDepthStencil>(rhs.clear_value)) {
+        result = result &&
+                 (std::get<ClearDepthStencil>(clear_value).depth == std::get<ClearDepthStencil>(rhs.clear_value).depth) &&
+                 (std::get<ClearDepthStencil>(clear_value).stencil == std::get<ClearDepthStencil>(rhs.clear_value).stencil);
+    }
+
+    return result;
 }
 
 inline constexpr bool SamplerDesc::operator==(const SamplerDesc& rhs) const noexcept {

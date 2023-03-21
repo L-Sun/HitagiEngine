@@ -1,6 +1,5 @@
 #pragma once
-#include <hitagi/gfx/common_types.hpp>
-#include <hitagi/gfx/gpu_resource.hpp>
+#include <hitagi/gfx/sync.hpp>
 #include <hitagi/utils/concepts.hpp>
 
 #include <cstdint>
@@ -17,14 +16,15 @@ enum struct CommandType : std::uint8_t {
 class CommandContext {
 public:
     virtual ~CommandContext() = default;
-    // When a resource will be used on other type command queue, you should reset the resource state
-    virtual void ResetState(GPUBuffer& buffer) = 0;
-    virtual void ResetState(Texture& texture)  = 0;
 
     virtual void Begin() = 0;
     virtual void End()   = 0;
-
     virtual void Reset() = 0;
+
+    virtual void ResourceBarrier(
+        const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
+        const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
+        const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) = 0;
 
     inline auto& GetDevice() const noexcept { return m_Device; }
     inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
@@ -39,20 +39,25 @@ protected:
     std::pmr::string  m_Name;
 };
 
+struct RenderingInfo {
+    Texture&                     render_target;
+    utils::optional_ref<Texture> depth_stencil;
+    std::optional<ClearValue>    render_target_clear_value;
+    std::optional<ClearValue>    depth_stencil_clear_value;
+};
+
 class GraphicsCommandContext : public CommandContext {
 public:
     using CommandContext::CommandContext;
 
+    virtual void BeginRendering(const RenderingInfo& info) = 0;
+    virtual void EndRendering()                            = 0;
+
     virtual void SetPipeline(const GraphicsPipeline& pipeline) = 0;
 
-    virtual void SetViewPort(const ViewPort& view_port)                                  = 0;
-    virtual void SetScissorRect(const Rect& scissor_rect)                                = 0;
-    virtual void SetBlendColor(const math::vec4f& color)                                 = 0;
-    virtual void SetRenderTarget(Texture& target)                                        = 0;
-    virtual void SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) = 0;
-
-    virtual void ClearRenderTarget(Texture& target)        = 0;
-    virtual void ClearDepthStencil(Texture& depth_stencil) = 0;
+    virtual void SetViewPort(const ViewPort& view_port)   = 0;
+    virtual void SetScissorRect(const Rect& scissor_rect) = 0;
+    virtual void SetBlendColor(const math::vec4f& color)  = 0;
 
     virtual void SetIndexBuffer(GPUBuffer& buffer)                     = 0;
     virtual void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) = 0;
@@ -62,8 +67,6 @@ public:
 
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
-
-    virtual void Present(Texture& texture) = 0;
 
     virtual void CopyTexture(const Texture& src, Texture& dest) = 0;
 };

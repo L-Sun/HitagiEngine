@@ -1,5 +1,7 @@
 #pragma once
+#include "hitagi/gfx/sync.hpp"
 #include "vk_configs.hpp"
+#include "vk_resource.hpp"
 
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
@@ -674,6 +676,156 @@ inline constexpr auto to_vk_viewport(ViewPort view_port) noexcept {
         .minDepth = view_port.min_depth,
         .maxDepth = view_port.max_depth,
     };
+}
+
+inline constexpr auto to_vk_clear_value(ClearValue clear_value) noexcept -> vk::ClearValue {
+    if (std::holds_alternative<ClearColor>(clear_value)) {
+        return {
+            .color = {.float32 = std::get<ClearColor>(clear_value).data},
+        };
+    } else {
+        return {
+            .depthStencil = {.depth = std::get<ClearDepthStencil>(clear_value).depth, .stencil = std::get<ClearDepthStencil>(clear_value).stencil},
+        };
+    }
+}
+
+inline constexpr auto to_vk_access_flags(BarrierAccess access) noexcept -> vk::AccessFlags2 {
+    vk::AccessFlags2 result = vk::AccessFlagBits2::eNone;
+    if (access == BarrierAccess::Unkown) {
+        return result;
+    }
+    if (utils::has_flag(access, BarrierAccess::CopySrc)) {
+        result |= vk::AccessFlagBits2::eTransferRead;
+    }
+    if (utils::has_flag(access, BarrierAccess::CopyDst)) {
+        result |= vk::AccessFlagBits2::eTransferWrite;
+    }
+    if (utils::has_flag(access, BarrierAccess::Index)) {
+        result |= vk::AccessFlagBits2::eIndexRead;
+    }
+    if (utils::has_flag(access, BarrierAccess::Vertex)) {
+        result |= vk::AccessFlagBits2::eVertexAttributeRead;
+    }
+    if (utils::has_flag(access, BarrierAccess::Constant)) {
+        result |= vk::AccessFlagBits2::eUniformRead;
+    }
+    if (utils::has_flag(access, BarrierAccess::ShaderRead)) {
+        result |= vk::AccessFlagBits2::eShaderRead;
+    }
+    if (utils::has_flag(access, BarrierAccess::ShaderWrite)) {
+        result |= vk::AccessFlagBits2::eShaderWrite;
+    }
+    if (utils::has_flag(access, BarrierAccess::RenderTarget)) {
+        result |= vk::AccessFlagBits2::eColorAttachmentWrite;
+    }
+    if (utils::has_flag(access, BarrierAccess::Present)) {
+        result |= vk::AccessFlagBits2::eMemoryRead;
+    }
+    return result;
+}
+
+inline constexpr auto to_vk_stage(BarrierStage stage) noexcept -> vk::PipelineStageFlags2 {
+    if (utils::has_flag(stage, BarrierStage::All)) {
+        return vk::PipelineStageFlagBits2::eAllCommands;
+    }
+    vk::PipelineStageFlags2 result = vk::PipelineStageFlagBits2::eNone;
+    if (utils::has_flag(stage, BarrierStage::VertexInput)) {
+        result |= vk::PipelineStageFlagBits2::eVertexInput;
+    }
+    if (utils::has_flag(stage, BarrierStage::VertexShader)) {
+        result |= vk::PipelineStageFlagBits2::eVertexShader;
+    }
+    if (utils::has_flag(stage, BarrierStage::PixelShader)) {
+        result |= vk::PipelineStageFlagBits2::eFragmentShader;
+    }
+    if (utils::has_flag(stage, BarrierStage::DepthStencil)) {
+        result |= vk::PipelineStageFlagBits2::eLateFragmentTests;
+    }
+    if (utils::has_flag(stage, BarrierStage::Render)) {
+        result |= vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+    }
+    if (utils::has_flag(stage, BarrierStage::AllGraphics)) {
+        result |= vk::PipelineStageFlagBits2::eAllGraphics;
+    }
+    if (utils::has_flag(stage, BarrierStage::ComputeShader)) {
+        result |= vk::PipelineStageFlagBits2::eComputeShader;
+    }
+    if (utils::has_flag(stage, BarrierStage::Copy)) {
+        result |= vk::PipelineStageFlagBits2::eCopy;
+    }
+    if (utils::has_flag(stage, BarrierStage::Resolve)) {
+        result |= vk::PipelineStageFlagBits2::eResolve;
+    }
+    return result;
+}
+
+inline constexpr auto to_vk_image_layout(BarrierLayout layout) noexcept -> vk::ImageLayout {
+    switch (layout) {
+        case BarrierLayout::Unkown:
+            return vk::ImageLayout::eUndefined;
+        case BarrierLayout::Common:
+            return vk::ImageLayout::eGeneral;
+        case BarrierLayout::CopySrc:
+            return vk::ImageLayout::eTransferSrcOptimal;
+        case BarrierLayout::CopyDst:
+            return vk::ImageLayout::eTransferDstOptimal;
+        case BarrierLayout::ShaderRead:
+            return vk::ImageLayout::eShaderReadOnlyOptimal;
+        case BarrierLayout::DepthStencilRead:
+            return vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+        case BarrierLayout::DepthStencilWrite:
+            return vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        case BarrierLayout::RenderTarget:
+        case BarrierLayout::ResolveSrc:
+        case BarrierLayout::ResolveDst:
+            return vk::ImageLayout::eColorAttachmentOptimal;
+        case BarrierLayout::Present:
+            return vk::ImageLayout::ePresentSrcKHR;
+        default:
+            return vk::ImageLayout::eUndefined;
+    }
+}
+
+inline constexpr auto to_vk_memory_barrier(GlobalBarrier barrier) noexcept -> vk::MemoryBarrier2 {
+    return {
+        .srcStageMask  = to_vk_stage(barrier.src_stage),
+        .srcAccessMask = to_vk_access_flags(barrier.dst_access),
+        .dstStageMask  = to_vk_stage(barrier.dst_stage),
+        .dstAccessMask = to_vk_access_flags(barrier.dst_access),
+    };
+}
+
+inline auto to_vk_buffer_barrier(const GPUBufferBarrier& barrier) -> vk::BufferMemoryBarrier2 {
+    const auto& vk_buffer = static_cast<VulkanBuffer&>(barrier.buffer).buffer;
+    return {
+        // improve me
+        .srcStageMask  = to_vk_stage(barrier.src_stage),
+        .srcAccessMask = to_vk_access_flags(barrier.dst_access),
+        .dstStageMask  = to_vk_stage(barrier.dst_stage),
+        .dstAccessMask = to_vk_access_flags(barrier.dst_access),
+        .buffer        = **vk_buffer,
+    };
+}
+
+inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemoryBarrier2 {
+    auto vk_image = static_cast<VulkanImage&>(barrier.texture).image_handle;
+
+    return {
+        .srcStageMask     = to_vk_stage(barrier.src_stage),
+        .srcAccessMask    = to_vk_access_flags(barrier.src_access),
+        .dstStageMask     = to_vk_stage(barrier.dst_stage),
+        .dstAccessMask    = to_vk_access_flags(barrier.dst_access),
+        .oldLayout        = to_vk_image_layout(barrier.src_layout),
+        .newLayout        = to_vk_image_layout(barrier.dst_layout),
+        .image            = vk_image,
+        .subresourceRange = {
+            .aspectMask     = barrier.is_depth_stencil ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = barrier.mip_level,
+            .levelCount     = 1,
+            .baseArrayLayer = barrier.array_layer,
+            .layerCount     = 1,
+        }};
 }
 
 }  // namespace hitagi::gfx

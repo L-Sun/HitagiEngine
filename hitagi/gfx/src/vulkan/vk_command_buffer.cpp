@@ -6,6 +6,30 @@
 #include <spdlog/logger.h>
 
 namespace hitagi::gfx {
+
+void pipeline_barrier_fn(vk::raii::CommandBuffer&                  command_buffer,
+                         const std::pmr::vector<GlobalBarrier>&    global_barriers,
+                         const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
+                         const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+    // convert to vulkan barriers
+    std::pmr::vector<vk::MemoryBarrier2>       vk_moemory_barriers;
+    std::pmr::vector<vk::BufferMemoryBarrier2> vk_buffer_barriers;
+    std::pmr::vector<vk::ImageMemoryBarrier2>  vk_image_barriers;
+
+    std::transform(global_barriers.begin(), global_barriers.end(), std::back_inserter(vk_moemory_barriers), to_vk_memory_barrier);
+    std::transform(buffer_barriers.begin(), buffer_barriers.end(), std::back_inserter(vk_buffer_barriers), to_vk_buffer_barrier);
+    std::transform(texture_barriers.begin(), texture_barriers.end(), std::back_inserter(vk_image_barriers), to_vk_image_barrier);
+
+    command_buffer.pipelineBarrier2(vk::DependencyInfo{
+        .memoryBarrierCount       = static_cast<std::uint32_t>(vk_moemory_barriers.size()),
+        .pMemoryBarriers          = vk_moemory_barriers.data(),
+        .bufferMemoryBarrierCount = static_cast<std::uint32_t>(vk_buffer_barriers.size()),
+        .pBufferMemoryBarriers    = vk_buffer_barriers.data(),
+        .imageMemoryBarrierCount  = static_cast<std::uint32_t>(vk_image_barriers.size()),
+        .pImageMemoryBarriers     = vk_image_barriers.data(),
+    });
+}
+
 VulkanGraphicsCommandBuffer::VulkanGraphicsCommandBuffer(VulkanDevice& device, std::string_view name)
     : GraphicsCommandContext(device, CommandType::Graphics, name),
       command_buffer(std::move(
@@ -20,8 +44,11 @@ VulkanGraphicsCommandBuffer::VulkanGraphicsCommandBuffer(VulkanDevice& device, s
     create_vk_debug_object_info(command_buffer, m_Name, static_cast<VulkanDevice&>(m_Device).GetDevice());
 }
 
-void VulkanGraphicsCommandBuffer::ResetState(GPUBuffer& buffer) {}
-void VulkanGraphicsCommandBuffer::ResetState(Texture& texture) {}
+void VulkanGraphicsCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
+                                                  const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
+                                                  const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+    pipeline_barrier_fn(command_buffer, global_barriers, buffer_barriers, texture_barriers);
+}
 
 void VulkanGraphicsCommandBuffer::Begin() {
     command_buffer.begin({
@@ -35,6 +62,53 @@ void VulkanGraphicsCommandBuffer::End() {
 
 void VulkanGraphicsCommandBuffer::Reset() {
     command_buffer.reset();
+}
+
+void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_info) {
+    auto& vk_color_attachment_image = static_cast<VulkanImage&>(render_info.render_target);
+
+    vk::RenderingAttachmentInfo color_attachment, depth_stencil_attachment;
+
+    color_attachment = {
+        .imageView   = *vk_color_attachment_image.image_view.value(),
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp      = render_info.render_target_clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+        .storeOp     = vk::AttachmentStoreOp::eStore,
+        .clearValue  = render_info.render_target_clear_value
+                           ? to_vk_clear_value(render_info.render_target_clear_value.value())
+                           : vk::ClearValue{},
+    };
+    if (render_info.depth_stencil.has_value()) {
+        auto& vk_depth_stencil_image = static_cast<VulkanImage&>(render_info.depth_stencil->get());
+        depth_stencil_attachment     = {
+                .imageView   = *vk_depth_stencil_image.image_view.value(),
+                .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
+                .loadOp      = render_info.depth_stencil_clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+                .storeOp     = vk::AttachmentStoreOp::eStore,
+                .clearValue  = render_info.depth_stencil_clear_value
+                                   ? to_vk_clear_value(render_info.depth_stencil_clear_value.value())
+                                   : vk::ClearValue{},
+        };
+    }
+
+    command_buffer.beginRendering({
+        .renderArea = {
+            .offset = {0, 0},
+            .extent = {
+                .width  = vk_color_attachment_image.GetDesc().width,
+                .height = vk_color_attachment_image.GetDesc().height,
+            },
+        },
+        .layerCount           = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments    = &color_attachment,
+        .pDepthAttachment     = &depth_stencil_attachment,
+        .pStencilAttachment   = &depth_stencil_attachment,
+    });
+};
+
+void VulkanGraphicsCommandBuffer::EndRendering() {
+    command_buffer.endRendering();
 }
 
 void VulkanGraphicsCommandBuffer::SetPipeline(const GraphicsPipeline& pipeline) {
@@ -63,56 +137,6 @@ void VulkanGraphicsCommandBuffer::SetScissorRect(const Rect& scissor_rect) {
 void VulkanGraphicsCommandBuffer::SetBlendColor(const math::vec4f& color) {
     command_buffer.setBlendConstants(color);
 }
-
-void VulkanGraphicsCommandBuffer::SetRenderTarget(Texture& target) {
-    vk::ImageMemoryBarrier image_memory_barrier{
-        .dstAccessMask    = vk::AccessFlagBits::eColorAttachmentWrite,
-        .oldLayout        = vk::ImageLayout::eUndefined,
-        .newLayout        = vk::ImageLayout::eColorAttachmentOptimal,
-        .image            = static_cast<VulkanImage&>(target).image_handle,
-        .subresourceRange = {
-            .aspectMask     = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel   = 0,
-            .levelCount     = 1,
-            .baseArrayLayer = 0,
-            .layerCount     = 1,
-        }};
-
-    command_buffer.pipelineBarrier(
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::DependencyFlagBits::eByRegion,
-        {},
-        {},
-        image_memory_barrier);
-
-    vk::RenderingAttachmentInfo color_attachment{
-        .imageView   = *static_cast<VulkanImage&>(target).image_view.value(),
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .clearValue  = vk::ClearValue{
-             .color = vk::ClearColorValue{
-                 .float32 = math::vec4f(0, 0, 0, 1).data,
-            },
-        },
-    };
-    command_buffer.beginRendering(vk::RenderingInfo{
-        .renderArea = {
-            .offset = {0, 0},
-            .extent = {target.GetDesc().width, target.GetDesc().height},
-        },
-        .layerCount           = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments    = &color_attachment,
-        .pDepthAttachment     = nullptr,
-        .pStencilAttachment   = nullptr,
-    });
-}
-
-void VulkanGraphicsCommandBuffer::SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) {}
-
-void VulkanGraphicsCommandBuffer::ClearRenderTarget(Texture& target) {}
-
-void VulkanGraphicsCommandBuffer::ClearDepthStencil(Texture& depth_stencil) {}
 
 void VulkanGraphicsCommandBuffer::SetIndexBuffer(GPUBuffer& buffer) {
     vk::IndexType index_type;
@@ -143,34 +167,6 @@ void VulkanGraphicsCommandBuffer::Draw(std::uint32_t vertex_count, std::uint32_t
 
 void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::uint32_t base_vertex, std::uint32_t first_instance) {}
 
-void VulkanGraphicsCommandBuffer::Present(Texture& texture) {
-    auto& vulkan_texture = static_cast<VulkanImage&>(texture);
-    command_buffer.endRendering();
-
-    vk::ImageMemoryBarrier image_memory_barrier = {
-        .srcAccessMask    = vk::AccessFlagBits::eColorAttachmentWrite,
-        .dstAccessMask    = vk::AccessFlagBits::eMemoryRead,
-        .oldLayout        = vk::ImageLayout::eColorAttachmentOptimal,
-        .newLayout        = vk::ImageLayout::ePresentSrcKHR,
-        .image            = vulkan_texture.image_handle,
-        .subresourceRange = {
-            .aspectMask     = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel   = 0,
-            .levelCount     = 1,
-            .baseArrayLayer = 0,
-            .layerCount     = 1,
-        },
-    };
-
-    command_buffer.pipelineBarrier(
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits::eBottomOfPipe,
-        {},
-        {},
-        {},
-        image_memory_barrier);
-}
-
 void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dest) {}
 
 VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name)
@@ -187,10 +183,6 @@ VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(VulkanDevice& device, s
     create_vk_debug_object_info(command_buffer, m_Name, static_cast<VulkanDevice&>(m_Device).GetDevice());
 }
 
-void VulkanTransferCommandBuffer::ResetState(GPUBuffer& buffer) {}
-
-void VulkanTransferCommandBuffer::ResetState(Texture& texture) {}
-
 void VulkanTransferCommandBuffer::Begin() {
     command_buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
@@ -203,6 +195,12 @@ void VulkanTransferCommandBuffer::End() {
 
 void VulkanTransferCommandBuffer::Reset() {
     command_buffer.reset({});
+}
+
+void VulkanTransferCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
+                                                  const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
+                                                  const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+    pipeline_barrier_fn(command_buffer, global_barriers, buffer_barriers, texture_barriers);
 }
 
 void VulkanTransferCommandBuffer::CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dest, std::size_t dest_offset, std::size_t size) {
