@@ -7,16 +7,21 @@ target("gfx-resource")
     add_files("src/gpu_resource.cpp")
     add_deps("core", "math", "utils", {public = true})
 
+target("shader-compiler")
+    set_kind("static")
+    add_includedirs("include", {public = true})
+    add_files("src/shader_compiler.cpp")
+    add_deps("gfx-resource")
+    add_packages("directx-shader-compiler", {public = true})
+
 target("dx12-device")
     -- TODO try use dll
     set_kind("static")
     add_files("src/dx12/*.cpp")
-    add_deps("gfx-resource")
+    add_deps("gfx-resource", "shader-compiler")
     add_syslinks("d3d12", "dxgi", "dxguid")
-    add_packages("directx-shader-compiler")
     add_packages("d3d12-memory-allocator", {public = true})
     add_defines("NOMINMAX", {public = true})
-
     if not is_plat("windows") then 
         set_enabled(false)
     end
@@ -25,13 +30,8 @@ target("vulkan-device")
     set_kind("static")
     add_files("src/vulkan/*.cpp")
     add_includedirs("include")
-    add_deps("gfx-resource")
-    add_packages(
-        "vulkansdk",
-        "vulkan-memory-allocator",
-        "directx-shader-compiler",
-        {public = true}
-    )
+    add_deps("gfx-resource", "shader-compiler")
+    add_packages("vulkansdk", "vulkan-memory-allocator", {public = true})
     add_packages("spirv-reflect", "libsdl")
     add_defines("VULKAN_HPP_NO_CONSTRUCTORS")
     if is_plat("windows") then

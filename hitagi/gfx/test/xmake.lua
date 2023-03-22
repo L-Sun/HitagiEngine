@@ -3,6 +3,12 @@ target("gfx_test")
     add_deps("gfx", "utils", "test_utils")
     set_group("test/gfx")
 
+target("shader_compiler_test")
+    add_files("shader_compiler_test.cpp")
+    add_deps("utils", "test_utils")
+    add_deps("shader-compiler")
+    set_group("test/gfx")
+
 target("device_test")
     add_files("device_test.cpp")
     add_deps("app", "utils", "test_utils")

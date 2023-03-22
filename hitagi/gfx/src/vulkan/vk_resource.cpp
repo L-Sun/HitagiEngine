@@ -532,7 +532,7 @@ void VulkanSwapChain::CreateImageViews() {
 
 VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc, std::span<const std::byte> _binary_program)
     : Shader(device, desc),
-      binary_program(_binary_program.empty() ? device.CompileShader(m_Desc) : _binary_program),
+      binary_program(_binary_program.empty() ? device.GetShaderCompiler().CompileToSPIRV(m_Desc) : _binary_program),
       shader(
           device.GetDevice(),
           {
@@ -547,222 +547,6 @@ VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc, std::span<cons
 
 auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
     return binary_program.Span<const std::byte>();
-}
-
-VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDesc desc)
-    : RootSignature(device, std::move(desc)) {
-    auto logger = device.GetLogger();
-
-    logger->trace("Creating pipeline layout {} ...", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
-
-    logger->trace("Create reflection data from shaders");
-    std::pmr::vector<spv_reflect::ShaderModule> reflections;
-    for (const auto& _shader : m_Desc.shaders) {
-        const auto shader = _shader.lock();
-        if (shader == nullptr) continue;
-
-        const auto spirv_data = shader->GetSPIRVData();
-        reflections.emplace_back(spirv_data.size_bytes(), spirv_data.data());
-    }
-
-    logger->trace("Enumerate descriptor sets...");
-    std::pmr::set<std::uint32_t> set_indices;
-    for (const auto& reflection : reflections) {
-        std::uint32_t num_sets;
-        reflection.EnumerateDescriptorSets(&num_sets, nullptr);
-        std::pmr::vector<SpvReflectDescriptorSet*> sets(num_sets);
-        reflection.EnumerateDescriptorSets(&num_sets, sets.data());
-
-        for (const auto& set : sets) set_indices.insert(set->set);
-    }
-
-    // Verify set index
-    {
-        std::uint32_t i = 0;
-        for (auto set_index : set_indices) {
-            if (set_index != i) throw std::runtime_error("Set index is not continuous");
-            i++;
-        }
-    }
-
-    logger->trace("Create bindings for each descriptor set layout...");
-    for (auto set_index : set_indices) {
-        std::pmr::vector<vk::DescriptorSetLayoutBinding> bindings;
-        for (const auto& reflection : reflections) {
-            const auto spv_set = reflection.GetEntryPointDescriptorSet(reflection.GetEntryPointName(), set_index);
-            if (spv_set == nullptr) continue;
-
-            auto spv_bindings = std::span(spv_set->bindings, spv_set->binding_count);
-
-            for (const auto& spv_binding : spv_bindings) {
-                if (auto iter = std::find_if(
-                        bindings.begin(), bindings.end(),
-                        [&](const auto& binding) {
-                            return binding.binding == spv_binding->binding &&
-                                   binding.descriptorType != to_vk_descriptor_type(spv_binding->descriptor_type);
-                        });
-                    iter != bindings.end()) {
-                    if (iter->descriptorCount != spv_binding->count)
-                        throw std::runtime_error("Descriptor count is not same");
-
-                    iter->stageFlags |= to_vk_shader_stage(reflection.GetShaderStage());
-                    logger->trace("Merge shader stage to {}", vk::to_string(iter->stageFlags));
-                } else {
-                    const auto& binding = bindings.emplace_back(vk::DescriptorSetLayoutBinding{
-                        .binding            = spv_binding->binding,
-                        .descriptorType     = to_vk_descriptor_type(spv_binding->descriptor_type),
-                        .descriptorCount    = spv_binding->count,
-                        .stageFlags         = to_vk_shader_stage(reflection.GetShaderStage()),
-                        .pImmutableSamplers = nullptr,
-                    });
-                    logger->trace(
-                        "Create binding {} for stage {} in set {}",
-                        fmt::styled(binding.binding, fmt::fg(fmt::color::green)),
-                        fmt::styled(vk::to_string(binding.stageFlags), fmt::fg(fmt::color::green)),
-                        fmt::styled(set_index, fmt::fg(fmt::color::green)));
-                }
-            }
-        }
-
-        const auto& descriptor_set_layout = descriptor_set_layouts.emplace_back(
-            device.GetDevice(),
-            vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = static_cast<std::uint32_t>(bindings.size()),
-                .pBindings    = bindings.data(),
-            },
-            device.GetCustomAllocator());
-
-        create_vk_debug_object_info(descriptor_set_layout, fmt::format("{}_Descriptor_Set_Layout_{}", m_Desc.name, set_index), device.GetDevice());
-    }
-
-    logger->trace("Create push constant ranges...");
-    {
-        for (const auto& reflection : reflections) {
-            std::uint32_t num_ranges;
-            reflection.EnumerateEntryPointPushConstantBlocks(reflection.GetEntryPointName(), &num_ranges, nullptr);
-            std::pmr::vector<SpvReflectBlockVariable*> ranges(num_ranges);
-            reflection.EnumerateEntryPointPushConstantBlocks(reflection.GetEntryPointName(), &num_ranges, ranges.data());
-
-            for (const auto& range : ranges) {
-                push_constant_ranges.emplace_back(vk::PushConstantRange{
-                    .stageFlags = to_vk_shader_stage(reflection.GetShaderStage()),
-                    .offset     = range->offset,
-                    .size       = range->size,
-                });
-            }
-        }
-
-        // merge range if possible
-        std::sort(
-            push_constant_ranges.begin(), push_constant_ranges.end(),
-            [](const auto& lhs, const auto& rhs) { return lhs.offset < rhs.offset; });
-
-        for (auto iter = push_constant_ranges.begin(); iter != push_constant_ranges.end();) {
-            auto& range = *iter;
-            auto  next  = iter + 1;
-            if (next == push_constant_ranges.end()) break;
-
-            if (range.offset == next->offset && range.size == next->size) {
-                range.stageFlags |= next->stageFlags;
-                range.size += next->size;
-                next = push_constant_ranges.erase(next);
-
-                logger->trace(
-                    "Merge two stage push constant, (offset: {}, size: {}, stage: {})",
-                    fmt::styled(range.offset, fmt::fg(fmt::color::green)),
-                    fmt::styled(range.size, fmt::fg(fmt::color::green)),
-                    fmt::styled(vk::to_string(range.stageFlags), fmt::fg(fmt::color::green)));
-
-            } else if (range.offset + range.size > next->offset) {
-                const auto error_message = fmt::format(
-                    "There are two push constant range overlap with each other, range_1(offset: {}, size: {}), range_2(offset: {}, size: {})",
-                    fmt::styled(range.offset, fmt::fg(fmt::color::green)),
-                    fmt::styled(range.size, fmt::fg(fmt::color::green)),
-                    fmt::styled(next->offset, fmt::fg(fmt::color::red)),
-                    fmt::styled(next->size, fmt::fg(fmt::color::red)));
-                logger->error(error_message);
-                throw std::runtime_error(error_message);
-            }
-
-            iter = next;
-        }
-    }
-
-    std::pmr::vector<vk::DescriptorSetLayout> vk_descriptor_set_layouts;
-    std::transform(
-        descriptor_set_layouts.begin(), descriptor_set_layouts.end(),
-        std::back_inserter(vk_descriptor_set_layouts),
-        [](const auto& layout) { return *layout; });
-
-    pipeline_layout = std::make_unique<vk::raii::PipelineLayout>(
-        device.GetDevice(),
-        vk::PipelineLayoutCreateInfo{
-            .setLayoutCount         = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
-            .pSetLayouts            = vk_descriptor_set_layouts.data(),
-            .pushConstantRangeCount = static_cast<std::uint32_t>(push_constant_ranges.size()),
-            .pPushConstantRanges    = push_constant_ranges.data(),
-        },
-        device.GetCustomAllocator());
-
-    create_vk_debug_object_info(*pipeline_layout, m_Desc.name, device.GetDevice());
-}
-
-VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, std::span<vk::DescriptorPoolSize> pool_sizes)
-    : RootSignature(device, {.name = "BindlessRootSignature"}) {
-    device.GetLogger()->trace("Create Bindless Layout...");
-
-    std::transform(
-        pool_sizes.begin(), pool_sizes.end(),
-        std::back_inserter(descriptor_set_layouts),
-        [&](const auto& pool_size) {
-            const vk::DescriptorSetLayoutBinding binding{
-                .binding            = 0,
-                .descriptorType     = pool_size.type,
-                .descriptorCount    = pool_size.descriptorCount,
-                .stageFlags         = vk::ShaderStageFlagBits::eAll,
-                .pImmutableSamplers = nullptr,
-            };
-
-            constexpr auto ext_flags = vk::DescriptorBindingFlagBits::eUpdateAfterBind |
-                                       vk::DescriptorBindingFlagBits::ePartiallyBound |
-                                       vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
-
-            const vk::StructureChain descriptor_set_layout_create_info{
-                vk::DescriptorSetLayoutCreateInfo{
-                    .flags        = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
-                    .bindingCount = 1,
-                    .pBindings    = &binding,
-                },
-                vk::DescriptorSetLayoutBindingFlagsCreateInfo{
-                    .bindingCount  = 1,
-                    .pBindingFlags = &ext_flags,
-                },
-            };
-
-            return vk::raii::DescriptorSetLayout(device.GetDevice(), descriptor_set_layout_create_info.get(), device.GetCustomAllocator());
-        });
-
-    push_constant_ranges.emplace_back(vk::PushConstantRange{
-        .stageFlags = vk::ShaderStageFlagBits::eAll,
-        .offset     = 0,
-        .size       = 4 * sizeof(std::uint32_t),
-    });
-
-    std::pmr::vector<vk::DescriptorSetLayout> vk_descriptor_set_layouts;
-    std::transform(
-        descriptor_set_layouts.begin(), descriptor_set_layouts.end(),
-        std::back_inserter(vk_descriptor_set_layouts),
-        [](const auto& layout) { return *layout; });
-
-    pipeline_layout = std::make_unique<vk::raii::PipelineLayout>(
-        device.GetDevice(),
-        vk::PipelineLayoutCreateInfo{
-            .setLayoutCount         = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
-            .pSetLayouts            = vk_descriptor_set_layouts.data(),
-            .pushConstantRangeCount = static_cast<std::uint32_t>(push_constant_ranges.size()),
-            .pPushConstantRanges    = push_constant_ranges.data(),
-        },
-        device.GetCustomAllocator());
 }
 
 VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc) : RenderPipeline(device, std::move(desc)) {
@@ -862,17 +646,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
 
     const auto render_format = to_vk_format(desc.render_format);
 
-    if (m_Desc.root_signature == nullptr) {
-        logger->warn(
-            "Root signature is not specified for pipeline({}). Create temporary one from shaders",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::yellow)));
-        m_Desc.root_signature = device.CreateRootSignature({
-            .name    = fmt::format("{}_rootsignature", m_Name),
-            .shaders = m_Desc.shaders,
-        });
-    }
-    const auto  root_signature  = std::static_pointer_cast<VulkanPipelineLayout>(m_Desc.root_signature);
-    const auto& pipeline_layout = root_signature->pipeline_layout;
+    const auto& pipeline_layout = *device.GetBindlessUtils().pipeline_layout;
 
     logger->trace("Create render pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
@@ -887,7 +661,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
                 .pDepthStencilState  = &depth_stencil_state,
                 .pColorBlendState    = &blend_state,
                 .pDynamicState       = &dynamic_state_create_info,
-                .layout              = **pipeline_layout,
+                .layout              = *pipeline_layout,
                 .renderPass          = nullptr,
             },
             vk::PipelineRenderingCreateInfo{
@@ -927,23 +701,13 @@ VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipeli
         .pName  = compute_shader->GetDesc().entry.data(),
     };
 
-    if (m_Desc.root_signature == nullptr) {
-        logger->warn(
-            "Root signature is not specified for pipeline({}). Create temporary one from shaders",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::yellow)));
-        m_Desc.root_signature = device.CreateRootSignature({
-            .name    = fmt::format("{}_rootsignature", m_Name),
-            .shaders = {m_Desc.cs},
-        });
-    }
-    const auto  root_signature  = std::static_pointer_cast<VulkanPipelineLayout>(m_Desc.root_signature);
-    const auto& pipeline_layout = root_signature->pipeline_layout;
+    const auto& pipeline_layout = *device.GetBindlessUtils().pipeline_layout;
 
     logger->trace("Create compute pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
         const vk::ComputePipelineCreateInfo pipeline_create_info{
             .stage  = shader_stage_create_info,
-            .layout = **pipeline_layout,
+            .layout = *pipeline_layout,
         };
 
         pipeline = std::make_unique<vk::raii::Pipeline>(device.GetDevice(), nullptr, pipeline_create_info, device.GetCustomAllocator());

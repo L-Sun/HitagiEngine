@@ -22,7 +22,8 @@ VulkanDevice::VulkanDevice(std::string_view name)
           .pfnAllocation   = custom_vk_allocation_fn,
           .pfnReallocation = custom_vk_reallocation_fn,
           .pfnFree         = custom_vk_free_fn,
-      }
+      },
+      m_ShaderCompiler(fmt::format("ShaderCompiler({})", name))
 
 {
     m_Logger->debug("Create Vulkan Instance...");
@@ -155,42 +156,9 @@ VulkanDevice::VulkanDevice(std::string_view name)
         });
     }
 
-    m_Logger->debug("Create Descriptor Set Pools...");
+    m_Logger->debug("Create Bindless...");
     {
-        const auto limits = m_PhysicalDevice->getProperties().limits;
-
-        std::array<vk::DescriptorPoolSize, 5> pool_sizes = {{
-            {vk::DescriptorType::eSampler, limits.maxDescriptorSetSamplers},
-            {vk::DescriptorType::eSampledImage, limits.maxDescriptorSetSampledImages},
-            {vk::DescriptorType::eStorageImage, limits.maxDescriptorSetStorageImages},
-            {vk::DescriptorType::eUniformBuffer, limits.maxDescriptorSetUniformBuffersDynamic},
-            {vk::DescriptorType::eStorageBuffer, limits.maxDescriptorSetStorageBuffersDynamic},
-            // TODO ray tracing
-        }};
-
-        const vk::DescriptorPoolCreateInfo descriptor_pool_create_info{
-            .flags         = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind,
-            .maxSets       = pool_sizes.size(),  // we will make sure each set only contains one descriptor type
-            .poolSizeCount = pool_sizes.size(),
-            .pPoolSizes    = pool_sizes.data(),
-        };
-
-        m_DescriptorPool = std::make_unique<vk::raii::DescriptorPool>(
-            *m_Device,
-            descriptor_pool_create_info,
-            GetCustomAllocator());
-
-        m_BindlessRootSignature = std::make_shared<VulkanPipelineLayout>(*this, std::span{pool_sizes.data(), pool_sizes.size()});
-    }
-
-    m_Logger->debug("Create shader compiler...");
-    {
-        if (FAILED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&m_DxcUtils)))) {
-            throw std::runtime_error("Failed to create DXC utils!");
-        }
-        if (FAILED(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_ShaderCompiler)))) {
-            throw std::runtime_error("Failed to create DXC shader compiler!");
-        }
+        m_BindlessUtils = VulkanBindlessUtils(*this);
     }
 }
 
@@ -246,10 +214,6 @@ auto VulkanDevice::CreateShader(ShaderDesc desc, std::span<const std::byte> bina
     return std::make_shared<VulkanShader>(*this, desc, binary_program);
 }
 
-auto VulkanDevice::CreateRootSignature(RootSignatureDesc desc) -> std::shared_ptr<RootSignature> {
-    return std::make_shared<VulkanPipelineLayout>(*this, std::move(desc));
-}
-
 auto VulkanDevice::CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> {
     return std::make_shared<VulkanRenderPipeline>(*this, std::move(desc));
 }
@@ -259,91 +223,5 @@ auto VulkanDevice::CreateComputePipeline(ComputePipelineDesc desc) -> std::share
 }
 
 void VulkanDevice::Profile(std::size_t frame_index) const {}
-
-auto VulkanDevice::CompileShader(const ShaderDesc& desc) const -> core::Buffer {
-    std::pmr::vector<std::pmr::wstring> args;
-
-    // shader name
-    args.emplace_back(std::pmr::wstring(desc.name.begin(), desc.name.end()));
-
-    // shader entry
-    args.emplace_back(L"-E");
-    args.emplace_back(std::pmr::wstring(desc.entry.begin(), desc.entry.end()));
-
-    // shader model
-    args.emplace_back(L"-T");
-    args.emplace_back(get_shader_model_version(desc.type));
-
-    // We use SPIR-V here
-    args.emplace_back(L"-spirv");
-
-    // We use row major order
-    args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
-
-    // make sure all resource bound
-    args.emplace_back(DXC_ARG_ALL_RESOURCES_BOUND);
-#ifdef HITAGI_DEBUG
-    args.emplace_back(DXC_ARG_OPTIMIZATION_LEVEL0);
-    args.emplace_back(DXC_ARG_DEBUG);
-    args.emplace_back(L"-Qembed_debug");
-#endif
-    std::pmr::vector<const wchar_t*> p_args;
-    std::transform(args.begin(), args.end(), std::back_insert_iterator(p_args), [](const auto& arg) { return arg.data(); });
-
-    std::pmr::string compile_command;
-    for (std::pmr::wstring arg : args) {
-        compile_command.append(arg.begin(), arg.end());
-        compile_command.push_back(' ');
-    }
-    m_Logger->debug("Compile Shader: {}", compile_command);
-
-    ComPtr<IDxcIncludeHandler> include_handler;
-
-    m_DxcUtils->CreateDefaultIncludeHandler(&include_handler);
-    DxcBuffer source_buffer{
-        .Ptr      = desc.source_code.data(),
-        .Size     = desc.source_code.size(),
-        .Encoding = DXC_CP_ACP,
-    };
-
-    ComPtr<IDxcResult> compile_result;
-
-    if (FAILED(m_ShaderCompiler->Compile(
-            &source_buffer,
-            p_args.data(),
-            p_args.size(),
-            include_handler.Get(),
-            IID_PPV_ARGS(&compile_result)))) {
-        m_Logger->error("Failed to compile shader {} with entry {}", desc.name, desc.entry);
-        return {};
-    }
-
-    ComPtr<IDxcBlobUtf8> compile_errors;
-    compile_result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&compile_errors), nullptr);
-    // Note that DirectX compiler would return null if no errors or warnings are present.
-    // IDxcCompiler3::Compile will always return an error buffer, but its length will be zero if there are no warnings or errors.
-    if (compile_errors != nullptr && compile_errors->GetStringLength() != 0) {
-        m_Logger->warn("Warnings and Errors:\n{}\n", compile_errors->GetStringPointer());
-    }
-
-    HRESULT hr;
-    compile_result->GetStatus(&hr);
-    if (FAILED(hr)) {
-        m_Logger->error("Failed to compile shader {} with entry {}", desc.name, desc.entry);
-        return {};
-    }
-
-    ComPtr<IDxcBlob>     shader_buffer;
-    ComPtr<IDxcBlobWide> shader_name;
-
-    compile_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), &shader_name);
-    if (shader_buffer == nullptr) {
-        return {};
-    }
-
-    core::Buffer result{shader_buffer->GetBufferSize(), reinterpret_cast<const std::byte*>(shader_buffer->GetBufferPointer())};
-
-    return result;
-}
 
 }  // namespace hitagi::gfx

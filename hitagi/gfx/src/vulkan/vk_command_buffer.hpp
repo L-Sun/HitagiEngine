@@ -34,8 +34,6 @@ public:
     void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) final;
 
     void PushConstant(std::uint32_t slot, std::span<const std::byte> data) final;
-    void BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index = 0) final;
-    void BindTexture(std::uint32_t slot, Texture& texture) final;
 
     void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;
     void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final;
@@ -45,8 +43,7 @@ public:
     vk::raii::CommandBuffer command_buffer;
 
 private:
-    const VulkanPipelineLayout* m_PipelineLayout = nullptr;
-    const VulkanRenderPipeline* m_Pipeline       = nullptr;
+    const VulkanRenderPipeline* m_Pipeline = nullptr;
 };
 
 class VulkanComputeCommandBuffer final : public ComputeCommandContext {
@@ -69,8 +66,7 @@ public:
     vk::raii::CommandBuffer command_buffer;
 
 private:
-    const VulkanPipelineLayout*  m_PipelineLayout = nullptr;
-    const VulkanComputePipeline* m_Pipeline       = nullptr;
+    const VulkanComputePipeline* m_Pipeline = nullptr;
 };
 
 class VulkanTransferCommandBuffer final : public CopyCommandContext {

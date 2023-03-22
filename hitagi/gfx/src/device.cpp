@@ -13,6 +13,7 @@ namespace hitagi::gfx {
 
 Device::Device(Type type, std::string_view name)
     : device_type(type),
+      m_Name(name),
       m_Logger(spdlog::stdout_color_mt(
           !name.empty()
               ? std::string(name)

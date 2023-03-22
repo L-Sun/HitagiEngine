@@ -1,28 +1,15 @@
 #pragma once
 #include "vk_command_queue.hpp"
+#include "vk_bindless.hpp"
 #undef CreateSemaphore
 
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/gfx/command_context.hpp>
+#include <hitagi/gfx/shader_compiler.hpp>
 #include <hitagi/utils/array.hpp>
 
 #include <vulkan/vulkan_raii.hpp>
 #include <vk_mem_alloc.h>
-
-#if defined(_WIN32)
-#include <unknwn.h>
-#include <wrl.h>
-template <typename T>
-using ComPtr = Microsoft::WRL::ComPtr<T>;
-#elif defined(__linux__)
-
-template <typename T>
-struct ComPtr : public CComPtr<T> {
-    inline auto Get() noexcept const { return this->p; }
-};
-
-#endif
-#include <dxc/dxcapi.h>
 
 namespace hitagi::gfx {
 class VulkanDevice final : public Device {
@@ -46,7 +33,6 @@ public:
     auto CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> final;
 
     auto CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> final;
-    auto CreateRootSignature(RootSignatureDesc desc) -> std::shared_ptr<RootSignature> final;
     auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> final;
     auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> final;
 
@@ -60,8 +46,8 @@ public:
     inline auto& GetCommandPool(CommandType type) const noexcept { return *m_CommandPools[type]; }
     inline auto& GetVkCommandQueue(CommandType type) const noexcept { return *m_CommandQueues[type]; }
     inline auto& GetVmaAllocator() const noexcept { return m_VmaAllocator; }
-
-    auto CompileShader(const ShaderDesc& desc) const -> core::Buffer;
+    inline auto& GetBindlessUtils() const noexcept { return m_BindlessUtils; }
+    inline auto& GetShaderCompiler() const noexcept { return m_ShaderCompiler; }
 
 private:
     vk::AllocationCallbacks m_CustomAllocator;
@@ -80,11 +66,8 @@ private:
     utils::EnumArray<std::unique_ptr<vk::raii::CommandPool>, CommandType> m_CommandPools;
     utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType>    m_CommandQueues;
 
-    std::unique_ptr<vk::raii::DescriptorPool> m_DescriptorPool;
+    VulkanBindlessUtils m_BindlessUtils;
 
-    std::shared_ptr<RootSignature> m_BindlessRootSignature;
-
-    ComPtr<IDxcUtils>     m_DxcUtils;
-    ComPtr<IDxcCompiler3> m_ShaderCompiler;
+    ShaderCompiler m_ShaderCompiler;
 };
 }  // namespace hitagi::gfx

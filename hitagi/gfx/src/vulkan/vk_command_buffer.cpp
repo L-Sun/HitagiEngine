@@ -120,9 +120,6 @@ void VulkanGraphicsCommandBuffer::SetPipeline(const RenderPipeline& pipeline) {
     if (m_Pipeline == vk_pipeline) return;
     m_Pipeline = vk_pipeline;
     command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, **m_Pipeline->pipeline);
-
-    m_PipelineLayout = std::static_pointer_cast<VulkanPipelineLayout>(pipeline.GetDesc().root_signature).get();
-    // TODO bind pipeline layout set
 }
 
 void VulkanGraphicsCommandBuffer::SetViewPort(const ViewPort& view_port) {
@@ -161,30 +158,30 @@ void VulkanGraphicsCommandBuffer::SetVertexBuffer(std::uint8_t slot, GPUBuffer& 
 }
 
 void VulkanGraphicsCommandBuffer::PushConstant(std::uint32_t slot, std::span<const std::byte> data) {
+    auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
+
     const vk::ArrayProxy<const std::byte> data_proxy(data.size(), data.data());
     command_buffer.pushConstants(
-        **m_PipelineLayout->pipeline_layout,
-        m_PipelineLayout->push_constant_ranges.at(slot).stageFlags,
-        m_PipelineLayout->push_constant_ranges.at(slot).offset,
+        **bindless_utils.pipeline_layout,
+        bindless_utils.push_constant_ranges.at(slot).stageFlags,
+        bindless_utils.push_constant_ranges.at(slot).offset,
         data_proxy);
 }
-
-void VulkanGraphicsCommandBuffer::BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index) {
-}
-
-void VulkanGraphicsCommandBuffer::BindTexture(std::uint32_t slot, Texture& texture) {}
 
 void VulkanGraphicsCommandBuffer::Draw(std::uint32_t vertex_count, std::uint32_t instance_count, std::uint32_t first_vertex, std::uint32_t first_instance) {
     command_buffer.draw(vertex_count, instance_count, first_vertex, first_instance);
 }
 
-void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::uint32_t base_vertex, std::uint32_t first_instance) {}
+void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::uint32_t base_vertex, std::uint32_t first_instance) {
+    command_buffer.drawIndexed(index_count, instance_count, first_index, base_vertex, first_instance);
+}
 
 void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {}
 
 VulkanComputeCommandBuffer::VulkanComputeCommandBuffer(VulkanDevice& device, std::string_view name)
     : ComputeCommandContext(device, CommandType::Compute, name),
-      command_buffer(create_command_buffer(device, CommandType::Compute, name)) {}
+      command_buffer(create_command_buffer(device, CommandType::Compute, name)) {
+}
 
 void VulkanComputeCommandBuffer::Begin() {
     command_buffer.begin(vk::CommandBufferBeginInfo{
@@ -211,16 +208,16 @@ void VulkanComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
     if (m_Pipeline == vk_pipeline) return;
     m_Pipeline = vk_pipeline;
     command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, **m_Pipeline->pipeline);
-
-    m_PipelineLayout = std::static_pointer_cast<VulkanPipelineLayout>(pipeline.GetDesc().root_signature).get();
 }
 
 void VulkanComputeCommandBuffer::PushConstant(std::uint32_t slot, std::span<const std::byte> data) {
+    auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
+
     const vk::ArrayProxy<const std::byte> data_proxy(data.size(), data.data());
     command_buffer.pushConstants(
-        **m_PipelineLayout->pipeline_layout,
-        m_PipelineLayout->push_constant_ranges.at(slot).stageFlags,
-        m_PipelineLayout->push_constant_ranges.at(slot).offset,
+        **bindless_utils.pipeline_layout,
+        bindless_utils.push_constant_ranges.at(slot).stageFlags,
+        bindless_utils.push_constant_ranges.at(slot).offset,
         data_proxy);
 }
 

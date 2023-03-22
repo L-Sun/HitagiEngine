@@ -212,76 +212,6 @@ TEST_P(CreateTest, CreateShader) {
     }
 }
 
-TEST_P(CreateTest, CreateRootSignature) {
-    constexpr std::string_view vs_shader_code = R"""(
-        struct PushConstant {
-            float value;
-        };
-        struct FrameConstant {
-            matrix mvp;
-        };
-
-        [[vk::push_constant]]
-        ConstantBuffer<PushConstant>     push_constant;
-        ConstantBuffer<FrameConstant>    frame_constant : register(b0, space0);
-
-        struct VS_INPUT {
-            float3 pos : POSITION;
-        };
-        struct PS_INPUT {
-            float4 pos : SV_POSITION;
-        };
-        PS_INPUT VSMain(VS_INPUT input) {
-            PS_INPUT output;
-            output.pos = mul(frame_constant.mvp, float4(input.pos, push_constant.value));
-            return output;
-        }
-    )""";
-
-    constexpr std::string_view ps_shader_code = R"""(
-        struct PushConstant {
-            float value;
-        };
-        struct MaterialConstant {
-            float3 diffuse;
-        };
-        [[vk::push_constant]]
-        ConstantBuffer<PushConstant>     push_constant;
-        ConstantBuffer<MaterialConstant> material    : register(b0, space1);
-        Texture2D<float4>                textures[4] : register(t0);
-
-        struct PS_INPUT {
-            float4 pos : SV_POSITION;
-        };
-        float4 PSMain(PS_INPUT input) : SV_TARGET {
-            PS_INPUT output;
-            return float4(material.diffuse, push_constant.value);
-        }
-    )""";
-
-    auto vs_shader = device->CreateShader({
-        .name        = "vertex_test_shader",
-        .type        = ShaderType::Vertex,
-        .entry       = "VSMain",
-        .source_code = vs_shader_code,
-    });
-    ASSERT_TRUE(vs_shader);
-
-    auto ps_shader = device->CreateShader({
-        .name        = "pixel_test_shader",
-        .type        = ShaderType::Pixel,
-        .entry       = "PSMain",
-        .source_code = ps_shader_code,
-    });
-    ASSERT_TRUE(ps_shader);
-
-    auto root_signature = device->CreateRootSignature({
-        .name    = "test_root_signature",
-        .shaders = {vs_shader, ps_shader},
-    });
-    EXPECT_TRUE(root_signature);
-}
-
 TEST_P(CreateTest, CreateRenderPipeline) {
     {
         constexpr auto vs_code = R"""(
@@ -355,6 +285,7 @@ protected:
     std::unique_ptr<Device> device;
     GPUBufferUsageFlags     usages;
 };
+
 INSTANTIATE_TEST_SUITE_P(
     GPUBufferTest,
     GPUBufferTest,
@@ -550,11 +481,8 @@ TEST_P(BindCommandTest, PushConstant) {
             [[vk::push_constant]]
             ConstantBuffer<Constant> value;
 
-            RWBuffer<float> buffer : register(u0, space0);
-
             [numthreads(1, 1, 1)]
             void main() {
-                buffer[0] = value.value;
             }
         )""";
 
@@ -716,19 +644,12 @@ TEST_P(CreateTest, DrawTriangle) {
     });
     ASSERT_TRUE(pixel_shader);
 
-    auto root_signature = device->CreateRootSignature({
-        .name    = fmt::format("RootSignature-{}", test_name),
-        .shaders = {vertex_shader, pixel_shader},
-    });
-    ASSERT_TRUE(root_signature);
-
     auto pipeline = device->CreateRenderPipeline({
         .name    = "I know DirectX12 pipeline",
         .shaders = {
             vertex_shader,
             pixel_shader,
         },
-        .root_signature      = root_signature,
         .vertex_input_layout = {
             {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 2 * sizeof(vec3f)},
             {"COLOR", 0, Format::R32G32B32_FLOAT, 0, sizeof(vec3f), 2 * sizeof(vec3f)},

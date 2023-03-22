@@ -4,7 +4,7 @@
 #include <hitagi/utils/types.hpp>
 #include <hitagi/utils/hash.hpp>
 
-#include <functional>
+#include <filesystem>
 
 namespace hitagi::gfx {
 class Device;
@@ -116,10 +116,11 @@ protected:
 };
 
 struct ShaderDesc {
-    std::string_view name;
-    ShaderType       type;
-    std::string_view entry;
-    std::string_view source_code;
+    std::string_view      name;
+    ShaderType            type;
+    std::string_view      entry;
+    std::string_view      source_code;
+    std::filesystem::path path;
 };
 
 class Shader : public Resource<ShaderDesc> {
@@ -131,33 +132,25 @@ protected:
     using Resource::Resource;
 };
 
-struct RootSignatureDesc {
-    std::string_view                        name;
-    std::pmr::vector<std::weak_ptr<Shader>> shaders;
-};
-using RootSignature = Resource<RootSignatureDesc>;
-
 struct RenderPipelineDesc {
     std::string_view name = UNKOWN_NAME;
 
     std::pmr::vector<std::weak_ptr<Shader>> shaders;
 
-    std::shared_ptr<RootSignature> root_signature       = {};
-    AssemblyState                  assembly_state       = {};
-    VertexLayout                   vertex_input_layout  = {};
-    RasterizationState             rasterization_state  = {};
-    DepthStencilState              depth_stencil_state  = {};
-    BlendState                     blend_state          = {};
-    Format                         render_format        = Format::R8G8B8A8_UNORM;
-    Format                         depth_stencil_format = Format::UNKNOWN;
+    AssemblyState      assembly_state       = {};
+    VertexLayout       vertex_input_layout  = {};
+    RasterizationState rasterization_state  = {};
+    DepthStencilState  depth_stencil_state  = {};
+    BlendState         blend_state          = {};
+    Format             render_format        = Format::R8G8B8A8_UNORM;
+    Format             depth_stencil_format = Format::UNKNOWN;
 };
 using RenderPipeline = Resource<RenderPipelineDesc>;
 
 struct ComputePipelineDesc {
     std::string_view name = UNKOWN_NAME;
 
-    std::weak_ptr<Shader>          cs;  // computer shader
-    std::shared_ptr<RootSignature> root_signature = {};
+    std::weak_ptr<Shader> cs;  // computer shader
 };
 using ComputePipeline = Resource<ComputePipelineDesc>;
 
