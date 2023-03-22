@@ -159,7 +159,8 @@ VulkanDevice::VulkanDevice(std::string_view name)
     {
         const auto limits = m_PhysicalDevice->getProperties().limits;
 
-        std::array<vk::DescriptorPoolSize, 4> pool_sizes = {{
+        std::array<vk::DescriptorPoolSize, 5> pool_sizes = {{
+            {vk::DescriptorType::eSampler, limits.maxDescriptorSetSamplers},
             {vk::DescriptorType::eSampledImage, limits.maxDescriptorSetSampledImages},
             {vk::DescriptorType::eStorageImage, limits.maxDescriptorSetStorageImages},
             {vk::DescriptorType::eUniformBuffer, limits.maxDescriptorSetUniformBuffersDynamic},
@@ -234,11 +235,11 @@ auto VulkanDevice::CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte
 }
 
 auto VulkanDevice::CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
-    return nullptr;
+    return std::make_shared<VulkanImage>(*this, desc, initial_data);
 }
 
 auto VulkanDevice::CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
-    return nullptr;
+    return std::make_shared<VulkanSampler>(*this, desc);
 }
 
 auto VulkanDevice::CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program) -> std::shared_ptr<Shader> {

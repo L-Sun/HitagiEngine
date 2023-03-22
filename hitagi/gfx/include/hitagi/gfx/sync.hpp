@@ -111,9 +111,10 @@ struct TextureBarrier {
     BarrierLayout dst_layout;
 
     Texture&      texture;
-    bool          is_depth_stencil = false;
-    std::uint16_t mip_level        = 0;
-    std::uint16_t array_layer      = 0;
+    std::uint16_t base_mip_level   = 0;
+    std::uint16_t level_count      = 1;
+    std::uint16_t base_array_layer = 0;
+    std::uint16_t layer_count      = 1;
 };
 
 }  // namespace hitagi::gfx

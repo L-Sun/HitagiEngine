@@ -57,17 +57,16 @@ protected:
 };
 
 struct TextureDesc {
-    std::string_view  name         = UNKOWN_NAME;
-    std::uint32_t     width        = 1;
-    std::uint32_t     height       = 1;
-    std::uint16_t     depth        = 1;
-    std::uint16_t     array_size   = 1;
-    Format            format       = Format::UNKNOWN;
-    std::uint16_t     mip_levels   = 1;
-    std::uint32_t     sample_count = 1;
-    bool              is_cube      = false;
-    ClearValue        clear_value;
-    TextureUsageFlags usages = TextureUsageFlags::SRV;
+    std::string_view          name         = UNKOWN_NAME;
+    std::uint32_t             width        = 1;
+    std::uint32_t             height       = 1;
+    std::uint16_t             depth        = 1;
+    std::uint16_t             array_size   = 1;
+    Format                    format       = Format::UNKNOWN;
+    std::uint16_t             mip_levels   = 1;
+    std::uint32_t             sample_count = 1;
+    std::optional<ClearValue> clear_value  = std::nullopt;
+    TextureUsageFlags         usages       = TextureUsageFlags::SRV;
 
     inline constexpr bool operator==(const TextureDesc&) const noexcept;
 };
@@ -82,19 +81,20 @@ struct SamplerDesc {
     FilterMode       min_filter     = FilterMode::Point;
     FilterMode       mipmap_filter  = FilterMode::Point;
     float            min_lod        = 0;
-    float            max_load       = 32;
-    std::uint32_t    max_anisotropy = 1;
-    CompareOp        compare;
+    float            max_lod        = 32;
+    float            max_anisotropy = 1;
+    CompareOp        compare_op;
 
     inline constexpr bool operator==(const SamplerDesc&) const noexcept;
 };
 using Sampler = Resource<SamplerDesc>;
 
 struct SwapChainDesc {
-    std::string_view name = UNKOWN_NAME;
-    utils::Window    window;
-    std::uint32_t    sample_count = 1;
-    bool             vsync        = false;
+    std::string_view          name = UNKOWN_NAME;
+    utils::Window             window;
+    std::optional<ClearValue> clear_value  = std::nullopt;
+    std::uint32_t             sample_count = 1;
+    bool                      vsync        = false;
 };
 class SwapChain : public Resource<SwapChainDesc> {
 public:
@@ -174,25 +174,26 @@ inline constexpr bool GPUBufferDesc::operator==(const GPUBufferDesc& rhs) const 
 inline constexpr bool TextureDesc::operator==(const TextureDesc& rhs) const noexcept {
     // clang-format off
     bool result = 
-        name                == rhs.name                  &&
-        width               == rhs.width                 &&
-        height              == rhs.height                &&
-        depth               == rhs.depth                 &&
-        array_size          == rhs.array_size            &&
-        format              == rhs.format                &&
-        mip_levels          == rhs.mip_levels            &&
-        sample_count        == rhs.sample_count          &&
-        is_cube             == rhs.is_cube               &&
-        clear_value.index() == rhs.clear_value.index()   &&
-        usages              == rhs.usages;
+        name                    == rhs.name                    &&
+        width                   == rhs.width                   &&
+        height                  == rhs.height                  &&
+        depth                   == rhs.depth                   &&
+        array_size              == rhs.array_size              &&
+        format                  == rhs.format                  &&
+        mip_levels              == rhs.mip_levels              &&
+        sample_count            == rhs.sample_count            &&
+        clear_value.has_value() == rhs.clear_value.has_value() &&
+        usages                  == rhs.usages;
     // clang-format on
-    if (std::holds_alternative<ClearColor>(clear_value) && std::holds_alternative<ClearColor>(rhs.clear_value)) {
-        result = result && (std::get<ClearColor>(clear_value) == std::get<ClearColor>(rhs.clear_value));
-    }
-    if (std::holds_alternative<ClearDepthStencil>(clear_value) && std::holds_alternative<ClearDepthStencil>(rhs.clear_value)) {
-        result = result &&
-                 (std::get<ClearDepthStencil>(clear_value).depth == std::get<ClearDepthStencil>(rhs.clear_value).depth) &&
-                 (std::get<ClearDepthStencil>(clear_value).stencil == std::get<ClearDepthStencil>(rhs.clear_value).stencil);
+    if (clear_value.has_value() && rhs.clear_value.has_value()) {
+        if (std::holds_alternative<ClearColor>(clear_value.value()) && std::holds_alternative<ClearColor>(rhs.clear_value.value())) {
+            result = result && (std::get<ClearColor>(clear_value.value()) == std::get<ClearColor>(rhs.clear_value.value()));
+        }
+        if (std::holds_alternative<ClearDepthStencil>(clear_value.value()) && std::holds_alternative<ClearDepthStencil>(rhs.clear_value.value())) {
+            result = result &&
+                     (std::get<ClearDepthStencil>(clear_value.value()).depth == std::get<ClearDepthStencil>(rhs.clear_value.value()).depth) &&
+                     (std::get<ClearDepthStencil>(clear_value.value()).stencil == std::get<ClearDepthStencil>(rhs.clear_value.value()).stencil);
+        }
     }
 
     return result;
@@ -209,9 +210,9 @@ inline constexpr bool SamplerDesc::operator==(const SamplerDesc& rhs) const noex
         min_filter     == rhs.min_filter     &&     
         mipmap_filter  == rhs.mipmap_filter  &&  
         min_lod        == rhs.min_lod        &&        
-        max_load       == rhs.max_load       &&       
+        max_lod        == rhs.max_lod        &&       
         max_anisotropy == rhs.max_anisotropy && 
-        compare        == rhs.compare;
+        compare_op     == rhs.compare_op;
     // clang-format on
 }
 
@@ -242,7 +243,6 @@ struct hash<hitagi::gfx::TextureDesc> {
             hitagi::utils::hash(desc.format),
             hitagi::utils::hash(desc.mip_levels),
             hitagi::utils::hash(desc.sample_count),
-            hitagi::utils::hash(desc.is_cube),
             hitagi::utils::hash(desc.usages),
         });
     }
@@ -260,9 +260,9 @@ struct hash<hitagi::gfx::SamplerDesc> {
             hitagi::utils::hash(desc.min_filter),
             hitagi::utils::hash(desc.mipmap_filter),
             hitagi::utils::hash(desc.min_lod),
-            hitagi::utils::hash(desc.max_load),
+            hitagi::utils::hash(desc.max_lod),
             hitagi::utils::hash(desc.max_anisotropy),
-            hitagi::utils::hash(desc.compare),
+            hitagi::utils::hash(desc.compare_op),
         });
     }
 };

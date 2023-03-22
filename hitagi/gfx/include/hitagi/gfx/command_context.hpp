@@ -42,8 +42,6 @@ protected:
 struct RenderingInfo {
     Texture&                     render_target;
     utils::optional_ref<Texture> depth_stencil;
-    std::optional<ClearValue>    render_target_clear_value;
-    std::optional<ClearValue>    depth_stencil_clear_value;
 };
 
 class GraphicsCommandContext : public CommandContext {
@@ -74,7 +72,7 @@ public:
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
 
-    virtual void CopyTexture(const Texture& src, Texture& dest) = 0;
+    virtual void CopyTexture(const Texture& src, Texture& dst) = 0;
 };
 
 class ComputeCommandContext : public CommandContext {
@@ -94,8 +92,17 @@ class CopyCommandContext : public CommandContext {
 public:
     using CommandContext::CommandContext;
 
-    virtual void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dest, std::size_t dest_offset, std::size_t size) = 0;
-    virtual void CopyTexture(const Texture& src, const Texture& dest)                                                                 = 0;
+    virtual void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dst_offset, std::size_t size) = 0;
+    virtual void CopyTexture(const Texture& src, Texture& dst)                                                                      = 0;
+    virtual void CopyBufferToTexture(
+        const GPUBuffer& src,
+        std::size_t      src_offset,
+        Texture&         dst,
+        math::vec3i      dst_offset,
+        math::vec3u      extent,
+        std::uint32_t    mip_level        = 0,
+        std::uint32_t    base_array_layer = 0,
+        std::uint32_t    layer_count      = 1) = 0;
 };
 
 }  // namespace hitagi::gfx

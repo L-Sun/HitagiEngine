@@ -20,12 +20,14 @@ enum struct GPUBufferUsageFlags : std::uint8_t {
 };
 
 enum struct TextureUsageFlags : std::uint8_t {
-    CopySrc = 0x1,
-    CopyDst = (CopySrc << 1),
-    SRV     = (CopyDst << 1),
-    UAV     = (SRV << 1),
-    RTV     = (UAV << 1),
-    DSV     = (RTV << 1),
+    CopySrc   = 0x1,
+    CopyDst   = (CopySrc << 1),
+    SRV       = (CopyDst << 1),
+    UAV       = (SRV << 1),
+    RTV       = (UAV << 1),
+    DSV       = (RTV << 1),
+    Cube      = (DSV << 1),
+    CubeArray = (Cube << 1),
 };
 
 enum struct ShaderType : std::uint8_t {
@@ -138,7 +140,7 @@ enum struct Format : std::uint32_t {
     BC7_UNORM_SRGB             = 99,
 };
 
-inline constexpr std::size_t get_format_bit_size(Format format) noexcept {
+inline constexpr auto get_format_bit_size(Format format) noexcept -> std::size_t {
     switch (format) {
         case Format::R32G32B32A32_TYPELESS:
         case Format::R32G32B32A32_FLOAT:
@@ -216,6 +218,10 @@ inline constexpr std::size_t get_format_bit_size(Format format) noexcept {
         default:
             return 0;
     }
+}
+
+inline constexpr auto get_format_byte_size(Format format) noexcept -> std::size_t {
+    return get_format_bit_size(format) >> 3;
 }
 
 enum struct PrimitiveTopology : std::uint8_t {

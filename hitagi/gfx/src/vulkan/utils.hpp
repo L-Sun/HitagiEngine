@@ -361,6 +361,131 @@ inline constexpr auto from_vk_format(vk::Format format) noexcept -> Format {
     }
 }
 
+inline constexpr auto to_vk_address_mode(AddressMode mode) noexcept -> vk::SamplerAddressMode {
+    switch (mode) {
+        case AddressMode::Clamp:
+            return vk::SamplerAddressMode::eClampToEdge;
+        case AddressMode::Repeat:
+            return vk::SamplerAddressMode::eRepeat;
+        case AddressMode::MirrorRepeat:
+            return vk::SamplerAddressMode::eMirroredRepeat;
+        default:
+            return vk::SamplerAddressMode::eClampToEdge;
+    }
+}
+
+inline constexpr auto to_vk_filter_mode(FilterMode mode) noexcept -> vk::Filter {
+    switch (mode) {
+        case FilterMode::Point:
+            return vk::Filter::eNearest;
+        case FilterMode::Linear:
+            return vk::Filter::eLinear;
+        default:
+            return vk::Filter::eNearest;
+    }
+}
+
+inline constexpr auto to_vk_mipmap_filter_mode(FilterMode mode) noexcept -> vk::SamplerMipmapMode {
+    switch (mode) {
+        case FilterMode::Point:
+            return vk::SamplerMipmapMode::eNearest;
+        case FilterMode::Linear:
+            return vk::SamplerMipmapMode::eLinear;
+        default:
+            return vk::SamplerMipmapMode::eNearest;
+    }
+}
+
+inline constexpr auto to_vk_extent3D(math::vec3u value) noexcept -> vk::Extent3D {
+    return {value.x, value.y, value.z};
+};
+
+inline constexpr auto to_vk_offset3D(math::vec3i value) noexcept -> vk::Offset3D {
+    return {value.x, value.y, value.z};
+};
+
+inline constexpr auto to_vk_buffer_usage(GPUBufferUsageFlags usages) noexcept -> vk::BufferUsageFlags {
+    vk::BufferUsageFlags vk_usages;
+
+    if (utils::has_flag(usages, GPUBufferUsageFlags::CopySrc)) {
+        vk_usages |= vk::BufferUsageFlagBits::eTransferSrc;
+    }
+    if (utils::has_flag(usages, GPUBufferUsageFlags::CopyDst)) {
+        vk_usages |= vk::BufferUsageFlagBits::eTransferDst;
+    }
+    if (utils::has_flag(usages, GPUBufferUsageFlags::Vertex)) {
+        vk_usages |= vk::BufferUsageFlagBits::eVertexBuffer;
+    }
+    if (utils::has_flag(usages, GPUBufferUsageFlags::Index)) {
+        vk_usages |= vk::BufferUsageFlagBits::eIndexBuffer;
+    }
+    if (utils::has_flag(usages, GPUBufferUsageFlags::Constant)) {
+        vk_usages |= vk::BufferUsageFlagBits::eUniformBuffer;
+    }
+    return vk_usages;
+}
+
+inline constexpr auto to_vk_image_usage(TextureUsageFlags usages) noexcept -> vk::ImageUsageFlags {
+    vk::ImageUsageFlags vk_usages;
+    if (utils::has_flag(usages, TextureUsageFlags::CopySrc)) {
+        vk_usages |= vk::ImageUsageFlagBits::eTransferSrc;
+    }
+    if (utils::has_flag(usages, TextureUsageFlags::CopyDst)) {
+        vk_usages |= vk::ImageUsageFlagBits::eTransferDst;
+    }
+    if (utils::has_flag(usages, TextureUsageFlags::SRV)) {
+        vk_usages |= vk::ImageUsageFlagBits::eSampled;
+    }
+    if (utils::has_flag(usages, TextureUsageFlags::UAV)) {
+        vk_usages |= vk::ImageUsageFlagBits::eStorage;
+    }
+    if (utils::has_flag(usages, TextureUsageFlags::RTV)) {
+        vk_usages |= vk::ImageUsageFlagBits::eColorAttachment;
+    }
+    if (utils::has_flag(usages, TextureUsageFlags::DSV)) {
+        vk_usages |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    }
+    return vk_usages;
+}
+
+inline constexpr auto to_vk_compare_op(CompareOp op) noexcept -> vk::CompareOp {
+    switch (op) {
+        case CompareOp::Never:
+            return vk::CompareOp::eNever;
+        case CompareOp::Less:
+            return vk::CompareOp::eLess;
+        case CompareOp::Equal:
+            return vk::CompareOp::eEqual;
+        case CompareOp::LessEqual:
+            return vk::CompareOp::eLessOrEqual;
+        case CompareOp::Greater:
+            return vk::CompareOp::eGreater;
+        case CompareOp::NotEqual:
+            return vk::CompareOp::eNotEqual;
+        case CompareOp::GreaterEqual:
+            return vk::CompareOp::eGreaterOrEqual;
+        case CompareOp::Always:
+            return vk::CompareOp::eAlways;
+        default:
+            return vk::CompareOp::eNever;
+    }
+}
+
+inline constexpr auto to_vk_sampler_create_info(const SamplerDesc& desc) noexcept -> vk::SamplerCreateInfo {
+    return {
+        .magFilter     = to_vk_filter_mode(desc.mag_filter),
+        .minFilter     = to_vk_filter_mode(desc.min_filter),
+        .mipmapMode    = to_vk_mipmap_filter_mode(desc.mipmap_filter),
+        .addressModeU  = to_vk_address_mode(desc.address_u),
+        .addressModeV  = to_vk_address_mode(desc.address_v),
+        .addressModeW  = to_vk_address_mode(desc.address_w),
+        .maxAnisotropy = desc.max_anisotropy,
+        .compareOp     = to_vk_compare_op(desc.compare_op),
+        .minLod        = desc.min_lod,
+        .maxLod        = desc.max_lod,
+    };
+}
+
 inline constexpr auto to_vk_shader_stage(ShaderType type) noexcept -> vk::ShaderStageFlagBits {
     switch (type) {
         case ShaderType::Vertex:
@@ -563,29 +688,6 @@ inline constexpr auto to_vk_logic_op(LogicOp op) noexcept -> vk::LogicOp {
     }
 }
 
-inline constexpr auto to_vk_comp_op(CompareOp op) noexcept -> vk::CompareOp {
-    switch (op) {
-        case CompareOp::Never:
-            return vk::CompareOp::eNever;
-        case CompareOp::Less:
-            return vk::CompareOp::eLess;
-        case CompareOp::Equal:
-            return vk::CompareOp::eEqual;
-        case CompareOp::LessEqual:
-            return vk::CompareOp::eLessOrEqual;
-        case CompareOp::Greater:
-            return vk::CompareOp::eGreater;
-        case CompareOp::NotEqual:
-            return vk::CompareOp::eNotEqual;
-        case CompareOp::GreaterEqual:
-            return vk::CompareOp::eGreaterOrEqual;
-        case CompareOp::Always:
-            return vk::CompareOp::eAlways;
-        default:
-            return vk::CompareOp::eNever;
-    }
-}
-
 inline constexpr auto to_vk_assembly_state(AssemblyState assembly_state) noexcept {
     return vk::PipelineInputAssemblyStateCreateInfo{
         .topology               = to_vk_primitive_topology(assembly_state.primitive),
@@ -635,7 +737,7 @@ inline constexpr auto to_vk_stencil_op_state(StencilOpState stencil_op_state) no
         .failOp      = to_vk_stencil_op(stencil_op_state.fail_op),
         .passOp      = to_vk_stencil_op(stencil_op_state.pass_op),
         .depthFailOp = to_vk_stencil_op(stencil_op_state.depth_fail_op),
-        .compareOp   = to_vk_comp_op(stencil_op_state.compare_op),
+        .compareOp   = to_vk_compare_op(stencil_op_state.compare_op),
         .compareMask = stencil_op_state.compare_mask,
         .writeMask   = stencil_op_state.write_mask,
         .reference   = stencil_op_state.reference,
@@ -646,7 +748,7 @@ inline constexpr auto to_vk_depth_stencil_state(DepthStencilState depth_stencil_
     return vk::PipelineDepthStencilStateCreateInfo{
         .depthTestEnable       = depth_stencil_state.depth_test_enable,
         .depthWriteEnable      = depth_stencil_state.depth_write_enable,
-        .depthCompareOp        = to_vk_comp_op(depth_stencil_state.depth_compare_op),
+        .depthCompareOp        = to_vk_compare_op(depth_stencil_state.depth_compare_op),
         .depthBoundsTestEnable = depth_stencil_state.depth_bounds_test_enable,
         .stencilTestEnable     = depth_stencil_state.stencil_test_enable,
         .front                 = to_vk_stencil_op_state(depth_stencil_state.front),
@@ -763,6 +865,18 @@ inline constexpr auto to_vk_stage(BarrierStage stage) noexcept -> vk::PipelineSt
     return result;
 }
 
+inline constexpr auto to_vk_image_aspect(TextureUsageFlags usages) -> vk::ImageAspectFlags {
+    vk::ImageAspectFlags result = vk::ImageAspectFlagBits::eNone;
+    if (utils::has_flag(usages, TextureUsageFlags::DSV)) {
+        result |= (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
+    }
+    if (utils::has_flag(usages, TextureUsageFlags::RTV) ||
+        utils::has_flag(usages, TextureUsageFlags::SRV)) {
+        result |= vk::ImageAspectFlagBits::eColor;
+    }
+    return result;
+}
+
 inline constexpr auto to_vk_image_layout(BarrierLayout layout) noexcept -> vk::ImageLayout {
     switch (layout) {
         case BarrierLayout::Unkown:
@@ -790,6 +904,68 @@ inline constexpr auto to_vk_image_layout(BarrierLayout layout) noexcept -> vk::I
     }
 }
 
+inline constexpr auto to_vk_image_type(const TextureDesc& desc) noexcept -> vk::ImageType {
+    if (desc.height == 1 && desc.depth == 1) {
+        return vk::ImageType::e1D;
+    } else if (desc.depth == 1) {
+        return vk::ImageType::e2D;
+    } else {
+        return vk::ImageType::e3D;
+    }
+}
+
+inline constexpr auto to_vk_image_create_info(const TextureDesc& desc) noexcept -> vk::ImageCreateInfo {
+    return {
+        .imageType = to_vk_image_type(desc),
+        .format    = to_vk_format(desc.format),
+        .extent    = vk::Extent3D{
+               .width  = desc.width,
+               .height = desc.height,
+               .depth  = desc.depth,
+        },
+        .mipLevels     = desc.mip_levels,
+        .arrayLayers   = desc.array_size,
+        .samples       = vk::SampleCountFlagBits::e1,
+        .tiling        = vk::ImageTiling::eOptimal,
+        .usage         = to_vk_image_usage(desc.usages),
+        .sharingMode   = vk::SharingMode::eExclusive,
+        .initialLayout = vk::ImageLayout::eUndefined,
+    };
+};
+
+inline constexpr auto to_vk_image_view_type(const TextureDesc& desc) noexcept -> vk::ImageViewType {
+    vk::ImageViewType image_view_type;
+    if (desc.height == 1 && desc.depth == 1) {
+        image_view_type = desc.array_size == 1 ? vk::ImageViewType::e1D : vk::ImageViewType::e1DArray;
+    } else if (desc.depth == 1) {
+        image_view_type = desc.array_size == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e2DArray;
+    } else {
+        image_view_type = vk::ImageViewType::e3D;
+    }
+    if (utils::has_flag(desc.usages, TextureUsageFlags::Cube)) {
+        image_view_type = vk::ImageViewType::eCube;
+    }
+    if (utils::has_flag(desc.usages, TextureUsageFlags::CubeArray)) {
+        image_view_type = vk::ImageViewType::eCubeArray;
+    }
+    return image_view_type;
+}
+
+inline constexpr auto to_vk_image_view_create_info(const TextureDesc& desc) noexcept -> vk::ImageViewCreateInfo {
+    return {
+        .image            = nullptr,
+        .viewType         = to_vk_image_view_type(desc),
+        .format           = to_vk_format(desc.format),
+        .subresourceRange = vk::ImageSubresourceRange{
+            .aspectMask     = to_vk_image_aspect(desc.usages),
+            .baseMipLevel   = 0,
+            .levelCount     = desc.mip_levels,
+            .baseArrayLayer = 0,
+            .layerCount     = desc.array_size,
+        },
+    };
+}
+
 inline constexpr auto to_vk_memory_barrier(GlobalBarrier barrier) noexcept -> vk::MemoryBarrier2 {
     return {
         .srcStageMask  = to_vk_stage(barrier.src_stage),
@@ -812,7 +988,7 @@ inline auto to_vk_buffer_barrier(const GPUBufferBarrier& barrier) -> vk::BufferM
 }
 
 inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemoryBarrier2 {
-    auto vk_image = static_cast<VulkanImage&>(barrier.texture).image_handle;
+    const auto vk_image = static_cast<VulkanImage&>(barrier.texture).image_handle;
 
     return {
         .srcStageMask     = to_vk_stage(barrier.src_stage),
@@ -823,11 +999,11 @@ inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemor
         .newLayout        = to_vk_image_layout(barrier.dst_layout),
         .image            = vk_image,
         .subresourceRange = {
-            .aspectMask     = barrier.is_depth_stencil ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel   = barrier.mip_level,
-            .levelCount     = 1,
-            .baseArrayLayer = barrier.array_layer,
-            .layerCount     = 1,
+            .aspectMask     = to_vk_image_aspect(barrier.texture.GetDesc().usages),
+            .baseMipLevel   = barrier.base_mip_level,
+            .levelCount     = barrier.level_count,
+            .baseArrayLayer = barrier.base_array_layer,
+            .layerCount     = barrier.layer_count,
         }};
 }
 

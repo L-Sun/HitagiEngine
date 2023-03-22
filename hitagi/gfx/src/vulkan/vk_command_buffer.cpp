@@ -4,6 +4,7 @@
 #include "utils.hpp"
 
 #include <spdlog/logger.h>
+#include <fmt/color.h>
 
 namespace hitagi::gfx {
 
@@ -75,10 +76,10 @@ void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_inf
     color_attachment = {
         .imageView   = *vk_color_attachment_image.image_view.value(),
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp      = render_info.render_target_clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+        .loadOp      = render_info.render_target.GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
         .storeOp     = vk::AttachmentStoreOp::eStore,
-        .clearValue  = render_info.render_target_clear_value
-                           ? to_vk_clear_value(render_info.render_target_clear_value.value())
+        .clearValue  = render_info.render_target.GetDesc().clear_value
+                           ? to_vk_clear_value(render_info.render_target.GetDesc().clear_value.value())
                            : vk::ClearValue{},
     };
     if (render_info.depth_stencil.has_value()) {
@@ -86,10 +87,10 @@ void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_inf
         depth_stencil_attachment     = {
                 .imageView   = *vk_depth_stencil_image.image_view.value(),
                 .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
-                .loadOp      = render_info.depth_stencil_clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+                .loadOp      = render_info.depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
                 .storeOp     = vk::AttachmentStoreOp::eStore,
-                .clearValue  = render_info.depth_stencil_clear_value
-                                   ? to_vk_clear_value(render_info.depth_stencil_clear_value.value())
+                .clearValue  = render_info.depth_stencil->get().GetDesc().clear_value
+                                   ? to_vk_clear_value(render_info.depth_stencil->get().GetDesc().clear_value.value())
                                    : vk::ClearValue{},
         };
     }
@@ -179,7 +180,7 @@ void VulkanGraphicsCommandBuffer::Draw(std::uint32_t vertex_count, std::uint32_t
 
 void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::uint32_t base_vertex, std::uint32_t first_instance) {}
 
-void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dest) {}
+void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {}
 
 VulkanComputeCommandBuffer::VulkanComputeCommandBuffer(VulkanDevice& device, std::string_view name)
     : ComputeCommandContext(device, CommandType::Compute, name),
@@ -248,10 +249,10 @@ void VulkanTransferCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalB
     pipeline_barrier_fn(command_buffer, global_barriers, buffer_barriers, texture_barriers);
 }
 
-void VulkanTransferCommandBuffer::CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dest, std::size_t dest_offset, std::size_t size) {
+void VulkanTransferCommandBuffer::CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dest_offset, std::size_t size) {
     command_buffer.copyBuffer(
         **static_cast<const VulkanBuffer&>(src).buffer,
-        **static_cast<VulkanBuffer&>(dest).buffer,
+        **static_cast<VulkanBuffer&>(dst).buffer,
         vk::BufferCopy{
             .srcOffset = src_offset,
             .dstOffset = dest_offset,
@@ -259,6 +260,52 @@ void VulkanTransferCommandBuffer::CopyBuffer(const GPUBuffer& src, std::size_t s
         });
 }
 
-void VulkanTransferCommandBuffer::CopyTexture(const Texture& src, const Texture& dest) {}
+void VulkanTransferCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {}
+
+void VulkanTransferCommandBuffer::CopyBufferToTexture(const GPUBuffer& src,
+                                                      std::size_t      src_offset,
+                                                      Texture&         dst,
+                                                      math::vec3i      dst_offset,
+                                                      math::vec3u      extent,
+                                                      std::uint32_t    mip_level,
+                                                      std::uint32_t    base_array_layer,
+                                                      std::uint32_t    layer_count) {
+    auto& dst_texture = static_cast<const VulkanImage&>(dst);
+    auto& src_buffer  = static_cast<const VulkanBuffer&>(src);
+
+    auto buffer_size    = src_buffer.GetDesc().element_size * src_buffer.GetDesc().element_count;
+    auto copy_data_size = extent.x * extent.y * extent.z * get_format_byte_size(dst_texture.GetDesc().format);
+
+    if (src_offset + copy_data_size >= buffer_size) {
+        auto error_message = fmt::format(
+            "Buffer size is too small to copy to texture. Buffer size: {}, Buffer Offset: {}, Copy size: {}",
+            fmt::styled(buffer_size, fmt::fg(fmt::color::red)),
+            fmt::styled(copy_data_size, fmt::fg(fmt::color::red)),
+            fmt::styled(src_offset, fmt::fg(fmt::color::red)));
+
+        m_Device.GetLogger()->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+
+    const vk::BufferImageCopy buffer_image_copy{
+        .bufferOffset      = src_offset,
+        .bufferRowLength   = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource  = vk::ImageSubresourceLayers{
+             .aspectMask     = to_vk_image_aspect(dst.GetDesc().usages),
+             .mipLevel       = mip_level,
+             .baseArrayLayer = base_array_layer,
+             .layerCount     = layer_count,
+        },
+        .imageOffset = to_vk_offset3D(dst_offset),
+        .imageExtent = to_vk_extent3D(extent),
+    };
+
+    command_buffer.copyBufferToImage(
+        **src_buffer.buffer,
+        **dst_texture.image,
+        vk::ImageLayout::eTransferDstOptimal,
+        buffer_image_copy);
+}
 
 }  // namespace hitagi::gfx

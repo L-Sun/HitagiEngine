@@ -88,6 +88,8 @@ TEST_P(CreateTest, CreateTexture1D) {
 }
 
 TEST_P(CreateTest, CreateTexture2D) {
+    Buffer data(128 * 128 * sizeof(vec4f));
+
     auto texture = device->CreateTexture(
         {
             .name        = test_name,
@@ -95,8 +97,9 @@ TEST_P(CreateTest, CreateTexture2D) {
             .height      = 128,
             .format      = Format::R8G8B8A8_UNORM,
             .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+            .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
         },
-        {});
+        data.Span<const std::byte>());
 
     EXPECT_TRUE(texture != nullptr);
 }
@@ -132,11 +135,11 @@ TEST_P(CreateTest, CreateTexture2DArray) {
 TEST_P(CreateTest, CreateSampler) {
     auto sampler = device->CreatSampler(
         {
-            .name      = test_name,
-            .address_u = AddressMode::Repeat,
-            .address_v = AddressMode::Repeat,
-            .address_w = AddressMode::Repeat,
-            .compare   = CompareOp::Always,
+            .name       = test_name,
+            .address_u  = AddressMode::Repeat,
+            .address_v  = AddressMode::Repeat,
+            .address_w  = AddressMode::Repeat,
+            .compare_op = CompareOp::Always,
         });
 
     ASSERT_TRUE(sampler != nullptr);
@@ -792,8 +795,7 @@ TEST_P(CreateTest, DrawTriangle) {
         });
 
     context->BeginRendering({
-        .render_target             = render_target,
-        .render_target_clear_value = vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+        .render_target = render_target,
     });
     context->Draw(3);
     context->EndRendering();

@@ -13,28 +13,40 @@ class VulkanSwapChain;
 
 struct VulkanBuffer final : public GPUBuffer {
     VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data);
+    VulkanBuffer(const VulkanBuffer&) = delete;
+    VulkanBuffer(VulkanBuffer&&)      = default;
     ~VulkanBuffer() final;
 
     auto GetMappedPtr() const noexcept -> std::byte* final;
 
     std::unique_ptr<vk::raii::Buffer> buffer;
-    VmaAllocation                     allocation;
+    VmaAllocation                     allocation = nullptr;
     std::byte*                        mapped_ptr = nullptr;
 };
 
-struct VulkanImage : public Texture {
+struct VulkanImage final : public Texture {
     VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const std::byte> initial_data);
     VulkanImage(const VulkanSwapChain& swap_chian, std::uint32_t index);
+    VulkanImage(const VulkanImage&) = delete;
+    VulkanImage(VulkanImage&&)      = default;
+    ~VulkanImage() final;
 
     std::optional<vk::raii::Image>     image;
     vk::Image                          image_handle;
     std::optional<vk::raii::ImageView> image_view;
+
+    VmaAllocation allocation = nullptr;
+};
+
+struct VulkanSampler final : public Sampler {
+    VulkanSampler(VulkanDevice& device, SamplerDesc desc);
+
+    std::unique_ptr<vk::raii::Sampler> sampler;
 };
 
 class VulkanSwapChain final : public SwapChain {
 public:
     VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc);
-    ~VulkanSwapChain() final = default;
 
     auto AcquireNextTexture(
         utils::optional_ref<Semaphore> signal_semaphore = {},
@@ -63,7 +75,7 @@ private:
     std::pmr::vector<VulkanImage>           m_Images;
 };
 
-struct VulkanShader : public Shader {
+struct VulkanShader final : public Shader {
     VulkanShader(VulkanDevice& device, ShaderDesc desc, std::span<const std::byte> binary_program);
 
     auto GetSPIRVData() const noexcept -> std::span<const std::byte> final;
@@ -75,7 +87,7 @@ private:
     void Compile();
 };
 
-struct VulkanPipelineLayout : public RootSignature {
+struct VulkanPipelineLayout final : public RootSignature {
     VulkanPipelineLayout(VulkanDevice& device, RootSignatureDesc desc);
 
     // For bindless
@@ -87,13 +99,13 @@ struct VulkanPipelineLayout : public RootSignature {
     std::unique_ptr<vk::raii::PipelineLayout>       pipeline_layout;
 };
 
-struct VulkanRenderPipeline : public RenderPipeline {
+struct VulkanRenderPipeline final : public RenderPipeline {
     VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc);
 
     std::unique_ptr<vk::raii::Pipeline> pipeline;
 };
 
-struct VulkanComputePipeline : public ComputePipeline {
+struct VulkanComputePipeline final : public ComputePipeline {
     VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc);
 
     std::unique_ptr<vk::raii::Pipeline> pipeline;
