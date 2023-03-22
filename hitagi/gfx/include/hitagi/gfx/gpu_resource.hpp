@@ -134,25 +134,27 @@ struct RootSignatureDesc {
 };
 using RootSignature = Resource<RootSignatureDesc>;
 
-struct GraphicsPipelineDesc {
+struct RenderPipelineDesc {
     std::string_view name = UNKOWN_NAME;
 
     std::pmr::vector<std::weak_ptr<Shader>> shaders;
 
-    std::shared_ptr<RootSignature> root_signature = {};
-    AssemblyState                  assembly_state = {};
-    VertexLayout                   vertex_input_layout;
-    RasterizationState             rasterization_state;
-    DepthStencilState              depth_stencil_state;
-    BlendState                     blend_state;
+    std::shared_ptr<RootSignature> root_signature       = {};
+    AssemblyState                  assembly_state       = {};
+    VertexLayout                   vertex_input_layout  = {};
+    RasterizationState             rasterization_state  = {};
+    DepthStencilState              depth_stencil_state  = {};
+    BlendState                     blend_state          = {};
     Format                         render_format        = Format::R8G8B8A8_UNORM;
     Format                         depth_stencil_format = Format::UNKNOWN;
 };
-using GraphicsPipeline = Resource<GraphicsPipelineDesc>;
+using RenderPipeline = Resource<RenderPipelineDesc>;
 
 struct ComputePipelineDesc {
-    std::string_view      name = UNKOWN_NAME;
-    std::weak_ptr<Shader> cs;  // computer shader
+    std::string_view name = UNKOWN_NAME;
+
+    std::weak_ptr<Shader>          cs;  // computer shader
+    std::shared_ptr<RootSignature> root_signature = {};
 };
 using ComputePipeline = Resource<ComputePipelineDesc>;
 

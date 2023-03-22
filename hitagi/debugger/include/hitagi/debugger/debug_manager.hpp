@@ -21,9 +21,9 @@ public:
 
 protected:
     struct GfxData {
-        std::shared_ptr<gfx::GPUBuffer>        vertices;
-        std::shared_ptr<gfx::GPUBuffer>        indices;
-        std::shared_ptr<gfx::GraphicsPipeline> m_DebugPipeline;
+        std::shared_ptr<gfx::GPUBuffer>      vertices;
+        std::shared_ptr<gfx::GPUBuffer>      indices;
+        std::shared_ptr<gfx::RenderPipeline> m_DebugPipeline;
     } m_GfxData;
 
     struct DebugPrimitive {

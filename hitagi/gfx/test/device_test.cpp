@@ -279,7 +279,7 @@ TEST_P(CreateTest, CreateRootSignature) {
     EXPECT_TRUE(root_signature);
 }
 
-TEST_P(CreateTest, CreatePipeline) {
+TEST_P(CreateTest, CreateRenderPipeline) {
     {
         constexpr auto vs_code = R"""(
             struct VS_INPUT {
@@ -304,23 +304,41 @@ TEST_P(CreateTest, CreatePipeline) {
         });
         ASSERT_TRUE(vs_shader);
 
-        auto root_signature = device->CreateRootSignature({
-            .name    = test_name,
-            .shaders = {vs_shader},
-        });
-        ASSERT_TRUE(root_signature);
-
         auto render_pipeline = device->CreateRenderPipeline(
             {
                 .name                = test_name,
                 .shaders             = {vs_shader},
-                .root_signature      = root_signature,
                 .vertex_input_layout = {
                     {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 0},
                 },
             });
         EXPECT_TRUE(render_pipeline);
     }
+}
+
+TEST_P(CreateTest, CreateComputPipeline) {
+    constexpr auto cs_code = R"""(
+        RWStructuredBuffer<float> output : register(u0);
+
+        [numthreads(1, 1, 1)]
+        void main(uint3 thread_id : SV_DispatchThreadID) {
+            output[thread_id.x] = 1.0f;
+        }
+    )""";
+
+    auto cs_shader = device->CreateShader({
+        .name        = test_name,
+        .type        = ShaderType::Compute,
+        .entry       = "main",
+        .source_code = cs_code,
+    });
+    ASSERT_TRUE(cs_shader);
+
+    auto compute_pipeline = device->CreateComputePipeline({
+        .name = test_name,
+        .cs   = cs_shader,
+    });
+    EXPECT_TRUE(compute_pipeline);
 }
 
 class GPUBufferTest : public TestWithParam<std::tuple<Device::Type, GPUBufferUsageFlags>> {
@@ -481,26 +499,90 @@ INSTANTIATE_TEST_SUITE_P(
             magic_enum::enum_name(std::get<1>(info.param)));
     });
 TEST_P(BindCommandTest, PushConstant) {
-    constexpr std::string_view vs_shader_code = R"""(
-        struct Constant {
-            float value;
-        };
-        
-        [[vk::push_constant]]
-        ConstantBuffer<Constant> value;
+    if (context->GetType() == CommandType::Graphics) {
+        constexpr std::string_view vs_shader_code = R"""(
+            struct Constant {
+                float value;
+            };
 
-        float4 main() : POSITION {
-            return float4(value.value, 0.0, 0.0, 1.0);
-        }
-    )""";
+            [[vk::push_constant]]
+            ConstantBuffer<Constant> value;
 
-    auto vs_shader = device->CreateShader({
-        .name        = fmt::format("{}-vs", test_name),
-        .type        = ShaderType::Vertex,
-        .entry       = "main",
-        .source_code = vs_shader_code,
-    });
-    ASSERT_TRUE(vs_shader);
+            float4 main() : POSITION {
+                return float4(value.value, 0.0, 0.0, 1.0);
+            }
+        )""";
+
+        auto vs_shader = device->CreateShader({
+            .name        = fmt::format("{}-vs", test_name),
+            .type        = ShaderType::Vertex,
+            .entry       = "main",
+            .source_code = vs_shader_code,
+        });
+        ASSERT_TRUE(vs_shader);
+
+        auto pipeline = device->CreateRenderPipeline({
+            .name    = fmt::format("{}-pipeline", test_name),
+            .shaders = {vs_shader},
+        });
+        ASSERT_TRUE(pipeline);
+
+        auto& queue   = device->GetCommandQueue(context->GetType());
+        auto  gfx_ctx = std::static_pointer_cast<GraphicsCommandContext>(context);
+
+        gfx_ctx->Begin();
+
+        gfx_ctx->SetPipeline(*pipeline);
+        gfx_ctx->PushConstant(0, 1.0f);
+        gfx_ctx->End();
+
+        queue.Submit({context.get()});
+        queue.WaitIdle();
+    } else if (context->GetType() == CommandType::Compute) {
+        constexpr std::string_view cs_shader_code = R"""(
+            struct Constant {
+                float value;
+            };
+
+            [[vk::push_constant]]
+            ConstantBuffer<Constant> value;
+
+            RWBuffer<float> buffer : register(u0, space0);
+
+            [numthreads(1, 1, 1)]
+            void main() {
+                buffer[0] = value.value;
+            }
+        )""";
+
+        auto cs_shader = device->CreateShader({
+            .name        = fmt::format("{}-cs", test_name),
+            .type        = ShaderType::Compute,
+            .entry       = "main",
+            .source_code = cs_shader_code,
+        });
+        ASSERT_TRUE(cs_shader);
+
+        auto pipeline = device->CreateComputePipeline({
+            .name = fmt::format("{}-pipeline", test_name),
+            .cs   = cs_shader,
+        });
+        ASSERT_TRUE(pipeline);
+
+        auto& queue           = device->GetCommandQueue(context->GetType());
+        auto  compute_context = std::static_pointer_cast<ComputeCommandContext>(context);
+
+        compute_context->Begin();
+
+        compute_context->SetPipeline(*pipeline);
+        compute_context->PushConstant(0, 1.0f);
+        compute_context->End();
+
+        queue.Submit({context.get()});
+        queue.WaitIdle();
+    } else {
+        FAIL() << "Unsupported command type";
+    }
 }
 
 class SwapChainTest : public CreateTest {

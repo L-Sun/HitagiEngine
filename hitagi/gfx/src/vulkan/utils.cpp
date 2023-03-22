@@ -129,6 +129,7 @@ auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, V
                 break;
             case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
                 logger->error(message);
+                throw std::runtime_error(message.c_str());
                 break;
             default:
                 break;

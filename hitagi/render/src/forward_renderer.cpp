@@ -278,11 +278,11 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 .width  = static_cast<std::uint32_t>(viewport->width),
                 .height = static_cast<std::uint32_t>(viewport->height)});
 
-            gfx::GraphicsPipeline* curr_pipeline     = nullptr;
-            asset::VertexArray*    curr_vertices     = nullptr;
-            asset::IndexArray*     curr_indices      = nullptr;
-            asset::MeshNode*       curr_instance     = nullptr;
-            gfx::GPUBuffer*        material_constant = nullptr;
+            gfx::RenderPipeline* curr_pipeline     = nullptr;
+            asset::VertexArray*  curr_vertices     = nullptr;
+            asset::IndexArray*   curr_indices      = nullptr;
+            asset::MeshNode*     curr_instance     = nullptr;
+            gfx::GPUBuffer*      material_constant = nullptr;
             for (const auto& draw_call : *draw_items) {
                 if (draw_call.material->GetPipeline() == nullptr) continue;
 

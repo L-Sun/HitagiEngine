@@ -35,7 +35,8 @@ public:
 
     virtual auto CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> = 0;
     virtual auto CreateRootSignature(RootSignatureDesc desc) -> std::shared_ptr<RootSignature>                            = 0;
-    virtual auto CreateRenderPipeline(GraphicsPipelineDesc desc) -> std::shared_ptr<GraphicsPipeline>                     = 0;
+    virtual auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline>                         = 0;
+    virtual auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline>                      = 0;
 
     virtual void Profile(std::size_t frame_index) const = 0;
 

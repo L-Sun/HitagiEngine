@@ -14,11 +14,11 @@ protected:
 
     // GUI render data
     struct GuiRenderData {
-        std::shared_ptr<gfx::GraphicsPipeline> pipeline;
-        std::shared_ptr<gfx::GPUBuffer>        vertices_buffer;
-        std::shared_ptr<gfx::GPUBuffer>        indices_buffer;
-        std::shared_ptr<gfx::Texture>          font_texture;
-        std::shared_ptr<gfx::GPUBuffer>        upload_heap;
+        std::shared_ptr<gfx::RenderPipeline> pipeline;
+        std::shared_ptr<gfx::GPUBuffer>      vertices_buffer;
+        std::shared_ptr<gfx::GPUBuffer>      indices_buffer;
+        std::shared_ptr<gfx::Texture>        font_texture;
+        std::shared_ptr<gfx::GPUBuffer>      upload_heap;
     } m_GfxData;
 
     gfx::ResourceHandle m_FontTextureHandle;

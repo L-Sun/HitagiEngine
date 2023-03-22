@@ -27,7 +27,7 @@ public:
         auto Create(ResourceDesc desc) const -> ResourceHandle;
         auto Read(ResourceHandle input) const -> ResourceHandle;
         auto Write(ResourceHandle output) const -> ResourceHandle;
-        void UseRenderPipeline(std::shared_ptr<GraphicsPipeline> pipeline) const;
+        void UseRenderPipeline(std::shared_ptr<RenderPipeline> pipeline) const;
         void UseComputePipeline(std::shared_ptr<ComputePipeline> pipeline) const;
 
     private:

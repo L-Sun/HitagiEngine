@@ -24,7 +24,7 @@ public:
     void BeginRendering(const RenderingInfo& info) final;
     void EndRendering() final;
 
-    void SetPipeline(const GraphicsPipeline& pipeline) final;
+    void SetPipeline(const RenderPipeline& pipeline) final;
 
     void SetViewPort(const ViewPort& view_port) final;
     void SetScissorRect(const Rect& scissor_rect) final;
@@ -33,6 +33,7 @@ public:
     void SetIndexBuffer(GPUBuffer& buffer) final;
     void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) final;
 
+    void PushConstant(std::uint32_t slot, std::span<const std::byte> data) final;
     void BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index = 0) final;
     void BindTexture(std::uint32_t slot, Texture& texture) final;
 
@@ -44,8 +45,8 @@ public:
     vk::raii::CommandBuffer command_buffer;
 
 private:
-    const VulkanPipelineLayout*   m_PipelineLayout = nullptr;
-    const VulkanGraphicsPipeline* m_Pipeline       = nullptr;
+    const VulkanPipelineLayout* m_PipelineLayout = nullptr;
+    const VulkanRenderPipeline* m_Pipeline       = nullptr;
 };
 
 class VulkanComputeCommandBuffer final : public ComputeCommandContext {
@@ -61,7 +62,15 @@ public:
         const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
         const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final;
 
+    void SetPipeline(const ComputePipeline& pipeline) final;
+
+    void PushConstant(std::uint32_t slot, std::span<const std::byte> data) final;
+
     vk::raii::CommandBuffer command_buffer;
+
+private:
+    const VulkanPipelineLayout*  m_PipelineLayout = nullptr;
+    const VulkanComputePipeline* m_Pipeline       = nullptr;
 };
 
 class VulkanTransferCommandBuffer final : public CopyCommandContext {

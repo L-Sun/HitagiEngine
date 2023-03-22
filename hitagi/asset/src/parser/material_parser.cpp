@@ -59,7 +59,7 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
     try {
         json = nlohmann::json::parse(buffer.Span<char>());
 
-        gfx::GraphicsPipeline::Desc pipeline_desc{
+        gfx::RenderPipeline::Desc pipeline_desc{
             .vs = {
                 .name        = json.at("pipeline").at("vs"),
                 .type        = gfx::ShaderType::Vertex,

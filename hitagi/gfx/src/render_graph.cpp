@@ -64,7 +64,7 @@ auto RenderGraph::Builder::Write(ResourceHandle output) const -> ResourceHandle 
     return output;
 }
 
-void RenderGraph::Builder::UseRenderPipeline(std::shared_ptr<GraphicsPipeline> pipeline) const {
+void RenderGraph::Builder::UseRenderPipeline(std::shared_ptr<RenderPipeline> pipeline) const {
     if (m_Node->type != CommandType::Graphics) {
         m_RenderGraph.m_Logger->warn(
             "Pass node (type: {}) can not use RenderPipeline({})",

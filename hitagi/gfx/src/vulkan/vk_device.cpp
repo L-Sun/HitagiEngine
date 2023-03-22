@@ -249,8 +249,12 @@ auto VulkanDevice::CreateRootSignature(RootSignatureDesc desc) -> std::shared_pt
     return std::make_shared<VulkanPipelineLayout>(*this, std::move(desc));
 }
 
-auto VulkanDevice::CreateRenderPipeline(GraphicsPipelineDesc desc) -> std::shared_ptr<GraphicsPipeline> {
-    return std::make_shared<VulkanGraphicsPipeline>(*this, std::move(desc));
+auto VulkanDevice::CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> {
+    return std::make_shared<VulkanRenderPipeline>(*this, std::move(desc));
+}
+
+auto VulkanDevice::CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> {
+    return std::make_shared<VulkanComputePipeline>(*this, std::move(desc));
 }
 
 void VulkanDevice::Profile(std::size_t frame_index) const {}

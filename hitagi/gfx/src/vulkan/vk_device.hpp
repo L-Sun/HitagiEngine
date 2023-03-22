@@ -47,7 +47,8 @@ public:
 
     auto CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> final;
     auto CreateRootSignature(RootSignatureDesc desc) -> std::shared_ptr<RootSignature> final;
-    auto CreateRenderPipeline(GraphicsPipelineDesc desc) -> std::shared_ptr<GraphicsPipeline> final;
+    auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> final;
+    auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> final;
 
     void Profile(std::size_t frame_index) const final;
 

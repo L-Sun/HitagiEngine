@@ -53,7 +53,7 @@ public:
     virtual void BeginRendering(const RenderingInfo& info) = 0;
     virtual void EndRendering()                            = 0;
 
-    virtual void SetPipeline(const GraphicsPipeline& pipeline) = 0;
+    virtual void SetPipeline(const RenderPipeline& pipeline) = 0;
 
     virtual void SetViewPort(const ViewPort& view_port)   = 0;
     virtual void SetScissorRect(const Rect& scissor_rect) = 0;
@@ -61,6 +61,12 @@ public:
 
     virtual void SetIndexBuffer(GPUBuffer& buffer)                     = 0;
     virtual void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) = 0;
+
+    virtual void PushConstant(std::uint32_t slot, std::span<const std::byte> data) = 0;
+    template <typename T>
+    void PushConstant(std::uint32_t slot, const T& data) {
+        PushConstant(slot, std::span{reinterpret_cast<const std::byte*>(&data), sizeof(T)});
+    }
 
     virtual void BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index = 0) = 0;
     virtual void BindTexture(std::uint32_t slot, Texture& texture)                                = 0;
@@ -74,6 +80,14 @@ public:
 class ComputeCommandContext : public CommandContext {
 public:
     using CommandContext::CommandContext;
+
+    virtual void SetPipeline(const ComputePipeline& pipeline) = 0;
+
+    virtual void PushConstant(std::uint32_t slot, std::span<const std::byte> data) = 0;
+    template <typename T>
+    void PushConstant(std::uint32_t slot, const T& data) {
+        PushConstant(slot, std::span{reinterpret_cast<const std::byte*>(&data), sizeof(T)});
+    }
 };
 
 class CopyCommandContext : public CommandContext {

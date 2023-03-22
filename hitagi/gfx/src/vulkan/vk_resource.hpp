@@ -78,12 +78,20 @@ struct VulkanPipelineLayout : public RootSignature {
     // For bindless
     VulkanPipelineLayout(VulkanDevice& device, std::span<vk::DescriptorPoolSize> pool_sizes);
 
+    std::pmr::vector<vk::PushConstantRange> push_constant_ranges;
+
     std::pmr::vector<vk::raii::DescriptorSetLayout> descriptor_set_layouts;
     std::unique_ptr<vk::raii::PipelineLayout>       pipeline_layout;
 };
 
-struct VulkanGraphicsPipeline : public GraphicsPipeline {
-    VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipelineDesc desc);
+struct VulkanRenderPipeline : public RenderPipeline {
+    VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc);
+
+    std::unique_ptr<vk::raii::Pipeline> pipeline;
+};
+
+struct VulkanComputePipeline : public ComputePipeline {
+    VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc);
 
     std::unique_ptr<vk::raii::Pipeline> pipeline;
 };

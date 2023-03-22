@@ -114,8 +114,8 @@ void VulkanGraphicsCommandBuffer::EndRendering() {
     command_buffer.endRendering();
 }
 
-void VulkanGraphicsCommandBuffer::SetPipeline(const GraphicsPipeline& pipeline) {
-    auto vk_pipeline = &static_cast<const VulkanGraphicsPipeline&>(pipeline);
+void VulkanGraphicsCommandBuffer::SetPipeline(const RenderPipeline& pipeline) {
+    auto vk_pipeline = &static_cast<const VulkanRenderPipeline&>(pipeline);
     if (m_Pipeline == vk_pipeline) return;
     m_Pipeline = vk_pipeline;
     command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, **m_Pipeline->pipeline);
@@ -159,6 +159,15 @@ void VulkanGraphicsCommandBuffer::SetVertexBuffer(std::uint8_t slot, GPUBuffer& 
     command_buffer.bindVertexBuffers(slot, **static_cast<VulkanBuffer&>(buffer).buffer, {0});
 }
 
+void VulkanGraphicsCommandBuffer::PushConstant(std::uint32_t slot, std::span<const std::byte> data) {
+    const vk::ArrayProxy<const std::byte> data_proxy(data.size(), data.data());
+    command_buffer.pushConstants(
+        **m_PipelineLayout->pipeline_layout,
+        m_PipelineLayout->push_constant_ranges.at(slot).stageFlags,
+        m_PipelineLayout->push_constant_ranges.at(slot).offset,
+        data_proxy);
+}
+
 void VulkanGraphicsCommandBuffer::BindConstantBuffer(std::uint32_t slot, GPUBuffer& buffer, std::size_t index) {
 }
 
@@ -196,9 +205,28 @@ void VulkanComputeCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBa
     pipeline_barrier_fn(command_buffer, global_barriers, buffer_barriers, texture_barriers);
 }
 
+void VulkanComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
+    auto vk_pipeline = &static_cast<const VulkanComputePipeline&>(pipeline);
+    if (m_Pipeline == vk_pipeline) return;
+    m_Pipeline = vk_pipeline;
+    command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, **m_Pipeline->pipeline);
+
+    m_PipelineLayout = std::static_pointer_cast<VulkanPipelineLayout>(pipeline.GetDesc().root_signature).get();
+}
+
+void VulkanComputeCommandBuffer::PushConstant(std::uint32_t slot, std::span<const std::byte> data) {
+    const vk::ArrayProxy<const std::byte> data_proxy(data.size(), data.data());
+    command_buffer.pushConstants(
+        **m_PipelineLayout->pipeline_layout,
+        m_PipelineLayout->push_constant_ranges.at(slot).stageFlags,
+        m_PipelineLayout->push_constant_ranges.at(slot).offset,
+        data_proxy);
+}
+
 VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name)
     : CopyCommandContext(device, CommandType::Copy, name),
-      command_buffer(create_command_buffer(device, CommandType::Copy, name)) {}
+      command_buffer(create_command_buffer(device, CommandType::Copy, name)) {
+}
 
 void VulkanTransferCommandBuffer::Begin() {
     command_buffer.begin(vk::CommandBufferBeginInfo{

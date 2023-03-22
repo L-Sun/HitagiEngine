@@ -458,7 +458,11 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDe
                         .stageFlags         = to_vk_shader_stage(reflection.GetShaderStage()),
                         .pImmutableSamplers = nullptr,
                     });
-                    logger->debug("Create binding {} for stage {} in set {}", binding.binding, vk::to_string(binding.stageFlags), set_index);
+                    logger->debug(
+                        "Create binding {} for stage {} in set {}",
+                        fmt::styled(binding.binding, fmt::fg(fmt::color::green)),
+                        fmt::styled(vk::to_string(binding.stageFlags), fmt::fg(fmt::color::green)),
+                        fmt::styled(set_index, fmt::fg(fmt::color::green)));
                 }
             }
         }
@@ -475,20 +479,55 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDe
     }
 
     logger->debug("Create push constant ranges...");
-    std::pmr::vector<vk::PushConstantRange> push_constant_range;
-    for (const auto& reflection : reflections) {
-        std::uint32_t num_ranges;
-        reflection.EnumerateEntryPointPushConstantBlocks(reflection.GetEntryPointName(), &num_ranges, nullptr);
-        std::pmr::vector<SpvReflectBlockVariable*> ranges(num_ranges);
-        reflection.EnumerateEntryPointPushConstantBlocks(reflection.GetEntryPointName(), &num_ranges, ranges.data());
+    {
+        for (const auto& reflection : reflections) {
+            std::uint32_t num_ranges;
+            reflection.EnumerateEntryPointPushConstantBlocks(reflection.GetEntryPointName(), &num_ranges, nullptr);
+            std::pmr::vector<SpvReflectBlockVariable*> ranges(num_ranges);
+            reflection.EnumerateEntryPointPushConstantBlocks(reflection.GetEntryPointName(), &num_ranges, ranges.data());
 
-        for (const auto& range : ranges) {
-            const auto& vk_range = push_constant_range.emplace_back(vk::PushConstantRange{
-                .stageFlags = to_vk_shader_stage(reflection.GetShaderStage()),
-                .offset     = range->offset,
-                .size       = range->size,
-            });
-            logger->debug("Create push constant range for stage {} with offset {} and size {}", vk::to_string(vk_range.stageFlags), vk_range.offset, vk_range.size);
+            for (const auto& range : ranges) {
+                push_constant_ranges.emplace_back(vk::PushConstantRange{
+                    .stageFlags = to_vk_shader_stage(reflection.GetShaderStage()),
+                    .offset     = range->offset,
+                    .size       = range->size,
+                });
+            }
+        }
+
+        // merge range if possible
+        std::sort(
+            push_constant_ranges.begin(), push_constant_ranges.end(),
+            [](const auto& lhs, const auto& rhs) { return lhs.offset < rhs.offset; });
+
+        for (auto iter = push_constant_ranges.begin(); iter != push_constant_ranges.end();) {
+            auto& range = *iter;
+            auto  next  = iter + 1;
+            if (next == push_constant_ranges.end()) break;
+
+            if (range.offset == next->offset && range.size == next->size) {
+                range.stageFlags |= next->stageFlags;
+                range.size += next->size;
+                next = push_constant_ranges.erase(next);
+
+                logger->debug(
+                    "Merge two stage push constant, (offset: {}, size: {}, stage: {})",
+                    fmt::styled(range.offset, fmt::fg(fmt::color::green)),
+                    fmt::styled(range.size, fmt::fg(fmt::color::green)),
+                    fmt::styled(vk::to_string(range.stageFlags), fmt::fg(fmt::color::green)));
+
+            } else if (range.offset + range.size > next->offset) {
+                const auto error_message = fmt::format(
+                    "There are two push constant range overlap with each other, range_1(offset: {}, size: {}), range_2(offset: {}, size: {})",
+                    fmt::styled(range.offset, fmt::fg(fmt::color::green)),
+                    fmt::styled(range.size, fmt::fg(fmt::color::green)),
+                    fmt::styled(next->offset, fmt::fg(fmt::color::red)),
+                    fmt::styled(next->size, fmt::fg(fmt::color::red)));
+                logger->error(error_message);
+                throw std::runtime_error(error_message);
+            }
+
+            iter = next;
         }
     }
 
@@ -503,8 +542,8 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, RootSignatureDe
         vk::PipelineLayoutCreateInfo{
             .setLayoutCount         = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
             .pSetLayouts            = vk_descriptor_set_layouts.data(),
-            .pushConstantRangeCount = static_cast<std::uint32_t>(push_constant_range.size()),
-            .pPushConstantRanges    = push_constant_range.data(),
+            .pushConstantRangeCount = static_cast<std::uint32_t>(push_constant_ranges.size()),
+            .pPushConstantRanges    = push_constant_ranges.data(),
         },
         device.GetCustomAllocator());
 
@@ -546,11 +585,11 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, std::span<vk::D
             return vk::raii::DescriptorSetLayout(device.GetDevice(), descriptor_set_layout_create_info.get(), device.GetCustomAllocator());
         });
 
-    const vk::PushConstantRange push_constant_range{
+    push_constant_ranges.emplace_back(vk::PushConstantRange{
         .stageFlags = vk::ShaderStageFlagBits::eAll,
         .offset     = 0,
         .size       = 4 * sizeof(std::uint32_t),
-    };
+    });
 
     std::pmr::vector<vk::DescriptorSetLayout> vk_descriptor_set_layouts;
     std::transform(
@@ -563,16 +602,13 @@ VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, std::span<vk::D
         vk::PipelineLayoutCreateInfo{
             .setLayoutCount         = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
             .pSetLayouts            = vk_descriptor_set_layouts.data(),
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges    = &push_constant_range,
+            .pushConstantRangeCount = static_cast<std::uint32_t>(push_constant_ranges.size()),
+            .pPushConstantRanges    = push_constant_ranges.data(),
         },
         device.GetCustomAllocator());
 }
 
-VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPipelineDesc desc)
-    : GraphicsPipeline(device, std::move(desc))
-
-{
+VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc) : RenderPipeline(device, std::move(desc)) {
     auto logger = device.GetLogger();
 
     if (std::find_if(
@@ -658,31 +694,32 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPip
         .blendConstants  = m_Desc.blend_state.blend_constants.data,
     };
 
-    std::array dynamic_states = {
+    constexpr std::array dynamic_states = {
         vk::DynamicState::eViewport,
         vk::DynamicState::eScissor,
     };
-    vk::PipelineDynamicStateCreateInfo dynamic_state_create_info{
+    const vk::PipelineDynamicStateCreateInfo dynamic_state_create_info{
         .dynamicStateCount = static_cast<std::uint32_t>(dynamic_states.size()),
         .pDynamicStates    = dynamic_states.data(),
     };
 
     const auto render_format = to_vk_format(desc.render_format);
 
-    auto root_signature = std::static_pointer_cast<VulkanPipelineLayout>(m_Desc.root_signature);
-    if (root_signature == nullptr) {
-        auto error_message = fmt::format(
-            "Root signature is not specified for pipeline({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
-        logger->error(error_message);
-        throw std::runtime_error(error_message);
+    if (m_Desc.root_signature == nullptr) {
+        logger->warn(
+            "Root signature is not specified for pipeline({}). Create temporary one from shaders",
+            fmt::styled(m_Desc.name, fmt::fg(fmt::color::yellow)));
+        m_Desc.root_signature = device.CreateRootSignature({
+            .name    = fmt::format("{}_rootsignature", m_Name),
+            .shaders = m_Desc.shaders,
+        });
     }
-
+    const auto  root_signature  = std::static_pointer_cast<VulkanPipelineLayout>(m_Desc.root_signature);
     const auto& pipeline_layout = root_signature->pipeline_layout;
 
-    logger->debug("Create pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->debug("Create render pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
-        vk::StructureChain pipeline_create_info = {
+        const vk::StructureChain pipeline_create_info = {
             vk::GraphicsPipelineCreateInfo{
                 .stageCount          = static_cast<std::uint32_t>(shader_stage_create_infos.size()),
                 .pStages             = shader_stage_create_infos.data(),
@@ -703,6 +740,56 @@ VulkanGraphicsPipeline::VulkanGraphicsPipeline(VulkanDevice& device, GraphicsPip
         };
 
         pipeline = std::make_unique<vk::raii::Pipeline>(device.GetDevice(), nullptr, pipeline_create_info.get(), device.GetCustomAllocator());
+
+        switch (pipeline->getConstructorSuccessCode()) {
+            case vk::Result::eSuccess:
+                break;
+            case vk::Result::ePipelineCompileRequired:
+                throw std::runtime_error("Pipeline compilation is required");
+            default:
+                throw std::runtime_error("Failed to create pipeline");
+        }
+        create_vk_debug_object_info(*pipeline, m_Name, device.GetDevice());
+    }
+}
+
+VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc) : ComputePipeline(device, std::move(desc)) {
+    auto logger = device.GetLogger();
+
+    auto compute_shader = std::static_pointer_cast<VulkanShader>(m_Desc.cs.lock());
+
+    if (compute_shader == nullptr) {
+        const auto error_message = fmt::format("Compute shader is not specified for pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+        logger->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+
+    vk::PipelineShaderStageCreateInfo shader_stage_create_info{
+        .stage  = vk::ShaderStageFlagBits::eCompute,
+        .module = *compute_shader->shader,
+        .pName  = compute_shader->GetDesc().entry.data(),
+    };
+
+    if (m_Desc.root_signature == nullptr) {
+        logger->warn(
+            "Root signature is not specified for pipeline({}). Create temporary one from shaders",
+            fmt::styled(m_Desc.name, fmt::fg(fmt::color::yellow)));
+        m_Desc.root_signature = device.CreateRootSignature({
+            .name    = fmt::format("{}_rootsignature", m_Name),
+            .shaders = {m_Desc.cs},
+        });
+    }
+    const auto  root_signature  = std::static_pointer_cast<VulkanPipelineLayout>(m_Desc.root_signature);
+    const auto& pipeline_layout = root_signature->pipeline_layout;
+
+    logger->debug("Create compute pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    {
+        const vk::ComputePipelineCreateInfo pipeline_create_info{
+            .stage  = shader_stage_create_info,
+            .layout = **pipeline_layout,
+        };
+
+        pipeline = std::make_unique<vk::raii::Pipeline>(device.GetDevice(), nullptr, pipeline_create_info, device.GetCustomAllocator());
 
         switch (pipeline->getConstructorSuccessCode()) {
             case vk::Result::eSuccess:

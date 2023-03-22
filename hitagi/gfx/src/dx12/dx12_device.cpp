@@ -824,7 +824,7 @@ auto DX12Device::CreateRenderPipeline(RenderPipeline::Desc desc) -> std::shared_
             .NodeMask              = 0,
         };
 
-        HRESULT hr = m_Device->CreateGraphicsPipelineState(&d3d_desc, IID_PPV_ARGS(&result->pso));
+        HRESULT hr = m_Device->CreateRenderPipelineState(&d3d_desc, IID_PPV_ARGS(&result->pso));
         if (FAILED(hr)) {
             m_Logger->warn("Failed to create pipeline. Name: {}", result->desc.name);
             return nullptr;
