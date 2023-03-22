@@ -141,15 +141,40 @@ auto VulkanBuffer::GetMappedPtr() const noexcept -> std::byte* {
     return mapped_ptr;
 }
 
-VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc) : Texture(device, desc) {}
+VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(device, desc) {
+}
 
-VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
-    : SwapChain(device, desc),
-      semaphore(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())
+VulkanImage::VulkanImage(const VulkanSwapChain& swap_chian, std::uint32_t index)
+    : Texture(swap_chian.GetDevice(),
+              {
+                  .name   = fmt::format("{}-texture-{}", swap_chian.GetName(), index),
+                  .width  = swap_chian.GetWidth(),
+                  .height = swap_chian.GetHeight(),
+                  .format = swap_chian.GetFormat(),
+                  .usages = TextureUsageFlags::RTV,
+              }) {
+    const auto& vk_device = static_cast<VulkanDevice&>(m_Device);
+    const auto  _images   = swap_chian.GetVkSwapChain().getImages();
 
-{
-    create_vk_debug_object_info(semaphore, "SwapChainSemaphore", device.GetDevice());
+    image_view = vk::raii::ImageView(
+        vk_device.GetDevice(),
+        {
+            .image            = _images.at(index),
+            .viewType         = vk::ImageViewType::e2D,
+            .format           = to_vk_format(m_Desc.format),
+            .subresourceRange = {
+                .aspectMask     = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel   = 0,
+                .levelCount     = 1,
+                .baseArrayLayer = 0,
+                .layerCount     = 1,
+            },
+        },
+        vk_device.GetCustomAllocator());
+    image_handle = _images.at(index);
+}
 
+VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc) : SwapChain(device, desc) {
     auto window_size = math::vec2u{};
 
     switch (desc.window.type) {
@@ -166,7 +191,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
                 .hinstance = GetModuleHandle(nullptr),
                 .hwnd      = h_wnd,
             };
-            surface = std::make_unique<vk::raii::SurfaceKHR>(device.GetInstance(), surface_create_info, device.GetCustomAllocator());
+            m_Surface = std::make_unique<vk::raii::SurfaceKHR>(device.GetInstance(), surface_create_info, device.GetCustomAllocator());
         } break;
 #endif
         case utils::Window::Type::SDL2: {
@@ -194,7 +219,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
                 .surface = wm_info.info.wl.surface,
             };
 #endif
-            surface = std::make_unique<vk::raii::SurfaceKHR>(device.GetInstance(), surface_create_info, device.GetCustomAllocator());
+            m_Surface = std::make_unique<vk::raii::SurfaceKHR>(device.GetInstance(), surface_create_info, device.GetCustomAllocator());
         } break;
     }
 
@@ -205,7 +230,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
 auto VulkanSwapChain::AcquireNextTexture(
     utils::optional_ref<Semaphore> signal_semaphore,
     utils::optional_ref<Fence>     signal_fence) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> {
-    auto [result, index] = swap_chain->acquireNextImage(
+    auto [result, index] = m_SwapChain->acquireNextImage(
         std::numeric_limits<std::uint64_t>::max(),
         signal_semaphore ? *(static_cast<VulkanSemaphore&>(signal_semaphore->get()).semaphore) : vk::Semaphore{},
         signal_fence ? *(static_cast<VulkanFence&>(signal_fence->get()).fence) : vk::Fence{});
@@ -214,16 +239,19 @@ auto VulkanSwapChain::AcquireNextTexture(
         throw std::runtime_error("failed to acquire next image");
     }
 
-    return {std::ref(*images[index]), index};
+    return {std::ref(m_Images[index]), index};
 }
 
-auto VulkanSwapChain::GetBuffer(std::uint32_t index) const -> Texture& {
-    return *images[index];
+auto VulkanSwapChain::GetTexture(std::uint32_t index) -> Texture& {
+    return m_Images.at(index);
 }
 
-auto VulkanSwapChain::GetTextures() const -> std::pmr::vector<std::reference_wrapper<Texture>> {
+auto VulkanSwapChain::GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>> {
     std::pmr::vector<std::reference_wrapper<Texture>> result;
-    std::transform(images.begin(), images.end(), std::back_inserter(result), [](const auto& image) { return std::ref(*image); });
+    std::transform(
+        m_Images.begin(), m_Images.end(),
+        std::back_inserter(result),
+        [](auto& image) { return std::ref(static_cast<Texture&>(image)); });
     return result;
 }
 
@@ -235,7 +263,7 @@ void VulkanSwapChain::Present(std::uint32_t index, utils::optional_ref<Semaphore
         .waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphore ? 1 : 0),
         .pWaitSemaphores    = wait_semaphore ? &(*static_cast<VulkanSemaphore&>(wait_semaphore->get()).semaphore) : nullptr,
         .swapchainCount     = 1,
-        .pSwapchains        = &(**swap_chain),
+        .pSwapchains        = &(**m_SwapChain),
         .pImageIndices      = &index,
     });
 
@@ -251,7 +279,7 @@ void VulkanSwapChain::Resize() {
 }
 
 void VulkanSwapChain::CreateSwapChain() {
-    swap_chain = nullptr;
+    m_SwapChain = nullptr;
 
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
@@ -273,7 +301,7 @@ void VulkanSwapChain::CreateSwapChain() {
     // we use graphics queue as present queue
     const auto& graphics_queue  = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics));
     const auto& physical_device = vk_device.GetPhysicalDevice();
-    if (!physical_device.getSurfaceSupportKHR(graphics_queue.GetFamilyIndex(), **surface)) {
+    if (!physical_device.getSurfaceSupportKHR(graphics_queue.GetFamilyIndex(), **m_Surface)) {
         throw std::runtime_error(fmt::format(
             "The graphics queue({}) of physical device({}) can not support surface(window.ptr: {})",
             graphics_queue.GetFamilyIndex(),
@@ -281,11 +309,11 @@ void VulkanSwapChain::CreateSwapChain() {
             m_Desc.window.ptr));
     }
 
-    const auto surface_capabilities    = physical_device.getSurfaceCapabilitiesKHR(**surface);
-    const auto supported_formats       = physical_device.getSurfaceFormatsKHR(**surface);
-    const auto supported_present_modes = physical_device.getSurfacePresentModesKHR(**surface);
+    const auto surface_capabilities    = physical_device.getSurfaceCapabilitiesKHR(**m_Surface);
+    const auto supported_formats       = physical_device.getSurfaceFormatsKHR(**m_Surface);
+    const auto supported_present_modes = physical_device.getSurfacePresentModesKHR(**m_Surface);
 
-    format = from_vk_format(supported_formats.front().format);
+    m_Format = from_vk_format(supported_formats.front().format);
 
     if (std::find_if(supported_present_modes.begin(), supported_present_modes.end(), [](const auto& present_mode) {
             return present_mode == vk::PresentModeKHR::eFifo;
@@ -298,13 +326,14 @@ void VulkanSwapChain::CreateSwapChain() {
 
     if (surface_capabilities.currentExtent.width == std::numeric_limits<std::uint32_t>::max()) {
         // surface size is undefined, so we define it
-        size.x = std::clamp(window_size.x, surface_capabilities.minImageExtent.width, surface_capabilities.maxImageExtent.width);
-        size.y = std::clamp(window_size.y, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
+        m_Size.x = std::clamp(window_size.x, surface_capabilities.minImageExtent.width, surface_capabilities.maxImageExtent.width);
+        m_Size.y = std::clamp(window_size.y, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
     } else {
         // surface size is defined, so we use it
-        size.x = surface_capabilities.currentExtent.width;
-        size.y = surface_capabilities.currentExtent.height;
+        m_Size.x = surface_capabilities.currentExtent.width;
+        m_Size.y = surface_capabilities.currentExtent.height;
     }
+    m_NumImages = surface_capabilities.minImageCount;
 
     vk::SurfaceTransformFlagBitsKHR preTransform =
         (surface_capabilities.supportedTransforms & vk::SurfaceTransformFlagBitsKHR::eIdentity)
@@ -317,10 +346,10 @@ void VulkanSwapChain::CreateSwapChain() {
         : (surface_capabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::eInherit)        ? vk::CompositeAlphaFlagBitsKHR::eInherit
                                                                                                           : vk::CompositeAlphaFlagBitsKHR::eOpaque;
     vk::SwapchainCreateInfoKHR swapchain_create_info{
-        .surface          = **surface,
-        .minImageCount    = surface_capabilities.minImageCount,
-        .imageFormat      = to_vk_format(format),
-        .imageExtent      = vk::Extent2D{size.x, size.y},
+        .surface          = **m_Surface,
+        .minImageCount    = m_NumImages,
+        .imageFormat      = to_vk_format(m_Format),
+        .imageExtent      = vk::Extent2D{m_Size.x, m_Size.y},
         .imageArrayLayers = 1,
         .imageUsage       = vk::ImageUsageFlagBits::eColorAttachment,
         .preTransform     = preTransform,
@@ -330,46 +359,15 @@ void VulkanSwapChain::CreateSwapChain() {
     };
 
     // We use graphics queue as present queue, so we do not care the ownership of images
-    swap_chain = std::make_unique<vk::raii::SwapchainKHR>(vk_device.GetDevice(), swapchain_create_info, vk_device.GetCustomAllocator());
+    m_SwapChain = std::make_unique<vk::raii::SwapchainKHR>(vk_device.GetDevice(), swapchain_create_info, vk_device.GetCustomAllocator());
 
-    create_vk_debug_object_info(*swap_chain, m_Name, vk_device.GetDevice());
+    create_vk_debug_object_info(*m_SwapChain, m_Name, vk_device.GetDevice());
 }
 
 void VulkanSwapChain::CreateImageViews() {
-    images.clear();
-
-    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
-    auto  _images   = swap_chain->getImages();
-
-    vk::ImageViewCreateInfo image_view_create_info{
-        .viewType         = vk::ImageViewType::e2D,
-        .format           = to_vk_format(format),
-        .subresourceRange = {
-            .aspectMask     = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel   = 0,
-            .levelCount     = 1,
-            .baseArrayLayer = 0,
-            .layerCount     = 1,
-        },
-    };
-
-    TextureDesc texture_desc{
-        .width  = size.x,
-        .height = size.y,
-        .format = format,
-        .usages = TextureUsageFlags::RTV,
-    };
-
-    for (std::size_t i = 0; i < _images.size(); i++) {
-        auto name = fmt::format("{}-image-{}", m_Desc.name, i);
-
-        texture_desc.name = name;
-
-        images.emplace_back(std::make_shared<VulkanImage>(vk_device, texture_desc));
-
-        image_view_create_info.image = _images[i];
-        images.back()->image_handle  = _images[i];
-        images.back()->image_view    = vk::raii::ImageView(vk_device.GetDevice(), image_view_create_info, vk_device.GetCustomAllocator());
+    m_Images.clear();
+    for (std::uint32_t index = 0; index < m_NumImages; index++) {
+        m_Images.emplace_back(*this, index);
     }
 }
 

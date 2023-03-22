@@ -9,6 +9,7 @@
 
 namespace hitagi::gfx {
 class VulkanDevice;
+class VulkanSwapChain;
 
 struct VulkanBuffer final : public GPUBuffer {
     VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data);
@@ -22,42 +23,44 @@ struct VulkanBuffer final : public GPUBuffer {
 };
 
 struct VulkanImage : public Texture {
-    VulkanImage(VulkanDevice& device, TextureDesc desc);
+    VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const std::byte> initial_data);
+    VulkanImage(const VulkanSwapChain& swap_chian, std::uint32_t index);
+
     std::optional<vk::raii::Image>     image;
     vk::Image                          image_handle;
     std::optional<vk::raii::ImageView> image_view;
 };
 
-struct VulkanSwapChain final : public SwapChain {
+class VulkanSwapChain final : public SwapChain {
+public:
     VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc);
     ~VulkanSwapChain() final = default;
 
     auto AcquireNextTexture(
         utils::optional_ref<Semaphore> signal_semaphore = {},
         utils::optional_ref<Fence>     signal_fence     = {}) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> final;
+    auto GetTexture(std::uint32_t index) -> Texture& final;
+    auto GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>> final;
 
-    auto GetBuffer(std::uint32_t index) const -> Texture& final;
-    auto GetTextures() const -> std::pmr::vector<std::reference_wrapper<Texture>> final;
-
-    inline auto GetWidth() const noexcept -> std::uint32_t final { return size.x; };
-    inline auto GetHeight() const noexcept -> std::uint32_t final { return size.y; };
-    inline auto GetFormat() const noexcept -> Format final { return format; }
+    inline auto GetWidth() const noexcept -> std::uint32_t final { return m_Size.x; };
+    inline auto GetHeight() const noexcept -> std::uint32_t final { return m_Size.y; };
+    inline auto GetFormat() const noexcept -> Format final { return m_Format; }
 
     void Present(std::uint32_t index, utils::optional_ref<Semaphore> wait_semaphore = {}) final;
     void Resize() final;
 
-    std::unique_ptr<vk::raii::SurfaceKHR>          surface;
-    std::unique_ptr<vk::raii::SwapchainKHR>        swap_chain;
-    math::vec2u                                    size;
-    Format                                         format;
-    std::pmr::vector<std::shared_ptr<VulkanImage>> images;
-    // Binary semaphore
-    vk::raii::Semaphore semaphore;
-    std::uint32_t       crrent_index;
+    inline auto& GetVkSwapChain() const noexcept { return *m_SwapChain; }
 
 private:
     void CreateSwapChain();
     void CreateImageViews();
+
+    std::unique_ptr<vk::raii::SurfaceKHR>   m_Surface;
+    std::unique_ptr<vk::raii::SwapchainKHR> m_SwapChain;
+    math::vec2u                             m_Size;
+    Format                                  m_Format;
+    std::uint32_t                           m_NumImages;
+    std::pmr::vector<VulkanImage>           m_Images;
 };
 
 struct VulkanShader : public Shader {

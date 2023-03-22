@@ -115,7 +115,7 @@ auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, V
     }
 
     messages.emplace_back(messages.front() + "End");
-
+    bool error = false;
     for (const auto& message : messages) {
         switch (severity) {
             case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
@@ -129,11 +129,14 @@ auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, V
                 break;
             case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
                 logger->error(message);
-                throw std::runtime_error(message.c_str());
+                error = true;
                 break;
             default:
                 break;
         }
+    }
+    if (error) {
+        throw std::runtime_error("Vulkan Error");
     }
     return false;
 }

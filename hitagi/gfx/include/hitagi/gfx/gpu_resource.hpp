@@ -16,8 +16,11 @@ constexpr auto UNKOWN_NAME = "Unkown";
 template <typename Desc>
 class Resource {
 public:
-    Resource(const Resource&) = delete;
-    virtual ~Resource()       = default;
+    Resource(const Resource&)                = delete;
+    Resource(Resource&&) noexcept            = default;
+    Resource& operator=(const Resource&)     = delete;
+    Resource& operator=(Resource&&) noexcept = delete;
+    virtual ~Resource()                      = default;
 
     inline auto  GetName() const noexcept -> std::string_view { return m_Desc.name; }
     inline auto& GetDevice() const noexcept { return m_Device; }
@@ -100,8 +103,8 @@ public:
         utils::optional_ref<Semaphore> signal_semaphore = {},
         utils::optional_ref<Fence>     signal_fence     = {}) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> = 0;
 
-    virtual auto GetBuffer(std::uint32_t index) const -> Texture&                                 = 0;
-    virtual auto GetTextures() const -> std::pmr::vector<std::reference_wrapper<Texture>>         = 0;
+    virtual auto GetTexture(std::uint32_t index) -> Texture&                                      = 0;
+    virtual auto GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>>               = 0;
     virtual auto GetWidth() const noexcept -> std::uint32_t                                       = 0;
     virtual auto GetHeight() const noexcept -> std::uint32_t                                      = 0;
     virtual auto GetFormat() const noexcept -> Format                                             = 0;
