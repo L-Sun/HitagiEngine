@@ -26,8 +26,8 @@ class ShaderCompiler {
 public:
     ShaderCompiler(std::string_view name);
 
-    auto CompileToDXIL(ShaderDesc desc) const -> core::Buffer;
-    auto CompileToSPIRV(ShaderDesc desc) const -> core::Buffer;
+    auto CompileToDXIL(const ShaderDesc& desc) const -> core::Buffer;
+    auto CompileToSPIRV(const ShaderDesc& desc) const -> core::Buffer;
     auto CompileWithArgs(std::string_view source_code, const std::pmr::vector<std::pmr::wstring>& args) const -> core::Buffer;
 
 private:

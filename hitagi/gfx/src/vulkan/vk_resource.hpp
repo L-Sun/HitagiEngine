@@ -46,11 +46,14 @@ struct VulkanSampler final : public Sampler {
 
 class VulkanSwapChain final : public SwapChain {
 public:
+    struct SemaphorePair {
+        SemaphorePair(VulkanDevice& device, std::string_view name);
+        std::shared_ptr<vk::raii::Semaphore> image_avaiable;
+        std::shared_ptr<vk::raii::Semaphore> presentable;
+    };
+
     VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc);
 
-    auto AcquireNextTexture(
-        utils::optional_ref<Semaphore> signal_semaphore = {},
-        utils::optional_ref<Fence>     signal_fence     = {}) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> final;
     auto GetTexture(std::uint32_t index) -> Texture& final;
     auto GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>> final;
 
@@ -58,10 +61,14 @@ public:
     inline auto GetHeight() const noexcept -> std::uint32_t final { return m_Size.y; };
     inline auto GetFormat() const noexcept -> Format final { return m_Format; }
 
-    void Present(std::uint32_t index, utils::optional_ref<Semaphore> wait_semaphore = {}) final;
+    void Present() final;
     void Resize() final;
 
     inline auto& GetVkSwapChain() const noexcept { return *m_SwapChain; }
+
+    inline const auto& GetSemaphores() const noexcept { return m_SemaphorePair; }
+
+    auto AcquireImageForRendering() -> VulkanImage&;
 
 private:
     void CreateSwapChain();
@@ -73,6 +80,10 @@ private:
     Format                                  m_Format;
     std::uint32_t                           m_NumImages;
     std::pmr::vector<VulkanImage>           m_Images;
+
+    int m_CurrentIndex = -1;
+
+    SemaphorePair m_SemaphorePair;
 };
 
 struct VulkanShader final : public Shader {

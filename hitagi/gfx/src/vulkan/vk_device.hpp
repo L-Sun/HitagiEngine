@@ -1,7 +1,6 @@
 #pragma once
 #include "vk_command_queue.hpp"
 #include "vk_bindless.hpp"
-#undef CreateSemaphore
 
 #include <hitagi/gfx/device.hpp>
 #include <hitagi/gfx/command_context.hpp>
@@ -19,8 +18,7 @@ public:
 
     void WaitIdle() final;
 
-    auto CreateFence(std::string_view name = "") -> std::shared_ptr<Fence> final;
-    auto CreateSemaphore(std::string_view name = "") -> std::shared_ptr<Semaphore> final;
+    auto CreateFence(std::uint64_t initial_value = 0, std::string_view name = "") -> std::shared_ptr<Fence> final;
 
     auto GetCommandQueue(CommandType type) const -> CommandQueue& final;
     auto CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> final;

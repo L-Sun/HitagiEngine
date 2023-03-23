@@ -332,7 +332,17 @@ VulkanSampler::VulkanSampler(VulkanDevice& device, SamplerDesc desc) : Sampler(d
     create_vk_debug_object_info(*sampler, m_Name, device.GetDevice());
 }
 
-VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc) : SwapChain(device, desc) {
+VulkanSwapChain::SemaphorePair::SemaphorePair(VulkanDevice& device, std::string_view name)
+    : image_avaiable(std::make_shared<vk::raii::Semaphore>(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())),
+      presentable(std::make_shared<vk::raii::Semaphore>(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())) {
+    create_vk_debug_object_info(*image_avaiable, fmt::format("{}-image-avaiable", name), device.GetDevice());
+    create_vk_debug_object_info(*presentable, fmt::format("{}-presentable", name), device.GetDevice());
+}
+
+VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
+    : SwapChain(device, desc), m_SemaphorePair(device, m_Name)
+
+{
     auto window_size = math::vec2u{};
 
     switch (desc.window.type) {
@@ -385,20 +395,22 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc) : Swa
     CreateImageViews();
 }
 
-auto VulkanSwapChain::AcquireNextTexture(
-    utils::optional_ref<Semaphore> signal_semaphore,
-    utils::optional_ref<Fence>     signal_fence)
-    -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> {
+auto VulkanSwapChain::AcquireImageForRendering() -> VulkanImage& {
+    if (m_CurrentIndex != -1) {
+        return m_Images[m_CurrentIndex];
+    }
+
     auto [result, index] = m_SwapChain->acquireNextImage(
         std::numeric_limits<std::uint64_t>::max(),
-        signal_semaphore ? *(static_cast<VulkanSemaphore&>(signal_semaphore->get()).semaphore) : vk::Semaphore{},
-        signal_fence ? *(static_cast<VulkanFence&>(signal_fence->get()).fence) : vk::Fence{});
+        **m_SemaphorePair.image_avaiable);
 
     if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) {
         throw std::runtime_error("failed to acquire next image");
     }
 
-    return {std::ref(m_Images[index]), index};
+    m_CurrentIndex = index;
+
+    return m_Images[m_CurrentIndex];
 }
 
 auto VulkanSwapChain::GetTexture(std::uint32_t index) -> Texture& {
@@ -414,13 +426,16 @@ auto VulkanSwapChain::GetTextures() -> std::pmr::vector<std::reference_wrapper<T
     return result;
 }
 
-void VulkanSwapChain::Present(std::uint32_t index, utils::optional_ref<Semaphore> wait_semaphore) {
+void VulkanSwapChain::Present() {
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
     auto& queue     = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics)).GetVkQueue();
 
+    std::uint32_t index = m_CurrentIndex;
+    m_CurrentIndex      = -1;
+
     auto result = queue.presentKHR(vk::PresentInfoKHR{
-        .waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphore ? 1 : 0),
-        .pWaitSemaphores    = wait_semaphore ? &(*static_cast<VulkanSemaphore&>(wait_semaphore->get()).semaphore) : nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores    = &(**m_SemaphorePair.presentable),
         .swapchainCount     = 1,
         .pSwapchains        = &(**m_SwapChain),
         .pImageIndices      = &index,

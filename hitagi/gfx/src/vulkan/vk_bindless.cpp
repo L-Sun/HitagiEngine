@@ -11,17 +11,17 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device) {
 
     const auto limits = device.GetPhysicalDevice().getProperties().limits;
 
-    const std::array<vk::DescriptorPoolSize, 5> pool_sizes = {{
-        {vk::DescriptorType::eSampler, limits.maxDescriptorSetSamplers},
+    const std::array<vk::DescriptorPoolSize, 4> pool_sizes = {{
+        {vk::DescriptorType::eStorageBuffer, limits.maxDescriptorSetStorageBuffers},
         {vk::DescriptorType::eSampledImage, limits.maxDescriptorSetSampledImages},
         {vk::DescriptorType::eStorageImage, limits.maxDescriptorSetStorageImages},
-        {vk::DescriptorType::eUniformBuffer, limits.maxDescriptorSetUniformBuffersDynamic},
-        {vk::DescriptorType::eStorageBuffer, limits.maxDescriptorSetStorageBuffersDynamic},
+        {vk::DescriptorType::eSampler, limits.maxDescriptorSetSamplers},
         // TODO ray tracing
     }};
 
     const vk::DescriptorPoolCreateInfo descriptor_pool_create_info{
-        .flags         = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind,
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet |
+                 vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind,
         .maxSets       = pool_sizes.size(),  // we will make sure each set only contains one descriptor type
         .poolSizeCount = pool_sizes.size(),
         .pPoolSizes    = pool_sizes.data(),
@@ -64,11 +64,11 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device) {
             return layout;
         });
 
-    push_constant_ranges.emplace_back(vk::PushConstantRange{
+    bindless_info_constant_range = {
         .stageFlags = vk::ShaderStageFlagBits::eAll,
         .offset     = 0,
-        .size       = 4 * sizeof(std::uint32_t),
-    });
+        .size       = sizeof(BindlessInfoOffset),
+    };
 
     std::pmr::vector<vk::DescriptorSetLayout> vk_descriptor_set_layouts;
     std::transform(
@@ -82,9 +82,21 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device) {
         vk::PipelineLayoutCreateInfo{
             .setLayoutCount         = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
             .pSetLayouts            = vk_descriptor_set_layouts.data(),
-            .pushConstantRangeCount = static_cast<std::uint32_t>(push_constant_ranges.size()),
-            .pPushConstantRanges    = push_constant_ranges.data(),
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges    = &bindless_info_constant_range,
         },
         device.GetCustomAllocator());
+
+    logger->trace("Allocator Descriptor");
+    {
+        auto result = vk::raii::DescriptorSets(
+            device.GetDevice(),
+            {
+                .descriptorPool     = **pool,
+                .descriptorSetCount = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
+                .pSetLayouts        = vk_descriptor_set_layouts.data(),
+            });
+        descriptor_sets = {std::make_move_iterator(result.begin()), std::make_move_iterator(result.end())};
+    }
 }
 }  // namespace hitagi::gfx

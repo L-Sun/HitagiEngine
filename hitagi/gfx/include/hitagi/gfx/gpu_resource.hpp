@@ -9,7 +9,6 @@
 namespace hitagi::gfx {
 class Device;
 class Fence;
-class Semaphore;
 
 constexpr auto UNKOWN_NAME = "Unkown";
 
@@ -98,18 +97,13 @@ struct SwapChainDesc {
 };
 class SwapChain : public Resource<SwapChainDesc> {
 public:
-    // Return the buffer and index
-    [[nodiscard]] virtual auto AcquireNextTexture(
-        utils::optional_ref<Semaphore> signal_semaphore = {},
-        utils::optional_ref<Fence>     signal_fence     = {}) -> std::pair<std::reference_wrapper<Texture>, std::uint32_t> = 0;
-
-    virtual auto GetTexture(std::uint32_t index) -> Texture&                                      = 0;
-    virtual auto GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>>               = 0;
-    virtual auto GetWidth() const noexcept -> std::uint32_t                                       = 0;
-    virtual auto GetHeight() const noexcept -> std::uint32_t                                      = 0;
-    virtual auto GetFormat() const noexcept -> Format                                             = 0;
-    virtual void Present(std::uint32_t index, utils::optional_ref<Semaphore> wait_semaphore = {}) = 0;
-    virtual void Resize()                                                                         = 0;
+    virtual auto GetTexture(std::uint32_t index) -> Texture&                        = 0;
+    virtual auto GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>> = 0;
+    virtual auto GetWidth() const noexcept -> std::uint32_t                         = 0;
+    virtual auto GetHeight() const noexcept -> std::uint32_t                        = 0;
+    virtual auto GetFormat() const noexcept -> Format                               = 0;
+    virtual void Present()                                                          = 0;
+    virtual void Resize()                                                           = 0;
 
 protected:
     using Resource::Resource;

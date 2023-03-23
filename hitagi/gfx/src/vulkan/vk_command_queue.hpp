@@ -12,10 +12,9 @@ public:
     ~VulkanCommandQueue() final = default;
 
     void Submit(
-        std::pmr::vector<CommandContext*>                         contexts,
-        std::pmr::vector<std::reference_wrapper<const Semaphore>> wait_semaphore   = {},
-        std::pmr::vector<std::reference_wrapper<const Semaphore>> signal_semaphore = {},
-        utils::optional_ref<const Fence>                          signal_fence     = {}) final;
+        const std::pmr::vector<CommandContext*>& contexts,
+        const std::pmr::vector<FenceWaitInfo>&   wait_fences   = {},
+        const std::pmr::vector<FenceSignalInfo>& signal_fences = {}) final;
 
     void WaitIdle() final;
 

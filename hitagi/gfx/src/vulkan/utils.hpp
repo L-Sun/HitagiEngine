@@ -816,36 +816,68 @@ inline constexpr auto to_vk_access_flags(BarrierAccess access) noexcept -> vk::A
     return result;
 }
 
-inline constexpr auto to_vk_stage(BarrierStage stage) noexcept -> vk::PipelineStageFlags2 {
-    if (utils::has_flag(stage, BarrierStage::All)) {
+inline constexpr auto to_vk_pipeline_stage1(PipelineStage stage) noexcept -> vk::PipelineStageFlags {
+    if (utils::has_flag(stage, PipelineStage::All)) {
+        return vk::PipelineStageFlagBits::eAllCommands;
+    }
+    vk::PipelineStageFlags result = vk::PipelineStageFlagBits::eNone;
+    if (utils::has_flag(stage, PipelineStage::VertexInput)) {
+        result |= vk::PipelineStageFlagBits::eVertexInput;
+    }
+    if (utils::has_flag(stage, PipelineStage::VertexShader)) {
+        result |= vk::PipelineStageFlagBits::eVertexShader;
+    }
+    if (utils::has_flag(stage, PipelineStage::PixelShader)) {
+        result |= vk::PipelineStageFlagBits::eFragmentShader;
+    }
+    if (utils::has_flag(stage, PipelineStage::DepthStencil)) {
+        result |= vk::PipelineStageFlagBits::eLateFragmentTests;
+    }
+    if (utils::has_flag(stage, PipelineStage::Copy)) {
+        result |= vk::PipelineStageFlagBits::eTransfer;
+    }
+    if (utils::has_flag(stage, PipelineStage::Resolve)) {
+        result |= vk::PipelineStageFlagBits::eTransfer;
+    }
+    if (utils::has_flag(stage, PipelineStage::Render)) {
+        result |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    }
+    if (utils::has_flag(stage, PipelineStage::AllGraphics)) {
+        result |= vk::PipelineStageFlagBits::eAllGraphics;
+    }
+    return result;
+}
+
+inline constexpr auto to_vk_pipeline_stage2(PipelineStage stage) noexcept -> vk::PipelineStageFlags2 {
+    if (utils::has_flag(stage, PipelineStage::All)) {
         return vk::PipelineStageFlagBits2::eAllCommands;
     }
     vk::PipelineStageFlags2 result = vk::PipelineStageFlagBits2::eNone;
-    if (utils::has_flag(stage, BarrierStage::VertexInput)) {
+    if (utils::has_flag(stage, PipelineStage::VertexInput)) {
         result |= vk::PipelineStageFlagBits2::eVertexInput;
     }
-    if (utils::has_flag(stage, BarrierStage::VertexShader)) {
+    if (utils::has_flag(stage, PipelineStage::VertexShader)) {
         result |= vk::PipelineStageFlagBits2::eVertexShader;
     }
-    if (utils::has_flag(stage, BarrierStage::PixelShader)) {
+    if (utils::has_flag(stage, PipelineStage::PixelShader)) {
         result |= vk::PipelineStageFlagBits2::eFragmentShader;
     }
-    if (utils::has_flag(stage, BarrierStage::DepthStencil)) {
+    if (utils::has_flag(stage, PipelineStage::DepthStencil)) {
         result |= vk::PipelineStageFlagBits2::eLateFragmentTests;
     }
-    if (utils::has_flag(stage, BarrierStage::Render)) {
+    if (utils::has_flag(stage, PipelineStage::Render)) {
         result |= vk::PipelineStageFlagBits2::eColorAttachmentOutput;
     }
-    if (utils::has_flag(stage, BarrierStage::AllGraphics)) {
+    if (utils::has_flag(stage, PipelineStage::AllGraphics)) {
         result |= vk::PipelineStageFlagBits2::eAllGraphics;
     }
-    if (utils::has_flag(stage, BarrierStage::ComputeShader)) {
+    if (utils::has_flag(stage, PipelineStage::ComputeShader)) {
         result |= vk::PipelineStageFlagBits2::eComputeShader;
     }
-    if (utils::has_flag(stage, BarrierStage::Copy)) {
+    if (utils::has_flag(stage, PipelineStage::Copy)) {
         result |= vk::PipelineStageFlagBits2::eCopy;
     }
-    if (utils::has_flag(stage, BarrierStage::Resolve)) {
+    if (utils::has_flag(stage, PipelineStage::Resolve)) {
         result |= vk::PipelineStageFlagBits2::eResolve;
     }
     return result;
@@ -954,9 +986,9 @@ inline constexpr auto to_vk_image_view_create_info(const TextureDesc& desc) noex
 
 inline constexpr auto to_vk_memory_barrier(GlobalBarrier barrier) noexcept -> vk::MemoryBarrier2 {
     return {
-        .srcStageMask  = to_vk_stage(barrier.src_stage),
+        .srcStageMask  = to_vk_pipeline_stage2(barrier.src_stage),
         .srcAccessMask = to_vk_access_flags(barrier.dst_access),
-        .dstStageMask  = to_vk_stage(barrier.dst_stage),
+        .dstStageMask  = to_vk_pipeline_stage2(barrier.dst_stage),
         .dstAccessMask = to_vk_access_flags(barrier.dst_access),
     };
 }
@@ -965,9 +997,9 @@ inline auto to_vk_buffer_barrier(const GPUBufferBarrier& barrier) -> vk::BufferM
     const auto& vk_buffer = static_cast<VulkanBuffer&>(barrier.buffer).buffer;
     return {
         // improve me
-        .srcStageMask  = to_vk_stage(barrier.src_stage),
+        .srcStageMask  = to_vk_pipeline_stage2(barrier.src_stage),
         .srcAccessMask = to_vk_access_flags(barrier.dst_access),
-        .dstStageMask  = to_vk_stage(barrier.dst_stage),
+        .dstStageMask  = to_vk_pipeline_stage2(barrier.dst_stage),
         .dstAccessMask = to_vk_access_flags(barrier.dst_access),
         .buffer        = **vk_buffer,
     };
@@ -977,9 +1009,9 @@ inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemor
     const auto vk_image = static_cast<VulkanImage&>(barrier.texture).image_handle;
 
     return {
-        .srcStageMask     = to_vk_stage(barrier.src_stage),
+        .srcStageMask     = to_vk_pipeline_stage2(barrier.src_stage),
         .srcAccessMask    = to_vk_access_flags(barrier.src_access),
-        .dstStageMask     = to_vk_stage(barrier.dst_stage),
+        .dstStageMask     = to_vk_pipeline_stage2(barrier.dst_stage),
         .dstAccessMask    = to_vk_access_flags(barrier.dst_access),
         .oldLayout        = to_vk_image_layout(barrier.src_layout),
         .newLayout        = to_vk_image_layout(barrier.dst_layout),

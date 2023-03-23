@@ -51,16 +51,6 @@ TEST_P(CreateTest, CreateDevice) {
     ASSERT_TRUE(device != nullptr);
 }
 
-TEST_P(CreateTest, CreateFence) {
-    auto fence = device->CreateFence();
-    EXPECT_TRUE(fence != nullptr) << "Failed to create fence";
-}
-
-TEST_P(CreateTest, CreateSemaphore) {
-    auto semaphore = device->CreateSemaphore();
-    EXPECT_TRUE(semaphore != nullptr) << "Failed to create semaphore";
-}
-
 TEST_P(CreateTest, CreateGraphicsCommandContext) {
     auto context = device->CreateGraphicsContext();
     EXPECT_TRUE(context != nullptr) << "Failed to create graphics context";
@@ -251,6 +241,7 @@ TEST_P(CreateTest, CreateRenderPipeline) {
 
 TEST_P(CreateTest, CreateComputPipeline) {
     constexpr auto cs_code = R"""(
+        #include "bindless.hlsl"
         RWStructuredBuffer<float> output : register(u0);
 
         [numthreads(1, 1, 1)]
@@ -334,6 +325,50 @@ TEST_P(GPUBufferTest, Create) {
     }
 }
 
+class FenceTest : public CreateTest {
+protected:
+    FenceTest() : fence(device->CreateFence()) {}
+
+    std::shared_ptr<Fence> fence;
+};
+INSTANTIATE_TEST_SUITE_P(
+    FenceTest,
+    FenceTest,
+    ValuesIn(supported_device_types),
+    [](const TestParamInfo<Device::Type>& info) -> std::string {
+        return std::string{magic_enum::enum_name(info.param)};
+    });
+TEST_P(FenceTest, GetCurrentValue) {
+    EXPECT_EQ(fence->GetCurrentValue(), 0) << "The initial value of the fence should be 0";
+    auto fence_2 = device->CreateFence(1);
+    EXPECT_EQ(fence_2->GetCurrentValue(), 1) << "The initial value of the fence should be 1";
+}
+
+TEST_P(FenceTest, Signal) {
+    EXPECT_EQ(fence->GetCurrentValue(), 0) << "The initial value of the fence should be 0";
+    fence->Signal(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    EXPECT_EQ(fence->GetCurrentValue(), 1) << "The value of the fence should be 1 after signal";
+}
+
+TEST_P(FenceTest, Wait) {
+    auto signal_fn = [this]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        fence->Signal(1);
+    };
+    auto wait_fn = [this]() {
+        fence->Wait(1);
+        EXPECT_EQ(fence->GetCurrentValue(), 1) << "The value of the fence should be 1 after wait";
+    };
+    std::thread signal_thread(signal_fn);
+    std::thread wait_thread(wait_fn);
+
+    wait_thread.join();
+    signal_thread.join();
+
+    EXPECT_EQ(fence->GetCurrentValue(), 1) << "The value of the fence should be 1 after wait";
+};
+
 class CommandTest : public TestWithParam<std::tuple<Device::Type, CommandType>> {
 protected:
     CommandTest() : test_name(UnitTest::GetInstance()->current_test_info()->name()),
@@ -416,13 +451,13 @@ TEST_P(CopyCommandTest, CopyBuffer) {
     }
 }
 
-class BindCommandTest : public CommandTest {
+class BindlessTest : public CommandTest {
 protected:
     using CommandTest::CommandTest;
 };
 INSTANTIATE_TEST_SUITE_P(
-    BindCommandTest,
-    BindCommandTest,
+    BindlessTest,
+    BindlessTest,
     Combine(
         ValuesIn(supported_device_types),
         Values(CommandType::Graphics, CommandType::Compute)),
@@ -432,18 +467,30 @@ INSTANTIATE_TEST_SUITE_P(
             magic_enum::enum_name(std::get<0>(info.param)),
             magic_enum::enum_name(std::get<1>(info.param)));
     });
-TEST_P(BindCommandTest, PushConstant) {
+TEST_P(BindlessTest, PushBindlessInfo) {
     if (context->GetType() == CommandType::Graphics) {
         constexpr std::string_view vs_shader_code = R"""(
-            struct Constant {
-                float value;
+            #include "bindless.hlsl"
+
+            struct Bindless {
+                hitagi::SimpleBuffer frame_constant;
             };
 
-            [[vk::push_constant]]
-            ConstantBuffer<Constant> value;
+            struct FrameConstant {
+                matrix view;
+                matrix proj;
+            };
 
-            float4 main() : POSITION {
-                return float4(value.value, 0.0, 0.0, 1.0);
+            static const float2 positions[3] = {
+                float2(0.0f, 0.5f),
+                float2(0.5f, -0.5f),
+                float2(-0.5f, -0.5f)
+            };
+
+            float4 main(uint index: SV_VertexID) : SV_Position {
+                Bindless      resource       = hitagi::load_bindless<Bindless>();
+                FrameConstant frame_constant = resource.frame_constant.load<FrameConstant>();
+                return mul(frame_constant.view, mul(frame_constant.proj, float4(positions[index], 0.0f, 1.0f)));
             }
         )""";
 
@@ -455,9 +502,19 @@ TEST_P(BindCommandTest, PushConstant) {
         });
         ASSERT_TRUE(vs_shader);
 
+        auto texture = device->CreateTexture(TextureDesc{
+            .name   = fmt::format("{}-texture", test_name),
+            .width  = 10,
+            .height = 10,
+            .format = Format::R8G8B8A8_UNORM,
+            .usages = TextureUsageFlags::RTV,
+        });
+        ASSERT_TRUE(texture);
+
         auto pipeline = device->CreateRenderPipeline({
-            .name    = fmt::format("{}-pipeline", test_name),
-            .shaders = {vs_shader},
+            .name          = fmt::format("{}-pipeline", test_name),
+            .shaders       = {vs_shader},
+            .render_format = texture->GetDesc().format,
         });
         ASSERT_TRUE(pipeline);
 
@@ -466,23 +523,48 @@ TEST_P(BindCommandTest, PushConstant) {
 
         gfx_ctx->Begin();
 
+        gfx_ctx->ResourceBarrier(
+            {}, {},
+            {
+                TextureBarrier{
+                    .src_access = BarrierAccess::Unkown,
+                    .dst_access = BarrierAccess::RenderTarget,
+                    .src_stage  = PipelineStage::None,
+                    .dst_stage  = PipelineStage::Render,
+                    .src_layout = BarrierLayout::Unkown,
+                    .dst_layout = BarrierLayout::RenderTarget,
+                    .texture    = *texture,
+                },
+            });
+
         gfx_ctx->SetPipeline(*pipeline);
-        gfx_ctx->PushConstant(0, 1.0f);
+        gfx_ctx->PushBindlessInfo(BindlessInfoOffset{.bindless_info_handle = 0});
+        gfx_ctx->BeginRendering({
+            .render_target = *texture,
+        });
+        gfx_ctx->SetViewPort({.x = 0, .y = 0, .width = 10, .height = 10});
+        gfx_ctx->SetScissorRect({.x = 0, .y = 0, .width = 10, .height = 10});
+        gfx_ctx->Draw(3);
+        gfx_ctx->EndRendering();
         gfx_ctx->End();
 
         queue.Submit({context.get()});
         queue.WaitIdle();
     } else if (context->GetType() == CommandType::Compute) {
         constexpr std::string_view cs_shader_code = R"""(
+            #include "bindless.hlsl"
+            struct Bindless {
+                hitagi::SimpleBuffer cb;
+            };
+
             struct Constant {
                 float value;
             };
 
-            [[vk::push_constant]]
-            ConstantBuffer<Constant> value;
-
             [numthreads(1, 1, 1)]
             void main() {
+                Bindless bindless = hitagi::load_bindless<Bindless>();
+                Constant constant = bindless.cb.load<Constant>();
             }
         )""";
 
@@ -506,7 +588,8 @@ TEST_P(BindCommandTest, PushConstant) {
         compute_context->Begin();
 
         compute_context->SetPipeline(*pipeline);
-        compute_context->PushConstant(0, 1.0f);
+        compute_context->PushBindlessInfo(BindlessInfoOffset{.bindless_info_handle = 0});
+        // TODO dispatch command
         compute_context->End();
 
         queue.Submit({context.get()});
@@ -548,19 +631,6 @@ TEST_P(SwapChainTest, CreateSwapChain) {
     auto rect = app->GetWindowsRect();
     EXPECT_EQ(swap_chain->GetWidth(), rect.right - rect.left) << "swap chain should be same size as window";
     EXPECT_EQ(swap_chain->GetHeight(), rect.bottom - rect.top) << "swap chain should be same size as window";
-}
-
-TEST_P(SwapChainTest, AcquireNextTexture) {
-    auto rect = app->GetWindowsRect();
-
-    auto fence = device->CreateFence(fmt::format("{}-Fence", test_name));
-    ASSERT_TRUE(fence);
-    auto&& [texture, index] = swap_chain->AcquireNextTexture({}, *fence);
-    fence->Wait();
-
-    EXPECT_EQ(texture.get().GetDesc().width, rect.right - rect.left) << "texture should have the same size as the swap chain after resizing";
-    EXPECT_EQ(texture.get().GetDesc().height, rect.bottom - rect.top) << "texture should have the same size as the swap chain after resizing";
-    EXPECT_EQ(texture.get().GetDesc().format, swap_chain->GetFormat()) << "texture should have the same format as the swap chain";
 }
 
 TEST_P(SwapChainTest, GetBackBuffers) {
@@ -677,9 +747,22 @@ TEST_P(CreateTest, DrawTriangle) {
         },
         {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
-    auto swapchain_semaphore                = device->CreateSemaphore("swapchain semaphore");
-    auto draw_semaphore                     = device->CreateSemaphore("draw semaphore");
-    auto [render_target, back_buffer_index] = swap_chain->AcquireNextTexture(*swapchain_semaphore);
+    struct Constant {
+        mat4f rotation;
+    };
+    auto constant_buffer = device->CreateGPUBuffer({
+        .name          = fmt::format("{}-ConstantBuffer", test_name),
+        .element_size  = sizeof(Constant),
+        .element_count = 1,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+    });
+
+    auto bindless_handles = device->CreateGPUBuffer({
+        .name          = fmt::format("{}-BindlessHandles", test_name),
+        .element_size  = sizeof(BindlessHandle),
+        .element_count = 1,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+    });
 
     auto& gfx_queue = device->GetCommandQueue(CommandType::Graphics);
     auto  context   = device->CreateGraphicsContext("I know DirectX12 context");
@@ -700,52 +783,23 @@ TEST_P(CreateTest, DrawTriangle) {
     });
     context->SetVertexBuffer(0, *vertex_buffer);
 
-    // Render target barrier
-    context->ResourceBarrier(
-        {}, {},
-        {
-            TextureBarrier{
-                .src_access = BarrierAccess::Unkown,
-                .dst_access = BarrierAccess::RenderTarget,
-                .src_stage  = BarrierStage::None,
-                .dst_stage  = BarrierStage::Render,
-                .src_layout = BarrierLayout::Unkown,
-                .dst_layout = BarrierLayout::RenderTarget,
-                .texture    = render_target,
-            },
-        });
-
     context->BeginRendering({
-        .render_target = render_target,
+        .render_target = *swap_chain,
     });
     context->Draw(3);
     context->EndRendering();
-
-    context->ResourceBarrier(
-        {}, {},
-        {
-            TextureBarrier{
-                .src_access = BarrierAccess::RenderTarget,
-                .dst_access = BarrierAccess::Present,
-                .src_stage  = BarrierStage::Render,
-                .dst_stage  = BarrierStage::None,
-                .src_layout = BarrierLayout::RenderTarget,
-                .dst_layout = BarrierLayout::Present,
-                .texture    = render_target,
-            },
-        });
-
+    context->Present(*swap_chain);
     context->End();
 
-    gfx_queue.Submit({context.get()}, {*swapchain_semaphore}, {*draw_semaphore});
-    swap_chain->Present(back_buffer_index, {*draw_semaphore});
+    gfx_queue.Submit({context.get()});
+    swap_chain->Present();
     gfx_queue.WaitIdle();
 }
 
 #include <spdlog/spdlog.h>
 
 int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::debug);
+    spdlog::set_level(spdlog::level::trace);
     InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

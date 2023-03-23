@@ -145,6 +145,7 @@
         "environment": "${envObjArray}",
         "sourceFileMap": "${sourceFileMapObj}",
     },
+    "testMate.cpp.test.parallelExecutionLimit": 8,
     "cSpell.words": [
         "bindless",
         "bugprone",
@@ -189,6 +190,5 @@
         "WINDOWEVENT",
         "WINDOWPOS",
         "Wireframe"
-    ],
-    "testMate.cpp.test.parallelExecutionLimit": 8
+    ]
 }

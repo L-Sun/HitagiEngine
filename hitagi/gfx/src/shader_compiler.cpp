@@ -20,20 +20,22 @@ inline constexpr auto get_shader_model_version(ShaderType type) noexcept {
 inline auto create_compile_args(const ShaderDesc& desc, bool spirv = false) noexcept -> std::pmr::vector<std::pmr::wstring> {
     std::pmr::vector<std::pmr::wstring> args;
 
-    const std::filesystem::path asset_shader_dir = "assets/shaders/";
+    const std::filesystem::path asset_shader_dir = "assets/shaders";
 
     // shader file
     if (desc.path.empty()) {
         args.emplace_back(std::pmr::wstring(desc.name.begin(), desc.name.end()));
+
     } else {
         std::filesystem::path include_dir = std::filesystem::is_directory(desc.path) ? desc.path : desc.path.parent_path();
         if (include_dir != asset_shader_dir) {
             args.emplace_back(L"-I");
             args.emplace_back(std::pmr::wstring(include_dir.wstring()));
         }
-        args.emplace_back(L"-I");
-        args.emplace_back(std::pmr::wstring(desc.path.parent_path().wstring()));
     }
+
+    args.emplace_back(L"-I");
+    args.emplace_back(std::pmr::wstring(asset_shader_dir.wstring()));
 
     // shader entry
     args.emplace_back(L"-E");
@@ -44,6 +46,8 @@ inline auto create_compile_args(const ShaderDesc& desc, bool spirv = false) noex
     args.emplace_back(get_shader_model_version(desc.type));
 
     if (spirv) args.emplace_back(L"-spirv");
+
+    args.emplace_back(L"-HV 2021");
 
     // We use row major order
     args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
@@ -70,11 +74,11 @@ ShaderCompiler::ShaderCompiler(std::string_view name) : m_Logger(spdlog::stdout_
     }
 }
 
-auto ShaderCompiler::CompileToDXIL(ShaderDesc desc) const -> core::Buffer {
+auto ShaderCompiler::CompileToDXIL(const ShaderDesc& desc) const -> core::Buffer {
     return CompileWithArgs(desc.source_code, create_compile_args(desc));
 }
 
-auto ShaderCompiler::CompileToSPIRV(ShaderDesc desc) const -> core::Buffer {
+auto ShaderCompiler::CompileToSPIRV(const ShaderDesc& desc) const -> core::Buffer {
     // We use SPIR-V here
     return CompileWithArgs(desc.source_code, create_compile_args(desc, true));
 }

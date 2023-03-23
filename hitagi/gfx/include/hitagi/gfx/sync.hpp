@@ -19,23 +19,9 @@ public:
     Fence& operator=(Fence&&)      = delete;
     virtual ~Fence()               = default;
 
-    inline auto GetName() const noexcept -> std::string_view { return m_Name; }
-
-    virtual void Wait(std::chrono::duration<double> timeout = std::chrono::duration<double>::max()) = 0;
-
-protected:
-    Device&          m_Device;
-    std::pmr::string m_Name;
-};
-
-class Semaphore {
-public:
-    Semaphore(Device& device, std::string_view name = "") : m_Device(device), m_Name(name) {}
-    Semaphore(const Semaphore&)            = delete;
-    Semaphore(Semaphore&&)                 = default;
-    Semaphore& operator=(const Semaphore&) = delete;
-    Semaphore& operator=(Semaphore&&)      = delete;
-    virtual ~Semaphore()                   = default;
+    virtual void Signal(std::uint64_t value)                                                                             = 0;
+    virtual bool Wait(std::uint64_t value, std::chrono::duration<double> timeout = std::chrono::duration<double>::max()) = 0;
+    virtual auto GetCurrentValue() -> std::uint64_t                                                                      = 0;
 
     inline auto GetName() const noexcept -> std::string_view { return m_Name; }
 
@@ -57,7 +43,7 @@ enum struct BarrierAccess : std::uint32_t {
     Present      = (RenderTarget << 1),
 };
 
-enum struct BarrierStage : std::uint32_t {
+enum struct PipelineStage : std::uint32_t {
     None          = 0x0,
     All           = 0x1,
     VertexInput   = (All << 1),
@@ -88,15 +74,15 @@ enum struct BarrierLayout : std::uint16_t {
 struct GlobalBarrier {
     BarrierAccess src_access;
     BarrierAccess dst_access;
-    BarrierStage  src_stage;
-    BarrierStage  dst_stage;
+    PipelineStage src_stage;
+    PipelineStage dst_stage;
 };
 
 struct GPUBufferBarrier {
     BarrierAccess src_access;
     BarrierAccess dst_access;
-    BarrierStage  src_stage;
-    BarrierStage  dst_stage;
+    PipelineStage src_stage;
+    PipelineStage dst_stage;
 
     GPUBuffer& buffer;
 };
@@ -104,8 +90,8 @@ struct GPUBufferBarrier {
 struct TextureBarrier {
     BarrierAccess src_access;
     BarrierAccess dst_access;
-    BarrierStage  src_stage;
-    BarrierStage  dst_stage;
+    PipelineStage src_stage;
+    PipelineStage dst_stage;
 
     BarrierLayout src_layout;
     BarrierLayout dst_layout;
@@ -117,6 +103,17 @@ struct TextureBarrier {
     std::uint16_t layer_count      = 1;
 };
 
+struct FenceWaitInfo {
+    Fence&        fence;
+    std::uint64_t value;
+    PipelineStage stage = PipelineStage::All;
+};
+
+struct FenceSignalInfo {
+    Fence&        fence;
+    std::uint64_t value;
+};
+
 }  // namespace hitagi::gfx
 
 template <>
@@ -124,6 +121,6 @@ struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::BarrierAccess> {
     static constexpr bool is_flags = true;
 };
 template <>
-struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::BarrierStage> {
+struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::PipelineStage> {
     static constexpr bool is_flags = true;
 };

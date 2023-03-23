@@ -58,6 +58,21 @@ void VulkanGraphicsCommandBuffer::Begin() {
     command_buffer.begin({
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
+    const auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
+
+    std::pmr::vector<vk::DescriptorSet> descriptor_sets;
+    std::transform(
+        bindless_utils.descriptor_sets.begin(),
+        bindless_utils.descriptor_sets.end(),
+        std::back_inserter(descriptor_sets),
+        [](const auto& descriptor_set) -> const vk::DescriptorSet { return *descriptor_set; });
+
+    command_buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics,
+        **bindless_utils.pipeline_layout,
+        0,
+        descriptor_sets,
+        {});
 }
 
 void VulkanGraphicsCommandBuffer::End() {
@@ -69,17 +84,41 @@ void VulkanGraphicsCommandBuffer::Reset() {
 }
 
 void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_info) {
-    auto& vk_color_attachment_image = static_cast<VulkanImage&>(render_info.render_target);
+    const auto& render_target = render_info.render_target;
+
+    VulkanImage* vk_color_attachment_image;
+    if (std::holds_alternative<std::reference_wrapper<Texture>>(render_target)) {
+        vk_color_attachment_image = &static_cast<VulkanImage&>(std::get<std::reference_wrapper<Texture>>((render_target)).get());
+    } else {
+        auto& vk_swap_chain = static_cast<VulkanSwapChain&>(std::get<std::reference_wrapper<SwapChain>>(render_target).get());
+
+        vk_color_attachment_image            = &vk_swap_chain.AcquireImageForRendering();
+        swap_chain_image_avaliable_semaphore = vk_swap_chain.GetSemaphores().image_avaiable;
+
+        ResourceBarrier(
+            {}, {},
+            {
+                TextureBarrier{
+                    .src_access = BarrierAccess::Unkown,
+                    .dst_access = BarrierAccess::RenderTarget,
+                    .src_stage  = PipelineStage::None,
+                    .dst_stage  = PipelineStage::Render,
+                    .src_layout = BarrierLayout::Unkown,
+                    .dst_layout = BarrierLayout::RenderTarget,
+                    .texture    = *vk_color_attachment_image,
+                },
+            });
+    }
 
     vk::RenderingAttachmentInfo color_attachment, depth_stencil_attachment;
 
     color_attachment = {
-        .imageView   = *vk_color_attachment_image.image_view.value(),
+        .imageView   = *vk_color_attachment_image->image_view.value(),
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp      = render_info.render_target.GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+        .loadOp      = vk_color_attachment_image->GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
         .storeOp     = vk::AttachmentStoreOp::eStore,
-        .clearValue  = render_info.render_target.GetDesc().clear_value
-                           ? to_vk_clear_value(render_info.render_target.GetDesc().clear_value.value())
+        .clearValue  = vk_color_attachment_image->GetDesc().clear_value
+                           ? to_vk_clear_value(vk_color_attachment_image->GetDesc().clear_value.value())
                            : vk::ClearValue{},
     };
     if (render_info.depth_stencil.has_value()) {
@@ -99,8 +138,8 @@ void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_inf
         .renderArea = {
             .offset = {0, 0},
             .extent = {
-                .width  = vk_color_attachment_image.GetDesc().width,
-                .height = vk_color_attachment_image.GetDesc().height,
+                .width  = vk_color_attachment_image->GetDesc().width,
+                .height = vk_color_attachment_image->GetDesc().height,
             },
         },
         .layerCount           = 1,
@@ -157,14 +196,15 @@ void VulkanGraphicsCommandBuffer::SetVertexBuffer(std::uint8_t slot, GPUBuffer& 
     command_buffer.bindVertexBuffers(slot, **static_cast<VulkanBuffer&>(buffer).buffer, {0});
 }
 
-void VulkanGraphicsCommandBuffer::PushConstant(std::uint32_t slot, std::span<const std::byte> data) {
+void VulkanGraphicsCommandBuffer::PushBindlessInfo(const BindlessInfoOffset& bindless_info) {
     auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
 
-    const vk::ArrayProxy<const std::byte> data_proxy(data.size(), data.data());
+    const vk::ArrayProxy<const BindlessInfoOffset> data_proxy(bindless_info);
+
     command_buffer.pushConstants(
         **bindless_utils.pipeline_layout,
-        bindless_utils.push_constant_ranges.at(slot).stageFlags,
-        bindless_utils.push_constant_ranges.at(slot).offset,
+        bindless_utils.bindless_info_constant_range.stageFlags,
+        bindless_utils.bindless_info_constant_range.offset,
         data_proxy);
 }
 
@@ -174,6 +214,26 @@ void VulkanGraphicsCommandBuffer::Draw(std::uint32_t vertex_count, std::uint32_t
 
 void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::uint32_t base_vertex, std::uint32_t first_instance) {
     command_buffer.drawIndexed(index_count, instance_count, first_index, base_vertex, first_instance);
+}
+
+void VulkanGraphicsCommandBuffer::Present(SwapChain& swap_chain) {
+    auto& vk_swap_chain = static_cast<VulkanSwapChain&>(swap_chain);
+
+    swap_chain_presentable_semaphore = vk_swap_chain.GetSemaphores().presentable;
+
+    ResourceBarrier(
+        {}, {},
+        {
+            TextureBarrier{
+                .src_access = BarrierAccess::RenderTarget,
+                .dst_access = BarrierAccess::Present,
+                .src_stage  = PipelineStage::Render,
+                .dst_stage  = PipelineStage::None,
+                .src_layout = BarrierLayout::RenderTarget,
+                .dst_layout = BarrierLayout::Present,
+                .texture    = vk_swap_chain.AcquireImageForRendering(),
+            },
+        });
 }
 
 void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {}
@@ -187,6 +247,21 @@ void VulkanComputeCommandBuffer::Begin() {
     command_buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
+    const auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
+
+    std::pmr::vector<vk::DescriptorSet> descriptor_sets;
+    std::transform(
+        bindless_utils.descriptor_sets.begin(),
+        bindless_utils.descriptor_sets.end(),
+        std::back_inserter(descriptor_sets),
+        [](const auto& descriptor_set) -> const vk::DescriptorSet { return *descriptor_set; });
+
+    command_buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute,
+        **bindless_utils.pipeline_layout,
+        0,
+        descriptor_sets,
+        {});
 }
 
 void VulkanComputeCommandBuffer::End() {
@@ -210,14 +285,15 @@ void VulkanComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
     command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, **m_Pipeline->pipeline);
 }
 
-void VulkanComputeCommandBuffer::PushConstant(std::uint32_t slot, std::span<const std::byte> data) {
+void VulkanComputeCommandBuffer::PushBindlessInfo(const BindlessInfoOffset& bindless_info) {
     auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
 
-    const vk::ArrayProxy<const std::byte> data_proxy(data.size(), data.data());
+    const vk::ArrayProxy<const BindlessInfoOffset> data_proxy(bindless_info);
+
     command_buffer.pushConstants(
         **bindless_utils.pipeline_layout,
-        bindless_utils.push_constant_ranges.at(slot).stageFlags,
-        bindless_utils.push_constant_ranges.at(slot).offset,
+        bindless_utils.bindless_info_constant_range.stageFlags,
+        bindless_utils.bindless_info_constant_range.offset,
         data_proxy);
 }
 

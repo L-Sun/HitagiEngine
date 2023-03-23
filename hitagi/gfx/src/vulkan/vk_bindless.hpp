@@ -10,9 +10,9 @@ struct VulkanBindlessUtils {
 
     std::unique_ptr<vk::raii::DescriptorPool>       pool;
     std::pmr::vector<vk::raii::DescriptorSetLayout> set_layouts;
-    std::pmr::vector<vk::PushConstantRange>         push_constant_ranges;
+    vk::PushConstantRange                           bindless_info_constant_range;
     std::unique_ptr<vk::raii::PipelineLayout>       pipeline_layout;
 
-    std::unique_ptr<vk::raii::DescriptorSet> set;
+    std::pmr::vector<vk::raii::DescriptorSet> descriptor_sets;
 };
 }  // namespace hitagi::gfx

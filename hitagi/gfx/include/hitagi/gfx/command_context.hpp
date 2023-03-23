@@ -40,8 +40,18 @@ protected:
 };
 
 struct RenderingInfo {
-    Texture&                     render_target;
-    utils::optional_ref<Texture> depth_stencil;
+    std::variant<std::reference_wrapper<Texture>, std::reference_wrapper<SwapChain>> render_target;
+    utils::optional_ref<Texture>                                                     depth_stencil;
+};
+
+using BindlessHandle = std::uint32_t;
+
+// This struct is used of push constant, which will refer to a GPUBuffer containing bindless handles
+struct BindlessInfoOffset {
+    BindlessHandle bindless_info_handle;
+    std::uint32_t  user_data_1;
+    std::uint32_t  user_data_2;
+    std::uint32_t  user_data_3;
 };
 
 class GraphicsCommandContext : public CommandContext {
@@ -60,14 +70,12 @@ public:
     virtual void SetIndexBuffer(GPUBuffer& buffer)                     = 0;
     virtual void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) = 0;
 
-    virtual void PushConstant(std::uint32_t slot, std::span<const std::byte> data) = 0;
-    template <typename T>
-    void PushConstant(std::uint32_t slot, const T& data) {
-        PushConstant(slot, std::span{reinterpret_cast<const std::byte*>(&data), sizeof(T)});
-    }
+    virtual void PushBindlessInfo(const BindlessInfoOffset& info) = 0;
 
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
+
+    virtual void Present(SwapChain& swap_chain) = 0;
 
     virtual void CopyTexture(const Texture& src, Texture& dst) = 0;
 };
@@ -78,11 +86,7 @@ public:
 
     virtual void SetPipeline(const ComputePipeline& pipeline) = 0;
 
-    virtual void PushConstant(std::uint32_t slot, std::span<const std::byte> data) = 0;
-    template <typename T>
-    void PushConstant(std::uint32_t slot, const T& data) {
-        PushConstant(slot, std::span{reinterpret_cast<const std::byte*>(&data), sizeof(T)});
-    }
+    virtual void PushBindlessInfo(const BindlessInfoOffset& info) = 0;
 };
 
 class CopyCommandContext : public CommandContext {

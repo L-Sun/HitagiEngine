@@ -26,7 +26,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
       m_ShaderCompiler(fmt::format("ShaderCompiler({})", name))
 
 {
-    m_Logger->debug("Create Vulkan Instance...");
+    m_Logger->trace("Create Vulkan Instance...");
     {
         const vk::ApplicationInfo app_info{
             .pApplicationName   = "Hitagi",
@@ -35,7 +35,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
             .engineVersion      = VK_MAKE_VERSION(0, 0, 1),
             .apiVersion         = m_Context.enumerateInstanceVersion(),
         };
-        m_Logger->debug("Vulkan API Version: {}.{}.{}",
+        m_Logger->trace("Vulkan API Version: {}.{}.{}",
                         VK_VERSION_MAJOR(app_info.apiVersion),
                         VK_VERSION_MINOR(app_info.apiVersion),
                         VK_VERSION_PATCH(app_info.apiVersion));
@@ -52,7 +52,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
             GetCustomAllocator());
     }
 
-    m_Logger->debug("Enable validation message logger...");
+    m_Logger->trace("Enable validation message logger...");
     {
         m_DebugUtilsMessenger = std::make_unique<vk::raii::DebugUtilsMessengerEXT>(
             *m_Instance,
@@ -71,12 +71,12 @@ VulkanDevice::VulkanDevice(std::string_view name)
             GetCustomAllocator());
     }
 
-    m_Logger->debug("Pick GPU...");
+    m_Logger->trace("Pick GPU...");
     {
         auto physical_devices = m_Instance->enumeratePhysicalDevices();
-        m_Logger->debug("Found {} Vulkan physical devices", physical_devices.size());
+        m_Logger->trace("Found {} Vulkan physical devices", physical_devices.size());
         for (const auto& device : physical_devices) {
-            m_Logger->debug("\t - {}", device.getProperties().deviceName);
+            m_Logger->trace("\t - {}", device.getProperties().deviceName);
         }
 
         std::erase_if(physical_devices, [](const auto& device) { return !is_physical_suitable(device); });
@@ -88,7 +88,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         m_Logger->debug("Pick physical device: {}", fmt::styled(std::string_view{m_PhysicalDevice->getProperties().deviceName}, fmt::fg(fmt::color::green)));
     }
 
-    m_Logger->debug("Create logical device...");
+    m_Logger->trace("Create logical device...");
     {
         const auto queue_create_info = get_queue_create_info(*m_PhysicalDevice).value();
 
@@ -100,6 +100,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
                 .ppEnabledExtensionNames = required_device_extensions.data(),
             },
             vk::PhysicalDeviceVulkan12Features{
+                // -- Bindless features
                 .descriptorIndexing                            = true,
                 .shaderInputAttachmentArrayDynamicIndexing     = true,
                 .shaderInputAttachmentArrayNonUniformIndexing  = true,
@@ -109,7 +110,9 @@ VulkanDevice::VulkanDevice(std::string_view name)
                 .descriptorBindingStorageBufferUpdateAfterBind = true,
                 .descriptorBindingPartiallyBound               = true,
                 .descriptorBindingVariableDescriptorCount      = true,
-                .timelineSemaphore                             = true,
+                .runtimeDescriptorArray                        = true,
+                // -- Bindless features
+                .timelineSemaphore = true,
             },
             vk::PhysicalDeviceVulkan13Features{
                 .synchronization2 = true,
@@ -170,12 +173,8 @@ void VulkanDevice::WaitIdle() {
     m_Device->waitIdle();
 }
 
-auto VulkanDevice::CreateFence(std::string_view name) -> std::shared_ptr<Fence> {
-    return std::make_shared<VulkanFence>(*this, name);
-}
-
-auto VulkanDevice::CreateSemaphore(std::string_view name) -> std::shared_ptr<Semaphore> {
-    return std::make_shared<VulkanSemaphore>(*this, name);
+auto VulkanDevice::CreateFence(std::uint64_t initial_value, std::string_view name) -> std::shared_ptr<Fence> {
+    return std::make_shared<VulkanTimelineSemaphore>(*this, initial_value, name);
 }
 
 auto VulkanDevice::GetCommandQueue(CommandType type) const -> CommandQueue& {

@@ -6,21 +6,16 @@
 namespace hitagi::gfx {
 class VulkanDevice;
 
-struct VulkanFence final : public Fence {
+struct VulkanTimelineSemaphore final : public Fence {
 public:
-    VulkanFence(VulkanDevice& device, std::string_view name = "");
-    ~VulkanFence() final = default;
+    VulkanTimelineSemaphore(VulkanDevice& device, std::uint64_t initial_value = 0, std::string_view name = "");
+    ~VulkanTimelineSemaphore() final = default;
 
-    void Wait(std::chrono::duration<double> timeout = std::chrono::duration<double>::max()) final;
+    void Signal(std::uint64_t value) final;
+    bool Wait(std::uint64_t value, std::chrono::duration<double> timeout = std::chrono::duration<double>::max()) final;
+    auto GetCurrentValue() -> std::uint64_t final;
 
-    vk::raii::Fence fence;
-};
-
-struct VulkanSemaphore final : public Semaphore {
-    VulkanSemaphore(VulkanDevice& device, std::string_view name = "");
-    ~VulkanSemaphore() final = default;
-
-    vk::raii::Semaphore semaphore;
+    vk::raii::Semaphore timeline_semaphore;
 };
 
 }  // namespace hitagi::gfx

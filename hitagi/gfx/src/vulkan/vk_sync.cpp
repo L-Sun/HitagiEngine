@@ -4,30 +4,44 @@
 
 namespace hitagi::gfx {
 
-VulkanFence::VulkanFence(VulkanDevice& device, std::string_view name)
+auto semaphore_create_info(std::uint64_t initial_value) {
+    return vk::StructureChain{
+        vk::SemaphoreCreateInfo{},
+        vk::SemaphoreTypeCreateInfoKHR{
+            .semaphoreType = vk::SemaphoreType::eTimeline,
+            .initialValue  = initial_value,
+        },
+    };
+}
+
+VulkanTimelineSemaphore::VulkanTimelineSemaphore(VulkanDevice& device, std::uint64_t initial_value, std::string_view name)
     : Fence(device, name),
-      fence(device.GetDevice(), vk::FenceCreateInfo{}, device.GetCustomAllocator())
-
-{
-    create_vk_debug_object_info(fence, name, device.GetDevice());
+      timeline_semaphore(
+          device.GetDevice(),
+          semaphore_create_info(initial_value).get(),
+          device.GetCustomAllocator()) {
+    create_vk_debug_object_info(timeline_semaphore, name, device.GetDevice());
 }
 
-void VulkanFence::Wait(std::chrono::duration<double> timeout) {
-    auto& vk_device = static_cast<VulkanDevice&>(m_Device).GetDevice();
-    // nano seconds
-    while (vk_device.waitForFences(
-               *fence, true,
-               std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count()) ==
-           vk::Result::eTimeout)
-        ;
+void VulkanTimelineSemaphore::Signal(std::uint64_t value) {
+    static_cast<VulkanDevice&>(m_Device).GetDevice().signalSemaphore(vk::SemaphoreSignalInfo{
+        .semaphore = *timeline_semaphore,
+        .value     = value,
+    });
 }
 
-VulkanSemaphore::VulkanSemaphore(VulkanDevice& device, std::string_view name)
-    : Semaphore(device, name),
-      semaphore(device.GetDevice(),
-                vk::SemaphoreCreateInfo{},
-                device.GetCustomAllocator()) {
-    create_vk_debug_object_info(semaphore, name, device.GetDevice());
+bool VulkanTimelineSemaphore::Wait(std::uint64_t value, std::chrono::duration<double> timeout) {
+    return static_cast<VulkanDevice&>(m_Device).GetDevice().waitSemaphores(
+               vk::SemaphoreWaitInfo{
+                   .semaphoreCount = 1,
+                   .pSemaphores    = &*timeline_semaphore,
+                   .pValues        = &value,
+               },
+               timeout.count()) == vk::Result::eSuccess;
+}
+
+auto VulkanTimelineSemaphore::GetCurrentValue() -> std::uint64_t {
+    return timeline_semaphore.getCounterValue();
 }
 
 }  // namespace hitagi::gfx
