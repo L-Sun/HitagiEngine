@@ -286,6 +286,7 @@ INSTANTIATE_TEST_SUITE_P(
             GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
             GPUBufferUsageFlags::Index | GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
             GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
+            GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::CopyDst,
             GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
             GPUBufferUsageFlags::MapRead | GPUBufferUsageFlags::CopyDst)),
     [](const TestParamInfo<std::tuple<Device::Type, GPUBufferUsageFlags>>& info) -> std::string {
@@ -467,7 +468,33 @@ INSTANTIATE_TEST_SUITE_P(
             magic_enum::enum_name(std::get<0>(info.param)),
             magic_enum::enum_name(std::get<1>(info.param)));
     });
+
 TEST_P(BindlessTest, PushBindlessInfo) {
+    auto rotation     = rotate_z(90.0_deg);
+    auto frame_buffer = device->CreateGPUBuffer(
+        {
+            .name         = fmt::format("{}_buffer", test_name),
+            .element_size = sizeof(rotation),
+            .usages       = GPUBufferUsageFlags::Storage,
+        },
+        {reinterpret_cast<const std::byte*>(&rotation), sizeof(rotation)});
+    ASSERT_TRUE(frame_buffer != nullptr);
+
+    struct BindlessInfo {
+        BindlessHandle frame_buffer_handle;
+    } bindless_info;
+    bindless_info.frame_buffer_handle = device->GetBindlessUtils().CreateBindlessHandle(*frame_buffer);
+
+    auto bindless_info_buffer = device->CreateGPUBuffer({
+        .name         = fmt::format("{}_bindless_info_buffer", test_name),
+        .element_size = sizeof(BindlessInfo),
+        .usages       = GPUBufferUsageFlags::Storage,
+    });
+
+    BindlessInfoOffset bindless_info_offset{
+        .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),
+    };
+
     if (context->GetType() == CommandType::Graphics) {
         constexpr std::string_view vs_shader_code = R"""(
             #include "bindless.hlsl"
@@ -477,7 +504,7 @@ TEST_P(BindlessTest, PushBindlessInfo) {
             };
 
             struct FrameConstant {
-                matrix view;
+                matrix mvp;
                 matrix proj;
             };
 
@@ -490,7 +517,7 @@ TEST_P(BindlessTest, PushBindlessInfo) {
             float4 main(uint index: SV_VertexID) : SV_Position {
                 Bindless      resource       = hitagi::load_bindless<Bindless>();
                 FrameConstant frame_constant = resource.frame_constant.load<FrameConstant>();
-                return mul(frame_constant.view, mul(frame_constant.proj, float4(positions[index], 0.0f, 1.0f)));
+                return mul(frame_constant.mvp, float4(positions[index], 0.0f, 1.0f));
             }
         )""";
 
@@ -531,14 +558,14 @@ TEST_P(BindlessTest, PushBindlessInfo) {
                     .dst_access = BarrierAccess::RenderTarget,
                     .src_stage  = PipelineStage::None,
                     .dst_stage  = PipelineStage::Render,
-                    .src_layout = BarrierLayout::Unkown,
-                    .dst_layout = BarrierLayout::RenderTarget,
+                    .src_layout = TextureLayout::Unkown,
+                    .dst_layout = TextureLayout::RenderTarget,
                     .texture    = *texture,
                 },
             });
 
         gfx_ctx->SetPipeline(*pipeline);
-        gfx_ctx->PushBindlessInfo(BindlessInfoOffset{.bindless_info_handle = 0});
+        gfx_ctx->PushBindlessInfo(bindless_info_offset);
         gfx_ctx->BeginRendering({
             .render_target = *texture,
         });
@@ -550,6 +577,7 @@ TEST_P(BindlessTest, PushBindlessInfo) {
 
         queue.Submit({context.get()});
         queue.WaitIdle();
+
     } else if (context->GetType() == CommandType::Compute) {
         constexpr std::string_view cs_shader_code = R"""(
             #include "bindless.hlsl"
@@ -588,7 +616,7 @@ TEST_P(BindlessTest, PushBindlessInfo) {
         compute_context->Begin();
 
         compute_context->SetPipeline(*pipeline);
-        compute_context->PushBindlessInfo(BindlessInfoOffset{.bindless_info_handle = 0});
+        compute_context->PushBindlessInfo(bindless_info_offset);
         // TODO dispatch command
         compute_context->End();
 
@@ -597,6 +625,9 @@ TEST_P(BindlessTest, PushBindlessInfo) {
     } else {
         FAIL() << "Unsupported command type";
     }
+
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.frame_buffer_handle);
 }
 
 class SwapChainTest : public CreateTest {
@@ -676,6 +707,16 @@ TEST_P(CreateTest, DrawTriangle) {
         });
 
     constexpr std::string_view shader_code = R"""(
+            #include "bindless.hlsl"
+
+            struct Bindless {
+                hitagi::SimpleBuffer cb;
+            };
+
+            struct Constant {
+                matrix rotation;
+            };
+        
             struct VS_INPUT {
                 float3 pos : POSITION;
                 float3 col : COLOR;
@@ -687,8 +728,11 @@ TEST_P(CreateTest, DrawTriangle) {
             };
 
             PS_INPUT VSMain(VS_INPUT input) {
+                Bindless bindless = hitagi::load_bindless<Bindless>();
+                Constant constant = bindless.cb.load<Constant>();
+
                 PS_INPUT output;
-                output.pos = float4(input.pos, 1.0f);
+                output.pos = mul(constant.rotation, float4(input.pos, 1.0f));
                 output.col = input.col;
                 return output;
             }
@@ -754,15 +798,25 @@ TEST_P(CreateTest, DrawTriangle) {
         .name          = fmt::format("{}-ConstantBuffer", test_name),
         .element_size  = sizeof(Constant),
         .element_count = 1,
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        .usages        = GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
     });
+    constant_buffer->Update(0, rotate_z(20.0_degf));
 
-    auto bindless_handles = device->CreateGPUBuffer({
+    auto bindless_info_buffer = device->CreateGPUBuffer({
         .name          = fmt::format("{}-BindlessHandles", test_name),
-        .element_size  = sizeof(BindlessHandle),
+        .element_size  = sizeof(BindlessInfoOffset),
         .element_count = 1,
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        .usages        = GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
     });
+    bindless_info_buffer->Update(
+        0,
+        BindlessInfoOffset{
+            .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*constant_buffer),
+        });
+
+    BindlessInfoOffset bindless_info_offset{
+        .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),
+    };
 
     auto& gfx_queue = device->GetCommandQueue(CommandType::Graphics);
     auto  context   = device->CreateGraphicsContext("I know DirectX12 context");
@@ -786,6 +840,7 @@ TEST_P(CreateTest, DrawTriangle) {
     context->BeginRendering({
         .render_target = *swap_chain,
     });
+    context->PushBindlessInfo(bindless_info_offset);
     context->Draw(3);
     context->EndRendering();
     context->Present(*swap_chain);

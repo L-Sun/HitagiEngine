@@ -34,6 +34,8 @@ public:
     auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> final;
     auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> final;
 
+    auto GetBindlessUtils() -> BindlessUtils& final;
+
     void Profile(std::size_t frame_index) const final;
 
     inline auto& GetInstance() const noexcept { return *m_Instance; }
@@ -64,7 +66,7 @@ private:
     utils::EnumArray<std::unique_ptr<vk::raii::CommandPool>, CommandType> m_CommandPools;
     utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType>    m_CommandQueues;
 
-    VulkanBindlessUtils m_BindlessUtils;
+    std::unique_ptr<VulkanBindlessUtils> m_BindlessUtils;
 
     ShaderCompiler m_ShaderCompiler;
 };

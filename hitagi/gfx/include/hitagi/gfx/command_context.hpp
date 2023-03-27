@@ -1,5 +1,6 @@
 #pragma once
 #include <hitagi/gfx/sync.hpp>
+#include <hitagi/gfx/bindless.hpp>
 #include <hitagi/utils/concepts.hpp>
 
 #include <cstdint>
@@ -42,16 +43,6 @@ protected:
 struct RenderingInfo {
     std::variant<std::reference_wrapper<Texture>, std::reference_wrapper<SwapChain>> render_target;
     utils::optional_ref<Texture>                                                     depth_stencil;
-};
-
-using BindlessHandle = std::uint32_t;
-
-// This struct is used of push constant, which will refer to a GPUBuffer containing bindless handles
-struct BindlessInfoOffset {
-    BindlessHandle bindless_info_handle;
-    std::uint32_t  user_data_1;
-    std::uint32_t  user_data_2;
-    std::uint32_t  user_data_3;
 };
 
 class GraphicsCommandContext : public CommandContext {

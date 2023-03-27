@@ -6,6 +6,9 @@
 constexpr double operator""_deg(long double angle) {
     return angle / 180.0 * std::numbers::pi;
 }
+constexpr float operator""_degf(long double angle) {
+    return angle / 180.0 * std::numbers::pi;
+}
 
 namespace hitagi::math {
 

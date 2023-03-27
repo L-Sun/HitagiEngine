@@ -408,6 +408,9 @@ inline constexpr auto to_vk_buffer_usage(GPUBufferUsageFlags usages) noexcept ->
     if (utils::has_flag(usages, GPUBufferUsageFlags::Constant)) {
         vk_usages |= vk::BufferUsageFlagBits::eUniformBuffer;
     }
+    if (utils::has_flag(usages, GPUBufferUsageFlags::Storage)) {
+        vk_usages |= vk::BufferUsageFlagBits::eStorageBuffer;
+    }
     return vk_usages;
 }
 
@@ -895,27 +898,27 @@ inline constexpr auto to_vk_image_aspect(TextureUsageFlags usages) -> vk::ImageA
     return result;
 }
 
-inline constexpr auto to_vk_image_layout(BarrierLayout layout) noexcept -> vk::ImageLayout {
+inline constexpr auto to_vk_image_layout(TextureLayout layout) noexcept -> vk::ImageLayout {
     switch (layout) {
-        case BarrierLayout::Unkown:
+        case TextureLayout::Unkown:
             return vk::ImageLayout::eUndefined;
-        case BarrierLayout::Common:
+        case TextureLayout::Common:
             return vk::ImageLayout::eGeneral;
-        case BarrierLayout::CopySrc:
+        case TextureLayout::CopySrc:
             return vk::ImageLayout::eTransferSrcOptimal;
-        case BarrierLayout::CopyDst:
+        case TextureLayout::CopyDst:
             return vk::ImageLayout::eTransferDstOptimal;
-        case BarrierLayout::ShaderRead:
+        case TextureLayout::ShaderRead:
             return vk::ImageLayout::eShaderReadOnlyOptimal;
-        case BarrierLayout::DepthStencilRead:
+        case TextureLayout::DepthStencilRead:
             return vk::ImageLayout::eDepthStencilReadOnlyOptimal;
-        case BarrierLayout::DepthStencilWrite:
+        case TextureLayout::DepthStencilWrite:
             return vk::ImageLayout::eDepthStencilAttachmentOptimal;
-        case BarrierLayout::RenderTarget:
-        case BarrierLayout::ResolveSrc:
-        case BarrierLayout::ResolveDst:
+        case TextureLayout::RenderTarget:
+        case TextureLayout::ResolveSrc:
+        case TextureLayout::ResolveDst:
             return vk::ImageLayout::eColorAttachmentOptimal;
-        case BarrierLayout::Present:
+        case TextureLayout::Present:
             return vk::ImageLayout::ePresentSrcKHR;
         default:
             return vk::ImageLayout::eUndefined;

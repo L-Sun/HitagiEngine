@@ -161,7 +161,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
 
     m_Logger->debug("Create Bindless...");
     {
-        m_BindlessUtils = VulkanBindlessUtils(*this);
+        m_BindlessUtils = std::make_unique<VulkanBindlessUtils>(*this, fmt::format("{}-BindlessUtils", m_Name));
     }
 }
 
@@ -219,6 +219,10 @@ auto VulkanDevice::CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_
 
 auto VulkanDevice::CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> {
     return std::make_shared<VulkanComputePipeline>(*this, std::move(desc));
+}
+
+auto VulkanDevice::GetBindlessUtils() -> BindlessUtils& {
+    return *m_BindlessUtils;
 }
 
 void VulkanDevice::Profile(std::size_t frame_index) const {}

@@ -16,7 +16,9 @@ enum struct GPUBufferUsageFlags : std::uint8_t {
     CopyDst  = (CopySrc << 1),
     Vertex   = (CopyDst << 1),
     Index    = (Vertex << 1),
-    Constant = (Index << 1),
+    // TODO constant buffer not work on vulkan bindless for now
+    Constant [[deprecated]] = (Index << 1),
+    Storage                 = (Constant << 1),
 };
 
 enum struct TextureUsageFlags : std::uint8_t {

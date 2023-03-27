@@ -57,7 +57,7 @@ enum struct PipelineStage : std::uint32_t {
     Resolve       = (Copy << 1),
 };
 
-enum struct BarrierLayout : std::uint16_t {
+enum struct TextureLayout : std::uint16_t {
     Unkown            = 0x0,
     Common            = 0x1,
     CopySrc           = (Common << 1),
@@ -93,8 +93,8 @@ struct TextureBarrier {
     PipelineStage src_stage;
     PipelineStage dst_stage;
 
-    BarrierLayout src_layout;
-    BarrierLayout dst_layout;
+    TextureLayout src_layout;
+    TextureLayout dst_layout;
 
     Texture&      texture;
     std::uint16_t base_mip_level   = 0;

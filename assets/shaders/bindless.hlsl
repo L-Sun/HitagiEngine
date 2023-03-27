@@ -4,7 +4,11 @@ namespace hitagi {
 #define NUM_STATIC_SAMPLERS 4
 
     struct BindlessHandle {
-        uint index;
+        uint index : 32;
+        uint version : 16;
+        uint type : 8;
+        uint tag : 8;
+
         uint read_index() {
             return index;
         }

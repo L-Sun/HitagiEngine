@@ -58,18 +58,18 @@ void VulkanGraphicsCommandBuffer::Begin() {
     command_buffer.begin({
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
-    const auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
+    const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
 
     std::pmr::vector<vk::DescriptorSet> descriptor_sets;
     std::transform(
-        bindless_utils.descriptor_sets.begin(),
-        bindless_utils.descriptor_sets.end(),
+        vk_bindless_utils.descriptor_sets.begin(),
+        vk_bindless_utils.descriptor_sets.end(),
         std::back_inserter(descriptor_sets),
         [](const auto& descriptor_set) -> const vk::DescriptorSet { return *descriptor_set; });
 
     command_buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
-        **bindless_utils.pipeline_layout,
+        **vk_bindless_utils.pipeline_layout,
         0,
         descriptor_sets,
         {});
@@ -103,8 +103,8 @@ void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_inf
                     .dst_access = BarrierAccess::RenderTarget,
                     .src_stage  = PipelineStage::None,
                     .dst_stage  = PipelineStage::Render,
-                    .src_layout = BarrierLayout::Unkown,
-                    .dst_layout = BarrierLayout::RenderTarget,
+                    .src_layout = TextureLayout::Unkown,
+                    .dst_layout = TextureLayout::RenderTarget,
                     .texture    = *vk_color_attachment_image,
                 },
             });
@@ -197,14 +197,14 @@ void VulkanGraphicsCommandBuffer::SetVertexBuffer(std::uint8_t slot, GPUBuffer& 
 }
 
 void VulkanGraphicsCommandBuffer::PushBindlessInfo(const BindlessInfoOffset& bindless_info) {
-    auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
+    const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
 
     const vk::ArrayProxy<const BindlessInfoOffset> data_proxy(bindless_info);
 
     command_buffer.pushConstants(
-        **bindless_utils.pipeline_layout,
-        bindless_utils.bindless_info_constant_range.stageFlags,
-        bindless_utils.bindless_info_constant_range.offset,
+        **vk_bindless_utils.pipeline_layout,
+        vk_bindless_utils.bindless_info_constant_range.stageFlags,
+        vk_bindless_utils.bindless_info_constant_range.offset,
         data_proxy);
 }
 
@@ -229,8 +229,8 @@ void VulkanGraphicsCommandBuffer::Present(SwapChain& swap_chain) {
                 .dst_access = BarrierAccess::Present,
                 .src_stage  = PipelineStage::Render,
                 .dst_stage  = PipelineStage::None,
-                .src_layout = BarrierLayout::RenderTarget,
-                .dst_layout = BarrierLayout::Present,
+                .src_layout = TextureLayout::RenderTarget,
+                .dst_layout = TextureLayout::Present,
                 .texture    = vk_swap_chain.AcquireImageForRendering(),
             },
         });
@@ -247,18 +247,18 @@ void VulkanComputeCommandBuffer::Begin() {
     command_buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
-    const auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
+    const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
 
     std::pmr::vector<vk::DescriptorSet> descriptor_sets;
     std::transform(
-        bindless_utils.descriptor_sets.begin(),
-        bindless_utils.descriptor_sets.end(),
+        vk_bindless_utils.descriptor_sets.begin(),
+        vk_bindless_utils.descriptor_sets.end(),
         std::back_inserter(descriptor_sets),
         [](const auto& descriptor_set) -> const vk::DescriptorSet { return *descriptor_set; });
 
     command_buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute,
-        **bindless_utils.pipeline_layout,
+        **vk_bindless_utils.pipeline_layout,
         0,
         descriptor_sets,
         {});
@@ -286,14 +286,14 @@ void VulkanComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
 }
 
 void VulkanComputeCommandBuffer::PushBindlessInfo(const BindlessInfoOffset& bindless_info) {
-    auto& bindless_utils = static_cast<VulkanDevice&>(m_Device).GetBindlessUtils();
+    const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
 
     const vk::ArrayProxy<const BindlessInfoOffset> data_proxy(bindless_info);
 
     command_buffer.pushConstants(
-        **bindless_utils.pipeline_layout,
-        bindless_utils.bindless_info_constant_range.stageFlags,
-        bindless_utils.bindless_info_constant_range.offset,
+        **vk_bindless_utils.pipeline_layout,
+        vk_bindless_utils.bindless_info_constant_range.stageFlags,
+        vk_bindless_utils.bindless_info_constant_range.offset,
         data_proxy);
 }
 

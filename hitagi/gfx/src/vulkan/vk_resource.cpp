@@ -1,6 +1,6 @@
 #include "vk_resource.hpp"
 #include "vk_device.hpp"
-#include "vk_sync.hpp"
+#include "vk_bindless.hpp"
 #include "utils.hpp"
 
 #include <hitagi/utils/flags.hpp>
@@ -239,8 +239,8 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 {}, {},
                 {
                     TextureBarrier{
-                        .src_layout       = BarrierLayout::Unkown,
-                        .dst_layout       = BarrierLayout::CopyDst,
+                        .src_layout       = TextureLayout::Unkown,
+                        .dst_layout       = TextureLayout::CopyDst,
                         .texture          = *this,
                         .base_mip_level   = 0,
                         .level_count      = m_Desc.mip_levels,
@@ -261,10 +261,10 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 {}, {},
                 {
                     TextureBarrier{
-                        .src_layout       = BarrierLayout::Unkown,
+                        .src_layout       = TextureLayout::Unkown,
                         .dst_layout       = utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)
-                                                ? BarrierLayout::DepthStencilRead
-                                                : BarrierLayout::ShaderRead,
+                                                ? TextureLayout::DepthStencilRead
+                                                : TextureLayout::ShaderRead,
                         .texture          = *this,
                         .base_mip_level   = 0,
                         .level_count      = m_Desc.mip_levels,
@@ -661,7 +661,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
 
     const auto render_format = to_vk_format(desc.render_format);
 
-    const auto& pipeline_layout = *device.GetBindlessUtils().pipeline_layout;
+    const auto& pipeline_layout = *static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).pipeline_layout;
 
     logger->trace("Create render pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
@@ -716,7 +716,7 @@ VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipeli
         .pName  = compute_shader->GetDesc().entry.data(),
     };
 
-    const auto& pipeline_layout = *device.GetBindlessUtils().pipeline_layout;
+    const auto& pipeline_layout = *static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).pipeline_layout;
 
     logger->trace("Create compute pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
