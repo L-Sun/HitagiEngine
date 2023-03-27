@@ -4,16 +4,15 @@
 
 namespace hitagi::gfx {
 inline constexpr auto get_shader_model_version(ShaderType type) noexcept {
-    constexpr std::wstring version = L"6_7";
     switch (type) {
         case ShaderType::Vertex:
-            return L"vs_" + version;
+            return L"vs_6_7";
         case ShaderType::Pixel:
-            return L"ps_" + version;
+            return L"ps_6_7";
         case ShaderType::Geometry:
-            return L"gs_" + version;
+            return L"gs_6_7";
         case ShaderType::Compute:
-            return L"cs_" + version;
+            return L"cs_6_7";
     }
 }
 

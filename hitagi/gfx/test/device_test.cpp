@@ -475,7 +475,7 @@ TEST_P(BindlessTest, PushBindlessInfo) {
         {
             .name         = fmt::format("{}_buffer", test_name),
             .element_size = sizeof(rotation),
-            .usages       = GPUBufferUsageFlags::Storage,
+            .usages       = GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::CopyDst,
         },
         {reinterpret_cast<const std::byte*>(&rotation), sizeof(rotation)});
     ASSERT_TRUE(frame_buffer != nullptr);
@@ -488,8 +488,9 @@ TEST_P(BindlessTest, PushBindlessInfo) {
     auto bindless_info_buffer = device->CreateGPUBuffer({
         .name         = fmt::format("{}_bindless_info_buffer", test_name),
         .element_size = sizeof(BindlessInfo),
-        .usages       = GPUBufferUsageFlags::Storage,
+        .usages       = GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
     });
+    bindless_info_buffer->Update(0, bindless_info);
 
     BindlessInfoOffset bindless_info_offset{
         .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),

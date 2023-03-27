@@ -2,6 +2,7 @@
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/gfx/gpu_resource.hpp>
 
+#include <dxc/dxcapi.h>
 #if defined(_WIN32)
 #include <unknwn.h>
 #include <wrl.h>
@@ -11,11 +12,9 @@ using ComPtr = Microsoft::WRL::ComPtr<T>;
 
 template <typename T>
 struct ComPtr : public CComPtr<T> {
-    inline auto Get() noexcept const { return this->p; }
+    inline auto Get() const noexcept { return this->p; }
 };
-
 #endif
-#include <dxc/dxcapi.h>
 
 namespace spdlog {
 class logger;

@@ -13,17 +13,17 @@ inline void pipeline_barrier_fn(vk::raii::CommandBuffer&                  comman
                                 const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
                                 const std::pmr::vector<TextureBarrier>&   texture_barriers) {
     // convert to vulkan barriers
-    std::pmr::vector<vk::MemoryBarrier2>       vk_moemory_barriers;
+    std::pmr::vector<vk::MemoryBarrier2>       vk_memory_barriers;
     std::pmr::vector<vk::BufferMemoryBarrier2> vk_buffer_barriers;
     std::pmr::vector<vk::ImageMemoryBarrier2>  vk_image_barriers;
 
-    std::transform(global_barriers.begin(), global_barriers.end(), std::back_inserter(vk_moemory_barriers), to_vk_memory_barrier);
+    std::transform(global_barriers.begin(), global_barriers.end(), std::back_inserter(vk_memory_barriers), to_vk_memory_barrier);
     std::transform(buffer_barriers.begin(), buffer_barriers.end(), std::back_inserter(vk_buffer_barriers), to_vk_buffer_barrier);
     std::transform(texture_barriers.begin(), texture_barriers.end(), std::back_inserter(vk_image_barriers), to_vk_image_barrier);
 
     command_buffer.pipelineBarrier2(vk::DependencyInfo{
-        .memoryBarrierCount       = static_cast<std::uint32_t>(vk_moemory_barriers.size()),
-        .pMemoryBarriers          = vk_moemory_barriers.data(),
+        .memoryBarrierCount       = static_cast<std::uint32_t>(vk_memory_barriers.size()),
+        .pMemoryBarriers          = vk_memory_barriers.data(),
         .bufferMemoryBarrierCount = static_cast<std::uint32_t>(vk_buffer_barriers.size()),
         .pBufferMemoryBarriers    = vk_buffer_barriers.data(),
         .imageMemoryBarrierCount  = static_cast<std::uint32_t>(vk_image_barriers.size()),
