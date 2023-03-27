@@ -2,14 +2,14 @@
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/gfx/gpu_resource.hpp>
 
-#include <dxc/dxcapi.h>
 #if defined(_WIN32)
 #include <unknwn.h>
 #include <wrl.h>
+#include <dxc/dxcapi.h>
 template <typename T>
 using ComPtr = Microsoft::WRL::ComPtr<T>;
 #elif defined(__linux__)
-
+#include <dxc/dxcapi.h>
 template <typename T>
 struct ComPtr : public CComPtr<T> {
     inline auto Get() const noexcept { return this->p; }
