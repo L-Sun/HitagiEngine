@@ -1,8 +1,8 @@
 #pragma once
-#include "hitagi/gfx/sync.hpp"
 #include "vk_configs.hpp"
 #include "vk_resource.hpp"
 
+#include <hitagi/gfx/sync.hpp>
 #include <hitagi/gfx/command_context.hpp>
 #include <hitagi/utils/array.hpp>
 #include <hitagi/utils/soa.hpp>
@@ -407,6 +407,8 @@ inline constexpr auto to_vk_buffer_usage(GPUBufferUsageFlags usages) noexcept ->
     }
     if (utils::has_flag(usages, GPUBufferUsageFlags::Constant)) {
         vk_usages |= vk::BufferUsageFlagBits::eUniformBuffer;
+        // TODO for now we use storage to simulate uniform buffer for bindless usage
+        vk_usages |= vk::BufferUsageFlagBits::eStorageBuffer;
     }
     if (utils::has_flag(usages, GPUBufferUsageFlags::Storage)) {
         vk_usages |= vk::BufferUsageFlagBits::eStorageBuffer;
@@ -848,6 +850,9 @@ inline constexpr auto to_vk_pipeline_stage1(PipelineStage stage) noexcept -> vk:
     if (utils::has_flag(stage, PipelineStage::AllGraphics)) {
         result |= vk::PipelineStageFlagBits::eAllGraphics;
     }
+    if (utils::has_flag(stage, PipelineStage::ComputeShader)) {
+        result |= vk::PipelineStageFlagBits::eComputeShader;
+    }
     return result;
 }
 
@@ -892,7 +897,8 @@ inline constexpr auto to_vk_image_aspect(TextureUsageFlags usages) -> vk::ImageA
         result |= (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
     }
     if (utils::has_flag(usages, TextureUsageFlags::RTV) ||
-        utils::has_flag(usages, TextureUsageFlags::SRV)) {
+        utils::has_flag(usages, TextureUsageFlags::SRV) ||
+        utils::has_flag(usages, TextureUsageFlags::UAV)) {
         result |= vk::ImageAspectFlagBits::eColor;
     }
     return result;
@@ -910,6 +916,8 @@ inline constexpr auto to_vk_image_layout(TextureLayout layout) noexcept -> vk::I
             return vk::ImageLayout::eTransferDstOptimal;
         case TextureLayout::ShaderRead:
             return vk::ImageLayout::eShaderReadOnlyOptimal;
+        case TextureLayout::ShaderWrite:
+            return vk::ImageLayout::eGeneral;
         case TextureLayout::DepthStencilRead:
             return vk::ImageLayout::eDepthStencilReadOnlyOptimal;
         case TextureLayout::DepthStencilWrite:
@@ -990,21 +998,22 @@ inline constexpr auto to_vk_image_view_create_info(const TextureDesc& desc) noex
 inline constexpr auto to_vk_memory_barrier(GlobalBarrier barrier) noexcept -> vk::MemoryBarrier2 {
     return {
         .srcStageMask  = to_vk_pipeline_stage2(barrier.src_stage),
-        .srcAccessMask = to_vk_access_flags(barrier.dst_access),
+        .srcAccessMask = to_vk_access_flags(barrier.src_access),
         .dstStageMask  = to_vk_pipeline_stage2(barrier.dst_stage),
         .dstAccessMask = to_vk_access_flags(barrier.dst_access),
     };
 }
 
 inline auto to_vk_buffer_barrier(const GPUBufferBarrier& barrier) -> vk::BufferMemoryBarrier2 {
-    const auto& vk_buffer = static_cast<VulkanBuffer&>(barrier.buffer).buffer;
+    const auto& vk_buffer = static_cast<VulkanBuffer&>(barrier.buffer);
     return {
-        // improve me
         .srcStageMask  = to_vk_pipeline_stage2(barrier.src_stage),
-        .srcAccessMask = to_vk_access_flags(barrier.dst_access),
+        .srcAccessMask = to_vk_access_flags(barrier.src_access),
         .dstStageMask  = to_vk_pipeline_stage2(barrier.dst_stage),
         .dstAccessMask = to_vk_access_flags(barrier.dst_access),
-        .buffer        = **vk_buffer,
+        .buffer        = **vk_buffer.buffer,
+        .offset        = 0,
+        .size          = vk_buffer.GetDesc().element_size * vk_buffer.GetDesc().element_count,
     };
 }
 

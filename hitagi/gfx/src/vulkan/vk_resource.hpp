@@ -48,14 +48,11 @@ class VulkanSwapChain final : public SwapChain {
 public:
     struct SemaphorePair {
         SemaphorePair(VulkanDevice& device, std::string_view name);
-        std::shared_ptr<vk::raii::Semaphore> image_avaiable;
+        std::shared_ptr<vk::raii::Semaphore> image_available;
         std::shared_ptr<vk::raii::Semaphore> presentable;
     };
 
     VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc);
-
-    auto GetTexture(std::uint32_t index) -> Texture& final;
-    auto GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>> final;
 
     inline auto GetWidth() const noexcept -> std::uint32_t final { return m_Size.x; };
     inline auto GetHeight() const noexcept -> std::uint32_t final { return m_Size.y; };

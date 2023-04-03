@@ -20,7 +20,8 @@ public:
 
     virtual ~Device();
 
-    static auto  Create(Type type, std::string_view name = "") -> std::unique_ptr<Device>;
+    static auto Create(Type type, std::string_view name = "") -> std::unique_ptr<Device>;
+
     virtual void WaitIdle() = 0;
 
     virtual auto CreateFence(std::uint64_t initial_value = 0, std::string_view name = "") -> std::shared_ptr<Fence> = 0;

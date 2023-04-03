@@ -27,13 +27,13 @@ std::string flags_name(E flags) {
 
 constexpr std::array supported_device_types = {
 #ifdef _WIN32
-// Device::Type::DX12,
+    Device::Type::DX12,
 #endif
     Device::Type::Vulkan,
 };
-class CreateTest : public TestWithParam<Device::Type> {
+class DeviceTest : public TestWithParam<Device::Type> {
 protected:
-    CreateTest()
+    DeviceTest()
         : test_name(::testing::UnitTest::GetInstance()->current_test_info()->name()),
           device(Device::Create(GetParam(), test_name)) {}
 
@@ -41,32 +41,32 @@ protected:
     std::unique_ptr<Device> device;
 };
 INSTANTIATE_TEST_SUITE_P(
-    CreateTest,
-    CreateTest,
+    DeviceTest,
+    DeviceTest,
     ValuesIn(supported_device_types),
     [](const TestParamInfo<Device::Type>& info) -> std::string {
         return std::string{magic_enum::enum_name(info.param)};
     });
-TEST_P(CreateTest, CreateDevice) {
+TEST_P(DeviceTest, CreateDevice) {
     ASSERT_TRUE(device != nullptr);
 }
 
-TEST_P(CreateTest, CreateGraphicsCommandContext) {
+TEST_P(DeviceTest, CreateGraphicsCommandContext) {
     auto context = device->CreateGraphicsContext();
     EXPECT_TRUE(context != nullptr) << "Failed to create graphics context";
 }
 
-TEST_P(CreateTest, CreateComputeCommandContext) {
+TEST_P(DeviceTest, CreateComputeCommandContext) {
     auto context = device->CreateComputeContext();
     EXPECT_TRUE(context != nullptr) << "Failed to create compute context";
 }
 
-TEST_P(CreateTest, CreateCopyCommandContext) {
+TEST_P(DeviceTest, CreateCopyCommandContext) {
     auto context = device->CreateCopyContext();
     EXPECT_TRUE(context != nullptr) << "Failed to create copy context";
 }
 
-TEST_P(CreateTest, CreateTexture1D) {
+TEST_P(DeviceTest, CreateTexture1D) {
     auto texture = device->CreateTexture(
         {
             .name        = test_name,
@@ -77,7 +77,7 @@ TEST_P(CreateTest, CreateTexture1D) {
     EXPECT_TRUE(texture != nullptr);
 }
 
-TEST_P(CreateTest, CreateTexture2D) {
+TEST_P(DeviceTest, CreateTexture2D) {
     Buffer data(128 * 128 * sizeof(vec4f));
 
     auto texture = device->CreateTexture(
@@ -94,7 +94,7 @@ TEST_P(CreateTest, CreateTexture2D) {
     EXPECT_TRUE(texture != nullptr);
 }
 
-TEST_P(CreateTest, CreateTexture3D) {
+TEST_P(DeviceTest, CreateTexture3D) {
     auto texture = device->CreateTexture(
         {
             .name        = test_name,
@@ -108,7 +108,7 @@ TEST_P(CreateTest, CreateTexture3D) {
     EXPECT_TRUE(texture != nullptr);
 }
 
-TEST_P(CreateTest, CreateTexture2DArray) {
+TEST_P(DeviceTest, CreateTexture2DArray) {
     auto texture = device->CreateTexture(
         {
             .name        = test_name,
@@ -122,7 +122,7 @@ TEST_P(CreateTest, CreateTexture2DArray) {
     EXPECT_TRUE(texture != nullptr);
 }
 
-TEST_P(CreateTest, CreateSampler) {
+TEST_P(DeviceTest, CreateSampler) {
     auto sampler = device->CreatSampler(
         {
             .name       = test_name,
@@ -135,7 +135,7 @@ TEST_P(CreateTest, CreateSampler) {
     ASSERT_TRUE(sampler != nullptr);
 }
 
-TEST_P(CreateTest, CreateShader) {
+TEST_P(DeviceTest, CreateShader) {
     constexpr std::string_view shader_code = R"""(
         cbuffer cb : register(b0, space0) {
             matrix mvp;
@@ -202,7 +202,7 @@ TEST_P(CreateTest, CreateShader) {
     }
 }
 
-TEST_P(CreateTest, CreateRenderPipeline) {
+TEST_P(DeviceTest, CreateRenderPipeline) {
     {
         constexpr auto vs_code = R"""(
             struct VS_INPUT {
@@ -239,14 +239,13 @@ TEST_P(CreateTest, CreateRenderPipeline) {
     }
 }
 
-TEST_P(CreateTest, CreateComputPipeline) {
+TEST_P(DeviceTest, CreateComputePipeline) {
     constexpr auto cs_code = R"""(
         #include "bindless.hlsl"
-        RWStructuredBuffer<float> output : register(u0);
 
         [numthreads(1, 1, 1)]
         void main(uint3 thread_id : SV_DispatchThreadID) {
-            output[thread_id.x] = 1.0f;
+            
         }
     )""";
 
@@ -326,7 +325,7 @@ TEST_P(GPUBufferTest, Create) {
     }
 }
 
-class FenceTest : public CreateTest {
+class FenceTest : public DeviceTest {
 protected:
     FenceTest() : fence(device->CreateFence()) {}
 
@@ -358,7 +357,7 @@ TEST_P(FenceTest, Wait) {
         fence->Signal(1);
     };
     auto wait_fn = [this]() {
-        fence->Wait(1);
+        EXPECT_TRUE(fence->Wait(1));
         EXPECT_EQ(fence->GetCurrentValue(), 1) << "The value of the fence should be 1 after wait";
     };
     std::thread signal_thread(signal_fn);
@@ -370,49 +369,295 @@ TEST_P(FenceTest, Wait) {
     EXPECT_EQ(fence->GetCurrentValue(), 1) << "The value of the fence should be 1 after wait";
 };
 
-class CommandTest : public TestWithParam<std::tuple<Device::Type, CommandType>> {
+class GraphicsCommandTest : public DeviceTest {
 protected:
-    CommandTest() : test_name(UnitTest::GetInstance()->current_test_info()->name()),
-                    device(Device::Create(std::get<0>(GetParam()), test_name)) {
-        switch (std::get<1>(GetParam())) {
-            case CommandType::Graphics:
-                context = device->CreateGraphicsContext();
-                break;
-            case CommandType::Compute:
-                context = device->CreateComputeContext();
-                break;
-            case CommandType::Copy:
-                context = device->CreateCopyContext();
-                break;
-            default:
-                break;
-        }
-    }
+    GraphicsCommandTest() : context(device->CreateGraphicsContext()) {}
 
     void SetUp() override {
-        ASSERT_TRUE(context) << fmt::format("Failed to create command context: {}", magic_enum::enum_name(std::get<1>(GetParam())));
+        ASSERT_TRUE(context) << "Failed to create graphics command context";
     }
 
-    std::pmr::string                test_name;
-    std::unique_ptr<Device>         device;
-    std::shared_ptr<CommandContext> context;
+    std::shared_ptr<GraphicsCommandContext> context;
 };
+INSTANTIATE_TEST_SUITE_P(
+    GraphicsCommandTest,
+    GraphicsCommandTest,
+    ValuesIn(supported_device_types),
+    [](const TestParamInfo<Device::Type>& info) -> std::string {
+        return fmt::format("Graphics_{}", magic_enum::enum_name(info.param));
+    });
 
-class CopyCommandTest : public CommandTest {
+TEST_P(GraphicsCommandTest, ResourceBarrier) {
+    auto buffer = device->CreateGPUBuffer(
+        {
+            .name         = fmt::format("buffer-{}", test_name),
+            .element_size = 128,
+            .usages       = GPUBufferUsageFlags::Constant,
+        });
+    auto render_texture = device->CreateTexture({
+        .name        = fmt::format("texture-{}", test_name),
+        .width       = 128,
+        .height      = 128,
+        .format      = Format::R8G8B8A8_UNORM,
+        .clear_value = ClearColor{0.0f, 0.0f, 0.0f, 0.0f},
+        .usages      = TextureUsageFlags::RTV,
+    });
+
+    context->Begin();
+    context->ResourceBarrier(
+        {}, {GPUBufferBarrier{
+                .src_access = BarrierAccess::Unkown,
+                .dst_access = BarrierAccess::Constant,
+                .src_stage  = PipelineStage::None,
+                .dst_stage  = PipelineStage::VertexShader,
+                .buffer     = *buffer,
+            }},
+        {
+            TextureBarrier{
+                .src_access = BarrierAccess::Unkown,
+                .dst_access = BarrierAccess::RenderTarget,
+                .src_stage  = PipelineStage::None,
+                .dst_stage  = PipelineStage::Render,
+                .src_layout = TextureLayout::Unkown,
+                .dst_layout = TextureLayout::RenderTarget,
+                .texture    = *render_texture,
+            },
+        });
+    context->End();
+
+    auto& queue = device->GetCommandQueue(context->GetType());
+    queue.Submit({context.get()});
+    queue.WaitIdle();
+}
+
+TEST_P(GraphicsCommandTest, PushBindlessInfo) {
+    auto rotation     = rotate_z(90.0_deg);
+    auto frame_buffer = device->CreateGPUBuffer(
+        {
+            .name         = fmt::format("{}_buffer", test_name),
+            .element_size = sizeof(rotation),
+            .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::CopyDst,
+        },
+        {reinterpret_cast<const std::byte*>(&rotation), sizeof(rotation)});
+    ASSERT_TRUE(frame_buffer != nullptr);
+
+    struct BindlessInfo {
+        BindlessHandle frame_buffer_handle;
+    } bindless_info;
+    bindless_info.frame_buffer_handle = device->GetBindlessUtils().CreateBindlessHandle(*frame_buffer);
+
+    auto bindless_info_buffer = device->CreateGPUBuffer({
+        .name         = fmt::format("{}_bindless_info_buffer", test_name),
+        .element_size = sizeof(BindlessInfo),
+        .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+    });
+    bindless_info_buffer->Update(0, bindless_info);
+
+    BindlessInfoOffset bindless_info_offset{
+        .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),
+    };
+
+    constexpr std::string_view vs_shader_code = R"""(
+            #include "bindless.hlsl"
+
+            struct Bindless {
+                hitagi::SimpleBuffer frame_constant;
+            };
+
+            struct FrameConstant {
+                matrix mvp;
+                matrix proj;
+            };
+
+            static const float2 positions[3] = {
+                float2(0.0f, 0.5f),
+                float2(0.5f, -0.5f),
+                float2(-0.5f, -0.5f)
+            };
+
+            float4 main(uint index: SV_VertexID) : SV_Position {
+                Bindless      resource       = hitagi::load_bindless<Bindless>();
+                FrameConstant frame_constant = resource.frame_constant.load<FrameConstant>();
+                return mul(frame_constant.mvp, float4(positions[index], 0.0f, 1.0f));
+            }
+        )""";
+
+    auto vs_shader = device->CreateShader({
+        .name        = fmt::format("{}-vs", test_name),
+        .type        = ShaderType::Vertex,
+        .entry       = "main",
+        .source_code = vs_shader_code,
+    });
+    ASSERT_TRUE(vs_shader);
+
+    auto pipeline = device->CreateRenderPipeline({
+        .name    = fmt::format("{}-pipeline", test_name),
+        .shaders = {vs_shader},
+    });
+    ASSERT_TRUE(pipeline);
+
+    context->Begin();
+    context->SetPipeline(*pipeline);
+    context->PushBindlessInfo(bindless_info_offset);
+    context->End();
+
+    auto& queue = device->GetCommandQueue(context->GetType());
+    queue.Submit({context.get()});
+    queue.WaitIdle();
+
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.frame_buffer_handle);
+}
+
+class ComputeCommandTest : public DeviceTest {
 protected:
-    using CommandTest::CommandTest;
+    ComputeCommandTest() : context(device->CreateComputeContext()) {}
+
+    void SetUp() override {
+        ASSERT_TRUE(context) << "Failed to create compute command context";
+    }
+
+    std::shared_ptr<ComputeCommandContext> context;
+};
+INSTANTIATE_TEST_SUITE_P(
+    ComputeCommandTest,
+    ComputeCommandTest,
+    ValuesIn(supported_device_types),
+    [](const TestParamInfo<Device::Type>& info) -> std::string {
+        return fmt::format("Compute_{}", magic_enum::enum_name(info.param));
+    });
+
+TEST_P(ComputeCommandTest, ResourceBarrier) {
+    auto buffer = device->CreateGPUBuffer(
+        {
+            .name         = fmt::format("buffer-{}", test_name),
+            .element_size = 128,
+            .usages       = GPUBufferUsageFlags::Storage,
+        });
+    auto render_texture = device->CreateTexture({
+        .name        = fmt::format("texture-{}", test_name),
+        .width       = 128,
+        .height      = 128,
+        .format      = Format::R8G8B8A8_UNORM,
+        .clear_value = ClearColor{0.0f, 0.0f, 0.0f, 0.0f},
+        .usages      = TextureUsageFlags::UAV,
+    });
+
+    context->Begin();
+    context->ResourceBarrier(
+        {}, {GPUBufferBarrier{
+                .src_access = BarrierAccess::Unkown,
+                .dst_access = BarrierAccess::Constant,
+                .src_stage  = PipelineStage::None,
+                .dst_stage  = PipelineStage::ComputeShader,
+                .buffer     = *buffer,
+            }},
+        {
+            TextureBarrier{
+                .src_access = BarrierAccess::Unkown,
+                .dst_access = BarrierAccess::ShaderWrite,
+                .src_stage  = PipelineStage::None,
+                .dst_stage  = PipelineStage::ComputeShader,
+                .src_layout = TextureLayout::Common,
+                .dst_layout = TextureLayout::ShaderWrite,
+                .texture    = *render_texture,
+            },
+        });
+    context->End();
+    auto& queue = device->GetCommandQueue(context->GetType());
+    queue.Submit({context.get()});
+    queue.WaitIdle();
+}
+
+TEST_P(ComputeCommandTest, PushBindlessInfo) {
+    auto rotation     = rotate_z(90.0_deg);
+    auto frame_buffer = device->CreateGPUBuffer(
+        {
+            .name         = fmt::format("{}_buffer", test_name),
+            .element_size = sizeof(rotation),
+            .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::CopyDst,
+        },
+        {reinterpret_cast<const std::byte*>(&rotation), sizeof(rotation)});
+    ASSERT_TRUE(frame_buffer != nullptr);
+
+    struct BindlessInfo {
+        BindlessHandle frame_buffer_handle;
+    } bindless_info;
+    bindless_info.frame_buffer_handle = device->GetBindlessUtils().CreateBindlessHandle(*frame_buffer);
+
+    auto bindless_info_buffer = device->CreateGPUBuffer({
+        .name         = fmt::format("{}_bindless_info_buffer", test_name),
+        .element_size = sizeof(BindlessInfo),
+        .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+    });
+    bindless_info_buffer->Update(0, bindless_info);
+
+    BindlessInfoOffset bindless_info_offset{
+        .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),
+    };
+
+    constexpr std::string_view cs_shader_code = R"""(
+            #include "bindless.hlsl"
+            struct Bindless {
+                hitagi::SimpleBuffer cb;
+            };
+
+            struct Constant {
+                float value;
+            };
+
+            [numthreads(1, 1, 1)]
+            void main() {
+                Bindless bindless = hitagi::load_bindless<Bindless>();
+                Constant constant = bindless.cb.load<Constant>();
+            }
+        )""";
+
+    auto cs_shader = device->CreateShader({
+        .name        = fmt::format("{}-cs", test_name),
+        .type        = ShaderType::Compute,
+        .entry       = "main",
+        .source_code = cs_shader_code,
+    });
+    ASSERT_TRUE(cs_shader);
+
+    auto pipeline = device->CreateComputePipeline({
+        .name = fmt::format("{}-pipeline", test_name),
+        .cs   = cs_shader,
+    });
+    ASSERT_TRUE(pipeline);
+
+    context->Begin();
+
+    context->SetPipeline(*pipeline);
+    context->PushBindlessInfo(bindless_info_offset);
+    // TODO dispatch command
+    context->End();
+
+    auto& queue = device->GetCommandQueue(context->GetType());
+    queue.Submit({context.get()});
+    queue.WaitIdle();
+
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.frame_buffer_handle);
+}
+
+class CopyCommandTest : public DeviceTest {
+protected:
+    CopyCommandTest() : context(device->CreateCopyContext()) {}
+
+    void SetUp() override {
+        ASSERT_TRUE(context) << "Failed to create copy command context";
+    }
+
+    std::shared_ptr<CopyCommandContext> context;
 };
 INSTANTIATE_TEST_SUITE_P(
     CopyCommandTest,
     CopyCommandTest,
-    Combine(
-        ValuesIn(supported_device_types),
-        Values(CommandType::Graphics, CommandType::Compute, CommandType::Copy)),
-    [](const TestParamInfo<std::tuple<Device::Type, CommandType>>& info) -> std::string {
-        return fmt::format(
-            "{}_{}",
-            magic_enum::enum_name(std::get<0>(info.param)),
-            magic_enum::enum_name(std::get<1>(info.param)));
+    ValuesIn(supported_device_types),
+    [](const TestParamInfo<Device::Type>& info) -> std::string {
+        return std::string(magic_enum::enum_name(info.param));
     });
 
 TEST_P(CopyCommandTest, CopyBuffer) {
@@ -452,189 +697,10 @@ TEST_P(CopyCommandTest, CopyBuffer) {
     }
 }
 
-class BindlessTest : public CommandTest {
-protected:
-    using CommandTest::CommandTest;
-};
-INSTANTIATE_TEST_SUITE_P(
-    BindlessTest,
-    BindlessTest,
-    Combine(
-        ValuesIn(supported_device_types),
-        Values(CommandType::Graphics, CommandType::Compute)),
-    [](const TestParamInfo<std::tuple<Device::Type, CommandType>>& info) -> std::string {
-        return fmt::format(
-            "{}_{}",
-            magic_enum::enum_name(std::get<0>(info.param)),
-            magic_enum::enum_name(std::get<1>(info.param)));
-    });
-
-TEST_P(BindlessTest, PushBindlessInfo) {
-    auto rotation     = rotate_z(90.0_deg);
-    auto frame_buffer = device->CreateGPUBuffer(
-        {
-            .name         = fmt::format("{}_buffer", test_name),
-            .element_size = sizeof(rotation),
-            .usages       = GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::CopyDst,
-        },
-        {reinterpret_cast<const std::byte*>(&rotation), sizeof(rotation)});
-    ASSERT_TRUE(frame_buffer != nullptr);
-
-    struct BindlessInfo {
-        BindlessHandle frame_buffer_handle;
-    } bindless_info;
-    bindless_info.frame_buffer_handle = device->GetBindlessUtils().CreateBindlessHandle(*frame_buffer);
-
-    auto bindless_info_buffer = device->CreateGPUBuffer({
-        .name         = fmt::format("{}_bindless_info_buffer", test_name),
-        .element_size = sizeof(BindlessInfo),
-        .usages       = GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
-    });
-    bindless_info_buffer->Update(0, bindless_info);
-
-    BindlessInfoOffset bindless_info_offset{
-        .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),
-    };
-
-    if (context->GetType() == CommandType::Graphics) {
-        constexpr std::string_view vs_shader_code = R"""(
-            #include "bindless.hlsl"
-
-            struct Bindless {
-                hitagi::SimpleBuffer frame_constant;
-            };
-
-            struct FrameConstant {
-                matrix mvp;
-                matrix proj;
-            };
-
-            static const float2 positions[3] = {
-                float2(0.0f, 0.5f),
-                float2(0.5f, -0.5f),
-                float2(-0.5f, -0.5f)
-            };
-
-            float4 main(uint index: SV_VertexID) : SV_Position {
-                Bindless      resource       = hitagi::load_bindless<Bindless>();
-                FrameConstant frame_constant = resource.frame_constant.load<FrameConstant>();
-                return mul(frame_constant.mvp, float4(positions[index], 0.0f, 1.0f));
-            }
-        )""";
-
-        auto vs_shader = device->CreateShader({
-            .name        = fmt::format("{}-vs", test_name),
-            .type        = ShaderType::Vertex,
-            .entry       = "main",
-            .source_code = vs_shader_code,
-        });
-        ASSERT_TRUE(vs_shader);
-
-        auto texture = device->CreateTexture(TextureDesc{
-            .name   = fmt::format("{}-texture", test_name),
-            .width  = 10,
-            .height = 10,
-            .format = Format::R8G8B8A8_UNORM,
-            .usages = TextureUsageFlags::RTV,
-        });
-        ASSERT_TRUE(texture);
-
-        auto pipeline = device->CreateRenderPipeline({
-            .name          = fmt::format("{}-pipeline", test_name),
-            .shaders       = {vs_shader},
-            .render_format = texture->GetDesc().format,
-        });
-        ASSERT_TRUE(pipeline);
-
-        auto& queue   = device->GetCommandQueue(context->GetType());
-        auto  gfx_ctx = std::static_pointer_cast<GraphicsCommandContext>(context);
-
-        gfx_ctx->Begin();
-
-        gfx_ctx->ResourceBarrier(
-            {}, {},
-            {
-                TextureBarrier{
-                    .src_access = BarrierAccess::Unkown,
-                    .dst_access = BarrierAccess::RenderTarget,
-                    .src_stage  = PipelineStage::None,
-                    .dst_stage  = PipelineStage::Render,
-                    .src_layout = TextureLayout::Unkown,
-                    .dst_layout = TextureLayout::RenderTarget,
-                    .texture    = *texture,
-                },
-            });
-
-        gfx_ctx->SetPipeline(*pipeline);
-        gfx_ctx->PushBindlessInfo(bindless_info_offset);
-        gfx_ctx->BeginRendering({
-            .render_target = *texture,
-        });
-        gfx_ctx->SetViewPort({.x = 0, .y = 0, .width = 10, .height = 10});
-        gfx_ctx->SetScissorRect({.x = 0, .y = 0, .width = 10, .height = 10});
-        gfx_ctx->Draw(3);
-        gfx_ctx->EndRendering();
-        gfx_ctx->End();
-
-        queue.Submit({context.get()});
-        queue.WaitIdle();
-
-    } else if (context->GetType() == CommandType::Compute) {
-        constexpr std::string_view cs_shader_code = R"""(
-            #include "bindless.hlsl"
-            struct Bindless {
-                hitagi::SimpleBuffer cb;
-            };
-
-            struct Constant {
-                float value;
-            };
-
-            [numthreads(1, 1, 1)]
-            void main() {
-                Bindless bindless = hitagi::load_bindless<Bindless>();
-                Constant constant = bindless.cb.load<Constant>();
-            }
-        )""";
-
-        auto cs_shader = device->CreateShader({
-            .name        = fmt::format("{}-cs", test_name),
-            .type        = ShaderType::Compute,
-            .entry       = "main",
-            .source_code = cs_shader_code,
-        });
-        ASSERT_TRUE(cs_shader);
-
-        auto pipeline = device->CreateComputePipeline({
-            .name = fmt::format("{}-pipeline", test_name),
-            .cs   = cs_shader,
-        });
-        ASSERT_TRUE(pipeline);
-
-        auto& queue           = device->GetCommandQueue(context->GetType());
-        auto  compute_context = std::static_pointer_cast<ComputeCommandContext>(context);
-
-        compute_context->Begin();
-
-        compute_context->SetPipeline(*pipeline);
-        compute_context->PushBindlessInfo(bindless_info_offset);
-        // TODO dispatch command
-        compute_context->End();
-
-        queue.Submit({context.get()});
-        queue.WaitIdle();
-    } else {
-        FAIL() << "Unsupported command type";
-    }
-
-    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
-    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.frame_buffer_handle);
-}
-
-class SwapChainTest : public CreateTest {
+class SwapChainTest : public DeviceTest {
 protected:
     SwapChainTest()
-        : CreateTest(),
+        : DeviceTest(),
           app(hitagi::Application::CreateApp(hitagi::AppConfig{
               .title = std::pmr::string{fmt::format("App/{}", test_name)},
           })) {}
@@ -665,17 +731,6 @@ TEST_P(SwapChainTest, CreateSwapChain) {
     EXPECT_EQ(swap_chain->GetHeight(), rect.bottom - rect.top) << "swap chain should be same size as window";
 }
 
-TEST_P(SwapChainTest, GetBackBuffers) {
-    auto rect = app->GetWindowsRect();
-
-    for (const Texture& back_texture : swap_chain->GetTextures()) {
-        EXPECT_EQ(back_texture.GetDesc().width, rect.right - rect.left) << "Each back texture should have the same size as the swap chain after resizing";
-        EXPECT_EQ(back_texture.GetDesc().height, rect.bottom - rect.top) << "Each back texture should have the same size as the swap chain after resizing";
-        EXPECT_EQ(back_texture.GetDesc().format, swap_chain->GetFormat()) << "Each back texture should have the same format as the swap chain";
-        EXPECT_TRUE(hitagi::utils::has_flag(back_texture.GetDesc().usages, TextureUsageFlags::RTV)) << "Back texture should have RTV usage";
-    }
-}
-
 TEST_P(SwapChainTest, SwapChainResizing) {
     auto rect = app->GetWindowsRect();
 
@@ -686,14 +741,9 @@ TEST_P(SwapChainTest, SwapChainResizing) {
 
     EXPECT_EQ(swap_chain->GetWidth(), rect.right - rect.left) << "Swap chain should be same size as window after resizing";
     EXPECT_EQ(swap_chain->GetHeight(), rect.bottom - rect.top) << "Swap chain should be same size as window after resizing";
-
-    for (const Texture& buffer : swap_chain->GetTextures()) {
-        EXPECT_EQ(buffer.GetDesc().width, rect.right - rect.left) << "Each buffer should have the same size as the swap chain after resizing";
-        EXPECT_EQ(buffer.GetDesc().height, rect.bottom - rect.top) << "Each buffer should have the same size as the swap chain after resizing";
-    }
 }
 
-TEST_P(CreateTest, DrawTriangle) {
+TEST_P(DeviceTest, DrawTriangle) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
             .title = std::pmr::string{fmt::format("App/{}", test_name)},
@@ -799,21 +849,25 @@ TEST_P(CreateTest, DrawTriangle) {
         .name          = fmt::format("{}-ConstantBuffer", test_name),
         .element_size  = sizeof(Constant),
         .element_count = 1,
-        .usages        = GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
-    constant_buffer->Update(0, rotate_z(20.0_degf));
+    constant_buffer->Update(0, translate(vec3f(.5f, 0, 0)) * rotate_z<float>(20.0_deg));
+
+    struct BindlessInfo {
+        BindlessHandle constant_buffer;
+    };
+
+    BindlessInfo bindless_info{
+        .constant_buffer = device->GetBindlessUtils().CreateBindlessHandle(*constant_buffer),
+    };
 
     auto bindless_info_buffer = device->CreateGPUBuffer({
         .name          = fmt::format("{}-BindlessHandles", test_name),
-        .element_size  = sizeof(BindlessInfoOffset),
+        .element_size  = sizeof(BindlessInfo),
         .element_count = 1,
-        .usages        = GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
-    bindless_info_buffer->Update(
-        0,
-        BindlessInfoOffset{
-            .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*constant_buffer),
-        });
+    bindless_info_buffer->Update(0, bindless_info);
 
     BindlessInfoOffset bindless_info_offset{
         .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),
@@ -850,6 +904,9 @@ TEST_P(CreateTest, DrawTriangle) {
     gfx_queue.Submit({context.get()});
     swap_chain->Present();
     gfx_queue.WaitIdle();
+
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.constant_buffer);
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
 }
 
 #include <spdlog/spdlog.h>

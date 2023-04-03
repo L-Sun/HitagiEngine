@@ -19,9 +19,9 @@ public:
     Fence& operator=(Fence&&)      = delete;
     virtual ~Fence()               = default;
 
-    virtual void Signal(std::uint64_t value)                                                                             = 0;
-    virtual bool Wait(std::uint64_t value, std::chrono::duration<double> timeout = std::chrono::duration<double>::max()) = 0;
-    virtual auto GetCurrentValue() -> std::uint64_t                                                                      = 0;
+    virtual void Signal(std::uint64_t value)                                                                     = 0;
+    virtual bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = std::chrono::milliseconds::max()) = 0;
+    virtual auto GetCurrentValue() -> std::uint64_t                                                              = 0;
 
     inline auto GetName() const noexcept -> std::string_view { return m_Name; }
 
@@ -63,7 +63,8 @@ enum struct TextureLayout : std::uint16_t {
     CopySrc           = (Common << 1),
     CopyDst           = (CopySrc << 1),
     ShaderRead        = (CopyDst << 1),
-    DepthStencilRead  = (ShaderRead << 1),
+    ShaderWrite       = (ShaderRead << 1),
+    DepthStencilRead  = (ShaderWrite << 1),
     DepthStencilWrite = (DepthStencilRead << 1),
     RenderTarget      = (DepthStencilWrite << 1),
     ResolveSrc        = (RenderTarget << 1),

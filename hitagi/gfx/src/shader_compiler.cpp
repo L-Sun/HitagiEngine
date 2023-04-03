@@ -44,7 +44,11 @@ inline auto create_compile_args(const ShaderDesc& desc, bool spirv = false) noex
     args.emplace_back(L"-T");
     args.emplace_back(get_shader_model_version(desc.type));
 
-    if (spirv) args.emplace_back(L"-spirv");
+    if (spirv) {
+        args.emplace_back(L"-spirv");
+        args.emplace_back(L"-fvk-use-dx-layout");
+        args.emplace_back(L"-fspv-use-legacy-buffer-matrix-order");
+    }
 
     args.emplace_back(L"-HV 2021");
 

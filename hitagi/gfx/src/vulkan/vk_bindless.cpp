@@ -17,7 +17,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
           {{}, std::mutex{}},
           {{}, std::mutex{}},
       }} {
-    auto logger = device.GetLogger();
+    const auto logger = device.GetLogger();
 
     const auto limits = device.GetPhysicalDevice().getProperties().limits;
 
@@ -29,7 +29,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
         // TODO ray tracing
     }};
 
-    const std::array descritpor_counts = {
+    const std::array descriptor_counts = {
         limits.maxDescriptorSetStorageBuffers,
         limits.maxDescriptorSetSampledImages,
         limits.maxDescriptorSetStorageImages,
@@ -119,7 +119,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
             },
             vk::DescriptorSetVariableDescriptorCountAllocateInfo{
                 .descriptorSetCount = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
-                .pDescriptorCounts  = descritpor_counts.data(),
+                .pDescriptorCounts  = descriptor_counts.data(),
             },
         };
 
@@ -153,21 +153,38 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
     }
 }
 
-auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer) -> BindlessHandle {
+auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, bool writable) -> BindlessHandle {
+    if (writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
+        const auto error_message = fmt::format(
+            "Failed to create BindlessHandle: buffer({}) is not writable",
+            fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
+        m_Device.GetLogger()->error(error_message);
+        throw std::invalid_argument(error_message);
+    }
+    // ! For now, we don't need to check this because we use storage buffer to simulate constant buffer
+    // if (!writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
+    //     const auto error_message = fmt::format(
+    //         "Failed to create BindlessHandle: buffer({}) is not used for shader visible",
+    //         fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
+    //     m_Device.GetLogger()->error(error_message);
+    //     throw std::invalid_argument(error_message);
+    // }
+
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
     auto& [pool, mutex] = bindless_handle_pools[0];
     std::lock_guard lock{mutex};
 
     auto handle = pool.back();
+    handle.tag  = writable ? 1 : 0;
 
     const vk::DescriptorBufferInfo buffer_info{
         .buffer = **static_cast<VulkanBuffer&>(buffer).buffer,
         .offset = 0,
-        .range  = buffer.GetDesc().element_size,
+        .range  = buffer.GetDesc().element_size * buffer.GetDesc().element_count,
     };
 
-    vk::WriteDescriptorSet write_info{
+    const vk::WriteDescriptorSet write_info{
         .dstSet          = *descriptor_sets[0],
         .dstBinding      = 0,
         .dstArrayElement = handle.index,
@@ -183,13 +200,29 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer) -> BindlessHan
     return handle;
 }
 
-auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture) -> BindlessHandle {
+auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) -> BindlessHandle {
+    if (writable && !utils::has_flag(texture.GetDesc().usages, TextureUsageFlags::UAV)) {
+        const auto error_message = fmt::format(
+            "Failed to create BindlessHandle: texture({}) is not writable",
+            fmt::styled(texture.GetName(), fmt::fg(fmt::color::red)));
+        m_Device.GetLogger()->error(error_message);
+        throw std::invalid_argument(error_message);
+    }
+    if (!writable && !utils::has_flag(texture.GetDesc().usages, TextureUsageFlags::SRV)) {
+        const auto error_message = fmt::format(
+            "Failed to create BindlessHandle: texture({}) is not used for shader visible",
+            fmt::styled(texture.GetName(), fmt::fg(fmt::color::red)));
+        m_Device.GetLogger()->error(error_message);
+        throw std::invalid_argument(error_message);
+    }
+
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
     auto& [pool, mutex] = bindless_handle_pools[1];
     std::lock_guard lock{mutex};
 
     auto handle = pool.back();
+    handle.tag  = writable ? 1 : 0;
 
     const vk::DescriptorImageInfo image_info{
         .sampler     = nullptr,
@@ -197,7 +230,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture) -> BindlessHand
         .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 
-    vk::WriteDescriptorSet write_info{
+    const vk::WriteDescriptorSet write_info{
         .dstSet          = *descriptor_sets[1],
         .dstBinding      = 0,
         .dstArrayElement = handle.index,

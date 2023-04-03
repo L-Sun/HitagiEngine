@@ -1,3 +1,5 @@
+add_requires("slang", "directx12-agility-sdk")
+
 target("gfx_test")
     add_files("gfx_test.cpp")
     add_deps("gfx", "utils", "test_utils")
@@ -6,7 +8,7 @@ target("gfx_test")
 target("shader_compiler_test")
     add_files("shader_compiler_test.cpp")
     add_deps("utils", "test_utils")
-    add_deps("shader-compiler")
+    add_deps("shader_compiler")
     set_group("test/gfx")
 
 target("device_test")

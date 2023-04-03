@@ -31,7 +31,6 @@ namespace hitagi {
         BindlessHandle binding_offset;
         uint           user_data_0;
         uint           user_data_1;
-        uint           user_data_2;
     };
 
     // --------- Binding Area Start ---------
@@ -121,8 +120,7 @@ namespace hitagi {
     }
 
 #else
-    // Note that we use space 16 here to accept our push constant on D3D12 side.
-    ConstantBuffer<BindingsOffset> g_bindings_offset : register(b0, space16);
+    ConstantBuffer<BindingsOffset> g_bindings_offset : register(b0);
 
     template <typename T>
     T load_bindless() {

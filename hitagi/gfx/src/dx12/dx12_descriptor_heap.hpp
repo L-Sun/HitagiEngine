@@ -2,11 +2,9 @@
 #include <d3d12.h>
 #include <wrl.h>
 
-#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <mutex>
-#include <vector>
 #include <list>
 #include <memory>
 
@@ -26,21 +24,22 @@ struct Descriptor {
 
     inline operator bool() const noexcept { return heap_from != nullptr; }
 
+    std::size_t                 offset_in_heap;
     D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = {0};
     D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle = {0};
     // When it contains multiple descriptor, the following member variable may be useful
-    std::size_t     num             = 0;
-    std::size_t     increament_size = 0;
-    DescriptorHeap* heap_from       = nullptr;
+    std::size_t     num            = 0;
+    std::size_t     increment_size = 0;
+    DescriptorHeap* heap_from      = nullptr;
 };
 
 class DescriptorHeap {
 public:
-    DescriptorHeap(DX12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, bool shader_visiable, std::size_t num_descriptors);
+    DescriptorHeap(DX12Device& device, D3D12_DESCRIPTOR_HEAP_TYPE type, bool shader_visible, std::size_t num_descriptors, std::string_view name = "");
 
-    auto AvaliableSize() const -> std::size_t;
-    auto Allocate(std::size_t num_descriptors) -> Descriptor;
-    void DiscardDescriptor(Descriptor& descriptor);
+    auto               AvailableSize() const -> std::size_t;
+    [[nodiscard]] auto Allocate(std::size_t num_descriptors) -> Descriptor;
+    void               DiscardDescriptor(Descriptor& descriptor);
 
     inline ID3D12DescriptorHeap* GetHeap() const noexcept { return m_DescriptorHeap.Get(); }
 
@@ -66,12 +65,12 @@ private:
 
 class DescriptorAllocator {
 public:
-    DescriptorAllocator(DX12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, bool shader_visiable, std::size_t num_descriptor_per_page = 1024);
+    DescriptorAllocator(DX12Device& device, D3D12_DESCRIPTOR_HEAP_TYPE type, bool shader_visible, std::size_t num_descriptor_per_page = 1024);
 
-    auto Allocate(std::size_t num = 1) -> Descriptor;
+    [[nodiscard]] auto Allocate(std::size_t num = 1) -> Descriptor;
 
 private:
-    DX12Device*                                     m_Device;
+    DX12Device&                                     m_Device;
     D3D12_DESCRIPTOR_HEAP_TYPE                      m_Type;
     bool                                            m_Visibility;
     std::size_t                                     m_HeapSize;

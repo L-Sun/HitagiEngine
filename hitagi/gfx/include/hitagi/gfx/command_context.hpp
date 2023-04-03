@@ -47,8 +47,6 @@ struct RenderingInfo {
 
 class GraphicsCommandContext : public CommandContext {
 public:
-    using CommandContext::CommandContext;
-
     virtual void BeginRendering(const RenderingInfo& info) = 0;
     virtual void EndRendering()                            = 0;
 
@@ -69,21 +67,23 @@ public:
     virtual void Present(SwapChain& swap_chain) = 0;
 
     virtual void CopyTexture(const Texture& src, Texture& dst) = 0;
+
+protected:
+    GraphicsCommandContext(Device& device, std::string_view name) : CommandContext(device, CommandType::Graphics, name){};
 };
 
 class ComputeCommandContext : public CommandContext {
 public:
-    using CommandContext::CommandContext;
-
     virtual void SetPipeline(const ComputePipeline& pipeline) = 0;
 
     virtual void PushBindlessInfo(const BindlessInfoOffset& info) = 0;
+
+protected:
+    ComputeCommandContext(Device& device, std::string_view name) : CommandContext(device, CommandType::Compute, name){};
 };
 
 class CopyCommandContext : public CommandContext {
 public:
-    using CommandContext::CommandContext;
-
     virtual void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dst_offset, std::size_t size) = 0;
     virtual void CopyTexture(const Texture& src, Texture& dst)                                                                      = 0;
     virtual void CopyBufferToTexture(
@@ -95,6 +95,9 @@ public:
         std::uint32_t    mip_level        = 0,
         std::uint32_t    base_array_layer = 0,
         std::uint32_t    layer_count      = 1) = 0;
+
+protected:
+    CopyCommandContext(Device& device, std::string_view name) : CommandContext(device, CommandType::Copy, name){};
 };
 
 }  // namespace hitagi::gfx

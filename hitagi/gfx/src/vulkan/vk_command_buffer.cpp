@@ -2,6 +2,7 @@
 #include "vk_device.hpp"
 #include "vk_resource.hpp"
 #include "utils.hpp"
+#include <hitagi/utils/exceptions.hpp>
 
 #include <spdlog/logger.h>
 #include <fmt/color.h>
@@ -45,7 +46,7 @@ inline auto create_command_buffer(const VulkanDevice& device, CommandType type, 
 }
 
 VulkanGraphicsCommandBuffer::VulkanGraphicsCommandBuffer(VulkanDevice& device, std::string_view name)
-    : GraphicsCommandContext(device, CommandType::Graphics, name),
+    : GraphicsCommandContext(device, name),
       command_buffer(create_command_buffer(device, CommandType::Graphics, name)) {}
 
 void VulkanGraphicsCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
@@ -93,7 +94,7 @@ void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_inf
         auto& vk_swap_chain = static_cast<VulkanSwapChain&>(std::get<std::reference_wrapper<SwapChain>>(render_target).get());
 
         vk_color_attachment_image            = &vk_swap_chain.AcquireImageForRendering();
-        swap_chain_image_avaliable_semaphore = vk_swap_chain.GetSemaphores().image_avaiable;
+        swap_chain_image_available_semaphore = vk_swap_chain.GetSemaphores().image_available;
 
         ResourceBarrier(
             {}, {},
@@ -228,7 +229,7 @@ void VulkanGraphicsCommandBuffer::Present(SwapChain& swap_chain) {
                 .src_access = BarrierAccess::RenderTarget,
                 .dst_access = BarrierAccess::Present,
                 .src_stage  = PipelineStage::Render,
-                .dst_stage  = PipelineStage::None,
+                .dst_stage  = PipelineStage::All,
                 .src_layout = TextureLayout::RenderTarget,
                 .dst_layout = TextureLayout::Present,
                 .texture    = vk_swap_chain.AcquireImageForRendering(),
@@ -236,10 +237,12 @@ void VulkanGraphicsCommandBuffer::Present(SwapChain& swap_chain) {
         });
 }
 
-void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {}
+void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {
+    utils::NoImplemented();
+}
 
 VulkanComputeCommandBuffer::VulkanComputeCommandBuffer(VulkanDevice& device, std::string_view name)
-    : ComputeCommandContext(device, CommandType::Compute, name),
+    : ComputeCommandContext(device, name),
       command_buffer(create_command_buffer(device, CommandType::Compute, name)) {
 }
 
@@ -298,7 +301,7 @@ void VulkanComputeCommandBuffer::PushBindlessInfo(const BindlessInfoOffset& bind
 }
 
 VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name)
-    : CopyCommandContext(device, CommandType::Copy, name),
+    : CopyCommandContext(device, name),
       command_buffer(create_command_buffer(device, CommandType::Copy, name)) {
 }
 
@@ -333,7 +336,9 @@ void VulkanTransferCommandBuffer::CopyBuffer(const GPUBuffer& src, std::size_t s
         });
 }
 
-void VulkanTransferCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {}
+void VulkanTransferCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {
+    throw utils::NoImplemented();
+}
 
 void VulkanTransferCommandBuffer::CopyBufferToTexture(const GPUBuffer& src,
                                                       std::size_t      src_offset,

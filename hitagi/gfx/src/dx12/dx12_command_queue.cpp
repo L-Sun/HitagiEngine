@@ -1,102 +1,82 @@
 #include "dx12_command_queue.hpp"
+#include "dx12_command_list.hpp"
+#include "dx12_sync.hpp"
 #include "dx12_device.hpp"
-#include "dx12_command_context.hpp"
 #include "utils.hpp"
 
-#include <d3d12.h>
+#include <spdlog/logger.h>
 #include <fmt/color.h>
 
 namespace hitagi::gfx {
 DX12CommandQueue::DX12CommandQueue(DX12Device& device, CommandType type, std::string_view name)
-    : CommandQueue(device, type, name) {
-    D3D12_COMMAND_QUEUE_DESC desc{
+    : CommandQueue(device, type, name),
+      m_Fence(device, 0, fmt::format("{}_Fence", name)) {
+    const auto logger = device.GetLogger();
+
+    const D3D12_COMMAND_QUEUE_DESC desc{
         .Type     = to_d3d_command_type(type),
         .Priority = 0,
         .Flags    = D3D12_COMMAND_QUEUE_FLAG_NONE,
         .NodeMask = 0,
     };
-    ThrowIfFailed(device.GetDevice()->CreateCommandQueue(&desc, IID_PPV_ARGS(&m_Queue)));
-    ThrowIfFailed(device.GetDevice()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_Fence)));
 
-    m_Fence->Signal(m_LastCompletedFenceValue);
-
-    if (m_FenceHandle = CreateEvent(nullptr, false, false, nullptr);
-        m_FenceHandle == nullptr) {
-        ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+    logger->trace("Creating Command Queue: {}", fmt::styled(name, fmt::fg(fmt::color::green)));
+    if (FAILED(device.GetDevice()->CreateCommandQueue(&desc, IID_PPV_ARGS(&m_Queue)))) {
+        const auto error_message = fmt::format("Failed to create Command Queue({})", fmt::styled(name, fmt::fg(fmt::color::red)));
+        logger->error(error_message);
+        throw std::runtime_error(error_message);
     }
-
-    if (!name.empty()) {
-        m_Queue->SetName(std::wstring(name.begin(), name.end()).data());
-        m_Fence->SetName(std::wstring(name.begin(), name.end()).data());
-    }
+    m_Queue->SetName(std::wstring(name.begin(), name.end()).c_str());
 }
 
-DX12CommandQueue::~DX12CommandQueue() {
-    WaitIdle();
-    CloseHandle(m_FenceHandle);
-}
+void DX12CommandQueue::Submit(const std::pmr::vector<CommandContext*>& contexts,
+                              const std::pmr::vector<FenceWaitInfo>&   wait_fences,
+                              const std::pmr::vector<FenceSignalInfo>& signal_fences) {
+    // make sure all context are same command type
+    if (auto iter = std::find_if(
+            contexts.begin(), contexts.end(),
+            [this](auto ctx) { return ctx->GetType() != m_Type; });
+        iter != contexts.end()) {
+        m_Device.GetLogger()->warn(
+            "CommandContext type({}) mismatch({}). Do nothing!!!",
+            fmt::styled(magic_enum::enum_name(m_Type), fmt::fg(fmt::color::red)),
+            fmt::styled(magic_enum::enum_name((*iter)->GetType()), fmt::fg(fmt::color::green)));
+        return;
+    }
 
-auto DX12CommandQueue::Submit(std::pmr::vector<CommandContext*> contexts) -> std::uint64_t {
-    if (auto iter = std::find_if(contexts.cbegin(), contexts.cend(), [this](const auto& cmd) -> bool {
-            return cmd->type != type;
+    std::pmr::vector<ID3D12CommandList*> command_lists;
+    std::transform(
+        contexts.begin(), contexts.end(),
+        std::back_inserter(command_lists),
+        [](auto ctx) -> ID3D12CommandList* {
+            switch (ctx->GetType()) {
+                case CommandType::Graphics:
+                    return static_cast<DX12GraphicsCommandList*>(ctx)->command_list.Get();
+                case CommandType::Compute:
+                    return static_cast<DX12ComputeCommandList*>(ctx)->command_list.Get();
+                case CommandType::Copy:
+                    return static_cast<DX12CopyCommandList*>(ctx)->command_list.Get();
+            }
         });
-        iter != contexts.cend()) {
-        device.GetLogger()->error(
-            "Can not submit {} command to this {} command queue",
-            fmt::styled(magic_enum::enum_name((*iter)->type), fmt::fg(fmt::color::red)),
-            fmt::styled(magic_enum::enum_name(type), fmt::fg(fmt::color::green)));
 
-        throw std::invalid_argument(fmt::format(
-            "Can not submit {} command to this {} command queue",
-            magic_enum::enum_name((*iter)->type),
-            magic_enum::enum_name(type)));
-
-        return 0;
+    for (const auto& wait_fence : wait_fences) {
+        const auto& fence = static_cast<DX12Fence&>(wait_fence.fence);
+        m_Queue->Wait(fence.GetFence().Get(), wait_fence.value);
     }
 
-    std::pmr::vector<ID3D12CommandList*> d3d_cmd_lists;
-    for (const auto& context : contexts) {
-        context->fence_value = m_NextFenceValue;
-        d3d_cmd_lists.emplace_back(dynamic_cast<DX12CommandContext*>(context)->m_CmdList.Get());
+    if (!command_lists.empty()) {
+        m_Queue->ExecuteCommandLists(command_lists.size(), command_lists.data());
     }
 
-    m_Queue->ExecuteCommandLists(d3d_cmd_lists.size(), d3d_cmd_lists.data());
-    // When queue finished all command list, it will set a new fence value `m_NextFenceValue`
-    return InsertFence();
-}
-
-bool DX12CommandQueue::IsFenceComplete(std::uint64_t fence_value) {
-    if (fence_value > m_LastCompletedFenceValue) {
-        m_LastCompletedFenceValue = m_Fence->GetCompletedValue();
+    for (const auto& signal_fence : signal_fences) {
+        const auto& fence = static_cast<DX12Fence&>(signal_fence.fence);
+        m_Queue->Signal(fence.GetFence().Get(), signal_fence.value);
     }
-    return fence_value <= m_LastCompletedFenceValue;
-}
-
-void DX12CommandQueue::WaitForFence(std::uint64_t fence_value) {
-    if (IsFenceComplete(fence_value)) return;
-
-    std::lock_guard<std::mutex> lock{m_EventMutex};
-
-    ThrowIfFailed(m_Fence->SetEventOnCompletion(fence_value, m_FenceHandle));
-    WaitForSingleObject(m_FenceHandle, INFINITE);
-    m_LastCompletedFenceValue = fence_value;
-}
-
-void DX12CommandQueue::WaitForQueue(const CommandQueue& other) {
-    auto& _other = static_cast<const DX12CommandQueue&>(other);
-    assert(_other.m_NextFenceValue > 0);
-    m_Queue->Wait(_other.m_Fence.Get(), _other.m_NextFenceValue - 1);
+    m_Queue->Signal(m_Fence.GetFence().Get(), ++m_SubmitCount);
 }
 
 void DX12CommandQueue::WaitIdle() {
-    WaitForFence(m_NextFenceValue - 1);
-}
-
-std::uint64_t DX12CommandQueue::InsertFence() {
-    std::lock_guard lock{m_FenceMutex};
-
-    ThrowIfFailed(m_Queue->Signal(m_Fence.Get(), m_NextFenceValue));
-    return m_NextFenceValue++;
+    m_Fence.Wait(m_SubmitCount);
 }
 
 }  // namespace hitagi::gfx

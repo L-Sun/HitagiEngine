@@ -72,8 +72,8 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
     for (auto ctx : contexts) {
         if (ctx->GetType() == CommandType::Graphics) {
             auto gfx_ctx = static_cast<VulkanGraphicsCommandBuffer*>(ctx);
-            if (gfx_ctx->swap_chain_image_avaliable_semaphore) {
-                wait_vk_semaphores.emplace_back(**gfx_ctx->swap_chain_image_avaliable_semaphore);
+            if (gfx_ctx->swap_chain_image_available_semaphore) {
+                wait_vk_semaphores.emplace_back(**gfx_ctx->swap_chain_image_available_semaphore);
                 wait_values.emplace_back(0);
             }
 
@@ -84,7 +84,7 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
         }
     }
 
-    vk::StructureChain subit_info{
+    const vk::StructureChain submit_info{
         vk::SubmitInfo{
             .waitSemaphoreCount   = static_cast<std::uint32_t>(wait_vk_semaphores.size()),
             .pWaitSemaphores      = wait_vk_semaphores.data(),
@@ -101,7 +101,7 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
             .pSignalSemaphoreValues    = signal_values.data(),
         }};
 
-    m_Queue.submit(subit_info.get());
+    m_Queue.submit(submit_info.get());
 }
 
 void VulkanCommandQueue::WaitIdle() {

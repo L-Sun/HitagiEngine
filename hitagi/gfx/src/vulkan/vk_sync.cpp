@@ -30,14 +30,14 @@ void VulkanTimelineSemaphore::Signal(std::uint64_t value) {
     });
 }
 
-bool VulkanTimelineSemaphore::Wait(std::uint64_t value, std::chrono::duration<double> timeout) {
+bool VulkanTimelineSemaphore::Wait(std::uint64_t value, std::chrono::milliseconds timeout) {
     return static_cast<VulkanDevice&>(m_Device).GetDevice().waitSemaphores(
                vk::SemaphoreWaitInfo{
                    .semaphoreCount = 1,
                    .pSemaphores    = &*timeline_semaphore,
                    .pValues        = &value,
                },
-               timeout.count()) == vk::Result::eSuccess;
+               std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count()) == vk::Result::eSuccess;
 }
 
 auto VulkanTimelineSemaphore::GetCurrentValue() -> std::uint64_t {

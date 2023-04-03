@@ -3,9 +3,9 @@
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-// #ifdef _WIN32
-// #include "dx12/dx12_device.hpp"
-// #endif
+#ifdef _WIN32
+#include "dx12/dx12_device.hpp"
+#endif
 
 #include "vulkan/vk_device.hpp"
 
@@ -29,11 +29,11 @@ Device::~Device() {
 auto Device::Create(Type type, std::string_view name) -> std::unique_ptr<Device> {
     switch (type) {
         case Type::DX12:
-            // #ifdef _WIN32
-            //             return std::make_unique<DX12Device>(name);
-            // #else
+#ifdef _WIN32
+            return std::make_unique<DX12Device>(name);
+#else
             return nullptr;
-            // #endif
+#endif
         case Type::Vulkan:
             return std::make_unique<VulkanDevice>(name);
         default:

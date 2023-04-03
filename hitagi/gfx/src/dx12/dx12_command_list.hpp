@@ -1,17 +1,18 @@
 #pragma once
-#include "vk_resource.hpp"
-
 #include <hitagi/gfx/command_context.hpp>
 
-#include <vulkan/vulkan_raii.hpp>
+#include <d3d12.h>
+#include <wrl.h>
+
+using namespace Microsoft::WRL;
 
 namespace hitagi::gfx {
-class VulkanDevice;
 
-class VulkanGraphicsCommandBuffer final : public GraphicsCommandContext {
+class DX12Device;
+
+class DX12GraphicsCommandList : public GraphicsCommandContext {
 public:
-    VulkanGraphicsCommandBuffer(VulkanDevice& device, std::string_view name);
-
+    DX12GraphicsCommandList(DX12Device& device, std::string_view name);
     void Begin() final;
     void End() final;
     void Reset() final;
@@ -40,20 +41,16 @@ public:
 
     void Present(SwapChain& swap_chain) final;
 
-    void CopyTexture(const Texture& src, Texture& dst) final;
+    void CopyTexture(const Texture& src, Texture& dest) final;
 
-    vk::raii::CommandBuffer              command_buffer;
-    std::shared_ptr<vk::raii::Semaphore> swap_chain_image_available_semaphore;
-    std::shared_ptr<vk::raii::Semaphore> swap_chain_presentable_semaphore;
-
-private:
-    const VulkanRenderPipeline* m_Pipeline = nullptr;
+    ComPtr<ID3D12GraphicsCommandList> command_list;
+    ComPtr<ID3D12CommandAllocator>    command_allocator;
+    const RenderPipeline*             m_Pipeline = nullptr;
 };
 
-class VulkanComputeCommandBuffer final : public ComputeCommandContext {
+class DX12ComputeCommandList : public ComputeCommandContext {
 public:
-    VulkanComputeCommandBuffer(VulkanDevice& device, std::string_view name);
-
+    DX12ComputeCommandList(DX12Device& device, std::string_view name);
     void Begin() final;
     void End() final;
     void Reset() final;
@@ -64,19 +61,16 @@ public:
         const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final;
 
     void SetPipeline(const ComputePipeline& pipeline) final;
-
     void PushBindlessInfo(const BindlessInfoOffset& info) final;
 
-    vk::raii::CommandBuffer command_buffer;
-
-private:
-    const VulkanComputePipeline* m_Pipeline = nullptr;
+    ComPtr<ID3D12GraphicsCommandList> command_list;
+    ComPtr<ID3D12CommandAllocator>    command_allocator;
+    const ComputePipeline*            m_Pipeline = nullptr;
 };
 
-class VulkanTransferCommandBuffer final : public CopyCommandContext {
+class DX12CopyCommandList : public CopyCommandContext {
 public:
-    VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name);
-
+    DX12CopyCommandList(DX12Device& device, std::string_view name);
     void Begin() final;
     void End() final;
     void Reset() final;
@@ -98,7 +92,8 @@ public:
         std::uint32_t    base_array_layer = 0,
         std::uint32_t    layer_count      = 1) final;
 
-    vk::raii::CommandBuffer command_buffer;
+    ComPtr<ID3D12GraphicsCommandList> command_list;
+    ComPtr<ID3D12CommandAllocator>    command_allocator;
 };
 
 }  // namespace hitagi::gfx

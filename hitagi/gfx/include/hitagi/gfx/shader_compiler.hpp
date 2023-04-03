@@ -6,8 +6,7 @@
 #include <unknwn.h>
 #include <wrl.h>
 #include <dxc/dxcapi.h>
-template <typename T>
-using ComPtr = Microsoft::WRL::ComPtr<T>;
+using namespace Microsoft::WRL;
 #elif defined(__linux__)
 #include <dxc/dxcapi.h>
 template <typename T>

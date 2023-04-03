@@ -56,16 +56,15 @@ protected:
 };
 
 struct TextureDesc {
-    std::string_view          name         = UNKOWN_NAME;
-    std::uint32_t             width        = 1;
-    std::uint32_t             height       = 1;
-    std::uint16_t             depth        = 1;
-    std::uint16_t             array_size   = 1;
-    Format                    format       = Format::UNKNOWN;
-    std::uint16_t             mip_levels   = 1;
-    std::uint32_t             sample_count = 1;
-    std::optional<ClearValue> clear_value  = std::nullopt;
-    TextureUsageFlags         usages       = TextureUsageFlags::SRV;
+    std::string_view          name        = UNKOWN_NAME;
+    std::uint32_t             width       = 1;
+    std::uint32_t             height      = 1;
+    std::uint16_t             depth       = 1;
+    std::uint16_t             array_size  = 1;
+    Format                    format      = Format::UNKNOWN;
+    std::uint16_t             mip_levels  = 1;
+    std::optional<ClearValue> clear_value = std::nullopt;
+    TextureUsageFlags         usages      = TextureUsageFlags::SRV;
 
     inline constexpr bool operator==(const TextureDesc&) const noexcept;
 };
@@ -97,13 +96,11 @@ struct SwapChainDesc {
 };
 class SwapChain : public Resource<SwapChainDesc> {
 public:
-    virtual auto GetTexture(std::uint32_t index) -> Texture&                        = 0;
-    virtual auto GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>> = 0;
-    virtual auto GetWidth() const noexcept -> std::uint32_t                         = 0;
-    virtual auto GetHeight() const noexcept -> std::uint32_t                        = 0;
-    virtual auto GetFormat() const noexcept -> Format                               = 0;
-    virtual void Present()                                                          = 0;
-    virtual void Resize()                                                           = 0;
+    virtual auto GetWidth() const noexcept -> std::uint32_t  = 0;
+    virtual auto GetHeight() const noexcept -> std::uint32_t = 0;
+    virtual auto GetFormat() const noexcept -> Format        = 0;
+    virtual void Present()                                   = 0;
+    virtual void Resize()                                    = 0;
 
 protected:
     using Resource::Resource;
@@ -168,7 +165,6 @@ inline constexpr bool TextureDesc::operator==(const TextureDesc& rhs) const noex
         array_size              == rhs.array_size              &&
         format                  == rhs.format                  &&
         mip_levels              == rhs.mip_levels              &&
-        sample_count            == rhs.sample_count            &&
         clear_value.has_value() == rhs.clear_value.has_value() &&
         usages                  == rhs.usages;
     // clang-format on
@@ -229,7 +225,6 @@ struct hash<hitagi::gfx::TextureDesc> {
             hitagi::utils::hash(desc.array_size),
             hitagi::utils::hash(desc.format),
             hitagi::utils::hash(desc.mip_levels),
-            hitagi::utils::hash(desc.sample_count),
             hitagi::utils::hash(desc.usages),
         });
     }

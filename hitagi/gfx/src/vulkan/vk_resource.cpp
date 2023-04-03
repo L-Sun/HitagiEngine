@@ -16,14 +16,18 @@
 namespace hitagi::gfx {
 
 VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, desc) {
-    auto logger = device.GetLogger();
+    const auto logger = device.GetLogger();
 
     logger->trace("Create buffer({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
-        vk::BufferCreateInfo buffer_create_info = {
+        const vk::BufferCreateInfo buffer_create_info = {
             .size  = m_Desc.element_size * m_Desc.element_count,
             .usage = to_vk_buffer_usage(m_Desc.usages),
         };
+        if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Index)) {
+            if (m_Desc.element_size != sizeof(std::uint16_t) && m_Desc.element_size != sizeof(std::uint32_t))
+                logger->warn("Index buffer element size must be 16 bits or 32 bits");
+        }
 
         buffer = std::make_unique<vk::raii::Buffer>(device.GetDevice(), buffer_create_info, device.GetCustomAllocator());
     }
@@ -111,7 +115,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
                 fmt::styled(magic_enum::enum_flags_name(GPUBufferUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
                 fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
             logger->error(error_message);
-            throw std::runtime_error(error_message);
+            throw std::invalid_argument(error_message);
         }
     }
 
@@ -127,7 +131,7 @@ auto VulkanBuffer::GetMappedPtr() const noexcept -> std::byte* {
 }
 
 VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(device, desc) {
-    auto logger = device.GetLogger();
+    const auto logger = device.GetLogger();
 
     logger->trace("Create Texture({})...", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
@@ -139,7 +143,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 fmt::styled(m_Desc.height, fmt::fg(fmt::color::red)),
                 fmt::styled(m_Desc.depth, fmt::fg(fmt::color::red)));
             logger->error(error_message);
-            throw std::runtime_error(error_message);
+            throw std::invalid_argument(error_message);
         }
 
         image        = vk::raii::Image(device.GetDevice(), to_vk_image_create_info(m_Desc), device.GetCustomAllocator());
@@ -184,7 +188,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                     "the texture({}) can not be cube texture because the texture view type is not 2D texture array!",
                     fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
                 logger->error(error_message);
-                throw std::runtime_error(error_message);
+                throw std::invalid_argument(error_message);
             }
         }
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::Cube | TextureUsageFlags::CubeArray)) {
@@ -192,7 +196,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 "the texture({}) can not be cube texture and cube array at same time!",
                 fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
             logger->error(error_message);
-            throw std::runtime_error(error_message);
+            throw std::invalid_argument(error_message);
         }
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::Cube)) {
             image_view_type = vk::ImageViewType::eCube;
@@ -201,7 +205,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
             image_view_type = vk::ImageViewType::eCubeArray;
         }
 
-        vk::ImageViewCreateInfo image_view_create_info{
+        const vk::ImageViewCreateInfo image_view_create_info{
             .image    = **image,
             .viewType = image_view_type,
             .format   = to_vk_format(m_Desc.format),
@@ -285,7 +289,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 fmt::styled(magic_enum::enum_flags_name(TextureUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
                 fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
             logger->error(error_message);
-            throw std::runtime_error(error_message);
+            throw std::invalid_argument(error_message);
         }
     }
 }
@@ -333,9 +337,9 @@ VulkanSampler::VulkanSampler(VulkanDevice& device, SamplerDesc desc) : Sampler(d
 }
 
 VulkanSwapChain::SemaphorePair::SemaphorePair(VulkanDevice& device, std::string_view name)
-    : image_avaiable(std::make_shared<vk::raii::Semaphore>(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())),
+    : image_available(std::make_shared<vk::raii::Semaphore>(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())),
       presentable(std::make_shared<vk::raii::Semaphore>(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())) {
-    create_vk_debug_object_info(*image_avaiable, fmt::format("{}-image-avaiable", name), device.GetDevice());
+    create_vk_debug_object_info(*image_available, fmt::format("{}-image-available", name), device.GetDevice());
     create_vk_debug_object_info(*presentable, fmt::format("{}-presentable", name), device.GetDevice());
 }
 
@@ -402,7 +406,7 @@ auto VulkanSwapChain::AcquireImageForRendering() -> VulkanImage& {
 
     auto [result, index] = m_SwapChain->acquireNextImage(
         std::numeric_limits<std::uint64_t>::max(),
-        **m_SemaphorePair.image_avaiable);
+        **m_SemaphorePair.image_available);
 
     if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) {
         throw std::runtime_error("failed to acquire next image");
@@ -411,19 +415,6 @@ auto VulkanSwapChain::AcquireImageForRendering() -> VulkanImage& {
     m_CurrentIndex = index;
 
     return m_Images[m_CurrentIndex];
-}
-
-auto VulkanSwapChain::GetTexture(std::uint32_t index) -> Texture& {
-    return m_Images.at(index);
-}
-
-auto VulkanSwapChain::GetTextures() -> std::pmr::vector<std::reference_wrapper<Texture>> {
-    std::pmr::vector<std::reference_wrapper<Texture>> result;
-    std::transform(
-        m_Images.begin(), m_Images.end(),
-        std::back_inserter(result),
-        [](auto& image) { return std::ref(static_cast<Texture&>(image)); });
-    return result;
 }
 
 void VulkanSwapChain::Present() {
@@ -546,7 +537,7 @@ void VulkanSwapChain::CreateImageViews() {
 }
 
 VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc, std::span<const std::byte> _binary_program)
-    : Shader(device, desc),
+    : Shader(device, std::move(desc)),
       binary_program(_binary_program.empty() ? device.GetShaderCompiler().CompileToSPIRV(m_Desc) : _binary_program),
       shader(
           device.GetDevice(),
@@ -565,7 +556,7 @@ auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
 }
 
 VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc) : RenderPipeline(device, std::move(desc)) {
-    auto logger = device.GetLogger();
+    const auto logger = device.GetLogger();
 
     if (std::find_if(
             m_Desc.shaders.begin(), m_Desc.shaders.end(),
@@ -573,11 +564,11 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
                 auto shader = _shader.lock();
                 return shader && shader->GetDesc().type == ShaderType::Vertex;
             }) == m_Desc.shaders.end()) {
-        auto error_message = fmt::format(
+        const auto error_message = fmt::format(
             "Vertex shader is not specified for pipeline({})",
             fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
         logger->error(error_message);
-        throw std::runtime_error(error_message);
+        throw std::invalid_argument(error_message);
     }
 
     std::pmr::vector<vk::PipelineShaderStageCreateInfo> shader_stage_create_infos;
@@ -625,7 +616,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
             });
         auto iter = std::unique(vertex_input_binding_descriptions.begin(), vertex_input_binding_descriptions.end(), [](const auto& lhs, const auto& rhs) {
             if (lhs.binding == rhs.binding && (lhs.stride != rhs.stride || lhs.inputRate != rhs.inputRate))
-                throw std::runtime_error("Vertex input binding description is not same");
+                throw std::invalid_argument("Vertex input binding description is not same");
             return lhs.binding == rhs.binding;
         });
         vertex_input_binding_descriptions.erase(iter, vertex_input_binding_descriptions.end());
@@ -700,17 +691,17 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
 }
 
 VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc) : ComputePipeline(device, std::move(desc)) {
-    auto logger = device.GetLogger();
+    const auto logger = device.GetLogger();
 
     auto compute_shader = std::static_pointer_cast<VulkanShader>(m_Desc.cs.lock());
 
     if (compute_shader == nullptr) {
         const auto error_message = fmt::format("Compute shader is not specified for pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
         logger->error(error_message);
-        throw std::runtime_error(error_message);
+        throw std::invalid_argument(error_message);
     }
 
-    vk::PipelineShaderStageCreateInfo shader_stage_create_info{
+    const vk::PipelineShaderStageCreateInfo shader_stage_create_info{
         .stage  = vk::ShaderStageFlagBits::eCompute,
         .module = *compute_shader->shader,
         .pName  = compute_shader->GetDesc().entry.data(),
