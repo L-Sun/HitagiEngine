@@ -11,7 +11,7 @@
 
 namespace hitagi::gfx {
 
-constexpr std::array required_instance_layers = {
+constexpr std::array<const char*, 0> required_instance_layers = {
 #ifdef HITAGI_DEBUG
     "VK_LAYER_KHRONOS_validation",
 #endif

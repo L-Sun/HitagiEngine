@@ -11,10 +11,6 @@
 #include <vulkan/vulkan_raii.hpp>
 
 namespace hitagi::gfx {
-auto custom_vk_allocation_fn(void*, std::size_t, std::size_t, VkSystemAllocationScope) -> void*;
-auto custom_vk_reallocation_fn(void*, void*, std::size_t, std::size_t, VkSystemAllocationScope) -> void*;
-auto custom_vk_free_fn(void*, void*) -> void;
-
 VulkanDevice::VulkanDevice(std::string_view name)
     : Device(Device::Type::Vulkan, name),
       m_CustomAllocator{
@@ -52,6 +48,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
             GetCustomAllocator());
     }
 
+#ifdef HITAGI_DEBUG
     m_Logger->trace("Enable validation message logger...");
     {
         m_DebugUtilsMessenger = std::make_unique<vk::raii::DebugUtilsMessengerEXT>(
@@ -70,6 +67,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
             },
             GetCustomAllocator());
     }
+#endif
 
     m_Logger->trace("Pick GPU...");
     {

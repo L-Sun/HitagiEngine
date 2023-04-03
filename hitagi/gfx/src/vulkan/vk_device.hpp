@@ -54,9 +54,12 @@ private:
     using AllocationRecord = std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>>;
     AllocationRecord m_CustomAllocationRecord;
 
-    vk::raii::Context                                 m_Context;
-    std::unique_ptr<vk::raii::Instance>               m_Instance;
+    vk::raii::Context                   m_Context;
+    std::unique_ptr<vk::raii::Instance> m_Instance;
+
+#ifdef HITAGI_DEBUG
     std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> m_DebugUtilsMessenger;
+#endif
 
     std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
     std::unique_ptr<vk::raii::Device>         m_Device;

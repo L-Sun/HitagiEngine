@@ -2,7 +2,6 @@
 #include "dx12_command_queue.hpp"
 #include "dx12_command_list.hpp"
 #include "dx12_resource.hpp"
-#include "utils.hpp"
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <fmt/color.h>
@@ -57,35 +56,35 @@ DX12Device::DX12Device(std::string_view name)
             m_Logger->trace("\t {}", std::pmr::string(description.begin(), description.end()));
             adapters.emplace_back(std::move(p_adapter));
         }
-        // m_Logger->trace("Filter by feature support");
-        // std::erase_if(adapters, [this](const ComPtr<IDXGIAdapter>& adapter) -> bool {
-        //     ComPtr<ID3D12Device> device;
-        //     if (FAILED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&device)))) {
-        //         return true;
-        //     }
+        m_Logger->trace("Filter by feature support");
+        std::erase_if(adapters, [this](const ComPtr<IDXGIAdapter>& adapter) -> bool {
+            ComPtr<ID3D12Device> device;
+            if (FAILED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&device)))) {
+                return true;
+            }
 
-        //     CD3DX12FeatureSupport feature_support;
-        //     if (FAILED(feature_support.Init(device.Get()))) {
-        //         return true;
-        //     }
+            CD3DX12FeatureSupport feature_support;
+            if (FAILED(feature_support.Init(device.Get()))) {
+                return true;
+            }
 
-        //     if (!feature_support.EnhancedBarriersSupported()) {
-        //         m_Logger->error("EnhancedBarriers Not Supported");
-        //         return true;
-        //     }
+            if (!feature_support.EnhancedBarriersSupported()) {
+                m_Logger->error("EnhancedBarriers Not Supported");
+                return true;
+            }
 
-        //     return false;
-        // });
-        // if (adapters.empty()) {
-        //     m_Logger->error("No suitable GPU found.");
-        //     throw std::runtime_error("No suitable GPU found.");
-        // }
-        // {
-        //     DXGI_ADAPTER_DESC desc;
-        //     adapters.front()->GetDesc(&desc);
-        //     std::pmr::wstring description = desc.Description;
-        //     m_Logger->trace("Pick: {}", std::pmr::string(description.begin(), description.end()));
-        // }
+            return false;
+        });
+        if (adapters.empty()) {
+            m_Logger->error("No suitable GPU found.");
+            throw std::runtime_error("No suitable GPU found.");
+        }
+        {
+            DXGI_ADAPTER_DESC desc;
+            adapters.front()->GetDesc(&desc);
+            std::pmr::wstring description = desc.Description;
+            m_Logger->trace("Pick: {}", std::pmr::string(description.begin(), description.end()));
+        }
         adapters.front().As(&m_Adapter);
     }
 
@@ -102,7 +101,7 @@ DX12Device::DX12Device(std::string_view name)
     }
 
     m_Logger->trace("Initial logger for D3D12");
-    // IntegrateD3D12Logger();
+    IntegrateD3D12Logger();
 
     m_Logger->trace("Create D3D12 Memory Allocator");
     {
@@ -149,7 +148,7 @@ DX12Device::DX12Device(std::string_view name)
 }
 
 DX12Device::~DX12Device() {
-    // UnregisterIntegratedD3D12Logger();
+    UnregisterIntegratedD3D12Logger();
 #ifdef HITAGI_DEBUG
     if (FAILED(m_Device->QueryInterface(g_debug_interface.ReleaseAndGetAddressOf()))) {
         m_Logger->error("Failed to get debug interface.");

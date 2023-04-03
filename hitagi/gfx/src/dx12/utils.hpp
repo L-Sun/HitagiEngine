@@ -1244,7 +1244,7 @@ inline constexpr auto to_d3d_global_barrier(GlobalBarrier barrier) noexcept -> D
     };
 }
 
-inline constexpr auto to_d3d_buffer_barrier(GPUBufferBarrier barrier) noexcept -> D3D12_BUFFER_BARRIER {
+inline auto to_d3d_buffer_barrier(GPUBufferBarrier barrier) noexcept -> D3D12_BUFFER_BARRIER {
     return {
         .SyncBefore   = to_d3d_pipeline_stage(barrier.src_stage),
         .SyncAfter    = to_d3d_pipeline_stage(barrier.dst_stage),
@@ -1256,7 +1256,7 @@ inline constexpr auto to_d3d_buffer_barrier(GPUBufferBarrier barrier) noexcept -
     };
 }
 
-inline constexpr auto to_d3d_texture_barrier(TextureBarrier barrier) noexcept -> D3D12_TEXTURE_BARRIER {
+inline auto to_d3d_texture_barrier(TextureBarrier barrier) noexcept -> D3D12_TEXTURE_BARRIER {
     return {
         .SyncBefore   = to_d3d_pipeline_stage(barrier.src_stage),
         .SyncAfter    = to_d3d_pipeline_stage(barrier.dst_stage),

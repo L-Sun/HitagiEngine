@@ -12,7 +12,6 @@ class Fence;
 
 constexpr auto UNKOWN_NAME = "Unkown";
 
-template <typename Desc>
 class Resource {
 public:
     Resource(const Resource&)                = delete;
@@ -21,16 +20,25 @@ public:
     Resource& operator=(Resource&&) noexcept = delete;
     virtual ~Resource()                      = default;
 
-    inline auto  GetName() const noexcept -> std::string_view { return m_Desc.name; }
     inline auto& GetDevice() const noexcept { return m_Device; }
-    inline auto& GetDesc() const noexcept { return m_Desc; }
+    inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
 
 protected:
-    Resource(Device& device, Desc desc) : m_Device(device), m_Name(desc.name), m_Desc(std::move(desc)) { m_Desc.name = m_Name; }
+    Resource(Device& device, std::string_view name) : m_Device(device), m_Name(name) {}
 
     Device&          m_Device;
     std::pmr::string m_Name;
-    Desc             m_Desc;
+};
+
+template <typename Desc>
+class ResourceWithDesc : public Resource {
+public:
+    inline auto& GetDesc() const noexcept { return m_Desc; }
+
+protected:
+    ResourceWithDesc(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(std::move(desc)) { m_Desc.name = m_Name; }
+
+    Desc m_Desc;
 };
 
 struct GPUBufferDesc {
@@ -42,7 +50,7 @@ struct GPUBufferDesc {
     inline constexpr bool operator==(const GPUBufferDesc&) const noexcept;
 };
 
-class GPUBuffer : public Resource<GPUBufferDesc> {
+class GPUBuffer : public ResourceWithDesc<GPUBufferDesc> {
 public:
     template <typename T>
     void Update(std::size_t index, T data) {
@@ -51,7 +59,7 @@ public:
     virtual auto GetMappedPtr() const noexcept -> std::byte* = 0;
 
 protected:
-    using Resource::Resource;
+    using ResourceWithDesc::ResourceWithDesc;
     void UpdateRaw(std::size_t index, std::span<const std::byte> data);
 };
 
@@ -68,7 +76,7 @@ struct TextureDesc {
 
     inline constexpr bool operator==(const TextureDesc&) const noexcept;
 };
-using Texture = Resource<TextureDesc>;
+using Texture = ResourceWithDesc<TextureDesc>;
 
 struct SamplerDesc {
     std::string_view name           = UNKOWN_NAME;
@@ -85,7 +93,7 @@ struct SamplerDesc {
 
     inline constexpr bool operator==(const SamplerDesc&) const noexcept;
 };
-using Sampler = Resource<SamplerDesc>;
+using Sampler = ResourceWithDesc<SamplerDesc>;
 
 struct SwapChainDesc {
     std::string_view          name = UNKOWN_NAME;
@@ -94,7 +102,7 @@ struct SwapChainDesc {
     std::uint32_t             sample_count = 1;
     bool                      vsync        = false;
 };
-class SwapChain : public Resource<SwapChainDesc> {
+class SwapChain : public ResourceWithDesc<SwapChainDesc> {
 public:
     virtual auto GetWidth() const noexcept -> std::uint32_t  = 0;
     virtual auto GetHeight() const noexcept -> std::uint32_t = 0;
@@ -103,7 +111,7 @@ public:
     virtual void Resize()                                    = 0;
 
 protected:
-    using Resource::Resource;
+    using ResourceWithDesc::ResourceWithDesc;
 };
 
 struct ShaderDesc {
@@ -114,13 +122,13 @@ struct ShaderDesc {
     std::filesystem::path path;
 };
 
-class Shader : public Resource<ShaderDesc> {
+class Shader : public ResourceWithDesc<ShaderDesc> {
 public:
     virtual auto GetDXILData() const noexcept -> std::span<const std::byte>;
     virtual auto GetSPIRVData() const noexcept -> std::span<const std::byte>;
 
 protected:
-    using Resource::Resource;
+    using ResourceWithDesc::ResourceWithDesc;
 };
 
 struct RenderPipelineDesc {
@@ -136,14 +144,14 @@ struct RenderPipelineDesc {
     Format             render_format        = Format::R8G8B8A8_UNORM;
     Format             depth_stencil_format = Format::UNKNOWN;
 };
-using RenderPipeline = Resource<RenderPipelineDesc>;
+using RenderPipeline = ResourceWithDesc<RenderPipelineDesc>;
 
 struct ComputePipelineDesc {
     std::string_view name = UNKOWN_NAME;
 
     std::weak_ptr<Shader> cs;  // computer shader
 };
-using ComputePipeline = Resource<ComputePipelineDesc>;
+using ComputePipeline = ResourceWithDesc<ComputePipelineDesc>;
 
 inline constexpr bool GPUBufferDesc::operator==(const GPUBufferDesc& rhs) const noexcept {
     // clang-format off

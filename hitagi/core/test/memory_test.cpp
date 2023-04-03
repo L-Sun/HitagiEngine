@@ -40,6 +40,7 @@ TEST(MemoryTest, PmrContainer) {
     }
 }
 
+#include <spdlog/spdlog.h>
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     auto memory_manager = std::make_unique<MemoryManager>();
