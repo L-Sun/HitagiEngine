@@ -51,7 +51,7 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
     auto logger = m_Logger ? m_Logger : spdlog::default_logger();
 
     if (buffer.Empty()) {
-        logger->error("[MaterialPaser] Can not parse empty buffer!");
+        logger->error("[MaterialParser] Can not parse empty buffer!");
         return nullptr;
     }
 
@@ -59,23 +59,26 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
     try {
         json = nlohmann::json::parse(buffer.Span<char>());
 
-        gfx::RenderPipeline::Desc pipeline_desc{
-            .vs = {
+        std::pmr::vector<gfx::ShaderDesc> shader_desc = {
+            {
                 .name        = json.at("pipeline").at("vs"),
                 .type        = gfx::ShaderType::Vertex,
                 .entry       = "VSMain",
                 .source_code = std::pmr::string{file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("vs")).Str()},
+                .path        = json.at("pipeline").at("vs"),
             },
-            .ps = {
+            {
                 .name        = json.at("pipeline").at("ps"),
                 .type        = gfx::ShaderType::Pixel,
                 .entry       = "PSMain",
                 .source_code = std::pmr::string{file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("ps")).Str()},
-            },
-        };
+                .path        = json.at("pipeline").at("ps"),
+            }};
+
+        gfx::RenderPipelineDesc pipeline_desc{};
 
         if (json.at("pipeline").contains("primitive")) {
-            pipeline_desc.topology = json.at("pipeline")["primitive"].get<gfx::PrimitiveTopology>();
+            pipeline_desc.assembly_state.primitive = json.at("pipeline")["primitive"].get<gfx::PrimitiveTopology>();
         }
 
         std::pmr::vector<Material::Parameter> parameters;
@@ -127,7 +130,7 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
             }
         }
         const std::string& name = json.at("name");
-        return Material::Create(std::move(pipeline_desc), std::move(parameters), name);
+        return Material::Create(std::move(shader_desc), std::move(pipeline_desc), std::move(parameters), name);
     } catch (nlohmann::json::exception& ex) {
         logger->error(ex.what());
         return nullptr;

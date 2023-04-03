@@ -26,10 +26,11 @@ public:
 
     virtual auto CreateFence(std::uint64_t initial_value = 0, std::string_view name = "") -> std::shared_ptr<Fence> = 0;
 
-    virtual auto GetCommandQueue(CommandType type) const -> CommandQueue&                                     = 0;
-    virtual auto CreateGraphicsContext(std::string_view name = "") -> std::shared_ptr<GraphicsCommandContext> = 0;
-    virtual auto CreateComputeContext(std::string_view name = "") -> std::shared_ptr<ComputeCommandContext>   = 0;
-    virtual auto CreateCopyContext(std::string_view name = "") -> std::shared_ptr<CopyCommandContext>         = 0;
+    virtual auto GetCommandQueue(CommandType type) const -> CommandQueue&                                              = 0;
+    virtual auto CreateCommandContext(CommandType type, std::string_view name = "") -> std::shared_ptr<CommandContext> = 0;
+    inline auto  CreateGraphicsContext(std::string_view name = "") -> std::shared_ptr<GraphicsCommandContext>;
+    inline auto  CreateComputeContext(std::string_view name = "") -> std::shared_ptr<ComputeCommandContext>;
+    inline auto  CreateCopyContext(std::string_view name = "") -> std::shared_ptr<CopyCommandContext>;
 
     virtual auto CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain>                                               = 0;
     virtual auto CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> = 0;
@@ -53,4 +54,15 @@ protected:
     std::shared_ptr<spdlog::logger> m_Logger;
     std::function<void()>           report_debug_error_after_destroy_fn;
 };
+
+inline auto Device::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {
+    return std::static_pointer_cast<GraphicsCommandContext>(CreateCommandContext(CommandType::Graphics, name));
+};
+inline auto Device::CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> {
+    return std::static_pointer_cast<ComputeCommandContext>(CreateCommandContext(CommandType::Compute, name));
+};
+inline auto Device::CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> {
+    return std::static_pointer_cast<CopyCommandContext>(CreateCommandContext(CommandType::Copy, name));
+};
+
 }  // namespace hitagi::gfx

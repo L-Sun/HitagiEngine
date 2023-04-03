@@ -4,35 +4,49 @@
 
 using namespace hitagi::gfx;
 using namespace hitagi::math;
+using namespace testing;
 
-class RenderGraphTest : public ::testing::Test {
+constexpr std::array supported_device_types = {
+#ifdef _WIN32
+    Device::Type::DX12,
+#endif
+    Device::Type::Vulkan,
+};
+
+class RenderGraphTest : public TestWithParam<Device::Type> {
 public:
-    RenderGraphTest() : device(Device::Create(
-                            Device::Type::DX12,
-                            fmt::format("{}-Device", ::testing::UnitTest::GetInstance()->current_test_info()->name()))) {}
-    std::unique_ptr<Device> device;
+    RenderGraphTest()
+        : test_name(UnitTest::GetInstance()->current_test_info()->name()),
+          device(Device::Create(GetParam(), test_name)) {}
 
     void SetUp() final {
         ASSERT_TRUE(device != nullptr);
     }
-};
 
-TEST_F(RenderGraphTest, RenderPass) {
+    std::pmr::string        test_name;
+    std::unique_ptr<Device> device;
+};
+INSTANTIATE_TEST_SUITE_P(
+    RenderGraphTest,
+    RenderGraphTest,
+    ValuesIn(supported_device_types),
+    [](const TestParamInfo<Device::Type>& info) -> std::string {
+        return std::string{magic_enum::enum_name(info.param)};
+    });
+
+TEST_P(RenderGraphTest, RenderPass) {
     auto app = hitagi::Application::CreateApp(hitagi::AppConfig{
-        .title = "RenderPass_Test",
+        .title = std::pmr::string{fmt::format("App-{}", test_name)},
     });
     {
         auto swap_chain = device->CreateSwapChain(
             {
-                .name   = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+                .name   = fmt::format("swap-chain-{}", test_name),
                 .window = app->GetWindow(),
-                .format = Format::R8G8B8A8_UNORM,
             });
-        auto& back_buffer = swap_chain->GetCurrentBackBuffer();
 
         constexpr std::string_view shader_code = R"""(
-            #define RSDEF                                    \
-            "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)"  \
+            #include "bindless.hlsl"
 
             struct VS_INPUT {
                 float4 pos : POSITION;
@@ -44,7 +58,6 @@ TEST_F(RenderGraphTest, RenderPass) {
                 float3 col : COLOR;
             };
 
-            [RootSignature(RSDEF)]
             PS_INPUT VSMain(VS_INPUT input) {
                 PS_INPUT output;
                 output.pos = input.pos;
@@ -57,27 +70,29 @@ TEST_F(RenderGraphTest, RenderPass) {
             }
         )""";
 
+        auto vs = device->CreateShader({
+            .name        = fmt::format("vertex-shader-{}", test_name),
+            .type        = ShaderType::Vertex,
+            .entry       = "VSMain",
+            .source_code = shader_code,
+        });
+        auto ps = device->CreateShader({
+            .name        = fmt::format("pixel-shader-{}", test_name),
+            .type        = ShaderType::Pixel,
+            .entry       = "PSMain",
+            .source_code = shader_code,
+        });
+
         auto pipeline = device->CreateRenderPipeline({
-            .name = "I know DirectX12 pipeline",
-            .vs   = {
-                  .name        = "I know DirectX12 vertex shader",
-                  .type        = ShaderType::Vertex,
-                  .entry       = "VSMain",
-                  .source_code = std::pmr::string(shader_code),
-            },
-            .ps = {
-                .name        = "I know DirectX12 pixel shader",
-                .type        = ShaderType::Pixel,
-                .entry       = "PSMain",
-                .source_code = std::pmr::string(shader_code),
-            },
-            .input_layout = {
+            .name                = fmt::format("pipeline-{}", test_name),
+            .shaders             = {vs, ps},
+            .vertex_input_layout = {
                 // clang-format off
-                {"POSITION", 0, 0,             0, Format::R32G32B32_FLOAT},
-                {   "COLOR", 0, 0, sizeof(vec3f), Format::R32G32B32_FLOAT},
+                {"POSITION", 0, Format::R32G32B32_FLOAT, 0,             0, 2*sizeof(vec3f)},
+                {   "COLOR", 0, Format::R32G32B32_FLOAT, 0, sizeof(vec3f), 2*sizeof(vec3f)},
                 // clang-format on
             },
-            .rasterizer_config = {
+            .rasterization_state = {
                 .front_counter_clockwise = false,
             },
         });
@@ -94,14 +109,14 @@ TEST_F(RenderGraphTest, RenderPass) {
                 .name          = "triangle",
                 .element_size  = 2 * sizeof(vec3f),
                 .element_count = 3,
-                .usages        = GPUBufferUsageFlags::Vertex,
+                .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
             },
             {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
         RenderGraph rg(*device);
 
         auto vertex_buffer_handle = rg.Import("vertex_buffer", vertex_buffer);
-        auto back_buffer_handle   = rg.ImportWithoutLifeTrack("back_buffer", &back_buffer);
+        auto swap_chain_handle    = rg.ImportWithoutLifeTrack("swap_chain", swap_chain.get());
 
         struct ColorPass {
             ResourceHandle vertices;
@@ -111,24 +126,26 @@ TEST_F(RenderGraphTest, RenderPass) {
             "color",
             [&](RenderGraph::Builder& builder, ColorPass& data) {
                 data.vertices = builder.Read(vertex_buffer_handle);
-                data.output   = builder.Write(back_buffer_handle);
+                data.output   = builder.Write(swap_chain_handle);
             },
             [=](const RenderGraph::ResourceHelper& helper, const ColorPass& data, GraphicsCommandContext* context) {
-                auto& render_target = helper.Get<Texture>(data.output);
+                auto& render_target = helper.Get<SwapChain>(data.output);
 
                 context->SetPipeline(*pipeline);
-                context->SetRenderTarget(render_target);
+                context->BeginRendering({
+                    .render_target = render_target,
+                });
                 context->SetViewPort(ViewPort{
                     .x      = 0,
                     .y      = 0,
-                    .width  = static_cast<float>(render_target.GetDesc().width),
-                    .height = static_cast<float>(render_target.GetDesc().height),
+                    .width  = static_cast<float>(render_target.GetWidth()),
+                    .height = static_cast<float>(render_target.GetHeight()),
                 });
                 context->SetScissorRect(hitagi::gfx::Rect{
                     .x      = 0,
                     .y      = 0,
-                    .width  = render_target.GetDesc().width,
-                    .height = render_target.GetDesc().height,
+                    .width  = render_target.GetWidth(),
+                    .height = render_target.GetHeight(),
                 });
                 context->SetVertexBuffer(0, helper.Get<GPUBuffer>(data.vertices));
                 context->Draw(3);
@@ -144,6 +161,6 @@ TEST_F(RenderGraphTest, RenderPass) {
 
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::debug);
-    ::testing::InitGoogleTest(&argc, argv);
+    InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

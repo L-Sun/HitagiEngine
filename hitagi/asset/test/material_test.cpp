@@ -12,6 +12,7 @@ using namespace hitagi::utils;
 TEST(MaterialTest, InitMaterial) {
     auto mat = Material::Create(
         {},
+        {},
         {
             {.name = "param1", .value = vec2f{}},
             {.name = "param2", .value = vec4f{}},
@@ -28,12 +29,13 @@ TEST(MaterialTest, InitMaterial) {
 
     EXPECT_FALSE(instance->GetParameter<vec3f>("param1").has_value()) << "Can not get parameter with unmatched type.";
     EXPECT_FALSE(instance->GetParameter<vec4f>("param2").has_value()) << "Can not get override parameter.";
-    EXPECT_FALSE(instance->GetParameter<vec4f>("param-no-exists").has_value()) << "Can not get unexist parameter.";
+    EXPECT_FALSE(instance->GetParameter<vec4f>("param-no-exists").has_value()) << "Can not get no exists parameter.";
 }
 
 TEST(MaterialTest, InstanceDefaultValue) {
     auto tex = std::make_shared<Texture>(128, 128);
     auto mat = Material::Create(
+        {},
         {},
         {
             {.name = "param1", .value = float{1.0f}},
@@ -51,6 +53,7 @@ TEST(MaterialTest, InstanceDefaultValue) {
 
 TEST(MaterialTest, ParameterLayout) {
     auto mat = Material::Create(
+        {},
         {},
         {
             {.name = "param1", .value = vec2f{1, 2}},                        //  8 bytes                     =  8 bytes
@@ -76,6 +79,7 @@ TEST(MaterialTest, ParameterLayout) {
 TEST(MaterialTest, InstanceChangeValue) {
     auto tex = std::make_shared<Texture>(128, 128);
     auto mat = Material::Create(
+        {},
         {},
         {
             {.name = "param1", .value = float{1.0f}},

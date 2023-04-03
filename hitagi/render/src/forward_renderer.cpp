@@ -18,12 +18,10 @@ ForwardRenderer::ForwardRenderer(const Application& app, gfx::Device::Type gfx_d
       m_SwapChain(m_GfxDevice->CreateSwapChain({
           .name   = "SwapChain",
           .window = app.GetWindow(),
-          .format = gfx::Format::R8G8B8A8_UNORM,
       })),
       m_RenderGraph(*m_GfxDevice),
       m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, *m_GfxDevice) : nullptr) {
     m_Clock.Start();
-    ClearPass();
 }
 
 ForwardRenderer::~ForwardRenderer() { m_GfxDevice->WaitIdle(); }
@@ -67,8 +65,6 @@ void ForwardRenderer::Tick() {
 
     m_GfxDevice->Profile(m_FrameIndex);
     m_Clock.Tick();
-
-    ClearPass();
 }
 
 auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::CameraNode& camera, std::optional<gfx::ViewPort> viewport, std::optional<math::vec2u> texture_size) -> gfx::ResourceHandle {
@@ -94,6 +90,14 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
     };
     struct InstanceConstant {
         math::mat4f model;
+    };
+
+    struct BindlessInfo {
+        gfx::BindlessHandle                frame_constant;
+        gfx::BindlessHandle                instance_constant;
+        gfx::BindlessHandle                material;
+        std::array<gfx::BindlessHandle, 4> textures;
+        gfx::BindlessHandle                sampler;
     };
 
     // use shared_ptr to avoid unnecessary copying
@@ -150,32 +154,32 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
         "ColorPass",
         [&](gfx::RenderGraph::Builder& builder, ColorPass& data) {
             if (texture_size.has_value()) {
-                data.color = builder.Create(gfx::Texture::Desc{
+                data.color = builder.Create(gfx::TextureDesc{
                     .name   = "scene-output",
                     .width  = static_cast<std::uint32_t>(texture_size->x),
                     .height = static_cast<std::uint32_t>(texture_size->y),
                     .format = gfx::Format::R8G8B8A8_UNORM,
                     .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::RTV,
                 });
-                data.depth = builder.Create(gfx::Texture::Desc{
+                data.depth = builder.Create(gfx::TextureDesc{
                     .name        = "scene-depth",
                     .width       = static_cast<std::uint32_t>(texture_size->x),
                     .height      = static_cast<std::uint32_t>(texture_size->y),
                     .format      = gfx::Format::D16_UNORM,
-                    .clear_value = {
+                    .clear_value = gfx::ClearDepthStencil{
                         .depth   = 1.0f,
                         .stencil = 0,
                     },
                     .usages = gfx::TextureUsageFlags::DSV,
                 });
             } else {
-                data.color = builder.Write(m_BackBufferHandle);
-                data.depth = builder.Create(gfx::Texture::Desc{
+                data.color = builder.Write(m_SwapChianHandle);
+                data.depth = builder.Create(gfx::TextureDesc{
                     .name        = "scene-depth",
-                    .width       = static_cast<std::uint32_t>(m_SwapChain->Width()),
-                    .height      = static_cast<std::uint32_t>(m_SwapChain->Height()),
+                    .width       = static_cast<std::uint32_t>(m_SwapChain->GetWidth()),
+                    .height      = static_cast<std::uint32_t>(m_SwapChain->GetHeight()),
                     .format      = gfx::Format::D16_UNORM,
-                    .clear_value = {
+                    .clear_value = gfx::ClearDepthStencil{
                         .depth   = 1.0f,
                         .stencil = 0,
                     },
@@ -183,13 +187,19 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 });
             }
 
-            data.frame_constant = builder.Create(gfx::GPUBuffer::Desc{
+            data.bindless_info_buffer = builder.Create(gfx::GPUBufferDesc{
+                .name         = "bindless-info",
+                .element_size = sizeof(BindlessInfo),
+                .usages       = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+            });
+
+            data.frame_constant = builder.Create(gfx::GPUBufferDesc{
                 .name         = "frame-constant",
                 .element_size = sizeof(FrameConstant),
                 .usages       = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
             });
 
-            data.instance_constant = builder.Create(gfx::GPUBuffer::Desc{
+            data.instance_constant = builder.Create(gfx::GPUBufferDesc{
                 .name          = "instant-constant",
                 .element_size  = sizeof(InstanceConstant),
                 .element_count = scene.instance_nodes.size(),
@@ -197,7 +207,7 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
             });
 
             for (const auto& material : materials) {
-                data.material_constants[material.get()] = builder.Create(gfx::GPUBuffer::Desc{
+                data.material_constants[material.get()] = builder.Create(gfx::GPUBufferDesc{
                     .name          = material->GetName(),
                     .element_size  = material->CalculateMaterialBufferSize(),
                     .element_count = material->GetNumInstances(),
@@ -222,6 +232,8 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
         },
         [=](const gfx::RenderGraph::ResourceHelper& helper, const ColorPass& data, gfx::GraphicsCommandContext* context) mutable {
             helper.Get<gfx::GPUBuffer>(data.frame_constant).Update(0, frame_constant);
+
+            auto& bindless_info = helper.Get<gfx::GPUBuffer>(data.bindless_info_buffer);
 
             auto& instance_constant = helper.Get<gfx::GPUBuffer>(data.instance_constant);
 
@@ -258,9 +270,10 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
 
             auto& render_target = helper.Get<gfx::Texture>(data.color);
             auto& depth_buffer  = helper.Get<gfx::Texture>(data.depth);
-            context->SetRenderTargetAndDepthStencil(render_target, depth_buffer);
-            context->ClearRenderTarget(render_target);
-            context->ClearDepthStencil(depth_buffer);
+            context->BeginRendering({
+                .render_target = render_target,
+                .depth_stencil = depth_buffer,
+            });
 
             if (!viewport.has_value()) {
                 viewport = gfx::ViewPort{
@@ -278,41 +291,20 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
                 .width  = static_cast<std::uint32_t>(viewport->width),
                 .height = static_cast<std::uint32_t>(viewport->height)});
 
-            gfx::RenderPipeline* curr_pipeline     = nullptr;
-            asset::VertexArray*  curr_vertices     = nullptr;
-            asset::IndexArray*   curr_indices      = nullptr;
-            asset::MeshNode*     curr_instance     = nullptr;
-            gfx::GPUBuffer*      material_constant = nullptr;
             for (const auto& draw_call : *draw_items) {
                 if (draw_call.material->GetPipeline() == nullptr) continue;
 
-                if (curr_pipeline != draw_call.material->GetPipeline().get()) {
-                    curr_pipeline = draw_call.material->GetPipeline().get();
-                    context->SetPipeline(*curr_pipeline);
-                    context->BindConstantBuffer(0, helper.Get<gfx::GPUBuffer>(data.frame_constant));
-                    material_constant = &helper.Get<gfx::GPUBuffer>(data.material_constants.at(draw_call.material.get()));
-                }
-                if (curr_vertices != draw_call.vertices.get()) {
-                    curr_vertices = draw_call.vertices.get();
-                    for (const auto& vertex_attr : curr_pipeline->GetDesc().input_layout) {
-                        auto attribute_data = curr_vertices->GetAttributeData(vertex_attr);
-                        if (attribute_data.has_value()) {
-                            context->SetVertexBuffer(vertex_attr.slot, *attribute_data->get().gpu_buffer);
-                        }
+                context->SetPipeline(*draw_call.material->GetPipeline());
+
+                for (const auto& vertex_attr : draw_call.material->GetPipeline()->GetDesc().vertex_input_layout) {
+                    auto attribute_data = draw_call.vertices->GetAttributeData(vertex_attr);
+                    if (attribute_data.has_value()) {
+                        context->SetVertexBuffer(vertex_attr.binding, *attribute_data->get().gpu_buffer);
                     }
                 }
-                if (curr_indices != draw_call.indices.get()) {
-                    curr_indices = draw_call.indices.get();
-                    context->SetIndexBuffer(*curr_indices->GetIndexData().gpu_buffer);
-                }
-                if (curr_instance != draw_call.instance.get()) {
-                    curr_instance = draw_call.instance.get();
-                    context->BindConstantBuffer(1, instance_constant, instance_constant_offset.at(curr_instance));
-                }
-                context->BindConstantBuffer(2, *material_constant, material_constant_offset.at(draw_call.sub_mesh.material_instance.get()));
+                context->SetIndexBuffer(*draw_call.indices->GetIndexData().gpu_buffer);
 
-                for (std::size_t texture_index = 0; const auto& texture : draw_call.sub_mesh.material_instance->GetTextures()) {
-                    context->BindTexture(texture_index++, *texture->GetGPUData());
+                for (const auto& texture : draw_call.sub_mesh.material_instance->GetTextures()) {
                 }
 
                 context->DrawIndexed(
@@ -324,31 +316,19 @@ auto ForwardRenderer::RenderScene(const asset::Scene& scene, const asset::Camera
         });
 
     if (!texture_size.has_value()) {
-        m_BackBufferHandle = m_ColorPass.color;
+        m_SwapChianHandle = m_ColorPass.color;
     }
     return m_ColorPass.color;
 }
 
 auto ForwardRenderer::RenderGui(std::optional<gfx::ResourceHandle> target) -> gfx::ResourceHandle {
-    auto gui_pass = m_GuiRenderUtils->GuiPass(m_RenderGraph, target.has_value() ? target.value() : m_BackBufferHandle);
+    auto gui_pass = m_GuiRenderUtils->GuiPass(m_RenderGraph, target.has_value() ? target.value() : m_SwapChianHandle);
 
     if (target.has_value()) {
-        m_BackBufferHandle = gui_pass;
+        m_SwapChianHandle = gui_pass;
     }
 
     return gui_pass;
-}
-
-void ForwardRenderer::ClearPass() {
-    m_BackBufferHandle = m_RenderGraph.AddPass<gfx::ResourceHandle>(
-        "ClearPass",
-        [&](gfx::RenderGraph::Builder& builder, auto& cleared_back_buffer) {
-            cleared_back_buffer = builder.Write(m_RenderGraph.ImportWithoutLifeTrack("BackBuffer", &m_SwapChain->GetCurrentBackBuffer()));
-        },
-        [=](const gfx::RenderGraph::ResourceHelper& helper, auto& cleared_back_buffer, gfx::GraphicsCommandContext* context) {
-            context->SetRenderTarget(helper.Get<gfx::Texture>(cleared_back_buffer));
-            context->ClearRenderTarget(helper.Get<gfx::Texture>(cleared_back_buffer));
-        });
 }
 
 }  // namespace hitagi::render

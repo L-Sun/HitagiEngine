@@ -12,6 +12,7 @@ public:
 
 private:
     friend class ForwardRenderer;
+    gfx::ResourceHandle                                            bindless_info_buffer;
     gfx::ResourceHandle                                            frame_constant;
     gfx::ResourceHandle                                            instance_constant;
     std::pmr::unordered_map<asset::Material*, gfx::ResourceHandle> material_constants;
@@ -31,8 +32,6 @@ public:
     inline auto GetColorPass() const noexcept { return m_ColorPass; }
 
 private:
-    void ClearPass();
-
     const Application& m_App;
 
     core::Clock   m_Clock;
@@ -41,7 +40,7 @@ private:
     std::unique_ptr<gfx::Device>    m_GfxDevice;
     std::shared_ptr<gfx::SwapChain> m_SwapChain;
     gfx::RenderGraph                m_RenderGraph;
-    gfx::ResourceHandle             m_BackBufferHandle;
+    gfx::ResourceHandle             m_SwapChianHandle;
 
     std::unique_ptr<GuiRenderUtils> m_GuiRenderUtils;
 

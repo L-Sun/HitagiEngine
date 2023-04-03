@@ -74,7 +74,7 @@ DX12BindlessUtils::DX12BindlessUtils(DX12Device& device, std::string_view name)
     }
 }
 
-auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, bool writable) -> BindlessHandle {
+auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t index, bool writable) -> BindlessHandle {
     if (writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
         const auto error_message = fmt::format(
             "Failed to create BindlessHandle: buffer({}) is not writable",
@@ -104,7 +104,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, bool writable) -
     dx12_device.GetDevice()->CopyDescriptorsSimple(
         1,
         CD3DX12_CPU_DESCRIPTOR_HANDLE(m_CBV_SRV_UAV_Descriptors.cpu_handle, handle.index, m_CBV_SRV_UAV_Descriptors.increment_size),
-        (writable ? dx12_buffer.uav : dx12_buffer.cbv).cpu_handle,
+        CD3DX12_CPU_DESCRIPTOR_HANDLE((writable ? dx12_buffer.uavs : dx12_buffer.cbvs).cpu_handle, index, m_CBV_SRV_UAV_Descriptors.increment_size),
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     return handle;

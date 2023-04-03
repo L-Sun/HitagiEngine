@@ -171,16 +171,17 @@ auto DX12Device::GetCommandQueue(CommandType type) const -> CommandQueue& {
     return *m_CommandQueues[type];
 }
 
-auto DX12Device::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {
-    return std::make_shared<DX12GraphicsCommandList>(*this, name);
-}
-
-auto DX12Device::CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> {
-    return std::make_shared<DX12ComputeCommandList>(*this, name);
-}
-
-auto DX12Device::CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> {
-    return std::make_shared<DX12CopyCommandList>(*this, name);
+auto DX12Device::CreateCommandContext(CommandType type, std::string_view name) -> std::shared_ptr<CommandContext> {
+    switch (type) {
+        case CommandType::Graphics:
+            return std::make_shared<DX12GraphicsCommandList>(*this, name);
+        case CommandType::Compute:
+            return std::make_shared<DX12ComputeCommandList>(*this, name);
+        case CommandType::Copy:
+            return std::make_shared<DX12CopyCommandList>(*this, name);
+        default:
+            throw std::runtime_error("Invalid command type.");
+    }
 }
 
 auto DX12Device::CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> {

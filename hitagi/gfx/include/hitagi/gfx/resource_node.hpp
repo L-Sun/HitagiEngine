@@ -1,5 +1,6 @@
 #pragma once
 #include <hitagi/gfx/gpu_resource.hpp>
+#include <hitagi/gfx/bindless.hpp>
 
 namespace hitagi::gfx {
 struct PassNode;
@@ -18,10 +19,11 @@ struct ResourceNode {
     ResourceNode(std::string_view name, std::size_t res_idx)
         : name(name), res_idx(res_idx) {}
 
-    std::pmr::string name;
-    std::size_t      res_idx;
-    PassNode*        writer  = nullptr;
-    std::uint32_t    version = 0;
+    std::pmr::string                 name;
+    std::size_t                      res_idx;
+    PassNode*                        writer  = nullptr;
+    std::uint32_t                    version = 0;
+    std::pmr::vector<BindlessHandle> bindless_handles;
 };
 
 }  // namespace hitagi::gfx

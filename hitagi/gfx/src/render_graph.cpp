@@ -15,9 +15,9 @@ namespace hitagi::gfx {
 RenderGraph::RenderGraph(Device& device)
     : device(device),
       m_Executor(),
-      m_Logger(spdlog::stdout_color_mt("RenderGraph")) {
+      m_Logger(spdlog::stdout_color_mt(fmt::format("RenderGraph-{}", device.GetName()))) {
     magic_enum::enum_for_each<CommandType>([&](CommandType type) {
-        m_FenceWaitPairs[type] = {device.CreateFence(), 0};
+        m_Fences[type] = {device.CreateFence(0, fmt::format("RenderGraph Fence-{}", magic_enum::enum_name(type))), 0};
     });
 }
 
@@ -84,15 +84,15 @@ void RenderGraph::Builder::UseComputePipeline(std::shared_ptr<ComputePipeline> p
     m_Node->compute_pipelines.emplace_back(std::move(pipeline));
 }
 
-void RenderGraph::PresentPass(ResourceHandle back_buffer) {
+void RenderGraph::PresentPass(ResourceHandle swap_chain) {
     auto present_pass  = std::make_shared<PassNodeWithData<GraphicsCommandContext, ResourceHandle>>();
     present_pass->name = "PresentPass";
 
     Builder builder(*this, present_pass.get());
-    builder.Read(back_buffer);
+    builder.Read(swap_chain);
 
-    present_pass->executor = [back_buffer, helper = ResourceHelper(*this, present_pass.get())](GraphicsCommandContext* context) {
-        context->Present(helper.Get<Texture>(back_buffer));
+    present_pass->executor = [swap_chain, helper = ResourceHelper(*this, present_pass.get())](GraphicsCommandContext* context) {
+        context->Present(helper.Get<SwapChain>(swap_chain));
     };
 
     m_PresentPassNode = present_pass;
@@ -162,10 +162,10 @@ auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {
 
     std::string_view name = std::visit(
         utils::Overloaded{
-            [](const GPUBuffer::Desc& _desc) {
+            [](const GPUBufferDesc& _desc) {
                 return _desc.name;
             },
-            [](const Texture::Desc& _desc) {
+            [](const TextureDesc& _desc) {
                 return _desc.name;
             },
         },
@@ -180,22 +180,6 @@ auto RenderGraph::CreateResource(ResourceDesc desc) -> ResourceHandle {
     m_ResourceNodes.emplace_back(name, res_idx);
 
     return {m_ResourceNodes.size()};
-}
-
-auto RenderGraph::RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext> {
-    std::shared_ptr<CommandContext> context = nullptr;
-    switch (type) {
-        case CommandType::Graphics:
-            context = device.CreateGraphicsContext();
-            break;
-        case CommandType::Compute:
-            context = device.CreateComputeContext();
-            break;
-        case CommandType::Copy:
-            context = device.CreateCopyContext();
-            break;
-    }
-    return context;
 }
 
 auto RenderGraph::GetResrouceNode(ResourceHandle handle) -> ResourceNode& {
@@ -232,8 +216,7 @@ bool RenderGraph::Compile() {
         if (task_map.contains(node))
             return task_map[node];
 
-        node->context = RequestCommandContext(node->type);
-        node->context->SetName(node->name);
+        node->context = device.CreateCommandContext(node->type, node->name);
 
         auto task = m_Taskflow.emplace([=, this]() {
             ZoneScopedNS("NodePass", 10);
@@ -266,7 +249,7 @@ bool RenderGraph::Compile() {
         for (auto&& inner_resource : m_InnerResources) {
             std::visit(
                 utils::Overloaded{
-                    [&](const GPUBuffer::Desc& buffer_desc) {
+                    [&](const GPUBufferDesc& buffer_desc) {
                         if (!m_GPUBufferPool.contains(buffer_desc)) {
                             m_GPUBufferPool.emplace(buffer_desc, std::pair{device.CreateGPUBuffer(buffer_desc), sm_CacheLifeSpan});
                         }
@@ -274,7 +257,7 @@ bool RenderGraph::Compile() {
                         inner_resource.resource                    = m_GPUBufferPool.at(buffer_desc).first;
                         m_Resources[inner_resource.resource_index] = inner_resource.resource.get();
                     },
-                    [&](const Texture::Desc& texture_desc) {
+                    [&](const TextureDesc& texture_desc) {
                         if (!m_TexturePool.contains(texture_desc)) {
                             m_TexturePool.emplace(texture_desc, std::pair{device.CreateTexture(texture_desc), sm_CacheLifeSpan});
                         }
@@ -318,27 +301,34 @@ void RenderGraph::Execute() {
                 if (res_node.writer) {
                     // synchronize between different command queue
                     if (res_node.writer->type != node->type) {
-                        wait_values[node->type] = m_FenceWaitPairs[node->type].second;
+                        wait_values[node->type] = m_Fences[node->type].counter;
                     }
                 }
             }
             return node->context.get();
         });
 
-        auto& fence_wait_pair = m_FenceWaitPairs[(*left)->type];
-        fence_wait_pair.second++;
+        auto& fence_counter = m_Fences[(*left)->type];
+        fence_counter.counter++;
+        const FenceSignalInfo fence_signal_info{
+            .fence = *fence_counter.fence,
+            .value = fence_counter.counter,
+        };
         auto& queue = device.GetCommandQueue((*left)->type);
         queue.Submit(
-            std::move(contexts),
+            contexts,
+            // Improve dose there can use pipeline stage?
             {
-                {m_FenceWaitPairs[CommandType::Graphics].first, wait_values[CommandType::Graphics]},
-                {m_FenceWaitPairs[CommandType::Compute].first, wait_values[CommandType::Compute]},
-                {m_FenceWaitPairs[CommandType::Copy].first, wait_values[CommandType::Copy]},
+                {*m_Fences[CommandType::Graphics].fence, wait_values[CommandType::Graphics]},
+                {*m_Fences[CommandType::Compute].fence, wait_values[CommandType::Compute]},
+                {*m_Fences[CommandType::Copy].fence, wait_values[CommandType::Copy]},
             },
-            {
-                fence_wait_pair,
-            });
+            {fence_signal_info});
 
+        const FenceWaitInfo resources_fence_wait_info{
+            .fence = *fence_counter.fence,
+            .value = fence_counter.counter,
+        };
         std::for_each(left, right, [&](PassNode* node) {
             assert(node->type == queue.GetType());
 
@@ -346,23 +336,23 @@ void RenderGraph::Execute() {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources.emplace_back(track_res, fence_wait_pair);
+                    m_RetiredResources.emplace_back(track_res, resources_fence_wait_info);
                 }
             }
             for (auto res_handle : node->writes) {
                 auto res       = m_Resources.at(GetResrouceNode(res_handle).res_idx);
                 auto track_res = GetLifeTrackResource(res);
                 if (track_res) {
-                    m_RetiredResources.emplace_back(track_res, fence_wait_pair);
+                    m_RetiredResources.emplace_back(track_res, resources_fence_wait_info);
                 }
             }
             if (node->type == CommandType::Graphics) {
                 for (auto render_pipeline : node->render_pipelines) {
-                    m_RetiredResources.emplace_back(render_pipeline, fence_wait_pair);
+                    m_RetiredResources.emplace_back(render_pipeline, resources_fence_wait_info);
                 }
             } else if (node->type == CommandType::Compute) {
                 for (auto compute_pipeline : node->compute_pipelines) {
-                    m_RetiredResources.emplace_back(compute_pipeline, fence_wait_pair);
+                    m_RetiredResources.emplace_back(compute_pipeline, resources_fence_wait_info);
                 }
             }
         });
@@ -378,8 +368,8 @@ void RenderGraph::Reset() {
     while (!m_RetiredResources.empty()) {
         const auto& [retired_res, fence_wait_pair] = m_RetiredResources.front();
 
-        auto [fence, value] = fence_wait_pair;
-        if (fence->GetCurrentValue() < value) {
+        auto&& [fence, value, stage] = fence_wait_pair;
+        if (fence.GetCurrentValue() < value) {
             m_RetiredResources.pop_front();
         }
     }

@@ -15,7 +15,7 @@ class RenderGraph {
     friend struct PassNode;
 
 public:
-    using ResourceDesc = std::variant<GPUBuffer::Desc, Texture::Desc>;
+    using ResourceDesc = std::variant<GPUBufferDesc, TextureDesc>;
 
     class Builder {
         friend class RenderGraph;
@@ -50,6 +50,13 @@ public:
             return *static_cast<T*>(result);
         }
 
+        auto GetBindlessHandle(ResourceHandle handle, std::size_t index = 0) const {
+            if (!(m_Node->reads.contains(handle) || m_Node->writes.contains(handle))) {
+                throw std::logic_error(fmt::format("This pass node do not operate the handle{} in graph", handle.id));
+            }
+            return m_Fg.m_ResourceNodes[handle.id - 1].bindless_handles[index];
+        }
+
     private:
         ResourceHelper(RenderGraph& fg, PassNode* node) : m_Fg(fg), m_Node(node) {}
         RenderGraph& m_Fg;
@@ -78,7 +85,7 @@ public:
     // get the newest resource handle from back board
     auto GetImportedResourceHandle(std::string_view name) -> ResourceHandle;
 
-    void PresentPass(ResourceHandle back_buffer);
+    void PresentPass(ResourceHandle swap_chain);
 
     bool Compile();
     void Execute();
@@ -96,7 +103,6 @@ private:
     template <typename PassData, typename Context>
     auto AddPassImpl(std::string_view name, SetupFunc<PassData&> setup, ExecFunc<const PassData&, Context> executor) -> const PassData&;
     auto CreateResource(ResourceDesc desc) -> ResourceHandle;
-    auto RequestCommandContext(CommandType type) -> std::shared_ptr<CommandContext>;
     auto GetResrouceNode(ResourceHandle handle) -> ResourceNode&;
     auto GetLifeTrackResource(const Resource* res) -> std::shared_ptr<Resource>;
 
@@ -116,14 +122,18 @@ private:
     std::mutex                  m_ExecuteQueueMutex;
     std::pmr::vector<PassNode*> m_ExecuteQueue;
 
-    using RetiredResource = std::pair<std::shared_ptr<Resource>, FenceWaitPair>;
+    using RetiredResource = std::pair<std::shared_ptr<Resource>, FenceWaitInfo>;
     std::pmr::deque<RetiredResource> m_RetiredResources;
 
-    utils::EnumArray<FenceWaitPair, CommandType> m_FenceWaitPairs;
+    struct FenceValuePair {
+        std::shared_ptr<Fence> fence;
+        std::uint64_t          counter = 0;
+    };
+    utils::EnumArray<FenceValuePair, CommandType> m_Fences;
 
-    constexpr static unsigned                                                            sm_CacheLifeSpan = 5;
-    std::unordered_map<GPUBuffer::Desc, std::pair<std::shared_ptr<GPUBuffer>, unsigned>> m_GPUBufferPool;
-    std::unordered_map<Texture::Desc, std::pair<std::shared_ptr<Texture>, unsigned>>     m_TexturePool;
+    constexpr static unsigned                                                          sm_CacheLifeSpan = 5;
+    std::unordered_map<GPUBufferDesc, std::pair<std::shared_ptr<GPUBuffer>, unsigned>> m_GPUBufferPool;
+    std::unordered_map<TextureDesc, std::pair<std::shared_ptr<Texture>, unsigned>>     m_TexturePool;
 
     std::shared_ptr<spdlog::logger> m_Logger;
 };

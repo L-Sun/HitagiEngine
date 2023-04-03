@@ -179,16 +179,17 @@ auto VulkanDevice::GetCommandQueue(CommandType type) const -> CommandQueue& {
     return *m_CommandQueues[type];
 }
 
-auto VulkanDevice::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {
-    return std::make_shared<VulkanGraphicsCommandBuffer>(*this, name);
-}
-
-auto VulkanDevice::CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> {
-    return std::make_shared<VulkanComputeCommandBuffer>(*this, name);
-}
-
-auto VulkanDevice::CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> {
-    return std::make_shared<VulkanTransferCommandBuffer>(*this, name);
+auto VulkanDevice::CreateCommandContext(CommandType type, std::string_view name) -> std::shared_ptr<CommandContext> {
+    switch (type) {
+        case CommandType::Graphics:
+            return std::make_shared<VulkanGraphicsCommandBuffer>(*this, name);
+        case CommandType::Compute:
+            return std::make_shared<VulkanComputeCommandBuffer>(*this, name);
+        case CommandType::Copy:
+            return std::make_shared<VulkanTransferCommandBuffer>(*this, name);
+        default:
+            throw std::runtime_error("Invalid command type.");
+    }
 }
 
 auto VulkanDevice::CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> {

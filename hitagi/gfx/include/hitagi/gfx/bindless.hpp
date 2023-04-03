@@ -18,14 +18,20 @@ struct BindlessInfoOffset {
     std::uint32_t  user_data_1;
 };
 
+struct GPUBufferView {
+    GPUBuffer&    buffer;
+    std::uint64_t offset;
+    std::uint64_t size;
+};
+
 class BindlessUtils {
 public:
     BindlessUtils(Device& device, std::string_view name) : m_Device(device), m_Name(name) {}
     virtual ~BindlessUtils() = default;
 
-    [[nodiscard]] virtual auto CreateBindlessHandle(GPUBuffer& buffer, bool writable = false) -> BindlessHandle = 0;
-    [[nodiscard]] virtual auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle = 0;
-    virtual void               DiscardBindlessHandle(BindlessHandle handle)                                     = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(GPUBuffer& buffer, std::size_t index = 0, bool writable = false) -> BindlessHandle = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle                        = 0;
+    virtual void               DiscardBindlessHandle(BindlessHandle handle)                                                            = 0;
 
     inline auto& GetDevice() const noexcept { return m_Device; }
     inline auto  GetName() const noexcept { return std::string_view(m_Name); }

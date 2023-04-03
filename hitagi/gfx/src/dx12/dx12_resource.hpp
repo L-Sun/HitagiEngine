@@ -23,7 +23,7 @@ struct DX12GPUBuffer : GPUBuffer {
     std::size_t                 buffer_size = 0;
     std::byte*                  mapped_ptr  = nullptr;
 
-    Descriptor cbv, uav;
+    Descriptor cbvs, uavs;
 };
 
 struct DX12Texture : public Texture {

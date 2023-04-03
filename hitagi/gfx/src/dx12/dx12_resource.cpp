@@ -97,25 +97,34 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     }
 
     if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Constant)) {
-        cbv                                      = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Allocate();
+        cbvs                                     = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Allocate(m_Desc.element_count);
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
-            .BufferLocation = resource->GetGPUVirtualAddress(),
-            .SizeInBytes    = static_cast<UINT>(buffer_size),
+            .SizeInBytes = static_cast<UINT>(utils::align(m_Desc.element_size, 256)),
         };
-        device.GetDevice()->CreateConstantBufferView(&cbv_desc, cbv.cpu_handle);
+        for (std::size_t i = 0; i < m_Desc.element_count; ++i) {
+            cbv_desc.BufferLocation = resource->GetGPUVirtualAddress() + i * cbv_desc.SizeInBytes;
+            device.GetDevice()->CreateConstantBufferView(
+                &cbv_desc,
+                CD3DX12_CPU_DESCRIPTOR_HANDLE(cbvs.cpu_handle, i, cbvs.increment_size));
+        }
     }
     if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Storage)) {
-        uav                                       = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Allocate();
+        uavs                                      = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Allocate(m_Desc.element_count);
         D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
             .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
             .Buffer        = {
-                       .FirstElement        = 0,
-                       .NumElements         = static_cast<UINT>(m_Desc.element_count),
+                       .NumElements         = 1,
                        .StructureByteStride = static_cast<UINT>(m_Desc.element_size),
                        .Flags               = D3D12_BUFFER_UAV_FLAG_NONE,
             },
         };
-        device.GetDevice()->CreateUnorderedAccessView(resource.Get(), nullptr, &uav_desc, uav.cpu_handle);
+        for (std::size_t i = 0; i < m_Desc.element_count; ++i) {
+            uav_desc.Buffer.FirstElement = i;
+            device.GetDevice()->CreateUnorderedAccessView(
+                resource.Get(), nullptr,
+                &uav_desc,
+                CD3DX12_CPU_DESCRIPTOR_HANDLE(uavs.cpu_handle, i, uavs.increment_size));
+        }
     }
 
     if (!initial_data.empty()) {

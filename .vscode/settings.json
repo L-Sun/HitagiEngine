@@ -196,6 +196,7 @@
         "Swapchains",
         "SYSWM",
         "Taskflow",
+        "TEXCOORD",
         "TEXTURECUBE",
         "TEXTURECUBEARRAY",
         "TRIANGLELIST",

@@ -909,8 +909,6 @@ TEST_P(DeviceTest, DrawTriangle) {
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
 }
 
-#include <spdlog/spdlog.h>
-
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::trace);
     InitGoogleTest(&argc, argv);

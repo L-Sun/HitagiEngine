@@ -39,7 +39,12 @@ public:
         MaterialParameterValue value;
     };
 
-    static auto Create(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {}) -> std::shared_ptr<Material>;
+    static auto Create(
+        std::pmr::vector<gfx::ShaderDesc> shader_desc,
+        gfx::RenderPipelineDesc           pipeline_desc,
+        std::pmr::vector<Parameter>       parameters,
+        std::string_view                  name = "",
+        xg::Guid                          guid = {}) -> std::shared_ptr<Material>;
 
     Material(const Material&)            = delete;
     Material(Material&&)                 = delete;
@@ -57,17 +62,19 @@ public:
     void InitPipeline(gfx::Device& device);
 
 protected:
-    Material(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {});
+    Material(std::pmr::vector<gfx::ShaderDesc> shader_desc, gfx::RenderPipelineDesc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {});
 
     friend class MaterialInstance;
 
-    std::size_t                 m_NumInstance = 0;
-    gfx::RenderPipeline::Desc   m_PipelineDesc;
-    std::pmr::vector<Parameter> m_DefaultParameters;
+    std::size_t                       m_NumInstance = 0;
+    std::pmr::vector<gfx::ShaderDesc> m_ShaderDesc;
+    gfx::RenderPipelineDesc           m_PipelineDesc;
+    std::pmr::vector<Parameter>       m_DefaultParameters;
 
-    bool                                 m_Dirty                  = true;
-    std::shared_ptr<gfx::RenderPipeline> m_Pipeline               = nullptr;
-    std::shared_ptr<gfx::GPUBuffer>      m_MaterialConstantBuffer = nullptr;
+    bool                                           m_Dirty = true;
+    std::pmr::vector<std::shared_ptr<gfx::Shader>> m_Shaders;
+    std::shared_ptr<gfx::RenderPipeline>           m_Pipeline               = nullptr;
+    std::shared_ptr<gfx::GPUBuffer>                m_MaterialConstantBuffer = nullptr;
 };
 
 class MaterialInstance : public Resource {

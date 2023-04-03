@@ -13,7 +13,7 @@ class DX12BindlessUtils : public BindlessUtils {
 public:
     DX12BindlessUtils(DX12Device& device, std::string_view name);
 
-    [[nodiscard]] auto CreateBindlessHandle(GPUBuffer& buffer, bool writable = false) -> BindlessHandle final;
+    [[nodiscard]] auto CreateBindlessHandle(GPUBuffer& buffer, std::size_t index = 0, bool writable = false) -> BindlessHandle final;
     [[nodiscard]] auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle final;
     void               DiscardBindlessHandle(BindlessHandle handle) final;
 

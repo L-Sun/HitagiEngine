@@ -104,15 +104,15 @@ struct TextureBarrier {
     std::uint16_t layer_count      = 1;
 };
 
+struct FenceSignalInfo {
+    Fence&        fence;
+    std::uint64_t value;
+};
+
 struct FenceWaitInfo {
     Fence&        fence;
     std::uint64_t value;
     PipelineStage stage = PipelineStage::All;
-};
-
-struct FenceSignalInfo {
-    Fence&        fence;
-    std::uint64_t value;
 };
 
 }  // namespace hitagi::gfx

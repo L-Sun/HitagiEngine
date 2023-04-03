@@ -23,9 +23,7 @@ public:
     auto CreateFence(std::uint64_t initial_value = 0, std::string_view name = "") -> std::shared_ptr<Fence> final;
 
     auto GetCommandQueue(CommandType type) const -> CommandQueue& final;
-    auto CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> final;
-    auto CreateComputeContext(std::string_view name) -> std::shared_ptr<ComputeCommandContext> final;
-    auto CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> final;
+    auto CreateCommandContext(CommandType type, std::string_view name = "") -> std::shared_ptr<CommandContext> final;
 
     auto CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> final;
     auto CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> final;

@@ -14,6 +14,7 @@ protected:
 
     // GUI render data
     struct GuiRenderData {
+        std::shared_ptr<gfx::Shader>         vs, ps;
         std::shared_ptr<gfx::RenderPipeline> pipeline;
         std::shared_ptr<gfx::GPUBuffer>      vertices_buffer;
         std::shared_ptr<gfx::GPUBuffer>      indices_buffer;

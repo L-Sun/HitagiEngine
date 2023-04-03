@@ -7,7 +7,7 @@ using namespace hitagi::gfx;
 
 TEST(GfxTest, DescHashTest) {
     {
-        GPUBuffer::Desc
+        GPUBufferDesc
             buffer_desc_1 = {},
             buffer_desc_2 = {
                 .name          = "buffer_desc_1",
@@ -26,22 +26,18 @@ TEST(GfxTest, DescHashTest) {
     }
 
     {
-        Texture::Desc
+        TextureDesc
             tex_desc_1 = {},
             tex_desc_2 = {
-                .name         = "tex_desc_1",
-                .width        = 32,
-                .height       = 32,
-                .depth        = 1,
-                .array_size   = 1,
-                .format       = Format::R8G8B8A8_UNORM,
-                .mip_levels   = 1,
-                .sample_count = 1,
-                .is_cube      = false,
-                .clear_value  = {
-                     .color = math::vec4f{1, 0, 0, 1},
-                },
-                .usages = TextureUsageFlags::RTV,
+                .name        = "tex_desc_1",
+                .width       = 32,
+                .height      = 32,
+                .depth       = 1,
+                .array_size  = 1,
+                .format      = Format::R8G8B8A8_UNORM,
+                .mip_levels  = 1,
+                .clear_value = ClearColor{1, 0, 0, 1},
+                .usages      = TextureUsageFlags::RTV,
             };
         EXPECT_NE(tex_desc_1, tex_desc_2);
         EXPECT_NE(utils::hash(tex_desc_1), utils::hash(tex_desc_2));
@@ -52,10 +48,10 @@ TEST(GfxTest, DescHashTest) {
     }
 
     {
-        Sampler::Desc sampler_desc_1 = {},
-                      sampler_desc_2 = {
-                          .name = "sampler_desc_1",
-                      };
+        SamplerDesc sampler_desc_1 = {},
+                    sampler_desc_2 = {
+                        .name = "sampler_desc_1",
+                    };
 
         EXPECT_NE(sampler_desc_1, sampler_desc_2);
         EXPECT_NE(utils::hash(sampler_desc_1), utils::hash(sampler_desc_2));

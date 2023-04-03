@@ -397,8 +397,8 @@ struct VertexAttribute {
     std::uint8_t     semantic_index;
     Format           format;
     std::uint32_t    binding;
-    std::uint64_t    offset;
-    std::uint64_t    stride;
+    std::uint64_t    offset       = 0;
+    std::uint64_t    stride       = 0;
     bool             per_instance = false;
 };
 // Improve me with fixed_vector

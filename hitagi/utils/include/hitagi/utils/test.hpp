@@ -2,9 +2,10 @@
 #include <hitagi/math/vector.hpp>
 #include <hitagi/math/matrix.hpp>
 
+#include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <benchmark/benchmark.h>
+#include <spdlog/spdlog.h>
 
 namespace hitagi::testing {
 

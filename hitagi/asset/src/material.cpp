@@ -8,10 +8,17 @@
 
 namespace hitagi::asset {
 
-Material::Material(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid)
+Material::Material(std::pmr::vector<gfx::ShaderDesc> shader_desc,
+                   gfx::RenderPipelineDesc           pipeline_desc,
+                   std::pmr::vector<Parameter>       parameters,
+                   std::string_view                  name,
+                   xg::Guid                          guid)
     : Resource(name, guid),
+      m_ShaderDesc(std::move(shader_desc)),
       m_PipelineDesc(std::move(pipeline_desc)),
-      m_DefaultParameters(std::move(parameters)) {
+      m_DefaultParameters(std::move(parameters))
+
+{
     m_PipelineDesc.name = m_Name;
 
     auto iter = std::unique(m_DefaultParameters.rbegin(), m_DefaultParameters.rend(), [](const auto& lhs, const auto& rhs) {
@@ -20,12 +27,12 @@ Material::Material(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Par
     m_DefaultParameters.erase(m_DefaultParameters.rend().base(), iter.base());
 }
 
-auto Material::Create(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid) -> std::shared_ptr<Material> {
+auto Material::Create(std::pmr::vector<gfx::ShaderDesc> shader_desc, gfx::RenderPipelineDesc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid) -> std::shared_ptr<Material> {
     struct CreateTemp : public Material {
-        CreateTemp(gfx::RenderPipeline::Desc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid)
-            : Material(std::move(pipeline_desc), std::move(parameters), name, guid) {}
+        CreateTemp(std::pmr::vector<gfx::ShaderDesc> shader_desc, gfx::RenderPipelineDesc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid)
+            : Material(std::move(shader_desc), std::move(pipeline_desc), std::move(parameters), name, guid) {}
     };
-    return std::make_shared<CreateTemp>(std::move(pipeline_desc), std::move(parameters), name, guid);
+    return std::make_shared<CreateTemp>(std::move(shader_desc), std::move(pipeline_desc), std::move(parameters), name, guid);
 }
 
 auto Material::CalculateMaterialBufferSize() const noexcept -> std::size_t {
@@ -59,6 +66,13 @@ auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
 
 void Material::InitPipeline(gfx::Device& device) {
     if (!m_Dirty) return;
+    std::transform(m_ShaderDesc.begin(), m_ShaderDesc.end(), std::back_inserter(m_Shaders), [&](const auto& desc) {
+        return device.CreateShader(desc);
+    });
+    std::transform(m_Shaders.begin(), m_Shaders.end(), std::back_inserter(m_PipelineDesc.shaders), [&](const auto& shader) {
+        return std::weak_ptr<gfx::Shader>(shader);
+    });
+
     m_Pipeline = device.CreateRenderPipeline(m_PipelineDesc);
     m_Dirty    = false;
 }
