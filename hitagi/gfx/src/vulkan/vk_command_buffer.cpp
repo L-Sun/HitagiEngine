@@ -1,7 +1,7 @@
 #include "vk_command_buffer.hpp"
 #include "vk_device.hpp"
 #include "vk_resource.hpp"
-#include "utils.hpp"
+#include "vk_utils.hpp"
 #include <hitagi/utils/exceptions.hpp>
 
 #include <spdlog/logger.h>
@@ -102,7 +102,7 @@ void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_inf
                 TextureBarrier{
                     .src_access = BarrierAccess::Unkown,
                     .dst_access = BarrierAccess::RenderTarget,
-                    .src_stage  = PipelineStage::None,
+                    .src_stage  = PipelineStage::Render,
                     .dst_stage  = PipelineStage::Render,
                     .src_layout = TextureLayout::Unkown,
                     .dst_layout = TextureLayout::RenderTarget,
@@ -354,12 +354,12 @@ void VulkanTransferCommandBuffer::CopyBufferToTexture(const GPUBuffer& src,
     auto buffer_size    = src_buffer.GetDesc().element_size * src_buffer.GetDesc().element_count;
     auto copy_data_size = extent.x * extent.y * extent.z * get_format_byte_size(dst_texture.GetDesc().format);
 
-    if (src_offset + copy_data_size >= buffer_size) {
+    if (src_offset + copy_data_size > buffer_size) {
         auto error_message = fmt::format(
             "Buffer size is too small to copy to texture. Buffer size: {}, Buffer Offset: {}, Copy size: {}",
             fmt::styled(buffer_size, fmt::fg(fmt::color::red)),
-            fmt::styled(copy_data_size, fmt::fg(fmt::color::red)),
-            fmt::styled(src_offset, fmt::fg(fmt::color::red)));
+            fmt::styled(src_offset, fmt::fg(fmt::color::red)),
+            fmt::styled(copy_data_size, fmt::fg(fmt::color::red)));
 
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);

@@ -1,6 +1,5 @@
 #include "dx12_sync.hpp"
 #include "dx12_device.hpp"
-#include "utils.hpp"
 
 #include <spdlog/logger.h>
 #include <fmt/color.h>

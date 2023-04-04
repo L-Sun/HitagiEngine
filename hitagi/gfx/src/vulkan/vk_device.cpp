@@ -3,7 +3,7 @@
 #include "vk_resource.hpp"
 #include "vk_command_buffer.hpp"
 #include "vk_configs.hpp"
-#include "utils.hpp"
+#include "vk_utils.hpp"
 
 #include <fmt/color.h>
 #include <spdlog/sinks/stdout_color_sinks.h>

@@ -1,5 +1,4 @@
 #pragma once
-#include "d3d12.h"
 #include "dx12_command_queue.hpp"
 #include "dx12_descriptor_heap.hpp"
 #include "dx12_bindless.hpp"

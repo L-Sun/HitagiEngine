@@ -1,6 +1,5 @@
 #include "dx12_descriptor_heap.hpp"
 #include "dx12_device.hpp"
-#include "utils.hpp"
 
 #include <d3dx12/d3dx12.h>
 #include <spdlog/logger.h>

@@ -1,6 +1,6 @@
 #include "vk_sync.hpp"
 #include "vk_device.hpp"
-#include "utils.hpp"
+#include "vk_utils.hpp"
 
 namespace hitagi::gfx {
 

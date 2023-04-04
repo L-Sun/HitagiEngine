@@ -31,16 +31,18 @@ protected:
 };
 
 enum struct BarrierAccess : std::uint32_t {
-    Unkown       = 0x0,
-    CopySrc      = 0x1,
-    CopyDst      = (CopySrc << 1),
-    Vertex       = (CopyDst << 1),
-    Index        = (Vertex << 1),
-    Constant     = (Index << 1),
-    ShaderRead   = (Constant << 1),
-    ShaderWrite  = (ShaderRead << 1),
-    RenderTarget = (ShaderWrite << 1),
-    Present      = (RenderTarget << 1),
+    Unkown            = 0x0,
+    CopySrc           = 0x1,
+    CopyDst           = (CopySrc << 1),
+    Vertex            = (CopyDst << 1),
+    Index             = (Vertex << 1),
+    Constant          = (Index << 1),
+    ShaderRead        = (Constant << 1),
+    ShaderWrite       = (ShaderRead << 1),
+    DepthStencilRead  = (ShaderWrite << 1),
+    DepthStencilWrite = (DepthStencilRead << 1),
+    RenderTarget      = (DepthStencilWrite << 1),
+    Present           = (RenderTarget << 1),
 };
 
 enum struct PipelineStage : std::uint32_t {
@@ -75,15 +77,15 @@ enum struct TextureLayout : std::uint16_t {
 struct GlobalBarrier {
     BarrierAccess src_access;
     BarrierAccess dst_access;
-    PipelineStage src_stage;
-    PipelineStage dst_stage;
+    PipelineStage src_stage = PipelineStage::All;
+    PipelineStage dst_stage = PipelineStage::All;
 };
 
 struct GPUBufferBarrier {
     BarrierAccess src_access;
     BarrierAccess dst_access;
-    PipelineStage src_stage;
-    PipelineStage dst_stage;
+    PipelineStage src_stage = PipelineStage::All;
+    PipelineStage dst_stage = PipelineStage::All;
 
     GPUBuffer& buffer;
 };
@@ -91,8 +93,8 @@ struct GPUBufferBarrier {
 struct TextureBarrier {
     BarrierAccess src_access;
     BarrierAccess dst_access;
-    PipelineStage src_stage;
-    PipelineStage dst_stage;
+    PipelineStage src_stage = PipelineStage::All;
+    PipelineStage dst_stage = PipelineStage::All;
 
     TextureLayout src_layout;
     TextureLayout dst_layout;

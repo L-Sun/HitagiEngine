@@ -1,14 +1,17 @@
 #include "bindless.hlsl"
 
 struct BindlessInfo {
-    SimplBuffer frame_constant;
-    SimplBuffer object_constant;
-    SimplBuffer material_constant;
-    Texture     textures[4];
-    Sampler     base_sampler;
+    hitagi::SimpleBuffer frame_constant;
+    hitagi::SimpleBuffer object_constant;
+    hitagi::SimpleBuffer material_constant;
+    hitagi::Texture      diffuse_texture;
+    hitagi::Texture      specular_texture;
+    hitagi::Texture      ambient_texture;
+    hitagi::Texture      emissive_texture;
+    hitagi::Sampler      base_sampler;
 };
 
-struct FrameConstants {
+struct FrameConstant {
     float4 camera_pos;
     matrix view;
     matrix projection;
@@ -22,21 +25,17 @@ struct FrameConstants {
     float  light_intensity;
 };
 
-struct ObjectConstants {
+struct ObjectConstant {
     matrix model;
 };
 
-struct MaterialConstants {
+struct MaterialConstant {
     float3 diffuse;
-    int    diffuse_texture;
     float3 specular;
-    int    specular_texture;
     float3 ambient;
-    int    ambient_texture;
     float3 emissive;
-    int    emissive_texture;
     float  shininess;
-}
+};
 
 struct VSInput {
     float3 position : POSITION;
@@ -54,7 +53,7 @@ struct PSInput {
 };
 
 PSInput VSMain(VSInput input) {
-    Bindless       resource        = hitagi::load_bindless<Bindless>();
+    BindlessInfo   resource        = hitagi::load_bindless<BindlessInfo>();
     FrameConstant  frame_constant  = resource.frame_constant.load<FrameConstant>();
     ObjectConstant object_constant = resource.object_constant.load<ObjectConstant>();
 
@@ -72,9 +71,10 @@ PSInput VSMain(VSInput input) {
 
 float4 PSMain(PSInput input)
     : SV_TARGET {
-    Bindless         resource          = hitagi::load_bindless<Bindless>();
-    FrameConstant    frame_constant    = resource.frame_constant.load<FrameConstant>();
-    MaterialConstant material_constant = resource.material_constant.load<MaterialConstant>();
+    const BindlessInfo     resource          = hitagi::load_bindless<BindlessInfo>();
+    const FrameConstant    frame_constant    = resource.frame_constant.load<FrameConstant>();
+    const MaterialConstant material_constant = resource.material_constant.load<MaterialConstant>();
+    const SamplerState     sampler           = resource.base_sampler.load();
 
     const float3 vN   = normalize(input.normal);
     const float3 vL   = normalize(frame_constant.light_pos_in_view.xyz - input.pos_in_view);
@@ -83,12 +83,12 @@ float4 PSMain(PSInput input)
     const float  r    = length(frame_constant.light_pos_in_view.xyz - input.pos_in_view);
     const float  invd = 1.0f / (r * r + 1.0f);
     // color
-    const float3 _diffuse  = material_constant.diffuse_texture == -1 ? material_constant.diffuse : resource.textures[material_constant.diffuse_texture].sample(resource.base_sampler, input.uv).xyz;
-    const float3 _specular = material_constant.specular_texture == -1 ? material_constant.specular : resource.textures[material_constant.specular_texture].sample(resource.base_sampler, input.uv).xyz;
-    const float3 _ambient  = material_constant.ambient_texture == -1 ? material_constant.ambient : resource.textures[material_constant.ambient_texture].sample(resource.base_sampler, input.uv).xyz;
-    const float3 _emissive = material_constant.emissive_texture == -1 ? material_constant.emissive : resource.textures[material_constant.emissive_texture].sample(resource.base_sampler, input.uv).xyz;
+    const float3 _diffuse  = resource.diffuse_texture.valid() ? resource.diffuse_texture.sample<float3>(sampler, input.uv) : material_constant.diffuse;
+    const float3 _specular = resource.specular_texture.valid() ? resource.specular_texture.sample<float3>(sampler, input.uv) : material_constant.specular;
+    const float3 _ambient  = resource.ambient_texture.valid() ? resource.ambient_texture.sample<float3>(sampler, input.uv) : material_constant.ambient;
+    const float3 _emissive = resource.emissive_texture.valid() ? resource.emissive_texture.sample<float3>(sampler, input.uv) : material_constant.emissive;
 
-    float3 vLightInts = _ambient + (frame_constant.light_color * frame_constant.light_intensity) * invd * (_diffuse * max(dot(vN, vL), 0.0f) + _specular * pow(max(dot(vH, vN), 0.0f), material_constant.shininess));
+    const float3 vLightInts = _ambient + (frame_constant.light_color * frame_constant.light_intensity) * invd * (_diffuse * max(dot(vN, vL), 0.0f) + _specular * pow(max(dot(vH, vN), 0.0f), material_constant.shininess));
 
-    return float4(vLightInts, 1.0f);
+    return float4(vLightInts.x, vLightInts.y, vLightInts.z, 1.0f);
 }

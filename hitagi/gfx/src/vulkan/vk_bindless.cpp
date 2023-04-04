@@ -1,7 +1,7 @@
 #include "vk_bindless.hpp"
 #include "vk_device.hpp"
 #include "vk_resource.hpp"
-#include "utils.hpp"
+#include "vk_utils.hpp"
 
 #include <spdlog/logger.h>
 #include <fmt/color.h>
@@ -11,7 +11,7 @@
 namespace hitagi::gfx {
 VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view name)
     : BindlessUtils(device, name),
-      bindless_handle_pools{{
+      m_BindlessHandlePools{{
           {{}, std::mutex{}},
           {{}, std::mutex{}},
           {{}, std::mutex{}},
@@ -36,7 +36,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
         limits.maxDescriptorSetSamplers,
     };
 
-    static_assert(pool_sizes.size() == std::tuple_size<decltype(bindless_handle_pools)>());
+    static_assert(pool_sizes.size() == std::tuple_size<decltype(m_BindlessHandlePools)>());
 
     const vk::DescriptorPoolCreateInfo descriptor_pool_create_info{
         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet |
@@ -138,7 +138,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
         for (std::uint8_t set_index = 0; set_index < pool_sizes.size(); set_index++) {
             const auto& pool_size = pool_sizes[set_index];
 
-            auto& handle_pool = bindless_handle_pools.at(set_index).pool;
+            auto& handle_pool = m_BindlessHandlePools.at(set_index).pool;
             handle_pool.reserve(pool_size.descriptorCount);
 
             for (std::uint32_t index = 0; index < pool_size.descriptorCount; index++) {
@@ -146,7 +146,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
                     .index   = index,
                     .version = 0,
                     .type    = set_index,
-                    .tag     = 0,
+                    .tag     = std::numeric_limits<std::uint8_t>::max(),
                 });
             }
         }
@@ -172,7 +172,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t in
 
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
-    auto& [pool, mutex] = bindless_handle_pools[0];
+    auto& [pool, mutex] = m_BindlessHandlePools[0];
     std::lock_guard lock{mutex};
 
     auto handle = pool.back();
@@ -218,11 +218,22 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
 
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
-    auto& [pool, mutex] = bindless_handle_pools[1];
-    std::lock_guard lock{mutex};
+    BindlessHandle handle;
+    if (writable) {
+        auto& [pool, mutex] = m_BindlessHandlePools[2];
+        std::lock_guard lock{mutex};
 
-    auto handle = pool.back();
-    handle.tag  = writable ? 1 : 0;
+        handle = pool.back();
+        pool.pop_back();
+        handle.tag = 1;
+    } else {
+        auto& [pool, mutex] = m_BindlessHandlePools[1];
+        std::lock_guard lock{mutex};
+
+        handle = pool.back();
+        pool.pop_back();
+        handle.tag = 0;
+    }
 
     const vk::DescriptorImageInfo image_info{
         .sampler     = nullptr,
@@ -231,7 +242,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
     };
 
     const vk::WriteDescriptorSet write_info{
-        .dstSet          = *descriptor_sets[1],
+        .dstSet          = *descriptor_sets[writable ? 2 : 1],
         .dstBinding      = 0,
         .dstArrayElement = handle.index,
         .descriptorCount = 1,
@@ -241,15 +252,44 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
 
     vk_device.GetDevice().updateDescriptorSets(write_info, {});
 
+    return handle;
+}
+
+auto VulkanBindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHandle {
+    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
+
+    auto& [pool, mutex] = m_BindlessHandlePools[3];
+    std::lock_guard lock{mutex};
+
+    auto handle = pool.back();
     pool.pop_back();
+    handle.tag = 0;
+
+    const vk::DescriptorImageInfo image_info{
+        .sampler     = **static_cast<VulkanSampler&>(sampler).sampler,
+        .imageView   = nullptr,
+        .imageLayout = vk::ImageLayout::eUndefined,
+    };
+
+    const vk::WriteDescriptorSet write_info{
+        .dstSet          = *descriptor_sets[3],
+        .dstBinding      = 0,
+        .dstArrayElement = handle.index,
+        .descriptorCount = 1,
+        .descriptorType  = vk::DescriptorType::eSampler,
+        .pImageInfo      = &image_info,
+    };
+
+    vk_device.GetDevice().updateDescriptorSets(write_info, {});
 
     return handle;
 }
 
 void VulkanBindlessUtils::DiscardBindlessHandle(BindlessHandle handle) {
-    auto& [pool, mutex] = bindless_handle_pools[handle.type];
+    auto& [pool, mutex] = m_BindlessHandlePools[handle.type];
     std::lock_guard lock{mutex};
     handle.version++;
+    handle.tag = std::numeric_limits<std::uint8_t>::max();
     pool.emplace_back(handle);
 }
 

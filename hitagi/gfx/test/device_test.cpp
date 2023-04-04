@@ -761,7 +761,7 @@ TEST_P(DeviceTest, DrawTriangle) {
             #include "bindless.hlsl"
 
             struct Bindless {
-                hitagi::SimpleBuffer cb;
+                hitagi::SimpleBuffer constant;
             };
 
             struct Constant {
@@ -780,7 +780,7 @@ TEST_P(DeviceTest, DrawTriangle) {
 
             PS_INPUT VSMain(VS_INPUT input) {
                 Bindless bindless = hitagi::load_bindless<Bindless>();
-                Constant constant = bindless.cb.load<Constant>();
+                Constant constant = bindless.constant.load<Constant>();
 
                 PS_INPUT output;
                 output.pos = mul(constant.rotation, float4(input.pos, 1.0f));
@@ -810,7 +810,7 @@ TEST_P(DeviceTest, DrawTriangle) {
     ASSERT_TRUE(pixel_shader);
 
     auto pipeline = device->CreateRenderPipeline({
-        .name    = "I know DirectX12 pipeline",
+        .name    = fmt::format("pipeline-{}", test_name),
         .shaders = {
             vertex_shader,
             pixel_shader,
@@ -855,6 +855,7 @@ TEST_P(DeviceTest, DrawTriangle) {
 
     struct BindlessInfo {
         BindlessHandle constant_buffer;
+        BindlessHandle texture;
     };
 
     BindlessInfo bindless_info{
@@ -874,37 +875,40 @@ TEST_P(DeviceTest, DrawTriangle) {
     };
 
     auto& gfx_queue = device->GetCommandQueue(CommandType::Graphics);
-    auto  context   = device->CreateGraphicsContext("I know DirectX12 context");
+    while (!app->IsQuit()) {
+        auto context = device->CreateGraphicsContext("I know DirectX12 context");
 
-    context->Begin();
-    context->SetPipeline(*pipeline);
-    context->SetViewPort(ViewPort{
-        .x      = 0,
-        .y      = 0,
-        .width  = static_cast<float>(rect.right - rect.left),
-        .height = static_cast<float>(rect.bottom - rect.top),
-    });
-    context->SetScissorRect(hitagi::gfx::Rect{
-        .x      = rect.left,
-        .y      = rect.top,
-        .width  = rect.right - rect.left,
-        .height = rect.bottom - rect.top,
-    });
-    context->SetVertexBuffer(0, *vertex_buffer);
+        context->Begin();
+        context->SetPipeline(*pipeline);
+        context->SetViewPort(ViewPort{
+            .x      = 0,
+            .y      = 0,
+            .width  = static_cast<float>(rect.right - rect.left),
+            .height = static_cast<float>(rect.bottom - rect.top),
+        });
+        context->SetScissorRect(hitagi::gfx::Rect{
+            .x      = rect.left,
+            .y      = rect.top,
+            .width  = rect.right - rect.left,
+            .height = rect.bottom - rect.top,
+        });
+        context->SetVertexBuffer(0, *vertex_buffer);
 
-    context->BeginRendering({
-        .render_target = *swap_chain,
-    });
-    context->PushBindlessInfo(bindless_info_offset);
-    context->Draw(3);
-    context->EndRendering();
-    context->Present(*swap_chain);
-    context->End();
+        context->BeginRendering({
+            .render_target = *swap_chain,
+        });
+        context->PushBindlessInfo(bindless_info_offset);
+        context->Draw(3);
+        context->EndRendering();
+        context->Present(*swap_chain);
+        context->End();
 
-    gfx_queue.Submit({context.get()});
-    swap_chain->Present();
-    gfx_queue.WaitIdle();
+        gfx_queue.Submit({context.get()});
+        swap_chain->Present();
+        gfx_queue.WaitIdle();
 
+        app->Tick();
+    }
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.constant_buffer);
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
 }

@@ -1,8 +1,7 @@
 #include "dx12_resource.hpp"
-#include "d3d12.h"
 #include "dx12_command_list.hpp"
 #include "dx12_device.hpp"
-#include "utils.hpp"
+#include "dx12_utils.hpp"
 #include <hitagi/utils/utils.hpp>
 
 #include <fmt/color.h>

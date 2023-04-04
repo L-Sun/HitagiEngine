@@ -1164,6 +1164,12 @@ inline constexpr auto to_d3d_barrier_access(BarrierAccess access) noexcept -> D3
     if (utils::has_flag(access, BarrierAccess::ShaderWrite)) {
         d3d_access |= D3D12_BARRIER_ACCESS_UNORDERED_ACCESS;
     }
+    if (utils::has_flag(access, BarrierAccess::DepthStencilRead)) {
+        d3d_access |= D3D12_BARRIER_ACCESS_DEPTH_STENCIL_READ;
+    }
+    if (utils::has_flag(access, BarrierAccess::DepthStencilWrite)) {
+        d3d_access |= D3D12_BARRIER_ACCESS_DEPTH_STENCIL_WRITE;
+    }
     if (utils::has_flag(access, BarrierAccess::RenderTarget)) {
         d3d_access |= D3D12_BARRIER_ACCESS_RENDER_TARGET;
     }

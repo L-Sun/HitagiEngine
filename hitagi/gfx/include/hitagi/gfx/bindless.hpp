@@ -31,6 +31,7 @@ public:
 
     [[nodiscard]] virtual auto CreateBindlessHandle(GPUBuffer& buffer, std::size_t index = 0, bool writable = false) -> BindlessHandle = 0;
     [[nodiscard]] virtual auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle                        = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle                                                = 0;
     virtual void               DiscardBindlessHandle(BindlessHandle handle)                                                            = 0;
 
     inline auto& GetDevice() const noexcept { return m_Device; }

@@ -2,7 +2,7 @@
 #include "vk_device.hpp"
 #include "vk_sync.hpp"
 #include "vk_command_buffer.hpp"
-#include "utils.hpp"
+#include "vk_utils.hpp"
 
 #include <hitagi/utils/soa.hpp>
 
@@ -75,6 +75,7 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
             if (gfx_ctx->swap_chain_image_available_semaphore) {
                 wait_vk_semaphores.emplace_back(**gfx_ctx->swap_chain_image_available_semaphore);
                 wait_values.emplace_back(0);
+                wait_stage.emplace_back(vk::PipelineStageFlagBits::eColorAttachmentOutput);
             }
 
             if (gfx_ctx->swap_chain_presentable_semaphore) {

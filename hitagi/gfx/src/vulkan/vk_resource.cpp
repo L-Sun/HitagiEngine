@@ -1,7 +1,7 @@
 #include "vk_resource.hpp"
 #include "vk_device.hpp"
 #include "vk_bindless.hpp"
-#include "utils.hpp"
+#include "vk_utils.hpp"
 
 #include <hitagi/utils/flags.hpp>
 
@@ -235,7 +235,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                         },
                 initial_data);
 
-            auto  context    = device.CreateCopyContext("StageBufferToGPUBuffer");
+            auto  context    = device.CreateCopyContext("StageBufferToTexture");
             auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
 
             context->Begin();
@@ -243,6 +243,10 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 {}, {},
                 {
                     TextureBarrier{
+                        .src_access       = BarrierAccess::Unkown,
+                        .dst_access       = BarrierAccess::CopyDst,
+                        .src_stage        = PipelineStage::None,
+                        .dst_stage        = PipelineStage::Copy,
                         .src_layout       = TextureLayout::Unkown,
                         .dst_layout       = TextureLayout::CopyDst,
                         .texture          = *this,
@@ -265,7 +269,13 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 {}, {},
                 {
                     TextureBarrier{
-                        .src_layout       = TextureLayout::Unkown,
+                        .src_access       = BarrierAccess::CopyDst,
+                        .dst_access       = utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)
+                                                ? BarrierAccess::DepthStencilRead
+                                                : BarrierAccess::ShaderRead,
+                        .src_stage        = PipelineStage::Copy,
+                        .dst_stage        = PipelineStage::All,
+                        .src_layout       = TextureLayout::CopyDst,
                         .dst_layout       = utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)
                                                 ? TextureLayout::DepthStencilRead
                                                 : TextureLayout::ShaderRead,

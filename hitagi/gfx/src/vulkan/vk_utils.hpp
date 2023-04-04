@@ -812,6 +812,12 @@ inline constexpr auto to_vk_access_flags(BarrierAccess access) noexcept -> vk::A
     if (utils::has_flag(access, BarrierAccess::ShaderWrite)) {
         result |= vk::AccessFlagBits2::eShaderWrite;
     }
+    if (utils::has_flag(access, BarrierAccess::DepthStencilRead)) {
+        result |= vk::AccessFlagBits2::eDepthStencilAttachmentRead;
+    }
+    if (utils::has_flag(access, BarrierAccess::DepthStencilWrite)) {
+        result |= vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+    }
     if (utils::has_flag(access, BarrierAccess::RenderTarget)) {
         result |= vk::AccessFlagBits2::eColorAttachmentWrite;
     }

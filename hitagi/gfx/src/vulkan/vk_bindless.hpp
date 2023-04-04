@@ -13,6 +13,7 @@ struct VulkanBindlessUtils : public BindlessUtils {
 
     auto CreateBindlessHandle(GPUBuffer& buffer, std::size_t index = 0, bool writeable = false) -> BindlessHandle final;
     auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle final;
+    auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle final;
     void DiscardBindlessHandle(BindlessHandle handle) final;
 
     std::unique_ptr<vk::raii::DescriptorPool>       pool;
@@ -27,6 +28,6 @@ private:
         std::pmr::vector<BindlessHandle> pool;
         std::mutex                       mutex{};
     };
-    std::array<BindlessHandlePool, 4> bindless_handle_pools{};
+    std::array<BindlessHandlePool, 4> m_BindlessHandlePools{};
 };
 }  // namespace hitagi::gfx

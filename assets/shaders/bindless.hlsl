@@ -1,13 +1,11 @@
 // this bindless header inspired by
 // https://medium.com/traverse-research/bindless-rendering-templates-8920ca41326f
 namespace hitagi {
-#define NUM_STATIC_SAMPLERS 4
-
     struct BindlessHandle {
         uint index : 32;
         uint version : 16;
         uint type : 8;
-        uint tag : 8;
+        uint tag : 8;  // 255 is invalid handle
 
         uint read_index() {
             return index;
@@ -51,26 +49,27 @@ namespace hitagi {
     RWByteAddressBuffer g_rw_byte_address_buffer[];
 
 #define DEFINE_TEXTURE_BINDING(TextureType, binding_index, set_index) \
-    [[vk::binding(binding_index, binding_index)]]                     \
+    [[vk::binding(binding_index, set_index)]]                         \
     TextureType<float> g_##TextureType##_float[];                     \
-    [[vk::binding(binding_index, binding_index)]]                     \
+    [[vk::binding(binding_index, set_index)]]                         \
     TextureType<float2> g_##TextureType##_float2[];                   \
-    [[vk::binding(binding_index, binding_index)]]                     \
+    [[vk::binding(binding_index, set_index)]]                         \
     TextureType<float3> g_##TextureType##_float3[];                   \
-    [[vk::binding(binding_index, binding_index)]]                     \
+    [[vk::binding(binding_index, set_index)]]                         \
     TextureType<float4> g_##TextureType##_float4[];
 
-    [[vk::binding(0, 1)]]
-    SamplerState static_samplers[NUM_STATIC_SAMPLERS];
     // Support Texture2D now
-    DEFINE_TEXTURE_BINDING(Texture1D, NUM_STATIC_SAMPLERS, 1)
-    DEFINE_TEXTURE_BINDING(Texture2D, NUM_STATIC_SAMPLERS, 1)
-    DEFINE_TEXTURE_BINDING(Texture3D, NUM_STATIC_SAMPLERS, 1)
-    DEFINE_TEXTURE_BINDING(TextureCube, NUM_STATIC_SAMPLERS, 1)
+    DEFINE_TEXTURE_BINDING(Texture1D, 0, 1)
+    DEFINE_TEXTURE_BINDING(Texture2D, 0, 1)
+    DEFINE_TEXTURE_BINDING(Texture3D, 0, 1)
+    DEFINE_TEXTURE_BINDING(TextureCube, 0, 1)
 
     DEFINE_TEXTURE_BINDING(RWTexture1D, 0, 2)
     DEFINE_TEXTURE_BINDING(RWTexture2D, 0, 2)
     DEFINE_TEXTURE_BINDING(RWTexture3D, 0, 2)
+
+    [[vk::binding(0, 3)]]
+    SamplerState g_samplers[];
 
     // --------- DescriptorHeap Helper Arrea Begin -------------
 
@@ -110,12 +109,13 @@ namespace hitagi {
 
     static VkDescriptorHeapHelper VkResourceDescriptorHeap;
 
-#define DescriptorHeap(ResourceType, handle) VkResourceDescriptorHeap[(HandleWrapper<ResourceType>)handle]
+#define _ResourceDescriptorHeap(ResourceType, handle) VkResourceDescriptorHeap[(HandleWrapper<ResourceType>)handle]
+#define _SamplerDescriptorHeap(handle) g_samplers[handle.index]
     // --------- DescriptorHeap Helper Arrea End ---------------
 
     template <typename T>
     T load_bindless() {
-        T result = DescriptorHeap(SimpleBuffer, g_bindings_offset.binding_offset.read_index()).Load<T>(0);
+        T result = _ResourceDescriptorHeap(SimpleBuffer, g_bindings_offset.binding_offset.read_index()).Load<T>(0);
         return result;
     }
 
@@ -128,7 +128,8 @@ namespace hitagi {
         return result;
     }
 
-#define DescriptorHeap(ResourceType, handle) ResourceDescriptorHeap[handle.index]
+#define _ResourceDescriptorHeap(ResourceType, handle) ResourceDescriptorHeap[handle.index]
+#define _SamplerDescriptorHeap(handle) SamplerDescriptorHeap[handle.index]
 #endif
 
     // --------- Binding Area End  ---------
@@ -136,12 +137,16 @@ namespace hitagi {
     struct SimpleBuffer {
         BindlessHandle handle;
 
+        bool valid() {
+            return handle.tag != 255;
+        }
+
         template <typename T>
         T load() {
 #ifdef __spirv__
-            T result = DescriptorHeap(SimpleBuffer, handle).Load<T>(0);
+            T result = _ResourceDescriptorHeap(SimpleBuffer, handle).Load<T>(0);
 #else
-            ConstantBuffer<T> result = DescriptorHeap(SimpleBuffer, handle);
+            ConstantBuffer<T> result = _ResourceDescriptorHeap(SimpleBuffer, handle);
 #endif
             return result;
         }
@@ -150,20 +155,45 @@ namespace hitagi {
     struct Texture {
         BindlessHandle handle;
 
-#if __SHADER_TARGET_STAGE == __SHADER_STAGE_PIXEL  // sampling with implicit lod is only allowed in fragment shaders
+        bool valid() {
+            return handle.tag != 255;
+        }
+
+        template <typename T>
+        T load(uint pos) {
+            Texture1D<T> texture = _ResourceDescriptorHeap(Texture1D<T>, handle);
+            return texture.Load(pos);
+        }
+
+        template <typename T>
+        T load(uint2 pos) {
+            Texture2D<T> texture = _ResourceDescriptorHeap(Texture2D<T>, handle);
+            return texture.Load(uint3(pos, 0));
+        }
+
         template <typename T>
         T sample(SamplerState sampler, float2 uv) {
-            Texture2D<T> texture = DescriptorHeap(Texture2D<T>, handle);
+            Texture2D<T> texture = _ResourceDescriptorHeap(Texture2D<T>, handle);
             return texture.Sample(sampler, uv);
         }
-#endif
 
         template <typename T>
         T sample_level(SamplerState sampler, float2 uv, float mip) {
-            Texture2D<T> texture = DescriptorHeap(Texture2D<T>, handle);
+            Texture2D<T> texture = _ResourceDescriptorHeap(Texture2D<T>, handle);
             return texture.SampleLevel(sampler, uv, mip);
         }
     };
 
+    struct Sampler {
+        BindlessHandle handle;
+
+        bool valid() {
+            return handle.tag != 255;
+        }
+
+        SamplerState load() {
+            return _SamplerDescriptorHeap(handle);
+        }
+    };
 }
 

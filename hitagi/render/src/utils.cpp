@@ -9,30 +9,39 @@ GuiRenderUtils::GuiRenderUtils(gui::GuiManager& gui_manager, gfx::Device& gfx_de
                 SimpleBuffer frame_constant;
                 Texture      texture;
             };
+            struct FrameConstant {
+                matrix projection;
+            };
 
             struct VS_INPUT {
-              float3 pos : POSITION;
-              float2 uv  : TEXCOORD;
-              float4 col : COLOR;
+                float3 pos : POSITION;
+                float2 uv  : TEXCOORD;
+                float4 col : COLOR;
             };          
 
             struct PS_INPUT {
-              float4 pos : SV_POSITION;
-              float2 uv  : TEXCOORD;
-              float4 col : COLOR;
+                float4 pos : SV_POSITION;
+                float2 uv  : TEXCOORD;
+                float4 col : COLOR;
             };          
 
             PS_INPUT VSMain(VS_INPUT input) {
-              PS_INPUT output;
-              output.pos = mul(projection, float4(input.pos.xy, 0.f, 1.f));
-              output.col = input.col;
-              output.uv  = input.uv;
-              return output;
+                BindlessInfo bindless_info = hitagi::load_bindless<BindlessInfo>();
+                FrameConstant frame_constant = bindless_info.frame_constant.Load<FrameConstant>(0);
+
+                PS_INPUT output;
+                output.pos = mul(frame_constant.projection, float4(input.pos.xy, 0.f, 1.f));
+                output.col = input.col;
+                output.uv  = input.uv;
+                return output;
             }           
 
             float4 PSMain(PS_INPUT input) : SV_TARGET {
-              float4 out_col = input.col * texture0.Sample(sampler0, input.uv);
-              return out_col;
+                BindlessInfo bindless_info = hitagi::load_bindless<BindlessInfo>();
+                Texture texture = bindless_info.frame_constant.Load<FrameConstant>(0);
+                
+                float4 out_col = input.col * texture.sample(sampler0, input.uv);
+                return out_col;
             }
             )""";
 

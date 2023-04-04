@@ -2,7 +2,7 @@
 #include "dx12_resource.hpp"
 #include "dx12_bindless.hpp"
 #include "dx12_device.hpp"
-#include "utils.hpp"
+#include "dx12_utils.hpp"
 
 #include <hitagi/utils/exceptions.hpp>
 

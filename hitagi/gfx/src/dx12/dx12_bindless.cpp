@@ -62,6 +62,7 @@ DX12BindlessUtils::DX12BindlessUtils(DX12Device& device, std::string_view name)
             m_Available_CBV_SRV_UAV_BindlessHandles.emplace_back(BindlessHandle{
                 .index   = static_cast<std::uint32_t>(index),
                 .version = 0,
+                .tag     = std::numeric_limits<std::uint8_t>::max(),
             });  // ! we do not specify type here, but dynamically specify type on CreateBindlessHandle
         }
         for (std::size_t index = 0; index < m_Sampler_Descriptors.num; index++) {
@@ -69,6 +70,7 @@ DX12BindlessUtils::DX12BindlessUtils(DX12Device& device, std::string_view name)
                 .index   = static_cast<std::uint32_t>(index),
                 .version = 0,
                 .type    = 3,
+                .tag     = std::numeric_limits<std::uint8_t>::max(),
             });
         }
     }
@@ -101,6 +103,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
 
     const auto& dx12_device = static_cast<DX12Device&>(m_Device);
     const auto& dx12_buffer = static_cast<DX12GPUBuffer&>(buffer);
+
     dx12_device.GetDevice()->CopyDescriptorsSimple(
         1,
         CD3DX12_CPU_DESCRIPTOR_HANDLE(m_CBV_SRV_UAV_Descriptors.cpu_handle, handle.index, m_CBV_SRV_UAV_Descriptors.increment_size),
@@ -147,14 +150,36 @@ auto DX12BindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) ->
     return handle;
 }
 
+auto DX12BindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHandle {
+    BindlessHandle handle;
+    {
+        std::lock_guard lock{m_Mutex};
+        handle = m_Available_Sampler_BindlessHandles.back();
+        m_Available_Sampler_BindlessHandles.pop_back();
+    }
+    handle.tag = 0;
+
+    const auto& dx12_device  = static_cast<DX12Device&>(m_Device);
+    const auto& dx12_sampler = static_cast<DX12Sampler&>(sampler);
+    dx12_device.GetDevice()->CopyDescriptorsSimple(
+        1,
+        CD3DX12_CPU_DESCRIPTOR_HANDLE(m_Sampler_Descriptors.cpu_handle, handle.index, m_Sampler_Descriptors.increment_size),
+        dx12_sampler.sampler.cpu_handle,
+        D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+
+    return handle;
+}
+
 void DX12BindlessUtils::DiscardBindlessHandle(BindlessHandle handle) {
     std::lock_guard lock{m_Mutex};
 
     if (handle.type == 0 || handle.type == 1) {
         handle.version++;
+        handle.tag = std::numeric_limits<std::uint8_t>::max();
         m_Available_CBV_SRV_UAV_BindlessHandles.emplace_back(handle);
     } else if (handle.type == 3) {
         handle.version++;
+        handle.tag = std::numeric_limits<std::uint8_t>::max();
         m_Available_Sampler_BindlessHandles.emplace_back(handle);
     }
 }
