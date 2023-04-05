@@ -55,8 +55,6 @@ inline auto create_compile_args(const ShaderDesc& desc, bool spirv = false) noex
     // We use row major order
     args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
 
-    // make sure all resource bound
-    args.emplace_back(DXC_ARG_ALL_RESOURCES_BOUND);
 #ifdef HITAGI_DEBUG
     args.emplace_back(DXC_ARG_OPTIMIZATION_LEVEL0);
     args.emplace_back(DXC_ARG_DEBUG);

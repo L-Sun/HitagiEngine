@@ -1,5 +1,4 @@
 #pragma once
-#include "dx12_descriptor_heap.hpp"
 #include <hitagi/gfx/bindless.hpp>
 
 #include <d3d12.h>
@@ -21,8 +20,8 @@ public:
 
     inline auto GetDescriptorHeaps() const noexcept -> std::array<ID3D12DescriptorHeap*, 2> {
         return {
-            m_CBV_SRV_UAV_DescriptorHeap.GetHeap(),
-            m_Sampler_DescriptorHeap.GetHeap(),
+            m_CBV_SRV_UAV_DescriptorHeap.Get(),
+            m_Sampler_DescriptorHeap.Get(),
         };
     }
     inline auto GetBindlessRootSignature() const noexcept { return m_RootSignature; }
@@ -32,12 +31,10 @@ private:
 
     ComPtr<ID3D12RootSignature> m_RootSignature;
 
-    DescriptorHeap m_CBV_SRV_UAV_DescriptorHeap;
-    DescriptorHeap m_Sampler_DescriptorHeap;
-    Descriptor     m_CBV_SRV_UAV_Descriptors;
-    Descriptor     m_Sampler_Descriptors;
+    ComPtr<ID3D12DescriptorHeap> m_CBV_SRV_UAV_DescriptorHeap;
+    ComPtr<ID3D12DescriptorHeap> m_Sampler_DescriptorHeap;
 
-    std::pmr::vector<BindlessHandle> m_Available_CBV_SRV_UAV_BindlessHandles;
-    std::pmr::vector<BindlessHandle> m_Available_Sampler_BindlessHandles;
+    std::pmr::vector<BindlessHandle> m_Available_CBV_SRV_UAV_BindlessHandlePool;
+    std::pmr::vector<BindlessHandle> m_Available_Sampler_BindlessHandlePool;
 };
 }  // namespace hitagi::gfx

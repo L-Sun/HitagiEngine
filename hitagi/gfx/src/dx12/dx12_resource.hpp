@@ -32,7 +32,7 @@ struct DX12Texture : public Texture {
 
     ComPtr<ID3D12Resource>      resource;
     ComPtr<D3D12MA::Allocation> allocation;
-    Descriptor                  srv, uav, rtv, dsv;
+    Descriptor                  rtv, dsv;
 };
 
 struct DX12Sampler : public Sampler {

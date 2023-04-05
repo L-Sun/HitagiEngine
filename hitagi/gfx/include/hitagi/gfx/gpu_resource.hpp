@@ -89,7 +89,7 @@ struct SamplerDesc {
     float            min_lod        = 0;
     float            max_lod        = 32;
     float            max_anisotropy = 1;
-    CompareOp        compare_op;
+    CompareOp        compare_op     = CompareOp::Never;
 
     inline constexpr bool operator==(const SamplerDesc&) const noexcept;
 };

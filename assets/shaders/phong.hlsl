@@ -83,10 +83,10 @@ float4 PSMain(PSInput input)
     const float  r    = length(frame_constant.light_pos_in_view.xyz - input.pos_in_view);
     const float  invd = 1.0f / (r * r + 1.0f);
     // color
-    const float3 _diffuse  = resource.diffuse_texture.valid() ? resource.diffuse_texture.sample<float3>(sampler, input.uv) : material_constant.diffuse;
-    const float3 _specular = resource.specular_texture.valid() ? resource.specular_texture.sample<float3>(sampler, input.uv) : material_constant.specular;
-    const float3 _ambient  = resource.ambient_texture.valid() ? resource.ambient_texture.sample<float3>(sampler, input.uv) : material_constant.ambient;
-    const float3 _emissive = resource.emissive_texture.valid() ? resource.emissive_texture.sample<float3>(sampler, input.uv) : material_constant.emissive;
+    const float3 _diffuse  = hitagi::valid(resource.diffuse_texture) ? resource.diffuse_texture.sample<float3>(sampler, input.uv) : material_constant.diffuse;
+    const float3 _specular = hitagi::valid(resource.specular_texture) ? resource.specular_texture.sample<float3>(sampler, input.uv) : material_constant.specular;
+    const float3 _ambient  = hitagi::valid(resource.ambient_texture) ? resource.ambient_texture.sample<float3>(sampler, input.uv) : material_constant.ambient;
+    const float3 _emissive = hitagi::valid(resource.emissive_texture) ? resource.emissive_texture.sample<float3>(sampler, input.uv) : material_constant.emissive;
 
     const float3 vLightInts = _ambient + (frame_constant.light_color * frame_constant.light_intensity) * invd * (_diffuse * max(dot(vN, vL), 0.0f) + _specular * pow(max(dot(vH, vN), 0.0f), material_constant.shininess));
 

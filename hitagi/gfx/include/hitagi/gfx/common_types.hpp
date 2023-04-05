@@ -333,7 +333,7 @@ enum struct CompareOp : std::uint8_t {
 struct RasterizationState {
     FillMode fill_mode               = FillMode::Solid;
     CullMode cull_mode               = CullMode::Back;
-    bool     front_counter_clockwise = true;
+    bool     front_counter_clockwise = false;
 
     bool  depth_clamp_enable      = false;
     bool  depth_bias_enable       = false;
@@ -397,8 +397,8 @@ struct VertexAttribute {
     std::uint8_t     semantic_index;
     Format           format;
     std::uint32_t    binding;
-    std::uint64_t    offset       = 0;
-    std::uint64_t    stride       = 0;
+    std::uint64_t    offset;
+    std::uint64_t    stride;
     bool             per_instance = false;
 };
 // Improve me with fixed_vector

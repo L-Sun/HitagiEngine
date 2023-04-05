@@ -13,7 +13,6 @@ namespace hitagi::gfx {
 auto initialize_command_context(DX12Device& device, CommandType type, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<ID3D12GraphicsCommandList>& cmd_list, std::string_view name) {
     const auto logger = device.GetLogger();
 
-    logger->trace("initialize dx12 command allocator({})", fmt::styled(name, fmt::fg(fmt::color::green)));
     if (FAILED(device.GetDevice()->CreateCommandAllocator(to_d3d_command_type(type), IID_PPV_ARGS(&cmd_allocator)))) {
         const auto error_message = fmt::format("failed to create command allocator({})", fmt::styled(name, fmt::fg(fmt::color::red)));
         logger->error(error_message);
@@ -24,7 +23,6 @@ auto initialize_command_context(DX12Device& device, CommandType type, ComPtr<ID3
         cmd_allocator->SetName(std::wstring(allocator_name.begin(), allocator_name.end()).c_str());
     }
 
-    logger->trace("initialize dx12 command list({})", fmt::styled(name, fmt::fg(fmt::color::green)));
     if (FAILED(device.GetDevice()->CreateCommandList(0, to_d3d_command_type(type), cmd_allocator.Get(), nullptr, IID_PPV_ARGS(&cmd_list)))) {
         const auto error_message = fmt::format("failed to create command list({})", fmt::styled(name, fmt::fg(fmt::color::green)));
         logger->error(error_message);
@@ -113,9 +111,9 @@ void DX12GraphicsCommandList::BeginRendering(const RenderingInfo& info) {
             {}, {},
             {
                 TextureBarrier{
-                    .src_access = BarrierAccess::Unkown,
+                    .src_access = BarrierAccess::Present,
                     .dst_access = BarrierAccess::RenderTarget,
-                    .src_stage  = PipelineStage::None,
+                    .src_stage  = PipelineStage::Render,
                     .dst_stage  = PipelineStage::Render,
                     .src_layout = TextureLayout::Present,
                     .dst_layout = TextureLayout::RenderTarget,
@@ -125,12 +123,6 @@ void DX12GraphicsCommandList::BeginRendering(const RenderingInfo& info) {
 
     } else if (std::holds_alternative<std::reference_wrapper<Texture>>(info.render_target)) {
         render_target = &static_cast<DX12Texture&>(std::get<std::reference_wrapper<Texture>>(info.render_target).get());
-        static bool x = true;
-        if (x) {
-            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(render_target->resource.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
-            command_list->ResourceBarrier(1, &barrier);
-            x = false;
-        }
     } else {
         throw std::runtime_error("invalid render target");
     }
@@ -199,13 +191,13 @@ void DX12GraphicsCommandList::SetVertexBuffer(std::uint8_t slot, GPUBuffer& buff
         D3D12_VERTEX_BUFFER_VIEW vbv{
             .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress(),
             .SizeInBytes    = static_cast<UINT>(dx12_buffer.buffer_size),
-            .StrideInBytes  = static_cast<std::uint32_t>(iter->stride),
+            .StrideInBytes  = static_cast<UINT>(iter->stride),
         };
         command_list->IASetVertexBuffers(slot, 1, &vbv);
     }
 }
 
-void DX12GraphicsCommandList::PushBindlessInfo(const BindlessInfoOffset& info) {
+void DX12GraphicsCommandList::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
     command_list->SetGraphicsRoot32BitConstants(0, sizeof(info) / sizeof(std::uint32_t), &info, 0);
 }
 
@@ -275,7 +267,7 @@ void DX12ComputeCommandList::SetPipeline(const ComputePipeline& pipeline) {
     command_list->SetPipelineState(dx12_pipeline.pipeline.Get());
 }
 
-void DX12ComputeCommandList::PushBindlessInfo(const BindlessInfoOffset& info) {
+void DX12ComputeCommandList::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
     command_list->SetComputeRoot32BitConstants(0, sizeof(info) / sizeof(std::uint32_t), &info, 0);
 }
 

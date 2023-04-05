@@ -83,7 +83,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
             throw std::runtime_error("Failed to find physical device Vulkan supported!");
         }
         m_PhysicalDevice = std::make_unique<vk::raii::PhysicalDevice>(std::move(physical_devices.front()));
-        m_Logger->debug("Pick physical device: {}", fmt::styled(std::string_view{m_PhysicalDevice->getProperties().deviceName}, fmt::fg(fmt::color::green)));
+        m_Logger->trace("Pick physical device: {}", fmt::styled(std::string_view{m_PhysicalDevice->getProperties().deviceName}, fmt::fg(fmt::color::green)));
     }
 
     m_Logger->trace("Create logical device...");
@@ -120,7 +120,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
 
         m_Device = std::make_unique<vk::raii::Device>(m_PhysicalDevice->createDevice(device_create_info.get(), GetCustomAllocator()));
 
-        m_Logger->debug("Retrieval command queues ...");
+        m_Logger->trace("Retrieval command queues ...");
         magic_enum::enum_for_each<CommandType>([&](CommandType type) {
             m_CommandQueues[type] = std::make_unique<VulkanCommandQueue>(
                 *this,
@@ -130,7 +130,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         });
     }
 
-    m_Logger->debug("Create VMA Allocator...");
+    m_Logger->trace("Create VMA Allocator...");
     {
         const VmaAllocatorCreateInfo allocator_info = {
             .physicalDevice       = **m_PhysicalDevice,
@@ -142,7 +142,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         vmaCreateAllocator(&allocator_info, &m_VmaAllocator);
     }
 
-    m_Logger->debug("Create Command Pools...");
+    m_Logger->trace("Create Command Pools...");
     {
         magic_enum::enum_for_each<CommandType>([&](CommandType type) {
             vk::CommandPoolCreateInfo command_pool_create_info{
@@ -157,7 +157,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         });
     }
 
-    m_Logger->debug("Create Bindless...");
+    m_Logger->trace("Create Bindless...");
     {
         m_BindlessUtils = std::make_unique<VulkanBindlessUtils>(*this, fmt::format("{}-BindlessUtils", m_Name));
     }

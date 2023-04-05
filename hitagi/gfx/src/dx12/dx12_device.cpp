@@ -18,8 +18,6 @@ _declspec(dllexport) extern const char* D3D12SDKPath = "./D3D12/";
 
 namespace hitagi::gfx {
 
-ComPtr<ID3D12DebugDevice1> g_debug_interface;
-
 DX12Device::DX12Device(std::string_view name)
     : Device(Type::DX12, name),
       m_ShaderCompiler(fmt::format("{}-ShaderCompiler", name))
@@ -31,10 +29,17 @@ DX12Device::DX12Device(std::string_view name)
     {
         ComPtr<ID3D12Debug> debug_controller;
         if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller)))) {
-            m_Logger->debug("Enabled D3D12 debug layer.");
-
-            debug_controller->EnableDebugLayer();
-            // Enable additional debug layers.
+            if (ComPtr<ID3D12Debug3> debug_controller_3;
+                SUCCEEDED(debug_controller->QueryInterface(IID_PPV_ARGS(&debug_controller_3)))) {
+                m_Logger->trace("Enabled GPU Based validation");
+                debug_controller_3->SetEnableGPUBasedValidation(true);
+                m_Logger->trace("Enabled Synchronized command queue validation");
+                debug_controller_3->SetEnableSynchronizedCommandQueueValidation(true);
+                debug_controller_3->EnableDebugLayer();
+            } else {
+                m_Logger->trace("Enabled D3D12 debug layer.");
+                debug_controller->EnableDebugLayer();
+            }
             dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
         }
     }
@@ -59,7 +64,7 @@ DX12Device::DX12Device(std::string_view name)
         m_Logger->trace("Filter by feature support");
         std::erase_if(adapters, [this](const ComPtr<IDXGIAdapter>& adapter) -> bool {
             ComPtr<ID3D12Device> device;
-            if (FAILED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&device)))) {
+            if (FAILED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)))) {
                 return true;
             }
 
@@ -90,7 +95,7 @@ DX12Device::DX12Device(std::string_view name)
 
     m_Logger->trace("Create D3D12 device...");
     {
-        if (FAILED(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_2, IID_PPV_ARGS(&m_Device)))) {
+        if (FAILED(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_Device)))) {
             m_Logger->error("Failed to create D3D12 device.");
             throw std::runtime_error("Failed to create D3D12 device.");
         }
@@ -148,12 +153,10 @@ DX12Device::DX12Device(std::string_view name)
 }
 
 DX12Device::~DX12Device() {
+    WaitIdle();
     UnregisterIntegratedD3D12Logger();
 #ifdef HITAGI_DEBUG
-    if (FAILED(m_Device->QueryInterface(g_debug_interface.ReleaseAndGetAddressOf()))) {
-        m_Logger->error("Failed to get debug interface.");
-    }
-    report_debug_error_after_destroy_fn = []() { DX12Device::ReportDebugLog(); };
+    report_debug_error_after_destroy_fn = [device = m_Device]() { DX12Device::ReportDebugLog(device); };
 #endif
 }
 
@@ -230,16 +233,20 @@ void DX12Device::Profile(std::size_t frame_index) const {
     TracyPlot("GPU Memory", static_cast<std::int64_t>(local_budget.Stats.AllocationBytes));
 }
 
-void DX12Device::ReportDebugLog() {
+void DX12Device::ReportDebugLog(const ComPtr<ID3D12Device>& device) {
 #ifdef HITAGI_DEBUG
-    g_debug_interface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
+    ComPtr<ID3D12DebugDevice1> debug_interface;
+    if (FAILED(device->QueryInterface(debug_interface.ReleaseAndGetAddressOf()))) {
+        return;
+    }
+    debug_interface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
 #endif
 }
 
 void DX12Device::IntegrateD3D12Logger() {
     ComPtr<ID3D12InfoQueue1> info_queue;
     if (SUCCEEDED(m_Device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
-        m_Logger->debug("Enabled D3D12 debug logger");
+        m_Logger->trace("Enabled D3D12 debug logger");
         info_queue->RegisterMessageCallback(
             [](D3D12_MESSAGE_CATEGORY, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID, LPCSTR description, void* context) {
                 auto p_this = reinterpret_cast<DX12Device*>(context);
@@ -249,7 +256,6 @@ void DX12Device::IntegrateD3D12Logger() {
                         break;
                     case D3D12_MESSAGE_SEVERITY_ERROR:
                         p_this->m_Logger->error(description);
-                        throw std::runtime_error(description);
                         break;
                     case D3D12_MESSAGE_SEVERITY_WARNING:
                         p_this->m_Logger->warn(description);
@@ -267,10 +273,10 @@ void DX12Device::IntegrateD3D12Logger() {
 }
 
 void DX12Device::UnregisterIntegratedD3D12Logger() {
-    m_Logger->debug("Unregister D3D12 Logger");
+    m_Logger->trace("Unregister D3D12 Logger");
     ComPtr<ID3D12InfoQueue1> info_queue;
     if (SUCCEEDED(m_Device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
-        m_Logger->debug("Unable D3D12 debug logger");
+        m_Logger->trace("Unable D3D12 debug logger");
         info_queue->UnregisterMessageCallback(m_DebugCookie);
     }
 }

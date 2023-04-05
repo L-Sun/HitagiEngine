@@ -784,20 +784,18 @@ inline constexpr auto to_d3d_srv_desc(const TextureDesc& desc) noexcept {
             }
         } else if (desc.depth == 1) {
             if (desc.array_size == 1) {
-                if (utils::has_flag(desc.usages, TextureUsageFlags::Cube)) {
-                    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-                } else {
-                    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-                }
+                srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
             } else {
-                if (utils::has_flag(desc.usages, TextureUsageFlags::CubeArray)) {
-                    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
-                } else {
-                    srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
-                }
+                srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
             }
         } else {
             srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+        }
+        if (utils::has_flag(desc.usages, TextureUsageFlags::Cube)) {
+            srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+        }
+        if (utils::has_flag(desc.usages, TextureUsageFlags::CubeArray)) {
+            srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
         }
     }
 
@@ -806,36 +804,32 @@ inline constexpr auto to_d3d_srv_desc(const TextureDesc& desc) noexcept {
         switch (srv_desc.ViewDimension) {
             case D3D12_SRV_DIMENSION_TEXTURE1D: {
                 srv_desc.Texture1D = {
-                    .MostDetailedMip     = 0,
-                    .MipLevels           = desc.mip_levels,
-                    .ResourceMinLODClamp = 0.0f,
+                    .MostDetailedMip = 0,
+                    .MipLevels       = desc.mip_levels,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE1DARRAY: {
                 srv_desc.Texture1DArray = {
-                    .MostDetailedMip     = 0,
-                    .MipLevels           = desc.mip_levels,
-                    .FirstArraySlice     = 0,
-                    .ArraySize           = desc.array_size,
-                    .ResourceMinLODClamp = 0.0f,
+                    .MostDetailedMip = 0,
+                    .MipLevels       = desc.mip_levels,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE2D: {
                 srv_desc.Texture2D = {
-                    .MostDetailedMip     = 0,
-                    .MipLevels           = desc.mip_levels,
-                    .PlaneSlice          = 0,
-                    .ResourceMinLODClamp = 0.0f,
+                    .MostDetailedMip = 0,
+                    .MipLevels       = desc.mip_levels,
+                    .PlaneSlice      = 0,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE2DARRAY: {
                 srv_desc.Texture2DArray = {
-                    .MostDetailedMip     = 0,
-                    .MipLevels           = desc.mip_levels,
-                    .FirstArraySlice     = 0,
-                    .ArraySize           = desc.array_size,
-                    .PlaneSlice          = 0,
-                    .ResourceMinLODClamp = 0.0f,
+                    .MostDetailedMip = 0,
+                    .MipLevels       = desc.mip_levels,
+                    .FirstArraySlice = 0,
+                    .ArraySize       = desc.array_size,
+                    .PlaneSlice      = 0,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE2DMS: {
@@ -845,25 +839,22 @@ inline constexpr auto to_d3d_srv_desc(const TextureDesc& desc) noexcept {
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE3D: {
                 srv_desc.Texture3D = {
-                    .MostDetailedMip     = 0,
-                    .MipLevels           = desc.mip_levels,
-                    .ResourceMinLODClamp = 0.0f,
+                    .MostDetailedMip = 0,
+                    .MipLevels       = desc.mip_levels,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURECUBE: {
                 srv_desc.TextureCube = {
-                    .MostDetailedMip     = 0,
-                    .MipLevels           = desc.mip_levels,
-                    .ResourceMinLODClamp = 0.0f,
+                    .MostDetailedMip = 0,
+                    .MipLevels       = desc.mip_levels,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURECUBEARRAY: {
                 srv_desc.TextureCubeArray = {
-                    .MostDetailedMip     = 0,
-                    .MipLevels           = desc.mip_levels,
-                    .First2DArrayFace    = 0,
-                    .NumCubes            = desc.array_size,
-                    .ResourceMinLODClamp = 0.0f,
+                    .MostDetailedMip  = 0,
+                    .MipLevels        = desc.mip_levels,
+                    .First2DArrayFace = 0,
+                    .NumCubes         = desc.array_size,
                 };
             } break;
             default: {
@@ -1186,7 +1177,7 @@ inline constexpr auto to_d3d_pipeline_stage(PipelineStage stage) noexcept -> D3D
         return D3D12_BARRIER_SYNC_NONE;
     }
     if (utils::has_flag(stage, PipelineStage::VertexInput)) {
-        d3d_stage |= D3D12_BARRIER_SYNC_INDEX_INPUT;
+        d3d_stage |= D3D12_BARRIER_SYNC_DRAW;
     }
     if (utils::has_flag(stage, PipelineStage::VertexShader)) {
         d3d_stage |= D3D12_BARRIER_SYNC_VERTEX_SHADING;

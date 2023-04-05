@@ -453,9 +453,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     });
     bindless_info_buffer->Update(0, bindless_info);
 
-    BindlessInfoOffset bindless_info_offset{
-        .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),
-    };
+    BindlessHandle bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer);
 
     constexpr std::string_view vs_shader_code = R"""(
             #include "bindless.hlsl"
@@ -498,14 +496,16 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
 
     context->Begin();
     context->SetPipeline(*pipeline);
-    context->PushBindlessInfo(bindless_info_offset);
+    context->PushBindlessMetaInfo({
+        .handle = bindless_info_handle,
+    });
     context->End();
 
     auto& queue = device->GetCommandQueue(context->GetType());
     queue.Submit({context.get()});
     queue.WaitIdle();
 
-    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_handle);
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.frame_buffer_handle);
 }
 
@@ -592,9 +592,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
     });
     bindless_info_buffer->Update(0, bindless_info);
 
-    BindlessInfoOffset bindless_info_offset{
-        .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),
-    };
+    auto bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer);
 
     constexpr std::string_view cs_shader_code = R"""(
             #include "bindless.hlsl"
@@ -630,7 +628,9 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
     context->Begin();
 
     context->SetPipeline(*pipeline);
-    context->PushBindlessInfo(bindless_info_offset);
+    context->PushBindlessMetaInfo({
+        .handle = bindless_info_handle,
+    });
     // TODO dispatch command
     context->End();
 
@@ -638,7 +638,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
     queue.Submit({context.get()});
     queue.WaitIdle();
 
-    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_handle);
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.frame_buffer_handle);
 }
 
@@ -762,6 +762,9 @@ TEST_P(DeviceTest, DrawTriangle) {
 
             struct Bindless {
                 hitagi::SimpleBuffer constant;
+                hitagi::Texture      texture;
+                hitagi::Sampler      sampler;
+                uint                 padding;
             };
 
             struct Constant {
@@ -789,6 +792,10 @@ TEST_P(DeviceTest, DrawTriangle) {
             }
 
             float4 PSMain(PS_INPUT input) : SV_TARGET {
+                Bindless     bindless = hitagi::load_bindless<Bindless>();
+                SamplerState sampler  = bindless.sampler.load();
+                const float4 color = bindless.texture.sample<float4>(sampler, input.col.xy);
+                return color;
                 return float4(input.col, 1.0f);
             }
         )""";
@@ -819,9 +826,6 @@ TEST_P(DeviceTest, DrawTriangle) {
             {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 2 * sizeof(vec3f)},
             {"COLOR", 0, Format::R32G32B32_FLOAT, 0, sizeof(vec3f), 2 * sizeof(vec3f)},
         },
-        .rasterization_state = {
-            .front_counter_clockwise = false,
-        },
         .render_format = swap_chain->GetFormat(),
     });
 
@@ -842,6 +846,27 @@ TEST_P(DeviceTest, DrawTriangle) {
         },
         {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
 
+    std::array pink_color = {
+        R8G8B8A8Unorm(0xa9, 0xC0, 0x61, 0xFF),
+        R8G8B8A8Unorm(0x28, 0xC0, 0xCB, 0xFF),
+        R8G8B8A8Unorm(0x31, 0xC0, 0x34, 0xFF),
+        R8G8B8A8Unorm(0x00, 0x90, 0xCB, 0xFF),
+    };
+
+    auto texture = device->CreateTexture(
+        {
+            .name   = fmt::format("Texture-{}", test_name),
+            .width  = 2,
+            .height = 2,
+            .format = Format::R8G8B8A8_UNORM,
+            .usages = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
+        },
+        {reinterpret_cast<const std::byte*>(pink_color.data()), sizeof(pink_color)});
+
+    auto sampler = device->CreatSampler({
+        .name = fmt::format("Sampler-{}", test_name),
+    });
+
     struct Constant {
         mat4f rotation;
     };
@@ -856,10 +881,14 @@ TEST_P(DeviceTest, DrawTriangle) {
     struct BindlessInfo {
         BindlessHandle constant_buffer;
         BindlessHandle texture;
+        BindlessHandle sampler;
+        uint32_t       padding;
     };
 
     BindlessInfo bindless_info{
         .constant_buffer = device->GetBindlessUtils().CreateBindlessHandle(*constant_buffer),
+        .texture         = device->GetBindlessUtils().CreateBindlessHandle(*texture),
+        .sampler         = device->GetBindlessUtils().CreateBindlessHandle(*sampler),
     };
 
     auto bindless_info_buffer = device->CreateGPUBuffer({
@@ -870,47 +899,46 @@ TEST_P(DeviceTest, DrawTriangle) {
     });
     bindless_info_buffer->Update(0, bindless_info);
 
-    BindlessInfoOffset bindless_info_offset{
-        .bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer),
-    };
+    auto bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer);
 
     auto& gfx_queue = device->GetCommandQueue(CommandType::Graphics);
-    while (!app->IsQuit()) {
-        auto context = device->CreateGraphicsContext("I know DirectX12 context");
+    auto  context   = device->CreateGraphicsContext("I know DirectX12 context");
 
-        context->Begin();
-        context->SetPipeline(*pipeline);
-        context->SetViewPort(ViewPort{
-            .x      = 0,
-            .y      = 0,
-            .width  = static_cast<float>(rect.right - rect.left),
-            .height = static_cast<float>(rect.bottom - rect.top),
-        });
-        context->SetScissorRect(hitagi::gfx::Rect{
-            .x      = rect.left,
-            .y      = rect.top,
-            .width  = rect.right - rect.left,
-            .height = rect.bottom - rect.top,
-        });
-        context->SetVertexBuffer(0, *vertex_buffer);
+    context->Begin();
+    context->SetPipeline(*pipeline);
+    context->SetViewPort(ViewPort{
+        .x      = 0,
+        .y      = 0,
+        .width  = static_cast<float>(rect.right - rect.left),
+        .height = static_cast<float>(rect.bottom - rect.top),
+    });
+    context->SetScissorRect(hitagi::gfx::Rect{
+        .x      = rect.left,
+        .y      = rect.top,
+        .width  = rect.right - rect.left,
+        .height = rect.bottom - rect.top,
+    });
+    context->SetVertexBuffer(0, *vertex_buffer);
 
-        context->BeginRendering({
-            .render_target = *swap_chain,
-        });
-        context->PushBindlessInfo(bindless_info_offset);
-        context->Draw(3);
-        context->EndRendering();
-        context->Present(*swap_chain);
-        context->End();
+    context->BeginRendering({
+        .render_target = *swap_chain,
+    });
+    context->PushBindlessMetaInfo({
+        .handle = bindless_info_handle,
+    });
+    context->Draw(3);
+    context->EndRendering();
+    context->Present(*swap_chain);
+    context->End();
 
-        gfx_queue.Submit({context.get()});
-        swap_chain->Present();
-        gfx_queue.WaitIdle();
+    gfx_queue.Submit({context.get()});
+    swap_chain->Present();
+    gfx_queue.WaitIdle();
 
-        app->Tick();
-    }
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.sampler);
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.texture);
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.constant_buffer);
-    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_offset.bindless_info_handle);
+    device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_handle);
 }
 
 int main(int argc, char** argv) {

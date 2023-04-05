@@ -16,29 +16,16 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
 {
     const auto logger = device.GetLogger();
 
-    D3D12_RESOURCE_STATES initial_state = D3D12_RESOURCE_STATE_COMMON;
-    D3D12_RESOURCE_FLAGS  flags         = D3D12_RESOURCE_FLAG_NONE;
-    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopySrc)) {
-        initial_state |= D3D12_RESOURCE_STATE_COPY_SOURCE;
-    }
-    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst)) {
-        initial_state |= D3D12_RESOURCE_STATE_COPY_DEST;
-    }
+    D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Index)) {
-        initial_state |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
         if (m_Desc.element_size != sizeof(std::uint16_t) && m_Desc.element_size != sizeof(std::uint32_t)) {
             logger->warn("Index buffer element size must be 16 bits or 32 bits");
         }
     }
-    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Vertex)) {
-        initial_state |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-    }
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Constant)) {
-        initial_state |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
         buffer_size = utils::align(m_Desc.element_size * m_Desc.element_count, 256);
     }
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Storage)) {
-        initial_state |= D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
 
@@ -72,7 +59,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     if (FAILED(device.GetAllocator()->CreateResource(
             &allocation_desc,
             &resource_desc,
-            initial_state,
+            D3D12_RESOURCE_STATE_COMMON,
             nullptr,
             &allocation,
             IID_PPV_ARGS(&resource)))) {
@@ -262,17 +249,6 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
     }
     resource->SetName(std::pmr::wstring(desc.name.begin(), desc.name.end()).data());
 
-    if (utils::has_flag(desc.usages, TextureUsageFlags::SRV)) {
-        srv                 = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Allocate();
-        const auto srv_desc = to_d3d_srv_desc(m_Desc);
-        device.GetDevice()->CreateShaderResourceView(resource.Get(), &srv_desc, srv.cpu_handle);
-    }
-    if (utils::has_flag(desc.usages, TextureUsageFlags::UAV)) {
-        uav                 = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Allocate();
-        const auto uav_desc = to_d3d_uav_desc(m_Desc);
-        device.GetDevice()->CreateUnorderedAccessView(resource.Get(), nullptr, &uav_desc, uav.cpu_handle);
-    }
-
     if (utils::has_flag(m_Desc.usages, TextureUsageFlags::RTV)) {
         rtv                 = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_RTV).Allocate();
         const auto rtv_desc = to_d3d_rtv_desc(m_Desc);
@@ -360,8 +336,7 @@ DX12Sampler::DX12Sampler(DX12Device& device, SamplerDesc desc) : Sampler(device,
             to_d3d_filter_type(desc.min_filter),
             to_d3d_filter_type(desc.mag_filter),
             to_d3d_filter_type(desc.mipmap_filter),
-            // TODO: Support comparison filter
-            D3D12_FILTER_REDUCTION_TYPE_STANDARD),
+            m_Desc.compare_op == CompareOp::Never ? D3D12_FILTER_REDUCTION_TYPE_STANDARD : D3D12_FILTER_REDUCTION_TYPE_COMPARISON),
         .AddressU       = to_d3d_address_mode(desc.address_u),
         .AddressV       = to_d3d_address_mode(desc.address_v),
         .AddressW       = to_d3d_address_mode(desc.address_w),

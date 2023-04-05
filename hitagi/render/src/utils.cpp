@@ -249,9 +249,8 @@ auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle
                             .frame_constant = helper.GetBindlessHandle(data.frame_constant),
                             .texture        = cmd.TextureId ? helper.GetBindlessHandle({(std::uint64_t)cmd.TextureId}) : gfx::BindlessHandle{},
                         });
-                    context->PushBindlessInfo(gfx::BindlessInfoOffset{
-                        .bindless_info_handle = helper.GetBindlessHandle(data.bindless_info, draw_call_index),
-                    });
+                    // TODO
+                    // context->PushBindlessMetaInfo(helper.GetBindlessHandle(data.bindless_info, draw_call_index));
 
                     context->SetVertexBuffer(0, vertices_buffer);
                     context->SetIndexBuffer(indices_buffer);

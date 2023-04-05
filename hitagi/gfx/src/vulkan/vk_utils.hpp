@@ -1043,4 +1043,18 @@ inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemor
         }};
 }
 
+inline auto to_bindless_type(const vk::DescriptorType vk_type) -> BindlessHandleType {
+    switch (vk_type) {
+        case vk::DescriptorType::eSampler:
+            return BindlessHandleType::Sampler;
+        case vk::DescriptorType::eSampledImage:
+            return BindlessHandleType::Texture;
+        case vk::DescriptorType::eUniformBuffer:
+        case vk::DescriptorType::eStorageBuffer:
+            return BindlessHandleType::Buffer;
+        default:
+            return BindlessHandleType::Invalid;
+    }
+}
+
 }  // namespace hitagi::gfx

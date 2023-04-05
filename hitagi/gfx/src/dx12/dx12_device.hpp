@@ -45,7 +45,7 @@ public:
     inline auto& GetShaderCompiler() const noexcept { return m_ShaderCompiler; }
 
 private:
-    static void ReportDebugLog();
+    static void ReportDebugLog(const ComPtr<ID3D12Device>& device);
 
     void IntegrateD3D12Logger();
     void UnregisterIntegratedD3D12Logger();

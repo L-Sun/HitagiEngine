@@ -197,10 +197,10 @@ void VulkanGraphicsCommandBuffer::SetVertexBuffer(std::uint8_t slot, GPUBuffer& 
     command_buffer.bindVertexBuffers(slot, **static_cast<VulkanBuffer&>(buffer).buffer, {0});
 }
 
-void VulkanGraphicsCommandBuffer::PushBindlessInfo(const BindlessInfoOffset& bindless_info) {
+void VulkanGraphicsCommandBuffer::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
     const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
 
-    const vk::ArrayProxy<const BindlessInfoOffset> data_proxy(bindless_info);
+    const vk::ArrayProxy<const BindlessMetaInfo> data_proxy(info);
 
     command_buffer.pushConstants(
         **vk_bindless_utils.pipeline_layout,
@@ -288,10 +288,10 @@ void VulkanComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
     command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, **m_Pipeline->pipeline);
 }
 
-void VulkanComputeCommandBuffer::PushBindlessInfo(const BindlessInfoOffset& bindless_info) {
+void VulkanComputeCommandBuffer::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
     const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
 
-    const vk::ArrayProxy<const BindlessInfoOffset> data_proxy(bindless_info);
+    const vk::ArrayProxy<const BindlessMetaInfo> data_proxy(info);
 
     command_buffer.pushConstants(
         **vk_bindless_utils.pipeline_layout,

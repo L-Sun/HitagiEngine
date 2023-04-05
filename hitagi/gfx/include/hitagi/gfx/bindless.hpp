@@ -4,18 +4,23 @@
 namespace hitagi::gfx {
 class Device;
 
-struct BindlessHandle {
-    std::uint32_t index;
-    std::uint16_t version;
-    std::uint8_t  type;
-    std::uint8_t  tag;
+enum struct BindlessHandleType : std::uint32_t {
+    Buffer,
+    Texture,
+    Sampler,
+    Invalid,
 };
 
-// This struct is used of push constant, which will refer to a GPUBuffer containing bindless handles
-struct BindlessInfoOffset {
-    BindlessHandle bindless_info_handle;
-    std::uint32_t  user_data_0;
-    std::uint32_t  user_data_1;
+// TODO use byte array buffer to store bindless handle with bit field
+struct BindlessHandle {
+    std::uint32_t      index;
+    BindlessHandleType type     = BindlessHandleType::Invalid;
+    std::uint32_t      writable = 0;
+    std::uint32_t      version  = 0;
+};
+
+struct BindlessMetaInfo {
+    BindlessHandle handle = {};
 };
 
 struct GPUBufferView {

@@ -59,7 +59,7 @@ public:
     virtual void SetIndexBuffer(GPUBuffer& buffer)                     = 0;
     virtual void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) = 0;
 
-    virtual void PushBindlessInfo(const BindlessInfoOffset& info) = 0;
+    virtual void PushBindlessMetaInfo(const BindlessMetaInfo& info) = 0;
 
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
@@ -76,7 +76,7 @@ class ComputeCommandContext : public CommandContext {
 public:
     virtual void SetPipeline(const ComputePipeline& pipeline) = 0;
 
-    virtual void PushBindlessInfo(const BindlessInfoOffset& info) = 0;
+    virtual void PushBindlessMetaInfo(const BindlessMetaInfo& info) = 0;
 
 protected:
     ComputeCommandContext(Device& device, std::string_view name) : CommandContext(device, CommandType::Compute, name){};

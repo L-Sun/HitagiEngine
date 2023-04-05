@@ -1,5 +1,3 @@
-add_requires("slang", "directx12-agility-sdk")
-
 target("gfx_test")
     add_files("gfx_test.cpp")
     add_deps("gfx", "utils", "test_utils")
