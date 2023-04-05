@@ -2,6 +2,7 @@
 #include "dx12_resource.hpp"
 #include "dx12_device.hpp"
 #include "dx12_utils.hpp"
+#include <hitagi/utils/utils.hpp>
 
 #include <spdlog/logger.h>
 #include <fmt/color.h>
@@ -73,12 +74,12 @@ DX12BindlessUtils::DX12BindlessUtils(DX12Device& device, std::string_view name) 
     {
         for (std::uint32_t index = 0; index < max_cbv_srv_uav_descriptors; index++) {
             m_Available_CBV_SRV_UAV_BindlessHandlePool.emplace_back(BindlessHandle{
-                .index = max_cbv_srv_uav_descriptors - index - 1,
+                .index = index,
             });
         }
         for (std::uint32_t index = 0; index < max_sampler_descriptors; index++) {
             m_Available_Sampler_BindlessHandlePool.emplace_back(BindlessHandle{
-                .index = max_sampler_descriptors - index - 1,
+                .index = index,
             });
         }
     }
@@ -103,8 +104,8 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
     BindlessHandle handle;
     {
         std::lock_guard lock{m_Mutex};
-        handle = m_Available_CBV_SRV_UAV_BindlessHandlePool.back();
-        m_Available_CBV_SRV_UAV_BindlessHandlePool.pop_back();
+        handle = m_Available_CBV_SRV_UAV_BindlessHandlePool.front();
+        m_Available_CBV_SRV_UAV_BindlessHandlePool.pop_front();
     }
     handle.type     = BindlessHandleType::Buffer;
     handle.writable = writable ? 1 : 0;
@@ -114,17 +115,36 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
 
     const auto descriptor_increment_size = dx12_device.GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    dx12_device.GetDevice()->CopyDescriptorsSimple(
-        1,
-        CD3DX12_CPU_DESCRIPTOR_HANDLE(
-            m_CBV_SRV_UAV_DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-            handle.index,
-            descriptor_increment_size),
-        CD3DX12_CPU_DESCRIPTOR_HANDLE(
-            (writable ? dx12_buffer.uavs : dx12_buffer.cbvs).cpu_handle,
-            index,
-            descriptor_increment_size),
-        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    if (writable) {
+        D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
+            .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
+            .Buffer        = {
+                       .FirstElement        = static_cast<UINT>(index),
+                       .NumElements         = 1,
+                       .StructureByteStride = static_cast<UINT>(buffer.GetDesc().element_size),
+                       .Flags               = D3D12_BUFFER_UAV_FLAG_NONE,
+            },
+        };
+        dx12_device.GetDevice()->CreateUnorderedAccessView(
+            dx12_buffer.resource.Get(),
+            nullptr,
+            &uav_desc,
+            CD3DX12_CPU_DESCRIPTOR_HANDLE(
+                m_CBV_SRV_UAV_DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+                handle.index,
+                descriptor_increment_size));
+    } else {
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
+            .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress() + index * buffer.GetDesc().element_size,
+            .SizeInBytes    = static_cast<UINT>(utils::align(buffer.GetDesc().element_size, 256)),
+        };
+        dx12_device.GetDevice()->CreateConstantBufferView(
+            &cbv_desc,
+            CD3DX12_CPU_DESCRIPTOR_HANDLE(
+                m_CBV_SRV_UAV_DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+                handle.index,
+                descriptor_increment_size));
+    }
 
     return handle;
 }
@@ -148,8 +168,8 @@ auto DX12BindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) ->
     BindlessHandle handle;
     {
         std::lock_guard lock{m_Mutex};
-        handle = m_Available_CBV_SRV_UAV_BindlessHandlePool.back();
-        m_Available_CBV_SRV_UAV_BindlessHandlePool.pop_back();
+        handle = m_Available_CBV_SRV_UAV_BindlessHandlePool.front();
+        m_Available_CBV_SRV_UAV_BindlessHandlePool.pop_front();
     }
 
     handle.type     = BindlessHandleType::Texture;
@@ -187,24 +207,23 @@ auto DX12BindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHandle
     BindlessHandle handle;
     {
         std::lock_guard lock{m_Mutex};
-        handle = m_Available_Sampler_BindlessHandlePool.back();
-        m_Available_Sampler_BindlessHandlePool.pop_back();
+        handle = m_Available_Sampler_BindlessHandlePool.front();
+        m_Available_Sampler_BindlessHandlePool.pop_front();
     }
     handle.type = BindlessHandleType::Sampler;
 
-    const auto& dx12_device  = static_cast<DX12Device&>(m_Device);
-    const auto& dx12_sampler = static_cast<DX12Sampler&>(sampler);
+    const auto& dx12_device = static_cast<DX12Device&>(m_Device);
 
     const auto descriptor_increment_size = dx12_device.GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
-    dx12_device.GetDevice()->CopyDescriptorsSimple(
-        1,
+    const auto sampler_desc = to_d3d_sampler_desc(sampler.GetDesc());
+
+    dx12_device.GetDevice()->CreateSampler(
+        &sampler_desc,
         CD3DX12_CPU_DESCRIPTOR_HANDLE(
             m_Sampler_DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
             handle.index,
-            descriptor_increment_size),
-        dx12_sampler.sampler.cpu_handle,
-        D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+            descriptor_increment_size));
 
     return handle;
 }

@@ -934,6 +934,23 @@ inline constexpr auto to_d3d_uav_desc(const TextureDesc& desc) noexcept {
     return uav_desc;
 }
 
+inline constexpr auto to_d3d_sampler_desc(const SamplerDesc& desc) noexcept {
+    return D3D12_SAMPLER_DESC{
+        .Filter = D3D12_ENCODE_BASIC_FILTER(
+            to_d3d_filter_type(desc.min_filter),
+            to_d3d_filter_type(desc.mag_filter),
+            to_d3d_filter_type(desc.mipmap_filter),
+            desc.compare_op == CompareOp::Never ? D3D12_FILTER_REDUCTION_TYPE_STANDARD : D3D12_FILTER_REDUCTION_TYPE_COMPARISON),
+        .AddressU       = to_d3d_address_mode(desc.address_u),
+        .AddressV       = to_d3d_address_mode(desc.address_v),
+        .AddressW       = to_d3d_address_mode(desc.address_w),
+        .MaxAnisotropy  = static_cast<UINT>(desc.max_anisotropy),
+        .ComparisonFunc = to_d3d_compare_function(desc.compare_op),
+        .MinLOD         = desc.min_lod,
+        .MaxLOD         = desc.max_lod,
+    };
+}
+
 inline auto to_d3d_rtv_desc(const TextureDesc& desc) noexcept {
     D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
         .Format = to_dxgi_format(desc.format),

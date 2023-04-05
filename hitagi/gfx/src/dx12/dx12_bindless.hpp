@@ -4,6 +4,8 @@
 #include <d3d12.h>
 #include <wrl.h>
 
+#include <deque>
+
 using namespace Microsoft::WRL;
 
 namespace hitagi::gfx {
@@ -34,7 +36,7 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_CBV_SRV_UAV_DescriptorHeap;
     ComPtr<ID3D12DescriptorHeap> m_Sampler_DescriptorHeap;
 
-    std::pmr::vector<BindlessHandle> m_Available_CBV_SRV_UAV_BindlessHandlePool;
-    std::pmr::vector<BindlessHandle> m_Available_Sampler_BindlessHandlePool;
+    std::pmr::deque<BindlessHandle> m_Available_CBV_SRV_UAV_BindlessHandlePool;
+    std::pmr::deque<BindlessHandle> m_Available_Sampler_BindlessHandlePool;
 };
 }  // namespace hitagi::gfx

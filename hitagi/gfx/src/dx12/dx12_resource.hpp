@@ -22,8 +22,6 @@ struct DX12GPUBuffer : GPUBuffer {
     ComPtr<D3D12MA::Allocation> allocation;
     std::size_t                 buffer_size = 0;
     std::byte*                  mapped_ptr  = nullptr;
-
-    Descriptor cbvs, uavs;
 };
 
 struct DX12Texture : public Texture {
@@ -37,8 +35,6 @@ struct DX12Texture : public Texture {
 
 struct DX12Sampler : public Sampler {
     DX12Sampler(DX12Device& device, SamplerDesc desc);
-
-    Descriptor sampler;
 };
 
 struct DX12Shader : public Shader {

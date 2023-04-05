@@ -82,37 +82,6 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
         }
     }
 
-    if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Constant)) {
-        cbvs                                     = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Allocate(m_Desc.element_count);
-        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
-            .SizeInBytes = static_cast<UINT>(utils::align(m_Desc.element_size, 256)),
-        };
-        for (std::size_t i = 0; i < m_Desc.element_count; ++i) {
-            cbv_desc.BufferLocation = resource->GetGPUVirtualAddress() + i * cbv_desc.SizeInBytes;
-            device.GetDevice()->CreateConstantBufferView(
-                &cbv_desc,
-                CD3DX12_CPU_DESCRIPTOR_HANDLE(cbvs.cpu_handle, i, cbvs.increment_size));
-        }
-    }
-    if (utils::has_flag(desc.usages, GPUBufferUsageFlags::Storage)) {
-        uavs                                      = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV).Allocate(m_Desc.element_count);
-        D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
-            .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
-            .Buffer        = {
-                       .NumElements         = 1,
-                       .StructureByteStride = static_cast<UINT>(m_Desc.element_size),
-                       .Flags               = D3D12_BUFFER_UAV_FLAG_NONE,
-            },
-        };
-        for (std::size_t i = 0; i < m_Desc.element_count; ++i) {
-            uav_desc.Buffer.FirstElement = i;
-            device.GetDevice()->CreateUnorderedAccessView(
-                resource.Get(), nullptr,
-                &uav_desc,
-                CD3DX12_CPU_DESCRIPTOR_HANDLE(uavs.cpu_handle, i, uavs.increment_size));
-        }
-    }
-
     if (!initial_data.empty()) {
         if (initial_data.size() > m_Desc.element_size * m_Desc.element_count) {
             logger->warn(
@@ -250,14 +219,14 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
     resource->SetName(std::pmr::wstring(desc.name.begin(), desc.name.end()).data());
 
     if (utils::has_flag(m_Desc.usages, TextureUsageFlags::RTV)) {
-        rtv                 = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_RTV).Allocate();
+        rtv                 = device.GetRTVDescriptorAllocator().Allocate();
         const auto rtv_desc = to_d3d_rtv_desc(m_Desc);
-        device.GetDevice()->CreateRenderTargetView(resource.Get(), &rtv_desc, rtv.cpu_handle);
+        device.GetDevice()->CreateRenderTargetView(resource.Get(), &rtv_desc, rtv.GetCPUHandle());
     }
     if (utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)) {
-        dsv                 = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_DSV).Allocate();
+        dsv                 = device.GetDSVDescriptorAllocator().Allocate();
         const auto dsv_desc = to_d3d_dsv_desc(m_Desc);
-        device.GetDevice()->CreateDepthStencilView(resource.Get(), &dsv_desc, dsv.cpu_handle);
+        device.GetDevice()->CreateDepthStencilView(resource.Get(), &dsv_desc, dsv.GetCPUHandle());
     }
 
     if (!initial_data.empty()) {
@@ -315,7 +284,7 @@ DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
     }
     resource->SetName(std::pmr::wstring(m_Desc.name.begin(), m_Desc.name.end()).c_str());
 
-    rtv = static_cast<DX12Device&>(m_Device).GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_RTV).Allocate();
+    rtv = static_cast<DX12Device&>(m_Device).GetRTVDescriptorAllocator().Allocate();
     D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
         .Format        = to_dxgi_format(m_Desc.format),
         .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
@@ -324,29 +293,12 @@ DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
                 .PlaneSlice = 0,
         },
     };
-    static_cast<DX12Device&>(m_Device).GetDevice()->CreateRenderTargetView(resource.Get(), &rtv_desc, rtv.cpu_handle);
+    static_cast<DX12Device&>(m_Device).GetDevice()->CreateRenderTargetView(resource.Get(), &rtv_desc, rtv.GetCPUHandle());
 }
 
 DX12Sampler::DX12Sampler(DX12Device& device, SamplerDesc desc) : Sampler(device, desc) {
     const auto logger = device.GetLogger();
     logger->trace("Create sampler ({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
-
-    const D3D12_SAMPLER_DESC sampler_desc{
-        .Filter = D3D12_ENCODE_BASIC_FILTER(
-            to_d3d_filter_type(desc.min_filter),
-            to_d3d_filter_type(desc.mag_filter),
-            to_d3d_filter_type(desc.mipmap_filter),
-            m_Desc.compare_op == CompareOp::Never ? D3D12_FILTER_REDUCTION_TYPE_STANDARD : D3D12_FILTER_REDUCTION_TYPE_COMPARISON),
-        .AddressU       = to_d3d_address_mode(desc.address_u),
-        .AddressV       = to_d3d_address_mode(desc.address_v),
-        .AddressW       = to_d3d_address_mode(desc.address_w),
-        .MaxAnisotropy  = static_cast<UINT>(desc.max_anisotropy),
-        .ComparisonFunc = to_d3d_compare_function(desc.compare_op),
-        .MinLOD         = desc.min_lod,
-        .MaxLOD         = desc.max_lod,
-    };
-    sampler = device.GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER).Allocate();
-    device.GetDevice()->CreateSampler(&sampler_desc, sampler.cpu_handle);
 }
 
 DX12Shader::DX12Shader(DX12Device& device, ShaderDesc desc, std::span<const std::byte> _binary_program) : Shader(device, std::move(desc)) {

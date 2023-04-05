@@ -41,7 +41,8 @@ public:
     inline auto  GetAdapter() const noexcept { return m_Adapter; }
     inline auto  GetDevice() const noexcept { return m_Device; }
     inline auto  GetAllocator() const noexcept { return m_MemoryAllocator; }
-    inline auto& GetDescriptorAllocator(D3D12_DESCRIPTOR_HEAP_TYPE type) const noexcept { return *m_DescriptorAllocators[type]; }
+    inline auto& GetRTVDescriptorAllocator() const noexcept { return *m_RTVDescriptorAllocator; }
+    inline auto& GetDSVDescriptorAllocator() const noexcept { return *m_DSVDescriptorAllocator; }
     inline auto& GetShaderCompiler() const noexcept { return m_ShaderCompiler; }
 
 private:
@@ -62,7 +63,8 @@ private:
 
     utils::EnumArray<std::shared_ptr<DX12CommandQueue>, CommandType> m_CommandQueues;
 
-    std::array<std::unique_ptr<DescriptorAllocator>, D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES> m_DescriptorAllocators;
+    std::unique_ptr<DescriptorAllocator> m_RTVDescriptorAllocator;
+    std::unique_ptr<DescriptorAllocator> m_DSVDescriptorAllocator;
 
     std::unique_ptr<DX12BindlessUtils> m_BindlessUtils;
 

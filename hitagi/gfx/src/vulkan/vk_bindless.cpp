@@ -139,11 +139,10 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
             const auto& pool_size = pool_sizes[set_index];
 
             auto& handle_pool = m_BindlessHandlePools.at(set_index).pool;
-            handle_pool.reserve(pool_size.descriptorCount);
 
             for (std::uint32_t index = 0; index < pool_size.descriptorCount; index++) {
                 handle_pool.emplace_back(BindlessHandle{
-                    .index = pool_size.descriptorCount - index - 1,
+                    .index = index,
                 });
             }
         }
@@ -172,7 +171,8 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t in
     auto& [pool, mutex] = m_BindlessHandlePools[0];
     std::lock_guard lock{mutex};
 
-    auto handle     = pool.back();
+    auto handle = pool.front();
+    pool.pop_front();
     handle.type     = BindlessHandleType::Buffer;
     handle.writable = writable ? 1 : 0;
 
@@ -192,8 +192,6 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t in
     };
 
     vk_device.GetDevice().updateDescriptorSets(write_info, {});
-
-    pool.pop_back();
 
     return handle;
 }
@@ -221,16 +219,16 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
         auto& [pool, mutex] = m_BindlessHandlePools[2];
         std::lock_guard lock{mutex};
 
-        handle = pool.back();
-        pool.pop_back();
+        handle = pool.front();
+        pool.pop_front();
         handle.type     = BindlessHandleType::Texture,
         handle.writable = 1;
     } else {
         auto& [pool, mutex] = m_BindlessHandlePools[1];
         std::lock_guard lock{mutex};
 
-        handle = pool.back();
-        pool.pop_back();
+        handle = pool.front();
+        pool.pop_front();
         handle.type     = BindlessHandleType::Texture,
         handle.writable = 0;
     }
@@ -261,8 +259,8 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHand
     auto& [pool, mutex] = m_BindlessHandlePools[3];
     std::lock_guard lock{mutex};
 
-    auto handle = pool.back();
-    pool.pop_back();
+    auto handle = pool.front();
+    pool.pop_front();
     handle.type = BindlessHandleType::Sampler;
 
     const vk::DescriptorImageInfo image_info{

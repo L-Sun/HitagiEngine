@@ -132,16 +132,16 @@ void DX12GraphicsCommandList::BeginRendering(const RenderingInfo& info) {
     }
 
     command_list->OMSetRenderTargets(
-        1, &render_target->rtv.cpu_handle, false,
-        (depth_stencil && depth_stencil->dsv) ? &depth_stencil->dsv.cpu_handle : nullptr);
+        1, &render_target->rtv.GetCPUHandle(), false,
+        (depth_stencil && depth_stencil->dsv) ? &depth_stencil->dsv.GetCPUHandle() : nullptr);
 
     if (render_target->GetDesc().clear_value.has_value()) {
         const auto& clear_color = std::get<ClearColor>(render_target->GetDesc().clear_value.value());
-        command_list->ClearRenderTargetView(render_target->rtv.cpu_handle, clear_color, 0, nullptr);
+        command_list->ClearRenderTargetView(render_target->rtv.GetCPUHandle(), clear_color, 0, nullptr);
     }
     if (depth_stencil && depth_stencil->GetDesc().clear_value.has_value()) {
         const auto& clear_depth_stencil = std::get<ClearDepthStencil>(depth_stencil->GetDesc().clear_value.value());
-        command_list->ClearDepthStencilView(depth_stencil->dsv.cpu_handle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_depth_stencil.depth, clear_depth_stencil.stencil, 0, nullptr);
+        command_list->ClearDepthStencilView(depth_stencil->dsv.GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_depth_stencil.depth, clear_depth_stencil.stencil, 0, nullptr);
     }
 }
 

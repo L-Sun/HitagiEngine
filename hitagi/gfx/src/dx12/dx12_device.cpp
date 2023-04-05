@@ -145,9 +145,10 @@ DX12Device::DX12Device(std::string_view name)
                 fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type))));
     });
 
-    m_Logger->trace("Create Descriptor Allocators...");
-    for (std::size_t index = 0; index < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; index++) {
-        m_DescriptorAllocators[index] = std::make_unique<DescriptorAllocator>(*this, static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(index), false);
+    m_Logger->trace("Create RTV DSV Descriptor Allocators...");
+    {
+        m_RTVDescriptorAllocator = std::make_unique<DescriptorAllocator>(*this, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        m_DSVDescriptorAllocator = std::make_unique<DescriptorAllocator>(*this, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
     }
     m_BindlessUtils = std::make_unique<DX12BindlessUtils>(*this, "DX12-BindlessUtils");
 }

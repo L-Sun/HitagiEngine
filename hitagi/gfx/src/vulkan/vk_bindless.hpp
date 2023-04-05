@@ -25,8 +25,8 @@ struct VulkanBindlessUtils : public BindlessUtils {
 
 private:
     struct BindlessHandlePool {
-        std::pmr::vector<BindlessHandle> pool;
-        std::mutex                       mutex{};
+        std::pmr::deque<BindlessHandle> pool;
+        std::mutex                      mutex{};
     };
     std::array<BindlessHandlePool, 4> m_BindlessHandlePools{};
 };
