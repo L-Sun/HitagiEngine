@@ -11,7 +11,7 @@ class VulkanDevice;
 struct VulkanBindlessUtils : public BindlessUtils {
     VulkanBindlessUtils(VulkanDevice& device, std::string_view name);
 
-    auto CreateBindlessHandle(GPUBuffer& buffer, std::size_t index = 0, bool writeable = false) -> BindlessHandle final;
+    auto CreateBindlessHandle(GPUBuffer& buffer, bool writeable = false) -> BindlessHandle final;
     auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle final;
     auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle final;
     void DiscardBindlessHandle(BindlessHandle handle) final;

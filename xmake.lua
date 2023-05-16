@@ -33,7 +33,7 @@ if has_config("profile") then
 end
 
 add_requireconfs("*", {configs = {shared = true}})
-add_requires("taskflow", "cxxopts", "nlohmann_json", "tracy")
+add_requires("taskflow", "cxxopts", "nlohmann_json", "tracy", "range-v3")
 
 includes("hitagi/**/xmake.lua")
 includes("examples/**/xmake.lua")

@@ -80,18 +80,14 @@ void VulkanGraphicsCommandBuffer::End() {
     command_buffer.end();
 }
 
-void VulkanGraphicsCommandBuffer::Reset() {
-    command_buffer.reset();
-}
-
 void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_info) {
     const auto& render_target = render_info.render_target;
 
     VulkanImage* vk_color_attachment_image;
     if (std::holds_alternative<std::reference_wrapper<Texture>>(render_target)) {
-        vk_color_attachment_image = &static_cast<VulkanImage&>(std::get<std::reference_wrapper<Texture>>((render_target)).get());
+        vk_color_attachment_image = &dynamic_cast<VulkanImage&>(std::get<std::reference_wrapper<Texture>>((render_target)).get());
     } else {
-        auto& vk_swap_chain = static_cast<VulkanSwapChain&>(std::get<std::reference_wrapper<SwapChain>>(render_target).get());
+        auto& vk_swap_chain = dynamic_cast<VulkanSwapChain&>(std::get<std::reference_wrapper<SwapChain>>(render_target).get());
 
         vk_color_attachment_image            = &vk_swap_chain.AcquireImageForRendering();
         swap_chain_image_available_semaphore = vk_swap_chain.GetSemaphores().image_available;
@@ -123,7 +119,7 @@ void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_inf
                            : vk::ClearValue{},
     };
     if (render_info.depth_stencil.has_value()) {
-        auto& vk_depth_stencil_image = static_cast<VulkanImage&>(render_info.depth_stencil->get());
+        auto& vk_depth_stencil_image = dynamic_cast<VulkanImage&>(render_info.depth_stencil->get());
         depth_stencil_attachment     = {
                 .imageView   = *vk_depth_stencil_image.image_view.value(),
                 .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
@@ -190,11 +186,11 @@ void VulkanGraphicsCommandBuffer::SetIndexBuffer(GPUBuffer& buffer) {
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);
     }
-    command_buffer.bindIndexBuffer(**static_cast<VulkanBuffer&>(buffer).buffer, 0, index_type);
+    command_buffer.bindIndexBuffer(**dynamic_cast<VulkanBuffer&>(buffer).buffer, 0, index_type);
 }
 
 void VulkanGraphicsCommandBuffer::SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) {
-    command_buffer.bindVertexBuffers(slot, **static_cast<VulkanBuffer&>(buffer).buffer, {0});
+    command_buffer.bindVertexBuffers(slot, **dynamic_cast<VulkanBuffer&>(buffer).buffer, {0});
 }
 
 void VulkanGraphicsCommandBuffer::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
@@ -218,7 +214,7 @@ void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::ui
 }
 
 void VulkanGraphicsCommandBuffer::Present(SwapChain& swap_chain) {
-    auto& vk_swap_chain = static_cast<VulkanSwapChain&>(swap_chain);
+    auto& vk_swap_chain = dynamic_cast<VulkanSwapChain&>(swap_chain);
 
     swap_chain_presentable_semaphore = vk_swap_chain.GetSemaphores().presentable;
 
@@ -271,10 +267,6 @@ void VulkanComputeCommandBuffer::End() {
     command_buffer.end();
 }
 
-void VulkanComputeCommandBuffer::Reset() {
-    command_buffer.reset({});
-}
-
 void VulkanComputeCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
                                                  const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
                                                  const std::pmr::vector<TextureBarrier>&   texture_barriers) {
@@ -282,7 +274,7 @@ void VulkanComputeCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBa
 }
 
 void VulkanComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
-    auto vk_pipeline = &static_cast<const VulkanComputePipeline&>(pipeline);
+    auto vk_pipeline = &dynamic_cast<const VulkanComputePipeline&>(pipeline);
     if (m_Pipeline == vk_pipeline) return;
     m_Pipeline = vk_pipeline;
     command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, **m_Pipeline->pipeline);
@@ -315,10 +307,6 @@ void VulkanTransferCommandBuffer::End() {
     command_buffer.end();
 }
 
-void VulkanTransferCommandBuffer::Reset() {
-    command_buffer.reset({});
-}
-
 void VulkanTransferCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
                                                   const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
                                                   const std::pmr::vector<TextureBarrier>&   texture_barriers) {
@@ -327,8 +315,8 @@ void VulkanTransferCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalB
 
 void VulkanTransferCommandBuffer::CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dest_offset, std::size_t size) {
     command_buffer.copyBuffer(
-        **static_cast<const VulkanBuffer&>(src).buffer,
-        **static_cast<VulkanBuffer&>(dst).buffer,
+        **dynamic_cast<const VulkanBuffer&>(src).buffer,
+        **dynamic_cast<VulkanBuffer&>(dst).buffer,
         vk::BufferCopy{
             .srcOffset = src_offset,
             .dstOffset = dest_offset,
@@ -348,8 +336,8 @@ void VulkanTransferCommandBuffer::CopyBufferToTexture(const GPUBuffer& src,
                                                       std::uint32_t    mip_level,
                                                       std::uint32_t    base_array_layer,
                                                       std::uint32_t    layer_count) {
-    auto& dst_texture = static_cast<const VulkanImage&>(dst);
-    auto& src_buffer  = static_cast<const VulkanBuffer&>(src);
+    auto& dst_texture = dynamic_cast<const VulkanImage&>(dst);
+    auto& src_buffer  = dynamic_cast<const VulkanBuffer&>(src);
 
     auto buffer_size    = src_buffer.GetDesc().element_size * src_buffer.GetDesc().element_count;
     auto copy_data_size = extent.x * extent.y * extent.z * get_format_byte_size(dst_texture.GetDesc().format);

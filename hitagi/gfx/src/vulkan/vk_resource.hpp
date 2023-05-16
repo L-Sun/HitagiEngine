@@ -17,7 +17,7 @@ struct VulkanBuffer final : public GPUBuffer {
     VulkanBuffer(VulkanBuffer&&)      = default;
     ~VulkanBuffer() final;
 
-    auto GetMappedPtr() const noexcept -> std::byte* final;
+    auto GetMappedPtr() const noexcept -> const std::byte* final;
 
     std::unique_ptr<vk::raii::Buffer> buffer;
     VmaAllocation                     allocation = nullptr;

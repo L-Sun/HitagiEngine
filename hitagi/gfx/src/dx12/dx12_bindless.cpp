@@ -85,7 +85,7 @@ DX12BindlessUtils::DX12BindlessUtils(DX12Device& device, std::string_view name) 
     }
 }
 
-auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t index, bool writable) -> BindlessHandle {
+auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, bool writable) -> BindlessHandle {
     if (writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
         const auto error_message = fmt::format(
             "Failed to create BindlessHandle: buffer({}) is not writable",
@@ -111,7 +111,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
     handle.writable = writable ? 1 : 0;
 
     const auto& dx12_device = static_cast<DX12Device&>(m_Device);
-    const auto& dx12_buffer = static_cast<DX12GPUBuffer&>(buffer);
+    const auto& dx12_buffer = dynamic_cast<DX12GPUBuffer&>(buffer);
 
     const auto descriptor_increment_size = dx12_device.GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
@@ -119,8 +119,8 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
         D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
             .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
             .Buffer        = {
-                       .FirstElement        = static_cast<UINT>(index),
-                       .NumElements         = 1,
+                       .FirstElement        = 0,
+                       .NumElements         = static_cast<UINT>(buffer.GetDesc().element_count),
                        .StructureByteStride = static_cast<UINT>(buffer.GetDesc().element_size),
                        .Flags               = D3D12_BUFFER_UAV_FLAG_NONE,
             },
@@ -135,8 +135,8 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
                 descriptor_increment_size));
     } else {
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
-            .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress() + index * buffer.GetDesc().element_size,
-            .SizeInBytes    = static_cast<UINT>(utils::align(buffer.GetDesc().element_size, 256)),
+            .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress(),
+            .SizeInBytes    = static_cast<UINT>(utils::align(buffer.Size(), 256)),
         };
         dx12_device.GetDevice()->CreateConstantBufferView(
             &cbv_desc,
@@ -176,7 +176,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) ->
     handle.writable = writable ? 1 : 0;
 
     const auto& dx12_device  = static_cast<DX12Device&>(m_Device);
-    const auto& dx12_texture = static_cast<DX12Texture&>(texture);
+    const auto& dx12_texture = dynamic_cast<DX12Texture&>(texture);
 
     const auto descriptor_increment_size = dx12_device.GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 

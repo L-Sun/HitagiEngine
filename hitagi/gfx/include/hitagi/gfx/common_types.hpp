@@ -9,6 +9,16 @@
 
 namespace hitagi::gfx {
 
+enum struct ResourceType : std::uint8_t {
+    GPUBuffer,
+    Texture,
+    Sampler,
+    SwapChain,
+    Shader,
+    RenderPipeline,
+    ComputePipeline,
+};
+
 enum struct GPUBufferUsageFlags : std::uint8_t {
     MapRead  = 0x1,             // CPU can read data from mapped pointer
     MapWrite = (MapRead << 1),  // CPU can write data to mapped pointer

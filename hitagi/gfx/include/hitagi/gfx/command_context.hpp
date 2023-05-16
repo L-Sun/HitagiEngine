@@ -20,7 +20,6 @@ public:
 
     virtual void Begin() = 0;
     virtual void End()   = 0;
-    virtual void Reset() = 0;
 
     virtual void ResourceBarrier(
         const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
@@ -99,5 +98,9 @@ public:
 protected:
     CopyCommandContext(Device& device, std::string_view name) : CommandContext(device, CommandType::Copy, name){};
 };
+
+// command type to context type
+template <CommandType T>
+using ContextType = std::conditional_t<T == CommandType::Graphics, GraphicsCommandContext, std::conditional_t<T == CommandType::Compute, ComputeCommandContext, CopyCommandContext>>;
 
 }  // namespace hitagi::gfx

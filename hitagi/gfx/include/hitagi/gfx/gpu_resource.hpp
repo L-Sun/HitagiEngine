@@ -23,6 +23,8 @@ public:
     inline auto& GetDevice() const noexcept { return m_Device; }
     inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
 
+    virtual auto GetType() const noexcept -> ResourceType = 0;
+
 protected:
     Resource(Device& device, std::string_view name) : m_Device(device), m_Name(name) {}
 
@@ -33,7 +35,11 @@ protected:
 template <typename Desc>
 class ResourceWithDesc : public Resource {
 public:
+    using DescT = Desc;
+
+    auto         GetType() const noexcept -> ResourceType final;
     inline auto& GetDesc() const noexcept { return m_Desc; }
+    inline auto  Size() const noexcept { return m_Desc.element_size * m_Desc.element_count; }
 
 protected:
     ResourceWithDesc(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(std::move(desc)) { m_Desc.name = m_Name; }
@@ -52,15 +58,33 @@ struct GPUBufferDesc {
 
 class GPUBuffer : public ResourceWithDesc<GPUBufferDesc> {
 public:
-    template <typename T>
-    void Update(std::size_t index, T data) {
-        UpdateRaw(index, std::span(reinterpret_cast<const std::byte*>(&data), sizeof(T)));
+    virtual auto GetMappedPtr() const noexcept -> const std::byte* = 0;
+    inline auto  GetMappedPtr() noexcept -> std::byte* {
+        return const_cast<std::byte*>(const_cast<const GPUBuffer*>(this)->GetMappedPtr());
     }
-    virtual auto GetMappedPtr() const noexcept -> std::byte* = 0;
+
+    template <typename T>
+    inline auto Get() const noexcept -> const T& {
+        return *reinterpret_cast<const T*>(GetMappedPtr());
+    }
+
+    template <typename T>
+    inline auto Get() noexcept -> T& {
+        return *reinterpret_cast<T*>(GetMappedPtr());
+    }
+
+    template <typename T>
+    inline auto Span() const noexcept -> std::span<const T> {
+        return {reinterpret_cast<const T*>(GetMappedPtr()), m_Desc.element_count * (m_Desc.element_size / sizeof(T))};
+    }
+
+    template <typename T>
+    inline auto Span() noexcept -> std::span<T> {
+        return {reinterpret_cast<T*>(GetMappedPtr()), m_Desc.element_count / (m_Desc.element_size / sizeof(T))};
+    }
 
 protected:
     using ResourceWithDesc::ResourceWithDesc;
-    void UpdateRaw(std::size_t index, std::span<const std::byte> data);
 };
 
 struct TextureDesc {
@@ -117,15 +141,15 @@ protected:
 struct ShaderDesc {
     std::string_view      name;
     ShaderType            type;
-    std::string_view      entry;
+    std::string_view      entry = "main";
     std::string_view      source_code;
     std::filesystem::path path;
 };
 
 class Shader : public ResourceWithDesc<ShaderDesc> {
 public:
-    virtual auto GetDXILData() const noexcept -> std::span<const std::byte>;
-    virtual auto GetSPIRVData() const noexcept -> std::span<const std::byte>;
+    virtual auto GetDXILData() const noexcept -> std::span<const std::byte> { return {}; }
+    virtual auto GetSPIRVData() const noexcept -> std::span<const std::byte> { return {}; }
 
 protected:
     using ResourceWithDesc::ResourceWithDesc;
@@ -152,6 +176,28 @@ struct ComputePipelineDesc {
     std::weak_ptr<Shader> cs;  // computer shader
 };
 using ComputePipeline = ResourceWithDesc<ComputePipelineDesc>;
+
+template <typename Desc>
+auto ResourceWithDesc<Desc>::GetType() const noexcept -> ResourceType {
+    if constexpr (std::is_same_v<DescT, GPUBufferDesc>) {
+        return ResourceType::GPUBuffer;
+    } else if constexpr (std::is_same_v<DescT, TextureDesc>) {
+        return ResourceType::Texture;
+    } else if constexpr (std::is_same_v<DescT, SamplerDesc>) {
+        return ResourceType::Sampler;
+    } else if constexpr (std::is_same_v<DescT, SwapChainDesc>) {
+        return ResourceType::SwapChain;
+    } else if constexpr (std::is_same_v<DescT, ShaderDesc>) {
+        return ResourceType::Shader;
+    } else if constexpr (std::is_same_v<DescT, RenderPipelineDesc>) {
+        return ResourceType::RenderPipeline;
+    } else if constexpr (std::is_same_v<DescT, ComputePipelineDesc>) {
+        return ResourceType::ComputePipeline;
+    } else {
+        []<bool flag = false>() { static_assert(flag, "Unknown resource type"); }
+        ();
+    }
+}
 
 inline constexpr bool GPUBufferDesc::operator==(const GPUBufferDesc& rhs) const noexcept {
     // clang-format off

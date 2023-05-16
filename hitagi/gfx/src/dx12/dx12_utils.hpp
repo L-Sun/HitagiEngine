@@ -1264,9 +1264,9 @@ inline auto to_d3d_buffer_barrier(GPUBufferBarrier barrier) noexcept -> D3D12_BU
         .SyncAfter    = to_d3d_pipeline_stage(barrier.dst_stage),
         .AccessBefore = to_d3d_barrier_access(barrier.src_access),
         .AccessAfter  = to_d3d_barrier_access(barrier.dst_access),
-        .pResource    = static_cast<DX12GPUBuffer&>(barrier.buffer).resource.Get(),
+        .pResource    = dynamic_cast<DX12GPUBuffer&>(barrier.buffer).resource.Get(),
         .Offset       = 0,
-        .Size         = static_cast<DX12GPUBuffer&>(barrier.buffer).buffer_size,
+        .Size         = dynamic_cast<DX12GPUBuffer&>(barrier.buffer).buffer_size,
     };
 }
 
@@ -1278,7 +1278,7 @@ inline auto to_d3d_texture_barrier(TextureBarrier barrier) noexcept -> D3D12_TEX
         .AccessAfter  = to_d3d_barrier_access(barrier.dst_access),
         .LayoutBefore = to_d3d_texture_layout(barrier.src_layout),
         .LayoutAfter  = to_d3d_texture_layout(barrier.dst_layout),
-        .pResource    = static_cast<DX12Texture&>(barrier.texture).resource.Get(),
+        .pResource    = dynamic_cast<DX12Texture&>(barrier.texture).resource.Get(),
         .Subresources = {
             .IndexOrFirstMipLevel = 0,
             .NumMipLevels         = barrier.texture.GetDesc().mip_levels,

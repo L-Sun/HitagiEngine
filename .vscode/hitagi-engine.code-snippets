@@ -17,10 +17,12 @@
         "body": [
             "#include <hitagi/utils/test.hpp>",
             "",
+            "using namespace testing;",
+            "",
             "$1",
             "",
             "int main(int argc, char** argv) {",
-            "    ::testing::InitGoogleTest(&argc, argv);",
+            "    InitGoogleTest(&argc, argv);",
             "    return RUN_ALL_TESTS();",
             "}"
         ]
@@ -36,7 +38,7 @@
     "Google Unit Test Fixtures Class": {
         "prefix": "gutfc",
         "body": [
-            "class ${1:${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/g}} : public ::testing::Test {",
+            "class ${1:${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/g}} : public Test {",
             "protected:",
             "    ${1:${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/g}}() {",
             "        ${3:/* Init here */}",
@@ -55,6 +57,22 @@
             "TEST_F(${1:${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/g}}, ${2:Case}) {",
             "    ${3:/* code */}",
             "}",
+        ]
+    },
+    "Google Unit Value-Parameterized Class": {
+        "prefix": "gutpc",
+        "body": [
+            "class ${1:${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/g}} : public TestWithParam<${2:Param}> {",
+            "protected:",
+            "    ${1:${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/g}}() {",
+            "        ${4:/* Init here */}",
+            "    }",
+            "",
+            "    ~${1:${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/g}}() {",
+            "    }",
+            "    ${3:/* data */}",
+            "};",
+            "",
         ]
     },
     "Google Unit Value-Parameterized Test": {

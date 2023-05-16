@@ -17,32 +17,31 @@ struct BindlessHandle {
     BindlessHandleType type     = BindlessHandleType::Invalid;
     std::uint32_t      writable = 0;
     std::uint32_t      version  = 0;
+
+    inline operator bool() const noexcept {
+        return type != BindlessHandleType::Invalid;
+    }
 };
 
 struct BindlessMetaInfo {
     BindlessHandle handle = {};
 };
 
-struct GPUBufferView {
-    GPUBuffer&    buffer;
-    std::uint64_t offset;
-    std::uint64_t size;
-};
-
 class BindlessUtils {
 public:
-    BindlessUtils(Device& device, std::string_view name) : m_Device(device), m_Name(name) {}
     virtual ~BindlessUtils() = default;
 
-    [[nodiscard]] virtual auto CreateBindlessHandle(GPUBuffer& buffer, std::size_t index = 0, bool writable = false) -> BindlessHandle = 0;
-    [[nodiscard]] virtual auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle                        = 0;
-    [[nodiscard]] virtual auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle                                                = 0;
-    virtual void               DiscardBindlessHandle(BindlessHandle handle)                                                            = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(GPUBuffer& buffer, bool writable = false) -> BindlessHandle = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle                         = 0;
+    virtual void               DiscardBindlessHandle(BindlessHandle handle)                                     = 0;
 
     inline auto& GetDevice() const noexcept { return m_Device; }
     inline auto  GetName() const noexcept { return std::string_view(m_Name); }
 
 protected:
+    BindlessUtils(Device& device, std::string_view name) : m_Device(device), m_Name(name) {}
+
     Device&          m_Device;
     std::pmr::string m_Name;
 };

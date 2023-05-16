@@ -75,15 +75,12 @@ void DX12GraphicsCommandList::Begin() {
     auto  descriptor_heaps    = dx12_bindless_utils.GetDescriptorHeaps();
     command_list->SetDescriptorHeaps(descriptor_heaps.size(), descriptor_heaps.data());
     command_list->SetGraphicsRootSignature(dx12_bindless_utils.GetBindlessRootSignature().Get());
+
+    m_Pipeline = nullptr;
 }
 
 void DX12GraphicsCommandList::End() {
     command_list->Close();
-}
-
-void DX12GraphicsCommandList::Reset() {
-    command_allocator->Reset();
-    command_list->Reset(command_allocator.Get(), nullptr);
 }
 
 void DX12GraphicsCommandList::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
@@ -104,7 +101,7 @@ void DX12GraphicsCommandList::BeginRendering(const RenderingInfo& info) {
 
     if (std::holds_alternative<std::reference_wrapper<SwapChain>>(info.render_target)) {
         auto& swap_chain      = std::get<std::reference_wrapper<SwapChain>>(info.render_target).get();
-        auto& dx12_swap_chain = static_cast<DX12SwapChain&>(swap_chain);
+        auto& dx12_swap_chain = dynamic_cast<DX12SwapChain&>(swap_chain);
         render_target         = &dx12_swap_chain.AcquireTextureForRendering();
 
         ResourceBarrier(
@@ -122,7 +119,7 @@ void DX12GraphicsCommandList::BeginRendering(const RenderingInfo& info) {
             });
 
     } else if (std::holds_alternative<std::reference_wrapper<Texture>>(info.render_target)) {
-        render_target = &static_cast<DX12Texture&>(std::get<std::reference_wrapper<Texture>>(info.render_target).get());
+        render_target = &dynamic_cast<DX12Texture&>(std::get<std::reference_wrapper<Texture>>(info.render_target).get());
     } else {
         throw std::runtime_error("invalid render target");
     }
@@ -151,7 +148,7 @@ void DX12GraphicsCommandList::SetPipeline(const RenderPipeline& pipeline) {
     if (m_Pipeline == &pipeline) return;
     m_Pipeline = &pipeline;
 
-    auto& dx12_pipeline = static_cast<const DX12RenderPipeline&>(pipeline);
+    auto& dx12_pipeline = dynamic_cast<const DX12RenderPipeline&>(pipeline);
     command_list->SetPipelineState(dx12_pipeline.pipeline.Get());
     command_list->IASetPrimitiveTopology(to_d3d_primitive_topology(dx12_pipeline.GetDesc().assembly_state.primitive));
 }
@@ -171,7 +168,7 @@ void DX12GraphicsCommandList::SetBlendColor(const math::vec4f& color) {
 }
 
 void DX12GraphicsCommandList::SetIndexBuffer(GPUBuffer& buffer) {
-    auto&                   dx12_buffer = static_cast<DX12GPUBuffer&>(buffer);
+    auto&                   dx12_buffer = dynamic_cast<DX12GPUBuffer&>(buffer);
     D3D12_INDEX_BUFFER_VIEW ibv{
         .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress(),
         .SizeInBytes    = static_cast<std::uint32_t>(buffer.GetDesc().element_count * buffer.GetDesc().element_size),
@@ -181,7 +178,13 @@ void DX12GraphicsCommandList::SetIndexBuffer(GPUBuffer& buffer) {
 }
 
 void DX12GraphicsCommandList::SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) {
-    auto& dx12_buffer = static_cast<DX12GPUBuffer&>(buffer);
+    if (m_Pipeline == nullptr) {
+        const auto error_message = fmt::format("pipeline is not set");
+        m_Device.GetLogger()->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+
+    auto& dx12_buffer = dynamic_cast<DX12GPUBuffer&>(buffer);
 
     auto& input_layout = m_Pipeline->GetDesc().vertex_input_layout;
     if (auto iter = std::find_if(
@@ -210,7 +213,7 @@ void DX12GraphicsCommandList::DrawIndexed(std::uint32_t index_count, std::uint32
 }
 
 void DX12GraphicsCommandList::Present(SwapChain& swap_chain) {
-    auto& dx12_swap_chain = static_cast<DX12SwapChain&>(swap_chain);
+    auto& dx12_swap_chain = dynamic_cast<DX12SwapChain&>(swap_chain);
     ResourceBarrier(
         {}, {},
         {
@@ -236,15 +239,12 @@ DX12ComputeCommandList::DX12ComputeCommandList(DX12Device& device, std::string_v
 void DX12ComputeCommandList::Begin() {
     auto& dx12_bindless_utils = static_cast<DX12BindlessUtils&>(m_Device.GetBindlessUtils());
     command_list->SetComputeRootSignature(dx12_bindless_utils.GetBindlessRootSignature().Get());
+
+    m_Pipeline = nullptr;
 }
 
 void DX12ComputeCommandList::End() {
     command_list->Close();
-}
-
-void DX12ComputeCommandList::Reset() {
-    command_allocator->Reset();
-    command_list->Reset(command_allocator.Get(), nullptr);
 }
 
 void DX12ComputeCommandList::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
@@ -263,7 +263,7 @@ void DX12ComputeCommandList::SetPipeline(const ComputePipeline& pipeline) {
     if (m_Pipeline == &pipeline) return;
     m_Pipeline = &pipeline;
 
-    auto& dx12_pipeline = static_cast<const DX12ComputePipeline&>(pipeline);
+    auto& dx12_pipeline = dynamic_cast<const DX12ComputePipeline&>(pipeline);
     command_list->SetPipelineState(dx12_pipeline.pipeline.Get());
 }
 
@@ -283,11 +283,6 @@ void DX12CopyCommandList::End() {
     command_list->Close();
 }
 
-void DX12CopyCommandList::Reset() {
-    command_allocator->Reset();
-    command_list->Reset(command_allocator.Get(), nullptr);
-}
-
 void DX12CopyCommandList::ResourceBarrier(
     const std::pmr::vector<GlobalBarrier>&    global_barriers,
     const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
@@ -302,8 +297,8 @@ void DX12CopyCommandList::ResourceBarrier(
 }
 
 void DX12CopyCommandList::CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dst_offset, std::size_t size) {
-    auto dx12_src = static_cast<const DX12GPUBuffer&>(src).resource.Get();
-    auto dx12_dst = static_cast<DX12GPUBuffer&>(dst).resource.Get();
+    auto dx12_src = dynamic_cast<const DX12GPUBuffer&>(src).resource.Get();
+    auto dx12_dst = dynamic_cast<DX12GPUBuffer&>(dst).resource.Get();
 
     command_list->CopyBufferRegion(dx12_dst, dst_offset, dx12_src, src_offset, size);
 }
@@ -320,8 +315,8 @@ void DX12CopyCommandList::CopyBufferToTexture(const GPUBuffer& src,
                                               std::uint32_t    mip_level,
                                               std::uint32_t    base_array_layer,
                                               std::uint32_t    layer_count) {
-    const auto& dx12_src_buffer  = static_cast<const DX12GPUBuffer&>(src);
-    auto&       dx12_dst_texture = static_cast<DX12Texture&>(dst);
+    const auto& dx12_src_buffer  = dynamic_cast<const DX12GPUBuffer&>(src);
+    auto&       dx12_dst_texture = dynamic_cast<DX12Texture&>(dst);
 
     const CD3DX12_TEXTURE_COPY_LOCATION src_location(
         dx12_src_buffer.resource.Get(),

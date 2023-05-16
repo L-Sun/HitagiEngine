@@ -149,7 +149,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
     }
 }
 
-auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t index, bool writable) -> BindlessHandle {
+auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, bool writable) -> BindlessHandle {
     if (writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
         const auto error_message = fmt::format(
             "Failed to create BindlessHandle: buffer({}) is not writable",
@@ -177,9 +177,9 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t in
     handle.writable = writable ? 1 : 0;
 
     const vk::DescriptorBufferInfo buffer_info{
-        .buffer = **static_cast<VulkanBuffer&>(buffer).buffer,
-        .offset = index * buffer.GetDesc().element_size,
-        .range  = buffer.GetDesc().element_size,
+        .buffer = **dynamic_cast<VulkanBuffer&>(buffer).buffer,
+        .offset = 0,
+        .range  = buffer.GetDesc().element_size * buffer.GetDesc().element_count,
     };
 
     const vk::WriteDescriptorSet write_info{
@@ -235,7 +235,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
 
     const vk::DescriptorImageInfo image_info{
         .sampler     = nullptr,
-        .imageView   = **static_cast<VulkanImage&>(texture).image_view,
+        .imageView   = **dynamic_cast<VulkanImage&>(texture).image_view,
         .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 
@@ -264,7 +264,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHand
     handle.type = BindlessHandleType::Sampler;
 
     const vk::DescriptorImageInfo image_info{
-        .sampler     = **static_cast<VulkanSampler&>(sampler).sampler,
+        .sampler     = **dynamic_cast<VulkanSampler&>(sampler).sampler,
         .imageView   = nullptr,
         .imageLayout = vk::ImageLayout::eUndefined,
     };

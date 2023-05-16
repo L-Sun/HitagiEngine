@@ -8,6 +8,7 @@
 #endif
 
 #include "vulkan/vk_device.hpp"
+#include "mock/mock_device.hpp"
 
 namespace hitagi::gfx {
 
@@ -36,6 +37,8 @@ auto Device::Create(Type type, std::string_view name) -> std::unique_ptr<Device>
 #endif
         case Type::Vulkan:
             return std::make_unique<VulkanDevice>(name);
+        case Type::Mock:
+            return std::make_unique<MockDevice>(name);
         default:
             return nullptr;
     }

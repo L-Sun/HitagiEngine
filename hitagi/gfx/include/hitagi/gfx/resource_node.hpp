@@ -1,29 +1,34 @@
 #pragma once
-#include <hitagi/gfx/gpu_resource.hpp>
 #include <hitagi/gfx/bindless.hpp>
 
 namespace hitagi::gfx {
-struct PassNode;
+class PassNodeBase;
 
 struct ResourceHandle {
-    std::uint64_t id = 0;
+    std::uint32_t id = std::numeric_limits<std::uint32_t>::max();
 
-    constexpr static auto InvalidHandle() { return ResourceHandle{.id = 0}; }
+    constexpr static auto InvalidHandle() noexcept { return ResourceHandle{}; }
 
-    constexpr bool operator!() const { return id == 0; }
-    constexpr auto operator<=>(const ResourceHandle&) const = default;
-    constexpr auto operator!=(const ResourceHandle& rhs) const { return id != rhs.id; }
+    inline operator bool() const noexcept {
+        return id != std::numeric_limits<std::uint32_t>::max();
+    }
+    constexpr auto operator<=>(const ResourceHandle&) const noexcept = default;
+    constexpr auto operator!=(const ResourceHandle& rhs) const noexcept { return id != rhs.id; }
 };
 
-struct ResourceNode {
-    ResourceNode(std::string_view name, std::size_t res_idx)
-        : name(name), res_idx(res_idx) {}
+class ResourceNode {
+public:
+    ResourceNode(std::string_view name, std::size_t resource_index);
 
-    std::pmr::string                 name;
-    std::size_t                      res_idx;
-    PassNode*                        writer  = nullptr;
-    std::uint32_t                    version = 0;
-    std::pmr::vector<BindlessHandle> bindless_handles;
+    inline auto GetName() const noexcept -> std::string_view { return m_Name; }
+    inline auto GetVersion() const noexcept { return m_Version; }
+
+    auto Write(PassNodeBase& writer_pass) const noexcept -> ResourceNode;
+
+private:
+    std::pmr::string m_Name;
+    std::uint32_t    m_ResourceIndex;
+    PassNodeBase*    m_Writer  = nullptr;
+    std::uint32_t    m_Version = 0;
 };
-
 }  // namespace hitagi::gfx

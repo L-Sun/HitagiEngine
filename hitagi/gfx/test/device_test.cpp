@@ -13,6 +13,8 @@ using namespace hitagi::utils;
 
 using namespace testing;
 
+using namespace std::literals;
+
 namespace hitagi::gfx {
 std::ostream& operator<<(std::ostream& os, const Device::Type& type) {
     return os << magic_enum::enum_name(type);
@@ -34,7 +36,7 @@ constexpr std::array supported_device_types = {
 class DeviceTest : public TestWithParam<Device::Type> {
 protected:
     DeviceTest()
-        : test_name(::testing::UnitTest::GetInstance()->current_test_info()->name()),
+        : test_name(UnitTest::GetInstance()->current_test_info()->name()),
           device(Device::Create(GetParam(), test_name)) {}
 
     std::pmr::string        test_name;
@@ -204,7 +206,7 @@ TEST_P(DeviceTest, CreateShader) {
 
 TEST_P(DeviceTest, CreateRenderPipeline) {
     {
-        constexpr auto vs_code = R"""(
+        constexpr auto shader_code = R"""(
             struct VS_INPUT {
                 float3 pos : POSITION;
             };
@@ -217,20 +219,32 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
                 output.pos = float4(input.pos, 1.0f);
                 return output;
             }
-        )""";
+
+            float4 PSMain(PS_INPUT input) : SV_TARGET {
+                return float4(1.0f, 1.0f, 1.0f, 1.0f);
+            }
+        )"""sv;
 
         auto vs_shader = device->CreateShader({
             .name        = test_name,
             .type        = ShaderType::Vertex,
             .entry       = "VSMain",
-            .source_code = vs_code,
+            .source_code = shader_code,
         });
         ASSERT_TRUE(vs_shader);
+
+        auto ps_shader = device->CreateShader({
+            .name        = test_name,
+            .type        = ShaderType::Pixel,
+            .entry       = "PSMain",
+            .source_code = shader_code,
+        });
+        ASSERT_TRUE(ps_shader);
 
         auto render_pipeline = device->CreateRenderPipeline(
             {
                 .name                = test_name,
-                .shaders             = {vs_shader},
+                .shaders             = {vs_shader, ps_shader},
                 .vertex_input_layout = {
                     {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 0},
                 },
@@ -267,7 +281,7 @@ TEST_P(DeviceTest, CreateComputePipeline) {
 class GPUBufferTest : public TestWithParam<std::tuple<Device::Type, GPUBufferUsageFlags>> {
 protected:
     GPUBufferTest()
-        : test_name(::testing::UnitTest::GetInstance()->current_test_info()->name()),
+        : test_name(UnitTest::GetInstance()->current_test_info()->name()),
           device(Device::Create(std::get<0>(GetParam()), test_name)),
           usages(std::get<1>(GetParam())) {}
 
@@ -307,11 +321,11 @@ TEST_P(GPUBufferTest, Create) {
         {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
 
     ASSERT_TRUE(gpu_buffer != nullptr);
-    EXPECT_EQ(gpu_buffer->GetDesc().element_size, initial_data.size()) << "The size of the buffer must be the same as described";
+    EXPECT_EQ(gpu_buffer->Size(), initial_data.size()) << "The size of the buffer must be the same as described";
 
     if (has_flag(usages, GPUBufferUsageFlags::MapRead)) {
         ASSERT_TRUE(gpu_buffer->GetMappedPtr() != nullptr) << "A mapped buffer must contain a mapped pointer";
-        EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->GetMappedPtr()), gpu_buffer->GetDesc().element_size).c_str())
+        EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(gpu_buffer->GetMappedPtr()), gpu_buffer->Size()).c_str())
             << "The content of the buffer must be the same as initial data";
     }
     if (has_flag(usages, GPUBufferUsageFlags::MapWrite)) {
@@ -320,7 +334,7 @@ TEST_P(GPUBufferTest, Create) {
         std::memcpy(gpu_buffer->GetMappedPtr(), new_data.data(), new_data.size());
         EXPECT_STREQ(
             (std::string("hello") + std::string("fg")).data(),
-            std::string(reinterpret_cast<const char*>(gpu_buffer->GetMappedPtr()), gpu_buffer->GetDesc().element_size).c_str())
+            std::string(reinterpret_cast<const char*>(gpu_buffer->GetMappedPtr()), gpu_buffer->Size()).c_str())
             << "The content of the buffer must be the same as initial data";
     }
 }
@@ -451,11 +465,12 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
         .element_size = sizeof(BindlessInfo),
         .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
-    bindless_info_buffer->Update(0, bindless_info);
+
+    bindless_info_buffer->Span<BindlessInfo>()[0] = bindless_info;
 
     BindlessHandle bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer);
 
-    constexpr std::string_view vs_shader_code = R"""(
+    constexpr auto shader_code = R"""(
             #include "bindless.hlsl"
 
             struct Bindless {
@@ -473,24 +488,36 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
                 float2(-0.5f, -0.5f)
             };
 
-            float4 main(uint index: SV_VertexID) : SV_Position {
+            float4 VSMain(uint index: SV_VertexID) : SV_Position {
                 Bindless      resource       = hitagi::load_bindless<Bindless>();
                 FrameConstant frame_constant = resource.frame_constant.load<FrameConstant>();
                 return mul(frame_constant.mvp, float4(positions[index], 0.0f, 1.0f));
             }
-        )""";
+
+            float4 PSMain() : SV_Target {
+                return float4(1.0f, 0.0f, 0.0f, 1.0f);
+            }
+        )"""sv;
 
     auto vs_shader = device->CreateShader({
         .name        = fmt::format("{}-vs", test_name),
         .type        = ShaderType::Vertex,
-        .entry       = "main",
-        .source_code = vs_shader_code,
+        .entry       = "VSMain",
+        .source_code = shader_code,
     });
     ASSERT_TRUE(vs_shader);
 
+    auto ps_shader = device->CreateShader({
+        .name        = fmt::format("{}-ps", test_name),
+        .type        = ShaderType::Pixel,
+        .entry       = "PSMain",
+        .source_code = shader_code,
+    });
+    ASSERT_TRUE(ps_shader);
+
     auto pipeline = device->CreateRenderPipeline({
         .name    = fmt::format("{}-pipeline", test_name),
-        .shaders = {vs_shader},
+        .shaders = {vs_shader, ps_shader},
     });
     ASSERT_TRUE(pipeline);
 
@@ -582,15 +609,15 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
 
     struct BindlessInfo {
         BindlessHandle frame_buffer_handle;
-    } bindless_info;
-    bindless_info.frame_buffer_handle = device->GetBindlessUtils().CreateBindlessHandle(*frame_buffer);
-
+    };
     auto bindless_info_buffer = device->CreateGPUBuffer({
         .name         = fmt::format("{}_bindless_info_buffer", test_name),
         .element_size = sizeof(BindlessInfo),
         .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
-    bindless_info_buffer->Update(0, bindless_info);
+
+    auto& bindless_info               = bindless_info_buffer->Get<BindlessInfo>();
+    bindless_info.frame_buffer_handle = device->GetBindlessUtils().CreateBindlessHandle(*frame_buffer);
 
     auto bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer);
 
@@ -686,13 +713,13 @@ TEST_P(CopyCommandTest, CopyBuffer) {
         auto ctx = std::static_pointer_cast<CopyCommandContext>(context);
 
         ctx->Begin();
-        ctx->CopyBuffer(*src_buffer, 0, *dst_buffer, 0, src_buffer->GetDesc().element_size);
+        ctx->CopyBuffer(*src_buffer, 0, *dst_buffer, 0, src_buffer->Size());
         ctx->End();
 
         copy_queue.Submit({ctx.get()});
         copy_queue.WaitIdle();
 
-        EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(dst_buffer->GetMappedPtr()), dst_buffer->GetDesc().element_size).c_str())
+        EXPECT_STREQ(initial_data.data(), std::string(reinterpret_cast<const char*>(dst_buffer->GetMappedPtr()), dst_buffer->Size()).c_str())
             << "The content of the buffer must be the same as initial data";
     }
 }
@@ -840,11 +867,11 @@ TEST_P(DeviceTest, DrawTriangle) {
     auto vertex_buffer = device->CreateGPUBuffer(
         {
             .name          = "I know DirectX12 positions buffer",
-            .element_size  = 2 * sizeof(vec3f),
-            .element_count = 3,
+            .element_size  = sizeof(vec3f),
+            .element_count = triangle.size(),
             .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
         },
-        {reinterpret_cast<const std::byte*>(triangle.data()), triangle.size() * sizeof(vec3f)});
+        {reinterpret_cast<const std::byte*>(triangle.data()), sizeof(triangle)});
 
     std::array pink_color = {
         R8G8B8A8Unorm(0xa9, 0xC0, 0x61, 0xFF),
@@ -870,13 +897,12 @@ TEST_P(DeviceTest, DrawTriangle) {
     struct Constant {
         mat4f rotation;
     };
-    auto constant_buffer = device->CreateGPUBuffer({
-        .name          = fmt::format("{}-ConstantBuffer", test_name),
-        .element_size  = sizeof(Constant),
-        .element_count = 1,
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+    auto constant_buffer          = device->CreateGPUBuffer({
+                 .name         = fmt::format("{}-ConstantBuffer", test_name),
+                 .element_size = sizeof(Constant),
+                 .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
-    constant_buffer->Update(0, translate(vec3f(.5f, 0, 0)) * rotate_z<float>(20.0_deg));
+    constant_buffer->Get<mat4f>() = translate(vec3f(.5f, 0, 0)) * rotate_z<float>(20.0_deg);
 
     struct BindlessInfo {
         BindlessHandle constant_buffer;
@@ -891,13 +917,13 @@ TEST_P(DeviceTest, DrawTriangle) {
         .sampler         = device->GetBindlessUtils().CreateBindlessHandle(*sampler),
     };
 
-    auto bindless_info_buffer = device->CreateGPUBuffer({
-        .name          = fmt::format("{}-BindlessHandles", test_name),
-        .element_size  = sizeof(BindlessInfo),
-        .element_count = 1,
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
-    });
-    bindless_info_buffer->Update(0, bindless_info);
+    auto bindless_info_buffer = device->CreateGPUBuffer(
+        {
+            .name         = fmt::format("{}-BindlessHandles", test_name),
+            .element_size = sizeof(BindlessInfo),
+            .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        },
+        {reinterpret_cast<const std::byte*>(&bindless_info), sizeof(bindless_info)});
 
     auto bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer);
 
@@ -905,7 +931,6 @@ TEST_P(DeviceTest, DrawTriangle) {
     auto  context   = device->CreateGraphicsContext("I know DirectX12 context");
 
     context->Begin();
-    context->SetPipeline(*pipeline);
     context->SetViewPort(ViewPort{
         .x      = 0,
         .y      = 0,
@@ -918,11 +943,12 @@ TEST_P(DeviceTest, DrawTriangle) {
         .width  = rect.right - rect.left,
         .height = rect.bottom - rect.top,
     });
-    context->SetVertexBuffer(0, *vertex_buffer);
 
     context->BeginRendering({
         .render_target = *swap_chain,
     });
+    context->SetPipeline(*pipeline);
+    context->SetVertexBuffer(0, *vertex_buffer);
     context->PushBindlessMetaInfo({
         .handle = bindless_info_handle,
     });
@@ -934,6 +960,8 @@ TEST_P(DeviceTest, DrawTriangle) {
     gfx_queue.Submit({context.get()});
     swap_chain->Present();
     gfx_queue.WaitIdle();
+
+    app->Tick();
 
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.sampler);
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.texture);

@@ -35,7 +35,7 @@ constexpr inline std::size_t combine_hash(const T1& a, const T2& b, std::size_t 
     return combine_hash(seed, a, b);
 }
 
-namespace detials {
+namespace details {
 template <unsigned bytesize>
 struct fnv1a_traits;
 template <>
@@ -50,10 +50,10 @@ struct fnv1a_traits<8> {
     static constexpr std::uint64_t offset = 14695981039346656037ull;
     static constexpr std::uint64_t prime  = 1099511628211ull;
 };
-}  // namespace detials
+}  // namespace details
 
 constexpr inline std::size_t string_hash(std::string_view str) noexcept {
-    using Traits      = detials::fnv1a_traits<sizeof(std::size_t)>;
+    using Traits      = details::fnv1a_traits<sizeof(std::size_t)>;
     std::size_t value = Traits::offset;
     for (const char& c : str) {
         value = (value ^ static_cast<Traits::type>(c)) * Traits::prime;

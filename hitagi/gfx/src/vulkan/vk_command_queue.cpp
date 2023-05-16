@@ -45,11 +45,11 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
         [](auto ctx) -> vk::CommandBuffer {
             switch (ctx->GetType()) {
                 case CommandType::Graphics:
-                    return *(static_cast<VulkanGraphicsCommandBuffer*>(ctx)->command_buffer);
+                    return *(dynamic_cast<VulkanGraphicsCommandBuffer*>(ctx)->command_buffer);
                 case CommandType::Compute:
-                    return *(static_cast<VulkanComputeCommandBuffer*>(ctx)->command_buffer);
+                    return *(dynamic_cast<VulkanComputeCommandBuffer*>(ctx)->command_buffer);
                 case CommandType::Copy:
-                    return *(static_cast<VulkanTransferCommandBuffer*>(ctx)->command_buffer);
+                    return *(dynamic_cast<VulkanTransferCommandBuffer*>(ctx)->command_buffer);
             }
         });
 
@@ -57,7 +57,7 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
     std::pmr::vector<std::uint64_t>          wait_values;
     std::pmr::vector<vk::PipelineStageFlags> wait_stage;
     for (const auto& wait_info : wait_fences) {
-        wait_vk_semaphores.emplace_back(*static_cast<const VulkanTimelineSemaphore&>(wait_info.fence).timeline_semaphore);
+        wait_vk_semaphores.emplace_back(*dynamic_cast<const VulkanTimelineSemaphore&>(wait_info.fence).timeline_semaphore);
         wait_values.emplace_back(wait_info.value);
         wait_stage.emplace_back(to_vk_pipeline_stage1(wait_info.stage));
     }
@@ -65,13 +65,13 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
     std::pmr::vector<vk::Semaphore> signal_vk_semaphores;
     std::pmr::vector<std::uint64_t> signal_values;
     for (const auto& signal_info : signal_fences) {
-        signal_vk_semaphores.emplace_back(*static_cast<const VulkanTimelineSemaphore&>(signal_info.fence).timeline_semaphore);
+        signal_vk_semaphores.emplace_back(*dynamic_cast<const VulkanTimelineSemaphore&>(signal_info.fence).timeline_semaphore);
         signal_values.emplace_back(signal_info.value);
     }
 
     for (auto ctx : contexts) {
         if (ctx->GetType() == CommandType::Graphics) {
-            auto gfx_ctx = static_cast<VulkanGraphicsCommandBuffer*>(ctx);
+            auto gfx_ctx = dynamic_cast<VulkanGraphicsCommandBuffer*>(ctx);
             if (gfx_ctx->swap_chain_image_available_semaphore) {
                 wait_vk_semaphores.emplace_back(**gfx_ctx->swap_chain_image_available_semaphore);
                 wait_values.emplace_back(0);

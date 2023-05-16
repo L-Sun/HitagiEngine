@@ -15,7 +15,6 @@ public:
     DX12GraphicsCommandList(DX12Device& device, std::string_view name);
     void Begin() final;
     void End() final;
-    void Reset() final;
 
     void ResourceBarrier(
         const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
@@ -53,7 +52,6 @@ public:
     DX12ComputeCommandList(DX12Device& device, std::string_view name);
     void Begin() final;
     void End() final;
-    void Reset() final;
 
     void ResourceBarrier(
         const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
@@ -73,7 +71,6 @@ public:
     DX12CopyCommandList(DX12Device& device, std::string_view name);
     void Begin() final;
     void End() final;
-    void Reset() final;
 
     void ResourceBarrier(
         const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},

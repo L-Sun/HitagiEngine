@@ -21,7 +21,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
     logger->trace("Create buffer({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
         const vk::BufferCreateInfo buffer_create_info = {
-            .size  = m_Desc.element_size * m_Desc.element_count,
+            .size  = Size(),
             .usage = to_vk_buffer_usage(m_Desc.usages),
         };
         if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Index)) {
@@ -78,23 +78,22 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
 
     if (!initial_data.empty()) {
         logger->trace("Copy initial data to buffer({})", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
-        if (initial_data.size() > desc.element_size * desc.element_count) {
+        if (initial_data.size() > Size()) {
             logger->warn(
                 "the initial data size({}) is larger than gpu buffer({}) size({}), so the exceed data will not be copied!",
                 fmt::styled(initial_data.size(), fmt::fg(fmt::color::red)),
-                fmt::styled(desc.element_size * desc.element_count, fmt::fg(fmt::color::green)),
+                fmt::styled(Size(), fmt::fg(fmt::color::green)),
                 fmt::styled(desc.name, fmt::fg(fmt::color::green)));
         }
         if (mapped_ptr != nullptr && utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
-            std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), desc.element_size * desc.element_count));
+            std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
         } else if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopyDst)) {
             logger->trace("Using stage buffer to initial...");
             VulkanBuffer staging_buffer(
                 device, GPUBufferDesc{
-                            .name          = fmt::format("{}_staging", desc.name),
-                            .element_size  = desc.element_size * desc.element_count,
-                            .element_count = 1,
-                            .usages        = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
+                            .name         = fmt::format("{}_staging", desc.name),
+                            .element_size = Size(),
+                            .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
                         },
                 initial_data);
 
@@ -102,7 +101,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
 
             context->Begin();
-            context->CopyBuffer(staging_buffer, 0, *this, 0, desc.element_size * desc.element_count);
+            context->CopyBuffer(staging_buffer, 0, *this, 0, Size());
             context->End();
             copy_queue.Submit({context.get()});
 
@@ -126,7 +125,7 @@ VulkanBuffer::~VulkanBuffer() {
     if (allocation) vmaFreeMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
 }
 
-auto VulkanBuffer::GetMappedPtr() const noexcept -> std::byte* {
+auto VulkanBuffer::GetMappedPtr() const noexcept -> const std::byte* {
     return mapped_ptr;
 }
 
@@ -172,54 +171,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
 
     logger->trace("Create TextureView({})...", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
     {
-        vk::ImageViewType image_view_type;
-        if (m_Desc.height == 1 && m_Desc.depth == 1) {
-            image_view_type = m_Desc.array_size == 1 ? vk::ImageViewType::e1D : vk::ImageViewType::e1DArray;
-        } else if (m_Desc.depth == 1) {
-            image_view_type = m_Desc.array_size == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e2DArray;
-        } else {
-            image_view_type = vk::ImageViewType::e3D;
-        }
-
-        if (utils::has_flag(m_Desc.usages, TextureUsageFlags::Cube) ||
-            utils::has_flag(m_Desc.usages, TextureUsageFlags::CubeArray)) {
-            if (image_view_type != vk::ImageViewType::e2DArray) {
-                const auto error_message = fmt::format(
-                    "the texture({}) can not be cube texture because the texture view type is not 2D texture array!",
-                    fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
-                logger->error(error_message);
-                throw std::invalid_argument(error_message);
-            }
-        }
-        if (utils::has_flag(m_Desc.usages, TextureUsageFlags::Cube | TextureUsageFlags::CubeArray)) {
-            const auto error_message = fmt::format(
-                "the texture({}) can not be cube texture and cube array at same time!",
-                fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
-            logger->error(error_message);
-            throw std::invalid_argument(error_message);
-        }
-        if (utils::has_flag(m_Desc.usages, TextureUsageFlags::Cube)) {
-            image_view_type = vk::ImageViewType::eCube;
-        }
-        if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CubeArray)) {
-            image_view_type = vk::ImageViewType::eCubeArray;
-        }
-
-        const vk::ImageViewCreateInfo image_view_create_info{
-            .image    = **image,
-            .viewType = image_view_type,
-            .format   = to_vk_format(m_Desc.format),
-            .subresourceRange =
-                vk::ImageSubresourceRange{
-                    .aspectMask     = to_vk_image_aspect(m_Desc.usages),
-                    .baseMipLevel   = 0,
-                    .levelCount     = m_Desc.mip_levels,
-                    .baseArrayLayer = 0,
-                    .layerCount     = m_Desc.array_size,
-                },
-        };
-
-        image_view = vk::raii::ImageView(device.GetDevice(), image_view_create_info, device.GetCustomAllocator());
+        image_view = vk::raii::ImageView(device.GetDevice(), to_vk_image_view_create_info(m_Desc, **image), device.GetCustomAllocator());
         create_vk_debug_object_info(image_view.value(), m_Name, device.GetDevice());
     }
 
@@ -228,10 +180,9 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
             VulkanBuffer staging_buffer(
                 device, GPUBufferDesc{
-                            .name          = fmt::format("{}_staging", m_Desc.name),
-                            .element_size  = initial_data.size_bytes(),
-                            .element_count = 1,
-                            .usages        = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
+                            .name         = fmt::format("{}_staging", m_Desc.name),
+                            .element_size = initial_data.size_bytes(),
+                            .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
                         },
                 initial_data);
 
@@ -243,17 +194,13 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 {}, {},
                 {
                     TextureBarrier{
-                        .src_access       = BarrierAccess::Unkown,
-                        .dst_access       = BarrierAccess::CopyDst,
-                        .src_stage        = PipelineStage::None,
-                        .dst_stage        = PipelineStage::Copy,
-                        .src_layout       = TextureLayout::Unkown,
-                        .dst_layout       = TextureLayout::CopyDst,
-                        .texture          = *this,
-                        .base_mip_level   = 0,
-                        .level_count      = m_Desc.mip_levels,
-                        .base_array_layer = 0,
-                        .layer_count      = m_Desc.array_size,
+                        .src_access = BarrierAccess::Unkown,
+                        .dst_access = BarrierAccess::CopyDst,
+                        .src_stage  = PipelineStage::None,
+                        .dst_stage  = PipelineStage::Copy,
+                        .src_layout = TextureLayout::Unkown,
+                        .dst_layout = TextureLayout::CopyDst,
+                        .texture    = *this,
                     },
                 });
 
@@ -269,21 +216,17 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 {}, {},
                 {
                     TextureBarrier{
-                        .src_access       = BarrierAccess::CopyDst,
-                        .dst_access       = utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)
-                                                ? BarrierAccess::DepthStencilRead
-                                                : BarrierAccess::ShaderRead,
-                        .src_stage        = PipelineStage::Copy,
-                        .dst_stage        = PipelineStage::All,
-                        .src_layout       = TextureLayout::CopyDst,
-                        .dst_layout       = utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)
-                                                ? TextureLayout::DepthStencilRead
-                                                : TextureLayout::ShaderRead,
-                        .texture          = *this,
-                        .base_mip_level   = 0,
-                        .level_count      = m_Desc.mip_levels,
-                        .base_array_layer = 0,
-                        .layer_count      = m_Desc.array_size,
+                        .src_access = BarrierAccess::CopyDst,
+                        .dst_access = utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)
+                                          ? BarrierAccess::DepthStencilRead
+                                          : BarrierAccess::ShaderRead,
+                        .src_stage  = PipelineStage::Copy,
+                        .dst_stage  = PipelineStage::All,
+                        .src_layout = TextureLayout::CopyDst,
+                        .dst_layout = utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)
+                                          ? TextureLayout::DepthStencilRead
+                                          : TextureLayout::ShaderRead,
+                        .texture    = *this,
                     },
                 });
 
@@ -480,7 +423,7 @@ void VulkanSwapChain::CreateSwapChain() {
         throw std::runtime_error(fmt::format(
             "The graphics queue({}) of physical device({}) can not support surface(window.ptr: {})",
             graphics_queue.GetFamilyIndex(),
-            physical_device.getProperties().deviceName,
+            physical_device.getProperties().deviceName.data(),
             m_Desc.window.ptr));
     }
 
@@ -495,7 +438,7 @@ void VulkanSwapChain::CreateSwapChain() {
         }) == supported_present_modes.end()) {
         throw std::runtime_error(fmt::format(
             "The physical device({}) can not support surface(window.ptr: {}) with present mode: VK_PRESENT_MODE_FIFO_KHR",
-            physical_device.getProperties().deviceName,
+            physical_device.getProperties().deviceName.data(),
             m_Desc.window.ptr));
     }
 
@@ -568,14 +511,64 @@ auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
 VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc) : RenderPipeline(device, std::move(desc)) {
     const auto logger = device.GetLogger();
 
-    if (std::find_if(
+    bool has_vertex_shader = false, has_fragment_shader = false;
+    for (const auto& p_shader : m_Desc.shaders) {
+        if (auto shader = p_shader.lock(); shader) {
+            if (shader->GetDesc().type == ShaderType::Vertex) {
+                has_vertex_shader = true;
+            } else if (shader->GetDesc().type == ShaderType::Pixel) {
+                has_fragment_shader = true;
+            }
+        }
+        if (has_vertex_shader && has_fragment_shader) {
+            break;
+        }
+    }
+
+    if (!has_vertex_shader) {
+        const auto error_message = fmt::format(
+            "Vertex shader is not specified for pipeline({})",
+            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+        logger->error(error_message);
+        throw std::invalid_argument(error_message);
+    }
+    if (!has_fragment_shader) {
+        const auto error_message = fmt::format(
+            "Fragment shader is not specified for pipeline({})",
+            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+        logger->error(error_message);
+        throw std::invalid_argument(error_message);
+    }
+
+    // verify all shaders are different type
+    if (auto iter = std::adjacent_find(
+            m_Desc.shaders.begin(), m_Desc.shaders.end(),
+            [](const auto& _lhs, const auto& _rhs) {
+                auto lhs = _lhs.lock();
+                auto rhs = _rhs.lock();
+                return lhs && rhs && lhs->GetDesc().type == rhs->GetDesc().type;
+            });
+        iter != m_Desc.shaders.end()) {
+        const auto error_message = fmt::format(
+            "shader({}) and shader({}) are same type for pipeline({})",
+            fmt::styled(iter->lock()->GetDesc().name, fmt::fg(fmt::color::red)),
+            fmt::styled((++iter)->lock()->GetDesc().name, fmt::fg(fmt::color::red)),
+            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+        logger->error(error_message);
+        throw std::invalid_argument(error_message);
+    }
+
+    // verify all shader are vulkan shader
+    if (auto iter = std::find_if(
             m_Desc.shaders.begin(), m_Desc.shaders.end(),
             [](const auto& _shader) {
                 auto shader = _shader.lock();
-                return shader && shader->GetDesc().type == ShaderType::Vertex;
-            }) == m_Desc.shaders.end()) {
+                return shader && !std::dynamic_pointer_cast<VulkanShader>(shader);
+            });
+        iter != m_Desc.shaders.end()) {
         const auto error_message = fmt::format(
-            "Vertex shader is not specified for pipeline({})",
+            "shader({}) is not vulkan shader for pipeline({})",
+            fmt::styled(iter->lock()->GetDesc().name, fmt::fg(fmt::color::red)),
             fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::invalid_argument(error_message);
@@ -609,7 +602,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
         });
 
     std::pmr::vector<vk::VertexInputBindingDescription> vertex_input_binding_descriptions;
-    // Then sort all semantic strings according to declaration and assign Location numbers sequentially to the corresponding SPIR-V variables.
+    // The sort all semantic strings according to declaration and assign Location numbers sequentially to the corresponding SPIR-V variables.
     // https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#implicit-location-number-assignment
     {
         std::transform(
@@ -643,6 +636,11 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
     const auto depth_stencil_state = to_vk_depth_stencil_state(m_Desc.depth_stencil_state);
     const auto attachment_state    = to_vk_blend_attachment_state(m_Desc.blend_state);
 
+    // TODO
+    const vk::PipelineMultisampleStateCreateInfo multisample_state{
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+    };
+
     const vk::PipelineColorBlendStateCreateInfo blend_state{
         .logicOpEnable   = m_Desc.blend_state.logic_operation_enable,
         .logicOp         = to_vk_logic_op(m_Desc.blend_state.logic_op),
@@ -674,6 +672,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
                 .pInputAssemblyState = &assembly_state,
                 .pViewportState      = &viewport_state,
                 .pRasterizationState = &rasterization_state,
+                .pMultisampleState   = &multisample_state,
                 .pDepthStencilState  = &depth_stencil_state,
                 .pColorBlendState    = &blend_state,
                 .pDynamicState       = &dynamic_state_create_info,
@@ -703,7 +702,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
 VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc) : ComputePipeline(device, std::move(desc)) {
     const auto logger = device.GetLogger();
 
-    auto compute_shader = std::static_pointer_cast<VulkanShader>(m_Desc.cs.lock());
+    auto compute_shader = std::dynamic_pointer_cast<VulkanShader>(m_Desc.cs.lock());
 
     if (compute_shader == nullptr) {
         const auto error_message = fmt::format("Compute shader is not specified for pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));

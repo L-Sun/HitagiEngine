@@ -85,7 +85,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     if (!initial_data.empty()) {
         if (initial_data.size() > m_Desc.element_size * m_Desc.element_count) {
             logger->warn(
-                "the initial data size({}) is larger than gpu buffer({}) size({} x {}), so the exceed data will not be copied!",
+                "the initial data size({}) is larger than gpu buffer({}) size({} x {} bytes), so the exceed data will not be copied!",
                 fmt::styled(initial_data.size(), fmt::fg(fmt::color::red)),
                 fmt::styled(m_Desc.element_size, fmt::fg(fmt::color::green)),
                 fmt::styled(m_Desc.element_count, fmt::fg(fmt::color::green)),
@@ -126,7 +126,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     }
 }
 
-auto DX12GPUBuffer::GetMappedPtr() const noexcept -> std::byte* {
+auto DX12GPUBuffer::GetMappedPtr() const noexcept -> const std::byte* {
     return mapped_ptr;
 }
 
@@ -326,7 +326,14 @@ DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc de
     D3D12_SHADER_BYTECODE vs{}, ps{}, gs{};
     for (const auto& _shader : m_Desc.shaders) {
         if (auto shader = _shader.lock(); shader != nullptr) {
-            auto dx12_shader = std::static_pointer_cast<DX12Shader>(shader);
+            auto dx12_shader = std::dynamic_pointer_cast<DX12Shader>(shader);
+            if (dx12_shader == nullptr) {
+                auto error_message = fmt::format(
+                    "Failed to cast shader({}) to DX12Shader",
+                    fmt::styled(shader->GetDesc().name, fmt::fg(fmt::color::green)));
+                logger->error(error_message);
+                throw std::runtime_error(error_message);
+            }
             switch (shader->GetDesc().type) {
                 case ShaderType::Vertex:
                     vs = dx12_shader->GetShaderByteCode();

@@ -74,7 +74,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         auto physical_devices = m_Instance->enumeratePhysicalDevices();
         m_Logger->trace("Found {} Vulkan physical devices", physical_devices.size());
         for (const auto& device : physical_devices) {
-            m_Logger->trace("\t - {}", device.getProperties().deviceName);
+            m_Logger->trace("\t - {}", device.getProperties().deviceName.data());
         }
 
         std::erase_if(physical_devices, [](const auto& device) { return !is_physical_suitable(device); });
@@ -83,7 +83,9 @@ VulkanDevice::VulkanDevice(std::string_view name)
             throw std::runtime_error("Failed to find physical device Vulkan supported!");
         }
         m_PhysicalDevice = std::make_unique<vk::raii::PhysicalDevice>(std::move(physical_devices.front()));
-        m_Logger->trace("Pick physical device: {}", fmt::styled(std::string_view{m_PhysicalDevice->getProperties().deviceName}, fmt::fg(fmt::color::green)));
+        m_Logger->trace(
+            "Pick physical device: {}",
+            fmt::styled(m_PhysicalDevice->getProperties().deviceName.data(), fmt::fg(fmt::color::green)));
     }
 
     m_Logger->trace("Create logical device...");

@@ -16,7 +16,7 @@ class DX12SwapChain;
 struct DX12GPUBuffer : GPUBuffer {
     DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data = {});
 
-    auto GetMappedPtr() const noexcept -> std::byte* final;
+    auto GetMappedPtr() const noexcept -> const std::byte* final;
 
     ComPtr<ID3D12Resource>      resource;
     ComPtr<D3D12MA::Allocation> allocation;

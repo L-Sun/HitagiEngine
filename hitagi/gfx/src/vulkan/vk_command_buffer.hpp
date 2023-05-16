@@ -14,7 +14,6 @@ public:
 
     void Begin() final;
     void End() final;
-    void Reset() final;
 
     void ResourceBarrier(
         const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
@@ -56,7 +55,6 @@ public:
 
     void Begin() final;
     void End() final;
-    void Reset() final;
 
     void ResourceBarrier(
         const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
@@ -79,7 +77,6 @@ public:
 
     void Begin() final;
     void End() final;
-    void Reset() final;
 
     void ResourceBarrier(
         const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},

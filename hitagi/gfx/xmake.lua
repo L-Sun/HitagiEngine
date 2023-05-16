@@ -2,9 +2,8 @@ add_requires("d3d12-memory-allocator", "directx12-agility-sdk", {optional = true
 add_requires("vulkansdk", "vulkan-memory-allocator", "directx-shader-compiler", "spirv-reflect")
 
 target("gfx_resource")
-    set_kind("static")
+    set_kind("headeronly")
     add_includedirs("include", {public = true})
-    add_files("src/gpu_resource.cpp")
     add_deps("core", "math", "utils", {public = true})
 
 target("shader_compiler")
@@ -47,18 +46,30 @@ target("vulkan_device")
         add_defines("VK_USE_PLATFORM_WAYLAND_KHR")
     end
 
+target("mock_device")
+    set_kind("static")
+    add_includedirs("include", {public = true})
+    add_files("src/mock/*.cpp")
+    add_deps("gfx_resource")
+
 target("gfx_device")
     set_kind("static")
     add_includedirs("include", {public = true})
     add_files("src/device.cpp")
-    add_deps("vulkan_device")
+    add_deps("vulkan_device", "mock_device")
     if is_plat("windows") then
         add_deps("dx12_device")
     end
 
-target("gfx")
+target("render_graph")
     set_kind("static")
     add_includedirs("include", {public = true})
     add_files("src/render_graph.cpp")
     add_deps("gfx_resource", "gfx_device", {inherit = false})
     add_packages("taskflow", {public = true})
+
+target("gfx")
+    set_kind("phony")
+    add_includedirs("include", {public = true})
+    add_files("src/render_graph.cpp")
+    add_deps("render_graph", "gfx_resource", "gfx_device", {inherit = false})

@@ -51,16 +51,16 @@ void DX12CommandQueue::Submit(const std::pmr::vector<CommandContext*>& contexts,
         [](auto ctx) -> ID3D12CommandList* {
             switch (ctx->GetType()) {
                 case CommandType::Graphics:
-                    return static_cast<DX12GraphicsCommandList*>(ctx)->command_list.Get();
+                    return dynamic_cast<DX12GraphicsCommandList*>(ctx)->command_list.Get();
                 case CommandType::Compute:
-                    return static_cast<DX12ComputeCommandList*>(ctx)->command_list.Get();
+                    return dynamic_cast<DX12ComputeCommandList*>(ctx)->command_list.Get();
                 case CommandType::Copy:
-                    return static_cast<DX12CopyCommandList*>(ctx)->command_list.Get();
+                    return dynamic_cast<DX12CopyCommandList*>(ctx)->command_list.Get();
             }
         });
 
     for (const auto& wait_fence : wait_fences) {
-        const auto& fence = static_cast<DX12Fence&>(wait_fence.fence);
+        const auto& fence = dynamic_cast<DX12Fence&>(wait_fence.fence);
         m_Queue->Wait(fence.GetFence().Get(), wait_fence.value);
     }
 
@@ -69,7 +69,7 @@ void DX12CommandQueue::Submit(const std::pmr::vector<CommandContext*>& contexts,
     }
 
     for (const auto& signal_fence : signal_fences) {
-        const auto& fence = static_cast<DX12Fence&>(signal_fence.fence);
+        const auto& fence = dynamic_cast<DX12Fence&>(signal_fence.fence);
         m_Queue->Signal(fence.GetFence().Get(), signal_fence.value);
     }
     m_Queue->Signal(m_Fence.GetFence().Get(), ++m_SubmitCount);

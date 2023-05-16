@@ -12,7 +12,6 @@ class Device;
 
 class Fence {
 public:
-    Fence(Device& device, std::string_view name = "") : m_Device(device), m_Name(name) {}
     Fence(const Fence&)            = delete;
     Fence(Fence&&)                 = default;
     Fence& operator=(const Fence&) = delete;
@@ -26,6 +25,8 @@ public:
     inline auto GetName() const noexcept -> std::string_view { return m_Name; }
 
 protected:
+    Fence(Device& device, std::string_view name = "") : m_Device(device), m_Name(name) {}
+
     Device&          m_Device;
     std::pmr::string m_Name;
 };
@@ -99,11 +100,7 @@ struct TextureBarrier {
     TextureLayout src_layout;
     TextureLayout dst_layout;
 
-    Texture&      texture;
-    std::uint16_t base_mip_level   = 0;
-    std::uint16_t level_count      = 1;
-    std::uint16_t base_array_layer = 0;
-    std::uint16_t layer_count      = 1;
+    Texture& texture;
 };
 
 struct FenceSignalInfo {

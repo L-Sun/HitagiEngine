@@ -52,52 +52,32 @@ DX12Device::DX12Device(std::string_view name)
 
     m_Logger->trace("Pick GPU...");
     {
-        std::pmr::vector<ComPtr<IDXGIAdapter>> adapters;
-        ComPtr<IDXGIAdapter>                   p_adapter;
-        for (UINT index = 0; m_Factory->EnumAdapterByGpuPreference(index, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&p_adapter)) != DXGI_ERROR_NOT_FOUND; index++) {
+        ComPtr<IDXGIAdapter> p_adapter;
+        if (m_Factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&p_adapter)) != DXGI_ERROR_NOT_FOUND) {
             DXGI_ADAPTER_DESC desc;
             p_adapter->GetDesc(&desc);
             std::pmr::wstring description = desc.Description;
-            m_Logger->trace("\t {}", std::pmr::string(description.begin(), description.end()));
-            adapters.emplace_back(std::move(p_adapter));
+            m_Logger->info("Pick: {}", std::pmr::string(description.begin(), description.end()));
+            p_adapter.As(&m_Adapter);
         }
-        m_Logger->trace("Filter by feature support");
-        std::erase_if(adapters, [this](const ComPtr<IDXGIAdapter>& adapter) -> bool {
-            ComPtr<ID3D12Device> device;
-            if (FAILED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)))) {
-                return true;
-            }
-
-            CD3DX12FeatureSupport feature_support;
-            if (FAILED(feature_support.Init(device.Get()))) {
-                return true;
-            }
-
-            if (!feature_support.EnhancedBarriersSupported()) {
-                m_Logger->error("EnhancedBarriers Not Supported");
-                return true;
-            }
-
-            return false;
-        });
-        if (adapters.empty()) {
-            m_Logger->error("No suitable GPU found.");
-            throw std::runtime_error("No suitable GPU found.");
-        }
-        {
-            DXGI_ADAPTER_DESC desc;
-            adapters.front()->GetDesc(&desc);
-            std::pmr::wstring description = desc.Description;
-            m_Logger->trace("Pick: {}", std::pmr::string(description.begin(), description.end()));
-        }
-        adapters.front().As(&m_Adapter);
     }
 
     m_Logger->trace("Create D3D12 device...");
     {
-        if (FAILED(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_Device)))) {
+        if (FAILED(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&m_Device)))) {
             m_Logger->error("Failed to create D3D12 device.");
             throw std::runtime_error("Failed to create D3D12 device.");
+        }
+
+        CD3DX12FeatureSupport feature_support;
+        if (FAILED(feature_support.Init(m_Device.Get()))) {
+            m_Logger->error("Failed to init feature support.");
+            throw std::runtime_error("Failed to init feature support.");
+        }
+
+        if (!feature_support.EnhancedBarriersSupported()) {
+            m_Logger->error("EnhancedBarriers Not Supported");
+            throw std::runtime_error("EnhancedBarriers Not Supported");
         }
 
         if (!name.empty()) {
@@ -138,11 +118,10 @@ DX12Device::DX12Device(std::string_view name)
 
     m_Logger->trace("Create Command Queues");
     magic_enum::enum_for_each<CommandType>([this](CommandType type) {
-        m_CommandQueues[type] = std::static_pointer_cast<DX12CommandQueue>(
-            std::make_shared<DX12CommandQueue>(
-                *this,
-                type,
-                fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type))));
+        m_CommandQueues[type] = std::make_shared<DX12CommandQueue>(
+            *this,
+            type,
+            fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type)));
     });
 
     m_Logger->trace("Create RTV DSV Descriptor Allocators...");

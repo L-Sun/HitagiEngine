@@ -986,9 +986,9 @@ inline constexpr auto to_vk_image_view_type(const TextureDesc& desc) noexcept ->
     return image_view_type;
 }
 
-inline constexpr auto to_vk_image_view_create_info(const TextureDesc& desc) noexcept -> vk::ImageViewCreateInfo {
+inline constexpr auto to_vk_image_view_create_info(const TextureDesc& desc, vk::Image image) noexcept -> vk::ImageViewCreateInfo {
     return {
-        .image            = nullptr,
+        .image            = image,
         .viewType         = to_vk_image_view_type(desc),
         .format           = to_vk_format(desc.format),
         .subresourceRange = vk::ImageSubresourceRange{
@@ -1011,7 +1011,7 @@ inline constexpr auto to_vk_memory_barrier(GlobalBarrier barrier) noexcept -> vk
 }
 
 inline auto to_vk_buffer_barrier(const GPUBufferBarrier& barrier) -> vk::BufferMemoryBarrier2 {
-    const auto& vk_buffer = static_cast<VulkanBuffer&>(barrier.buffer);
+    const auto& vk_buffer = dynamic_cast<VulkanBuffer&>(barrier.buffer);
     return {
         .srcStageMask  = to_vk_pipeline_stage2(barrier.src_stage),
         .srcAccessMask = to_vk_access_flags(barrier.src_access),
@@ -1019,12 +1019,12 @@ inline auto to_vk_buffer_barrier(const GPUBufferBarrier& barrier) -> vk::BufferM
         .dstAccessMask = to_vk_access_flags(barrier.dst_access),
         .buffer        = **vk_buffer.buffer,
         .offset        = 0,
-        .size          = vk_buffer.GetDesc().element_size * vk_buffer.GetDesc().element_count,
+        .size          = vk_buffer.Size(),
     };
 }
 
 inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemoryBarrier2 {
-    const auto vk_image = static_cast<VulkanImage&>(barrier.texture).image_handle;
+    const auto vk_image = dynamic_cast<VulkanImage&>(barrier.texture).image_handle;
 
     return {
         .srcStageMask     = to_vk_pipeline_stage2(barrier.src_stage),
@@ -1036,10 +1036,10 @@ inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemor
         .image            = vk_image,
         .subresourceRange = {
             .aspectMask     = to_vk_image_aspect(barrier.texture.GetDesc().usages),
-            .baseMipLevel   = barrier.base_mip_level,
-            .levelCount     = barrier.level_count,
-            .baseArrayLayer = barrier.base_array_layer,
-            .layerCount     = barrier.layer_count,
+            .baseMipLevel   = 0,
+            .levelCount     = barrier.texture.GetDesc().mip_levels,
+            .baseArrayLayer = 0,
+            .layerCount     = barrier.texture.GetDesc().array_size,
         }};
 }
 

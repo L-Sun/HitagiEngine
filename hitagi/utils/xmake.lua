@@ -1,5 +1,5 @@
-add_requires("magic_enum", "gtest", "benchmark", "fmt")
-add_requires("spdlog", {configs = {fmt_external = true}})
+add_requires("magic_enum", "gtest", "benchmark")
+add_requires("fmt 9.1.0", "spdlog")
 
 target("utils")
     set_kind("headeronly")
@@ -11,7 +11,7 @@ target("utils")
         "include/hitagi/utils/private_build.hpp"
     )
     add_includedirs("include", {public = true})
-    add_packages("fmt", "magic_enum", "spdlog", {public = true})
+    add_packages("fmt", "magic_enum", "spdlog", "range-v3", {public = true})
 
 
 target("test_utils")
