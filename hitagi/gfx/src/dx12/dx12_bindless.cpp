@@ -9,8 +9,8 @@
 
 namespace hitagi::gfx {
 // https://microsoft.github.io/DirectX-Specs/d3d/ResourceBinding.html#levels-of-hardware-support
-constexpr std::uint32_t max_cbv_srv_uav_descriptors = 100'0000;
-constexpr std::uint32_t max_sampler_descriptors     = 1024;
+constexpr std::uint32_t max_cbv_srv_uav_descriptors = 3'0000;
+constexpr std::uint32_t max_sampler_descriptors     = 128;
 
 DX12BindlessUtils::DX12BindlessUtils(DX12Device& device, std::string_view name) : BindlessUtils(device, name) {
     const auto logger = device.GetLogger();
@@ -85,7 +85,7 @@ DX12BindlessUtils::DX12BindlessUtils(DX12Device& device, std::string_view name) 
     }
 }
 
-auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, bool writable) -> BindlessHandle {
+auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t index, bool writable) -> BindlessHandle {
     if (writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
         const auto error_message = fmt::format(
             "Failed to create BindlessHandle: buffer({}) is not writable",
@@ -135,8 +135,8 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, bool writable) -
                 descriptor_increment_size));
     } else {
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
-            .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress(),
-            .SizeInBytes    = static_cast<UINT>(utils::align(buffer.Size(), 256)),
+            .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress() + index * buffer.AlignedElementSize(),
+            .SizeInBytes    = static_cast<UINT>(buffer.AlignedElementSize()),
         };
         dx12_device.GetDevice()->CreateConstantBufferView(
             &cbv_desc,

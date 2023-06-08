@@ -20,9 +20,12 @@ protected:
         std::shared_ptr<gfx::GPUBuffer>      indices_buffer;
         std::shared_ptr<gfx::Texture>        font_texture;
         std::shared_ptr<gfx::GPUBuffer>      upload_heap;
+        std::shared_ptr<gfx::Sampler>        sampler;
     } m_GfxData;
 
     gfx::ResourceHandle m_FontTextureHandle;
 };
+
+auto SwapChainRenderingLayoutTransitionPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle swap_chain) -> gfx::ResourceHandle;
 
 }  // namespace hitagi::render

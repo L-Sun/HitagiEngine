@@ -7,7 +7,6 @@
 #include <range/v3/all.hpp>
 
 #include <set>
-#include "hitagi/gfx/common_types.hpp"
 
 namespace hitagi::gfx {
 
@@ -28,19 +27,7 @@ RenderGraph::RenderGraph(Device& device, std::string_view name)
 
 RenderGraph::~RenderGraph() {
     WaitLastFrame();
-    ranges::for_each(m_CompiledExecuteLayers |
-                         ranges::views::join | ranges::views::join |
-                         ranges::views::transform([](auto pass_node) {
-                             return ranges::views::concat(pass_node->m_ReadResourceHandles, pass_node->m_WriteResourceHandles);
-                         }) |
-                         ranges::views::join |
-                         ranges::views::values |
-                         ranges::views::transform([](auto access_info) {
-                             return access_info.bindless_handle;
-                         }),
-                     [&](auto handle) {
-                         m_Device.GetBindlessUtils().DiscardBindlessHandle(handle);
-                     });
+    RetireResources();
 }
 
 auto RenderGraph::Import(std::shared_ptr<Resource> resource) -> ResourceHandle {
@@ -55,7 +42,7 @@ auto RenderGraph::Import(std::shared_ptr<Resource> resource) -> ResourceHandle {
         ResourceHandle{m_ResourceNodes.size()},
         m_Resources.size(),
     });
-    m_Resources.emplace_back(resource);
+    m_Resources.emplace_back(ResourceInfo{.resource = resource});
     m_OuterResources.emplace_back(std::move(resource));
     return new_resource_node.m_Handle;
 }
@@ -66,20 +53,37 @@ auto RenderGraph::Create(ResourceDesc desc) -> ResourceHandle {
         ResourceHandle{m_ResourceNodes.size()},
         m_Resources.size(),
     });
-    m_Resources.emplace_back(desc);
+    m_Resources.emplace_back(ResourceInfo{.desc = desc});
     return new_resource_node.m_Handle;
 }
 
 void RenderGraph::AddPresentPass(ResourceHandle swap_chain_handle) {
     struct PresentPass {
     };
+
     AddPass<PresentPass, CommandType::Graphics>(
         "PresentPass",
         [&](auto& builder, auto&) {
-            builder.Read(swap_chain_handle, PipelineStage::Render);
+            builder.Read(swap_chain_handle, PipelineStage::None);
         },
-        [=](const ResourceHelper& helper, const auto&, auto& context) {
-            context.Present(helper.Get<SwapChain>(swap_chain_handle));
+        [=, device_type = m_Device.device_type](const ResourceHelper& helper, const auto&, auto& context) {
+            TextureBarrier barrier{
+                .src_layout = TextureLayout::RenderTarget,
+                .dst_layout = TextureLayout::Present,
+                .texture    = helper.Get<Texture>(swap_chain_handle),
+            };
+            if (device_type == Device::Type::DX12) {
+                barrier.src_access = BarrierAccess::None;
+                barrier.dst_access = BarrierAccess::None;
+                barrier.src_stage  = PipelineStage::None;
+                barrier.dst_stage  = PipelineStage::None;
+            } else if (device_type == Device::Type::Vulkan) {
+                barrier.src_access = BarrierAccess::RenderTarget;
+                barrier.dst_access = BarrierAccess::Present;
+                barrier.src_stage  = PipelineStage::Render;
+                barrier.dst_stage  = PipelineStage::All;
+            }
+            context.ResourceBarrier({}, {}, {barrier});
         });
 }
 
@@ -208,6 +212,10 @@ void RenderGraph::Execute() {
     }
 
     m_FrameIndex++;
+
+    RetireResources();
+
+    m_IsCompiled = false;
 }
 
 auto RenderGraph::GetResourceNode(ResourceHandle handle) const -> const ResourceNode& {
@@ -218,80 +226,66 @@ auto RenderGraph::GetResourceNode(ResourceHandle handle) -> ResourceNode& {
     return m_ResourceNodes.at(handle.node_index);
 }
 
-auto RenderGraph::GetResource(ResourceHandle handle) const -> const DelayResource& {
+auto RenderGraph::GetResourceInfo(ResourceHandle handle) const -> const ResourceInfo& {
     return m_Resources.at(GetResourceNode(handle).m_ResourceIndex);
 }
 
 auto RenderGraph::GetResourceName(ResourceHandle handle) const -> std::string_view {
-    const auto& resource = GetResource(handle);
-    return std::visit(utils::Overloaded{
-                          [](const std::shared_ptr<Resource>& resource) { return resource->GetName(); },
-                          [](const ResourceDesc& desc) { return std::visit([](const auto& _desc) { return _desc.name; }, desc); },
-                      },
-                      resource);
+    const auto& resource_info = GetResourceInfo(handle);
+    return resource_info.resource ? resource_info.resource->GetName() : std::visit([](const auto& _desc) { return _desc.name; }, resource_info.desc);
 };
 
 void RenderGraph::InitializeResource() {
-    auto delay_resources_index = m_CompiledExecuteLayers |
-                                 ranges::views::join | ranges::views::join |
-                                 ranges::views::transform([&](const auto pass_node) {
-                                     return pass_node->GetInResourceHandles();
-                                 }) |
-                                 ranges::views::join |
-                                 ranges::views::transform([&](auto handle) -> std::size_t {
-                                     return GetResourceNode(handle).m_ResourceIndex;
-                                 }) |
-                                 ranges::to<std::pmr::set<std::size_t>>();
-
-    auto delay_resources = delay_resources_index |
-                           ranges::views::transform([&](std::size_t index) -> DelayResource& {
-                               return m_Resources[index];
+    auto resources_index = m_CompiledExecuteLayers |
+                           ranges::views::join | ranges::views::join |
+                           ranges::views::transform([&](const auto pass_node) {
+                               return pass_node->GetInResourceHandles();
+                           }) |
+                           ranges::views::join |
+                           ranges::views::transform([&](auto handle) -> std::size_t {
+                               return GetResourceNode(handle).m_ResourceIndex;
                            });
 
     // Initialize resource
-    for (DelayResource& resource : delay_resources) {
-        if (std::holds_alternative<ResourceDesc>(resource)) {
-            resource = std::visit(
-                utils::Overloaded{
-                    [this](const GPUBufferDesc& desc) -> std::shared_ptr<Resource> {
-                        return m_Device.CreateGPUBuffer(desc);
-                    },
-                    [this](const TextureDesc& desc) -> std::shared_ptr<Resource> {
-                        return m_Device.CreateTexture(desc);
-                    },
+    for (std::size_t index : resources_index) {
+        auto& resource_info = m_Resources[index];
+
+        if (resource_info.resource != nullptr) continue;
+
+        resource_info.resource = std::visit(
+            utils::Overloaded{
+                [this](const GPUBufferDesc& desc) -> std::shared_ptr<Resource> {
+                    return m_Device.CreateGPUBuffer(desc);
                 },
-                std::get<ResourceDesc>(resource));
-        }
+                [this](const TextureDesc& desc) -> std::shared_ptr<Resource> {
+                    return m_Device.CreateTexture(desc);
+                },
+            },
+            resource_info.desc);
     }
 
-    // Initialize bindless
-    auto pass_resource_infos = m_CompiledExecuteLayers |
-                               ranges::views::join | ranges::views::join |
-                               ranges::views::transform([&](auto pass_node) {
-                                   return ranges::views::concat(pass_node->m_ReadResourceHandles, pass_node->m_WriteResourceHandles);
-                               }) |
-                               ranges::views::join;
-
-    for (auto& [handle, access_info] : pass_resource_infos) {
-        auto resource = std::get<std::shared_ptr<Resource>>(GetResource(handle));
-
-        auto& bindless_utils = m_Device.GetBindlessUtils();
-        switch (resource->GetType()) {
+    // Initialize Bindless
+    auto& bindless_utils = m_Device.GetBindlessUtils();
+    for (std::size_t index : resources_index) {
+        auto& resource_info = m_Resources[index];
+        switch (resource_info.resource->GetType()) {
             case ResourceType::GPUBuffer: {
-                auto buffer = std::static_pointer_cast<GPUBuffer>(resource);
-                // TODO index
-                if (utils::has_flag(buffer->GetDesc().usages, GPUBufferUsageFlags::Constant) ||
-                    utils::has_flag(buffer->GetDesc().usages, GPUBufferUsageFlags::Storage)) {
-                    access_info.bindless_handle = bindless_utils.CreateBindlessHandle(*buffer, access_info.write);
+                auto buffer = std::static_pointer_cast<GPUBuffer>(resource_info.resource);
+                if (utils::has_flag(buffer->GetDesc().usages, GPUBufferUsageFlags::Constant)) {
+                    resource_info.cbvs.resize(buffer->GetDesc().element_count);
+                    for (std::size_t i = 0; i < resource_info.cbvs.size(); i++) {
+                        resource_info.cbvs[i] = bindless_utils.CreateBindlessHandle(*buffer, i, false);
+                    }
                 }
             } break;
             case ResourceType::Texture: {
-                auto texture                = std::static_pointer_cast<Texture>(resource);
-                access_info.bindless_handle = bindless_utils.CreateBindlessHandle(*texture, access_info.write);
+                auto texture = std::static_pointer_cast<Texture>(resource_info.resource);
+                if (utils::has_flag(texture->GetDesc().usages, TextureUsageFlags::SRV))
+                    resource_info.srv = bindless_utils.CreateBindlessHandle(*texture, false);
             } break;
             case ResourceType::Sampler: {
-                auto sampler                = std::static_pointer_cast<Sampler>(resource);
-                access_info.bindless_handle = bindless_utils.CreateBindlessHandle(*sampler);
+                auto sampler          = std::static_pointer_cast<Sampler>(resource_info.resource);
+                resource_info.sampler = bindless_utils.CreateBindlessHandle(*sampler);
             } break;
             default: {
             }
@@ -306,11 +300,68 @@ void RenderGraph::WaitLastFrame() {
     }
 }
 
+bool RenderGraph::RetiredResources::IsFinish() const {
+    return ranges::all_of(wait_fences, [](const FenceInfo& fence_pair) {
+        const auto& [fence, next_value] = fence_pair;
+        return fence->GetCurrentValue() >= next_value - 1;
+    });
+}
+
+void RenderGraph::RetireResources() {
+    RetiredResources retired_resources{};
+
+    retired_resources.wait_fences = m_Fences;
+
+    retired_resources.contexts = m_CompiledExecuteLayers |
+                                 ranges::views::join | ranges::views::join |
+                                 ranges::views::transform([](const auto pass_node) {
+                                     return pass_node->m_CommandContext;
+                                 }) |
+                                 ranges::to<std::pmr::vector<std::shared_ptr<CommandContext>>>();
+
+    retired_resources.resources = m_Resources |
+                                  ranges::views::transform([](const auto& resource_info) {
+                                      return resource_info.resource;
+                                  }) |
+                                  ranges::views::filter([](const auto& resource) {
+                                      return resource != nullptr;
+                                  }) |
+                                  ranges::to<std::pmr::vector<std::shared_ptr<Resource>>>();
+
+    for (const auto& resource_info : m_Resources) {
+        if (!resource_info.cbvs.empty())
+            retired_resources.bindless_handles.insert(retired_resources.bindless_handles.end(), resource_info.cbvs.begin(), resource_info.cbvs.end());
+
+        if (resource_info.srv) retired_resources.bindless_handles.emplace_back(resource_info.srv);
+        if (resource_info.sampler) retired_resources.bindless_handles.emplace_back(resource_info.sampler);
+    }
+
+    m_RetiredResourcesQueue.emplace_back(std::move(retired_resources));
+
+    m_Resources.clear();
+    m_OuterResources.clear();
+    m_ResourceNodes.clear();
+    m_PassNodes.clear();
+    m_CompiledExecuteLayers.clear();
+
+    auto& bindless_utils = m_Device.GetBindlessUtils();
+
+    while (!m_RetiredResourcesQueue.empty() && m_RetiredResourcesQueue.front().IsFinish()) {
+        const auto& resources = m_RetiredResourcesQueue.front();
+
+        for (auto bindless_handle : resources.bindless_handles) {
+            bindless_utils.DiscardBindlessHandle(bindless_handle);
+        }
+
+        m_RetiredResourcesQueue.pop_front();
+    }
+}
+
 ResourceNode::ResourceNode(const RenderGraph& render_graph, ResourceHandle resource_handle, std::size_t resource_index)
     : m_RenderGraph(render_graph), m_Handle(resource_handle), m_ResourceIndex(resource_index) {}
 
-auto ResourceNode::GetResource() const noexcept -> const DelayResource& {
-    return m_RenderGraph.GetResource(m_Handle);
+auto ResourceNode::GetResourceInfo() const noexcept -> const ResourceInfo& {
+    return m_RenderGraph.GetResourceInfo(m_Handle);
 }
 
 auto ResourceNode::GetPrevVersion() const noexcept -> const ResourceNode& {
@@ -338,79 +389,6 @@ bool PassNodeBase::IsDependOn(const PassNodeBase& other) const noexcept {
         }
     }
     return false;
-}
-
-void PassNodeBase::ResourceBarrier() {
-    auto buffer_barriers = ranges::views::concat(m_ReadResourceHandles, m_WriteResourceHandles) |
-                           ranges::views::filter([&](const auto& info) {
-                               auto        handle   = info.first;
-                               const auto& resource = m_RenderGraph.GetResource(handle);
-                               return std::get<std::shared_ptr<Resource>>(resource)->GetType() == ResourceType::GPUBuffer;
-                           }) |
-                           ranges::views::transform([&](const auto& info) {
-                               const auto& [handle, access_info] = info;
-                               auto resource                     = std::get<std::shared_ptr<Resource>>(m_RenderGraph.GetResource(handle));
-                               auto buffer                       = std::static_pointer_cast<GPUBuffer>(resource);
-                               // TODO
-                               auto dst_access = BarrierAccess::Unkown;
-                               if (access_info.write) {
-                                   dst_access |= BarrierAccess::ShaderWrite;
-                               }
-                               if (utils::has_flag(buffer->GetDesc().usages, GPUBufferUsageFlags::Constant)) {
-                                   dst_access |= BarrierAccess::Constant;
-                               }
-                               if (utils::has_flag(buffer->GetDesc().usages, GPUBufferUsageFlags::Vertex)) {
-                                   dst_access |= BarrierAccess::Vertex;
-                               }
-                               if (utils::has_flag(buffer->GetDesc().usages, GPUBufferUsageFlags::Index)) {
-                                   dst_access |= BarrierAccess::Index;
-                               }
-
-                               return GPUBufferBarrier{
-                                   .src_access = BarrierAccess::Unkown,
-                                   .dst_access = dst_access,
-                                   .src_stage  = PipelineStage::None,
-                                   .dst_stage  = PipelineStage::All,
-                                   .buffer     = *buffer,
-                               };
-                           }) |
-                           ranges::to<std::pmr::vector<GPUBufferBarrier>>();
-
-    auto texture_barriers = ranges::views::concat(m_ReadResourceHandles, m_WriteResourceHandles) |
-                            ranges::views::filter([&](const auto& info) {
-                                auto        handle   = info.first;
-                                const auto& resource = m_RenderGraph.GetResource(handle);
-                                return std::get<std::shared_ptr<Resource>>(resource)->GetType() == ResourceType::Texture;
-                            }) |
-                            ranges::views::transform([&](const auto& info) {
-                                const auto& [handle, access_info] = info;
-                                auto resource                     = std::get<std::shared_ptr<Resource>>(m_RenderGraph.GetResource(handle));
-                                auto texture                      = std::static_pointer_cast<Texture>(resource);
-
-                                TextureBarrier barrier{.texture = *texture};
-
-                                // TODO
-                                if (access_info.write && utils::has_flag(texture->GetDesc().usages, TextureUsageFlags::RTV)) {
-                                    barrier.dst_access = BarrierAccess::RenderTarget;
-                                    barrier.dst_layout = TextureLayout::RenderTarget;
-                                    barrier.src_layout = TextureLayout::Common;
-                                }
-                                if (access_info.write && utils::has_flag(texture->GetDesc().usages, TextureUsageFlags::DSV)) {
-                                    barrier.dst_access = BarrierAccess::DepthStencilRead | BarrierAccess::DepthStencilWrite;
-                                    barrier.dst_layout = TextureLayout::DepthStencilWrite;
-                                }
-                                if (access_info.write && utils::has_flag(texture->GetDesc().usages, TextureUsageFlags::UAV)) {
-                                    barrier.dst_access = BarrierAccess::ShaderRead | BarrierAccess::ShaderWrite;
-                                    barrier.dst_layout = TextureLayout::ShaderWrite;
-                                } else {
-                                    barrier.dst_access |= BarrierAccess::ShaderRead;
-                                    barrier.dst_layout = TextureLayout::ShaderRead;
-                                }
-
-                                return barrier;
-                            }) |
-                            ranges::to<std::pmr::vector<TextureBarrier>>();
-    m_CommandContext->ResourceBarrier({}, buffer_barriers, texture_barriers);
 }
 
 auto PassBuilderBase::Read(ResourceHandle handle, PipelineStage stage) -> ResourceHandle {
@@ -494,14 +472,16 @@ auto PassBuilderBase::Write(ResourceHandle handle, PipelineStage stage) -> Resou
     return new_resource_node.m_Handle;
 }
 
-auto ResourceHelper::Get(ResourceHandle handle) const -> BindlessHandle {
-    if (m_RenderPass.m_ReadResourceHandles.contains(handle)) {
-        return m_RenderPass.m_ReadResourceHandles.at(handle).bindless_handle;
-    } else if (m_RenderPass.m_WriteResourceHandles.contains(handle)) {
-        return m_RenderPass.m_WriteResourceHandles.at(handle).bindless_handle;
-    } else {
-        return {};
-    }
+auto ResourceHelper::GetCBV(ResourceHandle resource_handle, std::size_t index) const -> BindlessHandle {
+    return m_RenderGraph.GetResourceInfo(resource_handle).cbvs.at(index);
+}
+
+auto ResourceHelper::GetSRV(ResourceHandle resource_handle) const -> BindlessHandle {
+    return m_RenderGraph.GetResourceInfo(resource_handle).srv;
+}
+
+auto ResourceHelper::GetSampler(ResourceHandle resource_handle) const -> BindlessHandle {
+    return m_RenderGraph.GetResourceInfo(resource_handle).sampler;
 }
 
 }  // namespace hitagi::gfx

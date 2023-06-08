@@ -35,7 +35,7 @@ public:
     virtual auto CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain>                                               = 0;
     virtual auto CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> = 0;
     virtual auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture>       = 0;
-    virtual auto CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler>                                                      = 0;
+    virtual auto CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler>                                                     = 0;
 
     virtual auto CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> = 0;
     virtual auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline>                         = 0;

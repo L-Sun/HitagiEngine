@@ -10,11 +10,8 @@ namespace hitagi {
         uint version;
     };
 
-    struct BindlessInfoHandle {
+    struct BindlessMetaInfo {
         BindlessHandle handle;
-        uint           user_data_0;
-        uint           user_data_1;
-        uint           user_data_2;
     };
 
     template <typename T>
@@ -24,7 +21,7 @@ namespace hitagi {
 
 #ifdef __spirv__
     [[vk::push_constant]]
-    ConstantBuffer<BindlessHandle> g_bindings_offset;
+    ConstantBuffer<BindlessMetaInfo> g_bindless_meta_info;
 
     [[vk::binding(0, 0)]]
     ByteAddressBuffer g_byte_address_buffer[];
@@ -56,7 +53,7 @@ namespace hitagi {
 
     template <typename T>
     T load_bindless() {
-        T result = g_byte_address_buffer[g_bindings_offset.index].Load<T>(0);
+        T result = g_byte_address_buffer[g_bindless_meta_info.handle.index].Load<T>(0);
         return result;
     }
 
@@ -146,11 +143,11 @@ namespace hitagi {
     };
 
 #else
-    ConstantBuffer<BindlessInfoHandle> g_bindings_offset : register(b0, space0);
+    ConstantBuffer<BindlessMetaInfo> g_bindless_meta_info : register(b0, space0);
 
     template <typename T>
     T load_bindless() {
-        ConstantBuffer<T> result = ResourceDescriptorHeap[NonUniformResourceIndex(g_bindings_offset.handle.index)];
+        ConstantBuffer<T> result = ResourceDescriptorHeap[NonUniformResourceIndex(g_bindless_meta_info.handle.index)];
         return result;
     }
 

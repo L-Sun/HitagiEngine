@@ -24,8 +24,6 @@ public:
 private:
     std::uint32_t   m_FamilyIndex;
     vk::raii::Queue m_Queue;
-
-    std::uint64_t m_SubmitCount = 0;
 };
 
 }  // namespace hitagi::gfx

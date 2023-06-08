@@ -3,14 +3,25 @@
 #include <hitagi/gfx/sync.hpp>
 #include <hitagi/gfx/device.hpp>
 
+#include <deque>
 #include <unordered_set>
 
 namespace hitagi::gfx {
 
 struct ResourceHandle;
 
-using ResourceDesc  = std::variant<GPUBufferDesc, TextureDesc>;
-using DelayResource = std::variant<std::shared_ptr<Resource>, ResourceDesc>;
+using ResourceDesc = std::variant<GPUBufferDesc, TextureDesc>;
+
+struct ResourceInfo {
+    inline bool IsInitialized() const noexcept { return resource != nullptr; }
+
+    std::shared_ptr<Resource> resource = nullptr;
+    ResourceDesc              desc     = {};
+
+    std::pmr::vector<BindlessHandle> cbvs    = {};
+    BindlessHandle                   srv     = {};
+    BindlessHandle                   sampler = {};
+};
 
 class ResourceNode;
 class PassNodeBase;
@@ -28,6 +39,8 @@ using ExecFunc = std::function<void(const ResourceHelper&, const PassData&, Cont
 class RenderGraph {
 public:
     RenderGraph(Device& device, std::string_view name);
+    RenderGraph(const RenderGraph&)            = delete;
+    RenderGraph& operator=(const RenderGraph&) = delete;
     ~RenderGraph();
 
     inline auto GetName() const noexcept -> std::string_view { return m_Name; }
@@ -47,8 +60,10 @@ public:
     void Execute();
 
     auto GetResourceNode(ResourceHandle handle) const -> const ResourceNode&;
-    auto GetResource(ResourceHandle handle) const -> const DelayResource&;
+    auto GetResourceInfo(ResourceHandle handle) const -> const ResourceInfo&;
     auto GetResourceName(ResourceHandle handle) const -> std::string_view;
+
+    inline auto& GetDevice() const noexcept { return m_Device; }
 
 private:
     friend PassBuilderBase;
@@ -57,6 +72,7 @@ private:
     auto GetResourceNode(ResourceHandle handle) -> ResourceNode&;
     void InitializeResource();
     void WaitLastFrame();
+    void RetireResources();
 
     Device&                         m_Device;
     std::pmr::string                m_Name;
@@ -65,7 +81,7 @@ private:
     bool          m_IsCompiled = false;
     std::uint64_t m_FrameIndex = 0;
 
-    std::pmr::vector<DelayResource>                                          m_Resources;
+    std::pmr::vector<ResourceInfo>                                           m_Resources;
     std::pmr::vector<std::shared_ptr<Resource>>                              m_OuterResources;
     std::pmr::vector<ResourceNode>                                           m_ResourceNodes;
     std::pmr::unordered_map<std::string_view, std::shared_ptr<PassNodeBase>> m_PassNodes;
@@ -79,6 +95,17 @@ private:
     using BatchPasses  = std::pmr::vector<PassNodeBase*>;
     using ExecuteLayer = utils::EnumArray<BatchPasses, CommandType>;
     std::pmr::vector<ExecuteLayer> m_CompiledExecuteLayers;
+
+    struct RetiredResources {
+        std::pmr::vector<std::shared_ptr<CommandContext>> contexts;
+        std::pmr::vector<std::shared_ptr<Resource>>       resources;
+        std::pmr::vector<BindlessHandle>                  bindless_handles;
+        utils::EnumArray<FenceInfo, CommandType>          wait_fences;
+
+        bool IsFinish() const;
+    };
+
+    std::pmr::deque<RetiredResources> m_RetiredResourcesQueue;
 };
 
 struct ResourceHandle {
@@ -114,7 +141,7 @@ public:
     inline auto GetVersion() const noexcept { return m_Version; }
     inline auto IsNewest() const noexcept { return !m_NextVersionHandle; }
 
-    auto GetResource() const noexcept -> const DelayResource&;
+    auto GetResourceInfo() const noexcept -> const ResourceInfo&;
     auto GetPrevVersion() const noexcept -> const ResourceNode&;
     auto GetNextVersion() const noexcept -> const ResourceNode&;
 
@@ -155,8 +182,6 @@ public:
     virtual auto GetCommandType() const noexcept -> CommandType = 0;
     virtual void Execute()                                      = 0;
 
-    void ResourceBarrier();
-
 protected:
     friend RenderGraph;
     friend PassBuilderBase;
@@ -166,10 +191,13 @@ protected:
     std::pmr::string   m_Name;
 
     struct ResourceAccessInfo {
-        PipelineStage  stage;
-        bool           write;
-        BindlessHandle bindless_handle{};
+        PipelineStage stage;
+        bool          write;
     };
+
+    inline bool HasResource(ResourceHandle handle) const noexcept {
+        return m_ReadResourceHandles.contains(handle) || m_WriteResourceHandles.contains(handle);
+    }
 
     std::pmr::unordered_map<ResourceHandle, ResourceAccessInfo> m_ReadResourceHandles;
     std::pmr::unordered_map<ResourceHandle, ResourceAccessInfo> m_WriteResourceHandles;
@@ -192,9 +220,6 @@ protected:
 
     PassData              m_Data = {};
     ExecFunc<PassData, T> m_Executor;
-
-    // only used for render pass
-    ResourceHandle m_RenderTarget;
 };
 
 class PassBuilderBase {
@@ -214,15 +239,6 @@ public:
     PassBuilder(RenderGraph& rg, PassNode<PassData, T>& pass) : PassBuilderBase(rg, pass) {}
 };
 
-template <typename PassData>
-class PassBuilder<PassData, CommandType::Graphics> : public PassBuilderBase {
-public:
-    PassBuilder(RenderGraph& rg, PassNode<PassData, CommandType::Graphics>& pass) : PassBuilderBase(rg, pass) {}
-
-    // only used by render pass
-    auto SetRenderTarget(ResourceHandle resource_handle) -> ResourceHandle;
-};
-
 class ResourceHelper {
 public:
     ResourceHelper(const RenderGraph& rg, const PassNodeBase& pass) : m_RenderGraph(rg), m_RenderPass(pass) {}
@@ -231,7 +247,9 @@ public:
     auto Get(ResourceHandle resource_handle) const -> T&;
 
     // Only GPUBuffer and Texture resource can invoke this function.
-    auto Get(ResourceHandle resource_handle) const -> BindlessHandle;
+    auto GetCBV(ResourceHandle resource_handle, std::size_t index = 0) const -> BindlessHandle;
+    auto GetSRV(ResourceHandle resource_handle) const -> BindlessHandle;
+    auto GetSampler(ResourceHandle resource_handle) const -> BindlessHandle;
 
 private:
     const RenderGraph&  m_RenderGraph;
@@ -280,45 +298,26 @@ template <typename PassData, CommandType T>
 void PassNode<PassData, T>::Execute() {
     ResourceHelper helper(this->m_RenderGraph, *this);
     m_CommandContext->Begin();
-    ResourceBarrier();
-    if (T == CommandType::Graphics && m_RenderTarget) {
-        auto& gfx_context = *std::static_pointer_cast<GraphicsCommandContext>(m_CommandContext);
-        auto& resource    = helper.Get<Resource>(m_RenderTarget);
-        if (resource.GetType() == ResourceType::Texture) {
-            gfx_context.BeginRendering({
-                .render_target = static_cast<Texture&>(resource),
-            });
-        } else {
-            gfx_context.BeginRendering({
-                .render_target = static_cast<SwapChain&>(resource),
-            });
-        }
-        m_Executor(helper, this->m_Data, gfx_context);
-        gfx_context.EndRendering();
-    } else {
-        m_Executor(helper, this->m_Data, *std::static_pointer_cast<ContextType<T>>(m_CommandContext));
-    }
+    m_Executor(helper, this->m_Data, *std::static_pointer_cast<ContextType<T>>(m_CommandContext));
     m_CommandContext->End();
-}
-
-template <typename PassData>
-auto PassBuilder<PassData, CommandType::Graphics>::SetRenderTarget(ResourceHandle resource_handle) -> ResourceHandle {
-    auto new_resource_handle = Write(resource_handle, PipelineStage::Render);
-
-    static_cast<PassNode<PassData, CommandType::Graphics>&>(m_PassNode).m_RenderTarget = new_resource_handle;
-    return new_resource_handle;
 }
 
 template <typename T>
 auto ResourceHelper::Get(ResourceHandle handle) const -> T& {
-    if (m_RenderPass.m_ReadResourceHandles.contains(handle)) {
-        auto& resource = m_RenderGraph.GetResource(handle);
-        return *std::dynamic_pointer_cast<T>(std::get<std::shared_ptr<Resource>>(resource));
-    } else if (m_RenderPass.m_WriteResourceHandles.contains(handle)) {
-        auto& resource = m_RenderGraph.GetResource(handle);
-        return *std::dynamic_pointer_cast<T>(std::get<std::shared_ptr<Resource>>(resource));
+    auto& res_info = m_RenderGraph.GetResourceInfo(handle);
+    if (m_RenderPass.HasResource(handle)) {
+        if constexpr (std::is_same_v<T, Texture>) {
+            if (res_info.resource->GetType() == ResourceType::SwapChain) {
+                return std::static_pointer_cast<SwapChain>(res_info.resource)->AcquireTextureForRendering();
+            }
+        }
+        return *std::dynamic_pointer_cast<T>(res_info.resource);
     } else {
-        throw std::runtime_error(fmt::format("Resource {} is not used in pass {}", handle.node_index, m_RenderPass.GetName()));
+        throw std::runtime_error(fmt::format(
+            "Resource (Name: {}, Handle: {}) is not used in pass {}",
+            m_RenderGraph.GetResourceName(handle),
+            handle.node_index,
+            m_RenderPass.GetName()));
     }
 }
 

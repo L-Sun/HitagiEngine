@@ -31,10 +31,10 @@ class BindlessUtils {
 public:
     virtual ~BindlessUtils() = default;
 
-    [[nodiscard]] virtual auto CreateBindlessHandle(GPUBuffer& buffer, bool writable = false) -> BindlessHandle = 0;
-    [[nodiscard]] virtual auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle = 0;
-    [[nodiscard]] virtual auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle                         = 0;
-    virtual void               DiscardBindlessHandle(BindlessHandle handle)                                     = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t index, bool writable = false) -> BindlessHandle = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle                      = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle                                              = 0;
+    virtual void               DiscardBindlessHandle(BindlessHandle handle)                                                          = 0;
 
     inline auto& GetDevice() const noexcept { return m_Device; }
     inline auto  GetName() const noexcept { return std::string_view(m_Name); }

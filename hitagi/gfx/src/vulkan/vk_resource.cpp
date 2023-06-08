@@ -1,4 +1,5 @@
 #include "vk_resource.hpp"
+#include "hitagi/gfx/gpu_resource.hpp"
 #include "vk_device.hpp"
 #include "vk_bindless.hpp"
 #include "vk_utils.hpp"
@@ -72,7 +73,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
         logger->trace("Map buffer({}) memory", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
         if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead) ||
             utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
-            mapped_ptr = static_cast<std::byte*>(allocation_info.pMappedData);
+            m_MappedPtr = static_cast<std::byte*>(allocation_info.pMappedData);
         }
     }
 
@@ -85,8 +86,8 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
                 fmt::styled(Size(), fmt::fg(fmt::color::green)),
                 fmt::styled(desc.name, fmt::fg(fmt::color::green)));
         }
-        if (mapped_ptr != nullptr && utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
-            std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
+        if (m_MappedPtr != nullptr && utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
+            std::memcpy(m_MappedPtr, initial_data.data(), std::min(initial_data.size(), Size()));
         } else if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopyDst)) {
             logger->trace("Using stage buffer to initial...");
             VulkanBuffer staging_buffer(
@@ -125,9 +126,11 @@ VulkanBuffer::~VulkanBuffer() {
     if (allocation) vmaFreeMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
 }
 
-auto VulkanBuffer::GetMappedPtr() const noexcept -> const std::byte* {
-    return mapped_ptr;
+auto VulkanBuffer::Map() -> std::byte* {
+    return m_MappedPtr;
 }
+
+void VulkanBuffer::UnMap() {}
 
 VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(device, desc) {
     const auto logger = device.GetLogger();
@@ -194,7 +197,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 {}, {},
                 {
                     TextureBarrier{
-                        .src_access = BarrierAccess::Unkown,
+                        .src_access = BarrierAccess::None,
                         .dst_access = BarrierAccess::CopyDst,
                         .src_stage  = PipelineStage::None,
                         .dst_stage  = PipelineStage::Copy,
@@ -247,18 +250,19 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
     }
 }
 
-VulkanImage::VulkanImage(const VulkanSwapChain& swap_chian, std::uint32_t index)
-    : Texture(swap_chian.GetDevice(),
+VulkanImage::VulkanImage(const VulkanSwapChain& _swap_chian, std::uint32_t index)
+    : Texture(_swap_chian.GetDevice(),
               {
-                  .name        = fmt::format("{}-texture-{}", swap_chian.GetName(), index),
-                  .width       = swap_chian.GetWidth(),
-                  .height      = swap_chian.GetHeight(),
-                  .format      = swap_chian.GetFormat(),
-                  .clear_value = swap_chian.GetDesc().clear_value,
+                  .name        = fmt::format("{}-texture-{}", _swap_chian.GetName(), index),
+                  .width       = _swap_chian.GetWidth(),
+                  .height      = _swap_chian.GetHeight(),
+                  .format      = _swap_chian.GetFormat(),
+                  .clear_value = _swap_chian.GetDesc().clear_value,
                   .usages      = TextureUsageFlags::RTV,
-              }) {
+              }),
+      swap_chain(&_swap_chian) {
     const auto& vk_device = static_cast<VulkanDevice&>(m_Device);
-    const auto  _images   = swap_chian.GetVkSwapChain().getImages();
+    const auto  _images   = _swap_chian.GetVkSwapChain().getImages();
 
     image_view = vk::raii::ImageView(
         vk_device.GetDevice(),
@@ -352,9 +356,9 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
     CreateImageViews();
 }
 
-auto VulkanSwapChain::AcquireImageForRendering() -> VulkanImage& {
+auto VulkanSwapChain::AcquireTextureForRendering() -> Texture& {
     if (m_CurrentIndex != -1) {
-        return m_Images[m_CurrentIndex];
+        return *m_Images[m_CurrentIndex];
     }
 
     auto [result, index] = m_SwapChain->acquireNextImage(
@@ -367,7 +371,7 @@ auto VulkanSwapChain::AcquireImageForRendering() -> VulkanImage& {
 
     m_CurrentIndex = index;
 
-    return m_Images[m_CurrentIndex];
+    return *m_Images[m_CurrentIndex];
 }
 
 void VulkanSwapChain::Present() {
@@ -485,7 +489,7 @@ void VulkanSwapChain::CreateSwapChain() {
 void VulkanSwapChain::CreateImageViews() {
     m_Images.clear();
     for (std::uint32_t index = 0; index < m_NumImages; index++) {
-        m_Images.emplace_back(*this, index);
+        m_Images.emplace_back(std::make_unique<VulkanImage>(*this, index));
     }
 }
 

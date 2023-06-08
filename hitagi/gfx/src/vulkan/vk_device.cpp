@@ -163,6 +163,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
     {
         m_BindlessUtils = std::make_unique<VulkanBindlessUtils>(*this, fmt::format("{}-BindlessUtils", m_Name));
     }
+    m_Logger->trace("Initialized.");
 }
 
 VulkanDevice::~VulkanDevice() {
@@ -206,7 +207,7 @@ auto VulkanDevice::CreateTexture(TextureDesc desc, std::span<const std::byte> in
     return std::make_shared<VulkanImage>(*this, desc, initial_data);
 }
 
-auto VulkanDevice::CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
+auto VulkanDevice::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
     return std::make_shared<VulkanSampler>(*this, desc);
 }
 

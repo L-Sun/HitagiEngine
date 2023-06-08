@@ -23,22 +23,22 @@ inline auto create_compile_args(const ShaderDesc& desc, bool spirv = false) noex
 
     // shader file
     if (desc.path.empty()) {
-        args.emplace_back(std::pmr::wstring(desc.name.begin(), desc.name.end()));
+        args.emplace_back(desc.name.begin(), desc.name.end());
 
     } else {
         std::filesystem::path include_dir = std::filesystem::is_directory(desc.path) ? desc.path : desc.path.parent_path();
         if (include_dir != asset_shader_dir) {
             args.emplace_back(L"-I");
-            args.emplace_back(std::pmr::wstring(include_dir.wstring()));
+            args.emplace_back(include_dir.wstring());
         }
     }
 
     args.emplace_back(L"-I");
-    args.emplace_back(std::pmr::wstring(asset_shader_dir.wstring()));
+    args.emplace_back(asset_shader_dir.wstring());
 
     // shader entry
     args.emplace_back(L"-E");
-    args.emplace_back(std::pmr::wstring(desc.entry.begin(), desc.entry.end()));
+    args.emplace_back(desc.entry.begin(), desc.entry.end());
 
     // shader model
     args.emplace_back(L"-T");

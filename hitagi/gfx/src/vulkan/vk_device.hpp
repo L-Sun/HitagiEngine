@@ -26,7 +26,7 @@ public:
     auto CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> final;
     auto CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> final;
     auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
-    auto CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> final;
+    auto CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> final;
 
     auto CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> final;
     auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> final;

@@ -78,8 +78,8 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
                 wait_stage.emplace_back(vk::PipelineStageFlagBits::eColorAttachmentOutput);
             }
 
-            if (gfx_ctx->swap_chain_presentable_semaphore) {
-                signal_vk_semaphores.emplace_back(**gfx_ctx->swap_chain_presentable_semaphore);
+            for (const auto& swapchain_presentable_semaphore : gfx_ctx->swap_chain_presentable_semaphores) {
+                signal_vk_semaphores.emplace_back(**swapchain_presentable_semaphore);
                 signal_values.emplace_back(0);
             }
         }

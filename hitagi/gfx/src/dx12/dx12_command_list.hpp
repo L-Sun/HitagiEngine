@@ -21,7 +21,7 @@ public:
         const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
         const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final;
 
-    void BeginRendering(const RenderingInfo& info) final;
+    void BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil = {}) final;
     void EndRendering() final;
 
     void SetPipeline(const RenderPipeline& pipeline) final;
@@ -37,8 +37,6 @@ public:
 
     void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;
     void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final;
-
-    void Present(SwapChain& swap_chain) final;
 
     void CopyTexture(const Texture& src, Texture& dest) final;
 

@@ -10,10 +10,7 @@
 #include <algorithm>
 
 namespace hitagi::gfx {
-DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data)
-    : GPUBuffer(device, desc), buffer_size(m_Desc.element_size * m_Desc.element_count)
-
-{
+DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, desc) {
     const auto logger = device.GetLogger();
 
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
@@ -23,7 +20,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
         }
     }
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Constant)) {
-        buffer_size = utils::align(m_Desc.element_size * m_Desc.element_count, 256);
+        m_ElementAlignment = 256;
     }
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Storage)) {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -53,9 +50,9 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
         allocation_desc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
     }
 
-    logger->trace("Create GPU buffer({}) with {} bytes", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)), buffer_size);
+    logger->trace("Create GPU buffer({}) with {} bytes", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)), Size());
 
-    auto resource_desc = CD3DX12_RESOURCE_DESC::Buffer(buffer_size, flags);
+    auto resource_desc = CD3DX12_RESOURCE_DESC::Buffer(Size(), flags);
     if (FAILED(device.GetAllocator()->CreateResource(
             &allocation_desc,
             &resource_desc,
@@ -71,42 +68,57 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     }
     resource->SetName(std::wstring(m_Name.begin(), m_Name.end()).c_str());
 
-    if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead) ||
-        utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
-        if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
-            const auto error_message = fmt::format(
-                "Failed to map GPU buffer({})",
-                fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
-            logger->error(error_message);
-            throw std::runtime_error(error_message);
-        }
-    }
-
     if (!initial_data.empty()) {
-        if (initial_data.size() > m_Desc.element_size * m_Desc.element_count) {
+        if (initial_data.size() % m_Desc.element_size != 0) {
             logger->warn(
-                "the initial data size({}) is larger than gpu buffer({}) size({} x {} bytes), so the exceed data will not be copied!",
+                "the initial data size({}) is not a multiple of element size({}) of gpu buffer({}), so the exceed data will not be copied!",
                 fmt::styled(initial_data.size(), fmt::fg(fmt::color::red)),
                 fmt::styled(m_Desc.element_size, fmt::fg(fmt::color::green)),
+                fmt::styled(desc.name, fmt::fg(fmt::color::green)));
+        }
+
+        if (initial_data.size() > m_Desc.element_count * m_Desc.element_size) {
+            logger->warn(
+                "the element_count({}) in initial data is larger than the buffer element_count({}), so the exceed data will not be copied!",
+                fmt::styled(initial_data.size() / m_Desc.element_size, fmt::fg(fmt::color::red)),
                 fmt::styled(m_Desc.element_count, fmt::fg(fmt::color::green)),
                 fmt::styled(desc.name, fmt::fg(fmt::color::green)));
         }
 
-        if (mapped_ptr && utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
-            std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), m_Desc.element_size * m_Desc.element_count));
+        if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
+            Map();
+            if (m_ElementAlignment == 1 || m_ElementAlignment == m_Desc.element_size) {
+                std::memcpy(m_MappedPtr, initial_data.data(), initial_data.size());
+            } else {
+                std::size_t copy_count = std::min(initial_data.size() / m_Desc.element_size, m_Desc.element_count);
+                // TODO parallel copy
+                for (std::size_t i = 0; i < copy_count; i++) {
+                    std::memcpy(
+                        m_MappedPtr + i * AlignedElementSize(),
+                        initial_data.data() + i * m_Desc.element_size,
+                        m_Desc.element_size);
+                }
+            }
+            UnMap();
+
         } else if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst)) {
+            auto upload_buffer_usage_flags = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc;
+            if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Constant)) {
+                upload_buffer_usage_flags |= GPUBufferUsageFlags::Constant;  // for alignment
+            }
             auto upload_buffer = DX12GPUBuffer(
                 device,
                 {
-                    .name         = fmt::format("UploadBuffer-({})", m_Desc.name),
-                    .element_size = std::min(initial_data.size(), m_Desc.element_size * m_Desc.element_count),
-                    .usages       = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
+                    .name          = fmt::format("UploadBuffer-({})", m_Desc.name),
+                    .element_size  = m_Desc.element_size,
+                    .element_count = m_Desc.element_count,
+                    .usages        = upload_buffer_usage_flags,
                 },
                 {initial_data.data(), std::min(initial_data.size(), m_Desc.element_size * m_Desc.element_count)});
 
             auto copy_context = device.CreateCopyContext("CreateGPUBuffer");
             copy_context->Begin();
-            copy_context->CopyBuffer(upload_buffer, 0, *this, 0, upload_buffer.buffer_size);
+            copy_context->CopyBuffer(upload_buffer, 0, *this, 0, upload_buffer.Size());
             copy_context->End();
 
             auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
@@ -126,8 +138,37 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     }
 }
 
-auto DX12GPUBuffer::GetMappedPtr() const noexcept -> const std::byte* {
-    return mapped_ptr;
+auto DX12GPUBuffer::Map() -> std::byte* {
+    if (m_MappedPtr) return m_MappedPtr;
+
+    auto logger = m_Device.GetLogger();
+    if (!utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead) && !utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
+        const auto error_message = fmt::format("Can not map GPU buffer({}) without usage flag {} or {}",
+                                               fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)),
+                                               fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::MapRead), fmt::fg(fmt::color::green)),
+                                               fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::MapWrite), fmt::fg(fmt::color::green)));
+
+        logger->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead) ||
+        utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
+        if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&m_MappedPtr)))) {
+            const auto error_message = fmt::format(
+                "Failed to map GPU buffer({})",
+                fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+            logger->error(error_message);
+            throw std::runtime_error(error_message);
+        }
+    }
+    return m_MappedPtr;
+}
+
+void DX12GPUBuffer::UnMap() {
+    if (m_MappedPtr) {
+        resource->Unmap(0, nullptr);
+        m_MappedPtr = nullptr;
+    }
 }
 
 DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(device, desc) {
@@ -230,35 +271,47 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
     }
 
     if (!initial_data.empty()) {
-        auto upload_buffer = DX12GPUBuffer(
-            device,
-            {
-                .name         = "UploadBuffer",
-                .element_size = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(device.GetDevice().Get())),
-                .usages       = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
-            });
+        logger->trace("Copy initial data to texture({})", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
 
-        D3D12_SUBRESOURCE_DATA textureData = {
-            .pData      = initial_data.data(),
-            .RowPitch   = static_cast<LONG_PTR>(desc.width * (get_format_bit_size(desc.format) >> 3)),
-            .SlicePitch = textureData.RowPitch * desc.height,
-        };
+        if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
+            auto upload_buffer = DX12GPUBuffer(
+                device,
+                {
+                    .name         = "UploadBuffer",
+                    .element_size = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(device.GetDevice().Get())),
+                    .usages       = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
+                });
 
-        auto copy_context = device.CreateCopyContext("UploadTexture");
-        copy_context->Begin();
-        UpdateSubresources(
-            std::static_pointer_cast<DX12CopyCommandList>(copy_context)->command_list.Get(),
-            resource.Get(),
-            upload_buffer.resource.Get(),
-            0,
-            0,
-            resource_desc.Subresources(device.GetDevice().Get()),
-            &textureData);
-        copy_context->End();
+            D3D12_SUBRESOURCE_DATA textureData = {
+                .pData      = initial_data.data(),
+                .RowPitch   = static_cast<LONG_PTR>(desc.width * (get_format_bit_size(desc.format) >> 3)),
+                .SlicePitch = textureData.RowPitch * desc.height,
+            };
 
-        auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
-        copy_queue.Submit({copy_context.get()});
-        copy_queue.WaitIdle();
+            auto copy_context = device.CreateCopyContext("UploadTexture");
+            copy_context->Begin();
+            UpdateSubresources(
+                std::static_pointer_cast<DX12CopyCommandList>(copy_context)->command_list.Get(),
+                resource.Get(),
+                upload_buffer.resource.Get(),
+                0,
+                0,
+                resource_desc.Subresources(device.GetDevice().Get()),
+                &textureData);
+            copy_context->End();
+
+            auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
+            copy_queue.Submit({copy_context.get()});
+            copy_queue.WaitIdle();
+        } else {
+            auto error_message = fmt::format(
+                "the texture({}) can not initialize with upload buffer without {}, the actual flags are {}",
+                fmt::styled(desc.name, fmt::fg(fmt::color::red)),
+                fmt::styled(magic_enum::enum_flags_name(TextureUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
+                fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
+            logger->error(error_message);
+            throw std::invalid_argument(error_message);
+        }
     }
 }
 
@@ -550,7 +603,7 @@ void DX12SwapChain::Resize() {
     }
 }
 
-auto DX12SwapChain::AcquireTextureForRendering() -> DX12Texture& {
+auto DX12SwapChain::AcquireTextureForRendering() -> Texture& {
     return m_BackBuffers[m_SwapChain->GetCurrentBackBufferIndex()];
 }
 

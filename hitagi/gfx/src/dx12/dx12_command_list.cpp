@@ -95,50 +95,21 @@ void DX12GraphicsCommandList::ResourceBarrier(const std::pmr::vector<GlobalBarri
     pipeline_barrier_fn(cmd_list, global_barriers, buffer_barriers, texture_barriers);
 }
 
-void DX12GraphicsCommandList::BeginRendering(const RenderingInfo& info) {
-    DX12Texture* render_target = nullptr;
-    DX12Texture* depth_stencil = nullptr;
-
-    if (std::holds_alternative<std::reference_wrapper<SwapChain>>(info.render_target)) {
-        auto& swap_chain      = std::get<std::reference_wrapper<SwapChain>>(info.render_target).get();
-        auto& dx12_swap_chain = dynamic_cast<DX12SwapChain&>(swap_chain);
-        render_target         = &dx12_swap_chain.AcquireTextureForRendering();
-
-        ResourceBarrier(
-            {}, {},
-            {
-                TextureBarrier{
-                    .src_access = BarrierAccess::Present,
-                    .dst_access = BarrierAccess::RenderTarget,
-                    .src_stage  = PipelineStage::Render,
-                    .dst_stage  = PipelineStage::Render,
-                    .src_layout = TextureLayout::Present,
-                    .dst_layout = TextureLayout::RenderTarget,
-                    .texture    = *render_target,
-                },
-            });
-
-    } else if (std::holds_alternative<std::reference_wrapper<Texture>>(info.render_target)) {
-        render_target = &dynamic_cast<DX12Texture&>(std::get<std::reference_wrapper<Texture>>(info.render_target).get());
-    } else {
-        throw std::runtime_error("invalid render target");
-    }
-
-    if (info.depth_stencil.has_value()) {
-        depth_stencil = &static_cast<DX12Texture&>(info.depth_stencil->get());
-    }
+void DX12GraphicsCommandList::BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil) {
+    auto& dx12_render_target = static_cast<DX12Texture&>(render_target);
+    auto  dx12_depth_stencil = depth_stencil.has_value() ? &static_cast<DX12Texture&>(depth_stencil->get()) : nullptr;
 
     command_list->OMSetRenderTargets(
-        1, &render_target->rtv.GetCPUHandle(), false,
-        (depth_stencil && depth_stencil->dsv) ? &depth_stencil->dsv.GetCPUHandle() : nullptr);
+        1, &dx12_render_target.rtv.GetCPUHandle(), false,
+        (dx12_depth_stencil && dx12_depth_stencil->dsv) ? &dx12_depth_stencil->dsv.GetCPUHandle() : nullptr);
 
-    if (render_target->GetDesc().clear_value.has_value()) {
-        const auto& clear_color = std::get<ClearColor>(render_target->GetDesc().clear_value.value());
-        command_list->ClearRenderTargetView(render_target->rtv.GetCPUHandle(), clear_color, 0, nullptr);
+    if (render_target.GetDesc().clear_value.has_value()) {
+        const auto& clear_color = std::get<ClearColor>(render_target.GetDesc().clear_value.value());
+        command_list->ClearRenderTargetView(dx12_render_target.rtv.GetCPUHandle(), clear_color, 0, nullptr);
     }
-    if (depth_stencil && depth_stencil->GetDesc().clear_value.has_value()) {
-        const auto& clear_depth_stencil = std::get<ClearDepthStencil>(depth_stencil->GetDesc().clear_value.value());
-        command_list->ClearDepthStencilView(depth_stencil->dsv.GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_depth_stencil.depth, clear_depth_stencil.stencil, 0, nullptr);
+    if (dx12_depth_stencil && dx12_depth_stencil->GetDesc().clear_value.has_value()) {
+        const auto& clear_depth_stencil = std::get<ClearDepthStencil>(dx12_depth_stencil->GetDesc().clear_value.value());
+        command_list->ClearDepthStencilView(dx12_depth_stencil->dsv.GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_depth_stencil.depth, clear_depth_stencil.stencil, 0, nullptr);
     }
 }
 
@@ -171,7 +142,7 @@ void DX12GraphicsCommandList::SetIndexBuffer(GPUBuffer& buffer) {
     auto&                   dx12_buffer = dynamic_cast<DX12GPUBuffer&>(buffer);
     D3D12_INDEX_BUFFER_VIEW ibv{
         .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress(),
-        .SizeInBytes    = static_cast<std::uint32_t>(buffer.GetDesc().element_count * buffer.GetDesc().element_size),
+        .SizeInBytes    = static_cast<UINT>(buffer.Size()),
         .Format         = buffer.GetDesc().element_size == sizeof(std::uint16_t) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT,
     };
     command_list->IASetIndexBuffer(&ibv);
@@ -193,7 +164,7 @@ void DX12GraphicsCommandList::SetVertexBuffer(std::uint8_t slot, GPUBuffer& buff
         iter != input_layout.end()) {
         D3D12_VERTEX_BUFFER_VIEW vbv{
             .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress(),
-            .SizeInBytes    = static_cast<UINT>(dx12_buffer.buffer_size),
+            .SizeInBytes    = static_cast<UINT>(buffer.Size()),
             .StrideInBytes  = static_cast<UINT>(iter->stride),
         };
         command_list->IASetVertexBuffers(slot, 1, &vbv);
@@ -210,23 +181,6 @@ void DX12GraphicsCommandList::Draw(std::uint32_t vertex_count, std::uint32_t ins
 
 void DX12GraphicsCommandList::DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::uint32_t base_vertex, std::uint32_t first_instance) {
     command_list->DrawIndexedInstanced(index_count, instance_count, first_index, base_vertex, first_instance);
-}
-
-void DX12GraphicsCommandList::Present(SwapChain& swap_chain) {
-    auto& dx12_swap_chain = dynamic_cast<DX12SwapChain&>(swap_chain);
-    ResourceBarrier(
-        {}, {},
-        {
-            TextureBarrier{
-                .src_access = BarrierAccess::RenderTarget,
-                .dst_access = BarrierAccess::Present,
-                .src_stage  = PipelineStage::Render,
-                .dst_stage  = PipelineStage::All,
-                .src_layout = TextureLayout::RenderTarget,
-                .dst_layout = TextureLayout::Present,
-                .texture    = dx12_swap_chain.AcquireTextureForRendering(),
-            },
-        });
 }
 
 void DX12GraphicsCommandList::CopyTexture(const Texture& src, Texture& dest) {}

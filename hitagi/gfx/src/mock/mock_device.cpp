@@ -47,7 +47,7 @@ auto MockDevice::CreateTexture(TextureDesc desc, std::span<const std::byte> init
     return std::make_shared<MockTexture>(*this, desc);
 }
 
-auto MockDevice::CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
+auto MockDevice::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
     return std::make_shared<MockSampler>(*this, desc);
 }
 

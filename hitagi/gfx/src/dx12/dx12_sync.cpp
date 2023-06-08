@@ -51,7 +51,8 @@ bool DX12Fence::Wait(std::uint64_t value, std::chrono::milliseconds timeout) {
 }
 
 auto DX12Fence::GetCurrentValue() -> std::uint64_t {
-    return m_Fence->GetCompletedValue();
+    auto output = m_Fence->GetCompletedValue();
+    return output;
 }
 
 }  // namespace hitagi::gfx

@@ -48,6 +48,15 @@ struct Window {
 template <typename T>
 using optional_ref = std::optional<std::reference_wrapper<T>>;
 
+template <typename T>
+auto make_optional_ref(T& data) -> optional_ref<T> {
+    if constexpr (std::is_const_v<T>) {
+        return std::make_optional(std::cref(data));
+    } else {
+        return std::make_optional(std::ref(data));
+    }
+}
+
 }  // namespace hitagi::utils
 
 namespace std {

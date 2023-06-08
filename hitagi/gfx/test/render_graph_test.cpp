@@ -89,8 +89,6 @@ TEST_P(RenderGraphTest, PassTest) {
     });
     auto rect       = app->GetWindowsRect();
 
-    auto swap_chain_handle = rg.Import(swap_chain);
-
     auto vertex_shader = device->CreateShader({
         .name        = fmt::format("TestVertexShader-{}", test_name),
         .type        = ShaderType::Vertex,
@@ -160,36 +158,32 @@ TEST_P(RenderGraphTest, PassTest) {
                                 },
                                 {reinterpret_cast<const std::byte*>(triangle.data()), sizeof(vec3f) * triangle.size()}));
 
-    auto constant_buffer = rg.Create(GPUBufferDesc{
-        .name          = "TestBuffer",
-        .element_size  = sizeof(vec4f),
-        .element_count = 3,
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
-    });
-
-    struct Bindless {
-        BindlessHandle constant;
-    };
-
-    auto bindless_info_buffer = rg.Create(GPUBufferDesc{
-        .name         = "BindlessInfo",
-        .element_size = sizeof(Bindless),
-        .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
-    });
-
     struct PassData {
         ResourceHandle vertices;
         ResourceHandle bindless;
         ResourceHandle constant;
         ResourceHandle output;
     };
+    struct Bindless {
+        BindlessHandle constant;
+    };
     auto render_pass = rg.AddPass<PassData, CommandType::Graphics>(
         "TestPass",
         [&](auto& builder, PassData& data) {
             data.vertices = builder.Read(vertices_buffer);
-            data.bindless = builder.Read(bindless_info_buffer);
-            data.constant = builder.Read(constant_buffer);
-            data.output   = builder.SetRenderTarget(swap_chain_handle);
+            data.bindless = builder.Read(rg.Create(GPUBufferDesc{
+                .name          = "BindlessInfo",
+                .element_size  = sizeof(Bindless),
+                .element_count = 3,
+                .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+            }));
+            data.constant = builder.Read(rg.Create(GPUBufferDesc{
+                .name          = "TestBuffer",
+                .element_size  = sizeof(vec4f),
+                .element_count = 3,
+                .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+            }));
+            data.output   = builder.Write(rg.Import(swap_chain), PipelineStage::Render);
         },
         [=](const ResourceHelper& helper, const PassData& data, GraphicsCommandContext& context) {
             context.SetViewPort(ViewPort{
@@ -205,20 +199,63 @@ TEST_P(RenderGraphTest, PassTest) {
                 .height = rect.bottom - rect.top,
             });
 
-            auto constant_buffer = helper.Get<GPUBuffer>(data.constant).Span<vec4f>();
+            auto constant_buffer = GPUBufferView<vec4f>(helper.Get<GPUBuffer>(data.constant));
             constant_buffer[0]   = vec4f(1.0f, 0.00f, 0.00f, 1.0f);
             constant_buffer[1]   = vec4f(0.0f, 1.00f, 0.00f, 1.0f);
             constant_buffer[2]   = vec4f(0.0f, 0.00f, 1.00f, 1.0f);
 
-            auto& bindless_info_buffer                    = helper.Get<GPUBuffer>(data.bindless);
-            bindless_info_buffer.Get<Bindless>().constant = helper.Get(data.constant);
+            auto bindless_infos        = GPUBufferView<Bindless>(helper.Get<GPUBuffer>(data.bindless));
+            bindless_infos[0].constant = helper.GetCBV(data.constant, 0);
+            bindless_infos[1].constant = helper.GetCBV(data.constant, 1);
+            bindless_infos[2].constant = helper.GetCBV(data.constant, 2);
 
-            context.SetPipeline(*pipeline);
-            context.PushBindlessMetaInfo(BindlessMetaInfo{.handle = helper.Get(data.bindless)});
+            std::pmr::vector<GPUBufferBarrier> gpu_buffer_barriers;
+            for (auto handle : {data.constant, data.bindless}) {
+                gpu_buffer_barriers.emplace_back(GPUBufferBarrier{
+                    .src_access = BarrierAccess::None,
+                    .dst_access = BarrierAccess::Constant,
+                    .src_stage  = PipelineStage::None,
+                    .dst_stage  = PipelineStage::VertexShader,
+                    .buffer     = helper.Get<GPUBuffer>(handle),
 
-            context.SetVertexBuffer(0, helper.Get<GPUBuffer>(vertices_buffer));
+                });
+            }
+            gpu_buffer_barriers.emplace_back(GPUBufferBarrier{
+                .src_access = BarrierAccess::None,
+                .dst_access = BarrierAccess::Vertex,
+                .src_stage  = PipelineStage::None,
+                .dst_stage  = PipelineStage::VertexInput,
+                .buffer     = helper.Get<GPUBuffer>(vertices_buffer),
+            });
 
-            context.Draw(3);
+            context.ResourceBarrier(
+                {},
+                gpu_buffer_barriers,
+                {TextureBarrier{
+                    .src_access = BarrierAccess::None,
+                    .dst_access = BarrierAccess::RenderTarget,
+                    .src_stage  = PipelineStage::Render,
+                    .dst_stage  = PipelineStage::Render,
+                    .src_layout = TextureLayout::Unkown,
+                    .dst_layout = TextureLayout::RenderTarget,
+                    .texture    = helper.Get<Texture>(data.output),
+                }});
+
+            context.BeginRendering(helper.Get<Texture>(data.output));
+            {
+                context.SetPipeline(*pipeline);
+                context.SetVertexBuffer(0, helper.Get<GPUBuffer>(vertices_buffer));
+
+                context.PushBindlessMetaInfo({.handle = helper.GetCBV(data.bindless, 0)});
+                context.Draw(3);
+
+                context.PushBindlessMetaInfo({.handle = helper.GetCBV(data.bindless, 1)});
+                context.Draw(3);
+
+                context.PushBindlessMetaInfo({.handle = helper.GetCBV(data.bindless, 2)});
+                context.Draw(3);
+            }
+            context.EndRendering();
         });
 
     rg.AddPresentPass(render_pass.output);
@@ -227,12 +264,10 @@ TEST_P(RenderGraphTest, PassTest) {
     EXPECT_TRUE(render_pass.output);
 
     rg.Compile();
-
-    while (!app->IsQuit()) {
-        rg.Execute();
-        swap_chain->Present();
-        app->Tick();
-    }
+    rg.Execute();
+    swap_chain->Present();
+    app->Tick();
+    rg.GetDevice().WaitIdle();
 }
 
 int main(int argc, char** argv) {

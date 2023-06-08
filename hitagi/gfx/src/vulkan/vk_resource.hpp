@@ -17,11 +17,11 @@ struct VulkanBuffer final : public GPUBuffer {
     VulkanBuffer(VulkanBuffer&&)      = default;
     ~VulkanBuffer() final;
 
-    auto GetMappedPtr() const noexcept -> const std::byte* final;
+    auto Map() -> std::byte* final;
+    void UnMap() final;
 
     std::unique_ptr<vk::raii::Buffer> buffer;
     VmaAllocation                     allocation = nullptr;
-    std::byte*                        mapped_ptr = nullptr;
 };
 
 struct VulkanImage final : public Texture {
@@ -31,8 +31,11 @@ struct VulkanImage final : public Texture {
     VulkanImage(VulkanImage&&)      = default;
     ~VulkanImage() final;
 
-    std::optional<vk::raii::Image>     image;
-    vk::Image                          image_handle;
+    std::optional<vk::raii::Image> image;
+    vk::Image                      image_handle;
+    const VulkanSwapChain*         swap_chain = nullptr;
+
+    // TODO move image view to bindless
     std::optional<vk::raii::ImageView> image_view;
 
     VmaAllocation allocation = nullptr;
@@ -54,6 +57,8 @@ public:
 
     VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc);
 
+    auto AcquireTextureForRendering() -> Texture& final;
+
     inline auto GetWidth() const noexcept -> std::uint32_t final { return m_Size.x; };
     inline auto GetHeight() const noexcept -> std::uint32_t final { return m_Size.y; };
     inline auto GetFormat() const noexcept -> Format final { return m_Format; }
@@ -65,18 +70,16 @@ public:
 
     inline const auto& GetSemaphores() const noexcept { return m_SemaphorePair; }
 
-    auto AcquireImageForRendering() -> VulkanImage&;
-
 private:
     void CreateSwapChain();
     void CreateImageViews();
 
-    std::unique_ptr<vk::raii::SurfaceKHR>   m_Surface;
-    std::unique_ptr<vk::raii::SwapchainKHR> m_SwapChain;
-    math::vec2u                             m_Size;
-    Format                                  m_Format;
-    std::uint32_t                           m_NumImages;
-    std::pmr::vector<VulkanImage>           m_Images;
+    std::unique_ptr<vk::raii::SurfaceKHR>      m_Surface;
+    std::unique_ptr<vk::raii::SwapchainKHR>    m_SwapChain;
+    math::vec2u                                m_Size;
+    Format                                     m_Format;
+    std::uint32_t                              m_NumImages;
+    std::pmr::vector<std::unique_ptr<Texture>> m_Images;
 
     int m_CurrentIndex = -1;
 

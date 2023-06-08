@@ -35,4 +35,9 @@ constexpr std::array required_device_extensions = {
     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
 };
 
+constexpr auto max_storage_descriptors       = 1'0000u;
+constexpr auto max_sampled_image_descriptors = 1'0000u;
+constexpr auto max_storage_image_descriptors = 1'0000u;
+constexpr auto max_sampler_descriptors       = 128u;
+
 }  // namespace hitagi::gfx

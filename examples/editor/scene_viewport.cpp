@@ -27,7 +27,7 @@ void SceneViewPort::Tick() {
 
                 if (window_size.x != 0 && window_size.y != 0) {
                     const auto output = m_Render.RenderScene(*m_CurrentScene, *m_Camera, std::nullopt, window_size);
-                    ImGui::Image((void*)m_GuiManager.ReadTexture(output).id, ImVec2(window_size.x, window_size.y));
+                    ImGui::Image((void*)m_GuiManager.ReadTexture(output).node_index, ImVec2(window_size.x, window_size.y));
                 }
             }
         }

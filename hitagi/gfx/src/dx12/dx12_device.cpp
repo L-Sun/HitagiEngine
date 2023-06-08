@@ -130,6 +130,8 @@ DX12Device::DX12Device(std::string_view name)
         m_DSVDescriptorAllocator = std::make_unique<DescriptorAllocator>(*this, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
     }
     m_BindlessUtils = std::make_unique<DX12BindlessUtils>(*this, "DX12-BindlessUtils");
+
+    m_Logger->trace("Initialized.");
 }
 
 DX12Device::~DX12Device() {
@@ -179,7 +181,7 @@ auto DX12Device::CreateTexture(TextureDesc desc, std::span<const std::byte> init
     return std::make_shared<DX12Texture>(*this, desc, initial_data);
 }
 
-auto DX12Device::CreatSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
+auto DX12Device::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
     return std::make_shared<DX12Sampler>(*this, desc);
 }
 

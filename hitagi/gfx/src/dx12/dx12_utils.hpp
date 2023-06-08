@@ -1148,7 +1148,7 @@ inline Format get_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
 
 inline constexpr auto to_d3d_barrier_access(BarrierAccess access) noexcept -> D3D12_BARRIER_ACCESS {
     D3D12_BARRIER_ACCESS d3d_access = D3D12_BARRIER_ACCESS_COMMON;
-    if (access == BarrierAccess::Unkown) {
+    if (access == BarrierAccess::None) {
         return D3D12_BARRIER_ACCESS_NO_ACCESS;
     }
     if (utils::has_flag(access, BarrierAccess::CopySrc)) {
@@ -1266,7 +1266,7 @@ inline auto to_d3d_buffer_barrier(GPUBufferBarrier barrier) noexcept -> D3D12_BU
         .AccessAfter  = to_d3d_barrier_access(barrier.dst_access),
         .pResource    = dynamic_cast<DX12GPUBuffer&>(barrier.buffer).resource.Get(),
         .Offset       = 0,
-        .Size         = dynamic_cast<DX12GPUBuffer&>(barrier.buffer).buffer_size,
+        .Size         = barrier.buffer.Size(),
     };
 }
 

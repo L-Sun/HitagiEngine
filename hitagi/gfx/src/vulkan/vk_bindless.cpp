@@ -22,10 +22,10 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
     const auto limits = device.GetPhysicalDevice().getProperties().limits;
 
     const std::array<vk::DescriptorPoolSize, 4> pool_sizes = {{
-        {vk::DescriptorType::eStorageBuffer, std::min(100'0000u, limits.maxDescriptorSetStorageBuffers)},
-        {vk::DescriptorType::eSampledImage, std::min(100'0000u, limits.maxDescriptorSetSampledImages)},
-        {vk::DescriptorType::eStorageImage, std::min(100'0000u, limits.maxDescriptorSetStorageImages)},
-        {vk::DescriptorType::eSampler, std::min(100'0000u, limits.maxDescriptorSetSamplers)},
+        {vk::DescriptorType::eStorageBuffer, std::min(max_storage_descriptors, limits.maxDescriptorSetStorageBuffers)},
+        {vk::DescriptorType::eSampledImage, std::min(max_sampled_image_descriptors, limits.maxDescriptorSetSampledImages)},
+        {vk::DescriptorType::eStorageImage, std::min(max_storage_image_descriptors, limits.maxDescriptorSetStorageImages)},
+        {vk::DescriptorType::eSampler, std::min(max_storage_image_descriptors, limits.maxDescriptorSetSamplers)},
         // TODO ray tracing
     }};
 
@@ -149,7 +149,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
     }
 }
 
-auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, bool writable) -> BindlessHandle {
+auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t index, bool writable) -> BindlessHandle {
     if (writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
         const auto error_message = fmt::format(
             "Failed to create BindlessHandle: buffer({}) is not writable",
@@ -178,8 +178,8 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, bool writable)
 
     const vk::DescriptorBufferInfo buffer_info{
         .buffer = **dynamic_cast<VulkanBuffer&>(buffer).buffer,
-        .offset = 0,
-        .range  = buffer.GetDesc().element_size * buffer.GetDesc().element_count,
+        .offset = index * buffer.AlignedElementSize(),
+        .range  = buffer.GetDesc().element_size,
     };
 
     const vk::WriteDescriptorSet write_info{

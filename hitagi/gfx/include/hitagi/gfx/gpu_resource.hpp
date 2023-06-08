@@ -3,6 +3,9 @@
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/utils/types.hpp>
 #include <hitagi/utils/hash.hpp>
+#include <hitagi/utils/aligned_span.hpp>
+#include <hitagi/utils/utils.hpp>
+#include <hitagi/utils/concepts.hpp>
 
 #include <filesystem>
 
@@ -39,7 +42,6 @@ public:
 
     auto         GetType() const noexcept -> ResourceType final;
     inline auto& GetDesc() const noexcept { return m_Desc; }
-    inline auto  Size() const noexcept { return m_Desc.element_size * m_Desc.element_count; }
 
 protected:
     ResourceWithDesc(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(std::move(desc)) { m_Desc.name = m_Name; }
@@ -58,33 +60,46 @@ struct GPUBufferDesc {
 
 class GPUBuffer : public ResourceWithDesc<GPUBufferDesc> {
 public:
-    virtual auto GetMappedPtr() const noexcept -> const std::byte* = 0;
-    inline auto  GetMappedPtr() noexcept -> std::byte* {
-        return const_cast<std::byte*>(const_cast<const GPUBuffer*>(this)->GetMappedPtr());
-    }
-
-    template <typename T>
-    inline auto Get() const noexcept -> const T& {
-        return *reinterpret_cast<const T*>(GetMappedPtr());
-    }
-
-    template <typename T>
-    inline auto Get() noexcept -> T& {
-        return *reinterpret_cast<T*>(GetMappedPtr());
-    }
-
-    template <typename T>
-    inline auto Span() const noexcept -> std::span<const T> {
-        return {reinterpret_cast<const T*>(GetMappedPtr()), m_Desc.element_count * (m_Desc.element_size / sizeof(T))};
-    }
-
-    template <typename T>
-    inline auto Span() noexcept -> std::span<T> {
-        return {reinterpret_cast<T*>(GetMappedPtr()), m_Desc.element_count / (m_Desc.element_size / sizeof(T))};
-    }
+    inline auto AlignedElementSize() const noexcept -> std::uint64_t { return utils::align(m_Desc.element_size, m_ElementAlignment); }
+    inline auto Size() const noexcept -> std::uint64_t { return AlignedElementSize() * m_Desc.element_count; }
 
 protected:
     using ResourceWithDesc::ResourceWithDesc;
+
+    template <typename T>
+        requires(!std::is_reference_v<T>)
+    friend struct GPUBufferView;
+    friend struct GPUBufferPointer;
+
+    virtual auto Map() -> std::byte* = 0;
+    virtual void UnMap()             = 0;
+
+    std::uint64_t m_ElementAlignment = 1;
+    std::byte*    m_MappedPtr        = nullptr;
+};
+
+struct GPUBufferPointer {
+    GPUBufferPointer(GPUBuffer& buffer, std::size_t element_offset = 0) : buffer(buffer), ptr(buffer.Map() + element_offset * buffer.AlignedElementSize()) {}
+    ~GPUBufferPointer() { buffer.UnMap(); }
+
+    operator std::byte*() { return ptr; }
+    operator void*() { return ptr; }
+
+    GPUBuffer& buffer;
+    std::byte* ptr;
+};
+
+template <typename T>
+    requires(!std::is_reference_v<T>)
+struct GPUBufferView : public utils::AlignedSpan<T> {
+    GPUBufferView(GPUBuffer& buffer)
+        : utils::AlignedSpan<T>(buffer.Map(), buffer.m_Desc.element_count, buffer.m_ElementAlignment),
+          buffer(buffer) {
+    }
+
+    ~GPUBufferView() { buffer.UnMap(); }
+
+    GPUBuffer& buffer;
 };
 
 struct TextureDesc {
@@ -128,6 +143,7 @@ struct SwapChainDesc {
 };
 class SwapChain : public ResourceWithDesc<SwapChainDesc> {
 public:
+    virtual auto AcquireTextureForRendering() -> Texture&    = 0;
     virtual auto GetWidth() const noexcept -> std::uint32_t  = 0;
     virtual auto GetHeight() const noexcept -> std::uint32_t = 0;
     virtual auto GetFormat() const noexcept -> Format        = 0;

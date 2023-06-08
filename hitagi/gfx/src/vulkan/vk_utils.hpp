@@ -586,9 +586,9 @@ inline constexpr auto to_vk_blend_factor(BlendFactor factor) noexcept -> vk::Ble
         case BlendFactor::InvSrcColor:
             return vk::BlendFactor::eOneMinusSrcColor;
         case BlendFactor::SrcAlpha:
-            return vk::BlendFactor::eSrc1Alpha;
+            return vk::BlendFactor::eSrcAlpha;
         case BlendFactor::InvSrcAlpha:
-            return vk::BlendFactor::eOneMinusSrc1Alpha;
+            return vk::BlendFactor::eOneMinusSrcAlpha;
         case BlendFactor::DstColor:
             return vk::BlendFactor::eDstColor;
         case BlendFactor::InvDstColor:
@@ -788,7 +788,7 @@ inline constexpr auto to_vk_clear_value(ClearValue clear_value) noexcept -> vk::
 
 inline constexpr auto to_vk_access_flags(BarrierAccess access) noexcept -> vk::AccessFlags2 {
     vk::AccessFlags2 result = vk::AccessFlagBits2::eNone;
-    if (access == BarrierAccess::Unkown) {
+    if (access == BarrierAccess::None) {
         return result;
     }
     if (utils::has_flag(access, BarrierAccess::CopySrc)) {

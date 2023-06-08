@@ -32,8 +32,8 @@ protected:
 };
 
 enum struct BarrierAccess : std::uint32_t {
-    Unkown            = 0x0,
-    CopySrc           = 0x1,
+    None              = 0x1,
+    CopySrc           = (None << 1),
     CopyDst           = (CopySrc << 1),
     Vertex            = (CopyDst << 1),
     Index             = (Vertex << 1),
@@ -47,8 +47,8 @@ enum struct BarrierAccess : std::uint32_t {
 };
 
 enum struct PipelineStage : std::uint32_t {
-    None          = 0x0,
-    All           = 0x1,
+    None          = 0x1,
+    All           = (None << 1),
     VertexInput   = (All << 1),
     VertexShader  = (VertexInput << 1),
     PixelShader   = (VertexShader << 1),
@@ -61,8 +61,8 @@ enum struct PipelineStage : std::uint32_t {
 };
 
 enum struct TextureLayout : std::uint16_t {
-    Unkown            = 0x0,
-    Common            = 0x1,
+    Unkown            = 0x1,
+    Common            = (Unkown << 1),
     CopySrc           = (Common << 1),
     CopyDst           = (CopySrc << 1),
     ShaderRead        = (CopyDst << 1),

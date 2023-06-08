@@ -39,15 +39,10 @@ protected:
     std::pmr::string  m_Name;
 };
 
-struct RenderingInfo {
-    std::variant<std::reference_wrapper<Texture>, std::reference_wrapper<SwapChain>> render_target;
-    utils::optional_ref<Texture>                                                     depth_stencil;
-};
-
 class GraphicsCommandContext : public CommandContext {
 public:
-    virtual void BeginRendering(const RenderingInfo& info) = 0;
-    virtual void EndRendering()                            = 0;
+    virtual void BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil = {}) = 0;
+    virtual void EndRendering()                                                                          = 0;
 
     virtual void SetPipeline(const RenderPipeline& pipeline) = 0;
 
@@ -62,8 +57,6 @@ public:
 
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
-
-    virtual void Present(SwapChain& swap_chain) = 0;
 
     virtual void CopyTexture(const Texture& src, Texture& dst) = 0;
 

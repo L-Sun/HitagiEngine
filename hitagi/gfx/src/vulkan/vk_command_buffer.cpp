@@ -53,6 +53,19 @@ void VulkanGraphicsCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalB
                                                   const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
                                                   const std::pmr::vector<TextureBarrier>&   texture_barriers) {
     pipeline_barrier_fn(command_buffer, global_barriers, buffer_barriers, texture_barriers);
+
+    // workaround for swapchain semaphore
+    for (auto& texture_barrier : texture_barriers) {
+        auto& vk_image = static_cast<VulkanImage&>(texture_barrier.texture);
+
+        if (vk_image.swap_chain == nullptr) continue;
+
+        if (texture_barrier.dst_layout == TextureLayout::Present) {
+            swap_chain_presentable_semaphores.emplace_back(vk_image.swap_chain->GetSemaphores().presentable);
+        } else if (texture_barrier.dst_layout == TextureLayout::RenderTarget) {
+            swap_chain_image_available_semaphore = vk_image.swap_chain->GetSemaphores().image_available;
+        }
+    }
 }
 
 void VulkanGraphicsCommandBuffer::Begin() {
@@ -80,53 +93,29 @@ void VulkanGraphicsCommandBuffer::End() {
     command_buffer.end();
 }
 
-void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_info) {
-    const auto& render_target = render_info.render_target;
-
-    VulkanImage* vk_color_attachment_image;
-    if (std::holds_alternative<std::reference_wrapper<Texture>>(render_target)) {
-        vk_color_attachment_image = &dynamic_cast<VulkanImage&>(std::get<std::reference_wrapper<Texture>>((render_target)).get());
-    } else {
-        auto& vk_swap_chain = dynamic_cast<VulkanSwapChain&>(std::get<std::reference_wrapper<SwapChain>>(render_target).get());
-
-        vk_color_attachment_image            = &vk_swap_chain.AcquireImageForRendering();
-        swap_chain_image_available_semaphore = vk_swap_chain.GetSemaphores().image_available;
-
-        ResourceBarrier(
-            {}, {},
-            {
-                TextureBarrier{
-                    .src_access = BarrierAccess::Unkown,
-                    .dst_access = BarrierAccess::RenderTarget,
-                    .src_stage  = PipelineStage::Render,
-                    .dst_stage  = PipelineStage::Render,
-                    .src_layout = TextureLayout::Unkown,
-                    .dst_layout = TextureLayout::RenderTarget,
-                    .texture    = *vk_color_attachment_image,
-                },
-            });
-    }
+void VulkanGraphicsCommandBuffer::BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil) {
+    auto& vk_color_attachment_image = dynamic_cast<VulkanImage&>(render_target);
 
     vk::RenderingAttachmentInfo color_attachment, depth_stencil_attachment;
 
     color_attachment = {
-        .imageView   = *vk_color_attachment_image->image_view.value(),
+        .imageView   = *vk_color_attachment_image.image_view.value(),
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp      = vk_color_attachment_image->GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+        .loadOp      = vk_color_attachment_image.GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
         .storeOp     = vk::AttachmentStoreOp::eStore,
-        .clearValue  = vk_color_attachment_image->GetDesc().clear_value
-                           ? to_vk_clear_value(vk_color_attachment_image->GetDesc().clear_value.value())
+        .clearValue  = vk_color_attachment_image.GetDesc().clear_value
+                           ? to_vk_clear_value(vk_color_attachment_image.GetDesc().clear_value.value())
                            : vk::ClearValue{},
     };
-    if (render_info.depth_stencil.has_value()) {
-        auto& vk_depth_stencil_image = dynamic_cast<VulkanImage&>(render_info.depth_stencil->get());
+    if (depth_stencil.has_value()) {
+        auto& vk_depth_stencil_image = dynamic_cast<VulkanImage&>(depth_stencil->get());
         depth_stencil_attachment     = {
                 .imageView   = *vk_depth_stencil_image.image_view.value(),
                 .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
-                .loadOp      = render_info.depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+                .loadOp      = depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
                 .storeOp     = vk::AttachmentStoreOp::eStore,
-                .clearValue  = render_info.depth_stencil->get().GetDesc().clear_value
-                                   ? to_vk_clear_value(render_info.depth_stencil->get().GetDesc().clear_value.value())
+                .clearValue  = depth_stencil->get().GetDesc().clear_value
+                                   ? to_vk_clear_value(depth_stencil->get().GetDesc().clear_value.value())
                                    : vk::ClearValue{},
         };
     }
@@ -135,8 +124,8 @@ void VulkanGraphicsCommandBuffer::BeginRendering(const RenderingInfo& render_inf
         .renderArea = {
             .offset = {0, 0},
             .extent = {
-                .width  = vk_color_attachment_image->GetDesc().width,
-                .height = vk_color_attachment_image->GetDesc().height,
+                .width  = vk_color_attachment_image.GetDesc().width,
+                .height = vk_color_attachment_image.GetDesc().height,
             },
         },
         .layerCount           = 1,
@@ -211,26 +200,6 @@ void VulkanGraphicsCommandBuffer::Draw(std::uint32_t vertex_count, std::uint32_t
 
 void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::uint32_t base_vertex, std::uint32_t first_instance) {
     command_buffer.drawIndexed(index_count, instance_count, first_index, base_vertex, first_instance);
-}
-
-void VulkanGraphicsCommandBuffer::Present(SwapChain& swap_chain) {
-    auto& vk_swap_chain = dynamic_cast<VulkanSwapChain&>(swap_chain);
-
-    swap_chain_presentable_semaphore = vk_swap_chain.GetSemaphores().presentable;
-
-    ResourceBarrier(
-        {}, {},
-        {
-            TextureBarrier{
-                .src_access = BarrierAccess::RenderTarget,
-                .dst_access = BarrierAccess::Present,
-                .src_stage  = PipelineStage::Render,
-                .dst_stage  = PipelineStage::All,
-                .src_layout = TextureLayout::RenderTarget,
-                .dst_layout = TextureLayout::Present,
-                .texture    = vk_swap_chain.AcquireImageForRendering(),
-            },
-        });
 }
 
 void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {
@@ -339,7 +308,7 @@ void VulkanTransferCommandBuffer::CopyBufferToTexture(const GPUBuffer& src,
     auto& dst_texture = dynamic_cast<const VulkanImage&>(dst);
     auto& src_buffer  = dynamic_cast<const VulkanBuffer&>(src);
 
-    auto buffer_size    = src_buffer.GetDesc().element_size * src_buffer.GetDesc().element_count;
+    auto buffer_size    = src_buffer.Size();
     auto copy_data_size = extent.x * extent.y * extent.z * get_format_byte_size(dst_texture.GetDesc().format);
 
     if (src_offset + copy_data_size > buffer_size) {

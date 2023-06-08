@@ -12,10 +12,13 @@ public:
 
 private:
     friend class ForwardRenderer;
-    gfx::ResourceHandle                                            bindless_info_buffer;
+    gfx::ResourceHandle                                            bindless_infos;
     gfx::ResourceHandle                                            frame_constant;
-    gfx::ResourceHandle                                            instance_constant;
+    gfx::ResourceHandle                                            instance_constants;
     std::pmr::unordered_map<asset::Material*, gfx::ResourceHandle> material_constants;
+    std::pmr::vector<gfx::ResourceHandle>                          vertices;
+    std::pmr::vector<gfx::ResourceHandle>                          indices;
+    std::pmr::vector<std::pmr::vector<gfx::ResourceHandle>>        textures;
 };
 
 class ForwardRenderer : public IRenderer {

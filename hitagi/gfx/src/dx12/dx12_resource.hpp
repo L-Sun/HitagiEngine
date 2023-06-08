@@ -13,15 +13,14 @@ namespace hitagi::gfx {
 class DX12Device;
 class DX12SwapChain;
 
-struct DX12GPUBuffer : GPUBuffer {
+struct DX12GPUBuffer : public GPUBuffer {
     DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data = {});
 
-    auto GetMappedPtr() const noexcept -> const std::byte* final;
+    auto Map() -> std::byte* final;
+    void UnMap() final;
 
     ComPtr<ID3D12Resource>      resource;
     ComPtr<D3D12MA::Allocation> allocation;
-    std::size_t                 buffer_size = 0;
-    std::byte*                  mapped_ptr  = nullptr;
 };
 
 struct DX12Texture : public Texture {
@@ -73,7 +72,7 @@ public:
     void Present() final;
     void Resize() final;
 
-    auto AcquireTextureForRendering() -> DX12Texture&;
+    auto AcquireTextureForRendering() -> Texture& final;
 
     inline auto GetDX12SwapChain() const noexcept { return m_SwapChain; }
 

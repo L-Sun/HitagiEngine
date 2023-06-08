@@ -9,9 +9,8 @@ namespace hitagi::gfx {
 struct MockGPUBuffer : public GPUBuffer {
     MockGPUBuffer(Device& device, GPUBufferDesc desc) : GPUBuffer(device, desc) {}
 
-    auto GetMappedPtr() const noexcept -> const std::byte* final {
-        return buffer.GetData();
-    };
+    auto Map() -> std::byte* final { return nullptr; }
+    void UnMap() final {}
 
     core::Buffer buffer;
 };
@@ -25,13 +24,16 @@ struct MockSampler : public Sampler {
 };
 
 struct MockSwapChain : public SwapChain {
-    MockSwapChain(Device& device, SwapChainDesc desc) : SwapChain(device, desc) {}
+    MockSwapChain(Device& device, SwapChainDesc desc) : SwapChain(device, desc), texture(device, {}) {}
 
+    auto AcquireTextureForRendering() -> Texture& final { return texture; }
     auto GetWidth() const noexcept -> std::uint32_t final { return 0; }
     auto GetHeight() const noexcept -> std::uint32_t final { return 0; }
     auto GetFormat() const noexcept -> Format final { return Format::UNKNOWN; }
     void Present() final {}
     void Resize() final {}
+
+    MockTexture texture;
 };
 
 struct MockShader : public Shader {
@@ -64,7 +66,7 @@ struct MockFence : public Fence {
 struct MockBindlessUtils : public BindlessUtils {
     MockBindlessUtils(Device& device, std::string_view name) : BindlessUtils(device, name) {}
 
-    auto CreateBindlessHandle(GPUBuffer& buffer, bool writable = false) -> BindlessHandle final {
+    auto CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t index, bool writable = false) -> BindlessHandle final {
         return {
             .index    = counter++,
             .type     = BindlessHandleType::Buffer,
@@ -112,7 +114,7 @@ struct MockGraphicsCommandContext : public GraphicsCommandContext {
         const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
         const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final {}
 
-    void BeginRendering(const RenderingInfo& info) final {}
+    void BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil) final {}
     void EndRendering() final {}
 
     void SetPipeline(const RenderPipeline& pipeline) final {}
@@ -128,8 +130,6 @@ struct MockGraphicsCommandContext : public GraphicsCommandContext {
 
     void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final {}
     void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final {}
-
-    void Present(SwapChain& swap_chain) final {}
 
     void CopyTexture(const Texture& src, Texture& dst) final {}
 };
