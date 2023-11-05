@@ -56,7 +56,8 @@ DescriptorHeap::DescriptorHeap(DX12Device& device, D3D12_DESCRIPTOR_HEAP_TYPE ty
     CD3DX12_CPU_DESCRIPTOR_HANDLE handle{m_HeapCPUStart};
     for (std::size_t i = 0; i < num_descriptors; ++i) {
         // We will enable descriptor handle in Allocate()
-        m_AvailableDescriptors.emplace_back(Descriptor(handle.Offset(static_cast<INT>(m_IncrementSize)), nullptr));
+        m_AvailableDescriptors.emplace_back(Descriptor(handle, nullptr));
+        handle.Offset(static_cast<INT>(m_IncrementSize));
     }
 }
 
