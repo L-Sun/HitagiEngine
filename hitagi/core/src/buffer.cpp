@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <memory_resource>
-#include <type_traits>
+#include <cstring>
 
 namespace hitagi::core {
 
@@ -10,10 +10,22 @@ Buffer::Buffer(size_t size, const std::byte* data, size_t alignment)
     : m_Allocator(std::pmr::get_default_resource()),
       m_Data(size != 0 ? static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment)) : nullptr),
       m_Size(size),
-      m_Alignment(alignment) {
+      m_Alignment(alignment)
+
+{
     if (data != nullptr) {
         std::memcpy(m_Data, data, m_Size);
     }
+}
+
+Buffer::Buffer(std::span<const std::byte> data, std::size_t alignment)
+    : m_Allocator(std::pmr::get_default_resource()),
+      m_Data(data.size() != 0 ? static_cast<std::byte*>(m_Allocator.allocate_bytes(data.size(), alignment)) : nullptr),
+      m_Size(data.size()),
+      m_Alignment(alignment)
+
+{
+    if (m_Size != 0) std::memcpy(m_Data, data.data(), m_Size);
 }
 
 Buffer::Buffer(const Buffer& other)

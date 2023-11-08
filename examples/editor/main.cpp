@@ -1,4 +1,6 @@
 #include "editor.hpp"
+
+#include <spdlog/spdlog.h>
 #include <tracy/Tracy.hpp>
 
 #ifdef _WIN32
@@ -13,18 +15,9 @@ auto main(int argc, char** argv) -> int {
 
     engine.AddSubModule(std::make_unique<hitagi::Editor>(engine));
 
-#ifdef _DEBUG
-    try {
-#endif
-        ZoneScopedN("Run");
-        while (!engine.App().IsQuit()) {
-            engine.Tick();
-        }
-#ifdef _DEBUG
-    } catch (std::exception ex) {
-        std::cout << ex.what() << std::endl;
+    while (!engine.App().IsQuit()) {
+        engine.Tick();
     }
-#endif
 
 #ifdef _WIN32
 #ifdef _DEBUG

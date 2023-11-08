@@ -25,21 +25,21 @@ public:
     Texture& operator=(Texture&&) = default;
 
     static auto DefaultTexture() -> std::shared_ptr<Texture>;
-    static void DestoryDefaultTexture();
+    static void DestroyDefaultTexture();
 
-    inline auto  Empty() const noexcept { return m_CpuData.Empty(); }
+    inline auto  Empty() const noexcept { return m_CPUData.Empty(); }
     inline auto  Width() const noexcept { return m_Width; }
     inline auto  Height() const noexcept { return m_Height; }
     inline auto  Format() const noexcept { return m_Format; }
-    inline auto  GetData() const noexcept { return m_CpuData.Span<const std::byte>(); }
+    inline auto  GetData() const noexcept { return m_CPUData.Span<const std::byte>(); }
     inline auto& GetPath() const noexcept { return m_Path; }
-    inline auto  GetGpuData() const noexcept { return m_GpuData; }
+    inline auto  GetGPUData() const noexcept { return m_GPUData; }
 
     bool SetPath(const std::filesystem::path& path);
     bool Load(const std::shared_ptr<ImageParser>& parser);
     void Unload();
 
-    void InitGpuData(gfx::Device& device);
+    void InitGPUData(gfx::Device& device);
 
 private:
     std::uint32_t m_Width = 0, m_Height = 0;
@@ -48,8 +48,8 @@ private:
     std::filesystem::path m_Path;
 
     bool                          m_Dirty   = true;
-    core::Buffer                  m_CpuData = {};
-    std::shared_ptr<gfx::Texture> m_GpuData = nullptr;
+    core::Buffer                  m_CPUData = {};
+    std::shared_ptr<gfx::Texture> m_GPUData = nullptr;
 
     static std::shared_ptr<Texture> m_DefaultTexture;
 };

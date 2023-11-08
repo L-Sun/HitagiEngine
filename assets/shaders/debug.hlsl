@@ -5,7 +5,7 @@ cbuffer FrameConstants : register(b0) {
 cbuffer ObjectConstants : register(b1){
   matrix transform;
   float4 color;
-}
+};
 
 
 #define RSDEF \

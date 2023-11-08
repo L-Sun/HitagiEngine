@@ -1,82 +1,91 @@
 #pragma once
-#include "descriptor_heap.hpp"
-#include "dx12_command_queue.hpp"
+#include "dx12_descriptor_heap.hpp"
 #include <hitagi/gfx/gpu_resource.hpp>
 
+#include <d3dx12/d3dx12.h>
 #include <D3D12MemAlloc.h>
-#include <tracy/Tracy.hpp>
-
-#include <dxgi1_6.h>
-#include <d3d12.h>
 #include <wrl.h>
-#include <concepts>
+#include <dxgi1_6.h>
 
 using namespace Microsoft::WRL;
 
 namespace hitagi::gfx {
-template <typename T>
-    requires std::derived_from<T, Resource>
-struct DX12ResourceWrapper : public T {
-    using T::T;
+class DX12Device;
+class DX12SwapChain;
+
+struct DX12GPUBuffer : public GPUBuffer {
+    DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data = {});
+
+    auto Map() -> std::byte* final;
+    void UnMap() final;
 
     ComPtr<D3D12MA::Allocation> allocation;
-    ID3D12Resource*             resource;  // a reference to the allocation
-    D3D12_RESOURCE_STATES       state;
+    ComPtr<ID3D12Resource>      resource;
+
+    std::mutex    map_mutex;
+    std::uint16_t mapped_count{0};
 };
 
-struct DX12Texture : public DX12ResourceWrapper<Texture> {
-    using DX12ResourceWrapper<Texture>::DX12ResourceWrapper;
-    Descriptor uav, srv, rtv, dsv;
-};
+struct DX12Texture : public Texture {
+    DX12Texture(DX12Device& device, TextureDesc desc, std::span<const std::byte> initial_data = {});
+    DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index);
+    DX12Texture(DX12Texture&&) = default;
 
-struct DX12GpuBuffer : public DX12ResourceWrapper<GpuBuffer> {
-    using DX12ResourceWrapper<GpuBuffer>::DX12ResourceWrapper;
-
-    std::optional<D3D12_VERTEX_BUFFER_VIEW> vbv;
-    std::optional<D3D12_INDEX_BUFFER_VIEW>  ibv;
-    Descriptor                              cbvs;
+    ComPtr<D3D12MA::Allocation> allocation;
+    ComPtr<ID3D12Resource>      resource;
+    Descriptor                  rtv, dsv;
 };
 
 struct DX12Sampler : public Sampler {
-    using Sampler::Sampler;
-    Descriptor sampler;
+    DX12Sampler(DX12Device& device, SamplerDesc desc);
+};
+
+struct DX12Shader : public Shader {
+    DX12Shader(DX12Device& device, ShaderDesc desc);
+
+    inline auto GetDXILData() const noexcept -> std::span<const std::byte> final {
+        return binary_program.Span<const std::byte>();
+    }
+    inline auto GetShaderByteCode() const noexcept -> D3D12_SHADER_BYTECODE {
+        return {binary_program.GetData(), binary_program.GetDataSize()};
+    }
+
+    core::Buffer binary_program;
 };
 
 struct DX12RenderPipeline : public RenderPipeline {
-    using RenderPipeline::RenderPipeline;
+    DX12RenderPipeline(DX12Device& device, RenderPipelineDesc desc);
 
-    ComPtr<ID3D12VersionedRootSignatureDeserializer> root_signature_deserializer = nullptr;
-    D3D12_ROOT_SIGNATURE_DESC1                       root_signature_desc;
-    ComPtr<ID3D12RootSignature>                      root_signature = nullptr;
-    ComPtr<ID3D12PipelineState>                      pso            = nullptr;
+    ComPtr<ID3D12PipelineState> pipeline;
 };
 
-struct DX12SwapChain final : public SwapChain {
-    using SwapChain::SwapChain;
+struct DX12ComputePipeline : public ComputePipeline {
+    DX12ComputePipeline(DX12Device& device, ComputePipelineDesc desc);
 
-    ~DX12SwapChain() final;
+    ComPtr<ID3D12PipelineState> pipeline;
+};
 
-    inline auto GetCurrentBackIndex() -> std::uint8_t final {
-        return swap_chain->GetCurrentBackBufferIndex();
-    }
-    inline auto GetCurrentBackBuffer() -> Texture& final {
-        return GetBuffer(GetCurrentBackIndex());
-    }
-    auto        GetBuffer(std::uint8_t index) -> Texture& final;
-    inline void Present() final {
-        swap_chain->Present(desc.vsync ? 1 : 0, allow_tearing ? DXGI_PRESENT_ALLOW_TEARING : 0);
-        associated_queue->InsertFence();
-    }
-    auto Width() -> std::uint32_t final { return width; };
-    auto Height() -> std::uint32_t final { return height; };
+class DX12SwapChain final : public SwapChain {
+public:
+    DX12SwapChain(DX12Device& device, SwapChainDesc desc);
+
+    inline auto GetWidth() const noexcept -> std::uint32_t final { return m_D3D12Desc.Width; }
+    inline auto GetHeight() const noexcept -> std::uint32_t final { return m_D3D12Desc.Height; }
+    auto        GetFormat() const noexcept -> Format final;
+
+    void Present() final;
     void Resize() final;
 
-    ComPtr<IDXGISwapChain4>                                         swap_chain;
-    bool                                                            allow_tearing = false;
-    std::pmr::vector<std::shared_ptr<DX12ResourceWrapper<Texture>>> back_buffers;
-    std::pmr::vector<std::pmr::string>                              back_buffer_names;
-    DX12CommandQueue*                                               associated_queue;
-    std::uint32_t                                                   width, height;
+    auto AcquireTextureForRendering() -> Texture& final;
+
+    inline auto GetDX12SwapChain() const noexcept { return m_SwapChain; }
+
+private:
+    ComPtr<IDXGISwapChain4> m_SwapChain;
+    math::vec2u             m_Size;
+    DXGI_SWAP_CHAIN_DESC1   m_D3D12Desc;
+
+    std::pmr::vector<DX12Texture> m_BackBuffers;
 };
 
 }  // namespace hitagi::gfx

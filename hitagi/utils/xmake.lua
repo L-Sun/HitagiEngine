@@ -1,17 +1,12 @@
-add_requires("spdlog", "magic_enum", "gtest", "benchmark")
-add_requires("fmt", {configs = {header_only = true}})
+add_requires("magic_enum", "gtest", "benchmark")
+add_requires("fmt", "spdlog")
 
 target("utils")
-    set_kind("headeronly")
-    add_headerfiles(
-        "include/hitagi/utils/concepts.hpp",
-        "include/hitagi/utils/hash.hpp",
-        "include/hitagi/utils/soa.hpp",
-        "include/hitagi/utils/overloaded.hpp",
-        "include/hitagi/utils/private_build.hpp"
-    )
+    set_kind("static")
     add_includedirs("include", {public = true})
-    add_packages("fmt", "magic_enum", "spdlog", {public = true})
+    add_files("src/*.cpp")
+    remove_files("src/test.cpp")
+    add_packages("fmt", "magic_enum", "spdlog", "range-v3", {public = true})
 
 
 target("test_utils")

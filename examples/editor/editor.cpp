@@ -36,9 +36,24 @@ void Editor::Tick() {
 
     RuntimeModule::Tick();
 
-    m_Clock.Tick();
+    {
+        auto& renderer     = m_Engine.Renderer();
+        auto& render_graph = renderer.GetRenderGraph();
+        auto  output       = render_graph.Create(
+            {
+                       .name        = "Editor Output",
+                       .width       = renderer.GetSwapChain().GetWidth(),
+                       .height      = renderer.GetSwapChain().GetHeight(),
+                       .format      = gfx::Format::R8G8B8A8_UNORM,
+                       .clear_value = math::vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+                       .usages      = gfx::TextureUsageFlags::CopySrc | gfx::TextureUsageFlags::RenderTarget,
+            },
+            "Editor Output");
+        renderer.RenderGui(output, true);
+        renderer.ToSwapChain(output);
+    }
 
-    m_Engine.Renderer().RenderGui();
+    m_Clock.Tick();
 }
 
 void Editor::MenuBar() {
@@ -198,9 +213,9 @@ void Editor::SceneNodeModifier() {
     ImGui::End();
 }
 
-void Editor::AssetExploer() {
+void Editor::AssetExplorer() {
     static bool open = true;
-    if (ImGui::Begin("Asset Exploer", &open)) {
+    if (ImGui::Begin("Asset Explorer", &open)) {
         for (auto mat : asset_manager->GetAllMaterials()) {
         }
     }

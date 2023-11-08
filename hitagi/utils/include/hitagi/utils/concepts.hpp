@@ -16,6 +16,9 @@ concept remove_const_pointer_same =
     >;
 // clang-format on
 
+template <typename T>
+concept no_cvref = (!std::is_reference_v<T>)&&!(std::is_const_v<T>)&&(!std::is_volatile_v<T>);
+
 template <typename...>
 constexpr auto is_unique_v = true;
 
@@ -23,11 +26,16 @@ template <typename T, typename... Rest>
 constexpr auto is_unique_v<T, Rest...> =
     !std::disjunction_v<std::is_same<T, Rest>...> && is_unique_v<Rest...>;
 
-template <typename T>
-concept NoCVRef = (!std::is_reference_v<T>) && !(std::is_const_v<T>) && (!std::is_volatile_v<T>);
-
 template <typename... Types>
-concept UniqueTypes = is_unique_v<Types...>;
+concept unique_types = is_unique_v<Types...>;
+
+template <typename... Vals>
+constexpr bool is_unique_values(Vals... vals) { return true; }
+
+template <typename Val, typename... Vals>
+constexpr bool is_unique_values(Val val, Vals... vals) {
+    return ((!std::is_same_v<std::remove_cv_t<Val>, std::remove_cv_t<Vals>> || val != vals) && ...) && is_unique_values(vals...);
+}
 
 // https://stackoverflow.com/a/7943765/6244553
 // For generic types, directly use the result of the signature of its 'operator()'
@@ -67,5 +75,8 @@ concept unique_parameter_types = function_traits<Func>::unique_parameter_types;
 
 template <typename Ty1, typename Ty2>
 concept not_same_as = (!std::is_same_v<Ty1, Ty2>);
+
+template <typename T, typename... U>
+concept any_of = (std::same_as<T, U> || ...);
 
 }  // namespace hitagi::utils

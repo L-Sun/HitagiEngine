@@ -51,7 +51,7 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
     auto logger = m_Logger ? m_Logger : spdlog::default_logger();
 
     if (buffer.Empty()) {
-        logger->error("[MaterialPaser] Can not parse empty buffer!");
+        logger->error("[MaterialParser] Can not parse empty buffer!");
         return nullptr;
     }
 
@@ -59,23 +59,33 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
     try {
         json = nlohmann::json::parse(buffer.Span<char>());
 
-        gfx::RenderPipeline::Desc pipeline_desc{
-            .vs = {
+        std::pmr::vector<gfx::ShaderDesc> shader_desc = {
+            {
                 .name        = json.at("pipeline").at("vs"),
-                .type        = gfx::Shader::Type::Vertex,
+                .type        = gfx::ShaderType::Vertex,
                 .entry       = "VSMain",
-                .source_code = std::pmr::string{file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("vs")).Str()},
+                .source_code = std::pmr::string(file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("vs")).Str()),
+                .path        = json.at("pipeline").at("vs"),
             },
-            .ps = {
+            {
                 .name        = json.at("pipeline").at("ps"),
-                .type        = gfx::Shader::Type::Pixel,
+                .type        = gfx::ShaderType::Pixel,
                 .entry       = "PSMain",
-                .source_code = std::pmr::string{file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("ps")).Str()},
-            },
-        };
+                .source_code = std::pmr::string(file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("ps")).Str()),
+                .path        = json.at("pipeline").at("ps"),
+            }};
 
-        if (json.at("pipeline").contains("primitive")) {
-            pipeline_desc.topology = json.at("pipeline")["primitive"].get<gfx::PrimitiveTopology>();
+        gfx::RenderPipelineDesc pipeline_desc{};
+
+        pipeline_desc.assembly_state.primitive = json.at("pipeline").value("primitive", gfx::PrimitiveTopology::TriangleList);
+        if (bool enable_depth_test = json.at("pipeline").value("depth_test", true);
+            enable_depth_test) {
+            pipeline_desc.depth_stencil_format                  = gfx::Format::D32_FLOAT;
+            pipeline_desc.depth_stencil_state.depth_test_enable = true;
+            pipeline_desc.rasterization_state =
+                {
+                    .cull_mode = gfx::CullMode::Back,
+                };
         }
 
         std::pmr::vector<Material::Parameter> parameters;
@@ -86,7 +96,7 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
             }
 
             for (auto param : json["parameters"]) {
-                std::string_view    type = param.at("type");
+                const std::string&  type = param.at("type");
                 Material::Parameter mat_param{.name = param.at("name")};
                 if (type == "float")
                     mat_param.value = param.value("default", 0.0f);
@@ -120,14 +130,14 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                     else
                         mat_param.value = Texture::DefaultTexture();
                 } else {
-                    logger->error("Unkown parameter type: {}", param["type"]);
+                    logger->error("Unkown parameter type: {}", param["type"].get<std::string>());
                     return nullptr;
                 }
                 parameters.emplace_back(std::move(mat_param));
             }
         }
-
-        return Material::Create(std::move(pipeline_desc), std::move(parameters), json.at("name"));
+        const std::string& name = json.at("name");
+        return Material::Create(std::move(shader_desc), std::move(pipeline_desc), std::move(parameters), name);
     } catch (nlohmann::json::exception& ex) {
         logger->error(ex.what());
         return nullptr;

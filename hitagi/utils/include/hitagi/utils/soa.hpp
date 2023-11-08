@@ -1,7 +1,8 @@
 #pragma once
-#include "concepts.hpp"
+#include <hitagi/utils/concepts.hpp>
 
 #include <fmt/format.h>
+#include <range/v3/view/zip.hpp>
 
 #include <cstddef>
 #include <memory_resource>
@@ -34,14 +35,12 @@ public:
     StructureConstRef operator[](std::size_t i) const noexcept {
         return [&]<std::size_t... I>(std::index_sequence<I...>) {
             return std::tie(std::get<I>(m_Data)[i]...);
-        }
-        (std::index_sequence_for<Types...>{});
+        }(std::index_sequence_for<Types...>{});
     }
     StructureRef operator[](std::size_t i) noexcept {
         return [&]<std::size_t... I>(std::index_sequence<I...>) {
             return std::tie(std::get<I>(m_Data)[i]...);
-        }
-        (std::index_sequence_for<Types...>{});
+        }(std::index_sequence_for<Types...>{});
     }
 
     StructureConstRef at(std::size_t i) const {
@@ -85,81 +84,53 @@ public:
         return std::get<T>(m_Data);
     }
 
-    /* Iterator */
-
-    template <typename SoAPointer>
-        requires remove_const_pointer_same<SoAPointer, SoA*>
-    class Iterator {
-        friend class SoA;
-        SoAPointer  soa;
-        std::size_t index;
-        Iterator(SoAPointer soa, std::size_t index) : soa(soa), index(index) {}
-
-    public:
-        using iterator_category = std::random_access_iterator_tag;
-        using difference_type   = std::ptrdiff_t;
-        using value_type        = Structure;
-        using pointer           = Structure*;
-        using reference         = std::conditional_t<std::is_same_v<SoAPointer, SoA*>, StructureRef, StructureConstRef>;
-
-        Iterator(const Iterator& rhs) noexcept   = default;
-        Iterator& operator=(const Iterator& rhs) = default;
-
-        reference operator*() const { return soa->at(index); }
-        reference operator*() { return soa->at(index); }
-        reference operator[](std::size_t n) { return *(*this + n); }
-
-        // clang-format off
-        Iterator& operator++() { ++index; return *this; }
-        Iterator& operator--() { --index; return *this; }
-        Iterator& operator+=(std::size_t n) { index += n; return *this; }
-        Iterator& operator-=(std::size_t n) { index -= n; return *this; }
-        Iterator operator+(std::size_t n) { return { soa, index + n }; }
-        Iterator operator-(std::size_t n) { return { soa, index - n }; }
-        difference_type operator-(const Iterator& rhs) const { return index - rhs.index; }
-        bool operator!=(const Iterator& rhs) const { return index!= rhs.index; }
-        auto operator<=>(const Iterator& rhs) const { return index<=> rhs.index; }
-
-        const Iterator operator++(int) { Iterator it(*this); index++; return it; }
-        const Iterator operator--(int) { Iterator it(*this); index--; return it; }
-        // clang-format on
-    };
-
-    using iterator       = Iterator<SoA*>;
-    using const_iterator = Iterator<const SoA*>;
-
-    iterator       begin() noexcept { return {this, 0u}; }
-    iterator       end() noexcept { return {this, m_Size}; }
-    const_iterator begin() const noexcept { return {this, 0u}; }
-    const_iterator end() const noexcept { return {this, m_Size}; }
+    auto begin() noexcept {
+        return std::apply(
+            [](auto&&... e) {
+                return std::begin(ranges::views::zip(e...));
+            },
+            m_Data);
+    }
+    auto end() noexcept {
+        return std::apply(
+            [](auto&&... e) {
+                return std::end(ranges::views::zip(e...));
+            },
+            m_Data);
+    }
+    auto begin() const noexcept {
+        return std::apply(
+            [](auto&&... e) {
+                return std::begin(ranges::views::zip(e...));
+            },
+            m_Data);
+    }
+    auto end() const noexcept {
+        return std::apply(
+            [](auto&&... e) {
+                return std::end(ranges::views::zip(e...));
+            },
+            m_Data);
+    }
 
     /* Capacity */
 
     [[nodiscard]] constexpr bool empty() const noexcept { return m_Size == 0; }
     constexpr std::size_t        size() const noexcept { return m_Size; }
     constexpr void               reserve(std::size_t n) {
-        [&]<std::size_t... I>(std::index_sequence<I...>) {
-            (std::get<I>(m_Data).reserve(n), ...);
-        }
-        (std::index_sequence_for<Types...>{});
+        std::apply([n](auto&&... e) { (e.reserve(n), ...); }, m_Data);
     }
     constexpr void shrink_to_fit() {
-        [&]<std::size_t... I>(std::index_sequence<I...>) {
-            (std::get<I>(m_Data).shrink_to_fit(), ...);
-        }
-        (std::index_sequence_for<Types...>{});
+        std::apply([](auto&&... e) { (e.shrink_to_fit(), ...); }, m_Data);
     }
 
     /* Modifier */
 
     constexpr void clear() noexcept {
-        [&]<std::size_t... I>(std::index_sequence<I...>) {
-            (std::get<I>(m_Data).clear(), ...);
-        }
-        (std::index_sequence_for<Types...>{});
+        std::apply([](auto&&... e) { (e.clear(), ...); }, m_Data);
         m_Size = 0;
     }
-    constexpr void         push_back(StructureForward values);
+    constexpr void         push_back(StructureConstRef values);
     constexpr StructureRef emplace_back(Types&&... values);
     constexpr void         pop_back();
     constexpr void         resize(std::size_t count);
@@ -183,21 +154,19 @@ private:
 };
 
 template <typename... Types>
-constexpr void SoA<Types...>::push_back(StructureForward values) {
+constexpr void SoA<Types...>::push_back(StructureConstRef values) {
     [&]<std::size_t... I>(std::index_sequence<I...>) {
-        (std::get<I>(m_Data).push_back(std::forward<TypeAt<I>>(std::get<I>(values))), ...);
-    }
-    (std::index_sequence_for<Types...>{});
+        (std::get<I>(m_Data).push_back(std::forward<const TypeAt<I>&>(std::get<I>(values))), ...);
+    }(std::index_sequence_for<Types...>{});
 
     m_Size++;
 }
 
 template <typename... Types>
 constexpr auto SoA<Types...>::emplace_back(Types&&... values) -> StructureRef {
-    auto result = [&]<std::size_t... I>(std::index_sequence<I...>)->StructureRef {
+    auto result = [&]<std::size_t... I>(std::index_sequence<I...>) -> StructureRef {
         return std::tie(std::get<I>(m_Data).emplace_back(std::forward<TypeAt<I>>(values))...);
-    }
-    (std::index_sequence_for<Types...>{});
+    }(std::index_sequence_for<Types...>{});
 
     m_Size++;
 
@@ -205,30 +174,50 @@ constexpr auto SoA<Types...>::emplace_back(Types&&... values) -> StructureRef {
 }
 template <typename... Types>
 constexpr void SoA<Types...>::pop_back() {
-    [&]<std::size_t... I>(std::index_sequence<I...>) {
-        (std::get<I>(m_Data).pop_back(), ...);
-    }
-    (std::index_sequence_for<Types...>{});
-
+    std::apply([](auto&&... e) { (e.pop_back(), ...); }, m_Data);
     m_Size--;
 }
 template <typename... Types>
 constexpr void SoA<Types...>::resize(std::size_t count) {
-    [&]<std::size_t... I>(std::index_sequence<I...>) {
-        (std::get<I>(m_Data).resize(count), ...);
-    }
-    (std::index_sequence_for<Types...>{});
-
+    std::apply([count](auto&&... e) { (e.resize(count), ...); }, m_Data);
     m_Size = count;
 }
 template <typename... Types>
 constexpr void SoA<Types...>::resize(std::size_t count, StructureConstRef values) {
     [&]<std::size_t... I>(std::index_sequence<I...>) {
         (std::get<I>(m_Data).resize(count, std::forward<const TypeAt<I>&>(std::get<I>(values))), ...);
-    }
-    (std::index_sequence_for<Types...>{});
+    }(std::index_sequence_for<Types...>{});
 
     m_Size = count;
 }
 
 };  // namespace hitagi::utils
+
+template <typename... Types>
+class std::back_insert_iterator<hitagi::utils::SoA<Types...>> {
+public:
+    using container_type = hitagi::utils::SoA<Types...>;
+
+    explicit back_insert_iterator(container_type& container)
+        : container_(std::addressof(container)) {}
+
+    back_insert_iterator<container_type>& operator=(typename container_type::StructureConstRef value) {
+        container_->push_back(value);
+        return *this;
+    }
+
+    back_insert_iterator<container_type>& operator*() {
+        return *this;
+    }
+
+    back_insert_iterator<container_type>& operator++() {
+        return *this;
+    }
+
+    back_insert_iterator<container_type>& operator++(int) {
+        return *this;
+    }
+
+private:
+    container_type* container_;
+};

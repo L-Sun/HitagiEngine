@@ -13,7 +13,7 @@ constexpr std::array<T, N> create_array(T&& value) {
 }
 
 template <typename T, std::size_t N, typename... Args>
-constexpr std::array<T, N> create_array_inplcae(Args&&... args) {
+constexpr std::array<T, N> create_array_inplace(Args&&... args) {
     static_assert(std::is_constructible_v<T, Args...>, "Can not construct array inplace");
 
     auto construct_fn = [&](std::size_t i) -> T {

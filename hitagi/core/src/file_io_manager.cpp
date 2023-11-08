@@ -22,7 +22,7 @@ auto FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& file_path
         return m_EmptyBuffer;
     }
     if (!IsFileChanged(file_path)) {
-        m_Logger->debug("Use cahce: {}", file_path.filename().string());
+        m_Logger->trace("Use cache: {}", file_path.filename().string());
         return m_FileCache.at(std::filesystem::hash_value(file_path));
     }
     auto file_size = std::filesystem::file_size(file_path);

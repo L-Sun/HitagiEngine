@@ -17,8 +17,9 @@ public:
     void SetWindowTitle(std::string_view name) final;
     void SetCursor(Cursor cursor) final;
     void SetMousePosition(const math::vec2u& position) final;
+    void ResizeWindow(std::uint32_t width, std::uint32_t height) final;
 
-    inline auto GetWindow() const -> void* final { return m_Window; };
+    auto        GetWindow() const -> utils::Window final;
     inline auto GetWindowsRect() const -> Rect final { return m_Rect; }
     inline bool WindowSizeChanged() const final { return m_SizeChanged; }
     inline bool IsQuit() const final { return m_Quit; }

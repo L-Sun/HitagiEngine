@@ -6,7 +6,7 @@ namespace hitagi::utils {
 class NoImplemented : public std::exception {
 public:
     explicit NoImplemented(const char* message = "No Implemented!") : msg(message) {}
-    NoImplemented(std::string_view message = "No Implemented!") : msg(message.data()) {}
+    explicit NoImplemented(std::string_view message) : NoImplemented(message.data()) {}
     NoImplemented(NoImplemented const&) noexcept = default;
 
     NoImplemented& operator=(NoImplemented const&) noexcept = default;

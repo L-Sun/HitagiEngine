@@ -293,7 +293,7 @@ std::pmr::vector<Scene> GltfParser::Parse(const core::Buffer& buffer, const std:
     try {
         doc = m_Binary ? fx::gltf::LoadFromBinary(buffer_stream, root_path) : fx::gltf::LoadFromText(buffer_stream, root_path);
         clock.Tick();
-        logger->debug("Parse gltf cost {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
+        logger->trace("Parse gltf cost {} ms.", std::chrono::duration_cast<std::chrono::milliseconds>(clock.DeltaTime()).count());
     } catch (fx::gltf::invalid_gltf_document ex) {
         logger->error(ex.what());
         return {};
@@ -414,8 +414,7 @@ std::pmr::vector<Scene> GltfParser::Parse(const core::Buffer& buffer, const std:
                 };
                 [&]<std::size_t... I>(std::index_sequence<I...>) {
                     (build_color(std::integral_constant<std::size_t, I>{}), ...);
-                }
-                (std::make_index_sequence<channels.size()>{});
+                }(std::make_index_sequence<channels.size()>{});
             }
             // Load UV
             {
@@ -441,8 +440,7 @@ std::pmr::vector<Scene> GltfParser::Parse(const core::Buffer& buffer, const std:
                 };
                 [&]<std::size_t... I>(std::index_sequence<I...>) {
                     (build_uv(std::integral_constant<std::size_t, I>{}), ...);
-                }
-                (std::make_index_sequence<channels.size()>{});
+                }(std::make_index_sequence<channels.size()>{});
             }
         }
 

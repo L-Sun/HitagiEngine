@@ -1,5 +1,6 @@
 #pragma once
 #include <hitagi/gfx/command_context.hpp>
+#include <hitagi/gfx/sync.hpp>
 
 #include <cstdint>
 #include <vector>
@@ -9,18 +10,23 @@ class Device;
 
 class CommandQueue {
 public:
-    CommandQueue(Device& device, CommandType type, std::string_view name)
-        : device(device), type(type), name(name) {}
+    CommandQueue(Device& device, CommandType type, std::string_view name) : m_Device(device), m_Type(type), m_Name(name) {}
     virtual ~CommandQueue() = default;
 
-    virtual auto Submit(std::pmr::vector<CommandContext*> context) -> std::uint64_t = 0;
-    virtual bool IsFenceComplete(std::uint64_t fence_value)                         = 0;
-    virtual void WaitForFence(std::uint64_t fence_value)                            = 0;
-    virtual void WaitForQueue(const CommandQueue& other)                            = 0;
-    virtual void WaitIdle()                                                         = 0;
+    inline auto& GetDevice() const noexcept { return m_Device; }
+    inline auto  GetType() const noexcept { return m_Type; }
+    inline auto& GetName() const noexcept { return m_Name; }
 
-    Device&                device;
-    const CommandType      type;
-    const std::pmr::string name;
+    virtual void Submit(
+        std::span<const std::reference_wrapper<const CommandContext>> contexts,
+        std::span<const FenceWaitInfo>                                wait_fences   = {},
+        std::span<const FenceSignalInfo>                              signal_fences = {}) = 0;
+
+    virtual void WaitIdle() = 0;
+
+protected:
+    Device&                m_Device;
+    const CommandType      m_Type;
+    const std::pmr::string m_Name;
 };
 }  // namespace hitagi::gfx

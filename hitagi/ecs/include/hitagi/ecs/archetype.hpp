@@ -1,7 +1,7 @@
 #pragma once
 #include <hitagi/ecs/entity.hpp>
 #include <hitagi/ecs/component.hpp>
-#include <hitagi/utils/type.hpp>
+#include <hitagi/utils/types.hpp>
 #include <hitagi/utils/hash.hpp>
 #include <hitagi/utils/soa.hpp>
 
@@ -17,9 +17,9 @@ namespace hitagi::ecs::detials {
 
 using ArchetypeID = std::size_t;
 
-template <utils::NoCVRef... Components>
-constexpr auto get_archetype_id(const DynamicComponents& dynamic_components = {}) -> ArchetypeID
-    requires utils::UniqueTypes<Components...>
+template <utils::no_cvref... Components>
+auto get_archetype_id(const DynamicComponents& dynamic_components = {}) -> ArchetypeID
+    requires utils::unique_types<Components...>
 {
     ArchetypeID archetype_id = 0;
     if constexpr (sizeof...(Components) != 0) {
@@ -64,7 +64,7 @@ public:
     virtual void DeleteEntity(Entity entity)                              = 0;
 
     template <typename Component>
-    auto GetComponent(Entity entity) -> std::optional<std::reference_wrapper<Component>>;
+    auto GetComponent(Entity entity) -> utils::optional_ref<Component>;
     auto GetDynamicComponent(Entity entity, std::string_view name) -> void*;
 
 protected:
@@ -80,8 +80,8 @@ protected:
     std::pmr::unordered_map<utils::TypeID, std::size_t> m_ComponentIndexMap;
 };
 
-template <utils::NoCVRef... Components>
-    requires utils::UniqueTypes<Components...>
+template <utils::no_cvref... Components>
+    requires utils::unique_types<Components...>
 class Archetype : public IArchetype {
 public:
     Archetype(const DynamicComponents& dynamic_components = {});
@@ -114,7 +114,7 @@ auto IArchetype::GetComponentArray() -> std::span<std::remove_cvref_t<Component>
 }
 
 template <typename Component>
-auto IArchetype::GetComponent(Entity entity) -> std::optional<std::reference_wrapper<Component>> {
+auto IArchetype::GetComponent(Entity entity) -> utils::optional_ref<Component> {
     const std::size_t index = GetEntityIndex(entity);
     if (index == NumEntities()) return std::nullopt;
 
@@ -135,16 +135,15 @@ auto IArchetype::GetComponentIndex() const noexcept -> std::size_t {
         return std::numeric_limits<std::size_t>::max();
 }
 
-template <utils::NoCVRef... Components>
-    requires utils::UniqueTypes<Components...>
+template <utils::no_cvref... Components>
+    requires utils::unique_types<Components...>
 Archetype<Components...>::Archetype(const DynamicComponents& dynamic_components)
     : IArchetype(get_archetype_id<Components...>(dynamic_components)) {
     m_ComponentIndexMap.emplace(utils::TypeID::Create<Entity>(), m_ComponentIndexMap.size());
 
     [&]<std::size_t... I>(std::index_sequence<I...>) {
         (m_ComponentIndexMap.emplace(utils::TypeID::Create<Components>(), m_ComponentIndexMap.size()), ...);
-    }
-    (std::index_sequence_for<Components...>{});
+    }(std::index_sequence_for<Components...>{});
 
     for (const auto& dynamic_components_info : dynamic_components) {
         utils::TypeID dynamic_component_id{dynamic_components_info.name};
@@ -153,8 +152,8 @@ Archetype<Components...>::Archetype(const DynamicComponents& dynamic_components)
     }
 }
 
-template <utils::NoCVRef... Components>
-    requires utils::UniqueTypes<Components...>
+template <utils::no_cvref... Components>
+    requires utils::unique_types<Components...>
 auto Archetype<Components...>::GetComponentRawData(std::size_t component_index, std::size_t entity_index) -> void* {
     if (component_index == std::numeric_limits<std::size_t>::max())
         return nullptr;
@@ -162,10 +161,9 @@ auto Archetype<Components...>::GetComponentRawData(std::size_t component_index, 
     if (component_index < m_StaticComponents.NumTypes) {
         auto result = [&]<std::size_t... I>(std::index_sequence<I...>) {
             void* result = nullptr;
-            ((I == component_index ? (result = &m_StaticComponents.template elements<I>().at(entity_index)) : false), ...);
+            ((I == component_index ? (result = &m_StaticComponents.template elements<I>().at(entity_index)) : nullptr), ...);
             return result;
-        }
-        (std::index_sequence_for<Entity, Components...>{});
+        }(std::index_sequence_for<Entity, Components...>{});
 
         return result;
     } else {
@@ -174,8 +172,8 @@ auto Archetype<Components...>::GetComponentRawData(std::size_t component_index, 
     }
 }
 
-template <utils::NoCVRef... Components>
-    requires utils::UniqueTypes<Components...>
+template <utils::no_cvref... Components>
+    requires utils::unique_types<Components...>
 void Archetype<Components...>::CreateEntities(const std::pmr::vector<Entity>& entities) {
     m_StaticComponents.reserve(m_StaticComponents.size() + entities.size());
     for (const auto& entity : entities) {
@@ -191,8 +189,8 @@ void Archetype<Components...>::CreateEntities(const std::pmr::vector<Entity>& en
     }
 }
 
-template <utils::NoCVRef... Components>
-    requires utils::UniqueTypes<Components...>
+template <utils::no_cvref... Components>
+    requires utils::unique_types<Components...>
 void Archetype<Components...>::DeleteEntity(Entity entity) {
     std::size_t index = m_EntityMap.at(entity);
 

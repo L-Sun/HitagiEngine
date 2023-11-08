@@ -1,3 +1,5 @@
+add_requires("libsdl")
+
 target("app")
     set_kind("static")
     add_files("src/application.cpp")
@@ -10,3 +12,6 @@ target("app")
         add_syslinks("winmm", "imm32", "User32")
         add_defines("UNICODE", "WIN32")
     end
+
+    add_files("src/sdl2/*.cpp")
+    add_packages("libsdl")

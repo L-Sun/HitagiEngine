@@ -1,6 +1,6 @@
 #pragma once
-#include <hitagi/gfx/common_types.hpp>
-#include <hitagi/gfx/gpu_resource.hpp>
+#include <hitagi/gfx/sync.hpp>
+#include <hitagi/gfx/bindless.hpp>
 #include <hitagi/utils/concepts.hpp>
 
 #include <cstdint>
@@ -16,78 +16,99 @@ enum struct CommandType : std::uint8_t {
 
 class CommandContext {
 public:
-    virtual ~CommandContext()                   = default;
-    virtual void SetName(std::string_view name) = 0;
-    // When a resource will be used on other type command queue, you should reset the resource state
-    virtual void ResetState(GpuBuffer& buffer) = 0;
-    virtual void ResetState(Texture& texture)  = 0;
+    virtual ~CommandContext() = default;
 
-    virtual void Reset() = 0;
+    virtual void Begin() = 0;
     virtual void End()   = 0;
 
-    Device&           device;
-    const CommandType type;
+    virtual void ResourceBarrier(
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) = 0;
 
-    std::uint64_t fence_value = 0;
+    inline auto& GetDevice() const noexcept { return m_Device; }
+    inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
+    inline auto  GetType() const noexcept { return m_Type; }
 
 protected:
     CommandContext(Device& device, CommandType type, std::string_view name)
-        : device(device), type(type), m_Name(name) {}
+        : m_Device(device), m_Type(type), m_Name(name) {}
 
-    std::pmr::string m_Name;
+    Device&           m_Device;
+    const CommandType m_Type;
+    std::pmr::string  m_Name;
 };
 
 class GraphicsCommandContext : public CommandContext {
 public:
-    using CommandContext::CommandContext;
+    virtual void BeginRendering(Texture&                     render_target,
+                                utils::optional_ref<Texture> depth_stencil       = {},
+                                bool                         clear_render_target = false,
+                                bool                         clear_depth_stencil = false) = 0;
+    virtual void EndRendering()                                   = 0;
 
-    virtual void SetViewPort(const ViewPort& view_port)                                  = 0;
-    virtual void SetScissorRect(const Rect& scissor_rect)                                = 0;
-    virtual void SetBlendColor(const math::vec4f& color)                                 = 0;
-    virtual void SetRenderTarget(Texture& target)                                        = 0;
-    virtual void SetRenderTargetAndDepthStencil(Texture& target, Texture& depth_stencil) = 0;
+    virtual void SetPipeline(const RenderPipeline& pipeline) = 0;
 
-    virtual void ClearRenderTarget(Texture& target)        = 0;
-    virtual void ClearDepthStencil(Texture& depth_stencil) = 0;
+    virtual void SetViewPort(const ViewPort& view_port)   = 0;
+    virtual void SetScissorRect(const Rect& scissor_rect) = 0;
+    virtual void SetBlendColor(const math::vec4f& color)  = 0;
 
-    virtual void SetPipeline(const RenderPipeline& pipeline)           = 0;
-    virtual void SetIndexBuffer(GpuBuffer& buffer)                     = 0;
-    virtual void SetVertexBuffer(std::uint8_t slot, GpuBuffer& buffer) = 0;
+    virtual void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0) = 0;
+    virtual void SetVertexBuffers(
+        std::uint8_t                                             start_binding,
+        std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
+        std::span<const std::size_t>                             offsets) = 0;
 
-    template <typename T>
-        requires utils::not_same_as<std::remove_cvref<T>, std::span<const std::byte>>
-    void PushConstant(std::uint32_t slot, T&& data) {
-        PushConstant(slot, {reinterpret_cast<const std::byte*>(&data), sizeof(T)});
-    }
-    virtual void PushConstant(std::uint32_t slot, const std::span<const std::byte>& data)         = 0;
-    virtual void BindConstantBuffer(std::uint32_t slot, GpuBuffer& buffer, std::size_t index = 0) = 0;
-    virtual void BindTexture(std::uint32_t slot, Texture& texture)                                = 0;
-
-    // Bindless resource
-    virtual int GetBindless(const Texture& texture) = 0;
-    // virtual int GetBindless(const GpuBuffer& constant_buffer, std::size_t offset = 0, std::size_t size = 0) = 0;
+    virtual void PushBindlessMetaInfo(const BindlessMetaInfo& info) = 0;
 
     virtual void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)                                     = 0;
     virtual void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) = 0;
 
-    virtual void CopyTexture(const Texture& src, Texture& dest) = 0;
-    virtual void Present(Texture& back_buffer)                  = 0;
+    virtual void CopyTextureRegion(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer src_layer = {},
+        TextureSubresourceLayer dst_layer = {}) = 0;
+
+protected:
+    GraphicsCommandContext(Device& device, std::string_view name) : CommandContext(device, CommandType::Graphics, name){};
 };
 
 class ComputeCommandContext : public CommandContext {
 public:
-    using CommandContext::CommandContext;
+    virtual void SetPipeline(const ComputePipeline& pipeline) = 0;
+
+    virtual void PushBindlessMetaInfo(const BindlessMetaInfo& info) = 0;
+
+protected:
+    ComputeCommandContext(Device& device, std::string_view name) : CommandContext(device, CommandType::Compute, name){};
 };
 
 class CopyCommandContext : public CommandContext {
 public:
-    using CommandContext::CommandContext;
+    virtual void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dst_offset, std::size_t size) = 0;
+    virtual void CopyBufferToTexture(
+        const GPUBuffer&        src,
+        std::size_t             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer dst_layer = {}) = 0;
 
-    virtual void CopyBuffer(const GpuBuffer& src, std::size_t src_offset, GpuBuffer& dest, std::size_t dest_offset, std::size_t size) = 0;
-    virtual void CopyTexture(const Texture& src, const Texture& dest)                                                                 = 0;
+    virtual void CopyTextureRegion(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer src_layer = {},
+        TextureSubresourceLayer dst_layer = {}) = 0;
+
+protected:
+    CopyCommandContext(Device& device, std::string_view name) : CommandContext(device, CommandType::Copy, name){};
 };
-
-template <CommandType T>
-using ContextType = std::conditional_t<T == CommandType::Graphics, GraphicsCommandContext, std::conditional_t<T == CommandType::Compute, ComputeCommandContext, CopyCommandContext>>;
 
 }  // namespace hitagi::gfx

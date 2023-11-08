@@ -2,12 +2,11 @@
 #include <hitagi/utils/array.hpp>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 #include <algorithm>
 #include <iostream>
 #include <array>
-#include <cassert>
-#include <concepts>
 
 #if defined(USE_ISPC)
 #include "ispc_math.hpp"
@@ -17,29 +16,29 @@ namespace hitagi::math {
 template <typename T, unsigned D>
 struct Vector;
 
-template <typename T, unsigned D, unsigned... Indexs>
+template <typename T, unsigned D, unsigned... Indices>
 class Swizzle {
 public:
     std::array<T, D> data;
 
     Swizzle& operator=(const T& v) {
-        constexpr std::array<unsigned, sizeof...(Indexs)> indexs = {Indexs...};
+        constexpr std::array<unsigned, sizeof...(Indices)> indexs = {Indices...};
         for (auto&& i : indexs) data[i] = v;
         return *this;
     }
     Swizzle& operator=(const std::initializer_list<T>& l) {
-        constexpr std::array<unsigned, sizeof...(Indexs)> indexs = {Indexs...};
-        unsigned                                          i      = 0;
+        constexpr std::array<unsigned, sizeof...(Indices)> indexs = {Indices...};
+        unsigned                                           i      = 0;
         for (auto&& e : l) data[indexs[i++]] = e;
         return *this;
     }
-    Swizzle& operator=(const Vector<T, sizeof...(Indexs)>& v) {
-        constexpr std::array<unsigned, sizeof...(Indexs)> indexs = {Indexs...};
+    Swizzle& operator=(const Vector<T, sizeof...(Indices)>& v) {
+        constexpr std::array<unsigned, sizeof...(Indices)> indexs = {Indices...};
         for (auto&& i : indexs) data[i] = v[i];
         return *this;
     }
 
-    operator Vector<T, sizeof...(Indexs)>() const noexcept { return Vector<T, sizeof...(Indexs)>{data[Indexs]...}; }
+    operator Vector<T, sizeof...(Indices)>() const noexcept { return Vector<T, sizeof...(Indices)>{data[Indices]...}; }
 };
 
 template <typename T, unsigned D>
@@ -149,7 +148,7 @@ struct Vector : public BaseVector<T, D> {
     const T& operator[](unsigned index) const noexcept { return data[index]; }
 
     friend std::ostream& operator<<(std::ostream& out, const Vector& v) {
-        return out << fmt::format("[{:6}]", fmt::join(v.data, ", ")) << std::flush;
+        return out << fmt::format("{::>6}", v) << std::flush;
     }
 
     constexpr Vector operator+(const Vector& rhs) const noexcept {
@@ -206,7 +205,6 @@ struct Vector : public BaseVector<T, D> {
         for (unsigned i = 0; i < D; i++) data[i] /= rhs;
         return *this;
     }
-
     constexpr bool operator==(const Vector& rhs) const noexcept {
         return data == rhs.data;
     }
@@ -216,7 +214,7 @@ struct Vector : public BaseVector<T, D> {
 
 #if defined(USE_ISPC)
     Vector operator+(const Vector& rhs) const noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
         Vector result;
         ispc::vector_add(*this, rhs, result, D);
@@ -224,67 +222,67 @@ struct Vector : public BaseVector<T, D> {
     }
 
     Vector operator-() const noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
         Vector result;
         ispc::vector_inverse(*this, result, D);
         return result;
     }
     Vector operator-(const Vector& rhs) const noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
         Vector result;
         ispc::vector_sub(*this, rhs, result, D);
         return result;
     }
     Vector operator*(const Vector& rhs) const noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
         Vector result;
         ispc::vector_mult_vector(*this, rhs, result, D);
         return result;
     }
     Vector operator*(const T& rhs) const noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
         Vector result;
         ispc::vector_mult(*this, rhs, result, D);
         return result;
     }
     Vector operator/(const T& rhs) const noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
         Vector result;
         ispc::vector_div(*this, rhs, result, D);
         return result;
     }
     Vector operator/(const Vector& rhs) const noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
         Vector result;
         ispc::vector_div_vector(*this, rhs, result, D);
         return result;
     }
     Vector& operator+=(const Vector& rhs) noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
-        ispc::vector_add_assgin(*this, rhs, D);
+        ispc::vector_add_assign(*this, rhs, D);
         return *this;
     }
     Vector& operator-=(const Vector& rhs) noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
-        ispc::vector_sub_assgin(*this, rhs, D);
+        ispc::vector_sub_assign(*this, rhs, D);
         return *this;
     }
     Vector& operator*=(const T& rhs) noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
-        ispc::vector_mult_assgin(*this, rhs, D);
+        ispc::vector_mult_assign(*this, rhs, D);
         return *this;
     }
     Vector& operator/=(const T& rhs) noexcept
-        requires IspcSpeedable<T>
+        requires IspcAccelerable<T>
     {
         ispc::vector_div_assign(*this, rhs, D);
         return *this;
@@ -354,7 +352,7 @@ constexpr const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) noexcept
 }
 
 #if defined(USE_ISPC)
-template <IspcSpeedable T, unsigned D>
+template <IspcAccelerable T, unsigned D>
 const T dot(const Vector<T, D>& lhs, const Vector<T, D>& rhs) {
     return ispc::vector_dot(lhs, rhs, D);
 }
@@ -426,5 +424,8 @@ template <typename T, unsigned D>
 constexpr unsigned min_index(const Vector<T, D>& v) {
     return std::distance(v.data.begin(), std::min_element(v.data.begin(), v.data.end()));
 }
+
+template <typename T, unsigned D>
+auto format_as(const Vector<T, D>& v) { return v.data; }
 
 }  // namespace hitagi::math

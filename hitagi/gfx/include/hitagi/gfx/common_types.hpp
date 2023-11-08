@@ -1,11 +1,55 @@
 #pragma once
 #include <hitagi/math/vector.hpp>
 #include <hitagi/core/buffer.hpp>
+#include <hitagi/utils/flags.hpp>
 
 #include <cstdint>
+#include <variant>
 #include <vector>
 
 namespace hitagi::gfx {
+
+enum struct ResourceType : std::uint8_t {
+    GPUBuffer,
+    Texture,
+    Sampler,
+    SwapChain,
+    Shader,
+    RenderPipeline,
+    ComputePipeline,
+};
+
+enum struct GPUBufferUsageFlags : std::uint8_t {
+    MapRead  = 0x1,             // CPU can read data from mapped pointer
+    MapWrite = (MapRead << 1),  // CPU can write data to mapped pointer
+    CopySrc  = (MapWrite << 1),
+    CopyDst  = (CopySrc << 1),
+    Vertex   = (CopyDst << 1),
+    Index    = (Vertex << 1),
+    // TODO constant buffer not work on vulkan bindless for now
+    Constant = (Index << 1),
+    Storage  = (Constant << 1),
+};
+
+enum struct TextureUsageFlags : std::uint8_t {
+    CopySrc = 0x1,
+    CopyDst = (CopySrc << 1),
+    SRV     = (CopyDst << 1),
+    // TODO change name
+    UAV          = (SRV << 1),
+    RenderTarget = (UAV << 1),
+    DepthStencil = (RenderTarget << 1),
+    Cube         = (DepthStencil << 1),
+    CubeArray    = (Cube << 1),
+};
+
+enum struct ShaderType : std::uint8_t {
+    Vertex,
+    Pixel,
+    Geometry,
+    Compute,
+};
+
 enum struct Format : std::uint32_t {
     UNKNOWN                    = 0,
     R32G32B32A32_TYPELESS      = 1,
@@ -109,101 +153,6 @@ enum struct Format : std::uint32_t {
     BC7_UNORM_SRGB             = 99,
 };
 
-inline constexpr std::size_t get_format_bit_size(Format format) noexcept {
-    switch (format) {
-        case Format::R32G32B32A32_TYPELESS:
-        case Format::R32G32B32A32_FLOAT:
-        case Format::R32G32B32A32_UINT:
-        case Format::R32G32B32A32_SINT:
-            return 128;
-        case Format::R32G32B32_TYPELESS:
-        case Format::R32G32B32_FLOAT:
-        case Format::R32G32B32_UINT:
-        case Format::R32G32B32_SINT:
-            return 96;
-        case Format::R16G16B16A16_TYPELESS:
-        case Format::R16G16B16A16_FLOAT:
-        case Format::R16G16B16A16_UNORM:
-        case Format::R16G16B16A16_UINT:
-        case Format::R16G16B16A16_SNORM:
-        case Format::R16G16B16A16_SINT:
-        case Format::R32G32_TYPELESS:
-        case Format::R32G32_FLOAT:
-        case Format::R32G32_UINT:
-        case Format::R32G32_SINT:
-        case Format::R32G8X24_TYPELESS:
-        case Format::D32_FLOAT_S8X24_UINT:
-        case Format::R32_FLOAT_X8X24_TYPELESS:
-        case Format::X32_TYPELESS_G8X24_UINT:
-            return 64;
-        case Format::R10G10B10A2_TYPELESS:
-        case Format::R10G10B10A2_UNORM:
-        case Format::R10G10B10A2_UINT:
-        case Format::R11G11B10_FLOAT:
-        case Format::R8G8B8A8_TYPELESS:
-        case Format::R8G8B8A8_UNORM:
-        case Format::R8G8B8A8_UNORM_SRGB:
-        case Format::R8G8B8A8_UINT:
-        case Format::R8G8B8A8_SNORM:
-        case Format::R8G8B8A8_SINT:
-        case Format::R16G16_TYPELESS:
-        case Format::R16G16_FLOAT:
-        case Format::R16G16_UNORM:
-        case Format::R16G16_UINT:
-        case Format::R16G16_SNORM:
-        case Format::R16G16_SINT:
-        case Format::R32_TYPELESS:
-        case Format::D32_FLOAT:
-        case Format::R32_FLOAT:
-        case Format::R32_UINT:
-        case Format::R32_SINT:
-        case Format::R24G8_TYPELESS:
-        case Format::D24_UNORM_S8_UINT:
-        case Format::R24_UNORM_X8_TYPELESS:
-        case Format::X24_TYPELESS_G8_UINT:
-            return 32;
-        case Format::R8G8_TYPELESS:
-        case Format::R8G8_UNORM:
-        case Format::R8G8_UINT:
-        case Format::R8G8_SNORM:
-        case Format::R8G8_SINT:
-        case Format::R16_TYPELESS:
-        case Format::R16_FLOAT:
-        case Format::D16_UNORM:
-        case Format::R16_UNORM:
-        case Format::R16_UINT:
-        case Format::R16_SNORM:
-        case Format::R16_SINT:
-            return 16;
-        case Format::R8_TYPELESS:
-        case Format::R8_UNORM:
-        case Format::R8_UINT:
-        case Format::R8_SNORM:
-        case Format::R8_SINT:
-        case Format::A8_UNORM:
-            return 8;
-        case Format::R1_UNORM:
-            return 1;
-        default:
-            return 0;
-    }
-}
-
-struct Shader {
-    enum struct Type : std::uint8_t {
-        Vertex,
-        Pixel,
-        Geometry,
-        Compute,
-    };
-
-    std::pmr::string name;
-    Type             type;
-    std::pmr::string entry;
-    std::pmr::string source_code;
-    core::Buffer     binary_data = {};
-};
-
 enum struct PrimitiveTopology : std::uint8_t {
     PointList,
     LineList,
@@ -231,30 +180,49 @@ enum struct FrontFace : std::uint8_t {
     CCW,
 };
 
-enum struct Blend : std::uint8_t {
+enum struct ColorMask : std::uint8_t {
+    R   = 1,
+    G   = (R << 1),
+    B   = (G << 1),
+    A   = (B << 1),
+    All = R | G | B | A,
+};
+
+enum struct StencilOp {
+    Keep,
+    Zero,
+    Replace,
+    Invert,
+    IncrementClamp,
+    DecrementClamp,
+    IncrementWrap,
+    DecrementWrap,
+};
+
+enum struct BlendFactor : std::uint8_t {
     Zero,
     One,
+
     SrcColor,
     InvSrcColor,
     SrcAlpha,
     InvSrcAlpha,
-    DestAlpha,
-    InvDestAlpha,
-    DestColor,
-    InvDestColor,
+
+    DstColor,
+    InvDstColor,
+    DstAlpha,
+    InvDstAlpha,
+
+    Constant,
+    InvConstant,
+
     SrcAlphaSat,
-    BlendFactor,
-    InvBlendFactor,
-    Src1Color,
-    InvSrc_1_Color,
-    Src1Alpha,
-    InvSrc_1_Alpha,
 };
 
 enum struct BlendOp : std::uint8_t {
     Add,
     Subtract,
-    RevSubtract,
+    ReverseSubtract,
     Min,
     Max
 };
@@ -264,7 +232,7 @@ enum struct LogicOp : std::uint8_t {
     Set,
     Copy,
     CopyInverted,
-    Noop,
+    NoOp,
     Invert,
     And,
     Nand,
@@ -278,7 +246,7 @@ enum struct LogicOp : std::uint8_t {
     OrInverted,
 };
 
-enum struct CompareFunction : std::uint8_t {
+enum struct CompareOp : std::uint8_t {
     Never,
     Less,
     Equal,
@@ -289,52 +257,89 @@ enum struct CompareFunction : std::uint8_t {
     Always
 };
 
-struct RasterizerDescription {
+struct RasterizationState {
     FillMode fill_mode               = FillMode::Solid;
-    CullMode cull_mode               = CullMode::Back;
+    CullMode cull_mode               = CullMode::None;
     bool     front_counter_clockwise = true;
-    int      depth_bias              = 0;
-    float    depth_bias_clamp        = 0.0f;
-    float    slope_scaled_depth_bias = 0.0f;
-    bool     depth_clip_enable       = true;
-    bool     multisample_enable      = false;
-    bool     antialiased_line_enable = false;
-    unsigned forced_sample_count     = 0;
-    bool     conservative_raster     = false;
+
+    bool  depth_clamp_enable      = false;
+    bool  depth_bias_enable       = false;
+    float depth_bias              = 0;
+    float depth_bias_clamp        = 0.0f;
+    float depth_bias_slope_factor = 0.0f;
 };
 
-struct BlendDescription {
-    bool    alpha_to_coverage_enable = false;
-    bool    independent_blend_enable = false;
-    bool    enable_blend             = false;
-    bool    enable_logic_operation   = false;
-    Blend   src_blend                = Blend::One;
-    Blend   dest_blend               = Blend::Zero;
-    BlendOp blend_op                 = BlendOp::Add;
-    Blend   src_blend_alpha          = Blend::One;
-    Blend   dest_blend_alpha         = Blend::Zero;
-    BlendOp blend_op_alpha           = BlendOp::Add;
-    LogicOp logic_op                 = LogicOp::Noop;
+struct StencilOpState {
+    StencilOp     fail_op       = StencilOp::Keep;
+    StencilOp     pass_op       = StencilOp::Keep;
+    StencilOp     depth_fail_op = StencilOp::Keep;
+    CompareOp     compare_op    = CompareOp::Always;
+    std::uint32_t compare_mask  = 0xFFFFFFFF;
+    std::uint32_t write_mask    = 0xFFFFFFFF;
+    std::uint32_t reference     = 0xFFFFFFFF;
 };
 
-union ClearValue {
-    math::vec4f color;
-    struct {
-        float         depth;
-        std::uint32_t stencil;
-    };
+struct DepthStencilState {
+    bool      depth_test_enable  = false;
+    bool      depth_write_enable = false;
+    CompareOp depth_compare_op   = CompareOp::Less;
+
+    bool           stencil_test_enable = false;
+    StencilOpState front               = {};
+    StencilOpState back                = {};
+
+    bool        depth_bounds_test_enable = false;
+    math::vec2f depth_bounds             = math::vec2f(0.0f, 1.0f);
+};
+
+struct BlendState {
+    bool        blend_enable           = false;
+    BlendFactor src_color_blend_factor = BlendFactor::One;
+    BlendFactor dst_color_blend_factor = BlendFactor::Zero;
+    BlendOp     color_blend_op         = BlendOp::Add;
+    BlendFactor src_alpha_blend_factor = BlendFactor::One;
+    BlendFactor dst_alpha_blend_factor = BlendFactor::Zero;
+    BlendOp     alpha_blend_op         = BlendOp::Add;
+    math::vec4f blend_constants        = math::vec4f(1.0f);
+    ColorMask   color_write_mask       = ColorMask::All;
+
+    bool    logic_operation_enable = false;
+    LogicOp logic_op               = LogicOp::NoOp;
+};
+
+using ClearColor = math::vec4f;
+struct ClearDepthStencil {
+    float         depth   = 1.0f;
+    std::uint32_t stencil = 0;
+};
+using ClearValue = std::variant<ClearColor, ClearDepthStencil>;
+
+struct AssemblyState {
+    PrimitiveTopology primitive      = PrimitiveTopology::TriangleList;
+    bool              restart_enable = false;
 };
 
 struct VertexAttribute {
-    std::pmr::string semantic_name;
-    std::uint8_t     semantic_index;
-    std::uint8_t     slot;
-    std::uint32_t    aligned_offset;
+    std::pmr::string semantic;
     Format           format;
-    bool             per_instance            = false;
-    std::uint32_t    instance_data_step_rate = 0;
+    std::uint32_t    binding;
+    std::uint64_t    offset       = 0;
+    std::uint64_t    stride       = 0;
+    bool             per_instance = false;
 };
-using InputLayout = std::pmr::vector<VertexAttribute>;
+// Improve me with fixed_vector
+using VertexLayout = std::pmr::vector<VertexAttribute>;
+
+enum struct AddressMode : std::uint8_t {
+    Clamp,
+    Repeat,
+    MirrorRepeat
+};
+
+enum struct FilterMode : std::uint8_t {
+    Point,
+    Linear
+};
 
 struct ViewPort {
     float x, y;  // the top left start point
@@ -350,4 +355,72 @@ struct Rect {
     std::uint32_t height;
 };
 
+struct TextureSubresourceLayer {
+    std::uint32_t mip_level        = 0;
+    std::uint32_t base_array_layer = 0;
+    std::uint32_t layer_count      = 1;
+
+    bool operator==(const TextureSubresourceLayer& rhs) const noexcept {
+        return mip_level == rhs.mip_level &&
+               base_array_layer == rhs.base_array_layer &&
+               layer_count == rhs.layer_count;
+    }
+};
+
+enum struct BarrierAccess : std::uint32_t {
+    None              = 0x1,
+    CopySrc           = (None << 1),
+    CopyDst           = (CopySrc << 1),
+    Vertex            = (CopyDst << 1),
+    Index             = (Vertex << 1),
+    Constant          = (Index << 1),
+    ShaderRead        = (Constant << 1),
+    ShaderWrite       = (ShaderRead << 1),
+    DepthStencilRead  = (ShaderWrite << 1),
+    DepthStencilWrite = (DepthStencilRead << 1),
+    RenderTarget      = (DepthStencilWrite << 1),
+    Present           = (RenderTarget << 1),
+};
+
+enum struct PipelineStage : std::uint32_t {
+    None          = 0x1,
+    VertexInput   = (None << 1),
+    VertexShader  = (VertexInput << 1),
+    PixelShader   = (VertexShader << 1),
+    DepthStencil  = (PixelShader << 1),
+    Render        = (DepthStencil << 1),
+    Resolve       = (Render << 1),
+    AllGraphics   = (Resolve << 1),
+    ComputeShader = (AllGraphics << 1),
+    Copy          = (ComputeShader << 1),
+    All           = (Copy << 1),
+};
+inline constexpr bool operator<(PipelineStage lhs, PipelineStage rhs) noexcept {
+    return std::countl_zero(static_cast<std::underlying_type_t<PipelineStage>>(lhs)) > std::countl_zero(static_cast<std::underlying_type_t<PipelineStage>>(rhs));
+}
+
+enum struct TextureLayout : std::uint16_t {
+    Unkown,
+    Common,
+    CopySrc,
+    CopyDst,
+    ShaderRead,
+    ShaderWrite,
+    DepthStencilRead,
+    DepthStencilWrite,
+    RenderTarget,
+    ResolveSrc,
+    ResolveDst,
+    Present,
+};
+
 }  // namespace hitagi::gfx
+
+template <>
+struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::GPUBufferUsageFlags> {
+    static constexpr bool is_flags = true;
+};
+template <>
+struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::TextureUsageFlags> {
+    static constexpr bool is_flags = true;
+};

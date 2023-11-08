@@ -1,92 +1,108 @@
 #include <hitagi/render/utils.hpp>
+#include <hitagi/gfx/utils.hpp>
 #include <hitagi/math/transform.hpp>
+
+#include <range/v3/numeric/accumulate.hpp>
+#include <range/v3/view/transform.hpp>
+#include <spdlog/spdlog.h>
 
 namespace hitagi::render {
 GuiRenderUtils::GuiRenderUtils(gui::GuiManager& gui_manager, gfx::Device& gfx_device) : m_GuiManager(gui_manager) {
-    constexpr std::string_view imgui_shader = R"""(
-            cbuffer      ImGuiConstants : register(b0) { matrix projection; };
-            SamplerState sampler0       : register(s0);
-            Texture2D    texture0       : register(t0);         
+    const std::pmr::string imgui_shader = R"""(
+        #include "bindless.hlsl"
+        struct BindlessInfo {
+            hitagi::SimpleBuffer frame_constant;
+            hitagi::Texture      texture;
+            hitagi::Sampler      sampler;
+        };
+        struct FrameConstant {
+            matrix projection;
+        };
+        
+        struct VS_INPUT {
+            float3 pos : POSITION;
+            float2 uv  : TEXCOORD;
+            float4 col : COLOR;
+        };
+        
+        struct PS_INPUT {
+            float4 pos : SV_POSITION;
+            float2 uv  : TEXCOORD;
+            float4 col : COLOR;
+        };
+        
+        PS_INPUT VSMain(VS_INPUT input) {
+            BindlessInfo  bindless_info  = hitagi::load_bindless<BindlessInfo>();
+            FrameConstant frame_constant = bindless_info.frame_constant.load<FrameConstant>();
+        
+            PS_INPUT output;
+            output.pos = mul(frame_constant.projection, float4(input.pos.xy, 0.f, 1.f));
+            output.col = input.col;
+            output.uv  = input.uv;
+            return output;
+        }
+        
+        float4 PSMain(PS_INPUT input) : SV_TARGET {
+            BindlessInfo bindless_info = hitagi::load_bindless<BindlessInfo>();
+            SamplerState sampler       = bindless_info.sampler.load();
+            float4       out_col       = input.col * bindless_info.texture.sample<float4>(sampler, input.uv);
+            return out_col;
+        }
+)""";
 
-            #define RSDEF                                                                      \
-              "RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), "                                \
-              "RootConstants(num32BitConstants=16, b0,  visibility=SHADER_VISIBILITY_VERTEX)," \
-              "DescriptorTable(                SRV(t0), visibility=SHADER_VISIBILITY_PIXEL),"  \
-              "StaticSampler(                      s0,  visibility=SHADER_VISIBILITY_PIXEL)"            
+    m_GfxData.vs = gfx_device.CreateShader({
+        .name        = "imgui-vs",
+        .type        = gfx::ShaderType::Vertex,
+        .entry       = "VSMain",
+        .source_code = imgui_shader,
+    });
 
-            struct VS_INPUT {
-              float3 pos : POSITION;
-              float2 uv  : TEXCOORD;
-              float4 col : COLOR;
-            };          
+    m_GfxData.ps = gfx_device.CreateShader({
+        .name        = "imgui-ps",
+        .type        = gfx::ShaderType::Pixel,
+        .entry       = "PSMain",
+        .source_code = imgui_shader,
+    });
 
-            struct PS_INPUT {
-              float4 pos : SV_POSITION;
-              float2 uv  : TEXCOORD;
-              float4 col : COLOR;
-            };          
-
-            [RootSignature(RSDEF)]
-            PS_INPUT VSMain(VS_INPUT input) {
-              PS_INPUT output;
-              output.pos = mul(projection, float4(input.pos.xy, 0.f, 1.f));
-              output.col = input.col;
-              output.uv  = input.uv;
-              return output;
-            }           
-
-            [RootSignature(RSDEF)]
-            float4 PSMain(PS_INPUT input) : SV_TARGET {
-              float4 out_col = input.col * texture0.Sample(sampler0, input.uv);
-              return out_col;
-            }
-            )""";
+    m_GfxData.sampler = gfx_device.CreateSampler({
+        .name           = "imgui-sampler",
+        .address_u      = gfx::AddressMode::Clamp,
+        .address_v      = gfx::AddressMode::Clamp,
+        .address_w      = gfx::AddressMode::Clamp,
+        .mag_filter     = gfx::FilterMode::Linear,
+        .min_filter     = gfx::FilterMode::Linear,
+        .mipmap_filter  = gfx::FilterMode::Linear,
+        .min_lod        = 0,
+        .max_lod        = 0,
+        .max_anisotropy = 1,
+        .compare_op     = gfx::CompareOp::Always,
+    });
 
     m_GfxData.pipeline = gfx_device.CreateRenderPipeline({
-        .name = "imgui",
-        .vs   = {
-              .name        = "imgui-vs",
-              .type        = gfx::Shader::Type::Vertex,
-              .entry       = "VSMain",
-              .source_code = std::pmr::string(imgui_shader),
+        .name           = "imgui",
+        .shaders        = {m_GfxData.vs, m_GfxData.ps},
+        .assembly_state = {
+            .primitive = gfx::PrimitiveTopology::TriangleList,
         },
-        .ps = {
-            .name        = "imgui-ps",
-            .type        = gfx::Shader::Type::Pixel,
-            .entry       = "PSMain",
-            .source_code = std::pmr::string(imgui_shader),
-        },
-        .topology     = gfx::PrimitiveTopology::TriangleList,
-        .input_layout = {
+        .vertex_input_layout = {
             // clang-format off
-            {"POSITION", 0, 0, IM_OFFSETOF(ImDrawVert, pos), gfx::Format::R32G32_FLOAT},
-            {"TEXCOORD", 0, 0, IM_OFFSETOF(ImDrawVert,  uv), gfx::Format::R32G32_FLOAT},
-            {   "COLOR", 0, 0, IM_OFFSETOF(ImDrawVert, col), gfx::Format::R8G8B8A8_UNORM},
+            {"POSITION", gfx::Format::R32G32_FLOAT, 0, IM_OFFSETOF(ImDrawVert, pos),sizeof(ImDrawVert)},
+            {"TEXCOORD", gfx::Format::R32G32_FLOAT, 0, IM_OFFSETOF(ImDrawVert,  uv),sizeof(ImDrawVert)},
+            {   "COLOR", gfx::Format::R8G8B8A8_UNORM, 0, IM_OFFSETOF(ImDrawVert, col),sizeof(ImDrawVert)},
             // clang-format on
         },
-        .rasterizer_config = {
-            .fill_mode               = gfx::FillMode::Solid,
+        .rasterization_state = {
             .cull_mode               = gfx::CullMode::None,
             .front_counter_clockwise = false,
-            .depth_bias              = 0,
-            .depth_bias_clamp        = 0.0f,
-            .slope_scaled_depth_bias = 0.0f,
-            .depth_clip_enable       = true,
-            .multisample_enable      = false,
-            .antialiased_line_enable = false,
-            .forced_sample_count     = 0,
-            .conservative_raster     = false,
         },
-
-        .blend_config = {
-            .alpha_to_coverage_enable = false,
-            .enable_blend             = true,
-            .src_blend                = gfx::Blend::SrcAlpha,
-            .dest_blend               = gfx::Blend::InvSrcAlpha,
-            .blend_op                 = gfx::BlendOp::Add,
-            .src_blend_alpha          = gfx::Blend::One,
-            .dest_blend_alpha         = gfx::Blend::InvSrcAlpha,
-            .blend_op_alpha           = gfx::BlendOp::Add,
+        .blend_state = {
+            .blend_enable           = true,
+            .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
+            .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+            .color_blend_op         = gfx::BlendOp::Add,
+            .src_alpha_blend_factor = gfx::BlendFactor::One,
+            .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+            .alpha_blend_op         = gfx::BlendOp::Add,
         },
         .render_format = gfx::Format::R8G8B8A8_UNORM,
     });
@@ -97,7 +113,7 @@ GuiRenderUtils::GuiRenderUtils(gui::GuiManager& gui_manager, gfx::Device& gfx_de
     int            width = 0, height = 0;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-    std::size_t size = width * height * gfx::get_format_bit_size(gfx::Format::R8G8B8A8_UNORM) >> 3;
+    std::size_t size = width * height * gfx::get_format_byte_size(gfx::Format::R8G8B8A8_UNORM);
 
     m_GfxData.font_texture = gfx_device.CreateTexture(
         {
@@ -105,175 +121,162 @@ GuiRenderUtils::GuiRenderUtils(gui::GuiManager& gui_manager, gfx::Device& gfx_de
             .width  = static_cast<std::uint32_t>(width),
             .height = static_cast<std::uint32_t>(height),
             .format = gfx::Format::R8G8B8A8_UNORM,
+            .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
         },
         {reinterpret_cast<const std::byte*>(pixels), size});
+
+    ImGui::GetIO().Fonts->TexID = reinterpret_cast<ImTextureID>(&m_FontTexture);
 }
 
-auto GuiRenderUtils::GuiPass(gfx::RenderGraph& render_graph, gfx::ResourceHandle target) -> gfx::ResourceHandle {
-    struct GuiRenderPass {
-        gfx::ResourceHandle vertices_buffer;
-        gfx::ResourceHandle indices_buffer;
-        gfx::ResourceHandle output;
-    } gui_pass;
+void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle target, bool clear_target) {
+    if (m_GfxData.font_texture == nullptr) return;
 
-    auto font_tex_handle = m_GuiManager.ReadTexture(render_graph.Import("imgui-font", m_GfxData.font_texture));
-    ImGui::GetIO().Fonts->SetTexID((void*)(font_tex_handle.id));
-
-    m_GuiManager.Render();
-
-    auto draw_data = ImGui::GetDrawData();
-    if (draw_data == nullptr) return target;
-
-    if (m_GfxData.vertices_buffer == nullptr || m_GfxData.vertices_buffer->desc.element_count < draw_data->TotalVtxCount) {
-        m_GfxData.vertices_buffer = render_graph.device.CreateBuffer({
-            .name          = "imgui-vertices",
-            .element_size  = sizeof(ImDrawVert),
-            .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalVtxCount)),
-            .usages        = gfx::GpuBuffer::UsageFlags::Vertex | gfx::GpuBuffer::UsageFlags::CopyDst,
-        });
-    }
-
-    if (m_GfxData.indices_buffer == nullptr || m_GfxData.indices_buffer->desc.element_count < draw_data->TotalIdxCount) {
-        m_GfxData.indices_buffer = render_graph.device.CreateBuffer({
-            .name          = "imgui-indices",
-            .element_size  = sizeof(ImDrawIdx),
-            .element_count = static_cast<std::uint64_t>(std::max(1, draw_data->TotalIdxCount)),
-            .usages        = gfx::GpuBuffer::UsageFlags::Index | gfx::GpuBuffer::UsageFlags::CopyDst,
-        });
-    }
-
-    std::size_t total_upload_size = draw_data->TotalVtxCount * sizeof(ImDrawVert) + draw_data->TotalIdxCount * sizeof(ImDrawIdx);
-    if (m_GfxData.upload_heap == nullptr || m_GfxData.upload_heap->desc.element_size < total_upload_size) {
-        m_GfxData.upload_heap = render_graph.device.CreateBuffer({
-            .name         = "imgui-upload-heap",
-            .element_size = std::max(1ull, total_upload_size),
-            .usages       = gfx::GpuBuffer::UsageFlags::MapWrite | gfx::GpuBuffer::UsageFlags::CopySrc,
-        });
-    }
-
-    auto vertices_buffer = render_graph.Import(m_GfxData.vertices_buffer->desc.name, m_GfxData.vertices_buffer);
-    auto indices_buffer  = render_graph.Import(m_GfxData.indices_buffer->desc.name, m_GfxData.indices_buffer);
-    auto upload_heap     = render_graph.Import(m_GfxData.upload_heap->desc.name, m_GfxData.upload_heap);
-
-    struct GuiVertexCopyPass {
-        gfx::ResourceHandle upload_heap;
-        gfx::ResourceHandle vertices_buffer;
-        gfx::ResourceHandle indices_buffer;
+    struct FrameConstant {
+        math::mat4f orth;
+    };
+    struct BindlessInfo {
+        gfx::BindlessHandle frame_constant;
+        gfx::BindlessHandle texture;
+        gfx::BindlessHandle sampler;
     };
 
-    auto gui_vertex_copy_pass = render_graph.AddPass<GuiVertexCopyPass>(
-        "gui_copy_pass",
-        [&](gfx::RenderGraph::Builder& builder, GuiVertexCopyPass& data) {
-            data.vertices_buffer = builder.Write(vertices_buffer);
-            data.indices_buffer  = builder.Write(indices_buffer);
-            data.upload_heap     = builder.Write(upload_heap);
-        },
-        [=](const gfx::RenderGraph::ResourceHelper& helper, const GuiVertexCopyPass& data, gfx::CopyCommandContext* context) {
-            auto& upload_heap = helper.Get<gfx::GpuBuffer>(data.upload_heap);
+    m_FontTexture = render_graph.Import(m_GfxData.font_texture, "imgui_font");
+    m_GuiManager.ReadTexture(m_FontTexture);
 
-            std::byte* curr_pointer = upload_heap.mapped_ptr;
-            for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
-                const auto cmd_list = draw_data->CmdLists[i];
+    auto draw_data = ImGui::GetDrawData();
+    if (draw_data == nullptr || draw_data->CmdListsCount == 0) return;
 
-                std::memcpy(
-                    curr_pointer,
-                    cmd_list->VtxBuffer.Data,
-                    cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+    std::size_t num_draw_calls = ranges::accumulate(
+        std::span(draw_data->CmdLists, draw_data->CmdListsCount) |
+            ranges::views::transform([](auto cmd_list) { return cmd_list->CmdBuffer.size(); }),
+        0);
 
-                curr_pointer += cmd_list->VtxBuffer.Size * sizeof(ImDrawVert);
-            }
-            std::size_t vertex_total_size = curr_pointer - upload_heap.mapped_ptr;
+    rg::RenderPassBuilder builder(render_graph);
+    builder.SetName("GuiRenderPass")
+        .Read(render_graph.Create(
+            {
+                .name          = "imgui_bindless_info",
+                .element_size  = sizeof(BindlessInfo),
+                .element_count = num_draw_calls,
+                .usages        = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+            },
+            "imgui_bindless_info"))
+        .Read(render_graph.Create(
+            {
+                .name         = "imgui_frame_constant",
+                .element_size = sizeof(FrameConstant),
+                .usages       = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+            },
+            "imgui_frame_constant"))
+        .ReadAsVertices(render_graph.Create(
+            gfx::GPUBufferDesc{
+                .element_size  = sizeof(ImDrawVert),
+                .element_count = static_cast<std::uint64_t>(draw_data->TotalVtxCount),
+                .usages        = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::MapWrite,
+            },
+            "imgui_vertices"))
+        .ReadAsIndices(render_graph.Create(
+            gfx::GPUBufferDesc{
+                .element_size  = sizeof(ImDrawIdx),
+                .element_count = static_cast<std::uint64_t>(draw_data->TotalIdxCount),
+                .usages        = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::MapWrite,
+            },
+            "imgui_indices"))
+        .AddSampler(render_graph.Import(m_GfxData.sampler, "imgui_sampler"))
+        .AddPipeline(render_graph.Import(m_GfxData.pipeline, "imgui_pipeline"))
+        .SetRenderTarget(target, clear_target);
 
-            for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
-                const auto cmd_list = draw_data->CmdLists[i];
-                std::memcpy(
-                    curr_pointer,
-                    cmd_list->IdxBuffer.Data,
-                    cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-                curr_pointer += cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx);
-            }
-            std::size_t index_total_size = (curr_pointer - upload_heap.mapped_ptr) - vertex_total_size;
+    for (const auto texture_handle : m_GuiManager.PopReadTextures()) {
+        builder.Read(texture_handle, {}, gfx::PipelineStage::PixelShader);
+    }
 
-            auto& vetices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
-            auto& indices_buffer = helper.Get<gfx::GpuBuffer>(data.indices_buffer);
+    builder.SetExecutor([=, font_texture = m_FontTexture](const rg::RenderGraph& render_graph, const rg::RenderPassNode& pass) {
+               auto draw_data = ImGui::GetDrawData();
 
-            context->CopyBuffer(upload_heap, 0, vetices_buffer, 0, vertex_total_size);
-            context->CopyBuffer(upload_heap, vertex_total_size, indices_buffer, 0, index_total_size);
-        });
+               const auto vertex_buffer_handle = render_graph.GetBufferHandle("imgui_vertices");
+               auto&      vertex_buffer        = pass.Resolve(vertex_buffer_handle);
+               auto       vertex_buffer_view   = gfx::GPUBufferView<ImDrawVert>(vertex_buffer);
 
-    gui_pass = render_graph.AddPass<GuiRenderPass>(
-        "GuiRenderPass",
-        [&](gfx::RenderGraph::Builder& builder, GuiRenderPass& data) {
-            builder.UseRenderPipeline(m_GfxData.pipeline);
+               const auto index_buffer_handle = render_graph.GetBufferHandle("imgui_indices");
+               auto&      index_buffer        = pass.Resolve(index_buffer_handle);
+               auto       index_buffer_view   = gfx::GPUBufferView<ImDrawIdx>(index_buffer);
 
-            data.vertices_buffer = builder.Read(gui_vertex_copy_pass.vertices_buffer);
-            data.indices_buffer  = builder.Read(gui_vertex_copy_pass.indices_buffer);
-            data.output          = builder.Write(target);
+               const auto frame_constant_handle   = render_graph.GetBufferHandle("imgui_frame_constant");
+               const auto frame_constant_bindless = pass.GetBindless(frame_constant_handle);
+               {
+                   gfx::GPUBufferView<FrameConstant> frame_constant(pass.Resolve(frame_constant_handle));
+                   frame_constant.front().orth = math::ortho(
+                       draw_data->DisplayPos.x,
+                       draw_data->DisplayPos.x + draw_data->DisplaySize.x,
+                       draw_data->DisplayPos.y + draw_data->DisplaySize.y,
+                       draw_data->DisplayPos.y,
+                       3.0f,
+                       -1.0f);
+               }
+               const auto sampler_bindless = pass.GetBindless(render_graph.GetSamplerHandle("imgui_sampler"));
 
-            auto textures = m_GuiManager.PopReadTextures();
-            for (const auto& tex : textures) {
-                builder.Read(tex);
-            }
-        },
-        [=](const gfx::RenderGraph::ResourceHelper& helper, const GuiRenderPass& data, gfx::GraphicsCommandContext* context) {
-            const float left   = draw_data->DisplayPos.x;
-            const float right  = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
-            const float top    = draw_data->DisplayPos.y;
-            const float bottom = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
-            const float near   = 3.0f;
-            const float far    = -1.0f;
+               const auto bindless_infos_handle = render_graph.GetBufferHandle("imgui_bindless_info");
+               auto       bindless_infos        = gfx::GPUBufferView<BindlessInfo>(pass.Resolve(bindless_infos_handle));
 
-            auto& vertices_buffer = helper.Get<gfx::GpuBuffer>(data.vertices_buffer);
-            auto& indices_buffer  = helper.Get<gfx::GpuBuffer>(data.indices_buffer);
+               auto& cmd = pass.GetCmd();
+               cmd.SetViewPort({
+                   draw_data->DisplayPos.x,
+                   draw_data->DisplayPos.y,
+                   draw_data->DisplaySize.x,
+                   draw_data->DisplaySize.y,
+               });
+               cmd.SetPipeline(pass.Resolve(render_graph.GetRenderPipelineHandle("imgui_pipeline")));
+               cmd.SetVertexBuffers(0, {{vertex_buffer}}, {{0}});
+               cmd.SetIndexBuffer(index_buffer);
 
-            context->SetPipeline(*m_GfxData.pipeline);
-            context->SetViewPort({
-                left,
-                top,
-                draw_data->DisplaySize.x,
-                draw_data->DisplaySize.y,
-            });
-            context->SetRenderTarget(helper.Get<gfx::Texture>(data.output));
-            context->PushConstant(0, math::ortho(left, right, bottom, top, near, far));
+               for (int i = 0, draw_call_index = 0, vertex_offset = 0, index_offset = 0; i < draw_data->CmdListsCount; i++) {
+                   const auto im_draw_list = draw_data->CmdLists[i];
 
-            std::size_t vertex_offset = 0;
-            std::size_t index_offset  = 0;
-            for (std::size_t i = 0; i < draw_data->CmdListsCount; i++) {
-                const auto cmd_list = draw_data->CmdLists[i];
+                   std::memcpy(vertex_buffer_view.data() + vertex_offset, im_draw_list->VtxBuffer.Data, im_draw_list->VtxBuffer.Size * sizeof(ImDrawVert));
+                   std::memcpy(index_buffer_view.data() + index_offset, im_draw_list->IdxBuffer.Data, im_draw_list->IdxBuffer.Size * sizeof(ImDrawIdx));
 
-                for (const auto& cmd : cmd_list->CmdBuffer) {
-                    if (cmd.UserCallback != nullptr) {
-                        cmd.UserCallback(cmd_list, &cmd);
-                    }
-                    if (cmd.ElemCount == 0) continue;
+                   for (const auto& im_cmd : im_draw_list->CmdBuffer) {
+                       if (im_cmd.UserCallback != nullptr) {
+                           im_cmd.UserCallback(im_draw_list, &im_cmd);
+                       }
 
-                    math::vec2f clip_min{cmd.ClipRect.x - draw_data->DisplayPos.x, cmd.ClipRect.y - draw_data->DisplayPos.y};
-                    math::vec2f clip_max{cmd.ClipRect.z - draw_data->DisplayPos.x, cmd.ClipRect.w - draw_data->DisplayPos.y};
-                    if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
-                        continue;
+                       const math::vec2f clip_min{im_cmd.ClipRect.x - draw_data->DisplayPos.x, im_cmd.ClipRect.y - draw_data->DisplayPos.y};
+                       const math::vec2f clip_max{im_cmd.ClipRect.z - draw_data->DisplayPos.x, im_cmd.ClipRect.w - draw_data->DisplayPos.y};
 
-                    context->SetScissorRect({
-                        .x      = static_cast<std::uint32_t>(clip_min.x),
-                        .y      = static_cast<std::uint32_t>(clip_min.y),
-                        .width  = static_cast<std::uint32_t>(clip_max.x - clip_min.x),
-                        .height = static_cast<std::uint32_t>(clip_max.y - clip_min.y),
-                    });
+                       if (im_cmd.ElemCount == 0 || clip_min.x >= clip_max.x || clip_min.y >= clip_max.y)
+                           continue;
 
-                    if (cmd.TextureId) {
-                        context->BindTexture(0, helper.Get<gfx::Texture>({(std::uint64_t)cmd.TextureId}));
-                    }
+                       if (clip_min.x < 0 && clip_min.y < 0) {
+                           continue;
+                       }
+                       cmd.SetScissorRect({
+                           .x      = static_cast<std::uint32_t>(clip_min.x),
+                           .y      = static_cast<std::uint32_t>(clip_min.y),
+                           .width  = static_cast<std::uint32_t>(clip_max.x - clip_min.x),
+                           .height = static_cast<std::uint32_t>(clip_max.y - clip_min.y),
+                       });
 
-                    context->SetVertexBuffer(0, vertices_buffer);
-                    context->SetIndexBuffer(indices_buffer);
-                    context->DrawIndexed(cmd.ElemCount, 1, index_offset + cmd.IdxOffset, vertex_offset + cmd.VtxOffset);
-                }
+                       bindless_infos[draw_call_index].frame_constant = frame_constant_bindless;
+                       bindless_infos[draw_call_index].sampler        = sampler_bindless;
 
-                vertex_offset += cmd_list->VtxBuffer.Size;
-                index_offset += cmd_list->IdxBuffer.Size;
-            }
-        });
+                       if (im_cmd.TextureId == ImGui::GetIO().Fonts->TexID) {
+                           bindless_infos[draw_call_index].texture = pass.GetBindless(font_texture);
+                       } else {
+                           bindless_infos[draw_call_index].texture = pass.GetBindless(rg::TextureHandle((std::size_t)(im_cmd.TextureId)));
+                       }
 
-    return gui_pass.output;
+                       cmd.PushBindlessMetaInfo(gfx::BindlessMetaInfo{
+                           .handle = pass.GetBindless(bindless_infos_handle, draw_call_index),
+                       });
+
+                       cmd.DrawIndexed(im_cmd.ElemCount, 1, index_offset + im_cmd.IdxOffset, vertex_offset + im_cmd.VtxOffset);
+                       draw_call_index++;
+                   }
+                   vertex_offset += im_draw_list->VtxBuffer.Size;
+                   index_offset += im_draw_list->IdxBuffer.Size;
+               }
+           })
+        .Finish();
 }
 
 }  // namespace hitagi::render

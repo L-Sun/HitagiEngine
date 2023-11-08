@@ -31,7 +31,7 @@ enum struct VertexAttribute : std::uint8_t {
     Custom0 = 15,
 };
 
-namespace detial {
+namespace detail {
 template <VertexAttribute e>
 constexpr auto vertex_attr() noexcept {
     if constexpr (e == VertexAttribute::Position ||
@@ -56,7 +56,7 @@ constexpr auto vertex_attr() noexcept {
     else
         return float{};
 }
-}  // namespace detial
+}  // namespace detail
 
 constexpr std::size_t get_vertex_attribute_size(VertexAttribute attribute) {
     switch (attribute) {
@@ -85,7 +85,39 @@ constexpr std::size_t get_vertex_attribute_size(VertexAttribute attribute) {
 }
 
 template <VertexAttribute e>
-using VertexDataType = std::invoke_result_t<decltype(detial::vertex_attr<e>)>;
+using VertexDataType = std::invoke_result_t<decltype(detail::vertex_attr<e>)>;
+
+constexpr inline auto semantic_to_vertex_attribute(std::string_view semantic) noexcept -> VertexAttribute {
+    if (semantic == "POSITION" || semantic == "POSITION0")
+        return VertexAttribute::Position;
+    if (semantic == "NORMAL" || semantic == "NORMAL0")
+        return VertexAttribute::Normal;
+    if (semantic == "TANGENT" || semantic == "TANGENT0")
+        return VertexAttribute::Tangent;
+    if (semantic == "BINORMAL" || semantic == "BINORMAL0")
+        return VertexAttribute::Bitangent;
+    if (semantic == "COLOR" || semantic == "COLOR0")
+        return VertexAttribute::Color0;
+    if (semantic == "COLOR1")
+        return VertexAttribute::Color1;
+    if (semantic == "COLOR2")
+        return VertexAttribute::Color2;
+    if (semantic == "COLOR3")
+        return VertexAttribute::Color3;
+    if (semantic == "TEXCOORD" || semantic == "TEXCOORD0")
+        return VertexAttribute::UV0;
+    if (semantic == "TEXCOORD1")
+        return VertexAttribute::UV1;
+    if (semantic == "TEXCOORD2")
+        return VertexAttribute::UV2;
+    if (semantic == "TEXCOORD3")
+        return VertexAttribute::UV3;
+    if (semantic == "BLENDINDICES" || semantic == "BLENDINDICES0")
+        return VertexAttribute::BlendIndex;
+    if (semantic == "BLENDWEIGHT" || semantic == "BLENDWEIGHT0")
+        return VertexAttribute::BlendWeight;
+    return VertexAttribute::Custom0;
+}
 
 class VertexArray : public Resource {
 public:
@@ -93,7 +125,7 @@ public:
         VertexAttribute                 type;
         bool                            dirty      = true;
         core::Buffer                    cpu_buffer = {};
-        std::shared_ptr<gfx::GpuBuffer> gpu_buffer = nullptr;
+        std::shared_ptr<gfx::GPUBuffer> gpu_buffer = nullptr;
     };
 
     VertexArray(std::size_t vertex_count, std::string_view name = "", xg::Guid guid = {});
@@ -104,8 +136,8 @@ public:
 
     bool        Empty() const noexcept;
     inline auto Size() const noexcept { return m_VertexCount; }
-    auto        GetAttributeData(VertexAttribute attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>>;
-    auto        GetAttributeData(const gfx::VertexAttribute& attr) const noexcept -> std::optional<std::reference_wrapper<const AttributeData>>;
+    auto        GetAttributeData(VertexAttribute attr) const noexcept -> utils::optional_ref<const AttributeData>;
+    auto        GetAttributeData(const gfx::VertexAttribute& attr) const noexcept -> utils::optional_ref<const AttributeData>;
 
     template <VertexAttribute T>
     auto Span() const noexcept -> std::span<const VertexDataType<T>>;
@@ -114,7 +146,7 @@ public:
     void Modify(std::function<void(std::span<VertexDataType<T>>)> modifier);
     void Resize(std::size_t new_count);
 
-    void InitGpuData(gfx::Device& device);
+    void InitGPUData(gfx::Device& device);
 
 private:
     std::size_t                                      m_VertexCount;
@@ -139,7 +171,7 @@ public:
         IndexType                       type;
         bool                            dirty      = true;
         core::Buffer                    cpu_buffer = {};
-        std::shared_ptr<gfx::GpuBuffer> gpu_buffer = nullptr;
+        std::shared_ptr<gfx::GPUBuffer> gpu_buffer = nullptr;
     };
 
     IndexArray(std::size_t count, IndexType type = IndexType::UINT16, std::string_view name = "", xg::Guid guid = {});
@@ -161,7 +193,7 @@ public:
     void Modify(std::function<void(std::span<IndexDataType<T>>)> modifier);
     void Resize(std::size_t new_count);
 
-    void InitGpuData(gfx::Device& device);
+    void InitGPUData(gfx::Device& device);
 
 private:
     std::size_t m_IndexCount;
@@ -174,7 +206,6 @@ public:
         std::size_t                       index_count;
         std::size_t                       index_offset  = 0;
         std::size_t                       vertex_offset = 0;
-        gfx::PrimitiveTopology            primitive     = gfx::PrimitiveTopology::TriangleList;
         std::shared_ptr<MaterialInstance> material_instance;
     };
 

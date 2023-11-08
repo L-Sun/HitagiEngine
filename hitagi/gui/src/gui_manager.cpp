@@ -35,7 +35,7 @@ GuiManager::GuiManager(Application& app) : RuntimeModule("GuiManager"), m_App(ap
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_HasSetMousePos;
 
     ImGuiViewport* main_viewport  = ImGui::GetMainViewport();
-    main_viewport->PlatformHandle = main_viewport->PlatformHandleRaw = app.GetWindow();
+    main_viewport->PlatformHandle = main_viewport->PlatformHandleRaw = app.GetWindow().ptr;
 
     LoadFont();
 }
@@ -64,16 +64,14 @@ void GuiManager::Tick() {
     // Update delta time
     io.DeltaTime = m_Clock.DeltaTime().count();
 
-    m_Clock.Tick();
-}
-
-void GuiManager::Render() {
     ImGui::NewFrame();
     while (!m_GuiDrawTasks.empty()) {
         m_GuiDrawTasks.front()();
         m_GuiDrawTasks.pop();
     }
     ImGui::Render();
+
+    m_Clock.Tick();
 }
 
 void GuiManager::LoadFont() {
@@ -172,12 +170,13 @@ void GuiManager::KeysEvent() {
     auto& io = ImGui::GetIO();
 
     for (int key = ImGuiKey_NamedKey_BEGIN; key < ImGuiKey_NamedKey_END; key++) {
-        io.AddKeyEvent(key, input_manager->GetBool(convert_imgui_key(key)));
+        io.AddKeyEvent(static_cast<ImGuiKey>(key), input_manager->GetBool(convert_imgui_key(static_cast<ImGuiKey>(key))));
     }
 }
 
-auto GuiManager::ReadTexture(gfx::ResourceHandle tex) -> gfx::ResourceHandle {
-    return m_ReadTextures.emplace_back(tex);
+auto GuiManager::ReadTexture(rg::TextureHandle texture) -> ImTextureID {
+    m_ReadTextures.emplace_back(texture);
+    return (ImTextureID)texture.index;
 }
 
 }  // namespace hitagi::gui

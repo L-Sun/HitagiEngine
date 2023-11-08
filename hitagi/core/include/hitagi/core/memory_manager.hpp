@@ -1,13 +1,11 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/utils/utils.hpp>
+#include <hitagi/utils/types.hpp>
 
 #include <list>
 #include <array>
 #include <memory_resource>
-#include <cassert>
-#include <type_traits>
-#include <optional>
 
 constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 
@@ -33,9 +31,10 @@ std::pmr::polymorphic_allocator<T> MemoryManager::GetAllocator() const noexcept 
 
 class MemoryPool : public std::pmr::memory_resource {
 public:
-    MemoryPool();
+    MemoryPool(std::shared_ptr<spdlog::logger> logger);
     MemoryPool(const MemoryPool&)            = delete;
     MemoryPool& operator=(const MemoryPool&) = delete;
+    ~MemoryPool();
 
 private:
     [[nodiscard]] void* do_allocate(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) final;
@@ -57,8 +56,7 @@ private:
         Page& operator=(Page&&) noexcept;
         ~Page();
 
-        template <typename T = std::byte>
-        inline auto get() noexcept { return reinterpret_cast<std::remove_cvref_t<T>*>(data); }
+        inline auto GetHeadBlock() noexcept { return reinterpret_cast<Block*>(data); }
 
     private:
         const std::size_t      size;
@@ -90,7 +88,7 @@ private:
         704u, 768u, 832u, 896u, 960u, 1024u};
 
     std::array<std::size_t, block_size.back() + 1> pool_map;
-    std::optional<std::reference_wrapper<Pool>>    GetPool(std::size_t bytes);
+    utils::optional_ref<Pool>                      GetPool(std::size_t bytes);
 
     std::array<Pool, block_size.size()> m_Pools;
 
@@ -98,6 +96,8 @@ private:
     constexpr auto InitPools(std::index_sequence<Ns...>) {
         return std::array{(Pool{.block_size = block_size.at(Ns)})...};
     }
+
+    std::shared_ptr<spdlog::logger> m_Logger;
 };
 
 }  // namespace hitagi::core

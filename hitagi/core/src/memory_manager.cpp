@@ -44,7 +44,7 @@ auto MemoryPool::Pool::new_page() -> Page& {
         return reinterpret_cast<Block*>(reinterpret_cast<std::byte*>(block) + block_size);
     };
 
-    auto p_block = page.get<Block>();
+    auto p_block = page.GetHeadBlock();
     for (std::size_t i = 0; i < num_block - 1; i++) {
         p_block->next = next_block(p_block, block_size);
         p_block       = next_block(p_block, block_size);
@@ -58,7 +58,7 @@ auto MemoryPool::Pool::allocate() -> Block* {
 
     if (free_list == nullptr) {
         auto& page        = new_page();
-        auto  first_block = page.get<Block>();
+        auto  first_block = page.GetHeadBlock();
         free_list         = first_block;
     }
     Block* result = free_list;
@@ -72,9 +72,12 @@ auto MemoryPool::Pool::deallocate(Block* block) -> void {
 
     block->next = free_list;
     free_list   = block;
+    num_free_blocks++;
 }
 
-MemoryPool::MemoryPool() : m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})) {
+MemoryPool::MemoryPool(std::shared_ptr<spdlog::logger> logger)
+    : m_Pools(InitPools(std::make_index_sequence<block_size.size()>{})),
+      m_Logger(std::move(logger)) {
     std::size_t block_index = 0;
     for (std::size_t i = 0; i < pool_map.size(); i++) {
         if (i > block_size[block_index]) block_index++;
@@ -83,7 +86,16 @@ MemoryPool::MemoryPool() : m_Pools(InitPools(std::make_index_sequence<block_size
     assert(block_index == block_size.size() - 1);
 }
 
-auto MemoryPool::GetPool(std::size_t bytes) -> std::optional<std::reference_wrapper<Pool>> {
+MemoryPool::~MemoryPool() {
+    for (const auto& pool : m_Pools) {
+        auto total_blocks = pool.pages.size() * pool.page_size / pool.block_size;
+        if (pool.num_free_blocks != total_blocks) {
+            m_Logger->warn("MemoryPool: {} bytes memory leak", total_blocks * pool.block_size);
+        }
+    }
+}
+
+auto MemoryPool::GetPool(std::size_t bytes) -> utils::optional_ref<Pool> {
     if (bytes > block_size.back()) return std::nullopt;
     return m_Pools.at(pool_map[bytes]);
 }
@@ -112,14 +124,14 @@ void MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment
 
 MemoryManager::MemoryManager() : RuntimeModule("MemoryManager") {
     m_Logger->info("Create Memory Pool...");
-    m_Pools = std::make_unique<MemoryPool>();
+    m_Pools = std::make_unique<MemoryPool>(m_Logger);
 
-    m_Logger->debug("Set pmr default resource");
+    m_Logger->trace("Set pmr default resource");
     std::pmr::set_default_resource(m_Pools.get());
 }
 
 MemoryManager::~MemoryManager() {
-    m_Logger->debug("Unset pmr default resource");
+    m_Logger->trace("Unset pmr default resource");
     std::pmr::set_default_resource(std::pmr::new_delete_resource());
 }
 

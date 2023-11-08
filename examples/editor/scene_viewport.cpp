@@ -8,11 +8,6 @@ using namespace hitagi::math;
 using namespace hitagi::asset;
 
 void SceneViewPort::Tick() {
-    struct SceneRenderPass {
-        gfx::ResourceHandle depth_buffer;
-        gfx::ResourceHandle output;
-    };
-
     m_GuiManager.DrawGui([&]() {
         if (ImGui::Begin("Scene Viewer", &m_Open)) {
             if (m_CurrentScene) {
@@ -22,12 +17,23 @@ void SceneViewPort::Tick() {
                     static_cast<std::uint32_t>(v_max.x - v_min.x),
                     static_cast<std::uint32_t>(v_max.y - v_min.y)};
 
+                auto& render_graph = m_Render.GetRenderGraph();
+
+                auto scene_render_texture = render_graph.Create(gfx::TextureDesc{
+                    .name        = "Scene Render Texture",
+                    .width       = window_size.x,
+                    .height      = window_size.y,
+                    .format      = gfx::Format::R8G8B8A8_UNORM,
+                    .clear_value = math::vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+                    .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::SRV,
+                });
+
                 m_Camera->GetObjectRef()->parameters.aspect = static_cast<float>(window_size.x) / static_cast<float>(window_size.y);
                 m_Camera->Update();
 
                 if (window_size.x != 0 && window_size.y != 0) {
-                    const auto output = m_Render.RenderScene(*m_CurrentScene, *m_Camera, std::nullopt, window_size);
-                    ImGui::Image((void*)m_GuiManager.ReadTexture(output).id, ImVec2(window_size.x, window_size.y));
+                    m_Render.RenderScene(m_CurrentScene, m_Camera, scene_render_texture);
+                    ImGui::Image(m_GuiManager.ReadTexture(scene_render_texture), ImVec2(window_size.x, window_size.y));
                 }
             }
         }

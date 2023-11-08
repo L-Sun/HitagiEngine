@@ -24,6 +24,13 @@ jobs:
           7z x ispc.zip
           "ispc-v1.18.0-windows/bin" >> $env:GITHUB_PATH
 
+      - name: Setup Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-query-version: latest
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
       - uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest

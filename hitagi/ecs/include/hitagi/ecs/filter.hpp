@@ -1,21 +1,21 @@
 #pragma once
 #include <hitagi/ecs/component.hpp>
-#include <hitagi/utils/type.hpp>
+#include <hitagi/utils/types.hpp>
 
 namespace hitagi::ecs {
 
 struct Filter {
     template <Component... Components>
     auto All(const DynamicComponents& dynamic_components = {}) noexcept -> Filter&
-        requires utils::UniqueTypes<Components...>;
+        requires utils::unique_types<Components...>;
 
     template <Component... Components>
     auto Any(const DynamicComponents& dynamic_components = {}) noexcept -> Filter&
-        requires utils::UniqueTypes<Components...>;
+        requires utils::unique_types<Components...>;
 
     template <Component... Components>
     auto None(const DynamicComponents& dynamic_components = {}) noexcept -> Filter&
-        requires utils::UniqueTypes<Components...>;
+        requires utils::unique_types<Components...>;
 
     std::pmr::set<utils::TypeID> all;
     std::pmr::set<utils::TypeID> any;
@@ -24,7 +24,7 @@ struct Filter {
 
 template <Component... Components>
 auto Filter::All(const DynamicComponents& dynamic_components) noexcept -> Filter&
-    requires utils::UniqueTypes<Components...>
+    requires utils::unique_types<Components...>
 {
     (all.emplace(utils::TypeID::Create<Components>()), ...);
     for (const auto& dyanmic_component : dynamic_components) {
@@ -35,7 +35,7 @@ auto Filter::All(const DynamicComponents& dynamic_components) noexcept -> Filter
 
 template <Component... Components>
 auto Filter::Any(const DynamicComponents& dynamic_components) noexcept -> Filter&
-    requires utils::UniqueTypes<Components...>
+    requires utils::unique_types<Components...>
 {
     (any.emplace(utils::TypeID::Create<Components>()), ...);
     for (const auto& dyanmic_component : dynamic_components) {
@@ -46,7 +46,7 @@ auto Filter::Any(const DynamicComponents& dynamic_components) noexcept -> Filter
 
 template <Component... Components>
 auto Filter::None(const DynamicComponents& dynamic_components) noexcept -> Filter&
-    requires utils::UniqueTypes<Components...>
+    requires utils::unique_types<Components...>
 {
     (none.emplace(utils::TypeID::Create<Components>()), ...);
     for (const auto& dyanmic_component : dynamic_components) {

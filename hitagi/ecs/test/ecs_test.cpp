@@ -7,7 +7,7 @@ using namespace hitagi::ecs;
 using namespace hitagi::math;
 
 template <Component T, typename V>
-auto componet_value_eq(const char* expr_world, const char* expr_entity, const char* expr_value, const World& world, Entity entity, const V& value) -> ::testing::AssertionResult {
+auto component_value_eq(const char* expr_world, const char* expr_entity, const char* expr_value, const World& world, Entity entity, const V& value) -> ::testing::AssertionResult {
     static_assert(std::is_same_v<decltype(T::value), V>);
 
     auto component = world.GetEntityManager().GetComponent<T>(entity);
@@ -136,8 +136,8 @@ TEST_F(EcsTest, AccessComponent) {
     };
     auto entity = world.GetEntityManager().Create<Component_1, Component_2>();
 
-    EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity, 1);
-    EXPECT_PRED_FORMAT3(componet_value_eq<Component_2>, world, entity, 2);
+    EXPECT_PRED_FORMAT3(component_value_eq<Component_1>, world, entity, 1);
+    EXPECT_PRED_FORMAT3(component_value_eq<Component_2>, world, entity, 2);
 }
 
 TEST_F(EcsTest, ModifyEntity) {
@@ -152,7 +152,7 @@ TEST_F(EcsTest, ModifyEntity) {
         if (component.has_value())
             component->get().value = 2;
     }
-    EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity, 2);
+    EXPECT_PRED_FORMAT3(component_value_eq<Component_1>, world, entity, 2);
 }
 
 TEST_F(EcsTest, RegisterSystem) {
@@ -183,8 +183,8 @@ TEST_F(EcsTest, RegisterSystem) {
     world.RegisterSystem<System1>("System1");
     world.Update();
 
-    EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity, 2);
-    EXPECT_PRED_FORMAT3(componet_value_eq<Component_2>, world, entity, 3);
+    EXPECT_PRED_FORMAT3(component_value_eq<Component_1>, world, entity, 2);
+    EXPECT_PRED_FORMAT3(component_value_eq<Component_2>, world, entity, 3);
 }
 
 TEST_F(EcsTest, FilterTest) {
@@ -254,22 +254,22 @@ TEST_F(EcsTest, FilterTest) {
     world.Update();
     {
         SCOPED_TRACE("Filter::All");
-        EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity_1, 1);
-        EXPECT_PRED_FORMAT3(componet_value_eq<Component_2>, world, entity_1, 2);
+        EXPECT_PRED_FORMAT3(component_value_eq<Component_1>, world, entity_1, 1);
+        EXPECT_PRED_FORMAT3(component_value_eq<Component_2>, world, entity_1, 2);
     }
 
     {
         SCOPED_TRACE("Filter::Any");
-        EXPECT_PRED_FORMAT3(componet_value_eq<Component_1>, world, entity_2, 0);
-        EXPECT_PRED_FORMAT3(componet_value_eq<Component_3>, world, entity_2, 3);
-        EXPECT_PRED_FORMAT3(componet_value_eq<Component_2>, world, entity_3, 0);
-        EXPECT_PRED_FORMAT3(componet_value_eq<Component_4>, world, entity_3, 4);
+        EXPECT_PRED_FORMAT3(component_value_eq<Component_1>, world, entity_2, 0);
+        EXPECT_PRED_FORMAT3(component_value_eq<Component_3>, world, entity_2, 3);
+        EXPECT_PRED_FORMAT3(component_value_eq<Component_2>, world, entity_3, 0);
+        EXPECT_PRED_FORMAT3(component_value_eq<Component_4>, world, entity_3, 4);
     }
 
     {
         SCOPED_TRACE("Filter::None");
-        EXPECT_PRED_FORMAT3(componet_value_eq<Component_5>, world, entity_4, 0);
-        EXPECT_PRED_FORMAT3(componet_value_eq<Component_6>, world, entity_4, 0);
+        EXPECT_PRED_FORMAT3(component_value_eq<Component_5>, world, entity_4, 0);
+        EXPECT_PRED_FORMAT3(component_value_eq<Component_6>, world, entity_4, 0);
     }
 }
 

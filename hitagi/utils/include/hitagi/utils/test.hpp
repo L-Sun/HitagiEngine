@@ -2,26 +2,59 @@
 #include <hitagi/math/vector.hpp>
 #include <hitagi/math/matrix.hpp>
 
+#include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <benchmark/benchmark.h>
 #include <spdlog/spdlog.h>
 
 namespace hitagi::testing {
 
-template <typename T, unsigned D>
-void vector_eq(const math::Vector<T, D>& v1, const math::Vector<T, D>& v2, double epsilon = 1E-5) {
-    for (size_t i = 0; i < D; i++) {
-        EXPECT_NEAR(v1[i], v2[i], epsilon) << "difference at index: " << i;
-    }
-}
-
-template <typename T, unsigned D>
-void matrix_eq(const math::Matrix<T, D>& mat1, const math::Matrix<T, D>& mat2, double epsilon = 1E-5) {
-    for (int i = 0; i < D; i++) {
-        for (int j = 0; j < D; j++) {
-            EXPECT_NEAR(mat1[i][j], mat2[i][j], epsilon) << "difference at index: [" << i << "][" << j << "]";
+template <std::floating_point T, unsigned D>
+::testing::AssertionResult expect_EXPECT_VEC_EQ(
+    const char*               lhs_expr,
+    const char*               rhs_expr,
+    const math::Vector<T, D>& lhs,
+    const math::Vector<T, D>& rhs) {
+    for (unsigned i = 0; i < D; i++) {
+        if (auto diff = std::abs(lhs[i] - rhs[i]); diff > 1e-5) {
+            return ::testing::AssertionFailure()
+                   << "The difference between " << lhs_expr << " and " << rhs_expr
+                   << "at index " << i << " is "
+                   << diff << ", where\n"
+                   << lhs_expr << "=" << lhs << ",\n"
+                   << rhs_expr << "= " << rhs << ".";
         }
     }
+
+    return ::testing::AssertionSuccess();
 }
+
+#define EXPECT_VEC_EQ(vec1, vec2) \
+    EXPECT_PRED_FORMAT2(expect_EXPECT_VEC_EQ, vec1, vec2)
+
+template <std::floating_point T, unsigned D>
+::testing::AssertionResult expect_matrix_eq(
+    const char*               lhs_expr,
+    const char*               rhs_expr,
+    const math::Matrix<T, D>& lhs,
+    const math::Matrix<T, D>& rhs) {
+    for (unsigned i = 0; i < D; i++) {
+        for (unsigned j = 0; j < D; j++) {
+            if (auto diff = std::abs(lhs[i][j] - rhs[i][j]); diff > 1e-5) {
+                return ::testing::AssertionFailure()
+                       << "The difference between " << lhs_expr << " and " << rhs_expr
+                       << "at index (" << i << ", " << j << ") is "
+                       << diff << ", where\n"
+                       << lhs_expr << "=" << lhs << ",\n"
+                       << rhs_expr << "= " << rhs << ".";
+            }
+        }
+    }
+
+    return ::testing::AssertionSuccess();
+}
+
+#define EXPECT_MAT_EQ(mat1, mat2) \
+    EXPECT_PRED_FORMAT2(expect_matrix_eq, mat1, mat2)
+
 }  // namespace hitagi::testing

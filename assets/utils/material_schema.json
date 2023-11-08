@@ -57,13 +57,19 @@
                         "TriangleListAdjacency",
                         "TriangleStripAdjacency"
                     ]
+                },
+                "depth_test": {
+                    "type": "boolean",
+                    "default": true,
+                    "title": "Enable depth test"
                 }
             },
             "examples": [
                 {
                     "vs": "assets/shaders/phong.hlsl",
                     "ps": "assets/shaders/phong.hlsl",
-                    "primitive": "TriangleList"
+                    "primitive": "TriangleList",
+                    "depth_test": true
                 }
             ]
         },

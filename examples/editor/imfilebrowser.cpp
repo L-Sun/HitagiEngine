@@ -1,6 +1,7 @@
 #include "imfilebrowser.hpp"
-#include <windows.h>
 
+#ifdef _WIN32
+#include <windows.h>
 std::uint32_t ImGui::FileBrowser::GetDrivesBitMask() {
     DWORD    mask = GetLogicalDrives();
     uint32_t ret  = 0;
@@ -16,3 +17,4 @@ std::uint32_t ImGui::FileBrowser::GetDrivesBitMask() {
     }
     return ret;
 }
+#endif
