@@ -5,8 +5,7 @@
 
 #include <spdlog/logger.h>
 #include <fmt/color.h>
-
-#include <numeric>
+#include <tracy/Tracy.hpp>
 
 namespace hitagi::gfx {
 VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view name)
@@ -171,8 +170,8 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t 
     auto& [pool, mutex] = m_BindlessHandlePools[0];
     std::lock_guard lock{mutex};
 
-    auto handle = pool.front();
-    pool.pop_front();
+    auto handle = pool.back();
+    pool.pop_back();
     handle.type     = BindlessHandleType::Buffer;
     handle.writable = writable ? 1 : 0;
 
@@ -193,6 +192,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t 
 
     vk_device.GetDevice().updateDescriptorSets(write_info, {});
 
+    TracyAllocN((void*)static_cast<std::uint64_t>(handle.index), 1, "GPUBuffer_bindless");
     return handle;
 }
 
@@ -219,16 +219,16 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
         auto& [pool, mutex] = m_BindlessHandlePools[2];
         std::lock_guard lock{mutex};
 
-        handle = pool.front();
-        pool.pop_front();
+        handle = pool.back();
+        pool.pop_back();
         handle.type     = BindlessHandleType::Texture,
         handle.writable = 1;
     } else {
         auto& [pool, mutex] = m_BindlessHandlePools[1];
         std::lock_guard lock{mutex};
 
-        handle = pool.front();
-        pool.pop_front();
+        handle = pool.back();
+        pool.pop_back();
         handle.type     = BindlessHandleType::Texture,
         handle.writable = 0;
     }
@@ -250,6 +250,12 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
 
     vk_device.GetDevice().updateDescriptorSets(write_info, {});
 
+    if (writable) {
+        TracyAllocN((void*)static_cast<std::uint64_t>(handle.index), 1, "StorageTexture_bindless");
+    } else {
+        TracyAllocN((void*)static_cast<std::uint64_t>(handle.index), 1, "SampledTexture_bindless");
+    }
+
     return handle;
 }
 
@@ -259,8 +265,8 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHand
     auto& [pool, mutex] = m_BindlessHandlePools[3];
     std::lock_guard lock{mutex};
 
-    auto handle = pool.front();
-    pool.pop_front();
+    auto handle = pool.back();
+    pool.pop_back();
     handle.type = BindlessHandleType::Sampler;
 
     const vk::DescriptorImageInfo image_info{
@@ -280,18 +286,32 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHand
 
     vk_device.GetDevice().updateDescriptorSets(write_info, {});
 
+    TracyAllocN((void*)static_cast<std::uint64_t>(handle.index), 1, "Sampler_bindless");
+
     return handle;
 }
 
 void VulkanBindlessUtils::DiscardBindlessHandle(BindlessHandle handle) {
+    ZoneScopedN("DiscardBindlessHandle");
+
     std::size_t pool_index = 0;
 
     if (handle.type == BindlessHandleType::Buffer) {
         pool_index = 0;
+        TracyFreeN((void*)static_cast<std::uint64_t>(handle.index), "GPUBuffer_bindless");
     } else if (handle.type == BindlessHandleType::Texture) {
-        pool_index = handle.writable ? 2 : 1;
+        if (handle.writable) {
+            pool_index = 2;
+            TracyFreeN((void*)static_cast<std::uint64_t>(handle.index), "StorageTexture_bindless");
+        } else {
+            pool_index = 1;
+            TracyFreeN((void*)static_cast<std::uint64_t>(handle.index), "SampledTexture_bindless");
+        }
     } else if (handle.type == BindlessHandleType::Sampler) {
+        TracyFreeN((void*)static_cast<std::uint64_t>(handle.index), "Sampler_bindless");
         pool_index = 3;
+    } else {
+        return;
     }
 
     handle.version++;

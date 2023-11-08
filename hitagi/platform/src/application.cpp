@@ -6,8 +6,10 @@
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 
+#include <fstream>
+
 namespace hitagi {
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, title, version, width, height, asset_root_path);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, title, version, width, height, asset_root_path, gfx_backend);
 
 auto load_app_config(const std::filesystem::path& config_path) -> std::optional<AppConfig> {
     if (config_path.empty() || !std::filesystem::exists(config_path))
@@ -41,6 +43,11 @@ Application::~Application() {
 
         auto content = json.dump(4);
         file_io_manager->SaveBuffer(core::Buffer(content.size(), reinterpret_cast<const std::byte*>(content.data())), path);
+    }
+    for (const auto& sub_module : m_SubModules) {
+        if (sub_module.get() == input_manager) {
+            input_manager = nullptr;
+        }
     }
 }
 

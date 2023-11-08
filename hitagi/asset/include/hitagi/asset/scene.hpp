@@ -6,10 +6,7 @@
 #include <hitagi/asset/mesh.hpp>
 #include <hitagi/asset/armature.hpp>
 #include <hitagi/asset/scene_node.hpp>
-#include <hitagi/gfx/render_graph.hpp>
 #include <hitagi/ecs/world.hpp>
-
-#include <unordered_map>
 
 namespace hitagi::asset {
 class Scene : public Resource {

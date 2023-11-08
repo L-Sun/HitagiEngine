@@ -11,6 +11,7 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <tracy/Tracy.hpp>
 
 using namespace hitagi::math;
 
@@ -23,6 +24,10 @@ namespace hitagi::asset {
 AssetManager::AssetManager(std::filesystem::path asset_base_path)
     : RuntimeModule("AssetManager"),
       m_BasePath(std::move(asset_base_path)) {
+    if (file_io_manager == nullptr) {
+        m_Logger->warn("File IO Manager is not initialized!");
+    }
+
     m_MaterialParser = std::make_shared<MaterialJSONParser>();
 
     m_SceneParsers[SceneFormat::UNKOWN] = std::make_shared<AssimpParser>(m_Logger);
@@ -43,10 +48,12 @@ AssetManager::AssetManager(std::filesystem::path asset_base_path)
 
 AssetManager::~AssetManager() {
     // m_MoCapParser = nullptr;
-    Texture::DestoryDefaultTexture();
+    Texture::DestroyDefaultTexture();
 }
 
 std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
+    ZoneScoped;
+
     auto format = get_scene_format(path.extension().string());
     auto scene  = m_SceneParsers[format]->Parse(path, path.parent_path());
     AddScene(scene);
@@ -54,6 +61,8 @@ std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& pa
 }
 
 std::shared_ptr<Texture> AssetManager::ImportTexture(const std::filesystem::path& path) {
+    ZoneScoped;
+
     auto format = get_image_format(path.extension().string());
     auto image  = m_ImageParsers[format]->Parse(path);
     AddTexture(image);
@@ -61,6 +70,8 @@ std::shared_ptr<Texture> AssetManager::ImportTexture(const std::filesystem::path
 }
 
 std::shared_ptr<Material> AssetManager::ImportMaterial(const std::filesystem::path& path) {
+    ZoneScoped;
+
     auto&& [iter, success] = m_Assets.materials.emplace(m_MaterialParser->Parse(path));
     return *iter;
 }
@@ -84,11 +95,11 @@ void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
             auto mesh = node->GetObjectRef();
             AddMesh(node->GetObjectRef());
 
-            for (const auto& submesh : mesh->sub_meshes) {
-                if (submesh.material_instance->GetMaterial() == nullptr) {
-                    submesh.material_instance->SetMaterial(GetMaterial("Phong"));
+            for (const auto& sub_mesh : mesh->sub_meshes) {
+                if (sub_mesh.material_instance->GetMaterial() == nullptr) {
+                    sub_mesh.material_instance->SetMaterial(GetMaterial("Phong"));
                 }
-                for (const auto& texture : submesh.material_instance->GetTextures()) {
+                for (const auto& texture : sub_mesh.material_instance->GetTextures()) {
                     if (texture->Empty()) {
                         auto image_format = get_image_format(texture->GetPath().extension().string());
                         texture->Load(m_ImageParsers[image_format]);
@@ -129,6 +140,8 @@ auto AssetManager::GetMaterial(std::string_view name) -> std::shared_ptr<Materia
 }
 
 void AssetManager::InitBuiltinMaterial() {
+    ZoneScoped;
+
     auto material_path = m_BasePath / "materials";
     if (!std::filesystem::exists(m_BasePath / "materials")) {
         m_Logger->warn("Missing material folder: assets/materials");
@@ -136,7 +149,7 @@ void AssetManager::InitBuiltinMaterial() {
     }
     for (const auto& material_file : std::filesystem::directory_iterator(material_path)) {
         if (material_file.is_regular_file() && material_file.path().extension() == ".json") {
-            m_Logger->debug("Load built in material: {}", material_file.path().string());
+            m_Logger->info("Load built in material: {}", material_file.path().string());
             m_Assets.materials.emplace(m_MaterialParser->Parse(material_file.path()));
         }
     }

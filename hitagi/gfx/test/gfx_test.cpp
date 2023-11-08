@@ -37,7 +37,7 @@ TEST(GfxTest, DescHashTest) {
                 .format      = Format::R8G8B8A8_UNORM,
                 .mip_levels  = 1,
                 .clear_value = ClearColor{1, 0, 0, 1},
-                .usages      = TextureUsageFlags::RTV,
+                .usages      = TextureUsageFlags::RenderTarget,
             };
         EXPECT_NE(tex_desc_1, tex_desc_2);
         EXPECT_NE(utils::hash(tex_desc_1), utils::hash(tex_desc_2));

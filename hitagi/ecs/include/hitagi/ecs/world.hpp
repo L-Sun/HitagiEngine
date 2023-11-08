@@ -12,8 +12,8 @@ class Schedule;
 
 template <typename T>
 concept SystemLike = requires(Schedule& s) {
-                         { T::OnUpdate(s) } -> std::same_as<void>;
-                     };
+    { T::OnUpdate(s) } -> std::same_as<void>;
+};
 
 class World {
 public:
@@ -29,7 +29,7 @@ public:
 
 private:
     friend class EntityManager;
-    void LogMessage(std::string_view message);
+    void WarnMessage(std::string_view message);
 
     std::pmr::string                m_Name;
     std::shared_ptr<spdlog::logger> m_Logger;
@@ -43,7 +43,7 @@ template <SystemLike System>
 void World::RegisterSystem(std::string_view name) {
     std::pmr::string _name{name};
     if (m_Systems.contains(std::pmr::string(_name))) {
-        LogMessage(fmt::format("The system ({}) exsisted!", name));
+        WarnMessage(fmt::format("The system ({}) existed!", name));
     } else
         m_Systems.emplace(_name, &System::OnUpdate);
 }

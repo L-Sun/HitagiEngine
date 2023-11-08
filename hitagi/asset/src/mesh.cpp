@@ -60,53 +60,7 @@ auto VertexArray::GetAttributeData(VertexAttribute attr) const noexcept -> utils
 }
 
 auto VertexArray::GetAttributeData(const gfx::VertexAttribute& attr) const noexcept -> utils::optional_ref<const AttributeData> {
-    if (attr.semantic_name == "POSITION") {
-        return GetAttributeData(VertexAttribute::Position);
-    }
-    if (attr.semantic_name == "NORMAL") {
-        return GetAttributeData(VertexAttribute::Normal);
-    }
-    if (attr.semantic_name == "TANGENT") {
-        return GetAttributeData(VertexAttribute::Tangent);
-    }
-    if (attr.semantic_name == "BINORMAL") {
-        return GetAttributeData(VertexAttribute::Bitangent);
-    }
-    if (attr.semantic_name == "COLOR") {
-        if (attr.semantic_index == 0) {
-            return GetAttributeData(VertexAttribute::Color0);
-        }
-        if (attr.semantic_index == 1) {
-            return GetAttributeData(VertexAttribute::Color1);
-        }
-        if (attr.semantic_index == 2) {
-            return GetAttributeData(VertexAttribute::Color2);
-        }
-        if (attr.semantic_index == 3) {
-            return GetAttributeData(VertexAttribute::Color3);
-        }
-    }
-    if (attr.semantic_name == "TEXCOORD") {
-        if (attr.semantic_index == 0) {
-            return GetAttributeData(VertexAttribute::UV0);
-        }
-        if (attr.semantic_index == 1) {
-            return GetAttributeData(VertexAttribute::UV1);
-        }
-        if (attr.semantic_index == 2) {
-            return GetAttributeData(VertexAttribute::UV2);
-        }
-        if (attr.semantic_index == 3) {
-            return GetAttributeData(VertexAttribute::UV3);
-        }
-    }
-    if (attr.semantic_name == "BLENDINDICES") {
-        return GetAttributeData(VertexAttribute::BlendIndex);
-    }
-    if (attr.semantic_name == "BLENDWEIGHT") {
-        return GetAttributeData(VertexAttribute::BlendWeight);
-    }
-    return std::nullopt;
+    return GetAttributeData(semantic_to_vertex_attribute(attr.semantic));
 }
 
 void VertexArray::InitGPUData(gfx::Device& device) {
@@ -114,10 +68,10 @@ void VertexArray::InitGPUData(gfx::Device& device) {
         if (attribute.cpu_buffer.Empty() || !attribute.dirty) continue;
         attribute.gpu_buffer = device.CreateGPUBuffer(
             {
-                .name          = fmt::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type)),
+                .name          = std::pmr::string(fmt::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type))),
                 .element_size  = get_vertex_attribute_size(attribute.type),
                 .element_count = m_VertexCount,
-                .usages        = gfx::GPUBufferUsageFlags::Vertex,
+                .usages        = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::CopyDst,
             },
             attribute.cpu_buffer.Span<const std::byte>());
         attribute.dirty = false;
@@ -161,7 +115,7 @@ void IndexArray::InitGPUData(gfx::Device& device) {
             .name          = m_Name,
             .element_size  = get_index_type_size(m_Data.type),
             .element_count = m_IndexCount,
-            .usages        = gfx::GPUBufferUsageFlags::Index,
+            .usages        = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::CopyDst,
         },
         m_Data.cpu_buffer.Span<const std::byte>());
     m_Data.dirty = false;
@@ -219,7 +173,7 @@ Mesh Mesh::operator+(const Mesh& rhs) const {
     });
 
     Mesh result(new_vertices, new_indices);
-    // merge submeshes
+    // merge sub meshes
     for (const auto& lhs_sub_mesh : sub_meshes) {
         result.sub_meshes.emplace_back(lhs_sub_mesh);
     }
@@ -228,7 +182,6 @@ Mesh Mesh::operator+(const Mesh& rhs) const {
             .index_count       = rhs_sub_mesh.index_count,
             .index_offset      = rhs_sub_mesh.index_offset + indices->Size(),
             .vertex_offset     = rhs_sub_mesh.vertex_offset + vertices->Size(),
-            .primitive         = rhs_sub_mesh.primitive,
             .material_instance = rhs_sub_mesh.material_instance,
         });
     }

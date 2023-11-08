@@ -12,6 +12,8 @@
 namespace hitagi::gfx {
 class Device;
 class Fence;
+struct GPUBufferBarrier;
+struct TextureBarrier;
 
 constexpr auto UNKOWN_NAME = "Unkown";
 
@@ -24,33 +26,38 @@ public:
     virtual ~Resource()                      = default;
 
     inline auto& GetDevice() const noexcept { return m_Device; }
-    inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
 
-    virtual auto GetType() const noexcept -> ResourceType = 0;
+    virtual auto GetName() const noexcept -> std::string_view = 0;
+    virtual auto GetType() const noexcept -> ResourceType     = 0;
 
 protected:
-    Resource(Device& device, std::string_view name) : m_Device(device), m_Name(name) {}
+    Resource(Device& device) : m_Device(device) {}
 
-    Device&          m_Device;
-    std::pmr::string m_Name;
+    Device& m_Device;
 };
 
-template <typename Desc>
+template <typename T>
+concept ResourceDesc = requires(T t) {
+    { T::name } -> std::convertible_to<std::string_view>;
+};
+
+template <ResourceDesc _Desc>
 class ResourceWithDesc : public Resource {
 public:
-    using DescT = Desc;
+    using Desc = _Desc;
 
+    auto         GetName() const noexcept -> std::string_view final { return m_Desc.name; };
     auto         GetType() const noexcept -> ResourceType final;
     inline auto& GetDesc() const noexcept { return m_Desc; }
 
 protected:
-    ResourceWithDesc(Device& device, Desc desc) : Resource(device, desc.name), m_Desc(std::move(desc)) { m_Desc.name = m_Name; }
+    ResourceWithDesc(Device& device, _Desc desc) : Resource(device), m_Desc(std::move(desc)) {}
 
-    Desc m_Desc;
+    _Desc m_Desc;
 };
 
 struct GPUBufferDesc {
-    std::string_view    name = UNKOWN_NAME;
+    std::pmr::string    name = UNKOWN_NAME;
     std::uint64_t       element_size;
     std::uint64_t       element_count = 1;
     GPUBufferUsageFlags usages;
@@ -60,8 +67,15 @@ struct GPUBufferDesc {
 
 class GPUBuffer : public ResourceWithDesc<GPUBufferDesc> {
 public:
+    struct Pointer;
+
     inline auto AlignedElementSize() const noexcept -> std::uint64_t { return utils::align(m_Desc.element_size, m_ElementAlignment); }
     inline auto Size() const noexcept -> std::uint64_t { return AlignedElementSize() * m_Desc.element_count; }
+
+    virtual auto Map() -> std::byte* = 0;
+    virtual void UnMap()             = 0;
+
+    [[nodiscard]] auto Transition(BarrierAccess access, PipelineStage stage = PipelineStage::All) -> GPUBufferBarrier;
 
 protected:
     using ResourceWithDesc::ResourceWithDesc;
@@ -71,30 +85,25 @@ protected:
     friend struct GPUBufferView;
     friend struct GPUBufferPointer;
 
-    virtual auto Map() -> std::byte* = 0;
-    virtual void UnMap()             = 0;
-
     std::uint64_t m_ElementAlignment = 1;
-    std::byte*    m_MappedPtr        = nullptr;
-};
-
-struct GPUBufferPointer {
-    GPUBufferPointer(GPUBuffer& buffer, std::size_t element_offset = 0) : buffer(buffer), ptr(buffer.Map() + element_offset * buffer.AlignedElementSize()) {}
-    ~GPUBufferPointer() { buffer.UnMap(); }
-
-    operator std::byte*() { return ptr; }
-    operator void*() { return ptr; }
-
-    GPUBuffer& buffer;
-    std::byte* ptr;
+    BarrierAccess m_CurrentAccess    = BarrierAccess::None;
+    PipelineStage m_CurrentStage     = PipelineStage::None;
 };
 
 template <typename T>
     requires(!std::is_reference_v<T>)
 struct GPUBufferView : public utils::AlignedSpan<T> {
     GPUBufferView(GPUBuffer& buffer)
-        : utils::AlignedSpan<T>(buffer.Map(), buffer.m_Desc.element_count, buffer.m_ElementAlignment),
+        : utils::AlignedSpan<T>(nullptr, buffer.m_Desc.element_count, buffer.m_ElementAlignment),
           buffer(buffer) {
+        if (!utils::has_flag(buffer.m_Desc.usages, GPUBufferUsageFlags::MapRead) &&
+            !utils::has_flag(buffer.m_Desc.usages, GPUBufferUsageFlags::MapWrite))
+            throw std::invalid_argument(fmt::format("GPUBuffer {} is not mappable", buffer.GetName()));
+
+        if (!std::is_const_v<T> && !utils::has_flag(buffer.m_Desc.usages, GPUBufferUsageFlags::MapWrite))
+            throw std::invalid_argument(fmt::format("GPUBuffer {} is not writable on host", buffer.GetName()));
+
+        this->m_Data = buffer.Map();
     }
 
     ~GPUBufferView() { buffer.UnMap(); }
@@ -103,7 +112,7 @@ struct GPUBufferView : public utils::AlignedSpan<T> {
 };
 
 struct TextureDesc {
-    std::string_view          name        = UNKOWN_NAME;
+    std::pmr::string          name        = UNKOWN_NAME;
     std::uint32_t             width       = 1;
     std::uint32_t             height      = 1;
     std::uint16_t             depth       = 1;
@@ -115,10 +124,23 @@ struct TextureDesc {
 
     inline constexpr bool operator==(const TextureDesc&) const noexcept;
 };
-using Texture = ResourceWithDesc<TextureDesc>;
+
+class Texture : public ResourceWithDesc<TextureDesc> {
+public:
+    [[nodiscard]] auto Transition(BarrierAccess access, TextureLayout layout, PipelineStage stage = PipelineStage::All) -> TextureBarrier;
+
+    inline auto GetCurrentLayout() const noexcept -> TextureLayout { return m_CurrentLayout; }
+
+protected:
+    using ResourceWithDesc::ResourceWithDesc;
+
+    BarrierAccess m_CurrentAccess = BarrierAccess::None;
+    PipelineStage m_CurrentStage  = PipelineStage::All;
+    TextureLayout m_CurrentLayout = TextureLayout::Unkown;
+};
 
 struct SamplerDesc {
-    std::string_view name           = UNKOWN_NAME;
+    std::pmr::string name           = UNKOWN_NAME;
     AddressMode      address_u      = AddressMode::Clamp;
     AddressMode      address_v      = AddressMode::Clamp;
     AddressMode      address_w      = AddressMode::Clamp;
@@ -135,11 +157,11 @@ struct SamplerDesc {
 using Sampler = ResourceWithDesc<SamplerDesc>;
 
 struct SwapChainDesc {
-    std::string_view          name = UNKOWN_NAME;
-    utils::Window             window;
-    std::optional<ClearValue> clear_value  = std::nullopt;
-    std::uint32_t             sample_count = 1;
-    bool                      vsync        = false;
+    std::pmr::string name = UNKOWN_NAME;
+    utils::Window    window;
+    ClearColor       clear_color  = math::vec4f(0, 0, 0, 1);
+    std::uint32_t    sample_count = 1;
+    bool             vsync        = false;
 };
 class SwapChain : public ResourceWithDesc<SwapChainDesc> {
 public:
@@ -155,10 +177,10 @@ protected:
 };
 
 struct ShaderDesc {
-    std::string_view      name;
+    std::pmr::string      name;
     ShaderType            type;
-    std::string_view      entry = "main";
-    std::string_view      source_code;
+    std::pmr::string      entry = "main";
+    std::pmr::string      source_code;
     std::filesystem::path path;
 };
 
@@ -172,7 +194,7 @@ protected:
 };
 
 struct RenderPipelineDesc {
-    std::string_view name = UNKOWN_NAME;
+    std::pmr::string name = UNKOWN_NAME;
 
     std::pmr::vector<std::weak_ptr<Shader>> shaders;
 
@@ -187,27 +209,27 @@ struct RenderPipelineDesc {
 using RenderPipeline = ResourceWithDesc<RenderPipelineDesc>;
 
 struct ComputePipelineDesc {
-    std::string_view name = UNKOWN_NAME;
+    std::pmr::string name = UNKOWN_NAME;
 
     std::weak_ptr<Shader> cs;  // computer shader
 };
 using ComputePipeline = ResourceWithDesc<ComputePipelineDesc>;
 
-template <typename Desc>
+template <ResourceDesc Desc>
 auto ResourceWithDesc<Desc>::GetType() const noexcept -> ResourceType {
-    if constexpr (std::is_same_v<DescT, GPUBufferDesc>) {
+    if constexpr (std::is_same_v<Desc, GPUBufferDesc>) {
         return ResourceType::GPUBuffer;
-    } else if constexpr (std::is_same_v<DescT, TextureDesc>) {
+    } else if constexpr (std::is_same_v<Desc, TextureDesc>) {
         return ResourceType::Texture;
-    } else if constexpr (std::is_same_v<DescT, SamplerDesc>) {
+    } else if constexpr (std::is_same_v<Desc, SamplerDesc>) {
         return ResourceType::Sampler;
-    } else if constexpr (std::is_same_v<DescT, SwapChainDesc>) {
+    } else if constexpr (std::is_same_v<Desc, SwapChainDesc>) {
         return ResourceType::SwapChain;
-    } else if constexpr (std::is_same_v<DescT, ShaderDesc>) {
+    } else if constexpr (std::is_same_v<Desc, ShaderDesc>) {
         return ResourceType::Shader;
-    } else if constexpr (std::is_same_v<DescT, RenderPipelineDesc>) {
+    } else if constexpr (std::is_same_v<Desc, RenderPipelineDesc>) {
         return ResourceType::RenderPipeline;
-    } else if constexpr (std::is_same_v<DescT, ComputePipelineDesc>) {
+    } else if constexpr (std::is_same_v<Desc, ComputePipelineDesc>) {
         return ResourceType::ComputePipeline;
     } else {
         []<bool flag = false>() { static_assert(flag, "Unknown resource type"); }

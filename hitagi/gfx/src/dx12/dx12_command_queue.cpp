@@ -29,18 +29,18 @@ DX12CommandQueue::DX12CommandQueue(DX12Device& device, CommandType type, std::st
     m_Queue->SetName(std::wstring(name.begin(), name.end()).c_str());
 }
 
-void DX12CommandQueue::Submit(const std::pmr::vector<CommandContext*>& contexts,
-                              const std::pmr::vector<FenceWaitInfo>&   wait_fences,
-                              const std::pmr::vector<FenceSignalInfo>& signal_fences) {
+void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const CommandContext>> contexts,
+                              std::span<const FenceWaitInfo>                                wait_fences,
+                              std::span<const FenceSignalInfo>                              signal_fences) {
     // make sure all context are same command type
     if (auto iter = std::find_if(
             contexts.begin(), contexts.end(),
-            [this](auto ctx) { return ctx->GetType() != m_Type; });
+            [this](const CommandContext& ctx) { return ctx.GetType() != m_Type; });
         iter != contexts.end()) {
         m_Device.GetLogger()->warn(
             "CommandContext type({}) mismatch({}). Do nothing!!!",
             fmt::styled(magic_enum::enum_name(m_Type), fmt::fg(fmt::color::red)),
-            fmt::styled(magic_enum::enum_name((*iter)->GetType()), fmt::fg(fmt::color::green)));
+            fmt::styled(magic_enum::enum_name((*iter).get().GetType()), fmt::fg(fmt::color::green)));
         return;
     }
 
@@ -48,14 +48,16 @@ void DX12CommandQueue::Submit(const std::pmr::vector<CommandContext*>& contexts,
     std::transform(
         contexts.begin(), contexts.end(),
         std::back_inserter(command_lists),
-        [](auto ctx) -> ID3D12CommandList* {
-            switch (ctx->GetType()) {
+        [](const CommandContext& ctx) -> ID3D12CommandList* {
+            switch (ctx.GetType()) {
                 case CommandType::Graphics:
-                    return dynamic_cast<DX12GraphicsCommandList*>(ctx)->command_list.Get();
+                    return dynamic_cast<const DX12GraphicsCommandList&>(ctx).command_list.Get();
                 case CommandType::Compute:
-                    return dynamic_cast<DX12ComputeCommandList*>(ctx)->command_list.Get();
+                    return dynamic_cast<const DX12ComputeCommandList&>(ctx).command_list.Get();
                 case CommandType::Copy:
-                    return dynamic_cast<DX12CopyCommandList*>(ctx)->command_list.Get();
+                    return dynamic_cast<const DX12CopyCommandList&>(ctx).command_list.Get();
+                default:
+                    utils::unreachable();
             }
         });
 

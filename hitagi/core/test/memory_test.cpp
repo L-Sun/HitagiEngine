@@ -19,7 +19,7 @@ TEST(MemoryTest, BufferSpan) {
 }
 
 TEST(MemoryTest, Allocate) {
-    MemoryPool pool{};
+    MemoryPool pool{spdlog::default_logger()};
     EXPECT_NO_THROW({
         auto p = pool.allocate(16);
         pool.deallocate(p, 16);
@@ -27,7 +27,7 @@ TEST(MemoryTest, Allocate) {
 }
 
 TEST(MemoryTest, PmrContainer) {
-    MemoryPool            pool{};
+    MemoryPool            pool{spdlog::default_logger()};
     std::pmr::vector<int> vec{&pool};
     EXPECT_NO_THROW({
         for (size_t i = 0; i < 10000; i++) {

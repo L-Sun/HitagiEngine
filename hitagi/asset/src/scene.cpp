@@ -2,8 +2,6 @@
 
 #include <tracy/Tracy.hpp>
 
-#include <vector>
-
 namespace hitagi::asset {
 struct FrameConstant {
     math::vec4f camera_pos;

@@ -63,9 +63,9 @@ TEST(MaterialParserTest, JSON) {
     EXPECT_TRUE(std::holds_alternative<float>(mat->GetDefaultParameters()[3].value));
     EXPECT_TRUE(std::holds_alternative<std::shared_ptr<Texture>>(mat->GetDefaultParameters()[4].value));
 
-    vector_eq(std::get<vec4f>(mat->GetDefaultParameters()[0].value), vec4f(1.0, 0.8, 0.5, 1.0));
-    vector_eq(std::get<vec4f>(mat->GetDefaultParameters()[1].value), vec4f(0.5, 0.8, 0.5, 1.0));
-    vector_eq(std::get<vec4f>(mat->GetDefaultParameters()[2].value), vec4f(0.0, 0.8, 0.5, 1.0));
+    EXPECT_VEC_EQ(std::get<vec4f>(mat->GetDefaultParameters()[0].value), vec4f(1.0, 0.8, 0.5, 1.0));
+    EXPECT_VEC_EQ(std::get<vec4f>(mat->GetDefaultParameters()[1].value), vec4f(0.5, 0.8, 0.5, 1.0));
+    EXPECT_VEC_EQ(std::get<vec4f>(mat->GetDefaultParameters()[2].value), vec4f(0.0, 0.8, 0.5, 1.0));
     EXPECT_NEAR(std::get<float>(mat->GetDefaultParameters()[3].value), 23.0, 1e-4);
     auto tex = std::get<std::shared_ptr<Texture>>(mat->GetDefaultParameters()[4].value);
     EXPECT_STREQ(tex->GetPath().string().c_str(), "assets/test/test.jpg");

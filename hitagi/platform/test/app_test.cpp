@@ -25,9 +25,5 @@ TEST_F(AppTest, ResizeWindow) {
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    try {
-        return RUN_ALL_TESTS();
-    } catch (const std::bad_alloc& err) {
-        std::cout << err.what() << std::endl;
-    }
+    return RUN_ALL_TESTS();
 }

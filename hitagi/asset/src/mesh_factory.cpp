@@ -99,12 +99,12 @@ auto MeshFactory::Cube() -> std::shared_ptr<Mesh> {
         std::memcpy(pos.data(), cube_positions.data(), sizeof(vec3f) * cube_positions.size());
     });
 
-    auto indices = std::make_shared<IndexArray>(36);
+    auto indices = std::make_shared<IndexArray>(36, IndexType::UINT16, "cube");
     indices->Modify<IndexType::UINT16>([&](std::span<std::uint16_t> data) {
         std::memcpy(data.data(), cube_indices.data(), sizeof(std::uint16_t) * cube_indices.size());
     });
 
-    auto mesh = std::make_shared<Mesh>(vertices, indices, "Cube");
+    auto mesh = std::make_shared<Mesh>(vertices, indices, "cube");
 
     mesh->sub_meshes.emplace_back(Mesh::SubMesh{
         .index_count   = cube_indices.size(),

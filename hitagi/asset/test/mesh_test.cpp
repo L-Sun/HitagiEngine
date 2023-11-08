@@ -47,10 +47,10 @@ TEST(MeshTest, Modify) {
         colors[0]  = {2.0f, 3.0f, 4.0f, 1.0f};
         colors[16] = {7.0f, 8.0f, 9.0f, 1.0f};
     });
-    vector_eq(vertices.Span<VertexAttribute::Position>()[0], hitagi::math::vec3f{2, 3, 4});
-    vector_eq(vertices.Span<VertexAttribute::Position>()[16], hitagi::math::vec3f{7, 8, 9});
-    vector_eq(vertices.Span<VertexAttribute::Color0>()[0], hitagi::math::vec4f{2.0f, 3.0f, 4.0f, 1.0f});
-    vector_eq(vertices.Span<VertexAttribute::Color0>()[16], hitagi::math::vec4f{7.0f, 8.0f, 9.0f, 1.0f});
+    EXPECT_VEC_EQ(vertices.Span<VertexAttribute::Position>()[0], hitagi::math::vec3f(2, 3, 4));
+    EXPECT_VEC_EQ(vertices.Span<VertexAttribute::Position>()[16], hitagi::math::vec3f(7, 8, 9));
+    EXPECT_VEC_EQ(vertices.Span<VertexAttribute::Color0>()[0], hitagi::math::vec4f(2.0f, 3.0f, 4.0f, 1.0f));
+    EXPECT_VEC_EQ(vertices.Span<VertexAttribute::Color0>()[16], hitagi::math::vec4f(7.0f, 8.0f, 9.0f, 1.0f));
 
     IndexArray indices(32, IndexType::UINT16);
     indices.Modify<IndexType::UINT16>([](auto array) {

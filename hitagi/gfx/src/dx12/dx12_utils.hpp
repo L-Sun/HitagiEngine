@@ -1,16 +1,23 @@
 #pragma once
 #include "dx12_resource.hpp"
+
 #include <hitagi/gfx/gpu_resource.hpp>
 #include <hitagi/gfx/command_context.hpp>
+#include <hitagi/gfx/utils.hpp>
 
 #include <d3d12.h>
 #include <comdef.h>
+#include <d3d12shader.h>
 
 namespace hitagi::gfx {
 
 inline std::string HrToString(HRESULT hr) {
     _com_error err(hr);
     return {err.ErrorMessage()};
+}
+
+inline auto set_debug_name(ID3D12Object* obj, std::string_view name) {
+    obj->SetName(std::wstring(name.begin(), name.end()).c_str());
 }
 
 inline constexpr auto to_d3d_command_type(CommandType type) noexcept {
@@ -21,6 +28,8 @@ inline constexpr auto to_d3d_command_type(CommandType type) noexcept {
             return D3D12_COMMAND_LIST_TYPE_COMPUTE;
         case CommandType::Copy:
             return D3D12_COMMAND_LIST_TYPE_COPY;
+        default:
+            utils::unreachable();
     }
 }
 
@@ -226,6 +235,8 @@ inline constexpr auto to_dxgi_format(Format format) noexcept -> DXGI_FORMAT {
             return DXGI_FORMAT_BC7_UNORM;
         case Format::BC7_UNORM_SRGB:
             return DXGI_FORMAT_BC7_UNORM_SRGB;
+        default:
+            utils::unreachable();
     }
 }
 
@@ -491,6 +502,8 @@ inline constexpr auto to_d3d_address_mode(AddressMode mode) noexcept {
             return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
         case AddressMode::MirrorRepeat:
             return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+        default:
+            utils::unreachable();
     }
 }
 
@@ -500,6 +513,8 @@ inline constexpr auto to_d3d_filter_type(FilterMode mode) noexcept {
             return D3D12_FILTER_TYPE_POINT;
         case FilterMode::Linear:
             return D3D12_FILTER_TYPE_LINEAR;
+        default:
+            utils::unreachable();
     }
 }
 
@@ -521,6 +536,8 @@ inline constexpr auto to_d3d_compare_function(CompareOp op) noexcept {
             return D3D12_COMPARISON_FUNC_GREATER_EQUAL;
         case CompareOp::Always:
             return D3D12_COMPARISON_FUNC_ALWAYS;
+        default:
+            utils::unreachable();
     }
 }
 
@@ -667,9 +684,10 @@ struct DX12InputLayout {
 inline constexpr auto to_d3d_input_layout(const VertexLayout& layout) noexcept {
     DX12InputLayout result;
     for (const auto& attribute : layout) {
+        auto [semantic_name, semantic_index] = split_semantic(attribute.semantic);
         result.attributes.emplace_back(D3D12_INPUT_ELEMENT_DESC{
-            .SemanticName         = attribute.semantic_name.data(),
-            .SemanticIndex        = attribute.semantic_index,
+            .SemanticName         = semantic_name.data(),
+            .SemanticIndex        = semantic_index,
             .Format               = to_dxgi_format(attribute.format),
             .InputSlot            = attribute.binding,
             .AlignedByteOffset    = static_cast<UINT>(attribute.offset),
@@ -1214,6 +1232,9 @@ inline constexpr auto to_d3d_pipeline_stage(PipelineStage stage) noexcept -> D3D
     if (utils::has_flag(stage, PipelineStage::AllGraphics)) {
         d3d_stage |= D3D12_BARRIER_SYNC_ALL_SHADING;
     }
+    if (utils::has_flag(stage, PipelineStage::Copy)) {
+        d3d_stage |= D3D12_BARRIER_SYNC_COPY;
+    }
     if (utils::has_flag(stage, PipelineStage::All)) {
         d3d_stage |= D3D12_BARRIER_SYNC_ALL;
     }
@@ -1246,6 +1267,8 @@ inline constexpr auto to_d3d_texture_layout(TextureLayout layout) noexcept -> D3
             return D3D12_BARRIER_LAYOUT_RESOLVE_DEST;
         case TextureLayout::Present:
             return D3D12_BARRIER_LAYOUT_PRESENT;
+        default:
+            utils::unreachable();
     }
 }
 

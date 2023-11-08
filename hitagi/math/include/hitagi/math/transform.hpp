@@ -307,7 +307,7 @@ constexpr auto quaternion_to_axis_angle(const Quaternion<T>& quat) noexcept -> s
 }
 
 template <typename T>
-constexpr auto axis_angle_to_quternion(const Vector<T, 3>& axis, T angle) noexcept -> Quaternion<T> {
+constexpr auto axis_angle_to_quaternion(const Vector<T, 3>& axis, T angle) noexcept -> Quaternion<T> {
     auto a = normalize(axis);
     return {
         a.x * std::sin(static_cast<T>(0.5) * angle),

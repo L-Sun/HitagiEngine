@@ -28,7 +28,7 @@ public:
     auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
     auto CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> final;
 
-    auto CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> final;
+    auto CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> final;
     auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> final;
     auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> final;
 
@@ -45,7 +45,6 @@ public:
     inline auto& GetVkCommandQueue(CommandType type) const noexcept { return *m_CommandQueues[type]; }
     inline auto& GetVmaAllocator() const noexcept { return m_VmaAllocator; }
     inline auto& GetBindlessUtils() const noexcept { return m_BindlessUtils; }
-    inline auto& GetShaderCompiler() const noexcept { return m_ShaderCompiler; }
 
 private:
     vk::AllocationCallbacks m_CustomAllocator;
@@ -68,7 +67,5 @@ private:
     utils::EnumArray<std::unique_ptr<VulkanCommandQueue>, CommandType>    m_CommandQueues;
 
     std::unique_ptr<VulkanBindlessUtils> m_BindlessUtils;
-
-    ShaderCompiler m_ShaderCompiler;
 };
 }  // namespace hitagi::gfx

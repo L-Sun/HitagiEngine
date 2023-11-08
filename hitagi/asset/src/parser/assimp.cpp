@@ -1,6 +1,7 @@
 #include <hitagi/asset/parser/assimp.hpp>
 #include <hitagi/core/timer.hpp>
 #include <hitagi/core/file_io_manager.hpp>
+#include <hitagi/gfx/utils.hpp>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -118,14 +119,14 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         logger->error(importer.GetErrorString());
         return nullptr;
     }
-    logger->debug("Parsing costs {:.3}.", clock.DeltaTime());
+    logger->trace("Parsing costs {:.3}.", clock.DeltaTime());
     clock.Tick();
 
     auto scene = std::make_shared<Scene>(ai_scene->mName.C_Str());
 
     // process camera
     std::pmr::unordered_map<std::string_view, std::shared_ptr<Camera>> camera_name_map;
-    logger->debug("Parse cameras... Num: {}", ai_scene->mNumCameras);
+    logger->trace("Parse cameras... Num: {}", ai_scene->mNumCameras);
     for (size_t i = 0; i < ai_scene->mNumCameras; i++) {
         const auto _camera = ai_scene->mCameras[i];
 
@@ -145,62 +146,61 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         if (!success)
             logger->warn("A camera[{}] with the same name already exists!", _camera->mName.C_Str());
     }
-    logger->debug("Parsing cameras costs {:.3}.", clock.DeltaTime());
+    logger->trace("Parsing cameras costs {:.3}.", clock.DeltaTime());
     clock.Tick();
 
     // process light
     std::pmr::unordered_map<std::string_view, std::shared_ptr<Light>> light_name_map;
-    logger->debug("Parse lights... Num: {}", ai_scene->mNumLights);
+    logger->trace("Parse lights... Num: {}", ai_scene->mNumLights);
     for (size_t i = 0; i < ai_scene->mNumLights; i++) {
         const auto _light = ai_scene->mLights[i];
 
-        Light::Parameters light_paramters;
-        light_paramters.color = get_color(_light->mColorDiffuse);
+        Light::Parameters light_parameters;
+        light_parameters.color = get_color(_light->mColorDiffuse);
 
         switch (_light->mType) {
             case aiLightSourceType::aiLightSource_AMBIENT:
-                std::cerr << "[AssimpParser] " << std::endl;
-                logger->warn("Unsupport light type: AMBIEN");
+                logger->warn("Unsupported light type: AMBIENT");
                 break;
             case aiLightSourceType::aiLightSource_AREA:
-                logger->warn("Unsupport light type: AREA");
+                logger->warn("Unsupported light type: AREA");
                 break;
             case aiLightSourceType::aiLightSource_DIRECTIONAL: {
-                light_paramters.type      = Light::Type::Point;
-                light_paramters.direction = normalize(get_vec3(_light->mDirection));
+                light_parameters.type      = Light::Type::Point;
+                light_parameters.direction = normalize(get_vec3(_light->mDirection));
             } break;
             case aiLightSourceType::aiLightSource_POINT: {
-                light_paramters.type     = Light::Type::Point;
-                light_paramters.position = get_vec3(_light->mPosition);
+                light_parameters.type     = Light::Type::Point;
+                light_parameters.position = get_vec3(_light->mPosition);
             } break;
             case aiLightSourceType::aiLightSource_SPOT: {
-                light_paramters.type             = Light::Type::Spot;
-                light_paramters.inner_cone_angle = _light->mAngleInnerCone;
-                light_paramters.outer_cone_angle = _light->mAngleOuterCone;
-                light_paramters.position         = get_vec3(_light->mPosition);
-                light_paramters.up               = normalize(get_vec3(_light->mUp));
-                light_paramters.direction        = normalize(get_vec3(_light->mDirection));
+                light_parameters.type             = Light::Type::Spot;
+                light_parameters.inner_cone_angle = _light->mAngleInnerCone;
+                light_parameters.outer_cone_angle = _light->mAngleOuterCone;
+                light_parameters.position         = get_vec3(_light->mPosition);
+                light_parameters.up               = normalize(get_vec3(_light->mUp));
+                light_parameters.direction        = normalize(get_vec3(_light->mDirection));
             } break;
             case aiLightSourceType::aiLightSource_UNDEFINED:
-                logger->warn("Unsupport light type: UNDEFINED");
+                logger->warn("Unsupported light type: UNDEFINED");
                 break;
             case aiLightSourceType::_aiLightSource_Force32Bit:
-                logger->warn("Unsupport light type: Force32Bit");
+                logger->warn("Unsupported light type: Force32Bit");
                 break;
             default:
                 logger->warn("Unknown light type.");
                 break;
         }
-        auto light               = std::make_shared<Light>(light_paramters, _light->mName.C_Str());
+        auto light               = std::make_shared<Light>(light_parameters, _light->mName.C_Str());
         auto&& [result, success] = light_name_map.emplace(_light->mName.C_Str(), light);
         if (!success)
             logger->warn("A light[{}] with the same name already exists!", _light->mName.C_Str());
     }
-    logger->debug("Parsing lights costs {}.", clock.DeltaTime());
+    logger->trace("Parsing lights costs {}.", clock.DeltaTime());
     clock.Tick();
 
     // process textures
-    logger->debug("Parse embedded texture... Num: {}", ai_scene->mNumTextures);
+    logger->trace("Parse embedded texture... Num: {}", ai_scene->mNumTextures);
     std::pmr::unordered_map<const aiTexture*, std::shared_ptr<Texture>> textures;
     for (std::size_t i = 0; i < ai_scene->mNumTextures; i++) {
         auto                  _texture = ai_scene->mTextures[i];
@@ -214,13 +214,13 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
                 _texture->mHeight,
                 gfx::Format::B8G8R8A8_UNORM,
                 core::Buffer(
-                    _texture->mWidth * _texture->mHeight * get_format_bit_size(gfx::Format::B8G8R8A8_UNORM) >> 3,
+                    _texture->mWidth * _texture->mHeight * gfx::get_format_byte_size(gfx::Format::B8G8R8A8_UNORM),
                     reinterpret_cast<const std::byte*>(_texture->pcData)),
                 _texture->mFilename.C_Str());
 
             texture->SetPath(tex_path);
         } else {
-            logger->debug("texture path: {}", _texture->mFilename.C_Str());
+            logger->trace("texture path: {}", _texture->mFilename.C_Str());
             if (_texture->CheckFormat("jpg")) {
                 texture = std::make_shared<Texture>(tex_path);
             } else if (_texture->CheckFormat("png")) {
@@ -230,16 +230,16 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             } else if (_texture->CheckFormat("tga")) {
                 texture = std::make_shared<Texture>(tex_path);
             } else {
-                logger->warn("Unsupport texture format: {}", _texture->achFormatHint);
+                logger->warn("Unsupported texture format: {}", _texture->achFormatHint);
             }
         }
         textures.emplace(_texture, texture);
     }
-    logger->debug("Parsing texture costs {}.", clock.DeltaTime());
+    logger->trace("Parsing texture costs {}.", clock.DeltaTime());
     clock.Tick();
 
     // process material
-    logger->debug("Parse materials... Num: {}", ai_scene->mNumMaterials);
+    logger->trace("Parse materials... Num: {}", ai_scene->mNumMaterials);
     std::pmr::vector<std::shared_ptr<MaterialInstance>> material_instances;
     for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
         auto _material_instance = ai_scene->mMaterials[i];
@@ -250,7 +250,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             material_instance->SetName(name.C_Str());
 
         if (aiShadingMode shading_mode; _material_instance->Get(AI_MATKEY_SHADING_MODEL, shading_mode))
-            logger->debug("Shading Mode: {}", magic_enum::enum_name(shading_mode));
+            logger->trace("Shading Mode: {}", magic_enum::enum_name(shading_mode));
 
         for (auto key : mat_color_keys) {
             if (aiColor3D _color; AI_SUCCESS == _material_instance->Get(fmt::format("$clr.{}", key).c_str(), 0, 0, _color)) {
@@ -274,19 +274,19 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
                     material_instance->SetParameter(name, texture);
                 }
 
-                break;  // unsupport blend for now.
+                break;  // unsupported blend for now.
             }
         }
 
         material_instances.emplace_back(std::move(material_instance));
     }
-    logger->debug("Parsing materials costs {:.3}.", clock.DeltaTime());
+    logger->trace("Parsing materials costs {:.3}.", clock.DeltaTime());
     clock.Tick();
 
     std::pmr::unordered_map<const aiMesh*, Mesh>        meshes;
     std::pmr::unordered_set<const aiNode*>              armature_nodes;
     std::pmr::unordered_map<const aiNode*, std::size_t> bone_nodes;  // bone and its index in the skeleton
-    logger->debug("Parse meshes... Num: {}", ai_scene->mNumMeshes);
+    logger->trace("Parse meshes... Num: {}", ai_scene->mNumMeshes);
     for (size_t i = 0; i < ai_scene->mNumMeshes; i++) {
         auto ai_mesh = ai_scene->mMeshes[i];
 
@@ -323,8 +323,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
 
             [&]<std::size_t... I>(std::index_sequence<I...>) {
                 (build_color(std::integral_constant<std::size_t, I>{}), ...);
-            }
-            (std::make_index_sequence<4>{});
+            }(std::make_index_sequence<4>{});
         }
 
         // Read UV
@@ -344,8 +343,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             };
             [&]<std::size_t... I>(std::index_sequence<I...>) {
                 (build_uv(std::integral_constant<std::size_t, I>{}), ...);
-            }
-            (std::make_index_sequence<4>{});
+            }(std::make_index_sequence<4>{});
         }
 
         // Read Tangent and Bitangent
@@ -368,7 +366,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
                 aiBone* _bone = ai_mesh->mBones[j];
 
                 if (_bone->mArmature != armature_node) {
-                    logger->warn("there are bones come from the same mesh, but releated to diffrent armature!");
+                    logger->warn("there are bones come from the same mesh, but related to different armature!");
                 }
 
                 // Calculate all bone index
@@ -430,13 +428,12 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             .index_count       = indices_count,
             .index_offset      = 0,
             .vertex_offset     = 0,
-            .primitive         = get_primitive(ai_mesh->mPrimitiveTypes),
             .material_instance = material_instances.at(ai_mesh->mMaterialIndex),
         });
 
         meshes.emplace(ai_mesh, std::move(mesh));
     };
-    logger->debug("Parsing meshes costs {:.3}.", clock.DeltaTime());
+    logger->trace("Parsing meshes costs {:.3}.", clock.DeltaTime());
     clock.Tick();
 
     auto create_mesh = [&](const aiNode* _node) -> std::shared_ptr<Mesh> {
@@ -529,10 +526,10 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
     }
     scene->curr_camera = scene->camera_nodes.front();
 
-    logger->debug("Parsing scnene graph costs {:.3}.", clock.DeltaTime());
+    logger->trace("Parsing scene graph costs {:.3}.", clock.DeltaTime());
     clock.Tick();
 
-    logger->info("Processing costs {:.3} totaly.", clock.TotalTime());
+    logger->info("Processing costs {:.3} totally.", clock.TotalTime());
 
     return scene;
 }

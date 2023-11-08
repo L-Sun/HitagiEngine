@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <memory_resource>
-#include <type_traits>
 #include <cstring>
 
 namespace hitagi::core {

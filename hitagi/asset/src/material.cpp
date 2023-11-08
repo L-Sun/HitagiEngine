@@ -3,7 +3,6 @@
 #include <spdlog/spdlog.h>
 #include <magic_enum.hpp>
 
-#include <stdexcept>
 #include <variant>
 
 namespace hitagi::asset {
@@ -40,18 +39,15 @@ auto Material::CalculateMaterialBufferSize() const noexcept -> std::size_t {
     for (const auto& parameter : m_DefaultParameters) {
         // We use int32_t to indicate its index in texture array
         if (std::holds_alternative<std::shared_ptr<Texture>>(parameter.value)) {
-            const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-            offset += remaining >= sizeof(std::int32_t) ? 0 : remaining;
-
-            offset += sizeof(std::int32_t);
         } else {
-            std::visit([&](auto&& value) {
-                const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-                offset += remaining >= sizeof(value) ? 0 : remaining;
+            std::visit(
+                [&](auto&& value) {
+                    const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
+                    offset += remaining >= sizeof(value) ? 0 : remaining;
 
-                offset += sizeof(value);
-            },
-                       parameter.value);
+                    offset += sizeof(value);
+                },
+                parameter.value);
         }
     }
     return utils::align(offset, 16);
@@ -72,6 +68,14 @@ void Material::InitPipeline(gfx::Device& device) {
     std::transform(m_Shaders.begin(), m_Shaders.end(), std::back_inserter(m_PipelineDesc.shaders), [&](const auto& shader) {
         return std::weak_ptr<gfx::Shader>(shader);
     });
+
+    if (auto iter = std::find_if(m_Shaders.begin(), m_Shaders.end(), [](const auto& shader) {
+            return shader->GetDesc().type == gfx::ShaderType::Vertex;
+        });
+        iter != m_Shaders.end()) {
+        auto vertex_shader                 = *iter;
+        m_PipelineDesc.vertex_input_layout = device.GetShaderCompiler().ExtractVertexLayout(vertex_shader->GetDesc());
+    }
 
     m_Pipeline = device.CreateRenderPipeline(m_PipelineDesc);
     m_Dirty    = false;
@@ -128,40 +132,25 @@ auto MaterialInstance::GetMateriaBufferData() const noexcept -> core::Buffer {
 
     core::Buffer result(m_Material->CalculateMaterialBufferSize());
 
-    std::size_t        offset        = 0;
-    std::int32_t       texture_index = 0;
-    const std::int32_t no_texture    = -1;
+    std::size_t offset = 0;
     for (const auto& default_param : m_Material->m_DefaultParameters) {
         if (std::holds_alternative<std::shared_ptr<Texture>>(default_param.value)) {
-            const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-            offset += remaining >= sizeof(texture_index) ? 0 : remaining;
-
-            auto default_tex = std::get<std::shared_ptr<Texture>>(default_param.value);
-            auto tex         = GetParameter<std::shared_ptr<Texture>>(default_param.name);
-
-            if (tex.has_value()) {
-                (*reinterpret_cast<std::int32_t*>(result.GetData() + offset)) = tex.value() != Texture::DefaultTexture() ? texture_index++ : no_texture;
-            } else {
-                (*reinterpret_cast<std::int32_t*>(result.GetData() + offset)) = default_tex != Texture::DefaultTexture() ? texture_index++ : no_texture;
-            }
-
-            offset += sizeof(texture_index);
         } else {
-            std::visit([&](auto&& default_value) {
-                const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-                offset += remaining >= sizeof(default_value) ? 0 : remaining;
+            std::visit(
+                [&](auto&& default_value) {
+                    const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
+                    offset += remaining >= sizeof(default_value) ? 0 : remaining;
 
-                auto param = GetParameter<std::remove_cvref_t<decltype(default_value)>>(default_param.name);
+                    auto param = GetParameter<std::remove_cvref_t<decltype(default_value)>>(default_param.name);
+                    if (param.has_value()) {
+                        std::memcpy(result.GetData() + offset, &(param.value()), sizeof(default_value));
+                    } else {
+                        std::memcpy(result.GetData() + offset, &default_value, sizeof(default_value));
+                    }
 
-                if (param.has_value()) {
-                    std::memcpy(result.GetData() + offset, &(param.value()), sizeof(default_value));
-                } else {
-                    std::memcpy(result.GetData() + offset, &default_value, sizeof(default_value));
-                }
-
-                offset += sizeof(default_value);
-            },
-                       default_param.value);
+                    offset += sizeof(default_value);
+                },
+                default_param.value);
         }
     }
 

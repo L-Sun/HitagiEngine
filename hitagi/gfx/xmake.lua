@@ -13,13 +13,17 @@ target("shader_compiler")
     add_deps("gfx_resource")
     add_packages("directx-shader-compiler", {public = true})
 
+    if is_plat("windows") then 
+        add_defines("NOMINMAX", "WIN32_LEAN_AND_MEAN", {public = true})
+    end
+
 target("dx12_device")
     -- TODO try use dll
     set_kind("static")
     add_files("src/dx12/*.cpp")
     add_deps("gfx_resource", "shader_compiler")
     add_packages("d3d12-memory-allocator", "directx12-agility-sdk", {public = true})
-    add_defines("NOMINMAX", "WIN32_LEAN_AND_MEAN")
+    
     if not is_plat("windows") then 
         set_enabled(false)
     end
@@ -41,7 +45,7 @@ target("vulkan_device")
     add_packages("spirv-reflect", "libsdl")
     add_defines("VULKAN_HPP_NO_CONSTRUCTORS")
     if is_plat("windows") then
-        add_defines("WIN32_LEAN_AND_MEAN", "NOMINMAX", "VK_USE_PLATFORM_WIN32_KHR")
+        add_defines("VK_USE_PLATFORM_WIN32_KHR")
     elseif is_plat("linux") then
         add_defines("VK_USE_PLATFORM_WAYLAND_KHR")
     end
@@ -50,12 +54,12 @@ target("mock_device")
     set_kind("static")
     add_includedirs("include", {public = true})
     add_files("src/mock/*.cpp")
-    add_deps("gfx_resource")
+    add_deps("gfx_resource", "shader_compiler")
 
 target("gfx_device")
     set_kind("static")
     add_includedirs("include", {public = true})
-    add_files("src/device.cpp")
+    add_files("src/device.cpp", "src/gpu_resource.cpp")
     add_deps("vulkan_device", "mock_device")
     if is_plat("windows") then
         add_deps("dx12_device")
@@ -64,12 +68,11 @@ target("gfx_device")
 target("render_graph")
     set_kind("static")
     add_includedirs("include", {public = true})
-    add_files("src/render_graph.cpp")
-    add_deps("gfx_resource", "gfx_device", {inherit = false})
+    add_files("src/render_graph/*.cpp")
     add_packages("taskflow", {public = true})
+    add_deps("gfx_device", {public = true})
 
 target("gfx")
     set_kind("phony")
     add_includedirs("include", {public = true})
-    add_files("src/render_graph.cpp")
     add_deps("render_graph", "gfx_resource", "gfx_device", {inherit = false})

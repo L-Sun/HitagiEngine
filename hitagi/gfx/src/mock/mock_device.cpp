@@ -32,35 +32,37 @@ auto MockDevice::CreateCommandContext(CommandType type, std::string_view name) -
             return std::make_shared<MockComputeCommandContext>(*this, name);
         case CommandType::Copy:
             return std::make_shared<MockCopyCommandContext>(*this, name);
+        default:
+            utils::unreachable();
     }
 }
 
 auto MockDevice::CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> {
-    return std::make_shared<MockSwapChain>(*this, desc);
+    return std::make_shared<MockSwapChain>(*this, std::move(desc));
 }
 
 auto MockDevice::CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GPUBuffer> {
-    return std::make_shared<MockGPUBuffer>(*this, desc);
+    return std::make_shared<MockGPUBuffer>(*this, std::move(desc));
 }
 
 auto MockDevice::CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
-    return std::make_shared<MockTexture>(*this, desc);
+    return std::make_shared<MockTexture>(*this, std::move(desc));
 }
 
 auto MockDevice::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
-    return std::make_shared<MockSampler>(*this, desc);
+    return std::make_shared<MockSampler>(*this, std::move(desc));
 }
 
-auto MockDevice::CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program) -> std::shared_ptr<Shader> {
-    return std::make_shared<MockShader>(*this, desc);
+auto MockDevice::CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> {
+    return std::make_shared<MockShader>(*this, std::move(desc));
 }
 
 auto MockDevice::CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> {
-    return std::make_shared<MockRenderPipeline>(*this, desc);
+    return std::make_shared<MockRenderPipeline>(*this, std::move(desc));
 }
 
 auto MockDevice::CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> {
-    return std::make_shared<MockComputePipeline>(*this, desc);
+    return std::make_shared<MockComputePipeline>(*this, std::move(desc));
 }
 
 auto MockDevice::GetBindlessUtils() -> BindlessUtils& {

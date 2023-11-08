@@ -1,7 +1,9 @@
 #pragma once
 #include <hitagi/math/vector.hpp>
 #include <hitagi/utils/utils.hpp>
-#include <cassert>
+
+#include <fmt/printf.h>
+
 #include <type_traits>
 
 namespace hitagi::math {
@@ -23,13 +25,12 @@ struct Matrix {
     }
 
     constexpr static Matrix identity() noexcept {
-        constexpr auto init_row = []<std::size_t I, std::size_t... J>(std::integral_constant<std::size_t, I>, std::index_sequence<J...>)->RowVec {
+        constexpr auto init_row = []<std::size_t I, std::size_t... J>(std::integral_constant<std::size_t, I>, std::index_sequence<J...>) -> RowVec {
             return RowVec{{static_cast<T>(I == J ? 1 : 0)...}};
         };
         return [init_row]<std::size_t... I>(std::index_sequence<I...>) {
             return Matrix(std::array<RowVec, D>{init_row(std::integral_constant<std::size_t, I>{}, std::make_index_sequence<D>{})...});
-        }
-        (std::make_index_sequence<D>{});
+        }(std::make_index_sequence<D>{});
     }
 
     constexpr Matrix(std::initializer_list<RowVec> l) { std::move(l.begin(), l.end(), data.begin()); }
@@ -57,31 +58,35 @@ struct Matrix {
     operator const T*() const noexcept { return static_cast<const T*>(&data[0][0]); }
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
-        out << "[\n";
-        for (auto&& row : mat.data) {
-            out << " " << row << ",\n";
-        }
-        return out << "]" << std::flush;
+        auto s = fmt::format("\n{:::>.3f}\n", mat);
+        return out << s;
+    }
+
+    constexpr bool operator==(const Matrix& rhs) const noexcept {
+        for (unsigned row = 0; row < D; row++)
+            if (data[row] != rhs[row])
+                return false;
+        return true;
     }
 
     // Matrix Operation
-    Matrix operator+(const Matrix& rhs) const noexcept {
+    constexpr Matrix operator+(const Matrix& rhs) const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result.data[row] = data[row] + rhs[row];
         return result;
     }
 
-    Matrix operator-() const noexcept {
+    constexpr Matrix operator-() const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result.data[row] = -data[row];
         return result;
     }
-    Matrix operator-(const Matrix& rhs) const noexcept {
+    constexpr Matrix operator-(const Matrix& rhs) const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result.data[row] = data[row] - rhs[row];
         return result;
     }
-    Matrix operator*(const Matrix& rhs) const noexcept {
+    constexpr Matrix operator*(const Matrix& rhs) const noexcept {
         Matrix       result{};
         Vector<T, D> col_vec;
         for (unsigned col = 0; col < D; col++) {
@@ -93,80 +98,98 @@ struct Matrix {
         return result;
     }
 
-    Vector<T, D> operator*(const Vector<T, D>& rhs) const noexcept {
+    constexpr Vector<T, D> operator*(const Vector<T, D>& rhs) const noexcept {
         Vector<T, D> result;
         for (unsigned row = 0; row < D; row++) result[row] = dot(data[row], rhs);
         return result;
     }
-    Matrix operator*(const T& rhs) const noexcept {
+    constexpr Matrix operator*(const T& rhs) const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result[row] = data[row] * rhs;
         return result;
     }
-    friend Matrix operator*(const T& lhs, const Matrix& rhs) noexcept { return rhs * lhs; }
+    constexpr friend Matrix operator*(const T& lhs, const Matrix& rhs) noexcept { return rhs * lhs; }
 
-    Matrix operator/(const T& rhs) const noexcept {
+    constexpr Matrix operator/(const T& rhs) const noexcept {
         Matrix result;
         for (unsigned row = 0; row < D; row++) result[row] = data[row] / rhs;
         return result;
     }
 
-    Matrix& operator+=(const Matrix& rhs) noexcept {
+    constexpr Matrix& operator+=(const Matrix& rhs) noexcept {
         for (unsigned row = 0; row < D; row++) data[row] += rhs[row];
         return *this;
     }
-    Matrix& operator-=(const Matrix& rhs) noexcept {
+    constexpr Matrix& operator-=(const Matrix& rhs) noexcept {
         for (unsigned row = 0; row < D; row++) data[row] -= rhs[row];
         return *this;
     }
-    Matrix& operator*=(const T& rhs) noexcept {
+    constexpr Matrix& operator*=(const T& rhs) noexcept {
         for (unsigned row = 0; row < D; row++) data[row] *= rhs;
         return *this;
     }
-    Matrix& operator/=(const T& rhs) noexcept {
+    constexpr Matrix& operator/=(const T& rhs) noexcept {
         for (unsigned row = 0; row < D; row++) data[row] /= rhs;
         return *this;
     }
 #if defined(USE_ISPC)
-    Matrix operator+(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
+    Matrix operator+(const Matrix& rhs) const noexcept
+        requires IspcAccelerable<T>
+    {
         Matrix result{};
         ispc::vector_add(*this, rhs, result, D * D);
         return result;
     }
-    Matrix operator-() const noexcept requires IspcSpeedable<T> {
+    Matrix operator-() const noexcept
+        requires IspcAccelerable<T>
+    {
         Matrix result;
         ispc::vector_inverse(*this, result, D * D);
         return result;
     }
-    Matrix operator-(const Matrix& rhs) const noexcept requires IspcSpeedable<T> {
+    Matrix operator-(const Matrix& rhs) const noexcept
+        requires IspcAccelerable<T>
+    {
         Matrix result{};
         ispc::vector_sub(*this, rhs, result, D * D);
         return result;
     }
-    Matrix operator*(const T& rhs) const noexcept requires IspcSpeedable<T> {
+    Matrix operator*(const T& rhs) const noexcept
+        requires IspcAccelerable<T>
+    {
         Matrix result{};
         ispc::vector_mult(*this, rhs, result, D * D);
         return result;
     }
-    Matrix operator/(const T& rhs) const noexcept requires IspcSpeedable<T> {
+    Matrix operator/(const T& rhs) const noexcept
+        requires IspcAccelerable<T>
+    {
         Matrix result{};
         ispc::vector_div(*this, rhs, result, D * D);
         return result;
     }
 
-    Matrix& operator+=(const Matrix& rhs) noexcept requires IspcSpeedable<T> {
-        ispc::vector_add_assgin(*this, rhs, D * D);
+    Matrix& operator+=(const Matrix& rhs) noexcept
+        requires IspcAccelerable<T>
+    {
+        ispc::vector_add_assign(*this, rhs, D * D);
         return *this;
     }
-    Matrix& operator-=(const Matrix& rhs) noexcept requires IspcSpeedable<T> {
-        ispc::vector_sub_assgin(*this, rhs, D * D);
+    Matrix& operator-=(const Matrix& rhs) noexcept
+        requires IspcAccelerable<T>
+    {
+        ispc::vector_sub_assign(*this, rhs, D * D);
         return *this;
     }
-    Matrix& operator*=(const T& rhs) noexcept requires IspcSpeedable<T> {
-        ispc::vector_mult_assgin(*this, rhs, D * D);
+    Matrix& operator*=(const T& rhs) noexcept
+        requires IspcAccelerable<T>
+    {
+        ispc::vector_mult_assign(*this, rhs, D * D);
         return *this;
     }
-    Matrix& operator/=(const T& rhs) noexcept requires IspcSpeedable<T> {
+    Matrix& operator/=(const T& rhs) noexcept
+        requires IspcAccelerable<T>
+    {
         ispc::vector_div_assign(*this, rhs, D * D);
         return *this;
     }
@@ -224,7 +247,7 @@ template <typename T>
 Matrix<T, 3> inverse(const Matrix<T, 3>& mat) {
     T det = determinant(mat);
     if (det == 0) {
-        std::cerr << "[Math] Warning: the matrix is singular! Function will return a identity matrix!" << std::endl;
+        fmt::print("[Math] Warning: the matrix is singular! Function will return a identity matrix!\n");
         return Matrix<T, 3>::identity();
     }
     T inv_det = static_cast<T>(1) / det;
@@ -271,7 +294,7 @@ Matrix<T, 4> inverse(const Matrix<T, 4>& mat) {
     det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
 
     if (det == 0) {
-        std::cerr << "[Math] Warning: the matrix is singular! Function will return a identity matrix!" << std::endl;
+        fmt::print("[Math] Warning: the matrix is singular! Function will return a identity matrix!\n");
         return Matrix<T, 4>::identity();
     }
     T inv_det = static_cast<T>(1) / det;
@@ -300,5 +323,8 @@ Matrix<T, D> absolute(const Matrix<T, D>& a) {
         for (unsigned col = 0; col < D; col++) res[row][col] = std::abs(a[row][col]);
     return res;
 }
+
+template <typename T, unsigned D>
+auto format_as(const Matrix<T, D>& m) { return fmt::join(m.data, ", \n"); }
 
 }  // namespace hitagi::math

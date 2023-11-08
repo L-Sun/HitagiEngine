@@ -3,8 +3,6 @@
 
 #include <vulkan/vulkan_raii.hpp>
 
-#include <deque>
-
 namespace hitagi::gfx {
 class VulkanDevice;
 
@@ -25,8 +23,8 @@ struct VulkanBindlessUtils : public BindlessUtils {
 
 private:
     struct BindlessHandlePool {
-        std::pmr::deque<BindlessHandle> pool;
-        std::mutex                      mutex{};
+        std::pmr::vector<BindlessHandle> pool;
+        std::mutex                       mutex{};
     };
     std::array<BindlessHandlePool, 4> m_BindlessHandlePools{};
 };

@@ -4,7 +4,6 @@
 #include <hitagi/math/vector.hpp>
 #include <hitagi/utils/types.hpp>
 
-#include <vector>
 #include <filesystem>
 
 namespace hitagi {
@@ -27,6 +26,7 @@ struct AppConfig {
     std::uint32_t         width           = 800;
     std::uint32_t         height          = 800;
     std::filesystem::path asset_root_path = "assets";
+    std::pmr::string      gfx_backend     = "Vulkan";
 };
 
 class Application : public RuntimeModule {

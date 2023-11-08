@@ -13,8 +13,6 @@ class VulkanSwapChain;
 
 struct VulkanBuffer final : public GPUBuffer {
     VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data);
-    VulkanBuffer(const VulkanBuffer&) = delete;
-    VulkanBuffer(VulkanBuffer&&)      = default;
     ~VulkanBuffer() final;
 
     auto Map() -> std::byte* final;
@@ -22,6 +20,9 @@ struct VulkanBuffer final : public GPUBuffer {
 
     std::unique_ptr<vk::raii::Buffer> buffer;
     VmaAllocation                     allocation = nullptr;
+
+    std::mutex    map_mutex;
+    std::uint16_t mapped_count{0};
 };
 
 struct VulkanImage final : public Texture {
@@ -35,7 +36,6 @@ struct VulkanImage final : public Texture {
     vk::Image                      image_handle;
     const VulkanSwapChain*         swap_chain = nullptr;
 
-    // TODO move image view to bindless
     std::optional<vk::raii::ImageView> image_view;
 
     VmaAllocation allocation = nullptr;
@@ -87,15 +87,12 @@ private:
 };
 
 struct VulkanShader final : public Shader {
-    VulkanShader(VulkanDevice& device, ShaderDesc desc, std::span<const std::byte> binary_program);
+    VulkanShader(VulkanDevice& device, ShaderDesc desc);
 
     auto GetSPIRVData() const noexcept -> std::span<const std::byte> final;
 
     core::Buffer           binary_program;
     vk::raii::ShaderModule shader;
-
-private:
-    void Compile();
 };
 
 struct VulkanRenderPipeline final : public RenderPipeline {

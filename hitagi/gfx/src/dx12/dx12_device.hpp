@@ -29,7 +29,7 @@ public:
     auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
     auto CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> final;
 
-    auto CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> final;
+    auto CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> final;
     auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> final;
     auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> final;
 
@@ -43,7 +43,6 @@ public:
     inline auto  GetAllocator() const noexcept { return m_MemoryAllocator; }
     inline auto& GetRTVDescriptorAllocator() const noexcept { return *m_RTVDescriptorAllocator; }
     inline auto& GetDSVDescriptorAllocator() const noexcept { return *m_DSVDescriptorAllocator; }
-    inline auto& GetShaderCompiler() const noexcept { return m_ShaderCompiler; }
 
 private:
     static void ReportDebugLog(const ComPtr<ID3D12Device>& device);
@@ -51,9 +50,9 @@ private:
     void IntegrateD3D12Logger();
     void UnregisterIntegratedD3D12Logger();
 
-    ComPtr<IDXGIFactory6> m_Factory;
+    ComPtr<IDXGIFactory2> m_Factory;
     ComPtr<IDXGIAdapter4> m_Adapter;
-    ComPtr<ID3D12Device9> m_Device;
+    ComPtr<ID3D12Device>  m_Device;
 
     D3D12MA::ALLOCATION_CALLBACKS                                       m_CustomAllocationCallback;
     std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>> m_CustomAllocationInfos;
@@ -67,7 +66,5 @@ private:
     std::unique_ptr<DescriptorAllocator> m_DSVDescriptorAllocator;
 
     std::unique_ptr<DX12BindlessUtils> m_BindlessUtils;
-
-    ShaderCompiler m_ShaderCompiler;
 };
 }  // namespace hitagi::gfx

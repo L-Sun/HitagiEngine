@@ -1,19 +1,14 @@
 #include <hitagi/ecs/world.hpp>
 #include <hitagi/ecs/schedule.hpp>
+#include <hitagi/utils/logger.hpp>
 
 #include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace hitagi::ecs {
 World::World(std::string_view name)
     : m_Name(name),
+      m_Logger(utils::try_create_logger(name)),
       m_EntityManager(*this) {
-    if (auto logger = spdlog::get(std::string{name}); logger)
-        m_Logger = logger;
-    else
-        m_Logger = spdlog::stdout_color_mt(name.data());
-
-    m_Logger->debug("Create {} world!", name);
 }
 
 void World::Update() {
@@ -26,8 +21,8 @@ void World::Update() {
     schedule.Run();
 }
 
-void World::LogMessage(std::string_view message) {
-    m_Logger->debug(message);
+void World::WarnMessage(std::string_view message) {
+    m_Logger->warn(message);
 }
 
 }  // namespace hitagi::ecs

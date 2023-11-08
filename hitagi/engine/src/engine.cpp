@@ -9,10 +9,6 @@ using namespace std::literals;
 
 namespace hitagi {
 Engine::Engine(const std::filesystem::path& config_path) : RuntimeModule("Engine") {
-#ifdef _DEBUG
-    spdlog::set_level(spdlog::level::debug);
-#endif
-
     m_Logger->info("Initialize Engine");
 
     auto add_inner_module = [&]<typename T>(std::unique_ptr<T> module) -> T* {
@@ -24,9 +20,19 @@ Engine::Engine(const std::filesystem::path& config_path) : RuntimeModule("Engine
     file_io_manager = add_inner_module(std::make_unique<core::FileIOManager>());
     m_App           = add_inner_module(Application::CreateApp(config_path));
     m_GuiManager    = add_inner_module(std::make_unique<gui::GuiManager>(*m_App));
-    m_Renderer      = add_inner_module(std::make_unique<render::ForwardRenderer>(*m_App, gfx::Device::Type::DX12, m_GuiManager));
+    m_Renderer      = add_inner_module(std::make_unique<render::ForwardRenderer>(*m_App, m_GuiManager));
     asset_manager   = add_inner_module(std::make_unique<asset::AssetManager>(m_App->GetConfig().asset_root_path));
     debug_manager   = add_inner_module(std::make_unique<debugger::DebugManager>());
+}
+
+Engine::~Engine() {
+    m_Logger->info("Remove global pointer");
+    memory_manager  = nullptr;
+    thread_manager  = nullptr;
+    file_io_manager = nullptr;
+    m_App           = nullptr;
+    asset_manager   = nullptr;
+    debug_manager   = nullptr;
 }
 
 void Engine::Tick() {

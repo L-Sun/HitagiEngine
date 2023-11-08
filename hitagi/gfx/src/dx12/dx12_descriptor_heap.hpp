@@ -2,10 +2,8 @@
 #include <d3d12.h>
 #include <wrl.h>
 
-#include <cstdint>
 #include <mutex>
 #include <deque>
-#include <list>
 
 using namespace Microsoft::WRL;
 

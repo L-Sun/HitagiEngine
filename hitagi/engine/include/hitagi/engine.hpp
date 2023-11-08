@@ -11,6 +11,7 @@ namespace hitagi {
 class Engine : public RuntimeModule {
 public:
     Engine(const std::filesystem::path& config_path = "hitagi.json");
+    ~Engine();
 
     void Tick() final;
 

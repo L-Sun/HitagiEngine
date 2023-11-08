@@ -14,10 +14,15 @@ add_rules(
 )
 
 if is_mode("debug") then
-    add_defines("HITAGI_DEBUG")
+    add_defines("HITAGI_DEBUG", "_DEBUG")
 end
+
 if is_plat("windows") then 
-    set_runtimes("MD")
+    if is_mode("debug") then
+        set_runtimes("MDd")
+    else 
+        set_runtimes("MD")
+    end
 end
 
 option("profile")

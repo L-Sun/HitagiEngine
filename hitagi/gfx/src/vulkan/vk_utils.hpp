@@ -4,6 +4,7 @@
 
 #include <hitagi/gfx/sync.hpp>
 #include <hitagi/gfx/command_context.hpp>
+#include <hitagi/gfx/utils.hpp>
 #include <hitagi/utils/array.hpp>
 #include <hitagi/utils/soa.hpp>
 
@@ -87,9 +88,19 @@ inline constexpr auto get_command_label_color(CommandType type) {
 template <typename T>
 inline void create_vk_debug_object_info(const T& obj, std::string_view name, const vk::raii::Device& vk_device) {
 #ifdef HITAGI_DEBUG
+    std::uintptr_t object_handle;
+    if constexpr (std::is_convertible_v<decltype(*obj), typename T::CType>) {
+        object_handle = reinterpret_cast<std::uintptr_t>(static_cast<typename T::CType>(*obj));
+    } else if constexpr (std::is_convertible_v<decltype(obj), typename T::CType>) {
+        object_handle = reinterpret_cast<std::uintptr_t>(static_cast<typename T::CType>(obj));
+    } else {
+        []<bool flag = false>() { static_assert(flag, "Unsupported type"); }
+        ();
+    }
+
     vk_device.setDebugUtilsObjectNameEXT({
         .objectType   = obj.objectType,
-        .objectHandle = reinterpret_cast<std::uintptr_t>(static_cast<typename T::CType>(*obj)),
+        .objectHandle = object_handle,
         .pObjectName  = name.data(),
     });
 #endif
@@ -347,6 +358,48 @@ inline constexpr auto from_vk_format(vk::Format format) noexcept -> Format {
     }
 }
 
+inline constexpr auto from_spv_format(SpvReflectFormat format) noexcept -> Format {
+    switch (format) {
+        case SPV_REFLECT_FORMAT_R32_UINT:
+            return Format::R32_UINT;
+        case SPV_REFLECT_FORMAT_R32_SINT:
+            return Format::R32_SINT;
+        case SPV_REFLECT_FORMAT_R32_SFLOAT:
+            return Format::R32_FLOAT;
+        case SPV_REFLECT_FORMAT_R32G32_UINT:
+            return Format::R32G32_UINT;
+        case SPV_REFLECT_FORMAT_R32G32_SINT:
+            return Format::R32G32_SINT;
+        case SPV_REFLECT_FORMAT_R32G32_SFLOAT:
+            return Format::R32G32_FLOAT;
+        case SPV_REFLECT_FORMAT_R32G32B32_UINT:
+            return Format::R32G32B32_UINT;
+        case SPV_REFLECT_FORMAT_R32G32B32_SINT:
+            return Format::R32G32B32_SINT;
+        case SPV_REFLECT_FORMAT_R32G32B32_SFLOAT:
+            return Format::R32G32B32_FLOAT;
+        case SPV_REFLECT_FORMAT_R32G32B32A32_UINT:
+            return Format::R32G32B32A32_UINT;
+        case SPV_REFLECT_FORMAT_R32G32B32A32_SINT:
+            return Format::R32G32B32A32_SINT;
+        case SPV_REFLECT_FORMAT_R32G32B32A32_SFLOAT:
+            return Format::R32G32B32A32_FLOAT;
+        default:
+            return Format::UNKNOWN;
+    }
+}
+
+inline auto to_vertex_attribute(SpvReflectInterfaceVariable variable) -> VertexAttribute {
+    const auto semantic_name_index = split_semantic(variable.semantic);
+
+    return {
+        .semantic = std::pmr::string(fmt::format("{}{}", semantic_name_index.first, semantic_name_index.second)),
+        .format   = from_spv_format(variable.format),
+        .binding  = variable.location,
+        .stride   = get_format_byte_size(from_spv_format(variable.format)),
+    };
+}
+
 inline constexpr auto to_vk_address_mode(AddressMode mode) noexcept -> vk::SamplerAddressMode {
     switch (mode) {
         case AddressMode::Clamp:
@@ -380,6 +433,13 @@ inline constexpr auto to_vk_mipmap_filter_mode(FilterMode mode) noexcept -> vk::
         default:
             return vk::SamplerMipmapMode::eNearest;
     }
+}
+
+inline constexpr auto to_vk_rect(Rect rect) noexcept -> vk::Rect2D {
+    return {
+        .offset = {static_cast<std::int32_t>(rect.x), static_cast<std::int32_t>(rect.y)},
+        .extent = {rect.width, rect.height},
+    };
 }
 
 inline constexpr auto to_vk_extent3D(math::vec3u value) noexcept -> vk::Extent3D {
@@ -430,10 +490,10 @@ inline constexpr auto to_vk_image_usage(TextureUsageFlags usages) noexcept -> vk
     if (utils::has_flag(usages, TextureUsageFlags::UAV)) {
         vk_usages |= vk::ImageUsageFlagBits::eStorage;
     }
-    if (utils::has_flag(usages, TextureUsageFlags::RTV)) {
+    if (utils::has_flag(usages, TextureUsageFlags::RenderTarget)) {
         vk_usages |= vk::ImageUsageFlagBits::eColorAttachment;
     }
-    if (utils::has_flag(usages, TextureUsageFlags::DSV)) {
+    if (utils::has_flag(usages, TextureUsageFlags::DepthStencil)) {
         vk_usages |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
     }
     return vk_usages;
@@ -487,6 +547,8 @@ inline constexpr auto to_vk_shader_stage(ShaderType type) noexcept -> vk::Shader
             return vk::ShaderStageFlagBits::eGeometry;
         case ShaderType::Compute:
             return vk::ShaderStageFlagBits::eCompute;
+        default:
+            utils::unreachable();
     }
 }
 
@@ -897,14 +959,17 @@ inline constexpr auto to_vk_pipeline_stage2(PipelineStage stage) noexcept -> vk:
     return result;
 }
 
-inline constexpr auto to_vk_image_aspect(TextureUsageFlags usages) -> vk::ImageAspectFlags {
+inline constexpr auto get_vk_image_aspect(const TextureDesc& desc) noexcept -> vk::ImageAspectFlags {
     vk::ImageAspectFlags result = vk::ImageAspectFlagBits::eNone;
-    if (utils::has_flag(usages, TextureUsageFlags::DSV)) {
-        result |= (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
+    if (utils::has_flag(desc.usages, TextureUsageFlags::DepthStencil)) {
+        if (desc.format == Format::D32_FLOAT_S8X24_UINT || desc.format == Format::D24_UNORM_S8_UINT)
+            result |= (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
+        if (desc.format == Format::D32_FLOAT || desc.format == Format::D16_UNORM)
+            result |= vk::ImageAspectFlagBits::eDepth;
     }
-    if (utils::has_flag(usages, TextureUsageFlags::RTV) ||
-        utils::has_flag(usages, TextureUsageFlags::SRV) ||
-        utils::has_flag(usages, TextureUsageFlags::UAV)) {
+    if (utils::has_flag(desc.usages, TextureUsageFlags::RenderTarget) ||
+        utils::has_flag(desc.usages, TextureUsageFlags::SRV) ||
+        utils::has_flag(desc.usages, TextureUsageFlags::UAV)) {
         result |= vk::ImageAspectFlagBits::eColor;
     }
     return result;
@@ -992,12 +1057,21 @@ inline constexpr auto to_vk_image_view_create_info(const TextureDesc& desc, vk::
         .viewType         = to_vk_image_view_type(desc),
         .format           = to_vk_format(desc.format),
         .subresourceRange = vk::ImageSubresourceRange{
-            .aspectMask     = to_vk_image_aspect(desc.usages),
+            .aspectMask     = get_vk_image_aspect(desc),
             .baseMipLevel   = 0,
             .levelCount     = desc.mip_levels,
             .baseArrayLayer = 0,
             .layerCount     = desc.array_size,
         },
+    };
+}
+
+inline constexpr auto to_vk_image_subresource_layer(const TextureSubresourceLayer subresource, const TextureDesc& desc) -> vk::ImageSubresourceLayers {
+    return vk::ImageSubresourceLayers{
+        .aspectMask     = get_vk_image_aspect(desc),
+        .mipLevel       = subresource.mip_level,
+        .baseArrayLayer = subresource.base_array_layer,
+        .layerCount     = subresource.layer_count,
     };
 }
 
@@ -1035,7 +1109,7 @@ inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemor
         .newLayout        = to_vk_image_layout(barrier.dst_layout),
         .image            = vk_image,
         .subresourceRange = {
-            .aspectMask     = to_vk_image_aspect(barrier.texture.GetDesc().usages),
+            .aspectMask     = get_vk_image_aspect(barrier.texture.GetDesc()),
             .baseMipLevel   = 0,
             .levelCount     = barrier.texture.GetDesc().mip_levels,
             .baseArrayLayer = 0,

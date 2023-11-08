@@ -18,7 +18,7 @@ static void BM_DefaultAllocate(benchmark::State& state) {
 }
 BENCHMARK(BM_DefaultAllocate);
 
-static void BM_StdUnsynchronized(benchmark::State& state) {
+static void BM_StdUnSynchronized(benchmark::State& state) {
     std::pmr::unsynchronized_pool_resource res{};
 
     for (auto _ : state) {
@@ -31,7 +31,7 @@ static void BM_StdUnsynchronized(benchmark::State& state) {
         }
     }
 }
-BENCHMARK(BM_StdUnsynchronized);
+BENCHMARK(BM_StdUnSynchronized);
 
 static void BM_StdSynchronized(benchmark::State& state) {
     std::pmr::synchronized_pool_resource res{};
@@ -49,7 +49,7 @@ static void BM_StdSynchronized(benchmark::State& state) {
 BENCHMARK(BM_StdSynchronized);
 
 static void BM_PmrAllocate(benchmark::State& state) {
-    core::MemoryPool pool{};
+    core::MemoryPool pool{spdlog::default_logger()};
 
     for (auto _ : state) {
         std::pmr::vector<std::pmr::string> strs{&pool};

@@ -1,277 +1,447 @@
-#include <hitagi/gfx/render_graph.hpp>
 #include <hitagi/application.hpp>
+#include <hitagi/math/transform.hpp>
+#include <hitagi/core/memory_manager.hpp>
+#include <hitagi/render_graph/render_graph.hpp>
 #include <hitagi/utils/test.hpp>
 
 using namespace hitagi::gfx;
+using namespace hitagi::rg;
 using namespace hitagi::math;
 using namespace testing;
 
-// clang-format off
-constexpr std::array<vec3f, 3> triangle = {{
-    {-0.25f, -0.25f, 0.00f}, 
-    { 0.00f,  0.25f, 0.00f}, 
-    { 0.25f, -0.25f, 0.00f}, 
-}};
-// clang-format on
-
-constexpr std::array supported_device_types = {
-    Device::Type::DX12,
-    Device::Type::Vulkan,
-};
-
-class RenderGraphTest : public TestWithParam<Device::Type> {
+class RenderGraphTest : public Test {
 protected:
     RenderGraphTest()
         : test_name(UnitTest::GetInstance()->current_test_info()->name()),
-          app(hitagi::Application::CreateApp(
-              hitagi::AppConfig{
-                  .title = std::pmr::string{fmt::format("App-{}", test_name)},
-              })),
-          device(Device::Create(GetParam(), fmt::format("Device-{}", test_name))),
-          rg(*device, fmt::format("RenderGraph-{}", test_name)) {
+          device(Device::Create(Device::Type::DX12, test_name)),
+          rg(*device, test_name) {
     }
 
     void SetUp() override {
         ASSERT_TRUE(device) << "Failed to create device";
     }
-    std::pmr::string                     test_name;
-    std::unique_ptr<hitagi::Application> app;
-    std::unique_ptr<Device>              device;
-    RenderGraph                          rg;
+
+    std::string             test_name;
+    std::shared_ptr<Device> device;
+    RenderGraph             rg;
 };
 
-INSTANTIATE_TEST_SUITE_P(
-    RenderGraphTest,
-    RenderGraphTest,
-    ValuesIn(supported_device_types),
-    [](const TestParamInfo<Device::Type>& info) -> std::string {
-        return std::string{magic_enum::enum_name(info.param)};
+TEST_F(RenderGraphTest, ImportBuffer) {
+    const auto buffer_0 = device->CreateGPUBuffer({
+        .name          = std::pmr::string(fmt::format("Buffer-{}", test_name)),
+        .element_size  = sizeof(float),
+        .element_count = 16,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
 
-TEST_P(RenderGraphTest, ImportBuffer) {
-    auto buffer = device->CreateGPUBuffer({
-        .name         = "TestBuffer",
-        .element_size = 1024,
-        .usages       = GPUBufferUsageFlags::Constant,
+    // import with empty name
+    const auto buffer_handle_0 = rg.Import(buffer_0);
+    EXPECT_TRUE(rg.IsValid(buffer_handle_0)) << "Import buffer with empty name should succeed";
+    EXPECT_EQ(rg.Import(buffer_0, "new_name"), buffer_handle_0) << "Reimport buffer with new name should return same handle";
+
+    const auto buffer_1 = device->CreateGPUBuffer({
+        .name          = std::pmr::string(fmt::format("Buffer-{}", test_name)),
+        .element_size  = sizeof(float),
+        .element_count = 16,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
 
-    auto buffer_handle = rg.Import(buffer);
-    EXPECT_TRUE(buffer_handle);
+    const auto buffer_handle_1 = rg.Import(buffer_1, buffer_1->GetName());
+    EXPECT_TRUE(rg.IsValid(buffer_handle_1)) << "Import buffer with name should succeed";
+    EXPECT_EQ(rg.Import(buffer_1, buffer_1->GetName()), buffer_handle_1) << "Reimport buffer with same name should return same handle";
+    EXPECT_EQ(rg.Import(buffer_1, "alias_name"), buffer_handle_1) << "Reimport buffer with alias name should return same handle";
+
+    // Fail cases
+    {
+        std::shared_ptr<GPUBuffer> null_buffer = nullptr;
+
+        EXPECT_FALSE(rg.IsValid(rg.Import(null_buffer))) << "Import nullptr should fail";
+        EXPECT_FALSE(rg.IsValid(rg.Import(null_buffer, "null_buffer"))) << "Import nullptr should fail";
+
+        const auto diff_buffer = device->CreateGPUBuffer({
+            .name          = std::pmr::string(fmt::format("Buffer-{}", test_name)),
+            .element_size  = sizeof(float),
+            .element_count = 16,
+            .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        });
+        EXPECT_FALSE(rg.IsValid(rg.Import(diff_buffer, buffer_1->GetName()))) << "Import buffer with existed name but different buffer should fail";
+    }
 }
 
-TEST_P(RenderGraphTest, ImportTexture) {
-    auto texture = device->CreateTexture({
-        .name   = "TestTexture",
-        .width  = 1024,
-        .height = 1024,
+TEST_F(RenderGraphTest, ImportTexture) {
+    const auto texture_0 = device->CreateTexture({
+        .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+        .width  = 16,
+        .height = 16,
         .depth  = 1,
         .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV,
+    });
+    // import with empty name
+    const auto texture_handle_0 = rg.Import(texture_0);
+    EXPECT_TRUE(rg.IsValid(texture_handle_0)) << "Import texture with empty name should succeed";
+    EXPECT_EQ(rg.Import(texture_0, "new_name"), texture_handle_0) << "Reimport texture with new name should return same handle";
+
+    const auto texture_1 = device->CreateTexture({
+        .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+        .width  = 16,
+        .height = 16,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV,
     });
 
-    auto texture_handle = rg.Import(texture);
-    EXPECT_TRUE(texture_handle);
+    const auto texture_handle_1 = rg.Import(texture_1, texture_1->GetName());
+    EXPECT_TRUE(rg.IsValid(texture_handle_1)) << "Import texture with unique name should succeed";
+    EXPECT_EQ(rg.Import(texture_1, texture_1->GetName()), texture_handle_1) << "Reimport texture with same name should return same handle";
+    EXPECT_EQ(rg.Import(texture_1, "alias_name"), texture_handle_1) << "Reimport texture with alias name should return same handle";
+
+    // Fail cases
+    {
+        std::shared_ptr<Texture> null_texture = nullptr;
+
+        EXPECT_FALSE(rg.IsValid(rg.Import(null_texture))) << "Import nullptr should fail";
+        EXPECT_FALSE(rg.IsValid(rg.Import(null_texture, "null_texture"))) << "Import nullptr should fail";
+
+        const auto diff_texture = device->CreateTexture({
+            .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+            .width  = 16,
+            .height = 16,
+            .depth  = 1,
+            .format = Format::R8G8B8A8_UNORM,
+            .usages = TextureUsageFlags::SRV,
+        });
+        EXPECT_FALSE(rg.IsValid(rg.Import(diff_texture, texture_1->GetName()))) << "Import texture with existed name but different texture should fail";
+    }
 }
 
-TEST_P(RenderGraphTest, ImportSwapChain) {
+TEST_F(RenderGraphTest, CreateTexture) {
+    const auto texture_handle = rg.Create(
+        {
+            .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+            .width  = 16,
+            .height = 16,
+            .depth  = 1,
+            .format = Format::R8G8B8A8_UNORM,
+            .usages = TextureUsageFlags::SRV,
+        },
+        "texture");
+    ASSERT_TRUE(rg.IsValid(texture_handle)) << "Create texture should succeed";
+
+    EXPECT_EQ(rg.GetTextureHandle("texture"), texture_handle);
+}
+
+TEST_F(RenderGraphTest, MoveBuffer) {
+    const auto buffer_0 = device->CreateGPUBuffer({
+        .name          = std::pmr::string(fmt::format("Buffer-{}", test_name)),
+        .element_size  = sizeof(float),
+        .element_count = 16,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+    });
+
+    const auto buffer_handle_0 = rg.Import(buffer_0);
+    ASSERT_TRUE(rg.IsValid(buffer_handle_0));
+
+    const auto buffer_handle_1 = rg.MoveFrom(buffer_handle_0);
+    EXPECT_TRUE(rg.IsValid(buffer_handle_1)) << "Move buffer should succeed";
+    EXPECT_NE(buffer_handle_0, buffer_handle_1) << "Move buffer should return different handle";
+}
+
+TEST_F(RenderGraphTest, MoveTexture) {
+    const auto texture_0 = device->CreateTexture({
+        .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+        .width  = 16,
+        .height = 16,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV,
+    });
+
+    const auto texture_handle_0 = rg.Import(texture_0);
+    ASSERT_TRUE(rg.IsValid(texture_handle_0));
+
+    const auto texture_handle_1 = rg.MoveFrom(texture_handle_0);
+    EXPECT_TRUE(rg.IsValid(texture_handle_1)) << "Move texture should succeed";
+    EXPECT_NE(texture_handle_0, texture_handle_1) << "Move texture should return different handle";
+}
+
+TEST_F(RenderGraphTest, AddRenderPass) {
+    if (device->device_type == hitagi::gfx::Device::Type::Mock) {
+        GTEST_SKIP();
+    }
+
+    auto app = hitagi::Application::CreateApp();
+
     auto swap_chain = device->CreateSwapChain({
-        .name   = "TestSwapChain",
         .window = app->GetWindow(),
     });
 
-    auto swap_chain_handle = rg.Import(swap_chain);
-    EXPECT_TRUE(swap_chain_handle);
-}
-
-TEST_P(RenderGraphTest, PassTest) {
-    auto swap_chain = device->CreateSwapChain({
-        .name   = "TestSwapChain",
-        .window = app->GetWindow(),
-    });
-    auto rect       = app->GetWindowsRect();
-
-    auto vertex_shader = device->CreateShader({
-        .name        = fmt::format("TestVertexShader-{}", test_name),
+    const auto vertex_shader = device->CreateShader({
+        .name        = std::pmr::string(fmt::format("VS-{}", test_name)),
         .type        = ShaderType::Vertex,
-        .entry       = "main",
-        .source_code = R"(
-            #include "bindless.hlsl"
-            struct Bindless {
-                hitagi::SimpleBuffer constant;
-            };
-
-            struct Constant{
-                float4 color[3];
-            };
-
+        .entry       = "vs_main",
+        .source_code = R"""(
             struct VSInput{
-                uint   index    : SV_VertexID;
                 float3 position : POSITION;
+                float3 color    : COLOR;
             };
 
-            struct PSInput{
+            struct VSOutput{
                 float4 position : SV_POSITION;
-                float4 color : COLOR;
+                float4 color    : COLOR;
             };
 
-            PSInput main(VSInput input) {
-                const Bindless bindless = hitagi::load_bindless<Bindless>();
-                Constant constant = bindless.constant.load<Constant>();
-
-                PSInput output;
-                output.position = float4(input.position, 1.0f);
-                output.color = constant.color[input.index];
+            VSOutput vs_main(VSInput input) {
+                VSOutput output;
+                output.position = float4(input.position, 1.0);
+                output.color    = float4(input.color,    1.0);
                 return output;
             }
-        )",
+        )""",
     });
-    auto pixel_shader  = device->CreateShader({
-         .name        = fmt::format("TestPixelShader-{}", test_name),
-         .type        = ShaderType::Pixel,
-         .entry       = "main",
-         .source_code = R"(
+    ASSERT_TRUE(vertex_shader);
+
+    const auto pixel_shader = device->CreateShader({
+        .name        = std::pmr::string(fmt::format("PS-{}", test_name)),
+        .type        = ShaderType::Pixel,
+        .entry       = "ps_main",
+        .source_code = R"""(
             struct PSInput{
                 float4 position : SV_POSITION;
                 float4 color    : COLOR;
             };
 
-            float4 main(PSInput input) : SV_TARGET {
+            float4 ps_main(PSInput input) : SV_TARGET {
                 return input.color;
             }
-        )",
+        )""",
+    });
+    ASSERT_TRUE(pixel_shader);
+
+    const auto vertex_input_layout = device->GetShaderCompiler().ExtractVertexLayout(vertex_shader->GetDesc());
+    const auto pipeline            = device->CreateRenderPipeline({
+                   .name                = std::pmr::string(fmt::format("Pipeline-{}", test_name)),
+                   .shaders             = {vertex_shader, pixel_shader},
+                   .vertex_input_layout = vertex_input_layout,
     });
 
-    auto pipeline = device->CreateRenderPipeline({
-        .name                = fmt::format("TestPipeline-{}", test_name),
-        .shaders             = {vertex_shader, pixel_shader},
-        .vertex_input_layout = {
-            {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, sizeof(vec3f), false},
-        },
-        .render_format = swap_chain->GetFormat(),
-    });
+    const auto render_pass =
+        RenderPassBuilder(rg)
+            .SetName("RenderPass")
+            .ReadAsVertices(rg.Create(
+                {
+                    .name          = std::pmr::string(fmt::format("positions-{}", test_name)),
+                    .element_size  = sizeof(vec3f),
+                    .element_count = 3,
+                    .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
+                },
+                "positions"))
+            .ReadAsVertices(rg.Create(
+                {
+                    .name          = std::pmr::string(fmt::format("colors-{}", test_name)),
+                    .element_size  = sizeof(vec3f),
+                    .element_count = 3,
+                    .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
+                },
+                "colors"))
+            .SetRenderTarget(rg.Create(
+                                 {
+                                     .name        = std::pmr::string(fmt::format("Texture-{}-{}", test_name, rg.GetFrameIndex())),
+                                     .width       = swap_chain->GetWidth(),
+                                     .height      = swap_chain->GetHeight(),
+                                     .format      = Format::R8G8B8A8_UNORM,
+                                     .clear_value = vec4f(0.0, 0.0, 0.0, 1.0),
+                                     .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+                                 },
+                                 "output"),
+                             true)
+            .AddPipeline(rg.Import(pipeline, "pipeline"))
+            .SetExecutor([=](const RenderGraph& rg, const RenderPassNode& pass) {
+                auto rotate_matrix = rotate_z(deg2rad(static_cast<float>(rg.GetFrameIndex())));
 
-    auto vertices_buffer = rg.Import(
-        device->CreateGPUBuffer({
-                                    .name          = "Triangle",
-                                    .element_size  = sizeof(vec3f),
-                                    .element_count = triangle.size(),
-                                    .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
-                                },
-                                {reinterpret_cast<const std::byte*>(triangle.data()), sizeof(vec3f) * triangle.size()}));
+                auto&                position_buffer = pass.Resolve(rg.GetBufferHandle("positions"));
+                GPUBufferView<vec3f> positions(position_buffer);
+                positions[0] = (rotate_matrix * vec4f{0.0f, 0.5f, 0.0f, 1.0f}).xyz;
+                positions[1] = (rotate_matrix * vec4f{0.5f, -0.5f, 0.0f, 1.0f}).xyz;
+                positions[2] = (rotate_matrix * vec4f{-0.5f, -0.5f, 0.0f, 1.0f}).xyz;
 
-    struct PassData {
-        ResourceHandle vertices;
-        ResourceHandle bindless;
-        ResourceHandle constant;
-        ResourceHandle output;
-    };
-    struct Bindless {
-        BindlessHandle constant;
-    };
-    auto render_pass = rg.AddPass<PassData, CommandType::Graphics>(
-        "TestPass",
-        [&](auto& builder, PassData& data) {
-            data.vertices = builder.Read(vertices_buffer);
-            data.bindless = builder.Read(rg.Create(GPUBufferDesc{
-                .name          = "BindlessInfo",
-                .element_size  = sizeof(Bindless),
-                .element_count = 3,
-                .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
-            }));
-            data.constant = builder.Read(rg.Create(GPUBufferDesc{
-                .name          = "TestBuffer",
-                .element_size  = sizeof(vec4f),
-                .element_count = 3,
-                .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
-            }));
-            data.output   = builder.Write(rg.Import(swap_chain), PipelineStage::Render);
-        },
-        [=](const ResourceHelper& helper, const PassData& data, GraphicsCommandContext& context) {
-            context.SetViewPort(ViewPort{
-                .x      = 0,
-                .y      = 0,
-                .width  = static_cast<float>(rect.right - rect.left),
-                .height = static_cast<float>(rect.bottom - rect.top),
-            });
-            context.SetScissorRect(hitagi::gfx::Rect{
-                .x      = rect.left,
-                .y      = rect.top,
-                .width  = rect.right - rect.left,
-                .height = rect.bottom - rect.top,
-            });
+                auto&                color_buffer = pass.Resolve(rg.GetBufferHandle("colors"));
+                GPUBufferView<vec3f> colors(color_buffer);
+                colors[0] = {1.0f, 0.0f, 0.0f};
+                colors[1] = {0.0f, 1.0f, 0.0f};
+                colors[2] = {0.0f, 0.0f, 1.0f};
 
-            auto constant_buffer = GPUBufferView<vec4f>(helper.Get<GPUBuffer>(data.constant));
-            constant_buffer[0]   = vec4f(1.0f, 0.00f, 0.00f, 1.0f);
-            constant_buffer[1]   = vec4f(0.0f, 1.00f, 0.00f, 1.0f);
-            constant_buffer[2]   = vec4f(0.0f, 0.00f, 1.00f, 1.0f);
-
-            auto bindless_infos        = GPUBufferView<Bindless>(helper.Get<GPUBuffer>(data.bindless));
-            bindless_infos[0].constant = helper.GetCBV(data.constant, 0);
-            bindless_infos[1].constant = helper.GetCBV(data.constant, 1);
-            bindless_infos[2].constant = helper.GetCBV(data.constant, 2);
-
-            std::pmr::vector<GPUBufferBarrier> gpu_buffer_barriers;
-            for (auto handle : {data.constant, data.bindless}) {
-                gpu_buffer_barriers.emplace_back(GPUBufferBarrier{
-                    .src_access = BarrierAccess::None,
-                    .dst_access = BarrierAccess::Constant,
-                    .src_stage  = PipelineStage::None,
-                    .dst_stage  = PipelineStage::VertexShader,
-                    .buffer     = helper.Get<GPUBuffer>(handle),
-
+                auto& cmd = pass.GetCmd();
+                cmd.SetPipeline(pass.Resolve(rg.GetRenderPipelineHandle("pipeline")));
+                cmd.SetViewPort({
+                    .x      = 0,
+                    .y      = 0,
+                    .width  = static_cast<float>(swap_chain->GetWidth()),
+                    .height = static_cast<float>(swap_chain->GetHeight()),
                 });
-            }
-            gpu_buffer_barriers.emplace_back(GPUBufferBarrier{
-                .src_access = BarrierAccess::None,
-                .dst_access = BarrierAccess::Vertex,
-                .src_stage  = PipelineStage::None,
-                .dst_stage  = PipelineStage::VertexInput,
-                .buffer     = helper.Get<GPUBuffer>(vertices_buffer),
-            });
+                cmd.SetScissorRect({
+                    .x      = 0,
+                    .y      = 0,
+                    .width  = swap_chain->GetWidth(),
+                    .height = swap_chain->GetHeight(),
+                });
 
-            context.ResourceBarrier(
-                {},
-                gpu_buffer_barriers,
-                {TextureBarrier{
-                    .src_access = BarrierAccess::None,
-                    .dst_access = BarrierAccess::RenderTarget,
-                    .src_stage  = PipelineStage::Render,
-                    .dst_stage  = PipelineStage::Render,
-                    .src_layout = TextureLayout::Unkown,
-                    .dst_layout = TextureLayout::RenderTarget,
-                    .texture    = helper.Get<Texture>(data.output),
-                }});
+                cmd.SetVertexBuffers(
+                    0,
+                    {{
+                        position_buffer,
+                        color_buffer,
+                    }},
+                    {{0, 0}});
+                cmd.Draw(3);
+            })
+            .Finish();
 
-            context.BeginRendering(helper.Get<Texture>(data.output));
-            {
-                context.SetPipeline(*pipeline);
-                context.SetVertexBuffer(0, helper.Get<GPUBuffer>(vertices_buffer));
+    EXPECT_TRUE(render_pass);
 
-                context.PushBindlessMetaInfo({.handle = helper.GetCBV(data.bindless, 0)});
-                context.Draw(3);
+    PresentPassBuilder(rg)
+        .From(rg.GetTextureHandle("output"))
+        .SetSwapChain(swap_chain)
+        .Finish();
 
-                context.PushBindlessMetaInfo({.handle = helper.GetCBV(data.bindless, 1)});
-                context.Draw(3);
+    EXPECT_TRUE(rg.Compile());
+    device->Profile(rg.Execute());
+    rg.Profile();
 
-                context.PushBindlessMetaInfo({.handle = helper.GetCBV(data.bindless, 2)});
-                context.Draw(3);
-            }
-            context.EndRendering();
-        });
-
-    rg.AddPresentPass(render_pass.output);
-
-    EXPECT_TRUE(render_pass.constant);
-    EXPECT_TRUE(render_pass.output);
-
-    rg.Compile();
-    rg.Execute();
     swap_chain->Present();
     app->Tick();
-    rg.GetDevice().WaitIdle();
+}
+
+TEST_F(RenderGraphTest, GraphTest) {
+    if (device->device_type != hitagi::gfx::Device::Type::Mock) {
+        GTEST_SKIP();
+    }
+
+    const auto render_pipeline  = rg.Import(device->CreateRenderPipeline({}));
+    const auto compute_pipeline = rg.Import(device->CreateComputePipeline({}));
+
+    const auto buffer_1 = rg.Create(GPUBufferDesc{
+        .name          = "buffer_1",
+        .element_size  = sizeof(float),
+        .element_count = 1,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
+    });
+
+    const auto buffer_2 = rg.Create(GPUBufferDesc{
+        .name          = "buffer_2",
+        .element_size  = sizeof(float),
+        .element_count = 1,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
+    });
+
+    const auto texture_1 = rg.Create(TextureDesc{
+        .name   = "texture_1",
+        .width  = 512,
+        .height = 512,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
+    });
+
+    const auto texture_2 = rg.Create(TextureDesc{
+        .name   = "texture_2",
+        .width  = 512,
+        .height = 512,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
+    });
+
+    const auto texture_3 = rg.MoveFrom(texture_1, "texture_3");
+
+    const auto texture_4 = rg.Create(TextureDesc{
+        .name   = "texture_4",
+        .width  = 512,
+        .height = 512,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::RenderTarget,
+    });
+
+    const auto compute_pass_1 =
+        ComputePassBuilder(rg)
+            .SetName("compute pass 1")
+            .Write(buffer_1)
+            .AddPipeline(compute_pipeline)
+            .SetExecutor([](const RenderGraph& rg, const ComputePassNode& node) {})
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(compute_pass_1));
+
+    const auto compute_pass_2 =
+        ComputePassBuilder(rg)
+            .SetName("compute pass 2")
+            .Write(buffer_2)
+            .AddPipeline(compute_pipeline)
+            .SetExecutor([](const RenderGraph& rg, const ComputePassNode& node) {})
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(compute_pass_2));
+
+    const auto render_pass_1 =
+        RenderPassBuilder(rg)
+            .SetName("render pass 1")
+            .Read(buffer_1, PipelineStage::VertexShader)
+            .Read(buffer_2, PipelineStage::PixelShader)
+            .SetRenderTarget(texture_1)
+            .AddPipeline(render_pipeline)
+            .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(render_pass_1));
+
+    const auto render_pass_2 =
+        RenderPassBuilder(rg)
+            .SetName("render pass 2")
+            .Read(buffer_1, PipelineStage::VertexShader)
+            .SetRenderTarget(texture_2)
+            .AddPipeline(render_pipeline)
+            .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(render_pass_2));
+
+    const auto render_pass_3 =
+        RenderPassBuilder(rg)
+            .SetName("render pass 3")
+            .Read(texture_1, {}, PipelineStage::PixelShader)
+            .Read(texture_2, {}, PipelineStage::PixelShader)
+            .SetRenderTarget(texture_3)
+            .AddPipeline(render_pipeline)
+            .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(render_pass_3));
+
+    const auto unused_render_pass =
+        RenderPassBuilder(rg)
+            .SetName("unused render pass")
+            .Read(texture_1, {}, PipelineStage::PixelShader)
+            .Read(texture_2, {}, PipelineStage::PixelShader)
+            .AddPipeline(render_pipeline)
+            .SetRenderTarget(texture_4)
+            .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(unused_render_pass));
+
+    PresentPassBuilder(rg)
+        .From(texture_3)
+        .SetSwapChain(device->CreateSwapChain({}))
+        .Finish();
+
+    EXPECT_TRUE(rg.Compile());
+    rg.Execute();
 }
 
 int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::trace);
-    InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    spdlog::set_level(spdlog::level::debug);
+    auto g_memory_manager  = std::make_unique<hitagi::core::MemoryManager>();
+    hitagi::memory_manager = g_memory_manager.get();
+
+    int result;
+    {
+        InitGoogleTest(&argc, argv);
+        result = RUN_ALL_TESTS();
+    }
+    return result;
 }

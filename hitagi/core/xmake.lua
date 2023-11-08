@@ -2,7 +2,7 @@ target("runtime_module_interface")
     set_kind("static")
     add_files("src/runtime_module.cpp")
     add_includedirs("include", {public = true})
-    add_deps("timer")
+    add_deps("timer", "utils")
     add_packages("spdlog", "tracy", {public = true})
 
 target("memory_manager")

@@ -2,6 +2,8 @@
 #include <hitagi/gfx/command_queue.hpp>
 #include <hitagi/gfx/gpu_resource.hpp>
 #include <hitagi/gfx/bindless.hpp>
+#include <hitagi/gfx/shader_compiler.hpp>
+#include <hitagi/gfx/sync.hpp>
 
 namespace spdlog {
 class logger;
@@ -37,21 +39,23 @@ public:
     virtual auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture>       = 0;
     virtual auto CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler>                                                     = 0;
 
-    virtual auto CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program = {}) -> std::shared_ptr<Shader> = 0;
-    virtual auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline>                         = 0;
-    virtual auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline>                      = 0;
+    virtual auto CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader>                            = 0;
+    virtual auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline>    = 0;
+    virtual auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> = 0;
 
     virtual auto GetBindlessUtils() -> BindlessUtils& = 0;
 
     virtual void Profile(std::size_t frame_index) const = 0;
 
-    inline auto GetLogger() const noexcept -> std::shared_ptr<spdlog::logger> { return m_Logger; }
+    inline auto& GetShaderCompiler() const noexcept { return m_ShaderCompiler; }
+    inline auto  GetLogger() const noexcept -> std::shared_ptr<spdlog::logger> { return m_Logger; }
 
 protected:
     Device(Type type, std::string_view name);
 
     std::pmr::string                m_Name;
     std::shared_ptr<spdlog::logger> m_Logger;
+    ShaderCompiler                  m_ShaderCompiler;
     std::function<void()>           report_debug_error_after_destroy_fn;
 };
 

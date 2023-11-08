@@ -4,9 +4,6 @@
 
 #include <hitagi/engine.hpp>
 
-#include <string>
-#include <unordered_set>
-
 namespace hitagi {
 class Editor : public RuntimeModule {
 public:
@@ -18,7 +15,7 @@ private:
     void FileImporter();
     void SceneGraphViewer();
     void SceneNodeModifier();
-    void AssetExploer();
+    void AssetExplorer();
 
     Engine&      m_Engine;
     Application& m_App;

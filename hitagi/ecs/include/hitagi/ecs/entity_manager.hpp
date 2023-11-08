@@ -12,19 +12,19 @@ class EntityManager {
 public:
     template <Component... Components>
     auto Create(const DynamicComponents& dynamic_components = {}) -> Entity
-        requires utils::UniqueTypes<Components...>;
+        requires utils::unique_types<Components...>;
 
     template <Component... Components>
     auto CreateMany(std::size_t num, const DynamicComponents& dynamic_components = {}) -> std::pmr::vector<Entity>
-        requires utils::UniqueTypes<Components...>;
+        requires utils::unique_types<Components...>;
 
     template <Component... Components>
     void Attach(Entity entity, const DynamicComponents& dynamic_components = {})
-        requires utils::UniqueTypes<Components...>;
+        requires utils::unique_types<Components...>;
 
     template <Component... Components>
     void Detach(Entity entity, const DynamicComponents& dynamic_components = {})
-        requires utils::UniqueTypes<Components...>;
+        requires utils::unique_types<Components...>;
 
     void Destory(Entity entity) noexcept;
 
@@ -55,14 +55,14 @@ private:
 
 template <Component... Components>
 auto EntityManager::Create(const DynamicComponents& dynamic_components) -> Entity
-    requires utils::UniqueTypes<Components...>
+    requires utils::unique_types<Components...>
 {
     return CreateMany<Components...>(1, dynamic_components)[0];
 }
 
 template <Component... Components>
 auto EntityManager::CreateMany(std::size_t num, const DynamicComponents& dynamic_components) -> std::pmr::vector<Entity>
-    requires utils::UniqueTypes<Components...>
+    requires utils::unique_types<Components...>
 {
     auto archetype_id = detials::get_archetype_id<Components...>(dynamic_components);
     // no component
@@ -86,10 +86,9 @@ auto EntityManager::CreateMany(std::size_t num, const DynamicComponents& dynamic
     return result;
 }
 
-// TODO
 template <Component... Components>
 void EntityManager::Attach(Entity entity, const DynamicComponents& dynamic_components)
-    requires utils::UniqueTypes<Components...>
+    requires utils::unique_types<Components...>
 {
     if (!m_EntityMaps.contains(entity))
         return;
@@ -101,7 +100,7 @@ void EntityManager::Attach(Entity entity, const DynamicComponents& dynamic_compo
 
 template <Component... Components>
 void EntityManager::Detach(Entity entity, const DynamicComponents& dynamic_components)
-    requires utils::UniqueTypes<Components...>
+    requires utils::unique_types<Components...>
 {}
 
 template <Component T>

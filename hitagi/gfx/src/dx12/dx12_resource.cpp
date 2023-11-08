@@ -4,19 +4,34 @@
 #include "dx12_utils.hpp"
 #include <hitagi/utils/utils.hpp>
 
+#include <d3d12shader.h>
 #include <fmt/color.h>
 #include <spdlog/logger.h>
+#include <range/v3/view/iota.hpp>
+#include <range/v3/view/transform.hpp>
+#include <range/v3/view/take.hpp>
+#include <range/v3/range/conversion.hpp>
 
 #include <algorithm>
 
 namespace hitagi::gfx {
-DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, desc) {
+DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, std::move(desc)) {
     const auto logger = device.GetLogger();
+
+    if (Size() == 0) {
+        const auto error_message = fmt::format(
+            "GPU buffer({}) size must be larger than 0",
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
+        logger->error(error_message);
+        throw std::invalid_argument(error_message);
+    }
 
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Index)) {
         if (m_Desc.element_size != sizeof(std::uint16_t) && m_Desc.element_size != sizeof(std::uint32_t)) {
-            logger->warn("Index buffer element size must be 16 bits or 32 bits");
+            const auto error_message = "Index buffer element size must be 16 bits or 32 bits";
+            logger->error(error_message);
+            throw std::invalid_argument(error_message);
         }
     }
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Constant)) {
@@ -33,7 +48,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
         if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Storage)) {
             auto error_message = fmt::format(
                 "GPU buffer({}) cannot be mapped and used as storage buffer at the same time",
-                fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+                fmt::styled(GetName(), fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::invalid_argument(error_message);
         }
@@ -43,14 +58,14 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
         if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Storage)) {
             auto error_message = fmt::format(
                 "GPU buffer({}) cannot be mapped and used as storage buffer at the same time",
-                fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+                fmt::styled(GetName(), fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::invalid_argument(error_message);
         }
         allocation_desc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
     }
 
-    logger->trace("Create GPU buffer({}) with {} bytes", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)), Size());
+    logger->trace("Create GPU buffer({}) with {} bytes", fmt::styled(GetName(), fmt::fg(fmt::color::green)), Size());
 
     auto resource_desc = CD3DX12_RESOURCE_DESC::Buffer(Size(), flags);
     if (FAILED(device.GetAllocator()->CreateResource(
@@ -62,19 +77,22 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
             IID_PPV_ARGS(&resource)))) {
         const auto error_message = fmt::format(
             "Failed to create GPU buffer({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::green)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
-    resource->SetName(std::wstring(m_Name.begin(), m_Name.end()).c_str());
+
+    set_debug_name(resource.Get(), GetName());
 
     if (!initial_data.empty()) {
+        logger->trace("Copy initial data to buffer({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+
         if (initial_data.size() % m_Desc.element_size != 0) {
             logger->warn(
                 "the initial data size({}) is not a multiple of element size({}) of gpu buffer({}), so the exceed data will not be copied!",
                 fmt::styled(initial_data.size(), fmt::fg(fmt::color::red)),
                 fmt::styled(m_Desc.element_size, fmt::fg(fmt::color::green)),
-                fmt::styled(desc.name, fmt::fg(fmt::color::green)));
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
         }
 
         if (initial_data.size() > m_Desc.element_count * m_Desc.element_size) {
@@ -82,25 +100,24 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
                 "the element_count({}) in initial data is larger than the buffer element_count({}), so the exceed data will not be copied!",
                 fmt::styled(initial_data.size() / m_Desc.element_size, fmt::fg(fmt::color::red)),
                 fmt::styled(m_Desc.element_count, fmt::fg(fmt::color::green)),
-                fmt::styled(desc.name, fmt::fg(fmt::color::green)));
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
         }
 
         if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
-            Map();
+            auto mapped_ptr = Map();
             if (m_ElementAlignment == 1 || m_ElementAlignment == m_Desc.element_size) {
-                std::memcpy(m_MappedPtr, initial_data.data(), initial_data.size());
+                std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
             } else {
-                std::size_t copy_count = std::min(initial_data.size() / m_Desc.element_size, m_Desc.element_count);
+                const std::size_t copy_count = std::min(initial_data.size() / m_Desc.element_size, m_Desc.element_count);
                 // TODO parallel copy
                 for (std::size_t i = 0; i < copy_count; i++) {
                     std::memcpy(
-                        m_MappedPtr + i * AlignedElementSize(),
+                        mapped_ptr + i * AlignedElementSize(),
                         initial_data.data() + i * m_Desc.element_size,
                         m_Desc.element_size);
                 }
             }
             UnMap();
-
         } else if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst)) {
             auto upload_buffer_usage_flags = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc;
             if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Constant)) {
@@ -109,7 +126,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
             auto upload_buffer = DX12GPUBuffer(
                 device,
                 {
-                    .name          = fmt::format("UploadBuffer-({})", m_Desc.name),
+                    .name          = std::pmr::string(fmt::format("UploadBuffer-({})", GetName())),
                     .element_size  = m_Desc.element_size,
                     .element_count = m_Desc.element_count,
                     .usages        = upload_buffer_usage_flags,
@@ -122,15 +139,15 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
             copy_context->End();
 
             auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
-            copy_queue.Submit({copy_context.get()});
+            copy_queue.Submit({{*copy_context}});
             copy_queue.WaitIdle();
         } else {
-            auto error_message = fmt::format(
+            const auto error_message = fmt::format(
                 "Can not initialize gpu buffer({}) using upload heap without the flag {} or {}, the actual flags are {}",
-                fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)),
-                fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
-                fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::MapWrite), fmt::fg(fmt::color::green)),
-                fmt::styled(magic_enum::enum_flags_name(m_Desc.usages), fmt::fg(fmt::color::red)));
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)),
+                fmt::styled(GPUBufferUsageFlags::CopyDst, fmt::fg(fmt::color::green)),
+                fmt::styled(GPUBufferUsageFlags::MapWrite, fmt::fg(fmt::color::green)),
+                fmt::styled(m_Desc.usages, fmt::fg(fmt::color::red)));
 
             logger->error(error_message);
             throw std::invalid_argument(error_message);
@@ -139,47 +156,54 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
 }
 
 auto DX12GPUBuffer::Map() -> std::byte* {
-    if (m_MappedPtr) return m_MappedPtr;
-
-    auto logger = m_Device.GetLogger();
+    const auto logger = m_Device.GetLogger();
     if (!utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead) && !utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
-        const auto error_message = fmt::format("Can not map GPU buffer({}) without usage flag {} or {}",
-                                               fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)),
-                                               fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::MapRead), fmt::fg(fmt::color::green)),
-                                               fmt::styled(magic_enum::enum_name(GPUBufferUsageFlags::MapWrite), fmt::fg(fmt::color::green)));
+        const auto error_message = fmt::format(
+            "Can not map GPU buffer({}) without usage flag {} or {}",
+            fmt::styled(GetName(), fmt::fg(fmt::color::green)),
+            fmt::styled(GPUBufferUsageFlags::MapRead, fmt::fg(fmt::color::green)),
+            fmt::styled(GPUBufferUsageFlags::MapWrite, fmt::fg(fmt::color::green)));
 
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
-    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead) ||
-        utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
-        if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&m_MappedPtr)))) {
-            const auto error_message = fmt::format(
-                "Failed to map GPU buffer({})",
-                fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
-            logger->error(error_message);
-            throw std::runtime_error(error_message);
-        }
+
+    std::byte* mapped_ptr = nullptr;
+    if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
+        const auto error_message = fmt::format(
+            "Failed to map GPU buffer({})",
+            fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+        logger->error(error_message);
+        throw std::runtime_error(error_message);
     }
-    return m_MappedPtr;
+    std::lock_guard lock(map_mutex);
+    mapped_count++;
+    return mapped_ptr;
 }
 
 void DX12GPUBuffer::UnMap() {
-    if (m_MappedPtr) {
-        resource->Unmap(0, nullptr);
-        m_MappedPtr = nullptr;
+    std::lock_guard lock(map_mutex);
+
+    if (mapped_count == 0) {
+        const auto error_message = fmt::format(
+            "Can not unmap GPU buffer({}) without map it!",
+            fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+        m_Device.GetLogger()->error(error_message);
+        throw std::runtime_error(error_message);
     }
+    mapped_count--;
+    resource->Unmap(0, nullptr);
 }
 
 DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(device, desc) {
     const auto logger = device.GetLogger();
 
-    logger->trace("Create texture({})", fmt::styled(desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     if (desc.width == 0 || desc.height == 0 || desc.depth == 0 || desc.array_size == 0) {
         const auto error_message = fmt::format(
             "Can not create zero size texture, Name: {}, the actual size is ({} x {} x {})[{}]",
-            fmt::styled(desc.name, fmt::fg(fmt::color::red)),
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)),
             fmt::styled(desc.width, fmt::fg(fmt::color::red)),
             fmt::styled(desc.height, fmt::fg(fmt::color::red)),
             fmt::styled(desc.depth, fmt::fg(fmt::color::red)),
@@ -192,10 +216,10 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
     if (utils::has_flag(desc.usages, TextureUsageFlags::UAV)) {
         resource_flag |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
-    if (utils::has_flag(desc.usages, TextureUsageFlags::RTV)) {
+    if (utils::has_flag(desc.usages, TextureUsageFlags::RenderTarget)) {
         resource_flag |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     }
-    if (utils::has_flag(desc.usages, TextureUsageFlags::DSV)) {
+    if (utils::has_flag(desc.usages, TextureUsageFlags::DepthStencil)) {
         resource_flag |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
     }
 
@@ -233,7 +257,7 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
     }
 
     std::optional<D3D12_CLEAR_VALUE> optimized_clear_value{};
-    if (desc.clear_value.has_value() && (utils::has_flag(desc.usages, TextureUsageFlags::DSV) || utils::has_flag(desc.usages, TextureUsageFlags::RTV))) {
+    if (desc.clear_value.has_value() && (utils::has_flag(desc.usages, TextureUsageFlags::DepthStencil) || utils::has_flag(desc.usages, TextureUsageFlags::RenderTarget))) {
         optimized_clear_value = to_d3d_clear_value(desc.clear_value.value(), desc.format);
         if (optimized_clear_value->Format == DXGI_FORMAT_R16_TYPELESS) {
             optimized_clear_value->Format = DXGI_FORMAT_D16_UNORM;
@@ -252,26 +276,27 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
             &resource_desc,
             D3D12_RESOURCE_STATE_COMMON,
             optimized_clear_value.has_value() ? &optimized_clear_value.value() : nullptr,
-            &allocation, IID_PPV_ARGS(&resource)))) {
-        const auto error_message = fmt::format("Can not create texture({})", fmt::styled(desc.name, fmt::fg(fmt::color::red)));
+            &allocation,
+            IID_PPV_ARGS(&resource)))) {
+        const auto error_message = fmt::format("Can not create texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
-    resource->SetName(std::pmr::wstring(desc.name.begin(), desc.name.end()).data());
+    set_debug_name(resource.Get(), GetName());
 
-    if (utils::has_flag(m_Desc.usages, TextureUsageFlags::RTV)) {
+    if (utils::has_flag(m_Desc.usages, TextureUsageFlags::RenderTarget)) {
         rtv                 = device.GetRTVDescriptorAllocator().Allocate();
         const auto rtv_desc = to_d3d_rtv_desc(m_Desc);
         device.GetDevice()->CreateRenderTargetView(resource.Get(), &rtv_desc, rtv.GetCPUHandle());
     }
-    if (utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)) {
+    if (utils::has_flag(m_Desc.usages, TextureUsageFlags::DepthStencil)) {
         dsv                 = device.GetDSVDescriptorAllocator().Allocate();
         const auto dsv_desc = to_d3d_dsv_desc(m_Desc);
         device.GetDevice()->CreateDepthStencilView(resource.Get(), &dsv_desc, dsv.GetCPUHandle());
     }
 
     if (!initial_data.empty()) {
-        logger->trace("Copy initial data to texture({})", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
+        logger->trace("Copy initial data to texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
             auto upload_buffer = DX12GPUBuffer(
@@ -301,14 +326,14 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
             copy_context->End();
 
             auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
-            copy_queue.Submit({copy_context.get()});
+            copy_queue.Submit({{*copy_context}});
             copy_queue.WaitIdle();
         } else {
             auto error_message = fmt::format(
                 "the texture({}) can not initialize with upload buffer without {}, the actual flags are {}",
-                fmt::styled(desc.name, fmt::fg(fmt::color::red)),
-                fmt::styled(magic_enum::enum_flags_name(TextureUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
-                fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
+                fmt::styled(GetName(), fmt::fg(fmt::color::red)),
+                fmt::styled(TextureUsageFlags::CopyDst, fmt::fg(fmt::color::green)),
+                fmt::styled(desc.usages, fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::invalid_argument(error_message);
         }
@@ -318,15 +343,15 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
 DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
     : Texture(swap_chain.GetDevice(),
               TextureDesc{
-                  .name        = fmt::format("{}-{}", swap_chain.GetName(), index),
+                  .name        = std::pmr::string(fmt::format("{}-{}", swap_chain.GetName(), index)),
                   .width       = swap_chain.GetWidth(),
                   .height      = swap_chain.GetHeight(),
                   .format      = swap_chain.GetFormat(),
-                  .clear_value = swap_chain.GetDesc().clear_value,
-                  .usages      = TextureUsageFlags::RTV | TextureUsageFlags::CopyDst,
+                  .clear_value = swap_chain.GetDesc().clear_color,
+                  .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopyDst,
               }) {
     const auto logger = m_Device.GetLogger();
-    logger->trace("Create swap chain back buffer ({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create swap chain back buffer ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     auto dx12_swap_chain = swap_chain.GetDX12SwapChain();
     if (FAILED(dx12_swap_chain->GetBuffer(index, IID_PPV_ARGS(&resource)))) {
@@ -335,7 +360,7 @@ DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
-    resource->SetName(std::pmr::wstring(m_Desc.name.begin(), m_Desc.name.end()).c_str());
+    set_debug_name(resource.Get(), GetName());
 
     rtv = static_cast<DX12Device&>(m_Device).GetRTVDescriptorAllocator().Allocate();
     D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
@@ -349,32 +374,28 @@ DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
     static_cast<DX12Device&>(m_Device).GetDevice()->CreateRenderTargetView(resource.Get(), &rtv_desc, rtv.GetCPUHandle());
 }
 
-DX12Sampler::DX12Sampler(DX12Device& device, SamplerDesc desc) : Sampler(device, desc) {
+DX12Sampler::DX12Sampler(DX12Device& device, SamplerDesc desc) : Sampler(device, std::move(desc)) {
     const auto logger = device.GetLogger();
-    logger->trace("Create sampler ({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create sampler ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 }
 
-DX12Shader::DX12Shader(DX12Device& device, ShaderDesc desc, std::span<const std::byte> _binary_program) : Shader(device, std::move(desc)) {
+DX12Shader::DX12Shader(DX12Device& device, ShaderDesc desc) : Shader(device, std::move(desc)) {
     const auto logger = device.GetLogger();
-    logger->trace("Create shader ({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create shader ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
-    if (_binary_program.empty()) {
-        binary_program = device.GetShaderCompiler().CompileToDXIL(m_Desc);
-        if (binary_program.Empty()) {
-            auto error_message = fmt::format(
-                "Failed to compile shader({})",
-                fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
-            logger->error(error_message);
-            throw std::runtime_error(error_message);
-        }
-    } else {
-        binary_program = _binary_program;
+    binary_program = device.GetShaderCompiler().CompileToDXIL(m_Desc);
+    if (binary_program.Empty()) {
+        auto error_message = fmt::format(
+            "Failed to compile shader({})",
+            fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+        logger->error(error_message);
+        throw std::runtime_error(error_message);
     }
 }
 
 DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc desc) : RenderPipeline(device, std::move(desc)) {
     const auto logger = device.GetLogger();
-    logger->trace("Create render pipeline ({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create render pipeline ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     D3D12_SHADER_BYTECODE vs{}, ps{}, gs{};
     for (const auto& _shader : m_Desc.shaders) {
@@ -383,7 +404,7 @@ DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc de
             if (dx12_shader == nullptr) {
                 auto error_message = fmt::format(
                     "Failed to cast shader({}) to DX12Shader",
-                    fmt::styled(shader->GetDesc().name, fmt::fg(fmt::color::green)));
+                    fmt::styled(shader->GetName(), fmt::fg(fmt::color::green)));
                 logger->error(error_message);
                 throw std::runtime_error(error_message);
             }
@@ -400,7 +421,7 @@ DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc de
                 case ShaderType::Compute: {
                     auto error_message = fmt::format(
                         "Compute shader is not supported in render pipeline({})",
-                        fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+                        fmt::styled(GetName(), fmt::fg(fmt::color::green)));
                     logger->error(error_message);
                     throw std::runtime_error(error_message);
                 }
@@ -433,16 +454,16 @@ DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc de
     if (FAILED(device.GetDevice()->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
         const auto error_message = fmt::format(
             "Failed to create graphics pipeline state({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
-    pipeline->SetName(std::pmr::wstring(m_Name.begin(), m_Name.end()).c_str());
+    set_debug_name(pipeline.Get(), GetName());
 }
 
 DX12ComputePipeline::DX12ComputePipeline(DX12Device& device, ComputePipelineDesc desc) : ComputePipeline(device, std::move(desc)) {
     const auto logger = device.GetLogger();
-    logger->trace("Create compute pipeline ({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create compute pipeline ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     const auto root_signature = static_cast<DX12BindlessUtils&>(device.GetBindlessUtils()).GetBindlessRootSignature().Get();
 
@@ -450,14 +471,14 @@ DX12ComputePipeline::DX12ComputePipeline(DX12Device& device, ComputePipelineDesc
     if (dx12_shader == nullptr) {
         const auto error_message = fmt::format(
             "Compute shader is not specified in compute pipeline({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     } else if (dx12_shader->GetDesc().type != ShaderType::Compute) {
         const auto error_message = fmt::format(
             "Shader({}) type is not compute in compute pipeline({})",
             fmt::styled(dx12_shader->GetName(), fmt::fg(fmt::color::red)),
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
@@ -471,16 +492,16 @@ DX12ComputePipeline::DX12ComputePipeline(DX12Device& device, ComputePipelineDesc
     if (FAILED(device.GetDevice()->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
         const auto error_message = fmt::format(
             "Failed to create compute pipeline state({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
-    pipeline->SetName(std::pmr::wstring(m_Name.begin(), m_Name.end()).c_str());
+    set_debug_name(pipeline.Get(), GetName());
 }
 
 DX12SwapChain::DX12SwapChain(DX12Device& device, SwapChainDesc desc) : SwapChain(device, desc) {
     const auto logger = device.GetLogger();
-    logger->trace("Create swap chain ({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create swap chain ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     if (desc.window.ptr == nullptr) {
         auto error_message = fmt::format(
@@ -503,8 +524,11 @@ DX12SwapChain::DX12SwapChain(DX12Device& device, SwapChainDesc desc) : SwapChain
     UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
     if (desc.vsync) {
+        ComPtr<IDXGIFactory5> factory5;
+        factory.As(&factory5);
+
         BOOL allow_tearing = false;
-        factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
+        factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof(allow_tearing));
         if (allow_tearing) {
             flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
         }
@@ -531,7 +555,7 @@ DX12SwapChain::DX12SwapChain(DX12Device& device, SwapChainDesc desc) : SwapChain
     if (FAILED(factory->CreateSwapChainForHwnd(gfx_queue.GetDX12Queue().Get(), h_wnd, &m_D3D12Desc, nullptr, nullptr, &p_swap_chain))) {
         const auto error_message = fmt::format(
             "Failed to create swap chain ({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
@@ -539,7 +563,7 @@ DX12SwapChain::DX12SwapChain(DX12Device& device, SwapChainDesc desc) : SwapChain
     if (FAILED(p_swap_chain.As(&m_SwapChain))) {
         const auto error_message = fmt::format(
             "Failed to create swap chain ({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
@@ -547,7 +571,7 @@ DX12SwapChain::DX12SwapChain(DX12Device& device, SwapChainDesc desc) : SwapChain
     if (FAILED(factory->MakeWindowAssociation(h_wnd, DXGI_MWA_NO_ALT_ENTER))) {
         const auto error_message = fmt::format(
             "Failed to make window association with swap chain({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }

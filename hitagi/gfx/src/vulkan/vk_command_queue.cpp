@@ -22,18 +22,18 @@ VulkanCommandQueue::VulkanCommandQueue(VulkanDevice& device, CommandType type, s
     create_vk_debug_object_info(m_Queue, m_Name, device.GetDevice());
 }
 
-void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& contexts,
-                                const std::pmr::vector<FenceWaitInfo>&   wait_fences,
-                                const std::pmr::vector<FenceSignalInfo>& signal_fences) {
+void VulkanCommandQueue::Submit(std::span<const std::reference_wrapper<const CommandContext>> contexts,
+                                std::span<const FenceWaitInfo>                                wait_fences,
+                                std::span<const FenceSignalInfo>                              signal_fences) {
     // make sure all context are same command type
     if (auto iter = std::find_if(
             contexts.begin(), contexts.end(),
-            [this](auto ctx) { return ctx->GetType() != m_Type; });
+            [this](const CommandContext& ctx) { return ctx.GetType() != m_Type; });
         iter != contexts.end()) {
         m_Device.GetLogger()->warn(
             "CommandContext type({}) mismatch({}). Do nothing!!!",
             fmt::styled(magic_enum::enum_name(m_Type), fmt::fg(fmt::color::red)),
-            fmt::styled(magic_enum::enum_name((*iter)->GetType()), fmt::fg(fmt::color::green)));
+            fmt::styled(magic_enum::enum_name((*iter).get().GetType()), fmt::fg(fmt::color::green)));
 
         return;
     }
@@ -42,14 +42,16 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
     std::transform(
         contexts.begin(), contexts.end(),
         std::back_inserter(command_buffers),
-        [](auto ctx) -> vk::CommandBuffer {
-            switch (ctx->GetType()) {
+        [](const CommandContext& ctx) -> vk::CommandBuffer {
+            switch (ctx.GetType()) {
                 case CommandType::Graphics:
-                    return *(dynamic_cast<VulkanGraphicsCommandBuffer*>(ctx)->command_buffer);
+                    return *(dynamic_cast<const VulkanGraphicsCommandBuffer&>(ctx).command_buffer);
                 case CommandType::Compute:
-                    return *(dynamic_cast<VulkanComputeCommandBuffer*>(ctx)->command_buffer);
+                    return *(dynamic_cast<const VulkanComputeCommandBuffer&>(ctx).command_buffer);
                 case CommandType::Copy:
-                    return *(dynamic_cast<VulkanTransferCommandBuffer*>(ctx)->command_buffer);
+                    return *(dynamic_cast<const VulkanTransferCommandBuffer&>(ctx).command_buffer);
+                default:
+                    utils::unreachable();
             }
         });
 
@@ -69,16 +71,28 @@ void VulkanCommandQueue::Submit(const std::pmr::vector<CommandContext*>& context
         signal_values.emplace_back(signal_info.value);
     }
 
-    for (auto ctx : contexts) {
-        if (ctx->GetType() == CommandType::Graphics) {
-            auto gfx_ctx = dynamic_cast<VulkanGraphicsCommandBuffer*>(ctx);
-            if (gfx_ctx->swap_chain_image_available_semaphore) {
-                wait_vk_semaphores.emplace_back(**gfx_ctx->swap_chain_image_available_semaphore);
+    for (const CommandContext& ctx : contexts) {
+        if (ctx.GetType() == CommandType::Graphics) {
+            auto& gfx_ctx = dynamic_cast<const VulkanGraphicsCommandBuffer&>(ctx);
+            if (gfx_ctx.swap_chain_image_available_semaphore) {
+                wait_vk_semaphores.emplace_back(**gfx_ctx.swap_chain_image_available_semaphore);
                 wait_values.emplace_back(0);
                 wait_stage.emplace_back(vk::PipelineStageFlagBits::eColorAttachmentOutput);
             }
 
-            for (const auto& swapchain_presentable_semaphore : gfx_ctx->swap_chain_presentable_semaphores) {
+            for (const auto& swapchain_presentable_semaphore : gfx_ctx.swap_chain_presentable_semaphores) {
+                signal_vk_semaphores.emplace_back(**swapchain_presentable_semaphore);
+                signal_values.emplace_back(0);
+            }
+        } else if (ctx.GetType() == CommandType::Copy) {
+            auto& transfer_ctx = dynamic_cast<const VulkanTransferCommandBuffer&>(ctx);
+            if (transfer_ctx.swap_chain_image_available_semaphore) {
+                wait_vk_semaphores.emplace_back(**transfer_ctx.swap_chain_image_available_semaphore);
+                wait_values.emplace_back(0);
+                wait_stage.emplace_back(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+            }
+
+            for (const auto& swapchain_presentable_semaphore : transfer_ctx.swap_chain_presentable_semaphores) {
                 signal_vk_semaphores.emplace_back(**swapchain_presentable_semaphore);
                 signal_values.emplace_back(0);
             }

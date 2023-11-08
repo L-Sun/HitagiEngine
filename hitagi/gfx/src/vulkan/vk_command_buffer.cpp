@@ -4,15 +4,17 @@
 #include "vk_utils.hpp"
 #include <hitagi/utils/exceptions.hpp>
 
+#include <range/v3/view/transform.hpp>
+#include <range/v3/range/conversion.hpp>
 #include <spdlog/logger.h>
 #include <fmt/color.h>
 
 namespace hitagi::gfx {
 
-inline void pipeline_barrier_fn(vk::raii::CommandBuffer&                  command_buffer,
-                                const std::pmr::vector<GlobalBarrier>&    global_barriers,
-                                const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
-                                const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+inline void pipeline_barrier_fn(vk::raii::CommandBuffer&          command_buffer,
+                                std::span<const GlobalBarrier>    global_barriers,
+                                std::span<const GPUBufferBarrier> buffer_barriers,
+                                std::span<const TextureBarrier>   texture_barriers) {
     // convert to vulkan barriers
     std::pmr::vector<vk::MemoryBarrier2>       vk_memory_barriers;
     std::pmr::vector<vk::BufferMemoryBarrier2> vk_buffer_barriers;
@@ -45,13 +47,40 @@ inline auto create_command_buffer(const VulkanDevice& device, CommandType type, 
     return command_buffer;
 }
 
+inline void copy_texture_region(const vk::raii::CommandBuffer& command_buffer,
+                                const Texture&                 src,
+                                math::vec3i                    src_offset,
+                                Texture&                       dst,
+                                math::vec3i                    dst_offset,
+                                math::vec3u                    extent,
+                                TextureSubresourceLayer        src_layer,
+                                TextureSubresourceLayer        dst_layer) {
+    auto& vk_src_image = static_cast<const VulkanImage&>(src);
+    auto& vk_dst_image = static_cast<const VulkanImage&>(dst);
+
+    const vk::ImageCopy copy_region = {
+        .srcSubresource = to_vk_image_subresource_layer(src_layer, src.GetDesc()),
+        .srcOffset      = to_vk_offset3D(src_offset),
+        .dstSubresource = to_vk_image_subresource_layer(dst_layer, dst.GetDesc()),
+        .dstOffset      = to_vk_offset3D(dst_offset),
+        .extent         = to_vk_extent3D(extent),
+    };
+
+    command_buffer.copyImage(
+        vk_src_image.image_handle,
+        to_vk_image_layout(src.GetCurrentLayout()),
+        vk_dst_image.image_handle,
+        to_vk_image_layout(dst.GetCurrentLayout()),
+        copy_region);
+}
+
 VulkanGraphicsCommandBuffer::VulkanGraphicsCommandBuffer(VulkanDevice& device, std::string_view name)
     : GraphicsCommandContext(device, name),
       command_buffer(create_command_buffer(device, CommandType::Graphics, name)) {}
 
-void VulkanGraphicsCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
-                                                  const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
-                                                  const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+void VulkanGraphicsCommandBuffer::ResourceBarrier(std::span<const GlobalBarrier>    global_barriers,
+                                                  std::span<const GPUBufferBarrier> buffer_barriers,
+                                                  std::span<const TextureBarrier>   texture_barriers) {
     pipeline_barrier_fn(command_buffer, global_barriers, buffer_barriers, texture_barriers);
 
     // workaround for swapchain semaphore
@@ -62,7 +91,8 @@ void VulkanGraphicsCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalB
 
         if (texture_barrier.dst_layout == TextureLayout::Present) {
             swap_chain_presentable_semaphores.emplace_back(vk_image.swap_chain->GetSemaphores().presentable);
-        } else if (texture_barrier.dst_layout == TextureLayout::RenderTarget) {
+        } else if (texture_barrier.dst_layout == TextureLayout::RenderTarget ||
+                   texture_barrier.dst_layout == TextureLayout::CopyDst) {
             swap_chain_image_available_semaphore = vk_image.swap_chain->GetSemaphores().image_available;
         }
     }
@@ -93,31 +123,47 @@ void VulkanGraphicsCommandBuffer::End() {
     command_buffer.end();
 }
 
-void VulkanGraphicsCommandBuffer::BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil) {
-    auto& vk_color_attachment_image = dynamic_cast<VulkanImage&>(render_target);
+void VulkanGraphicsCommandBuffer::BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil, bool clear_render_target, bool clear_depth_stencil) {
+    auto& vk_color_attachment_image = static_cast<VulkanImage&>(render_target);
 
-    vk::RenderingAttachmentInfo color_attachment, depth_stencil_attachment;
+    vk::RenderingAttachmentInfo color_attachment, depth_attachment, stencil_attachment;
 
     color_attachment = {
         .imageView   = *vk_color_attachment_image.image_view.value(),
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp      = vk_color_attachment_image.GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+        .loadOp      = clear_render_target && vk_color_attachment_image.GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
         .storeOp     = vk::AttachmentStoreOp::eStore,
-        .clearValue  = vk_color_attachment_image.GetDesc().clear_value
+        .clearValue  = clear_render_target && vk_color_attachment_image.GetDesc().clear_value
                            ? to_vk_clear_value(vk_color_attachment_image.GetDesc().clear_value.value())
                            : vk::ClearValue{},
     };
     if (depth_stencil.has_value()) {
-        auto& vk_depth_stencil_image = dynamic_cast<VulkanImage&>(depth_stencil->get());
-        depth_stencil_attachment     = {
-                .imageView   = *vk_depth_stencil_image.image_view.value(),
-                .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
-                .loadOp      = depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
-                .storeOp     = vk::AttachmentStoreOp::eStore,
-                .clearValue  = depth_stencil->get().GetDesc().clear_value
-                                   ? to_vk_clear_value(depth_stencil->get().GetDesc().clear_value.value())
-                                   : vk::ClearValue{},
+        auto& vk_depth_stencil_image = static_cast<VulkanImage&>(depth_stencil->get());
+        depth_attachment             = {
+                        .imageView   = *vk_depth_stencil_image.image_view.value(),
+                        .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
+                        .loadOp      = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+                        .storeOp     = vk::AttachmentStoreOp::eStore,
+                        .clearValue  = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value
+                                           ? to_vk_clear_value(depth_stencil->get().GetDesc().clear_value.value())
+                                           : vk::ClearValue{},
         };
+        switch (depth_stencil->get().GetDesc().format) {
+            case Format::D24_UNORM_S8_UINT:
+            case Format::D32_FLOAT_S8X24_UINT: {
+                stencil_attachment = {
+                    .imageView   = *vk_depth_stencil_image.image_view.value(),
+                    .imageLayout = vk::ImageLayout::eStencilAttachmentOptimal,
+                    .loadOp      = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+                    .storeOp     = vk::AttachmentStoreOp::eStore,
+                    .clearValue  = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value
+                                       ? to_vk_clear_value(depth_stencil->get().GetDesc().clear_value.value())
+                                       : vk::ClearValue{},
+                };
+            }
+            default:
+                break;
+        }
     }
 
     command_buffer.beginRendering({
@@ -131,8 +177,8 @@ void VulkanGraphicsCommandBuffer::BeginRendering(Texture& render_target, utils::
         .layerCount           = 1,
         .colorAttachmentCount = 1,
         .pColorAttachments    = &color_attachment,
-        .pDepthAttachment     = &depth_stencil_attachment,
-        .pStencilAttachment   = &depth_stencil_attachment,
+        .pDepthAttachment     = &depth_attachment,
+        .pStencilAttachment   = &stencil_attachment,
     });
 };
 
@@ -164,7 +210,7 @@ void VulkanGraphicsCommandBuffer::SetBlendColor(const math::vec4f& color) {
     command_buffer.setBlendConstants(color);
 }
 
-void VulkanGraphicsCommandBuffer::SetIndexBuffer(GPUBuffer& buffer) {
+void VulkanGraphicsCommandBuffer::SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset) {
     vk::IndexType index_type;
     if (buffer.GetDesc().element_size == sizeof(std::uint32_t)) {
         index_type = vk::IndexType::eUint32;
@@ -175,11 +221,19 @@ void VulkanGraphicsCommandBuffer::SetIndexBuffer(GPUBuffer& buffer) {
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);
     }
-    command_buffer.bindIndexBuffer(**dynamic_cast<VulkanBuffer&>(buffer).buffer, 0, index_type);
+    command_buffer.bindIndexBuffer(**static_cast<const VulkanBuffer&>(buffer).buffer, offset, index_type);
 }
 
-void VulkanGraphicsCommandBuffer::SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) {
-    command_buffer.bindVertexBuffers(slot, **dynamic_cast<VulkanBuffer&>(buffer).buffer, {0});
+void VulkanGraphicsCommandBuffer::SetVertexBuffers(std::uint8_t                                             start_binding,
+                                                   std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
+                                                   std::span<const std::size_t>                             offsets) {
+    auto vk_buffers = buffers |
+                      ranges::views::transform([](const auto& buffer) {
+                          return **static_cast<const VulkanBuffer&>(buffer.get()).buffer;
+                      }) |
+                      ranges::to<std::pmr::vector<vk::Buffer>>();
+
+    command_buffer.bindVertexBuffers(start_binding, vk_buffers, offsets);
 }
 
 void VulkanGraphicsCommandBuffer::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
@@ -202,8 +256,58 @@ void VulkanGraphicsCommandBuffer::DrawIndexed(std::uint32_t index_count, std::ui
     command_buffer.drawIndexed(index_count, instance_count, first_index, base_vertex, first_instance);
 }
 
-void VulkanGraphicsCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {
-    utils::NoImplemented();
+void VulkanGraphicsCommandBuffer::CopyTextureRegion(const Texture&          src,
+                                                    math::vec3i             src_offset,
+                                                    Texture&                dst,
+                                                    math::vec3i             dst_offset,
+                                                    math::vec3u             extent,
+                                                    TextureSubresourceLayer src_layer,
+                                                    TextureSubresourceLayer dst_layer) {
+    // TODO: implement copy_texture_region
+    BlitTexture(src, src_offset, extent, dst, dst_offset, extent, src_layer, dst_layer);
+    // copy_texture_region(command_buffer, src, src_offset, dst, dst_offset, extent, src_layer, dst_layer);
+}
+
+void VulkanGraphicsCommandBuffer::BlitTexture(const Texture&          src,
+                                              math::vec3i             src_offset,
+                                              math::vec3u             src_extent,
+                                              Texture&                dst,
+                                              math::vec3i             dst_offset,
+                                              math::vec3u             dst_extent,
+                                              TextureSubresourceLayer src_layer,
+                                              TextureSubresourceLayer dst_layer) {
+    auto& vk_src_image = static_cast<const VulkanImage&>(src);
+    auto& vk_dst_image = static_cast<const VulkanImage&>(dst);
+
+    const vk::ImageBlit2 region = {
+        .srcSubresource = to_vk_image_subresource_layer(src_layer, src.GetDesc()),
+        .srcOffsets     = {{
+            to_vk_offset3D(src_offset),
+            to_vk_offset3D({
+                src_offset.x + static_cast<std::int32_t>(src_extent.x),
+                src_offset.y + static_cast<std::int32_t>(src_extent.y),
+                src_offset.z + static_cast<std::int32_t>(src_extent.z),
+            }),
+        }},
+        .dstSubresource = to_vk_image_subresource_layer(dst_layer, dst.GetDesc()),
+        .dstOffsets     = {{
+            to_vk_offset3D(dst_offset),
+            to_vk_offset3D({
+                dst_offset.x + static_cast<std::int32_t>(dst_extent.x),
+                dst_offset.y + static_cast<std::int32_t>(dst_extent.y),
+                dst_offset.z + static_cast<std::int32_t>(dst_extent.z),
+            }),
+        }},
+    };
+
+    command_buffer.blitImage2({
+        .srcImage       = vk_src_image.image_handle,
+        .srcImageLayout = to_vk_image_layout(src.GetCurrentLayout()),
+        .dstImage       = vk_dst_image.image_handle,
+        .dstImageLayout = to_vk_image_layout(dst.GetCurrentLayout()),
+        .regionCount    = 1,
+        .pRegions       = &region,
+    });
 }
 
 VulkanComputeCommandBuffer::VulkanComputeCommandBuffer(VulkanDevice& device, std::string_view name)
@@ -236,14 +340,14 @@ void VulkanComputeCommandBuffer::End() {
     command_buffer.end();
 }
 
-void VulkanComputeCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
-                                                 const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
-                                                 const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+void VulkanComputeCommandBuffer::ResourceBarrier(std::span<const GlobalBarrier>    global_barriers,
+                                                 std::span<const GPUBufferBarrier> buffer_barriers,
+                                                 std::span<const TextureBarrier>   texture_barriers) {
     pipeline_barrier_fn(command_buffer, global_barriers, buffer_barriers, texture_barriers);
 }
 
 void VulkanComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
-    auto vk_pipeline = &dynamic_cast<const VulkanComputePipeline&>(pipeline);
+    auto vk_pipeline = &static_cast<const VulkanComputePipeline&>(pipeline);
     if (m_Pipeline == vk_pipeline) return;
     m_Pipeline = vk_pipeline;
     command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, **m_Pipeline->pipeline);
@@ -276,16 +380,29 @@ void VulkanTransferCommandBuffer::End() {
     command_buffer.end();
 }
 
-void VulkanTransferCommandBuffer::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
-                                                  const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
-                                                  const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+void VulkanTransferCommandBuffer::ResourceBarrier(std::span<const GlobalBarrier>    global_barriers,
+                                                  std::span<const GPUBufferBarrier> buffer_barriers,
+                                                  std::span<const TextureBarrier>   texture_barriers) {
     pipeline_barrier_fn(command_buffer, global_barriers, buffer_barriers, texture_barriers);
+
+    // workaround for swapchain semaphore
+    for (auto& texture_barrier : texture_barriers) {
+        auto& vk_image = static_cast<VulkanImage&>(texture_barrier.texture);
+
+        if (vk_image.swap_chain == nullptr) continue;
+
+        if (texture_barrier.dst_layout == TextureLayout::Present) {
+            swap_chain_presentable_semaphores.emplace_back(vk_image.swap_chain->GetSemaphores().presentable);
+        } else if (texture_barrier.dst_layout == TextureLayout::CopyDst) {
+            swap_chain_image_available_semaphore = vk_image.swap_chain->GetSemaphores().image_available;
+        }
+    }
 }
 
 void VulkanTransferCommandBuffer::CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dest_offset, std::size_t size) {
     command_buffer.copyBuffer(
-        **dynamic_cast<const VulkanBuffer&>(src).buffer,
-        **dynamic_cast<VulkanBuffer&>(dst).buffer,
+        **static_cast<const VulkanBuffer&>(src).buffer,
+        **static_cast<VulkanBuffer&>(dst).buffer,
         vk::BufferCopy{
             .srcOffset = src_offset,
             .dstOffset = dest_offset,
@@ -293,47 +410,22 @@ void VulkanTransferCommandBuffer::CopyBuffer(const GPUBuffer& src, std::size_t s
         });
 }
 
-void VulkanTransferCommandBuffer::CopyTexture(const Texture& src, Texture& dst) {
-    throw utils::NoImplemented();
-}
-
-void VulkanTransferCommandBuffer::CopyBufferToTexture(const GPUBuffer& src,
-                                                      std::size_t      src_offset,
-                                                      Texture&         dst,
-                                                      math::vec3i      dst_offset,
-                                                      math::vec3u      extent,
-                                                      std::uint32_t    mip_level,
-                                                      std::uint32_t    base_array_layer,
-                                                      std::uint32_t    layer_count) {
-    auto& dst_texture = dynamic_cast<const VulkanImage&>(dst);
-    auto& src_buffer  = dynamic_cast<const VulkanBuffer&>(src);
-
-    auto buffer_size    = src_buffer.Size();
-    auto copy_data_size = extent.x * extent.y * extent.z * get_format_byte_size(dst_texture.GetDesc().format);
-
-    if (src_offset + copy_data_size > buffer_size) {
-        auto error_message = fmt::format(
-            "Buffer size is too small to copy to texture. Buffer size: {}, Buffer Offset: {}, Copy size: {}",
-            fmt::styled(buffer_size, fmt::fg(fmt::color::red)),
-            fmt::styled(src_offset, fmt::fg(fmt::color::red)),
-            fmt::styled(copy_data_size, fmt::fg(fmt::color::red)));
-
-        m_Device.GetLogger()->error(error_message);
-        throw std::runtime_error(error_message);
-    }
+void VulkanTransferCommandBuffer::CopyBufferToTexture(const GPUBuffer&        src,
+                                                      std::size_t             src_offset,
+                                                      Texture&                dst,
+                                                      math::vec3i             dst_offset,
+                                                      math::vec3u             extent,
+                                                      TextureSubresourceLayer dst_layer) {
+    auto& dst_texture = static_cast<const VulkanImage&>(dst);
+    auto& src_buffer  = static_cast<const VulkanBuffer&>(src);
 
     const vk::BufferImageCopy buffer_image_copy{
         .bufferOffset      = src_offset,
         .bufferRowLength   = 0,
         .bufferImageHeight = 0,
-        .imageSubresource  = vk::ImageSubresourceLayers{
-             .aspectMask     = to_vk_image_aspect(dst.GetDesc().usages),
-             .mipLevel       = mip_level,
-             .baseArrayLayer = base_array_layer,
-             .layerCount     = layer_count,
-        },
-        .imageOffset = to_vk_offset3D(dst_offset),
-        .imageExtent = to_vk_extent3D(extent),
+        .imageSubresource  = to_vk_image_subresource_layer(dst_layer, dst.GetDesc()),
+        .imageOffset       = to_vk_offset3D(dst_offset),
+        .imageExtent       = to_vk_extent3D(extent),
     };
 
     command_buffer.copyBufferToImage(
@@ -341,6 +433,16 @@ void VulkanTransferCommandBuffer::CopyBufferToTexture(const GPUBuffer& src,
         **dst_texture.image,
         vk::ImageLayout::eTransferDstOptimal,
         buffer_image_copy);
+}
+
+void VulkanTransferCommandBuffer::CopyTextureRegion(const Texture&          src,
+                                                    math::vec3i             src_offset,
+                                                    Texture&                dst,
+                                                    math::vec3i             dst_offset,
+                                                    math::vec3u             extent,
+                                                    TextureSubresourceLayer src_layer,
+                                                    TextureSubresourceLayer dst_layer) {
+    copy_texture_region(command_buffer, src, src_offset, dst, dst_offset, extent, src_layer, dst_layer);
 }
 
 }  // namespace hitagi::gfx

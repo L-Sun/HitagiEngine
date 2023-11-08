@@ -25,7 +25,7 @@ public:
     Texture& operator=(Texture&&) = default;
 
     static auto DefaultTexture() -> std::shared_ptr<Texture>;
-    static void DestoryDefaultTexture();
+    static void DestroyDefaultTexture();
 
     inline auto  Empty() const noexcept { return m_CPUData.Empty(); }
     inline auto  Width() const noexcept { return m_Width; }

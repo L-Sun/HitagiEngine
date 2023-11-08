@@ -2,10 +2,7 @@
 #include <hitagi/hid/input_event.hpp>
 #include <hitagi/core/runtime_module.hpp>
 
-#include <string_view>
 #include <variant>
-#include <optional>
-#include <unordered_map>
 
 namespace hitagi::hid {
 

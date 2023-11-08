@@ -32,9 +32,9 @@ auto initialize_command_context(DX12Device& device, CommandType type, ComPtr<ID3
 };
 
 inline void pipeline_barrier_fn(const ComPtr<ID3D12GraphicsCommandList7>& command_list,
-                                const std::pmr::vector<GlobalBarrier>&    global_barriers,
-                                const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
-                                const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+                                std::span<const GlobalBarrier>            global_barriers,
+                                std::span<const GPUBufferBarrier>         buffer_barriers,
+                                std::span<const TextureBarrier>           texture_barriers) {
     // convert to vulkan barriers
     std::pmr::vector<D3D12_GLOBAL_BARRIER>  dx12_global_barriers;
     std::pmr::vector<D3D12_BUFFER_BARRIER>  dx12_buffer_barriers;
@@ -65,6 +65,25 @@ inline void pipeline_barrier_fn(const ComPtr<ID3D12GraphicsCommandList7>& comman
     command_list->Barrier(barrier_groups.size(), barrier_groups.data());
 }
 
+inline void copy_texture_region(const ComPtr<ID3D12GraphicsCommandList>& command_list,
+                                const Texture&                           src,
+                                math::vec3i                              src_offset,
+                                Texture&                                 dst,
+                                math::vec3i                              dst_offset,
+                                math::vec3u                              extent,
+                                TextureSubresourceLayer                  src_layer,
+                                TextureSubresourceLayer                  dst_layer) {
+    auto& dx12_src_texture = static_cast<const DX12Texture&>(src);
+    auto& dx12_dst_texture = static_cast<DX12Texture&>(dst);
+
+    const CD3DX12_TEXTURE_COPY_LOCATION src_location(dx12_src_texture.resource.Get(), D3D12CalcSubresource(src_layer.mip_level, src_layer.base_array_layer, 0, dx12_src_texture.GetDesc().mip_levels, src_layer.layer_count));
+    const CD3DX12_TEXTURE_COPY_LOCATION dst_location(dx12_dst_texture.resource.Get(), D3D12CalcSubresource(dst_layer.mip_level, dst_layer.base_array_layer, 0, dx12_dst_texture.GetDesc().mip_levels, dst_layer.layer_count));
+
+    const CD3DX12_BOX src_box(src_offset.x, src_offset.y, src_offset.z, src_offset.x + extent.x, src_offset.y + extent.y, src_offset.z + extent.z);
+
+    command_list->CopyTextureRegion(&dst_location, dst_offset.x, dst_offset.y, dst_offset.z, &src_location, &src_box);
+}
+
 DX12GraphicsCommandList::DX12GraphicsCommandList(DX12Device& device, std::string_view name)
     : GraphicsCommandContext(device, name) {
     initialize_command_context(device, CommandType::Graphics, command_allocator, command_list, name);
@@ -83,9 +102,9 @@ void DX12GraphicsCommandList::End() {
     command_list->Close();
 }
 
-void DX12GraphicsCommandList::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
-                                              const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
-                                              const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+void DX12GraphicsCommandList::ResourceBarrier(std::span<const GlobalBarrier>    global_barriers,
+                                              std::span<const GPUBufferBarrier> buffer_barriers,
+                                              std::span<const TextureBarrier>   texture_barriers) {
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
     if (FAILED(command_list.As(&cmd_list))) {
         const auto error_message = fmt::format("failed to cast command list to ID3D12GraphicsCommandList7");
@@ -95,7 +114,7 @@ void DX12GraphicsCommandList::ResourceBarrier(const std::pmr::vector<GlobalBarri
     pipeline_barrier_fn(cmd_list, global_barriers, buffer_barriers, texture_barriers);
 }
 
-void DX12GraphicsCommandList::BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil) {
+void DX12GraphicsCommandList::BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil, bool clear_render_target, bool clear_depth_stencil) {
     auto& dx12_render_target = static_cast<DX12Texture&>(render_target);
     auto  dx12_depth_stencil = depth_stencil.has_value() ? &static_cast<DX12Texture&>(depth_stencil->get()) : nullptr;
 
@@ -103,13 +122,29 @@ void DX12GraphicsCommandList::BeginRendering(Texture& render_target, utils::opti
         1, &dx12_render_target.rtv.GetCPUHandle(), false,
         (dx12_depth_stencil && dx12_depth_stencil->dsv) ? &dx12_depth_stencil->dsv.GetCPUHandle() : nullptr);
 
-    if (render_target.GetDesc().clear_value.has_value()) {
-        const auto& clear_color = std::get<ClearColor>(render_target.GetDesc().clear_value.value());
-        command_list->ClearRenderTargetView(dx12_render_target.rtv.GetCPUHandle(), clear_color, 0, nullptr);
+    if (clear_render_target) {
+        if (!render_target.GetDesc().clear_value.has_value()) {
+            m_Device.GetLogger()->warn(fmt::format(
+                "render target({}) has no clear value but clear render target is requested",
+                fmt::styled(render_target.GetName(), fmt::fg(fmt::color::orange))));
+
+        } else {
+            const auto clear_color = std::get<ClearColor>(render_target.GetDesc().clear_value.value());
+            command_list->ClearRenderTargetView(dx12_render_target.rtv.GetCPUHandle(), clear_color, 0, nullptr);
+        }
     }
-    if (dx12_depth_stencil && dx12_depth_stencil->GetDesc().clear_value.has_value()) {
-        const auto& clear_depth_stencil = std::get<ClearDepthStencil>(dx12_depth_stencil->GetDesc().clear_value.value());
-        command_list->ClearDepthStencilView(dx12_depth_stencil->dsv.GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_depth_stencil.depth, clear_depth_stencil.stencil, 0, nullptr);
+
+    if (clear_depth_stencil) {
+        if (dx12_depth_stencil == nullptr) {
+            m_Device.GetLogger()->warn("depth stencil is not set but clear depth stencil is requested");
+        } else if (!dx12_depth_stencil->GetDesc().clear_value.has_value()) {
+            m_Device.GetLogger()->warn(fmt::format(
+                "depth stencil({}) has no clear value but clear depth stencil is requested",
+                fmt::styled(depth_stencil->get().GetName(), fmt::fg(fmt::color::orange))));
+        } else {
+            const auto clear_depth_stencil = std::get<ClearDepthStencil>(dx12_depth_stencil->GetDesc().clear_value.value());
+            command_list->ClearDepthStencilView(dx12_depth_stencil->dsv.GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_depth_stencil.depth, clear_depth_stencil.stencil, 0, nullptr);
+        }
     }
 }
 
@@ -119,7 +154,7 @@ void DX12GraphicsCommandList::SetPipeline(const RenderPipeline& pipeline) {
     if (m_Pipeline == &pipeline) return;
     m_Pipeline = &pipeline;
 
-    auto& dx12_pipeline = dynamic_cast<const DX12RenderPipeline&>(pipeline);
+    auto& dx12_pipeline = static_cast<const DX12RenderPipeline&>(pipeline);
     command_list->SetPipelineState(dx12_pipeline.pipeline.Get());
     command_list->IASetPrimitiveTopology(to_d3d_primitive_topology(dx12_pipeline.GetDesc().assembly_state.primitive));
 }
@@ -138,37 +173,52 @@ void DX12GraphicsCommandList::SetBlendColor(const math::vec4f& color) {
     command_list->OMSetBlendFactor(color);
 }
 
-void DX12GraphicsCommandList::SetIndexBuffer(GPUBuffer& buffer) {
-    auto&                   dx12_buffer = dynamic_cast<DX12GPUBuffer&>(buffer);
+void DX12GraphicsCommandList::SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset) {
+    auto&                   dx12_buffer = static_cast<const DX12GPUBuffer&>(buffer);
     D3D12_INDEX_BUFFER_VIEW ibv{
-        .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress(),
+        .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress() + offset,
         .SizeInBytes    = static_cast<UINT>(buffer.Size()),
         .Format         = buffer.GetDesc().element_size == sizeof(std::uint16_t) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT,
     };
     command_list->IASetIndexBuffer(&ibv);
 }
 
-void DX12GraphicsCommandList::SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) {
+void DX12GraphicsCommandList::SetVertexBuffers(std::uint8_t                                             start_binding,
+                                               std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
+                                               std::span<const std::size_t>                             offsets) {
     if (m_Pipeline == nullptr) {
         const auto error_message = fmt::format("pipeline is not set");
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);
     }
-
-    auto& dx12_buffer = dynamic_cast<DX12GPUBuffer&>(buffer);
-
     auto& input_layout = m_Pipeline->GetDesc().vertex_input_layout;
-    if (auto iter = std::find_if(
-            input_layout.begin(), input_layout.end(),
-            [slot](const auto& attr) { return attr.binding == slot; });
-        iter != input_layout.end()) {
-        D3D12_VERTEX_BUFFER_VIEW vbv{
-            .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress(),
-            .SizeInBytes    = static_cast<UINT>(buffer.Size()),
-            .StrideInBytes  = static_cast<UINT>(iter->stride),
-        };
-        command_list->IASetVertexBuffers(slot, 1, &vbv);
+
+    std::pmr::vector<D3D12_VERTEX_BUFFER_VIEW> vbvs;
+
+    for (std::uint8_t buffer_index = 0; buffer_index < buffers.size(); buffer_index++) {
+        std::uint8_t binding     = start_binding + buffer_index;
+        auto         offset      = offsets[buffer_index];
+        auto&        dx12_buffer = static_cast<const DX12GPUBuffer&>(buffers[buffer_index].get());
+
+        if (auto iter = std::find_if(
+                input_layout.begin(), input_layout.end(),
+                [binding](const auto& attr) { return attr.binding == binding; });
+            iter != input_layout.end()) {
+            vbvs.emplace_back(D3D12_VERTEX_BUFFER_VIEW{
+                .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress() + offset,
+                .SizeInBytes    = static_cast<UINT>(dx12_buffer.Size()),
+                .StrideInBytes  = static_cast<UINT>(iter->stride),
+            });
+        } else {
+            const auto error_message = fmt::format(
+                "missing binding({}) in pipeline({}) vertex input layout",
+                fmt::styled(binding, fmt::fg(fmt::color::red)),
+                fmt::styled(m_Pipeline->GetName(), fmt::fg(fmt::color::green)));
+            m_Device.GetLogger()->error(error_message);
+            throw std::runtime_error(error_message);
+        }
     }
+    command_list->IASetVertexBuffers(start_binding, vbvs.size(), vbvs.data());
 }
 
 void DX12GraphicsCommandList::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
@@ -183,7 +233,15 @@ void DX12GraphicsCommandList::DrawIndexed(std::uint32_t index_count, std::uint32
     command_list->DrawIndexedInstanced(index_count, instance_count, first_index, base_vertex, first_instance);
 }
 
-void DX12GraphicsCommandList::CopyTexture(const Texture& src, Texture& dest) {}
+void DX12GraphicsCommandList::CopyTextureRegion(const Texture&          src,
+                                                math::vec3i             src_offset,
+                                                Texture&                dst,
+                                                math::vec3i             dst_offset,
+                                                math::vec3u             extent,
+                                                TextureSubresourceLayer src_layer,
+                                                TextureSubresourceLayer dst_layer) {
+    copy_texture_region(command_list, src, src_offset, dst, dst_offset, extent, src_layer, dst_layer);
+}
 
 DX12ComputeCommandList::DX12ComputeCommandList(DX12Device& device, std::string_view name)
     : ComputeCommandContext(device, name) {
@@ -201,9 +259,9 @@ void DX12ComputeCommandList::End() {
     command_list->Close();
 }
 
-void DX12ComputeCommandList::ResourceBarrier(const std::pmr::vector<GlobalBarrier>&    global_barriers,
-                                             const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
-                                             const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+void DX12ComputeCommandList::ResourceBarrier(std::span<const GlobalBarrier>    global_barriers,
+                                             std::span<const GPUBufferBarrier> buffer_barriers,
+                                             std::span<const TextureBarrier>   texture_barriers) {
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
     if (FAILED(command_list.As(&cmd_list))) {
         const auto error_message = fmt::format("failed to cast command list to ID3D12GraphicsCommandList7");
@@ -217,7 +275,7 @@ void DX12ComputeCommandList::SetPipeline(const ComputePipeline& pipeline) {
     if (m_Pipeline == &pipeline) return;
     m_Pipeline = &pipeline;
 
-    auto& dx12_pipeline = dynamic_cast<const DX12ComputePipeline&>(pipeline);
+    auto& dx12_pipeline = static_cast<const DX12ComputePipeline&>(pipeline);
     command_list->SetPipelineState(dx12_pipeline.pipeline.Get());
 }
 
@@ -238,9 +296,9 @@ void DX12CopyCommandList::End() {
 }
 
 void DX12CopyCommandList::ResourceBarrier(
-    const std::pmr::vector<GlobalBarrier>&    global_barriers,
-    const std::pmr::vector<GPUBufferBarrier>& buffer_barriers,
-    const std::pmr::vector<TextureBarrier>&   texture_barriers) {
+    std::span<const GlobalBarrier>    global_barriers,
+    std::span<const GPUBufferBarrier> buffer_barriers,
+    std::span<const TextureBarrier>   texture_barriers) {
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
     if (FAILED(command_list.As(&cmd_list))) {
         const auto error_message = fmt::format("failed to cast command list to ID3D12GraphicsCommandList7");
@@ -251,26 +309,20 @@ void DX12CopyCommandList::ResourceBarrier(
 }
 
 void DX12CopyCommandList::CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dst_offset, std::size_t size) {
-    auto dx12_src = dynamic_cast<const DX12GPUBuffer&>(src).resource.Get();
-    auto dx12_dst = dynamic_cast<DX12GPUBuffer&>(dst).resource.Get();
+    auto dx12_src = static_cast<const DX12GPUBuffer&>(src).resource.Get();
+    auto dx12_dst = static_cast<DX12GPUBuffer&>(dst).resource.Get();
 
     command_list->CopyBufferRegion(dx12_dst, dst_offset, dx12_src, src_offset, size);
 }
 
-void DX12CopyCommandList::CopyTexture(const Texture& src, Texture& dst) {
-    throw utils::NoImplemented();
-}
-
-void DX12CopyCommandList::CopyBufferToTexture(const GPUBuffer& src,
-                                              std::size_t      src_offset,
-                                              Texture&         dst,
-                                              math::vec3i      dst_offset,
-                                              math::vec3u      extent,
-                                              std::uint32_t    mip_level,
-                                              std::uint32_t    base_array_layer,
-                                              std::uint32_t    layer_count) {
-    const auto& dx12_src_buffer  = dynamic_cast<const DX12GPUBuffer&>(src);
-    auto&       dx12_dst_texture = dynamic_cast<DX12Texture&>(dst);
+void DX12CopyCommandList::CopyBufferToTexture(const GPUBuffer&        src,
+                                              std::size_t             src_offset,
+                                              Texture&                dst,
+                                              math::vec3i             dst_offset,
+                                              math::vec3u             extent,
+                                              TextureSubresourceLayer dst_layer) {
+    const auto& dx12_src_buffer  = static_cast<const DX12GPUBuffer&>(src);
+    auto&       dx12_dst_texture = static_cast<DX12Texture&>(dst);
 
     const CD3DX12_TEXTURE_COPY_LOCATION src_location(
         dx12_src_buffer.resource.Get(),
@@ -284,13 +336,23 @@ void DX12CopyCommandList::CopyBufferToTexture(const GPUBuffer& src,
                 .RowPitch = static_cast<UINT>(dx12_dst_texture.GetDesc().width * get_format_byte_size(dx12_dst_texture.GetDesc().format)),
             },
         });
-    const CD3DX12_TEXTURE_COPY_LOCATION dst_location(dx12_dst_texture.resource.Get(), D3D12CalcSubresource(mip_level, base_array_layer, 0, dx12_dst_texture.GetDesc().mip_levels, layer_count));
+    const CD3DX12_TEXTURE_COPY_LOCATION dst_location(dx12_dst_texture.resource.Get(), D3D12CalcSubresource(dst_layer.mip_level, dst_layer.base_array_layer, 0, dx12_dst_texture.GetDesc().mip_levels, dst_layer.layer_count));
 
     const CD3DX12_BOX src_box(dst_offset.x, dst_offset.y, dst_offset.z, dst_offset.x + extent.x, dst_offset.y + extent.y, dst_offset.z + extent.z);
 
     command_list->CopyTextureRegion(
         &dst_location, dst_offset.x, dst_offset.y, dst_offset.z,
         &src_location, &src_box);
+}
+
+void DX12CopyCommandList::CopyTextureRegion(const Texture&          src,
+                                            math::vec3i             src_offset,
+                                            Texture&                dst,
+                                            math::vec3i             dst_offset,
+                                            math::vec3u             extent,
+                                            TextureSubresourceLayer src_layer,
+                                            TextureSubresourceLayer dst_layer) {
+    copy_texture_region(command_list, src, src_offset, dst, dst_offset, extent, src_layer, dst_layer);
 }
 
 }  // namespace hitagi::gfx

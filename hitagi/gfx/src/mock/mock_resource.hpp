@@ -7,7 +7,7 @@
 namespace hitagi::gfx {
 
 struct MockGPUBuffer : public GPUBuffer {
-    MockGPUBuffer(Device& device, GPUBufferDesc desc) : GPUBuffer(device, desc) {}
+    MockGPUBuffer(Device& device, GPUBufferDesc desc) : GPUBuffer(device, std::move(desc)) {}
 
     auto Map() -> std::byte* final { return nullptr; }
     void UnMap() final {}
@@ -16,15 +16,15 @@ struct MockGPUBuffer : public GPUBuffer {
 };
 
 struct MockTexture : public Texture {
-    MockTexture(Device& device, TextureDesc desc) : Texture(device, desc) {}
+    MockTexture(Device& device, TextureDesc desc) : Texture(device, std::move(desc)) {}
 };
 
 struct MockSampler : public Sampler {
-    MockSampler(Device& device, SamplerDesc desc) : Sampler(device, desc) {}
+    MockSampler(Device& device, SamplerDesc desc) : Sampler(device, std::move(desc)) {}
 };
 
 struct MockSwapChain : public SwapChain {
-    MockSwapChain(Device& device, SwapChainDesc desc) : SwapChain(device, desc), texture(device, {}) {}
+    MockSwapChain(Device& device, SwapChainDesc desc) : SwapChain(device, std::move(desc)), texture(device, {}) {}
 
     auto AcquireTextureForRendering() -> Texture& final { return texture; }
     auto GetWidth() const noexcept -> std::uint32_t final { return 0; }
@@ -98,9 +98,9 @@ struct MockCommandQueue : public CommandQueue {
     using CommandQueue::CommandQueue;
 
     void Submit(
-        const std::pmr::vector<CommandContext*>& contexts,
-        const std::pmr::vector<FenceWaitInfo>&   wait_fences   = {},
-        const std::pmr::vector<FenceSignalInfo>& signal_fences = {}) final {}
+        std::span<const std::reference_wrapper<const CommandContext>> contexts,
+        std::span<const FenceWaitInfo>                                wait_fences   = {},
+        std::span<const FenceSignalInfo>                              signal_fences = {}) final {}
     void WaitIdle() final{};
 };
 
@@ -110,11 +110,14 @@ struct MockGraphicsCommandContext : public GraphicsCommandContext {
     void Begin() final {}
     void End() final {}
     void ResourceBarrier(
-        const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
-        const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
-        const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final {}
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) final {}
 
-    void BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil) final {}
+    void BeginRendering(Texture&                     render_target,
+                        utils::optional_ref<Texture> depth_stencil,
+                        bool                         clear_render_target = false,
+                        bool                         clear_depth_stencil = false) final {}
     void EndRendering() final {}
 
     void SetPipeline(const RenderPipeline& pipeline) final {}
@@ -123,15 +126,24 @@ struct MockGraphicsCommandContext : public GraphicsCommandContext {
     void SetScissorRect(const Rect& scissor_rect) final {}
     void SetBlendColor(const math::vec4f& color) final {}
 
-    void SetIndexBuffer(GPUBuffer& buffer) final {}
-    void SetVertexBuffer(std::uint8_t slot, GPUBuffer& buffer) final {}
+    void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0) final {}
+    void SetVertexBuffers(std::uint8_t                                             start_binding,
+                          std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
+                          std::span<const std::size_t>                             offset) final {}
 
     void PushBindlessMetaInfo(const BindlessMetaInfo& info) final {}
 
     void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final {}
     void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final {}
 
-    void CopyTexture(const Texture& src, Texture& dst) final {}
+    void CopyTextureRegion(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer src_layer = {},
+        TextureSubresourceLayer dst_layer = {}) final {}
 };
 
 struct MockComputeCommandContext : public ComputeCommandContext {
@@ -140,9 +152,9 @@ struct MockComputeCommandContext : public ComputeCommandContext {
     void Begin() final {}
     void End() final {}
     void ResourceBarrier(
-        const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
-        const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
-        const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final {}
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) final {}
 
     void SetPipeline(const ComputePipeline& pipeline) final {}
 
@@ -155,22 +167,28 @@ struct MockCopyCommandContext : public CopyCommandContext {
     void Begin() final {}
     void End() final {}
     void ResourceBarrier(
-        const std::pmr::vector<GlobalBarrier>&    global_barriers  = {},
-        const std::pmr::vector<GPUBufferBarrier>& buffer_barriers  = {},
-        const std::pmr::vector<TextureBarrier>&   texture_barriers = {}) final {}
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) final {}
 
     void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dst_offset, std::size_t size) final {}
-    void CopyTexture(const Texture& src, Texture& dst) final {}
 
     void CopyBufferToTexture(
-        const GPUBuffer& src,
-        std::size_t      src_offset,
-        Texture&         dst,
-        math::vec3i      dst_offset,
-        math::vec3u      extent,
-        std::uint32_t    mip_level        = 0,
-        std::uint32_t    base_array_layer = 0,
-        std::uint32_t    layer_count      = 1) final {}
+        const GPUBuffer&        src,
+        std::size_t             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer dst_layer = {}) final {}
+
+    void CopyTextureRegion(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer src_layer = {},
+        TextureSubresourceLayer dst_layer = {}) final {}
 };
 
 }  // namespace hitagi::gfx

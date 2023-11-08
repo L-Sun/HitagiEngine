@@ -19,16 +19,20 @@ struct DX12GPUBuffer : public GPUBuffer {
     auto Map() -> std::byte* final;
     void UnMap() final;
 
-    ComPtr<ID3D12Resource>      resource;
     ComPtr<D3D12MA::Allocation> allocation;
+    ComPtr<ID3D12Resource>      resource;
+
+    std::mutex    map_mutex;
+    std::uint16_t mapped_count{0};
 };
 
 struct DX12Texture : public Texture {
     DX12Texture(DX12Device& device, TextureDesc desc, std::span<const std::byte> initial_data = {});
     DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index);
+    DX12Texture(DX12Texture&&) = default;
 
-    ComPtr<ID3D12Resource>      resource;
     ComPtr<D3D12MA::Allocation> allocation;
+    ComPtr<ID3D12Resource>      resource;
     Descriptor                  rtv, dsv;
 };
 
@@ -37,7 +41,7 @@ struct DX12Sampler : public Sampler {
 };
 
 struct DX12Shader : public Shader {
-    DX12Shader(DX12Device& device, ShaderDesc desc, std::span<const std::byte> binary_program = {});
+    DX12Shader(DX12Device& device, ShaderDesc desc);
 
     inline auto GetDXILData() const noexcept -> std::span<const std::byte> final {
         return binary_program.Span<const std::byte>();

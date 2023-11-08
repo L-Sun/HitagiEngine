@@ -4,7 +4,8 @@
     "pipeline": {
         "vs": "assets/shaders/phong.hlsl",
         "ps": "assets/shaders/phong.hlsl",
-        "primitive": "TriangleList"
+        "primitive": "TriangleList",
+        "depth_test": true
     },
     "parameters": [
         {

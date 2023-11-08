@@ -12,7 +12,7 @@ export void vector_inverse_float(const uniform float data[], uniform float out[]
         out[i] = -data[i];
 }
 
-export void vector_add_assgin_float (uniform float a[], const uniform float b[], const uniform int size) {
+export void vector_add_assign_float (uniform float a[], const uniform float b[], const uniform int size) {
     foreach (i = 0 ... size)
         a[i] += b[i];
 }
@@ -22,7 +22,7 @@ export void  vector_add_float(const uniform float a[], const uniform float b[], 
         out[i] = a[i] + b[i];
 }
 
-export void vector_sub_assgin_float(uniform float a[], const uniform float b[], const uniform int size) {
+export void vector_sub_assign_float(uniform float a[], const uniform float b[], const uniform int size) {
     foreach (i = 0 ... size)
         a[i] -= b[i];
 }
@@ -32,7 +32,7 @@ export void vector_sub_float (const uniform float a[], const uniform float b[], 
         out[i] = a[i] - b[i];
 }
 
-export void vector_mult_assgin_float (uniform float a[], const uniform float b, const uniform int size) {
+export void vector_mult_assign_float (uniform float a[], const uniform float b, const uniform int size) {
     foreach (i = 0 ... size)
         a[i] *= b;
 }
@@ -82,7 +82,7 @@ export void vector_inverse_double(const uniform double data[], uniform double ou
         out[i] = -data[i];
 }
 
-export void vector_add_assgin_double (uniform double a[], const uniform double b[], const uniform int size) {
+export void vector_add_assign_double (uniform double a[], const uniform double b[], const uniform int size) {
     foreach (i = 0 ... size)
         a[i] += b[i];
 }
@@ -92,7 +92,7 @@ export void  vector_add_double(const uniform double a[], const uniform double b[
         out[i] = a[i] + b[i];
 }
 
-export void vector_sub_assgin_double(uniform double a[], const uniform double b[], const uniform int size) {
+export void vector_sub_assign_double(uniform double a[], const uniform double b[], const uniform int size) {
     foreach (i = 0 ... size)
         a[i] -= b[i];
 }
@@ -102,7 +102,7 @@ export void vector_sub_double (const uniform double a[], const uniform double b[
         out[i] = a[i] - b[i];
 }
 
-export void vector_mult_assgin_double (uniform double a[], const uniform double b, const uniform int size) {
+export void vector_mult_assign_double (uniform double a[], const uniform double b, const uniform int size) {
     foreach (i = 0 ... size)
         a[i] *= b;
 }

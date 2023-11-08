@@ -32,14 +32,15 @@ enum struct GPUBufferUsageFlags : std::uint8_t {
 };
 
 enum struct TextureUsageFlags : std::uint8_t {
-    CopySrc   = 0x1,
-    CopyDst   = (CopySrc << 1),
-    SRV       = (CopyDst << 1),
-    UAV       = (SRV << 1),
-    RTV       = (UAV << 1),
-    DSV       = (RTV << 1),
-    Cube      = (DSV << 1),
-    CubeArray = (Cube << 1),
+    CopySrc = 0x1,
+    CopyDst = (CopySrc << 1),
+    SRV     = (CopyDst << 1),
+    // TODO change name
+    UAV          = (SRV << 1),
+    RenderTarget = (UAV << 1),
+    DepthStencil = (RenderTarget << 1),
+    Cube         = (DepthStencil << 1),
+    CubeArray    = (Cube << 1),
 };
 
 enum struct ShaderType : std::uint8_t {
@@ -152,90 +153,6 @@ enum struct Format : std::uint32_t {
     BC7_UNORM_SRGB             = 99,
 };
 
-inline constexpr auto get_format_bit_size(Format format) noexcept -> std::size_t {
-    switch (format) {
-        case Format::R32G32B32A32_TYPELESS:
-        case Format::R32G32B32A32_FLOAT:
-        case Format::R32G32B32A32_UINT:
-        case Format::R32G32B32A32_SINT:
-            return 128;
-        case Format::R32G32B32_TYPELESS:
-        case Format::R32G32B32_FLOAT:
-        case Format::R32G32B32_UINT:
-        case Format::R32G32B32_SINT:
-            return 96;
-        case Format::R16G16B16A16_TYPELESS:
-        case Format::R16G16B16A16_FLOAT:
-        case Format::R16G16B16A16_UNORM:
-        case Format::R16G16B16A16_UINT:
-        case Format::R16G16B16A16_SNORM:
-        case Format::R16G16B16A16_SINT:
-        case Format::R32G32_TYPELESS:
-        case Format::R32G32_FLOAT:
-        case Format::R32G32_UINT:
-        case Format::R32G32_SINT:
-        case Format::R32G8X24_TYPELESS:
-        case Format::D32_FLOAT_S8X24_UINT:
-        case Format::R32_FLOAT_X8X24_TYPELESS:
-        case Format::X32_TYPELESS_G8X24_UINT:
-            return 64;
-        case Format::R10G10B10A2_TYPELESS:
-        case Format::R10G10B10A2_UNORM:
-        case Format::R10G10B10A2_UINT:
-        case Format::R11G11B10_FLOAT:
-        case Format::R8G8B8A8_TYPELESS:
-        case Format::R8G8B8A8_UNORM:
-        case Format::R8G8B8A8_UNORM_SRGB:
-        case Format::R8G8B8A8_UINT:
-        case Format::R8G8B8A8_SNORM:
-        case Format::R8G8B8A8_SINT:
-        case Format::R16G16_TYPELESS:
-        case Format::R16G16_FLOAT:
-        case Format::R16G16_UNORM:
-        case Format::R16G16_UINT:
-        case Format::R16G16_SNORM:
-        case Format::R16G16_SINT:
-        case Format::R32_TYPELESS:
-        case Format::D32_FLOAT:
-        case Format::R32_FLOAT:
-        case Format::R32_UINT:
-        case Format::R32_SINT:
-        case Format::R24G8_TYPELESS:
-        case Format::D24_UNORM_S8_UINT:
-        case Format::R24_UNORM_X8_TYPELESS:
-        case Format::X24_TYPELESS_G8_UINT:
-            return 32;
-        case Format::R8G8_TYPELESS:
-        case Format::R8G8_UNORM:
-        case Format::R8G8_UINT:
-        case Format::R8G8_SNORM:
-        case Format::R8G8_SINT:
-        case Format::R16_TYPELESS:
-        case Format::R16_FLOAT:
-        case Format::D16_UNORM:
-        case Format::R16_UNORM:
-        case Format::R16_UINT:
-        case Format::R16_SNORM:
-        case Format::R16_SINT:
-            return 16;
-        case Format::R8_TYPELESS:
-        case Format::R8_UNORM:
-        case Format::R8_UINT:
-        case Format::R8_SNORM:
-        case Format::R8_SINT:
-        case Format::A8_UNORM:
-            return 8;
-        case Format::R1_UNORM:
-            return 1;
-        default:
-            return 0;
-    }
-}
-
-inline constexpr auto get_format_byte_size(Format format) noexcept -> std::size_t {
-    return get_format_bit_size(format) >> 3;
-}
-
 enum struct PrimitiveTopology : std::uint8_t {
     PointList,
     LineList,
@@ -342,8 +259,8 @@ enum struct CompareOp : std::uint8_t {
 
 struct RasterizationState {
     FillMode fill_mode               = FillMode::Solid;
-    CullMode cull_mode               = CullMode::Back;
-    bool     front_counter_clockwise = false;
+    CullMode cull_mode               = CullMode::None;
+    bool     front_counter_clockwise = true;
 
     bool  depth_clamp_enable      = false;
     bool  depth_bias_enable       = false;
@@ -403,12 +320,11 @@ struct AssemblyState {
 };
 
 struct VertexAttribute {
-    std::string_view semantic_name;
-    std::uint8_t     semantic_index;
+    std::pmr::string semantic;
     Format           format;
     std::uint32_t    binding;
-    std::uint64_t    offset;
-    std::uint64_t    stride;
+    std::uint64_t    offset       = 0;
+    std::uint64_t    stride       = 0;
     bool             per_instance = false;
 };
 // Improve me with fixed_vector
@@ -420,7 +336,7 @@ enum struct AddressMode : std::uint8_t {
     MirrorRepeat
 };
 
-enum struct FilterMode {
+enum struct FilterMode : std::uint8_t {
     Point,
     Linear
 };
@@ -437,6 +353,65 @@ struct Rect {
     std::uint32_t y;
     std::uint32_t width;
     std::uint32_t height;
+};
+
+struct TextureSubresourceLayer {
+    std::uint32_t mip_level        = 0;
+    std::uint32_t base_array_layer = 0;
+    std::uint32_t layer_count      = 1;
+
+    bool operator==(const TextureSubresourceLayer& rhs) const noexcept {
+        return mip_level == rhs.mip_level &&
+               base_array_layer == rhs.base_array_layer &&
+               layer_count == rhs.layer_count;
+    }
+};
+
+enum struct BarrierAccess : std::uint32_t {
+    None              = 0x1,
+    CopySrc           = (None << 1),
+    CopyDst           = (CopySrc << 1),
+    Vertex            = (CopyDst << 1),
+    Index             = (Vertex << 1),
+    Constant          = (Index << 1),
+    ShaderRead        = (Constant << 1),
+    ShaderWrite       = (ShaderRead << 1),
+    DepthStencilRead  = (ShaderWrite << 1),
+    DepthStencilWrite = (DepthStencilRead << 1),
+    RenderTarget      = (DepthStencilWrite << 1),
+    Present           = (RenderTarget << 1),
+};
+
+enum struct PipelineStage : std::uint32_t {
+    None          = 0x1,
+    VertexInput   = (None << 1),
+    VertexShader  = (VertexInput << 1),
+    PixelShader   = (VertexShader << 1),
+    DepthStencil  = (PixelShader << 1),
+    Render        = (DepthStencil << 1),
+    Resolve       = (Render << 1),
+    AllGraphics   = (Resolve << 1),
+    ComputeShader = (AllGraphics << 1),
+    Copy          = (ComputeShader << 1),
+    All           = (Copy << 1),
+};
+inline constexpr bool operator<(PipelineStage lhs, PipelineStage rhs) noexcept {
+    return std::countl_zero(static_cast<std::underlying_type_t<PipelineStage>>(lhs)) > std::countl_zero(static_cast<std::underlying_type_t<PipelineStage>>(rhs));
+}
+
+enum struct TextureLayout : std::uint16_t {
+    Unkown,
+    Common,
+    CopySrc,
+    CopyDst,
+    ShaderRead,
+    ShaderWrite,
+    DepthStencilRead,
+    DepthStencilWrite,
+    RenderTarget,
+    ResolveSrc,
+    ResolveDst,
+    Present,
 };
 
 }  // namespace hitagi::gfx

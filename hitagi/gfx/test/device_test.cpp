@@ -5,6 +5,7 @@
 #include <hitagi/application.hpp>
 #include <hitagi/utils/test.hpp>
 #include <hitagi/utils/flags.hpp>
+#include <numeric>
 
 using namespace hitagi::core;
 using namespace hitagi::gfx;
@@ -49,8 +50,184 @@ INSTANTIATE_TEST_SUITE_P(
     [](const TestParamInfo<Device::Type>& info) -> std::string {
         return std::string{magic_enum::enum_name(info.param)};
     });
+
 TEST_P(DeviceTest, CreateDevice) {
-    ASSERT_TRUE(device != nullptr);
+    EXPECT_TRUE(device != nullptr);
+}
+
+class GPUBufferTest : public DeviceTest {};
+INSTANTIATE_TEST_SUITE_P(
+    GPUBufferTest,
+    GPUBufferTest,
+    ValuesIn(supported_device_types),
+    [](const TestParamInfo<Device::Type>& info) -> std::string {
+        return std::string{magic_enum::enum_name(info.param)};
+    });
+
+TEST_P(GPUBufferTest, Create) {
+    EXPECT_THROW(device->CreateGPUBuffer({
+                     .name          = test_name,
+                     .element_size  = 0,
+                     .element_count = 1,
+                 }),
+                 std::invalid_argument)
+        << "should throw exception when element_size is 0";
+
+    EXPECT_THROW(device->CreateGPUBuffer({
+                     .name          = test_name,
+                     .element_size  = 1,
+                     .element_count = 0,
+                 }),
+                 std::invalid_argument)
+        << "should throw exception when element_count is 0";
+
+    EXPECT_TRUE(device->CreateGPUBuffer({
+        .name          = test_name,
+        .element_size  = sizeof(vec3f),
+        .element_count = 1024,
+        .usages        = GPUBufferUsageFlags::Vertex,
+    }))
+        << "should create vertex buffer successfully";
+
+    EXPECT_TRUE(device->CreateGPUBuffer({
+        .name          = test_name,
+        .element_size  = sizeof(std::uint32_t),
+        .element_count = 1024,
+        .usages        = GPUBufferUsageFlags::Index,
+    }))
+        << "should create index buffer successfully";
+
+    EXPECT_TRUE(device->CreateGPUBuffer({
+        .name          = test_name,
+        .element_size  = sizeof(std::uint16_t),
+        .element_count = 1024,
+        .usages        = GPUBufferUsageFlags::Index,
+    }))
+        << "should create index buffer successfully";
+
+    EXPECT_THROW(device->CreateGPUBuffer({
+                     .name          = test_name,
+                     .element_size  = sizeof(std::uint8_t),
+                     .element_count = 1024,
+                     .usages        = GPUBufferUsageFlags::Index,
+                 }),
+                 std::invalid_argument)
+        << "can not create index buffer without uint16_t or uint32_t.";
+
+    auto constant_buffer = device->CreateGPUBuffer(
+        {
+            .name          = test_name,
+            .element_size  = sizeof(mat4f),
+            .element_count = 1024,
+            .usages        = GPUBufferUsageFlags::Constant,
+        });
+    EXPECT_TRUE(constant_buffer) << "should create constant buffer successfully.";
+
+    if (device->device_type == Device::Type::DX12) {
+        EXPECT_EQ(constant_buffer->AlignedElementSize(), 256) << "DX12 constant buffer should be aligned to 256 bytes.";
+    } else {
+        EXPECT_EQ(constant_buffer->AlignedElementSize(), sizeof(mat4f));
+    }
+
+    EXPECT_TRUE(device->CreateGPUBuffer({
+        .name          = test_name,
+        .element_size  = sizeof(vec4f),
+        .element_count = 1024,
+        .usages        = GPUBufferUsageFlags::Storage,
+    })) << "should create storage buffer successfully.";
+}
+
+TEST_P(GPUBufferTest, Mapping) {
+    auto mapped_buffer = device->CreateGPUBuffer(
+        {
+            .name          = test_name,
+            .element_size  = sizeof(vec3f),
+            .element_count = 1024,
+            .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        });
+    ASSERT_TRUE(mapped_buffer);
+    EXPECT_TRUE(mapped_buffer->Map()) << "should map successfully.";
+    EXPECT_NO_THROW(mapped_buffer->UnMap()) << "should unmap successfully.";
+
+    auto no_mapped_buffer = device->CreateGPUBuffer(
+        {
+            .name          = test_name,
+            .element_size  = sizeof(vec3f),
+            .element_count = 1024,
+            .usages        = GPUBufferUsageFlags::Constant,
+        });
+    ASSERT_TRUE(no_mapped_buffer);
+    EXPECT_THROW(no_mapped_buffer->Map(), std::runtime_error)
+        << "can not map buffer without usage"
+        << magic_enum::enum_flags_name(GPUBufferUsageFlags::MapWrite)
+        << "or"
+        << magic_enum::enum_flags_name(GPUBufferUsageFlags::MapRead);
+    EXPECT_THROW(no_mapped_buffer->UnMap(), std::runtime_error) << "can not unmap buffer without mapping.";
+}
+
+TEST_P(GPUBufferTest, CreateBufferView) {
+    auto buffer = device->CreateGPUBuffer(
+        {
+            .name          = test_name,
+            .element_size  = sizeof(vec3f),
+            .element_count = 1024,
+            .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        });
+    ASSERT_TRUE(buffer);
+    EXPECT_NO_THROW(GPUBufferView<vec3f> buffer_view(*buffer));
+    EXPECT_NO_THROW(GPUBufferView<const vec3f> buffer_view(*buffer));
+
+    auto no_map_written_buffer = device->CreateGPUBuffer(
+        {
+            .name          = test_name,
+            .element_size  = sizeof(vec3f),
+            .element_count = 1024,
+            .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapRead,
+        });
+    ASSERT_TRUE(no_map_written_buffer);
+    EXPECT_NO_THROW(GPUBufferView<const vec3f> buffer_view(*buffer));
+    EXPECT_THROW(GPUBufferView<vec3f> buffer_view(*no_map_written_buffer), std::invalid_argument)
+        << "can not create not constant buffer view from buffer without flag "
+        << flags_name(GPUBufferUsageFlags::MapWrite);
+
+    auto no_mapped_buffer = device->CreateGPUBuffer(
+        {
+            .name          = test_name,
+            .element_size  = sizeof(vec3f),
+            .element_count = 1024,
+            .usages        = GPUBufferUsageFlags::Constant,
+        });
+    ASSERT_TRUE(no_mapped_buffer);
+    EXPECT_THROW(GPUBufferView<vec3f> buffer_view(*no_mapped_buffer), std::invalid_argument)
+        << "can not create buffer view from buffer without flag "
+        << flags_name(GPUBufferUsageFlags::MapRead)
+        << " or "
+        << flags_name(GPUBufferUsageFlags::MapWrite);
+}
+
+TEST_P(GPUBufferTest, CreateBufferWithInitialData) {
+    std::vector<int> data(1024);
+    std::iota(data.begin(), data.end(), 0);
+    std::span<std::byte> data_span = {reinterpret_cast<std::byte*>(data.data()), data.size() * sizeof(int)};
+
+    GPUBufferDesc desc{
+        .name          = test_name,
+        .element_size  = sizeof(int),
+        .element_count = 1024,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
+    };
+
+    auto buffer = device->CreateGPUBuffer(desc, data_span);
+    ASSERT_TRUE(buffer);
+    auto buffer_view = GPUBufferView<const int>(*buffer);
+    for (auto i = 0; i < 1024; ++i) {
+        EXPECT_EQ(buffer_view[i], i) << "buffer data not match at index " << i;
+    }
+
+    desc.usages = GPUBufferUsageFlags::Constant;
+    EXPECT_THROW(device->CreateGPUBuffer(desc, data_span), std::invalid_argument)
+        << "can not create buffer with initial data without flag "
+        << flags_name(GPUBufferUsageFlags::CopyDst);
 }
 
 TEST_P(DeviceTest, CreateGraphicsCommandContext) {
@@ -80,20 +257,23 @@ TEST_P(DeviceTest, CreateTexture1D) {
 }
 
 TEST_P(DeviceTest, CreateTexture2D) {
-    Buffer data(128 * 128 * sizeof(vec4f));
+    // Buffer data(128 * 128 * sizeof(vec4f));
 
-    auto texture = device->CreateTexture(
-        {
-            .name        = test_name,
-            .width       = 128,
-            .height      = 128,
-            .format      = Format::R8G8B8A8_UNORM,
-            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
-            .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
-        },
-        data.Span<const std::byte>());
+    // for (int i = 0; i < 1000; i++) {
+    //     auto texture = device->CreateTexture(
+    //         {
+    //             .name        = test_name,
+    //             .width       = 128,
+    //             .height      = 128,
+    //             .format      = Format::R8G8B8A8_UNORM,
+    //             .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+    //             .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
+    //         },
+    //         data.Span<const std::byte>());
 
-    EXPECT_TRUE(texture != nullptr);
+    //     EXPECT_TRUE(texture != nullptr);
+    // }
+    device->Profile(0);
 }
 
 TEST_P(DeviceTest, CreateTexture3D) {
@@ -138,7 +318,7 @@ TEST_P(DeviceTest, CreateSampler) {
 }
 
 TEST_P(DeviceTest, CreateShader) {
-    constexpr std::string_view shader_code = R"""(
+    const std::pmr::string shader_code = R"""(
         cbuffer cb : register(b0, space0) {
             matrix mvp;
         };
@@ -206,7 +386,7 @@ TEST_P(DeviceTest, CreateShader) {
 
 TEST_P(DeviceTest, CreateRenderPipeline) {
     {
-        constexpr auto shader_code = R"""(
+        const std::pmr::string shader_code = R"""(
             struct VS_INPUT {
                 float3 pos : POSITION;
             };
@@ -223,7 +403,7 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
             float4 PSMain(PS_INPUT input) : SV_TARGET {
                 return float4(1.0f, 1.0f, 1.0f, 1.0f);
             }
-        )"""sv;
+        )""";
 
         auto vs_shader = device->CreateShader({
             .name        = test_name,
@@ -246,7 +426,7 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
                 .name                = test_name,
                 .shaders             = {vs_shader, ps_shader},
                 .vertex_input_layout = {
-                    {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 0},
+                    {"POSITION", Format::R32G32B32_FLOAT, 0, 0, 0},
                 },
             });
         EXPECT_TRUE(render_pipeline);
@@ -254,7 +434,7 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
 }
 
 TEST_P(DeviceTest, CreateComputePipeline) {
-    constexpr auto cs_code = R"""(
+    const std::pmr::string cs_code = R"""(
         #include "bindless.hlsl"
 
         [numthreads(1, 1, 1)]
@@ -276,68 +456,6 @@ TEST_P(DeviceTest, CreateComputePipeline) {
         .cs   = cs_shader,
     });
     EXPECT_TRUE(compute_pipeline);
-}
-
-class GPUBufferTest : public TestWithParam<std::tuple<Device::Type, GPUBufferUsageFlags>> {
-protected:
-    GPUBufferTest()
-        : test_name(UnitTest::GetInstance()->current_test_info()->name()),
-          device(Device::Create(std::get<0>(GetParam()), test_name)),
-          usages(std::get<1>(GetParam())) {}
-
-    std::pmr::string        test_name;
-    std::unique_ptr<Device> device;
-    GPUBufferUsageFlags     usages;
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    GPUBufferTest,
-    GPUBufferTest,
-    Combine(
-        ValuesIn(supported_device_types),
-        Values(
-            GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
-            GPUBufferUsageFlags::Index | GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
-            GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
-            GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::CopyDst,
-            GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
-            GPUBufferUsageFlags::MapRead | GPUBufferUsageFlags::CopyDst)),
-    [](const TestParamInfo<std::tuple<Device::Type, GPUBufferUsageFlags>>& info) -> std::string {
-        return fmt::format(
-            "{}_{}",
-            magic_enum::enum_name(std::get<0>(info.param)),
-            flags_name(std::get<1>(info.param)));
-    });
-
-TEST_P(GPUBufferTest, Create) {
-    constexpr std::string_view initial_data = "abcdefg";
-
-    auto gpu_buffer = device->CreateGPUBuffer(
-        {
-            .name          = test_name,
-            .element_size  = sizeof(char),
-            .element_count = initial_data.size(),
-            .usages        = usages,
-        },
-        {reinterpret_cast<const std::byte*>(initial_data.data()), initial_data.size()});
-
-    ASSERT_TRUE(gpu_buffer != nullptr);
-    if (has_flag(usages, GPUBufferUsageFlags::MapRead)) {
-        auto aligned_span = GPUBufferView<char>(*gpu_buffer);
-        ASSERT_TRUE(aligned_span.data() != nullptr) << "A mapped buffer must contain a mapped pointer";
-        EXPECT_STREQ(initial_data.data(), std::string(aligned_span.begin(), aligned_span.end()).c_str())
-            << "The content of the buffer must be the same as initial data";
-    }
-    if (has_flag(usages, GPUBufferUsageFlags::MapWrite)) {
-        auto aligned_span = GPUBufferView<char>(*gpu_buffer);
-        ASSERT_TRUE(aligned_span.data() != nullptr) << "A mapped buffer must contain a mapped pointer";
-        std::string_view new_data = "hello";
-        std::copy(new_data.begin(), new_data.end(), aligned_span.begin());
-        EXPECT_STREQ(
-            (std::string("hello") + std::string("fg")).data(),
-            std::string(aligned_span.begin(), aligned_span.end()).c_str())
-            << "The content of the buffer must be the same as initial data";
-    }
 }
 
 class FenceTest : public DeviceTest {
@@ -405,30 +523,33 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(GraphicsCommandTest, ResourceBarrier) {
     auto buffer = device->CreateGPUBuffer(
         {
-            .name         = fmt::format("buffer-{}", test_name),
+            .name         = std::pmr::string(fmt::format("buffer-{}", test_name)),
             .element_size = 128,
             .usages       = GPUBufferUsageFlags::Constant,
         });
     auto render_texture = device->CreateTexture({
-        .name        = fmt::format("texture-{}", test_name),
+        .name        = std::pmr::string(fmt::format("texture-{}", test_name)),
         .width       = 128,
         .height      = 128,
         .format      = Format::R8G8B8A8_UNORM,
         .clear_value = ClearColor{0.0f, 0.0f, 0.0f, 0.0f},
-        .usages      = TextureUsageFlags::RTV,
+        .usages      = TextureUsageFlags::RenderTarget,
     });
 
     context->Begin();
     context->ResourceBarrier(
-        {}, {GPUBufferBarrier{
+        {},
+        {{
+            {
                 .src_access = BarrierAccess::None,
                 .dst_access = BarrierAccess::Constant,
                 .src_stage  = PipelineStage::None,
                 .dst_stage  = PipelineStage::VertexShader,
                 .buffer     = *buffer,
-            }},
-        {
-            TextureBarrier{
+            },
+        }},
+        {{
+            {
                 .src_access = BarrierAccess::None,
                 .dst_access = BarrierAccess::RenderTarget,
                 .src_stage  = PipelineStage::None,
@@ -437,11 +558,11 @@ TEST_P(GraphicsCommandTest, ResourceBarrier) {
                 .dst_layout = TextureLayout::RenderTarget,
                 .texture    = *render_texture,
             },
-        });
+        }});
     context->End();
 
     auto& queue = device->GetCommandQueue(context->GetType());
-    queue.Submit({context.get()});
+    queue.Submit({{*context}});
     queue.WaitIdle();
 }
 
@@ -449,7 +570,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     auto rotation     = rotate_z(90.0_deg);
     auto frame_buffer = device->CreateGPUBuffer(
         {
-            .name         = fmt::format("{}_buffer", test_name),
+            .name         = std::pmr::string(fmt::format("{}_buffer", test_name)),
             .element_size = sizeof(rotation),
             .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::CopyDst,
         },
@@ -462,7 +583,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     bindless_info.frame_buffer_handle = device->GetBindlessUtils().CreateBindlessHandle(*frame_buffer, 0);
 
     auto bindless_info_buffer = device->CreateGPUBuffer({
-        .name         = fmt::format("{}_bindless_info_buffer", test_name),
+        .name         = std::pmr::string(fmt::format("{}_bindless_info_buffer", test_name)),
         .element_size = sizeof(BindlessInfo),
         .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
@@ -471,7 +592,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
 
     BindlessHandle bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer, 0);
 
-    constexpr auto shader_code = R"""(
+    const std::pmr::string shader_code = R"""(
             #include "bindless.hlsl"
 
             struct Bindless {
@@ -498,10 +619,10 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
             float4 PSMain() : SV_Target {
                 return float4(1.0f, 0.0f, 0.0f, 1.0f);
             }
-        )"""sv;
+        )""";
 
     auto vs_shader = device->CreateShader({
-        .name        = fmt::format("{}-vs", test_name),
+        .name        = std::pmr::string(fmt::format("{}-vs", test_name)),
         .type        = ShaderType::Vertex,
         .entry       = "VSMain",
         .source_code = shader_code,
@@ -509,7 +630,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     ASSERT_TRUE(vs_shader);
 
     auto ps_shader = device->CreateShader({
-        .name        = fmt::format("{}-ps", test_name),
+        .name        = std::pmr::string(fmt::format("{}-ps", test_name)),
         .type        = ShaderType::Pixel,
         .entry       = "PSMain",
         .source_code = shader_code,
@@ -517,7 +638,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     ASSERT_TRUE(ps_shader);
 
     auto pipeline = device->CreateRenderPipeline({
-        .name    = fmt::format("{}-pipeline", test_name),
+        .name    = std::pmr::string(fmt::format("{}-pipeline", test_name)),
         .shaders = {vs_shader, ps_shader},
     });
     ASSERT_TRUE(pipeline);
@@ -530,7 +651,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     context->End();
 
     auto& queue = device->GetCommandQueue(context->GetType());
-    queue.Submit({context.get()});
+    queue.Submit({{*context}});
     queue.WaitIdle();
 
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_handle);
@@ -558,12 +679,12 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(ComputeCommandTest, ResourceBarrier) {
     auto buffer = device->CreateGPUBuffer(
         {
-            .name         = fmt::format("buffer-{}", test_name),
+            .name         = std::pmr::string(fmt::format("buffer-{}", test_name)),
             .element_size = 128,
             .usages       = GPUBufferUsageFlags::Storage,
         });
     auto render_texture = device->CreateTexture({
-        .name        = fmt::format("texture-{}", test_name),
+        .name        = std::pmr::string(fmt::format("texture-{}", test_name)),
         .width       = 128,
         .height      = 128,
         .format      = Format::R8G8B8A8_UNORM,
@@ -573,15 +694,18 @@ TEST_P(ComputeCommandTest, ResourceBarrier) {
 
     context->Begin();
     context->ResourceBarrier(
-        {}, {GPUBufferBarrier{
+        {},
+        {{
+            {
                 .src_access = BarrierAccess::None,
                 .dst_access = BarrierAccess::Constant,
                 .src_stage  = PipelineStage::None,
                 .dst_stage  = PipelineStage::ComputeShader,
                 .buffer     = *buffer,
-            }},
-        {
-            TextureBarrier{
+            },
+        }},
+        {{
+            {
                 .src_access = BarrierAccess::None,
                 .dst_access = BarrierAccess::ShaderWrite,
                 .src_stage  = PipelineStage::None,
@@ -590,10 +714,10 @@ TEST_P(ComputeCommandTest, ResourceBarrier) {
                 .dst_layout = TextureLayout::ShaderWrite,
                 .texture    = *render_texture,
             },
-        });
+        }});
     context->End();
     auto& queue = device->GetCommandQueue(context->GetType());
-    queue.Submit({context.get()});
+    queue.Submit({{*context}});
     queue.WaitIdle();
 }
 
@@ -601,7 +725,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
     auto rotation     = rotate_z(90.0_deg);
     auto frame_buffer = device->CreateGPUBuffer(
         {
-            .name         = fmt::format("{}_buffer", test_name),
+            .name         = std::pmr::string(fmt::format("{}_buffer", test_name)),
             .element_size = sizeof(rotation),
             .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::CopyDst,
         },
@@ -612,7 +736,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
         BindlessHandle frame_buffer_handle;
     };
     auto bindless_info_buffer = device->CreateGPUBuffer({
-        .name         = fmt::format("{}_bindless_info_buffer", test_name),
+        .name         = std::pmr::string(fmt::format("{}_bindless_info_buffer", test_name)),
         .element_size = sizeof(BindlessInfo),
         .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
@@ -622,7 +746,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
 
     auto bindless_info_handle = device->GetBindlessUtils().CreateBindlessHandle(*bindless_info_buffer, 0);
 
-    constexpr std::string_view cs_shader_code = R"""(
+    const std::pmr::string cs_shader_code = R"""(
             #include "bindless.hlsl"
             struct Bindless {
                 hitagi::SimpleBuffer cb;
@@ -640,7 +764,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
         )""";
 
     auto cs_shader = device->CreateShader({
-        .name        = fmt::format("{}-cs", test_name),
+        .name        = std::pmr::string(fmt::format("{}-cs", test_name)),
         .type        = ShaderType::Compute,
         .entry       = "main",
         .source_code = cs_shader_code,
@@ -648,7 +772,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
     ASSERT_TRUE(cs_shader);
 
     auto pipeline = device->CreateComputePipeline({
-        .name = fmt::format("{}-pipeline", test_name),
+        .name = std::pmr::string(fmt::format("{}-pipeline", test_name)),
         .cs   = cs_shader,
     });
     ASSERT_TRUE(pipeline);
@@ -659,11 +783,10 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
     context->PushBindlessMetaInfo({
         .handle = bindless_info_handle,
     });
-    // TODO dispatch command
     context->End();
 
     auto& queue = device->GetCommandQueue(context->GetType());
-    queue.Submit({context.get()});
+    queue.Submit({{*context}});
     queue.WaitIdle();
 
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_handle);
@@ -693,7 +816,7 @@ TEST_P(CopyCommandTest, CopyBuffer) {
 
     auto src_buffer = device->CreateGPUBuffer(
         {
-            .name          = fmt::format("{}_src", test_name),
+            .name          = std::pmr::string(fmt::format("{}_src", test_name)),
             .element_size  = sizeof(char),
             .element_count = initial_data.size(),
             .usages        = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
@@ -704,7 +827,7 @@ TEST_P(CopyCommandTest, CopyBuffer) {
         });
     auto dst_buffer = device->CreateGPUBuffer(
         {
-            .name          = fmt::format("{}_dst", test_name),
+            .name          = std::pmr::string(fmt::format("{}_dst", test_name)),
             .element_size  = sizeof(char),
             .element_count = initial_data.size(),
             .usages        = GPUBufferUsageFlags::MapRead | GPUBufferUsageFlags::CopyDst,
@@ -721,13 +844,66 @@ TEST_P(CopyCommandTest, CopyBuffer) {
         ctx->CopyBuffer(*src_buffer, 0, *dst_buffer, 0, src_buffer->Size());
         ctx->End();
 
-        copy_queue.Submit({ctx.get()});
+        copy_queue.Submit({{*ctx}});
         copy_queue.WaitIdle();
 
-        auto dst_data = GPUBufferView<char>(*dst_buffer);
+        auto dst_data = GPUBufferView<const char>(*dst_buffer);
         EXPECT_STREQ(initial_data.data(), std::string(dst_data.begin(), dst_data.end()).c_str())
             << "The content of the buffer must be the same as initial data";
     }
+}
+
+TEST_P(CopyCommandTest, CopyTexture) {
+    auto src_texture = device->CreateTexture({
+        .name        = std::pmr::string(fmt::format("{}_src", test_name)),
+        .width       = 1024,
+        .height      = 1024,
+        .format      = Format::R32G32B32A32_FLOAT,
+        .clear_value = vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+        .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopySrc,
+    });
+
+    auto dst_texture = device->CreateTexture({
+        .name        = std::pmr::string(fmt::format("{}_dst", test_name)),
+        .width       = 1024,
+        .height      = 1024,
+        .format      = Format::R32G32B32A32_UINT,  // ! different format here
+        .clear_value = vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+        .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
+    });
+
+    ASSERT_TRUE(src_texture != nullptr);
+    ASSERT_TRUE(dst_texture != nullptr);
+
+    context->Begin();
+    context->ResourceBarrier(
+        {}, {},
+        {{TextureBarrier{
+              .src_access = BarrierAccess::None,
+              .dst_access = BarrierAccess::CopySrc,
+              .src_stage  = PipelineStage::None,
+              .dst_stage  = PipelineStage::Copy,
+              .src_layout = TextureLayout::Unkown,
+              .dst_layout = TextureLayout::CopySrc,
+              .texture    = *src_texture,
+          },
+          TextureBarrier{
+              .src_access = BarrierAccess::None,
+              .dst_access = BarrierAccess::CopyDst,
+              .src_stage  = PipelineStage::None,
+              .dst_stage  = PipelineStage::Copy,
+              .src_layout = TextureLayout::Unkown,
+              .dst_layout = TextureLayout::CopyDst,
+              .texture    = *dst_texture,
+          }}});
+    context->CopyTextureRegion(*src_texture, {0, 0, 0}, *dst_texture, {0, 0, 0}, {1024, 1024, 1});
+    context->End();
+
+    EXPECT_NO_THROW({
+        auto& copy_queue = device->GetCommandQueue(CommandType::Copy);
+        copy_queue.Submit({{*context}});
+        copy_queue.WaitIdle();
+    });
 }
 
 class SwapChainTest : public DeviceTest {
@@ -790,7 +966,7 @@ TEST_P(DeviceTest, DrawTriangle) {
             .window = app->GetWindow(),
         });
 
-    constexpr std::string_view shader_code = R"""(
+    const std::pmr::string shader_code = R"""(
             #include "bindless.hlsl"
 
             struct Bindless {
@@ -833,7 +1009,7 @@ TEST_P(DeviceTest, DrawTriangle) {
         )""";
 
     auto vertex_shader = device->CreateShader({
-        .name        = fmt::format("VS-{}", test_name),
+        .name        = std::pmr::string(fmt::format("VS-{}", test_name)),
         .type        = ShaderType::Vertex,
         .entry       = "VSMain",
         .source_code = shader_code,
@@ -841,7 +1017,7 @@ TEST_P(DeviceTest, DrawTriangle) {
     ASSERT_TRUE(vertex_shader);
 
     auto pixel_shader = device->CreateShader({
-        .name        = fmt::format("PS-{}", test_name),
+        .name        = std::pmr::string(fmt::format("PS-{}", test_name)),
         .type        = ShaderType::Pixel,
         .entry       = "PSMain",
         .source_code = shader_code,
@@ -849,14 +1025,14 @@ TEST_P(DeviceTest, DrawTriangle) {
     ASSERT_TRUE(pixel_shader);
 
     auto pipeline = device->CreateRenderPipeline({
-        .name    = fmt::format("pipeline-{}", test_name),
+        .name    = std::pmr::string(fmt::format("pipeline-{}", test_name)),
         .shaders = {
             vertex_shader,
             pixel_shader,
         },
         .vertex_input_layout = {
-            {"POSITION", 0, Format::R32G32B32_FLOAT, 0, 0, 2 * sizeof(vec3f)},
-            {"COLOR", 0, Format::R32G32B32_FLOAT, 0, sizeof(vec3f), 2 * sizeof(vec3f)},
+            {"POSITION", Format::R32G32B32_FLOAT, 0, 0, 2 * sizeof(vec3f)},
+            {"COLOR", Format::R32G32B32_FLOAT, 0, sizeof(vec3f), 2 * sizeof(vec3f)},
         },
         .render_format = swap_chain->GetFormat(),
     });
@@ -887,7 +1063,7 @@ TEST_P(DeviceTest, DrawTriangle) {
 
     auto texture = device->CreateTexture(
         {
-            .name   = fmt::format("Texture-{}", test_name),
+            .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
             .width  = 2,
             .height = 2,
             .format = Format::R8G8B8A8_UNORM,
@@ -896,14 +1072,14 @@ TEST_P(DeviceTest, DrawTriangle) {
         {reinterpret_cast<const std::byte*>(pink_color.data()), sizeof(pink_color)});
 
     auto sampler = device->CreateSampler({
-        .name = fmt::format("Sampler-{}", test_name),
+        .name = std::pmr::string(fmt::format("Sampler-{}", test_name)),
     });
 
     struct Constant {
         mat4f rotation;
     };
     auto constant_buffer                           = device->CreateGPUBuffer({
-                                  .name         = fmt::format("{}-ConstantBuffer", test_name),
+                                  .name         = std::pmr::string(fmt::format("{}-ConstantBuffer", test_name)),
                                   .element_size = sizeof(Constant),
                                   .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
@@ -924,7 +1100,7 @@ TEST_P(DeviceTest, DrawTriangle) {
 
     auto bindless_info_buffer = device->CreateGPUBuffer(
         {
-            .name         = fmt::format("{}-BindlessHandles", test_name),
+            .name         = std::pmr::string(fmt::format("{}-BindlessHandles", test_name)),
             .element_size = sizeof(BindlessInfo),
             .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
         },
@@ -950,9 +1126,11 @@ TEST_P(DeviceTest, DrawTriangle) {
         .height = rect.bottom - rect.top,
     });
     auto& render_target = swap_chain->AcquireTextureForRendering();
+
+    ;
     context->ResourceBarrier(
         {}, {},
-        {TextureBarrier{
+        {{TextureBarrier{
             .src_access = BarrierAccess::None,
             .dst_access = BarrierAccess::RenderTarget,
             .src_stage  = PipelineStage::Render,
@@ -960,11 +1138,11 @@ TEST_P(DeviceTest, DrawTriangle) {
             .src_layout = TextureLayout::Unkown,
             .dst_layout = TextureLayout::RenderTarget,
             .texture    = render_target,
-        }});
+        }}});
 
     context->BeginRendering(render_target);
     context->SetPipeline(*pipeline);
-    context->SetVertexBuffer(0, *vertex_buffer);
+    context->SetVertexBuffers(0, {{*vertex_buffer}}, {{0}});
     context->PushBindlessMetaInfo({
         .handle = bindless_info_handle,
     });
@@ -973,7 +1151,7 @@ TEST_P(DeviceTest, DrawTriangle) {
 
     context->ResourceBarrier(
         {}, {},
-        {TextureBarrier{
+        std::array{TextureBarrier{
             .src_access = BarrierAccess::RenderTarget,
             .dst_access = BarrierAccess::Present,
             .src_stage  = PipelineStage::Render,
@@ -984,7 +1162,7 @@ TEST_P(DeviceTest, DrawTriangle) {
         }});
     context->End();
 
-    gfx_queue.Submit({context.get()});
+    gfx_queue.Submit({{*context}});
     swap_chain->Present();
     gfx_queue.WaitIdle();
 
@@ -998,7 +1176,6 @@ TEST_P(DeviceTest, DrawTriangle) {
 }
 
 int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::trace);
     InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

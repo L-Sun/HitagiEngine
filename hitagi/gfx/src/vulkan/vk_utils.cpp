@@ -135,10 +135,7 @@ auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, V
                 break;
         }
     }
-    if (error) {
-        throw std::runtime_error("Vulkan Error");
-    }
-    return false;
+    return error;
 }
 
 }  // namespace hitagi::gfx

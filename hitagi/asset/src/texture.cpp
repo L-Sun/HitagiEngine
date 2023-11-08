@@ -46,18 +46,19 @@ std::shared_ptr<Texture> Texture::m_DefaultTexture = nullptr;
 
 auto Texture::DefaultTexture() -> std::shared_ptr<Texture> {
     constexpr math::Vector<std::uint8_t, 4> color(216, 115, 255, 255);
+    constexpr std::array                    colors = {color, color, color, color};
 
     // TODO thread safe
     if (m_DefaultTexture == nullptr) {
         m_DefaultTexture = std::make_shared<Texture>(
-            1, 1, gfx::Format::R8G8B8A8_UNORM,
-            core::Buffer(4, reinterpret_cast<const std::byte*>(&color)),
+            2, 2, gfx::Format::R8G8B8A8_UNORM,
+            core::Buffer(16, reinterpret_cast<const std::byte*>(colors.data())),
             "DefaultTexture");
     }
     return m_DefaultTexture;
 }
 
-void Texture::DestoryDefaultTexture() {
+void Texture::DestroyDefaultTexture() {
     m_DefaultTexture = nullptr;
 }
 
@@ -99,13 +100,16 @@ void Texture::Unload() {
 
 void Texture::InitGPUData(gfx::Device& device) {
     if (!m_Dirty) return;
-    m_GPUData = device.CreateTexture({
-        .name   = m_Name,
-        .width  = m_Width,
-        .height = m_Height,
-        .format = m_Format,
-    });
-    m_Dirty   = false;
+    m_GPUData = device.CreateTexture(
+        {
+            .name   = m_Name,
+            .width  = m_Width,
+            .height = m_Height,
+            .format = m_Format,
+            .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
+        },
+        m_CPUData.Span<const std::byte>());
+    m_Dirty = false;
 }
 
 }  // namespace hitagi::asset

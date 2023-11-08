@@ -7,8 +7,6 @@
 #include <fmt/color.h>
 #include <tracy/Tracy.hpp>
 
-#include <algorithm>
-
 extern "C" {
 _declspec(dllexport) extern const UINT D3D12SDKVersion = D3D12SDK_VERSION;
 }
@@ -18,29 +16,22 @@ _declspec(dllexport) extern const char* D3D12SDKPath = "./D3D12/";
 
 namespace hitagi::gfx {
 
-DX12Device::DX12Device(std::string_view name)
-    : Device(Type::DX12, name),
-      m_ShaderCompiler(fmt::format("{}-ShaderCompiler", name))
-
-{
+DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
     unsigned dxgi_factory_flags = 0;
 
 #ifdef HITAGI_DEBUG
     {
         ComPtr<ID3D12Debug> debug_controller;
         if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller)))) {
-            if (ComPtr<ID3D12Debug3> debug_controller_3;
-                SUCCEEDED(debug_controller->QueryInterface(IID_PPV_ARGS(&debug_controller_3)))) {
-                m_Logger->trace("Enabled GPU Based validation");
-                debug_controller_3->SetEnableGPUBasedValidation(true);
-                m_Logger->trace("Enabled Synchronized command queue validation");
-                debug_controller_3->SetEnableSynchronizedCommandQueueValidation(true);
-                debug_controller_3->EnableDebugLayer();
-            } else {
-                m_Logger->trace("Enabled D3D12 debug layer.");
-                debug_controller->EnableDebugLayer();
-            }
             dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
+            m_Logger->trace("Enabled D3D12 debug layer.");
+            debug_controller->EnableDebugLayer();
+
+            // if (ComPtr<ID3D12Debug3> debug_controller_3;
+            //     SUCCEEDED(debug_controller.As(&debug_controller_3))) {
+            //     m_Logger->trace("Enabled GPU Based validation");
+            //     debug_controller_3->SetEnableGPUBasedValidation(true);
+            // }
         }
     }
 #endif
@@ -52,13 +43,63 @@ DX12Device::DX12Device(std::string_view name)
 
     m_Logger->trace("Pick GPU...");
     {
-        ComPtr<IDXGIAdapter> p_adapter;
-        if (m_Factory->EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&p_adapter)) != DXGI_ERROR_NOT_FOUND) {
-            DXGI_ADAPTER_DESC desc;
-            p_adapter->GetDesc(&desc);
-            std::pmr::wstring description = desc.Description;
-            m_Logger->info("Pick: {}", std::pmr::string(description.begin(), description.end()));
-            p_adapter.As(&m_Adapter);
+        ComPtr<IDXGIFactory6> factory_6;
+        if (FAILED(m_Factory.As(&factory_6))) {
+            m_Logger->error("Failed to get IDXGIFactory6");
+            throw std::runtime_error("Failed to get IDXGIFactory6.");
+        }
+
+        ComPtr<IDXGIAdapter1> p_adapter = nullptr;
+        for (UINT adapter_index = 0; SUCCEEDED(factory_6->EnumAdapterByGpuPreference(adapter_index, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&p_adapter))); adapter_index++) {
+            DXGI_ADAPTER_DESC1 desc;
+            p_adapter->GetDesc1(&desc);
+
+            if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
+                continue;
+            }
+
+            if (SUCCEEDED(D3D12CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
+                std::pmr::wstring description = desc.Description;
+                m_Logger->info("Pick: {}", std::pmr::string(description.begin(), description.end()));
+                p_adapter.As(&m_Adapter);
+                break;
+            }
+        }
+
+        if (p_adapter == nullptr) {
+            m_Logger->warn("Fail to pick high performance gpu.");
+
+            std::optional<UINT> warp_adapter_index;
+            for (UINT adapter_index = 0; SUCCEEDED(m_Factory->EnumAdapters1(adapter_index, &p_adapter)); adapter_index++) {
+                DXGI_ADAPTER_DESC1 desc;
+                p_adapter->GetDesc1(&desc);
+
+                if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
+                    warp_adapter_index = adapter_index;
+                    continue;
+                }
+
+                if (SUCCEEDED(D3D12CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
+                    std::pmr::wstring description = desc.Description;
+                    m_Logger->info("Pick: {}", std::pmr::string(description.begin(), description.end()));
+                    p_adapter.As(&m_Adapter);
+                    break;
+                }
+            }
+
+            if (p_adapter == nullptr && warp_adapter_index.has_value()) {
+                m_Logger->error("Use wrap device.");
+
+                if (FAILED(m_Factory->EnumAdapters1(warp_adapter_index.value(), &p_adapter))) {
+                    m_Logger->error("Failed to get warp adapter.");
+                    throw std::runtime_error("Failed to get warp adapter.");
+                }
+            }
+
+            if (p_adapter == nullptr) {
+                m_Logger->error("Failed to get adapter.");
+                throw std::runtime_error("Failed to get adapter.");
+            }
         }
     }
 
@@ -113,7 +154,10 @@ DX12Device::DX12Device(std::string_view name)
             .pAllocationCallbacks = &m_CustomAllocationCallback,
             .pAdapter             = m_Adapter.Get(),
         };
-        D3D12MA::CreateAllocator(&desc, &m_MemoryAllocator);
+        if (FAILED(D3D12MA::CreateAllocator(&desc, &m_MemoryAllocator))) {
+            m_Logger->error("Failed to create D3D12 Memory Allocator");
+            throw std::runtime_error("Failed to create D3D12 Memory Allocator");
+        }
     }
 
     m_Logger->trace("Create Command Queues");
@@ -143,6 +187,7 @@ DX12Device::~DX12Device() {
 }
 
 void DX12Device::WaitIdle() {
+    ZoneScopedN("DX12Device::WaitIdle");
     for (auto& queue : m_CommandQueues) {
         queue->WaitIdle();
     }
@@ -170,23 +215,23 @@ auto DX12Device::CreateCommandContext(CommandType type, std::string_view name) -
 }
 
 auto DX12Device::CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> {
-    return std::make_shared<DX12SwapChain>(*this, desc);
+    return std::make_shared<DX12SwapChain>(*this, std::move(desc));
 }
 
 auto DX12Device::CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GPUBuffer> {
-    return std::make_shared<DX12GPUBuffer>(*this, desc, initial_data);
+    return std::make_shared<DX12GPUBuffer>(*this, std::move(desc), initial_data);
 }
 
 auto DX12Device::CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
-    return std::make_shared<DX12Texture>(*this, desc, initial_data);
+    return std::make_shared<DX12Texture>(*this, std::move(desc), initial_data);
 }
 
 auto DX12Device::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
-    return std::make_shared<DX12Sampler>(*this, desc);
+    return std::make_shared<DX12Sampler>(*this, std::move(desc));
 }
 
-auto DX12Device::CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program) -> std::shared_ptr<Shader> {
-    return std::make_shared<DX12Shader>(*this, std::move(desc), binary_program);
+auto DX12Device::CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> {
+    return std::make_shared<DX12Shader>(*this, std::move(desc));
 }
 
 auto DX12Device::CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> {
@@ -235,6 +280,7 @@ void DX12Device::IntegrateD3D12Logger() {
                 switch (severity) {
                     case D3D12_MESSAGE_SEVERITY_CORRUPTION:
                         p_this->m_Logger->critical(description);
+                        throw std::runtime_error(description);
                         break;
                     case D3D12_MESSAGE_SEVERITY_ERROR:
                         p_this->m_Logger->error(description);

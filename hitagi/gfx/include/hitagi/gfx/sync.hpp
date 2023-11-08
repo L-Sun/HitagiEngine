@@ -4,8 +4,6 @@
 #include <chrono>
 #include <string>
 #include <string_view>
-#include <memory_resource>
-#include <memory>
 
 namespace hitagi::gfx {
 class Device;
@@ -31,74 +29,30 @@ protected:
     std::pmr::string m_Name;
 };
 
-enum struct BarrierAccess : std::uint32_t {
-    None              = 0x1,
-    CopySrc           = (None << 1),
-    CopyDst           = (CopySrc << 1),
-    Vertex            = (CopyDst << 1),
-    Index             = (Vertex << 1),
-    Constant          = (Index << 1),
-    ShaderRead        = (Constant << 1),
-    ShaderWrite       = (ShaderRead << 1),
-    DepthStencilRead  = (ShaderWrite << 1),
-    DepthStencilWrite = (DepthStencilRead << 1),
-    RenderTarget      = (DepthStencilWrite << 1),
-    Present           = (RenderTarget << 1),
-};
-
-enum struct PipelineStage : std::uint32_t {
-    None          = 0x1,
-    All           = (None << 1),
-    VertexInput   = (All << 1),
-    VertexShader  = (VertexInput << 1),
-    PixelShader   = (VertexShader << 1),
-    DepthStencil  = (PixelShader << 1),
-    Render        = (DepthStencil << 1),
-    AllGraphics   = (Render << 1),
-    ComputeShader = (AllGraphics << 1),
-    Copy          = (ComputeShader << 1),
-    Resolve       = (Copy << 1),
-};
-
-enum struct TextureLayout : std::uint16_t {
-    Unkown            = 0x1,
-    Common            = (Unkown << 1),
-    CopySrc           = (Common << 1),
-    CopyDst           = (CopySrc << 1),
-    ShaderRead        = (CopyDst << 1),
-    ShaderWrite       = (ShaderRead << 1),
-    DepthStencilRead  = (ShaderWrite << 1),
-    DepthStencilWrite = (DepthStencilRead << 1),
-    RenderTarget      = (DepthStencilWrite << 1),
-    ResolveSrc        = (RenderTarget << 1),
-    ResolveDst        = (ResolveSrc << 1),
-    Present           = (ResolveDst << 1),
-};
-
 struct GlobalBarrier {
-    BarrierAccess src_access;
-    BarrierAccess dst_access;
-    PipelineStage src_stage = PipelineStage::All;
-    PipelineStage dst_stage = PipelineStage::All;
+    BarrierAccess src_access = BarrierAccess::None;
+    BarrierAccess dst_access = BarrierAccess::None;
+    PipelineStage src_stage  = PipelineStage::None;
+    PipelineStage dst_stage  = PipelineStage::None;
 };
 
 struct GPUBufferBarrier {
-    BarrierAccess src_access;
-    BarrierAccess dst_access;
-    PipelineStage src_stage = PipelineStage::All;
-    PipelineStage dst_stage = PipelineStage::All;
+    BarrierAccess src_access = BarrierAccess::None;
+    BarrierAccess dst_access = BarrierAccess::None;
+    PipelineStage src_stage  = PipelineStage::None;
+    PipelineStage dst_stage  = PipelineStage::None;
 
     GPUBuffer& buffer;
 };
 
 struct TextureBarrier {
-    BarrierAccess src_access;
-    BarrierAccess dst_access;
-    PipelineStage src_stage = PipelineStage::All;
-    PipelineStage dst_stage = PipelineStage::All;
+    BarrierAccess src_access = BarrierAccess::None;
+    BarrierAccess dst_access = BarrierAccess::None;
+    PipelineStage src_stage  = PipelineStage::None;
+    PipelineStage dst_stage  = PipelineStage::None;
 
-    TextureLayout src_layout;
-    TextureLayout dst_layout;
+    TextureLayout src_layout = TextureLayout::Unkown;
+    TextureLayout dst_layout = TextureLayout::Unkown;
 
     Texture& texture;
 };

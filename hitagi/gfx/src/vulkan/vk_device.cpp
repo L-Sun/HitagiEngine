@@ -7,8 +7,10 @@
 
 #include <fmt/color.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
+#include <vma/vk_mem_alloc.h>
 
 namespace hitagi::gfx {
 VulkanDevice::VulkanDevice(std::string_view name)
@@ -18,8 +20,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
           .pfnAllocation   = custom_vk_allocation_fn,
           .pfnReallocation = custom_vk_reallocation_fn,
           .pfnFree         = custom_vk_free_fn,
-      },
-      m_ShaderCompiler(fmt::format("ShaderCompiler({})", name))
+      }
 
 {
     m_Logger->trace("Create Vulkan Instance...");
@@ -196,23 +197,23 @@ auto VulkanDevice::CreateCommandContext(CommandType type, std::string_view name)
 }
 
 auto VulkanDevice::CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> {
-    return std::make_shared<VulkanSwapChain>(*this, desc);
+    return std::make_shared<VulkanSwapChain>(*this, std::move(desc));
 }
 
 auto VulkanDevice::CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GPUBuffer> {
-    return std::make_shared<VulkanBuffer>(*this, desc, initial_data);
+    return std::make_shared<VulkanBuffer>(*this, std::move(desc), initial_data);
 }
 
 auto VulkanDevice::CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
-    return std::make_shared<VulkanImage>(*this, desc, initial_data);
+    return std::make_shared<VulkanImage>(*this, std::move(desc), initial_data);
 }
 
 auto VulkanDevice::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
-    return std::make_shared<VulkanSampler>(*this, desc);
+    return std::make_shared<VulkanSampler>(*this, std::move(desc));
 }
 
-auto VulkanDevice::CreateShader(ShaderDesc desc, std::span<const std::byte> binary_program) -> std::shared_ptr<Shader> {
-    return std::make_shared<VulkanShader>(*this, desc, binary_program);
+auto VulkanDevice::CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> {
+    return std::make_shared<VulkanShader>(*this, std::move(desc));
 }
 
 auto VulkanDevice::CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> {
@@ -227,6 +228,19 @@ auto VulkanDevice::GetBindlessUtils() -> BindlessUtils& {
     return *m_BindlessUtils;
 }
 
-void VulkanDevice::Profile(std::size_t frame_index) const {}
+void VulkanDevice::Profile(std::size_t frame_index) const {
+    static bool configured = false;
+    if (!configured) {
+        TracyPlotConfig("GPU Allocations", tracy::PlotFormatType::Number, true, true, 0);
+        TracyPlotConfig("GPU Memory", tracy::PlotFormatType::Memory, false, true, 0);
+        configured = true;
+    }
+
+    vmaSetCurrentFrameIndex(m_VmaAllocator, frame_index);
+    VmaTotalStatistics statics;
+    vmaCalculateStatistics(m_VmaAllocator, &statics);
+    TracyPlot("GPU Allocations", static_cast<std::int64_t>(statics.total.statistics.allocationCount));
+    TracyPlot("GPU Memory", static_cast<std::int64_t>(statics.total.statistics.allocationBytes));
+}
 
 }  // namespace hitagi::gfx

@@ -42,17 +42,17 @@ std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer) {
     auto file_header = reinterpret_cast<const BITMAP_FILEHEADER*>(buffer.GetData());
     auto bmp_header  = reinterpret_cast<const BITMAP_HEADER*>(buffer.GetData() + BITMAP_FILEHEADER_SIZE);
     if (file_header->signature == 0x4D42 /* 'B''M' */) {
-        logger->debug("[BMP] Asset is Windows BMP file");
-        logger->debug("[BMP] BMP Header");
-        logger->debug("[BMP] -----------------------------------");
-        logger->debug("[BMP] File Size:          {}", file_header->size);
-        logger->debug("[BMP] Data Offset:        {}", file_header->bits_offset);
-        logger->debug("[BMP] Image Width:        {}", bmp_header->width);
-        logger->debug("[BMP] Image Height:       {}", bmp_header->height);
-        logger->debug("[BMP] Image Planes:       {}", bmp_header->planes);
-        logger->debug("[BMP] Image BitCount:     {}", bmp_header->bit_count);
-        logger->debug("[BMP] Image Comperession: {}", bmp_header->compression);
-        logger->debug("[BMP] Image Size:         {}", bmp_header->size_image);
+        logger->trace("[BMP] Asset is Windows BMP file");
+        logger->trace("[BMP] BMP Header");
+        logger->trace("[BMP] -----------------------------------");
+        logger->trace("[BMP] File Size:          {}", file_header->size);
+        logger->trace("[BMP] Data Offset:        {}", file_header->bits_offset);
+        logger->trace("[BMP] Image Width:        {}", bmp_header->width);
+        logger->trace("[BMP] Image Height:       {}", bmp_header->height);
+        logger->trace("[BMP] Image Planes:       {}", bmp_header->planes);
+        logger->trace("[BMP] Image BitCount:     {}", bmp_header->bit_count);
+        logger->trace("[BMP] Image Comperession: {}", bmp_header->compression);
+        logger->trace("[BMP] Image Size:         {}", bmp_header->size_image);
 
         if (bmp_header->bit_count < 24) {
             logger->warn("[BMP] Sorry, only true color BMP is supported at now.");

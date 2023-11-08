@@ -15,9 +15,9 @@ public:
     DX12CommandQueue(DX12Device& device, CommandType type, std::string_view name);
 
     void Submit(
-        const std::pmr::vector<CommandContext*>& contexts,
-        const std::pmr::vector<FenceWaitInfo>&   wait_fences   = {},
-        const std::pmr::vector<FenceSignalInfo>& signal_fences = {}) final;
+        std::span<const std::reference_wrapper<const CommandContext>> contexts,
+        std::span<const FenceWaitInfo>                                wait_fences   = {},
+        std::span<const FenceSignalInfo>                              signal_fences = {}) final;
 
     void WaitIdle() final;
 

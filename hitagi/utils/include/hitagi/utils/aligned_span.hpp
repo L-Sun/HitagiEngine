@@ -65,7 +65,7 @@ public:
     auto begin() noexcept -> Iterator { return {this, 0}; }
     auto end() noexcept -> Iterator { return {this, m_ElementCount}; }
 
-private:
+protected:
     std::byte*  m_Data;
     std::size_t m_ElementCount;
     std::size_t m_ElementAlignment;

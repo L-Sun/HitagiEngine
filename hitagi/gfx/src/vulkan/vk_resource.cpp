@@ -1,5 +1,4 @@
 #include "vk_resource.hpp"
-#include "hitagi/gfx/gpu_resource.hpp"
 #include "vk_device.hpp"
 #include "vk_bindless.hpp"
 #include "vk_utils.hpp"
@@ -11,29 +10,42 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 #include <spirv_reflect.h>
-
-#include <numeric>
+#include <range/v3/view/enumerate.hpp>
+#include <range/v3/view/transform.hpp>
+#include <range/v3/view/unique.hpp>
+#include <range/v3/range/conversion.hpp>
 
 namespace hitagi::gfx {
 
-VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, desc) {
+VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, std::move(desc)) {
     const auto logger = device.GetLogger();
 
-    logger->trace("Create buffer({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    if (Size() == 0) {
+        const auto error_message = fmt::format(
+            "GPU buffer({}) size must be larger than 0",
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
+        logger->error(error_message);
+        throw std::invalid_argument(error_message);
+    }
+
+    logger->trace("Create buffer({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
         const vk::BufferCreateInfo buffer_create_info = {
             .size  = Size(),
             .usage = to_vk_buffer_usage(m_Desc.usages),
         };
         if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Index)) {
-            if (m_Desc.element_size != sizeof(std::uint16_t) && m_Desc.element_size != sizeof(std::uint32_t))
-                logger->warn("Index buffer element size must be 16 bits or 32 bits");
+            if (m_Desc.element_size != sizeof(std::uint16_t) && m_Desc.element_size != sizeof(std::uint32_t)) {
+                const auto error_message = "Index buffer element size must be 16 bits or 32 bits";
+                logger->error(error_message);
+                throw std::invalid_argument(error_message);
+            }
         }
 
         buffer = std::make_unique<vk::raii::Buffer>(device.GetDevice(), buffer_create_info, device.GetCustomAllocator());
     }
 
-    logger->trace("Allocate buffer({}) memory", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
+    logger->trace("Allocate buffer({}) memory", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
         VmaAllocationCreateInfo allocation_create_info{};
         if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead) ||
@@ -64,35 +76,42 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
                               &allocation_create_info,
                               &allocation,
                               &allocation_info)) {
-            auto error_message = fmt::format("failed to allocate memory for buffer({})", fmt::styled(desc.name, fmt::fg(fmt::color::red)));
+            auto error_message = fmt::format("failed to allocate memory for buffer({})", fmt::styled(GetName(), fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::runtime_error(error_message);
         }
         vmaBindBufferMemory(device.GetVmaAllocator(), allocation, **buffer);
-
-        logger->trace("Map buffer({}) memory", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
-        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapRead) ||
-            utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
-            m_MappedPtr = static_cast<std::byte*>(allocation_info.pMappedData);
-        }
     }
 
     if (!initial_data.empty()) {
-        logger->trace("Copy initial data to buffer({})", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
-        if (initial_data.size() > Size()) {
+        logger->trace("Copy initial data to buffer({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+
+        if (initial_data.size() % m_Desc.element_size != 0) {
             logger->warn(
-                "the initial data size({}) is larger than gpu buffer({}) size({}), so the exceed data will not be copied!",
+                "the initial data size({}) is not a multiple of element size({}) of gpu buffer({}), so the exceed data will not be copied!",
                 fmt::styled(initial_data.size(), fmt::fg(fmt::color::red)),
-                fmt::styled(Size(), fmt::fg(fmt::color::green)),
-                fmt::styled(desc.name, fmt::fg(fmt::color::green)));
+                fmt::styled(m_Desc.element_size, fmt::fg(fmt::color::green)),
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
         }
-        if (m_MappedPtr != nullptr && utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
-            std::memcpy(m_MappedPtr, initial_data.data(), std::min(initial_data.size(), Size()));
+
+        if (initial_data.size() > m_Desc.element_count * m_Desc.element_size) {
+            logger->warn(
+                "the element_count({}) in initial data is larger than the buffer element_count({}), so the exceed data will not be copied!",
+                fmt::styled(initial_data.size() / m_Desc.element_size, fmt::fg(fmt::color::red)),
+                fmt::styled(m_Desc.element_count, fmt::fg(fmt::color::green)),
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+        }
+
+        if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
+            // Unlike DX12 where the buffer may be align to 256 bytes, Vulkan buffer is not align to 256 bytes.
+            auto mapped_ptr = Map();
+            std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
+            UnMap();
         } else if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopyDst)) {
             logger->trace("Using stage buffer to initial...");
             VulkanBuffer staging_buffer(
                 device, GPUBufferDesc{
-                            .name         = fmt::format("{}_staging", desc.name),
+                            .name         = std::pmr::string(fmt::format("{}_staging", GetName())),
                             .element_size = Size(),
                             .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
                         },
@@ -104,22 +123,25 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             context->Begin();
             context->CopyBuffer(staging_buffer, 0, *this, 0, Size());
             context->End();
-            copy_queue.Submit({context.get()});
+            copy_queue.Submit({{*context}});
 
             // improve me
             copy_queue.WaitIdle();
         } else {
             auto error_message = fmt::format(
-                "the gpu buffer({}) can not initialize with staging buffer without {}, the actual flags are {}",
-                fmt::styled(desc.name, fmt::fg(fmt::color::red)),
-                fmt::styled(magic_enum::enum_flags_name(GPUBufferUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
-                fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
+                "Can not initialize gpu buffer({}) using upload heap without the flag {} or {}, the actual flags are {}",
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)),
+                fmt::styled(GPUBufferUsageFlags::CopyDst, fmt::fg(fmt::color::green)),
+                fmt::styled(GPUBufferUsageFlags::MapWrite, fmt::fg(fmt::color::green)),
+                fmt::styled(m_Desc.usages, fmt::fg(fmt::color::red)));
+
             logger->error(error_message);
+            vmaFreeMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
             throw std::invalid_argument(error_message);
         }
     }
 
-    create_vk_debug_object_info(*buffer, m_Name, device.GetDevice());
+    create_vk_debug_object_info(*buffer, GetName(), device.GetDevice());
 }
 
 VulkanBuffer::~VulkanBuffer() {
@@ -127,20 +149,59 @@ VulkanBuffer::~VulkanBuffer() {
 }
 
 auto VulkanBuffer::Map() -> std::byte* {
-    return m_MappedPtr;
+    const auto logger = m_Device.GetLogger();
+    if (!utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead) && !utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
+        const auto error_message = fmt::format(
+            "Can not map GPU buffer({}) without usage flag {} or {}",
+            fmt::styled(GetName(), fmt::fg(fmt::color::green)),
+            fmt::styled(GPUBufferUsageFlags::MapRead, fmt::fg(fmt::color::green)),
+            fmt::styled(GPUBufferUsageFlags::MapWrite, fmt::fg(fmt::color::green)));
+
+        logger->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+
+    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
+
+    std::byte* mapped_ptr = nullptr;
+    if (VK_SUCCESS != vmaMapMemory(vk_device.GetVmaAllocator(),
+                                   allocation,
+                                   reinterpret_cast<void**>(&mapped_ptr))) {
+        const auto error_message = fmt::format(
+            "failed to map GPU buffer({})",
+            fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+        logger->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+
+    std::lock_guard lock(map_mutex);
+    mapped_count++;
+    return mapped_ptr;
 }
 
-void VulkanBuffer::UnMap() {}
+void VulkanBuffer::UnMap() {
+    std::lock_guard lock(map_mutex);
 
-VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(device, desc) {
+    if (mapped_count == 0) {
+        const auto error_message = fmt::format(
+            "Can not unmap GPU buffer({}) without map it!",
+            fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+        m_Device.GetLogger()->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+    mapped_count--;
+    vmaUnmapMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
+}
+
+VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(device, std::move(desc)) {
     const auto logger = device.GetLogger();
 
-    logger->trace("Create Texture({})...", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create Texture({})...", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
         if (m_Desc.width == 0 || m_Desc.height == 0 || m_Desc.depth == 0) {
             const auto error_message = fmt::format(
                 "the texture({}) size({} x {} x {}) can not be zero!",
-                fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)),
+                fmt::styled(GetName(), fmt::fg(fmt::color::red)),
                 fmt::styled(m_Desc.width, fmt::fg(fmt::color::red)),
                 fmt::styled(m_Desc.height, fmt::fg(fmt::color::red)),
                 fmt::styled(m_Desc.depth, fmt::fg(fmt::color::red)));
@@ -150,10 +211,10 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
 
         image        = vk::raii::Image(device.GetDevice(), to_vk_image_create_info(m_Desc), device.GetCustomAllocator());
         image_handle = **image;
-        create_vk_debug_object_info(image.value(), m_Name, device.GetDevice());
+        create_vk_debug_object_info(image.value(), GetName(), device.GetDevice());
     }
 
-    logger->trace("Allocate memory for Texture({})...", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Allocate memory for Texture({})...", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
         const VmaAllocationCreateInfo vma_alloc_create_info{
             .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -165,25 +226,25 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                               &vma_alloc_create_info,
                               &allocation,
                               nullptr)) {
-            auto error_message = fmt::format("failed to allocate memory for texture({})", fmt::styled(desc.name, fmt::fg(fmt::color::red)));
+            auto error_message = fmt::format("failed to allocate memory for texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::runtime_error(error_message);
         }
         vmaBindImageMemory(device.GetVmaAllocator(), allocation, **image);
     }
 
-    logger->trace("Create TextureView({})...", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create TextureView({})...", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
         image_view = vk::raii::ImageView(device.GetDevice(), to_vk_image_view_create_info(m_Desc, **image), device.GetCustomAllocator());
-        create_vk_debug_object_info(image_view.value(), m_Name, device.GetDevice());
+        create_vk_debug_object_info(image_view.value(), GetName(), device.GetDevice());
     }
 
     if (!initial_data.empty()) {
-        logger->trace("Copy initial data to texture({})", fmt::styled(m_Name.c_str(), fmt::fg(fmt::color::green)));
+        logger->trace("Copy initial data to texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
             VulkanBuffer staging_buffer(
                 device, GPUBufferDesc{
-                            .name         = fmt::format("{}_staging", m_Desc.name),
+                            .name         = std::pmr::string(fmt::format("{}_staging", GetName())),
                             .element_size = initial_data.size_bytes(),
                             .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
                         },
@@ -195,17 +256,9 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
             context->Begin();
             context->ResourceBarrier(
                 {}, {},
-                {
-                    TextureBarrier{
-                        .src_access = BarrierAccess::None,
-                        .dst_access = BarrierAccess::CopyDst,
-                        .src_stage  = PipelineStage::None,
-                        .dst_stage  = PipelineStage::Copy,
-                        .src_layout = TextureLayout::Unkown,
-                        .dst_layout = TextureLayout::CopyDst,
-                        .texture    = *this,
-                    },
-                });
+                {{
+                    Transition(BarrierAccess::CopyDst, TextureLayout::CopyDst, PipelineStage::Copy),
+                }});
 
             context->CopyBufferToTexture(
                 staging_buffer,
@@ -213,37 +266,19 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                 *this,
                 {0, 0, 0},
                 {m_Desc.width, m_Desc.height, m_Desc.depth},
-                0, 0, m_Desc.array_size);
-
-            context->ResourceBarrier(
-                {}, {},
-                {
-                    TextureBarrier{
-                        .src_access = BarrierAccess::CopyDst,
-                        .dst_access = utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)
-                                          ? BarrierAccess::DepthStencilRead
-                                          : BarrierAccess::ShaderRead,
-                        .src_stage  = PipelineStage::Copy,
-                        .dst_stage  = PipelineStage::All,
-                        .src_layout = TextureLayout::CopyDst,
-                        .dst_layout = utils::has_flag(m_Desc.usages, TextureUsageFlags::DSV)
-                                          ? TextureLayout::DepthStencilRead
-                                          : TextureLayout::ShaderRead,
-                        .texture    = *this,
-                    },
-                });
+                {0, 0, m_Desc.array_size});
 
             context->End();
-            copy_queue.Submit({context.get()});
+            copy_queue.Submit({{*context}});
 
             // improve me
             copy_queue.WaitIdle();
         } else {
             auto error_message = fmt::format(
                 "the texture({}) can not initialize with staging buffer without {}, the actual flags are {}",
-                fmt::styled(desc.name, fmt::fg(fmt::color::red)),
-                fmt::styled(magic_enum::enum_flags_name(TextureUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
-                fmt::styled(magic_enum::enum_flags_name(desc.usages), fmt::fg(fmt::color::red)));
+                fmt::styled(GetName(), fmt::fg(fmt::color::red)),
+                fmt::styled(TextureUsageFlags::CopyDst, fmt::fg(fmt::color::green)),
+                fmt::styled(desc.usages, fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::invalid_argument(error_message);
         }
@@ -253,16 +288,17 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
 VulkanImage::VulkanImage(const VulkanSwapChain& _swap_chian, std::uint32_t index)
     : Texture(_swap_chian.GetDevice(),
               {
-                  .name        = fmt::format("{}-texture-{}", _swap_chian.GetName(), index),
+                  .name        = std::pmr::string(fmt::format("{}-texture-{}", _swap_chian.GetName(), index)),
                   .width       = _swap_chian.GetWidth(),
                   .height      = _swap_chian.GetHeight(),
                   .format      = _swap_chian.GetFormat(),
-                  .clear_value = _swap_chian.GetDesc().clear_value,
-                  .usages      = TextureUsageFlags::RTV,
+                  .clear_value = _swap_chian.GetDesc().clear_color,
+                  .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopyDst,
               }),
       swap_chain(&_swap_chian) {
     const auto& vk_device = static_cast<VulkanDevice&>(m_Device);
     const auto  _images   = _swap_chian.GetVkSwapChain().getImages();
+    create_vk_debug_object_info(_images.at(index), GetName(), vk_device.GetDevice());
 
     image_view = vk::raii::ImageView(
         vk_device.GetDevice(),
@@ -281,16 +317,16 @@ VulkanImage::VulkanImage(const VulkanSwapChain& _swap_chian, std::uint32_t index
         vk_device.GetCustomAllocator());
     image_handle = _images.at(index);
 
-    create_vk_debug_object_info(image_view.value(), m_Name, vk_device.GetDevice());
+    create_vk_debug_object_info(image_view.value(), GetName(), vk_device.GetDevice());
 }
 
 VulkanImage::~VulkanImage() {
     if (allocation) vmaFreeMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
 }
 
-VulkanSampler::VulkanSampler(VulkanDevice& device, SamplerDesc desc) : Sampler(device, desc) {
+VulkanSampler::VulkanSampler(VulkanDevice& device, SamplerDesc desc) : Sampler(device, std::move(desc)) {
     sampler = std::make_unique<vk::raii::Sampler>(device.GetDevice(), to_vk_sampler_create_info(m_Desc), device.GetCustomAllocator());
-    create_vk_debug_object_info(*sampler, m_Name, device.GetDevice());
+    create_vk_debug_object_info(*sampler, GetName(), device.GetDevice());
 }
 
 VulkanSwapChain::SemaphorePair::SemaphorePair(VulkanDevice& device, std::string_view name)
@@ -301,7 +337,7 @@ VulkanSwapChain::SemaphorePair::SemaphorePair(VulkanDevice& device, std::string_
 }
 
 VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
-    : SwapChain(device, desc), m_SemaphorePair(device, m_Name)
+    : SwapChain(device, std::move(desc)), m_SemaphorePair(device, GetName())
 
 {
     auto window_size = math::vec2u{};
@@ -375,6 +411,8 @@ auto VulkanSwapChain::AcquireTextureForRendering() -> Texture& {
 }
 
 void VulkanSwapChain::Present() {
+    if (m_CurrentIndex == -1) return;
+
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
     auto& queue     = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics)).GetVkQueue();
 
@@ -473,7 +511,7 @@ void VulkanSwapChain::CreateSwapChain() {
         .imageFormat      = to_vk_format(m_Format),
         .imageExtent      = vk::Extent2D{m_Size.x, m_Size.y},
         .imageArrayLayers = 1,
-        .imageUsage       = vk::ImageUsageFlagBits::eColorAttachment,
+        .imageUsage       = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst,
         .preTransform     = preTransform,
         .compositeAlpha   = composite_alpha,
         .presentMode      = vk::PresentModeKHR::eFifo,
@@ -483,7 +521,7 @@ void VulkanSwapChain::CreateSwapChain() {
     // We use graphics queue as present queue, so we do not care the ownership of images
     m_SwapChain = std::make_unique<vk::raii::SwapchainKHR>(vk_device.GetDevice(), swapchain_create_info, vk_device.GetCustomAllocator());
 
-    create_vk_debug_object_info(*m_SwapChain, m_Name, vk_device.GetDevice());
+    create_vk_debug_object_info(*m_SwapChain, GetName(), vk_device.GetDevice());
 }
 
 void VulkanSwapChain::CreateImageViews() {
@@ -493,9 +531,9 @@ void VulkanSwapChain::CreateImageViews() {
     }
 }
 
-VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc, std::span<const std::byte> _binary_program)
+VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc)
     : Shader(device, std::move(desc)),
-      binary_program(_binary_program.empty() ? device.GetShaderCompiler().CompileToSPIRV(m_Desc) : _binary_program),
+      binary_program(device.GetShaderCompiler().CompileToSPIRV(m_Desc)),
       shader(
           device.GetDevice(),
           {
@@ -505,7 +543,7 @@ VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc, std::span<cons
           device.GetCustomAllocator())
 
 {
-    create_vk_debug_object_info(shader, m_Name, device.GetDevice());
+    create_vk_debug_object_info(shader, GetName(), device.GetDevice());
 }
 
 auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
@@ -532,14 +570,14 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
     if (!has_vertex_shader) {
         const auto error_message = fmt::format(
             "Vertex shader is not specified for pipeline({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::invalid_argument(error_message);
     }
     if (!has_fragment_shader) {
         const auto error_message = fmt::format(
             "Fragment shader is not specified for pipeline({})",
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::invalid_argument(error_message);
     }
@@ -555,9 +593,9 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
         iter != m_Desc.shaders.end()) {
         const auto error_message = fmt::format(
             "shader({}) and shader({}) are same type for pipeline({})",
-            fmt::styled(iter->lock()->GetDesc().name, fmt::fg(fmt::color::red)),
-            fmt::styled((++iter)->lock()->GetDesc().name, fmt::fg(fmt::color::red)),
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(iter->lock()->GetName(), fmt::fg(fmt::color::red)),
+            fmt::styled((++iter)->lock()->GetName(), fmt::fg(fmt::color::red)),
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::invalid_argument(error_message);
     }
@@ -572,8 +610,8 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
         iter != m_Desc.shaders.end()) {
         const auto error_message = fmt::format(
             "shader({}) is not vulkan shader for pipeline({})",
-            fmt::styled(iter->lock()->GetDesc().name, fmt::fg(fmt::color::red)),
-            fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+            fmt::styled(iter->lock()->GetName(), fmt::fg(fmt::color::red)),
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::invalid_argument(error_message);
     }
@@ -592,42 +630,37 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
 
     const auto assembly_state = to_vk_assembly_state(m_Desc.assembly_state);
 
-    std::pmr::vector<vk::VertexInputAttributeDescription> vertex_input_attribute_descriptions;
-    std::transform(
-        m_Desc.vertex_input_layout.begin(), m_Desc.vertex_input_layout.end(),
-        std::back_inserter(vertex_input_attribute_descriptions),
-        [&](const auto& attribute) {
-            return vk::VertexInputAttributeDescription{
-                .location = static_cast<std::uint32_t>(vertex_input_attribute_descriptions.size()),
-                .binding  = attribute.binding,
-                .format   = to_vk_format(attribute.format),
-                .offset   = static_cast<std::uint32_t>(attribute.offset),
-            };
-        });
+    auto vertex_input_attribute_descriptions = m_Desc.vertex_input_layout |
+                                               ranges::views::enumerate |
+                                               ranges::views::transform([](const auto& pair) {
+                                                   const auto& [location, attribute] = pair;
+                                                   return vk::VertexInputAttributeDescription{
+                                                       .location = static_cast<std::uint32_t>(location),
+                                                       .binding  = attribute.binding,
+                                                       .format   = to_vk_format(attribute.format),
+                                                       .offset   = static_cast<std::uint32_t>(attribute.offset),
+                                                   };
+                                               }) |
+                                               ranges::to<std::pmr::vector<vk::VertexInputAttributeDescription>>();
 
-    std::pmr::vector<vk::VertexInputBindingDescription> vertex_input_binding_descriptions;
     // The sort all semantic strings according to declaration and assign Location numbers sequentially to the corresponding SPIR-V variables.
     // https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#implicit-location-number-assignment
-    {
-        std::transform(
-            m_Desc.vertex_input_layout.begin(), m_Desc.vertex_input_layout.end(),
-            std::back_inserter(vertex_input_binding_descriptions),
-            [](const auto& attribute) {
-                return vk::VertexInputBindingDescription{
-                    .binding   = attribute.binding,
-                    .stride    = static_cast<std::uint32_t>(attribute.stride),
-                    .inputRate = attribute.per_instance
-                                     ? vk::VertexInputRate::eInstance
-                                     : vk::VertexInputRate::eVertex,
-                };
-            });
-        auto iter = std::unique(vertex_input_binding_descriptions.begin(), vertex_input_binding_descriptions.end(), [](const auto& lhs, const auto& rhs) {
-            if (lhs.binding == rhs.binding && (lhs.stride != rhs.stride || lhs.inputRate != rhs.inputRate))
-                throw std::invalid_argument("Vertex input binding description is not same");
-            return lhs.binding == rhs.binding;
-        });
-        vertex_input_binding_descriptions.erase(iter, vertex_input_binding_descriptions.end());
-    }
+    auto vertex_input_binding_descriptions = m_Desc.vertex_input_layout |
+                                             ranges::views::transform([](const auto& attribute) {
+                                                 return vk::VertexInputBindingDescription{
+                                                     .binding   = attribute.binding,
+                                                     .stride    = static_cast<std::uint32_t>(attribute.stride),
+                                                     .inputRate = attribute.per_instance
+                                                                      ? vk::VertexInputRate::eInstance
+                                                                      : vk::VertexInputRate::eVertex,
+                                                 };
+                                             }) |
+                                             ranges::views::unique([](const auto& lhs, const auto& rhs) {
+                                                 if (lhs.binding == rhs.binding && (lhs.stride != rhs.stride || lhs.inputRate != rhs.inputRate))
+                                                     throw std::invalid_argument("Vertex input binding description is not same");
+                                                 return lhs.binding == rhs.binding;
+                                             }) |
+                                             ranges::to<std::pmr::vector<vk::VertexInputBindingDescription>>();
 
     const vk::PipelineVertexInputStateCreateInfo vertex_state = {
         .vertexBindingDescriptionCount   = static_cast<std::uint32_t>(vertex_input_binding_descriptions.size()),
@@ -640,7 +673,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
     const auto depth_stencil_state = to_vk_depth_stencil_state(m_Desc.depth_stencil_state);
     const auto attachment_state    = to_vk_blend_attachment_state(m_Desc.blend_state);
 
-    // TODO
+    // TODO : support multisample
     const vk::PipelineMultisampleStateCreateInfo multisample_state{
         .rasterizationSamples = vk::SampleCountFlagBits::e1,
     };
@@ -664,9 +697,15 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
 
     const auto render_format = to_vk_format(desc.render_format);
 
+    const auto depth_format   = to_vk_format(desc.depth_stencil_format);
+    const auto stencil_format = (desc.depth_stencil_format == Format::D24_UNORM_S8_UINT ||
+                                 desc.depth_stencil_format == Format::D32_FLOAT_S8X24_UINT)
+                                    ? depth_format
+                                    : vk::Format::eUndefined;
+
     const auto& pipeline_layout = *static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).pipeline_layout;
 
-    logger->trace("Create render pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create render pipeline({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
         const vk::StructureChain pipeline_create_info = {
             vk::GraphicsPipelineCreateInfo{
@@ -686,6 +725,8 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount    = 1,
                 .pColorAttachmentFormats = &render_format,
+                .depthAttachmentFormat   = depth_format,
+                .stencilAttachmentFormat = stencil_format,
             },
         };
 
@@ -699,7 +740,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
             default:
                 throw std::runtime_error("Failed to create pipeline");
         }
-        create_vk_debug_object_info(*pipeline, m_Name, device.GetDevice());
+        create_vk_debug_object_info(*pipeline, GetName(), device.GetDevice());
     }
 }
 
@@ -709,7 +750,7 @@ VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipeli
     auto compute_shader = std::dynamic_pointer_cast<VulkanShader>(m_Desc.cs.lock());
 
     if (compute_shader == nullptr) {
-        const auto error_message = fmt::format("Compute shader is not specified for pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::red)));
+        const auto error_message = fmt::format("Compute shader is not specified for pipeline({})", fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::invalid_argument(error_message);
     }
@@ -722,7 +763,7 @@ VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipeli
 
     const auto& pipeline_layout = *static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).pipeline_layout;
 
-    logger->trace("Create compute pipeline({})", fmt::styled(m_Desc.name, fmt::fg(fmt::color::green)));
+    logger->trace("Create compute pipeline({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
         const vk::ComputePipelineCreateInfo pipeline_create_info{
             .stage  = shader_stage_create_info,
@@ -739,7 +780,7 @@ VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipeli
             default:
                 throw std::runtime_error("Failed to create pipeline");
         }
-        create_vk_debug_object_info(*pipeline, m_Name, device.GetDevice());
+        create_vk_debug_object_info(*pipeline, GetName(), device.GetDevice());
     }
 }
 

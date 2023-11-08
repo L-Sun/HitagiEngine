@@ -1,22 +1,28 @@
 #include <hitagi/core/runtime_module.hpp>
+#include <hitagi/utils/logger.hpp>
 
 #include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <tracy/Tracy.hpp>
 
 namespace hitagi {
 RuntimeModule::RuntimeModule(std::string_view name)
-    : m_Name(name),
-      m_Logger(spdlog::stdout_color_mt(std::string{m_Name})) {
-    m_Logger->info("Initialize...");
+    : m_Name(name), m_Logger(utils::try_create_logger(name)) {
+    const auto message = fmt::format("Initialize {}", m_Name);
+    ZoneScoped;
+    ZoneName(message.data(), message.size());
+    m_Logger->info(message);
 }
 
 RuntimeModule::~RuntimeModule() {
     while (!m_SubModules.empty()) {
+        ZoneScoped;
+        const auto& sub_module = m_SubModules.back();
+        const auto  message    = fmt::format("Finalize {}", sub_module->GetName());
+        ZoneName(message.data(), message.size());
         m_SubModules.pop_back();
     }
-    m_Logger->info("Finalized");
+    m_Logger->info("Finalize {}", m_Name);
 }
 
 void RuntimeModule::Tick() {

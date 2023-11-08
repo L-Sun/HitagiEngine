@@ -64,21 +64,28 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                 .name        = json.at("pipeline").at("vs"),
                 .type        = gfx::ShaderType::Vertex,
                 .entry       = "VSMain",
-                .source_code = std::pmr::string{file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("vs")).Str()},
+                .source_code = std::pmr::string(file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("vs")).Str()),
                 .path        = json.at("pipeline").at("vs"),
             },
             {
                 .name        = json.at("pipeline").at("ps"),
                 .type        = gfx::ShaderType::Pixel,
                 .entry       = "PSMain",
-                .source_code = std::pmr::string{file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("ps")).Str()},
+                .source_code = std::pmr::string(file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("ps")).Str()),
                 .path        = json.at("pipeline").at("ps"),
             }};
 
         gfx::RenderPipelineDesc pipeline_desc{};
 
-        if (json.at("pipeline").contains("primitive")) {
-            pipeline_desc.assembly_state.primitive = json.at("pipeline")["primitive"].get<gfx::PrimitiveTopology>();
+        pipeline_desc.assembly_state.primitive = json.at("pipeline").value("primitive", gfx::PrimitiveTopology::TriangleList);
+        if (bool enable_depth_test = json.at("pipeline").value("depth_test", true);
+            enable_depth_test) {
+            pipeline_desc.depth_stencil_format                  = gfx::Format::D32_FLOAT;
+            pipeline_desc.depth_stencil_state.depth_test_enable = true;
+            pipeline_desc.rasterization_state =
+                {
+                    .cull_mode = gfx::CullMode::Back,
+                };
         }
 
         std::pmr::vector<Material::Parameter> parameters;
@@ -123,7 +130,7 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                     else
                         mat_param.value = Texture::DefaultTexture();
                 } else {
-                    logger->error("Unkown parameter type: {}", param["type"]);
+                    logger->error("Unkown parameter type: {}", param["type"].get<std::string>());
                     return nullptr;
                 }
                 parameters.emplace_back(std::move(mat_param));
