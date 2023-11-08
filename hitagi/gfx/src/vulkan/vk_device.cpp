@@ -10,7 +10,7 @@
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 
 namespace hitagi::gfx {
 VulkanDevice::VulkanDevice(std::string_view name)
