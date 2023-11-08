@@ -7,4 +7,7 @@ struct Overloaded : Ts... {
     using Ts::operator()...;
 };
 
+template <class... Ts>
+Overloaded(Ts...) -> Overloaded<Ts...>;
+
 }  // namespace hitagi::utils
