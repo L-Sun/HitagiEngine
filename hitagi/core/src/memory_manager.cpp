@@ -88,9 +88,10 @@ MemoryPool::MemoryPool(std::shared_ptr<spdlog::logger> logger)
 
 MemoryPool::~MemoryPool() {
     for (const auto& pool : m_Pools) {
-        auto total_blocks = pool.pages.size() * pool.page_size / pool.block_size;
+        const auto num_block_per_page = pool.page_size / pool.block_size;
+        const auto total_blocks       = pool.pages.size() * num_block_per_page;
         if (pool.num_free_blocks != total_blocks) {
-            m_Logger->warn("MemoryPool: {} bytes memory leak", total_blocks * pool.block_size);
+            m_Logger->warn("MemoryPool: {} bytes memory leak", (total_blocks - pool.num_free_blocks) * pool.block_size);
         }
     }
 }

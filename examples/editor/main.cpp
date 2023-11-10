@@ -1,16 +1,14 @@
 #include "editor.hpp"
 
 #include <spdlog/spdlog.h>
+#include <vcruntime_new_debug.h>
 #include <tracy/Tracy.hpp>
 
-#ifdef _WIN32
+auto main(int argc, char** argv) -> int {
 #ifdef _DEBUG
-#include <crtdbg.h>
-#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
-#endif
+    spdlog::set_level(spdlog::level::debug);
 #endif
 
-auto main(int argc, char** argv) -> int {
     hitagi::Engine engine;
 
     engine.AddSubModule(std::make_unique<hitagi::Editor>(engine));
@@ -19,11 +17,5 @@ auto main(int argc, char** argv) -> int {
         engine.Tick();
     }
 
-#ifdef _WIN32
-#ifdef _DEBUG
-    _CrtSetDbgFlag(_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) | _CRTDBG_LEAK_CHECK_DF);
-    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG);
-#endif
-#endif
     return 0;
 }
