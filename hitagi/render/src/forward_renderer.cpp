@@ -53,6 +53,8 @@ void ForwardRenderer::Tick() {
 }
 
 void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shared_ptr<asset::CameraNode> camera, rg::TextureHandle target) {
+    ZoneScoped;
+
     struct FrameConstant {
         math::vec4f camera_pos;
         math::mat4f view;
@@ -101,7 +103,7 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
         std::size_t                                                 index_offset;
         InstanceConstant                                            instance_data;
         std::size_t                                                 instance_index;
-        MaterialInstanceInfo                                        material_instance_info;
+        std::shared_ptr<MaterialInstanceInfo>                       material_instance_info;
     };
 
     const auto frame_constant_handle = m_RenderGraph.Create(
@@ -144,10 +146,10 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
         .Read(instance_constant_handle)
         .AddSampler(sampler_handle);
 
-    // generate material constants
-    std::unordered_map<std::shared_ptr<asset::Material>, MaterialInfo> material_infos;
+    std::unordered_map<asset::Material*, MaterialInfo> material_infos;
     {
-        // collect material
+        ZoneScopedN("generate material infos");
+
         const auto materials = scene->instance_nodes                                                                          //
                                | ranges::views::transform([](const auto& node) { return node->GetObjectRef()->sub_meshes; })  //
                                | ranges::views::join                                                                          //
@@ -166,14 +168,14 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
                                    {
                                        .name          = material->GetName(),
                                        .element_size  = material->CalculateMaterialBufferSize(),
-                                       .element_count = material->GetNumInstances(),
+                                       .element_count = material->GetInstances().size(),
                                        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
                                    },
                                    material->GetName());
                                render_pass_builder.Read(constant_handle);
 
                                return std::make_pair(
-                                   material,
+                                   material.get(),
                                    MaterialInfo{
                                        .pipeline          = pipeline_handle,
                                        .material_constant = constant_handle,
@@ -182,10 +184,45 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
                          | ranges::to<decltype(material_infos)>();
     }
 
+    std::unordered_map<asset::MaterialInstance*, std::shared_ptr<MaterialInstanceInfo>> material_instance_infos;
+    {
+        ZoneScopedN("generate material instance infos");
+
+        for (const auto& [material, material_info] : material_infos) {
+            for (const auto& [material_instance_index, material_instance] : material->GetInstances() | ranges::views::enumerate) {
+                auto material_instance_info = std::make_shared<MaterialInstanceInfo>();
+
+                material_instance_info->material_info           = material_info;
+                material_instance_info->samplers                = {sampler_handle};
+                material_instance_info->material_instance_data  = material_instance->GetMateriaBufferData();
+                material_instance_info->material_instance_index = material_instance_index;
+
+                for (const auto& texture : material_instance->GetTextures()) {
+                    texture->InitGPUData(*m_GfxDevice);
+                    render_pass_builder.Read(
+                        material_instance_info->textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName())),
+                        {},
+                        gfx::PipelineStage::PixelShader);
+                }
+
+                material_instance_infos.emplace(material_instance, std::move(material_instance_info));
+            }
+        }
+    }
+
     // generate draw items
     std::pmr::vector<DrawItem> draw_items;
     {
-        std::pmr::unordered_map<std::shared_ptr<asset::Material>, std::size_t> material_instance_counter;
+        ZoneScopedN("generate draw items");
+
+        {
+            ZoneScopedN("reserve draw items");
+            std::size_t num_draw_items = 0;
+            for (const auto& node : scene->instance_nodes) {
+                num_draw_items += node->GetObjectRef()->sub_meshes.size();
+            }
+            draw_items.reserve(num_draw_items);
+        }
 
         for (const auto& [instant_index, node] : scene->instance_nodes | ranges::views::enumerate) {
             auto mesh = node->GetObjectRef();
@@ -205,6 +242,8 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
             render_pass_builder.ReadAsIndices(index_buffer_handle);
 
             for (const auto& sub_mesh : mesh->sub_meshes) {
+                ZoneScopedN("add draw item");
+
                 auto material = sub_mesh.material_instance->GetMaterial();
 
                 const auto& pipeline = material->GetPipeline();
@@ -212,21 +251,6 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
                 std::pmr::unordered_map<std::uint32_t, rg::GPUBufferHandle> binding_to_vertex_handles;
                 for (const auto& vertex_attr : pipeline->GetDesc().vertex_input_layout) {
                     binding_to_vertex_handles.emplace(vertex_attr.binding, vertex_handles[asset::semantic_to_vertex_attribute(vertex_attr.semantic)]);
-                }
-
-                MaterialInstanceInfo material_instance_info{
-                    .material_info           = material_infos.at(material),
-                    .samplers                = {sampler_handle},
-                    .material_instance_data  = sub_mesh.material_instance->GetMateriaBufferData(),
-                    .material_instance_index = material_instance_counter[material]++,
-                };
-                // TODO get sampler here
-                for (const auto& texture : sub_mesh.material_instance->GetTextures()) {
-                    texture->InitGPUData(*m_GfxDevice);
-                    render_pass_builder.Read(
-                        material_instance_info.textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName())),
-                        {},
-                        gfx::PipelineStage::PixelShader);
                 }
 
                 draw_items.emplace_back(DrawItem{
@@ -239,14 +263,18 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
                         .model = node->transform.world_matrix,
                     },
                     .instance_index         = instant_index,
-                    .material_instance_info = std::move(material_instance_info),
+                    .material_instance_info = material_instance_infos.at(sub_mesh.material_instance.get()),
                 });
             }
         }
 
-        std::sort(draw_items.begin(), draw_items.end(), [](const auto& lhs, const auto& rhs) -> bool {
-            return lhs.material_instance_info.material_info.pipeline < rhs.material_instance_info.material_info.pipeline;
-        });
+        {
+            ZoneScopedN("sort draw items");
+
+            std::sort(draw_items.begin(), draw_items.end(), [](const auto& lhs, const auto& rhs) -> bool {
+                return lhs.material_instance_info->material_info.pipeline < rhs.material_instance_info->material_info.pipeline;
+            });
+        }
     }
 
     const auto bindless_infos_handle = m_RenderGraph.Create({
@@ -290,19 +318,20 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
         cmd.SetScissorRect({0, 0, render_target.GetDesc().width, render_target.GetDesc().height});
 
         for (const auto& [draw_index, draw_item] : _draw_items | ranges::views::enumerate) {
-            auto& pipeline = pass.Resolve(draw_item.material_instance_info.material_info.pipeline);
+            const auto& material_instance_info = draw_item.material_instance_info;
+
+            auto& pipeline = pass.Resolve(material_instance_info->material_info.pipeline);
             cmd.SetPipeline(pipeline);
 
-            const auto material                 = draw_item.material_instance_info;
-            const auto material_constant_handle = draw_item.material_instance_info.material_info.material_constant;
-            const auto material_instance_index  = draw_item.material_instance_info.material_instance_index;
+            const auto material_constant_handle = material_instance_info->material_info.material_constant;
+            const auto material_instance_index  = material_instance_info->material_instance_index;
 
             // Update material instance data
             {
                 auto& material_constant_buffer = pass.Resolve(material_constant_handle);
                 std::memcpy(material_constant_buffer.Map() + material_constant_buffer.AlignedElementSize() * material_instance_index,
-                            material.material_instance_data.GetData(),
-                            material.material_instance_data.GetDataSize());
+                            material_instance_info->material_instance_data.GetData(),
+                            material_instance_info->material_instance_data.GetDataSize());
                 material_constant_buffer.UnMap();
             }
 
@@ -317,12 +346,12 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
                 .instance_constant = pass.GetBindless(instance_constant_handle, draw_item.instance_index),
                 .material_constant = pass.GetBindless(material_constant_handle, material_instance_index),
                 .textures          = {
-                    pass.GetBindless(draw_item.material_instance_info.textures[0]),
-                    pass.GetBindless(draw_item.material_instance_info.textures[1]),
-                    pass.GetBindless(draw_item.material_instance_info.textures[2]),
-                    pass.GetBindless(draw_item.material_instance_info.textures[3]),
+                    pass.GetBindless(material_instance_info->textures[0]),
+                    pass.GetBindless(material_instance_info->textures[1]),
+                    pass.GetBindless(material_instance_info->textures[2]),
+                    pass.GetBindless(material_instance_info->textures[3]),
                 },
-                .sampler = pass.GetBindless(draw_item.material_instance_info.samplers[0]),
+                .sampler = pass.GetBindless(material_instance_info->samplers[0]),
             };
             cmd.PushBindlessMetaInfo({
                 .handle = pass.GetBindless(bindless_infos_handle, draw_index),

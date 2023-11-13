@@ -6,6 +6,7 @@
 
 #include <fmt/color.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <range/v3/numeric/accumulate.hpp>
 #include <range/v3/view/filter.hpp>
 #include <range/v3/view/for_each.hpp>
 #include <range/v3/view/join.hpp>
@@ -14,6 +15,7 @@
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/enumerate.hpp>
 #include <tracy/Tracy.hpp>
+#include "range/v3/algorithm/for_each.hpp"
 
 namespace hitagi::rg {
 
@@ -40,6 +42,8 @@ RenderGraph::~RenderGraph() {
 }
 
 auto RenderGraph::ImportResource(std::shared_ptr<gfx::Resource> resource, std::string_view name) noexcept -> std::size_t {
+    ZoneScoped;
+
     constexpr auto invalid_index = std::numeric_limits<std::size_t>::max();
 
     if (resource == nullptr) {
@@ -50,56 +54,74 @@ auto RenderGraph::ImportResource(std::shared_ptr<gfx::Resource> resource, std::s
     const std::pmr::string _name(name);
     const auto             node_type = gfx_resource_type_to_node_type(resource->GetType());
 
-    if (m_BlackBoard[node_type].contains(_name)) {
-        const auto index         = m_BlackBoard[node_type].at(_name);
-        const auto resource_node = std::static_pointer_cast<ResourceNode>(m_Nodes[index]);
+    {
+        ZoneScopedN("check name conflict");
 
-        if (resource_node->m_Resource != resource) {
-            m_Logger->error("Import resource({}) failed: name {} already exists",
-                            fmt::styled(resource->GetName(), fmt::fg(fmt::color::red)),
-                            fmt::styled(name, fmt::fg(fmt::color::red)));
-            return invalid_index;
-        } else {
-            return index;
-        }
-    }
+        if (m_BlackBoard[node_type].contains(_name)) {
+            const auto handle        = m_BlackBoard[node_type].at(_name);
+            const auto resource_node = std::static_pointer_cast<ResourceNode>(m_Nodes[handle]);
 
-    for (const auto& [index, node] : m_Nodes | ranges::views::enumerate) {
-        if (auto resource_node = std::dynamic_pointer_cast<ResourceNode>(node);
-            resource_node) {
-            if (resource_node->m_Resource == resource) {
-                if (!name.empty()) {
-                    m_BlackBoard[node_type].emplace(name, index);
-                }
-                return index;
+            if (resource_node->m_Resource != resource) {
+                m_Logger->error("Import resource({}) failed: name {} already exists",
+                                fmt::styled(resource->GetName(), fmt::fg(fmt::color::red)),
+                                fmt::styled(name, fmt::fg(fmt::color::red)));
+                return invalid_index;
+            } else {
+                return handle;
             }
         }
     }
 
-    const auto index = m_Nodes.size();
-    switch (node_type) {
-        case hitagi::rg::RenderGraphNode::Type::GPUBuffer:
-            m_Nodes.emplace_back(std::make_shared<GPUBufferNode>(*this, std::move(resource), name));
-            break;
-        case hitagi::rg::RenderGraphNode::Type::Texture:
-            m_Nodes.emplace_back(std::make_shared<TextureNode>(*this, std::move(resource), name));
-            break;
-        case hitagi::rg::RenderGraphNode::Type::Sampler:
-            m_Nodes.emplace_back(std::make_shared<SamplerNode>(*this, std::move(resource), name));
-            break;
-        case hitagi::rg::RenderGraphNode::Type::RenderPipeline:
-            m_Nodes.emplace_back(std::make_shared<RenderPipelineNode>(*this, std::move(resource), name));
-            break;
-        case hitagi::rg::RenderGraphNode::Type::ComputePipeline:
-            m_Nodes.emplace_back(std::make_shared<ComputePipelineNode>(*this, std::move(resource), name));
-            break;
-        default:
-            utils::unreachable();
+    {
+        ZoneScopedN("find existed resource node");
+        if (m_ImportedResources.contains(resource)) {
+            if (!name.empty()) {
+                m_BlackBoard[node_type].emplace(name, m_ImportedResources.at(resource));
+            }
+            return m_ImportedResources.at(resource);
+        }
     }
+
+    std::shared_ptr<ResourceNode> new_node;
+    {
+        ZoneScopedN("create new resource node");
+        switch (node_type) {
+            case hitagi::rg::RenderGraphNode::Type::GPUBuffer:
+                new_node = std::make_shared<GPUBufferNode>(*this, resource, name);
+                break;
+            case hitagi::rg::RenderGraphNode::Type::Texture:
+                new_node = std::make_shared<TextureNode>(*this, resource, name);
+                break;
+            case hitagi::rg::RenderGraphNode::Type::Sampler:
+                new_node = std::make_shared<SamplerNode>(*this, resource, name);
+                break;
+            case hitagi::rg::RenderGraphNode::Type::RenderPipeline:
+                new_node = std::make_shared<RenderPipelineNode>(*this, resource, name);
+                break;
+            case hitagi::rg::RenderGraphNode::Type::ComputePipeline:
+                new_node = std::make_shared<ComputePipelineNode>(*this, resource, name);
+                break;
+            default:
+                utils::unreachable();
+        }
+    }
+    new_node->m_Handle = m_Nodes.size();
+
+    {
+        ZoneScopedN("add to nodes");
+        m_Nodes.emplace_back(new_node);
+    }
+
+    {
+        ZoneScopedN("add to imported resources");
+        m_ImportedResources.emplace(resource, new_node->m_Handle);
+    }
+
     if (!name.empty()) {
-        m_BlackBoard[node_type].emplace(name, index);
+        m_BlackBoard[node_type].emplace(name, new_node->m_Handle);
     }
-    return index;
+
+    return new_node->m_Handle;
 }
 
 auto RenderGraph::Import(std::shared_ptr<gfx::GPUBuffer> buffer, std::string_view name) noexcept -> GPUBufferHandle {
@@ -147,30 +169,35 @@ auto RenderGraph::CreateResource(ResourceDesc desc, std::string_view name) noexc
         return invalid_index;
     }
 
-    const auto index = m_Nodes.size();
+    std::shared_ptr<ResourceNode> new_node;
     switch (node_type) {
         case hitagi::rg::RenderGraphNode::Type::GPUBuffer:
-            m_Nodes.emplace_back(std::make_shared<GPUBufferNode>(*this, std::move(std::get<gfx::GPUBufferDesc>(desc)), name));
+            new_node = std::make_shared<GPUBufferNode>(*this, std::move(std::get<gfx::GPUBufferDesc>(desc)), name);
             break;
         case hitagi::rg::RenderGraphNode::Type::Texture:
-            m_Nodes.emplace_back(std::make_shared<TextureNode>(*this, std::move(std::get<gfx::TextureDesc>(desc)), name));
+            new_node = std::make_shared<TextureNode>(*this, std::move(std::get<gfx::TextureDesc>(desc)), name);
             break;
         case hitagi::rg::RenderGraphNode::Type::Sampler:
-            m_Nodes.emplace_back(std::make_shared<SamplerNode>(*this, std::move(std::get<gfx::SamplerDesc>(desc)), name));
+            new_node = std::make_shared<SamplerNode>(*this, std::move(std::get<gfx::SamplerDesc>(desc)), name);
             break;
         case hitagi::rg::RenderGraphNode::Type::RenderPipeline:
-            m_Nodes.emplace_back(std::make_shared<RenderPipelineNode>(*this, std::move(std::get<gfx::RenderPipelineDesc>(desc)), name));
+            new_node = std::make_shared<RenderPipelineNode>(*this, std::move(std::get<gfx::RenderPipelineDesc>(desc)), name);
             break;
         case hitagi::rg::RenderGraphNode::Type::ComputePipeline:
-            m_Nodes.emplace_back(std::make_shared<ComputePipelineNode>(*this, std::move(std::get<gfx::ComputePipelineDesc>(desc)), name));
+            new_node = std::make_shared<ComputePipelineNode>(*this, std::move(std::get<gfx::ComputePipelineDesc>(desc)), name);
             break;
         default:
             utils::unreachable();
     }
+
+    new_node->m_Handle = m_Nodes.size();
+    m_Nodes.emplace_back(new_node);
+
     if (!name.empty()) {
-        m_BlackBoard[node_type].emplace(name, index);
+        m_BlackBoard[node_type].emplace(name, new_node->m_Handle);
     }
-    return index;
+
+    return new_node->m_Handle;
 }
 
 auto RenderGraph::Create(gfx::GPUBufferDesc desc, std::string_view name) noexcept -> GPUBufferHandle {
@@ -208,25 +235,22 @@ auto RenderGraph::MoveFrom(RenderGraphNode::Type type, std::size_t resource_node
         return invalid_index;
     }
 
-    const auto index = m_Nodes.size();
+    const auto new_handle = m_Nodes.size();
     switch (type) {
         case RenderGraphNode::Type::GPUBuffer: {
             const auto buffer_node = std::static_pointer_cast<GPUBufferNode>(m_Nodes[resource_node_index]);
-            m_Nodes.emplace_back(std::make_shared<GPUBufferNode>(buffer_node->MoveTo(GPUBufferHandle{index}, name)));
+            m_Nodes.emplace_back(buffer_node->Move(new_handle, name));
         } break;
         case RenderGraphNode::Type::Texture: {
             const auto texture_node = std::static_pointer_cast<TextureNode>(m_Nodes[resource_node_index]);
-            m_Nodes.emplace_back(std::make_shared<TextureNode>(texture_node->MoveTo(TextureHandle{index}, name)));
+            m_Nodes.emplace_back(texture_node->Move(new_handle, name));
         } break;
         default: {
             m_Logger->error("Move resource failed: resource is not a GPUBuffer or Texture");
             return invalid_index;
         } break;
     }
-    if (!name.empty()) {
-        m_BlackBoard[type].emplace(name, index);
-    }
-    return index;
+    return new_handle;
 }
 
 auto RenderGraph::GetBufferHandle(std::string_view name) const noexcept -> GPUBufferHandle {
@@ -252,345 +276,89 @@ auto RenderGraph::GetComputePipelineHandle(std::string_view name) const noexcept
 bool RenderGraph::Compile() {
     ZoneScopedN("Compile RenderGraph");
 
-    const auto transpose_adjacency_list = [](const AdjacencyList& adjacency_list) {
-        AdjacencyList result;
-        for (const auto& [from, tos] : adjacency_list) {
-            if (!result.contains(from)) result.emplace(from, AdjacencyList::mapped_type{});
-
-            for (auto to : tos) {
-                result[to].emplace(from);
-            }
-        }
-        return result;
-    };
-
-    if (!m_PresentPassHandle) {
+    if (m_PresentPassNode == nullptr) {
         m_Logger->info("RenderGraph has no present pass, so nothing will be rendered");
         return true;
     }
 
-    if (!m_DataFlow.empty()) {
+    if (!m_ExecuteLayers.empty()) {
         m_Logger->info("RenderGraph has already been compiled");
         return true;
     }
 
+    std::pmr::unordered_set<RenderGraphNode*> essential_nodes;
     {
-        ZoneScopedN("initialize data flow");
+        ZoneScopedN("collect used node");
 
-        m_DataFlow = ranges::views::iota(std::size_t{0}, m_Nodes.size())                                                           //
-                     | ranges::views::transform([](auto handle) { return std::make_pair(handle, AdjacencyList::mapped_type{}); })  //
-                     | ranges::to<AdjacencyList>();
+        const std::function<void(RenderGraphNode*)> do_dfs = [&](RenderGraphNode* node) {
+            if (essential_nodes.contains(node)) return;
+            essential_nodes.emplace(node);
 
-        auto pass_nodes = m_Nodes                                                                              //
-                          | ranges::views::enumerate                                                           //
-                          | ranges::views::filter([](const auto& item) { return item.second->IsPassNode(); })  //
-                          | ranges::views::transform([](const auto& item) {
-                                return std::make_pair(item.first, std::static_pointer_cast<PassNode>(item.second));
-                            });
-
-        for (const auto& [pass_handle, pass_node] : pass_nodes) {
-            for (const auto& [buffer_handle, buffer_edge] : pass_node->m_GPUBufferEdges) {
-                if (buffer_edge.write) {
-                    m_DataFlow.at(pass_handle).emplace(buffer_handle.index);
-                } else {
-                    m_DataFlow.at(buffer_handle.index).emplace(pass_handle);
-                }
+            for (auto input_node : node->m_InputNodes) {
+                do_dfs(input_node);
             }
-            for (const auto& [texture_handle, texture_edge] : pass_node->m_TextureEdges) {
-                if (texture_edge.write) {
-                    m_DataFlow.at(pass_handle).emplace(texture_handle.index);
-                } else {
-                    m_DataFlow.at(texture_handle.index).emplace(pass_handle);
-                }
-            }
-            for (const auto& [sampler_handle, sampler_edge] : pass_node->m_SamplerEdges) {
-                m_DataFlow.at(sampler_handle.index).emplace(pass_handle);
-            }
-            for (const auto render_pipeline : pass_node->m_RenderPipelines) {
-                m_DataFlow.at(render_pipeline.index).emplace(pass_handle);
-            }
-            for (const auto compute_pipeline : pass_node->m_ComputePipelines) {
-                m_DataFlow.at(compute_pipeline.index).emplace(pass_handle);
-            }
-        }
-
-        auto resource_nodes = m_Nodes                                                                                  //
-                              | ranges::views::enumerate                                                               //
-                              | ranges::views::filter([](const auto& item) { return item.second->IsResourceNode(); })  //
-                              | ranges::views::transform([](const auto& item) {
-                                    return std::make_pair(item.first, std::static_pointer_cast<ResourceNode>(item.second));
-                                });
-
-        for (const auto& [handle, resource_node] : resource_nodes) {
-            if (resource_node->m_MoveTo == std::numeric_limits<std::size_t>::max()) continue;
-
-            m_DataFlow.at(handle).emplace(resource_node->m_MoveTo);
-        }
-    }
-
-    // remove unused nodes
-    {
-        auto dependency_data_flow = transpose_adjacency_list(m_DataFlow);
-
-        auto unseen_nodes = ranges::views::iota(std::size_t{0}, m_Nodes.size())  //
-                            | ranges::to<std::pmr::unordered_set<std::size_t>>();
-
-        const std::function<void(std::size_t)> do_dfs = [&](std::size_t handle) {
-            if (unseen_nodes.contains(handle))
-                unseen_nodes.erase(handle);
-
-            // Keep write resource node
-            if (auto pass_node = std::dynamic_pointer_cast<PassNode>(m_Nodes[handle]);
-                pass_node) {
-                auto write_buffer_handles = pass_node->m_GPUBufferEdges                                                                  //
-                                            | ranges::views::filter([](const auto& handle_edge) { return handle_edge.second.write; })    //
-                                            | ranges::views::transform([](const auto& handle_edge) { return handle_edge.first.index; })  //
-                                            | ranges::views::filter([&](auto buffer_handle) { return unseen_nodes.contains(buffer_handle); });
-                for (auto write_buffer_handle : write_buffer_handles) {
-                    unseen_nodes.erase(write_buffer_handle);
-                }
-                auto write_texture_handles = pass_node->m_TextureEdges                                                                    //
-                                             | ranges::views::filter([](const auto& handle_edge) { return handle_edge.second.write; })    //
-                                             | ranges::views::transform([](const auto& handle_edge) { return handle_edge.first.index; })  //
-                                             | ranges::views::filter([&](auto texture_handle) { return unseen_nodes.contains(texture_handle); });
-
-                for (auto write_texture_handle : write_texture_handles) {
-                    unseen_nodes.erase(write_texture_handle);
-                }
-            }
-
-            for (auto next_handle : dependency_data_flow.at(handle))
-                do_dfs(next_handle);
         };
+        do_dfs(m_PresentPassNode.get());
 
-        do_dfs(m_PresentPassHandle.index);
-
-        for (auto handle : unseen_nodes) {
-            m_DataFlow.erase(handle);
-        }
-        for (auto& [handle, next_handles] : m_DataFlow) {
-            next_handles = next_handles                                                                                    //
-                           | ranges::views::filter([&](auto next_handle) { return !unseen_nodes.contains(next_handle); })  //
-                           | ranges::to<AdjacencyList::mapped_type>();
-        }
-
-        dependency_data_flow = transpose_adjacency_list(m_DataFlow);
-
-        // create edge:
-        // resource_1 -- move --> resource_2         resource_1 -- new_edge -->  pass_2
-        //      |                    |read               |                         | write
-        //      |                    v         OR        |                         v
-        //      +--- new_edge -->  pass_2                +--------- move --- >  resource_2
-
-        auto move_edges = m_DataFlow                                                                                        //
-                          | ranges::views::filter([&](const auto& item) { return m_Nodes[item.first]->IsResourceNode(); })  //
-                          | ranges::views::transform([&](const auto& item) {
-                                auto next_resource_handles = item.second  //
-                                                             | ranges::views::filter([&](auto handle) {
-                                                                   return m_Nodes[item.first]->IsResourceNode();
-                                                               })  //
-                                                             | ranges::to<AdjacencyList::mapped_type>();
-                                return std::make_pair(item.first, std::move(next_resource_handles));
-                            }) |
-                          ranges::to<AdjacencyList>();
-
-        for (const auto& [resource_1_handle, next_resource_handles] : move_edges) {
-            for (const auto resource_2_handle : next_resource_handles) {
-                auto read_pass_2_handles = m_DataFlow[resource_2_handle]                                                        //
-                                           | ranges::views::filter([&](auto handle) { return m_Nodes[handle]->IsPassNode(); })  //
-                                           | ranges::to<AdjacencyList::mapped_type>();
-
-                auto write_pass_2_handles = dependency_data_flow[resource_2_handle]                                              //
-                                            | ranges::views::filter([&](auto handle) { return m_Nodes[handle]->IsPassNode(); })  //
-                                            | ranges::to<AdjacencyList::mapped_type>();
-                if (write_pass_2_handles.size() > 1) {
-                    utils::unreachable();
-                }
-                m_DataFlow[resource_1_handle].merge(read_pass_2_handles);
-                m_DataFlow[resource_1_handle].merge(write_pass_2_handles);
-            }
-        }
-    }
-
-    AdjacencyList pass_flow;
-    {
-        ZoneScopedN("create pass flow");
-
-        auto pass_handles = m_DataFlow             //
-                            | ranges::views::keys  //
-                            | ranges::views::filter([&](auto handle) { return m_Nodes[handle]->IsPassNode(); });
-
-        for (auto pass_handle : pass_handles) {
-            pass_flow[pass_handle] = m_DataFlow[pass_handle] | ranges::views::transform([&](auto resource_handle) { return m_DataFlow[resource_handle]; })  //
-                                     | ranges::views::join                                                                                                  //
-                                     | ranges::views::filter([&](auto handle) { return m_Nodes[handle]->IsPassNode(); })                                    //
-                                     | ranges::to<AdjacencyList::mapped_type>();
-        }
+        // we need keep all output resource node in essential pass node to avoid execution failure
+        auto write_resource_nodes = essential_nodes                                                               //
+                                    | ranges::views::filter([](const auto& node) { return node->IsPassNode(); })  //
+                                    | ranges::views::transform([](auto node) { return node->m_OutputNodes; })     //
+                                    | ranges::views::join                                                         //
+                                    | ranges::to<std::pmr::unordered_set<RenderGraphNode*>>();
+        essential_nodes.merge(write_resource_nodes);
     }
 
     {
         ZoneScopedN("topology sort");
-        auto in_degrees = pass_flow                                                                          //
-                          | ranges::views::keys                                                              //
-                          | ranges::views::transform([](auto handle) { return std::make_pair(handle, 0); })  //
-                          | ranges::to<std::pmr::unordered_map<std::size_t, std::size_t>>();
+        auto in_degrees = essential_nodes  //
+                          | ranges::views::transform([](const auto& node) {
+                                return std::make_pair(node, node->m_InputNodes.size());
+                            })  //
+                          | ranges::to<std::pmr::unordered_map<RenderGraphNode*, std::size_t>>();
 
-        for (const auto& [handle, next_handles] : pass_flow) {
-            for (auto next_handle : next_handles) {
-                ++in_degrees.at(next_handle);
-            }
-        }
-
+        // use vector is ok
         auto start_nodes = in_degrees                                                                  //
                            | ranges::views::filter([](const auto& item) { return item.second == 0; })  //
                            | ranges::views::keys                                                       //
-                           | ranges::to<std::pmr::vector<std::size_t>>();
+                           | ranges::to<std::pmr::vector<RenderGraphNode*>>();
 
         std::size_t num_visited_nodes = 0;
         while (!start_nodes.empty()) {
-            auto& current_layer = m_ExecuteLayers.emplace_back(ExecuteLayer{});
+            ExecuteLayer current_layer;
 
-            for (auto handle : start_nodes) {
-                auto pass = std::static_pointer_cast<PassNode>(m_Nodes[handle]);
-                current_layer[pass->GetCommandType()].emplace_back(handle);
-            }
+            ranges::for_each(
+                start_nodes                                                                             //
+                    | ranges::views::filter([](const auto& node) { return node->IsPassNode(); })        //
+                    | ranges::views::transform([](auto node) { return static_cast<PassNode*>(node); })  //
+                ,
+                [&](auto node) { current_layer[node->GetCommandType()].emplace_back(node); });
 
-            std::pmr::vector<std::size_t> new_start_nodes;
-            for (auto handle : start_nodes) {
+            m_ExecuteLayers.emplace_back(std::move(current_layer));
+
+            std::pmr::vector<RenderGraphNode*> new_start_nodes;
+            for (auto node : start_nodes) {
                 num_visited_nodes++;
-                for (auto next_handle : pass_flow.at(handle)) {
-                    if (--in_degrees.at(next_handle) == 0) {
-                        new_start_nodes.emplace_back(next_handle);
+                for (auto output_node : node->m_OutputNodes) {
+                    if (--in_degrees.at(output_node) == 0) {
+                        new_start_nodes.emplace_back(output_node);
                     }
                 }
             }
             start_nodes = std::move(new_start_nodes);
         }
 
-        if (num_visited_nodes != pass_flow.size()) {
+        if (num_visited_nodes != essential_nodes.size()) {
             m_Logger->error("RenderGraph has cycle");
-            m_DataFlow.clear();
             m_ExecuteLayers.clear();
             return false;
         }
     }
 
     {
-        ZoneScopedN("Allocate resources");
-        for (auto handle : m_DataFlow | ranges::views::keys) {
-            m_Nodes[handle]->Initialize();
-        }
-    }
-
-    if (false) {
-        ZoneScopedN("Create barriers");
-
-        for (auto pass_handle : pass_flow | ranges::views::keys) {
-            auto pass_node = std::static_pointer_cast<PassNode>(m_Nodes[pass_handle]);
-            for (const auto& [buffer_handle, buffer_edge] : pass_node->m_GPUBufferEdges) {
-                pass_node->m_GPUBufferBarriers.emplace_back(
-                    gfx::GPUBufferBarrier{
-                        .src_access = gfx::BarrierAccess::None,
-                        .dst_access = buffer_edge.access,
-                        .src_stage  = gfx::PipelineStage::None,
-                        .dst_stage  = buffer_edge.stage,
-                        .buffer     = Resolve(buffer_handle),
-                    });
-            }
-            for (const auto& [texture_handle, texture_edge] : pass_node->m_TextureEdges) {
-                pass_node->m_TextureBarriers.emplace_back(
-                    gfx::TextureBarrier{
-                        .src_access = gfx::BarrierAccess::None,
-                        .dst_access = texture_edge.access,
-                        .src_stage  = gfx::PipelineStage::None,
-                        .dst_stage  = texture_edge.stage,
-                        .src_layout = gfx::TextureLayout::Unkown,
-                        .dst_layout = texture_edge.layout,
-                        .texture    = Resolve(texture_handle),
-                    });
-            }
-        }
-
-        const auto dependency_pass_flow = transpose_adjacency_list(pass_flow);
-
-        const std::function<void(std::size_t)> do_dfs = [&](std::size_t current_pass_handle) {
-            const auto pass_node = std::static_pointer_cast<PassNode>(m_Nodes[current_pass_handle]);
-            for (auto prev_pass_handle : dependency_pass_flow.at(current_pass_handle)) {
-                const auto prev_pass_node = std::static_pointer_cast<PassNode>(m_Nodes[prev_pass_handle]);
-
-                for (auto& buffer_barrier : pass_node->m_GPUBufferBarriers) {
-                    for (const auto& prev_buffer_barrier : prev_pass_node->m_GPUBufferBarriers) {
-                        if (&buffer_barrier.buffer == &prev_buffer_barrier.buffer) {
-                            buffer_barrier.src_access = prev_buffer_barrier.dst_access;
-                            buffer_barrier.src_stage  = prev_buffer_barrier.dst_stage;
-                        }
-                    }
-                }
-
-                for (auto& texture_barrier : pass_node->m_TextureBarriers) {
-                    for (const auto& prev_texture_barrier : prev_pass_node->m_TextureBarriers) {
-                        if (&texture_barrier.texture == &prev_texture_barrier.texture) {
-                            texture_barrier.src_access = prev_texture_barrier.dst_access;
-                            texture_barrier.src_layout = prev_texture_barrier.dst_layout;
-                            texture_barrier.src_stage  = prev_texture_barrier.dst_stage;
-                        }
-                    }
-                }
-            }
-        };
-        do_dfs(m_PresentPassHandle.index);
-
-        // remove redundant barrier and modify barrier for d3d12 compatibility
-        for (auto pass_handle : pass_flow | ranges::views::keys) {
-            auto pass_node       = std::static_pointer_cast<PassNode>(m_Nodes[pass_handle]);
-            auto buffer_barriers = pass_node->m_GPUBufferBarriers  //
-                                   | ranges::views::filter([](const auto& barrier) {
-                                         return barrier.src_access != barrier.dst_access &&
-                                                barrier.src_stage != barrier.dst_stage;
-                                     })  //
-                                   | ranges::to<decltype(pass_node->m_GPUBufferBarriers)>();
-
-            pass_node->m_GPUBufferBarriers.clear();
-            std::copy(buffer_barriers.begin(), buffer_barriers.end(), std::back_inserter(pass_node->m_GPUBufferBarriers));
-
-            auto texture_barriers = pass_node->m_TextureBarriers  //
-                                    | ranges::views::filter([](const auto& barrier) {
-                                          return barrier.src_access != barrier.dst_access &&
-                                                 barrier.src_stage != barrier.dst_stage &&
-                                                 barrier.src_layout != barrier.dst_layout;
-                                      })  //
-                                    | ranges::to<decltype(pass_node->m_TextureBarriers)>();
-
-            pass_node->m_TextureBarriers.clear();
-            std::copy(texture_barriers.begin(), texture_barriers.end(), std::back_inserter(pass_node->m_TextureBarriers));
-
-            // https://microsoft.github.io/DirectX-Specs/d3d/D3D12EnhancedBarriers.html#command-queue-layout-compatibility
-            if (m_Device.device_type == gfx::Device::Type::DX12) {
-                if (pass_node->GetCommandType() == gfx::CommandType::Copy) {
-                    for (auto& buffer_barrier : pass_node->m_GPUBufferBarriers) {
-                        if (buffer_barrier.src_access != gfx::BarrierAccess::CopySrc ||
-                            buffer_barrier.src_access != gfx::BarrierAccess::CopySrc) {
-                            buffer_barrier.src_access = gfx::BarrierAccess::None;
-                        }
-                        if (buffer_barrier.src_stage != gfx::PipelineStage::Copy) {
-                            buffer_barrier.src_stage = gfx::PipelineStage::None;
-                        }
-                    }
-                    for (auto& texture_barrier : pass_node->m_TextureBarriers) {
-                        if (texture_barrier.src_access != gfx::BarrierAccess::CopySrc ||
-                            texture_barrier.src_access != gfx::BarrierAccess::CopySrc) {
-                            texture_barrier.src_access = gfx::BarrierAccess::None;
-                        }
-                        if (texture_barrier.src_stage != gfx::PipelineStage::Copy) {
-                            texture_barrier.src_stage = gfx::PipelineStage::None;
-                        }
-                        if (texture_barrier.src_layout != gfx::TextureLayout::Common) {
-                            texture_barrier.src_layout = gfx::TextureLayout::Unkown;
-                        }
-                        texture_barrier.dst_layout = gfx::TextureLayout::Common;
-                    }
-                }
-            }
+        ZoneScopedN("initialize graphics resource");
+        for (auto node : essential_nodes) {
+            node->Initialize();
         }
     }
 
@@ -600,14 +368,9 @@ bool RenderGraph::Compile() {
 auto RenderGraph::Execute() -> std::uint64_t {
     ZoneScopedN("Execute RenderGraph");
 
-    auto pass_nodes = m_ExecuteLayers | ranges::views::join | ranges::views::join  //
-                      | ranges::views::transform([&](auto handle) {
-                            return std::static_pointer_cast<PassNode>(m_Nodes.at(handle));
-                        });
-
     {
         ZoneScopedN("Execute Pass");
-        for (const auto& pass_node : pass_nodes) {
+        for (const auto& pass_node : m_ExecuteLayers | ranges::views::join | ranges::views::join) {
             pass_node->Execute();
         }
     }
@@ -619,10 +382,8 @@ auto RenderGraph::Execute() -> std::uint64_t {
         for (const auto& execute_layer : m_ExecuteLayers) {
             // Improve more fine-grained fence
             magic_enum::enum_for_each<gfx::CommandType>([&](gfx::CommandType type) {
-                auto pass_nodes = execute_layer[type]  //
-                                  | ranges::views::transform([&](auto pass_handle) {
-                                        return std::static_pointer_cast<PassNode>(m_Nodes.at(pass_handle));
-                                    });
+                const auto& pass_nodes = execute_layer[type];
+
                 if (pass_nodes.empty()) return;
 
                 auto commands = pass_nodes  //
@@ -665,59 +426,37 @@ auto RenderGraph::Execute() -> std::uint64_t {
     return m_FrameIndex++;
 }
 
-void RenderGraph::Reset() {
+void RenderGraph::Reset() noexcept {
     ZoneScopedN("Reset RenderGraph");
 
-    m_PresentPassHandle = {};
+    m_PresentPassNode = nullptr;
     m_Nodes.clear();
+    m_ImportedResources.clear();
     m_BlackBoard = {};
-    m_DataFlow.clear();
     m_ExecuteLayers.clear();
 }
 
-void RenderGraph::RetireNodesFromPassNode(const std::shared_ptr<PassNode>& pass_node, const FenceValue& fence_value) {
-    for (auto& [buffer_handle, buffer_edge] : pass_node->m_GPUBufferEdges) {
+void RenderGraph::RetireNodesFromPassNode(PassNode* pass_node, const FenceValue& fence_value) noexcept {
+    for (auto input_node : pass_node->m_InputNodes) {
         m_RetiredNodes.emplace_back(RetiredNode{
-            .node             = m_Nodes.at(buffer_handle.index),
+            .node             = m_Nodes[input_node->m_Handle],
             .last_fence_value = fence_value,
         });
     }
-
-    for (const auto& [texture_handle, texture_edge] : pass_node->m_TextureEdges) {
+    for (auto output_node : pass_node->m_OutputNodes) {
         m_RetiredNodes.emplace_back(RetiredNode{
-            .node             = m_Nodes.at(texture_handle.index),
-            .last_fence_value = fence_value,
-        });
-    }
-
-    for (const auto& [sampler_handle, sampler_edge] : pass_node->m_SamplerEdges) {
-        m_RetiredNodes.emplace_back(RetiredNode{
-            .node             = m_Nodes.at(sampler_handle.index),
+            .node             = m_Nodes[output_node->m_Handle],
             .last_fence_value = fence_value,
         });
     }
 
     m_RetiredNodes.emplace_back(RetiredNode{
-        .node             = pass_node,
+        .node             = m_Nodes[pass_node->m_Handle],
         .last_fence_value = fence_value,
     });
-
-    for (const auto render_pipeline_handle : pass_node->m_RenderPipelines) {
-        m_RetiredNodes.emplace_back(RetiredNode{
-            .node             = m_Nodes.at(render_pipeline_handle.index),
-            .last_fence_value = fence_value,
-        });
-    }
-
-    for (const auto compute_pipeline_handle : pass_node->m_ComputePipelines) {
-        m_RetiredNodes.emplace_back(RetiredNode{
-            .node             = m_Nodes.at(compute_pipeline_handle.index),
-            .last_fence_value = fence_value,
-        });
-    }
 }
 
-void RenderGraph::RetireNodes() {
+void RenderGraph::RetireNodes() noexcept {
     ZoneScopedN("RetireNodes");
 
     const auto latest_fence_values = m_Fences  //
@@ -738,43 +477,40 @@ void RenderGraph::RetireNodes() {
 }
 
 auto RenderGraph::ToDot() const noexcept -> std::pmr::string {
-    return AdjacencyListToDot(m_DataFlow);
-}
-
-auto RenderGraph::AdjacencyListToDot(const AdjacencyList& adjacency_list) const noexcept -> std::pmr::string {
-    const auto node_writer = [&](std::size_t handle) {
-        const auto&      node  = m_Nodes[handle];
+    const auto node_writer = [&](const RenderGraphNode* node) {
         std::string_view shape = node->IsResourceNode() ? "shape=box " : "";
-        return std::pmr::string(fmt::format(R"({}label="{}\nhandle: {}")", shape, node->GetName(), handle));
+        return std::pmr::string(fmt::format(R"({}label="{}\nhandle: {}")", shape, node->GetName(), node->m_Handle));
     };
 
-    const auto edge_writer = [&](std::size_t from, std::size_t to) {
-        std::shared_ptr<PassNode> pass_node;
-        std::size_t               resource_handle;
-        if (m_Nodes[from]->IsPassNode()) {
-            pass_node       = std::static_pointer_cast<PassNode>(m_Nodes[from]);
-            resource_handle = to;
-        } else if (m_Nodes[to]->IsPassNode()) {
-            pass_node       = std::static_pointer_cast<PassNode>(m_Nodes[to]);
-            resource_handle = from;
+    const auto edge_writer = [&](const RenderGraphNode* from, const RenderGraphNode* to) {
+        const PassNode*     pass_node     = nullptr;
+        const ResourceNode* resource_node = nullptr;
+        if (from->IsPassNode()) {
+            pass_node     = static_cast<const PassNode*>(from);
+            resource_node = static_cast<const ResourceNode*>(to);
+        } else if (to->IsPassNode()) {
+            pass_node     = static_cast<const PassNode*>(to);
+            resource_node = static_cast<const ResourceNode*>(from);
         }
 
         if (pass_node) {
             std::pmr::string edge;
-            for (const auto& [buffer_handle, buffer_edge] : pass_node->m_GPUBufferEdges) {
-                if (buffer_handle == resource_handle) {
-                    if (!(buffer_edge.write && resource_handle == from)) {
+            switch (resource_node->GetType()) {
+                case RenderGraphNode::Type::GPUBuffer: {
+                    const auto  buffer_node = const_cast<GPUBufferNode*>(static_cast<const GPUBufferNode*>(resource_node));
+                    const auto& buffer_edge = pass_node->m_GPUBufferEdges.at(buffer_node);
+                    if (!(buffer_edge.write && resource_node == from)) {
                         edge = fmt::format("{},{}", buffer_edge.access, buffer_edge.stage);
                     }
-                    break;
-                }
-            }
-            for (const auto& [texture_handle, texture_edge] : pass_node->m_TextureEdges) {
-                if (texture_handle == resource_handle) {
-                    if (!(texture_edge.write && resource_handle == from)) {
-                        edge = fmt::format("{},{}", texture_edge.access, texture_edge.stage);
+                } break;
+                case RenderGraphNode::Type::Texture: {
+                    const auto  texture_node = const_cast<TextureNode*>(static_cast<const TextureNode*>(resource_node));
+                    const auto& texture_edge = pass_node->m_TextureEdges.at(texture_node);
+                    if (!(texture_edge.write && resource_node == from)) {
+                        edge = fmt::format("{},{},{}", texture_edge.access, texture_edge.layout, texture_edge.stage);
                     }
-                    break;
+                } break;
+                default: {
                 }
             }
             return std::pmr::string(fmt::format("label=\"{}\"", edge));
@@ -787,13 +523,16 @@ auto RenderGraph::AdjacencyListToDot(const AdjacencyList& adjacency_list) const 
 
     std::pmr::string output = "digraph {\n";
 
-    for (auto handle : adjacency_list | ranges::views::keys) {
-        output += fmt::format("  {} [{}];\n", handle, node_writer(handle));
+    for (const auto& node : m_Nodes) {
+        output += fmt::format("  {} [{}];\n", node->m_Handle, node_writer(node.get()));
     }
 
-    for (const auto& [handle, next_handles] : adjacency_list) {
-        for (auto next_handle : next_handles) {
-            output += fmt::format("  {} -> {} [{}];\n", handle, next_handle, edge_writer(handle, next_handle));
+    for (const auto& from_node : m_Nodes) {
+        for (auto to_node : from_node->m_OutputNodes) {
+            output += fmt::format(
+                "  {} -> {} [{}];\n",
+                from_node->m_Handle, to_node->m_Handle,
+                edge_writer(from_node.get(), to_node));
         }
     }
 

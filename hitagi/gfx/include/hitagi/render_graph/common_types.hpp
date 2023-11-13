@@ -4,16 +4,21 @@
 #include <hitagi/utils/private_build.hpp>
 
 #include <string_view>
+#include <unordered_set>
 
 namespace hitagi::rg {
 
 class RenderGraph;
+class PassBuilder;
 
 class RenderGraphNode;
 
 class ResourceNode;
 class GPUBufferNode;
 class TextureNode;
+class SamplerNode;
+class RenderPipelineNode;
+class ComputePipelineNode;
 
 class PassNode;
 class RenderPassNode;
@@ -26,6 +31,7 @@ class RenderGraphEdge;
 class RenderGraphNode {
 public:
     friend RenderGraph;
+    friend PassBuilder;
 
     enum struct Type : std::uint8_t {
         GPUBuffer,
@@ -40,7 +46,7 @@ public:
     };
 
     RenderGraphNode(const RenderGraphNode&)            = delete;
-    RenderGraphNode(RenderGraphNode&&)                 = default;
+    RenderGraphNode(RenderGraphNode&&) noexcept        = default;
     RenderGraphNode& operator=(const RenderGraphNode&) = delete;
     RenderGraphNode& operator=(RenderGraphNode&&)      = default;
     virtual ~RenderGraphNode()                         = default;
@@ -57,6 +63,8 @@ public:
     }
     inline bool IsPassNode() const noexcept { return m_Type == Type::RenderPass || m_Type == Type::ComputePass || m_Type == Type::CopyPass || m_Type == Type::PresentPass; }
 
+    void AddInputNode(RenderGraphNode* node) noexcept;
+
 protected:
     RenderGraphNode(RenderGraph& render_graph, Type type, std::string_view name = "")
         : m_RenderGraph(&render_graph), m_Type(type), m_Name(name) {}
@@ -66,7 +74,11 @@ protected:
     RenderGraph* m_RenderGraph;
     Type         m_Type;
 
-    std::pmr::string m_Name;  // finish by PassBuilder when type is any of PassNode
+    std::pmr::unordered_set<RenderGraphNode*> m_InputNodes;
+    std::pmr::unordered_set<RenderGraphNode*> m_OutputNodes;
+
+    std::size_t      m_Handle;  // finish by RenderGraph or PassBuilder
+    std::pmr::string m_Name;    // finish by PassBuilder when type is any of PassNode
 };
 
 inline constexpr auto gfx_resource_type_to_node_type(gfx::ResourceType type) {

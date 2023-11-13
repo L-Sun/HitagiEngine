@@ -6,6 +6,7 @@
 #include <hitagi/gfx/device.hpp>
 
 #include <variant>
+#include <set>
 
 namespace hitagi::asset {
 
@@ -27,8 +28,8 @@ using MaterialParameterValue = std::variant<
 
 template <typename T>
 concept MaterialParametric = requires(const MaterialParameterValue& parameter) {
-                                 { std::get<T>(parameter) } -> std::same_as<const T&>;
-                             };
+    { std::get<T>(parameter) } -> std::same_as<const T&>;
+};
 
 class MaterialInstance;
 
@@ -51,7 +52,7 @@ public:
     Material& operator=(const Material&) = delete;
     Material& operator=(Material&&)      = delete;
 
-    inline const auto& GetNumInstances() const noexcept { return m_NumInstance; }
+    inline const auto& GetInstances() const noexcept { return m_Instances; }
     inline const auto& GetDefaultParameters() const noexcept { return m_DefaultParameters; }
     inline const auto& GetPipeline() const noexcept { return m_Pipeline; }
     inline const auto& GetMaterialBuffer() const noexcept { return m_MaterialConstantBuffer; }
@@ -64,9 +65,13 @@ public:
 protected:
     Material(std::pmr::vector<gfx::ShaderDesc> shader_desc, gfx::RenderPipelineDesc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {});
 
+    void AddInstance(MaterialInstance* instance) noexcept;
+    void RemoveInstance(MaterialInstance* instance) noexcept;
+
     friend class MaterialInstance;
 
-    std::size_t                       m_NumInstance = 0;
+    std::set<MaterialInstance*> m_Instances;
+
     std::pmr::vector<gfx::ShaderDesc> m_ShaderDesc;
     gfx::RenderPipelineDesc           m_PipelineDesc;
     std::pmr::vector<Parameter>       m_DefaultParameters;

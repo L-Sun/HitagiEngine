@@ -24,62 +24,110 @@ PassNode::~PassNode() {
 }
 
 auto PassNode::Resolve(GPUBufferHandle buffer) const -> gfx::GPUBuffer& {
-    if (!m_GPUBufferEdges.contains(buffer)) {
+    if (!m_RenderGraph->IsValid(buffer)) {
+        std::string error_message = fmt::format("Buffer({}) is not valid handle", buffer.index);
+        m_RenderGraph->GetLogger()->error(error_message);
+        throw std::out_of_range(error_message);
+    }
+
+    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph->m_Nodes[buffer.index].get());
+
+    if (!m_GPUBufferEdges.contains(buffer_node)) {
         std::string error_message = fmt::format("Buffer({}) is not used in pass({})", buffer.index, m_Name);
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::out_of_range(error_message);
     }
 
-    return m_RenderGraph->Resolve(buffer);
+    return buffer_node->Resolve();
 }
 
 auto PassNode::Resolve(TextureHandle texture) const -> gfx::Texture& {
-    if (!m_TextureEdges.contains(texture)) {
+    if (!m_RenderGraph->IsValid(texture)) {
+        std::string error_message = fmt::format("Texture({}) is not valid handle", texture.index);
+        m_RenderGraph->GetLogger()->error(error_message);
+        throw std::out_of_range(error_message);
+    }
+
+    const auto texture_node = static_cast<TextureNode*>(m_RenderGraph->m_Nodes[texture.index].get());
+
+    if (!m_TextureEdges.contains(texture_node)) {
         std::string error_message = fmt::format("Texture({}) is not used in pass({})", texture.index, m_Name);
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::out_of_range(error_message);
     }
 
-    return m_RenderGraph->Resolve(texture);
+    return texture_node->Resolve();
 }
 
 auto PassNode::Resolve(SamplerHandle sampler) const -> gfx::Sampler& {
-    if (!m_SamplerEdges.contains(sampler)) {
+    if (!m_RenderGraph->IsValid(sampler)) {
+        std::string error_message = fmt::format("Sampler({}) is not valid handle", sampler.index);
+        m_RenderGraph->GetLogger()->error(error_message);
+        throw std::out_of_range(error_message);
+    }
+
+    const auto sampler_node = static_cast<SamplerNode*>(m_RenderGraph->m_Nodes[sampler.index].get());
+
+    if (!m_SamplerEdges.contains(sampler_node)) {
         std::string error_message = fmt::format("Sampler({}) is not used in pass({})", sampler.index, m_Name);
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::out_of_range(error_message);
     }
 
-    return m_RenderGraph->Resolve(sampler);
+    return sampler_node->Resolve();
 }
 
 auto PassNode::Resolve(RenderPipelineHandle pipeline) const -> gfx::RenderPipeline& {
-    if (!m_RenderPipelines.contains(pipeline)) {
+    if (!m_RenderGraph->IsValid(pipeline)) {
+        std::string error_message = fmt::format("Pipeline({}) is not valid handle", pipeline.index);
+        m_RenderGraph->GetLogger()->error(error_message);
+        throw std::out_of_range(error_message);
+    }
+
+    const auto pipeline_node = static_cast<RenderPipelineNode*>(m_RenderGraph->m_Nodes[pipeline.index].get());
+
+    if (!m_RenderPipelines.contains(pipeline_node)) {
         std::string error_message = fmt::format("Pipeline({}) is not used in pass({})", pipeline.index, m_Name);
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::out_of_range(error_message);
     }
 
-    return m_RenderGraph->Resolve(pipeline);
+    return pipeline_node->Resolve();
 }
 
 auto PassNode::Resolve(ComputePipelineHandle pipeline) const -> gfx::ComputePipeline& {
-    if (!m_ComputePipelines.contains(pipeline)) {
+    if (!m_RenderGraph->IsValid(pipeline)) {
+        std::string error_message = fmt::format("Pipeline({}) is not valid handle", pipeline.index);
+        m_RenderGraph->GetLogger()->error(error_message);
+        throw std::out_of_range(error_message);
+    }
+
+    const auto pipeline_node = static_cast<ComputePipelineNode*>(m_RenderGraph->m_Nodes[pipeline.index].get());
+
+    if (!m_ComputePipelines.contains(pipeline_node)) {
         std::string error_message = fmt::format("Pipeline({}) is not used in pass({})", pipeline.index, m_Name);
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::out_of_range(error_message);
     }
 
-    return m_RenderGraph->Resolve(pipeline);
+    return pipeline_node->Resolve();
 }
 
 auto PassNode::GetBindless(GPUBufferHandle buffer, std::size_t index) const noexcept -> gfx::BindlessHandle {
-    if (!m_GPUBufferEdges.contains(buffer)) {
+    if (!m_RenderGraph->IsValid(buffer)) {
+        std::string error_message = fmt::format("Buffer({}) is not valid handle", buffer.index);
+        m_RenderGraph->GetLogger()->error(error_message);
+        return {};
+    }
+
+    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph->m_Nodes[buffer.index].get());
+
+    if (!m_GPUBufferEdges.contains(buffer_node)) {
         m_RenderGraph->GetLogger()->error("Buffer({}) is not used in pass({})", buffer.index, m_Name);
         return {};
     }
 
-    const auto& buffer_edge = m_GPUBufferEdges.at(buffer);
+    const auto& buffer_edge = m_GPUBufferEdges.at(buffer_node);
 
     if (index >= buffer_edge.bindless_handles.size()) {
         m_RenderGraph->GetLogger()->error("Buffer({}) is not used in pass({})", buffer.index, m_Name);
@@ -90,21 +138,37 @@ auto PassNode::GetBindless(GPUBufferHandle buffer, std::size_t index) const noex
 }
 
 auto PassNode::GetBindless(TextureHandle texture) const noexcept -> gfx::BindlessHandle {
-    if (!m_TextureEdges.contains(texture)) {
+    if (!m_RenderGraph->IsValid(texture)) {
+        std::string error_message = fmt::format("Texture({}) is not valid handle", texture.index);
+        m_RenderGraph->GetLogger()->error(error_message);
+        return {};
+    }
+
+    const auto texture_node = static_cast<TextureNode*>(m_RenderGraph->m_Nodes[texture.index].get());
+
+    if (!m_TextureEdges.contains(texture_node)) {
         m_RenderGraph->GetLogger()->error("Texture({}) is not used in pass({})", texture.index, m_Name);
         return {};
     }
 
-    return m_TextureEdges.at(texture).bindless;
+    return m_TextureEdges.at(texture_node).bindless;
 }
 
 auto PassNode::GetBindless(SamplerHandle handle) const noexcept -> gfx::BindlessHandle {
-    if (!m_SamplerEdges.contains(handle)) {
+    if (!m_RenderGraph->IsValid(handle)) {
+        std::string error_message = fmt::format("Sampler({}) is not valid handle", handle.index);
+        m_RenderGraph->GetLogger()->error(error_message);
+        return {};
+    }
+
+    const auto sampler_node = static_cast<SamplerNode*>(m_RenderGraph->m_Nodes[handle.index].get());
+
+    if (!m_SamplerEdges.contains(sampler_node)) {
         m_RenderGraph->GetLogger()->error("Sampler({}) is not used in pass({})", handle.index, m_Name);
         return {};
     }
 
-    return m_SamplerEdges.at(handle).bindless;
+    return m_SamplerEdges.at(sampler_node).bindless;
 }
 
 auto PassNode::GetCommandType() const noexcept -> gfx::CommandType {
@@ -151,13 +215,13 @@ void PassNode::Initialize() {
 void PassNode::ResourceBarrier() {
     auto& device = m_RenderGraph->GetDevice();
 
-    for (const auto& [buffer_handle, buffer_edge] : m_GPUBufferEdges) {
-        auto& buffer = Resolve(buffer_handle);
+    for (const auto& [buffer_node, buffer_edge] : m_GPUBufferEdges) {
+        auto& buffer = buffer_node->Resolve();
         m_GPUBufferBarriers.emplace_back(buffer.Transition(buffer_edge.access, buffer_edge.stage));
     }
 
-    for (const auto& [texture_handle, texture_edge] : m_TextureEdges) {
-        auto& texture = Resolve(texture_handle);
+    for (const auto& [texture_node, texture_edge] : m_TextureEdges) {
+        auto& texture = texture_node->Resolve();
         m_TextureBarriers.emplace_back(texture.Transition(texture_edge.access, texture_edge.layout, texture_edge.stage));
     }
 
@@ -197,8 +261,8 @@ void PassNode::CreateBindless() {
 
     auto& bindless_utils = m_RenderGraph->GetDevice().GetBindlessUtils();
 
-    for (auto& [buffer_handle, buffer_edge] : m_GPUBufferEdges) {
-        auto&      buffer = Resolve(buffer_handle);
+    for (auto& [buffer_node, buffer_edge] : m_GPUBufferEdges) {
+        auto&      buffer = buffer_node->Resolve();
         const auto usage  = buffer.GetDesc().usages;
 
         if ((!buffer_edge.write && utils::has_flag(usage, gfx::GPUBufferUsageFlags::Constant)) ||
@@ -207,8 +271,8 @@ void PassNode::CreateBindless() {
                 buffer_edge.bindless_handles.emplace_back(bindless_utils.CreateBindlessHandle(buffer, buffer_edge.element_offset + index, buffer_edge.write));
         }
     }
-    for (auto& [texture_handle, texture_edge] : m_TextureEdges) {
-        auto&      texture = Resolve(texture_handle);
+    for (auto& [texture_node, texture_edge] : m_TextureEdges) {
+        auto&      texture = texture_node->Resolve();
         const auto usage   = texture.GetDesc().usages;
 
         if ((!texture_edge.write && utils::has_flag(usage, gfx::TextureUsageFlags::SRV)) ||
@@ -217,8 +281,8 @@ void PassNode::CreateBindless() {
         }
     }
 
-    for (auto& [sampler_handle, sampler_edge] : m_SamplerEdges) {
-        sampler_edge.bindless = bindless_utils.CreateBindlessHandle(Resolve(sampler_handle));
+    for (auto& [sampler_node, sampler_edge] : m_SamplerEdges) {
+        sampler_edge.bindless = bindless_utils.CreateBindlessHandle(sampler_node->Resolve());
     }
 }
 
@@ -232,9 +296,9 @@ void RenderPassNode::Execute() {
     cmd.Begin();
     ResourceBarrier();
     cmd.BeginRendering(
-        Resolve(m_RenderTarget),
-        m_RenderGraph->IsValid(m_DepthStencil)
-            ? utils::make_optional_ref(Resolve(m_DepthStencil))
+        m_RenderTarget->Resolve(),
+        m_DepthStencil
+            ? utils::make_optional_ref(m_DepthStencil->Resolve())
             : std::nullopt,
         m_ClearRenderTarget,
         m_ClearDepthStencil);
