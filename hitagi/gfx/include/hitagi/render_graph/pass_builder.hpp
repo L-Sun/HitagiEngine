@@ -22,6 +22,8 @@ protected:
     void AddTextureEdge(TextureHandle texture_handle, TextureEdge edge) noexcept;
     void AddSamplerEdge(SamplerHandle sampler_handle, SamplerEdge edge) noexcept;
 
+    auto Finish() -> std::size_t;
+
     RenderGraph& m_RenderGraph;
     bool         m_Invalid  = false;
     bool         m_Finished = false;

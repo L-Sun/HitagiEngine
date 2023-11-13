@@ -20,6 +20,59 @@ PassBuilder::~PassBuilder() {
     }
 }
 
+auto PassBuilder::Finish() -> std::size_t {
+    pass_base->m_Handle = m_RenderGraph.m_Nodes.size();
+    m_RenderGraph.m_Nodes.emplace_back(pass_base);
+
+    // create edge for move resource:
+    // resource_1 -- move --> resource_2(*)        resource_1 -- new_edge -->  pass_2
+    //      |                    |read               |                         | write
+    //      |                    v         OR        |                         v
+    //      +--- new_edge -->  pass_2                +--------- move --- >  resource_2(*)
+
+    for (auto& [buffer_node, buffer_edge] : pass_base->m_GPUBufferEdges) {
+        if (buffer_edge.write) {
+            buffer_node->AddInputNode(pass_base.get());
+        } else {
+            pass_base->AddInputNode(buffer_node);
+        }
+
+        if (const auto buffer_move_from_node = buffer_node->GetMoveFromNode();
+            buffer_move_from_node != nullptr) {
+            pass_base->AddInputNode(buffer_move_from_node);
+        }
+    }
+
+    for (const auto& [texture_node, texture_edge] : pass_base->m_TextureEdges) {
+        if (texture_edge.write) {
+            texture_node->AddInputNode(pass_base.get());
+        } else {
+            pass_base->AddInputNode(texture_node);
+        }
+
+        if (const auto texture_move_from_node = texture_node->GetMoveFromNode();
+            texture_move_from_node != nullptr) {
+            pass_base->AddInputNode(texture_move_from_node);
+        }
+    }
+
+    for (const auto& [sampler_node, sampler_edge] : pass_base->m_SamplerEdges) {
+        pass_base->AddInputNode(sampler_node);
+    }
+
+    for (const auto render_pipeline_node : pass_base->m_RenderPipelines) {
+        pass_base->AddInputNode(render_pipeline_node);
+    }
+
+    for (const auto compute_pipeline_node : pass_base->m_ComputePipelines) {
+        pass_base->AddInputNode(compute_pipeline_node);
+    }
+
+    m_Finished = true;
+
+    return pass_base->m_Handle;
+}
+
 void PassBuilder::Invalidate(std::string_view error_message) noexcept {
     if (!m_Invalid) {
         m_Invalid = true;
@@ -28,6 +81,8 @@ void PassBuilder::Invalidate(std::string_view error_message) noexcept {
 }
 
 void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge new_edge) noexcept {
+    ZoneScoped;
+
     if (m_Invalid) return;
 
     const auto write_str = new_edge.write ? "write" : "read";
@@ -37,7 +92,8 @@ void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge 
         return;
     }
 
-    auto buffer_node = std::static_pointer_cast<GPUBufferNode>(m_RenderGraph.m_Nodes[buffer_handle.index]);
+    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer_handle.index].get());
+
     if (!new_edge.write &&
         !utils::has_flag(buffer_node->GetDesc().usages, gfx::GPUBufferUsageFlags::Constant) &&
         !utils::has_flag(buffer_node->GetDesc().usages, gfx::GPUBufferUsageFlags::Vertex) &&
@@ -53,33 +109,32 @@ void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge 
         return;
     }
 
-    for (const auto& [_buffer_handle, edge] : pass_base->m_GPUBufferEdges) {
-        if (_buffer_handle == buffer_handle) {
-            if (edge == new_edge) {
-                return;
-            } else {
+    {
+        ZoneScopedN("Find existing edge");
+        if (pass_base->m_GPUBufferEdges.contains(buffer_node)) {
+            if (pass_base->m_GPUBufferEdges[buffer_node] != new_edge) {
                 Invalidate(fmt::format("{} buffer: {} buffer({}) repeat with different usage", write_str, write_str, m_RenderGraph.m_Nodes[buffer_handle.index]->GetName()));
+            }
+            return;
+        }
+    }
+
+    {
+        ZoneScopedN("check multiple write");
+        if (new_edge.write) {
+            if (const auto writer = buffer_node->GetWriter(); writer != nullptr) {
+                Invalidate(fmt::format("Write buffer failed: buffer({}) is written by pass({})", buffer_node->GetName(), writer->GetName()));
                 return;
             }
         }
     }
 
-    for (const auto& node : m_RenderGraph.m_Nodes) {
-        if (auto pass_node = std::dynamic_pointer_cast<PassNode>(node);
-            pass_node) {
-            for (const auto& [_buffer_handle, edge] : pass_node->m_GPUBufferEdges) {
-                if (_buffer_handle == buffer_handle && edge.write && new_edge.write) {
-                    Invalidate(fmt::format("write buffer: write buffer({}) repeat", m_RenderGraph.m_Nodes[buffer_handle.index]->GetName()));
-                    return;
-                }
-            }
-        }
-    }
-
-    pass_base->m_GPUBufferEdges.emplace(buffer_handle, new_edge);
+    pass_base->m_GPUBufferEdges.emplace(buffer_node, new_edge);
 }
 
 void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_edge) noexcept {
+    ZoneScoped;
+
     if (m_Invalid) return;
 
     const auto write_str = new_edge.write ? "write" : "read";
@@ -89,7 +144,8 @@ void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_e
         return;
     }
 
-    auto texture_node = std::static_pointer_cast<TextureNode>(m_RenderGraph.m_Nodes[texture_handle.index]);
+    const auto texture_node = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture_handle.index].get());
+
     if (!new_edge.write &&
         !utils::has_flag(texture_node->GetDesc().usages, gfx::TextureUsageFlags::SRV) &&
         !utils::has_flag(texture_node->GetDesc().usages, gfx::TextureUsageFlags::CopySrc)) {
@@ -105,33 +161,32 @@ void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_e
         return;
     }
 
-    for (const auto& [_texture_handle, edge] : pass_base->m_TextureEdges) {
-        if (_texture_handle == texture_handle) {
-            if (edge == new_edge) {
-                return;
-            } else {
-                Invalidate(fmt::format("{} texture: {} texture({}) repeat with different usage", write_str, write_str, m_RenderGraph.m_Nodes[texture_handle.index]->GetName()));
+    {
+        ZoneScopedN("Find existing edge");
+        if (pass_base->m_TextureEdges.contains(texture_node)) {
+            if (pass_base->m_TextureEdges[texture_node] != new_edge) {
+                Invalidate(fmt::format("{} texture failed: {} texture({}) repeat with different usage", write_str, write_str, texture_node->GetName()));
+            }
+            return;
+        }
+    }
+
+    {
+        ZoneScopedN("check multiple write");
+        if (new_edge.write) {
+            if (const auto writer = texture_node->GetWriter(); writer != nullptr) {
+                Invalidate(fmt::format("Write texture failed: texture({}) is written by pass({})", texture_node->GetName(), writer->GetName()));
                 return;
             }
         }
     }
 
-    for (const auto& node : m_RenderGraph.m_Nodes) {
-        if (auto pass_node = std::dynamic_pointer_cast<PassNode>(node);
-            pass_node) {
-            for (const auto& [_texture_handle, edge] : pass_node->m_TextureEdges) {
-                if (_texture_handle == texture_handle && edge.write && new_edge.write) {
-                    Invalidate(fmt::format("write texture: write texture({}) repeat", m_RenderGraph.m_Nodes[texture_handle.index]->GetName()));
-                    return;
-                }
-            }
-        }
-    }
-
-    pass_base->m_TextureEdges.emplace(texture_handle, new_edge);
+    pass_base->m_TextureEdges.emplace(texture_node, new_edge);
 }
 
 void PassBuilder::AddSamplerEdge(SamplerHandle sampler_handle, SamplerEdge new_edge) noexcept {
+    ZoneScoped;
+
     if (m_Invalid) return;
 
     if (!m_RenderGraph.IsValid(sampler_handle)) {
@@ -139,13 +194,13 @@ void PassBuilder::AddSamplerEdge(SamplerHandle sampler_handle, SamplerEdge new_e
         return;
     }
 
-    for (const auto& [_sampler_handle, edge] : pass_base->m_SamplerEdges) {
-        if (_sampler_handle == sampler_handle) {
-            return;
-        }
+    const auto sampler_node = static_cast<SamplerNode*>(m_RenderGraph.m_Nodes[sampler_handle.index].get());
+
+    if (pass_base->m_SamplerEdges.contains(sampler_node)) {
+        return;
     }
 
-    pass_base->m_SamplerEdges.emplace(sampler_handle, new_edge);
+    pass_base->m_SamplerEdges.emplace(sampler_node, new_edge);
 }
 
 RenderPassBuilder::RenderPassBuilder(RenderGraph& rg)
@@ -170,7 +225,7 @@ auto RenderPassBuilder::Read(GPUBufferHandle buffer, gfx::PipelineStage stage) n
         Invalidate(fmt::format("Read buffer failed: buffer({}) is invalid", buffer.index));
         return *this;
     }
-    const auto buffer_node = std::static_pointer_cast<GPUBufferNode>(m_RenderGraph.m_Nodes[buffer.index]);
+    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
     return Read(buffer, 0, buffer_node->GetDesc().element_count, stage);
 }
 
@@ -228,7 +283,7 @@ auto RenderPassBuilder::Write(GPUBufferHandle buffer, gfx::PipelineStage stage) 
         Invalidate(fmt::format("Read buffer failed: buffer({}) is invalid", buffer.index));
         return *this;
     }
-    auto buffer_node = std::static_pointer_cast<GPUBufferNode>(m_RenderGraph.m_Nodes[buffer.index]);
+    auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
     return Write(buffer, 0, buffer_node->GetDesc().element_count, stage);
 }
 
@@ -259,7 +314,7 @@ auto RenderPassBuilder::Write(TextureHandle texture, gfx::TextureSubresourceLaye
 }
 
 auto RenderPassBuilder::SetRenderTarget(TextureHandle texture, bool clear, gfx::TextureSubresourceLayer layer) noexcept -> RenderPassBuilder& {
-    if (m_RenderGraph.IsValid(pass->m_RenderTarget)) {
+    if (pass->m_RenderTarget) {
         Invalidate(fmt::format("Set render target failed: render target is already set"));
         return *this;
     }
@@ -272,13 +327,13 @@ auto RenderPassBuilder::SetRenderTarget(TextureHandle texture, bool clear, gfx::
             .layout = gfx::TextureLayout::RenderTarget,
             .layer  = layer,
         });
-    pass->m_RenderTarget      = texture;
+    pass->m_RenderTarget      = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture.index].get());
     pass->m_ClearRenderTarget = clear;
     return *this;
 }
 
 auto RenderPassBuilder::SetDepthStencil(TextureHandle texture, bool clear, gfx::TextureSubresourceLayer layer) noexcept -> RenderPassBuilder& {
-    if (m_RenderGraph.IsValid(pass->m_DepthStencil)) {
+    if (pass->m_DepthStencil) {
         Invalidate(fmt::format("Set depth stencil failed: depth stencil is already set"));
         return *this;
     }
@@ -291,7 +346,7 @@ auto RenderPassBuilder::SetDepthStencil(TextureHandle texture, bool clear, gfx::
             .layout = gfx::TextureLayout::DepthStencilWrite,
             .layer  = layer,
         });
-    pass->m_DepthStencil      = texture;
+    pass->m_DepthStencil      = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture.index].get());
     pass->m_ClearDepthStencil = clear;
     return *this;
 }
@@ -311,8 +366,10 @@ auto RenderPassBuilder::AddPipeline(RenderPipelineHandle pipeline) noexcept -> R
         return *this;
     }
 
-    if (!pass->m_RenderPipelines.contains(pipeline)) {
-        pass->m_RenderPipelines.emplace(pipeline);
+    const auto pipeline_node = static_cast<RenderPipelineNode*>(m_RenderGraph.m_Nodes[pipeline.index].get());
+
+    if (!pass->m_RenderPipelines.contains(pipeline_node)) {
+        pass->m_RenderPipelines.emplace(pipeline_node);
     }
 
     return *this;
@@ -340,7 +397,7 @@ auto RenderPassBuilder::Finish() noexcept -> RenderPassHandle {
         if (!pass->m_Executor) {
             Invalidate("Finish render pass failed: executor is not set");
         }
-        if (!m_RenderGraph.IsValid(pass->m_RenderTarget)) {
+        if (!pass->m_RenderTarget) {
             Invalidate("Finish render pass failed: render target is not set");
         }
         if (pass->m_RenderPipelines.empty()) {
@@ -349,14 +406,10 @@ auto RenderPassBuilder::Finish() noexcept -> RenderPassHandle {
     }
     if (m_Invalid) return {};
 
-    RenderPassHandle handle = m_RenderGraph.m_Nodes.size();
-    m_RenderGraph.m_Nodes.emplace_back(std::move(pass_base));
+    RenderPassHandle handle = PassBuilder::Finish();
     if (!pass->m_Name.empty()) {
         m_RenderGraph.m_BlackBoard[RenderGraphNode::Type::RenderPass].emplace(pass->m_Name, handle.index);
     }
-
-    m_Finished = true;
-
     return handle;
 }
 
@@ -383,7 +436,7 @@ auto ComputePassBuilder::Read(GPUBufferHandle buffer) noexcept -> ComputePassBui
         Invalidate(fmt::format("Read buffer failed: buffer({}) is invalid", buffer.index));
         return *this;
     }
-    auto buffer_node = std::static_pointer_cast<GPUBufferNode>(m_RenderGraph.m_Nodes[buffer.index]);
+    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
     return Read(buffer, 0, buffer_node->GetDesc().element_count);
 }
 
@@ -420,7 +473,7 @@ auto ComputePassBuilder::Write(GPUBufferHandle buffer) noexcept -> ComputePassBu
         Invalidate(fmt::format("Read buffer failed: buffer({}) is invalid", buffer.index));
         return *this;
     }
-    auto buffer_node = std::static_pointer_cast<GPUBufferNode>(m_RenderGraph.m_Nodes[buffer.index]);
+    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
     return Write(buffer, 0, buffer_node->GetDesc().element_count);
 }
 
@@ -463,8 +516,10 @@ auto ComputePassBuilder::AddPipeline(ComputePipelineHandle pipeline) noexcept ->
         return *this;
     }
 
-    if (!pass->m_ComputePipelines.contains(pipeline)) {
-        pass->m_ComputePipelines.emplace(pipeline);
+    const auto pipeline_node = static_cast<ComputePipelineNode*>(m_RenderGraph.m_Nodes[pipeline.index].get());
+
+    if (!pass->m_ComputePipelines.contains(pipeline_node)) {
+        pass->m_ComputePipelines.emplace(pipeline_node);
     }
 
     return *this;
@@ -498,14 +553,10 @@ auto ComputePassBuilder::Finish() noexcept -> ComputePassHandle {
     }
     if (m_Invalid) return {};
 
-    ComputePassHandle handle = m_RenderGraph.m_Nodes.size();
-    m_RenderGraph.m_Nodes.emplace_back(std::move(pass_base));
+    ComputePassHandle handle = PassBuilder::Finish();
     if (!pass->m_Name.empty()) {
         m_RenderGraph.m_BlackBoard[RenderGraphNode::Type::ComputePass].emplace(pass->m_Name, handle.index);
     }
-
-    m_Finished = true;
-
     return handle;
 }
 
@@ -619,13 +670,11 @@ auto CopyPassBuilder::Finish() noexcept -> CopyPassHandle {
     }
     if (m_Invalid) return {};
 
-    CopyPassHandle handle = m_RenderGraph.m_Nodes.size();
-    m_RenderGraph.m_Nodes.emplace_back(std::move(pass_base));
+    CopyPassHandle handle = PassBuilder::Finish();
+
     if (!pass->m_Name.empty()) {
         m_RenderGraph.m_BlackBoard[RenderGraphNode::Type::CopyPass].emplace(pass->m_Name, handle.index);
     }
-
-    m_Finished = true;
 
     return handle;
 }
@@ -646,13 +695,13 @@ PresentPassBuilder::PresentPassBuilder(RenderGraph& rg)
                         render_target.Transition(gfx::BarrierAccess::CopyDst, gfx::TextureLayout::CopyDst),
                     }});
         cmd.CopyTextureRegion(
-            pass.Resolve(pass.m_From),
+            pass.m_From->Resolve(),
             {0, 0, 0},
             render_target,
             {0, 0, 0},
             {
-                std::min(render_target.GetDesc().width, pass.Resolve(pass.m_From).GetDesc().width),
-                std::min(render_target.GetDesc().height, pass.Resolve(pass.m_From).GetDesc().height),
+                std::min(render_target.GetDesc().width, pass.m_From->Resolve().GetDesc().width),
+                std::min(render_target.GetDesc().height, pass.m_From->Resolve().GetDesc().height),
                 1,
             },
             pass.m_TextureEdges.begin()->second.layer);
@@ -665,8 +714,8 @@ PresentPassBuilder::PresentPassBuilder(RenderGraph& rg)
 }
 
 auto PresentPassBuilder::From(TextureHandle texture, gfx::TextureSubresourceLayer layer) noexcept -> PresentPassBuilder& {
-    if (m_RenderGraph.IsValid(pass->m_From)) {
-        Invalidate(fmt::format("Present from texture({}) failed: already presented from texture({})", texture.index, pass->m_From.index));
+    if (pass->m_From) {
+        Invalidate(fmt::format("Present from texture({}) failed: already presented from texture({})", texture.index, pass->m_From->GetName()));
         return *this;
     }
 
@@ -679,7 +728,7 @@ auto PresentPassBuilder::From(TextureHandle texture, gfx::TextureSubresourceLaye
             .layout = gfx::TextureLayout::CopySrc,
             .layer  = layer,
         });
-    pass->m_From = texture;
+    pass->m_From = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture.index].get());
     return *this;
 }
 
@@ -704,14 +753,14 @@ void PresentPassBuilder::Finish() noexcept {
             Invalidate(fmt::format("Set swap chain failed: swap chain is nullptr"));
         }
 
-        if (!m_RenderGraph.IsValid(pass->m_From)) {
+        if (!pass->m_From) {
             Invalidate(fmt::format("Set present source failed: present source is nullptr"));
         }
     }
     if (m_Invalid) return;
 
-    m_RenderGraph.m_PresentPassHandle = m_RenderGraph.m_Nodes.size();
-    m_RenderGraph.m_Nodes.emplace_back(std::move(pass_base));
+    PassBuilder::Finish();
+    m_RenderGraph.m_PresentPassNode = pass;
 
     m_Finished = true;
 }

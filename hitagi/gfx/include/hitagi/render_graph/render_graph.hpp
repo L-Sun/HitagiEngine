@@ -6,8 +6,6 @@
 #include <hitagi/utils/overloaded.hpp>
 
 #include <deque>
-#include <unordered_set>
-#include "hitagi/render_graph/common_types.hpp"
 
 namespace hitagi::rg {
 
@@ -66,10 +64,10 @@ private:
     friend CopyPassBuilder;
     friend PresentPassBuilder;
     friend ResourceNode;
+    friend PassNode;
 
-    using ResourceDesc  = std::variant<gfx::GPUBufferDesc, gfx::TextureDesc, gfx::SamplerDesc, gfx::RenderPipelineDesc, gfx::ComputePipelineDesc>;
-    using AdjacencyList = std::pmr::unordered_map<std::size_t, std::pmr::unordered_set<std::size_t>>;
-    using ExecuteLayer  = utils::EnumArray<std::pmr::vector<std::size_t>, gfx::CommandType>;
+    using ResourceDesc = std::variant<gfx::GPUBufferDesc, gfx::TextureDesc, gfx::SamplerDesc, gfx::RenderPipelineDesc, gfx::ComputePipelineDesc>;
+    using ExecuteLayer = utils::EnumArray<std::pmr::vector<PassNode*>, gfx::CommandType>;
     struct FenceValue {
         std::shared_ptr<gfx::Fence> fence;
         std::uint64_t               last_value;
@@ -86,11 +84,9 @@ private:
     template <RenderGraphNode::Type T>
     auto GetHandle(std::string_view name) const noexcept;
 
-    void RetireNodesFromPassNode(const std::shared_ptr<PassNode>& pass_node, const FenceValue& fence_value);
-    void RetireNodes();
-    void Reset();
-
-    auto AdjacencyListToDot(const AdjacencyList& adjacency_list) const noexcept -> std::pmr::string;
+    void RetireNodesFromPassNode(PassNode* pass_node, const FenceValue& fence_value) noexcept;
+    void RetireNodes() noexcept;
+    void Reset() noexcept;
 
     gfx::Device& m_Device;
 
@@ -99,12 +95,12 @@ private:
 
     std::uint64_t m_FrameIndex = 0;
 
-    std::pmr::vector<std::shared_ptr<RenderGraphNode>> m_Nodes;
+    std::pmr::vector<std::shared_ptr<RenderGraphNode>>                   m_Nodes;
+    std::pmr::unordered_map<std::shared_ptr<gfx::Resource>, std::size_t> m_ImportedResources;
 
-    AdjacencyList                  m_DataFlow;
     std::pmr::vector<ExecuteLayer> m_ExecuteLayers;
 
-    PresentPassHandle m_PresentPassHandle;
+    std::shared_ptr<PresentPassNode> m_PresentPassNode;
 
     using BlackBoard = utils::EnumArray<std::unordered_map<std::pmr::string, std::size_t>, RenderGraphNode::Type>;
     BlackBoard m_BlackBoard;
@@ -127,37 +123,6 @@ template <RenderGraphNode::Type T>
 auto RenderGraph::GetHandle(std::string_view name) const noexcept {
     const std::pmr::string _name(name);
     return RenderGraphHandle<T>{m_BlackBoard[T].contains(_name) ? m_BlackBoard[T].at(_name) : std::numeric_limits<std::size_t>::max()};
-}
-
-template <RenderGraphNode::Type T>
-auto& RenderGraph::Resolve(RenderGraphHandle<T> handle) const {
-    if (!IsValid(handle)) {
-        throw std::out_of_range(fmt::format("Handle({}) is not valid", handle.index));
-    }
-
-    std::shared_ptr<RenderGraphNode> node = m_Nodes.at(handle.index);
-
-    if constexpr (T == RenderGraphNode::Type::GPUBuffer) {
-        return std::static_pointer_cast<GPUBufferNode>(node)->Resolve();
-    } else if constexpr (T == RenderGraphNode::Type::Texture) {
-        return std::static_pointer_cast<TextureNode>(node)->Resolve();
-    } else if constexpr (T == RenderGraphNode::Type::Sampler) {
-        return std::static_pointer_cast<SamplerNode>(node)->Resolve();
-    } else if constexpr (T == RenderGraphNode::Type::RenderPipeline) {
-        return std::static_pointer_cast<RenderPipelineNode>(node)->Resolve();
-    } else if constexpr (T == RenderGraphNode::Type::ComputePipeline) {
-        return std::static_pointer_cast<ComputePipelineNode>(node)->Resolve();
-    } else if constexpr (T == RenderGraphNode::Type::RenderPass) {
-        return std::static_pointer_cast<RenderPassNode>(node)->GetCmd();
-    } else if constexpr (T == RenderGraphNode::Type::ComputePass) {
-        return std::static_pointer_cast<ComputePassNode>(node)->GetCmd();
-    } else if constexpr (T == RenderGraphNode::Type::CopyPass) {
-        return std::static_pointer_cast<CopyPassNode>(node)->GetCmd();
-    } else if constexpr (T == RenderGraphNode::Type::PresentPass) {
-        return std::static_pointer_cast<PresentPassNode>(node)->GetCmd();
-    } else {
-        utils::unreachable();
-    }
 }
 
 template <RenderGraphNode::Type T>

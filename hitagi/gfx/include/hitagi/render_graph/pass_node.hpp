@@ -2,8 +2,6 @@
 #include <hitagi/render_graph/resource_edge.hpp>
 #include <hitagi/gfx/command_context.hpp>
 
-#include <unordered_set>
-
 namespace hitagi::rg {
 
 class PassBuilder;
@@ -41,11 +39,11 @@ protected:
 
     virtual void Execute() = 0;
 
-    std::pmr::unordered_map<GPUBufferHandle, GPUBufferEdge> m_GPUBufferEdges;
-    std::pmr::unordered_map<TextureHandle, TextureEdge>     m_TextureEdges;
-    std::pmr::unordered_map<SamplerHandle, SamplerEdge>     m_SamplerEdges;
-    std::pmr::unordered_set<RenderPipelineHandle>           m_RenderPipelines;
-    std::pmr::unordered_set<ComputePipelineHandle>          m_ComputePipelines;
+    std::pmr::unordered_map<GPUBufferNode*, GPUBufferEdge> m_GPUBufferEdges;
+    std::pmr::unordered_map<TextureNode*, TextureEdge>     m_TextureEdges;
+    std::pmr::unordered_map<SamplerNode*, SamplerEdge>     m_SamplerEdges;
+    std::pmr::unordered_set<RenderPipelineNode*>           m_RenderPipelines;
+    std::pmr::unordered_set<ComputePipelineNode*>          m_ComputePipelines;
 
     std::pmr::vector<gfx::GPUBufferBarrier> m_GPUBufferBarriers;
     std::pmr::vector<gfx::TextureBarrier>   m_TextureBarriers;
@@ -67,11 +65,11 @@ public:
 protected:
     void Execute() final;
 
-    Executor      m_Executor;
-    TextureHandle m_RenderTarget;
-    TextureHandle m_DepthStencil;
-    bool          m_ClearRenderTarget = false;
-    bool          m_ClearDepthStencil = false;
+    Executor     m_Executor;
+    TextureNode* m_RenderTarget      = nullptr;
+    TextureNode* m_DepthStencil      = nullptr;
+    bool         m_ClearRenderTarget = false;
+    bool         m_ClearDepthStencil = false;
 };
 
 class ComputePassNode : public PassNode {
@@ -124,8 +122,8 @@ public:
 protected:
     void Execute() final;
 
-    Executor      m_Executor;
-    TextureHandle m_From;
+    Executor     m_Executor;
+    TextureNode* m_From = nullptr;
 };
 
 }  // namespace hitagi::rg

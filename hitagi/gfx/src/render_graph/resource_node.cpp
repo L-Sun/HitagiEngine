@@ -9,12 +9,11 @@ ResourceNode::ResourceNode(RenderGraph& render_graph, Type type, std::string_vie
     : RenderGraphNode(render_graph, type, name), m_IsImported(resource != nullptr), m_Resource(std::move(resource)) {
 }
 
-void ResourceNode::InitializeMovedNode() {
-    if (m_MoveTo == std::numeric_limits<std::size_t>::max()) return;
-
-    const auto next_resource_node  = std::static_pointer_cast<ResourceNode>(m_RenderGraph->m_Nodes[m_MoveTo]);
-    next_resource_node->m_Resource = m_Resource;
-    next_resource_node->InitializeMovedNode();
+auto ResourceNode::GetWriter() const noexcept -> PassNode* {
+    for (auto* node : m_InputNodes) {
+        if (node->IsPassNode()) return static_cast<PassNode*>(node);
+    }
+    return nullptr;
 }
 
 GPUBufferNode::GPUBufferNode(RenderGraph& render_graph, gfx::GPUBufferDesc desc, std::string_view name)
@@ -27,26 +26,35 @@ GPUBufferNode::GPUBufferNode(RenderGraph& render_graph, std::shared_ptr<gfx::Res
       m_Desc(std::static_pointer_cast<gfx::GPUBuffer>(m_Resource)->GetDesc()) {
 }
 
-auto GPUBufferNode::MoveTo(GPUBufferHandle handle, std::string_view name) -> GPUBufferNode {
-    if (m_MoveTo != std::numeric_limits<std::size_t>::max()) {
-        auto error_message = fmt::format("GPUBufferNode::MoveTo: already moved to {}", m_MoveTo);
+auto GPUBufferNode::Move(GPUBufferHandle new_handle, std::string_view new_name) -> std::shared_ptr<GPUBufferNode> {
+    if (m_MoveToNode != nullptr) {
+        auto error_message = fmt::format("GPUBufferNode::MoveTo: already moved to {}", m_MoveToNode->GetName());
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::invalid_argument(error_message);
     }
-    m_MoveTo = handle.index;
+
+    std::shared_ptr<GPUBufferNode> new_node;
     if (m_IsImported) {
-        GPUBufferNode new_node(*m_RenderGraph, std::static_pointer_cast<gfx::GPUBuffer>(m_Resource), name);
-        return new_node;
+        new_node = std::make_shared<GPUBufferNode>(*m_RenderGraph, std::static_pointer_cast<gfx::GPUBuffer>(m_Resource), new_name);
     } else {
-        GPUBufferNode new_node(*m_RenderGraph, m_Desc, name);
-        return new_node;
+        new_node = std::make_shared<GPUBufferNode>(*m_RenderGraph, m_Desc, new_name);
     }
+
+    new_node->AddInputNode(this);
+    m_MoveToNode             = new_node.get();
+    new_node->m_MoveFromNode = this;
+    new_node->m_Handle       = new_handle.index;
+
+    return new_node;
 }
 
 void GPUBufferNode::Initialize() {
+    if (m_MoveFromNode) {
+        if (m_MoveFromNode->m_Resource == nullptr) m_MoveFromNode->Initialize();
+        m_Resource = m_MoveFromNode->m_Resource;
+    }
     if (m_IsImported || m_Resource) return;
     m_Resource = m_RenderGraph->GetDevice().CreateGPUBuffer(m_Desc);
-    InitializeMovedNode();
 }
 
 TextureNode::TextureNode(RenderGraph& render_graph, gfx::TextureDesc desc, std::string_view name)
@@ -59,27 +67,35 @@ TextureNode::TextureNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resourc
       m_Desc(std::static_pointer_cast<gfx::Texture>(m_Resource)->GetDesc()) {
 }
 
-auto TextureNode::MoveTo(TextureHandle handle, std::string_view name) -> TextureNode {
-    if (m_MoveTo != std::numeric_limits<std::size_t>::max()) {
-        auto error_message = fmt::format("TextureNode::MoveTo: already moved to {}", m_MoveTo);
+auto TextureNode::Move(TextureHandle new_handle, std::string_view new_name) -> std::shared_ptr<TextureNode> {
+    if (m_MoveToNode != nullptr) {
+        auto error_message = fmt::format("TextureNode::MoveTo: already moved to {}", m_MoveToNode->GetName());
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::invalid_argument(error_message);
     }
-    m_MoveTo = handle.index;
+
+    std::shared_ptr<TextureNode> new_node;
     if (m_IsImported) {
-        TextureNode new_node(*m_RenderGraph, std::static_pointer_cast<gfx::Texture>(m_Resource), name);
-        return new_node;
+        new_node = std::make_shared<TextureNode>(*m_RenderGraph, std::static_pointer_cast<gfx::Texture>(m_Resource), new_name);
     } else {
-        TextureNode new_node(*m_RenderGraph, m_Desc, name);
-        return new_node;
+        new_node = std::make_shared<TextureNode>(*m_RenderGraph, m_Desc, new_name);
     }
+
+    new_node->AddInputNode(this);
+    m_MoveToNode             = new_node.get();
+    new_node->m_MoveFromNode = this;
+    new_node->m_Handle       = new_handle.index;
+
+    return new_node;
 }
 
 void TextureNode::Initialize() {
+    if (m_MoveFromNode) {
+        if (m_MoveFromNode->m_Resource == nullptr) m_MoveFromNode->Initialize();
+        m_Resource = m_MoveFromNode->m_Resource;
+    }
     if (m_IsImported || m_Resource) return;
-
     m_Resource = m_RenderGraph->GetDevice().CreateTexture(m_Desc);
-    InitializeMovedNode();
 }
 
 SamplerNode::SamplerNode(RenderGraph& render_graph, gfx::SamplerDesc desc, std::string_view name)

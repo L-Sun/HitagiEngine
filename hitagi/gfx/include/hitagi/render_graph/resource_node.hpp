@@ -8,14 +8,13 @@ class ResourceNode : public RenderGraphNode {
 public:
     friend RenderGraph;
 
+    auto GetWriter() const noexcept -> PassNode*;
+
 protected:
     ResourceNode(RenderGraph& render_graph, Type type, std::string_view name = "", std::shared_ptr<gfx::Resource> resource = nullptr);
 
-    void InitializeMovedNode();
-
     bool                           m_IsImported = false;
     std::shared_ptr<gfx::Resource> m_Resource;
-    std::size_t                    m_MoveTo = std::numeric_limits<std::size_t>::max();
 };
 
 class GPUBufferNode : public ResourceNode {
@@ -28,12 +27,16 @@ public:
     inline auto& Resolve() const noexcept { return static_cast<gfx::GPUBuffer&>(*m_Resource); }
     inline auto& GetDesc() const noexcept { return m_Desc; }
 
-    auto MoveTo(GPUBufferHandle handle, std::string_view name = "") -> GPUBufferNode;
+    auto        Move(GPUBufferHandle new_handle, std::string_view new_name) -> std::shared_ptr<GPUBufferNode>;
+    inline auto GetMoveNode() const noexcept { return m_MoveToNode; }
+    inline auto GetMoveFromNode() const noexcept { return m_MoveFromNode; }
 
 protected:
     void Initialize() final;
 
     gfx::GPUBufferDesc m_Desc;
+    GPUBufferNode*     m_MoveToNode   = nullptr;
+    GPUBufferNode*     m_MoveFromNode = nullptr;
 };
 
 class TextureNode : public ResourceNode {
@@ -46,12 +49,16 @@ public:
     inline auto& Resolve() const noexcept { return static_cast<gfx::Texture&>(*m_Resource); }
     inline auto& GetDesc() const noexcept { return m_Desc; }
 
-    auto MoveTo(TextureHandle handle, std::string_view name = "") -> TextureNode;
+    auto        Move(TextureHandle new_handle, std::string_view new_name) -> std::shared_ptr<TextureNode>;
+    inline auto GetMoveNode() const noexcept { return m_MoveToNode; }
+    inline auto GetMoveFromNode() const noexcept { return m_MoveFromNode; }
 
 protected:
     void Initialize() final;
 
     gfx::TextureDesc m_Desc;
+    TextureNode*     m_MoveToNode   = nullptr;
+    TextureNode*     m_MoveFromNode = nullptr;
 };
 
 class SamplerNode : public ResourceNode {
