@@ -54,7 +54,7 @@ auto Material::CalculateMaterialBufferSize() const noexcept -> std::size_t {
 }
 
 auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
-    auto instance_name = fmt::format("{}-{}", m_Name, m_NumInstance);
+    auto instance_name = fmt::format("{}-{}", m_Name, m_Instances.size());
     auto result        = std::make_shared<MaterialInstance>(m_DefaultParameters, instance_name);
     result->SetMaterial(shared_from_this());
     return result;
@@ -81,6 +81,14 @@ void Material::InitPipeline(gfx::Device& device) {
     m_Dirty    = false;
 }
 
+void Material::AddInstance(MaterialInstance* instance) noexcept {
+    m_Instances.emplace(instance);
+}
+
+void Material::RemoveInstance(MaterialInstance* instance) noexcept {
+    m_Instances.erase(instance);
+}
+
 MaterialInstance::MaterialInstance(std::pmr::vector<Material::Parameter> parameters, std::string_view name, xg::Guid guid)
     : Resource(name, guid),
       m_Parameters(std::move(parameters)) {}
@@ -103,7 +111,7 @@ MaterialInstance& MaterialInstance::operator=(MaterialInstance&& rhs) noexcept {
         Resource::operator=(std::move(rhs));
         m_Parameters = std::move(rhs.m_Parameters);
 
-        if (m_Material) m_Material->m_NumInstance--;
+        if (m_Material) m_Material->RemoveInstance(this);
         m_Material = std::move(rhs.m_Material);
     }
     return *this;
@@ -117,13 +125,13 @@ void MaterialInstance::SetMaterial(std::shared_ptr<Material> material) {
     if (material == m_Material) return;
 
     if (m_Material != nullptr) {
-        m_Material->m_NumInstance--;
+        m_Material->RemoveInstance(this);
     }
 
     m_Material = std::move(material);
 
     if (m_Material != nullptr) {
-        m_Material->m_NumInstance++;
+        m_Material->AddInstance(this);
     }
 }
 
