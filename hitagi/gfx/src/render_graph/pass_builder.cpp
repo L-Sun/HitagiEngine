@@ -93,18 +93,19 @@ void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge 
     }
 
     const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer_handle.index].get());
+    const auto usages      = buffer_node->GetDesc().usages;
 
     if (!new_edge.write &&
-        !utils::has_flag(buffer_node->GetDesc().usages, gfx::GPUBufferUsageFlags::Constant) &&
-        !utils::has_flag(buffer_node->GetDesc().usages, gfx::GPUBufferUsageFlags::Vertex) &&
-        !utils::has_flag(buffer_node->GetDesc().usages, gfx::GPUBufferUsageFlags::Index) &&
-        !utils::has_flag(buffer_node->GetDesc().usages, gfx::GPUBufferUsageFlags::CopySrc)) {
+        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Constant) &&
+        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Vertex) &&
+        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Index) &&
+        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::CopySrc)) {
         Invalidate(fmt::format("{} buffer failed: buffer({}) is not a constant buffer", write_str, buffer_node->GetName()));
         return;
     }
     if (new_edge.write &&
-        !utils::has_flag(buffer_node->GetDesc().usages, gfx::GPUBufferUsageFlags::Storage) &&
-        !utils::has_flag(buffer_node->GetDesc().usages, gfx::GPUBufferUsageFlags::CopyDst)) {
+        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Storage) &&
+        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::CopyDst)) {
         Invalidate(fmt::format("{} buffer failed: buffer({}) is not a storage buffer", write_str, buffer_node->GetName()));
         return;
     }
@@ -145,18 +146,19 @@ void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_e
     }
 
     const auto texture_node = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture_handle.index].get());
+    const auto usages       = texture_node->GetDesc().usages;
 
     if (!new_edge.write &&
-        !utils::has_flag(texture_node->GetDesc().usages, gfx::TextureUsageFlags::SRV) &&
-        !utils::has_flag(texture_node->GetDesc().usages, gfx::TextureUsageFlags::CopySrc)) {
+        !utils::has_flag(usages, gfx::TextureUsageFlags::SRV) &&
+        !utils::has_flag(usages, gfx::TextureUsageFlags::CopySrc)) {
         Invalidate(fmt::format("{} texture failed: texture({}) is not readable", write_str, texture_node->GetName()));
         return;
     }
     if (new_edge.write &&
-        !utils::has_flag(texture_node->GetDesc().usages, gfx::TextureUsageFlags::UAV) &&
-        !utils::has_flag(texture_node->GetDesc().usages, gfx::TextureUsageFlags::RenderTarget) &&
-        !utils::has_flag(texture_node->GetDesc().usages, gfx::TextureUsageFlags::DepthStencil) &&
-        !utils::has_flag(texture_node->GetDesc().usages, gfx::TextureUsageFlags::CopyDst)) {
+        !utils::has_flag(usages, gfx::TextureUsageFlags::UAV) &&
+        !utils::has_flag(usages, gfx::TextureUsageFlags::RenderTarget) &&
+        !utils::has_flag(usages, gfx::TextureUsageFlags::DepthStencil) &&
+        !utils::has_flag(usages, gfx::TextureUsageFlags::CopyDst)) {
         Invalidate(fmt::format("{} texture failed: texture({}) is not writable", write_str, texture_node->GetName()));
         return;
     }

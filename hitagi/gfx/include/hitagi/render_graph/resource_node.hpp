@@ -25,7 +25,7 @@ public:
     GPUBufferNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> buffer, std::string_view name = "");
 
     inline auto& Resolve() const noexcept { return static_cast<gfx::GPUBuffer&>(*m_Resource); }
-    inline auto& GetDesc() const noexcept { return m_Desc; }
+    auto         GetDesc() const noexcept -> const gfx::GPUBufferDesc&;
 
     auto        Move(GPUBufferHandle new_handle, std::string_view new_name) -> std::shared_ptr<GPUBufferNode>;
     inline auto GetMoveNode() const noexcept { return m_MoveToNode; }
@@ -34,9 +34,9 @@ public:
 protected:
     void Initialize() final;
 
-    gfx::GPUBufferDesc m_Desc;
-    GPUBufferNode*     m_MoveToNode   = nullptr;
-    GPUBufferNode*     m_MoveFromNode = nullptr;
+    std::optional<gfx::GPUBufferDesc> m_Desc;
+    GPUBufferNode*                    m_MoveToNode   = nullptr;
+    GPUBufferNode*                    m_MoveFromNode = nullptr;
 };
 
 class TextureNode : public ResourceNode {
@@ -47,7 +47,7 @@ public:
     TextureNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> texture, std::string_view name = "");
 
     inline auto& Resolve() const noexcept { return static_cast<gfx::Texture&>(*m_Resource); }
-    inline auto& GetDesc() const noexcept { return m_Desc; }
+    auto         GetDesc() const noexcept -> const gfx::TextureDesc&;
 
     auto        Move(TextureHandle new_handle, std::string_view new_name) -> std::shared_ptr<TextureNode>;
     inline auto GetMoveNode() const noexcept { return m_MoveToNode; }
@@ -56,9 +56,9 @@ public:
 protected:
     void Initialize() final;
 
-    gfx::TextureDesc m_Desc;
-    TextureNode*     m_MoveToNode   = nullptr;
-    TextureNode*     m_MoveFromNode = nullptr;
+    std::optional<gfx::TextureDesc> m_Desc;
+    TextureNode*                    m_MoveToNode   = nullptr;
+    TextureNode*                    m_MoveFromNode = nullptr;
 };
 
 class SamplerNode : public ResourceNode {
@@ -69,12 +69,12 @@ public:
     SamplerNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> sampler, std::string_view name = "");
 
     inline auto& Resolve() const noexcept { return static_cast<gfx::Sampler&>(*m_Resource); }
-    inline auto& GetDesc() const noexcept { return m_Desc; }
+    auto         GetDesc() const noexcept -> const gfx::SamplerDesc&;
 
 protected:
     void Initialize() final;
 
-    gfx::SamplerDesc m_Desc;
+    std::optional<gfx::SamplerDesc> m_Desc;
 };
 
 class RenderPipelineNode : public ResourceNode {
@@ -85,12 +85,12 @@ public:
     RenderPipelineNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> pipeline, std::string_view name = "");
 
     inline auto& Resolve() const noexcept { return static_cast<gfx::RenderPipeline&>(*m_Resource); }
-    inline auto& GetDesc() const noexcept { return m_Desc; }
+    auto         GetDesc() const noexcept -> const gfx::RenderPipelineDesc&;
 
 protected:
     void Initialize() final;
 
-    gfx::RenderPipelineDesc m_Desc;
+    std::optional<gfx::RenderPipelineDesc> m_Desc;
 };
 
 class ComputePipelineNode : public ResourceNode {
@@ -101,12 +101,12 @@ public:
     ComputePipelineNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> pipeline, std::string_view name = "");
 
     inline auto& Resolve() const noexcept { return static_cast<gfx::ComputePipeline&>(*m_Resource); }
-    inline auto& GetDesc() const noexcept { return m_Desc; }
+    auto         GetDesc() const noexcept -> const gfx::ComputePipelineDesc&;
 
 protected:
     void Initialize() final;
 
-    gfx::ComputePipelineDesc m_Desc;
+    std::optional<gfx::ComputePipelineDesc> m_Desc;
 };
 
 }  // namespace hitagi::rg
