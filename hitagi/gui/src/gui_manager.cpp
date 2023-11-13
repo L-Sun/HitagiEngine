@@ -48,7 +48,7 @@ void GuiManager::Tick() {
     auto& io = ImGui::GetIO();
 
     // Update window size info.
-    auto rect        = m_App.GetWindowsRect();
+    auto rect        = m_App.GetWindowRect();
     io.DisplaySize.x = rect.right - rect.left;
     io.DisplaySize.y = rect.bottom - rect.top;
 

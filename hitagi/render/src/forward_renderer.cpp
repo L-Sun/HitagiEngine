@@ -38,15 +38,10 @@ void ForwardRenderer::Tick() {
         m_GuiRenderUtils->GuiPass(m_RenderGraph, m_GuiTarget, m_ClearGuiTarget);
     }
 
-    if (!m_RenderGraph.Compile()) {
-        m_Logger->error("RenderGraph compile failed");
-        return;
+    if (m_RenderGraph.Compile()) {
+        m_GfxDevice->Profile(m_RenderGraph.Execute());
     }
-    m_GfxDevice->Profile(m_RenderGraph.Execute());
 
-    if (m_App.IsQuit()) {
-        return;
-    }
     m_SwapChain->Present();
 
     m_Clock.Tick();

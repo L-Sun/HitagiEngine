@@ -61,6 +61,16 @@ auto Application::CreateApp(const std::filesystem::path& config_path) -> std::un
     return Application::CreateApp(config.has_value() ? config.value() : AppConfig{});
 }
 
+auto Application::GetWindowWidth() const -> std::uint32_t {
+    const auto rect = GetWindowRect();
+    return rect.right - rect.left;
+}
+
+auto Application::GetWindowHeight() const -> std::uint32_t {
+    const auto rect = GetWindowRect();
+    return rect.bottom - rect.top;
+}
+
 }  // namespace hitagi
 
 #if defined(_WIN32)

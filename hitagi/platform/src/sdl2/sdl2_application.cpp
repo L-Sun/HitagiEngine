@@ -1,6 +1,7 @@
 #include "sdl2_application.hpp"
 
 #include <hitagi/utils/exceptions.hpp>
+#include "SDL_video.h"
 
 #include <spdlog/logger.h>
 
@@ -40,6 +41,7 @@ void SDL2Application::Tick() {
                 m_Quit = true;
                 break;
             case SDL_WINDOWEVENT:
+                m_Minimized = event.window.event == SDL_WINDOWEVENT_MINIMIZED;
                 switch (event.window.event) {
                     case SDL_WINDOWEVENT_RESIZED:
                         m_SizeChanged   = true;
@@ -122,7 +124,7 @@ auto SDL2Application::GetMemoryUsage() const -> std::size_t {
     return 0;
 }
 
-auto SDL2Application::GetWindowsRect() const -> Rect {
+auto SDL2Application::GetWindowRect() const -> Rect {
     int x, y;
     SDL_GetWindowPosition(m_Window, &x, &y);
     int w, h;

@@ -98,6 +98,7 @@ private:
     std::pmr::vector<std::shared_ptr<RenderGraphNode>>                   m_Nodes;
     std::pmr::unordered_map<std::shared_ptr<gfx::Resource>, std::size_t> m_ImportedResources;
 
+    bool                           m_Compiled = false;
     std::pmr::vector<ExecuteLayer> m_ExecuteLayers;
 
     std::shared_ptr<PresentPassNode> m_PresentPassNode;

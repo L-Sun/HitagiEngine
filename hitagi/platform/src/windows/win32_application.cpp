@@ -166,7 +166,7 @@ void Win32Application::ResizeWindow(std::uint32_t width, std::uint32_t height) {
 
     // Get window position using WIN32 API
     RECT window_rect;
-    GetWindowRect(m_Window, &window_rect);
+    ::GetWindowRect(m_Window, &window_rect);
 
     AdjustWindowRect(&client_rect, WS_OVERLAPPEDWINDOW, false);
     SetWindowPos(m_Window, nullptr, window_rect.left, window_rect.top,
@@ -194,19 +194,12 @@ std::size_t Win32Application::GetMemoryUsage() const {
 }
 
 void Win32Application::UpdateRect() {
-    Rect rect = m_Rect;
+    m_SizeChanged = true;
+
     GetClientRect(m_Window, reinterpret_cast<RECT*>(&m_Rect));
 
-    auto last_width  = rect.right - rect.left;
-    auto last_height = rect.bottom - rect.top;
-    auto curr_width  = m_Rect.right - m_Rect.left;
-    auto curr_height = m_Rect.bottom - m_Rect.top;
-
-    if (last_width != curr_width || last_height != curr_height) {
-        m_SizeChanged   = true;
-        m_Config.width  = curr_width;
-        m_Config.height = curr_height;
-    }
+    m_Config.width  = m_Rect.right - m_Rect.left;
+    m_Config.height = m_Rect.bottom - m_Rect.top;
 }
 
 void Win32Application::MapCursor() {
@@ -319,10 +312,9 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         }
             return 0;
         case WM_SIZE:
-            if (w_param != SIZE_MINIMIZED) {
-                p_this->UpdateRect();
-                p_this->MapCursor();
-            }
+            p_this->m_Minimized = w_param == SIZE_MINIMIZED;
+            p_this->UpdateRect();
+            p_this->MapCursor();
             return 0;
     }
     return DefWindowProc(h_wnd, message, w_param, l_param);

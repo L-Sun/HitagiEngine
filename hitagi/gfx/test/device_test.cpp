@@ -935,17 +935,17 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 TEST_P(SwapChainTest, CreateSwapChain) {
-    auto rect = app->GetWindowsRect();
+    auto rect = app->GetWindowRect();
     EXPECT_EQ(swap_chain->GetWidth(), rect.right - rect.left) << "swap chain should be same size as window";
     EXPECT_EQ(swap_chain->GetHeight(), rect.bottom - rect.top) << "swap chain should be same size as window";
 }
 
 TEST_P(SwapChainTest, SwapChainResizing) {
-    auto rect = app->GetWindowsRect();
+    auto rect = app->GetWindowRect();
 
     // Resize swap chain
     app->ResizeWindow(800, 600);
-    rect = app->GetWindowsRect();
+    rect = app->GetWindowRect();
     swap_chain->Resize();
 
     EXPECT_EQ(swap_chain->GetWidth(), rect.right - rect.left) << "Swap chain should be same size as window after resizing";
@@ -958,7 +958,7 @@ TEST_P(DeviceTest, DrawTriangle) {
             .title = std::pmr::string{fmt::format("App/{}", test_name)},
         });
 
-    auto rect = app->GetWindowsRect();
+    auto rect = app->GetWindowRect();
 
     auto swap_chain = device->CreateSwapChain(
         {

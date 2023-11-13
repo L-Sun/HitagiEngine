@@ -36,17 +36,17 @@ void Editor::Tick() {
 
     RuntimeModule::Tick();
 
-    {
-        auto& renderer     = m_Engine.Renderer();
-        auto& render_graph = renderer.GetRenderGraph();
-        auto  output       = render_graph.Create(
+    if (!m_App.WindowsMinimized()) {
+        auto&      renderer     = m_Engine.Renderer();
+        auto&      render_graph = renderer.GetRenderGraph();
+        const auto output       = render_graph.Create(
             {
-                       .name        = "Editor Output",
-                       .width       = renderer.GetSwapChain().GetWidth(),
-                       .height      = renderer.GetSwapChain().GetHeight(),
-                       .format      = gfx::Format::R8G8B8A8_UNORM,
-                       .clear_value = math::vec4f{0.0f, 0.0f, 0.0f, 1.0f},
-                       .usages      = gfx::TextureUsageFlags::CopySrc | gfx::TextureUsageFlags::RenderTarget,
+                      .name        = "Editor Output",
+                      .width       = m_App.GetWindowWidth(),
+                      .height      = m_App.GetWindowHeight(),
+                      .format      = gfx::Format::R8G8B8A8_UNORM,
+                      .clear_value = math::vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+                      .usages      = gfx::TextureUsageFlags::CopySrc | gfx::TextureUsageFlags::RenderTarget,
             },
             "Editor Output");
         renderer.RenderGui(output, true);

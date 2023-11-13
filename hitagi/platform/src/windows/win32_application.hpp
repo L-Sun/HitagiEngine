@@ -20,8 +20,9 @@ public:
     void ResizeWindow(std::uint32_t width, std::uint32_t height) final;
 
     auto        GetWindow() const -> utils::Window final;
-    inline auto GetWindowsRect() const -> Rect final { return m_Rect; }
+    inline auto GetWindowRect() const -> Rect final { return m_Rect; }
     inline bool WindowSizeChanged() const final { return m_SizeChanged; }
+    inline bool WindowsMinimized() const final { return m_Minimized; };
     inline bool IsQuit() const final { return m_Quit; }
     inline void Quit() final { m_Quit = true; }
 
@@ -38,6 +39,7 @@ private:
 
     bool m_LockCursor  = false;
     bool m_SizeChanged = false;
+    bool m_Minimized   = false;
     bool m_Quit        = false;
 
     Rect m_Rect;

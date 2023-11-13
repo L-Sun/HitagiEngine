@@ -609,6 +609,7 @@ void DX12SwapChain::Resize() {
 
     const auto width  = rect.right - rect.left;
     const auto height = rect.bottom - rect.top;
+    // unlike vulkan, we can keep the swap chain size unchanged when window is minimized
 
     if (FAILED(m_SwapChain->ResizeBuffers(
             m_D3D12Desc.BufferCount,
@@ -622,6 +623,7 @@ void DX12SwapChain::Resize() {
         throw std::runtime_error(error_message);
     }
     m_SwapChain->GetDesc1(&m_D3D12Desc);
+
     for (std::size_t index = 0; index < m_D3D12Desc.BufferCount; index++) {
         m_BackBuffers.emplace_back(*this, index);
     }

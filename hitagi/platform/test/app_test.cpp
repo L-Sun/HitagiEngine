@@ -18,7 +18,7 @@ TEST_F(AppTest, CreateApp) {
 
 TEST_F(AppTest, ResizeWindow) {
     app->ResizeWindow(800, 600);
-    auto rect = app->GetWindowsRect();
+    auto rect = app->GetWindowRect();
     EXPECT_EQ(rect.right - rect.left, 800);
     EXPECT_EQ(rect.bottom - rect.top, 600);
 }

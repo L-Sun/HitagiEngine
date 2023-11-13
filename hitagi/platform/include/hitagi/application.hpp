@@ -51,10 +51,14 @@ public:
     virtual auto GetWindow() const -> utils::Window    = 0;
     virtual auto GetDpiRatio() const -> float          = 0;
     virtual auto GetMemoryUsage() const -> std::size_t = 0;
-    virtual auto GetWindowsRect() const -> Rect        = 0;
+    virtual auto GetWindowRect() const -> Rect         = 0;
     virtual bool WindowSizeChanged() const             = 0;
+    virtual bool WindowsMinimized() const              = 0;
     virtual bool IsQuit() const                        = 0;
     virtual void Quit()                                = 0;
+
+    auto GetWindowWidth() const -> std::uint32_t;
+    auto GetWindowHeight() const -> std::uint32_t;
 
     inline auto GetConfig() const noexcept { return m_Config; }
 

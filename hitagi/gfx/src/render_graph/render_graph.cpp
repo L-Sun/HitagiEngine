@@ -276,13 +276,21 @@ auto RenderGraph::GetComputePipelineHandle(std::string_view name) const noexcept
 bool RenderGraph::Compile() {
     ZoneScopedN("Compile RenderGraph");
 
-    if (m_PresentPassNode == nullptr) {
-        m_Logger->info("RenderGraph has no present pass, so nothing will be rendered");
+    if (m_Compiled) {
+        m_Logger->info("RenderGraph has already been compiled");
         return true;
     }
 
-    if (!m_ExecuteLayers.empty()) {
-        m_Logger->info("RenderGraph has already been compiled");
+    if (m_PresentPassNode == nullptr) {
+        m_Logger->trace("RenderGraph has no present pass, so nothing will be rendered");
+        m_Compiled = true;
+        return true;
+    }
+
+    if (m_PresentPassNode->swap_chain->GetWidth() == 0 ||
+        m_PresentPassNode->swap_chain->GetHeight() == 0) {
+        m_Logger->trace("The window is minimized, so nothing will be rendered");
+        m_Compiled = true;
         return true;
     }
 
@@ -362,10 +370,17 @@ bool RenderGraph::Compile() {
         }
     }
 
+    m_Compiled = true;
+
     return true;
 }
 
 auto RenderGraph::Execute() -> std::uint64_t {
+    if (!m_Compiled) {
+        m_Logger->warn("RenderGraph has not been compiled");
+        return m_FrameIndex;
+    }
+
     ZoneScopedN("Execute RenderGraph");
 
     {
@@ -422,13 +437,13 @@ auto RenderGraph::Execute() -> std::uint64_t {
 
     RetireNodes();
     Reset();
-
     return m_FrameIndex++;
 }
 
 void RenderGraph::Reset() noexcept {
     ZoneScopedN("Reset RenderGraph");
 
+    m_Compiled        = false;
     m_PresentPassNode = nullptr;
     m_Nodes.clear();
     m_ImportedResources.clear();

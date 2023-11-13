@@ -411,6 +411,18 @@ auto VulkanSwapChain::AcquireTextureForRendering() -> Texture& {
 }
 
 void VulkanSwapChain::Present() {
+    // window is not valid
+    switch (m_Desc.window.type) {
+#ifdef _WIN32
+        case utils::Window::Type::Win32: {
+            if (!IsWindow(static_cast<HWND>(m_Desc.window.ptr))) return;
+        } break;
+#endif
+        case utils::Window::Type::SDL2: {
+            if (!(SDL_GetWindowFlags(static_cast<SDL_Window*>(m_Desc.window.ptr)) & SDL_WINDOW_SHOWN)) return;
+        } break;
+    }
+
     if (m_CurrentIndex == -1) return;
 
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);

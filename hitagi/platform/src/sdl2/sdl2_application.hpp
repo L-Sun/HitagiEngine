@@ -20,9 +20,10 @@ public:
     auto GetWindow() const -> utils::Window final;
     auto GetDpiRatio() const -> float final;
     auto GetMemoryUsage() const -> std::size_t final;
-    auto GetWindowsRect() const -> Rect final;
+    auto GetWindowRect() const -> Rect final;
 
     inline bool WindowSizeChanged() const final { return m_SizeChanged; }
+    inline bool WindowsMinimized() const final { return m_Minimized; };
     inline void Quit() final { m_Quit = true; }
     inline bool IsQuit() const final { return m_Quit; }
 
@@ -31,6 +32,7 @@ private:
 
     bool m_Quit        = false;
     bool m_SizeChanged = false;
+    bool m_Minimized   = false;
 };
 
 }  // namespace hitagi
