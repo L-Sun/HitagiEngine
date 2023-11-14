@@ -85,11 +85,8 @@ TEST_P(RendererTest, ForwardRenderer) {
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::debug);
 
-    auto g_memory_manager  = std::make_unique<core::MemoryManager>();
-    hitagi::memory_manager = g_memory_manager.get();
-
-    auto g_file_manager     = std::make_unique<core::FileIOManager>();
-    hitagi::file_io_manager = g_file_manager.get();
+    auto g_memory_manager = std::make_unique<core::MemoryManager>();
+    auto g_file_manager   = std::make_unique<core::FileIOManager>();
 
     InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

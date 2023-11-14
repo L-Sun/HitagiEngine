@@ -16,8 +16,8 @@ auto load_app_config(const std::filesystem::path& config_path) -> std::optional<
         return std::nullopt;
 
     nlohmann::json json;
-    if (file_io_manager) {
-        json = nlohmann::json::parse(file_io_manager->SyncOpenAndReadBinary(config_path).Str());
+    if (core::FileIOManager::Get()) {
+        json = nlohmann::json::parse(core::FileIOManager::Get()->SyncOpenAndReadBinary(config_path).Str());
     } else {
         std::ifstream ifs(config_path);
         json = nlohmann::json::parse(ifs);
@@ -30,26 +30,19 @@ Application::Application(AppConfig config)
       m_Config(std::move(config)) {
     spdlog::set_level(spdlog::level::from_str(m_Config.log_level.data()));
 
-    if (!input_manager) {
-        input_manager = static_cast<decltype(input_manager)>(AddSubModule(std::make_unique<hid::InputManager>()));
-    }
+    m_InputManager = static_cast<hid::InputManager*>(AddSubModule(std::make_unique<hid::InputManager>()));
     m_Clock.Start();
 }
 
 Application::~Application() {
-    if (file_io_manager) {
+    if (core::FileIOManager::Get()) {
         std::filesystem::path path = "hitagi.json";
         m_Logger->info("save config to file: {}", path.string());
 
         nlohmann::json json = m_Config;
 
         auto content = json.dump(4);
-        file_io_manager->SaveBuffer(core::Buffer(content.size(), reinterpret_cast<const std::byte*>(content.data())), path);
-    }
-    for (const auto& sub_module : m_SubModules) {
-        if (sub_module.get() == input_manager) {
-            input_manager = nullptr;
-        }
+        core::FileIOManager::Get()->SaveBuffer(core::Buffer(content.size(), reinterpret_cast<const std::byte*>(content.data())), path);
     }
 }
 

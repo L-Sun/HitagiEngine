@@ -186,6 +186,13 @@ DX12Device::~DX12Device() {
 #endif
 }
 
+void DX12Device::Tick() {
+    Device::Tick();
+    if (m_EnableProfile) {
+        Profile();
+    }
+}
+
 void DX12Device::WaitIdle() {
     ZoneScopedN("DX12Device::WaitIdle");
     for (auto& queue : m_CommandQueues) {
@@ -246,14 +253,14 @@ auto DX12Device::GetBindlessUtils() -> BindlessUtils& {
     return *m_BindlessUtils;
 }
 
-void DX12Device::Profile(std::size_t frame_index) const {
+void DX12Device::Profile() const {
     static bool configured = false;
     if (!configured) {
         TracyPlotConfig("GPU Allocations", tracy::PlotFormatType::Number, true, true, 0);
         TracyPlotConfig("GPU Memory", tracy::PlotFormatType::Memory, false, true, 0);
         configured = true;
     }
-    m_MemoryAllocator->SetCurrentFrameIndex(frame_index);
+    m_MemoryAllocator->SetCurrentFrameIndex(m_FrameIndex);
     D3D12MA::Budget local_budget;
     m_MemoryAllocator->GetBudget(&local_budget, nullptr);
     TracyPlot("GPU Allocations", static_cast<std::int64_t>(local_budget.Stats.AllocationCount));

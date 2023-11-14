@@ -15,16 +15,12 @@
 
 using namespace hitagi::math;
 
-namespace hitagi {
-asset::AssetManager* asset_manager = nullptr;
-}
-
 namespace hitagi::asset {
 
 AssetManager::AssetManager(std::filesystem::path asset_base_path)
     : RuntimeModule("AssetManager"),
       m_BasePath(std::move(asset_base_path)) {
-    if (file_io_manager == nullptr) {
+    if (core::FileIOManager::Get() == nullptr) {
         m_Logger->warn("File IO Manager is not initialized!");
     }
 

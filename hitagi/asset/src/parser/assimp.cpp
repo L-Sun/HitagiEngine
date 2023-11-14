@@ -94,7 +94,13 @@ constexpr std::array mat_float_keys = {
 auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesystem::path& resource_base_path) -> std::shared_ptr<Scene> {
     auto logger = m_Logger ? m_Logger : spdlog::default_logger();
 
-    auto buffer = file_io_manager->SyncOpenAndReadBinary(path);
+    core::Buffer buffer;
+    if (core::FileIOManager::Get())
+        buffer = core::FileIOManager::Get()->SyncOpenAndReadBinary(path);
+    else {
+        logger->error("File IO Manager is not initialized!");
+        return nullptr;
+    }
 
     if (buffer.Empty()) {
         logger->warn("Parsing a empty buffer");
@@ -529,7 +535,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
     logger->trace("Parsing scene graph costs {:.3}.", clock.DeltaTime());
     clock.Tick();
 
-    logger->info("Processing costs {:.3} totally.", clock.TotalTime());
+    logger->trace("Processing costs {:.3} totally.", clock.TotalTime());
 
     return scene;
 }

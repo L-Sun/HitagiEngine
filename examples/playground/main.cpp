@@ -56,7 +56,7 @@ auto main(int argc, char** argv) -> int {
     cube->Attach(scene->root);
 
     for (auto& sub_mesh : cube->GetObjectRef()->sub_meshes) {
-        sub_mesh.material_instance = asset_manager->GetMaterial("Phong")->CreateInstance();
+        sub_mesh.material_instance = asset::AssetManager::Get()->GetMaterial("Phong")->CreateInstance();
     }
 
     while (!engine.App().IsQuit()) {

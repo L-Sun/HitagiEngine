@@ -435,13 +435,6 @@ TEST_F(RenderGraphTest, GraphTest) {
 
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::debug);
-    auto g_memory_manager  = std::make_unique<hitagi::core::MemoryManager>();
-    hitagi::memory_manager = g_memory_manager.get();
-
-    int result;
-    {
-        InitGoogleTest(&argc, argv);
-        result = RUN_ALL_TESTS();
-    }
-    return result;
+    InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

@@ -15,7 +15,7 @@
 
 namespace hitagi::gui {
 
-GuiManager::GuiManager(Application& app) : RuntimeModule("GuiManager"), m_App(app) {
+GuiManager::GuiManager(Application& app) : RuntimeModule("GuiManager"), m_App(app), m_InputManager(app.GetInputManager()) {
     m_Clock.Start();
 
     ImGui::CreateContext();
@@ -57,7 +57,7 @@ void GuiManager::Tick() {
     KeysEvent();
 
     // TODO IME
-    for (const auto character : input_manager->GetInputText()) {
+    for (const auto character : m_InputManager.GetInputText()) {
         io.AddInputCharacter(character);
     }
 
@@ -83,36 +83,38 @@ void GuiManager::LoadFont() {
         config.SizePixels           = m_App.GetDpiRatio() * 18.0f;
         config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
 
-        {
-            auto& font_buffer   = file_io_manager->SyncOpenAndReadBinary("./assets/fonts/Hasklig-Regular.otf");
-            config.FontData     = const_cast<std::byte*>(font_buffer.GetData());
-            config.FontDataSize = font_buffer.GetDataSize();
+        if (core::FileIOManager::Get()) {
+            {
+                auto& font_buffer   = core::FileIOManager::Get()->SyncOpenAndReadBinary("./assets/fonts/Hasklig-Regular.otf");
+                config.FontData     = const_cast<std::byte*>(font_buffer.GetData());
+                config.FontDataSize = font_buffer.GetDataSize();
 
-            std::pmr::u8string name = u8"Hasklig-Regular";
-            std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
-            io.Fonts->AddFont(&config);
-        }
+                std::pmr::u8string name = u8"Hasklig-Regular";
+                std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
+                io.Fonts->AddFont(&config);
+            }
 
-        config.MergeMode = true;
+            config.MergeMode = true;
 
-        {
-            auto& font_buffer       = file_io_manager->SyncOpenAndReadBinary("./assets/fonts/NotoSansSC-Regular.otf");
-            config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
-            config.FontDataSize     = font_buffer.GetDataSize();
-            config.GlyphRanges      = io.Fonts->GetGlyphRangesChineseFull();
-            std::pmr::u8string name = u8"NotoSansSC-Regular";
-            std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
-            io.Fonts->AddFont(&config);
-        }
+            {
+                auto& font_buffer       = core::FileIOManager::Get()->SyncOpenAndReadBinary("./assets/fonts/NotoSansSC-Regular.otf");
+                config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
+                config.FontDataSize     = font_buffer.GetDataSize();
+                config.GlyphRanges      = io.Fonts->GetGlyphRangesChineseFull();
+                std::pmr::u8string name = u8"NotoSansSC-Regular";
+                std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
+                io.Fonts->AddFont(&config);
+            }
 
-        {
-            auto& font_buffer       = file_io_manager->SyncOpenAndReadBinary("./assets/fonts/NotoSansJP-Regular.otf");
-            config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
-            config.FontDataSize     = font_buffer.GetDataSize();
-            config.GlyphRanges      = io.Fonts->GetGlyphRangesJapanese();
-            std::pmr::u8string name = u8"NotoSansJP-Regular";
-            std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
-            io.Fonts->AddFont(&config);
+            {
+                auto& font_buffer       = core::FileIOManager::Get()->SyncOpenAndReadBinary("./assets/fonts/NotoSansJP-Regular.otf");
+                config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
+                config.FontDataSize     = font_buffer.GetDataSize();
+                config.GlyphRanges      = io.Fonts->GetGlyphRangesJapanese();
+                std::pmr::u8string name = u8"NotoSansJP-Regular";
+                std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
+                io.Fonts->AddFont(&config);
+            }
         }
     }
 }
@@ -159,18 +161,18 @@ void GuiManager::MouseEvent() {
         }
     }
 
-    io.AddMousePosEvent(input_manager->GetFloat(hid::MouseEvent::MOVE_X), input_manager->GetFloat(hid::MouseEvent::MOVE_Y));
-    io.AddMouseWheelEvent(input_manager->GetFloatDelta(hid::MouseEvent::SCROLL_X), input_manager->GetFloatDelta(hid::MouseEvent::SCROLL_Y));
-    io.AddMouseButtonEvent(ImGuiMouseButton_Left, input_manager->GetBool(hid::VirtualKeyCode::MOUSE_L_BUTTON));
-    io.AddMouseButtonEvent(ImGuiMouseButton_Right, input_manager->GetBool(hid::VirtualKeyCode::MOUSE_R_BUTTON));
-    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, input_manager->GetBool(hid::VirtualKeyCode::MOUSE_M_BUTTON));
+    io.AddMousePosEvent(m_InputManager.GetFloat(hid::MouseEvent::MOVE_X), m_InputManager.GetFloat(hid::MouseEvent::MOVE_Y));
+    io.AddMouseWheelEvent(m_InputManager.GetFloatDelta(hid::MouseEvent::SCROLL_X), m_InputManager.GetFloatDelta(hid::MouseEvent::SCROLL_Y));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Left, m_InputManager.GetBool(hid::VirtualKeyCode::MOUSE_L_BUTTON));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Right, m_InputManager.GetBool(hid::VirtualKeyCode::MOUSE_R_BUTTON));
+    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, m_InputManager.GetBool(hid::VirtualKeyCode::MOUSE_M_BUTTON));
 }
 
 void GuiManager::KeysEvent() {
     auto& io = ImGui::GetIO();
 
     for (int key = ImGuiKey_NamedKey_BEGIN; key < ImGuiKey_NamedKey_END; key++) {
-        io.AddKeyEvent(static_cast<ImGuiKey>(key), input_manager->GetBool(convert_imgui_key(static_cast<ImGuiKey>(key))));
+        io.AddKeyEvent(static_cast<ImGuiKey>(key), m_InputManager.GetBool(convert_imgui_key(static_cast<ImGuiKey>(key))));
     }
 }
 

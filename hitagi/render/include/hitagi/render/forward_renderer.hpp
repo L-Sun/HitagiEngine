@@ -8,7 +8,7 @@ namespace hitagi::render {
 
 class ForwardRenderer : public IRenderer {
 public:
-    ForwardRenderer(const Application& app, gui::GuiManager* gui_manager = nullptr, std::string_view name = "");
+    ForwardRenderer(gfx::Device& device, const Application& app, gui::GuiManager* gui_manager = nullptr, std::string_view name = "");
 
     void Tick() override;
 
@@ -26,10 +26,10 @@ public:
 
 private:
     const Application& m_App;
+    gfx::Device&       m_GfxDevice;
 
     core::Clock m_Clock;
 
-    std::unique_ptr<gfx::Device>    m_GfxDevice;
     std::shared_ptr<gfx::SwapChain> m_SwapChain;
     rg::RenderGraph                 m_RenderGraph;
 

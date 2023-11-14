@@ -51,7 +51,3 @@ decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
 }
 
 }  // namespace hitagi::core
-
-namespace hitagi {
-extern core::ThreadManager* thread_manager;
-}  // namespace hitagi

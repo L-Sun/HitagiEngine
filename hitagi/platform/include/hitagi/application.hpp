@@ -1,6 +1,7 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 #include <hitagi/core/timer.hpp>
+#include <hitagi/hid/input_manager.hpp>
 #include <hitagi/math/vector.hpp>
 #include <hitagi/utils/types.hpp>
 
@@ -63,8 +64,11 @@ public:
 
     inline auto GetConfig() const noexcept { return m_Config; }
 
+    inline auto& GetInputManager() const noexcept { return *m_InputManager; }
+
 protected:
-    core::Clock m_Clock;
-    AppConfig   m_Config;
+    core::Clock        m_Clock;
+    AppConfig          m_Config;
+    hid::InputManager* m_InputManager;
 };
 }  // namespace hitagi

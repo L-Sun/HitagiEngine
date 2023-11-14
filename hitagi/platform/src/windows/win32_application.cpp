@@ -253,13 +253,13 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_XBUTTONDOWN:
         case WM_XBUTTONDBLCLK: {
             if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK)
-                input_manager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_L_BUTTON, true);
+                p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_L_BUTTON, true);
 
             if (message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK)
-                input_manager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_R_BUTTON, true);
+                p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_R_BUTTON, true);
 
             if (message == WM_MBUTTONDOWN || message == WM_MBUTTONDBLCLK)
-                input_manager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_M_BUTTON, true);
+                p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_M_BUTTON, true);
 
             return 0;
         }
@@ -267,13 +267,13 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_RBUTTONUP:
         case WM_MBUTTONUP: {
             if (message == WM_LBUTTONUP)
-                input_manager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_L_BUTTON, false);
+                p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_L_BUTTON, false);
 
             if (message == WM_RBUTTONUP)
-                input_manager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_R_BUTTON, false);
+                p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_R_BUTTON, false);
 
             if (message == WM_MBUTTONUP)
-                input_manager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_M_BUTTON, false);
+                p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_M_BUTTON, false);
 
             return 0;
         }
@@ -283,32 +283,32 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_SYSKEYUP: {
             bool down = (message == WM_KEYDOWN || message == WM_SYSKEYDOWN);
             if (w_param < static_cast<int>(hid::VirtualKeyCode::NUM))
-                input_manager->UpdateKeyState(static_cast<hid::VirtualKeyCode>(w_param), down);
+                p_this->m_InputManager->UpdateKeyState(static_cast<hid::VirtualKeyCode>(w_param), down);
 
-            input_manager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_CTRL, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_L_CTRL));
-            input_manager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_CTRL, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_R_CTRL));
-            input_manager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_SHIFT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_L_SHIFT));
-            input_manager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_SHIFT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_R_SHIFT));
-            input_manager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_ALT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_L_ALT));
-            input_manager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_ALT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_R_ALT));
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_CTRL, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_L_CTRL));
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_CTRL, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_R_CTRL));
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_SHIFT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_L_SHIFT));
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_SHIFT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_R_SHIFT));
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_ALT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_L_ALT));
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_ALT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_R_ALT));
             return 0;
         }
         case WM_MOUSEMOVE:
-            input_manager->UpdatePointerState(static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param)));
+            p_this->m_InputManager->UpdatePointerState(static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param)));
             return 0;
         case WM_MOUSEWHEEL:
-            input_manager->UpdateWheelState(0.0f, static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA));
+            p_this->m_InputManager->UpdateWheelState(0.0f, static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA));
             return 0;
         case WM_MOUSEHWHEEL:
-            input_manager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
+            p_this->m_InputManager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
             return 0;
         case WM_CHAR: {
             std::size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
-            input_manager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
+            p_this->m_InputManager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
         }
             return 0;
         case WM_IME_CHAR: {
-            input_manager->AppendInputText(std::u32string(1, static_cast<char32_t>(w_param)));
+            p_this->m_InputManager->AppendInputText(std::u32string(1, static_cast<char32_t>(w_param)));
         }
             return 0;
         case WM_SIZE:

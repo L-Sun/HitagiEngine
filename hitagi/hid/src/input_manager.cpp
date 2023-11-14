@@ -4,10 +4,6 @@
 #include <spdlog/spdlog.h>
 #include <magic_enum.hpp>
 
-namespace hitagi {
-hid::InputManager* input_manager = nullptr;
-}
-
 namespace hitagi::hid {
 InputManager::InputManager()
     : RuntimeModule("InputManager"),

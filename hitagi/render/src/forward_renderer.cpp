@@ -13,17 +13,17 @@
 
 namespace hitagi::render {
 
-ForwardRenderer::ForwardRenderer(const Application& app, gui::GuiManager* gui_manager, std::string_view name)
+ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, gui::GuiManager* gui_manager, std::string_view name)
     : IRenderer(fmt::format("ForwardRenderer{}", name.empty() ? "" : fmt::format("({})", name))),
       m_App(app),
-      m_GfxDevice(gfx::Device::Create(magic_enum::enum_cast<gfx::Device::Type>(app.GetConfig().gfx_backend).value(), name)),
-      m_SwapChain(m_GfxDevice->CreateSwapChain({
+      m_GfxDevice(device),
+      m_SwapChain(m_GfxDevice.CreateSwapChain({
           .name        = "SwapChain",
           .window      = app.GetWindow(),
           .clear_color = math::vec4f(0, 0, 0, 1),
       })),
-      m_RenderGraph(*m_GfxDevice, "ForwardRenderGraph"),
-      m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, *m_GfxDevice) : nullptr)
+      m_RenderGraph(m_GfxDevice, "ForwardRenderGraph"),
+      m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, m_GfxDevice) : nullptr)
 
 {
     m_Clock.Start();
@@ -39,7 +39,7 @@ void ForwardRenderer::Tick() {
     }
 
     if (m_RenderGraph.Compile()) {
-        m_GfxDevice->Profile(m_RenderGraph.Execute());
+        m_RenderGraph.Execute();
     }
 
     m_SwapChain->Present();
@@ -155,7 +155,7 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
 
         material_infos = materials  //
                          | ranges::views::transform([&](const auto& material) {
-                               material->InitPipeline(*m_GfxDevice);
+                               material->InitPipeline(m_GfxDevice);
                                auto pipeline_handle = m_RenderGraph.Import(material->GetPipeline(), material->GetName());
                                render_pass_builder.AddPipeline(pipeline_handle);
 
@@ -193,7 +193,7 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
                 material_instance_info->material_instance_index = material_instance_index;
 
                 for (const auto& texture : material_instance->GetTextures()) {
-                    texture->InitGPUData(*m_GfxDevice);
+                    texture->InitGPUData(m_GfxDevice);
                     render_pass_builder.Read(
                         material_instance_info->textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName())),
                         {},
@@ -221,8 +221,8 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
 
         for (const auto& [instant_index, node] : scene->instance_nodes | ranges::views::enumerate) {
             auto mesh = node->GetObjectRef();
-            mesh->vertices->InitGPUData(*m_GfxDevice);
-            mesh->indices->InitGPUData(*m_GfxDevice);
+            mesh->vertices->InitGPUData(m_GfxDevice);
+            mesh->indices->InitGPUData(m_GfxDevice);
 
             utils::EnumArray<rg::GPUBufferHandle, asset::VertexAttribute> vertex_handles;
             magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {

@@ -16,9 +16,8 @@
 namespace hitagi::gfx {
 
 Device::Device(Type type, std::string_view name)
-    : device_type(type),
-      m_Name(name),
-      m_Logger(utils::try_create_logger(fmt::format("{}{}", magic_enum::enum_name(device_type), utils::add_parentheses(name)))),
+    : RuntimeModule(fmt::format("{}{}", magic_enum::enum_name(type), utils::add_parentheses(name))),
+      device_type(type),
       m_ShaderCompiler(name) {}
 
 Device::~Device() {
@@ -46,4 +45,10 @@ auto Device::Create(Type type, std::string_view name) -> std::unique_ptr<Device>
             return nullptr;
     }
 }
+
+void Device::Tick() {
+    RuntimeModule::Tick();
+    m_FrameIndex++;
+}
+
 }  // namespace hitagi::gfx

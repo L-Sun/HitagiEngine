@@ -44,6 +44,3 @@ protected:
 };
 
 }  // namespace hitagi::debugger
-namespace hitagi {
-extern debugger::DebugManager* debug_manager;
-}

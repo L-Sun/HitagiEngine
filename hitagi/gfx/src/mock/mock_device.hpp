@@ -5,6 +5,9 @@ namespace hitagi::gfx {
 class MockDevice : public Device {
 public:
     MockDevice(std::string_view name);
+
+    void Tick() final {}
+
     void WaitIdle() final;
 
     auto CreateFence(std::uint64_t initial_value = 0, std::string_view name = "") -> std::shared_ptr<Fence> final;
@@ -22,8 +25,6 @@ public:
     auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> final;
 
     auto GetBindlessUtils() -> BindlessUtils& final;
-
-    void Profile(std::size_t frame_index) const final;
 
 private:
     utils::EnumArray<std::shared_ptr<CommandQueue>, CommandType> m_Queues;
