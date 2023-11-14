@@ -26,7 +26,7 @@ struct MockSampler : public Sampler {
 struct MockSwapChain : public SwapChain {
     MockSwapChain(Device& device, SwapChainDesc desc) : SwapChain(device, std::move(desc)), texture(device, {}) {}
 
-    auto AcquireTextureForRendering() -> Texture& final { return texture; }
+    auto AcquireTextureForRendering() -> utils::optional_ref<Texture> final { return texture; }
     auto GetWidth() const noexcept -> std::uint32_t final { return 0; }
     auto GetHeight() const noexcept -> std::uint32_t final { return 0; }
     auto GetFormat() const noexcept -> Format final { return Format::UNKNOWN; }

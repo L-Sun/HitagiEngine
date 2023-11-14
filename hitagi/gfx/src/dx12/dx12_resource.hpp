@@ -76,7 +76,7 @@ public:
     void Present() final;
     void Resize() final;
 
-    auto AcquireTextureForRendering() -> Texture& final;
+    auto AcquireTextureForRendering() -> utils::optional_ref<Texture> final;
 
     inline auto GetDX12SwapChain() const noexcept { return m_SwapChain; }
 

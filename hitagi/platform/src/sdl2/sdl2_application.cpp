@@ -38,7 +38,8 @@ void SDL2Application::Tick() {
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_QUIT:
-                m_Quit = true;
+                m_Quit        = true;
+                m_SizeChanged = true;
                 break;
             case SDL_WINDOWEVENT:
                 m_Minimized = event.window.event == SDL_WINDOWEVENT_MINIMIZED;

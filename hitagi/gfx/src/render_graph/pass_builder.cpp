@@ -690,27 +690,28 @@ PresentPassBuilder::PresentPassBuilder(RenderGraph& rg)
     pass->m_Executor = [](const RenderGraph& rg, const PresentPassNode& pass) {
         auto& cmd           = pass.GetCmd();
         auto& swap_chain    = *pass.swap_chain;
-        auto& render_target = swap_chain.AcquireTextureForRendering();
+        auto  render_target = swap_chain.AcquireTextureForRendering();
+        if (!render_target.has_value()) return;
 
         cmd.ResourceBarrier(
             {}, {}, {{
-                        render_target.Transition(gfx::BarrierAccess::CopyDst, gfx::TextureLayout::CopyDst),
+                        render_target->get().Transition(gfx::BarrierAccess::CopyDst, gfx::TextureLayout::CopyDst),
                     }});
         cmd.CopyTextureRegion(
             pass.m_From->Resolve(),
             {0, 0, 0},
-            render_target,
+            render_target->get(),
             {0, 0, 0},
             {
-                std::min(render_target.GetDesc().width, pass.m_From->Resolve().GetDesc().width),
-                std::min(render_target.GetDesc().height, pass.m_From->Resolve().GetDesc().height),
+                std::min(render_target->get().GetDesc().width, pass.m_From->Resolve().GetDesc().width),
+                std::min(render_target->get().GetDesc().height, pass.m_From->Resolve().GetDesc().height),
                 1,
             },
             pass.m_TextureEdges.begin()->second.layer);
 
         cmd.ResourceBarrier(
             {}, {}, {{
-                        render_target.Transition(gfx::BarrierAccess::Present, gfx::TextureLayout::Present),
+                        render_target->get().Transition(gfx::BarrierAccess::Present, gfx::TextureLayout::Present),
                     }});
     };
 }

@@ -165,12 +165,13 @@ struct SwapChainDesc {
 };
 class SwapChain : public ResourceWithDesc<SwapChainDesc> {
 public:
-    virtual auto AcquireTextureForRendering() -> Texture&    = 0;
-    virtual auto GetWidth() const noexcept -> std::uint32_t  = 0;
-    virtual auto GetHeight() const noexcept -> std::uint32_t = 0;
-    virtual auto GetFormat() const noexcept -> Format        = 0;
-    virtual void Present()                                   = 0;
-    virtual void Resize()                                    = 0;
+    // return nullopt if the swapchain is not ready this alway happens when the window is minimized or closed
+    virtual auto AcquireTextureForRendering() -> utils::optional_ref<Texture> = 0;
+    virtual auto GetWidth() const noexcept -> std::uint32_t                   = 0;
+    virtual auto GetHeight() const noexcept -> std::uint32_t                  = 0;
+    virtual auto GetFormat() const noexcept -> Format                         = 0;
+    virtual void Present()                                                    = 0;
+    virtual void Resize()                                                     = 0;
 
 protected:
     using ResourceWithDesc::ResourceWithDesc;
