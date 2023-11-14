@@ -12,12 +12,11 @@ class Texture : public Resource {
 public:
     Texture(std::uint32_t    width,
             std::uint32_t    height,
-            gfx::Format      format = gfx::Format::R8G8B8A8_UNORM,
-            core::Buffer     data   = {},
-            std::string_view name   = "",
-            xg::Guid         guid   = {});
+            gfx::Format      format,
+            core::Buffer     data = {},
+            std::string_view name = "");
 
-    Texture(std::filesystem::path path, std::string_view name = "", xg::Guid guid = {});
+    Texture(std::filesystem::path path, std::string_view name = "");
 
     Texture(const Texture&);
     Texture& operator=(const Texture&);
@@ -43,7 +42,7 @@ public:
 
 private:
     std::uint32_t m_Width = 0, m_Height = 0;
-    gfx::Format   m_Format;
+    gfx::Format   m_Format = gfx::Format::UNKNOWN;
 
     std::filesystem::path m_Path;
 

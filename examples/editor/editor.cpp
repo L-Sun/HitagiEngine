@@ -116,6 +116,10 @@ void Editor::FileImporter() {
             m_CurrScene = asset_manager->ImportScene(m_FileDialog.GetSelected());
             m_SceneViewPort->SetScene(m_CurrScene);
         }
+        if (ext == ".glb" || ext == ".gltf") {
+            m_CurrScene = asset_manager->ImportScene(m_FileDialog.GetSelected());
+            m_SceneViewPort->SetScene(m_CurrScene);
+        }
         m_FileDialog.ClearSelected();
     }
 }
@@ -147,7 +151,7 @@ void Editor::SceneGraphViewer() {
                 }
                 node_flags |= node->GetChildren().empty() ? ImGuiTreeNodeFlags_Leaf : ImGuiTreeNodeFlags_OpenOnArrow;
 
-                bool node_open = ImGui::TreeNodeEx(node.get(), node_flags, "%s", node->GetName().c_str());
+                bool node_open = ImGui::TreeNodeEx(node.get(), node_flags, "%s", node->GetName().data());
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen())
                     m_SelectedNode = node;
 
@@ -190,21 +194,21 @@ void Editor::SceneNodeModifier() {
                 ImGui::TableNextColumn();
                 ImGui::Text("Translation");
                 ImGui::TableNextColumn();
-                ImGui::DragFloat3("##Translation", m_SelectedNode->transform.local_translation);
+                ImGui::DragFloat3("##Translation", m_SelectedNode->transform.local_translation, 0.01f);
             }
             {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 ImGui::Text("Rotation");
                 ImGui::TableNextColumn();
-                ImGui::DragFloat3("##Rotation", m_SelectedNode->transform.local_rotation);
+                ImGui::DragFloat3("##Rotation", m_SelectedNode->transform.local_rotation, 0.01f);
             }
             {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 ImGui::Text("Scaling");
                 ImGui::TableNextColumn();
-                ImGui::DragFloat3("##Scaling", m_SelectedNode->transform.local_scaling);
+                ImGui::DragFloat3("##Scaling", m_SelectedNode->transform.local_scaling, 0.01f, 0.0f, 1.0f);
             }
 
             ImGui::EndTable();

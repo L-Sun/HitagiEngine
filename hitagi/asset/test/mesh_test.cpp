@@ -66,13 +66,13 @@ TEST(MeshTest, Modify) {
 
 TEST(MeshTest, Merge) {
     Mesh mesh1(std::make_shared<VertexArray>(2), std::make_shared<IndexArray>(2, IndexType::UINT16));
-    mesh1.sub_meshes.emplace_back(Mesh::SubMesh{
+    mesh1.AddSubMesh({
         .index_count   = 2,
         .index_offset  = 0,
         .vertex_offset = 0,
     });
     Mesh mesh2(std::make_shared<VertexArray>(2), std::make_shared<IndexArray>(2, IndexType::UINT16));
-    mesh2.sub_meshes.emplace_back(Mesh::SubMesh{
+    mesh2.AddSubMesh({
         .index_count   = 2,
         .index_offset  = 0,
         .vertex_offset = 0,
@@ -121,12 +121,14 @@ TEST(MeshTest, Merge) {
         EXPECT_EQ(index, i);
         i = !i;
     }
-    EXPECT_EQ(mesh.sub_meshes[0].index_count, 2);
-    EXPECT_EQ(mesh.sub_meshes[0].vertex_offset, 0);
-    EXPECT_EQ(mesh.sub_meshes[0].index_offset, 0);
-    EXPECT_EQ(mesh.sub_meshes[1].index_count, 2);
-    EXPECT_EQ(mesh.sub_meshes[1].vertex_offset, 2);
-    EXPECT_EQ(mesh.sub_meshes[1].index_offset, 2);
+
+    const auto& sub_meshes = mesh.sub_meshes;
+    EXPECT_EQ(sub_meshes[0].index_count, 2);
+    EXPECT_EQ(sub_meshes[0].vertex_offset, 0);
+    EXPECT_EQ(sub_meshes[0].index_offset, 0);
+    EXPECT_EQ(sub_meshes[1].index_count, 2);
+    EXPECT_EQ(sub_meshes[1].vertex_offset, 2);
+    EXPECT_EQ(sub_meshes[1].index_offset, 2);
 }
 
 int main(int argc, char** argv) {

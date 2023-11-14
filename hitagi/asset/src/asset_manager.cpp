@@ -88,8 +88,8 @@ void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
         for (const auto& node : scene->light_nodes) {
             AddLight(node->GetObjectRef());
         }
-        for (const auto& node : scene->armature_nodes) {
-            AddArmature(node->GetObjectRef());
+        for (const auto& node : scene->skeleton_nodes) {
+            AddSkeleton(node->GetObjectRef());
         }
         for (const auto& node : scene->instance_nodes) {
             auto mesh = node->GetObjectRef();
@@ -123,8 +123,8 @@ void AssetManager::AddMesh(std::shared_ptr<Mesh> mesh) {
     if (mesh) m_Assets.meshes.emplace(std::move(mesh));
 }
 
-void AssetManager::AddArmature(std::shared_ptr<Armature> armature) {
-    if (armature) m_Assets.armatures.emplace(std::move(armature));
+void AssetManager::AddSkeleton(std::shared_ptr<Skeleton> skeleton) {
+    if (skeleton) m_Assets.skeletons.emplace(std::move(skeleton));
 }
 
 void AssetManager::AddTexture(std::shared_ptr<Texture> texture) {

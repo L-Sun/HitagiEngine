@@ -56,10 +56,11 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
     }
 
     nlohmann::json json;
+    MaterialDesc   desc;
     try {
         json = nlohmann::json::parse(buffer.Span<char>());
 
-        std::pmr::vector<gfx::ShaderDesc> shader_desc = {
+        desc.shaders = {
             {
                 .name        = json.at("pipeline").at("vs"),
                 .type        = gfx::ShaderType::Vertex,
@@ -75,20 +76,17 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                 .path        = json.at("pipeline").at("ps"),
             }};
 
-        gfx::RenderPipelineDesc pipeline_desc{};
-
-        pipeline_desc.assembly_state.primitive = json.at("pipeline").value("primitive", gfx::PrimitiveTopology::TriangleList);
+        desc.pipeline.assembly_state.primitive = json.at("pipeline").value("primitive", gfx::PrimitiveTopology::TriangleList);
         if (bool enable_depth_test = json.at("pipeline").value("depth_test", true);
             enable_depth_test) {
-            pipeline_desc.depth_stencil_format                  = gfx::Format::D32_FLOAT;
-            pipeline_desc.depth_stencil_state.depth_test_enable = true;
-            pipeline_desc.rasterization_state =
+            desc.pipeline.depth_stencil_format                  = gfx::Format::D32_FLOAT;
+            desc.pipeline.depth_stencil_state.depth_test_enable = true;
+            desc.pipeline.rasterization_state =
                 {
                     .cull_mode = gfx::CullMode::Back,
                 };
         }
 
-        std::pmr::vector<Material::Parameter> parameters;
         if (json.contains("parameters")) {
             if (!json["parameters"].is_array()) {
                 logger->error("parameters is not an array!");
@@ -96,8 +94,8 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
             }
 
             for (auto param : json["parameters"]) {
-                const std::string&  type = param.at("type");
-                Material::Parameter mat_param{.name = param.at("name")};
+                const std::string& type = param.at("type");
+                MaterialParameter  mat_param{.name = param.at("name")};
                 if (type == "float")
                     mat_param.value = param.value("default", 0.0f);
                 else if (type == "int32")
@@ -133,11 +131,11 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                     logger->error("Unkown parameter type: {}", param["type"].get<std::string>());
                     return nullptr;
                 }
-                parameters.emplace_back(std::move(mat_param));
+                desc.parameters.emplace_back(std::move(mat_param));
             }
         }
         const std::string& name = json.at("name");
-        return Material::Create(std::move(shader_desc), std::move(pipeline_desc), std::move(parameters), name);
+        return std::make_shared<Material>(std::move(desc), name);
     } catch (nlohmann::json::exception& ex) {
         logger->error(ex.what());
         return nullptr;

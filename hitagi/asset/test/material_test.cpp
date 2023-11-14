@@ -8,16 +8,17 @@ using namespace hitagi::testing;
 using namespace hitagi::utils;
 
 TEST(MaterialTest, InitMaterial) {
-    auto mat = Material::Create(
-        {},
-        {},
-        {
-            {.name = "param1", .value = vec2f{}},
-            {.name = "param2", .value = vec4f{}},
-            {.name = "param2", .value = vec3f{}},
-            {.name = "param3", .value = vec2f{}},
-            {.name = "texture", .value = std::shared_ptr<Texture>{}},
-        });
+    auto mat = std::make_shared<Material>(
+        MaterialDesc{
+            {},
+            {},
+            {
+                {.name = "param1", .value = vec2f{}},
+                {.name = "param2", .value = vec4f{}},
+                {.name = "param2", .value = vec3f{}},
+                {.name = "param3", .value = vec2f{}},
+                {.name = "texture", .value = std::shared_ptr<Texture>{}},
+            }});
     auto instance = mat->CreateInstance();
 
     EXPECT_TRUE(instance->GetParameter<vec2f>("param1").has_value());
@@ -31,15 +32,15 @@ TEST(MaterialTest, InitMaterial) {
 }
 
 TEST(MaterialTest, InstanceDefaultValue) {
-    auto tex = std::make_shared<Texture>(128, 128);
-    auto mat = Material::Create(
+    auto tex = std::make_shared<Texture>(128, 128, hitagi::gfx::Format::R8G8B8A8_UNORM);
+    auto mat = std::make_shared<Material>(MaterialDesc{
         {},
         {},
         {
             {.name = "param1", .value = float{1.0f}},
             {.name = "param2", .value = vec2f{1, 2}},
             {.name = "tex1", .value = tex},
-        });
+        }});
 
     auto instance = mat->CreateInstance();
 
@@ -50,7 +51,7 @@ TEST(MaterialTest, InstanceDefaultValue) {
 }
 
 TEST(MaterialTest, ParameterLayout) {
-    auto mat = Material::Create(
+    auto mat = std::make_shared<Material>(MaterialDesc{
         {},
         {},
         {
@@ -60,7 +61,7 @@ TEST(MaterialTest, ParameterLayout) {
             {.name = "param4", .value = std::shared_ptr<Texture>{nullptr}},  //  no effect
             {.name = "param5", .value = vec2f{1, 2}},                        //  8 bytes + (8 bytes padding) = 48 bytes
             {.name = "param6", .value = vec3f{1, 2, 3}},                     // 12 bytes + (4 bytes padding) = 60 bytes
-        });
+        }});
 
     auto instance = mat->CreateInstance();
     auto buffer   = instance->GetMateriaBufferData();
@@ -74,15 +75,15 @@ TEST(MaterialTest, ParameterLayout) {
 }
 
 TEST(MaterialTest, InstanceChangeValue) {
-    auto tex = std::make_shared<Texture>(128, 128);
-    auto mat = Material::Create(
+    auto tex = std::make_shared<Texture>(128, 128, hitagi::gfx::Format::B8G8R8A8_UNORM);
+    auto mat = std::make_shared<Material>(MaterialDesc{
         {},
         {},
         {
             {.name = "param1", .value = float{1.0f}},
             {.name = "param2", .value = vec2f{1, 2}},
             {.name = "tex1", .value = tex},
-        });
+        }});
 
     auto instance = mat->CreateInstance();
     {

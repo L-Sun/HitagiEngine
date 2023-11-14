@@ -7,36 +7,19 @@
 
 namespace hitagi::asset {
 
-Material::Material(std::pmr::vector<gfx::ShaderDesc> shader_desc,
-                   gfx::RenderPipelineDesc           pipeline_desc,
-                   std::pmr::vector<Parameter>       parameters,
-                   std::string_view                  name,
-                   xg::Guid                          guid)
-    : Resource(name, guid),
-      m_ShaderDesc(std::move(shader_desc)),
-      m_PipelineDesc(std::move(pipeline_desc)),
-      m_DefaultParameters(std::move(parameters))
+Material::Material(MaterialDesc desc, std::string_view name)
+    : Resource(Type::Material, name), m_Desc(std::move(desc)) {
+    if (m_Desc.pipeline.name.empty()) m_Desc.pipeline.name = m_Name;
 
-{
-    m_PipelineDesc.name = m_Name;
-
-    auto iter = std::unique(m_DefaultParameters.rbegin(), m_DefaultParameters.rend(), [](const auto& lhs, const auto& rhs) {
+    auto iter = std::unique(m_Desc.parameters.rbegin(), m_Desc.parameters.rend(), [](const auto& lhs, const auto& rhs) {
         return lhs.name == rhs.name;
     });
-    m_DefaultParameters.erase(m_DefaultParameters.rend().base(), iter.base());
-}
-
-auto Material::Create(std::pmr::vector<gfx::ShaderDesc> shader_desc, gfx::RenderPipelineDesc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid) -> std::shared_ptr<Material> {
-    struct CreateTemp : public Material {
-        CreateTemp(std::pmr::vector<gfx::ShaderDesc> shader_desc, gfx::RenderPipelineDesc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name, xg::Guid guid)
-            : Material(std::move(shader_desc), std::move(pipeline_desc), std::move(parameters), name, guid) {}
-    };
-    return std::make_shared<CreateTemp>(std::move(shader_desc), std::move(pipeline_desc), std::move(parameters), name, guid);
+    m_Desc.parameters.erase(m_Desc.parameters.rend().base(), iter.base());
 }
 
 auto Material::CalculateMaterialBufferSize() const noexcept -> std::size_t {
     std::size_t offset = 0;
-    for (const auto& parameter : m_DefaultParameters) {
+    for (const auto& parameter : m_Desc.parameters) {
         // We use int32_t to indicate its index in texture array
         if (std::holds_alternative<std::shared_ptr<Texture>>(parameter.value)) {
         } else {
@@ -55,17 +38,17 @@ auto Material::CalculateMaterialBufferSize() const noexcept -> std::size_t {
 
 auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
     auto instance_name = fmt::format("{}-{}", m_Name, m_Instances.size());
-    auto result        = std::make_shared<MaterialInstance>(m_DefaultParameters, instance_name);
+    auto result        = std::make_shared<MaterialInstance>(m_Desc.parameters, instance_name);
     result->SetMaterial(shared_from_this());
     return result;
 }
 
 void Material::InitPipeline(gfx::Device& device) {
     if (!m_Dirty) return;
-    std::transform(m_ShaderDesc.begin(), m_ShaderDesc.end(), std::back_inserter(m_Shaders), [&](const auto& desc) {
+    std::transform(m_Desc.shaders.begin(), m_Desc.shaders.end(), std::back_inserter(m_Shaders), [&](const auto& desc) {
         return device.CreateShader(desc);
     });
-    std::transform(m_Shaders.begin(), m_Shaders.end(), std::back_inserter(m_PipelineDesc.shaders), [&](const auto& shader) {
+    std::transform(m_Shaders.begin(), m_Shaders.end(), std::back_inserter(m_Desc.pipeline.shaders), [&](const auto& shader) {
         return std::weak_ptr<gfx::Shader>(shader);
     });
 
@@ -73,11 +56,11 @@ void Material::InitPipeline(gfx::Device& device) {
             return shader->GetDesc().type == gfx::ShaderType::Vertex;
         });
         iter != m_Shaders.end()) {
-        auto vertex_shader                 = *iter;
-        m_PipelineDesc.vertex_input_layout = device.GetShaderCompiler().ExtractVertexLayout(vertex_shader->GetDesc());
+        auto vertex_shader                  = *iter;
+        m_Desc.pipeline.vertex_input_layout = device.GetShaderCompiler().ExtractVertexLayout(vertex_shader->GetDesc());
     }
 
-    m_Pipeline = device.CreateRenderPipeline(m_PipelineDesc);
+    m_Pipeline = device.CreateRenderPipeline(m_Desc.pipeline);
     m_Dirty    = false;
 }
 
@@ -89,8 +72,8 @@ void Material::RemoveInstance(MaterialInstance* instance) noexcept {
     m_Instances.erase(instance);
 }
 
-MaterialInstance::MaterialInstance(std::pmr::vector<Material::Parameter> parameters, std::string_view name, xg::Guid guid)
-    : Resource(name, guid),
+MaterialInstance::MaterialInstance(std::pmr::vector<MaterialParameter> parameters, std::string_view name)
+    : Resource(Type::MaterialInstance, name),
       m_Parameters(std::move(parameters)) {}
 
 MaterialInstance::MaterialInstance(const MaterialInstance& other) : Resource(other), m_Parameters(other.m_Parameters) {
@@ -141,7 +124,7 @@ auto MaterialInstance::GetMateriaBufferData() const noexcept -> core::Buffer {
     core::Buffer result(m_Material->CalculateMaterialBufferSize());
 
     std::size_t offset = 0;
-    for (const auto& default_param : m_Material->m_DefaultParameters) {
+    for (const auto& default_param : m_Material->m_Desc.parameters) {
         if (std::holds_alternative<std::shared_ptr<Texture>>(default_param.value)) {
         } else {
             std::visit(
@@ -167,7 +150,7 @@ auto MaterialInstance::GetMateriaBufferData() const noexcept -> core::Buffer {
 
 auto MaterialInstance::GetTextures() const noexcept -> std::pmr::vector<std::shared_ptr<Texture>> {
     std::pmr::vector<std::shared_ptr<Texture>> result;
-    for (const auto& default_param : m_Material->m_DefaultParameters) {
+    for (const auto& default_param : m_Material->m_Desc.parameters) {
         if (std::holds_alternative<std::shared_ptr<Texture>>(default_param.value)) {
             auto tex = GetParameter<std::shared_ptr<Texture>>(default_param.name);
             if (tex.has_value()) {

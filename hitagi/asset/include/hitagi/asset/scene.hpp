@@ -4,14 +4,14 @@
 #include <hitagi/asset/camera.hpp>
 #include <hitagi/asset/light.hpp>
 #include <hitagi/asset/mesh.hpp>
-#include <hitagi/asset/armature.hpp>
+#include <hitagi/asset/skeleton.hpp>
 #include <hitagi/asset/scene_node.hpp>
 #include <hitagi/ecs/world.hpp>
 
 namespace hitagi::asset {
 class Scene : public Resource {
 public:
-    Scene(std::string_view name = "", xg::Guid guid = {});
+    Scene(std::string_view name = "");
 
     void Update();
 
@@ -21,7 +21,7 @@ public:
     SharedPtrVector<MeshNode>     instance_nodes;
     SharedPtrVector<CameraNode>   camera_nodes;
     SharedPtrVector<LightNode>    light_nodes;
-    SharedPtrVector<ArmatureNode> armature_nodes;
+    SharedPtrVector<SkeletonNode> skeleton_nodes;
 
     std::shared_ptr<CameraNode> curr_camera;
 

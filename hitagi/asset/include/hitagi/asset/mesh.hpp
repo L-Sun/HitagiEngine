@@ -128,7 +128,7 @@ public:
         std::shared_ptr<gfx::GPUBuffer> gpu_buffer = nullptr;
     };
 
-    VertexArray(std::size_t vertex_count, std::string_view name = "", xg::Guid guid = {});
+    VertexArray(std::size_t vertex_count, std::string_view name = "");
     VertexArray(const VertexArray&);
     VertexArray& operator=(const VertexArray&);
     VertexArray(VertexArray&&)            = default;
@@ -174,7 +174,7 @@ public:
         std::shared_ptr<gfx::GPUBuffer> gpu_buffer = nullptr;
     };
 
-    IndexArray(std::size_t count, IndexType type = IndexType::UINT16, std::string_view name = "", xg::Guid guid = {});
+    IndexArray(std::size_t count, IndexType type = IndexType::UINT16, std::string_view name = "");
 
     IndexArray(const IndexArray&);
     IndexArray& operator=(const IndexArray&);
@@ -209,11 +209,12 @@ public:
         std::shared_ptr<MaterialInstance> material_instance;
     };
 
-    Mesh() = default;
-    Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name = "", xg::Guid guid = {});
+    Mesh(std::string_view name = "") : Resource(Type::Mesh, name) {}
+    Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name = "");
     // merge two mesh
     Mesh operator+(const Mesh& rhs) const;
 
+    void AddSubMesh(const SubMesh& sub_mesh);
     bool Empty() const noexcept { return vertices == nullptr || indices == nullptr || sub_meshes.empty(); }
 
     std::pmr::vector<SubMesh>    sub_meshes;

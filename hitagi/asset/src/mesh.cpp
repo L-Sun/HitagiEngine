@@ -2,8 +2,8 @@
 #include <hitagi/gfx/device.hpp>
 
 namespace hitagi::asset {
-VertexArray::VertexArray(std::size_t vertex_count, std::string_view name, xg::Guid guid)
-    : Resource(name, guid),
+VertexArray::VertexArray(std::size_t vertex_count, std::string_view name)
+    : Resource(Type::Vertex, name),
       m_VertexCount(vertex_count) {
     magic_enum::enum_for_each<VertexAttribute>([this](VertexAttribute attr) {
         m_Attributes[attr].type = attr;
@@ -78,8 +78,8 @@ void VertexArray::InitGPUData(gfx::Device& device) {
     }
 }
 
-IndexArray::IndexArray(std::size_t count, IndexType type, std::string_view name, xg::Guid guid)
-    : Resource(name, guid), m_IndexCount(count), m_Data{.type = type, .cpu_buffer = core::Buffer(count * get_index_type_size(type))} {
+IndexArray::IndexArray(std::size_t count, IndexType type, std::string_view name)
+    : Resource(Type::Index, name), m_IndexCount(count), m_Data{.type = type, .cpu_buffer = core::Buffer(count * get_index_type_size(type))} {
 }
 
 IndexArray::IndexArray(const IndexArray& other)
@@ -121,8 +121,8 @@ void IndexArray::InitGPUData(gfx::Device& device) {
     m_Data.dirty = false;
 }
 
-Mesh::Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name, xg::Guid guid)
-    : Resource(name, guid),
+Mesh::Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name)
+    : Resource(Type::Mesh, name),
       vertices(std::move(vertices)),
       indices(std::move(indices)) {}
 
@@ -186,6 +186,17 @@ Mesh Mesh::operator+(const Mesh& rhs) const {
         });
     }
     return result;
+}
+
+void Mesh::AddSubMesh(const SubMesh& sub_mesh) {
+    if (sub_mesh.index_count == 0) return;
+    if (sub_mesh.index_offset + sub_mesh.index_count > indices->Size()) {
+        throw std::out_of_range("Sub mesh index out of range");
+    }
+    if (sub_mesh.vertex_offset > vertices->Size()) {
+        throw std::out_of_range("Sub mesh vertex out of range");
+    }
+    sub_meshes.emplace_back(sub_mesh);
 }
 
 }  // namespace hitagi::asset

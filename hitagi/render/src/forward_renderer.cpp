@@ -161,7 +161,7 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
 
                                auto constant_handle = m_RenderGraph.Create(
                                    {
-                                       .name          = material->GetName(),
+                                       .name          = std::pmr::string(material->GetName()),
                                        .element_size  = material->CalculateMaterialBufferSize(),
                                        .element_count = material->GetInstances().size(),
                                        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,

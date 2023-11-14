@@ -23,7 +23,7 @@ public:
     void AddCamera(std::shared_ptr<Camera> camera);
     void AddLight(std::shared_ptr<Light> light);
     void AddMesh(std::shared_ptr<Mesh> mesh);
-    void AddArmature(std::shared_ptr<Armature> armature);
+    void AddSkeleton(std::shared_ptr<Skeleton> skeleton);
     void AddTexture(std::shared_ptr<Texture> texture);
     // void AddAnimation(std::shared_ptr<Animation> animation);
 
@@ -49,7 +49,7 @@ private:
         SharedPtrSet<Camera>   cameras;
         SharedPtrSet<Light>    lights;
         SharedPtrSet<Mesh>     meshes;
-        SharedPtrSet<Armature> armatures;
+        SharedPtrSet<Skeleton> skeletons;
         SharedPtrSet<Texture>  textures;
     } m_Assets;
 };

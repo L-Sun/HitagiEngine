@@ -9,7 +9,7 @@
 namespace hitagi::asset {
 class SceneNode : public Resource, public std::enable_shared_from_this<SceneNode> {
 public:
-    SceneNode(Transform transform = {}, std::string_view name = "", xg::Guid guid = {});
+    SceneNode(Transform transform = {}, std::string_view name = "");
 
     void Attach(const std::shared_ptr<SceneNode>& parent) noexcept;
     void Detach() noexcept;
@@ -19,23 +19,25 @@ public:
     inline std::shared_ptr<SceneNode> GetParent() const noexcept { return m_Parent.lock(); }
     inline const auto&                GetChildren() const noexcept { return m_Children; }
 
+    inline auto GetObjectRef() const noexcept { return m_ObjectRef; }
+
     Transform transform;
 
 protected:
+    SceneNode(std::shared_ptr<Resource> obj_ref, Transform transform = {}, std::string_view name = "");
+
     std::pmr::set<std::shared_ptr<SceneNode>> m_Children;
     std::weak_ptr<SceneNode>                  m_Parent;
+    std::shared_ptr<Resource>                 m_ObjectRef;
 };
 
 template <typename T>
 class SceneNodeWithObject : public SceneNode {
 public:
-    SceneNodeWithObject(std::shared_ptr<T> obj_ref, Transform transform = {}, std::string_view name = "", xg::Guid guid = {})
-        : SceneNode(transform, name, guid), m_ObjectRef(obj_ref) {}
+    SceneNodeWithObject(std::shared_ptr<T> obj_ref, Transform transform = {}, std::string_view name = "")
+        : SceneNode(obj_ref, transform, name) {}
 
-    inline auto GetObjectRef() const noexcept { return m_ObjectRef; }
-
-protected:
-    std::shared_ptr<T> m_ObjectRef;
+    inline auto GetObjectRef() const noexcept { return std::static_pointer_cast<T>(m_ObjectRef); }
 };
 
 class CameraNode : public SceneNodeWithObject<Camera> {
