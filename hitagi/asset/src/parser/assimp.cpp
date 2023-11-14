@@ -366,15 +366,15 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
                 aiBone* _bone = ai_mesh->mBones[j];
 
                 if (_bone->mArmature != armature_node) {
-                    logger->warn("there are bones come from the same mesh, but related to different armature!");
+                    logger->warn("there are bones come from the same mesh, but related to different skeleton!");
                 }
 
                 // Calculate all bone index
                 if (!bone_nodes.contains(_bone->mNode)) {
-                    std::size_t bone_index_in_armature = 0;
+                    std::size_t bone_index_in_skeleton = 0;
 
                     std::function<void(aiNode*)> calculate_bone_index = [&](aiNode* node) -> void {
-                        bone_nodes.emplace(node, bone_index_in_armature++);
+                        bone_nodes.emplace(node, bone_index_in_skeleton++);
                         for (auto child : std::span<aiNode*>(node->mChildren, node->mNumChildren))
                             calculate_bone_index(child);
                     };
@@ -424,7 +424,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
 
         Mesh mesh(vertices, indices, ai_mesh->mName.C_Str());
 
-        mesh.sub_meshes.emplace_back(Mesh::SubMesh{
+        mesh.AddSubMesh({
             .index_count       = indices_count,
             .index_offset      = 0,
             .vertex_offset     = 0,
@@ -444,8 +444,8 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         return std::make_shared<Mesh>(result);
     };
 
-    auto create_armature = [&](const aiNode* _node) -> std::shared_ptr<Armature> {
-        auto armature = std::make_shared<Armature>();
+    auto create_skeleton = [&](const aiNode* _node) -> std::shared_ptr<Skeleton> {
+        auto skeleton = std::make_shared<Skeleton>();
 
         std::function<void(const aiNode*, const std::shared_ptr<Bone>&)> traversal = [&](const aiNode* _node, const std::shared_ptr<Bone>& parent) {
             auto bone       = std::make_shared<Bone>();
@@ -454,7 +454,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             bone->parent    = parent;
             parent->children.emplace_back(bone);
 
-            armature->bone_collection.emplace_back(bone);
+            skeleton->bones.emplace_back(bone);
 
             for (auto child_bone : std::span<aiNode*>(_node->mChildren, _node->mNumChildren))
                 traversal(child_bone, bone);
@@ -462,11 +462,11 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
 
         for (auto bone_node : std::span<aiNode*>(_node->mChildren, _node->mNumChildren)) {
             auto root_bone = std::make_shared<Bone>();
-            armature->bone_collection.emplace_back(root_bone);
+            skeleton->bones.emplace_back(root_bone);
             traversal(bone_node, root_bone);
         }
 
-        return armature;
+        return skeleton;
     };
 
     std::function<std::shared_ptr<SceneNode>(const aiNode*)>
@@ -495,16 +495,16 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             scene->light_nodes.emplace_back(light_node);
             node = light_node;
         }
-        // This node is armature, it may contain multiple bone
+        // This node is skeleton, it may contain multiple bone
         else if (armature_nodes.contains(_node)) {
-            auto armature      = create_armature(_node);
-            auto armature_node = std::make_shared<ArmatureNode>(armature, transform, name);
-            scene->armature_nodes.emplace_back(armature_node);
-            node = armature_node;
+            auto skeleton      = create_skeleton(_node);
+            auto skeleton_node = std::make_shared<SkeletonNode>(skeleton, transform, name);
+            scene->skeleton_nodes.emplace_back(skeleton_node);
+            node = skeleton_node;
         }
         // This node is bone,
         else if (bone_nodes.contains(_node)) {
-            // Skip bone node because it has processed in `create_armature()`
+            // Skip bone node because it has processed in `create_skeleton()`
             return nullptr;
         }
         // This node is empty

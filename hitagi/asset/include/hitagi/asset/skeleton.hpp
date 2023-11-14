@@ -3,8 +3,7 @@
 
 namespace hitagi::asset {
 struct Bone {
-    std::pmr::string name;
-
+    std::pmr::string                        name;
     std::pmr::vector<std::shared_ptr<Bone>> children;
     std::weak_ptr<Bone>                     parent;
 
@@ -12,11 +11,12 @@ struct Bone {
     Transform   transform;
 };
 
-struct Armature : public Resource {
-    using Resource::Resource;
+struct Skeleton : public Resource {
+    Skeleton(std::string_view name = "") : Resource(Type::Skeleton, name) {}
 
-    std::pmr::vector<std::shared_ptr<Bone>> bone_collection;
+    std::pmr::vector<std::shared_ptr<Bone>> bones;
 };
-using ArmatureNode = SceneNodeWithObject<Armature>;
+
+using SkeletonNode = SceneNodeWithObject<Skeleton>;
 
 }  // namespace hitagi::asset

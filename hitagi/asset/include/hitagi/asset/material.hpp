@@ -31,21 +31,22 @@ concept MaterialParametric = requires(const MaterialParameterValue& parameter) {
     { std::get<T>(parameter) } -> std::same_as<const T&>;
 };
 
+struct MaterialParameter {
+    std::pmr::string       name;
+    MaterialParameterValue value;
+};
+
 class MaterialInstance;
+
+struct MaterialDesc {
+    std::pmr::vector<gfx::ShaderDesc>   shaders;
+    gfx::RenderPipelineDesc             pipeline;
+    std::pmr::vector<MaterialParameter> parameters;
+};
 
 class Material : public Resource, public std::enable_shared_from_this<Material> {
 public:
-    struct Parameter {
-        std::pmr::string       name;
-        MaterialParameterValue value;
-    };
-
-    static auto Create(
-        std::pmr::vector<gfx::ShaderDesc> shader_desc,
-        gfx::RenderPipelineDesc           pipeline_desc,
-        std::pmr::vector<Parameter>       parameters,
-        std::string_view                  name = "",
-        xg::Guid                          guid = {}) -> std::shared_ptr<Material>;
+    Material(MaterialDesc desc, std::string_view name = "");
 
     Material(const Material&)            = delete;
     Material(Material&&)                 = delete;
@@ -53,7 +54,7 @@ public:
     Material& operator=(Material&&)      = delete;
 
     inline const auto& GetInstances() const noexcept { return m_Instances; }
-    inline const auto& GetDefaultParameters() const noexcept { return m_DefaultParameters; }
+    inline const auto& GetDefaultParameters() const noexcept { return m_Desc.parameters; }
     inline const auto& GetPipeline() const noexcept { return m_Pipeline; }
     inline const auto& GetMaterialBuffer() const noexcept { return m_MaterialConstantBuffer; }
 
@@ -63,8 +64,6 @@ public:
     void InitPipeline(gfx::Device& device);
 
 protected:
-    Material(std::pmr::vector<gfx::ShaderDesc> shader_desc, gfx::RenderPipelineDesc pipeline_desc, std::pmr::vector<Parameter> parameters, std::string_view name = "", xg::Guid guid = {});
-
     void AddInstance(MaterialInstance* instance) noexcept;
     void RemoveInstance(MaterialInstance* instance) noexcept;
 
@@ -72,9 +71,7 @@ protected:
 
     std::set<MaterialInstance*> m_Instances;
 
-    std::pmr::vector<gfx::ShaderDesc> m_ShaderDesc;
-    gfx::RenderPipelineDesc           m_PipelineDesc;
-    std::pmr::vector<Parameter>       m_DefaultParameters;
+    MaterialDesc m_Desc;
 
     bool                                           m_Dirty = true;
     std::pmr::vector<std::shared_ptr<gfx::Shader>> m_Shaders;
@@ -84,7 +81,7 @@ protected:
 
 class MaterialInstance : public Resource {
 public:
-    MaterialInstance(std::pmr::vector<Material::Parameter> parameters = {}, std::string_view name = "", xg::Guid guid = {});
+    MaterialInstance(std::pmr::vector<MaterialParameter> parameters = {}, std::string_view name = "");
     MaterialInstance(const MaterialInstance&);
     MaterialInstance& operator=(const MaterialInstance&);
     MaterialInstance(MaterialInstance&&) = default;
@@ -102,8 +99,8 @@ public:
     auto GetTextures() const noexcept -> std::pmr::vector<std::shared_ptr<Texture>>;
 
 private:
-    std::shared_ptr<Material>             m_Material = nullptr;
-    std::pmr::vector<Material::Parameter> m_Parameters;
+    std::shared_ptr<Material>           m_Material = nullptr;
+    std::pmr::vector<MaterialParameter> m_Parameters;
 };
 
 template <MaterialParametric T>
@@ -114,7 +111,7 @@ void MaterialInstance::SetParameter(std::string_view name, T value) noexcept {
         iter != m_Parameters.end()) {
         std::get<T>(iter->value) = value;
     } else {
-        m_Parameters.emplace_back(Material::Parameter{
+        m_Parameters.emplace_back(MaterialParameter{
             .name  = std::pmr::string{name},
             .value = value,
         });

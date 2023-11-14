@@ -20,7 +20,7 @@ auto MeshFactory::Line(const vec3f& from, const vec3f& to) -> std::shared_ptr<Me
         array[1] = 1;
     });
 
-    mesh->sub_meshes.emplace_back(Mesh::SubMesh{
+    mesh->AddSubMesh({
         .index_count   = 2,
         .index_offset  = 0,
         .vertex_offset = 0,
@@ -58,7 +58,7 @@ auto MeshFactory::BoxWireframe(const vec3f& bb_min, const vec3f& bb_max) -> std:
         std::copy(index_data.cbegin(), index_data.cend(), array.begin());
     });
 
-    mesh->sub_meshes.emplace_back(Mesh::SubMesh{
+    mesh->AddSubMesh({
         .index_count   = index_data.size(),
         .index_offset  = 0,
         .vertex_offset = 0,
@@ -106,7 +106,7 @@ auto MeshFactory::Cube() -> std::shared_ptr<Mesh> {
 
     auto mesh = std::make_shared<Mesh>(vertices, indices, "cube");
 
-    mesh->sub_meshes.emplace_back(Mesh::SubMesh{
+    mesh->AddSubMesh({
         .index_count   = cube_indices.size(),
         .index_offset  = 0,
         .vertex_offset = 0,

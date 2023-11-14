@@ -9,7 +9,7 @@
 #include <fstream>
 
 namespace hitagi {
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, title, version, width, height, asset_root_path, gfx_backend);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, title, version, width, height, asset_root_path, gfx_backend, log_level);
 
 auto load_app_config(const std::filesystem::path& config_path) -> std::optional<AppConfig> {
     if (config_path.empty() || !std::filesystem::exists(config_path))
@@ -28,6 +28,8 @@ auto load_app_config(const std::filesystem::path& config_path) -> std::optional<
 Application::Application(AppConfig config)
     : RuntimeModule(config.title),
       m_Config(std::move(config)) {
+    spdlog::set_level(spdlog::level::from_str(m_Config.log_level.data()));
+
     if (!input_manager) {
         input_manager = static_cast<decltype(input_manager)>(AddSubModule(std::make_unique<hid::InputManager>()));
     }

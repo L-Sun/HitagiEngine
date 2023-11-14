@@ -3,9 +3,28 @@
 using namespace hitagi::math;
 
 namespace hitagi::asset {
-SceneNode::SceneNode(Transform transform, std::string_view name, xg::Guid guid)
-    : Resource(name, guid), transform(transform) {
+SceneNode::SceneNode(Transform transform, std::string_view name)
+    : Resource(Type::SceneNode, name), transform(transform) {
 }
+
+SceneNode::SceneNode(std::shared_ptr<Resource> obj_ref, Transform transform, std::string_view name)
+    : Resource(Type::SceneNode, name), transform(transform), m_ObjectRef(std::move(obj_ref)) {
+    if (m_ObjectRef == nullptr) {
+        throw std::invalid_argument("Object reference cannot be null");
+    }
+    switch (m_ObjectRef->GetType()) {
+        case Resource::Type::Mesh:
+        case Resource::Type::Camera:
+        case Resource::Type::Light:
+        case Resource::Type::Skeleton:
+            break;
+        default:
+            throw std::invalid_argument(
+                fmt::format("Only Mesh, Camera or Light can be attached to a SceneNode, but get {}",
+                            magic_enum::enum_name(m_ObjectRef->GetType())));
+    }
+}
+
 void SceneNode::Attach(const std::shared_ptr<SceneNode>& parent) noexcept {
     if (parent.get() == this) {
         return;
@@ -36,7 +55,7 @@ void SceneNode::Update() {
 
 void CameraNode::Update() {
     SceneNode::Update();
-    const auto& camera_param = m_ObjectRef->parameters;
+    const auto& camera_param = static_cast<Camera*>(m_ObjectRef.get())->parameters;
 
     auto [t, r, s]              = decompose(transform.world_matrix);
     math::vec3f global_eye      = (translate(t) * vec4f(camera_param.eye, 1.0f)).xyz;
@@ -53,15 +72,15 @@ void CameraNode::Update() {
 }
 
 math::vec3f LightNode::GetLightGlobalPosition() const {
-    return (transform.world_matrix * vec4f(m_ObjectRef->parameters.position, 1.0f)).xyz;
+    return (transform.world_matrix * vec4f(static_cast<Light*>(m_ObjectRef.get())->parameters.position, 1.0f)).xyz;
 }
 
 math::vec3f LightNode::GetLightGlobalDirection() const {
-    return (transform.world_matrix * vec4f(m_ObjectRef->parameters.direction, 0.0f)).xyz;
+    return (transform.world_matrix * vec4f(static_cast<Light*>(m_ObjectRef.get())->parameters.direction, 0.0f)).xyz;
 }
 
 math::vec3f LightNode::GetLightGlobalUp() const {
-    return (transform.world_matrix * vec4f(m_ObjectRef->parameters.up, 0.0f)).xyz;
+    return (transform.world_matrix * vec4f(static_cast<Light*>(m_ObjectRef.get())->parameters.up, 0.0f)).xyz;
 }
 
 }  // namespace hitagi::asset

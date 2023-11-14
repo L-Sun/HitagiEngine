@@ -24,8 +24,8 @@ public:
         float       outer_cone_angle = 60.0_deg;
     } parameters;
 
-    Light(Parameters parameters, std::string_view name = "", xg::Guid guid = {})
-        : Resource(name, guid), parameters(parameters) {}
+    Light(Parameters parameters, std::string_view name = "")
+        : Resource(Resource::Type::Light, name), parameters(parameters) {}
 };
 
 }  // namespace hitagi::asset

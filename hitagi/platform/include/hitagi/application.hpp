@@ -27,6 +27,7 @@ struct AppConfig {
     std::uint32_t         height          = 800;
     std::filesystem::path asset_root_path = "assets";
     std::pmr::string      gfx_backend     = "Vulkan";
+    std::pmr::string      log_level       = "info";
 };
 
 class Application : public RuntimeModule {

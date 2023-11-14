@@ -3,15 +3,15 @@
 #include <hitagi/core/file_io_manager.hpp>
 
 namespace hitagi::asset {
-Texture::Texture(std::uint32_t width, std::uint32_t height, gfx::Format format, core::Buffer data, std::string_view name, xg::Guid guid)
-    : Resource(name, guid),
+Texture::Texture(std::uint32_t width, std::uint32_t height, gfx::Format format, core::Buffer data, std::string_view name)
+    : Resource(Type::Texture, name),
       m_Width(width),
       m_Height(height),
       m_Format(format),
       m_CPUData(std::move(data)) {}
 
-Texture::Texture(std::filesystem::path path, std::string_view name, xg::Guid guid)
-    : Resource(name.empty() ? path.string() : name, guid),
+Texture::Texture(std::filesystem::path path, std::string_view name)
+    : Resource(Type::Texture, name.empty() ? path.string() : name),
       m_Path(std::move(path)) {}
 
 Texture::Texture(const Texture& other)

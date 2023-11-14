@@ -21,8 +21,8 @@ struct InstanceConstant {
     math::mat4f model;
 };
 
-Scene::Scene(std::string_view name, xg::Guid guid)
-    : Resource(name, guid),
+Scene::Scene(std::string_view name)
+    : Resource(Type::Scene, name),
       root(std::make_shared<SceneNode>(Transform{}, "name")),
       world(name) {
     world.RegisterSystem<TransformSystem>("TransformSystem");

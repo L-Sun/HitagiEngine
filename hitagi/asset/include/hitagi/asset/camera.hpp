@@ -19,8 +19,8 @@ public:
         math::vec3f up       = {0.0f, 0.0f, 1.0f};
     } parameters;
 
-    Camera(Parameters parameters, std::string_view name = "", xg::Guid guid = {})
-        : Resource(name, guid), parameters(parameters) {}
+    Camera(Parameters parameters, std::string_view name = "")
+        : Resource(Type::Camera, name), parameters(parameters) {}
 };
 
 }  // namespace hitagi::asset
