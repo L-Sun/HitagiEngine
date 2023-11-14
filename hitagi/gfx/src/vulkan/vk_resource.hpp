@@ -5,8 +5,6 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_raii.hpp>
 
-#include <variant>
-
 namespace hitagi::gfx {
 class VulkanDevice;
 class VulkanSwapChain;
@@ -57,7 +55,7 @@ public:
 
     VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc);
 
-    auto AcquireTextureForRendering() -> Texture& final;
+    auto AcquireTextureForRendering() -> utils::optional_ref<Texture> final;
 
     inline auto GetWidth() const noexcept -> std::uint32_t final { return m_Size.x; };
     inline auto GetHeight() const noexcept -> std::uint32_t final { return m_Size.y; };

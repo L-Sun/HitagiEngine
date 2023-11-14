@@ -1122,9 +1122,9 @@ TEST_P(DeviceTest, DrawTriangle) {
         .width  = rect.right - rect.left,
         .height = rect.bottom - rect.top,
     });
-    auto& render_target = swap_chain->AcquireTextureForRendering();
+    auto render_target = swap_chain->AcquireTextureForRendering();
+    EXPECT_TRUE(render_target.has_value());
 
-    ;
     context->ResourceBarrier(
         {}, {},
         {{TextureBarrier{
@@ -1134,10 +1134,10 @@ TEST_P(DeviceTest, DrawTriangle) {
             .dst_stage  = PipelineStage::Render,
             .src_layout = TextureLayout::Unkown,
             .dst_layout = TextureLayout::RenderTarget,
-            .texture    = render_target,
+            .texture    = render_target->get(),
         }}});
 
-    context->BeginRendering(render_target);
+    context->BeginRendering(render_target->get());
     context->SetPipeline(*pipeline);
     context->SetVertexBuffers(0, {{*vertex_buffer}}, {{0}});
     context->PushBindlessMetaInfo({
@@ -1155,7 +1155,7 @@ TEST_P(DeviceTest, DrawTriangle) {
             .dst_stage  = PipelineStage::All,
             .src_layout = TextureLayout::RenderTarget,
             .dst_layout = TextureLayout::Present,
-            .texture    = render_target,
+            .texture    = render_target->get(),
         }});
     context->End();
 

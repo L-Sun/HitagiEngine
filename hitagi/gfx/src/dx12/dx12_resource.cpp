@@ -600,16 +600,17 @@ void DX12SwapChain::Present() {
 }
 
 void DX12SwapChain::Resize() {
-    m_Device.GetCommandQueue(CommandType::Graphics).WaitIdle();
-    m_BackBuffers.clear();
-
-    const HWND h_wnd = static_cast<HWND>(m_Desc.window.ptr);
-    RECT       rect;
-    GetClientRect(h_wnd, &rect);
+    RECT rect;
+    // unlike vulkan, we can keep the swap chain size unchanged when window is minimized
+    if (!GetClientRect(static_cast<HWND>(m_Desc.window.ptr), &rect)) {
+        return;
+    }
 
     const auto width  = rect.right - rect.left;
     const auto height = rect.bottom - rect.top;
-    // unlike vulkan, we can keep the swap chain size unchanged when window is minimized
+
+    m_Device.GetCommandQueue(CommandType::Graphics).WaitIdle();
+    m_BackBuffers.clear();
 
     if (FAILED(m_SwapChain->ResizeBuffers(
             m_D3D12Desc.BufferCount,
@@ -629,7 +630,7 @@ void DX12SwapChain::Resize() {
     }
 }
 
-auto DX12SwapChain::AcquireTextureForRendering() -> Texture& {
+auto DX12SwapChain::AcquireTextureForRendering() -> utils::optional_ref<Texture> {
     return m_BackBuffers[m_SwapChain->GetCurrentBackBufferIndex()];
 }
 

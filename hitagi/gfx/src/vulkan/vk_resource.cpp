@@ -340,18 +340,10 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
     : SwapChain(device, std::move(desc)), m_SemaphorePair(device, GetName())
 
 {
-    auto window_size = math::vec2u{};
-
     switch (desc.window.type) {
 #ifdef _WIN32
         case utils::Window::Type::Win32: {
-            auto h_wnd = static_cast<HWND>(desc.window.ptr);
-
-            RECT rect;
-            GetClientRect(static_cast<HWND>(desc.window.ptr), &rect);
-            window_size.x = rect.right - rect.left;
-            window_size.y = rect.bottom - rect.top;
-
+            auto                          h_wnd = static_cast<HWND>(desc.window.ptr);
             vk::Win32SurfaceCreateInfoKHR surface_create_info{
                 .hinstance = GetModuleHandle(nullptr),
                 .hwnd      = h_wnd,
@@ -361,7 +353,6 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
 #endif
         case utils::Window::Type::SDL2: {
             auto sdl_window = static_cast<SDL_Window*>(desc.window.ptr);
-            window_size     = get_sdl2_drawable_size(sdl_window);
 
             SDL_SysWMinfo wm_info;
             SDL_VERSION(&wm_info.version);
@@ -392,7 +383,9 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
     CreateImageViews();
 }
 
-auto VulkanSwapChain::AcquireTextureForRendering() -> Texture& {
+auto VulkanSwapChain::AcquireTextureForRendering() -> utils::optional_ref<Texture> {
+    if (m_SwapChain == nullptr) return {};
+
     if (m_CurrentIndex != -1) {
         return *m_Images[m_CurrentIndex];
     }
@@ -411,19 +404,7 @@ auto VulkanSwapChain::AcquireTextureForRendering() -> Texture& {
 }
 
 void VulkanSwapChain::Present() {
-    // window is not valid
-    switch (m_Desc.window.type) {
-#ifdef _WIN32
-        case utils::Window::Type::Win32: {
-            if (!IsWindow(static_cast<HWND>(m_Desc.window.ptr))) return;
-        } break;
-#endif
-        case utils::Window::Type::SDL2: {
-            if (!(SDL_GetWindowFlags(static_cast<SDL_Window*>(m_Desc.window.ptr)) & SDL_WINDOW_SHOWN)) return;
-        } break;
-    }
-
-    if (m_CurrentIndex == -1) return;
+    if (!m_SwapChain || m_CurrentIndex == -1) return;
 
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
     auto& queue     = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics)).GetVkQueue();
@@ -459,6 +440,7 @@ void VulkanSwapChain::CreateSwapChain() {
     switch (m_Desc.window.type) {
 #ifdef _WIN32
         case utils::Window::Type::Win32: {
+            if (!IsWindow(static_cast<HWND>(m_Desc.window.ptr))) return;
             RECT rect;
             GetClientRect(static_cast<HWND>(m_Desc.window.ptr), &rect);
             window_size.x = rect.right - rect.left;
@@ -466,8 +448,13 @@ void VulkanSwapChain::CreateSwapChain() {
         } break;
 #endif
         case utils::Window::Type::SDL2:
+            if (!(SDL_GetWindowFlags(static_cast<SDL_Window*>(m_Desc.window.ptr)) & SDL_WINDOW_SHOWN)) return;
             window_size = get_sdl2_drawable_size(static_cast<SDL_Window*>(m_Desc.window.ptr));
             break;
+    }
+
+    if (window_size.x == 0 || window_size.y == 0) {
+        return;
     }
 
     // we use graphics queue as present queue
@@ -537,6 +524,8 @@ void VulkanSwapChain::CreateSwapChain() {
 }
 
 void VulkanSwapChain::CreateImageViews() {
+    if (!m_SwapChain) return;
+
     m_Images.clear();
     for (std::uint32_t index = 0; index < m_NumImages; index++) {
         m_Images.emplace_back(std::make_unique<VulkanImage>(*this, index));

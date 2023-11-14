@@ -23,13 +23,13 @@ Engine::Engine(const std::filesystem::path& config_path) : RuntimeModule("Engine
     };
 
     add_inner_module(std::make_unique<core::MemoryManager>());
+    add_inner_module(std::make_unique<core::FileIOManager>());
+    add_inner_module(std::make_unique<core::ThreadManager>());
 
     // Input
     m_App = add_inner_module(Application::CreateApp(config_path));  // input manager is created here
 
     // update state
-    add_inner_module(std::make_unique<core::ThreadManager>());
-    add_inner_module(std::make_unique<core::FileIOManager>());
     auto device = add_inner_module(gfx::Device::Create(magic_enum::enum_cast<gfx::Device::Type>(m_App->GetConfig().gfx_backend).value()));
     add_inner_module(std::make_unique<asset::AssetManager>(m_App->GetConfig().asset_root_path));
 

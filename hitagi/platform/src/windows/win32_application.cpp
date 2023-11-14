@@ -195,11 +195,7 @@ std::size_t Win32Application::GetMemoryUsage() const {
 
 void Win32Application::UpdateRect() {
     m_SizeChanged = true;
-
     GetClientRect(m_Window, reinterpret_cast<RECT*>(&m_Rect));
-
-    m_Config.width  = m_Rect.right - m_Rect.left;
-    m_Config.height = m_Rect.bottom - m_Rect.top;
 }
 
 void Win32Application::MapCursor() {
@@ -241,7 +237,8 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
     switch (message) {
         case WM_DESTROY:
             PostQuitMessage(0);
-            p_this->m_Quit = true;
+            p_this->m_Quit        = true;
+            p_this->m_SizeChanged = true;
             ClipCursor(nullptr);
             return 0;
         case WM_LBUTTONDOWN:

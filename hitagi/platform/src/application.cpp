@@ -48,6 +48,10 @@ Application::~Application() {
 
 void Application::Tick() {
     m_Clock.Tick();
+    if (WindowSizeChanged()) {
+        m_Config.width  = GetWindowWidth();
+        m_Config.height = GetWindowHeight();
+    }
     RuntimeModule::Tick();
 }
 
