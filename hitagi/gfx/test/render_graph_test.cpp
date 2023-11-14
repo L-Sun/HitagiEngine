@@ -305,7 +305,6 @@ TEST_F(RenderGraphTest, AddRenderPass) {
         .Finish();
 
     EXPECT_TRUE(rg.Compile());
-    device->Profile(rg.Execute());
     rg.Profile();
 
     swap_chain->Present();

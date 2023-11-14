@@ -23,10 +23,12 @@ protected:
         : test_name(UnitTest::GetInstance()->current_test_info()->name()),
           app(Application::CreateApp(AppConfig{
               .gfx_backend = std::pmr::string(magic_enum::enum_name(GetParam())),
-          })) {}
+          })),
+          device(gfx::Device::Create(GetParam())) {}
 
     std::pmr::string             test_name;
     std::unique_ptr<Application> app;
+    std::unique_ptr<gfx::Device> device;
 };
 INSTANTIATE_TEST_SUITE_P(
     RendererTest,
@@ -38,7 +40,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(RendererTest, ForwardRenderer) {
     auto            gui_manager = std::make_unique<gui::GuiManager>(*app);
-    ForwardRenderer renderer(*app, gui_manager.get(), test_name);
+    ForwardRenderer renderer(*device, *app, gui_manager.get(), test_name);
 
     asset::AssetManager asset_manager("./assets");
 
