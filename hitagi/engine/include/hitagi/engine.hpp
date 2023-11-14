@@ -11,11 +11,11 @@ namespace hitagi {
 class Engine : public RuntimeModule {
 public:
     Engine(const std::filesystem::path& config_path = "hitagi.json");
-    ~Engine();
 
     void Tick() final;
 
-    void SetRenderer(std::unique_ptr<render::IRenderer> renderer);
+    auto AddSubModule(std::unique_ptr<RuntimeModule> module, RuntimeModule* after = nullptr) -> RuntimeModule* final;
+    auto SetRenderer(std::unique_ptr<render::IRenderer> renderer) -> render::IRenderer*;
 
     inline auto& App() const noexcept { return *m_App; };
     inline auto& Renderer() const noexcept { return *m_Renderer; };
@@ -24,10 +24,9 @@ public:
 private:
     std::uint64_t      m_FrameIndex = 0;
     Application*       m_App        = nullptr;
+    RuntimeModule*     m_OutLogicArea;
     render::IRenderer* m_Renderer   = nullptr;
     gui::GuiManager*   m_GuiManager = nullptr;
 };
-
-extern Engine* engine;
 
 }  // namespace hitagi

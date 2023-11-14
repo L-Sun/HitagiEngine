@@ -17,6 +17,8 @@ public:
     DX12Device(std::string_view name);
     ~DX12Device() final;
 
+    void Tick() final;
+
     void WaitIdle() final;
 
     auto CreateFence(std::uint64_t initial_value = 0, std::string_view name = "") -> std::shared_ptr<Fence> final;
@@ -35,8 +37,6 @@ public:
 
     auto GetBindlessUtils() -> BindlessUtils& final;
 
-    void Profile(std::size_t frame_index) const final;
-
     inline auto  GetFactory() const noexcept { return m_Factory; }
     inline auto  GetAdapter() const noexcept { return m_Adapter; }
     inline auto  GetDevice() const noexcept { return m_Device; }
@@ -46,6 +46,7 @@ public:
 
 private:
     static void ReportDebugLog(const ComPtr<ID3D12Device>& device);
+    void        Profile() const;
 
     void IntegrateD3D12Logger();
     void UnregisterIntegratedD3D12Logger();

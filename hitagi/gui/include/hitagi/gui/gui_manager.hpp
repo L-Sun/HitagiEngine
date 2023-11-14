@@ -29,8 +29,9 @@ private:
     void MouseEvent();
     void KeysEvent();
 
-    Application& m_App;
-    core::Clock  m_Clock;
+    Application&       m_App;
+    hid::InputManager& m_InputManager;
+    core::Clock        m_Clock;
 
     std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
 

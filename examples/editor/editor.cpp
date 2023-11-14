@@ -113,11 +113,11 @@ void Editor::FileImporter() {
         if (ext == ".bvh") {
         }
         if (ext == ".fbx") {
-            m_CurrScene = asset_manager->ImportScene(m_FileDialog.GetSelected());
+            m_CurrScene = asset::AssetManager::Get()->ImportScene(m_FileDialog.GetSelected());
             m_SceneViewPort->SetScene(m_CurrScene);
         }
         if (ext == ".glb" || ext == ".gltf") {
-            m_CurrScene = asset_manager->ImportScene(m_FileDialog.GetSelected());
+            m_CurrScene = asset::AssetManager::Get()->ImportScene(m_FileDialog.GetSelected());
             m_SceneViewPort->SetScene(m_CurrScene);
         }
         m_FileDialog.ClearSelected();
@@ -220,7 +220,7 @@ void Editor::SceneNodeModifier() {
 void Editor::AssetExplorer() {
     static bool open = true;
     if (ImGui::Begin("Asset Explorer", &open)) {
-        for (auto mat : asset_manager->GetAllMaterials()) {
+        for (auto mat : asset::AssetManager::Get()->GetAllMaterials()) {
         }
     }
     ImGui::End();

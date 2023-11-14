@@ -101,7 +101,3 @@ private:
 };
 
 }  // namespace hitagi::core
-
-namespace hitagi {
-extern core::MemoryManager* memory_manager;
-}  // namespace hitagi

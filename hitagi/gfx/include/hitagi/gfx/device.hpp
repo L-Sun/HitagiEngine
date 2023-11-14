@@ -1,4 +1,5 @@
 #pragma once
+#include <hitagi/core/runtime_module.hpp>
 #include <hitagi/gfx/command_queue.hpp>
 #include <hitagi/gfx/gpu_resource.hpp>
 #include <hitagi/gfx/bindless.hpp>
@@ -10,7 +11,7 @@ class logger;
 }
 
 namespace hitagi::gfx {
-class Device {
+class Device : public RuntimeModule {
 public:
     enum struct Type : std::uint8_t {
         DX12,
@@ -18,11 +19,11 @@ public:
         Mock
     } const device_type;
 
-    inline auto GetName() const noexcept -> std::string_view { return m_Name; }
-
     virtual ~Device();
 
     static auto Create(Type type, std::string_view name = "") -> std::unique_ptr<Device>;
+
+    void Tick() override;
 
     virtual void WaitIdle() = 0;
 
@@ -45,18 +46,18 @@ public:
 
     virtual auto GetBindlessUtils() -> BindlessUtils& = 0;
 
-    virtual void Profile(std::size_t frame_index) const = 0;
-
+    inline void  SetProfile(bool enable) noexcept { m_EnableProfile = enable; }
     inline auto& GetShaderCompiler() const noexcept { return m_ShaderCompiler; }
     inline auto  GetLogger() const noexcept -> std::shared_ptr<spdlog::logger> { return m_Logger; }
 
 protected:
     Device(Type type, std::string_view name);
 
-    std::pmr::string                m_Name;
-    std::shared_ptr<spdlog::logger> m_Logger;
-    ShaderCompiler                  m_ShaderCompiler;
-    std::function<void()>           report_debug_error_after_destroy_fn;
+    ShaderCompiler        m_ShaderCompiler;
+    std::function<void()> report_debug_error_after_destroy_fn;
+
+    std::size_t m_FrameIndex    = 0;
+    bool        m_EnableProfile = false;
 };
 
 inline auto Device::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {

@@ -257,23 +257,20 @@ TEST_P(DeviceTest, CreateTexture1D) {
 }
 
 TEST_P(DeviceTest, CreateTexture2D) {
-    // Buffer data(128 * 128 * sizeof(vec4f));
+    Buffer data(128 * 128 * sizeof(vec4f));
 
-    // for (int i = 0; i < 1000; i++) {
-    //     auto texture = device->CreateTexture(
-    //         {
-    //             .name        = test_name,
-    //             .width       = 128,
-    //             .height      = 128,
-    //             .format      = Format::R8G8B8A8_UNORM,
-    //             .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
-    //             .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
-    //         },
-    //         data.Span<const std::byte>());
+    auto texture = device->CreateTexture(
+        {
+            .name        = test_name,
+            .width       = 128,
+            .height      = 128,
+            .format      = Format::R8G8B8A8_UNORM,
+            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+            .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
+        },
+        data.Span<const std::byte>());
 
-    //     EXPECT_TRUE(texture != nullptr);
-    // }
-    device->Profile(0);
+    EXPECT_TRUE(texture != nullptr);
 }
 
 TEST_P(DeviceTest, CreateTexture3D) {

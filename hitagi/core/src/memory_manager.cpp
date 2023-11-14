@@ -4,10 +4,6 @@
 #include <spdlog/spdlog.h>
 #include <tracy/Tracy.hpp>
 
-namespace hitagi {
-core::MemoryManager* memory_manager = nullptr;
-}
-
 namespace hitagi::core {
 
 MemoryPool::Page::Page(std::size_t size, std::size_t block_size)
@@ -124,7 +120,7 @@ void MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment
 }
 
 MemoryManager::MemoryManager() : RuntimeModule("MemoryManager") {
-    m_Logger->info("Create Memory Pool...");
+    m_Logger->trace("Create Memory Pool...");
     m_Pools = std::make_unique<MemoryPool>(m_Logger);
 
     m_Logger->trace("Set pmr default resource");

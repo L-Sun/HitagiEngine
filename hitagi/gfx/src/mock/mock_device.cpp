@@ -69,6 +69,4 @@ auto MockDevice::GetBindlessUtils() -> BindlessUtils& {
     return *m_BindlessUtils;
 }
 
-void MockDevice::Profile(std::size_t frame_index) const {}
-
 }  // namespace hitagi::gfx

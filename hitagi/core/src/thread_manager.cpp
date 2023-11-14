@@ -2,14 +2,10 @@
 
 #include <spdlog/logger.h>
 
-namespace hitagi {
-core::ThreadManager* thread_manager = nullptr;
-}
-
 namespace hitagi::core {
 
 ThreadManager::ThreadManager(std::uint8_t num_threads) : RuntimeModule("ThreadManager"), m_Stop(false) {
-    m_Logger->info("Initialize... Num of Thread: {}", num_threads);
+    m_Logger->trace("create thread pool({})", num_threads);
 
     for (std::uint8_t i = 0; i < num_threads; i++) {
         m_ThreadPools.emplace_back([this] {

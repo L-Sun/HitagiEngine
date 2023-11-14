@@ -26,6 +26,3 @@ public:
 };
 
 }  // namespace hitagi::physics
-namespace hitagi {
-extern std::unique_ptr<physics::IPhysicsManager> g_PhysicsManager;
-}

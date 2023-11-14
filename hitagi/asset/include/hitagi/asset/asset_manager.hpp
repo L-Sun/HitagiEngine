@@ -13,6 +13,8 @@ public:
     AssetManager(std::filesystem::path asset_base_path);
     ~AssetManager() final;
 
+    static auto Get() -> AssetManager* { return static_cast<AssetManager*>(GetModule("AssetManager")); }
+
     Scene CreateEmptyScene(std::string_view name);
 
     std::shared_ptr<Scene>    ImportScene(const std::filesystem::path& path);
@@ -54,7 +56,3 @@ private:
     } m_Assets;
 };
 }  // namespace hitagi::asset
-
-namespace hitagi {
-extern asset::AssetManager* asset_manager;
-}  // namespace hitagi

@@ -82,8 +82,7 @@ TEST(SceneParserTest, Fbx) {
 
 int main(int argc, char* argv[]) {
     spdlog::set_level(spdlog::level::debug);
-    auto file_io_manager    = std::make_unique<core::FileIOManager>();
-    hitagi::file_io_manager = file_io_manager.get();
+    auto file_io_manager = std::make_unique<core::FileIOManager>();
 
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

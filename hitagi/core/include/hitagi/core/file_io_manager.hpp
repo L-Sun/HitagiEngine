@@ -11,6 +11,10 @@ class FileIOManager : public RuntimeModule {
 public:
     FileIOManager() : RuntimeModule("FileIOManager") {}
 
+    inline static auto Get() {
+        return static_cast<FileIOManager*>(RuntimeModule::GetModule("FileIOManager"));
+    }
+
     auto SyncOpenAndReadBinary(const std::filesystem::path& file_path) -> const Buffer&;
     void SaveString(std::string_view str, const std::filesystem::path& path);
     void SaveBuffer(const Buffer& buffer, const std::filesystem::path& path);
@@ -29,7 +33,3 @@ private:
 };
 
 }  // namespace hitagi::core
-
-namespace hitagi {
-extern core::FileIOManager* file_io_manager;
-}  // namespace hitagi

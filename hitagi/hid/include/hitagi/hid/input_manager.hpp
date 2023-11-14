@@ -41,7 +41,3 @@ private:
 };
 
 }  // namespace hitagi::hid
-
-namespace hitagi {
-extern hid::InputManager* input_manager;
-}

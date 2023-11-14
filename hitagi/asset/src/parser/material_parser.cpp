@@ -44,7 +44,10 @@ NLOHMANN_JSON_SERIALIZE_ENUM(PrimitiveTopology,
 namespace hitagi::asset {
 
 auto MaterialParser::Parse(const std::filesystem::path& path) -> std::shared_ptr<Material> {
-    return Parse(file_io_manager->SyncOpenAndReadBinary(path));
+    if (core::FileIOManager::Get())
+        return Parse(core::FileIOManager::Get()->SyncOpenAndReadBinary(path));
+    else
+        return nullptr;
 }
 
 auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Material> {
@@ -65,14 +68,14 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                 .name        = json.at("pipeline").at("vs"),
                 .type        = gfx::ShaderType::Vertex,
                 .entry       = "VSMain",
-                .source_code = std::pmr::string(file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("vs")).Str()),
+                .source_code = core::FileIOManager::Get() ? std::pmr::string(core::FileIOManager::Get()->SyncOpenAndReadBinary(json.at("pipeline").at("vs")).Str()) : "",
                 .path        = json.at("pipeline").at("vs"),
             },
             {
                 .name        = json.at("pipeline").at("ps"),
                 .type        = gfx::ShaderType::Pixel,
                 .entry       = "PSMain",
-                .source_code = std::pmr::string(file_io_manager->SyncOpenAndReadBinary(json.at("pipeline").at("ps")).Str()),
+                .source_code = core::FileIOManager::Get() ? std::pmr::string(core::FileIOManager::Get()->SyncOpenAndReadBinary(json.at("pipeline").at("ps")).Str()) : "",
                 .path        = json.at("pipeline").at("ps"),
             }};
 

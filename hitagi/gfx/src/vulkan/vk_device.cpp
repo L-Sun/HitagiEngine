@@ -171,6 +171,13 @@ VulkanDevice::~VulkanDevice() {
     vmaDestroyAllocator(m_VmaAllocator);
 }
 
+void VulkanDevice::Tick() {
+    Device::Tick();
+    if (m_EnableProfile) {
+        Profile();
+    }
+}
+
 void VulkanDevice::WaitIdle() {
     m_Device->waitIdle();
 }
@@ -228,7 +235,7 @@ auto VulkanDevice::GetBindlessUtils() -> BindlessUtils& {
     return *m_BindlessUtils;
 }
 
-void VulkanDevice::Profile(std::size_t frame_index) const {
+void VulkanDevice::Profile() const {
     static bool configured = false;
     if (!configured) {
         TracyPlotConfig("GPU Allocations", tracy::PlotFormatType::Number, true, true, 0);
@@ -236,7 +243,7 @@ void VulkanDevice::Profile(std::size_t frame_index) const {
         configured = true;
     }
 
-    vmaSetCurrentFrameIndex(m_VmaAllocator, frame_index);
+    vmaSetCurrentFrameIndex(m_VmaAllocator, m_FrameIndex);
     VmaTotalStatistics statics;
     vmaCalculateStatistics(m_VmaAllocator, &statics);
     TracyPlot("GPU Allocations", static_cast<std::int64_t>(statics.total.statistics.allocationCount));

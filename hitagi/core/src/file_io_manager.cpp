@@ -4,10 +4,6 @@
 #include <fstream>
 #include <mutex>
 
-namespace hitagi {
-core::FileIOManager* file_io_manager = nullptr;
-}
-
 namespace hitagi::core {
 
 bool FileIOManager::IsFileChanged(const std::filesystem::path& file_path) const {
@@ -26,7 +22,7 @@ auto FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& file_path
         return m_FileCache.at(std::filesystem::hash_value(file_path));
     }
     auto file_size = std::filesystem::file_size(file_path);
-    m_Logger->info("Open file: {} ({} bytes)", file_path.string(), file_size);
+    m_Logger->trace("Open file: {} ({} bytes)", file_path.string(), file_size);
     Buffer        buffer(file_size);
     std::ifstream ifs(file_path, std::ios::binary);
     ifs.read(reinterpret_cast<char*>(buffer.GetData()), buffer.GetDataSize());
@@ -48,7 +44,7 @@ void FileIOManager::SaveBuffer(std::span<const std::byte> buffer, const std::fil
     auto fs = std::fstream(path, std::ios::binary | std::ios::out);
     fs.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
     fs.close();
-    m_Logger->info("Buffer has write to: {} ({} bytes)", path.string(), buffer.size());
+    m_Logger->trace("Buffer has write to: {} ({} bytes)", path.string(), buffer.size());
 }
 
 const Buffer& FileIOManager::CacheFile(const std::filesystem::path& path, Buffer buffer) {

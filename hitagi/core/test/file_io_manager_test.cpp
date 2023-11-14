@@ -33,7 +33,7 @@ TEST(FileIoManagerTest, ReadFile) {
 
     auto path = create_temp_file("ReadFile", content);
 
-    auto             buffer = file_io_manager->SyncOpenAndReadBinary(path);
+    auto             buffer = core::FileIOManager::Get()->SyncOpenAndReadBinary(path);
     std::pmr::string result(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
 
     EXPECT_STREQ(content, result.c_str());
@@ -46,8 +46,8 @@ TEST(FileIoManagerTest, SaveFile) {
     core::Buffer     buffer(content.size(), reinterpret_cast<const std::byte*>(content.data()));
     auto             path = std::filesystem::temp_directory_path() / "SaveFile.tmp";
 
-    file_io_manager->SaveBuffer(buffer, path);
-    buffer = file_io_manager->SyncOpenAndReadBinary(path);
+    core::FileIOManager::Get()->SaveBuffer(buffer, path);
+    buffer = core::FileIOManager::Get()->SyncOpenAndReadBinary(path);
 
     EXPECT_STREQ(content.c_str(), std::pmr::string(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize()).c_str());
 
@@ -59,8 +59,6 @@ auto main(int argc, char* argv[]) -> int {
     ::testing::InitGoogleTest(&argc, argv);
 
     auto file_io_manager = std::make_unique<core::FileIOManager>();
-
-    hitagi::file_io_manager = file_io_manager.get();
 
     return RUN_ALL_TESTS();
 }

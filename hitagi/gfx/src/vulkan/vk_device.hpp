@@ -16,6 +16,8 @@ public:
     VulkanDevice(std::string_view name);
     ~VulkanDevice() final;
 
+    void Tick() final;
+
     void WaitIdle() final;
 
     auto CreateFence(std::uint64_t initial_value = 0, std::string_view name = "") -> std::shared_ptr<Fence> final;
@@ -34,8 +36,6 @@ public:
 
     auto GetBindlessUtils() -> BindlessUtils& final;
 
-    void Profile(std::size_t frame_index) const final;
-
     inline auto& GetInstance() const noexcept { return *m_Instance; }
     inline auto& GetCustomAllocator() const noexcept { return m_CustomAllocator; }
     inline auto& GetCustomAllocationRecord() noexcept { return m_CustomAllocationRecord; }
@@ -47,6 +47,8 @@ public:
     inline auto& GetBindlessUtils() const noexcept { return m_BindlessUtils; }
 
 private:
+    void Profile() const;
+
     vk::AllocationCallbacks m_CustomAllocator;
     using AllocationRecord = std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>>;
     AllocationRecord m_CustomAllocationRecord;
