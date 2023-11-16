@@ -30,9 +30,9 @@ struct InstanceConstant {
 };
 
 struct MaterialConstant {
-    float4 diffuse;
-    float4 specular;
-    float4 ambient;
+    float3 diffuse;
+    float3 specular;
+    float3 ambient;
     float3 emissive;
     float  shininess;
 };
@@ -84,10 +84,10 @@ float4 PSMain(PSInput input)
     const float  invd = 1.0f / (r * r + 1.0f);
 
     // color
-    const float3 _diffuse  = !hitagi::valid(resource.diffuse_texture) ? resource.diffuse_texture.sample<float3>(sampler, input.uv) : material_constant.diffuse.xyz;
-    const float3 _specular = !hitagi::valid(resource.specular_texture) ? resource.specular_texture.sample<float3>(sampler, input.uv) : material_constant.specular.xyz;
-    const float3 _ambient  = !hitagi::valid(resource.ambient_texture) ? resource.ambient_texture.sample<float3>(sampler, input.uv) : material_constant.ambient.xyz;
-    const float3 _emissive = !hitagi::valid(resource.emissive_texture) ? resource.emissive_texture.sample<float3>(sampler, input.uv) : material_constant.emissive.xyz;
+    const float3 _diffuse  = hitagi::valid(resource.diffuse_texture) ? resource.diffuse_texture.sample<float3>(sampler, input.uv) : material_constant.diffuse.xyz;
+    const float3 _specular = hitagi::valid(resource.specular_texture) ? resource.specular_texture.sample<float3>(sampler, input.uv) : material_constant.specular.xyz;
+    const float3 _ambient  = hitagi::valid(resource.ambient_texture) ? resource.ambient_texture.sample<float3>(sampler, input.uv) : material_constant.ambient.xyz;
+    const float3 _emissive = hitagi::valid(resource.emissive_texture) ? resource.emissive_texture.sample<float3>(sampler, input.uv) : material_constant.emissive.xyz;
 
     const float3 vLightInts = _ambient + (frame_constant.light_color * frame_constant.light_intensity) * invd * (_diffuse * max(dot(vN, vL), 0.0f) + _specular * pow(max(dot(vH, vN), 0.0f), material_constant.shininess));
 

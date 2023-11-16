@@ -1,4 +1,6 @@
+
 #include <hitagi/asset/material.hpp>
+#include <hitagi/utils/overloaded.hpp>
 
 #include <spdlog/spdlog.h>
 #include <magic_enum.hpp>
@@ -18,22 +20,19 @@ Material::Material(MaterialDesc desc, std::string_view name)
 }
 
 auto Material::CalculateMaterialBufferSize() const noexcept -> std::size_t {
-    std::size_t offset = 0;
+    std::size_t size = 0;
     for (const auto& parameter : m_Desc.parameters) {
         // We use int32_t to indicate its index in texture array
-        if (std::holds_alternative<std::shared_ptr<Texture>>(parameter.value)) {
-        } else {
-            std::visit(
-                [&](auto&& value) {
-                    const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-                    offset += remaining >= sizeof(value) ? 0 : remaining;
-
-                    offset += sizeof(value);
+        size += std::visit(
+            utils::Overloaded{
+                [&](const std::shared_ptr<asset::Texture>&) -> std::size_t { return 0; },
+                [&](const auto& value) -> std::size_t {
+                    return sizeof(value);
                 },
-                parameter.value);
-        }
+            },
+            parameter.value);
     }
-    return utils::align(offset, 16);
+    return size;
 }
 
 auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
@@ -122,27 +121,24 @@ auto MaterialInstance::GetMateriaBufferData() const noexcept -> core::Buffer {
     if (m_Material == nullptr) return {};
 
     core::Buffer result(m_Material->CalculateMaterialBufferSize());
-
-    std::size_t offset = 0;
+    std::size_t  offset = 0;
     for (const auto& default_param : m_Material->m_Desc.parameters) {
-        if (std::holds_alternative<std::shared_ptr<Texture>>(default_param.value)) {
-        } else {
-            std::visit(
-                [&](auto&& default_value) {
-                    const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-                    offset += remaining >= sizeof(default_value) ? 0 : remaining;
-
-                    auto param = GetParameter<std::remove_cvref_t<decltype(default_value)>>(default_param.name);
-                    if (param.has_value()) {
-                        std::memcpy(result.GetData() + offset, &(param.value()), sizeof(default_value));
+        std::visit(
+            utils::Overloaded{
+                [&](const std::shared_ptr<Texture>&) {},
+                [&](const auto& value) {
+                    if (auto iter = std::find_if(m_Parameters.begin(), m_Parameters.end(), [&](const auto& param) {
+                            return param.name == default_param.name && std::holds_alternative<std::remove_cvref_t<decltype(value)>>(param.value);
+                        });
+                        iter != m_Parameters.end()) {
+                        std::memcpy(result.GetData() + offset, &iter->value, sizeof(iter->value));
                     } else {
-                        std::memcpy(result.GetData() + offset, &default_value, sizeof(default_value));
+                        std::memcpy(result.GetData() + offset, &value, sizeof(value));
                     }
-
-                    offset += sizeof(default_value);
+                    offset += sizeof(value);
                 },
-                default_param.value);
-        }
+            },
+            default_param.value);
     }
 
     return result;
