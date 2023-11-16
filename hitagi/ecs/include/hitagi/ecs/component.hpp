@@ -4,7 +4,6 @@
 #include <string>
 #include <set>
 #include <functional>
-#include <memory_resource>
 
 namespace hitagi::ecs {
 

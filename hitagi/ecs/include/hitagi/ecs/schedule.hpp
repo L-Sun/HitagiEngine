@@ -2,10 +2,7 @@
 #include <hitagi/ecs/world.hpp>
 #include <hitagi/utils/concepts.hpp>
 
-#include <memory_resource>
-#include <typeindex>
 #include <vector>
-#include <functional>
 
 namespace hitagi::ecs {
 
@@ -80,8 +77,7 @@ void Schedule::Task<Func>::Run(World& world) {
                 task(std::get<I>(components_array)[index]...);
             }
         };
-    }
-    (std::make_index_sequence<utils::function_traits<Func>::args_size>{});
+    }(std::make_index_sequence<utils::function_traits<Func>::args_size>{});
 }
 
 }  // namespace hitagi::ecs

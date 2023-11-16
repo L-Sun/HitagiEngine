@@ -7,15 +7,15 @@
 
 namespace hitagi::ecs {
 
-void EntityManager::Destory(Entity entity) noexcept {
+void EntityManager::Destroy(Entity entity) noexcept {
     if (m_EntityMaps.contains(entity)) {
         m_EntityMaps[entity]->DeleteEntity(entity);
         m_EntityMaps.erase(entity);
     }
 }
 
-auto EntityManager::GetArchetype(const Filter& filter) const -> std::pmr::vector<detials::IArchetype*> {
-    std::pmr::vector<detials::IArchetype*> result;
+auto EntityManager::GetArchetype(const Filter& filter) const -> std::pmr::vector<detail::IArchetype*> {
+    std::pmr::vector<detail::IArchetype*> result;
 
     for (const auto& [archetype_id, archetype] : m_Archetypes) {
         auto p_archetype = archetype.get();

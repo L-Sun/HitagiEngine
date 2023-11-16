@@ -27,8 +27,8 @@ auto Filter::All(const DynamicComponents& dynamic_components) noexcept -> Filter
     requires utils::unique_types<Components...>
 {
     (all.emplace(utils::TypeID::Create<Components>()), ...);
-    for (const auto& dyanmic_component : dynamic_components) {
-        all.emplace(utils::TypeID{dyanmic_component.name});
+    for (const auto& dynamic_component : dynamic_components) {
+        all.emplace(utils::TypeID{dynamic_component.name});
     }
     return *this;
 }
@@ -38,8 +38,8 @@ auto Filter::Any(const DynamicComponents& dynamic_components) noexcept -> Filter
     requires utils::unique_types<Components...>
 {
     (any.emplace(utils::TypeID::Create<Components>()), ...);
-    for (const auto& dyanmic_component : dynamic_components) {
-        any.emplace(utils::TypeID{dyanmic_component.name});
+    for (const auto& dynamic_component : dynamic_components) {
+        any.emplace(utils::TypeID{dynamic_component.name});
     }
     return *this;
 }
@@ -49,8 +49,8 @@ auto Filter::None(const DynamicComponents& dynamic_components) noexcept -> Filte
     requires utils::unique_types<Components...>
 {
     (none.emplace(utils::TypeID::Create<Components>()), ...);
-    for (const auto& dyanmic_component : dynamic_components) {
-        none.emplace(utils::TypeID{dyanmic_component.name});
+    for (const auto& dynamic_component : dynamic_components) {
+        none.emplace(utils::TypeID{dynamic_component.name});
     }
     return *this;
 }

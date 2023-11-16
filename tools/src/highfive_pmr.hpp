@@ -11,7 +11,7 @@ inline AtomicType<std::pmr::string>::AtomicType() {
     _hid = create_string(H5T_VARIABLE);
 }
 
-namespace details {
+namespace detail {
 template <>
 struct inspector<std::pmr::string> : type_helper<std::pmr::string> {
     using hdf5_type = const char*;
@@ -97,5 +97,5 @@ struct inspector<std::pmr::vector<T>> {
         }
     }
 };
-}  // namespace details
+}  // namespace detail
 }  // namespace HighFive

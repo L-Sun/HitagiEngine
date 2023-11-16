@@ -1,6 +1,6 @@
 #include <hitagi/ecs/archetype.hpp>
 
-namespace hitagi::ecs::detials {
+namespace hitagi::ecs::detail {
 
 auto IArchetype::GetDynamicCompoentArray(std::string_view name) -> std::pair<void*, std::size_t> {
     return {GetComponentRawData(m_ComponentIndexMap.at(utils::TypeID{name})), NumEntities()};
@@ -17,4 +17,4 @@ auto IArchetype::GetEntityIndex(Entity entity) const -> std::size_t {
     return m_EntityMap.contains(entity) ? m_EntityMap.at(entity) : m_EntityMap.size();
 }
 
-}  // namespace hitagi::ecs::detials
+}  // namespace hitagi::ecs::detail

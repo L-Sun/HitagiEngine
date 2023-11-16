@@ -61,7 +61,7 @@ auto make_optional_ref(T& data) -> optional_ref<T> {
 }
 
 // this impl just for disable static check after pack unfolding
-namespace details {
+namespace detail {
 template <typename T, typename MapItem, typename... MapItems>
 struct type_mapper {
     using type = std::conditional_t<std::is_same_v<T, typename MapItem::first_type>, typename MapItem::second_type,
@@ -82,7 +82,7 @@ struct val_type_mapper<E, MapItem> {
     using type = typename MapItem::type;
 };
 
-}  // namespace details
+}  // namespace detail
 
 template <typename T1, typename T2>
 struct type_map_item {
@@ -93,7 +93,7 @@ struct type_map_item {
 template <typename T, typename MapItem, typename... MapItems>
     requires any_of<T, typename MapItem::first_type, typename MapItems::first_type...> && unique_types<typename MapItem::first_type, typename MapItems::first_type...>
 struct type_mapper {
-    using type = details::type_mapper<T, MapItem, MapItems...>::type;
+    using type = detail::type_mapper<T, MapItem, MapItems...>::type;
 };
 
 template <auto E, typename T>
@@ -110,7 +110,7 @@ struct val_type_mapper {
         "Value not found in mapping.");
     static_assert(is_unique_values(MapItem::value, MapItems::value...), "Duplicate value found in mapping.");
 
-    using type = details::val_type_mapper<E, MapItem, MapItems...>::type;
+    using type = detail::val_type_mapper<E, MapItem, MapItems...>::type;
 };
 
 }  // namespace hitagi::utils

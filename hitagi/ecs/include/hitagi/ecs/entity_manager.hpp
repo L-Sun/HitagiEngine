@@ -26,7 +26,7 @@ public:
     void Detach(Entity entity, const DynamicComponents& dynamic_components = {})
         requires utils::unique_types<Components...>;
 
-    void Destory(Entity entity) noexcept;
+    void Destroy(Entity entity) noexcept;
 
     inline bool Has(Entity entity) const noexcept { return m_EntityMaps.contains(entity); }
 
@@ -38,7 +38,7 @@ public:
     template <Component T>
     auto GetComponent(Entity entity) const -> utils::optional_ref<const T>;
 
-    auto GetArchetype(const Filter& filter) const -> std::pmr::vector<detials::IArchetype*>;
+    auto GetArchetype(const Filter& filter) const -> std::pmr::vector<detail::IArchetype*>;
 
 private:
     friend class World;
@@ -49,8 +49,8 @@ private:
 
     std::size_t m_Counter = 0;
 
-    std::pmr::unordered_map<detials::ArchetypeID, std::shared_ptr<detials::IArchetype>> m_Archetypes;
-    std::pmr::unordered_map<Entity, detials::IArchetype*>                               m_EntityMaps;
+    std::pmr::unordered_map<detail::ArchetypeID, std::shared_ptr<detail::IArchetype>> m_Archetypes;
+    std::pmr::unordered_map<Entity, detail::IArchetype*>                              m_EntityMaps;
 };
 
 template <Component... Components>
@@ -64,16 +64,16 @@ template <Component... Components>
 auto EntityManager::CreateMany(std::size_t num, const DynamicComponents& dynamic_components) -> std::pmr::vector<Entity>
     requires utils::unique_types<Components...>
 {
-    auto archetype_id = detials::get_archetype_id<Components...>(dynamic_components);
+    auto archetype_id = detail::get_archetype_id<Components...>(dynamic_components);
     // no component
     if (archetype_id == 0)
         return {};
 
     if (!m_Archetypes.contains(archetype_id)) {
-        m_Archetypes.emplace(archetype_id, std::make_shared<detials::Archetype<Components...>>(dynamic_components));
+        m_Archetypes.emplace(archetype_id, std::make_shared<detail::Archetype<Components...>>(dynamic_components));
     }
 
-    detials::IArchetype* archetype = m_Archetypes.at(archetype_id).get();
+    detail::IArchetype* archetype = m_Archetypes.at(archetype_id).get();
 
     std::pmr::vector<Entity> result(num);
     for (auto& entity : result) {
@@ -94,7 +94,7 @@ void EntityManager::Attach(Entity entity, const DynamicComponents& dynamic_compo
         return;
 
     auto old_archetype = m_EntityMaps[entity];
-    if (old_archetype->ID() == detials::get_archetype_id<Components...>(dynamic_components))
+    if (old_archetype->ID() == detail::get_archetype_id<Components...>(dynamic_components))
         return;
 }
 

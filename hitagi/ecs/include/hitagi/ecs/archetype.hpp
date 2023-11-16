@@ -8,12 +8,10 @@
 #include <limits>
 #include <optional>
 #include <span>
-#include <cassert>
 #include <unordered_map>
-#include <unordered_set>
 #include <algorithm>
 
-namespace hitagi::ecs::detials {
+namespace hitagi::ecs::detail {
 
 using ArchetypeID = std::size_t;
 
@@ -224,4 +222,4 @@ void Archetype<Components...>::DeleteEntity(Entity entity) {
     m_EntityMap.erase(entity);
 }
 
-}  // namespace hitagi::ecs::detials
+}  // namespace hitagi::ecs::detail

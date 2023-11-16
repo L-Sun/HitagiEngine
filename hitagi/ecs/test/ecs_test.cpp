@@ -12,13 +12,13 @@ auto component_value_eq(const char* expr_world, const char* expr_entity, const c
 
     auto component = world.GetEntityManager().GetComponent<T>(entity);
     if (component.has_value()) {
-        if (auto cmpt_value = component->get().value; cmpt_value == value) {
+        if (auto component_value = component->get().value; component_value == value) {
             return ::testing::AssertionSuccess();
         } else {
-            return ::testing::AssertionFailure() << fmt::format("Expectd component value of entity({}) is {}, but actual is {}", expr_entity, value, cmpt_value);
+            return ::testing::AssertionFailure() << fmt::format("Expect component value of entity({}) is {}, but actual is {}", expr_entity, value, component_value);
         }
     } else {
-        return testing::AssertionFailure() << fmt::format("The Entity({}) does not have component", expr_entity) << std::endl;
+        return testing::AssertionFailure() << fmt::format("The Entity({}) does not have component\n", expr_entity);
     }
 }
 
@@ -54,9 +54,9 @@ TEST_F(EcsTest, CreateEntity) {
     EXPECT_NE(dynamic_entity, entity_1);
     EXPECT_NE(dynamic_entity, entity_2);
 
-    auto entites = world.GetEntityManager().CreateMany<Component_1, Component_2>(100, {dynamic_component});
-    EXPECT_EQ(entites.size(), 100);
-    for (auto entity : entites) {
+    auto entities = world.GetEntityManager().CreateMany<Component_1, Component_2>(100, {dynamic_component});
+    EXPECT_EQ(entities.size(), 100);
+    for (auto entity : entities) {
         EXPECT_TRUE(entity);
         EXPECT_TRUE(world.GetEntityManager().Has(entity));
     }
@@ -64,17 +64,17 @@ TEST_F(EcsTest, CreateEntity) {
     EXPECT_EQ(world.GetEntityManager().NumEntities(), 103);
 }
 
-TEST_F(EcsTest, DestoryEntity) {
+TEST_F(EcsTest, DestroyEntity) {
     struct Component_1 {
         int value;
     };
     auto entity = world.GetEntityManager().Create<Component_1>();
     EXPECT_EQ(world.GetEntityManager().NumEntities(), 1);
-    world.GetEntityManager().Destory(entity);
+    world.GetEntityManager().Destroy(entity);
     EXPECT_EQ(world.GetEntityManager().NumEntities(), 0);
 }
 
-TEST_F(EcsTest, DiffrentComponents) {
+TEST_F(EcsTest, DifferentComponents) {
     struct Component_1 {
         vec3f value;
     };
@@ -89,12 +89,12 @@ TEST_F(EcsTest, DiffrentComponents) {
         .name = "DynamicComponent_2",
         .size = 8,
     };
-    auto id1 = detials::get_archetype_id<Component_1>({dynamic_component_1});
-    auto id2 = detials::get_archetype_id<Component_2>({dynamic_component_2});
+    auto id1 = detail::get_archetype_id<Component_1>({dynamic_component_1});
+    auto id2 = detail::get_archetype_id<Component_2>({dynamic_component_2});
     EXPECT_NE(id1, id2);
 }
 
-TEST_F(EcsTest, DiffrentOrderComponents) {
+TEST_F(EcsTest, DifferentOrderComponents) {
     struct Component_1 {
         vec3f value;
     };
@@ -113,8 +113,8 @@ TEST_F(EcsTest, DiffrentOrderComponents) {
         .size = 8,
     };
 
-    auto id1 = detials::get_archetype_id<Component_1, Component_2, Transform>({dynamic_component_1, dynamic_component_2});
-    auto id2 = detials::get_archetype_id<Transform, Component_2, Component_1>({dynamic_component_2, dynamic_component_1});
+    auto id1 = detail::get_archetype_id<Component_1, Component_2, Transform>({dynamic_component_1, dynamic_component_2});
+    auto id2 = detail::get_archetype_id<Transform, Component_2, Component_1>({dynamic_component_2, dynamic_component_1});
     EXPECT_EQ(id1, id2);
 
     World world(::testing::UnitTest::GetInstance()->current_test_info()->name());
