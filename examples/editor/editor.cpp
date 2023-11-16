@@ -20,6 +20,7 @@ Editor::Editor(Engine& engine)
     m_Clock.Start();
 
     m_SceneViewPort = static_cast<SceneViewPort*>(AddSubModule(std::make_unique<SceneViewPort>(engine)));
+    m_ImageViewer   = static_cast<ImageViewer*>(AddSubModule(std::make_unique<ImageViewer>(engine)));
     m_FileDialog.SetPwd(m_App.GetConfig().asset_root_path);
 }
 
@@ -185,33 +186,152 @@ void Editor::SceneGraphViewer() {
 void Editor::SceneNodeModifier() {
     if (ImGui::Begin("Scene Node Modifier")) {
         if (m_SelectedNode == nullptr) {
-            ImGui::Text("No Scene Node Selected!");
-        } else if (ImGui::BeginTable("Space Properties", 2, ImGuiTableFlags_Resizable)) {
-            ImGui::TableSetupColumn("Property Name", ImGuiTableColumnFlags_NoHide);
+            const auto text      = "No Scene Node Selected!";
+            const auto text_size = ImGui::CalcTextSize(text);
+            ImGui::SetCursorPosX((ImGui::GetWindowWidth() - text_size.x) / 2.0f);
+            ImGui::SetCursorPosY((ImGui::GetWindowHeight() - text_size.y) / 2.0f);
+            ImGui::Text(text);
 
-            {
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Translation");
-                ImGui::TableNextColumn();
-                ImGui::DragFloat3("##Translation", m_SelectedNode->transform.local_translation, 0.01f);
-            }
-            {
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Rotation");
-                ImGui::TableNextColumn();
-                ImGui::DragFloat3("##Rotation", m_SelectedNode->transform.local_rotation, 0.01f);
-            }
-            {
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Scaling");
-                ImGui::TableNextColumn();
-                ImGui::DragFloat3("##Scaling", m_SelectedNode->transform.local_scaling, 0.01f, 0.0f, 1.0f);
-            }
+        } else {
+            if (ImGui::BeginTabBar("SceneNodeProperties")) {
+                if (ImGui::BeginTabItem("Transform")) {
+                    static bool local = true;
+                    ImGui::Checkbox("Local", &local);
 
-            ImGui::EndTable();
+                    auto& transform = m_SelectedNode->transform;
+                    if (local) {
+                        ImGui::Text("Location");
+                        ImGui::DragFloat3("##Location", transform.local_translation, 0.1f);
+
+                        auto euler = math::quaternion_to_euler(transform.local_rotation);
+                        ImGui::Text("Rotation");
+                        ImGui::DragFloat3("##Rotation", euler, 0.1f);
+                        transform.local_rotation = math::euler_to_quaternion(euler);
+
+                        ImGui::Text("Scale");
+                        ImGui::DragFloat3("##Scale", transform.local_scaling, 0.1f, 0.0f);
+                    } else {
+                        auto position = transform.GetPosition();
+                        ImGui::Text("Position");
+                        ImGui::DragFloat3("##Position", position, 0.1f);
+
+                        auto euler = math::quaternion_to_euler(transform.GetRotation());
+                        ImGui::Text("Rotation");
+                        ImGui::DragFloat3("##Rotation", euler, 0.1f);
+
+                        auto scaling = transform.GetScale();
+                        ImGui::Text("Scale");
+                        ImGui::DragFloat3("##Scale", scaling, 0.1f, 0.0f);
+
+                        const auto new_world_transform    = translate(position) * rotate(euler) * scale(scaling);
+                        const auto parent_world_transform = m_SelectedNode->GetParent() ? m_SelectedNode->GetParent()->transform.world_matrix : mat4f::identity();
+                        const auto new_local_transform    = inverse(parent_world_transform) * new_world_transform;
+                        transform                         = asset::Transform(new_local_transform);
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
+                if (const auto& obj = m_SelectedNode->GetObjectRef(); obj) {
+                    if (obj->GetType() == asset::Resource::Type::Mesh && ImGui::BeginTabItem("Materials")) {
+                        const auto                                        mesh = std::static_pointer_cast<asset::Mesh>(obj);
+                        std::pmr::unordered_set<asset::MaterialInstance*> material_instances;
+                        for (const auto& sub_mesh : mesh->sub_meshes) {
+                            material_instances.emplace(sub_mesh.material_instance.get());
+                        }
+
+                        for (const auto& mat_instance : material_instances) {
+                            const auto material_parameter_widget = [this](asset::MaterialParameter& parameter) {
+                                const auto name = parameter.name.data();
+                                std::visit(
+                                    utils::Overloaded{
+                                        [&](float& data) { ImGui::DragFloat(name, &data); },
+                                        [&](std::int32_t& data) { ImGui::DragScalar(name, ImGuiDataType_S32, &data); },
+                                        [&](std::uint32_t& data) { ImGui::DragScalar(name, ImGuiDataType_U32, &data); },
+                                        [&](vec2i& data) { ImGui::DragScalarN(name, ImGuiDataType_S32, data, 2); },
+                                        [&](vec2u& data) { ImGui::DragScalarN(name, ImGuiDataType_U32, data, 2); },
+                                        [&](vec2f& data) { ImGui::DragScalarN(name, ImGuiDataType_Float, data, 2); },
+                                        [&](vec3i& data) { ImGui::DragScalarN(name, ImGuiDataType_S32, data, 3); },
+                                        [&](vec3u& data) { ImGui::DragScalarN(name, ImGuiDataType_U32, data, 3); },
+                                        [&](vec3f& data) { ImGui::ColorEdit3(name, data); },
+                                        [&](vec4i& data) { ImGui::DragScalarN(name, ImGuiDataType_S32, data, 4); },
+                                        [&](vec4u& data) { ImGui::DragScalarN(name, ImGuiDataType_U32, data, 4); },
+                                        [&](vec4f& data) { ImGui::ColorEdit4(name, data); },
+                                        [&](std::shared_ptr<Texture>& texture) {
+                                            if (texture) {
+                                                auto& rg          = m_Engine.Renderer().GetRenderGraph();
+                                                auto& gui_manager = m_Engine.GuiManager();
+                                                texture->InitGPUData(rg.GetDevice());
+                                                ImGui::Image(gui_manager.ReadTexture(rg.Import(texture->GetGPUData())), {64, 64});
+                                                if (ImGui::IsItemHovered()) {
+                                                    ImGui::SetTooltip("%s", name);
+                                                }
+                                                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                                                    m_ImageViewer->SetTexture(texture);
+                                                }
+                                            } else {
+                                                ImGui::Text("No Texture");
+                                            }
+                                        },
+                                        [](math::mat4f& data) {},
+                                    },
+                                    parameter.value);
+                            };
+
+                            auto split_parameters = mat_instance->GetSplitParameters();
+
+                            if (ImGui::TreeNode(mat_instance, "%s", mat_instance->GetName().data())) {
+                                ImGui::Text("Active Parameters");
+                                for (auto& param : split_parameters.in_both) {
+                                    material_parameter_widget(param);
+                                    mat_instance->SetParameter(param);
+                                }
+
+                                ImGui::Text("Material Builtin Parameters");
+                                ImGui::BeginDisabled(true);
+                                for (auto& param : split_parameters.only_in_material) {
+                                    material_parameter_widget(param);
+                                }
+                                ImGui::EndDisabled();
+
+                                ImGui::Text("Unused Parameters");
+                                for (auto& param : split_parameters.only_in_instance) {
+                                    material_parameter_widget(param);
+                                    mat_instance->SetParameter(param);
+                                }
+
+                                ImGui::TreePop();
+                            }
+                        }
+
+                        ImGui::EndTabItem();
+                    }
+
+                    if (obj->GetType() == asset::Resource::Type::Camera && ImGui::BeginTabItem("Camera")) {
+                        auto& parameters = std::static_pointer_cast<asset::Camera>(obj)->parameters;
+                        ImGui::Text("Fov");
+                        ImGui::DragFloat("##Fov", &parameters.horizontal_fov, 0.1f, 0.0f, 180.0f);
+                        ImGui::Text("Near");
+                        ImGui::DragFloat("##Near", &parameters.near_clip, 0.1f, 0.0f, 1000.0f);
+                        ImGui::Text("Far");
+                        ImGui::DragFloat("##Far", &parameters.far_clip, 0.1f, 0.0f, 1000.0f);
+
+                        ImGui::EndTabItem();
+                    }
+
+                    if (obj->GetType() == asset::Resource::Type::Light && ImGui::BeginTabItem("Light")) {
+                        auto& parameters = std::static_pointer_cast<asset::Light>(obj)->parameters;
+                        ImGui::Text("Intensity");
+                        ImGui::DragFloat("##Intensity", &parameters.intensity, 0.1f, 0.0f, 1000.0f);
+                        ImGui::Text("Color");
+                        ImGui::ColorEdit3("##Color", parameters.color);
+
+                        ImGui::EndTabItem();
+                    }
+                }
+
+                ImGui::EndTabBar();
+            }
         }
     }
     ImGui::End();

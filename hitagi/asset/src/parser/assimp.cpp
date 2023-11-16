@@ -162,7 +162,9 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         const auto _light = ai_scene->mLights[i];
 
         Light::Parameters light_parameters;
-        light_parameters.color = get_color(_light->mColorDiffuse);
+        light_parameters.color     = get_color(_light->mColorDiffuse);
+        light_parameters.intensity = math::max(light_parameters.color);
+        light_parameters.color /= light_parameters.intensity;
 
         switch (_light->mType) {
             case aiLightSourceType::aiLightSource_AMBIENT:
@@ -209,11 +211,9 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
     logger->trace("Parse embedded texture... Num: {}", ai_scene->mNumTextures);
     std::pmr::unordered_map<const aiTexture*, std::shared_ptr<Texture>> textures;
     for (std::size_t i = 0; i < ai_scene->mNumTextures; i++) {
-        auto                  _texture = ai_scene->mTextures[i];
-        std::filesystem::path tex_path(_texture->mFilename.C_Str());
+        auto _texture = ai_scene->mTextures[i];
 
         std::shared_ptr<Texture> texture = nullptr;
-
         if (_texture->mHeight != 0) {
             texture = std::make_shared<Texture>(
                 _texture->mWidth,
@@ -224,21 +224,26 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
                     reinterpret_cast<const std::byte*>(_texture->pcData)),
                 _texture->mFilename.C_Str());
 
-            texture->SetPath(tex_path);
-        } else {
+        } else if (_texture->pcData) {
             logger->trace("texture path: {}", _texture->mFilename.C_Str());
-            if (_texture->CheckFormat("jpg")) {
-                texture = std::make_shared<Texture>(tex_path);
-            } else if (_texture->CheckFormat("png")) {
-                texture = std::make_shared<Texture>(tex_path);
-            } else if (_texture->CheckFormat("bmp")) {
-                texture = std::make_shared<Texture>(tex_path);
-            } else if (_texture->CheckFormat("tga")) {
-                texture = std::make_shared<Texture>(tex_path);
+            const auto compressed_buffer = core::Buffer(_texture->mWidth, reinterpret_cast<const std::byte*>(_texture->pcData));
+
+            if (_texture->CheckFormat("jpg") && m_ImageParsers[ImageFormat::JPEG]) {
+                texture = m_ImageParsers[ImageFormat::JPEG]->Parse(compressed_buffer);
+            } else if (_texture->CheckFormat("png") && m_ImageParsers[ImageFormat::PNG]) {
+                texture = m_ImageParsers[ImageFormat::PNG]->Parse(compressed_buffer);
+            } else if (_texture->CheckFormat("bmp") && m_ImageParsers[ImageFormat::BMP]) {
+                texture = m_ImageParsers[ImageFormat::BMP]->Parse(compressed_buffer);
+            } else if (_texture->CheckFormat("tga") && m_ImageParsers[ImageFormat::TGA]) {
+                texture = m_ImageParsers[ImageFormat::TGA]->Parse(compressed_buffer);
             } else {
                 logger->warn("Unsupported texture format: {}", _texture->achFormatHint);
             }
+            texture->SetPath(_texture->mFilename.C_Str());
+        } else {
+            texture = std::make_shared<Texture>(_texture->mFilename.C_Str());
         }
+
         textures.emplace(_texture, texture);
     }
     logger->trace("Parsing texture costs {}.", clock.DeltaTime());

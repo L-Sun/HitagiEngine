@@ -72,8 +72,14 @@ TEST(MaterialParserTest, JSON) {
 }
 
 TEST(SceneParserTest, Fbx) {
-    auto parser = std::make_shared<AssimpParser>();
-    auto scene  = parser->Parse("assets/test/test.fbx");
+    utils::EnumArray<std::shared_ptr<ImageParser>, ImageFormat> image_parser;
+    image_parser[ImageFormat::PNG]  = std::make_shared<PngParser>();
+    image_parser[ImageFormat::JPEG] = std::make_shared<JpegParser>();
+    image_parser[ImageFormat::TGA]  = std::make_shared<TgaParser>();
+    image_parser[ImageFormat::BMP]  = std::make_shared<BmpParser>();
+
+    AssimpParser parser(image_parser);
+    auto         scene = parser.Parse("assets/test/test.fbx");
     ASSERT_TRUE(scene != nullptr);
     EXPECT_EQ(scene->camera_nodes.size(), 1);
     EXPECT_EQ(scene->instance_nodes.size(), 1);

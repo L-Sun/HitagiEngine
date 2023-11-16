@@ -19,7 +19,7 @@ public:
     inline std::shared_ptr<SceneNode> GetParent() const noexcept { return m_Parent.lock(); }
     inline const auto&                GetChildren() const noexcept { return m_Children; }
 
-    inline auto GetObjectRef() const noexcept { return m_ObjectRef; }
+    inline const auto& GetObjectRef() const noexcept { return m_ObjectRef; }
 
     Transform transform;
 

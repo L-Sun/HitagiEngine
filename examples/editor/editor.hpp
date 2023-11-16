@@ -1,6 +1,7 @@
 #pragma once
 #include "scene_viewport.hpp"
 #include "imfilebrowser.hpp"
+#include "image_viewer.hpp"
 
 #include <hitagi/engine.hpp>
 
@@ -20,9 +21,11 @@ private:
     Engine&      m_Engine;
     Application& m_App;
 
-    core::Clock                       m_Clock;
-    SceneViewPort*                    m_SceneViewPort = nullptr;
-    ImGui::FileBrowser                m_FileDialog;
+    core::Clock        m_Clock;
+    SceneViewPort*     m_SceneViewPort = nullptr;
+    ImageViewer*       m_ImageViewer   = nullptr;
+    ImGui::FileBrowser m_FileDialog;
+
     std::shared_ptr<asset::SceneNode> m_SelectedNode = nullptr;
     std::shared_ptr<asset::Scene>     m_CurrScene    = nullptr;
 };

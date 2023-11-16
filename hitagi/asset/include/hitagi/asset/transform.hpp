@@ -7,6 +7,8 @@ namespace hitagi::asset {
 struct Transform {
     Transform() = default;
     Transform(const math::mat4f& local_matrix);
+    Transform(const Transform& other);
+    Transform& operator=(const Transform& other);
 
     math::vec3f local_translation = math::vec3f{0.0f, 0.0f, 0.0f};
     math::quatf local_rotation    = math::quatf{0.0f, 0.0f, 0.0f, 1.0f};

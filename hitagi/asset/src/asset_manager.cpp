@@ -26,16 +26,16 @@ AssetManager::AssetManager(std::filesystem::path asset_base_path)
 
     m_MaterialParser = std::make_shared<MaterialJSONParser>();
 
-    m_SceneParsers[SceneFormat::UNKOWN] = std::make_shared<AssimpParser>(m_Logger);
-    m_SceneParsers[SceneFormat::GLTF]   = std::make_shared<AssimpParser>(m_Logger);
-    m_SceneParsers[SceneFormat::GLB]    = std::make_shared<AssimpParser>(m_Logger);
-    m_SceneParsers[SceneFormat::BLEND]  = std::make_shared<AssimpParser>(m_Logger);
-    m_SceneParsers[SceneFormat::FBX]    = std::make_shared<AssimpParser>(m_Logger);
-
     m_ImageParsers[ImageFormat::PNG]  = std::make_shared<PngParser>(m_Logger);
     m_ImageParsers[ImageFormat::JPEG] = std::make_shared<JpegParser>(m_Logger);
     m_ImageParsers[ImageFormat::TGA]  = std::make_shared<TgaParser>(m_Logger);
     m_ImageParsers[ImageFormat::BMP]  = std::make_shared<BmpParser>(m_Logger);
+
+    m_SceneParsers[SceneFormat::UNKOWN] = std::make_shared<AssimpParser>(m_ImageParsers, m_Logger);
+    m_SceneParsers[SceneFormat::GLTF]   = m_SceneParsers[SceneFormat::UNKOWN];
+    m_SceneParsers[SceneFormat::GLB]    = m_SceneParsers[SceneFormat::UNKOWN];
+    m_SceneParsers[SceneFormat::BLEND]  = m_SceneParsers[SceneFormat::UNKOWN];
+    m_SceneParsers[SceneFormat::FBX]    = m_SceneParsers[SceneFormat::UNKOWN];
 
     // m_MoCapParser = std::make_unique<BvhParser>();
 
@@ -95,7 +95,7 @@ void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
                 if (sub_mesh.material_instance->GetMaterial() == nullptr) {
                     sub_mesh.material_instance->SetMaterial(GetMaterial("Phong"));
                 }
-                for (const auto& texture : sub_mesh.material_instance->GetTextures()) {
+                for (const auto& texture : sub_mesh.material_instance->GetAssociatedTextures()) {
                     if (texture->Empty()) {
                         auto image_format = get_image_format(texture->GetPath().extension().string());
                         texture->Load(m_ImageParsers[image_format]);

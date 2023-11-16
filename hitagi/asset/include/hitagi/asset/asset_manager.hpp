@@ -38,9 +38,9 @@ private:
     std::filesystem::path m_BasePath;
 
     // Parser
-    std::shared_ptr<MaterialParser>                                    m_MaterialParser;
-    std::pmr::unordered_map<ImageFormat, std::shared_ptr<ImageParser>> m_ImageParsers;
-    std::pmr::unordered_map<SceneFormat, std::shared_ptr<SceneParser>> m_SceneParsers;
+    std::shared_ptr<MaterialParser>                             m_MaterialParser;
+    utils::EnumArray<std::shared_ptr<ImageParser>, ImageFormat> m_ImageParsers;
+    utils::EnumArray<std::shared_ptr<SceneParser>, SceneFormat> m_SceneParsers;
 
     struct Assets {
         template <typename T>

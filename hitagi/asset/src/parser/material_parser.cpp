@@ -128,8 +128,6 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                 else if (type == "texture") {
                     if (param.contains("default"))
                         mat_param.value = std::make_shared<Texture>(param["default"]);
-                    else
-                        mat_param.value = Texture::DefaultTexture();
                 } else {
                     logger->error("Unkown parameter type: {}", param["type"].get<std::string>());
                     return nullptr;

@@ -6,7 +6,8 @@
 #include <hitagi/gfx/device.hpp>
 
 #include <variant>
-#include <set>
+#include <unordered_set>
+#include <array>
 
 namespace hitagi::asset {
 
@@ -31,17 +32,21 @@ concept MaterialParametric = requires(const MaterialParameterValue& parameter) {
     { std::get<T>(parameter) } -> std::same_as<const T&>;
 };
 
+class MaterialInstance;
+
 struct MaterialParameter {
     std::pmr::string       name;
     MaterialParameterValue value;
+
+    inline bool operator==(const MaterialParameter& rhs) const noexcept { return name == rhs.name && value == rhs.value; }
 };
 
-class MaterialInstance;
+using MaterialParameters = std::pmr::vector<MaterialParameter>;
 
 struct MaterialDesc {
-    std::pmr::vector<gfx::ShaderDesc>   shaders;
-    gfx::RenderPipelineDesc             pipeline;
-    std::pmr::vector<MaterialParameter> parameters;
+    std::pmr::vector<gfx::ShaderDesc> shaders;
+    gfx::RenderPipelineDesc           pipeline;
+    MaterialParameters                parameters;
 };
 
 class Material : public Resource, public std::enable_shared_from_this<Material> {
@@ -53,79 +58,99 @@ public:
     Material& operator=(const Material&) = delete;
     Material& operator=(Material&&)      = delete;
 
+    auto               CreateInstance() -> std::shared_ptr<MaterialInstance>;
     inline const auto& GetInstances() const noexcept { return m_Instances; }
     inline const auto& GetDefaultParameters() const noexcept { return m_Desc.parameters; }
-    inline const auto& GetPipeline() const noexcept { return m_Pipeline; }
-    inline const auto& GetMaterialBuffer() const noexcept { return m_MaterialConstantBuffer; }
+    auto               CalculateMaterialBufferSize() const noexcept -> std::size_t;
+    auto               GetPipeline(gfx::Device& device) -> std::shared_ptr<gfx::RenderPipeline>;
 
-    auto CalculateMaterialBufferSize() const noexcept -> std::size_t;
-    auto CreateInstance() -> std::shared_ptr<MaterialInstance>;
-
-    void InitPipeline(gfx::Device& device);
+    template <MaterialParametric>
+    bool HasParameter(std::string_view name) const noexcept;
 
 protected:
+    friend MaterialInstance;
+
     void AddInstance(MaterialInstance* instance) noexcept;
     void RemoveInstance(MaterialInstance* instance) noexcept;
 
-    friend class MaterialInstance;
+    std::pmr::unordered_set<MaterialInstance*> m_Instances;
 
-    std::set<MaterialInstance*> m_Instances;
-
-    MaterialDesc m_Desc;
-
-    bool                                           m_Dirty = true;
+    MaterialDesc                                   m_Desc;
     std::pmr::vector<std::shared_ptr<gfx::Shader>> m_Shaders;
-    std::shared_ptr<gfx::RenderPipeline>           m_Pipeline               = nullptr;
-    std::shared_ptr<gfx::GPUBuffer>                m_MaterialConstantBuffer = nullptr;
+    std::shared_ptr<gfx::RenderPipeline>           m_Pipeline = nullptr;
+};
+
+struct SplitMaterialParameters {
+    MaterialParameters only_in_instance;
+    MaterialParameters only_in_material;
+    MaterialParameters in_both;
 };
 
 class MaterialInstance : public Resource {
 public:
-    MaterialInstance(std::pmr::vector<MaterialParameter> parameters = {}, std::string_view name = "");
+    MaterialInstance(MaterialParameters parameters = {}, std::string_view name = "");
     MaterialInstance(const MaterialInstance&);
     MaterialInstance& operator=(const MaterialInstance&);
-    MaterialInstance(MaterialInstance&&) = default;
+    MaterialInstance(MaterialInstance&&) noexcept = default;
     MaterialInstance& operator=(MaterialInstance&&) noexcept;
     ~MaterialInstance();
 
     void        SetMaterial(std::shared_ptr<Material> material);
     inline auto GetMaterial() const noexcept { return m_Material; }
 
+    inline const auto& GetParameters() const noexcept { return m_Parameters; }
+    inline auto&       GetParameters() noexcept { return m_Parameters; }
+
+    void SetParameter(MaterialParameter parameter) noexcept;
     template <MaterialParametric T>
     void SetParameter(std::string_view name, T value) noexcept;
     template <MaterialParametric T>
     auto GetParameter(std::string_view name) const noexcept -> std::optional<T>;
-    auto GetMateriaBufferData() const noexcept -> core::Buffer;
-    auto GetTextures() const noexcept -> std::pmr::vector<std::shared_ptr<Texture>>;
+    auto GetSplitParameters() const noexcept -> SplitMaterialParameters;
+    auto GetAssociatedTextures() const noexcept -> std::pmr::vector<std::shared_ptr<Texture>>;
+    auto GenerateMaterialBuffer() const noexcept -> core::Buffer;
+
+    template <MaterialParametric T>
+    bool HasParameter(std::string_view name) const noexcept;
 
 private:
-    std::shared_ptr<Material>           m_Material = nullptr;
-    std::pmr::vector<MaterialParameter> m_Parameters;
+    std::shared_ptr<Material> m_Material = nullptr;
+    MaterialParameters        m_Parameters;
 };
 
 template <MaterialParametric T>
-void MaterialInstance::SetParameter(std::string_view name, T value) noexcept {
-    if (auto iter = std::find_if(m_Parameters.begin(), m_Parameters.end(), [name](const auto& param) {
-            return param.name == name && std::holds_alternative<T>(param.value);
-        });
-        iter != m_Parameters.end()) {
-        std::get<T>(iter->value) = value;
-    } else {
-        m_Parameters.emplace_back(MaterialParameter{
-            .name  = std::pmr::string{name},
-            .value = value,
-        });
+bool Material::HasParameter(std::string_view name) const noexcept {
+    for (const auto& param : m_Desc.parameters) {
+        if (param.name == name && std::holds_alternative<T>(param.value)) {
+            return true;
+        }
     }
+    return false;
+}
+
+template <MaterialParametric T>
+void MaterialInstance::SetParameter(std::string_view name, T value) noexcept {
+    SetParameter(MaterialParameter{.name = std::pmr::string(name), .value = value});
 }
 
 template <MaterialParametric T>
 auto MaterialInstance::GetParameter(std::string_view name) const noexcept -> std::optional<T> {
-    if (auto iter = std::find_if(m_Parameters.cbegin(), m_Parameters.cend(), [name](const auto& param) {
-            return param.name == name && std::holds_alternative<T>(param.value);
-        });
-        iter != m_Parameters.end()) {
-        return std::get<T>(iter->value);
+    for (const auto& param : m_Parameters) {
+        if (param.name == name && std::holds_alternative<T>(param.value)) {
+            return std::get<T>(param.value);
+        }
     }
     return std::nullopt;
 }
+
+template <MaterialParametric T>
+bool MaterialInstance::HasParameter(std::string_view name) const noexcept {
+    for (const auto& param : m_Parameters) {
+        if (param.name == name && std::holds_alternative<T>(param.value)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace hitagi::asset

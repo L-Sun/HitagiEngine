@@ -143,8 +143,6 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
 
     std::unordered_map<asset::Material*, MaterialInfo> material_infos;
     {
-        ZoneScopedN("generate material infos");
-
         const auto materials = scene->instance_nodes                                                                          //
                                | ranges::views::transform([](const auto& node) { return node->GetObjectRef()->sub_meshes; })  //
                                | ranges::views::join                                                                          //
@@ -155,8 +153,7 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
 
         material_infos = materials  //
                          | ranges::views::transform([&](const auto& material) {
-                               material->InitPipeline(m_GfxDevice);
-                               auto pipeline_handle = m_RenderGraph.Import(material->GetPipeline(), material->GetName());
+                               auto pipeline_handle = m_RenderGraph.Import(material->GetPipeline(m_GfxDevice), material->GetName());
                                render_pass_builder.AddPipeline(pipeline_handle);
 
                                auto constant_handle = m_RenderGraph.Create(
@@ -181,18 +178,16 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
 
     std::unordered_map<asset::MaterialInstance*, std::shared_ptr<MaterialInstanceInfo>> material_instance_infos;
     {
-        ZoneScopedN("generate material instance infos");
-
         for (const auto& [material, material_info] : material_infos) {
             for (const auto& [material_instance_index, material_instance] : material->GetInstances() | ranges::views::enumerate) {
                 auto material_instance_info = std::make_shared<MaterialInstanceInfo>();
 
                 material_instance_info->material_info           = material_info;
                 material_instance_info->samplers                = {sampler_handle};
-                material_instance_info->material_instance_data  = material_instance->GetMateriaBufferData();
+                material_instance_info->material_instance_data  = material_instance->GenerateMaterialBuffer();
                 material_instance_info->material_instance_index = material_instance_index;
 
-                for (const auto& texture : material_instance->GetTextures()) {
+                for (const auto& texture : material_instance->GetAssociatedTextures()) {
                     texture->InitGPUData(m_GfxDevice);
                     render_pass_builder.Read(
                         material_instance_info->textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName())),
@@ -208,16 +203,11 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
     // generate draw items
     std::pmr::vector<DrawItem> draw_items;
     {
-        ZoneScopedN("generate draw items");
-
-        {
-            ZoneScopedN("reserve draw items");
-            std::size_t num_draw_items = 0;
-            for (const auto& node : scene->instance_nodes) {
-                num_draw_items += node->GetObjectRef()->sub_meshes.size();
-            }
-            draw_items.reserve(num_draw_items);
+        std::size_t num_draw_items = 0;
+        for (const auto& node : scene->instance_nodes) {
+            num_draw_items += node->GetObjectRef()->sub_meshes.size();
         }
+        draw_items.reserve(num_draw_items);
 
         for (const auto& [instant_index, node] : scene->instance_nodes | ranges::views::enumerate) {
             auto mesh = node->GetObjectRef();
@@ -237,11 +227,8 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
             render_pass_builder.ReadAsIndices(index_buffer_handle);
 
             for (const auto& sub_mesh : mesh->sub_meshes) {
-                ZoneScopedN("add draw item");
-
-                auto material = sub_mesh.material_instance->GetMaterial();
-
-                const auto& pipeline = material->GetPipeline();
+                const auto  material = sub_mesh.material_instance->GetMaterial();
+                const auto& pipeline = material->GetPipeline(m_GfxDevice);
 
                 std::pmr::unordered_map<std::uint32_t, rg::GPUBufferHandle> binding_to_vertex_handles;
                 for (const auto& vertex_attr : pipeline->GetDesc().vertex_input_layout) {
@@ -263,13 +250,9 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
             }
         }
 
-        {
-            ZoneScopedN("sort draw items");
-
-            std::sort(draw_items.begin(), draw_items.end(), [](const auto& lhs, const auto& rhs) -> bool {
-                return lhs.material_instance_info->material_info.pipeline < rhs.material_instance_info->material_info.pipeline;
-            });
-        }
+        std::sort(draw_items.begin(), draw_items.end(), [](const auto& lhs, const auto& rhs) -> bool {
+            return lhs.material_instance_info->material_info.pipeline < rhs.material_instance_info->material_info.pipeline;
+        });
     }
 
     const auto bindless_infos_handle = m_RenderGraph.Create({
@@ -336,18 +319,17 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
                 instance_constant[draw_item.instance_index] = draw_item.instance_data;
             }
 
-            bindless_infos[draw_index] = BindlessInfo{
+            bindless_infos[draw_index] = {
                 .frame_constant    = pass.GetBindless(frame_constant_handle),
                 .instance_constant = pass.GetBindless(instance_constant_handle, draw_item.instance_index),
                 .material_constant = pass.GetBindless(material_constant_handle, material_instance_index),
-                .textures          = {
-                    pass.GetBindless(material_instance_info->textures[0]),
-                    pass.GetBindless(material_instance_info->textures[1]),
-                    pass.GetBindless(material_instance_info->textures[2]),
-                    pass.GetBindless(material_instance_info->textures[3]),
-                },
-                .sampler = pass.GetBindless(material_instance_info->samplers[0]),
+                .sampler           = pass.GetBindless(material_instance_info->samplers[0]),
             };
+
+            for (auto [texture_bindless, texture_handle] : ranges::views::zip(bindless_infos[draw_index].textures, material_instance_info->textures)) {
+                texture_bindless = pass.GetBindless(texture_handle);
+            }
+
             cmd.PushBindlessMetaInfo({
                 .handle = pass.GetBindless(bindless_infos_handle, draw_index),
             });
