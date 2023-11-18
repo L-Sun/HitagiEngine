@@ -1,22 +1,30 @@
 #pragma once
+#include <hitagi/ecs/component.hpp>
 #include <hitagi/ecs/entity.hpp>
-#include <hitagi/ecs/archetype.hpp>
 #include <hitagi/ecs/filter.hpp>
 #include <hitagi/utils/concepts.hpp>
 #include <hitagi/utils/types.hpp>
 
+#include <memory>
+
 namespace hitagi::ecs {
 class World;
+class Schedule;
+class Archetype;
+
+using ArchetypeID = std::size_t;
 
 class EntityManager {
 public:
-    template <Component... Components>
-    auto Create(const DynamicComponents& dynamic_components = {}) -> Entity
-        requires utils::unique_types<Components...>;
+    ~EntityManager();
 
     template <Component... Components>
-    auto CreateMany(std::size_t num, const DynamicComponents& dynamic_components = {}) -> std::pmr::vector<Entity>
-        requires utils::unique_types<Components...>;
+    auto Create(const DynamicComponents& dynamic_components = {}) -> Entity
+        requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>;
+
+    template <Component... Components>
+    auto CreateMany(std::size_t num, const DynamicComponents& dynamic_components = {}) noexcept -> std::pmr::vector<Entity>
+        requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>;
 
     template <Component... Components>
     void Attach(Entity entity, const DynamicComponents& dynamic_components = {})
@@ -24,97 +32,86 @@ public:
 
     template <Component... Components>
     void Detach(Entity entity, const DynamicComponents& dynamic_components = {})
-        requires utils::unique_types<Components...>;
+        requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>;
 
-    void Destroy(Entity entity) noexcept;
+    void Destroy(Entity entity);
 
     inline bool Has(Entity entity) const noexcept { return m_EntityMaps.contains(entity); }
 
     inline auto NumEntities() const noexcept { return m_EntityMaps.size(); }
 
     template <Component T>
-    auto GetComponent(Entity entity) -> utils::optional_ref<T>;
+    auto GetComponent(Entity entity) noexcept -> utils::optional_ref<T>;
 
     template <Component T>
-    auto GetComponent(Entity entity) const -> utils::optional_ref<const T>;
+    auto GetComponent(Entity entity) const noexcept -> utils::optional_ref<const T>;
 
-    auto GetArchetype(const Filter& filter) const -> std::pmr::vector<detail::IArchetype*>;
+    auto GetDynamicComponent(Entity entity, const DynamicComponent& dynamic_component) const noexcept -> std::byte*;
 
 private:
-    friend class World;
+    friend World;
+    friend Schedule;
 
-    EntityManager(World& world) : m_World(world) {}
+    EntityManager(World& world);
+
+    auto CreateMany(std::size_t num, const detail::ComponentInfos& component_infos) noexcept -> std::pmr::vector<Entity>;
+    void Attach(Entity entity, const detail::ComponentInfos& component_infos);
+    void Detach(Entity entity, const detail::ComponentInfos& component_infos);
+    auto GetComponent(Entity entity, const detail::ComponentInfo& component_info) const noexcept -> std::byte*;
+    auto GetOrCreateArchetype(const detail::ComponentInfos& component_infos) noexcept -> Archetype&;
+
+    using ComponentBuffer = std::pair<std::byte*, std::size_t>;
+    auto GetComponentsBuffers(const detail::ComponentInfos& component_infos, Filter filter) const noexcept
+        -> std::pmr::vector<std::pmr::vector<ComponentBuffer>>;  // [num_buffers, num_components]
 
     World& m_World;
 
     std::size_t m_Counter = 0;
 
-    std::pmr::unordered_map<detail::ArchetypeID, std::shared_ptr<detail::IArchetype>> m_Archetypes;
-    std::pmr::unordered_map<Entity, detail::IArchetype*>                              m_EntityMaps;
+    std::pmr::unordered_map<ArchetypeID, std::unique_ptr<Archetype>> m_Archetypes;
+    std::pmr::unordered_map<Entity, Archetype*>                      m_EntityMaps;
 };
 
 template <Component... Components>
 auto EntityManager::Create(const DynamicComponents& dynamic_components) -> Entity
-    requires utils::unique_types<Components...>
+    requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
 {
     return CreateMany<Components...>(1, dynamic_components)[0];
 }
 
 template <Component... Components>
-auto EntityManager::CreateMany(std::size_t num, const DynamicComponents& dynamic_components) -> std::pmr::vector<Entity>
-    requires utils::unique_types<Components...>
+auto EntityManager::CreateMany(std::size_t num, const DynamicComponents& dynamic_components) noexcept -> std::pmr::vector<Entity>
+    requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
 {
-    auto archetype_id = detail::get_archetype_id<Components...>(dynamic_components);
-    // no component
-    if (archetype_id == 0)
-        return {};
-
-    if (!m_Archetypes.contains(archetype_id)) {
-        m_Archetypes.emplace(archetype_id, std::make_shared<detail::Archetype<Components...>>(dynamic_components));
-    }
-
-    detail::IArchetype* archetype = m_Archetypes.at(archetype_id).get();
-
-    std::pmr::vector<Entity> result(num);
-    for (auto& entity : result) {
-        entity.id = m_Counter++;
-        m_EntityMaps.emplace(entity, archetype);
-    }
-
-    archetype->CreateEntities(result);
-
-    return result;
+    return CreateMany(num, detail::create_component_infos<Entity, Components...>(dynamic_components));
 }
 
 template <Component... Components>
 void EntityManager::Attach(Entity entity, const DynamicComponents& dynamic_components)
     requires utils::unique_types<Components...>
 {
-    if (!m_EntityMaps.contains(entity))
-        return;
-
-    auto old_archetype = m_EntityMaps[entity];
-    if (old_archetype->ID() == detail::get_archetype_id<Components...>(dynamic_components))
-        return;
+    Attach(entity, detail::create_component_infos<Components...>(dynamic_components));
 }
 
 template <Component... Components>
 void EntityManager::Detach(Entity entity, const DynamicComponents& dynamic_components)
-    requires utils::unique_types<Components...>
-{}
-
-template <Component T>
-auto EntityManager::GetComponent(Entity entity) -> utils::optional_ref<T> {
-    if (!m_EntityMaps.contains(entity)) return std::nullopt;
-
-    return m_EntityMaps[entity]->GetComponent<T>(entity);
+    requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
+{
+    Detach(entity, detail::create_component_infos<Components...>(dynamic_components));
 }
 
 template <Component T>
-auto EntityManager::GetComponent(Entity entity) const -> utils::optional_ref<const T> {
-    if (!m_EntityMaps.contains(entity)) return std::nullopt;
+auto EntityManager::GetComponent(Entity entity) noexcept -> utils::optional_ref<T> {
+    auto ptr = GetComponent(entity, detail::create_component_infos<T>().front());
+    if (ptr == nullptr) return std::nullopt;
+    return *reinterpret_cast<T*>(ptr);
+}
 
-    return m_EntityMaps.at(entity)->GetComponent<const T>(entity);
+template <Component T>
+auto EntityManager::GetComponent(Entity entity) const noexcept -> utils::optional_ref<const T> {
+    auto ptr = GetComponent(entity, detail::create_component_infos<T>().front());
+    if (ptr == nullptr) return std::nullopt;
+    return *reinterpret_cast<const T*>(ptr);
 }
 
 }  // namespace hitagi::ecs

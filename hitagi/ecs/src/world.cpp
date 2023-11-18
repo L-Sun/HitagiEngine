@@ -2,6 +2,7 @@
 #include <hitagi/ecs/schedule.hpp>
 #include <hitagi/utils/logger.hpp>
 
+#include <range/v3/view/map.hpp>
 #include <spdlog/spdlog.h>
 
 namespace hitagi::ecs {
@@ -14,15 +15,11 @@ World::World(std::string_view name)
 void World::Update() {
     Schedule schedule(*this);
 
-    for (auto&& [name, update_fn] : m_Systems) {
+    for (auto&& update_fn : m_Systems | ranges::views::values) {
         update_fn(schedule);
     }
 
     schedule.Run();
-}
-
-void World::WarnMessage(std::string_view message) {
-    m_Logger->warn(message);
 }
 
 }  // namespace hitagi::ecs

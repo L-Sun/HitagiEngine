@@ -1,6 +1,5 @@
 #pragma once
 
-#include <compare>
 #include <cstdint>
 #include <limits>
 #include <functional>
@@ -17,13 +16,17 @@ struct Entity {
     constexpr auto operator<=>(const Entity&) const = default;
 };
 
+inline auto format_as(Entity entity) {
+    return entity.id;
+}
+
 }  // namespace hitagi::ecs
 
 namespace std {
 template <>
 struct hash<hitagi::ecs::Entity> {
     constexpr size_t operator()(const hitagi::ecs::Entity& entity) const {
-        return static_cast<size_t>(entity.id);
+        return static_cast<std::size_t>(entity.id);
     }
 };
 }  // namespace std

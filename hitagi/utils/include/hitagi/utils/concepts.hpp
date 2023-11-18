@@ -49,9 +49,10 @@ struct function_traits<ReturnType (ClassType::*)(Args...) const> {
 
     constexpr static std::size_t args_size = sizeof...(Args);
 
-    using result_type = ReturnType;
+    using return_type = ReturnType;
 
-    constexpr static bool unique_parameter_types = is_unique_v<Args...>;
+    constexpr static bool unique_parameter_types          = is_unique_v<Args...>;
+    constexpr static bool unique_no_cvref_parameter_types = is_unique_v<std::remove_cvref_t<Args>...>;
 
     using args          = std::tuple<Args...>;
     using no_cvref_args = std::tuple<std::remove_cvref_t<Args>...>;
@@ -73,10 +74,16 @@ struct function_traits<ReturnType (ClassType::*)(Args...) const> {
 template <typename Func>
 concept unique_parameter_types = function_traits<Func>::unique_parameter_types;
 
+template <typename Func>
+concept unique_no_cvref_parameter_types = function_traits<Func>::unique_no_cvref_parameter_types;
+
 template <typename Ty1, typename Ty2>
 concept not_same_as = (!std::is_same_v<Ty1, Ty2>);
 
 template <typename T, typename... U>
 concept any_of = (std::same_as<T, U> || ...);
+
+template <typename T, typename... U>
+concept no_in = (!any_of<T, U...>);
 
 }  // namespace hitagi::utils

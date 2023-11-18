@@ -2,6 +2,8 @@
 #include <hitagi/ecs/world.hpp>
 #include <hitagi/utils/concepts.hpp>
 
+#include <fmt/format.h>
+
 #include <vector>
 
 namespace hitagi::ecs {
@@ -34,9 +36,12 @@ public:
     // Do task on the entities that contains components indicated at parameters.
     template <typename Func>
     Schedule& Request(std::string_view name, Func&& task, Filter filter = {})
-        requires utils::unique_parameter_types<Func>;
+        requires utils::unique_no_cvref_parameter_types<Func>;
 
-    // Schedule& RequestOnce(std::string_view name, std::function<void()>&& task);
+    World& world;
+
+private:
+    friend World;
 
     void Run() {
         for (auto&& task : m_Tasks) {
@@ -44,15 +49,12 @@ public:
         }
     }
 
-    World& world;
-
-private:
     std::pmr::vector<std::shared_ptr<ITask>> m_Tasks;
 };
 
 template <typename Func>
 Schedule& Schedule::Request(std::string_view name, Func&& task, Filter filter)
-    requires utils::unique_parameter_types<Func>
+    requires utils::unique_no_cvref_parameter_types<Func>
 {
     std::shared_ptr<ITask> task_info = std::make_shared<Task<Func>>(name, std::forward<Func>(task), std::move(filter));
 
@@ -64,19 +66,20 @@ Schedule& Schedule::Request(std::string_view name, Func&& task, Filter filter)
 template <typename Func>
 void Schedule::Task<Func>::Run(World& world) {
     [&]<std::size_t... I>(std::index_sequence<I...>) {
-        using traits          = utils::function_traits<Func>;
-        using component_types = std::tuple<typename traits::template no_cvref_arg<I>::type...>;
+        using traits                     = utils::function_traits<Func>;
+        using typed_component_types      = std::tuple<typename traits::template no_cvref_arg<I>::type...>;
+        const auto typed_component_infos = detail::create_component_infos<std::tuple_element_t<I, typed_component_types>...>();
 
-        filter.All<std::tuple_element_t<I, component_types>...>();
+        const auto components_buffers = world.GetEntityManager().GetComponentsBuffers(typed_component_infos, filter);
+        const auto num_buffers        = components_buffers.front().size();
 
-        for (auto archetype : world.GetEntityManager().GetArchetype(filter)) {
-            auto num_entities     = archetype->NumEntities();
-            auto components_array = std::make_tuple(archetype->GetComponentArray<std::tuple_element_t<I, component_types>>()...);
-
-            for (std::size_t index = 0; index < num_entities; index++) {
-                task(std::get<I>(components_array)[index]...);
+        for (std::size_t buffer_index = 0; buffer_index < num_buffers; buffer_index++) {
+            const auto num_entities = components_buffers.front()[buffer_index].second;
+            for (std::size_t entity_index = 0; entity_index < num_entities; entity_index++) {
+                auto component_data = std::array{(components_buffers[I][buffer_index].first + entity_index * typed_component_infos[I].size)...};
+                task((*reinterpret_cast<std::tuple_element_t<I, typed_component_types>*>(component_data[I]))...);
             }
-        };
+        }
     }(std::make_index_sequence<utils::function_traits<Func>::args_size>{});
 }
 

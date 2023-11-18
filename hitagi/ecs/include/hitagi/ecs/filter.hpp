@@ -4,7 +4,8 @@
 
 namespace hitagi::ecs {
 
-struct Filter {
+class Filter {
+public:
     template <Component... Components>
     auto All(const DynamicComponents& dynamic_components = {}) noexcept -> Filter&
         requires utils::unique_types<Components...>;
@@ -17,42 +18,34 @@ struct Filter {
     auto None(const DynamicComponents& dynamic_components = {}) noexcept -> Filter&
         requires utils::unique_types<Components...>;
 
-    std::pmr::set<utils::TypeID> all;
-    std::pmr::set<utils::TypeID> any;
-    std::pmr::set<utils::TypeID> none;
+private:
+    friend class EntityManager;
+    auto AddComponentToFilter(detail::ComponentInfos& filter, detail::ComponentInfos new_component_infos) noexcept -> Filter&;
+
+    detail::ComponentInfos m_All;
+    detail::ComponentInfos m_Any;
+    detail::ComponentInfos m_None;
 };
 
 template <Component... Components>
 auto Filter::All(const DynamicComponents& dynamic_components) noexcept -> Filter&
     requires utils::unique_types<Components...>
 {
-    (all.emplace(utils::TypeID::Create<Components>()), ...);
-    for (const auto& dynamic_component : dynamic_components) {
-        all.emplace(utils::TypeID{dynamic_component.name});
-    }
-    return *this;
+    return AddComponentToFilter(m_All, detail::create_component_infos<Components...>(dynamic_components));
 }
 
 template <Component... Components>
 auto Filter::Any(const DynamicComponents& dynamic_components) noexcept -> Filter&
     requires utils::unique_types<Components...>
 {
-    (any.emplace(utils::TypeID::Create<Components>()), ...);
-    for (const auto& dynamic_component : dynamic_components) {
-        any.emplace(utils::TypeID{dynamic_component.name});
-    }
-    return *this;
+    return AddComponentToFilter(m_Any, detail::create_component_infos<Components...>(dynamic_components));
 }
 
 template <Component... Components>
 auto Filter::None(const DynamicComponents& dynamic_components) noexcept -> Filter&
     requires utils::unique_types<Components...>
 {
-    (none.emplace(utils::TypeID::Create<Components>()), ...);
-    for (const auto& dynamic_component : dynamic_components) {
-        none.emplace(utils::TypeID{dynamic_component.name});
-    }
-    return *this;
+    return AddComponentToFilter(m_None, detail::create_component_infos<Components...>(dynamic_components));
 }
 
 }  // namespace hitagi::ecs

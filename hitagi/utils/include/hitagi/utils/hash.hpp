@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <functional>
 #include <string_view>
+#include <set>
 
 namespace hitagi::utils {
 template <typename T>
@@ -18,6 +19,13 @@ constexpr inline std::size_t combine_hash(const std::array<std::size_t, N>& hash
 }
 
 constexpr inline std::size_t combine_hash(const std::pmr::vector<std::size_t>& hash_values, std::size_t seed = 0) noexcept {
+    for (std::size_t hash : hash_values) {
+        seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+    return seed;
+}
+
+inline std::size_t combine_hash(const std::pmr::set<std::size_t>& hash_values, std::size_t seed = 0) noexcept {
     for (std::size_t hash : hash_values) {
         seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
