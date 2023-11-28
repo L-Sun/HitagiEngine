@@ -1,6 +1,8 @@
 #include <hitagi/asset/mesh.hpp>
 #include <hitagi/gfx/device.hpp>
 
+#include <magic_enum_utility.hpp>
+
 namespace hitagi::asset {
 VertexArray::VertexArray(std::size_t vertex_count, std::string_view name)
     : Resource(Type::Vertex, name),

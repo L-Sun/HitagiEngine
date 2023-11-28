@@ -4,6 +4,7 @@
 #include "dx12_resource.hpp"
 
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <magic_enum_utility.hpp>
 #include <fmt/color.h>
 #include <tracy/Tracy.hpp>
 

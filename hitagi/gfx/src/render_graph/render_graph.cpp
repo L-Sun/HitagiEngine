@@ -5,7 +5,8 @@
 #include <hitagi/utils/logger.hpp>
 
 #include <fmt/color.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include <magic_enum_utility.hpp>
+#include <range/v3/algorithm/for_each.hpp>
 #include <range/v3/numeric/accumulate.hpp>
 #include <range/v3/view/filter.hpp>
 #include <range/v3/view/for_each.hpp>
@@ -14,8 +15,8 @@
 #include <range/v3/view/map.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/enumerate.hpp>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <tracy/Tracy.hpp>
-#include "range/v3/algorithm/for_each.hpp"
 
 namespace hitagi::rg {
 

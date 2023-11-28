@@ -2,6 +2,8 @@
 #include <hitagi/gfx/common_types.hpp>
 #include <hitagi/gfx/sync.hpp>
 
+#include <magic_enum_flags.hpp>
+
 #include <array>
 
 namespace hitagi::gfx {

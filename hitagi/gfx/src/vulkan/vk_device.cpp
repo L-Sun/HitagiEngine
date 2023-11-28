@@ -6,6 +6,7 @@
 #include "vk_utils.hpp"
 
 #include <fmt/color.h>
+#include <magic_enum_utility.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.hpp>

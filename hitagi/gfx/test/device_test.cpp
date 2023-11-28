@@ -5,6 +5,9 @@
 #include <hitagi/application.hpp>
 #include <hitagi/utils/test.hpp>
 #include <hitagi/utils/flags.hpp>
+
+#include <magic_enum_flags.hpp>
+
 #include <numeric>
 
 using namespace hitagi::core;
