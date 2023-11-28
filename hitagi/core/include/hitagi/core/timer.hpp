@@ -25,7 +25,7 @@ private:
     std::chrono::high_resolution_clock::time_point m_StopTime;
     std::chrono::high_resolution_clock::time_point m_TickTime;
 
-    std::chrono::duration<double> m_Deltatime = std::chrono::duration<double>::zero();
+    std::chrono::duration<double> m_DeltaTime = std::chrono::duration<double>::zero();
 
     bool m_Paused = true;
 };
