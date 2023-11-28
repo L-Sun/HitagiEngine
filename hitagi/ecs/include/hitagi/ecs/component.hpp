@@ -5,6 +5,7 @@
 
 #include <string>
 #include <set>
+#include <unordered_set>
 #include <functional>
 
 namespace hitagi::ecs {
@@ -12,61 +13,81 @@ namespace hitagi::ecs {
 template <typename T>
 concept Component = std::is_class_v<T> && utils::no_cvref<T> && std::is_default_constructible_v<T>;
 
-struct DynamicComponent {
+struct ComponentInfo {
     std::pmr::string name;
+    utils::TypeID    type_id;
     std::size_t      size;
 
     std::function<void(std::byte*)> constructor, destructor;
 
-    constexpr auto operator<=>(const DynamicComponent& rhs) const noexcept {
-        return name <=> rhs.name;  // use name as key
-    };
+    constexpr auto operator<=>(const ComponentInfo& rhs) const noexcept {
+        return std::tie(size, type_id) <=> std::tie(rhs.size, rhs.type_id);
+    }
+    constexpr auto operator==(const ComponentInfo& rhs) const noexcept {
+        return type_id == rhs.type_id;
+    }
+    constexpr auto operator!=(const ComponentInfo& rhs) const noexcept {
+        return type_id != rhs.type_id;
+    }
 };
-using DynamicComponents = std::pmr::set<DynamicComponent>;
+
+using DynamicComponentSet  = std::pmr::unordered_set<std::pmr::string>;
+using DynamicComponentList = std::pmr::vector<std::pmr::string>;
 
 namespace detail {
 
-struct ComponentInfo {
-    utils::TypeID type_id;
-    std::size_t   size;
+using ComponentInfoSet = std::pmr::set<ComponentInfo>;
 
-    std::function<void(std::byte*)> constructor, destructor;
-
-    std::pmr::string name;
-
-    constexpr auto operator<=>(const ComponentInfo& rhs) const noexcept {
-        return std::tie(type_id, size) <=> std::tie(rhs.type_id, rhs.size);
-    }
-    constexpr auto operator==(const ComponentInfo& rhs) const noexcept {
-        return type_id == rhs.type_id && size == rhs.size;
-    }
-    constexpr auto operator!=(const ComponentInfo& rhs) const noexcept {
-        return type_id != rhs.type_id || size != rhs.size;
-    }
-};
-using ComponentInfos = std::pmr::vector<ComponentInfo>;
+template <Component T>
+constexpr auto create_static_component_info() noexcept {
+    return ComponentInfo{
+        .name        = typeid(T).name(),
+        .type_id     = utils::TypeID::Create<T>(),
+        .size        = sizeof(T),
+        .constructor = [](std::byte* ptr) { std::construct_at(reinterpret_cast<T*>(ptr)); },
+        .destructor  = [](std::byte* ptr) { std::destroy_at(reinterpret_cast<T*>(ptr)); },
+    };
+}
 
 template <Component... Components>
-auto create_component_infos(const DynamicComponents& dynamic_components = {}) noexcept {
-    ComponentInfos result = {ComponentInfo{
-        .type_id     = utils::TypeID::Create<Components>(),
-        .size        = sizeof(Components),
-        .constructor = [](std::byte* ptr) { std::construct_at(reinterpret_cast<Components*>(ptr)); },
-        .destructor  = [](std::byte* ptr) { std::destroy_at(reinterpret_cast<Components*>(ptr)); },
-        .name        = typeid(Components).name(),
-    }...};
-    for (const auto& dynamic_component : dynamic_components) {
-        result.emplace_back(utils::TypeID{dynamic_component.name}, dynamic_component.size, dynamic_component.constructor, dynamic_component.destructor, dynamic_component.name);
+    requires utils::unique_types<Components...>
+auto create_component_info_set(const ComponentInfoSet& dynamic_components) noexcept {
+    ComponentInfoSet result = {create_static_component_info<Components>()...};
+    for (auto dynamic_component : dynamic_components) {
+        dynamic_component.type_id = utils::TypeID(dynamic_component.name);
+        result.emplace(dynamic_component);
     }
     return result;
 }
+
+using ComponentIDSet  = std::pmr::unordered_set<utils::TypeID>;
+using ComponentIDList = std::pmr::vector<utils::TypeID>;
+
+template <Component... Components>
+auto create_component_id_set(const DynamicComponentSet& dynamic_components) noexcept {
+    ComponentIDSet result = {utils::TypeID::Create<Components>()...};
+    for (const auto& dynamic_component : dynamic_components) {
+        result.emplace(dynamic_component);
+    }
+    return result;
+}
+
+template <Component... Components>
+auto create_component_id_list(const DynamicComponentList& dynamic_components) noexcept {
+    ComponentIDList result = {utils::TypeID::Create<Components>()...};
+    for (const auto& dynamic_component : dynamic_components) {
+        result.emplace_back(dynamic_component);
+    }
+    return result;
+}
+
 }  // namespace detail
 }  // namespace hitagi::ecs
 
 namespace std {
 template <>
-struct hash<hitagi::ecs::detail::ComponentInfo> {
-    std::size_t operator()(const hitagi::ecs::detail::ComponentInfo& info) const noexcept {
+struct hash<hitagi::ecs::ComponentInfo> {
+    std::size_t operator()(const hitagi::ecs::ComponentInfo& info) const noexcept {
         return info.type_id.GetValue();
     }
 };

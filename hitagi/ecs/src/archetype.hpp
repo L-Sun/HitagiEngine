@@ -7,28 +7,29 @@
 namespace hitagi::ecs {
 class Archetype {
 public:
-    Archetype(detail::ComponentInfos component_infos);
+    Archetype(detail::ComponentInfoSet component_infos);
     Archetype(const Archetype&)            = delete;
     Archetype(Archetype&&) noexcept        = default;
     Archetype& operator=(const Archetype&) = delete;
     Archetype& operator=(Archetype&&)      = default;
     ~Archetype();
 
-    inline const auto& GetComponentInfos() const noexcept { return m_ComponentInfos; }
+    inline const auto& GetComponentInfoSet() const noexcept { return m_ComponentInfoSet; }
 
     void CreateEntities(const std::pmr::vector<Entity>& entities) noexcept;
     void DeleteEntity(Entity entity) noexcept;
-    auto GetComponentBuffers(const detail::ComponentInfo& component_info) const noexcept -> std::pmr::vector<std::pair<std::byte*, std::size_t>>;
-    auto GetComponentData(const detail::ComponentInfo& component_info, Entity entity) const noexcept -> std::byte*;
+    auto GetComponentBuffers(const ComponentInfo& component) const noexcept -> std::pmr::vector<std::pair<std::byte*, std::size_t>>;
+    auto GetComponentData(Entity entity, const ComponentInfo& component) const noexcept -> std::byte*;
     auto NumEntities() const noexcept -> std::size_t;
+    bool HasComponent(utils::TypeID component) const noexcept;
 
 private:
     struct ChunkInfo {
         constexpr static auto chunk_size = 2_kB;
         constexpr static auto align_size = 64;
 
-        std::size_t                                                 num_entities_per_chunk;
-        std::pmr::unordered_map<detail::ComponentInfo, std::size_t> component_offsets;
+        std::size_t                                         num_entities_per_chunk;
+        std::pmr::unordered_map<ComponentInfo, std::size_t> component_offsets;
     };
 
     struct Chunk {
@@ -46,9 +47,9 @@ private:
     auto GetLastEntity() const -> Entity;
     void SwapEntityData(Entity lhs, Entity rhs) noexcept;
 
-    detail::ComponentInfos  m_ComponentInfos;
-    ChunkInfo               m_ChunkInfo;
-    std::pmr::vector<Chunk> m_Chunks;
+    detail::ComponentInfoSet m_ComponentInfoSet;
+    ChunkInfo                m_ChunkInfo;
+    std::pmr::vector<Chunk>  m_Chunks;
 
     // chunk index, index in chunk
     std::pmr::unordered_map<Entity, std::pair<std::size_t, std::size_t>> m_EntityMap;

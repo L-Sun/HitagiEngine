@@ -18,20 +18,22 @@ class EntityManager {
 public:
     ~EntityManager();
 
+    void RegisterDynamicComponent(ComponentInfo dynamic_component);
+
     template <Component... Components>
-    auto Create(const DynamicComponents& dynamic_components = {}) -> Entity
+    auto Create(const DynamicComponentSet& dynamic_components = {}) -> Entity
         requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>;
 
     template <Component... Components>
-    auto CreateMany(std::size_t num, const DynamicComponents& dynamic_components = {}) noexcept -> std::pmr::vector<Entity>
+    auto CreateMany(std::size_t num, const DynamicComponentSet& dynamic_components = {}) noexcept -> std::pmr::vector<Entity>
         requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>;
 
     template <Component... Components>
-    void Attach(Entity entity, const DynamicComponents& dynamic_components = {})
+    void Attach(Entity entity, const DynamicComponentSet& dynamic_components = {})
         requires utils::unique_types<Components...>;
 
     template <Component... Components>
-    void Detach(Entity entity, const DynamicComponents& dynamic_components = {})
+    void Detach(Entity entity, const DynamicComponentSet& dynamic_components = {})
         requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>;
 
     void Destroy(Entity entity);
@@ -46,7 +48,7 @@ public:
     template <Component T>
     auto GetComponent(Entity entity) const noexcept -> utils::optional_ref<const T>;
 
-    auto GetDynamicComponent(Entity entity, const DynamicComponent& dynamic_component) const noexcept -> std::byte*;
+    auto GetDynamicComponent(Entity entity, std::string_view dynamic_component) const noexcept -> std::byte*;
 
 private:
     friend World;
@@ -54,15 +56,24 @@ private:
 
     EntityManager(World& world);
 
-    auto CreateMany(std::size_t num, const detail::ComponentInfos& component_infos) noexcept -> std::pmr::vector<Entity>;
-    void Attach(Entity entity, const detail::ComponentInfos& component_infos);
-    void Detach(Entity entity, const detail::ComponentInfos& component_infos);
-    auto GetComponent(Entity entity, const detail::ComponentInfo& component_info) const noexcept -> std::byte*;
-    auto GetOrCreateArchetype(const detail::ComponentInfos& component_infos) noexcept -> Archetype&;
+    void UpdateComponentInfos(const detail::ComponentInfoSet& component_infos);
+    auto CreateMany(std::size_t num, const detail::ComponentInfoSet& component_infos) noexcept -> std::pmr::vector<Entity>;
+    void Attach(Entity entity, const detail::ComponentInfoSet& component_infos);
+    void Detach(Entity entity, const detail::ComponentInfoSet& component_infos);
+    auto GetComponent(Entity entity, const ComponentInfo& component) const noexcept -> std::byte*;
+    auto GetOrCreateArchetype(const detail::ComponentInfoSet& component_infos) noexcept -> Archetype&;
 
-    using ComponentBuffer = std::pair<std::byte*, std::size_t>;
-    auto GetComponentsBuffers(const detail::ComponentInfos& component_infos, Filter filter) const noexcept
-        -> std::pmr::vector<std::pmr::vector<ComponentBuffer>>;  // [num_buffers, num_components]
+    struct ComponentData {
+        std::byte*  data;
+        std::size_t size;
+        std::size_t num_entities;
+
+        auto operator[](std::size_t index) const noexcept -> std::byte* { return data + index * size; }
+    };
+    auto GetComponentsBuffers(const detail::ComponentIDList& components, Filter filter) const noexcept
+        -> std::pmr::vector<std::pmr::vector<ComponentData>>;  // [num_components, num_buffers]
+
+    auto GetDynamicComponentInfoSet(const DynamicComponentSet& dynamic_components) const noexcept -> detail::ComponentInfoSet;
 
     World& m_World;
 
@@ -70,46 +81,48 @@ private:
 
     std::pmr::unordered_map<ArchetypeID, std::unique_ptr<Archetype>> m_Archetypes;
     std::pmr::unordered_map<Entity, Archetype*>                      m_EntityMaps;
+
+    std::pmr::unordered_map<utils::TypeID, ComponentInfo> m_ComponentMap;
 };
 
 template <Component... Components>
-auto EntityManager::Create(const DynamicComponents& dynamic_components) -> Entity
+auto EntityManager::Create(const DynamicComponentSet& dynamic_components) -> Entity
     requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
 {
     return CreateMany<Components...>(1, dynamic_components)[0];
 }
 
 template <Component... Components>
-auto EntityManager::CreateMany(std::size_t num, const DynamicComponents& dynamic_components) noexcept -> std::pmr::vector<Entity>
+auto EntityManager::CreateMany(std::size_t num, const DynamicComponentSet& dynamic_components) noexcept -> std::pmr::vector<Entity>
     requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
 {
-    return CreateMany(num, detail::create_component_infos<Entity, Components...>(dynamic_components));
+    return CreateMany(num, detail::create_component_info_set<Entity, Components...>(GetDynamicComponentInfoSet(dynamic_components)));
 }
 
 template <Component... Components>
-void EntityManager::Attach(Entity entity, const DynamicComponents& dynamic_components)
+void EntityManager::Attach(Entity entity, const DynamicComponentSet& dynamic_components)
     requires utils::unique_types<Components...>
 {
-    Attach(entity, detail::create_component_infos<Components...>(dynamic_components));
+    Attach(entity, detail::create_component_info_set<Components...>(GetDynamicComponentInfoSet(dynamic_components)));
 }
 
 template <Component... Components>
-void EntityManager::Detach(Entity entity, const DynamicComponents& dynamic_components)
+void EntityManager::Detach(Entity entity, const DynamicComponentSet& dynamic_components)
     requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
 {
-    Detach(entity, detail::create_component_infos<Components...>(dynamic_components));
+    Detach(entity, detail::create_component_info_set<Components...>(GetDynamicComponentInfoSet(dynamic_components)));
 }
 
 template <Component T>
 auto EntityManager::GetComponent(Entity entity) noexcept -> utils::optional_ref<T> {
-    auto ptr = GetComponent(entity, detail::create_component_infos<T>().front());
+    auto ptr = GetComponent(entity, detail::create_static_component_info<T>());
     if (ptr == nullptr) return std::nullopt;
     return *reinterpret_cast<T*>(ptr);
 }
 
 template <Component T>
 auto EntityManager::GetComponent(Entity entity) const noexcept -> utils::optional_ref<const T> {
-    auto ptr = GetComponent(entity, detail::create_component_infos<T>().front());
+    auto ptr = GetComponent(entity, detail::create_static_component_info<T>());
     if (ptr == nullptr) return std::nullopt;
     return *reinterpret_cast<const T*>(ptr);
 }

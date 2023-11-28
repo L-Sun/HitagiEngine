@@ -121,7 +121,7 @@ struct Vector : public BaseVector<T, D> {
     Vector& operator=(const Vector&)     = default;
     Vector& operator=(Vector&&) noexcept = default;
 
-    constexpr explicit Vector(T&& num) : BaseVector<T, D>(utils::create_array<T, D>(std::forward<T>(num))) {}
+    constexpr explicit Vector(T num) : BaseVector<T, D>(utils::create_array<T, D>(std::forward<T>(num))) {}
 
     Vector(const Vector<T, D - 1>& v, const T& num) {
         std::copy_n(v.data.begin(), D - 1, data.begin());
@@ -149,6 +149,11 @@ struct Vector : public BaseVector<T, D> {
 
     friend std::ostream& operator<<(std::ostream& out, const Vector& v) {
         return out << fmt::format("{::>6}", v) << std::flush;
+    }
+
+    constexpr Vector& operator=(T num) noexcept {
+        for (unsigned i = 0; i < D; i++) data[i] = num;
+        return *this;
     }
 
     constexpr Vector operator+(const Vector& rhs) const noexcept {
@@ -294,6 +299,8 @@ template <typename T>
 struct Quaternion : public Vector<T, 4> {
     using Vector<T, 4>::Vector;
     using Vector<T, 4>::data;
+
+    constexpr static Quaternion identity() noexcept { return {0, 0, 0, 1}; }
 
     constexpr Quaternion operator*(const Quaternion& rhs) const noexcept {
         return {

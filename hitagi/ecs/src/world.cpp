@@ -9,17 +9,14 @@ namespace hitagi::ecs {
 World::World(std::string_view name)
     : m_Name(name),
       m_Logger(utils::try_create_logger(name)),
-      m_EntityManager(*this) {
+      m_EntityManager(*this),
+      m_SystemManager(*this) {
 }
 
 void World::Update() {
     Schedule schedule(*this);
-
-    for (auto&& update_fn : m_Systems | ranges::views::values) {
-        update_fn(schedule);
-    }
-
-    schedule.Run();
+    m_SystemManager.Update(schedule);
+    schedule.Run(m_Executor);
 }
 
 }  // namespace hitagi::ecs
