@@ -138,6 +138,8 @@ template <typename T>
 using decay_parameter_t = std::remove_cvref_t<remove_last_frame_tag_t<T>>;
 
 struct Parameter {
+    Parameter(std::byte* data) : data(data) {}
+
     std::byte* data;
 
     template <typename T>
@@ -243,8 +245,7 @@ void Schedule::Task<Func>::Run(World& world) {
         for (std::size_t buffer_index = 0; buffer_index < num_buffers; buffer_index++) {
             const auto num_entities = components_buffers.front()[buffer_index].num_entities;
             for (std::size_t entity_index = 0; entity_index < num_entities; entity_index++) {
-                auto component_data = std::array{detail::Parameter{components_buffers[I][buffer_index][entity_index]}...};
-                task(component_data[I]...);
+                task(detail::Parameter(components_buffers[I][buffer_index][entity_index])...);
             }
         }
     }(std::make_index_sequence<traits::args_size>{});
