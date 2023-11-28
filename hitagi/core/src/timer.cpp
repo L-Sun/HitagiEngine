@@ -6,7 +6,7 @@ Clock::Clock()
     : m_BaseTime(std::chrono::high_resolution_clock::now()), m_StopTime(m_BaseTime) {}
 
 auto Clock::DeltaTime() const -> std::chrono::duration<double> {
-    return m_Deltatime;
+    return m_DeltaTime;
 }
 
 auto Clock::TotalTime() const -> std::chrono::duration<double> {
@@ -24,7 +24,7 @@ void Clock::Tick() {
         return;
     }
     auto now    = std::chrono::high_resolution_clock::now();
-    m_Deltatime = now - m_TickTime;
+    m_DeltaTime = now - m_TickTime;
     m_TickTime  = now;
 }
 

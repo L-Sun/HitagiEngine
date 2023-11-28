@@ -7,8 +7,6 @@
 #include <array>
 #include <memory_resource>
 
-constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
-
 namespace hitagi::core {
 class MemoryPool;
 

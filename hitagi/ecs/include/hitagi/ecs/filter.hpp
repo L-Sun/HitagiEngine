@@ -3,56 +3,67 @@
 #include <hitagi/utils/types.hpp>
 
 namespace hitagi::ecs {
+class Archetype;
 
-struct Filter {
-    template <Component... Components>
-    auto All(const DynamicComponents& dynamic_components = {}) noexcept -> Filter&
-        requires utils::unique_types<Components...>;
+class ComponentChecker {
+public:
+    template <Component T>
+    inline bool Exists() const noexcept;
+    inline bool Exists(std::string_view dynamic_component) const noexcept;
 
-    template <Component... Components>
-    auto Any(const DynamicComponents& dynamic_components = {}) noexcept -> Filter&
-        requires utils::unique_types<Components...>;
+private:
+    friend class EntityManager;
+    ComponentChecker(Archetype* archetype) : m_Archetype(archetype) {}
 
-    template <Component... Components>
-    auto None(const DynamicComponents& dynamic_components = {}) noexcept -> Filter&
-        requires utils::unique_types<Components...>;
+    bool Exists(utils::TypeID component) const noexcept;
 
-    std::pmr::set<utils::TypeID> all;
-    std::pmr::set<utils::TypeID> any;
-    std::pmr::set<utils::TypeID> none;
+    Archetype* m_Archetype;
 };
 
+using Filter = std::function<bool(const ComponentChecker&)>;
+
+namespace filter {
 template <Component... Components>
-auto Filter::All(const DynamicComponents& dynamic_components) noexcept -> Filter&
-    requires utils::unique_types<Components...>
-{
-    (all.emplace(utils::TypeID::Create<Components>()), ...);
-    for (const auto& dynamic_component : dynamic_components) {
-        all.emplace(utils::TypeID{dynamic_component.name});
-    }
-    return *this;
+Filter All(const DynamicComponentSet& dynamic_components = {}) noexcept {
+    return [=](const ComponentChecker& checker) {
+        bool result = (checker.Exists<Components>() && ...);
+        for (const auto& dynamic_component : dynamic_components) {
+            result &= checker.Exists(dynamic_component);
+        }
+        return result;
+    };
 }
 
 template <Component... Components>
-auto Filter::Any(const DynamicComponents& dynamic_components) noexcept -> Filter&
-    requires utils::unique_types<Components...>
-{
-    (any.emplace(utils::TypeID::Create<Components>()), ...);
-    for (const auto& dynamic_component : dynamic_components) {
-        any.emplace(utils::TypeID{dynamic_component.name});
-    }
-    return *this;
+Filter Any(const DynamicComponentSet& dynamic_components = {}) noexcept {
+    return [=](const ComponentChecker& checker) {
+        bool result = (checker.Exists<Components>() || ...);
+        for (const auto& dynamic_component : dynamic_components) {
+            result |= checker.Exists(dynamic_component);
+        }
+        return result;
+    };
 }
 
 template <Component... Components>
-auto Filter::None(const DynamicComponents& dynamic_components) noexcept -> Filter&
-    requires utils::unique_types<Components...>
-{
-    (none.emplace(utils::TypeID::Create<Components>()), ...);
-    for (const auto& dynamic_component : dynamic_components) {
-        none.emplace(utils::TypeID{dynamic_component.name});
-    }
-    return *this;
+Filter None(const DynamicComponentSet& dynamic_components = {}) noexcept {
+    return [=](const ComponentChecker& checker) {
+        bool result = !(checker.Exists<Components>() || ...);
+        for (const auto& dynamic_component : dynamic_components) {
+            result &= !checker.Exists(dynamic_component);
+        }
+        return result;
+    };
+}
+
+}  // namespace filter
+
+template <Component T>
+inline bool ComponentChecker::Exists() const noexcept {
+    return Exists(utils::TypeID::Create<T>());
+}
+inline bool ComponentChecker::Exists(std::string_view dynamic_component) const noexcept {
+    return Exists(utils::TypeID(dynamic_component));
 }
 
 }  // namespace hitagi::ecs

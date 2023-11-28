@@ -3,6 +3,8 @@
 #include <string_view>
 #include <fmt/format.h>
 
+constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
+
 namespace hitagi::utils {
 constexpr std::size_t align(size_t x, size_t a) {
     return (x + a - 1) & ~(a - 1);
