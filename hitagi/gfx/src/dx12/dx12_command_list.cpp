@@ -169,7 +169,7 @@ void DX12GraphicsCommandList::SetScissorRect(const Rect& scissor_rect) {
     command_list->RSSetScissorRects(1, &d3d_scissor_rect);
 }
 
-void DX12GraphicsCommandList::SetBlendColor(const math::vec4f& color) {
+void DX12GraphicsCommandList::SetBlendColor(const math::Color& color) {
     command_list->OMSetBlendFactor(color);
 }
 

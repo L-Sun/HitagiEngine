@@ -27,10 +27,10 @@ inline constexpr auto get_vec3(const aiVector3D& v) noexcept {
     return vec3f{v.x, v.y, v.z};
 };
 inline constexpr auto get_color(const aiColor3D& c) noexcept {
-    return vec3f{c.r, c.g, c.b};
+    return Color{c.r, c.g, c.b, 1.0f};
 }
 inline constexpr auto get_color(const aiColor4D& c) noexcept {
-    return vec4f{c.r, c.g, c.b, c.a};
+    return Color{c.r, c.g, c.b, c.a};
 };
 inline constexpr auto get_primitive(unsigned int primitives) noexcept {
     if (primitives & aiPrimitiveType::aiPrimitiveType_LINE)

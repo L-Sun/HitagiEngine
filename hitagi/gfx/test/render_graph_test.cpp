@@ -250,7 +250,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                                      .width       = swap_chain->GetWidth(),
                                      .height      = swap_chain->GetHeight(),
                                      .format      = Format::R8G8B8A8_UNORM,
-                                     .clear_value = vec4f(0.0, 0.0, 0.0, 1.0),
+                                     .clear_value = Color(0.0, 0.0, 0.0, 1.0),
                                      .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
                                  },
                                  "output"),

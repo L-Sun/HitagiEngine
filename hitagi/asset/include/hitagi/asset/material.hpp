@@ -7,7 +7,6 @@
 
 #include <variant>
 #include <unordered_set>
-#include <array>
 
 namespace hitagi::asset {
 
@@ -24,6 +23,7 @@ using MaterialParameterValue = std::variant<
     math::vec4i,
     math::vec4u,
     math::vec4f,
+    math::Color,
     math::mat4f,
     std::shared_ptr<Texture>>;
 

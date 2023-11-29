@@ -51,7 +51,7 @@ std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer) {
         logger->trace("[BMP] Image Height:       {}", bmp_header->height);
         logger->trace("[BMP] Image Planes:       {}", bmp_header->planes);
         logger->trace("[BMP] Image BitCount:     {}", bmp_header->bit_count);
-        logger->trace("[BMP] Image Comperession: {}", bmp_header->compression);
+        logger->trace("[BMP] Image Compression: {}", bmp_header->compression);
         logger->trace("[BMP] Image Size:         {}", bmp_header->size_image);
 
         if (bmp_header->bit_count < 24) {

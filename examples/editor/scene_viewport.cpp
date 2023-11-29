@@ -24,7 +24,7 @@ void SceneViewPort::Tick() {
                     .width       = window_size.x,
                     .height      = window_size.y,
                     .format      = gfx::Format::R8G8B8A8_UNORM,
-                    .clear_value = math::vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+                    .clear_value = math::Color{0.0f, 0.0f, 0.0f, 1.0f},
                     .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::SRV,
                 });
 

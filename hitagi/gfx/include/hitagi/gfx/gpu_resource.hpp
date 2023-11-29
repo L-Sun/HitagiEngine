@@ -159,7 +159,7 @@ using Sampler = ResourceWithDesc<SamplerDesc>;
 struct SwapChainDesc {
     std::pmr::string name = UNKOWN_NAME;
     utils::Window    window;
-    ClearColor       clear_color  = math::vec4f(0, 0, 0, 1);
+    ClearColor       clear_color  = math::Color(0, 0, 0, 1);
     std::uint32_t    sample_count = 1;
     bool             vsync        = false;
 };

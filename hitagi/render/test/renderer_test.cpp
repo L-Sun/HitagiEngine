@@ -53,7 +53,7 @@ TEST_P(RendererTest, ForwardRenderer) {
             .width       = renderer.GetSwapChain().GetWidth(),
             .height      = renderer.GetSwapChain().GetHeight(),
             .format      = gfx::Format::R8G8B8A8_UNORM,
-            .clear_value = math::vec4f(0.0, 0.0, 0.0, 1.0),
+            .clear_value = math::Color(0.0, 0.0, 0.0, 1.0),
             .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc,
         });
 

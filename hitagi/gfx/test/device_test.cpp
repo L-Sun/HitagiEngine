@@ -254,7 +254,7 @@ TEST_P(DeviceTest, CreateTexture1D) {
             .name        = test_name,
             .width       = 128,
             .format      = Format::R8G8B8A8_UNORM,
-            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+            .clear_value = Color::White(),
         });
     EXPECT_TRUE(texture != nullptr);
 }
@@ -268,7 +268,7 @@ TEST_P(DeviceTest, CreateTexture2D) {
             .width       = 128,
             .height      = 128,
             .format      = Format::R8G8B8A8_UNORM,
-            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+            .clear_value = Color::White(),
             .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
         },
         data.Span<const std::byte>());
@@ -284,7 +284,7 @@ TEST_P(DeviceTest, CreateTexture3D) {
             .height      = 128,
             .depth       = 128,
             .format      = Format::R8G8B8A8_UNORM,
-            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+            .clear_value = Color::White(),
         });
 
     EXPECT_TRUE(texture != nullptr);
@@ -298,7 +298,7 @@ TEST_P(DeviceTest, CreateTexture2DArray) {
             .height      = 128,
             .array_size  = 6,
             .format      = Format::R8G8B8A8_UNORM,
-            .clear_value = {vec4f(1.0f, 1.0f, 1.0f, 1.0f)},
+            .clear_value = Color::White(),
         });
 
     EXPECT_TRUE(texture != nullptr);
@@ -859,7 +859,7 @@ TEST_P(CopyCommandTest, CopyTexture) {
         .width       = 1024,
         .height      = 1024,
         .format      = Format::R32G32B32A32_FLOAT,
-        .clear_value = vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+        .clear_value = Color::Black(),
         .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopySrc,
     });
 
@@ -868,7 +868,7 @@ TEST_P(CopyCommandTest, CopyTexture) {
         .width       = 1024,
         .height      = 1024,
         .format      = Format::R32G32B32A32_UINT,  // ! different format here
-        .clear_value = vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+        .clear_value = Color::Black(),
         .usages      = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
     });
 

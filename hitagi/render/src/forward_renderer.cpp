@@ -21,7 +21,7 @@ ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, gu
       m_SwapChain(m_GfxDevice.CreateSwapChain({
           .name        = "SwapChain",
           .window      = app.GetWindow(),
-          .clear_color = math::vec4f(0, 0, 0, 1),
+          .clear_color = math::Color(0, 0, 0, 1),
       })),
       m_RenderGraph(m_GfxDevice, "ForwardRenderGraph"),
       m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, m_GfxDevice) : nullptr)
@@ -285,7 +285,7 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
 
                 frame_constant.front().light_position    = {light_node->GetLightGlobalPosition(), 1.0f};
                 frame_constant.front().light_pos_in_view = camera->GetView() * math::vec4f(light_node->GetLightGlobalPosition(), 1.0f);
-                frame_constant.front().light_color       = light_node->GetObjectRef()->parameters.color;
+                frame_constant.front().light_color       = light_node->GetObjectRef()->parameters.color.rgb;
                 frame_constant.front().light_intensity   = light_node->GetObjectRef()->parameters.intensity;
             }
         }

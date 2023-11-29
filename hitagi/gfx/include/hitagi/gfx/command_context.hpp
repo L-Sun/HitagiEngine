@@ -51,7 +51,7 @@ public:
 
     virtual void SetViewPort(const ViewPort& view_port)   = 0;
     virtual void SetScissorRect(const Rect& scissor_rect) = 0;
-    virtual void SetBlendColor(const math::vec4f& color)  = 0;
+    virtual void SetBlendColor(const math::Color& color)  = 0;
 
     virtual void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0) = 0;
     virtual void SetVertexBuffers(

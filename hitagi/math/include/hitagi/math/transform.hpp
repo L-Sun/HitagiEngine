@@ -19,11 +19,12 @@ constexpr T rad2deg(T radians) {
     return radians * 180.0 * std::numbers::inv_pi;
 }
 
-constexpr auto to_hex(const vec3f& v) noexcept -> Vector<std::uint8_t, 3> {
+constexpr auto to_hex(const Color& v) noexcept -> Vector<std::uint8_t, 4> {
     return {
         static_cast<std::uint8_t>(round(v[0] * 255)),
         static_cast<std::uint8_t>(round(v[1] * 255)),
         static_cast<std::uint8_t>(round(v[2] * 255)),
+        static_cast<std::uint8_t>(round(v[3] * 255)),
     };
 }
 

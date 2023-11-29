@@ -46,7 +46,7 @@ void Editor::Tick() {
                       .width       = m_App.GetWindowWidth(),
                       .height      = m_App.GetWindowHeight(),
                       .format      = gfx::Format::R8G8B8A8_UNORM,
-                      .clear_value = math::vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+                      .clear_value = math::Color{0.0f, 0.0f, 0.0f, 1.0f},
                       .usages      = gfx::TextureUsageFlags::CopySrc | gfx::TextureUsageFlags::RenderTarget,
             },
             "Editor Output");

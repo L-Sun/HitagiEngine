@@ -46,7 +46,8 @@ std::shared_ptr<Texture> Texture::m_DefaultTexture = nullptr;
 
 auto Texture::DefaultTexture() -> std::shared_ptr<Texture> {
     constexpr math::Vector<std::uint8_t, 4> color(216, 115, 255, 255);
-    constexpr std::array                    colors = {color, color, color, color};
+
+    constexpr auto colors = utils::create_array_inplace<decltype(color), 4>(color);
 
     // TODO thread safe
     if (m_DefaultTexture == nullptr) {

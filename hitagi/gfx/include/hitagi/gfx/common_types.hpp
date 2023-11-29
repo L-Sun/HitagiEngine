@@ -307,7 +307,7 @@ struct BlendState {
     LogicOp logic_op               = LogicOp::NoOp;
 };
 
-using ClearColor = math::vec4f;
+using ClearColor = math::Color;
 struct ClearDepthStencil {
     float         depth   = 1.0f;
     std::uint32_t stencil = 0;
