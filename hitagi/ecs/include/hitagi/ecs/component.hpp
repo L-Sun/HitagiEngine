@@ -1,5 +1,4 @@
 #pragma once
-#include <hitagi/ecs/entity.hpp>
 #include <hitagi/utils/concepts.hpp>
 #include <hitagi/utils/types.hpp>
 
@@ -51,7 +50,7 @@ constexpr auto create_static_component_info() noexcept {
 
 template <Component... Components>
     requires utils::unique_types<Components...>
-auto create_component_info_set(const ComponentInfoSet& dynamic_components) noexcept {
+auto create_component_info_set(const ComponentInfoSet& dynamic_components = {}) noexcept {
     ComponentInfoSet result = {create_static_component_info<Components>()...};
     for (auto dynamic_component : dynamic_components) {
         dynamic_component.type_id = utils::TypeID(dynamic_component.name);
@@ -60,12 +59,12 @@ auto create_component_info_set(const ComponentInfoSet& dynamic_components) noexc
     return result;
 }
 
-using ComponentIDSet  = std::pmr::unordered_set<utils::TypeID>;
-using ComponentIDList = std::pmr::vector<utils::TypeID>;
+using ComponentIdSet  = std::pmr::unordered_set<utils::TypeID>;
+using ComponentIdList = std::pmr::vector<utils::TypeID>;
 
 template <Component... Components>
-auto create_component_id_set(const DynamicComponentSet& dynamic_components) noexcept {
-    ComponentIDSet result = {utils::TypeID::Create<Components>()...};
+auto create_component_id_set(const DynamicComponentSet& dynamic_components = {}) noexcept {
+    ComponentIdSet result = {utils::TypeID::Create<Components>()...};
     for (const auto& dynamic_component : dynamic_components) {
         result.emplace(dynamic_component);
     }
@@ -73,8 +72,8 @@ auto create_component_id_set(const DynamicComponentSet& dynamic_components) noex
 }
 
 template <Component... Components>
-auto create_component_id_list(const DynamicComponentList& dynamic_components) noexcept {
-    ComponentIDList result = {utils::TypeID::Create<Components>()...};
+auto create_component_id_list(const DynamicComponentList& dynamic_components = {}) noexcept {
+    ComponentIdList result = {utils::TypeID::Create<Components>()...};
     for (const auto& dynamic_component : dynamic_components) {
         result.emplace_back(dynamic_component);
     }

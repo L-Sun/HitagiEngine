@@ -73,14 +73,14 @@ void Archetype::CreateEntities(const std::pmr::vector<Entity>& entities) noexcep
     for (const auto& component_info : m_ComponentInfoSet) {
         for (auto entity : entities) {
             if (component_info.constructor)
-                component_info.constructor(GetComponentData(entity, component_info));
+                component_info.constructor(GetComponentData(entity, component_info.type_id));
         }
     }
 
     // init Entity component
-    const auto entity_component_info = detail::create_static_component_info<Entity>();
+    const auto entity_component_id = utils::TypeID::Create<Entity>();
     for (auto entity : entities) {
-        *reinterpret_cast<Entity*>(GetComponentData(entity, entity_component_info)) = entity;
+        *reinterpret_cast<Entity*>(GetComponentData(entity, entity_component_id)) = entity;
     }
 }
 
@@ -89,7 +89,7 @@ void Archetype::DeleteEntity(Entity entity) noexcept {
 
     for (const auto& component_info : m_ComponentInfoSet) {
         if (component_info.destructor)
-            component_info.destructor(GetComponentData(entity, component_info));
+            component_info.destructor(GetComponentData(entity, component_info.type_id));
     }
     m_EntityMap.erase(entity);
     if (m_Chunks.back().num_entity_in_chunk == 0) {
@@ -97,24 +97,26 @@ void Archetype::DeleteEntity(Entity entity) noexcept {
     }
 }
 
-auto Archetype::GetComponentBuffers(const ComponentInfo& component_info) const noexcept -> std::pmr::vector<std::pair<std::byte*, std::size_t>> {
-    if (!m_ChunkInfo.component_offsets.contains(component_info))
-        return {};
+auto Archetype::GetComponentBuffers(utils::TypeID component_id) const noexcept -> std::pmr::vector<std::pair<std::byte*, std::size_t>> {
+    const auto component_offset = GetComponentOffset(component_id);
 
     std::pmr::vector<std::pair<std::byte*, std::size_t>> result;
     result.reserve(m_Chunks.size());
     for (auto& chunk : m_Chunks) {
-        result.emplace_back(const_cast<std::byte*>(chunk.data.GetData()) + m_ChunkInfo.component_offsets.at(component_info), chunk.num_entity_in_chunk);
+        result.emplace_back(const_cast<std::byte*>(chunk.data.GetData()) + component_offset, chunk.num_entity_in_chunk);
     }
     return result;
 }
 
-auto Archetype::GetComponentData(Entity entity, const ComponentInfo& component_info) const noexcept -> std::byte* {
-    if (!m_EntityMap.contains(entity) || !m_ChunkInfo.component_offsets.contains(component_info))
+auto Archetype::GetComponentData(Entity entity, utils::TypeID component_id) const noexcept -> std::byte* {
+    if (!m_EntityMap.contains(entity))
         return nullptr;
 
+    const auto component_info   = GetComponentInfo(component_id);
+    const auto component_offset = GetComponentOffset(component_id);
+
     const auto [chunk_index, index_in_chunk] = m_EntityMap.at(entity);
-    return const_cast<std::byte*>(m_Chunks[chunk_index].data.GetData()) + m_ChunkInfo.component_offsets.at(component_info) + index_in_chunk * component_info.size;
+    return const_cast<std::byte*>(m_Chunks[chunk_index].data.GetData()) + component_offset + index_in_chunk * component_info.size;
 }
 
 auto Archetype::NumEntities() const noexcept -> std::size_t {
@@ -123,6 +125,14 @@ auto Archetype::NumEntities() const noexcept -> std::size_t {
 
 bool Archetype::HasComponent(utils::TypeID component) const noexcept {
     return ranges::find_if(m_ComponentInfoSet, [component](const auto& info) { return info.type_id == component; }) != m_ComponentInfoSet.end();
+}
+
+auto Archetype::GetComponentInfo(utils::TypeID component_id) const noexcept -> const ComponentInfo& {
+    return *ranges::find_if(m_ComponentInfoSet, [component_id](const auto& info) { return info.type_id == component_id; });
+}
+
+auto Archetype::GetComponentOffset(utils::TypeID component_id) const noexcept -> std::size_t {
+    return m_ChunkInfo.component_offsets.at(GetComponentInfo(component_id));
 }
 
 auto Archetype::GetOrCreateChunk() noexcept -> Chunk& {
@@ -148,8 +158,8 @@ auto Archetype::GetLastEntity() const -> Entity {
 void Archetype::SwapEntityData(Entity lhs, Entity rhs) noexcept {
     if (lhs == rhs) return;
     for (const auto& component_info : m_ComponentInfoSet) {
-        auto lhs_ptr = GetComponentData(lhs, component_info);
-        auto rhs_ptr = GetComponentData(rhs, component_info);
+        auto lhs_ptr = GetComponentData(lhs, component_info.type_id);
+        auto rhs_ptr = GetComponentData(rhs, component_info.type_id);
         std::swap_ranges(lhs_ptr, lhs_ptr + component_info.size, rhs_ptr);
     }
     std::swap(m_EntityMap[lhs], m_EntityMap[rhs]);

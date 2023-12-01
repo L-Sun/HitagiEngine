@@ -8,7 +8,6 @@ using namespace hitagi;
 
 static void ECS_Update(benchmark::State& state) {
     ecs::World world(fmt::format("ECS_Update-{}", state.thread_index()));
-    auto&      em = world.GetEntityManager();
     auto&      sm = world.GetSystemManager();
 
     struct Moveable {
@@ -37,8 +36,8 @@ static void ECS_Update(benchmark::State& state) {
     sm.Register<ClockSystem>();
 
     auto entities = world.GetEntityManager().CreateMany<Moveable, core::Clock>(1'000'000);
-    for (const auto& entity : entities) {
-        world.GetEntityManager().GetComponent<core::Clock>(entity)->get().Start();
+    for (auto& entity : entities) {
+        entity.GetComponent<core::Clock>().Start();
     }
 
     for (auto _ : state) {
