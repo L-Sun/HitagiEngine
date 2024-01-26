@@ -91,6 +91,8 @@ void Archetype::DeleteEntity(Entity entity) noexcept {
         if (component_info.destructor)
             component_info.destructor(GetComponentData(entity, component_info.type_id));
     }
+    m_Chunks.back().num_entity_in_chunk--;
+
     m_EntityMap.erase(entity);
     if (m_Chunks.back().num_entity_in_chunk == 0) {
         m_Chunks.pop_back();
@@ -160,7 +162,21 @@ void Archetype::SwapEntityData(Entity lhs, Entity rhs) noexcept {
     for (const auto& component_info : m_ComponentInfoSet) {
         auto lhs_ptr = GetComponentData(lhs, component_info.type_id);
         auto rhs_ptr = GetComponentData(rhs, component_info.type_id);
-        std::swap_ranges(lhs_ptr, lhs_ptr + component_info.size, rhs_ptr);
+
+        core::Buffer temp(component_info.size);
+        if (component_info.move_constructor) {
+            component_info.move_constructor(temp.GetData(), lhs_ptr);
+            component_info.move_constructor(lhs_ptr, rhs_ptr);
+            component_info.move_constructor(rhs_ptr, temp.GetData());
+        } else if (component_info.copy_constructor) {
+            component_info.copy_constructor(temp.GetData(), lhs_ptr);
+            component_info.copy_constructor(lhs_ptr, rhs_ptr);
+            component_info.copy_constructor(rhs_ptr, temp.GetData());
+        } else {
+            std::memcpy(temp.GetData(), lhs_ptr, component_info.size);
+            std::memcpy(lhs_ptr, rhs_ptr, component_info.size);
+            std::memcpy(rhs_ptr, temp.GetData(), component_info.size);
+        }
     }
     std::swap(m_EntityMap[lhs], m_EntityMap[rhs]);
 }
