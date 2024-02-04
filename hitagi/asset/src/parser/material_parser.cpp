@@ -123,6 +123,8 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                     mat_param.value = param.value("default", vec4u{});
                 else if (type == "vec4f")
                     mat_param.value = param.value("default", vec4f{});
+                else if (type == "color")
+                    mat_param.value = param.value("default", Color{});
                 else if (type == "mat4f")
                     mat_param.value = param.value("default", mat4f{});
                 else if (type == "texture") {

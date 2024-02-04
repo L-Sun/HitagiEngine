@@ -6,6 +6,8 @@
 #include <range/v3/view/transform.hpp>
 #include <spdlog/spdlog.h>
 
+#include <span>
+
 namespace hitagi::render {
 GuiRenderUtils::GuiRenderUtils(gui::GuiManager& gui_manager, gfx::Device& gfx_device) : m_GuiManager(gui_manager) {
     const std::pmr::string imgui_shader = R"""(
@@ -147,7 +149,7 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
     if (draw_data == nullptr || draw_data->CmdListsCount == 0) return;
 
     std::size_t num_draw_calls = ranges::accumulate(
-        std::span(draw_data->CmdLists, draw_data->CmdListsCount) |
+        draw_data->CmdLists |
             ranges::views::transform([](auto cmd_list) { return cmd_list->CmdBuffer.size(); }),
         0);
 

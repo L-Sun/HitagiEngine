@@ -20,6 +20,8 @@ public:
 
     inline auto& GetEntityManager() noexcept { return m_EntityManager; }
     inline auto& GetSystemManager() noexcept { return m_SystemManager; }
+    inline auto& GetEntityManager() const noexcept { return m_EntityManager; }
+    inline auto& GetSystemManager() const noexcept { return m_SystemManager; }
     inline auto  GetLogger() noexcept { return m_Logger; }
 
 private:

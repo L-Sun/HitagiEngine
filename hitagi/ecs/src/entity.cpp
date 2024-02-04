@@ -1,13 +1,12 @@
+#include "archetype.hpp"
 #include <hitagi/ecs/entity.hpp>
 #include <hitagi/ecs/entity_manager.hpp>
-
-#include "archetype.hpp"
 
 #include <range/v3/view/transform.hpp>
 #include <range/v3/range/conversion.hpp>
 
 namespace hitagi::ecs {
-bool Entity::IsValid() const noexcept {
+Entity::operator bool() const noexcept {
     return m_EntityManager && m_EntityManager->m_EntityMaps.contains(*this);
 }
 
@@ -19,11 +18,11 @@ bool Entity::HasComponent(utils::TypeID component_id) const noexcept {
     return GetArchetype().HasComponent(component_id);
 }
 
-auto Entity::GetComponent(std::string_view dynamic_component) -> std::byte* {
+auto Entity::GetComponent(std::string_view dynamic_component) const -> std::byte* {
     return GetComponent(utils::TypeID{dynamic_component});
 }
 
-auto Entity::GetComponent(utils::TypeID component_id) noexcept -> std::byte* {
+auto Entity::GetComponent(utils::TypeID component_id) const noexcept -> std::byte* {
     return GetArchetype().GetComponentData(*this, component_id);
 }
 

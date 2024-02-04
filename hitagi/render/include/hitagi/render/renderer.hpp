@@ -13,7 +13,7 @@ public:
     virtual ~IRenderer() = default;
 
     // Render scene to texture
-    virtual void RenderScene(std::shared_ptr<asset::Scene> scene, std::shared_ptr<asset::CameraNode> camera, rg::TextureHandle target) = 0;
+    virtual void RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) = 0;
 
     virtual void RenderGui(rg::TextureHandle target, bool clear_target) = 0;
 

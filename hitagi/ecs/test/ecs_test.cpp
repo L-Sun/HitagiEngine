@@ -53,6 +53,9 @@ struct Component_2 {
 struct Component_3 {
     int value = 3;
 };
+struct ContainerComponent {
+    std::string value;
+};
 
 class EcsTest : public ::testing::Test {
 public:
@@ -206,6 +209,28 @@ TEST_F(EcsTest, AttachComponentThatAlreadyExists) {
 
     entity.GetComponent<Component_1>().value = 3;
     EXPECT_THROW(entity.Attach<Component_1>(), std::invalid_argument);
+}
+
+TEST_F(EcsTest, AttachComponentKeepOldComponent) {
+    struct PointToSelfComponent {
+        PointToSelfComponent() : self(this) {}
+        PointToSelfComponent(const PointToSelfComponent& rhs) : self(this) {}
+        PointToSelfComponent(PointToSelfComponent&& rhs) noexcept : self(this) { rhs.self = nullptr; }
+
+        bool IsValid() const noexcept { return self == this; }
+
+        PointToSelfComponent* self = nullptr;
+    };
+    auto entity = em.Create<PointToSelfComponent>();
+    entity.Attach<Component_1>();
+    EXPECT_TRUE(entity.HasComponent<PointToSelfComponent>());
+    EXPECT_TRUE(entity.HasComponent<Component_1>());
+    EXPECT_TRUE(entity.GetComponent<PointToSelfComponent>().IsValid());
+
+    auto entity_2                                     = em.Create<ContainerComponent>();
+    entity_2.GetComponent<ContainerComponent>().value = "test";
+    entity_2.Attach<Component_1>();
+    EXPECT_STREQ(entity_2.GetComponent<ContainerComponent>().value.c_str(), "test");
 }
 
 TEST_F(EcsTest, DetachComponent) {

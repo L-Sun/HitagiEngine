@@ -17,7 +17,8 @@ struct ComponentInfo {
     utils::TypeID    type_id;
     std::size_t      size;
 
-    std::function<void(std::byte*)> constructor, destructor;
+    std::function<void(std::byte*)>             constructor, destructor;
+    std::function<void(std::byte*, std::byte*)> copy_constructor, move_constructor;
 
     constexpr auto operator<=>(const ComponentInfo& rhs) const noexcept {
         return std::tie(size, type_id) <=> std::tie(rhs.size, rhs.type_id);
@@ -45,6 +46,9 @@ constexpr auto create_static_component_info() noexcept {
         .size        = sizeof(T),
         .constructor = [](std::byte* ptr) { std::construct_at(reinterpret_cast<T*>(ptr)); },
         .destructor  = [](std::byte* ptr) { std::destroy_at(reinterpret_cast<T*>(ptr)); },
+        .copy_constructor =
+            [](std::byte* dst, std::byte* src) { std::construct_at(reinterpret_cast<T*>(dst), *reinterpret_cast<T*>(src)); },
+        .move_constructor = [](std::byte* dst, std::byte* src) { std::construct_at(reinterpret_cast<T*>(dst), std::move(*reinterpret_cast<T*>(src))); },
     };
 }
 

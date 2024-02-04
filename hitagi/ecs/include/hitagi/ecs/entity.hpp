@@ -21,8 +21,8 @@ public:
     bool HasComponent(std::string_view dynamic_component) const noexcept;
 
     template <Component T>
-    auto GetComponent() -> T&;
-    auto GetComponent(std::string_view dynamic_component) -> std::byte*;
+    auto GetComponent() const -> T&;
+    auto GetComponent(std::string_view dynamic_component) const -> std::byte*;
 
     template <Component... Components>
         requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
@@ -32,9 +32,9 @@ public:
         requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
     void Detach(const DynamicComponentSet& dynamic_components = {});
 
-    bool     IsValid() const noexcept;
-    explicit operator bool() const noexcept { return IsValid(); }
-    bool     operator!() const noexcept { return !IsValid(); }
+    auto     GetId() const noexcept { return m_Id; }
+    explicit operator bool() const noexcept;
+    bool     operator!() const noexcept { return !static_cast<bool>(*this); }
 
     bool operator==(const Entity& rhs) const noexcept { return m_EntityManager == rhs.m_EntityManager && m_Id == rhs.m_Id; }
     bool operator!=(const Entity& rhs) const noexcept { return !(*this == rhs); }
@@ -49,7 +49,7 @@ private:
         : m_EntityManager(manager), m_Id(id) {}
 
     bool HasComponent(utils::TypeID component_id) const noexcept;
-    auto GetComponent(utils::TypeID component_id) noexcept -> std::byte*;
+    auto GetComponent(utils::TypeID component_id) const noexcept -> std::byte*;
     void Attach(detail::ComponentInfoSet static_component_infos, const DynamicComponentSet& dynamic_components);
     void Detach(detail::ComponentInfoSet static_component_infos, const DynamicComponentSet& dynamic_components);
     auto GetArchetype() const noexcept -> Archetype&;
@@ -76,7 +76,7 @@ void Entity::Detach(const DynamicComponentSet& dynamic_components) {
 }
 
 template <Component T>
-auto Entity::GetComponent() -> T& {
+auto Entity::GetComponent() const -> T& {
     auto ptr = GetComponent(utils::TypeID::Create<T>());
     return *reinterpret_cast<T*>(ptr);
 }

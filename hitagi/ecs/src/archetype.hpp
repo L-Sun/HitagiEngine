@@ -34,7 +34,7 @@ private:
     };
 
     struct Chunk {
-        Chunk(const ChunkInfo& chunk_info);
+        Chunk();
         Chunk(const Chunk&)            = delete;
         Chunk(Chunk&&)                 = default;
         Chunk& operator=(const Chunk&) = delete;

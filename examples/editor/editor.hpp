@@ -26,8 +26,8 @@ private:
     ImageViewer*       m_ImageViewer   = nullptr;
     ImGui::FileBrowser m_FileDialog;
 
-    std::shared_ptr<asset::SceneNode> m_SelectedNode = nullptr;
-    std::shared_ptr<asset::Scene>     m_CurrScene    = nullptr;
+    ecs::Entity                   m_SelectedEntity;
+    std::shared_ptr<asset::Scene> m_CurrScene = nullptr;
 };
 
 }  // namespace hitagi

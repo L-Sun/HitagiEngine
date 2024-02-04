@@ -3,6 +3,8 @@
 #include <hitagi/asset/mesh_factory.hpp>
 #include <hitagi/asset/asset_manager.hpp>
 #include <hitagi/utils/test.hpp>
+#include <hitagi/asset/transform.hpp>
+
 #include <tracy/Tracy.hpp>
 #include "imgui.h"
 
@@ -58,16 +60,23 @@ TEST_P(RendererTest, ForwardRenderer) {
         });
 
         gui_manager->DrawGui([=]() {
-            ImGui::DragFloat3("Light Position", scene->light_nodes.front()->transform.local_translation, 0.1f);
-            ImGui::DragFloat3("Camera Position", scene->curr_camera->transform.local_translation, 0.1f);
-            ImGui::DragFloat3("cube Position", scene->instance_nodes.front()->transform.local_translation, 0.1f);
+            auto& light_transform  = scene->GetLightEntities().front().GetComponent<asset::Transform>();
+            auto& camera_transform = scene->GetCameraEntities().front().GetComponent<asset::Transform>();
+            auto& cube_transform   = scene->GetMeshEntities().front().GetComponent<asset::Transform>();
+
+            ImGui::DragFloat3("Light Position", light_transform.position, 0.1f);
+            ImGui::DragFloat3("Camera Position", camera_transform.position, 0.1f);
+            ImGui::DragFloat3("cube Position", cube_transform.position, 0.1f);
         });
         gui_manager->Tick();
 
-        scene->curr_camera->GetObjectRef()->parameters.aspect = static_cast<float>(renderer.GetSwapChain().GetWidth()) / static_cast<float>(renderer.GetSwapChain().GetHeight());
+        const auto camera           = scene->GetCameraEntities().front().GetComponent<asset::CameraComponent>().camera;
+        const auto camera_transform = scene->GetCameraEntities().front().GetComponent<asset::Transform>();
+
+        camera->parameters.aspect = static_cast<float>(renderer.GetSwapChain().GetWidth()) / static_cast<float>(renderer.GetSwapChain().GetHeight());
 
         scene->Update();
-        renderer.RenderScene(scene, scene->curr_camera, texture);
+        renderer.RenderScene(scene, *camera, camera_transform.world_matrix, texture);
         texture = renderer.GetRenderGraph().MoveFrom(texture);
         renderer.RenderGui(texture, false);
         renderer.ToSwapChain(texture);

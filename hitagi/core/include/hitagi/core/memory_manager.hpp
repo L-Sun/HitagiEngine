@@ -6,6 +6,7 @@
 #include <list>
 #include <array>
 #include <memory_resource>
+#include <unordered_set>
 
 namespace hitagi::core {
 class MemoryPool;
@@ -73,6 +74,10 @@ private:
         Page&                new_page();
         [[nodiscard]] Block* allocate();
         void                 deallocate(Block* block);
+
+#ifdef HITAGI_DEBUG
+        std::unordered_set<Block*> allocated_blocks = {};
+#endif
     };
 
     constexpr static std::array block_size = {

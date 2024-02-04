@@ -31,10 +31,10 @@ struct InstanceConstant {
 
 struct MaterialConstant {
     float  shininess;
-    float3 diffuse;
-    float3 specular;
-    float3 ambient;
-    float3 emissive;
+    float4 diffuse;
+    float4 specular;
+    float4 ambient;
+    float4 emissive;
 };
 
 struct VSInput {

@@ -139,7 +139,7 @@ auto Archetype::GetComponentOffset(utils::TypeID component_id) const noexcept ->
 
 auto Archetype::GetOrCreateChunk() noexcept -> Chunk& {
     if (m_Chunks.empty() || m_ChunkInfo.num_entities_per_chunk == m_Chunks.back().num_entity_in_chunk) {
-        m_Chunks.emplace_back(m_ChunkInfo);
+        m_Chunks.emplace_back();
     }
     return m_Chunks.back();
 }
@@ -166,23 +166,43 @@ void Archetype::SwapEntityData(Entity lhs, Entity rhs) noexcept {
         core::Buffer temp(component_info.size);
         if (component_info.move_constructor) {
             component_info.move_constructor(temp.GetData(), lhs_ptr);
-            component_info.move_constructor(lhs_ptr, rhs_ptr);
-            component_info.move_constructor(rhs_ptr, temp.GetData());
         } else if (component_info.copy_constructor) {
             component_info.copy_constructor(temp.GetData(), lhs_ptr);
-            component_info.copy_constructor(lhs_ptr, rhs_ptr);
-            component_info.copy_constructor(rhs_ptr, temp.GetData());
         } else {
             std::memcpy(temp.GetData(), lhs_ptr, component_info.size);
+        }
+
+        if (component_info.destructor) {
+            component_info.destructor(lhs_ptr);
+        }
+
+        if (component_info.move_constructor) {
+            component_info.move_constructor(lhs_ptr, rhs_ptr);
+        } else if (component_info.copy_constructor) {
+            component_info.copy_constructor(lhs_ptr, rhs_ptr);
+        } else {
             std::memcpy(lhs_ptr, rhs_ptr, component_info.size);
+        }
+
+        if (component_info.destructor) {
+            component_info.destructor(rhs_ptr);
+        }
+
+        if (component_info.move_constructor) {
+            component_info.move_constructor(rhs_ptr, temp.GetData());
+        } else if (component_info.copy_constructor) {
+            component_info.copy_constructor(rhs_ptr, temp.GetData());
+        } else {
             std::memcpy(rhs_ptr, temp.GetData(), component_info.size);
+        }
+
+        if (component_info.destructor) {
+            component_info.destructor(temp.GetData());
         }
     }
     std::swap(m_EntityMap[lhs], m_EntityMap[rhs]);
 }
 
-Archetype::Chunk::Chunk(const ChunkInfo& chunk_info)
-    : data(ChunkInfo::chunk_size, nullptr, ChunkInfo::align_size) {
-}
+Archetype::Chunk::Chunk() : data(ChunkInfo::chunk_size, nullptr, ChunkInfo::align_size) {}
 
 }  // namespace hitagi::ecs

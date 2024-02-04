@@ -61,8 +61,8 @@ public:
     auto               CreateInstance() -> std::shared_ptr<MaterialInstance>;
     inline const auto& GetInstances() const noexcept { return m_Instances; }
     inline const auto& GetDefaultParameters() const noexcept { return m_Desc.parameters; }
-    auto               CalculateMaterialBufferSize() const noexcept -> std::size_t;
-    auto               GetPipeline(gfx::Device& device) -> std::shared_ptr<gfx::RenderPipeline>;
+    auto               CalculateMaterialBufferSize(bool enable_16_bytes_packing) const noexcept -> std::size_t;
+    auto               GetPipeline(gfx::Device& device) const -> std::shared_ptr<gfx::RenderPipeline>;
 
     template <MaterialParametric>
     bool HasParameter(std::string_view name) const noexcept;
@@ -75,9 +75,9 @@ protected:
 
     std::pmr::unordered_set<MaterialInstance*> m_Instances;
 
-    MaterialDesc                                   m_Desc;
-    std::pmr::vector<std::shared_ptr<gfx::Shader>> m_Shaders;
-    std::shared_ptr<gfx::RenderPipeline>           m_Pipeline = nullptr;
+    MaterialDesc                                           m_Desc;
+    mutable std::pmr::vector<std::shared_ptr<gfx::Shader>> m_Shaders;
+    mutable std::shared_ptr<gfx::RenderPipeline>           m_Pipeline = nullptr;
 };
 
 struct SplitMaterialParameters {
@@ -108,7 +108,7 @@ public:
     auto GetParameter(std::string_view name) const noexcept -> std::optional<T>;
     auto GetSplitParameters() const noexcept -> SplitMaterialParameters;
     auto GetAssociatedTextures() const noexcept -> std::pmr::vector<std::shared_ptr<Texture>>;
-    auto GenerateMaterialBuffer() const noexcept -> core::Buffer;
+    auto GenerateMaterialBuffer(bool enable_16_bytes_packing) const noexcept -> core::Buffer;
 
     template <MaterialParametric T>
     bool HasParameter(std::string_view name) const noexcept;

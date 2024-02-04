@@ -2,6 +2,7 @@
 #include <hitagi/core/thread_manager.hpp>
 #include <hitagi/application.hpp>
 #include <hitagi/gfx/utils.hpp>
+#include <hitagi/asset/transform.hpp>
 
 #include <imgui.h>
 #include <magic_enum_utility.hpp>
@@ -43,81 +44,17 @@ void ForwardRenderer::Tick() {
         m_RenderGraph.Execute();
     }
 
+    ClearFrameState();
+
     m_SwapChain->Present();
 
     m_Clock.Tick();
 }
 
-void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shared_ptr<asset::CameraNode> camera, rg::TextureHandle target) {
+void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) {
     ZoneScoped;
 
-    struct FrameConstant {
-        math::vec4f camera_pos;
-        math::mat4f view;
-        math::mat4f projection;
-        math::mat4f proj_view;
-        math::mat4f inv_view;
-        math::mat4f inv_projection;
-        math::mat4f inv_proj_view;
-        math::vec4f light_position;
-        math::vec4f light_pos_in_view;
-        math::vec3f light_color;
-        float       light_intensity;
-    };
-    struct InstanceConstant {
-        math::mat4f model;
-    };
-
-    // TODO generate by material
-    struct BindlessInfo {
-        gfx::BindlessHandle                frame_constant;
-        gfx::BindlessHandle                instance_constant;
-        gfx::BindlessHandle                material_constant;
-        std::array<gfx::BindlessHandle, 4> textures;
-        gfx::BindlessHandle                sampler;
-    };
-
-    struct MaterialInfo {
-        rg::RenderPipelineHandle pipeline;
-        rg::GPUBufferHandle      material_constant;
-    };
-
-    struct MaterialInstanceInfo {
-        MaterialInfo                        material_info;
-        std::pmr::vector<rg::TextureHandle> textures;
-        std::pmr::vector<rg::SamplerHandle> samplers;
-        core::Buffer                        material_instance_data;
-        std::size_t                         material_instance_index;
-    };
-
-    // one DrawItem corresponds to one SubMesh, so it only refers to one draw call
-    struct DrawItem {
-        std::size_t                                                 index_count;
-        std::pmr::unordered_map<std::uint32_t, rg::GPUBufferHandle> vertices;
-        std::size_t                                                 vertex_offset;
-        rg::GPUBufferHandle                                         indices;
-        std::size_t                                                 index_offset;
-        InstanceConstant                                            instance_data;
-        std::size_t                                                 instance_index;
-        std::shared_ptr<MaterialInstanceInfo>                       material_instance_info;
-    };
-
-    const auto frame_constant_handle = m_RenderGraph.Create(
-        {
-            .name          = "frame_constant",
-            .element_size  = sizeof(FrameConstant),
-            .element_count = 1,
-            .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
-        });
-
-    const auto instance_constant_handle = m_RenderGraph.Create({
-        .name          = "instance_constant",
-        .element_size  = sizeof(InstanceConstant),
-        .element_count = scene->instance_nodes.size(),
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
-    });
-
-    const auto sampler_handle = m_RenderGraph.Create(gfx::SamplerDesc{
+    m_Sampler = m_RenderGraph.Create(gfx::SamplerDesc{
         .name = "sampler",
     });
 
@@ -138,208 +75,106 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, std::shar
                 .usages = gfx::TextureUsageFlags::DepthStencil,
             }),
             true)
-        .Read(frame_constant_handle)
-        .Read(instance_constant_handle)
-        .AddSampler(sampler_handle);
+        .AddSampler(m_Sampler);
 
-    std::unordered_map<asset::Material*, MaterialInfo> material_infos;
-    {
-        const auto materials = scene->instance_nodes                                                                          //
-                               | ranges::views::transform([](const auto& node) { return node->GetObjectRef()->sub_meshes; })  //
-                               | ranges::views::join                                                                          //
-                               | ranges::views::transform([](const auto& sub_mesh) {
-                                     return sub_mesh.material_instance->GetMaterial();
-                                 })  //
-                               | ranges::to<std::pmr::unordered_set<std::shared_ptr<asset::Material>>>();
-
-        material_infos = materials  //
-                         | ranges::views::transform([&](const auto& material) {
-                               auto pipeline_handle = m_RenderGraph.Import(material->GetPipeline(m_GfxDevice), material->GetName());
-                               render_pass_builder.AddPipeline(pipeline_handle);
-
-                               auto constant_handle = m_RenderGraph.Create(
-                                   {
-                                       .name          = std::pmr::string(material->GetName()),
-                                       .element_size  = material->CalculateMaterialBufferSize(),
-                                       .element_count = material->GetInstances().size(),
-                                       .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
-                                   },
-                                   material->GetName());
-                               render_pass_builder.Read(constant_handle);
-
-                               return std::make_pair(
-                                   material.get(),
-                                   MaterialInfo{
-                                       .pipeline          = pipeline_handle,
-                                       .material_constant = constant_handle,
-                                   });
-                           })  //
-                         | ranges::to<decltype(material_infos)>();
+    for (const auto entity : scene->GetMeshEntities()) {
+        const auto mesh      = entity.GetComponent<asset::MeshComponent>().mesh;
+        const auto transform = entity.GetComponent<asset::Transform>().world_matrix;
+        RecordInstance(render_pass_builder, mesh, transform);
     }
+    UpdateConstantBuffer(render_pass_builder);
 
-    std::unordered_map<asset::MaterialInstance*, std::shared_ptr<MaterialInstanceInfo>> material_instance_infos;
+    FrameConstant frame_constant;
     {
-        for (const auto& [material, material_info] : material_infos) {
-            for (const auto& [material_instance_index, material_instance] : material->GetInstances() | ranges::views::enumerate) {
-                auto material_instance_info = std::make_shared<MaterialInstanceInfo>();
+        const math::vec3f global_eye      = (camera_transform * math::vec4f(camera.parameters.eye, 1.0f)).xyz;
+        const math::vec3f global_look_dir = (camera_transform * math::vec4f(camera.parameters.look_dir, 0.0f)).xyz;
+        const math::vec3f global_up       = (camera_transform * math::vec4f(camera.parameters.up, 0.0f)).xyz;
 
-                material_instance_info->material_info           = material_info;
-                material_instance_info->samplers                = {sampler_handle};
-                material_instance_info->material_instance_data  = material_instance->GenerateMaterialBuffer();
-                material_instance_info->material_instance_index = material_instance_index;
+        frame_constant.camera_pos     = {global_eye, 1.0f},
+        frame_constant.view           = math::look_at(global_eye, global_look_dir, global_up);
+        frame_constant.projection     = math::perspective(camera.parameters.horizontal_fov, camera.parameters.aspect, camera.parameters.near_clip, camera.parameters.far_clip);
+        frame_constant.proj_view      = frame_constant.projection * frame_constant.view,
+        frame_constant.inv_view       = math::inverse(frame_constant.view);
+        frame_constant.inv_projection = math::inverse(frame_constant.projection);
+        frame_constant.inv_proj_view  = math::inverse(frame_constant.proj_view);
 
-                for (const auto& texture : material_instance->GetAssociatedTextures()) {
-                    texture->InitGPUData(m_GfxDevice);
-                    render_pass_builder.Read(
-                        material_instance_info->textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName())),
-                        {},
-                        gfx::PipelineStage::PixelShader);
-                }
+        if (!scene->GetLightEntities().empty()) {
+            const auto light           = scene->GetLightEntities().front().GetComponent<asset::LightComponent>().light;
+            const auto light_transform = scene->GetLightEntities().front().GetComponent<asset::Transform>().world_matrix;
 
-                material_instance_infos.emplace(material_instance, std::move(material_instance_info));
-            }
+            frame_constant.light_position    = light_transform.col(3);
+            frame_constant.light_pos_in_view = frame_constant.view * frame_constant.light_position;
+            frame_constant.light_color       = light->parameters.color.rgb;
+            frame_constant.light_intensity   = light->parameters.intensity;
         }
-    }
+    };
 
-    // generate draw items
-    std::pmr::vector<DrawItem> draw_items;
-    {
-        std::size_t num_draw_items = 0;
-        for (const auto& node : scene->instance_nodes) {
-            num_draw_items += node->GetObjectRef()->sub_meshes.size();
-        }
-        draw_items.reserve(num_draw_items);
-
-        for (const auto& [instant_index, node] : scene->instance_nodes | ranges::views::enumerate) {
-            auto mesh = node->GetObjectRef();
-            mesh->vertices->InitGPUData(m_GfxDevice);
-            mesh->indices->InitGPUData(m_GfxDevice);
-
-            utils::EnumArray<rg::GPUBufferHandle, asset::VertexAttribute> vertex_handles;
-            magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
-                auto attr_data = mesh->vertices->GetAttributeData(attr);
-                if (!attr_data.has_value()) return;
-                auto vertex_buffer_handle = m_RenderGraph.Import(attr_data->get().gpu_buffer);
-                render_pass_builder.ReadAsVertices(vertex_buffer_handle);
-                vertex_handles[attr] = vertex_buffer_handle;
-            });
-
-            auto index_buffer_handle = m_RenderGraph.Import(mesh->indices->GetIndexData().gpu_buffer);
-            render_pass_builder.ReadAsIndices(index_buffer_handle);
-
-            for (const auto& sub_mesh : mesh->sub_meshes) {
-                const auto  material = sub_mesh.material_instance->GetMaterial();
-                const auto& pipeline = material->GetPipeline(m_GfxDevice);
-
-                std::pmr::unordered_map<std::uint32_t, rg::GPUBufferHandle> binding_to_vertex_handles;
-                for (const auto& vertex_attr : pipeline->GetDesc().vertex_input_layout) {
-                    binding_to_vertex_handles.emplace(vertex_attr.binding, vertex_handles[asset::semantic_to_vertex_attribute(vertex_attr.semantic)]);
-                }
-
-                draw_items.emplace_back(DrawItem{
-                    .index_count   = sub_mesh.index_count,
-                    .vertices      = std::move(binding_to_vertex_handles),
-                    .vertex_offset = sub_mesh.vertex_offset,
-                    .indices       = index_buffer_handle,
-                    .index_offset  = sub_mesh.index_offset,
-                    .instance_data = {
-                        .model = node->transform.world_matrix,
-                    },
-                    .instance_index         = instant_index,
-                    .material_instance_info = material_instance_infos.at(sub_mesh.material_instance.get()),
-                });
-            }
-        }
-
-        std::sort(draw_items.begin(), draw_items.end(), [](const auto& lhs, const auto& rhs) -> bool {
-            return lhs.material_instance_info->material_info.pipeline < rhs.material_instance_info->material_info.pipeline;
-        });
-    }
-
-    const auto bindless_infos_handle = m_RenderGraph.Create({
-        .name          = "bindless_infos",
-        .element_size  = sizeof(BindlessInfo),
-        .element_count = draw_items.size(),
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
-    });
-    render_pass_builder.Read(bindless_infos_handle);
-
-    render_pass_builder.SetExecutor([=, _draw_items = std::move(draw_items)](const rg::RenderGraph& render_graph, const rg::RenderPassNode& pass) {
+    render_pass_builder.SetExecutor([this, frame_constant, target](const rg::RenderGraph& render_graph, const rg::RenderPassNode& pass) {
         auto& cmd = pass.GetCmd();
 
         // update frame constant
-        {
-            auto frame_constant    = gfx::GPUBufferView<FrameConstant>(pass.Resolve(frame_constant_handle));
-            frame_constant.front() = FrameConstant{
-                .camera_pos     = {camera->transform.GetPosition(), 1.0f},
-                .view           = camera->GetView(),
-                .projection     = camera->GetProjection(),
-                .proj_view      = camera->GetProjectionView(),
-                .inv_view       = camera->GetInvView(),
-                .inv_projection = camera->GetInvProjection(),
-                .inv_proj_view  = camera->GetInvProjectionView(),
-            };
+        gfx::GPUBufferView<FrameConstant>(pass.Resolve(m_FrameConstantBuffer)).front() = frame_constant;
 
-            if (!scene->light_nodes.empty()) {
-                auto light_node = scene->light_nodes.front();
-
-                frame_constant.front().light_position    = {light_node->GetLightGlobalPosition(), 1.0f};
-                frame_constant.front().light_pos_in_view = camera->GetView() * math::vec4f(light_node->GetLightGlobalPosition(), 1.0f);
-                frame_constant.front().light_color       = light_node->GetObjectRef()->parameters.color.rgb;
-                frame_constant.front().light_intensity   = light_node->GetObjectRef()->parameters.intensity;
-            }
-        }
-
-        gfx::GPUBufferView<BindlessInfo> bindless_infos(pass.Resolve(bindless_infos_handle));
+        gfx::GPUBufferView<BindlessInfo> bindless_infos(pass.Resolve(m_BindlessInfoConstantBuffer));
 
         const auto& render_target = pass.Resolve(target);
         cmd.SetViewPort({0, 0, static_cast<float>(render_target.GetDesc().width), static_cast<float>(render_target.GetDesc().height)});
         cmd.SetScissorRect({0, 0, render_target.GetDesc().width, render_target.GetDesc().height});
 
-        for (const auto& [draw_index, draw_item] : _draw_items | ranges::views::enumerate) {
-            const auto& material_instance_info = draw_item.material_instance_info;
+        // update material instance data
+        for (const auto& [material_instance, info] : m_MaterialInstanceInfos) {
+            auto  material_info            = m_MaterialInfos.at(material_instance->GetMaterial().get());
+            auto& material_constant_buffer = pass.Resolve(material_info.material_constant);
 
-            auto& pipeline = pass.Resolve(material_instance_info->material_info.pipeline);
-            cmd.SetPipeline(pipeline);
+            auto material_constant_data = material_instance->GenerateMaterialBuffer(m_GfxDevice.device_type == gfx::Device::Type::DX12);
 
-            const auto material_constant_handle = material_instance_info->material_info.material_constant;
-            const auto material_instance_index  = material_instance_info->material_instance_index;
+            std::memcpy(material_constant_buffer.Map() + material_constant_buffer.AlignedElementSize() * info.material_instance_index,
+                        material_constant_data.GetData(),
+                        material_constant_data.GetDataSize());
+            material_constant_buffer.UnMap();
+        }
 
-            // Update material instance data
-            {
-                auto& material_constant_buffer = pass.Resolve(material_constant_handle);
-                std::memcpy(material_constant_buffer.Map() + material_constant_buffer.AlignedElementSize() * material_instance_index,
-                            material_instance_info->material_instance_data.GetData(),
-                            material_instance_info->material_instance_data.GetDataSize());
-                material_constant_buffer.UnMap();
+        // update instance data
+        auto instance_constant = gfx::GPUBufferView<InstanceConstant>(pass.Resolve(m_InstanceConstantBuffer));
+        for (const auto& instance_info : m_InstanceInfos) {
+            instance_constant[instance_info.instance_index] = instance_info.instance_data;
+        }
+
+        std::size_t draw_index = 0;
+        for (const auto& instance_info : m_InstanceInfos) {
+            const auto mesh_info = m_MeshInfos.at(instance_info.mesh.get());
+
+            for (const auto& sub_mesh : instance_info.mesh->sub_meshes) {
+                const auto& material_instance_info = m_MaterialInstanceInfos.at(sub_mesh.material_instance.get());
+                const auto& material_info          = m_MaterialInfos.at(sub_mesh.material_instance->GetMaterial().get());
+
+                auto& pipeline = pass.Resolve(material_info.pipeline);
+                cmd.SetPipeline(pipeline);
+
+                const auto material_constant_handle = material_info.material_constant;
+                const auto material_instance_index  = material_instance_info.material_instance_index;
+
+                bindless_infos[draw_index] = {
+                    .frame_constant    = pass.GetBindless(m_FrameConstantBuffer),
+                    .instance_constant = pass.GetBindless(m_InstanceConstantBuffer, instance_info.instance_index),
+                    .material_constant = pass.GetBindless(material_constant_handle, material_instance_index),
+                    .sampler           = pass.GetBindless(material_instance_info.samplers[0]),
+                };
+
+                for (auto [texture_bindless, texture_handle] : ranges::views::zip(bindless_infos[draw_index].textures, material_instance_info.textures)) {
+                    texture_bindless = pass.GetBindless(texture_handle);
+                }
+
+                cmd.PushBindlessMetaInfo({
+                    .handle = pass.GetBindless(m_BindlessInfoConstantBuffer, draw_index),
+                });
+                for (const auto& vertex_attr : pipeline.GetDesc().vertex_input_layout) {
+                    cmd.SetVertexBuffers(vertex_attr.binding, {{pass.Resolve(mesh_info.vertices.at(vertex_attr.binding))}}, {{0}});
+                }
+                cmd.SetIndexBuffer(pass.Resolve(mesh_info.indices), 0);
+
+                cmd.DrawIndexed(sub_mesh.index_count, 1, sub_mesh.index_offset, sub_mesh.vertex_offset);
             }
-
-            // update instance constant
-            {
-                auto instance_constant                      = gfx::GPUBufferView<InstanceConstant>(pass.Resolve(instance_constant_handle));
-                instance_constant[draw_item.instance_index] = draw_item.instance_data;
-            }
-
-            bindless_infos[draw_index] = {
-                .frame_constant    = pass.GetBindless(frame_constant_handle),
-                .instance_constant = pass.GetBindless(instance_constant_handle, draw_item.instance_index),
-                .material_constant = pass.GetBindless(material_constant_handle, material_instance_index),
-                .sampler           = pass.GetBindless(material_instance_info->samplers[0]),
-            };
-
-            for (auto [texture_bindless, texture_handle] : ranges::views::zip(bindless_infos[draw_index].textures, material_instance_info->textures)) {
-                texture_bindless = pass.GetBindless(texture_handle);
-            }
-
-            cmd.PushBindlessMetaInfo({
-                .handle = pass.GetBindless(bindless_infos_handle, draw_index),
-            });
-            for (const auto& vertex_attr : pipeline.GetDesc().vertex_input_layout) {
-                cmd.SetVertexBuffers(vertex_attr.binding, {{pass.Resolve(draw_item.vertices.at(vertex_attr.binding))}}, {{0}});
-            }
-            cmd.SetIndexBuffer(pass.Resolve(draw_item.indices), 0);
-
-            cmd.DrawIndexed(draw_item.index_count, 1, draw_item.index_offset, draw_item.vertex_offset);
         }
     });
 
@@ -356,6 +191,139 @@ void ForwardRenderer::ToSwapChain(rg::TextureHandle from) {
         .From(from)
         .SetSwapChain(m_SwapChain)
         .Finish();
+}
+
+void ForwardRenderer::RecordMaterialInstance(rg::RenderPassBuilder& builder, const std::shared_ptr<asset::MaterialInstance>& material_instance) {
+    if (m_MaterialInstanceInfos.contains(material_instance.get())) return;
+
+    MaterialInstanceInfo info{
+        .material_instance = material_instance,
+        .samplers          = {m_Sampler},
+    };
+
+    for (const auto& texture : material_instance->GetAssociatedTextures()) {
+        texture->InitGPUData(m_GfxDevice);
+        builder.Read(
+            info.textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName())),
+            {},
+            gfx::PipelineStage::PixelShader);
+    }
+
+    m_MaterialInstanceInfos.emplace(material_instance.get(), std::move(info));
+}
+
+void ForwardRenderer::RecordMesh(rg::RenderPassBuilder& builder, const std::shared_ptr<asset::Mesh>& mesh) {
+    if (m_MeshInfos.contains(mesh.get())) return;
+
+    mesh->vertices->InitGPUData(m_GfxDevice);
+    mesh->indices->InitGPUData(m_GfxDevice);
+
+    utils::EnumArray<rg::GPUBufferHandle, asset::VertexAttribute> vertex_handles;
+    magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
+        auto attr_data = mesh->vertices->GetAttributeData(attr);
+        if (!attr_data.has_value()) return;
+        auto vertex_buffer_handle = m_RenderGraph.Import(attr_data->get().gpu_buffer);
+        builder.ReadAsVertices(vertex_buffer_handle);
+        vertex_handles[attr] = vertex_buffer_handle;
+    });
+
+    auto index_buffer_handle = m_RenderGraph.Import(mesh->indices->GetIndexData().gpu_buffer);
+    builder.ReadAsIndices(index_buffer_handle);
+
+    m_MeshInfos.emplace(
+        mesh.get(),
+        MeshInfo{
+            .mesh     = mesh,
+            .vertices = vertex_handles,
+            .indices  = index_buffer_handle,
+        });
+
+    for (const auto& sub_mesh : mesh->sub_meshes) {
+        RecordMaterialInstance(builder, sub_mesh.material_instance);
+    }
+}
+
+void ForwardRenderer::RecordInstance(rg::RenderPassBuilder& builder, const std::shared_ptr<asset::Mesh>& mesh, math::mat4f transform) {
+    RecordMesh(builder, mesh);
+    m_InstanceInfos.emplace_back(InstanceInfo{
+        .mesh          = mesh,
+        .instance_data = {
+            .model = transform,
+        },
+        .instance_index = m_InstanceInfos.size(),
+    });
+}
+
+void ForwardRenderer::UpdateConstantBuffer(rg::RenderPassBuilder& builder) {
+    std::pmr::unordered_map<std::shared_ptr<asset::Material>, std::size_t> material_instance_counter;
+    for (auto& [material_instance, info] : m_MaterialInstanceInfos) {
+        const auto material          = material_instance->GetMaterial();
+        info.material_instance_index = material_instance_counter[material]++;
+    }
+
+    for (const auto& [material, num_instances] : material_instance_counter) {
+        auto pipeline_handle = m_RenderGraph.Import(material->GetPipeline(m_GfxDevice), material->GetName());
+        builder.AddPipeline(pipeline_handle);
+
+        auto constant_handle = m_RenderGraph.Create(
+            {
+                .name          = std::pmr::string(material->GetName()),
+                .element_size  = material->CalculateMaterialBufferSize(m_GfxDevice.device_type == gfx::Device::Type::DX12),
+                .element_count = num_instances,  // we not use material->GetNumInstances for reduce memory usage
+                .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+            },
+            material->GetName());
+        builder.Read(constant_handle);
+
+        m_MaterialInfos.emplace(
+            material.get(),
+            MaterialInfo{
+                .material          = material,
+                .pipeline          = pipeline_handle,
+                .material_constant = constant_handle,
+            });
+    }
+
+    m_InstanceConstantBuffer = m_RenderGraph.Create({
+        .name          = "instance_constant",
+        .element_size  = sizeof(InstanceConstant),
+        .element_count = m_InstanceInfos.size(),
+        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+    });
+    builder.Read(m_InstanceConstantBuffer);
+
+    m_FrameConstantBuffer = m_RenderGraph.Create(
+        {
+            .name          = "frame_constant",
+            .element_size  = sizeof(FrameConstant),
+            .element_count = 1,
+            .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        });
+    builder.Read(m_FrameConstantBuffer);
+
+    std::size_t num_draws = 0;
+    for (const auto& instance_info : m_InstanceInfos) {
+        num_draws += instance_info.mesh->sub_meshes.size();
+    }
+
+    m_BindlessInfoConstantBuffer = m_RenderGraph.Create({
+        .name          = "bindless_infos",
+        .element_size  = sizeof(BindlessInfo),
+        .element_count = num_draws,
+        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+    });
+    builder.Read(m_BindlessInfoConstantBuffer);
+}
+void ForwardRenderer::ClearFrameState() {
+    m_Sampler                    = {};
+    m_FrameConstantBuffer        = {};
+    m_InstanceConstantBuffer     = {};
+    m_BindlessInfoConstantBuffer = {};
+
+    m_MaterialInfos.clear();
+    m_MaterialInstanceInfos.clear();
+    m_MeshInfos.clear();
+    m_InstanceInfos.clear();
 }
 
 }  // namespace hitagi::render

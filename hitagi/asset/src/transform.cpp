@@ -1,25 +1,55 @@
 #include <hitagi/asset/transform.hpp>
+#include <hitagi/ecs/filter.hpp>
+#include <hitagi/utils/logger.hpp>
 
-using namespace hitagi::math;
+#include <spdlog/logger.h>
 
 namespace hitagi::asset {
-Transform::Transform(const mat4f& local_matrix)
-    : local_translation(get_translation(local_matrix)),
-      local_rotation(std::get<1>(decompose(local_matrix))),
-      local_scaling(std::get<2>(decompose(local_matrix))) {
+
+void RelationShipSystem::OnUpdate(ecs::Schedule& schedule) {
+    schedule.Request("attach_parent", [](const ecs::Entity entity, RelationShip& relation_ship) {
+        if (relation_ship.prev_parent != relation_ship.parent) {  // parent changed
+            if (relation_ship.prev_parent) {
+                auto& prev_parent = relation_ship.prev_parent.GetComponent<RelationShip>();
+                prev_parent.children.erase(entity);
+            }
+            if (relation_ship.parent) {
+                auto& parent = relation_ship.parent.GetComponent<RelationShip>();
+                parent.children.insert(entity);
+            }
+            relation_ship.prev_parent = relation_ship.parent;
+        }
+    });
 }
 
-Transform::Transform(const Transform& other)
-    : local_translation(other.local_translation),
-      local_rotation(other.local_rotation),
-      local_scaling(other.local_scaling) {
-}
+void TransformSystem::OnUpdate(ecs::Schedule& schedule) {
+    schedule.SetOrder("attach_parent", "update_world_matrix_from_root");
 
-Transform& Transform::operator=(const Transform& other) {
-    local_translation = other.local_translation;
-    local_rotation    = other.local_rotation;
-    local_scaling     = other.local_scaling;
-    return *this;
+    schedule
+        .Request(
+            "update_local_matrix",
+            [](Transform& transform) {
+                transform.world_matrix = transform.ToMatrix();
+            })
+        .Request(
+            "update_world_matrix_from_root",
+            [](const Transform& transform, const RelationShip& relation_ship) {
+                const std::function<void(ecs::Entity, const math::mat4f)> recursive_update =
+                    [&](ecs::Entity entity, const math::mat4f parent_transform) {
+                        auto& transform        = entity.GetComponent<Transform>();
+                        transform.world_matrix = parent_transform * transform.world_matrix;
+                        for (auto child : entity.GetComponent<RelationShip>().GetChildren()) {
+                            recursive_update(child, transform.world_matrix);
+                        }
+                    };
+
+                // root entity
+                if (!relation_ship.parent) {
+                    for (auto entity : relation_ship.GetChildren()) {
+                        recursive_update(entity, transform.world_matrix);
+                    }
+                }
+            });
 }
 
 }  // namespace hitagi::asset

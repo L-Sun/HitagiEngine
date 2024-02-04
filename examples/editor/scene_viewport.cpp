@@ -1,6 +1,7 @@
 #include "scene_viewport.hpp"
 #include <hitagi/gui/gui_manager.hpp>
 #include <hitagi/asset/asset_manager.hpp>
+#include <hitagi/asset/transform.hpp>
 #include <hitagi/hid/input_manager.hpp>
 
 using namespace hitagi;
@@ -28,11 +29,13 @@ void SceneViewPort::Tick() {
                     .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::SRV,
                 });
 
-                m_Camera->GetObjectRef()->parameters.aspect = static_cast<float>(window_size.x) / static_cast<float>(window_size.y);
-                m_Camera->Update();
+                auto camera           = m_Camera.GetComponent<asset::CameraComponent>().camera;
+                auto camera_transform = m_Camera.GetComponent<asset::Transform>().world_matrix;
+
+                camera->parameters.aspect = static_cast<float>(window_size.x) / static_cast<float>(window_size.y);
 
                 if (window_size.x != 0 && window_size.y != 0) {
-                    m_Render.RenderScene(m_CurrentScene, m_Camera, scene_render_texture);
+                    m_Render.RenderScene(m_CurrentScene, *camera, camera_transform, scene_render_texture);
                     ImGui::Image(m_GuiManager.ReadTexture(scene_render_texture), ImVec2(window_size.x, window_size.y));
                 }
             }
@@ -45,8 +48,10 @@ void SceneViewPort::Tick() {
 
 void SceneViewPort::SetScene(std::shared_ptr<asset::Scene> scene) noexcept {
     m_CurrentScene = std::move(scene);
-    if (m_Camera == nullptr && m_CurrentScene != nullptr) {
-        auto camera = std::make_shared<Camera>(m_CurrentScene->curr_camera->GetObjectRef()->parameters);
-        m_Camera    = std::make_shared<CameraNode>(camera, m_CurrentScene->curr_camera->transform);
+    if (m_CurrentScene != nullptr) {
+        m_Camera = m_CurrentScene->GetCurrentCamera();
+        if (!m_Camera) {
+            m_Camera = m_CurrentScene->CreateCameraEntity(std::make_shared<asset::Camera>(asset::Camera::Parameters{}), math::mat4f::identity(), {}, "view port camera");
+        }
     }
 }

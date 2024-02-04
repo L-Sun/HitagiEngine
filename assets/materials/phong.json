@@ -15,8 +15,9 @@
         },
         {
             "name": "diffuse",
-            "type": "vec3f",
+            "type": "color",
             "default": [
+                1.0,
                 1.0,
                 1.0,
                 1.0
@@ -24,8 +25,9 @@
         },
         {
             "name": "specular",
-            "type": "vec3f",
+            "type": "color",
             "default": [
+                1.0,
                 1.0,
                 1.0,
                 1.0
@@ -33,8 +35,9 @@
         },
         {
             "name": "ambient",
-            "type": "vec3f",
+            "type": "color",
             "default": [
+                1.0,
                 1.0,
                 1.0,
                 1.0
@@ -42,8 +45,9 @@
         },
         {
             "name": "emissive",
-            "type": "vec3f",
+            "type": "color",
             "default": [
+                1.0,
                 1.0,
                 1.0,
                 1.0

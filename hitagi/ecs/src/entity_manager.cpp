@@ -36,7 +36,7 @@ inline auto get_component_ids(const detail::ComponentInfoSet& component_infos) n
 }
 
 EntityManager::EntityManager(World& world) : m_World(world) {}
-EntityManager::~EntityManager() {}
+EntityManager::~EntityManager() = default;  // forward declaration of unique_ptr<Archetype>
 
 void EntityManager::RegisterDynamicComponent(ComponentInfo component) {
     component.type_id = utils::TypeID(component.name);
@@ -106,7 +106,18 @@ void EntityManager::Attach(Entity& entity, const detail::ComponentInfoSet& compo
     for (const auto& old_component_info : old_archetype.GetComponentInfoSet()) {
         auto old_component_ptr = old_archetype.GetComponentData(entity, old_component_info.type_id);
         auto new_component_ptr = new_archetype.GetComponentData(entity, old_component_info.type_id);
-        std::memcpy(new_component_ptr, old_component_ptr, old_component_info.size);
+
+        if (old_component_info.destructor) {
+            old_component_info.destructor(new_component_ptr);
+        }
+
+        if (old_component_info.move_constructor) {
+            old_component_info.move_constructor(new_component_ptr, old_component_ptr);
+        } else if (old_component_info.copy_constructor) {
+            old_component_info.copy_constructor(new_component_ptr, old_component_ptr);
+        } else {
+            std::memcpy(new_component_ptr, old_component_ptr, old_component_info.size);
+        }
     }
 
     old_archetype.DeleteEntity(entity);
@@ -137,7 +148,12 @@ void EntityManager::Detach(Entity& entity, const detail::ComponentInfoSet& compo
     for (const auto& new_component_info : new_component_infos) {
         auto old_component_ptr = old_archetype.GetComponentData(entity, new_component_info.type_id);
         auto new_component_ptr = new_archetype.GetComponentData(entity, new_component_info.type_id);
-        std::memcpy(new_component_ptr, old_component_ptr, new_component_info.size);
+        if (new_component_info.move_constructor)
+            new_component_info.move_constructor(new_component_ptr, old_component_ptr);
+        else if (new_component_info.copy_constructor)
+            new_component_info.copy_constructor(new_component_ptr, old_component_ptr);
+        else
+            std::memcpy(new_component_ptr, old_component_ptr, new_component_info.size);
     }
 
     old_archetype.DeleteEntity(entity);

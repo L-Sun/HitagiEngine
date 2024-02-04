@@ -5,8 +5,6 @@
 namespace hitagi::asset {
 
 class Light : public Resource {
-    friend class LightNode;
-
 public:
     enum struct Type : std::uint8_t {
         Point,
@@ -26,6 +24,10 @@ public:
 
     Light(Parameters parameters, std::string_view name = "")
         : Resource(Resource::Type::Light, name), parameters(parameters) {}
+};
+
+struct LightComponent {
+    std::shared_ptr<Light> light;
 };
 
 }  // namespace hitagi::asset
