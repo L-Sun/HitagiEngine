@@ -12,19 +12,19 @@ namespace hitagi::ecs {
 
 class Schedule {
     struct TaskBase {
-        TaskBase(std::string_view name, detail::ComponentIDList component_list, Filter filter)
+        TaskBase(std::string_view name, detail::ComponentIdList component_list, Filter filter)
             : name(name), component_list(std::move(component_list)), filter(std::move(filter)) {}
 
         virtual void Run(World&) = 0;
 
         std::pmr::string        name;
-        detail::ComponentIDList component_list;
+        detail::ComponentIdList component_list;
         Filter                  filter;
     };
 
     template <typename Func>
     struct Task : public TaskBase {
-        Task(std::string_view name, detail::ComponentIDList component_list, Filter filter, Func&& task)
+        Task(std::string_view name, detail::ComponentIdList component_list, Filter filter, Func&& task)
             : TaskBase(name, std::move(component_list), std::move(filter)), task(std::move(task)) {}
 
         void Run(World& world) final;

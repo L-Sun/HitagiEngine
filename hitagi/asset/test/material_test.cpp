@@ -183,7 +183,7 @@ TEST(MaterialInstanceTest, SetMaterial) {
     }
 }
 
-TEST(MaterialInstanceTest, ParameterLayout) {
+TEST(MaterialInstanceTest, MaterialBuffer_TightLayout) {
     const auto mat = std::make_shared<Material>(MaterialDesc{
         {},
         {},
@@ -200,7 +200,7 @@ TEST(MaterialInstanceTest, ParameterLayout) {
     const auto instance = mat->CreateInstance();
     ASSERT_TRUE(instance);
 
-    const auto buffer = instance->GenerateMaterialBuffer();
+    const auto buffer = instance->GenerateMaterialBuffer(false);
     ASSERT_EQ(buffer.GetDataSize(), 48);
 
     EXPECT_VEC_EQ(*reinterpret_cast<const vec2f*>(buffer.GetData() + 0), vec2f(1, 2));
@@ -208,6 +208,33 @@ TEST(MaterialInstanceTest, ParameterLayout) {
     EXPECT_VEC_EQ(*reinterpret_cast<const vec4f*>(buffer.GetData() + 12), vec4f(1, 2, 3, 4));
     EXPECT_VEC_EQ(*reinterpret_cast<const vec2f*>(buffer.GetData() + 28), vec2f(1, 2));
     EXPECT_VEC_EQ(*reinterpret_cast<const vec3f*>(buffer.GetData() + 36), vec3f(1, 2, 3));
+}
+
+TEST(MaterialInstanceTest, MaterialBuffer_16BitsPackingLayout) {
+    const auto mat = std::make_shared<Material>(MaterialDesc{
+        {},
+        {},
+        {
+            //                                                                       offset,  size, padding
+            {.name = "param1", .value = vec2f{1, 2}},                        //       0,     8,       0
+            {.name = "param2", .value = float{1}},                           //       8,     4,       4
+            {.name = "param3", .value = vec4f{1, 2, 3, 4}},                  //      16,    16,       0
+            {.name = "param4", .value = std::shared_ptr<Texture>{nullptr}},  // no effect
+            {.name = "param5", .value = vec2f{1, 2}},                        //      32,     8,       8
+            {.name = "param6", .value = vec3f{1, 2, 3}},                     //      48,    12,       4
+        }});
+
+    const auto instance = mat->CreateInstance();
+    ASSERT_TRUE(instance);
+
+    const auto buffer = instance->GenerateMaterialBuffer(true);
+    ASSERT_EQ(buffer.GetDataSize(), 64);
+
+    EXPECT_VEC_EQ(*reinterpret_cast<const vec2f*>(buffer.GetData() + 0), vec2f(1, 2));
+    EXPECT_EQ(*reinterpret_cast<const float*>(buffer.GetData() + 8), 1.0f);
+    EXPECT_VEC_EQ(*reinterpret_cast<const vec4f*>(buffer.GetData() + 16), vec4f(1, 2, 3, 4));
+    EXPECT_VEC_EQ(*reinterpret_cast<const vec2f*>(buffer.GetData() + 32), vec2f(1, 2));
+    EXPECT_VEC_EQ(*reinterpret_cast<const vec3f*>(buffer.GetData() + 48), vec3f(1, 2, 3));
 }
 
 TEST(MaterialInstanceTest, CloneMaterialInstance) {

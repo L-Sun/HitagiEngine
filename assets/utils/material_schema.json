@@ -87,7 +87,7 @@
                 "properties": {
                     "name": {
                         "type": "string",
-                        "title": "The name of paramter",
+                        "title": "The name of parameter",
                         "examples": [
                             "diffuse",
                             "ambient",
@@ -98,7 +98,7 @@
                     },
                     "type": {
                         "type": "string",
-                        "title": "The type of paramter",
+                        "title": "The type of parameter",
                         "examples": [
                             "vec4f",
                             "float",
@@ -117,6 +117,7 @@
                             "vec4i",
                             "vec4u",
                             "vec4f",
+                            "color",
                             "mat4f",
                             "texture"
                         ]
@@ -127,7 +128,7 @@
                             "number",
                             "string"
                         ],
-                        "title": "The default value of paramter",
+                        "title": "The default value of parameter",
                         "items": {
                             "type": "number",
                             "title": "A Schema",

@@ -81,9 +81,9 @@ TEST(SceneParserTest, Fbx) {
     AssimpParser parser(image_parser);
     auto         scene = parser.Parse("assets/test/test.fbx");
     ASSERT_TRUE(scene != nullptr);
-    EXPECT_EQ(scene->camera_nodes.size(), 1);
-    EXPECT_EQ(scene->instance_nodes.size(), 1);
-    EXPECT_EQ(scene->light_nodes.size(), 1);
+    EXPECT_EQ(scene->GetCameraEntities().size(), 1);
+    EXPECT_EQ(scene->GetMeshEntities().size(), 1);
+    EXPECT_EQ(scene->GetLightEntities().size(), 1);
 }
 
 int main(int argc, char* argv[]) {

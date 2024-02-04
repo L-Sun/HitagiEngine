@@ -1,6 +1,5 @@
 #pragma once
 #include <hitagi/asset/resource.hpp>
-#include <hitagi/asset/scene_node.hpp>
 #include <hitagi/core/buffer.hpp>
 #include <hitagi/math/vector.hpp>
 #include <hitagi/gfx/gpu_resource.hpp>
@@ -222,7 +221,9 @@ public:
     std::shared_ptr<IndexArray>  indices;
 };
 
-using MeshNode = SceneNodeWithObject<Mesh>;
+struct MeshComponent {
+    std::shared_ptr<Mesh> mesh;
+};
 
 template <VertexAttribute T>
 auto VertexArray::Span() const noexcept -> std::span<const VertexDataType<T>> {

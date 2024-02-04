@@ -206,7 +206,7 @@ void VulkanGraphicsCommandBuffer::SetScissorRect(const Rect& scissor_rect) {
         });
 }
 
-void VulkanGraphicsCommandBuffer::SetBlendColor(const math::vec4f& color) {
+void VulkanGraphicsCommandBuffer::SetBlendColor(const math::Color& color) {
     command_buffer.setBlendConstants(color);
 }
 

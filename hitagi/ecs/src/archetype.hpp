@@ -14,12 +14,13 @@ public:
     Archetype& operator=(Archetype&&)      = default;
     ~Archetype();
 
-    inline const auto& GetComponentInfoSet() const noexcept { return m_ComponentInfoSet; }
+    const auto& GetComponentInfoSet() const noexcept { return m_ComponentInfoSet; }
 
     void CreateEntities(const std::pmr::vector<Entity>& entities) noexcept;
     void DeleteEntity(Entity entity) noexcept;
-    auto GetComponentBuffers(const ComponentInfo& component) const noexcept -> std::pmr::vector<std::pair<std::byte*, std::size_t>>;
-    auto GetComponentData(Entity entity, const ComponentInfo& component) const noexcept -> std::byte*;
+    auto GetComponentBuffers(utils::TypeID component_id) const noexcept -> std::pmr::vector<std::pair<std::byte*, std::size_t>>;
+    auto GetComponentData(Entity entity, utils::TypeID component_id) const noexcept -> std::byte*;
+    auto GetComponentInfo(utils::TypeID component_id) const noexcept -> const ComponentInfo&;
     auto NumEntities() const noexcept -> std::size_t;
     bool HasComponent(utils::TypeID component) const noexcept;
 
@@ -33,7 +34,7 @@ private:
     };
 
     struct Chunk {
-        Chunk(const ChunkInfo& chunk_info);
+        Chunk();
         Chunk(const Chunk&)            = delete;
         Chunk(Chunk&&)                 = default;
         Chunk& operator=(const Chunk&) = delete;
@@ -43,6 +44,7 @@ private:
         core::Buffer data;
     };
 
+    auto GetComponentOffset(utils::TypeID component_id) const noexcept -> std::size_t;
     auto GetOrCreateChunk() noexcept -> Chunk&;
     auto GetLastEntity() const -> Entity;
     void SwapEntityData(Entity lhs, Entity rhs) noexcept;

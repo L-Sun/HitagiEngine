@@ -1,5 +1,6 @@
 #pragma once
-#include <hitagi/asset/scene_node.hpp>
+#include <hitagi/asset/resource.hpp>
+#include <hitagi/math/transform.hpp>
 
 namespace hitagi::asset {
 struct Bone {
@@ -8,7 +9,6 @@ struct Bone {
     std::weak_ptr<Bone>                     parent;
 
     math::mat4f offset_matrix;
-    Transform   transform;
 };
 
 struct Skeleton : public Resource {
@@ -17,6 +17,8 @@ struct Skeleton : public Resource {
     std::pmr::vector<std::shared_ptr<Bone>> bones;
 };
 
-using SkeletonNode = SceneNodeWithObject<Skeleton>;
+struct SkeletonComponent {
+    std::shared_ptr<Skeleton> skeleton;
+};
 
 }  // namespace hitagi::asset

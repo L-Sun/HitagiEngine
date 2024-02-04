@@ -1,7 +1,6 @@
 #pragma once
 #include <hitagi/core/runtime_module.hpp>
 
-#include <limits>
 #include <memory>
 #include <mutex>
 #include <future>

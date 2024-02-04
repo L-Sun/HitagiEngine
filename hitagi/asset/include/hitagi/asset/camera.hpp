@@ -5,8 +5,6 @@
 
 namespace hitagi::asset {
 class Camera : public Resource {
-    friend class CameraNode;
-
 public:
     struct Parameters {
         float aspect         = 16.0f / 9.0f;
@@ -21,6 +19,10 @@ public:
 
     Camera(Parameters parameters, std::string_view name = "")
         : Resource(Type::Camera, name), parameters(parameters) {}
+};
+
+struct CameraComponent {
+    std::shared_ptr<Camera> camera;
 };
 
 }  // namespace hitagi::asset

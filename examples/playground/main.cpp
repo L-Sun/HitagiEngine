@@ -1,5 +1,6 @@
 #include <hitagi/engine.hpp>
 #include <hitagi/asset/mesh_factory.hpp>
+#include <hitagi/asset/transform.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -43,19 +44,15 @@ auto main(int argc, char** argv) -> int {
 
     auto scene = std::make_shared<asset::Scene>("playground");
 
-    auto camera = std::make_shared<asset::CameraNode>(std::make_shared<asset::Camera>(asset::Camera::Parameters{}));
-    auto light  = std::make_shared<asset::LightNode>(std::make_shared<asset::Light>(asset::Light::Parameters{}));
-    auto cube   = std::make_shared<asset::MeshNode>(asset::MeshFactory::Cube());
+    auto  camera           = std::make_shared<asset::Camera>(asset::Camera::Parameters{});
+    auto  camera_entity    = scene->CreateCameraEntity(camera, {}, {}, "");
+    auto& camera_transform = camera_entity.GetComponent<asset::Transform>();
 
-    scene->camera_nodes.emplace_back(camera);
-    scene->light_nodes.emplace_back(light);
-    scene->instance_nodes.emplace_back(cube);
+    auto light     = scene->CreateLightEntity(std::make_shared<asset::Light>(asset::Light::Parameters{}), {}, {}, "");
+    auto cube_mesh = asset::MeshFactory::Cube();
+    auto cube      = scene->CreateMeshEntity(cube_mesh, {}, {}, "");
 
-    camera->Attach(scene->root);
-    light->Attach(scene->root);
-    cube->Attach(scene->root);
-
-    for (auto& sub_mesh : cube->GetObjectRef()->sub_meshes) {
+    for (auto& sub_mesh : cube_mesh->sub_meshes) {
         sub_mesh.material_instance = asset::AssetManager::Get()->GetMaterial("Phong")->CreateInstance();
     }
 
@@ -63,13 +60,15 @@ auto main(int argc, char** argv) -> int {
         engine.GuiManager().DrawGui([&]() {
             static bool open = true;
             if (ImGui::Begin("Cube info", &open)) {
-                ImGui::DragFloat3("Cube position", cube->transform.local_translation, 0.01);
-                ImGui::DragFloat3("Cube scaling", cube->transform.local_scaling, 0.01);
+                auto& cube_transform = cube.GetComponent<asset::Transform>();
+
+                ImGui::DragFloat3("Cube position", cube_transform.position, 0.01);
+                ImGui::DragFloat3("Cube scaling", cube_transform.scale, 0.01);
 
                 ImGui::Separator();
 
-                ImGui::DragFloat3("Camera position", camera->transform.local_translation, 0.01);
-                ImGui::DragFloat3("Camera eye", camera->GetObjectRef()->parameters.eye, 0.01);
+                ImGui::DragFloat3("Camera position", camera_transform.position, 0.01);
+                ImGui::DragFloat3("Camera eye", camera->parameters.eye, 0.01);
             }
             ImGui::End();
         });
@@ -82,10 +81,11 @@ auto main(int argc, char** argv) -> int {
                  .width       = renderer.GetSwapChain().GetWidth(),
                  .height      = renderer.GetSwapChain().GetHeight(),
                  .format      = hitagi::gfx::Format::R8G8B8A8_UNORM,
-                 .clear_value = hitagi::math::vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+                 .clear_value = math::Color::Black(),
                  .usages      = hitagi::gfx::TextureUsageFlags::RenderTarget | hitagi::gfx::TextureUsageFlags::CopySrc,
             });
-        renderer.RenderScene(scene, scene->curr_camera, render_target);
+
+        renderer.RenderScene(scene, *camera, camera_transform.world_matrix, render_target);
         render_target = renderer.GetRenderGraph().MoveFrom(render_target);
         renderer.RenderGui(render_target, true);
         renderer.ToSwapChain(render_target);

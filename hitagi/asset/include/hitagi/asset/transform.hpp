@@ -1,25 +1,44 @@
 #pragma once
-#include <hitagi/math/transform.hpp>
+#include <hitagi/ecs/entity.hpp>
 #include <hitagi/ecs/schedule.hpp>
+#include <hitagi/math/transform.hpp>
+
+#include <unordered_set>
 
 namespace hitagi::asset {
 
+struct RelationShip {
+    ecs::Entity parent = {};
+
+    const auto& GetChildren() const noexcept { return children; }
+
+private:
+    friend struct RelationShipSystem;
+    ecs::Entity                          prev_parent = {};
+    std::pmr::unordered_set<ecs::Entity> children;
+};
+static_assert(ecs::Component<RelationShip>);
+
+struct RelationShipSystem {
+    static void OnUpdate(ecs::Schedule& schedule);
+};
+
 struct Transform {
-    Transform() = default;
-    Transform(const math::mat4f& local_matrix);
-    Transform(const Transform& other);
-    Transform& operator=(const Transform& other);
+    math::vec3f position;
+    math::quatf rotation = math::quatf::identity();
+    math::vec3f scale    = math::vec3f(1.0f);
 
-    math::vec3f local_translation = math::vec3f{0.0f, 0.0f, 0.0f};
-    math::quatf local_rotation    = math::quatf{0.0f, 0.0f, 0.0f, 1.0f};
-    math::vec3f local_scaling     = math::vec3f{1.0f, 1.0f, 1.0f};
+    math::mat4f world_matrix;
 
-    math::mat4f world_matrix = math::mat4f::identity();
+    inline void ApplyScale(float value) noexcept { scale = value; }
+    inline void Translate(const math::vec3f& value) noexcept { position += value; }
+    inline void Rotate(const math::quatf& value) noexcept { rotation = value * rotation; }
 
-    inline math::mat4f GetLocalMatrix() const { return math::translate(local_translation) * math::rotate(local_rotation) * math::scale(local_scaling); }
-    inline math::vec3f GetPosition() const { return math::get_translation(world_matrix); }
-    inline math::quatf GetRotation() const { return math::get_rotation(world_matrix); }
-    inline math::vec3f GetScale() const { return math::get_scaling(world_matrix); }
+    inline auto ToMatrix() const noexcept { return math::translate(position) * math::rotate(rotation) * math::scale(scale); }
+};
+
+struct TransformSystem {
+    static void OnUpdate(ecs::Schedule& schedule);
 };
 
 }  // namespace hitagi::asset

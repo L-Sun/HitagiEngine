@@ -14,7 +14,7 @@ auto main(int argc, char** argv) -> int {
                 .width       = engine.Renderer().GetSwapChain().GetWidth(),
                 .height      = engine.Renderer().GetSwapChain().GetHeight(),
                 .format      = hitagi::gfx::Format::R8G8B8A8_UNORM,
-                .clear_value = hitagi::math::vec4f{0.0f, 0.0f, 0.0f, 1.0f},
+                .clear_value = hitagi::math::Color::Black(),
                 .usages      = hitagi::gfx::TextureUsageFlags::RenderTarget | hitagi::gfx::TextureUsageFlags::CopySrc,
             });
         engine.Renderer().RenderGui(render_target, true);

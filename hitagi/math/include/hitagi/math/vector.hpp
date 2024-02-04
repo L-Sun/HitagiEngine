@@ -330,6 +330,20 @@ struct Quaternion : public Vector<T, 4> {
     }
 };
 
+struct Color : public Vector<float, 4> {
+    using Vector<float, 4>::Vector;
+    using Vector<float, 4>::data;
+
+    constexpr static Color Black() noexcept { return {0, 0, 0, 1}; }
+    constexpr static Color White() noexcept { return {1, 1, 1, 1}; }
+    constexpr static Color Red() noexcept { return {1, 0, 0, 1}; }
+    constexpr static Color Green() noexcept { return {0, 1, 0, 1}; }
+    constexpr static Color Blue() noexcept { return {0, 0, 1, 1}; }
+    constexpr static Color Yellow() noexcept { return {1, 1, 0, 1}; }
+    constexpr static Color Cyan() noexcept { return {0, 1, 1, 1}; }
+    constexpr static Color Magenta() noexcept { return {1, 0, 1, 1}; }
+};
+
 using vec2f = Vector<float, 2>;
 using vec3f = Vector<float, 3>;
 using vec4f = Vector<float, 4>;

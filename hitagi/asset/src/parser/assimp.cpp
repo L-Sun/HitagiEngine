@@ -27,10 +27,10 @@ inline constexpr auto get_vec3(const aiVector3D& v) noexcept {
     return vec3f{v.x, v.y, v.z};
 };
 inline constexpr auto get_color(const aiColor3D& c) noexcept {
-    return vec3f{c.r, c.g, c.b};
+    return Color{c.r, c.g, c.b, 1.0f};
 }
 inline constexpr auto get_color(const aiColor4D& c) noexcept {
-    return vec4f{c.r, c.g, c.b, c.a};
+    return Color{c.r, c.g, c.b, c.a};
 };
 inline constexpr auto get_primitive(unsigned int primitives) noexcept {
     if (primitives & aiPrimitiveType::aiPrimitiveType_LINE)
@@ -289,6 +289,10 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             }
         }
 
+        // TODO select a material according to the material instance
+        if (m_MaterialGetter)
+            material_instance->SetMaterial(m_MaterialGetter("Phong"));
+
         material_instances.emplace_back(std::move(material_instance));
     }
     logger->trace("Parsing materials costs {:.3}.", clock.DeltaTime());
@@ -459,10 +463,10 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         auto skeleton = std::make_shared<Skeleton>();
 
         std::function<void(const aiNode*, const std::shared_ptr<Bone>&)> traversal = [&](const aiNode* _node, const std::shared_ptr<Bone>& parent) {
-            auto bone       = std::make_shared<Bone>();
-            bone->name      = _node->mName.C_Str();
-            bone->transform = get_matrix(_node->mTransformation);
-            bone->parent    = parent;
+            auto bone           = std::make_shared<Bone>();
+            bone->name          = _node->mName.C_Str();
+            bone->offset_matrix = get_matrix(_node->mTransformation);
+            bone->parent        = parent;
             parent->children.emplace_back(bone);
 
             skeleton->bones.emplace_back(bone);
@@ -480,62 +484,44 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         return skeleton;
     };
 
-    std::function<std::shared_ptr<SceneNode>(const aiNode*)>
-        convert = [&](const aiNode* _node) -> std::shared_ptr<SceneNode> {
-        std::shared_ptr<SceneNode> node;
+    std::function<void(const aiNode*, ecs::Entity)> convert = [&](const aiNode* _node, ecs::Entity parent) -> void {
+        ecs::Entity entity;
 
         std::string_view name      = _node->mName.C_Str();
         auto             transform = get_matrix(_node->mTransformation);
 
         // This node is a geometry
         if (_node->mNumMeshes > 0) {
-            auto mesh      = create_mesh(_node);
-            auto mesh_node = std::make_shared<MeshNode>(mesh, transform, name);
-            scene->instance_nodes.emplace_back(mesh_node);
-            node = mesh_node;
+            entity = scene->CreateMeshEntity(create_mesh(_node), transform, parent, name);
         }
         // This node is a camera
         else if (camera_name_map.contains(name)) {
-            auto camera_node = std::make_shared<CameraNode>(camera_name_map.at(name), transform, name);
-            scene->camera_nodes.emplace_back(camera_node);
-            node = camera_node;
+            entity = scene->CreateCameraEntity(camera_name_map.at(name), transform, parent, name);
         }
         // This node is a light
         else if (light_name_map.contains(name)) {
-            auto light_node = std::make_shared<LightNode>(light_name_map.at(name), transform, name);
-            scene->light_nodes.emplace_back(light_node);
-            node = light_node;
+            entity = scene->CreateLightEntity(light_name_map.at(name), transform, parent, name);
         }
         // This node is skeleton, it may contain multiple bone
         else if (armature_nodes.contains(_node)) {
-            auto skeleton      = create_skeleton(_node);
-            auto skeleton_node = std::make_shared<SkeletonNode>(skeleton, transform, name);
-            scene->skeleton_nodes.emplace_back(skeleton_node);
-            node = skeleton_node;
+            entity = scene->CreateSkeletonEntity(create_skeleton(_node), transform, parent, name);
         }
         // This node is bone,
         else if (bone_nodes.contains(_node)) {
             // Skip bone node because it has processed in `create_skeleton()`
-            return nullptr;
+            return;
         }
         // This node is empty
         else {
-            node = std::make_shared<SceneNode>(transform, name);
+            entity = scene->CreateEmptyEntity(transform, parent, name);
         }
 
         for (std::size_t i = 0; i < _node->mNumChildren; i++) {
-            if (auto child = convert(_node->mChildren[i]); child)
-                child->Attach(node);
+            convert(_node->mChildren[i], entity);
         }
-
-        return node;
     };
-    scene->root = convert(ai_scene->mRootNode);
-    if (scene->camera_nodes.empty()) {
-        auto camera_node = scene->camera_nodes.emplace_back(std::make_shared<CameraNode>(std::make_shared<Camera>(Camera::Parameters{})));
-        camera_node->Attach(scene->root);
-    }
-    scene->curr_camera = scene->camera_nodes.front();
+
+    convert(ai_scene->mRootNode, scene->GetRootEntity());
 
     logger->trace("Parsing scene graph costs {:.3}.", clock.DeltaTime());
     clock.Tick();

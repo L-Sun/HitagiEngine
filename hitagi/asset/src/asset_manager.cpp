@@ -11,7 +11,6 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <tracy/Tracy.hpp>
 
 using namespace hitagi::math;
 
@@ -31,11 +30,14 @@ AssetManager::AssetManager(std::filesystem::path asset_base_path)
     m_ImageParsers[ImageFormat::TGA]  = std::make_shared<TgaParser>(m_Logger);
     m_ImageParsers[ImageFormat::BMP]  = std::make_shared<BmpParser>(m_Logger);
 
-    m_SceneParsers[SceneFormat::UNKOWN] = std::make_shared<AssimpParser>(m_ImageParsers, m_Logger);
-    m_SceneParsers[SceneFormat::GLTF]   = m_SceneParsers[SceneFormat::UNKOWN];
-    m_SceneParsers[SceneFormat::GLB]    = m_SceneParsers[SceneFormat::UNKOWN];
-    m_SceneParsers[SceneFormat::BLEND]  = m_SceneParsers[SceneFormat::UNKOWN];
-    m_SceneParsers[SceneFormat::FBX]    = m_SceneParsers[SceneFormat::UNKOWN];
+    m_SceneParsers[SceneFormat::UNKOWN] = std::make_shared<AssimpParser>(
+        m_ImageParsers,
+        [this](auto name) { return GetMaterial(name); },
+        m_Logger);
+    m_SceneParsers[SceneFormat::GLTF]  = m_SceneParsers[SceneFormat::UNKOWN];
+    m_SceneParsers[SceneFormat::GLB]   = m_SceneParsers[SceneFormat::UNKOWN];
+    m_SceneParsers[SceneFormat::BLEND] = m_SceneParsers[SceneFormat::UNKOWN];
+    m_SceneParsers[SceneFormat::FBX]   = m_SceneParsers[SceneFormat::UNKOWN];
 
     // m_MoCapParser = std::make_unique<BvhParser>();
 
@@ -48,8 +50,6 @@ AssetManager::~AssetManager() {
 }
 
 std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
-    ZoneScoped;
-
     auto format = get_scene_format(path.extension().string());
     auto scene  = m_SceneParsers[format]->Parse(path, path.parent_path());
     AddScene(scene);
@@ -57,8 +57,6 @@ std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& pa
 }
 
 std::shared_ptr<Texture> AssetManager::ImportTexture(const std::filesystem::path& path) {
-    ZoneScoped;
-
     auto format = get_image_format(path.extension().string());
     auto image  = m_ImageParsers[format]->Parse(path);
     AddTexture(image);
@@ -66,45 +64,13 @@ std::shared_ptr<Texture> AssetManager::ImportTexture(const std::filesystem::path
 }
 
 std::shared_ptr<Material> AssetManager::ImportMaterial(const std::filesystem::path& path) {
-    ZoneScoped;
-
     auto&& [iter, success] = m_Assets.materials.emplace(m_MaterialParser->Parse(path));
     return *iter;
 }
 
 void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
     if (scene == nullptr) return;
-
-    auto&& [_, success] = m_Assets.scenes.emplace(scene);
-
-    if (success) {
-        for (const auto& node : scene->camera_nodes) {
-            AddCamera(node->GetObjectRef());
-        }
-        for (const auto& node : scene->light_nodes) {
-            AddLight(node->GetObjectRef());
-        }
-        for (const auto& node : scene->skeleton_nodes) {
-            AddSkeleton(node->GetObjectRef());
-        }
-        for (const auto& node : scene->instance_nodes) {
-            auto mesh = node->GetObjectRef();
-            AddMesh(node->GetObjectRef());
-
-            for (const auto& sub_mesh : mesh->sub_meshes) {
-                if (sub_mesh.material_instance->GetMaterial() == nullptr) {
-                    sub_mesh.material_instance->SetMaterial(GetMaterial("Phong"));
-                }
-                for (const auto& texture : sub_mesh.material_instance->GetAssociatedTextures()) {
-                    if (texture->Empty()) {
-                        auto image_format = get_image_format(texture->GetPath().extension().string());
-                        texture->Load(m_ImageParsers[image_format]);
-                    }
-                    AddTexture(texture);
-                }
-            }
-        }
-    }
+    m_Assets.scenes.emplace(scene);
 }
 
 void AssetManager::AddCamera(std::shared_ptr<Camera> camera) {
@@ -136,8 +102,6 @@ auto AssetManager::GetMaterial(std::string_view name) -> std::shared_ptr<Materia
 }
 
 void AssetManager::InitBuiltinMaterial() {
-    ZoneScoped;
-
     auto material_path = m_BasePath / "materials";
     if (!std::filesystem::exists(m_BasePath / "materials")) {
         m_Logger->warn("Missing material folder: assets/materials");

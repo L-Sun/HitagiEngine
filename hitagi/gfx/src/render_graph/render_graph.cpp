@@ -43,8 +43,6 @@ RenderGraph::~RenderGraph() {
 }
 
 auto RenderGraph::ImportResource(std::shared_ptr<gfx::Resource> resource, std::string_view name) noexcept -> std::size_t {
-    ZoneScoped;
-
     constexpr auto invalid_index = std::numeric_limits<std::size_t>::max();
 
     if (resource == nullptr) {
@@ -55,32 +53,25 @@ auto RenderGraph::ImportResource(std::shared_ptr<gfx::Resource> resource, std::s
     const std::pmr::string _name(name);
     const auto             node_type = gfx_resource_type_to_node_type(resource->GetType());
 
-    {
-        ZoneScopedN("check name conflict");
+    if (m_BlackBoard[node_type].contains(_name)) {
+        const auto handle        = m_BlackBoard[node_type].at(_name);
+        const auto resource_node = std::static_pointer_cast<ResourceNode>(m_Nodes[handle]);
 
-        if (m_BlackBoard[node_type].contains(_name)) {
-            const auto handle        = m_BlackBoard[node_type].at(_name);
-            const auto resource_node = std::static_pointer_cast<ResourceNode>(m_Nodes[handle]);
-
-            if (resource_node->m_Resource != resource) {
-                m_Logger->error("Import resource({}) failed: name {} already exists",
-                                fmt::styled(resource->GetName(), fmt::fg(fmt::color::red)),
-                                fmt::styled(name, fmt::fg(fmt::color::red)));
-                return invalid_index;
-            } else {
-                return handle;
-            }
+        if (resource_node->m_Resource != resource) {
+            m_Logger->error("Import resource({}) failed: name {} already exists",
+                            fmt::styled(resource->GetName(), fmt::fg(fmt::color::red)),
+                            fmt::styled(name, fmt::fg(fmt::color::red)));
+            return invalid_index;
+        } else {
+            return handle;
         }
     }
 
-    {
-        ZoneScopedN("find existed resource node");
-        if (m_ImportedResources.contains(resource)) {
-            if (!name.empty()) {
-                m_BlackBoard[node_type].emplace(name, m_ImportedResources.at(resource));
-            }
-            return m_ImportedResources.at(resource);
+    if (m_ImportedResources.contains(resource)) {
+        if (!name.empty()) {
+            m_BlackBoard[node_type].emplace(name, m_ImportedResources.at(resource));
         }
+        return m_ImportedResources.at(resource);
     }
 
     std::shared_ptr<ResourceNode> new_node;
@@ -108,15 +99,8 @@ auto RenderGraph::ImportResource(std::shared_ptr<gfx::Resource> resource, std::s
     }
     new_node->m_Handle = m_Nodes.size();
 
-    {
-        ZoneScopedN("add to nodes");
-        m_Nodes.emplace_back(new_node);
-    }
-
-    {
-        ZoneScopedN("add to imported resources");
-        m_ImportedResources.emplace(resource, new_node->m_Handle);
-    }
+    m_Nodes.emplace_back(new_node);
+    m_ImportedResources.emplace(resource, new_node->m_Handle);
 
     if (!name.empty()) {
         m_BlackBoard[node_type].emplace(name, new_node->m_Handle);
@@ -275,7 +259,7 @@ auto RenderGraph::GetComputePipelineHandle(std::string_view name) const noexcept
 }
 
 bool RenderGraph::Compile() {
-    ZoneScopedN("Compile RenderGraph");
+    ZoneScoped;
 
     if (m_Compiled) {
         m_Logger->info("RenderGraph has already been compiled");
@@ -297,8 +281,6 @@ bool RenderGraph::Compile() {
 
     std::pmr::unordered_set<RenderGraphNode*> essential_nodes;
     {
-        ZoneScopedN("collect used node");
-
         const std::function<void(RenderGraphNode*)> do_dfs = [&](RenderGraphNode* node) {
             if (essential_nodes.contains(node)) return;
             essential_nodes.emplace(node);
@@ -319,7 +301,6 @@ bool RenderGraph::Compile() {
     }
 
     {
-        ZoneScopedN("topology sort");
         auto in_degrees = essential_nodes  //
                           | ranges::views::transform([](const auto& node) {
                                 return std::make_pair(node, node->m_InputNodes.size());
@@ -364,11 +345,8 @@ bool RenderGraph::Compile() {
         }
     }
 
-    {
-        ZoneScopedN("initialize graphics resource");
-        for (auto node : essential_nodes) {
-            node->Initialize();
-        }
+    for (auto node : essential_nodes) {
+        node->Initialize();
     }
 
     m_Compiled = true;
@@ -377,63 +355,53 @@ bool RenderGraph::Compile() {
 }
 
 auto RenderGraph::Execute() -> std::uint64_t {
+    ZoneScoped;
+
     if (!m_Compiled) {
         m_Logger->warn("RenderGraph has not been compiled");
         return m_FrameIndex;
     }
 
-    ZoneScopedN("Execute RenderGraph");
-
-    {
-        ZoneScopedN("Execute Pass");
-        for (const auto& pass_node : m_ExecuteLayers | ranges::views::join | ranges::views::join) {
-            pass_node->Execute();
-        }
+    for (const auto& pass_node : m_ExecuteLayers | ranges::views::join | ranges::views::join) {
+        pass_node->Execute();
     }
     auto last_fences = m_Fences;
 
-    {
-        ZoneScopedN("Submit commands");
+    for (const auto& execute_layer : m_ExecuteLayers) {
+        // Improve more fine-grained fence
+        magic_enum::enum_for_each<gfx::CommandType>([&](gfx::CommandType type) {
+            const auto& pass_nodes = execute_layer[type];
 
-        for (const auto& execute_layer : m_ExecuteLayers) {
-            // Improve more fine-grained fence
-            magic_enum::enum_for_each<gfx::CommandType>([&](gfx::CommandType type) {
-                const auto& pass_nodes = execute_layer[type];
+            if (pass_nodes.empty()) return;
 
-                if (pass_nodes.empty()) return;
+            auto commands = pass_nodes  //
+                            | ranges::views::transform([&](const auto& pass_node) {
+                                  return std::cref(*pass_node->m_CommandContext);
+                              })  //
+                            | ranges::to<std::pmr::vector<std::reference_wrapper<const gfx::CommandContext>>>();
 
-                auto commands = pass_nodes  //
-                                | ranges::views::transform([&](const auto& pass_node) {
-                                      return std::cref(*pass_node->m_CommandContext);
-                                  })  //
-                                | ranges::to<std::pmr::vector<std::reference_wrapper<const gfx::CommandContext>>>();
+            std::pmr::vector<gfx::FenceWaitInfo> wait_fences;
+            for (const auto& curr_fence_value : m_Fences) {
+                wait_fences.emplace_back(*curr_fence_value.fence, curr_fence_value.last_value);
+            }
 
-                std::pmr::vector<gfx::FenceWaitInfo> wait_fences;
-                for (const auto& curr_fence_value : m_Fences) {
-                    wait_fences.emplace_back(*curr_fence_value.fence, curr_fence_value.last_value);
-                }
+            m_Device.GetCommandQueue(type).Submit(
+                commands,
+                wait_fences,
+                {{gfx::FenceSignalInfo{
+                    .fence = *m_Fences[type].fence,
+                    .value = ++m_Fences[type].last_value,
+                }}});
 
-                m_Device.GetCommandQueue(type).Submit(
-                    commands,
-                    wait_fences,
-                    {{gfx::FenceSignalInfo{
-                        .fence = *m_Fences[type].fence,
-                        .value = ++m_Fences[type].last_value,
-                    }}});
-
-                // retire resource
-                for (auto pass_node : pass_nodes) {
-                    RetireNodesFromPassNode(pass_node, m_Fences[type]);
-                }
-            });
-        }
+            // retire resource
+            for (auto pass_node : pass_nodes) {
+                RetireNodesFromPassNode(pass_node, m_Fences[type]);
+            }
+        });
     }
 
-    {
-        ZoneScopedN("Wait for last fence");
-        for (const auto& [fence, last_value] : last_fences) {
-            fence->Wait(last_value);
-        }
+    for (const auto& [fence, last_value] : last_fences) {
+        fence->Wait(last_value);
     }
 
     RetireNodes();
@@ -442,13 +410,13 @@ auto RenderGraph::Execute() -> std::uint64_t {
 }
 
 void RenderGraph::Reset() noexcept {
-    ZoneScopedN("Reset RenderGraph");
-
     m_Compiled        = false;
     m_PresentPassNode = nullptr;
     m_Nodes.clear();
     m_ImportedResources.clear();
-    m_BlackBoard = {};
+    for (auto& black_board : m_BlackBoard) {
+        black_board.clear();
+    }
     m_ExecuteLayers.clear();
 }
 
@@ -473,8 +441,6 @@ void RenderGraph::RetireNodesFromPassNode(PassNode* pass_node, const FenceValue&
 }
 
 void RenderGraph::RetireNodes() noexcept {
-    ZoneScopedN("RetireNodes");
-
     const auto latest_fence_values = m_Fences  //
                                      | ranges::views::transform([](const auto& fence_value) {
                                            return std::make_pair(fence_value.fence, fence_value.fence->GetCurrentValue());

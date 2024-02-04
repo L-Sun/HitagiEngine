@@ -12,6 +12,17 @@
 
 namespace hitagi::asset {
 
+auto get_parameter_size(const MaterialParameterValue& parameter) noexcept {
+    return std::visit(
+        utils::Overloaded{
+            [](const std::shared_ptr<asset::Texture>&) -> std::size_t { return 0; },
+            [](const auto& value) -> std::size_t {
+                return sizeof(value);
+            },
+        },
+        parameter);
+}
+
 Material::Material(MaterialDesc desc, std::string_view name)
     : Resource(Type::Material, name), m_Desc(std::move(desc)) {
     if (m_Desc.pipeline.name.empty()) m_Desc.pipeline.name = m_Name;
@@ -21,19 +32,18 @@ Material::Material(MaterialDesc desc, std::string_view name)
                         | ranges::to<MaterialParameters>();
 }
 
-auto Material::CalculateMaterialBufferSize() const noexcept -> std::size_t {
-    std::size_t size = 0;
+auto Material::CalculateMaterialBufferSize(bool enable_16_bytes_packing) const noexcept -> std::size_t {
+    std::size_t offset = 0;
     for (const auto& [name, value] : m_Desc.parameters) {
-        size += std::visit(
-            utils::Overloaded{
-                [](const std::shared_ptr<asset::Texture>&) -> std::size_t { return 0; },
-                [](const auto& value) -> std::size_t {
-                    return sizeof(value);
-                },
-            },
-            value);
+        const std::size_t parameter_size = get_parameter_size(value);
+
+        if (enable_16_bytes_packing) {
+            const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
+            offset += remaining >= parameter_size ? 0 : remaining;
+        }
+        offset += parameter_size;
     }
-    return size;
+    return utils::align(offset, 16);
 }
 
 auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
@@ -43,22 +53,24 @@ auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
     return result;
 }
 
-auto Material::GetPipeline(gfx::Device& device) -> std::shared_ptr<gfx::RenderPipeline> {
+auto Material::GetPipeline(gfx::Device& device) const -> std::shared_ptr<gfx::RenderPipeline> {
     if (!m_Pipeline) {
+        auto pipeline_desc = m_Desc.pipeline;
+
         m_Shaders = m_Desc.shaders                                                                           //
                     | ranges::views::transform([&](const auto& desc) { return device.CreateShader(desc); })  //
                     | ranges::to<std::pmr::vector<std::shared_ptr<gfx::Shader>>>();
 
-        m_Desc.pipeline.shaders = m_Shaders | ranges::to<std::pmr::vector<std::weak_ptr<gfx::Shader>>>();
+        pipeline_desc.shaders = m_Shaders | ranges::to<std::pmr::vector<std::weak_ptr<gfx::Shader>>>();
 
         if (auto iter = std::find_if(m_Shaders.begin(), m_Shaders.end(), [](const auto& shader) {
                 return shader->GetDesc().type == gfx::ShaderType::Vertex;
             });
             iter != m_Shaders.end()) {
-            m_Desc.pipeline.vertex_input_layout = device.GetShaderCompiler().ExtractVertexLayout((*iter)->GetDesc());
+            pipeline_desc.vertex_input_layout = device.GetShaderCompiler().ExtractVertexLayout((*iter)->GetDesc());
         }
 
-        m_Pipeline = device.CreateRenderPipeline(m_Desc.pipeline);
+        m_Pipeline = device.CreateRenderPipeline(pipeline_desc);
     }
     return m_Pipeline;
 }
@@ -183,13 +195,15 @@ auto MaterialInstance::GetAssociatedTextures() const noexcept -> std::pmr::vecto
     return result;
 }
 
-auto MaterialInstance::GenerateMaterialBuffer() const noexcept -> core::Buffer {
+auto MaterialInstance::GenerateMaterialBuffer(bool enable_16_byte_packing) const noexcept -> core::Buffer {
     if (m_Material == nullptr) return {};
 
-    core::Buffer result(m_Material->CalculateMaterialBufferSize());
+    core::Buffer result(m_Material->CalculateMaterialBufferSize(enable_16_byte_packing));
 
     std::size_t offset = 0;
     for (const auto& [name, default_value] : m_Material->m_Desc.parameters) {
+        const std::size_t parameter_size = get_parameter_size(default_value);
+
         std::visit(
             utils::Overloaded{
                 [&](const std::shared_ptr<Texture>&) {},
@@ -199,13 +213,20 @@ auto MaterialInstance::GenerateMaterialBuffer() const noexcept -> core::Buffer {
                     const auto iter = std::find_if(m_Parameters.begin(), m_Parameters.end(), [&](const auto& param) {
                         return param.name == name && std::holds_alternative<T>(param.value);
                     });
+
+                    if (enable_16_byte_packing) {
+                        const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
+                        offset += remaining >= parameter_size ? 0 : remaining;
+                    }
+
                     if (iter != m_Parameters.end()) {
                         auto value = std::get<T>(iter->value);
-                        std::memcpy(result.GetData() + offset, &value, sizeof(data));
+                        std::memcpy(result.GetData() + offset, &value, parameter_size);
                     } else {
-                        std::memcpy(result.GetData() + offset, &data, sizeof(data));
+                        std::memcpy(result.GetData() + offset, &data, parameter_size);
                     }
-                    offset += sizeof(data);
+
+                    offset += parameter_size;
                 },
             },
             default_value);

@@ -60,6 +60,11 @@ auto MemoryPool::Pool::allocate() -> Block* {
     Block* result = free_list;
     free_list     = free_list->next;
     num_free_blocks--;
+
+#ifdef HITAGI_DEBUG
+    allocated_blocks.emplace(result);
+#endif
+
     return result;
 }
 
@@ -69,6 +74,10 @@ auto MemoryPool::Pool::deallocate(Block* block) -> void {
     block->next = free_list;
     free_list   = block;
     num_free_blocks++;
+
+#ifdef HITAGI_DEBUG
+    allocated_blocks.erase(block);
+#endif
 }
 
 MemoryPool::MemoryPool(std::shared_ptr<spdlog::logger> logger)
@@ -87,8 +96,13 @@ MemoryPool::~MemoryPool() {
         const auto num_block_per_page = pool.page_size / pool.block_size;
         const auto total_blocks       = pool.pages.size() * num_block_per_page;
         if (pool.num_free_blocks != total_blocks) {
-            m_Logger->warn("MemoryPool: {} bytes memory leak", (total_blocks - pool.num_free_blocks) * pool.block_size);
+            m_Logger->warn("MemoryPool[{} bytes]: {} bytes memory leak", pool.block_size, (total_blocks - pool.num_free_blocks) * pool.block_size);
         }
+#ifdef HITAGI_DEBUG
+        for (const auto allocated_block : pool.allocated_blocks) {
+            m_Logger->warn("MemoryPool[{} bytes]: {}", pool.block_size, fmt::ptr(allocated_block));
+        }
+#endif
     }
 }
 

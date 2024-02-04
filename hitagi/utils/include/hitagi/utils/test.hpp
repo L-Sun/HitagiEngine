@@ -17,12 +17,13 @@ template <std::floating_point T, unsigned D>
     const math::Vector<T, D>& rhs) {
     for (unsigned i = 0; i < D; i++) {
         if (auto diff = std::abs(lhs[i] - rhs[i]); diff > 1e-5) {
-            return ::testing::AssertionFailure()
-                   << "The difference between " << lhs_expr << " and " << rhs_expr
-                   << "at index " << i << " is "
-                   << diff << ", where\n"
-                   << lhs_expr << "=" << lhs << ",\n"
-                   << rhs_expr << "= " << rhs << ".";
+            const std::size_t expr_width = std::max(std::strlen(lhs_expr), std::strlen(rhs_expr));
+
+            return ::testing::AssertionFailure() << fmt::format(
+                       "The difference between {} and {} at index {} is {}, where\n"
+                       "{:>{}} = {}\n"
+                       "{:>{}} = {}.",
+                       lhs_expr, rhs_expr, i, diff, lhs_expr, expr_width, lhs, rhs_expr, expr_width, rhs);
         }
     }
 
@@ -41,12 +42,13 @@ template <std::floating_point T, unsigned D>
     for (unsigned i = 0; i < D; i++) {
         for (unsigned j = 0; j < D; j++) {
             if (auto diff = std::abs(lhs[i][j] - rhs[i][j]); diff > 1e-5) {
-                return ::testing::AssertionFailure()
-                       << "The difference between " << lhs_expr << " and " << rhs_expr
-                       << "at index (" << i << ", " << j << ") is "
-                       << diff << ", where\n"
-                       << lhs_expr << "=" << lhs << ",\n"
-                       << rhs_expr << "= " << rhs << ".";
+                const std::size_t expr_width = std::max(std::strlen(lhs_expr), std::strlen(rhs_expr));
+
+                return ::testing::AssertionFailure() << fmt::format(
+                           "The difference between {} and {} at index ({}, {}) is {}, where\n"
+                           "{:>{}} = {}\n"
+                           "{:>{}} = {}.",
+                           lhs_expr, rhs_expr, i, j, diff, lhs_expr, expr_width, lhs, rhs_expr, expr_width, rhs);
             }
         }
     }

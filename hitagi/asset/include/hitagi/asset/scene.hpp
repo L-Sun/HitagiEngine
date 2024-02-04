@@ -1,11 +1,10 @@
 #pragma once
-#include <hitagi/asset/transform.hpp>
+#include <hitagi/asset/meta_info.hpp>
 #include <hitagi/asset/material.hpp>
 #include <hitagi/asset/camera.hpp>
 #include <hitagi/asset/light.hpp>
 #include <hitagi/asset/mesh.hpp>
 #include <hitagi/asset/skeleton.hpp>
-#include <hitagi/asset/scene_node.hpp>
 #include <hitagi/ecs/world.hpp>
 
 namespace hitagi::asset {
@@ -15,19 +14,30 @@ public:
 
     void Update();
 
-    template <typename T>
-    using SharedPtrVector = std::pmr::vector<std::shared_ptr<T>>;
-    std::shared_ptr<SceneNode>    root;
-    SharedPtrVector<MeshNode>     instance_nodes;
-    SharedPtrVector<CameraNode>   camera_nodes;
-    SharedPtrVector<LightNode>    light_nodes;
-    SharedPtrVector<SkeletonNode> skeleton_nodes;
+    auto CreateEmptyEntity(math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
+    auto CreateMeshEntity(std::shared_ptr<Mesh> mesh, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
+    auto CreateCameraEntity(std::shared_ptr<Camera> camera, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
+    auto CreateLightEntity(std::shared_ptr<Light> light, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
+    auto CreateSkeletonEntity(std::shared_ptr<Skeleton> skeleton, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
 
-    std::shared_ptr<CameraNode> curr_camera;
+    auto& GetRootEntity() noexcept { return m_RootEntity; }
+    auto& GetMeshEntities() noexcept { return m_MeshEntities; }
+    auto& GetCameraEntities() noexcept { return m_CameraEntities; }
+    auto& GetLightEntities() noexcept { return m_LightEntities; }
 
-    std::pmr::vector<ecs::Entity> test_instances;
+    auto GetCurrentCamera() const noexcept { return m_CurrentCamera; }
 
-    ecs::World world;
+    auto GetWorld() noexcept -> ecs::World& { return m_World; }
+
+private:
+    ecs::World m_World;
+
+    ecs::Entity m_CurrentCamera;
+
+    ecs::Entity                   m_RootEntity;
+    std::pmr::vector<ecs::Entity> m_MeshEntities;
+    std::pmr::vector<ecs::Entity> m_CameraEntities;
+    std::pmr::vector<ecs::Entity> m_LightEntities;
 };
 
 }  // namespace hitagi::asset

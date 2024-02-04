@@ -1,5 +1,4 @@
 #pragma once
-#include <hitagi/ecs/entity.hpp>
 #include <hitagi/utils/concepts.hpp>
 #include <hitagi/utils/types.hpp>
 
@@ -18,7 +17,8 @@ struct ComponentInfo {
     utils::TypeID    type_id;
     std::size_t      size;
 
-    std::function<void(std::byte*)> constructor, destructor;
+    std::function<void(std::byte*)>             constructor, destructor;
+    std::function<void(std::byte*, std::byte*)> copy_constructor, move_constructor;
 
     constexpr auto operator<=>(const ComponentInfo& rhs) const noexcept {
         return std::tie(size, type_id) <=> std::tie(rhs.size, rhs.type_id);
@@ -46,12 +46,15 @@ constexpr auto create_static_component_info() noexcept {
         .size        = sizeof(T),
         .constructor = [](std::byte* ptr) { std::construct_at(reinterpret_cast<T*>(ptr)); },
         .destructor  = [](std::byte* ptr) { std::destroy_at(reinterpret_cast<T*>(ptr)); },
+        .copy_constructor =
+            [](std::byte* dst, std::byte* src) { std::construct_at(reinterpret_cast<T*>(dst), *reinterpret_cast<T*>(src)); },
+        .move_constructor = [](std::byte* dst, std::byte* src) { std::construct_at(reinterpret_cast<T*>(dst), std::move(*reinterpret_cast<T*>(src))); },
     };
 }
 
 template <Component... Components>
     requires utils::unique_types<Components...>
-auto create_component_info_set(const ComponentInfoSet& dynamic_components) noexcept {
+auto create_component_info_set(const ComponentInfoSet& dynamic_components = {}) noexcept {
     ComponentInfoSet result = {create_static_component_info<Components>()...};
     for (auto dynamic_component : dynamic_components) {
         dynamic_component.type_id = utils::TypeID(dynamic_component.name);
@@ -60,12 +63,12 @@ auto create_component_info_set(const ComponentInfoSet& dynamic_components) noexc
     return result;
 }
 
-using ComponentIDSet  = std::pmr::unordered_set<utils::TypeID>;
-using ComponentIDList = std::pmr::vector<utils::TypeID>;
+using ComponentIdSet  = std::pmr::unordered_set<utils::TypeID>;
+using ComponentIdList = std::pmr::vector<utils::TypeID>;
 
 template <Component... Components>
-auto create_component_id_set(const DynamicComponentSet& dynamic_components) noexcept {
-    ComponentIDSet result = {utils::TypeID::Create<Components>()...};
+auto create_component_id_set(const DynamicComponentSet& dynamic_components = {}) noexcept {
+    ComponentIdSet result = {utils::TypeID::Create<Components>()...};
     for (const auto& dynamic_component : dynamic_components) {
         result.emplace(dynamic_component);
     }
@@ -73,8 +76,8 @@ auto create_component_id_set(const DynamicComponentSet& dynamic_components) noex
 }
 
 template <Component... Components>
-auto create_component_id_list(const DynamicComponentList& dynamic_components) noexcept {
-    ComponentIDList result = {utils::TypeID::Create<Components>()...};
+auto create_component_id_list(const DynamicComponentList& dynamic_components = {}) noexcept {
+    ComponentIdList result = {utils::TypeID::Create<Components>()...};
     for (const auto& dynamic_component : dynamic_components) {
         result.emplace_back(dynamic_component);
     }

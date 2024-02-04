@@ -16,7 +16,7 @@ void DebugManager::Tick() {
     m_DrawItems.clear();
 }
 
-void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const vec4f& color, bool depth_enabled) {
+void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const Color& color, bool depth_enabled) {
     if (!m_DrawDebugInfo) return;
     vec3f dir = normalize(to - from);
 
@@ -35,7 +35,7 @@ void DebugManager::DrawAxis(const math::mat4f& transform, bool depth_enabled) {
     // TODO
 }
 
-void DebugManager::DrawBox(const mat4f& transform, const vec4f& color, bool depth_enabled) {
+void DebugManager::DrawBox(const mat4f& transform, const Color& color, bool depth_enabled) {
     if (!m_DrawDebugInfo) return;
 
     m_DrawItems.emplace_back(DrawItem{

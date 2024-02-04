@@ -20,7 +20,7 @@ public:
 
     explicit constexpr TypeID(std::size_t value) noexcept : m_Value(value) {}
 
-    constexpr TypeID(std::string_view str) noexcept : m_Value(utils::string_hash(str)) {}
+    explicit constexpr TypeID(std::string_view str) noexcept : m_Value(utils::string_hash(str)) {}
 
     constexpr auto GetValue() const noexcept { return m_Value; }
 

@@ -14,10 +14,10 @@ public:
     inline auto GetScene() const noexcept { return m_CurrentScene; };
 
 private:
-    render::IRenderer&                 m_Render;
-    gui::GuiManager&                   m_GuiManager;
-    bool                               m_Open         = true;
-    std::shared_ptr<asset::Scene>      m_CurrentScene = nullptr;
-    std::shared_ptr<asset::CameraNode> m_Camera       = nullptr;
+    render::IRenderer&            m_Render;
+    gui::GuiManager&              m_GuiManager;
+    bool                          m_Open         = true;
+    std::shared_ptr<asset::Scene> m_CurrentScene = nullptr;
+    ecs::Entity                   m_Camera;
 };
 }  // namespace hitagi
