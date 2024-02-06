@@ -45,8 +45,7 @@ public:
 private:
     friend class EntityManager;
 
-    Entity(EntityManager* manager, std::uint64_t id) noexcept
-        : m_EntityManager(manager), m_Id(id) {}
+    Entity(EntityManager* manager, std::uint64_t id) : m_EntityManager(manager), m_Id(id) {}
 
     bool HasComponent(utils::TypeID component_id) const noexcept;
     auto GetComponent(utils::TypeID component_id) const noexcept -> std::byte*;
