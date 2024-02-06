@@ -10,7 +10,7 @@ using namespace hitagi::ecs;
 using namespace hitagi::math;
 
 template <Component T, typename V>
-auto component_value_eq(const char* expr_entity, const char* expr_value, Entity entity, const V& value) -> ::testing::AssertionResult {
+auto component_value_eq(const char* expr_entity, const char*, Entity entity, const V& value) -> ::testing::AssertionResult {
     static_assert(std::is_same_v<decltype(T::value), V>);
 
     if (auto component_value = entity.GetComponent<T>().value; component_value == value) {
@@ -23,9 +23,9 @@ auto component_value_eq(const char* expr_entity, const char* expr_value, Entity 
 #define EXPECT_COMPONENT_EQ(_entity, _component, _value) \
     EXPECT_PRED_FORMAT2(component_value_eq<_component>, _entity, _value)
 
-auto dynamic_component_value_eq(const char*      expr_entity,
-                                const char*      expr_dynamic_component,
-                                const char*      expr_value,
+auto dynamic_component_value_eq(const char* expr_entity,
+                                const char* expr_dynamic_component,
+                                const char*,
                                 Entity           entity,
                                 std::string_view dynamic_component,
                                 int              value) -> ::testing::AssertionResult {
@@ -123,7 +123,7 @@ TEST_F(EcsTest, DestructComponentAfterWorldDestroyed) {
         _world.GetEntityManager().RegisterDynamicComponent({
             .name       = "DynamicComponent",
             .size       = sizeof(int),
-            .destructor = [&](std::byte* data) { is_destructed = true; },
+            .destructor = [&](std::byte*) { is_destructed = true; },
         });
         _world.GetEntityManager().Create<Component_1>({"DynamicComponent"});
     }
@@ -214,13 +214,17 @@ TEST_F(EcsTest, AttachComponentThatAlreadyExists) {
 TEST_F(EcsTest, AttachComponentKeepOldComponent) {
     struct PointToSelfComponent {
         PointToSelfComponent() : self(this) {}
-        PointToSelfComponent(const PointToSelfComponent& rhs) : self(this) {}
-        PointToSelfComponent(PointToSelfComponent&& rhs) noexcept : self(this) { rhs.self = nullptr; }
+        PointToSelfComponent(const PointToSelfComponent&) : self(this) {}
+        PointToSelfComponent(PointToSelfComponent&&) noexcept : self(this) {}
+        PointToSelfComponent& operator=(const PointToSelfComponent&) { return *this; }
+        PointToSelfComponent& operator=(const PointToSelfComponent&&) noexcept { return *this; }
+        ~PointToSelfComponent() { self = nullptr; }
 
         bool IsValid() const noexcept { return self == this; }
 
         PointToSelfComponent* self = nullptr;
     };
+
     auto entity = em.Create<PointToSelfComponent>();
     entity.Attach<Component_1>();
     EXPECT_TRUE(entity.HasComponent<PointToSelfComponent>());
@@ -275,7 +279,7 @@ TEST_F(EcsTest, Register) {
 TEST_F(EcsTest, RegisterSystemTwice) {
     static unsigned register_counter = 0;
     struct System {
-        static void OnCreate(World& world) { register_counter++; }
+        static void OnCreate(World&) { register_counter++; }
     };
     sm.Register<System>();
     sm.Register<System>();
@@ -285,7 +289,7 @@ TEST_F(EcsTest, RegisterSystemTwice) {
 TEST_F(EcsTest, Unregister) {
     static bool is_unregistered = false;
     struct System {
-        static void OnDestroy(World& world) { is_unregistered = true; }
+        static void OnDestroy(World&) { is_unregistered = true; }
     };
 
     sm.Register<System>();
@@ -296,7 +300,7 @@ TEST_F(EcsTest, Unregister) {
 TEST_F(EcsTest, UnregisterSystemTwice) {
     static unsigned unregister_counter = 0;
     struct System {
-        static void OnDestroy(World& world) { unregister_counter++; }
+        static void OnDestroy(World&) { unregister_counter++; }
     };
 
     sm.Register<System>();
@@ -308,7 +312,7 @@ TEST_F(EcsTest, UnregisterSystemTwice) {
 TEST_F(EcsTest, AutoUnregisterSystemAfterWorldDestroyed) {
     static bool is_unregistered = false;
     struct System {
-        static void OnDestroy(World& world) { is_unregistered = true; }
+        static void OnDestroy(World&) { is_unregistered = true; }
     };
 
     {
@@ -370,7 +374,7 @@ TEST_F(EcsTest, SystemUpdateWithNoEntities) {
     struct System {
         static void OnUpdate(Schedule& schedule) {
             schedule.Request(
-                "ImplicitFilterAll", [&](Entity e, LastFrame<Component_1> c1, Component_2& c2, std::byte* c3) {
+                "ImplicitFilterAll", [&](Entity, LastFrame<Component_1>, Component_2&, std::byte*) {
                     invoked = true;
                 },
                 {"DynamicComponent"});
@@ -391,22 +395,22 @@ TEST_F(EcsTest, SystemUpdateOrder) {
             schedule
                 .Request(
                     "Fn2",
-                    [&](Component_1& c1) {
+                    [&](Component_1&) {
                         order.emplace_back(2);
                     })
                 .Request(
                     "Fn4",
-                    [&](const Component_1& c1) {
+                    [&](const Component_1&) {
                         order.emplace_back(4);
                     })
                 .Request(
                     "Fn3",
-                    [&](Component_1& c1) {
+                    [&](Component_1&) {
                         order.emplace_back(3);
                     })
                 .Request(
                     "Fn1",
-                    [&](LastFrame<Component_1> c1) {
+                    [&](LastFrame<Component_1>) {
                         order.emplace_back(1);
                     });
         }
@@ -451,7 +455,6 @@ TEST_F(EcsTest, SystemUpdateInCustomOrder) {
 TEST_F(EcsTest, SystemFilterAll) {
     struct System {
         static void OnUpdate(Schedule& schedule) {
-            auto& em = schedule.world.GetEntityManager();
             schedule.Request(
                 "FilterAll",
                 [&](Entity entity) {
@@ -478,8 +481,6 @@ TEST_F(EcsTest, SystemFilterAll) {
 TEST_F(EcsTest, SystemFilterAny) {
     struct System {
         static void OnUpdate(Schedule& schedule) {
-            auto& em = schedule.world.GetEntityManager();
-
             schedule.Request(
                 "FilterAny",
                 [&](Entity entity) {

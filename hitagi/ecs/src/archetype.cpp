@@ -163,41 +163,13 @@ void Archetype::SwapEntityData(Entity lhs, Entity rhs) noexcept {
         auto lhs_ptr = GetComponentData(lhs, component_info.type_id);
         auto rhs_ptr = GetComponentData(rhs, component_info.type_id);
 
-        core::Buffer temp(component_info.size);
-        if (component_info.move_constructor) {
-            component_info.move_constructor(temp.GetData(), lhs_ptr);
-        } else if (component_info.copy_constructor) {
-            component_info.copy_constructor(temp.GetData(), lhs_ptr);
+        if (component_info.swap) {
+            component_info.swap(lhs_ptr, rhs_ptr);
         } else {
+            core::Buffer temp(component_info.size);
             std::memcpy(temp.GetData(), lhs_ptr, component_info.size);
-        }
-
-        if (component_info.destructor) {
-            component_info.destructor(lhs_ptr);
-        }
-
-        if (component_info.move_constructor) {
-            component_info.move_constructor(lhs_ptr, rhs_ptr);
-        } else if (component_info.copy_constructor) {
-            component_info.copy_constructor(lhs_ptr, rhs_ptr);
-        } else {
             std::memcpy(lhs_ptr, rhs_ptr, component_info.size);
-        }
-
-        if (component_info.destructor) {
-            component_info.destructor(rhs_ptr);
-        }
-
-        if (component_info.move_constructor) {
-            component_info.move_constructor(rhs_ptr, temp.GetData());
-        } else if (component_info.copy_constructor) {
-            component_info.copy_constructor(rhs_ptr, temp.GetData());
-        } else {
             std::memcpy(rhs_ptr, temp.GetData(), component_info.size);
-        }
-
-        if (component_info.destructor) {
-            component_info.destructor(temp.GetData());
         }
     }
     std::swap(m_EntityMap[lhs], m_EntityMap[rhs]);
