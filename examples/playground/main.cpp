@@ -46,7 +46,7 @@ auto main(int argc, char** argv) -> int {
 
     auto  camera           = std::make_shared<asset::Camera>(asset::Camera::Parameters{});
     auto  camera_entity    = scene->CreateCameraEntity(camera, {}, {}, "");
-    auto& camera_transform = camera_entity.GetComponent<asset::Transform>();
+    auto& camera_transform = camera_entity.Get<asset::Transform>();
 
     auto light     = scene->CreateLightEntity(std::make_shared<asset::Light>(asset::Light::Parameters{}), {}, {}, "");
     auto cube_mesh = asset::MeshFactory::Cube();
@@ -60,10 +60,10 @@ auto main(int argc, char** argv) -> int {
         engine.GuiManager().DrawGui([&]() {
             static bool open = true;
             if (ImGui::Begin("Cube info", &open)) {
-                auto& cube_transform = cube.GetComponent<asset::Transform>();
+                auto& cube_transform = cube.Get<asset::Transform>();
 
                 ImGui::DragFloat3("Cube position", cube_transform.position, 0.01);
-                ImGui::DragFloat3("Cube scaling", cube_transform.scale, 0.01);
+                ImGui::DragFloat3("Cube scaling", cube_transform.scaling, 0.01);
 
                 ImGui::Separator();
 

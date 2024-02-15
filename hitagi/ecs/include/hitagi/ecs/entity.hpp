@@ -1,83 +1,91 @@
 #pragma once
-#include <hitagi/ecs/component.hpp>
+#include <hitagi/ecs/entity_manager.hpp>
 
-#include <cstdint>
 #include <functional>
 
 namespace hitagi::ecs {
 
-class Archetype;
-
 class Entity {
 public:
-    Entity()                         = default;
-    Entity(const Entity&)            = default;
-    Entity(Entity&&)                 = default;
-    Entity& operator=(const Entity&) = default;
-    Entity& operator=(Entity&&)      = default;
+    Entity()              = default;
+    Entity(const Entity&) = default;
 
     template <Component T>
-    bool HasComponent() const noexcept;
-    bool HasComponent(std::string_view dynamic_component) const noexcept;
+    bool Has() const;
+    bool Has(std::string_view dynamic_component) const;
 
     template <Component T>
-    auto GetComponent() const -> T&;
-    auto GetComponent(std::string_view dynamic_component) const -> std::byte*;
+    auto Get() const -> const T&;
+    template <Component T>
+        requires utils::not_same_as<T, Entity>
+    auto Get() -> T&;
+    auto Get(std::string_view dynamic_component) -> std::byte*;
+    auto Get(std::string_view dynamic_component) const -> const std::byte*;
 
-    template <Component... Components>
-        requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
-    void Attach(const DynamicComponentSet& dynamic_components = {});
+    template <Component T, typename... Args>
+        requires utils::not_same_as<T, Entity>
+    auto Emplace(Args&&... args) -> T&;
 
-    template <Component... Components>
-        requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
-    void Detach(const DynamicComponentSet& dynamic_components = {});
+    auto Add(std::string_view dynamic_component) -> std::byte*;
 
-    auto     GetId() const noexcept { return m_Id; }
-    explicit operator bool() const noexcept;
-    bool     operator!() const noexcept { return !static_cast<bool>(*this); }
+    template <Component T>
+        requires utils::not_same_as<T, Entity>
+    void Remove();
+    void Remove(std::string_view dynamic_component);
 
-    bool operator==(const Entity& rhs) const noexcept { return m_EntityManager == rhs.m_EntityManager && m_Id == rhs.m_Id; }
-    bool operator!=(const Entity& rhs) const noexcept { return !(*this == rhs); }
+    auto GetId() const noexcept { return m_Id; }
+    bool Valid() const noexcept;
+
+    explicit operator bool() const noexcept { return Valid(); }
+    bool     operator!() const noexcept { return !Valid(); }
+    bool     operator==(const Entity& rhs) const noexcept { return m_EntityManager == rhs.m_EntityManager && m_Id == rhs.m_Id; }
+    bool     operator!=(const Entity& rhs) const noexcept { return !(*this == rhs); }
 
     friend auto format_as(const Entity& entity) noexcept { return entity.m_Id; }
     friend std::hash<Entity>;
 
 private:
-    friend class EntityManager;
+    friend EntityManager;
 
-    Entity(EntityManager* manager, std::uint64_t id) : m_EntityManager(manager), m_Id(id) {}
+    Entity(EntityManager* manager, entity_id_t id) : m_EntityManager(manager), m_Id(id) {}
 
-    bool HasComponent(utils::TypeID component_id) const noexcept;
-    auto GetComponent(utils::TypeID component_id) const noexcept -> std::byte*;
-    void Attach(detail::ComponentInfoSet static_component_infos, const DynamicComponentSet& dynamic_components);
-    void Detach(detail::ComponentInfoSet static_component_infos, const DynamicComponentSet& dynamic_components);
-    auto GetArchetype() const noexcept -> Archetype&;
+    void CheckValidation() const;
 
     EntityManager* m_EntityManager = nullptr;
-    std::uint64_t  m_Id            = std::numeric_limits<std::uint64_t>::max();
+    entity_id_t    m_Id            = std::numeric_limits<entity_id_t>::max();
 };
 
 template <Component T>
-bool Entity::HasComponent() const noexcept {
-    return HasComponent(utils::TypeID::Create<T>());
+bool Entity::Has() const {
+    CheckValidation();
+    return m_EntityManager->HasComponent<T>(m_Id);
 }
 
-template <Component... Components>
-    requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
-void Entity::Attach(const DynamicComponentSet& dynamic_components) {
-    Attach(detail::create_component_info_set<Components...>(), dynamic_components);
-}
-
-template <Component... Components>
-    requires utils::unique_types<Components...> && utils::no_in<Entity, Components...>
-void Entity::Detach(const DynamicComponentSet& dynamic_components) {
-    Detach(detail::create_component_info_set<Components...>(), dynamic_components);
+template <Component T, typename... Args>
+    requires utils::not_same_as<T, Entity>
+auto Entity::Emplace(Args&&... args) -> T& {
+    CheckValidation();
+    return m_EntityManager->EmplaceComponent<T>(m_Id, std::forward<Args>(args)...);
 }
 
 template <Component T>
-auto Entity::GetComponent() const -> T& {
-    auto ptr = GetComponent(utils::TypeID::Create<T>());
-    return *reinterpret_cast<T*>(ptr);
+    requires utils::not_same_as<T, Entity>
+void Entity::Remove() {
+    CheckValidation();
+    m_EntityManager->RemoveComponent<T>(m_Id);
+}
+
+template <Component T>
+    requires utils::not_same_as<T, Entity>
+auto Entity::Get() -> T& {
+    CheckValidation();
+    return m_EntityManager->GetComponent<T>(m_Id);
+}
+
+template <Component T>
+auto Entity::Get() const -> const T& {
+    CheckValidation();
+    return m_EntityManager->GetComponent<T>(m_Id);
 }
 
 }  // namespace hitagi::ecs

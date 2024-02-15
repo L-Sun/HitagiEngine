@@ -1,6 +1,5 @@
 #include <hitagi/ecs/filter.hpp>
-
-#include "archetype.hpp"
+#include <hitagi/ecs/archetype.hpp>
 
 #include <range/v3/algorithm/find.hpp>
 

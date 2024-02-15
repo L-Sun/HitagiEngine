@@ -1,9 +1,9 @@
 #pragma once
+#include <hitagi/ecs/common_types.hpp>
 #include <hitagi/ecs/component.hpp>
 #include <hitagi/utils/types.hpp>
 
 namespace hitagi::ecs {
-class Archetype;
 
 class ComponentChecker {
 public:

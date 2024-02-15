@@ -1,6 +1,7 @@
 #pragma once
 #include <hitagi/ecs/entity_manager.hpp>
 #include <hitagi/ecs/system_manager.hpp>
+#include <hitagi/ecs/entity.hpp>
 
 #include <fmt/format.h>
 #include <taskflow/taskflow.hpp>
