@@ -8,7 +8,9 @@
 namespace hitagi::asset {
 
 struct RelationShip {
-    ecs::Entity parent = {};
+    RelationShip(ecs::Entity parent = {}) : parent(parent) {}
+
+    ecs::Entity parent;
 
     const auto& GetChildren() const noexcept { return children; }
 
@@ -24,17 +26,22 @@ struct RelationShipSystem {
 };
 
 struct Transform {
+    Transform(math::vec3f position = math::vec3f(0.0f), math::quatf rotation = math::quatf::identity(), math::vec3f scaling = math::vec3f(1.0f))
+        : position(position),
+          rotation(rotation),
+          scaling(scaling) {}
+
     math::vec3f position;
-    math::quatf rotation = math::quatf::identity();
-    math::vec3f scale    = math::vec3f(1.0f);
+    math::quatf rotation;
+    math::vec3f scaling;
 
-    math::mat4f world_matrix;
+    math::mat4f world_matrix = math::mat4f::identity();
 
-    inline void ApplyScale(float value) noexcept { scale = value; }
+    inline void ApplyScale(float value) noexcept { scaling = value; }
     inline void Translate(const math::vec3f& value) noexcept { position += value; }
     inline void Rotate(const math::quatf& value) noexcept { rotation = value * rotation; }
 
-    inline auto ToMatrix() const noexcept { return math::translate(position) * math::rotate(rotation) * math::scale(scale); }
+    inline auto ToMatrix() const noexcept { return math::translate(position) * math::rotate(rotation) * math::scale(scaling); }
 };
 
 struct TransformSystem {

@@ -60,9 +60,9 @@ TEST_P(RendererTest, ForwardRenderer) {
         });
 
         gui_manager->DrawGui([=]() {
-            auto& light_transform  = scene->GetLightEntities().front().GetComponent<asset::Transform>();
-            auto& camera_transform = scene->GetCameraEntities().front().GetComponent<asset::Transform>();
-            auto& cube_transform   = scene->GetMeshEntities().front().GetComponent<asset::Transform>();
+            auto& light_transform  = scene->GetLightEntities().front().Get<asset::Transform>();
+            auto& camera_transform = scene->GetCameraEntities().front().Get<asset::Transform>();
+            auto& cube_transform   = scene->GetMeshEntities().front().Get<asset::Transform>();
 
             ImGui::DragFloat3("Light Position", light_transform.position, 0.1f);
             ImGui::DragFloat3("Camera Position", camera_transform.position, 0.1f);
@@ -70,8 +70,8 @@ TEST_P(RendererTest, ForwardRenderer) {
         });
         gui_manager->Tick();
 
-        const auto camera           = scene->GetCameraEntities().front().GetComponent<asset::CameraComponent>().camera;
-        const auto camera_transform = scene->GetCameraEntities().front().GetComponent<asset::Transform>();
+        const auto camera           = scene->GetCameraEntities().front().Get<asset::CameraComponent>().camera;
+        const auto camera_transform = scene->GetCameraEntities().front().Get<asset::Transform>();
 
         camera->parameters.aspect = static_cast<float>(renderer.GetSwapChain().GetWidth()) / static_cast<float>(renderer.GetSwapChain().GetHeight());
 

@@ -10,15 +10,17 @@
 namespace hitagi::ecs {
 
 template <typename T>
-concept Component = std::is_class_v<T> && utils::no_cvref<T> && std::is_default_constructible_v<T>;
+concept Component = std::is_class_v<T> && utils::no_cvref<T> && std::copy_constructible<T>;
 
 struct ComponentInfo {
     std::pmr::string name;
     utils::TypeID    type_id;
     std::size_t      size;
 
-    std::function<void(std::byte*)>             constructor, destructor;
-    std::function<void(std::byte*, std::byte*)> swap;
+    std::function<void(std::byte*)>                   default_constructor;
+    std::function<void(std::byte*, const std::byte*)> copy_constructor;
+    std::function<void(std::byte*, std::byte*)>       move_constructor;
+    std::function<void(std::byte*)>                   destructor;
 
     constexpr auto operator<=>(const ComponentInfo& rhs) const noexcept {
         return std::tie(size, type_id) <=> std::tie(rhs.size, rhs.type_id);
@@ -41,12 +43,16 @@ using ComponentInfoSet = std::pmr::set<ComponentInfo>;
 template <Component T>
 constexpr auto create_static_component_info() noexcept {
     return ComponentInfo{
-        .name        = typeid(T).name(),
-        .type_id     = utils::TypeID::Create<T>(),
-        .size        = sizeof(T),
-        .constructor = [](std::byte* ptr) { std::construct_at(reinterpret_cast<T*>(ptr)); },
-        .destructor  = [](std::byte* ptr) { std::destroy_at(reinterpret_cast<T*>(ptr)); },
-        .swap        = [](std::byte* lhs, std::byte* rhs) { std::swap(*reinterpret_cast<T*>(lhs), *reinterpret_cast<T*>(rhs)); },
+        .name                = typeid(T).name(),
+        .type_id             = utils::TypeID::Create<T>(),
+        .size                = sizeof(T),
+        .default_constructor = [](std::byte* ptr) { 
+            if constexpr(std::is_default_constructible_v<T>) {
+                std::construct_at(reinterpret_cast<T*>(ptr));
+            } },
+        .copy_constructor    = [](std::byte* ptr, const std::byte* other) { std::construct_at(reinterpret_cast<T*>(ptr), *reinterpret_cast<const T*>(other)); },
+        .move_constructor    = [](std::byte* ptr, std::byte* other) { std::construct_at(reinterpret_cast<T*>(ptr), std::move(*reinterpret_cast<T*>(other))); },
+        .destructor          = [](std::byte* ptr) { std::destroy_at(reinterpret_cast<T*>(ptr)); },
     };
 }
 

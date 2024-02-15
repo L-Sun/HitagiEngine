@@ -152,8 +152,8 @@ void Editor::SceneGraphViewer() {
                     node_flags |= ImGuiTreeNodeFlags_Selected;
                 }
 
-                if (entity.HasComponent<asset::RelationShip>()) {
-                    if (entity.GetComponent<asset::RelationShip>().GetChildren().empty()) {
+                if (entity.Has<asset::RelationShip>()) {
+                    if (entity.Get<asset::RelationShip>().GetChildren().empty()) {
                         node_flags |= ImGuiTreeNodeFlags_Leaf;
                     } else {
                         node_flags |= ImGuiTreeNodeFlags_OpenOnArrow;
@@ -162,8 +162,8 @@ void Editor::SceneGraphViewer() {
 
                 std::pmr::string name;
                 std::pmr::string name_id;
-                if (entity.HasComponent<asset::MetaInfo>()) {
-                    name    = entity.GetComponent<asset::MetaInfo>().name;
+                if (entity.Has<asset::MetaInfo>()) {
+                    name    = entity.Get<asset::MetaInfo>().name;
                     name_id = fmt::format("{}-{}", name, entity);
                 } else {
                     name    = fmt::format("{}", entity);
@@ -176,7 +176,7 @@ void Editor::SceneGraphViewer() {
 
                 if (node_open && !(node_flags & ImGuiTreeNodeFlags_Leaf)) {
                     // print children
-                    for (const auto child : entity.GetComponent<asset::RelationShip>().GetChildren()) {
+                    for (const auto child : entity.Get<asset::RelationShip>().GetChildren()) {
                         print_node(child);
                     }
                     ImGui::TreePop();
@@ -212,8 +212,8 @@ void Editor::SceneNodeModifier() {
 
         } else {
             if (ImGui::BeginTabBar("SceneNodeProperties")) {
-                if (m_SelectedEntity.HasComponent<asset::Transform>()) {
-                    auto& transform = m_SelectedEntity.GetComponent<asset::Transform>();
+                if (m_SelectedEntity.Has<asset::Transform>()) {
+                    auto& transform = m_SelectedEntity.Get<asset::Transform>();
                     if (ImGui::BeginTabItem("Transform")) {
                         static bool local = true;
                         ImGui::Checkbox("Local", &local);
@@ -228,7 +228,7 @@ void Editor::SceneNodeModifier() {
                             transform.rotation = math::euler_to_quaternion(euler);
 
                             ImGui::Text("Scale");
-                            ImGui::DragFloat3("##Scale", transform.scale, 0.1f, 0.0f);
+                            ImGui::DragFloat3("##Scale", transform.scaling, 0.1f, 0.0f);
                         } else {
                             auto [global_position, global_rotation, global_scaling] = decompose(transform.world_matrix);
 
@@ -249,15 +249,15 @@ void Editor::SceneNodeModifier() {
                             auto [local_position, local_rotation, local_scaling] = decompose(new_local_transform);
                             transform.position                                   = local_position;
                             transform.rotation                                   = local_rotation;
-                            transform.scale                                      = local_scaling;
+                            transform.scaling                                    = local_scaling;
                         }
 
                         ImGui::EndTabItem();
                     }
                 }
 
-                if (m_SelectedEntity.HasComponent<asset::MeshComponent>() && ImGui::BeginTabItem("Materials")) {
-                    const auto mesh = m_SelectedEntity.GetComponent<asset::MeshComponent>().mesh;
+                if (m_SelectedEntity.Has<asset::MeshComponent>() && ImGui::BeginTabItem("Materials")) {
+                    const auto mesh = m_SelectedEntity.Get<asset::MeshComponent>().mesh;
 
                     std::pmr::unordered_set<asset::MaterialInstance*> material_instances;
                     for (const auto& sub_mesh : mesh->sub_meshes) {
@@ -332,8 +332,8 @@ void Editor::SceneNodeModifier() {
                     ImGui::EndTabItem();
                 }
 
-                if (m_SelectedEntity.HasComponent<CameraComponent>() && ImGui::BeginTabItem("Camera")) {
-                    auto& parameters = m_SelectedEntity.GetComponent<CameraComponent>().camera->parameters;
+                if (m_SelectedEntity.Has<CameraComponent>() && ImGui::BeginTabItem("Camera")) {
+                    auto& parameters = m_SelectedEntity.Get<CameraComponent>().camera->parameters;
 
                     ImGui::Text("Fov");
                     ImGui::DragFloat("##Fov", &parameters.horizontal_fov, 0.1f, 0.0f, 180.0f);
@@ -345,8 +345,8 @@ void Editor::SceneNodeModifier() {
                     ImGui::EndTabItem();
                 }
 
-                if (m_SelectedEntity.HasComponent<LightComponent>() && ImGui::BeginTabItem("Light")) {
-                    auto& parameters = m_SelectedEntity.GetComponent<LightComponent>().light->parameters;
+                if (m_SelectedEntity.Has<LightComponent>() && ImGui::BeginTabItem("Light")) {
+                    auto& parameters = m_SelectedEntity.Get<LightComponent>().light->parameters;
                     ImGui::Text("Intensity");
                     ImGui::DragFloat("##Intensity", &parameters.intensity, 0.1f, 0.0f, 1000.0f);
                     ImGui::Text("Color");

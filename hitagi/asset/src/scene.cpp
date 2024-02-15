@@ -18,19 +18,13 @@ void Scene::Update() {
 auto Scene::CreateEmptyEntity(math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity {
     auto& em = m_World.GetEntityManager();
 
-    const auto [translation, rotation, scale] = math::decompose(transform);
+    const auto [translation, rotation, scaling] = math::decompose(transform);
     if (!parent && m_RootEntity) parent = m_RootEntity;
 
-    ecs::Entity entity;
-
-    entity                                     = em.Create<MetaInfo, Transform, RelationShip>();
-    entity.GetComponent<RelationShip>().parent = parent;
-    entity.GetComponent<MetaInfo>().name       = name;
-
-    auto& local_transform    = entity.GetComponent<Transform>();
-    local_transform.position = translation;
-    local_transform.rotation = rotation;
-    local_transform.scale    = scale;
+    ecs::Entity entity = em.Create();
+    entity.Emplace<MetaInfo>(name);
+    entity.Emplace<Transform>(translation, rotation, scaling);
+    entity.Emplace<RelationShip>(parent);
 
     return entity;
 }
@@ -39,8 +33,8 @@ auto Scene::CreateMeshEntity(std::shared_ptr<Mesh> mesh, math::mat4f transform, 
     assert(mesh != nullptr);
 
     auto entity = CreateEmptyEntity(transform, parent, name);
-    entity.Attach<MeshComponent>();
-    entity.GetComponent<MeshComponent>().mesh = std::move(mesh);
+    entity.Emplace<MeshComponent>();
+    entity.Get<MeshComponent>().mesh = std::move(mesh);
 
     return m_MeshEntities.emplace_back(entity);
 }
@@ -49,8 +43,8 @@ auto Scene::CreateCameraEntity(std::shared_ptr<Camera> camera, math::mat4f trans
     assert(camera != nullptr);
 
     auto entity = CreateEmptyEntity(transform, parent, name);
-    entity.Attach<CameraComponent>();
-    entity.GetComponent<CameraComponent>().camera = std::move(camera);
+    entity.Emplace<CameraComponent>();
+    entity.Get<CameraComponent>().camera = std::move(camera);
 
     m_CurrentCamera = entity;
     return m_CameraEntities.emplace_back(entity);
@@ -60,8 +54,8 @@ auto Scene::CreateLightEntity(std::shared_ptr<Light> light, math::mat4f transfor
     assert(light != nullptr);
 
     auto entity = CreateEmptyEntity(transform, parent, name);
-    entity.Attach<LightComponent>();
-    entity.GetComponent<LightComponent>().light = std::move(light);
+    entity.Emplace<LightComponent>();
+    entity.Get<LightComponent>().light = std::move(light);
 
     return m_LightEntities.emplace_back(entity);
 }
@@ -70,8 +64,8 @@ auto Scene::CreateSkeletonEntity(std::shared_ptr<Skeleton> skeleton, math::mat4f
     assert(skeleton != nullptr);
 
     auto entity = CreateEmptyEntity(transform, parent, name);
-    entity.Attach<SkeletonComponent>();
-    entity.GetComponent<SkeletonComponent>().skeleton = std::move(skeleton);
+    entity.Emplace<SkeletonComponent>();
+    entity.Get<SkeletonComponent>().skeleton = std::move(skeleton);
 
     return entity;
 }

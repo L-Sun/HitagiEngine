@@ -24,7 +24,7 @@ public:
     using StructureConstRef = std::tuple<const Types&...>;
     using StructureForward  = std::tuple<Types&&...>;
 
-    explicit SoA(allocator_type allocator = {})
+    explicit SoA(const allocator_type& allocator = {})
         : m_Data{std::allocator_arg, allocator},
           m_Allocator(allocator) {}
 
@@ -147,8 +147,8 @@ private:
         }
     }
 
-    std::tuple<std::pmr::vector<Types>...> m_Data;
-    std::size_t                            m_Size = 0;
+    std::tuple<std::vector<Types>...> m_Data;
+    std::size_t                       m_Size = 0;
 
     allocator_type m_Allocator;
 };

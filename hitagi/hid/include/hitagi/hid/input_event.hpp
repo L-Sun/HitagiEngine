@@ -35,6 +35,7 @@ enum class MouseEvent {
     SCROLL_X,
 };
 
+// TODO keycode
 enum class VirtualKeyCode {
     NONE           = 0x0,
     MOUSE_L_BUTTON = 0x01,

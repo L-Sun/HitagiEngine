@@ -36,8 +36,9 @@ static void ECS_Update(benchmark::State& state) {
     sm.Register<ClockSystem>();
 
     auto entities = world.GetEntityManager().CreateMany<Moveable, core::Clock>(1'000'000);
+
     for (auto& entity : entities) {
-        entity.GetComponent<core::Clock>().Start();
+        entity.Get<core::Clock>().Start();
     }
 
     for (auto _ : state) {

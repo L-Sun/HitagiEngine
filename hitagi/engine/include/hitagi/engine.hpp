@@ -21,9 +21,13 @@ public:
     inline auto& Renderer() const noexcept { return *m_Renderer; };
     inline auto& GuiManager() const noexcept { return *m_GuiManager; }
 
+    inline auto GetDeltaTime() const noexcept { return m_Clock.DeltaTime(); }
+
 private:
-    std::uint64_t      m_FrameIndex = 0;
-    Application*       m_App        = nullptr;
+    std::uint64_t m_FrameIndex = 0;
+    core::Clock   m_Clock;
+
+    Application*       m_App = nullptr;
     RuntimeModule*     m_OutLogicArea;
     render::IRenderer* m_Renderer   = nullptr;
     gui::GuiManager*   m_GuiManager = nullptr;

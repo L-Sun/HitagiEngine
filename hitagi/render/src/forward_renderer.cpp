@@ -78,8 +78,8 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
         .AddSampler(m_Sampler);
 
     for (const auto entity : scene->GetMeshEntities()) {
-        const auto mesh      = entity.GetComponent<asset::MeshComponent>().mesh;
-        const auto transform = entity.GetComponent<asset::Transform>().world_matrix;
+        const auto mesh      = entity.Get<asset::MeshComponent>().mesh;
+        const auto transform = entity.Get<asset::Transform>().world_matrix;
         RecordInstance(render_pass_builder, mesh, transform);
     }
     UpdateConstantBuffer(render_pass_builder);
@@ -99,8 +99,8 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
         frame_constant.inv_proj_view  = math::inverse(frame_constant.proj_view);
 
         if (!scene->GetLightEntities().empty()) {
-            const auto light           = scene->GetLightEntities().front().GetComponent<asset::LightComponent>().light;
-            const auto light_transform = scene->GetLightEntities().front().GetComponent<asset::Transform>().world_matrix;
+            const auto light           = scene->GetLightEntities().front().Get<asset::LightComponent>().light;
+            const auto light_transform = scene->GetLightEntities().front().Get<asset::Transform>().world_matrix;
 
             frame_constant.light_position    = light_transform.col(3);
             frame_constant.light_pos_in_view = frame_constant.view * frame_constant.light_position;

@@ -1,7 +1,6 @@
-#include "archetype.hpp"
-
-#include <hitagi/ecs/component.hpp>
 #include <hitagi/ecs/entity_manager.hpp>
+#include <hitagi/ecs/entity.hpp>
+#include <hitagi/ecs/component.hpp>
 #include <hitagi/ecs/world.hpp>
 #include <hitagi/utils/exceptions.hpp>
 #include <hitagi/utils/hash.hpp>
@@ -21,7 +20,7 @@
 
 namespace hitagi::ecs {
 
-inline auto calculate_archetype_id(const detail::ComponentIdSet& component_ids) noexcept -> ArchetypeID {
+inline auto calculate_archetype_id(const detail::ComponentIdSet& component_ids) noexcept -> archetype_id_t {
     auto type_ids = component_ids                                                                       //
                     | ranges::views::transform([](const auto& type_id) { return type_id.GetValue(); })  //
                     | ranges::to<std::pmr::vector<std::size_t>>();
@@ -35,7 +34,9 @@ inline auto get_component_ids(const detail::ComponentInfoSet& component_infos) n
            | ranges::to<detail::ComponentIdSet>();
 }
 
-EntityManager::EntityManager(World& world) : m_World(world) {}
+EntityManager::EntityManager(World& world) : m_World(world) {
+    UpdateComponentInfo<Entity>();
+}
 EntityManager::~EntityManager() = default;  // forward declaration of unique_ptr<Archetype>
 
 void EntityManager::RegisterDynamicComponent(ComponentInfo component) {
@@ -43,122 +44,127 @@ void EntityManager::RegisterDynamicComponent(ComponentInfo component) {
     m_ComponentMap.emplace(component.type_id, std::move(component));
 }
 
-auto EntityManager::GetComponentInfo(std::string_view dynamic_component) const -> const ComponentInfo& {
-    return GetComponentInfo(utils::TypeID(dynamic_component));
-}
-
-void EntityManager::UpdateComponentInfos(const detail::ComponentInfoSet& component_infos) {
-    for (const auto& component_info : component_infos) {
-        if (!m_ComponentMap.contains(component_info.type_id)) {
-            m_ComponentMap.emplace(component_info.type_id, component_info);
-        }
+auto EntityManager::GetDynamicComponentInfo(std::string_view dynamic_component) const -> const ComponentInfo& {
+    const auto component_id = utils::TypeID(dynamic_component);
+    if (!m_ComponentMap.contains(component_id)) {
+        const auto error_message = fmt::format("Component {} not registered", dynamic_component);
+        m_World.GetLogger()->error(error_message);
+        throw std::invalid_argument(error_message);
     }
+
+    return GetComponentInfo(component_id);
 }
 
-auto EntityManager::GetComponentInfo(utils::TypeID component_id) const -> const ComponentInfo& {
-    return m_ComponentMap.at(component_id);
+bool EntityManager::Has(Entity entity) const noexcept {
+    return m_EntityMaps.contains(entity.GetId());
+}
+
+auto EntityManager::Create() noexcept -> Entity {
+    return CreateMany(1).front();
 }
 
 auto EntityManager::CreateMany(std::size_t num, const detail::ComponentInfoSet& component_infos) noexcept -> std::pmr::vector<Entity> {
-    UpdateComponentInfos(component_infos);
+    std::pmr::vector<Entity> entities;
+    entities.reserve(num);
 
     auto& archetype = GetOrCreateArchetype(component_infos);
-
-    auto entities = ranges::views::iota(m_Counter, m_Counter + num)                        //
-                    | ranges::views::transform([&](auto id) { return Entity{this, id}; })  //
-                    | ranges::to<std::pmr::vector<Entity>>();
-
-    m_Counter += num;
-
-    archetype.CreateEntities(entities);
-
-    for (const auto entity : entities) {
+    for (entity_id_t entity = m_Counter; entity < m_Counter + num; entity++) {
+        archetype.AllocateFor(entity);
         m_EntityMaps.emplace(entity, &archetype);
     }
+
+    for (const auto& component_info : component_infos) {
+        if (component_info.type_id == utils::TypeID::Create<Entity>()) {
+            for (entity_id_t entity = m_Counter; entity < m_Counter + num; entity++) {
+                entities.emplace_back(archetype.ConstructComponent<Entity>(entity, Entity(this, entity)));
+            }
+        } else {
+            for (entity_id_t entity = m_Counter; entity < m_Counter + num; entity++) {
+                archetype.DefaultConstructComponent(component_info.type_id, entity);
+            }
+        }
+    }
+
+    m_Counter += num;
 
     return entities;
 }
 
-void EntityManager::Attach(Entity& entity, const detail::ComponentInfoSet& component_infos) {
-    if (component_infos.empty()) return;
-
-    UpdateComponentInfos(component_infos);
-
-    auto& old_archetype = *m_EntityMaps.at(entity);
-
-    auto new_component_infos = component_infos;
-    for (const auto& new_component_info : new_component_infos) {
-        if (entity.HasComponent(new_component_info.type_id)) {
-            const auto error_message = fmt::format(
-                "Entity {} already has component {}",
-                entity.m_Id,
-                new_component_info.type_id.GetValue());
-            m_World.GetLogger()->error(error_message);
-            throw std::invalid_argument(error_message);
-        }
-    }
-    auto old_component_infos = old_archetype.GetComponentInfoSet();
-    new_component_infos.merge(old_component_infos);
-
-    auto& new_archetype = GetOrCreateArchetype(new_component_infos);
-    new_archetype.CreateEntities({entity});
-
-    for (const auto& component_info : old_archetype.GetComponentInfoSet()) {
-        auto old_component_ptr = old_archetype.GetComponentData(entity, component_info.type_id);
-        auto new_component_ptr = new_archetype.GetComponentData(entity, component_info.type_id);
-
-        if (component_info.swap)
-            component_info.swap(new_component_ptr, old_component_ptr);
-        else
-            std::memcpy(new_component_ptr, old_component_ptr, component_info.size);
-    }
-
-    old_archetype.DeleteEntity(entity);
-    m_EntityMaps.at(entity) = &new_archetype;
-}
-
-void EntityManager::Detach(Entity& entity, const detail::ComponentInfoSet& component_infos) {
-    if (component_infos.empty()) return;
-
-    auto& old_archetype = *m_EntityMaps.at(entity);
-
-    auto new_component_infos = old_archetype.GetComponentInfoSet();
-    for (const auto& component_info : component_infos) {
-        if (!entity.HasComponent(component_info.type_id)) {
-            const auto error_message = fmt::format(
-                "Entity {} does not have component {}",
-                entity.m_Id,
-                component_info.type_id.GetValue());
-            m_World.GetLogger()->error(error_message);
-            throw std::invalid_argument(error_message);
-        }
-        std::erase_if(new_component_infos, [&](const auto& info) { return info == component_info; });
-    }
-
-    auto& new_archetype = GetOrCreateArchetype(new_component_infos);
-    new_archetype.CreateEntities({entity});
-
-    for (const auto& component_info : new_component_infos) {
-        auto old_component_ptr = old_archetype.GetComponentData(entity, component_info.type_id);
-        auto new_component_ptr = new_archetype.GetComponentData(entity, component_info.type_id);
-
-        if (component_info.swap)
-            component_info.swap(new_component_ptr, old_component_ptr);
-        else
-            std::memcpy(new_component_ptr, old_component_ptr, component_info.size);
-    }
-
-    old_archetype.DeleteEntity(entity);
-    m_EntityMaps.at(entity) = &new_archetype;
-}
-
 void EntityManager::Destroy(Entity& entity) {
-    m_EntityMaps.at(entity)->DeleteEntity(entity);
-    m_EntityMaps.erase(entity);
+    auto& archetype = *m_EntityMaps.at(entity.GetId());
+    archetype.DestructAllComponents(entity.GetId());
+    archetype.DeallocateFor(entity.GetId());
+    m_EntityMaps.erase(entity.GetId());
     entity = {};
 }
 
-auto EntityManager::GetOrCreateArchetype(const detail::ComponentInfoSet& component_infos) -> Archetype& {
+bool EntityManager::HasDynamicComponent(entity_id_t entity, std::string_view dynamic_component) const {
+    return m_EntityMaps.at(entity)->HasComponent(GetDynamicComponentInfo(dynamic_component).type_id);
+}
+
+auto EntityManager::AddDynamicComponent(entity_id_t entity, std::string_view dynamic_component) -> std::byte* {
+    if (HasDynamicComponent(entity, dynamic_component)) {
+        return GetDynamicComponent(entity, dynamic_component);
+    }
+
+    const auto& dynamic_component_info = GetDynamicComponentInfo(dynamic_component);
+
+    auto& old_archetype   = *m_EntityMaps.at(entity);
+    auto  component_infos = old_archetype.GetComponentInfoSet();
+
+    component_infos.emplace(dynamic_component_info);
+    Archetype& new_archetype = GetOrCreateArchetype(component_infos);
+
+    new_archetype.AllocateFor(entity);
+    for (const auto& component_info : component_infos) {
+        const auto component_id = component_info.type_id;
+        if (component_id == dynamic_component_info.type_id) {
+            new_archetype.DefaultConstructComponent(component_id, entity);
+        } else {
+            new_archetype.MoveConstructComponent(component_id, entity, old_archetype.GetComponentData(component_id, entity));
+            old_archetype.DestructComponent(component_id, entity);
+        }
+    }
+
+    m_EntityMaps[entity] = &new_archetype;
+
+    return GetDynamicComponent(entity, dynamic_component);
+}
+
+void EntityManager::RemoveDynamicComponent(entity_id_t entity, std::string_view dynamic_component) {
+    if (!HasDynamicComponent(entity, dynamic_component)) return;
+
+    auto& old_archetype   = *m_EntityMaps.at(entity);
+    auto  component_infos = old_archetype.GetComponentInfoSet();
+
+    const auto removed_component_id = GetDynamicComponentInfo(dynamic_component).type_id;
+    std::erase_if(component_infos, [=](const auto& info) { return info.type_id == removed_component_id; });
+    Archetype& new_archetype = GetOrCreateArchetype(component_infos);
+
+    new_archetype.AllocateFor(entity);
+
+    for (const auto& component_info : component_infos) {
+        const auto component_id = component_info.type_id;
+        new_archetype.MoveConstructComponent(component_id, entity, old_archetype.GetComponentData(component_id, entity));
+        old_archetype.DestructComponent(component_id, entity);
+    }
+    old_archetype.DestructComponent(removed_component_id, entity);
+
+    old_archetype.DeallocateFor(entity);
+
+    m_EntityMaps[entity] = &new_archetype;
+}
+
+auto EntityManager::GetDynamicComponent(entity_id_t entity, std::string_view dynamic_component) const -> std::byte* {
+    const auto component_id = GetDynamicComponentInfo(dynamic_component).type_id;
+    return m_EntityMaps.at(entity)->GetComponentData(component_id, entity);
+}
+
+auto EntityManager::GetComponentInfo(utils::TypeID component_id) const noexcept -> const ComponentInfo& {
+    return m_ComponentMap.at(component_id);
+}
+
+auto EntityManager::GetOrCreateArchetype(const detail::ComponentInfoSet& component_infos) noexcept -> Archetype& {
     const auto archetype_id = calculate_archetype_id(get_component_ids(component_infos));
     if (!m_Archetypes.contains(archetype_id)) {
         m_Archetypes.emplace(archetype_id, std::make_unique<Archetype>(component_infos));
@@ -171,10 +177,14 @@ auto EntityManager::GetComponentsBuffers(const detail::ComponentIdList& componen
 
 {
     auto new_filter = [&](Archetype* p_archetype) {
-        return (filter ? filter(ComponentChecker(p_archetype)) : true) &&
-               ranges::all_of(components, [&](const auto component_id) {
-                   return p_archetype->HasComponent(component_id);
-               });
+        for (const auto component_id : components) {
+            if (!p_archetype->HasComponent(component_id)) return false;
+        }
+
+        if (filter && !filter(ComponentChecker(p_archetype)))
+            return false;
+
+        return true;
     };
 
     auto archetypes = m_Archetypes                                                                     //
@@ -189,7 +199,7 @@ auto EntityManager::GetComponentsBuffers(const detail::ComponentIdList& componen
     std::pmr::vector<std::pmr::vector<ComponentData>> result;
 
     for (const auto& component_id : components) {
-        const auto& component_info = m_ComponentMap.at(component_id);
+        const auto& component_info = GetComponentInfo(component_id);
 
         auto component_data = archetypes  //
                               | ranges::views::transform([&component_info](auto p_archetype) {
