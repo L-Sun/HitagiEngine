@@ -4,8 +4,6 @@
 #include <hitagi/math/transform.hpp>
 #include <hitagi/gfx/gpu_resource.hpp>
 
-#include <unordered_map>
-
 namespace hitagi::debugger {
 class DebugManager : public RuntimeModule {
 public:

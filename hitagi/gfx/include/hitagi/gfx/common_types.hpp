@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <variant>
-#include <vector>
 
 namespace hitagi::gfx {
 
