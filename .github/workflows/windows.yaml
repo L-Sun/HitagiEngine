@@ -16,7 +16,7 @@ jobs:
         compiler: ["--toolchain=clang-cl", "--toolchain=msvc"]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Download ISPC (Windows)
         run: |
@@ -25,7 +25,7 @@ jobs:
           "ispc-v1.27.0-windows/bin" >> $env:GITHUB_PATH
 
       - name: Setup Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: latest
           vulkan-components: Vulkan-Headers, Vulkan-Loader
