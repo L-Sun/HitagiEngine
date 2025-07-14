@@ -126,6 +126,9 @@ inline constexpr auto from_dxc_reflection_attribute(const D3D12_SIGNATURE_PARAME
                 format = Format::R32G32B32A32_FLOAT;
             }
         } break;
+        default: {
+            format = Format::UNKNOWN;
+        }
     }
     return VertexAttribute{
         .semantic = std::pmr::string(fmt::format("{}{}", desc.SemanticName, desc.SemanticIndex)),

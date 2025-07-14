@@ -11,16 +11,17 @@
 #include <vk_mem_alloc.h>
 
 namespace hitagi::gfx {
-auto custom_vk_allocation_fn(void* p_this, std::size_t size, std::size_t alignment, VkSystemAllocationScope) -> void* {
+auto custom_vk_allocation_fn(
+    void* p_this, std::size_t size, std::size_t alignment, vk::SystemAllocationScope) -> void* {
     auto& allocation_record = static_cast<VulkanDevice*>(p_this)->GetCustomAllocationRecord();
-
-    auto allocator = std::pmr::get_default_resource();
-    auto ptr       = allocator->allocate(size, alignment);
+    auto  allocator         = std::pmr::get_default_resource();
+    auto  ptr               = allocator->allocate(size, alignment);
     allocation_record.emplace(ptr, std::make_pair(size, alignment));
     return ptr;
 }
 
-auto custom_vk_reallocation_fn(void* p_this, void* origin_ptr, std::size_t new_size, std::size_t alignment, VkSystemAllocationScope) -> void* {
+auto custom_vk_reallocation_fn(
+    void* p_this, void* origin_ptr, std::size_t new_size, std::size_t alignment, vk::SystemAllocationScope) -> void* {
     auto& allocation_record = static_cast<VulkanDevice*>(p_this)->GetCustomAllocationRecord();
 
     auto allocator = std::pmr::get_default_resource();
@@ -50,7 +51,7 @@ auto custom_vk_reallocation_fn(void* p_this, void* origin_ptr, std::size_t new_s
         std::memcpy(new_ptr, origin_ptr, std::min(old_size, new_size));
 
         // free origin data
-        allocator->deallocate(origin_ptr, old_size);
+        allocator->deallocate(origin_ptr, old_size, old_alignment);
 
         return new_ptr;
     }
@@ -64,13 +65,11 @@ auto custom_vk_free_fn(void* p_this, void* ptr) -> void {
     auto allocator         = std::pmr::get_default_resource();
     auto [size, alignment] = allocation_record.at(ptr);
     allocation_record.erase(ptr);
-    allocator->deallocate(ptr, size);
+    allocator->deallocate(ptr, size, alignment);
 }
 
-auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, VkDebugUtilsMessageTypeFlagsEXT _type, VkDebugUtilsMessengerCallbackDataEXT const* p_data, void* p_logger) -> VkBool32 {
-    auto logger   = static_cast<spdlog::logger*>(p_logger);
-    auto severity = static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(_severity);
-    auto type     = static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(_type);
+auto custom_debug_message_fn(vk::DebugUtilsMessageSeverityFlagBitsEXT severity, vk::DebugUtilsMessageTypeFlagsEXT type, vk::DebugUtilsMessengerCallbackDataEXT const* p_data, void* p_logger) -> VkBool32 {
+    auto logger = static_cast<spdlog::logger*>(p_logger);
 
     std::pmr::vector<std::pmr::string> messages;
 

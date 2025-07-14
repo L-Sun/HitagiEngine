@@ -1,7 +1,7 @@
 #include "sdl2_application.hpp"
 
 #include <hitagi/utils/exceptions.hpp>
-#include "SDL_video.h"
+#include <SDL2/SDL_video.h>
 
 #include <spdlog/logger.h>
 

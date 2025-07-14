@@ -12,12 +12,15 @@ add_rules(
     "copy-dll",
     "inject_env"
 )
+add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
+
 
 if is_mode("debug") then
     add_defines("HITAGI_DEBUG", "_DEBUG")
 end
 
 if is_plat("windows") then 
+    set_encodings("utf-8")
     if is_mode("debug") then
         set_runtimes("MDd")
     else 
@@ -30,15 +33,17 @@ option("profile")
     set_description("Enable tracy profiling.")
 option_end()
 
-if has_config("profile") then 
+if has_config("profile") then
     add_defines("TRACY_ENABLE")
+    add_requireconfs("tracy", {configs = {on_demand = true}})
     if is_plat("windows") then
         add_defines("TRACY_IMPORTS")
     end
 end
 
 add_requireconfs("*", {configs = {shared = true}})
-add_requires("taskflow", "cxxopts", "nlohmann_json", "tracy", "range-v3")
+add_requires("taskflow 3.8.0")
+add_requires("cxxopts", "nlohmann_json", "tracy", "range-v3")
 
 includes("hitagi/**/xmake.lua")
 includes("examples/**/xmake.lua")

@@ -16,10 +16,10 @@
 
 namespace hitagi::gfx {
 
-auto custom_vk_allocation_fn(void* p_this, std::size_t size, std::size_t alignment, VkSystemAllocationScope) -> void*;
-auto custom_vk_reallocation_fn(void* p_this, void* origin_ptr, std::size_t new_size, std::size_t alignment, VkSystemAllocationScope) -> void*;
+auto custom_vk_allocation_fn(void* p_this, std::size_t size, std::size_t alignment, vk::SystemAllocationScope) -> void*;
+auto custom_vk_reallocation_fn(void* p_this, void* origin_ptr, std::size_t new_size, std::size_t alignment, vk::SystemAllocationScope) -> void*;
 auto custom_vk_free_fn(void* p_this, void* ptr) -> void;
-auto custom_debug_message_fn(VkDebugUtilsMessageSeverityFlagBitsEXT _severity, VkDebugUtilsMessageTypeFlagsEXT _type, VkDebugUtilsMessengerCallbackDataEXT const* p_data, void* p_logger) -> VkBool32;
+auto custom_debug_message_fn(vk::DebugUtilsMessageSeverityFlagBitsEXT _severity, vk::DebugUtilsMessageTypeFlagsEXT _type, vk::DebugUtilsMessengerCallbackDataEXT const* p_data, void* p_logger) -> VkBool32;
 
 inline auto compute_physical_device_score(const vk::raii::PhysicalDevice& device) noexcept {
     int score = 0;
@@ -94,8 +94,7 @@ inline void create_vk_debug_object_info(const T& obj, std::string_view name, con
     } else if constexpr (std::is_convertible_v<decltype(obj), typename T::CType>) {
         object_handle = reinterpret_cast<std::uintptr_t>(static_cast<typename T::CType>(obj));
     } else {
-        []<bool flag = false>() { static_assert(flag, "Unsupported type"); }
-        ();
+        []<bool flag = false>() { static_assert(flag, "Unsupported type"); }();
     }
 
     vk_device.setDebugUtilsObjectNameEXT({

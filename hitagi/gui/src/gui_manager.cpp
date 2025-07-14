@@ -21,12 +21,13 @@ GuiManager::GuiManager(Application& app) : RuntimeModule("GuiManager"), m_App(ap
     ImGui::CreateContext();
     ImGui::GetStyle().ScaleAllSizes(app.GetDpiRatio());
 
-    auto& io    = ImGui::GetIO();
-    io.UserData = this;
+    auto& io                         = ImGui::GetIO();
+    auto& platform_io                = ImGui::GetPlatformIO();
+    platform_io.Platform_ImeUserData = this;
 
-    io.SetPlatformImeDataFn = [](ImGuiViewport* viewport, ImGuiPlatformImeData* data) -> void {
+    platform_io.Platform_SetImeDataFn = [](ImGuiContext*, ImGuiViewport*, ImGuiPlatformImeData* data) -> void {
         if (data->WantVisible) {
-            auto p_this = reinterpret_cast<GuiManager*>(ImGui::GetIO().UserData);
+            auto p_this = reinterpret_cast<GuiManager*>(ImGui::GetPlatformIO().Platform_ImeUserData);
             p_this->m_App.SetInputScreenPosition({static_cast<unsigned>(data->InputPos.x), static_cast<unsigned>(data->InputPos.y)});
         }
     };
@@ -75,8 +76,7 @@ void GuiManager::Tick() {
 }
 
 void GuiManager::LoadFont() {
-    auto& io                = ImGui::GetIO();
-    io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();
+    auto& io = ImGui::GetIO();
 
     /* for (const auto& font_file : std::filesystem::directory_iterator{"./Assets/Fonts"}) */ {
         ImFontConfig config;

@@ -5,6 +5,8 @@
 #include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <fmt/base.h>
+
 #include <spdlog/spdlog.h>
 
 namespace hitagi::testing {

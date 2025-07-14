@@ -5,7 +5,7 @@
 #include <tracy/Tracy.hpp>
 
 auto main(int argc, char** argv) -> int {
-#ifdef _DEBUG
+#ifdef HITAGI_DEBUG
     spdlog::set_level(spdlog::level::debug);
 #endif
 

@@ -1,4 +1,5 @@
-add_requires("crossguid", "libpng", "assimp", "libjpeg-turbo", "fx-gltf")
+-- TODO assimp 5.4.0 can not build with clang-cl now
+add_requires("libpng", "assimp 5.3.1", "libjpeg-turbo", "fx-gltf")
 
 target("asset")
     set_kind("static")
@@ -9,7 +10,6 @@ target("asset")
     )
     add_includedirs("include", {public = true})
     add_deps("core", "math", "gfx", "ecs", "utils")
-    add_packages("crossguid", {public = true})
 
 target("parser")
     set_kind("static")

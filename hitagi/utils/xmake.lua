@@ -1,5 +1,5 @@
-add_requires("magic_enum", "gtest", "benchmark")
-add_requires("fmt", "spdlog")
+add_requires("magic_enum", "gtest", "benchmark", "fmt")
+add_requires("spdlog", {configs = {fmt_external = true}})
 
 target("utils")
     set_kind("static")
@@ -7,6 +7,9 @@ target("utils")
     add_files("src/*.cpp")
     remove_files("src/test.cpp")
     add_packages("fmt", "magic_enum", "spdlog", "range-v3", {public = true})
+    if is_plat("windows") then
+        add_syslinks("Ole32")
+    end
 
 
 target("test_utils")

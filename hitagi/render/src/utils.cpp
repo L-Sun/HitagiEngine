@@ -261,10 +261,10 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                        bindless_infos[draw_call_index].frame_constant = frame_constant_bindless;
                        bindless_infos[draw_call_index].sampler        = sampler_bindless;
 
-                       if (im_cmd.TextureId == ImGui::GetIO().Fonts->TexID) {
+                       if (im_cmd.GetTexID() == ImGui::GetIO().Fonts->TexID.GetTexID()) {
                            bindless_infos[draw_call_index].texture = pass.GetBindless(font_texture);
                        } else {
-                           bindless_infos[draw_call_index].texture = pass.GetBindless(rg::TextureHandle((std::size_t)(im_cmd.TextureId)));
+                           bindless_infos[draw_call_index].texture = pass.GetBindless(rg::TextureHandle((std::size_t)(im_cmd.GetTexID())));
                        }
 
                        cmd.PushBindlessMetaInfo(gfx::BindlessMetaInfo{

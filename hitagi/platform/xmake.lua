@@ -1,4 +1,4 @@
-add_requires("libsdl")
+add_requires("libsdl2")
 
 target("app")
     set_kind("static")
@@ -14,4 +14,4 @@ target("app")
     end
 
     add_files("src/sdl2/*.cpp")
-    add_packages("libsdl")
+    add_packages("libsdl2")

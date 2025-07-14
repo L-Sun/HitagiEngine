@@ -181,7 +181,8 @@ Schedule& Schedule::Request(std::string_view name, Func&& task, DynamicComponent
     std::bitset<traits::args_size> dynamic_component_flags;
     [&]<std::size_t... I>(std::index_sequence<I...>) {
         static_assert((!(utils::remove_const_pointer_same<detail::decay_parameter_t<typename traits::template arg_t<I - 1>>, std::byte*> &&
-                         Component<detail::decay_parameter_t<typename traits::template arg_t<I>>>)&&...),
+                         Component<detail::decay_parameter_t<typename traits::template arg_t<I>>>) &&
+                       ...),
                       "dynamic parameter pointers must be after component types");
         ((dynamic_component_flags[I - 1] = utils::remove_const_pointer_same<detail::decay_parameter_t<typename traits::template arg_t<I - 1>>, std::byte*>), ...);
     }(utils::make_index_sequence_from_to<1, traits::args_size>{});

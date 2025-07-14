@@ -13,7 +13,7 @@ using namespace std::literals;
 
 namespace hitagi {
 auto get_resource_label(Resource* res) {
-    return fmt::format("{}##{}", res->GetName(), res->GetGuid().str());
+    return fmt::format("{}##{}", res->GetName(), res->GetUUID());
 }
 
 Editor::Editor(Engine& engine)
@@ -29,7 +29,7 @@ void Editor::Tick() {
     if (m_CurrScene) m_CurrScene->Update();
 
     m_Engine.GuiManager().DrawGui([this]() {
-        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
         MenuBar();
         FileImporter();
         SceneGraphViewer();
@@ -135,7 +135,6 @@ void Editor::SceneGraphViewer() {
             ImGuiTableFlags_Resizable |
             ImGuiTableFlags_RowBg;
         constexpr ImGuiTreeNodeFlags base_node_flags =
-            ImGuiTreeNodeFlags_NoTreePushOnOpen |
             ImGuiTreeNodeFlags_SpanFullWidth;
 
         if (ImGui::BeginTable("Scene Graph", 1, table_flags)) {
@@ -170,25 +169,27 @@ void Editor::SceneGraphViewer() {
                     name_id = name;
                 }
 
-                bool node_open = ImGui::TreeNodeEx(name_id.c_str(), node_flags, "%s", name.c_str());  // TODO print entity name
-                if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen())
-                    m_SelectedEntity = entity;
-
-                if (node_open && !(node_flags & ImGuiTreeNodeFlags_Leaf)) {
+                if (ImGui::TreeNodeEx(name_id.c_str(), node_flags, "%s", name.c_str())) {
                     // print children
-                    for (const auto child : entity.Get<asset::RelationShip>().GetChildren()) {
-                        print_node(child);
+                    if (!(node_flags & ImGuiTreeNodeFlags_Leaf)) {
+                        for (const auto child : entity.Get<asset::RelationShip>().GetChildren()) {
+                            print_node(child);
+                        }
                     }
                     ImGui::TreePop();
+                }
+
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen()) {
+                    m_SelectedEntity = entity;
                 }
             };
 
             if (scene) print_node(scene->GetRootEntity());
 
-            // Add empty row
-            for (int i = 0; i < std::max(0, 10 - num_row); i++) {
-                ImGui::TableNextRow(0, ImGui::GetTextLineHeight());
-            }
+            // // Add empty row
+            // for (int i = 0; i < std::max(0, 10 - num_row); i++) {
+            //     ImGui::TableNextRow(0, ImGui::GetTextLineHeight());
+            // }
 
             ImGui::EndTable();
         }
@@ -298,7 +299,7 @@ void Editor::SceneNodeModifier() {
                                             ImGui::Text("No Texture");
                                         }
                                     },
-                                    [](math::mat4f& data) {},
+                                    [](math::mat4f& _) {},
                                 },
                                 parameter.value);
                         };

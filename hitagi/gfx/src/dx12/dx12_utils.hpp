@@ -1121,6 +1121,8 @@ inline Format get_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
                     return Format::R32_SINT;
                 case D3D_REGISTER_COMPONENT_FLOAT32:
                     return Format::R32_FLOAT;
+                default:
+                    return Format::UNKNOWN;
             }
         }
         case 2: {
@@ -1133,6 +1135,8 @@ inline Format get_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
                     return Format::R32G32_SINT;
                 case D3D_REGISTER_COMPONENT_FLOAT32:
                     return Format::R32G32_FLOAT;
+                default:
+                    return Format::UNKNOWN;
             }
         }
         case 3: {
@@ -1145,6 +1149,8 @@ inline Format get_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
                     return Format::R32G32B32_SINT;
                 case D3D_REGISTER_COMPONENT_FLOAT32:
                     return Format::R32G32B32_FLOAT;
+                default:
+                    return Format::UNKNOWN;
             }
         }
         case 4: {
@@ -1157,6 +1163,8 @@ inline Format get_format(D3D_REGISTER_COMPONENT_TYPE type, BYTE mask) {
                     return Format::R32G32B32A32_SINT;
                 case D3D_REGISTER_COMPONENT_FLOAT32:
                     return Format::R32G32B32A32_FLOAT;
+                default:
+                    return Format::UNKNOWN;
             }
         }
         default:
