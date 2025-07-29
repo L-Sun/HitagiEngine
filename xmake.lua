@@ -42,8 +42,28 @@ if has_config("profile") then
 end
 
 add_requireconfs("*", {configs = {shared = true}})
+
+-- Core dependencies
 add_requires("taskflow 3.8.0")
 add_requires("cxxopts", "nlohmann_json", "tracy", "range-v3")
+
+-- Utility libraries
+add_requires("magic_enum", "gtest", "benchmark", "fmt")
+add_requires("spdlog", {configs = {fmt_external = true}})
+
+-- Platform and GUI
+add_requires("libsdl2")
+add_requires("imgui v1.92.1-docking", {configs = {freetype = true, wchar32 = true}})
+
+-- Graphics and rendering
+add_requires("d3d12-memory-allocator", "directx12-agility-sdk", {optional = true})
+add_requires("vulkansdk", "vulkan-memory-allocator", "directx-shader-compiler", "spirv-reflect")
+
+-- Asset loading and parsing
+add_requires("libpng", "assimp 5.3.1", "libjpeg-turbo", "fx-gltf")
+
+-- Tools
+add_requires("highfive")
 
 includes("hitagi/**/xmake.lua")
 includes("examples/**/xmake.lua")

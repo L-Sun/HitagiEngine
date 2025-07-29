@@ -1,6 +1,3 @@
-add_requires("magic_enum", "gtest", "benchmark", "fmt")
-add_requires("spdlog", {configs = {fmt_external = true}})
-
 target("utils")
     set_kind("static")
     add_includedirs("include", {public = true})

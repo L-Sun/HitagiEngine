@@ -1,5 +1,3 @@
-add_requires("libsdl2")
-
 target("app")
     set_kind("static")
     add_files("src/application.cpp")

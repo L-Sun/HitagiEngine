@@ -1,5 +1,4 @@
 -- TODO assimp 5.4.0 can not build with clang-cl now
-add_requires("libpng", "assimp 5.3.1", "libjpeg-turbo", "fx-gltf")
 
 target("asset")
     set_kind("static")

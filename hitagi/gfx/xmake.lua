@@ -1,6 +1,3 @@
-add_requires("d3d12-memory-allocator", "directx12-agility-sdk", {optional = true})
-add_requires("vulkansdk", "vulkan-memory-allocator", "directx-shader-compiler", "spirv-reflect")
-
 target("gfx_resource")
     set_kind("headeronly")
     add_includedirs("include", {public = true})
