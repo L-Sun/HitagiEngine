@@ -118,8 +118,18 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
         gfx::GPUBufferView<BindlessInfo> bindless_infos(pass.Resolve(m_BindlessInfoConstantBuffer));
 
         const auto& render_target = pass.Resolve(target);
-        cmd.SetViewPort({0, 0, static_cast<float>(render_target.GetDesc().width), static_cast<float>(render_target.GetDesc().height)});
-        cmd.SetScissorRect({0, 0, render_target.GetDesc().width, render_target.GetDesc().height});
+        cmd.SetViewPort({
+            .x      = 0,
+            .y      = 0,
+            .width  = static_cast<float>(render_target.GetDesc().width),
+            .height = static_cast<float>(render_target.GetDesc().height),
+        });
+        cmd.SetScissorRect({
+            .x      = 0,
+            .y      = 0,
+            .width  = render_target.GetDesc().width,
+            .height = render_target.GetDesc().height,
+        });
 
         // update material instance data
         for (const auto& [material_instance, info] : m_MaterialInstanceInfos) {
