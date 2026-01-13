@@ -1,7 +1,7 @@
 #include "sdl2_application.hpp"
 
 #include <hitagi/utils/exceptions.hpp>
-#include <SDL2/SDL_video.h>
+#include <SDL3/SDL_video.h>
 
 #include <spdlog/logger.h>
 
@@ -15,11 +15,9 @@ SDL2Application::SDL2Application(AppConfig config) : Application(std::move(confi
 
     m_Window = SDL_CreateWindow(
         m_Config.title.c_str(),
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
         m_Config.width,
         m_Config.height,
-        SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_VULKAN);
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_VULKAN);
     if (!m_Window) {
         const auto error_message = fmt::format("SDL_CreateWindow failed: {}", SDL_GetError());
         m_Logger->error(error_message);
@@ -37,19 +35,17 @@ void SDL2Application::Tick() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
-            case SDL_QUIT:
+            case SDL_EVENT_QUIT:
                 m_Quit        = true;
                 m_SizeChanged = true;
                 break;
-            case SDL_WINDOWEVENT:
-                m_Minimized = event.window.event == SDL_WINDOWEVENT_MINIMIZED;
-                switch (event.window.event) {
-                    case SDL_WINDOWEVENT_RESIZED:
-                        m_SizeChanged   = true;
-                        m_Config.width  = event.window.data1;
-                        m_Config.height = event.window.data2;
-                        break;
-                }
+            case SDL_EVENT_WINDOW_MINIMIZED:
+                m_Minimized = true;
+                break;
+            case SDL_EVENT_WINDOW_RESIZED:
+                m_SizeChanged   = true;
+                m_Config.width  = event.window.data1;
+                m_Config.height = event.window.data2;
                 break;
         }
     }
@@ -72,31 +68,31 @@ void SDL2Application::SetCursor(Cursor cursor) {
             cursor_ptr = nullptr;
             break;
         case Cursor::Arrow:
-            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
             break;
         case Cursor::TextInput:
-            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_TEXT);
             break;
         case Cursor::Hand:
-            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
             break;
         case Cursor::ResizeNWSE:
-            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
+            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NWSE_RESIZE);
             break;
         case Cursor::ResizeNESW:
-            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
+            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NESW_RESIZE);
             break;
         case Cursor::ResizeEW:
-            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
+            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
             break;
         case Cursor::ResizeNS:
-            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
+            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
             break;
         case Cursor::ResizeAll:
-            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEALL);
+            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
             break;
         case Cursor::Forbid:
-            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
+            cursor_ptr = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NOT_ALLOWED);
             break;
     }
     SDL_SetCursor(cursor_ptr);

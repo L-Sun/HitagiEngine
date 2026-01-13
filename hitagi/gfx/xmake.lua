@@ -39,7 +39,7 @@ target("vulkan_device")
     add_includedirs("include")
     add_deps("gfx_resource", "shader_compiler")
     add_packages("vulkansdk", "vulkan-memory-allocator", {public = true})
-    add_packages("spirv-reflect", "libsdl2")
+    add_packages("spirv-reflect", "libsdl3")
     add_defines("VULKAN_HPP_NO_CONSTRUCTORS")
     if is_plat("windows") then
         add_defines("VK_USE_PLATFORM_WIN32_KHR")

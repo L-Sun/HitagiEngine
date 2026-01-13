@@ -12,4 +12,4 @@ target("app")
     end
 
     add_files("src/sdl2/*.cpp")
-    add_packages("libsdl2")
+    add_packages("libsdl3")

@@ -9,10 +9,8 @@
 #include <hitagi/utils/soa.hpp>
 
 #include <vulkan/vulkan_raii.hpp>
-#include <SDL2/SDL_vulkan.h>
+#include <SDL3/SDL_vulkan.h>
 #include <spirv_reflect.h>
-
-#include <set>
 
 namespace hitagi::gfx {
 
@@ -64,9 +62,9 @@ inline auto is_physical_suitable(const vk::raii::PhysicalDevice& physical_device
     return queue_family_found && required_extensions.empty();
 }
 
-inline auto get_sdl2_drawable_size(SDL_Window* window) -> math::vec2u {
+inline auto get_sdl3_window_size(SDL_Window* window) -> math::vec2u {
     int width, height;
-    SDL_Vulkan_GetDrawableSize(window, &width, &height);
+    SDL_GetWindowSizeInPixels(window, &width, &height);
     return {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
 }
 

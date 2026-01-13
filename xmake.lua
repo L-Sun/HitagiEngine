@@ -1,5 +1,5 @@
 set_project("HitagiEngine")
-set_languages("c++20")
+set_languages("c++23")
 
 add_repositories("local-repo xmake")
 
@@ -54,16 +54,17 @@ add_requires(
     "directx-shader-compiler",
     "spirv-reflect",
     "libpng",
-    "assimp",
     "libjpeg-turbo",
     "fx-gltf",
-    "libsdl2",
+    "libsdl3",
     "magic_enum",
     "gtest",
     "benchmark",
     "fmt"
 )
 
+add_requires("assimp", {configs = {cxflags = "/EHsc"}})
+add_requires("usd", {configs = {toolchains = "msvc"}})
 add_requires("spdlog", {configs = {fmt_external = true}})
 add_requires("imgui v1.92.1-docking", {configs = {freetype = true, wchar32 = true}})
 add_requires("d3d12-memory-allocator", "directx12-agility-sdk", {optional = true})

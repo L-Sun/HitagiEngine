@@ -7,8 +7,7 @@
 
 #include <fmt/color.h>
 #include <spdlog/logger.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_syswm.h>
+#include <SDL3/SDL.h>
 #include <spirv_reflect.h>
 #include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/transform.hpp>
@@ -353,26 +352,33 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
 #endif
         case utils::Window::Type::SDL2: {
             auto sdl_window = static_cast<SDL_Window*>(desc.window.ptr);
-
-            SDL_SysWMinfo wm_info;
-            SDL_VERSION(&wm_info.version);
-            if (!SDL_GetWindowWMInfo(sdl_window, &wm_info)) {
-                const auto error_message = fmt::format("SDL_GetWindowWMInfo failed: {}", SDL_GetError());
+            auto h_wnd      = reinterpret_cast<HWND>(
+                SDL_GetPointerProperty(
+                    SDL_GetWindowProperties(sdl_window),
+                    SDL_PROP_WINDOW_WIN32_HWND_POINTER,
+                    nullptr));
+            if (!h_wnd) {
+                const auto error_message = fmt::format("SDL_GetWindowProperties failed: {}", SDL_GetError());
                 device.GetLogger()->error(error_message);
                 throw std::runtime_error(error_message);
             }
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
-            assert(wm_info.subsystem == SDL_SYSWM_WINDOWS);
-            HWND                          h_wnd = wm_info.info.win.window;
             vk::Win32SurfaceCreateInfoKHR surface_create_info{
                 .hinstance = GetModuleHandle(nullptr),
                 .hwnd      = h_wnd,
             };
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-            assert(wm_info.subsystem == SDL_SYSWM_WAYLAND);
+            assert((SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0));
+            auto display = reinterpret_cast<struct wl_display*>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr));
+            auto surface = reinterpret_cast<struct wl_surface*>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr));
+            if (!display || !surface) {
+                const auto error_message = fmt::format("SDL_GetPointerProperty failed: {}", SDL_GetError());
+                device.GetLogger()->error(error_message);
+                throw std::runtime_error(error_message);
+            }
             vk::WaylandSurfaceCreateInfoKHR surface_create_info{
-                .display = wm_info.info.wl.display,
-                .surface = wm_info.info.wl.surface,
+                .display = display,
+                .surface = surface,
             };
 #endif
             m_Surface = std::make_unique<vk::raii::SurfaceKHR>(device.GetInstance(), surface_create_info, device.GetCustomAllocator());
@@ -448,8 +454,8 @@ void VulkanSwapChain::CreateSwapChain() {
         } break;
 #endif
         case utils::Window::Type::SDL2:
-            if (!(SDL_GetWindowFlags(static_cast<SDL_Window*>(m_Desc.window.ptr)) & SDL_WINDOW_SHOWN)) return;
-            window_size = get_sdl2_drawable_size(static_cast<SDL_Window*>(m_Desc.window.ptr));
+            if ((SDL_GetWindowFlags(static_cast<SDL_Window*>(m_Desc.window.ptr)) & SDL_WINDOW_HIDDEN)) return;
+            window_size = get_sdl3_window_size(static_cast<SDL_Window*>(m_Desc.window.ptr));
             break;
     }
 
