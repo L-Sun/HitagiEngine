@@ -1,8 +1,9 @@
-#include "editor.hpp"
-
 #include <spdlog/spdlog.h>
 #include <vcruntime_new_debug.h>
 #include <tracy/Tracy.hpp>
+
+import engine;
+import editor;
 
 auto main(int argc, char** argv) -> int {
 #ifdef HITAGI_DEBUG

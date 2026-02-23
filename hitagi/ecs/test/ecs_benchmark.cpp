@@ -1,8 +1,10 @@
-#include <hitagi/ecs/world.hpp>
-#include <hitagi/ecs/schedule.hpp>
-#include <hitagi/core/timer.hpp>
-#include <hitagi/math/transform.hpp>
-#include <hitagi/utils/test.hpp>
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
+
+import ecs;
+import core;
+import math;
+import test_utils;
 
 using namespace hitagi;
 

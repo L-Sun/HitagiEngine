@@ -8,12 +8,9 @@ add_rules(
     "mode.debug",
     "mode.release",
     "mode.releasedbg",
-    "clang-msvc",
     "copy-dll",
     "inject_env"
 )
-add_rules("plugin.compile_commands.autoupdate", {outputdir = "build"})
-
 
 if is_mode("debug") then
     add_defines("HITAGI_DEBUG", "_DEBUG")
@@ -47,7 +44,6 @@ add_requires(
     "taskflow",
     "cxxopts",
     "nlohmann_json",
-    "tracy",
     "range-v3",
     "vulkansdk",
     "vulkan-memory-allocator",
@@ -57,17 +53,18 @@ add_requires(
     "libjpeg-turbo",
     "fx-gltf",
     "libsdl3",
-    "magic_enum",
     "gtest",
     "benchmark",
     "fmt"
 )
 
+add_requires("magic_enum", {configs = {modules = true}})
+add_requires("tracy v0.12.1")
 add_requires("assimp", {configs = {cxflags = "/EHsc"}})
 add_requires("usd", {configs = {toolchains = "msvc"}})
 add_requires("spdlog", {configs = {fmt_external = true}})
 add_requires("imgui v1.92.1-docking", {configs = {freetype = true, wchar32 = true}})
 add_requires("d3d12-memory-allocator", "directx12-agility-sdk", {optional = true})
 
-includes("hitagi/**/xmake.lua")
+includes("hitagi/xmake.lua")
 includes("examples/**/xmake.lua")

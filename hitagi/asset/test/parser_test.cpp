@@ -1,12 +1,11 @@
-#include <hitagi/core/core.hpp>
-#include <hitagi/asset/parser/bmp.hpp>
-#include <hitagi/asset/parser/jpeg.hpp>
-#include <hitagi/asset/parser/png.hpp>
-#include <hitagi/asset/parser/tga.hpp>
-#include <hitagi/asset/parser/assimp.hpp>
-#include <hitagi/asset/parser/material_parser.hpp>
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
 
-#include <hitagi/utils/test.hpp>
+import asset;
+import core;
+import math;
+import utils;
+import test_utils;
 
 using namespace hitagi;
 using namespace hitagi::core;

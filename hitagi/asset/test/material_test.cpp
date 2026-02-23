@@ -1,6 +1,11 @@
-#include <hitagi/asset/material.hpp>
-#include <hitagi/core/memory_manager.hpp>
-#include <hitagi/utils/test.hpp>
+#include "test_macros.hpp"
+
+import asset;
+import core;
+import math;
+import utils;
+import gfx;
+import test_utils;
 
 using namespace hitagi::asset;
 using namespace hitagi::math;

@@ -1,5 +1,8 @@
-#include <hitagi/asset/mesh.hpp>
-#include <hitagi/utils/test.hpp>
+#include "test_macros.hpp"
+
+import asset;
+import math;
+import test_utils;
 
 using namespace hitagi::testing;
 using namespace hitagi::asset;

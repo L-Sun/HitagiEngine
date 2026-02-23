@@ -1,11 +1,10 @@
-#include <hitagi/math/transform.hpp>
-#include <hitagi/ecs/world.hpp>
-#include <hitagi/ecs/entity.hpp>
-#include <hitagi/ecs/schedule.hpp>
-#include <hitagi/utils/test.hpp>
-
-#include <range/v3/view/zip.hpp>
+#include "test_macros.hpp"
 #include <spdlog/spdlog.h>
+
+import std;
+import ecs;
+import math;
+import test_utils;
 
 using namespace hitagi::ecs;
 using namespace hitagi::math;
@@ -336,7 +335,7 @@ TEST_F(EcsTest, SystemUpdate) {
     world.Update();
 
     ASSERT_EQ(invoked_entities.size(), entities_with_both.size());
-    for (auto [invoked_entity, entity] : ranges::views::zip(invoked_entities, entities_with_both)) {
+    for (auto [invoked_entity, entity] : std::ranges::views::zip(invoked_entities, entities_with_both)) {
         EXPECT_EQ(invoked_entity, entity);
         EXPECT_COMPONENT_EQ(entity, Component_1, 1);
         EXPECT_COMPONENT_EQ(entity, Component_2, 200);

@@ -1,14 +1,15 @@
-#include <hitagi/core/buffer.hpp>
-#include <hitagi/core/memory_manager.hpp>
-#include <hitagi/math/transform.hpp>
-#include <hitagi/gfx/device.hpp>
-#include <hitagi/application.hpp>
-#include <hitagi/utils/test.hpp>
-#include <hitagi/utils/flags.hpp>
-
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
 #include <magic_enum_flags.hpp>
-
 #include <numeric>
+#include <thread>
+
+import gfx;
+import app;
+import core;
+import math;
+import utils;
+import test_utils;
 
 using namespace hitagi::core;
 using namespace hitagi::gfx;
@@ -41,7 +42,7 @@ class DeviceTest : public TestWithParam<Device::Type> {
 protected:
     DeviceTest()
         : test_name(UnitTest::GetInstance()->current_test_info()->name()),
-          device(Device::Create(GetParam(), test_name)) {}
+          device(create_device(GetParam(), test_name)) {}
 
     std::pmr::string        test_name;
     std::unique_ptr<Device> device;

@@ -1,10 +1,10 @@
-#include <hitagi/utils/test.hpp>
-#include <hitagi/core/file_io_manager.hpp>
-
-#include <iostream>
-#include <string>
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
 #include <cstdio>
-#include <fstream>
+
+import std;
+import core;
+import test_utils;
 
 using namespace hitagi;
 

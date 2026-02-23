@@ -1,0 +1,17 @@
+includes("utils/xmake.lua")
+includes("test_utils/xmake.lua")
+
+includes("math/xmake.lua")
+includes("core/xmake.lua")
+
+includes("gfx/xmake.lua")
+includes("hid/xmake.lua")
+includes("ecs/xmake.lua")
+
+includes("platform/xmake.lua")
+includes("debugger/xmake.lua")
+includes("gui/xmake.lua")
+includes("asset/xmake.lua")
+includes("render/xmake.lua")
+
+includes("engine/xmake.lua")

@@ -1,7 +1,9 @@
-#include <hitagi/utils/test.hpp>
-#include <hitagi/core/timer.hpp>
-
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
 #include <thread>
+
+import core;
+import test_utils;
 
 using namespace std::chrono_literals;
 using namespace hitagi::core;

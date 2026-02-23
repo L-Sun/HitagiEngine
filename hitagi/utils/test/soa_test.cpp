@@ -1,8 +1,8 @@
-#include <hitagi/utils/test.hpp>
-#include <hitagi/utils/soa.hpp>
+#include "test_macros.hpp"
+#include <print>
 
-#include <array>
-#include "gtest/gtest.h"
+import utils;
+import test_utils;
 
 using namespace hitagi::utils;
 
@@ -15,11 +15,11 @@ public:
 
 private:
     [[nodiscard]] void* do_allocate(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) final {
-        fmt::print("allocate {} byte(s)\n", bytes);
+        std::print("allocate {} byte(s)\n", bytes);
         return upstream->allocate(bytes, alignment);
     }
     void do_deallocate(void* p, std::size_t bytes, std::size_t alignment) final {
-        fmt::print("deallocate pointer: {}, {} byte(s)\n", p, bytes);
+        std::print("deallocate pointer: {}, {} byte(s)\n", p, bytes);
         upstream->deallocate(p, bytes, alignment);
     }
     bool do_is_equal(const std::pmr::memory_resource& other) const noexcept final {

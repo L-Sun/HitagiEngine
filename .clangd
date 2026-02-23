@@ -1,5 +1,5 @@
 CompileFlags:
-  Add: [-std:c++latest, -W4, -Wno-missing-prototypes]
+  Add: [-std:c++latest]
   # Remove extra warnings specified in compile commands.
   # Single value is also acceptable, same as "Remove: [-mabi]"
   Compiler: clang-cl

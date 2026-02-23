@@ -1,6 +1,6 @@
 target("renderer_test")
     add_files("renderer_test.cpp")
     add_deps("utils", "test_utils")
-    add_deps("render", "gfx", "asset_manager")
+    add_deps("render", "gfx", "asset")
     set_group("test/renderer")
     set_rundir("$(projectdir)")

@@ -1,6 +1,7 @@
-#include <hitagi/math/transform.hpp>
+#include "test_macros.hpp"
 
-#include <hitagi/utils/test.hpp>
+import math;
+import test_utils;
 
 using namespace hitagi::math;
 using namespace hitagi::testing;

@@ -1,0 +1,6 @@
+target("gfx_base")
+    set_kind("static")
+    add_files("*.cppm", {public = true})
+    add_files("*.cpp")
+    add_deps("core", "math")
+    add_packages("directx-shader-compiler", {public = true})

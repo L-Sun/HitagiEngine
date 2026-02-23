@@ -1,8 +1,12 @@
-#include <hitagi/application.hpp>
-#include <hitagi/math/transform.hpp>
-#include <hitagi/core/memory_manager.hpp>
-#include <hitagi/render_graph/render_graph.hpp>
-#include <hitagi/utils/test.hpp>
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
+
+import gfx;
+import app;
+import core;
+import utils;
+import math;
+import test_utils;
 
 using namespace hitagi::gfx;
 using namespace hitagi::rg;
@@ -13,7 +17,7 @@ class RenderGraphTest : public Test {
 protected:
     RenderGraphTest()
         : test_name(UnitTest::GetInstance()->current_test_info()->name()),
-          device(Device::Create(Device::Type::DX12, test_name)),
+          device(create_device(Device::Type::DX12, test_name)),
           rg(*device, test_name) {
     }
 

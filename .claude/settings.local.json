@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo === $\\(basename \"$dir\"\\) ===:*)",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(find:*)",
+      "Bash(git:*)",
+      "Bash(cd:*)",
+      "Bash(ls -lh E:/workspace/HitagiEngine/hitagi/gfx/include/hitagi/gfx/*.hpp E:/workspace/HitagiEngine/hitagi/gfx/include/hitagi/render_graph/*.hpp)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(cd /e/workspace/HitagiEngine && MSYSTEM= MINGW_PREFIX= MINGW_CHOST= xmake --version 2>&1)",
+      "Bash(cd /e/workspace/HitagiEngine && MSYSTEM= MINGW_PREFIX= MINGW_CHOST= xmake clean --all 2>&1)",
+      "Bash(cd /e/workspace/HitagiEngine && rm -rf build/.gens/utils 2>&1)",
+      "Bash(cd E:/workspace/HitagiEngine && MSYSTEM= MINGW_PREFIX= MINGW_CHOST= xmake build -y hid 2>&1)",
+      "Bash(cd E:/workspace/HitagiEngine && MSYSTEM= MINGW_PREFIX= MINGW_CHOST= xmake build -y debugger 2>&1)",
+      "Bash(cd E:/workspace/HitagiEngine && MSYSTEM= MINGW_PREFIX= MINGW_CHOST= xmake build -y --rebuild debugger 2>&1)",
+      "WebSearch",
+      "WebFetch(domain:xmake.io)"
+    ]
+  }
+}

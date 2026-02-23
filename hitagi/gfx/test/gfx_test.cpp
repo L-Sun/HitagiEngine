@@ -1,6 +1,8 @@
-#include <hitagi/gfx/gpu_resource.hpp>
-#include <hitagi/utils/hash.hpp>
-#include <hitagi/utils/test.hpp>
+#include "test_macros.hpp"
+
+import gfx;
+import utils;
+import test_utils;
 
 using namespace hitagi;
 using namespace hitagi::gfx;

@@ -1,11 +1,11 @@
-#include "editor.hpp"
-#include "scene_viewport.hpp"
-#include <hitagi/asset/transform.hpp>
+module;
 
 #include <imgui.h>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <fmt/chrono.h>
+
+module editor;
 
 using namespace hitagi::math;
 using namespace hitagi::asset;

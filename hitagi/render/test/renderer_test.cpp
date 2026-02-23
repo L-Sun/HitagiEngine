@@ -1,12 +1,17 @@
-#include <hitagi/core/memory_manager.hpp>
-#include <hitagi/render/forward_renderer.hpp>
-#include <hitagi/asset/mesh_factory.hpp>
-#include <hitagi/asset/asset_manager.hpp>
-#include <hitagi/utils/test.hpp>
-#include <hitagi/asset/transform.hpp>
-
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
+#include <magic_enum.hpp>
 #include <tracy/Tracy.hpp>
 #include "imgui.h"
+
+import render;
+import asset;
+import core;
+import utils;
+import math;
+import gui;
+import app;
+import test_utils;
 
 using namespace testing;
 using namespace hitagi;
@@ -26,7 +31,7 @@ protected:
           app(Application::CreateApp(AppConfig{
               .gfx_backend = std::pmr::string(magic_enum::enum_name(GetParam())),
           })),
-          device(gfx::Device::Create(GetParam())) {}
+          device(gfx::create_device(GetParam())) {}
 
     std::pmr::string             test_name;
     std::unique_ptr<Application> app;

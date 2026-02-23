@@ -1,7 +1,9 @@
-#include "image_viewer.hpp"
+module;
 
 #include <imgui.h>
 #include <spdlog/spdlog.h>
+
+module editor;
 
 namespace hitagi {
 

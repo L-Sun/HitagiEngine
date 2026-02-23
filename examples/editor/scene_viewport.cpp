@@ -1,8 +1,8 @@
-#include "scene_viewport.hpp"
-#include <hitagi/gui/gui_manager.hpp>
-#include <hitagi/asset/asset_manager.hpp>
-#include <hitagi/asset/transform.hpp>
-#include <hitagi/hid/input_manager.hpp>
+module;
+
+#include <imgui.h>
+
+module editor;
 
 using namespace hitagi;
 using namespace hitagi::math;

@@ -1,4 +1,6 @@
-#include <hitagi/engine.hpp>
+#include <imgui.h>
+
+import engine;
 
 auto main(int argc, char** argv) -> int {
     hitagi::Engine engine;

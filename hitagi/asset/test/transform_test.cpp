@@ -1,5 +1,10 @@
-#include <hitagi/asset/transform.hpp>
-#include <hitagi/utils/test.hpp>
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
+
+import asset;
+import math;
+import ecs;
+import test_utils;
 
 using namespace testing;
 using namespace hitagi;

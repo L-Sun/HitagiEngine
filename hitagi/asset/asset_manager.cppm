@@ -1,0 +1,69 @@
+module;
+
+#include <spdlog/logger.h>
+
+export module asset:asset_manager;
+import std;
+import :resource;
+import :texture;
+import :material;
+import :mesh;
+import :camera;
+import :light;
+import :skeleton;
+import :scene;
+import :image_parser;
+import :scene_parser;
+import :material_parser;
+import core;
+import utils;
+
+export namespace hitagi::asset {
+
+class AssetManager final : public RuntimeModule {
+public:
+    AssetManager(std::filesystem::path asset_base_path);
+    ~AssetManager() final;
+
+    static auto Get() -> AssetManager* { return static_cast<AssetManager*>(GetModule("AssetManager")); }
+
+    Scene CreateEmptyScene(std::string_view name);
+
+    std::shared_ptr<Scene>    ImportScene(const std::filesystem::path& path);
+    std::shared_ptr<Texture>  ImportTexture(const std::filesystem::path& path);
+    std::shared_ptr<Material> ImportMaterial(const std::filesystem::path& path);
+
+    void AddScene(std::shared_ptr<Scene> scene);
+    void AddCamera(std::shared_ptr<Camera> camera);
+    void AddLight(std::shared_ptr<Light> light);
+    void AddMesh(std::shared_ptr<Mesh> mesh);
+    void AddSkeleton(std::shared_ptr<Skeleton> skeleton);
+    void AddTexture(std::shared_ptr<Texture> texture);
+
+    std::shared_ptr<Material> GetMaterial(std::string_view name);
+    inline const auto&        GetAllMaterials() const noexcept { return m_Assets.materials; }
+
+private:
+    void InitBuiltinMaterial();
+
+    std::filesystem::path m_BasePath;
+
+    // Parser
+    std::shared_ptr<MaterialParser>                             m_MaterialParser;
+    utils::EnumArray<std::shared_ptr<ImageParser>, ImageFormat> m_ImageParsers;
+    utils::EnumArray<std::shared_ptr<SceneParser>, SceneFormat> m_SceneParsers;
+
+    struct Assets {
+        template <typename T>
+        using SharedPtrSet = std::pmr::set<std::shared_ptr<T>>;
+
+        SharedPtrSet<Scene>    scenes;
+        SharedPtrSet<Material> materials;
+        SharedPtrSet<Camera>   cameras;
+        SharedPtrSet<Light>    lights;
+        SharedPtrSet<Mesh>     meshes;
+        SharedPtrSet<Skeleton> skeletons;
+        SharedPtrSet<Texture>  textures;
+    } m_Assets;
+};
+}  // namespace hitagi::asset

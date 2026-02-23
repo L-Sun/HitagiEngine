@@ -1,0 +1,158 @@
+module;
+
+#include <spdlog/logger.h>
+#include <fmt/format.h>
+
+export module gfx.render_graph;
+export import :type;
+export import :pass_builder;
+import gfx.base;
+
+export namespace hitagi::rg {
+
+class RenderGraph {
+public:
+    friend class DependencyGraph;
+
+    RenderGraph(gfx::Device& device, std::string_view name = "RenderGraph");
+    ~RenderGraph();
+
+    auto Import(std::shared_ptr<gfx::GPUBuffer> buffer, std::string_view name = "") noexcept -> GPUBufferHandle;
+    auto Import(std::shared_ptr<gfx::Texture> texture, std::string_view name = "") noexcept -> TextureHandle;
+    auto Import(std::shared_ptr<gfx::Sampler> sampler, std::string_view name = "") noexcept -> SamplerHandle;
+    auto Import(std::shared_ptr<gfx::RenderPipeline> pipeline, std::string_view name = "") noexcept -> RenderPipelineHandle;
+    auto Import(std::shared_ptr<gfx::ComputePipeline> pipeline, std::string_view name = "") noexcept -> ComputePipelineHandle;
+
+    auto Create(gfx::GPUBufferDesc desc, std::string_view name = "") noexcept -> GPUBufferHandle;
+    auto Create(gfx::TextureDesc desc, std::string_view name = "") noexcept -> TextureHandle;
+    auto Create(gfx::SamplerDesc desc, std::string_view name = "") noexcept -> SamplerHandle;
+    auto Create(gfx::RenderPipelineDesc desc, std::string_view name = "") noexcept -> RenderPipelineHandle;
+    auto Create(gfx::ComputePipelineDesc desc, std::string_view name = "") noexcept -> ComputePipelineHandle;
+
+    template <RenderGraphNode::Type T>
+    auto MoveFrom(RenderGraphHandle<T> resource, std::string_view name = "") noexcept -> RenderGraphHandle<T>;
+
+    auto GetBufferHandle(std::string_view name) const noexcept -> GPUBufferHandle;
+    auto GetTextureHandle(std::string_view name) const noexcept -> TextureHandle;
+    auto GetSamplerHandle(std::string_view name) const noexcept -> SamplerHandle;
+    auto GetRenderPipelineHandle(std::string_view name) const noexcept -> RenderPipelineHandle;
+    auto GetComputePipelineHandle(std::string_view name) const noexcept -> ComputePipelineHandle;
+
+    template <RenderGraphNode::Type T>
+    auto& Resolve(RenderGraphHandle<T> handle) const;
+
+    template <RenderGraphNode::Type T>
+    auto& GetResourceDesc(RenderGraphHandle<T> handle) const;
+
+    template <RenderGraphNode::Type T>
+    bool IsValid(RenderGraphHandle<T> handle) const noexcept;
+
+    bool Compile();
+    auto Execute() -> std::uint64_t;
+
+    inline auto& GetDevice() const noexcept { return m_Device; }
+    inline auto  GetFrameIndex() const noexcept { return m_FrameIndex; }
+    inline auto  GetLogger() const noexcept { return m_Logger; }
+
+    auto ToDot() const noexcept -> std::pmr::string;
+
+    void Profile() const noexcept;
+
+private:
+    friend PassBuilder;
+    friend RenderPassBuilder;
+    friend ComputePassBuilder;
+    friend CopyPassBuilder;
+    friend PresentPassBuilder;
+    friend ResourceNode;
+    friend PassNode;
+
+    using ResourceDesc = std::variant<gfx::GPUBufferDesc, gfx::TextureDesc, gfx::SamplerDesc, gfx::RenderPipelineDesc, gfx::ComputePipelineDesc>;
+    using ExecuteLayer = utils::EnumArray<std::pmr::vector<PassNode*>, gfx::CommandType>;
+    struct FenceValue {
+        std::shared_ptr<gfx::Fence> fence;
+        std::uint64_t               last_value;
+    };
+
+    auto ImportResource(std::shared_ptr<gfx::Resource> resource, std::string_view name) noexcept -> std::size_t;
+    auto CreateResource(ResourceDesc desc, std::string_view name) noexcept -> std::size_t;
+    auto MoveFrom(RenderGraphNode::Type type, std::size_t resource_node_index, std::string_view name) noexcept -> std::size_t;
+
+    inline bool IsValid(RenderGraphNode::Type type, std::size_t resource_node_index) const noexcept {
+        return resource_node_index < m_Nodes.size() && m_Nodes[resource_node_index]->m_Type == type;
+    }
+
+    template <RenderGraphNode::Type T>
+    auto GetHandle(std::string_view name) const noexcept;
+
+    void RetireNodesFromPassNode(PassNode* pass_node, const FenceValue& fence_value) noexcept;
+    void RetireNodes() noexcept;
+    void Reset() noexcept;
+
+    gfx::Device& m_Device;
+
+    std::pmr::string                m_Name;
+    std::shared_ptr<spdlog::logger> m_Logger;
+
+    std::uint64_t m_FrameIndex = 0;
+
+    std::pmr::vector<std::shared_ptr<RenderGraphNode>>                   m_Nodes;
+    std::pmr::unordered_map<std::shared_ptr<gfx::Resource>, std::size_t> m_ImportedResources;
+
+    bool                           m_Compiled = false;
+    std::pmr::vector<ExecuteLayer> m_ExecuteLayers;
+
+    std::shared_ptr<PresentPassNode> m_PresentPassNode;
+
+    using BlackBoard = utils::EnumArray<std::unordered_map<std::pmr::string, std::size_t>, RenderGraphNode::Type>;
+    BlackBoard m_BlackBoard;
+
+    utils::EnumArray<FenceValue, gfx::CommandType> m_Fences;
+
+    struct RetiredNode {
+        std::shared_ptr<RenderGraphNode> node;
+        FenceValue                       last_fence_value;
+    };
+    std::pmr::deque<RetiredNode> m_RetiredNodes;
+};
+
+template <RenderGraphNode::Type T>
+auto RenderGraph::MoveFrom(RenderGraphHandle<T> resource, std::string_view name) noexcept -> RenderGraphHandle<T> {
+    return RenderGraphHandle<T>{MoveFrom(T, resource.index, name)};
+}
+
+template <RenderGraphNode::Type T>
+auto RenderGraph::GetHandle(std::string_view name) const noexcept {
+    const std::pmr::string _name(name);
+    return RenderGraphHandle<T>{m_BlackBoard[T].contains(_name) ? m_BlackBoard[T].at(_name) : std::numeric_limits<std::size_t>::max()};
+}
+
+template <RenderGraphNode::Type T>
+auto& RenderGraph::GetResourceDesc(RenderGraphHandle<T> handle) const {
+    if (!IsValid(handle)) {
+        throw std::out_of_range(fmt::format("Handle({}) is not valid", handle.index));
+    }
+
+    auto node = m_Nodes.at(handle.index);
+
+    if constexpr (T == RenderGraphNode::Type::GPUBuffer) {
+        return std::static_pointer_cast<GPUBufferNode>(node)->GetDesc();
+    } else if constexpr (T == RenderGraphNode::Type::Texture) {
+        return std::static_pointer_cast<TextureNode>(node)->GetDesc();
+    } else if constexpr (T == RenderGraphNode::Type::Sampler) {
+        return std::static_pointer_cast<SamplerNode>(node)->GetDesc();
+    } else if constexpr (T == RenderGraphNode::Type::RenderPipeline) {
+        return std::static_pointer_cast<RenderPipelineNode>(node)->GetDesc();
+    } else if constexpr (T == RenderGraphNode::Type::ComputePipeline) {
+        return std::static_pointer_cast<ComputePipelineNode>(node)->GetDesc();
+    } else {
+        utils::unreachable();
+    }
+}
+
+template <RenderGraphNode::Type T>
+bool RenderGraph::IsValid(RenderGraphHandle<T> handle) const noexcept {
+    return IsValid(T, handle.index);
+}
+
+}  // namespace hitagi::rg

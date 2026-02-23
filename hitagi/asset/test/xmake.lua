@@ -11,7 +11,7 @@ target("material_test")
 
 target("parser_test")
     add_files("parser_test.cpp")
-    add_deps("parser", "core", "test_utils")
+    add_deps("asset", "core", "test_utils")
     set_group("test/asset")
 
 target("transform_test")

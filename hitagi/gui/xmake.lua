@@ -1,6 +1,6 @@
 target("gui")
     set_kind("static")
-    add_files("src/*.cpp")
-    add_includedirs("include", {public = true})
+    add_files("*.cppm", {public = true})
+    add_files("*.cpp")
     add_deps("core", "hid", "gfx", "app")
     add_packages("imgui", {public = true})

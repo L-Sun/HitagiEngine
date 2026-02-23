@@ -1,17 +1,10 @@
 target("utils")
     set_kind("static")
-    add_includedirs("include", {public = true})
-    add_files("src/*.cpp")
-    remove_files("src/test.cpp")
-    add_packages("fmt", "magic_enum", "spdlog", "range-v3", {public = true})
+    add_files("*.cppm", {public = true})
+    add_files("*.cpp")
+    add_packages("magic_enum", "spdlog", {public = true})
     if is_plat("windows") then
-        add_syslinks("Ole32")
+        add_syslinks("Ole32", {public = true})
     end
 
-
-target("test_utils")
-    set_kind("static")
-    add_files("src/test.cpp")
-    add_includedirs("include", {public = true})
-    add_deps("math", {public = true})
-    add_packages("gtest", "gmock", "benchmark", "spdlog", {public = true})
+includes("test")

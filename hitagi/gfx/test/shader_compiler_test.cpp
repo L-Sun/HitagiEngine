@@ -1,6 +1,8 @@
-#include <hitagi/gfx/shader_compiler.hpp>
-#include <hitagi/gfx/utils.hpp>
-#include <hitagi/utils/test.hpp>
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
+
+import gfx;
+import test_utils;
 
 using namespace hitagi::gfx;
 

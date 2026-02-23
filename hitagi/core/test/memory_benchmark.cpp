@@ -1,7 +1,9 @@
-#include <hitagi/utils/test.hpp>
-#include <hitagi/core/memory_manager.hpp>
+#include "test_macros.hpp"
+#include <spdlog/spdlog.h>
 
-#include <vector>
+import std;
+import core;
+import test_utils;
 
 using namespace hitagi;
 

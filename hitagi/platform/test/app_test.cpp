@@ -1,5 +1,7 @@
-#include <hitagi/application.hpp>
-#include <hitagi/utils/test.hpp>
+#include "test_macros.hpp"
+
+import app;
+import test_utils;
 
 using namespace hitagi;
 

@@ -1,13 +1,11 @@
-#include <hitagi/engine.hpp>
-#include <hitagi/asset/mesh_factory.hpp>
-#include <hitagi/asset/transform.hpp>
-
 #include <spdlog/spdlog.h>
+#include <imgui.h>
+#include <shlobj.h>
+
+import engine;
+import asset;
 
 using namespace hitagi;
-
-#include <filesystem>
-#include <shlobj.h>
 
 static auto GetLatestWinPixGpuCapturerPath_Cpp17() {
     LPWSTR programFilesPath = nullptr;
