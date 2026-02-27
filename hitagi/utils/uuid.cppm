@@ -12,18 +12,23 @@ public:
 private:
     std::array<std::byte, 16> m_Data;
 
-    friend auto format_as(const UUID& uuid) noexcept;
+    friend struct std::formatter<hitagi::utils::UUID>;
 };
-
-inline auto format_as(const UUID& uuid) noexcept {
-    return [&]<std::size_t... I>(std::index_sequence<I...>) {
-        return std::format(
-            "{:02x}{:02x}{:02x}{:02x}-"
-            "{:02x}{:02x}-"
-            "{:02x}{:02x}-"
-            "{:02x}{:02x}-"
-            "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-            std::to_integer<std::uint8_t>(uuid.m_Data[I])...);
-    }(std::make_index_sequence<16>{});
-}
 }  // namespace hitagi::utils
+
+export template <>
+struct std::formatter<hitagi::utils::UUID> : std::formatter<std::string> {
+    auto format(const hitagi::utils::UUID& uuid, std::format_context& ctx) const {
+        return std::formatter<std::string>::format(
+            [&]<std::size_t... I>(std::index_sequence<I...>) {
+                return std::format(
+                    "{:02x}{:02x}{:02x}{:02x}-"
+                    "{:02x}{:02x}-"
+                    "{:02x}{:02x}-"
+                    "{:02x}{:02x}-"
+                    "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+                    std::to_integer<std::uint8_t>(uuid.m_Data[I])...);
+            }(std::make_index_sequence<16>{}),
+            ctx);
+    }
+};

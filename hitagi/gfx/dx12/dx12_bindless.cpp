@@ -121,10 +121,10 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
         D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
             .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
             .Buffer        = {
-                       .FirstElement        = 0,
-                       .NumElements         = static_cast<UINT>(buffer.GetDesc().element_count),
-                       .StructureByteStride = static_cast<UINT>(buffer.GetDesc().element_size),
-                       .Flags               = D3D12_BUFFER_UAV_FLAG_NONE,
+                .FirstElement        = 0,
+                .NumElements         = static_cast<UINT>(buffer.GetDesc().element_count),
+                .StructureByteStride = static_cast<UINT>(buffer.GetDesc().element_size),
+                .Flags               = D3D12_BUFFER_UAV_FLAG_NONE,
             },
         };
         dx12_device.GetDevice()->CreateUnorderedAccessView(

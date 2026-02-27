@@ -140,13 +140,13 @@ void VulkanGraphicsCommandBuffer::BeginRendering(Texture& render_target, utils::
     if (depth_stencil.has_value()) {
         auto& vk_depth_stencil_image = static_cast<VulkanImage&>(depth_stencil->get());
         depth_attachment             = {
-                        .imageView   = *vk_depth_stencil_image.image_view.value(),
-                        .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
-                        .loadOp      = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
-                        .storeOp     = vk::AttachmentStoreOp::eStore,
-                        .clearValue  = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value
-                                           ? to_vk_clear_value(depth_stencil->get().GetDesc().clear_value.value())
-                                           : vk::ClearValue{},
+            .imageView   = *vk_depth_stencil_image.image_view.value(),
+            .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
+            .loadOp      = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+            .storeOp     = vk::AttachmentStoreOp::eStore,
+            .clearValue  = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value
+                               ? to_vk_clear_value(depth_stencil->get().GetDesc().clear_value.value())
+                               : vk::ClearValue{},
         };
         switch (depth_stencil->get().GetDesc().format) {
             case Format::D24_UNORM_S8_UINT:
@@ -217,7 +217,7 @@ void VulkanGraphicsCommandBuffer::SetIndexBuffer(const GPUBuffer& buffer, std::s
     } else if (buffer.GetDesc().element_size == sizeof(std::uint16_t)) {
         index_type = vk::IndexType::eUint16;
     } else {
-        auto error_message = fmt::format("Unsupported index buffer which element size is {}", buffer.GetDesc().element_size);
+        auto error_message = std::format("Unsupported index buffer which element size is {}", buffer.GetDesc().element_size);
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);
     }

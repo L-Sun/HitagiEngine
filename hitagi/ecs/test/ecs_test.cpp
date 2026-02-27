@@ -16,7 +16,7 @@ auto component_value_eq(const char* expr_entity, const char*, Entity entity, con
     if (auto component_value = entity.Get<T>().value; component_value == value) {
         return ::testing::AssertionSuccess();
     } else {
-        return ::testing::AssertionFailure() << fmt::format("Expect component value of {} is {}, but actual is {}", expr_entity, value, component_value);
+        return ::testing::AssertionFailure() << std::format("Expect component value of {} is {}, but actual is {}", expr_entity, value, component_value);
     }
 }
 
@@ -34,10 +34,10 @@ auto dynamic_component_value_eq(const char* expr_entity,
         if (auto component_value = *reinterpret_cast<int*>(component); component_value == value) {
             return ::testing::AssertionSuccess();
         } else {
-            return ::testing::AssertionFailure() << fmt::format("Expect component value of entity({}) is {}, but actual is {}", expr_entity, value, component_value);
+            return ::testing::AssertionFailure() << std::format("Expect component value of entity({}) is {}, but actual is {}", expr_entity, value, component_value);
         }
     } else {
-        return testing::AssertionFailure() << fmt::format("The Entity({}) does not have component({})\n", expr_entity, expr_dynamic_component);
+        return testing::AssertionFailure() << std::format("The Entity({}) does not have component({})\n", expr_entity, expr_dynamic_component);
     }
 }
 

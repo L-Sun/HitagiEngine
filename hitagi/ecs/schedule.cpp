@@ -134,12 +134,12 @@ bool Schedule::CheckValid(const std::pmr::unordered_map<std::size_t, std::pmr::u
 
         dot += "digraph {\n";
         for (const auto task_id : graph | std::ranges::views::keys) {
-            dot += fmt::format(R"(  {} [label="{}"])", task_id, m_Tasks[task_id]->name);
+            dot += std::format(R"(  {} [label="{}"])", task_id, m_Tasks[task_id]->name);
         }
 
         for (const auto& [task_id, successor_task_ids] : graph) {
             for (const auto& successor_task_id : successor_task_ids) {
-                dot += fmt::format("  {} -> {}", task_id, successor_task_id);
+                dot += std::format("  {} -> {}", task_id, successor_task_id);
                 if (in_degree[task_id] != 0 && in_degree[successor_task_id] != 0)
                     dot += " [color=red]";
                 dot += ";\n";

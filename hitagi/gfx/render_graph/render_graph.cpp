@@ -1,10 +1,10 @@
 module;
 #include <fmt/color.h>
-#include <magic_enum_utility.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <tracy/Tracy.hpp>
 
 module gfx.render_graph;
+import magic_enum;
 import std;
 
 namespace hitagi::rg {
@@ -12,7 +12,7 @@ namespace hitagi::rg {
 RenderGraph::RenderGraph(gfx::Device& device, std::string_view name)
     : m_Device(device),
       m_Name(name),
-      m_Logger(utils::try_create_logger(fmt::format("RenderGraph{}", utils::add_parentheses(name)))) {
+      m_Logger(utils::try_create_logger(std::format("RenderGraph{}", utils::add_parentheses(name)))) {
     m_Fences[gfx::CommandType::Graphics] = {
         .fence      = m_Device.CreateFence(0, "[RG] Render Fence"),
         .last_value = 0,
@@ -281,7 +281,7 @@ bool RenderGraph::Compile() {
         do_dfs(m_PresentPassNode.get());
 
         // we need keep all output resource node in essential pass node to avoid execution failure
-        auto write_resource_nodes = essential_nodes                                                               //
+        auto write_resource_nodes = essential_nodes                                                                    //
                                     | std::ranges::views::filter([](const auto& node) { return node->IsPassNode(); })  //
                                     | std::ranges::views::transform([](auto node) { return node->m_OutputNodes; })     //
                                     | std::ranges::views::join                                                         //
@@ -297,7 +297,7 @@ bool RenderGraph::Compile() {
                           | std::ranges::to<std::pmr::unordered_map<RenderGraphNode*, std::size_t>>();
 
         // use vector is ok
-        auto start_nodes = in_degrees                                                                  //
+        auto start_nodes = in_degrees                                                                       //
                            | std::ranges::views::filter([](const auto& item) { return item.second == 0; })  //
                            | std::ranges::views::keys                                                       //
                            | std::ranges::to<std::pmr::vector<RenderGraphNode*>>();
@@ -307,7 +307,7 @@ bool RenderGraph::Compile() {
             ExecuteLayer current_layer;
 
             std::ranges::for_each(
-                start_nodes                                                                             //
+                start_nodes                                                                                  //
                     | std::ranges::views::filter([](const auto& node) { return node->IsPassNode(); })        //
                     | std::ranges::views::transform([](auto node) { return static_cast<PassNode*>(node); })  //
                 ,
@@ -450,7 +450,7 @@ void RenderGraph::RetireNodes() noexcept {
 auto RenderGraph::ToDot() const noexcept -> std::pmr::string {
     const auto node_writer = [&](const RenderGraphNode* node) {
         std::string_view shape = node->IsResourceNode() ? "shape=box " : "";
-        return std::pmr::string(fmt::format(R"({}label="{}\nhandle: {}")", shape, node->GetName(), node->m_Handle));
+        return std::pmr::string(std::format(R"({}label="{}\nhandle: {}")", shape, node->GetName(), node->m_Handle));
     };
 
     const auto edge_writer = [&](const RenderGraphNode* from, const RenderGraphNode* to) {
@@ -471,20 +471,20 @@ auto RenderGraph::ToDot() const noexcept -> std::pmr::string {
                     const auto  buffer_node = const_cast<GPUBufferNode*>(static_cast<const GPUBufferNode*>(resource_node));
                     const auto& buffer_edge = pass_node->m_GPUBufferEdges.at(buffer_node);
                     if (!(buffer_edge.write && resource_node == from)) {
-                        edge = fmt::format("{},{}", buffer_edge.access, buffer_edge.stage);
+                        edge = std::format("{},{}", magic_enum::enum_name(buffer_edge.access), magic_enum::enum_name(buffer_edge.stage));
                     }
                 } break;
                 case RenderGraphNode::Type::Texture: {
                     const auto  texture_node = const_cast<TextureNode*>(static_cast<const TextureNode*>(resource_node));
                     const auto& texture_edge = pass_node->m_TextureEdges.at(texture_node);
                     if (!(texture_edge.write && resource_node == from)) {
-                        edge = fmt::format("{},{},{}", texture_edge.access, texture_edge.layout, texture_edge.stage);
+                        edge = std::format("{},{},{}", magic_enum::enum_name(texture_edge.access), magic_enum::enum_name(texture_edge.layout), magic_enum::enum_name(texture_edge.stage));
                     }
                 } break;
                 default: {
                 }
             }
-            return std::pmr::string(fmt::format("label=\"{}\"", edge));
+            return std::pmr::string(std::format("label=\"{}\"", edge));
         }
         // move edge
         else {
@@ -495,12 +495,12 @@ auto RenderGraph::ToDot() const noexcept -> std::pmr::string {
     std::pmr::string output = "digraph {\n";
 
     for (const auto& node : m_Nodes) {
-        output += fmt::format("  {} [{}];\n", node->m_Handle, node_writer(node.get()));
+        output += std::format("  {} [{}];\n", node->m_Handle, node_writer(node.get()));
     }
 
     for (const auto& from_node : m_Nodes) {
         for (auto to_node : from_node->m_OutputNodes) {
-            output += fmt::format(
+            output += std::format(
                 "  {} -> {} [{}];\n",
                 from_node->m_Handle, to_node->m_Handle,
                 edge_writer(from_node.get(), to_node));

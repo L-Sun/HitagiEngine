@@ -1,7 +1,6 @@
 module;
 
 #include <imgui.h>
-#include <magic_enum_utility.hpp>
 #include <range/v3/all.hpp>
 #include <spdlog/logger.h>
 #include <tracy/Tracy.hpp>
@@ -10,12 +9,13 @@ module;
 #undef far
 
 module render;
+import magic_enum;
 import std;
 
 namespace hitagi::render {
 
 ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, gui::GuiManager* gui_manager, std::string_view name)
-    : IRenderer(fmt::format("ForwardRenderer{}", name.empty() ? "" : fmt::format("({})", name))),
+    : IRenderer(std::format("ForwardRenderer{}", name.empty() ? "" : std::format("({})", name))),
       m_App(app),
       m_GfxDevice(device),
       m_SwapChain(m_GfxDevice.CreateSwapChain({
@@ -59,7 +59,7 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
 
     rg::RenderPassBuilder render_pass_builder(m_RenderGraph);
     render_pass_builder
-        .SetName(fmt::format("ColorPass-{}", m_RenderGraph.GetFrameIndex()))
+        .SetName(std::format("ColorPass-{}", m_RenderGraph.GetFrameIndex()))
         .SetRenderTarget(target, true)
         .SetDepthStencil(
             m_RenderGraph.Create(gfx::TextureDesc{

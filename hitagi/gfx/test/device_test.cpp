@@ -1,9 +1,7 @@
-#include "test_macros.hpp"
 #include <spdlog/spdlog.h>
-#include <magic_enum_flags.hpp>
-#include <numeric>
-#include <thread>
 
+import std;
+import magic_enum;
 import gfx;
 import app;
 import core;
@@ -518,18 +516,18 @@ INSTANTIATE_TEST_SUITE_P(
     GraphicsCommandTest,
     ValuesIn(supported_device_types),
     [](const TestParamInfo<Device::Type>& info) -> std::string {
-        return fmt::format("Graphics_{}", magic_enum::enum_name(info.param));
+        return std::format("Graphics_{}", magic_enum::enum_name(info.param));
     });
 
 TEST_P(GraphicsCommandTest, ResourceBarrier) {
     auto buffer = device->CreateGPUBuffer(
         {
-            .name         = std::pmr::string(fmt::format("buffer-{}", test_name)),
+            .name         = std::pmr::string(std::format("buffer-{}", test_name)),
             .element_size = 128,
             .usages       = GPUBufferUsageFlags::Constant,
         });
     auto render_texture = device->CreateTexture({
-        .name        = std::pmr::string(fmt::format("texture-{}", test_name)),
+        .name        = std::pmr::string(std::format("texture-{}", test_name)),
         .width       = 128,
         .height      = 128,
         .format      = Format::R8G8B8A8_UNORM,
@@ -571,7 +569,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     auto rotation     = rotate_z(90.0_deg);
     auto frame_buffer = device->CreateGPUBuffer(
         {
-            .name         = std::pmr::string(fmt::format("{}_buffer", test_name)),
+            .name         = std::pmr::string(std::format("{}_buffer", test_name)),
             .element_size = sizeof(rotation),
             .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::CopyDst,
         },
@@ -584,7 +582,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     bindless_info.frame_buffer_handle = device->GetBindlessUtils().CreateBindlessHandle(*frame_buffer, 0);
 
     auto bindless_info_buffer = device->CreateGPUBuffer({
-        .name         = std::pmr::string(fmt::format("{}_bindless_info_buffer", test_name)),
+        .name         = std::pmr::string(std::format("{}_bindless_info_buffer", test_name)),
         .element_size = sizeof(BindlessInfo),
         .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
@@ -623,7 +621,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
         )""";
 
     auto vs_shader = device->CreateShader({
-        .name        = std::pmr::string(fmt::format("{}-vs", test_name)),
+        .name        = std::pmr::string(std::format("{}-vs", test_name)),
         .type        = ShaderType::Vertex,
         .entry       = "VSMain",
         .source_code = shader_code,
@@ -631,7 +629,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     ASSERT_TRUE(vs_shader);
 
     auto ps_shader = device->CreateShader({
-        .name        = std::pmr::string(fmt::format("{}-ps", test_name)),
+        .name        = std::pmr::string(std::format("{}-ps", test_name)),
         .type        = ShaderType::Pixel,
         .entry       = "PSMain",
         .source_code = shader_code,
@@ -639,7 +637,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     ASSERT_TRUE(ps_shader);
 
     auto pipeline = device->CreateRenderPipeline({
-        .name    = std::pmr::string(fmt::format("{}-pipeline", test_name)),
+        .name    = std::pmr::string(std::format("{}-pipeline", test_name)),
         .shaders = {vs_shader, ps_shader},
     });
     ASSERT_TRUE(pipeline);
@@ -674,18 +672,18 @@ INSTANTIATE_TEST_SUITE_P(
     ComputeCommandTest,
     ValuesIn(supported_device_types),
     [](const TestParamInfo<Device::Type>& info) -> std::string {
-        return fmt::format("Compute_{}", magic_enum::enum_name(info.param));
+        return std::format("Compute_{}", magic_enum::enum_name(info.param));
     });
 
 TEST_P(ComputeCommandTest, ResourceBarrier) {
     auto buffer = device->CreateGPUBuffer(
         {
-            .name         = std::pmr::string(fmt::format("buffer-{}", test_name)),
+            .name         = std::pmr::string(std::format("buffer-{}", test_name)),
             .element_size = 128,
             .usages       = GPUBufferUsageFlags::Storage,
         });
     auto render_texture = device->CreateTexture({
-        .name        = std::pmr::string(fmt::format("texture-{}", test_name)),
+        .name        = std::pmr::string(std::format("texture-{}", test_name)),
         .width       = 128,
         .height      = 128,
         .format      = Format::R8G8B8A8_UNORM,
@@ -726,7 +724,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
     auto rotation     = rotate_z(90.0_deg);
     auto frame_buffer = device->CreateGPUBuffer(
         {
-            .name         = std::pmr::string(fmt::format("{}_buffer", test_name)),
+            .name         = std::pmr::string(std::format("{}_buffer", test_name)),
             .element_size = sizeof(rotation),
             .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::CopyDst,
         },
@@ -737,7 +735,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
         BindlessHandle frame_buffer_handle;
     };
     auto bindless_info_buffer = device->CreateGPUBuffer({
-        .name         = std::pmr::string(fmt::format("{}_bindless_info_buffer", test_name)),
+        .name         = std::pmr::string(std::format("{}_bindless_info_buffer", test_name)),
         .element_size = sizeof(BindlessInfo),
         .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
@@ -765,7 +763,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
         )""";
 
     auto cs_shader = device->CreateShader({
-        .name        = std::pmr::string(fmt::format("{}-cs", test_name)),
+        .name        = std::pmr::string(std::format("{}-cs", test_name)),
         .type        = ShaderType::Compute,
         .entry       = "main",
         .source_code = cs_shader_code,
@@ -773,7 +771,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
     ASSERT_TRUE(cs_shader);
 
     auto pipeline = device->CreateComputePipeline({
-        .name = std::pmr::string(fmt::format("{}-pipeline", test_name)),
+        .name = std::pmr::string(std::format("{}-pipeline", test_name)),
         .cs   = cs_shader,
     });
     ASSERT_TRUE(pipeline);
@@ -817,7 +815,7 @@ TEST_P(CopyCommandTest, CopyBuffer) {
 
     auto src_buffer = device->CreateGPUBuffer(
         {
-            .name          = std::pmr::string(fmt::format("{}_src", test_name)),
+            .name          = std::pmr::string(std::format("{}_src", test_name)),
             .element_size  = sizeof(char),
             .element_count = initial_data.size(),
             .usages        = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
@@ -828,7 +826,7 @@ TEST_P(CopyCommandTest, CopyBuffer) {
         });
     auto dst_buffer = device->CreateGPUBuffer(
         {
-            .name          = std::pmr::string(fmt::format("{}_dst", test_name)),
+            .name          = std::pmr::string(std::format("{}_dst", test_name)),
             .element_size  = sizeof(char),
             .element_count = initial_data.size(),
             .usages        = GPUBufferUsageFlags::MapRead | GPUBufferUsageFlags::CopyDst,
@@ -856,7 +854,7 @@ TEST_P(CopyCommandTest, CopyBuffer) {
 
 TEST_P(CopyCommandTest, CopyTexture) {
     auto src_texture = device->CreateTexture({
-        .name        = std::pmr::string(fmt::format("{}_src", test_name)),
+        .name        = std::pmr::string(std::format("{}_src", test_name)),
         .width       = 1024,
         .height      = 1024,
         .format      = Format::R32G32B32A32_FLOAT,
@@ -865,7 +863,7 @@ TEST_P(CopyCommandTest, CopyTexture) {
     });
 
     auto dst_texture = device->CreateTexture({
-        .name        = std::pmr::string(fmt::format("{}_dst", test_name)),
+        .name        = std::pmr::string(std::format("{}_dst", test_name)),
         .width       = 1024,
         .height      = 1024,
         .format      = Format::R32G32B32A32_UINT,  // ! different format here
@@ -912,7 +910,7 @@ protected:
     SwapChainTest()
         : DeviceTest(),
           app(hitagi::Application::CreateApp(hitagi::AppConfig{
-              .title = std::pmr::string{fmt::format("App/{}", test_name)},
+              .title = std::pmr::string{std::format("App/{}", test_name)},
           })) {}
 
     void SetUp() override {
@@ -956,7 +954,7 @@ TEST_P(SwapChainTest, SwapChainResizing) {
 TEST_P(DeviceTest, DrawTriangle) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
-            .title = std::pmr::string{fmt::format("App/{}", test_name)},
+            .title = std::pmr::string{std::format("App/{}", test_name)},
         });
 
     auto rect = app->GetWindowRect();
@@ -1010,7 +1008,7 @@ TEST_P(DeviceTest, DrawTriangle) {
         )""";
 
     auto vertex_shader = device->CreateShader({
-        .name        = std::pmr::string(fmt::format("VS-{}", test_name)),
+        .name        = std::pmr::string(std::format("VS-{}", test_name)),
         .type        = ShaderType::Vertex,
         .entry       = "VSMain",
         .source_code = shader_code,
@@ -1018,7 +1016,7 @@ TEST_P(DeviceTest, DrawTriangle) {
     ASSERT_TRUE(vertex_shader);
 
     auto pixel_shader = device->CreateShader({
-        .name        = std::pmr::string(fmt::format("PS-{}", test_name)),
+        .name        = std::pmr::string(std::format("PS-{}", test_name)),
         .type        = ShaderType::Pixel,
         .entry       = "PSMain",
         .source_code = shader_code,
@@ -1026,7 +1024,7 @@ TEST_P(DeviceTest, DrawTriangle) {
     ASSERT_TRUE(pixel_shader);
 
     auto pipeline = device->CreateRenderPipeline({
-        .name    = std::pmr::string(fmt::format("pipeline-{}", test_name)),
+        .name    = std::pmr::string(std::format("pipeline-{}", test_name)),
         .shaders = {
             vertex_shader,
             pixel_shader,
@@ -1064,7 +1062,7 @@ TEST_P(DeviceTest, DrawTriangle) {
 
     auto texture = device->CreateTexture(
         {
-            .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+            .name   = std::pmr::string(std::format("Texture-{}", test_name)),
             .width  = 2,
             .height = 2,
             .format = Format::R8G8B8A8_UNORM,
@@ -1073,16 +1071,16 @@ TEST_P(DeviceTest, DrawTriangle) {
         {reinterpret_cast<const std::byte*>(pink_color.data()), sizeof(pink_color)});
 
     auto sampler = device->CreateSampler({
-        .name = std::pmr::string(fmt::format("Sampler-{}", test_name)),
+        .name = std::pmr::string(std::format("Sampler-{}", test_name)),
     });
 
     struct Constant {
         mat4f rotation;
     };
     auto constant_buffer                           = device->CreateGPUBuffer({
-                                  .name         = std::pmr::string(fmt::format("{}-ConstantBuffer", test_name)),
-                                  .element_size = sizeof(Constant),
-                                  .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        .name         = std::pmr::string(std::format("{}-ConstantBuffer", test_name)),
+        .element_size = sizeof(Constant),
+        .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
     GPUBufferView<mat4f>(*constant_buffer).front() = translate(vec3f(.5f, 0, 0)) * rotate_z<float>(20.0_deg);
 
@@ -1101,7 +1099,7 @@ TEST_P(DeviceTest, DrawTriangle) {
 
     auto bindless_info_buffer = device->CreateGPUBuffer(
         {
-            .name         = std::pmr::string(fmt::format("{}-BindlessHandles", test_name)),
+            .name         = std::pmr::string(std::format("{}-BindlessHandles", test_name)),
             .element_size = sizeof(BindlessInfo),
             .usages       = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
         },

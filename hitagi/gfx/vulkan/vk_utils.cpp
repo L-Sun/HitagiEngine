@@ -69,7 +69,7 @@ auto custom_debug_message_fn(vk::DebugUtilsMessageSeverityFlagBitsEXT severity, 
 
     std::pmr::vector<std::pmr::string> messages;
 
-    auto message_id = fmt::format("{:#x}", static_cast<std::uint32_t>(p_data->messageIdNumber));
+    auto message_id = std::format("{:#x}", static_cast<std::uint32_t>(p_data->messageIdNumber));
     messages.emplace_back(fmt::format(
         "{}[ {} ]:{} -------------",
         fmt::styled(vk::to_string(type), fmt::fg(type == vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance ? fmt::color::orange : fmt::color::red)),
@@ -101,7 +101,7 @@ auto custom_debug_message_fn(vk::DebugUtilsMessageSeverityFlagBitsEXT severity, 
     if (p_data->objectCount > 0) {
         messages.emplace_back("Objects:");
         for (std::uint32_t i = 0; i < p_data->objectCount; i++) {
-            messages.emplace_back(fmt::format(
+            messages.emplace_back(std::format(
                 "\t {}({:>12}, {:#018x})",
                 p_data->pObjects->pObjectName == nullptr ? "" : p_data->pObjects->pObjectName,
                 vk::to_string(static_cast<vk::ObjectType>(p_data->pObjects[i].objectType)),

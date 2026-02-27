@@ -1,14 +1,13 @@
 module;
 
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <magic_enum_utility.hpp>
-#include <fmt/color.h>
 #include <tracy/Tracy.hpp>
 #include <d3dx12/d3dx12.h>
 #include <dxgi1_6.h>
 #include <D3D12MemAlloc.h>
 
 module gfx.dx12;
+import magic_enum;
 import :command_list;
 import :command_queue;
 import :descriptor_heap;
@@ -175,7 +174,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
         m_CommandQueues[type] = std::make_shared<DX12CommandQueue>(
             *this,
             type,
-            fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type)));
+            std::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type)));
     });
 
     m_Logger->trace("Create RTV DSV Descriptor Allocators...");

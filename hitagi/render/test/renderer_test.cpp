@@ -1,9 +1,8 @@
-#include "test_macros.hpp"
 #include <spdlog/spdlog.h>
-#include <magic_enum.hpp>
 #include <tracy/Tracy.hpp>
 #include "imgui.h"
 
+import magic_enum;
 import render;
 import asset;
 import core;
@@ -56,7 +55,7 @@ TEST_P(RendererTest, ForwardRenderer) {
     std::size_t frame_index = 0;
     while (!app->IsQuit()) {
         auto texture = renderer.GetRenderGraph().Create(gfx::TextureDesc{
-            .name        = std::pmr::string{fmt::format("RenderTarget-{}", frame_index)},
+            .name        = std::pmr::string{std::format("RenderTarget-{}", frame_index)},
             .width       = renderer.GetSwapChain().GetWidth(),
             .height      = renderer.GetSwapChain().GetHeight(),
             .format      = gfx::Format::R8G8B8A8_UNORM,

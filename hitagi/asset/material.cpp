@@ -1,15 +1,14 @@
 module;
 
-#include <magic_enum.hpp>
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view/filter.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/unique.hpp>
 #include <spdlog/spdlog.h>
-#include <fmt/format.h>
 
 module asset;
 import std;
+import magic_enum;
 
 namespace hitagi::asset {
 
@@ -48,7 +47,7 @@ auto Material::CalculateMaterialBufferSize(bool enable_16_bytes_packing) const n
 }
 
 auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
-    const auto instance_name = fmt::format("{}-{}", m_Name, m_Instances.size());
+    const auto instance_name = std::format("{}-{}", m_Name, m_Instances.size());
     const auto result        = std::make_shared<MaterialInstance>(m_Desc.parameters, instance_name);
     result->SetMaterial(shared_from_this());
     return result;

@@ -108,9 +108,9 @@ auto DescriptorAllocator::Allocate() -> Descriptor {
         // Need create new heap
         std::string name;
         if (m_Type == D3D12_DESCRIPTOR_HEAP_TYPE_RTV) {
-            name = fmt::format("RTV_Heap_{}", m_HeapPool.size());
+            name = std::format("RTV_Heap_{}", m_HeapPool.size());
         } else {
-            name = fmt::format("DSV_Heap_{}", m_HeapPool.size());
+            name = std::format("DSV_Heap_{}", m_HeapPool.size());
         }
         heap_for_allocating = m_HeapPool.emplace_front(std::make_shared<DescriptorHeap>(m_Device, m_Type, m_HeapSize, name));
     }

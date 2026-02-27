@@ -17,7 +17,7 @@ struct ComPtr : public CComPtr<T> {
 #include <fmt/color.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-module gfx.base; 
+module gfx.base;
 import :shader_compiler;
 import :utils;
 import std;
@@ -131,7 +131,7 @@ inline constexpr auto from_dxc_reflection_attribute(const D3D12_SIGNATURE_PARAME
         }
     }
     return VertexAttribute{
-        .semantic = std::pmr::string(fmt::format("{}{}", desc.SemanticName, desc.SemanticIndex)),
+        .semantic = std::pmr::string(std::format("{}{}", desc.SemanticName, desc.SemanticIndex)),
         .format   = format,
         .binding  = desc.Register,
         .stride   = get_format_byte_size(format),
@@ -139,7 +139,7 @@ inline constexpr auto from_dxc_reflection_attribute(const D3D12_SIGNATURE_PARAME
 }
 
 ShaderCompiler::ShaderCompiler(std::string_view name)
-    : m_Logger(utils::try_create_logger(fmt::format("ShaderCompiler{}", utils::add_parentheses(name)))) {
+    : m_Logger(utils::try_create_logger(std::format("ShaderCompiler{}", utils::add_parentheses(name)))) {
     m_Logger->trace("Create shader compiler...");
     {
         if (FAILED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&m_DxcUtils)))) {

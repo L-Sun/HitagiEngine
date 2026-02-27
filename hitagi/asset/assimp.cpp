@@ -5,11 +5,10 @@ module;
 #include <assimp/scene.h>
 #include <spdlog/spdlog.h>
 #include <fmt/chrono.h>
-#include <fmt/format.h>
-#include <magic_enum.hpp>
 
 module asset;
 import std;
+import magic_enum;
 
 using namespace hitagi::math;
 
@@ -264,7 +263,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             logger->trace("Shading Mode: {}", magic_enum::enum_name(shading_mode));
 
         for (auto key : mat_color_keys) {
-            if (aiColor3D _color; AI_SUCCESS == _material_instance->Get(fmt::format("$clr.{}", key).c_str(), 0, 0, _color)) {
+            if (aiColor3D _color; AI_SUCCESS == _material_instance->Get(std::format("$clr.{}", key).c_str(), 0, 0, _color)) {
                 material_instance->SetParameter(key, get_color(_color));
             }
         }
@@ -305,7 +304,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
     for (size_t i = 0; i < ai_scene->mNumMeshes; i++) {
         auto ai_mesh = ai_scene->mMeshes[i];
 
-        auto vertices = std::make_shared<VertexArray>(ai_mesh->mNumVertices, fmt::format("{}-vertices", ai_mesh->mName.C_Str()));
+        auto vertices = std::make_shared<VertexArray>(ai_mesh->mNumVertices, std::format("{}-vertices", ai_mesh->mName.C_Str()));
 
         // Read Position
         if (ai_mesh->HasPositions()) {
@@ -426,7 +425,7 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         for (std::size_t face = 0; face < ai_mesh->mNumFaces; face++) {
             indices_count += ai_mesh->mFaces[face].mNumIndices;
         }
-        auto indices = std::make_shared<IndexArray>(indices_count, IndexType::UINT32, fmt::format("{}-indices", ai_mesh->mName.C_Str()));
+        auto indices = std::make_shared<IndexArray>(indices_count, IndexType::UINT32, std::format("{}-indices", ai_mesh->mName.C_Str()));
 
         // Read Indices
         indices->Modify<IndexType::UINT32>([&](auto values) {

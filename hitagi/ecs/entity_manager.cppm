@@ -1,6 +1,3 @@
-module;
-#include <fmt/format.h>
-
 export module ecs:entity_manager;
 import std;
 import utils;
@@ -168,7 +165,7 @@ void EntityManager::RemoveComponent(entity_id_t entity) noexcept {
 template <Component T>
 auto EntityManager::GetComponent(entity_id_t entity) const -> T& {
     if (!HasComponent<T>(entity)) {
-        const auto error_message = fmt::format("Entity({}) does not have the component({})", entity, detail::create_static_component_info<T>().name);
+        const auto error_message = std::format("Entity({}) does not have the component({})", entity, detail::create_static_component_info<T>().name);
         throw std::invalid_argument(error_message);
     }
 

@@ -86,7 +86,7 @@ void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge 
     const auto write_str = new_edge.write ? "write" : "read";
 
     if (!m_RenderGraph.IsValid(buffer_handle)) {
-        Invalidate(fmt::format("Read buffer failed: buffer({}) is invalid", buffer_handle.index));
+        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer_handle.index));
         return;
     }
 
@@ -98,13 +98,13 @@ void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge 
         !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Vertex) &&
         !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Index) &&
         !utils::has_flag(usages, gfx::GPUBufferUsageFlags::CopySrc)) {
-        Invalidate(fmt::format("{} buffer failed: buffer({}) is not a constant buffer", write_str, buffer_node->GetName()));
+        Invalidate(std::format("{} buffer failed: buffer({}) is not a constant buffer", write_str, buffer_node->GetName()));
         return;
     }
     if (new_edge.write &&
         !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Storage) &&
         !utils::has_flag(usages, gfx::GPUBufferUsageFlags::CopyDst)) {
-        Invalidate(fmt::format("{} buffer failed: buffer({}) is not a storage buffer", write_str, buffer_node->GetName()));
+        Invalidate(std::format("{} buffer failed: buffer({}) is not a storage buffer", write_str, buffer_node->GetName()));
         return;
     }
 
@@ -112,7 +112,7 @@ void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge 
         ZoneScopedN("Find existing edge");
         if (pass_base->m_GPUBufferEdges.contains(buffer_node)) {
             if (pass_base->m_GPUBufferEdges[buffer_node] != new_edge) {
-                Invalidate(fmt::format("{} buffer: {} buffer({}) repeat with different usage", write_str, write_str, m_RenderGraph.m_Nodes[buffer_handle.index]->GetName()));
+                Invalidate(std::format("{} buffer: {} buffer({}) repeat with different usage", write_str, write_str, m_RenderGraph.m_Nodes[buffer_handle.index]->GetName()));
             }
             return;
         }
@@ -122,7 +122,7 @@ void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge 
         ZoneScopedN("check multiple write");
         if (new_edge.write) {
             if (const auto writer = buffer_node->GetWriter(); writer != nullptr) {
-                Invalidate(fmt::format("Write buffer failed: buffer({}) is written by pass({})", buffer_node->GetName(), writer->GetName()));
+                Invalidate(std::format("Write buffer failed: buffer({}) is written by pass({})", buffer_node->GetName(), writer->GetName()));
                 return;
             }
         }
@@ -139,7 +139,7 @@ void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_e
     const auto write_str = new_edge.write ? "write" : "read";
 
     if (!m_RenderGraph.IsValid(texture_handle)) {
-        Invalidate(fmt::format("{} texture failed: texture({}) is invalid", write_str, texture_handle.index));
+        Invalidate(std::format("{} texture failed: texture({}) is invalid", write_str, texture_handle.index));
         return;
     }
 
@@ -149,7 +149,7 @@ void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_e
     if (!new_edge.write &&
         !utils::has_flag(usages, gfx::TextureUsageFlags::SRV) &&
         !utils::has_flag(usages, gfx::TextureUsageFlags::CopySrc)) {
-        Invalidate(fmt::format("{} texture failed: texture({}) is not readable", write_str, texture_node->GetName()));
+        Invalidate(std::format("{} texture failed: texture({}) is not readable", write_str, texture_node->GetName()));
         return;
     }
     if (new_edge.write &&
@@ -157,7 +157,7 @@ void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_e
         !utils::has_flag(usages, gfx::TextureUsageFlags::RenderTarget) &&
         !utils::has_flag(usages, gfx::TextureUsageFlags::DepthStencil) &&
         !utils::has_flag(usages, gfx::TextureUsageFlags::CopyDst)) {
-        Invalidate(fmt::format("{} texture failed: texture({}) is not writable", write_str, texture_node->GetName()));
+        Invalidate(std::format("{} texture failed: texture({}) is not writable", write_str, texture_node->GetName()));
         return;
     }
 
@@ -165,7 +165,7 @@ void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_e
         ZoneScopedN("Find existing edge");
         if (pass_base->m_TextureEdges.contains(texture_node)) {
             if (pass_base->m_TextureEdges[texture_node] != new_edge) {
-                Invalidate(fmt::format("{} texture failed: {} texture({}) repeat with different usage", write_str, write_str, texture_node->GetName()));
+                Invalidate(std::format("{} texture failed: {} texture({}) repeat with different usage", write_str, write_str, texture_node->GetName()));
             }
             return;
         }
@@ -175,7 +175,7 @@ void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_e
         ZoneScopedN("check multiple write");
         if (new_edge.write) {
             if (const auto writer = texture_node->GetWriter(); writer != nullptr) {
-                Invalidate(fmt::format("Write texture failed: texture({}) is written by pass({})", texture_node->GetName(), writer->GetName()));
+                Invalidate(std::format("Write texture failed: texture({}) is written by pass({})", texture_node->GetName(), writer->GetName()));
                 return;
             }
         }
@@ -190,7 +190,7 @@ void PassBuilder::AddSamplerEdge(SamplerHandle sampler_handle, SamplerEdge new_e
     if (m_Invalid) return;
 
     if (!m_RenderGraph.IsValid(sampler_handle)) {
-        Invalidate(fmt::format("Read sampler failed: sampler({}) is invalid", sampler_handle.index));
+        Invalidate(std::format("Read sampler failed: sampler({}) is invalid", sampler_handle.index));
         return;
     }
 
@@ -222,7 +222,7 @@ auto RenderPassBuilder::SetName(std::string_view name) noexcept -> RenderPassBui
 auto RenderPassBuilder::Read(GPUBufferHandle buffer, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
     if (m_Invalid) return *this;
     if (!m_RenderGraph.IsValid(buffer)) {
-        Invalidate(fmt::format("Read buffer failed: buffer({}) is invalid", buffer.index));
+        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer.index));
         return *this;
     }
     const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
@@ -280,7 +280,7 @@ auto RenderPassBuilder::ReadAsIndices(GPUBufferHandle buffer) noexcept -> Render
 auto RenderPassBuilder::Write(GPUBufferHandle buffer, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
     if (m_Invalid) return *this;
     if (!m_RenderGraph.IsValid(buffer)) {
-        Invalidate(fmt::format("Read buffer failed: buffer({}) is invalid", buffer.index));
+        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer.index));
         return *this;
     }
     auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
@@ -315,7 +315,7 @@ auto RenderPassBuilder::Write(TextureHandle texture, gfx::TextureSubresourceLaye
 
 auto RenderPassBuilder::SetRenderTarget(TextureHandle texture, bool clear, gfx::TextureSubresourceLayer layer) noexcept -> RenderPassBuilder& {
     if (pass->m_RenderTarget) {
-        Invalidate(fmt::format("Set render target failed: render target is already set"));
+        Invalidate(std::format("Set render target failed: render target is already set"));
         return *this;
     }
     AddTextureEdge(
@@ -334,7 +334,7 @@ auto RenderPassBuilder::SetRenderTarget(TextureHandle texture, bool clear, gfx::
 
 auto RenderPassBuilder::SetDepthStencil(TextureHandle texture, bool clear, gfx::TextureSubresourceLayer layer) noexcept -> RenderPassBuilder& {
     if (pass->m_DepthStencil) {
-        Invalidate(fmt::format("Set depth stencil failed: depth stencil is already set"));
+        Invalidate(std::format("Set depth stencil failed: depth stencil is already set"));
         return *this;
     }
     AddTextureEdge(
@@ -362,7 +362,7 @@ auto RenderPassBuilder::AddPipeline(RenderPipelineHandle pipeline) noexcept -> R
     if (m_Invalid) return *this;
 
     if (!m_RenderGraph.IsValid(pipeline)) {
-        Invalidate(fmt::format("Add pipeline failed: pipeline({}) is invalid", pipeline.index));
+        Invalidate(std::format("Add pipeline failed: pipeline({}) is invalid", pipeline.index));
         return *this;
     }
 
@@ -433,7 +433,7 @@ auto ComputePassBuilder::SetName(std::string_view name) noexcept -> ComputePassB
 auto ComputePassBuilder::Read(GPUBufferHandle buffer) noexcept -> ComputePassBuilder& {
     if (m_Invalid) return *this;
     if (!m_RenderGraph.IsValid(buffer)) {
-        Invalidate(fmt::format("Read buffer failed: buffer({}) is invalid", buffer.index));
+        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer.index));
         return *this;
     }
     const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
@@ -470,7 +470,7 @@ auto ComputePassBuilder::Write(GPUBufferHandle buffer) noexcept -> ComputePassBu
     if (m_Invalid) return *this;
 
     if (!m_RenderGraph.IsValid(buffer)) {
-        Invalidate(fmt::format("Read buffer failed: buffer({}) is invalid", buffer.index));
+        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer.index));
         return *this;
     }
     const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
@@ -512,7 +512,7 @@ auto ComputePassBuilder::AddPipeline(ComputePipelineHandle pipeline) noexcept ->
     if (m_Invalid) return *this;
 
     if (!m_RenderGraph.IsValid(pipeline)) {
-        Invalidate(fmt::format("Add pipeline failed: pipeline({}) is invalid", pipeline.index));
+        Invalidate(std::format("Add pipeline failed: pipeline({}) is invalid", pipeline.index));
         return *this;
     }
 
@@ -578,7 +578,7 @@ auto CopyPassBuilder::SetName(std::string_view name) noexcept -> CopyPassBuilder
 
 auto CopyPassBuilder::BufferToBuffer(GPUBufferHandle src, GPUBufferHandle dst) noexcept -> CopyPassBuilder& {
     if (src == dst) {
-        Invalidate(fmt::format("Copy buffer failed: src and dst are the same buffer"));
+        Invalidate(std::format("Copy buffer failed: src and dst are the same buffer"));
         return *this;
     }
     AddGPUBufferEdge(
@@ -620,7 +620,7 @@ auto CopyPassBuilder::BufferToTexture(GPUBufferHandle src, TextureHandle dst, gf
 
 auto CopyPassBuilder::TextureToTexture(TextureHandle src, TextureHandle dst, gfx::TextureSubresourceLayer src_layer, gfx::TextureSubresourceLayer dst_layer) noexcept -> CopyPassBuilder& {
     if (src == dst) {
-        Invalidate(fmt::format("Copy texture failed: src and dst are the same texture"));
+        Invalidate(std::format("Copy texture failed: src and dst are the same texture"));
         return *this;
     }
 
@@ -716,7 +716,7 @@ PresentPassBuilder::PresentPassBuilder(RenderGraph& rg)
 
 auto PresentPassBuilder::From(TextureHandle texture, gfx::TextureSubresourceLayer layer) noexcept -> PresentPassBuilder& {
     if (pass->m_From) {
-        Invalidate(fmt::format("Present from texture({}) failed: already presented from texture({})", texture.index, pass->m_From->GetName()));
+        Invalidate(std::format("Present from texture({}) failed: already presented from texture({})", texture.index, pass->m_From->GetName()));
         return *this;
     }
 
@@ -751,11 +751,11 @@ void PresentPassBuilder::Finish() noexcept {
     if (m_Invalid) return;
     {
         if (!pass->swap_chain) {
-            Invalidate(fmt::format("Set swap chain failed: swap chain is nullptr"));
+            Invalidate(std::format("Set swap chain failed: swap chain is nullptr"));
         }
 
         if (!pass->m_From) {
-            Invalidate(fmt::format("Set present source failed: present source is nullptr"));
+            Invalidate(std::format("Set present source failed: present source is nullptr"));
         }
     }
     if (m_Invalid) return;

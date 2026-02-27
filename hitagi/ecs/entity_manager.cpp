@@ -1,6 +1,5 @@
 module;
 
-#include <fmt/color.h>
 #include <spdlog/logger.h>
 
 module ecs;
@@ -9,7 +8,7 @@ import std;
 namespace hitagi::ecs {
 
 inline auto calculate_archetype_id(const detail::ComponentIdSet& component_ids) noexcept -> archetype_id_t {
-    auto type_ids = component_ids                                                                       //
+    auto type_ids = component_ids                                                                            //
                     | std::ranges::views::transform([](const auto& type_id) { return type_id.GetValue(); })  //
                     | std::ranges::to<std::pmr::vector<std::size_t>>();
     std::sort(type_ids.begin(), type_ids.end());
@@ -17,7 +16,7 @@ inline auto calculate_archetype_id(const detail::ComponentIdSet& component_ids) 
 }
 
 inline auto get_component_ids(const detail::ComponentInfoSet& component_infos) noexcept -> detail::ComponentIdSet {
-    return component_infos                                                                                //
+    return component_infos                                                                                     //
            | std::ranges::views::transform([](const auto& component_info) { return component_info.type_id; })  //
            | std::ranges::to<detail::ComponentIdSet>();
 }
@@ -35,7 +34,7 @@ void EntityManager::RegisterDynamicComponent(ComponentInfo component) {
 auto EntityManager::GetDynamicComponentInfo(std::string_view dynamic_component) const -> const ComponentInfo& {
     const auto component_id = utils::TypeID(dynamic_component);
     if (!m_ComponentMap.contains(component_id)) {
-        const auto error_message = fmt::format("Component {} not registered", dynamic_component);
+        const auto error_message = std::format("Component {} not registered", dynamic_component);
         m_World.GetLogger()->error(error_message);
         throw std::invalid_argument(error_message);
     }
@@ -175,7 +174,7 @@ auto EntityManager::GetComponentsBuffers(const detail::ComponentIdList& componen
         return true;
     };
 
-    auto archetypes = m_Archetypes                                                                     //
+    auto archetypes = m_Archetypes                                                                          //
                       | std::ranges::views::values                                                          //
                       | std::ranges::views::transform([](auto& p_archetype) { return p_archetype.get(); })  //
                       | std::ranges::views::filter(new_filter)                                              //
@@ -192,7 +191,7 @@ auto EntityManager::GetComponentsBuffers(const detail::ComponentIdList& componen
         auto component_data = archetypes  //
                               | std::ranges::views::transform([&component_info](auto p_archetype) {
                                     return p_archetype->GetComponentBuffers(component_info.type_id);
-                                })                   //
+                                })                        //
                               | std::ranges::views::join  //
                               | std::ranges::views::transform([&component_info](auto& component_buffer) {
                                     return ComponentData{

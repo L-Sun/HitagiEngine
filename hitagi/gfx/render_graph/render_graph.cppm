@@ -1,7 +1,6 @@
 module;
 
 #include <spdlog/logger.h>
-#include <fmt/format.h>
 
 export module gfx.render_graph;
 export import :type;
@@ -130,7 +129,7 @@ auto RenderGraph::GetHandle(std::string_view name) const noexcept {
 template <RenderGraphNode::Type T>
 auto& RenderGraph::GetResourceDesc(RenderGraphHandle<T> handle) const {
     if (!IsValid(handle)) {
-        throw std::out_of_range(fmt::format("Handle({}) is not valid", handle.index));
+        throw std::out_of_range(std::format("Handle({}) is not valid", handle.index));
     }
 
     auto node = m_Nodes.at(handle.index);

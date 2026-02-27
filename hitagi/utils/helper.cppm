@@ -19,7 +19,7 @@ constexpr std::size_t align(size_t x, size_t a) {
 }
 
 constexpr inline auto add_parentheses(std::string_view str) noexcept {
-    return str.empty() ? "" : std::format("({})", str);
+    return str.empty() ? std::string{} : std::format("({})", str);
 }
 
 template <typename T>

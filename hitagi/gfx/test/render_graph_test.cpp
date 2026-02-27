@@ -32,7 +32,7 @@ protected:
 
 TEST_F(RenderGraphTest, ImportBuffer) {
     const auto buffer_0 = device->CreateGPUBuffer({
-        .name          = std::pmr::string(fmt::format("Buffer-{}", test_name)),
+        .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
         .element_size  = sizeof(float),
         .element_count = 16,
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
@@ -44,7 +44,7 @@ TEST_F(RenderGraphTest, ImportBuffer) {
     EXPECT_EQ(rg.Import(buffer_0, "new_name"), buffer_handle_0) << "Reimport buffer with new name should return same handle";
 
     const auto buffer_1 = device->CreateGPUBuffer({
-        .name          = std::pmr::string(fmt::format("Buffer-{}", test_name)),
+        .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
         .element_size  = sizeof(float),
         .element_count = 16,
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
@@ -63,7 +63,7 @@ TEST_F(RenderGraphTest, ImportBuffer) {
         EXPECT_FALSE(rg.IsValid(rg.Import(null_buffer, "null_buffer"))) << "Import nullptr should fail";
 
         const auto diff_buffer = device->CreateGPUBuffer({
-            .name          = std::pmr::string(fmt::format("Buffer-{}", test_name)),
+            .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
             .element_size  = sizeof(float),
             .element_count = 16,
             .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
@@ -74,7 +74,7 @@ TEST_F(RenderGraphTest, ImportBuffer) {
 
 TEST_F(RenderGraphTest, ImportTexture) {
     const auto texture_0 = device->CreateTexture({
-        .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
         .width  = 16,
         .height = 16,
         .depth  = 1,
@@ -87,7 +87,7 @@ TEST_F(RenderGraphTest, ImportTexture) {
     EXPECT_EQ(rg.Import(texture_0, "new_name"), texture_handle_0) << "Reimport texture with new name should return same handle";
 
     const auto texture_1 = device->CreateTexture({
-        .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
         .width  = 16,
         .height = 16,
         .depth  = 1,
@@ -108,7 +108,7 @@ TEST_F(RenderGraphTest, ImportTexture) {
         EXPECT_FALSE(rg.IsValid(rg.Import(null_texture, "null_texture"))) << "Import nullptr should fail";
 
         const auto diff_texture = device->CreateTexture({
-            .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+            .name   = std::pmr::string(std::format("Texture-{}", test_name)),
             .width  = 16,
             .height = 16,
             .depth  = 1,
@@ -122,7 +122,7 @@ TEST_F(RenderGraphTest, ImportTexture) {
 TEST_F(RenderGraphTest, CreateTexture) {
     const auto texture_handle = rg.Create(
         {
-            .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+            .name   = std::pmr::string(std::format("Texture-{}", test_name)),
             .width  = 16,
             .height = 16,
             .depth  = 1,
@@ -137,7 +137,7 @@ TEST_F(RenderGraphTest, CreateTexture) {
 
 TEST_F(RenderGraphTest, MoveBuffer) {
     const auto buffer_0 = device->CreateGPUBuffer({
-        .name          = std::pmr::string(fmt::format("Buffer-{}", test_name)),
+        .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
         .element_size  = sizeof(float),
         .element_count = 16,
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
@@ -153,7 +153,7 @@ TEST_F(RenderGraphTest, MoveBuffer) {
 
 TEST_F(RenderGraphTest, MoveTexture) {
     const auto texture_0 = device->CreateTexture({
-        .name   = std::pmr::string(fmt::format("Texture-{}", test_name)),
+        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
         .width  = 16,
         .height = 16,
         .depth  = 1,
@@ -181,7 +181,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
     });
 
     const auto vertex_shader = device->CreateShader({
-        .name        = std::pmr::string(fmt::format("VS-{}", test_name)),
+        .name        = std::pmr::string(std::format("VS-{}", test_name)),
         .type        = ShaderType::Vertex,
         .entry       = "vs_main",
         .source_code = R"""(
@@ -206,7 +206,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
     ASSERT_TRUE(vertex_shader);
 
     const auto pixel_shader = device->CreateShader({
-        .name        = std::pmr::string(fmt::format("PS-{}", test_name)),
+        .name        = std::pmr::string(std::format("PS-{}", test_name)),
         .type        = ShaderType::Pixel,
         .entry       = "ps_main",
         .source_code = R"""(
@@ -224,9 +224,9 @@ TEST_F(RenderGraphTest, AddRenderPass) {
 
     const auto vertex_input_layout = device->GetShaderCompiler().ExtractVertexLayout(vertex_shader->GetDesc());
     const auto pipeline            = device->CreateRenderPipeline({
-                   .name                = std::pmr::string(fmt::format("Pipeline-{}", test_name)),
-                   .shaders             = {vertex_shader, pixel_shader},
-                   .vertex_input_layout = vertex_input_layout,
+        .name                = std::pmr::string(std::format("Pipeline-{}", test_name)),
+        .shaders             = {vertex_shader, pixel_shader},
+        .vertex_input_layout = vertex_input_layout,
     });
 
     const auto render_pass =
@@ -234,7 +234,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
             .SetName("RenderPass")
             .ReadAsVertices(rg.Create(
                 {
-                    .name          = std::pmr::string(fmt::format("positions-{}", test_name)),
+                    .name          = std::pmr::string(std::format("positions-{}", test_name)),
                     .element_size  = sizeof(vec3f),
                     .element_count = 3,
                     .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
@@ -242,7 +242,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                 "positions"))
             .ReadAsVertices(rg.Create(
                 {
-                    .name          = std::pmr::string(fmt::format("colors-{}", test_name)),
+                    .name          = std::pmr::string(std::format("colors-{}", test_name)),
                     .element_size  = sizeof(vec3f),
                     .element_count = 3,
                     .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
@@ -250,7 +250,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                 "colors"))
             .SetRenderTarget(rg.Create(
                                  {
-                                     .name        = std::pmr::string(fmt::format("Texture-{}-{}", test_name, rg.GetFrameIndex())),
+                                     .name        = std::pmr::string(std::format("Texture-{}-{}", test_name, rg.GetFrameIndex())),
                                      .width       = swap_chain->GetWidth(),
                                      .height      = swap_chain->GetHeight(),
                                      .format      = Format::R8G8B8A8_UNORM,

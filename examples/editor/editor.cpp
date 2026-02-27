@@ -3,7 +3,6 @@ module;
 #include <imgui.h>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <fmt/chrono.h>
 
 module editor;
 
@@ -13,7 +12,7 @@ using namespace std::literals;
 
 namespace hitagi {
 auto get_resource_label(Resource* res) {
-    return fmt::format("{}##{}", res->GetName(), res->GetUUID());
+    return std::format("{}##{}", res->GetName(), res->GetUUID());
 }
 
 Editor::Editor(Engine& engine)
@@ -43,12 +42,12 @@ void Editor::Tick() {
         auto&      render_graph = renderer.GetRenderGraph();
         const auto output       = render_graph.Create(
             {
-                      .name        = "Editor Output",
-                      .width       = m_App.GetWindowWidth(),
-                      .height      = m_App.GetWindowHeight(),
-                      .format      = gfx::Format::R8G8B8A8_UNORM,
-                      .clear_value = math::Color{0.0f, 0.0f, 0.0f, 1.0f},
-                      .usages      = gfx::TextureUsageFlags::CopySrc | gfx::TextureUsageFlags::RenderTarget,
+                .name        = "Editor Output",
+                .width       = m_App.GetWindowWidth(),
+                .height      = m_App.GetWindowHeight(),
+                .format      = gfx::Format::R8G8B8A8_UNORM,
+                .clear_value = math::Color{0.0f, 0.0f, 0.0f, 1.0f},
+                .usages      = gfx::TextureUsageFlags::CopySrc | gfx::TextureUsageFlags::RenderTarget,
             },
             "Editor Output");
         renderer.RenderGui(output, true);
@@ -93,7 +92,7 @@ void Editor::MenuBar() {
                 frame_time = m_Engine.Renderer().GetFrameTime().count();
             }
 
-            auto info = fmt::format("Memory: {:>4} MiB | {:>4} FPS", m_App.GetMemoryUsage() >> 20, static_cast<unsigned>(1.0f / frame_time));
+            auto info = std::format("Memory: {:>4} MiB | {:>4} FPS", m_App.GetMemoryUsage() >> 20, static_cast<unsigned>(1.0f / frame_time));
 
             ImVec2 info_size = ImGui::CalcTextSize(info.c_str());
 
@@ -163,9 +162,9 @@ void Editor::SceneGraphViewer() {
                 std::pmr::string name_id;
                 if (entity.Has<asset::MetaInfo>()) {
                     name    = entity.Get<asset::MetaInfo>().name;
-                    name_id = fmt::format("{}-{}", name, entity);
+                    name_id = std::format("{}-{}", name, entity);
                 } else {
-                    name    = fmt::format("{}", entity);
+                    name    = std::format("{}", entity);
                     name_id = name;
                 }
 

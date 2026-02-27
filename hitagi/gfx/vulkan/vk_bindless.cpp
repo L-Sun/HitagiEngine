@@ -39,8 +39,8 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
     static_assert(pool_sizes.size() == std::tuple_size<decltype(m_BindlessHandlePools)>());
 
     const vk::DescriptorPoolCreateInfo descriptor_pool_create_info{
-        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet |
-                 vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind,
+        .flags         = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet |
+                         vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind,
         .maxSets       = pool_sizes.size(),  // we will make sure each set only contains one descriptor type
         .poolSizeCount = pool_sizes.size(),
         .pPoolSizes    = pool_sizes.data(),
@@ -48,7 +48,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
 
     logger->trace("Creating bindless descriptor pool...");
     pool = std::make_unique<vk::raii::DescriptorPool>(device.GetDevice(), descriptor_pool_create_info, device.GetCustomAllocator());
-    create_vk_debug_object_info(*pool, fmt::format("{}-BindlessDescriptorPool", device.GetName()), device.GetDevice());
+    create_vk_debug_object_info(*pool, std::format("{}-BindlessDescriptorPool", device.GetName()), device.GetDevice());
 
     logger->trace("Creating bindless descriptor set layout...");
     std::transform(
@@ -79,7 +79,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
                 },
             };
             auto layout = vk::raii::DescriptorSetLayout(device.GetDevice(), descriptor_set_layout_create_info.get(), device.GetCustomAllocator());
-            create_vk_debug_object_info(layout, fmt::format("{}-BindlessSetLayout-{}", device.GetName(), vk::to_string(pool_size.type)), device.GetDevice());
+            create_vk_debug_object_info(layout, std::format("{}-BindlessSetLayout-{}", device.GetName(), vk::to_string(pool_size.type)), device.GetDevice());
             return layout;
         });
 
@@ -106,7 +106,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
                 .pPushConstantRanges    = &bindless_info_constant_range,
             },
             device.GetCustomAllocator());
-        create_vk_debug_object_info(*pipeline_layout, fmt::format("{}-BindlessPipelineLayout", device.GetName()), device.GetDevice());
+        create_vk_debug_object_info(*pipeline_layout, std::format("{}-BindlessPipelineLayout", device.GetName()), device.GetDevice());
     }
 
     logger->trace("Allocator Descriptors");
@@ -128,7 +128,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
         for (std::size_t set_index = 0; set_index < descriptor_sets.size(); set_index++) {
             create_vk_debug_object_info(
                 descriptor_sets[set_index],
-                fmt::format("{}-BindlessDescriptorSet-{}", device.GetName(), vk::to_string(pool_sizes[set_index].type)),
+                std::format("{}-BindlessDescriptorSet-{}", device.GetName(), vk::to_string(pool_sizes[set_index].type)),
                 device.GetDevice());
         }
     }

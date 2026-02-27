@@ -5,6 +5,7 @@ module;
 #include <d3dx12/d3dx12.h>
 
 module gfx.dx12;
+import std;
 import :command_list;
 import :utils;
 
@@ -18,7 +19,7 @@ auto initialize_command_context(DX12Device& device, CommandType type, ComPtr<ID3
         throw std::runtime_error(error_message);
     }
     {
-        const auto allocator_name = fmt::format("CommandAllocator({})", name);
+        const auto allocator_name = std::format("CommandAllocator({})", name);
         cmd_allocator->SetName(std::wstring(allocator_name.begin(), allocator_name.end()).c_str());
     }
 
@@ -106,7 +107,7 @@ void DX12GraphicsCommandList::ResourceBarrier(std::span<const GlobalBarrier>    
                                               std::span<const TextureBarrier>   texture_barriers) {
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
     if (FAILED(command_list.As(&cmd_list))) {
-        const auto error_message = fmt::format("failed to cast command list to ID3D12GraphicsCommandList7");
+        const auto error_message = std::format("failed to cast command list to ID3D12GraphicsCommandList7");
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);
     }
@@ -186,7 +187,7 @@ void DX12GraphicsCommandList::SetVertexBuffers(std::uint8_t                     
                                                std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
                                                std::span<const std::size_t>                             offsets) {
     if (m_Pipeline == nullptr) {
-        const auto error_message = fmt::format("pipeline is not set");
+        const auto error_message = std::format("pipeline is not set");
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);
     }
@@ -263,7 +264,7 @@ void DX12ComputeCommandList::ResourceBarrier(std::span<const GlobalBarrier>    g
                                              std::span<const TextureBarrier>   texture_barriers) {
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
     if (FAILED(command_list.As(&cmd_list))) {
-        const auto error_message = fmt::format("failed to cast command list to ID3D12GraphicsCommandList7");
+        const auto error_message = std::format("failed to cast command list to ID3D12GraphicsCommandList7");
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);
     }
@@ -300,7 +301,7 @@ void DX12CopyCommandList::ResourceBarrier(
     std::span<const TextureBarrier>   texture_barriers) {
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
     if (FAILED(command_list.As(&cmd_list))) {
-        const auto error_message = fmt::format("failed to cast command list to ID3D12GraphicsCommandList7");
+        const auto error_message = std::format("failed to cast command list to ID3D12GraphicsCommandList7");
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);
     }

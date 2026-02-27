@@ -1,6 +1,7 @@
 #include "test_macros.hpp"
 #include <spdlog/spdlog.h>
 
+import std;
 import ecs;
 import core;
 import math;
@@ -9,7 +10,7 @@ import test_utils;
 using namespace hitagi;
 
 static void ECS_Update(benchmark::State& state) {
-    ecs::World world(fmt::format("ECS_Update-{}", state.thread_index()));
+    ecs::World world(std::format("ECS_Update-{}", state.thread_index()));
     auto&      sm = world.GetSystemManager();
 
     struct Moveable {

@@ -43,7 +43,7 @@ public:
     bool     operator==(const Entity& rhs) const noexcept { return m_EntityManager == rhs.m_EntityManager && m_Id == rhs.m_Id; }
     bool     operator!=(const Entity& rhs) const noexcept { return !(*this == rhs); }
 
-    friend auto format_as(const Entity& entity) noexcept { return entity.m_Id; }
+    friend struct std::formatter<hitagi::ecs::Entity>;
     friend std::hash<Entity>;
 
 private:
@@ -98,5 +98,12 @@ template <>
 struct std::hash<hitagi::ecs::Entity> {
     constexpr std::size_t operator()(const hitagi::ecs::Entity& entity) const {
         return static_cast<std::size_t>(entity.m_Id);
+    }
+};
+
+template <>
+struct std::formatter<hitagi::ecs::Entity> : std::formatter<hitagi::ecs::entity_id_t> {
+    auto format(const hitagi::ecs::Entity& entity, std::format_context& ctx) const {
+        return std::formatter<hitagi::ecs::entity_id_t>::format(entity.m_Id, ctx);
     }
 };

@@ -125,7 +125,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
             auto upload_buffer = DX12GPUBuffer(
                 device,
                 {
-                    .name          = std::pmr::string(fmt::format("UploadBuffer-({})", GetName())),
+                    .name          = std::pmr::string(std::format("UploadBuffer-({})", GetName())),
                     .element_size  = m_Desc.element_size,
                     .element_count = m_Desc.element_count,
                     .usages        = upload_buffer_usage_flags,
@@ -342,7 +342,7 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
 DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
     : Texture(swap_chain.GetDevice(),
               TextureDesc{
-                  .name        = std::pmr::string(fmt::format("{}-{}", swap_chain.GetName(), index)),
+                  .name        = std::pmr::string(std::format("{}-{}", swap_chain.GetName(), index)),
                   .width       = swap_chain.GetWidth(),
                   .height      = swap_chain.GetHeight(),
                   .format      = swap_chain.GetFormat(),
@@ -366,8 +366,8 @@ DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
         .Format        = to_dxgi_format(m_Desc.format),
         .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
         .Texture2D     = {
-                .MipSlice   = 0,
-                .PlaneSlice = 0,
+            .MipSlice   = 0,
+            .PlaneSlice = 0,
         },
     };
     static_cast<DX12Device&>(m_Device).GetDevice()->CreateRenderTargetView(resource.Get(), &rtv_desc, rtv.GetCPUHandle());

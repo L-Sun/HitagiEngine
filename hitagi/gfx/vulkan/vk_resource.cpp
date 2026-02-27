@@ -107,7 +107,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             logger->trace("Using stage buffer to initial...");
             VulkanBuffer staging_buffer(
                 device, GPUBufferDesc{
-                            .name         = std::pmr::string(fmt::format("{}_staging", GetName())),
+                            .name         = std::pmr::string(std::format("{}_staging", GetName())),
                             .element_size = Size(),
                             .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
                         },
@@ -240,7 +240,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
             VulkanBuffer staging_buffer(
                 device, GPUBufferDesc{
-                            .name         = std::pmr::string(fmt::format("{}_staging", GetName())),
+                            .name         = std::pmr::string(std::format("{}_staging", GetName())),
                             .element_size = initial_data.size_bytes(),
                             .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
                         },
@@ -284,7 +284,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
 VulkanImage::VulkanImage(const VulkanSwapChain& _swap_chian, std::uint32_t index)
     : Texture(_swap_chian.GetDevice(),
               {
-                  .name        = std::pmr::string(fmt::format("{}-texture-{}", _swap_chian.GetName(), index)),
+                  .name        = std::pmr::string(std::format("{}-texture-{}", _swap_chian.GetName(), index)),
                   .width       = _swap_chian.GetWidth(),
                   .height      = _swap_chian.GetHeight(),
                   .format      = _swap_chian.GetFormat(),
@@ -328,8 +328,8 @@ VulkanSampler::VulkanSampler(VulkanDevice& device, SamplerDesc desc) : Sampler(d
 VulkanSwapChain::SemaphorePair::SemaphorePair(VulkanDevice& device, std::string_view name)
     : image_available(std::make_shared<vk::raii::Semaphore>(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())),
       presentable(std::make_shared<vk::raii::Semaphore>(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())) {
-    create_vk_debug_object_info(*image_available, fmt::format("{}-image-available", name), device.GetDevice());
-    create_vk_debug_object_info(*presentable, fmt::format("{}-presentable", name), device.GetDevice());
+    create_vk_debug_object_info(*image_available, std::format("{}-image-available", name), device.GetDevice());
+    create_vk_debug_object_info(*presentable, std::format("{}-presentable", name), device.GetDevice());
 }
 
 VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
@@ -355,7 +355,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
                     SDL_PROP_WINDOW_WIN32_HWND_POINTER,
                     nullptr));
             if (!h_wnd) {
-                const auto error_message = fmt::format("SDL_GetWindowProperties failed: {}", SDL_GetError());
+                const auto error_message = std::format("SDL_GetWindowProperties failed: {}", SDL_GetError());
                 device.GetLogger()->error(error_message);
                 throw std::runtime_error(error_message);
             }
@@ -369,7 +369,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
             auto display = reinterpret_cast<struct wl_display*>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr));
             auto surface = reinterpret_cast<struct wl_surface*>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr));
             if (!display || !surface) {
-                const auto error_message = fmt::format("SDL_GetPointerProperty failed: {}", SDL_GetError());
+                const auto error_message = std::format("SDL_GetPointerProperty failed: {}", SDL_GetError());
                 device.GetLogger()->error(error_message);
                 throw std::runtime_error(error_message);
             }
@@ -464,7 +464,7 @@ void VulkanSwapChain::CreateSwapChain() {
     const auto& graphics_queue  = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics));
     const auto& physical_device = vk_device.GetPhysicalDevice();
     if (!physical_device.getSurfaceSupportKHR(graphics_queue.GetFamilyIndex(), **m_Surface)) {
-        throw std::runtime_error(fmt::format(
+        throw std::runtime_error(std::format(
             "The graphics queue({}) of physical device({}) can not support surface(window.ptr: {})",
             graphics_queue.GetFamilyIndex(),
             physical_device.getProperties().deviceName.data(),
@@ -480,7 +480,7 @@ void VulkanSwapChain::CreateSwapChain() {
     if (std::find_if(supported_present_modes.begin(), supported_present_modes.end(), [](const auto& present_mode) {
             return present_mode == vk::PresentModeKHR::eFifo;
         }) == supported_present_modes.end()) {
-        throw std::runtime_error(fmt::format(
+        throw std::runtime_error(std::format(
             "The physical device({}) can not support surface(window.ptr: {}) with present mode: VK_PRESENT_MODE_FIFO_KHR",
             physical_device.getProperties().deviceName.data(),
             m_Desc.window.ptr));
@@ -666,7 +666,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
             throw std::invalid_argument("Vertex input binding description is not same");
         return lhs.binding == rhs.binding;
     };
-    
+
     auto [erase_begin, erase_end] = std::ranges::unique(vertex_input_binding_descriptions, unique_pred);
     vertex_input_binding_descriptions.erase(erase_begin, erase_end);
 

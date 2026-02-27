@@ -28,7 +28,7 @@ GPUBufferNode::GPUBufferNode(RenderGraph& render_graph, std::shared_ptr<gfx::Res
 
 auto GPUBufferNode::Move(GPUBufferHandle new_handle, std::string_view new_name) -> std::shared_ptr<GPUBufferNode> {
     if (m_MoveToNode != nullptr) {
-        auto error_message = fmt::format("GPUBufferNode::MoveTo: already moved to {}", m_MoveToNode->GetName());
+        auto error_message = std::format("GPUBufferNode::MoveTo: already moved to {}", m_MoveToNode->GetName());
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::invalid_argument(error_message);
     }
@@ -76,7 +76,7 @@ TextureNode::TextureNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resourc
 
 auto TextureNode::Move(TextureHandle new_handle, std::string_view new_name) -> std::shared_ptr<TextureNode> {
     if (m_MoveToNode != nullptr) {
-        auto error_message = fmt::format("TextureNode::MoveTo: already moved to {}", m_MoveToNode->GetName());
+        auto error_message = std::format("TextureNode::MoveTo: already moved to {}", m_MoveToNode->GetName());
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::invalid_argument(error_message);
     }

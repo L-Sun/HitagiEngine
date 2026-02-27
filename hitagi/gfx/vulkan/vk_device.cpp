@@ -1,12 +1,13 @@
 module;
 #include <fmt/color.h>
-#include <magic_enum_utility.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
 #include <vk_mem_alloc.h>
+
 module gfx.vulkan;
+import magic_enum;
 import :command_buffer;
 
 namespace hitagi::gfx {
@@ -125,7 +126,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
             m_CommandQueues[type] = std::make_unique<VulkanCommandQueue>(
                 *this,
                 type,
-                fmt::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type)),
+                std::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type)),
                 queue_create_info.queueFamilyIndex);
         });
     }
@@ -146,8 +147,8 @@ VulkanDevice::VulkanDevice(std::string_view name)
     {
         magic_enum::enum_for_each<CommandType>([&](CommandType type) {
             vk::CommandPoolCreateInfo command_pool_create_info{
-                .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer |
-                         vk::CommandPoolCreateFlagBits::eTransient,
+                .flags            = vk::CommandPoolCreateFlagBits::eResetCommandBuffer |
+                                    vk::CommandPoolCreateFlagBits::eTransient,
                 .queueFamilyIndex = m_CommandQueues[type]->GetFamilyIndex(),
             };
             m_CommandPools[type] = std::make_unique<vk::raii::CommandPool>(
@@ -159,7 +160,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
 
     m_Logger->trace("Create Bindless...");
     {
-        m_BindlessUtils = std::make_unique<VulkanBindlessUtils>(*this, fmt::format("{}-BindlessUtils", m_Name));
+        m_BindlessUtils = std::make_unique<VulkanBindlessUtils>(*this, std::format("{}-BindlessUtils", m_Name));
     }
     m_Logger->trace("Initialized.");
 }

@@ -60,8 +60,7 @@ struct Matrix {
     operator const T*() const noexcept { return static_cast<const T*>(&data[0][0]); }
 
     friend std::ostream& operator<<(std::ostream& out, const Matrix& mat) {
-        auto s = std::format("\n{}\n", mat);
-        return out << s;
+        return out << std::format("\n{}\n", mat);
     }
 
     constexpr bool operator==(const Matrix& rhs) const noexcept {
@@ -325,21 +324,18 @@ Matrix<T, D> absolute(const Matrix<T, D>& a) {
         for (unsigned col = 0; col < D; col++) res[row][col] = std::abs(a[row][col]);
     return res;
 }
+
 }  // namespace hitagi::math
 
 export template <typename T, unsigned D>
 struct std::formatter<hitagi::math::Matrix<T, D>> {
-    constexpr auto parse(std::format_parse_context& ctx) {
-        return ctx.begin();
-    }
-
-    auto format(const hitagi::math::Matrix<T, D>& m, std::format_context& ctx) const {
+    constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+    auto           format(const hitagi::math::Matrix<T, D>& m, std::format_context& ctx) const {
         auto out = ctx.out();
-        out      = std::format_to(out, "[");
         for (unsigned i = 0; i < D; ++i) {
-            if (i > 0) out = std::format_to(out, ", ");
-            out = std::format_to(out, "{}", m[i]);
+            if (i > 0) out = std::format_to(out, ",\n");
+            out = std::format_to(out, "{}", m.data[i]);
         }
-        return std::format_to(out, "]");
+        return out;
     }
 };

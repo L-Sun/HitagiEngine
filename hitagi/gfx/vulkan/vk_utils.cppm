@@ -2,7 +2,6 @@ module;
 #include <vulkan/vulkan_raii.hpp>
 #include <SDL3/SDL_vulkan.h>
 #include <spirv_reflect.h>
-#include <fmt/format.h>
 
 export module gfx.vulkan:utils;
 import std;
@@ -391,7 +390,7 @@ inline auto to_vertex_attribute(SpvReflectInterfaceVariable variable) -> VertexA
     const auto semantic_name_index = split_semantic(variable.semantic);
 
     return {
-        .semantic = std::pmr::string(fmt::format("{}{}", semantic_name_index.first, semantic_name_index.second)),
+        .semantic = std::pmr::string(std::format("{}{}", semantic_name_index.first, semantic_name_index.second)),
         .format   = from_spv_format(variable.format),
         .binding  = variable.location,
         .stride   = get_format_byte_size(from_spv_format(variable.format)),
@@ -1017,9 +1016,9 @@ inline constexpr auto to_vk_image_create_info(const TextureDesc& desc) noexcept 
         .imageType = to_vk_image_type(desc),
         .format    = to_vk_format(desc.format),
         .extent    = vk::Extent3D{
-               .width  = desc.width,
-               .height = desc.height,
-               .depth  = desc.depth,
+            .width  = desc.width,
+            .height = desc.height,
+            .depth  = desc.depth,
         },
         .mipLevels     = desc.mip_levels,
         .arrayLayers   = desc.array_size,

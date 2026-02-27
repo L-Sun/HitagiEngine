@@ -4,6 +4,7 @@ module;
 #include <tracy/Tracy.hpp>
 
 module core;
+import std;
 import utils;
 
 namespace hitagi {
@@ -11,14 +12,14 @@ std::unordered_map<std::string, RuntimeModule*> RuntimeModule::sm_AllModules;
 
 RuntimeModule::RuntimeModule(std::string_view name)
     : m_Name(name), m_Logger(utils::try_create_logger(name)) {
-    const auto message = fmt::format("Initialize {}", m_Name);
+    const auto message = std::format("Initialize {}", m_Name);
     ZoneScoped;
     ZoneName(message.data(), message.size());
     m_Logger->info("Initialize...");
 
     std::string _name(m_Name);
     if (sm_AllModules.contains(_name)) {
-        const auto error_message = fmt::format("Module {} already exists", _name);
+        const auto error_message = std::format("Module {} already exists", _name);
         m_Logger->error(error_message);
         throw std::invalid_argument(error_message);
     }
@@ -29,7 +30,7 @@ RuntimeModule::~RuntimeModule() {
     while (!m_SubModules.empty()) {
         ZoneScoped;
         const auto& sub_module = m_SubModules.back();
-        const auto  message    = fmt::format("Finalize {}", sub_module->GetName());
+        const auto  message    = std::format("Finalize {}", sub_module->GetName());
         ZoneName(message.data(), message.size());
         m_SubModules.pop_back();
     }
@@ -62,7 +63,7 @@ auto RuntimeModule::AddSubModule(std::unique_ptr<RuntimeModule> module, RuntimeM
     if (after) {
         const auto iter = std::find_if(m_SubModules.begin(), m_SubModules.end(), [=](auto& _mod) -> bool { return _mod.get() == after; });
         if (iter == m_SubModules.end()) {
-            const auto error_message = fmt::format("Module {} does not exist in current module({})", after->GetName(), GetName());
+            const auto error_message = std::format("Module {} does not exist in current module({})", after->GetName(), GetName());
             m_Logger->error(error_message);
             throw std::invalid_argument(error_message);
         }

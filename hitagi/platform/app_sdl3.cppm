@@ -46,7 +46,7 @@ private:
 namespace hitagi {
 SDL3Application::SDL3Application(AppConfig config) : Application(std::move(config)) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        const auto error_message = fmt::format("SDL_Init failed: {}", SDL_GetError());
+        const auto error_message = std::format("SDL_Init failed: {}", SDL_GetError());
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
@@ -57,7 +57,7 @@ SDL3Application::SDL3Application(AppConfig config) : Application(std::move(confi
         m_Config.height,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_VULKAN);
     if (!m_Window) {
-        const auto error_message = fmt::format("SDL_CreateWindow failed: {}", SDL_GetError());
+        const auto error_message = std::format("SDL_CreateWindow failed: {}", SDL_GetError());
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }

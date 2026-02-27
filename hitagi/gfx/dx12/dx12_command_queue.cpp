@@ -5,6 +5,7 @@ module;
 #include <d3dx12/d3dx12.h>
 
 module gfx.dx12;
+import std;
 import magic_enum;
 import :command_queue;
 import :command_list;
@@ -13,7 +14,7 @@ import :utils;
 namespace hitagi::gfx {
 DX12CommandQueue::DX12CommandQueue(DX12Device& device, CommandType type, std::string_view name)
     : CommandQueue(device, type, name),
-      m_Fence(device, 0, fmt::format("{}_Fence", name)) {
+      m_Fence(device, 0, std::format("{}_Fence", name)) {
     const auto logger = device.GetLogger();
 
     const D3D12_COMMAND_QUEUE_DESC desc{

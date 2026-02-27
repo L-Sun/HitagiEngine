@@ -144,7 +144,7 @@ struct Vector : public BaseVector<T, D> {
     const T& operator[](unsigned index) const noexcept { return data[index]; }
 
     friend std::ostream& operator<<(std::ostream& out, const Vector& v) {
-        return out << std::format("{::>6}", v) << std::flush;
+        return out << std::format("{}", v) << std::flush;
     }
 
     constexpr Vector& operator=(T num) noexcept {
@@ -441,21 +441,20 @@ template <typename T, unsigned D>
 constexpr unsigned min_index(const Vector<T, D>& v) {
     return std::distance(v.data.begin(), std::min_element(v.data.begin(), v.data.end()));
 }
+
 }  // namespace hitagi::math
 
 export template <typename T, unsigned D>
 struct std::formatter<hitagi::math::Vector<T, D>> {
-    constexpr auto parse(std::format_parse_context& ctx) {
-        return ctx.begin();
-    }
-
-    auto format(const hitagi::math::Vector<T, D>& v, std::format_context& ctx) const {
+    constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+    auto           format(const hitagi::math::Vector<T, D>& v, std::format_context& ctx) const {
         auto out = ctx.out();
         out      = std::format_to(out, "[");
         for (unsigned i = 0; i < D; ++i) {
             if (i > 0) out = std::format_to(out, ", ");
-            out = std::format_to(out, "{}", v[i]);
+            out = std::format_to(out, "{}", v.data[i]);
         }
-        return std::format_to(out, "]");
+        out = std::format_to(out, "]");
+        return out;
     }
 };
