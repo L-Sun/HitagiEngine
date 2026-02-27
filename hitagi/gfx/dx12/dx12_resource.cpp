@@ -300,6 +300,30 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
         device.GetDevice()->CreateDepthStencilView(resource.Get(), &dsv_desc, dsv.GetCPUHandle());
     }
 
+    // Initialize RT/DS resources to clear stale metadata from D3D12MA heap memory reuse.
+    // Heaps with D3D12_HEAP_FLAG_CREATE_NOT_ZEROED may contain metadata from previously
+    // placed RT/DS resources; DiscardResource clears this metadata to avoid undefined behavior.
+    if (initial_data.empty() &&
+        (utils::has_flag(m_Desc.usages, TextureUsageFlags::RenderTarget) ||
+         utils::has_flag(m_Desc.usages, TextureUsageFlags::DepthStencil))) {
+        const bool is_rt = utils::has_flag(m_Desc.usages, TextureUsageFlags::RenderTarget);
+        auto       context = device.CreateGraphicsContext(std::format("Init-{}", GetName()));
+        context->Begin();
+        context->ResourceBarrier({}, {}, {{
+            Transition(
+                is_rt ? BarrierAccess::RenderTarget : BarrierAccess::DepthStencilWrite,
+                is_rt ? TextureLayout::RenderTarget : TextureLayout::DepthStencilWrite),
+        }});
+        static_cast<DX12GraphicsCommandList&>(*context).command_list->DiscardResource(resource.Get(), nullptr);
+        context->ResourceBarrier({}, {}, {{
+            Transition(BarrierAccess::None, TextureLayout::Unkown),
+        }});
+        context->End();
+        auto& gfx_queue = device.GetCommandQueue(CommandType::Graphics);
+        gfx_queue.Submit({{*context}});
+        gfx_queue.WaitIdle();
+    }
+
     if (!initial_data.empty()) {
         logger->trace("Copy initial data to texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
