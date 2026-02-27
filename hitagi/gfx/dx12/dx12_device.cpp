@@ -103,6 +103,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
                     m_Logger->error("Failed to get warp adapter.");
                     throw std::runtime_error("Failed to get warp adapter.");
                 }
+                p_adapter.As(&m_Adapter);
             }
 
             if (p_adapter == nullptr) {

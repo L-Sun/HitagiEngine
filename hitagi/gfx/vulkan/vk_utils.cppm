@@ -886,41 +886,6 @@ inline constexpr auto to_vk_access_flags(BarrierAccess access) noexcept -> vk::A
     return result;
 }
 
-inline constexpr auto to_vk_pipeline_stage1(PipelineStage stage) noexcept -> vk::PipelineStageFlags {
-    if (utils::has_flag(stage, PipelineStage::All)) {
-        return vk::PipelineStageFlagBits::eAllCommands;
-    }
-    vk::PipelineStageFlags result = vk::PipelineStageFlagBits::eNone;
-    if (utils::has_flag(stage, PipelineStage::VertexInput)) {
-        result |= vk::PipelineStageFlagBits::eVertexInput;
-    }
-    if (utils::has_flag(stage, PipelineStage::VertexShader)) {
-        result |= vk::PipelineStageFlagBits::eVertexShader;
-    }
-    if (utils::has_flag(stage, PipelineStage::PixelShader)) {
-        result |= vk::PipelineStageFlagBits::eFragmentShader;
-    }
-    if (utils::has_flag(stage, PipelineStage::DepthStencil)) {
-        result |= vk::PipelineStageFlagBits::eLateFragmentTests;
-    }
-    if (utils::has_flag(stage, PipelineStage::Copy)) {
-        result |= vk::PipelineStageFlagBits::eTransfer;
-    }
-    if (utils::has_flag(stage, PipelineStage::Resolve)) {
-        result |= vk::PipelineStageFlagBits::eTransfer;
-    }
-    if (utils::has_flag(stage, PipelineStage::Render)) {
-        result |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    }
-    if (utils::has_flag(stage, PipelineStage::AllGraphics)) {
-        result |= vk::PipelineStageFlagBits::eAllGraphics;
-    }
-    if (utils::has_flag(stage, PipelineStage::ComputeShader)) {
-        result |= vk::PipelineStageFlagBits::eComputeShader;
-    }
-    return result;
-}
-
 inline constexpr auto to_vk_pipeline_stage2(PipelineStage stage) noexcept -> vk::PipelineStageFlags2 {
     if (utils::has_flag(stage, PipelineStage::All)) {
         return vk::PipelineStageFlagBits2::eAllCommands;

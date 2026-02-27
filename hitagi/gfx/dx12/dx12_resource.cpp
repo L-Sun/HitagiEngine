@@ -175,13 +175,13 @@ auto DX12GPUBuffer::Map() -> std::byte* {
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
-    std::lock_guard lock(map_mutex);
+    std::scoped_lock lock(map_mutex);
     mapped_count++;
     return mapped_ptr;
 }
 
 void DX12GPUBuffer::UnMap() {
-    std::lock_guard lock(map_mutex);
+    std::scoped_lock lock(map_mutex);
 
     if (mapped_count == 0) {
         const auto error_message = fmt::format(

@@ -169,7 +169,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t 
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
     auto& [pool, mutex] = m_BindlessHandlePools[0];
-    std::lock_guard lock{mutex};
+    std::scoped_lock lock{mutex};
 
     auto handle = pool.back();
     pool.pop_back();
@@ -218,7 +218,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
     BindlessHandle handle;
     if (writable) {
         auto& [pool, mutex] = m_BindlessHandlePools[2];
-        std::lock_guard lock{mutex};
+        std::scoped_lock lock{mutex};
 
         handle = pool.back();
         pool.pop_back();
@@ -226,7 +226,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
         handle.writable = 1;
     } else {
         auto& [pool, mutex] = m_BindlessHandlePools[1];
-        std::lock_guard lock{mutex};
+        std::scoped_lock lock{mutex};
 
         handle = pool.back();
         pool.pop_back();
@@ -264,7 +264,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHand
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
     auto& [pool, mutex] = m_BindlessHandlePools[3];
-    std::lock_guard lock{mutex};
+    std::scoped_lock lock{mutex};
 
     auto handle = pool.back();
     pool.pop_back();
@@ -319,7 +319,7 @@ void VulkanBindlessUtils::DiscardBindlessHandle(BindlessHandle handle) {
     handle.type = BindlessHandleType::Invalid;
 
     auto& [pool, mutex] = m_BindlessHandlePools[pool_index];
-    std::lock_guard lock{mutex};
+    std::scoped_lock lock{mutex};
     pool.emplace_back(handle);
 }
 

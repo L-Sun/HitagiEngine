@@ -1,5 +1,5 @@
-target("gfx_test")
-    add_files("gfx_test.cpp")
+target("desc_hash_test")
+    add_files("desc_hash_test.cpp")
     add_deps("gfx", "utils", "test_utils")
     set_group("test/gfx")
 

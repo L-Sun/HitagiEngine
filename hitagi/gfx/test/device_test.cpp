@@ -1,3 +1,4 @@
+#include "test_macros.hpp"
 #include <spdlog/spdlog.h>
 
 import std;
@@ -1030,8 +1031,20 @@ TEST_P(DeviceTest, DrawTriangle) {
             pixel_shader,
         },
         .vertex_input_layout = {
-            {"POSITION", Format::R32G32B32_FLOAT, 0, 0, 2 * sizeof(vec3f)},
-            {"COLOR", Format::R32G32B32_FLOAT, 0, sizeof(vec3f), 2 * sizeof(vec3f)},
+            {
+                .semantic = "POSITION",
+                .format   = Format::R32G32B32_FLOAT,
+                .binding  = 0,
+                .offset   = 0,
+                .stride   = 2 * sizeof(vec3f),
+            },
+            {
+                .semantic = "COLOR",
+                .format   = Format::R32G32B32_FLOAT,
+                .binding  = 0,
+                .offset   = sizeof(vec3f),
+                .stride   = 2 * sizeof(vec3f),
+            },
         },
         .render_format = swap_chain->GetFormat(),
     });

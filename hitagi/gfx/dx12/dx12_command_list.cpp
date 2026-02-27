@@ -35,14 +35,21 @@ inline void pipeline_barrier_fn(const ComPtr<ID3D12GraphicsCommandList7>& comman
                                 std::span<const GlobalBarrier>            global_barriers,
                                 std::span<const GPUBufferBarrier>         buffer_barriers,
                                 std::span<const TextureBarrier>           texture_barriers) {
-    // convert to vulkan barriers
-    std::pmr::vector<D3D12_GLOBAL_BARRIER>  dx12_global_barriers;
-    std::pmr::vector<D3D12_BUFFER_BARRIER>  dx12_buffer_barriers;
-    std::pmr::vector<D3D12_TEXTURE_BARRIER> dx12_texture_barriers;
-
-    std::transform(global_barriers.begin(), global_barriers.end(), std::back_inserter(dx12_global_barriers), to_d3d_global_barrier);
-    std::transform(buffer_barriers.begin(), buffer_barriers.end(), std::back_inserter(dx12_buffer_barriers), to_d3d_buffer_barrier);
-    std::transform(texture_barriers.begin(), texture_barriers.end(), std::back_inserter(dx12_texture_barriers), to_d3d_texture_barrier);
+    const auto dx12_global_barriers  = global_barriers | std::ranges::views::transform(to_d3d_global_barrier) | std::ranges::to<std::pmr::vector<D3D12_GLOBAL_BARRIER>>();
+    const auto dx12_buffer_barriers  = buffer_barriers | std::ranges::views::transform(to_d3d_buffer_barrier) | std::ranges::to<std::pmr::vector<D3D12_BUFFER_BARRIER>>();
+    const auto dx12_texture_barriers = texture_barriers |
+                                       std::ranges::views::transform(to_d3d_texture_barrier) |
+                                       std::ranges::views::transform([&](auto&& dx12_barrier) {
+                                           // Copy queues only support COMMON and UNDEFINED layouts for texture barriers
+                                           if (command_list->GetType() == D3D12_COMMAND_LIST_TYPE_COPY) {
+                                               if (dx12_barrier.LayoutBefore != D3D12_BARRIER_LAYOUT_UNDEFINED)
+                                                   dx12_barrier.LayoutBefore = D3D12_BARRIER_LAYOUT_COMMON;
+                                               if (dx12_barrier.LayoutAfter != D3D12_BARRIER_LAYOUT_UNDEFINED)
+                                                   dx12_barrier.LayoutAfter = D3D12_BARRIER_LAYOUT_COMMON;
+                                           }
+                                           return dx12_barrier;
+                                       }) |
+                                       std::ranges::to<std::pmr::vector<D3D12_TEXTURE_BARRIER>>();
 
     const std::array barrier_groups = {
         D3D12_BARRIER_GROUP{
@@ -250,6 +257,8 @@ DX12ComputeCommandList::DX12ComputeCommandList(DX12Device& device, std::string_v
 
 void DX12ComputeCommandList::Begin() {
     auto& dx12_bindless_utils = static_cast<DX12BindlessUtils&>(m_Device.GetBindlessUtils());
+    auto  descriptor_heaps    = dx12_bindless_utils.GetDescriptorHeaps();
+    command_list->SetDescriptorHeaps(descriptor_heaps.size(), descriptor_heaps.data());
     command_list->SetComputeRootSignature(dx12_bindless_utils.GetBindlessRootSignature().Get());
 
     m_Pipeline = nullptr;

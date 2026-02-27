@@ -47,7 +47,7 @@ void FileIOManager::SaveBuffer(std::span<const std::byte> buffer, const std::fil
 }
 
 const Buffer& FileIOManager::CacheFile(const std::filesystem::path& path, Buffer buffer) {
-    std::lock_guard lock{m_CacheMutex};
+    std::scoped_lock lock{m_CacheMutex};
 
     PathHash hash          = std::filesystem::hash_value(path);
     m_FileStateCache[hash] = std::filesystem::last_write_time(path);

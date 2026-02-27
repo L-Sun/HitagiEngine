@@ -11,6 +11,7 @@ package("directx-shader-compiler")
         ["1.7.2212"]   = "2022_12_16",
         ["1.7.2212+1"] = "2023_03_01",
         ["1.8.2403+2"] = "2024_03_29",
+        ["1.9.2602"]   = "2026_02_20",
     }
 
     if is_plat("windows") then 
@@ -21,10 +22,12 @@ package("directx-shader-compiler")
         add_versions("1.7.2212", "ed77c7775fcf1e117bec8b5bb4de6735af101b733d3920dda083496dceef130f")
         add_versions("1.7.2212+1", "e4e8cb7326ff7e8a791acda6dfb0cb78cc96309098bfdb0ab1e465dc29162422")
         add_versions("1.8.2403+2", "74874e9741f027d4321263af58d24ae0f6dde2351230680b151c87144cc0a02a")
+        add_versions("1.9.2602", "a1e89031421cf3c1fca6627766ab3020ca4f962ac7e2caa7fab2b33a8436151e")
     elseif is_plat("linux") and is_arch("x86_64") then 
         add_urls("https://github.com/microsoft/DirectXShaderCompiler/releases/download/v$(version).x86_64.tar.gz", {version = function (version) return version:gsub("%+", ".") .. "/linux_dxc_" .. date[tostring(version)] end})
         add_versions("1.7.2212+1", "5d7560a8cf06dfc701b573a2effa5f3ffe4f5d4099a1951e81bbc60403952c28")
         add_versions("1.8.2403+2", "26051824ec198854b41a481e7040ad295200774616d45698019a05b9f9cf32df")
+        add_versions("1.9.2602", "a1d3e3b5e1c5685b3eb27d5e8890e41d87df45def05112a2d6f1a63a931f7d60")
     end
 
     add_configs("shared", {description = "Using shared binaries.", default = true, type = "boolean", readonly = true})

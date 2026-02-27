@@ -35,85 +35,97 @@ void VulkanCommandQueue::Submit(std::span<const std::reference_wrapper<const Com
         return;
     }
 
-    std::pmr::vector<vk::CommandBuffer> command_buffers;
-    std::transform(
-        contexts.begin(), contexts.end(),
-        std::back_inserter(command_buffers),
-        [](const CommandContext& ctx) -> vk::CommandBuffer {
+    const auto cmd_buffer_infos =
+        contexts |
+        std::ranges::views::transform([](const CommandContext& ctx) -> vk::CommandBufferSubmitInfo {
+            vk::CommandBuffer cmd_buf;
             switch (ctx.GetType()) {
                 case CommandType::Graphics:
-                    return *(dynamic_cast<const VulkanGraphicsCommandBuffer&>(ctx).command_buffer);
+                    cmd_buf = *(dynamic_cast<const VulkanGraphicsCommandBuffer&>(ctx).command_buffer);
+                    break;
                 case CommandType::Compute:
-                    return *(dynamic_cast<const VulkanComputeCommandBuffer&>(ctx).command_buffer);
+                    cmd_buf = *(dynamic_cast<const VulkanComputeCommandBuffer&>(ctx).command_buffer);
+                    break;
                 case CommandType::Copy:
-                    return *(dynamic_cast<const VulkanTransferCommandBuffer&>(ctx).command_buffer);
+                    cmd_buf = *(dynamic_cast<const VulkanTransferCommandBuffer&>(ctx).command_buffer);
+                    break;
                 default:
                     utils::unreachable();
             }
-        });
+            return {.commandBuffer = cmd_buf};
+        }) |
+        std::ranges::to<std::pmr::vector<vk::CommandBufferSubmitInfo>>();
 
-    std::pmr::vector<vk::Semaphore>          wait_vk_semaphores;
-    std::pmr::vector<std::uint64_t>          wait_values;
-    std::pmr::vector<vk::PipelineStageFlags> wait_stage;
-    for (const auto& wait_info : wait_fences) {
-        wait_vk_semaphores.emplace_back(*dynamic_cast<const VulkanTimelineSemaphore&>(wait_info.fence).timeline_semaphore);
-        wait_values.emplace_back(wait_info.value);
-        wait_stage.emplace_back(to_vk_pipeline_stage1(wait_info.stage));
-    }
+    auto wait_semaphore_infos =
+        wait_fences |
+        std::ranges::views::transform([](const auto& wait_info) -> vk::SemaphoreSubmitInfo {
+            return {
+                .semaphore = *dynamic_cast<const VulkanTimelineSemaphore&>(wait_info.fence).timeline_semaphore,
+                .value     = wait_info.value,
+                .stageMask = to_vk_pipeline_stage2(wait_info.stage),
+            };
+        }) |
+        std::ranges::to<std::pmr::vector<vk::SemaphoreSubmitInfo>>();
 
-    std::pmr::vector<vk::Semaphore> signal_vk_semaphores;
-    std::pmr::vector<std::uint64_t> signal_values;
-    for (const auto& signal_info : signal_fences) {
-        signal_vk_semaphores.emplace_back(*dynamic_cast<const VulkanTimelineSemaphore&>(signal_info.fence).timeline_semaphore);
-        signal_values.emplace_back(signal_info.value);
-    }
+    auto signal_semaphore_infos =
+        signal_fences |
+        std::ranges::views::transform([](const auto& signal_info) -> vk::SemaphoreSubmitInfo {
+            return {
+                .semaphore = *dynamic_cast<const VulkanTimelineSemaphore&>(signal_info.fence).timeline_semaphore,
+                .value     = signal_info.value,
+                .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            };
+        }) |
+        std::ranges::to<std::pmr::vector<vk::SemaphoreSubmitInfo>>();
 
     for (const CommandContext& ctx : contexts) {
         if (ctx.GetType() == CommandType::Graphics) {
             auto& gfx_ctx = dynamic_cast<const VulkanGraphicsCommandBuffer&>(ctx);
             if (gfx_ctx.swap_chain_image_available_semaphore) {
-                wait_vk_semaphores.emplace_back(**gfx_ctx.swap_chain_image_available_semaphore);
-                wait_values.emplace_back(0);
-                wait_stage.emplace_back(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+                wait_semaphore_infos.emplace_back(vk::SemaphoreSubmitInfo{
+                    .semaphore = **gfx_ctx.swap_chain_image_available_semaphore,
+                    .value     = 0,
+                    .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                });
             }
 
             for (const auto& swapchain_presentable_semaphore : gfx_ctx.swap_chain_presentable_semaphores) {
-                signal_vk_semaphores.emplace_back(**swapchain_presentable_semaphore);
-                signal_values.emplace_back(0);
+                signal_semaphore_infos.emplace_back(vk::SemaphoreSubmitInfo{
+                    .semaphore = **swapchain_presentable_semaphore,
+                    .value     = 0,
+                    .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+                });
             }
         } else if (ctx.GetType() == CommandType::Copy) {
             auto& transfer_ctx = dynamic_cast<const VulkanTransferCommandBuffer&>(ctx);
             if (transfer_ctx.swap_chain_image_available_semaphore) {
-                wait_vk_semaphores.emplace_back(**transfer_ctx.swap_chain_image_available_semaphore);
-                wait_values.emplace_back(0);
-                wait_stage.emplace_back(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+                wait_semaphore_infos.emplace_back(vk::SemaphoreSubmitInfo{
+                    .semaphore = **transfer_ctx.swap_chain_image_available_semaphore,
+                    .value     = 0,
+                    .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                });
             }
 
             for (const auto& swapchain_presentable_semaphore : transfer_ctx.swap_chain_presentable_semaphores) {
-                signal_vk_semaphores.emplace_back(**swapchain_presentable_semaphore);
-                signal_values.emplace_back(0);
+                signal_semaphore_infos.emplace_back(vk::SemaphoreSubmitInfo{
+                    .semaphore = **swapchain_presentable_semaphore,
+                    .value     = 0,
+                    .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+                });
             }
         }
     }
 
-    const vk::StructureChain submit_info{
-        vk::SubmitInfo{
-            .waitSemaphoreCount   = static_cast<std::uint32_t>(wait_vk_semaphores.size()),
-            .pWaitSemaphores      = wait_vk_semaphores.data(),
-            .pWaitDstStageMask    = wait_stage.data(),
-            .commandBufferCount   = static_cast<std::uint32_t>(command_buffers.size()),
-            .pCommandBuffers      = command_buffers.data(),
-            .signalSemaphoreCount = static_cast<std::uint32_t>(signal_vk_semaphores.size()),
-            .pSignalSemaphores    = signal_vk_semaphores.data(),
-        },
-        vk::TimelineSemaphoreSubmitInfo{
-            .waitSemaphoreValueCount   = static_cast<std::uint32_t>(wait_values.size()),
-            .pWaitSemaphoreValues      = wait_values.data(),
-            .signalSemaphoreValueCount = static_cast<std::uint32_t>(signal_values.size()),
-            .pSignalSemaphoreValues    = signal_values.data(),
-        }};
+    const vk::SubmitInfo2 submit_info{
+        .waitSemaphoreInfoCount   = static_cast<std::uint32_t>(wait_semaphore_infos.size()),
+        .pWaitSemaphoreInfos      = wait_semaphore_infos.data(),
+        .commandBufferInfoCount   = static_cast<std::uint32_t>(cmd_buffer_infos.size()),
+        .pCommandBufferInfos      = cmd_buffer_infos.data(),
+        .signalSemaphoreInfoCount = static_cast<std::uint32_t>(signal_semaphore_infos.size()),
+        .pSignalSemaphoreInfos    = signal_semaphore_infos.data(),
+    };
 
-    m_Queue.submit(submit_info.get());
+    m_Queue.submit2(submit_info);
 }
 
 void VulkanCommandQueue::WaitIdle() {

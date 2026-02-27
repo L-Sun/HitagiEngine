@@ -64,12 +64,12 @@ DescriptorHeap::DescriptorHeap(DX12Device& device, D3D12_DESCRIPTOR_HEAP_TYPE ty
 }
 
 bool DescriptorHeap::Empty() const {
-    std::lock_guard lock{m_Mutex};
+    std::scoped_lock lock{m_Mutex};
     return m_AvailableDescriptors.empty();
 }
 
 auto DescriptorHeap::Allocate() -> Descriptor {
-    std::lock_guard lock{m_Mutex};
+    std::scoped_lock lock{m_Mutex};
 
     if (m_AvailableDescriptors.empty()) {
         throw std::runtime_error("no descriptor available");
@@ -84,7 +84,7 @@ auto DescriptorHeap::Allocate() -> Descriptor {
 }
 
 void DescriptorHeap::DiscardDescriptor(Descriptor& descriptor) {
-    std::lock_guard lock{m_Mutex};
+    std::scoped_lock lock{m_Mutex};
     // Disable descriptor
     m_AvailableDescriptors.emplace_back(Descriptor(descriptor.GetCPUHandle(), nullptr));
 }

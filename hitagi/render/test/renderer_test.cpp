@@ -1,3 +1,4 @@
+#include "test_macros.hpp"
 #include <spdlog/spdlog.h>
 #include <tracy/Tracy.hpp>
 #include "imgui.h"

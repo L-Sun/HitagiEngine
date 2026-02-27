@@ -51,7 +51,7 @@ auto MemoryPool::Pool::new_page() -> Page& {
 }
 
 auto MemoryPool::Pool::allocate() -> Block* {
-    std::lock_guard lock(mutex);
+    std::scoped_lock lock(mutex);
 
     if (free_list == nullptr) {
         auto& page        = new_page();
@@ -70,7 +70,7 @@ auto MemoryPool::Pool::allocate() -> Block* {
 }
 
 auto MemoryPool::Pool::deallocate(Block* block) -> void {
-    std::lock_guard lock(mutex);
+    std::scoped_lock lock(mutex);
 
     block->next = free_list;
     free_list   = block;

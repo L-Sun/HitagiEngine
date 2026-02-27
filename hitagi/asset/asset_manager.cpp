@@ -61,7 +61,7 @@ std::shared_ptr<Material> AssetManager::ImportMaterial(const std::filesystem::pa
 
 void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
     if (scene == nullptr) return;
-    m_Assets.scenes.emplace(scene);
+    m_Assets.scenes.emplace(std::move(scene));
 }
 
 void AssetManager::AddCamera(std::shared_ptr<Camera> camera) {

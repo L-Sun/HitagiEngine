@@ -1,6 +1,7 @@
 module;
 
 module asset;
+import :image_parser;
 import std;
 
 namespace hitagi::asset {

@@ -105,7 +105,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
 
     BindlessHandle handle;
     {
-        std::lock_guard lock{m_Mutex};
+        std::scoped_lock lock{m_Mutex};
         handle = m_Available_CBV_SRV_UAV_BindlessHandlePool.front();
         m_Available_CBV_SRV_UAV_BindlessHandlePool.pop_front();
     }
@@ -170,7 +170,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) ->
 
     BindlessHandle handle;
     {
-        std::lock_guard lock{m_Mutex};
+        std::scoped_lock lock{m_Mutex};
         handle = m_Available_CBV_SRV_UAV_BindlessHandlePool.front();
         m_Available_CBV_SRV_UAV_BindlessHandlePool.pop_front();
     }
@@ -211,7 +211,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) ->
 auto DX12BindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHandle {
     BindlessHandle handle;
     {
-        std::lock_guard lock{m_Mutex};
+        std::scoped_lock lock{m_Mutex};
         handle = m_Available_Sampler_BindlessHandlePool.front();
         m_Available_Sampler_BindlessHandlePool.pop_front();
     }
@@ -237,8 +237,8 @@ auto DX12BindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHandle
 void DX12BindlessUtils::DiscardBindlessHandle(BindlessHandle handle) {
     if (handle.type == BindlessHandleType::Invalid) return;
 
-    std::lock_guard lock{m_Mutex};
-    auto&           pool = handle.type == BindlessHandleType::Sampler ? m_Available_Sampler_BindlessHandlePool : m_Available_CBV_SRV_UAV_BindlessHandlePool;
+    std::scoped_lock lock{m_Mutex};
+    auto&            pool = handle.type == BindlessHandleType::Sampler ? m_Available_Sampler_BindlessHandlePool : m_Available_CBV_SRV_UAV_BindlessHandlePool;
 
     if (handle.type == BindlessHandleType::Sampler) {
         TracyFreeN((void*)handle.index, "Sampler_Bindless");
