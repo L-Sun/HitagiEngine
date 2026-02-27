@@ -131,6 +131,11 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
             throw std::runtime_error("EnhancedBarriers Not Supported");
         }
 
+        if (!feature_support.GPUUploadHeapSupported()) {
+            m_Logger->error("GPU Upload Heap Not Supported");
+            throw std::runtime_error("GPU Upload Heap Not Supported");
+        }
+
         if (!name.empty()) {
             m_Device->SetName(std::wstring(name.begin(), name.end()).c_str());
         }

@@ -117,6 +117,9 @@ VulkanDevice::VulkanDevice(std::string_view name)
                 .synchronization2 = true,
                 .dynamicRendering = true,
             },
+            vk::PhysicalDeviceHostImageCopyFeaturesEXT{
+                .hostImageCopy = true,
+            },
         };
 
         m_Device = std::make_unique<vk::raii::Device>(m_PhysicalDevice->createDevice(device_create_info.get(), GetCustomAllocator()));

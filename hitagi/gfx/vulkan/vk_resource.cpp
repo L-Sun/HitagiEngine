@@ -54,6 +54,12 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
                 utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Constant)) {
                 allocation_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
             }
+        } else if (!initial_data.empty() && utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst)) {
+            // ReBAR: DEVICE_LOCAL + HOST_VISIBLE for direct VRAM write
+            allocation_create_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+                                                 | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+                                                 | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+            allocation_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
         } else {
             allocation_create_info.requiredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         }
@@ -104,25 +110,15 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
             UnMap();
         } else if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopyDst)) {
-            logger->trace("Using stage buffer to initial...");
-            VulkanBuffer staging_buffer(
-                device, GPUBufferDesc{
-                            .name         = std::pmr::string(std::format("{}_staging", GetName())),
-                            .element_size = Size(),
-                            .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
-                        },
-                initial_data);
-
-            auto  context    = device.CreateCopyContext("StageBufferToGPUBuffer");
-            auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
-
-            context->Begin();
-            context->CopyBuffer(staging_buffer, 0, *this, 0, Size());
-            context->End();
-            copy_queue.Submit({{*context}});
-
-            // improve me
-            copy_queue.WaitIdle();
+            // Direct VRAM write via ReBAR (DEVICE_LOCAL + HOST_VISIBLE)
+            void* mapped_ptr = nullptr;
+            if (VK_SUCCESS != vmaMapMemory(device.GetVmaAllocator(), allocation, &mapped_ptr)) {
+                auto error_message = fmt::format("failed to map ReBAR buffer({})", fmt::styled(GetName(), fmt::fg(fmt::color::red)));
+                logger->error(error_message);
+                throw std::runtime_error(error_message);
+            }
+            std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
+            vmaUnmapMemory(device.GetVmaAllocator(), allocation);
         } else {
             auto error_message = fmt::format(
                 "Can not initialize gpu buffer({}) using upload heap without the flag {} or {}, the actual flags are {}",
@@ -238,37 +234,41 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
     if (!initial_data.empty()) {
         logger->trace("Copy initial data to texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
-            VulkanBuffer staging_buffer(
-                device, GPUBufferDesc{
-                            .name         = std::pmr::string(std::format("{}_staging", GetName())),
-                            .element_size = initial_data.size_bytes(),
-                            .usages       = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite,
-                        },
-                initial_data);
-
-            auto  context    = device.CreateCopyContext("StageBufferToTexture");
+            // Transition image to General layout for host image copy
+            auto  context    = device.CreateCopyContext("HostImageCopy-Transition");
             auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
 
             context->Begin();
             context->ResourceBarrier(
                 {}, {},
                 {{
-                    Transition(BarrierAccess::CopyDst, TextureLayout::CopyDst, PipelineStage::Copy),
+                    Transition(BarrierAccess::CopyDst, TextureLayout::Common, PipelineStage::Copy),
                 }});
-
-            context->CopyBufferToTexture(
-                staging_buffer,
-                0,
-                *this,
-                {0, 0, 0},
-                {m_Desc.width, m_Desc.height, m_Desc.depth},
-                {0, 0, m_Desc.array_size});
-
             context->End();
             copy_queue.Submit({{*context}});
-
-            // improve me
             copy_queue.WaitIdle();
+
+            // Host-side copy via VK_EXT_host_image_copy
+            const vk::MemoryToImageCopyEXT region{
+                .pHostPointer      = initial_data.data(),
+                .memoryRowLength   = 0,
+                .memoryImageHeight = 0,
+                .imageSubresource  = {
+                    .aspectMask     = get_vk_image_aspect(m_Desc),
+                    .mipLevel       = 0,
+                    .baseArrayLayer = 0,
+                    .layerCount     = m_Desc.array_size,
+                },
+                .imageOffset = {0, 0, 0},
+                .imageExtent = {m_Desc.width, m_Desc.height, m_Desc.depth},
+            };
+
+            device.GetDevice().copyMemoryToImageEXT(vk::CopyMemoryToImageInfoEXT{
+                .dstImage       = **image,
+                .dstImageLayout = vk::ImageLayout::eGeneral,
+                .regionCount    = 1,
+                .pRegions       = &region,
+            });
         } else {
             auto error_message = fmt::format(
                 "the texture({}) can not initialize with staging buffer without {}, the actual flags are {}",

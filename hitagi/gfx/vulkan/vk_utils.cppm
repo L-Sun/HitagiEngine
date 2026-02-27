@@ -479,7 +479,7 @@ inline constexpr auto to_vk_image_usage(TextureUsageFlags usages) noexcept -> vk
         vk_usages |= vk::ImageUsageFlagBits::eTransferSrc;
     }
     if (utils::has_flag(usages, TextureUsageFlags::CopyDst)) {
-        vk_usages |= vk::ImageUsageFlagBits::eTransferDst;
+        vk_usages |= vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eHostTransferEXT;
     }
     if (utils::has_flag(usages, TextureUsageFlags::SRV)) {
         vk_usages |= vk::ImageUsageFlagBits::eSampled;

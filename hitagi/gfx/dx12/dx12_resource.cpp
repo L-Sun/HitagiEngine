@@ -63,6 +63,13 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
         }
         allocation_desc.HeapType = D3D12_HEAP_TYPE_UPLOAD;
     }
+    // Use GPU_UPLOAD heap for buffers with initial data + CopyDst (direct VRAM write via ReBAR)
+    if (!initial_data.empty() &&
+        utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst) &&
+        !utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite) &&
+        !utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead)) {
+        allocation_desc.HeapType = D3D12_HEAP_TYPE_GPU_UPLOAD;
+    }
 
     logger->trace("Create GPU buffer({}) with {} bytes", fmt::styled(GetName(), fmt::fg(fmt::color::green)), Size());
 
@@ -118,28 +125,27 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
             }
             UnMap();
         } else if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst)) {
-            auto upload_buffer_usage_flags = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc;
-            if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Constant)) {
-                upload_buffer_usage_flags |= GPUBufferUsageFlags::Constant;  // for alignment
+            // Direct VRAM write via GPU_UPLOAD heap (ReBAR)
+            std::byte* mapped_ptr = nullptr;
+            if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
+                const auto error_message = fmt::format(
+                    "Failed to map GPU_UPLOAD buffer({})",
+                    fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+                logger->error(error_message);
+                throw std::runtime_error(error_message);
             }
-            auto upload_buffer = DX12GPUBuffer(
-                device,
-                {
-                    .name          = std::pmr::string(std::format("UploadBuffer-({})", GetName())),
-                    .element_size  = m_Desc.element_size,
-                    .element_count = m_Desc.element_count,
-                    .usages        = upload_buffer_usage_flags,
-                },
-                {initial_data.data(), std::min(initial_data.size(), m_Desc.element_size * m_Desc.element_count)});
-
-            auto copy_context = device.CreateCopyContext("CreateGPUBuffer");
-            copy_context->Begin();
-            copy_context->CopyBuffer(upload_buffer, 0, *this, 0, upload_buffer.Size());
-            copy_context->End();
-
-            auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
-            copy_queue.Submit({{*copy_context}});
-            copy_queue.WaitIdle();
+            if (m_ElementAlignment == 1 || m_ElementAlignment == m_Desc.element_size) {
+                std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
+            } else {
+                const std::size_t copy_count = std::min(initial_data.size() / m_Desc.element_size, m_Desc.element_count);
+                for (std::size_t i = 0; i < copy_count; i++) {
+                    std::memcpy(
+                        mapped_ptr + i * AlignedElementSize(),
+                        initial_data.data() + i * m_Desc.element_size,
+                        m_Desc.element_size);
+                }
+            }
+            resource->Unmap(0, nullptr);
         } else {
             const auto error_message = fmt::format(
                 "Can not initialize gpu buffer({}) using upload heap without the flag {} or {}, the actual flags are {}",
@@ -298,13 +304,28 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
         logger->trace("Copy initial data to texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
-            auto upload_buffer = DX12GPUBuffer(
-                device,
-                {
-                    .name         = "UploadBuffer",
-                    .element_size = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(device.GetDevice().Get())),
-                    .usages       = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc,
-                });
+            const auto staging_size = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(device.GetDevice().Get()));
+
+            // GPU_UPLOAD staging buffer for VRAM→VRAM texture copy
+            D3D12MA::ALLOCATION_DESC staging_alloc_desc{
+                .HeapType = D3D12_HEAP_TYPE_GPU_UPLOAD,
+            };
+            auto                     staging_resource_desc = CD3DX12_RESOURCE_DESC::Buffer(staging_size);
+            ComPtr<D3D12MA::Allocation> staging_allocation;
+            ComPtr<ID3D12Resource>      staging_resource;
+            if (FAILED(device.GetAllocator()->CreateResource(
+                    &staging_alloc_desc,
+                    &staging_resource_desc,
+                    D3D12_RESOURCE_STATE_COMMON,
+                    nullptr,
+                    &staging_allocation,
+                    IID_PPV_ARGS(&staging_resource)))) {
+                const auto error_message = fmt::format(
+                    "Failed to create staging buffer for texture({})",
+                    fmt::styled(GetName(), fmt::fg(fmt::color::red)));
+                logger->error(error_message);
+                throw std::runtime_error(error_message);
+            }
 
             D3D12_SUBRESOURCE_DATA textureData = {
                 .pData      = initial_data.data(),
@@ -317,7 +338,7 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
             UpdateSubresources(
                 std::static_pointer_cast<DX12CopyCommandList>(copy_context)->command_list.Get(),
                 resource.Get(),
-                upload_buffer.resource.Get(),
+                staging_resource.Get(),
                 0,
                 0,
                 resource_desc.Subresources(device.GetDevice().Get()),

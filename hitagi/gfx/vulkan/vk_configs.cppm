@@ -36,6 +36,7 @@ constexpr std::array required_device_extensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+    VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME,
 };
 
 constexpr auto max_storage_descriptors       = 1'0000u;
