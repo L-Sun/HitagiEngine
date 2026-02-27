@@ -66,6 +66,7 @@ void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const Comma
         });
 
     for (const auto& wait_fence : wait_fences) {
+        if (wait_fence.value == 0) continue;
         const auto& fence = dynamic_cast<DX12Fence&>(wait_fence.fence);
         m_Queue->Wait(fence.GetFence().Get(), wait_fence.value);
     }
@@ -82,6 +83,7 @@ void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const Comma
 }
 
 void DX12CommandQueue::WaitIdle() {
+    if (m_SubmitCount == 0) return;
     m_Fence.Wait(m_SubmitCount);
 }
 
