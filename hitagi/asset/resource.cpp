@@ -1,7 +1,3 @@
-module;
-
-#include <fmt/format.h>
-
 module asset;
 import std;
 
@@ -19,7 +15,7 @@ Resource& Resource::operator=(const Resource& rhs) {
 }
 
 auto Resource::GetUniqueName() const noexcept -> std::pmr::string {
-    return std::pmr::string{fmt::format("{}-{}", GetName(), GetUUID())};
+    return std::pmr::string{std::format("{}-{}", GetName(), GetUUID())};
 }
 
 }  // namespace hitagi::asset

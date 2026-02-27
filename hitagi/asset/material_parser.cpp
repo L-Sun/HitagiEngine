@@ -1,11 +1,11 @@
 module;
 
-#include <magic_enum.hpp>
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
 
 module asset;
 import std;
+import magic_enum;
 
 using namespace hitagi::math;
 

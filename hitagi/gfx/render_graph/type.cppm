@@ -1,7 +1,3 @@
-module;
-
-#include <fmt/format.h>
-
 export module gfx.render_graph:type;
 
 import std;

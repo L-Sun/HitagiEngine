@@ -1,10 +1,6 @@
-module;
-
-#include <magic_enum_utility.hpp>
-#include <fmt/format.h>
-
 module asset;
 import std;
+import magic_enum;
 
 namespace hitagi::asset {
 VertexArray::VertexArray(std::size_t vertex_count, std::string_view name)
@@ -73,7 +69,7 @@ void VertexArray::InitGPUData(gfx::Device& device) {
         if (attribute.cpu_buffer.Empty() || !attribute.dirty) continue;
         attribute.gpu_buffer = device.CreateGPUBuffer(
             {
-                .name          = std::pmr::string(fmt::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type))),
+                .name          = std::pmr::string(std::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type))),
                 .element_size  = get_vertex_attribute_size(attribute.type),
                 .element_count = m_VertexCount,
                 .usages        = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::CopyDst,
