@@ -5,6 +5,7 @@ module;
 export module gfx.dx12:command_queue;
 import std;
 import gfx.base;
+import :types;
 import :sync;
 
 using namespace Microsoft::WRL;

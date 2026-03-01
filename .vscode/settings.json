@@ -2,7 +2,7 @@
     "xmake.compileCommandsDirectory": "${workspaceRoot}/build",
     "C_Cpp.intelliSenseEngine": "Disabled",
     "clangd.arguments": [
-        "-j=8",
+        "-j=16",
         "--pch-storage=memory",
         "--experimental-modules-support",
     ],

@@ -23,6 +23,7 @@ ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, gu
           .window      = app.GetWindow(),
           .clear_color = math::Color(0, 0, 0, 1),
       })),
+      m_PersistentSampler(m_GfxDevice.CreateSampler({.name = "sampler"})),
       m_RenderGraph(m_GfxDevice, "ForwardRenderGraph"),
       m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, m_GfxDevice) : nullptr)
 
@@ -53,9 +54,7 @@ void ForwardRenderer::Tick() {
 void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) {
     ZoneScoped;
 
-    m_Sampler = m_RenderGraph.Create(gfx::SamplerDesc{
-        .name = "sampler",
-    });
+    m_Sampler = m_RenderGraph.Import(m_PersistentSampler, "sampler");
 
     rg::RenderPassBuilder render_pass_builder(m_RenderGraph);
     render_pass_builder

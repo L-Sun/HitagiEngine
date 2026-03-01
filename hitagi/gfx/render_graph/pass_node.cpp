@@ -229,8 +229,8 @@ void PassNode::ResourceBarrier() {
     if (device.device_type == gfx::Device::Type::DX12) {
         if (GetCommandType() == gfx::CommandType::Copy) {
             for (auto& buffer_barrier : m_GPUBufferBarriers) {
-                if (buffer_barrier.src_access != gfx::BarrierAccess::CopySrc ||
-                    buffer_barrier.src_access != gfx::BarrierAccess::CopySrc) {
+                if (buffer_barrier.src_access != gfx::BarrierAccess::CopySrc &&
+                    buffer_barrier.src_access != gfx::BarrierAccess::CopyDst) {
                     buffer_barrier.src_access = gfx::BarrierAccess::None;
                 }
                 if (buffer_barrier.src_stage != gfx::PipelineStage::Copy) {
@@ -238,8 +238,8 @@ void PassNode::ResourceBarrier() {
                 }
             }
             for (auto& texture_barrier : m_TextureBarriers) {
-                if (texture_barrier.src_access != gfx::BarrierAccess::CopySrc ||
-                    texture_barrier.src_access != gfx::BarrierAccess::CopySrc) {
+                if (texture_barrier.src_access != gfx::BarrierAccess::CopySrc &&
+                    texture_barrier.src_access != gfx::BarrierAccess::CopyDst) {
                     texture_barrier.src_access = gfx::BarrierAccess::None;
                 }
                 if (texture_barrier.src_stage != gfx::PipelineStage::Copy) {

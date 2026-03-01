@@ -17,7 +17,14 @@
       "Bash(cd E:/workspace/HitagiEngine && MSYSTEM= MINGW_PREFIX= MINGW_CHOST= xmake build -y debugger 2>&1)",
       "Bash(cd E:/workspace/HitagiEngine && MSYSTEM= MINGW_PREFIX= MINGW_CHOST= xmake build -y --rebuild debugger 2>&1)",
       "WebSearch",
-      "WebFetch(domain:xmake.io)"
+      "WebFetch(domain:xmake.io)",
+      "WebFetch(domain:developercommunity.visualstudio.com)",
+      "WebFetch(domain:devblogs.microsoft.com)",
+      "WebFetch(domain:www.khronos.org)",
+      "WebFetch(domain:docs.vulkan.org)",
+      "WebFetch(domain:wccftech.com)",
+      "WebFetch(domain:microsoft.github.io)",
+      "WebFetch(domain:www.nuget.org)"
     ]
   }
 }

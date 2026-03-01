@@ -144,6 +144,7 @@ private:
     core::Clock m_Clock;
 
     std::shared_ptr<gfx::SwapChain> m_SwapChain;
+    std::shared_ptr<gfx::Sampler>   m_PersistentSampler;
     rg::RenderGraph                 m_RenderGraph;
 
     std::unique_ptr<GuiRenderUtils> m_GuiRenderUtils;

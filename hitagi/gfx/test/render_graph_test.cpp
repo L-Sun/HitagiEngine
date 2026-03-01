@@ -436,6 +436,163 @@ TEST_F(RenderGraphTest, GraphTest) {
     rg.Execute();
 }
 
+class TransientResourcePoolTest : public Test {
+protected:
+    TransientResourcePoolTest()
+        : device(create_device(Device::Type::Mock, "TransientPool")),
+          rg(*device, "TransientPool"),
+          swap_chain(device->CreateSwapChain({})),
+          render_pipeline(device->CreateRenderPipeline({})) {}
+
+    void SetUp() override {
+        ASSERT_TRUE(device) << "Failed to create mock device";
+    }
+
+    struct FrameResources {
+        GPUBuffer* buffer  = nullptr;
+        Texture*   texture = nullptr;
+    };
+
+    auto RunFrame(const GPUBufferDesc& buffer_desc, const TextureDesc& texture_desc) -> FrameResources {
+        FrameResources result;
+
+        const auto buffer  = rg.Create(buffer_desc, "buf");
+        const auto texture = rg.Create(texture_desc, "tex");
+        const auto pipeline_handle = rg.Import(render_pipeline);
+
+        RenderPassBuilder(rg)
+            .SetName("pass")
+            .Read(buffer, PipelineStage::VertexShader)
+            .SetRenderTarget(texture)
+            .AddPipeline(pipeline_handle)
+            .SetExecutor([&result, buffer, texture](const RenderGraph& rg_ref, const RenderPassNode& node) {
+                result.buffer  = &node.Resolve(buffer);
+                result.texture = &node.Resolve(texture);
+            })
+            .Finish();
+
+        PresentPassBuilder(rg)
+            .From(texture)
+            .SetSwapChain(swap_chain)
+            .Finish();
+
+        EXPECT_TRUE(rg.Compile());
+        rg.Execute();
+        return result;
+    }
+
+    std::shared_ptr<Device>         device;
+    RenderGraph                     rg;
+    std::shared_ptr<SwapChain>      swap_chain;
+    std::shared_ptr<RenderPipeline> render_pipeline;
+};
+
+TEST_F(TransientResourcePoolTest, BufferAndTextureReuse) {
+    const GPUBufferDesc buffer_desc{
+        .name          = "test_buffer",
+        .element_size  = sizeof(float),
+        .element_count = 16,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+    };
+    const TextureDesc texture_desc{
+        .name   = "test_texture",
+        .width  = 512,
+        .height = 512,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+    };
+
+    auto frame1 = RunFrame(buffer_desc, texture_desc);
+    ASSERT_NE(frame1.buffer, nullptr);
+    ASSERT_NE(frame1.texture, nullptr);
+
+    auto frame2 = RunFrame(buffer_desc, texture_desc);
+    ASSERT_NE(frame2.buffer, nullptr);
+    ASSERT_NE(frame2.texture, nullptr);
+
+    EXPECT_EQ(frame1.buffer, frame2.buffer) << "Buffer should be reused from pool";
+    EXPECT_EQ(frame1.texture, frame2.texture) << "Texture should be reused from pool";
+}
+
+TEST_F(TransientResourcePoolTest, NoReuseOnDescMismatch) {
+    const GPUBufferDesc buffer_desc_a{
+        .name          = "buffer_a",
+        .element_size  = sizeof(float),
+        .element_count = 16,
+        .usages        = GPUBufferUsageFlags::Constant,
+    };
+    const TextureDesc texture_desc_a{
+        .name   = "texture_a",
+        .width  = 512,
+        .height = 512,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+    };
+
+    auto frame1 = RunFrame(buffer_desc_a, texture_desc_a);
+
+    const GPUBufferDesc buffer_desc_b{
+        .name          = "buffer_b",
+        .element_size  = sizeof(float),
+        .element_count = 32,
+        .usages        = GPUBufferUsageFlags::Constant,
+    };
+    const TextureDesc texture_desc_b{
+        .name   = "texture_b",
+        .width  = 1024,
+        .height = 1024,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+    };
+
+    auto frame2 = RunFrame(buffer_desc_b, texture_desc_b);
+
+    EXPECT_NE(frame1.buffer, frame2.buffer) << "Different desc should not reuse buffer";
+    EXPECT_NE(frame1.texture, frame2.texture) << "Different desc should not reuse texture";
+}
+
+TEST_F(TransientResourcePoolTest, NameIndependentReuse) {
+    const GPUBufferDesc buffer_desc_frame1{
+        .name          = "buffer_frame1",
+        .element_size  = sizeof(float),
+        .element_count = 16,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+    };
+    const TextureDesc texture_desc_frame1{
+        .name   = "texture_frame1",
+        .width  = 256,
+        .height = 256,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+    };
+
+    auto frame1 = RunFrame(buffer_desc_frame1, texture_desc_frame1);
+
+    const GPUBufferDesc buffer_desc_frame2{
+        .name          = "buffer_frame2_different_name",
+        .element_size  = sizeof(float),
+        .element_count = 16,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+    };
+    const TextureDesc texture_desc_frame2{
+        .name   = "texture_frame2_different_name",
+        .width  = 256,
+        .height = 256,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+    };
+
+    auto frame2 = RunFrame(buffer_desc_frame2, texture_desc_frame2);
+
+    EXPECT_EQ(frame1.buffer, frame2.buffer) << "Pool should match by structure, not name";
+    EXPECT_EQ(frame1.texture, frame2.texture) << "Pool should match by structure, not name";
+}
+
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::debug);
     InitGoogleTest(&argc, argv);

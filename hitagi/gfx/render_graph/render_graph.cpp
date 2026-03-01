@@ -224,6 +224,11 @@ auto RenderGraph::MoveFrom(RenderGraphNode::Type type, std::size_t resource_node
             return invalid_index;
         } break;
     }
+
+    if (!name.empty()) {
+        m_BlackBoard[type].emplace(name, new_handle);
+    }
+
     return new_handle;
 }
 
@@ -440,9 +445,132 @@ void RenderGraph::RetireNodes() noexcept {
         const auto& retired_resource    = m_RetiredNodes.front();
         const auto& [fence, last_value] = retired_resource.last_fence_value;
         if (latest_fence_values.at(fence) >= last_value) {
+            RecycleTransientResource(retired_resource.node.get());
             m_RetiredNodes.pop_front();
         } else {
             break;
+        }
+    }
+
+    EvictStalePoolEntries();
+}
+
+static auto buffer_pool_key(const gfx::GPUBufferDesc& desc) -> std::size_t {
+    return utils::combine_hash(std::array{
+        utils::hash(desc.element_size),
+        utils::hash(desc.element_count),
+        utils::hash(desc.usages),
+    });
+}
+
+static bool buffer_pool_match(const gfx::GPUBufferDesc& a, const gfx::GPUBufferDesc& b) {
+    return a.element_size == b.element_size &&
+           a.element_count == b.element_count &&
+           a.usages == b.usages;
+}
+
+static auto texture_pool_key(const gfx::TextureDesc& desc) -> std::size_t {
+    return utils::combine_hash(std::array{
+        utils::hash(desc.width),
+        utils::hash(desc.height),
+        utils::hash(static_cast<std::uint16_t>(desc.depth)),
+        utils::hash(static_cast<std::uint16_t>(desc.array_size)),
+        utils::hash(desc.format),
+        utils::hash(static_cast<std::uint16_t>(desc.mip_levels)),
+        utils::hash(desc.usages),
+    });
+}
+
+static bool texture_pool_match(const gfx::TextureDesc& a, const gfx::TextureDesc& b) {
+    return a.width == b.width &&
+           a.height == b.height &&
+           a.depth == b.depth &&
+           a.array_size == b.array_size &&
+           a.format == b.format &&
+           a.mip_levels == b.mip_levels &&
+           a.clear_value.has_value() == b.clear_value.has_value() &&
+           a.usages == b.usages;
+}
+
+auto RenderGraph::AcquireTransientBuffer(const gfx::GPUBufferDesc& desc) -> std::shared_ptr<gfx::GPUBuffer> {
+    const auto key   = buffer_pool_key(desc);
+    auto       range = m_TransientPool.buffers.equal_range(key);
+    for (auto it = range.first; it != range.second; ++it) {
+        if (buffer_pool_match(it->second.desc, desc)) {
+            auto resource = std::move(it->second.resource);
+            m_TransientPool.buffers.erase(it);
+            m_Logger->trace("Reused transient buffer from pool: {}", desc.name);
+            return resource;
+        }
+    }
+    return m_Device.CreateGPUBuffer(desc);
+}
+
+auto RenderGraph::AcquireTransientTexture(const gfx::TextureDesc& desc) -> std::shared_ptr<gfx::Texture> {
+    const auto key   = texture_pool_key(desc);
+    auto       range = m_TransientPool.textures.equal_range(key);
+    for (auto it = range.first; it != range.second; ++it) {
+        if (texture_pool_match(it->second.desc, desc)) {
+            auto resource = std::move(it->second.resource);
+            m_TransientPool.textures.erase(it);
+            m_Logger->trace("Reused transient texture from pool: {}", desc.name);
+            return resource;
+        }
+    }
+    return m_Device.CreateTexture(desc);
+}
+
+void RenderGraph::RecycleTransientResource(RenderGraphNode* node) noexcept {
+    if (!node->IsResourceNode()) return;
+
+    auto* resource_node = static_cast<ResourceNode*>(node);
+    if (resource_node->m_IsImported || !resource_node->m_Resource) return;
+
+    switch (node->GetType()) {
+        case RenderGraphNode::Type::GPUBuffer: {
+            auto* buffer_node = static_cast<GPUBufferNode*>(node);
+            if (buffer_node->m_MoveFromNode || buffer_node->m_MoveToNode) return;
+            auto resource = std::static_pointer_cast<gfx::GPUBuffer>(resource_node->m_Resource);
+            m_TransientPool.buffers.emplace(
+                buffer_pool_key(buffer_node->GetDesc()),
+                TransientResourcePool::CachedBuffer{
+                    .desc            = buffer_node->GetDesc(),
+                    .resource        = std::move(resource),
+                    .last_used_frame = m_FrameIndex,
+                });
+            resource_node->m_Resource = nullptr;
+        } break;
+        case RenderGraphNode::Type::Texture: {
+            auto* texture_node = static_cast<TextureNode*>(node);
+            if (texture_node->m_MoveFromNode || texture_node->m_MoveToNode) return;
+            auto resource = std::static_pointer_cast<gfx::Texture>(resource_node->m_Resource);
+            m_TransientPool.textures.emplace(
+                texture_pool_key(texture_node->GetDesc()),
+                TransientResourcePool::CachedTexture{
+                    .desc            = texture_node->GetDesc(),
+                    .resource        = std::move(resource),
+                    .last_used_frame = m_FrameIndex,
+                });
+            resource_node->m_Resource = nullptr;
+        } break;
+        default:
+            break;
+    }
+}
+
+void RenderGraph::EvictStalePoolEntries() noexcept {
+    for (auto it = m_TransientPool.buffers.begin(); it != m_TransientPool.buffers.end();) {
+        if (m_FrameIndex - it->second.last_used_frame > TransientResourcePool::max_unused_frames) {
+            it = m_TransientPool.buffers.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (auto it = m_TransientPool.textures.begin(); it != m_TransientPool.textures.end();) {
+        if (m_FrameIndex - it->second.last_used_frame > TransientResourcePool::max_unused_frames) {
+            it = m_TransientPool.textures.erase(it);
+        } else {
+            ++it;
         }
     }
 }

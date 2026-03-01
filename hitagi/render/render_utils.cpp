@@ -153,57 +153,65 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
             ranges::views::transform([](auto cmd_list) { return cmd_list->CmdBuffer.size(); }),
         0);
 
+    auto bindless_info_handle = render_graph.Create(
+        {
+            .name          = "imgui_bindless_info",
+            .element_size  = sizeof(BindlessInfo),
+            .element_count = num_draw_calls,
+            .usages        = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+        },
+        "imgui_bindless_info");
+
+    auto frame_constant_handle = render_graph.Create(
+        {
+            .name         = "imgui_frame_constant",
+            .element_size = sizeof(FrameConstant),
+            .usages       = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+        },
+        "imgui_frame_constant");
+
+    auto vertex_buffer_handle = render_graph.Create(
+        gfx::GPUBufferDesc{
+            .element_size  = sizeof(ImDrawVert),
+            .element_count = static_cast<std::uint64_t>(draw_data->TotalVtxCount),
+            .usages        = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::MapWrite,
+        },
+        "imgui_vertices");
+
+    auto index_buffer_handle = render_graph.Create(
+        gfx::GPUBufferDesc{
+            .element_size  = sizeof(ImDrawIdx),
+            .element_count = static_cast<std::uint64_t>(draw_data->TotalIdxCount),
+            .usages        = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::MapWrite,
+        },
+        "imgui_indices");
+
+    auto sampler_handle  = render_graph.Import(m_GfxData.sampler, "imgui_sampler");
+    auto pipeline_handle = render_graph.Import(m_GfxData.pipeline, "imgui_pipeline");
+
     rg::RenderPassBuilder builder(render_graph);
     builder.SetName("GuiRenderPass")
-        .Read(render_graph.Create(
-            {
-                .name          = "imgui_bindless_info",
-                .element_size  = sizeof(BindlessInfo),
-                .element_count = num_draw_calls,
-                .usages        = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
-            },
-            "imgui_bindless_info"))
-        .Read(render_graph.Create(
-            {
-                .name         = "imgui_frame_constant",
-                .element_size = sizeof(FrameConstant),
-                .usages       = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
-            },
-            "imgui_frame_constant"))
-        .ReadAsVertices(render_graph.Create(
-            gfx::GPUBufferDesc{
-                .element_size  = sizeof(ImDrawVert),
-                .element_count = static_cast<std::uint64_t>(draw_data->TotalVtxCount),
-                .usages        = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::MapWrite,
-            },
-            "imgui_vertices"))
-        .ReadAsIndices(render_graph.Create(
-            gfx::GPUBufferDesc{
-                .element_size  = sizeof(ImDrawIdx),
-                .element_count = static_cast<std::uint64_t>(draw_data->TotalIdxCount),
-                .usages        = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::MapWrite,
-            },
-            "imgui_indices"))
-        .AddSampler(render_graph.Import(m_GfxData.sampler, "imgui_sampler"))
-        .AddPipeline(render_graph.Import(m_GfxData.pipeline, "imgui_pipeline"))
+        .Read(bindless_info_handle)
+        .Read(frame_constant_handle)
+        .ReadAsVertices(vertex_buffer_handle)
+        .ReadAsIndices(index_buffer_handle)
+        .AddSampler(sampler_handle)
+        .AddPipeline(pipeline_handle)
         .SetRenderTarget(target, clear_target);
 
     for (const auto texture_handle : m_GuiManager.PopReadTextures()) {
         builder.Read(texture_handle, {}, gfx::PipelineStage::PixelShader);
     }
 
-    builder.SetExecutor([=, font_texture = m_FontTexture](const rg::RenderGraph& render_graph, const rg::RenderPassNode& pass) {
+    builder.SetExecutor([=, font_texture = m_FontTexture](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
                auto draw_data = ImGui::GetDrawData();
 
-               const auto vertex_buffer_handle = render_graph.GetBufferHandle("imgui_vertices");
-               auto&      vertex_buffer        = pass.Resolve(vertex_buffer_handle);
-               auto       vertex_buffer_view   = gfx::GPUBufferView<ImDrawVert>(vertex_buffer);
+               auto& vertex_buffer      = pass.Resolve(vertex_buffer_handle);
+               auto  vertex_buffer_view = gfx::GPUBufferView<ImDrawVert>(vertex_buffer);
 
-               const auto index_buffer_handle = render_graph.GetBufferHandle("imgui_indices");
-               auto&      index_buffer        = pass.Resolve(index_buffer_handle);
-               auto       index_buffer_view   = gfx::GPUBufferView<ImDrawIdx>(index_buffer);
+               auto& index_buffer      = pass.Resolve(index_buffer_handle);
+               auto  index_buffer_view = gfx::GPUBufferView<ImDrawIdx>(index_buffer);
 
-               const auto frame_constant_handle   = render_graph.GetBufferHandle("imgui_frame_constant");
                const auto frame_constant_bindless = pass.GetBindless(frame_constant_handle);
                {
                    gfx::GPUBufferView<FrameConstant> frame_constant(pass.Resolve(frame_constant_handle));
@@ -215,10 +223,9 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                        3.0f,
                        -1.0f);
                }
-               const auto sampler_bindless = pass.GetBindless(render_graph.GetSamplerHandle("imgui_sampler"));
+               const auto sampler_bindless = pass.GetBindless(sampler_handle);
 
-               const auto bindless_infos_handle = render_graph.GetBufferHandle("imgui_bindless_info");
-               auto       bindless_infos        = gfx::GPUBufferView<BindlessInfo>(pass.Resolve(bindless_infos_handle));
+               auto bindless_infos = gfx::GPUBufferView<BindlessInfo>(pass.Resolve(bindless_info_handle));
 
                auto& cmd = pass.GetCmd();
                cmd.SetViewPort({
@@ -227,7 +234,7 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                    draw_data->DisplaySize.x,
                    draw_data->DisplaySize.y,
                });
-               cmd.SetPipeline(pass.Resolve(render_graph.GetRenderPipelineHandle("imgui_pipeline")));
+               cmd.SetPipeline(pass.Resolve(pipeline_handle));
                cmd.SetVertexBuffers(0, {{vertex_buffer}}, {{0}});
                cmd.SetIndexBuffer(index_buffer);
 
@@ -268,7 +275,7 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                        }
 
                        cmd.PushBindlessMetaInfo(gfx::BindlessMetaInfo{
-                           .handle = pass.GetBindless(bindless_infos_handle, draw_call_index),
+                           .handle = pass.GetBindless(bindless_info_handle, draw_call_index),
                        });
 
                        cmd.DrawIndexed(im_cmd.ElemCount, 1, index_offset + im_cmd.IdxOffset, vertex_offset + im_cmd.VtxOffset);

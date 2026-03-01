@@ -760,10 +760,13 @@ void PresentPassBuilder::Finish() noexcept {
     }
     if (m_Invalid) return;
 
+    if (m_RenderGraph.m_PresentPassNode != nullptr) {
+        Invalidate("Finish present pass failed: a present pass already exists in the render graph");
+        return;
+    }
+
     PassBuilder::Finish();
     m_RenderGraph.m_PresentPassNode = pass;
-
-    m_Finished = true;
 }
 
 }  // namespace hitagi::rg

@@ -28,13 +28,15 @@ struct MockSwapChain : public SwapChain {
     MockSwapChain(Device& device, SwapChainDesc desc) : SwapChain(device, std::move(desc)), texture(device, {}) {}
 
     auto AcquireTextureForRendering() -> utils::optional_ref<Texture> final { return texture; }
-    auto GetWidth() const noexcept -> std::uint32_t final { return 0; }
-    auto GetHeight() const noexcept -> std::uint32_t final { return 0; }
+    auto GetWidth() const noexcept -> std::uint32_t final { return width; }
+    auto GetHeight() const noexcept -> std::uint32_t final { return height; }
     auto GetFormat() const noexcept -> Format final { return Format::UNKNOWN; }
     void Present() final {}
     void Resize() final {}
 
-    MockTexture texture;
+    MockTexture   texture;
+    std::uint32_t width  = 1;
+    std::uint32_t height = 1;
 };
 
 struct MockShader : public Shader {
@@ -101,7 +103,11 @@ struct MockCommandQueue : public CommandQueue {
     void Submit(
         std::span<const std::reference_wrapper<const CommandContext>> contexts,
         std::span<const FenceWaitInfo>                                wait_fences   = {},
-        std::span<const FenceSignalInfo>                              signal_fences = {}) final {}
+        std::span<const FenceSignalInfo>                              signal_fences = {}) final {
+        for (const auto& signal : signal_fences) {
+            signal.fence.Signal(signal.value);
+        }
+    }
     void WaitIdle() final{};
 };
 

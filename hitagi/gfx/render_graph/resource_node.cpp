@@ -61,7 +61,7 @@ void GPUBufferNode::Initialize() {
         m_Resource = m_MoveFromNode->m_Resource;
     }
     if (m_IsImported || m_Resource) return;
-    m_Resource = m_RenderGraph->GetDevice().CreateGPUBuffer(m_Desc.value());
+    m_Resource = m_RenderGraph->AcquireTransientBuffer(m_Desc.value());
 }
 
 TextureNode::TextureNode(RenderGraph& render_graph, gfx::TextureDesc desc, std::string_view name)
@@ -109,7 +109,7 @@ void TextureNode::Initialize() {
         m_Resource = m_MoveFromNode->m_Resource;
     }
     if (m_IsImported || m_Resource) return;
-    m_Resource = m_RenderGraph->GetDevice().CreateTexture(m_Desc.value());
+    m_Resource = m_RenderGraph->AcquireTransientTexture(m_Desc.value());
 }
 
 SamplerNode::SamplerNode(RenderGraph& render_graph, gfx::SamplerDesc desc, std::string_view name)

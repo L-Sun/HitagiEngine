@@ -64,6 +64,8 @@ private:
     friend CopyPassBuilder;
     friend PresentPassBuilder;
     friend ResourceNode;
+    friend GPUBufferNode;
+    friend TextureNode;
     friend PassNode;
 
     using ResourceDesc = std::variant<gfx::GPUBufferDesc, gfx::TextureDesc, gfx::SamplerDesc, gfx::RenderPipelineDesc, gfx::ComputePipelineDesc>;
@@ -87,6 +89,11 @@ private:
     void RetireNodesFromPassNode(PassNode* pass_node, const FenceValue& fence_value) noexcept;
     void RetireNodes() noexcept;
     void Reset() noexcept;
+
+    auto AcquireTransientBuffer(const gfx::GPUBufferDesc& desc) -> std::shared_ptr<gfx::GPUBuffer>;
+    auto AcquireTransientTexture(const gfx::TextureDesc& desc) -> std::shared_ptr<gfx::Texture>;
+    void RecycleTransientResource(RenderGraphNode* node) noexcept;
+    void EvictStalePoolEntries() noexcept;
 
     gfx::Device& m_Device;
 
@@ -113,6 +120,25 @@ private:
         FenceValue                       last_fence_value;
     };
     std::pmr::deque<RetiredNode> m_RetiredNodes;
+
+    struct TransientResourcePool {
+        static constexpr std::uint64_t max_unused_frames = 3;
+
+        struct CachedBuffer {
+            gfx::GPUBufferDesc              desc;
+            std::shared_ptr<gfx::GPUBuffer> resource;
+            std::uint64_t                   last_used_frame = 0;
+        };
+        struct CachedTexture {
+            gfx::TextureDesc               desc;
+            std::shared_ptr<gfx::Texture>  resource;
+            std::uint64_t                  last_used_frame = 0;
+        };
+
+        std::unordered_multimap<std::size_t, CachedBuffer>  buffers;
+        std::unordered_multimap<std::size_t, CachedTexture> textures;
+    };
+    TransientResourcePool m_TransientPool;
 };
 
 template <RenderGraphNode::Type T>
