@@ -9,8 +9,8 @@ target("material_test")
     set_group("test/asset")
 
 
-target("parser_test")
-    add_files("parser_test.cpp")
+target("codec_test")
+    add_files("codec_test.cpp")
     add_deps("asset", "core", "test_utils")
     set_group("test/asset")
 

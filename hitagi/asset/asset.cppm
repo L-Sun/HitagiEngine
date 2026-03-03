@@ -12,7 +12,7 @@ export import :meta_info;
 export import :transform;
 export import :scene;
 export import :mesh_factory;
-export import :image_parser;
+export import :image_codec;
 export import :scene_parser;
 export import :material_parser;
 export import :asset_manager;

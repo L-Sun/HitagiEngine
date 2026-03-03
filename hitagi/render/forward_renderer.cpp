@@ -75,9 +75,24 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
             true)
         .AddSampler(m_Sampler);
 
+    const math::vec3f global_eye      = (camera_transform * math::vec4f(camera.parameters.eye, 1.0f)).xyz;
+    const math::vec3f global_look_dir = (camera_transform * math::vec4f(camera.parameters.look_dir, 0.0f)).xyz;
+    const math::vec3f global_up       = (camera_transform * math::vec4f(camera.parameters.up, 0.0f)).xyz;
+
+    const auto view       = math::look_at(global_eye, global_look_dir, global_up);
+    const auto projection = math::perspective(camera.parameters.horizontal_fov, camera.parameters.aspect, camera.parameters.near_clip, camera.parameters.far_clip);
+    const auto proj_view  = projection * view;
+    const auto frustum    = math::extract_frustum(proj_view);
+
     for (const auto entity : scene->GetMeshEntities()) {
         const auto mesh      = entity.Get<asset::MeshComponent>().mesh;
         const auto transform = entity.Get<asset::Transform>().world_matrix;
+
+        if (mesh->aabb.Valid()) {
+            auto world_aabb = math::transform_aabb(transform, mesh->aabb);
+            if (!math::is_aabb_visible(frustum, world_aabb)) continue;
+        }
+
         RecordInstance(render_pass_builder, mesh, transform);
     }
     UpdateConstantBuffer(render_pass_builder);

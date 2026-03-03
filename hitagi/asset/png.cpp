@@ -25,7 +25,7 @@ void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
         png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
-std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer) {
+std::shared_ptr<Texture> PngDecoder::Decode(const core::Buffer& buffer) {
     auto logger = m_Logger ? m_Logger : spdlog::default_logger();
 
     if (buffer.Empty()) {
@@ -134,4 +134,70 @@ std::shared_ptr<Texture> PngParser::Parse(const core::Buffer& buffer) {
     png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
     return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
 }
+
+struct PngWriteContext {
+    std::pmr::vector<std::byte> data;
+};
+
+void png_write_callback(png_structp png_ptr, png_bytep data, png_size_t length) {
+    auto* ctx = reinterpret_cast<PngWriteContext*>(png_get_io_ptr(png_ptr));
+    auto* src = reinterpret_cast<const std::byte*>(data);
+    ctx->data.insert(ctx->data.end(), src, src + length);
+}
+
+void png_flush_callback(png_structp) {}
+
+core::Buffer PngEncoder::Encode(const Texture& texture) {
+    auto logger = m_Logger ? m_Logger : spdlog::default_logger();
+
+    if (texture.Empty()) {
+        logger->warn("[PNG] Encoding an empty texture will return empty buffer.");
+        return {};
+    }
+
+    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+    if (!png_ptr) {
+        logger->error("[PNG] Can not create write struct.");
+        return {};
+    }
+
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr) {
+        logger->error("[PNG] Can not create info struct.");
+        png_destroy_write_struct(&png_ptr, nullptr);
+        return {};
+    }
+
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        logger->error("[PNG] Error occurred during write_image.");
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+        return {};
+    }
+
+    PngWriteContext write_ctx;
+    png_set_write_fn(png_ptr, &write_ctx, png_write_callback, png_flush_callback);
+
+    auto width  = texture.Width();
+    auto height = texture.Height();
+
+    png_set_IHDR(png_ptr, info_ptr, width, height, 8,
+                 PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE,
+                 PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+
+    png_write_info(png_ptr, info_ptr);
+
+    auto pixel_data = texture.GetData();
+    auto pitch      = width * 4;
+
+    for (std::uint32_t y = 0; y < height; y++) {
+        auto row = reinterpret_cast<const png_byte*>(pixel_data.data() + y * pitch);
+        png_write_row(png_ptr, row);
+    }
+
+    png_write_end(png_ptr, info_ptr);
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+
+    return core::Buffer(write_ctx.data.size(), write_ctx.data.data());
+}
+
 }  // namespace hitagi::asset

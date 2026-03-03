@@ -13,37 +13,53 @@ using namespace hitagi::math;
 using namespace hitagi::asset;
 using namespace hitagi::testing;
 
-TEST(ImageParserTest, Jpeg) {
-    auto parser = std::make_shared<JpegParser>();
-    auto image  = parser->Parse("assets/test/test.jpg");
+TEST(ImageDecoderTest, Jpeg) {
+    auto decoder = std::make_shared<JpegDecoder>();
+    auto image   = decoder->Decode("assets/test/test.jpg");
 
     ASSERT_TRUE(image);
     EXPECT_EQ(image->Width(), 278);
     EXPECT_EQ(image->Height(), 152);
 }
 
-TEST(ImageParserTest, Tga) {
-    auto parser = std::make_shared<TgaParser>();
-    auto image  = parser->Parse("assets/test/test.tga");
+TEST(ImageDecoderTest, Tga) {
+    auto decoder = std::make_shared<TgaDecoder>();
+    auto image   = decoder->Decode("assets/test/test.tga");
     ASSERT_TRUE(image);
     EXPECT_EQ(image->Width(), 278);
     EXPECT_EQ(image->Height(), 152);
 }
 
-TEST(ImageParserTest, Png) {
-    auto parser = std::make_shared<PngParser>();
-    auto image  = parser->Parse("assets/test/test.png");
+TEST(ImageDecoderTest, Png) {
+    auto decoder = std::make_shared<PngDecoder>();
+    auto image   = decoder->Decode("assets/test/test.png");
     ASSERT_TRUE(image);
     EXPECT_EQ(image->Width(), 278);
     EXPECT_EQ(image->Height(), 152);
 }
 
-TEST(ImageParserTest, Bmp) {
-    auto parser = std::make_shared<BmpParser>();
-    auto image  = parser->Parse("assets/test/test.bmp");
+TEST(ImageDecoderTest, Bmp) {
+    auto decoder = std::make_shared<BmpDecoder>();
+    auto image   = decoder->Decode("assets/test/test.bmp");
     ASSERT_TRUE(image);
     EXPECT_EQ(image->Width(), 278);
     EXPECT_EQ(image->Height(), 152);
+}
+
+TEST(ImageEncoderTest, PngRoundTrip) {
+    auto decoder = std::make_shared<PngDecoder>();
+    auto encoder = std::make_shared<PngEncoder>();
+
+    auto original = decoder->Decode("assets/test/test.png");
+    ASSERT_TRUE(original);
+
+    auto encoded = encoder->Encode(*original);
+    ASSERT_FALSE(encoded.Empty());
+
+    auto decoded = decoder->Decode(encoded);
+    ASSERT_TRUE(decoded);
+    EXPECT_EQ(decoded->Width(), original->Width());
+    EXPECT_EQ(decoded->Height(), original->Height());
 }
 
 TEST(MaterialParserTest, JSON) {
@@ -71,13 +87,13 @@ TEST(MaterialParserTest, JSON) {
 }
 
 TEST(SceneParserTest, Fbx) {
-    utils::EnumArray<std::shared_ptr<ImageParser>, ImageFormat> image_parser;
-    image_parser[ImageFormat::PNG]  = std::make_shared<PngParser>();
-    image_parser[ImageFormat::JPEG] = std::make_shared<JpegParser>();
-    image_parser[ImageFormat::TGA]  = std::make_shared<TgaParser>();
-    image_parser[ImageFormat::BMP]  = std::make_shared<BmpParser>();
+    utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat> image_decoders;
+    image_decoders[ImageFormat::PNG]  = std::make_shared<PngDecoder>();
+    image_decoders[ImageFormat::JPEG] = std::make_shared<JpegDecoder>();
+    image_decoders[ImageFormat::TGA]  = std::make_shared<TgaDecoder>();
+    image_decoders[ImageFormat::BMP]  = std::make_shared<BmpDecoder>();
 
-    AssimpParser parser(image_parser);
+    AssimpParser parser(image_decoders);
     auto         scene = parser.Parse("assets/test/test.fbx");
     ASSERT_TRUE(scene != nullptr);
     EXPECT_EQ(scene->GetCameraEntities().size(), 1);

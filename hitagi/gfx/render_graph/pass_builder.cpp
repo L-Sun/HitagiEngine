@@ -618,6 +618,26 @@ auto CopyPassBuilder::BufferToTexture(GPUBufferHandle src, TextureHandle dst, gf
     return *this;
 }
 
+auto CopyPassBuilder::TextureToBuffer(TextureHandle src, GPUBufferHandle dst, gfx::TextureSubresourceLayer layer) noexcept -> CopyPassBuilder& {
+    AddTextureEdge(
+        src,
+        {
+            .write  = false,
+            .access = gfx::BarrierAccess::CopySrc,
+            .stage  = gfx::PipelineStage::Copy,
+            .layout = gfx::TextureLayout::CopySrc,
+            .layer  = layer,
+        });
+    AddGPUBufferEdge(
+        dst,
+        {
+            .write  = true,
+            .access = gfx::BarrierAccess::CopyDst,
+            .stage  = gfx::PipelineStage::Copy,
+        });
+    return *this;
+}
+
 auto CopyPassBuilder::TextureToTexture(TextureHandle src, TextureHandle dst, gfx::TextureSubresourceLayer src_layer, gfx::TextureSubresourceLayer dst_layer) noexcept -> CopyPassBuilder& {
     if (src == dst) {
         Invalidate(std::format("Copy texture failed: src and dst are the same texture"));

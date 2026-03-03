@@ -106,6 +106,7 @@ public:
 
     CopyPassBuilder& BufferToBuffer(GPUBufferHandle src, GPUBufferHandle dst) noexcept;
     CopyPassBuilder& BufferToTexture(GPUBufferHandle src, TextureHandle dst, gfx::TextureSubresourceLayer layer = {}) noexcept;
+    CopyPassBuilder& TextureToBuffer(TextureHandle src, GPUBufferHandle dst, gfx::TextureSubresourceLayer layer = {}) noexcept;
     CopyPassBuilder& TextureToTexture(TextureHandle src, TextureHandle dst, gfx::TextureSubresourceLayer src_layer = {}, gfx::TextureSubresourceLayer dst_layer = {}) noexcept;
 
     CopyPassBuilder& SetExecutor(CopyPassNode::Executor executor) noexcept;

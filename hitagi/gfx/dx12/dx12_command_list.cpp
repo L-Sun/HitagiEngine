@@ -354,6 +354,36 @@ void DX12CopyCommandList::CopyBufferToTexture(const GPUBuffer&        src,
         &src_location, &src_box);
 }
 
+void DX12CopyCommandList::CopyTextureToBuffer(const Texture&          src,
+                                              math::vec3i             src_offset,
+                                              math::vec3u             extent,
+                                              GPUBuffer&              dst,
+                                              std::size_t             dst_offset,
+                                              TextureSubresourceLayer src_layer) {
+    const auto& dx12_src_texture = static_cast<const DX12Texture&>(src);
+    auto&       dx12_dst_buffer  = static_cast<DX12GPUBuffer&>(dst);
+
+    const CD3DX12_TEXTURE_COPY_LOCATION src_location(dx12_src_texture.resource.Get(), D3D12CalcSubresource(src_layer.mip_level, src_layer.base_array_layer, 0, dx12_src_texture.GetDesc().mip_levels, src_layer.layer_count));
+    const CD3DX12_TEXTURE_COPY_LOCATION dst_location(
+        dx12_dst_buffer.resource.Get(),
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT{
+            .Offset    = dst_offset,
+            .Footprint = {
+                .Format   = to_dxgi_format(dx12_src_texture.GetDesc().format),
+                .Width    = extent.x,
+                .Height   = extent.y,
+                .Depth    = extent.z,
+                .RowPitch = static_cast<UINT>(extent.x * get_format_byte_size(dx12_src_texture.GetDesc().format)),
+            },
+        });
+
+    const CD3DX12_BOX src_box(src_offset.x, src_offset.y, src_offset.z, src_offset.x + extent.x, src_offset.y + extent.y, src_offset.z + extent.z);
+
+    command_list->CopyTextureRegion(
+        &dst_location, 0, 0, 0,
+        &src_location, &src_box);
+}
+
 void DX12CopyCommandList::CopyTextureRegion(const Texture&          src,
                                             math::vec3i             src_offset,
                                             Texture&                dst,

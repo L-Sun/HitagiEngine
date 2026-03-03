@@ -125,7 +125,9 @@ void IndexArray::InitGPUData(gfx::Device& device) {
 Mesh::Mesh(std::shared_ptr<VertexArray> vertices, std::shared_ptr<IndexArray> indices, std::string_view name)
     : Resource(Type::Mesh, name),
       vertices(std::move(vertices)),
-      indices(std::move(indices)) {}
+      indices(std::move(indices)) {
+    ComputeAABB();
+}
 
 Mesh Mesh::operator+(const Mesh& rhs) const {
     if (Empty()) return rhs;
@@ -174,7 +176,6 @@ Mesh Mesh::operator+(const Mesh& rhs) const {
     });
 
     Mesh result(new_vertices, new_indices);
-    // merge sub meshes
     for (const auto& lhs_sub_mesh : sub_meshes) {
         result.sub_meshes.emplace_back(lhs_sub_mesh);
     }
@@ -186,7 +187,17 @@ Mesh Mesh::operator+(const Mesh& rhs) const {
             .material_instance = rhs_sub_mesh.material_instance,
         });
     }
+    result.ComputeAABB();
     return result;
+}
+
+void Mesh::ComputeAABB() {
+    aabb = {};
+    if (!vertices) return;
+    auto positions = vertices->Span<VertexAttribute::Position>();
+    for (const auto& pos : positions) {
+        aabb.Expand(pos);
+    }
 }
 
 void Mesh::AddSubMesh(const SubMesh& sub_mesh) {

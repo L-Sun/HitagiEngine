@@ -101,6 +101,14 @@ public:
         math::vec3u             extent,
         TextureSubresourceLayer dst_layer = {}) final;
 
+    void CopyTextureToBuffer(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        math::vec3u             extent,
+        GPUBuffer&              dst,
+        std::size_t             dst_offset,
+        TextureSubresourceLayer src_layer = {}) final;
+
     void CopyTextureRegion(
         const Texture&          src,
         math::vec3i             src_offset,

@@ -12,7 +12,7 @@ import :camera;
 import :light;
 import :skeleton;
 import :scene;
-import :image_parser;
+import :image_codec;
 import :scene_parser;
 import :material_parser;
 import core;
@@ -50,7 +50,8 @@ private:
 
     // Parser
     std::shared_ptr<MaterialParser>                             m_MaterialParser;
-    utils::EnumArray<std::shared_ptr<ImageParser>, ImageFormat> m_ImageParsers;
+    utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat> m_ImageDecoders;
+    utils::EnumArray<std::shared_ptr<ImageEncoder>, ImageFormat> m_ImageEncoders;
     utils::EnumArray<std::shared_ptr<SceneParser>, SceneFormat> m_SceneParsers;
 
     struct Assets {

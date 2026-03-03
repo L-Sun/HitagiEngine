@@ -72,12 +72,12 @@ bool Texture::SetPath(const std::filesystem::path& path) {
     return true;
 }
 
-bool Texture::Load(const std::shared_ptr<ImageParser>& parser) {
-    if (parser == nullptr || !std::filesystem::is_regular_file(m_Path))
+bool Texture::Load(const std::shared_ptr<ImageDecoder>& decoder) {
+    if (decoder == nullptr || !std::filesystem::is_regular_file(m_Path))
         return false;
 
     if (core::FileIOManager::Get()) {
-        auto image = parser->Parse(core::FileIOManager::Get()->SyncOpenAndReadBinary(m_Path));
+        auto image = decoder->Decode(core::FileIOManager::Get()->SyncOpenAndReadBinary(m_Path));
         if (image == nullptr) return false;
         m_Width   = image->m_Width;
         m_Height  = image->m_Height;

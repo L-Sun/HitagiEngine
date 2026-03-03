@@ -436,6 +436,49 @@ TEST_F(RenderGraphTest, GraphTest) {
     rg.Execute();
 }
 
+TEST_F(RenderGraphTest, CopyTextureToBuffer) {
+    if (device->device_type != hitagi::gfx::Device::Type::Mock) {
+        GTEST_SKIP();
+    }
+
+    const auto src_texture = rg.Create(TextureDesc{
+        .name   = "src_texture",
+        .width  = 64,
+        .height = 64,
+        .depth  = 1,
+        .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::CopySrc,
+    });
+
+    const auto dst_buffer = rg.Create(GPUBufferDesc{
+        .name          = "dst_buffer",
+        .element_size  = 4,
+        .element_count = 64 * 64,
+        .usages        = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
+    });
+
+    const auto copy_pass =
+        CopyPassBuilder(rg)
+            .SetName("texture_to_buffer_copy")
+            .TextureToBuffer(src_texture, dst_buffer)
+            .SetExecutor([=](const RenderGraph& rg, const CopyPassNode& pass) {
+                auto& cmd     = pass.GetCmd();
+                auto& texture = pass.Resolve(src_texture);
+                auto& buffer  = pass.Resolve(dst_buffer);
+                cmd.CopyTextureToBuffer(texture, {0, 0, 0}, {64, 64, 1}, buffer, 0);
+            })
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(copy_pass));
+
+    PresentPassBuilder(rg)
+        .From(src_texture)
+        .SetSwapChain(device->CreateSwapChain({}))
+        .Finish();
+
+    EXPECT_TRUE(rg.Compile());
+    rg.Execute();
+}
+
 class TransientResourcePoolTest : public Test {
 protected:
     TransientResourcePoolTest()

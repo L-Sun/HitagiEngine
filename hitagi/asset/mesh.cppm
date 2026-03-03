@@ -213,11 +213,13 @@ public:
     Mesh operator+(const Mesh& rhs) const;
 
     void AddSubMesh(const SubMesh& sub_mesh);
+    void ComputeAABB();
     bool Empty() const noexcept { return vertices == nullptr || indices == nullptr || sub_meshes.empty(); }
 
     std::pmr::vector<SubMesh>    sub_meshes;
     std::shared_ptr<VertexArray> vertices;
     std::shared_ptr<IndexArray>  indices;
+    math::AABBf                  aabb;
 };
 
 struct MeshComponent {

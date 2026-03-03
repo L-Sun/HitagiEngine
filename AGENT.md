@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENT.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents when working with code in this repository.
 
 ## Build System
 
@@ -116,7 +116,7 @@ Following the layered architecture from *Game Engine Architecture* (Jason Gregor
 
 **`hitagi/asset`** — `AssetManager` for loading scenes, meshes, materials, textures. Assimp for model import; custom parsers for PNG, JPEG, BMP, TGA. Materials are defined with named instances (e.g., `"Phong"`).
 
-**`hitagi/render`** — `IRenderer` interface; `ForwardRenderer` is the concrete implementation. The renderer owns the swapchain and render graph instance.
+**`hitagi/render`** — `IRenderer` interface with two concrete implementations: `ForwardRenderer` (single-pass Phong shading) and `DeferredRenderer` (G-Buffer MRT pass + fullscreen lighting pass). Both renderers own the swapchain and render graph instance. The engine defaults to `ForwardRenderer`; switch via `Engine::SetRenderer()`.
 
 **`hitagi/engine`** — Top-level `Engine` class that composes everything. Initialized from `hitagi.json` at the project root. Usage pattern: construct `Engine`, call `engine.Tick()` in the game loop.
 

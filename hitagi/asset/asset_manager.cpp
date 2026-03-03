@@ -19,13 +19,15 @@ AssetManager::AssetManager(std::filesystem::path asset_base_path)
 
     m_MaterialParser = std::make_shared<MaterialJSONParser>();
 
-    m_ImageParsers[ImageFormat::PNG]  = std::make_shared<PngParser>(m_Logger);
-    m_ImageParsers[ImageFormat::JPEG] = std::make_shared<JpegParser>(m_Logger);
-    m_ImageParsers[ImageFormat::TGA]  = std::make_shared<TgaParser>(m_Logger);
-    m_ImageParsers[ImageFormat::BMP]  = std::make_shared<BmpParser>(m_Logger);
+    m_ImageDecoders[ImageFormat::PNG]  = std::make_shared<PngDecoder>(m_Logger);
+    m_ImageDecoders[ImageFormat::JPEG] = std::make_shared<JpegDecoder>(m_Logger);
+    m_ImageDecoders[ImageFormat::TGA]  = std::make_shared<TgaDecoder>(m_Logger);
+    m_ImageDecoders[ImageFormat::BMP]  = std::make_shared<BmpDecoder>(m_Logger);
+
+    m_ImageEncoders[ImageFormat::PNG] = std::make_shared<PngEncoder>(m_Logger);
 
     m_SceneParsers[SceneFormat::UNKOWN] = std::make_shared<AssimpParser>(
-        m_ImageParsers,
+        m_ImageDecoders,
         [this](auto name) { return GetMaterial(name); },
         m_Logger);
     m_SceneParsers[SceneFormat::GLTF]  = m_SceneParsers[SceneFormat::UNKOWN];
@@ -49,7 +51,7 @@ std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& pa
 
 std::shared_ptr<Texture> AssetManager::ImportTexture(const std::filesystem::path& path) {
     auto format = get_image_format(path.extension().string());
-    auto image  = m_ImageParsers[format]->Parse(path);
+    auto image  = m_ImageDecoders[format]->Decode(path);
     AddTexture(image);
     return image;
 }

@@ -8,6 +8,7 @@ export module math;
 export import :vector;
 export import :matrix;
 export import :transform;
+export import :geometry;
 import std;
 
 // The _deg literal must be in global namespace

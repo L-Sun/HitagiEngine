@@ -33,7 +33,7 @@ using BITMAP_HEADER = struct BitmapHeader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Texture> BmpParser::Parse(const core::Buffer& buffer) {
+std::shared_ptr<Texture> BmpDecoder::Decode(const core::Buffer& buffer) {
     auto logger = m_Logger ? m_Logger : spdlog::default_logger();
     if (buffer.Empty()) {
         logger->warn("[BMP] Parsing a empty buffer will return nullptr");

@@ -435,6 +435,31 @@ void VulkanTransferCommandBuffer::CopyBufferToTexture(const GPUBuffer&        sr
         buffer_image_copy);
 }
 
+void VulkanTransferCommandBuffer::CopyTextureToBuffer(const Texture&          src,
+                                                      math::vec3i             src_offset,
+                                                      math::vec3u             extent,
+                                                      GPUBuffer&              dst,
+                                                      std::size_t             dst_offset,
+                                                      TextureSubresourceLayer src_layer) {
+    auto& src_image  = static_cast<const VulkanImage&>(src);
+    auto& dst_buffer = static_cast<VulkanBuffer&>(dst);
+
+    const vk::BufferImageCopy buffer_image_copy{
+        .bufferOffset      = dst_offset,
+        .bufferRowLength   = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource  = to_vk_image_subresource_layer(src_layer, src.GetDesc()),
+        .imageOffset       = to_vk_offset3D(src_offset),
+        .imageExtent       = to_vk_extent3D(extent),
+    };
+
+    command_buffer.copyImageToBuffer(
+        src_image.image_handle,
+        vk::ImageLayout::eTransferSrcOptimal,
+        **dst_buffer.buffer,
+        buffer_image_copy);
+}
+
 void VulkanTransferCommandBuffer::CopyTextureRegion(const Texture&          src,
                                                     math::vec3i             src_offset,
                                                     Texture&                dst,

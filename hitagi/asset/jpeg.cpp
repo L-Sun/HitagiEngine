@@ -9,7 +9,7 @@ import std;
 
 namespace hitagi::asset {
 
-std::shared_ptr<Texture> JpegParser::Parse(const core::Buffer& buffer) {
+std::shared_ptr<Texture> JpegDecoder::Decode(const core::Buffer& buffer) {
     auto logger = m_Logger ? m_Logger : spdlog::default_logger();
 
     if (buffer.Empty()) {

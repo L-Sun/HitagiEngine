@@ -19,7 +19,7 @@ struct TgaFileheader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Texture> TgaParser::Parse(const core::Buffer& buffer) {
+std::shared_ptr<Texture> TgaDecoder::Decode(const core::Buffer& buffer) {
     auto logger = m_Logger ? m_Logger : spdlog::default_logger();
 
     if (buffer.Empty()) {

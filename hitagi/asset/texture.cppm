@@ -7,7 +7,7 @@ import gfx;
 import core;
 
 export namespace hitagi::asset {
-class ImageParser;
+class ImageDecoder;
 
 class Texture : public Resource {
 public:
@@ -36,7 +36,7 @@ public:
     inline auto  GetGPUData() const noexcept { return m_GPUData; }
 
     bool SetPath(const std::filesystem::path& path);
-    bool Load(const std::shared_ptr<ImageParser>& parser);
+    bool Load(const std::shared_ptr<ImageDecoder>& decoder);
     void Unload();
 
     void InitGPUData(gfx::Device& device);

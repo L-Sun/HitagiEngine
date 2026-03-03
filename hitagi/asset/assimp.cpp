@@ -227,14 +227,14 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             logger->trace("texture path: {}", _texture->mFilename.C_Str());
             const auto compressed_buffer = core::Buffer(_texture->mWidth, reinterpret_cast<const std::byte*>(_texture->pcData));
 
-            if (_texture->CheckFormat("jpg") && m_ImageParsers[ImageFormat::JPEG]) {
-                texture = m_ImageParsers[ImageFormat::JPEG]->Parse(compressed_buffer);
-            } else if (_texture->CheckFormat("png") && m_ImageParsers[ImageFormat::PNG]) {
-                texture = m_ImageParsers[ImageFormat::PNG]->Parse(compressed_buffer);
-            } else if (_texture->CheckFormat("bmp") && m_ImageParsers[ImageFormat::BMP]) {
-                texture = m_ImageParsers[ImageFormat::BMP]->Parse(compressed_buffer);
-            } else if (_texture->CheckFormat("tga") && m_ImageParsers[ImageFormat::TGA]) {
-                texture = m_ImageParsers[ImageFormat::TGA]->Parse(compressed_buffer);
+            if (_texture->CheckFormat("jpg") && m_ImageDecoders[ImageFormat::JPEG]) {
+                texture = m_ImageDecoders[ImageFormat::JPEG]->Decode(compressed_buffer);
+            } else if (_texture->CheckFormat("png") && m_ImageDecoders[ImageFormat::PNG]) {
+                texture = m_ImageDecoders[ImageFormat::PNG]->Decode(compressed_buffer);
+            } else if (_texture->CheckFormat("bmp") && m_ImageDecoders[ImageFormat::BMP]) {
+                texture = m_ImageDecoders[ImageFormat::BMP]->Decode(compressed_buffer);
+            } else if (_texture->CheckFormat("tga") && m_ImageDecoders[ImageFormat::TGA]) {
+                texture = m_ImageDecoders[ImageFormat::TGA]->Decode(compressed_buffer);
             } else {
                 logger->warn("Unsupported texture format: {}", _texture->achFormatHint);
             }

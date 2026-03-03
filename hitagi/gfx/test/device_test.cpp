@@ -906,6 +906,67 @@ TEST_P(CopyCommandTest, CopyTexture) {
     });
 }
 
+TEST_P(CopyCommandTest, CopyTextureToBuffer) {
+    constexpr std::uint32_t tex_width  = 4;
+    constexpr std::uint32_t tex_height = 4;
+    constexpr auto          tex_format = Format::R8G8B8A8_UNORM;
+    constexpr std::size_t   pixel_size = 4;
+
+    std::array<R8G8B8A8Unorm, tex_width * tex_height> pixels;
+    for (std::uint32_t i = 0; i < pixels.size(); ++i) {
+        auto val   = static_cast<std::uint8_t>(i);
+        pixels[i] = R8G8B8A8Unorm(val, val, val, 0xFF);
+    }
+
+    auto src_texture = device->CreateTexture(
+        {
+            .name   = std::pmr::string(std::format("{}_src", test_name)),
+            .width  = tex_width,
+            .height = tex_height,
+            .format = tex_format,
+            .usages = TextureUsageFlags::SRV | TextureUsageFlags::CopySrc | TextureUsageFlags::CopyDst,
+        },
+        {reinterpret_cast<const std::byte*>(pixels.data()), sizeof(pixels)});
+    ASSERT_TRUE(src_texture != nullptr);
+
+    auto dst_buffer = device->CreateGPUBuffer(
+        {
+            .name          = std::pmr::string(std::format("{}_dst", test_name)),
+            .element_size  = pixel_size,
+            .element_count = tex_width * tex_height,
+            .usages        = GPUBufferUsageFlags::MapRead | GPUBufferUsageFlags::CopyDst,
+        });
+    ASSERT_TRUE(dst_buffer != nullptr);
+
+    context->Begin();
+    context->ResourceBarrier(
+        {}, {},
+        {{TextureBarrier{
+            .src_access = BarrierAccess::None,
+            .dst_access = BarrierAccess::CopySrc,
+            .src_stage  = PipelineStage::None,
+            .dst_stage  = PipelineStage::Copy,
+            .src_layout = TextureLayout::Unkown,
+            .dst_layout = TextureLayout::CopySrc,
+            .texture    = *src_texture,
+        }}});
+    context->CopyTextureToBuffer(*src_texture, {0, 0, 0}, {tex_width, tex_height, 1}, *dst_buffer, 0);
+    context->End();
+
+    auto& copy_queue = device->GetCommandQueue(CommandType::Copy);
+    copy_queue.Submit({{*context}});
+    copy_queue.WaitIdle();
+
+    auto readback = GPUBufferView<const R8G8B8A8Unorm>(*dst_buffer);
+    for (std::uint32_t i = 0; i < pixels.size(); ++i) {
+        auto val = static_cast<std::uint8_t>(i);
+        EXPECT_EQ(readback[i][0], val) << "pixel R mismatch at index " << i;
+        EXPECT_EQ(readback[i][1], val) << "pixel G mismatch at index " << i;
+        EXPECT_EQ(readback[i][2], val) << "pixel B mismatch at index " << i;
+        EXPECT_EQ(readback[i][3], 0xFF) << "pixel A mismatch at index " << i;
+    }
+}
+
 class SwapChainTest : public DeviceTest {
 protected:
     SwapChainTest()
