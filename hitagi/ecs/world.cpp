@@ -14,11 +14,22 @@ World::World(std::string_view name)
       m_SystemManager(*this) {
 }
 
+World::~World() = default;
+
 void World::Update() {
     ZoneScopedN("ECS::World::Update");
-    Schedule schedule(*this);
-    m_SystemManager.Update(schedule);
-    schedule.Run(m_Executor);
+    if (m_ScheduleDirty || !m_Schedule) {
+        m_Schedule = std::make_unique<Schedule>(*this);
+        m_SystemManager.Update(*m_Schedule);
+        m_ScheduleDirty = false;
+    }
+
+    m_Schedule->Run(m_Executor);
+}
+
+void World::InvalidateSchedule() noexcept {
+    m_ScheduleDirty = true;
+    m_Schedule.reset();
 }
 
 }  // namespace hitagi::ecs

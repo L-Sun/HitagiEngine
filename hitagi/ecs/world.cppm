@@ -10,9 +10,12 @@ import :system_manager;
 
 export namespace hitagi::ecs {
 
+class Schedule;
+
 class World {
 public:
     World(std::string_view name);
+    ~World();
 
     void Update();
 
@@ -24,12 +27,18 @@ public:
     inline auto  GetLogger() noexcept { return m_Logger; }
 
 private:
+    friend SystemManager;
+
+    void InvalidateSchedule() noexcept;
+
     std::pmr::string                m_Name;
     std::shared_ptr<spdlog::logger> m_Logger;
 
     EntityManager m_EntityManager;
     SystemManager m_SystemManager;
     tf::Executor  m_Executor;
+    std::unique_ptr<Schedule> m_Schedule;
+    bool                     m_ScheduleDirty = true;
 };
 
 }  // namespace hitagi::ecs
