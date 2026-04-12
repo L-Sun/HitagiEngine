@@ -324,7 +324,8 @@ bool RenderGraph::Compile() {
             for (auto node : start_nodes) {
                 num_visited_nodes++;
                 for (auto output_node : node->m_OutputNodes) {
-                    if (--in_degrees.at(output_node) == 0) {
+                    auto it = in_degrees.find(output_node);
+                    if (it != in_degrees.end() && --it->second == 0) {
                         new_start_nodes.emplace_back(output_node);
                     }
                 }
