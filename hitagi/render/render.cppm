@@ -110,8 +110,6 @@ private:
     struct MaterialInstanceInfo {
         std::shared_ptr<asset::MaterialInstance> material_instance;
         std::pmr::vector<rg::TextureHandle>      textures;
-        std::pmr::vector<rg::SamplerHandle>      samplers;
-        std::size_t                              material_instance_index;
     };
 
     struct MeshInfo {
@@ -137,6 +135,7 @@ private:
     // 5. create constant buffer of bindless info
     void UpdateConstantBuffer(rg::RenderPassBuilder& builder);
     void ClearFrameState();
+    void InvalidateSceneCaches();
 
     const Application& m_App;
     gfx::Device&       m_GfxDevice;
@@ -156,9 +155,13 @@ private:
     rg::GPUBufferHandle m_FrameConstantBuffer;
     rg::GPUBufferHandle m_InstanceConstantBuffer;
     rg::GPUBufferHandle m_BindlessInfoConstantBuffer;
+    asset::Scene*       m_CachedScene = nullptr;
 
     std::pmr::unordered_map<asset::Material*, MaterialInfo>                 m_MaterialInfos;
+    std::pmr::unordered_map<asset::Material*, rg::RenderPipelineHandle>     m_PipelineHandles;
     std::pmr::unordered_map<asset::MaterialInstance*, MaterialInstanceInfo> m_MaterialInstanceInfos;
+    std::pmr::unordered_map<asset::MaterialInstance*, std::size_t>          m_MaterialInstanceIndices;
+    std::pmr::unordered_set<asset::MaterialInstance*>                       m_ActiveMaterialInstances;
     std::pmr::unordered_map<asset::Mesh*, MeshInfo>                         m_MeshInfos;
     std::pmr::vector<InstanceInfo>                                          m_InstanceInfos;
 };

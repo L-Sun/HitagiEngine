@@ -86,16 +86,14 @@ auto RenderGraph::ImportResource(std::shared_ptr<gfx::Resource> resource, std::s
                 utils::unreachable();
         }
     }
-    new_node->m_Handle = m_Nodes.size();
-
-    m_Nodes.emplace_back(new_node);
-    m_ImportedResources.emplace(resource, new_node->m_Handle);
+    const auto handle = AllocateNode(new_node);
+    m_ImportedResources.emplace(resource, handle);
 
     if (!name.empty()) {
-        m_BlackBoard[node_type].emplace(name, new_node->m_Handle);
+        m_BlackBoard[node_type].emplace(name, handle);
     }
 
-    return new_node->m_Handle;
+    return handle;
 }
 
 auto RenderGraph::Import(std::shared_ptr<gfx::GPUBuffer> buffer, std::string_view name) noexcept -> GPUBufferHandle {
@@ -164,14 +162,13 @@ auto RenderGraph::CreateResource(ResourceDesc desc, std::string_view name) noexc
             utils::unreachable();
     }
 
-    new_node->m_Handle = m_Nodes.size();
-    m_Nodes.emplace_back(new_node);
+    const auto handle = AllocateNode(new_node);
 
     if (!name.empty()) {
-        m_BlackBoard[node_type].emplace(name, new_node->m_Handle);
+        m_BlackBoard[node_type].emplace(name, handle);
     }
 
-    return new_node->m_Handle;
+    return handle;
 }
 
 auto RenderGraph::Create(gfx::GPUBufferDesc desc, std::string_view name) noexcept -> GPUBufferHandle {
@@ -209,15 +206,15 @@ auto RenderGraph::MoveFrom(RenderGraphNode::Type type, std::size_t resource_node
         return invalid_index;
     }
 
-    const auto new_handle = m_Nodes.size();
+    const auto new_handle = m_FreeNodeSlots.empty() ? m_Nodes.size() : m_FreeNodeSlots.back();
     switch (type) {
         case RenderGraphNode::Type::GPUBuffer: {
             const auto buffer_node = std::static_pointer_cast<GPUBufferNode>(m_Nodes[resource_node_index]);
-            m_Nodes.emplace_back(buffer_node->Move(new_handle, name));
+            AllocateNode(buffer_node->Move(new_handle, name));
         } break;
         case RenderGraphNode::Type::Texture: {
             const auto texture_node = std::static_pointer_cast<TextureNode>(m_Nodes[resource_node_index]);
-            m_Nodes.emplace_back(texture_node->Move(new_handle, name));
+            AllocateNode(texture_node->Move(new_handle, name));
         } break;
         default: {
             m_Logger->error("Move resource failed: resource is not a GPUBuffer or Texture");
@@ -408,15 +405,72 @@ auto RenderGraph::Execute() -> std::uint64_t {
     return m_FrameIndex++;
 }
 
+void RenderGraph::ClearImportedResources() noexcept {
+    for (const auto& [resource, handle] : m_ImportedResources) {
+        if (!IsValid(gfx_resource_type_to_node_type(resource->GetType()), handle)) continue;
+
+        auto& node = m_Nodes[handle];
+        node->m_InputNodes.clear();
+        node->m_OutputNodes.clear();
+        node.reset();
+        m_FreeNodeSlots.emplace_back(handle);
+    }
+
+    m_ImportedResources.clear();
+    RebuildBlackBoard();
+}
+
 void RenderGraph::Reset() noexcept {
     m_Compiled        = false;
     m_PresentPassNode = nullptr;
-    m_Nodes.clear();
-    m_ImportedResources.clear();
+
+    for (std::size_t handle = 0; handle < m_Nodes.size(); handle++) {
+        auto& node = m_Nodes[handle];
+        if (!node) continue;
+
+        node->m_InputNodes.clear();
+        node->m_OutputNodes.clear();
+
+        if (node->IsResourceNode() && static_cast<ResourceNode*>(node.get())->m_IsImported) continue;
+
+        node.reset();
+        m_FreeNodeSlots.emplace_back(handle);
+    }
+
+    RebuildBlackBoard();
+    m_ExecuteLayers.clear();
+}
+
+auto RenderGraph::AllocateNode(std::shared_ptr<RenderGraphNode> node) noexcept -> std::size_t {
+    if (node == nullptr) return std::numeric_limits<std::size_t>::max();
+
+    std::size_t handle = std::numeric_limits<std::size_t>::max();
+    if (!m_FreeNodeSlots.empty()) {
+        handle = m_FreeNodeSlots.back();
+        m_FreeNodeSlots.pop_back();
+        m_Nodes[handle] = std::move(node);
+    } else {
+        handle = m_Nodes.size();
+        m_Nodes.emplace_back(std::move(node));
+    }
+
+    m_Nodes[handle]->m_Handle = handle;
+    return handle;
+}
+
+void RenderGraph::RebuildBlackBoard() noexcept {
     for (auto& black_board : m_BlackBoard) {
         black_board.clear();
     }
-    m_ExecuteLayers.clear();
+
+    for (const auto& node : m_Nodes) {
+        if (!node || !node->IsResourceNode()) continue;
+
+        const auto* resource_node = static_cast<ResourceNode*>(node.get());
+        if (!resource_node->m_IsImported || node->GetName().empty()) continue;
+
+        m_BlackBoard[node->GetType()].insert_or_assign(std::pmr::string(node->GetName()), node->m_Handle);
+    }
 }
 
 void RenderGraph::RetireNodesFromPassNode(PassNode* pass_node, const FenceValue& fence_value) noexcept {

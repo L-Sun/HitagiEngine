@@ -19,8 +19,7 @@ PassBuilder::~PassBuilder() {
 }
 
 auto PassBuilder::Finish() -> std::size_t {
-    pass_base->m_Handle = m_RenderGraph.m_Nodes.size();
-    m_RenderGraph.m_Nodes.emplace_back(pass_base);
+    pass_base->m_Handle = m_RenderGraph.AllocateNode(pass_base);
 
     // create edge for move resource:
     // resource_1 -- move --> resource_2(*)        resource_1 -- new_edge -->  pass_2
