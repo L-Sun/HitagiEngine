@@ -26,13 +26,15 @@ public:
 };
 
 Engine::Engine(const std::filesystem::path& config_path) : RuntimeModule("Engine") {
+    tracy::SetThreadName("Hitagi/Main");
+
     auto add_inner_module = [&]<typename T>(std::unique_ptr<T> module) -> T* {
         return static_cast<T*>(RuntimeModule::AddSubModule(std::unique_ptr<RuntimeModule>{module.release()}));
     };
 
     add_inner_module(std::make_unique<core::MemoryManager>());
     add_inner_module(std::make_unique<core::FileIOManager>());
-    add_inner_module(std::make_unique<core::ThreadManager>());
+    add_inner_module(core::CreateThreadManager());
 
     // Input
     m_App = add_inner_module(Application::CreateApp(config_path));  // input manager is created here
@@ -56,6 +58,13 @@ void Engine::Tick() {
     ZoneScopedN("Engine");
     RuntimeModule::Tick();
     m_Clock.Tick();
+
+    static bool tracy_plot_configured = false;
+    if (!tracy_plot_configured) {
+        TracyPlotConfig("CPU Frame Time (ms)", tracy::PlotFormatType::Number, false, true, 0);
+        tracy_plot_configured = true;
+    }
+    TracyPlot("CPU Frame Time (ms)", m_Clock.DeltaTime().count() * 1000.0);
     FrameMark;
 }
 

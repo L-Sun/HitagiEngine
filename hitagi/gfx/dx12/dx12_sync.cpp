@@ -3,6 +3,7 @@ module;
 #include <spdlog/logger.h>
 #include <fmt/color.h>
 #include <d3dx12/d3dx12.h>
+#include <tracy/Tracy.hpp>
 
 module gfx.dx12;
 import :sync;
@@ -45,7 +46,7 @@ void DX12Fence::Signal(std::uint64_t value) {
 }
 
 bool DX12Fence::Wait(std::uint64_t value, std::chrono::milliseconds timeout) {
-    auto dx12_device = static_cast<DX12Device&>(m_Device).GetDevice();
+    ZoneScopedNS("DX12Fence::Wait", 8);
     if (m_Fence->GetCompletedValue() < value) {
         m_Fence->SetEventOnCompletion(value, m_EventHandle);
         return WAIT_TIMEOUT != WaitForSingleObject(m_EventHandle, timeout.count());

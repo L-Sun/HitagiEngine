@@ -16,6 +16,7 @@ public:
 
     void Update();
 
+    inline auto GetName() const noexcept -> std::string_view { return m_Name; }
     inline auto& GetEntityManager() noexcept { return m_EntityManager; }
     inline auto& GetSystemManager() noexcept { return m_SystemManager; }
     inline auto& GetEntityManager() const noexcept { return m_EntityManager; }

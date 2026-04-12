@@ -10,13 +10,7 @@ import std;
 
 namespace hitagi::gfx {
 VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view name)
-    : BindlessUtils(device, name),
-      m_BindlessHandlePools{{
-          {{}, std::mutex{}},
-          {{}, std::mutex{}},
-          {{}, std::mutex{}},
-          {{}, std::mutex{}},
-      }} {
+    : BindlessUtils(device, name) {
     const auto logger = device.GetLogger();
 
     const auto limits = device.GetPhysicalDevice().getProperties().limits;
@@ -193,7 +187,6 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t 
 
     vk_device.GetDevice().updateDescriptorSets(write_info, {});
 
-    TracyAllocN((void*)static_cast<std::uint64_t>(handle.index), 1, "GPUBuffer_bindless");
     return handle;
 }
 
@@ -251,12 +244,6 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
 
     vk_device.GetDevice().updateDescriptorSets(write_info, {});
 
-    if (writable) {
-        TracyAllocN((void*)static_cast<std::uint64_t>(handle.index), 1, "StorageTexture_bindless");
-    } else {
-        TracyAllocN((void*)static_cast<std::uint64_t>(handle.index), 1, "SampledTexture_bindless");
-    }
-
     return handle;
 }
 
@@ -287,8 +274,6 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHand
 
     vk_device.GetDevice().updateDescriptorSets(write_info, {});
 
-    TracyAllocN((void*)static_cast<std::uint64_t>(handle.index), 1, "Sampler_bindless");
-
     return handle;
 }
 
@@ -299,17 +284,13 @@ void VulkanBindlessUtils::DiscardBindlessHandle(BindlessHandle handle) {
 
     if (handle.type == BindlessHandleType::Buffer) {
         pool_index = 0;
-        TracyFreeN((void*)static_cast<std::uint64_t>(handle.index), "GPUBuffer_bindless");
     } else if (handle.type == BindlessHandleType::Texture) {
         if (handle.writable) {
             pool_index = 2;
-            TracyFreeN((void*)static_cast<std::uint64_t>(handle.index), "StorageTexture_bindless");
         } else {
             pool_index = 1;
-            TracyFreeN((void*)static_cast<std::uint64_t>(handle.index), "SampledTexture_bindless");
         }
     } else if (handle.type == BindlessHandleType::Sampler) {
-        TracyFreeN((void*)static_cast<std::uint64_t>(handle.index), "Sampler_bindless");
         pool_index = 3;
     } else {
         return;

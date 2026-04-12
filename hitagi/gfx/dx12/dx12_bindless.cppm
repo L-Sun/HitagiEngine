@@ -1,6 +1,7 @@
 module;
 
 #include <d3d12.h>
+#include <tracy/Tracy.hpp>
 #include <wrl.h>
 
 export module gfx.dx12:bindless;
@@ -30,7 +31,7 @@ public:
     inline auto GetBindlessRootSignature() const noexcept { return m_RootSignature; }
 
 private:
-    std::mutex m_Mutex;
+    TracyLockableN(std::mutex, m_Mutex, "DX12 Bindless Mutex");
 
     ComPtr<ID3D12RootSignature> m_RootSignature;
 

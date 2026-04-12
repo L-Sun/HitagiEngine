@@ -3,6 +3,7 @@ module;
 #include <fmt/color.h>
 #include <spdlog/logger.h>
 #include <vulkan/vulkan_raii.hpp>
+#include <tracy/TracyVulkan.hpp>
 
 module gfx.vulkan;
 import :command_queue;
@@ -17,6 +18,24 @@ VulkanCommandQueue::VulkanCommandQueue(VulkanDevice& device, CommandType type, s
 
 {
     create_vk_debug_object_info(m_Queue, m_Name, device.GetDevice());
+}
+
+VulkanCommandQueue::~VulkanCommandQueue() {
+    TracyVkDestroy(m_TracyCtx);
+}
+
+void VulkanCommandQueue::InitializeTracyContext() {
+    auto& device = static_cast<VulkanDevice&>(m_Device);
+    auto  setup_command_buffer = std::move(vk::raii::CommandBuffers(
+        device.GetDevice(),
+        vk::CommandBufferAllocateInfo{
+            .commandPool        = *device.GetCommandPool(m_Type),
+            .level              = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = 1,
+        }).front());
+
+    m_TracyCtx = TracyVkContext(*device.GetPhysicalDevice(), *device.GetDevice(), *m_Queue, *setup_command_buffer);
+    TracyVkContextName(m_TracyCtx, m_Name.data(), static_cast<uint16_t>(m_Name.size()));
 }
 
 void VulkanCommandQueue::Submit(std::span<const std::reference_wrapper<const CommandContext>> contexts,

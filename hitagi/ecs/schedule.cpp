@@ -1,6 +1,7 @@
 module;
 #include <taskflow/taskflow.hpp>
 #include <spdlog/logger.h>
+#include <tracy/Tracy.hpp>
 
 module ecs;
 import std;
@@ -42,7 +43,20 @@ void Schedule::Run(tf::Executor& executor) {
         direct_graph[i] = {};
 
     for (const auto& task : m_Tasks) {
-        tasks.emplace_back(taskflow.emplace([&]() { task->Run(world); }).name(task->name.data()));
+        tasks.emplace_back(taskflow.emplace([this, &executor, task]() {
+            thread_local bool tracy_thread_named = false;
+            if (!tracy_thread_named) {
+                if (const auto worker_id = executor.this_worker_id(); worker_id >= 0) {
+                    const auto thread_name = std::format("Hitagi/ECS/{}/Worker-{}", world.GetName(), worker_id);
+                    tracy::SetThreadName(thread_name.c_str());
+                    tracy_thread_named = true;
+                }
+            }
+
+            ZoneScoped;
+            ZoneName(task->name.data(), task->name.size());
+            task->Run(world);
+        }).name(task->name.data()));
     }
 
     for (const auto& [component, task_indices] : m_ReadBeforeWriteSet) {
@@ -97,6 +111,7 @@ void Schedule::Run(tf::Executor& executor) {
         return;
     }
 
+    ZoneScopedN("ECSFrame");
     executor.run(taskflow).wait();
 }
 

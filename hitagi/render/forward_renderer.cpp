@@ -32,6 +32,8 @@ ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, gu
 }
 
 void ForwardRenderer::Tick() {
+    ZoneScopedN("RenderFrame");
+
     if (m_App.WindowSizeChanged()) {
         m_SwapChain->Resize();
     }
@@ -49,6 +51,13 @@ void ForwardRenderer::Tick() {
     m_SwapChain->Present();
 
     m_Clock.Tick();
+
+    static bool tracy_plot_configured = false;
+    if (!tracy_plot_configured) {
+        TracyPlotConfig("Render Frame Time (ms)", tracy::PlotFormatType::Number, false, true, 0);
+        tracy_plot_configured = true;
+    }
+    TracyPlot("Render Frame Time (ms)", m_Clock.DeltaTime().count() * 1000.0);
 }
 
 void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) {

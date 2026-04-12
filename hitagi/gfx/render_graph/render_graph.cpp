@@ -335,6 +335,8 @@ bool RenderGraph::Compile() {
 
         if (num_visited_nodes != essential_nodes.size()) {
             m_Logger->error("RenderGraph has cycle");
+            const auto message = std::format("{} has cycle", m_Name);
+            TracyMessageCS(message.data(), message.size(), tracy::Color::Red3, 8);
             m_ExecuteLayers.clear();
             return false;
         }
@@ -354,6 +356,7 @@ auto RenderGraph::Execute() -> std::uint64_t {
 
     if (!m_Compiled) {
         m_Logger->warn("RenderGraph has not been compiled");
+        TracyMessageLCS("RenderGraph execute skipped because it is not compiled", tracy::Color::OrangeRed3, 8);
         return m_FrameIndex;
     }
 
@@ -400,6 +403,7 @@ auto RenderGraph::Execute() -> std::uint64_t {
     }
 
     RetireNodes();
+    Profile();
     Reset();
     return m_FrameIndex++;
 }
@@ -644,9 +648,15 @@ void RenderGraph::Profile() const noexcept {
     static bool configured = false;
     if (!configured) {
         TracyPlotConfig("Retired Resource Counts", tracy::PlotFormatType::Number, true, true, 0);
+        TracyPlotConfig("Transient Buffer Count", tracy::PlotFormatType::Number, true, true, 0);
+        TracyPlotConfig("Transient Texture Count", tracy::PlotFormatType::Number, true, true, 0);
+        TracyPlotConfig("RenderGraph Execute Layers", tracy::PlotFormatType::Number, true, true, 0);
         configured = true;
     }
     TracyPlot("Retired Resource Counts", static_cast<std::int64_t>(m_RetiredNodes.size()));
+    TracyPlot("Transient Buffer Count", static_cast<std::int64_t>(m_TransientPool.buffers.size()));
+    TracyPlot("Transient Texture Count", static_cast<std::int64_t>(m_TransientPool.textures.size()));
+    TracyPlot("RenderGraph Execute Layers", static_cast<std::int64_t>(m_ExecuteLayers.size()));
 }
 
 }  // namespace hitagi::rg
