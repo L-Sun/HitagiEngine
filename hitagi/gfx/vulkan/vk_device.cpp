@@ -159,6 +159,10 @@ VulkanDevice::VulkanDevice(std::string_view name)
                 command_pool_create_info,
                 GetCustomAllocator());
         });
+
+        for (const auto& queue : m_CommandQueues) {
+            queue->InitializeTracyContext();
+        }
     }
 
     m_Logger->trace("Create Bindless...");
@@ -180,6 +184,7 @@ void VulkanDevice::Tick() {
 }
 
 void VulkanDevice::WaitIdle() {
+    ZoneScopedNS("VulkanDevice::WaitIdle", 8);
     m_Device->waitIdle();
 }
 

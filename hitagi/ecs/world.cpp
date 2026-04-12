@@ -1,5 +1,6 @@
 module;
 #include <spdlog/spdlog.h>
+#include <tracy/Tracy.hpp>
 
 module ecs;
 import std;
@@ -14,6 +15,7 @@ World::World(std::string_view name)
 }
 
 void World::Update() {
+    ZoneScopedN("ECS::World::Update");
     Schedule schedule(*this);
     m_SystemManager.Update(schedule);
     schedule.Run(m_Executor);

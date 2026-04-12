@@ -61,6 +61,10 @@ xmake r -g test/* # for all groups
 
 To build only a specific target group: `xmake build -g test/math`, `xmake build -g test/gfx`, etc.
 
+### Test Artifacts
+
+Save any test artifacts generated during agent runs under ./temp.
+
 ## Architecture Overview
 
 ### Module System
@@ -154,3 +158,4 @@ int main() {
 - Vulkan backend works on Windows and Linux (Wayland).
 - Runtime is set to `MD`/`MDd` (dynamic CRT) on Windows.
 - Source files use UTF-8 encoding (`set_encodings("utf-8")`).
+

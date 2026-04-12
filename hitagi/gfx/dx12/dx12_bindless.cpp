@@ -148,7 +148,6 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
                 descriptor_increment_size));
     }
 
-    TracyAllocN((void*)handle.index, 1, "CBV_SRV_UAV_Bindless");
     return handle;
 }
 
@@ -204,7 +203,6 @@ auto DX12BindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) ->
                 descriptor_increment_size));
     }
 
-    TracyAllocN((void*)handle.index, 1, "CBV_SRV_UAV_Bindless");
     return handle;
 }
 
@@ -230,7 +228,6 @@ auto DX12BindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHandle
             handle.index,
             descriptor_increment_size));
 
-    TracyAllocN((void*)handle.index, 1, "Sampler_Bindless");
     return handle;
 }
 
@@ -239,12 +236,6 @@ void DX12BindlessUtils::DiscardBindlessHandle(BindlessHandle handle) {
 
     std::scoped_lock lock{m_Mutex};
     auto&            pool = handle.type == BindlessHandleType::Sampler ? m_Available_Sampler_BindlessHandlePool : m_Available_CBV_SRV_UAV_BindlessHandlePool;
-
-    if (handle.type == BindlessHandleType::Sampler) {
-        TracyFreeN((void*)handle.index, "Sampler_Bindless");
-    } else {
-        TracyFreeN((void*)handle.index, "CBV_SRV_UAV_Bindless");
-    }
 
     handle.type     = BindlessHandleType::Invalid;
     handle.writable = 0;

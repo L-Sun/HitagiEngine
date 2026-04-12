@@ -1,6 +1,7 @@
 module;
 
 #include <vulkan/vulkan_raii.hpp>
+#include <tracy/TracyVulkan.hpp>
 
 export module gfx.vulkan:command_buffer;
 import gfx.base;
@@ -68,6 +69,7 @@ public:
 
 private:
     const VulkanRenderPipeline* m_Pipeline = nullptr;
+    std::unique_ptr<tracy::VkCtxScope> m_TracyZone;
 };
 
 class VulkanComputeCommandBuffer final : public ComputeCommandContext {
@@ -90,6 +92,7 @@ public:
 
 private:
     const VulkanComputePipeline* m_Pipeline = nullptr;
+    std::unique_ptr<tracy::VkCtxScope> m_TracyZone;
 };
 
 class VulkanTransferCommandBuffer final : public CopyCommandContext {
@@ -135,6 +138,7 @@ public:
     std::shared_ptr<vk::raii::Semaphore> swap_chain_image_available_semaphore;
     // get swapchain semaphore whose image whose layout transition to present
     std::pmr::vector<std::shared_ptr<vk::raii::Semaphore>> swap_chain_presentable_semaphores;
+    std::unique_ptr<tracy::VkCtxScope> m_TracyZone;
 };
 
 }  // namespace hitagi::gfx

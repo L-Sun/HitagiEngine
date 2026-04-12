@@ -32,7 +32,7 @@ option_end()
 
 if has_config("profile") then
     add_defines("TRACY_ENABLE")
-    add_requireconfs("tracy", {configs = {on_demand = true}})
+    -- add_requireconfs("tracy", {configs = {on_demand = true}})
     if is_plat("windows") then
         add_defines("TRACY_IMPORTS")
     end
@@ -61,7 +61,6 @@ add_requires(
 add_requires("magic_enum", {configs = {modules = true}})
 add_requires("tracy v0.12.1")
 add_requires("assimp", {configs = {cxflags = "/EHsc"}})
-add_requires("usd", {configs = {toolchains = "msvc"}})
 add_requires("spdlog", {configs = {fmt_external = true}})
 add_requires("imgui v1.92.1-docking", {configs = {freetype = true, wchar32 = true}})
 add_requires("d3d12-memory-allocator", "directx12-agility-sdk", {optional = true})

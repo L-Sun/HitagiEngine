@@ -48,6 +48,20 @@ auto readback_texture(Device& device, Texture& texture, TextureSubresourceLayer 
 
     device.WaitIdle();
 
+    if (texture.GetCurrentLayout() != TextureLayout::Common &&
+        texture.GetCurrentLayout() != TextureLayout::Unkown) {
+        auto gfx_ctx = device.CreateGraphicsContext("readback_transition");
+        gfx_ctx->Begin();
+        gfx_ctx->ResourceBarrier(
+            {}, {},
+            {{texture.Transition(BarrierAccess::None, TextureLayout::Common, PipelineStage::None)}});
+        gfx_ctx->End();
+
+        auto& gfx_queue = device.GetCommandQueue(CommandType::Graphics);
+        gfx_queue.Submit({{*gfx_ctx}});
+        gfx_queue.WaitIdle();
+    }
+
     auto ctx = device.CreateCopyContext("readback_copy");
     ctx->Begin();
     ctx->ResourceBarrier(

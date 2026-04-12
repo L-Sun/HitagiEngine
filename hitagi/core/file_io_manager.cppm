@@ -1,3 +1,7 @@
+module;
+
+#include <tracy/Tracy.hpp>
+
 export module core:file_io_manager;
 import std;
 import :runtime_module;
@@ -24,7 +28,7 @@ private:
 
     using PathHash = std::size_t;
 
-    std::mutex                                                         m_CacheMutex;
+    TracyLockableN(std::mutex, m_CacheMutex, "FileIO Cache Mutex");
     std::pmr::unordered_map<PathHash, std::filesystem::file_time_type> m_FileStateCache;
     std::pmr::unordered_map<PathHash, Buffer>                          m_FileCache;
     Buffer                                                             m_EmptyBuffer;

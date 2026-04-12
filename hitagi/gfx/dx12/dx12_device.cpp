@@ -203,13 +203,18 @@ DX12Device::~DX12Device() {
 
 void DX12Device::Tick() {
     Device::Tick();
+#ifdef TRACY_ENABLE
+    for (const auto& queue : m_CommandQueues) {
+        queue->NewFrame();
+    }
+#endif
     if (m_EnableProfile) {
         Profile();
     }
 }
 
 void DX12Device::WaitIdle() {
-    ZoneScopedN("DX12Device::WaitIdle");
+    ZoneScopedNS("DX12Device::WaitIdle", 8);
     for (auto& queue : m_CommandQueues) {
         queue->WaitIdle();
     }

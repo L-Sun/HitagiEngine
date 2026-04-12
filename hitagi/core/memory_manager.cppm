@@ -1,5 +1,6 @@
 module;
 #include <spdlog/logger.h>
+#include <tracy/Tracy.hpp>
 
 export module core:memory_manager;
 import std;
@@ -63,7 +64,7 @@ private:
     };
 
     struct Pool {
-        std::mutex      mutex{};
+        TracyLockableN(std::mutex, mutex, "MemoryPool Mutex");
         std::list<Page> pages{};
         Block*          free_list       = nullptr;
         std::size_t     page_size       = 8_kB;

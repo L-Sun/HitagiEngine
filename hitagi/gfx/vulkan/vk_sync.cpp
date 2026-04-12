@@ -1,4 +1,5 @@
 module;
+#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
 module gfx.vulkan;
@@ -36,6 +37,7 @@ void VulkanTimelineSemaphore::Signal(std::uint64_t value) {
 }
 
 bool VulkanTimelineSemaphore::Wait(std::uint64_t value, std::chrono::milliseconds timeout) {
+    ZoneScopedNS("VulkanTimelineSemaphore::Wait", 8);
     return static_cast<VulkanDevice&>(m_Device).GetDevice().waitSemaphores(
                vk::SemaphoreWaitInfo{
                    .semaphoreCount = 1,
