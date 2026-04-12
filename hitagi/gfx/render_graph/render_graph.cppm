@@ -48,6 +48,7 @@ public:
 
     bool Compile();
     auto Execute() -> std::uint64_t;
+    void ClearImportedResources() noexcept;
 
     inline auto& GetDevice() const noexcept { return m_Device; }
     inline auto  GetFrameIndex() const noexcept { return m_FrameIndex; }
@@ -78,9 +79,11 @@ private:
     auto ImportResource(std::shared_ptr<gfx::Resource> resource, std::string_view name) noexcept -> std::size_t;
     auto CreateResource(ResourceDesc desc, std::string_view name) noexcept -> std::size_t;
     auto MoveFrom(RenderGraphNode::Type type, std::size_t resource_node_index, std::string_view name) noexcept -> std::size_t;
+    auto AllocateNode(std::shared_ptr<RenderGraphNode> node) noexcept -> std::size_t;
+    void RebuildBlackBoard() noexcept;
 
     inline bool IsValid(RenderGraphNode::Type type, std::size_t resource_node_index) const noexcept {
-        return resource_node_index < m_Nodes.size() && m_Nodes[resource_node_index]->m_Type == type;
+        return resource_node_index < m_Nodes.size() && m_Nodes[resource_node_index] && m_Nodes[resource_node_index]->m_Type == type;
     }
 
     template <RenderGraphNode::Type T>
@@ -104,6 +107,7 @@ private:
 
     std::pmr::vector<std::shared_ptr<RenderGraphNode>>                   m_Nodes;
     std::pmr::unordered_map<std::shared_ptr<gfx::Resource>, std::size_t> m_ImportedResources;
+    std::pmr::vector<std::size_t>                                        m_FreeNodeSlots;
 
     bool                           m_Compiled = false;
     std::pmr::vector<ExecuteLayer> m_ExecuteLayers;

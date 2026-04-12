@@ -29,6 +29,7 @@ void SystemManager::EnableOne(utils::TypeID id) {
 
     m_DisabledSystems.erase(id);
     m_EnabledSystems.emplace(id);
+    m_World.InvalidateSchedule();
 
     if (m_OnEnableFns.contains(id))
         m_OnEnableFns.at(id)(m_World);
@@ -47,6 +48,7 @@ void SystemManager::DisableOne(utils::TypeID id) {
 
     m_EnabledSystems.erase(id);
     m_DisabledSystems.emplace(id);
+    m_World.InvalidateSchedule();
 
     if (m_OnDisableFns.contains(id))
         m_OnDisableFns.at(id)(m_World);
@@ -55,6 +57,7 @@ void SystemManager::DisableOne(utils::TypeID id) {
 void SystemManager::UnRegisterOne(utils::TypeID id) {
     DisableOne(id);
     m_DisabledSystems.erase(id);
+    m_World.InvalidateSchedule();
 
     if (m_OnDestroyFns.contains(id))
         m_OnDestroyFns.at(id)(m_World);

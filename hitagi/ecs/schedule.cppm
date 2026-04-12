@@ -60,6 +60,7 @@ private:
     void Request(std::shared_ptr<TaskBase>&& task, const ParameterSets& parameter_sets);
 
     void Run(tf::Executor& executor);
+    void BuildTaskflow(tf::Executor& executor);
 
     bool CheckValid(const std::pmr::unordered_map<std::size_t, std::pmr::unordered_set<std::size_t>>& graph);
 
@@ -70,6 +71,10 @@ private:
     std::pmr::unordered_map<utils::TypeID, std::pmr::vector<std::size_t>> m_ReadAfterWriteSet;
 
     std::pmr::unordered_map<std::pmr::string, std::pmr::string> m_CustomOrder;
+
+    tf::Taskflow               m_Taskflow;
+    std::pmr::vector<tf::Task> m_TaskflowTasks;
+    bool                       m_TaskflowDirty = true;
 };
 
 }  // namespace hitagi::ecs
