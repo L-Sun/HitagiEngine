@@ -82,12 +82,16 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
         desc.pipeline.assembly_state.primitive = json.at("pipeline").value("primitive", gfx::PrimitiveTopology::TriangleList);
         if (bool enable_depth_test = json.at("pipeline").value("depth_test", true);
             enable_depth_test) {
-            desc.pipeline.depth_stencil_format                  = gfx::Format::D32_FLOAT;
-            desc.pipeline.depth_stencil_state.depth_test_enable = true;
+            desc.pipeline.depth_stencil_format                   = gfx::Format::D32_FLOAT;
+            desc.pipeline.depth_stencil_state.depth_test_enable  = true;
+            desc.pipeline.depth_stencil_state.depth_write_enable = true;
             desc.pipeline.rasterization_state =
                 {
                     .cull_mode = gfx::CullMode::Back,
                 };
+        }
+        if (json.at("pipeline").value("double_sided", false)) {
+            desc.pipeline.rasterization_state.cull_mode = gfx::CullMode::None;
         }
 
         if (json.contains("parameters")) {
@@ -130,6 +134,8 @@ auto MaterialJSONParser::Parse(const core::Buffer& buffer) -> std::shared_ptr<Ma
                 else if (type == "texture") {
                     if (param.contains("default"))
                         mat_param.value = std::make_shared<Texture>(param["default"]);
+                    else
+                        mat_param.value = std::shared_ptr<Texture>{};
                 } else {
                     logger->error("Unkown parameter type: {}", param["type"].get<std::string>());
                     return nullptr;

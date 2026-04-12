@@ -2,7 +2,7 @@ module;
 
 #include <imgui.h>
 #include <range/v3/all.hpp>
-#include <spdlog/logger.h>
+#include <spdlog/spdlog.h>
 #include <tracy/Tracy.hpp>
 
 #undef near
@@ -185,14 +185,20 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
                 };
 
                 for (auto [texture_bindless, texture_handle] : ranges::views::zip(bindless_infos[draw_index].textures, material_instance_info.textures)) {
-                    texture_bindless = pass.GetBindless(texture_handle);
+                    if (texture_handle) {
+                        texture_bindless = pass.GetBindless(texture_handle);
+                    }
                 }
 
                 cmd.PushBindlessMetaInfo({
                     .handle = pass.GetBindless(m_BindlessInfoConstantBuffer, draw_index),
                 });
                 for (const auto& vertex_attr : pipeline.GetDesc().vertex_input_layout) {
-                    cmd.SetVertexBuffers(vertex_attr.binding, {{pass.Resolve(mesh_info.vertices.at(vertex_attr.binding))}}, {{0}});
+                    auto mesh_attr   = asset::semantic_to_vertex_attribute(vertex_attr.semantic);
+                    auto attr_handle = mesh_info.vertices[mesh_attr];
+                    if (attr_handle) {
+                        cmd.SetVertexBuffers(vertex_attr.binding, {{pass.Resolve(attr_handle)}}, {{0}});
+                    }
                 }
                 cmd.SetIndexBuffer(pass.Resolve(mesh_info.indices), 0);
 
@@ -217,6 +223,11 @@ void ForwardRenderer::ToSwapChain(rg::TextureHandle from) {
 }
 
 void ForwardRenderer::RecordMaterialInstance(rg::RenderPassBuilder& builder, const std::shared_ptr<asset::MaterialInstance>& material_instance) {
+    if (!material_instance) return;
+    if (!material_instance->GetMaterial()) {
+        spdlog::warn("Material instance '{}' has no material assigned, skipping", material_instance->GetName());
+        return;
+    }
     if (m_MaterialInstanceInfos.contains(material_instance.get())) return;
 
     MaterialInstanceInfo info{
@@ -224,12 +235,24 @@ void ForwardRenderer::RecordMaterialInstance(rg::RenderPassBuilder& builder, con
         .samplers          = {m_Sampler},
     };
 
-    for (const auto& texture : material_instance->GetAssociatedTextures()) {
-        texture->InitGPUData(m_GfxDevice);
-        builder.Read(
-            info.textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName())),
-            {},
-            gfx::PipelineStage::PixelShader);
+    auto associated = material_instance->GetAssociatedTextures();
+    if (associated.empty() && material_instance->GetMaterial()) {
+        spdlog::info("  '{}' (mat='{}') has 0 associated textures", material_instance->GetName(), material_instance->GetMaterial()->GetName());
+    }
+    for (std::size_t ti = 0; ti < associated.size(); ti++) {
+        const auto& texture = associated[ti];
+        if (texture && !texture->Empty()) {
+            texture->InitGPUData(m_GfxDevice);
+            builder.Read(
+                info.textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName())),
+                {},
+                gfx::PipelineStage::PixelShader);
+        } else {
+            if (m_InstanceInfos.size() <= 1) {
+                spdlog::info("  '{}' texture[{}] = {}", material_instance->GetName(), ti, texture ? "empty" : "null");
+            }
+            info.textures.emplace_back(rg::TextureHandle{});
+        }
     }
 
     m_MaterialInstanceInfos.emplace(material_instance.get(), std::move(info));
