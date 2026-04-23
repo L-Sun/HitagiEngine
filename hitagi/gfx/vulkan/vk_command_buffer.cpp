@@ -1,11 +1,14 @@
 module;
 
+#include <cstring>
 #include <spdlog/logger.h>
 #include <fmt/color.h>
 #include <vulkan/vulkan_raii.hpp>
+#include <tracy/TracyVulkan.hpp>
 
 module gfx.vulkan;
 import :command_buffer;
+import :command_queue;
 import std;
 import :resource;
 
@@ -117,9 +120,26 @@ void VulkanGraphicsCommandBuffer::Begin() {
         0,
         descriptor_sets,
         {});
+
+#ifdef TRACY_ENABLE
+    auto& queue = static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Graphics));
+    m_TracyZone = std::make_unique<tracy::VkCtxScope>(
+        queue.GetTracyCtx(),
+        __LINE__,
+        __FILE__,
+        sizeof(__FILE__) - 1,
+        __FUNCTION__,
+        std::strlen(__FUNCTION__),
+        m_Name.data(),
+        m_Name.size(),
+        *command_buffer,
+        true);
+#endif
 }
 
 void VulkanGraphicsCommandBuffer::End() {
+    m_TracyZone.reset();
+    TracyVkCollect(static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Graphics)).GetTracyCtx(), *command_buffer);
     command_buffer.end();
 }
 
@@ -334,9 +354,26 @@ void VulkanComputeCommandBuffer::Begin() {
         0,
         descriptor_sets,
         {});
+
+#ifdef TRACY_ENABLE
+    auto& queue = static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Compute));
+    m_TracyZone = std::make_unique<tracy::VkCtxScope>(
+        queue.GetTracyCtx(),
+        __LINE__,
+        __FILE__,
+        sizeof(__FILE__) - 1,
+        __FUNCTION__,
+        std::strlen(__FUNCTION__),
+        m_Name.data(),
+        m_Name.size(),
+        *command_buffer,
+        true);
+#endif
 }
 
 void VulkanComputeCommandBuffer::End() {
+    m_TracyZone.reset();
+    TracyVkCollect(static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Compute)).GetTracyCtx(), *command_buffer);
     command_buffer.end();
 }
 
@@ -374,9 +411,26 @@ void VulkanTransferCommandBuffer::Begin() {
     command_buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
+
+#ifdef TRACY_ENABLE
+    auto& queue = static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Copy));
+    m_TracyZone = std::make_unique<tracy::VkCtxScope>(
+        queue.GetTracyCtx(),
+        __LINE__,
+        __FILE__,
+        sizeof(__FILE__) - 1,
+        __FUNCTION__,
+        std::strlen(__FUNCTION__),
+        m_Name.data(),
+        m_Name.size(),
+        *command_buffer,
+        true);
+#endif
 }
 
 void VulkanTransferCommandBuffer::End() {
+    m_TracyZone.reset();
+    TracyVkCollect(static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Copy)).GetTracyCtx(), *command_buffer);
     command_buffer.end();
 }
 

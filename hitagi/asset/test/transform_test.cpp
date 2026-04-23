@@ -101,6 +101,54 @@ TEST_F(LocalToWorldSystemTest, UpdateHierarchy) {
 
     EXPECT_EQ(root_entity.Get<Transform>().world_matrix, math::translate(math::vec3f{2.0f, 0.0f, 0.0f}));
     EXPECT_EQ(child_entity.Get<Transform>().world_matrix, math::translate(math::vec3f{5.0f, 0.0f, 0.0f}));
+
+    root_entity.Get<Transform>().Translate(math::vec3f{1.0f, 0.0f, 0.0f});
+    world.Update();
+
+    EXPECT_EQ(root_entity.Get<Transform>().world_matrix, math::translate(math::vec3f{3.0f, 0.0f, 0.0f}));
+    EXPECT_EQ(child_entity.Get<Transform>().world_matrix, math::translate(math::vec3f{6.0f, 0.0f, 0.0f}));
+}
+
+TEST_F(LocalToWorldSystemTest, ReparentRebuildsHierarchyOrder) {
+    auto root_a = em.Create();
+    root_a.Emplace<Transform>(
+        math::vec3f{1.0f, 0.0f, 0.0f},
+        math::quatf::identity(),
+        math::vec3f{1.0f, 1.0f, 1.0f});
+    root_a.Emplace<RelationShip>();
+
+    auto child = em.Create();
+    child.Emplace<Transform>(
+        math::vec3f{2.0f, 0.0f, 0.0f},
+        math::quatf::identity(),
+        math::vec3f{1.0f, 1.0f, 1.0f});
+    child.Emplace<RelationShip>(root_a);
+
+    auto grandchild = em.Create();
+    grandchild.Emplace<Transform>(
+        math::vec3f{3.0f, 0.0f, 0.0f},
+        math::quatf::identity(),
+        math::vec3f{1.0f, 1.0f, 1.0f});
+    grandchild.Emplace<RelationShip>(child);
+
+    auto root_b = em.Create();
+    root_b.Emplace<Transform>(
+        math::vec3f{10.0f, 0.0f, 0.0f},
+        math::quatf::identity(),
+        math::vec3f{1.0f, 1.0f, 1.0f});
+    root_b.Emplace<RelationShip>();
+
+    world.Update();
+
+    EXPECT_EQ(child.Get<Transform>().world_matrix, math::translate(math::vec3f{3.0f, 0.0f, 0.0f}));
+    EXPECT_EQ(grandchild.Get<Transform>().world_matrix, math::translate(math::vec3f{6.0f, 0.0f, 0.0f}));
+
+    child.Get<RelationShip>().parent = root_b;
+    world.Update();
+
+    EXPECT_EQ(root_a.Get<Transform>().world_matrix, math::translate(math::vec3f{1.0f, 0.0f, 0.0f}));
+    EXPECT_EQ(child.Get<Transform>().world_matrix, math::translate(math::vec3f{12.0f, 0.0f, 0.0f}));
+    EXPECT_EQ(grandchild.Get<Transform>().world_matrix, math::translate(math::vec3f{15.0f, 0.0f, 0.0f}));
 }
 
 int main(int argc, char** argv) {

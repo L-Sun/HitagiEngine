@@ -1,6 +1,7 @@
 module;
 #include <taskflow/taskflow.hpp>
 #include <spdlog/logger.h>
+#include <tracy/Tracy.hpp>
 
 module ecs;
 import std;
@@ -26,15 +27,28 @@ void Schedule::Request(std::shared_ptr<TaskBase>&& task, const ParameterSets& pa
     for (auto parameter : read_after_write) {
         m_ReadAfterWriteSet[parameter].emplace_back(m_Tasks.size() - 1);
     }
+
+    m_TaskflowDirty = true;
 }
 
 void Schedule::SetOrder(std::string_view first_task, std::string_view second_task) {
     m_CustomOrder.emplace(first_task, second_task);
+    m_TaskflowDirty = true;
 }
 
 void Schedule::Run(tf::Executor& executor) {
-    tf::Taskflow               taskflow;
-    std::pmr::vector<tf::Task> tasks;
+    if (m_TaskflowDirty) {
+        BuildTaskflow(executor);
+    }
+
+    ZoneScopedN("ECSFrame");
+    executor.run(m_Taskflow).wait();
+}
+
+void Schedule::BuildTaskflow(tf::Executor& executor) {
+    m_Taskflow.clear();
+    m_TaskflowTasks.clear();
+    m_TaskflowTasks.reserve(m_Tasks.size());
 
     // adjacency list
     std::pmr::unordered_map<std::size_t, std::pmr::unordered_set<std::size_t>> direct_graph;
@@ -42,19 +56,32 @@ void Schedule::Run(tf::Executor& executor) {
         direct_graph[i] = {};
 
     for (const auto& task : m_Tasks) {
-        tasks.emplace_back(taskflow.emplace([&]() { task->Run(world); }).name(task->name.data()));
+        m_TaskflowTasks.emplace_back(m_Taskflow.emplace([this, &executor, task]() {
+            thread_local bool tracy_thread_named = false;
+            if (!tracy_thread_named) {
+                if (const auto worker_id = executor.this_worker_id(); worker_id >= 0) {
+                    const auto thread_name = std::format("Hitagi/ECS/{}/Worker-{}", world.GetName(), worker_id);
+                    tracy::SetThreadName(thread_name.c_str());
+                    tracy_thread_named = true;
+                }
+            }
+
+            ZoneScoped;
+            ZoneName(task->name.data(), task->name.size());
+            task->Run(world);
+        }).name(task->name.data()));
     }
 
     for (const auto& [component, task_indices] : m_ReadBeforeWriteSet) {
         for (const auto task_index : task_indices) {
             for (const auto write_task_index : m_WriteSet[component]) {
-                tasks[task_index].precede(tasks[write_task_index]);
+                m_TaskflowTasks[task_index].precede(m_TaskflowTasks[write_task_index]);
                 direct_graph[task_index].emplace(write_task_index);
             }
         }
         for (const auto& task_index : task_indices) {
             for (const auto read_after_write_task_index : m_ReadAfterWriteSet[component]) {
-                tasks[task_index].precede(tasks[read_after_write_task_index]);
+                m_TaskflowTasks[task_index].precede(m_TaskflowTasks[read_after_write_task_index]);
                 direct_graph[task_index].emplace(read_after_write_task_index);
             }
         }
@@ -62,13 +89,13 @@ void Schedule::Run(tf::Executor& executor) {
 
     for (const auto& [component, task_indices] : m_WriteSet) {
         for (const auto [task_index, next_task_index] : std::ranges::views::zip(task_indices, task_indices | std::ranges::views::drop(1))) {
-            tasks[task_index].precede(tasks[next_task_index]);
+            m_TaskflowTasks[task_index].precede(m_TaskflowTasks[next_task_index]);
             direct_graph[task_index].emplace(next_task_index);
         }
 
         for (const auto task_index : task_indices) {
             for (const auto read_after_write_task_index : m_ReadAfterWriteSet[component]) {
-                tasks[task_index].precede(tasks[read_after_write_task_index]);
+                m_TaskflowTasks[task_index].precede(m_TaskflowTasks[read_after_write_task_index]);
                 direct_graph[task_index].emplace(read_after_write_task_index);
             }
         }
@@ -89,7 +116,7 @@ void Schedule::Run(tf::Executor& executor) {
         }
         const auto first_task_index  = m_TaskNameToIndex[first_task_name];
         const auto second_task_index = m_TaskNameToIndex[second_task_name];
-        tasks[first_task_index].precede(tasks[second_task_index]);
+        m_TaskflowTasks[first_task_index].precede(m_TaskflowTasks[second_task_index]);
         direct_graph[first_task_index].emplace(second_task_index);
     }
 
@@ -97,7 +124,7 @@ void Schedule::Run(tf::Executor& executor) {
         return;
     }
 
-    executor.run(taskflow).wait();
+    m_TaskflowDirty = false;
 }
 
 bool Schedule::CheckValid(const std::pmr::unordered_map<std::size_t, std::pmr::unordered_set<std::size_t>>& graph) {

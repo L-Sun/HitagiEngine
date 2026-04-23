@@ -1,12 +1,15 @@
 module;
 
+#include <cstring>
 #include <spdlog/logger.h>
 #include <fmt/color.h>
 #include <d3dx12/d3dx12.h>
+#include <tracy/TracyD3D12.hpp>
 
 module gfx.dx12;
 import std;
 import :command_list;
+import :command_queue;
 import :utils;
 
 namespace hitagi::gfx {
@@ -102,10 +105,26 @@ void DX12GraphicsCommandList::Begin() {
     command_list->SetDescriptorHeaps(descriptor_heaps.size(), descriptor_heaps.data());
     command_list->SetGraphicsRootSignature(dx12_bindless_utils.GetBindlessRootSignature().Get());
 
+#ifdef TRACY_ENABLE
+    auto& queue = static_cast<DX12CommandQueue&>(m_Device.GetCommandQueue(CommandType::Graphics));
+    m_TracyZone = std::make_unique<tracy::D3D12ZoneScope>(
+        queue.GetTracyCtx(),
+        __LINE__,
+        __FILE__,
+        sizeof(__FILE__) - 1,
+        __FUNCTION__,
+        std::strlen(__FUNCTION__),
+        m_Name.data(),
+        m_Name.size(),
+        command_list.Get(),
+        true);
+#endif
+
     m_Pipeline = nullptr;
 }
 
 void DX12GraphicsCommandList::End() {
+    m_TracyZone.reset();
     command_list->Close();
 }
 
@@ -261,10 +280,26 @@ void DX12ComputeCommandList::Begin() {
     command_list->SetDescriptorHeaps(descriptor_heaps.size(), descriptor_heaps.data());
     command_list->SetComputeRootSignature(dx12_bindless_utils.GetBindlessRootSignature().Get());
 
+#ifdef TRACY_ENABLE
+    auto& queue = static_cast<DX12CommandQueue&>(m_Device.GetCommandQueue(CommandType::Compute));
+    m_TracyZone = std::make_unique<tracy::D3D12ZoneScope>(
+        queue.GetTracyCtx(),
+        __LINE__,
+        __FILE__,
+        sizeof(__FILE__) - 1,
+        __FUNCTION__,
+        std::strlen(__FUNCTION__),
+        m_Name.data(),
+        m_Name.size(),
+        command_list.Get(),
+        true);
+#endif
+
     m_Pipeline = nullptr;
 }
 
 void DX12ComputeCommandList::End() {
+    m_TracyZone.reset();
     command_list->Close();
 }
 
@@ -298,9 +333,24 @@ DX12CopyCommandList::DX12CopyCommandList(DX12Device& device, std::string_view na
 }
 
 void DX12CopyCommandList::Begin() {
+#ifdef TRACY_ENABLE
+    auto& queue = static_cast<DX12CommandQueue&>(m_Device.GetCommandQueue(CommandType::Copy));
+    m_TracyZone = std::make_unique<tracy::D3D12ZoneScope>(
+        queue.GetTracyCtx(),
+        __LINE__,
+        __FILE__,
+        sizeof(__FILE__) - 1,
+        __FUNCTION__,
+        std::strlen(__FUNCTION__),
+        m_Name.data(),
+        m_Name.size(),
+        command_list.Get(),
+        true);
+#endif
 }
 
 void DX12CopyCommandList::End() {
+    m_TracyZone.reset();
     command_list->Close();
 }
 

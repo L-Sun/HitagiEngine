@@ -3,6 +3,7 @@ module;
 #include <spdlog/logger.h>
 #include <fmt/color.h>
 #include <d3dx12/d3dx12.h>
+#include <tracy/TracyD3D12.hpp>
 
 module gfx.dx12;
 import std;
@@ -31,6 +32,12 @@ DX12CommandQueue::DX12CommandQueue(DX12Device& device, CommandType type, std::st
         throw std::runtime_error(error_message);
     }
     m_Queue->SetName(std::wstring(name.begin(), name.end()).c_str());
+    m_TracyCtx = TracyD3D12Context(device.GetDevice().Get(), m_Queue.Get());
+    TracyD3D12ContextName(m_TracyCtx, m_Name.data(), static_cast<uint16_t>(m_Name.size()));
+}
+
+DX12CommandQueue::~DX12CommandQueue() {
+    TracyD3D12Destroy(m_TracyCtx);
 }
 
 void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const CommandContext>> contexts,
@@ -73,6 +80,7 @@ void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const Comma
 
     if (!command_lists.empty()) {
         m_Queue->ExecuteCommandLists(command_lists.size(), command_lists.data());
+        TracyD3D12Collect(m_TracyCtx);
     }
 
     for (const auto& signal_fence : signal_fences) {
@@ -85,6 +93,10 @@ void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const Comma
 void DX12CommandQueue::WaitIdle() {
     if (m_SubmitCount == 0) return;
     m_Fence.Wait(m_SubmitCount);
+}
+
+void DX12CommandQueue::NewFrame() {
+    TracyD3D12NewFrame(m_TracyCtx);
 }
 
 }  // namespace hitagi::gfx

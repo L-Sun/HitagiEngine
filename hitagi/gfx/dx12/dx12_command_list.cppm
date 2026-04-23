@@ -1,5 +1,6 @@
 module;
 #include <d3d12.h>
+#include <tracy/TracyD3D12.hpp>
 #include <wrl.h>
 
 export module gfx.dx12:command_list;
@@ -60,6 +61,7 @@ public:
     ComPtr<ID3D12GraphicsCommandList> command_list;
     ComPtr<ID3D12CommandAllocator>    command_allocator;
     const RenderPipeline*             m_Pipeline = nullptr;
+    std::unique_ptr<tracy::D3D12ZoneScope> m_TracyZone;
 };
 
 class DX12ComputeCommandList : public ComputeCommandContext {
@@ -79,6 +81,7 @@ public:
     ComPtr<ID3D12GraphicsCommandList> command_list;
     ComPtr<ID3D12CommandAllocator>    command_allocator;
     const ComputePipeline*            m_Pipeline = nullptr;
+    std::unique_ptr<tracy::D3D12ZoneScope> m_TracyZone;
 };
 
 class DX12CopyCommandList : public CopyCommandContext {
@@ -120,6 +123,7 @@ public:
 
     ComPtr<ID3D12GraphicsCommandList> command_list;
     ComPtr<ID3D12CommandAllocator>    command_allocator;
+    std::unique_ptr<tracy::D3D12ZoneScope> m_TracyZone;
 };
 
 }  // namespace hitagi::gfx

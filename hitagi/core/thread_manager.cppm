@@ -1,3 +1,7 @@
+module;
+
+#include <tracy/Tracy.hpp>
+
 export module core:thread_manager;
 import std;
 import :runtime_module;
@@ -25,6 +29,8 @@ private:
     bool                    m_Stop;
 };
 
+auto CreateThreadManager(std::uint8_t num_threads = 8) -> std::unique_ptr<RuntimeModule>;
+
 template <typename Func, typename... Args>
 decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
     using return_type = std::invoke_result_t<Func, Args...>;
@@ -37,10 +43,15 @@ decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
     {
         std::unique_lock lock(m_QueueMutex);
         m_Tasks.emplace([task] { (*task)(); });
+        TracyPlot("Thread Tasks Pending", static_cast<std::int64_t>(m_Tasks.size()));
     }
 
     m_ConditionForTask.notify_one();
     return res;
+}
+
+inline auto CreateThreadManager(std::uint8_t num_threads) -> std::unique_ptr<RuntimeModule> {
+    return std::make_unique<ThreadManager>(num_threads);
 }
 
 }  // namespace hitagi::core

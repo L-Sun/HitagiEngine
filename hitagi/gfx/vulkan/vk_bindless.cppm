@@ -1,5 +1,6 @@
 module;
 
+#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
 export module gfx.vulkan:bindless;
@@ -27,7 +28,7 @@ struct VulkanBindlessUtils : public BindlessUtils {
 private:
     struct BindlessHandlePool {
         std::pmr::vector<BindlessHandle> pool;
-        std::mutex                       mutex{};
+        TracyLockableN(std::mutex, mutex, "Vulkan Bindless Pool Mutex");
     };
     std::array<BindlessHandlePool, 4> m_BindlessHandlePools{};
 };

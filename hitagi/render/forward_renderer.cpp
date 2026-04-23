@@ -32,6 +32,8 @@ ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, gu
 }
 
 void ForwardRenderer::Tick() {
+    ZoneScopedN("RenderFrame");
+
     if (m_App.WindowSizeChanged()) {
         m_SwapChain->Resize();
     }
@@ -49,10 +51,22 @@ void ForwardRenderer::Tick() {
     m_SwapChain->Present();
 
     m_Clock.Tick();
+
+    static bool tracy_plot_configured = false;
+    if (!tracy_plot_configured) {
+        TracyPlotConfig("Render Frame Time (ms)", tracy::PlotFormatType::Number, false, true, 0);
+        tracy_plot_configured = true;
+    }
+    TracyPlot("Render Frame Time (ms)", m_Clock.DeltaTime().count() * 1000.0);
 }
 
 void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) {
     ZoneScoped;
+
+    if (scene.get() != m_CachedScene) {
+        InvalidateSceneCaches();
+        m_CachedScene = scene.get();
+    }
 
     m_Sampler = m_RenderGraph.Import(m_PersistentSampler, "sampler");
 
@@ -145,13 +159,14 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
         });
 
         // update material instance data
-        for (const auto& [material_instance, info] : m_MaterialInstanceInfos) {
+        for (auto* const material_instance : m_ActiveMaterialInstances) {
             auto  material_info            = m_MaterialInfos.at(material_instance->GetMaterial().get());
             auto& material_constant_buffer = pass.Resolve(material_info.material_constant);
+            const auto material_instance_index = m_MaterialInstanceIndices.at(material_instance);
 
             auto material_constant_data = material_instance->GenerateMaterialBuffer(m_GfxDevice.device_type == gfx::Device::Type::DX12);
 
-            std::memcpy(material_constant_buffer.Map() + material_constant_buffer.AlignedElementSize() * info.material_instance_index,
+            std::memcpy(material_constant_buffer.Map() + material_constant_buffer.AlignedElementSize() * material_instance_index,
                         material_constant_data.GetData(),
                         material_constant_data.GetDataSize());
             material_constant_buffer.UnMap();
@@ -175,13 +190,13 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
                 cmd.SetPipeline(pipeline);
 
                 const auto material_constant_handle = material_info.material_constant;
-                const auto material_instance_index  = material_instance_info.material_instance_index;
+                const auto material_instance_index  = m_MaterialInstanceIndices.at(sub_mesh.material_instance.get());
 
                 bindless_infos[draw_index] = {
                     .frame_constant    = pass.GetBindless(m_FrameConstantBuffer),
                     .instance_constant = pass.GetBindless(m_InstanceConstantBuffer, instance_info.instance_index),
                     .material_constant = pass.GetBindless(material_constant_handle, material_instance_index),
-                    .sampler           = pass.GetBindless(material_instance_info.samplers[0]),
+                    .sampler           = pass.GetBindless(m_Sampler),
                 };
 
                 for (auto [texture_bindless, texture_handle] : ranges::views::zip(bindless_infos[draw_index].textures, material_instance_info.textures)) {
@@ -228,61 +243,64 @@ void ForwardRenderer::RecordMaterialInstance(rg::RenderPassBuilder& builder, con
         spdlog::warn("Material instance '{}' has no material assigned, skipping", material_instance->GetName());
         return;
     }
-    if (m_MaterialInstanceInfos.contains(material_instance.get())) return;
+    auto [it, inserted] = m_MaterialInstanceInfos.try_emplace(
+        material_instance.get(),
+        MaterialInstanceInfo{
+            .material_instance = material_instance,
+        });
+    auto& info = it->second;
 
-    MaterialInstanceInfo info{
-        .material_instance = material_instance,
-        .samplers          = {m_Sampler},
-    };
-
-    auto associated = material_instance->GetAssociatedTextures();
-    if (associated.empty() && material_instance->GetMaterial()) {
-        spdlog::info("  '{}' (mat='{}') has 0 associated textures", material_instance->GetName(), material_instance->GetMaterial()->GetName());
-    }
-    for (std::size_t ti = 0; ti < associated.size(); ti++) {
-        const auto& texture = associated[ti];
-        if (texture && !texture->Empty()) {
-            texture->InitGPUData(m_GfxDevice);
-            builder.Read(
-                info.textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName())),
-                {},
-                gfx::PipelineStage::PixelShader);
-        } else {
-            if (m_InstanceInfos.size() <= 1) {
-                spdlog::info("  '{}' texture[{}] = {}", material_instance->GetName(), ti, texture ? "empty" : "null");
+    if (inserted) {
+        auto associated = material_instance->GetAssociatedTextures();
+        if (associated.empty() && material_instance->GetMaterial()) {
+            spdlog::info("  '{}' (mat='{}') has 0 associated textures", material_instance->GetName(), material_instance->GetMaterial()->GetName());
+        }
+        for (std::size_t ti = 0; ti < associated.size(); ti++) {
+            const auto& texture = associated[ti];
+            if (texture && !texture->Empty()) {
+                texture->InitGPUData(m_GfxDevice);
+                info.textures.emplace_back(m_RenderGraph.Import(texture->GetGPUData(), texture->GetUniqueName()));
+            } else {
+                if (m_InstanceInfos.size() <= 1) {
+                    spdlog::info("  '{}' texture[{}] = {}", material_instance->GetName(), ti, texture ? "empty" : "null");
+                }
+                info.textures.emplace_back(rg::TextureHandle{});
             }
-            info.textures.emplace_back(rg::TextureHandle{});
         }
     }
 
-    m_MaterialInstanceInfos.emplace(material_instance.get(), std::move(info));
+    for (const auto texture : info.textures) {
+        if (texture) {
+            builder.Read(texture, {}, gfx::PipelineStage::PixelShader);
+        }
+    }
+    m_ActiveMaterialInstances.emplace(material_instance.get());
 }
 
 void ForwardRenderer::RecordMesh(rg::RenderPassBuilder& builder, const std::shared_ptr<asset::Mesh>& mesh) {
-    if (m_MeshInfos.contains(mesh.get())) return;
+    auto [it, inserted] = m_MeshInfos.try_emplace(mesh.get(), MeshInfo{.mesh = mesh});
+    auto& info          = it->second;
 
-    mesh->vertices->InitGPUData(m_GfxDevice);
-    mesh->indices->InitGPUData(m_GfxDevice);
+    if (inserted) {
+        mesh->vertices->InitGPUData(m_GfxDevice);
+        mesh->indices->InitGPUData(m_GfxDevice);
 
-    utils::EnumArray<rg::GPUBufferHandle, asset::VertexAttribute> vertex_handles;
-    magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
-        auto attr_data = mesh->vertices->GetAttributeData(attr);
-        if (!attr_data.has_value()) return;
-        auto vertex_buffer_handle = m_RenderGraph.Import(attr_data->get().gpu_buffer);
-        builder.ReadAsVertices(vertex_buffer_handle);
-        vertex_handles[attr] = vertex_buffer_handle;
-    });
-
-    auto index_buffer_handle = m_RenderGraph.Import(mesh->indices->GetIndexData().gpu_buffer);
-    builder.ReadAsIndices(index_buffer_handle);
-
-    m_MeshInfos.emplace(
-        mesh.get(),
-        MeshInfo{
-            .mesh     = mesh,
-            .vertices = vertex_handles,
-            .indices  = index_buffer_handle,
+        magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
+            auto attr_data = mesh->vertices->GetAttributeData(attr);
+            if (!attr_data.has_value()) return;
+            info.vertices[attr] = m_RenderGraph.Import(attr_data->get().gpu_buffer);
         });
+
+        info.indices = m_RenderGraph.Import(mesh->indices->GetIndexData().gpu_buffer);
+    }
+
+    magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
+        const auto handle = info.vertices[attr];
+        if (handle) {
+            builder.ReadAsVertices(handle);
+        }
+    });
+    builder.ReadAsIndices(info.indices);
 
     for (const auto& sub_mesh : mesh->sub_meshes) {
         RecordMaterialInstance(builder, sub_mesh.material_instance);
@@ -302,13 +320,18 @@ void ForwardRenderer::RecordInstance(rg::RenderPassBuilder& builder, const std::
 
 void ForwardRenderer::UpdateConstantBuffer(rg::RenderPassBuilder& builder) {
     std::pmr::unordered_map<std::shared_ptr<asset::Material>, std::size_t> material_instance_counter;
-    for (auto& [material_instance, info] : m_MaterialInstanceInfos) {
-        const auto material          = material_instance->GetMaterial();
-        info.material_instance_index = material_instance_counter[material]++;
+    m_MaterialInstanceIndices.clear();
+    for (auto* const material_instance : m_ActiveMaterialInstances) {
+        const auto material = material_instance->GetMaterial();
+        m_MaterialInstanceIndices.emplace(material_instance, material_instance_counter[material]++);
     }
 
     for (const auto& [material, num_instances] : material_instance_counter) {
-        auto pipeline_handle = m_RenderGraph.Import(material->GetPipeline(m_GfxDevice), material->GetName());
+        auto pipeline_it = m_PipelineHandles.find(material.get());
+        if (pipeline_it == m_PipelineHandles.end()) {
+            pipeline_it = m_PipelineHandles.emplace(material.get(), m_RenderGraph.Import(material->GetPipeline(m_GfxDevice), material->GetName())).first;
+        }
+        auto pipeline_handle = pipeline_it->second;
         builder.AddPipeline(pipeline_handle);
 
         auto constant_handle = m_RenderGraph.Create(
@@ -367,9 +390,19 @@ void ForwardRenderer::ClearFrameState() {
     m_BindlessInfoConstantBuffer = {};
 
     m_MaterialInfos.clear();
-    m_MaterialInstanceInfos.clear();
-    m_MeshInfos.clear();
+    m_MaterialInstanceIndices.clear();
+    m_ActiveMaterialInstances.clear();
     m_InstanceInfos.clear();
+}
+
+void ForwardRenderer::InvalidateSceneCaches() {
+    m_RenderGraph.ClearImportedResources();
+    m_PipelineHandles.clear();
+    m_MaterialInstanceInfos.clear();
+    m_MaterialInstanceIndices.clear();
+    m_ActiveMaterialInstances.clear();
+    m_MeshInfos.clear();
+    m_CachedScene = nullptr;
 }
 
 }  // namespace hitagi::render
