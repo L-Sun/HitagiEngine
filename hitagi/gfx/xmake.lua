@@ -7,6 +7,7 @@ includes("test")
 
 target("gfx")
     set_kind("static")
+    set_basename("hitagi_gfx")
     add_files("gfx.cppm", "gfx.cpp", {public = true})
     add_deps(
         "gfx_base",
