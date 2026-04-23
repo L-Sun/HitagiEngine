@@ -13,6 +13,7 @@ target("codec_test")
     add_files("codec_test.cpp")
     add_deps("asset", "core", "test_utils")
     set_group("test/asset")
+    set_rundir("$(projectdir)")
 
 target("transform_test")
     add_files("transform_test.cpp")
