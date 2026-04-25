@@ -1,7 +1,9 @@
 #include "test_macros.hpp"
 #include <spdlog/spdlog.h>
 
+import std;
 import gfx;
+import asset;
 import app;
 import core;
 import utils;
@@ -229,6 +231,16 @@ TEST_F(RenderGraphTest, AddRenderPass) {
         .vertex_input_layout = vertex_input_layout,
     });
 
+    const auto output_texture = device->CreateTexture({
+        .name        = std::pmr::string(std::format("Texture-{}-{}", test_name, rg.GetFrameIndex())),
+        .width       = swap_chain->GetWidth(),
+        .height      = swap_chain->GetHeight(),
+        .format      = Format::R8G8B8A8_UNORM,
+        .clear_value = Color(0.0, 0.0, 0.0, 1.0),
+        .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+    });
+    ASSERT_TRUE(output_texture);
+
     const auto render_pass =
         RenderPassBuilder(rg)
             .SetName("RenderPass")
@@ -248,17 +260,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                     .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
                 },
                 "colors"))
-            .SetRenderTarget(rg.Create(
-                                 {
-                                     .name        = std::pmr::string(std::format("Texture-{}-{}", test_name, rg.GetFrameIndex())),
-                                     .width       = swap_chain->GetWidth(),
-                                     .height      = swap_chain->GetHeight(),
-                                     .format      = Format::R8G8B8A8_UNORM,
-                                     .clear_value = Color(0.0, 0.0, 0.0, 1.0),
-                                     .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
-                                 },
-                                 "output"),
-                             true)
+            .SetRenderTarget(rg.Import(output_texture, "output"), true)
             .AddPipeline(rg.Import(pipeline, "pipeline"))
             .SetExecutor([=](const RenderGraph& rg, const RenderPassNode& pass) {
                 auto rotate_matrix = rotate_z(deg2rad(static_cast<float>(rg.GetFrameIndex())));
@@ -309,10 +311,21 @@ TEST_F(RenderGraphTest, AddRenderPass) {
         .Finish();
 
     EXPECT_TRUE(rg.Compile());
-    rg.Profile();
+    rg.Execute();
 
     swap_chain->Present();
     app->Tick();
+
+    auto       pixels      = readback_texture(*device, *output_texture);
+    const auto output_path = std::filesystem::path("temp") / "RenderGraphTest.AddRenderPass.png";
+    std::filesystem::create_directories(output_path.parent_path());
+
+    hitagi::asset::Texture image(
+        output_texture->GetDesc().width,
+        output_texture->GetDesc().height,
+        output_texture->GetDesc().format,
+        std::move(pixels));
+    ASSERT_TRUE(hitagi::asset::PngEncoder{}.Encode(image, output_path));
 }
 
 TEST_F(RenderGraphTest, GraphTest) {
@@ -774,6 +787,8 @@ TEST_F(TransientResourcePoolTest, NameIndependentReuse) {
 
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::debug);
+    auto file_io_manager = std::make_unique<hitagi::core::FileIOManager>();
+
     InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

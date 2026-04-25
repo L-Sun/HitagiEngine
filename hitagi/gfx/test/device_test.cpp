@@ -4,6 +4,7 @@
 import std;
 import magic_enum;
 import gfx;
+import asset;
 import app;
 import core;
 import math;
@@ -914,7 +915,7 @@ TEST_P(CopyCommandTest, CopyTextureToBuffer) {
 
     std::array<R8G8B8A8Unorm, tex_width * tex_height> pixels;
     for (std::uint32_t i = 0; i < pixels.size(); ++i) {
-        auto val   = static_cast<std::uint8_t>(i);
+        auto val  = static_cast<std::uint8_t>(i);
         pixels[i] = R8G8B8A8Unorm(val, val, val, 0xFF);
     }
 
@@ -965,6 +966,17 @@ TEST_P(CopyCommandTest, CopyTextureToBuffer) {
         EXPECT_EQ(readback[i][2], val) << "pixel B mismatch at index " << i;
         EXPECT_EQ(readback[i][3], 0xFF) << "pixel A mismatch at index " << i;
     }
+
+    const auto output_path = std::filesystem::path("temp") /
+                             std::format("CopyCommandTest.CopyTextureToBuffer_{}.png", magic_enum::enum_name(GetParam()));
+    std::filesystem::create_directories(output_path.parent_path());
+
+    hitagi::asset::Texture image(
+        tex_width,
+        tex_height,
+        tex_format,
+        hitagi::core::Buffer(std::span{reinterpret_cast<const std::byte*>(readback.data()), static_cast<std::size_t>(dst_buffer->Size())}));
+    ASSERT_TRUE(hitagi::asset::PngEncoder{}.Encode(image, output_path));
 }
 
 class SwapChainTest : public DeviceTest {
@@ -1107,8 +1119,18 @@ TEST_P(DeviceTest, DrawTriangle) {
                 .stride   = 2 * sizeof(vec3f),
             },
         },
-        .render_format = swap_chain->GetFormat(),
+        .render_format = Format::R8G8B8A8_UNORM,
     });
+
+    auto offscreen_render_target = device->CreateTexture({
+        .name        = std::pmr::string(std::format("{}-OffscreenRenderTarget", test_name)),
+        .width       = static_cast<std::uint32_t>(rect.right - rect.left),
+        .height      = static_cast<std::uint32_t>(rect.bottom - rect.top),
+        .format      = Format::R8G8B8A8_UNORM,
+        .clear_value = ClearColor{0.0f, 0.0f, 0.0f, 1.0f},
+        .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+    });
+    ASSERT_TRUE(offscreen_render_target);
 
     // clang-format off
         constexpr std::array<vec3f, 6> triangle = {{
@@ -1198,9 +1220,6 @@ TEST_P(DeviceTest, DrawTriangle) {
         .width  = rect.right - rect.left,
         .height = rect.bottom - rect.top,
     });
-    auto render_target = swap_chain->AcquireTextureForRendering();
-    EXPECT_TRUE(render_target.has_value());
-
     context->ResourceBarrier(
         {}, {},
         {{TextureBarrier{
@@ -1210,10 +1229,10 @@ TEST_P(DeviceTest, DrawTriangle) {
             .dst_stage  = PipelineStage::Render,
             .src_layout = TextureLayout::Unkown,
             .dst_layout = TextureLayout::RenderTarget,
-            .texture    = render_target->get(),
+            .texture    = *offscreen_render_target,
         }}});
 
-    context->BeginRendering(render_target->get());
+    context->BeginRendering(*offscreen_render_target, {}, true);
     context->SetPipeline(*pipeline);
     context->SetVertexBuffers(0, {{*vertex_buffer}}, {{0}});
     context->PushBindlessMetaInfo({
@@ -1226,21 +1245,31 @@ TEST_P(DeviceTest, DrawTriangle) {
         {}, {},
         std::array{TextureBarrier{
             .src_access = BarrierAccess::RenderTarget,
-            .dst_access = BarrierAccess::Present,
+            .dst_access = BarrierAccess::CopySrc,
             .src_stage  = PipelineStage::Render,
-            .dst_stage  = PipelineStage::All,
+            .dst_stage  = PipelineStage::Copy,
             .src_layout = TextureLayout::RenderTarget,
-            .dst_layout = TextureLayout::Present,
-            .texture    = render_target->get(),
+            .dst_layout = TextureLayout::CopySrc,
+            .texture    = *offscreen_render_target,
         }});
     context->End();
 
     gfx_queue.Submit({{*context}});
-    swap_chain->Present();
     gfx_queue.WaitIdle();
 
     app->Tick();
     // }
+
+    auto       pixels      = readback_texture(*device, *offscreen_render_target);
+    const auto output_path = std::filesystem::path("temp") / std::format("DeviceTest.DrawTriangle_{}.png", magic_enum::enum_name(GetParam()));
+    std::filesystem::create_directories(output_path.parent_path());
+
+    hitagi::asset::Texture image(
+        offscreen_render_target->GetDesc().width,
+        offscreen_render_target->GetDesc().height,
+        offscreen_render_target->GetDesc().format,
+        std::move(pixels));
+    ASSERT_TRUE(hitagi::asset::PngEncoder{}.Encode(image, output_path));
 
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.sampler);
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.texture);
@@ -1249,6 +1278,8 @@ TEST_P(DeviceTest, DrawTriangle) {
 }
 
 int main(int argc, char** argv) {
+    auto file_io_manager = std::make_unique<hitagi::core::FileIOManager>();
+
     InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

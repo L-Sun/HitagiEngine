@@ -219,6 +219,10 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
                 cmd.SetIndexBuffer(pass.Resolve(mesh_info.indices), 0);
 
                 cmd.DrawIndexed(sub_mesh.index_count, 1, sub_mesh.index_offset, sub_mesh.vertex_offset);
+
+                // Command buffers read bindless_infos later on the GPU, so each draw
+                // must point at a stable slot instead of reusing index 0.
+                ++draw_index;
             }
         }
     });

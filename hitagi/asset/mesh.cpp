@@ -80,7 +80,7 @@ void VertexArray::InitGPUData(gfx::Device& device) {
 }
 
 IndexArray::IndexArray(std::size_t count, IndexType type, std::string_view name)
-    : Resource(Type::Index, name), m_IndexCount(count), m_Data{.type = type, .cpu_buffer = core::Buffer(count * get_index_type_size(type))} {
+    : Resource(Type::Index, name), m_IndexCount(count), m_Data{.type = type, .cpu_buffer{count * get_index_type_size(type), nullptr}} {
 }
 
 IndexArray::IndexArray(const IndexArray& other)

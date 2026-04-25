@@ -166,6 +166,18 @@ auto VulkanBuffer::Map() -> std::byte* {
         throw std::runtime_error(error_message);
     }
 
+    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead)) {
+        if (const auto result = vmaInvalidateAllocation(vk_device.GetVmaAllocator(), allocation, 0, VK_WHOLE_SIZE);
+            result != VK_SUCCESS) {
+            const auto error_message = fmt::format(
+                "failed to invalidate GPU buffer({}) for host read",
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+            logger->error(error_message);
+            vmaUnmapMemory(vk_device.GetVmaAllocator(), allocation);
+            throw std::runtime_error(error_message);
+        }
+    }
+
     std::scoped_lock lock(map_mutex);
     mapped_count++;
     return mapped_ptr;
@@ -182,6 +194,18 @@ void VulkanBuffer::UnMap() {
         throw std::runtime_error(error_message);
     }
     mapped_count--;
+
+    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
+        if (const auto result = vmaFlushAllocation(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation, 0, VK_WHOLE_SIZE);
+            result != VK_SUCCESS) {
+            const auto error_message = fmt::format(
+                "failed to flush GPU buffer({}) for host write",
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+            m_Device.GetLogger()->error(error_message);
+            throw std::runtime_error(error_message);
+        }
+    }
+
     vmaUnmapMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
 }
 
@@ -333,9 +357,7 @@ VulkanSwapChain::SemaphorePair::SemaphorePair(VulkanDevice& device, std::string_
 }
 
 VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
-    : SwapChain(device, std::move(desc)), m_SemaphorePair(device, GetName())
-
-{
+    : SwapChain(device, std::move(desc)) {
     switch (desc.window.type) {
 #ifdef _WIN32
         case utils::Window::Type::Win32: {
@@ -393,15 +415,24 @@ auto VulkanSwapChain::AcquireTextureForRendering() -> utils::optional_ref<Textur
         return *m_Images[m_CurrentIndex];
     }
 
+    if (m_SemaphorePairs.empty()) {
+        return {};
+    }
+
+    auto& acquire_semaphores = m_SemaphorePairs[m_NextSemaphoreIndex];
+    m_NextSemaphoreIndex     = (m_NextSemaphoreIndex + 1) % static_cast<std::uint32_t>(m_SemaphorePairs.size());
+
     auto [result, index] = m_SwapChain->acquireNextImage(
         std::numeric_limits<std::uint64_t>::max(),
-        **m_SemaphorePair.image_available);
+        **acquire_semaphores.image_available);
 
     if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) {
         throw std::runtime_error("failed to acquire next image");
     }
 
-    m_CurrentIndex = index;
+    m_CurrentIndex                       = static_cast<int>(index);
+    m_CurrentSemaphores.image_available  = acquire_semaphores.image_available;
+    m_CurrentSemaphores.presentable      = m_SemaphorePairs[index].presentable;
 
     return *m_Images[m_CurrentIndex];
 }
@@ -412,12 +443,14 @@ void VulkanSwapChain::Present() {
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
     auto& queue     = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics)).GetVkQueue();
 
-    std::uint32_t index = m_CurrentIndex;
-    m_CurrentIndex      = -1;
+    std::uint32_t index                = static_cast<std::uint32_t>(m_CurrentIndex);
+    auto          presentable_semaphore = m_CurrentSemaphores.presentable;
+    m_CurrentIndex                      = -1;
+    m_CurrentSemaphores                 = {};
 
     auto result = queue.presentKHR(vk::PresentInfoKHR{
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores    = &(**m_SemaphorePair.presentable),
+        .pWaitSemaphores    = &(**presentable_semaphore),
         .swapchainCount     = 1,
         .pSwapchains        = &(**m_SwapChain),
         .pImageIndices      = &index,
@@ -430,6 +463,9 @@ void VulkanSwapChain::Present() {
 
 void VulkanSwapChain::Resize() {
     m_Device.WaitIdle();
+    m_CurrentIndex        = -1;
+    m_NextSemaphoreIndex  = 0;
+    m_CurrentSemaphores   = {};
     CreateSwapChain();
     CreateImageViews();
 }
@@ -530,7 +566,9 @@ void VulkanSwapChain::CreateImageViews() {
     if (!m_SwapChain) return;
 
     m_Images.clear();
+    m_SemaphorePairs.clear();
     for (std::uint32_t index = 0; index < m_NumImages; index++) {
+        m_SemaphorePairs.emplace_back(static_cast<VulkanDevice&>(m_Device), std::format("{}-frame-{}", GetName(), index));
         m_Images.emplace_back(std::make_unique<VulkanImage>(*this, index));
     }
 }

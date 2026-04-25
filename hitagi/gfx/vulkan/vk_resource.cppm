@@ -52,6 +52,7 @@ struct VulkanSampler final : public Sampler {
 class VulkanSwapChain final : public SwapChain {
 public:
     struct SemaphorePair {
+        SemaphorePair() = default;
         SemaphorePair(VulkanDevice& device, std::string_view name);
         std::shared_ptr<vk::raii::Semaphore> image_available;
         std::shared_ptr<vk::raii::Semaphore> presentable;
@@ -70,7 +71,7 @@ public:
 
     inline auto& GetVkSwapChain() const noexcept { return *m_SwapChain; }
 
-    inline const auto& GetSemaphores() const noexcept { return m_SemaphorePair; }
+    inline const auto& GetSemaphores() const noexcept { return m_CurrentSemaphores; }
 
 private:
     void CreateSwapChain();
@@ -83,9 +84,10 @@ private:
     std::uint32_t                              m_NumImages;
     std::pmr::vector<std::unique_ptr<Texture>> m_Images;
 
-    int m_CurrentIndex = -1;
-
-    SemaphorePair m_SemaphorePair;
+    int           m_CurrentIndex          = -1;
+    std::uint32_t m_NextSemaphoreIndex   = 0;
+    SemaphorePair m_CurrentSemaphores;
+    std::pmr::vector<SemaphorePair> m_SemaphorePairs;
 };
 
 struct VulkanShader final : public Shader {

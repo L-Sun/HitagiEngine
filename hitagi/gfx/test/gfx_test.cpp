@@ -16,19 +16,6 @@ using namespace hitagi::core;
 using namespace hitagi::gfx;
 using namespace hitagi::math;
 
-const std::filesystem::path test_output_dir = "test_output";
-
-void save_png(const std::filesystem::path& path, std::uint32_t width, std::uint32_t height, Format format, const core::Buffer& pixels) {
-    asset::Texture cpu_tex(width, height, format, core::Buffer(pixels.GetDataSize(), pixels.GetData()));
-    auto           png_data = asset::PngEncoder{}.Encode(cpu_tex);
-    ASSERT_FALSE(png_data.Empty()) << "PNG encoding failed";
-
-    std::filesystem::create_directories(path.parent_path());
-    std::ofstream ofs(path, std::ios::binary);
-    ASSERT_TRUE(ofs.is_open()) << "Failed to open " << path;
-    ofs.write(reinterpret_cast<const char*>(png_data.GetData()), png_data.GetDataSize());
-}
-
 TEST(GfxTest, DescHash) {
     {
         GPUBufferDesc
@@ -155,12 +142,18 @@ TEST_P(ReadbackTextureTest, ReadbackGradientTexture) {
         }
     }
 
-    auto backend = std::string{magic_enum::enum_name(GetParam())};
-    save_png(test_output_dir / std::format("ReadbackGradientTexture_{}.png", backend), width, height, Format::R8G8B8A8_UNORM, result);
+    const auto output_path = std::filesystem::path("temp") /
+                             std::format("ReadbackTextureTest.ReadbackGradientTexture_{}.png", magic_enum::enum_name(GetParam()));
+    std::filesystem::create_directories(output_path.parent_path());
+
+    hitagi::asset::Texture image(width, height, Format::R8G8B8A8_UNORM, result);
+    ASSERT_TRUE(hitagi::asset::PngEncoder{}.Encode(image, output_path));
 }
 
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::debug);
+    auto file_io_manager = std::make_unique<hitagi::core::FileIOManager>();
+
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

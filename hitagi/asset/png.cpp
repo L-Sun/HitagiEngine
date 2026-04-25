@@ -197,7 +197,7 @@ core::Buffer PngEncoder::Encode(const Texture& texture) {
     png_write_end(png_ptr, info_ptr);
     png_destroy_write_struct(&png_ptr, &info_ptr);
 
-    return core::Buffer(write_ctx.data.size(), write_ctx.data.data());
+    return {write_ctx.data.size(), write_ctx.data.data()};
 }
 
 }  // namespace hitagi::asset
