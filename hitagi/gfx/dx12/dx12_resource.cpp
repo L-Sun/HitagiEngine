@@ -273,8 +273,12 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
         }
     }
 
+    const auto format_bit_size   = get_format_bit_size(desc.format);
+    const auto format_byte_size  = format_bit_size >> 3;
+    const bool direct_cpu_upload = !initial_data.empty() && utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst);
+
     D3D12MA::ALLOCATION_DESC allocation_desc{
-        .HeapType = D3D12_HEAP_TYPE_DEFAULT,
+        .HeapType = direct_cpu_upload ? D3D12_HEAP_TYPE_GPU_UPLOAD : D3D12_HEAP_TYPE_DEFAULT,
     };
     if (FAILED(device.GetAllocator()->CreateResource(
             &allocation_desc,
@@ -328,50 +332,76 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
         logger->trace("Copy initial data to texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
-            const auto staging_size = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(device.GetDevice().Get()));
-
-            // GPU_UPLOAD staging buffer for VRAM→VRAM texture copy
-            D3D12MA::ALLOCATION_DESC staging_alloc_desc{
-                .HeapType = D3D12_HEAP_TYPE_GPU_UPLOAD,
-            };
-            auto                     staging_resource_desc = CD3DX12_RESOURCE_DESC::Buffer(staging_size);
-            ComPtr<D3D12MA::Allocation> staging_allocation;
-            ComPtr<ID3D12Resource>      staging_resource;
-            if (FAILED(device.GetAllocator()->CreateResource(
-                    &staging_alloc_desc,
-                    &staging_resource_desc,
-                    D3D12_RESOURCE_STATE_COMMON,
-                    nullptr,
-                    &staging_allocation,
-                    IID_PPV_ARGS(&staging_resource)))) {
-                const auto error_message = fmt::format(
-                    "Failed to create staging buffer for texture({})",
-                    fmt::styled(GetName(), fmt::fg(fmt::color::red)));
-                logger->error(error_message);
-                throw std::runtime_error(error_message);
-            }
-
             D3D12_SUBRESOURCE_DATA textureData = {
                 .pData      = initial_data.data(),
-                .RowPitch   = static_cast<LONG_PTR>(desc.width * (get_format_bit_size(desc.format) >> 3)),
+                .RowPitch   = static_cast<LONG_PTR>(desc.width * format_byte_size),
                 .SlicePitch = textureData.RowPitch * desc.height,
             };
 
-            auto copy_context = device.CreateCopyContext("UploadTexture");
-            copy_context->Begin();
-            UpdateSubresources(
-                std::static_pointer_cast<DX12CopyCommandList>(copy_context)->command_list.Get(),
-                resource.Get(),
-                staging_resource.Get(),
-                0,
-                0,
-                resource_desc.Subresources(device.GetDevice().Get()),
-                &textureData);
-            copy_context->End();
+            if (direct_cpu_upload) {
+                if (FAILED(resource->Map(0, nullptr, nullptr))) {
+                    const auto error_message = fmt::format(
+                        "Failed to map texture({}) for direct GPU upload heap initialization",
+                        fmt::styled(GetName(), fmt::fg(fmt::color::red)));
+                    logger->error(error_message);
+                    throw std::runtime_error(error_message);
+                }
 
-            auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
-            copy_queue.Submit({{*copy_context}});
-            copy_queue.WaitIdle();
+                const auto result = resource->WriteToSubresource(
+                    0,
+                    nullptr,
+                    initial_data.data(),
+                    static_cast<UINT>(textureData.RowPitch),
+                    static_cast<UINT>(textureData.SlicePitch));
+                resource->Unmap(0, nullptr);
+
+                if (FAILED(result)) {
+                    const auto error_message = fmt::format(
+                        "Failed to initialize texture({}) via WriteToSubresource",
+                        fmt::styled(GetName(), fmt::fg(fmt::color::red)));
+                    logger->error(error_message);
+                    throw std::runtime_error(error_message);
+                }
+            } else {
+                const auto staging_size = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(device.GetDevice().Get()));
+
+                // GPU_UPLOAD staging buffer for VRAM→VRAM texture copy
+                D3D12MA::ALLOCATION_DESC staging_alloc_desc{
+                    .HeapType = D3D12_HEAP_TYPE_GPU_UPLOAD,
+                };
+                auto                        staging_resource_desc = CD3DX12_RESOURCE_DESC::Buffer(staging_size);
+                ComPtr<D3D12MA::Allocation> staging_allocation;
+                ComPtr<ID3D12Resource>      staging_resource;
+                if (FAILED(device.GetAllocator()->CreateResource(
+                        &staging_alloc_desc,
+                        &staging_resource_desc,
+                        D3D12_RESOURCE_STATE_COMMON,
+                        nullptr,
+                        &staging_allocation,
+                        IID_PPV_ARGS(&staging_resource)))) {
+                    const auto error_message = fmt::format(
+                        "Failed to create staging buffer for texture({})",
+                        fmt::styled(GetName(), fmt::fg(fmt::color::red)));
+                    logger->error(error_message);
+                    throw std::runtime_error(error_message);
+                }
+
+                auto copy_context = device.CreateCopyContext("UploadTexture");
+                copy_context->Begin();
+                UpdateSubresources(
+                    std::static_pointer_cast<DX12CopyCommandList>(copy_context)->command_list.Get(),
+                    resource.Get(),
+                    staging_resource.Get(),
+                    0,
+                    0,
+                    resource_desc.Subresources(device.GetDevice().Get()),
+                    &textureData);
+                copy_context->End();
+
+                auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
+                copy_queue.Submit({{*copy_context}});
+                copy_queue.WaitIdle();
+            }
         } else {
             auto error_message = fmt::format(
                 "the texture({}) can not initialize with upload buffer without {}, the actual flags are {}",

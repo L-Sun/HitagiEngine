@@ -356,7 +356,7 @@ void ForwardRenderer::UpdateConstantBuffer(rg::RenderPassBuilder& builder) {
     m_InstanceConstantBuffer = m_RenderGraph.Create({
         .name          = "instance_constant",
         .element_size  = sizeof(InstanceConstant),
-        .element_count = m_InstanceInfos.size(),
+        .element_count = std::max<std::size_t>(1, m_InstanceInfos.size()),
         .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
     builder.Read(m_InstanceConstantBuffer);
@@ -378,7 +378,7 @@ void ForwardRenderer::UpdateConstantBuffer(rg::RenderPassBuilder& builder) {
     m_BindlessInfoConstantBuffer = m_RenderGraph.Create({
         .name          = "bindless_infos",
         .element_size  = sizeof(BindlessInfo),
-        .element_count = num_draws,
+        .element_count = std::max<std::size_t>(1, num_draws),
         .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
     builder.Read(m_BindlessInfoConstantBuffer);

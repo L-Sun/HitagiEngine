@@ -499,8 +499,8 @@ protected:
     auto RunFrame(const GPUBufferDesc& buffer_desc, const TextureDesc& texture_desc) -> FrameResources {
         FrameResources result;
 
-        const auto buffer  = rg.Create(buffer_desc, "buf");
-        const auto texture = rg.Create(texture_desc, "tex");
+        const auto buffer          = rg.Create(buffer_desc, "buf");
+        const auto texture         = rg.Create(texture_desc, "tex");
         const auto pipeline_handle = rg.Import(render_pipeline);
 
         RenderPassBuilder(rg)

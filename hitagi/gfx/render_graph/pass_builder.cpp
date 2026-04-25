@@ -399,9 +399,6 @@ auto RenderPassBuilder::Finish() noexcept -> RenderPassHandle {
         if (!pass->m_RenderTarget) {
             Invalidate("Finish render pass failed: render target is not set");
         }
-        if (pass->m_RenderPipelines.empty()) {
-            Invalidate("Finish render pass failed: pipeline is not set");
-        }
     }
     if (m_Invalid) return {};
 
