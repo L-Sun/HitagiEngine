@@ -15,6 +15,13 @@ import asset;
 
 export namespace hitagi::render {
 
+struct TextDrawCommand {
+    std::pmr::string text;
+    math::vec2f      position  = {0.0f, 0.0f};
+    float            font_size = 24.0f;
+    math::Color      color     = math::Color::White();
+};
+
 class IRenderer : public RuntimeModule {
 public:
     using RuntimeModule::RuntimeModule;
@@ -25,6 +32,8 @@ public:
     virtual void RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) = 0;
 
     virtual void RenderGui(rg::TextureHandle target, bool clear_target) = 0;
+
+    virtual void RenderText(rg::TextureHandle target, std::span<const TextDrawCommand> commands, bool clear_target = false) = 0;
 
     virtual void CopyToTexture(rg::TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer = {}, gfx::TextureSubresourceLayer to_layer = {}) = 0;
     virtual void CopyToBuffer(rg::TextureHandle from, std::shared_ptr<gfx::GPUBuffer> to, gfx::TextureSubresourceLayer from_layer = {})                                            = 0;
@@ -60,6 +69,23 @@ protected:
     rg::TextureHandle m_FontTexture;
 };
 
+class TextRenderUtils {
+public:
+    TextRenderUtils(gfx::Device& gfx_device, std::filesystem::path font_dir);
+    ~TextRenderUtils();
+
+    TextRenderUtils(const TextRenderUtils&)            = delete;
+    TextRenderUtils& operator=(const TextRenderUtils&) = delete;
+    TextRenderUtils(TextRenderUtils&&)                 = delete;
+    TextRenderUtils& operator=(TextRenderUtils&&)      = delete;
+
+    void TextPass(rg::RenderGraph& render_graph, rg::TextureHandle target, std::span<const TextDrawCommand> commands, bool clear_target);
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> m_Impl;
+};
+
 class ForwardRenderer : public IRenderer {
 public:
     ForwardRenderer(gfx::Device& device, const Application& app, gui::GuiManager* gui_manager = nullptr, std::string_view name = "");
@@ -69,6 +95,8 @@ public:
     void RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) override;
 
     void RenderGui(rg::TextureHandle target, bool clear_target) override;
+
+    void RenderText(rg::TextureHandle target, std::span<const TextDrawCommand> commands, bool clear_target = false) override;
 
     void CopyToTexture(rg::TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer = {}, gfx::TextureSubresourceLayer to_layer = {}) override;
     void CopyToBuffer(rg::TextureHandle from, std::shared_ptr<gfx::GPUBuffer> to, gfx::TextureSubresourceLayer from_layer = {}) override;
@@ -152,9 +180,10 @@ private:
     std::shared_ptr<gfx::Sampler>   m_PersistentSampler;
     rg::RenderGraph                 m_RenderGraph;
 
-    std::unique_ptr<GuiRenderUtils> m_GuiRenderUtils;
-    rg::TextureHandle               m_GuiTarget;
-    bool                            m_ClearGuiTarget = false;
+    std::unique_ptr<GuiRenderUtils>  m_GuiRenderUtils;
+    std::unique_ptr<TextRenderUtils> m_TextRenderUtils;
+    rg::TextureHandle                m_GuiTarget;
+    bool                             m_ClearGuiTarget = false;
 
     // frame state
     rg::SamplerHandle   m_Sampler;

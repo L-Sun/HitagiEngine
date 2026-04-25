@@ -25,7 +25,8 @@ ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, gu
       })),
       m_PersistentSampler(m_GfxDevice.CreateSampler({.name = "sampler"})),
       m_RenderGraph(m_GfxDevice, "ForwardRenderGraph"),
-      m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, m_GfxDevice) : nullptr)
+      m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, m_GfxDevice) : nullptr),
+      m_TextRenderUtils(std::make_unique<TextRenderUtils>(m_GfxDevice, m_App.GetConfig().asset_root_path / "fonts"))
 
 {
     m_Clock.Start();
@@ -228,6 +229,10 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
 void ForwardRenderer::RenderGui(rg::TextureHandle target, bool clear_target) {
     m_GuiTarget      = target;
     m_ClearGuiTarget = clear_target;
+}
+
+void ForwardRenderer::RenderText(rg::TextureHandle target, std::span<const TextDrawCommand> commands, bool clear_target) {
+    m_TextRenderUtils->TextPass(m_RenderGraph, target, commands, clear_target);
 }
 
 void ForwardRenderer::CopyToTexture(rg::TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer, gfx::TextureSubresourceLayer to_layer) {

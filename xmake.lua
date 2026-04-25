@@ -51,6 +51,7 @@ add_requires(
     "spirv-reflect",
     "libpng",
     "libjpeg-turbo",
+    "freetype",
     "fx-gltf",
     "libsdl3",
     "gtest",
