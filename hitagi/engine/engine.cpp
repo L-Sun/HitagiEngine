@@ -48,8 +48,8 @@ Engine::Engine(const std::filesystem::path& config_path) : RuntimeModule("Engine
 
     // use modified state -> Render
     add_inner_module(std::make_unique<debugger::DebugManager>());
+    m_Renderer   = add_inner_module(std::make_unique<render::ForwardRenderer>(*device, *m_App));
     m_GuiManager = add_inner_module(std::make_unique<gui::GuiManager>(*m_App));
-    m_Renderer   = add_inner_module(std::make_unique<render::ForwardRenderer>(*device, *m_App, m_GuiManager));
 
     m_Clock.Start();
 }

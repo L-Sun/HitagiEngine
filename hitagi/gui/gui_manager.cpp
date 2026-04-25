@@ -69,6 +69,7 @@ void GuiManager::Tick() {
         m_GuiDrawTasks.pop();
     }
     ImGui::Render();
+    BuildDrawData();
 
     m_Clock.Tick();
 }
@@ -113,6 +114,78 @@ void GuiManager::LoadFont() {
                 std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
                 io.Fonts->AddFont(&config);
             }
+        }
+    }
+
+    unsigned char* pixels = nullptr;
+    int            width = 0, height = 0;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+    const auto data_size = static_cast<std::size_t>(width) *
+                           static_cast<std::size_t>(height) *
+                           gfx::get_format_byte_size(gfx::Format::R8G8B8A8_UNORM);
+
+    m_FontAtlasWidth  = static_cast<std::uint32_t>(width);
+    m_FontAtlasHeight = static_cast<std::uint32_t>(height);
+    m_FontAtlasPixels.assign(reinterpret_cast<const std::byte*>(pixels), reinterpret_cast<const std::byte*>(pixels) + data_size);
+    ++m_FontAtlasGeneration;
+
+    io.Fonts->TexID = (ImTextureID)0;
+}
+
+void GuiManager::BuildDrawData() {
+    m_DrawData.display_pos  = {};
+    m_DrawData.display_size = {};
+    m_DrawData.font_atlas   = {
+        .width      = m_FontAtlasWidth,
+        .height     = m_FontAtlasHeight,
+        .pixels     = m_FontAtlasPixels,
+        .generation = m_FontAtlasGeneration,
+    };
+    m_DrawData.draw_lists.clear();
+
+    const auto draw_data = ImGui::GetDrawData();
+    if (draw_data == nullptr || draw_data->CmdListsCount == 0) {
+        return;
+    }
+
+    m_DrawData.display_pos  = {draw_data->DisplayPos.x, draw_data->DisplayPos.y};
+    m_DrawData.display_size = {draw_data->DisplaySize.x, draw_data->DisplaySize.y};
+    m_DrawData.draw_lists.reserve(static_cast<std::size_t>(draw_data->CmdListsCount));
+
+    for (int list_index = 0; list_index < draw_data->CmdListsCount; ++list_index) {
+        const auto im_draw_list = draw_data->CmdLists[list_index];
+        auto&      draw_list    = m_DrawData.draw_lists.emplace_back();
+
+        draw_list.vertices.reserve(static_cast<std::size_t>(im_draw_list->VtxBuffer.Size));
+        for (const auto& vertex : im_draw_list->VtxBuffer) {
+            draw_list.vertices.emplace_back(GuiVertex{
+                .position = {vertex.pos.x, vertex.pos.y},
+                .uv       = {vertex.uv.x, vertex.uv.y},
+                .color    = DecodeColor(vertex.col),
+            });
+        }
+
+        draw_list.indices.reserve(static_cast<std::size_t>(im_draw_list->IdxBuffer.Size));
+        for (const auto index : im_draw_list->IdxBuffer) {
+            draw_list.indices.emplace_back(static_cast<std::uint32_t>(index));
+        }
+
+        draw_list.commands.reserve(static_cast<std::size_t>(im_draw_list->CmdBuffer.Size));
+        for (const auto& command : im_draw_list->CmdBuffer) {
+            if (command.UserCallback != nullptr) {
+                // The renderer now consumes backend-neutral draw packets. ImGui render callbacks are backend
+                // escape hatches, so they cannot safely be replayed after conversion.
+                continue;
+            }
+
+            draw_list.commands.emplace_back(GuiDrawCommand{
+                .element_count = command.ElemCount,
+                .index_offset  = command.IdxOffset,
+                .vertex_offset = command.VtxOffset,
+                .clip_rect     = {command.ClipRect.x, command.ClipRect.y, command.ClipRect.z, command.ClipRect.w},
+                .texture       = DecodeTexture(command.GetTexID()),
+            });
         }
     }
 }
@@ -175,8 +248,31 @@ void GuiManager::KeysEvent() {
 }
 
 auto GuiManager::ReadTexture(rg::TextureHandle texture) -> ImTextureID {
-    m_ReadTextures.emplace_back(texture);
-    return (ImTextureID)texture.index;
+    if (!texture) {
+        return (ImTextureID)0;
+    }
+    return (ImTextureID)(texture.index + 1);
+}
+
+auto GuiManager::DecodeColor(std::uint32_t color) noexcept -> math::Color {
+    constexpr auto inv_255 = 1.0f / 255.0f;
+    return {
+        static_cast<float>((color >> IM_COL32_R_SHIFT) & 0xFF) * inv_255,
+        static_cast<float>((color >> IM_COL32_G_SHIFT) & 0xFF) * inv_255,
+        static_cast<float>((color >> IM_COL32_B_SHIFT) & 0xFF) * inv_255,
+        static_cast<float>((color >> IM_COL32_A_SHIFT) & 0xFF) * inv_255,
+    };
+}
+
+auto GuiManager::DecodeTexture(ImTextureID texture_id) noexcept -> GuiTextureRef {
+    const auto id = static_cast<std::size_t>(texture_id);
+    if (id == 0) {
+        return {.type = GuiTextureRef::Type::Font};
+    }
+    return {
+        .type    = GuiTextureRef::Type::RenderGraph,
+        .texture = rg::TextureHandle{id - 1},
+    };
 }
 
 }  // namespace hitagi::gui

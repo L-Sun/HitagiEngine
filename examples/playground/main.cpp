@@ -76,16 +76,16 @@ auto main(int argc, char** argv) -> int {
         auto& renderer      = engine.Renderer();
         auto  render_target = renderer.GetRenderGraph().Create(
             hitagi::gfx::TextureDesc{
-                 .width       = renderer.GetSwapChain().GetWidth(),
-                 .height      = renderer.GetSwapChain().GetHeight(),
-                 .format      = hitagi::gfx::Format::R8G8B8A8_UNORM,
-                 .clear_value = math::Color::Black(),
-                 .usages      = hitagi::gfx::TextureUsageFlags::RenderTarget | hitagi::gfx::TextureUsageFlags::CopySrc,
+                .width       = renderer.GetSwapChain().GetWidth(),
+                .height      = renderer.GetSwapChain().GetHeight(),
+                .format      = hitagi::gfx::Format::R8G8B8A8_UNORM,
+                .clear_value = math::Color::Black(),
+                .usages      = hitagi::gfx::TextureUsageFlags::RenderTarget | hitagi::gfx::TextureUsageFlags::CopySrc,
             });
 
         renderer.RenderScene(scene, *camera, camera_transform.world_matrix, render_target);
         render_target = renderer.GetRenderGraph().MoveFrom(render_target);
-        renderer.RenderGui(render_target, true);
+        renderer.RenderGui(render_target, engine.GuiManager().GetDrawData(), true);
         renderer.ToSwapChain(render_target);
 
         engine.Tick();

@@ -47,7 +47,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(RendererTest, ForwardRenderer) {
     auto            gui_manager = std::make_unique<gui::GuiManager>(*app);
-    ForwardRenderer renderer(*device, *app, gui_manager.get(), test_name);
+    ForwardRenderer renderer(*device, *app, test_name);
 
     asset::AssetManager asset_manager("./assets");
 
@@ -83,7 +83,7 @@ TEST_P(RendererTest, ForwardRenderer) {
         scene->Update();
         renderer.RenderScene(scene, *camera, camera_transform.world_matrix, texture);
         texture = renderer.GetRenderGraph().MoveFrom(texture);
-        renderer.RenderGui(texture, false);
+        renderer.RenderGui(texture, gui_manager->GetDrawData(), false);
         renderer.ToSwapChain(texture);
         renderer.Tick();
 

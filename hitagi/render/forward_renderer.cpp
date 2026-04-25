@@ -14,7 +14,7 @@ import std;
 
 namespace hitagi::render {
 
-ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, gui::GuiManager* gui_manager, std::string_view name)
+ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, std::string_view name)
     : IRenderer(std::format("ForwardRenderer{}", name.empty() ? "" : std::format("({})", name))),
       m_App(app),
       m_GfxDevice(device),
@@ -25,7 +25,7 @@ ForwardRenderer::ForwardRenderer(gfx::Device& device, const Application& app, gu
       })),
       m_PersistentSampler(m_GfxDevice.CreateSampler({.name = "sampler"})),
       m_RenderGraph(m_GfxDevice, "ForwardRenderGraph"),
-      m_GuiRenderUtils(gui_manager ? std::make_unique<GuiRenderUtils>(*gui_manager, m_GfxDevice) : nullptr),
+      m_GuiRenderUtils(std::make_unique<GuiRenderUtils>(m_GfxDevice)),
       m_TextRenderUtils(std::make_unique<TextRenderUtils>(m_GfxDevice, m_App.GetConfig().asset_root_path / "fonts"))
 
 {
@@ -39,8 +39,8 @@ void ForwardRenderer::Tick() {
         m_SwapChain->Resize();
     }
 
-    if (m_RenderGraph.IsValid(m_GuiTarget)) {
-        m_GuiRenderUtils->GuiPass(m_RenderGraph, m_GuiTarget, m_ClearGuiTarget);
+    if (m_RenderGraph.IsValid(m_GuiTarget) && m_GuiDrawData != nullptr) {
+        m_GuiRenderUtils->GuiPass(m_RenderGraph, m_GuiTarget, *m_GuiDrawData, m_ClearGuiTarget);
     }
 
     if (m_RenderGraph.Compile()) {
@@ -48,6 +48,8 @@ void ForwardRenderer::Tick() {
     }
 
     ClearFrameState();
+    m_GuiTarget   = {};
+    m_GuiDrawData = nullptr;
 
     m_SwapChain->Present();
 
@@ -230,8 +232,9 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
     render_pass_builder.Finish();
 }
 
-void ForwardRenderer::RenderGui(rg::TextureHandle target, bool clear_target) {
+void ForwardRenderer::RenderGui(rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target) {
     m_GuiTarget      = target;
+    m_GuiDrawData    = &draw_data;
     m_ClearGuiTarget = clear_target;
 }
 

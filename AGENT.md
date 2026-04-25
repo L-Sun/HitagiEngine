@@ -47,19 +47,21 @@ xmake r gfx_test
 xmake r shader_compiler_test
 xmake r device_test
 xmake r render_graph_test
+xmake r gui_test
+xmake r renderer_test
 ```
 
 Also, you can run test with group flag like this:
 ```bash
 xmake r -g test/math
 xmake r -g test/renderer
+xmake r -g test/gui
 xmake r -g test/ecs
 xmake r -g test/asset
-xmake r -g test/renderer
 xmake r -g test/* # for all groups
 ```
 
-To build only a specific target group: `xmake build -g test/math`, `xmake build -g test/gfx`, etc.
+To build only a specific target group: `xmake build -g test/math`, `xmake build -g test/gfx`, `xmake build -g test/gui`, etc.
 
 ### Test Artifacts
 
@@ -103,6 +105,7 @@ Following the layered architecture from *Game Engine Architecture* (Jason Gregor
 | `hitagi::rg`     | `gfx.render_graph`      | Render graph                                   |
 | `hitagi::ecs`    | `ecs`                   | Entity Component System                        |
 | `hitagi::asset`  | `asset`                 | Asset management                               |
+| `hitagi::gui`    | `gui`                   | ImGui integration and GUI draw data generation |
 | `hitagi::render` | `render`                | Renderer implementations                       |
 | `hitagi::math`   | `math`                  | Math library (row-major matrices)              |
 
@@ -120,7 +123,9 @@ Following the layered architecture from *Game Engine Architecture* (Jason Gregor
 
 **`hitagi/asset`** — `AssetManager` for loading scenes, meshes, materials, textures. Assimp for model import; custom parsers for PNG, JPEG, BMP, TGA. Materials are defined with named instances (e.g., `"Phong"`).
 
-**`hitagi/render`** — `IRenderer` interface with two concrete implementations: `ForwardRenderer` (single-pass Phong shading) and `DeferredRenderer` (G-Buffer MRT pass + fullscreen lighting pass). Both renderers own the swapchain and render graph instance. The engine defaults to `ForwardRenderer`; switch via `Engine::SetRenderer()`.
+**`hitagi/gui`** — ImGui integration layer. `GuiManager` owns the ImGui context, input mapping, font loading, and queued GUI draw tasks. After `ImGui::Render()`, it converts ImGui output into `gui::GuiDrawData`, including copied vertices, indices, draw commands, the CPU font atlas view, and render graph texture references encoded via `GuiManager::ReadTexture()`.
+
+**`hitagi/render`** — `IRenderer` interface with two concrete implementations: `ForwardRenderer` (single-pass Phong shading) and `DeferredRenderer` (G-Buffer MRT pass + fullscreen lighting pass). Both renderers own the swapchain and render graph instance. The engine defaults to `ForwardRenderer`; switch via `Engine::SetRenderer()`. GUI rendering is explicit: renderer code consumes `const gui::GuiDrawData&` through `IRenderer::RenderGui(...)` and must not query ImGui state or own a `GuiManager`. It is valid to call `RenderGui(target, engine.GuiManager().GetDrawData(), clear)` before `engine.Tick()` because the renderer stores a frame-local pointer and consumes the updated draw data during its tick.
 
 **`hitagi/engine`** — Top-level `Engine` class that composes everything. Initialized from `hitagi.json` at the project root. Usage pattern: construct `Engine`, call `engine.Tick()` in the game loop.
 
@@ -136,6 +141,7 @@ int main() {
     while (!engine.App().IsQuit()) {
         engine.GuiManager().DrawGui([&]() { /* imgui calls */ });
         // ... render graph setup ...
+        engine.Renderer().RenderGui(render_target, engine.GuiManager().GetDrawData(), true);
         engine.Tick();
     }
 }

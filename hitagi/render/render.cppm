@@ -1,6 +1,5 @@
 module;
 
-#include <imgui.h>
 #include <spdlog/logger.h>
 
 export module render;
@@ -31,7 +30,7 @@ public:
     // Render scene to texture
     virtual void RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) = 0;
 
-    virtual void RenderGui(rg::TextureHandle target, bool clear_target) = 0;
+    virtual void RenderGui(rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target) = 0;
 
     virtual void RenderText(rg::TextureHandle target, std::span<const TextDrawCommand> commands, bool clear_target = false) = 0;
 
@@ -51,13 +50,11 @@ public:
 
 class GuiRenderUtils {
 public:
-    GuiRenderUtils(gui::GuiManager& gui_manager, gfx::Device& gfx_device);
+    GuiRenderUtils(gfx::Device& gfx_device);
 
-    void GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle target, bool clear_target);
+    void GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target);
 
 protected:
-    gui::GuiManager& m_GuiManager;
-
     // GUI render data
     struct GuiRenderData {
         std::shared_ptr<gfx::Shader>         vs, ps;
@@ -67,6 +64,7 @@ protected:
     } m_GfxData;
 
     rg::TextureHandle m_FontTexture;
+    std::uint64_t     m_FontTextureGeneration = 0;
 };
 
 class TextRenderUtils {
@@ -88,13 +86,13 @@ private:
 
 class ForwardRenderer : public IRenderer {
 public:
-    ForwardRenderer(gfx::Device& device, const Application& app, gui::GuiManager* gui_manager = nullptr, std::string_view name = "");
+    ForwardRenderer(gfx::Device& device, const Application& app, std::string_view name = "");
 
     void Tick() override;
 
     void RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) override;
 
-    void RenderGui(rg::TextureHandle target, bool clear_target) override;
+    void RenderGui(rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target) override;
 
     void RenderText(rg::TextureHandle target, std::span<const TextDrawCommand> commands, bool clear_target = false) override;
 
@@ -183,6 +181,7 @@ private:
     std::unique_ptr<GuiRenderUtils>  m_GuiRenderUtils;
     std::unique_ptr<TextRenderUtils> m_TextRenderUtils;
     rg::TextureHandle                m_GuiTarget;
+    const gui::GuiDrawData*          m_GuiDrawData    = nullptr;
     bool                             m_ClearGuiTarget = false;
 
     // frame state

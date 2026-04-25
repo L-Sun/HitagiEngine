@@ -19,7 +19,7 @@ auto main(int argc, char** argv) -> int {
                 .clear_value = hitagi::math::Color::Black(),
                 .usages      = hitagi::gfx::TextureUsageFlags::RenderTarget | hitagi::gfx::TextureUsageFlags::CopySrc,
             });
-        engine.Renderer().RenderGui(render_target, true);
+        engine.Renderer().RenderGui(render_target, engine.GuiManager().GetDrawData(), true);
         engine.Renderer().ToSwapChain(render_target);
         engine.Tick();
     }

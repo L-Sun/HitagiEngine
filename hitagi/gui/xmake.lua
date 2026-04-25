@@ -4,3 +4,5 @@ target("gui")
     add_files("*.cpp")
     add_deps("core", "hid", "gfx", "app")
     add_packages("imgui", {public = true})
+
+includes("test")

@@ -50,7 +50,7 @@ void Editor::Tick() {
                 .usages      = gfx::TextureUsageFlags::CopySrc | gfx::TextureUsageFlags::RenderTarget,
             },
             "Editor Output");
-        renderer.RenderGui(output, true);
+        renderer.RenderGui(output, m_Engine.GuiManager().GetDrawData(), true);
         renderer.ToSwapChain(output);
     }
 
