@@ -77,6 +77,11 @@ void PassBuilder::Invalidate(std::string_view error_message) noexcept {
     }
 }
 
+void PassBuilder::SetPassCullingAllowed(bool allow) noexcept {
+    if (m_Invalid) return;
+    pass_base->m_Cullable = allow;
+}
+
 void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge new_edge) noexcept {
     ZoneScoped;
 
@@ -215,6 +220,11 @@ auto RenderPassBuilder::SetName(std::string_view name) noexcept -> RenderPassBui
 
     pass->m_Name = name;
 
+    return *this;
+}
+
+auto RenderPassBuilder::AllowPassCulling(bool allow) noexcept -> RenderPassBuilder& {
+    SetPassCullingAllowed(allow);
     return *this;
 }
 
@@ -426,6 +436,11 @@ auto ComputePassBuilder::SetName(std::string_view name) noexcept -> ComputePassB
     return *this;
 }
 
+auto ComputePassBuilder::AllowPassCulling(bool allow) noexcept -> ComputePassBuilder& {
+    SetPassCullingAllowed(allow);
+    return *this;
+}
+
 auto ComputePassBuilder::Read(GPUBufferHandle buffer) noexcept -> ComputePassBuilder& {
     if (m_Invalid) return *this;
     if (!m_RenderGraph.IsValid(buffer)) {
@@ -569,6 +584,11 @@ auto CopyPassBuilder::SetName(std::string_view name) noexcept -> CopyPassBuilder
 
     pass->m_Name = name;
 
+    return *this;
+}
+
+auto CopyPassBuilder::AllowPassCulling(bool allow) noexcept -> CopyPassBuilder& {
+    SetPassCullingAllowed(allow);
     return *this;
 }
 

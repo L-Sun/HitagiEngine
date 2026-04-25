@@ -26,6 +26,9 @@ public:
 
     virtual void RenderGui(rg::TextureHandle target, bool clear_target) = 0;
 
+    virtual void CopyToTexture(rg::TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer = {}, gfx::TextureSubresourceLayer to_layer = {}) = 0;
+    virtual void CopyToBuffer(rg::TextureHandle from, std::shared_ptr<gfx::GPUBuffer> to, gfx::TextureSubresourceLayer from_layer = {})                                            = 0;
+
     virtual void ToSwapChain(rg::TextureHandle from) = 0;
 
     // Get frame time
@@ -66,6 +69,9 @@ public:
     void RenderScene(std::shared_ptr<asset::Scene> scene, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) override;
 
     void RenderGui(rg::TextureHandle target, bool clear_target) override;
+
+    void CopyToTexture(rg::TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer = {}, gfx::TextureSubresourceLayer to_layer = {}) override;
+    void CopyToBuffer(rg::TextureHandle from, std::shared_ptr<gfx::GPUBuffer> to, gfx::TextureSubresourceLayer from_layer = {}) override;
 
     void ToSwapChain(rg::TextureHandle from) override;
 

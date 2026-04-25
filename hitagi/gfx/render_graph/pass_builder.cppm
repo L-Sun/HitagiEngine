@@ -24,6 +24,7 @@ protected:
     ~PassBuilder();
 
     void Invalidate(std::string_view error_message) noexcept;
+    void SetPassCullingAllowed(bool allow) noexcept;
     void AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge edge) noexcept;
     void AddTextureEdge(TextureHandle texture_handle, TextureEdge edge) noexcept;
     void AddSamplerEdge(SamplerHandle sampler_handle, SamplerEdge edge) noexcept;
@@ -44,6 +45,7 @@ public:
     RenderPassBuilder(RenderGraph& render_graph);
 
     RenderPassBuilder& SetName(std::string_view name) noexcept;
+    RenderPassBuilder& AllowPassCulling(bool allow) noexcept;
 
     RenderPassBuilder& Read(GPUBufferHandle buffer, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
     RenderPassBuilder& Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
@@ -76,6 +78,7 @@ public:
     ComputePassBuilder(RenderGraph& render_graph);
 
     ComputePassBuilder& SetName(std::string_view name) noexcept;
+    ComputePassBuilder& AllowPassCulling(bool allow) noexcept;
 
     ComputePassBuilder& Read(GPUBufferHandle buffer) noexcept;
     ComputePassBuilder& Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements) noexcept;
@@ -103,6 +106,7 @@ public:
     CopyPassBuilder(RenderGraph& render_graph);
 
     CopyPassBuilder& SetName(std::string_view name) noexcept;
+    CopyPassBuilder& AllowPassCulling(bool allow) noexcept;
 
     CopyPassBuilder& BufferToBuffer(GPUBufferHandle src, GPUBufferHandle dst) noexcept;
     CopyPassBuilder& BufferToTexture(GPUBufferHandle src, TextureHandle dst, gfx::TextureSubresourceLayer layer = {}) noexcept;

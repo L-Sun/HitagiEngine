@@ -436,6 +436,142 @@ TEST_F(RenderGraphTest, GraphTest) {
     rg.Execute();
 }
 
+class RenderGraphCullingTest : public Test {
+protected:
+    RenderGraphCullingTest()
+        : device(create_device(Device::Type::Mock, "RenderGraphCulling")),
+          rg(*device, "RenderGraphCulling"),
+          swap_chain(device->CreateSwapChain({})),
+          render_pipeline(device->CreateRenderPipeline({})),
+          pipeline(rg.Import(render_pipeline, "pipeline")) {}
+
+    void SetUp() override {
+        ASSERT_TRUE(device) << "Failed to create mock device";
+    }
+
+    auto CreateRenderTarget(std::string_view name) -> TextureHandle {
+        return rg.Create(
+            TextureDesc{
+                .name   = std::pmr::string(name),
+                .width  = 16,
+                .height = 16,
+                .depth  = 1,
+                .format = Format::R8G8B8A8_UNORM,
+                .usages = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+            },
+            name);
+    }
+
+    std::shared_ptr<Device>         device;
+    RenderGraph                     rg;
+    std::shared_ptr<SwapChain>      swap_chain;
+    std::shared_ptr<RenderPipeline> render_pipeline;
+    RenderPipelineHandle            pipeline;
+};
+
+TEST_F(RenderGraphCullingTest, CullsUnrootedPassWithoutPresent) {
+    bool executed = false;
+
+    RenderPassBuilder(rg)
+        .SetName("unrooted_pass")
+        .SetRenderTarget(CreateRenderTarget("unrooted_target"))
+        .AddPipeline(pipeline)
+        .SetExecutor([&executed](const RenderGraph&, const RenderPassNode&) {
+            executed = true;
+        })
+        .Finish();
+
+    EXPECT_TRUE(rg.Compile());
+    rg.Execute();
+
+    EXPECT_FALSE(executed);
+}
+
+TEST_F(RenderGraphCullingTest, NonCullablePassExecutesWithoutPresent) {
+    bool executed = false;
+
+    RenderPassBuilder(rg)
+        .SetName("side_effect_pass")
+        .AllowPassCulling(false)
+        .SetRenderTarget(CreateRenderTarget("side_effect_target"))
+        .AddPipeline(pipeline)
+        .SetExecutor([&executed](const RenderGraph&, const RenderPassNode&) {
+            executed = true;
+        })
+        .Finish();
+
+    EXPECT_TRUE(rg.Compile());
+    rg.Execute();
+
+    EXPECT_TRUE(executed);
+}
+
+TEST_F(RenderGraphCullingTest, BufferExtractionKeepsProducerWithoutPresent) {
+    bool producer_executed = false;
+
+    const auto target = CreateRenderTarget("extracted_target");
+
+    RenderPassBuilder(rg)
+        .SetName("producer_pass")
+        .SetRenderTarget(target)
+        .AddPipeline(pipeline)
+        .SetExecutor([&producer_executed](const RenderGraph&, const RenderPassNode&) {
+            producer_executed = true;
+        })
+        .Finish();
+
+    const auto readback_buffer = device->CreateGPUBuffer({
+        .name          = "extraction_readback",
+        .element_size  = 4,
+        .element_count = 16 * 16,
+        .usages        = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
+    });
+
+    const auto extraction = rg.QueueBufferExtraction(target, readback_buffer);
+    ASSERT_TRUE(rg.IsValid(extraction));
+
+    EXPECT_TRUE(rg.Compile());
+    rg.Execute();
+
+    EXPECT_TRUE(producer_executed);
+}
+
+TEST_F(RenderGraphCullingTest, CullsDisconnectedBranchWithPresent) {
+    bool present_branch_executed = false;
+    bool culled_branch_executed  = false;
+
+    const auto present_target = CreateRenderTarget("present_target");
+
+    RenderPassBuilder(rg)
+        .SetName("present_branch")
+        .SetRenderTarget(present_target)
+        .AddPipeline(pipeline)
+        .SetExecutor([&present_branch_executed](const RenderGraph&, const RenderPassNode&) {
+            present_branch_executed = true;
+        })
+        .Finish();
+
+    RenderPassBuilder(rg)
+        .SetName("culled_branch")
+        .SetRenderTarget(CreateRenderTarget("culled_target"))
+        .AddPipeline(pipeline)
+        .SetExecutor([&culled_branch_executed](const RenderGraph&, const RenderPassNode&) {
+            culled_branch_executed = true;
+        })
+        .Finish();
+
+    PresentPassBuilder(rg)
+        .From(present_target)
+        .SetSwapChain(swap_chain)
+        .Finish();
+
+    EXPECT_TRUE(rg.Compile());
+    rg.Execute();
+
+    EXPECT_TRUE(present_branch_executed);
+    EXPECT_FALSE(culled_branch_executed);
+}
+
 TEST_F(RenderGraphTest, CopyTextureToBuffer) {
     if (device->device_type != hitagi::gfx::Device::Type::Mock) {
         GTEST_SKIP();

@@ -249,6 +249,81 @@ auto RenderGraph::GetComputePipelineHandle(std::string_view name) const noexcept
     return GetHandle<RenderGraphNode::Type::ComputePipeline>(name);
 }
 
+auto RenderGraph::QueueTextureExtraction(TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer, gfx::TextureSubresourceLayer to_layer) noexcept -> CopyPassHandle {
+    if (!IsValid(from)) {
+        m_Logger->error("Queue texture extraction failed: source texture({}) is invalid", from.index);
+        return {};
+    }
+    if (!to) {
+        m_Logger->error("Queue texture extraction failed: destination texture is nullptr");
+        return {};
+    }
+
+    const auto dst  = Import(std::move(to));
+    const auto name = std::format("TextureExtraction-{}-{}", m_FrameIndex, m_ExtractionIndex++);
+
+    return CopyPassBuilder(*this)
+        .SetName(name)
+        .AllowPassCulling(false)
+        .TextureToTexture(from, dst, from_layer, to_layer)
+        .SetExecutor([from, dst, from_layer, to_layer](const RenderGraph&, const CopyPassNode& pass) {
+            auto& cmd     = pass.GetCmd();
+            auto& src     = pass.Resolve(from);
+            auto& dst_tex = pass.Resolve(dst);
+
+            cmd.CopyTextureRegion(
+                src,
+                {0, 0, 0},
+                dst_tex,
+                {0, 0, 0},
+                {
+                    std::min(src.GetDesc().width, dst_tex.GetDesc().width),
+                    std::min(src.GetDesc().height, dst_tex.GetDesc().height),
+                    std::min(static_cast<std::uint32_t>(src.GetDesc().depth), static_cast<std::uint32_t>(dst_tex.GetDesc().depth)),
+                },
+                from_layer,
+                to_layer);
+        })
+        .Finish();
+}
+
+auto RenderGraph::QueueBufferExtraction(TextureHandle from, std::shared_ptr<gfx::GPUBuffer> to, gfx::TextureSubresourceLayer from_layer) noexcept -> CopyPassHandle {
+    if (!IsValid(from)) {
+        m_Logger->error("Queue buffer extraction failed: source texture({}) is invalid", from.index);
+        return {};
+    }
+    if (!to) {
+        m_Logger->error("Queue buffer extraction failed: destination buffer is nullptr");
+        return {};
+    }
+
+    const auto dst  = Import(std::move(to));
+    const auto name = std::format("BufferExtraction-{}-{}", m_FrameIndex, m_ExtractionIndex++);
+
+    return CopyPassBuilder(*this)
+        .SetName(name)
+        .AllowPassCulling(false)
+        .TextureToBuffer(from, dst, from_layer)
+        .SetExecutor([from, dst, from_layer](const RenderGraph&, const CopyPassNode& pass) {
+            auto& cmd        = pass.GetCmd();
+            auto& src        = pass.Resolve(from);
+            auto& dst_buffer = pass.Resolve(dst);
+
+            cmd.CopyTextureToBuffer(
+                src,
+                {0, 0, 0},
+                {
+                    src.GetDesc().width,
+                    src.GetDesc().height,
+                    static_cast<std::uint32_t>(src.GetDesc().depth),
+                },
+                dst_buffer,
+                0,
+                from_layer);
+        })
+        .Finish();
+}
+
 bool RenderGraph::Compile() {
     ZoneScoped;
 
@@ -257,14 +332,24 @@ bool RenderGraph::Compile() {
         return true;
     }
 
-    if (m_PresentPassNode == nullptr) {
-        m_Logger->trace("RenderGraph has no present pass, so nothing will be rendered");
+    const auto side_effect_roots = m_Nodes                                                                                               //
+                                   | std::ranges::views::filter([](const auto& node) { return node && node->IsPassNode(); })             //
+                                   | std::ranges::views::transform([](const auto& node) { return static_cast<PassNode*>(node.get()); })  //
+                                   | std::ranges::views::filter([](const auto* pass_node) { return !pass_node->m_Cullable; })            //
+                                   | std::ranges::to<std::pmr::vector<PassNode*>>();
+
+    const auto present_enabled =
+        m_PresentPassNode != nullptr &&
+        m_PresentPassNode->swap_chain->GetWidth() != 0 &&
+        m_PresentPassNode->swap_chain->GetHeight() != 0;
+
+    if (m_PresentPassNode == nullptr && side_effect_roots.empty()) {
+        m_Logger->trace("RenderGraph has no present pass or side-effect root, so nothing will be rendered");
         m_Compiled = true;
         return true;
     }
 
-    if (m_PresentPassNode->swap_chain->GetWidth() == 0 ||
-        m_PresentPassNode->swap_chain->GetHeight() == 0) {
+    if (m_PresentPassNode != nullptr && !present_enabled && side_effect_roots.empty()) {
         m_Logger->trace("The window is minimized, so nothing will be rendered");
         m_Compiled = true;
         return true;
@@ -280,7 +365,15 @@ bool RenderGraph::Compile() {
                 do_dfs(input_node);
             }
         };
-        do_dfs(m_PresentPassNode.get());
+
+        // Present is not the only legal side effect. Debug extraction passes write
+        // caller-owned resources, so they must seed culling just like present does.
+        if (present_enabled) {
+            do_dfs(m_PresentPassNode.get());
+        }
+        for (auto* pass_node : side_effect_roots) {
+            do_dfs(pass_node);
+        }
 
         // we need keep all output resource node in essential pass node to avoid execution failure
         auto write_resource_nodes = essential_nodes                                                                    //
@@ -423,6 +516,7 @@ void RenderGraph::ClearImportedResources() noexcept {
 void RenderGraph::Reset() noexcept {
     m_Compiled        = false;
     m_PresentPassNode = nullptr;
+    m_ExtractionIndex = 0;
 
     for (std::size_t handle = 0; handle < m_Nodes.size(); handle++) {
         auto& node = m_Nodes[handle];

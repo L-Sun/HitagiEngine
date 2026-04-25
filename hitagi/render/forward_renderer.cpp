@@ -160,9 +160,9 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
 
         // update material instance data
         for (auto* const material_instance : m_ActiveMaterialInstances) {
-            auto  material_info            = m_MaterialInfos.at(material_instance->GetMaterial().get());
-            auto& material_constant_buffer = pass.Resolve(material_info.material_constant);
-            const auto material_instance_index = m_MaterialInstanceIndices.at(material_instance);
+            auto       material_info            = m_MaterialInfos.at(material_instance->GetMaterial().get());
+            auto&      material_constant_buffer = pass.Resolve(material_info.material_constant);
+            const auto material_instance_index  = m_MaterialInstanceIndices.at(material_instance);
 
             auto material_constant_data = material_instance->GenerateMaterialBuffer(m_GfxDevice.device_type == gfx::Device::Type::DX12);
 
@@ -228,6 +228,14 @@ void ForwardRenderer::RenderScene(std::shared_ptr<asset::Scene> scene, const ass
 void ForwardRenderer::RenderGui(rg::TextureHandle target, bool clear_target) {
     m_GuiTarget      = target;
     m_ClearGuiTarget = clear_target;
+}
+
+void ForwardRenderer::CopyToTexture(rg::TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer, gfx::TextureSubresourceLayer to_layer) {
+    m_RenderGraph.QueueTextureExtraction(from, std::move(to), from_layer, to_layer);
+}
+
+void ForwardRenderer::CopyToBuffer(rg::TextureHandle from, std::shared_ptr<gfx::GPUBuffer> to, gfx::TextureSubresourceLayer from_layer) {
+    m_RenderGraph.QueueBufferExtraction(from, std::move(to), from_layer);
 }
 
 void ForwardRenderer::ToSwapChain(rg::TextureHandle from) {

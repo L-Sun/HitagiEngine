@@ -47,6 +47,7 @@ protected:
     std::pmr::vector<gfx::TextureBarrier>   m_TextureBarriers;
 
     std::shared_ptr<gfx::CommandContext> m_CommandContext;
+    bool                                 m_Cullable = true;
 };
 
 class RenderPassNode : public PassNode {

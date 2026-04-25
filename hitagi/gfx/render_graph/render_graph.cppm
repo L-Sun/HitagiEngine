@@ -46,6 +46,9 @@ public:
     template <RenderGraphNode::Type T>
     bool IsValid(RenderGraphHandle<T> handle) const noexcept;
 
+    auto QueueTextureExtraction(TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer = {}, gfx::TextureSubresourceLayer to_layer = {}) noexcept -> CopyPassHandle;
+    auto QueueBufferExtraction(TextureHandle from, std::shared_ptr<gfx::GPUBuffer> to, gfx::TextureSubresourceLayer from_layer = {}) noexcept -> CopyPassHandle;
+
     bool Compile();
     auto Execute() -> std::uint64_t;
     void ClearImportedResources() noexcept;
@@ -111,6 +114,7 @@ private:
 
     bool                           m_Compiled = false;
     std::pmr::vector<ExecuteLayer> m_ExecuteLayers;
+    std::uint64_t                  m_ExtractionIndex = 0;
 
     std::shared_ptr<PresentPassNode> m_PresentPassNode;
 
@@ -134,9 +138,9 @@ private:
             std::uint64_t                   last_used_frame = 0;
         };
         struct CachedTexture {
-            gfx::TextureDesc               desc;
-            std::shared_ptr<gfx::Texture>  resource;
-            std::uint64_t                  last_used_frame = 0;
+            gfx::TextureDesc              desc;
+            std::shared_ptr<gfx::Texture> resource;
+            std::uint64_t                 last_used_frame = 0;
         };
 
         std::unordered_multimap<std::size_t, CachedBuffer>  buffers;
