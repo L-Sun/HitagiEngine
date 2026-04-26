@@ -1,7 +1,6 @@
 module;
 
 module asset;
-import :image_codec;
 import std;
 
 namespace hitagi::asset {

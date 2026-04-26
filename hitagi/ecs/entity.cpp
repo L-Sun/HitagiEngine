@@ -1,7 +1,5 @@
 module ecs;
 import std;
-import :entity;
-
 namespace hitagi::ecs {
 
 bool Entity::Has(std::string_view dynamic_component) const {

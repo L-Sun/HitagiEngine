@@ -1,8 +1,6 @@
 module;
 #include <spdlog/spdlog.h>
 module gfx.render_graph;
-import :resource_node;
-
 namespace hitagi::rg {
 
 ResourceNode::ResourceNode(RenderGraph& render_graph, Type type, std::string_view name, std::shared_ptr<gfx::Resource> resource)

@@ -1,7 +1,5 @@
 module;
 module gfx.render_graph;
-import :type;
-
 namespace hitagi::rg {
 
 void RenderGraphNode::AddInputNode(RenderGraphNode* node) noexcept {

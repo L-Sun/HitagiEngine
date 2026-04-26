@@ -1,6 +1,4 @@
 module gfx.mock;
-import :resource;
-
 namespace hitagi::gfx {
 MockDevice::MockDevice(std::string_view name)
     : Device(Device::Type::Mock, name),

@@ -5,7 +5,6 @@ module;
 #include <vulkan/vulkan_raii.hpp>
 
 module gfx.vulkan;
-import :bindless;
 import std;
 
 namespace hitagi::gfx {

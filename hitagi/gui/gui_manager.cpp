@@ -9,8 +9,6 @@ module;
 
 module gui;
 import std;
-import :keymaps;
-
 namespace hitagi::gui {
 
 GuiManager::GuiManager(Application& app) : RuntimeModule("GuiManager"), m_App(app), m_InputManager(app.GetInputManager()) {

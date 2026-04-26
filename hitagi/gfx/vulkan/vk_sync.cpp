@@ -3,8 +3,6 @@ module;
 #include <vulkan/vulkan_raii.hpp>
 
 module gfx.vulkan;
-import :sync;
-import :utils;
 import gfx.base;
 
 

@@ -8,7 +8,6 @@ module;
 
 module gfx.vulkan;
 import magic_enum;
-import :command_buffer;
 
 namespace hitagi::gfx {
 VulkanDevice::VulkanDevice(std::string_view name)

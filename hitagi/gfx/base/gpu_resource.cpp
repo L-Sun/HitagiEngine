@@ -1,8 +1,6 @@
 module;
 
 module gfx.base;
-import :gpu_resource;
-
 namespace hitagi::gfx {
 
 auto GPUBuffer::Transition(BarrierAccess access, PipelineStage stage) -> GPUBufferBarrier {

@@ -6,7 +6,6 @@ module;
 #include <tracy/TracyVulkan.hpp>
 
 module gfx.vulkan;
-import :command_queue;
 import std;
 
 namespace hitagi::gfx {

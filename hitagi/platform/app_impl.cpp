@@ -5,10 +5,6 @@ module;
 
 module app;
 import std;
-#ifdef _WIN32
-import :windows;
-#endif
-import :sdl3;
 
 namespace hitagi {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, title, version, width, height, asset_root_path, gfx_backend, log_level);

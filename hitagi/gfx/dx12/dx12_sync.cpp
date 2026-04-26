@@ -6,7 +6,6 @@ module;
 #include <tracy/Tracy.hpp>
 
 module gfx.dx12;
-import :sync;
 
 namespace hitagi::gfx {
 DX12Fence::DX12Fence(DX12Device& device, std::uint64_t initial_value, std::string_view name) : Fence(device, name) {

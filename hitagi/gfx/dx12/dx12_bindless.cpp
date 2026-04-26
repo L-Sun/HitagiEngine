@@ -6,8 +6,6 @@ module;
 #include <d3dx12/d3dx12.h>
 
 module gfx.dx12;
-import :bindless;
-import :utils;
 
 namespace hitagi::gfx {
 // https://microsoft.github.io/DirectX-Specs/d3d/ResourceBinding.html#levels-of-hardware-support

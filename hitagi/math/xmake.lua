@@ -9,7 +9,7 @@ target("math")
     set_kind("phony")
     set_default(false)
     set_group("modules")
-    add_files("*.cppm", {public = true})
+    add_files("math.cppm", {public = true})
     add_deps("utils")
     set_options("ispc")
     if has_config("ispc") then

@@ -2,8 +2,6 @@ module;
 #include <spdlog/spdlog.h>
 #include <tracy/Tracy.hpp>
 module gfx.render_graph;
-import :pass_node;
-
 namespace hitagi::rg {
 
 PassNode::~PassNode() {

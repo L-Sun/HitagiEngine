@@ -18,8 +18,6 @@ struct ComPtr : public CComPtr<T> {
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 module gfx.base;
-import :shader_compiler;
-import :utils;
 import std;
 import utils;
 

@@ -5,8 +5,6 @@ module;
 
 module ecs;
 import std;
-import :schedule;
-
 namespace hitagi::ecs {
 void Schedule::Request(std::shared_ptr<TaskBase>&& task, const ParameterSets& parameter_sets) {
     if (m_TaskNameToIndex.contains(task->name)) {

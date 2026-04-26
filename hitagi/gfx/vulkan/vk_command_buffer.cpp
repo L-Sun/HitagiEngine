@@ -7,10 +7,7 @@ module;
 #include <tracy/TracyVulkan.hpp>
 
 module gfx.vulkan;
-import :command_buffer;
-import :command_queue;
 import std;
-import :resource;
 
 namespace hitagi::gfx {
 

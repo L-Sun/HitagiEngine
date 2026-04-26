@@ -1,5 +1,4 @@
 module core;
-import :buffer;
 import std;
 
 namespace hitagi::core {

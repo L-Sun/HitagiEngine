@@ -17,7 +17,6 @@ module;
 
 module physics;
 import std;
-import :physics_manager;
 import utils;
 
 namespace hitagi::physics {

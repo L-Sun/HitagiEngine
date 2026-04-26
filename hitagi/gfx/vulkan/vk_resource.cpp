@@ -18,7 +18,6 @@ module;
 #include <vk_mem_alloc.h>
 
 module gfx.vulkan;
-import :resource;
 import std;
 
 namespace hitagi::gfx {

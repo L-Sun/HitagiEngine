@@ -6,8 +6,6 @@ module hid;
 import std;
 import magic_enum;
 import utils;
-import :keymap;
-
 namespace hitagi::hid {
 InputManager::InputManager()
     : RuntimeModule("InputManager"),

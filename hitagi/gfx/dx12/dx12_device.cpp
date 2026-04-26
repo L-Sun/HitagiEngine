@@ -8,13 +8,6 @@ module;
 
 module gfx.dx12;
 import magic_enum;
-import :command_list;
-import :command_queue;
-import :descriptor_heap;
-import :resource;
-import :sync;
-import :bindless;
-import :utils;
 
 extern "C" {
 _declspec(dllexport) extern const UINT D3D12SDKVersion = D3D12SDK_VERSION;

@@ -4,7 +4,6 @@ module;
 #include <spdlog/logger.h>
 
 module gfx.dx12;
-import :descriptor_heap;
 
 namespace hitagi::gfx {
 

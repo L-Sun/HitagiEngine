@@ -8,9 +8,6 @@ module;
 
 module gfx.dx12;
 import std;
-import :command_list;
-import :command_queue;
-import :utils;
 
 namespace hitagi::gfx {
 auto initialize_command_context(DX12Device& device, CommandType type, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<ID3D12GraphicsCommandList>& cmd_list, std::string_view name) {

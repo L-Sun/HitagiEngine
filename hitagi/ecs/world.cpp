@@ -4,8 +4,6 @@ module;
 
 module ecs;
 import std;
-import :schedule;
-
 namespace hitagi::ecs {
 World::World(std::string_view name)
     : m_Name(name),

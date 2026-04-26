@@ -9,9 +9,6 @@ module;
 
 module gfx.dx12;
 import std;
-import :resource;
-import :command_list;
-import :utils;
 
 namespace hitagi::gfx {
 DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, std::move(desc)) {

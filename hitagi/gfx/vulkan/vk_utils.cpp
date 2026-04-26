@@ -4,7 +4,6 @@ module;
 #include <vulkan/vulkan_raii.hpp>
 #include <vk_mem_alloc.h>
 module gfx.vulkan;
-import :utils;
 
 namespace hitagi::gfx {
 auto custom_vk_allocation_fn(

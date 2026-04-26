@@ -8,9 +8,6 @@ module;
 module gfx.dx12;
 import std;
 import magic_enum;
-import :command_queue;
-import :command_list;
-import :utils;
 
 namespace hitagi::gfx {
 DX12CommandQueue::DX12CommandQueue(DX12Device& device, CommandType type, std::string_view name)

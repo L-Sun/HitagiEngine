@@ -3,8 +3,6 @@ module;
 #include <fmt/color.h>
 #include <tracy/Tracy.hpp>
 module gfx.render_graph;
-import :pass_builder;
-
 namespace hitagi::rg {
 
 PassBuilder::PassBuilder(RenderGraph& render_graph, std::shared_ptr<PassNode> pass_base)
