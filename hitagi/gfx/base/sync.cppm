@@ -15,7 +15,7 @@ public:
     virtual ~Fence()               = default;
 
     virtual void Signal(std::uint64_t value)                                                                     = 0;
-    virtual bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = std::chrono::milliseconds::max()) = 0;
+    virtual bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = (std::chrono::milliseconds::max)()) = 0;
     virtual auto GetCurrentValue() -> std::uint64_t                                                              = 0;
 
     inline auto GetName() const noexcept -> std::string_view { return m_Name; }

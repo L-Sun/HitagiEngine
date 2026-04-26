@@ -1,4 +1,5 @@
 target("renderer_test")
+    set_default(false)
     add_files("renderer_test.cpp")
     add_deps("utils", "test_utils")
     add_deps("render", "gfx", "asset")

@@ -6,12 +6,12 @@ option("ispc")
     includes("ispc")
 
 target("math")
-    set_kind("static")
+    set_kind("phony")
+    set_default(false)
+    set_group("modules")
     add_files("*.cppm", {public = true})
     add_deps("utils")
     set_options("ispc")
     if has_config("ispc") then
         add_deps("ispc_math")
     end
-
-includes("test")

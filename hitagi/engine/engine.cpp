@@ -12,6 +12,7 @@ import gui;
 import debugger;
 import app;
 import asset;
+import physics;
 
 using namespace std::literals;
 
@@ -42,6 +43,7 @@ Engine::Engine(const std::filesystem::path& config_path) : RuntimeModule("Engine
     // update state
     auto device = add_inner_module(gfx::create_device(magic_enum::enum_cast<gfx::Device::Type>(m_App->GetConfig().gfx_backend).value()));
     add_inner_module(std::make_unique<asset::AssetManager>(m_App->GetConfig().asset_root_path));
+    add_inner_module(std::make_unique<physics::PhysicsManager>());
 
     // Game or editor logic here
     add_inner_module(std::make_unique<OutLogicArea>());
@@ -58,6 +60,9 @@ void Engine::Tick() {
     ZoneScopedN("Engine");
     RuntimeModule::Tick();
     m_Clock.Tick();
+    if (auto* physics_manager = physics::PhysicsManager::Get(); physics_manager != nullptr) {
+        physics_manager->SetDeltaTime(static_cast<float>(m_Clock.DeltaTime().count()));
+    }
 
     static bool tracy_plot_configured = false;
     if (!tracy_plot_configured) {

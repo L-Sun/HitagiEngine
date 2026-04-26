@@ -57,7 +57,7 @@ struct MockFence : public Fence {
     void Signal(std::uint64_t value) final {
         m_Value = value;
     }
-    bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = std::chrono::milliseconds::max()) final {
+    bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = (std::chrono::milliseconds::max)()) final {
         return true;
     }
     auto GetCurrentValue() -> std::uint64_t final {

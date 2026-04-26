@@ -1,9 +1,11 @@
 target("ecs_test")
+    set_default(false)
     add_files("ecs_test.cpp")
     add_deps("ecs", "test_utils")
     set_group("test/ecs")
 
 target("ecs_benchmark")
+    set_default(false)
     add_files("ecs_benchmark.cpp")
     add_deps("ecs", "test_utils")
     set_group("test/ecs")

@@ -1,4 +1,5 @@
 target("math_test")
+    set_default(false)
     add_files("math_test.cpp")
     add_deps("math", "test_utils")
     set_group("test/math")

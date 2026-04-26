@@ -14,7 +14,12 @@ namespace hitagi::gfx {
 
 inline std::string HrToString(HRESULT hr) {
     _com_error err(hr);
+#ifdef UNICODE
+    auto message = std::wstring_view{err.ErrorMessage()};
+    return {message.begin(), message.end()};
+#else
     return {err.ErrorMessage()};
+#endif
 }
 
 inline auto set_debug_name(ID3D12Object* obj, std::string_view name) {

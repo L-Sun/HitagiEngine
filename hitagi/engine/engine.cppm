@@ -15,11 +15,13 @@ export import debugger;
 export import app;
 export import hid;
 export import asset;
+export import physics;
 
 export namespace hitagi {
 class Engine : public RuntimeModule {
 public:
     Engine(const std::filesystem::path& config_path = "hitagi.json");
+    static auto Get() -> Engine* { return static_cast<Engine*>(RuntimeModule::GetModule("Engine")); }
 
     void Tick() final;
 

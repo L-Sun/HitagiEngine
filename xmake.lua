@@ -30,6 +30,11 @@ option("profile")
     set_description("Enable tracy profiling.")
 option_end()
 
+option("examples")
+    set_default(false)
+    set_description("Build example executables.")
+option_end()
+
 if has_config("profile") then
     add_defines("TRACY_ENABLE")
     add_requireconfs("tracy", {configs = {on_demand = true}})
@@ -39,6 +44,13 @@ if has_config("profile") then
 end
 
 add_requireconfs("*", {configs = {shared = true}})
+add_requireconfs("joltphysics", {
+    override = true,
+    configs = {
+        shared         = false,
+        debug_renderer = false,
+    }
+})
 
 add_requires(
     "taskflow",
@@ -60,6 +72,7 @@ add_requires(
 )
 
 add_requires("magic_enum", {configs = {modules = true}})
+add_requires("joltphysics")
 add_requires("tracy v0.12.1")
 add_requires("assimp", {configs = {cxflags = "/EHsc"}})
 add_requires("spdlog", {configs = {fmt_external = true}})
@@ -67,4 +80,6 @@ add_requires("imgui v1.92.1-docking", {configs = {freetype = true, wchar32 = tru
 add_requires("d3d12-memory-allocator", "directx12-agility-sdk", {optional = true})
 
 includes("hitagi/xmake.lua")
-includes("examples/**/xmake.lua")
+if has_config("examples") then
+    includes("examples/**/xmake.lua")
+end

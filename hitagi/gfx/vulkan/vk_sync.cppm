@@ -15,7 +15,7 @@ public:
     ~VulkanTimelineSemaphore() final = default;
 
     void Signal(std::uint64_t value) final;
-    bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = std::chrono::milliseconds::max()) final;
+    bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = (std::chrono::milliseconds::max)()) final;
     auto GetCurrentValue() -> std::uint64_t final;
 
     vk::raii::Semaphore timeline_semaphore;

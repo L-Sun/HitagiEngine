@@ -3,10 +3,11 @@ includes("mock/xmake.lua")
 includes("dx12/xmake.lua")
 includes("vulkan/xmake.lua")
 includes("render_graph/xmake.lua")
-includes("test")
 
 target("gfx")
-    set_kind("static")
+    set_kind("phony")
+    set_default(false)
+    set_group("modules")
     set_basename("hitagi_gfx")
     add_files("gfx.cppm", "gfx.cpp", {public = true})
     add_deps(
