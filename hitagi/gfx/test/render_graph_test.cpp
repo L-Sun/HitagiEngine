@@ -784,11 +784,3 @@ TEST_F(TransientResourcePoolTest, NameIndependentReuse) {
     EXPECT_EQ(frame1.buffer, frame2.buffer) << "Pool should match by structure, not name";
     EXPECT_EQ(frame1.texture, frame2.texture) << "Pool should match by structure, not name";
 }
-
-int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::debug);
-    auto file_io_manager = std::make_unique<hitagi::core::FileIOManager>();
-
-    InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

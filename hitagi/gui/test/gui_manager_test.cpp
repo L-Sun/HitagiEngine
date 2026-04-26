@@ -74,10 +74,3 @@ TEST_F(GuiManagerTest, MapsReadTextureToDrawCommand) {
 
     EXPECT_TRUE(found_texture);
 }
-
-int main(int argc, char** argv) {
-    auto file_io_manager = std::make_unique<hitagi::core::FileIOManager>();
-
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

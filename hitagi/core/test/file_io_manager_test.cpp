@@ -53,12 +53,3 @@ TEST(FileIoManagerTest, SaveFile) {
 
     remove_temp_file(path);
 }
-
-auto main(int argc, char* argv[]) -> int {
-    spdlog::set_level(spdlog::level::off);
-    ::testing::InitGoogleTest(&argc, argv);
-
-    auto file_io_manager = std::make_unique<core::FileIOManager>();
-
-    return RUN_ALL_TESTS();
-}

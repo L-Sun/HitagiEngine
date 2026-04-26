@@ -5,7 +5,7 @@ import utils;
 import core;
 import gfx.base;
 
-namespace hitagi::gfx {
+export namespace hitagi::gfx {
 
 struct MockGPUBuffer : public GPUBuffer {
     MockGPUBuffer(Device& device, GPUBufferDesc desc) : GPUBuffer(device, std::move(desc)) {}

@@ -1276,10 +1276,3 @@ TEST_P(DeviceTest, DrawTriangle) {
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.constant_buffer);
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info_handle);
 }
-
-int main(int argc, char** argv) {
-    auto file_io_manager = std::make_unique<hitagi::core::FileIOManager>();
-
-    InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

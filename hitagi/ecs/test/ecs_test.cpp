@@ -524,9 +524,3 @@ TEST_F(EcsTest, SystemFilterNone) {
     EXPECT_COMPONENT_EQ(entity_with_one, Component_1, 100) << "Component_1 should be updated";
     EXPECT_COMPONENT_EQ(entity_with_both, Component_1, 1) << "Component_1 should not be updated";
 }
-
-int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::debug);
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

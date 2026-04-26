@@ -133,8 +133,3 @@ TEST(MeshTest, Merge) {
     EXPECT_EQ(sub_meshes[1].vertex_offset, 2);
     EXPECT_EQ(sub_meshes[1].index_offset, 2);
 }
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

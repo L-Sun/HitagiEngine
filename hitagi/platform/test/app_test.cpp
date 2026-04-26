@@ -24,8 +24,3 @@ TEST_F(AppTest, ResizeWindow) {
     EXPECT_EQ(rect.right - rect.left, 800);
     EXPECT_EQ(rect.bottom - rect.top, 600);
 }
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

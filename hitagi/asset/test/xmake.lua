@@ -1,25 +1,6 @@
-target("mesh_test")
+target("asset_tests")
     set_default(false)
-    add_files("mesh_test.cpp")
-    add_deps("asset", "test_utils")
-    set_group("test/asset")
-    
-target("material_test")
-    set_default(false)
-    add_files("material_test.cpp")
-    add_deps("asset", "test_utils")
-    set_group("test/asset")
-
-
-target("codec_test")
-    set_default(false)
-    add_files("codec_test.cpp")
+    add_files("mesh_test.cpp", "material_test.cpp", "codec_test.cpp", "transform_test.cpp", "asset_test_main.cpp")
     add_deps("asset", "core", "test_utils")
     set_group("test/asset")
     set_rundir("$(projectdir)")
-
-target("transform_test")
-    set_default(false)
-    add_files("transform_test.cpp")
-    add_deps("asset", "test_utils")
-    set_group("test/transform")

@@ -361,8 +361,3 @@ TEST(MaterialInstanceTest, AssociatedTextures) {
     EXPECT_EQ(textures[0], tex1);
     EXPECT_EQ(textures[1], tex2);
 }
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

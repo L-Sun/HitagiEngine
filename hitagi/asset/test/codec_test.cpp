@@ -100,11 +100,3 @@ TEST(SceneParserTest, Fbx) {
     EXPECT_EQ(scene->GetMeshEntities().size(), 1);
     EXPECT_EQ(scene->GetLightEntities().size(), 1);
 }
-
-int main(int argc, char* argv[]) {
-    spdlog::set_level(spdlog::level::debug);
-    auto file_io_manager = std::make_unique<core::FileIOManager>();
-
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

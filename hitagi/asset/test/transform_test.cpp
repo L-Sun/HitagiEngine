@@ -150,9 +150,3 @@ TEST_F(LocalToWorldSystemTest, ReparentRebuildsHierarchyOrder) {
     EXPECT_EQ(child.Get<Transform>().world_matrix, math::translate(math::vec3f{12.0f, 0.0f, 0.0f}));
     EXPECT_EQ(grandchild.Get<Transform>().world_matrix, math::translate(math::vec3f{15.0f, 0.0f, 0.0f}));
 }
-
-int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::trace);
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

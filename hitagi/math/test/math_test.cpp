@@ -202,8 +202,3 @@ TEST(BenchmarkTest, MatrixOperator) {
     for (size_t i = 0; i < 100000; i++)
         a = a * b;
 }
-
-int main(int argc, char* argv[]) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

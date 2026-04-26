@@ -10,7 +10,7 @@ import gfx;
 import app;
 import math;
 
-namespace hitagi::gui {
+export namespace hitagi::gui {
 
 inline constexpr auto convert_imgui_key(ImGuiKey key) -> hid::VirtualKeyCode {
     switch (key) {

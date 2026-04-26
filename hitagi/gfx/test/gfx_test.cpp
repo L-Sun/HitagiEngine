@@ -149,11 +149,3 @@ TEST_P(ReadbackTextureTest, ReadbackGradientTexture) {
     hitagi::asset::Texture image(width, height, Format::R8G8B8A8_UNORM, result);
     ASSERT_TRUE(hitagi::asset::PngEncoder{}.Encode(image, output_path));
 }
-
-int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::debug);
-    auto file_io_manager = std::make_unique<hitagi::core::FileIOManager>();
-
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

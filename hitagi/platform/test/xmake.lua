@@ -1,5 +1,5 @@
-target("app_test")
+target("app_tests")
     set_default(false)
-    add_files("*.cpp")
+    add_files("app_test.cpp", "app_test_main.cpp")
     add_deps("app", "utils", "test_utils")
     set_group("test/app")

@@ -3,7 +3,7 @@ target("app")
     set_default(false)
     set_group("modules")
     add_files("app.cppm", {public = true})
-    add_files("app_impl.cpp")
+    add_files("app_impl.cpp", {public = true})
     add_deps("core", "hid")
     add_packages("nlohmann_json", "libsdl3", {public = true})
 

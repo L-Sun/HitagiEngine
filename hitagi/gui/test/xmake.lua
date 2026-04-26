@@ -1,6 +1,6 @@
-target("gui_test")
+target("gui_tests")
     set_default(false)
-    add_files("gui_manager_test.cpp")
+    add_files("gui_manager_test.cpp", "gui_test_main.cpp")
     add_deps("gui", "app", "core", "gfx", "test_utils")
     set_group("test/gui")
     set_rundir("$(projectdir)")

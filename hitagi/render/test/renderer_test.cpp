@@ -97,13 +97,3 @@ TEST_P(RendererTest, ForwardRenderer) {
     }
     asset::Texture::DestroyDefaultTexture();
 }
-
-int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::debug);
-
-    auto g_memory_manager = std::make_unique<core::MemoryManager>();
-    auto g_file_manager   = std::make_unique<core::FileIOManager>();
-
-    InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

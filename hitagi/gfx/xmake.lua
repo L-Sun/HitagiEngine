@@ -9,7 +9,8 @@ target("gfx")
     set_default(false)
     set_group("modules")
     set_basename("hitagi_gfx")
-    add_files("gfx.cppm", "gfx.cpp", {public = true})
+    add_files("gfx.cppm", {public = true})
+    add_files("gfx.cpp", {public = true})
     add_deps(
         "gfx_base",
         "gfx_mock",

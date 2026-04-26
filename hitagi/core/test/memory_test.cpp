@@ -39,10 +39,3 @@ TEST(MemoryTest, PmrContainer) {
         EXPECT_EQ(*p++, i);
     }
 }
-
-int main(int argc, char* argv[]) {
-    ::testing::InitGoogleTest(&argc, argv);
-    auto memory_manager = std::make_unique<MemoryManager>();
-    spdlog::set_level(spdlog::level::off);
-    return RUN_ALL_TESTS();
-}

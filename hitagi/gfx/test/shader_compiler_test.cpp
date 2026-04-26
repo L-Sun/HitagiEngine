@@ -115,9 +115,3 @@ TEST_P(ShaderCompilerTest, GetShaderVertexLayout) {
     EXPECT_EQ(vertex_layout[2].offset, 0);
     EXPECT_EQ(vertex_layout[2].stride, get_format_byte_size(Format::R32G32_FLOAT));
 }
-
-int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::trace);
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

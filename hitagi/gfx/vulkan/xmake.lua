@@ -3,7 +3,7 @@ target("gfx_vulkan")
     set_default(false)
     set_group("modules")
     add_files("vk_device.cppm", {public = true})
-    add_files("*.cpp")
+    add_files("*.cpp", {public = true})
     add_deps("gfx_base", "vma_patch")
     add_packages("vulkansdk", {public = true})
     add_packages(
