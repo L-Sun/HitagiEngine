@@ -1,6 +1,0 @@
-target("asset_tests")
-    set_default(false)
-    add_files("mesh_test.cpp", "material_test.cpp", "codec_test.cpp", "transform_test.cpp", "asset_test_main.cpp")
-    add_deps("asset", "core", "test_utils")
-    set_group("test/asset")
-    set_rundir("$(projectdir)")

@@ -15,7 +15,6 @@ export import debugger;
 export import app;
 export import hid;
 export import asset;
-export import physics;
 
 export namespace hitagi {
 class Engine : public RuntimeModule {

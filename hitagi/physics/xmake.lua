@@ -1,8 +1,0 @@
-target("physics")
-    set_kind("phony")
-    set_default(false)
-    set_group("modules")
-    add_files("physics.cppm", {public = true})
-    add_files("*.cpp", {public = true})
-    add_deps("core", "math", "ecs", "asset")
-    add_packages("joltphysics", {public = true})

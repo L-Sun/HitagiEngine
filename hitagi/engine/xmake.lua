@@ -9,7 +9,6 @@ target("engine")
         "ecs",
         "gfx",
         "asset",
-        "physics",
         "debugger",
         "gui",
         "app",

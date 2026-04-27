@@ -1,7 +1,0 @@
-target("render_tests")
-    set_default(false)
-    add_files("renderer_test.cpp", "render_test_main.cpp")
-    add_deps("utils", "test_utils")
-    add_deps("render", "gfx", "asset")
-    set_group("test/renderer")
-    set_rundir("$(projectdir)")

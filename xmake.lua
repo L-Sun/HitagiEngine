@@ -44,13 +44,6 @@ if has_config("profile") then
 end
 
 add_requireconfs("*", {configs = {shared = true}})
-add_requireconfs("joltphysics", {
-    override = true,
-    configs = {
-        shared         = false,
-        debug_renderer = false,
-    }
-})
 
 add_requires(
     "taskflow",
@@ -72,7 +65,6 @@ add_requires(
 )
 
 add_requires("magic_enum", {configs = {modules = true}})
-add_requires("joltphysics")
 add_requires("tracy v0.12.1")
 add_requires("assimp", {configs = {cxflags = "/EHsc"}})
 add_requires("spdlog", {configs = {fmt_external = true}})

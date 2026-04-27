@@ -1,5 +1,0 @@
-target("utils_tests")
-    set_default(false)
-    add_files("soa_test.cpp", "utils_test_main.cpp")
-    add_deps("utils", "test_utils")
-    set_group("test/utils")

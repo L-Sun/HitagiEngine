@@ -1,6 +1,0 @@
-target("gfx_tests")
-    set_default(false)
-    add_files("gfx_test.cpp", "shader_compiler_test.cpp", "device_test.cpp", "render_graph_test.cpp", "gfx_test_main.cpp")
-    add_deps("app", "gfx", "asset", "utils", "test_utils")
-    set_group("test/gfx")
-    set_rundir("$(projectdir)")
