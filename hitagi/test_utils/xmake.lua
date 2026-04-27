@@ -1,7 +1,0 @@
-target("test_utils")
-    set_kind("static")
-    set_default(false)
-    add_includedirs(".", {public = true})
-    add_files("test_utils.cppm", {public = true})
-    add_deps("math")
-    add_packages("gtest", "gmock", "benchmark", "spdlog", {public = true})

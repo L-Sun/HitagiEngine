@@ -1,8 +1,0 @@
-target("gfx_base")
-    set_kind("phony")
-    set_default(false)
-    set_group("modules")
-    add_files("device.cppm", {public = true})
-    add_files("*.cpp", {public = true})
-    add_deps("core", "math")
-    add_packages("directx-shader-compiler", {public = true})

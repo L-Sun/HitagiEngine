@@ -1,7 +1,0 @@
-target("gfx_render_graph")
-    set_kind("phony")
-    set_default(false)
-    set_group("modules")
-    add_files("render_graph.cppm", {public = true})
-    add_files("*.cpp", {public = true})
-    add_deps("gfx_base")

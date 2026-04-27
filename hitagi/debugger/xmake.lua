@@ -1,7 +1,0 @@
-target("debugger")
-    set_kind("phony")
-    set_default(false)
-    set_group("modules")
-    add_files("*.cppm", {public = true})
-    add_files("*.cpp", {public = true})
-    add_deps("gfx")

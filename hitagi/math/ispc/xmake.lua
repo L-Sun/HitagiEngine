@@ -1,5 +1,0 @@
-target("ispc_math")
-    set_kind("static")
-    add_rules("utils.ispc")
-    add_files("*.ispc", "*.cpp")
-    add_includedirs("./", {public = true})

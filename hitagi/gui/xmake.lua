@@ -1,8 +1,0 @@
-target("gui")
-    set_kind("phony")
-    set_default(false)
-    set_group("modules")
-    add_files("gui_manager.cppm", {public = true})
-    add_files("*.cpp", {public = true})
-    add_deps("core", "hid", "gfx", "app")
-    add_packages("imgui", {public = true})

@@ -1,8 +1,0 @@
-target("ecs")
-    set_kind("phony")
-    set_default(false)
-    set_group("modules")
-    add_files("ecs.cppm", {public = true})
-    add_files("*.cpp", {public = true})
-    add_deps("core")
-    add_packages("taskflow", {public = true})
