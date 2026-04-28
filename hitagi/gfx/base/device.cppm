@@ -764,9 +764,9 @@ public:
     Fence& operator=(Fence&&)      = delete;
     virtual ~Fence()               = default;
 
-    virtual void Signal(std::uint64_t value)                                                                     = 0;
+    virtual void Signal(std::uint64_t value)                                                                       = 0;
     virtual bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = (std::chrono::milliseconds::max)()) = 0;
-    virtual auto GetCurrentValue() -> std::uint64_t                                                              = 0;
+    virtual auto GetCurrentValue() -> std::uint64_t                                                                = 0;
 
     inline auto GetName() const noexcept -> std::string_view { return m_Name; }
 
@@ -816,8 +816,6 @@ struct FenceWaitInfo {
     PipelineStage stage = PipelineStage::All;
 };
 
-
-
 enum struct BindlessHandleType : std::uint32_t {
     Buffer,
     Texture,
@@ -859,8 +857,6 @@ protected:
     std::pmr::string m_Name;
 };
 
-
-
 enum struct CommandType : std::uint8_t {
     Graphics,
     Compute,
@@ -898,7 +894,7 @@ public:
                                 utils::optional_ref<Texture> depth_stencil       = {},
                                 bool                         clear_render_target = false,
                                 bool                         clear_depth_stencil = false) = 0;
-    virtual void EndRendering()                                   = 0;
+    virtual void EndRendering()                                                           = 0;
 
     virtual void SetPipeline(const RenderPipeline& pipeline) = 0;
 
@@ -972,8 +968,6 @@ protected:
     CopyCommandContext(Device& device, std::string_view name) : CommandContext(device, CommandType::Copy, name) {};
 };
 
-
-
 class CommandQueue {
 public:
     CommandQueue(Device& device, CommandType type, std::string_view name) : m_Device(device), m_Type(type), m_Name(name) {}
@@ -995,8 +989,6 @@ protected:
     const CommandType      m_Type;
     const std::pmr::string m_Name;
 };
-
-
 
 inline auto split_semantic(std::string_view semantic) -> std::pair<std::string_view, std::uint32_t> {
     using namespace std::string_view_literals;
@@ -1190,8 +1182,6 @@ inline auto format_as(TextureLayout layout) noexcept {
     return magic_enum::enum_flags_name(layout);
 }
 
-
-
 class ShaderCompiler {
 public:
     ShaderCompiler(std::string_view name);
@@ -1211,9 +1201,7 @@ private:
     ::IDxcCompiler3*                m_ShaderCompiler = nullptr;
 };
 
-
-
-class Device : public RuntimeModule {
+class Device : public core::RuntimeModule {
 public:
     enum struct Type : std::uint8_t {
         DX12,

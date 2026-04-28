@@ -34,7 +34,7 @@
 | `command_queue.cppm` | `:command_queue` | `CommandQueue` |
 | `shader_compiler.cppm` | `:shader_compiler` | `ShaderCompiler` (DXC-based; DXIL and SPIR-V output) |
 | `utils.cppm` | `:utils` | `format_as()` for fmt, `get_format_bit_size`, `split_semantic` |
-| `device.cppm` | primary | `Device` (abstract, extends `RuntimeModule`) — factory for all GPU objects |
+| `device.cppm` | primary | `Device` (abstract, extends `core::RuntimeModule`) — factory for all GPU objects |
 
 **`dx12/`** — 8 module partitions composing `gfx.dx12`:
 

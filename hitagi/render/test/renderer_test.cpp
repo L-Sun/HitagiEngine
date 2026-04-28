@@ -33,7 +33,7 @@ protected:
           })),
           device(gfx::create_device(GetParam())) {}
 
-    std::pmr::string             test_name;
+    std::string                  test_name;
     std::unique_ptr<Application> app;
     std::unique_ptr<gfx::Device> device;
 };

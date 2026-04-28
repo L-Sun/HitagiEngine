@@ -183,10 +183,8 @@ enum class VirtualKeyCode {
     NUM
 };
 
-
-
 // TODO multiple window input handle
-class InputManager : public RuntimeModule {
+class InputManager : public core::RuntimeModule {
 public:
     InputManager();
     void Tick() final;

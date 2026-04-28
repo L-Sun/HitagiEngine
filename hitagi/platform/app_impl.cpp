@@ -24,7 +24,7 @@ auto load_app_config(const std::filesystem::path& config_path) -> std::optional<
 }
 
 Application::Application(AppConfig config)
-    : RuntimeModule(config.title),
+    : core::RuntimeModule(config.title),
       m_Config(std::move(config)) {
     spdlog::set_level(spdlog::level::from_str(m_Config.log_level.data()));
 
@@ -50,7 +50,7 @@ void Application::Tick() {
         m_Config.width  = GetWindowWidth();
         m_Config.height = GetWindowHeight();
     }
-    RuntimeModule::Tick();
+    core::RuntimeModule::Tick();
 }
 
 auto Application::CreateApp(const std::filesystem::path& config_path) -> std::unique_ptr<Application> {

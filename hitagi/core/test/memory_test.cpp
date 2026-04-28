@@ -1,5 +1,4 @@
 #include "test_macros.hpp"
-#include <spdlog/spdlog.h>
 
 import core;
 import test_utils;
@@ -19,16 +18,21 @@ TEST(MemoryTest, BufferSpan) {
 }
 
 TEST(MemoryTest, Allocate) {
-    MemoryPool pool{spdlog::default_logger()};
+    auto* memory_manager = static_cast<MemoryManager*>(RuntimeModule::GetModule("MemoryManager"));
+    ASSERT_NE(memory_manager, nullptr);
+
+    auto allocator = memory_manager->GetAllocator<>();
     EXPECT_NO_THROW({
-        auto p = pool.allocate(16);
-        pool.deallocate(p, 16);
+        auto* p = allocator.allocate_bytes(16);
+        allocator.deallocate_bytes(p, 16);
     });
 }
 
 TEST(MemoryTest, PmrContainer) {
-    MemoryPool            pool{spdlog::default_logger()};
-    std::pmr::vector<int> vec{&pool};
+    auto* memory_manager = static_cast<MemoryManager*>(RuntimeModule::GetModule("MemoryManager"));
+    ASSERT_NE(memory_manager, nullptr);
+
+    std::pmr::vector<int> vec{memory_manager->GetAllocator<int>()};
     EXPECT_NO_THROW({
         for (size_t i = 0; i < 10000; i++) {
             vec.push_back(i);

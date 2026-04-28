@@ -8,7 +8,7 @@ import magic_enum;
 import utils;
 namespace hitagi::hid {
 InputManager::InputManager()
-    : RuntimeModule("InputManager"),
+    : core::RuntimeModule("InputManager"),
       m_KeyState(utils::create_array<KeyState, static_cast<std::size_t>(VirtualKeyCode::NUM)>(
           KeyState{
               .current  = false,
@@ -29,7 +29,7 @@ void InputManager::Tick() {
     } else {
         m_TextInput.clear();
     }
-    RuntimeModule::Tick();
+    core::RuntimeModule::Tick();
 }
 
 bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const {

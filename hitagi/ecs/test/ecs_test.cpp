@@ -369,8 +369,9 @@ TEST_F(EcsTest, SystemUpdateWithNoEntities) {
 }
 
 TEST_F(EcsTest, SystemUpdateOrder) {
-    static std::pmr::vector<std::size_t> order;
-    std::pmr::vector<std::size_t>        expected_order{1, 2, 3, 4};
+    static std::vector<std::size_t> order;
+    order.clear();
+    const std::vector<std::size_t> expected_order{1, 2, 3, 4};
 
     struct System {
         static void OnUpdate(Schedule& schedule) {
@@ -411,8 +412,9 @@ TEST_F(EcsTest, SystemUpdateOrder) {
 }
 
 TEST_F(EcsTest, SystemUpdateInCustomOrder) {
-    static std::pmr::vector<std::size_t> order;
-    std::pmr::vector<std::size_t>        expected_order{2, 1};
+    static std::vector<std::size_t> order;
+    order.clear();
+    const std::vector<std::size_t> expected_order{2, 1};
 
     struct System {
         static void OnUpdate(Schedule& schedule) {

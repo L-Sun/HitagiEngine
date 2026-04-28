@@ -30,7 +30,7 @@ auto custom_vk_reallocation_fn(
     else if (new_size == 0) {
         auto [old_size, old_alignment] = allocation_record.at(origin_ptr);
         allocation_record.erase(origin_ptr);
-        allocator->deallocate(origin_ptr, old_size);
+        allocator->deallocate(origin_ptr, old_size, old_alignment);
         return nullptr;
     }
     // reallocation

@@ -90,7 +90,7 @@ protected:
         ASSERT_TRUE(device) << "Failed to create device";
     }
 
-    std::pmr::string        test_name;
+    std::string             test_name;
     std::unique_ptr<Device> device;
 };
 
@@ -109,9 +109,9 @@ TEST_P(ReadbackTextureTest, ReadbackGradientTexture) {
     std::vector<R8G8B8A8Unorm> pixels(width * height);
     for (std::uint32_t y = 0; y < height; ++y) {
         for (std::uint32_t x = 0; x < width; ++x) {
-            auto r = static_cast<std::uint8_t>(x * 255 / (width - 1));
-            auto g = static_cast<std::uint8_t>(y * 255 / (height - 1));
-            auto b = static_cast<std::uint8_t>(128);
+            auto r                = static_cast<std::uint8_t>(x * 255 / (width - 1));
+            auto g                = static_cast<std::uint8_t>(y * 255 / (height - 1));
+            auto b                = static_cast<std::uint8_t>(128);
             pixels[y * width + x] = R8G8B8A8Unorm(r, g, b, 0xFF);
         }
     }

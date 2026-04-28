@@ -9,9 +9,9 @@ import core;
 import gfx;
 
 export namespace hitagi::debugger {
-class DebugManager : public RuntimeModule {
+class DebugManager : public core::RuntimeModule {
 public:
-    DebugManager() : RuntimeModule("DebugManager") {}
+    DebugManager() : core::RuntimeModule("DebugManager") {}
     void Tick() final;
 
     inline void EnableDebugDraw() noexcept { m_DrawDebugInfo = true; }

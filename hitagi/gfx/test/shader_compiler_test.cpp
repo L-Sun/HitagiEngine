@@ -45,37 +45,52 @@ void main() {
 }
 )""";
 
-const std::array shader_descs = {
-    ShaderDesc{.name = "vs_shader", .type = ShaderType::Vertex, .entry = "main", .source_code = vs_shader_code},
-    ShaderDesc{.name = "ps_shader", .type = ShaderType::Pixel, .entry = "main", .source_code = ps_shader_code},
-    ShaderDesc{.name = "cs_shader", .type = ShaderType::Compute, .entry = "main", .source_code = cs_shader_code},
+struct ShaderTestDesc {
+    std::string_view name;
+    ShaderType       type;
+    std::string_view source_code;
 };
 
-class ShaderCompilerTest : public testing::TestWithParam<ShaderDesc> {
+constexpr std::array shader_descs = {
+    ShaderTestDesc{.name = "vs_shader", .type = ShaderType::Vertex, .source_code = vs_shader_code},
+    ShaderTestDesc{.name = "ps_shader", .type = ShaderType::Pixel, .source_code = ps_shader_code},
+    ShaderTestDesc{.name = "cs_shader", .type = ShaderType::Compute, .source_code = cs_shader_code},
+};
+
+static auto ToShaderDesc(ShaderTestDesc desc) -> ShaderDesc {
+    return {
+        .name        = std::pmr::string(desc.name),
+        .type        = desc.type,
+        .entry       = "main",
+        .source_code = std::pmr::string(desc.source_code),
+    };
+}
+
+class ShaderCompilerTest : public testing::TestWithParam<ShaderTestDesc> {
 protected:
     ShaderCompilerTest()
         : test_name(::testing::UnitTest::GetInstance()->current_test_info()->name()),
           compiler(test_name) {
     }
 
-    std::pmr::string test_name;
-    ShaderCompiler   compiler;
+    std::string    test_name;
+    ShaderCompiler compiler;
 };
 INSTANTIATE_TEST_SUITE_P(
     ShaderCompilerTest,
     ShaderCompilerTest,
     testing::ValuesIn(shader_descs),
-    [](const testing::TestParamInfo<ShaderDesc>& info) -> std::string {
+    [](const testing::TestParamInfo<ShaderTestDesc>& info) -> std::string {
         return std::string(info.param.name);
     });
 
 TEST_P(ShaderCompilerTest, CompileToDXIL) {
-    auto result = compiler.CompileToDXIL(GetParam());
+    auto result = compiler.CompileToDXIL(ToShaderDesc(GetParam()));
     EXPECT_FALSE(result.Empty());
 }
 
 TEST_P(ShaderCompilerTest, CompileToSPIRV) {
-    auto result = compiler.CompileToSPIRV(GetParam());
+    auto result = compiler.CompileToSPIRV(ToShaderDesc(GetParam()));
     EXPECT_FALSE(result.Empty());
 }
 

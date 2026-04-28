@@ -46,7 +46,7 @@ struct AppConfig {
     std::pmr::string      log_level       = "info";
 };
 
-class Application : public RuntimeModule {
+class Application : public core::RuntimeModule {
 public:
     struct Rect {
         std::uint32_t left = 0, top = 0, right = 0, bottom = 0;
@@ -129,7 +129,6 @@ private:
 
     mutable HWND m_Window{};
 };
-
 
 Win32Application::Win32Application(AppConfig config) : Application(std::move(config)) {
     InitializeWindows();
@@ -472,7 +471,6 @@ private:
     bool m_SizeChanged = false;
     bool m_Minimized   = false;
 };
-
 
 SDL3Application::SDL3Application(AppConfig config) : Application(std::move(config)) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {

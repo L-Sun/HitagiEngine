@@ -707,36 +707,36 @@ protected:
 
 class PngDecoder : public ImageDecoder {
 public:
-    using ImageDecoder::ImageDecoder;
     using ImageDecoder::Decode;
+    using ImageDecoder::ImageDecoder;
     auto Decode(const core::Buffer& buffer) -> std::shared_ptr<Texture> final;
 };
 
 class PngEncoder : public ImageEncoder {
 public:
-    using ImageEncoder::ImageEncoder;
     using ImageEncoder::Encode;
+    using ImageEncoder::ImageEncoder;
     auto Encode(const Texture& texture) -> core::Buffer final;
 };
 
 class JpegDecoder : public ImageDecoder {
 public:
-    using ImageDecoder::ImageDecoder;
     using ImageDecoder::Decode;
+    using ImageDecoder::ImageDecoder;
     auto Decode(const core::Buffer& buffer) -> std::shared_ptr<Texture> final;
 };
 
 class BmpDecoder : public ImageDecoder {
 public:
-    using ImageDecoder::ImageDecoder;
     using ImageDecoder::Decode;
+    using ImageDecoder::ImageDecoder;
     auto Decode(const core::Buffer& buffer) -> std::shared_ptr<Texture> final;
 };
 
 class TgaDecoder : public ImageDecoder {
 public:
-    using ImageDecoder::ImageDecoder;
     using ImageDecoder::Decode;
+    using ImageDecoder::ImageDecoder;
     auto Decode(const core::Buffer& buffer) -> std::shared_ptr<Texture> final;
 };
 
@@ -776,7 +776,7 @@ protected:
 
 class AssimpParser : public SceneParser {
 public:
-    AssimpParser(utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat>       image_decoders,
+    AssimpParser(utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat>      image_decoders,
                  std::function<std::shared_ptr<asset::Material>(std::string_view)> material_getter = {},
                  std::shared_ptr<spdlog::logger>                                   logger          = nullptr)
         : SceneParser(std::move(logger)), m_ImageDecoders(std::move(image_decoders)), m_MaterialGetter(std::move(material_getter)) {}
@@ -784,7 +784,7 @@ public:
     auto Parse(const std::filesystem::path& path, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> final;
 
 private:
-    utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat>       m_ImageDecoders;
+    utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat>      m_ImageDecoders;
     std::function<std::shared_ptr<asset::Material>(std::string_view)> m_MaterialGetter;
 };
 
@@ -808,12 +808,12 @@ public:
     auto Parse(const core::Buffer& buffer) -> std::shared_ptr<Material> final;
 };
 
-class AssetManager final : public RuntimeModule {
+class AssetManager final : public core::RuntimeModule {
 public:
     AssetManager(std::filesystem::path asset_base_path);
     ~AssetManager() final;
 
-    static auto Get() -> AssetManager* { return static_cast<AssetManager*>(GetModule("AssetManager")); }
+    static auto Get() -> AssetManager* { return static_cast<AssetManager*>(core::RuntimeModule::GetModule("AssetManager")); }
 
     Scene CreateEmptyScene(std::string_view name);
 
@@ -836,10 +836,10 @@ private:
 
     std::filesystem::path m_BasePath;
 
-    std::shared_ptr<MaterialParser>                             m_MaterialParser;
+    std::shared_ptr<MaterialParser>                              m_MaterialParser;
     utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat> m_ImageDecoders;
     utils::EnumArray<std::shared_ptr<ImageEncoder>, ImageFormat> m_ImageEncoders;
-    utils::EnumArray<std::shared_ptr<SceneParser>, SceneFormat> m_SceneParsers;
+    utils::EnumArray<std::shared_ptr<SceneParser>, SceneFormat>  m_SceneParsers;
 
     struct Assets {
         template <typename T>

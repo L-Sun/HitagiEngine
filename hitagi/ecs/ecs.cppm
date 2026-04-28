@@ -1,7 +1,6 @@
 module;
 #include <taskflow/taskflow.hpp>
 #include <spdlog/logger.h>
-#include <taskflow/core/executor.hpp>
 
 export module ecs;
 import std;
@@ -17,7 +16,6 @@ class World;
 class Schedule;
 class Entity;
 class EntityManager;
-
 
 template <typename T>
 concept Component = std::is_class_v<T> && utils::no_cvref<T> && std::copy_constructible<T>;
@@ -190,7 +188,6 @@ inline bool ComponentChecker::Exists(std::string_view dynamic_component) const n
     return Exists(utils::TypeID(dynamic_component));
 }
 
-
 class Archetype {
 public:
     Archetype(detail::ComponentInfoSet component_infos);
@@ -269,8 +266,6 @@ template <Component T>
 auto Archetype::GetComponent(entity_id_t entity) noexcept -> T& {
     return *reinterpret_cast<T*>(GetComponentData(utils::TypeID::Create<T>(), entity));
 }
-
-
 
 class EntityManager {
 public:
@@ -445,8 +440,6 @@ template <Component T>
 auto EntityManager::GetComponentInfo() const noexcept -> const ComponentInfo& {
     return GetComponentInfo(utils::TypeID::Create<T>());
 }
-
-
 
 class Entity {
 public:
@@ -666,18 +659,16 @@ void SystemManager::Unregister() {
     (UnRegisterOne(utils::TypeID::Create<Systems>()), ...);
 }
 
-
-
 class Schedule;
 
 class World {
 public:
-    World(std::string_view name);
+    World(std::string_view name, core::JobSystem* job_system = core::JobSystem::Get());
     ~World();
 
     void Update();
 
-    inline auto GetName() const noexcept -> std::string_view { return m_Name; }
+    inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
     inline auto& GetEntityManager() noexcept { return m_EntityManager; }
     inline auto& GetSystemManager() noexcept { return m_SystemManager; }
     inline auto& GetEntityManager() const noexcept { return m_EntityManager; }
@@ -694,12 +685,10 @@ private:
 
     EntityManager             m_EntityManager;
     std::unique_ptr<Schedule> m_Schedule;
-    bool                     m_ScheduleDirty = true;
-    tf::Executor             m_Executor;
-    SystemManager            m_SystemManager;
+    bool                      m_ScheduleDirty = true;
+    core::JobSystem*          m_JobSystem     = nullptr;
+    SystemManager             m_SystemManager;
 };
-
-
 
 class Schedule {
     struct TaskBase {
@@ -749,8 +738,8 @@ private:
 
     void Request(std::shared_ptr<TaskBase>&& task, const ParameterSets& parameter_sets);
 
-    void Run(tf::Executor& executor);
-    void BuildTaskflow(tf::Executor& executor);
+    void Run(core::JobSystem& job_system);
+    void BuildTaskflow(core::JobSystem& job_system);
 
     bool CheckValid(const std::pmr::unordered_map<std::size_t, std::pmr::unordered_set<std::size_t>>& graph);
 
@@ -766,7 +755,6 @@ private:
     std::pmr::vector<tf::Task> m_TaskflowTasks;
     bool                       m_TaskflowDirty = true;
 };
-
 
 }  // namespace hitagi::ecs
 

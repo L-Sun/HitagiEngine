@@ -45,17 +45,16 @@ Buffer::Buffer(Buffer&& other) noexcept
 
 Buffer& Buffer::operator=(const Buffer& rhs) {
     if (this != &rhs) {
-        if (m_Size >= rhs.m_Size && m_Alignment == rhs.m_Alignment) {
-            if (rhs.m_Size != 0) {
-                std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
-            }
-        } else {
-            if (m_Data) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
-            if (rhs.m_Size != 0) {
-                m_Data = static_cast<std::byte*>(m_Allocator.allocate_bytes(rhs.m_Size, rhs.m_Alignment));
-                std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
-            }
+        if (m_Data) {
+            m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
+            m_Data = nullptr;
         }
+
+        if (rhs.m_Size != 0) {
+            m_Data = static_cast<std::byte*>(m_Allocator.allocate_bytes(rhs.m_Size, rhs.m_Alignment));
+            std::memcpy(m_Data, rhs.m_Data, rhs.m_Size);
+        }
+
         m_Size      = rhs.m_Size;
         m_Alignment = rhs.m_Alignment;
     }
@@ -68,7 +67,7 @@ Buffer& Buffer::operator=(Buffer&& rhs) noexcept {
         if (m_Allocator != rhs.m_Allocator) {
             return this->operator=(std::cref(rhs));
         } else {
-            if (m_Data != nullptr) m_Allocator.deallocate(m_Data, m_Size);
+            if (m_Data != nullptr) m_Allocator.deallocate_bytes(m_Data, m_Size, m_Alignment);
         }
         m_Data      = rhs.m_Data;
         m_Size      = rhs.m_Size;

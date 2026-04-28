@@ -268,8 +268,6 @@ inline constexpr auto convert_imgui_key(ImGuiKey key) -> hid::VirtualKeyCode {
     }
 }
 
-
-
 struct GuiTextureRef {
     enum class Type : std::uint8_t {
         Font,
@@ -322,7 +320,7 @@ struct GuiDrawData {
     }
 };
 
-class GuiManager final : public RuntimeModule {
+class GuiManager final : public core::RuntimeModule {
 public:
     GuiManager(Application& application);
     ~GuiManager() final;

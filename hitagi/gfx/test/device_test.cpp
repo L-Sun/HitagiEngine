@@ -44,7 +44,7 @@ protected:
         : test_name(UnitTest::GetInstance()->current_test_info()->name()),
           device(create_device(GetParam(), test_name)) {}
 
-    std::pmr::string        test_name;
+    std::string             test_name;
     std::unique_ptr<Device> device;
 };
 INSTANTIATE_TEST_SUITE_P(
@@ -70,7 +70,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(GPUBufferTest, Create) {
     EXPECT_THROW(device->CreateGPUBuffer({
-                     .name          = test_name,
+                     .name          = std::pmr::string(test_name),
                      .element_size  = 0,
                      .element_count = 1,
                  }),
@@ -78,7 +78,7 @@ TEST_P(GPUBufferTest, Create) {
         << "should throw exception when element_size is 0";
 
     EXPECT_THROW(device->CreateGPUBuffer({
-                     .name          = test_name,
+                     .name          = std::pmr::string(test_name),
                      .element_size  = 1,
                      .element_count = 0,
                  }),
@@ -86,7 +86,7 @@ TEST_P(GPUBufferTest, Create) {
         << "should throw exception when element_count is 0";
 
     EXPECT_TRUE(device->CreateGPUBuffer({
-        .name          = test_name,
+        .name          = std::pmr::string(test_name),
         .element_size  = sizeof(vec3f),
         .element_count = 1024,
         .usages        = GPUBufferUsageFlags::Vertex,
@@ -94,7 +94,7 @@ TEST_P(GPUBufferTest, Create) {
         << "should create vertex buffer successfully";
 
     EXPECT_TRUE(device->CreateGPUBuffer({
-        .name          = test_name,
+        .name          = std::pmr::string(test_name),
         .element_size  = sizeof(std::uint32_t),
         .element_count = 1024,
         .usages        = GPUBufferUsageFlags::Index,
@@ -102,7 +102,7 @@ TEST_P(GPUBufferTest, Create) {
         << "should create index buffer successfully";
 
     EXPECT_TRUE(device->CreateGPUBuffer({
-        .name          = test_name,
+        .name          = std::pmr::string(test_name),
         .element_size  = sizeof(std::uint16_t),
         .element_count = 1024,
         .usages        = GPUBufferUsageFlags::Index,
@@ -110,7 +110,7 @@ TEST_P(GPUBufferTest, Create) {
         << "should create index buffer successfully";
 
     EXPECT_THROW(device->CreateGPUBuffer({
-                     .name          = test_name,
+                     .name          = std::pmr::string(test_name),
                      .element_size  = sizeof(std::uint8_t),
                      .element_count = 1024,
                      .usages        = GPUBufferUsageFlags::Index,
@@ -120,7 +120,7 @@ TEST_P(GPUBufferTest, Create) {
 
     auto constant_buffer = device->CreateGPUBuffer(
         {
-            .name          = test_name,
+            .name          = std::pmr::string(test_name),
             .element_size  = sizeof(mat4f),
             .element_count = 1024,
             .usages        = GPUBufferUsageFlags::Constant,
@@ -134,7 +134,7 @@ TEST_P(GPUBufferTest, Create) {
     }
 
     EXPECT_TRUE(device->CreateGPUBuffer({
-        .name          = test_name,
+        .name          = std::pmr::string(test_name),
         .element_size  = sizeof(vec4f),
         .element_count = 1024,
         .usages        = GPUBufferUsageFlags::Storage,
@@ -144,7 +144,7 @@ TEST_P(GPUBufferTest, Create) {
 TEST_P(GPUBufferTest, Mapping) {
     auto mapped_buffer = device->CreateGPUBuffer(
         {
-            .name          = test_name,
+            .name          = std::pmr::string(test_name),
             .element_size  = sizeof(vec3f),
             .element_count = 1024,
             .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
@@ -155,7 +155,7 @@ TEST_P(GPUBufferTest, Mapping) {
 
     auto no_mapped_buffer = device->CreateGPUBuffer(
         {
-            .name          = test_name,
+            .name          = std::pmr::string(test_name),
             .element_size  = sizeof(vec3f),
             .element_count = 1024,
             .usages        = GPUBufferUsageFlags::Constant,
@@ -172,7 +172,7 @@ TEST_P(GPUBufferTest, Mapping) {
 TEST_P(GPUBufferTest, CreateBufferView) {
     auto buffer = device->CreateGPUBuffer(
         {
-            .name          = test_name,
+            .name          = std::pmr::string(test_name),
             .element_size  = sizeof(vec3f),
             .element_count = 1024,
             .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
@@ -183,7 +183,7 @@ TEST_P(GPUBufferTest, CreateBufferView) {
 
     auto no_map_written_buffer = device->CreateGPUBuffer(
         {
-            .name          = test_name,
+            .name          = std::pmr::string(test_name),
             .element_size  = sizeof(vec3f),
             .element_count = 1024,
             .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapRead,
@@ -196,7 +196,7 @@ TEST_P(GPUBufferTest, CreateBufferView) {
 
     auto no_mapped_buffer = device->CreateGPUBuffer(
         {
-            .name          = test_name,
+            .name          = std::pmr::string(test_name),
             .element_size  = sizeof(vec3f),
             .element_count = 1024,
             .usages        = GPUBufferUsageFlags::Constant,
@@ -215,7 +215,7 @@ TEST_P(GPUBufferTest, CreateBufferWithInitialData) {
     std::span<std::byte> data_span = {reinterpret_cast<std::byte*>(data.data()), data.size() * sizeof(int)};
 
     GPUBufferDesc desc{
-        .name          = test_name,
+        .name          = std::pmr::string(test_name),
         .element_size  = sizeof(int),
         .element_count = 1024,
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
@@ -252,7 +252,7 @@ TEST_P(DeviceTest, CreateCopyCommandContext) {
 TEST_P(DeviceTest, CreateTexture1D) {
     auto texture = device->CreateTexture(
         {
-            .name        = test_name,
+            .name        = std::pmr::string(test_name),
             .width       = 128,
             .format      = Format::R8G8B8A8_UNORM,
             .clear_value = Color::White(),
@@ -265,7 +265,7 @@ TEST_P(DeviceTest, CreateTexture2D) {
 
     auto texture = device->CreateTexture(
         {
-            .name        = test_name,
+            .name        = std::pmr::string(test_name),
             .width       = 128,
             .height      = 128,
             .format      = Format::R8G8B8A8_UNORM,
@@ -280,7 +280,7 @@ TEST_P(DeviceTest, CreateTexture2D) {
 TEST_P(DeviceTest, CreateTexture3D) {
     auto texture = device->CreateTexture(
         {
-            .name        = test_name,
+            .name        = std::pmr::string(test_name),
             .width       = 128,
             .height      = 128,
             .depth       = 128,
@@ -294,7 +294,7 @@ TEST_P(DeviceTest, CreateTexture3D) {
 TEST_P(DeviceTest, CreateTexture2DArray) {
     auto texture = device->CreateTexture(
         {
-            .name        = test_name,
+            .name        = std::pmr::string(test_name),
             .width       = 128,
             .height      = 128,
             .array_size  = 6,
@@ -308,7 +308,7 @@ TEST_P(DeviceTest, CreateTexture2DArray) {
 TEST_P(DeviceTest, CreateSampler) {
     auto sampler = device->CreateSampler(
         {
-            .name       = test_name,
+            .name       = std::pmr::string(test_name),
             .address_u  = AddressMode::Repeat,
             .address_v  = AddressMode::Repeat,
             .address_w  = AddressMode::Repeat,
@@ -407,7 +407,7 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
         )""";
 
         auto vs_shader = device->CreateShader({
-            .name        = test_name,
+            .name        = std::pmr::string(test_name),
             .type        = ShaderType::Vertex,
             .entry       = "VSMain",
             .source_code = shader_code,
@@ -415,7 +415,7 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
         ASSERT_TRUE(vs_shader);
 
         auto ps_shader = device->CreateShader({
-            .name        = test_name,
+            .name        = std::pmr::string(test_name),
             .type        = ShaderType::Pixel,
             .entry       = "PSMain",
             .source_code = shader_code,
@@ -424,7 +424,7 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
 
         auto render_pipeline = device->CreateRenderPipeline(
             {
-                .name                = test_name,
+                .name                = std::pmr::string(test_name),
                 .shaders             = {vs_shader, ps_shader},
                 .vertex_input_layout = {
                     {"POSITION", Format::R32G32B32_FLOAT, 0, 0, 0},
@@ -445,7 +445,7 @@ TEST_P(DeviceTest, CreateComputePipeline) {
     )""";
 
     auto cs_shader = device->CreateShader({
-        .name        = test_name,
+        .name        = std::pmr::string(test_name),
         .type        = ShaderType::Compute,
         .entry       = "main",
         .source_code = cs_code,
@@ -453,7 +453,7 @@ TEST_P(DeviceTest, CreateComputePipeline) {
     ASSERT_TRUE(cs_shader);
 
     auto compute_pipeline = device->CreateComputePipeline({
-        .name = test_name,
+        .name = std::pmr::string(test_name),
         .cs   = cs_shader,
     });
     EXPECT_TRUE(compute_pipeline);
@@ -990,7 +990,7 @@ protected:
     void SetUp() override {
         ASSERT_TRUE(app != nullptr);
         swap_chain = device->CreateSwapChain({
-            .name   = test_name,
+            .name   = std::pmr::string(test_name),
             .window = app->GetWindow(),
         });
         ASSERT_TRUE(swap_chain != nullptr);

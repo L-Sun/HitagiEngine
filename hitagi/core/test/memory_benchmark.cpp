@@ -1,6 +1,4 @@
 #include "test_macros.hpp"
-#include <spdlog/spdlog.h>
-
 import std;
 import core;
 import test_utils;
@@ -50,11 +48,12 @@ static void BM_StdSynchronized(benchmark::State& state) {
 }
 BENCHMARK(BM_StdSynchronized);
 
-static void BM_PmrAllocate(benchmark::State& state) {
-    core::MemoryPool pool{spdlog::default_logger()};
+static void BM_HitagiMemoryManagerAllocate(benchmark::State& state) {
+    core::MemoryManager memory_manager;
+    auto                allocator = memory_manager.GetAllocator<std::pmr::string>();
 
     for (auto _ : state) {
-        std::pmr::vector<std::pmr::string> strs{&pool};
+        std::pmr::vector<std::pmr::string> strs{allocator};
         std::pmr::string                   str1 = "hello world";
         std::pmr::string                   str2 = "a fox jumps over the lazy dog";
 
@@ -63,6 +62,6 @@ static void BM_PmrAllocate(benchmark::State& state) {
         }
     }
 }
-BENCHMARK(BM_PmrAllocate);
+BENCHMARK(BM_HitagiMemoryManagerAllocate);
 
 BENCHMARK_MAIN();

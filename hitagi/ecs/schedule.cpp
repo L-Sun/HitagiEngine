@@ -34,16 +34,16 @@ void Schedule::SetOrder(std::string_view first_task, std::string_view second_tas
     m_TaskflowDirty = true;
 }
 
-void Schedule::Run(tf::Executor& executor) {
+void Schedule::Run(core::JobSystem& job_system) {
     if (m_TaskflowDirty) {
-        BuildTaskflow(executor);
+        BuildTaskflow(job_system);
     }
 
     ZoneScopedN("ECSFrame");
-    executor.run(m_Taskflow).wait();
+    job_system.RunTaskflow(m_Taskflow);
 }
 
-void Schedule::BuildTaskflow(tf::Executor& executor) {
+void Schedule::BuildTaskflow(core::JobSystem& job_system) {
     m_Taskflow.clear();
     m_TaskflowTasks.clear();
     m_TaskflowTasks.reserve(m_Tasks.size());
@@ -54,20 +54,21 @@ void Schedule::BuildTaskflow(tf::Executor& executor) {
         direct_graph[i] = {};
 
     for (const auto& task : m_Tasks) {
-        m_TaskflowTasks.emplace_back(m_Taskflow.emplace([this, &executor, task]() {
-            thread_local bool tracy_thread_named = false;
-            if (!tracy_thread_named) {
-                if (const auto worker_id = executor.this_worker_id(); worker_id >= 0) {
-                    const auto thread_name = std::format("Hitagi/ECS/{}/Worker-{}", world.GetName(), worker_id);
-                    tracy::SetThreadName(thread_name.c_str());
-                    tracy_thread_named = true;
-                }
-            }
+        m_TaskflowTasks.emplace_back(m_Taskflow.emplace([this, &job_system, task]() {
+                                                   thread_local bool tracy_thread_named = false;
+                                                   if (!tracy_thread_named) {
+                                                       if (const auto worker_id = job_system.GetCurrentWorkerId(); worker_id >= 0) {
+                                                           const auto thread_name = std::format("Hitagi/ECS/{}/Worker-{}", world.GetName(), worker_id);
+                                                           tracy::SetThreadName(thread_name.c_str());
+                                                           tracy_thread_named = true;
+                                                       }
+                                                   }
 
-            ZoneScoped;
-            ZoneName(task->name.data(), task->name.size());
-            task->Run(world);
-        }).name(task->name.data()));
+                                                   ZoneScoped;
+                                                   ZoneName(task->name.data(), task->name.size());
+                                                   task->Run(world);
+                                               })
+                                         .name(task->name.data()));
     }
 
     for (const auto& [component, task_indices] : m_ReadBeforeWriteSet) {

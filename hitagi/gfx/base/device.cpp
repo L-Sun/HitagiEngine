@@ -8,7 +8,7 @@ import magic_enum;
 namespace hitagi::gfx {
 
 Device::Device(Type type, std::string_view name)
-    : RuntimeModule(std::format("{}{}", magic_enum::enum_name(type), utils::add_parentheses(name))),
+    : core::RuntimeModule(std::format("{}{}", magic_enum::enum_name(type), utils::add_parentheses(name))),
       device_type(type),
       m_ShaderCompiler(name) {}
 
@@ -20,7 +20,7 @@ Device::~Device() {
 }
 
 void Device::Tick() {
-    RuntimeModule::Tick();
+    core::RuntimeModule::Tick();
     m_FrameIndex++;
 }
 

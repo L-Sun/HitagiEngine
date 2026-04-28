@@ -59,6 +59,7 @@ add_requires(
     "freetype",
     "fx-gltf",
     "libsdl3",
+    "joltphysics",
     "gtest",
     "benchmark",
     "fmt"
@@ -72,6 +73,4 @@ add_requires("imgui v1.92.1-docking", {configs = {freetype = true, wchar32 = tru
 add_requires("d3d12-memory-allocator", "directx12-agility-sdk", {optional = true})
 
 includes("hitagi/xmake.lua")
-if has_config("examples") then
-    includes("examples/**/xmake.lua")
-end
+includes("examples/**/xmake.lua")

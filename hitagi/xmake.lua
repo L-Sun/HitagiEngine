@@ -8,10 +8,6 @@ target("engine")
     remove_files("test/*.cpp")
     remove_files("*/test/*.cpp")
     remove_files("math/ispc/*.cpp")
-    remove_files("physics/*.cppm")
-    remove_files("physics/*.cpp")
-    remove_files("physics/**/*.cppm")
-    remove_files("physics/**/*.cpp")
     add_packages(
         "magic_enum",
         "spdlog",
@@ -26,6 +22,7 @@ target("engine")
         "nlohmann_json",
         "fx-gltf",
         "libsdl3",
+        "joltphysics",
         "vulkansdk",
         "vulkan-memory-allocator",
         "directx-shader-compiler",
@@ -33,6 +30,7 @@ target("engine")
         {public = true}
     )
     add_defines("VULKAN_HPP_NO_CONSTRUCTORS", {public = true})
+    add_cxxflags("/UJPH_FLOATING_POINT_EXCEPTIONS_ENABLED", {public = true})
     set_options("ispc")
     if has_config("ispc") then
         add_deps("ispc_math")

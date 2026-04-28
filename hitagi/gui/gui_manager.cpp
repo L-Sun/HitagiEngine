@@ -11,7 +11,7 @@ module gui;
 import std;
 namespace hitagi::gui {
 
-GuiManager::GuiManager(Application& app) : RuntimeModule("GuiManager"), m_App(app), m_InputManager(app.GetInputManager()) {
+GuiManager::GuiManager(Application& app) : core::RuntimeModule("GuiManager"), m_App(app), m_InputManager(app.GetInputManager()) {
     m_Clock.Start();
 
     ImGui::CreateContext();

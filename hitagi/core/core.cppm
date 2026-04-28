@@ -2,13 +2,15 @@ module;
 
 #include <cassert>
 #include <spdlog/logger.h>
+#include <taskflow/core/executor.hpp>
+#include <taskflow/taskflow.hpp>
 #include <tracy/Tracy.hpp>
 
 export module core;
 import std;
 import utils;
 
-export namespace hitagi {
+export namespace hitagi::core {
 
 class RuntimeModule {
 public:
@@ -32,8 +34,6 @@ protected:
 
     static std::unordered_map<std::string, RuntimeModule*> sm_AllModules;
 };
-
-namespace core {
 
 class Buffer {
 public:
@@ -85,8 +85,6 @@ private:
     std::size_t                       m_Alignment = alignof(std::uint32_t);
 };
 
-class MemoryPool;
-
 class MemoryManager final : public RuntimeModule {
 public:
     MemoryManager();
@@ -96,88 +94,13 @@ public:
     std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;
 
 private:
-    std::unique_ptr<MemoryPool> m_Pools;
+    std::unique_ptr<std::pmr::memory_resource> m_Pools;
 };
 
 template <typename T>
 std::pmr::polymorphic_allocator<T> MemoryManager::GetAllocator() const noexcept {
     return std::pmr::polymorphic_allocator<T>(m_Pools.get());
 }
-
-class MemoryPool : public std::pmr::memory_resource {
-public:
-    MemoryPool(std::shared_ptr<spdlog::logger> logger);
-    MemoryPool(const MemoryPool&)            = delete;
-    MemoryPool& operator=(const MemoryPool&) = delete;
-    ~MemoryPool();
-
-private:
-    [[nodiscard]] void* do_allocate(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) final;
-    void                do_deallocate(void* p, std::size_t bytes, std::size_t alignment) final;
-    bool                do_is_equal(const std::pmr::memory_resource& other) const noexcept final {
-        return this == &other;
-    }
-
-    struct Block {
-        Block* next = nullptr;
-    };
-
-    class Page {
-    public:
-        Page(std::size_t page_size, std::size_t block_size);
-        Page(const Page&)            = delete;
-        Page& operator=(const Page&) = delete;
-        Page(Page&&) noexcept;
-        Page& operator=(Page&&) noexcept;
-        ~Page();
-
-        inline auto GetHeadBlock() noexcept { return reinterpret_cast<Block*>(data); }
-
-    private:
-        const std::size_t      size;
-        const std::align_val_t alignment;
-        std::byte*             data;
-    };
-
-    struct Pool {
-        TracyLockableN(std::mutex, mutex, "MemoryPool Mutex");
-        std::list<Page> pages{};
-        Block*          free_list       = nullptr;
-        std::size_t     page_size       = 8_kB;
-        std::size_t     block_size      = 0;
-        std::size_t     num_free_blocks = 0;
-
-        Page&                new_page();
-        [[nodiscard]] Block* allocate();
-        void                 deallocate(Block* block);
-
-#ifdef HITAGI_DEBUG
-        std::unordered_set<Block*> allocated_blocks = {};
-#endif
-    };
-
-    constexpr static std::array block_size = {
-        // 4-byte increments
-        8u, 12u, 16u, 20u, 24u, 28u, 32u, 36u, 40u, 44u, 48u, 52u, 56u, 60u, 64u, 68u, 72u, 76u, 80u, 84u, 88u, 92u, 96u,
-
-        // 32-byte increments
-        128u, 160u, 192u, 224u, 256u, 288u, 320u, 352u, 384u, 416u, 448u, 480u, 512u, 544u, 576u, 608u, 640u,
-
-        // 64-byte increments
-        704u, 768u, 832u, 896u, 960u, 1024u};
-
-    std::array<std::size_t, block_size.back() + 1> pool_map;
-    utils::optional_ref<Pool>                      GetPool(std::size_t bytes);
-
-    std::array<Pool, block_size.size()> m_Pools;
-
-    template <std::size_t... Ns>
-    constexpr auto InitPools(std::index_sequence<Ns...>) {
-        return std::array{(Pool{.block_size = block_size.at(Ns)})...};
-    }
-
-    std::shared_ptr<spdlog::logger> m_Logger;
-};
 
 class Clock {
 public:
@@ -206,50 +129,48 @@ private:
     bool m_Paused = true;
 };
 
-class ThreadManager final : public RuntimeModule {
+class JobSystem final : public RuntimeModule {
 public:
-    ThreadManager(std::uint8_t num_threads = 8);
-    ~ThreadManager() final;
+    explicit JobSystem(std::uint32_t num_workers = 0);
+    ~JobSystem() final;
 
-    template <typename Func, typename... Args>
-    decltype(auto) RunTask(Func&& func, Args&&... args);
-
-    ThreadManager(const ThreadManager&)            = delete;
-    ThreadManager& operator=(const ThreadManager&) = delete;
-
-private:
-    std::pmr::vector<std::thread>                                                       m_ThreadPools;
-    std::queue<std::packaged_task<void()>, std::pmr::deque<std::packaged_task<void()>>> m_Tasks;
-
-    std::mutex              m_QueueMutex;
-    std::condition_variable m_ConditionForTask;
-    std::condition_variable m_ConditionForQueueSize;
-    bool                    m_Stop;
-};
-
-auto CreateThreadManager(std::uint8_t num_threads = 8) -> std::unique_ptr<RuntimeModule>;
-
-template <typename Func, typename... Args>
-decltype(auto) ThreadManager::RunTask(Func&& func, Args&&... args) {
-    using return_type = std::invoke_result_t<Func, Args...>;
-
-    auto task = std::make_shared<std::packaged_task<return_type()>>(
-        std::bind(std::forward<Func>(func), std::forward<Args>(args)...));
-
-    std::future<return_type> res = task->get_future();
-
-    {
-        std::unique_lock lock(m_QueueMutex);
-        m_Tasks.emplace([task] { (*task)(); });
-        TracyPlot("Thread Tasks Pending", static_cast<std::int64_t>(m_Tasks.size()));
+    inline static auto Get() {
+        return static_cast<JobSystem*>(RuntimeModule::GetModule("JobSystem"));
     }
 
-    m_ConditionForTask.notify_one();
-    return res;
+    [[nodiscard]] auto GetWorkerCount() const noexcept -> std::uint32_t { return m_NumWorkers; }
+    [[nodiscard]] auto GetCurrentWorkerId() const noexcept -> int;
+
+    template <typename Func, typename... Args>
+    auto Submit(Func&& func, Args&&... args) -> std::future<std::invoke_result_t<Func, Args...>>;
+
+    template <typename Func, typename... Args>
+    auto RunTask(Func&& func, Args&&... args) -> std::future<std::invoke_result_t<Func, Args...>>;
+
+    void RunTaskflow(tf::Taskflow& taskflow);
+    void WaitForAll();
+
+    JobSystem(const JobSystem&)            = delete;
+    JobSystem& operator=(const JobSystem&) = delete;
+
+private:
+    std::uint32_t m_NumWorkers = 0;
+    tf::Executor  m_Executor;
+};
+
+template <typename Func, typename... Args>
+auto JobSystem::Submit(Func&& func, Args&&... args) -> std::future<std::invoke_result_t<Func, Args...>> {
+    using return_type = std::invoke_result_t<Func, Args...>;
+
+    return m_Executor.async(
+        [func = std::forward<Func>(func), ... args = std::forward<Args>(args)]() mutable -> return_type {
+            return std::invoke(std::move(func), std::move(args)...);
+        });
 }
 
-inline auto CreateThreadManager(std::uint8_t num_threads) -> std::unique_ptr<RuntimeModule> {
-    return std::make_unique<ThreadManager>(num_threads);
+template <typename Func, typename... Args>
+auto JobSystem::RunTask(Func&& func, Args&&... args) -> std::future<std::invoke_result_t<Func, Args...>> {
+    return Submit(std::forward<Func>(func), std::forward<Args>(args)...);
 }
 
 class FileIOManager : public RuntimeModule {
@@ -277,6 +198,4 @@ private:
     Buffer                                                             m_EmptyBuffer;
 };
 
-}  // namespace core
-
-}  // namespace hitagi
+}  // namespace hitagi::core

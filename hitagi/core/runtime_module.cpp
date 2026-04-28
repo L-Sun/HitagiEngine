@@ -7,7 +7,7 @@ module core;
 import std;
 import utils;
 
-namespace hitagi {
+namespace hitagi::core {
 std::unordered_map<std::string, RuntimeModule*> RuntimeModule::sm_AllModules;
 
 RuntimeModule::RuntimeModule(std::string_view name)
@@ -87,4 +87,4 @@ auto RuntimeModule::GetModule(std::string_view name) -> RuntimeModule* {
     }
 }
 
-}  // namespace hitagi
+}  // namespace hitagi::core

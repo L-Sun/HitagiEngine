@@ -21,9 +21,9 @@ struct TextDrawCommand {
     math::Color      color     = math::Color::White();
 };
 
-class IRenderer : public RuntimeModule {
+class IRenderer : public core::RuntimeModule {
 public:
-    using RuntimeModule::RuntimeModule;
+    using core::RuntimeModule::RuntimeModule;
 
     virtual ~IRenderer() = default;
 
