@@ -9,7 +9,8 @@ class AppTest : public ::testing::Test {
 protected:
     AppTest()
         : app(Application::CreateApp({
-              .title = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+              .title    = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+              .headless = true,
           })) {}
     std::unique_ptr<Application> app;
 };

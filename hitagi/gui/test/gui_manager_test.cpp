@@ -13,9 +13,10 @@ class GuiManagerTest : public ::testing::Test {
 protected:
     GuiManagerTest()
         : app(Application::CreateApp({
-              .title  = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-              .width  = 640,
-              .height = 480,
+              .title    = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+              .width    = 640,
+              .height   = 480,
+              .headless = true,
           })),
           gui_manager(std::make_unique<gui::GuiManager>(*app)) {
         app->ResizeWindow(640, 480);

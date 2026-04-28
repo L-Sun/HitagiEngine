@@ -984,7 +984,8 @@ protected:
     SwapChainTest()
         : DeviceTest(),
           app(hitagi::Application::CreateApp(hitagi::AppConfig{
-              .title = std::pmr::string{std::format("App/{}", test_name)},
+              .title    = std::pmr::string{std::format("App/{}", test_name)},
+              .headless = true,
           })) {}
 
     void SetUp() override {
@@ -1028,7 +1029,8 @@ TEST_P(SwapChainTest, SwapChainResizing) {
 TEST_P(DeviceTest, DrawTriangle) {
     auto app = hitagi::Application::CreateApp(
         hitagi::AppConfig{
-            .title = std::pmr::string{std::format("App/{}", test_name)},
+            .title    = std::pmr::string{std::format("App/{}", test_name)},
+            .headless = true,
         });
 
     auto rect = app->GetWindowRect();

@@ -44,6 +44,7 @@ struct AppConfig {
     std::filesystem::path asset_root_path = "assets";
     std::pmr::string      gfx_backend     = "Vulkan";
     std::pmr::string      log_level       = "info";
+    bool                  headless        = false;
 };
 
 class Application : public core::RuntimeModule {
@@ -204,7 +205,7 @@ void Win32Application::InitializeWindows() {
         m_Logger->error("Create window failed.");
         return;
     }
-    ShowWindow(m_Window, SW_SHOW);
+    ShowWindow(m_Window, m_Config.headless ? SW_HIDE : SW_SHOW);
 
     UpdateRect();
     MapCursor();
@@ -479,11 +480,16 @@ SDL3Application::SDL3Application(AppConfig config) : Application(std::move(confi
         throw std::runtime_error(error_message);
     }
 
+    auto window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_VULKAN;
+    if (m_Config.headless) {
+        window_flags |= SDL_WINDOW_HIDDEN;
+    }
+
     m_Window = SDL_CreateWindow(
         m_Config.title.c_str(),
         m_Config.width,
         m_Config.height,
-        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_VULKAN);
+        window_flags);
     if (!m_Window) {
         const auto error_message = std::format("SDL_CreateWindow failed: {}", SDL_GetError());
         m_Logger->error(error_message);

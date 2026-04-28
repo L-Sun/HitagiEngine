@@ -496,7 +496,6 @@ void VulkanSwapChain::CreateSwapChain() {
         } break;
 #endif
         case utils::Window::Type::SDL3:
-            if ((SDL_GetWindowFlags(static_cast<SDL_Window*>(m_Desc.window.ptr)) & SDL_WINDOW_HIDDEN)) return;
             window_size = get_sdl3_window_size(static_cast<SDL_Window*>(m_Desc.window.ptr));
             break;
     }

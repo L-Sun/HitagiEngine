@@ -30,6 +30,7 @@ protected:
         : test_name(UnitTest::GetInstance()->current_test_info()->name()),
           app(Application::CreateApp(AppConfig{
               .gfx_backend = std::pmr::string(magic_enum::enum_name(GetParam())),
+              .headless    = true,
           })),
           device(gfx::create_device(GetParam())) {}
 

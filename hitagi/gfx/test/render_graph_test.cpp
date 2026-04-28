@@ -176,7 +176,9 @@ TEST_F(RenderGraphTest, AddRenderPass) {
         GTEST_SKIP();
     }
 
-    auto app = hitagi::Application::CreateApp();
+    auto app = hitagi::Application::CreateApp({
+        .headless = true,
+    });
 
     auto swap_chain = device->CreateSwapChain({
         .window = app->GetWindow(),
