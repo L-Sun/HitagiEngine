@@ -16,7 +16,7 @@ auto get_resource_label(Resource* res) {
 }
 
 Editor::Editor(Engine& engine)
-    : RuntimeModule("Editor"), m_Engine(engine), m_App(engine.App()) {
+    : core::RuntimeModule("Editor"), m_Engine(engine), m_App(engine.App()) {
     m_Clock.Start();
 
     m_SceneViewPort = static_cast<SceneViewPort*>(AddSubModule(std::make_unique<SceneViewPort>(engine)));
@@ -35,7 +35,7 @@ void Editor::Tick() {
         SceneNodeModifier();
     });
 
-    RuntimeModule::Tick();
+    core::RuntimeModule::Tick();
 
     if (!m_App.WindowsMinimized()) {
         auto&      renderer     = m_Engine.Renderer();

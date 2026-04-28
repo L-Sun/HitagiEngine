@@ -9,7 +9,7 @@ export import :image_viewer;
 import engine;
 
 export namespace hitagi {
-class Editor : public RuntimeModule {
+class Editor : public core::RuntimeModule {
 public:
     Editor(Engine& engine);
     void Tick() final;

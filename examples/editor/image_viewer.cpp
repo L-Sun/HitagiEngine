@@ -8,7 +8,7 @@ module editor;
 namespace hitagi {
 
 ImageViewer::ImageViewer(const Engine& engine)
-    : RuntimeModule("ImageViewer"),
+    : core::RuntimeModule("ImageViewer"),
       m_RenderGraph(engine.Renderer().GetRenderGraph()),
       m_GuiManager(engine.GuiManager()) {}
 
@@ -29,7 +29,7 @@ void ImageViewer::Tick() {
             }
         });
     }
-    RuntimeModule::Tick();
+    core::RuntimeModule::Tick();
 }
 
 }  // namespace hitagi

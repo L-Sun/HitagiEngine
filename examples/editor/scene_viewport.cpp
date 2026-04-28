@@ -17,7 +17,7 @@ void SceneViewPort::Tick() {
         ImGui::End();
     });
 
-    RuntimeModule::Tick();
+    core::RuntimeModule::Tick();
 }
 
 void SceneViewPort::MoveCamera() const {

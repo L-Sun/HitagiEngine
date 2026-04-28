@@ -4,7 +4,7 @@ export module editor:image_viewer;
 import engine;
 
 export namespace hitagi {
-class ImageViewer : public RuntimeModule {
+class ImageViewer : public core::RuntimeModule {
 public:
     ImageViewer(const Engine& engine);
     void SetTexture(const std::shared_ptr<asset::Texture>& texture = nullptr);

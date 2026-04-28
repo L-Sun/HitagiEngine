@@ -4,10 +4,10 @@ export module editor:scene_viewport;
 import engine;
 
 export namespace hitagi {
-class SceneViewPort : public RuntimeModule {
+class SceneViewPort : public core::RuntimeModule {
 public:
     SceneViewPort(const Engine& engine)
-        : RuntimeModule("SceneViewPort"), m_Engine(engine) {}
+        : core::RuntimeModule("SceneViewPort"), m_Engine(engine) {}
 
     void Tick() final;
 
