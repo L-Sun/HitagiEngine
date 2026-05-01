@@ -1,5 +1,7 @@
 #include <spdlog/spdlog.h>
 #include <imgui.h>
+#include <combaseapi.h>
+#include <filesystem>
 #include <shlobj.h>
 
 import engine;
@@ -7,33 +9,45 @@ import asset;
 
 using namespace hitagi;
 
-static auto GetLatestWinPixGpuCapturerPath_Cpp17() {
+static auto GetLatestWinPixGpuCapturerPath_Cpp17() -> std::filesystem::path {
     LPWSTR programFilesPath = nullptr;
-    SHGetKnownFolderPath(FOLDERID_ProgramFiles, KF_FLAG_DEFAULT, nullptr, &programFilesPath);
+    if (FAILED(SHGetKnownFolderPath(FOLDERID_ProgramFiles, KF_FLAG_DEFAULT, nullptr, &programFilesPath)) ||
+        programFilesPath == nullptr) {
+        return {};
+    }
 
     std::filesystem::path pixInstallationPath = programFilesPath;
-    pixInstallationPath /= "Microsoft PIX";
+    CoTaskMemFree(programFilesPath);
 
-    std::string newestVersionFound;
+    pixInstallationPath /= "Microsoft PIX";
+    if (!std::filesystem::exists(pixInstallationPath)) {
+        return {};
+    }
+
+    std::wstring newestVersionFound;
 
     for (auto const& directory_entry : std::filesystem::directory_iterator(pixInstallationPath)) {
         if (directory_entry.is_directory()) {
-            if (newestVersionFound.empty() || newestVersionFound < directory_entry.path().filename().string()) {
-                newestVersionFound = directory_entry.path().filename().string();
+            const auto version = directory_entry.path().filename().wstring();
+            if (newestVersionFound.empty() || newestVersionFound < version) {
+                newestVersionFound = version;
             }
         }
     }
 
     if (newestVersionFound.empty()) {
-        // TODO: Error, no PIX installation found
+        return {};
     }
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
 
 auto main(int argc, char** argv) -> int {
-    if (GetModuleHandle("WinPixGpuCapturer.dll") == nullptr) {
-        LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().string().c_str());
+    if (GetModuleHandleW(L"WinPixGpuCapturer.dll") == nullptr) {
+        const auto pixCapturerPath = GetLatestWinPixGpuCapturerPath_Cpp17();
+        if (!pixCapturerPath.empty()) {
+            LoadLibraryW(pixCapturerPath.c_str());
+        }
     }
 
     spdlog::set_level(spdlog::level::trace);
