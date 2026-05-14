@@ -6,6 +6,7 @@ module;
 module gfx.render_graph;
 import magic_enum;
 import std;
+import core;
 
 namespace hitagi::rg {
 
@@ -385,9 +386,19 @@ bool RenderGraph::Compile() {
     }
 
     {
+        const auto sort_by_handle = [this](std::pmr::vector<RenderGraphNode*>& nodes) {
+            std::ranges::sort(nodes, [](const auto* lhs, const auto* rhs) {
+                return lhs->m_Handle < rhs->m_Handle;
+            });
+        };
+
         auto in_degrees = essential_nodes  //
-                          | std::ranges::views::transform([](const auto& node) {
-                                return std::make_pair(node, node->m_InputNodes.size());
+                          | std::ranges::views::transform([&essential_nodes](const auto& node) {
+                                return std::make_pair(
+                                    node,
+                                    std::ranges::count_if(node->m_InputNodes, [&](auto* input_node) {
+                                        return essential_nodes.contains(input_node);
+                                    }));
                             })  //
                           | std::ranges::to<std::pmr::unordered_map<RenderGraphNode*, std::size_t>>();
 
@@ -396,6 +407,7 @@ bool RenderGraph::Compile() {
                            | std::ranges::views::filter([](const auto& item) { return item.second == 0; })  //
                            | std::ranges::views::keys                                                       //
                            | std::ranges::to<std::pmr::vector<RenderGraphNode*>>();
+        sort_by_handle(start_nodes);
 
         std::size_t num_visited_nodes = 0;
         while (!start_nodes.empty()) {
@@ -407,6 +419,11 @@ bool RenderGraph::Compile() {
                     | std::ranges::views::transform([](auto node) { return static_cast<PassNode*>(node); })  //
                 ,
                 [&](auto node) { current_layer[node->GetCommandType()].emplace_back(node); });
+            for (auto& pass_nodes : current_layer) {
+                std::ranges::sort(pass_nodes, [](const auto* lhs, const auto* rhs) {
+                    return lhs->m_Handle < rhs->m_Handle;
+                });
+            }
 
             m_ExecuteLayers.emplace_back(std::move(current_layer));
 
@@ -420,6 +437,7 @@ bool RenderGraph::Compile() {
                     }
                 }
             }
+            sort_by_handle(new_start_nodes);
             start_nodes = std::move(new_start_nodes);
         }
 
@@ -450,42 +468,94 @@ auto RenderGraph::Execute() -> std::uint64_t {
         return m_FrameIndex;
     }
 
-    for (const auto& pass_node : m_ExecuteLayers | std::ranges::views::join | std::ranges::views::join) {
-        pass_node->Execute();
+    const auto has_executable_passes = std::ranges::any_of(m_ExecuteLayers, [](const auto& execute_layer) {
+        return std::ranges::any_of(execute_layer, [](const auto& pass_nodes) {
+            return !pass_nodes.empty();
+        });
+    });
+
+    auto* job_system = core::JobSystem::Get();
+    if (has_executable_passes && job_system == nullptr) {
+        const auto message = std::format("{} requires core::JobSystem to record render graph passes", m_Name);
+        m_Logger->error(message);
+        throw std::runtime_error(message);
     }
+
     auto last_fences = m_Fences;
 
-    for (const auto& execute_layer : m_ExecuteLayers) {
-        // Improve more fine-grained fence
-        magic_enum::enum_for_each<gfx::CommandType>([&](gfx::CommandType type) {
-            const auto& pass_nodes = execute_layer[type];
+    m_LastLayerProfiles.clear();
+    m_LastLayerProfiles.reserve(m_ExecuteLayers.size());
 
-            if (pass_nodes.empty()) return;
+    for (std::size_t layer_index = 0; layer_index < m_ExecuteLayers.size(); ++layer_index) {
+        const auto& execute_layer = m_ExecuteLayers[layer_index];
+        auto&       layer_profile = m_LastLayerProfiles.emplace_back();
 
-            auto commands = pass_nodes  //
-                            | std::ranges::views::transform([&](const auto& pass_node) {
-                                  return std::cref(*pass_node->m_CommandContext);
-                              })  //
-                            | std::ranges::to<std::pmr::vector<std::reference_wrapper<const gfx::CommandContext>>>();
+        std::pmr::vector<PassNode*> layer_pass_nodes;
+        for (const auto& pass_nodes : execute_layer) {
+            layer_pass_nodes.insert(layer_pass_nodes.end(), pass_nodes.begin(), pass_nodes.end());
+        }
 
-            std::pmr::vector<gfx::FenceWaitInfo> wait_fences;
-            for (const auto& curr_fence_value : m_Fences) {
-                wait_fences.emplace_back(*curr_fence_value.fence, curr_fence_value.last_value);
+        const auto record_start = std::chrono::steady_clock::now();
+        if (!layer_pass_nodes.empty()) {
+            ZoneScopedN("RenderGraph Record Layer");
+            const auto layer_name = std::format("Layer {}", layer_index);
+            ZoneText(layer_name.data(), layer_name.size());
+
+            for (auto* pass_node : layer_pass_nodes) {
+                pass_node->PrepareResourceBarriers();
             }
 
-            m_Device.GetCommandQueue(type).Submit(
-                commands,
-                wait_fences,
-                {{gfx::FenceSignalInfo{
-                    .fence = *m_Fences[type].fence,
-                    .value = ++m_Fences[type].last_value,
-                }}});
-
-            // retire resource
-            for (auto pass_node : pass_nodes) {
-                RetireNodesFromPassNode(pass_node, m_Fences[type]);
+            std::pmr::vector<std::future<void>> record_jobs;
+            record_jobs.reserve(layer_pass_nodes.size());
+            for (auto* pass_node : layer_pass_nodes) {
+                record_jobs.emplace_back(job_system->Submit([pass_node] {
+                    pass_node->Execute();
+                }));
             }
-        });
+            for (auto& job : record_jobs) {
+                job.get();
+            }
+        }
+        layer_profile.record_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - record_start).count();
+
+        const auto submit_start = std::chrono::steady_clock::now();
+        {
+            ZoneScopedN("RenderGraph Submit Layer");
+            const auto layer_name = std::format("Layer {}", layer_index);
+            ZoneText(layer_name.data(), layer_name.size());
+
+            // Improve more fine-grained fence
+            magic_enum::enum_for_each<gfx::CommandType>([&](gfx::CommandType type) {
+                const auto& pass_nodes = execute_layer[type];
+
+                if (pass_nodes.empty()) return;
+
+                auto commands = pass_nodes  //
+                                | std::ranges::views::transform([&](const auto& pass_node) {
+                                      return std::cref(*pass_node->m_CommandContext);
+                                  })  //
+                                | std::ranges::to<std::pmr::vector<std::reference_wrapper<const gfx::CommandContext>>>();
+
+                std::pmr::vector<gfx::FenceWaitInfo> wait_fences;
+                for (const auto& curr_fence_value : m_Fences) {
+                    wait_fences.emplace_back(*curr_fence_value.fence, curr_fence_value.last_value);
+                }
+
+                m_Device.GetCommandQueue(type).Submit(
+                    commands,
+                    wait_fences,
+                    {{gfx::FenceSignalInfo{
+                        .fence = *m_Fences[type].fence,
+                        .value = ++m_Fences[type].last_value,
+                    }}});
+
+                // retire resource
+                for (auto pass_node : pass_nodes) {
+                    RetireNodesFromPassNode(pass_node, m_Fences[type]);
+                }
+            });
+        }
+        layer_profile.submit_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - submit_start).count();
     }
 
     for (const auto& [fence, last_value] : last_fences) {
@@ -799,12 +869,31 @@ void RenderGraph::Profile() const noexcept {
         TracyPlotConfig("Transient Buffer Count", tracy::PlotFormatType::Number, true, true, 0);
         TracyPlotConfig("Transient Texture Count", tracy::PlotFormatType::Number, true, true, 0);
         TracyPlotConfig("RenderGraph Execute Layers", tracy::PlotFormatType::Number, true, true, 0);
+        TracyPlotConfig("RenderGraph Record Time (ms)", tracy::PlotFormatType::Number, false, true, 0);
+        TracyPlotConfig("RenderGraph Submit Time (ms)", tracy::PlotFormatType::Number, false, true, 0);
+        TracyPlotConfig("RenderGraph Max Layer Record Time (ms)", tracy::PlotFormatType::Number, false, true, 0);
+        TracyPlotConfig("RenderGraph Max Layer Submit Time (ms)", tracy::PlotFormatType::Number, false, true, 0);
         configured = true;
     }
+    double total_record_ms = 0.0;
+    double total_submit_ms = 0.0;
+    double max_record_ms   = 0.0;
+    double max_submit_ms   = 0.0;
+    for (const auto& profile : m_LastLayerProfiles) {
+        total_record_ms += profile.record_ms;
+        total_submit_ms += profile.submit_ms;
+        max_record_ms = std::max(max_record_ms, profile.record_ms);
+        max_submit_ms = std::max(max_submit_ms, profile.submit_ms);
+    }
+
     TracyPlot("Retired Resource Counts", static_cast<std::int64_t>(m_RetiredNodes.size()));
     TracyPlot("Transient Buffer Count", static_cast<std::int64_t>(m_TransientPool.buffers.size()));
     TracyPlot("Transient Texture Count", static_cast<std::int64_t>(m_TransientPool.textures.size()));
     TracyPlot("RenderGraph Execute Layers", static_cast<std::int64_t>(m_ExecuteLayers.size()));
+    TracyPlot("RenderGraph Record Time (ms)", total_record_ms);
+    TracyPlot("RenderGraph Submit Time (ms)", total_submit_ms);
+    TracyPlot("RenderGraph Max Layer Record Time (ms)", max_record_ms);
+    TracyPlot("RenderGraph Max Layer Submit Time (ms)", max_submit_ms);
 }
 
 }  // namespace hitagi::rg

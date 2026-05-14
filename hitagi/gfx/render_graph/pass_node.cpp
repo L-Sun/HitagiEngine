@@ -210,8 +210,11 @@ void PassNode::Initialize() {
     // In this case, the resource_1 read bindless handle is created after pass_1::execute, so there is no hazard.
 }
 
-void PassNode::ResourceBarrier() {
+void PassNode::PrepareResourceBarriers() {
     auto& device = m_RenderGraph->GetDevice();
+
+    m_GPUBufferBarriers.clear();
+    m_TextureBarriers.clear();
 
     for (const auto& [buffer_node, buffer_edge] : m_GPUBufferEdges) {
         auto& buffer = buffer_node->Resolve();
@@ -251,7 +254,16 @@ void PassNode::ResourceBarrier() {
         }
     }
 
+    m_ResourceBarriersPrepared = true;
+}
+
+void PassNode::ResourceBarrier() {
+    if (!m_ResourceBarriersPrepared) {
+        PrepareResourceBarriers();
+    }
+
     m_CommandContext->ResourceBarrier({}, m_GPUBufferBarriers, m_TextureBarriers);
+    m_ResourceBarriersPrepared = false;
 }
 
 void PassNode::CreateBindless() {

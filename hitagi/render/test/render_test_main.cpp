@@ -9,6 +9,7 @@ int main(int argc, char** argv) {
 
     auto memory_manager = std::make_unique<hitagi::core::MemoryManager>();
     auto file_manager   = std::make_unique<hitagi::core::FileIOManager>();
+    auto job_system     = std::make_unique<hitagi::core::JobSystem>();
 
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

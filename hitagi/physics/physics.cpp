@@ -3,7 +3,7 @@ module;
 #include <Jolt/Jolt.h>
 #include <Jolt/RegisterTypes.h>
 #include <Jolt/Core/Factory.h>
-#include <Jolt/Core/JobSystemThreadPool.h>
+#include <Jolt/Core/JobSystemWithBarrier.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyInterface.h>
@@ -23,6 +23,7 @@ module;
 module physics;
 
 import std;
+import core;
 
 namespace hitagi::physics {
 
@@ -147,6 +148,49 @@ public:
     }
 };
 
+class CoreJobSystemAdapter final : public JPH::JobSystemWithBarrier {
+public:
+    CoreJobSystemAdapter(core::JobSystem& job_system, JPH::uint max_barriers)
+        : JPH::JobSystemWithBarrier(max_barriers),
+          m_JobSystem(job_system) {}
+
+    auto GetMaxConcurrency() const -> int final {
+        return static_cast<int>(m_JobSystem.GetWorkerCount()) + 1;
+    }
+
+    auto CreateJob(const char* inName, JPH::ColorArg inColor, const JobFunction& inJobFunction, JPH::uint32 inNumDependencies = 0) -> JobHandle final {
+        return JobHandle(new Job(inName, inColor, this, inJobFunction, inNumDependencies));
+    }
+
+protected:
+    void QueueJob(Job* inJob) final {
+        QueueJobs(&inJob, 1);
+    }
+
+    void QueueJobs(Job** inJobs, JPH::uint inNumJobs) final {
+        for (JPH::uint index = 0; index < inNumJobs; ++index) {
+            auto* job = inJobs[index];
+            job->AddRef();
+            try {
+                m_JobSystem.Submit([job] {
+                    job->Execute();
+                    job->Release();
+                });
+            } catch (...) {
+                job->Release();
+                throw;
+            }
+        }
+    }
+
+    void FreeJob(Job* inJob) final {
+        delete inJob;
+    }
+
+private:
+    core::JobSystem& m_JobSystem;
+};
+
 auto ToJolt(math::vec3f value) noexcept -> JPH::Vec3 {
     return JPH::Vec3(value.x, value.y, value.z);
 }
@@ -229,7 +273,7 @@ auto CreateShape(const ShapeDesc& desc) -> JPH::RefConst<JPH::Shape> {
 struct PhysicsWorld::Impl {
     explicit Impl(const PhysicsWorldDesc& desc)
         : temp_allocator(desc.temp_allocator_size),
-          job_system(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, desc.num_threads) {
+          job_system(ResolveJobSystem(desc), JPH::cMaxPhysicsBarriers) {
         physics_system.Init(
             desc.max_bodies,
             desc.num_body_mutexes,
@@ -241,11 +285,19 @@ struct PhysicsWorld::Impl {
         physics_system.SetGravity(ToJolt(desc.gravity));
     }
 
+    static auto ResolveJobSystem(const PhysicsWorldDesc& desc) -> core::JobSystem& {
+        auto* job_system = desc.job_system ? desc.job_system : core::JobSystem::Get();
+        if (job_system == nullptr) {
+            throw std::runtime_error("physics::PhysicsWorld requires core::JobSystem");
+        }
+        return *job_system;
+    }
+
     BroadPhaseLayerInterface      broad_phase_layer_interface;
     ObjectVsBroadPhaseLayerFilter object_vs_broad_phase_layer_filter;
     ObjectLayerPairFilter         object_layer_pair_filter;
     JPH::TempAllocatorImpl        temp_allocator;
-    JPH::JobSystemThreadPool      job_system;
+    CoreJobSystemAdapter          job_system;
     JPH::PhysicsSystem            physics_system;
 };
 

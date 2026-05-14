@@ -669,14 +669,38 @@ enum struct ImageFormat : std::uint8_t {
     BMP,
 };
 
+namespace detail {
+inline constexpr auto ascii_lower(char c) noexcept -> char {
+    return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
+}
+
+inline constexpr auto extension_view(std::string_view path_or_ext) noexcept -> std::string_view {
+    const auto slash = path_or_ext.find_last_of("/\\");
+    const auto dot   = path_or_ext.find_last_of('.');
+    if (dot == std::string_view::npos || (slash != std::string_view::npos && dot < slash)) {
+        return path_or_ext;
+    }
+    return path_or_ext.substr(dot);
+}
+
+inline constexpr auto iequals(std::string_view lhs, std::string_view rhs) noexcept -> bool {
+    if (lhs.size() != rhs.size()) return false;
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        if (ascii_lower(lhs[i]) != ascii_lower(rhs[i])) return false;
+    }
+    return true;
+}
+}  // namespace detail
+
 inline constexpr ImageFormat get_image_format(std::string_view ext) noexcept {
-    if (ext == ".jpeg" || ext == ".jpg")
+    ext = detail::extension_view(ext);
+    if (detail::iequals(ext, ".jpeg") || detail::iequals(ext, ".jpg"))
         return ImageFormat::JPEG;
-    else if (ext == ".bmp")
+    else if (detail::iequals(ext, ".bmp"))
         return ImageFormat::BMP;
-    else if (ext == ".tga")
+    else if (detail::iequals(ext, ".tga"))
         return ImageFormat::TGA;
-    else if (ext == ".png")
+    else if (detail::iequals(ext, ".png"))
         return ImageFormat::PNG;
     return ImageFormat::UNKOWN;
 }
@@ -751,13 +775,14 @@ enum struct SceneFormat : std::uint8_t {
 };
 
 inline constexpr SceneFormat get_scene_format(std::string_view ext) noexcept {
-    if (ext == ".gltf")
+    ext = detail::extension_view(ext);
+    if (detail::iequals(ext, ".gltf"))
         return SceneFormat::GLTF;
-    if (ext == "glb")
+    if (detail::iequals(ext, ".glb"))
         return SceneFormat::GLB;
-    else if (ext == ".blend")
+    else if (detail::iequals(ext, ".blend"))
         return SceneFormat::BLEND;
-    else if (ext == ".fbx")
+    else if (detail::iequals(ext, ".fbx"))
         return SceneFormat::FBX;
     return SceneFormat::UNKOWN;
 }
@@ -821,6 +846,32 @@ public:
     std::shared_ptr<Texture>  ImportTexture(const std::filesystem::path& path);
     std::shared_ptr<Material> ImportMaterial(const std::filesystem::path& path);
 
+    class AssetLoadToken {
+    public:
+        AssetLoadToken();
+
+        void RequestCancel() const noexcept;
+        auto IsCancellationRequested() const noexcept -> bool;
+
+    private:
+        std::shared_ptr<std::atomic_bool> m_CancelRequested;
+    };
+
+    template <typename T>
+    struct AssetLoadJob {
+        std::shared_future<T> future;
+        AssetLoadToken        token;
+
+        void RequestCancel() const noexcept { token.RequestCancel(); }
+        auto IsCancellationRequested() const noexcept -> bool { return token.IsCancellationRequested(); }
+        auto IsValid() const noexcept -> bool { return future.valid(); }
+        auto Get() const -> T { return future.get(); }
+    };
+
+    auto ImportSceneAsync(const std::filesystem::path& path, AssetLoadToken token = {}) -> AssetLoadJob<std::shared_ptr<Scene>>;
+    auto ImportTextureAsync(const std::filesystem::path& path, AssetLoadToken token = {}) -> AssetLoadJob<std::shared_ptr<Texture>>;
+    auto ImportMaterialAsync(const std::filesystem::path& path, AssetLoadToken token = {}) -> AssetLoadJob<std::shared_ptr<Material>>;
+
     void AddScene(std::shared_ptr<Scene> scene);
     void AddCamera(std::shared_ptr<Camera> camera);
     void AddLight(std::shared_ptr<Light> light);
@@ -833,6 +884,8 @@ public:
 
 private:
     void InitBuiltinMaterial();
+    void TrackAsyncJob(std::shared_future<void> completion);
+    void WaitForAsyncJobs() noexcept;
 
     std::filesystem::path m_BasePath;
 
@@ -853,6 +906,10 @@ private:
         SharedPtrSet<Skeleton> skeletons;
         SharedPtrSet<Texture>  textures;
     } m_Assets;
+    std::mutex m_AssetsMutex;
+
+    std::pmr::vector<std::shared_future<void>> m_AsyncJobs;
+    std::mutex                                 m_AsyncJobsMutex;
 };
 
 }  // namespace hitagi::asset

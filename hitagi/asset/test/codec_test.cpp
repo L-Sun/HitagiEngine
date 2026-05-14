@@ -100,3 +100,26 @@ TEST(SceneParserTest, Fbx) {
     EXPECT_EQ(scene->GetMeshEntities().size(), 1);
     EXPECT_EQ(scene->GetLightEntities().size(), 1);
 }
+
+TEST(AssetManagerTest, AsyncTextureImportUsesJobSystem) {
+    AssetManager assets("assets");
+
+    auto job     = assets.ImportTextureAsync("assets/test/test.png");
+    auto texture = job.Get();
+
+    ASSERT_TRUE(texture);
+    EXPECT_EQ(texture->Width(), 278);
+    EXPECT_EQ(texture->Height(), 152);
+}
+
+TEST(AssetManagerTest, AsyncTextureImportCanBeCanceledBeforeStart) {
+    AssetManager assets("assets");
+
+    AssetManager::AssetLoadToken token;
+    token.RequestCancel();
+
+    auto job = assets.ImportTextureAsync("assets/test/test.png", token);
+
+    EXPECT_TRUE(job.IsCancellationRequested());
+    EXPECT_EQ(job.Get(), nullptr);
+}

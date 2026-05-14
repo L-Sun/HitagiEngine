@@ -342,8 +342,9 @@ All GPU resources are created via `Device::Create*()` and returned as `std::shar
 3. Compile()                   → DFS from PresentPassNode to find essential nodes
                                → topological sort into ExecuteLayers keyed by CommandType
                                → Initialize() acquires GPU resources (pool first, then Device::Create*)
-4. Execute()                   → for each layer, execute all passes
-                               → Submit to queues with fence wait/signal
+4. Execute()                   → for each layer, prepare resource barriers in deterministic order
+                               → record pass command contexts through core::JobSystem
+                               → Submit to queues with fence wait/signal on the render thread
                                → Retire nodes guarded by fence values
 5. RetireNodes()               → recycle transient resources to pool, evict stale entries
 6. Reset()                     → clear all nodes, blackboard, execute layers for next frame
@@ -357,9 +358,10 @@ All GPU resources are created via `Device::Create*()` and returned as `std::shar
 - Cycle detection: if visited count != essential count, reports error
 
 ### Execution Details
-- Pass execution order: iterate all layers, then all passes in each layer
-- Each pass: `Begin()` → `ResourceBarrier()` → user's `Executor` lambda → `End()`
-- Queue submit: per-layer, per-command-type batch submit with:
+- Pass layer order is determined by `m_ExecuteLayers`; passes inside a layer may record in parallel.
+- Before recording a layer, resource transitions are prepared serially in deterministic pass order so shared read resources do not race on CPU state tracking.
+- Each pass records: `Begin()` → `ResourceBarrier()` → user's `Executor` lambda → `End()`.
+- Queue submit remains on the render thread: per-layer, per-command-type batch submit with:
   - Wait on ALL current fence values (cross-queue sync)
   - Signal this queue's fence with incremented value
 - After all layers: wait on the **previous** frame's fence values (not current — allows overlap)

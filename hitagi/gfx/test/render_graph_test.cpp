@@ -587,6 +587,78 @@ TEST_F(RenderGraphCullingTest, CullsDisconnectedBranchWithPresent) {
     EXPECT_FALSE(culled_branch_executed);
 }
 
+TEST_F(RenderGraphCullingTest, SideEffectPassesRespectLayerDependencies) {
+    const auto compute_pipeline = rg.Import(device->CreateComputePipeline({}), "compute_pipeline");
+
+    const auto producer_buffer = rg.Create(GPUBufferDesc{
+        .name          = "producer_buffer",
+        .element_size  = sizeof(float),
+        .element_count = 1,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+    });
+    const auto independent_buffer = rg.Create(GPUBufferDesc{
+        .name          = "independent_buffer",
+        .element_size  = sizeof(float),
+        .element_count = 1,
+        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+    });
+
+    std::mutex              execution_mutex;
+    std::vector<std::string> execution_order;
+    const auto              record_execution = [&](std::string name) {
+        std::scoped_lock lock(execution_mutex);
+        execution_order.emplace_back(std::move(name));
+    };
+
+    const auto producer_pass =
+        ComputePassBuilder(rg)
+            .SetName("producer")
+            .Write(producer_buffer)
+            .AddPipeline(compute_pipeline)
+            .SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
+                record_execution("producer");
+            })
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(producer_pass));
+
+    const auto independent_pass =
+        ComputePassBuilder(rg)
+            .SetName("independent")
+            .AllowPassCulling(false)
+            .Write(independent_buffer)
+            .AddPipeline(compute_pipeline)
+            .SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
+                record_execution("independent");
+            })
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(independent_pass));
+
+    const auto consumer_pass =
+        ComputePassBuilder(rg)
+            .SetName("consumer")
+            .AllowPassCulling(false)
+            .Read(producer_buffer)
+            .AddPipeline(compute_pipeline)
+            .SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
+                record_execution("consumer");
+            })
+            .Finish();
+    ASSERT_TRUE(rg.IsValid(consumer_pass));
+
+    EXPECT_TRUE(rg.Compile());
+    rg.Execute();
+
+    const auto producer_it    = std::ranges::find(execution_order, "producer");
+    const auto independent_it = std::ranges::find(execution_order, "independent");
+    const auto consumer_it    = std::ranges::find(execution_order, "consumer");
+
+    EXPECT_EQ(execution_order.size(), 3);
+    ASSERT_NE(producer_it, execution_order.end());
+    ASSERT_NE(independent_it, execution_order.end());
+    ASSERT_NE(consumer_it, execution_order.end());
+    EXPECT_LT(std::ranges::distance(execution_order.begin(), producer_it), std::ranges::distance(execution_order.begin(), consumer_it));
+}
+
 TEST_F(RenderGraphTest, CopyTextureToBuffer) {
     if (device->device_type != hitagi::gfx::Device::Type::Mock) {
         GTEST_SKIP();

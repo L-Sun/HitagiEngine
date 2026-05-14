@@ -94,7 +94,7 @@ struct MockBindlessUtils : public BindlessUtils {
         };
     }
     void          DiscardBindlessHandle(BindlessHandle handle) final {}
-    std::uint32_t counter = 0;
+    std::atomic_uint32_t counter = 0;
 };
 
 struct MockCommandQueue : public CommandQueue {

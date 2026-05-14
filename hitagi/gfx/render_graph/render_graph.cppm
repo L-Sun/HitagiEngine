@@ -307,6 +307,7 @@ protected:
 
     void Initialize() final;
 
+    void PrepareResourceBarriers();
     void ResourceBarrier();
     void CreateBindless();
 
@@ -320,6 +321,7 @@ protected:
 
     std::pmr::vector<gfx::GPUBufferBarrier> m_GPUBufferBarriers;
     std::pmr::vector<gfx::TextureBarrier>   m_TextureBarriers;
+    bool                                    m_ResourceBarriersPrepared = false;
 
     std::shared_ptr<gfx::CommandContext> m_CommandContext;
     bool                                 m_Cullable = true;
@@ -650,6 +652,12 @@ private:
         FenceValue                       last_fence_value;
     };
     std::pmr::deque<RetiredNode> m_RetiredNodes;
+
+    struct LayerProfile {
+        double record_ms = 0.0;
+        double submit_ms = 0.0;
+    };
+    std::pmr::vector<LayerProfile> m_LastLayerProfiles;
 
     struct TransientResourcePool {
         static constexpr std::uint64_t max_unused_frames = 3;

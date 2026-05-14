@@ -7,9 +7,10 @@ Create one engine-owned CPU job boundary for ECS, render command recording, phys
 ## Current State
 
 - `core::JobSystem` is the engine-owned CPU job module.
-- `ecs::World` owns a `tf::Executor` directly and `ecs::Schedule` owns a `tf::Taskflow`.
-- `RenderGraph` computes execution layers, but pass recording is currently serial.
-- `PhysicsWorld` uses Jolt's internal `JPH::JobSystemThreadPool`.
+- ECS schedules execute through `core::JobSystem`; `tf::Taskflow` remains internal to `ecs::Schedule`.
+- `RenderGraph` records command contexts through `core::JobSystem` within deterministic execution layers.
+- `PhysicsWorld` uses a Jolt `JobSystem` adapter backed by `core::JobSystem`.
+- `AssetManager` exposes future-based async import jobs backed by `core::JobSystem`.
 
 ## Phase 1: Core Boundary
 
@@ -28,25 +29,25 @@ Create one engine-owned CPU job boundary for ECS, render command recording, phys
 
 ## Phase 3: RenderGraph Integration
 
-- [ ] Keep RenderGraph execution order deterministic through `m_ExecuteLayers`.
-- [ ] Use `core::JobSystem` only for CPU-side command recording inside a layer.
-- [ ] Keep queue submit, present, fence signaling, and transient resource retirement on the render thread.
-- [ ] Add profiling for per-layer record time and submit time.
-- [ ] Add tests with side-effect passes to prove layer ordering remains stable.
+- [x] Keep RenderGraph execution order deterministic through `m_ExecuteLayers`.
+- [x] Use `core::JobSystem` only for CPU-side command recording inside a layer.
+- [x] Keep queue submit, present, fence signaling, and transient resource retirement on the render thread.
+- [x] Add profiling for per-layer record time and submit time.
+- [x] Add tests with side-effect passes to prove layer ordering remains stable.
 
 ## Phase 4: Physics Integration
 
-- [ ] Add a Jolt `JobSystem` adapter backed by `core::JobSystem`.
-- [ ] Keep `PhysicsWorld::Step` fixed-tick controlled by game/simulation flow.
-- [ ] Avoid a standalone physics main-loop thread unless profiling shows a clear need.
+- [x] Add a Jolt `JobSystem` adapter backed by `core::JobSystem`.
+- [x] Keep `PhysicsWorld::Step` fixed-tick controlled by game/simulation flow.
+- [x] Avoid a standalone physics main-loop thread unless profiling shows a clear need.
 
 ## Phase 5: Asset and Coroutine Layer
 
-- [ ] Add async asset jobs on top of `core::JobSystem`.
-- [ ] Consider coroutine `Task<T>` only for IO/streaming flow, not ECS or RenderGraph parallel execution.
-- [ ] Add cancellation and lifetime ownership before exposing coroutine APIs.
+- [x] Add async asset jobs on top of `core::JobSystem`.
+- [x] Consider coroutine `Task<T>` only for IO/streaming flow, not ECS or RenderGraph parallel execution.
+- [x] Add cancellation and lifetime ownership before exposing coroutine APIs.
 
 ## Cleanup
 
-- [ ] Decide whether Taskflow remains the permanent backend or is hidden behind a custom scheduler implementation.
-- [ ] Document thread ownership rules for ECS world writes, render snapshots, GPU resource creation, and resource upload.
+- [x] Decide whether Taskflow remains the permanent backend or is hidden behind a custom scheduler implementation.
+- [x] Document thread ownership rules for ECS world writes, render snapshots, GPU resource creation, and resource upload.

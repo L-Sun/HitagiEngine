@@ -3,6 +3,7 @@ module;
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <fmt/chrono.h>
 
@@ -43,30 +44,13 @@ inline constexpr auto get_primitive(unsigned int primitives) noexcept {
     }
 }
 
-constexpr std::array<std::pair<std::string_view, aiTextureType>, 20> texture_key_map = {
+constexpr std::array<std::pair<std::string_view, aiTextureType>, 5> texture_key_map = {
     {
-        {"diffuse", aiTextureType_DIFFUSE},
-        {"specular", aiTextureType_SPECULAR},
-        {"ambient", aiTextureType_AMBIENT},
-        {"emissive", aiTextureType_EMISSIVE},
-        {"height", aiTextureType_HEIGHT},
-        {"normal", aiTextureType_NORMALS},
-        {"shininess", aiTextureType_SHININESS},
-        {"opacity", aiTextureType_OPACITY},
-        {"dispacement", aiTextureType_DISPLACEMENT},
-        {"lightmap", aiTextureType_LIGHTMAP},
-        {"reflection", aiTextureType_REFLECTION},
-        // PBR Material
-        {"base_color", aiTextureType_BASE_COLOR},
-        {"normal_camera", aiTextureType_NORMAL_CAMERA},
-        {"emission_color", aiTextureType_EMISSION_COLOR},
-        {"metalness", aiTextureType_METALNESS},
-        {"diffuse_roughness", aiTextureType_DIFFUSE_ROUGHNESS},
-        {"occlusion", aiTextureType_AMBIENT_OCCLUSION},
-        // ---------
-        {"sheen", aiTextureType_SHEEN},
-        {"clearcoat", aiTextureType_CLEARCOAT},
-        {"transmission", aiTextureType_TRANSMISSION},
+        {"diffuse_texture", aiTextureType_DIFFUSE},
+        {"specular_texture", aiTextureType_SPECULAR},
+        {"emissive_texture", aiTextureType_EMISSIVE},
+        {"diffuse_texture", aiTextureType_BASE_COLOR},
+        {"emissive_texture", aiTextureType_EMISSION_COLOR},
     }};
 
 constexpr std::array mat_color_keys = {
@@ -88,6 +72,19 @@ constexpr std::array mat_float_keys = {
     "refracti",
     // PBR
     "metallicFactor",
+};
+
+auto lower_ascii(std::string value) -> std::string {
+    for (auto& ch : value) {
+        if (ch >= 'A' && ch <= 'Z') {
+            ch = static_cast<char>(ch - 'A' + 'a');
+        }
+    }
+    return value;
+}
+
+struct CompanionMaterialTextures {
+    std::filesystem::path diffuse_texture;
 };
 
 auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesystem::path& resource_base_path) -> std::shared_ptr<Scene> {
@@ -238,7 +235,9 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
             } else {
                 logger->warn("Unsupported texture format: {}", _texture->achFormatHint);
             }
-            texture->SetPath(_texture->mFilename.C_Str());
+            if (texture != nullptr) {
+                texture->SetPath(_texture->mFilename.C_Str());
+            }
         } else {
             texture = std::make_shared<Texture>(_texture->mFilename.C_Str());
         }
@@ -248,11 +247,149 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
     logger->trace("Parsing texture costs {}.", clock.DeltaTime());
     clock.Tick();
 
+    auto load_companion_material_textures = [&]() -> std::pmr::vector<CompanionMaterialTextures> {
+        const auto scene_dir      = path.parent_path();
+        const auto scene_stem     = path.stem().string();
+        const auto scene_stem_dir = lower_ascii(scene_stem);
+        auto       scene_filename = path.filename();
+        scene_filename.replace_extension(".gltf");
+        auto scene_stem_filename = std::filesystem::path(scene_stem);
+        scene_stem_filename.replace_extension(".gltf");
+
+        std::pmr::vector<std::filesystem::path> candidates{
+            resource_base_path / scene_stem_dir / scene_filename,
+            resource_base_path / scene_stem_dir / scene_stem_filename,
+            resource_base_path / path.stem() / scene_filename,
+            scene_dir / scene_stem_dir / scene_stem_filename,
+        };
+
+        const auto candidate = std::ranges::find_if(candidates, [](const auto& item) {
+            return std::filesystem::is_regular_file(item);
+        });
+        if (candidate == candidates.end()) return {};
+
+        try {
+            const auto manifest_path = std::filesystem::weakly_canonical(*candidate);
+            const auto manifest_dir  = manifest_path.parent_path();
+            std::pmr::string manifest_data;
+            if (core::FileIOManager::Get()) {
+                manifest_data = core::FileIOManager::Get()->SyncOpenAndReadBinary(manifest_path).Str();
+            }
+            if (manifest_data.empty()) return {};
+
+            const auto json = nlohmann::json::parse(manifest_data);
+
+            std::pmr::vector<std::filesystem::path> images;
+            if (json.contains("images")) {
+                for (const auto& image : json.at("images")) {
+                    images.emplace_back(image.value("uri", ""));
+                }
+            }
+
+            std::pmr::vector<std::size_t> texture_sources;
+            if (json.contains("textures")) {
+                for (const auto& texture : json.at("textures")) {
+                    texture_sources.emplace_back(texture.value("source", std::size_t(-1)));
+                }
+            }
+
+            auto resolve_texture_uri = [&](std::size_t texture_index) -> std::filesystem::path {
+                if (texture_index >= texture_sources.size()) return {};
+                const auto image_index = texture_sources[texture_index];
+                if (image_index >= images.size() || images[image_index].empty()) return {};
+                return manifest_dir / images[image_index];
+            };
+
+            std::pmr::vector<CompanionMaterialTextures> result;
+            if (json.contains("materials")) {
+                for (const auto& material : json.at("materials")) {
+                    CompanionMaterialTextures textures;
+                    if (material.contains("pbrMetallicRoughness")) {
+                        const auto& pbr = material.at("pbrMetallicRoughness");
+                        if (pbr.contains("baseColorTexture")) {
+                            textures.diffuse_texture = resolve_texture_uri(pbr.at("baseColorTexture").value("index", std::size_t(-1)));
+                        }
+                    }
+                    result.emplace_back(std::move(textures));
+                }
+            }
+
+            if (!result.empty()) {
+                logger->info("Loaded companion material texture manifest: {}", manifest_path.string());
+            }
+            return result;
+        } catch (const std::exception& ex) {
+            logger->warn("Failed to load companion material texture manifest: {}", ex.what());
+            return {};
+        }
+    };
+
+    const auto companion_material_textures = load_companion_material_textures();
+
+    std::pmr::unordered_map<std::filesystem::path, std::shared_ptr<Texture>> external_textures;
+
+    auto resolve_external_texture_path = [&](const std::filesystem::path& texture_path, const std::filesystem::path& fallback_path = {}) -> std::filesystem::path {
+        if (texture_path.empty()) return texture_path;
+        if (texture_path.is_absolute()) return texture_path;
+
+        const auto scene_dir      = path.parent_path();
+        const auto scene_stem     = path.stem().string();
+        const auto scene_stem_dir = lower_ascii(scene_stem);
+        const auto filename       = texture_path.filename();
+
+        std::pmr::vector<std::filesystem::path> candidates;
+        candidates.emplace_back(resource_base_path / texture_path);
+        candidates.emplace_back(scene_dir / texture_path);
+        candidates.emplace_back(texture_path);
+        if (!filename.empty()) {
+            candidates.emplace_back(resource_base_path / filename);
+            candidates.emplace_back(scene_dir / path.stem() / filename);
+            candidates.emplace_back(scene_dir / scene_stem_dir / filename);
+        }
+
+        for (const auto& candidate : candidates) {
+            if (std::filesystem::is_regular_file(candidate)) {
+                return std::filesystem::weakly_canonical(candidate);
+            }
+        }
+        if (!fallback_path.empty() && std::filesystem::is_regular_file(fallback_path)) {
+            return std::filesystem::weakly_canonical(fallback_path);
+        }
+
+        return candidates.empty() ? texture_path : candidates.front();
+    };
+
+    auto load_external_texture = [&](const aiString& texture_path, const std::filesystem::path& fallback_path = {}) -> std::shared_ptr<Texture> {
+        const auto raw_path      = std::filesystem::path(texture_path.C_Str());
+        const auto resolved_path = resolve_external_texture_path(raw_path, fallback_path);
+
+        if (const auto iter = external_textures.find(resolved_path); iter != external_textures.end()) {
+            return iter->second;
+        }
+
+        std::shared_ptr<Texture> texture;
+        const auto               format = get_image_format(resolved_path.string());
+        if (format != ImageFormat::UNKOWN && m_ImageDecoders[format] != nullptr) {
+            texture = m_ImageDecoders[format]->Decode(resolved_path);
+        }
+
+        if (texture != nullptr) {
+            texture->SetPath(resolved_path);
+            texture->SetName(resolved_path.string());
+        } else {
+            logger->warn("Failed to load external texture '{}' resolved as '{}'", raw_path.string(), resolved_path.string());
+            texture = std::make_shared<Texture>(resolved_path);
+        }
+
+        external_textures.emplace(resolved_path, texture);
+        return texture;
+    };
+
     // process material
     logger->trace("Parse materials... Num: {}", ai_scene->mNumMaterials);
     std::pmr::vector<std::shared_ptr<MaterialInstance>> material_instances;
-    for (std::size_t i = 0; i < ai_scene->mNumMaterials; i++) {
-        auto _material_instance = ai_scene->mMaterials[i];
+    for (std::size_t material_index = 0; material_index < ai_scene->mNumMaterials; material_index++) {
+        auto _material_instance = ai_scene->mMaterials[material_index];
 
         auto material_instance = std::make_shared<MaterialInstance>();
 
@@ -271,15 +408,19 @@ auto AssimpParser::Parse(const std::filesystem::path& path, const std::filesyste
         // set diffuse texture
         // TODO: blend mutiple texture
         for (const auto& [name, ai_key] : texture_key_map) {
-            for (size_t i = 0; i < _material_instance->GetTextureCount(ai_key); i++) {
+            for (size_t texture_index = 0; texture_index < _material_instance->GetTextureCount(ai_key); texture_index++) {
                 aiString                 _path;
                 std::shared_ptr<Texture> texture;
 
-                if (AI_SUCCESS == _material_instance->GetTexture(ai_key, i, &_path)) {
+                if (AI_SUCCESS == _material_instance->GetTexture(ai_key, texture_index, &_path)) {
                     if (auto _texture = ai_scene->GetEmbeddedTexture(_path.C_Str()); _texture) {
                         texture = textures.at(_texture);
                     } else {
-                        texture = std::make_shared<Texture>(_path.C_Str());
+                        std::filesystem::path fallback_texture;
+                        if (name == "diffuse_texture" && material_index < companion_material_textures.size()) {
+                            fallback_texture = companion_material_textures[material_index].diffuse_texture;
+                        }
+                        texture = load_external_texture(_path, fallback_texture);
                     }
                     material_instance->SetParameter(name, texture);
                 }

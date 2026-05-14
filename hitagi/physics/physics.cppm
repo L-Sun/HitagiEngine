@@ -103,8 +103,8 @@ struct PhysicsWorldDesc {
     std::uint32_t num_body_mutexes        = 0;
     std::uint32_t max_body_pairs          = 1024;
     std::uint32_t max_contact_constraints = 1024;
-    std::size_t   temp_allocator_size     = 10 * 1024 * 1024;
-    int           num_threads             = -1;
+    std::size_t     temp_allocator_size     = 10 * 1024 * 1024;
+    core::JobSystem* job_system             = nullptr;
 };
 
 class PhysicsWorld final : public core::RuntimeModule {
