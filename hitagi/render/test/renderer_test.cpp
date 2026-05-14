@@ -52,7 +52,7 @@ TEST_P(RendererTest, ForwardRenderer) {
 
     asset::AssetManager asset_manager("./assets");
 
-    auto scene = asset_manager.ImportScene("assets/scenes/untitled.fbx");
+    auto scene = asset_manager.ImportScene("assets/test/test.usda");
 
     std::size_t frame_index = 0;
     while (!app->IsQuit()) {

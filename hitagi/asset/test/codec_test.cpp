@@ -1,4 +1,5 @@
 #include "test_macros.hpp"
+#include <filesystem>
 #include <spdlog/spdlog.h>
 
 import asset;
@@ -86,19 +87,38 @@ TEST(MaterialParserTest, JSON) {
     EXPECT_STREQ(tex->GetPath().string().c_str(), "assets/test/test.jpg");
 }
 
-TEST(SceneParserTest, Fbx) {
-    utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat> image_decoders;
-    image_decoders[ImageFormat::PNG]  = std::make_shared<PngDecoder>();
-    image_decoders[ImageFormat::JPEG] = std::make_shared<JpegDecoder>();
-    image_decoders[ImageFormat::TGA]  = std::make_shared<TgaDecoder>();
-    image_decoders[ImageFormat::BMP]  = std::make_shared<BmpDecoder>();
-
-    AssimpParser parser(image_decoders);
-    auto         scene = parser.Parse("assets/test/test.fbx");
+TEST(SceneParserTest, Usd) {
+    UsdParser parser;
+    auto      scene = parser.Parse("assets/test/test.usda");
     ASSERT_TRUE(scene != nullptr);
     EXPECT_EQ(scene->GetCameraEntities().size(), 1);
     EXPECT_EQ(scene->GetMeshEntities().size(), 1);
     EXPECT_EQ(scene->GetLightEntities().size(), 1);
+}
+
+TEST(AssetManagerTest, ImportUsdScene) {
+    AssetManager assets("assets");
+
+    auto scene = assets.ImportScene("assets/test/test.usda");
+
+    ASSERT_TRUE(scene != nullptr);
+    EXPECT_EQ(scene->GetCameraEntities().size(), 1);
+    EXPECT_EQ(scene->GetMeshEntities().size(), 1);
+    EXPECT_EQ(scene->GetLightEntities().size(), 1);
+}
+
+TEST(AssetManagerTest, ImportExternalDamagedHelmetUsdZ) {
+    const std::filesystem::path path = "build/external-assets/DamagedHelmet.usdz";
+    if (!std::filesystem::exists(path)) {
+        GTEST_SKIP() << "Download the USD Working Group DamagedHelmet.usdz asset to " << path.string();
+    }
+
+    AssetManager assets("assets");
+
+    auto scene = assets.ImportScene(path);
+
+    ASSERT_TRUE(scene != nullptr);
+    EXPECT_GT(scene->GetMeshEntities().size(), 0);
 }
 
 TEST(AssetManagerTest, AsyncTextureImportUsesJobSystem) {

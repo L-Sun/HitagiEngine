@@ -61,19 +61,9 @@ void Editor::MenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("Menu")) {
             if (ImGui::BeginMenu("Import")) {
-                if (ImGui::MenuItem("Motion Capture (.bvh)")) {
-                    m_FileDialog.SetTitle("Import Motion Capture");
-                    m_FileDialog.SetTypeFilters({".bvh"});
-                    m_FileDialog.Open();
-                }
-                if (ImGui::MenuItem("FBX (.fbx)")) {
-                    m_FileDialog.SetTitle("Import FBX");
-                    m_FileDialog.SetTypeFilters({".fbx"});
-                    m_FileDialog.Open();
-                }
-                if (ImGui::MenuItem("glTF 2.0 (.glb/.gltf)")) {
-                    m_FileDialog.SetTitle("Import glTF");
-                    m_FileDialog.SetTypeFilters({".glb", ".gltf"});
+                if (ImGui::MenuItem("USD (.usd/.usda/.usdc/.usdz)")) {
+                    m_FileDialog.SetTitle("Import USD");
+                    m_FileDialog.SetTypeFilters({".usd", ".usda", ".usdc", ".usdz"});
                     m_FileDialog.Open();
                 }
                 ImGui::EndMenu();
@@ -111,13 +101,7 @@ void Editor::FileImporter() {
 
     if (m_FileDialog.HasSelected()) {
         auto ext = m_FileDialog.GetSelected().extension();
-        if (ext == ".bvh") {
-        }
-        if (ext == ".fbx") {
-            m_CurrScene = asset::AssetManager::Get()->ImportScene(m_FileDialog.GetSelected());
-            m_SceneViewPort->SetScene(m_CurrScene);
-        }
-        if (ext == ".glb" || ext == ".gltf") {
+        if (asset::get_scene_format(ext.string()) != asset::SceneFormat::UNKOWN) {
             m_CurrScene = asset::AssetManager::Get()->ImportScene(m_FileDialog.GetSelected());
             m_SceneViewPort->SetScene(m_CurrScene);
         }

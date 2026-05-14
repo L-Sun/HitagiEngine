@@ -121,7 +121,7 @@ Following the layered architecture from *Game Engine Architecture* (Jason Gregor
 
 **`hitagi/platform`** — `Application` base class with SDL3 backend. Created via `Application::CreateApp(config)` or from `hitagi.json`.
 
-**`hitagi/asset`** — `AssetManager` for loading scenes, meshes, materials, textures. Assimp for model import; custom parsers for PNG, JPEG, BMP, TGA. Materials are defined with named instances (e.g., `"Phong"`).
+**`hitagi/asset`** — `AssetManager` for loading USD scenes, meshes, materials, textures. OpenUSD is the scene import path; custom parsers handle PNG, JPEG, BMP, TGA. Materials are defined with named instances (e.g., `"Phong"`).
 
 **`hitagi/gui`** — ImGui integration layer. `GuiManager` owns the ImGui context, input mapping, font loading, and queued GUI draw tasks. After `ImGui::Render()`, it converts ImGui output into `gui::GuiDrawData`, including copied vertices, indices, draw commands, the CPU font atlas view, and render graph texture references encoded via `GuiManager::ReadTexture()`.
 

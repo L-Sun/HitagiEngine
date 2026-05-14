@@ -38,14 +38,13 @@ AssetManager::AssetManager(std::filesystem::path asset_base_path)
 
     m_ImageEncoders[ImageFormat::PNG] = std::make_shared<PngEncoder>(m_Logger);
 
-    m_SceneParsers[SceneFormat::UNKOWN] = std::make_shared<AssimpParser>(
-        m_ImageDecoders,
+    auto usd_parser = std::make_shared<UsdParser>(
         [this](auto name) { return GetMaterial(name); },
         m_Logger);
-    m_SceneParsers[SceneFormat::GLTF]  = m_SceneParsers[SceneFormat::UNKOWN];
-    m_SceneParsers[SceneFormat::GLB]   = m_SceneParsers[SceneFormat::UNKOWN];
-    m_SceneParsers[SceneFormat::BLEND] = m_SceneParsers[SceneFormat::UNKOWN];
-    m_SceneParsers[SceneFormat::FBX]   = m_SceneParsers[SceneFormat::UNKOWN];
+    m_SceneParsers[SceneFormat::USD]  = usd_parser;
+    m_SceneParsers[SceneFormat::USDA] = usd_parser;
+    m_SceneParsers[SceneFormat::USDC] = usd_parser;
+    m_SceneParsers[SceneFormat::USDZ] = usd_parser;
 
     InitBuiltinMaterial();
 }
@@ -57,7 +56,12 @@ AssetManager::~AssetManager() {
 
 std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
     auto format = get_scene_format(path.extension().string());
-    auto scene  = m_SceneParsers[format]->Parse(path, path.parent_path());
+    auto parser = m_SceneParsers[format];
+    if (parser == nullptr) {
+        throw std::runtime_error(std::format("Unsupported scene format: {}", path.string()));
+    }
+
+    auto scene = parser->Parse(path, path.parent_path());
     AddScene(scene);
     return scene;
 }
@@ -93,7 +97,12 @@ auto AssetManager::ImportSceneAsync(const std::filesystem::path& path, AssetLoad
             }
 
             const auto format = get_scene_format(path.extension().string());
-            auto       scene  = m_SceneParsers[format]->Parse(path, path.parent_path());
+            auto       parser = m_SceneParsers[format];
+            if (parser == nullptr) {
+                throw std::runtime_error(std::format("Unsupported scene format: {}", path.string()));
+            }
+
+            auto scene = parser->Parse(path, path.parent_path());
             if (token.IsCancellationRequested()) {
                 promise->set_value(nullptr);
                 return;

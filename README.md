@@ -19,7 +19,7 @@ Hitagi Engine 是以 C++20 开发的实验性游戏引擎。
   - 3D相关操作的数学库，支持swizzle操作，以ISPC加速运算（需安装 [Intel SPMD Program Compiler](https://github.com/ispc/ispc) ）
     - 矩阵以行主序储存（无论是 CPU 侧，还是 GPU 侧。）
 - 资源管理
-    - 以 Assimp 作为模型解析，并导入到 AssetManager 中
+    - 以 OpenUSD 作为场景解析，并导入到 AssetManager 中
 - 图形接口模块
     - 图形接口抽象化
     - DX12中间层(进行中)

@@ -768,22 +768,22 @@ class AssetManager;
 
 enum struct SceneFormat : std::uint8_t {
     UNKOWN,
-    GLTF,
-    GLB,
-    BLEND,
-    FBX,
+    USD,
+    USDA,
+    USDC,
+    USDZ,
 };
 
 inline constexpr SceneFormat get_scene_format(std::string_view ext) noexcept {
     ext = detail::extension_view(ext);
-    if (detail::iequals(ext, ".gltf"))
-        return SceneFormat::GLTF;
-    if (detail::iequals(ext, ".glb"))
-        return SceneFormat::GLB;
-    else if (detail::iequals(ext, ".blend"))
-        return SceneFormat::BLEND;
-    else if (detail::iequals(ext, ".fbx"))
-        return SceneFormat::FBX;
+    if (detail::iequals(ext, ".usd"))
+        return SceneFormat::USD;
+    if (detail::iequals(ext, ".usda"))
+        return SceneFormat::USDA;
+    if (detail::iequals(ext, ".usdc"))
+        return SceneFormat::USDC;
+    if (detail::iequals(ext, ".usdz"))
+        return SceneFormat::USDZ;
     return SceneFormat::UNKOWN;
 }
 
@@ -799,17 +799,15 @@ protected:
     std::shared_ptr<spdlog::logger> m_Logger;
 };
 
-class AssimpParser : public SceneParser {
+class UsdParser : public SceneParser {
 public:
-    AssimpParser(utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat>      image_decoders,
-                 std::function<std::shared_ptr<asset::Material>(std::string_view)> material_getter = {},
-                 std::shared_ptr<spdlog::logger>                                   logger          = nullptr)
-        : SceneParser(std::move(logger)), m_ImageDecoders(std::move(image_decoders)), m_MaterialGetter(std::move(material_getter)) {}
+    UsdParser(std::function<std::shared_ptr<asset::Material>(std::string_view)> material_getter = {},
+              std::shared_ptr<spdlog::logger>                                   logger          = nullptr)
+        : SceneParser(std::move(logger)), m_MaterialGetter(std::move(material_getter)) {}
 
     auto Parse(const std::filesystem::path& path, const std::filesystem::path& resource_base_path = {}) -> std::shared_ptr<Scene> final;
 
 private:
-    utils::EnumArray<std::shared_ptr<ImageDecoder>, ImageFormat>      m_ImageDecoders;
     std::function<std::shared_ptr<asset::Material>(std::string_view)> m_MaterialGetter;
 };
 
