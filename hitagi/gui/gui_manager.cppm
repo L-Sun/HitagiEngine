@@ -349,11 +349,12 @@ private:
 
     std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
 
-    GuiDrawData                 m_DrawData;
-    std::pmr::vector<std::byte> m_FontAtlasPixels;
-    std::uint32_t               m_FontAtlasWidth      = 0;
-    std::uint32_t               m_FontAtlasHeight     = 0;
-    std::uint64_t               m_FontAtlasGeneration = 0;
+    GuiDrawData         m_DrawData;
+    const std::byte*    m_FontAtlasPixels     = nullptr;
+    std::size_t         m_FontAtlasDataSize   = 0;
+    std::uint32_t       m_FontAtlasWidth      = 0;
+    std::uint32_t       m_FontAtlasHeight     = 0;
+    std::uint64_t       m_FontAtlasGeneration = 0;
 };
 
 }  // namespace hitagi::gui

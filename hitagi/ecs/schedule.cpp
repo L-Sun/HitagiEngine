@@ -59,7 +59,9 @@ void Schedule::BuildTaskflow(core::JobSystem& job_system) {
                                                    if (!tracy_thread_named) {
                                                        if (const auto worker_id = job_system.GetCurrentWorkerId(); worker_id >= 0) {
                                                            const auto thread_name = std::format("Hitagi/ECS/{}/Worker-{}", world.GetName(), worker_id);
+#ifdef TRACY_ENABLE
                                                            tracy::SetThreadName(thread_name.c_str());
+#endif
                                                            tracy_thread_named = true;
                                                        }
                                                    }

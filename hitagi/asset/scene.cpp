@@ -73,4 +73,96 @@ auto Scene::CreateSkeletonEntity(std::shared_ptr<Skeleton> skeleton, math::mat4f
     return entity;
 }
 
+void Scene::DestroyEntitySubtree(ecs::Entity entity) {
+    if (!entity || entity == m_RootEntity) return;
+
+    if (entity.Has<RelationShip>()) {
+        auto children = entity.Get<RelationShip>().GetChildren() | std::ranges::to<std::pmr::vector<ecs::Entity>>();
+        for (auto child : children) {
+            DestroyEntitySubtree(child);
+        }
+
+        auto& relation = entity.Get<RelationShip>();
+        if (relation.parent && relation.parent.Has<RelationShip>()) {
+            relation.parent.Get<RelationShip>().children.erase(entity);
+        }
+        relation.parent = {};
+        relation.prev_parent = {};
+    }
+
+    std::erase(m_MeshEntities, entity);
+    std::erase(m_CameraEntities, entity);
+    std::erase(m_LightEntities, entity);
+    if (m_CurrentCamera == entity) {
+        m_CurrentCamera = m_CameraEntities.empty() ? ecs::Entity{} : m_CameraEntities.front();
+    }
+
+    m_World.GetEntityManager().Destroy(entity);
+}
+
+void Scene::ReparentEntity(ecs::Entity entity, ecs::Entity parent) {
+    if (!entity || entity == m_RootEntity) return;
+    if (!parent) parent = m_RootEntity;
+    for (auto ancestor = parent; ancestor; ancestor = ancestor.Has<RelationShip>() ? ancestor.Get<RelationShip>().parent : ecs::Entity{}) {
+        if (ancestor == entity) return;
+    }
+    if (!entity.Has<RelationShip>()) {
+        entity.Emplace<RelationShip>(parent);
+    } else {
+        entity.Get<RelationShip>().parent = parent;
+    }
+    Update();
+}
+
+void Scene::RenameEntity(ecs::Entity entity, std::string_view name) {
+    if (!entity) return;
+    if (!entity.Has<MetaInfo>()) {
+        entity.Emplace<MetaInfo>(name);
+    } else {
+        entity.Get<MetaInfo>().name = name;
+    }
+}
+
+auto Scene::AddCameraComponent(ecs::Entity entity, std::shared_ptr<Camera> camera) -> bool {
+    if (!entity || entity.Has<CameraComponent>()) return false;
+
+    entity.Emplace<CameraComponent>().camera = std::move(camera);
+    if (std::ranges::find(m_CameraEntities, entity) == m_CameraEntities.end()) {
+        m_CameraEntities.emplace_back(entity);
+    }
+    if (!m_CurrentCamera) m_CurrentCamera = entity;
+    return true;
+}
+
+auto Scene::RemoveCameraComponent(ecs::Entity entity) -> std::shared_ptr<Camera> {
+    if (!entity || !entity.Has<CameraComponent>()) return {};
+
+    auto camera = entity.Get<CameraComponent>().camera;
+    entity.Remove<CameraComponent>();
+    std::erase(m_CameraEntities, entity);
+    if (m_CurrentCamera == entity) {
+        m_CurrentCamera = m_CameraEntities.empty() ? ecs::Entity{} : m_CameraEntities.front();
+    }
+    return camera;
+}
+
+auto Scene::AddLightComponent(ecs::Entity entity, std::shared_ptr<Light> light) -> bool {
+    if (!entity || entity.Has<LightComponent>()) return false;
+
+    entity.Emplace<LightComponent>().light = std::move(light);
+    if (std::ranges::find(m_LightEntities, entity) == m_LightEntities.end()) {
+        m_LightEntities.emplace_back(entity);
+    }
+    return true;
+}
+
+auto Scene::RemoveLightComponent(ecs::Entity entity) -> std::shared_ptr<Light> {
+    if (!entity || !entity.Has<LightComponent>()) return {};
+
+    auto light = entity.Get<LightComponent>().light;
+    entity.Remove<LightComponent>();
+    std::erase(m_LightEntities, entity);
+    return light;
+}
+
 }  // namespace hitagi::asset

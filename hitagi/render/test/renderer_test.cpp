@@ -17,6 +17,58 @@ using namespace testing;
 using namespace hitagi;
 using namespace hitagi::render;
 
+class PassthroughRenderer final : public IRenderer {
+public:
+    PassthroughRenderer() : IRenderer("PassthroughRenderer") {}
+
+    auto Render(RenderContext&, const SceneView&, rg::TextureHandle target) -> rg::TextureHandle override {
+        return target;
+    }
+};
+
+class CustomFullscreenPass {
+public:
+    auto Build(RenderContext& context, rg::TextureHandle input) -> rg::TextureHandle {
+        auto& graph  = context.graph;
+        auto  output = graph.MoveFrom(input, "CustomFullscreenPassOutput");
+
+        rg::RenderPassBuilder(graph)
+            .SetName("CustomFullscreenPass")
+            .SetRenderTarget(output, false)
+            .SetExecutor([output](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+                auto&       cmd           = pass.GetCmd();
+                const auto& render_target = pass.Resolve(output);
+                cmd.SetViewPort({
+                    .x      = 0,
+                    .y      = 0,
+                    .width  = static_cast<float>(render_target.GetDesc().width),
+                    .height = static_cast<float>(render_target.GetDesc().height),
+                });
+                cmd.SetScissorRect({
+                    .x      = 0,
+                    .y      = 0,
+                    .width  = render_target.GetDesc().width,
+                    .height = render_target.GetDesc().height,
+                });
+            })
+            .Finish();
+
+        return output;
+    }
+};
+
+class CustomPassRenderer final : public IRenderer {
+public:
+    CustomPassRenderer() : IRenderer("CustomPassRenderer") {}
+
+    auto Render(RenderContext& context, const SceneView&, rg::TextureHandle target) -> rg::TextureHandle override {
+        return m_CustomPass.Build(context, target);
+    }
+
+private:
+    CustomFullscreenPass m_CustomPass;
+};
+
 constexpr std::array supported_device_types = {
 #ifdef _WIN32
     gfx::Device::Type::DX12,
@@ -46,9 +98,10 @@ INSTANTIATE_TEST_SUITE_P(
         return std::string{magic_enum::enum_name(info.param)};
     });
 
-TEST_P(RendererTest, ForwardRenderer) {
+TEST_P(RendererTest, DeferredRenderer) {
     auto            gui_manager = std::make_unique<gui::GuiManager>(*app);
-    ForwardRenderer renderer(*device, *app, test_name);
+    RenderRuntime   runtime(*device, *app, test_name);
+    DefaultRenderer renderer(*device, *app, test_name);
 
     asset::AssetManager asset_manager("./assets");
 
@@ -56,10 +109,10 @@ TEST_P(RendererTest, ForwardRenderer) {
 
     std::size_t frame_index = 0;
     while (!app->IsQuit()) {
-        auto texture = renderer.GetRenderGraph().Create(gfx::TextureDesc{
+        auto texture = runtime.GetRenderGraph().Create(gfx::TextureDesc{
             .name        = std::pmr::string{std::format("RenderTarget-{}", frame_index)},
-            .width       = renderer.GetSwapChain().GetWidth(),
-            .height      = renderer.GetSwapChain().GetHeight(),
+            .width       = runtime.GetSwapChain().GetWidth(),
+            .height      = runtime.GetSwapChain().GetHeight(),
             .format      = gfx::Format::R8G8B8A8_UNORM,
             .clear_value = math::Color(0.0, 0.0, 0.0, 1.0),
             .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc,
@@ -79,14 +132,23 @@ TEST_P(RendererTest, ForwardRenderer) {
         const auto camera           = scene->GetCameraEntities().front().Get<asset::CameraComponent>().camera;
         const auto camera_transform = scene->GetCameraEntities().front().Get<asset::Transform>();
 
-        camera->parameters.aspect = static_cast<float>(renderer.GetSwapChain().GetWidth()) / static_cast<float>(renderer.GetSwapChain().GetHeight());
+        camera->parameters.aspect = static_cast<float>(runtime.GetSwapChain().GetWidth()) / static_cast<float>(runtime.GetSwapChain().GetHeight());
 
         scene->Update();
-        renderer.RenderScene(scene, *camera, camera_transform.world_matrix, texture);
-        texture = renderer.GetRenderGraph().MoveFrom(texture);
-        renderer.RenderGui(texture, gui_manager->GetDrawData(), false);
-        renderer.ToSwapChain(texture);
-        renderer.Tick();
+        auto context = runtime.MakeContext();
+        const auto scene_output = renderer.Render(
+            context,
+            SceneView{
+                .scene            = scene,
+                .camera           = camera.get(),
+                .camera_transform = camera_transform.world_matrix,
+            },
+            texture);
+        EXPECT_EQ(scene_output, texture);
+        texture = runtime.GetRenderGraph().MoveFrom(texture);
+        runtime.RenderGui(texture, gui_manager->GetDrawData(), false);
+        runtime.ToSwapChain(texture);
+        runtime.Tick();
 
         app->Tick();
 
@@ -97,4 +159,39 @@ TEST_P(RendererTest, ForwardRenderer) {
         }
     }
     asset::Texture::DestroyDefaultTexture();
+}
+
+TEST(RendererInterfaceTest, CustomRendererOnlyImplementsSceneRender) {
+    PassthroughRenderer renderer;
+    auto                mock_device = gfx::create_device(gfx::Device::Type::Mock, "CustomRendererInterface");
+    rg::RenderGraph     graph(*mock_device, "CustomRendererInterfaceGraph");
+
+    RenderContext context{
+        .device = *mock_device,
+        .graph  = graph,
+    };
+    EXPECT_EQ(renderer.Render(context, SceneView{}, {}), rg::TextureHandle{});
+}
+
+TEST(RendererInterfaceTest, CustomRendererCanComposeCustomRenderGraphPass) {
+    CustomPassRenderer renderer;
+    auto               mock_device = gfx::create_device(gfx::Device::Type::Mock, "CustomPassRenderer");
+    rg::RenderGraph    graph(*mock_device, "CustomPassRendererGraph");
+    auto               input = graph.Create(gfx::TextureDesc{
+        .name        = "CustomRendererInput",
+        .width       = 16,
+        .height      = 16,
+        .format      = gfx::Format::R8G8B8A8_UNORM,
+        .clear_value = math::Color::Black(),
+        .usages      = gfx::TextureUsageFlags::RenderTarget,
+    });
+    RenderContext context{
+        .device = *mock_device,
+        .graph  = graph,
+    };
+
+    const auto output = renderer.Render(context, SceneView{}, input);
+
+    EXPECT_NE(output, input);
+    EXPECT_TRUE(graph.IsValid(output));
 }

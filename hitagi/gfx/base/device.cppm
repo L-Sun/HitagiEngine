@@ -492,6 +492,7 @@ public:
 
     inline auto AlignedElementSize() const noexcept -> std::uint64_t { return utils::align(m_Desc.element_size, m_ElementAlignment); }
     inline auto Size() const noexcept -> std::uint64_t { return AlignedElementSize() * m_Desc.element_count; }
+    virtual auto GetAllocationSize() const noexcept -> std::uint64_t { return Size(); }
 
     virtual auto Map() -> std::byte* = 0;
     virtual void UnMap()             = 0;
@@ -548,6 +549,8 @@ struct TextureDesc {
 
 class Texture : public ResourceWithDesc<TextureDesc> {
 public:
+    virtual auto GetAllocationSize() const noexcept -> std::uint64_t = 0;
+
     [[nodiscard]] auto Transition(BarrierAccess access, TextureLayout layout, PipelineStage stage = PipelineStage::All) -> TextureBarrier;
 
     inline auto GetCurrentLayout() const noexcept -> TextureLayout { return m_CurrentLayout; }

@@ -9,7 +9,7 @@ namespace hitagi {
 
 ImageViewer::ImageViewer(const Engine& engine)
     : core::RuntimeModule("ImageViewer"),
-      m_RenderGraph(engine.Renderer().GetRenderGraph()),
+      m_RenderGraph(engine.RenderRuntime().GetRenderGraph()),
       m_GuiManager(engine.GuiManager()) {}
 
 void ImageViewer::SetTexture(const std::shared_ptr<asset::Texture>& texture) {

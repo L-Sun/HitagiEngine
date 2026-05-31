@@ -202,6 +202,7 @@ public:
         m_TextInput.append(text);
         m_TextInputDirty = true;
     }
+    void ResetInputState() noexcept;
 
     bool  GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const;
     bool  GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) const;

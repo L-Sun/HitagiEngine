@@ -8,7 +8,6 @@ add_rules(
     "mode.debug",
     "mode.release",
     "mode.releasedbg",
-    "copy-dll",
     "inject_env"
 )
 
@@ -37,7 +36,7 @@ option_end()
 
 if has_config("profile") then
     add_defines("TRACY_ENABLE")
-    add_requireconfs("tracy", {configs = {on_demand = true}})
+    add_requireconfs("tracy", {configs = {on_demand = false}})
     if is_plat("windows") then
         add_defines("TRACY_IMPORTS")
     end

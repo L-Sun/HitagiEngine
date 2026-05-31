@@ -36,7 +36,9 @@ namespace hitagi {
     [[vk::binding(binding_index, set_index)]]                         \
     TextureType<float3> g_##TextureType##_float3[];                   \
     [[vk::binding(binding_index, set_index)]]                         \
-    TextureType<float4> g_##TextureType##_float4[];
+    TextureType<float4> g_##TextureType##_float4[];                   \
+    [[vk::binding(binding_index, set_index)]]                         \
+    TextureType<uint> g_##TextureType##_uint[];
 
     // Support Texture2D now
     DEFINE_TEXTURE_BINDING(Texture1D, 0, 1)
@@ -88,10 +90,11 @@ namespace hitagi {
     }
 
 #define DEFINE_TEXTURE_GET_FN_WITH_VALUE(TextureType) \
-    DEFINE_TEXTURE_GET_FN(TextureType, float)         \
-    DEFINE_TEXTURE_GET_FN(TextureType, float2)        \
-    DEFINE_TEXTURE_GET_FN(TextureType, float3)        \
-    DEFINE_TEXTURE_GET_FN(TextureType, float4)
+        DEFINE_TEXTURE_GET_FN(TextureType, float)         \
+        DEFINE_TEXTURE_GET_FN(TextureType, float2)        \
+        DEFINE_TEXTURE_GET_FN(TextureType, float3)        \
+        DEFINE_TEXTURE_GET_FN(TextureType, float4)        \
+        DEFINE_TEXTURE_GET_FN(TextureType, uint)
 
         DEFINE_TEXTURE_GET_FN_WITH_VALUE(Texture1D)
         DEFINE_TEXTURE_GET_FN_WITH_VALUE(Texture2D)

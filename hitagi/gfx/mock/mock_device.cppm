@@ -18,6 +18,26 @@ struct MockGPUBuffer : public GPUBuffer {
 
 struct MockTexture : public Texture {
     MockTexture(Device& device, TextureDesc desc) : Texture(device, std::move(desc)) {}
+
+    auto GetAllocationSize() const noexcept -> std::uint64_t final {
+        auto bytes      = std::uint64_t{0};
+        auto mip_width  = std::max(m_Desc.width, 1u);
+        auto mip_height = std::max(m_Desc.height, 1u);
+        auto mip_depth  = std::max<std::uint16_t>(m_Desc.depth, 1u);
+        const auto bpp  = static_cast<std::uint64_t>(get_format_byte_size(m_Desc.format));
+
+        for (std::uint16_t mip = 0; mip < std::max<std::uint16_t>(m_Desc.mip_levels, 1u); ++mip) {
+            bytes += static_cast<std::uint64_t>(mip_width) *
+                     static_cast<std::uint64_t>(mip_height) *
+                     static_cast<std::uint64_t>(mip_depth) *
+                     static_cast<std::uint64_t>(std::max<std::uint16_t>(m_Desc.array_size, 1u)) *
+                     bpp;
+            mip_width  = std::max(mip_width / 2u, 1u);
+            mip_height = std::max(mip_height / 2u, 1u);
+            mip_depth  = std::max<std::uint16_t>(mip_depth / 2u, 1u);
+        }
+        return bytes;
+    }
 };
 
 struct MockSampler : public Sampler {

@@ -119,6 +119,45 @@ TEST(AssetManagerTest, ImportExternalDamagedHelmetUsdZ) {
 
     ASSERT_TRUE(scene != nullptr);
     EXPECT_GT(scene->GetMeshEntities().size(), 0);
+
+    std::size_t loaded_textures = 0;
+    for (const auto entity : scene->GetMeshEntities()) {
+        const auto mesh = entity.Get<MeshComponent>().mesh;
+        if (mesh == nullptr) continue;
+
+        for (const auto& sub_mesh : mesh->sub_meshes) {
+            if (sub_mesh.material_instance == nullptr) continue;
+            for (const auto& texture : sub_mesh.material_instance->GetAssociatedTextures()) {
+                if (texture != nullptr && !texture->Empty()) {
+                    ++loaded_textures;
+                }
+            }
+        }
+    }
+    EXPECT_GE(loaded_textures, 5);
+}
+
+TEST(AssetManagerTest, ImportDamagedHelmetPrimvarNormals) {
+    const std::filesystem::path path = "assets/scenes/DamagedHelmet.usdz";
+    if (!std::filesystem::exists(path)) {
+        GTEST_SKIP() << "DamagedHelmet.usdz not found at " << path.string();
+    }
+
+    AssetManager assets("assets");
+
+    auto scene = assets.ImportScene(path);
+
+    ASSERT_TRUE(scene != nullptr);
+    ASSERT_GT(scene->GetMeshEntities().size(), 0);
+
+    const auto mesh = scene->GetMeshEntities().front().Get<MeshComponent>().mesh;
+    ASSERT_TRUE(mesh != nullptr);
+
+    const auto normals = mesh->vertices->Span<VertexAttribute::Normal>();
+    ASSERT_FALSE(normals.empty());
+    EXPECT_NEAR(normals.front().x, -0.91830194f, 1e-4f);
+    EXPECT_NEAR(normals.front().y, 0.38380077f, 1e-4f);
+    EXPECT_NEAR(normals.front().z, 0.09683523f, 1e-4f);
 }
 
 TEST(AssetManagerTest, AsyncTextureImportUsesJobSystem) {

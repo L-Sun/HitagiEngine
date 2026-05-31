@@ -67,11 +67,13 @@ struct VulkanBuffer final : public GPUBuffer {
     VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data);
     ~VulkanBuffer() final;
 
+    auto GetAllocationSize() const noexcept -> std::uint64_t final { return m_AllocationSize; }
     auto Map() -> std::byte* final;
     void UnMap() final;
 
     std::unique_ptr<vk::raii::Buffer> buffer;
     VmaAllocation                     allocation = nullptr;
+    std::uint64_t                     m_AllocationSize = 0;
 
     std::mutex    map_mutex;
     std::uint16_t mapped_count{0};
@@ -84,6 +86,8 @@ struct VulkanImage final : public Texture {
     VulkanImage(VulkanImage&&)      = default;
     ~VulkanImage() final;
 
+    auto GetAllocationSize() const noexcept -> std::uint64_t final { return m_AllocationSize; }
+
     std::optional<vk::raii::Image> image;
     vk::Image                      image_handle;
     const VulkanSwapChain*         swap_chain = nullptr;
@@ -91,6 +95,7 @@ struct VulkanImage final : public Texture {
     std::optional<vk::raii::ImageView> image_view;
 
     VmaAllocation allocation = nullptr;
+    std::uint64_t m_AllocationSize = 0;
 };
 
 struct VulkanSampler final : public Sampler {

@@ -454,6 +454,7 @@ public:
 
     RenderPassBuilder& SetRenderTarget(TextureHandle texture, bool clear = false, gfx::TextureSubresourceLayer layer = {}) noexcept;
     RenderPassBuilder& SetDepthStencil(TextureHandle texture, bool clear = false, gfx::TextureSubresourceLayer layer = {}) noexcept;
+    RenderPassBuilder& ReadDepthStencil(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}) noexcept;
 
     RenderPassBuilder& AddSampler(SamplerHandle sampler) noexcept;
     RenderPassBuilder& AddPipeline(RenderPipelineHandle pipeline) noexcept;
@@ -581,6 +582,15 @@ public:
     inline auto  GetFrameIndex() const noexcept { return m_FrameIndex; }
     inline auto  GetLogger() const noexcept { return m_Logger; }
 
+    struct TransientPoolStats {
+        std::uint64_t buffer_bytes  = 0;
+        std::uint64_t texture_bytes = 0;
+        std::size_t   buffer_count  = 0;
+        std::size_t   texture_count = 0;
+    };
+
+    auto GetTransientPoolStats() const noexcept -> TransientPoolStats;
+
     auto ToDot() const noexcept -> std::pmr::string;
 
     void Profile() const noexcept;
@@ -619,6 +629,7 @@ private:
     void RetireNodesFromPassNode(PassNode* pass_node, const FenceValue& fence_value) noexcept;
     void RetireNodes() noexcept;
     void Reset() noexcept;
+    void ClearTransientResources() noexcept;
 
     auto AcquireTransientBuffer(const gfx::GPUBufferDesc& desc) -> std::shared_ptr<gfx::GPUBuffer>;
     auto AcquireTransientTexture(const gfx::TextureDesc& desc) -> std::shared_ptr<gfx::Texture>;
@@ -661,20 +672,25 @@ private:
 
     struct TransientResourcePool {
         static constexpr std::uint64_t max_unused_frames = 3;
+        static constexpr std::uint64_t max_texture_pool_bytes = 128ull * 1024ull * 1024ull;
 
         struct CachedBuffer {
             gfx::GPUBufferDesc              desc;
             std::shared_ptr<gfx::GPUBuffer> resource;
             std::uint64_t                   last_used_frame = 0;
+            std::uint64_t                   byte_size       = 0;
         };
         struct CachedTexture {
             gfx::TextureDesc              desc;
             std::shared_ptr<gfx::Texture> resource;
             std::uint64_t                 last_used_frame = 0;
+            std::uint64_t                 byte_size       = 0;
         };
 
         std::unordered_multimap<std::size_t, CachedBuffer>  buffers;
         std::unordered_multimap<std::size_t, CachedTexture> textures;
+        std::uint64_t                                       buffer_bytes  = 0;
+        std::uint64_t                                       texture_bytes = 0;
     };
     TransientResourcePool m_TransientPool;
 };

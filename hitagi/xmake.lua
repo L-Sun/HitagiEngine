@@ -11,7 +11,6 @@ target("engine")
     add_packages(
         "magic_enum",
         "spdlog",
-        "tracy",
         "taskflow",
         "range-v3",
         "freetype",
@@ -28,6 +27,11 @@ target("engine")
         "spirv-reflect",
         {public = true}
     )
+    if has_config("profile") then
+        add_packages("tracy", {public = true})
+    else
+        add_packages("tracy", {public = true, links = {}})
+    end
     add_defines("VULKAN_HPP_NO_CONSTRUCTORS", {public = true})
     add_cxxflags("/UJPH_FLOATING_POINT_EXCEPTIONS_ENABLED", {public = true})
     set_options("ispc")

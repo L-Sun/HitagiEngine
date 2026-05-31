@@ -20,7 +20,7 @@ export import asset;
 export namespace hitagi {
 class Engine : public core::RuntimeModule {
 public:
-    Engine(const std::filesystem::path& config_path = "hitagi.json");
+    Engine(AppConfig config = {});
     static auto Get() -> Engine* { return static_cast<Engine*>(core::RuntimeModule::GetModule("Engine")); }
 
     void Tick() final;
@@ -30,6 +30,7 @@ public:
 
     inline auto& App() const noexcept { return *m_App; };
     inline auto& Renderer() const noexcept { return *m_Renderer; };
+    inline auto& RenderRuntime() const noexcept { return *m_RenderRuntime; }
     inline auto& GuiManager() const noexcept { return *m_GuiManager; }
     inline auto& Physics() const noexcept { return *m_PhysicsWorld; }
 
@@ -42,6 +43,7 @@ private:
     Application*           m_App          = nullptr;
     core::RuntimeModule*   m_OutLogicArea = nullptr;
     physics::PhysicsWorld* m_PhysicsWorld = nullptr;
+    render::RenderRuntime* m_RenderRuntime = nullptr;
     render::IRenderer*     m_Renderer     = nullptr;
     gui::GuiManager*       m_GuiManager   = nullptr;
 };

@@ -3,6 +3,7 @@ module;
 #include <imgui.h>
 #include <imgui_freetype.h>
 #include <spdlog/logger.h>
+#include <tracy/Tracy.hpp>
 
 #undef near
 #undef far
@@ -42,31 +43,44 @@ GuiManager::~GuiManager() {
 }
 
 void GuiManager::Tick() {
+    ZoneScopedN("GuiManager::Tick");
+
     auto& io = ImGui::GetIO();
 
-    // Update window size info.
-    auto rect        = m_App.GetWindowRect();
-    io.DisplaySize.x = rect.right - rect.left;
-    io.DisplaySize.y = rect.bottom - rect.top;
+    {
+        ZoneScopedN("GuiManager Update Platform State");
 
-    // Update HID
-    MouseEvent();
-    KeysEvent();
+        // Update window size info.
+        auto rect        = m_App.GetWindowRect();
+        io.DisplaySize.x = rect.right - rect.left;
+        io.DisplaySize.y = rect.bottom - rect.top;
 
-    // TODO IME
-    for (const auto character : m_InputManager.GetInputText()) {
-        io.AddInputCharacter(character);
+        // Update HID
+        MouseEvent();
+        KeysEvent();
+
+        // TODO IME
+        for (const auto character : m_InputManager.GetInputText()) {
+            io.AddInputCharacter(character);
+        }
+
+        // Update delta time
+        io.DeltaTime = m_Clock.DeltaTime().count();
     }
 
-    // Update delta time
-    io.DeltaTime = m_Clock.DeltaTime().count();
-
-    ImGui::NewFrame();
+    {
+        ZoneScopedN("ImGui::NewFrame");
+        ImGui::NewFrame();
+    }
     while (!m_GuiDrawTasks.empty()) {
+        ZoneScopedN("GuiManager Draw Task");
         m_GuiDrawTasks.front()();
         m_GuiDrawTasks.pop();
     }
-    ImGui::Render();
+    {
+        ZoneScopedN("ImGui::Render");
+        ImGui::Render();
+    }
     BuildDrawData();
 
     m_Clock.Tick();
@@ -75,44 +89,26 @@ void GuiManager::Tick() {
 void GuiManager::LoadFont() {
     auto& io = ImGui::GetIO();
 
-    /* for (const auto& font_file : std::filesystem::directory_iterator{"./Assets/Fonts"}) */ {
-        ImFontConfig config;
-        config.SizePixels           = m_App.GetDpiRatio() * 18.0f;
-        config.FontDataOwnedByAtlas = false;  // the font data is owned by our engin.
+    auto* file_io = core::FileIOManager::Get();
+    if (file_io != nullptr) {
+        auto add_font = [&](std::filesystem::path path, std::u8string_view name, const ImWchar* ranges = nullptr, bool merge = false) {
+            const auto& font_buffer = file_io->SyncOpenAndReadBinary(path);
+            if (font_buffer.Empty()) return;
 
-        if (core::FileIOManager::Get()) {
-            {
-                auto& font_buffer   = core::FileIOManager::Get()->SyncOpenAndReadBinary("./assets/fonts/Hasklig-Regular.otf");
-                config.FontData     = const_cast<std::byte*>(font_buffer.GetData());
-                config.FontDataSize = font_buffer.GetDataSize();
+            ImFontConfig config;
+            config.SizePixels           = m_App.GetDpiRatio() * 18.0f;
+            config.FontDataOwnedByAtlas = false;
+            config.MergeMode            = merge;
+            config.FontData             = const_cast<std::byte*>(font_buffer.GetData());
+            config.FontDataSize         = static_cast<int>(font_buffer.GetDataSize());
+            config.GlyphRanges          = ranges;
+            std::copy_n(reinterpret_cast<const char*>(name.data()), std::min(name.size(), std::size(config.Name)), config.Name);
+            io.Fonts->AddFont(&config);
+        };
 
-                std::pmr::u8string name = u8"Hasklig-Regular";
-                std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
-                io.Fonts->AddFont(&config);
-            }
-
-            config.MergeMode = true;
-
-            {
-                auto& font_buffer       = core::FileIOManager::Get()->SyncOpenAndReadBinary("./assets/fonts/NotoSansSC-Regular.otf");
-                config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
-                config.FontDataSize     = font_buffer.GetDataSize();
-                config.GlyphRanges      = io.Fonts->GetGlyphRangesChineseFull();
-                std::pmr::u8string name = u8"NotoSansSC-Regular";
-                std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
-                io.Fonts->AddFont(&config);
-            }
-
-            {
-                auto& font_buffer       = core::FileIOManager::Get()->SyncOpenAndReadBinary("./assets/fonts/NotoSansJP-Regular.otf");
-                config.FontData         = const_cast<std::byte*>(font_buffer.GetData());
-                config.FontDataSize     = font_buffer.GetDataSize();
-                config.GlyphRanges      = io.Fonts->GetGlyphRangesJapanese();
-                std::pmr::u8string name = u8"NotoSansJP-Regular";
-                std::copy_n(name.data(), std::min(name.size(), std::size(config.Name)), config.Name);
-                io.Fonts->AddFont(&config);
-            }
-        }
+        add_font("./assets/fonts/Hasklig-Regular.otf", u8"Hasklig-Regular");
+        add_font("./assets/fonts/NotoSansSC-Regular.otf", u8"NotoSansSC-Regular", io.Fonts->GetGlyphRangesChineseFull(), true);
+        add_font("./assets/fonts/NotoSansJP-Regular.otf", u8"NotoSansJP-Regular", io.Fonts->GetGlyphRangesJapanese(), true);
     }
 
     unsigned char* pixels = nullptr;
@@ -125,22 +121,30 @@ void GuiManager::LoadFont() {
 
     m_FontAtlasWidth  = static_cast<std::uint32_t>(width);
     m_FontAtlasHeight = static_cast<std::uint32_t>(height);
-    m_FontAtlasPixels.assign(reinterpret_cast<const std::byte*>(pixels), reinterpret_cast<const std::byte*>(pixels) + data_size);
+    m_FontAtlasPixels   = reinterpret_cast<const std::byte*>(pixels);
+    m_FontAtlasDataSize = data_size;
     ++m_FontAtlasGeneration;
+
+    m_Logger->info("ImGui font atlas built: {}x{} ({} bytes)", width, height, data_size);
 
     io.Fonts->TexID = (ImTextureID)0;
 }
 
 void GuiManager::BuildDrawData() {
-    m_DrawData.display_pos  = {};
-    m_DrawData.display_size = {};
-    m_DrawData.font_atlas   = {
-        .width      = m_FontAtlasWidth,
-        .height     = m_FontAtlasHeight,
-        .pixels     = m_FontAtlasPixels,
-        .generation = m_FontAtlasGeneration,
-    };
-    m_DrawData.draw_lists.clear();
+    ZoneScopedN("GuiManager::BuildDrawData");
+
+    {
+        ZoneScopedN("GuiDrawData Reset");
+        m_DrawData.display_pos  = {};
+        m_DrawData.display_size = {};
+        m_DrawData.font_atlas   = {
+            .width      = m_FontAtlasWidth,
+            .height     = m_FontAtlasHeight,
+            .pixels     = std::span<const std::byte>{m_FontAtlasPixels, m_FontAtlasDataSize},
+            .generation = m_FontAtlasGeneration,
+        };
+        m_DrawData.draw_lists.clear();
+    }
 
     const auto draw_data = ImGui::GetDrawData();
     if (draw_data == nullptr || draw_data->CmdListsCount == 0) {
@@ -152,38 +156,49 @@ void GuiManager::BuildDrawData() {
     m_DrawData.draw_lists.reserve(static_cast<std::size_t>(draw_data->CmdListsCount));
 
     for (int list_index = 0; list_index < draw_data->CmdListsCount; ++list_index) {
+        ZoneScopedN("GuiDrawData Copy List");
+
         const auto im_draw_list = draw_data->CmdLists[list_index];
         auto&      draw_list    = m_DrawData.draw_lists.emplace_back();
 
-        draw_list.vertices.reserve(static_cast<std::size_t>(im_draw_list->VtxBuffer.Size));
-        for (const auto& vertex : im_draw_list->VtxBuffer) {
-            draw_list.vertices.emplace_back(GuiVertex{
-                .position = {vertex.pos.x, vertex.pos.y},
-                .uv       = {vertex.uv.x, vertex.uv.y},
-                .color    = DecodeColor(vertex.col),
-            });
-        }
-
-        draw_list.indices.reserve(static_cast<std::size_t>(im_draw_list->IdxBuffer.Size));
-        for (const auto index : im_draw_list->IdxBuffer) {
-            draw_list.indices.emplace_back(static_cast<std::uint32_t>(index));
-        }
-
-        draw_list.commands.reserve(static_cast<std::size_t>(im_draw_list->CmdBuffer.Size));
-        for (const auto& command : im_draw_list->CmdBuffer) {
-            if (command.UserCallback != nullptr) {
-                // The renderer now consumes backend-neutral draw packets. ImGui render callbacks are backend
-                // escape hatches, so they cannot safely be replayed after conversion.
-                continue;
+        {
+            ZoneScopedN("GuiDrawData Copy Vertices");
+            draw_list.vertices.reserve(static_cast<std::size_t>(im_draw_list->VtxBuffer.Size));
+            for (const auto& vertex : im_draw_list->VtxBuffer) {
+                draw_list.vertices.emplace_back(GuiVertex{
+                    .position = {vertex.pos.x, vertex.pos.y},
+                    .uv       = {vertex.uv.x, vertex.uv.y},
+                    .color    = DecodeColor(vertex.col),
+                });
             }
+        }
 
-            draw_list.commands.emplace_back(GuiDrawCommand{
-                .element_count = command.ElemCount,
-                .index_offset  = command.IdxOffset,
-                .vertex_offset = command.VtxOffset,
-                .clip_rect     = {command.ClipRect.x, command.ClipRect.y, command.ClipRect.z, command.ClipRect.w},
-                .texture       = DecodeTexture(command.GetTexID()),
-            });
+        {
+            ZoneScopedN("GuiDrawData Copy Indices");
+            draw_list.indices.reserve(static_cast<std::size_t>(im_draw_list->IdxBuffer.Size));
+            for (const auto index : im_draw_list->IdxBuffer) {
+                draw_list.indices.emplace_back(static_cast<std::uint32_t>(index));
+            }
+        }
+
+        {
+            ZoneScopedN("GuiDrawData Copy Commands");
+            draw_list.commands.reserve(static_cast<std::size_t>(im_draw_list->CmdBuffer.Size));
+            for (const auto& command : im_draw_list->CmdBuffer) {
+                if (command.UserCallback != nullptr) {
+                    // The renderer now consumes backend-neutral draw packets. ImGui render callbacks are backend
+                    // escape hatches, so they cannot safely be replayed after conversion.
+                    continue;
+                }
+
+                draw_list.commands.emplace_back(GuiDrawCommand{
+                    .element_count = command.ElemCount,
+                    .index_offset  = command.IdxOffset,
+                    .vertex_offset = command.VtxOffset,
+                    .clip_rect     = {command.ClipRect.x, command.ClipRect.y, command.ClipRect.z, command.ClipRect.w},
+                    .texture       = DecodeTexture(command.GetTexID()),
+                });
+            }
         }
     }
 }

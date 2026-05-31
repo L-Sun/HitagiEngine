@@ -575,6 +575,7 @@ struct RelationShip {
     const auto& GetChildren() const noexcept { return children; }
 
 private:
+    friend class Scene;
     friend struct RelationShipSystem;
     friend struct TransformSystem;
     ecs::Entity                          prev_parent = {};
@@ -633,8 +634,16 @@ public:
     auto CreateCameraEntity(std::shared_ptr<Camera> camera, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
     auto CreateLightEntity(std::shared_ptr<Light> light, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
     auto CreateSkeletonEntity(std::shared_ptr<Skeleton> skeleton, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
+    void DestroyEntitySubtree(ecs::Entity entity);
+    void ReparentEntity(ecs::Entity entity, ecs::Entity parent);
+    void RenameEntity(ecs::Entity entity, std::string_view name);
+    auto AddCameraComponent(ecs::Entity entity, std::shared_ptr<Camera> camera) -> bool;
+    auto RemoveCameraComponent(ecs::Entity entity) -> std::shared_ptr<Camera>;
+    auto AddLightComponent(ecs::Entity entity, std::shared_ptr<Light> light) -> bool;
+    auto RemoveLightComponent(ecs::Entity entity) -> std::shared_ptr<Light>;
 
     auto& GetRootEntity() noexcept { return m_RootEntity; }
+    auto  GetRootEntity() const noexcept { return m_RootEntity; }
     auto& GetMeshEntities() noexcept { return m_MeshEntities; }
     auto& GetCameraEntities() noexcept { return m_CameraEntities; }
     auto& GetLightEntities() noexcept { return m_LightEntities; }

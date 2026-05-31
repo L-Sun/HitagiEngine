@@ -91,6 +91,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             logger->error(error_message);
             throw std::runtime_error(error_message);
         }
+        m_AllocationSize = allocation_info.size;
         vmaBindBufferMemory(device.GetVmaAllocator(), allocation, **buffer);
     }
 
@@ -245,16 +246,18 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
             .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         };
 
+        VmaAllocationInfo allocation_info;
         if (VK_SUCCESS != vmaAllocateMemoryForImage(
                               device.GetVmaAllocator(),
                               *image.value(),
                               &vma_alloc_create_info,
                               &allocation,
-                              nullptr)) {
+                              &allocation_info)) {
             auto error_message = fmt::format("failed to allocate memory for texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::runtime_error(error_message);
         }
+        m_AllocationSize = allocation_info.size;
         vmaBindImageMemory(device.GetVmaAllocator(), allocation, **image);
     }
 

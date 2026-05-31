@@ -32,6 +32,22 @@ void InputManager::Tick() {
     core::RuntimeModule::Tick();
 }
 
+void InputManager::ResetInputState() noexcept {
+    for (auto&& state : m_KeyState) {
+        state.current  = false;
+        state.previous = false;
+        state.dirty    = false;
+    }
+
+    m_MouseState.position.previous = m_MouseState.position.current;
+    m_MouseState.position.dirty    = false;
+    m_MouseState.scroll.current    = {};
+    m_MouseState.scroll.previous   = {};
+    m_MouseState.scroll.dirty      = false;
+    m_TextInput.clear();
+    m_TextInputDirty = false;
+}
+
 bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
         utils::Overloaded{

@@ -150,7 +150,8 @@ void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_e
 
     if (!new_edge.write &&
         !utils::has_flag(usages, gfx::TextureUsageFlags::SRV) &&
-        !utils::has_flag(usages, gfx::TextureUsageFlags::CopySrc)) {
+        !utils::has_flag(usages, gfx::TextureUsageFlags::CopySrc) &&
+        !(new_edge.access == gfx::BarrierAccess::DepthStencilRead && utils::has_flag(usages, gfx::TextureUsageFlags::DepthStencil))) {
         Invalidate(std::format("{} texture failed: texture({}) is not readable", write_str, texture_node->GetName()));
         return;
     }
@@ -355,6 +356,26 @@ auto RenderPassBuilder::SetDepthStencil(TextureHandle texture, bool clear, gfx::
         });
     pass->m_DepthStencil      = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture.index].get());
     pass->m_ClearDepthStencil = clear;
+    return *this;
+}
+
+auto RenderPassBuilder::ReadDepthStencil(TextureHandle texture, gfx::TextureSubresourceLayer layer) noexcept -> RenderPassBuilder& {
+    if (pass->m_DepthStencil) {
+        Invalidate(std::format("Read depth stencil failed: depth stencil is already set"));
+        return *this;
+    }
+    AddTextureEdge(
+        texture,
+        {
+            .write  = false,
+            .access = gfx::BarrierAccess::DepthStencilRead,
+            .stage  = gfx::PipelineStage::DepthStencil,
+            .layout = gfx::TextureLayout::DepthStencilRead,
+            .layer  = layer,
+        });
+    if (m_Invalid) return *this;
+    pass->m_DepthStencil      = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture.index].get());
+    pass->m_ClearDepthStencil = false;
     return *this;
 }
 

@@ -1,28 +1,11 @@
 module;
 
 #include <spdlog/spdlog.h>
-#include <nlohmann/json.hpp>
 
 module app;
 import std;
 
 namespace hitagi {
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AppConfig, title, version, width, height, asset_root_path, gfx_backend, log_level);
-
-auto load_app_config(const std::filesystem::path& config_path) -> std::optional<AppConfig> {
-    if (config_path.empty() || !std::filesystem::exists(config_path))
-        return std::nullopt;
-
-    nlohmann::json json;
-    if (core::FileIOManager::Get()) {
-        json = nlohmann::json::parse(core::FileIOManager::Get()->SyncOpenAndReadBinary(config_path).Str());
-    } else {
-        std::ifstream ifs(config_path);
-        json = nlohmann::json::parse(ifs);
-    }
-    return json.get<AppConfig>();
-}
-
 Application::Application(AppConfig config)
     : core::RuntimeModule(config.title),
       m_Config(std::move(config)) {
@@ -32,30 +15,16 @@ Application::Application(AppConfig config)
     m_Clock.Start();
 }
 
-Application::~Application() {
-    if (core::FileIOManager::Get()) {
-        std::filesystem::path path = "hitagi.json";
-        m_Logger->info("save config to file: {}", path.string());
-
-        nlohmann::json json = m_Config;
-
-        auto content = json.dump(4);
-        core::FileIOManager::Get()->SaveBuffer(core::Buffer(content.size(), reinterpret_cast<const std::byte*>(content.data())), path);
-    }
-}
+Application::~Application() = default;
 
 void Application::Tick() {
     m_Clock.Tick();
-    if (WindowSizeChanged()) {
+    m_Config.maximized = WindowMaximized();
+    if (WindowSizeChanged() && !WindowsMinimized() && !m_Config.maximized) {
         m_Config.width  = GetWindowWidth();
         m_Config.height = GetWindowHeight();
     }
     core::RuntimeModule::Tick();
-}
-
-auto Application::CreateApp(const std::filesystem::path& config_path) -> std::unique_ptr<Application> {
-    auto config = load_app_config(config_path);
-    return Application::CreateApp(config.has_value() ? config.value() : AppConfig{});
 }
 
 auto Application::GetWindowWidth() const -> std::uint32_t {

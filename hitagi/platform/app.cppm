@@ -41,6 +41,7 @@ struct AppConfig {
     std::pmr::string      version         = "v0.2.0";
     std::uint32_t         width           = 800;
     std::uint32_t         height          = 800;
+    bool                  maximized       = false;
     std::filesystem::path asset_root_path = "assets";
     std::pmr::string      gfx_backend     = "Vulkan";
     std::pmr::string      log_level       = "info";
@@ -56,7 +57,6 @@ public:
     ~Application() override;
 
     static auto CreateApp(AppConfig config = {}) -> std::unique_ptr<Application>;
-    static auto CreateApp(const std::filesystem::path& config_path) -> std::unique_ptr<Application>;
 
     void Tick() override;
 
@@ -72,6 +72,7 @@ public:
     virtual auto GetWindowRect() const -> Rect         = 0;
     virtual bool WindowSizeChanged() const             = 0;
     virtual bool WindowsMinimized() const              = 0;
+    virtual bool WindowMaximized() const               = 0;
     virtual bool IsQuit() const                        = 0;
     virtual void Quit()                                = 0;
 
@@ -107,6 +108,7 @@ public:
     inline auto GetWindowRect() const -> Rect final { return m_Rect; }
     inline bool WindowSizeChanged() const final { return m_SizeChanged; }
     inline bool WindowsMinimized() const final { return m_Minimized; };
+    bool WindowMaximized() const final;
     inline bool IsQuit() const final { return m_Quit; }
     inline void Quit() final { m_Quit = true; }
 
@@ -142,7 +144,7 @@ void Win32Application::Tick() {
     // we use PeekMessage instead of GetMessage here
     // because we should not block the thread at anywhere
     // except the engine execution driver module
-    if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
         // translate keystroke messages into the right format
         TranslateMessage(&msg);
 
@@ -205,7 +207,7 @@ void Win32Application::InitializeWindows() {
         m_Logger->error("Create window failed.");
         return;
     }
-    ShowWindow(m_Window, m_Config.headless ? SW_HIDE : SW_SHOW);
+    ShowWindow(m_Window, m_Config.headless ? SW_HIDE : (m_Config.maximized ? SW_MAXIMIZE : SW_SHOW));
 
     UpdateRect();
     MapCursor();
@@ -313,6 +315,10 @@ std::size_t Win32Application::GetMemoryUsage() const {
     return pmc.WorkingSetSize;
 }
 
+bool Win32Application::WindowMaximized() const {
+    return ::IsZoomed(m_Window);
+}
+
 void Win32Application::UpdateRect() {
     m_SizeChanged = true;
     GetClientRect(m_Window, reinterpret_cast<RECT*>(&m_Rect));
@@ -361,6 +367,11 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             p_this->m_SizeChanged = true;
             ClipCursor(nullptr);
             return 0;
+        case WM_KILLFOCUS:
+            p_this->m_InputManager->ResetInputState();
+            ClipCursor(nullptr);
+            ReleaseCapture();
+            return 0;
         case WM_LBUTTONDOWN:
         case WM_LBUTTONDBLCLK:
         case WM_RBUTTONDOWN:
@@ -369,6 +380,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_MBUTTONDBLCLK:
         case WM_XBUTTONDOWN:
         case WM_XBUTTONDBLCLK: {
+            SetCapture(h_wnd);
             if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK)
                 p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_L_BUTTON, true);
 
@@ -392,6 +404,11 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             if (message == WM_MBUTTONUP)
                 p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::MOUSE_M_BUTTON, false);
 
+            if (!p_this->m_InputManager->GetBool(hid::VirtualKeyCode::MOUSE_L_BUTTON) &&
+                !p_this->m_InputManager->GetBool(hid::VirtualKeyCode::MOUSE_R_BUTTON) &&
+                !p_this->m_InputManager->GetBool(hid::VirtualKeyCode::MOUSE_M_BUTTON)) {
+                ReleaseCapture();
+            }
             return 0;
         }
         case WM_KEYDOWN:
@@ -402,12 +419,12 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             if (w_param < static_cast<int>(hid::VirtualKeyCode::NUM))
                 p_this->m_InputManager->UpdateKeyState(static_cast<hid::VirtualKeyCode>(w_param), down);
 
-            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_CTRL, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_L_CTRL));
-            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_CTRL, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_R_CTRL));
-            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_SHIFT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_L_SHIFT));
-            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_SHIFT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_R_SHIFT));
-            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_ALT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_L_ALT));
-            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_ALT, w_param & static_cast<int>(hid::VirtualKeyCode::KEY_R_ALT));
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_CTRL, (GetKeyState(VK_LCONTROL) & 0x8000) != 0);
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_CTRL, (GetKeyState(VK_RCONTROL) & 0x8000) != 0);
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_SHIFT, (GetKeyState(VK_LSHIFT) & 0x8000) != 0);
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_SHIFT, (GetKeyState(VK_RSHIFT) & 0x8000) != 0);
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_L_ALT, (GetKeyState(VK_LMENU) & 0x8000) != 0);
+            p_this->m_InputManager->UpdateKeyState(hid::VirtualKeyCode::KEY_R_ALT, (GetKeyState(VK_RMENU) & 0x8000) != 0);
             return 0;
         }
         case WM_MOUSEMOVE:
@@ -462,6 +479,7 @@ public:
 
     inline bool WindowSizeChanged() const final { return m_SizeChanged; }
     inline bool WindowsMinimized() const final { return m_Minimized; };
+    bool WindowMaximized() const final;
     inline void Quit() final { m_Quit = true; }
     inline bool IsQuit() const final { return m_Quit; }
 
@@ -483,6 +501,9 @@ SDL3Application::SDL3Application(AppConfig config) : Application(std::move(confi
     auto window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_VULKAN;
     if (m_Config.headless) {
         window_flags |= SDL_WINDOW_HIDDEN;
+    }
+    if (m_Config.maximized) {
+        window_flags |= SDL_WINDOW_MAXIMIZED;
     }
 
     m_Window = SDL_CreateWindow(
@@ -514,10 +535,20 @@ void SDL3Application::Tick() {
             case SDL_EVENT_WINDOW_MINIMIZED:
                 m_Minimized = true;
                 break;
+            case SDL_EVENT_WINDOW_MAXIMIZED:
+                m_Minimized        = false;
+                m_Config.maximized = true;
+                break;
+            case SDL_EVENT_WINDOW_RESTORED:
+                m_Minimized        = false;
+                m_Config.maximized = false;
+                break;
             case SDL_EVENT_WINDOW_RESIZED:
-                m_SizeChanged   = true;
-                m_Config.width  = event.window.data1;
-                m_Config.height = event.window.data2;
+                m_SizeChanged = true;
+                if (!m_Minimized && !WindowMaximized()) {
+                    m_Config.width  = event.window.data1;
+                    m_Config.height = event.window.data2;
+                }
                 break;
         }
     }
@@ -591,6 +622,10 @@ auto SDL3Application::GetDpiRatio() const -> float {
 
 auto SDL3Application::GetMemoryUsage() const -> std::size_t {
     return 0;
+}
+
+bool SDL3Application::WindowMaximized() const {
+    return (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_MAXIMIZED) != 0;
 }
 
 auto SDL3Application::GetWindowRect() const -> Rect {

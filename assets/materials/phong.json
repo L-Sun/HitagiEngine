@@ -14,6 +14,21 @@
             "default": 1.0
         },
         {
+            "name": "roughness",
+            "type": "float",
+            "default": 0.5
+        },
+        {
+            "name": "metallic",
+            "type": "float",
+            "default": 0.0
+        },
+        {
+            "name": "occlusion",
+            "type": "float",
+            "default": 1.0
+        },
+        {
             "name": "diffuse",
             "type": "color",
             "default": [
@@ -37,9 +52,9 @@
             "name": "ambient",
             "type": "color",
             "default": [
-                1.0,
-                1.0,
-                1.0,
+                0.08,
+                0.08,
+                0.08,
                 1.0
             ]
         },
@@ -47,11 +62,39 @@
             "name": "emissive",
             "type": "color",
             "default": [
-                1.0,
-                1.0,
-                1.0,
+                0.0,
+                0.0,
+                0.0,
                 1.0
             ]
+        },
+        {
+            "name": "diffuse_texture",
+            "type": "texture"
+        },
+        {
+            "name": "specular_texture",
+            "type": "texture"
+        },
+        {
+            "name": "ambient_texture",
+            "type": "texture"
+        },
+        {
+            "name": "emissive_texture",
+            "type": "texture"
+        },
+        {
+            "name": "metallic_roughness_texture",
+            "type": "texture"
+        },
+        {
+            "name": "normal_texture",
+            "type": "texture"
+        },
+        {
+            "name": "occlusion_texture",
+            "type": "texture"
         }
     ]
 }

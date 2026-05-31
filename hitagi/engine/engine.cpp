@@ -26,8 +26,10 @@ public:
     }
 };
 
-Engine::Engine(const std::filesystem::path& config_path) : core::RuntimeModule("Engine") {
+Engine::Engine(AppConfig config) : core::RuntimeModule("Engine") {
+#ifdef TRACY_ENABLE
     tracy::SetThreadName("Hitagi/Main");
+#endif
 
     auto add_inner_module = [&]<typename T>(std::unique_ptr<T> module) -> T* {
         return static_cast<T*>(core::RuntimeModule::AddSubModule(std::unique_ptr<core::RuntimeModule>{module.release()}));
@@ -38,7 +40,7 @@ Engine::Engine(const std::filesystem::path& config_path) : core::RuntimeModule("
     add_inner_module(std::make_unique<core::JobSystem>());
 
     // Input
-    m_App = add_inner_module(Application::CreateApp(config_path));  // input manager is created here
+    m_App = add_inner_module(Application::CreateApp(std::move(config)));  // input manager is created here
 
     // update state
     auto device = add_inner_module(gfx::create_device(magic_enum::enum_cast<gfx::Device::Type>(m_App->GetConfig().gfx_backend).value()));
@@ -50,8 +52,9 @@ Engine::Engine(const std::filesystem::path& config_path) : core::RuntimeModule("
 
     // use modified state -> Render
     add_inner_module(std::make_unique<debugger::DebugManager>());
-    m_Renderer   = add_inner_module(std::make_unique<render::ForwardRenderer>(*device, *m_App));
-    m_GuiManager = add_inner_module(std::make_unique<gui::GuiManager>(*m_App));
+    m_Renderer      = add_inner_module(std::make_unique<render::DefaultRenderer>(*device, *m_App));
+    m_GuiManager    = add_inner_module(std::make_unique<gui::GuiManager>(*m_App));
+    m_RenderRuntime = static_cast<render::RenderRuntime*>(add_inner_module(std::make_unique<render::RenderRuntime>(*device, *m_App)));
 
     m_Clock.Start();
 }
@@ -76,8 +79,7 @@ auto Engine::SetRenderer(std::unique_ptr<render::IRenderer> renderer) -> render:
         return nullptr;
     }
 
-    m_SubModules.back() = std::unique_ptr<core::RuntimeModule>{renderer.release()};
-    m_Renderer          = static_cast<render::IRenderer*>(m_SubModules.back().get());
+    m_Renderer = static_cast<render::IRenderer*>(core::RuntimeModule::AddSubModule(std::move(renderer), m_Renderer));
     return m_Renderer;
 }
 

@@ -67,6 +67,17 @@ To build only a specific target group: `xmake build -g test/math`, `xmake build 
 
 Save any test artifacts generated during agent runs under ./temp.
 
+### Debugging With LLDB
+
+On Windows, the bundled `lldb.exe` may fail with `unable to find 'python311.dll'`. Before using `lldb`, provide a Python 3.11 runtime through `uv` and add it to the current PowerShell session's `PATH`:
+
+```powershell
+uv python install 3.11
+$pythonDir = Split-Path (uv python find 3.11)
+$env:PATH = "$pythonDir;$env:PATH"
+lldb --batch -o "run --frames 3 --exit-after-load" -o "bt" -- build\windows\x64\release\editor.exe
+```
+
 ## Architecture Overview
 
 ### Module System
@@ -113,13 +124,13 @@ Following the layered architecture from *Game Engine Architecture* (Jason Gregor
 
 **`hitagi/core`** — `RuntimeModule` is the base class for all engine subsystems. Each module has a `Tick()` method and can contain child sub-modules. All modules are registered in a global map accessible via `RuntimeModule::GetModule(name)`. Includes PMR-based memory allocator, file I/O, thread pool, and timer.
 
-**`hitagi/gfx`** — Graphics abstraction with DX12 and Vulkan backends. Create a device with `gfx::create_device(Device::Type::Vulkan)`. The backend is selected at runtime from `hitagi.json` (`gfx_backend` field). Matrices are **row-major** on both CPU and GPU.
+**`hitagi/gfx`** — Graphics abstraction with DX12 and Vulkan backends. Create a device with `gfx::create_device(Device::Type::Vulkan)`. The backend is selected from the `AppConfig` supplied by the host application. Matrices are **row-major** on both CPU and GPU.
 
 **`hitagi/gfx/render_graph`** — Frame-scoped render graph (`rg::RenderGraph`). Resources are created/imported each frame via typed handles (`TextureHandle`, `GPUBufferHandle`, etc.), passes are recorded via `RenderPassBuilder`/`ComputePassBuilder`, then `Compile()` + `Execute()` runs the graph.
 
 **`hitagi/ecs`** — Archetype-based ECS. `ecs::World` owns `EntityManager` and `SystemManager`; parallel task scheduling via Taskflow.
 
-**`hitagi/platform`** — `Application` base class with SDL3 backend. Created via `Application::CreateApp(config)` or from `hitagi.json`.
+**`hitagi/platform`** — `Application` base class with SDL3 backend. Created via `Application::CreateApp(config)`. Host applications own config persistence.
 
 **`hitagi/asset`** — `AssetManager` for loading USD scenes, meshes, materials, textures. OpenUSD is the scene import path; custom parsers handle PNG, JPEG, BMP, TGA. Materials are defined with named instances (e.g., `"Phong"`).
 
@@ -127,7 +138,7 @@ Following the layered architecture from *Game Engine Architecture* (Jason Gregor
 
 **`hitagi/render`** — `IRenderer` interface with two concrete implementations: `ForwardRenderer` (single-pass Phong shading) and `DeferredRenderer` (G-Buffer MRT pass + fullscreen lighting pass). Both renderers own the swapchain and render graph instance. The engine defaults to `ForwardRenderer`; switch via `Engine::SetRenderer()`. GUI rendering is explicit: renderer code consumes `const gui::GuiDrawData&` through `IRenderer::RenderGui(...)` and must not query ImGui state or own a `GuiManager`. It is valid to call `RenderGui(target, engine.GuiManager().GetDrawData(), clear)` before `engine.Tick()` because the renderer stores a frame-local pointer and consumes the updated draw data during its tick.
 
-**`hitagi/engine`** — Top-level `Engine` class that composes everything. Initialized from `hitagi.json` at the project root. Usage pattern: construct `Engine`, call `engine.Tick()` in the game loop.
+**`hitagi/engine`** — Top-level `Engine` class that composes everything. Initialized from a caller-supplied `AppConfig`. Usage pattern: construct `Engine`, call `engine.Tick()` in the game loop.
 
 ### Application Entry Pattern
 
@@ -136,7 +147,7 @@ import engine;
 import asset;
 
 int main() {
-    hitagi::Engine engine;  // reads hitagi.json
+    hitagi::Engine engine;
     // ... set up scene, camera, etc. ...
     while (!engine.App().IsQuit()) {
         engine.GuiManager().DrawGui([&]() { /* imgui calls */ });
@@ -149,7 +160,7 @@ int main() {
 
 ### Configuration
 
-`hitagi.json` in the project root controls runtime settings: `gfx_backend` (`"Vulkan"` or `"DX12"`), window size, asset root path, log level.
+The engine consumes `AppConfig` for runtime settings such as `gfx_backend` (`"Vulkan"` or `"DX12"`), window size, asset root path, and log level. Applications decide whether and where to persist that config; the editor uses `editor.json`.
 
 ### Adding a New Module
 

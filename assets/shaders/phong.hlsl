@@ -8,6 +8,9 @@ struct BindlessInfo {
     hitagi::Texture      specular_texture;
     hitagi::Texture      ambient_texture;
     hitagi::Texture      emissive_texture;
+    hitagi::Texture      metallic_roughness_texture;
+    hitagi::Texture      normal_texture;
+    hitagi::Texture      occlusion_texture;
     hitagi::Sampler      base_sampler;
 };
 
@@ -31,6 +34,9 @@ struct InstanceConstant {
 
 struct MaterialConstant {
     float  shininess;
+    float  roughness;
+    float  metallic;
+    float  occlusion;
     float4 diffuse;
     float4 specular;
     float4 ambient;
@@ -86,10 +92,10 @@ float4 PSMain(PSInput input)
     // color
     const float3 _diffuse  = hitagi::valid(resource.diffuse_texture) ? resource.diffuse_texture.sample<float3>(sampler, input.uv) : material_constant.diffuse.xyz;
     const float3 _specular = hitagi::valid(resource.specular_texture) ? resource.specular_texture.sample<float3>(sampler, input.uv) : material_constant.specular.xyz;
-    const float3 _ambient  = hitagi::valid(resource.ambient_texture) ? resource.ambient_texture.sample<float3>(sampler, input.uv) : material_constant.ambient.xyz;
+    const float3 _ambient  = hitagi::valid(resource.ambient_texture) ? resource.ambient_texture.sample<float3>(sampler, input.uv) : material_constant.ambient.xyz * _diffuse;
     const float3 _emissive = hitagi::valid(resource.emissive_texture) ? resource.emissive_texture.sample<float3>(sampler, input.uv) : material_constant.emissive.xyz;
 
-    const float3 vLightInts = _ambient + (frame_constant.light_color * frame_constant.light_intensity) * invd * (_diffuse * max(dot(vN, vL), 0.0f) + _specular * pow(max(dot(vH, vN), 0.0f), material_constant.shininess));
+    const float3 vLightInts = _emissive + _ambient + (frame_constant.light_color * frame_constant.light_intensity) * invd * (_diffuse * max(dot(vN, vL), 0.0f) + _specular * pow(max(dot(vH, vN), 0.0f), material_constant.shininess));
 
-    return float4(vLightInts, 1.0f);
+    return float4(saturate(vLightInts), 1.0f);
 }

@@ -98,6 +98,7 @@ private:
 struct DX12GPUBuffer : public GPUBuffer {
     DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data = {});
 
+    auto GetAllocationSize() const noexcept -> std::uint64_t final { return allocation ? allocation->GetSize() : Size(); }
     auto Map() -> std::byte* final;
     void UnMap() final;
 
@@ -112,6 +113,8 @@ struct DX12Texture : public Texture {
     DX12Texture(DX12Device& device, TextureDesc desc, std::span<const std::byte> initial_data = {});
     DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index);
     DX12Texture(DX12Texture&&) = default;
+
+    auto GetAllocationSize() const noexcept -> std::uint64_t final { return allocation ? allocation->GetSize() : 0; }
 
     ComPtr<D3D12MA::Allocation> allocation;
     ComPtr<ID3D12Resource>      resource;

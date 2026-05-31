@@ -87,20 +87,28 @@ auto main(int argc, char** argv) -> int {
 
         scene->Update();
 
-        auto& renderer      = engine.Renderer();
-        auto  render_target = renderer.GetRenderGraph().Create(
+        auto& render_runtime = engine.RenderRuntime();
+        auto  render_target = render_runtime.GetRenderGraph().Create(
             hitagi::gfx::TextureDesc{
-                .width       = renderer.GetSwapChain().GetWidth(),
-                .height      = renderer.GetSwapChain().GetHeight(),
+                .width       = render_runtime.GetSwapChain().GetWidth(),
+                .height      = render_runtime.GetSwapChain().GetHeight(),
                 .format      = hitagi::gfx::Format::R8G8B8A8_UNORM,
                 .clear_value = math::Color::Black(),
                 .usages      = hitagi::gfx::TextureUsageFlags::RenderTarget | hitagi::gfx::TextureUsageFlags::CopySrc,
             });
 
-        renderer.RenderScene(scene, *camera, camera_transform.world_matrix, render_target);
-        render_target = renderer.GetRenderGraph().MoveFrom(render_target);
-        renderer.RenderGui(render_target, engine.GuiManager().GetDrawData(), true);
-        renderer.ToSwapChain(render_target);
+        auto render_context = render_runtime.MakeContext();
+        render_target       = engine.Renderer().Render(
+            render_context,
+            hitagi::render::SceneView{
+                .scene            = scene,
+                .camera           = camera.get(),
+                .camera_transform = camera_transform.world_matrix,
+            },
+            render_target);
+        render_target = render_runtime.GetRenderGraph().MoveFrom(render_target);
+        render_runtime.RenderGui(render_target, engine.GuiManager().GetDrawData(), true);
+        render_runtime.ToSwapChain(render_target);
 
         engine.Tick();
     }

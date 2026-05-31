@@ -158,7 +158,7 @@ void VulkanGraphicsCommandBuffer::BeginRendering(Texture& render_target, utils::
         auto& vk_depth_stencil_image = static_cast<VulkanImage&>(depth_stencil->get());
         depth_attachment             = {
             .imageView   = *vk_depth_stencil_image.image_view.value(),
-            .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
+            .imageLayout = to_vk_image_layout(vk_depth_stencil_image.GetCurrentLayout()),
             .loadOp      = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
             .storeOp     = vk::AttachmentStoreOp::eStore,
             .clearValue  = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value
@@ -170,7 +170,7 @@ void VulkanGraphicsCommandBuffer::BeginRendering(Texture& render_target, utils::
             case Format::D32_FLOAT_S8X24_UINT: {
                 stencil_attachment = {
                     .imageView   = *vk_depth_stencil_image.image_view.value(),
-                    .imageLayout = vk::ImageLayout::eStencilAttachmentOptimal,
+                    .imageLayout = to_vk_image_layout(vk_depth_stencil_image.GetCurrentLayout()),
                     .loadOp      = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
                     .storeOp     = vk::AttachmentStoreOp::eStore,
                     .clearValue  = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value

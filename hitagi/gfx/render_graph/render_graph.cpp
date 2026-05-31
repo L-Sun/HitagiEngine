@@ -6,7 +6,6 @@ module;
 module gfx.render_graph;
 import magic_enum;
 import std;
-import core;
 
 namespace hitagi::rg {
 
@@ -474,15 +473,6 @@ auto RenderGraph::Execute() -> std::uint64_t {
         });
     });
 
-    auto* job_system = core::JobSystem::Get();
-    if (has_executable_passes && job_system == nullptr) {
-        const auto message = std::format("{} requires core::JobSystem to record render graph passes", m_Name);
-        m_Logger->error(message);
-        throw std::runtime_error(message);
-    }
-
-    auto last_fences = m_Fences;
-
     m_LastLayerProfiles.clear();
     m_LastLayerProfiles.reserve(m_ExecuteLayers.size());
 
@@ -505,15 +495,8 @@ auto RenderGraph::Execute() -> std::uint64_t {
                 pass_node->PrepareResourceBarriers();
             }
 
-            std::pmr::vector<std::future<void>> record_jobs;
-            record_jobs.reserve(layer_pass_nodes.size());
             for (auto* pass_node : layer_pass_nodes) {
-                record_jobs.emplace_back(job_system->Submit([pass_node] {
-                    pass_node->Execute();
-                }));
-            }
-            for (auto& job : record_jobs) {
-                job.get();
+                pass_node->Execute();
             }
         }
         layer_profile.record_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - record_start).count();
@@ -537,9 +520,12 @@ auto RenderGraph::Execute() -> std::uint64_t {
                                 | std::ranges::to<std::pmr::vector<std::reference_wrapper<const gfx::CommandContext>>>();
 
                 std::pmr::vector<gfx::FenceWaitInfo> wait_fences;
-                for (const auto& curr_fence_value : m_Fences) {
-                    wait_fences.emplace_back(*curr_fence_value.fence, curr_fence_value.last_value);
-                }
+                magic_enum::enum_for_each<gfx::CommandType>([&](gfx::CommandType wait_type) {
+                    if (wait_type == type) return;
+                    const auto& fence_value = m_Fences[wait_type];
+                    if (fence_value.last_value == 0) return;
+                    wait_fences.emplace_back(*fence_value.fence, fence_value.last_value);
+                });
 
                 m_Device.GetCommandQueue(type).Submit(
                     commands,
@@ -558,9 +544,12 @@ auto RenderGraph::Execute() -> std::uint64_t {
         layer_profile.submit_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - submit_start).count();
     }
 
-    for (const auto& [fence, last_value] : last_fences) {
-        fence->Wait(last_value);
-    }
+    magic_enum::enum_for_each<gfx::CommandType>([&](gfx::CommandType type) {
+        const auto& fence_value = m_Fences[type];
+        if (fence_value.last_value != 0) {
+            fence_value.fence->Wait(fence_value.last_value);
+        }
+    });
 
     RetireNodes();
     Profile();
@@ -721,6 +710,7 @@ auto RenderGraph::AcquireTransientBuffer(const gfx::GPUBufferDesc& desc) -> std:
     for (auto it = range.first; it != range.second; ++it) {
         if (buffer_pool_match(it->second.desc, desc)) {
             auto resource = std::move(it->second.resource);
+            m_TransientPool.buffer_bytes -= it->second.byte_size;
             m_TransientPool.buffers.erase(it);
             m_Logger->trace("Reused transient buffer from pool: {}", desc.name);
             return resource;
@@ -735,6 +725,7 @@ auto RenderGraph::AcquireTransientTexture(const gfx::TextureDesc& desc) -> std::
     for (auto it = range.first; it != range.second; ++it) {
         if (texture_pool_match(it->second.desc, desc)) {
             auto resource = std::move(it->second.resource);
+            m_TransientPool.texture_bytes -= it->second.byte_size;
             m_TransientPool.textures.erase(it);
             m_Logger->trace("Reused transient texture from pool: {}", desc.name);
             return resource;
@@ -754,26 +745,32 @@ void RenderGraph::RecycleTransientResource(RenderGraphNode* node) noexcept {
             auto* buffer_node = static_cast<GPUBufferNode*>(node);
             if (buffer_node->m_MoveFromNode || buffer_node->m_MoveToNode) return;
             auto resource = std::static_pointer_cast<gfx::GPUBuffer>(resource_node->m_Resource);
+            const auto byte_size = resource->GetAllocationSize();
             m_TransientPool.buffers.emplace(
                 buffer_pool_key(buffer_node->GetDesc()),
                 TransientResourcePool::CachedBuffer{
                     .desc            = buffer_node->GetDesc(),
                     .resource        = std::move(resource),
                     .last_used_frame = m_FrameIndex,
+                    .byte_size       = byte_size,
                 });
+            m_TransientPool.buffer_bytes += byte_size;
             resource_node->m_Resource = nullptr;
         } break;
         case RenderGraphNode::Type::Texture: {
             auto* texture_node = static_cast<TextureNode*>(node);
             if (texture_node->m_MoveFromNode || texture_node->m_MoveToNode) return;
             auto resource = std::static_pointer_cast<gfx::Texture>(resource_node->m_Resource);
+            const auto byte_size = resource->GetAllocationSize();
             m_TransientPool.textures.emplace(
                 texture_pool_key(texture_node->GetDesc()),
                 TransientResourcePool::CachedTexture{
                     .desc            = texture_node->GetDesc(),
                     .resource        = std::move(resource),
                     .last_used_frame = m_FrameIndex,
+                    .byte_size       = byte_size,
                 });
+            m_TransientPool.texture_bytes += byte_size;
             resource_node->m_Resource = nullptr;
         } break;
         default:
@@ -784,18 +781,30 @@ void RenderGraph::RecycleTransientResource(RenderGraphNode* node) noexcept {
 void RenderGraph::EvictStalePoolEntries() noexcept {
     for (auto it = m_TransientPool.buffers.begin(); it != m_TransientPool.buffers.end();) {
         if (m_FrameIndex - it->second.last_used_frame > TransientResourcePool::max_unused_frames) {
+            m_TransientPool.buffer_bytes -= it->second.byte_size;
             it = m_TransientPool.buffers.erase(it);
         } else {
             ++it;
         }
     }
     for (auto it = m_TransientPool.textures.begin(); it != m_TransientPool.textures.end();) {
-        if (m_FrameIndex - it->second.last_used_frame > TransientResourcePool::max_unused_frames) {
+        if (m_FrameIndex - it->second.last_used_frame > TransientResourcePool::max_unused_frames ||
+            m_TransientPool.texture_bytes > TransientResourcePool::max_texture_pool_bytes) {
+            m_TransientPool.texture_bytes -= it->second.byte_size;
             it = m_TransientPool.textures.erase(it);
         } else {
             ++it;
         }
     }
+}
+
+auto RenderGraph::GetTransientPoolStats() const noexcept -> TransientPoolStats {
+    return {
+        .buffer_bytes  = m_TransientPool.buffer_bytes,
+        .texture_bytes = m_TransientPool.texture_bytes,
+        .buffer_count  = m_TransientPool.buffers.size(),
+        .texture_count = m_TransientPool.textures.size(),
+    };
 }
 
 auto RenderGraph::ToDot() const noexcept -> std::pmr::string {
