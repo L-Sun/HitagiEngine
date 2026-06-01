@@ -47,16 +47,193 @@ void ApplyEditorViewportNavigation(
     EditorViewportNavigationState&   state,
     const EditorViewportNavigationInput& input) noexcept;
 
+class EditorViewportGridPass {
+public:
+    EditorViewportGridPass(gfx::Device& device, std::filesystem::path shader_path);
+
+    auto Build(render::RenderContext& context, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) -> rg::TextureHandle;
+
+private:
+    struct ViewportGridConstant {
+        math::mat4f inv_proj_view;
+        math::vec4f camera_pos;
+        math::vec4f camera_forward;
+        math::vec4f viewport_size_base_step_fade;
+        math::vec4f clip_and_opacity;
+    };
+
+    struct ViewportGridBindlessInfo {
+        gfx::BindlessHandle grid_constant;
+    };
+
+    std::shared_ptr<gfx::Shader>         m_VS;
+    std::shared_ptr<gfx::Shader>         m_PS;
+    std::shared_ptr<gfx::RenderPipeline> m_Pipeline;
+};
+
+enum class EditorSelectionVisual : std::uint8_t {
+    None,
+    Selected,
+    Hovered,
+    Active,
+};
+
+struct EditorSelectionItem {
+    ecs::Entity           entity;
+    EditorSelectionVisual visual       = EditorSelectionVisual::Selected;
+    std::uint32_t         selection_id = 1;
+};
+
+struct EditorSelectionDesc {
+    bool                                  enabled = false;
+    std::pmr::vector<EditorSelectionItem> items;
+
+    math::Color selected_color = {1.0f, 0.72f, 0.10f, 1.0f};
+    math::Color hovered_color  = {0.35f, 0.62f, 1.0f, 1.0f};
+    math::Color occluded_color = {1.0f, 0.72f, 0.10f, 0.35f};
+
+    float outline_width_px   = 2.0f;
+    float highlight_strength = 0.15f;
+    bool  show_occluded      = true;
+};
+
+struct EditorSelectionBuffers {
+    rg::TextureHandle id;
+    rg::TextureHandle visual;
+    rg::TextureHandle depth;
+
+    [[nodiscard]] constexpr auto Valid() const noexcept -> bool {
+        return static_cast<bool>(id) && static_cast<bool>(visual) && static_cast<bool>(depth);
+    }
+};
+
+class EditorSelectionMetadataPass {
+public:
+    EditorSelectionMetadataPass(gfx::Device& device, std::filesystem::path shader_path);
+
+    auto Build(
+        render::RenderContext&     context,
+        const render::SceneDrawState& draw_state,
+        rg::GPUBufferHandle        frame_constant,
+        const EditorSelectionDesc& desc,
+        std::uint32_t              width,
+        std::uint32_t              height) -> EditorSelectionBuffers;
+
+private:
+    struct InstanceConstant {
+        math::mat4f   model;
+        std::uint32_t selection_id = 0;
+        std::uint32_t visual_id    = 0;
+        std::uint32_t padding[2]   = {};
+    };
+
+    struct BindlessInfo {
+        gfx::BindlessHandle frame_constant;
+        gfx::BindlessHandle instance_constant;
+    };
+
+    enum class Target : std::uint8_t {
+        Id,
+        Visual,
+        Depth,
+    };
+
+    void EnsureResources();
+    auto ImportPipeline(render::RenderContext& context, Target target) -> rg::RenderPipelineHandle;
+    void BuildTargetPass(
+        render::RenderContext&              context,
+        const render::SceneDrawState&       draw_state,
+        rg::GPUBufferHandle                 frame_constant,
+        rg::GPUBufferHandle                 instance_constant,
+        rg::GPUBufferHandle                 bindless_info,
+        rg::TextureHandle                   target,
+        rg::TextureHandle                   depth_stencil,
+        rg::RenderPipelineHandle            pipeline,
+        Target                              target_kind,
+        std::span<const InstanceConstant>   selected_constants,
+        std::span<const std::size_t>        selected_instances);
+
+    gfx::Device&                         m_Device;
+    std::filesystem::path                m_ShaderPath;
+    std::shared_ptr<gfx::Shader>         m_VS;
+    std::shared_ptr<gfx::Shader>         m_IdPS;
+    std::shared_ptr<gfx::Shader>         m_VisualPS;
+    std::shared_ptr<gfx::Shader>         m_DepthPS;
+    std::shared_ptr<gfx::RenderPipeline> m_IdPipeline;
+    std::shared_ptr<gfx::RenderPipeline> m_VisualPipeline;
+    std::shared_ptr<gfx::RenderPipeline> m_DepthPipeline;
+};
+
+class EditorSelectionOutlinePass {
+public:
+    EditorSelectionOutlinePass(gfx::Device& device, std::filesystem::path shader_path);
+
+    auto Build(
+        render::RenderContext&          context,
+        rg::TextureHandle               scene_color,
+        rg::TextureHandle               scene_depth,
+        const EditorSelectionBuffers&   selection,
+        const EditorSelectionDesc&      desc,
+        rg::SamplerHandle               sampler) -> rg::TextureHandle;
+
+private:
+    struct OutlineConstant {
+        math::Color selected_color;
+        math::Color hovered_color;
+        math::Color occluded_color;
+        math::vec4f params;
+        math::vec4f viewport;
+    };
+
+    struct BindlessInfo {
+        gfx::BindlessHandle outline_constant;
+        gfx::BindlessHandle scene_color;
+        gfx::BindlessHandle scene_depth;
+        gfx::BindlessHandle selection_id;
+        gfx::BindlessHandle selection_visual;
+        gfx::BindlessHandle selection_depth;
+        gfx::BindlessHandle sampler;
+    };
+
+    void EnsureResources(gfx::Format target_format);
+    auto ImportPipeline(render::RenderContext& context, gfx::Format target_format) -> rg::RenderPipelineHandle;
+
+    gfx::Device&                         m_Device;
+    std::filesystem::path                m_ShaderPath;
+    std::shared_ptr<gfx::Shader>         m_VS;
+    std::shared_ptr<gfx::Shader>         m_PS;
+    std::shared_ptr<gfx::RenderPipeline> m_Pipeline;
+    gfx::Format                          m_TargetFormat = gfx::Format::UNKNOWN;
+};
+
+class EditorDeferredSelectionExtension final : public render::IDeferredRenderExtension {
+public:
+    EditorDeferredSelectionExtension(gfx::Device& device, std::filesystem::path shader_path);
+
+    void SetSelection(EditorSelectionDesc desc);
+
+    void AfterGBuffer(
+        render::RenderContext&                 context,
+        const render::SceneView&               view,
+        const render::DeferredRenderResources& resources,
+        const render::DeferredSceneDrawData&   draw_data) override;
+
+    void AfterLighting(
+        render::RenderContext&                 context,
+        const render::SceneView&               view,
+        render::DeferredRenderResources&       resources,
+        const render::DeferredSceneDrawData&   draw_data) override;
+
+private:
+    EditorSelectionDesc         m_Selection;
+    EditorSelectionBuffers      m_Buffers;
+    EditorSelectionMetadataPass m_MetadataPass;
+    EditorSelectionOutlinePass  m_OutlinePass;
+};
+
 class SceneViewPort : public core::RuntimeModule {
 public:
-    SceneViewPort(const Engine& engine, EditorState& state, EditorCommandStack& command_stack)
-        : core::RuntimeModule("SceneViewPort"),
-          m_Engine(engine),
-          m_State(state),
-          m_CommandStack(command_stack),
-          m_GridPass(std::make_unique<render::passes::EditorGrid>(
-              engine.RenderRuntime().GetRenderGraph().GetDevice(),
-              engine.App().GetConfig().asset_root_path / "shaders/viewport_grid.hlsl")) {}
+    SceneViewPort(const Engine& engine, EditorState& state, EditorCommandStack& command_stack);
 
     void Tick() final;
 
@@ -76,7 +253,8 @@ private:
     const Engine&                   m_Engine;
     EditorState&                    m_State;
     EditorCommandStack&             m_CommandStack;
-    std::unique_ptr<render::passes::EditorGrid> m_GridPass;
+    std::shared_ptr<EditorDeferredSelectionExtension> m_SelectionExtension;
+    std::unique_ptr<EditorViewportGridPass> m_GridPass;
     bool                            m_Open = true;
     ecs::Entity                     m_Camera;
     std::optional<asset::Transform> m_GizmoEditStart;

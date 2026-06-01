@@ -100,12 +100,15 @@ auto main(int argc, char** argv) -> int {
         auto render_context = render_runtime.MakeContext();
         render_target       = engine.Renderer().Render(
             render_context,
-            hitagi::render::SceneView{
-                .scene            = scene,
-                .camera           = camera.get(),
-                .camera_transform = camera_transform.world_matrix,
-            },
-            render_target);
+            hitagi::render::RenderRequest{
+                .view = hitagi::render::SceneView{
+                    .scene            = scene,
+                    .camera           = camera.get(),
+                    .camera_transform = camera_transform.world_matrix,
+                },
+                .target = render_target,
+            })
+                                  .color;
         render_target = render_runtime.GetRenderGraph().MoveFrom(render_target);
         render_runtime.RenderGui(render_target, engine.GuiManager().GetDrawData(), true);
         render_runtime.ToSwapChain(render_target);

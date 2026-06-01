@@ -21,8 +21,8 @@ class PassthroughRenderer final : public IRenderer {
 public:
     PassthroughRenderer() : IRenderer("PassthroughRenderer") {}
 
-    auto Render(RenderContext&, const SceneView&, rg::TextureHandle target) -> rg::TextureHandle override {
-        return target;
+    auto Render(RenderContext&, const RenderRequest& request) -> RenderResult override {
+        return RenderResult{.color = request.target};
     }
 };
 
@@ -61,8 +61,8 @@ class CustomPassRenderer final : public IRenderer {
 public:
     CustomPassRenderer() : IRenderer("CustomPassRenderer") {}
 
-    auto Render(RenderContext& context, const SceneView&, rg::TextureHandle target) -> rg::TextureHandle override {
-        return m_CustomPass.Build(context, target);
+    auto Render(RenderContext& context, const RenderRequest& request) -> RenderResult override {
+        return RenderResult{.color = m_CustomPass.Build(context, request.target)};
     }
 
 private:
@@ -138,13 +138,18 @@ TEST_P(RendererTest, DeferredRenderer) {
         auto context = runtime.MakeContext();
         const auto scene_output = renderer.Render(
             context,
-            SceneView{
-                .scene            = scene,
-                .camera           = camera.get(),
-                .camera_transform = camera_transform.world_matrix,
-            },
-            texture);
-        EXPECT_EQ(scene_output, texture);
+            RenderRequest{
+                .view = SceneView{
+                    .scene            = scene,
+                    .camera           = camera.get(),
+                    .camera_transform = camera_transform.world_matrix,
+                },
+                .target = texture,
+            });
+        EXPECT_EQ(scene_output.color, texture);
+        EXPECT_TRUE(scene_output.depth);
+        EXPECT_TRUE(scene_output.linear_depth);
+        EXPECT_TRUE(scene_output.normal);
         texture = runtime.GetRenderGraph().MoveFrom(texture);
         runtime.RenderGui(texture, gui_manager->GetDrawData(), false);
         runtime.ToSwapChain(texture);
@@ -170,7 +175,7 @@ TEST(RendererInterfaceTest, CustomRendererOnlyImplementsSceneRender) {
         .device = *mock_device,
         .graph  = graph,
     };
-    EXPECT_EQ(renderer.Render(context, SceneView{}, {}), rg::TextureHandle{});
+    EXPECT_EQ(renderer.Render(context, RenderRequest{.view = SceneView{}, .target = {}}).color, rg::TextureHandle{});
 }
 
 TEST(RendererInterfaceTest, CustomRendererCanComposeCustomRenderGraphPass) {
@@ -190,8 +195,8 @@ TEST(RendererInterfaceTest, CustomRendererCanComposeCustomRenderGraphPass) {
         .graph  = graph,
     };
 
-    const auto output = renderer.Render(context, SceneView{}, input);
+    const auto output = renderer.Render(context, RenderRequest{.view = SceneView{}, .target = input});
 
-    EXPECT_NE(output, input);
-    EXPECT_TRUE(graph.IsValid(output));
+    EXPECT_NE(output.color, input);
+    EXPECT_TRUE(graph.IsValid(output.color));
 }

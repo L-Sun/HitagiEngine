@@ -120,6 +120,8 @@ private:
 
     static LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 
+    auto HitTestResizeBorder(LPARAM l_param) const -> LRESULT;
+
     void UpdateRect();
     void MapCursor();
 
@@ -319,6 +321,53 @@ bool Win32Application::WindowMaximized() const {
     return ::IsZoomed(m_Window);
 }
 
+auto Win32Application::HitTestResizeBorder(LPARAM l_param) const -> LRESULT {
+    if (WindowMaximized()) return HTCLIENT;
+
+    RECT client_rect{};
+    ::GetClientRect(m_Window, &client_rect);
+
+    POINT client_top_left{
+        .x = client_rect.left,
+        .y = client_rect.top,
+    };
+    POINT client_bottom_right{
+        .x = client_rect.right,
+        .y = client_rect.bottom,
+    };
+    ::MapWindowPoints(m_Window, nullptr, &client_top_left, 1);
+    ::MapWindowPoints(m_Window, nullptr, &client_bottom_right, 1);
+
+    RECT screen_client_rect{
+        .left   = client_top_left.x,
+        .top    = client_top_left.y,
+        .right  = client_bottom_right.x,
+        .bottom = client_bottom_right.y,
+    };
+
+    const auto dpi           = ::GetDpiForWindow(m_Window);
+    const auto resize_margin = std::max<LONG>(8, ::MulDiv(8, static_cast<int>(dpi), 96));
+
+    const auto x = GET_X_LPARAM(l_param);
+    const auto y = GET_Y_LPARAM(l_param);
+
+    const bool on_left   = x >= screen_client_rect.left && x < screen_client_rect.left + resize_margin;
+    const bool on_right  = x < screen_client_rect.right && x >= screen_client_rect.right - resize_margin;
+    const bool on_top    = y >= screen_client_rect.top && y < screen_client_rect.top + resize_margin;
+    const bool on_bottom = y < screen_client_rect.bottom && y >= screen_client_rect.bottom - resize_margin;
+
+    if (on_top && on_left) return HTTOPLEFT;
+    if (on_top && on_right) return HTTOPRIGHT;
+    if (on_bottom && on_left) return HTBOTTOMLEFT;
+    if (on_bottom && on_right) return HTBOTTOMRIGHT;
+    if (on_left) return HTLEFT;
+    if (on_right) return HTRIGHT;
+    if (on_top) return HTTOP;
+    if (on_bottom) return HTBOTTOM;
+
+    return HTCLIENT;
+}
+
 void Win32Application::UpdateRect() {
     m_SizeChanged = true;
     GetClientRect(m_Window, reinterpret_cast<RECT*>(&m_Rect));
@@ -361,6 +410,11 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         p_this = reinterpret_cast<Win32Application*>(GetWindowLongPtr(h_wnd, GWLP_USERDATA));
     }
     switch (message) {
+        case WM_NCHITTEST: {
+            const LRESULT hit_test = DefWindowProc(h_wnd, message, w_param, l_param);
+            if (hit_test != HTCLIENT || p_this == nullptr) return hit_test;
+            return p_this->HitTestResizeBorder(l_param);
+        }
         case WM_DESTROY:
             PostQuitMessage(0);
             p_this->m_Quit        = true;

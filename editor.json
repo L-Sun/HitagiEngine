@@ -1,0 +1,10 @@
+{
+    "asset_root_path": "assets",
+    "gfx_backend": "Vulkan",
+    "height": 1142,
+    "log_level": "info",
+    "maximized": false,
+    "title": "Hitagi Engine",
+    "version": "v0.2.0",
+    "width": 1784
+}

@@ -28,37 +28,33 @@ struct RenderContext {
     std::shared_ptr<gfx::SwapChain> swap_chain = nullptr;
 };
 
-enum class EditorSelectionVisual : std::uint8_t {
-    None,
-    Selected,
-    Hovered,
-    Active,
-};
-
-struct EditorSelectionItem {
-    ecs::Entity           entity;
-    EditorSelectionVisual visual       = EditorSelectionVisual::Selected;
-    std::uint32_t         selection_id = 1;
-};
-
-struct EditorSelectionDesc {
-    bool                                 enabled = false;
-    std::pmr::vector<EditorSelectionItem> items;
-
-    math::Color selected_color = {1.0f, 0.72f, 0.10f, 1.0f};
-    math::Color hovered_color  = {0.35f, 0.62f, 1.0f, 1.0f};
-    math::Color occluded_color = {1.0f, 0.72f, 0.10f, 0.35f};
-
-    float outline_width_px   = 2.0f;
-    float highlight_strength = 0.15f;
-    bool  show_occluded      = true;
-};
-
 struct SceneView {
     std::shared_ptr<asset::Scene> scene;
     const asset::Camera*          camera = nullptr;
     math::mat4f                   camera_transform;
-    EditorSelectionDesc           editor_selection;
+};
+
+struct RenderOutputMask {
+    bool depth         = false;
+    bool linear_depth  = false;
+    bool object_id     = false;
+    bool normal        = false;
+    bool motion_vector = false;
+};
+
+struct RenderRequest {
+    SceneView        view;
+    rg::TextureHandle target = {};
+    RenderOutputMask requested_outputs;
+};
+
+struct RenderResult {
+    rg::TextureHandle color         = {};
+    rg::TextureHandle depth         = {};
+    rg::TextureHandle linear_depth  = {};
+    rg::TextureHandle object_id     = {};
+    rg::TextureHandle normal        = {};
+    rg::TextureHandle motion_vector = {};
 };
 
 inline constexpr std::uint32_t MaxDeferredLights = 32;
@@ -157,7 +153,7 @@ public:
 
     virtual ~IRenderer() = default;
 
-    virtual auto Render(RenderContext& context, const SceneView& view, rg::TextureHandle target) -> rg::TextureHandle = 0;
+    virtual auto Render(RenderContext& context, const RenderRequest& request) -> RenderResult = 0;
 };
 
 class GuiRenderUtils {
@@ -196,31 +192,43 @@ private:
     std::unique_ptr<Impl> m_Impl;
 };
 
-namespace passes {
-
-class EditorGrid {
-public:
-    EditorGrid(gfx::Device& device, std::filesystem::path shader_path);
-
-    auto Build(RenderContext& context, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) -> rg::TextureHandle;
-
-private:
-    struct ViewportGridConstant {
-        math::mat4f inv_proj_view;
-        math::vec4f camera_pos;
-        math::vec4f camera_forward;
-        math::vec4f viewport_size_base_step_fade;
-        math::vec4f clip_and_opacity;
-    };
-
-    struct ViewportGridBindlessInfo {
-        gfx::BindlessHandle grid_constant;
-    };
-
-    std::shared_ptr<gfx::Shader>         m_VS;
-    std::shared_ptr<gfx::Shader>         m_PS;
-    std::shared_ptr<gfx::RenderPipeline> m_Pipeline;
+struct DeferredRenderResources {
+    rg::TextureHandle color;
+    rg::TextureHandle depth;
+    rg::TextureHandle linear_depth;
+    rg::TextureHandle gbuffer_albedo;
+    rg::TextureHandle gbuffer_normal;
+    rg::TextureHandle gbuffer_material;
+    rg::TextureHandle gbuffer_emissive;
+    rg::GPUBufferHandle frame_constant;
+    rg::SamplerHandle sampler;
+    std::uint32_t width  = 0;
+    std::uint32_t height = 0;
 };
+
+struct DeferredSceneDrawData {
+    std::span<const InstanceInfo> instances;
+    const SceneDrawState*         scene_draw_state = nullptr;
+};
+
+class IDeferredRenderExtension {
+public:
+    virtual ~IDeferredRenderExtension() = default;
+
+    virtual void AfterGBuffer(
+        RenderContext&                  context,
+        const SceneView&                view,
+        const DeferredRenderResources&  resources,
+        const DeferredSceneDrawData&    draw_data) {}
+
+    virtual void AfterLighting(
+        RenderContext&                  context,
+        const SceneView&                view,
+        DeferredRenderResources&        resources,
+        const DeferredSceneDrawData&    draw_data) {}
+};
+
+namespace passes {
 
 using Gui  = GuiRenderUtils;
 using Text = TextRenderUtils;
@@ -236,16 +244,6 @@ struct GBufferOutput {
     rg::TextureHandle material;
     rg::TextureHandle emissive;
     rg::TextureHandle depth;
-};
-
-struct EditorSelectionBuffers {
-    rg::TextureHandle id;
-    rg::TextureHandle visual;
-    rg::TextureHandle depth;
-
-    [[nodiscard]] constexpr auto Valid() const noexcept -> bool {
-        return static_cast<bool>(id) && static_cast<bool>(visual) && static_cast<bool>(depth);
-    }
 };
 
 class GBuffer {
@@ -313,105 +311,6 @@ private:
     std::shared_ptr<gfx::RenderPipeline> m_NormalPipeline;
     std::shared_ptr<gfx::RenderPipeline> m_MaterialPipeline;
     std::shared_ptr<gfx::RenderPipeline> m_EmissivePipeline;
-};
-
-class EditorSelectionMetadata {
-public:
-    EditorSelectionMetadata(gfx::Device& device, std::filesystem::path shader_path);
-
-    auto Build(
-        RenderContext&              context,
-        SceneDrawState&             draw_state,
-        rg::GPUBufferHandle         frame_constant,
-        const EditorSelectionDesc&  desc,
-        std::uint32_t               width,
-        std::uint32_t               height) -> EditorSelectionBuffers;
-
-private:
-    struct InstanceConstant {
-        math::mat4f   model;
-        std::uint32_t selection_id = 0;
-        std::uint32_t visual_id    = 0;
-        std::uint32_t padding[2]   = {};
-    };
-
-    struct BindlessInfo {
-        gfx::BindlessHandle frame_constant;
-        gfx::BindlessHandle instance_constant;
-    };
-
-    enum class Target : std::uint8_t {
-        Id,
-        Visual,
-        Depth,
-    };
-
-    void EnsureResources();
-    auto ImportPipeline(RenderContext& context, Target target) -> rg::RenderPipelineHandle;
-    void BuildTargetPass(
-        RenderContext&             context,
-        SceneDrawState&            draw_state,
-        rg::GPUBufferHandle        frame_constant,
-        rg::GPUBufferHandle        instance_constant,
-        rg::GPUBufferHandle        bindless_info,
-        rg::TextureHandle          target,
-        rg::TextureHandle          depth_stencil,
-        rg::RenderPipelineHandle   pipeline,
-        Target                     target_kind,
-        std::span<const InstanceConstant> selected_constants,
-        std::span<const std::size_t> selected_instances);
-
-    gfx::Device&                         m_Device;
-    std::filesystem::path                m_ShaderPath;
-    std::shared_ptr<gfx::Shader>         m_VS;
-    std::shared_ptr<gfx::Shader>         m_IdPS;
-    std::shared_ptr<gfx::Shader>         m_VisualPS;
-    std::shared_ptr<gfx::Shader>         m_DepthPS;
-    std::shared_ptr<gfx::RenderPipeline> m_IdPipeline;
-    std::shared_ptr<gfx::RenderPipeline> m_VisualPipeline;
-    std::shared_ptr<gfx::RenderPipeline> m_DepthPipeline;
-};
-
-class SelectionOutline {
-public:
-    SelectionOutline(gfx::Device& device, std::filesystem::path shader_path);
-
-    auto Build(
-        RenderContext&                 context,
-        rg::TextureHandle              scene_color,
-        rg::TextureHandle              scene_depth,
-        const EditorSelectionBuffers&  selection,
-        const EditorSelectionDesc&     desc,
-        rg::SamplerHandle              sampler) -> rg::TextureHandle;
-
-private:
-    struct OutlineConstant {
-        math::Color selected_color;
-        math::Color hovered_color;
-        math::Color occluded_color;
-        math::vec4f params;
-        math::vec4f viewport;
-    };
-
-    struct BindlessInfo {
-        gfx::BindlessHandle outline_constant;
-        gfx::BindlessHandle scene_color;
-        gfx::BindlessHandle scene_depth;
-        gfx::BindlessHandle selection_id;
-        gfx::BindlessHandle selection_visual;
-        gfx::BindlessHandle selection_depth;
-        gfx::BindlessHandle sampler;
-    };
-
-    void EnsureResources(gfx::Format target_format);
-    auto ImportPipeline(RenderContext& context, gfx::Format target_format) -> rg::RenderPipelineHandle;
-
-    gfx::Device&                         m_Device;
-    std::filesystem::path                m_ShaderPath;
-    std::shared_ptr<gfx::Shader>         m_VS;
-    std::shared_ptr<gfx::Shader>         m_PS;
-    std::shared_ptr<gfx::RenderPipeline> m_Pipeline;
-    gfx::Format                          m_TargetFormat = gfx::Format::UNKNOWN;
 };
 
 class DeferredLighting {
@@ -530,10 +429,12 @@ class DeferredRenderer : public IRenderer {
 public:
     DeferredRenderer(gfx::Device& device, const Application& app, std::string_view name = "");
 
-    auto Render(RenderContext& context, const SceneView& view, rg::TextureHandle target) -> rg::TextureHandle override;
+    auto Render(RenderContext& context, const RenderRequest& request) -> RenderResult override;
+    void AddExtension(std::shared_ptr<IDeferredRenderExtension> extension);
+    void ClearExtensions();
 
 private:
-    auto RenderScene(RenderContext& context, const SceneView& view, rg::TextureHandle target) -> rg::TextureHandle;
+    auto RenderScene(RenderContext& context, const RenderRequest& request) -> RenderResult;
     void RecordMaterialInstance(rg::RenderGraph& render_graph, const std::shared_ptr<asset::MaterialInstance>& material_instance);
     void RecordMesh(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Mesh>& mesh);
     void RecordInstance(rg::RenderGraph& render_graph, ecs::Entity entity, const std::shared_ptr<asset::Mesh>& mesh, math::mat4f transform);
@@ -554,8 +455,7 @@ private:
     passes::GBuffer                  m_GBufferPass;
     passes::DeferredLighting         m_DeferredLightingPass;
     passes::GBufferDebugView         m_GBufferDebugViewPass;
-    passes::EditorSelectionMetadata  m_EditorSelectionMetadataPass;
-    passes::SelectionOutline         m_SelectionOutlinePass;
+    std::pmr::vector<std::shared_ptr<IDeferredRenderExtension>> m_Extensions;
 
     // frame state
     rg::SamplerHandle   m_Sampler;

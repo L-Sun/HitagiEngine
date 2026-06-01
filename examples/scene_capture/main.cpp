@@ -18,12 +18,10 @@ struct Options {
     std::filesystem::path output     = "build/scene_capture.png";
     std::filesystem::path asset_root = "assets";
     std::pmr::string      backend    = "DX12";
-    std::pmr::string      selection_case;
     std::uint32_t         width      = 1280;
     std::uint32_t         height     = 720;
     std::uint32_t         frames     = 1;
     bool                  require_color_output = false;
-    bool                  selection_fixture = false;
 };
 
 struct PixelStats {
@@ -37,13 +35,6 @@ struct CameraSetup {
     math::mat4f   transform = math::mat4f::identity();
     math::AABBf   bounds;
     std::size_t   visible_meshes = 0;
-};
-
-struct SelectionFixture {
-    std::shared_ptr<asset::Scene> scene;
-    asset::Camera                 camera = asset::Camera(asset::Camera::Parameters{});
-    math::mat4f                   camera_transform = math::mat4f::identity();
-    render::EditorSelectionDesc   selection;
 };
 
 enum struct Axis : std::uint8_t {
@@ -112,10 +103,6 @@ auto ParseOptions(int argc, char** argv) -> Options {
             options.asset_root = argv[++i];
         } else if (arg == "--backend" && i + 1 < argc) {
             options.backend = argv[++i];
-        } else if (arg == "--selection-case" && i + 1 < argc) {
-            options.selection_case = argv[++i];
-        } else if (arg == "--selection-fixture") {
-            options.selection_fixture = true;
         } else if (arg == "--width" && i + 1 < argc) {
             options.width = static_cast<std::uint32_t>(std::stoul(argv[++i]));
         } else if (arg == "--height" && i + 1 < argc) {
@@ -125,95 +112,13 @@ auto ParseOptions(int argc, char** argv) -> Options {
         } else if (arg == "--require-color-output") {
             options.require_color_output = true;
         } else if (arg == "--help" || arg == "-h") {
-            std::println("usage: scene-capture [scene-path] [--out build/sponza_capture.png] [--backend DX12|Vulkan] [--selection-fixture --selection-case selected|occluded|multi|hover|none] [--frames N] [--require-color-output]");
+            std::println("usage: scene-capture [scene-path] [--out build/sponza_capture.png] [--backend DX12|Vulkan] [--frames N] [--require-color-output]");
             std::exit(0);
         } else {
             options.scene_path = std::string(arg);
         }
     }
     return options;
-}
-
-auto CreateFixtureCubeMesh(asset::AssetManager& assets) -> std::shared_ptr<asset::Mesh> {
-    auto mesh = asset::MeshFactory::Cube();
-
-    mesh->vertices->Modify<asset::VertexAttribute::Normal>([](std::span<math::vec3f> normals) {
-        constexpr std::array values = {
-            math::vec3f{-1.0f, -1.0f, -1.0f},
-            math::vec3f{+1.0f, -1.0f, -1.0f},
-            math::vec3f{+1.0f, -1.0f, +1.0f},
-            math::vec3f{-1.0f, -1.0f, +1.0f},
-            math::vec3f{-1.0f, +1.0f, -1.0f},
-            math::vec3f{+1.0f, +1.0f, -1.0f},
-            math::vec3f{+1.0f, +1.0f, +1.0f},
-            math::vec3f{-1.0f, +1.0f, +1.0f},
-        };
-        for (std::size_t i = 0; i < normals.size(); ++i) {
-            normals[i] = math::normalize(values[i]);
-        }
-    });
-    mesh->vertices->Modify<asset::VertexAttribute::UV0>([](std::span<math::vec2f> uv) {
-        for (auto& value : uv) value = {};
-    });
-
-    auto material = assets.GetMaterial("Phong");
-    if (material && !mesh->sub_meshes.empty()) {
-        mesh->sub_meshes.front().material_instance = material->CreateInstance();
-    }
-    return mesh;
-}
-
-auto CreateSelectionFixture(asset::AssetManager& assets, std::string_view selection_case, std::uint32_t width, std::uint32_t height) -> SelectionFixture {
-    auto scene = std::make_shared<asset::Scene>("selection-outline-fixture");
-    auto cube  = CreateFixtureCubeMesh(assets);
-    auto root  = scene->GetRootEntity();
-
-    const auto a = scene->CreateMeshEntity(cube, math::translate(math::vec3f{0.0f, 0.0f, 0.0f}), root, "selected-cube");
-    const auto c = scene->CreateMeshEntity(cube, math::translate(math::vec3f{1.55f, 0.0f, 0.0f}), root, "side-cube");
-    if (selection_case == "occluded") {
-        scene->CreateMeshEntity(cube, math::translate(math::vec3f{0.0f, -0.58f, 0.0f}) * math::scale(math::vec3f{0.82f, 0.82f, 0.82f}), root, "occluder-cube");
-    }
-    scene->Update();
-
-    render::EditorSelectionDesc selection{
-        .enabled = selection_case != "none" && selection_case != "no_selection",
-    };
-    if (selection.enabled) {
-        selection.items.emplace_back(render::EditorSelectionItem{
-            .entity       = a,
-            .visual       = render::EditorSelectionVisual::Selected,
-            .selection_id = 1,
-        });
-        if (selection_case == "multi") {
-            selection.items.emplace_back(render::EditorSelectionItem{
-                .entity       = c,
-                .visual       = render::EditorSelectionVisual::Selected,
-                .selection_id = 2,
-            });
-        } else if (selection_case == "hover") {
-            selection.items.emplace_back(render::EditorSelectionItem{
-                .entity       = c,
-                .visual       = render::EditorSelectionVisual::Hovered,
-                .selection_id = 2,
-            });
-        }
-    }
-
-    auto camera = asset::Camera(asset::Camera::Parameters{
-        .aspect         = static_cast<float>(width) / static_cast<float>(height),
-        .near_clip      = 0.01f,
-        .far_clip       = 50.0f,
-        .horizontal_fov = static_cast<float>(52.0_deg),
-        .eye            = {0.25f, -5.0f, 1.15f},
-        .look_dir       = math::normalize(math::vec3f{-0.08f, 1.0f, -0.18f}),
-        .up             = {0.0f, 0.0f, 1.0f},
-    });
-
-    return {
-        .scene     = scene,
-        .camera    = camera,
-        .selection = std::move(selection),
-    };
 }
 
 auto ComputeSceneBounds(asset::Scene& scene) -> math::AABBf {
@@ -354,14 +259,7 @@ auto main(int argc, char** argv) -> int {
     auto device = gfx::create_device(ParseBackend(options.backend));
     auto assets = std::make_unique<asset::AssetManager>(options.asset_root);
 
-    SelectionFixture fixture;
-    auto scene = options.selection_fixture
-                     ? std::shared_ptr<asset::Scene>{}
-                     : assets->ImportScene(options.scene_path);
-    if (options.selection_fixture) {
-        fixture = CreateSelectionFixture(*assets, options.selection_case.empty() ? "selected" : std::string_view(options.selection_case), options.width, options.height);
-        scene   = fixture.scene;
-    }
+    auto scene = assets->ImportScene(options.scene_path);
     if (scene == nullptr) {
         std::println("scene: {}", options.scene_path.string());
         std::println("status: failed to import scene");
@@ -372,9 +270,9 @@ auto main(int argc, char** argv) -> int {
     render::DefaultRenderer renderer(*device, *app, "SceneCapture");
 
     const auto format       = gfx::Format::R8G8B8A8_UNORM;
-    auto camera_setup = options.selection_fixture ? CameraSetup{} : CreateCaptureCamera(*scene, options.width, options.height);
-    auto& camera      = options.selection_fixture ? fixture.camera : camera_setup.camera;
-    auto  camera_transform = options.selection_fixture ? fixture.camera_transform : camera_setup.transform;
+    auto camera_setup     = CreateCaptureCamera(*scene, options.width, options.height);
+    auto& camera          = camera_setup.camera;
+    auto  camera_transform = camera_setup.transform;
 
     if (!options.output.parent_path().empty()) {
         std::filesystem::create_directories(options.output.parent_path());
@@ -384,16 +282,13 @@ auto main(int argc, char** argv) -> int {
     PixelStats        last_stats;
     bool              encoded_all = true;
     for (std::uint32_t frame = 0; frame < options.frames; ++frame) {
-        const auto target_usages = options.selection_fixture
-                                       ? (gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc | gfx::TextureUsageFlags::SRV)
-                                       : (gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc);
         auto target = runtime.GetRenderGraph().Create(gfx::TextureDesc{
             .name        = std::pmr::string(std::format("SceneCaptureTarget_{}", frame)),
             .width       = options.width,
             .height      = options.height,
             .format      = format,
             .clear_value = math::Color{0.0f, 0.0f, 0.0f, 1.0f},
-            .usages      = target_usages,
+            .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc,
         });
         auto readback_buffer = device->CreateGPUBuffer(gfx::GPUBufferDesc{
             .name          = std::pmr::string(std::format("SceneCaptureReadbackBuffer_{}", frame)),
@@ -405,13 +300,15 @@ auto main(int argc, char** argv) -> int {
         auto render_context = runtime.MakeContext();
         target = renderer.Render(
             render_context,
-            render::SceneView{
-                .scene            = scene,
-                .camera           = &camera,
-                .camera_transform = camera_transform,
-                .editor_selection = fixture.selection,
-            },
-            target);
+            render::RenderRequest{
+                .view = render::SceneView{
+                    .scene            = scene,
+                    .camera           = &camera,
+                    .camera_transform = camera_transform,
+                },
+                .target = target,
+            })
+                     .color;
         runtime.CopyToBuffer(target, readback_buffer);
         runtime.Tick();
         device->WaitIdle();
