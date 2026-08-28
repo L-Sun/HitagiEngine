@@ -1,0 +1,18 @@
+target("pbr-demo-game-lib")
+    set_kind("static")
+    add_files("pbr_demo.cppm", {public = true})
+    add_deps("engine")
+    add_packages("spdlog")
+    set_rundir("$(projectdir)")
+
+target("pbr-demo-game")
+    add_files("game.cpp")
+    add_deps("pbr-demo-game-lib")
+    add_packages("spdlog")
+    set_rundir("$(projectdir)")
+
+target("pbr-demo-game-editor")
+    add_files("editor.cpp")
+    add_deps("pbr-demo-game-lib", "hitagi_editor")
+    add_packages("spdlog")
+    set_rundir("$(projectdir)")

@@ -1,0 +1,13 @@
+target("snake-game")
+    add_files("snake.cppm", {public = true})
+    add_files("game.cpp")
+    add_deps("engine")
+    add_packages("spdlog")
+    set_rundir("$(projectdir)")
+
+target("snake-editor")
+    add_files("snake.cppm", {public = true})
+    add_files("editor.cpp")
+    add_deps("hitagi_editor")
+    add_packages("spdlog")
+    set_rundir("$(projectdir)")
