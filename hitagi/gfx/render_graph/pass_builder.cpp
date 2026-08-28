@@ -55,14 +55,6 @@ auto PassBuilder::Finish() -> std::size_t {
         pass_base->AddInputNode(sampler_node);
     }
 
-    for (const auto render_pipeline_node : pass_base->m_RenderPipelines) {
-        pass_base->AddInputNode(render_pipeline_node);
-    }
-
-    for (const auto compute_pipeline_node : pass_base->m_ComputePipelines) {
-        pass_base->AddInputNode(compute_pipeline_node);
-    }
-
     m_Finished = true;
 
     return pass_base->m_Handle;
@@ -97,10 +89,11 @@ void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge 
 
     if (!new_edge.write &&
         !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Constant) &&
+        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Storage) &&
         !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Vertex) &&
         !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Index) &&
         !utils::has_flag(usages, gfx::GPUBufferUsageFlags::CopySrc)) {
-        Invalidate(std::format("{} buffer failed: buffer({}) is not a constant buffer", write_str, buffer_node->GetName()));
+        Invalidate(std::format("{} buffer failed: buffer({}) is not readable", write_str, buffer_node->GetName()));
         return;
     }
     if (new_edge.write &&
@@ -234,10 +227,10 @@ auto RenderPassBuilder::Read(GPUBufferHandle buffer, gfx::PipelineStage stage) n
         return *this;
     }
     const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
-    return Read(buffer, 0, buffer_node->GetDesc().element_count, stage);
+    return Read(buffer, 0, 1, buffer_node->GetDesc().size, stage);
 }
 
-auto RenderPassBuilder::Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
+auto RenderPassBuilder::Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
     AddGPUBufferEdge(
         buffer,
         {
@@ -246,6 +239,7 @@ auto RenderPassBuilder::Read(GPUBufferHandle buffer, std::size_t element_offset,
             .stage          = stage,
             .element_offset = element_offset,
             .num_elements   = num_elements,
+            .element_size    = element_size,
         });
     return *this;
 }
@@ -292,10 +286,10 @@ auto RenderPassBuilder::Write(GPUBufferHandle buffer, gfx::PipelineStage stage) 
         return *this;
     }
     auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
-    return Write(buffer, 0, buffer_node->GetDesc().element_count, stage);
+    return Write(buffer, 0, 1, buffer_node->GetDesc().size, stage);
 }
 
-auto RenderPassBuilder::Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
+auto RenderPassBuilder::Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
     AddGPUBufferEdge(
         buffer,
         {
@@ -304,6 +298,7 @@ auto RenderPassBuilder::Write(GPUBufferHandle buffer, std::size_t element_offset
             .stage          = stage,
             .element_offset = element_offset,
             .num_elements   = num_elements,
+            .element_size    = element_size,
         });
     return *this;
 }
@@ -386,23 +381,6 @@ auto RenderPassBuilder::AddSampler(SamplerHandle sampler) noexcept -> RenderPass
     return *this;
 }
 
-auto RenderPassBuilder::AddPipeline(RenderPipelineHandle pipeline) noexcept -> RenderPassBuilder& {
-    if (m_Invalid) return *this;
-
-    if (!m_RenderGraph.IsValid(pipeline)) {
-        Invalidate(std::format("Add pipeline failed: pipeline({}) is invalid", pipeline.index));
-        return *this;
-    }
-
-    const auto pipeline_node = static_cast<RenderPipelineNode*>(m_RenderGraph.m_Nodes[pipeline.index].get());
-
-    if (!pass->m_RenderPipelines.contains(pipeline_node)) {
-        pass->m_RenderPipelines.emplace(pipeline_node);
-    }
-
-    return *this;
-}
-
 auto RenderPassBuilder::SetExecutor(RenderPassNode::Executor executor) noexcept -> RenderPassBuilder& {
     if (m_Invalid) return *this;
 
@@ -467,10 +445,10 @@ auto ComputePassBuilder::Read(GPUBufferHandle buffer) noexcept -> ComputePassBui
         return *this;
     }
     const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
-    return Read(buffer, 0, buffer_node->GetDesc().element_count);
+    return Read(buffer, 0, 1, buffer_node->GetDesc().size);
 }
 
-auto ComputePassBuilder::Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements) noexcept -> ComputePassBuilder& {
+auto ComputePassBuilder::Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size) noexcept -> ComputePassBuilder& {
     AddGPUBufferEdge(
         buffer,
         {
@@ -479,6 +457,7 @@ auto ComputePassBuilder::Read(GPUBufferHandle buffer, std::size_t element_offset
             .stage          = gfx::PipelineStage::ComputeShader,
             .element_offset = element_offset,
             .num_elements   = num_elements,
+            .element_size    = element_size,
         });
     return *this;
 }
@@ -504,10 +483,10 @@ auto ComputePassBuilder::Write(GPUBufferHandle buffer) noexcept -> ComputePassBu
         return *this;
     }
     const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
-    return Write(buffer, 0, buffer_node->GetDesc().element_count);
+    return Write(buffer, 0, 1, buffer_node->GetDesc().size);
 }
 
-auto ComputePassBuilder::Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements) noexcept -> ComputePassBuilder& {
+auto ComputePassBuilder::Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size) noexcept -> ComputePassBuilder& {
     AddGPUBufferEdge(
         buffer,
         {
@@ -516,6 +495,7 @@ auto ComputePassBuilder::Write(GPUBufferHandle buffer, std::size_t element_offse
             .stage          = gfx::PipelineStage::ComputeShader,
             .element_offset = element_offset,
             .num_elements   = num_elements,
+            .element_size    = element_size,
         });
     return *this;
 }
@@ -535,23 +515,6 @@ auto ComputePassBuilder::Write(TextureHandle texture, gfx::TextureSubresourceLay
 
 auto ComputePassBuilder::AddSampler(SamplerHandle sampler) noexcept -> ComputePassBuilder& {
     AddSamplerEdge(sampler, SamplerEdge{});
-    return *this;
-}
-
-auto ComputePassBuilder::AddPipeline(ComputePipelineHandle pipeline) noexcept -> ComputePassBuilder& {
-    if (m_Invalid) return *this;
-
-    if (!m_RenderGraph.IsValid(pipeline)) {
-        Invalidate(std::format("Add pipeline failed: pipeline({}) is invalid", pipeline.index));
-        return *this;
-    }
-
-    const auto pipeline_node = static_cast<ComputePipelineNode*>(m_RenderGraph.m_Nodes[pipeline.index].get());
-
-    if (!pass->m_ComputePipelines.contains(pipeline_node)) {
-        pass->m_ComputePipelines.emplace(pipeline_node);
-    }
-
     return *this;
 }
 
@@ -576,9 +539,6 @@ auto ComputePassBuilder::Finish() noexcept -> ComputePassHandle {
     {
         if (!pass->m_Executor) {
             Invalidate("Finish compute pass failed: executor is not set");
-        }
-        if (pass->m_ComputePipelines.empty()) {
-            Invalidate("Finish compute pass failed: pipeline is not set");
         }
     }
     if (m_Invalid) return {};

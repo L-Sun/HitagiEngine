@@ -242,8 +242,16 @@ auto DX12Device::CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> 
     return std::make_shared<DX12GPUBuffer>(*this, std::move(desc), initial_data);
 }
 
+auto DX12Device::CreateGPUBufferView(GPUBufferViewDesc desc) -> std::shared_ptr<GPUBufferView> {
+    return std::make_shared<DX12GPUBufferView>(*this, std::move(desc));
+}
+
 auto DX12Device::CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
     return std::make_shared<DX12Texture>(*this, std::move(desc), initial_data);
+}
+
+auto DX12Device::CreateTextureView(TextureViewDesc desc) -> std::shared_ptr<TextureView> {
+    return std::make_shared<DX12TextureView>(*this, std::move(desc));
 }
 
 auto DX12Device::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
@@ -254,12 +262,12 @@ auto DX12Device::CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> {
     return std::make_shared<DX12Shader>(*this, std::move(desc));
 }
 
-auto DX12Device::CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> {
-    return std::make_shared<DX12RenderPipeline>(*this, std::move(desc));
+auto DX12Device::CreateRenderPipeline(RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) -> std::shared_ptr<RenderPipeline> {
+    return std::make_shared<DX12RenderPipeline>(*this, std::move(desc), shaders);
 }
 
-auto DX12Device::CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> {
-    return std::make_shared<DX12ComputePipeline>(*this, std::move(desc));
+auto DX12Device::CreateComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) -> std::shared_ptr<ComputePipeline> {
+    return std::make_shared<DX12ComputePipeline>(*this, std::move(desc), cs);
 }
 
 auto DX12Device::GetBindlessUtils() -> BindlessUtils& {

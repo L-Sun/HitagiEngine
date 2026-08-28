@@ -85,17 +85,23 @@ DX12BindlessUtils::DX12BindlessUtils(DX12Device& device, std::string_view name) 
     }
 }
 
-auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t index, bool writable) -> BindlessHandle {
-    if (writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
+auto DX12BindlessUtils::CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle {
+    const auto& view_desc  = view.GetDesc();
+    auto&       buffer     = *view_desc.buffer;
+    const auto  view_type  = view_desc.type;
+    const auto is_storage = view_type == GPUBufferViewType::StorageRead || view_type == GPUBufferViewType::StorageWrite;
+    const auto writable   = view_type == GPUBufferViewType::StorageWrite;
+
+    if (is_storage && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
         const auto error_message = fmt::format(
-            "Failed to create BindlessHandle: buffer({}) is not writable",
+            "Failed to create BindlessHandle: buffer({}) is not a storage buffer",
             fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
         m_Device.GetLogger()->error(error_message);
         throw std::invalid_argument(error_message);
     }
-    if (!writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
+    if (view_type == GPUBufferViewType::Constant && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
         const auto error_message = fmt::format(
-            "Failed to create BindlessHandle: buffer({}) is not used for shader visible",
+            "Failed to create BindlessHandle: buffer({}) is not a constant buffer",
             fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
         m_Device.GetLogger()->error(error_message);
         throw std::invalid_argument(error_message);
@@ -114,14 +120,18 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
     const auto& dx12_buffer = dynamic_cast<DX12GPUBuffer&>(buffer);
 
     const auto descriptor_increment_size = dx12_device.GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    const auto descriptor_cpu_handle      = CD3DX12_CPU_DESCRIPTOR_HANDLE(
+        m_CBV_SRV_UAV_DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+        handle.index,
+        descriptor_increment_size);
 
     if (writable) {
         D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
             .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
             .Buffer        = {
-                .FirstElement        = 0,
-                .NumElements         = static_cast<UINT>(buffer.GetDesc().element_count),
-                .StructureByteStride = static_cast<UINT>(buffer.GetDesc().element_size),
+                .FirstElement        = view_desc.offset / view_desc.element_size,
+                .NumElements         = static_cast<UINT>(view_desc.element_count),
+                .StructureByteStride = static_cast<UINT>(view_desc.element_size),
                 .Flags               = D3D12_BUFFER_UAV_FLAG_NONE,
             },
         };
@@ -129,27 +139,41 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::size_t inde
             dx12_buffer.resource.Get(),
             nullptr,
             &uav_desc,
-            CD3DX12_CPU_DESCRIPTOR_HANDLE(
-                m_CBV_SRV_UAV_DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-                handle.index,
-                descriptor_increment_size));
+            descriptor_cpu_handle);
+    } else if (view_type == GPUBufferViewType::StorageRead) {
+        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
+            .Format                  = DXGI_FORMAT_UNKNOWN,
+            .ViewDimension           = D3D12_SRV_DIMENSION_BUFFER,
+            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+            .Buffer                  = {
+                .FirstElement        = view_desc.offset / view_desc.element_size,
+                .NumElements         = static_cast<UINT>(view_desc.element_count),
+                .StructureByteStride = static_cast<UINT>(view_desc.element_size),
+                .Flags               = D3D12_BUFFER_SRV_FLAG_NONE,
+            },
+        };
+        dx12_device.GetDevice()->CreateShaderResourceView(
+            dx12_buffer.resource.Get(),
+            &srv_desc,
+            descriptor_cpu_handle);
     } else {
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
-            .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress() + index * buffer.AlignedElementSize(),
-            .SizeInBytes    = static_cast<UINT>(buffer.AlignedElementSize()),
+            .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress() + view_desc.offset,
+            .SizeInBytes    = static_cast<UINT>(ConstantBufferElementSize(view_desc.element_size) * view_desc.element_count),
         };
         dx12_device.GetDevice()->CreateConstantBufferView(
             &cbv_desc,
-            CD3DX12_CPU_DESCRIPTOR_HANDLE(
-                m_CBV_SRV_UAV_DescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-                handle.index,
-                descriptor_increment_size));
+            descriptor_cpu_handle);
     }
 
     return handle;
 }
 
-auto DX12BindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) -> BindlessHandle {
+auto DX12BindlessUtils::CreateBindlessHandle(TextureView& view) -> BindlessHandle {
+    const auto& view_desc = view.GetDesc();
+    auto&       texture   = *view_desc.texture;
+    const auto  writable  = view_desc.type == TextureViewType::ShaderWrite;
+
     if (writable && !utils::has_flag(texture.GetDesc().usages, TextureUsageFlags::UAV)) {
         const auto error_message = fmt::format(
             "Failed to create BindlessHandle: texture({}) is not writable",
@@ -181,7 +205,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) ->
     const auto descriptor_increment_size = dx12_device.GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     if (writable) {
-        const auto uav_desc = to_d3d_uav_desc(dx12_texture.GetDesc());
+        const auto uav_desc = to_d3d_uav_desc(view_desc);
         dx12_device.GetDevice()->CreateUnorderedAccessView(
             dx12_texture.resource.Get(),
             nullptr,
@@ -191,7 +215,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) ->
                 handle.index,
                 descriptor_increment_size));
     } else {
-        const auto srv_desc = to_d3d_srv_desc(dx12_texture.GetDesc());
+        const auto srv_desc = to_d3d_srv_desc(view_desc);
         dx12_device.GetDevice()->CreateShaderResourceView(
             dx12_texture.resource.Get(),
             &srv_desc,

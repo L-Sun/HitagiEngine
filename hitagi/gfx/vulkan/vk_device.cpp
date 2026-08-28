@@ -216,8 +216,16 @@ auto VulkanDevice::CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte
     return std::make_shared<VulkanBuffer>(*this, std::move(desc), initial_data);
 }
 
+auto VulkanDevice::CreateGPUBufferView(GPUBufferViewDesc desc) -> std::shared_ptr<GPUBufferView> {
+    return std::make_shared<VulkanBufferView>(*this, std::move(desc));
+}
+
 auto VulkanDevice::CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
     return std::make_shared<VulkanImage>(*this, std::move(desc), initial_data);
+}
+
+auto VulkanDevice::CreateTextureView(TextureViewDesc desc) -> std::shared_ptr<TextureView> {
+    return std::make_shared<VulkanTextureView>(*this, std::move(desc));
 }
 
 auto VulkanDevice::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
@@ -228,12 +236,12 @@ auto VulkanDevice::CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> {
     return std::make_shared<VulkanShader>(*this, std::move(desc));
 }
 
-auto VulkanDevice::CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> {
-    return std::make_shared<VulkanRenderPipeline>(*this, std::move(desc));
+auto VulkanDevice::CreateRenderPipeline(RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) -> std::shared_ptr<RenderPipeline> {
+    return std::make_shared<VulkanRenderPipeline>(*this, std::move(desc), shaders);
 }
 
-auto VulkanDevice::CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> {
-    return std::make_shared<VulkanComputePipeline>(*this, std::move(desc));
+auto VulkanDevice::CreateComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) -> std::shared_ptr<ComputePipeline> {
+    return std::make_shared<VulkanComputePipeline>(*this, std::move(desc), cs);
 }
 
 auto VulkanDevice::GetBindlessUtils() -> BindlessUtils& {

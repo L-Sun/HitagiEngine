@@ -67,9 +67,9 @@
 
 | File | Partition | Contains |
 |---|---|---|
-| `type.cppm` | `:type` | `RenderGraphNode`, `RenderGraphHandle<T>` template, all 9 typed handle aliases |
+| `type.cppm` | `:type` | `RenderGraphNode`, `RenderGraphHandle<T>` template, typed handle aliases |
 | `resource_edge.cppm` | `:resource_edge` | `GPUBufferEdge`, `TextureEdge`, `SamplerEdge` — carry access/stage/layout metadata |
-| `resource_node.cppm` | `:resource_node` | `ResourceNode` hierarchy: `GPUBufferNode`, `TextureNode`, `SamplerNode`, `RenderPipelineNode`, `ComputePipelineNode` |
+| `resource_node.cppm` | `:resource_node` | `ResourceNode` hierarchy: `GPUBufferNode`, `TextureNode`, `SamplerNode` |
 | `pass_node.cppm` | `:pass_node` | `PassNode` hierarchy: `RenderPassNode`, `ComputePassNode`, `CopyPassNode`, `PresentPassNode` |
 | `pass_builder.cppm` | `:pass_builder` | Fluent builder API: `RenderPassBuilder`, `ComputePassBuilder`, `CopyPassBuilder`, `PresentPassBuilder` |
 | `render_graph.cppm` | primary | `RenderGraph` — owns all nodes, BlackBoard, per-queue fences, retired nodes |
@@ -135,9 +135,7 @@ RenderGraphNode                        render_graph/type.cppm
 ├── ResourceNode                       render_graph/resource_node.cppm
 │   ├── GPUBufferNode (supports Move)
 │   ├── TextureNode   (supports Move)
-│   ├── SamplerNode
-│   ├── RenderPipelineNode
-│   └── ComputePipelineNode
+│   └── SamplerNode
 └── PassNode                           render_graph/pass_node.cppm
     ├── RenderPassNode    (Executor, render target + depth stencil)
     ├── ComputePassNode   (Executor)
@@ -292,7 +290,7 @@ Both backends support CPU-side Signal/Wait and GPU-side Signal/Wait (via queue s
   - These semaphores are automatically injected into submit info by `VulkanCommandQueue::Submit()` when it detects `VulkanGraphicsCommandBuffer` or `VulkanTransferCommandBuffer` carrying swapchain semaphores.
 
 ### Barrier Model
-Both backends use **modern enhanced barrier APIs** (not legacy resource state tracking):
+Both backends use **modern enhanced barrier APIs** (not older resource state tracking):
 - **DX12**: Enhanced Barriers (`D3D12_GLOBAL_BARRIER`, `D3D12_BUFFER_BARRIER`, `D3D12_TEXTURE_BARRIER`) via `ID3D12GraphicsCommandList7::Barrier()`
 - **Vulkan**: Synchronization2 (`vk::MemoryBarrier2`, `vk::BufferMemoryBarrier2`, `vk::ImageMemoryBarrier2`) via `vkCmdPipelineBarrier2`
 

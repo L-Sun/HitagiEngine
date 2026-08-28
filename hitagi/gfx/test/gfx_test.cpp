@@ -22,8 +22,7 @@ TEST(GfxTest, DescHash) {
             buffer_desc_1 = {},
             buffer_desc_2 = {
                 .name          = "buffer_desc_1",
-                .element_size  = 16,
-                .element_count = 32,
+                .size = (16) * (32),
                 .usages        = GPUBufferUsageFlags::Vertex,
             };
 

@@ -35,8 +35,7 @@ protected:
 TEST_F(RenderGraphTest, ImportBuffer) {
     const auto buffer_0 = device->CreateGPUBuffer({
         .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
-        .element_size  = sizeof(float),
-        .element_count = 16,
+        .size = (sizeof(float)) * (16),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
 
@@ -47,8 +46,7 @@ TEST_F(RenderGraphTest, ImportBuffer) {
 
     const auto buffer_1 = device->CreateGPUBuffer({
         .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
-        .element_size  = sizeof(float),
-        .element_count = 16,
+        .size = (sizeof(float)) * (16),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
 
@@ -66,8 +64,7 @@ TEST_F(RenderGraphTest, ImportBuffer) {
 
         const auto diff_buffer = device->CreateGPUBuffer({
             .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
-            .element_size  = sizeof(float),
-            .element_count = 16,
+            .size = (sizeof(float)) * (16),
             .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
         });
         EXPECT_FALSE(rg.IsValid(rg.Import(diff_buffer, buffer_1->GetName()))) << "Import buffer with existed name but different buffer should fail";
@@ -140,8 +137,7 @@ TEST_F(RenderGraphTest, CreateTexture) {
 TEST_F(RenderGraphTest, MoveBuffer) {
     const auto buffer_0 = device->CreateGPUBuffer({
         .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
-        .element_size  = sizeof(float),
-        .element_count = 16,
+        .size = (sizeof(float)) * (16),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
     });
 
@@ -227,11 +223,12 @@ TEST_F(RenderGraphTest, AddRenderPass) {
     ASSERT_TRUE(pixel_shader);
 
     const auto vertex_input_layout = device->GetShaderCompiler().ExtractVertexLayout(vertex_shader->GetDesc());
-    const auto pipeline            = device->CreateRenderPipeline({
-        .name                = std::pmr::string(std::format("Pipeline-{}", test_name)),
-        .shaders             = {vertex_shader, pixel_shader},
-        .vertex_input_layout = vertex_input_layout,
-    });
+    const auto pipeline            = device->CreateRenderPipeline(
+        {
+            .name                = std::pmr::string(std::format("Pipeline-{}", test_name)),
+            .vertex_input_layout = vertex_input_layout,
+        },
+        {vertex_shader, pixel_shader});
 
     const auto output_texture = device->CreateTexture({
         .name        = std::pmr::string(std::format("Texture-{}-{}", test_name, rg.GetFrameIndex())),
@@ -249,38 +246,35 @@ TEST_F(RenderGraphTest, AddRenderPass) {
             .ReadAsVertices(rg.Create(
                 {
                     .name          = std::pmr::string(std::format("positions-{}", test_name)),
-                    .element_size  = sizeof(vec3f),
-                    .element_count = 3,
+                    .size = (sizeof(vec3f)) * (3),
                     .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
                 },
                 "positions"))
             .ReadAsVertices(rg.Create(
                 {
                     .name          = std::pmr::string(std::format("colors-{}", test_name)),
-                    .element_size  = sizeof(vec3f),
-                    .element_count = 3,
+                    .size = (sizeof(vec3f)) * (3),
                     .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
                 },
                 "colors"))
             .SetRenderTarget(rg.Import(output_texture, "output"), true)
-            .AddPipeline(rg.Import(pipeline, "pipeline"))
             .SetExecutor([=](const RenderGraph& rg, const RenderPassNode& pass) {
                 auto rotate_matrix = rotate_z(deg2rad(static_cast<float>(rg.GetFrameIndex())));
 
                 auto&                position_buffer = pass.Resolve(rg.GetBufferHandle("positions"));
-                GPUBufferView<vec3f> positions(position_buffer);
+                GPUBufferView::MappedSpan<vec3f> positions(position_buffer);
                 positions[0] = (rotate_matrix * vec4f{0.0f, 0.5f, 0.0f, 1.0f}).xyz;
                 positions[1] = (rotate_matrix * vec4f{0.5f, -0.5f, 0.0f, 1.0f}).xyz;
                 positions[2] = (rotate_matrix * vec4f{-0.5f, -0.5f, 0.0f, 1.0f}).xyz;
 
                 auto&                color_buffer = pass.Resolve(rg.GetBufferHandle("colors"));
-                GPUBufferView<vec3f> colors(color_buffer);
+                GPUBufferView::MappedSpan<vec3f> colors(color_buffer);
                 colors[0] = {1.0f, 0.0f, 0.0f};
                 colors[1] = {0.0f, 1.0f, 0.0f};
                 colors[2] = {0.0f, 0.0f, 1.0f};
 
                 auto& cmd = pass.GetCmd();
-                cmd.SetPipeline(pass.Resolve(rg.GetRenderPipelineHandle("pipeline")));
+                cmd.SetPipeline(*pipeline);
                 cmd.SetViewPort({
                     .x      = 0,
                     .y      = 0,
@@ -335,20 +329,15 @@ TEST_F(RenderGraphTest, GraphTest) {
         GTEST_SKIP();
     }
 
-    const auto render_pipeline  = rg.Import(device->CreateRenderPipeline({}));
-    const auto compute_pipeline = rg.Import(device->CreateComputePipeline({}));
-
     const auto buffer_1 = rg.Create(GPUBufferDesc{
         .name          = "buffer_1",
-        .element_size  = sizeof(float),
-        .element_count = 1,
+        .size = (sizeof(float)) * (1),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
     });
 
     const auto buffer_2 = rg.Create(GPUBufferDesc{
         .name          = "buffer_2",
-        .element_size  = sizeof(float),
-        .element_count = 1,
+        .size = (sizeof(float)) * (1),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
     });
 
@@ -385,7 +374,6 @@ TEST_F(RenderGraphTest, GraphTest) {
         ComputePassBuilder(rg)
             .SetName("compute pass 1")
             .Write(buffer_1)
-            .AddPipeline(compute_pipeline)
             .SetExecutor([](const RenderGraph& rg, const ComputePassNode& node) {})
             .Finish();
     ASSERT_TRUE(rg.IsValid(compute_pass_1));
@@ -394,7 +382,6 @@ TEST_F(RenderGraphTest, GraphTest) {
         ComputePassBuilder(rg)
             .SetName("compute pass 2")
             .Write(buffer_2)
-            .AddPipeline(compute_pipeline)
             .SetExecutor([](const RenderGraph& rg, const ComputePassNode& node) {})
             .Finish();
     ASSERT_TRUE(rg.IsValid(compute_pass_2));
@@ -405,7 +392,6 @@ TEST_F(RenderGraphTest, GraphTest) {
             .Read(buffer_1, PipelineStage::VertexShader)
             .Read(buffer_2, PipelineStage::PixelShader)
             .SetRenderTarget(texture_1)
-            .AddPipeline(render_pipeline)
             .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
             .Finish();
     ASSERT_TRUE(rg.IsValid(render_pass_1));
@@ -415,7 +401,6 @@ TEST_F(RenderGraphTest, GraphTest) {
             .SetName("render pass 2")
             .Read(buffer_1, PipelineStage::VertexShader)
             .SetRenderTarget(texture_2)
-            .AddPipeline(render_pipeline)
             .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
             .Finish();
     ASSERT_TRUE(rg.IsValid(render_pass_2));
@@ -426,7 +411,6 @@ TEST_F(RenderGraphTest, GraphTest) {
             .Read(texture_1, {}, PipelineStage::PixelShader)
             .Read(texture_2, {}, PipelineStage::PixelShader)
             .SetRenderTarget(texture_3)
-            .AddPipeline(render_pipeline)
             .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
             .Finish();
     ASSERT_TRUE(rg.IsValid(render_pass_3));
@@ -436,7 +420,6 @@ TEST_F(RenderGraphTest, GraphTest) {
             .SetName("unused render pass")
             .Read(texture_1, {}, PipelineStage::PixelShader)
             .Read(texture_2, {}, PipelineStage::PixelShader)
-            .AddPipeline(render_pipeline)
             .SetRenderTarget(texture_4)
             .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
             .Finish();
@@ -456,9 +439,7 @@ protected:
     RenderGraphCullingTest()
         : device(create_device(Device::Type::Mock, "RenderGraphCulling")),
           rg(*device, "RenderGraphCulling"),
-          swap_chain(device->CreateSwapChain({})),
-          render_pipeline(device->CreateRenderPipeline({})),
-          pipeline(rg.Import(render_pipeline, "pipeline")) {}
+          swap_chain(device->CreateSwapChain({})) {}
 
     void SetUp() override {
         ASSERT_TRUE(device) << "Failed to create mock device";
@@ -480,8 +461,6 @@ protected:
     std::shared_ptr<Device>         device;
     RenderGraph                     rg;
     std::shared_ptr<SwapChain>      swap_chain;
-    std::shared_ptr<RenderPipeline> render_pipeline;
-    RenderPipelineHandle            pipeline;
 };
 
 TEST_F(RenderGraphCullingTest, CullsUnrootedPassWithoutPresent) {
@@ -490,7 +469,6 @@ TEST_F(RenderGraphCullingTest, CullsUnrootedPassWithoutPresent) {
     RenderPassBuilder(rg)
         .SetName("unrooted_pass")
         .SetRenderTarget(CreateRenderTarget("unrooted_target"))
-        .AddPipeline(pipeline)
         .SetExecutor([&executed](const RenderGraph&, const RenderPassNode&) {
             executed = true;
         })
@@ -502,6 +480,21 @@ TEST_F(RenderGraphCullingTest, CullsUnrootedPassWithoutPresent) {
     EXPECT_FALSE(executed);
 }
 
+TEST_F(RenderGraphCullingTest, ToDotSkipsFreedNodeSlotsAfterReset) {
+    RenderPassBuilder(rg)
+        .SetName("transient_pass")
+        .SetRenderTarget(CreateRenderTarget("transient_target"))
+        .SetExecutor([](const RenderGraph&, const RenderPassNode&) {})
+        .Finish();
+
+    EXPECT_TRUE(rg.Compile());
+    rg.Execute();
+
+    const auto dot = rg.ToDot();
+    EXPECT_NE(dot.find("digraph"), std::pmr::string::npos);
+    EXPECT_EQ(dot.find("transient_pass"), std::pmr::string::npos);
+}
+
 TEST_F(RenderGraphCullingTest, NonCullablePassExecutesWithoutPresent) {
     bool executed = false;
 
@@ -509,7 +502,6 @@ TEST_F(RenderGraphCullingTest, NonCullablePassExecutesWithoutPresent) {
         .SetName("side_effect_pass")
         .AllowPassCulling(false)
         .SetRenderTarget(CreateRenderTarget("side_effect_target"))
-        .AddPipeline(pipeline)
         .SetExecutor([&executed](const RenderGraph&, const RenderPassNode&) {
             executed = true;
         })
@@ -529,7 +521,6 @@ TEST_F(RenderGraphCullingTest, BufferExtractionKeepsProducerWithoutPresent) {
     RenderPassBuilder(rg)
         .SetName("producer_pass")
         .SetRenderTarget(target)
-        .AddPipeline(pipeline)
         .SetExecutor([&producer_executed](const RenderGraph&, const RenderPassNode&) {
             producer_executed = true;
         })
@@ -537,8 +528,7 @@ TEST_F(RenderGraphCullingTest, BufferExtractionKeepsProducerWithoutPresent) {
 
     const auto readback_buffer = device->CreateGPUBuffer({
         .name          = "extraction_readback",
-        .element_size  = 4,
-        .element_count = 16 * 16,
+        .size = (4) * (16 * 16),
         .usages        = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
     });
 
@@ -560,7 +550,6 @@ TEST_F(RenderGraphCullingTest, CullsDisconnectedBranchWithPresent) {
     RenderPassBuilder(rg)
         .SetName("present_branch")
         .SetRenderTarget(present_target)
-        .AddPipeline(pipeline)
         .SetExecutor([&present_branch_executed](const RenderGraph&, const RenderPassNode&) {
             present_branch_executed = true;
         })
@@ -569,7 +558,6 @@ TEST_F(RenderGraphCullingTest, CullsDisconnectedBranchWithPresent) {
     RenderPassBuilder(rg)
         .SetName("culled_branch")
         .SetRenderTarget(CreateRenderTarget("culled_target"))
-        .AddPipeline(pipeline)
         .SetExecutor([&culled_branch_executed](const RenderGraph&, const RenderPassNode&) {
             culled_branch_executed = true;
         })
@@ -588,18 +576,14 @@ TEST_F(RenderGraphCullingTest, CullsDisconnectedBranchWithPresent) {
 }
 
 TEST_F(RenderGraphCullingTest, SideEffectPassesRespectLayerDependencies) {
-    const auto compute_pipeline = rg.Import(device->CreateComputePipeline({}), "compute_pipeline");
-
     const auto producer_buffer = rg.Create(GPUBufferDesc{
         .name          = "producer_buffer",
-        .element_size  = sizeof(float),
-        .element_count = 1,
+        .size = (sizeof(float)) * (1),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
     });
     const auto independent_buffer = rg.Create(GPUBufferDesc{
         .name          = "independent_buffer",
-        .element_size  = sizeof(float),
-        .element_count = 1,
+        .size = (sizeof(float)) * (1),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
     });
 
@@ -614,7 +598,6 @@ TEST_F(RenderGraphCullingTest, SideEffectPassesRespectLayerDependencies) {
         ComputePassBuilder(rg)
             .SetName("producer")
             .Write(producer_buffer)
-            .AddPipeline(compute_pipeline)
             .SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
                 record_execution("producer");
             })
@@ -626,7 +609,6 @@ TEST_F(RenderGraphCullingTest, SideEffectPassesRespectLayerDependencies) {
             .SetName("independent")
             .AllowPassCulling(false)
             .Write(independent_buffer)
-            .AddPipeline(compute_pipeline)
             .SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
                 record_execution("independent");
             })
@@ -638,7 +620,6 @@ TEST_F(RenderGraphCullingTest, SideEffectPassesRespectLayerDependencies) {
             .SetName("consumer")
             .AllowPassCulling(false)
             .Read(producer_buffer)
-            .AddPipeline(compute_pipeline)
             .SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
                 record_execution("consumer");
             })
@@ -675,8 +656,7 @@ TEST_F(RenderGraphTest, CopyTextureToBuffer) {
 
     const auto dst_buffer = rg.Create(GPUBufferDesc{
         .name          = "dst_buffer",
-        .element_size  = 4,
-        .element_count = 64 * 64,
+        .size = (4) * (64 * 64),
         .usages        = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
     });
 
@@ -707,8 +687,7 @@ protected:
     TransientResourcePoolTest()
         : device(create_device(Device::Type::Mock, "TransientPool")),
           rg(*device, "TransientPool"),
-          swap_chain(device->CreateSwapChain({})),
-          render_pipeline(device->CreateRenderPipeline({})) {}
+          swap_chain(device->CreateSwapChain({})) {}
 
     void SetUp() override {
         ASSERT_TRUE(device) << "Failed to create mock device";
@@ -724,13 +703,11 @@ protected:
 
         const auto buffer          = rg.Create(buffer_desc, "buf");
         const auto texture         = rg.Create(texture_desc, "tex");
-        const auto pipeline_handle = rg.Import(render_pipeline);
 
         RenderPassBuilder(rg)
             .SetName("pass")
             .Read(buffer, PipelineStage::VertexShader)
             .SetRenderTarget(texture)
-            .AddPipeline(pipeline_handle)
             .SetExecutor([&result, buffer, texture](const RenderGraph& rg_ref, const RenderPassNode& node) {
                 result.buffer  = &node.Resolve(buffer);
                 result.texture = &node.Resolve(texture);
@@ -750,14 +727,12 @@ protected:
     std::shared_ptr<Device>         device;
     RenderGraph                     rg;
     std::shared_ptr<SwapChain>      swap_chain;
-    std::shared_ptr<RenderPipeline> render_pipeline;
 };
 
 TEST_F(TransientResourcePoolTest, BufferAndTextureReuse) {
     const GPUBufferDesc buffer_desc{
         .name          = "test_buffer",
-        .element_size  = sizeof(float),
-        .element_count = 16,
+        .size = (sizeof(float)) * (16),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
     };
     const TextureDesc texture_desc{
@@ -784,8 +759,7 @@ TEST_F(TransientResourcePoolTest, BufferAndTextureReuse) {
 TEST_F(TransientResourcePoolTest, NoReuseOnDescMismatch) {
     const GPUBufferDesc buffer_desc_a{
         .name          = "buffer_a",
-        .element_size  = sizeof(float),
-        .element_count = 16,
+        .size = (sizeof(float)) * (16),
         .usages        = GPUBufferUsageFlags::Constant,
     };
     const TextureDesc texture_desc_a{
@@ -801,8 +775,7 @@ TEST_F(TransientResourcePoolTest, NoReuseOnDescMismatch) {
 
     const GPUBufferDesc buffer_desc_b{
         .name          = "buffer_b",
-        .element_size  = sizeof(float),
-        .element_count = 32,
+        .size = (sizeof(float)) * (32),
         .usages        = GPUBufferUsageFlags::Constant,
     };
     const TextureDesc texture_desc_b{
@@ -823,8 +796,7 @@ TEST_F(TransientResourcePoolTest, NoReuseOnDescMismatch) {
 TEST_F(TransientResourcePoolTest, NameIndependentReuse) {
     const GPUBufferDesc buffer_desc_frame1{
         .name          = "buffer_frame1",
-        .element_size  = sizeof(float),
-        .element_count = 16,
+        .size = (sizeof(float)) * (16),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
     };
     const TextureDesc texture_desc_frame1{
@@ -840,8 +812,7 @@ TEST_F(TransientResourcePoolTest, NameIndependentReuse) {
 
     const GPUBufferDesc buffer_desc_frame2{
         .name          = "buffer_frame2_different_name",
-        .element_size  = sizeof(float),
-        .element_count = 16,
+        .size = (sizeof(float)) * (16),
         .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
     };
     const TextureDesc texture_desc_frame2{

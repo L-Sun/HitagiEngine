@@ -140,41 +140,44 @@ void VulkanGraphicsCommandBuffer::End() {
     command_buffer.end();
 }
 
-void VulkanGraphicsCommandBuffer::BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil, bool clear_render_target, bool clear_depth_stencil) {
-    auto& vk_color_attachment_image = static_cast<VulkanImage&>(render_target);
+void VulkanGraphicsCommandBuffer::BeginRendering(TextureView& render_target, utils::optional_ref<TextureView> depth_stencil, bool clear_render_target, bool clear_depth_stencil) {
+    auto& color_attachment_texture     = *render_target.GetDesc().texture;
+    auto& vk_color_attachment_view     = static_cast<VulkanTextureView&>(render_target);
+    auto& vk_color_attachment_image    = static_cast<VulkanImage&>(color_attachment_texture);
 
     vk::RenderingAttachmentInfo color_attachment, depth_attachment, stencil_attachment;
 
     color_attachment = {
-        .imageView   = *vk_color_attachment_image.image_view.value(),
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp      = clear_render_target && vk_color_attachment_image.GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+        .imageView   = *vk_color_attachment_view.image_view.value(),
+        .imageLayout = to_vk_image_layout(color_attachment_texture.GetCurrentLayout()),
+        .loadOp      = clear_render_target && color_attachment_texture.GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
         .storeOp     = vk::AttachmentStoreOp::eStore,
-        .clearValue  = clear_render_target && vk_color_attachment_image.GetDesc().clear_value
-                           ? to_vk_clear_value(vk_color_attachment_image.GetDesc().clear_value.value())
+        .clearValue  = clear_render_target && color_attachment_texture.GetDesc().clear_value
+                           ? to_vk_clear_value(color_attachment_texture.GetDesc().clear_value.value())
                            : vk::ClearValue{},
     };
     if (depth_stencil.has_value()) {
-        auto& vk_depth_stencil_image = static_cast<VulkanImage&>(depth_stencil->get());
-        depth_attachment             = {
-            .imageView   = *vk_depth_stencil_image.image_view.value(),
-            .imageLayout = to_vk_image_layout(vk_depth_stencil_image.GetCurrentLayout()),
-            .loadOp      = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+        auto& depth_stencil_texture = *depth_stencil->get().GetDesc().texture;
+        auto& vk_depth_stencil_view = static_cast<VulkanTextureView&>(depth_stencil->get());
+        depth_attachment            = {
+            .imageView   = *vk_depth_stencil_view.image_view.value(),
+            .imageLayout = to_vk_image_layout(depth_stencil_texture.GetCurrentLayout()),
+            .loadOp      = clear_depth_stencil && depth_stencil_texture.GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
             .storeOp     = vk::AttachmentStoreOp::eStore,
-            .clearValue  = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value
-                               ? to_vk_clear_value(depth_stencil->get().GetDesc().clear_value.value())
+            .clearValue  = clear_depth_stencil && depth_stencil_texture.GetDesc().clear_value
+                               ? to_vk_clear_value(depth_stencil_texture.GetDesc().clear_value.value())
                                : vk::ClearValue{},
         };
-        switch (depth_stencil->get().GetDesc().format) {
+        switch (depth_stencil_texture.GetDesc().format) {
             case Format::D24_UNORM_S8_UINT:
             case Format::D32_FLOAT_S8X24_UINT: {
                 stencil_attachment = {
-                    .imageView   = *vk_depth_stencil_image.image_view.value(),
-                    .imageLayout = to_vk_image_layout(vk_depth_stencil_image.GetCurrentLayout()),
-                    .loadOp      = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
+                    .imageView   = *vk_depth_stencil_view.image_view.value(),
+                    .imageLayout = to_vk_image_layout(depth_stencil_texture.GetCurrentLayout()),
+                    .loadOp      = clear_depth_stencil && depth_stencil_texture.GetDesc().clear_value ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
                     .storeOp     = vk::AttachmentStoreOp::eStore,
-                    .clearValue  = clear_depth_stencil && depth_stencil->get().GetDesc().clear_value
-                                       ? to_vk_clear_value(depth_stencil->get().GetDesc().clear_value.value())
+                    .clearValue  = clear_depth_stencil && depth_stencil_texture.GetDesc().clear_value
+                                       ? to_vk_clear_value(depth_stencil_texture.GetDesc().clear_value.value())
                                        : vk::ClearValue{},
                 };
             }
@@ -227,14 +230,14 @@ void VulkanGraphicsCommandBuffer::SetBlendColor(const math::Color& color) {
     command_buffer.setBlendConstants(color);
 }
 
-void VulkanGraphicsCommandBuffer::SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset) {
+void VulkanGraphicsCommandBuffer::SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset, Format index_format) {
     vk::IndexType index_type;
-    if (buffer.GetDesc().element_size == sizeof(std::uint32_t)) {
+    if (index_format == Format::R32_UINT) {
         index_type = vk::IndexType::eUint32;
-    } else if (buffer.GetDesc().element_size == sizeof(std::uint16_t)) {
+    } else if (index_format == Format::R16_UINT) {
         index_type = vk::IndexType::eUint16;
     } else {
-        auto error_message = std::format("Unsupported index buffer which element size is {}", buffer.GetDesc().element_size);
+        auto error_message = std::format("Unsupported index buffer format {}", format_as(index_format));
         m_Device.GetLogger()->error(error_message);
         throw std::runtime_error(error_message);
     }

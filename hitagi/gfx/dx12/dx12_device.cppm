@@ -25,7 +25,6 @@ class DX12Device;
 class DX12SwapChain;
 class DescriptorHeap;
 
-
 class Descriptor {
 public:
     Descriptor()                             = default;
@@ -109,6 +108,10 @@ struct DX12GPUBuffer : public GPUBuffer {
     std::uint16_t mapped_count{0};
 };
 
+struct DX12GPUBufferView final : public GPUBufferView {
+    DX12GPUBufferView(DX12Device& device, GPUBufferViewDesc desc);
+};
+
 struct DX12Texture : public Texture {
     DX12Texture(DX12Device& device, TextureDesc desc, std::span<const std::byte> initial_data = {});
     DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index);
@@ -118,7 +121,12 @@ struct DX12Texture : public Texture {
 
     ComPtr<D3D12MA::Allocation> allocation;
     ComPtr<ID3D12Resource>      resource;
-    Descriptor                  rtv, dsv;
+};
+
+struct DX12TextureView final : public TextureView {
+    DX12TextureView(DX12Device& device, TextureViewDesc desc);
+
+    Descriptor rtv, dsv;
 };
 
 struct DX12Sampler : public Sampler {
@@ -139,13 +147,13 @@ struct DX12Shader : public Shader {
 };
 
 struct DX12RenderPipeline : public RenderPipeline {
-    DX12RenderPipeline(DX12Device& device, RenderPipelineDesc desc);
+    DX12RenderPipeline(DX12Device& device, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders);
 
     ComPtr<ID3D12PipelineState> pipeline;
 };
 
 struct DX12ComputePipeline : public ComputePipeline {
-    DX12ComputePipeline(DX12Device& device, ComputePipelineDesc desc);
+    DX12ComputePipeline(DX12Device& device, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs);
 
     ComPtr<ID3D12PipelineState> pipeline;
 };
@@ -186,10 +194,10 @@ public:
         std::span<const GPUBufferBarrier> buffer_barriers  = {},
         std::span<const TextureBarrier>   texture_barriers = {}) final;
 
-    void BeginRendering(Texture&                     render_target,
-                        utils::optional_ref<Texture> depth_stencil       = {},
-                        bool                         clear_render_target = false,
-                        bool                         clear_depth_stencil = false) final;
+    void BeginRendering(TextureView&                     render_target,
+                        utils::optional_ref<TextureView> depth_stencil       = {},
+                        bool                             clear_render_target = false,
+                        bool                             clear_depth_stencil = false) final;
     void EndRendering() final;
 
     void SetPipeline(const RenderPipeline& pipeline) final;
@@ -198,7 +206,7 @@ public:
     void SetScissorRect(const Rect& scissor_rect) final;
     void SetBlendColor(const math::Color& color) final;
 
-    void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0) final;
+    void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0, Format index_format = Format::R32_UINT) final;
     void SetVertexBuffers(
         std::uint8_t                                             start_binding,
         std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
@@ -218,9 +226,9 @@ public:
         TextureSubresourceLayer src_layer = {},
         TextureSubresourceLayer dst_layer = {}) final;
 
-    ComPtr<ID3D12GraphicsCommandList> command_list;
-    ComPtr<ID3D12CommandAllocator>    command_allocator;
-    const RenderPipeline*             m_Pipeline = nullptr;
+    ComPtr<ID3D12GraphicsCommandList>      command_list;
+    ComPtr<ID3D12CommandAllocator>         command_allocator;
+    const RenderPipeline*                  m_Pipeline = nullptr;
     std::unique_ptr<tracy::D3D12ZoneScope> m_TracyZone;
 };
 
@@ -238,9 +246,9 @@ public:
     void SetPipeline(const ComputePipeline& pipeline) final;
     void PushBindlessMetaInfo(const BindlessMetaInfo& info) final;
 
-    ComPtr<ID3D12GraphicsCommandList> command_list;
-    ComPtr<ID3D12CommandAllocator>    command_allocator;
-    const ComputePipeline*            m_Pipeline = nullptr;
+    ComPtr<ID3D12GraphicsCommandList>      command_list;
+    ComPtr<ID3D12CommandAllocator>         command_allocator;
+    const ComputePipeline*                 m_Pipeline = nullptr;
     std::unique_ptr<tracy::D3D12ZoneScope> m_TracyZone;
 };
 
@@ -281,8 +289,8 @@ public:
         TextureSubresourceLayer src_layer = {},
         TextureSubresourceLayer dst_layer = {}) final;
 
-    ComPtr<ID3D12GraphicsCommandList> command_list;
-    ComPtr<ID3D12CommandAllocator>    command_allocator;
+    ComPtr<ID3D12GraphicsCommandList>      command_list;
+    ComPtr<ID3D12CommandAllocator>         command_allocator;
     std::unique_ptr<tracy::D3D12ZoneScope> m_TracyZone;
 };
 
@@ -316,8 +324,6 @@ class DX12BindlessUtils : public BindlessUtils {
 public:
     DX12BindlessUtils(DX12Device& device, std::string_view name);
 
-    auto CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t index, bool writable = false) -> BindlessHandle final;
-    auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle final;
     auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle final;
 
     void DiscardBindlessHandle(BindlessHandle handle) final;
@@ -331,6 +337,9 @@ public:
     inline auto GetBindlessRootSignature() const noexcept { return m_RootSignature; }
 
 private:
+    auto CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle final;
+    auto CreateBindlessHandle(TextureView& view) -> BindlessHandle final;
+
     TracyLockableN(std::mutex, m_Mutex, "DX12 Bindless Mutex");
 
     ComPtr<ID3D12RootSignature> m_RootSignature;
@@ -1117,7 +1126,8 @@ inline constexpr auto to_d3d_rect(const Rect& rect) noexcept {
     };
 }
 
-inline constexpr auto to_d3d_srv_desc(const TextureDesc& desc) noexcept {
+inline auto to_d3d_srv_desc(const TextureViewDesc& view_desc) noexcept {
+    const auto&                     desc     = view_desc.texture->GetDesc();
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
         .Format                  = to_dxgi_format(desc.format),
         .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
@@ -1151,31 +1161,31 @@ inline constexpr auto to_d3d_srv_desc(const TextureDesc& desc) noexcept {
         switch (srv_desc.ViewDimension) {
             case D3D12_SRV_DIMENSION_TEXTURE1D: {
                 srv_desc.Texture1D = {
-                    .MostDetailedMip = 0,
-                    .MipLevels       = desc.mip_levels,
+                    .MostDetailedMip = view_desc.base_mip_level,
+                    .MipLevels       = view_desc.mip_levels,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE1DARRAY: {
                 srv_desc.Texture1DArray = {
-                    .MostDetailedMip = 0,
-                    .MipLevels       = desc.mip_levels,
-                    .FirstArraySlice = 0,
-                    .ArraySize       = desc.array_size,
+                    .MostDetailedMip = view_desc.base_mip_level,
+                    .MipLevels       = view_desc.mip_levels,
+                    .FirstArraySlice = view_desc.base_array_layer,
+                    .ArraySize       = view_desc.layer_count,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE2D: {
                 srv_desc.Texture2D = {
-                    .MostDetailedMip = 0,
-                    .MipLevels       = desc.mip_levels,
+                    .MostDetailedMip = view_desc.base_mip_level,
+                    .MipLevels       = view_desc.mip_levels,
                     .PlaneSlice      = 0,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE2DARRAY: {
                 srv_desc.Texture2DArray = {
-                    .MostDetailedMip = 0,
-                    .MipLevels       = desc.mip_levels,
-                    .FirstArraySlice = 0,
-                    .ArraySize       = desc.array_size,
+                    .MostDetailedMip = view_desc.base_mip_level,
+                    .MipLevels       = view_desc.mip_levels,
+                    .FirstArraySlice = view_desc.base_array_layer,
+                    .ArraySize       = view_desc.layer_count,
                     .PlaneSlice      = 0,
                 };
             } break;
@@ -1184,22 +1194,22 @@ inline constexpr auto to_d3d_srv_desc(const TextureDesc& desc) noexcept {
             } break;
             case D3D12_SRV_DIMENSION_TEXTURE3D: {
                 srv_desc.Texture3D = {
-                    .MostDetailedMip = 0,
-                    .MipLevels       = desc.mip_levels,
+                    .MostDetailedMip = view_desc.base_mip_level,
+                    .MipLevels       = view_desc.mip_levels,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURECUBE: {
                 srv_desc.TextureCube = {
-                    .MostDetailedMip = 0,
-                    .MipLevels       = desc.mip_levels,
+                    .MostDetailedMip = view_desc.base_mip_level,
+                    .MipLevels       = view_desc.mip_levels,
                 };
             } break;
             case D3D12_SRV_DIMENSION_TEXTURECUBEARRAY: {
                 srv_desc.TextureCubeArray = {
-                    .MostDetailedMip  = 0,
-                    .MipLevels        = desc.mip_levels,
-                    .First2DArrayFace = 0,
-                    .NumCubes         = desc.array_size,
+                    .MostDetailedMip  = view_desc.base_mip_level,
+                    .MipLevels        = view_desc.mip_levels,
+                    .First2DArrayFace = view_desc.base_array_layer,
+                    .NumCubes         = view_desc.layer_count / 6,
                 };
             } break;
             default: {
@@ -1211,7 +1221,8 @@ inline constexpr auto to_d3d_srv_desc(const TextureDesc& desc) noexcept {
     return srv_desc;
 }
 
-inline constexpr auto to_d3d_uav_desc(const TextureDesc& desc) noexcept {
+inline auto to_d3d_uav_desc(const TextureViewDesc& view_desc) noexcept {
+    const auto&                      desc = view_desc.texture->GetDesc();
     D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
         .Format = to_dxgi_format(desc.format),
     };
@@ -1238,33 +1249,33 @@ inline constexpr auto to_d3d_uav_desc(const TextureDesc& desc) noexcept {
         switch (uav_desc.ViewDimension) {
             case D3D12_UAV_DIMENSION_TEXTURE1D: {
                 uav_desc.Texture1D = {
-                    .MipSlice = 0,
+                    .MipSlice = view_desc.base_mip_level,
                 };
             } break;
             case D3D12_UAV_DIMENSION_TEXTURE1DARRAY: {
                 uav_desc.Texture1DArray = {
-                    .MipSlice        = 0,
-                    .FirstArraySlice = 0,
-                    .ArraySize       = desc.array_size,
+                    .MipSlice        = view_desc.base_mip_level,
+                    .FirstArraySlice = view_desc.base_array_layer,
+                    .ArraySize       = view_desc.layer_count,
                 };
             } break;
             case D3D12_UAV_DIMENSION_TEXTURE2D: {
                 uav_desc.Texture2D = {
-                    .MipSlice   = 0,
+                    .MipSlice   = view_desc.base_mip_level,
                     .PlaneSlice = 0,
                 };
             } break;
             case D3D12_UAV_DIMENSION_TEXTURE2DARRAY: {
                 uav_desc.Texture2DArray = {
-                    .MipSlice        = 0,
-                    .FirstArraySlice = 0,
-                    .ArraySize       = desc.array_size,
+                    .MipSlice        = view_desc.base_mip_level,
+                    .FirstArraySlice = view_desc.base_array_layer,
+                    .ArraySize       = view_desc.layer_count,
                     .PlaneSlice      = 0,
                 };
             } break;
             case D3D12_UAV_DIMENSION_TEXTURE3D: {
                 uav_desc.Texture3D = {
-                    .MipSlice    = 0,
+                    .MipSlice    = view_desc.base_mip_level,
                     .FirstWSlice = 0,
                     .WSize       = desc.depth,
                 };
@@ -1294,7 +1305,8 @@ inline constexpr auto to_d3d_sampler_desc(const SamplerDesc& desc) noexcept {
     };
 }
 
-inline auto to_d3d_rtv_desc(const TextureDesc& desc) noexcept {
+inline auto to_d3d_rtv_desc(const TextureViewDesc& view_desc) noexcept {
+    const auto&                   desc = view_desc.texture->GetDesc();
     D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
         .Format = to_dxgi_format(desc.format),
     };
@@ -1322,27 +1334,27 @@ inline auto to_d3d_rtv_desc(const TextureDesc& desc) noexcept {
         switch (rtv_desc.ViewDimension) {
             case D3D12_RTV_DIMENSION_TEXTURE1D: {
                 rtv_desc.Texture1D = {
-                    .MipSlice = 0,
+                    .MipSlice = view_desc.base_mip_level,
                 };
             } break;
             case D3D12_RTV_DIMENSION_TEXTURE1DARRAY: {
                 rtv_desc.Texture1DArray = {
-                    .MipSlice        = 0,
-                    .FirstArraySlice = 0,
-                    .ArraySize       = desc.array_size,
+                    .MipSlice        = view_desc.base_mip_level,
+                    .FirstArraySlice = view_desc.base_array_layer,
+                    .ArraySize       = view_desc.layer_count,
                 };
             } break;
             case D3D12_RTV_DIMENSION_TEXTURE2D: {
                 rtv_desc.Texture2D = {
-                    .MipSlice   = 0,
+                    .MipSlice   = view_desc.base_mip_level,
                     .PlaneSlice = 0,
                 };
             } break;
             case D3D12_RTV_DIMENSION_TEXTURE2DARRAY: {
                 rtv_desc.Texture2DArray = {
-                    .MipSlice        = 0,
-                    .FirstArraySlice = 0,
-                    .ArraySize       = desc.array_size,
+                    .MipSlice        = view_desc.base_mip_level,
+                    .FirstArraySlice = view_desc.base_array_layer,
+                    .ArraySize       = view_desc.layer_count,
                     .PlaneSlice      = 0,
                 };
             } break;
@@ -1351,7 +1363,9 @@ inline auto to_d3d_rtv_desc(const TextureDesc& desc) noexcept {
             } break;
             case D3D12_RTV_DIMENSION_TEXTURE3D: {
                 rtv_desc.Texture3D = {
-                    .MipSlice = 0,
+                    .MipSlice    = view_desc.base_mip_level,
+                    .FirstWSlice = 0,
+                    .WSize       = desc.depth,
                 };
             } break;
             default: {
@@ -1362,7 +1376,8 @@ inline auto to_d3d_rtv_desc(const TextureDesc& desc) noexcept {
     return rtv_desc;
 }
 
-inline auto to_d3d_dsv_desc(const TextureDesc& desc) noexcept {
+inline auto to_d3d_dsv_desc(const TextureViewDesc& view_desc) noexcept {
+    const auto&                   desc = view_desc.texture->GetDesc();
     D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{
         .Format = to_dxgi_format(desc.format),
     };
@@ -1390,26 +1405,26 @@ inline auto to_d3d_dsv_desc(const TextureDesc& desc) noexcept {
         switch (dsv_desc.ViewDimension) {
             case D3D12_DSV_DIMENSION_TEXTURE1D: {
                 dsv_desc.Texture1D = {
-                    .MipSlice = 0,
+                    .MipSlice = view_desc.base_mip_level,
                 };
             } break;
             case D3D12_DSV_DIMENSION_TEXTURE1DARRAY: {
                 dsv_desc.Texture1DArray = {
-                    .MipSlice        = 0,
-                    .FirstArraySlice = 0,
-                    .ArraySize       = desc.array_size,
+                    .MipSlice        = view_desc.base_mip_level,
+                    .FirstArraySlice = view_desc.base_array_layer,
+                    .ArraySize       = view_desc.layer_count,
                 };
             } break;
             case D3D12_DSV_DIMENSION_TEXTURE2D: {
                 dsv_desc.Texture2D = {
-                    .MipSlice = 0,
+                    .MipSlice = view_desc.base_mip_level,
                 };
             } break;
             case D3D12_DSV_DIMENSION_TEXTURE2DARRAY: {
                 dsv_desc.Texture2DArray = {
-                    .MipSlice        = 0,
-                    .FirstArraySlice = 0,
-                    .ArraySize       = desc.array_size,
+                    .MipSlice        = view_desc.base_mip_level,
+                    .FirstArraySlice = view_desc.base_array_layer,
+                    .ArraySize       = view_desc.layer_count,
                 };
             } break;
             case D3D12_DSV_DIMENSION_TEXTURE2DMS: {
@@ -1653,12 +1668,14 @@ public:
 
     auto CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> final;
     auto CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> final;
+    auto CreateGPUBufferView(GPUBufferViewDesc desc) -> std::shared_ptr<GPUBufferView> final;
     auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
+    auto CreateTextureView(TextureViewDesc desc) -> std::shared_ptr<TextureView> final;
     auto CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> final;
 
     auto CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> final;
-    auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> final;
-    auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> final;
+    auto CreateRenderPipeline(RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) -> std::shared_ptr<RenderPipeline> final;
+    auto CreateComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) -> std::shared_ptr<ComputePipeline> final;
 
     auto GetBindlessUtils() -> BindlessUtils& final;
 

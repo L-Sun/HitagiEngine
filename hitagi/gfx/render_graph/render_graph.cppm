@@ -17,8 +17,6 @@ class ResourceNode;
 class GPUBufferNode;
 class TextureNode;
 class SamplerNode;
-class RenderPipelineNode;
-class ComputePipelineNode;
 
 class PassNode;
 class RenderPassNode;
@@ -37,8 +35,6 @@ public:
         GPUBuffer,
         Texture,
         Sampler,
-        RenderPipeline,
-        ComputePipeline,
         RenderPass,
         ComputePass,
         CopyPass,
@@ -57,9 +53,7 @@ public:
     inline bool IsResourceNode() const noexcept {
         return m_Type == Type::GPUBuffer ||
                m_Type == Type::Texture ||
-               m_Type == Type::Sampler ||
-               m_Type == Type::RenderPipeline ||
-               m_Type == Type::ComputePipeline;
+               m_Type == Type::Sampler;
     }
     inline bool IsPassNode() const noexcept { return m_Type == Type::RenderPass || m_Type == Type::ComputePass || m_Type == Type::CopyPass || m_Type == Type::PresentPass; }
 
@@ -89,10 +83,6 @@ inline constexpr auto gfx_resource_type_to_node_type(gfx::ResourceType type) {
             return RenderGraphNode::Type::Texture;
         case gfx::ResourceType::Sampler:
             return RenderGraphNode::Type::Sampler;
-        case gfx::ResourceType::RenderPipeline:
-            return RenderGraphNode::Type::RenderPipeline;
-        case gfx::ResourceType::ComputePipeline:
-            return RenderGraphNode::Type::ComputePipeline;
         default:
             throw std::invalid_argument("Invalid resource type");
     }
@@ -115,8 +105,6 @@ struct RenderGraphHandle {
 using GPUBufferHandle       = RenderGraphHandle<RenderGraphNode::Type::GPUBuffer>;
 using TextureHandle         = RenderGraphHandle<RenderGraphNode::Type::Texture>;
 using SamplerHandle         = RenderGraphHandle<RenderGraphNode::Type::Sampler>;
-using RenderPipelineHandle  = RenderGraphHandle<RenderGraphNode::Type::RenderPipeline>;
-using ComputePipelineHandle = RenderGraphHandle<RenderGraphNode::Type::ComputePipeline>;
 using RenderPassHandle      = RenderGraphHandle<RenderGraphNode::Type::RenderPass>;
 using ComputePassHandle     = RenderGraphHandle<RenderGraphNode::Type::ComputePass>;
 using CopyPassHandle        = RenderGraphHandle<RenderGraphNode::Type::CopyPass>;
@@ -141,15 +129,17 @@ struct GPUBufferEdge {
     gfx::PipelineStage stage;
     std::size_t        element_offset;
     std::size_t        num_elements;
+    std::size_t        element_size;
 
-    std::pmr::vector<gfx::BindlessHandle> bindless_handles;
+    std::pmr::vector<std::shared_ptr<gfx::GPUBufferView>> bindless_views;
 
     bool operator==(const GPUBufferEdge& rhs) const noexcept {
         return write == rhs.write &&
                access == rhs.access &&
                stage == rhs.stage &&
                element_offset == rhs.element_offset &&
-               num_elements == rhs.num_elements;
+               num_elements == rhs.num_elements &&
+               element_size == rhs.element_size;
     }
 };
 
@@ -160,7 +150,7 @@ struct TextureEdge {
     gfx::TextureLayout           layout;
     gfx::TextureSubresourceLayer layer;
 
-    gfx::BindlessHandle bindless;
+    std::shared_ptr<gfx::TextureView> bindless_view;
 
     bool operator==(const TextureEdge& rhs) const noexcept {
         return write == rhs.write &&
@@ -197,6 +187,7 @@ public:
     GPUBufferNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> buffer, std::string_view name = "");
 
     inline auto& Resolve() const noexcept { return static_cast<gfx::GPUBuffer&>(*m_Resource); }
+    inline auto  GetBuffer() const noexcept -> std::shared_ptr<gfx::GPUBuffer> { return std::static_pointer_cast<gfx::GPUBuffer>(m_Resource); }
     auto         GetDesc() const noexcept -> const gfx::GPUBufferDesc&;
 
     auto        Move(GPUBufferHandle new_handle, std::string_view new_name) -> std::shared_ptr<GPUBufferNode>;
@@ -219,6 +210,7 @@ public:
     TextureNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> texture, std::string_view name = "");
 
     inline auto& Resolve() const noexcept { return static_cast<gfx::Texture&>(*m_Resource); }
+    inline auto  GetTexture() const noexcept -> std::shared_ptr<gfx::Texture> { return std::static_pointer_cast<gfx::Texture>(m_Resource); }
     auto         GetDesc() const noexcept -> const gfx::TextureDesc&;
 
     auto        Move(TextureHandle new_handle, std::string_view new_name) -> std::shared_ptr<TextureNode>;
@@ -249,40 +241,6 @@ protected:
     std::optional<gfx::SamplerDesc> m_Desc;
 };
 
-class RenderPipelineNode : public ResourceNode {
-public:
-    friend RenderGraph;
-
-    RenderPipelineNode(RenderGraph& render_graph, gfx::RenderPipelineDesc desc, std::string_view name = "");
-    RenderPipelineNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> pipeline, std::string_view name = "");
-
-    inline auto& Resolve() const noexcept { return static_cast<gfx::RenderPipeline&>(*m_Resource); }
-    auto         GetDesc() const noexcept -> const gfx::RenderPipelineDesc&;
-
-protected:
-    void Initialize() final;
-
-    std::optional<gfx::RenderPipelineDesc> m_Desc;
-};
-
-class ComputePipelineNode : public ResourceNode {
-public:
-    friend RenderGraph;
-
-    ComputePipelineNode(RenderGraph& render_graph, gfx::ComputePipelineDesc desc, std::string_view name = "");
-    ComputePipelineNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> pipeline, std::string_view name = "");
-
-    inline auto& Resolve() const noexcept { return static_cast<gfx::ComputePipeline&>(*m_Resource); }
-    auto         GetDesc() const noexcept -> const gfx::ComputePipelineDesc&;
-
-protected:
-    void Initialize() final;
-
-    std::optional<gfx::ComputePipelineDesc> m_Desc;
-};
-
-
-
 class PassNode : public RenderGraphNode {
 public:
     friend RenderGraph;
@@ -293,8 +251,6 @@ public:
     auto Resolve(GPUBufferHandle buffer) const -> gfx::GPUBuffer&;
     auto Resolve(TextureHandle texture) const -> gfx::Texture&;
     auto Resolve(SamplerHandle sampler) const -> gfx::Sampler&;
-    auto Resolve(RenderPipelineHandle pipeline) const -> gfx::RenderPipeline&;
-    auto Resolve(ComputePipelineHandle pipeline) const -> gfx::ComputePipeline&;
 
     auto GetBindless(GPUBufferHandle buffer, std::size_t index = 0) const noexcept -> gfx::BindlessHandle;
     auto GetBindless(TextureHandle buffer) const noexcept -> gfx::BindlessHandle;
@@ -316,8 +272,6 @@ protected:
     std::pmr::unordered_map<GPUBufferNode*, GPUBufferEdge> m_GPUBufferEdges;
     std::pmr::unordered_map<TextureNode*, TextureEdge>     m_TextureEdges;
     std::pmr::unordered_map<SamplerNode*, SamplerEdge>     m_SamplerEdges;
-    std::pmr::unordered_set<RenderPipelineNode*>           m_RenderPipelines;
-    std::pmr::unordered_set<ComputePipelineNode*>          m_ComputePipelines;
 
     std::pmr::vector<gfx::GPUBufferBarrier> m_GPUBufferBarriers;
     std::pmr::vector<gfx::TextureBarrier>   m_TextureBarriers;
@@ -443,13 +397,13 @@ public:
     RenderPassBuilder& AllowPassCulling(bool allow) noexcept;
 
     RenderPassBuilder& Read(GPUBufferHandle buffer, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
-    RenderPassBuilder& Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
+    RenderPassBuilder& Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
     RenderPassBuilder& Read(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
     RenderPassBuilder& ReadAsVertices(GPUBufferHandle buffer) noexcept;
     RenderPassBuilder& ReadAsIndices(GPUBufferHandle buffer) noexcept;
 
     RenderPassBuilder& Write(GPUBufferHandle buffer, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
-    RenderPassBuilder& Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
+    RenderPassBuilder& Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
     RenderPassBuilder& Write(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
 
     RenderPassBuilder& SetRenderTarget(TextureHandle texture, bool clear = false, gfx::TextureSubresourceLayer layer = {}) noexcept;
@@ -457,7 +411,6 @@ public:
     RenderPassBuilder& ReadDepthStencil(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}) noexcept;
 
     RenderPassBuilder& AddSampler(SamplerHandle sampler) noexcept;
-    RenderPassBuilder& AddPipeline(RenderPipelineHandle pipeline) noexcept;
 
     RenderPassBuilder& SetExecutor(RenderPassNode::Executor executor) noexcept;
 
@@ -477,15 +430,14 @@ public:
     ComputePassBuilder& AllowPassCulling(bool allow) noexcept;
 
     ComputePassBuilder& Read(GPUBufferHandle buffer) noexcept;
-    ComputePassBuilder& Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements) noexcept;
+    ComputePassBuilder& Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size) noexcept;
     ComputePassBuilder& Read(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}) noexcept;
 
     ComputePassBuilder& Write(GPUBufferHandle buffer) noexcept;
-    ComputePassBuilder& Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements) noexcept;
+    ComputePassBuilder& Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size) noexcept;
     ComputePassBuilder& Write(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}) noexcept;
 
     ComputePassBuilder& AddSampler(SamplerHandle sampler) noexcept;
-    ComputePassBuilder& AddPipeline(ComputePipelineHandle pipeline) noexcept;
 
     ComputePassBuilder& SetExecutor(ComputePassNode::Executor executor) noexcept;
 
@@ -544,14 +496,10 @@ public:
     auto Import(std::shared_ptr<gfx::GPUBuffer> buffer, std::string_view name = "") noexcept -> GPUBufferHandle;
     auto Import(std::shared_ptr<gfx::Texture> texture, std::string_view name = "") noexcept -> TextureHandle;
     auto Import(std::shared_ptr<gfx::Sampler> sampler, std::string_view name = "") noexcept -> SamplerHandle;
-    auto Import(std::shared_ptr<gfx::RenderPipeline> pipeline, std::string_view name = "") noexcept -> RenderPipelineHandle;
-    auto Import(std::shared_ptr<gfx::ComputePipeline> pipeline, std::string_view name = "") noexcept -> ComputePipelineHandle;
 
     auto Create(gfx::GPUBufferDesc desc, std::string_view name = "") noexcept -> GPUBufferHandle;
     auto Create(gfx::TextureDesc desc, std::string_view name = "") noexcept -> TextureHandle;
     auto Create(gfx::SamplerDesc desc, std::string_view name = "") noexcept -> SamplerHandle;
-    auto Create(gfx::RenderPipelineDesc desc, std::string_view name = "") noexcept -> RenderPipelineHandle;
-    auto Create(gfx::ComputePipelineDesc desc, std::string_view name = "") noexcept -> ComputePipelineHandle;
 
     template <RenderGraphNode::Type T>
     auto MoveFrom(RenderGraphHandle<T> resource, std::string_view name = "") noexcept -> RenderGraphHandle<T>;
@@ -559,8 +507,6 @@ public:
     auto GetBufferHandle(std::string_view name) const noexcept -> GPUBufferHandle;
     auto GetTextureHandle(std::string_view name) const noexcept -> TextureHandle;
     auto GetSamplerHandle(std::string_view name) const noexcept -> SamplerHandle;
-    auto GetRenderPipelineHandle(std::string_view name) const noexcept -> RenderPipelineHandle;
-    auto GetComputePipelineHandle(std::string_view name) const noexcept -> ComputePipelineHandle;
 
     template <RenderGraphNode::Type T>
     auto& Resolve(RenderGraphHandle<T> handle) const;
@@ -606,7 +552,7 @@ private:
     friend TextureNode;
     friend PassNode;
 
-    using ResourceDesc = std::variant<gfx::GPUBufferDesc, gfx::TextureDesc, gfx::SamplerDesc, gfx::RenderPipelineDesc, gfx::ComputePipelineDesc>;
+    using ResourceDesc = std::variant<gfx::GPUBufferDesc, gfx::TextureDesc, gfx::SamplerDesc>;
     using ExecuteLayer = utils::EnumArray<std::pmr::vector<PassNode*>, gfx::CommandType>;
     struct FenceValue {
         std::shared_ptr<gfx::Fence> fence;
@@ -720,10 +666,6 @@ auto& RenderGraph::GetResourceDesc(RenderGraphHandle<T> handle) const {
         return std::static_pointer_cast<TextureNode>(node)->GetDesc();
     } else if constexpr (T == RenderGraphNode::Type::Sampler) {
         return std::static_pointer_cast<SamplerNode>(node)->GetDesc();
-    } else if constexpr (T == RenderGraphNode::Type::RenderPipeline) {
-        return std::static_pointer_cast<RenderPipelineNode>(node)->GetDesc();
-    } else if constexpr (T == RenderGraphNode::Type::ComputePipeline) {
-        return std::static_pointer_cast<ComputePipelineNode>(node)->GetDesc();
     } else {
         utils::unreachable();
     }

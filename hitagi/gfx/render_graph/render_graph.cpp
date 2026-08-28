@@ -76,12 +76,6 @@ auto RenderGraph::ImportResource(std::shared_ptr<gfx::Resource> resource, std::s
             case hitagi::rg::RenderGraphNode::Type::Sampler:
                 new_node = std::make_shared<SamplerNode>(*this, resource, name);
                 break;
-            case hitagi::rg::RenderGraphNode::Type::RenderPipeline:
-                new_node = std::make_shared<RenderPipelineNode>(*this, resource, name);
-                break;
-            case hitagi::rg::RenderGraphNode::Type::ComputePipeline:
-                new_node = std::make_shared<ComputePipelineNode>(*this, resource, name);
-                break;
             default:
                 utils::unreachable();
         }
@@ -108,14 +102,6 @@ auto RenderGraph::Import(std::shared_ptr<gfx::Sampler> sampler, std::string_view
     return ImportResource(std::move(sampler), name);
 }
 
-auto RenderGraph::Import(std::shared_ptr<gfx::RenderPipeline> pipeline, std::string_view name) noexcept -> RenderPipelineHandle {
-    return ImportResource(std::move(pipeline), name);
-}
-
-auto RenderGraph::Import(std::shared_ptr<gfx::ComputePipeline> pipeline, std::string_view name) noexcept -> ComputePipelineHandle {
-    return ImportResource(std::move(pipeline), name);
-}
-
 auto RenderGraph::CreateResource(ResourceDesc desc, std::string_view name) noexcept -> std::size_t {
     constexpr auto invalid_index = std::numeric_limits<std::size_t>::max();
 
@@ -127,10 +113,6 @@ auto RenderGraph::CreateResource(ResourceDesc desc, std::string_view name) noexc
         node_type = RenderGraphNode::Type::Texture;
     } else if (std::holds_alternative<gfx::SamplerDesc>(desc)) {
         node_type = RenderGraphNode::Type::Sampler;
-    } else if (std::holds_alternative<gfx::RenderPipelineDesc>(desc)) {
-        node_type = RenderGraphNode::Type::RenderPipeline;
-    } else if (std::holds_alternative<gfx::ComputePipelineDesc>(desc)) {
-        node_type = RenderGraphNode::Type::ComputePipeline;
     }
 
     const std::pmr::string _name(name);
@@ -151,12 +133,6 @@ auto RenderGraph::CreateResource(ResourceDesc desc, std::string_view name) noexc
             break;
         case hitagi::rg::RenderGraphNode::Type::Sampler:
             new_node = std::make_shared<SamplerNode>(*this, std::move(std::get<gfx::SamplerDesc>(desc)), name);
-            break;
-        case hitagi::rg::RenderGraphNode::Type::RenderPipeline:
-            new_node = std::make_shared<RenderPipelineNode>(*this, std::move(std::get<gfx::RenderPipelineDesc>(desc)), name);
-            break;
-        case hitagi::rg::RenderGraphNode::Type::ComputePipeline:
-            new_node = std::make_shared<ComputePipelineNode>(*this, std::move(std::get<gfx::ComputePipelineDesc>(desc)), name);
             break;
         default:
             utils::unreachable();
@@ -180,14 +156,6 @@ auto RenderGraph::Create(gfx::TextureDesc desc, std::string_view name) noexcept 
 }
 
 auto RenderGraph::Create(gfx::SamplerDesc desc, std::string_view name) noexcept -> SamplerHandle {
-    return CreateResource(std::move(desc), name);
-}
-
-auto RenderGraph::Create(gfx::RenderPipelineDesc desc, std::string_view name) noexcept -> RenderPipelineHandle {
-    return CreateResource(std::move(desc), name);
-}
-
-auto RenderGraph::Create(gfx::ComputePipelineDesc desc, std::string_view name) noexcept -> ComputePipelineHandle {
     return CreateResource(std::move(desc), name);
 }
 
@@ -239,14 +207,6 @@ auto RenderGraph::GetTextureHandle(std::string_view name) const noexcept -> Text
 
 auto RenderGraph::GetSamplerHandle(std::string_view name) const noexcept -> SamplerHandle {
     return GetHandle<RenderGraphNode::Type::Sampler>(name);
-}
-
-auto RenderGraph::GetRenderPipelineHandle(std::string_view name) const noexcept -> RenderPipelineHandle {
-    return GetHandle<RenderGraphNode::Type::RenderPipeline>(name);
-}
-
-auto RenderGraph::GetComputePipelineHandle(std::string_view name) const noexcept -> ComputePipelineHandle {
-    return GetHandle<RenderGraphNode::Type::ComputePipeline>(name);
 }
 
 auto RenderGraph::QueueTextureExtraction(TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer, gfx::TextureSubresourceLayer to_layer) noexcept -> CopyPassHandle {
@@ -669,15 +629,13 @@ void RenderGraph::RetireNodes() noexcept {
 
 static auto buffer_pool_key(const gfx::GPUBufferDesc& desc) -> std::size_t {
     return utils::combine_hash(std::array{
-        utils::hash(desc.element_size),
-        utils::hash(desc.element_count),
+        utils::hash(desc.size),
         utils::hash(desc.usages),
     });
 }
 
 static bool buffer_pool_match(const gfx::GPUBufferDesc& a, const gfx::GPUBufferDesc& b) {
-    return a.element_size == b.element_size &&
-           a.element_count == b.element_count &&
+    return a.size == b.size &&
            a.usages == b.usages;
 }
 
@@ -855,11 +813,14 @@ auto RenderGraph::ToDot() const noexcept -> std::pmr::string {
     std::pmr::string output = "digraph {\n";
 
     for (const auto& node : m_Nodes) {
+        if (!node) continue;
         output += std::format("  {} [{}];\n", node->m_Handle, node_writer(node.get()));
     }
 
     for (const auto& from_node : m_Nodes) {
+        if (!from_node) continue;
         for (auto to_node : from_node->m_OutputNodes) {
+            if (!to_node) continue;
             output += std::format(
                 "  {} -> {} [{}];\n",
                 from_node->m_Handle, to_node->m_Handle,

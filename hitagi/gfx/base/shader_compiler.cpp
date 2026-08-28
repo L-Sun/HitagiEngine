@@ -167,8 +167,8 @@ auto ShaderCompiler::ExtractVertexLayout(const ShaderDesc& desc) const -> Vertex
     if (desc.type != ShaderType::Vertex) {
         m_Logger->warn(
             "Can not get vertex layout from not vertex shader(type: {}, Name: {})",
-            fmt::styled(desc.type, fmt::fg(fmt::color::orange)),
-            fmt::styled(desc.type, fmt::fg(fmt::color::orange)));
+            fmt::styled(format_as(desc.type), fmt::fg(fmt::color::orange)),
+            fmt::styled(format_as(desc.type), fmt::fg(fmt::color::orange)));
         return {};
     }
 

@@ -6,15 +6,6 @@ namespace hitagi::rg {
 
 PassNode::~PassNode() {
     auto& bindless_utils = m_RenderGraph->GetDevice().GetBindlessUtils();
-    for (const auto& [buffer_handle, buffer_edge] : m_GPUBufferEdges) {
-        for (auto bindless_handle : buffer_edge.bindless_handles) {
-            bindless_utils.DiscardBindlessHandle(bindless_handle);
-        }
-    }
-    for (const auto& [texture_handle, texture_edge] : m_TextureEdges) {
-        if (texture_edge.bindless)
-            bindless_utils.DiscardBindlessHandle(texture_edge.bindless);
-    }
     for (const auto& [sampler_handle, sampler_edge] : m_SamplerEdges) {
         if (sampler_edge.bindless)
             bindless_utils.DiscardBindlessHandle(sampler_edge.bindless);
@@ -75,42 +66,6 @@ auto PassNode::Resolve(SamplerHandle sampler) const -> gfx::Sampler& {
     return sampler_node->Resolve();
 }
 
-auto PassNode::Resolve(RenderPipelineHandle pipeline) const -> gfx::RenderPipeline& {
-    if (!m_RenderGraph->IsValid(pipeline)) {
-        std::string error_message = std::format("Pipeline({}) is not valid handle", pipeline.index);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    const auto pipeline_node = static_cast<RenderPipelineNode*>(m_RenderGraph->m_Nodes[pipeline.index].get());
-
-    if (!m_RenderPipelines.contains(pipeline_node)) {
-        std::string error_message = std::format("Pipeline({}) is not used in pass({})", pipeline.index, m_Name);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    return pipeline_node->Resolve();
-}
-
-auto PassNode::Resolve(ComputePipelineHandle pipeline) const -> gfx::ComputePipeline& {
-    if (!m_RenderGraph->IsValid(pipeline)) {
-        std::string error_message = std::format("Pipeline({}) is not valid handle", pipeline.index);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    const auto pipeline_node = static_cast<ComputePipelineNode*>(m_RenderGraph->m_Nodes[pipeline.index].get());
-
-    if (!m_ComputePipelines.contains(pipeline_node)) {
-        std::string error_message = std::format("Pipeline({}) is not used in pass({})", pipeline.index, m_Name);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    return pipeline_node->Resolve();
-}
-
 auto PassNode::GetBindless(GPUBufferHandle buffer, std::size_t index) const noexcept -> gfx::BindlessHandle {
     if (!m_RenderGraph->IsValid(buffer)) {
         std::string error_message = std::format("Buffer({}) is not valid handle", buffer.index);
@@ -127,12 +82,12 @@ auto PassNode::GetBindless(GPUBufferHandle buffer, std::size_t index) const noex
 
     const auto& buffer_edge = m_GPUBufferEdges.at(buffer_node);
 
-    if (index >= buffer_edge.bindless_handles.size()) {
+    if (index >= buffer_edge.bindless_views.size() || !buffer_edge.bindless_views[index]) {
         m_RenderGraph->GetLogger()->error("Buffer({}) is not used in pass({})", buffer.index, m_Name);
         return {};
     }
 
-    return buffer_edge.bindless_handles[index];
+    return buffer_edge.bindless_views[index]->GetBindlessHandle();
 }
 
 auto PassNode::GetBindless(TextureHandle texture) const noexcept -> gfx::BindlessHandle {
@@ -149,7 +104,13 @@ auto PassNode::GetBindless(TextureHandle texture) const noexcept -> gfx::Bindles
         return {};
     }
 
-    return m_TextureEdges.at(texture_node).bindless;
+    const auto& texture_edge = m_TextureEdges.at(texture_node);
+    if (!texture_edge.bindless_view) {
+        m_RenderGraph->GetLogger()->error("Texture({}) is not used in pass({})", texture.index, m_Name);
+        return {};
+    }
+
+    return texture_edge.bindless_view->GetBindlessHandle();
 }
 
 auto PassNode::GetBindless(SamplerHandle handle) const noexcept -> gfx::BindlessHandle {
@@ -269,25 +230,57 @@ void PassNode::ResourceBarrier() {
 void PassNode::CreateBindless() {
     ZoneScopedN("Create Bindless");
 
-    auto& bindless_utils = m_RenderGraph->GetDevice().GetBindlessUtils();
+    auto& device         = m_RenderGraph->GetDevice();
+    auto& bindless_utils = device.GetBindlessUtils();
 
     for (auto& [buffer_node, buffer_edge] : m_GPUBufferEdges) {
-        auto&      buffer = buffer_node->Resolve();
-        const auto usage  = buffer.GetDesc().usages;
+        const auto buffer = buffer_node->GetBuffer();
+        if (!buffer) continue;
 
-        if ((!buffer_edge.write && utils::has_flag(usage, gfx::GPUBufferUsageFlags::Constant)) ||
-            (buffer_edge.write && utils::has_flag(usage, gfx::GPUBufferUsageFlags::Storage))) {
-            for (std::size_t index = 0; index < buffer_edge.num_elements; index++)
-                buffer_edge.bindless_handles.emplace_back(bindless_utils.CreateBindlessHandle(buffer, buffer_edge.element_offset + index, buffer_edge.write));
+        const auto usage = buffer->GetDesc().usages;
+        if (buffer_edge.bindless_views.empty() &&
+            ((!buffer_edge.write && utils::has_flag(usage, gfx::GPUBufferUsageFlags::Constant)) ||
+             (!buffer_edge.write && utils::has_flag(usage, gfx::GPUBufferUsageFlags::Storage)) ||
+             (buffer_edge.write && utils::has_flag(usage, gfx::GPUBufferUsageFlags::Storage)))) {
+            const auto view_type = buffer_edge.write
+                                       ? gfx::GPUBufferViewType::StorageWrite
+                                   : utils::has_flag(usage, gfx::GPUBufferUsageFlags::Constant)
+                                       ? gfx::GPUBufferViewType::Constant
+                                       : gfx::GPUBufferViewType::StorageRead;
+
+            const auto element_stride = view_type == gfx::GPUBufferViewType::Constant
+                                            ? gfx::ConstantBufferElementSize(buffer_edge.element_size)
+                                            : buffer_edge.element_size;
+            for (std::size_t index = 0; index < buffer_edge.num_elements; index++) {
+                auto view = device.CreateGPUBufferView(gfx::GPUBufferViewDesc{
+                    .name          = std::pmr::string(std::format("{}-view-{}", buffer->GetName(), index)),
+                    .buffer        = buffer,
+                    .type          = view_type,
+                    .offset        = (buffer_edge.element_offset + index) * element_stride,
+                    .element_size  = buffer_edge.element_size,
+                    .element_count = 1,
+                });
+                buffer_edge.bindless_views.emplace_back(std::move(view));
+            }
         }
     }
     for (auto& [texture_node, texture_edge] : m_TextureEdges) {
-        auto&      texture = texture_node->Resolve();
-        const auto usage   = texture.GetDesc().usages;
+        const auto texture = texture_node->GetTexture();
+        if (!texture) continue;
+
+        const auto usage = texture->GetDesc().usages;
 
         if ((!texture_edge.write && utils::has_flag(usage, gfx::TextureUsageFlags::SRV)) ||
             (texture_edge.write && utils::has_flag(usage, gfx::TextureUsageFlags::UAV))) {
-            texture_edge.bindless = bindless_utils.CreateBindlessHandle(texture, texture_edge.write);
+            texture_edge.bindless_view = device.CreateTextureView(gfx::TextureViewDesc{
+                .name             = std::pmr::string(std::format("{}-view", texture->GetName())),
+                .texture          = texture,
+                .type             = texture_edge.write ? gfx::TextureViewType::ShaderWrite : gfx::TextureViewType::ShaderRead,
+                .base_mip_level   = texture_edge.layer.mip_level,
+                .mip_levels       = texture_edge.write ? 1u : 0u,
+                .base_array_layer = texture_edge.layer.base_array_layer,
+                .layer_count      = texture_edge.layer.layer_count,
+            });
         }
     }
 
@@ -305,10 +298,39 @@ void RenderPassNode::Execute() {
     auto& cmd = GetCmd();
     cmd.Begin();
     ResourceBarrier();
+
+    auto& device              = m_RenderGraph->GetDevice();
+    auto  render_target       = m_RenderTarget->GetTexture();
+    auto& render_target_edge  = m_TextureEdges.at(m_RenderTarget);
+    auto  render_target_view  = device.CreateTextureView(gfx::TextureViewDesc{
+         .name             = std::pmr::string(std::format("{}-rtv", render_target->GetName())),
+         .texture          = render_target,
+         .type             = gfx::TextureViewType::RenderTarget,
+         .base_mip_level   = render_target_edge.layer.mip_level,
+         .mip_levels       = 1,
+         .base_array_layer = render_target_edge.layer.base_array_layer,
+         .layer_count      = render_target_edge.layer.layer_count,
+    });
+
+    std::shared_ptr<gfx::TextureView> depth_stencil_view;
+    if (m_DepthStencil) {
+        auto  depth_stencil      = m_DepthStencil->GetTexture();
+        auto& depth_stencil_edge = m_TextureEdges.at(m_DepthStencil);
+        depth_stencil_view       = device.CreateTextureView(gfx::TextureViewDesc{
+                  .name             = std::pmr::string(std::format("{}-dsv", depth_stencil->GetName())),
+                  .texture          = depth_stencil,
+                  .type             = gfx::TextureViewType::DepthStencil,
+                  .base_mip_level   = depth_stencil_edge.layer.mip_level,
+                  .mip_levels       = 1,
+                  .base_array_layer = depth_stencil_edge.layer.base_array_layer,
+                  .layer_count      = depth_stencil_edge.layer.layer_count,
+        });
+    }
+
     cmd.BeginRendering(
-        m_RenderTarget->Resolve(),
-        m_DepthStencil
-            ? utils::make_optional_ref(m_DepthStencil->Resolve())
+        *render_target_view,
+        depth_stencil_view
+            ? utils::make_optional_ref(*depth_stencil_view)
             : std::nullopt,
         m_ClearRenderTarget,
         m_ClearDepthStencil);

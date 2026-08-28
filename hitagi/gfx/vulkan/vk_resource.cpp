@@ -39,14 +39,6 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             .size  = Size(),
             .usage = to_vk_buffer_usage(m_Desc.usages),
         };
-        if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Index)) {
-            if (m_Desc.element_size != sizeof(std::uint16_t) && m_Desc.element_size != sizeof(std::uint32_t)) {
-                const auto error_message = "Index buffer element size must be 16 bits or 32 bits";
-                logger->error(error_message);
-                throw std::invalid_argument(error_message);
-            }
-        }
-
         buffer = std::make_unique<vk::raii::Buffer>(device.GetDevice(), buffer_create_info, device.GetCustomAllocator());
     }
 
@@ -65,9 +57,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             }
         } else if (!initial_data.empty() && utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst)) {
             // ReBAR: DEVICE_LOCAL + HOST_VISIBLE for direct VRAM write
-            allocation_create_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-                                                 | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-                                                 | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+            allocation_create_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
             allocation_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
         } else {
             allocation_create_info.requiredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -98,26 +88,17 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
     if (!initial_data.empty()) {
         logger->trace("Copy initial data to buffer({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
-        if (initial_data.size() % m_Desc.element_size != 0) {
+        if (initial_data.size() > Size()) {
             logger->warn(
-                "the initial data size({}) is not a multiple of element size({}) of gpu buffer({}), so the exceed data will not be copied!",
+                "the initial data size({}) is larger than gpu buffer({}) size({}), so the exceed data will not be copied!",
                 fmt::styled(initial_data.size(), fmt::fg(fmt::color::red)),
-                fmt::styled(m_Desc.element_size, fmt::fg(fmt::color::green)),
-                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-        }
-
-        if (initial_data.size() > m_Desc.element_count * m_Desc.element_size) {
-            logger->warn(
-                "the element_count({}) in initial data is larger than the buffer element_count({}), so the exceed data will not be copied!",
-                fmt::styled(initial_data.size() / m_Desc.element_size, fmt::fg(fmt::color::red)),
-                fmt::styled(m_Desc.element_count, fmt::fg(fmt::color::green)),
-                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)),
+                fmt::styled(Size(), fmt::fg(fmt::color::green)));
         }
 
         if (utils::has_flag(desc.usages, GPUBufferUsageFlags::MapWrite)) {
-            // Unlike DX12 where the buffer may be align to 256 bytes, Vulkan buffer is not align to 256 bytes.
             auto mapped_ptr = Map();
-            std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
+            std::memcpy(mapped_ptr, initial_data.data(), std::min<std::size_t>(initial_data.size(), Size()));
             UnMap();
         } else if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopyDst)) {
             // Direct VRAM write via ReBAR (DEVICE_LOCAL + HOST_VISIBLE)
@@ -127,15 +108,15 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
                 logger->error(error_message);
                 throw std::runtime_error(error_message);
             }
-            std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
+            std::memcpy(mapped_ptr, initial_data.data(), std::min<std::size_t>(initial_data.size(), Size()));
             vmaUnmapMemory(device.GetVmaAllocator(), allocation);
         } else {
             auto error_message = fmt::format(
                 "Can not initialize gpu buffer({}) using upload heap without the flag {} or {}, the actual flags are {}",
                 fmt::styled(GetName(), fmt::fg(fmt::color::green)),
-                fmt::styled(GPUBufferUsageFlags::CopyDst, fmt::fg(fmt::color::green)),
-                fmt::styled(GPUBufferUsageFlags::MapWrite, fmt::fg(fmt::color::green)),
-                fmt::styled(m_Desc.usages, fmt::fg(fmt::color::red)));
+                fmt::styled(format_as(GPUBufferUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
+                fmt::styled(format_as(GPUBufferUsageFlags::MapWrite), fmt::fg(fmt::color::green)),
+                fmt::styled(format_as(m_Desc.usages), fmt::fg(fmt::color::red)));
 
             logger->error(error_message);
             vmaFreeMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
@@ -144,6 +125,60 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
     }
 
     create_vk_debug_object_info(*buffer, GetName(), device.GetDevice());
+}
+
+VulkanBufferView::VulkanBufferView(VulkanDevice& device, GPUBufferViewDesc desc) : GPUBufferView(device, std::move(desc)) {
+    const auto logger = device.GetLogger();
+    const auto fail   = [&](std::string message) {
+        const auto error_message = fmt::format(
+            "Invalid GPU buffer view({}): {}",
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)),
+            message);
+        logger->error(error_message);
+        throw std::invalid_argument(error_message);
+    };
+
+    if (!m_Desc.buffer) {
+        fail("buffer is nullptr");
+    }
+    if (&m_Desc.buffer->GetDevice() != &device) {
+        fail("buffer belongs to another device");
+    }
+    if (m_Desc.element_size == 0) {
+        fail("element size must be larger than 0");
+    }
+
+    auto& buffer = *m_Desc.buffer;
+    if (m_Desc.type == GPUBufferViewType::Constant && utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
+        m_AlignSize = ConstantBufferAlignment;
+    } else {
+        m_AlignSize = m_Desc.element_size;
+    }
+
+    if (m_Desc.offset >= buffer.Size()) {
+        fail("offset is outside the buffer range");
+    }
+    if (m_Desc.offset % m_AlignSize != 0) {
+        fail(std::format("offset must be aligned to {}", m_AlignSize));
+    }
+    const auto aligned_element_size = utils::align(m_Desc.element_size, m_AlignSize);
+    if (m_Desc.element_count == 0) {
+        m_Desc.element_count = (buffer.Size() - m_Desc.offset) / aligned_element_size;
+    }
+    if (m_Desc.element_count == 0) {
+        fail("element count must be larger than 0");
+    }
+    const auto required_size = (m_Desc.element_count - 1) * aligned_element_size + m_Desc.element_size;
+    if (m_Desc.offset + required_size > buffer.Size()) {
+        fail(std::format(
+            "range [{}..{}) exceeds buffer {} size({})",
+            m_Desc.offset,
+            m_Desc.offset + required_size,
+            buffer.GetName(),
+            buffer.Size()));
+    }
+
+    CreateBindlessHandle();
 }
 
 VulkanBuffer::~VulkanBuffer() {
@@ -156,8 +191,8 @@ auto VulkanBuffer::Map() -> std::byte* {
         const auto error_message = fmt::format(
             "Can not map GPU buffer({}) without usage flag {} or {}",
             fmt::styled(GetName(), fmt::fg(fmt::color::green)),
-            fmt::styled(GPUBufferUsageFlags::MapRead, fmt::fg(fmt::color::green)),
-            fmt::styled(GPUBufferUsageFlags::MapWrite, fmt::fg(fmt::color::green)));
+            fmt::styled(format_as(GPUBufferUsageFlags::MapRead), fmt::fg(fmt::color::green)),
+            fmt::styled(format_as(GPUBufferUsageFlags::MapWrite), fmt::fg(fmt::color::green)));
 
         logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -261,12 +296,6 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
         vmaBindImageMemory(device.GetVmaAllocator(), allocation, **image);
     }
 
-    logger->trace("Create TextureView({})...", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-    {
-        image_view = vk::raii::ImageView(device.GetDevice(), to_vk_image_view_create_info(m_Desc, **image), device.GetCustomAllocator());
-        create_vk_debug_object_info(image_view.value(), GetName(), device.GetDevice());
-    }
-
     if (!initial_data.empty()) {
         logger->trace("Copy initial data to texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
         if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
@@ -309,8 +338,8 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
             auto error_message = fmt::format(
                 "the texture({}) can not initialize with staging buffer without {}, the actual flags are {}",
                 fmt::styled(GetName(), fmt::fg(fmt::color::red)),
-                fmt::styled(TextureUsageFlags::CopyDst, fmt::fg(fmt::color::green)),
-                fmt::styled(desc.usages, fmt::fg(fmt::color::red)));
+                fmt::styled(format_as(TextureUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
+                fmt::styled(format_as(desc.usages), fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::invalid_argument(error_message);
         }
@@ -332,24 +361,78 @@ VulkanImage::VulkanImage(const VulkanSwapChain& _swap_chian, std::uint32_t index
     const auto  _images   = _swap_chian.GetVkSwapChain().getImages();
     create_vk_debug_object_info(_images.at(index), GetName(), vk_device.GetDevice());
 
-    image_view = vk::raii::ImageView(
-        vk_device.GetDevice(),
-        {
-            .image            = _images.at(index),
-            .viewType         = vk::ImageViewType::e2D,
-            .format           = to_vk_format(m_Desc.format),
-            .subresourceRange = {
-                .aspectMask     = vk::ImageAspectFlagBits::eColor,
-                .baseMipLevel   = 0,
-                .levelCount     = 1,
-                .baseArrayLayer = 0,
-                .layerCount     = 1,
-            },
-        },
-        vk_device.GetCustomAllocator());
     image_handle = _images.at(index);
+}
 
-    create_vk_debug_object_info(image_view.value(), GetName(), vk_device.GetDevice());
+VulkanTextureView::VulkanTextureView(VulkanDevice& device, TextureViewDesc desc) : TextureView(device, std::move(desc)) {
+    const auto logger = device.GetLogger();
+    const auto fail   = [&](std::string message) {
+        const auto error_message = fmt::format(
+            "Invalid texture view({}): {}",
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)),
+            message);
+        logger->error(error_message);
+        throw std::invalid_argument(error_message);
+    };
+
+    if (!m_Desc.texture) {
+        fail("texture is nullptr");
+    }
+    if (&m_Desc.texture->GetDevice() != &device) {
+        fail("texture belongs to another device");
+    }
+
+    const auto& texture_desc = m_Desc.texture->GetDesc();
+    const auto  single_subresource_view =
+        m_Desc.type == TextureViewType::ShaderWrite ||
+        m_Desc.type == TextureViewType::RenderTarget ||
+        m_Desc.type == TextureViewType::DepthStencil;
+    if (m_Desc.base_mip_level >= texture_desc.mip_levels) {
+        fail("base mip level is outside the texture mip range");
+    }
+    if (m_Desc.mip_levels == 0) {
+        m_Desc.mip_levels = single_subresource_view
+                                ? 1
+                                : texture_desc.mip_levels - m_Desc.base_mip_level;
+    }
+    if (m_Desc.base_mip_level + m_Desc.mip_levels > texture_desc.mip_levels) {
+        fail("mip range exceeds texture mip levels");
+    }
+    if (single_subresource_view && m_Desc.mip_levels != 1) {
+        fail("texture view type must reference exactly one mip level");
+    }
+    if (m_Desc.base_array_layer >= texture_desc.array_size) {
+        fail("base array layer is outside the texture array range");
+    }
+    if (m_Desc.layer_count == 0) {
+        m_Desc.layer_count = single_subresource_view
+                                 ? 1
+                                 : texture_desc.array_size - m_Desc.base_array_layer;
+    }
+    if (m_Desc.base_array_layer + m_Desc.layer_count > texture_desc.array_size) {
+        fail("array layer range exceeds texture array size");
+    }
+    if (single_subresource_view && m_Desc.layer_count != 1) {
+        fail("texture view type must reference exactly one array layer");
+    }
+    if (m_Desc.type == TextureViewType::ShaderRead && !utils::has_flag(texture_desc.usages, TextureUsageFlags::SRV)) {
+        fail(std::format("shader read view requires texture usage {}", TextureUsageFlags::SRV));
+    }
+    if (m_Desc.type == TextureViewType::ShaderWrite && !utils::has_flag(texture_desc.usages, TextureUsageFlags::UAV)) {
+        fail(std::format("shader write view requires texture usage {}", TextureUsageFlags::UAV));
+    }
+    if (m_Desc.type == TextureViewType::RenderTarget && !utils::has_flag(texture_desc.usages, TextureUsageFlags::RenderTarget)) {
+        fail(std::format("render target view requires texture usage {}", TextureUsageFlags::RenderTarget));
+    }
+    if (m_Desc.type == TextureViewType::DepthStencil && !utils::has_flag(texture_desc.usages, TextureUsageFlags::DepthStencil)) {
+        fail(std::format("depth stencil view requires texture usage {}", TextureUsageFlags::DepthStencil));
+    }
+
+    auto& vulkan_image = dynamic_cast<VulkanImage&>(*m_Desc.texture);
+    image_view         = vk::raii::ImageView(device.GetDevice(), to_vk_image_view_create_info(m_Desc, vulkan_image.image_handle), device.GetCustomAllocator());
+    create_vk_debug_object_info(image_view.value(), GetName(), device.GetDevice());
+
+    CreateBindlessHandle();
 }
 
 VulkanImage::~VulkanImage() {
@@ -442,9 +525,9 @@ auto VulkanSwapChain::AcquireTextureForRendering() -> utils::optional_ref<Textur
         throw std::runtime_error("failed to acquire next image");
     }
 
-    m_CurrentIndex                       = static_cast<int>(index);
-    m_CurrentSemaphores.image_available  = acquire_semaphores.image_available;
-    m_CurrentSemaphores.presentable      = m_SemaphorePairs[index].presentable;
+    m_CurrentIndex                      = static_cast<int>(index);
+    m_CurrentSemaphores.image_available = acquire_semaphores.image_available;
+    m_CurrentSemaphores.presentable     = m_SemaphorePairs[index].presentable;
 
     return *m_Images[m_CurrentIndex];
 }
@@ -455,7 +538,7 @@ void VulkanSwapChain::Present() {
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
     auto& queue     = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics)).GetVkQueue();
 
-    std::uint32_t index                = static_cast<std::uint32_t>(m_CurrentIndex);
+    std::uint32_t index                 = static_cast<std::uint32_t>(m_CurrentIndex);
     auto          presentable_semaphore = m_CurrentSemaphores.presentable;
     m_CurrentIndex                      = -1;
     m_CurrentSemaphores                 = {};
@@ -475,9 +558,9 @@ void VulkanSwapChain::Present() {
 
 void VulkanSwapChain::Resize() {
     m_Device.WaitIdle();
-    m_CurrentIndex        = -1;
-    m_NextSemaphoreIndex  = 0;
-    m_CurrentSemaphores   = {};
+    m_CurrentIndex       = -1;
+    m_NextSemaphoreIndex = 0;
+    m_CurrentSemaphores  = {};
     CreateSwapChain();
     CreateImageViews();
 }
@@ -603,17 +686,15 @@ auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
     return binary_program.Span<const std::byte>();
 }
 
-VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc) : RenderPipeline(device, std::move(desc)) {
+VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) : RenderPipeline(device, std::move(desc)) {
     const auto logger = device.GetLogger();
 
     bool has_vertex_shader = false, has_fragment_shader = false;
-    for (const auto& p_shader : m_Desc.shaders) {
-        if (auto shader = p_shader.lock(); shader) {
-            if (shader->GetDesc().type == ShaderType::Vertex) {
-                has_vertex_shader = true;
-            } else if (shader->GetDesc().type == ShaderType::Pixel) {
-                has_fragment_shader = true;
-            }
+    for (const auto& shader : shaders) {
+        if (shader->GetDesc().type == ShaderType::Vertex) {
+            has_vertex_shader = true;
+        } else if (shader->GetDesc().type == ShaderType::Pixel) {
+            has_fragment_shader = true;
         }
         if (has_vertex_shader && has_fragment_shader) {
             break;
@@ -637,17 +718,15 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
 
     // verify all shaders are different type
     if (auto iter = std::adjacent_find(
-            m_Desc.shaders.begin(), m_Desc.shaders.end(),
-            [](const auto& _lhs, const auto& _rhs) {
-                auto lhs = _lhs.lock();
-                auto rhs = _rhs.lock();
-                return lhs && rhs && lhs->GetDesc().type == rhs->GetDesc().type;
+            shaders.begin(), shaders.end(),
+            [](const auto& lhs, const auto& rhs) {
+                return lhs->GetDesc().type == rhs->GetDesc().type;
             });
-        iter != m_Desc.shaders.end()) {
+        iter != shaders.end()) {
         const auto error_message = fmt::format(
             "shader({}) and shader({}) are same type for pipeline({})",
-            fmt::styled(iter->lock()->GetName(), fmt::fg(fmt::color::red)),
-            fmt::styled((++iter)->lock()->GetName(), fmt::fg(fmt::color::red)),
+            fmt::styled((*iter)->GetName(), fmt::fg(fmt::color::red)),
+            fmt::styled((*std::next(iter))->GetName(), fmt::fg(fmt::color::red)),
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::invalid_argument(error_message);
@@ -655,15 +734,14 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
 
     // verify all shader are vulkan shader
     if (auto iter = std::find_if(
-            m_Desc.shaders.begin(), m_Desc.shaders.end(),
-            [](const auto& _shader) {
-                auto shader = _shader.lock();
+            shaders.begin(), shaders.end(),
+            [](const auto& shader) {
                 return shader && !std::dynamic_pointer_cast<VulkanShader>(shader);
             });
-        iter != m_Desc.shaders.end()) {
+        iter != shaders.end()) {
         const auto error_message = fmt::format(
             "shader({}) is not vulkan shader for pipeline({})",
-            fmt::styled(iter->lock()->GetName(), fmt::fg(fmt::color::red)),
+            fmt::styled((*iter)->GetName(), fmt::fg(fmt::color::red)),
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::invalid_argument(error_message);
@@ -671,9 +749,8 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
 
     std::pmr::vector<vk::PipelineShaderStageCreateInfo> shader_stage_create_infos;
     std::transform(
-        m_Desc.shaders.begin(), m_Desc.shaders.end(), std::back_inserter(shader_stage_create_infos),
-        [](const auto& _shader) {
-            auto shader = _shader.lock();
+        shaders.begin(), shaders.end(), std::back_inserter(shader_stage_create_infos),
+        [](const auto& shader) {
             return vk::PipelineShaderStageCreateInfo{
                 .stage  = to_vk_shader_stage(shader->GetDesc().type),
                 .module = *std::static_pointer_cast<VulkanShader>(shader)->shader,
@@ -801,10 +878,10 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
     }
 }
 
-VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc) : ComputePipeline(device, std::move(desc)) {
+VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) : ComputePipeline(device, std::move(desc)) {
     const auto logger = device.GetLogger();
 
-    auto compute_shader = std::dynamic_pointer_cast<VulkanShader>(m_Desc.cs.lock());
+    auto compute_shader = std::dynamic_pointer_cast<VulkanShader>(cs);
 
     if (compute_shader == nullptr) {
         const auto error_message = fmt::format("Compute shader is not specified for pipeline({})", fmt::styled(GetName(), fmt::fg(fmt::color::red)));

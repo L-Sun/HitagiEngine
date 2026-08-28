@@ -23,16 +23,6 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     }
 
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Index)) {
-        if (m_Desc.element_size != sizeof(std::uint16_t) && m_Desc.element_size != sizeof(std::uint32_t)) {
-            const auto error_message = "Index buffer element size must be 16 bits or 32 bits";
-            logger->error(error_message);
-            throw std::invalid_argument(error_message);
-        }
-    }
-    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Constant)) {
-        m_ElementAlignment = 256;
-    }
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Storage)) {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
@@ -90,36 +80,17 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     if (!initial_data.empty()) {
         logger->trace("Copy initial data to buffer({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
-        if (initial_data.size() % m_Desc.element_size != 0) {
+        if (initial_data.size() > Size()) {
             logger->warn(
-                "the initial data size({}) is not a multiple of element size({}) of gpu buffer({}), so the exceed data will not be copied!",
+                "the initial data size({}) is larger than gpu buffer({}) size({}), so the exceed data will not be copied!",
                 fmt::styled(initial_data.size(), fmt::fg(fmt::color::red)),
-                fmt::styled(m_Desc.element_size, fmt::fg(fmt::color::green)),
-                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-        }
-
-        if (initial_data.size() > m_Desc.element_count * m_Desc.element_size) {
-            logger->warn(
-                "the element_count({}) in initial data is larger than the buffer element_count({}), so the exceed data will not be copied!",
-                fmt::styled(initial_data.size() / m_Desc.element_size, fmt::fg(fmt::color::red)),
-                fmt::styled(m_Desc.element_count, fmt::fg(fmt::color::green)),
-                fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+                fmt::styled(GetName(), fmt::fg(fmt::color::green)),
+                fmt::styled(Size(), fmt::fg(fmt::color::green)));
         }
 
         if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
             auto mapped_ptr = Map();
-            if (m_ElementAlignment == 1 || m_ElementAlignment == m_Desc.element_size) {
-                std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
-            } else {
-                const std::size_t copy_count = std::min(initial_data.size() / m_Desc.element_size, m_Desc.element_count);
-                // TODO parallel copy
-                for (std::size_t i = 0; i < copy_count; i++) {
-                    std::memcpy(
-                        mapped_ptr + i * AlignedElementSize(),
-                        initial_data.data() + i * m_Desc.element_size,
-                        m_Desc.element_size);
-                }
-            }
+            std::memcpy(mapped_ptr, initial_data.data(), std::min<std::size_t>(initial_data.size(), Size()));
             UnMap();
         } else if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst)) {
             // Direct VRAM write via GPU_UPLOAD heap (ReBAR)
@@ -131,30 +102,74 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
                 logger->error(error_message);
                 throw std::runtime_error(error_message);
             }
-            if (m_ElementAlignment == 1 || m_ElementAlignment == m_Desc.element_size) {
-                std::memcpy(mapped_ptr, initial_data.data(), std::min(initial_data.size(), Size()));
-            } else {
-                const std::size_t copy_count = std::min(initial_data.size() / m_Desc.element_size, m_Desc.element_count);
-                for (std::size_t i = 0; i < copy_count; i++) {
-                    std::memcpy(
-                        mapped_ptr + i * AlignedElementSize(),
-                        initial_data.data() + i * m_Desc.element_size,
-                        m_Desc.element_size);
-                }
-            }
+            std::memcpy(mapped_ptr, initial_data.data(), std::min<std::size_t>(initial_data.size(), Size()));
             resource->Unmap(0, nullptr);
         } else {
             const auto error_message = fmt::format(
                 "Can not initialize gpu buffer({}) using upload heap without the flag {} or {}, the actual flags are {}",
                 fmt::styled(GetName(), fmt::fg(fmt::color::green)),
-                fmt::styled(GPUBufferUsageFlags::CopyDst, fmt::fg(fmt::color::green)),
-                fmt::styled(GPUBufferUsageFlags::MapWrite, fmt::fg(fmt::color::green)),
-                fmt::styled(m_Desc.usages, fmt::fg(fmt::color::red)));
+                fmt::styled(format_as(GPUBufferUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
+                fmt::styled(format_as(GPUBufferUsageFlags::MapWrite), fmt::fg(fmt::color::green)),
+                fmt::styled(format_as(m_Desc.usages), fmt::fg(fmt::color::red)));
 
             logger->error(error_message);
             throw std::invalid_argument(error_message);
         }
     }
+}
+
+DX12GPUBufferView::DX12GPUBufferView(DX12Device& device, GPUBufferViewDesc desc) : GPUBufferView(device, std::move(desc)) {
+    const auto logger = device.GetLogger();
+    const auto fail   = [&](std::string message) {
+        const auto error_message = fmt::format(
+            "Invalid GPU buffer view({}): {}",
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)),
+            message);
+        logger->error(error_message);
+        throw std::invalid_argument(error_message);
+    };
+
+    if (!m_Desc.buffer) {
+        fail("buffer is nullptr");
+    }
+    if (&m_Desc.buffer->GetDevice() != &device) {
+        fail("buffer belongs to another device");
+    }
+    if (m_Desc.element_size == 0) {
+        fail("element size must be larger than 0");
+    }
+
+    auto& buffer = *m_Desc.buffer;
+    if (m_Desc.type == GPUBufferViewType::Constant && utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
+        m_AlignSize = ConstantBufferAlignment;
+    } else {
+        m_AlignSize = m_Desc.element_size;
+    }
+
+    if (m_Desc.offset >= buffer.Size()) {
+        fail("offset is outside the buffer range");
+    }
+    if (m_Desc.offset % m_AlignSize != 0) {
+        fail(std::format("offset must be aligned to {}", m_AlignSize));
+    }
+    const auto aligned_element_size = utils::align(m_Desc.element_size, m_AlignSize);
+    if (m_Desc.element_count == 0) {
+        m_Desc.element_count = (buffer.Size() - m_Desc.offset) / aligned_element_size;
+    }
+    if (m_Desc.element_count == 0) {
+        fail("element count must be larger than 0");
+    }
+    const auto required_size = (m_Desc.element_count - 1) * aligned_element_size + m_Desc.element_size;
+    if (m_Desc.offset + required_size > buffer.Size()) {
+        fail(std::format(
+            "range [{}..{}) exceeds buffer {} size({})",
+            m_Desc.offset,
+            m_Desc.offset + required_size,
+            buffer.GetName(),
+            buffer.Size()));
+    }
+
+    CreateBindlessHandle();
 }
 
 auto DX12GPUBuffer::Map() -> std::byte* {
@@ -163,8 +178,8 @@ auto DX12GPUBuffer::Map() -> std::byte* {
         const auto error_message = fmt::format(
             "Can not map GPU buffer({}) without usage flag {} or {}",
             fmt::styled(GetName(), fmt::fg(fmt::color::green)),
-            fmt::styled(GPUBufferUsageFlags::MapRead, fmt::fg(fmt::color::green)),
-            fmt::styled(GPUBufferUsageFlags::MapWrite, fmt::fg(fmt::color::green)));
+            fmt::styled(format_as(GPUBufferUsageFlags::MapRead), fmt::fg(fmt::color::green)),
+            fmt::styled(format_as(GPUBufferUsageFlags::MapWrite), fmt::fg(fmt::color::green)));
 
         logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -290,35 +305,22 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
     }
     set_debug_name(resource.Get(), GetName());
 
-    if (utils::has_flag(m_Desc.usages, TextureUsageFlags::RenderTarget)) {
-        rtv                 = device.GetRTVDescriptorAllocator().Allocate();
-        const auto rtv_desc = to_d3d_rtv_desc(m_Desc);
-        device.GetDevice()->CreateRenderTargetView(resource.Get(), &rtv_desc, rtv.GetCPUHandle());
-    }
-    if (utils::has_flag(m_Desc.usages, TextureUsageFlags::DepthStencil)) {
-        dsv                 = device.GetDSVDescriptorAllocator().Allocate();
-        const auto dsv_desc = to_d3d_dsv_desc(m_Desc);
-        device.GetDevice()->CreateDepthStencilView(resource.Get(), &dsv_desc, dsv.GetCPUHandle());
-    }
-
     // Initialize RT/DS resources to clear stale metadata from D3D12MA heap memory reuse.
     // Heaps with D3D12_HEAP_FLAG_CREATE_NOT_ZEROED may contain metadata from previously
     // placed RT/DS resources; DiscardResource clears this metadata to avoid undefined behavior.
     if (initial_data.empty() &&
         (utils::has_flag(m_Desc.usages, TextureUsageFlags::RenderTarget) ||
          utils::has_flag(m_Desc.usages, TextureUsageFlags::DepthStencil))) {
-        const bool is_rt = utils::has_flag(m_Desc.usages, TextureUsageFlags::RenderTarget);
+        const bool is_rt   = utils::has_flag(m_Desc.usages, TextureUsageFlags::RenderTarget);
         auto       context = device.CreateGraphicsContext(std::format("Init-{}", GetName()));
         context->Begin();
         context->ResourceBarrier({}, {}, {{
-            Transition(
-                is_rt ? BarrierAccess::RenderTarget : BarrierAccess::DepthStencilWrite,
-                is_rt ? TextureLayout::RenderTarget : TextureLayout::DepthStencilWrite),
-        }});
+                                             Transition(is_rt ? BarrierAccess::RenderTarget : BarrierAccess::DepthStencilWrite, is_rt ? TextureLayout::RenderTarget : TextureLayout::DepthStencilWrite),
+                                         }});
         static_cast<DX12GraphicsCommandList&>(*context).command_list->DiscardResource(resource.Get(), nullptr);
         context->ResourceBarrier({}, {}, {{
-            Transition(BarrierAccess::None, TextureLayout::Unkown),
-        }});
+                                             Transition(BarrierAccess::None, TextureLayout::Unkown),
+                                         }});
         context->End();
         auto& gfx_queue = device.GetCommandQueue(CommandType::Graphics);
         gfx_queue.Submit({{*context}});
@@ -403,8 +405,8 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
             auto error_message = fmt::format(
                 "the texture({}) can not initialize with upload buffer without {}, the actual flags are {}",
                 fmt::styled(GetName(), fmt::fg(fmt::color::red)),
-                fmt::styled(TextureUsageFlags::CopyDst, fmt::fg(fmt::color::green)),
-                fmt::styled(desc.usages, fmt::fg(fmt::color::red)));
+                fmt::styled(format_as(TextureUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
+                fmt::styled(format_as(desc.usages), fmt::fg(fmt::color::red)));
             logger->error(error_message);
             throw std::invalid_argument(error_message);
         }
@@ -432,17 +434,85 @@ DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
         throw std::runtime_error(error_message);
     }
     set_debug_name(resource.Get(), GetName());
+}
 
-    rtv = static_cast<DX12Device&>(m_Device).GetRTVDescriptorAllocator().Allocate();
-    D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
-        .Format        = to_dxgi_format(m_Desc.format),
-        .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
-        .Texture2D     = {
-            .MipSlice   = 0,
-            .PlaneSlice = 0,
-        },
+DX12TextureView::DX12TextureView(DX12Device& device, TextureViewDesc desc) : TextureView(device, std::move(desc)) {
+    const auto logger = device.GetLogger();
+    logger->trace("Create texture view({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+    const auto fail = [&](std::string message) {
+        const auto error_message = fmt::format(
+            "Invalid texture view({}): {}",
+            fmt::styled(GetName(), fmt::fg(fmt::color::red)),
+            message);
+        logger->error(error_message);
+        throw std::invalid_argument(error_message);
     };
-    static_cast<DX12Device&>(m_Device).GetDevice()->CreateRenderTargetView(resource.Get(), &rtv_desc, rtv.GetCPUHandle());
+
+    if (!m_Desc.texture) {
+        fail("texture is nullptr");
+    }
+    if (&m_Desc.texture->GetDevice() != &device) {
+        fail("texture belongs to another device");
+    }
+
+    const auto& texture_desc = m_Desc.texture->GetDesc();
+    const auto  single_subresource_view =
+        m_Desc.type == TextureViewType::ShaderWrite ||
+        m_Desc.type == TextureViewType::RenderTarget ||
+        m_Desc.type == TextureViewType::DepthStencil;
+    if (m_Desc.base_mip_level >= texture_desc.mip_levels) {
+        fail("base mip level is outside the texture mip range");
+    }
+    if (m_Desc.mip_levels == 0) {
+        m_Desc.mip_levels = single_subresource_view
+                                ? 1
+                                : texture_desc.mip_levels - m_Desc.base_mip_level;
+    }
+    if (m_Desc.base_mip_level + m_Desc.mip_levels > texture_desc.mip_levels) {
+        fail("mip range exceeds texture mip levels");
+    }
+    if (single_subresource_view && m_Desc.mip_levels != 1) {
+        fail("texture view type must reference exactly one mip level");
+    }
+    if (m_Desc.base_array_layer >= texture_desc.array_size) {
+        fail("base array layer is outside the texture array range");
+    }
+    if (m_Desc.layer_count == 0) {
+        m_Desc.layer_count = single_subresource_view
+                                 ? 1
+                                 : texture_desc.array_size - m_Desc.base_array_layer;
+    }
+    if (m_Desc.base_array_layer + m_Desc.layer_count > texture_desc.array_size) {
+        fail("array layer range exceeds texture array size");
+    }
+    if (single_subresource_view && m_Desc.layer_count != 1) {
+        fail("texture view type must reference exactly one array layer");
+    }
+    if (m_Desc.type == TextureViewType::ShaderRead && !utils::has_flag(texture_desc.usages, TextureUsageFlags::SRV)) {
+        fail(std::format("shader read view requires texture usage {}", TextureUsageFlags::SRV));
+    }
+    if (m_Desc.type == TextureViewType::ShaderWrite && !utils::has_flag(texture_desc.usages, TextureUsageFlags::UAV)) {
+        fail(std::format("shader write view requires texture usage {}", TextureUsageFlags::UAV));
+    }
+    if (m_Desc.type == TextureViewType::RenderTarget && !utils::has_flag(texture_desc.usages, TextureUsageFlags::RenderTarget)) {
+        fail(std::format("render target view requires texture usage {}", TextureUsageFlags::RenderTarget));
+    }
+    if (m_Desc.type == TextureViewType::DepthStencil && !utils::has_flag(texture_desc.usages, TextureUsageFlags::DepthStencil)) {
+        fail(std::format("depth stencil view requires texture usage {}", TextureUsageFlags::DepthStencil));
+    }
+
+    auto& dx12_texture = dynamic_cast<DX12Texture&>(*m_Desc.texture);
+    if (m_Desc.type == TextureViewType::RenderTarget) {
+        rtv                 = device.GetRTVDescriptorAllocator().Allocate();
+        const auto rtv_desc = to_d3d_rtv_desc(m_Desc);
+        device.GetDevice()->CreateRenderTargetView(dx12_texture.resource.Get(), &rtv_desc, rtv.GetCPUHandle());
+    } else if (m_Desc.type == TextureViewType::DepthStencil) {
+        dsv                 = device.GetDSVDescriptorAllocator().Allocate();
+        const auto dsv_desc = to_d3d_dsv_desc(m_Desc);
+        device.GetDevice()->CreateDepthStencilView(dx12_texture.resource.Get(), &dsv_desc, dsv.GetCPUHandle());
+    }
+
+    CreateBindlessHandle();
 }
 
 DX12Sampler::DX12Sampler(DX12Device& device, SamplerDesc desc) : Sampler(device, std::move(desc)) {
@@ -464,38 +534,36 @@ DX12Shader::DX12Shader(DX12Device& device, ShaderDesc desc) : Shader(device, std
     }
 }
 
-DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc desc) : RenderPipeline(device, std::move(desc)) {
+DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) : RenderPipeline(device, std::move(desc)) {
     const auto logger = device.GetLogger();
     logger->trace("Create render pipeline ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     D3D12_SHADER_BYTECODE vs{}, ps{}, gs{};
-    for (const auto& _shader : m_Desc.shaders) {
-        if (auto shader = _shader.lock(); shader != nullptr) {
-            auto dx12_shader = std::dynamic_pointer_cast<DX12Shader>(shader);
-            if (dx12_shader == nullptr) {
+    for (const auto& shader : shaders) {
+        auto dx12_shader = std::dynamic_pointer_cast<DX12Shader>(shader);
+        if (dx12_shader == nullptr) {
+            auto error_message = fmt::format(
+                "Failed to cast shader({}) to DX12Shader",
+                fmt::styled(shader->GetName(), fmt::fg(fmt::color::green)));
+            logger->error(error_message);
+            throw std::runtime_error(error_message);
+        }
+        switch (shader->GetDesc().type) {
+            case ShaderType::Vertex:
+                vs = dx12_shader->GetShaderByteCode();
+                break;
+            case ShaderType::Pixel:
+                ps = dx12_shader->GetShaderByteCode();
+                break;
+            case ShaderType::Geometry:
+                gs = dx12_shader->GetShaderByteCode();
+                break;
+            case ShaderType::Compute: {
                 auto error_message = fmt::format(
-                    "Failed to cast shader({}) to DX12Shader",
-                    fmt::styled(shader->GetName(), fmt::fg(fmt::color::green)));
+                    "Compute shader is not supported in render pipeline({})",
+                    fmt::styled(GetName(), fmt::fg(fmt::color::green)));
                 logger->error(error_message);
                 throw std::runtime_error(error_message);
-            }
-            switch (shader->GetDesc().type) {
-                case ShaderType::Vertex:
-                    vs = dx12_shader->GetShaderByteCode();
-                    break;
-                case ShaderType::Pixel:
-                    ps = dx12_shader->GetShaderByteCode();
-                    break;
-                case ShaderType::Geometry:
-                    gs = dx12_shader->GetShaderByteCode();
-                    break;
-                case ShaderType::Compute: {
-                    auto error_message = fmt::format(
-                        "Compute shader is not supported in render pipeline({})",
-                        fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-                    logger->error(error_message);
-                    throw std::runtime_error(error_message);
-                }
             }
         }
     }
@@ -532,13 +600,13 @@ DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc de
     set_debug_name(pipeline.Get(), GetName());
 }
 
-DX12ComputePipeline::DX12ComputePipeline(DX12Device& device, ComputePipelineDesc desc) : ComputePipeline(device, std::move(desc)) {
+DX12ComputePipeline::DX12ComputePipeline(DX12Device& device, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) : ComputePipeline(device, std::move(desc)) {
     const auto logger = device.GetLogger();
     logger->trace("Create compute pipeline ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     const auto root_signature = static_cast<DX12BindlessUtils&>(device.GetBindlessUtils()).GetBindlessRootSignature().Get();
 
-    const auto dx12_shader = std::static_pointer_cast<DX12Shader>(m_Desc.cs.lock());
+    const auto dx12_shader = std::static_pointer_cast<DX12Shader>(cs);
     if (dx12_shader == nullptr) {
         const auto error_message = fmt::format(
             "Compute shader is not specified in compute pipeline({})",

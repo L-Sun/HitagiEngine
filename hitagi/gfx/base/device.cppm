@@ -16,7 +16,9 @@ export namespace hitagi::gfx {
 
 enum struct ResourceType : std::uint8_t {
     GPUBuffer,
+    GPUBufferView,
     Texture,
+    TextureView,
     Sampler,
     SwapChain,
     Shader,
@@ -35,6 +37,12 @@ enum struct GPUBufferUsageFlags : std::uint8_t {
     Storage  = (Constant << 1),
 };
 
+enum struct GPUBufferViewType : std::uint8_t {
+    Constant,
+    StorageRead,
+    StorageWrite,
+};
+
 enum struct TextureUsageFlags : std::uint8_t {
     CopySrc      = 0x1,
     CopyDst      = (CopySrc << 1),
@@ -44,6 +52,13 @@ enum struct TextureUsageFlags : std::uint8_t {
     DepthStencil = (RenderTarget << 1),
     Cube         = (DepthStencil << 1),
     CubeArray    = (Cube << 1),
+};
+
+enum struct TextureViewType : std::uint8_t {
+    ShaderRead,
+    ShaderWrite,
+    RenderTarget,
+    DepthStencil,
 };
 
 enum struct ShaderType : std::uint8_t {
@@ -410,6 +425,24 @@ enum struct TextureLayout : std::uint16_t {
     Present,
 };
 
+enum struct BindlessHandleType : std::uint32_t {
+    Buffer,
+    Texture,
+    Sampler,
+    Invalid,
+};
+
+struct BindlessHandle {
+    std::uint32_t      index;
+    BindlessHandleType type     = BindlessHandleType::Invalid;
+    std::uint32_t      writable = 0;
+    std::uint32_t      version  = 0;
+
+    inline operator bool() const noexcept {
+        return type != BindlessHandleType::Invalid;
+    }
+};
+
 }  // namespace hitagi::gfx
 
 export template <>
@@ -479,58 +512,89 @@ protected:
 
 struct GPUBufferDesc {
     std::pmr::string    name = UNKOWN_NAME;
-    std::uint64_t       element_size;
-    std::uint64_t       element_count = 1;
-    GPUBufferUsageFlags usages;
+    std::uint64_t       size = 0;
+    GPUBufferUsageFlags usages{};
 
     inline constexpr bool operator==(const GPUBufferDesc&) const noexcept;
 };
+
+inline constexpr auto ConstantBufferAlignment = std::uint64_t{256};
+
+inline constexpr auto ConstantBufferElementSize(std::uint64_t size) noexcept -> std::uint64_t {
+    return utils::align(size, ConstantBufferAlignment);
+}
 
 class GPUBuffer : public ResourceWithDesc<GPUBufferDesc> {
 public:
     struct Pointer;
 
-    inline auto AlignedElementSize() const noexcept -> std::uint64_t { return utils::align(m_Desc.element_size, m_ElementAlignment); }
-    inline auto Size() const noexcept -> std::uint64_t { return AlignedElementSize() * m_Desc.element_count; }
-    virtual auto GetAllocationSize() const noexcept -> std::uint64_t { return Size(); }
+    inline auto Size() const noexcept -> std::uint64_t { return m_Desc.size; }
 
-    virtual auto Map() -> std::byte* = 0;
-    virtual void UnMap()             = 0;
+    virtual auto GetAllocationSize() const noexcept -> std::uint64_t = 0;
+
+    [[nodiscard]] virtual auto Map() -> std::byte* = 0;
+    virtual void               UnMap()             = 0;
 
     [[nodiscard]] auto Transition(BarrierAccess access, PipelineStage stage = PipelineStage::All) -> GPUBufferBarrier;
 
 protected:
     using ResourceWithDesc::ResourceWithDesc;
 
-    template <typename T>
-        requires(!std::is_reference_v<T>)
-    friend struct GPUBufferView;
-    friend struct GPUBufferPointer;
-
-    std::uint64_t m_ElementAlignment = 1;
-    BarrierAccess m_CurrentAccess    = BarrierAccess::None;
-    PipelineStage m_CurrentStage     = PipelineStage::None;
+    BarrierAccess m_CurrentAccess = BarrierAccess::None;
+    PipelineStage m_CurrentStage  = PipelineStage::None;
 };
 
-template <typename T>
-    requires(!std::is_reference_v<T>)
-struct GPUBufferView : public utils::AlignedSpan<T> {
-    GPUBufferView(GPUBuffer& buffer)
-        : utils::AlignedSpan<T>(nullptr, buffer.m_Desc.element_count, buffer.m_ElementAlignment),
-          buffer(buffer) {
-        if (!utils::has_flag(buffer.m_Desc.usages, GPUBufferUsageFlags::MapRead) &&
-            !utils::has_flag(buffer.m_Desc.usages, GPUBufferUsageFlags::MapWrite))
-            throw std::invalid_argument(std::format("GPUBuffer {} is not mappable", buffer.GetName()));
+struct GPUBufferViewDesc {
+    std::pmr::string           name = UNKOWN_NAME;
+    std::shared_ptr<GPUBuffer> buffer;
+    GPUBufferViewType          type          = GPUBufferViewType::Constant;
+    std::uint64_t              offset        = 0;
+    std::uint64_t              element_size  = 1;
+    std::uint64_t              element_count = 1;
 
-        if (!std::is_const_v<T> && !utils::has_flag(buffer.m_Desc.usages, GPUBufferUsageFlags::MapWrite))
-            throw std::invalid_argument(std::format("GPUBuffer {} is not writable on host", buffer.GetName()));
+    inline bool operator==(const GPUBufferViewDesc&) const noexcept;
+};
 
-        this->m_Data = buffer.Map();
-    }
+class GPUBufferView : public ResourceWithDesc<GPUBufferViewDesc> {
+public:
+    ~GPUBufferView() override;
 
-    ~GPUBufferView() { buffer.UnMap(); }
+    inline auto GetBindlessHandle() const noexcept -> BindlessHandle { return m_BindlessHandle; }
 
-    GPUBuffer& buffer;
+    template <typename T>
+        requires(!std::is_reference_v<T>)
+    class MappedSpan : public utils::AlignedSpan<T> {
+    public:
+        explicit MappedSpan(GPUBufferView& view);
+        explicit MappedSpan(GPUBuffer& buffer, std::uint64_t offset = 0, std::uint64_t element_count = 0);
+        MappedSpan(const MappedSpan&)                = delete;
+        MappedSpan(MappedSpan&&) noexcept            = delete;
+        MappedSpan& operator=(const MappedSpan&)     = delete;
+        MappedSpan& operator=(MappedSpan&&) noexcept = delete;
+        ~MappedSpan();
+
+    private:
+        explicit MappedSpan(std::shared_ptr<GPUBufferView> view);
+
+        std::shared_ptr<GPUBufferView> m_OwnedView;
+        GPUBuffer&                     m_Buffer;
+    };
+
+    template <typename T>
+    [[nodiscard]] inline auto GetMappedSpan() -> MappedSpan<T> { return MappedSpan<T>(*this); }
+    template <typename T>
+    [[nodiscard]] inline auto GetMappedSpan() const -> MappedSpan<const T> { return MappedSpan<const T>(const_cast<GPUBufferView&>(*this)); }
+
+protected:
+    using ResourceWithDesc::ResourceWithDesc;
+
+    void CreateBindlessHandle();
+
+    [[nodiscard]] auto Map() -> std::byte* { return m_Desc.buffer->Map() + m_Desc.offset; }
+    void               UnMap() { m_Desc.buffer->UnMap(); }
+
+    std::uint64_t  m_AlignSize = 1;
+    BindlessHandle m_BindlessHandle{};
 };
 
 struct TextureDesc {
@@ -561,6 +625,32 @@ protected:
     BarrierAccess m_CurrentAccess = BarrierAccess::None;
     PipelineStage m_CurrentStage  = PipelineStage::All;
     TextureLayout m_CurrentLayout = TextureLayout::Unkown;
+};
+
+struct TextureViewDesc {
+    std::pmr::string         name = UNKOWN_NAME;
+    std::shared_ptr<Texture> texture;
+    TextureViewType          type             = TextureViewType::ShaderRead;
+    std::uint32_t            base_mip_level   = 0;
+    std::uint32_t            mip_levels       = 0;
+    std::uint32_t            base_array_layer = 0;
+    std::uint32_t            layer_count      = 0;
+
+    inline bool operator==(const TextureViewDesc&) const noexcept;
+};
+
+class TextureView : public ResourceWithDesc<TextureViewDesc> {
+public:
+    ~TextureView() override;
+
+    inline auto GetBindlessHandle() const noexcept -> BindlessHandle { return m_BindlessHandle; }
+
+protected:
+    using ResourceWithDesc::ResourceWithDesc;
+
+    void CreateBindlessHandle();
+
+    BindlessHandle m_BindlessHandle{};
 };
 
 struct SamplerDesc {
@@ -620,8 +710,6 @@ protected:
 struct RenderPipelineDesc {
     std::pmr::string name = UNKOWN_NAME;
 
-    std::pmr::vector<std::weak_ptr<Shader>> shaders;
-
     AssemblyState      assembly_state       = {};
     VertexLayout       vertex_input_layout  = {};
     RasterizationState rasterization_state  = {};
@@ -634,8 +722,6 @@ using RenderPipeline = ResourceWithDesc<RenderPipelineDesc>;
 
 struct ComputePipelineDesc {
     std::pmr::string name = UNKOWN_NAME;
-
-    std::weak_ptr<Shader> cs;
 };
 using ComputePipeline = ResourceWithDesc<ComputePipelineDesc>;
 
@@ -643,8 +729,12 @@ template <ResourceDesc Desc>
 auto ResourceWithDesc<Desc>::GetType() const noexcept -> ResourceType {
     if constexpr (std::is_same_v<Desc, GPUBufferDesc>) {
         return ResourceType::GPUBuffer;
+    } else if constexpr (std::is_same_v<Desc, GPUBufferViewDesc>) {
+        return ResourceType::GPUBufferView;
     } else if constexpr (std::is_same_v<Desc, TextureDesc>) {
         return ResourceType::Texture;
+    } else if constexpr (std::is_same_v<Desc, TextureViewDesc>) {
+        return ResourceType::TextureView;
     } else if constexpr (std::is_same_v<Desc, SamplerDesc>) {
         return ResourceType::Sampler;
     } else if constexpr (std::is_same_v<Desc, SwapChainDesc>) {
@@ -662,9 +752,17 @@ auto ResourceWithDesc<Desc>::GetType() const noexcept -> ResourceType {
 
 inline constexpr bool GPUBufferDesc::operator==(const GPUBufferDesc& rhs) const noexcept {
     return name == rhs.name &&
-           element_size == rhs.element_size &&
-           element_count == rhs.element_count &&
+           size == rhs.size &&
            usages == rhs.usages;
+}
+
+inline bool GPUBufferViewDesc::operator==(const GPUBufferViewDesc& rhs) const noexcept {
+    return name == rhs.name &&
+           buffer.get() == rhs.buffer.get() &&
+           type == rhs.type &&
+           offset == rhs.offset &&
+           element_size == rhs.element_size &&
+           element_count == rhs.element_count;
 }
 
 inline constexpr bool TextureDesc::operator==(const TextureDesc& rhs) const noexcept {
@@ -692,6 +790,16 @@ inline constexpr bool TextureDesc::operator==(const TextureDesc& rhs) const noex
     return result;
 }
 
+inline bool TextureViewDesc::operator==(const TextureViewDesc& rhs) const noexcept {
+    return name == rhs.name &&
+           texture.get() == rhs.texture.get() &&
+           type == rhs.type &&
+           base_mip_level == rhs.base_mip_level &&
+           mip_levels == rhs.mip_levels &&
+           base_array_layer == rhs.base_array_layer &&
+           layer_count == rhs.layer_count;
+}
+
 inline constexpr bool SamplerDesc::operator==(const SamplerDesc& rhs) const noexcept {
     return name == rhs.name &&
            address_u == rhs.address_u &&
@@ -714,9 +822,37 @@ struct hash<hitagi::gfx::GPUBufferDesc> {
     constexpr std::size_t operator()(const hitagi::gfx::GPUBufferDesc& desc) const noexcept {
         return hitagi::utils::combine_hash(std::array{
             hitagi::utils::hash(desc.name),
+            hitagi::utils::hash(desc.size),
+            hitagi::utils::hash(desc.usages),
+        });
+    }
+};
+
+template <>
+struct hash<hitagi::gfx::GPUBufferViewDesc> {
+    std::size_t operator()(const hitagi::gfx::GPUBufferViewDesc& desc) const noexcept {
+        return hitagi::utils::combine_hash(std::array{
+            hitagi::utils::hash(desc.name),
+            hitagi::utils::hash(reinterpret_cast<std::uintptr_t>(desc.buffer.get())),
+            hitagi::utils::hash(desc.type),
+            hitagi::utils::hash(desc.offset),
             hitagi::utils::hash(desc.element_size),
             hitagi::utils::hash(desc.element_count),
-            hitagi::utils::hash(desc.usages),
+        });
+    }
+};
+
+template <>
+struct hash<hitagi::gfx::TextureViewDesc> {
+    std::size_t operator()(const hitagi::gfx::TextureViewDesc& desc) const noexcept {
+        return hitagi::utils::combine_hash(std::array{
+            hitagi::utils::hash(desc.name),
+            hitagi::utils::hash(reinterpret_cast<std::uintptr_t>(desc.texture.get())),
+            hitagi::utils::hash(desc.type),
+            hitagi::utils::hash(desc.base_mip_level),
+            hitagi::utils::hash(desc.mip_levels),
+            hitagi::utils::hash(desc.base_array_layer),
+            hitagi::utils::hash(desc.layer_count),
         });
     }
 };
@@ -819,42 +955,28 @@ struct FenceWaitInfo {
     PipelineStage stage = PipelineStage::All;
 };
 
-enum struct BindlessHandleType : std::uint32_t {
-    Buffer,
-    Texture,
-    Sampler,
-    Invalid,
-};
-
-struct BindlessHandle {
-    std::uint32_t      index;
-    BindlessHandleType type     = BindlessHandleType::Invalid;
-    std::uint32_t      writable = 0;
-    std::uint32_t      version  = 0;
-
-    inline operator bool() const noexcept {
-        return type != BindlessHandleType::Invalid;
-    }
-};
-
 struct BindlessMetaInfo {
     BindlessHandle handle = {};
 };
 
 class BindlessUtils {
+    friend class GPUBufferView;
+    friend class TextureView;
+
 public:
     virtual ~BindlessUtils() = default;
 
-    [[nodiscard]] virtual auto CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t index, bool writable = false) -> BindlessHandle = 0;
-    [[nodiscard]] virtual auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle                      = 0;
-    [[nodiscard]] virtual auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle                                              = 0;
-    virtual void               DiscardBindlessHandle(BindlessHandle handle)                                                          = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle = 0;
+    virtual void               DiscardBindlessHandle(BindlessHandle handle)             = 0;
 
     inline auto& GetDevice() const noexcept { return m_Device; }
     inline auto  GetName() const noexcept { return std::string_view(m_Name); }
 
 protected:
     BindlessUtils(Device& device, std::string_view name) : m_Device(device), m_Name(name) {}
+
+    [[nodiscard]] virtual auto CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(TextureView& view) -> BindlessHandle   = 0;
 
     Device&          m_Device;
     std::pmr::string m_Name;
@@ -893,11 +1015,11 @@ protected:
 
 class GraphicsCommandContext : public CommandContext {
 public:
-    virtual void BeginRendering(Texture&                     render_target,
-                                utils::optional_ref<Texture> depth_stencil       = {},
-                                bool                         clear_render_target = false,
-                                bool                         clear_depth_stencil = false) = 0;
-    virtual void EndRendering()                                                           = 0;
+    virtual void BeginRendering(TextureView&                     render_target,
+                                utils::optional_ref<TextureView> depth_stencil       = {},
+                                bool                             clear_render_target = false,
+                                bool                             clear_depth_stencil = false) = 0;
+    virtual void EndRendering()                                                               = 0;
 
     virtual void SetPipeline(const RenderPipeline& pipeline) = 0;
 
@@ -905,7 +1027,7 @@ public:
     virtual void SetScissorRect(const Rect& scissor_rect) = 0;
     virtual void SetBlendColor(const math::Color& color)  = 0;
 
-    virtual void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0) = 0;
+    virtual void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0, Format index_format = Format::R32_UINT) = 0;
     virtual void SetVertexBuffers(
         std::uint8_t                                             start_binding,
         std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
@@ -1113,8 +1235,16 @@ inline auto format_as(GPUBufferUsageFlags usages) noexcept {
     return magic_enum::enum_flags_name(usages);
 }
 
+inline auto format_as(GPUBufferViewType type) noexcept {
+    return magic_enum::enum_name(type);
+}
+
 inline auto format_as(TextureUsageFlags usages) noexcept {
     return magic_enum::enum_flags_name(usages);
+}
+
+inline auto format_as(TextureViewType type) noexcept {
+    return magic_enum::enum_name(type);
 }
 
 inline auto format_as(ShaderType type) noexcept {
@@ -1228,12 +1358,14 @@ public:
 
     virtual auto CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain>                                               = 0;
     virtual auto CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> = 0;
+    virtual auto CreateGPUBufferView(GPUBufferViewDesc desc) -> std::shared_ptr<GPUBufferView>                                   = 0;
     virtual auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture>       = 0;
+    virtual auto CreateTextureView(TextureViewDesc desc) -> std::shared_ptr<TextureView>                                         = 0;
     virtual auto CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler>                                                     = 0;
 
-    virtual auto CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader>                            = 0;
-    virtual auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline>    = 0;
-    virtual auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> = 0;
+    virtual auto CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader>                                                                                   = 0;
+    virtual auto CreateRenderPipeline(RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) -> std::shared_ptr<RenderPipeline> = 0;
+    virtual auto CreateComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) -> std::shared_ptr<ComputePipeline>                     = 0;
 
     virtual auto GetBindlessUtils() -> BindlessUtils& = 0;
 
@@ -1260,5 +1392,118 @@ inline auto Device::CreateComputeContext(std::string_view name) -> std::shared_p
 inline auto Device::CreateCopyContext(std::string_view name) -> std::shared_ptr<CopyCommandContext> {
     return std::static_pointer_cast<CopyCommandContext>(CreateCommandContext(CommandType::Copy, name));
 };
+
+inline GPUBufferView::~GPUBufferView() {
+    if (m_BindlessHandle) {
+        GetDevice().GetBindlessUtils().DiscardBindlessHandle(m_BindlessHandle);
+        m_BindlessHandle = {};
+    }
+}
+
+inline void GPUBufferView::CreateBindlessHandle() {
+    if (m_BindlessHandle) {
+        throw std::logic_error(std::format("GPUBufferView({}) already has bindless handle", GetName()));
+    }
+    const auto usage = m_Desc.buffer->GetDesc().usages;
+    if ((m_Desc.type == GPUBufferViewType::Constant && !utils::has_flag(usage, GPUBufferUsageFlags::Constant)) ||
+        ((m_Desc.type == GPUBufferViewType::StorageRead || m_Desc.type == GPUBufferViewType::StorageWrite) &&
+         !utils::has_flag(usage, GPUBufferUsageFlags::Storage))) {
+        return;
+    }
+    m_BindlessHandle = GetDevice().GetBindlessUtils().CreateBindlessHandle(*this);
+}
+
+inline TextureView::~TextureView() {
+    if (m_BindlessHandle) {
+        GetDevice().GetBindlessUtils().DiscardBindlessHandle(m_BindlessHandle);
+        m_BindlessHandle = {};
+    }
+}
+
+inline void TextureView::CreateBindlessHandle() {
+    if (m_BindlessHandle) {
+        throw std::logic_error(std::format("TextureView({}) already has bindless handle", GetName()));
+    }
+    const auto usage = m_Desc.texture->GetDesc().usages;
+    switch (m_Desc.type) {
+        case TextureViewType::ShaderRead:
+            if (!utils::has_flag(usage, TextureUsageFlags::SRV)) {
+                throw std::invalid_argument(std::format(
+                    "TextureView({}) requires texture({}) usage {} for {} view, actual usages are {}",
+                    GetName(),
+                    m_Desc.texture->GetName(),
+                    TextureUsageFlags::SRV,
+                    m_Desc.type,
+                    usage));
+            }
+            break;
+        case TextureViewType::ShaderWrite:
+            if (!utils::has_flag(usage, TextureUsageFlags::UAV)) {
+                throw std::invalid_argument(std::format(
+                    "TextureView({}) requires texture({}) usage {} for {} view, actual usages are {}",
+                    GetName(),
+                    m_Desc.texture->GetName(),
+                    TextureUsageFlags::UAV,
+                    m_Desc.type,
+                    usage));
+            }
+            break;
+        case TextureViewType::RenderTarget:
+        case TextureViewType::DepthStencil:
+            return;
+    }
+    m_BindlessHandle = GetDevice().GetBindlessUtils().CreateBindlessHandle(*this);
+}
+
+template <typename T>
+    requires(!std::is_reference_v<T>)
+GPUBufferView::MappedSpan<T>::MappedSpan(GPUBufferView& view)
+    : utils::AlignedSpan<T>(nullptr, view.m_Desc.element_count, view.m_AlignSize), m_Buffer(*view.m_Desc.buffer) {
+    using ValueType = std::remove_const_t<T>;
+
+    if (view.m_Desc.element_size != sizeof(ValueType)) {
+        throw std::invalid_argument(std::format(
+            "GPUBufferView {} element size({}) does not match mapped type size({})",
+            view.GetName(),
+            view.m_Desc.element_size,
+            sizeof(ValueType)));
+    }
+
+    const auto& buffer_desc = m_Buffer.GetDesc();
+    if (!utils::has_flag(buffer_desc.usages, GPUBufferUsageFlags::MapRead) &&
+        !utils::has_flag(buffer_desc.usages, GPUBufferUsageFlags::MapWrite)) {
+        throw std::invalid_argument(std::format("GPUBuffer {} is not mappable", view.GetName()));
+    }
+    if (!std::is_const_v<T> && !utils::has_flag(buffer_desc.usages, GPUBufferUsageFlags::MapWrite)) {
+        throw std::invalid_argument(std::format("GPUBuffer {} is not writable on host", view.GetName()));
+    }
+
+    this->m_Data = view.Map();
+}
+
+template <typename T>
+    requires(!std::is_reference_v<T>)
+GPUBufferView::MappedSpan<T>::MappedSpan(GPUBuffer& buffer, std::uint64_t offset, std::uint64_t element_count)
+    : MappedSpan(buffer.GetDevice().CreateGPUBufferView(GPUBufferViewDesc{
+          .name          = std::pmr::string(buffer.GetName()),
+          .buffer        = std::shared_ptr<GPUBuffer>(&buffer, [](GPUBuffer*) {}),
+          .offset        = offset,
+          .element_size  = sizeof(std::remove_const_t<T>),
+          .element_count = element_count,
+      })) {}
+
+template <typename T>
+    requires(!std::is_reference_v<T>)
+GPUBufferView::MappedSpan<T>::MappedSpan(std::shared_ptr<GPUBufferView> view) : MappedSpan(*view) {
+    m_OwnedView = std::move(view);
+}
+
+template <typename T>
+    requires(!std::is_reference_v<T>)
+GPUBufferView::MappedSpan<T>::~MappedSpan() {
+    if (this->m_Data) {
+        m_Buffer.UnMap();
+    }
+}
 
 }  // namespace hitagi::gfx

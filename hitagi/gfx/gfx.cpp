@@ -40,10 +40,9 @@ auto readback_texture(Device& device, Texture& texture, TextureSubresourceLayer 
     const auto  depth      = static_cast<std::uint32_t>(desc.depth);
 
     auto readback_buffer = device.CreateGPUBuffer({
-        .name          = "readback_buffer",
-        .element_size  = pixel_size,
-        .element_count = static_cast<std::uint64_t>(width) * height * depth,
-        .usages        = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
+        .name   = "readback_buffer",
+        .size   = static_cast<std::uint64_t>(pixel_size) * width * height * depth,
+        .usages = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
     });
 
     device.WaitIdle();

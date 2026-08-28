@@ -142,22 +142,27 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
     }
 }
 
-auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t index, bool writable) -> BindlessHandle {
-    if (writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
+auto VulkanBindlessUtils::CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle {
+    const auto& view_desc  = view.GetDesc();
+    auto&       buffer     = *view_desc.buffer;
+    const auto  view_type  = view_desc.type;
+    const auto is_storage = view_type == GPUBufferViewType::StorageRead || view_type == GPUBufferViewType::StorageWrite;
+    const auto writable   = view_type == GPUBufferViewType::StorageWrite;
+
+    if (is_storage && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
         const auto error_message = fmt::format(
-            "Failed to create BindlessHandle: buffer({}) is not writable",
+            "Failed to create BindlessHandle: buffer({}) is not a storage buffer",
             fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
         m_Device.GetLogger()->error(error_message);
         throw std::invalid_argument(error_message);
     }
-    // ! For now, we don't need to check this because we use storage buffer to simulate constant buffer
-    // if (!writable && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
-    //     const auto error_message = fmt::format(
-    //         "Failed to create BindlessHandle: buffer({}) is not used for shader visible",
-    //         fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
-    //     m_Device.GetLogger()->error(error_message);
-    //     throw std::invalid_argument(error_message);
-    // }
+    if (view_type == GPUBufferViewType::Constant && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
+        const auto error_message = fmt::format(
+            "Failed to create BindlessHandle: buffer({}) is not a constant buffer",
+            fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
+        m_Device.GetLogger()->error(error_message);
+        throw std::invalid_argument(error_message);
+    }
 
     auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
@@ -171,8 +176,8 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t 
 
     const vk::DescriptorBufferInfo buffer_info{
         .buffer = **dynamic_cast<VulkanBuffer&>(buffer).buffer,
-        .offset = index * buffer.AlignedElementSize(),
-        .range  = buffer.GetDesc().element_size,
+        .offset = view_desc.offset,
+        .range  = view_desc.element_size * view_desc.element_count,
     };
 
     const vk::WriteDescriptorSet write_info{
@@ -189,7 +194,11 @@ auto VulkanBindlessUtils::CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t 
     return handle;
 }
 
-auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) -> BindlessHandle {
+auto VulkanBindlessUtils::CreateBindlessHandle(TextureView& view) -> BindlessHandle {
+    const auto& view_desc = view.GetDesc();
+    auto&       texture   = *view_desc.texture;
+    const auto  writable  = view_desc.type == TextureViewType::ShaderWrite;
+
     if (writable && !utils::has_flag(texture.GetDesc().usages, TextureUsageFlags::UAV)) {
         const auto error_message = fmt::format(
             "Failed to create BindlessHandle: texture({}) is not writable",
@@ -214,7 +223,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
 
         handle = pool.back();
         pool.pop_back();
-        handle.type     = BindlessHandleType::Texture,
+        handle.type     = BindlessHandleType::Texture;
         handle.writable = 1;
     } else {
         auto& [pool, mutex] = m_BindlessHandlePools[1];
@@ -222,14 +231,14 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
 
         handle = pool.back();
         pool.pop_back();
-        handle.type     = BindlessHandleType::Texture,
+        handle.type     = BindlessHandleType::Texture;
         handle.writable = 0;
     }
 
     const vk::DescriptorImageInfo image_info{
         .sampler     = nullptr,
-        .imageView   = **dynamic_cast<VulkanImage&>(texture).image_view,
-        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+        .imageView   = **dynamic_cast<VulkanTextureView&>(view).image_view,
+        .imageLayout = writable ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 
     const vk::WriteDescriptorSet write_info{
@@ -237,7 +246,7 @@ auto VulkanBindlessUtils::CreateBindlessHandle(Texture& texture, bool writable) 
         .dstBinding      = 0,
         .dstArrayElement = handle.index,
         .descriptorCount = 1,
-        .descriptorType  = vk::DescriptorType::eSampledImage,
+        .descriptorType  = writable ? vk::DescriptorType::eStorageImage : vk::DescriptorType::eSampledImage,
         .pImageInfo      = &image_info,
     };
 

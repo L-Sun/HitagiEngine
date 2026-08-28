@@ -10,21 +10,26 @@ export namespace hitagi::gfx {
 struct MockGPUBuffer : public GPUBuffer {
     MockGPUBuffer(Device& device, GPUBufferDesc desc) : GPUBuffer(device, std::move(desc)) {}
 
+    auto GetAllocationSize() const noexcept -> std::uint64_t final { return Size(); }
     auto Map() -> std::byte* final { return nullptr; }
     void UnMap() final {}
 
     core::Buffer buffer;
 };
 
+struct MockGPUBufferView final : public GPUBufferView {
+    MockGPUBufferView(Device& device, GPUBufferViewDesc desc);
+};
+
 struct MockTexture : public Texture {
     MockTexture(Device& device, TextureDesc desc) : Texture(device, std::move(desc)) {}
 
     auto GetAllocationSize() const noexcept -> std::uint64_t final {
-        auto bytes      = std::uint64_t{0};
-        auto mip_width  = std::max(m_Desc.width, 1u);
-        auto mip_height = std::max(m_Desc.height, 1u);
-        auto mip_depth  = std::max<std::uint16_t>(m_Desc.depth, 1u);
-        const auto bpp  = static_cast<std::uint64_t>(get_format_byte_size(m_Desc.format));
+        auto       bytes      = std::uint64_t{0};
+        auto       mip_width  = std::max(m_Desc.width, 1u);
+        auto       mip_height = std::max(m_Desc.height, 1u);
+        auto       mip_depth  = std::max<std::uint16_t>(m_Desc.depth, 1u);
+        const auto bpp        = static_cast<std::uint64_t>(get_format_byte_size(m_Desc.format));
 
         for (std::uint16_t mip = 0; mip < std::max<std::uint16_t>(m_Desc.mip_levels, 1u); ++mip) {
             bytes += static_cast<std::uint64_t>(mip_width) *
@@ -38,6 +43,10 @@ struct MockTexture : public Texture {
         }
         return bytes;
     }
+};
+
+struct MockTextureView final : public TextureView {
+    MockTextureView(Device& device, TextureViewDesc desc);
 };
 
 struct MockSampler : public Sampler {
@@ -64,11 +73,11 @@ struct MockShader : public Shader {
 };
 
 struct MockRenderPipeline : public RenderPipeline {
-    MockRenderPipeline(Device& device, RenderPipelineDesc desc) : RenderPipeline(device, std::move(desc)) {}
+    MockRenderPipeline(Device& device, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders);
 };
 
 struct MockComputePipeline : public ComputePipeline {
-    MockComputePipeline(Device& device, ComputePipelineDesc desc) : ComputePipeline(device, std::move(desc)) {}
+    MockComputePipeline(Device& device, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs);
 };
 
 struct MockFence : public Fence {
@@ -89,22 +98,6 @@ struct MockFence : public Fence {
 struct MockBindlessUtils : public BindlessUtils {
     MockBindlessUtils(Device& device, std::string_view name) : BindlessUtils(device, name) {}
 
-    auto CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t index, bool writable = false) -> BindlessHandle final {
-        return {
-            .index    = counter++,
-            .type     = BindlessHandleType::Buffer,
-            .writable = writable,
-            .version  = 0,
-        };
-    }
-    auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle final {
-        return {
-            .index    = counter++,
-            .type     = BindlessHandleType::Texture,
-            .writable = writeable,
-            .version  = 0,
-        };
-    }
     auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle final {
         return {
             .index    = counter++,
@@ -113,8 +106,26 @@ struct MockBindlessUtils : public BindlessUtils {
             .version  = 0,
         };
     }
-    void          DiscardBindlessHandle(BindlessHandle handle) final {}
+    void                 DiscardBindlessHandle(BindlessHandle handle) final {}
     std::atomic_uint32_t counter = 0;
+
+private:
+    auto CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle final {
+        return BindlessHandle{
+            .index    = counter++,
+            .type     = BindlessHandleType::Buffer,
+            .writable = view.GetDesc().type == GPUBufferViewType::StorageWrite,
+            .version  = 0,
+        };
+    }
+    auto CreateBindlessHandle(TextureView& view) -> BindlessHandle final {
+        return BindlessHandle{
+            .index    = counter++,
+            .type     = BindlessHandleType::Texture,
+            .writable = view.GetDesc().type == TextureViewType::ShaderWrite,
+            .version  = 0,
+        };
+    }
 };
 
 struct MockCommandQueue : public CommandQueue {
@@ -128,7 +139,7 @@ struct MockCommandQueue : public CommandQueue {
             signal.fence.Signal(signal.value);
         }
     }
-    void WaitIdle() final{};
+    void WaitIdle() final {};
 };
 
 struct MockGraphicsCommandContext : public GraphicsCommandContext {
@@ -141,10 +152,10 @@ struct MockGraphicsCommandContext : public GraphicsCommandContext {
         std::span<const GPUBufferBarrier> buffer_barriers  = {},
         std::span<const TextureBarrier>   texture_barriers = {}) final {}
 
-    void BeginRendering(Texture&                     render_target,
-                        utils::optional_ref<Texture> depth_stencil,
-                        bool                         clear_render_target = false,
-                        bool                         clear_depth_stencil = false) final {}
+    void BeginRendering(TextureView&                     render_target,
+                        utils::optional_ref<TextureView> depth_stencil,
+                        bool                             clear_render_target = false,
+                        bool                             clear_depth_stencil = false) final {}
     void EndRendering() final {}
 
     void SetPipeline(const RenderPipeline& pipeline) final {}
@@ -153,7 +164,7 @@ struct MockGraphicsCommandContext : public GraphicsCommandContext {
     void SetScissorRect(const Rect& scissor_rect) final {}
     void SetBlendColor(const math::Color& color) final {}
 
-    void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0) final {}
+    void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0, Format index_format = Format::R32_UINT) final {}
     void SetVertexBuffers(std::uint8_t                                             start_binding,
                           std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
                           std::span<const std::size_t>                             offset) final {}
@@ -226,7 +237,6 @@ struct MockCopyCommandContext : public CopyCommandContext {
         TextureSubresourceLayer dst_layer = {}) final {}
 };
 
-
 class MockDevice : public Device {
 public:
     MockDevice(std::string_view name);
@@ -242,12 +252,14 @@ public:
 
     auto CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> final;
     auto CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> final;
+    auto CreateGPUBufferView(GPUBufferViewDesc desc) -> std::shared_ptr<GPUBufferView> final;
     auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
+    auto CreateTextureView(TextureViewDesc desc) -> std::shared_ptr<TextureView> final;
     auto CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> final;
 
     auto CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> final;
-    auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> final;
-    auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> final;
+    auto CreateRenderPipeline(RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) -> std::shared_ptr<RenderPipeline> final;
+    auto CreateComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) -> std::shared_ptr<ComputePipeline> final;
 
     auto GetBindlessUtils() -> BindlessUtils& final;
 

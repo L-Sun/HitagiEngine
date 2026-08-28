@@ -137,22 +137,24 @@ void DX12GraphicsCommandList::ResourceBarrier(std::span<const GlobalBarrier>    
     pipeline_barrier_fn(cmd_list, global_barriers, buffer_barriers, texture_barriers);
 }
 
-void DX12GraphicsCommandList::BeginRendering(Texture& render_target, utils::optional_ref<Texture> depth_stencil, bool clear_render_target, bool clear_depth_stencil) {
-    auto& dx12_render_target = static_cast<DX12Texture&>(render_target);
-    auto  dx12_depth_stencil = depth_stencil.has_value() ? &static_cast<DX12Texture&>(depth_stencil->get()) : nullptr;
+void DX12GraphicsCommandList::BeginRendering(TextureView& render_target, utils::optional_ref<TextureView> depth_stencil, bool clear_render_target, bool clear_depth_stencil) {
+    auto& render_target_texture = *render_target.GetDesc().texture;
+    auto& dx12_render_target    = static_cast<DX12TextureView&>(render_target);
+    auto  dx12_depth_stencil    = depth_stencil.has_value() ? &static_cast<DX12TextureView&>(depth_stencil->get()) : nullptr;
+    auto  depth_stencil_texture = depth_stencil.has_value() ? depth_stencil->get().GetDesc().texture.get() : nullptr;
 
     command_list->OMSetRenderTargets(
         1, &dx12_render_target.rtv.GetCPUHandle(), false,
         (dx12_depth_stencil && dx12_depth_stencil->dsv) ? &dx12_depth_stencil->dsv.GetCPUHandle() : nullptr);
 
     if (clear_render_target) {
-        if (!render_target.GetDesc().clear_value.has_value()) {
+        if (!render_target_texture.GetDesc().clear_value.has_value()) {
             m_Device.GetLogger()->warn(fmt::format(
                 "render target({}) has no clear value but clear render target is requested",
-                fmt::styled(render_target.GetName(), fmt::fg(fmt::color::orange))));
+                fmt::styled(render_target_texture.GetName(), fmt::fg(fmt::color::orange))));
 
         } else {
-            const auto clear_color = std::get<ClearColor>(render_target.GetDesc().clear_value.value());
+            const auto clear_color = std::get<ClearColor>(render_target_texture.GetDesc().clear_value.value());
             command_list->ClearRenderTargetView(dx12_render_target.rtv.GetCPUHandle(), clear_color, 0, nullptr);
         }
     }
@@ -160,12 +162,12 @@ void DX12GraphicsCommandList::BeginRendering(Texture& render_target, utils::opti
     if (clear_depth_stencil) {
         if (dx12_depth_stencil == nullptr) {
             m_Device.GetLogger()->warn("depth stencil is not set but clear depth stencil is requested");
-        } else if (!dx12_depth_stencil->GetDesc().clear_value.has_value()) {
+        } else if (!depth_stencil_texture->GetDesc().clear_value.has_value()) {
             m_Device.GetLogger()->warn(fmt::format(
                 "depth stencil({}) has no clear value but clear depth stencil is requested",
-                fmt::styled(depth_stencil->get().GetName(), fmt::fg(fmt::color::orange))));
+                fmt::styled(depth_stencil_texture->GetName(), fmt::fg(fmt::color::orange))));
         } else {
-            const auto clear_depth_stencil = std::get<ClearDepthStencil>(dx12_depth_stencil->GetDesc().clear_value.value());
+            const auto clear_depth_stencil = std::get<ClearDepthStencil>(depth_stencil_texture->GetDesc().clear_value.value());
             command_list->ClearDepthStencilView(dx12_depth_stencil->dsv.GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_depth_stencil.depth, clear_depth_stencil.stencil, 0, nullptr);
         }
     }
@@ -196,12 +198,12 @@ void DX12GraphicsCommandList::SetBlendColor(const math::Color& color) {
     command_list->OMSetBlendFactor(color);
 }
 
-void DX12GraphicsCommandList::SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset) {
+void DX12GraphicsCommandList::SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset, Format index_format) {
     auto&                   dx12_buffer = static_cast<const DX12GPUBuffer&>(buffer);
     D3D12_INDEX_BUFFER_VIEW ibv{
         .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress() + offset,
-        .SizeInBytes    = static_cast<UINT>(buffer.Size()),
-        .Format         = buffer.GetDesc().element_size == sizeof(std::uint16_t) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT,
+        .SizeInBytes    = static_cast<UINT>(buffer.Size() - offset),
+        .Format         = to_dxgi_format(index_format),
     };
     command_list->IASetIndexBuffer(&ibv);
 }

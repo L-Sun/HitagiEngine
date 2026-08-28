@@ -72,11 +72,15 @@ struct VulkanBuffer final : public GPUBuffer {
     void UnMap() final;
 
     std::unique_ptr<vk::raii::Buffer> buffer;
-    VmaAllocation                     allocation = nullptr;
+    VmaAllocation                     allocation       = nullptr;
     std::uint64_t                     m_AllocationSize = 0;
 
     std::mutex    map_mutex;
     std::uint16_t mapped_count{0};
+};
+
+struct VulkanBufferView final : public GPUBufferView {
+    VulkanBufferView(VulkanDevice& device, GPUBufferViewDesc desc);
 };
 
 struct VulkanImage final : public Texture {
@@ -92,10 +96,14 @@ struct VulkanImage final : public Texture {
     vk::Image                      image_handle;
     const VulkanSwapChain*         swap_chain = nullptr;
 
-    std::optional<vk::raii::ImageView> image_view;
-
-    VmaAllocation allocation = nullptr;
+    VmaAllocation allocation       = nullptr;
     std::uint64_t m_AllocationSize = 0;
+};
+
+struct VulkanTextureView final : public TextureView {
+    VulkanTextureView(VulkanDevice& device, TextureViewDesc desc);
+
+    std::optional<vk::raii::ImageView> image_view;
 };
 
 struct VulkanSampler final : public Sampler {
@@ -139,9 +147,9 @@ private:
     std::uint32_t                              m_NumImages;
     std::pmr::vector<std::unique_ptr<Texture>> m_Images;
 
-    int           m_CurrentIndex          = -1;
-    std::uint32_t m_NextSemaphoreIndex   = 0;
-    SemaphorePair m_CurrentSemaphores;
+    int                             m_CurrentIndex       = -1;
+    std::uint32_t                   m_NextSemaphoreIndex = 0;
+    SemaphorePair                   m_CurrentSemaphores;
     std::pmr::vector<SemaphorePair> m_SemaphorePairs;
 };
 
@@ -155,18 +163,16 @@ struct VulkanShader final : public Shader {
 };
 
 struct VulkanRenderPipeline final : public RenderPipeline {
-    VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc);
+    VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders);
 
     std::unique_ptr<vk::raii::Pipeline> pipeline;
 };
 
 struct VulkanComputePipeline final : public ComputePipeline {
-    VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc);
+    VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs);
 
     std::unique_ptr<vk::raii::Pipeline> pipeline;
 };
-
-
 
 struct VulkanTimelineSemaphore final : public Fence {
 public:
@@ -179,8 +185,6 @@ public:
 
     vk::raii::Semaphore timeline_semaphore;
 };
-
-
 
 class VulkanCommandQueue final : public CommandQueue {
 public:
@@ -205,13 +209,9 @@ private:
     TracyVkCtx      m_TracyCtx = nullptr;
 };
 
-
-
 struct VulkanBindlessUtils : public BindlessUtils {
     VulkanBindlessUtils(VulkanDevice& device, std::string_view name);
 
-    auto CreateBindlessHandle(GPUBuffer& buffer, std::uint64_t index, bool writeable = false) -> BindlessHandle final;
-    auto CreateBindlessHandle(Texture& texture, bool writeable = false) -> BindlessHandle final;
     auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle final;
     void DiscardBindlessHandle(BindlessHandle handle) final;
 
@@ -223,13 +223,15 @@ struct VulkanBindlessUtils : public BindlessUtils {
     std::vector<vk::raii::DescriptorSet> descriptor_sets;
 
 private:
+    auto CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle final;
+    auto CreateBindlessHandle(TextureView& view) -> BindlessHandle final;
+
     struct BindlessHandlePool {
         std::pmr::vector<BindlessHandle> pool;
         TracyLockableN(std::mutex, mutex, "Vulkan Bindless Pool Mutex");
     };
     std::array<BindlessHandlePool, 4> m_BindlessHandlePools{};
 };
-
 
 class VulkanGraphicsCommandBuffer final : public GraphicsCommandContext {
 public:
@@ -243,10 +245,10 @@ public:
         std::span<const GPUBufferBarrier> buffer_barriers  = {},
         std::span<const TextureBarrier>   texture_barriers = {}) final;
 
-    void BeginRendering(Texture&                     render_target,
-                        utils::optional_ref<Texture> depth_stencil       = {},
-                        bool                         clear_render_target = false,
-                        bool                         clear_depth_stencil = false) final;
+    void BeginRendering(TextureView&                     render_target,
+                        utils::optional_ref<TextureView> depth_stencil       = {},
+                        bool                             clear_render_target = false,
+                        bool                             clear_depth_stencil = false) final;
     void EndRendering() final;
 
     void SetPipeline(const RenderPipeline& pipeline) final;
@@ -255,7 +257,7 @@ public:
     void SetScissorRect(const Rect& scissor_rect) final;
     void SetBlendColor(const math::Color& color) final;
 
-    void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0) final;
+    void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0, Format index_format = Format::R32_UINT) final;
     void SetVertexBuffers(std::uint8_t                                             start_binding,
                           std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
                           std::span<const std::size_t>                             offsets) final;
@@ -283,12 +285,12 @@ public:
                      TextureSubresourceLayer src_layer = {},
                      TextureSubresourceLayer dst_layer = {});
 
-    vk::raii::CommandBuffer              command_buffer;
-    std::shared_ptr<vk::raii::Semaphore> swap_chain_image_available_semaphore;
+    vk::raii::CommandBuffer                                command_buffer;
+    std::shared_ptr<vk::raii::Semaphore>                   swap_chain_image_available_semaphore;
     std::pmr::vector<std::shared_ptr<vk::raii::Semaphore>> swap_chain_presentable_semaphores;
 
 private:
-    const VulkanRenderPipeline* m_Pipeline = nullptr;
+    const VulkanRenderPipeline*        m_Pipeline = nullptr;
     std::unique_ptr<tracy::VkCtxScope> m_TracyZone;
 };
 
@@ -311,7 +313,7 @@ public:
     vk::raii::CommandBuffer command_buffer;
 
 private:
-    const VulkanComputePipeline* m_Pipeline = nullptr;
+    const VulkanComputePipeline*       m_Pipeline = nullptr;
     std::unique_ptr<tracy::VkCtxScope> m_TracyZone;
 };
 
@@ -355,13 +357,10 @@ public:
 
     vk::raii::CommandBuffer command_buffer;
 
-    std::shared_ptr<vk::raii::Semaphore> swap_chain_image_available_semaphore;
+    std::shared_ptr<vk::raii::Semaphore>                   swap_chain_image_available_semaphore;
     std::pmr::vector<std::shared_ptr<vk::raii::Semaphore>> swap_chain_presentable_semaphores;
-    std::unique_ptr<tracy::VkCtxScope> m_TracyZone;
+    std::unique_ptr<tracy::VkCtxScope>                     m_TracyZone;
 };
-
-
-
 
 auto custom_vk_allocation_fn(void* p_this, std::size_t size, std::size_t alignment, vk::SystemAllocationScope) -> void*;
 auto custom_vk_reallocation_fn(void* p_this, void* origin_ptr, std::size_t new_size, std::size_t alignment, vk::SystemAllocationScope) -> void*;
@@ -1271,19 +1270,18 @@ inline constexpr auto to_vk_pipeline_stage2(PipelineStage stage) noexcept -> vk:
 }
 
 inline constexpr auto get_vk_image_aspect(const TextureDesc& desc) noexcept -> vk::ImageAspectFlags {
-    vk::ImageAspectFlags result = vk::ImageAspectFlagBits::eNone;
-    if (utils::has_flag(desc.usages, TextureUsageFlags::DepthStencil)) {
-        if (desc.format == Format::D32_FLOAT_S8X24_UINT || desc.format == Format::D24_UNORM_S8_UINT)
-            result |= (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
-        if (desc.format == Format::D32_FLOAT || desc.format == Format::D16_UNORM)
-            result |= vk::ImageAspectFlagBits::eDepth;
+    switch (desc.format) {
+        case Format::D32_FLOAT_S8X24_UINT:
+        case Format::D24_UNORM_S8_UINT:
+            return vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+        case Format::D32_FLOAT:
+        case Format::D16_UNORM:
+            return vk::ImageAspectFlagBits::eDepth;
+        case Format::UNKNOWN:
+            return vk::ImageAspectFlagBits::eNone;
+        default:
+            return vk::ImageAspectFlagBits::eColor;
     }
-    if (utils::has_flag(desc.usages, TextureUsageFlags::RenderTarget) ||
-        utils::has_flag(desc.usages, TextureUsageFlags::SRV) ||
-        utils::has_flag(desc.usages, TextureUsageFlags::UAV)) {
-        result |= vk::ImageAspectFlagBits::eColor;
-    }
-    return result;
 }
 
 inline constexpr auto to_vk_image_layout(TextureLayout layout) noexcept -> vk::ImageLayout {
@@ -1377,6 +1375,22 @@ inline constexpr auto to_vk_image_view_create_info(const TextureDesc& desc, vk::
     };
 }
 
+inline auto to_vk_image_view_create_info(const TextureViewDesc& view_desc, vk::Image image) noexcept -> vk::ImageViewCreateInfo {
+    const auto& desc = view_desc.texture->GetDesc();
+    return {
+        .image            = image,
+        .viewType         = to_vk_image_view_type(desc),
+        .format           = to_vk_format(desc.format),
+        .subresourceRange = vk::ImageSubresourceRange{
+            .aspectMask     = get_vk_image_aspect(desc),
+            .baseMipLevel   = view_desc.base_mip_level,
+            .levelCount     = view_desc.mip_levels,
+            .baseArrayLayer = view_desc.base_array_layer,
+            .layerCount     = view_desc.layer_count,
+        },
+    };
+}
+
 inline constexpr auto to_vk_image_subresource_layer(const TextureSubresourceLayer subresource, const TextureDesc& desc) -> vk::ImageSubresourceLayers {
     return vk::ImageSubresourceLayers{
         .aspectMask     = get_vk_image_aspect(desc),
@@ -1442,8 +1456,6 @@ inline auto to_bindless_type(const vk::DescriptorType vk_type) -> BindlessHandle
     }
 }
 
-
-
 class VulkanDevice final : public Device {
 public:
     VulkanDevice(std::string_view name);
@@ -1460,12 +1472,14 @@ public:
 
     auto CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> final;
     auto CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<GPUBuffer> final;
+    auto CreateGPUBufferView(GPUBufferViewDesc desc) -> std::shared_ptr<GPUBufferView> final;
     auto CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data = {}) -> std::shared_ptr<Texture> final;
+    auto CreateTextureView(TextureViewDesc desc) -> std::shared_ptr<TextureView> final;
     auto CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> final;
 
     auto CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> final;
-    auto CreateRenderPipeline(RenderPipelineDesc desc) -> std::shared_ptr<RenderPipeline> final;
-    auto CreateComputePipeline(ComputePipelineDesc desc) -> std::shared_ptr<ComputePipeline> final;
+    auto CreateRenderPipeline(RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) -> std::shared_ptr<RenderPipeline> final;
+    auto CreateComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) -> std::shared_ptr<ComputePipeline> final;
 
     auto GetBindlessUtils() -> BindlessUtils& final;
 

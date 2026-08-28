@@ -133,46 +133,4 @@ void SamplerNode::Initialize() {
     m_Resource = m_RenderGraph->GetDevice().CreateSampler(m_Desc.value());
 }
 
-RenderPipelineNode::RenderPipelineNode(RenderGraph& render_graph, gfx::RenderPipelineDesc desc, std::string_view name)
-    : ResourceNode(render_graph, Type::RenderPipeline, name), m_Desc(std::move(desc)) {}
-
-RenderPipelineNode::RenderPipelineNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> pipeline, std::string_view name)
-    : ResourceNode(render_graph, RenderGraphNode::Type::RenderPipeline, name, std::move(pipeline)) {
-    if (m_Name.empty()) m_Name = GetDesc().name;
-}
-
-auto RenderPipelineNode::GetDesc() const noexcept -> const gfx::RenderPipelineDesc& {
-    if (m_Resource)
-        return std::static_pointer_cast<gfx::RenderPipeline>(m_Resource)->GetDesc();
-    else
-        return m_Desc.value();
-}
-
-void RenderPipelineNode::Initialize() {
-    if (m_IsImported || m_Resource) return;
-
-    m_Resource = m_RenderGraph->GetDevice().CreateRenderPipeline(m_Desc.value());
-}
-
-ComputePipelineNode::ComputePipelineNode(RenderGraph& render_graph, gfx::ComputePipelineDesc desc, std::string_view name)
-    : ResourceNode(render_graph, Type::ComputePipeline, name), m_Desc(std::move(desc)) {}
-
-ComputePipelineNode::ComputePipelineNode(RenderGraph& render_graph, std::shared_ptr<gfx::Resource> pipeline, std::string_view name)
-    : ResourceNode(render_graph, RenderGraphNode::Type::ComputePipeline, name, std::move(pipeline)) {
-    if (m_Name.empty()) m_Name = GetDesc().name;
-}
-
-auto ComputePipelineNode::GetDesc() const noexcept -> const gfx::ComputePipelineDesc& {
-    if (m_Resource)
-        return std::static_pointer_cast<gfx::ComputePipeline>(m_Resource)->GetDesc();
-    else
-        return m_Desc.value();
-}
-
-void ComputePipelineNode::Initialize() {
-    if (m_IsImported || m_Resource) return;
-
-    m_Resource = m_RenderGraph->GetDevice().CreateComputePipeline(m_Desc.value());
-}
-
 }  // namespace hitagi::rg
