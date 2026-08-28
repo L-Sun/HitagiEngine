@@ -4,6 +4,8 @@ module;
 
 module asset;
 import std;
+import math;
+import :image_codec;
 
 using namespace hitagi::math;
 
@@ -19,12 +21,12 @@ struct TgaFileheader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Texture> TgaDecoder::Decode(const core::Buffer& buffer) {
-    auto logger = m_Logger ? m_Logger : spdlog::default_logger();
+auto TgaDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
+    auto logger = spdlog::default_logger();
 
     if (buffer.Empty()) {
         logger->warn("[TGA] Parsing a empty buffer will return null");
-        return nullptr;
+        return {};
     }
 
     auto data       = reinterpret_cast<const std::uint8_t*>(buffer.GetData());
@@ -41,12 +43,12 @@ std::shared_ptr<Texture> TgaDecoder::Decode(const core::Buffer& buffer) {
 
     if (file_header->color_map_type) {
         logger->warn("[TGA] Unsupported Color Map. Only Type 0 is supported.");
-        return nullptr;
+        return {};
     }
 
     if (file_header->image_type != 2) {
         logger->warn("[TGA] Unsupported Image Type. Only Type 2 is supported.");
-        return nullptr;
+        return {};
     }
 
     auto width      = (file_header->image_spec[5] << 8) + file_header->image_spec[4];
@@ -111,6 +113,15 @@ std::shared_ptr<Texture> TgaDecoder::Decode(const core::Buffer& buffer) {
     }
     assert(data <= p_data_end);
 
-    return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
+    return ImageData{
+        .width  = static_cast<std::uint32_t>(width),
+        .height = static_cast<std::uint32_t>(height),
+        .format = gfx::Format::R8G8B8A8_UNORM,
+        .data   = std::move(cpu_buffer),
+    };
+}
+
+auto TgaDecoder::EncodeImageData(const ImageData&) -> core::Buffer {
+    return {};
 }
 }  // namespace hitagi::asset

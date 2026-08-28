@@ -6,15 +6,16 @@ module;
 
 module asset;
 import std;
+import :image_codec;
 
 namespace hitagi::asset {
 
-std::shared_ptr<Texture> JpegDecoder::Decode(const core::Buffer& buffer) {
-    auto logger = m_Logger ? m_Logger : spdlog::default_logger();
+auto JpegDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
+    auto logger = spdlog::default_logger();
 
     if (buffer.Empty()) {
         logger->warn("[JPEG] Parsing a empty buffer will return nullptr");
-        return nullptr;
+        return {};
     }
 
     jpeg_decompress_struct cinfo{};
@@ -49,7 +50,12 @@ std::shared_ptr<Texture> JpegDecoder::Decode(const core::Buffer& buffer) {
         jpeg_finish_decompress(&cinfo);
         jpeg_destroy_decompress(&cinfo);
 
-        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
+        return ImageData{
+            .width  = width,
+            .height = height,
+            .format = gfx::Format::R8G8B8A8_UNORM,
+            .data   = std::move(cpu_buffer),
+        };
 
     } catch (struct jpeg_error_mgr* err) {
         std::array<char, 1024> error_message;
@@ -57,6 +63,10 @@ std::shared_ptr<Texture> JpegDecoder::Decode(const core::Buffer& buffer) {
 
         logger->error(error_message.data());
     }
-    return nullptr;
+    return {};
+}
+
+auto JpegDecoder::EncodeImageData(const ImageData&) -> core::Buffer {
+    return {};
 }
 }  // namespace hitagi::asset

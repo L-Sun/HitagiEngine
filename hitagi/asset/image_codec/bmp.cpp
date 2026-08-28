@@ -4,6 +4,8 @@ module;
 
 module asset;
 import std;
+import math;
+import :image_codec;
 
 using namespace hitagi::math;
 
@@ -33,11 +35,11 @@ using BITMAP_HEADER = struct BitmapHeader {
 };
 #pragma pack(pop)
 
-std::shared_ptr<Texture> BmpDecoder::Decode(const core::Buffer& buffer) {
-    auto logger = m_Logger ? m_Logger : spdlog::default_logger();
+auto BmpDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
+    auto logger = spdlog::default_logger();
     if (buffer.Empty()) {
         logger->warn("[BMP] Parsing a empty buffer will return nullptr");
-        return nullptr;
+        return {};
     }
 
     auto file_header = reinterpret_cast<const BITMAP_FILEHEADER*>(buffer.GetData());
@@ -57,7 +59,7 @@ std::shared_ptr<Texture> BmpDecoder::Decode(const core::Buffer& buffer) {
 
         if (bmp_header->bit_count < 24) {
             logger->warn("[BMP] Sorry, only true color BMP is supported at now.");
-            return nullptr;
+            return {};
         }
 
         auto width      = std::abs(bmp_header->width);
@@ -76,8 +78,17 @@ std::shared_ptr<Texture> BmpDecoder::Decode(const core::Buffer& buffer) {
             }
         }
 
-        return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
+        return ImageData{
+            .width  = static_cast<std::uint32_t>(width),
+            .height = static_cast<std::uint32_t>(height),
+            .format = gfx::Format::R8G8B8A8_UNORM,
+            .data   = std::move(cpu_buffer),
+        };
     }
-    return nullptr;
+    return {};
+}
+
+auto BmpDecoder::EncodeImageData(const ImageData&) -> core::Buffer {
+    return {};
 }
 }  // namespace hitagi::asset

@@ -5,6 +5,8 @@ module;
 
 module asset;
 import std;
+import math;
+import :image_codec;
 
 using namespace hitagi::math;
 
@@ -25,12 +27,12 @@ void png_read_callback(png_structp png_tr, png_bytep data, png_size_t length) {
         png_error(png_tr, "[libpng] pngReaderCallback failed.");
 }
 
-std::shared_ptr<Texture> PngDecoder::Decode(const core::Buffer& buffer) {
-    auto logger = m_Logger ? m_Logger : spdlog::default_logger();
+auto PngDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
+    auto logger = spdlog::default_logger();
 
     if (buffer.Empty()) {
         logger->warn("[PNG] Parsing a empty bufferfer will return nullptr.");
-        return nullptr;
+        return {};
     }
 
     enum { PNG_BYTES_TO_CHECK = 4 };
@@ -39,26 +41,26 @@ std::shared_ptr<Texture> PngDecoder::Decode(const core::Buffer& buffer) {
         png_sig_cmp(reinterpret_cast<png_const_bytep>(buffer.GetData()), 0,
                     PNG_BYTES_TO_CHECK)) {
         logger->warn("[PNG] File format is not png!");
-        return nullptr;
+        return {};
     }
 
     png_structp png_tr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr,
                                                 nullptr, nullptr);
     if (!png_tr) {
         logger->error("[PNG] Can not create read struct.");
-        return nullptr;
+        return {};
     }
     png_infop info_ptr = png_create_info_struct(png_tr);
     if (!info_ptr) {
         logger->error("[PNG] Can not create info struct.");
         png_destroy_read_struct(&png_tr, nullptr, nullptr);
-        return nullptr;
+        return {};
     }
 
     if (setjmp(png_jmpbuf(png_tr))) {
         logger->error("[PNG] Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
-        return nullptr;
+        return {};
     }
 
     ImageSource img_source{};
@@ -127,12 +129,17 @@ std::shared_ptr<Texture> PngDecoder::Decode(const core::Buffer& buffer) {
         } break;
         default:
             logger->error("[PNG] Unsupport color type.");
-            return nullptr;
+            return {};
             break;
     }
 
     png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
-    return std::make_shared<Texture>(width, height, gfx::Format::R8G8B8A8_UNORM, std::move(cpu_buffer));
+    return ImageData{
+        .width  = static_cast<std::uint32_t>(width),
+        .height = static_cast<std::uint32_t>(height),
+        .format = gfx::Format::R8G8B8A8_UNORM,
+        .data   = std::move(cpu_buffer),
+    };
 }
 
 struct PngWriteContext {
@@ -147,10 +154,10 @@ void png_write_callback(png_structp png_ptr, png_bytep data, png_size_t length) 
 
 void png_flush_callback(png_structp) {}
 
-core::Buffer PngEncoder::Encode(const Texture& texture) {
-    auto logger = m_Logger ? m_Logger : spdlog::default_logger();
+auto PngDecoder::EncodeImageData(const ImageData& image_data) -> core::Buffer {
+    auto logger = spdlog::default_logger();
 
-    if (texture.Empty()) {
+    if (image_data.data.Empty()) {
         logger->warn("[PNG] Encoding an empty texture will return empty buffer.");
         return {};
     }
@@ -177,8 +184,8 @@ core::Buffer PngEncoder::Encode(const Texture& texture) {
     PngWriteContext write_ctx;
     png_set_write_fn(png_ptr, &write_ctx, png_write_callback, png_flush_callback);
 
-    auto width  = texture.Width();
-    auto height = texture.Height();
+    auto width  = image_data.width;
+    auto height = image_data.height;
 
     png_set_IHDR(png_ptr, info_ptr, width, height, 8,
                  PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE,
@@ -186,7 +193,7 @@ core::Buffer PngEncoder::Encode(const Texture& texture) {
 
     png_write_info(png_ptr, info_ptr);
 
-    auto pixel_data = texture.GetData();
+    auto pixel_data = image_data.data.Span<const std::byte>();
     auto pitch      = width * 4;
 
     for (std::uint32_t y = 0; y < height; y++) {
