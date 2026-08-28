@@ -18,3 +18,5 @@ vtune
 *_ispc.h
 
 imgui.ini
+
+__pycache__/

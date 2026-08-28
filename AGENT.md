@@ -80,6 +80,39 @@ lldb --batch -o "run --frames 3 --exit-after-load" -o "bt" -- build\windows\x64\
 
 ## Architecture Overview
 
+### Product Scopes
+
+Use these four scopes when deciding where code belongs:
+
+| Scope | Namespace / owner | Purpose | May depend on |
+| --- | --- | --- | --- |
+| `engine` | `hitagi::` | Runtime engine foundation: core, platform, gfx, render graph, render, ecs, physics, gui, and runtime assets. | Third-party runtime libraries only |
+| `editor` | `editor::` | Generic editor and authoring infrastructure: USD/document-style asset editing, inspectors, viewports, cook/import/export tools. | `engine` |
+| `game` | `game::` | A specific game's runtime code: gameplay, game assets, renderer policy, render graph/pass-contract choices. | `engine` |
+| `game-editor` | `game_editor::` | A specific game's editor application. Combines generic editor tooling with the game's runtime/content rules. | `engine`, `editor`, `game` |
+
+Runtime packaging should only require:
+
+```text
+engine + game + cooked assets
+```
+
+It should not require:
+
+```text
+editor
+game-editor
+USD authoring data
+editor document/tree state
+```
+
+Important ownership boundaries:
+
+- `hitagi::asset` is an engine runtime asset layer. It should contain cooked/runtime-ready assets such as meshes, textures, materials, cameras, lights, and scene data that renderer/game code can consume directly.
+- USD import/export, authoring graphs, source document trees, editable material graphs, and save-back workflows belong to `editor` or `game-editor`, not to `engine`.
+- Game-specific render pipelines, render graph composition, pass contracts, and material compiler policies belong to `game`; the engine should provide gfx/render primitives and runtime asset containers.
+- `game-editor` is the integration point that lets editor tooling cook authoring data into `hitagi::asset` objects for preview or packaging.
+
 ### Module System
 
 All engine code uses **C++23 modules** (`.cppm` files) with the `export module xxx;` pattern. Regular `.cpp` files contain module implementations. Headers (`.h`/`.hpp`) are only used at module boundaries for third-party libraries via `module;` global fragment blocks.
@@ -132,11 +165,11 @@ Following the layered architecture from *Game Engine Architecture* (Jason Gregor
 
 **`hitagi/platform`** — `Application` base class with SDL3 backend. Created via `Application::CreateApp(config)`. Host applications own config persistence.
 
-**`hitagi/asset`** — `AssetManager` for loading USD scenes, meshes, materials, textures. OpenUSD is the scene import path; custom parsers handle PNG, JPEG, BMP, TGA. Materials are defined with named instances (e.g., `"Phong"`).
+**`hitagi/asset`** — Engine runtime asset module for meshes, textures, materials, cameras, lights, transforms, and asset management. Runtime assets expose `Load(gfx::Device&)` / `Unload()` and are intended to be directly consumable by renderer/game code. USD authoring, editable asset documents, source graph preservation, and cook/export workflows should live in `editor` or `game-editor`, not in this engine module.
 
-**`hitagi/gui`** — ImGui integration layer. `GuiManager` owns the ImGui context, input mapping, font loading, and queued GUI draw tasks. After `ImGui::Render()`, it converts ImGui output into `gui::GuiDrawData`, including copied vertices, indices, draw commands, the CPU font atlas view, and render graph texture references encoded via `GuiManager::ReadTexture()`.
+**`hitagi/gui`** — Runtime ImGui integration layer. `GuiManager` owns the ImGui context, input mapping, font loading, and queued GUI draw tasks. After `ImGui::Render()`, it converts ImGui output into `gui::GuiDrawData`, including copied vertices, indices, draw commands, the CPU font atlas view, and render graph texture references encoded via `GuiManager::ReadTexture()`. Generic editor UI composition belongs to `editor`; game-specific editor panels belong to `game-editor`.
 
-**`hitagi/render`** — `IRenderer` interface with two concrete implementations: `ForwardRenderer` (single-pass Phong shading) and `DeferredRenderer` (G-Buffer MRT pass + fullscreen lighting pass). Both renderers own the swapchain and render graph instance. The engine defaults to `ForwardRenderer`; switch via `Engine::SetRenderer()`. GUI rendering is explicit: renderer code consumes `const gui::GuiDrawData&` through `IRenderer::RenderGui(...)` and must not query ImGui state or own a `GuiManager`. It is valid to call `RenderGui(target, engine.GuiManager().GetDrawData(), clear)` before `engine.Tick()` because the renderer stores a frame-local pointer and consumes the updated draw data during its tick.
+**`hitagi/render`** — Engine renderer primitives and default renderer implementations. `IRenderer` has concrete implementations such as `ForwardRenderer` and `DeferredRenderer` (G-Buffer MRT pass + fullscreen lighting pass). Game-specific render graph composition, pass-contract policy, and material compiler policy belong to `game`; engine render code should stay generic unless a default renderer explicitly owns the behavior. GUI rendering is explicit: renderer code consumes `const gui::GuiDrawData&` through `IRenderer::RenderGui(...)` and must not query ImGui state or own a `GuiManager`.
 
 **`hitagi/engine`** — Top-level `Engine` class that composes everything. Initialized from a caller-supplied `AppConfig`. Usage pattern: construct `Engine`, call `engine.Tick()` in the game loop.
 

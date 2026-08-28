@@ -3,7 +3,10 @@ includes("math/xmake.lua")
 target("engine")
     set_kind("static")
     add_files("**/*.cppm", {public = true})
-    add_files("**/*.cpp")
+    add_files("**/*.cpp", {public = true})
+    remove_files("editor/*.cppm")
+    remove_files("editor/*.cpp")
+    remove_files("editor/**/*.cpp")
     remove_files("test/*.cppm")
     remove_files("test/*.cpp")
     remove_files("*/test/*.cpp")
@@ -16,9 +19,7 @@ target("engine")
         "freetype",
         "imgui",
         "libpng",
-        "usd",
         "libjpeg-turbo",
-        "nlohmann_json",
         "libsdl3",
         "joltphysics",
         "vulkansdk",
@@ -78,3 +79,5 @@ target("unit_tests")
     add_files("*/test/*.cpp")
     remove_files("*/test/*_test_main.cpp")
     remove_files("*/test/*_benchmark.cpp")
+
+includes("editor/xmake.lua")

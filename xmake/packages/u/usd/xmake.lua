@@ -23,8 +23,6 @@ package("usd")
     add_configs("image", {description = "Build imaging components", default = false, type = "boolean"})
     add_configs("openimageio", {description = "Build OpenImageIO plugin", default = false, type = "boolean"})
     add_configs("opencolorio", {description = "Build OpenColorIO plugin", default = false, type = "boolean"})
-    add_configs("materialx", {description = "Enable MaterialX support", default = false, type = "boolean"})
-
     add_configs("vulkan", {description = "Enable Vulkan based components", default = false, type = "boolean"})
     add_configs("python", {description = "Enable Python based components for USD", default = false, type = "boolean"})
     add_configs("usdview", {description = "Build usdview", default = false, type = "boolean"})
@@ -71,10 +69,6 @@ package("usd")
         if package:config("opencolorio") then
             package:add("deps", "opencolorio")
         end
-        if package:config("materialx") then
-            package:add("deps", "materialx")
-        end
-
         if package:config("python") then
             package:add("deps", "python >=3.9")
             package:addenv("PYTHONPATH", "lib/python")
@@ -112,8 +106,6 @@ package("usd")
         table.insert(configs, "-DPXR_BUILD_USD_IMAGING=" .. (package:config("image") and "ON" or "OFF"))
         table.insert(configs, "-DPXR_BUILD_OPENIMAGEIO_PLUGIN=" .. (package:config("openimageio") and "ON" or "OFF"))
         table.insert(configs, "-DPXR_BUILD_OPENCOLORIO_PLUGIN=" .. (package:config("opencolorio") and "ON" or "OFF"))
-        table.insert(configs, "-DPXR_ENABLE_MATERIALX_SUPPORT=" .. (package:config("materialx") and "ON" or "OFF"))
-
         table.insert(configs, "-DPXR_ENABLE_VULKAN_SUPPORT=" .. (package:config("vulkan") and "ON" or "OFF"))
         table.insert(configs, "-DPXR_ENABLE_PYTHON_SUPPORT=" .. (package:config("python") and "ON" or "OFF"))
         table.insert(configs, "-DPXR_BUILD_USDVIEW=" .. (package:config("usdview") and "ON" or "OFF"))

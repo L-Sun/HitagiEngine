@@ -1,10 +1,10 @@
 {
     "asset_root_path": "assets",
-    "gfx_backend": "Vulkan",
-    "height": 1142,
+    "gfx_backend": "DX12",
+    "height": 1239,
     "log_level": "info",
     "maximized": false,
-    "title": "Hitagi Engine",
+    "title": "Hitagi PBR Demo Editor",
     "version": "v0.2.0",
-    "width": 1784
+    "width": 1986
 }

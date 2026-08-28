@@ -50,5 +50,12 @@
         "environment": "${envObjArray}",
         "sourceFileMap": "${sourceFileMapObj}",
     },
-    "testMate.cpp.test.parallelExecutionLimit": 8
+    "testMate.cpp.test.parallelExecutionLimit": 8,
+    "xmake.debugConfigType": "codelldb",
+    "xmake.debuggingTargetsArguments": {
+        "default": ["--gtest_filter=DeviceTest/DeviceTest.CreateTextureView/DX12"]
+    },
+    "xmake.runningTargetsArguments": {
+        "default": ["--gtest_filter=DeviceTest/DeviceTest.CreateTextureView/DX12"]
+    }
 }
