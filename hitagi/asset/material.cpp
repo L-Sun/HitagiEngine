@@ -1,238 +1,251 @@
 module;
 
-#include <range/v3/range/conversion.hpp>
-#include <range/v3/view/filter.hpp>
-#include <range/v3/view/transform.hpp>
-#include <range/v3/view/unique.hpp>
-#include <spdlog/spdlog.h>
+#include <concepts>
 
-module asset;
+export module asset:material;
 import std;
-import magic_enum;
+import core;
+import gfx;
+import math;
+import utils;
+import :resource;
+import :texture;
+import :pipeline;
+
+export namespace hitagi::asset {
+
+using MaterialParameterValue = std::variant<
+    float,
+    std::int32_t,
+    std::uint32_t,
+    math::vec2i,
+    math::vec2u,
+    math::vec2f,
+    math::vec3i,
+    math::vec3u,
+    math::vec3f,
+    math::vec4i,
+    math::vec4u,
+    math::vec4f,
+    math::Color,
+    math::mat4f,
+    std::shared_ptr<Texture>>;
+
+template <typename T>
+concept MaterialParametric = requires(const MaterialParameterValue& parameter) {
+    { std::get<T>(parameter) } -> std::same_as<const T&>;
+};
+
+struct MaterialParameter {
+    std::pmr::string       name;
+    MaterialParameterValue value;
+
+    inline bool operator==(const MaterialParameter& rhs) const noexcept { return name == rhs.name && value == rhs.value; }
+};
+
+using MaterialParameters = std::pmr::vector<MaterialParameter>;
+
+struct MaterialPass {
+    std::pmr::string                   pass_contract;
+    std::shared_ptr<RenderPipeline>    pipeline;
+    std::pmr::vector<std::pmr::string> bindings;
+    core::Buffer                       material_data;
+};
+
+class Material : public Resource {
+public:
+    Material(
+        MaterialParameters             parameters = {},
+        std::pmr::vector<MaterialPass> passes     = {},
+        std::string_view               name       = "");
+
+    void Load(const ResourceLoadContext& context) final;
+    void Unload() final;
+
+    inline auto GetParameters() const noexcept -> std::span<const MaterialParameter> { return m_Parameters; }
+    inline auto GetPasses() const noexcept -> std::span<const MaterialPass> { return m_Passes; }
+
+    auto FindPass(std::string_view pass_contract) const noexcept -> const MaterialPass*;
+
+    template <MaterialParametric T>
+    void SetParameter(std::string_view name, T value) noexcept;
+    template <MaterialParametric T>
+    auto GetParameter(std::string_view name) const noexcept -> std::optional<T>;
+
+private:
+    void InvalidatePassData() noexcept;
+    auto GenerateMaterialData(const MaterialPass& pass, bool enable_16_bytes_packing) noexcept -> core::Buffer;
+
+    MaterialParameters             m_Parameters;
+    std::pmr::vector<MaterialPass> m_Passes;
+    // True while any texture parameter is still decoding asynchronously; Load()
+    // keeps repacking material_data (with placeholder handles) until all settle.
+    bool m_HasPendingTextures = false;
+};
+
+template <MaterialParametric T>
+void Material::SetParameter(std::string_view name, T value) noexcept {
+    const auto iter = std::ranges::find_if(m_Parameters, [&](const auto& current) { return current.name == name; });
+    if (iter != m_Parameters.end()) {
+        iter->value = std::move(value);
+    } else {
+        m_Parameters.emplace_back(MaterialParameter{.name = std::pmr::string(name), .value = std::move(value)});
+    }
+    InvalidatePassData();
+}
+
+template <MaterialParametric T>
+auto Material::GetParameter(std::string_view name) const noexcept -> std::optional<T> {
+    const auto iter = std::ranges::find_if(m_Parameters, [name](const auto& parameter) {
+        return parameter.name == name;
+    });
+    if (iter == m_Parameters.end() || !std::holds_alternative<T>(iter->value)) return std::nullopt;
+    return std::get<T>(iter->value);
+}
+
+}  // namespace hitagi::asset
 
 namespace hitagi::asset {
 
-auto get_parameter_size(const MaterialParameterValue& parameter) noexcept {
-    return std::visit(
-        utils::Overloaded{
-            [](const std::shared_ptr<asset::Texture>&) -> std::size_t { return 0; },
-            [](const auto& value) -> std::size_t {
-                return sizeof(value);
+Material::Material(MaterialParameters parameters, std::pmr::vector<MaterialPass> passes, std::string_view name)
+    : Resource(Type::Material, name) {
+    MaterialParameters unique;
+    unique.reserve(parameters.size());
+    for (const auto& parameter : parameters) {
+        if (std::ranges::none_of(unique, [&](const auto& existing) { return existing.name == parameter.name; })) {
+            unique.emplace_back(parameter);
+        }
+    }
+    m_Parameters = std::move(unique);
+
+    m_Passes.reserve(passes.size());
+    for (const auto& source_pass : passes) {
+        auto& pass         = m_Passes.emplace_back();
+        pass.pass_contract = std::pmr::string(source_pass.pass_contract);
+        pass.pipeline      = source_pass.pipeline;
+        pass.bindings.reserve(source_pass.bindings.size());
+        for (const auto& binding : source_pass.bindings) pass.bindings.emplace_back(binding);
+        pass.material_data = source_pass.material_data;
+    }
+}
+
+auto Material::FindPass(std::string_view pass_contract) const noexcept -> const MaterialPass* {
+    const auto iter = std::ranges::find_if(m_Passes, [pass_contract](const auto& pass) { return pass.pass_contract == pass_contract; });
+    return iter == m_Passes.end() ? nullptr : std::addressof(*iter);
+}
+
+auto Material::GenerateMaterialData(const MaterialPass& pass, bool enable_16_bytes_packing) noexcept -> core::Buffer {
+    const auto get_parameter_size = [](const MaterialParameterValue& parameter) noexcept -> std::size_t {
+        return std::visit(
+            utils::Overloaded{
+                [](const std::shared_ptr<Texture>&) -> std::size_t { return sizeof(gfx::BindlessHandle); },
+                [](const auto& value) -> std::size_t { return sizeof(value); },
             },
-        },
-        parameter);
-}
+            parameter);
+    };
 
-Material::Material(MaterialDesc desc, std::string_view name)
-    : Resource(Type::Material, name), m_Desc(std::move(desc)) {
-    if (m_Desc.pipeline.name.empty()) m_Desc.pipeline.name = m_Name;
+    const auto find_parameter = [this](std::string_view name) noexcept -> utils::optional_ref<const MaterialParameter> {
+        const auto iter = std::ranges::find_if(m_Parameters, [name](const auto& parameter) {
+            return parameter.name == name;
+        });
+        if (iter == m_Parameters.end()) return std::nullopt;
+        return utils::make_optional_ref(*iter);
+    };
 
-    m_Desc.parameters = m_Desc.parameters                                                                               //
-                        | ranges::views::unique([](const auto& lhs, const auto& rhs) { return lhs.name == rhs.name; })  //
-                        | ranges::to<MaterialParameters>();
-}
+    const auto calculate_material_data_size = [&]() noexcept -> std::size_t {
+        std::size_t offset = 0;
+        for (const auto& binding : pass.bindings) {
+            const auto parameter = find_parameter(binding);
+            if (!parameter) continue;
 
-auto Material::CalculateMaterialBufferSize(bool enable_16_bytes_packing) const noexcept -> std::size_t {
+            const auto size = get_parameter_size(parameter->get().value);
+
+            if (enable_16_bytes_packing) {
+                const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
+                offset += remaining >= size ? 0 : remaining;
+            }
+            offset += size;
+        }
+        return std::max<std::size_t>(16, utils::align(offset, 16));
+    };
+
+    const auto buffer_size = pass.bindings.empty() ? 0 : calculate_material_data_size();
+
+    core::Buffer result(buffer_size);
+    if (!result.Empty()) std::memset(result.GetData(), 0, result.GetDataSize());
+
     std::size_t offset = 0;
-    for (const auto& [name, value] : m_Desc.parameters) {
-        const std::size_t parameter_size = get_parameter_size(value);
+    for (const auto& binding : pass.bindings) {
+        const auto parameter = find_parameter(binding);
+        if (!parameter) continue;
 
+        const auto& value = parameter->get().value;
+        const auto  size  = get_parameter_size(value);
         if (enable_16_bytes_packing) {
             const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-            offset += remaining >= parameter_size ? 0 : remaining;
+            offset += remaining >= size ? 0 : remaining;
         }
-        offset += parameter_size;
-    }
-    return utils::align(offset, 16);
-}
-
-auto Material::CreateInstance() -> std::shared_ptr<MaterialInstance> {
-    const auto instance_name = std::format("{}-{}", m_Name, m_Instances.size());
-    const auto result        = std::make_shared<MaterialInstance>(m_Desc.parameters, instance_name);
-    result->SetMaterial(shared_from_this());
-    return result;
-}
-
-auto Material::GetPipeline(gfx::Device& device) const -> std::shared_ptr<gfx::RenderPipeline> {
-    if (!m_Pipeline) {
-        auto pipeline_desc = m_Desc.pipeline;
-
-        m_Shaders = m_Desc.shaders                                                                           //
-                    | ranges::views::transform([&](const auto& desc) { return device.CreateShader(desc); })  //
-                    | ranges::to<std::pmr::vector<std::shared_ptr<gfx::Shader>>>();
-
-        pipeline_desc.shaders = m_Shaders | ranges::to<std::pmr::vector<std::weak_ptr<gfx::Shader>>>();
-
-        if (auto iter = std::find_if(m_Shaders.begin(), m_Shaders.end(), [](const auto& shader) {
-                return shader->GetDesc().type == gfx::ShaderType::Vertex;
-            });
-            iter != m_Shaders.end()) {
-            pipeline_desc.vertex_input_layout = device.GetShaderCompiler().ExtractVertexLayout((*iter)->GetDesc());
-        }
-
-        m_Pipeline = device.CreateRenderPipeline(pipeline_desc);
-    }
-    return m_Pipeline;
-}
-
-void Material::AddInstance(MaterialInstance* instance) noexcept {
-    m_Instances.emplace(instance);
-}
-
-void Material::RemoveInstance(MaterialInstance* instance) noexcept {
-    m_Instances.erase(instance);
-}
-
-MaterialInstance::MaterialInstance(MaterialParameters parameters, std::string_view name)
-    : Resource(Type::MaterialInstance, name),
-      m_Parameters(std::move(parameters)) {
-    m_Parameters = m_Parameters                                                                                    //
-                   | ranges::views::unique([](const auto& lhs, const auto& rhs) { return lhs.name == rhs.name; })  //
-                   | ranges::to<MaterialParameters>();
-}
-
-MaterialInstance::MaterialInstance(const MaterialInstance& other) : Resource(other), m_Parameters(other.m_Parameters) {
-    SetMaterial(other.GetMaterial());
-}
-
-MaterialInstance& MaterialInstance::operator=(const MaterialInstance& rhs) {
-    if (this != &rhs) {
-        Resource::operator=(rhs);
-        m_Parameters = rhs.m_Parameters;
-        SetMaterial(rhs.m_Material);
-    }
-    return *this;
-}
-
-MaterialInstance& MaterialInstance::operator=(MaterialInstance&& rhs) noexcept {
-    if (this != &rhs) {
-        Resource::operator=(std::move(rhs));
-        m_Parameters = std::move(rhs.m_Parameters);
-
-        if (m_Material) m_Material->RemoveInstance(this);
-        m_Material = std::move(rhs.m_Material);
-    }
-    return *this;
-}
-
-MaterialInstance::~MaterialInstance() {
-    SetMaterial(nullptr);
-}
-
-void MaterialInstance::SetMaterial(std::shared_ptr<Material> material) {
-    if (material == m_Material) return;
-
-    if (m_Material != nullptr) {
-        m_Material->RemoveInstance(this);
-    }
-
-    m_Material = std::move(material);
-
-    if (m_Material != nullptr) {
-        m_Material->AddInstance(this);
-    }
-}
-
-void MaterialInstance::SetParameter(MaterialParameter parameter) noexcept {
-    const auto iter = std::find_if(m_Parameters.begin(), m_Parameters.end(), [&](const auto& param) {
-        return param.name == parameter.name;
-    });
-    if (iter != m_Parameters.end()) {
-        *iter = parameter;
-    } else {
-        m_Parameters.emplace_back(parameter);
-    }
-}
-
-auto MaterialInstance::GetSplitParameters() const noexcept -> SplitMaterialParameters {
-    if (m_Material == nullptr) return SplitMaterialParameters{.only_in_instance = m_Parameters};
-
-    SplitMaterialParameters result;
-
-    for (const auto& [name, default_value] : m_Material->m_Desc.parameters) {
-        const auto iter = std::find_if(m_Parameters.begin(), m_Parameters.end(), [&](const auto& param) {
-            return param.name == name && default_value.index() == param.value.index();
-        });
-        if (iter != m_Parameters.end()) {
-            result.in_both.emplace_back(*iter);
-        } else {
-            result.only_in_material.emplace_back(MaterialParameter{
-                .name  = name,
-                .value = default_value,
-            });
-        }
-    }
-
-    for (const auto& param : m_Parameters) {
-        const auto iter = std::find_if(m_Material->m_Desc.parameters.begin(), m_Material->m_Desc.parameters.end(), [&](const auto& desc) {
-            return desc.name == param.name && desc.value.index() == param.value.index();
-        });
-        if (iter == m_Material->m_Desc.parameters.end()) {
-            result.only_in_instance.emplace_back(param);
-        }
-    }
-
-    return result;
-}
-
-auto MaterialInstance::GetAssociatedTextures() const noexcept -> std::pmr::vector<std::shared_ptr<Texture>> {
-    if (m_Material == nullptr) return {};
-
-    std::pmr::vector<std::shared_ptr<Texture>> result;
-
-    for (const auto& [name, default_value] : m_Material->m_Desc.parameters) {
-        if (std::holds_alternative<std::shared_ptr<Texture>>(default_value)) {
-            const auto iter = std::find_if(m_Parameters.begin(), m_Parameters.end(), [&](const auto& param) {
-                return param.name == name && std::holds_alternative<std::shared_ptr<Texture>>(param.value);
-            });
-            if (iter != m_Parameters.end()) {
-                result.emplace_back(std::get<std::shared_ptr<Texture>>(iter->value));
-            } else {
-                result.emplace_back(std::get<std::shared_ptr<Texture>>(default_value));
-            }
-        }
-    }
-    return result;
-}
-
-auto MaterialInstance::GenerateMaterialBuffer(bool enable_16_byte_packing) const noexcept -> core::Buffer {
-    if (m_Material == nullptr) return {};
-
-    core::Buffer result(m_Material->CalculateMaterialBufferSize(enable_16_byte_packing));
-
-    std::size_t offset = 0;
-    for (const auto& [name, default_value] : m_Material->m_Desc.parameters) {
-        const std::size_t parameter_size = get_parameter_size(default_value);
 
         std::visit(
             utils::Overloaded{
-                [&](const std::shared_ptr<Texture>&) {},
+                [&](const std::shared_ptr<Texture>& texture) {
+                    auto view = texture ? texture->GetGPUView() : nullptr;
+                    if (texture && !texture->Empty() && view == nullptr) {
+                        // Async decode still in flight: sample the placeholder until
+                        // Load() repacks this buffer with the real handle.
+                        if (const auto placeholder = Texture::DefaultTexture()) view = placeholder->GetGPUView();
+                    }
+                    const auto handle = view ? view->GetBindlessHandle() : gfx::BindlessHandle{};
+                    if (size == sizeof(handle)) std::memcpy(result.GetData() + offset, std::addressof(handle), size);
+                },
                 [&](const auto& data) {
                     using T = std::decay_t<decltype(data)>;
-
-                    const auto iter = std::find_if(m_Parameters.begin(), m_Parameters.end(), [&](const auto& param) {
-                        return param.name == name && std::holds_alternative<T>(param.value);
-                    });
-
-                    if (enable_16_byte_packing) {
-                        const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-                        offset += remaining >= parameter_size ? 0 : remaining;
-                    }
-
-                    if (iter != m_Parameters.end()) {
-                        auto value = std::get<T>(iter->value);
-                        std::memcpy(result.GetData() + offset, &value, parameter_size);
-                    } else {
-                        std::memcpy(result.GetData() + offset, &data, parameter_size);
-                    }
-
-                    offset += parameter_size;
+                    if (size == sizeof(T)) std::memcpy(result.GetData() + offset, std::addressof(data), size);
                 },
             },
-            default_value);
+            value);
+        offset += size;
     }
-
     return result;
+}
+
+void Material::InvalidatePassData() noexcept {
+    for (auto& pass : m_Passes) {
+        pass.material_data = {};
+    }
+    SetLoadState(ResourceLoadState::Unloaded);
+}
+
+void Material::Load(const ResourceLoadContext& context) {
+    if (GetLoadState() == ResourceLoadState::Loaded && !m_HasPendingTextures) return;
+
+    bool pending = false;
+    for (auto& parameter : m_Parameters) {
+        const auto* texture = std::get_if<std::shared_ptr<Texture>>(std::addressof(parameter.value));
+        if (texture && *texture && !(*texture)->Empty()) {
+            (*texture)->Load(context);
+            if (!(*texture)->IsSettled()) pending = true;
+        }
+    }
+    // Make sure the placeholder is resident before its handle gets packed below.
+    if (pending) Texture::DefaultTexture()->Load(context);
+
+    for (auto& pass : m_Passes) {
+        if (pass.pipeline) pass.pipeline->Load(context);
+        pass.material_data = GenerateMaterialData(pass, context.device.device_type == gfx::Device::Type::DX12);
+    }
+    m_HasPendingTextures = pending;
+    SetLoadState(ResourceLoadState::Loaded);
+}
+
+void Material::Unload() {
+    if (GetLoadState() != ResourceLoadState::Loaded) return;
+    for (auto& pass : m_Passes) {
+        pass.material_data = {};
+        if (pass.pipeline) pass.pipeline->Unload();
+    }
+    m_HasPendingTextures = false;
+    SetLoadState(ResourceLoadState::Unloaded);
 }
 
 }  // namespace hitagi::asset

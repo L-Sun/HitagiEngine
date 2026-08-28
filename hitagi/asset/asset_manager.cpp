@@ -1,18 +1,122 @@
 module;
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
-module asset;
+export module asset:manager;
 import std;
+import core;
+import gfx;
+import utils;
+import :resource;
+import :image_codec;
+import :texture;
+import :material;
+import :mesh;
+import :camera;
+import :light;
+import :scene;
+import :cooked_binary;
 
-using namespace hitagi::math;
+export namespace hitagi::asset {
+
+inline auto is_cooked_scene_path(const std::filesystem::path& path) noexcept -> bool {
+    auto extension = path.extension().string();
+    std::ranges::transform(extension, extension.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return extension == ".hcscene" || extension == ".hitagiscene";
+}
+
+class AssetManager final : public core::RuntimeModule {
+public:
+    explicit AssetManager(std::filesystem::path asset_root_path = {});
+    ~AssetManager() final;
+
+    inline static auto Get() noexcept -> AssetManager* {
+        return static_cast<AssetManager*>(core::RuntimeModule::GetModule("AssetManager"));
+    }
+
+    inline auto GetAssetRootPath() const noexcept -> const std::filesystem::path& {
+        return m_AssetRootPath;
+    }
+
+    auto ImportScene(const std::filesystem::path& path) -> std::shared_ptr<Scene>;
+    auto ImportTexture(const std::filesystem::path& path) -> std::shared_ptr<Texture>;
+    auto ImportMaterial(const std::filesystem::path& path) -> std::shared_ptr<Material>;
+
+    auto LoadCookedMaterial(std::span<const std::byte> data, const std::filesystem::path& asset_root_path = {}) -> std::shared_ptr<Material>;
+    auto LoadCookedMaterial(const core::Buffer& data, const std::filesystem::path& asset_root_path = {}) -> std::shared_ptr<Material>;
+    auto LoadCookedScene(std::span<const std::byte> data, const std::filesystem::path& asset_root_path = {}) -> std::shared_ptr<Scene>;
+    auto LoadCookedScene(const core::Buffer& data, const std::filesystem::path& asset_root_path = {}) -> std::shared_ptr<Scene>;
+
+    class AssetLoadToken {
+    public:
+        AssetLoadToken();
+
+        void RequestCancel() const noexcept;
+        auto IsCancellationRequested() const noexcept -> bool;
+
+    private:
+        std::shared_ptr<std::atomic_bool> m_CancelRequested;
+    };
+
+    template <typename T>
+    struct AssetLoadJob {
+        std::shared_future<T> future;
+        AssetLoadToken        token;
+
+        void RequestCancel() const noexcept { token.RequestCancel(); }
+        auto IsCancellationRequested() const noexcept -> bool { return token.IsCancellationRequested(); }
+        auto IsValid() const noexcept -> bool { return future.valid(); }
+        auto Get() const -> T { return future.get(); }
+    };
+
+    auto ImportTextureAsync(const std::filesystem::path& path, AssetLoadToken token = {}) -> AssetLoadJob<std::shared_ptr<Texture>>;
+
+    // Identity/dedup entry point: returns the live texture registered under the
+    // same (normalized) path, or creates and registers a new lazy-loading one.
+    // The registry holds weak references only; ownership stays with the caller
+    // chain (Scene -> Mesh -> Material -> Texture).
+    auto AcquireTexture(const std::filesystem::path& path, std::string_view name = {}) -> std::shared_ptr<Texture>;
+
+    // Registration only records weak references for lookup; it never extends
+    // the lifetime of the asset.
+    void AddScene(std::shared_ptr<Scene> scene);
+    void AddTexture(std::shared_ptr<Texture> texture);
+    void AddMaterial(std::shared_ptr<Material> material);
+
+    auto GetMaterial(std::string_view name) -> std::shared_ptr<Material>;
+    auto FindResource(const utils::UUID& uuid) -> std::shared_ptr<Resource>;
+
+    // Releases the GPU residency of everything the scene references (meshes,
+    // materials, pipelines) and drops its registry entry. CPU data stays so the
+    // scene can be re-loaded cheaply. Callers must also invalidate renderer-side
+    // caches (IRenderer::InvalidateResources) before the next frame.
+    void UnloadScene(const std::shared_ptr<Scene>& scene);
+
+    void WaitForAsyncJobs() noexcept;
+
+private:
+    void TrackAsyncJob(std::shared_future<void> completion);
+    void RegisterResource(const std::shared_ptr<Resource>& resource);
+
+    std::filesystem::path m_AssetRootPath;
+
+    struct Registry {
+        std::pmr::map<std::filesystem::path, std::weak_ptr<Texture>>            textures_by_path;
+        std::pmr::map<std::pmr::string, std::weak_ptr<Material>, std::less<>>   materials_by_name;
+        std::pmr::map<utils::UUID, std::weak_ptr<Resource>>                     resources_by_uuid;
+    } m_Registry;
+    std::mutex m_AssetsMutex;
+
+    std::pmr::vector<std::shared_future<void>> m_AsyncJobs;
+    std::mutex                                 m_AsyncJobsMutex;
+};
+
+}  // namespace hitagi::asset
 
 namespace hitagi::asset {
 
 AssetManager::AssetLoadToken::AssetLoadToken()
-    : m_CancelRequested(std::make_shared<std::atomic_bool>(false)) {
-}
+    : m_CancelRequested(std::make_shared<std::atomic_bool>(false)) {}
 
 void AssetManager::AssetLoadToken::RequestCancel() const noexcept {
     m_CancelRequested->store(true, std::memory_order_relaxed);
@@ -22,104 +126,71 @@ auto AssetManager::AssetLoadToken::IsCancellationRequested() const noexcept -> b
     return m_CancelRequested->load(std::memory_order_relaxed);
 }
 
-AssetManager::AssetManager(std::filesystem::path asset_base_path)
+AssetManager::AssetManager(std::filesystem::path asset_root_path)
     : core::RuntimeModule("AssetManager"),
-      m_BasePath(std::move(asset_base_path)) {
-    if (core::FileIOManager::Get() == nullptr) {
-        m_Logger->warn("File IO Manager is not initialized!");
-    }
-
-    m_MaterialParser = std::make_shared<MaterialJSONParser>();
-
-    m_ImageDecoders[ImageFormat::PNG]  = std::make_shared<PngDecoder>(m_Logger);
-    m_ImageDecoders[ImageFormat::JPEG] = std::make_shared<JpegDecoder>(m_Logger);
-    m_ImageDecoders[ImageFormat::TGA]  = std::make_shared<TgaDecoder>(m_Logger);
-    m_ImageDecoders[ImageFormat::BMP]  = std::make_shared<BmpDecoder>(m_Logger);
-
-    m_ImageEncoders[ImageFormat::PNG] = std::make_shared<PngEncoder>(m_Logger);
-
-    auto usd_parser = std::make_shared<UsdParser>(
-        [this](auto name) { return GetMaterial(name); },
-        m_Logger);
-    m_SceneParsers[SceneFormat::USD]  = usd_parser;
-    m_SceneParsers[SceneFormat::USDA] = usd_parser;
-    m_SceneParsers[SceneFormat::USDC] = usd_parser;
-    m_SceneParsers[SceneFormat::USDZ] = usd_parser;
-
-    InitBuiltinMaterial();
-}
+      m_AssetRootPath(std::move(asset_root_path)) {}
 
 AssetManager::~AssetManager() {
     WaitForAsyncJobs();
     Texture::DestroyDefaultTexture();
 }
 
-std::shared_ptr<Scene> AssetManager::ImportScene(const std::filesystem::path& path) {
-    auto format = get_scene_format(path.extension().string());
-    auto parser = m_SceneParsers[format];
-    if (parser == nullptr) {
+auto AssetManager::ImportScene(const std::filesystem::path& path) -> std::shared_ptr<Scene> {
+    if (!is_cooked_scene_path(path)) {
         throw std::runtime_error(std::format("Unsupported scene format: {}", path.string()));
     }
+    if (core::FileIOManager::Get() == nullptr) return nullptr;
+    return LoadCookedScene(core::FileIOManager::Get()->SyncOpenAndReadBinary(path));
+}
 
-    auto scene = parser->Parse(path, path.parent_path());
+auto AssetManager::ImportTexture(const std::filesystem::path& path) -> std::shared_ptr<Texture> {
+    const auto codec = create_image_codec_for(path.extension());
+    if (!codec) {
+        throw std::runtime_error(std::format("Unsupported image format: {}", path.string()));
+    }
+
+    {
+        std::scoped_lock lock(m_AssetsMutex);
+        if (const auto iter = m_Registry.textures_by_path.find(path.lexically_normal()); iter != m_Registry.textures_by_path.end()) {
+            if (auto texture = iter->second.lock()) return texture;
+        }
+    }
+
+    auto texture = codec->Decode(path);
+    if (texture) texture->SetPath(path);  // record identity so the registry can deduplicate
+    AddTexture(texture);
+    return texture;
+}
+
+auto AssetManager::ImportMaterial(const std::filesystem::path& path) -> std::shared_ptr<Material> {
+    if (core::FileIOManager::Get() == nullptr) return nullptr;
+    return LoadCookedMaterial(core::FileIOManager::Get()->SyncOpenAndReadBinary(path));
+}
+
+auto AssetManager::LoadCookedMaterial(std::span<const std::byte> data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Material> {
+    auto material = ParseCookedMaterial(
+        data,
+        asset_root_path.empty() ? m_AssetRootPath : asset_root_path,
+        [this](const std::filesystem::path& path, std::string_view name) { return AcquireTexture(path, name); });
+    AddMaterial(material);
+    return material;
+}
+
+auto AssetManager::LoadCookedMaterial(const core::Buffer& data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Material> {
+    return LoadCookedMaterial(data.Span<const std::byte>(), asset_root_path);
+}
+
+auto AssetManager::LoadCookedScene(std::span<const std::byte> data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Scene> {
+    auto scene = ParseCookedScene(
+        data,
+        asset_root_path.empty() ? m_AssetRootPath : asset_root_path,
+        [this](const std::filesystem::path& path, std::string_view name) { return AcquireTexture(path, name); });
     AddScene(scene);
     return scene;
 }
 
-std::shared_ptr<Texture> AssetManager::ImportTexture(const std::filesystem::path& path) {
-    auto format = get_image_format(path.extension().string());
-    auto image  = m_ImageDecoders[format]->Decode(path);
-    AddTexture(image);
-    return image;
-}
-
-std::shared_ptr<Material> AssetManager::ImportMaterial(const std::filesystem::path& path) {
-    auto material = m_MaterialParser->Parse(path);
-    std::scoped_lock lock(m_AssetsMutex);
-    auto&& [iter, success] = m_Assets.materials.emplace(std::move(material));
-    return *iter;
-}
-
-auto AssetManager::ImportSceneAsync(const std::filesystem::path& path, AssetLoadToken token) -> AssetLoadJob<std::shared_ptr<Scene>> {
-    auto* job_system = core::JobSystem::Get();
-    if (job_system == nullptr) {
-        throw std::runtime_error("asset::AssetManager async import requires core::JobSystem");
-    }
-
-    auto promise = std::make_shared<std::promise<std::shared_ptr<Scene>>>();
-    auto future  = promise->get_future().share();
-
-    auto completion = job_system->Submit([this, path, token, promise] {
-        try {
-            if (token.IsCancellationRequested()) {
-                promise->set_value(nullptr);
-                return;
-            }
-
-            const auto format = get_scene_format(path.extension().string());
-            auto       parser = m_SceneParsers[format];
-            if (parser == nullptr) {
-                throw std::runtime_error(std::format("Unsupported scene format: {}", path.string()));
-            }
-
-            auto scene = parser->Parse(path, path.parent_path());
-            if (token.IsCancellationRequested()) {
-                promise->set_value(nullptr);
-                return;
-            }
-
-            AddScene(scene);
-            promise->set_value(std::move(scene));
-        } catch (...) {
-            promise->set_exception(std::current_exception());
-        }
-    }).share();
-    TrackAsyncJob(std::move(completion));
-
-    return {
-        .future = std::move(future),
-        .token  = std::move(token),
-    };
+auto AssetManager::LoadCookedScene(const core::Buffer& data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Scene> {
+    return LoadCookedScene(data.Span<const std::byte>(), asset_root_path);
 }
 
 auto AssetManager::ImportTextureAsync(const std::filesystem::path& path, AssetLoadToken token) -> AssetLoadJob<std::shared_ptr<Texture>> {
@@ -132,127 +203,88 @@ auto AssetManager::ImportTextureAsync(const std::filesystem::path& path, AssetLo
     auto future  = promise->get_future().share();
 
     auto completion = job_system->Submit([this, path, token, promise] {
-        try {
-            if (token.IsCancellationRequested()) {
-                promise->set_value(nullptr);
-                return;
-            }
+                                    try {
+                                        if (token.IsCancellationRequested()) {
+                                            promise->set_value(nullptr);
+                                            return;
+                                        }
 
-            const auto format  = get_image_format(path.extension().string());
-            auto       texture = m_ImageDecoders[format]->Decode(path);
-            if (token.IsCancellationRequested()) {
-                promise->set_value(nullptr);
-                return;
-            }
-
-            AddTexture(texture);
-            promise->set_value(std::move(texture));
-        } catch (...) {
-            promise->set_exception(std::current_exception());
-        }
-    }).share();
+                                        auto texture = ImportTexture(path);
+                                        promise->set_value(token.IsCancellationRequested() ? nullptr : std::move(texture));
+                                    } catch (...) {
+                                        promise->set_exception(std::current_exception());
+                                    }
+                                })
+                          .share();
     TrackAsyncJob(std::move(completion));
 
-    return {
-        .future = std::move(future),
-        .token  = std::move(token),
-    };
+    return {.future = std::move(future), .token = std::move(token)};
 }
 
-auto AssetManager::ImportMaterialAsync(const std::filesystem::path& path, AssetLoadToken token) -> AssetLoadJob<std::shared_ptr<Material>> {
-    auto* job_system = core::JobSystem::Get();
-    if (job_system == nullptr) {
-        throw std::runtime_error("asset::AssetManager async import requires core::JobSystem");
-    }
-
-    auto promise = std::make_shared<std::promise<std::shared_ptr<Material>>>();
-    auto future  = promise->get_future().share();
-
-    auto completion = job_system->Submit([this, path, token, promise] {
-        try {
-            if (token.IsCancellationRequested()) {
-                promise->set_value(nullptr);
-                return;
-            }
-
-            auto material = m_MaterialParser->Parse(path);
-            if (token.IsCancellationRequested()) {
-                promise->set_value(nullptr);
-                return;
-            }
-
-            {
-                std::scoped_lock lock(m_AssetsMutex);
-                auto&& [iter, success] = m_Assets.materials.emplace(std::move(material));
-                material                = *iter;
-            }
-            promise->set_value(std::move(material));
-        } catch (...) {
-            promise->set_exception(std::current_exception());
-        }
-    }).share();
-    TrackAsyncJob(std::move(completion));
-
-    return {
-        .future = std::move(future),
-        .token  = std::move(token),
-    };
+void AssetManager::RegisterResource(const std::shared_ptr<Resource>& resource) {
+    // Caller holds m_AssetsMutex.
+    std::erase_if(m_Registry.resources_by_uuid, [](const auto& entry) { return entry.second.expired(); });
+    m_Registry.resources_by_uuid.insert_or_assign(resource->GetUUID(), resource);
 }
 
 void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
-    if (scene == nullptr) return;
+    if (!scene) return;
     std::scoped_lock lock(m_AssetsMutex);
-    m_Assets.scenes.emplace(std::move(scene));
-}
-
-void AssetManager::AddCamera(std::shared_ptr<Camera> camera) {
-    std::scoped_lock lock(m_AssetsMutex);
-    if (camera) m_Assets.cameras.emplace(std::move(camera));
-}
-
-void AssetManager::AddLight(std::shared_ptr<Light> light) {
-    std::scoped_lock lock(m_AssetsMutex);
-    if (light) m_Assets.lights.emplace(std::move(light));
-}
-
-void AssetManager::AddMesh(std::shared_ptr<Mesh> mesh) {
-    std::scoped_lock lock(m_AssetsMutex);
-    if (mesh) m_Assets.meshes.emplace(std::move(mesh));
-}
-
-void AssetManager::AddSkeleton(std::shared_ptr<Skeleton> skeleton) {
-    std::scoped_lock lock(m_AssetsMutex);
-    if (skeleton) m_Assets.skeletons.emplace(std::move(skeleton));
+    RegisterResource(scene);
 }
 
 void AssetManager::AddTexture(std::shared_ptr<Texture> texture) {
+    if (!texture) return;
     std::scoped_lock lock(m_AssetsMutex);
-    if (texture) m_Assets.textures.emplace(std::move(texture));
+    if (!texture->GetPath().empty()) {
+        m_Registry.textures_by_path.insert_or_assign(texture->GetPath().lexically_normal(), texture);
+    }
+    RegisterResource(texture);
+}
+
+void AssetManager::AddMaterial(std::shared_ptr<Material> material) {
+    if (!material) return;
+    std::scoped_lock lock(m_AssetsMutex);
+    if (!material->GetName().empty()) {
+        std::erase_if(m_Registry.materials_by_name, [](const auto& entry) { return entry.second.expired(); });
+        m_Registry.materials_by_name.insert_or_assign(std::pmr::string(material->GetName()), material);
+    }
+    RegisterResource(material);
+}
+
+auto AssetManager::AcquireTexture(const std::filesystem::path& path, std::string_view name) -> std::shared_ptr<Texture> {
+    if (path.empty()) return nullptr;
+    const auto key = path.lexically_normal();
+
+    std::scoped_lock lock(m_AssetsMutex);
+    if (const auto iter = m_Registry.textures_by_path.find(key); iter != m_Registry.textures_by_path.end()) {
+        if (auto texture = iter->second.lock()) return texture;
+        m_Registry.textures_by_path.erase(iter);
+    }
+
+    auto texture = std::make_shared<Texture>(key, name);
+    m_Registry.textures_by_path.insert_or_assign(key, texture);
+    RegisterResource(texture);
+    return texture;
 }
 
 auto AssetManager::GetMaterial(std::string_view name) -> std::shared_ptr<Material> {
     std::scoped_lock lock(m_AssetsMutex);
-    auto iter = std::find_if(m_Assets.materials.begin(), m_Assets.materials.end(), [&](const std::shared_ptr<Material>& mat) {
-        return mat->GetName() == name;
-    });
-
-    return iter != m_Assets.materials.end() ? *iter : nullptr;
+    const auto       iter = m_Registry.materials_by_name.find(name);
+    return iter == m_Registry.materials_by_name.end() ? nullptr : iter->second.lock();
 }
 
-void AssetManager::InitBuiltinMaterial() {
-    auto material_path = m_BasePath / "materials";
-    if (!std::filesystem::exists(m_BasePath / "materials")) {
-        m_Logger->warn("Missing material folder: assets/materials");
-        return;
-    }
-    for (const auto& material_file : std::filesystem::directory_iterator(material_path)) {
-        if (material_file.is_regular_file() && material_file.path().extension() == ".json") {
-            m_Logger->info("Load built in material: {}", material_file.path().string());
-            auto material = m_MaterialParser->Parse(material_file.path());
-            std::scoped_lock lock(m_AssetsMutex);
-            m_Assets.materials.emplace(std::move(material));
-        }
-    }
+auto AssetManager::FindResource(const utils::UUID& uuid) -> std::shared_ptr<Resource> {
+    std::scoped_lock lock(m_AssetsMutex);
+    const auto       iter = m_Registry.resources_by_uuid.find(uuid);
+    return iter == m_Registry.resources_by_uuid.end() ? nullptr : iter->second.lock();
+}
+
+void AssetManager::UnloadScene(const std::shared_ptr<Scene>& scene) {
+    if (!scene) return;
+    scene->Unload();
+    std::scoped_lock lock(m_AssetsMutex);
+    m_Registry.resources_by_uuid.erase(scene->GetUUID());
 }
 
 void AssetManager::TrackAsyncJob(std::shared_future<void> completion) {
@@ -264,17 +296,14 @@ void AssetManager::TrackAsyncJob(std::shared_future<void> completion) {
 }
 
 void AssetManager::WaitForAsyncJobs() noexcept {
-    std::pmr::vector<std::shared_future<void>> async_jobs;
+    std::pmr::vector<std::shared_future<void>> jobs;
     {
         std::scoped_lock lock(m_AsyncJobsMutex);
-        async_jobs = std::move(m_AsyncJobs);
+        jobs = std::move(m_AsyncJobs);
         m_AsyncJobs.clear();
     }
-
-    for (const auto& job : async_jobs) {
-        if (job.valid()) {
-            job.wait();
-        }
+    for (const auto& job : jobs) {
+        if (job.valid()) job.wait();
     }
 }
 

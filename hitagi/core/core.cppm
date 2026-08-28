@@ -129,6 +129,12 @@ private:
     bool m_Paused = true;
 };
 
+// Vocabulary type for passing execution capability across module boundaries:
+// a type-erased "executor" that schedules a unit of work (fire-and-forget).
+// Consumers treat an empty submitter as "no async capability available" and
+// fall back to synchronous execution.
+using JobSubmitter = std::function<void(std::move_only_function<void()>)>;
+
 class JobSystem final : public RuntimeModule {
 public:
     explicit JobSystem(std::uint32_t num_workers = 0);
@@ -146,6 +152,11 @@ public:
 
     template <typename Func, typename... Args>
     auto RunTask(Func&& func, Args&&... args) -> std::future<std::invoke_result_t<Func, Args...>>;
+
+    // Type-erased executor view of this job system, for fire-and-forget submission.
+    auto MakeSubmitter() -> JobSubmitter {
+        return [this](std::move_only_function<void()> job) { Submit(std::move(job)); };
+    }
 
     void RunTaskflow(tf::Taskflow& taskflow);
     void WaitForAll();

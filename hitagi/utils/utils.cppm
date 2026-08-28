@@ -50,8 +50,6 @@ public:
     }
 };
 
-
-
 template <typename T>
 constexpr inline std::size_t hash(const T& obj) noexcept {
     return std::hash<T>{}(obj);
@@ -262,59 +260,6 @@ auto make_optional_ref(T& data) -> optional_ref<T> {
         return std::make_optional(std::ref(data));
     }
 }
-
-// this impl just for disable static check after pack unfolding
-namespace detail {
-template <typename T, typename MapItem, typename... MapItems>
-struct type_mapper {
-    using type = std::conditional_t<std::is_same_v<T, typename MapItem::first_type>, typename MapItem::second_type,
-                                    typename type_mapper<T, MapItems...>::type>;
-};
-template <typename T, typename MapItem>
-struct type_mapper<T, MapItem> {
-    using type = typename MapItem::second_type;
-};
-
-template <auto E, typename MapItem, typename... MapItems>
-struct val_type_mapper {
-    using type = std::conditional_t<E == MapItem::value, typename MapItem::type, typename val_type_mapper<E, MapItems...>::type>;
-};
-
-template <auto E, typename MapItem>
-struct val_type_mapper<E, MapItem> {
-    using type = typename MapItem::type;
-};
-
-}  // namespace detail
-
-template <typename T1, typename T2>
-struct type_map_item {
-    using first_type  = T1;
-    using second_type = T2;
-};
-
-template <typename T, typename MapItem, typename... MapItems>
-    requires any_of<T, typename MapItem::first_type, typename MapItems::first_type...> && unique_types<typename MapItem::first_type, typename MapItems::first_type...>
-struct type_mapper {
-    using type = detail::type_mapper<T, MapItem, MapItems...>::type;
-};
-
-template <auto E, typename T>
-struct val_type_map_item {
-    static constexpr auto value = E;
-    using type                  = T;
-};
-
-template <auto E, typename MapItem, typename... MapItems>
-struct val_type_mapper {
-    static_assert(
-        (std::is_same_v<decltype(E), std::remove_cv_t<decltype(MapItem::value)>> && E == MapItem::value) ||
-            ((std::is_same_v<decltype(E), std::remove_cv_t<decltype(MapItems::value)>> && E == MapItems::value) || ...),
-        "Value not found in mapping.");
-    static_assert(is_unique_values(MapItem::value, MapItems::value...), "Duplicate value found in mapping.");
-
-    using type = detail::val_type_mapper<E, MapItem, MapItems...>::type;
-};
 
 // https://stackoverflow.com/a/7943765/6244553
 // For generic types, directly use the result of the signature of its 'operator()'
@@ -791,13 +736,13 @@ auto try_create_logger(std::string_view name) -> std::shared_ptr<spdlog::logger>
     return logger;
 }
 
-
 class UUID {
 public:
     static auto Create() -> UUID;
 
     auto operator==(const UUID& other) const -> bool = default;
     auto operator!=(const UUID& other) const -> bool = default;
+    auto operator<=>(const UUID& other) const        = default;
 
 private:
     std::array<std::byte, 16> m_Data;

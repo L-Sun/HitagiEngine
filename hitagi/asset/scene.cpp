@@ -2,13 +2,66 @@ module;
 
 #include <cassert>
 
-module asset;
+export module asset:scene;
 import std;
+import ecs;
+import math;
+import gfx;
+import :resource;
+import :mesh;
+import :camera;
+import :light;
+import :transform;
+
+export namespace hitagi::asset {
+
+class Scene : public Resource {
+public:
+    explicit Scene(std::string_view name = "");
+
+    void Update();
+    void Load(const ResourceLoadContext& context) final;
+    void Unload() final;
+
+    auto CreateEmptyEntity(math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
+    auto CreateMeshEntity(std::shared_ptr<Mesh> mesh, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
+    auto CreateCameraEntity(std::shared_ptr<Camera> camera, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
+    auto CreateLightEntity(std::shared_ptr<Light> light, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity;
+
+    void DestroyEntitySubtree(ecs::Entity entity);
+    void ReparentEntity(ecs::Entity entity, ecs::Entity parent);
+    void RenameEntity(ecs::Entity entity, std::string_view name);
+
+    auto AddCameraComponent(ecs::Entity entity, std::shared_ptr<Camera> camera) -> bool;
+    auto RemoveCameraComponent(ecs::Entity entity) -> std::shared_ptr<Camera>;
+    auto AddLightComponent(ecs::Entity entity, std::shared_ptr<Light> light) -> bool;
+    auto RemoveLightComponent(ecs::Entity entity) -> std::shared_ptr<Light>;
+
+    auto& GetRootEntity() noexcept { return m_RootEntity; }
+    auto  GetRootEntity() const noexcept { return m_RootEntity; }
+    auto& GetMeshEntities() noexcept { return m_MeshEntities; }
+    auto& GetCameraEntities() noexcept { return m_CameraEntities; }
+    auto& GetLightEntities() noexcept { return m_LightEntities; }
+    auto  GetCurrentCamera() const noexcept { return m_CurrentCamera; }
+    auto  GetWorld() noexcept -> ecs::World& { return m_World; }
+    auto  GetWorld() const noexcept -> const ecs::World& { return m_World; }
+
+private:
+    ecs::World                    m_World;
+    ecs::Entity                   m_RootEntity;
+    ecs::Entity                   m_CurrentCamera;
+    std::pmr::vector<ecs::Entity> m_MeshEntities;
+    std::pmr::vector<ecs::Entity> m_CameraEntities;
+    std::pmr::vector<ecs::Entity> m_LightEntities;
+};
+
+}  // namespace hitagi::asset
 
 namespace hitagi::asset {
 
 Scene::Scene(std::string_view name)
-    : Resource(Type::Scene, name), m_World(name) {
+    : Resource(Type::Scene, name),
+      m_World(name) {
     m_RootEntity = CreateEmptyEntity(math::mat4f::identity(), ecs::Entity(), name);
     m_World.GetSystemManager().Register<RelationShipSystem>();
     m_World.GetSystemManager().Register<TransformSystem>();
@@ -18,13 +71,42 @@ void Scene::Update() {
     m_World.Update();
 }
 
+void Scene::Load(const ResourceLoadContext& context) {
+    if (GetLoadState() == ResourceLoadState::Loaded) return;
+    for (auto entity : m_MeshEntities) {
+        if (entity.Has<MeshComponent>()) {
+            auto& mesh = entity.Get<MeshComponent>().mesh;
+            if (mesh) mesh->Load(context);
+        }
+    }
+    SetLoadState(ResourceLoadState::Loaded);
+}
+
+void Scene::Unload() {
+    // No load-state guard: the renderer loads meshes/materials directly without
+    // going through Scene::Load, so the state may be Unloaded while GPU data exists.
+    for (auto entity : m_MeshEntities) {
+        if (!entity.Has<MeshComponent>()) continue;
+        auto& mesh = entity.Get<MeshComponent>().mesh;
+        if (!mesh) continue;
+        mesh->Unload();
+        for (const auto& sub_mesh : mesh->sub_meshes) {
+            // Materials (and their pipelines) release GPU data here; textures are
+            // deliberately left alone since they may be shared across scenes and
+            // are reclaimed when the last owner drops them.
+            if (sub_mesh.material) sub_mesh.material->Unload();
+        }
+    }
+    SetLoadState(ResourceLoadState::Unloaded);
+}
+
 auto Scene::CreateEmptyEntity(math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity {
     auto& em = m_World.GetEntityManager();
 
     const auto [translation, rotation, scaling] = math::decompose(transform);
     if (!parent && m_RootEntity) parent = m_RootEntity;
 
-    ecs::Entity entity = em.Create();
+    auto entity = em.Create();
     entity.Emplace<MetaInfo>(name);
     entity.Emplace<Transform>(translation, rotation, scaling);
     entity.Emplace<RelationShip>(parent);
@@ -36,8 +118,7 @@ auto Scene::CreateMeshEntity(std::shared_ptr<Mesh> mesh, math::mat4f transform, 
     assert(mesh != nullptr);
 
     auto entity = CreateEmptyEntity(transform, parent, name);
-    entity.Emplace<MeshComponent>();
-    entity.Get<MeshComponent>().mesh = std::move(mesh);
+    entity.Emplace<MeshComponent>().mesh = std::move(mesh);
 
     return m_MeshEntities.emplace_back(entity);
 }
@@ -46,8 +127,7 @@ auto Scene::CreateCameraEntity(std::shared_ptr<Camera> camera, math::mat4f trans
     assert(camera != nullptr);
 
     auto entity = CreateEmptyEntity(transform, parent, name);
-    entity.Emplace<CameraComponent>();
-    entity.Get<CameraComponent>().camera = std::move(camera);
+    entity.Emplace<CameraComponent>().camera = std::move(camera);
 
     m_CurrentCamera = entity;
     return m_CameraEntities.emplace_back(entity);
@@ -57,20 +137,9 @@ auto Scene::CreateLightEntity(std::shared_ptr<Light> light, math::mat4f transfor
     assert(light != nullptr);
 
     auto entity = CreateEmptyEntity(transform, parent, name);
-    entity.Emplace<LightComponent>();
-    entity.Get<LightComponent>().light = std::move(light);
+    entity.Emplace<LightComponent>().light = std::move(light);
 
     return m_LightEntities.emplace_back(entity);
-}
-
-auto Scene::CreateSkeletonEntity(std::shared_ptr<Skeleton> skeleton, math::mat4f transform, ecs::Entity parent, std::string_view name) -> ecs::Entity {
-    assert(skeleton != nullptr);
-
-    auto entity = CreateEmptyEntity(transform, parent, name);
-    entity.Emplace<SkeletonComponent>();
-    entity.Get<SkeletonComponent>().skeleton = std::move(skeleton);
-
-    return entity;
 }
 
 void Scene::DestroyEntitySubtree(ecs::Entity entity) {
