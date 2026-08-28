@@ -328,7 +328,12 @@ public:
 
     template <typename DrawFunc>
     inline void DrawGui(DrawFunc&& draw_func) {
-        m_GuiDrawTasks.emplace([func = std::forward<DrawFunc>(draw_func)] { func(); });
+        m_GuiDrawTasks.emplace_back([func = std::forward<DrawFunc>(draw_func)] { func(); });
+    }
+
+    template <typename DrawFunc>
+    inline void DrawGuiEarly(DrawFunc&& draw_func) {
+        m_EarlyGuiDrawTasks.emplace_back([func = std::forward<DrawFunc>(draw_func)] { func(); });
     }
 
     auto         ReadTexture(rg::TextureHandle texture) -> ImTextureID;
@@ -347,7 +352,8 @@ private:
     hid::InputManager& m_InputManager;
     core::Clock        m_Clock;
 
-    std::queue<std::function<void()>, std::pmr::deque<std::function<void()>>> m_GuiDrawTasks;
+    std::pmr::deque<std::function<void()>> m_EarlyGuiDrawTasks;
+    std::pmr::deque<std::function<void()>> m_GuiDrawTasks;
 
     GuiDrawData         m_DrawData;
     const std::byte*    m_FontAtlasPixels     = nullptr;

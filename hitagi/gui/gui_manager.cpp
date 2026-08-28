@@ -72,11 +72,16 @@ void GuiManager::Tick() {
         ZoneScopedN("ImGui::NewFrame");
         ImGui::NewFrame();
     }
-    while (!m_GuiDrawTasks.empty()) {
-        ZoneScopedN("GuiManager Draw Task");
-        m_GuiDrawTasks.front()();
-        m_GuiDrawTasks.pop();
-    }
+    auto run_draw_tasks = [](std::pmr::deque<std::function<void()>>& tasks) {
+        while (!tasks.empty()) {
+            ZoneScopedN("GuiManager Draw Task");
+            auto task = std::move(tasks.front());
+            tasks.pop_front();
+            task();
+        }
+    };
+    run_draw_tasks(m_EarlyGuiDrawTasks);
+    run_draw_tasks(m_GuiDrawTasks);
     {
         ZoneScopedN("ImGui::Render");
         ImGui::Render();

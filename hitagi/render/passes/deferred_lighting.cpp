@@ -40,19 +40,20 @@ void passes::DeferredLighting::EnsureResources(gfx::Format target_format) {
         });
     }
 
-    m_Pipeline = m_Device.CreateRenderPipeline({
-        .name                = "deferred-lighting",
-        .shaders             = {m_VS, m_PS},
-        .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-        .rasterization_state = {.cull_mode = gfx::CullMode::None},
-        .render_format       = target_format,
-    });
+    m_Pipeline = m_Device.CreateRenderPipeline(
+        {
+            .name                = "deferred-lighting",
+            .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+            .rasterization_state = {.cull_mode = gfx::CullMode::None},
+            .render_format       = target_format,
+        },
+        {m_VS, m_PS});
     m_TargetFormat = target_format;
 }
 
-auto passes::DeferredLighting::ImportPipeline(RenderContext& context, gfx::Format target_format, std::string_view name) -> rg::RenderPipelineHandle {
+auto passes::DeferredLighting::GetPipeline(gfx::Format target_format) -> std::shared_ptr<gfx::RenderPipeline> {
     EnsureResources(target_format);
-    return name.empty() ? context.graph.Import(m_Pipeline) : context.graph.Import(m_Pipeline, std::pmr::string(name));
+    return m_Pipeline;
 }
 
 auto passes::DeferredLighting::Build(
@@ -61,7 +62,7 @@ auto passes::DeferredLighting::Build(
     rg::GPUBufferHandle      frame_constant,
     rg::GPUBufferHandle      bindless_info,
     rg::SamplerHandle        sampler,
-    rg::RenderPipelineHandle pipeline,
+    std::shared_ptr<gfx::RenderPipeline> pipeline,
     rg::TextureHandle        target) -> rg::TextureHandle {
     auto& render_graph = context.graph;
     if (!render_graph.IsValid(target) ||
@@ -72,7 +73,7 @@ auto passes::DeferredLighting::Build(
         !render_graph.IsValid(frame_constant) ||
         !render_graph.IsValid(bindless_info) ||
         !render_graph.IsValid(sampler) ||
-        !render_graph.IsValid(pipeline)) {
+        !pipeline) {
         return target;
     }
 
@@ -84,14 +85,13 @@ auto passes::DeferredLighting::Build(
         .Read(gbuffer.normal, {}, gfx::PipelineStage::PixelShader)
         .Read(gbuffer.material, {}, gfx::PipelineStage::PixelShader)
         .Read(gbuffer.emissive, {}, gfx::PipelineStage::PixelShader)
-        .Read(frame_constant, gfx::PipelineStage::PixelShader)
-        .Read(bindless_info, gfx::PipelineStage::PixelShader)
+        .Read(frame_constant, 0, 1, sizeof(FrameConstant), gfx::PipelineStage::PixelShader)
+        .Read(bindless_info, 0, 1, sizeof(BindlessInfo), gfx::PipelineStage::PixelShader)
         .AddSampler(sampler)
-        .AddPipeline(pipeline)
         .SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
             auto& cmd = pass.GetCmd();
 
-            gfx::GPUBufferView<BindlessInfo>(pass.Resolve(bindless_info)).front() = {
+            gfx::GPUBufferView::MappedSpan<BindlessInfo>(pass.Resolve(bindless_info)).front() = {
                 .frame_constant   = pass.GetBindless(frame_constant),
                 .gbuffer_albedo   = pass.GetBindless(gbuffer.albedo),
                 .gbuffer_normal   = pass.GetBindless(gbuffer.normal),
@@ -114,7 +114,7 @@ auto passes::DeferredLighting::Build(
                 .height = render_target.GetDesc().height,
             });
 
-            cmd.SetPipeline(pass.Resolve(pipeline));
+            cmd.SetPipeline(*pipeline);
             cmd.PushBindlessMetaInfo({
                 .handle = pass.GetBindless(bindless_info),
             });

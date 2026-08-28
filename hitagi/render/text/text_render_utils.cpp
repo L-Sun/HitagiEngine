@@ -52,7 +52,7 @@ struct TextVertex {
     math::Color color;
 };
 
-struct FrameConstant {
+struct TextFrameConstant {
     math::mat4f projection;
 };
 
@@ -222,32 +222,33 @@ struct TextRenderUtils::Impl {
             .compare_op     = gfx::CompareOp::Always,
         });
 
-        pipeline = device.CreateRenderPipeline({
-            .name           = "text",
-            .shaders        = {vs, ps},
-            .assembly_state = {
-                .primitive = gfx::PrimitiveTopology::TriangleList,
+        pipeline = device.CreateRenderPipeline(
+            {
+                .name           = "text",
+                .assembly_state = {
+                    .primitive = gfx::PrimitiveTopology::TriangleList,
+                },
+                .vertex_input_layout = {
+                    {"POSITION", gfx::Format::R32G32_FLOAT, 0, offsetof(TextVertex, pos), sizeof(TextVertex)},
+                    {"TEXCOORD", gfx::Format::R32G32_FLOAT, 0, offsetof(TextVertex, uv), sizeof(TextVertex)},
+                    {"COLOR", gfx::Format::R32G32B32A32_FLOAT, 0, offsetof(TextVertex, color), sizeof(TextVertex)},
+                },
+                .rasterization_state = {
+                    .cull_mode               = gfx::CullMode::None,
+                    .front_counter_clockwise = false,
+                },
+                .blend_state = {
+                    .blend_enable           = true,
+                    .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
+                    .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                    .color_blend_op         = gfx::BlendOp::Add,
+                    .src_alpha_blend_factor = gfx::BlendFactor::One,
+                    .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                    .alpha_blend_op         = gfx::BlendOp::Add,
+                },
+                .render_format = gfx::Format::R8G8B8A8_UNORM,
             },
-            .vertex_input_layout = {
-                {"POSITION", gfx::Format::R32G32_FLOAT, 0, offsetof(TextVertex, pos), sizeof(TextVertex)},
-                {"TEXCOORD", gfx::Format::R32G32_FLOAT, 0, offsetof(TextVertex, uv), sizeof(TextVertex)},
-                {"COLOR", gfx::Format::R32G32B32A32_FLOAT, 0, offsetof(TextVertex, color), sizeof(TextVertex)},
-            },
-            .rasterization_state = {
-                .cull_mode               = gfx::CullMode::None,
-                .front_counter_clockwise = false,
-            },
-            .blend_state = {
-                .blend_enable           = true,
-                .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
-                .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-                .color_blend_op         = gfx::BlendOp::Add,
-                .src_alpha_blend_factor = gfx::BlendFactor::One,
-                .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-                .alpha_blend_op         = gfx::BlendOp::Add,
-            },
-            .render_format = gfx::Format::R8G8B8A8_UNORM,
-        });
+            {vs, ps});
     }
 
     ~Impl() {
@@ -272,53 +273,50 @@ struct TextRenderUtils::Impl {
 
         const auto bindless_info_handle = render_graph.Create(
             {
-                .name          = "text_bindless_info",
-                .element_size  = sizeof(BindlessInfo),
-                .element_count = 1,
-                .usages        = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+                .name   = "text_bindless_info",
+                .size   = gfx::ConstantBufferElementSize(sizeof(BindlessInfo)),
+                .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
             },
             "text_bindless_info");
 
         const auto frame_constant_handle = render_graph.Create(
             {
-                .name         = "text_frame_constant",
-                .element_size = sizeof(FrameConstant),
-                .usages       = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+                .name   = "text_frame_constant",
+                .size   = gfx::ConstantBufferElementSize(sizeof(TextFrameConstant)),
+                .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
             },
             "text_frame_constant");
 
         const auto vertex_buffer_handle = render_graph.Create(
             gfx::GPUBufferDesc{
-                .name          = "text_vertices",
-                .element_size  = sizeof(TextVertex),
-                .element_count = static_cast<std::uint64_t>(vertices.size()),
-                .usages        = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::MapWrite,
+                .name   = "text_vertices",
+                .size   = sizeof(TextVertex) * static_cast<std::uint64_t>(vertices.size()),
+                .usages = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::MapWrite,
             },
             "text_vertices");
 
         const auto index_buffer_handle = render_graph.Create(
             gfx::GPUBufferDesc{
-                .name          = "text_indices",
-                .element_size  = sizeof(std::uint32_t),
-                .element_count = static_cast<std::uint64_t>(indices.size()),
-                .usages        = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::MapWrite,
+                .name   = "text_indices",
+                .size   = sizeof(std::uint32_t) * static_cast<std::uint64_t>(indices.size()),
+                .usages = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::MapWrite,
             },
             "text_indices");
 
         const auto atlas_name      = std::format("text_atlas_{}", atlas_generation);
         const auto atlas_handle    = render_graph.Import(atlas_texture, atlas_name);
         const auto sampler_handle  = render_graph.Import(sampler, "text_sampler");
-        const auto pipeline_handle = render_graph.Import(pipeline, "text_pipeline");
+        const auto render_pipeline = pipeline;
+        if (!render_pipeline) return;
 
         rg::RenderPassBuilder builder(render_graph);
         builder.SetName("TextRenderPass")
-            .Read(bindless_info_handle)
-            .Read(frame_constant_handle)
+            .Read(bindless_info_handle, 0, 1, sizeof(BindlessInfo))
+            .Read(frame_constant_handle, 0, 1, sizeof(TextFrameConstant))
             .ReadAsVertices(vertex_buffer_handle)
             .ReadAsIndices(index_buffer_handle)
             .Read(atlas_handle, {}, gfx::PipelineStage::PixelShader)
             .AddSampler(sampler_handle)
-            .AddPipeline(pipeline_handle)
             .SetRenderTarget(target, clear_target);
 
         builder.SetExecutor(
@@ -339,7 +337,7 @@ struct TextRenderUtils::Impl {
                            .height = render_target.GetDesc().height,
                        });
 
-                       gfx::GPUBufferView<FrameConstant> frame_constant(pass.Resolve(frame_constant_handle));
+                       gfx::GPUBufferView::MappedSpan<TextFrameConstant> frame_constant(pass.Resolve(frame_constant_handle));
                        frame_constant.front().projection = math::ortho(
                            0.0f,
                            static_cast<float>(render_target.GetDesc().width),
@@ -348,22 +346,22 @@ struct TextRenderUtils::Impl {
                            3.0f,
                            -1.0f);
 
-                       gfx::GPUBufferView<TextVertex> vertex_buffer(pass.Resolve(vertex_buffer_handle));
+                       gfx::GPUBufferView::MappedSpan<TextVertex> vertex_buffer(pass.Resolve(vertex_buffer_handle));
                        std::memcpy(vertex_buffer.data(), vertices.data(), vertices.size() * sizeof(TextVertex));
 
-                       gfx::GPUBufferView<std::uint32_t> index_buffer(pass.Resolve(index_buffer_handle));
+                       gfx::GPUBufferView::MappedSpan<std::uint32_t> index_buffer(pass.Resolve(index_buffer_handle));
                        std::memcpy(index_buffer.data(), indices.data(), indices.size() * sizeof(std::uint32_t));
 
-                       gfx::GPUBufferView<BindlessInfo> bindless_infos(pass.Resolve(bindless_info_handle));
+                       gfx::GPUBufferView::MappedSpan<BindlessInfo> bindless_infos(pass.Resolve(bindless_info_handle));
                        bindless_infos.front() = {
                            .frame_constant = pass.GetBindless(frame_constant_handle),
                            .atlas          = pass.GetBindless(atlas_handle),
                            .sampler        = pass.GetBindless(sampler_handle),
                        };
 
-                       cmd.SetPipeline(pass.Resolve(pipeline_handle));
+                       cmd.SetPipeline(*render_pipeline);
                        cmd.SetVertexBuffers(0, {{pass.Resolve(vertex_buffer_handle)}}, {{0}});
-                       cmd.SetIndexBuffer(pass.Resolve(index_buffer_handle));
+                       cmd.SetIndexBuffer(pass.Resolve(index_buffer_handle), 0, gfx::Format::R32_UINT);
                        cmd.PushBindlessMetaInfo({
                            .handle = pass.GetBindless(bindless_info_handle),
                        });

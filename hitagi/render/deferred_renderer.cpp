@@ -13,12 +13,19 @@ import magic_enum;
 import std;
 
 namespace hitagi::render {
+namespace {
+
+constexpr auto ToIndexFormat(asset::IndexType type) noexcept -> gfx::Format {
+    return type == asset::IndexType::UINT16 ? gfx::Format::R16_UINT : gfx::Format::R32_UINT;
+}
+
+}  // namespace
 
 auto DeferredRenderer::Render(RenderContext& context, const RenderRequest& request) -> RenderResult {
-    if (request.view.scene == nullptr || request.view.camera == nullptr) {
+    if (!context.graph.IsValid(request.target)) {
         return RenderResult{.color = request.target};
     }
-    return RenderScene(context, request);
+    return RenderFrame(context, request);
 }
 
 void DeferredRenderer::AddExtension(std::shared_ptr<IDeferredRenderExtension> extension) {
@@ -33,6 +40,7 @@ DeferredRenderer::DeferredRenderer(gfx::Device& device, const Application& app, 
     : IRenderer(std::format("DeferredRenderer{}", name.empty() ? "" : std::format("({})", name))),
       m_App(app),
       m_GfxDevice(device),
+      m_LoadContext{.device = device},
       m_PersistentSampler(m_GfxDevice.CreateSampler({
           .name          = "sampler",
           .address_u     = gfx::AddressMode::Repeat,
@@ -46,25 +54,19 @@ DeferredRenderer::DeferredRenderer(gfx::Device& device, const Application& app, 
       m_DeferredLightingPass(m_GfxDevice, m_App.GetConfig().asset_root_path / "shaders" / "deferred_lighting.hlsl"),
       m_GBufferDebugViewPass(m_GfxDevice, m_App.GetConfig().asset_root_path / "shaders" / "deferred_debug.hlsl") {}
 
-auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& request) -> RenderResult {
+auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& request) -> RenderResult {
     ZoneScoped;
-    auto& render_graph = context.graph;
-    const auto& view   = request.view;
-    const auto  target = request.target;
-    auto  scene        = view.scene;
-    const auto& camera = *view.camera;
-    const auto camera_transform = view.camera_transform;
+    auto&       render_graph = context.graph;
+    const auto& frame        = request.frame;
+    const auto& view         = frame.view;
+    const auto  target       = request.target;
 
-    if (scene.get() != m_CachedScene) {
-        render_graph.ClearImportedResources();
-        m_CachedScene = scene.get();
-    }
-    m_SceneDrawState.InvalidateScene();
+    m_DrawState.InvalidateResources();
 
     m_Sampler = render_graph.Import(m_PersistentSampler, "sampler");
 
-    const auto target_desc = render_graph.GetResourceDesc(target);
-    const auto albedo_pipeline = m_GBufferPass.ImportAlbedoPipeline(context);
+    const auto target_desc     = render_graph.GetResourceDesc(target);
+    const auto albedo_pipeline = m_GBufferPass.GetAlbedoPipeline();
 
     const auto gbuffer = m_GBufferPass.CreateTargets(
         context,
@@ -73,37 +75,16 @@ auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& 
             .height = target_desc.height,
         });
 
-    const math::vec3f global_eye      = (camera_transform * math::vec4f(camera.parameters.eye, 1.0f)).xyz;
-    const math::vec3f global_look_dir = (camera_transform * math::vec4f(camera.parameters.look_dir, 0.0f)).xyz;
-    const math::vec3f global_up       = (camera_transform * math::vec4f(camera.parameters.up, 0.0f)).xyz;
-
-    const auto view_matrix = math::look_at(global_eye, global_look_dir, global_up);
-    const auto projection = math::perspective(camera.parameters.horizontal_fov, camera.parameters.aspect, camera.parameters.near_clip, camera.parameters.far_clip);
-    const auto proj_view  = projection * view_matrix;
-    const auto frustum    = math::extract_frustum(proj_view);
-
-    for (const auto entity : scene->GetMeshEntities()) {
-        const auto mesh      = entity.Get<asset::MeshComponent>().mesh;
-        const auto transform = entity.Get<asset::Transform>().world_matrix;
-
-        if (mesh->aabb.Valid()) {
-            auto world_aabb = math::transform_aabb(transform, mesh->aabb);
-            if (!math::is_aabb_visible(frustum, world_aabb)) continue;
-        }
-
-        RecordInstance(render_graph, entity, mesh, transform);
+    for (const auto& item : frame.draw_items) {
+        RecordInstance(render_graph, item);
     }
     UpdateConstantBuffer(render_graph, albedo_pipeline);
 
-    SceneFrameConstant frame_constant{};
+    FrameConstant frame_constant{};
     {
-        const math::vec3f global_eye      = (camera_transform * math::vec4f(camera.parameters.eye, 1.0f)).xyz;
-        const math::vec3f global_look_dir = (camera_transform * math::vec4f(camera.parameters.look_dir, 0.0f)).xyz;
-        const math::vec3f global_up       = (camera_transform * math::vec4f(camera.parameters.up, 0.0f)).xyz;
-
-        frame_constant.camera_pos     = {global_eye, 1.0f},
-        frame_constant.view           = math::look_at(global_eye, global_look_dir, global_up);
-        frame_constant.projection     = math::perspective(camera.parameters.horizontal_fov, camera.parameters.aspect, camera.parameters.near_clip, camera.parameters.far_clip);
+        frame_constant.camera_pos     = {view.camera_position, 1.0f},
+        frame_constant.view           = view.view;
+        frame_constant.projection     = view.projection;
         frame_constant.proj_view      = frame_constant.projection * frame_constant.view,
         frame_constant.inv_view       = math::inverse(frame_constant.view);
         frame_constant.inv_projection = math::inverse(frame_constant.projection);
@@ -139,26 +120,20 @@ auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& 
             }
         };
 
-        for (const auto entity : scene->GetLightEntities()) {
-            const auto light = entity.Get<asset::LightComponent>().light;
-            if (!light) continue;
-
-            const auto light_transform = entity.Get<asset::Transform>().world_matrix;
-            add_light(light_transform.col(3).xyz, light->parameters.color.rgb, std::max(light->parameters.intensity, 1.0f) * 0.18f);
+        for (const auto& light : frame.lights) {
+            add_light(light.position, light.color.rgb, std::max(light.intensity, 1.0f) * 0.18f);
         }
 
         if (frame_constant.light_count == 0) {
-            const auto forward = math::normalize(global_look_dir);
-            const auto right   = math::normalize(math::cross(forward, global_up));
-            add_light(global_eye - forward * 2.0f + global_up * 1.0f, math::Color::White().rgb, 8.0f);
-            add_light(global_eye - forward * 1.5f + right * 3.0f, math::Color{1.0f, 0.78f, 0.55f, 1.0f}.rgb, 4.0f);
-            add_light(global_eye - forward * 1.5f - right * 3.0f, math::Color{0.55f, 0.72f, 1.0f, 1.0f}.rgb, 4.0f);
+            add_light(view.camera_position + math::vec3f{0.0f, -2.0f, 1.0f}, math::Color::White().rgb, 8.0f);
+            add_light(view.camera_position + math::vec3f{3.0f, -1.5f, 0.5f}, math::Color{1.0f, 0.78f, 0.55f, 1.0f}.rgb, 4.0f);
+            add_light(view.camera_position + math::vec3f{-3.0f, -1.5f, 0.5f}, math::Color{0.55f, 0.72f, 1.0f, 1.0f}.rgb, 4.0f);
         }
     };
 
     m_GBufferPass.BuildAlbedoPass(
         context,
-        m_SceneDrawState,
+        m_DrawState,
         passes::GBuffer::AlbedoPassDesc{
             .pass_name                = std::pmr::string(std::format("DeferredGBufferAlbedoPass-{}", render_graph.GetFrameIndex())),
             .target                   = gbuffer.albedo,
@@ -173,24 +148,23 @@ auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& 
             .height                   = target_desc.height,
         });
 
-    const auto normal_pipeline = m_GBufferPass.ImportNormalPipeline(context);
-    std::size_t num_draws = 0;
-    for (const auto& instance_info : m_SceneDrawState.instance_infos) {
+    const auto  normal_pipeline = m_GBufferPass.GetNormalPipeline();
+    std::size_t num_draws       = 0;
+    for (const auto& instance_info : m_DrawState.instance_infos) {
         num_draws += instance_info.mesh->sub_meshes.size();
     }
 
     m_NormalBindlessInfoConstantBuffer = render_graph.Create({
-        .name          = "normal_bindless_infos",
-        .element_size  = sizeof(DrawBindlessInfo),
-        .element_count = std::max<std::size_t>(1, num_draws),
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "normal_bindless_infos",
+        .size   = gfx::ConstantBufferElementSize(sizeof(DrawBindlessInfo)) * std::max<std::size_t>(1, num_draws),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
 
-    // The albedo pass uploads per-frame, instance, and material constants;
+    // The albedo pass uploads per-frame, instance, and material data;
     // dependent G-buffer passes read its output to stay in a later recording layer.
     m_GBufferPass.BuildAttributePass(
         context,
-        m_SceneDrawState,
+        m_DrawState,
         passes::GBuffer::AttributePassDesc{
             .pass_name         = std::pmr::string(std::format("DeferredGBufferNormalPass-{}", render_graph.GetFrameIndex())),
             .target            = gbuffer.normal,
@@ -205,18 +179,17 @@ auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& 
             .height            = target_desc.height,
         });
 
-    const auto material_pipeline = m_GBufferPass.ImportMaterialPipeline(context);
+    const auto material_pipeline = m_GBufferPass.GetMaterialPipeline();
 
     m_MaterialBindlessInfoConstantBuffer = render_graph.Create({
-        .name          = "material_bindless_infos",
-        .element_size  = sizeof(DrawBindlessInfo),
-        .element_count = std::max<std::size_t>(1, num_draws),
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "material_bindless_infos",
+        .size   = gfx::ConstantBufferElementSize(sizeof(DrawBindlessInfo)) * std::max<std::size_t>(1, num_draws),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
 
     m_GBufferPass.BuildAttributePass(
         context,
-        m_SceneDrawState,
+        m_DrawState,
         passes::GBuffer::AttributePassDesc{
             .pass_name         = std::pmr::string(std::format("DeferredGBufferMaterialPass-{}", render_graph.GetFrameIndex())),
             .target            = gbuffer.material,
@@ -231,18 +204,17 @@ auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& 
             .height            = target_desc.height,
         });
 
-    const auto emissive_pipeline = m_GBufferPass.ImportEmissivePipeline(context);
+    const auto emissive_pipeline = m_GBufferPass.GetEmissivePipeline();
 
     m_EmissiveBindlessInfoConstantBuffer = render_graph.Create({
-        .name          = "emissive_bindless_infos",
-        .element_size  = sizeof(DrawBindlessInfo),
-        .element_count = std::max<std::size_t>(1, num_draws),
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "emissive_bindless_infos",
+        .size   = gfx::ConstantBufferElementSize(sizeof(DrawBindlessInfo)) * std::max<std::size_t>(1, num_draws),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
 
     m_GBufferPass.BuildAttributePass(
         context,
-        m_SceneDrawState,
+        m_DrawState,
         passes::GBuffer::AttributePassDesc{
             .pass_name         = std::pmr::string(std::format("DeferredGBufferEmissivePass-{}", render_graph.GetFrameIndex())),
             .target            = gbuffer.emissive,
@@ -261,6 +233,8 @@ auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& 
         .color            = target,
         .depth            = gbuffer.depth,
         .linear_depth     = gbuffer.albedo,
+        .object_id        = gbuffer.object_material_id,
+        .material_id      = gbuffer.object_material_id,
         .gbuffer_albedo   = gbuffer.albedo,
         .gbuffer_normal   = gbuffer.normal,
         .gbuffer_material = gbuffer.material,
@@ -270,9 +244,9 @@ auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& 
         .width            = target_desc.width,
         .height           = target_desc.height,
     };
-    const DeferredSceneDrawData draw_data{
-        .instances        = m_SceneDrawState.instance_infos,
-        .scene_draw_state = &m_SceneDrawState,
+    const DeferredDrawData draw_data{
+        .instances  = m_DrawState.instance_infos,
+        .draw_state = &m_DrawState,
     };
     for (const auto& extension : m_Extensions) {
         extension->AfterGBuffer(context, view, resources, draw_data);
@@ -294,13 +268,12 @@ auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& 
         };
     }
 
-    const auto lighting_pipeline = m_DeferredLightingPass.ImportPipeline(context, target_desc.format);
+    const auto lighting_pipeline = m_DeferredLightingPass.GetPipeline(target_desc.format);
 
     m_DeferredLightingBindlessInfoConstantBuffer = render_graph.Create({
-        .name          = "deferred_lighting_bindless_info",
-        .element_size  = sizeof(passes::DeferredLighting::BindlessInfo),
-        .element_count = 1,
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "deferred_lighting_bindless_info",
+        .size   = gfx::ConstantBufferElementSize(sizeof(passes::DeferredLighting::BindlessInfo)),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
 
     resources.color = m_DeferredLightingPass.Build(
@@ -324,42 +297,31 @@ auto DeferredRenderer::RenderScene(RenderContext& context, const RenderRequest& 
     };
 }
 
-void DeferredRenderer::RecordMaterialInstance(rg::RenderGraph& render_graph, const std::shared_ptr<asset::MaterialInstance>& material_instance) {
-    if (!material_instance) return;
-    if (!material_instance->GetMaterial()) {
-        spdlog::warn("Material instance '{}' has no material assigned, skipping", material_instance->GetName());
-        return;
-    }
-    auto [it, inserted] = m_SceneDrawState.material_instance_infos.try_emplace(
-        material_instance.get(),
-        MaterialInstanceInfo{
-            .material_instance = material_instance,
+void DeferredRenderer::RecordMaterial(rg::RenderGraph&, const std::shared_ptr<asset::Material>& material) {
+    if (!material) return;
+
+    material->Load(m_LoadContext);
+    const auto* gbuffer_pass = FindMaterialPassForRenderPass(*material, MaterialPass::GBuffer);
+    if (!gbuffer_pass) return;
+
+    m_DrawState.material_texture_infos.try_emplace(
+        material.get(),
+        MaterialTextureInfo{
+            .material               = material,
+            .material_pass_contract = gbuffer_pass->pass_contract,
         });
-    auto& info = it->second;
 
-    if (inserted) {
-        auto associated = material_instance->GetAssociatedTextures();
-        for (std::size_t ti = 0; ti < associated.size(); ti++) {
-            const auto& texture = associated[ti];
-            if (texture && !texture->Empty()) {
-                texture->InitGPUData(m_GfxDevice);
-                info.textures.emplace_back(render_graph.Import(texture->GetGPUData(), texture->GetUniqueName()));
-            } else {
-                info.textures.emplace_back(rg::TextureHandle{});
-            }
-        }
-    }
-
-    m_SceneDrawState.active_material_instances.emplace(material_instance.get());
+    m_DrawState.active_materials.emplace(material.get());
 }
 
 void DeferredRenderer::RecordMesh(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Mesh>& mesh) {
-    auto [it, inserted] = m_SceneDrawState.mesh_infos.try_emplace(mesh.get(), MeshInfo{.mesh = mesh});
+    if (!mesh || mesh->Empty()) return;
+
+    auto [it, inserted] = m_DrawState.mesh_infos.try_emplace(mesh.get(), MeshInfo{.mesh = mesh});
     auto& info          = it->second;
 
     if (inserted) {
-        mesh->vertices->InitGPUData(m_GfxDevice);
-        mesh->indices->InitGPUData(m_GfxDevice);
+        mesh->Load(m_LoadContext);
 
         magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
             auto attr_data = mesh->vertices->GetAttributeData(attr);
@@ -367,98 +329,102 @@ void DeferredRenderer::RecordMesh(rg::RenderGraph& render_graph, const std::shar
             info.vertices[attr] = render_graph.Import(attr_data->get().gpu_buffer);
         });
 
-        info.indices = render_graph.Import(mesh->indices->GetIndexData().gpu_buffer);
+        info.indices = render_graph.Import(mesh->indices->GetGPUData());
+        info.index_format = ToIndexFormat(mesh->indices->Type());
     }
 
     for (const auto& sub_mesh : mesh->sub_meshes) {
-        RecordMaterialInstance(render_graph, sub_mesh.material_instance);
+        RecordMaterial(render_graph, sub_mesh.material);
     }
 }
 
-void DeferredRenderer::RecordInstance(rg::RenderGraph& render_graph, ecs::Entity entity, const std::shared_ptr<asset::Mesh>& mesh, math::mat4f transform) {
-    RecordMesh(render_graph, mesh);
-    m_SceneDrawState.instance_infos.emplace_back(InstanceInfo{
-        .entity        = entity,
-        .mesh          = mesh,
+void DeferredRenderer::RecordInstance(rg::RenderGraph& render_graph, const RenderDrawItem& item) {
+    if (!item.mesh || item.mesh->Empty()) return;
+
+    RecordMesh(render_graph, item.mesh);
+    m_DrawState.instance_infos.emplace_back(InstanceInfo{
+        .mesh          = item.mesh,
         .instance_data = {
-            .model = transform,
+            .model = item.transform,
         },
-        .instance_index = m_SceneDrawState.instance_infos.size(),
+        .instance_index = m_DrawState.instance_infos.size(),
+        .object_id      = item.object_id,
     });
 }
 
-void DeferredRenderer::UpdateConstantBuffer(rg::RenderGraph& render_graph, rg::RenderPipelineHandle albedo_pipeline) {
-    std::pmr::unordered_map<std::shared_ptr<asset::Material>, std::size_t> material_instance_counter;
-    m_SceneDrawState.material_instance_indices.clear();
-    for (auto* const material_instance : m_SceneDrawState.active_material_instances) {
-        const auto material = material_instance->GetMaterial();
-        m_SceneDrawState.material_instance_indices.emplace(material_instance, material_instance_counter[material]++);
-    }
+void DeferredRenderer::UpdateConstantBuffer(rg::RenderGraph& render_graph, std::shared_ptr<gfx::RenderPipeline> default_pipeline) {
+    for (auto* const active_material : m_DrawState.active_materials) {
+        const auto material = m_DrawState.material_texture_infos.at(active_material).material;
+        if (!material) continue;
 
-    for (const auto& [material, num_instances] : material_instance_counter) {
-        auto pipeline_it = m_SceneDrawState.pipeline_handles.find(material.get());
-        if (pipeline_it == m_SceneDrawState.pipeline_handles.end()) {
-            pipeline_it = m_SceneDrawState.pipeline_handles.emplace(material.get(), albedo_pipeline).first;
+        const auto& material_texture_info = m_DrawState.material_texture_infos.at(active_material);
+        const auto* material_pass         = material->FindPass(material_texture_info.material_pass_contract);
+        if (!material_pass) continue;
+
+        auto pipeline = default_pipeline;
+        if (material_pass->pipeline) {
+            material_pass->pipeline->Load(m_LoadContext);
+            if (auto built_pipeline = material_pass->pipeline->GetBuiltPipeline()) {
+                pipeline = std::move(built_pipeline);
+            }
         }
-        auto pipeline_handle = pipeline_it->second;
+        if (!pipeline) continue;
 
-        auto constant_handle = render_graph.Create(
+        auto material_data_handle = render_graph.Create(
             {
-                .name          = std::pmr::string(material->GetName()),
-                .element_size  = material->CalculateMaterialBufferSize(m_GfxDevice.device_type == gfx::Device::Type::DX12),
-                .element_count = num_instances,  // we not use material->GetNumInstances for reduce memory usage
-                .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+                .name   = std::pmr::string(material->GetName()),
+                .size   = gfx::ConstantBufferElementSize(material_pass->material_data.GetDataSize()),
+                .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
             },
             material->GetName());
 
-        m_SceneDrawState.material_infos.emplace(
+        m_DrawState.material_infos.emplace(
             material.get(),
             MaterialInfo{
-                .material          = material,
-                .pipeline          = pipeline_handle,
-                .material_constant = constant_handle,
+                .material               = material,
+                .material_pass_contract = material_texture_info.material_pass_contract,
+                .pipeline               = std::move(pipeline),
+                .material_data          = material_data_handle,
+                .pass_participation     = GetMaterialPassParticipation(*material),
             });
     }
 
     m_InstanceConstantBuffer = render_graph.Create({
-        .name          = "instance_constant",
-        .element_size  = sizeof(SceneInstanceConstant),
-        .element_count = std::max<std::size_t>(1, m_SceneDrawState.instance_infos.size()),
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "instance_constant",
+        .size   = gfx::ConstantBufferElementSize(sizeof(InstanceConstant)) * std::max<std::size_t>(1, m_DrawState.instance_infos.size()),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
 
     m_FrameConstantBuffer = render_graph.Create(
         {
-            .name          = "frame_constant",
-            .element_size  = sizeof(SceneFrameConstant),
-            .element_count = 1,
-            .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+            .name   = "frame_constant",
+            .size   = gfx::ConstantBufferElementSize(sizeof(FrameConstant)),
+            .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
         });
 
     std::size_t num_draws = 0;
-    for (const auto& instance_info : m_SceneDrawState.instance_infos) {
+    for (const auto& instance_info : m_DrawState.instance_infos) {
         num_draws += instance_info.mesh->sub_meshes.size();
     }
 
     m_BindlessInfoConstantBuffer = render_graph.Create({
-        .name          = "bindless_infos",
-        .element_size  = sizeof(DrawBindlessInfo),
-        .element_count = std::max<std::size_t>(1, num_draws),
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "bindless_infos",
+        .size   = gfx::ConstantBufferElementSize(sizeof(DrawBindlessInfo)) * std::max<std::size_t>(1, num_draws),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
 }
 void DeferredRenderer::ClearFrameState() {
-    m_Sampler                                     = {};
-    m_FrameConstantBuffer                         = {};
-    m_InstanceConstantBuffer                      = {};
-    m_BindlessInfoConstantBuffer                  = {};
-    m_NormalBindlessInfoConstantBuffer            = {};
-    m_MaterialBindlessInfoConstantBuffer          = {};
-    m_EmissiveBindlessInfoConstantBuffer          = {};
+    m_Sampler                                    = {};
+    m_FrameConstantBuffer                        = {};
+    m_InstanceConstantBuffer                     = {};
+    m_BindlessInfoConstantBuffer                 = {};
+    m_NormalBindlessInfoConstantBuffer           = {};
+    m_MaterialBindlessInfoConstantBuffer         = {};
+    m_EmissiveBindlessInfoConstantBuffer         = {};
     m_DeferredLightingBindlessInfoConstantBuffer = {};
     m_GBufferDebugViewBindlessInfoConstantBuffer = {};
 
-    m_SceneDrawState.ClearFrame();
+    m_DrawState.ClearFrame();
 }
 
 }  // namespace hitagi::render

@@ -23,6 +23,7 @@ void passes::GBufferDebugView::EnsureResources(gfx::Format target_format) {
         m_NormalPipeline != nullptr &&
         m_MaterialPipeline != nullptr &&
         m_EmissivePipeline != nullptr &&
+        m_ObjectMaterialIdPipeline != nullptr &&
         m_TargetFormat == target_format) {
         return;
     }
@@ -49,24 +50,27 @@ void passes::GBufferDebugView::EnsureResources(gfx::Format target_format) {
         });
     };
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& pixel_shader) {
-        return m_Device.CreateRenderPipeline({
-            .name                = std::pmr::string(name),
-            .shaders             = {m_VS, pixel_shader},
-            .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-            .rasterization_state = {.cull_mode = gfx::CullMode::None},
-            .render_format       = target_format,
-        });
+        return m_Device.CreateRenderPipeline(
+            {
+                .name                = std::pmr::string(name),
+                .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+                .rasterization_state = {.cull_mode = gfx::CullMode::None},
+                .render_format       = target_format,
+            },
+            {m_VS, pixel_shader});
     };
 
     m_AlbedoPS   = make_pixel_shader("deferred-debug-view-albedo-ps", "PSAlbedoMain");
     m_NormalPS   = make_pixel_shader("deferred-debug-view-normal-ps", "PSNormalMain");
     m_MaterialPS = make_pixel_shader("deferred-debug-view-material-ps", "PSMaterialMain");
     m_EmissivePS = make_pixel_shader("deferred-debug-view-emissive-ps", "PSEmissiveMain");
+    m_ObjectMaterialIdPS = make_pixel_shader("deferred-debug-view-object-material-id-ps", "PSObjectMaterialIdMain");
 
     m_AlbedoPipeline   = make_pipeline("deferred-debug-view-albedo", m_AlbedoPS);
     m_NormalPipeline   = make_pipeline("deferred-debug-view-normal", m_NormalPS);
     m_MaterialPipeline = make_pipeline("deferred-debug-view-material", m_MaterialPS);
     m_EmissivePipeline = make_pipeline("deferred-debug-view-emissive", m_EmissivePS);
+    m_ObjectMaterialIdPipeline = make_pipeline("deferred-debug-view-object-material-id", m_ObjectMaterialIdPS);
     m_TargetFormat = target_format;
 }
 
@@ -82,6 +86,7 @@ auto passes::GBufferDebugView::Build(
         !render_graph.IsValid(gbuffer.normal) ||
         !render_graph.IsValid(gbuffer.material) ||
         !render_graph.IsValid(gbuffer.emissive) ||
+        !render_graph.IsValid(gbuffer.object_material_id) ||
         !render_graph.IsValid(sampler)) {
         return target;
     }
@@ -94,16 +99,16 @@ auto passes::GBufferDebugView::Build(
         selected_pipeline = m_NormalPipeline;
     } else if (view_name == "material") {
         selected_pipeline = m_MaterialPipeline;
+    } else if (view_name == "material_id" || view_name == "object_id") {
+        selected_pipeline = m_ObjectMaterialIdPipeline;
     } else if (view_name == "emissive") {
         selected_pipeline = m_EmissivePipeline;
     }
 
-    const auto pipeline = render_graph.Import(selected_pipeline, "deferred_debug_view_pipeline");
     const auto bindless_info = render_graph.Create({
-        .name          = "deferred_debug_view_bindless_info",
-        .element_size  = sizeof(BindlessInfo),
-        .element_count = 1,
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "deferred_debug_view_bindless_info",
+        .size   = gfx::ConstantBufferElementSize(sizeof(BindlessInfo)),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
     rg::RenderPassBuilder debug_pass_builder(render_graph);
     debug_pass_builder
@@ -113,17 +118,18 @@ auto passes::GBufferDebugView::Build(
         .Read(gbuffer.normal, {}, gfx::PipelineStage::PixelShader)
         .Read(gbuffer.material, {}, gfx::PipelineStage::PixelShader)
         .Read(gbuffer.emissive, {}, gfx::PipelineStage::PixelShader)
-        .Read(bindless_info, gfx::PipelineStage::PixelShader)
+        .Read(gbuffer.object_material_id, {}, gfx::PipelineStage::PixelShader)
+        .Read(bindless_info, 0, 1, sizeof(BindlessInfo), gfx::PipelineStage::PixelShader)
         .AddSampler(sampler)
-        .AddPipeline(pipeline)
         .SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
             auto& cmd = pass.GetCmd();
 
-            gfx::GPUBufferView<BindlessInfo>(pass.Resolve(bindless_info)).front() = {
+            gfx::GPUBufferView::MappedSpan<BindlessInfo>(pass.Resolve(bindless_info)).front() = {
                 .gbuffer_albedo   = pass.GetBindless(gbuffer.albedo),
                 .gbuffer_normal   = pass.GetBindless(gbuffer.normal),
                 .gbuffer_material = pass.GetBindless(gbuffer.material),
                 .gbuffer_emissive = pass.GetBindless(gbuffer.emissive),
+                .object_material_id = pass.GetBindless(gbuffer.object_material_id),
                 .sampler          = pass.GetBindless(sampler),
             };
 
@@ -141,7 +147,7 @@ auto passes::GBufferDebugView::Build(
                 .height = render_target.GetDesc().height,
             });
 
-            cmd.SetPipeline(pass.Resolve(pipeline));
+            cmd.SetPipeline(*selected_pipeline);
             cmd.PushBindlessMetaInfo({
                 .handle = pass.GetBindless(bindless_info),
             });

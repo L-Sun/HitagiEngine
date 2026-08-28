@@ -135,32 +135,33 @@ GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device) {
         .compare_op     = gfx::CompareOp::Always,
     });
 
-    m_GfxData.pipeline = gfx_device.CreateRenderPipeline({
-        .name           = "gui",
-        .shaders        = {m_GfxData.vs, m_GfxData.ps},
-        .assembly_state = {
-            .primitive = gfx::PrimitiveTopology::TriangleList,
+    m_GfxData.pipeline = gfx_device.CreateRenderPipeline(
+        {
+            .name           = "gui",
+            .assembly_state = {
+                .primitive = gfx::PrimitiveTopology::TriangleList,
+            },
+            .vertex_input_layout = {
+                {"POSITION", gfx::Format::R32G32_FLOAT, 0, offsetof(gui::GuiVertex, position), sizeof(gui::GuiVertex)},
+                {"TEXCOORD", gfx::Format::R32G32_FLOAT, 0, offsetof(gui::GuiVertex, uv), sizeof(gui::GuiVertex)},
+                {"COLOR", gfx::Format::R32G32B32A32_FLOAT, 0, offsetof(gui::GuiVertex, color), sizeof(gui::GuiVertex)},
+            },
+            .rasterization_state = {
+                .cull_mode               = gfx::CullMode::None,
+                .front_counter_clockwise = false,
+            },
+            .blend_state = {
+                .blend_enable           = true,
+                .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
+                .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                .color_blend_op         = gfx::BlendOp::Add,
+                .src_alpha_blend_factor = gfx::BlendFactor::One,
+                .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                .alpha_blend_op         = gfx::BlendOp::Add,
+            },
+            .render_format = gfx::Format::R8G8B8A8_UNORM,
         },
-        .vertex_input_layout = {
-            {"POSITION", gfx::Format::R32G32_FLOAT, 0, offsetof(gui::GuiVertex, position), sizeof(gui::GuiVertex)},
-            {"TEXCOORD", gfx::Format::R32G32_FLOAT, 0, offsetof(gui::GuiVertex, uv), sizeof(gui::GuiVertex)},
-            {"COLOR", gfx::Format::R32G32B32A32_FLOAT, 0, offsetof(gui::GuiVertex, color), sizeof(gui::GuiVertex)},
-        },
-        .rasterization_state = {
-            .cull_mode               = gfx::CullMode::None,
-            .front_counter_clockwise = false,
-        },
-        .blend_state = {
-            .blend_enable           = true,
-            .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
-            .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-            .color_blend_op         = gfx::BlendOp::Add,
-            .src_alpha_blend_factor = gfx::BlendFactor::One,
-            .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-            .alpha_blend_op         = gfx::BlendOp::Add,
-        },
-        .render_format = gfx::Format::R8G8B8A8_UNORM,
-    });
+        {m_GfxData.vs, m_GfxData.ps});
 }
 
 void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target) {
@@ -186,51 +187,48 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
 
     const auto bindless_info_handle = render_graph.Create(
         {
-            .name          = "gui_bindless_info",
-            .element_size  = sizeof(GuiBindlessInfo),
-            .element_count = total_draws,
-            .usages        = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+            .name   = "gui_bindless_info",
+            .size   = gfx::ConstantBufferElementSize(sizeof(GuiBindlessInfo)) * total_draws,
+            .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
         },
         "gui_bindless_info");
 
     const auto frame_constant_handle = render_graph.Create(
         {
-            .name         = "gui_frame_constant",
-            .element_size = sizeof(GuiFrameConstant),
-            .usages       = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+            .name   = "gui_frame_constant",
+            .size   = gfx::ConstantBufferElementSize(sizeof(GuiFrameConstant)),
+            .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
         },
         "gui_frame_constant");
 
     const auto vertex_buffer_handle = render_graph.Create(
         gfx::GPUBufferDesc{
-            .element_size  = sizeof(gui::GuiVertex),
-            .element_count = static_cast<std::uint64_t>(total_vertices),
-            .usages        = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::MapWrite,
+            .size   = sizeof(gui::GuiVertex) * static_cast<std::uint64_t>(total_vertices),
+            .usages = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::MapWrite,
         },
         "gui_vertices");
 
     const auto index_buffer_handle = render_graph.Create(
         gfx::GPUBufferDesc{
-            .element_size  = sizeof(std::uint32_t),
-            .element_count = static_cast<std::uint64_t>(total_indices),
-            .usages        = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::MapWrite,
+            .size   = sizeof(std::uint32_t) * static_cast<std::uint64_t>(total_indices),
+            .usages = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::MapWrite,
         },
         "gui_indices");
 
     const auto font_texture_handle = render_graph.Import(m_GfxData.font_texture, std::format("gui_font_{}", m_FontTextureGeneration));
     const auto sampler_handle      = render_graph.Import(m_GfxData.sampler, "gui_sampler");
-    const auto pipeline_handle     = render_graph.Import(m_GfxData.pipeline, "gui_pipeline");
+    const auto pipeline            = m_GfxData.pipeline;
+    if (!pipeline) return;
     auto       read_textures       = CollectTextures(draw_data);
 
     rg::RenderPassBuilder builder(render_graph);
     builder.SetName("GuiRenderPass")
-        .Read(bindless_info_handle)
-        .Read(frame_constant_handle)
+        .Read(bindless_info_handle, 0, total_draws, sizeof(GuiBindlessInfo))
+        .Read(frame_constant_handle, 0, 1, sizeof(GuiFrameConstant))
         .ReadAsVertices(vertex_buffer_handle)
         .ReadAsIndices(index_buffer_handle)
         .Read(font_texture_handle, {}, gfx::PipelineStage::PixelShader)
         .AddSampler(sampler_handle)
-        .AddPipeline(pipeline_handle)
         .SetRenderTarget(target, clear_target);
 
     for (const auto texture : read_textures) {
@@ -241,14 +239,14 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                auto& cmd = pass.GetCmd();
 
                auto& vertex_buffer      = pass.Resolve(vertex_buffer_handle);
-               auto  vertex_buffer_view = gfx::GPUBufferView<gui::GuiVertex>(vertex_buffer);
+               auto  vertex_buffer_view = gfx::GPUBufferView::MappedSpan<gui::GuiVertex>(vertex_buffer);
 
                auto& index_buffer      = pass.Resolve(index_buffer_handle);
-               auto  index_buffer_view = gfx::GPUBufferView<std::uint32_t>(index_buffer);
+               auto  index_buffer_view = gfx::GPUBufferView::MappedSpan<std::uint32_t>(index_buffer);
 
                const auto frame_constant_bindless = pass.GetBindless(frame_constant_handle);
                {
-                   gfx::GPUBufferView<GuiFrameConstant> frame_constant(pass.Resolve(frame_constant_handle));
+                   gfx::GPUBufferView::MappedSpan<GuiFrameConstant> frame_constant(pass.Resolve(frame_constant_handle));
                    frame_constant.front().orth = math::ortho(
                        draw_data->display_pos.x,
                        draw_data->display_pos.x + draw_data->display_size.x,
@@ -268,7 +266,7 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                    index_offset += draw_list.indices.size();
                }
 
-               auto bindless_infos = gfx::GPUBufferView<GuiBindlessInfo>(pass.Resolve(bindless_info_handle));
+               auto bindless_infos = gfx::GPUBufferView::MappedSpan<GuiBindlessInfo>(pass.Resolve(bindless_info_handle));
 
                const auto& render_target = pass.Resolve(target);
                cmd.SetViewPort({
@@ -277,9 +275,9 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                    .width  = draw_data->display_size.x,
                    .height = draw_data->display_size.y,
                });
-               cmd.SetPipeline(pass.Resolve(pipeline_handle));
+               cmd.SetPipeline(*pipeline);
                cmd.SetVertexBuffers(0, {{vertex_buffer}}, {{0}});
-               cmd.SetIndexBuffer(index_buffer);
+               cmd.SetIndexBuffer(index_buffer, 0, gfx::Format::R32_UINT);
 
                std::size_t draw_call_index = 0;
                vertex_offset               = 0;

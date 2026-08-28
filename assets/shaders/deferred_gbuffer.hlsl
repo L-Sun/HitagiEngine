@@ -3,14 +3,7 @@
 struct BindlessInfo {
     hitagi::SimpleBuffer frame_constant;
     hitagi::SimpleBuffer instance_constant;
-    hitagi::SimpleBuffer material_constant;
-    hitagi::Texture      diffuse_texture;
-    hitagi::Texture      specular_texture;
-    hitagi::Texture      ambient_texture;
-    hitagi::Texture      emissive_texture;
-    hitagi::Texture      metallic_roughness_texture;
-    hitagi::Texture      normal_texture;
-    hitagi::Texture      occlusion_texture;
+    hitagi::SimpleBuffer material_data;
     hitagi::Sampler      base_sampler;
 };
 
@@ -28,15 +21,22 @@ struct InstanceConstant {
     matrix model;
 };
 
-struct MaterialConstant {
-    float  shininess;
-    float  roughness;
+struct MaterialData {
+    float4 base_color;
     float  metallic;
+    float  roughness;
     float  occlusion;
-    float4 diffuse;
-    float4 specular;
-    float4 ambient;
-    float4 emissive;
+    float  _padding0;
+    float4 emissive_color;
+    float  opacity;
+    uint   alpha_cutout;
+    float  alpha_cutoff;
+    float  _padding1;
+    hitagi::Texture base_color_texture;
+    hitagi::Texture metallic_roughness_texture;
+    hitagi::Texture normal_texture;
+    hitagi::Texture occlusion_texture;
+    hitagi::Texture emissive_texture;
 };
 
 struct VSInput {
@@ -54,10 +54,6 @@ struct PSInput {
 
 float3 SRGBToLinear(float3 color) {
     return pow(saturate(color), 2.2f);
-}
-
-float ShininessToRoughness(float shininess) {
-    return clamp(sqrt(2.0f / max(shininess + 2.0f, 2.0f)), 0.04f, 1.0f);
 }
 
 PSInput VSMain(VSInput input) {
@@ -93,53 +89,55 @@ float3 BuildNormalFromMap(float3 normal_in_view, float3 pos_in_view, float2 uv, 
 }
 
 float4 PSAlbedoMain(PSInput input) : SV_TARGET {
-    const BindlessInfo     resource          = hitagi::load_bindless<BindlessInfo>();
-    const MaterialConstant material_constant = resource.material_constant.load<MaterialConstant>();
-    const SamplerState     sampler           = resource.base_sampler.load();
+    const BindlessInfo resource      = hitagi::load_bindless<BindlessInfo>();
+    const MaterialData material_data = resource.material_data.load<MaterialData>();
+    const SamplerState sampler       = resource.base_sampler.load();
 
-    const float3 diffuse = hitagi::valid(resource.diffuse_texture)
-                               ? SRGBToLinear(resource.diffuse_texture.sample<float3>(sampler, input.uv))
-                               : saturate(material_constant.diffuse.xyz);
+    float4 base_color = material_data.base_color;
+    if (hitagi::valid(material_data.base_color_texture)) {
+        const float4 texel = material_data.base_color_texture.sample<float4>(sampler, input.uv);
+        base_color *= float4(SRGBToLinear(texel.rgb), texel.a);
+    }
+    if (material_data.alpha_cutout != 0 && base_color.a < material_data.alpha_cutoff) {
+        discard;
+    }
 
     const float linear_depth = max(-input.pos_in_view.z, 0.0f);
-    return float4(saturate(diffuse), linear_depth);
+    return float4(saturate(base_color.rgb), linear_depth);
 }
 
 float4 PSNormalMain(PSInput input) : SV_TARGET {
-    const BindlessInfo     resource          = hitagi::load_bindless<BindlessInfo>();
-    const MaterialConstant material_constant = resource.material_constant.load<MaterialConstant>();
-    const SamplerState     sampler           = resource.base_sampler.load();
+    const BindlessInfo resource      = hitagi::load_bindless<BindlessInfo>();
+    const MaterialData material_data = resource.material_data.load<MaterialData>();
+    const SamplerState sampler       = resource.base_sampler.load();
 
     float3 normal = normalize(input.normal_in_view);
-    if (hitagi::valid(resource.normal_texture)) {
+    if (hitagi::valid(material_data.normal_texture)) {
         normal = BuildNormalFromMap(
             normal,
             input.pos_in_view,
             input.uv,
-            resource.normal_texture.sample<float3>(sampler, input.uv));
+            material_data.normal_texture.sample<float3>(sampler, input.uv));
     }
 
-    const float texture_occlusion = hitagi::valid(resource.occlusion_texture)
-                                        ? resource.occlusion_texture.sample<float>(sampler, input.uv)
+    const float texture_occlusion = hitagi::valid(material_data.occlusion_texture)
+                                        ? material_data.occlusion_texture.sample<float>(sampler, input.uv)
                                         : 1.0f;
-    const float occlusion = saturate(material_constant.occlusion * texture_occlusion);
+    const float occlusion = saturate(material_data.occlusion * texture_occlusion);
 
     return float4(normal * 0.5f + 0.5f, occlusion);
 }
 
 float4 PSMaterialMain(PSInput input) : SV_TARGET {
-    const BindlessInfo     resource          = hitagi::load_bindless<BindlessInfo>();
-    const MaterialConstant material_constant = resource.material_constant.load<MaterialConstant>();
-    const SamplerState     sampler           = resource.base_sampler.load();
+    const BindlessInfo resource      = hitagi::load_bindless<BindlessInfo>();
+    const MaterialData material_data = resource.material_data.load<MaterialData>();
+    const SamplerState sampler       = resource.base_sampler.load();
 
-    float metallic = saturate(material_constant.metallic);
-    float roughness = saturate(material_constant.roughness);
-    if (roughness <= 0.0f) {
-        roughness = ShininessToRoughness(material_constant.shininess);
-    }
+    float metallic = saturate(material_data.metallic);
+    float roughness = clamp(material_data.roughness, 0.04f, 1.0f);
 
-    if (hitagi::valid(resource.metallic_roughness_texture)) {
-        const float3 mr = resource.metallic_roughness_texture.sample<float3>(sampler, input.uv);
+    if (hitagi::valid(material_data.metallic_roughness_texture)) {
+        const float3 mr = material_data.metallic_roughness_texture.sample<float3>(sampler, input.uv);
         roughness = mr.g;
         metallic = mr.b;
     }
@@ -148,13 +146,13 @@ float4 PSMaterialMain(PSInput input) : SV_TARGET {
 }
 
 float4 PSEmissiveMain(PSInput input) : SV_TARGET {
-    const BindlessInfo     resource          = hitagi::load_bindless<BindlessInfo>();
-    const MaterialConstant material_constant = resource.material_constant.load<MaterialConstant>();
-    const SamplerState     sampler           = resource.base_sampler.load();
+    const BindlessInfo resource      = hitagi::load_bindless<BindlessInfo>();
+    const MaterialData material_data = resource.material_data.load<MaterialData>();
+    const SamplerState sampler       = resource.base_sampler.load();
 
-    const float3 emissive = hitagi::valid(resource.emissive_texture)
-                                ? SRGBToLinear(resource.emissive_texture.sample<float3>(sampler, input.uv))
-                                : saturate(material_constant.emissive.xyz);
+    const float3 emissive = hitagi::valid(material_data.emissive_texture)
+                                ? SRGBToLinear(material_data.emissive_texture.sample<float3>(sampler, input.uv))
+                                : saturate(material_data.emissive_color.xyz);
 
     return float4(emissive, 1.0f);
 }

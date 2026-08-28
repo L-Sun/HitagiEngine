@@ -5,6 +5,7 @@ struct BindlessInfo {
     hitagi::Texture gbuffer_normal;
     hitagi::Texture gbuffer_material;
     hitagi::Texture gbuffer_emissive;
+    hitagi::Texture object_material_id;
     hitagi::Sampler sampler;
 };
 
@@ -61,4 +62,14 @@ float4 PSEmissiveMain(VSOutput input) : SV_TARGET {
 
     const float3 emissive = resource.gbuffer_emissive.sample_level<float3>(sampler, input.uv, 0.0f);
     return float4(saturate(emissive), 1.0f);
+}
+
+float4 PSObjectMaterialIdMain(VSOutput input) : SV_TARGET {
+    BindlessInfo resource = hitagi::load_bindless<BindlessInfo>();
+    SamplerState sampler  = resource.sampler.load();
+
+    const uint2 ids = resource.object_material_id.sample_level<uint2>(sampler, input.uv, 0.0f);
+    const float object_id = frac((float)ids.x / 255.0f);
+    const float material_id = frac((float)ids.y / 255.0f);
+    return float4(object_id, material_id, 0.0f, 1.0f);
 }

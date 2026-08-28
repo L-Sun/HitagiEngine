@@ -15,7 +15,157 @@ auto ReadShaderSource(const std::filesystem::path& path) -> std::pmr::string {
     return std::pmr::string(core::FileIOManager::Get()->SyncOpenAndReadBinary(path).Str());
 }
 
+auto CountDraws(const RenderDrawState& draw_state) noexcept -> std::size_t {
+    std::size_t result = 0;
+    for (const auto& instance_info : draw_state.instance_infos) {
+        result += instance_info.mesh->sub_meshes.size();
+    }
+    return std::max<std::size_t>(1, result);
+}
+
+void UploadMaterialData(
+    const asset::MaterialPass&                material_pass,
+    gfx::GPUBuffer&                           material_data_buffer) {
+    const auto& material_data = material_pass.material_data;
+    if (material_data.Empty()) return;
+
+    auto* const mapped_data = static_cast<std::byte*>(material_data_buffer.Map());
+    std::memcpy(mapped_data, material_data.GetData(), material_data.GetDataSize());
+    material_data_buffer.UnMap();
+}
+
 }  // namespace
+auto passes::DepthPrepass::CreateTarget(RenderContext& context, const Desc& desc) -> rg::TextureHandle {
+    return context.graph.Create(gfx::TextureDesc{
+        .name        = std::pmr::string(std::format("depth_prepass_{}", context.graph.GetFrameIndex())),
+        .width       = desc.width,
+        .height      = desc.height,
+        .format      = desc.format,
+        .clear_value = gfx::ClearDepthStencil{
+            .depth   = 1.0f,
+            .stencil = 0,
+        },
+        .usages = gfx::TextureUsageFlags::DepthStencil | gfx::TextureUsageFlags::SRV,
+    });
+}
+
+void passes::DepthPrepass::Build(RenderContext& context, const BuildDesc& desc) {
+    auto& render_graph = context.graph;
+    if (!render_graph.IsValid(desc.depth) ||
+        !render_graph.IsValid(desc.frame_constant) ||
+        !render_graph.IsValid(desc.instance_constant) ||
+        !desc.pipeline) {
+        return;
+    }
+
+    const auto pass_name      = desc.pass_name.empty()
+                                    ? std::pmr::string(std::format("DepthPrepass-{}", render_graph.GetFrameIndex()))
+                                    : desc.pass_name;
+    const auto scratch_target = render_graph.Create(gfx::TextureDesc{
+        .name        = std::pmr::string(std::format("{}_scratch_color", pass_name)),
+        .width       = desc.width,
+        .height      = desc.height,
+        .format      = gfx::Format::R8G8B8A8_UNORM,
+        .clear_value = math::Color::Black(),
+        .usages      = gfx::TextureUsageFlags::RenderTarget,
+    });
+
+    rg::RenderPassBuilder(render_graph)
+        .SetName(pass_name)
+        .SetRenderTarget(scratch_target, true)
+        .SetDepthStencil(desc.depth, desc.clear_depth)
+        .Read(desc.frame_constant, gfx::PipelineStage::VertexShader)
+        .Read(desc.instance_constant, gfx::PipelineStage::VertexShader)
+        .SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+            auto& cmd = pass.GetCmd();
+            cmd.SetViewPort({
+                .x      = 0,
+                .y      = 0,
+                .width  = static_cast<float>(desc.width),
+                .height = static_cast<float>(desc.height),
+            });
+            cmd.SetScissorRect({
+                .x      = 0,
+                .y      = 0,
+                .width  = desc.width,
+                .height = desc.height,
+            });
+            cmd.SetPipeline(*desc.pipeline);
+        })
+        .Finish();
+}
+
+auto passes::ShadowMapPass::CreateTarget(RenderContext& context, const Desc& desc) -> rg::TextureHandle {
+    return context.graph.Create(gfx::TextureDesc{
+        .name        = std::pmr::string(std::format("shadow_map_{}", context.graph.GetFrameIndex())),
+        .width       = desc.width,
+        .height      = desc.height,
+        .format      = desc.format,
+        .clear_value = gfx::ClearDepthStencil{
+            .depth   = 1.0f,
+            .stencil = 0,
+        },
+        .usages = gfx::TextureUsageFlags::DepthStencil | gfx::TextureUsageFlags::SRV,
+    });
+}
+
+void passes::ShadowMapPass::Build(RenderContext& context, const BuildDesc& desc) {
+    auto& render_graph = context.graph;
+    if (!render_graph.IsValid(desc.shadow_map) ||
+        !render_graph.IsValid(desc.light_frame_constant) ||
+        !render_graph.IsValid(desc.instance_constant) ||
+        !desc.pipeline) {
+        return;
+    }
+
+    const auto pass_name      = desc.pass_name.empty()
+                                    ? std::pmr::string(std::format("ShadowMapPass-{}", render_graph.GetFrameIndex()))
+                                    : desc.pass_name;
+    const auto scratch_target = render_graph.Create(gfx::TextureDesc{
+        .name        = std::pmr::string(std::format("{}_scratch_color", pass_name)),
+        .width       = desc.width,
+        .height      = desc.height,
+        .format      = gfx::Format::R8G8B8A8_UNORM,
+        .clear_value = math::Color::Black(),
+        .usages      = gfx::TextureUsageFlags::RenderTarget,
+    });
+
+    rg::RenderPassBuilder(render_graph)
+        .SetName(pass_name)
+        .SetRenderTarget(scratch_target, true)
+        .SetDepthStencil(desc.shadow_map, desc.clear_depth)
+        .Read(desc.light_frame_constant, gfx::PipelineStage::VertexShader)
+        .Read(desc.instance_constant, gfx::PipelineStage::VertexShader)
+        .SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+            auto& cmd = pass.GetCmd();
+            cmd.SetViewPort({
+                .x      = 0,
+                .y      = 0,
+                .width  = static_cast<float>(desc.width),
+                .height = static_cast<float>(desc.height),
+            });
+            cmd.SetScissorRect({
+                .x      = 0,
+                .y      = 0,
+                .width  = desc.width,
+                .height = desc.height,
+            });
+            cmd.SetPipeline(*desc.pipeline);
+        })
+        .Finish();
+}
+
+auto passes::ObjectMaterialIdPass::CreateTarget(RenderContext& context, const Desc& desc) -> rg::TextureHandle {
+    return context.graph.Create(gfx::TextureDesc{
+        .name        = std::pmr::string(std::format("object_material_id_{}", context.graph.GetFrameIndex())),
+        .width       = desc.width,
+        .height      = desc.height,
+        .format      = desc.format,
+        .clear_value = math::Color{0.0f, 0.0f, 0.0f, 0.0f},
+        .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::SRV,
+    });
+}
+
 passes::GBuffer::GBuffer(gfx::Device& device, std::filesystem::path shader_path)
     : m_Device(device),
       m_ShaderPath(std::move(shader_path)) {}
@@ -30,21 +180,21 @@ void passes::GBuffer::EnsureResources() {
 
     const auto source = ReadShaderSource(m_ShaderPath);
 
-    m_VS = m_Device.CreateShader({
+    m_VS         = m_Device.CreateShader({
         .name        = "deferred-gbuffer-vs",
         .type        = gfx::ShaderType::Vertex,
         .entry       = "VSMain",
         .source_code = source,
         .path        = m_ShaderPath,
     });
-    m_AlbedoPS = m_Device.CreateShader({
+    m_AlbedoPS   = m_Device.CreateShader({
         .name        = "deferred-gbuffer-albedo-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSAlbedoMain",
         .source_code = source,
         .path        = m_ShaderPath,
     });
-    m_NormalPS = m_Device.CreateShader({
+    m_NormalPS   = m_Device.CreateShader({
         .name        = "deferred-gbuffer-normal-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSNormalMain",
@@ -69,20 +219,21 @@ void passes::GBuffer::EnsureResources() {
     const auto vertex_layout = m_Device.GetShaderCompiler().ExtractVertexLayout(m_VS->GetDesc());
 
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& pixel_shader, gfx::Format format, bool depth_write) {
-        return m_Device.CreateRenderPipeline({
-            .name                = std::pmr::string(name),
-            .shaders             = {m_VS, pixel_shader},
-            .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-            .vertex_input_layout = vertex_layout,
-            .rasterization_state = {.cull_mode = gfx::CullMode::None},
-            .depth_stencil_state = {
-                .depth_test_enable  = true,
-                .depth_write_enable = depth_write,
-                .depth_compare_op   = depth_write ? gfx::CompareOp::Less : gfx::CompareOp::LessEqual,
+        return m_Device.CreateRenderPipeline(
+            {
+                .name                = std::pmr::string(name),
+                .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+                .vertex_input_layout = vertex_layout,
+                .rasterization_state = {.cull_mode = gfx::CullMode::None},
+                .depth_stencil_state = {
+                    .depth_test_enable  = true,
+                    .depth_write_enable = depth_write,
+                    .depth_compare_op   = depth_write ? gfx::CompareOp::Less : gfx::CompareOp::LessEqual,
+                },
+                .render_format        = format,
+                .depth_stencil_format = gfx::Format::D32_FLOAT,
             },
-            .render_format        = format,
-            .depth_stencil_format = gfx::Format::D32_FLOAT,
-        });
+            {m_VS, pixel_shader});
     };
 
     m_AlbedoPipeline   = make_pipeline("deferred-gbuffer-albedo", m_AlbedoPS, gfx::Format::R32G32B32A32_FLOAT, true);
@@ -94,7 +245,7 @@ void passes::GBuffer::EnsureResources() {
 auto passes::GBuffer::CreateTargets(RenderContext& context, const Desc& desc) -> GBufferOutput {
     auto& render_graph = context.graph;
     return GBufferOutput{
-        .albedo = render_graph.Create(gfx::TextureDesc{
+        .albedo             = render_graph.Create(gfx::TextureDesc{
             .name        = std::pmr::string(std::format("deferred_gbuffer_albedo_{}", render_graph.GetFrameIndex())),
             .width       = desc.width,
             .height      = desc.height,
@@ -102,7 +253,7 @@ auto passes::GBuffer::CreateTargets(RenderContext& context, const Desc& desc) ->
             .clear_value = math::Color{0.0f, 0.0f, 0.0f, 0.0f},
             .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::SRV,
         }),
-        .normal = render_graph.Create(gfx::TextureDesc{
+        .normal             = render_graph.Create(gfx::TextureDesc{
             .name        = std::pmr::string(std::format("deferred_gbuffer_normal_{}", render_graph.GetFrameIndex())),
             .width       = desc.width,
             .height      = desc.height,
@@ -110,7 +261,7 @@ auto passes::GBuffer::CreateTargets(RenderContext& context, const Desc& desc) ->
             .clear_value = math::Color{0.5f, 0.5f, 1.0f, 0.0f},
             .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::SRV,
         }),
-        .material = render_graph.Create(gfx::TextureDesc{
+        .material           = render_graph.Create(gfx::TextureDesc{
             .name        = std::pmr::string(std::format("deferred_gbuffer_material_{}", render_graph.GetFrameIndex())),
             .width       = desc.width,
             .height      = desc.height,
@@ -118,7 +269,7 @@ auto passes::GBuffer::CreateTargets(RenderContext& context, const Desc& desc) ->
             .clear_value = math::Color{0.0f, 0.5f, 1.0f, 0.0f},
             .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::SRV,
         }),
-        .emissive = render_graph.Create(gfx::TextureDesc{
+        .emissive           = render_graph.Create(gfx::TextureDesc{
             .name        = std::pmr::string(std::format("deferred_gbuffer_emissive_{}", render_graph.GetFrameIndex())),
             .width       = desc.width,
             .height      = desc.height,
@@ -126,7 +277,15 @@ auto passes::GBuffer::CreateTargets(RenderContext& context, const Desc& desc) ->
             .clear_value = math::Color{0.0f, 0.0f, 0.0f, 0.0f},
             .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::SRV,
         }),
-        .depth = render_graph.Create(gfx::TextureDesc{
+        .object_material_id = render_graph.Create(gfx::TextureDesc{
+            .name        = std::pmr::string(std::format("deferred_object_material_id_{}", render_graph.GetFrameIndex())),
+            .width       = desc.width,
+            .height      = desc.height,
+            .format      = desc.object_material_id_format,
+            .clear_value = math::Color{0.0f, 0.0f, 0.0f, 0.0f},
+            .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::SRV,
+        }),
+        .depth              = render_graph.Create(gfx::TextureDesc{
             .name        = std::pmr::string(std::format("deferred_depth_stencil_{}", render_graph.GetFrameIndex())),
             .width       = desc.width,
             .height      = desc.height,
@@ -140,27 +299,27 @@ auto passes::GBuffer::CreateTargets(RenderContext& context, const Desc& desc) ->
     };
 }
 
-auto passes::GBuffer::ImportAlbedoPipeline(RenderContext& context, std::string_view name) -> rg::RenderPipelineHandle {
+auto passes::GBuffer::GetAlbedoPipeline() -> std::shared_ptr<gfx::RenderPipeline> {
     EnsureResources();
-    return name.empty() ? context.graph.Import(m_AlbedoPipeline) : context.graph.Import(m_AlbedoPipeline, std::pmr::string(name));
+    return m_AlbedoPipeline;
 }
 
-auto passes::GBuffer::ImportNormalPipeline(RenderContext& context, std::string_view name) -> rg::RenderPipelineHandle {
+auto passes::GBuffer::GetNormalPipeline() -> std::shared_ptr<gfx::RenderPipeline> {
     EnsureResources();
-    return name.empty() ? context.graph.Import(m_NormalPipeline) : context.graph.Import(m_NormalPipeline, std::pmr::string(name));
+    return m_NormalPipeline;
 }
 
-auto passes::GBuffer::ImportMaterialPipeline(RenderContext& context, std::string_view name) -> rg::RenderPipelineHandle {
+auto passes::GBuffer::GetMaterialPipeline() -> std::shared_ptr<gfx::RenderPipeline> {
     EnsureResources();
-    return name.empty() ? context.graph.Import(m_MaterialPipeline) : context.graph.Import(m_MaterialPipeline, std::pmr::string(name));
+    return m_MaterialPipeline;
 }
 
-auto passes::GBuffer::ImportEmissivePipeline(RenderContext& context, std::string_view name) -> rg::RenderPipelineHandle {
+auto passes::GBuffer::GetEmissivePipeline() -> std::shared_ptr<gfx::RenderPipeline> {
     EnsureResources();
-    return name.empty() ? context.graph.Import(m_EmissivePipeline) : context.graph.Import(m_EmissivePipeline, std::pmr::string(name));
+    return m_EmissivePipeline;
 }
 
-void passes::GBuffer::BuildAlbedoPass(RenderContext& context, SceneDrawState& draw_state, const AlbedoPassDesc& desc) {
+void passes::GBuffer::BuildAlbedoPass(RenderContext& context, RenderDrawState& draw_state, const AlbedoPassDesc& desc) {
     auto& render_graph = context.graph;
     if (!render_graph.IsValid(desc.target) ||
         !render_graph.IsValid(desc.depth) ||
@@ -171,25 +330,23 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, SceneDrawState& dr
         return;
     }
 
+    const auto draw_count = CountDraws(draw_state);
+
     rg::RenderPassBuilder builder(render_graph);
     builder
         .SetName(desc.pass_name)
         .SetRenderTarget(desc.target, true)
         .SetDepthStencil(desc.depth, desc.clear_depth)
-        .Read(desc.frame_constant_buffer, gfx::PipelineStage::VertexShader)
-        .Read(desc.instance_constant_buffer, gfx::PipelineStage::VertexShader)
-        .Read(desc.bindless_info_buffer)
+        .Read(desc.frame_constant_buffer, 0, 1, sizeof(FrameConstant), gfx::PipelineStage::VertexShader)
+        .Read(desc.instance_constant_buffer, 0, std::max<std::size_t>(1, draw_state.instance_infos.size()), sizeof(InstanceConstant), gfx::PipelineStage::VertexShader)
+        .Read(desc.bindless_info_buffer, 0, draw_count, sizeof(DrawBindlessInfo))
         .AddSampler(desc.sampler);
 
     for (const auto& [_, material_info] : draw_state.material_infos) {
-        builder.AddPipeline(material_info.pipeline);
-        builder.Read(material_info.material_constant);
-    }
-    for (const auto& [_, material_instance_info] : draw_state.material_instance_infos) {
-        for (const auto texture : material_instance_info.textures) {
-            if (texture) {
-                builder.Read(texture, {}, gfx::PipelineStage::PixelShader);
-            }
+        if (!material_info.pass_participation.Participates(MaterialPass::GBuffer)) continue;
+        const auto* material_pass = material_info.material ? material_info.material->FindPass(material_info.material_pass_contract) : nullptr;
+        if (material_pass) {
+            builder.Read(material_info.material_data, 0, 1, material_pass->material_data.GetDataSize());
         }
     }
     for (const auto& [_, mesh_info] : draw_state.mesh_infos) {
@@ -205,8 +362,8 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, SceneDrawState& dr
     builder.SetExecutor([&draw_state, desc](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
         auto& cmd = pass.GetCmd();
 
-        gfx::GPUBufferView<SceneFrameConstant>(pass.Resolve(desc.frame_constant_buffer)).front() = desc.frame_constant;
-        gfx::GPUBufferView<DrawBindlessInfo> bindless_infos(pass.Resolve(desc.bindless_info_buffer));
+        gfx::GPUBufferView::MappedSpan<FrameConstant>(pass.Resolve(desc.frame_constant_buffer)).front() = desc.frame_constant;
+        gfx::GPUBufferView::MappedSpan<DrawBindlessInfo> bindless_infos(pass.Resolve(desc.bindless_info_buffer));
 
         const auto& render_target = pass.Resolve(desc.target);
         cmd.SetViewPort({
@@ -222,20 +379,18 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, SceneDrawState& dr
             .height = render_target.GetDesc().height,
         });
 
-        for (auto* const material_instance : draw_state.active_material_instances) {
-            auto       material_info            = draw_state.material_infos.at(material_instance->GetMaterial().get());
-            auto&      material_constant_buffer = pass.Resolve(material_info.material_constant);
-            const auto material_instance_index  = draw_state.material_instance_indices.at(material_instance);
-            auto       material_constant_data   = material_instance->GenerateMaterialBuffer(desc.device_type == gfx::Device::Type::DX12);
-
-            std::memcpy(
-                material_constant_buffer.Map() + material_constant_buffer.AlignedElementSize() * material_instance_index,
-                material_constant_data.GetData(),
-                material_constant_data.GetDataSize());
-            material_constant_buffer.UnMap();
+        for (auto* const material : draw_state.active_materials) {
+            auto  material_info        = draw_state.material_infos.at(material);
+            auto& material_data_buffer = pass.Resolve(material_info.material_data);
+            if (!material_info.pass_participation.Participates(MaterialPass::GBuffer)) continue;
+            const auto* material_pass = material_info.material ? material_info.material->FindPass(material_info.material_pass_contract) : nullptr;
+            if (!material_pass) continue;
+            UploadMaterialData(
+                *material_pass,
+                material_data_buffer);
         }
 
-        auto instance_constant = gfx::GPUBufferView<SceneInstanceConstant>(pass.Resolve(desc.instance_constant_buffer));
+        auto instance_constant = gfx::GPUBufferView::MappedSpan<InstanceConstant>(pass.Resolve(desc.instance_constant_buffer));
         for (const auto& instance_info : draw_state.instance_infos) {
             instance_constant[instance_info.instance_index] = instance_info.instance_data;
         }
@@ -245,25 +400,22 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, SceneDrawState& dr
             const auto mesh_info = draw_state.mesh_infos.at(instance_info.mesh.get());
 
             for (const auto& sub_mesh : instance_info.mesh->sub_meshes) {
-                const auto& material_instance_info = draw_state.material_instance_infos.at(sub_mesh.material_instance.get());
-                const auto& material_info          = draw_state.material_infos.at(sub_mesh.material_instance->GetMaterial().get());
-                auto&       pipeline               = pass.Resolve(material_info.pipeline);
-                const auto  material_instance_index = draw_state.material_instance_indices.at(sub_mesh.material_instance.get());
+                if (!sub_mesh.material) continue;
+                const auto material_info_iter = draw_state.material_infos.find(sub_mesh.material.get());
+                if (material_info_iter == draw_state.material_infos.end()) continue;
+                const auto& material_info = material_info_iter->second;
+                if (!material_info.pass_participation.Participates(MaterialPass::GBuffer)) continue;
+                if (!material_info.pipeline) continue;
+                auto& pipeline = *material_info.pipeline;
 
                 cmd.SetPipeline(pipeline);
 
                 bindless_infos[draw_index] = {
                     .frame_constant    = pass.GetBindless(desc.frame_constant_buffer),
                     .instance_constant = pass.GetBindless(desc.instance_constant_buffer, instance_info.instance_index),
-                    .material_constant = pass.GetBindless(material_info.material_constant, material_instance_index),
+                    .material_data     = pass.GetBindless(material_info.material_data),
                     .sampler           = pass.GetBindless(desc.sampler),
                 };
-
-                for (auto [texture_bindless, texture_handle] : ranges::views::zip(bindless_infos[draw_index].textures, material_instance_info.textures)) {
-                    if (texture_handle) {
-                        texture_bindless = pass.GetBindless(texture_handle);
-                    }
-                }
 
                 cmd.PushBindlessMetaInfo({
                     .handle = pass.GetBindless(desc.bindless_info_buffer, draw_index),
@@ -275,7 +427,7 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, SceneDrawState& dr
                         cmd.SetVertexBuffers(vertex_attr.binding, {{pass.Resolve(attr_handle)}}, {{0}});
                     }
                 }
-                cmd.SetIndexBuffer(pass.Resolve(mesh_info.indices), 0);
+                cmd.SetIndexBuffer(pass.Resolve(mesh_info.indices), 0, mesh_info.index_format);
                 cmd.DrawIndexed(sub_mesh.index_count, 1, sub_mesh.index_offset, sub_mesh.vertex_offset);
                 ++draw_index;
             }
@@ -285,7 +437,7 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, SceneDrawState& dr
     builder.Finish();
 }
 
-void passes::GBuffer::BuildAttributePass(RenderContext& context, SceneDrawState& draw_state, const AttributePassDesc& desc) {
+void passes::GBuffer::BuildAttributePass(RenderContext& context, RenderDrawState& draw_state, const AttributePassDesc& desc) {
     auto& render_graph = context.graph;
     if (!render_graph.IsValid(desc.target) ||
         !render_graph.IsValid(desc.depth) ||
@@ -294,9 +446,11 @@ void passes::GBuffer::BuildAttributePass(RenderContext& context, SceneDrawState&
         !render_graph.IsValid(desc.instance_constant) ||
         !render_graph.IsValid(desc.bindless_info) ||
         !render_graph.IsValid(desc.sampler) ||
-        !render_graph.IsValid(desc.pipeline)) {
+        !desc.pipeline) {
         return;
     }
+
+    const auto draw_count = CountDraws(draw_state);
 
     rg::RenderPassBuilder builder(render_graph);
     builder
@@ -304,11 +458,10 @@ void passes::GBuffer::BuildAttributePass(RenderContext& context, SceneDrawState&
         .SetRenderTarget(desc.target, true)
         .ReadDepthStencil(desc.depth)
         .Read(desc.dependency, {}, gfx::PipelineStage::PixelShader)
-        .Read(desc.frame_constant, gfx::PipelineStage::VertexShader)
-        .Read(desc.instance_constant, gfx::PipelineStage::VertexShader)
-        .Read(desc.bindless_info)
-        .AddSampler(desc.sampler)
-        .AddPipeline(desc.pipeline);
+        .Read(desc.frame_constant, 0, 1, sizeof(FrameConstant), gfx::PipelineStage::VertexShader)
+        .Read(desc.instance_constant, 0, std::max<std::size_t>(1, draw_state.instance_infos.size()), sizeof(InstanceConstant), gfx::PipelineStage::VertexShader)
+        .Read(desc.bindless_info, 0, draw_count, sizeof(DrawBindlessInfo))
+        .AddSampler(desc.sampler);
 
     for (const auto& [mesh, mesh_info] : draw_state.mesh_infos) {
         magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
@@ -320,20 +473,16 @@ void passes::GBuffer::BuildAttributePass(RenderContext& context, SceneDrawState&
         builder.ReadAsIndices(mesh_info.indices);
     }
     for (const auto& [_, material_info] : draw_state.material_infos) {
-        builder.Read(material_info.material_constant);
-    }
-    for (const auto& [_, material_instance_info] : draw_state.material_instance_infos) {
-        for (const auto texture : material_instance_info.textures) {
-            if (texture) {
-                builder.Read(texture, {}, gfx::PipelineStage::PixelShader);
-            }
+        if (!material_info.pass_participation.Participates(MaterialPass::GBuffer)) continue;
+        const auto* material_pass = material_info.material ? material_info.material->FindPass(material_info.material_pass_contract) : nullptr;
+        if (material_pass) {
+            builder.Read(material_info.material_data, 0, 1, material_pass->material_data.GetDataSize());
         }
     }
-
     builder.SetExecutor([&draw_state, desc](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
         auto& cmd = pass.GetCmd();
 
-        gfx::GPUBufferView<DrawBindlessInfo> bindless_infos(pass.Resolve(desc.bindless_info));
+        gfx::GPUBufferView::MappedSpan<DrawBindlessInfo> bindless_infos(pass.Resolve(desc.bindless_info));
 
         const auto& render_target = pass.Resolve(desc.target);
         cmd.SetViewPort({
@@ -349,7 +498,7 @@ void passes::GBuffer::BuildAttributePass(RenderContext& context, SceneDrawState&
             .height = render_target.GetDesc().height,
         });
 
-        auto& pipeline = pass.Resolve(desc.pipeline);
+        auto& pipeline = *desc.pipeline;
         cmd.SetPipeline(pipeline);
 
         std::size_t draw_index = 0;
@@ -357,22 +506,17 @@ void passes::GBuffer::BuildAttributePass(RenderContext& context, SceneDrawState&
             const auto mesh_info = draw_state.mesh_infos.at(instance_info.mesh.get());
 
             for (const auto& sub_mesh : instance_info.mesh->sub_meshes) {
-                const auto& material_instance_info  = draw_state.material_instance_infos.at(sub_mesh.material_instance.get());
-                const auto& material_info           = draw_state.material_infos.at(sub_mesh.material_instance->GetMaterial().get());
-                const auto  material_instance_index = draw_state.material_instance_indices.at(sub_mesh.material_instance.get());
-
+                if (!sub_mesh.material) continue;
+                const auto material_info_iter = draw_state.material_infos.find(sub_mesh.material.get());
+                if (material_info_iter == draw_state.material_infos.end()) continue;
+                const auto& material_info = material_info_iter->second;
+                if (!material_info.pass_participation.Participates(MaterialPass::GBuffer)) continue;
                 bindless_infos[draw_index] = {
                     .frame_constant    = pass.GetBindless(desc.frame_constant),
                     .instance_constant = pass.GetBindless(desc.instance_constant, instance_info.instance_index),
-                    .material_constant = pass.GetBindless(material_info.material_constant, material_instance_index),
+                    .material_data     = pass.GetBindless(material_info.material_data),
                     .sampler           = pass.GetBindless(desc.sampler),
                 };
-
-                for (auto [texture_bindless, texture_handle] : ranges::views::zip(bindless_infos[draw_index].textures, material_instance_info.textures)) {
-                    if (texture_handle) {
-                        texture_bindless = pass.GetBindless(texture_handle);
-                    }
-                }
 
                 cmd.PushBindlessMetaInfo({
                     .handle = pass.GetBindless(desc.bindless_info, draw_index),
@@ -384,7 +528,7 @@ void passes::GBuffer::BuildAttributePass(RenderContext& context, SceneDrawState&
                         cmd.SetVertexBuffers(vertex_attr.binding, {{pass.Resolve(attr_handle)}}, {{0}});
                     }
                 }
-                cmd.SetIndexBuffer(pass.Resolve(mesh_info.indices), 0);
+                cmd.SetIndexBuffer(pass.Resolve(mesh_info.indices), 0, mesh_info.index_format);
                 cmd.DrawIndexed(sub_mesh.index_count, 1, sub_mesh.index_offset, sub_mesh.vertex_offset);
                 ++draw_index;
             }

@@ -1069,6 +1069,14 @@ constexpr auto perspective(T fov, T aspect, T near, T far) noexcept -> Matrix<T,
     };
     // clang-format on
 }
+
+template <typename Fov, typename Aspect, typename Near, typename Far>
+    requires(!std::same_as<Fov, Aspect> || !std::same_as<Fov, Near> || !std::same_as<Fov, Far>)
+constexpr auto perspective(Fov fov, Aspect aspect, Near near, Far far) noexcept -> Matrix<std::common_type_t<Aspect, Near, Far>, 4> {
+    using T = std::common_type_t<Aspect, Near, Far>;
+    return perspective(static_cast<T>(fov), static_cast<T>(aspect), static_cast<T>(near), static_cast<T>(far));
+}
+
 template <typename T>
 constexpr auto ortho(T left, T right, T bottom, T top, T near, T far) noexcept -> Matrix<T, 4> {
     // clang-format off

@@ -1,15 +1,12 @@
 #include "test_macros.hpp"
 #include <spdlog/spdlog.h>
 #include <tracy/Tracy.hpp>
-#include "imgui.h"
-
 import magic_enum;
 import render;
 import asset;
 import core;
 import utils;
 import math;
-import gui;
 import app;
 import test_utils;
 
@@ -98,60 +95,44 @@ INSTANTIATE_TEST_SUITE_P(
         return std::string{magic_enum::enum_name(info.param)};
     });
 
-TEST_P(RendererTest, DeferredRenderer) {
-    auto            gui_manager = std::make_unique<gui::GuiManager>(*app);
+TEST_P(RendererTest, DeferredRendererAcceptsExplicitFrame) {
     RenderRuntime   runtime(*device, *app, test_name);
     DefaultRenderer renderer(*device, *app, test_name);
 
-    asset::AssetManager asset_manager("./assets");
-
-    auto scene = asset_manager.ImportScene("assets/test/test.usda");
-
     std::size_t frame_index = 0;
     while (!app->IsQuit()) {
-        auto texture = runtime.GetRenderGraph().Create(gfx::TextureDesc{
+        const auto width   = runtime.GetSwapChain().GetWidth();
+        const auto height  = runtime.GetSwapChain().GetHeight();
+        auto       texture = runtime.GetRenderGraph().Create(gfx::TextureDesc{
             .name        = std::pmr::string{std::format("RenderTarget-{}", frame_index)},
-            .width       = runtime.GetSwapChain().GetWidth(),
-            .height      = runtime.GetSwapChain().GetHeight(),
+            .width       = width,
+            .height      = height,
             .format      = gfx::Format::R8G8B8A8_UNORM,
             .clear_value = math::Color(0.0, 0.0, 0.0, 1.0),
             .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc,
         });
 
-        gui_manager->DrawGui([=]() {
-            auto& light_transform  = scene->GetLightEntities().front().Get<asset::Transform>();
-            auto& camera_transform = scene->GetCameraEntities().front().Get<asset::Transform>();
-            auto& cube_transform   = scene->GetMeshEntities().front().Get<asset::Transform>();
+        const math::vec3f eye{0.0f, -4.0f, 2.0f};
+        const RenderFrame frame{
+            .view = RenderView{
+                .camera_position = eye,
+                .view            = math::look_at(eye, math::vec3f{0.0f, 1.0f, -0.35f}, math::vec3f{0.0f, 0.0f, 1.0f}),
+                .projection      = math::perspective(60.0_deg, static_cast<float>(width) / static_cast<float>(height), 0.1f, 100.0f),
+            },
+        };
 
-            ImGui::DragFloat3("Light Position", light_transform.position, 0.1f);
-            ImGui::DragFloat3("Camera Position", camera_transform.position, 0.1f);
-            ImGui::DragFloat3("cube Position", cube_transform.position, 0.1f);
-        });
-        gui_manager->Tick();
-
-        const auto camera           = scene->GetCameraEntities().front().Get<asset::CameraComponent>().camera;
-        const auto camera_transform = scene->GetCameraEntities().front().Get<asset::Transform>();
-
-        camera->parameters.aspect = static_cast<float>(runtime.GetSwapChain().GetWidth()) / static_cast<float>(runtime.GetSwapChain().GetHeight());
-
-        scene->Update();
-        auto context = runtime.MakeContext();
-        const auto scene_output = renderer.Render(
+        auto       context      = runtime.MakeContext();
+        const auto frame_output = renderer.Render(
             context,
             RenderRequest{
-                .view = SceneView{
-                    .scene            = scene,
-                    .camera           = camera.get(),
-                    .camera_transform = camera_transform.world_matrix,
-                },
+                .frame  = frame,
                 .target = texture,
             });
-        EXPECT_EQ(scene_output.color, texture);
-        EXPECT_TRUE(scene_output.depth);
-        EXPECT_TRUE(scene_output.linear_depth);
-        EXPECT_TRUE(scene_output.normal);
+        EXPECT_EQ(frame_output.color, texture);
+        EXPECT_TRUE(frame_output.depth);
+        EXPECT_TRUE(frame_output.linear_depth);
+        EXPECT_TRUE(frame_output.normal);
         texture = runtime.GetRenderGraph().MoveFrom(texture);
-        runtime.RenderGui(texture, gui_manager->GetDrawData(), false);
         runtime.ToSwapChain(texture);
         runtime.Tick();
 
@@ -163,7 +144,6 @@ TEST_P(RendererTest, DeferredRenderer) {
             break;
         }
     }
-    asset::Texture::DestroyDefaultTexture();
 }
 
 TEST(RendererInterfaceTest, CustomRendererOnlyImplementsSceneRender) {
@@ -175,7 +155,7 @@ TEST(RendererInterfaceTest, CustomRendererOnlyImplementsSceneRender) {
         .device = *mock_device,
         .graph  = graph,
     };
-    EXPECT_EQ(renderer.Render(context, RenderRequest{.view = SceneView{}, .target = {}}).color, rg::TextureHandle{});
+    EXPECT_EQ(renderer.Render(context, RenderRequest{.frame = RenderFrame{}, .target = {}}).color, rg::TextureHandle{});
 }
 
 TEST(RendererInterfaceTest, CustomRendererCanComposeCustomRenderGraphPass) {
@@ -190,13 +170,170 @@ TEST(RendererInterfaceTest, CustomRendererCanComposeCustomRenderGraphPass) {
         .clear_value = math::Color::Black(),
         .usages      = gfx::TextureUsageFlags::RenderTarget,
     });
-    RenderContext context{
+    RenderContext      context{
         .device = *mock_device,
         .graph  = graph,
     };
 
-    const auto output = renderer.Render(context, RenderRequest{.view = SceneView{}, .target = input});
+    const auto output = renderer.Render(context, RenderRequest{.frame = RenderFrame{}, .target = input});
 
     EXPECT_NE(output.color, input);
     EXPECT_TRUE(graph.IsValid(output.color));
+}
+
+TEST(RendererMaterialPassTest, PassParticipationRoutesMaterialContracts) {
+    const auto make_material = [](std::initializer_list<std::string_view> contracts) {
+        std::pmr::vector<asset::MaterialPass> passes;
+        for (const auto contract : contracts) {
+            passes.emplace_back(asset::MaterialPass{.pass_contract = std::pmr::string(contract)});
+        }
+        return asset::Material({}, std::move(passes));
+    };
+
+    const auto pbr = GetMaterialPassParticipation(make_material({"DepthPrepass", "GBuffer", "ShadowCaster"}));
+    EXPECT_EQ(pbr.queue, RenderQueue::Opaque);
+    EXPECT_TRUE(pbr.IsInLayer(RenderLayer::Default));
+    EXPECT_TRUE(pbr.Participates(MaterialPass::DepthPrepass));
+    EXPECT_TRUE(pbr.Participates(MaterialPass::GBuffer));
+    EXPECT_TRUE(pbr.Participates(MaterialPass::ShadowCaster));
+    EXPECT_FALSE(pbr.Participates(MaterialPass::Forward));
+
+    const auto forward = GetMaterialPassParticipation(make_material({"DepthPrepass", "Forward"}));
+    EXPECT_TRUE(forward.Participates(MaterialPass::DepthPrepass));
+    EXPECT_TRUE(forward.Participates(MaterialPass::Forward));
+    EXPECT_FALSE(forward.Participates(MaterialPass::GBuffer));
+
+    const auto transparent = GetMaterialPassParticipation(make_material({"ForwardTransparent"}));
+    EXPECT_EQ(transparent.queue, RenderQueue::Transparent);
+    EXPECT_FALSE(transparent.Participates(MaterialPass::DepthPrepass));
+    EXPECT_FALSE(transparent.Participates(MaterialPass::ShadowCaster));
+    EXPECT_TRUE(transparent.Participates(MaterialPass::Forward));
+
+    const auto custom = GetMaterialPassParticipation(make_material({"Forward", "Debug"}));
+    EXPECT_TRUE(custom.Participates(MaterialPass::Forward));
+    EXPECT_TRUE(custom.Participates(MaterialPass::Debug));
+
+    const auto toon = GetMaterialPassParticipation(make_material({"ToonGBuffer", "ToonBase", "ToonLighting", "ToonComposite", "OutlineMask"}));
+    EXPECT_TRUE(toon.IsInLayer(RenderLayer::Toon));
+    EXPECT_TRUE(toon.IsInLayer(RenderLayer::Outline));
+    EXPECT_TRUE(toon.Participates(MaterialPass::GBuffer));
+    EXPECT_TRUE(toon.Participates(MaterialPass::ToonBase));
+    EXPECT_TRUE(toon.Participates(MaterialPass::ToonLighting));
+    EXPECT_TRUE(toon.Participates(MaterialPass::ToonComposite));
+    EXPECT_TRUE(toon.Participates(MaterialPass::Outline));
+    EXPECT_FALSE(toon.Participates(MaterialPass::Forward));
+}
+
+TEST(RendererMaterialPassTest, ToonRenderPathAndOutlineDefaultsAreExplicit) {
+    const auto toon_path = MakeDefaultToonRenderPathDesc();
+    EXPECT_TRUE(toon_path.enabled);
+    EXPECT_TRUE(toon_path.ramp_lighting);
+    EXPECT_TRUE(toon_path.quantized_shadows);
+    EXPECT_TRUE(toon_path.vertex_shadow_weight);
+    EXPECT_TRUE(toon_path.rim_light);
+    EXPECT_TRUE(toon_path.matcap);
+    EXPECT_TRUE(toon_path.emission);
+    EXPECT_TRUE(toon_path.face_shadow);
+    EXPECT_EQ(toon_path.debug_view, ToonDebugView::None);
+
+    const auto outline = MakeDefaultToonOutlineDesc();
+    EXPECT_TRUE(outline.Enabled());
+    EXPECT_EQ(outline.mode, OutlineMode::Hybrid);
+    EXPECT_TRUE(outline.use_material_width);
+    EXPECT_TRUE(outline.use_material_color);
+    EXPECT_TRUE(outline.use_vertex_color_width);
+    EXPECT_TRUE(outline.distance_scale);
+}
+
+TEST(RendererMaterialPassTest, RenderQueueKeySortsByQueuePriorityLayerAndObject) {
+    const std::array keys = {
+        RenderQueueKey{.queue = RenderQueue::Transparent, .layers = RenderLayerBit(RenderLayer::Default), .queue_priority = 0, .object_id = 1},
+        RenderQueueKey{.queue = RenderQueue::Opaque, .layers = RenderLayerBit(RenderLayer::Outline), .queue_priority = 1, .object_id = 2},
+        RenderQueueKey{.queue = RenderQueue::Opaque, .layers = RenderLayerBit(RenderLayer::Default), .queue_priority = 0, .object_id = 3},
+    };
+
+    auto sorted = keys;
+    std::ranges::sort(sorted, [](const RenderQueueKey& lhs, const RenderQueueKey& rhs) {
+        return lhs < rhs;
+    });
+
+    EXPECT_EQ(sorted[0].queue, RenderQueue::Opaque);
+    EXPECT_EQ(sorted[0].queue_priority, 0);
+    EXPECT_EQ(sorted[0].object_id, 3);
+    EXPECT_EQ(sorted[1].layers, RenderLayerBit(RenderLayer::Outline));
+    EXPECT_EQ(sorted[2].queue, RenderQueue::Transparent);
+}
+
+TEST(RendererPassBuilderTest, CreatesDepthShadowGBufferAndIdResources) {
+    auto            mock_device = gfx::create_device(gfx::Device::Type::Mock, "RendererPassBuilderTest");
+    rg::RenderGraph graph(*mock_device, "RendererPassBuilderGraph");
+    RenderContext   context{
+        .device = *mock_device,
+        .graph  = graph,
+    };
+
+    const auto frame_constant    = graph.Create(gfx::GPUBufferDesc{
+        .name          = "frame_constant",
+        .size = (sizeof(FrameConstant)) * (1),
+        .usages        = gfx::GPUBufferUsageFlags::Constant,
+    });
+    const auto instance_constant = graph.Create(gfx::GPUBufferDesc{
+        .name          = "instance_constant",
+        .size = (sizeof(InstanceConstant)) * (1),
+        .usages        = gfx::GPUBufferUsageFlags::Constant,
+    });
+    const auto pipeline          = mock_device->CreateRenderPipeline({}, {});
+
+    const auto depth = passes::DepthPrepass::CreateTarget(context, {.width = 64, .height = 32});
+    passes::DepthPrepass::Build(
+        context,
+        passes::DepthPrepass::BuildDesc{
+            .pass_name         = "UnitDepthPrepass",
+            .depth             = depth,
+            .frame_constant    = frame_constant,
+            .instance_constant = instance_constant,
+            .pipeline          = pipeline,
+            .width             = 64,
+            .height            = 32,
+        });
+
+    const auto shadow = passes::ShadowMapPass::CreateTarget(context, {.width = 128, .height = 128});
+    passes::ShadowMapPass::Build(
+        context,
+        passes::ShadowMapPass::BuildDesc{
+            .pass_name            = "UnitShadowMapPass",
+            .shadow_map           = shadow,
+            .light_frame_constant = frame_constant,
+            .instance_constant    = instance_constant,
+            .pipeline             = pipeline,
+            .width                = 128,
+            .height               = 128,
+        });
+
+    const auto      id_buffer = passes::ObjectMaterialIdPass::CreateTarget(context, {.width = 64, .height = 32});
+    passes::GBuffer gbuffer_pass(*mock_device, "unused.hlsl");
+    const auto      gbuffer = gbuffer_pass.CreateTargets(context, {.width = 64, .height = 32});
+
+    EXPECT_TRUE(graph.IsValid(depth));
+    EXPECT_EQ(graph.GetResourceDesc(depth).format, gfx::Format::D32_FLOAT);
+    EXPECT_TRUE(graph.IsValid(shadow));
+    EXPECT_EQ(graph.GetResourceDesc(shadow).width, 128);
+    EXPECT_TRUE(graph.IsValid(id_buffer));
+    EXPECT_EQ(graph.GetResourceDesc(id_buffer).format, gfx::Format::R32G32_UINT);
+    EXPECT_TRUE(graph.IsValid(gbuffer.normal));
+    EXPECT_TRUE(graph.IsValid(gbuffer.material));
+    EXPECT_TRUE(graph.IsValid(gbuffer.object_material_id));
+    EXPECT_EQ(graph.GetResourceDesc(gbuffer.object_material_id).format, gfx::Format::R32G32_UINT);
+
+    const auto dot = graph.ToDot();
+    EXPECT_NE(dot.find("UnitDepthPrepass"), std::pmr::string::npos);
+    EXPECT_NE(dot.find("UnitShadowMapPass"), std::pmr::string::npos);
+}
+
+TEST(RendererPassBuilderTest, RenderGraphDebugViewNamesMapToGBufferViews) {
+    EXPECT_EQ(RenderGraphDebugViewName(RenderGraphDebugView::Final), "final");
+    EXPECT_EQ(RenderGraphDebugViewName(RenderGraphDebugView::BaseColor), "albedo");
+    EXPECT_EQ(RenderGraphDebugViewName(RenderGraphDebugView::Normal), "normal");
+    EXPECT_EQ(RenderGraphDebugViewName(RenderGraphDebugView::MaterialId), "material_id");
+    EXPECT_EQ(RenderGraphDebugViewName(RenderGraphDebugView::Emissive), "emissive");
 }
