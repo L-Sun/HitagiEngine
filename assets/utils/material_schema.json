@@ -1,307 +1,197 @@
 {
-    "$schema": "https://json-schema.org/draft/2019-09/schema",
-    "$id": "http://example.com/example.json",
-    "type": "object",
-    "default": {},
-    "title": "Root Schema",
-    "required": [
-        "name",
-        "pipeline"
-    ],
-    "properties": {
-        "name": {
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "$id": "https://hitagi.example/schema/material.json",
+  "title": "Hitagi material",
+  "type": "object",
+  "required": [
+    "name",
+    "passes"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Material name",
+      "examples": [
+        "DemoMaterial"
+      ]
+    },
+    "source_shader_id": {
+      "type": "string",
+      "title": "Authoring source shader id"
+    },
+    "parameters": {
+      "type": "array",
+      "title": "Named material parameter values",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "type"
+        ],
+        "properties": {
+          "name": {
             "type": "string",
-            "default": "",
-            "title": "The name of material",
             "examples": [
-                "Phong"
+              "base_color",
+              "roughness",
+              "base_color_texture"
             ]
-        },
-        "pipeline": {
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "float",
+              "int32",
+              "uint32",
+              "vec2i",
+              "vec2u",
+              "vec2f",
+              "vec3i",
+              "vec3u",
+              "vec3f",
+              "vec4i",
+              "vec4u",
+              "vec4f",
+              "color",
+              "mat4f",
+              "texture"
+            ]
+          },
+          "default": {
+            "type": [
+              "array",
+              "number",
+              "integer",
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "passes": {
+      "type": "array",
+      "title": "Pass-local render contracts",
+      "items": {
+        "type": "object",
+        "required": [
+          "contract",
+          "bindings"
+        ],
+        "properties": {
+          "contract": {
+            "type": "string",
+            "examples": [
+              "GBuffer",
+              "ShadowCaster",
+              "Forward"
+            ]
+          },
+          "pipeline": {
             "type": "object",
-            "default": {},
-            "title": "The pipeline infomation",
             "required": [
-                "vs",
-                "ps"
+              "vs",
+              "ps"
             ],
             "properties": {
-                "vs": {
-                    "type": "string",
-                    "default": "",
-                    "title": "vertex shader path",
-                    "examples": [
-                        "assets/shaders/phong.hlsl"
-                    ]
-                },
-                "ps": {
-                    "type": "string",
-                    "default": "",
-                    "title": "pixel shader path",
-                    "examples": [
-                        "assets/shaders/phong.hlsl"
-                    ]
-                },
-                "primitive": {
-                    "type": "string",
-                    "default": "TriangleList",
-                    "title": "Primitive type",
-                    "enum": [
-                        "PointList",
-                        "LineList",
-                        "LineStrip",
-                        "TriangleList",
-                        "TriangleStrip",
-                        "LineListAdjacency",
-                        "LineStripAdjacency",
-                        "TriangleListAdjacency",
-                        "TriangleStripAdjacency"
-                    ]
-                },
-                "depth_test": {
-                    "type": "boolean",
-                    "default": true,
-                    "title": "Enable depth test"
-                }
-            },
-            "examples": [
-                {
-                    "vs": "assets/shaders/phong.hlsl",
-                    "ps": "assets/shaders/phong.hlsl",
-                    "primitive": "TriangleList",
-                    "depth_test": true
-                }
-            ]
-        },
-        "parameters": {
-            "type": "array",
-            "default": [],
-            "title": "The parameters of material.",
-            "items": {
-                "type": "object",
-                "title": "Material parameter",
-                "required": [
-                    "name",
-                    "type"
-                ],
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "title": "The name of parameter",
-                        "examples": [
-                            "diffuse",
-                            "ambient",
-                            "specular",
-                            "specular_power",
-                            "skin"
-                        ]
-                    },
-                    "type": {
-                        "type": "string",
-                        "title": "The type of parameter",
-                        "examples": [
-                            "vec4f",
-                            "float",
-                            "texture"
-                        ],
-                        "enum": [
-                            "float",
-                            "int32",
-                            "uint32",
-                            "vec2i",
-                            "vec2u",
-                            "vec2f",
-                            "vec3i",
-                            "vec3u",
-                            "vec3f",
-                            "vec4i",
-                            "vec4u",
-                            "vec4f",
-                            "color",
-                            "mat4f",
-                            "texture"
-                        ]
-                    },
-                    "default": {
-                        "type": [
-                            "array",
-                            "number",
-                            "string"
-                        ],
-                        "title": "The default value of parameter",
-                        "items": {
-                            "type": "number",
-                            "title": "A Schema",
-                            "examples": [
-                                1.0,
-                                0.8,
-                                0.5,
-                                0.0
-                            ]
-                        },
-                        "examples": [
-                            [
-                                1.0,
-                                0.8,
-                                0.5,
-                                1.0
-                            ],
-                            [
-                                0.5,
-                                0.8,
-                                0.5,
-                                1.0
-                            ],
-                            [
-                                0.0,
-                                0.8,
-                                0.5,
-                                1.0
-                            ],
-                            23.0,
-                            "assets/test/test.jpg"
-                        ]
-                    }
-                },
+              "name": {
+                "type": "string"
+              },
+              "vs": {
+                "type": "string",
                 "examples": [
-                    {
-                        "name": "diffuse",
-                        "type": "vec4f",
-                        "default": [
-                            1.0,
-                            0.8,
-                            0.5,
-                            1.0
-                        ]
-                    },
-                    {
-                        "name": "ambient",
-                        "type": "vec4f",
-                        "default": [
-                            0.5,
-                            0.8,
-                            0.5,
-                            1.0
-                        ]
-                    },
-                    {
-                        "name": "specular",
-                        "type": "vec4f",
-                        "default": [
-                            0.0,
-                            0.8,
-                            0.5,
-                            1.0
-                        ]
-                    },
-                    {
-                        "name": "specular_power",
-                        "type": "float",
-                        "default": 23.0
-                    },
-                    {
-                        "name": "skin",
-                        "type": "texture",
-                        "default": "assets/test/test.jpg"
-                    }
+                  "assets/shaders/deferred_gbuffer.hlsl"
                 ]
+              },
+              "ps": {
+                "type": "string",
+                "examples": [
+                  "assets/shaders/deferred_gbuffer.hlsl"
+                ]
+              },
+              "primitive": {
+                "type": "string",
+                "default": "TriangleList",
+                "enum": [
+                  "PointList",
+                  "LineList",
+                  "LineStrip",
+                  "TriangleList",
+                  "TriangleStrip",
+                  "LineListAdjacency",
+                  "LineStripAdjacency",
+                  "TriangleListAdjacency",
+                  "TriangleStripAdjacency"
+                ]
+              },
+              "depth_test": {
+                "type": "boolean",
+                "default": true
+              },
+              "double_sided": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          },
+          "bindings": {
+            "type": "array",
+            "title": "Ordered material parameter bindings",
+            "items": {
+              "type": "string"
             },
             "examples": [
-                [
-                    {
-                        "name": "diffuse",
-                        "type": "vec4f",
-                        "default": [
-                            1.0,
-                            0.8,
-                            0.5,
-                            1.0
-                        ]
-                    },
-                    {
-                        "name": "ambient",
-                        "type": "vec4f",
-                        "default": [
-                            0.5,
-                            0.8,
-                            0.5,
-                            1.0
-                        ]
-                    },
-                    {
-                        "name": "specular",
-                        "type": "vec4f",
-                        "default": [
-                            0.0,
-                            0.8,
-                            0.5,
-                            1.0
-                        ]
-                    },
-                    {
-                        "name": "specular_power",
-                        "type": "float",
-                        "default": 23.0
-                    },
-                    {
-                        "name": "skin",
-                        "type": "texture",
-                        "default": "assets/test/test.jpg"
-                    }
-                ]
+              [
+                "base_color",
+                "roughness",
+                "base_color_texture"
+              ]
             ]
+          }
         }
-    },
-    "examples": [
+      }
+    }
+  },
+  "examples": [
+    {
+      "name": "DemoMaterial",
+      "parameters": [
         {
-            "name": "Phong",
-            "pipeline": {
-                "vs": "assets/shaders/phong.hlsl",
-                "ps": "assets/shaders/phong.hlsl",
-                "primitive": "TriangleList"
-            },
-            "parameters": [
-                {
-                    "name": "diffuse",
-                    "type": "vec4f",
-                    "default": [
-                        1.0,
-                        0.8,
-                        0.5,
-                        1.0
-                    ]
-                },
-                {
-                    "name": "ambient",
-                    "type": "vec4f",
-                    "default": [
-                        0.5,
-                        0.8,
-                        0.5,
-                        1.0
-                    ]
-                },
-                {
-                    "name": "specular",
-                    "type": "vec4f",
-                    "default": [
-                        0.0,
-                        0.8,
-                        0.5,
-                        1.0
-                    ]
-                },
-                {
-                    "name": "specular_power",
-                    "type": "float",
-                    "default": 23.0
-                },
-                {
-                    "name": "skin",
-                    "type": "texture",
-                    "default": "assets/test/test.jpg"
-                }
-            ]
+          "name": "base_color",
+          "type": "color",
+          "default": [
+            1.0,
+            0.8,
+            0.5,
+            1.0
+          ]
+        },
+        {
+          "name": "roughness",
+          "type": "float",
+          "default": 0.5
+        },
+        {
+          "name": "base_color_texture",
+          "type": "texture",
+          "default": "assets/test/test.jpg"
         }
-    ]
+      ],
+      "passes": [
+        {
+          "contract": "GBuffer",
+          "pipeline": {
+            "vs": "assets/shaders/deferred_gbuffer.hlsl",
+            "ps": "assets/shaders/deferred_gbuffer.hlsl",
+            "primitive": "TriangleList"
+          },
+          "bindings": [
+            "base_color",
+            "roughness",
+            "base_color_texture"
+          ]
+        }
+      ]
+    }
+  ]
 }
