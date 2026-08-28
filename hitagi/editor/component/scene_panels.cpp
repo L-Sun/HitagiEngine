@@ -14,6 +14,186 @@ namespace hitagi {
 namespace {
 constexpr auto kWorkbenchWindowFlags = ImGuiWindowFlags_NoCollapse;
 
+auto MaterialSourceTypeName(MaterialSourceType type) noexcept -> std::string_view {
+    switch (type) {
+        case MaterialSourceType::Builtin:
+            return "Builtin";
+        case MaterialSourceType::Imported:
+            return "Imported";
+        case MaterialSourceType::MDL:
+            return "MDL";
+        case MaterialSourceType::JSON:
+            return "JSON";
+        case MaterialSourceType::Generated:
+            return "Generated";
+        case MaterialSourceType::Unknown:
+            return "Unknown";
+    }
+    return "Unknown";
+}
+
+auto MaterialParameterValueTypeName(const asset::MaterialParameterValue& value) noexcept -> std::string_view {
+    return std::visit(
+        utils::Overloaded{
+            [](const float&) -> std::string_view { return "float"; },
+            [](const std::int32_t&) -> std::string_view { return "int"; },
+            [](const std::uint32_t&) -> std::string_view { return "uint"; },
+            [](const math::vec2i&) -> std::string_view { return "int2"; },
+            [](const math::vec2u&) -> std::string_view { return "uint2"; },
+            [](const math::vec2f&) -> std::string_view { return "float2"; },
+            [](const math::vec3i&) -> std::string_view { return "int3"; },
+            [](const math::vec3u&) -> std::string_view { return "uint3"; },
+            [](const math::vec3f&) -> std::string_view { return "float3"; },
+            [](const math::vec4i&) -> std::string_view { return "int4"; },
+            [](const math::vec4u&) -> std::string_view { return "uint4"; },
+            [](const math::vec4f&) -> std::string_view { return "float4"; },
+            [](const math::Color&) -> std::string_view { return "color"; },
+            [](const math::mat4f&) -> std::string_view { return "float4x4"; },
+            [](const std::shared_ptr<asset::Texture>&) -> std::string_view { return "texture"; },
+        },
+        value);
+}
+
+auto MaterialPassParameterTypeName(const asset::Material& material, std::string_view name) noexcept -> std::string_view {
+    const auto iter = std::ranges::find_if(material.GetParameters(), [name](const auto& parameter) {
+        return parameter.name == name;
+    });
+    return iter == material.GetParameters().end() ? "unknown" : MaterialParameterValueTypeName(iter->value);
+}
+
+auto ResolvePassTextures(const asset::Material& material, const asset::MaterialPass& pass) -> std::pmr::vector<std::shared_ptr<asset::Texture>> {
+    std::pmr::vector<std::shared_ptr<asset::Texture>> textures;
+    textures.resize(pass.bindings.size());
+    for (std::size_t binding_index = 0; binding_index < pass.bindings.size(); ++binding_index) {
+        const auto& binding   = pass.bindings[binding_index];
+        const auto  parameter = material.GetParameter<std::shared_ptr<asset::Texture>>(binding);
+        if (parameter) textures[binding_index] = *parameter;
+    }
+    return textures;
+}
+
+auto HasMaterialSourceInfo(const MaterialSourceInfo& source_info) noexcept -> bool {
+    return source_info.type != MaterialSourceType::Unknown ||
+           !source_info.source_asset.empty() ||
+           !source_info.source_material_path.empty() ||
+           !source_info.source_shader_id.empty() ||
+           !source_info.source_texture_paths.empty() ||
+           !source_info.unsupported_inputs.empty() ||
+           !source_info.unsupported_nodes.empty();
+}
+
+void DrawTextureSlotPreview(Engine& engine, std::string_view label, const std::shared_ptr<asset::Texture>& texture, float size = 48.0f) {
+    if (!texture) {
+        ImGui::TextUnformatted("-");
+        return;
+    }
+
+    auto& render_graph = engine.RenderRuntime().GetRenderGraph();
+    texture->Load({.device = render_graph.GetDevice()});
+    ImGui::Image(engine.GuiManager().ReadTexture(render_graph.Import(texture->GetGPUData())), ImVec2(size, size));
+    if (ImGui::IsItemHovered()) {
+        const auto& path = texture->GetPath();
+        ImGui::SetTooltip("%s\n%ux%u", path.empty() ? label.data() : path.string().c_str(), texture->Width(), texture->Height());
+    }
+}
+
+void DrawMaterialSourceInfo(std::string_view label, const MaterialSourceInfo& source_info) {
+    if (!ImGui::TreeNode(label.data())) return;
+
+    ImGui::Text("Type: %s", MaterialSourceTypeName(source_info.type).data());
+    ImGui::TextWrapped("Source path: %s", source_info.source_asset.empty() ? "-" : source_info.source_asset.string().c_str());
+    ImGui::TextWrapped("Material path: %s", source_info.source_material_path.empty() ? "-" : source_info.source_material_path.c_str());
+    ImGui::TextWrapped("Shader: %s", source_info.source_shader_id.empty() ? "-" : source_info.source_shader_id.c_str());
+
+    if (ImGui::TreeNode("Source Textures")) {
+        if (source_info.source_texture_paths.empty()) {
+            ImGui::TextUnformatted("-");
+        } else {
+            for (const auto& path : source_info.source_texture_paths) {
+                ImGui::BulletText("%s", path.string().c_str());
+            }
+        }
+        ImGui::TreePop();
+    }
+
+    if (ImGui::TreeNode("Unsupported Inputs")) {
+        if (source_info.unsupported_inputs.empty()) {
+            ImGui::TextUnformatted("-");
+        } else {
+            for (const auto& input : source_info.unsupported_inputs) {
+                ImGui::BulletText("%s", input.c_str());
+            }
+        }
+        ImGui::TreePop();
+    }
+
+    if (ImGui::TreeNode("Unsupported Nodes")) {
+        if (source_info.unsupported_nodes.empty()) {
+            ImGui::TextUnformatted("-");
+        } else {
+            for (const auto& node : source_info.unsupported_nodes) {
+                ImGui::BulletText("%s", node.c_str());
+            }
+        }
+        ImGui::TreePop();
+    }
+
+    ImGui::TreePop();
+}
+
+void DrawMaterialPassLayout(Engine& engine, const asset::MaterialPass& pass, const asset::Material& material) {
+    std::pmr::string label = "Pass Bindings";
+    if (!pass.pass_contract.empty()) {
+        label += " [";
+        label += pass.pass_contract;
+        label += "]";
+    }
+    if (!ImGui::TreeNode(label.c_str())) return;
+
+    ImGui::Text("Material data: %llu bytes", static_cast<unsigned long long>(pass.material_data.GetDataSize()));
+
+    if (ImGui::TreeNode("Bindings")) {
+        const auto textures = ResolvePassTextures(material, pass);
+        if (pass.bindings.empty()) {
+            ImGui::TextUnformatted("-");
+        } else if (ImGui::BeginTable("MaterialPassBindings", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV)) {
+            ImGui::TableSetupColumn("Index");
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableSetupColumn("Type");
+            ImGui::TableSetupColumn("Bound Texture");
+            ImGui::TableHeadersRow();
+            for (std::size_t binding_index = 0; binding_index < pass.bindings.size(); ++binding_index) {
+                const auto& binding = pass.bindings[binding_index];
+                const auto  type    = MaterialPassParameterTypeName(material, binding);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("%llu", static_cast<unsigned long long>(binding_index));
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(binding.c_str());
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextUnformatted(type.data());
+                ImGui::TableSetColumnIndex(3);
+                if (type == "texture") {
+                    const auto texture = binding_index < textures.size() ? textures[binding_index] : nullptr;
+                    if (texture) {
+                        const auto& path = texture->GetPath();
+                        ImGui::TextWrapped("%s", path.empty() ? texture->GetName().data() : path.string().c_str());
+                        DrawTextureSlotPreview(engine, binding, texture);
+                    } else {
+                        ImGui::TextUnformatted("-");
+                    }
+                } else {
+                    ImGui::TextUnformatted("-");
+                }
+            }
+            ImGui::EndTable();
+        }
+        ImGui::TreePop();
+    }
+
+    ImGui::TreePop();
+}
+
 }  // namespace
 
 auto IsDescendantOf(ecs::Entity entity, ecs::Entity possible_parent) -> bool {
@@ -275,17 +455,17 @@ void Editor::SceneNodeModifier() {
                 if (selected_entity.Has<asset::MeshComponent>() && ImGui::BeginTabItem("Materials")) {
                     const auto mesh = selected_entity.Get<asset::MeshComponent>().mesh;
 
-                    std::pmr::vector<std::shared_ptr<asset::MaterialInstance>> material_instances;
+                    std::pmr::vector<std::shared_ptr<asset::Material>> materials;
                     for (const auto& sub_mesh : mesh->sub_meshes) {
-                        if (!sub_mesh.material_instance) continue;
-                        const auto duplicated = std::ranges::any_of(material_instances, [&](const auto& material_instance) {
-                            return material_instance.get() == sub_mesh.material_instance.get();
+                        if (!sub_mesh.material) continue;
+                        const auto duplicated = std::ranges::any_of(materials, [&](const auto& material) {
+                            return material.get() == sub_mesh.material.get();
                         });
-                        if (!duplicated) material_instances.emplace_back(sub_mesh.material_instance);
+                        if (!duplicated) materials.emplace_back(sub_mesh.material);
                     }
 
-                    for (const auto& mat_instance : material_instances) {
-                        const auto material_parameter_widget = [this, &mat_instance](asset::MaterialParameter& parameter) {
+                    for (const auto& material : materials) {
+                        const auto material_parameter_widget = [this, &material](asset::MaterialParameter& parameter) {
                             const auto name   = parameter.name.data();
                             const auto edited = std::visit(
                                 utils::Overloaded{
@@ -306,7 +486,7 @@ void Editor::SceneNodeModifier() {
                                         if (texture) {
                                             auto& rg          = m_Engine.RenderRuntime().GetRenderGraph();
                                             auto& gui_manager = m_Engine.GuiManager();
-                                            texture->InitGPUData(rg.GetDevice());
+                                            texture->Load({.device = rg.GetDevice()});
                                             ImGui::Image(gui_manager.ReadTexture(rg.Import(texture->GetGPUData())), {64, 64});
                                             if (ImGui::IsItemHovered()) {
                                                 ImGui::SetTooltip("%s", name);
@@ -323,42 +503,45 @@ void Editor::SceneNodeModifier() {
                                 },
                                 parameter.value);
                             static std::optional<asset::MaterialParameter> material_edit_start;
-                            static asset::MaterialInstance*                material_edit_instance = nullptr;
+                            static asset::Material*                        material_edit_target = nullptr;
                             if (ImGui::IsItemActivated()) {
-                                material_edit_start    = parameter;
-                                material_edit_instance = mat_instance.get();
+                                material_edit_start  = parameter;
+                                material_edit_target = material.get();
                             }
                             if (edited) {
-                                mat_instance->SetParameter(parameter);
+                                std::visit(
+                                    [&](const auto& value) {
+                                        material->SetParameter(parameter.name, value);
+                                    },
+                                    parameter.value);
                             }
-                            if (ImGui::IsItemDeactivatedAfterEdit() && material_edit_start && material_edit_instance == mat_instance.get()) {
+                            if (ImGui::IsItemDeactivatedAfterEdit() && material_edit_start && material_edit_target == material.get()) {
                                 ExecuteCommand(std::make_unique<MaterialParameterChangeCommand>(
-                                    mat_instance,
+                                    material,
                                     *material_edit_start,
                                     parameter));
                                 material_edit_start.reset();
-                                material_edit_instance = nullptr;
+                                material_edit_target = nullptr;
                             }
                         };
 
-                        auto split_parameters = mat_instance->GetSplitParameters();
+                        if (ImGui::TreeNode(material.get(), "%s", material->GetName().data())) {
+                            ImGui::Text("Material: %s", material->GetName().data());
+                            if (const auto* source_info = m_CookContext.FindMaterialSourceInfo(*material); source_info && HasMaterialSourceInfo(*source_info)) {
+                                DrawMaterialSourceInfo("MaterialSourceInfo", *source_info);
+                            }
+                            if (material->GetPasses().empty()) {
+                                ImGui::TextUnformatted("No material passes");
+                            } else {
+                                for (const auto& pass : material->GetPasses()) {
+                                    DrawMaterialPassLayout(m_Engine, pass, *material);
+                                }
+                            }
 
-                        if (ImGui::TreeNode(mat_instance.get(), "%s", mat_instance->GetName().data())) {
                             ImGui::Text("Active Parameters");
-                            for (auto& param : split_parameters.in_both) {
-                                material_parameter_widget(param);
-                            }
-
-                            ImGui::Text("Material Builtin Parameters");
-                            ImGui::BeginDisabled(true);
-                            for (auto& param : split_parameters.only_in_material) {
-                                material_parameter_widget(param);
-                            }
-                            ImGui::EndDisabled();
-
-                            ImGui::Text("Unused Parameters");
-                            for (auto& param : split_parameters.only_in_instance) {
-                                material_parameter_widget(param);
+                            for (const auto& param : material->GetParameters()) {
+                                auto edited_parameter = param;
+                                material_parameter_widget(edited_parameter);
                             }
 
                             ImGui::TreePop();

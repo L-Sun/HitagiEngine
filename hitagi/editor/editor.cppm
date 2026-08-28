@@ -7,8 +7,11 @@ export module editor;
 export import :state;
 export import :command;
 export import :asset_browser;
+export import :cook;
+export import :usd;
 export import :scene_viewport;
 export import :image_viewer;
+export import :material_compiler;
 import engine;
 
 export namespace hitagi {
@@ -18,6 +21,7 @@ struct EditorLaunchOptions {
     std::optional<std::filesystem::path> screenshot;
     std::optional<std::filesystem::path> hid_script;
     std::optional<std::filesystem::path> hid_control;
+    UsdSceneImporter::MaterialProcessor  material_processor;
     bool                                 exit_after_load = false;
 };
 
@@ -48,6 +52,19 @@ auto EditorAssetKindName(EditorAssetKind kind) noexcept -> std::string_view;
 auto EditorModeName(EditorMode mode) noexcept -> std::string_view;
 auto CreateEditorRuntimeScene(const asset::Scene& edit_scene) -> std::shared_ptr<asset::Scene>;
 
+struct EditorRenderGraphDebugNode {
+    std::uint64_t    handle = 0;
+    std::pmr::string name;
+    bool             resource = false;
+};
+
+struct EditorRenderGraphDebugSnapshot {
+    std::pmr::vector<EditorRenderGraphDebugNode> passes;
+    std::pmr::vector<EditorRenderGraphDebugNode> resources;
+};
+
+auto BuildEditorRenderGraphDebugSnapshot(std::string_view dot) -> EditorRenderGraphDebugSnapshot;
+
 enum struct EditorFileDialogMode : std::uint8_t {
     None,
     OpenScene,
@@ -72,9 +89,12 @@ private:
     void SceneGraphViewer();
     void SceneNodeModifier();
     void AssetExplorer();
+    void AssetPreview();
     void DebugProfilingPanel();
     void RefreshAssetBrowser();
     void ImportAssetFromBrowser(const EditorAssetBrowserEntry& entry);
+    void PreviewAssetFromBrowser(const EditorAssetBrowserEntry& entry);
+    void DrawAssetPreview();
     void NewScene();
     void OpenScene(const std::filesystem::path& path);
     void RequestOpenScene();
@@ -104,6 +124,7 @@ private:
     Application&                  m_App;
     EditorLaunchOptions           m_LaunchOptions;
     EditorState                   m_State;
+    EditorCookContext             m_CookContext;
     EditorCommandStack            m_CommandStack;
     std::shared_ptr<asset::Scene> m_EditScene;
     std::shared_ptr<asset::Scene> m_RuntimeScene;
@@ -132,8 +153,12 @@ private:
     std::filesystem::path              m_CurrentScenePath;
     std::filesystem::path              m_EditScenePathBeforePlay;
     std::filesystem::path              m_LastImportedAssetPath;
+    std::filesystem::path              m_AssetPreviewPath;
+    EditorAssetKind                    m_AssetPreviewKind = EditorAssetKind::Unknown;
     std::pmr::string                   m_LastImportedAssetUUID;
     std::pmr::string                   m_AssetBrowserStatus;
+    std::pmr::string                   m_AssetPreviewText;
+    std::pmr::string                   m_AssetPreviewStatus;
     std::shared_ptr<asset::Texture>    m_SelectedTexturePreview;
     std::pmr::vector<std::pmr::string> m_EditorNotifications;
     bool                               m_StyleApplied      = false;

@@ -99,10 +99,10 @@ private:
 class MaterialParameterChangeCommand final : public EditorCommand {
 public:
     MaterialParameterChangeCommand(
-        std::shared_ptr<asset::MaterialInstance> material_instance,
-        asset::MaterialParameter                 before,
-        asset::MaterialParameter                 after)
-        : m_MaterialInstance(std::move(material_instance)), m_Before(std::move(before)), m_After(std::move(after)) {}
+        std::shared_ptr<asset::Material> material,
+        asset::MaterialParameter         before,
+        asset::MaterialParameter         after)
+        : m_Material(std::move(material)), m_Before(std::move(before)), m_After(std::move(after)) {}
 
     void Execute() final { Apply(m_After); }
     void Undo() final { Apply(m_Before); }
@@ -110,12 +110,17 @@ public:
 
 private:
     void Apply(const asset::MaterialParameter& parameter) {
-        if (m_MaterialInstance) m_MaterialInstance->SetParameter(parameter);
+        if (!m_Material) return;
+        std::visit(
+            [&](const auto& value) {
+                m_Material->SetParameter(parameter.name, value);
+            },
+            parameter.value);
     }
 
-    std::shared_ptr<asset::MaterialInstance> m_MaterialInstance;
-    asset::MaterialParameter                 m_Before;
-    asset::MaterialParameter                 m_After;
+    std::shared_ptr<asset::Material> m_Material;
+    asset::MaterialParameter         m_Before;
+    asset::MaterialParameter         m_After;
 };
 
 class CameraParameterChangeCommand final : public EditorCommand {

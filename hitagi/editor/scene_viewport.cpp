@@ -140,6 +140,53 @@ auto BuildViewportProjection(const asset::Camera& camera, const mat4f& camera_tr
     };
 }
 
+auto EditorEntityObjectId(ecs::Entity entity) noexcept -> std::uint32_t {
+    return entity ? static_cast<std::uint32_t>(entity.GetId() + 1u) : 0u;
+}
+
+auto BuildRenderView(const asset::Camera& camera, const mat4f& camera_transform) noexcept -> render::RenderView {
+    const vec3f global_eye      = (camera_transform * vec4f(camera.parameters.eye, 1.0f)).xyz;
+    const vec3f global_look_dir = (camera_transform * vec4f(camera.parameters.look_dir, 0.0f)).xyz;
+    const vec3f global_up       = (camera_transform * vec4f(camera.parameters.up, 0.0f)).xyz;
+    return {
+        .camera_position = global_eye,
+        .view            = look_at(global_eye, global_look_dir, global_up),
+        .projection      = perspective(camera.parameters.horizontal_fov, camera.parameters.aspect, camera.parameters.near_clip, camera.parameters.far_clip),
+    };
+}
+
+void CollectSceneRenderFrameData(
+    asset::Scene&                                scene,
+    std::pmr::vector<render::RenderDrawItem>&    draw_items,
+    std::pmr::vector<render::RenderLight>&       lights) {
+    draw_items.clear();
+    lights.clear();
+    draw_items.reserve(scene.GetMeshEntities().size());
+    lights.reserve(scene.GetLightEntities().size());
+
+    for (const auto entity : scene.GetMeshEntities()) {
+        if (!entity || !entity.Has<MeshComponent>() || !entity.Has<Transform>()) continue;
+        const auto mesh = entity.Get<MeshComponent>().mesh;
+        if (!mesh || mesh->Empty()) continue;
+        draw_items.emplace_back(render::RenderDrawItem{
+            .mesh      = mesh,
+            .transform = entity.Get<Transform>().world_matrix,
+            .object_id = EditorEntityObjectId(entity),
+        });
+    }
+
+    for (const auto entity : scene.GetLightEntities()) {
+        if (!entity || !entity.Has<LightComponent>() || !entity.Has<Transform>()) continue;
+        const auto light = entity.Get<LightComponent>().light;
+        if (!light) continue;
+        lights.emplace_back(render::RenderLight{
+            .position  = (entity.Get<Transform>().world_matrix * vec4f(light->parameters.position, 1.0f)).xyz,
+            .color     = light->parameters.color,
+            .intensity = light->parameters.intensity,
+        });
+    }
+}
+
 auto ClipToScreen(const ViewportProjection& projection, vec4f clip) noexcept -> ImVec2 {
     clip /= clip.w;
     return ImVec2{
@@ -293,27 +340,28 @@ EditorViewportGridPass::EditorViewportGridPass(gfx::Device& device, std::filesys
         .source_code = shader_source,
         .path        = shader_path,
     });
-    m_Pipeline = device.CreateRenderPipeline({
-        .name           = "viewport-grid",
-        .shaders        = {m_VS, m_PS},
-        .assembly_state = {
-            .primitive = gfx::PrimitiveTopology::TriangleList,
+    m_Pipeline = device.CreateRenderPipeline(
+        {
+            .name           = "viewport-grid",
+            .assembly_state = {
+                .primitive = gfx::PrimitiveTopology::TriangleList,
+            },
+            .rasterization_state = {
+                .cull_mode               = gfx::CullMode::None,
+                .front_counter_clockwise = false,
+            },
+            .blend_state = {
+                .blend_enable           = true,
+                .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
+                .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                .color_blend_op         = gfx::BlendOp::Add,
+                .src_alpha_blend_factor = gfx::BlendFactor::One,
+                .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                .alpha_blend_op         = gfx::BlendOp::Add,
+            },
+            .render_format = gfx::Format::R8G8B8A8_UNORM,
         },
-        .rasterization_state = {
-            .cull_mode               = gfx::CullMode::None,
-            .front_counter_clockwise = false,
-        },
-        .blend_state = {
-            .blend_enable           = true,
-            .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
-            .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-            .color_blend_op         = gfx::BlendOp::Add,
-            .src_alpha_blend_factor = gfx::BlendFactor::One,
-            .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-            .alpha_blend_op         = gfx::BlendOp::Add,
-        },
-        .render_format = gfx::Format::R8G8B8A8_UNORM,
-    });
+        {m_VS, m_PS});
 }
 
 auto EditorViewportGridPass::Build(render::RenderContext& context, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) -> rg::TextureHandle {
@@ -321,6 +369,7 @@ auto EditorViewportGridPass::Build(render::RenderContext& context, const asset::
     if (!render_graph.IsValid(target) || !m_Pipeline) return target;
     const auto output = render_graph.MoveFrom(target, std::format("Viewport Grid Target {}", render_graph.GetFrameIndex()));
 
+    const auto        camera_parameters = camera.parameters;
     const math::vec3f global_eye      = (camera_transform * math::vec4f(camera.parameters.eye, 1.0f)).xyz;
     const math::vec3f global_look_dir = (camera_transform * math::vec4f(camera.parameters.look_dir, 0.0f)).xyz;
     const math::vec3f global_up       = (camera_transform * math::vec4f(camera.parameters.up, 0.0f)).xyz;
@@ -338,38 +387,37 @@ auto EditorViewportGridPass::Build(render::RenderContext& context, const asset::
     const auto target_desc          = render_graph.GetResourceDesc(output);
     const auto grid_constant_handle = render_graph.Create(
         {
-            .name         = "viewport_grid_constant",
-            .element_size = sizeof(ViewportGridConstant),
-            .usages       = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+            .name   = "viewport_grid_constant",
+            .size   = gfx::ConstantBufferElementSize(sizeof(ViewportGridConstant)),
+            .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
         },
         "viewport_grid_constant");
     const auto bindless_info_handle = render_graph.Create(
         {
-            .name         = "viewport_grid_bindless",
-            .element_size = sizeof(ViewportGridBindlessInfo),
-            .usages       = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+            .name   = "viewport_grid_bindless",
+            .size   = gfx::ConstantBufferElementSize(sizeof(ViewportGridBindlessInfo)),
+            .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
         },
         "viewport_grid_bindless");
-    const auto pipeline_handle = render_graph.Import(m_Pipeline, "viewport_grid_pipeline");
+    const auto pipeline = m_Pipeline;
 
     rg::RenderPassBuilder builder(render_graph);
     builder.SetName(std::format("ViewportGridPass-{}", render_graph.GetFrameIndex()))
-        .Read(grid_constant_handle)
-        .Read(bindless_info_handle)
-        .AddPipeline(pipeline_handle)
+        .Read(grid_constant_handle, 0, 1, sizeof(ViewportGridConstant))
+        .Read(bindless_info_handle, 0, 1, sizeof(ViewportGridBindlessInfo))
         .SetRenderTarget(output, false)
         .SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
             auto& cmd = pass.GetCmd();
 
-            gfx::GPUBufferView<ViewportGridConstant>(pass.Resolve(grid_constant_handle)).front() = ViewportGridConstant{
+            gfx::GPUBufferView::MappedSpan<ViewportGridConstant>(pass.Resolve(grid_constant_handle)).front() = ViewportGridConstant{
                 .inv_proj_view                = math::inverse(projection * view),
                 .camera_pos                   = {global_eye, 1.0f},
                 .camera_forward               = {forward, 0.0f},
                 .viewport_size_base_step_fade = {static_cast<float>(target_desc.width), static_cast<float>(target_desc.height), base_step, fade},
-                .clip_and_opacity             = {camera.parameters.far_clip, 0.65f, 0.0f, 0.0f},
+                .clip_and_opacity             = {camera_parameters.far_clip, 0.65f, 0.0f, 0.0f},
             };
 
-            auto bindless_infos                   = gfx::GPUBufferView<ViewportGridBindlessInfo>(pass.Resolve(bindless_info_handle));
+            auto bindless_infos                   = gfx::GPUBufferView::MappedSpan<ViewportGridBindlessInfo>(pass.Resolve(bindless_info_handle));
             bindless_infos.front().grid_constant = pass.GetBindless(grid_constant_handle);
 
             const auto& render_target = pass.Resolve(output);
@@ -385,7 +433,7 @@ auto EditorViewportGridPass::Build(render::RenderContext& context, const asset::
                 .width  = render_target.GetDesc().width,
                 .height = render_target.GetDesc().height,
             });
-            cmd.SetPipeline(pass.Resolve(pipeline_handle));
+            cmd.SetPipeline(*pipeline);
             cmd.PushBindlessMetaInfo({
                 .handle = pass.GetBindless(bindless_info_handle),
             });
@@ -436,20 +484,21 @@ void EditorSelectionMetadataPass::EnsureResources() {
     const auto vertex_layout = m_Device.GetShaderCompiler().ExtractVertexLayout(m_VS->GetDesc());
 
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& ps, gfx::Format format, bool depth_write) {
-        return m_Device.CreateRenderPipeline({
-            .name                = std::pmr::string(name),
-            .shaders             = {m_VS, ps},
-            .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-            .vertex_input_layout = vertex_layout,
-            .rasterization_state = {.cull_mode = gfx::CullMode::None},
-            .depth_stencil_state = {
-                .depth_test_enable  = true,
-                .depth_write_enable = depth_write,
-                .depth_compare_op   = gfx::CompareOp::LessEqual,
+        return m_Device.CreateRenderPipeline(
+            {
+                .name                = std::pmr::string(name),
+                .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+                .vertex_input_layout = vertex_layout,
+                .rasterization_state = {.cull_mode = gfx::CullMode::None},
+                .depth_stencil_state = {
+                    .depth_test_enable  = true,
+                    .depth_write_enable = depth_write,
+                    .depth_compare_op   = gfx::CompareOp::LessEqual,
+                },
+                .render_format        = format,
+                .depth_stencil_format = gfx::Format::D32_FLOAT,
             },
-            .render_format        = format,
-            .depth_stencil_format = gfx::Format::D32_FLOAT,
-        });
+            {m_VS, ps});
     };
 
     m_IdPipeline     = make_pipeline("editor-selection-id", m_IdPS, gfx::Format::R32_UINT, true);
@@ -457,22 +506,22 @@ void EditorSelectionMetadataPass::EnsureResources() {
     m_DepthPipeline  = make_pipeline("editor-selection-depth", m_DepthPS, gfx::Format::R32_FLOAT, false);
 }
 
-auto EditorSelectionMetadataPass::ImportPipeline(render::RenderContext& context, Target target) -> rg::RenderPipelineHandle {
+auto EditorSelectionMetadataPass::GetPipeline(Target target) -> std::shared_ptr<gfx::RenderPipeline> {
     EnsureResources();
     switch (target) {
         case Target::Id:
-            return context.graph.Import(m_IdPipeline);
+            return m_IdPipeline;
         case Target::Visual:
-            return context.graph.Import(m_VisualPipeline);
+            return m_VisualPipeline;
         case Target::Depth:
-            return context.graph.Import(m_DepthPipeline);
+            return m_DepthPipeline;
     }
     return {};
 }
 
 auto EditorSelectionMetadataPass::Build(
     render::RenderContext&     context,
-    const render::SceneDrawState& draw_state,
+    const render::RenderDrawState& draw_state,
     rg::GPUBufferHandle        frame_constant,
     const EditorSelectionDesc& desc,
     std::uint32_t              width,
@@ -489,9 +538,9 @@ auto EditorSelectionMetadataPass::Build(
 
     std::pmr::vector<std::size_t> selected_instances;
     for (std::size_t i = 0; i < draw_state.instance_infos.size(); ++i) {
-        const auto entity = draw_state.instance_infos[i].entity;
-        const auto item_it = ranges::find_if(selected_items, [entity](const EditorSelectionItem& item) {
-            return item.entity == entity;
+        const auto object_id = draw_state.instance_infos[i].object_id;
+        const auto item_it = ranges::find_if(selected_items, [object_id](const EditorSelectionItem& item) {
+            return EditorEntityObjectId(item.entity) == object_id;
         });
         if (item_it != selected_items.end()) selected_instances.emplace_back(i);
     }
@@ -531,24 +580,22 @@ auto EditorSelectionMetadataPass::Build(
     });
 
     auto instance_constant = render_graph.Create({
-        .name          = "editor_selection_instance_constant",
-        .element_size  = sizeof(InstanceConstant),
-        .element_count = selected_instances.size(),
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "editor_selection_instance_constant",
+        .size   = gfx::ConstantBufferElementSize(sizeof(InstanceConstant)) * std::max<std::size_t>(1, selected_instances.size()),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
     auto bindless_info = render_graph.Create({
-        .name          = "editor_selection_bindless_infos",
-        .element_size  = sizeof(BindlessInfo),
-        .element_count = selected_instances.size(),
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "editor_selection_bindless_infos",
+        .size   = gfx::ConstantBufferElementSize(sizeof(BindlessInfo)) * std::max<std::size_t>(1, selected_instances.size()),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
 
     std::pmr::vector<InstanceConstant> selected_constants;
     selected_constants.resize(selected_instances.size());
     for (std::size_t selection_index = 0; selection_index < selected_instances.size(); ++selection_index) {
         const auto& instance = draw_state.instance_infos[selected_instances[selection_index]];
-        const auto item_it = ranges::find_if(selected_items, [entity = instance.entity](const EditorSelectionItem& item) {
-            return item.entity == entity;
+        const auto item_it = ranges::find_if(selected_items, [object_id = instance.object_id](const EditorSelectionItem& item) {
+            return EditorEntityObjectId(item.entity) == object_id;
         });
         const auto visual_id = item_it != selected_items.end()
                                    ? static_cast<std::uint32_t>(item_it->visual)
@@ -560,9 +607,9 @@ auto EditorSelectionMetadataPass::Build(
         };
     }
 
-    BuildTargetPass(context, draw_state, frame_constant, instance_constant, bindless_info, id, depth_stencil, ImportPipeline(context, Target::Id), Target::Id, selected_constants, selected_instances);
-    BuildTargetPass(context, draw_state, frame_constant, instance_constant, bindless_info, visual, depth_stencil, ImportPipeline(context, Target::Visual), Target::Visual, selected_constants, selected_instances);
-    BuildTargetPass(context, draw_state, frame_constant, instance_constant, bindless_info, selection_depth, depth_stencil, ImportPipeline(context, Target::Depth), Target::Depth, selected_constants, selected_instances);
+    BuildTargetPass(context, draw_state, frame_constant, instance_constant, bindless_info, id, depth_stencil, GetPipeline(Target::Id), Target::Id, selected_constants, selected_instances);
+    BuildTargetPass(context, draw_state, frame_constant, instance_constant, bindless_info, visual, depth_stencil, GetPipeline(Target::Visual), Target::Visual, selected_constants, selected_instances);
+    BuildTargetPass(context, draw_state, frame_constant, instance_constant, bindless_info, selection_depth, depth_stencil, GetPipeline(Target::Depth), Target::Depth, selected_constants, selected_instances);
 
     return {
         .id     = id,
@@ -573,18 +620,18 @@ auto EditorSelectionMetadataPass::Build(
 
 void EditorSelectionMetadataPass::BuildTargetPass(
     render::RenderContext&            context,
-    const render::SceneDrawState&     draw_state,
+    const render::RenderDrawState&     draw_state,
     rg::GPUBufferHandle               frame_constant,
     rg::GPUBufferHandle               instance_constant,
     rg::GPUBufferHandle               bindless_info,
     rg::TextureHandle                 target,
     rg::TextureHandle                 depth_stencil,
-    rg::RenderPipelineHandle          pipeline,
+    std::shared_ptr<gfx::RenderPipeline> pipeline,
     Target                            target_kind,
     std::span<const InstanceConstant> selected_constants,
     std::span<const std::size_t>      selected_instances) {
     auto& render_graph = context.graph;
-    if (!render_graph.IsValid(target) || !render_graph.IsValid(depth_stencil) || !render_graph.IsValid(pipeline)) return;
+    if (!render_graph.IsValid(target) || !render_graph.IsValid(depth_stencil) || !pipeline) return;
 
     auto pass_name = std::format(
         "EditorSelection{}Pass-{}",
@@ -595,10 +642,9 @@ void EditorSelectionMetadataPass::BuildTargetPass(
     builder
         .SetName(pass_name)
         .SetRenderTarget(target, true)
-        .Read(frame_constant, gfx::PipelineStage::VertexShader)
-        .Read(instance_constant, gfx::PipelineStage::VertexShader)
-        .Read(bindless_info)
-        .AddPipeline(pipeline);
+        .Read(frame_constant, 0, 1, sizeof(render::FrameConstant), gfx::PipelineStage::VertexShader)
+        .Read(instance_constant, 0, std::max<std::size_t>(1, selected_instances.size()), sizeof(InstanceConstant), gfx::PipelineStage::VertexShader)
+        .Read(bindless_info, 0, std::max<std::size_t>(1, selected_instances.size()), sizeof(BindlessInfo));
 
     if (target_kind == Target::Id) {
         builder.SetDepthStencil(depth_stencil, true);
@@ -619,8 +665,8 @@ void EditorSelectionMetadataPass::BuildTargetPass(
     builder.SetExecutor([&draw_state, frame_constant, instance_constant, bindless_info, target, pipeline, selected_instances_copy, selected_constants_copy](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
         auto& cmd = pass.GetCmd();
 
-        auto instance_constants = gfx::GPUBufferView<InstanceConstant>(pass.Resolve(instance_constant));
-        auto bindless_infos = gfx::GPUBufferView<BindlessInfo>(pass.Resolve(bindless_info));
+        auto instance_constants = gfx::GPUBufferView::MappedSpan<InstanceConstant>(pass.Resolve(instance_constant));
+        auto bindless_infos = gfx::GPUBufferView::MappedSpan<BindlessInfo>(pass.Resolve(bindless_info));
         for (std::size_t i = 0; i < selected_instances_copy.size(); ++i) {
             instance_constants[i] = selected_constants_copy[i];
             bindless_infos[i] = {
@@ -643,7 +689,7 @@ void EditorSelectionMetadataPass::BuildTargetPass(
             .height = render_target.GetDesc().height,
         });
 
-        auto& pipeline_ref = pass.Resolve(pipeline);
+        auto& pipeline_ref = *pipeline;
         cmd.SetPipeline(pipeline_ref);
 
         for (std::size_t selection_index = 0; selection_index < selected_instances_copy.size(); ++selection_index) {
@@ -660,7 +706,7 @@ void EditorSelectionMetadataPass::BuildTargetPass(
                     cmd.SetVertexBuffers(vertex_attr.binding, {{pass.Resolve(attr_handle)}}, {{0}});
                 }
             }
-            cmd.SetIndexBuffer(pass.Resolve(mesh_info.indices), 0);
+            cmd.SetIndexBuffer(pass.Resolve(mesh_info.indices), 0, mesh_info.index_format);
             for (const auto& sub_mesh : instance_info.mesh->sub_meshes) {
                 cmd.DrawIndexed(sub_mesh.index_count, 1, sub_mesh.index_offset, sub_mesh.vertex_offset);
             }
@@ -695,19 +741,20 @@ void EditorSelectionOutlinePass::EnsureResources(gfx::Format target_format) {
         });
     }
 
-    m_Pipeline = m_Device.CreateRenderPipeline({
-        .name                = "selection-outline",
-        .shaders             = {m_VS, m_PS},
-        .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-        .rasterization_state = {.cull_mode = gfx::CullMode::None},
-        .render_format       = target_format,
-    });
+    m_Pipeline = m_Device.CreateRenderPipeline(
+        {
+            .name                = "selection-outline",
+            .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+            .rasterization_state = {.cull_mode = gfx::CullMode::None},
+            .render_format       = target_format,
+        },
+        {m_VS, m_PS});
     m_TargetFormat = target_format;
 }
 
-auto EditorSelectionOutlinePass::ImportPipeline(render::RenderContext& context, gfx::Format target_format) -> rg::RenderPipelineHandle {
+auto EditorSelectionOutlinePass::GetPipeline(gfx::Format target_format) -> std::shared_ptr<gfx::RenderPipeline> {
     EnsureResources(target_format);
-    return context.graph.Import(m_Pipeline);
+    return m_Pipeline;
 }
 
 auto EditorSelectionOutlinePass::Build(
@@ -732,18 +779,16 @@ auto EditorSelectionOutlinePass::Build(
     target_desc.name         = std::pmr::string(std::format("SelectionOutlineOutput-{}", render_graph.GetFrameIndex()));
     target_desc.clear_value  = std::nullopt;
     const auto output        = render_graph.Create(target_desc);
-    const auto pipeline      = ImportPipeline(context, target_desc.format);
+    const auto pipeline      = GetPipeline(target_desc.format);
     const auto constant      = render_graph.Create({
-        .name          = "selection_outline_constant",
-        .element_size  = sizeof(OutlineConstant),
-        .element_count = 1,
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "selection_outline_constant",
+        .size   = gfx::ConstantBufferElementSize(sizeof(OutlineConstant)),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
     const auto bindless_info = render_graph.Create({
-        .name          = "selection_outline_bindless_info",
-        .element_size  = sizeof(BindlessInfo),
-        .element_count = 1,
-        .usages        = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .name   = "selection_outline_bindless_info",
+        .size   = gfx::ConstantBufferElementSize(sizeof(BindlessInfo)),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
     });
 
     rg::RenderPassBuilder(render_graph)
@@ -754,12 +799,11 @@ auto EditorSelectionOutlinePass::Build(
         .Read(selection.id, {}, gfx::PipelineStage::PixelShader)
         .Read(selection.visual, {}, gfx::PipelineStage::PixelShader)
         .Read(selection.depth, {}, gfx::PipelineStage::PixelShader)
-        .Read(constant, gfx::PipelineStage::PixelShader)
-        .Read(bindless_info, gfx::PipelineStage::PixelShader)
+        .Read(constant, 0, 1, sizeof(OutlineConstant), gfx::PipelineStage::PixelShader)
+        .Read(bindless_info, 0, 1, sizeof(BindlessInfo), gfx::PipelineStage::PixelShader)
         .AddSampler(sampler)
-        .AddPipeline(pipeline)
         .SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
-            gfx::GPUBufferView<OutlineConstant>(pass.Resolve(constant)).front() = {
+            gfx::GPUBufferView::MappedSpan<OutlineConstant>(pass.Resolve(constant)).front() = {
                 .selected_color = desc.selected_color,
                 .hovered_color  = desc.hovered_color,
                 .occluded_color = desc.occluded_color,
@@ -776,7 +820,7 @@ auto EditorSelectionOutlinePass::Build(
                     1.0f / static_cast<float>(target_desc.height),
                 },
             };
-            gfx::GPUBufferView<BindlessInfo>(pass.Resolve(bindless_info)).front() = {
+            gfx::GPUBufferView::MappedSpan<BindlessInfo>(pass.Resolve(bindless_info)).front() = {
                 .outline_constant = pass.GetBindless(constant),
                 .scene_color      = pass.GetBindless(scene_color),
                 .scene_depth      = pass.GetBindless(scene_depth),
@@ -800,7 +844,7 @@ auto EditorSelectionOutlinePass::Build(
                 .width  = render_target.GetDesc().width,
                 .height = render_target.GetDesc().height,
             });
-            cmd.SetPipeline(pass.Resolve(pipeline));
+            cmd.SetPipeline(*pipeline);
             cmd.PushBindlessMetaInfo({
                 .handle = pass.GetBindless(bindless_info),
             });
@@ -822,13 +866,13 @@ void EditorDeferredSelectionExtension::SetSelection(EditorSelectionDesc desc) {
 
 void EditorDeferredSelectionExtension::AfterGBuffer(
     render::RenderContext&                 context,
-    const render::SceneView&,
+    const render::RenderView&,
     const render::DeferredRenderResources& resources,
-    const render::DeferredSceneDrawData&   draw_data) {
-    if (draw_data.scene_draw_state == nullptr) return;
+    const render::DeferredDrawData&   draw_data) {
+    if (draw_data.draw_state == nullptr) return;
     m_Buffers = m_MetadataPass.Build(
         context,
-        *draw_data.scene_draw_state,
+        *draw_data.draw_state,
         resources.frame_constant,
         m_Selection,
         resources.width,
@@ -837,9 +881,9 @@ void EditorDeferredSelectionExtension::AfterGBuffer(
 
 void EditorDeferredSelectionExtension::AfterLighting(
     render::RenderContext&                 context,
-    const render::SceneView&,
+    const render::RenderView&,
     render::DeferredRenderResources&       resources,
-    const render::DeferredSceneDrawData&) {
+    const render::DeferredDrawData&) {
     if (!m_Buffers.Valid()) return;
     resources.color = m_OutlinePass.Build(
         context,
@@ -989,10 +1033,10 @@ SceneViewPort::SceneViewPort(const Engine& engine, EditorState& state, EditorCom
       m_CommandStack(command_stack),
       m_SelectionExtension(std::make_shared<EditorDeferredSelectionExtension>(
           engine.RenderRuntime().GetRenderGraph().GetDevice(),
-          std::filesystem::path{"examples/editor/shaders/editor_selection_outline.hlsl"})),
+          std::filesystem::path{"hitagi/editor/shaders/editor_selection_outline.hlsl"})),
       m_GridPass(std::make_unique<EditorViewportGridPass>(
           engine.RenderRuntime().GetRenderGraph().GetDevice(),
-          std::filesystem::path{"examples/editor/shaders/viewport_grid.hlsl"})) {
+          std::filesystem::path{"hitagi/editor/shaders/viewport_grid.hlsl"})) {
     if (auto* deferred_renderer = dynamic_cast<render::DeferredRenderer*>(&m_Engine.Renderer())) {
         deferred_renderer->AddExtension(m_SelectionExtension);
     }
@@ -1049,7 +1093,7 @@ void hitagi::ApplyEditorViewportNavigation(
 void SceneViewPort::Tick() {
     ZoneScopedN("SceneViewPort::Tick");
 
-    m_Engine.GuiManager().DrawGui([&]() {
+    m_Engine.GuiManager().DrawGuiEarly([&]() {
         ZoneScopedN("SceneViewPort UI");
         m_Open = m_State.IsPanelVisible(EditorPanel::SceneViewer);
         if (m_Open) {
@@ -1143,13 +1187,16 @@ void SceneViewPort::RenderScene() const {
                 if (m_SelectionExtension) {
                     m_SelectionExtension->SetSelection(std::move(selection_desc));
                 }
+                std::pmr::vector<render::RenderDrawItem> draw_items;
+                std::pmr::vector<render::RenderLight>    lights;
+                CollectSceneRenderFrameData(*scene, draw_items, lights);
                 scene_render_texture = m_Engine.Renderer().Render(
                     context,
                     render::RenderRequest{
-                        .view = render::SceneView{
-                            .scene            = scene,
-                            .camera           = camera.get(),
-                            .camera_transform = camera_transform,
+                        .frame = render::RenderFrame{
+                            .view       = BuildRenderView(*camera, camera_transform),
+                            .draw_items = draw_items,
+                            .lights     = lights,
                         },
                         .target = scene_render_texture,
                         .requested_outputs = {

@@ -16,6 +16,24 @@ using namespace hitagi::asset;
 using namespace std::literals;
 
 namespace hitagi {
+constexpr auto AsciiLower(char value) noexcept -> char {
+    return value >= 'A' && value <= 'Z' ? static_cast<char>(value - 'A' + 'a') : value;
+}
+
+auto IEqualsAscii(std::string_view lhs, std::string_view rhs) noexcept -> bool {
+    if (lhs.size() != rhs.size()) return false;
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        if (AsciiLower(lhs[i]) != AsciiLower(rhs[i])) return false;
+    }
+    return true;
+}
+
+auto LowerAscii(std::string_view value) -> std::string {
+    std::string result(value);
+    for (auto& ch : result) ch = AsciiLower(ch);
+    return result;
+}
+
 auto ParseSyntheticKeyName(std::string_view name) -> std::optional<hid::VirtualKeyCode> {
     if (auto key = magic_enum::enum_cast<hid::VirtualKeyCode>(name)) return key;
 
@@ -216,18 +234,21 @@ auto ParseEditorLaunchOptions(int argc, const char* const* argv) -> EditorLaunch
 }
 
 auto ClassifyEditorAssetPath(const std::filesystem::path& path) noexcept -> EditorAssetKind {
-    const auto extension    = path.extension().string();
-    const auto image_format = asset::get_image_format(extension);
-    if (image_format != asset::ImageFormat::UNKOWN) return EditorAssetKind::Texture;
+    const auto extension = LowerAscii(path.extension().string());
+    if (asset::create_image_codec_for(extension) != nullptr) return EditorAssetKind::Texture;
 
-    if (asset::detail::iequals(extension, ".usd") ||
-        asset::detail::iequals(extension, ".usda") ||
-        asset::detail::iequals(extension, ".usdc") ||
-        asset::detail::iequals(extension, ".usdz")) {
-        return EditorAssetKind::Scene;
+    if (IsEditorScenePath(path)) return EditorAssetKind::Scene;
+
+    if (IEqualsAscii(extension, ".json")) return EditorAssetKind::Material;
+    if (IEqualsAscii(extension, ".hlsl") ||
+        IEqualsAscii(extension, ".hlsli") ||
+        IEqualsAscii(extension, ".glsl") ||
+        IEqualsAscii(extension, ".vert") ||
+        IEqualsAscii(extension, ".frag") ||
+        IEqualsAscii(extension, ".comp") ||
+        IEqualsAscii(extension, ".wgsl")) {
+        return EditorAssetKind::Shader;
     }
-
-    if (asset::detail::iequals(extension, ".json")) return EditorAssetKind::Material;
     return EditorAssetKind::Unknown;
 }
 
@@ -241,6 +262,8 @@ auto EditorAssetKindName(EditorAssetKind kind) noexcept -> std::string_view {
             return "Texture";
         case EditorAssetKind::Material:
             return "Material";
+        case EditorAssetKind::Shader:
+            return "Shader";
         default:
             return "Unsupported";
     }
@@ -333,9 +356,9 @@ auto CountSceneEntities(const asset::Scene& scene) -> std::size_t {
 }
 
 auto CloneEditorEntitySubtree(asset::Scene& target_scene, ecs::Entity source, ecs::Entity target_parent) -> ecs::Entity {
-    const auto name = source.Has<asset::MetaInfo>()
-                          ? std::string_view{source.Get<asset::MetaInfo>().name}
-                          : std::string_view{"Entity"};
+    const auto name      = source.Has<asset::MetaInfo>()
+                               ? std::string_view{source.Get<asset::MetaInfo>().name}
+                               : std::string_view{"Entity"};
     const auto transform = source.Has<asset::Transform>()
                                ? source.Get<asset::Transform>().ToMatrix()
                                : math::mat4f::identity();
@@ -413,7 +436,7 @@ void Editor::Tick() {
         }
     }
 
-    m_Engine.GuiManager().DrawGui([this]() {
+    m_Engine.GuiManager().DrawGuiEarly([this]() {
         ZoneScopedN("Editor Main UI");
         {
             ZoneScopedN("Editor Apply Style");
@@ -457,6 +480,10 @@ void Editor::Tick() {
             AssetExplorer();
         }
         {
+            ZoneScopedN("Editor Asset Preview");
+            AssetPreview();
+        }
+        {
             ZoneScopedN("Editor Debug Profiling");
             DebugProfilingPanel();
         }
@@ -473,7 +500,7 @@ void Editor::Tick() {
 
         auto&      render_runtime = m_Engine.RenderRuntime();
         auto&      render_graph   = render_runtime.GetRenderGraph();
-        const auto output       = render_graph.Create(
+        const auto output         = render_graph.Create(
             {
                 .name        = "Editor Output",
                 .width       = m_App.GetWindowWidth(),
@@ -561,6 +588,7 @@ auto Editor::DrawDockSpace() -> ImGuiID {
         ImGuiWindowFlags_NoDecoration |
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoDocking |
         ImGuiWindowFlags_NoBringToFrontOnFocus |
         ImGuiWindowFlags_NoNavFocus;
 
@@ -589,6 +617,7 @@ void Editor::PrepareDefaultLayout(ImGuiID dockspace_id) {
     ImGui::DockBuilderDockWindow("Hierarchy", left_id);
     ImGui::DockBuilderDockWindow("Assets", asset_id);
     ImGui::DockBuilderDockWindow("Viewport", center_id);
+    ImGui::DockBuilderDockWindow("Preview", center_id);
     ImGui::DockBuilderDockWindow("Console / Stats", bottom_id);
     ImGui::DockBuilderDockWindow("Inspector", right_id);
     ImGui::DockBuilderFinish(dockspace_id);
@@ -611,6 +640,7 @@ auto Editor::HasSavedDockLayout() const -> bool {
                 line.find("[Window][Editor DockSpace]") != std::string::npos ||
                 line.find("[Window][Hierarchy]") != std::string::npos ||
                 line.find("[Window][Assets]") != std::string::npos ||
+                line.find("[Window][Preview]") != std::string::npos ||
                 line.find("[Window][Viewport]") != std::string::npos ||
                 line.find("[Window][Console / Stats]") != std::string::npos ||
                 line.find("[Window][Inspector]") != std::string::npos;
@@ -624,15 +654,27 @@ auto Editor::HasSavedDockLayout() const -> bool {
 }
 
 void Editor::OpenScene(const std::filesystem::path& path) {
-    if (asset::get_scene_format(path.extension().string()) == asset::SceneFormat::UNKOWN) {
+    if (GetEditorSceneFormat(path.extension().string()) == EditorSceneFormat::Unknown) {
         spdlog::warn("Editor can not open unsupported scene format: {}", path.string());
         return;
     }
 
-    auto scene = asset::AssetManager::Get()->ImportScene(path);
+    auto* asset_manager = asset::AssetManager::Get();
+    m_CookContext.Clear();
+    auto scene = ImportEditorScene(
+        path,
+        path.parent_path(),
+        [asset_manager](std::string_view name) {
+            return asset_manager ? asset_manager->GetMaterial(name) : nullptr;
+        },
+        nullptr,
+        m_LaunchOptions.material_processor,
+        std::addressof(m_CookContext));
     if (scene) {
+        if (asset_manager) asset_manager->AddScene(scene);
         SetCurrentScene(std::move(scene));
         m_CurrentScenePath = path;
+        m_AssetBrowserModel.RequestRefresh();
         m_State.MarkClean();
         spdlog::info("Editor opened scene: {}", path.string());
         Notify(std::format("Opened scene: {}", path.string()));
@@ -643,6 +685,7 @@ void Editor::OpenScene(const std::filesystem::path& path) {
 }
 
 void Editor::NewScene() {
+    m_CookContext.Clear();
     SetCurrentScene(CreateEditorDefaultScene("Untitled"));
     m_CurrentScenePath.clear();
     m_State.MarkClean();
@@ -652,26 +695,26 @@ void Editor::NewScene() {
 void Editor::RequestOpenScene() {
     m_FileDialogMode = EditorFileDialogMode::OpenScene;
     m_FileDialog.SetTitle("Open Scene");
-    m_FileDialog.SetTypeFilters({".usd", ".usda", ".usdc", ".usdz"});
+    m_FileDialog.SetTypeFilters({".usd", ".usda", ".usdc", ".usdz", ".hcscene", ".hitagiscene"});
     m_FileDialog.Open();
 }
 
 void Editor::RequestImportScene() {
     m_FileDialogMode = EditorFileDialogMode::ImportScene;
     m_FileDialog.SetTitle("Import Scene");
-    m_FileDialog.SetTypeFilters({".usd", ".usda", ".usdc", ".usdz"});
+    m_FileDialog.SetTypeFilters({".usd", ".usda", ".usdc", ".usdz", ".hcscene", ".hitagiscene"});
     m_FileDialog.Open();
 }
 
 void Editor::RequestSaveSceneAs() {
     if (!m_State.GetCurrentScene()) return;
-    Notify("Saving scenes is disabled until USD export is implemented.");
+    Notify("Saving scenes is disabled until scene export is implemented.");
 }
 
 void Editor::SaveCurrentScene() {
     const auto scene_to_save = m_State.GetMode() == EditorMode::Edit ? m_State.GetCurrentScene() : m_EditScene;
     if (!scene_to_save) return;
-    Notify("Saving scenes is disabled until USD export is implemented.");
+    Notify("Saving scenes is disabled until scene export is implemented.");
 }
 
 void Editor::SetCurrentScene(std::shared_ptr<asset::Scene> scene) {
@@ -859,10 +902,9 @@ void Editor::QueueScreenshot(rg::TextureHandle output) {
     m_ScreenshotWidth  = desc.width;
     m_ScreenshotHeight = desc.height;
     m_ScreenshotBuffer = render_graph.GetDevice().CreateGPUBuffer({
-        .name          = "Editor Screenshot Readback",
-        .element_size  = sizeof(std::uint32_t),
-        .element_count = static_cast<std::uint64_t>(m_ScreenshotWidth) * m_ScreenshotHeight,
-        .usages        = gfx::GPUBufferUsageFlags::MapRead | gfx::GPUBufferUsageFlags::CopyDst,
+        .name   = "Editor Screenshot Readback",
+        .size   = sizeof(std::uint32_t) * static_cast<std::uint64_t>(m_ScreenshotWidth) * m_ScreenshotHeight,
+        .usages = gfx::GPUBufferUsageFlags::MapRead | gfx::GPUBufferUsageFlags::CopyDst,
     });
     render_runtime.CopyToBuffer(output, m_ScreenshotBuffer);
     m_ScreenshotQueued = true;
@@ -874,8 +916,8 @@ void Editor::SavePendingScreenshot() {
     if (!m_LaunchOptions.screenshot->parent_path().empty()) {
         std::filesystem::create_directories(m_LaunchOptions.screenshot->parent_path());
     }
-    const gfx::GPUBufferView<const std::uint32_t> readback(*m_ScreenshotBuffer);
-    asset::Texture                                image(
+    const gfx::GPUBufferView::MappedSpan<const std::uint32_t> readback(*m_ScreenshotBuffer);
+    asset::Texture                                            image(
         m_ScreenshotWidth,
         m_ScreenshotHeight,
         gfx::Format::R8G8B8A8_UNORM,
@@ -943,6 +985,5 @@ void Editor::HandleShortcuts() {
         Notify("Focused selected entity.");
     }
 }
-
 
 }  // namespace hitagi

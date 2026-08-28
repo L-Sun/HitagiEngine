@@ -6,6 +6,20 @@ import engine;
 
 using namespace hitagi;
 
+namespace {
+
+auto ResolvePassTextures(const asset::Material& material, const asset::MaterialPass& pass) -> std::pmr::vector<std::shared_ptr<asset::Texture>> {
+    std::pmr::vector<std::shared_ptr<asset::Texture>> textures;
+    textures.reserve(pass.bindings.size());
+    for (const auto& binding : pass.bindings) {
+        const auto parameter = material.GetParameter<std::shared_ptr<asset::Texture>>(binding);
+        if (parameter) textures.emplace_back(*parameter);
+    }
+    return textures;
+}
+
+}  // namespace
+
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::trace);
     auto file_io_manager = std::make_unique<core::FileIOManager>();
@@ -103,7 +117,8 @@ TEST(EditorTest, ClassifiesEditorAssetsAndTracksSelection) {
     EXPECT_EQ(ClassifyEditorAssetPath("assets/test/test.usda"), EditorAssetKind::Scene);
     EXPECT_EQ(ClassifyEditorAssetPath("scene.hscene"), EditorAssetKind::Unknown);
     EXPECT_EQ(ClassifyEditorAssetPath("texture.PNG"), EditorAssetKind::Texture);
-    EXPECT_EQ(ClassifyEditorAssetPath("materials/phong.json"), EditorAssetKind::Material);
+    EXPECT_EQ(ClassifyEditorAssetPath("material.json"), EditorAssetKind::Material);
+    EXPECT_EQ(ClassifyEditorAssetPath("shaders/material.hlsl"), EditorAssetKind::Shader);
     EXPECT_EQ(ClassifyEditorAssetPath("notes.txt"), EditorAssetKind::Unknown);
 
     EditorState state;
@@ -146,33 +161,105 @@ TEST(EditorTest, CommandStackUndoRedoTransformChange) {
 }
 
 TEST(EditorTest, ComponentCommandsUndoRedoValues) {
-    auto material_instance = std::make_shared<asset::MaterialInstance>(asset::MaterialParameters{
-        {"roughness", 1.0f},
-    });
+    auto material = std::make_shared<asset::Material>(
+        asset::MaterialParameters{
+            {"roughness", 1.0f},
+        });
     auto before_material = asset::MaterialParameter{.name = "roughness", .value = 1.0f};
     auto after_material  = asset::MaterialParameter{.name = "roughness", .value = 0.25f};
 
     EditorCommandStack stack;
-    stack.Execute(std::make_unique<MaterialParameterChangeCommand>(material_instance, before_material, after_material));
-    EXPECT_FLOAT_EQ(material_instance->GetParameter<float>("roughness").value(), 0.25f);
+    stack.Execute(std::make_unique<MaterialParameterChangeCommand>(material, before_material, after_material));
+    EXPECT_FLOAT_EQ(material->GetParameter<float>("roughness").value(), 0.25f);
     stack.Undo();
-    EXPECT_FLOAT_EQ(material_instance->GetParameter<float>("roughness").value(), 1.0f);
+    EXPECT_FLOAT_EQ(material->GetParameter<float>("roughness").value(), 1.0f);
 
-    auto camera       = std::make_shared<asset::Camera>(asset::Camera::Parameters{});
-    auto camera_after = camera->parameters;
+    auto camera           = std::make_shared<asset::Camera>(asset::Camera::Parameters{});
+    auto camera_after     = camera->parameters;
     camera_after.far_clip = 42.0f;
     stack.Execute(std::make_unique<CameraParameterChangeCommand>(camera, camera->parameters, camera_after));
     EXPECT_FLOAT_EQ(camera->parameters.far_clip, 42.0f);
     stack.Undo();
     EXPECT_FLOAT_EQ(camera->parameters.far_clip, asset::Camera::Parameters{}.far_clip);
 
-    auto light       = std::make_shared<asset::Light>(asset::Light::Parameters{});
-    auto light_after = light->parameters;
+    auto light            = std::make_shared<asset::Light>(asset::Light::Parameters{});
+    auto light_after      = light->parameters;
     light_after.intensity = 9.0f;
     stack.Execute(std::make_unique<LightParameterChangeCommand>(light, light->parameters, light_after));
     EXPECT_FLOAT_EQ(light->parameters.intensity, 9.0f);
     stack.Undo();
     EXPECT_FLOAT_EQ(light->parameters.intensity, asset::Light::Parameters{}.intensity);
+}
+
+TEST(EditorTest, MaterialDebugDataExposesSourceAndPassBindings) {
+    auto base_color_texture = std::make_shared<asset::Texture>(
+        1,
+        1,
+        gfx::Format::R8G8B8A8_UNORM,
+        core::Buffer{},
+        "base-color-debug");
+    base_color_texture->SetPath("assets/test/base_color.png");
+
+    auto material = std::make_shared<asset::Material>(
+        asset::MaterialParameters{
+            {.name = "base_color", .value = math::Color::White()},
+            {.name = "roughness", .value = 0.5f},
+            {.name = "base_color_texture", .value = base_color_texture},
+        },
+        std::pmr::vector<asset::MaterialPass>{
+            asset::MaterialPass{
+                .pass_contract = "DebugMaterial",
+                .bindings      = {"base_color", "roughness", "base_color_texture"},
+            },
+        },
+        "debug-material");
+    EditorCookContext cook_context;
+    cook_context.SetMaterialSourceInfo(
+        material,
+        MaterialSourceInfo{
+            .type                 = MaterialSourceType::Imported,
+            .source_asset         = "assets/test/material_debug.usda",
+            .source_material_path = "/Looks/DebugMaterial",
+            .source_shader_id     = "TestSurface",
+            .source_texture_paths = {"assets/test/base_color.png"},
+            .unsupported_inputs   = {"clearcoat"},
+        });
+
+    const auto* pass = material->FindPass("DebugMaterial");
+    ASSERT_NE(pass, nullptr);
+
+    const auto* source_info = cook_context.FindMaterialSourceInfo(*material);
+    ASSERT_NE(source_info, nullptr);
+    EXPECT_EQ(source_info->source_asset, std::filesystem::path("assets/test/material_debug.usda"));
+    EXPECT_EQ(source_info->source_shader_id, "TestSurface");
+    ASSERT_EQ(source_info->unsupported_inputs.size(), 1);
+    EXPECT_EQ(source_info->unsupported_inputs.front(), "clearcoat");
+
+    ASSERT_EQ(pass->bindings.size(), 3);
+    EXPECT_EQ(pass->bindings[0], "base_color");
+    EXPECT_EQ(pass->bindings[1], "roughness");
+    EXPECT_EQ(pass->bindings[2], "base_color_texture");
+
+    const auto associated_textures = ResolvePassTextures(*material, *pass);
+    ASSERT_EQ(associated_textures.size(), 1);
+    EXPECT_EQ(associated_textures.front(), base_color_texture);
+}
+
+TEST(EditorTest, RenderGraphDebugSnapshotParsesPassesAndResources) {
+    const auto snapshot = BuildEditorRenderGraphDebugSnapshot(R"(digraph {
+  0 [shape=box label="Scene Color\nhandle: 0"];
+  1 [label="GBufferPass\nhandle: 1"];
+  2 [shape=box label="Scene Depth\nhandle: 2"];
+  1 -> 0 [label="RenderTarget,ColorAttachment,PixelShader"];
+})");
+
+    ASSERT_EQ(snapshot.passes.size(), 1);
+    EXPECT_EQ(snapshot.passes[0].handle, 1);
+    EXPECT_EQ(snapshot.passes[0].name, "GBufferPass");
+    ASSERT_EQ(snapshot.resources.size(), 2);
+    EXPECT_EQ(snapshot.resources[0].handle, 0);
+    EXPECT_EQ(snapshot.resources[0].name, "Scene Color");
+    EXPECT_EQ(snapshot.resources[1].name, "Scene Depth");
 }
 
 TEST(EditorTest, ComponentAddRemoveCommandsUpdateSceneLists) {
@@ -210,7 +297,7 @@ TEST(EditorTest, ComponentAddRemoveCommandsUpdateSceneLists) {
 }
 
 TEST(EditorTest, RuntimeSceneCloneDoesNotMutateEditScene) {
-    auto edit_scene = CreateEditorFixtureScene();
+    auto edit_scene    = CreateEditorFixtureScene();
     auto runtime_scene = CreateEditorRuntimeScene(*edit_scene);
 
     ASSERT_TRUE(runtime_scene);
@@ -274,7 +361,7 @@ auto CreateEditorPickingTriangle() -> std::shared_ptr<asset::Mesh> {
 }  // namespace
 
 TEST(EditorTest, ViewportPickingHitsNearestEntityMesh) {
-    auto scene = std::make_shared<asset::Scene>("picking");
+    auto scene       = std::make_shared<asset::Scene>("picking");
     auto near_entity = scene->CreateMeshEntity(asset::MeshFactory::Cube(), math::translate(math::vec3f{0.0f, 5.0f, 0.0f}), scene->GetRootEntity(), "near");
     scene->CreateMeshEntity(asset::MeshFactory::Cube(), math::translate(math::vec3f{0.0f, 9.0f, 0.0f}), scene->GetRootEntity(), "far");
     scene->Update();
@@ -573,7 +660,12 @@ TEST(EditorTest, HierarchyCommandsEditAndUndoRedo) {
 
 TEST(EditorTest, ImportsUsdSceneWithoutEditorWindow) {
     auto asset_manager = std::make_unique<asset::AssetManager>("assets");
-    auto scene         = asset_manager->ImportScene("assets/test/test.usda");
+    auto scene         = ImportEditorScene(
+        "assets/test/test.usda",
+        "assets/test",
+        [asset_manager = asset_manager.get()](std::string_view name) {
+            return asset_manager->GetMaterial(name);
+        });
 
     ASSERT_TRUE(scene);
     EXPECT_TRUE(scene->GetRootEntity());

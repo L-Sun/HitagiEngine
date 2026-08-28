@@ -26,6 +26,7 @@ enum struct EditorPanel : std::uint8_t {
     SceneGraph,
     SceneNodeModifier,
     SceneViewer,
+    AssetPreview,
     AssetExplorer,
     DebugProfiling,
 };
@@ -36,12 +37,14 @@ enum struct EditorAssetKind : std::uint8_t {
     Model,
     Texture,
     Material,
+    Shader,
 };
 
 class EditorState {
 public:
     EditorState() {
         m_PanelVisibility = utils::create_enum_array<bool, EditorPanel>(true);
+        m_PanelVisibility[EditorPanel::AssetPreview] = false;
     }
 
     void SetCurrentScene(std::shared_ptr<asset::Scene> scene) noexcept {

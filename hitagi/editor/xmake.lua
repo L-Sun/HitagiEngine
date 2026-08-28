@@ -1,0 +1,10 @@
+add_requires("usd")
+
+target("hitagi_editor")
+    set_kind("static")
+    add_files("*.cppm", {public = true})
+    add_files("*.cpp", {public = true})
+    add_files("component/*.cpp", {public = true})
+    add_deps("engine")
+    add_includedirs(".", {public = true})
+    add_packages("magic_enum", "nlohmann_json", "spdlog", "usd", {public = true})

@@ -113,7 +113,7 @@ public:
 
     auto Build(
         render::RenderContext&     context,
-        const render::SceneDrawState& draw_state,
+        const render::RenderDrawState& draw_state,
         rg::GPUBufferHandle        frame_constant,
         const EditorSelectionDesc& desc,
         std::uint32_t              width,
@@ -139,16 +139,16 @@ private:
     };
 
     void EnsureResources();
-    auto ImportPipeline(render::RenderContext& context, Target target) -> rg::RenderPipelineHandle;
+    auto GetPipeline(Target target) -> std::shared_ptr<gfx::RenderPipeline>;
     void BuildTargetPass(
         render::RenderContext&              context,
-        const render::SceneDrawState&       draw_state,
+        const render::RenderDrawState&       draw_state,
         rg::GPUBufferHandle                 frame_constant,
         rg::GPUBufferHandle                 instance_constant,
         rg::GPUBufferHandle                 bindless_info,
         rg::TextureHandle                   target,
         rg::TextureHandle                   depth_stencil,
-        rg::RenderPipelineHandle            pipeline,
+        std::shared_ptr<gfx::RenderPipeline> pipeline,
         Target                              target_kind,
         std::span<const InstanceConstant>   selected_constants,
         std::span<const std::size_t>        selected_instances);
@@ -196,7 +196,7 @@ private:
     };
 
     void EnsureResources(gfx::Format target_format);
-    auto ImportPipeline(render::RenderContext& context, gfx::Format target_format) -> rg::RenderPipelineHandle;
+    auto GetPipeline(gfx::Format target_format) -> std::shared_ptr<gfx::RenderPipeline>;
 
     gfx::Device&                         m_Device;
     std::filesystem::path                m_ShaderPath;
@@ -214,15 +214,15 @@ public:
 
     void AfterGBuffer(
         render::RenderContext&                 context,
-        const render::SceneView&               view,
+        const render::RenderView&               view,
         const render::DeferredRenderResources& resources,
-        const render::DeferredSceneDrawData&   draw_data) override;
+        const render::DeferredDrawData&   draw_data) override;
 
     void AfterLighting(
         render::RenderContext&                 context,
-        const render::SceneView&               view,
+        const render::RenderView&               view,
         render::DeferredRenderResources&       resources,
-        const render::DeferredSceneDrawData&   draw_data) override;
+        const render::DeferredDrawData&   draw_data) override;
 
 private:
     EditorSelectionDesc         m_Selection;

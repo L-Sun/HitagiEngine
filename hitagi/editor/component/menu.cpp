@@ -50,6 +50,9 @@ void Editor::MenuBar() {
             if (ImGui::MenuItem("Scene Viewer", nullptr, m_State.IsPanelVisible(EditorPanel::SceneViewer))) {
                 m_State.SetPanelVisible(EditorPanel::SceneViewer, !m_State.IsPanelVisible(EditorPanel::SceneViewer));
             }
+            if (ImGui::MenuItem("Preview", nullptr, m_State.IsPanelVisible(EditorPanel::AssetPreview))) {
+                m_State.SetPanelVisible(EditorPanel::AssetPreview, !m_State.IsPanelVisible(EditorPanel::AssetPreview));
+            }
             if (ImGui::MenuItem("Asset Explorer", nullptr, m_State.IsPanelVisible(EditorPanel::AssetExplorer))) {
                 m_State.SetPanelVisible(EditorPanel::AssetExplorer, !m_State.IsPanelVisible(EditorPanel::AssetExplorer));
             }
@@ -109,7 +112,8 @@ void Editor::MenuBar() {
                 frame_time = m_Engine.RenderRuntime().GetFrameTime().count();
             }
 
-            auto info = std::format("Memory: {:>4} MiB | {:>4} FPS", m_App.GetMemoryUsage() >> 20, static_cast<unsigned>(1.0f / frame_time));
+            const auto fps = frame_time > 0.0f ? static_cast<unsigned>(1.0f / frame_time) : 0u;
+            auto       info = std::format("Memory: {:>4} MiB | {:>4} FPS", m_App.GetMemoryUsage() >> 20, fps);
 
             ImVec2 info_size = ImGui::CalcTextSize(info.c_str());
 
