@@ -322,7 +322,9 @@ struct GuiDrawData {
 
 class GuiManager final : public core::RuntimeModule {
 public:
-    GuiManager(Application& application);
+    // Font files are read through `file_io` and the atlas keeps pointing into its
+    // cache, so `file_io` must outlive this manager.
+    GuiManager(Application& application, core::FileIOManager& file_io);
     ~GuiManager() final;
     void Tick() final;
 
@@ -340,7 +342,7 @@ public:
     inline auto& GetDrawData() const noexcept { return m_DrawData; }
 
 private:
-    void LoadFont();
+    void LoadFont(core::FileIOManager& file_io);
     void BuildDrawData();
     void MouseEvent();
     void KeysEvent();

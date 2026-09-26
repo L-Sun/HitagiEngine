@@ -1,5 +1,6 @@
 #include "test_macros.hpp"
 
+import std;
 import core;
 import test_utils;
 
@@ -17,11 +18,15 @@ TEST(MemoryTest, BufferSpan) {
     }
 }
 
-TEST(MemoryTest, Allocate) {
-    auto* memory_manager = static_cast<MemoryManager*>(RuntimeModule::GetModule("MemoryManager"));
-    ASSERT_NE(memory_manager, nullptr);
+// The test binary's main() installs a MemoryManager, which replaces the PMR
+// default resource with the engine pool. These tests exercise that pool
+// through the default resource rather than looking the manager up.
+TEST(MemoryTest, InstallsPoolAsDefaultResource) {
+    EXPECT_NE(std::pmr::get_default_resource(), std::pmr::new_delete_resource());
+}
 
-    auto allocator = memory_manager->GetAllocator<>();
+TEST(MemoryTest, Allocate) {
+    std::pmr::polymorphic_allocator<> allocator{std::pmr::get_default_resource()};
     EXPECT_NO_THROW({
         auto* p = allocator.allocate_bytes(16);
         allocator.deallocate_bytes(p, 16);
@@ -29,10 +34,7 @@ TEST(MemoryTest, Allocate) {
 }
 
 TEST(MemoryTest, PmrContainer) {
-    auto* memory_manager = static_cast<MemoryManager*>(RuntimeModule::GetModule("MemoryManager"));
-    ASSERT_NE(memory_manager, nullptr);
-
-    std::pmr::vector<int> vec{memory_manager->GetAllocator<int>()};
+    std::pmr::vector<int> vec{std::pmr::polymorphic_allocator<int>{std::pmr::get_default_resource()}};
     EXPECT_NO_THROW({
         for (size_t i = 0; i < 10000; i++) {
             vec.push_back(i);

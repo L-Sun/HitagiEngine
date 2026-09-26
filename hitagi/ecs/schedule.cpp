@@ -36,16 +36,33 @@ void Schedule::SetOrder(std::string_view first_task, std::string_view second_tas
 
 void Schedule::Run(core::JobSystem& job_system) {
     if (m_TaskflowDirty) {
-        BuildTaskflow(job_system);
+        BuildTaskflow();
     }
 
     ZoneScopedN("ECSFrame");
+    m_RunningJobSystem = &job_system;
     job_system.RunTaskflow(m_Taskflow);
+    m_RunningJobSystem = nullptr;
 }
 
-void Schedule::BuildTaskflow(core::JobSystem& job_system) {
+void Schedule::RunSerial() {
+    if (m_TaskflowDirty) {
+        BuildTaskflow();
+    }
+
+    ZoneScopedN("ECSFrame");
+    for (const auto task_index : m_SerialOrder) {
+        const auto& task = m_Tasks[task_index];
+        ZoneScoped;
+        ZoneName(task->name.data(), task->name.size());
+        task->Run(world);
+    }
+}
+
+void Schedule::BuildTaskflow() {
     m_Taskflow.clear();
     m_TaskflowTasks.clear();
+    m_SerialOrder.clear();
     m_TaskflowTasks.reserve(m_Tasks.size());
 
     // adjacency list
@@ -54,10 +71,10 @@ void Schedule::BuildTaskflow(core::JobSystem& job_system) {
         direct_graph[i] = {};
 
     for (const auto& task : m_Tasks) {
-        m_TaskflowTasks.emplace_back(m_Taskflow.emplace([this, &job_system, task]() {
+        m_TaskflowTasks.emplace_back(m_Taskflow.emplace([this, task]() {
                                                    thread_local bool tracy_thread_named = false;
                                                    if (!tracy_thread_named) {
-                                                       if (const auto worker_id = job_system.GetCurrentWorkerId(); worker_id >= 0) {
+                                                       if (const auto worker_id = m_RunningJobSystem->GetCurrentWorkerId(); worker_id >= 0) {
                                                            const auto thread_name = std::format("Hitagi/ECS/{}/Worker-{}", world.GetName(), worker_id);
 #ifdef TRACY_ENABLE
                                                            tracy::SetThreadName(thread_name.c_str());
@@ -180,6 +197,7 @@ bool Schedule::CheckValid(const std::pmr::unordered_map<std::size_t, std::pmr::u
         world.GetLogger()->error("{}", dot);
         return false;
     }
+    m_SerialOrder.assign(sorted_nodes.begin(), sorted_nodes.end());
     return true;
 }
 

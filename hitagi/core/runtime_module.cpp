@@ -8,7 +8,6 @@ import std;
 import utils;
 
 namespace hitagi::core {
-std::unordered_map<std::string, RuntimeModule*> RuntimeModule::sm_AllModules;
 
 RuntimeModule::RuntimeModule(std::string_view name)
     : m_Name(name), m_Logger(utils::try_create_logger(name)) {
@@ -16,17 +15,14 @@ RuntimeModule::RuntimeModule(std::string_view name)
     ZoneScoped;
     ZoneName(message.data(), message.size());
     m_Logger->info("Initialize...");
-
-    std::string _name(m_Name);
-    if (sm_AllModules.contains(_name)) {
-        const auto error_message = std::format("Module {} already exists", _name);
-        m_Logger->error(error_message);
-        throw std::invalid_argument(error_message);
-    }
-    sm_AllModules.emplace(_name, this);
 }
 
 RuntimeModule::~RuntimeModule() {
+    UnloadAllSubModules();
+    m_Logger->info("Finalize {}", m_Name);
+}
+
+void RuntimeModule::UnloadAllSubModules() noexcept {
     while (!m_SubModules.empty()) {
         ZoneScoped;
         const auto& sub_module = m_SubModules.back();
@@ -34,8 +30,6 @@ RuntimeModule::~RuntimeModule() {
         ZoneName(message.data(), message.size());
         m_SubModules.pop_back();
     }
-    m_Logger->info("Finalize {}", m_Name);
-    sm_AllModules.erase(std::string(m_Name));
 }
 
 void RuntimeModule::Tick() {
@@ -76,15 +70,6 @@ auto RuntimeModule::AddSubModule(std::unique_ptr<RuntimeModule> module, RuntimeM
 
 void RuntimeModule::UnloadSubModule(std::string_view name) {
     std::erase_if(m_SubModules, [&](auto& _mod) -> bool { return _mod->GetName() == name; });
-}
-
-auto RuntimeModule::GetModule(std::string_view name) -> RuntimeModule* {
-    const std::string _name(name);
-    if (auto iter = sm_AllModules.find(_name); iter != sm_AllModules.end()) {
-        return iter->second;
-    } else {
-        return nullptr;
-    }
 }
 
 }  // namespace hitagi::core

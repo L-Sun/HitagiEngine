@@ -20,9 +20,7 @@ export struct ImageData {
 export class ImageCodec {
 public:
     auto Decode(const core::Buffer& buffer) -> std::shared_ptr<Texture>;
-    auto Decode(const std::filesystem::path& path) -> std::shared_ptr<Texture>;
     auto Encode(const Texture& texture) -> core::Buffer;
-    auto Encode(const Texture& texture, const std::filesystem::path& path) -> bool;
 
     virtual auto DecodeImageData(const core::Buffer& buffer) -> ImageData = 0;
     virtual auto EncodeImageData(const ImageData& image_data) -> core::Buffer = 0;
@@ -56,7 +54,6 @@ public:
 export class PngEncoder {
 public:
     auto Encode(const Texture& texture) -> core::Buffer;
-    auto Encode(const Texture& texture, const std::filesystem::path& path) -> bool;
     auto Encode(const ImageData& image_data) -> core::Buffer { return PngDecoder{}.EncodeImageData(image_data); }
 };
 

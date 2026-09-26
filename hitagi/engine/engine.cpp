@@ -21,12 +21,13 @@ namespace hitagi {
 class OutLogicArea : public core::RuntimeModule {
 public:
     OutLogicArea() : core::RuntimeModule("OutLogicArea") {}
-    inline static auto Get() {
-        return static_cast<OutLogicArea*>(core::RuntimeModule::GetModule("OutLogicArea"));
-    }
 };
 
-Engine::Engine(AppConfig config) : core::RuntimeModule("Engine") {
+Engine::Engine(AppConfig config)
+    : core::RuntimeModule("Engine"),
+      m_MemoryManager(std::make_unique<core::MemoryManager>()),
+      m_FileIO(std::make_unique<core::FileIOManager>()),
+      m_JobSystem(std::make_unique<core::JobSystem>()) {
 #ifdef TRACY_ENABLE
     tracy::SetThreadName("Hitagi/Main");
 #endif
@@ -35,28 +36,31 @@ Engine::Engine(AppConfig config) : core::RuntimeModule("Engine") {
         return static_cast<T*>(core::RuntimeModule::AddSubModule(std::unique_ptr<core::RuntimeModule>{module.release()}));
     };
 
-    add_inner_module(std::make_unique<core::MemoryManager>());
-    add_inner_module(std::make_unique<core::FileIOManager>());
-    add_inner_module(std::make_unique<core::JobSystem>());
+    // Sub-modules are constructed in dependency order and destroyed in reverse,
+    // so every reference handed down here stays valid for the receiver's lifetime.
 
     // Input
     m_App = add_inner_module(Application::CreateApp(std::move(config)));  // input manager is created here
 
     // update state
-    auto device = add_inner_module(gfx::create_device(magic_enum::enum_cast<gfx::Device::Type>(m_App->GetConfig().gfx_backend).value()));
-    add_inner_module(std::make_unique<asset::AssetManager>(m_App->GetConfig().asset_root_path));
-    m_PhysicsWorld = add_inner_module(std::make_unique<physics::PhysicsWorld>());
+    m_Device       = add_inner_module(gfx::create_device(magic_enum::enum_cast<gfx::Device::Type>(m_App->GetConfig().gfx_backend).value()));
+    m_AssetManager = add_inner_module(std::make_unique<asset::AssetManager>(*m_FileIO, *m_JobSystem, m_App->GetConfig().asset_root_path));
+    m_PhysicsWorld = add_inner_module(std::make_unique<physics::PhysicsWorld>(*m_JobSystem));
 
     // Game or editor logic here
-    add_inner_module(std::make_unique<OutLogicArea>());
+    m_OutLogicArea = add_inner_module(std::make_unique<OutLogicArea>());
 
     // use modified state -> Render
     add_inner_module(std::make_unique<debugger::DebugManager>());
-    m_Renderer      = add_inner_module(std::make_unique<render::DefaultRenderer>(*device, *m_App));
-    m_GuiManager    = add_inner_module(std::make_unique<gui::GuiManager>(*m_App));
-    m_RenderRuntime = static_cast<render::RenderRuntime*>(add_inner_module(std::make_unique<render::RenderRuntime>(*device, *m_App)));
+    m_Renderer      = add_inner_module(std::make_unique<render::DefaultRenderer>(*m_Device, *m_FileIO, *m_App));
+    m_GuiManager    = add_inner_module(std::make_unique<gui::GuiManager>(*m_App, *m_FileIO));
+    m_RenderRuntime = static_cast<render::RenderRuntime*>(add_inner_module(std::make_unique<render::RenderRuntime>(*m_Device, *m_App)));
 
     m_Clock.Start();
+}
+
+Engine::~Engine() {
+    UnloadAllSubModules();
 }
 
 void Engine::Tick() {
@@ -84,7 +88,7 @@ auto Engine::SetRenderer(std::unique_ptr<render::IRenderer> renderer) -> render:
 }
 
 auto Engine::AddSubModule(std::unique_ptr<core::RuntimeModule> module, core::RuntimeModule* after) -> core::RuntimeModule* {
-    return OutLogicArea::Get()->AddSubModule(std::move(module), after);
+    return m_OutLogicArea->AddSubModule(std::move(module), after);
 }
 
 }  // namespace hitagi

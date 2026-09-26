@@ -993,7 +993,9 @@ TEST_P(CopyCommandTest, CopyTextureToBuffer) {
         tex_height,
         tex_format,
         hitagi::core::Buffer(std::span{reinterpret_cast<const std::byte*>(readback.data()), static_cast<std::size_t>(dst_buffer->Size())}));
-    ASSERT_TRUE(hitagi::asset::PngEncoder{}.Encode(image, output_path));
+    const auto png = hitagi::asset::PngEncoder{}.Encode(image);
+    ASSERT_FALSE(png.Empty());
+    hitagi::core::FileIOManager{}.SaveBuffer(png, output_path);
 }
 
 class SwapChainTest : public DeviceTest {
@@ -1282,7 +1284,9 @@ TEST_P(DeviceTest, DrawTriangle) {
         offscreen_render_target->GetDesc().height,
         offscreen_render_target->GetDesc().format,
         std::move(pixels));
-    ASSERT_TRUE(hitagi::asset::PngEncoder{}.Encode(image, output_path));
+    const auto png = hitagi::asset::PngEncoder{}.Encode(image);
+    ASSERT_FALSE(png.Empty());
+    hitagi::core::FileIOManager{}.SaveBuffer(png, output_path);
 
     device->GetBindlessUtils().DiscardBindlessHandle(bindless_info.sampler);
 }

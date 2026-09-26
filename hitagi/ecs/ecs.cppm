@@ -663,10 +663,14 @@ class Schedule;
 
 class World {
 public:
-    World(std::string_view name, core::JobSystem* job_system = core::JobSystem::Get());
+    explicit World(std::string_view name);
     ~World();
 
+    // Runs every enabled system once, in dependency order, on the calling thread.
+    // Suited to structural updates (loading, editing) where no executor is at hand.
     void Update();
+    // Same schedule, but independent systems run in parallel on `job_system`.
+    void Update(core::JobSystem& job_system);
 
     inline auto  GetName() const noexcept -> std::string_view { return m_Name; }
     inline auto& GetEntityManager() noexcept { return m_EntityManager; }
@@ -679,6 +683,7 @@ private:
     friend SystemManager;
 
     void InvalidateSchedule() noexcept;
+    auto PrepareSchedule() -> Schedule&;
 
     std::pmr::string                m_Name;
     std::shared_ptr<spdlog::logger> m_Logger;
@@ -686,7 +691,6 @@ private:
     EntityManager             m_EntityManager;
     std::unique_ptr<Schedule> m_Schedule;
     bool                      m_ScheduleDirty = true;
-    core::JobSystem*          m_JobSystem     = nullptr;
     SystemManager             m_SystemManager;
 };
 
@@ -739,7 +743,8 @@ private:
     void Request(std::shared_ptr<TaskBase>&& task, const ParameterSets& parameter_sets);
 
     void Run(core::JobSystem& job_system);
-    void BuildTaskflow(core::JobSystem& job_system);
+    void RunSerial();
+    void BuildTaskflow();
 
     bool CheckValid(const std::pmr::unordered_map<std::size_t, std::pmr::unordered_set<std::size_t>>& graph);
 
@@ -751,9 +756,12 @@ private:
 
     std::pmr::unordered_map<std::pmr::string, std::pmr::string> m_CustomOrder;
 
-    tf::Taskflow               m_Taskflow;
-    std::pmr::vector<tf::Task> m_TaskflowTasks;
-    bool                       m_TaskflowDirty = true;
+    tf::Taskflow                  m_Taskflow;
+    std::pmr::vector<tf::Task>    m_TaskflowTasks;
+    std::pmr::vector<std::size_t> m_SerialOrder;  // topological order; empty if the graph is invalid
+    bool                          m_TaskflowDirty = true;
+    // Executor of the in-flight parallel run; tasks read it to name worker threads.
+    core::JobSystem* m_RunningJobSystem = nullptr;
 };
 
 }  // namespace hitagi::ecs

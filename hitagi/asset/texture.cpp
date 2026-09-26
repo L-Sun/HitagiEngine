@@ -9,6 +9,14 @@ import :image_codec;
 
 export namespace hitagi::asset {
 
+// Produces a texture's CPU pixels on demand. Called from a worker thread when the
+// texture was given a decode submitter, so it must not touch gfx. Throws on failure.
+using ImageLoader = std::function<ImageData()>;
+
+// Loader that reads `path` through `file_io` and decodes it with the codec picked
+// by the file extension. `file_io` must outlive every texture holding the loader.
+auto MakeFileImageLoader(core::FileIOManager& file_io, std::filesystem::path path) -> ImageLoader;
+
 class Texture : public Resource {
 public:
     Texture(std::uint32_t    width,
@@ -17,7 +25,12 @@ public:
             core::Buffer     data = {},
             std::string_view name = "");
     Texture(ImageData image_data, std::string_view name = "");
-    Texture(std::filesystem::path path, std::string_view name = "");
+    // Lazily loaded texture: `path` is its identity, `loader` produces the pixels
+    // on first Load(). An empty `decode_submitter` means Load() decodes synchronously.
+    Texture(std::filesystem::path path,
+            ImageLoader           loader,
+            std::string_view      name             = "",
+            core::JobSubmitter    decode_submitter = {});
 
     Texture(Texture&&) noexcept            = default;
     Texture& operator=(Texture&&) noexcept = default;
@@ -40,13 +53,15 @@ public:
     void Unload() final;
 
 private:
-    // Worker-thread half of the async path: file IO + decode (-> Staged/Failed).
+    // Worker-thread half of the async path: runs the loader (-> Staged/Failed).
     // Never touches gfx. Safe to call off the render thread.
     void DecodeCPU() noexcept;
     void Upload(gfx::Device& device);
 
     ImageData                    m_ImageData;
     std::filesystem::path        m_Path;
+    ImageLoader                  m_Loader;
+    core::JobSubmitter           m_DecodeSubmitter;
     std::shared_ptr<gfx::Texture>     m_GPUData = nullptr;
     std::shared_ptr<gfx::TextureView> m_GPUView = nullptr;
 
@@ -62,11 +77,6 @@ auto ImageCodec::Decode(const core::Buffer& buffer) -> std::shared_ptr<Texture> 
     return std::make_shared<Texture>(std::move(image_data));
 }
 
-auto ImageCodec::Decode(const std::filesystem::path& path) -> std::shared_ptr<Texture> {
-    if (core::FileIOManager::Get() == nullptr) return nullptr;
-    return Decode(core::FileIOManager::Get()->SyncOpenAndReadBinary(path));
-}
-
 auto ImageCodec::Encode(const Texture& texture) -> core::Buffer {
     const auto data = texture.GetData();
     return EncodeImageData(ImageData{
@@ -77,19 +87,8 @@ auto ImageCodec::Encode(const Texture& texture) -> core::Buffer {
     });
 }
 
-auto ImageCodec::Encode(const Texture& texture, const std::filesystem::path& path) -> bool {
-    const auto buffer = Encode(texture);
-    if (buffer.Empty() || core::FileIOManager::Get() == nullptr) return false;
-    core::FileIOManager::Get()->SaveBuffer(buffer, path);
-    return true;
-}
-
 auto PngEncoder::Encode(const Texture& texture) -> core::Buffer {
     return PngDecoder{}.Encode(texture);
-}
-
-auto PngEncoder::Encode(const Texture& texture, const std::filesystem::path& path) -> bool {
-    return PngDecoder{}.Encode(texture, path);
 }
 
 Texture::Texture(std::uint32_t width, std::uint32_t height, gfx::Format format, core::Buffer data, std::string_view name)
@@ -105,9 +104,21 @@ Texture::Texture(ImageData image_data, std::string_view name)
     : Resource(Type::Texture, name),
       m_ImageData(std::move(image_data)) {}
 
-Texture::Texture(std::filesystem::path path, std::string_view name)
+auto MakeFileImageLoader(core::FileIOManager& file_io, std::filesystem::path path) -> ImageLoader {
+    return [&file_io, path = std::move(path)]() -> ImageData {
+        const auto codec = create_image_codec_for(path.extension());
+        if (codec == nullptr) {
+            throw std::runtime_error("Failed to create image codec for " + path.string());
+        }
+        return codec->DecodeImageData(file_io.SyncOpenAndReadBinary(path));
+    };
+}
+
+Texture::Texture(std::filesystem::path path, ImageLoader loader, std::string_view name, core::JobSubmitter decode_submitter)
     : Resource(Type::Texture, name.empty() ? path.string() : name),
-      m_Path(std::move(path)) {}
+      m_Path(std::move(path)),
+      m_Loader(std::move(loader)),
+      m_DecodeSubmitter(std::move(decode_submitter)) {}
 
 std::shared_ptr<Texture> Texture::m_DefaultTexture = nullptr;
 
@@ -153,12 +164,8 @@ bool Texture::SetPath(const std::filesystem::path& path) {
 
 void Texture::DecodeCPU() noexcept {
     try {
-        if (m_ImageData.data.Empty() && !m_Path.empty()) {
-            const auto codec = create_image_codec_for(m_Path.extension());
-            if (codec == nullptr) {
-                throw std::runtime_error("Failed to create image codec for " + m_Path.string());
-            }
-            m_ImageData = codec->DecodeImageData(core::FileIOManager::Get()->SyncOpenAndReadBinary(m_Path));
+        if (m_ImageData.data.Empty() && m_Loader) {
+            m_ImageData = m_Loader();
         }
         // SetLoadState's release order publishes m_ImageData to the render thread.
         SetLoadState(ResourceLoadState::Staged);
@@ -198,17 +205,16 @@ void Texture::Load(const ResourceLoadContext& context) {
             break;
     }
 
-    if (m_ImageData.data.Empty() && !m_Path.empty()) {
-        // File-backed: prefer async decode when JobSystem is alive and this texture
-        // is shared-owned (the job needs to keep it alive).
-        auto*      job_system = core::JobSystem::Get();
-        const auto self       = std::static_pointer_cast<Texture>(weak_from_this().lock());
-        if (self && job_system != nullptr) {
+    if (m_ImageData.data.Empty() && m_Loader) {
+        // Lazily loaded: decode asynchronously when a submitter was injected and this
+        // texture is shared-owned (the job needs to keep it alive).
+        const auto self = std::static_pointer_cast<Texture>(weak_from_this().lock());
+        if (self && m_DecodeSubmitter) {
             SetLoadState(ResourceLoadState::Loading);
-            job_system->Submit([self] { self->DecodeCPU(); });
+            m_DecodeSubmitter([self] { self->DecodeCPU(); });
             return;
         }
-        // Sync fallback (no JobSystem / unowned texture): preserve the old throwing behavior.
+        // Sync path (no submitter / unowned texture): preserve the old throwing behavior.
         DecodeCPU();
         if (GetLoadState() == ResourceLoadState::Failed) {
             throw std::runtime_error("Failed to decode texture " + m_Path.string());

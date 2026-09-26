@@ -62,18 +62,27 @@ auto BmpDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
             return {};
         }
 
-        auto width      = std::abs(bmp_header->width);
-        auto height     = std::abs(bmp_header->height);
-        auto pitch      = ((width * 4) + 3) & ~3;
-        auto cpu_buffer = core::Buffer(pitch * height);
+        const auto width  = static_cast<std::uint32_t>(std::abs(bmp_header->width));
+        const auto height = static_cast<std::uint32_t>(std::abs(bmp_header->height));
+        // BMP rows are stored bottom-up, padded to 4 bytes, at bit_count/8 bytes per pixel.
+        const std::size_t src_bpp   = bmp_header->bit_count / 8;
+        const std::size_t src_pitch = ((width * src_bpp) + 3) & ~std::size_t{3};
+        const std::size_t src_size  = src_pitch * height;
+        if (file_header->bits_offset + src_size > buffer.GetDataSize()) {
+            logger->warn("[BMP] Pixel data ({} bytes at offset {}) exceeds buffer size ({})", src_size, file_header->bits_offset, buffer.GetDataSize());
+            return {};
+        }
 
-        auto           dest_data   = cpu_buffer.Span<math::R8G8B8A8Unorm>();
-        const uint8_t* source_data = reinterpret_cast<const uint8_t*>(buffer.GetData()) + file_header->bits_offset;
-        size_t         index       = 0;
-        for (std::int32_t y = height - 1; y >= 0; y--) {
+        auto cpu_buffer = core::Buffer(sizeof(R8G8B8A8Unorm) * width * height);
+        auto dest_data  = cpu_buffer.Span<R8G8B8A8Unorm>();
+
+        const auto* source_data = reinterpret_cast<const std::uint8_t*>(buffer.GetData()) + file_header->bits_offset;
+        std::size_t index       = 0;
+        for (std::uint32_t y = height; y-- > 0;) {
+            const auto* row = source_data + src_pitch * y;
             for (std::uint32_t x = 0; x < width; x++) {
-                dest_data[index].bgra = *reinterpret_cast<const R8G8B8A8Unorm*>(
-                    source_data + pitch * y + x * 8);
+                const auto* px    = row + x * src_bpp;
+                dest_data[index] = R8G8B8A8Unorm{px[2], px[1], px[0], src_bpp == 4 ? px[3] : std::uint8_t{255}};
                 index++;
             }
         }

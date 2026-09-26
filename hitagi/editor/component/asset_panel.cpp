@@ -83,7 +83,7 @@ void Editor::RefreshAssetBrowser() {
 
 void Editor::ImportAssetFromBrowser(const EditorAssetBrowserEntry& entry) {
     try {
-        auto* asset_manager = asset::AssetManager::Get();
+        auto& asset_manager = m_Engine.Assets();
         m_State.SetSelectedAsset(entry.path, entry.kind);
         m_LastImportedAssetPath.clear();
         m_LastImportedAssetUUID.clear();
@@ -91,16 +91,15 @@ void Editor::ImportAssetFromBrowser(const EditorAssetBrowserEntry& entry) {
         if (entry.kind == EditorAssetKind::Scene || entry.kind == EditorAssetKind::Model) {
             m_CookContext.Clear();
             auto scene = ImportEditorScene(
+                asset_manager,
                 entry.path,
                 entry.path.parent_path(),
-                [asset_manager](std::string_view name) {
-                    return asset_manager ? asset_manager->GetMaterial(name) : nullptr;
-                },
+                [&asset_manager](std::string_view name) { return asset_manager.GetMaterial(name); },
                 nullptr,
                 m_LaunchOptions.material_processor,
                 std::addressof(m_CookContext));
             if (scene) {
-                if (asset_manager) asset_manager->AddScene(scene);
+                asset_manager.AddScene(scene);
                 m_LastImportedAssetPath = entry.path;
                 m_LastImportedAssetUUID = std::format("{}", scene->GetUUID());
                 SetCurrentScene(std::move(scene));
@@ -110,7 +109,7 @@ void Editor::ImportAssetFromBrowser(const EditorAssetBrowserEntry& entry) {
                 Notify(m_AssetBrowserStatus);
             }
         } else if (entry.kind == EditorAssetKind::Texture) {
-            auto texture = asset_manager->ImportTexture(entry.path);
+            auto texture = asset_manager.ImportTexture(entry.path);
             if (texture) {
                 texture->Load({.device = m_Engine.RenderRuntime().GetRenderGraph().GetDevice()});
                 m_SelectedTexturePreview = texture;
@@ -121,7 +120,7 @@ void Editor::ImportAssetFromBrowser(const EditorAssetBrowserEntry& entry) {
                 Notify(m_AssetBrowserStatus);
             }
         } else if (entry.kind == EditorAssetKind::Material) {
-            auto material = asset_manager->ImportMaterial(entry.path);
+            auto material = asset_manager.ImportMaterial(entry.path);
             if (material) {
                 m_LastImportedAssetPath = entry.path;
                 m_LastImportedAssetUUID = std::format("{}", material->GetUUID());
@@ -145,7 +144,7 @@ void Editor::PreviewAssetFromBrowser(const EditorAssetBrowserEntry& entry) {
 
     try {
         if (entry.kind == EditorAssetKind::Texture) {
-            auto texture = asset::AssetManager::Get()->ImportTexture(entry.path);
+            auto texture = m_Engine.Assets().ImportTexture(entry.path);
             if (texture) {
                 texture->Load({.device = m_Engine.RenderRuntime().GetRenderGraph().GetDevice()});
                 m_SelectedTexturePreview = texture;

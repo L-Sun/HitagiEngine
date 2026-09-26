@@ -431,7 +431,7 @@ void Editor::Tick() {
     if (m_State.GetCurrentScene()) {
         if (m_State.GetMode() == EditorMode::Edit || m_State.GetMode() == EditorMode::Play || m_RuntimeStepRequested) {
             ZoneScopedN("Editor Scene Update");
-            m_State.GetCurrentScene()->Update();
+            m_State.GetCurrentScene()->Update(m_Engine.Jobs());
             m_RuntimeStepRequested = false;
         }
     }
@@ -659,19 +659,18 @@ void Editor::OpenScene(const std::filesystem::path& path) {
         return;
     }
 
-    auto* asset_manager = asset::AssetManager::Get();
+    auto& asset_manager = m_Engine.Assets();
     m_CookContext.Clear();
     auto scene = ImportEditorScene(
+        asset_manager,
         path,
         path.parent_path(),
-        [asset_manager](std::string_view name) {
-            return asset_manager ? asset_manager->GetMaterial(name) : nullptr;
-        },
+        [&asset_manager](std::string_view name) { return asset_manager.GetMaterial(name); },
         nullptr,
         m_LaunchOptions.material_processor,
         std::addressof(m_CookContext));
     if (scene) {
-        if (asset_manager) asset_manager->AddScene(scene);
+        asset_manager.AddScene(scene);
         SetCurrentScene(std::move(scene));
         m_CurrentScenePath = path;
         m_AssetBrowserModel.RequestRefresh();
@@ -925,7 +924,8 @@ void Editor::SavePendingScreenshot() {
             static_cast<std::size_t>(m_ScreenshotBuffer->Size()),
             reinterpret_cast<const std::byte*>(readback.data())));
 
-    if (asset::PngEncoder{}.Encode(image, *m_LaunchOptions.screenshot)) {
+    if (const auto png = asset::PngEncoder{}.Encode(image); !png.Empty()) {
+        m_Engine.FileIO().SaveBuffer(png, *m_LaunchOptions.screenshot);
         spdlog::info("Editor screenshot saved: {}", m_LaunchOptions.screenshot->string());
     } else {
         spdlog::error("Editor screenshot save failed: {}", m_LaunchOptions.screenshot->string());

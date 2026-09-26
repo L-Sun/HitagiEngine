@@ -271,9 +271,9 @@ auto CreateShape(const ShapeDesc& desc) -> JPH::RefConst<JPH::Shape> {
 }  // namespace
 
 struct PhysicsWorld::Impl {
-    explicit Impl(const PhysicsWorldDesc& desc)
+    Impl(core::JobSystem& core_job_system, const PhysicsWorldDesc& desc)
         : temp_allocator(desc.temp_allocator_size),
-          job_system(ResolveJobSystem(desc), JPH::cMaxPhysicsBarriers) {
+          job_system(core_job_system, JPH::cMaxPhysicsBarriers) {
         physics_system.Init(
             desc.max_bodies,
             desc.num_body_mutexes,
@@ -285,14 +285,6 @@ struct PhysicsWorld::Impl {
         physics_system.SetGravity(ToJolt(desc.gravity));
     }
 
-    static auto ResolveJobSystem(const PhysicsWorldDesc& desc) -> core::JobSystem& {
-        auto* job_system = desc.job_system ? desc.job_system : core::JobSystem::Get();
-        if (job_system == nullptr) {
-            throw std::runtime_error("physics::PhysicsWorld requires core::JobSystem");
-        }
-        return *job_system;
-    }
-
     BroadPhaseLayerInterface      broad_phase_layer_interface;
     ObjectVsBroadPhaseLayerFilter object_vs_broad_phase_layer_filter;
     ObjectLayerPairFilter         object_layer_pair_filter;
@@ -301,9 +293,9 @@ struct PhysicsWorld::Impl {
     JPH::PhysicsSystem            physics_system;
 };
 
-PhysicsWorld::PhysicsWorld(PhysicsWorldDesc desc) : core::RuntimeModule(desc.name) {
+PhysicsWorld::PhysicsWorld(core::JobSystem& job_system, PhysicsWorldDesc desc) : core::RuntimeModule(desc.name) {
     AcquireJoltRuntime();
-    m_Impl = std::make_unique<Impl>(desc);
+    m_Impl = std::make_unique<Impl>(job_system, desc);
 }
 
 PhysicsWorld::~PhysicsWorld() {

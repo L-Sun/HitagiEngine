@@ -1,5 +1,6 @@
 #include "test_macros.hpp"
 
+import core;
 import math;
 import physics;
 
@@ -7,10 +8,11 @@ using namespace hitagi;
 using namespace hitagi::physics;
 
 TEST(PhysicsWorldTest, DynamicBodyFallsUnderGravity) {
-    PhysicsWorld world({
-        .name    = "PhysicsWorldFallTest",
-        .gravity = math::vec3f{0.0f, -9.81f, 0.0f},
-    });
+    core::JobSystem job_system;
+    PhysicsWorld    world(job_system, {
+                              .name    = "PhysicsWorldFallTest",
+                              .gravity = math::vec3f{0.0f, -9.81f, 0.0f},
+                          });
 
     BodyDesc body_desc;
     body_desc.shape              = ShapeDesc::Box(math::vec3f{0.5f, 0.5f, 0.5f});

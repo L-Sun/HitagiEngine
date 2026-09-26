@@ -27,18 +27,18 @@ inline auto is_cooked_scene_path(const std::filesystem::path& path) noexcept -> 
 
 class AssetManager final : public core::RuntimeModule {
 public:
-    explicit AssetManager(std::filesystem::path asset_root_path = {});
+    // Both services must outlive this manager and every texture it creates: lazily
+    // loaded textures read through `file_io` and decode on `job_system`.
+    AssetManager(core::FileIOManager& file_io, core::JobSystem& job_system, std::filesystem::path asset_root_path = {});
     ~AssetManager() final;
-
-    inline static auto Get() noexcept -> AssetManager* {
-        return static_cast<AssetManager*>(core::RuntimeModule::GetModule("AssetManager"));
-    }
 
     inline auto GetAssetRootPath() const noexcept -> const std::filesystem::path& {
         return m_AssetRootPath;
     }
 
-    auto ImportScene(const std::filesystem::path& path) -> std::shared_ptr<Scene>;
+    // `asset_root_path` overrides the manager-wide root for resolving the
+    // scene's relative texture/shader references; empty keeps the default.
+    auto ImportScene(const std::filesystem::path& path, const std::filesystem::path& asset_root_path = {}) -> std::shared_ptr<Scene>;
     auto ImportTexture(const std::filesystem::path& path) -> std::shared_ptr<Texture>;
     auto ImportMaterial(const std::filesystem::path& path) -> std::shared_ptr<Material>;
 
@@ -98,6 +98,8 @@ private:
     void TrackAsyncJob(std::shared_future<void> completion);
     void RegisterResource(const std::shared_ptr<Resource>& resource);
 
+    core::FileIOManager&  m_FileIO;
+    core::JobSystem&      m_JobSystem;
     std::filesystem::path m_AssetRootPath;
 
     struct Registry {
@@ -126,8 +128,10 @@ auto AssetManager::AssetLoadToken::IsCancellationRequested() const noexcept -> b
     return m_CancelRequested->load(std::memory_order_relaxed);
 }
 
-AssetManager::AssetManager(std::filesystem::path asset_root_path)
+AssetManager::AssetManager(core::FileIOManager& file_io, core::JobSystem& job_system, std::filesystem::path asset_root_path)
     : core::RuntimeModule("AssetManager"),
+      m_FileIO(file_io),
+      m_JobSystem(job_system),
       m_AssetRootPath(std::move(asset_root_path)) {}
 
 AssetManager::~AssetManager() {
@@ -135,12 +139,11 @@ AssetManager::~AssetManager() {
     Texture::DestroyDefaultTexture();
 }
 
-auto AssetManager::ImportScene(const std::filesystem::path& path) -> std::shared_ptr<Scene> {
+auto AssetManager::ImportScene(const std::filesystem::path& path, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Scene> {
     if (!is_cooked_scene_path(path)) {
         throw std::runtime_error(std::format("Unsupported scene format: {}", path.string()));
     }
-    if (core::FileIOManager::Get() == nullptr) return nullptr;
-    return LoadCookedScene(core::FileIOManager::Get()->SyncOpenAndReadBinary(path));
+    return LoadCookedScene(m_FileIO.SyncOpenAndReadBinary(path), asset_root_path);
 }
 
 auto AssetManager::ImportTexture(const std::filesystem::path& path) -> std::shared_ptr<Texture> {
@@ -156,15 +159,14 @@ auto AssetManager::ImportTexture(const std::filesystem::path& path) -> std::shar
         }
     }
 
-    auto texture = codec->Decode(path);
+    auto texture = codec->Decode(m_FileIO.SyncOpenAndReadBinary(path));
     if (texture) texture->SetPath(path);  // record identity so the registry can deduplicate
     AddTexture(texture);
     return texture;
 }
 
 auto AssetManager::ImportMaterial(const std::filesystem::path& path) -> std::shared_ptr<Material> {
-    if (core::FileIOManager::Get() == nullptr) return nullptr;
-    return LoadCookedMaterial(core::FileIOManager::Get()->SyncOpenAndReadBinary(path));
+    return LoadCookedMaterial(m_FileIO.SyncOpenAndReadBinary(path));
 }
 
 auto AssetManager::LoadCookedMaterial(std::span<const std::byte> data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Material> {
@@ -194,15 +196,10 @@ auto AssetManager::LoadCookedScene(const core::Buffer& data, const std::filesyst
 }
 
 auto AssetManager::ImportTextureAsync(const std::filesystem::path& path, AssetLoadToken token) -> AssetLoadJob<std::shared_ptr<Texture>> {
-    auto* job_system = core::JobSystem::Get();
-    if (job_system == nullptr) {
-        throw std::runtime_error("asset::AssetManager async import requires core::JobSystem");
-    }
-
     auto promise = std::make_shared<std::promise<std::shared_ptr<Texture>>>();
     auto future  = promise->get_future().share();
 
-    auto completion = job_system->Submit([this, path, token, promise] {
+    auto completion = m_JobSystem.Submit([this, path, token, promise] {
                                     try {
                                         if (token.IsCancellationRequested()) {
                                             promise->set_value(nullptr);
@@ -262,7 +259,7 @@ auto AssetManager::AcquireTexture(const std::filesystem::path& path, std::string
         m_Registry.textures_by_path.erase(iter);
     }
 
-    auto texture = std::make_shared<Texture>(key, name);
+    auto texture = std::make_shared<Texture>(key, MakeFileImageLoader(m_FileIO, key), name, m_JobSystem.MakeSubmitter());
     m_Registry.textures_by_path.insert_or_assign(key, texture);
     RegisterResource(texture);
     return texture;

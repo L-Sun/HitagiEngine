@@ -321,7 +321,9 @@ TEST_F(RenderGraphTest, AddRenderPass) {
         output_texture->GetDesc().height,
         output_texture->GetDesc().format,
         std::move(pixels));
-    ASSERT_TRUE(hitagi::asset::PngEncoder{}.Encode(image, output_path));
+    const auto png = hitagi::asset::PngEncoder{}.Encode(image);
+    ASSERT_FALSE(png.Empty());
+    hitagi::core::FileIOManager{}.SaveBuffer(png, output_path);
 }
 
 TEST_F(RenderGraphTest, GraphTest) {

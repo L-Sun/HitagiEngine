@@ -146,5 +146,7 @@ TEST_P(ReadbackTextureTest, ReadbackGradientTexture) {
     std::filesystem::create_directories(output_path.parent_path());
 
     hitagi::asset::Texture image(width, height, Format::R8G8B8A8_UNORM, result);
-    ASSERT_TRUE(hitagi::asset::PngEncoder{}.Encode(image, output_path));
+    const auto png = hitagi::asset::PngEncoder{}.Encode(image);
+    ASSERT_FALSE(png.Empty());
+    hitagi::core::FileIOManager{}.SaveBuffer(png, output_path);
 }

@@ -12,7 +12,7 @@ module gui;
 import std;
 namespace hitagi::gui {
 
-GuiManager::GuiManager(Application& app) : core::RuntimeModule("GuiManager"), m_App(app), m_InputManager(app.GetInputManager()) {
+GuiManager::GuiManager(Application& app, core::FileIOManager& file_io) : core::RuntimeModule("GuiManager"), m_App(app), m_InputManager(app.GetInputManager()) {
     m_Clock.Start();
 
     ImGui::CreateContext();
@@ -35,7 +35,7 @@ GuiManager::GuiManager(Application& app) : core::RuntimeModule("GuiManager"), m_
     ImGuiViewport* main_viewport  = ImGui::GetMainViewport();
     main_viewport->PlatformHandle = main_viewport->PlatformHandleRaw = app.GetWindow().ptr;
 
-    LoadFont();
+    LoadFont(file_io);
 }
 
 GuiManager::~GuiManager() {
@@ -91,30 +91,27 @@ void GuiManager::Tick() {
     m_Clock.Tick();
 }
 
-void GuiManager::LoadFont() {
+void GuiManager::LoadFont(core::FileIOManager& file_io) {
     auto& io = ImGui::GetIO();
 
-    auto* file_io = core::FileIOManager::Get();
-    if (file_io != nullptr) {
-        auto add_font = [&](std::filesystem::path path, std::u8string_view name, const ImWchar* ranges = nullptr, bool merge = false) {
-            const auto& font_buffer = file_io->SyncOpenAndReadBinary(path);
-            if (font_buffer.Empty()) return;
+    auto add_font = [&](std::filesystem::path path, std::u8string_view name, const ImWchar* ranges = nullptr, bool merge = false) {
+        const auto& font_buffer = file_io.SyncOpenAndReadBinary(path);
+        if (font_buffer.Empty()) return;
 
-            ImFontConfig config;
-            config.SizePixels           = m_App.GetDpiRatio() * 18.0f;
-            config.FontDataOwnedByAtlas = false;
-            config.MergeMode            = merge;
-            config.FontData             = const_cast<std::byte*>(font_buffer.GetData());
-            config.FontDataSize         = static_cast<int>(font_buffer.GetDataSize());
-            config.GlyphRanges          = ranges;
-            std::copy_n(reinterpret_cast<const char*>(name.data()), std::min(name.size(), std::size(config.Name)), config.Name);
-            io.Fonts->AddFont(&config);
-        };
+        ImFontConfig config;
+        config.SizePixels           = m_App.GetDpiRatio() * 18.0f;
+        config.FontDataOwnedByAtlas = false;
+        config.MergeMode            = merge;
+        config.FontData             = const_cast<std::byte*>(font_buffer.GetData());
+        config.FontDataSize         = static_cast<int>(font_buffer.GetDataSize());
+        config.GlyphRanges          = ranges;
+        std::copy_n(reinterpret_cast<const char*>(name.data()), std::min(name.size(), std::size(config.Name)), config.Name);
+        io.Fonts->AddFont(&config);
+    };
 
-        add_font("./assets/fonts/Hasklig-Regular.otf", u8"Hasklig-Regular");
-        add_font("./assets/fonts/NotoSansSC-Regular.otf", u8"NotoSansSC-Regular", io.Fonts->GetGlyphRangesChineseFull(), true);
-        add_font("./assets/fonts/NotoSansJP-Regular.otf", u8"NotoSansJP-Regular", io.Fonts->GetGlyphRangesJapanese(), true);
-    }
+    add_font("./assets/fonts/Hasklig-Regular.otf", u8"Hasklig-Regular");
+    add_font("./assets/fonts/NotoSansSC-Regular.otf", u8"NotoSansSC-Regular", io.Fonts->GetGlyphRangesChineseFull(), true);
+    add_font("./assets/fonts/NotoSansJP-Regular.otf", u8"NotoSansJP-Regular", io.Fonts->GetGlyphRangesJapanese(), true);
 
     unsigned char* pixels = nullptr;
     int            width = 0, height = 0;

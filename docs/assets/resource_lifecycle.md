@@ -103,7 +103,7 @@ renderer 会绕过 `Scene::Load` 直接加载 mesh 和 material，所以场景�
 拆分成两半：
 
 ```cpp
-void Texture::DecodeCPU() noexcept;      // worker 线程: FileIO + codec, 绝不碰 gfx
+void Texture::DecodeCPU() noexcept;      // worker 线程: 调用注入的 ImageLoader, 绝不碰 gfx
 void Texture::Upload(gfx::Device&);      // 渲染线程: CreateTexture + CreateTextureView
 ```
 
@@ -113,8 +113,8 @@ void Texture::Upload(gfx::Device&);      // 渲染线程: CreateTexture + Create
 Loaded / Failed        -> 直接返回
 Loading                -> 直接返回 (在飞, 调用方继续用占位纹理)
 Staged                 -> Upload(device) -> Loaded
-Unloaded + 文件路径     -> 有 JobSystem 且被 shared_ptr 持有:
-                            SetLoadState(Loading); JobSystem::Submit(DecodeCPU)
+Unloaded + ImageLoader  -> 注入了 JobSubmitter 且被 shared_ptr 持有:
+                            SetLoadState(Loading); submitter(DecodeCPU)
                           否则同步 DecodeCPU(), 失败抛 runtime_error
 Unloaded + 内存像素     -> 直接 Upload(device)
 ```
@@ -132,8 +132,18 @@ worker 线程 : 文件 IO + 解码, 只写 m_ImageData, 状态 Loading -> Staged
 
 `m_ImageData` 的跨线程发布依赖状态原子的 release/acquire 配对，没有额外的锁。
 
-调度用的是全局 `core::JobSystem::Get()`。`ResourceLoadContext` 里只有 `device`，
-不携带执行器——调用方无需关心异步策略，只要保证 `JobSystem` 在资源加载前已创建。
+纹理不认识文件系统，也不认识线程池。懒加载纹理在构造时接收两个**能力**：
+
+```cpp
+using ImageLoader = std::function<ImageData()>;   // 怎么拿到像素
+Texture(path, ImageLoader loader, name = {}, core::JobSubmitter decode_submitter = {});
+```
+
+`AssetManager::AcquireTexture` 传入 `MakeFileImageLoader(m_FileIO, path)`（经 `FileIOManager`
+读文件 + 按扩展名选 codec）与 `m_JobSystem.MakeSubmitter()`。`path` 只是身份（去重键、cook 时写出的引用），
+读不读、怎么读由 loader 决定。`ResourceLoadContext` 里只有 `device`，不携带执行器——`Load`
+的调用方无需关心异步策略，异步能力由创建纹理的一方决定。没有 submitter 的纹理走同步解码路径；
+没有 loader 的纹理只有内存像素。
 
 `Unload` 在解码在飞时也是安全的：worker 仍会完成并把状态推到 `Staged`，
 而 GPU 侧本来就已释放，CPU 数据保留，下次 `Load` 直接从 `Staged` 上传。
@@ -141,9 +151,14 @@ worker 线程 : 文件 IO + 解码, 只写 m_ImageData, 状态 Loading -> Staged
 ## AssetManager
 
 `AssetManager` 是 `core::RuntimeModule`，职责是**身份**与**策略**，不是所有权。
+它不持有 `FileIOManager` / `JobSystem`，只持有构造时注入的引用，并据此给自己创建的纹理
+配好能力（`ImageLoader` + `JobSubmitter`）。`Scene` 不需要任何服务：执行器在
+`Scene::Update(job_system)` 时按调用传入。
 
 ```cpp
 class AssetManager final : public core::RuntimeModule {
+    AssetManager(core::FileIOManager& file_io, core::JobSystem& job_system, std::filesystem::path asset_root = {});
+
     // 导入
     auto ImportScene(path)     -> std::shared_ptr<Scene>;      // .hcscene / .hitagiscene
     auto ImportTexture(path)   -> std::shared_ptr<Texture>;    // 立即解码

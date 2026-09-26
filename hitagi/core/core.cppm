@@ -25,14 +25,14 @@ public:
     virtual auto AddSubModule(std::unique_ptr<RuntimeModule> module, RuntimeModule* after = nullptr) -> RuntimeModule*;
     virtual void UnloadSubModule(std::string_view name);
 
-    static auto GetModule(std::string_view name) -> RuntimeModule*;
-
 protected:
+    // Destroys sub-modules in reverse insertion order (what the destructor does).
+    // Lets a derived module end its sub-modules' lifetime before its own members.
+    void UnloadAllSubModules() noexcept;
+
     std::pmr::string                               m_Name;
     std::shared_ptr<spdlog::logger>                m_Logger;
     std::pmr::list<std::unique_ptr<RuntimeModule>> m_SubModules;
-
-    static std::unordered_map<std::string, RuntimeModule*> sm_AllModules;
 };
 
 class Buffer {
@@ -140,10 +140,6 @@ public:
     explicit JobSystem(std::uint32_t num_workers = 0);
     ~JobSystem() final;
 
-    inline static auto Get() {
-        return static_cast<JobSystem*>(RuntimeModule::GetModule("JobSystem"));
-    }
-
     [[nodiscard]] auto GetWorkerCount() const noexcept -> std::uint32_t { return m_NumWorkers; }
     [[nodiscard]] auto GetCurrentWorkerId() const noexcept -> int;
 
@@ -187,10 +183,6 @@ auto JobSystem::RunTask(Func&& func, Args&&... args) -> std::future<std::invoke_
 class FileIOManager : public RuntimeModule {
 public:
     FileIOManager() : RuntimeModule("FileIOManager") {}
-
-    inline static auto Get() {
-        return static_cast<FileIOManager*>(RuntimeModule::GetModule("FileIOManager"));
-    }
 
     auto SyncOpenAndReadBinary(const std::filesystem::path& file_path) -> const Buffer&;
     void SaveString(std::string_view str, const std::filesystem::path& path);

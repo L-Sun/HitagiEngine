@@ -455,15 +455,11 @@ PbrDemoGame::PbrDemoGame(hitagi::Engine& engine, std::filesystem::path cooked_sc
 
 void PbrDemoGame::LoadSceneIfNeeded() {
     if (m_Scene) return;
-    auto* asset_manager = asset::AssetManager::Get();
-    if (!asset_manager) {
-        throw std::runtime_error("PBR demo requires asset::AssetManager");
-    }
     if (!std::filesystem::exists(m_CookedScenePath)) {
         throw std::runtime_error(std::format("PBR demo cooked scene not found: {}", m_CookedScenePath.string()));
     }
 
-    m_Scene = asset_manager->ImportScene(m_CookedScenePath);
+    m_Scene = m_Engine.Assets().ImportScene(m_CookedScenePath);
     if (!m_Scene) {
         throw std::runtime_error(std::format("PBR demo failed to load cooked scene: {}", m_CookedScenePath.string()));
     }
@@ -495,7 +491,7 @@ void PbrDemoGame::CollectFrameData() {
     m_Lights.clear();
     if (!m_Scene) return;
 
-    m_Scene->Update();
+    m_Scene->Update(m_Engine.Jobs());
     m_DrawItems.reserve(m_Scene->GetMeshEntities().size());
     m_Lights.reserve(m_Scene->GetLightEntities().size());
 

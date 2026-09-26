@@ -103,21 +103,19 @@ struct PhysicsWorldDesc {
     std::uint32_t num_body_mutexes        = 0;
     std::uint32_t max_body_pairs          = 1024;
     std::uint32_t max_contact_constraints = 1024;
-    std::size_t     temp_allocator_size     = 10 * 1024 * 1024;
-    core::JobSystem* job_system             = nullptr;
+    std::size_t   temp_allocator_size     = 10 * 1024 * 1024;
 };
 
 class PhysicsWorld final : public core::RuntimeModule {
 public:
-    explicit PhysicsWorld(PhysicsWorldDesc desc = {});
+    // `job_system` drives Jolt's parallel simulation and must outlive the world.
+    explicit PhysicsWorld(core::JobSystem& job_system, PhysicsWorldDesc desc = {});
     ~PhysicsWorld() final;
 
     PhysicsWorld(const PhysicsWorld&)            = delete;
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
     PhysicsWorld(PhysicsWorld&&)                 = delete;
     PhysicsWorld& operator=(PhysicsWorld&&)      = delete;
-
-    static auto Get() -> PhysicsWorld* { return static_cast<PhysicsWorld*>(core::RuntimeModule::GetModule("PhysicsWorld")); }
 
     void Tick() final;
 

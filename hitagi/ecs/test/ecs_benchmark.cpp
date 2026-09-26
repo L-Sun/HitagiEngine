@@ -10,8 +10,9 @@ import test_utils;
 using namespace hitagi;
 
 static void ECS_Update(benchmark::State& state) {
-    ecs::World world(std::format("ECS_Update-{}", state.thread_index()));
-    auto&      sm = world.GetSystemManager();
+    core::JobSystem job_system;
+    ecs::World      world(std::format("ECS_Update-{}", state.thread_index()));
+    auto&           sm = world.GetSystemManager();
 
     struct Moveable {
         math::vec3f position;
@@ -45,7 +46,7 @@ static void ECS_Update(benchmark::State& state) {
     }
 
     for (auto _ : state) {
-        world.Update();
+        world.Update(job_system);
     }
 }
 BENCHMARK(ECS_Update);

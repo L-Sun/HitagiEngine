@@ -84,6 +84,7 @@ protected:
           device(gfx::create_device(GetParam())) {}
 
     std::string                  test_name;
+    core::FileIOManager          file_io;
     std::unique_ptr<Application> app;
     std::unique_ptr<gfx::Device> device;
 };
@@ -97,7 +98,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(RendererTest, DeferredRendererAcceptsExplicitFrame) {
     RenderRuntime   runtime(*device, *app, test_name);
-    DefaultRenderer renderer(*device, *app, test_name);
+    DefaultRenderer renderer(*device, file_io, *app, test_name);
 
     std::size_t frame_index = 0;
     while (!app->IsQuit()) {
@@ -311,7 +312,7 @@ TEST(RendererPassBuilderTest, CreatesDepthShadowGBufferAndIdResources) {
         });
 
     const auto      id_buffer = passes::ObjectMaterialIdPass::CreateTarget(context, {.width = 64, .height = 32});
-    passes::GBuffer gbuffer_pass(*mock_device, "unused.hlsl");
+    passes::GBuffer gbuffer_pass(*mock_device, {.path = "unused.hlsl"});
     const auto      gbuffer = gbuffer_pass.CreateTargets(context, {.width = 64, .height = 32});
 
     EXPECT_TRUE(graph.IsValid(depth));

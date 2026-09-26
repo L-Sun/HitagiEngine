@@ -155,7 +155,7 @@ Following the layered architecture from *Game Engine Architecture* (Jason Gregor
 
 ### Core Subsystems
 
-**`hitagi/core`** — `RuntimeModule` is the base class for all engine subsystems. Each module has a `Tick()` method and can contain child sub-modules. All modules are registered in a global map accessible via `RuntimeModule::GetModule(name)`. Includes PMR-based memory allocator, file I/O, thread pool, and timer.
+**`hitagi/core`** — `RuntimeModule` is the base class for all engine subsystems. Each module has a `Tick()` method and can contain child sub-modules. There is **no global module registry**: dependencies are declared where they are used — long-lived services through constructors (`AssetManager(FileIOManager&, JobSystem&)`), per-operation executors as call arguments (`World::Update(JobSystem&)`, with a serial `Update()` overload), narrow capabilities as function objects (`ImageLoader`, `JobSubmitter`), and plain data as values (`render::ShaderSource`). `Engine` is the composition root: it owns `MemoryManager`/`FileIOManager`/`JobSystem` as members and exposes accessors (`engine.FileIO()`, `engine.Jobs()`, `engine.Assets()`, ...). Tests own their own instances via gtest fixtures. Includes PMR-based memory allocator, file I/O, thread pool, and timer. Full migration notes and diagrams: [docs/architecture/dependency_injection.md](docs/architecture/dependency_injection.md).
 
 **`hitagi/gfx`** — Graphics abstraction with DX12 and Vulkan backends. Create a device with `gfx::create_device(Device::Type::Vulkan)`. The backend is selected from the `AppConfig` supplied by the host application. Matrices are **row-major** on both CPU and GPU.
 

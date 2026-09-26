@@ -39,11 +39,6 @@ constexpr auto kEditorViewportRenderScale = 0.75f;
 constexpr auto kEditorViewportMaxWidth    = 2560u;
 constexpr auto kEditorViewportMaxHeight   = 1440u;
 
-auto ReadEditorShaderSource(const std::filesystem::path& path) -> std::pmr::string {
-    if (core::FileIOManager::Get() == nullptr) return {};
-    return std::pmr::string(core::FileIOManager::Get()->SyncOpenAndReadBinary(path).Str());
-}
-
 auto RoundViewportDimension(std::uint32_t value) noexcept -> std::uint32_t {
     constexpr auto block_size = 16u;
     return std::max(block_size, ((value + block_size - 1u) / block_size) * block_size);
@@ -321,24 +316,20 @@ auto hitagi::ComputeEditorWorldXYGridMinorStep(
     return std::clamp(NiceGridStep(ComputeEditorWorldXYGridRawStep(camera_eye, horizontal_fov, aspect, image_height)), 0.1f, 100.0f);
 }
 
-EditorViewportGridPass::EditorViewportGridPass(gfx::Device& device, std::filesystem::path shader_path) {
-    const auto shader_source = core::FileIOManager::Get()
-                                   ? std::pmr::string(core::FileIOManager::Get()->SyncOpenAndReadBinary(shader_path).Str())
-                                   : std::pmr::string{};
-
+EditorViewportGridPass::EditorViewportGridPass(gfx::Device& device, const render::ShaderSource& shader) {
     m_VS = device.CreateShader({
         .name        = "viewport-grid-vs",
         .type        = gfx::ShaderType::Vertex,
         .entry       = "VSMain",
-        .source_code = shader_source,
-        .path        = shader_path,
+        .source_code = shader.code,
+        .path        = shader.path,
     });
     m_PS = device.CreateShader({
         .name        = "viewport-grid-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSMain",
-        .source_code = shader_source,
-        .path        = shader_path,
+        .source_code = shader.code,
+        .path        = shader.path,
     });
     m_Pipeline = device.CreateRenderPipeline(
         {
@@ -443,42 +434,40 @@ auto EditorViewportGridPass::Build(render::RenderContext& context, const asset::
     return output;
 }
 
-EditorSelectionMetadataPass::EditorSelectionMetadataPass(gfx::Device& device, std::filesystem::path shader_path)
+EditorSelectionMetadataPass::EditorSelectionMetadataPass(gfx::Device& device, render::ShaderSource shader)
     : m_Device(device),
-      m_ShaderPath(std::move(shader_path)) {}
+      m_Shader(std::move(shader)) {}
 
 void EditorSelectionMetadataPass::EnsureResources() {
     if (m_IdPipeline && m_VisualPipeline && m_DepthPipeline) return;
-
-    const auto source = ReadEditorShaderSource(m_ShaderPath);
 
     m_VS = m_Device.CreateShader({
         .name        = "editor-selection-mask-vs",
         .type        = gfx::ShaderType::Vertex,
         .entry       = "VSSelectionMaskMain",
-        .source_code = source,
-        .path        = m_ShaderPath,
+        .source_code = m_Shader.code,
+        .path        = m_Shader.path,
     });
     m_IdPS = m_Device.CreateShader({
         .name        = "editor-selection-id-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSSelectionIdMain",
-        .source_code = source,
-        .path        = m_ShaderPath,
+        .source_code = m_Shader.code,
+        .path        = m_Shader.path,
     });
     m_VisualPS = m_Device.CreateShader({
         .name        = "editor-selection-visual-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSSelectionVisualMain",
-        .source_code = source,
-        .path        = m_ShaderPath,
+        .source_code = m_Shader.code,
+        .path        = m_Shader.path,
     });
     m_DepthPS = m_Device.CreateShader({
         .name        = "editor-selection-depth-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSSelectionDepthMain",
-        .source_code = source,
-        .path        = m_ShaderPath,
+        .source_code = m_Shader.code,
+        .path        = m_Shader.path,
     });
 
     const auto vertex_layout = m_Device.GetShaderCompiler().ExtractVertexLayout(m_VS->GetDesc());
@@ -715,29 +704,27 @@ void EditorSelectionMetadataPass::BuildTargetPass(
     builder.Finish();
 }
 
-EditorSelectionOutlinePass::EditorSelectionOutlinePass(gfx::Device& device, std::filesystem::path shader_path)
+EditorSelectionOutlinePass::EditorSelectionOutlinePass(gfx::Device& device, render::ShaderSource shader)
     : m_Device(device),
-      m_ShaderPath(std::move(shader_path)) {}
+      m_Shader(std::move(shader)) {}
 
 void EditorSelectionOutlinePass::EnsureResources(gfx::Format target_format) {
     if (m_Pipeline && m_TargetFormat == target_format) return;
-
-    const auto source = ReadEditorShaderSource(m_ShaderPath);
 
     if (m_VS == nullptr) {
         m_VS = m_Device.CreateShader({
             .name        = "selection-outline-vs",
             .type        = gfx::ShaderType::Vertex,
             .entry       = "VSFullscreenMain",
-            .source_code = source,
-            .path        = m_ShaderPath,
+            .source_code = m_Shader.code,
+            .path        = m_Shader.path,
         });
         m_PS = m_Device.CreateShader({
             .name        = "selection-outline-ps",
             .type        = gfx::ShaderType::Pixel,
             .entry       = "PSSelectionOutlineMain",
-            .source_code = source,
-            .path        = m_ShaderPath,
+            .source_code = m_Shader.code,
+            .path        = m_Shader.path,
         });
     }
 
@@ -855,9 +842,9 @@ auto EditorSelectionOutlinePass::Build(
     return output;
 }
 
-EditorDeferredSelectionExtension::EditorDeferredSelectionExtension(gfx::Device& device, std::filesystem::path shader_path)
-    : m_MetadataPass(device, shader_path),
-      m_OutlinePass(device, std::move(shader_path)) {}
+EditorDeferredSelectionExtension::EditorDeferredSelectionExtension(gfx::Device& device, const render::ShaderSource& shader)
+    : m_MetadataPass(device, shader),
+      m_OutlinePass(device, shader) {}
 
 void EditorDeferredSelectionExtension::SetSelection(EditorSelectionDesc desc) {
     m_Selection = std::move(desc);
@@ -1032,11 +1019,11 @@ SceneViewPort::SceneViewPort(const Engine& engine, EditorState& state, EditorCom
       m_State(state),
       m_CommandStack(command_stack),
       m_SelectionExtension(std::make_shared<EditorDeferredSelectionExtension>(
-          engine.RenderRuntime().GetRenderGraph().GetDevice(),
-          std::filesystem::path{"hitagi/editor/shaders/editor_selection_outline.hlsl"})),
+          engine.Device(),
+          render::LoadShaderSource(engine.FileIO(), "hitagi/editor/shaders/editor_selection_outline.hlsl"))),
       m_GridPass(std::make_unique<EditorViewportGridPass>(
-          engine.RenderRuntime().GetRenderGraph().GetDevice(),
-          std::filesystem::path{"hitagi/editor/shaders/viewport_grid.hlsl"})) {
+          engine.Device(),
+          render::LoadShaderSource(engine.FileIO(), "hitagi/editor/shaders/viewport_grid.hlsl"))) {
     if (auto* deferred_renderer = dynamic_cast<render::DeferredRenderer*>(&m_Engine.Renderer())) {
         deferred_renderer->AddExtension(m_SelectionExtension);
     }

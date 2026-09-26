@@ -6,17 +6,9 @@ import std;
 
 namespace hitagi::render {
 
-namespace {
-
-auto ReadShaderSource(const std::filesystem::path& path) -> std::pmr::string {
-    if (core::FileIOManager::Get() == nullptr) return {};
-    return std::pmr::string(core::FileIOManager::Get()->SyncOpenAndReadBinary(path).Str());
-}
-
-}  // namespace
-passes::GBufferDebugView::GBufferDebugView(gfx::Device& device, std::filesystem::path shader_path)
+passes::GBufferDebugView::GBufferDebugView(gfx::Device& device, ShaderSource shader)
     : m_Device(device),
-      m_ShaderPath(std::move(shader_path)) {}
+      m_Shader(std::move(shader)) {}
 
 void passes::GBufferDebugView::EnsureResources(gfx::Format target_format) {
     if (m_AlbedoPipeline != nullptr &&
@@ -28,15 +20,13 @@ void passes::GBufferDebugView::EnsureResources(gfx::Format target_format) {
         return;
     }
 
-    const auto source = ReadShaderSource(m_ShaderPath);
-
     if (m_VS == nullptr) {
         m_VS = m_Device.CreateShader({
             .name        = "deferred-debug-view-vs",
             .type        = gfx::ShaderType::Vertex,
             .entry       = "VSMain",
-            .source_code = source,
-            .path        = m_ShaderPath,
+            .source_code = m_Shader.code,
+            .path        = m_Shader.path,
         });
     }
 
@@ -45,8 +35,8 @@ void passes::GBufferDebugView::EnsureResources(gfx::Format target_format) {
             .name        = std::pmr::string(name),
             .type        = gfx::ShaderType::Pixel,
             .entry       = std::pmr::string(entry),
-            .source_code = source,
-            .path        = m_ShaderPath,
+            .source_code = m_Shader.code,
+            .path        = m_Shader.path,
         });
     };
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& pixel_shader) {

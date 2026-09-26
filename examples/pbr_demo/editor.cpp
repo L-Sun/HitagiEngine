@@ -499,12 +499,12 @@ auto CookOutputPath(int argc, char** argv) -> std::filesystem::path {
 }
 
 auto RunCookCommand(int argc, char** argv) -> int {
-    hitagi::core::RuntimeModule runtime("PbrDemoCookRuntime");
-    runtime.AddSubModule(std::make_unique<hitagi::core::MemoryManager>());
-    runtime.AddSubModule(std::make_unique<hitagi::core::FileIOManager>());
-    runtime.AddSubModule(std::make_unique<hitagi::core::JobSystem>());
-    auto* asset_manager = static_cast<hitagi::asset::AssetManager*>(
-        runtime.AddSubModule(std::make_unique<hitagi::asset::AssetManager>("assets")));
+    // Headless composition root for the cook tool. Declaration order is dependency
+    // order, so the language destroys every consumer before the services it uses.
+    hitagi::core::MemoryManager memory_manager;
+    hitagi::core::FileIOManager file_io;
+    hitagi::core::JobSystem     job_system;
+    hitagi::asset::AssetManager asset_manager(file_io, job_system, "assets");
 
     const auto input  = CookInputPath(argc, argv);
     const auto output = CookOutputPath(argc, argv);
@@ -512,11 +512,10 @@ auto RunCookCommand(int argc, char** argv) -> int {
     try {
         hitagi::EditorCookContext cook_context;
         auto                      scene = hitagi::ImportEditorScene(
+            asset_manager,
             input,
             input.parent_path(),
-            [asset_manager](std::string_view name) {
-                return asset_manager ? asset_manager->GetMaterial(name) : nullptr;
-            },
+            [&asset_manager](std::string_view name) { return asset_manager.GetMaterial(name); },
             nullptr,
             MakePbrDemoMaterialProcessor("assets"),
             std::addressof(cook_context));

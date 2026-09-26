@@ -2,12 +2,14 @@
 #include <spdlog/spdlog.h>
 
 import std;
+import core;
 import ecs;
 import math;
 import test_utils;
 
 using namespace hitagi::ecs;
 using namespace hitagi::math;
+namespace core = hitagi::core;
 
 template <Component T, typename V>
 auto component_value_eq(const char* expr_entity, const char*, Entity entity, const V& value) -> ::testing::AssertionResult {
@@ -63,9 +65,10 @@ public:
         : world(::testing::UnitTest::GetInstance()->current_test_info()->name()),
           em(world.GetEntityManager()),
           sm(world.GetSystemManager()) {}
-    World          world;
-    EntityManager& em;
-    SystemManager& sm;
+    core::JobSystem job_system;  // executor for the parallel Update(job_system) path
+    World           world;
+    EntityManager&  em;
+    SystemManager&  sm;
 };
 
 TEST_F(EcsTest, CreateEntity) {
@@ -332,7 +335,7 @@ TEST_F(EcsTest, SystemUpdate) {
     auto entities_with_both = em.CreateMany<Component_1, Component_2>(100, {"DynamicComponent"});
 
     sm.Register<System>();
-    world.Update();
+    world.Update(job_system);
 
     ASSERT_EQ(invoked_entities.size(), entities_with_both.size());
     for (auto [invoked_entity, entity] : std::ranges::views::zip(invoked_entities, entities_with_both)) {
@@ -364,7 +367,7 @@ TEST_F(EcsTest, SystemUpdateWithNoEntities) {
     };
 
     sm.Register<System>();
-    world.Update();
+    world.Update(job_system);
     EXPECT_FALSE(invoked);
 }
 
@@ -401,7 +404,7 @@ TEST_F(EcsTest, SystemUpdateOrder) {
 
     em.Create().Emplace<Component_1>();
     sm.Register<System>();
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_EQ(order.size(), 4);
     EXPECT_EQ(order, expected_order)
@@ -409,6 +412,11 @@ TEST_F(EcsTest, SystemUpdateOrder) {
         << "1(ReadBeforWrite). Execute parallel all function request with LastFrame<Component>"
         << "2(Write).  Execute all function request with Component sequentially in the order of requesting"
         << "3(ReadAfterWrite). Execute parallel all function request with const Component&";
+
+    // The serial path must honour the same dependency order.
+    order.clear();
+    world.Update();
+    EXPECT_EQ(order, expected_order);
 }
 
 TEST_F(EcsTest, SystemUpdateInCustomOrder) {
@@ -431,8 +439,12 @@ TEST_F(EcsTest, SystemUpdateInCustomOrder) {
 
     em.Create().Emplace<Component_1>();
     sm.Register<System>();
-    world.Update();
+    world.Update(job_system);
 
+    EXPECT_EQ(order, expected_order);
+
+    order.clear();
+    world.Update();
     EXPECT_EQ(order, expected_order);
 }
 
@@ -458,7 +470,7 @@ TEST_F(EcsTest, SystemFilterAll) {
     entity_with_both.Emplace<Component_2>();
 
     sm.Register<System>();
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_COMPONENT_EQ(entity_with_one, Component_1, 1) << "Component_1 should not be updated";
 
@@ -493,7 +505,7 @@ TEST_F(EcsTest, SystemFilterAny) {
     entity_with_third.Emplace<Component_3>();
 
     sm.Register<System>();
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_COMPONENT_EQ(entity_with_first, Component_1, 100) << "Component_1 should be updated";
     EXPECT_COMPONENT_EQ(entity_with_second, Component_2, 200) << "Component_2 should be updated";
@@ -521,7 +533,7 @@ TEST_F(EcsTest, SystemFilterNone) {
     entity_with_both.Emplace<Component_2>();
 
     sm.Register<System>();
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_COMPONENT_EQ(entity_with_one, Component_1, 100) << "Component_1 should be updated";
     EXPECT_COMPONENT_EQ(entity_with_both, Component_1, 1) << "Component_1 should not be updated";

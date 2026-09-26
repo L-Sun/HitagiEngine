@@ -9,7 +9,7 @@ import utils;
 export namespace hitagi::asset {
 
 // Execution environment for Resource::Load. Async work (e.g. texture decode)
-// is scheduled internally via core::JobSystem::Get() when available.
+// is scheduled through the JobSubmitter injected into the resource at creation.
 struct ResourceLoadContext {
     gfx::Device& device;
 };

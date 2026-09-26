@@ -480,6 +480,16 @@ public:
         const DeferredDrawData&  draw_data) {}
 };
 
+// Shader source text together with the path it was read from. Passes receive
+// the text directly so they never touch the file system; the path is kept for
+// compiler diagnostics and relative #include resolution.
+struct ShaderSource {
+    std::filesystem::path path;
+    std::pmr::string      code;
+};
+
+auto LoadShaderSource(core::FileIOManager& file_io, std::filesystem::path path) -> ShaderSource;
+
 namespace passes {
 
 using Gui  = GuiRenderUtils;
@@ -558,7 +568,7 @@ public:
 
 class GBuffer {
 public:
-    GBuffer(gfx::Device& device, std::filesystem::path shader_path);
+    GBuffer(gfx::Device& device, ShaderSource shader);
 
     struct Desc {
         std::uint32_t width                     = 1;
@@ -612,7 +622,7 @@ private:
     void EnsureResources();
 
     gfx::Device&                         m_Device;
-    std::filesystem::path                m_ShaderPath;
+    ShaderSource                         m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_AlbedoPS;
     std::shared_ptr<gfx::Shader>         m_NormalPS;
@@ -626,7 +636,7 @@ private:
 
 class DeferredLighting {
 public:
-    DeferredLighting(gfx::Device& device, std::filesystem::path shader_path);
+    DeferredLighting(gfx::Device& device, ShaderSource shader);
 
     struct BindlessInfo {
         gfx::BindlessHandle frame_constant;
@@ -652,7 +662,7 @@ private:
     void EnsureResources(gfx::Format target_format);
 
     gfx::Device&                         m_Device;
-    std::filesystem::path                m_ShaderPath;
+    ShaderSource                         m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_PS;
     std::shared_ptr<gfx::RenderPipeline> m_Pipeline;
@@ -661,7 +671,7 @@ private:
 
 class GBufferDebugView {
 public:
-    GBufferDebugView(gfx::Device& device, std::filesystem::path shader_path);
+    GBufferDebugView(gfx::Device& device, ShaderSource shader);
 
     auto Build(
         RenderContext&       context,
@@ -683,7 +693,7 @@ private:
     };
 
     gfx::Device&                         m_Device;
-    std::filesystem::path                m_ShaderPath;
+    ShaderSource                         m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_AlbedoPS;
     std::shared_ptr<gfx::Shader>         m_NormalPS;
@@ -741,7 +751,9 @@ private:
 
 class DeferredRenderer : public IRenderer {
 public:
-    DeferredRenderer(gfx::Device& device, const Application& app, std::string_view name = "");
+    // Shader sources are read through `file_io` during construction only; the
+    // renderer keeps no reference to it afterwards.
+    DeferredRenderer(gfx::Device& device, core::FileIOManager& file_io, const Application& app, std::string_view name = "");
 
     auto Render(RenderContext& context, const RenderRequest& request) -> RenderResult override;
     void AddExtension(std::shared_ptr<IDeferredRenderExtension> extension);

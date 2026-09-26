@@ -18,11 +18,12 @@ protected:
               .height   = 480,
               .headless = true,
           })),
-          gui_manager(std::make_unique<gui::GuiManager>(*app)) {
+          gui_manager(std::make_unique<gui::GuiManager>(*app, file_io)) {
         app->ResizeWindow(640, 480);
         app->Tick();
     }
 
+    core::FileIOManager              file_io;  // ImGui's font atlas points into its cache
     std::unique_ptr<Application>     app;
     std::unique_ptr<gui::GuiManager> gui_manager;
 };

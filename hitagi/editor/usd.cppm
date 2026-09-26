@@ -78,7 +78,10 @@ private:
     EditorCookContext*              m_CookContext = nullptr;
 };
 
+// Cooked scenes are loaded (and registered) through `asset_manager`; USD scenes
+// are converted in place and are NOT registered automatically (callers decide).
 auto ImportEditorScene(
+    asset::AssetManager&                asset_manager,
     const std::filesystem::path&        path,
     const std::filesystem::path&        resource_base_path = {},
     UsdSceneImporter::MaterialGetter    material_getter    = {},
@@ -649,6 +652,7 @@ auto UsdSceneImporter::Import(
 }
 
 auto ImportEditorScene(
+    asset::AssetManager&                asset_manager,
     const std::filesystem::path&        path,
     const std::filesystem::path&        resource_base_path,
     UsdSceneImporter::MaterialGetter    material_getter,
@@ -662,11 +666,7 @@ auto ImportEditorScene(
         case EditorSceneFormat::USDZ:
             return UsdSceneImporter(std::move(material_getter), std::move(logger), std::move(material_processor), cook_context).Import(path, resource_base_path);
         case EditorSceneFormat::Cooked:
-            if (core::FileIOManager::Get() == nullptr) return nullptr;
-            if (auto* asset_manager = asset::AssetManager::Get()) {
-                return asset_manager->LoadCookedScene(core::FileIOManager::Get()->SyncOpenAndReadBinary(path), resource_base_path);
-            }
-            return nullptr;
+            return asset_manager.ImportScene(path, resource_base_path);
         case EditorSceneFormat::Unknown:
             return nullptr;
     }

@@ -49,7 +49,7 @@ void ApplyEditorViewportNavigation(
 
 class EditorViewportGridPass {
 public:
-    EditorViewportGridPass(gfx::Device& device, std::filesystem::path shader_path);
+    EditorViewportGridPass(gfx::Device& device, const render::ShaderSource& shader);
 
     auto Build(render::RenderContext& context, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) -> rg::TextureHandle;
 
@@ -109,7 +109,7 @@ struct EditorSelectionBuffers {
 
 class EditorSelectionMetadataPass {
 public:
-    EditorSelectionMetadataPass(gfx::Device& device, std::filesystem::path shader_path);
+    EditorSelectionMetadataPass(gfx::Device& device, render::ShaderSource shader);
 
     auto Build(
         render::RenderContext&     context,
@@ -154,7 +154,7 @@ private:
         std::span<const std::size_t>        selected_instances);
 
     gfx::Device&                         m_Device;
-    std::filesystem::path                m_ShaderPath;
+    render::ShaderSource                 m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_IdPS;
     std::shared_ptr<gfx::Shader>         m_VisualPS;
@@ -166,7 +166,7 @@ private:
 
 class EditorSelectionOutlinePass {
 public:
-    EditorSelectionOutlinePass(gfx::Device& device, std::filesystem::path shader_path);
+    EditorSelectionOutlinePass(gfx::Device& device, render::ShaderSource shader);
 
     auto Build(
         render::RenderContext&          context,
@@ -199,7 +199,7 @@ private:
     auto GetPipeline(gfx::Format target_format) -> std::shared_ptr<gfx::RenderPipeline>;
 
     gfx::Device&                         m_Device;
-    std::filesystem::path                m_ShaderPath;
+    render::ShaderSource                 m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_PS;
     std::shared_ptr<gfx::RenderPipeline> m_Pipeline;
@@ -208,7 +208,7 @@ private:
 
 class EditorDeferredSelectionExtension final : public render::IDeferredRenderExtension {
 public:
-    EditorDeferredSelectionExtension(gfx::Device& device, std::filesystem::path shader_path);
+    EditorDeferredSelectionExtension(gfx::Device& device, const render::ShaderSource& shader);
 
     void SetSelection(EditorSelectionDesc desc);
 

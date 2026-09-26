@@ -6,37 +6,27 @@ import std;
 
 namespace hitagi::render {
 
-namespace {
-
-auto ReadShaderSource(const std::filesystem::path& path) -> std::pmr::string {
-    if (core::FileIOManager::Get() == nullptr) return {};
-    return std::pmr::string(core::FileIOManager::Get()->SyncOpenAndReadBinary(path).Str());
-}
-
-}  // namespace
-passes::DeferredLighting::DeferredLighting(gfx::Device& device, std::filesystem::path shader_path)
+passes::DeferredLighting::DeferredLighting(gfx::Device& device, ShaderSource shader)
     : m_Device(device),
-      m_ShaderPath(std::move(shader_path)) {}
+      m_Shader(std::move(shader)) {}
 
 void passes::DeferredLighting::EnsureResources(gfx::Format target_format) {
     if (m_Pipeline != nullptr && m_TargetFormat == target_format) return;
-
-    const auto source = ReadShaderSource(m_ShaderPath);
 
     if (m_VS == nullptr) {
         m_VS = m_Device.CreateShader({
             .name        = "deferred-lighting-vs",
             .type        = gfx::ShaderType::Vertex,
             .entry       = "VSMain",
-            .source_code = source,
-            .path        = m_ShaderPath,
+            .source_code = m_Shader.code,
+            .path        = m_Shader.path,
         });
         m_PS = m_Device.CreateShader({
             .name        = "deferred-lighting-ps",
             .type        = gfx::ShaderType::Pixel,
             .entry       = "PSMain",
-            .source_code = source,
-            .path        = m_ShaderPath,
+            .source_code = m_Shader.code,
+            .path        = m_Shader.path,
         });
     }
 

@@ -21,6 +21,11 @@ constexpr auto ToIndexFormat(asset::IndexType type) noexcept -> gfx::Format {
 
 }  // namespace
 
+auto LoadShaderSource(core::FileIOManager& file_io, std::filesystem::path path) -> ShaderSource {
+    auto code = std::pmr::string(file_io.SyncOpenAndReadBinary(path).Str());
+    return {.path = std::move(path), .code = std::move(code)};
+}
+
 auto DeferredRenderer::Render(RenderContext& context, const RenderRequest& request) -> RenderResult {
     if (!context.graph.IsValid(request.target)) {
         return RenderResult{.color = request.target};
@@ -36,7 +41,7 @@ void DeferredRenderer::ClearExtensions() {
     m_Extensions.clear();
 }
 
-DeferredRenderer::DeferredRenderer(gfx::Device& device, const Application& app, std::string_view name)
+DeferredRenderer::DeferredRenderer(gfx::Device& device, core::FileIOManager& file_io, const Application& app, std::string_view name)
     : IRenderer(std::format("DeferredRenderer{}", name.empty() ? "" : std::format("({})", name))),
       m_App(app),
       m_GfxDevice(device),
@@ -50,9 +55,9 @@ DeferredRenderer::DeferredRenderer(gfx::Device& device, const Application& app, 
           .min_filter    = gfx::FilterMode::Linear,
           .mipmap_filter = gfx::FilterMode::Linear,
       })),
-      m_GBufferPass(m_GfxDevice, m_App.GetConfig().asset_root_path / "shaders" / "deferred_gbuffer.hlsl"),
-      m_DeferredLightingPass(m_GfxDevice, m_App.GetConfig().asset_root_path / "shaders" / "deferred_lighting.hlsl"),
-      m_GBufferDebugViewPass(m_GfxDevice, m_App.GetConfig().asset_root_path / "shaders" / "deferred_debug.hlsl") {}
+      m_GBufferPass(m_GfxDevice, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_gbuffer.hlsl")),
+      m_DeferredLightingPass(m_GfxDevice, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_lighting.hlsl")),
+      m_GBufferDebugViewPass(m_GfxDevice, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_debug.hlsl")) {}
 
 auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& request) -> RenderResult {
     ZoneScoped;

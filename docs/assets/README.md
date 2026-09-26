@@ -66,13 +66,18 @@ asset -> core   (Buffer, FileIOManager, JobSystem, RuntimeModule)
 ## 入口速查
 
 ```cpp
-auto* assets = asset::AssetManager::Get();
+// AssetManager 不是全局单例: 依赖 (FileIOManager / JobSystem) 由构造方显式注入。
+// 引擎内: auto& assets = engine.Assets();
+// 独立使用 (工具 / 测试):
+core::FileIOManager file_io;
+core::JobSystem     job_system;
+asset::AssetManager assets(file_io, job_system, "assets");
 
-auto scene    = assets->ImportScene("scenes/demo.hcscene");    // HTGC 场景 (按扩展名校验)
-auto material = assets->ImportMaterial("materials/pbr.bin");   // HTGC 材质 (按内容校验)
-auto texture  = assets->ImportTexture("textures/albedo.png");  // 立即解码
-auto lazy     = assets->AcquireTexture("textures/albedo.png"); // 懒加载 + 去重
+auto scene    = assets.ImportScene("scenes/demo.hcscene");    // HTGC 场景 (按扩展名校验)
+auto material = assets.ImportMaterial("materials/pbr.bin");   // HTGC 材质 (按内容校验)
+auto texture  = assets.ImportTexture("textures/albedo.png");  // 立即解码
+auto lazy     = assets.AcquireTexture("textures/albedo.png"); // 懒加载 + 去重
 
 scene->Load({.device = device});   // 建立 GPU 常驻
-assets->UnloadScene(scene);        // 释放 GPU 常驻, 保留 CPU 数据
+assets.UnloadScene(scene);         // 释放 GPU 常驻, 保留 CPU 数据
 ```

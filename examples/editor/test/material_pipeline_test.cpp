@@ -24,10 +24,17 @@ void WriteTextFile(const std::filesystem::path& path, std::string_view content) 
     file.write(content.data(), static_cast<std::streamsize>(content.size()));
 }
 
+class EditorMaterialCookTest : public ::testing::Test {
+protected:
+    core::FileIOManager file_io;
+    core::JobSystem     job_system;
+};
+
 }  // namespace
 
-TEST(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPasses) {
-    const auto   base_texture = std::make_shared<Texture>(std::filesystem::path{"assets/test/test.png"}, "base");
+TEST_F(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPasses) {
+    const std::filesystem::path base_texture_path{"assets/test/test.png"};
+    const auto   base_texture = std::make_shared<Texture>(base_texture_path, MakeFileImageLoader(file_io, base_texture_path), "base");
     MaterialPass gbuffer_pass{
         .pass_contract = "GBuffer",
         .bindings      = {"base_color", "metallic", "base_color_texture"},
@@ -48,7 +55,7 @@ TEST(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPasses
     ASSERT_FALSE(cooked.Empty());
     EXPECT_TRUE(IsCookedBinary(cooked.Span<std::byte>()));
 
-    AssetManager asset_manager("assets");
+    AssetManager asset_manager(file_io, job_system, "assets");
     const auto   loaded = asset_manager.LoadCookedMaterial(cooked, "assets");
     ASSERT_TRUE(loaded);
     EXPECT_EQ(loaded->GetName(), "BinaryCookedMaterial");
@@ -83,7 +90,7 @@ TEST(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPasses
     EXPECT_EQ(*loaded_texture, *loaded_detail_texture);
 }
 
-TEST(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) {
+TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) {
     auto scene = std::make_shared<Scene>("binary-cooked-scene");
     auto mesh  = MeshFactory::Cube();
 
@@ -107,7 +114,7 @@ TEST(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) {
     ASSERT_FALSE(cooked.Empty());
     EXPECT_TRUE(IsCookedBinary(cooked.Span<std::byte>()));
 
-    AssetManager asset_manager("assets");
+    AssetManager asset_manager(file_io, job_system, "assets");
     const auto   loaded = asset_manager.LoadCookedScene(cooked, "assets");
     ASSERT_TRUE(loaded);
     ASSERT_EQ(loaded->GetMeshEntities().size(), 1);

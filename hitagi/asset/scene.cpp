@@ -4,6 +4,7 @@ module;
 
 export module asset:scene;
 import std;
+import core;
 import ecs;
 import math;
 import gfx;
@@ -19,7 +20,10 @@ class Scene : public Resource {
 public:
     explicit Scene(std::string_view name = "");
 
+    // Propagates hierarchy and transforms on the calling thread (see ecs::World::Update).
     void Update();
+    // Per-frame update: independent systems run in parallel on `job_system`.
+    void Update(core::JobSystem& job_system);
     void Load(const ResourceLoadContext& context) final;
     void Unload() final;
 
@@ -69,6 +73,10 @@ Scene::Scene(std::string_view name)
 
 void Scene::Update() {
     m_World.Update();
+}
+
+void Scene::Update(core::JobSystem& job_system) {
+    m_World.Update(job_system);
 }
 
 void Scene::Load(const ResourceLoadContext& context) {

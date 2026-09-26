@@ -23,8 +23,9 @@ using namespace hitagi::math;
 
 namespace hitagi::asset {
 
-// Injected by AssetManager to deduplicate texture instances by path. When empty
-// (e.g. parsing outside a manager), each reference creates a fresh lazy texture.
+// Injected by AssetManager to create/deduplicate texture instances by path. It is
+// required: only the manager knows how a lazily loaded texture reads its pixels
+// and where its decode runs.
 using CookedTextureResolver = std::function<std::shared_ptr<Texture>(const std::filesystem::path& path, std::string_view name)>;
 
 auto ResolveCookedPath(const std::filesystem::path& path, const std::filesystem::path& root) -> std::filesystem::path {
@@ -140,8 +141,10 @@ auto ParameterValueFromRecord(const CookedReader& reader, const ParameterRecord&
         if (record.flags & kCookedParameterNullTexture) return std::shared_ptr<Texture>{};
         const auto path = ResolveCookedPath(reader.GetString(record.texture_path), asset_root_path);
         const auto name = reader.GetString(record.texture_name);
-        if (texture_resolver) return texture_resolver(path, name);
-        return std::make_shared<Texture>(path, name.empty() ? path.string() : std::string(name));
+        if (!texture_resolver) {
+            throw std::invalid_argument("Cooked asset parsing requires a texture resolver to bind file-backed textures");
+        }
+        return texture_resolver(path, name);
     }
     throw std::runtime_error(std::format("Unknown cooked material parameter type: {}", type));
 }

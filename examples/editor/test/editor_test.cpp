@@ -18,18 +18,24 @@ auto ResolvePassTextures(const asset::Material& material, const asset::MaterialP
     return textures;
 }
 
+// Core services for the tests that build an AssetManager; declared on the
+// fixture so they outlive the manager and every texture it hands out.
+class EditorTest : public ::testing::Test {
+protected:
+    core::FileIOManager file_io;
+    core::JobSystem     job_system;
+};
+
 }  // namespace
 
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::trace);
-    auto file_io_manager = std::make_unique<core::FileIOManager>();
-    auto job_system      = std::make_unique<core::JobSystem>();
 
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
 
-TEST(EditorTest, ParsesLaunchOptions) {
+TEST_F(EditorTest, ParsesLaunchOptions) {
     const char* argv[] = {
         "editor",
         "--open-scene",
@@ -60,7 +66,7 @@ TEST(EditorTest, ParsesLaunchOptions) {
     EXPECT_TRUE(options.exit_after_load);
 }
 
-TEST(EditorTest, CreatesFixtureScene) {
+TEST_F(EditorTest, CreatesFixtureScene) {
     auto scene = CreateEditorFixtureScene();
 
     ASSERT_TRUE(scene);
@@ -70,7 +76,7 @@ TEST(EditorTest, CreatesFixtureScene) {
     EXPECT_EQ(scene->GetLightEntities().size(), 1);
 }
 
-TEST(EditorTest, CreatesDefaultSceneWithCameraAtTwoTwoTwoLookingAtOrigin) {
+TEST_F(EditorTest, CreatesDefaultSceneWithCameraAtTwoTwoTwoLookingAtOrigin) {
     auto scene = CreateEditorDefaultScene();
 
     ASSERT_TRUE(scene);
@@ -92,7 +98,7 @@ TEST(EditorTest, CreatesDefaultSceneWithCameraAtTwoTwoTwoLookingAtOrigin) {
     EXPECT_NEAR(camera->parameters.look_dir.z, expected_look_dir.z, 1e-5f);
 }
 
-TEST(EditorTest, EditorStateTracksSceneSelectionAndDirtyState) {
+TEST_F(EditorTest, EditorStateTracksSceneSelectionAndDirtyState) {
     EditorState state;
     auto        scene = CreateEditorFixtureScene();
     auto        root  = scene->GetRootEntity();
@@ -113,7 +119,7 @@ TEST(EditorTest, EditorStateTracksSceneSelectionAndDirtyState) {
     EXPECT_FALSE(state.GetSelectedEntity());
 }
 
-TEST(EditorTest, ClassifiesEditorAssetsAndTracksSelection) {
+TEST_F(EditorTest, ClassifiesEditorAssetsAndTracksSelection) {
     EXPECT_EQ(ClassifyEditorAssetPath("assets/test/test.usda"), EditorAssetKind::Scene);
     EXPECT_EQ(ClassifyEditorAssetPath("scene.hscene"), EditorAssetKind::Unknown);
     EXPECT_EQ(ClassifyEditorAssetPath("texture.PNG"), EditorAssetKind::Texture);
@@ -130,7 +136,7 @@ TEST(EditorTest, ClassifiesEditorAssetsAndTracksSelection) {
     EXPECT_TRUE(state.GetSelectedAssetPath().empty());
 }
 
-TEST(EditorTest, CommandStackUndoRedoTransformChange) {
+TEST_F(EditorTest, CommandStackUndoRedoTransformChange) {
     auto scene  = CreateEditorFixtureScene();
     auto entity = scene->CreateEmptyEntity(math::mat4f::identity(), scene->GetRootEntity(), "command-target");
 
@@ -160,7 +166,7 @@ TEST(EditorTest, CommandStackUndoRedoTransformChange) {
     EXPECT_FLOAT_EQ(entity.Get<asset::Transform>().position.y, 8.0f);
 }
 
-TEST(EditorTest, ComponentCommandsUndoRedoValues) {
+TEST_F(EditorTest, ComponentCommandsUndoRedoValues) {
     auto material = std::make_shared<asset::Material>(
         asset::MaterialParameters{
             {"roughness", 1.0f},
@@ -191,7 +197,7 @@ TEST(EditorTest, ComponentCommandsUndoRedoValues) {
     EXPECT_FLOAT_EQ(light->parameters.intensity, asset::Light::Parameters{}.intensity);
 }
 
-TEST(EditorTest, MaterialDebugDataExposesSourceAndPassBindings) {
+TEST_F(EditorTest, MaterialDebugDataExposesSourceAndPassBindings) {
     auto base_color_texture = std::make_shared<asset::Texture>(
         1,
         1,
@@ -245,7 +251,7 @@ TEST(EditorTest, MaterialDebugDataExposesSourceAndPassBindings) {
     EXPECT_EQ(associated_textures.front(), base_color_texture);
 }
 
-TEST(EditorTest, RenderGraphDebugSnapshotParsesPassesAndResources) {
+TEST_F(EditorTest, RenderGraphDebugSnapshotParsesPassesAndResources) {
     const auto snapshot = BuildEditorRenderGraphDebugSnapshot(R"(digraph {
   0 [shape=box label="Scene Color\nhandle: 0"];
   1 [label="GBufferPass\nhandle: 1"];
@@ -262,7 +268,7 @@ TEST(EditorTest, RenderGraphDebugSnapshotParsesPassesAndResources) {
     EXPECT_EQ(snapshot.resources[1].name, "Scene Depth");
 }
 
-TEST(EditorTest, ComponentAddRemoveCommandsUpdateSceneLists) {
+TEST_F(EditorTest, ComponentAddRemoveCommandsUpdateSceneLists) {
     auto scene  = CreateEditorFixtureScene();
     auto entity = scene->CreateEmptyEntity(math::mat4f::identity(), scene->GetRootEntity(), "component-target");
 
@@ -296,7 +302,7 @@ TEST(EditorTest, ComponentAddRemoveCommandsUpdateSceneLists) {
     EXPECT_TRUE(entity.Has<asset::LightComponent>());
 }
 
-TEST(EditorTest, RuntimeSceneCloneDoesNotMutateEditScene) {
+TEST_F(EditorTest, RuntimeSceneCloneDoesNotMutateEditScene) {
     auto edit_scene    = CreateEditorFixtureScene();
     auto runtime_scene = CreateEditorRuntimeScene(*edit_scene);
 
@@ -314,7 +320,7 @@ TEST(EditorTest, RuntimeSceneCloneDoesNotMutateEditScene) {
     EXPECT_NE(CountSceneEntities(*runtime_scene), CountSceneEntities(*edit_scene));
 }
 
-TEST(EditorTest, EditorStateTracksPlayPauseModes) {
+TEST_F(EditorTest, EditorStateTracksPlayPauseModes) {
     EditorState state;
     EXPECT_EQ(state.GetMode(), EditorMode::Edit);
     state.SetMode(EditorMode::Play);
@@ -360,7 +366,7 @@ auto CreateEditorPickingTriangle() -> std::shared_ptr<asset::Mesh> {
 }
 }  // namespace
 
-TEST(EditorTest, ViewportPickingHitsNearestEntityMesh) {
+TEST_F(EditorTest, ViewportPickingHitsNearestEntityMesh) {
     auto scene       = std::make_shared<asset::Scene>("picking");
     auto near_entity = scene->CreateMeshEntity(asset::MeshFactory::Cube(), math::translate(math::vec3f{0.0f, 5.0f, 0.0f}), scene->GetRootEntity(), "near");
     scene->CreateMeshEntity(asset::MeshFactory::Cube(), math::translate(math::vec3f{0.0f, 9.0f, 0.0f}), scene->GetRootEntity(), "far");
@@ -378,7 +384,7 @@ TEST(EditorTest, ViewportPickingHitsNearestEntityMesh) {
     EXPECT_GT(pick->distance, 0.0f);
 }
 
-TEST(EditorTest, ViewportPickingIgnoresMeshAABBMisses) {
+TEST_F(EditorTest, ViewportPickingIgnoresMeshAABBMisses) {
     auto scene = std::make_shared<asset::Scene>("picking");
     scene->CreateMeshEntity(CreateEditorPickingTriangle(), math::translate(math::vec3f{0.0f, 5.0f, 0.0f}), scene->GetRootEntity(), "triangle");
     scene->Update();
@@ -393,7 +399,7 @@ TEST(EditorTest, ViewportPickingIgnoresMeshAABBMisses) {
     EXPECT_FALSE(pick);
 }
 
-TEST(EditorTest, ViewportRayUsesCameraProjectionCenter) {
+TEST_F(EditorTest, ViewportRayUsesCameraProjectionCenter) {
     auto camera = asset::Camera(asset::Camera::Parameters{
         .aspect         = 1.0f,
         .near_clip      = 0.1f,
@@ -409,7 +415,7 @@ TEST(EditorTest, ViewportRayUsesCameraProjectionCenter) {
     EXPECT_NEAR(math::dot(ray.direction, math::vec3f{0.0f, 1.0f, 0.0f}), 1.0f, 1e-4f);
 }
 
-TEST(EditorTest, WorldXYGridStepDoesNotChangeWhenOnlyCameraYawChanges) {
+TEST_F(EditorTest, WorldXYGridStepDoesNotChangeWhenOnlyCameraYawChanges) {
     const auto camera_position = math::vec3f{2.0f, 2.0f, 2.0f};
     const auto first_step      = ComputeEditorWorldXYGridMinorStep(camera_position, 60.0_deg, 16.0f / 9.0f, 720.0f);
 
@@ -423,7 +429,7 @@ TEST(EditorTest, WorldXYGridStepDoesNotChangeWhenOnlyCameraYawChanges) {
     }
 }
 
-TEST(EditorTest, ViewportNavigationDoesNothingWithoutMiddleMouseOrbit) {
+TEST_F(EditorTest, ViewportNavigationDoesNothingWithoutMiddleMouseOrbit) {
     auto camera = asset::Camera::Parameters{
         .eye      = {0.0f, 0.0f, 0.0f},
         .look_dir = {0.0f, 1.0f, 0.0f},
@@ -455,7 +461,7 @@ TEST(EditorTest, ViewportNavigationDoesNothingWithoutMiddleMouseOrbit) {
     EXPECT_FLOAT_EQ(transform.rotation.w, before_rotation.w);
 }
 
-TEST(EditorTest, ViewportNavigationMmbOrbitsAroundFocusedPivot) {
+TEST_F(EditorTest, ViewportNavigationMmbOrbitsAroundFocusedPivot) {
     auto camera = asset::Camera::Parameters{
         .eye      = {0.0f, 0.0f, 0.0f},
         .look_dir = {0.0f, 1.0f, 0.0f},
@@ -497,7 +503,7 @@ TEST(EditorTest, ViewportNavigationMmbOrbitsAroundFocusedPivot) {
     EXPECT_NEAR(math::dot(math::normalize(state.orbit_pivot - world_eye), world_look), 1.0f, 1e-4f);
 }
 
-TEST(EditorTest, ViewportNavigationMmbDefaultsToWorldOriginPivot) {
+TEST_F(EditorTest, ViewportNavigationMmbDefaultsToWorldOriginPivot) {
     auto camera = asset::Camera::Parameters{
         .eye      = {0.0f, 0.0f, 0.0f},
         .look_dir = {0.0f, 1.0f, 0.0f},
@@ -534,7 +540,7 @@ TEST(EditorTest, ViewportNavigationMmbDefaultsToWorldOriginPivot) {
     EXPECT_NEAR((world_eye - math::vec3f{}).norm(), 5.0f, 1e-4f);
 }
 
-TEST(EditorTest, ViewportNavigationWheelZoomsTowardOrbitPivot) {
+TEST_F(EditorTest, ViewportNavigationWheelZoomsTowardOrbitPivot) {
     auto camera = asset::Camera::Parameters{
         .eye      = {0.0f, 0.0f, 0.0f},
         .look_dir = {0.0f, 1.0f, 0.0f},
@@ -569,7 +575,7 @@ TEST(EditorTest, ViewportNavigationWheelZoomsTowardOrbitPivot) {
     EXPECT_NEAR(transform.position.norm(), 10.0f, 1e-4f);
 }
 
-TEST(EditorTest, ViewportNavigationBelowXYPlaneKeepsMiddleMouseRightScreenRight) {
+TEST_F(EditorTest, ViewportNavigationBelowXYPlaneKeepsMiddleMouseRightScreenRight) {
     auto camera = asset::Camera::Parameters{
         .eye      = {0.0f, 0.0f, 0.0f},
         .look_dir = {0.0f, 1.0f, 0.0f},
@@ -610,7 +616,7 @@ TEST(EditorTest, ViewportNavigationBelowXYPlaneKeepsMiddleMouseRightScreenRight)
     EXPECT_GT(world_look.x, 0.0f);
 }
 
-TEST(EditorTest, HierarchyCommandsEditAndUndoRedo) {
+TEST_F(EditorTest, HierarchyCommandsEditAndUndoRedo) {
     auto scene = CreateEditorFixtureScene();
     auto root  = scene->GetRootEntity();
 
@@ -658,14 +664,13 @@ TEST(EditorTest, HierarchyCommandsEditAndUndoRedo) {
     EXPECT_EQ(state.GetSelectedEntity().Get<asset::MetaInfo>().name, "renamed");
 }
 
-TEST(EditorTest, ImportsUsdSceneWithoutEditorWindow) {
-    auto asset_manager = std::make_unique<asset::AssetManager>("assets");
-    auto scene         = ImportEditorScene(
+TEST_F(EditorTest, ImportsUsdSceneWithoutEditorWindow) {
+    asset::AssetManager asset_manager(file_io, job_system, "assets");
+    auto                scene = ImportEditorScene(
+        asset_manager,
         "assets/test/test.usda",
         "assets/test",
-        [asset_manager = asset_manager.get()](std::string_view name) {
-            return asset_manager->GetMaterial(name);
-        });
+        [&asset_manager](std::string_view name) { return asset_manager.GetMaterial(name); });
 
     ASSERT_TRUE(scene);
     EXPECT_TRUE(scene->GetRootEntity());

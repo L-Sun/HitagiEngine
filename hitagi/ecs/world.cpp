@@ -5,32 +5,32 @@ module;
 module ecs;
 import std;
 namespace hitagi::ecs {
-World::World(std::string_view name, core::JobSystem* job_system)
+World::World(std::string_view name)
     : m_Name(name),
       m_Logger(utils::try_create_logger(name)),
       m_EntityManager(*this),
-      m_JobSystem(job_system),
       m_SystemManager(*this) {
 }
 
 World::~World() = default;
 
-void World::Update() {
-    ZoneScopedN("ECS::World::Update");
+auto World::PrepareSchedule() -> Schedule& {
     if (m_ScheduleDirty || !m_Schedule) {
         m_Schedule = std::make_unique<Schedule>(*this);
         m_SystemManager.Update(*m_Schedule);
         m_ScheduleDirty = false;
     }
+    return *m_Schedule;
+}
 
-    if (m_JobSystem == nullptr) {
-        m_JobSystem = core::JobSystem::Get();
-    }
-    if (m_JobSystem == nullptr) {
-        throw std::runtime_error("ecs::World requires core::JobSystem to update");
-    }
+void World::Update() {
+    ZoneScopedN("ECS::World::Update");
+    PrepareSchedule().RunSerial();
+}
 
-    m_Schedule->Run(*m_JobSystem);
+void World::Update(core::JobSystem& job_system) {
+    ZoneScopedN("ECS::World::Update");
+    PrepareSchedule().Run(job_system);
 }
 
 void World::InvalidateSchedule() noexcept {

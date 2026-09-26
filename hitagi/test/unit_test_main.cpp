@@ -12,9 +12,10 @@ int main(int argc, char** argv) {
     // MemoryManager replaces the global PMR default resource.
     ::testing::InitGoogleTest(&argc, argv);
 
-    auto memory_manager  = std::make_unique<hitagi::core::MemoryManager>();
-    auto file_io_manager = std::make_unique<hitagi::core::FileIOManager>();
-    auto job_system      = std::make_unique<hitagi::core::JobSystem>();
+    // MemoryManager is the only process-wide service: it installs the PMR default
+    // resource. Everything else (FileIOManager, JobSystem, ...) is owned by the
+    // fixtures that need it, so each test states its dependencies explicitly.
+    auto memory_manager = std::make_unique<hitagi::core::MemoryManager>();
 
     const auto result = RUN_ALL_TESTS();
 

@@ -10,11 +10,6 @@ namespace hitagi::render {
 
 namespace {
 
-auto ReadShaderSource(const std::filesystem::path& path) -> std::pmr::string {
-    if (core::FileIOManager::Get() == nullptr) return {};
-    return std::pmr::string(core::FileIOManager::Get()->SyncOpenAndReadBinary(path).Str());
-}
-
 auto CountDraws(const RenderDrawState& draw_state) noexcept -> std::size_t {
     std::size_t result = 0;
     for (const auto& instance_info : draw_state.instance_infos) {
@@ -166,9 +161,9 @@ auto passes::ObjectMaterialIdPass::CreateTarget(RenderContext& context, const De
     });
 }
 
-passes::GBuffer::GBuffer(gfx::Device& device, std::filesystem::path shader_path)
+passes::GBuffer::GBuffer(gfx::Device& device, ShaderSource shader)
     : m_Device(device),
-      m_ShaderPath(std::move(shader_path)) {}
+      m_Shader(std::move(shader)) {}
 
 void passes::GBuffer::EnsureResources() {
     if (m_AlbedoPipeline != nullptr &&
@@ -178,42 +173,40 @@ void passes::GBuffer::EnsureResources() {
         return;
     }
 
-    const auto source = ReadShaderSource(m_ShaderPath);
-
     m_VS         = m_Device.CreateShader({
         .name        = "deferred-gbuffer-vs",
         .type        = gfx::ShaderType::Vertex,
         .entry       = "VSMain",
-        .source_code = source,
-        .path        = m_ShaderPath,
+        .source_code = m_Shader.code,
+        .path        = m_Shader.path,
     });
     m_AlbedoPS   = m_Device.CreateShader({
         .name        = "deferred-gbuffer-albedo-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSAlbedoMain",
-        .source_code = source,
-        .path        = m_ShaderPath,
+        .source_code = m_Shader.code,
+        .path        = m_Shader.path,
     });
     m_NormalPS   = m_Device.CreateShader({
         .name        = "deferred-gbuffer-normal-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSNormalMain",
-        .source_code = source,
-        .path        = m_ShaderPath,
+        .source_code = m_Shader.code,
+        .path        = m_Shader.path,
     });
     m_MaterialPS = m_Device.CreateShader({
         .name        = "deferred-gbuffer-material-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSMaterialMain",
-        .source_code = source,
-        .path        = m_ShaderPath,
+        .source_code = m_Shader.code,
+        .path        = m_Shader.path,
     });
     m_EmissivePS = m_Device.CreateShader({
         .name        = "deferred-gbuffer-emissive-ps",
         .type        = gfx::ShaderType::Pixel,
         .entry       = "PSEmissiveMain",
-        .source_code = source,
-        .path        = m_ShaderPath,
+        .source_code = m_Shader.code,
+        .path        = m_Shader.path,
     });
 
     const auto vertex_layout = m_Device.GetShaderCompiler().ExtractVertexLayout(m_VS->GetDesc());
