@@ -1,46 +1,43 @@
-# hitagi::asset 模块文档
+# hitagi::asset module
 
-`hitagi::asset` 是引擎运行时的资源层。它只做三件事：把 cooked 数据变成运行时对象、
-管理这些对象的 GPU 常驻状态、给上层提供按身份查找与去重的入口。
+`hitagi::asset` is the engine's runtime resource layer. It does three things: turn cooked data into runtime objects, manage the GPU residency of those objects, and give the layers above a way to look them up and deduplicate them by identity.
 
-它**不做**的事同样重要：不解析 USD、不编译材质图、不理解 PBR/Toon 这类具体渲染模型。
-这些属于 `hitagi::editor`（导入与 cook）和 game/renderer preset（材质语义）。
+What it does **not** do matters just as much: it does not parse USD, compile material graphs, or understand concrete shading models such as PBR or Toon. Those belong to `hitagi::editor` (import and cook) and to the game or renderer preset (material semantics).
 
-## 文档
+## Documents
 
-| 文档 | 内容 |
+| Document | Contents |
 | --- | --- |
-| [resource_lifecycle.md](resource_lifecycle.md) | `Resource` 基类、`ResourceLoadState` 状态机、各资源的 Load/Unload 行为、纹理异步解码、`AssetManager` 注册表与卸载策略 |
-| [material.md](material.md) | `Material` / `MaterialPass` 的边界、参数值模型、`material_data` 的 GPU ABI 打包规则、占位纹理机制 |
-| [cooked_binary_format.md](cooked_binary_format.md) | HTGC 二进制容器格式规范，写入端（editor cook）与读取端（runtime parser）的完整约定 |
+| [resource_lifecycle.md](resource_lifecycle.md) | The `Resource` base class, the `ResourceLoadState` state machine, Load/Unload behavior per resource, asynchronous texture decode, and the `AssetManager` registry and unload policy |
+| [material.md](material.md) | The `Material` / `MaterialPass` boundary, the parameter-value model, GPU ABI packing rules for `material_data`, and the placeholder-texture mechanism |
+| [cooked_binary_format.md](cooked_binary_format.md) | The HTGC binary container specification, and the full contract between the writer (editor cook) and the reader (runtime parser) |
 
-## 模块结构
+## Module structure
 
-`asset` 是单接口多分区的 C++20 模块。`asset.cppm` 只做 re-export：
+`asset` is a C++20 module with one interface and many partitions. `asset.cppm` only re-exports:
 
 ```text
 asset.cppm
-  :cooked_format   HTGC 记录 POD 定义 (格式的唯一真相来源)
-  :resource        Resource 基类 + ResourceLoadContext + ResourceLoadState
-  :image_codec     ImageCodec 接口 + BMP/JPEG/PNG/TGA 实现
+  :cooked_format   HTGC record POD definitions (the single source of truth for the format)
+  :resource        Resource base class + ResourceLoadContext + ResourceLoadState
+  :image_codec     ImageCodec interface + BMP/JPEG/PNG/TGA implementations
   :texture         Texture
   :material        Material / MaterialPass / MaterialParameterValue
   :mesh            VertexArray / IndexArray / Mesh / MeshFactory
   :camera          Camera
   :light           Light
-  :transform       Transform / RelationShip / MetaInfo (ECS 组件与系统)
-  :scene           Scene (持有 ecs::World)
+  :transform       Transform / RelationShip / MetaInfo (ECS components and systems)
+  :scene           Scene (owns an ecs::World)
   :shader          Shader
   :pipeline        RenderPipeline / ComputePipeline
   :manager         AssetManager
 ```
 
-另有一个不导出的实现分区 `:cooked_binary`，实现 `ParseCookedMaterial` /
-`ParseCookedScene`。它对模块外不可见，`:manager` 通过 `import :cooked_binary;` 使用。
+There is also an implementation partition, `:cooked_binary`, that is not exported. It implements `ParseCookedMaterial` / `ParseCookedScene`. It is invisible outside the module; `:manager` uses it through `import :cooked_binary;`.
 
-## 资源类型
+## Resource types
 
-`Resource::Type` 覆盖全部资源：
+`Resource::Type` covers every resource:
 
 ```text
 Texture  Material  Vertex  Index  Mesh
@@ -48,36 +45,35 @@ Camera   Light     Scene   Shader
 RenderPipeline     ComputePipeline
 ```
 
-其中 `Camera` / `Light` 没有 GPU 资源，`Load` 只是把状态置为 `Loaded`，
-以便统一走同一套生命周期接口。
+`Camera` and `Light` have no GPU resources. Their `Load` only sets the state to `Loaded`, so they still go through the same lifecycle interface.
 
-## 依赖方向
+## Dependency direction
 
 ```text
 asset -> core   (Buffer, FileIOManager, JobSystem, RuntimeModule)
       -> gfx    (Device, Texture, GPUBuffer, Shader, RenderPipeline, BindlessHandle)
       -> math   (vec/mat/Color/AABB)
-      -> ecs    (Scene 的实体存储)
+      -> ecs    (entity storage for Scene)
       -> utils  (UUID, EnumArray, optional_ref, Overloaded)
 ```
 
-`asset` 不依赖 `render`、`editor`、`engine`。反向依赖由上层建立。
+`asset` does not depend on `render`, `editor`, or `engine`. Those layers depend on it.
 
-## 入口速查
+## Quick entry points
 
 ```cpp
-// AssetManager 不是全局单例: 依赖 (FileIOManager / JobSystem) 由构造方显式注入。
-// 引擎内: auto& assets = engine.Assets();
-// 独立使用 (工具 / 测试):
+// AssetManager is not a global singleton: FileIOManager and JobSystem are injected by the caller.
+// Inside the engine: auto& assets = engine.Assets();
+// Standalone (tools / tests):
 core::FileIOManager file_io;
 core::JobSystem     job_system;
 asset::AssetManager assets(file_io, job_system, "assets");
 
-auto scene    = assets.ImportScene("scenes/demo.hcscene");    // HTGC 场景 (按扩展名校验)
-auto material = assets.ImportMaterial("materials/pbr.bin");   // HTGC 材质 (按内容校验)
-auto texture  = assets.ImportTexture("textures/albedo.png");  // 立即解码
-auto lazy     = assets.AcquireTexture("textures/albedo.png"); // 懒加载 + 去重
+auto scene    = assets.ImportScene("scenes/demo.hcscene");    // HTGC scene (validated by extension)
+auto material = assets.ImportMaterial("materials/pbr.bin");   // HTGC material (validated by content)
+auto texture  = assets.ImportTexture("textures/albedo.png");  // decode immediately
+auto lazy     = assets.AcquireTexture("textures/albedo.png"); // lazy load + dedup
 
-scene->Load({.device = device});   // 建立 GPU 常驻
-assets.UnloadScene(scene);         // 释放 GPU 常驻, 保留 CPU 数据
+scene->Load({.device = device});   // establish GPU residency
+assets.UnloadScene(scene);         // release GPU residency, keep CPU data
 ```

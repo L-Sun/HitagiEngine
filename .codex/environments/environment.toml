@@ -6,6 +6,6 @@ name = "HitagiEngine"
 script = ""
 
 [[actions]]
-name = "运行"
+name = "Run"
 icon = "run"
 command = "xmake r editor"

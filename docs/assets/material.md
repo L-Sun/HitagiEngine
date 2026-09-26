@@ -1,26 +1,23 @@
-# 材质
+# Materials
 
-`hitagi::asset::Material` 是引擎运行时材质资源。它**不描述** PBR、Toon、Unlit 这类
-渲染模型，也不保存 shade graph。它只有两样东西：一张命名参数值表，
-以及若干条「面向某个 pass contract 的 GPU 绑定约定」。
+`hitagi::asset::Material` is the engine's runtime material resource. It does **not** describe shading models such as PBR, Toon, or Unlit, and it does not store a shade graph. It holds two things: a table of named parameter values, and a set of GPU binding contracts, each aimed at one pass contract.
 
-具体材质语义属于更外层：
+Concrete material semantics live further out:
 
 ```text
 game / renderer preset
-  拥有材质语义、图降级策略、pass contract 的定义
+  owns material semantics, graph-lowering policy, and pass-contract definitions
 
 editor / importer / cooker
-  读取 authoring 数据 (USD 等), 调用 preset processor, 产出 cooked 材质
+  reads authoring data (USD and similar), runs the preset processor, and produces cooked materials
 
 engine asset::Material
-  存参数值, 存 pass 绑定约定, 按绑定顺序打包 material_data
+  stores parameter values, stores pass binding contracts, and packs material_data in binding order
 ```
 
-所以 `hitagi::asset` 里不会出现 `MaterialModel`、`PBRMaterialDesc`、
-`ToonMaterialDesc` 这类声明。
+So `hitagi::asset` does not declare types such as `MaterialModel`, `PBRMaterialDesc`, or `ToonMaterialDesc`.
 
-## 数据模型
+## Data model
 
 ```cpp
 using MaterialParameterValue = std::variant<
@@ -61,79 +58,68 @@ public:
 };
 ```
 
-构造函数会按 name 去重参数（保留首次出现），并深拷贝 passes。
+The constructor deduplicates parameters by name (keeping the first occurrence) and deep-copies the passes.
 
-## bindings 才是 GPU ABI
+## bindings are the GPU ABI
 
-`MaterialParameters` 只是值表，它的存储顺序**不是** shader ABI。真正的顺序由
-每个 pass 的 `bindings` 决定：
+`MaterialParameters` is only a value table. Its storage order is **not** the shader ABI. The real order comes from each pass's `bindings`:
 
 ```text
-Material.parameters              (值表, 顺序无意义)
+Material.parameters              (value table, order is meaningless)
   base_color = Color(...)
   roughness  = 0.4
   albedo     = Texture(...)
   unused     = 1.0
 
-MaterialPass("DemoPBRForward").bindings   (ABI, 顺序即布局)
+MaterialPass("DemoPBRForward").bindings   (ABI, order is the layout)
   base_color
   roughness
   albedo
         ↓
-  material_data : [base_color(16B)][roughness(4B)][albedo handle(4B)] + 对齐
+  material_data : [base_color(16B)][roughness(4B)][albedo handle(4B)] + alignment
 ```
 
-没有出现在 `bindings` 里的参数（例子中的 `unused`）不进入这个 pass 的
-`material_data`；`bindings` 里找不到对应参数的名字会被跳过。
+A parameter that does not appear in `bindings` (such as `unused` above) is left out of that pass's `material_data`. A name in `bindings` that has no matching parameter is skipped.
 
-同一个 material 可以有多条 pass，各自有独立的 `bindings` 和 `material_data`。
-renderer 用 `FindPass("自己约定的 contract")` 取，取不到就跳过这个材质——
-不会从参数名反推渲染模型，也不会临时合成 pass。
+One material can have several passes, each with its own `bindings` and `material_data`. The renderer fetches a pass with `FindPass("the contract it agreed on")`. If the pass is missing, that material is skipped. The renderer does not infer a shading model from parameter names, and it does not synthesize a pass on the spot.
 
-`MaterialPass` 不是 RenderGraph 的 pass。它是「某个材质面向某个 pass contract 的
-绑定 ABI」，是数据，不是执行节点。
+`MaterialPass` is not a RenderGraph pass. It is the binding ABI of one material for one pass contract: data, not an execution node.
 
-## material_data 的打包规则
+## material_data packing rules
 
-`GenerateMaterialData` 按 `bindings` 顺序逐个写入：
+`GenerateMaterialData` writes values in `bindings` order:
 
-* 标量/向量/矩阵：按 `sizeof(T)` 原样 `memcpy`。
-* 纹理：写入 `gfx::BindlessHandle`，占 `sizeof(gfx::BindlessHandle)` 字节。
-* DX12 后端启用 16 字节打包：若当前 offset 到下一个 16 字节边界的剩余空间
-  装不下这个值，先补齐到边界再写，避免值跨越边界。Vulkan 后端不做这个调整。
-* 缓冲总大小为 `max(16, align(offset, 16))`，`bindings` 为空则不分配。
-* 缓冲在写入前整体清零，未命中的绑定留 0。
+* Scalars, vectors, and matrices are `memcpy`'d as `sizeof(T)`.
+* Textures are written as a `gfx::BindlessHandle`, occupying `sizeof(gfx::BindlessHandle)` bytes.
+* The DX12 backend packs on 16-byte boundaries: if the space from the current offset to the next 16-byte boundary cannot hold the value, the writer pads to that boundary first so the value does not straddle it. The Vulkan backend does not do this.
+* The buffer size is `max(16, align(offset, 16))`. An empty `bindings` list allocates nothing.
+* The buffer is zeroed before writing, so unmatched bindings stay 0.
 
-后端差异由 `context.device.device_type == gfx::Device::Type::DX12` 决定，
-所以同一个材质在不同后端上打出的字节布局可以不同——这正是 `material_data`
-必须在运行时生成、而不能在 cook 时固化的原因。
+The backend difference is decided by `context.device.device_type == gfx::Device::Type::DX12`, so the same material can pack to a different byte layout on different backends. That is why `material_data` must be generated at runtime and cannot be baked at cook time.
 
-## 占位纹理与重打包
+## Placeholder textures and repacking
 
-纹理可能还在后台解码，而这一帧就要把 bindless handle 写进 `material_data`。
-处理方式是占位 + 重打包，不需要纹理反向通知材质：
+A texture may still be decoding in the background when this frame needs to write a bindless handle into `material_data`. The fix is a placeholder plus a later repack. The texture does not need to notify the material:
 
 ```text
 Frame 1  Material::Load
-           纹理 Load -> Loading (在飞)
+           texture Load -> Loading (in flight)
            pending = true
-           DefaultTexture 确保常驻, 打包占位 handle
-           m_HasPendingTextures = true, 状态置 Loaded
+           DefaultTexture is kept resident, and the placeholder handle is packed
+           m_HasPendingTextures = true, state set to Loaded
 
 Frame 2  Material::Load
-           因 m_HasPendingTextures 为真, 不短路
-           纹理 Load -> Staged -> Upload -> Loaded
-           pending = false, 重新打包真实 handle
+           m_HasPendingTextures is true, so Load does not return early
+           texture Load -> Staged -> Upload -> Loaded
+           pending = false, repack the real handle
 
 Frame 3  Material::Load
-           Loaded 且无 pending -> 直接返回, handle 保持稳定
+           Loaded and no pending -> return immediately, handle stays stable
 ```
 
-判定用的是 `Texture::IsSettled()`（`Loaded` 或 `Failed`），所以解码失败的纹理
-不会让材质永远重打包下去——它会稳定在占位 handle 上。
+The check uses `Texture::IsSettled()` (`Loaded` or `Failed`), so a texture that failed to decode does not make the material repack forever. It settles on the placeholder handle.
 
-`GenerateMaterialData` 里对纹理还有一层兜底：拿不到 GPU view 且纹理非空时，
-直接取 `Texture::DefaultTexture()` 的 handle，保证 shader 采样到的永远是有效资源。
+`GenerateMaterialData` has one more fallback for textures: if it cannot get a GPU view and the texture is non-null, it takes the handle of `Texture::DefaultTexture()`, so the shader always samples a valid resource.
 
 ## Load / Unload
 
@@ -143,35 +129,31 @@ void Material::Load(const ResourceLoadContext& context) {
 
     bool pending = false;
     for (auto& parameter : m_Parameters) {
-        // 非空纹理参数逐个 Load, 未 settle 则标记 pending
+        // Load each non-null texture parameter; mark pending if it has not settled
     }
     if (pending) Texture::DefaultTexture()->Load(context);
 
     for (auto& pass : m_Passes) {
         if (pass.pipeline) pass.pipeline->Load(context);
-        pass.material_data = GenerateMaterialData(pass, /* DX12 打包 */);
+        pass.material_data = GenerateMaterialData(pass, /* DX12 packing */);
     }
     m_HasPendingTextures = pending;
     SetLoadState(ResourceLoadState::Loaded);
 }
 ```
 
-`Unload` 清空所有 `material_data` 并级联 `pipeline->Unload()`，但不碰纹理——
-纹理常被多材质共享，由引用计数回收。
+`Unload` clears every `material_data` and cascades `pipeline->Unload()`. It does not touch textures. Textures are often shared by several materials and are reclaimed by reference counting.
 
-`SetParameter` 会调用 `InvalidatePassData()`：清空全部 `material_data` 并把状态
-退回 `Unloaded`，下一次 `Load` 自然重建。
+`SetParameter` calls `InvalidatePassData()`: it clears every `material_data` and moves the state back to `Unloaded`, so the next `Load` rebuilds it.
 
-## pipeline 挂在 pass 上
+## The pipeline lives on the pass
 
-shader 描述不直接挂在 `MaterialPass`，而是由 `asset::RenderPipeline` 持有
-（`gfx::RenderPipelineDesc` + `asset::Shader` 列表）。`RenderPipeline::Load` 负责：
+Shader descriptions are not stored directly on `MaterialPass`. `asset::RenderPipeline` holds them (`gfx::RenderPipelineDesc` plus a list of `asset::Shader`). `RenderPipeline::Load` does this:
 
 ```text
-1. 逐个 Load 持有的 Shader (device.CreateShader)
-2. desc.vertex_input_layout 为空时, 从 vertex shader 反射出 layout
+1. Load each owned Shader (device.CreateShader)
+2. If desc.vertex_input_layout is empty, reflect the layout from the vertex shader
 3. device.CreateRenderPipeline(desc, shaders)
 ```
 
-renderer 取 pipeline 的顺序是：优先 `MaterialPass.pipeline->GetBuiltPipeline()`，
-没有时回退到 renderer 自带的默认 pipeline。
+The renderer prefers `MaterialPass.pipeline->GetBuiltPipeline()`. If that is missing, it falls back to the renderer's own default pipeline.

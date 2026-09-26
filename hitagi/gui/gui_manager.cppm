@@ -257,7 +257,7 @@ inline constexpr auto convert_imgui_key(ImGuiKey key) -> hid::VirtualKeyCode {
         // - Code polling every keys (e.g. an interface to detect a key press for input mapping) might want to ignore those
         //   and prefer using the real keys (e.g. ImGuiKey_LeftCtrl, ImGuiKey_RightCtrl instead of ImGuiKey_ModCtrl).
         // - In theory the value of keyboard modifiers should be roughly equivalent to a logical or of the equivalent left/right keys.
-        //   In practice: it's complicated、 mods are often provided from different sources. Keyboard layout, IME, sticky keys and
+        //   In practice: it's complicated, mods are often provided from different sources. Keyboard layout, IME, sticky keys and
         //   backends tend to interfere and break that equivalence. The safer decision is to relay that ambiguity down to the end-user...
         case ImGuiKey_ModCtrl:
         case ImGuiKey_ModShift:
