@@ -53,12 +53,24 @@ public:
     auto GetPasses()     const noexcept -> std::span<const MaterialPass>;
     auto FindPass(std::string_view pass_contract) const noexcept -> const MaterialPass*;
 
-    template <MaterialParametric T> void SetParameter(std::string_view name, T value) noexcept;
+    template <MaterialParametric T> void DefineParameter(std::string_view name, T value);
+    template <MaterialParametric T> void SetParameter(std::string_view name, T value);
     template <MaterialParametric T> auto GetParameter(std::string_view name) const noexcept -> std::optional<T>;
 };
 ```
 
 The constructor deduplicates parameters by name (keeping the first occurrence) and deep-copies the passes.
+
+`DefineParameter<T>(name, value)` adds a parameter and fixes its type through the active `MaterialParameterValue` variant alternative. Defining an existing name throws `std::invalid_argument`. Constructor-supplied parameters are already defined.
+
+`SetParameter(name, value)` only assigns to an existing parameter of the same type. An undefined name or a type mismatch throws `std::invalid_argument`, leaving values, load state, and packed pass data unchanged. Successful definitions and assignments invalidate packed pass data. No separate type field is stored.
+
+```cpp
+material.DefineParameter<float>("roughness", 0.5f);
+material.SetParameter("roughness", 0.8f);
+```
+
+Importers that convert a source parameter to a different runtime type construct a new parameter set before rebuilding the material; they do not use `SetParameter` to change its type.
 
 ## bindings are the GPU ABI
 

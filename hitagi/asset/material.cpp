@@ -67,8 +67,12 @@ public:
 
     auto FindPass(std::string_view pass_contract) const noexcept -> const MaterialPass*;
 
+    // Definition fixes the parameter type. Duplicate definitions and invalid
+    // assignments throw std::invalid_argument without changing the material.
     template <MaterialParametric T>
-    void SetParameter(std::string_view name, T value) noexcept;
+    void DefineParameter(std::string_view name, T value);
+    template <MaterialParametric T>
+    void SetParameter(std::string_view name, T value);
     template <MaterialParametric T>
     auto GetParameter(std::string_view name) const noexcept -> std::optional<T>;
 
@@ -84,13 +88,24 @@ private:
 };
 
 template <MaterialParametric T>
-void Material::SetParameter(std::string_view name, T value) noexcept {
-    const auto iter = std::ranges::find_if(m_Parameters, [&](const auto& current) { return current.name == name; });
-    if (iter != m_Parameters.end()) {
-        iter->value = std::move(value);
-    } else {
-        m_Parameters.emplace_back(MaterialParameter{.name = std::pmr::string(name), .value = std::move(value)});
+void Material::DefineParameter(std::string_view name, T value) {
+    if (std::ranges::any_of(m_Parameters, [name](const auto& parameter) { return parameter.name == name; })) {
+        throw std::invalid_argument(std::format("Material parameter '{}' is already defined", name));
     }
+    m_Parameters.emplace_back(MaterialParameter{.name = std::pmr::string(name), .value = std::move(value)});
+    InvalidatePassData();
+}
+
+template <MaterialParametric T>
+void Material::SetParameter(std::string_view name, T value) {
+    const auto iter = std::ranges::find_if(m_Parameters, [&](const auto& current) { return current.name == name; });
+    if (iter == m_Parameters.end()) {
+        throw std::invalid_argument(std::format("Material parameter '{}' is not defined", name));
+    }
+    if (!std::holds_alternative<T>(iter->value)) {
+        throw std::invalid_argument(std::format("Material parameter '{}' has a different type", name));
+    }
+    iter->value = std::move(value);
     InvalidatePassData();
 }
 

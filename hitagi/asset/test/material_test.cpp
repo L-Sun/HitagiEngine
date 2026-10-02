@@ -157,6 +157,46 @@ TEST(MaterialTest, SetAndGetParameter) {
     EXPECT_FALSE(mat->GetParameter<vec3f>("param1").has_value());
 }
 
+TEST(MaterialTest, DefineParameterFixesType) {
+    Material material;
+    material.DefineParameter<float>("roughness", 0.5f);
+    material.SetParameter("roughness", 0.8f);
+    EXPECT_FLOAT_EQ(material.GetParameter<float>("roughness").value(), 0.8f);
+
+    EXPECT_THROW(material.DefineParameter("roughness", 0.2f), std::invalid_argument);
+    EXPECT_THROW(material.DefineParameter("roughness", vec3f{1, 0, 0}), std::invalid_argument);
+    EXPECT_THROW(material.SetParameter("roughness", vec3f{1, 0, 0}), std::invalid_argument);
+    EXPECT_THROW(material.SetParameter("unknown", 1.0f), std::invalid_argument);
+
+    ASSERT_EQ(material.GetParameters().size(), 1);
+    EXPECT_FLOAT_EQ(material.GetParameter<float>("roughness").value(), 0.8f);
+    EXPECT_FALSE(material.GetParameter<vec3f>("roughness").has_value());
+}
+
+TEST(MaterialTest, RejectedAssignmentPreservesLoadedData) {
+    Material material({{"roughness", 0.5f}}, {{.pass_contract = "Forward", .bindings = {"roughness"}}});
+    const auto& pass = LoadMaterialPass(material, "Forward", hitagi::gfx::Device::Type::Mock);
+    ASSERT_FALSE(pass.material_data.Empty());
+    const auto size = pass.material_data.GetDataSize();
+
+    EXPECT_THROW(material.SetParameter("roughness", vec3f{1, 0, 0}), std::invalid_argument);
+    EXPECT_THROW(material.SetParameter("unknown", 1.0f), std::invalid_argument);
+    EXPECT_THROW(material.DefineParameter("roughness", 0.2f), std::invalid_argument);
+    EXPECT_EQ(material.GetLoadState(), ResourceLoadState::Loaded);
+    EXPECT_EQ(pass.material_data.GetDataSize(), size);
+    EXPECT_FLOAT_EQ(*reinterpret_cast<const float*>(pass.material_data.GetData()), 0.5f);
+
+    material.SetParameter("roughness", 0.8f);
+    EXPECT_EQ(material.GetLoadState(), ResourceLoadState::Unloaded);
+    EXPECT_TRUE(pass.material_data.Empty());
+    const auto& updated = LoadMaterialPass(material, "Forward", hitagi::gfx::Device::Type::Mock);
+    EXPECT_FLOAT_EQ(*reinterpret_cast<const float*>(updated.material_data.GetData()), 0.8f);
+
+    material.DefineParameter("metallic", 1.0f);
+    EXPECT_EQ(material.GetLoadState(), ResourceLoadState::Unloaded);
+    EXPECT_TRUE(updated.material_data.Empty());
+}
+
 TEST(MaterialTest, MaterialBuffer_TightLayout) {
     const auto mat = MakeMaterial(
         {

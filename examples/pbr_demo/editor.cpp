@@ -311,14 +311,6 @@ auto ReadUsdTexture(const hitagi::asset::Material& material, std::string_view na
     return texture ? *texture : nullptr;
 }
 
-void SetMaterialParameter(hitagi::asset::Material& material, const hitagi::asset::MaterialParameter& parameter) {
-    std::visit(
-        [&](const auto& value) {
-            material.SetParameter(parameter.name, value);
-        },
-        parameter.value);
-}
-
 auto CopyMaterialParameters(const hitagi::asset::Material& material) -> hitagi::asset::MaterialParameters {
     hitagi::asset::MaterialParameters parameters;
     parameters.reserve(material.GetParameters().size());
@@ -374,7 +366,17 @@ void ApplyPbrDemoUsdPreviewSurfaceParameters(hitagi::EditorMaterial& editor_mate
         desc.metallic_roughness_texture = ReadUsdTexture(material, "metallic");
     }
 
-    for (const auto& parameter : game::pbr_demo::CreatePbrMaterialParameters(desc)) SetMaterialParameter(material, parameter);
+    // USD inputs can be textures where the runtime PBR model uses scalars.
+    // Lowering defines a new parameter set rather than assigning across types.
+    auto parameters = CopyMaterialParameters(material);
+    for (const auto& parameter : game::pbr_demo::CreatePbrMaterialParameters(desc)) {
+        const auto iter = std::ranges::find_if(parameters, [&](const auto& current) { return current.name == parameter.name; });
+        if (iter == parameters.end())
+            parameters.emplace_back(parameter);
+        else
+            *iter = parameter;
+    }
+    material = hitagi::asset::Material(std::move(parameters), CopyMaterialPasses(material), material.GetName());
 }
 
 auto ReadPbrDemoMaterialDesc(const hitagi::EditorMaterial& editor_material) -> std::optional<game::pbr_demo::PbrMaterialDesc> {
