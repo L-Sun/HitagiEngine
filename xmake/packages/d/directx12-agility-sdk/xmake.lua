@@ -3,6 +3,7 @@ package("directx12-agility-sdk")
     set_license("MICROSOFT SOFTWARE LICENSE TERMS")
 
     add_urls("https://globalcdn.nuget.org/packages/microsoft.direct3d.d3d12.$(version).nupkg")
+    add_versions("1.619.6", "08f0489281401aa430fc37322d6c3fc98a8025175aacd714c10d562f4963f1e9")
     add_versions("1.619.0", "d5edab9a0c4d1b78ba6fe55b425eeef9fefba7d2a101e889d70fd21d481e6cb1")
     add_versions("1.613.2", "846c041941c7741490acd3fb152ebb0f6e712d55c39140c4bb57b4d8fab08fb4")
     add_versions("1.610.3", "3e4f2905aa9baf159c3a2b87f8d1ef6e9a31177d5f66da06c019af2254787248")
@@ -11,6 +12,7 @@ package("directx12-agility-sdk")
     add_configs("shared", {description = "Using shared binaries.", default = true, type = "boolean", readonly = true})
 
     local sdk_versions = {
+        ["1.619.6"] = "619",
         ["1.619.0"] = "619",
         ["1.613.2"] = "613",
         ["1.610.3"] = "610",

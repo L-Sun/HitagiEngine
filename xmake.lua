@@ -60,14 +60,14 @@ add_requires(
     "joltphysics",
     "gtest",
     "benchmark",
-    "fmt 12.1.0"
+    "fmt 12.2.0"
 )
 
 add_requires("magic_enum", {configs = {modules = true}})
-add_requires("tracy v0.12.1")
+add_requires("tracy v0.13.1")
 add_requires("spdlog", {configs = {fmt_external = true}})
-add_requireconfs("spdlog.fmt", {version = "12.1.0", override = true})
-add_requires("imgui v1.92.1-docking", {configs = {freetype = true, wchar32 = true}})
+add_requireconfs("spdlog.fmt", {version = "12.2.0", override = true})
+add_requires("imgui v1.92.9+b-docking", {configs = {freetype = true, wchar32 = true}})
 add_requires("d3d12-memory-allocator", "directx12-agility-sdk", {optional = true})
 
 includes("hitagi/xmake.lua")

@@ -51,11 +51,10 @@ target("engine")
             end
 
             local targetdir = target:targetdir()
-            if not os.exists(path.join(targetdir, "D3D12")) then
-                local d3d12sdk_path = path.join(sdk:installdir(), "bin")
-                os.mkdir(path.join(targetdir, "D3D12"))
-                os.cp(d3d12sdk_path .. "/*", path.join(targetdir, "D3D12"))
-            end
+            -- Refresh the runtime when the selected Agility SDK package changes.
+            local d3d12sdk_path = path.join(sdk:installdir(), "bin")
+            os.mkdir(path.join(targetdir, "D3D12"))
+            os.cp(d3d12sdk_path .. "/*", path.join(targetdir, "D3D12"))
         end)
     else
         remove_files("gfx/dx12/*.cppm")

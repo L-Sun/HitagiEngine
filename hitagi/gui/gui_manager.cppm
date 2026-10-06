@@ -255,14 +255,14 @@ inline constexpr auto convert_imgui_key(ImGuiKey key) -> hid::VirtualKeyCode {
         // - This is mirroring the data also written to io.KeyCtrl, io.KeyShift, io.KeyAlt, io.KeySuper, in a format allowing
         //   them to be accessed via standard key API, allowing calls such as IsKeyPressed(), IsKeyReleased(), querying duration etc.
         // - Code polling every keys (e.g. an interface to detect a key press for input mapping) might want to ignore those
-        //   and prefer using the real keys (e.g. ImGuiKey_LeftCtrl, ImGuiKey_RightCtrl instead of ImGuiKey_ModCtrl).
+        //   and prefer using the real keys (e.g. ImGuiKey_LeftCtrl, ImGuiKey_RightCtrl instead of ImGuiMod_Ctrl).
         // - In theory the value of keyboard modifiers should be roughly equivalent to a logical or of the equivalent left/right keys.
         //   In practice: it's complicated, mods are often provided from different sources. Keyboard layout, IME, sticky keys and
         //   backends tend to interfere and break that equivalence. The safer decision is to relay that ambiguity down to the end-user...
-        case ImGuiKey_ModCtrl:
-        case ImGuiKey_ModShift:
-        case ImGuiKey_ModAlt:
-        case ImGuiKey_ModSuper:
+        case ImGuiMod_Ctrl:
+        case ImGuiMod_Shift:
+        case ImGuiMod_Alt:
+        case ImGuiMod_Super:
         default:
             return hid::VirtualKeyCode::NONE;
     }

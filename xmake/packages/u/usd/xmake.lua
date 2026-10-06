@@ -6,6 +6,7 @@ package("usd")
     add_urls("https://github.com/PixarAnimationStudios/USD/archive/refs/tags/$(version).tar.gz",
              "https://github.com/PixarAnimationStudios/USD.git")
 
+    add_versions("v26.08", "4bccbb95cddda1dbeef2f74a08b9456352f2aa91bfd4578c0c613009c7950149")
     add_versions("v26.03", "590ea75ffa3ac0c35fdd080df04d61a696733b8f3d6a79bdc3f13f8077162d36")
     add_versions("v25.11", "c37c633b5037a4552f61574670ecca8836229b78326bd62622f3422671188667")
     add_versions("v25.08", "2a93c2390ae35a3e312f3fb66e6f403a0e046893e3f0d706be82963345a08cb3")
