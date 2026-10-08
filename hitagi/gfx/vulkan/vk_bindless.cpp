@@ -1,11 +1,60 @@
 module;
-#include <spdlog/logger.h>
-#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_raii.hpp>
 #include <vk_mem_alloc.h>
+#include <tracy/Tracy.hpp>
+#include <spdlog/logger.h>
 
-module gfx.vulkan;
+export module gfx.vulkan:bindless;
 import std;
+import core;
+import utils;
+import math;
+import gfx.base;
+import magic_enum;
+import :utils;
+import :configs;
+
+export namespace hitagi::gfx {
+
+struct VulkanBindlessUtils : public BindlessUtils {
+    VulkanBindlessUtils(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, VmaAllocator allocator, std::string_view name);
+    auto& GetNativeDevice() const noexcept { return m_Device; }
+
+    auto CreateBindlessHandle(const SamplerDesc& desc) -> BindlessHandle;
+    void DiscardBindlessHandle(BindlessHandle handle) final;
+
+    void Bind(const vk::raii::CommandBuffer& command_buffer) const;
+
+    vk::ShaderDescriptorSetAndBindingMappingInfoEXT mapping_info;
+
+public:
+    auto CreateBindlessHandle(vk::DeviceAddress address, const GPUBufferViewDesc& desc, std::uint64_t size) -> BindlessHandle;
+    auto CreateBindlessHandle(vk::Image image, const TextureViewDesc& desc) -> BindlessHandle;
+
+private:
+    const vk::raii::Device& m_Device;
+
+    struct Heap {
+        ~Heap();
+        VmaAllocator        allocator  = nullptr;
+        VmaAllocation       allocation = nullptr;
+        VkBuffer            buffer     = VK_NULL_HANDLE;
+        std::byte*          mapped     = nullptr;
+        vk::BindHeapInfoEXT bind_info;
+    };
+    std::array<Heap, 2>                                  m_Heaps;
+    std::array<vk::DescriptorSetAndBindingMappingEXT, 4> m_Mappings;
+    std::array<std::uint32_t, 4>                         m_DescriptorSizes;
+    std::array<std::uint32_t, 4>                         m_Offsets;
+
+    struct BindlessHandlePool {
+        std::pmr::vector<BindlessHandle> pool;
+        TracyLockableN(std::mutex, mutex, "Vulkan Bindless Pool Mutex");
+    };
+    std::array<BindlessHandlePool, 4> m_BindlessHandlePools{};
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
 
@@ -13,9 +62,9 @@ VulkanBindlessUtils::Heap::~Heap() {
     if (buffer) vmaDestroyBuffer(allocator, buffer, allocation);
 }
 
-VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view name)
-    : BindlessUtils(device, name) {
-    const auto  properties = device.GetPhysicalDevice().getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
+VulkanBindlessUtils::VulkanBindlessUtils(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, VmaAllocator allocator, std::string_view name)
+    : BindlessUtils(name), m_Device(device) {
+    const auto  properties = physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
     const auto& limits     = properties.get<vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
     if (limits.maxPushDataSize < sizeof(BindlessMetaInfo)) throw std::runtime_error("Insufficient Vulkan push data size");
 
@@ -49,7 +98,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
     const std::array max_sizes           = {limits.maxResourceHeapSize, limits.maxSamplerHeapSize};
     for (std::size_t index = 0; index < m_Heaps.size(); ++index) {
         auto& heap                         = m_Heaps[index];
-        heap.allocator                     = device.GetVmaAllocator();
+        heap.allocator                     = allocator;
         heap.bind_info.reservedRangeOffset = utils::align(sizes[index], reserved_alignments[index]);
         heap.bind_info.reservedRangeSize   = utils::align(reserved_sizes[index], reserved_alignments[index]);
         const auto size                    = heap.bind_info.reservedRangeOffset + heap.bind_info.reservedRangeSize;
@@ -69,7 +118,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view 
             throw std::runtime_error("Failed to allocate Vulkan descriptor heap");
         }
         heap.mapped              = static_cast<std::byte*>(allocation.pMappedData);
-        heap.bind_info.heapRange = {.address = device.GetDevice().getBufferAddress({.buffer = heap.buffer}), .size = size};
+        heap.bind_info.heapRange = {.address = device.getBufferAddress({.buffer = heap.buffer}), .size = size};
     }
 }
 
@@ -78,56 +127,54 @@ void VulkanBindlessUtils::Bind(const vk::raii::CommandBuffer& command_buffer) co
     command_buffer.bindSamplerHeapEXT(m_Heaps[1].bind_info);
 }
 
-auto VulkanBindlessUtils::CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle {
-    const auto& desc    = view.GetDesc();
-    auto&       device  = static_cast<VulkanDevice&>(m_Device);
+auto VulkanBindlessUtils::CreateBindlessHandle(vk::DeviceAddress address, const GPUBufferViewDesc& desc, std::uint64_t size) -> BindlessHandle {
+    const auto& device  = m_Device;
     auto& [pool, mutex] = m_BindlessHandlePools[0];
     std::scoped_lock lock{mutex};
     if (pool.empty()) throw std::runtime_error("Bindless buffer heap exhausted");
     auto handle = pool.back();
     const vk::DeviceAddressRangeEXT range{
-        .address = device.GetDevice().getBufferAddress({.buffer = **static_cast<VulkanBuffer&>(*desc.buffer).buffer}) + desc.offset,
-        .size    = view.Size(),
+        .address = address + desc.offset,
+        .size    = size,
     };
     vk::ResourceDescriptorInfoEXT resource{.type = vk::DescriptorType::eStorageBuffer};
     resource.data.pAddressRange = &range;
-    device.GetDevice().writeResourceDescriptorsEXT(resource, vk::HostAddressRangeEXT{
-                                                                 .address = m_Heaps[0].mapped + m_Offsets[0] + handle.index * m_DescriptorSizes[0], .size = m_DescriptorSizes[0]});
+    device.writeResourceDescriptorsEXT(resource, vk::HostAddressRangeEXT{
+                                                     .address = m_Heaps[0].mapped + m_Offsets[0] + handle.index * m_DescriptorSizes[0], .size = m_DescriptorSizes[0]});
     pool.pop_back();
     handle.type     = BindlessHandleType::Buffer;
     handle.writable = desc.type == GPUBufferViewType::StorageWrite;
     return handle;
 }
 
-auto VulkanBindlessUtils::CreateBindlessHandle(TextureView& view) -> BindlessHandle {
-    const auto& desc     = view.GetDesc();
+auto VulkanBindlessUtils::CreateBindlessHandle(vk::Image image, const TextureViewDesc& desc) -> BindlessHandle {
     const bool  writable = desc.type == TextureViewType::ShaderWrite;
     const auto  kind     = writable ? 2 : 1;
-    auto&       device   = static_cast<VulkanDevice&>(m_Device);
+    const auto& device   = m_Device;
     auto& [pool, mutex]  = m_BindlessHandlePools[kind];
     std::scoped_lock lock{mutex};
     if (pool.empty()) throw std::runtime_error("Bindless image heap exhausted");
     auto                             handle    = pool.back();
-    const auto                       view_info = to_vk_image_view_create_info(desc, static_cast<VulkanImage&>(*desc.texture).image_handle);
+    const auto                       view_info = to_vk_image_view_create_info(desc, image);
     const vk::ImageDescriptorInfoEXT image_info{.pView = &view_info, .layout = writable ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal};
     vk::ResourceDescriptorInfoEXT    resource{.type = writable ? vk::DescriptorType::eStorageImage : vk::DescriptorType::eSampledImage};
     resource.data.pImage = &image_info;
-    device.GetDevice().writeResourceDescriptorsEXT(resource, vk::HostAddressRangeEXT{
-                                                                 .address = m_Heaps[0].mapped + m_Offsets[kind] + handle.index * m_DescriptorSizes[kind], .size = m_DescriptorSizes[kind]});
+    device.writeResourceDescriptorsEXT(resource, vk::HostAddressRangeEXT{
+                                                     .address = m_Heaps[0].mapped + m_Offsets[kind] + handle.index * m_DescriptorSizes[kind], .size = m_DescriptorSizes[kind]});
     pool.pop_back();
     handle.type     = BindlessHandleType::Texture;
     handle.writable = writable;
     return handle;
 }
 
-auto VulkanBindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHandle {
-    auto& device        = static_cast<VulkanDevice&>(m_Device);
+auto VulkanBindlessUtils::CreateBindlessHandle(const SamplerDesc& desc) -> BindlessHandle {
+    const auto& device  = m_Device;
     auto& [pool, mutex] = m_BindlessHandlePools[3];
     std::scoped_lock lock{mutex};
     if (pool.empty()) throw std::runtime_error("Bindless sampler heap exhausted");
     auto handle = pool.back();
-    device.GetDevice().writeSamplerDescriptorsEXT(to_vk_sampler_create_info(sampler.GetDesc()), vk::HostAddressRangeEXT{
-                                                                                                    .address = m_Heaps[1].mapped + handle.index * m_DescriptorSizes[3], .size = m_DescriptorSizes[3]});
+    device.writeSamplerDescriptorsEXT(to_vk_sampler_create_info(desc), vk::HostAddressRangeEXT{
+                                                                           .address = m_Heaps[1].mapped + handle.index * m_DescriptorSizes[3], .size = m_DescriptorSizes[3]});
     pool.pop_back();
     handle.type = BindlessHandleType::Sampler;
     return handle;

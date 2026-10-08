@@ -900,11 +900,11 @@ void Editor::QueueScreenshot(rg::TextureHandle output) {
 
     m_ScreenshotWidth  = desc.width;
     m_ScreenshotHeight = desc.height;
-    m_ScreenshotBuffer = render_graph.GetDevice().CreateGPUBuffer({
-        .name   = "Editor Screenshot Readback",
-        .size   = sizeof(std::uint32_t) * static_cast<std::uint64_t>(m_ScreenshotWidth) * m_ScreenshotHeight,
-        .usages = gfx::GPUBufferUsageFlags::MapRead | gfx::GPUBufferUsageFlags::CopyDst,
-    });
+    m_ScreenshotBuffer = hitagi::gfx::GPUBuffer::Create(render_graph.GetDevice(), {
+                                                                                      .name   = "Editor Screenshot Readback",
+                                                                                      .size   = sizeof(std::uint32_t) * static_cast<std::uint64_t>(m_ScreenshotWidth) * m_ScreenshotHeight,
+                                                                                      .usages = gfx::GPUBufferUsageFlags::MapRead | gfx::GPUBufferUsageFlags::CopyDst,
+                                                                                  });
     render_runtime.CopyToBuffer(output, m_ScreenshotBuffer);
     m_ScreenshotQueued = true;
 }
@@ -915,11 +915,11 @@ void Editor::SavePendingScreenshot() {
     if (!m_LaunchOptions.screenshot->parent_path().empty()) {
         std::filesystem::create_directories(m_LaunchOptions.screenshot->parent_path());
     }
-    const auto     readback_view = m_ScreenshotBuffer->GetDevice().CreateGPUBufferView({
-        .buffer        = m_ScreenshotBuffer,
-        .element_size  = sizeof(std::uint32_t),
-        .element_count = 0,
-    });
+    const auto     readback_view = hitagi::gfx::GPUBufferView::Create(m_Engine.RenderRuntime().GetRenderGraph().GetDevice(), m_Engine.RenderRuntime().GetRenderGraph().GetBindings(), {
+                                                                                                                                                                                          .buffer        = m_ScreenshotBuffer,
+                                                                                                                                                                                          .element_size  = sizeof(std::uint32_t),
+                                                                                                                                                                                          .element_count = 0,
+                                                                                                                                                                                      });
     const auto     readback      = readback_view->GetMappedSpan<const std::uint32_t>();
     asset::Texture image(
         m_ScreenshotWidth,

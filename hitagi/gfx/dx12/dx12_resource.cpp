@@ -1,18 +1,124 @@
 module;
-
+#include <d3d12.h>
+#include <wrl.h>
+#include <D3D12MemAlloc.h>
+#include <dxgi1_6.h>
 #include <d3d12shader.h>
 #include <fmt/color.h>
 #include <spdlog/logger.h>
 #include <d3dx12/d3dx12.h>
-#include <D3D12MemAlloc.h>
-#include <dxgi1_6.h>
 
-module gfx.dx12;
+export module gfx.dx12:resource;
 import std;
+import core;
+import utils;
+import math;
+import gfx.base;
+import :types;
+import :bindless;
+import :utils;
+import :descriptor_heap;
+
+using namespace Microsoft::WRL;
+
+export namespace hitagi::gfx {
+
+struct DX12GPUBuffer : public GPUBuffer {
+    DX12GPUBuffer(D3D12MA::Allocator& allocator, std::shared_ptr<spdlog::logger> logger, GPUBufferDesc desc, std::span<const std::byte> initial_data = {});
+
+    auto GetAllocationSize() const noexcept -> std::uint64_t final { return allocation ? allocation->GetSize() : Size(); }
+    auto Map() -> std::byte* final;
+    void UnMap() final;
+
+    ComPtr<D3D12MA::Allocation> allocation;
+    ComPtr<ID3D12Resource>      resource;
+
+    std::shared_ptr<spdlog::logger> m_Logger;
+    std::mutex                      map_mutex;
+    std::uint16_t                   mapped_count{0};
+};
+
+struct DX12GPUBufferView final : public GPUBufferView {
+    DX12GPUBufferView(DX12BindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc);
+};
+
+struct DX12Texture : public Texture {
+    DX12Texture(D3D12MA::Allocator& allocator, const std::shared_ptr<spdlog::logger>& logger, TextureDesc desc, std::span<const std::byte> initial_data = {});
+    DX12Texture(DX12SwapChain& swap_chain, const std::shared_ptr<spdlog::logger>& logger, std::uint32_t index);
+    DX12Texture(DX12Texture&&) = default;
+
+    auto GetAllocationSize() const noexcept -> std::uint64_t final { return allocation ? allocation->GetSize() : 0; }
+
+    ComPtr<D3D12MA::Allocation> allocation;
+    ComPtr<ID3D12Resource>      resource;
+};
+
+struct DX12TextureView final : public TextureView {
+    DX12TextureView(ID3D12Device& device, DX12BindlessUtils& bindings, DescriptorAllocator& rtv_allocator, DescriptorAllocator& dsv_allocator, const std::shared_ptr<spdlog::logger>& logger, TextureViewDesc desc);
+
+    Descriptor rtv, dsv;
+};
+
+struct DX12Sampler : public Sampler {
+    DX12Sampler(DX12BindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, SamplerDesc desc);
+};
+
+struct DX12Shader : public Shader {
+    DX12Shader(const ShaderCompiler& compiler, const std::shared_ptr<spdlog::logger>& logger, ShaderDesc desc);
+
+    inline auto GetDXILData() const noexcept -> std::span<const std::byte> final {
+        return binary_program.Span<const std::byte>();
+    }
+    inline auto GetShaderByteCode() const noexcept -> D3D12_SHADER_BYTECODE {
+        return {.pShaderBytecode = binary_program.GetData(), .BytecodeLength = binary_program.GetDataSize()};
+    }
+
+    core::Buffer binary_program;
+};
+
+struct DX12RenderPipeline : public RenderPipeline {
+    DX12RenderPipeline(ID3D12Device& device, ID3D12RootSignature& root_signature, const std::shared_ptr<spdlog::logger>& logger, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders);
+
+    ComPtr<ID3D12PipelineState> pipeline;
+};
+
+struct DX12ComputePipeline : public ComputePipeline {
+    DX12ComputePipeline(ID3D12Device& device, ID3D12RootSignature& root_signature, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs);
+
+    ComPtr<ID3D12PipelineState> pipeline;
+};
+
+class DX12SwapChain final : public SwapChain {
+public:
+    DX12SwapChain(const ComPtr<IDXGIFactory2>& factory, ID3D12CommandQueue& native_queue, CommandQueue& queue, std::shared_ptr<spdlog::logger> logger, SwapChainDesc desc);
+
+    inline auto GetWidth() const noexcept -> std::uint32_t final { return m_D3D12Desc.Width; }
+    inline auto GetHeight() const noexcept -> std::uint32_t final { return m_D3D12Desc.Height; }
+    auto        GetFormat() const noexcept -> Format final;
+
+    void Present() final;
+    void Resize() final;
+
+    auto AcquireTextureForRendering() -> utils::optional_ref<Texture> final;
+
+    inline auto GetDX12SwapChain() const noexcept { return m_SwapChain; }
+
+private:
+    CommandQueue&                   m_Queue;
+    std::shared_ptr<spdlog::logger> m_Logger;
+    ComPtr<IDXGISwapChain4>         m_SwapChain;
+    math::vec2u                     m_Size;
+    DXGI_SWAP_CHAIN_DESC1           m_D3D12Desc;
+
+    std::pmr::vector<DX12Texture> m_BackBuffers;
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
-DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
+
+DX12GPUBuffer::DX12GPUBuffer(D3D12MA::Allocator& allocator, std::shared_ptr<spdlog::logger> logger, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(std::move(desc)), m_Logger(std::move(logger)) {
+    logger = m_Logger;
 
     if (Size() == 0) {
         const auto error_message = fmt::format(
@@ -61,7 +167,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     logger->trace("Create GPU buffer({}) with {} bytes", fmt::styled(GetName(), fmt::fg(fmt::color::green)), Size());
 
     auto resource_desc = CD3DX12_RESOURCE_DESC::Buffer(Size(), flags);
-    if (FAILED(device.GetAllocator()->CreateResource(
+    if (FAILED(allocator.CreateResource(
             &allocation_desc,
             &resource_desc,
             D3D12_RESOURCE_STATE_COMMON,
@@ -118,12 +224,12 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     }
 }
 
-DX12GPUBufferView::DX12GPUBufferView(DX12Device& device, GPUBufferViewDesc desc) : GPUBufferView(device, std::move(desc)) {
-    CreateBindlessHandle();
+DX12GPUBufferView::DX12GPUBufferView(DX12BindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc) : GPUBufferView(bindings, storage_requirements, std::move(desc)) {
+    if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<DX12BindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(*static_cast<DX12GPUBuffer&>(*m_Desc.buffer).resource.Get(), m_Desc, Size());
 }
 
 auto DX12GPUBuffer::Map() -> std::byte* {
-    const auto logger = m_Device.GetLogger();
+    const auto logger = m_Logger;
     if (!utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead) && !utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
         const auto error_message = fmt::format(
             "Can not map GPU buffer({}) without usage flag {} or {}",
@@ -155,16 +261,14 @@ void DX12GPUBuffer::UnMap() {
         const auto error_message = fmt::format(
             "Can not unmap GPU buffer({}) without map it!",
             fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-        m_Device.GetLogger()->error(error_message);
+        m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     mapped_count--;
     resource->Unmap(0, nullptr);
 }
 
-DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(device, desc) {
-    const auto logger = device.GetLogger();
-
+DX12Texture::DX12Texture(D3D12MA::Allocator& allocator, const std::shared_ptr<spdlog::logger>& logger, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(desc) {
     logger->trace("Create texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     if (desc.width == 0 || desc.height == 0 || desc.depth == 0 || desc.array_size == 0) {
@@ -242,7 +346,7 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
     D3D12MA::ALLOCATION_DESC allocation_desc{
         .HeapType = direct_cpu_upload ? D3D12_HEAP_TYPE_GPU_UPLOAD : D3D12_HEAP_TYPE_DEFAULT,
     };
-    if (FAILED(device.GetAllocator()->CreateResource(
+    if (FAILED(allocator.CreateResource(
             &allocation_desc,
             &resource_desc,
             D3D12_RESOURCE_STATE_COMMON,
@@ -254,126 +358,18 @@ DX12Texture::DX12Texture(DX12Device& device, TextureDesc desc, std::span<const s
         throw std::runtime_error(error_message);
     }
     set_debug_name(resource.Get(), GetName());
-
-    // Initialize RT/DS resources to clear stale metadata from D3D12MA heap memory reuse.
-    // Heaps with D3D12_HEAP_FLAG_CREATE_NOT_ZEROED may contain metadata from previously
-    // placed RT/DS resources; DiscardResource clears this metadata to avoid undefined behavior.
-    if (initial_data.empty() &&
-        (utils::has_flag(m_Desc.usages, TextureUsageFlags::RenderTarget) ||
-         utils::has_flag(m_Desc.usages, TextureUsageFlags::DepthStencil))) {
-        const bool is_rt   = utils::has_flag(m_Desc.usages, TextureUsageFlags::RenderTarget);
-        auto       context = device.CreateGraphicsContext(std::format("Init-{}", GetName()));
-        context->Begin();
-        context->ResourceBarrier({}, {}, {{
-                                             Transition(is_rt ? BarrierAccess::RenderTarget : BarrierAccess::DepthStencilWrite, is_rt ? TextureLayout::RenderTarget : TextureLayout::DepthStencilWrite),
-                                         }});
-        static_cast<DX12GraphicsCommandList&>(*context).command_list->DiscardResource(resource.Get(), nullptr);
-        context->ResourceBarrier({}, {}, {{
-                                             Transition(BarrierAccess::None, TextureLayout::Unkown),
-                                         }});
-        context->End();
-        auto& gfx_queue = device.GetCommandQueue(CommandType::Graphics);
-        gfx_queue.Submit({{*context}});
-        gfx_queue.WaitIdle();
-    }
-
-    if (!initial_data.empty()) {
-        logger->trace("Copy initial data to texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-
-        if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
-            D3D12_SUBRESOURCE_DATA textureData = {
-                .pData      = initial_data.data(),
-                .RowPitch   = static_cast<LONG_PTR>(desc.width * format_byte_size),
-                .SlicePitch = textureData.RowPitch * desc.height,
-            };
-
-            if (direct_cpu_upload) {
-                if (FAILED(resource->Map(0, nullptr, nullptr))) {
-                    const auto error_message = fmt::format(
-                        "Failed to map texture({}) for direct GPU upload heap initialization",
-                        fmt::styled(GetName(), fmt::fg(fmt::color::red)));
-                    logger->error(error_message);
-                    throw std::runtime_error(error_message);
-                }
-
-                const auto result = resource->WriteToSubresource(
-                    0,
-                    nullptr,
-                    initial_data.data(),
-                    static_cast<UINT>(textureData.RowPitch),
-                    static_cast<UINT>(textureData.SlicePitch));
-                resource->Unmap(0, nullptr);
-
-                if (FAILED(result)) {
-                    const auto error_message = fmt::format(
-                        "Failed to initialize texture({}) via WriteToSubresource",
-                        fmt::styled(GetName(), fmt::fg(fmt::color::red)));
-                    logger->error(error_message);
-                    throw std::runtime_error(error_message);
-                }
-            } else {
-                const auto staging_size = GetRequiredIntermediateSize(resource.Get(), 0, resource_desc.Subresources(device.GetDevice().Get()));
-
-                // GPU_UPLOAD staging buffer for VRAM→VRAM texture copy
-                D3D12MA::ALLOCATION_DESC staging_alloc_desc{
-                    .HeapType = D3D12_HEAP_TYPE_GPU_UPLOAD,
-                };
-                auto                        staging_resource_desc = CD3DX12_RESOURCE_DESC::Buffer(staging_size);
-                ComPtr<D3D12MA::Allocation> staging_allocation;
-                ComPtr<ID3D12Resource>      staging_resource;
-                if (FAILED(device.GetAllocator()->CreateResource(
-                        &staging_alloc_desc,
-                        &staging_resource_desc,
-                        D3D12_RESOURCE_STATE_COMMON,
-                        nullptr,
-                        &staging_allocation,
-                        IID_PPV_ARGS(&staging_resource)))) {
-                    const auto error_message = fmt::format(
-                        "Failed to create staging buffer for texture({})",
-                        fmt::styled(GetName(), fmt::fg(fmt::color::red)));
-                    logger->error(error_message);
-                    throw std::runtime_error(error_message);
-                }
-
-                auto copy_context = device.CreateCopyContext("UploadTexture");
-                copy_context->Begin();
-                UpdateSubresources(
-                    std::static_pointer_cast<DX12CopyCommandList>(copy_context)->command_list.Get(),
-                    resource.Get(),
-                    staging_resource.Get(),
-                    0,
-                    0,
-                    resource_desc.Subresources(device.GetDevice().Get()),
-                    &textureData);
-                copy_context->End();
-
-                auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
-                copy_queue.Submit({{*copy_context}});
-                copy_queue.WaitIdle();
-            }
-        } else {
-            auto error_message = fmt::format(
-                "the texture({}) can not initialize with upload buffer without {}, the actual flags are {}",
-                fmt::styled(GetName(), fmt::fg(fmt::color::red)),
-                fmt::styled(format_as(TextureUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
-                fmt::styled(format_as(desc.usages), fmt::fg(fmt::color::red)));
-            logger->error(error_message);
-            throw std::invalid_argument(error_message);
-        }
-    }
 }
 
-DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
-    : Texture(swap_chain.GetDevice(),
-              TextureDesc{
-                  .name        = std::pmr::string(std::format("{}-{}", swap_chain.GetName(), index)),
-                  .width       = swap_chain.GetWidth(),
-                  .height      = swap_chain.GetHeight(),
-                  .format      = swap_chain.GetFormat(),
-                  .clear_value = swap_chain.GetDesc().clear_color,
-                  .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopyDst,
-              }) {
-    const auto logger = m_Device.GetLogger();
+DX12Texture::DX12Texture(DX12SwapChain& swap_chain, const std::shared_ptr<spdlog::logger>& logger, std::uint32_t index)
+    : Texture(
+          TextureDesc{
+              .name        = std::pmr::string(std::format("{}-{}", swap_chain.GetName(), index)),
+              .width       = swap_chain.GetWidth(),
+              .height      = swap_chain.GetHeight(),
+              .format      = swap_chain.GetFormat(),
+              .clear_value = swap_chain.GetDesc().clear_color,
+              .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopyDst,
+          }) {
     logger->trace("Create swap chain back buffer ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     auto dx12_swap_chain = swap_chain.GetDX12SwapChain();
@@ -386,8 +382,7 @@ DX12Texture::DX12Texture(DX12SwapChain& swap_chain, std::uint32_t index)
     set_debug_name(resource.Get(), GetName());
 }
 
-DX12TextureView::DX12TextureView(DX12Device& device, TextureViewDesc desc) : TextureView(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
+DX12TextureView::DX12TextureView(ID3D12Device& device, DX12BindlessUtils& bindings, DescriptorAllocator& rtv_allocator, DescriptorAllocator& dsv_allocator, const std::shared_ptr<spdlog::logger>& logger, TextureViewDesc desc) : TextureView(bindings, std::move(desc)) {
     logger->trace("Create texture view({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     const auto fail = [&](std::string message) {
         const auto error_message = fmt::format(
@@ -400,9 +395,6 @@ DX12TextureView::DX12TextureView(DX12Device& device, TextureViewDesc desc) : Tex
 
     if (!m_Desc.texture) {
         fail("texture is nullptr");
-    }
-    if (&m_Desc.texture->GetDevice() != &device) {
-        fail("texture belongs to another device");
     }
 
     const auto& texture_desc = m_Desc.texture->GetDesc();
@@ -453,29 +445,27 @@ DX12TextureView::DX12TextureView(DX12Device& device, TextureViewDesc desc) : Tex
 
     auto& dx12_texture = dynamic_cast<DX12Texture&>(*m_Desc.texture);
     if (m_Desc.type == TextureViewType::RenderTarget) {
-        rtv                 = device.GetRTVDescriptorAllocator().Allocate();
+        rtv                 = rtv_allocator.Allocate();
         const auto rtv_desc = to_d3d_rtv_desc(m_Desc);
-        device.GetDevice()->CreateRenderTargetView(dx12_texture.resource.Get(), &rtv_desc, rtv.GetCPUHandle());
+        device.CreateRenderTargetView(dx12_texture.resource.Get(), &rtv_desc, rtv.GetCPUHandle());
     } else if (m_Desc.type == TextureViewType::DepthStencil) {
-        dsv                 = device.GetDSVDescriptorAllocator().Allocate();
+        dsv                 = dsv_allocator.Allocate();
         const auto dsv_desc = to_d3d_dsv_desc(m_Desc);
-        device.GetDevice()->CreateDepthStencilView(dx12_texture.resource.Get(), &dsv_desc, dsv.GetCPUHandle());
+        device.CreateDepthStencilView(dx12_texture.resource.Get(), &dsv_desc, dsv.GetCPUHandle());
     }
 
-    CreateBindlessHandle();
+    if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<DX12BindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(*static_cast<DX12Texture&>(*m_Desc.texture).resource.Get(), m_Desc);
 }
 
-DX12Sampler::DX12Sampler(DX12Device& device, SamplerDesc desc) : Sampler(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
+DX12Sampler::DX12Sampler(DX12BindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, SamplerDesc desc) : Sampler(bindings, std::move(desc)) {
     logger->trace("Create sampler ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-    CreateBindlessHandle();
+    if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<DX12BindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(m_Desc);
 }
 
-DX12Shader::DX12Shader(DX12Device& device, ShaderDesc desc) : Shader(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
+DX12Shader::DX12Shader(const ShaderCompiler& compiler, const std::shared_ptr<spdlog::logger>& logger, ShaderDesc desc) : Shader(std::move(desc)) {
     logger->trace("Create shader ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
-    binary_program = device.GetShaderCompiler().CompileToDXIL(m_Desc);
+    binary_program = compiler.CompileToDXIL(m_Desc);
     if (binary_program.Empty()) {
         auto error_message = fmt::format(
             "Failed to compile shader({})",
@@ -485,8 +475,7 @@ DX12Shader::DX12Shader(DX12Device& device, ShaderDesc desc) : Shader(device, std
     }
 }
 
-DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) : RenderPipeline(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
+DX12RenderPipeline::DX12RenderPipeline(ID3D12Device& device, ID3D12RootSignature& root_signature, const std::shared_ptr<spdlog::logger>& logger, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) : RenderPipeline(std::move(desc)) {
     logger->trace("Create render pipeline ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     D3D12_SHADER_BYTECODE vs{}, ps{}, gs{};
@@ -522,7 +511,7 @@ DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc de
     const auto d3d_input_layout = to_d3d_input_layout(m_Desc.vertex_input_layout);
 
     const D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{
-        .pRootSignature        = static_cast<DX12BindlessUtils&>(device.GetBindlessUtils()).GetBindlessRootSignature().Get(),
+        .pRootSignature        = &root_signature,
         .VS                    = vs,
         .PS                    = ps,
         .GS                    = gs,
@@ -541,7 +530,7 @@ DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc de
         .NodeMask   = 0,
     };
 
-    if (FAILED(device.GetDevice()->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
+    if (FAILED(device.CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
         const auto error_message = fmt::format(
             "Failed to create graphics pipeline state({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -551,11 +540,9 @@ DX12RenderPipeline::DX12RenderPipeline(DX12Device& device, RenderPipelineDesc de
     set_debug_name(pipeline.Get(), GetName());
 }
 
-DX12ComputePipeline::DX12ComputePipeline(DX12Device& device, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) : ComputePipeline(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
+DX12ComputePipeline::DX12ComputePipeline(ID3D12Device& device, ID3D12RootSignature& root_signature, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) : ComputePipeline(std::move(desc)) {
     logger->trace("Create compute pipeline ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
-    const auto root_signature = static_cast<DX12BindlessUtils&>(device.GetBindlessUtils()).GetBindlessRootSignature().Get();
 
     const auto dx12_shader = std::static_pointer_cast<DX12Shader>(cs);
     if (dx12_shader == nullptr) {
@@ -574,12 +561,12 @@ DX12ComputePipeline::DX12ComputePipeline(DX12Device& device, ComputePipelineDesc
     }
 
     const D3D12_COMPUTE_PIPELINE_STATE_DESC pso_desc{
-        .pRootSignature = root_signature,
+        .pRootSignature = &root_signature,
         .CS             = dx12_shader->GetShaderByteCode(),
         .NodeMask       = 0,
     };
 
-    if (FAILED(device.GetDevice()->CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
+    if (FAILED(device.CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
         const auto error_message = fmt::format(
             "Failed to create compute pipeline state({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -589,8 +576,8 @@ DX12ComputePipeline::DX12ComputePipeline(DX12Device& device, ComputePipelineDesc
     set_debug_name(pipeline.Get(), GetName());
 }
 
-DX12SwapChain::DX12SwapChain(DX12Device& device, SwapChainDesc desc) : SwapChain(device, desc) {
-    const auto logger = device.GetLogger();
+DX12SwapChain::DX12SwapChain(const ComPtr<IDXGIFactory2>& factory, ID3D12CommandQueue& native_queue, CommandQueue& queue, std::shared_ptr<spdlog::logger> logger, SwapChainDesc desc) : SwapChain(desc), m_Queue(queue), m_Logger(std::move(logger)) {
+    logger = m_Logger;
     logger->trace("Create swap chain ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     if (desc.window.ptr == nullptr) {
@@ -609,7 +596,6 @@ DX12SwapChain::DX12SwapChain(DX12Device& device, SwapChainDesc desc) : SwapChain
         throw std::invalid_argument(error_message);
     }
 
-    const auto factory = device.GetFactory();
 
     UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
@@ -639,10 +625,9 @@ DX12SwapChain::DX12SwapChain(DX12Device& device, SwapChainDesc desc) : SwapChain
         .Flags       = flags,
     };
 
-    auto& gfx_queue = static_cast<DX12CommandQueue&>(device.GetCommandQueue(CommandType::Graphics));
 
     ComPtr<IDXGISwapChain1> p_swap_chain;
-    if (FAILED(factory->CreateSwapChainForHwnd(gfx_queue.GetDX12Queue().Get(), h_wnd, &m_D3D12Desc, nullptr, nullptr, &p_swap_chain))) {
+    if (FAILED(factory->CreateSwapChainForHwnd(&native_queue, h_wnd, &m_D3D12Desc, nullptr, nullptr, &p_swap_chain))) {
         const auto error_message = fmt::format(
             "Failed to create swap chain ({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -670,7 +655,7 @@ DX12SwapChain::DX12SwapChain(DX12Device& device, SwapChainDesc desc) : SwapChain
 
     logger->trace("retrieval back buffers");
     for (std::size_t index = 0; index < m_D3D12Desc.BufferCount; index++) {
-        m_BackBuffers.emplace_back(*this, index);
+        m_BackBuffers.emplace_back(*this, m_Logger, index);
     }
 }
 
@@ -679,7 +664,7 @@ auto DX12SwapChain::GetFormat() const noexcept -> Format {
 }
 
 void DX12SwapChain::Present() {
-    auto& queue = static_cast<DX12CommandQueue&>(m_Device.GetCommandQueue(CommandType::Graphics));
+    auto& queue = m_Queue;
     if (m_D3D12Desc.Flags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) {
         m_SwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
     } else {
@@ -699,7 +684,7 @@ void DX12SwapChain::Resize() {
     const auto width  = rect.right - rect.left;
     const auto height = rect.bottom - rect.top;
 
-    m_Device.GetCommandQueue(CommandType::Graphics).WaitIdle();
+    m_Queue.WaitIdle();
     m_BackBuffers.clear();
 
     if (FAILED(m_SwapChain->ResizeBuffers(
@@ -710,13 +695,13 @@ void DX12SwapChain::Resize() {
             m_D3D12Desc.Flags))) {
         const auto error_message = fmt::format(
             "Failed to resize swap chain");
-        m_Device.GetLogger()->error(error_message);
+        m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     m_SwapChain->GetDesc1(&m_D3D12Desc);
 
     for (std::size_t index = 0; index < m_D3D12Desc.BufferCount; index++) {
-        m_BackBuffers.emplace_back(*this, index);
+        m_BackBuffers.emplace_back(*this, m_Logger, index);
     }
 }
 

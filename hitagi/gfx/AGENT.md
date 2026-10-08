@@ -11,24 +11,32 @@ Read the repository [AGENT.md](../../AGENT.md) first. This file records gfx-spec
 
 ## Source Entry Points
 
-Declarations are concentrated in the files below; do not assume separate type/resource/command module partitions exist.
+Each named module keeps one aggregate `.cppm` and uses `.cpp` interface partitions, following asset's organization. Partition filenames follow the layout before `68d48b5c`. Export declarations with `export namespace`; place out-of-class implementations and internal helpers in ordinary named namespaces. Do not add implementation directories, `impl.cpp`, or per-partition `.cppm` files. Complete classes live in their responsibility-specific files; `dx12_types.cpp` / `vk_types.cpp` contain forward declarations only. `RenderGraph` lives in `render_graph.cpp`, together with methods that assemble nodes/builders through the complete graph definition. Inspect module declarations rather than inferring a file's role from its extension.
+
+Static resource factories are defined in the ordinary module implementation unit [base/resource_creation.cpp](base/resource_creation.cpp). It imports the backend interfaces without making the base interface depend on them. Do not move those definitions into a base interface partition, which would introduce a module dependency cycle.
 
 | Area | Declarations / implementation |
 | --- | --- |
-| Shared API, resource/view descriptions, synchronization, shader compiler | [base/device.cppm](base/device.cppm), [base/gpu_resource.cpp](base/gpu_resource.cpp), [base/shader_compiler.cpp](base/shader_compiler.cpp) |
+| Shared API aggregate and Device | [base/device.cppm](base/device.cppm), [base/device.cpp](base/device.cpp) |
+| Shared types, resources/views, synchronization, bindings | [base/types.cpp](base/types.cpp), [base/gpu_resource.cpp](base/gpu_resource.cpp), [base/sync.cpp](base/sync.cpp), [base/bindless.cpp](base/bindless.cpp) |
+| Shared commands, shader compiler, utilities | [base/command_context.cpp](base/command_context.cpp), [base/command_queue.cpp](base/command_queue.cpp), [base/shader_compiler.cpp](base/shader_compiler.cpp), [base/utils.cpp](base/utils.cpp) |
 | Backend factory and direct readback helper | [gfx.cpp](gfx.cpp) |
-| DX12 declarations and enum conversions | [dx12/dx12_device.cppm](dx12/dx12_device.cppm) |
-| DX12 resources, commands, bindings | [dx12_resource.cpp](dx12/dx12_resource.cpp), [dx12_command_list.cpp](dx12/dx12_command_list.cpp), [dx12_bindless.cpp](dx12/dx12_bindless.cpp) |
-| Vulkan declarations, requirements, enum conversions | [vulkan/vk_device.cppm](vulkan/vk_device.cppm) |
-| Vulkan resources, commands, bindings | [vk_resource.cpp](vulkan/vk_resource.cpp), [vk_command_buffer.cpp](vulkan/vk_command_buffer.cpp), [vk_bindless.cpp](vulkan/vk_bindless.cpp) |
-| Mock backend | [mock/mock_device.cppm](mock/mock_device.cppm), [mock/mock_device.cpp](mock/mock_device.cpp) |
-| Graph API, handles, nodes, edges, builders | [render_graph/render_graph.cppm](render_graph/render_graph.cppm) |
-| Access declarations and pass execution | [pass_builder.cpp](render_graph/pass_builder.cpp), [pass_node.cpp](render_graph/pass_node.cpp) |
+| DX12 aggregate, shared declarations and conversions | [dx12/dx12_device.cppm](dx12/dx12_device.cppm), [dx12_types.cpp](dx12/dx12_types.cpp), [dx12_utils.cpp](dx12/dx12_utils.cpp) |
+| DX12 resources, commands and bindings | [dx12_resource.cpp](dx12/dx12_resource.cpp), [dx12_command_list.cpp](dx12/dx12_command_list.cpp), [dx12_bindless.cpp](dx12/dx12_bindless.cpp) |
+| Vulkan aggregate, requirements, conversions | [vulkan/vk_device.cppm](vulkan/vk_device.cppm), [vk_configs.cpp](vulkan/vk_configs.cpp), [vk_utils.cpp](vulkan/vk_utils.cpp) |
+| Vulkan shared declarations, resources, commands and bindings | [vk_types.cpp](vulkan/vk_types.cpp), [vk_resource.cpp](vulkan/vk_resource.cpp), [vk_command_buffer.cpp](vulkan/vk_command_buffer.cpp), [vk_bindless.cpp](vulkan/vk_bindless.cpp) |
+| Mock backend | [mock/mock_device.cppm](mock/mock_device.cppm), [mock/mock_resource.cpp](mock/mock_resource.cpp), [mock/mock_device.cpp](mock/mock_device.cpp) |
+| Graph aggregate, handles and edges | [render_graph/render_graph.cppm](render_graph/render_graph.cppm), [type.cpp](render_graph/type.cpp), [resource_edge.cpp](render_graph/resource_edge.cpp) |
+| Graph nodes and builders | [resource_node.cpp](render_graph/resource_node.cpp), [pass_node.cpp](render_graph/pass_node.cpp), [pass_builder.cpp](render_graph/pass_builder.cpp) |
 | Compilation, execution, reset, resource pool | [render_graph.cpp](render_graph/render_graph.cpp), [resource_node.cpp](render_graph/resource_node.cpp) |
 | Tests | [render_graph_test.cpp](test/render_graph_test.cpp), [device_test.cpp](test/device_test.cpp), [bindless_test.cpp](test/bindless_test.cpp) |
 
 ## Resource, View, and Binding Contracts
 
+- Resources retain their descriptions through `ResourceWithDesc`, but do not retain an abstract `Device` or expose `GetDevice()`. Use the resource type's static `Create` method; the assembly boundary selects the backend and validates native ownership before injecting concrete dependencies.
+- Backend resources depend on the native device, allocator, binding facilities, logger, or compiler that they actually use, not the complete backend Device. Texture initialization that needs command submission is assembled in `resource_creation.cpp`; allocation and mapping behavior remain backend responsibilities.
+- Device owns native bootstrap state, allocators, and capabilities. The Engine owns `CommandQueues`, bindings, and the shader compiler through its graphics services module, created after Device and destroyed before it. Consumers receive explicit references; low-level resources must not receive this owner as a service locator. Tests must provide the same lifetime ordering.
+- Queues own execution synchronization and profiling state; Vulkan queues also own their command pools. Command contexts and submitted resources must not outlive the facilities they reference. Bindings must outlive all views and samplers using their handles.
 - `GPUBufferDesc::size` is a byte count. `element_size`, `element_stride`, and binding offset alignment have different meanings. A zero ViewDesc stride means tightly packed elements; Storage usage does not imply record padding.
 - Query storage binding constraints with `GPUBuffer::GetStorageViewRequirements(device)` when planning independently bound ranges. Backend differences stay behind that API; the caller determines data placement.
 - `MappedSpan<T>` is created only by `view.GetMappedSpan<T>()`. It follows the View's explicit stride, validates mapping/type constraints, and unmaps through RAII. It does not construct a temporary View from a Buffer. Keep its underlying storage alive throughout the mapping.
@@ -65,7 +73,7 @@ Declarations are concentrated in the files below; do not assume separate type/re
 - Command contexts require `Begin()` / `End()` around recording. Submit each context to a matching Graphics, Compute, or Copy queue.
 - Acquire the swapchain image before using it. The Vulkan queue/swapchain implementation manages its binary semaphores; avoid duplicating that management in callers.
 - Queue selection is implemented in the Vulkan backend. Do not hard-code queue family indices in calling code.
-- Vulkan currently requires descriptor-heap and related features with no descriptor-set fallback. Consult `required_device_extensions` and feature setup in [vk_device.cppm](vulkan/vk_device.cppm) and [vk_device.cpp](vulkan/vk_device.cpp) before changing compatibility requirements.
+- Vulkan currently requires descriptor-heap and related features with no descriptor-set fallback. Consult `required_device_extensions` and feature setup in [vk_configs.cpp](vulkan/vk_configs.cpp) and [vk_device.cpp](vulkan/vk_device.cpp) before changing compatibility requirements.
 - DX12 uses a device-local Agility SDK factory/configuration. Do not reintroduce process-wide device/debug configuration as a workaround.
 
 ## Changes and Verification

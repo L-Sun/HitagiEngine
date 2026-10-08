@@ -1,19 +1,193 @@
 module;
-
+#include <d3d12.h>
+#include <wrl.h>
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyD3D12.hpp>
 #include <cstring>
 #include <spdlog/logger.h>
 #include <fmt/color.h>
 #include <d3dx12/d3dx12.h>
-#include <tracy/TracyD3D12.hpp>
 
-module gfx.dx12;
+export module gfx.dx12:command_list;
 import std;
+import core;
+import utils;
+import math;
+import gfx.base;
+import magic_enum;
+import :types;
+import :bindless;
+import :utils;
+import :resource;
+
+using namespace Microsoft::WRL;
+
+export namespace hitagi::gfx {
+
+class DX12GraphicsCommandList : public GraphicsCommandContext {
+public:
+    DX12GraphicsCommandList(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, DX12BindlessUtils& bindings, TracyD3D12Ctx tracy_context, std::string_view name);
+    void Begin() final;
+    void End() final;
+
+    void ResourceBarrier(
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) final;
+
+    void BeginRendering(TextureView&                     render_target,
+                        utils::optional_ref<TextureView> depth_stencil       = {},
+                        bool                             clear_render_target = false,
+                        bool                             clear_depth_stencil = false) final;
+    void EndRendering() final;
+
+    void SetPipeline(const RenderPipeline& pipeline) final;
+
+    void SetViewPort(const ViewPort& view_port) final;
+    void SetScissorRect(const Rect& scissor_rect) final;
+    void SetBlendColor(const math::Color& color) final;
+
+    void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0, Format index_format = Format::R32_UINT) final;
+    void SetVertexBuffers(
+        std::uint8_t                                             start_binding,
+        std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
+        std::span<const std::size_t>                             offsets) final;
+
+    void PushBindlessMetaInfo(const BindlessMetaInfo& info) final;
+
+    void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;
+    void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final;
+
+    void CopyTextureRegion(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer src_layer = {},
+        TextureSubresourceLayer dst_layer = {}) final;
+
+    ComPtr<ID3D12GraphicsCommandList>      command_list;
+    ComPtr<ID3D12CommandAllocator>         command_allocator;
+    const RenderPipeline*                  m_Pipeline = nullptr;
+    std::unique_ptr<tracy::D3D12ZoneScope> m_TracyZone;
+
+private:
+    std::shared_ptr<spdlog::logger> m_Logger;
+    TracyD3D12Ctx                   m_TracyCtx;
+    DX12BindlessUtils&              m_BindlessUtils;
+};
+
+class DX12ComputeCommandList : public ComputeCommandContext {
+public:
+    DX12ComputeCommandList(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, DX12BindlessUtils& bindings, TracyD3D12Ctx tracy_context, std::string_view name);
+    void Begin() final;
+    void End() final;
+
+    void ResourceBarrier(
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) final;
+
+    void SetPipeline(const ComputePipeline& pipeline) final;
+    void PushBindlessMetaInfo(const BindlessMetaInfo& info) final;
+
+    ComPtr<ID3D12GraphicsCommandList>      command_list;
+    ComPtr<ID3D12CommandAllocator>         command_allocator;
+    const ComputePipeline*                 m_Pipeline = nullptr;
+    std::unique_ptr<tracy::D3D12ZoneScope> m_TracyZone;
+
+private:
+    std::shared_ptr<spdlog::logger> m_Logger;
+    TracyD3D12Ctx                   m_TracyCtx;
+    DX12BindlessUtils&              m_BindlessUtils;
+};
+
+class DX12CopyCommandList : public CopyCommandContext {
+public:
+    DX12CopyCommandList(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, TracyD3D12Ctx tracy_context, std::string_view name);
+    void Begin() final;
+    void End() final;
+
+    void ResourceBarrier(
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) final;
+
+    void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dst_offset, std::size_t size) final;
+    void CopyBufferToTexture(
+        const GPUBuffer&        src,
+        std::size_t             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer dst_layer = {}) final;
+
+    void CopyTextureToBuffer(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        math::vec3u             extent,
+        GPUBuffer&              dst,
+        std::size_t             dst_offset,
+        TextureSubresourceLayer src_layer = {}) final;
+
+    void CopyTextureRegion(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer src_layer = {},
+        TextureSubresourceLayer dst_layer = {}) final;
+
+    ComPtr<ID3D12GraphicsCommandList>      command_list;
+    ComPtr<ID3D12CommandAllocator>         command_allocator;
+    std::unique_ptr<tracy::D3D12ZoneScope> m_TracyZone;
+
+private:
+    std::shared_ptr<spdlog::logger> m_Logger;
+    TracyD3D12Ctx                   m_TracyCtx;
+};
+
+inline auto to_d3d_buffer_barrier(GPUBufferBarrier barrier) noexcept -> D3D12_BUFFER_BARRIER {
+    return {
+        .SyncBefore   = to_d3d_pipeline_stage(barrier.src_stage),
+        .SyncAfter    = to_d3d_pipeline_stage(barrier.dst_stage),
+        .AccessBefore = to_d3d_barrier_access(barrier.src_access),
+        .AccessAfter  = to_d3d_barrier_access(barrier.dst_access),
+        .pResource    = dynamic_cast<DX12GPUBuffer&>(barrier.buffer).resource.Get(),
+        .Offset       = 0,
+        .Size         = barrier.buffer.Size(),
+    };
+}
+
+inline auto to_d3d_texture_barrier(TextureBarrier barrier) noexcept -> D3D12_TEXTURE_BARRIER {
+    return {
+        .SyncBefore   = to_d3d_pipeline_stage(barrier.src_stage),
+        .SyncAfter    = to_d3d_pipeline_stage(barrier.dst_stage),
+        .AccessBefore = to_d3d_barrier_access(barrier.src_access),
+        .AccessAfter  = to_d3d_barrier_access(barrier.dst_access),
+        .LayoutBefore = to_d3d_texture_layout(barrier.src_layout),
+        .LayoutAfter  = to_d3d_texture_layout(barrier.dst_layout),
+        .pResource    = dynamic_cast<DX12Texture&>(barrier.texture).resource.Get(),
+        .Subresources = {
+            .IndexOrFirstMipLevel = 0,
+            .NumMipLevels         = barrier.texture.GetDesc().mip_levels,
+            .FirstArraySlice      = 0,
+            .NumArraySlices       = barrier.texture.GetDesc().array_size,
+            .FirstPlane           = 0,
+            .NumPlanes            = 1,
+        },
+        .Flags = D3D12_TEXTURE_BARRIER_FLAG_NONE,
+    };
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
-auto initialize_command_context(DX12Device& device, CommandType type, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<ID3D12GraphicsCommandList>& cmd_list, std::string_view name) {
-    const auto logger = device.GetLogger();
 
-    if (FAILED(device.GetDevice()->CreateCommandAllocator(to_d3d_command_type(type), IID_PPV_ARGS(&cmd_allocator)))) {
+auto initialize_command_context(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, CommandType type, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<ID3D12GraphicsCommandList>& cmd_list, std::string_view name) {
+    if (FAILED(device.CreateCommandAllocator(to_d3d_command_type(type), IID_PPV_ARGS(&cmd_allocator)))) {
         const auto error_message = fmt::format("failed to create command allocator({})", fmt::styled(name, fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -23,7 +197,7 @@ auto initialize_command_context(DX12Device& device, CommandType type, ComPtr<ID3
         cmd_allocator->SetName(std::wstring(allocator_name.begin(), allocator_name.end()).c_str());
     }
 
-    if (FAILED(device.GetDevice()->CreateCommandList(0, to_d3d_command_type(type), cmd_allocator.Get(), nullptr, IID_PPV_ARGS(&cmd_list)))) {
+    if (FAILED(device.CreateCommandList(0, to_d3d_command_type(type), cmd_allocator.Get(), nullptr, IID_PPV_ARGS(&cmd_list)))) {
         const auto error_message = fmt::format("failed to create command list({})", fmt::styled(name, fmt::fg(fmt::color::green)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -91,21 +265,20 @@ inline void copy_texture_region(const ComPtr<ID3D12GraphicsCommandList>& command
     command_list->CopyTextureRegion(&dst_location, dst_offset.x, dst_offset.y, dst_offset.z, &src_location, &src_box);
 }
 
-DX12GraphicsCommandList::DX12GraphicsCommandList(DX12Device& device, std::string_view name)
-    : GraphicsCommandContext(device, name) {
-    initialize_command_context(device, CommandType::Graphics, command_allocator, command_list, name);
+DX12GraphicsCommandList::DX12GraphicsCommandList(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, DX12BindlessUtils& bindings, TracyD3D12Ctx tracy_context, std::string_view name)
+    : GraphicsCommandContext(name), m_Logger(logger), m_TracyCtx(tracy_context), m_BindlessUtils(bindings) {
+    initialize_command_context(device, logger, CommandType::Graphics, command_allocator, command_list, name);
 }
 
 void DX12GraphicsCommandList::Begin() {
-    auto& dx12_bindless_utils = static_cast<DX12BindlessUtils&>(m_Device.GetBindlessUtils());
+    auto& dx12_bindless_utils = m_BindlessUtils;
     auto  descriptor_heaps    = dx12_bindless_utils.GetDescriptorHeaps();
     command_list->SetDescriptorHeaps(descriptor_heaps.size(), descriptor_heaps.data());
     command_list->SetGraphicsRootSignature(dx12_bindless_utils.GetBindlessRootSignature().Get());
 
 #ifdef TRACY_ENABLE
-    auto& queue = static_cast<DX12CommandQueue&>(m_Device.GetCommandQueue(CommandType::Graphics));
     m_TracyZone = std::make_unique<tracy::D3D12ZoneScope>(
-        queue.GetTracyCtx(),
+        m_TracyCtx,
         __LINE__,
         __FILE__,
         sizeof(__FILE__) - 1,
@@ -131,7 +304,7 @@ void DX12GraphicsCommandList::ResourceBarrier(std::span<const GlobalBarrier>    
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
     if (FAILED(command_list.As(&cmd_list))) {
         const auto error_message = std::format("failed to cast command list to ID3D12GraphicsCommandList7");
-        m_Device.GetLogger()->error(error_message);
+        m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     pipeline_barrier_fn(cmd_list, global_barriers, buffer_barriers, texture_barriers);
@@ -149,7 +322,7 @@ void DX12GraphicsCommandList::BeginRendering(TextureView& render_target, utils::
 
     if (clear_render_target) {
         if (!render_target_texture.GetDesc().clear_value.has_value()) {
-            m_Device.GetLogger()->warn(fmt::format(
+            m_Logger->warn(fmt::format(
                 "render target({}) has no clear value but clear render target is requested",
                 fmt::styled(render_target_texture.GetName(), fmt::fg(fmt::color::orange))));
 
@@ -161,9 +334,9 @@ void DX12GraphicsCommandList::BeginRendering(TextureView& render_target, utils::
 
     if (clear_depth_stencil) {
         if (dx12_depth_stencil == nullptr) {
-            m_Device.GetLogger()->warn("depth stencil is not set but clear depth stencil is requested");
+            m_Logger->warn("depth stencil is not set but clear depth stencil is requested");
         } else if (!depth_stencil_texture->GetDesc().clear_value.has_value()) {
-            m_Device.GetLogger()->warn(fmt::format(
+            m_Logger->warn(fmt::format(
                 "depth stencil({}) has no clear value but clear depth stencil is requested",
                 fmt::styled(depth_stencil_texture->GetName(), fmt::fg(fmt::color::orange))));
         } else {
@@ -213,7 +386,7 @@ void DX12GraphicsCommandList::SetVertexBuffers(std::uint8_t                     
                                                std::span<const std::size_t>                             offsets) {
     if (m_Pipeline == nullptr) {
         const auto error_message = std::format("pipeline is not set");
-        m_Device.GetLogger()->error(error_message);
+        m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     auto& input_layout = m_Pipeline->GetDesc().vertex_input_layout;
@@ -239,7 +412,7 @@ void DX12GraphicsCommandList::SetVertexBuffers(std::uint8_t                     
                 "missing binding({}) in pipeline({}) vertex input layout",
                 fmt::styled(binding, fmt::fg(fmt::color::red)),
                 fmt::styled(m_Pipeline->GetName(), fmt::fg(fmt::color::green)));
-            m_Device.GetLogger()->error(error_message);
+            m_Logger->error(error_message);
             throw std::runtime_error(error_message);
         }
     }
@@ -268,21 +441,20 @@ void DX12GraphicsCommandList::CopyTextureRegion(const Texture&          src,
     copy_texture_region(command_list, src, src_offset, dst, dst_offset, extent, src_layer, dst_layer);
 }
 
-DX12ComputeCommandList::DX12ComputeCommandList(DX12Device& device, std::string_view name)
-    : ComputeCommandContext(device, name) {
-    initialize_command_context(device, CommandType::Compute, command_allocator, command_list, name);
+DX12ComputeCommandList::DX12ComputeCommandList(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, DX12BindlessUtils& bindings, TracyD3D12Ctx tracy_context, std::string_view name)
+    : ComputeCommandContext(name), m_Logger(logger), m_TracyCtx(tracy_context), m_BindlessUtils(bindings) {
+    initialize_command_context(device, logger, CommandType::Compute, command_allocator, command_list, name);
 }
 
 void DX12ComputeCommandList::Begin() {
-    auto& dx12_bindless_utils = static_cast<DX12BindlessUtils&>(m_Device.GetBindlessUtils());
+    auto& dx12_bindless_utils = m_BindlessUtils;
     auto  descriptor_heaps    = dx12_bindless_utils.GetDescriptorHeaps();
     command_list->SetDescriptorHeaps(descriptor_heaps.size(), descriptor_heaps.data());
     command_list->SetComputeRootSignature(dx12_bindless_utils.GetBindlessRootSignature().Get());
 
 #ifdef TRACY_ENABLE
-    auto& queue = static_cast<DX12CommandQueue&>(m_Device.GetCommandQueue(CommandType::Compute));
     m_TracyZone = std::make_unique<tracy::D3D12ZoneScope>(
-        queue.GetTracyCtx(),
+        m_TracyCtx,
         __LINE__,
         __FILE__,
         sizeof(__FILE__) - 1,
@@ -308,7 +480,7 @@ void DX12ComputeCommandList::ResourceBarrier(std::span<const GlobalBarrier>    g
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
     if (FAILED(command_list.As(&cmd_list))) {
         const auto error_message = std::format("failed to cast command list to ID3D12GraphicsCommandList7");
-        m_Device.GetLogger()->error(error_message);
+        m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     pipeline_barrier_fn(cmd_list, global_barriers, buffer_barriers, texture_barriers);
@@ -326,16 +498,15 @@ void DX12ComputeCommandList::PushBindlessMetaInfo(const BindlessMetaInfo& info) 
     command_list->SetComputeRoot32BitConstants(0, sizeof(info) / sizeof(std::uint32_t), &info, 0);
 }
 
-DX12CopyCommandList::DX12CopyCommandList(DX12Device& device, std::string_view name)
-    : CopyCommandContext(device, name) {
-    initialize_command_context(device, CommandType::Copy, command_allocator, command_list, name);
+DX12CopyCommandList::DX12CopyCommandList(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, TracyD3D12Ctx tracy_context, std::string_view name)
+    : CopyCommandContext(name), m_Logger(logger), m_TracyCtx(tracy_context) {
+    initialize_command_context(device, logger, CommandType::Copy, command_allocator, command_list, name);
 }
 
 void DX12CopyCommandList::Begin() {
 #ifdef TRACY_ENABLE
-    auto& queue = static_cast<DX12CommandQueue&>(m_Device.GetCommandQueue(CommandType::Copy));
     m_TracyZone = std::make_unique<tracy::D3D12ZoneScope>(
-        queue.GetTracyCtx(),
+        m_TracyCtx,
         __LINE__,
         __FILE__,
         sizeof(__FILE__) - 1,
@@ -360,7 +531,7 @@ void DX12CopyCommandList::ResourceBarrier(
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
     if (FAILED(command_list.As(&cmd_list))) {
         const auto error_message = std::format("failed to cast command list to ID3D12GraphicsCommandList7");
-        m_Device.GetLogger()->error(error_message);
+        m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     pipeline_barrier_fn(cmd_list, global_barriers, buffer_barriers, texture_barriers);

@@ -411,7 +411,7 @@ public:
 
 class GuiRenderUtils {
 public:
-    GuiRenderUtils(gfx::Device& gfx_device);
+    GuiRenderUtils(gfx::Device& gfx_device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler);
 
     void GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target);
 
@@ -430,7 +430,7 @@ protected:
 
 class TextRenderUtils {
 public:
-    TextRenderUtils(gfx::Device& gfx_device, std::filesystem::path font_dir);
+    TextRenderUtils(gfx::Device& gfx_device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, std::filesystem::path font_dir);
     ~TextRenderUtils();
 
     TextRenderUtils(const TextRenderUtils&)            = delete;
@@ -572,7 +572,7 @@ public:
 
 class GBuffer {
 public:
-    GBuffer(gfx::Device& device, ShaderSource shader);
+    GBuffer(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, ShaderSource shader);
 
     struct Desc {
         std::uint32_t width                     = 1;
@@ -630,6 +630,8 @@ private:
     void EnsureResources();
 
     gfx::Device&                         m_Device;
+    gfx::BindlessUtils&                  m_Bindings;
+    const gfx::ShaderCompiler&           m_ShaderCompiler;
     ShaderSource                         m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_AlbedoPS;
@@ -644,7 +646,7 @@ private:
 
 class DeferredLighting {
 public:
-    DeferredLighting(gfx::Device& device, ShaderSource shader);
+    DeferredLighting(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, ShaderSource shader);
 
     struct BindlessInfo {
         gfx::BindlessHandle frame_constant;
@@ -670,6 +672,8 @@ private:
     void EnsureResources(gfx::Format target_format);
 
     gfx::Device&                         m_Device;
+    gfx::BindlessUtils&                  m_Bindings;
+    const gfx::ShaderCompiler&           m_ShaderCompiler;
     ShaderSource                         m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_PS;
@@ -679,7 +683,7 @@ private:
 
 class GBufferDebugView {
 public:
-    GBufferDebugView(gfx::Device& device, ShaderSource shader);
+    GBufferDebugView(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, ShaderSource shader);
 
     auto Build(
         RenderContext&       context,
@@ -701,6 +705,8 @@ private:
     };
 
     gfx::Device&                         m_Device;
+    gfx::BindlessUtils&                  m_Bindings;
+    const gfx::ShaderCompiler&           m_ShaderCompiler;
     ShaderSource                         m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_AlbedoPS;
@@ -720,7 +726,7 @@ private:
 
 class RenderRuntime : public core::RuntimeModule {
 public:
-    RenderRuntime(gfx::Device& device, const Application& app, std::string_view name = "");
+    RenderRuntime(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, const Application& app, std::string_view name = "");
 
     void Tick() override;
 
@@ -746,6 +752,9 @@ public:
 private:
     const Application&               m_App;
     gfx::Device&                     m_GfxDevice;
+    gfx::CommandQueues&              m_Queues;
+    gfx::BindlessUtils&              m_Bindings;
+    const gfx::ShaderCompiler&       m_ShaderCompiler;
     std::shared_ptr<gfx::SwapChain>  m_SwapChain;
     rg::RenderGraph                  m_RenderGraph;
     std::unique_ptr<GuiRenderUtils>  m_GuiRenderUtils;
@@ -761,7 +770,7 @@ class DeferredRenderer : public IRenderer {
 public:
     // Shader sources are read through `file_io` during construction only; the
     // renderer keeps no reference to it afterwards.
-    DeferredRenderer(gfx::Device& device, core::FileIOManager& file_io, const Application& app, std::string_view name = "");
+    DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::FileIOManager& file_io, const Application& app, std::string_view name = "");
 
     auto Render(RenderContext& context, const RenderRequest& request) -> RenderResult override;
     void AddExtension(std::shared_ptr<IDeferredRenderExtension> extension);
@@ -783,6 +792,9 @@ private:
 
     const Application& m_App;
     gfx::Device&       m_GfxDevice;
+    gfx::CommandQueues&        m_Queues;
+    gfx::BindlessUtils&        m_Bindings;
+    const gfx::ShaderCompiler& m_ShaderCompiler;
 
     // Execution environment handed to every asset Load() call in this renderer.
     asset::ResourceLoadContext m_LoadContext;

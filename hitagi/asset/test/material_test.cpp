@@ -26,7 +26,10 @@ auto MakeMaterial(
 
 auto LoadMaterialPass(Material& material, std::string_view pass_contract) -> const MaterialPass& {
     auto device = hitagi::gfx::create_device(hitagi::gfx::Device::Type::Mock, "MaterialDataDevice");
-    material.Load({.device = *device});
+    hitagi::gfx::CommandQueues  queues(*device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
+    material.Load({.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler});
     const auto* pass = material.FindPass(pass_contract);
     if (!pass) throw std::logic_error("Material test pass was not found after Load().");
     return *pass;
@@ -296,6 +299,9 @@ TEST(MaterialTest, MaterialPass_GeneratesBufferAndTextures) {
 
 TEST(MaterialTest, MaterialLoad_WritesTextureViewBindlessHandle) {
     auto             device = hitagi::gfx::create_device(hitagi::gfx::Device::Type::Mock, "MaterialLoadTextureView");
+    hitagi::gfx::CommandQueues  queues(*device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
     const std::array pixels{
         static_cast<std::byte>(255),
         static_cast<std::byte>(255),
@@ -319,7 +325,7 @@ TEST(MaterialTest, MaterialLoad_WritesTextureViewBindlessHandle) {
             },
         });
 
-    mat->Load({.device = *device});
+    mat->Load({.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler});
 
     ASSERT_NE(texture->GetGPUData(), nullptr);
     ASSERT_NE(texture->GetGPUView(), nullptr);

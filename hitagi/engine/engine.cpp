@@ -18,6 +18,19 @@ using namespace std::literals;
 
 namespace hitagi {
 
+// Own infrastructure before consumers; resources receive the individual services.
+class GraphicsServices final : public core::RuntimeModule {
+public:
+    explicit GraphicsServices(gfx::Device& device)
+        : RuntimeModule("GraphicsServices"), queues(device), bindings(gfx::BindlessUtils::Create(device)), compiler("Engine") {}
+    ~GraphicsServices() final { queues.WaitIdle(); }
+    void Tick() final { queues.NewFrame(); }
+
+    gfx::CommandQueues                  queues;
+    std::unique_ptr<gfx::BindlessUtils> bindings;
+    gfx::ShaderCompiler                 compiler;
+};
+
 class OutLogicArea : public core::RuntimeModule {
 public:
     OutLogicArea() : core::RuntimeModule("OutLogicArea") {}
@@ -44,6 +57,10 @@ Engine::Engine(AppConfig config)
 
     // update state
     m_Device       = add_inner_module(gfx::create_device(magic_enum::enum_cast<gfx::Device::Type>(m_App->GetConfig().gfx_backend).value()));
+    auto* graphics_services = add_inner_module(std::make_unique<GraphicsServices>(*m_Device));
+    m_Queues                = &graphics_services->queues;
+    m_Bindings              = graphics_services->bindings.get();
+    m_ShaderCompiler        = &graphics_services->compiler;
     m_AssetManager = add_inner_module(std::make_unique<asset::AssetManager>(*m_FileIO, *m_JobSystem, m_App->GetConfig().asset_root_path));
     m_PhysicsWorld = add_inner_module(std::make_unique<physics::PhysicsWorld>(*m_JobSystem));
 
@@ -52,9 +69,9 @@ Engine::Engine(AppConfig config)
 
     // use modified state -> Render
     add_inner_module(std::make_unique<debugger::DebugManager>());
-    m_Renderer      = add_inner_module(std::make_unique<render::DefaultRenderer>(*m_Device, *m_FileIO, *m_App));
+    m_Renderer      = add_inner_module(std::make_unique<render::DefaultRenderer>(*m_Device, *m_Queues, *m_Bindings, *m_ShaderCompiler, *m_FileIO, *m_App));
     m_GuiManager    = add_inner_module(std::make_unique<gui::GuiManager>(*m_App, *m_FileIO));
-    m_RenderRuntime = static_cast<render::RenderRuntime*>(add_inner_module(std::make_unique<render::RenderRuntime>(*m_Device, *m_App)));
+    m_RenderRuntime = static_cast<render::RenderRuntime*>(add_inner_module(std::make_unique<render::RenderRuntime>(*m_Device, *m_Queues, *m_Bindings, *m_ShaderCompiler, *m_App)));
 
     m_Clock.Start();
 }

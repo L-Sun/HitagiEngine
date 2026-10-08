@@ -39,7 +39,7 @@ auto main(int argc, char** argv) -> int {
         .height      = 720,
         .gfx_backend = "Vulkan",
     });
-    engine.SetRenderer(std::make_unique<game::pbr_demo::PbrDemoRenderer>(engine.RenderRuntime().GetRenderGraph().GetDevice()));
+    engine.SetRenderer(std::make_unique<game::pbr_demo::PbrDemoRenderer>(engine.ResourceLoadContext()));
     engine.AddSubModule(std::make_unique<game::pbr_demo::PbrDemoGame>(engine, options.cooked_scene));
 
     std::uint64_t frame_index = 0;

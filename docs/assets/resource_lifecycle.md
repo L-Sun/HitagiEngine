@@ -9,6 +9,9 @@ The core rule is one sentence: **CPU data stays resident, GPU data is on demand*
 ```cpp
 struct ResourceLoadContext {
     gfx::Device& device;
+    gfx::CommandQueues& queues;
+    gfx::BindlessUtils& bindings;
+    const gfx::ShaderCompiler& shader_compiler;
 };
 
 class Resource : public std::enable_shared_from_this<Resource> {
@@ -90,7 +93,7 @@ The work is split in two:
 
 ```cpp
 void Texture::DecodeCPU() noexcept;      // worker thread: call the injected ImageLoader, never touch gfx
-void Texture::Upload(gfx::Device&);      // render thread: CreateTexture + CreateTextureView
+void Texture::Upload(const ResourceLoadContext&); // render thread: Texture::Create + TextureView::Create
 ```
 
 `Load` drives the state machine and picks which half to run from the current state:
@@ -123,7 +126,7 @@ using ImageLoader = std::function<ImageData()>;   // how to obtain pixels
 Texture(path, ImageLoader loader, name = {}, core::JobSubmitter decode_submitter = {});
 ```
 
-`AssetManager::AcquireTexture` passes `MakeFileImageLoader(m_FileIO, path)` (read through `FileIOManager` and pick a codec by extension) and `m_JobSystem.MakeSubmitter()`. `path` is only an identity (the dedup key, and the reference written at cook time). Whether and how the file is read is the loader's decision. `ResourceLoadContext` carries only `device`, not an executor. The caller of `Load` does not need to know the async policy; the code that created the texture decides that. A texture with no submitter takes the synchronous decode path. A texture with no loader has only in-memory pixels.
+`AssetManager::AcquireTexture` passes `MakeFileImageLoader(m_FileIO, path)` (read through `FileIOManager` and pick a codec by extension) and `m_JobSystem.MakeSubmitter()`. `path` is only an identity (the dedup key, and the reference written at cook time). Whether and how the file is read is the loader's decision. `ResourceLoadContext` carries explicit graphics creation services (`device`, `queues`, `bindings`, and `shader_compiler`), not a CPU job executor. The caller of `Load` does not need to know the async policy; the code that created the texture decides that. A texture with no submitter takes the synchronous decode path. A texture with no loader has only in-memory pixels.
 
 `Unload` is safe while a decode is in flight: the worker still finishes and pushes the state to `Staged`. The GPU side has already been released, the CPU data is kept, and the next `Load` uploads straight from `Staged`.
 
@@ -206,4 +209,4 @@ void AssetManager::UnloadScene(const std::shared_ptr<Scene>& scene) {
 
 The caller also has to make the renderer drop its own cache (`IRenderer::InvalidateResources`). Otherwise the renderer may still hold GPU handles that have already been released.
 
-Destruction order has one hard constraint: `AssetManager`'s destructor calls `Texture::DestroyDefaultTexture()`, and the placeholder texture holds GPU resources, so **`gfx::Device` must outlive `AssetManager`**. Declaring them in the wrong order in a test hits an access violation immediately.
+Destruction order is a dependency contract: `AssetManager`'s destructor calls `Texture::DestroyDefaultTexture()`, and the placeholder texture holds GPU resources and a view. **Device and binding facilities must outlive AssetManager**; queues must also outlive consumers that submit or wait for work during teardown. Tests should construct Device, queues/bindings, then graphics consumers, so destruction runs in reverse.

@@ -1,10 +1,36 @@
 module;
-#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_raii.hpp>
+#include <tracy/Tracy.hpp>
 
-module gfx.vulkan;
+export module gfx.vulkan:sync;
+import std;
+import core;
+import utils;
+import math;
 import gfx.base;
+import magic_enum;
+import :types;
+import :utils;
+import :configs;
 
+export namespace hitagi::gfx {
+
+struct VulkanTimelineSemaphore final : public Fence {
+public:
+    VulkanTimelineSemaphore(const vk::raii::Device& device, const vk::AllocationCallbacks& allocator, std::uint64_t initial_value = 0, std::string_view name = "");
+    ~VulkanTimelineSemaphore() final = default;
+
+    void Signal(std::uint64_t value) final;
+    bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = (std::chrono::milliseconds::max)()) final;
+    auto GetCurrentValue() -> std::uint64_t final;
+
+    vk::raii::Semaphore timeline_semaphore;
+
+private:
+    const vk::raii::Device& m_Device;
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
 
@@ -18,17 +44,13 @@ auto semaphore_create_info(std::uint64_t initial_value) {
     };
 }
 
-VulkanTimelineSemaphore::VulkanTimelineSemaphore(VulkanDevice& device, std::uint64_t initial_value, std::string_view name)
-    : Fence(device, name),
-      timeline_semaphore(
-          device.GetDevice(),
-          semaphore_create_info(initial_value).get(),
-          device.GetCustomAllocator()) {
-    create_vk_debug_object_info(timeline_semaphore, name, device.GetDevice());
+VulkanTimelineSemaphore::VulkanTimelineSemaphore(const vk::raii::Device& device, const vk::AllocationCallbacks& allocator, std::uint64_t initial_value, std::string_view name)
+    : Fence(name), m_Device(device), timeline_semaphore(device, semaphore_create_info(initial_value).get(), allocator) {
+    create_vk_debug_object_info(timeline_semaphore, name, device);
 }
 
 void VulkanTimelineSemaphore::Signal(std::uint64_t value) {
-    static_cast<VulkanDevice&>(m_Device).GetDevice().signalSemaphore(vk::SemaphoreSignalInfo{
+    m_Device.signalSemaphore(vk::SemaphoreSignalInfo{
         .semaphore = *timeline_semaphore,
         .value     = value,
     });
@@ -36,7 +58,7 @@ void VulkanTimelineSemaphore::Signal(std::uint64_t value) {
 
 bool VulkanTimelineSemaphore::Wait(std::uint64_t value, std::chrono::milliseconds timeout) {
     ZoneScopedNS("VulkanTimelineSemaphore::Wait", 8);
-    return static_cast<VulkanDevice&>(m_Device).GetDevice().waitSemaphores(
+    return m_Device.waitSemaphores(
                vk::SemaphoreWaitInfo{
                    .semaphoreCount = 1,
                    .pSemaphores    = &*timeline_semaphore,

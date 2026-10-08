@@ -1,18 +1,46 @@
 module;
-
+#include <d3d12.h>
+#include <wrl.h>
 #include <spdlog/logger.h>
 #include <fmt/color.h>
 #include <d3dx12/d3dx12.h>
 #include <tracy/Tracy.hpp>
 
-module gfx.dx12;
+export module gfx.dx12:sync;
+import std;
+import core;
+import utils;
+import math;
+import gfx.base;
+import magic_enum;
+
+using namespace Microsoft::WRL;
+
+export namespace hitagi::gfx {
+
+class DX12Fence final : public Fence {
+public:
+    DX12Fence(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, std::uint64_t initial_value, std::string_view name);
+    ~DX12Fence() final;
+
+    void Signal(std::uint64_t value) final;
+    bool Wait(std::uint64_t value, std::chrono::milliseconds timeout = (std::chrono::milliseconds::max)()) final;
+    auto GetCurrentValue() -> std::uint64_t final;
+
+    inline auto GetFence() const noexcept { return m_Fence; }
+
+private:
+    ComPtr<ID3D12Fence> m_Fence;
+    void*               m_EventHandle = nullptr;
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
-DX12Fence::DX12Fence(DX12Device& device, std::uint64_t initial_value, std::string_view name) : Fence(device, name) {
-    const auto logger = device.GetLogger();
 
+DX12Fence::DX12Fence(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, std::uint64_t initial_value, std::string_view name) : Fence(name) {
     logger->trace("Creating Fence: {}", fmt::styled(name, fmt::fg(fmt::color::green)));
-    if (FAILED(device.GetDevice()->CreateFence(initial_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_Fence)))) {
+    if (FAILED(device.CreateFence(initial_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_Fence)))) {
         const auto error_message = fmt::format(
             "Failed to create Fence({})",
             fmt::styled(name, fmt::fg(fmt::color::red)));

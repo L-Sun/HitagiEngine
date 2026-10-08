@@ -64,7 +64,7 @@ auto CollectTextures(const gui::GuiDrawData& draw_data) -> std::pmr::vector<rg::
 
 }  // namespace
 
-GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device) {
+GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler) {
     const std::pmr::string gui_shader = R"""(
         #include "bindless.hlsl"
         struct BindlessInfo {
@@ -107,61 +107,61 @@ GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device) {
         }
 )""";
 
-    m_GfxData.vs = gfx_device.CreateShader({
-        .name        = "gui-vs",
-        .type        = gfx::ShaderType::Vertex,
-        .entry       = "VSMain",
-        .source_code = gui_shader,
-    });
+    m_GfxData.vs = hitagi::gfx::Shader::Create(gfx_device, compiler, {
+                                                                         .name        = "gui-vs",
+                                                                         .type        = gfx::ShaderType::Vertex,
+                                                                         .entry       = "VSMain",
+                                                                         .source_code = gui_shader,
+                                                                     });
 
-    m_GfxData.ps = gfx_device.CreateShader({
-        .name        = "gui-ps",
-        .type        = gfx::ShaderType::Pixel,
-        .entry       = "PSMain",
-        .source_code = gui_shader,
-    });
+    m_GfxData.ps = hitagi::gfx::Shader::Create(gfx_device, compiler, {
+                                                                         .name        = "gui-ps",
+                                                                         .type        = gfx::ShaderType::Pixel,
+                                                                         .entry       = "PSMain",
+                                                                         .source_code = gui_shader,
+                                                                     });
 
-    m_GfxData.sampler = gfx_device.CreateSampler({
-        .name           = "gui-sampler",
-        .address_u      = gfx::AddressMode::Clamp,
-        .address_v      = gfx::AddressMode::Clamp,
-        .address_w      = gfx::AddressMode::Clamp,
-        .mag_filter     = gfx::FilterMode::Linear,
-        .min_filter     = gfx::FilterMode::Linear,
-        .mipmap_filter  = gfx::FilterMode::Linear,
-        .min_lod        = 0,
-        .max_lod        = 0,
-        .max_anisotropy = 1,
-        .compare_op     = gfx::CompareOp::Always,
-    });
+    m_GfxData.sampler = hitagi::gfx::Sampler::Create(gfx_device, bindings, {
+                                                                               .name           = "gui-sampler",
+                                                                               .address_u      = gfx::AddressMode::Clamp,
+                                                                               .address_v      = gfx::AddressMode::Clamp,
+                                                                               .address_w      = gfx::AddressMode::Clamp,
+                                                                               .mag_filter     = gfx::FilterMode::Linear,
+                                                                               .min_filter     = gfx::FilterMode::Linear,
+                                                                               .mipmap_filter  = gfx::FilterMode::Linear,
+                                                                               .min_lod        = 0,
+                                                                               .max_lod        = 0,
+                                                                               .max_anisotropy = 1,
+                                                                               .compare_op     = gfx::CompareOp::Always,
+                                                                           });
 
-    m_GfxData.pipeline = gfx_device.CreateRenderPipeline(
-        {
-            .name           = "gui",
-            .assembly_state = {
-                .primitive = gfx::PrimitiveTopology::TriangleList,
-            },
-            .vertex_input_layout = {
-                {.semantic = "POSITION", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(gui::GuiVertex, position), .stride = sizeof(gui::GuiVertex)},
-                {.semantic = "TEXCOORD", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(gui::GuiVertex, uv), .stride = sizeof(gui::GuiVertex)},
-                {.semantic = "COLOR", .format = gfx::Format::R32G32B32A32_FLOAT, .binding = 0, .offset = offsetof(gui::GuiVertex, color), .stride = sizeof(gui::GuiVertex)},
-            },
-            .rasterization_state = {
-                .cull_mode               = gfx::CullMode::None,
-                .front_counter_clockwise = false,
-            },
-            .blend_state = {
-                .blend_enable           = true,
-                .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
-                .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-                .color_blend_op         = gfx::BlendOp::Add,
-                .src_alpha_blend_factor = gfx::BlendFactor::One,
-                .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-                .alpha_blend_op         = gfx::BlendOp::Add,
-            },
-            .render_format = gfx::Format::R8G8B8A8_UNORM,
-        },
-        {m_GfxData.vs, m_GfxData.ps});
+    m_GfxData.pipeline = hitagi::gfx::RenderPipeline::Create(gfx_device, bindings,
+                                                             {
+                                                                 .name           = "gui",
+                                                                 .assembly_state = {
+                                                                     .primitive = gfx::PrimitiveTopology::TriangleList,
+                                                                 },
+                                                                 .vertex_input_layout = {
+                                                                     {.semantic = "POSITION", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(gui::GuiVertex, position), .stride = sizeof(gui::GuiVertex)},
+                                                                     {.semantic = "TEXCOORD", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(gui::GuiVertex, uv), .stride = sizeof(gui::GuiVertex)},
+                                                                     {.semantic = "COLOR", .format = gfx::Format::R32G32B32A32_FLOAT, .binding = 0, .offset = offsetof(gui::GuiVertex, color), .stride = sizeof(gui::GuiVertex)},
+                                                                 },
+                                                                 .rasterization_state = {
+                                                                     .cull_mode               = gfx::CullMode::None,
+                                                                     .front_counter_clockwise = false,
+                                                                 },
+                                                                 .blend_state = {
+                                                                     .blend_enable           = true,
+                                                                     .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
+                                                                     .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                                                                     .color_blend_op         = gfx::BlendOp::Add,
+                                                                     .src_alpha_blend_factor = gfx::BlendFactor::One,
+                                                                     .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                                                                     .alpha_blend_op         = gfx::BlendOp::Add,
+                                                                 },
+                                                                 .render_format = gfx::Format::R8G8B8A8_UNORM,
+                                                             },
+                                                             {m_GfxData.vs, m_GfxData.ps});
 }
 
 void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target) {
@@ -173,15 +173,15 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
     if (total_vertices == 0 || total_indices == 0 || total_draws == 0) return;
 
     if (m_GfxData.font_texture == nullptr || m_FontTextureGeneration != draw_data.font_atlas.generation) {
-        m_GfxData.font_texture = render_graph.GetDevice().CreateTexture(
-            {
-                .name   = "gui-font",
-                .width  = draw_data.font_atlas.width,
-                .height = draw_data.font_atlas.height,
-                .format = gfx::Format::R8G8B8A8_UNORM,
-                .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
-            },
-            draw_data.font_atlas.pixels);
+        m_GfxData.font_texture  = hitagi::gfx::Texture::Create(render_graph.GetDevice(), render_graph.GetQueues(), render_graph.GetBindings(),
+                                                               {
+                                                                   .name   = "gui-font",
+                                                                   .width  = draw_data.font_atlas.width,
+                                                                   .height = draw_data.font_atlas.height,
+                                                                   .format = gfx::Format::R8G8B8A8_UNORM,
+                                                                   .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
+                                                               },
+                                                               draw_data.font_atlas.pixels);
         m_FontTextureGeneration = draw_data.font_atlas.generation;
     }
 

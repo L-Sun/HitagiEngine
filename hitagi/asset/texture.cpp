@@ -56,7 +56,7 @@ private:
     // Worker-thread half of the async path: runs the loader (-> Staged/Failed).
     // Never touches gfx. Safe to call off the render thread.
     void DecodeCPU() noexcept;
-    void Upload(gfx::Device& device);
+    void Upload(const ResourceLoadContext& context);
 
     ImageData                    m_ImageData;
     std::filesystem::path        m_Path;
@@ -174,21 +174,21 @@ void Texture::DecodeCPU() noexcept {
     }
 }
 
-void Texture::Upload(gfx::Device& device) {
-    m_GPUData = device.CreateTexture(
-        {
-            .name   = m_Name,
-            .width  = m_ImageData.width,
-            .height = m_ImageData.height,
-            .format = m_ImageData.format,
-            .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
-        },
-        m_ImageData.data.Span<const std::byte>());
-    m_GPUView = device.CreateTextureView({
-        .name    = std::pmr::string(std::format("{}-srv", m_Name)),
-        .texture = m_GPUData,
-        .type    = gfx::TextureViewType::ShaderRead,
-    });
+void Texture::Upload(const ResourceLoadContext& context) {
+    m_GPUData = hitagi::gfx::Texture::Create(context.device, context.queues, context.bindings,
+                                             {
+                                                 .name   = m_Name,
+                                                 .width  = m_ImageData.width,
+                                                 .height = m_ImageData.height,
+                                                 .format = m_ImageData.format,
+                                                 .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
+                                             },
+                                             m_ImageData.data.Span<const std::byte>());
+    m_GPUView = hitagi::gfx::TextureView::Create(context.device, context.bindings, {
+                                                                                       .name    = std::pmr::string(std::format("{}-srv", m_Name)),
+                                                                                       .texture = m_GPUData,
+                                                                                       .type    = gfx::TextureViewType::ShaderRead,
+                                                                                   });
     SetLoadState(ResourceLoadState::Loaded);
 }
 
@@ -199,7 +199,7 @@ void Texture::Load(const ResourceLoadContext& context) {
         case ResourceLoadState::Loading:  // in flight; caller keeps using the placeholder
             return;
         case ResourceLoadState::Staged:
-            Upload(context.device);
+            Upload(context);
             return;
         case ResourceLoadState::Unloaded:
             break;
@@ -220,7 +220,7 @@ void Texture::Load(const ResourceLoadContext& context) {
             throw std::runtime_error("Failed to decode texture " + m_Path.string());
         }
     }
-    Upload(context.device);
+    Upload(context);
 }
 
 void Texture::Unload() {

@@ -49,7 +49,7 @@ void ApplyEditorViewportNavigation(
 
 class EditorViewportGridPass {
 public:
-    EditorViewportGridPass(gfx::Device& device, const render::ShaderSource& shader);
+    EditorViewportGridPass(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, const render::ShaderSource& shader);
 
     auto Build(render::RenderContext& context, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) -> rg::TextureHandle;
 
@@ -109,7 +109,7 @@ struct EditorSelectionBuffers {
 
 class EditorSelectionMetadataPass {
 public:
-    EditorSelectionMetadataPass(gfx::Device& device, render::ShaderSource shader);
+    EditorSelectionMetadataPass(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, render::ShaderSource shader);
 
     auto Build(
         render::RenderContext&     context,
@@ -158,6 +158,8 @@ private:
         std::uint64_t                      bindless_stride);
 
     gfx::Device&                         m_Device;
+    gfx::BindlessUtils&                  m_Bindings;
+    const gfx::ShaderCompiler&           m_ShaderCompiler;
     render::ShaderSource                 m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_IdPS;
@@ -170,7 +172,7 @@ private:
 
 class EditorSelectionOutlinePass {
 public:
-    EditorSelectionOutlinePass(gfx::Device& device, render::ShaderSource shader);
+    EditorSelectionOutlinePass(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, render::ShaderSource shader);
 
     auto Build(
         render::RenderContext&          context,
@@ -203,6 +205,8 @@ private:
     auto GetPipeline(gfx::Format target_format) -> std::shared_ptr<gfx::RenderPipeline>;
 
     gfx::Device&                         m_Device;
+    gfx::BindlessUtils&                  m_Bindings;
+    const gfx::ShaderCompiler&           m_ShaderCompiler;
     render::ShaderSource                 m_Shader;
     std::shared_ptr<gfx::Shader>         m_VS;
     std::shared_ptr<gfx::Shader>         m_PS;
@@ -212,7 +216,7 @@ private:
 
 class EditorDeferredSelectionExtension final : public render::IDeferredRenderExtension {
 public:
-    EditorDeferredSelectionExtension(gfx::Device& device, const render::ShaderSource& shader);
+    EditorDeferredSelectionExtension(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, const render::ShaderSource& shader);
 
     void SetSelection(EditorSelectionDesc desc);
 

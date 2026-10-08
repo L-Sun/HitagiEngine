@@ -1,5 +1,6 @@
 module;
-
+#include <vulkan/vulkan_raii.hpp>
+#include <vk_mem_alloc.h>
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -14,16 +15,148 @@ module;
 #include <spdlog/logger.h>
 #include <SDL3/SDL.h>
 #include <spirv_reflect.h>
-#include <vulkan/vulkan_raii.hpp>
-#include <vk_mem_alloc.h>
 
-module gfx.vulkan;
+export module gfx.vulkan:resource;
 import std;
+import core;
+import utils;
+import math;
+import gfx.base;
+import :types;
+import :bindless;
+import :utils;
+import :configs;
+
+export namespace hitagi::gfx {
+
+struct VulkanBuffer final : public GPUBuffer {
+    VulkanBuffer(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VmaAllocator allocator, std::shared_ptr<spdlog::logger> logger, GPUBufferDesc desc, std::span<const std::byte> initial_data);
+    ~VulkanBuffer() final;
+
+    auto GetAllocationSize() const noexcept -> std::uint64_t final { return m_AllocationSize; }
+    auto Map() -> std::byte* final;
+    void UnMap() final;
+
+    std::unique_ptr<vk::raii::Buffer> buffer;
+    VmaAllocation                     allocation       = nullptr;
+    std::uint64_t                     m_AllocationSize = 0;
+
+    VmaAllocator                    m_Allocator;
+    std::shared_ptr<spdlog::logger> m_Logger;
+    std::mutex                      map_mutex;
+    std::uint16_t                   mapped_count{0};
+};
+
+struct VulkanBufferView final : public GPUBufferView {
+    VulkanBufferView(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc);
+};
+
+struct VulkanImage final : public Texture {
+    VulkanImage(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VmaAllocator allocator, const std::shared_ptr<spdlog::logger>& logger, TextureDesc desc, std::span<const std::byte> initial_data);
+    VulkanImage(const vk::raii::Device& device, const VulkanSwapChain& swap_chian, std::uint32_t index);
+    VulkanImage(const VulkanImage&) = delete;
+    VulkanImage(VulkanImage&&)      = default;
+    ~VulkanImage() final;
+
+    auto GetAllocationSize() const noexcept -> std::uint64_t final { return m_AllocationSize; }
+
+    std::optional<vk::raii::Image> image;
+    vk::Image                      image_handle;
+    const VulkanSwapChain*         swap_chain = nullptr;
+
+    VmaAllocator  m_Allocator = nullptr;
+    vk::Device    native_device;
+    VmaAllocation allocation       = nullptr;
+    std::uint64_t m_AllocationSize = 0;
+};
+
+struct VulkanTextureView final : public TextureView {
+    VulkanTextureView(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, TextureViewDesc desc);
+
+    std::optional<vk::raii::ImageView> image_view;
+};
+
+struct VulkanSampler final : public Sampler {
+    VulkanSampler(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, SamplerDesc desc);
+
+    std::unique_ptr<vk::raii::Sampler> sampler;
+};
+
+class VulkanSwapChain final : public SwapChain {
+public:
+    struct SemaphorePair {
+        SemaphorePair() = default;
+        SemaphorePair(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, std::string_view name);
+        std::shared_ptr<vk::raii::Semaphore> image_available;
+        std::shared_ptr<vk::raii::Semaphore> presentable;
+    };
+
+    VulkanSwapChain(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::raii::Instance& instance, const vk::raii::PhysicalDevice& physical_device, const vk::raii::Queue& queue, std::uint32_t queue_family_index, std::shared_ptr<spdlog::logger> logger, SwapChainDesc desc);
+
+    auto AcquireTextureForRendering() -> utils::optional_ref<Texture> final;
+
+    inline auto GetWidth() const noexcept -> std::uint32_t final { return m_Size.x; };
+    inline auto GetHeight() const noexcept -> std::uint32_t final { return m_Size.y; };
+    inline auto GetFormat() const noexcept -> Format final { return m_Format; }
+
+    void Present() final;
+    void Resize() final;
+
+    inline auto& GetVkSwapChain() const noexcept { return *m_SwapChain; }
+
+    inline const auto& GetSemaphores() const noexcept { return m_CurrentSemaphores; }
+
+private:
+    const vk::raii::Device&         m_Device;
+    const vk::AllocationCallbacks&  m_Callbacks;
+    const vk::raii::PhysicalDevice& m_PhysicalDevice;
+    const vk::raii::Queue&          m_Queue;
+    std::uint32_t                   m_QueueFamilyIndex;
+    std::shared_ptr<spdlog::logger> m_Logger;
+
+    void CreateSwapChain();
+    void CreateImageViews();
+
+    std::unique_ptr<vk::raii::SurfaceKHR>      m_Surface;
+    std::unique_ptr<vk::raii::SwapchainKHR>    m_SwapChain;
+    math::vec2u                                m_Size;
+    Format                                     m_Format;
+    std::uint32_t                              m_NumImages;
+    std::pmr::vector<std::unique_ptr<Texture>> m_Images;
+
+    int                             m_CurrentIndex       = -1;
+    std::uint32_t                   m_NextSemaphoreIndex = 0;
+    SemaphorePair                   m_CurrentSemaphores;
+    std::pmr::vector<SemaphorePair> m_SemaphorePairs;
+};
+
+struct VulkanShader final : public Shader {
+    VulkanShader(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const ShaderCompiler& compiler, ShaderDesc desc);
+
+    auto GetSPIRVData() const noexcept -> std::span<const std::byte> final;
+
+    core::Buffer           binary_program;
+    vk::raii::ShaderModule shader;
+};
+
+struct VulkanRenderPipeline final : public RenderPipeline {
+    VulkanRenderPipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::ShaderDescriptorSetAndBindingMappingInfoEXT& mapping_info, const std::shared_ptr<spdlog::logger>& logger, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders);
+
+    std::unique_ptr<vk::raii::Pipeline> pipeline;
+};
+
+struct VulkanComputePipeline final : public ComputePipeline {
+    VulkanComputePipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::ShaderDescriptorSetAndBindingMappingInfoEXT& mapping_info, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs);
+
+    std::unique_ptr<vk::raii::Pipeline> pipeline;
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
 
-VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
+VulkanBuffer::VulkanBuffer(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VmaAllocator allocator, std::shared_ptr<spdlog::logger> logger, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(std::move(desc)), m_Allocator(allocator), m_Logger(std::move(logger)) {
+    logger = m_Logger;
 
     if (Size() == 0) {
         const auto error_message = fmt::format(
@@ -39,7 +172,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             .size  = Size(),
             .usage = to_vk_buffer_usage(m_Desc.usages),
         };
-        buffer = std::make_unique<vk::raii::Buffer>(device.GetDevice(), buffer_create_info, device.GetCustomAllocator());
+        buffer = std::make_unique<vk::raii::Buffer>(device, buffer_create_info, callbacks);
     }
 
     logger->trace("Allocate buffer({}) memory", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
@@ -72,7 +205,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
 
         VmaAllocationInfo allocation_info;
         if (VK_SUCCESS != vmaAllocateMemoryForBuffer(
-                              device.GetVmaAllocator(),
+                              allocator,
                               **buffer,
                               &allocation_create_info,
                               &allocation,
@@ -82,7 +215,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
             throw std::runtime_error(error_message);
         }
         m_AllocationSize = allocation_info.size;
-        vmaBindBufferMemory(device.GetVmaAllocator(), allocation, **buffer);
+        vmaBindBufferMemory(allocator, allocation, **buffer);
     }
 
     if (!initial_data.empty()) {
@@ -103,13 +236,13 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
         } else if (utils::has_flag(desc.usages, GPUBufferUsageFlags::CopyDst)) {
             // Direct VRAM write via ReBAR (DEVICE_LOCAL + HOST_VISIBLE)
             void* mapped_ptr = nullptr;
-            if (VK_SUCCESS != vmaMapMemory(device.GetVmaAllocator(), allocation, &mapped_ptr)) {
+            if (VK_SUCCESS != vmaMapMemory(allocator, allocation, &mapped_ptr)) {
                 auto error_message = fmt::format("failed to map ReBAR buffer({})", fmt::styled(GetName(), fmt::fg(fmt::color::red)));
                 logger->error(error_message);
                 throw std::runtime_error(error_message);
             }
             std::memcpy(mapped_ptr, initial_data.data(), std::min<std::size_t>(initial_data.size(), Size()));
-            vmaUnmapMemory(device.GetVmaAllocator(), allocation);
+            vmaUnmapMemory(allocator, allocation);
         } else {
             auto error_message = fmt::format(
                 "Can not initialize gpu buffer({}) using upload heap without the flag {} or {}, the actual flags are {}",
@@ -119,24 +252,24 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
                 fmt::styled(format_as(m_Desc.usages), fmt::fg(fmt::color::red)));
 
             logger->error(error_message);
-            vmaFreeMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
+            vmaFreeMemory(m_Allocator, allocation);
             throw std::invalid_argument(error_message);
         }
     }
 
-    create_vk_debug_object_info(*buffer, GetName(), device.GetDevice());
+    create_vk_debug_object_info(*buffer, GetName(), device);
 }
 
-VulkanBufferView::VulkanBufferView(VulkanDevice& device, GPUBufferViewDesc desc) : GPUBufferView(device, std::move(desc)) {
-    CreateBindlessHandle();
+VulkanBufferView::VulkanBufferView(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc) : GPUBufferView(bindings, storage_requirements, std::move(desc)) {
+    if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<VulkanBindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(device.getBufferAddress({.buffer = **static_cast<VulkanBuffer&>(*m_Desc.buffer).buffer}), m_Desc, Size());
 }
 
 VulkanBuffer::~VulkanBuffer() {
-    if (allocation) vmaFreeMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
+    if (allocation) vmaFreeMemory(m_Allocator, allocation);
 }
 
 auto VulkanBuffer::Map() -> std::byte* {
-    const auto logger = m_Device.GetLogger();
+    const auto logger = m_Logger;
     if (!utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead) && !utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
         const auto error_message = fmt::format(
             "Can not map GPU buffer({}) without usage flag {} or {}",
@@ -148,10 +281,9 @@ auto VulkanBuffer::Map() -> std::byte* {
         throw std::runtime_error(error_message);
     }
 
-    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
     std::byte* mapped_ptr = nullptr;
-    if (VK_SUCCESS != vmaMapMemory(vk_device.GetVmaAllocator(),
+    if (VK_SUCCESS != vmaMapMemory(m_Allocator,
                                    allocation,
                                    reinterpret_cast<void**>(&mapped_ptr))) {
         const auto error_message = fmt::format(
@@ -162,13 +294,13 @@ auto VulkanBuffer::Map() -> std::byte* {
     }
 
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead)) {
-        if (const auto result = vmaInvalidateAllocation(vk_device.GetVmaAllocator(), allocation, 0, VK_WHOLE_SIZE);
+        if (const auto result = vmaInvalidateAllocation(m_Allocator, allocation, 0, VK_WHOLE_SIZE);
             result != VK_SUCCESS) {
             const auto error_message = fmt::format(
                 "failed to invalidate GPU buffer({}) for host read",
                 fmt::styled(GetName(), fmt::fg(fmt::color::green)));
             logger->error(error_message);
-            vmaUnmapMemory(vk_device.GetVmaAllocator(), allocation);
+            vmaUnmapMemory(m_Allocator, allocation);
             throw std::runtime_error(error_message);
         }
     }
@@ -185,28 +317,26 @@ void VulkanBuffer::UnMap() {
         const auto error_message = fmt::format(
             "Can not unmap GPU buffer({}) without map it!",
             fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-        m_Device.GetLogger()->error(error_message);
+        m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     mapped_count--;
 
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
-        if (const auto result = vmaFlushAllocation(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation, 0, VK_WHOLE_SIZE);
+        if (const auto result = vmaFlushAllocation(m_Allocator, allocation, 0, VK_WHOLE_SIZE);
             result != VK_SUCCESS) {
             const auto error_message = fmt::format(
                 "failed to flush GPU buffer({}) for host write",
                 fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-            m_Device.GetLogger()->error(error_message);
+            m_Logger->error(error_message);
             throw std::runtime_error(error_message);
         }
     }
 
-    vmaUnmapMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
+    vmaUnmapMemory(m_Allocator, allocation);
 }
 
-VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
-
+VulkanImage::VulkanImage(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VmaAllocator allocator, const std::shared_ptr<spdlog::logger>& logger, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(std::move(desc)), m_Allocator(allocator), native_device(*device) {
     logger->trace("Create Texture({})...", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
         if (m_Desc.width == 0 || m_Desc.height == 0 || m_Desc.depth == 0) {
@@ -220,9 +350,9 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
             throw std::invalid_argument(error_message);
         }
 
-        image        = vk::raii::Image(device.GetDevice(), to_vk_image_create_info(m_Desc), device.GetCustomAllocator());
+        image        = vk::raii::Image(device, to_vk_image_create_info(m_Desc), callbacks);
         image_handle = **image;
-        create_vk_debug_object_info(image.value(), GetName(), device.GetDevice());
+        create_vk_debug_object_info(image.value(), GetName(), device);
     }
 
     logger->trace("Allocate memory for Texture({})...", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
@@ -233,7 +363,7 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
 
         VmaAllocationInfo allocation_info;
         if (VK_SUCCESS != vmaAllocateMemoryForImage(
-                              device.GetVmaAllocator(),
+                              allocator,
                               *image.value(),
                               &vma_alloc_create_info,
                               &allocation,
@@ -243,79 +373,29 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
             throw std::runtime_error(error_message);
         }
         m_AllocationSize = allocation_info.size;
-        vmaBindImageMemory(device.GetVmaAllocator(), allocation, **image);
-    }
-
-    if (!initial_data.empty()) {
-        logger->trace("Copy initial data to texture({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
-        if (utils::has_flag(m_Desc.usages, TextureUsageFlags::CopyDst)) {
-            // Transition image to General layout for host image copy
-            auto  context    = device.CreateCopyContext("HostImageCopy-Transition");
-            auto& copy_queue = device.GetCommandQueue(CommandType::Copy);
-
-            context->Begin();
-            context->ResourceBarrier(
-                {}, {},
-                {{
-                    Transition(BarrierAccess::CopyDst, TextureLayout::Common, PipelineStage::Copy),
-                }});
-            context->End();
-            copy_queue.Submit({{*context}});
-            copy_queue.WaitIdle();
-
-            // Host-side copy via VK_EXT_host_image_copy
-            const vk::MemoryToImageCopyEXT region{
-                .pHostPointer      = initial_data.data(),
-                .memoryRowLength   = 0,
-                .memoryImageHeight = 0,
-                .imageSubresource  = {
-                    .aspectMask     = get_vk_image_aspect(m_Desc),
-                    .mipLevel       = 0,
-                    .baseArrayLayer = 0,
-                    .layerCount     = m_Desc.array_size,
-                },
-                .imageOffset = {.x = 0, .y = 0, .z = 0},
-                .imageExtent = {.width = m_Desc.width, .height = m_Desc.height, .depth = m_Desc.depth},
-            };
-
-            device.GetDevice().copyMemoryToImageEXT(vk::CopyMemoryToImageInfoEXT{
-                .dstImage       = **image,
-                .dstImageLayout = vk::ImageLayout::eGeneral,
-                .regionCount    = 1,
-                .pRegions       = &region,
-            });
-        } else {
-            auto error_message = fmt::format(
-                "the texture({}) can not initialize with staging buffer without {}, the actual flags are {}",
-                fmt::styled(GetName(), fmt::fg(fmt::color::red)),
-                fmt::styled(format_as(TextureUsageFlags::CopyDst), fmt::fg(fmt::color::green)),
-                fmt::styled(format_as(desc.usages), fmt::fg(fmt::color::red)));
-            logger->error(error_message);
-            throw std::invalid_argument(error_message);
-        }
+        vmaBindImageMemory(allocator, allocation, **image);
     }
 }
 
-VulkanImage::VulkanImage(const VulkanSwapChain& _swap_chian, std::uint32_t index)
-    : Texture(_swap_chian.GetDevice(),
-              {
-                  .name        = std::pmr::string(std::format("{}-texture-{}", _swap_chian.GetName(), index)),
-                  .width       = _swap_chian.GetWidth(),
-                  .height      = _swap_chian.GetHeight(),
-                  .format      = _swap_chian.GetFormat(),
-                  .clear_value = _swap_chian.GetDesc().clear_color,
-                  .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopyDst,
-              }),
-      swap_chain(&_swap_chian) {
-    const auto& vk_device = static_cast<VulkanDevice&>(m_Device);
+VulkanImage::VulkanImage(const vk::raii::Device& device, const VulkanSwapChain& _swap_chian, std::uint32_t index)
+    : Texture(
+          {
+              .name        = std::pmr::string(std::format("{}-texture-{}", _swap_chian.GetName(), index)),
+              .width       = _swap_chian.GetWidth(),
+              .height      = _swap_chian.GetHeight(),
+              .format      = _swap_chian.GetFormat(),
+              .clear_value = _swap_chian.GetDesc().clear_color,
+              .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopyDst,
+          }),
+      swap_chain(&_swap_chian),
+      native_device(*device) {
     const auto  _images   = _swap_chian.GetVkSwapChain().getImages();
-    create_vk_debug_object_info(_images.at(index), GetName(), vk_device.GetDevice());
+    create_vk_debug_object_info(_images.at(index), GetName(), device);
 
     image_handle = _images.at(index);
 }
 
-VulkanTextureView::VulkanTextureView(VulkanDevice& device, TextureViewDesc desc) : TextureView(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
+VulkanTextureView::VulkanTextureView(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, TextureViewDesc desc) : TextureView(bindings, std::move(desc)) {
     const auto fail   = [&](std::string message) {
         const auto error_message = fmt::format(
             "Invalid texture view({}): {}",
@@ -327,9 +407,6 @@ VulkanTextureView::VulkanTextureView(VulkanDevice& device, TextureViewDesc desc)
 
     if (!m_Desc.texture) {
         fail("texture is nullptr");
-    }
-    if (&m_Desc.texture->GetDevice() != &device) {
-        fail("texture belongs to another device");
     }
 
     const auto& texture_desc = m_Desc.texture->GetDesc();
@@ -379,31 +456,31 @@ VulkanTextureView::VulkanTextureView(VulkanDevice& device, TextureViewDesc desc)
     }
 
     auto& vulkan_image = dynamic_cast<VulkanImage&>(*m_Desc.texture);
-    image_view         = vk::raii::ImageView(device.GetDevice(), to_vk_image_view_create_info(m_Desc, vulkan_image.image_handle), device.GetCustomAllocator());
-    create_vk_debug_object_info(image_view.value(), GetName(), device.GetDevice());
+    image_view         = vk::raii::ImageView(device, to_vk_image_view_create_info(m_Desc, vulkan_image.image_handle), callbacks);
+    create_vk_debug_object_info(image_view.value(), GetName(), device);
 
-    CreateBindlessHandle();
+    if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<VulkanBindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(static_cast<VulkanImage&>(*m_Desc.texture).image_handle, m_Desc);
 }
 
 VulkanImage::~VulkanImage() {
-    if (allocation) vmaFreeMemory(static_cast<VulkanDevice&>(m_Device).GetVmaAllocator(), allocation);
+    if (allocation) vmaFreeMemory(m_Allocator, allocation);
 }
 
-VulkanSampler::VulkanSampler(VulkanDevice& device, SamplerDesc desc) : Sampler(device, std::move(desc)) {
-    sampler = std::make_unique<vk::raii::Sampler>(device.GetDevice(), to_vk_sampler_create_info(m_Desc), device.GetCustomAllocator());
-    create_vk_debug_object_info(*sampler, GetName(), device.GetDevice());
-    CreateBindlessHandle();
+VulkanSampler::VulkanSampler(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, SamplerDesc desc) : Sampler(bindings, std::move(desc)) {
+    sampler = std::make_unique<vk::raii::Sampler>(device, to_vk_sampler_create_info(m_Desc), callbacks);
+    create_vk_debug_object_info(*sampler, GetName(), device);
+    if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<VulkanBindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(m_Desc);
 }
 
-VulkanSwapChain::SemaphorePair::SemaphorePair(VulkanDevice& device, std::string_view name)
-    : image_available(std::make_shared<vk::raii::Semaphore>(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())),
-      presentable(std::make_shared<vk::raii::Semaphore>(device.GetDevice(), vk::SemaphoreCreateInfo{}, device.GetCustomAllocator())) {
-    create_vk_debug_object_info(*image_available, std::format("{}-image-available", name), device.GetDevice());
-    create_vk_debug_object_info(*presentable, std::format("{}-presentable", name), device.GetDevice());
+VulkanSwapChain::SemaphorePair::SemaphorePair(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, std::string_view name)
+    : image_available(std::make_shared<vk::raii::Semaphore>(device, vk::SemaphoreCreateInfo{}, callbacks)),
+      presentable(std::make_shared<vk::raii::Semaphore>(device, vk::SemaphoreCreateInfo{}, callbacks)) {
+    create_vk_debug_object_info(*image_available, std::format("{}-image-available", name), device);
+    create_vk_debug_object_info(*presentable, std::format("{}-presentable", name), device);
 }
 
-VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
-    : SwapChain(device, std::move(desc)) {
+VulkanSwapChain::VulkanSwapChain(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::raii::Instance& instance, const vk::raii::PhysicalDevice& physical_device, const vk::raii::Queue& queue, std::uint32_t queue_family_index, std::shared_ptr<spdlog::logger> logger, SwapChainDesc desc)
+    : SwapChain(std::move(desc)), m_Device(device), m_Callbacks(callbacks), m_PhysicalDevice(physical_device), m_Queue(queue), m_QueueFamilyIndex(queue_family_index), m_Logger(std::move(logger)) {
     switch (desc.window.type) {
 #ifdef _WIN32
         case utils::Window::Type::Win32: {
@@ -412,7 +489,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
                 .hinstance = GetModuleHandle(nullptr),
                 .hwnd      = h_wnd,
             };
-            m_Surface = std::make_unique<vk::raii::SurfaceKHR>(device.GetInstance(), surface_create_info, device.GetCustomAllocator());
+            m_Surface = std::make_unique<vk::raii::SurfaceKHR>(instance, surface_create_info, callbacks);
         } break;
 #endif
         case utils::Window::Type::SDL3: {
@@ -424,7 +501,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
                     nullptr));
             if (!h_wnd) {
                 const auto error_message = std::format("SDL_GetWindowProperties failed: {}", SDL_GetError());
-                device.GetLogger()->error(error_message);
+                m_Logger->error(error_message);
                 throw std::runtime_error(error_message);
             }
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
@@ -438,7 +515,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
             auto surface = reinterpret_cast<struct wl_surface*>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr));
             if (!display || !surface) {
                 const auto error_message = std::format("SDL_GetPointerProperty failed: {}", SDL_GetError());
-                device.GetLogger()->error(error_message);
+                m_Logger->error(error_message);
                 throw std::runtime_error(error_message);
             }
             vk::WaylandSurfaceCreateInfoKHR surface_create_info{
@@ -446,7 +523,7 @@ VulkanSwapChain::VulkanSwapChain(VulkanDevice& device, SwapChainDesc desc)
                 .surface = surface,
             };
 #endif
-            m_Surface = std::make_unique<vk::raii::SurfaceKHR>(device.GetInstance(), surface_create_info, device.GetCustomAllocator());
+            m_Surface = std::make_unique<vk::raii::SurfaceKHR>(instance, surface_create_info, callbacks);
         } break;
     }
 
@@ -486,8 +563,7 @@ auto VulkanSwapChain::AcquireTextureForRendering() -> utils::optional_ref<Textur
 void VulkanSwapChain::Present() {
     if (!m_SwapChain || m_CurrentIndex == -1) return;
 
-    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
-    auto& queue     = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics)).GetVkQueue();
+    const auto& queue = m_Queue;
 
     std::uint32_t index                 = static_cast<std::uint32_t>(m_CurrentIndex);
     auto          presentable_semaphore = m_CurrentSemaphores.presentable;
@@ -503,12 +579,12 @@ void VulkanSwapChain::Present() {
     });
 
     if (result != vk::Result::eSuccess) {
-        vk_device.GetLogger()->error("failed to present swap chain image");
+        m_Logger->error("failed to present swap chain image");
     }
 }
 
 void VulkanSwapChain::Resize() {
-    m_Device.WaitIdle();
+    m_Device.waitIdle();
     m_CurrentIndex       = -1;
     m_NextSemaphoreIndex = 0;
     m_CurrentSemaphores  = {};
@@ -519,7 +595,6 @@ void VulkanSwapChain::Resize() {
 void VulkanSwapChain::CreateSwapChain() {
     m_SwapChain = nullptr;
 
-    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
 
     math::vec2u window_size;
     switch (m_Desc.window.type) {
@@ -542,12 +617,11 @@ void VulkanSwapChain::CreateSwapChain() {
     }
 
     // we use graphics queue as present queue
-    const auto& graphics_queue  = static_cast<VulkanCommandQueue&>(vk_device.GetCommandQueue(CommandType::Graphics));
-    const auto& physical_device = vk_device.GetPhysicalDevice();
-    if (!physical_device.getSurfaceSupportKHR(graphics_queue.GetFamilyIndex(), **m_Surface)) {
+    const auto& physical_device = m_PhysicalDevice;
+    if (!physical_device.getSurfaceSupportKHR(m_QueueFamilyIndex, **m_Surface)) {
         throw std::runtime_error(std::format(
             "The graphics queue({}) of physical device({}) can not support surface(window.ptr: {})",
-            graphics_queue.GetFamilyIndex(),
+            m_QueueFamilyIndex,
             physical_device.getProperties().deviceName.data(),
             m_Desc.window.ptr));
     }
@@ -602,9 +676,9 @@ void VulkanSwapChain::CreateSwapChain() {
     };
 
     // We use graphics queue as present queue, so we do not care the ownership of images
-    m_SwapChain = std::make_unique<vk::raii::SwapchainKHR>(vk_device.GetDevice(), swapchain_create_info, vk_device.GetCustomAllocator());
+    m_SwapChain = std::make_unique<vk::raii::SwapchainKHR>(m_Device, swapchain_create_info, m_Callbacks);
 
-    create_vk_debug_object_info(*m_SwapChain, GetName(), vk_device.GetDevice());
+    create_vk_debug_object_info(*m_SwapChain, GetName(), m_Device);
 }
 
 void VulkanSwapChain::CreateImageViews() {
@@ -613,33 +687,31 @@ void VulkanSwapChain::CreateImageViews() {
     m_Images.clear();
     m_SemaphorePairs.clear();
     for (std::uint32_t index = 0; index < m_NumImages; index++) {
-        m_SemaphorePairs.emplace_back(static_cast<VulkanDevice&>(m_Device), std::format("{}-frame-{}", GetName(), index));
-        m_Images.emplace_back(std::make_unique<VulkanImage>(*this, index));
+        m_SemaphorePairs.emplace_back(m_Device, m_Callbacks, std::format("{}-frame-{}", GetName(), index));
+        m_Images.emplace_back(std::make_unique<VulkanImage>(m_Device, *this, index));
     }
 }
 
-VulkanShader::VulkanShader(VulkanDevice& device, ShaderDesc desc)
-    : Shader(device, std::move(desc)),
-      binary_program(device.GetShaderCompiler().CompileToSPIRV(m_Desc)),
+VulkanShader::VulkanShader(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const ShaderCompiler& compiler, ShaderDesc desc)
+    : Shader(std::move(desc)),
+      binary_program(compiler.CompileToSPIRV(m_Desc)),
       shader(
-          device.GetDevice(),
+          device,
           {
               .codeSize = binary_program.GetDataSize(),
               .pCode    = reinterpret_cast<const std::uint32_t*>(binary_program.GetData()),
           },
-          device.GetCustomAllocator())
+          callbacks)
 
 {
-    create_vk_debug_object_info(shader, GetName(), device.GetDevice());
+    create_vk_debug_object_info(shader, GetName(), device);
 }
 
 auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
     return binary_program.Span<const std::byte>();
 }
 
-VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) : RenderPipeline(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
-
+VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::ShaderDescriptorSetAndBindingMappingInfoEXT& mapping_info, const std::shared_ptr<spdlog::logger>& logger, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) : RenderPipeline(std::move(desc)) {
     bool has_vertex_shader = false, has_fragment_shader = false;
     for (const auto& shader : shaders) {
         if (shader->GetDesc().type == ShaderType::Vertex) {
@@ -701,9 +773,9 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
     std::pmr::vector<vk::PipelineShaderStageCreateInfo> shader_stage_create_infos;
     std::transform(
         shaders.begin(), shaders.end(), std::back_inserter(shader_stage_create_infos),
-        [&device](const auto& shader) {
+        [&mapping_info](const auto& shader) {
             return vk::PipelineShaderStageCreateInfo{
-                .pNext  = &static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).mapping_info,
+                .pNext  = &mapping_info,
                 .stage  = to_vk_shader_stage(shader->GetDesc().type),
                 .module = *std::static_pointer_cast<VulkanShader>(shader)->shader,
                 .pName  = shader->GetDesc().entry.data(),
@@ -816,7 +888,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
             },
         };
 
-        pipeline = std::make_unique<vk::raii::Pipeline>(device.GetDevice(), nullptr, pipeline_create_info.get(), device.GetCustomAllocator());
+        pipeline = std::make_unique<vk::raii::Pipeline>(device, nullptr, pipeline_create_info.get(), callbacks);
 
         switch (pipeline->getConstructorSuccessCode()) {
             case vk::Result::eSuccess:
@@ -826,13 +898,11 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
             default:
                 throw std::runtime_error("Failed to create pipeline");
         }
-        create_vk_debug_object_info(*pipeline, GetName(), device.GetDevice());
+        create_vk_debug_object_info(*pipeline, GetName(), device);
     }
 }
 
-VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) : ComputePipeline(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
-
+VulkanComputePipeline::VulkanComputePipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::ShaderDescriptorSetAndBindingMappingInfoEXT& mapping_info, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) : ComputePipeline(std::move(desc)) {
     auto compute_shader = std::dynamic_pointer_cast<VulkanShader>(cs);
 
     if (compute_shader == nullptr) {
@@ -842,7 +912,7 @@ VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipeli
     }
 
     const vk::PipelineShaderStageCreateInfo shader_stage_create_info{
-        .pNext  = &static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).mapping_info,
+        .pNext  = &mapping_info,
         .stage  = vk::ShaderStageFlagBits::eCompute,
         .module = *compute_shader->shader,
         .pName  = compute_shader->GetDesc().entry.data(),
@@ -855,7 +925,7 @@ VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipeli
             vk::PipelineCreateFlags2CreateInfo{.flags = vk::PipelineCreateFlagBits2::eDescriptorHeapEXT},
         };
 
-        pipeline = std::make_unique<vk::raii::Pipeline>(device.GetDevice(), nullptr, pipeline_create_info.get(), device.GetCustomAllocator());
+        pipeline = std::make_unique<vk::raii::Pipeline>(device, nullptr, pipeline_create_info.get(), callbacks);
 
         switch (pipeline->getConstructorSuccessCode()) {
             case vk::Result::eSuccess:
@@ -865,7 +935,7 @@ VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipeli
             default:
                 throw std::runtime_error("Failed to create pipeline");
         }
-        create_vk_debug_object_info(*pipeline, GetName(), device.GetDevice());
+        create_vk_debug_object_info(*pipeline, GetName(), device);
     }
 }
 

@@ -25,7 +25,7 @@ private:
 namespace hitagi::asset {
 void Shader::Load(const ResourceLoadContext& context) {
     if (GetLoadState() == ResourceLoadState::Loaded) return;
-    m_Shader = context.device.CreateShader(m_Desc);
+    m_Shader = hitagi::gfx::Shader::Create(context.device, context.shader_compiler, m_Desc);
     SetLoadState(ResourceLoadState::Loaded);
 }
 

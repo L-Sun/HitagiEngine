@@ -141,10 +141,8 @@ void AddGlyphQuad(
 }  // namespace
 
 struct TextRenderUtils::Impl {
-    explicit Impl(gfx::Device& gfx_device, std::filesystem::path font_dir)
-        : device(gfx_device),
-          default_font_dir(std::move(font_dir)),
-          atlas_pixels(AtlasWidth * AtlasHeight, std::byte{0}) {
+    explicit Impl(gfx::Device& gfx_device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, std::filesystem::path font_dir)
+        : device(gfx_device), queues(queues), bindings(bindings), compiler(compiler), default_font_dir(std::move(font_dir)), atlas_pixels(AtlasWidth * AtlasHeight, std::byte{0}) {
         if (FT_Init_FreeType(&library) != 0) {
             spdlog::error("FreeType initialization failed; text rendering is disabled.");
             library = nullptr;
@@ -194,61 +192,61 @@ struct TextRenderUtils::Impl {
             }
         )""";
 
-        vs = device.CreateShader({
-            .name        = "text-vs",
-            .type        = gfx::ShaderType::Vertex,
-            .entry       = "VSMain",
-            .source_code = text_shader,
-        });
+        vs = hitagi::gfx::Shader::Create(device, compiler, {
+                                                               .name        = "text-vs",
+                                                               .type        = gfx::ShaderType::Vertex,
+                                                               .entry       = "VSMain",
+                                                               .source_code = text_shader,
+                                                           });
 
-        ps = device.CreateShader({
-            .name        = "text-ps",
-            .type        = gfx::ShaderType::Pixel,
-            .entry       = "PSMain",
-            .source_code = text_shader,
-        });
+        ps = hitagi::gfx::Shader::Create(device, compiler, {
+                                                               .name        = "text-ps",
+                                                               .type        = gfx::ShaderType::Pixel,
+                                                               .entry       = "PSMain",
+                                                               .source_code = text_shader,
+                                                           });
 
-        sampler = device.CreateSampler({
-            .name           = "text-sampler",
-            .address_u      = gfx::AddressMode::Clamp,
-            .address_v      = gfx::AddressMode::Clamp,
-            .address_w      = gfx::AddressMode::Clamp,
-            .mag_filter     = gfx::FilterMode::Linear,
-            .min_filter     = gfx::FilterMode::Linear,
-            .mipmap_filter  = gfx::FilterMode::Linear,
-            .min_lod        = 0,
-            .max_lod        = 0,
-            .max_anisotropy = 1,
-            .compare_op     = gfx::CompareOp::Always,
-        });
+        sampler = hitagi::gfx::Sampler::Create(device, bindings, {
+                                                                     .name           = "text-sampler",
+                                                                     .address_u      = gfx::AddressMode::Clamp,
+                                                                     .address_v      = gfx::AddressMode::Clamp,
+                                                                     .address_w      = gfx::AddressMode::Clamp,
+                                                                     .mag_filter     = gfx::FilterMode::Linear,
+                                                                     .min_filter     = gfx::FilterMode::Linear,
+                                                                     .mipmap_filter  = gfx::FilterMode::Linear,
+                                                                     .min_lod        = 0,
+                                                                     .max_lod        = 0,
+                                                                     .max_anisotropy = 1,
+                                                                     .compare_op     = gfx::CompareOp::Always,
+                                                                 });
 
-        pipeline = device.CreateRenderPipeline(
-            {
-                .name           = "text",
-                .assembly_state = {
-                    .primitive = gfx::PrimitiveTopology::TriangleList,
-                },
-                .vertex_input_layout = {
-                    {.semantic = "POSITION", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(TextVertex, pos), .stride = sizeof(TextVertex)},
-                    {.semantic = "TEXCOORD", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(TextVertex, uv), .stride = sizeof(TextVertex)},
-                    {.semantic = "COLOR", .format = gfx::Format::R32G32B32A32_FLOAT, .binding = 0, .offset = offsetof(TextVertex, color), .stride = sizeof(TextVertex)},
-                },
-                .rasterization_state = {
-                    .cull_mode               = gfx::CullMode::None,
-                    .front_counter_clockwise = false,
-                },
-                .blend_state = {
-                    .blend_enable           = true,
-                    .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
-                    .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-                    .color_blend_op         = gfx::BlendOp::Add,
-                    .src_alpha_blend_factor = gfx::BlendFactor::One,
-                    .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-                    .alpha_blend_op         = gfx::BlendOp::Add,
-                },
-                .render_format = gfx::Format::R8G8B8A8_UNORM,
-            },
-            {vs, ps});
+        pipeline = hitagi::gfx::RenderPipeline::Create(device, bindings,
+                                                       {
+                                                           .name           = "text",
+                                                           .assembly_state = {
+                                                               .primitive = gfx::PrimitiveTopology::TriangleList,
+                                                           },
+                                                           .vertex_input_layout = {
+                                                               {.semantic = "POSITION", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(TextVertex, pos), .stride = sizeof(TextVertex)},
+                                                               {.semantic = "TEXCOORD", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(TextVertex, uv), .stride = sizeof(TextVertex)},
+                                                               {.semantic = "COLOR", .format = gfx::Format::R32G32B32A32_FLOAT, .binding = 0, .offset = offsetof(TextVertex, color), .stride = sizeof(TextVertex)},
+                                                           },
+                                                           .rasterization_state = {
+                                                               .cull_mode               = gfx::CullMode::None,
+                                                               .front_counter_clockwise = false,
+                                                           },
+                                                           .blend_state = {
+                                                               .blend_enable           = true,
+                                                               .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
+                                                               .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                                                               .color_blend_op         = gfx::BlendOp::Add,
+                                                               .src_alpha_blend_factor = gfx::BlendFactor::One,
+                                                               .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                                                               .alpha_blend_op         = gfx::BlendOp::Add,
+                                                           },
+                                                           .render_format = gfx::Format::R8G8B8A8_UNORM,
+                                                       },
+                                                       {vs, ps});
     }
 
     ~Impl() {
@@ -542,15 +540,15 @@ struct TextRenderUtils::Impl {
     void UploadAtlasIfNeeded() {
         if (atlas_texture != nullptr && !atlas_dirty) return;
 
-        atlas_texture = device.CreateTexture(
-            {
-                .name   = "text-atlas",
-                .width  = AtlasWidth,
-                .height = AtlasHeight,
-                .format = gfx::Format::R8_UNORM,
-                .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
-            },
-            atlas_pixels);
+        atlas_texture = hitagi::gfx::Texture::Create(device, queues, bindings,
+                                                     {
+                                                         .name   = "text-atlas",
+                                                         .width  = AtlasWidth,
+                                                         .height = AtlasHeight,
+                                                         .format = gfx::Format::R8_UNORM,
+                                                         .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
+                                                     },
+                                                     atlas_pixels);
         ++atlas_generation;
         atlas_dirty = false;
     }
@@ -596,6 +594,9 @@ struct TextRenderUtils::Impl {
     }
 
     gfx::Device&          device;
+    gfx::CommandQueues&        queues;
+    gfx::BindlessUtils&        bindings;
+    const gfx::ShaderCompiler& compiler;
     std::filesystem::path default_font_dir;
 
     FT_Library library = nullptr;
@@ -620,8 +621,8 @@ struct TextRenderUtils::Impl {
     std::uint64_t                        atlas_generation = 0;
 };
 
-TextRenderUtils::TextRenderUtils(gfx::Device& gfx_device, std::filesystem::path font_dir)
-    : m_Impl(std::make_unique<Impl>(gfx_device, std::move(font_dir))) {}
+TextRenderUtils::TextRenderUtils(gfx::Device& gfx_device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, std::filesystem::path font_dir)
+    : m_Impl(std::make_unique<Impl>(gfx_device, queues, bindings, compiler, std::move(font_dir))) {}
 
 TextRenderUtils::~TextRenderUtils() = default;
 

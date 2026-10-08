@@ -1,66 +1,145 @@
 module;
 #include <spdlog/spdlog.h>
 #include <tracy/Tracy.hpp>
-module gfx.render_graph;
+
+export module gfx.render_graph:pass_node;
+import std;
+import utils;
+import gfx.base;
+import :type;
+import :resource_edge;
+import :resource_node;
+
+export namespace hitagi::rg {
+
+class PassNode : public RenderGraphNode {
+public:
+    friend RenderGraph;
+    friend PassBuilder;
+
+    ~PassNode() override = default;
+
+    auto Resolve(GPUBufferHandle buffer) const -> gfx::GPUBuffer&;
+    auto Resolve(GPUBufferEdgeHandle edge) const -> gfx::GPUBufferView&;
+    auto Resolve(TextureEdgeHandle edge) const -> gfx::TextureView&;
+    auto Resolve(TextureHandle texture) const -> gfx::Texture&;
+    auto Resolve(SamplerHandle sampler) const -> gfx::Sampler&;
+
+    auto GetCommandType() const noexcept -> gfx::CommandType;
+
+protected:
+    PassNode(RenderGraph& render_graph, Type type);
+
+    void Initialize() final;
+
+    void PrepareResourceBarriers();
+    void ResourceBarrier();
+    void PrepareResourceViews();
+
+    virtual void Execute() = 0;
+
+    std::pmr::vector<GPUBufferEdge>       m_GPUBufferEdges;
+    std::pmr::vector<TextureEdge>         m_TextureEdges;
+    std::uint64_t                         m_AccessOwner;
+    std::pmr::unordered_set<SamplerNode*> m_Samplers;
+
+    std::pmr::vector<gfx::GPUBufferBarrier> m_GPUBufferBarriers;
+    std::pmr::vector<gfx::TextureBarrier>   m_TextureBarriers;
+    bool                                    m_ResourceBarriersPrepared = false;
+
+    std::shared_ptr<gfx::CommandContext> m_CommandContext;
+    bool                                 m_Cullable = true;
+};
+
+class RenderPassNode : public PassNode {
+public:
+    friend RenderGraph;
+    friend class RenderPassBuilder;
+
+    using Executor = std::function<void(const RenderGraph&, const RenderPassNode&)>;
+
+    RenderPassNode(RenderGraph& render_graph) : PassNode(render_graph, Type::RenderPass) {}
+
+    inline auto& GetCmd() const noexcept { return static_cast<gfx::GraphicsCommandContext&>(*m_CommandContext); }
+
+protected:
+    void Execute() final;
+
+    Executor          m_Executor;
+    TextureEdgeHandle m_RenderTarget;
+    TextureEdgeHandle m_DepthStencil;
+    bool              m_ClearRenderTarget = false;
+    bool              m_ClearDepthStencil = false;
+};
+
+class ComputePassNode : public PassNode {
+public:
+    friend RenderGraph;
+    friend class ComputePassBuilder;
+
+    using Executor = std::function<void(const RenderGraph&, const ComputePassNode&)>;
+
+    ComputePassNode(RenderGraph& render_graph) : PassNode(render_graph, Type::ComputePass) {}
+
+    inline auto& GetCmd() const noexcept { return static_cast<gfx::ComputeCommandContext&>(*m_CommandContext); }
+
+protected:
+    void Execute() final;
+
+    Executor m_Executor;
+};
+
+class CopyPassNode : public PassNode {
+public:
+    friend RenderGraph;
+    friend class CopyPassBuilder;
+
+    using Executor = std::function<void(const RenderGraph&, const CopyPassNode&)>;
+
+    CopyPassNode(RenderGraph& render_graph) : PassNode(render_graph, Type::CopyPass) {}
+
+    inline auto& GetCmd() const noexcept { return static_cast<gfx::CopyCommandContext&>(*m_CommandContext); }
+
+protected:
+    void Execute() final;
+
+    Executor m_Executor;
+};
+
+class PresentPassNode : public PassNode {
+public:
+    friend RenderGraph;
+    friend class PresentPassBuilder;
+
+    using Executor = std::function<void(const RenderGraph&, const PresentPassNode&)>;
+
+    PresentPassNode(RenderGraph& render_graph) : PassNode(render_graph, Type::PresentPass) {}
+
+    inline auto& GetCmd() const noexcept { return static_cast<gfx::GraphicsCommandContext&>(*m_CommandContext); }
+
+    std::shared_ptr<gfx::SwapChain> swap_chain;
+
+protected:
+    void Execute() final;
+
+    Executor     m_Executor;
+    TextureNode* m_From = nullptr;
+};
+
+}  // namespace hitagi::rg
+
 namespace hitagi::rg {
+
+auto ResourceNode::GetWriter() const noexcept -> PassNode* {
+    for (auto* node : m_InputNodes) {
+        if (node->IsPassNode()) return static_cast<PassNode*>(node);
+    }
+    return nullptr;
+}
 
 PassNode::PassNode(RenderGraph& graph, Type type) : RenderGraphNode(graph, type) {
     static std::uint64_t next_owner{1};
     m_AccessOwner = next_owner++;
-}
-
-auto PassNode::Resolve(GPUBufferHandle buffer) const -> gfx::GPUBuffer& {
-    if (!m_RenderGraph->IsValid(buffer)) {
-        std::string error_message = std::format("Buffer({}) is not valid handle", buffer.index);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph->m_Nodes[buffer.index].get());
-
-    if (!std::ranges::any_of(m_GPUBufferEdges, [buffer_node](const auto& edge) { return edge.resource == buffer_node; })) {
-        std::string error_message = std::format("Buffer({}) is not used in pass({})", buffer.index, m_Name);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    return buffer_node->Resolve();
-}
-
-auto PassNode::Resolve(TextureHandle texture) const -> gfx::Texture& {
-    if (!m_RenderGraph->IsValid(texture)) {
-        std::string error_message = std::format("Texture({}) is not valid handle", texture.index);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    const auto texture_node = static_cast<TextureNode*>(m_RenderGraph->m_Nodes[texture.index].get());
-
-    if (!std::ranges::any_of(m_TextureEdges, [texture_node](const auto& edge) { return edge.resource == texture_node; })) {
-        std::string error_message = std::format("Texture({}) is not used in pass({})", texture.index, m_Name);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    return texture_node->Resolve();
-}
-
-auto PassNode::Resolve(SamplerHandle sampler) const -> gfx::Sampler& {
-    if (!m_RenderGraph->IsValid(sampler)) {
-        std::string error_message = std::format("Sampler({}) is not valid handle", sampler.index);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    const auto sampler_node = static_cast<SamplerNode*>(m_RenderGraph->m_Nodes[sampler.index].get());
-
-    if (!m_Samplers.contains(sampler_node)) {
-        std::string error_message = std::format("Sampler({}) is not used in pass({})", sampler.index, m_Name);
-        m_RenderGraph->GetLogger()->error(error_message);
-        throw std::out_of_range(error_message);
-    }
-
-    return sampler_node->Resolve();
 }
 
 auto PassNode::Resolve(GPUBufferEdgeHandle handle) const -> gfx::GPUBufferView& {
@@ -95,95 +174,6 @@ auto PassNode::GetCommandType() const noexcept -> gfx::CommandType {
     }
 }
 
-void PassNode::Initialize() {
-    auto& device = m_RenderGraph->GetDevice();
-
-    if (m_CommandContext == nullptr)
-        m_CommandContext = device.CreateCommandContext(GetCommandType(), GetName());
-
-    // Views are prepared immediately before recording each pass.
-}
-
-void PassNode::PrepareResourceBarriers() {
-    auto& device = m_RenderGraph->GetDevice();
-
-    m_GPUBufferBarriers.clear();
-    m_TextureBarriers.clear();
-
-    // Aggregate by physical resource: multiple access views do not imply independent barriers.
-    struct BufferAccess {
-        gfx::GPUBuffer*    resource;
-        bool               write;
-        gfx::BarrierAccess access;
-        gfx::PipelineStage stage;
-    };
-    struct TextureAccess {
-        gfx::Texture*      resource;
-        bool               write;
-        gfx::BarrierAccess access;
-        gfx::PipelineStage stage;
-        gfx::TextureLayout layout;
-    };
-    std::vector<BufferAccess>  buffers;
-    std::vector<TextureAccess> textures;
-    for (const auto& edge : m_GPUBufferEdges) {
-        auto* resource = &edge.resource->Resolve();
-        auto  found    = std::ranges::find(buffers, resource, &BufferAccess::resource);
-        if (found == buffers.end())
-            buffers.push_back({.resource = resource, .write = edge.write, .access = edge.access, .stage = edge.stage});
-        else {
-            if (found->write != edge.write) throw std::invalid_argument("Conflicting accesses to an aliased buffer");
-            found->access |= edge.access;
-            found->stage |= edge.stage;
-        }
-    }
-    for (const auto& edge : m_TextureEdges) {
-        auto* resource = &edge.resource->Resolve();
-        auto  found    = std::ranges::find(textures, resource, &TextureAccess::resource);
-        if (found == textures.end())
-            textures.push_back({.resource = resource, .write = edge.write, .access = edge.access, .stage = edge.stage, .layout = edge.layout});
-        else {
-            if (found->write != edge.write || found->layout != edge.layout) throw std::invalid_argument("Conflicting accesses to an aliased texture");
-            found->access |= edge.access;
-            found->stage |= edge.stage;
-        }
-    }
-    for (const auto& access : buffers)
-        m_GPUBufferBarriers.emplace_back(access.resource->Transition(access.access, access.stage));
-    for (const auto& access : textures)
-        m_TextureBarriers.emplace_back(access.resource->Transition(access.access, access.layout, access.stage));
-
-    // https://microsoft.github.io/DirectX-Specs/d3d/D3D12EnhancedBarriers.html#command-queue-layout-compatibility
-    if (device.device_type == gfx::Device::Type::DX12) {
-        if (GetCommandType() == gfx::CommandType::Copy) {
-            for (auto& buffer_barrier : m_GPUBufferBarriers) {
-                if (buffer_barrier.src_access != gfx::BarrierAccess::CopySrc &&
-                    buffer_barrier.src_access != gfx::BarrierAccess::CopyDst) {
-                    buffer_barrier.src_access = gfx::BarrierAccess::None;
-                }
-                if (buffer_barrier.src_stage != gfx::PipelineStage::Copy) {
-                    buffer_barrier.src_stage = gfx::PipelineStage::None;
-                }
-            }
-            for (auto& texture_barrier : m_TextureBarriers) {
-                if (texture_barrier.src_access != gfx::BarrierAccess::CopySrc &&
-                    texture_barrier.src_access != gfx::BarrierAccess::CopyDst) {
-                    texture_barrier.src_access = gfx::BarrierAccess::None;
-                }
-                if (texture_barrier.src_stage != gfx::PipelineStage::Copy) {
-                    texture_barrier.src_stage = gfx::PipelineStage::None;
-                }
-                if (texture_barrier.src_layout != gfx::TextureLayout::Common) {
-                    texture_barrier.src_layout = gfx::TextureLayout::Unkown;
-                }
-                texture_barrier.dst_layout = gfx::TextureLayout::Common;
-            }
-        }
-    }
-
-    m_ResourceBarriersPrepared = true;
-}
-
 void PassNode::ResourceBarrier() {
     if (!m_ResourceBarriersPrepared) {
         PrepareResourceBarriers();
@@ -191,22 +181,6 @@ void PassNode::ResourceBarrier() {
 
     m_CommandContext->ResourceBarrier({}, m_GPUBufferBarriers, m_TextureBarriers);
     m_ResourceBarriersPrepared = false;
-}
-
-void PassNode::PrepareResourceViews() {
-    auto& device = m_RenderGraph->GetDevice();
-    for (auto& edge : m_GPUBufferEdges) {
-        if (!edge.create_view || edge.view) continue;
-        auto desc   = edge.view_desc;
-        desc.buffer = edge.resource->GetBuffer();
-        edge.view   = device.CreateGPUBufferView(std::move(desc));
-    }
-    for (auto& edge : m_TextureEdges) {
-        if (!edge.create_view || edge.view) continue;
-        auto desc    = edge.view_desc;
-        desc.texture = edge.resource->GetTexture();
-        edge.view    = device.CreateTextureView(std::move(desc));
-    }
 }
 
 void RenderPassNode::Execute() {

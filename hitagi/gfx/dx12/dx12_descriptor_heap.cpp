@@ -1,9 +1,77 @@
 module;
-
+#include <d3d12.h>
+#include <wrl.h>
 #include <d3dx12/d3dx12.h>
 #include <spdlog/logger.h>
 
-module gfx.dx12;
+export module gfx.dx12:descriptor_heap;
+import std;
+import core;
+import utils;
+import math;
+import gfx.base;
+import :types;
+import :utils;
+
+using namespace Microsoft::WRL;
+
+export namespace hitagi::gfx {
+
+class Descriptor {
+public:
+    Descriptor()                             = default;
+    Descriptor(const Descriptor&)            = delete;
+    Descriptor& operator=(const Descriptor&) = delete;
+    Descriptor(Descriptor&&) noexcept;
+    Descriptor& operator=(Descriptor&&) noexcept;
+    ~Descriptor();
+
+    inline operator bool() const noexcept { return m_HeapFrom != nullptr && m_CPUHandle.ptr != 0; }
+
+    inline const auto& GetCPUHandle() const noexcept { return m_CPUHandle; }
+
+private:
+    friend class DescriptorHeap;
+    Descriptor(D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, DescriptorHeap* heap_from);
+
+    D3D12_CPU_DESCRIPTOR_HANDLE m_CPUHandle = {0};
+    DescriptorHeap*             m_HeapFrom  = nullptr;
+};
+
+class DescriptorHeap {
+public:
+    DescriptorHeap(ID3D12Device& device, std::shared_ptr<spdlog::logger> logger, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptors, std::string_view name = "");
+
+    bool               Empty() const;
+    [[nodiscard]] auto Allocate() -> Descriptor;
+    void               DiscardDescriptor(Descriptor& descriptor);
+
+private:
+    mutable std::mutex m_Mutex;
+
+    ComPtr<ID3D12DescriptorHeap> m_DescriptorHeap;
+    D3D12_CPU_DESCRIPTOR_HANDLE  m_HeapCPUStart;
+    std::size_t                  m_IncrementSize;
+    D3D12_DESCRIPTOR_HEAP_TYPE   m_Type;
+
+    std::pmr::deque<Descriptor> m_AvailableDescriptors;
+};
+
+class DescriptorAllocator {
+public:
+    DescriptorAllocator(ID3D12Device& device, std::shared_ptr<spdlog::logger> logger, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptor_per_page = 1024);
+
+    [[nodiscard]] auto Allocate() -> Descriptor;
+
+private:
+    ID3D12Device&                                    m_Device;
+    std::shared_ptr<spdlog::logger>                  m_Logger;
+    D3D12_DESCRIPTOR_HEAP_TYPE                       m_Type;
+    std::size_t                                      m_HeapSize;
+    std::pmr::deque<std::shared_ptr<DescriptorHeap>> m_HeapPool;
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
 
@@ -35,8 +103,8 @@ Descriptor::~Descriptor() {
     if (m_HeapFrom) m_HeapFrom->DiscardDescriptor(*this);
 }
 
-DescriptorHeap::DescriptorHeap(DX12Device& device, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptors, std::string_view name) : m_Type(type) {
-    m_IncrementSize = device.GetDevice()->GetDescriptorHandleIncrementSize(type);
+DescriptorHeap::DescriptorHeap(ID3D12Device& device, std::shared_ptr<spdlog::logger> logger, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptors, std::string_view name) : m_Type(type) {
+    m_IncrementSize = device.GetDescriptorHandleIncrementSize(type);
 
     D3D12_DESCRIPTOR_HEAP_DESC desc{
         .Type           = type,
@@ -45,8 +113,8 @@ DescriptorHeap::DescriptorHeap(DX12Device& device, D3D12_DESCRIPTOR_HEAP_TYPE ty
         .NodeMask       = 0,
     };
 
-    if (FAILED(device.GetDevice()->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_DescriptorHeap)))) {
-        device.GetLogger()->error("failed to create descriptor heap");
+    if (FAILED(device.CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_DescriptorHeap)))) {
+        logger->error("failed to create descriptor heap");
         throw std::runtime_error("failed to create descriptor heap");
     }
     if (!name.empty()) {
@@ -88,8 +156,8 @@ void DescriptorHeap::DiscardDescriptor(Descriptor& descriptor) {
     m_AvailableDescriptors.emplace_back(Descriptor(descriptor.GetCPUHandle(), nullptr));
 }
 
-DescriptorAllocator::DescriptorAllocator(DX12Device& device, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptor_per_heap)
-    : m_Device(device), m_Type(type), m_HeapSize(num_descriptor_per_heap) {
+DescriptorAllocator::DescriptorAllocator(ID3D12Device& device, std::shared_ptr<spdlog::logger> logger, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptor_per_heap)
+    : m_Device(device), m_Logger(std::move(logger)), m_Type(type), m_HeapSize(num_descriptor_per_heap) {
     assert(m_Type == D3D12_DESCRIPTOR_HEAP_TYPE_RTV || m_Type == D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 }
 
@@ -111,7 +179,7 @@ auto DescriptorAllocator::Allocate() -> Descriptor {
         } else {
             name = std::format("DSV_Heap_{}", m_HeapPool.size());
         }
-        heap_for_allocating = m_HeapPool.emplace_front(std::make_shared<DescriptorHeap>(m_Device, m_Type, m_HeapSize, name));
+        heap_for_allocating = m_HeapPool.emplace_front(std::make_shared<DescriptorHeap>(m_Device, m_Logger, m_Type, m_HeapSize, name));
     }
 
     return heap_for_allocating->Allocate();

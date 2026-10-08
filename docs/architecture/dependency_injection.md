@@ -106,7 +106,8 @@ struct ShaderSource {
     std::pmr::string      code;
 };
 
-passes::GBuffer(gfx::Device& device, ShaderSource shader);
+passes::GBuffer(gfx::Device& device, gfx::BindlessUtils& bindings,
+                const gfx::ShaderCompiler& compiler, ShaderSource shader);
 ```
 
 `DeferredRenderer` reads the three sources with `render::LoadShaderSource(file_io, path)` at construction and hands them to the passes. It does not keep a `FileIOManager` after that. Editor viewport passes do the same. A pass never touches the file system, and a test can pass `{.path = "unused.hlsl"}` directly.
@@ -142,6 +143,7 @@ flowchart TB
   subgraph Tree["RuntimeModule subtree (Tick order)"]
     App["Application"]
     Device["gfx::Device"]
+    Graphics["GraphicsServices: queues, bindings, compiler"]
     Assets["AssetManager"]
     Physics["PhysicsWorld"]
     OutLogic["OutLogicArea (game/editor mount point)"]
@@ -160,6 +162,9 @@ flowchart TB
   FileIO -.->|"&"| Gui
   Device -.->|"&"| Renderer
   Device -.->|"&"| Runtime
+  Device -.->|"creation"| Graphics
+  Graphics -.->|"individual service references"| Renderer
+  Graphics -.->|"individual service references"| Runtime
   App -.->|"&"| Renderer
   App -.->|"&"| Gui
 ```
@@ -171,7 +176,7 @@ Infrastructure services (`MemoryManager`, `FileIOManager`, `JobSystem`) never ti
 ```text
 Engine construction
   members: MemoryManager → FileIOManager → JobSystem
-  subtree: App → Device → Assets → Physics → OutLogicArea → Debug → Renderer → Gui → RenderRuntime
+  subtree: App → Device → GraphicsServices → Assets → Physics → OutLogicArea → Debug → Renderer → Gui → RenderRuntime
 
 ~Engine
   UnloadAllSubModules(): RenderRuntime → ... → App   (subtree in reverse)
@@ -184,9 +189,13 @@ Engine construction
 engine.FileIO()   engine.Jobs()     engine.App()      engine.Device()
 engine.Assets()   engine.Renderer() engine.RenderRuntime()
 engine.GuiManager()                 engine.Physics()
+engine.Queues()   engine.Bindings() engine.ShaderCompiler()
+engine.ResourceLoadContext()
 ```
 
 Game logic modules are still mounted on `OutLogicArea` through `Engine::AddSubModule`. That is **subtree mounting**, not service location. `Editor` holding an `Engine&` is the application layer taking services. It depends on the whole engine, and that tradeoff is intentional. Modules inside the engine take only the few dependencies they need.
+
+`GraphicsServices` owns the queues, bindings, and shader compiler; it is not passed to low-level resources. Resources use static `Create` methods at the assembly boundary and receive the native device, allocator, or binding facilities they actually need. They do not retain an abstract `Device`. Graphics consumers must die before bindings/queues, and those facilities must die before Device. See the [gfx contracts](../../hitagi/gfx/AGENT.md).
 
 ## Dependency graph (injection edges)
 

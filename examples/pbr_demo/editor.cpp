@@ -555,7 +555,7 @@ auto main(int argc, char** argv) -> int {
     options.material_processor = MakePbrDemoMaterialProcessor(config.asset_root_path);
 
     hitagi::Engine engine(std::move(config));
-    engine.SetRenderer(std::make_unique<game::pbr_demo::PbrDemoRenderer>(engine.RenderRuntime().GetRenderGraph().GetDevice()));
+    engine.SetRenderer(std::make_unique<game::pbr_demo::PbrDemoRenderer>(engine.ResourceLoadContext()));
     engine.AddSubModule(std::make_unique<hitagi::Editor>(engine, std::move(options)));
 
     while (!engine.App().IsQuit()) {

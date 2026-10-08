@@ -111,7 +111,7 @@ void Editor::ImportAssetFromBrowser(const EditorAssetBrowserEntry& entry) {
         } else if (entry.kind == EditorAssetKind::Texture) {
             auto texture = asset_manager.ImportTexture(entry.path);
             if (texture) {
-                texture->Load({.device = m_Engine.RenderRuntime().GetRenderGraph().GetDevice()});
+                texture->Load(m_Engine.ResourceLoadContext());
                 m_SelectedTexturePreview = texture;
                 m_ImageViewer->SetTexture(texture);
                 m_LastImportedAssetPath = entry.path;
@@ -146,7 +146,7 @@ void Editor::PreviewAssetFromBrowser(const EditorAssetBrowserEntry& entry) {
         if (entry.kind == EditorAssetKind::Texture) {
             auto texture = m_Engine.Assets().ImportTexture(entry.path);
             if (texture) {
-                texture->Load({.device = m_Engine.RenderRuntime().GetRenderGraph().GetDevice()});
+                texture->Load(m_Engine.ResourceLoadContext());
                 m_SelectedTexturePreview = texture;
                 m_AssetPreviewStatus     = std::format("Previewing texture: {}", entry.relative_path);
                 Notify(m_AssetPreviewStatus);

@@ -11,7 +11,10 @@ export namespace hitagi::asset {
 // Execution environment for Resource::Load. Async work (e.g. texture decode)
 // is scheduled through the JobSubmitter injected into the resource at creation.
 struct ResourceLoadContext {
-    gfx::Device& device;
+    gfx::Device&               device;
+    gfx::CommandQueues&        queues;
+    gfx::BindlessUtils&        bindings;
+    const gfx::ShaderCompiler& shader_compiler;
 };
 
 // Residency state machine shared by every resource. The Loading/Staged stages
@@ -70,8 +73,7 @@ public:
         return *this;
     }
 
-    // Callers without async needs pass a context with only the device:
-    // `resource->Load({.device = device})` runs fully synchronously.
+    // The caller supplies services that outlive the loaded GPU resources.
     virtual void Load(const ResourceLoadContext& context) = 0;
     virtual void Unload()                                 = 0;
 

@@ -1,19 +1,60 @@
 module;
-
+#include <d3d12.h>
+#include <wrl.h>
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyD3D12.hpp>
 #include <spdlog/logger.h>
 #include <fmt/color.h>
 #include <d3dx12/d3dx12.h>
-#include <tracy/TracyD3D12.hpp>
 
-module gfx.dx12;
+export module gfx.dx12:command_queue;
 import std;
+import core;
+import utils;
+import math;
+import gfx.base;
 import magic_enum;
+import :types;
+import :sync;
+import :command_list;
+import :utils;
+import :resource;
+
+using namespace Microsoft::WRL;
+
+export namespace hitagi::gfx {
+
+class DX12CommandQueue : public CommandQueue {
+public:
+    DX12CommandQueue(ID3D12Device& device, std::shared_ptr<spdlog::logger> logger, CommandType type, std::string_view name);
+    ~DX12CommandQueue() override;
+
+    void Submit(
+        std::span<const std::reference_wrapper<const CommandContext>> contexts,
+        std::span<const FenceWaitInfo>                                wait_fences   = {},
+        std::span<const FenceSignalInfo>                              signal_fences = {}) final;
+
+    void WaitIdle() final;
+    void NewFrame() final;
+
+    inline auto GetDX12Queue() const noexcept { return m_Queue; }
+    inline auto GetTracyCtx() const noexcept { return m_TracyCtx; }
+
+private:
+    std::shared_ptr<spdlog::logger> m_Logger;
+    ComPtr<ID3D12CommandQueue>      m_Queue;
+    DX12Fence                       m_Fence;
+    std::uint64_t                   m_SubmitCount = 0;
+    TracyD3D12Ctx                   m_TracyCtx    = nullptr;
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
-DX12CommandQueue::DX12CommandQueue(DX12Device& device, CommandType type, std::string_view name)
-    : CommandQueue(device, type, name),
-      m_Fence(device, 0, std::format("{}_Fence", name)) {
-    const auto logger = device.GetLogger();
+
+DX12CommandQueue::DX12CommandQueue(ID3D12Device& device, std::shared_ptr<spdlog::logger> logger, CommandType type, std::string_view name)
+    : CommandQueue(type, name), m_Logger(std::move(logger)), m_Fence(device, m_Logger, 0, std::format("{}_Fence", name)) {
+    logger = m_Logger;
 
     const D3D12_COMMAND_QUEUE_DESC desc{
         .Type     = to_d3d_command_type(type),
@@ -23,17 +64,18 @@ DX12CommandQueue::DX12CommandQueue(DX12Device& device, CommandType type, std::st
     };
 
     logger->trace("Creating Command Queue: {}", fmt::styled(name, fmt::fg(fmt::color::green)));
-    if (FAILED(device.GetDevice()->CreateCommandQueue(&desc, IID_PPV_ARGS(&m_Queue)))) {
+    if (FAILED(device.CreateCommandQueue(&desc, IID_PPV_ARGS(&m_Queue)))) {
         const auto error_message = fmt::format("Failed to create Command Queue({})", fmt::styled(name, fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     m_Queue->SetName(std::wstring(name.begin(), name.end()).c_str());
-    m_TracyCtx = TracyD3D12Context(device.GetDevice().Get(), m_Queue.Get());
+    m_TracyCtx = TracyD3D12Context(&device, m_Queue.Get());
     TracyD3D12ContextName(m_TracyCtx, m_Name.data(), static_cast<uint16_t>(m_Name.size()));
 }
 
 DX12CommandQueue::~DX12CommandQueue() {
+    WaitIdle();
     TracyD3D12Destroy(m_TracyCtx);
 }
 
@@ -45,7 +87,7 @@ void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const Comma
             contexts.begin(), contexts.end(),
             [this](const CommandContext& ctx) { return ctx.GetType() != m_Type; });
         iter != contexts.end()) {
-        m_Device.GetLogger()->warn(
+        m_Logger->warn(
             "CommandContext type({}) mismatch({}). Do nothing!!!",
             fmt::styled(magic_enum::enum_name(m_Type), fmt::fg(fmt::color::red)),
             fmt::styled(magic_enum::enum_name((*iter).get().GetType()), fmt::fg(fmt::color::green)));

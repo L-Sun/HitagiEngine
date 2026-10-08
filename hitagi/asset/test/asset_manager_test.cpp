@@ -120,6 +120,9 @@ TEST_F(SceneResidencyTest, UnloadSceneReleasesMeshAndMaterialGPUData) {
     // Device must outlive the AssetManager: its destructor releases the default
     // texture whose GPU view still references the device.
     auto         device = gfx::create_device(gfx::Device::Type::Mock, "SceneResidencyTest");
+    hitagi::gfx::CommandQueues  queues(*device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
     AssetManager assets(file_io, job_system, "assets");
 
     const auto material = std::make_shared<Material>(
@@ -135,8 +138,8 @@ TEST_F(SceneResidencyTest, UnloadSceneReleasesMeshAndMaterialGPUData) {
     assets.AddScene(scene);
 
     // Simulate the renderer loading resources directly (bypassing Scene::Load).
-    mesh->Load({.device = *device});
-    material->Load({.device = *device});
+    mesh->Load({.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler});
+    material->Load({.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler});
 
     ASSERT_TRUE(mesh->vertices->GetAttributeData(VertexAttribute::Position).has_value());
     EXPECT_NE(mesh->vertices->GetAttributeData(VertexAttribute::Position)->get().gpu_buffer, nullptr);
@@ -152,7 +155,7 @@ TEST_F(SceneResidencyTest, UnloadSceneReleasesMeshAndMaterialGPUData) {
 
     // CPU data must survive so the scene can come back cheaply.
     EXPECT_FALSE(mesh->vertices->Empty());
-    mesh->Load({.device = *device});
+    mesh->Load({.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler});
     EXPECT_NE(mesh->indices->GetGPUData(), nullptr);
 }
 
@@ -162,9 +165,12 @@ TEST_F(SceneResidencyTest, UnloadSceneReleasesMeshAndMaterialGPUData) {
 
 TEST_F(AsyncTextureLoadTest, FileBackedTextureLoadsAsynchronously) {
     auto         device = gfx::create_device(gfx::Device::Type::Mock, "AsyncTextureLoadTest");
+    hitagi::gfx::CommandQueues  queues(*device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
     AssetManager assets(file_io, job_system, "assets");
 
-    const ResourceLoadContext context{.device = *device};
+    const ResourceLoadContext context{.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler};
 
     const auto texture = assets.AcquireTexture(kTestImagePath);
     ASSERT_TRUE(texture);
@@ -189,9 +195,12 @@ TEST_F(AsyncTextureLoadTest, FileBackedTextureLoadsAsynchronously) {
 TEST_F(AsyncTextureLoadTest, MaterialUsesPlaceholderUntilTextureReady) {
     // Device must outlive the AssetManager (default-texture GPU view teardown).
     auto         device = gfx::create_device(gfx::Device::Type::Mock, "AsyncMaterialTest");
+    hitagi::gfx::CommandQueues  queues(*device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
     AssetManager assets(file_io, job_system, "assets");
 
-    const ResourceLoadContext context{.device = *device};
+    const ResourceLoadContext context{.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler};
 
     const auto texture  = assets.AcquireTexture(kTestImagePath);
     const auto material = std::make_shared<Material>(

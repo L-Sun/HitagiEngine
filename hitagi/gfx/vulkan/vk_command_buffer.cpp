@@ -1,13 +1,203 @@
 module;
-
+#include <vulkan/vulkan_raii.hpp>
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyVulkan.hpp>
 #include <cstring>
 #include <spdlog/logger.h>
 #include <fmt/color.h>
-#include <vulkan/vulkan_raii.hpp>
-#include <tracy/TracyVulkan.hpp>
 
-module gfx.vulkan;
+export module gfx.vulkan:command_buffer;
 import std;
+import core;
+import utils;
+import math;
+import gfx.base;
+import magic_enum;
+import :types;
+import :bindless;
+import :utils;
+import :resource;
+import :configs;
+
+export namespace hitagi::gfx {
+
+class VulkanGraphicsCommandBuffer final : public GraphicsCommandContext {
+public:
+    VulkanGraphicsCommandBuffer(const vk::raii::Device& device, const vk::raii::CommandPool& pool, const std::shared_ptr<spdlog::logger>& logger, VulkanBindlessUtils& bindings, TracyVkCtx tracy_context, std::string_view name);
+
+    void Begin() final;
+    void End() final;
+
+    void ResourceBarrier(
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) final;
+
+    void BeginRendering(TextureView&                     render_target,
+                        utils::optional_ref<TextureView> depth_stencil       = {},
+                        bool                             clear_render_target = false,
+                        bool                             clear_depth_stencil = false) final;
+    void EndRendering() final;
+
+    void SetPipeline(const RenderPipeline& pipeline) final;
+
+    void SetViewPort(const ViewPort& view_port) final;
+    void SetScissorRect(const Rect& scissor_rect) final;
+    void SetBlendColor(const math::Color& color) final;
+
+    void SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset = 0, Format index_format = Format::R32_UINT) final;
+    void SetVertexBuffers(std::uint8_t                                             start_binding,
+                          std::span<const std::reference_wrapper<const GPUBuffer>> buffers,
+                          std::span<const std::size_t>                             offsets) final;
+
+    void PushBindlessMetaInfo(const BindlessMetaInfo& info) final;
+
+    void Draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1, std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) final;
+    void DrawIndexed(std::uint32_t index_count, std::uint32_t instance_count = 1, std::uint32_t first_index = 0, std::uint32_t base_vertex = 0, std::uint32_t first_instance = 0) final;
+
+    void CopyTextureRegion(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer src_layer = {},
+        TextureSubresourceLayer dst_layer = {}) final;
+
+    void BlitTexture(const Texture&          src,
+                     math::vec3i             src_offset,
+                     math::vec3u             src_extent,
+                     Texture&                dst,
+                     math::vec3i             dst_offset,
+                     math::vec3u             dst_extent,
+                     TextureSubresourceLayer src_layer = {},
+                     TextureSubresourceLayer dst_layer = {});
+
+    vk::raii::CommandBuffer                                command_buffer;
+    std::shared_ptr<vk::raii::Semaphore>                   swap_chain_image_available_semaphore;
+    std::pmr::vector<std::shared_ptr<vk::raii::Semaphore>> swap_chain_presentable_semaphores;
+
+private:
+    const VulkanRenderPipeline*        m_Pipeline = nullptr;
+    std::unique_ptr<tracy::VkCtxScope> m_TracyZone;
+
+private:
+    std::shared_ptr<spdlog::logger> m_Logger;
+    TracyVkCtx                      m_TracyCtx;
+    VulkanBindlessUtils&            m_BindlessUtils;
+};
+
+class VulkanComputeCommandBuffer final : public ComputeCommandContext {
+public:
+    VulkanComputeCommandBuffer(const vk::raii::Device& device, const vk::raii::CommandPool& pool, const std::shared_ptr<spdlog::logger>& logger, VulkanBindlessUtils& bindings, TracyVkCtx tracy_context, std::string_view name);
+
+    void Begin() final;
+    void End() final;
+
+    void ResourceBarrier(
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) final;
+
+    void SetPipeline(const ComputePipeline& pipeline) final;
+
+    void PushBindlessMetaInfo(const BindlessMetaInfo& info) final;
+
+    vk::raii::CommandBuffer command_buffer;
+
+private:
+    const VulkanComputePipeline*       m_Pipeline = nullptr;
+    std::unique_ptr<tracy::VkCtxScope> m_TracyZone;
+
+private:
+    std::shared_ptr<spdlog::logger> m_Logger;
+    TracyVkCtx                      m_TracyCtx;
+    VulkanBindlessUtils&            m_BindlessUtils;
+};
+
+class VulkanTransferCommandBuffer final : public CopyCommandContext {
+public:
+    VulkanTransferCommandBuffer(const vk::raii::Device& device, const vk::raii::CommandPool& pool, const std::shared_ptr<spdlog::logger>& logger, TracyVkCtx tracy_context, std::string_view name);
+
+    void Begin() final;
+    void End() final;
+
+    void ResourceBarrier(
+        std::span<const GlobalBarrier>    global_barriers  = {},
+        std::span<const GPUBufferBarrier> buffer_barriers  = {},
+        std::span<const TextureBarrier>   texture_barriers = {}) final;
+
+    void CopyBuffer(const GPUBuffer& src, std::size_t src_offset, GPUBuffer& dst, std::size_t dst_offset, std::size_t size) final;
+    void CopyBufferToTexture(
+        const GPUBuffer&        src,
+        std::size_t             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer dst_layer = {}) final;
+
+    void CopyTextureToBuffer(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        math::vec3u             extent,
+        GPUBuffer&              dst,
+        std::size_t             dst_offset,
+        TextureSubresourceLayer src_layer = {}) final;
+
+    void CopyTextureRegion(
+        const Texture&          src,
+        math::vec3i             src_offset,
+        Texture&                dst,
+        math::vec3i             dst_offset,
+        math::vec3u             extent,
+        TextureSubresourceLayer src_layer = {},
+        TextureSubresourceLayer dst_layer = {}) final;
+
+    vk::raii::CommandBuffer command_buffer;
+
+    std::shared_ptr<vk::raii::Semaphore>                   swap_chain_image_available_semaphore;
+    std::pmr::vector<std::shared_ptr<vk::raii::Semaphore>> swap_chain_presentable_semaphores;
+    std::unique_ptr<tracy::VkCtxScope>                     m_TracyZone;
+
+private:
+    std::shared_ptr<spdlog::logger> m_Logger;
+    TracyVkCtx                      m_TracyCtx;
+};
+
+inline auto to_vk_buffer_barrier(const GPUBufferBarrier& barrier) -> vk::BufferMemoryBarrier2 {
+    const auto& vk_buffer = dynamic_cast<VulkanBuffer&>(barrier.buffer);
+    return {
+        .srcStageMask  = to_vk_pipeline_stage2(barrier.src_stage),
+        .srcAccessMask = to_vk_access_flags(barrier.src_access),
+        .dstStageMask  = to_vk_pipeline_stage2(barrier.dst_stage),
+        .dstAccessMask = to_vk_access_flags(barrier.dst_access),
+        .buffer        = **vk_buffer.buffer,
+        .offset        = 0,
+        .size          = vk_buffer.Size(),
+    };
+}
+
+inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemoryBarrier2 {
+    const auto vk_image = dynamic_cast<VulkanImage&>(barrier.texture).image_handle;
+
+    return {
+        .srcStageMask     = to_vk_pipeline_stage2(barrier.src_stage),
+        .srcAccessMask    = to_vk_access_flags(barrier.src_access),
+        .dstStageMask     = to_vk_pipeline_stage2(barrier.dst_stage),
+        .dstAccessMask    = to_vk_access_flags(barrier.dst_access),
+        .oldLayout        = to_vk_image_layout(barrier.src_layout),
+        .newLayout        = to_vk_image_layout(barrier.dst_layout),
+        .image            = vk_image,
+        .subresourceRange = {
+            .aspectMask     = get_vk_image_aspect(barrier.texture.GetDesc()),
+            .baseMipLevel   = 0,
+            .levelCount     = barrier.texture.GetDesc().mip_levels,
+            .baseArrayLayer = 0,
+            .layerCount     = barrier.texture.GetDesc().array_size,
+        }};
+}
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
 
@@ -34,16 +224,16 @@ inline void pipeline_barrier_fn(vk::raii::CommandBuffer&          command_buffer
     });
 }
 
-inline auto create_command_buffer(const VulkanDevice& device, CommandType type, std::string_view name) -> vk::raii::CommandBuffer {
+inline auto create_command_buffer(const vk::raii::Device& device, const vk::raii::CommandPool& pool, std::string_view name) -> vk::raii::CommandBuffer {
     vk::raii::CommandBuffer command_buffer = std::move(vk::raii::CommandBuffers(
-                                                           device.GetDevice(),
+                                                           device,
                                                            {
-                                                               .commandPool        = *device.GetCommandPool(type),
+                                                               .commandPool        = *pool,
                                                                .level              = vk::CommandBufferLevel::ePrimary,
                                                                .commandBufferCount = 1,
                                                            })
                                                            .front());
-    create_vk_debug_object_info(command_buffer, name, device.GetDevice());
+    create_vk_debug_object_info(command_buffer, name, device);
     return command_buffer;
 }
 
@@ -74,9 +264,8 @@ inline void copy_texture_region(const vk::raii::CommandBuffer& command_buffer,
         copy_region);
 }
 
-VulkanGraphicsCommandBuffer::VulkanGraphicsCommandBuffer(VulkanDevice& device, std::string_view name)
-    : GraphicsCommandContext(device, name),
-      command_buffer(create_command_buffer(device, CommandType::Graphics, name)) {}
+VulkanGraphicsCommandBuffer::VulkanGraphicsCommandBuffer(const vk::raii::Device& device, const vk::raii::CommandPool& pool, const std::shared_ptr<spdlog::logger>& logger, VulkanBindlessUtils& bindings, TracyVkCtx tracy_context, std::string_view name)
+    : GraphicsCommandContext(name), m_Logger(logger), m_TracyCtx(tracy_context), m_BindlessUtils(bindings), command_buffer(create_command_buffer(device, pool, name)) {}
 
 void VulkanGraphicsCommandBuffer::ResourceBarrier(std::span<const GlobalBarrier>    global_barriers,
                                                   std::span<const GPUBufferBarrier> buffer_barriers,
@@ -102,14 +291,13 @@ void VulkanGraphicsCommandBuffer::Begin() {
     command_buffer.begin({
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
-    auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
+    auto& vk_bindless_utils = m_BindlessUtils;
 
     vk_bindless_utils.Bind(command_buffer);
 
 #ifdef TRACY_ENABLE
-    auto& queue = static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Graphics));
     m_TracyZone = std::make_unique<tracy::VkCtxScope>(
-        queue.GetTracyCtx(),
+        m_TracyCtx,
         __LINE__,
         __FILE__,
         sizeof(__FILE__) - 1,
@@ -124,7 +312,7 @@ void VulkanGraphicsCommandBuffer::Begin() {
 
 void VulkanGraphicsCommandBuffer::End() {
     m_TracyZone.reset();
-    TracyVkCollect(static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Graphics)).GetTracyCtx(), *command_buffer);
+    TracyVkCollect(m_TracyCtx, *command_buffer);
     command_buffer.end();
 }
 
@@ -226,7 +414,7 @@ void VulkanGraphicsCommandBuffer::SetIndexBuffer(const GPUBuffer& buffer, std::s
         index_type = vk::IndexType::eUint16;
     } else {
         auto error_message = std::format("Unsupported index buffer format {}", format_as(index_format));
-        m_Device.GetLogger()->error(error_message);
+        m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     command_buffer.bindIndexBuffer(**static_cast<const VulkanBuffer&>(buffer).buffer, offset, index_type);
@@ -310,23 +498,21 @@ void VulkanGraphicsCommandBuffer::BlitTexture(const Texture&          src,
     });
 }
 
-VulkanComputeCommandBuffer::VulkanComputeCommandBuffer(VulkanDevice& device, std::string_view name)
-    : ComputeCommandContext(device, name),
-      command_buffer(create_command_buffer(device, CommandType::Compute, name)) {
+VulkanComputeCommandBuffer::VulkanComputeCommandBuffer(const vk::raii::Device& device, const vk::raii::CommandPool& pool, const std::shared_ptr<spdlog::logger>& logger, VulkanBindlessUtils& bindings, TracyVkCtx tracy_context, std::string_view name)
+    : ComputeCommandContext(name), m_Logger(logger), m_TracyCtx(tracy_context), m_BindlessUtils(bindings), command_buffer(create_command_buffer(device, pool, name)) {
 }
 
 void VulkanComputeCommandBuffer::Begin() {
     command_buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
-    auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
+    auto& vk_bindless_utils = m_BindlessUtils;
 
     vk_bindless_utils.Bind(command_buffer);
 
 #ifdef TRACY_ENABLE
-    auto& queue = static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Compute));
     m_TracyZone = std::make_unique<tracy::VkCtxScope>(
-        queue.GetTracyCtx(),
+        m_TracyCtx,
         __LINE__,
         __FILE__,
         sizeof(__FILE__) - 1,
@@ -341,7 +527,7 @@ void VulkanComputeCommandBuffer::Begin() {
 
 void VulkanComputeCommandBuffer::End() {
     m_TracyZone.reset();
-    TracyVkCollect(static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Compute)).GetTracyCtx(), *command_buffer);
+    TracyVkCollect(m_TracyCtx, *command_buffer);
     command_buffer.end();
 }
 
@@ -362,9 +548,8 @@ void VulkanComputeCommandBuffer::PushBindlessMetaInfo(const BindlessMetaInfo& in
     command_buffer.pushDataEXT({.offset = 0, .data = {.address = &info, .size = sizeof(info)}});
 }
 
-VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name)
-    : CopyCommandContext(device, name),
-      command_buffer(create_command_buffer(device, CommandType::Copy, name)) {
+VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(const vk::raii::Device& device, const vk::raii::CommandPool& pool, const std::shared_ptr<spdlog::logger>& logger, TracyVkCtx tracy_context, std::string_view name)
+    : CopyCommandContext(name), m_Logger(logger), m_TracyCtx(tracy_context), command_buffer(create_command_buffer(device, pool, name)) {
 }
 
 void VulkanTransferCommandBuffer::Begin() {
@@ -373,9 +558,8 @@ void VulkanTransferCommandBuffer::Begin() {
     });
 
 #ifdef TRACY_ENABLE
-    auto& queue = static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Copy));
     m_TracyZone = std::make_unique<tracy::VkCtxScope>(
-        queue.GetTracyCtx(),
+        m_TracyCtx,
         __LINE__,
         __FILE__,
         sizeof(__FILE__) - 1,
@@ -390,7 +574,7 @@ void VulkanTransferCommandBuffer::Begin() {
 
 void VulkanTransferCommandBuffer::End() {
     m_TracyZone.reset();
-    TracyVkCollect(static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Copy)).GetTracyCtx(), *command_buffer);
+    TracyVkCollect(m_TracyCtx, *command_buffer);
     command_buffer.end();
 }
 

@@ -5,9 +5,8 @@ import std;
 
 namespace hitagi::render {
 
-passes::GBufferDebugView::GBufferDebugView(gfx::Device& device, ShaderSource shader)
-    : m_Device(device),
-      m_Shader(std::move(shader)) {}
+passes::GBufferDebugView::GBufferDebugView(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, ShaderSource shader)
+    : m_Device(device), m_Bindings(bindings), m_ShaderCompiler(compiler), m_Shader(std::move(shader)) {}
 
 void passes::GBufferDebugView::EnsureResources(gfx::Format target_format) {
     if (m_AlbedoPipeline != nullptr &&
@@ -20,33 +19,33 @@ void passes::GBufferDebugView::EnsureResources(gfx::Format target_format) {
     }
 
     if (m_VS == nullptr) {
-        m_VS = m_Device.CreateShader({
-            .name        = "deferred-debug-view-vs",
-            .type        = gfx::ShaderType::Vertex,
-            .entry       = "VSMain",
-            .source_code = m_Shader.code,
-            .path        = m_Shader.path,
-        });
+        m_VS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                           .name        = "deferred-debug-view-vs",
+                                                                           .type        = gfx::ShaderType::Vertex,
+                                                                           .entry       = "VSMain",
+                                                                           .source_code = m_Shader.code,
+                                                                           .path        = m_Shader.path,
+                                                                       });
     }
 
     auto make_pixel_shader = [&](std::string_view name, std::string_view entry) {
-        return m_Device.CreateShader({
-            .name        = std::pmr::string(name),
-            .type        = gfx::ShaderType::Pixel,
-            .entry       = std::pmr::string(entry),
-            .source_code = m_Shader.code,
-            .path        = m_Shader.path,
-        });
+        return hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                           .name        = std::pmr::string(name),
+                                                                           .type        = gfx::ShaderType::Pixel,
+                                                                           .entry       = std::pmr::string(entry),
+                                                                           .source_code = m_Shader.code,
+                                                                           .path        = m_Shader.path,
+                                                                       });
     };
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& pixel_shader) {
-        return m_Device.CreateRenderPipeline(
-            {
-                .name                = std::pmr::string(name),
-                .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-                .rasterization_state = {.cull_mode = gfx::CullMode::None},
-                .render_format       = target_format,
-            },
-            {m_VS, pixel_shader});
+        return hitagi::gfx::RenderPipeline::Create(m_Device, m_Bindings,
+                                                   {
+                                                       .name                = std::pmr::string(name),
+                                                       .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+                                                       .rasterization_state = {.cull_mode = gfx::CullMode::None},
+                                                       .render_format       = target_format,
+                                                   },
+                                                   {m_VS, pixel_shader});
     };
 
     m_AlbedoPS           = make_pixel_shader("deferred-debug-view-albedo-ps", "PSAlbedoMain");

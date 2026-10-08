@@ -33,7 +33,7 @@ void ConfigurePbrDemoScene(hitagi::asset::Scene& scene);
 
 class PbrDemoRenderer final : public hitagi::render::IRenderer {
 public:
-    explicit PbrDemoRenderer(hitagi::gfx::Device& device);
+    explicit PbrDemoRenderer(const hitagi::asset::ResourceLoadContext& load_context);
 
     auto Render(hitagi::render::RenderContext& context, const hitagi::render::RenderRequest& request) -> hitagi::render::RenderResult final;
 
@@ -41,6 +41,7 @@ private:
     auto CountRenderableSubMeshes(const hitagi::render::RenderRequest& request) const -> std::size_t;
 
     hitagi::gfx::Device&                  m_Device;
+    hitagi::asset::ResourceLoadContext    m_LoadContext;
     std::shared_ptr<hitagi::gfx::Sampler> m_Sampler;
 };
 
@@ -200,9 +201,9 @@ auto IsRenderablePbrMaterial(const std::shared_ptr<asset::Material>& material) n
     return pass != nullptr && pass->pipeline != nullptr;
 }
 
-auto CreatePbrDemoMaterialPipeline(gfx::Device& device, const asset::MaterialPass& pass) -> std::shared_ptr<gfx::RenderPipeline> {
+auto CreatePbrDemoMaterialPipeline(const asset::ResourceLoadContext& load_context, const asset::MaterialPass& pass) -> std::shared_ptr<gfx::RenderPipeline> {
     if (!pass.pipeline) return nullptr;
-    pass.pipeline->Load({.device = device});
+    pass.pipeline->Load(load_context);
     return pass.pipeline->GetBuiltPipeline();
 }
 
@@ -264,18 +265,19 @@ void ConfigurePbrDemoScene(asset::Scene& scene) {
     }
 }
 
-PbrDemoRenderer::PbrDemoRenderer(gfx::Device& device)
+PbrDemoRenderer::PbrDemoRenderer(const asset::ResourceLoadContext& load_context)
     : IRenderer("PbrDemoRenderer"),
-      m_Device(device),
-      m_Sampler(m_Device.CreateSampler({
-          .name          = "PbrDemoSampler",
-          .address_u     = gfx::AddressMode::Repeat,
-          .address_v     = gfx::AddressMode::Repeat,
-          .address_w     = gfx::AddressMode::Repeat,
-          .mag_filter    = gfx::FilterMode::Linear,
-          .min_filter    = gfx::FilterMode::Linear,
-          .mipmap_filter = gfx::FilterMode::Linear,
-      })) {}
+      m_Device(load_context.device),
+      m_LoadContext(load_context),
+      m_Sampler(hitagi::gfx::Sampler::Create(m_Device, m_LoadContext.bindings, {
+                                                                                   .name          = "PbrDemoSampler",
+                                                                                   .address_u     = gfx::AddressMode::Repeat,
+                                                                                   .address_v     = gfx::AddressMode::Repeat,
+                                                                                   .address_w     = gfx::AddressMode::Repeat,
+                                                                                   .mag_filter    = gfx::FilterMode::Linear,
+                                                                                   .min_filter    = gfx::FilterMode::Linear,
+                                                                                   .mipmap_filter = gfx::FilterMode::Linear,
+                                                                               })) {}
 
 auto PbrDemoRenderer::CountRenderableSubMeshes(const render::RenderRequest& request) const -> std::size_t {
     std::size_t count = 0;
@@ -300,10 +302,10 @@ auto PbrDemoRenderer::Render(render::RenderContext& context, const render::Rende
     }
 
     for (const auto& item : request.frame.draw_items) {
-        if (item.mesh) item.mesh->Load({.device = m_Device});
+        if (item.mesh) item.mesh->Load(m_LoadContext);
         if (!item.mesh) continue;
         for (const auto& sub_mesh : item.mesh->sub_meshes) {
-            if (sub_mesh.material) sub_mesh.material->Load({.device = m_Device});
+            if (sub_mesh.material) sub_mesh.material->Load(m_LoadContext);
         }
     }
 
@@ -334,11 +336,11 @@ auto PbrDemoRenderer::Render(render::RenderContext& context, const render::Rende
         for (const auto& sub_mesh : item.mesh->sub_meshes) {
             if (!IsRenderablePbrMaterial(sub_mesh.material)) continue;
 
-            sub_mesh.material->Load({.device = m_Device});
+            sub_mesh.material->Load(m_LoadContext);
             const auto* material_pass = sub_mesh.material->FindPass(kPbrForwardContract);
             if (!material_pass) continue;
 
-            auto material_pipeline = CreatePbrDemoMaterialPipeline(m_Device, *material_pass);
+            auto material_pipeline = CreatePbrDemoMaterialPipeline(m_LoadContext, *material_pass);
             if (!material_pipeline) continue;
 
             auto material_data = material_pass->material_data;

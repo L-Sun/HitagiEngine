@@ -317,13 +317,13 @@ void VertexArray::Load(const ResourceLoadContext& context) {
     if (GetLoadState() == ResourceLoadState::Loaded && std::ranges::none_of(m_Attributes, [](const auto& attribute) { return attribute.dirty; })) return;
     for (auto& attribute : m_Attributes) {
         if (attribute.cpu_buffer.Empty() || (!attribute.dirty && attribute.gpu_buffer != nullptr)) continue;
-        attribute.gpu_buffer = context.device.CreateGPUBuffer(
-            {
-                .name   = std::pmr::string(std::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type))),
-                .size   = attribute.cpu_buffer.GetDataSize(),
-                .usages = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::CopyDst,
-            },
-            attribute.cpu_buffer.Span<const std::byte>());
+        attribute.gpu_buffer = hitagi::gfx::GPUBuffer::Create(context.device,
+                                                              {
+                                                                  .name   = std::pmr::string(std::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type))),
+                                                                  .size   = attribute.cpu_buffer.GetDataSize(),
+                                                                  .usages = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::CopyDst,
+                                                              },
+                                                              attribute.cpu_buffer.Span<const std::byte>());
         attribute.dirty = false;
     }
     SetLoadState(ResourceLoadState::Loaded);
@@ -397,13 +397,13 @@ void IndexArray::Load(const ResourceLoadContext& context) {
     if (m_Data.cpu_buffer.Empty()) {
         throw std::invalid_argument("Index array is empty");
     }
-    m_Data.gpu_buffer = context.device.CreateGPUBuffer(
-        {
-            .name   = m_Name,
-            .size   = m_Data.cpu_buffer.GetDataSize(),
-            .usages = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::CopyDst,
-        },
-        m_Data.cpu_buffer.Span<const std::byte>());
+    m_Data.gpu_buffer = hitagi::gfx::GPUBuffer::Create(context.device,
+                                                       {
+                                                           .name   = m_Name,
+                                                           .size   = m_Data.cpu_buffer.GetDataSize(),
+                                                           .usages = gfx::GPUBufferUsageFlags::Index | gfx::GPUBufferUsageFlags::CopyDst,
+                                                       },
+                                                       m_Data.cpu_buffer.Span<const std::byte>());
     m_Data.dirty = false;
     SetLoadState(ResourceLoadState::Loaded);
 }

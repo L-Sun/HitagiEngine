@@ -5,38 +5,37 @@ import std;
 
 namespace hitagi::render {
 
-passes::DeferredLighting::DeferredLighting(gfx::Device& device, ShaderSource shader)
-    : m_Device(device),
-      m_Shader(std::move(shader)) {}
+passes::DeferredLighting::DeferredLighting(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, ShaderSource shader)
+    : m_Device(device), m_Bindings(bindings), m_ShaderCompiler(compiler), m_Shader(std::move(shader)) {}
 
 void passes::DeferredLighting::EnsureResources(gfx::Format target_format) {
     if (m_Pipeline != nullptr && m_TargetFormat == target_format) return;
 
     if (m_VS == nullptr) {
-        m_VS = m_Device.CreateShader({
-            .name        = "deferred-lighting-vs",
-            .type        = gfx::ShaderType::Vertex,
-            .entry       = "VSMain",
-            .source_code = m_Shader.code,
-            .path        = m_Shader.path,
-        });
-        m_PS = m_Device.CreateShader({
-            .name        = "deferred-lighting-ps",
-            .type        = gfx::ShaderType::Pixel,
-            .entry       = "PSMain",
-            .source_code = m_Shader.code,
-            .path        = m_Shader.path,
-        });
+        m_VS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                           .name        = "deferred-lighting-vs",
+                                                                           .type        = gfx::ShaderType::Vertex,
+                                                                           .entry       = "VSMain",
+                                                                           .source_code = m_Shader.code,
+                                                                           .path        = m_Shader.path,
+                                                                       });
+        m_PS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                           .name        = "deferred-lighting-ps",
+                                                                           .type        = gfx::ShaderType::Pixel,
+                                                                           .entry       = "PSMain",
+                                                                           .source_code = m_Shader.code,
+                                                                           .path        = m_Shader.path,
+                                                                       });
     }
 
-    m_Pipeline = m_Device.CreateRenderPipeline(
-        {
-            .name                = "deferred-lighting",
-            .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-            .rasterization_state = {.cull_mode = gfx::CullMode::None},
-            .render_format       = target_format,
-        },
-        {m_VS, m_PS});
+    m_Pipeline     = hitagi::gfx::RenderPipeline::Create(m_Device, m_Bindings,
+                                                         {
+                                                             .name                = "deferred-lighting",
+                                                             .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+                                                             .rasterization_state = {.cull_mode = gfx::CullMode::None},
+                                                             .render_format       = target_format,
+                                                         },
+                                                         {m_VS, m_PS});
     m_TargetFormat = target_format;
 }
 

@@ -10,8 +10,9 @@ auto create_device(Device::Type type, std::string_view name = "") -> std::unique
 
 auto readback_texture(
     Device&                 device,
+    CommandQueues&          queues,
+    BindlessUtils&          bindings,
     Texture&                texture,
-    TextureSubresourceLayer layer = {}
-) -> core::Buffer;
+    TextureSubresourceLayer layer = {}) -> core::Buffer;
 
 }  // namespace hitagi::gfx

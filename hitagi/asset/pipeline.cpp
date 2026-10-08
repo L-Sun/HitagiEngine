@@ -60,11 +60,11 @@ void RenderPipeline::Load(const ResourceLoadContext& context) {
             return shader && shader->GetDesc().type == gfx::ShaderType::Vertex;
         });
         if (vertex_shader != m_Shaders.end()) {
-            m_Desc.vertex_input_layout = device.GetShaderCompiler().ExtractVertexLayout((*vertex_shader)->GetDesc());
+            m_Desc.vertex_input_layout = context.shader_compiler.ExtractVertexLayout((*vertex_shader)->GetDesc());
         }
     }
 
-    m_Pipeline = device.CreateRenderPipeline(m_Desc, shaders);
+    m_Pipeline = hitagi::gfx::RenderPipeline::Create(device, context.bindings, m_Desc, shaders);
     SetLoadState(ResourceLoadState::Loaded);
 }
 
@@ -77,7 +77,7 @@ void RenderPipeline::Unload() {
 void ComputePipeline::Load(const ResourceLoadContext& context) {
     if (GetLoadState() == ResourceLoadState::Loaded) return;
     if (m_Shader) m_Shader->Load(context);
-    m_Pipeline = context.device.CreateComputePipeline(m_Desc, m_Shader ? m_Shader->GetBuiltShader() : nullptr);
+    m_Pipeline = hitagi::gfx::ComputePipeline::Create(context.device, context.bindings, m_Desc, m_Shader ? m_Shader->GetBuiltShader() : nullptr);
     SetLoadState(ResourceLoadState::Loaded);
 }
 

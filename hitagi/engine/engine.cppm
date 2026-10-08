@@ -34,6 +34,10 @@ public:
     inline auto& Jobs() const noexcept { return *m_JobSystem; }
     inline auto& App() const noexcept { return *m_App; };
     inline auto& Device() const noexcept { return *m_Device; }
+    inline auto& Queues() const noexcept { return *m_Queues; }
+    inline auto& Bindings() const noexcept { return *m_Bindings; }
+    inline auto& ShaderCompiler() const noexcept { return *m_ShaderCompiler; }
+    inline auto  ResourceLoadContext() const noexcept -> asset::ResourceLoadContext { return {*m_Device, *m_Queues, *m_Bindings, *m_ShaderCompiler}; }
     inline auto& Assets() const noexcept { return *m_AssetManager; }
     inline auto& Renderer() const noexcept { return *m_Renderer; };
     inline auto& RenderRuntime() const noexcept { return *m_RenderRuntime; }
@@ -56,6 +60,9 @@ private:
     // Sub-modules, owned by the RuntimeModule tree in construction order.
     Application*           m_App          = nullptr;
     gfx::Device*           m_Device       = nullptr;
+    gfx::CommandQueues*    m_Queues         = nullptr;
+    gfx::BindlessUtils*    m_Bindings       = nullptr;
+    gfx::ShaderCompiler*   m_ShaderCompiler = nullptr;
     asset::AssetManager*   m_AssetManager = nullptr;
     core::RuntimeModule*   m_OutLogicArea = nullptr;
     physics::PhysicsWorld* m_PhysicsWorld = nullptr;

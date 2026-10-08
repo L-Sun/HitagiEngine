@@ -161,9 +161,8 @@ auto passes::ObjectMaterialIdPass::CreateTarget(RenderContext& context, const De
     });
 }
 
-passes::GBuffer::GBuffer(gfx::Device& device, ShaderSource shader)
-    : m_Device(device),
-      m_Shader(std::move(shader)) {}
+passes::GBuffer::GBuffer(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, ShaderSource shader)
+    : m_Device(device), m_Bindings(bindings), m_ShaderCompiler(compiler), m_Shader(std::move(shader)) {}
 
 void passes::GBuffer::EnsureResources() {
     if (m_AlbedoPipeline != nullptr &&
@@ -173,60 +172,60 @@ void passes::GBuffer::EnsureResources() {
         return;
     }
 
-    m_VS         = m_Device.CreateShader({
-        .name        = "deferred-gbuffer-vs",
-        .type        = gfx::ShaderType::Vertex,
-        .entry       = "VSMain",
-        .source_code = m_Shader.code,
-        .path        = m_Shader.path,
-    });
-    m_AlbedoPS   = m_Device.CreateShader({
-        .name        = "deferred-gbuffer-albedo-ps",
-        .type        = gfx::ShaderType::Pixel,
-        .entry       = "PSAlbedoMain",
-        .source_code = m_Shader.code,
-        .path        = m_Shader.path,
-    });
-    m_NormalPS   = m_Device.CreateShader({
-        .name        = "deferred-gbuffer-normal-ps",
-        .type        = gfx::ShaderType::Pixel,
-        .entry       = "PSNormalMain",
-        .source_code = m_Shader.code,
-        .path        = m_Shader.path,
-    });
-    m_MaterialPS = m_Device.CreateShader({
-        .name        = "deferred-gbuffer-material-ps",
-        .type        = gfx::ShaderType::Pixel,
-        .entry       = "PSMaterialMain",
-        .source_code = m_Shader.code,
-        .path        = m_Shader.path,
-    });
-    m_EmissivePS = m_Device.CreateShader({
-        .name        = "deferred-gbuffer-emissive-ps",
-        .type        = gfx::ShaderType::Pixel,
-        .entry       = "PSEmissiveMain",
-        .source_code = m_Shader.code,
-        .path        = m_Shader.path,
-    });
+    m_VS         = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                               .name        = "deferred-gbuffer-vs",
+                                                                               .type        = gfx::ShaderType::Vertex,
+                                                                               .entry       = "VSMain",
+                                                                               .source_code = m_Shader.code,
+                                                                               .path        = m_Shader.path,
+                                                                           });
+    m_AlbedoPS   = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                               .name        = "deferred-gbuffer-albedo-ps",
+                                                                               .type        = gfx::ShaderType::Pixel,
+                                                                               .entry       = "PSAlbedoMain",
+                                                                               .source_code = m_Shader.code,
+                                                                               .path        = m_Shader.path,
+                                                                           });
+    m_NormalPS   = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                               .name        = "deferred-gbuffer-normal-ps",
+                                                                               .type        = gfx::ShaderType::Pixel,
+                                                                               .entry       = "PSNormalMain",
+                                                                               .source_code = m_Shader.code,
+                                                                               .path        = m_Shader.path,
+                                                                           });
+    m_MaterialPS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                               .name        = "deferred-gbuffer-material-ps",
+                                                                               .type        = gfx::ShaderType::Pixel,
+                                                                               .entry       = "PSMaterialMain",
+                                                                               .source_code = m_Shader.code,
+                                                                               .path        = m_Shader.path,
+                                                                           });
+    m_EmissivePS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                               .name        = "deferred-gbuffer-emissive-ps",
+                                                                               .type        = gfx::ShaderType::Pixel,
+                                                                               .entry       = "PSEmissiveMain",
+                                                                               .source_code = m_Shader.code,
+                                                                               .path        = m_Shader.path,
+                                                                           });
 
-    const auto vertex_layout = m_Device.GetShaderCompiler().ExtractVertexLayout(m_VS->GetDesc());
+    const auto vertex_layout = m_ShaderCompiler.ExtractVertexLayout(m_VS->GetDesc());
 
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& pixel_shader, gfx::Format format, bool depth_write) {
-        return m_Device.CreateRenderPipeline(
-            {
-                .name                = std::pmr::string(name),
-                .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-                .vertex_input_layout = vertex_layout,
-                .rasterization_state = {.cull_mode = gfx::CullMode::None},
-                .depth_stencil_state = {
-                    .depth_test_enable  = true,
-                    .depth_write_enable = depth_write,
-                    .depth_compare_op   = depth_write ? gfx::CompareOp::Less : gfx::CompareOp::LessEqual,
-                },
-                .render_format        = format,
-                .depth_stencil_format = gfx::Format::D32_FLOAT,
-            },
-            {m_VS, pixel_shader});
+        return hitagi::gfx::RenderPipeline::Create(m_Device, m_Bindings,
+                                                   {
+                                                       .name                = std::pmr::string(name),
+                                                       .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+                                                       .vertex_input_layout = vertex_layout,
+                                                       .rasterization_state = {.cull_mode = gfx::CullMode::None},
+                                                       .depth_stencil_state = {
+                                                           .depth_test_enable  = true,
+                                                           .depth_write_enable = depth_write,
+                                                           .depth_compare_op   = depth_write ? gfx::CompareOp::Less : gfx::CompareOp::LessEqual,
+                                                       },
+                                                       .render_format        = format,
+                                                       .depth_stencil_format = gfx::Format::D32_FLOAT,
+                                                   },
+                                                   {m_VS, pixel_shader});
     };
 
     m_AlbedoPipeline   = make_pipeline("deferred-gbuffer-albedo", m_AlbedoPS, gfx::Format::R32G32B32A32_FLOAT, true);

@@ -316,43 +316,43 @@ auto hitagi::ComputeEditorWorldXYGridMinorStep(
     return std::clamp(NiceGridStep(ComputeEditorWorldXYGridRawStep(camera_eye, horizontal_fov, aspect, image_height)), 0.1f, 100.0f);
 }
 
-EditorViewportGridPass::EditorViewportGridPass(gfx::Device& device, const render::ShaderSource& shader) {
-    m_VS       = device.CreateShader({
-        .name        = "viewport-grid-vs",
-        .type        = gfx::ShaderType::Vertex,
-        .entry       = "VSMain",
-        .source_code = shader.code,
-        .path        = shader.path,
-    });
-    m_PS       = device.CreateShader({
-        .name        = "viewport-grid-ps",
-        .type        = gfx::ShaderType::Pixel,
-        .entry       = "PSMain",
-        .source_code = shader.code,
-        .path        = shader.path,
-    });
-    m_Pipeline = device.CreateRenderPipeline(
-        {
-            .name           = "viewport-grid",
-            .assembly_state = {
-                .primitive = gfx::PrimitiveTopology::TriangleList,
-            },
-            .rasterization_state = {
-                .cull_mode               = gfx::CullMode::None,
-                .front_counter_clockwise = false,
-            },
-            .blend_state = {
-                .blend_enable           = true,
-                .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
-                .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-                .color_blend_op         = gfx::BlendOp::Add,
-                .src_alpha_blend_factor = gfx::BlendFactor::One,
-                .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
-                .alpha_blend_op         = gfx::BlendOp::Add,
-            },
-            .render_format = gfx::Format::R8G8B8A8_UNORM,
-        },
-        {m_VS, m_PS});
+EditorViewportGridPass::EditorViewportGridPass(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, const render::ShaderSource& shader) {
+    m_VS       = hitagi::gfx::Shader::Create(device, compiler, {
+                                                                   .name        = "viewport-grid-vs",
+                                                                   .type        = gfx::ShaderType::Vertex,
+                                                                   .entry       = "VSMain",
+                                                                   .source_code = shader.code,
+                                                                   .path        = shader.path,
+                                                               });
+    m_PS       = hitagi::gfx::Shader::Create(device, compiler, {
+                                                                   .name        = "viewport-grid-ps",
+                                                                   .type        = gfx::ShaderType::Pixel,
+                                                                   .entry       = "PSMain",
+                                                                   .source_code = shader.code,
+                                                                   .path        = shader.path,
+                                                               });
+    m_Pipeline = hitagi::gfx::RenderPipeline::Create(device, bindings,
+                                                     {
+                                                         .name           = "viewport-grid",
+                                                         .assembly_state = {
+                                                             .primitive = gfx::PrimitiveTopology::TriangleList,
+                                                         },
+                                                         .rasterization_state = {
+                                                             .cull_mode               = gfx::CullMode::None,
+                                                             .front_counter_clockwise = false,
+                                                         },
+                                                         .blend_state = {
+                                                             .blend_enable           = true,
+                                                             .src_color_blend_factor = gfx::BlendFactor::SrcAlpha,
+                                                             .dst_color_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                                                             .color_blend_op         = gfx::BlendOp::Add,
+                                                             .src_alpha_blend_factor = gfx::BlendFactor::One,
+                                                             .dst_alpha_blend_factor = gfx::BlendFactor::InvSrcAlpha,
+                                                             .alpha_blend_op         = gfx::BlendOp::Add,
+                                                         },
+                                                         .render_format = gfx::Format::R8G8B8A8_UNORM,
+                                                     },
+                                                     {m_VS, m_PS});
 }
 
 auto EditorViewportGridPass::Build(render::RenderContext& context, const asset::Camera& camera, math::mat4f camera_transform, rg::TextureHandle target) -> rg::TextureHandle {
@@ -434,60 +434,59 @@ auto EditorViewportGridPass::Build(render::RenderContext& context, const asset::
     return output;
 }
 
-EditorSelectionMetadataPass::EditorSelectionMetadataPass(gfx::Device& device, render::ShaderSource shader)
-    : m_Device(device),
-      m_Shader(std::move(shader)) {}
+EditorSelectionMetadataPass::EditorSelectionMetadataPass(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, render::ShaderSource shader)
+    : m_Device(device), m_Bindings(bindings), m_ShaderCompiler(compiler), m_Shader(std::move(shader)) {}
 
 void EditorSelectionMetadataPass::EnsureResources() {
     if (m_IdPipeline && m_VisualPipeline && m_DepthPipeline) return;
 
-    m_VS       = m_Device.CreateShader({
-        .name        = "editor-selection-mask-vs",
-        .type        = gfx::ShaderType::Vertex,
-        .entry       = "VSSelectionMaskMain",
-        .source_code = m_Shader.code,
-        .path        = m_Shader.path,
-    });
-    m_IdPS     = m_Device.CreateShader({
-        .name        = "editor-selection-id-ps",
-        .type        = gfx::ShaderType::Pixel,
-        .entry       = "PSSelectionIdMain",
-        .source_code = m_Shader.code,
-        .path        = m_Shader.path,
-    });
-    m_VisualPS = m_Device.CreateShader({
-        .name        = "editor-selection-visual-ps",
-        .type        = gfx::ShaderType::Pixel,
-        .entry       = "PSSelectionVisualMain",
-        .source_code = m_Shader.code,
-        .path        = m_Shader.path,
-    });
-    m_DepthPS  = m_Device.CreateShader({
-        .name        = "editor-selection-depth-ps",
-        .type        = gfx::ShaderType::Pixel,
-        .entry       = "PSSelectionDepthMain",
-        .source_code = m_Shader.code,
-        .path        = m_Shader.path,
-    });
+    m_VS       = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                             .name        = "editor-selection-mask-vs",
+                                                                             .type        = gfx::ShaderType::Vertex,
+                                                                             .entry       = "VSSelectionMaskMain",
+                                                                             .source_code = m_Shader.code,
+                                                                             .path        = m_Shader.path,
+                                                                         });
+    m_IdPS     = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                             .name        = "editor-selection-id-ps",
+                                                                             .type        = gfx::ShaderType::Pixel,
+                                                                             .entry       = "PSSelectionIdMain",
+                                                                             .source_code = m_Shader.code,
+                                                                             .path        = m_Shader.path,
+                                                                         });
+    m_VisualPS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                             .name        = "editor-selection-visual-ps",
+                                                                             .type        = gfx::ShaderType::Pixel,
+                                                                             .entry       = "PSSelectionVisualMain",
+                                                                             .source_code = m_Shader.code,
+                                                                             .path        = m_Shader.path,
+                                                                         });
+    m_DepthPS  = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                             .name        = "editor-selection-depth-ps",
+                                                                             .type        = gfx::ShaderType::Pixel,
+                                                                             .entry       = "PSSelectionDepthMain",
+                                                                             .source_code = m_Shader.code,
+                                                                             .path        = m_Shader.path,
+                                                                         });
 
-    const auto vertex_layout = m_Device.GetShaderCompiler().ExtractVertexLayout(m_VS->GetDesc());
+    const auto vertex_layout = m_ShaderCompiler.ExtractVertexLayout(m_VS->GetDesc());
 
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& ps, gfx::Format format, bool depth_write) {
-        return m_Device.CreateRenderPipeline(
-            {
-                .name                = std::pmr::string(name),
-                .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-                .vertex_input_layout = vertex_layout,
-                .rasterization_state = {.cull_mode = gfx::CullMode::None},
-                .depth_stencil_state = {
-                    .depth_test_enable  = true,
-                    .depth_write_enable = depth_write,
-                    .depth_compare_op   = gfx::CompareOp::LessEqual,
-                },
-                .render_format        = format,
-                .depth_stencil_format = gfx::Format::D32_FLOAT,
-            },
-            {m_VS, ps});
+        return hitagi::gfx::RenderPipeline::Create(m_Device, m_Bindings,
+                                                   {
+                                                       .name                = std::pmr::string(name),
+                                                       .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+                                                       .vertex_input_layout = vertex_layout,
+                                                       .rasterization_state = {.cull_mode = gfx::CullMode::None},
+                                                       .depth_stencil_state = {
+                                                           .depth_test_enable  = true,
+                                                           .depth_write_enable = depth_write,
+                                                           .depth_compare_op   = gfx::CompareOp::LessEqual,
+                                                       },
+                                                       .render_format        = format,
+                                                       .depth_stencil_format = gfx::Format::D32_FLOAT,
+                                                   },
+                                                   {m_VS, ps});
     };
 
     m_IdPipeline     = make_pipeline("editor-selection-id", m_IdPS, gfx::Format::R32_UINT, true);
@@ -710,38 +709,37 @@ void EditorSelectionMetadataPass::BuildTargetPass(
     builder.Finish();
 }
 
-EditorSelectionOutlinePass::EditorSelectionOutlinePass(gfx::Device& device, render::ShaderSource shader)
-    : m_Device(device),
-      m_Shader(std::move(shader)) {}
+EditorSelectionOutlinePass::EditorSelectionOutlinePass(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, render::ShaderSource shader)
+    : m_Device(device), m_Bindings(bindings), m_ShaderCompiler(compiler), m_Shader(std::move(shader)) {}
 
 void EditorSelectionOutlinePass::EnsureResources(gfx::Format target_format) {
     if (m_Pipeline && m_TargetFormat == target_format) return;
 
     if (m_VS == nullptr) {
-        m_VS = m_Device.CreateShader({
-            .name        = "selection-outline-vs",
-            .type        = gfx::ShaderType::Vertex,
-            .entry       = "VSFullscreenMain",
-            .source_code = m_Shader.code,
-            .path        = m_Shader.path,
-        });
-        m_PS = m_Device.CreateShader({
-            .name        = "selection-outline-ps",
-            .type        = gfx::ShaderType::Pixel,
-            .entry       = "PSSelectionOutlineMain",
-            .source_code = m_Shader.code,
-            .path        = m_Shader.path,
-        });
+        m_VS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                           .name        = "selection-outline-vs",
+                                                                           .type        = gfx::ShaderType::Vertex,
+                                                                           .entry       = "VSFullscreenMain",
+                                                                           .source_code = m_Shader.code,
+                                                                           .path        = m_Shader.path,
+                                                                       });
+        m_PS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
+                                                                           .name        = "selection-outline-ps",
+                                                                           .type        = gfx::ShaderType::Pixel,
+                                                                           .entry       = "PSSelectionOutlineMain",
+                                                                           .source_code = m_Shader.code,
+                                                                           .path        = m_Shader.path,
+                                                                       });
     }
 
-    m_Pipeline = m_Device.CreateRenderPipeline(
-        {
-            .name                = "selection-outline",
-            .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
-            .rasterization_state = {.cull_mode = gfx::CullMode::None},
-            .render_format       = target_format,
-        },
-        {m_VS, m_PS});
+    m_Pipeline     = hitagi::gfx::RenderPipeline::Create(m_Device, m_Bindings,
+                                                         {
+                                                             .name                = "selection-outline",
+                                                             .assembly_state      = {.primitive = gfx::PrimitiveTopology::TriangleList},
+                                                             .rasterization_state = {.cull_mode = gfx::CullMode::None},
+                                                             .render_format       = target_format,
+                                                         },
+                                                         {m_VS, m_PS});
     m_TargetFormat = target_format;
 }
 
@@ -848,9 +846,9 @@ auto EditorSelectionOutlinePass::Build(
     return output;
 }
 
-EditorDeferredSelectionExtension::EditorDeferredSelectionExtension(gfx::Device& device, const render::ShaderSource& shader)
-    : m_MetadataPass(device, shader),
-      m_OutlinePass(device, shader) {}
+EditorDeferredSelectionExtension::EditorDeferredSelectionExtension(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, const render::ShaderSource& shader)
+    : m_MetadataPass(device, bindings, compiler, shader),
+      m_OutlinePass(device, bindings, compiler, shader) {}
 
 void EditorDeferredSelectionExtension::SetSelection(EditorSelectionDesc desc) {
     m_Selection = std::move(desc);
@@ -1025,10 +1023,10 @@ SceneViewPort::SceneViewPort(const Engine& engine, EditorState& state, EditorCom
       m_State(state),
       m_CommandStack(command_stack),
       m_SelectionExtension(std::make_shared<EditorDeferredSelectionExtension>(
-          engine.Device(),
+          engine.Device(), engine.Bindings(), engine.ShaderCompiler(),
           render::LoadShaderSource(engine.FileIO(), "hitagi/editor/shaders/editor_selection_outline.hlsl"))),
       m_GridPass(std::make_unique<EditorViewportGridPass>(
-          engine.Device(),
+          engine.Device(), engine.Bindings(), engine.ShaderCompiler(),
           render::LoadShaderSource(engine.FileIO(), "hitagi/editor/shaders/viewport_grid.hlsl"))) {
     if (auto* deferred_renderer = dynamic_cast<render::DeferredRenderer*>(&m_Engine.Renderer())) {
         deferred_renderer->AddExtension(m_SelectionExtension);

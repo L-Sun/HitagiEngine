@@ -89,7 +89,7 @@ void DrawTextureSlotPreview(Engine& engine, std::string_view label, const std::s
     }
 
     auto& render_graph = engine.RenderRuntime().GetRenderGraph();
-    texture->Load({.device = render_graph.GetDevice()});
+    texture->Load(engine.ResourceLoadContext());
     ImGui::Image(engine.GuiManager().ReadTexture(render_graph.Import(texture->GetGPUData())), ImVec2(size, size));
     if (ImGui::IsItemHovered()) {
         const auto& path = texture->GetPath();
@@ -486,7 +486,7 @@ void Editor::SceneNodeModifier() {
                                         if (texture) {
                                             auto& rg          = m_Engine.RenderRuntime().GetRenderGraph();
                                             auto& gui_manager = m_Engine.GuiManager();
-                                            texture->Load({.device = rg.GetDevice()});
+                                            texture->Load(m_Engine.ResourceLoadContext());
                                             ImGui::Image(gui_manager.ReadTexture(rg.Import(texture->GetGPUData())), {64, 64});
                                             if (ImGui::IsItemHovered()) {
                                                 ImGui::SetTooltip("%s", name);

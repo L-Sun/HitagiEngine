@@ -39,23 +39,26 @@ void DeferredRenderer::ClearExtensions() {
     m_Extensions.clear();
 }
 
-DeferredRenderer::DeferredRenderer(gfx::Device& device, core::FileIOManager& file_io, const Application& app, std::string_view name)
+DeferredRenderer::DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::FileIOManager& file_io, const Application& app, std::string_view name)
     : IRenderer(std::format("DeferredRenderer{}", name.empty() ? "" : std::format("({})", name))),
       m_App(app),
       m_GfxDevice(device),
-      m_LoadContext{.device = device},
-      m_PersistentSampler(m_GfxDevice.CreateSampler({
-          .name          = "sampler",
-          .address_u     = gfx::AddressMode::Repeat,
-          .address_v     = gfx::AddressMode::Repeat,
-          .address_w     = gfx::AddressMode::Repeat,
-          .mag_filter    = gfx::FilterMode::Linear,
-          .min_filter    = gfx::FilterMode::Linear,
-          .mipmap_filter = gfx::FilterMode::Linear,
-      })),
-      m_GBufferPass(m_GfxDevice, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_gbuffer.hlsl")),
-      m_DeferredLightingPass(m_GfxDevice, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_lighting.hlsl")),
-      m_GBufferDebugViewPass(m_GfxDevice, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_debug.hlsl")) {}
+      m_Queues(queues),
+      m_Bindings(bindings),
+      m_ShaderCompiler(compiler),
+      m_LoadContext{.device = device, .queues = queues, .bindings = bindings, .shader_compiler = compiler},
+      m_PersistentSampler(hitagi::gfx::Sampler::Create(m_GfxDevice, m_Bindings, {
+                                                                                    .name          = "sampler",
+                                                                                    .address_u     = gfx::AddressMode::Repeat,
+                                                                                    .address_v     = gfx::AddressMode::Repeat,
+                                                                                    .address_w     = gfx::AddressMode::Repeat,
+                                                                                    .mag_filter    = gfx::FilterMode::Linear,
+                                                                                    .min_filter    = gfx::FilterMode::Linear,
+                                                                                    .mipmap_filter = gfx::FilterMode::Linear,
+                                                                                })),
+      m_GBufferPass(m_GfxDevice, bindings, compiler, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_gbuffer.hlsl")),
+      m_DeferredLightingPass(m_GfxDevice, bindings, compiler, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_lighting.hlsl")),
+      m_GBufferDebugViewPass(m_GfxDevice, bindings, compiler, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_debug.hlsl")) {}
 
 auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& request) -> RenderResult {
     ZoneScoped;

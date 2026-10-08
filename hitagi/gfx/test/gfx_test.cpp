@@ -91,6 +91,9 @@ protected:
 
     std::string             test_name;
     std::unique_ptr<Device> device;
+    hitagi::gfx::CommandQueues                  queues{*device};
+    std::unique_ptr<hitagi::gfx::BindlessUtils> bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler                 compiler{"Tests"};
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -115,18 +118,18 @@ TEST_P(ReadbackTextureTest, ReadbackGradientTexture) {
         }
     }
 
-    auto texture = device->CreateTexture(
-        {
-            .name   = std::pmr::string(std::format("{}_tex", test_name)),
-            .width  = width,
-            .height = height,
-            .format = Format::R8G8B8A8_UNORM,
-            .usages = TextureUsageFlags::SRV | TextureUsageFlags::CopySrc | TextureUsageFlags::CopyDst,
-        },
-        {reinterpret_cast<const std::byte*>(pixels.data()), pixels.size() * sizeof(R8G8B8A8Unorm)});
+    auto texture = hitagi::gfx::Texture::Create(*device, queues, *bindings,
+                                                {
+                                                    .name   = std::pmr::string(std::format("{}_tex", test_name)),
+                                                    .width  = width,
+                                                    .height = height,
+                                                    .format = Format::R8G8B8A8_UNORM,
+                                                    .usages = TextureUsageFlags::SRV | TextureUsageFlags::CopySrc | TextureUsageFlags::CopyDst,
+                                                },
+                                                {reinterpret_cast<const std::byte*>(pixels.data()), pixels.size() * sizeof(R8G8B8A8Unorm)});
     ASSERT_TRUE(texture);
 
-    auto result = readback_texture(*device, *texture);
+    auto result = readback_texture(*device, queues, *bindings, *texture);
     ASSERT_EQ(result.GetDataSize(), pixels.size() * sizeof(R8G8B8A8Unorm));
 
     auto readback = result.Span<const R8G8B8A8Unorm>();

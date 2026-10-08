@@ -1,19 +1,87 @@
 module;
-#include <fmt/color.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <tracy/Tracy.hpp>
-#include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
 #include <vk_mem_alloc.h>
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyVulkan.hpp>
+#include <SDL3/SDL_vulkan.h>
+#include <spirv_reflect.h>
 
-module gfx.vulkan;
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include <vulkan/vulkan_win32.h>
+#elif defined(__linux__)
+#include <vulkan/vulkan_wayland.h>
+#endif
+#include <fmt/color.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <vulkan/vulkan.hpp>
+
+export module gfx.vulkan:device;
+import std;
+import core;
+import utils;
+import math;
+import gfx.base;
 import magic_enum;
+import :types;
+import :utils;
+import :configs;
+
+export namespace hitagi::gfx {
+
+class VulkanDevice final : public Device {
+public:
+    VulkanDevice(std::string_view name);
+    ~VulkanDevice() final;
+
+    void Tick() final;
+
+    inline auto& GetInstance() const noexcept { return *m_Instance; }
+    inline auto& GetCustomAllocator() const noexcept { return m_CustomAllocator; }
+    inline auto& GetPhysicalDevice() const noexcept { return *m_PhysicalDevice; }
+    inline auto& GetDevice() const noexcept { return *m_Device; }
+    inline auto  GetQueueFamilyIndex() const noexcept { return m_QueueFamilyIndex; }
+    inline auto& GetVmaAllocator() const noexcept { return m_VmaAllocator; }
+
+private:
+    auto GetStorageBufferViewRequirements() const noexcept -> StorageViewRequirements final {
+        return {.offset_alignment = std::max(std::uint64_t{4}, m_PhysicalDevice->getProperties().limits.minStorageBufferOffsetAlignment), .size_alignment = 4};
+    }
+
+    void Profile() const;
+
+    vk::AllocationCallbacks m_CustomAllocator;
+    using AllocationRecord = std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>>;
+    AllocationRecord m_CustomAllocationRecord;
+
+    vk::raii::Context                   m_Context;
+    std::unique_ptr<vk::raii::Instance> m_Instance;
+
+#ifdef HITAGI_DEBUG
+    std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> m_DebugUtilsMessenger;
+#endif
+
+    std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
+    std::unique_ptr<vk::raii::Device>         m_Device;
+
+    VmaAllocator  m_VmaAllocator;
+    std::uint32_t m_QueueFamilyIndex;
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
+
 VulkanDevice::VulkanDevice(std::string_view name)
     : Device(Device::Type::Vulkan, name),
       m_CustomAllocator{
-          .pUserData       = this,
+          .pUserData       = &m_CustomAllocationRecord,
           .pfnAllocation   = custom_vk_allocation_fn,
           .pfnReallocation = custom_vk_reallocation_fn,
           .pfnFree         = custom_vk_free_fn,
@@ -119,14 +187,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
 
         m_Device = std::make_unique<vk::raii::Device>(m_PhysicalDevice->createDevice(device_create_info.get(), GetCustomAllocator()));
 
-        m_Logger->trace("Retrieval command queues ...");
-        magic_enum::enum_for_each<CommandType>([&](CommandType type) {
-            m_CommandQueues[type] = std::make_unique<VulkanCommandQueue>(
-                *this,
-                type,
-                std::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type)),
-                queue_create_info.queueFamilyIndex);
-        });
+        m_QueueFamilyIndex = queue_create_info.queueFamilyIndex;
     }
 
     m_Logger->trace("Create VMA Allocator...");
@@ -142,35 +203,11 @@ VulkanDevice::VulkanDevice(std::string_view name)
         vmaCreateAllocator(&allocator_info, &m_VmaAllocator);
     }
 
-    m_Logger->trace("Create Command Pools...");
-    {
-        magic_enum::enum_for_each<CommandType>([&](CommandType type) {
-            vk::CommandPoolCreateInfo command_pool_create_info{
-                .flags            = vk::CommandPoolCreateFlagBits::eResetCommandBuffer |
-                                    vk::CommandPoolCreateFlagBits::eTransient,
-                .queueFamilyIndex = m_CommandQueues[type]->GetFamilyIndex(),
-            };
-            m_CommandPools[type] = std::make_unique<vk::raii::CommandPool>(
-                *m_Device,
-                command_pool_create_info,
-                GetCustomAllocator());
-        });
-
-        for (const auto& queue : m_CommandQueues) {
-            queue->InitializeTracyContext();
-        }
-    }
-
-    m_Logger->trace("Create Bindless...");
-    {
-        m_BindlessUtils = std::make_unique<VulkanBindlessUtils>(*this, std::format("{}-BindlessUtils", m_Name));
-    }
     m_Logger->trace("Initialized.");
 }
 
 VulkanDevice::~VulkanDevice() {
-    WaitIdle();
-    m_BindlessUtils.reset();
+    m_Device->waitIdle();
     vmaDestroyAllocator(m_VmaAllocator);
 }
 
@@ -179,72 +216,6 @@ void VulkanDevice::Tick() {
     if (m_EnableProfile) {
         Profile();
     }
-}
-
-void VulkanDevice::WaitIdle() {
-    ZoneScopedNS("VulkanDevice::WaitIdle", 8);
-    m_Device->waitIdle();
-}
-
-auto VulkanDevice::CreateFence(std::uint64_t initial_value, std::string_view name) -> std::shared_ptr<Fence> {
-    return std::make_shared<VulkanTimelineSemaphore>(*this, initial_value, name);
-}
-
-auto VulkanDevice::GetCommandQueue(CommandType type) const -> CommandQueue& {
-    return *m_CommandQueues[type];
-}
-
-auto VulkanDevice::CreateCommandContext(CommandType type, std::string_view name) -> std::shared_ptr<CommandContext> {
-    switch (type) {
-        case CommandType::Graphics:
-            return std::make_shared<VulkanGraphicsCommandBuffer>(*this, name);
-        case CommandType::Compute:
-            return std::make_shared<VulkanComputeCommandBuffer>(*this, name);
-        case CommandType::Copy:
-            return std::make_shared<VulkanTransferCommandBuffer>(*this, name);
-        default:
-            throw std::runtime_error("Invalid command type.");
-    }
-}
-
-auto VulkanDevice::CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> {
-    return std::make_shared<VulkanSwapChain>(*this, std::move(desc));
-}
-
-auto VulkanDevice::CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GPUBuffer> {
-    return std::make_shared<VulkanBuffer>(*this, std::move(desc), initial_data);
-}
-
-auto VulkanDevice::CreateGPUBufferView(GPUBufferViewDesc desc) -> std::shared_ptr<GPUBufferView> {
-    return std::make_shared<VulkanBufferView>(*this, std::move(desc));
-}
-
-auto VulkanDevice::CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
-    return std::make_shared<VulkanImage>(*this, std::move(desc), initial_data);
-}
-
-auto VulkanDevice::CreateTextureView(TextureViewDesc desc) -> std::shared_ptr<TextureView> {
-    return std::make_shared<VulkanTextureView>(*this, std::move(desc));
-}
-
-auto VulkanDevice::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
-    return std::make_shared<VulkanSampler>(*this, std::move(desc));
-}
-
-auto VulkanDevice::CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> {
-    return std::make_shared<VulkanShader>(*this, std::move(desc));
-}
-
-auto VulkanDevice::CreateRenderPipeline(RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) -> std::shared_ptr<RenderPipeline> {
-    return std::make_shared<VulkanRenderPipeline>(*this, std::move(desc), shaders);
-}
-
-auto VulkanDevice::CreateComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) -> std::shared_ptr<ComputePipeline> {
-    return std::make_shared<VulkanComputePipeline>(*this, std::move(desc), cs);
-}
-
-auto VulkanDevice::GetBindlessUtils() -> BindlessUtils& {
-    return *m_BindlessUtils;
 }
 
 void VulkanDevice::Profile() const {

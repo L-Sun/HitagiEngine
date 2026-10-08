@@ -7,18 +7,21 @@ import std;
 
 namespace hitagi::render {
 
-RenderRuntime::RenderRuntime(gfx::Device& device, const Application& app, std::string_view name)
+RenderRuntime::RenderRuntime(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, const Application& app, std::string_view name)
     : RuntimeModule(std::format("RenderRuntime{}", name.empty() ? "" : std::format("({})", name))),
       m_App(app),
       m_GfxDevice(device),
-      m_SwapChain(device.CreateSwapChain({
-          .name        = "swapchain",
-          .window      = app.GetWindow(),
-          .clear_color = math::Color(0, 0, 0, 1),
-      })),
-      m_RenderGraph(m_GfxDevice, "RenderRuntimeGraph"),
-      m_GuiRenderUtils(std::make_unique<GuiRenderUtils>(m_GfxDevice)),
-      m_TextRenderUtils(std::make_unique<TextRenderUtils>(m_GfxDevice, app.GetConfig().asset_root_path / "fonts")) {
+      m_Queues(queues),
+      m_Bindings(bindings),
+      m_ShaderCompiler(compiler),
+      m_SwapChain(hitagi::gfx::SwapChain::Create(device, queues.Get(hitagi::gfx::CommandType::Graphics), {
+                                                                                                             .name        = "swapchain",
+                                                                                                             .window      = app.GetWindow(),
+                                                                                                             .clear_color = math::Color(0, 0, 0, 1),
+                                                                                                         })),
+      m_RenderGraph(m_GfxDevice, queues, bindings, "RenderRuntimeGraph"),
+      m_GuiRenderUtils(std::make_unique<GuiRenderUtils>(m_GfxDevice, bindings, compiler)),
+      m_TextRenderUtils(std::make_unique<TextRenderUtils>(m_GfxDevice, queues, bindings, compiler, app.GetConfig().asset_root_path / "fonts")) {
     m_Clock.Start();
 }
 

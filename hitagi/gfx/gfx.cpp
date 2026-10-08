@@ -32,36 +32,36 @@ auto create_device(Device::Type type, std::string_view name) -> std::unique_ptr<
     }
 }
 
-auto readback_texture(Device& device, Texture& texture, TextureSubresourceLayer layer) -> core::Buffer {
+auto readback_texture(Device& device, CommandQueues& queues, BindlessUtils& bindings, Texture& texture, TextureSubresourceLayer layer) -> core::Buffer {
     const auto& desc       = texture.GetDesc();
     const auto  pixel_size = get_format_byte_size(desc.format);
     const auto  width      = desc.width;
     const auto  height     = desc.height;
     const auto  depth      = static_cast<std::uint32_t>(desc.depth);
 
-    auto readback_buffer = device.CreateGPUBuffer({
-        .name   = "readback_buffer",
-        .size   = static_cast<std::uint64_t>(pixel_size) * width * height * depth,
-        .usages = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
-    });
+    auto readback_buffer = hitagi::gfx::GPUBuffer::Create(device, {
+                                                                      .name   = "readback_buffer",
+                                                                      .size   = static_cast<std::uint64_t>(pixel_size) * width * height * depth,
+                                                                      .usages = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
+                                                                  });
 
-    device.WaitIdle();
+    queues.WaitIdle();
 
     if (texture.GetCurrentLayout() != TextureLayout::Common &&
         texture.GetCurrentLayout() != TextureLayout::Unkown) {
-        auto gfx_ctx = device.CreateGraphicsContext("readback_transition");
+        auto gfx_ctx = hitagi::gfx::GraphicsCommandContext::Create(device, queues, bindings, "readback_transition");
         gfx_ctx->Begin();
         gfx_ctx->ResourceBarrier(
             {}, {},
             {{texture.Transition(BarrierAccess::None, TextureLayout::Common, PipelineStage::None)}});
         gfx_ctx->End();
 
-        auto& gfx_queue = device.GetCommandQueue(CommandType::Graphics);
+        auto& gfx_queue = queues.Get(CommandType::Graphics);
         gfx_queue.Submit({{*gfx_ctx}});
         gfx_queue.WaitIdle();
     }
 
-    auto ctx = device.CreateCopyContext("readback_copy");
+    auto ctx = hitagi::gfx::CopyCommandContext::Create(device, queues, "readback_copy");
     ctx->Begin();
     ctx->ResourceBarrier(
         {}, {},
@@ -69,7 +69,7 @@ auto readback_texture(Device& device, Texture& texture, TextureSubresourceLayer 
     ctx->CopyTextureToBuffer(texture, {0, 0, 0}, {width, height, depth}, *readback_buffer, 0, layer);
     ctx->End();
 
-    auto& queue = device.GetCommandQueue(CommandType::Copy);
+    auto& queue = queues.Get(CommandType::Copy);
     queue.Submit({{*ctx}});
     queue.WaitIdle();
 

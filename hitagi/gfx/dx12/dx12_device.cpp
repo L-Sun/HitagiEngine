@@ -1,13 +1,68 @@
 module;
-
+#include <d3d12.h>
+#include <wrl.h>
+#include <D3D12MemAlloc.h>
+#include <dxgi1_6.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <tracy/Tracy.hpp>
 #include <d3dx12/d3dx12.h>
-#include <dxgi1_6.h>
-#include <D3D12MemAlloc.h>
 
-module gfx.dx12;
+export module gfx.dx12:device;
+import std;
+import core;
+import utils;
+import math;
+import gfx.base;
 import magic_enum;
+import :types;
+import :utils;
+import :descriptor_heap;
+
+using namespace Microsoft::WRL;
+
+export namespace hitagi::gfx {
+
+class DX12Device final : public Device {
+public:
+    DX12Device(std::string_view name);
+    ~DX12Device() final;
+
+    void Tick() final;
+
+    inline auto  GetFactory() const noexcept { return m_Factory; }
+    inline auto  GetAdapter() const noexcept { return m_Adapter; }
+    inline auto  GetDevice() const noexcept { return m_Device; }
+    inline auto  GetAllocator() const noexcept { return m_MemoryAllocator; }
+    inline auto& GetRTVDescriptorAllocator() const noexcept { return *m_RTVDescriptorAllocator; }
+    inline auto& GetDSVDescriptorAllocator() const noexcept { return *m_DSVDescriptorAllocator; }
+
+private:
+    auto GetStorageBufferViewRequirements() const noexcept -> StorageViewRequirements final {
+        return {.offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT, .size_alignment = 4};
+    }
+
+    static void ReportDebugLog(const ComPtr<ID3D12Device>& device);
+    void        Profile() const;
+
+    void IntegrateD3D12Logger();
+    void UnregisterIntegratedD3D12Logger();
+
+    ComPtr<IDXGIFactory2>       m_Factory;
+    ComPtr<IDXGIAdapter4>       m_Adapter;
+    ComPtr<ID3D12DeviceFactory> m_DeviceFactory;
+    ComPtr<ID3D12Device>        m_Device;
+
+    D3D12MA::ALLOCATION_CALLBACKS                                       m_CustomAllocationCallback;
+    std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>> m_CustomAllocationInfos;
+    ComPtr<D3D12MA::Allocator>                                          m_MemoryAllocator;
+
+    DWORD m_DebugCookie;
+
+    std::unique_ptr<DescriptorAllocator> m_RTVDescriptorAllocator;
+    std::unique_ptr<DescriptorAllocator> m_DSVDescriptorAllocator;
+};
+
+}  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
 
@@ -202,26 +257,16 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
         }
     }
 
-    m_Logger->trace("Create Command Queues");
-    magic_enum::enum_for_each<CommandType>([this](CommandType type) {
-        m_CommandQueues[type] = std::make_shared<DX12CommandQueue>(
-            *this,
-            type,
-            std::format("Builtin-{}-CommandQueue", magic_enum::enum_name(type)));
-    });
-
     m_Logger->trace("Create RTV DSV Descriptor Allocators...");
     {
-        m_RTVDescriptorAllocator = std::make_unique<DescriptorAllocator>(*this, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-        m_DSVDescriptorAllocator = std::make_unique<DescriptorAllocator>(*this, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+        m_RTVDescriptorAllocator = std::make_unique<DescriptorAllocator>(*m_Device.Get(), m_Logger, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        m_DSVDescriptorAllocator = std::make_unique<DescriptorAllocator>(*m_Device.Get(), m_Logger, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
     }
-    m_BindlessUtils = std::make_unique<DX12BindlessUtils>(*this, "DX12-BindlessUtils");
 
     m_Logger->trace("Initialized.");
 }
 
 DX12Device::~DX12Device() {
-    WaitIdle();
     UnregisterIntegratedD3D12Logger();
 #ifdef HITAGI_DEBUG
     report_debug_error_after_destroy_fn = [device = m_Device]() { DX12Device::ReportDebugLog(device); };
@@ -230,82 +275,9 @@ DX12Device::~DX12Device() {
 
 void DX12Device::Tick() {
     Device::Tick();
-#ifdef TRACY_ENABLE
-    for (const auto& queue : m_CommandQueues) {
-        queue->NewFrame();
-    }
-#endif
     if (m_EnableProfile) {
         Profile();
     }
-}
-
-void DX12Device::WaitIdle() {
-    ZoneScopedNS("DX12Device::WaitIdle", 8);
-    for (auto& queue : m_CommandQueues) {
-        queue->WaitIdle();
-    }
-}
-
-auto DX12Device::CreateFence(std::uint64_t initial_value, std::string_view name) -> std::shared_ptr<Fence> {
-    return std::make_shared<DX12Fence>(*this, initial_value, name);
-}
-
-auto DX12Device::GetCommandQueue(CommandType type) const -> CommandQueue& {
-    return *m_CommandQueues[type];
-}
-
-auto DX12Device::CreateCommandContext(CommandType type, std::string_view name) -> std::shared_ptr<CommandContext> {
-    switch (type) {
-        case CommandType::Graphics:
-            return std::make_shared<DX12GraphicsCommandList>(*this, name);
-        case CommandType::Compute:
-            return std::make_shared<DX12ComputeCommandList>(*this, name);
-        case CommandType::Copy:
-            return std::make_shared<DX12CopyCommandList>(*this, name);
-        default:
-            throw std::runtime_error("Invalid command type.");
-    }
-}
-
-auto DX12Device::CreateSwapChain(SwapChainDesc desc) -> std::shared_ptr<SwapChain> {
-    return std::make_shared<DX12SwapChain>(*this, std::move(desc));
-}
-
-auto DX12Device::CreateGPUBuffer(GPUBufferDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<GPUBuffer> {
-    return std::make_shared<DX12GPUBuffer>(*this, std::move(desc), initial_data);
-}
-
-auto DX12Device::CreateGPUBufferView(GPUBufferViewDesc desc) -> std::shared_ptr<GPUBufferView> {
-    return std::make_shared<DX12GPUBufferView>(*this, std::move(desc));
-}
-
-auto DX12Device::CreateTexture(TextureDesc desc, std::span<const std::byte> initial_data) -> std::shared_ptr<Texture> {
-    return std::make_shared<DX12Texture>(*this, std::move(desc), initial_data);
-}
-
-auto DX12Device::CreateTextureView(TextureViewDesc desc) -> std::shared_ptr<TextureView> {
-    return std::make_shared<DX12TextureView>(*this, std::move(desc));
-}
-
-auto DX12Device::CreateSampler(SamplerDesc desc) -> std::shared_ptr<Sampler> {
-    return std::make_shared<DX12Sampler>(*this, std::move(desc));
-}
-
-auto DX12Device::CreateShader(ShaderDesc desc) -> std::shared_ptr<Shader> {
-    return std::make_shared<DX12Shader>(*this, std::move(desc));
-}
-
-auto DX12Device::CreateRenderPipeline(RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) -> std::shared_ptr<RenderPipeline> {
-    return std::make_shared<DX12RenderPipeline>(*this, std::move(desc), shaders);
-}
-
-auto DX12Device::CreateComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) -> std::shared_ptr<ComputePipeline> {
-    return std::make_shared<DX12ComputePipeline>(*this, std::move(desc), cs);
-}
-
-auto DX12Device::GetBindlessUtils() -> BindlessUtils& {
-    return *m_BindlessUtils;
 }
 
 void DX12Device::Profile() const {

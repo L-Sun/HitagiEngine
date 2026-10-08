@@ -88,6 +88,9 @@ protected:
     core::FileIOManager          file_io;
     std::unique_ptr<Application> app;
     std::unique_ptr<gfx::Device> device;
+    hitagi::gfx::CommandQueues                  queues{*device};
+    std::unique_ptr<hitagi::gfx::BindlessUtils> bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler                 compiler{"Tests"};
 };
 INSTANTIATE_TEST_SUITE_P(
     RendererTest,
@@ -98,8 +101,8 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 TEST_P(RendererTest, DeferredRendererAcceptsExplicitFrame) {
-    RenderRuntime   runtime(*device, *app, test_name);
-    DefaultRenderer renderer(*device, file_io, *app, test_name);
+    RenderRuntime   runtime(*device, queues, *bindings, compiler, *app, test_name);
+    DefaultRenderer renderer(*device, queues, *bindings, compiler, file_io, *app, test_name);
 
     const std::array debug_views{
         RenderGraphDebugView::Final,
@@ -172,7 +175,10 @@ TEST_P(RendererTest, DeferredRendererAcceptsExplicitFrame) {
 TEST(RendererInterfaceTest, CustomRendererOnlyImplementsSceneRender) {
     PassthroughRenderer renderer;
     auto                mock_device = gfx::create_device(gfx::Device::Type::Mock, "CustomRendererInterface");
-    rg::RenderGraph     graph(*mock_device, "CustomRendererInterfaceGraph");
+    hitagi::gfx::CommandQueues  queues(*mock_device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*mock_device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
+    rg::RenderGraph             graph(*mock_device, queues, *bindings, "CustomRendererInterfaceGraph");
 
     RenderContext context{
         .device = *mock_device,
@@ -184,7 +190,10 @@ TEST(RendererInterfaceTest, CustomRendererOnlyImplementsSceneRender) {
 TEST(RendererInterfaceTest, CustomRendererCanComposeCustomRenderGraphPass) {
     CustomPassRenderer renderer;
     auto               mock_device = gfx::create_device(gfx::Device::Type::Mock, "CustomPassRenderer");
-    rg::RenderGraph    graph(*mock_device, "CustomPassRendererGraph");
+    hitagi::gfx::CommandQueues  queues(*mock_device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*mock_device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
+    rg::RenderGraph             graph(*mock_device, queues, *bindings, "CustomPassRendererGraph");
     auto               input = graph.Create(gfx::TextureDesc{
         .name        = "CustomRendererInput",
         .width       = 16,
@@ -289,7 +298,10 @@ TEST(RendererMaterialPassTest, RenderQueueKeySortsByQueuePriorityLayerAndObject)
 
 TEST(RendererPassBuilderTest, CreatesDepthShadowGBufferAndIdResources) {
     auto            mock_device = gfx::create_device(gfx::Device::Type::Mock, "RendererPassBuilderTest");
-    rg::RenderGraph graph(*mock_device, "RendererPassBuilderGraph");
+    hitagi::gfx::CommandQueues  queues(*mock_device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*mock_device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
+    rg::RenderGraph             graph(*mock_device, queues, *bindings, "RendererPassBuilderGraph");
     RenderContext   context{
         .device = *mock_device,
         .graph  = graph,
@@ -305,7 +317,7 @@ TEST(RendererPassBuilderTest, CreatesDepthShadowGBufferAndIdResources) {
         .size   = (sizeof(InstanceConstant)) * (1),
         .usages = gfx::GPUBufferUsageFlags::StorageRead,
     });
-    const auto pipeline          = mock_device->CreateRenderPipeline({}, {});
+    const auto pipeline          = hitagi::gfx::RenderPipeline::Create(*mock_device, *bindings, {}, {});
 
     const auto depth = passes::DepthPrepass::CreateTarget(context, {.width = 64, .height = 32});
     passes::DepthPrepass::Build(
@@ -334,7 +346,7 @@ TEST(RendererPassBuilderTest, CreatesDepthShadowGBufferAndIdResources) {
         });
 
     const auto      id_buffer = passes::ObjectMaterialIdPass::CreateTarget(context, {.width = 64, .height = 32});
-    passes::GBuffer gbuffer_pass(*mock_device, {.path = "unused.hlsl"});
+    passes::GBuffer gbuffer_pass(*mock_device, *bindings, compiler, {.path = "unused.hlsl"});
     const auto      gbuffer = gbuffer_pass.CreateTargets(context, {.width = 64, .height = 32});
 
     EXPECT_TRUE(graph.IsValid(depth));

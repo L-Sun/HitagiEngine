@@ -20,7 +20,7 @@ protected:
     RenderGraphTest()
         : test_name(UnitTest::GetInstance()->current_test_info()->name()),
           device(create_device(Device::Type::DX12, test_name)),
-          rg(*device, test_name) {
+          rg(*device, queues, *bindings, test_name) {
     }
 
     void SetUp() override {
@@ -29,26 +29,29 @@ protected:
 
     std::string             test_name;
     std::shared_ptr<Device> device;
+    CommandQueues                  queues{*device};
+    std::unique_ptr<BindlessUtils> bindings = BindlessUtils::Create(*device);
+    ShaderCompiler                 compiler{"Tests"};
     RenderGraph             rg;
 };
 
 TEST_F(RenderGraphTest, ImportBuffer) {
-    const auto buffer_0 = device->CreateGPUBuffer({
-        .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
-        .size   = (sizeof(float)) * (16),
-        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
-    });
+    const auto buffer_0 = hitagi::gfx::GPUBuffer::Create(*device, {
+                                                                      .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
+                                                                      .size   = (sizeof(float)) * (16),
+                                                                      .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
+                                                                  });
 
     // import with empty name
     const auto buffer_handle_0 = rg.Import(buffer_0);
     EXPECT_TRUE(rg.IsValid(buffer_handle_0)) << "Import buffer with empty name should succeed";
     EXPECT_EQ(rg.Import(buffer_0, "new_name"), buffer_handle_0) << "Reimport buffer with new name should return same handle";
 
-    const auto buffer_1 = device->CreateGPUBuffer({
-        .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
-        .size   = (sizeof(float)) * (16),
-        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
-    });
+    const auto buffer_1 = hitagi::gfx::GPUBuffer::Create(*device, {
+                                                                      .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
+                                                                      .size   = (sizeof(float)) * (16),
+                                                                      .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
+                                                                  });
 
     const auto buffer_handle_1 = rg.Import(buffer_1, buffer_1->GetName());
     EXPECT_TRUE(rg.IsValid(buffer_handle_1)) << "Import buffer with name should succeed";
@@ -62,37 +65,37 @@ TEST_F(RenderGraphTest, ImportBuffer) {
         EXPECT_FALSE(rg.IsValid(rg.Import(null_buffer))) << "Import nullptr should fail";
         EXPECT_FALSE(rg.IsValid(rg.Import(null_buffer, "null_buffer"))) << "Import nullptr should fail";
 
-        const auto diff_buffer = device->CreateGPUBuffer({
-            .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
-            .size   = (sizeof(float)) * (16),
-            .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
-        });
+        const auto diff_buffer = hitagi::gfx::GPUBuffer::Create(*device, {
+                                                                             .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
+                                                                             .size   = (sizeof(float)) * (16),
+                                                                             .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
+                                                                         });
         EXPECT_FALSE(rg.IsValid(rg.Import(diff_buffer, buffer_1->GetName()))) << "Import buffer with existed name but different buffer should fail";
     }
 }
 
 TEST_F(RenderGraphTest, ImportTexture) {
-    const auto texture_0 = device->CreateTexture({
-        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
-        .width  = 16,
-        .height = 16,
-        .depth  = 1,
-        .format = Format::R8G8B8A8_UNORM,
-        .usages = TextureUsageFlags::SRV,
-    });
+    const auto texture_0 = hitagi::gfx::Texture::Create(*device, queues, *bindings, {
+                                                                                        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
+                                                                                        .width  = 16,
+                                                                                        .height = 16,
+                                                                                        .depth  = 1,
+                                                                                        .format = Format::R8G8B8A8_UNORM,
+                                                                                        .usages = TextureUsageFlags::SRV,
+                                                                                    });
     // import with empty name
     const auto texture_handle_0 = rg.Import(texture_0);
     EXPECT_TRUE(rg.IsValid(texture_handle_0)) << "Import texture with empty name should succeed";
     EXPECT_EQ(rg.Import(texture_0, "new_name"), texture_handle_0) << "Reimport texture with new name should return same handle";
 
-    const auto texture_1 = device->CreateTexture({
-        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
-        .width  = 16,
-        .height = 16,
-        .depth  = 1,
-        .format = Format::R8G8B8A8_UNORM,
-        .usages = TextureUsageFlags::SRV,
-    });
+    const auto texture_1 = hitagi::gfx::Texture::Create(*device, queues, *bindings, {
+                                                                                        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
+                                                                                        .width  = 16,
+                                                                                        .height = 16,
+                                                                                        .depth  = 1,
+                                                                                        .format = Format::R8G8B8A8_UNORM,
+                                                                                        .usages = TextureUsageFlags::SRV,
+                                                                                    });
 
     const auto texture_handle_1 = rg.Import(texture_1, texture_1->GetName());
     EXPECT_TRUE(rg.IsValid(texture_handle_1)) << "Import texture with unique name should succeed";
@@ -106,14 +109,14 @@ TEST_F(RenderGraphTest, ImportTexture) {
         EXPECT_FALSE(rg.IsValid(rg.Import(null_texture))) << "Import nullptr should fail";
         EXPECT_FALSE(rg.IsValid(rg.Import(null_texture, "null_texture"))) << "Import nullptr should fail";
 
-        const auto diff_texture = device->CreateTexture({
-            .name   = std::pmr::string(std::format("Texture-{}", test_name)),
-            .width  = 16,
-            .height = 16,
-            .depth  = 1,
-            .format = Format::R8G8B8A8_UNORM,
-            .usages = TextureUsageFlags::SRV,
-        });
+        const auto diff_texture = hitagi::gfx::Texture::Create(*device, queues, *bindings, {
+                                                                                               .name   = std::pmr::string(std::format("Texture-{}", test_name)),
+                                                                                               .width  = 16,
+                                                                                               .height = 16,
+                                                                                               .depth  = 1,
+                                                                                               .format = Format::R8G8B8A8_UNORM,
+                                                                                               .usages = TextureUsageFlags::SRV,
+                                                                                           });
         EXPECT_FALSE(rg.IsValid(rg.Import(diff_texture, texture_1->GetName()))) << "Import texture with existed name but different texture should fail";
     }
 }
@@ -135,11 +138,11 @@ TEST_F(RenderGraphTest, CreateTexture) {
 }
 
 TEST_F(RenderGraphTest, MoveBuffer) {
-    const auto buffer_0 = device->CreateGPUBuffer({
-        .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
-        .size   = (sizeof(float)) * (16),
-        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
-    });
+    const auto buffer_0 = hitagi::gfx::GPUBuffer::Create(*device, {
+                                                                      .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
+                                                                      .size   = (sizeof(float)) * (16),
+                                                                      .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
+                                                                  });
 
     const auto buffer_handle_0 = rg.Import(buffer_0);
     ASSERT_TRUE(rg.IsValid(buffer_handle_0));
@@ -150,14 +153,14 @@ TEST_F(RenderGraphTest, MoveBuffer) {
 }
 
 TEST_F(RenderGraphTest, MoveTexture) {
-    const auto texture_0 = device->CreateTexture({
-        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
-        .width  = 16,
-        .height = 16,
-        .depth  = 1,
-        .format = Format::R8G8B8A8_UNORM,
-        .usages = TextureUsageFlags::SRV,
-    });
+    const auto texture_0 = hitagi::gfx::Texture::Create(*device, queues, *bindings, {
+                                                                                        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
+                                                                                        .width  = 16,
+                                                                                        .height = 16,
+                                                                                        .depth  = 1,
+                                                                                        .format = Format::R8G8B8A8_UNORM,
+                                                                                        .usages = TextureUsageFlags::SRV,
+                                                                                    });
 
     const auto texture_handle_0 = rg.Import(texture_0);
     ASSERT_TRUE(rg.IsValid(texture_handle_0));
@@ -177,15 +180,15 @@ TEST_F(RenderGraphTest, AddRenderPass) {
         .headless  = true,
     });
 
-    auto swap_chain = device->CreateSwapChain({
-        .window = app->GetWindow(),
-    });
+    auto swap_chain = hitagi::gfx::SwapChain::Create(*device, queues.Get(hitagi::gfx::CommandType::Graphics), {
+                                                                                                                  .window = app->GetWindow(),
+                                                                                                              });
 
-    const auto vertex_shader = device->CreateShader({
-        .name        = std::pmr::string(std::format("VS-{}", test_name)),
-        .type        = ShaderType::Vertex,
-        .entry       = "vs_main",
-        .source_code = R"""(
+    const auto vertex_shader = hitagi::gfx::Shader::Create(*device, compiler, {
+                                                                                  .name        = std::pmr::string(std::format("VS-{}", test_name)),
+                                                                                  .type        = ShaderType::Vertex,
+                                                                                  .entry       = "vs_main",
+                                                                                  .source_code = R"""(
             struct VSInput{
                 float3 position : POSITION;
                 float3 color    : COLOR;
@@ -203,14 +206,14 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                 return output;
             }
         )""",
-    });
+                                                                              });
     ASSERT_TRUE(vertex_shader);
 
-    const auto pixel_shader = device->CreateShader({
-        .name        = std::pmr::string(std::format("PS-{}", test_name)),
-        .type        = ShaderType::Pixel,
-        .entry       = "ps_main",
-        .source_code = R"""(
+    const auto pixel_shader = hitagi::gfx::Shader::Create(*device, compiler, {
+                                                                                 .name        = std::pmr::string(std::format("PS-{}", test_name)),
+                                                                                 .type        = ShaderType::Pixel,
+                                                                                 .entry       = "ps_main",
+                                                                                 .source_code = R"""(
             struct PSInput{
                 float4 position : SV_POSITION;
                 float4 color    : COLOR;
@@ -220,25 +223,25 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                 return input.color;
             }
         )""",
-    });
+                                                                             });
     ASSERT_TRUE(pixel_shader);
 
-    const auto vertex_input_layout = device->GetShaderCompiler().ExtractVertexLayout(vertex_shader->GetDesc());
-    const auto pipeline            = device->CreateRenderPipeline(
-        {
-            .name                = std::pmr::string(std::format("Pipeline-{}", test_name)),
-            .vertex_input_layout = vertex_input_layout,
-        },
-        {vertex_shader, pixel_shader});
+    const auto vertex_input_layout = compiler.ExtractVertexLayout(vertex_shader->GetDesc());
+    const auto pipeline            = hitagi::gfx::RenderPipeline::Create(*device, *bindings,
+                                                                         {
+                                                                             .name                = std::pmr::string(std::format("Pipeline-{}", test_name)),
+                                                                             .vertex_input_layout = vertex_input_layout,
+                                                                         },
+                                                                         {vertex_shader, pixel_shader});
 
-    const auto output_texture = device->CreateTexture({
-        .name        = std::pmr::string(std::format("Texture-{}-{}", test_name, rg.GetFrameIndex())),
-        .width       = swap_chain->GetWidth(),
-        .height      = swap_chain->GetHeight(),
-        .format      = Format::R8G8B8A8_UNORM,
-        .clear_value = Color(0.0, 0.0, 0.0, 1.0),
-        .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
-    });
+    const auto output_texture = hitagi::gfx::Texture::Create(*device, queues, *bindings, {
+                                                                                             .name        = std::pmr::string(std::format("Texture-{}-{}", test_name, rg.GetFrameIndex())),
+                                                                                             .width       = swap_chain->GetWidth(),
+                                                                                             .height      = swap_chain->GetHeight(),
+                                                                                             .format      = Format::R8G8B8A8_UNORM,
+                                                                                             .clear_value = Color(0.0, 0.0, 0.0, 1.0),
+                                                                                             .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+                                                                                         });
     ASSERT_TRUE(output_texture);
 
     RenderPassBuilder render_builder(rg);
@@ -314,7 +317,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
     swap_chain->Present();
     app->Tick();
 
-    auto       pixels      = readback_texture(*device, *output_texture);
+    auto       pixels      = readback_texture(*device, queues, *bindings, *output_texture);
     const auto output_path = std::filesystem::path("temp") / "RenderGraphTest.AddRenderPass.png";
     std::filesystem::create_directories(output_path.parent_path());
 
@@ -425,7 +428,7 @@ TEST_F(RenderGraphTest, GraphTest) {
 
     PresentPassBuilder present_builder(rg);
     present_builder.From(texture_3);
-    present_builder.SetSwapChain(device->CreateSwapChain({}));
+    present_builder.SetSwapChain(hitagi::gfx::SwapChain::Create(*device, queues.Get(hitagi::gfx::CommandType::Graphics), {}));
     present_builder.Finish();
 
     EXPECT_TRUE(rg.Compile());
@@ -436,8 +439,8 @@ class RenderGraphCullingTest : public Test {
 protected:
     RenderGraphCullingTest()
         : device(create_device(Device::Type::Mock, "RenderGraphCulling")),
-          rg(*device, "RenderGraphCulling"),
-          swap_chain(device->CreateSwapChain({})) {}
+          rg(*device, queues, *bindings, "RenderGraphCulling"),
+          swap_chain(hitagi::gfx::SwapChain::Create(*device, queues.Get(hitagi::gfx::CommandType::Graphics), {})) {}
 
     void SetUp() override {
         ASSERT_TRUE(device) << "Failed to create mock device";
@@ -457,6 +460,9 @@ protected:
     }
 
     std::shared_ptr<Device>    device;
+    CommandQueues                  queues{*device};
+    std::unique_ptr<BindlessUtils> bindings = BindlessUtils::Create(*device);
+    ShaderCompiler                 compiler{"Tests"};
     RenderGraph                rg;
     std::shared_ptr<SwapChain> swap_chain;
 };
@@ -524,11 +530,11 @@ TEST_F(RenderGraphCullingTest, BufferExtractionKeepsProducerWithoutPresent) {
     });
     builder.Finish();
 
-    const auto readback_buffer = device->CreateGPUBuffer({
-        .name   = "extraction_readback",
-        .size   = (4) * (16 * 16),
-        .usages = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
-    });
+    const auto readback_buffer = hitagi::gfx::GPUBuffer::Create(*device, {
+                                                                             .name   = "extraction_readback",
+                                                                             .size   = (4) * (16 * 16),
+                                                                             .usages = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
+                                                                         });
 
     const auto extraction = rg.QueueBufferExtraction(target, readback_buffer);
     ASSERT_TRUE(rg.IsValid(extraction));
@@ -669,7 +675,7 @@ TEST_F(RenderGraphTest, CopyTextureToBuffer) {
 
     PresentPassBuilder present_builder(rg);
     present_builder.From(src_texture);
-    present_builder.SetSwapChain(device->CreateSwapChain({}));
+    present_builder.SetSwapChain(hitagi::gfx::SwapChain::Create(*device, queues.Get(hitagi::gfx::CommandType::Graphics), {}));
     present_builder.Finish();
 
     EXPECT_TRUE(rg.Compile());
@@ -678,7 +684,10 @@ TEST_F(RenderGraphTest, CopyTextureToBuffer) {
 
 TEST(RenderGraphAccessTest, RejectsConflictingAccessesAndPhysicalDescriptors) {
     auto        device = create_device(Device::Type::Mock, "GraphAccessValidation");
-    RenderGraph graph(*device);
+    hitagi::gfx::CommandQueues  queues(*device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
+    RenderGraph                 graph(*device, queues, *bindings);
     const auto  buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite});
     {
         ComputePassBuilder builder(graph);
@@ -688,7 +697,7 @@ TEST(RenderGraphAccessTest, RejectsConflictingAccessesAndPhysicalDescriptors) {
     }
     {
         ComputePassBuilder builder(graph);
-        auto               physical = device->CreateGPUBuffer({.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
+        auto               physical = hitagi::gfx::GPUBuffer::Create(*device, {.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
         EXPECT_FALSE(builder.Read(buffer, {.buffer = physical}));
         EXPECT_FALSE(graph.IsValid(builder.Finish()));
     }
@@ -704,7 +713,10 @@ TEST(RenderGraphAccessTest, RejectsConflictingAccessesAndPhysicalDescriptors) {
 
 TEST(RenderGraphAccessTest, MergesReadStagesPerResource) {
     auto              device = create_device(Device::Type::Mock, "GraphReadStages");
-    RenderGraph       graph(*device);
+    hitagi::gfx::CommandQueues  queues(*device);
+    auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler compiler{"Tests"};
+    RenderGraph                 graph(*device, queues, *bindings);
     const auto        buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
     const auto        target = graph.Create(TextureDesc{
         .width = 8, .height = 8, .depth = 1, .format = Format::R8G8B8A8_UNORM, .usages = TextureUsageFlags::RenderTarget});
@@ -733,8 +745,8 @@ class TransientResourcePoolTest : public Test {
 protected:
     TransientResourcePoolTest()
         : device(create_device(Device::Type::Mock, "TransientPool")),
-          rg(*device, "TransientPool"),
-          swap_chain(device->CreateSwapChain({})) {}
+          rg(*device, queues, *bindings, "TransientPool"),
+          swap_chain(hitagi::gfx::SwapChain::Create(*device, queues.Get(hitagi::gfx::CommandType::Graphics), {})) {}
 
     void SetUp() override {
         ASSERT_TRUE(device) << "Failed to create mock device";
@@ -772,6 +784,9 @@ protected:
     }
 
     std::shared_ptr<Device>    device;
+    CommandQueues                  queues{*device};
+    std::unique_ptr<BindlessUtils> bindings = BindlessUtils::Create(*device);
+    ShaderCompiler                 compiler{"Tests"};
     RenderGraph                rg;
     std::shared_ptr<SwapChain> swap_chain;
 };
