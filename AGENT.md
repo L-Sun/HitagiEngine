@@ -1,216 +1,118 @@
 # AGENT.md
 
-This file provides guidance to AI coding agents when working with code in this repository.
+Guidance for coding agents working in this repository. Read the applicable module guidance as well; gfx has its own [AGENT.md](hitagi/gfx/AGENT.md).
 
-## Build System
+## Collaboration
 
-This project uses **XMake** as its build system. All commands below assume you are in the project root.
+- Communicate in Chinese. Explain from concrete code and current behavior toward design choices, step by step, as a senior developer working with a junior developer.
+- Evaluate the user's hypotheses independently. Explain counterexamples, assumptions, and tradeoffs when the evidence disagrees; do not merely agree.
+- In design examples, spell out types where they matter and distinguish existing APIs from proposed ones. Do not rely on IDE inference or syntax highlighting.
+- For design discussions, converge on a concrete change before implementing. For an authorized implementation, complete the relevant callers and verification.
 
-### Configure & Build
+## Commits
 
-```bash
-# Configure (debug mode, Clang-cl)
-xmake f -m debug --toolchain=clang-cl
+- Follow the repository's existing format: `emoji [scope] English description`. Inspect recent history for the appropriate emoji and scope; describe the concrete change.
+- Group changes by responsibility/scope rather than by editing order. Closely related documentation changes can share one `docs` commit; separate unrelated scopes.
+- Intermediate commits need not each compile independently unless the task requires it. Prefer coherent scope boundaries and validate the final combined state.
+- Stage only the changes belonging to the requested work. Review the staged diff and check it for whitespace errors before committing.
+- Preserve the configured signing policy. If signing needs a key unlock, report it rather than disabling signing. Report the resulting commit IDs and working-tree state; push only when requested.
 
-# Configure (release mode)
-xmake f -m release --toolchain=clang-cl
+## Coding Principles
 
-# Build all targets
-xmake
+These are defaults for engineering judgment; retain the invariants and correctness guarantees the task requires.
 
-# Run a target
-xmake r playground
-xmake r editor
-```
+- Read the relevant declarations, implementations, and actual callers before changing the model. Establish responsibility, ownership, and lifetime first.
+- Prefer semantic simplicity: fewer concepts, states, branches, and usage steps. Moving code into a helper alone does not reduce complexity; avoid tricks based on incidental enum values or bit layouts.
+- For a logical simplification, establish its valid inputs and show equivalence through reasoning or proportionate checks. Do not trade clarity or correctness for fewer lines.
+- Reuse existing concepts. Add a type, wrapper, overload, or abstraction only when it supplies missing semantics, enforces an invariant, or meaningfully reduces total complexity.
+- Keep behavior with its semantic owner and local details near their use. A single-use computation often belongs in the caller, with a local lambda when useful; simple expressions such as `sizeof(T)` need no alias unless the name adds meaning.
+- Extract helpers for a clear contract, substantial readability benefit, or meaningful reuse. Do not mechanically eliminate every repeated expression or short error branch.
+- Let each layer expose its own concepts while reusing suitable lower-level descriptions and operations internally. Avoid duplicate descriptor models and forwarding APIs without a responsibility of their own.
+- Prefer a small, explicit set of creation and access paths. Avoid convenience APIs that silently allocate resources or introduce extra ownership. Use access control and types to guide correct use.
+- Unify names through type-safe overloads when the operation has the same meaning. Preserve distinctions between different operations; return useful results rather than a builder solely to enable chaining.
+- Before adding machinery, check whether a simpler data layout, binding strategy, or usage pattern removes the need. A coherent simplification may require changing multiple layers rather than minimizing the diff.
+- Introduce concurrency, extension points, fallback paths, and generic frameworks for actual requirements or an explicit contract. Consider future constraints without implementing speculative support. Do not remove necessary synchronization or validation just to shorten code.
+- Use short names when context is unambiguous (`builder`); distinguish multiple objects by purpose (`producer_builder`, `consumer_builder`), not arbitrary numeric suffixes.
+- **Do not use anonymous namespaces** (`namespace { ... }`) in project C++ code, including examples and tests. Keep helpers local or in the owning named namespace; keep implementation details unexported. Existing violations are not precedent.
 
-### Compiler Options
+## Build and Validation
 
-```bash
-# Enable Tracy profiling
-xmake f -m debug --toolchain=clang-cl --profile=y
-
-# Disable ISPC acceleration for math
-xmake f -m debug --toolchain=clang-cl --ispc=n
-```
-
-### Running Tests
-
-Tests are organized into groups. Run individual test targets with:
-
-```bash
-xmake r math_test
-xmake r memory_test
-xmake r memory_benchmark
-xmake r file_io_manager_test
-xmake r timer_test
-xmake r gfx_test
-xmake r shader_compiler_test
-xmake r device_test
-xmake r render_graph_test
-xmake r gui_test
-xmake r renderer_test
-```
-
-Also, you can run test with group flag like this:
-```bash
-xmake r -g test/math
-xmake r -g test/renderer
-xmake r -g test/gui
-xmake r -g test/ecs
-xmake r -g test/asset
-xmake r -g test/* # for all groups
-```
-
-To build only a specific target group: `xmake build -g test/math`, `xmake build -g test/gfx`, `xmake build -g test/gui`, etc.
-
-### Test Artifacts
-
-Save any test artifacts generated during agent runs under ./temp.
-
-### Debugging With LLDB
-
-On Windows, the bundled `lldb.exe` may fail with `unable to find 'python311.dll'`. Before using `lldb`, provide a Python 3.11 runtime through `uv` and add it to the current PowerShell session's `PATH`:
+Use XMake from the repository root. Preserve the active build configuration unless the task requires changing it. Windows uses clang-cl, UTF-8 sources, and MDd/MD runtimes for debug/non-debug modes.
 
 ```powershell
-uv python install 3.11
-$pythonDir = Split-Path (uv python find 3.11)
-$env:PATH = "$pythonDir;$env:PATH"
-lldb --batch -o "run --frames 3 --exit-after-load" -o "bt" -- build\windows\x64\release\editor.exe
+# Configure when needed; release uses -m release.
+xmake f -m debug --toolchain=clang-cl
+
+# Build and run a specific application.
+xmake build editor
+xmake r editor
+
+# Build and inspect engine tests.
+xmake build unit_tests
+xmake r unit_tests --gtest_list_tests
+# Replace SuiteName with a suite from the list above.
+xmake r unit_tests --gtest_filter="SuiteName.*"
+
+# Optional multi-process sharding for unit_tests.
+xmake r unit_tests --jobs=8
+
+# Editor tests are a separate target.
+xmake build editor_tests
+xmake r editor_tests
 ```
 
-## Architecture Overview
+Other application targets include `pbr-demo-game`, `pbr-demo-game-editor`, `snake-game`, `snake-editor`, and `imgui-demo`. Optional configuration flags include `--profile=y` (Tracy) and `--ispc=n`. Target definitions live in [hitagi/xmake.lua](hitagi/xmake.lua), [hitagi/editor/xmake.lua](hitagi/editor/xmake.lua), and the example directories.
 
-### Product Scopes
+- Engine tests share `unit_tests`; select cases with GoogleTest filters, not historical per-module test targets. Both test targets are excluded from the default build. Benchmark sources are excluded from `unit_tests`.
+- The [unit test runner](xmake/scripts/run_unit_tests.lua) supports `--jobs=N` and forwards GoogleTest arguments. The default is one process; use `--verbose` to enable engine logs. These custom options do not apply to `editor_tests`.
+- Use compiler/static-analysis diagnostics for problems the tools can locate. For standalone clang-tidy, use the compilation database and explicit checks; do not assume it reads the diagnostic configuration in [.clangd](.clangd).
+- A full source scan must cover project `.cpp` and `.cppm` files, accounting for excluded files and missing compilation commands. Report checked, skipped, and failed files separately; importing a module is not the same as checking it as an entry.
+- Run checks appropriate to the behavior changed. Add tests for meaningful behavior, boundary cases, or regressions; keep their maintenance cost proportional to the risk. Do not add tests that merely mirror trivial implementation details.
+- Report build, test, and static-analysis results separately, with their actual scope and limitations. A successful build does not establish a clean clang-tidy scan.
+- Save generated test reports, logs, and diagnostic artifacts under `temp/`. Windows LLDB troubleshooting is documented in [docs/development/debugging.md](docs/development/debugging.md).
 
-Use these four scopes when deciding where code belongs:
+## Architecture and Ownership
 
-| Scope | Namespace / owner | Purpose | May depend on |
-| --- | --- | --- | --- |
-| `engine` | `hitagi::` | Runtime engine foundation: core, platform, gfx, render graph, render, ecs, physics, gui, and runtime assets. | Third-party runtime libraries only |
-| `editor` | `editor::` | Generic editor and authoring infrastructure: USD/document-style asset editing, inspectors, viewports, cook/import/export tools. | `engine` |
-| `game` | `game::` | A specific game's runtime code: gameplay, game assets, renderer policy, render graph/pass-contract choices. | `engine` |
-| `game-editor` | `game_editor::` | A specific game's editor application. Combines generic editor tooling with the game's runtime/content rules. | `engine`, `editor`, `game` |
+### Product Boundaries
 
-Runtime packaging should only require:
+These are intended ownership/dependency boundaries, not a claim that all current namespace names have been migrated.
 
-```text
-engine + game + cooked assets
-```
+| Scope | Responsibility | Project dependencies |
+| --- | --- | --- |
+| engine | Runtime foundations, gfx/render primitives, ECS, physics, GUI, runtime assets | No editor or game dependency |
+| editor | Generic authoring, inspectors, viewports, USD import/export, cook tools | engine |
+| game | Gameplay, game assets, rendering composition and material/pass policy | engine |
+| game-editor | Integration of generic editor tools with game-specific rules | engine, editor, game |
 
-It should not require:
+Runtime packaging should require only engine, game, and cooked assets. USD authoring data, editable document graphs, and save-back workflows belong to editor/game-editor. Game-specific render pipelines and material compiler policies belong to game; engine render code provides reusable primitives and explicitly owned defaults.
 
-```text
-editor
-game-editor
-USD authoring data
-editor document/tree state
-```
+Current engine code generally uses `hitagi::`; some editor and example types still use that namespace too. Follow local declarations when editing existing code and keep namespace migration separate from unrelated changes.
 
-Important ownership boundaries:
+### Runtime Contracts
 
-- `hitagi::asset` is an engine runtime asset layer. It should contain cooked/runtime-ready assets such as meshes, textures, materials, cameras, lights, and scene data that renderer/game code can consume directly.
-- USD import/export, authoring graphs, source document trees, editable material graphs, and save-back workflows belong to `editor` or `game-editor`, not to `engine`.
-- Game-specific render pipelines, render graph composition, pass contracts, and material compiler policies belong to `game`; the engine should provide gfx/render primitives and runtime asset containers.
-- `game-editor` is the integration point that lets editor tooling cook authoring data into `hitagi::asset` objects for preview or packaging.
+- Dependencies are explicit: inject long-lived services through constructors, per-operation executors through arguments, narrow capabilities as functions, and plain data as values. Do not reintroduce a global service registry.
+- `Engine` is the composition root. It owns infrastructure services and the runtime module tree; injected dependencies must outlive their consumers. Tests own the services they need. See [dependency injection](docs/architecture/dependency_injection.md).
+- The host supplies `AppConfig` and owns configuration persistence. `Engine::Tick()` advances the runtime modules. Use the real [editor entry point](examples/editor/main.cpp) or [GUI example](examples/imgui_demo/main.cpp) as an integration reference.
+- `GuiManager` owns ImGui and produces `GuiDrawData`. `RenderRuntime::RenderGui()` consumes that data; `RenderRuntime` owns the graph/swapchain and compiles, executes, and presents. Rendering code must not acquire GUI data through hidden access to ImGui or a `GuiManager`.
+- `IRenderer` builds rendering work through `RenderContext`; the current `DefaultRenderer` aliases `DeferredRenderer`. Runtime assets use `Load(const ResourceLoadContext&)` / `Unload()`.
+- Matrices use row-major layout on CPU and GPU. DX12 is Windows-only; the Vulkan/platform code also has Linux/Wayland paths. Do not claim platform validation without running it.
 
-### Module System
+### Modules and Source Navigation
 
-All engine code uses **C++23 modules** (`.cppm` files) with the `export module xxx;` pattern. Regular `.cpp` files contain module implementations. Headers (`.h`/`.hpp`) are only used at module boundaries for third-party libraries via `module;` global fragment blocks.
+The project uses C++23 modules. Determine a file's role from its module declaration: interfaces commonly use `.cppm`, but asset also has interface partitions declared in `.cpp`. Keep third-party includes at module boundaries using the global module fragment where needed.
 
-### Namespace Style
+The `engine` target collects sources through globs in [hitagi/xmake.lua](hitagi/xmake.lua), with explicit exclusions for editor, tests, and platform-specific files. For a new module, first determine its owning target and inspect those globs/exclusions. Add a separate target only for a distinct build/dependency boundary; export through the appropriate aggregate when needed.
 
-- **Do not use anonymous namespaces** (`namespace { ... }`) in project C++ code, including tests.
-- Place implementation helpers directly in the owning named namespace, or use a descriptive named namespace when grouping is needed. Keep module implementation details unexported.
+| Area | Entry point |
+| --- | --- |
+| Runtime composition and services | [engine.cppm](hitagi/engine/engine.cppm), [core.cppm](hitagi/core/core.cppm) |
+| Graphics and render graph | [gfx guidance](hitagi/gfx/AGENT.md) |
+| Render interfaces and execution | [render.cppm](hitagi/render/render.cppm), [render_runtime.cpp](hitagi/render/render_runtime.cpp) |
+| Runtime assets and residency | [asset documentation](docs/assets/README.md), [asset.cppm](hitagi/asset/asset.cppm) |
+| ECS and scheduling | [ecs.cppm](hitagi/ecs/ecs.cppm) |
+| Application and GUI | [app.cppm](hitagi/platform/app.cppm), [gui_manager.cppm](hitagi/gui/gui_manager.cppm) |
+| Editor library | [editor.cppm](hitagi/editor/editor.cppm), [build target](hitagi/editor/xmake.lua) |
 
-### Module Layers
+## Maintaining This Guidance
 
-Following the layered architecture from *Game Engine Architecture* (Jason Gregory), higher layers depend on lower ones — never the reverse:
-
-```
-┌─────────────────────────────────────────────────────┐
-│                      engine                         │  ← Engine Shell
-├──────────┬─────────────────────────┬────────────────┤
-│ debugger │           gui           │     render     │  ← Gameplay Foundations
-├──────────┴──────────────┬──────────┴────────────────┤
-│          ecs            │           asset           │  ← Scene & Resources
-├─────────────────────────┴───────────────────────────┤
-│        render_graph     │    gfx (Vulkan · DX12)    │  ← Rendering Engine
-├─────────────────────────┴───────────────────────────┤
-│         app  (SDL3)     │           hid             │  ← Platform Independence
-├─────────────────────────┴───────────────────────────┤
-│                        core                         │  ← Core Systems
-│           (memory · threading · I/O · timer)        │
-├──────────────────────────┬──────────────────────────┤
-│           math           │          utils           │  ← Foundation
-└──────────────────────────┴──────────────────────────┘
-```
-
-### Key Namespaces
-
-| Namespace        | Module                  | Purpose                                        |
-| ---------------- | ----------------------- | ---------------------------------------------- |
-| `hitagi`         | `engine`, `app`, `core` | Top-level engine, application, runtime modules |
-| `hitagi::gfx`    | `gfx`, `gfx.base`       | Graphics device abstraction                    |
-| `hitagi::rg`     | `gfx.render_graph`      | Render graph                                   |
-| `hitagi::ecs`    | `ecs`                   | Entity Component System                        |
-| `hitagi::asset`  | `asset`                 | Asset management                               |
-| `hitagi::gui`    | `gui`                   | ImGui integration and GUI draw data generation |
-| `hitagi::render` | `render`                | Renderer implementations                       |
-| `hitagi::math`   | `math`                  | Math library (row-major matrices)              |
-
-### Core Subsystems
-
-**`hitagi/core`** — `RuntimeModule` is the base class for all engine subsystems. Each module has a `Tick()` method and can contain child sub-modules. There is **no global module registry**: dependencies are declared where they are used — long-lived services through constructors (`AssetManager(FileIOManager&, JobSystem&)`), per-operation executors as call arguments (`World::Update(JobSystem&)`, with a serial `Update()` overload), narrow capabilities as function objects (`ImageLoader`, `JobSubmitter`), and plain data as values (`render::ShaderSource`). `Engine` is the composition root: it owns `MemoryManager`/`FileIOManager`/`JobSystem` as members and exposes accessors (`engine.FileIO()`, `engine.Jobs()`, `engine.Assets()`, ...). Tests own their own instances via gtest fixtures. Includes PMR-based memory allocator, file I/O, thread pool, and timer. Full migration notes and diagrams: [docs/architecture/dependency_injection.md](docs/architecture/dependency_injection.md).
-
-**`hitagi/gfx`** — Graphics abstraction with DX12 and Vulkan backends. Create a device with `gfx::create_device(Device::Type::Vulkan)`. The backend is selected from the `AppConfig` supplied by the host application. Matrices are **row-major** on both CPU and GPU.
-
-**`hitagi/gfx/render_graph`** — Frame-scoped render graph (`rg::RenderGraph`). Resources are created/imported each frame via typed handles (`TextureHandle`, `GPUBufferHandle`, etc.), passes are recorded via `RenderPassBuilder`/`ComputePassBuilder`, then `Compile()` + `Execute()` runs the graph.
-
-**`hitagi/ecs`** — Archetype-based ECS. `ecs::World` owns `EntityManager` and `SystemManager`; parallel task scheduling via Taskflow.
-
-**`hitagi/platform`** — `Application` base class with SDL3 backend. Created via `Application::CreateApp(config)`. Host applications own config persistence.
-
-**`hitagi/asset`** — Engine runtime asset module for meshes, textures, materials, cameras, lights, transforms, and asset management. Runtime assets expose `Load(gfx::Device&)` / `Unload()` and are intended to be directly consumable by renderer/game code. USD authoring, editable asset documents, source graph preservation, and cook/export workflows should live in `editor` or `game-editor`, not in this engine module.
-
-**`hitagi/gui`** — Runtime ImGui integration layer. `GuiManager` owns the ImGui context, input mapping, font loading, and queued GUI draw tasks. After `ImGui::Render()`, it converts ImGui output into `gui::GuiDrawData`, including copied vertices, indices, draw commands, the CPU font atlas view, and render graph texture references encoded via `GuiManager::ReadTexture()`. Generic editor UI composition belongs to `editor`; game-specific editor panels belong to `game-editor`.
-
-**`hitagi/render`** — Engine renderer primitives and default renderer implementations. `IRenderer` has concrete implementations such as `ForwardRenderer` and `DeferredRenderer` (G-Buffer MRT pass + fullscreen lighting pass). Game-specific render graph composition, pass-contract policy, and material compiler policy belong to `game`; engine render code should stay generic unless a default renderer explicitly owns the behavior. GUI rendering is explicit: renderer code consumes `const gui::GuiDrawData&` through `IRenderer::RenderGui(...)` and must not query ImGui state or own a `GuiManager`.
-
-**`hitagi/engine`** — Top-level `Engine` class that composes everything. Initialized from a caller-supplied `AppConfig`. Usage pattern: construct `Engine`, call `engine.Tick()` in the game loop.
-
-### Application Entry Pattern
-
-```cpp
-import engine;
-import asset;
-
-int main() {
-    hitagi::Engine engine;
-    // ... set up scene, camera, etc. ...
-    while (!engine.App().IsQuit()) {
-        engine.GuiManager().DrawGui([&]() { /* imgui calls */ });
-        // ... render graph setup ...
-        engine.Renderer().RenderGui(render_target, engine.GuiManager().GetDrawData(), true);
-        engine.Tick();
-    }
-}
-```
-
-### Configuration
-
-The engine consumes `AppConfig` for runtime settings such as `gfx_backend` (`"Vulkan"` or `"DX12"`), window size, asset root path, and log level. Applications decide whether and where to persist that config; the editor uses `editor.json`.
-
-### Adding a New Module
-
-1. Create `hitagi/<name>/` with `.cppm` (interface) and `.cpp` (implementation) files.
-2. Add `target("<name>")` in `hitagi/<name>/xmake.lua` with `add_deps(...)` for dependencies.
-3. Include the new `xmake.lua` from `hitagi/xmake.lua`.
-4. Export the module from `hitagi/engine/engine.cppm` if it should be part of the engine aggregate.
-
-### Platform Notes
-
-- Windows is the primary platform; DX12 backend is Windows-only (`is_plat("windows")`).
-- Vulkan backend works on Windows and Linux (Wayland).
-- Runtime is set to `MD`/`MDd` (dynamic CRT) on Windows.
-- Source files use UTF-8 encoding (`set_encodings("utf-8")`).
-
+Keep these files focused on decisions, contracts, working commands, and a few source entry points. Update affected guidance when a change alters them. Link to source or focused documentation instead of duplicating class inventories, enum mappings, or example implementations. Distinguish current behavior, intended architecture, and known limitations.
