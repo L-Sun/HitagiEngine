@@ -90,6 +90,8 @@ struct PbrInstanceConstant {
 struct PbrBindlessInfo {
     gfx::BindlessHandle frame_constant;
     gfx::BindlessHandle instance_constant;
+    std::uint32_t       instance_index  = 0;
+    std::uint32_t       instance_stride = 0;
     gfx::BindlessHandle material_data;
     gfx::BindlessHandle sampler;
 };
@@ -98,6 +100,7 @@ struct PbrDemoDrawRecord {
     asset::Mesh::SubMesh                                           sub_mesh;
     std::shared_ptr<asset::Material>                               material;
     core::Buffer                                                   material_data;
+    rg::GPUBufferEdgeHandle                                        material_access;
     std::pmr::vector<std::pair<std::uint8_t, rg::GPUBufferHandle>> vertex_buffers;
     rg::GPUBufferHandle                                            indices;
     rg::GPUBufferHandle                                            material_data_handle;
@@ -112,8 +115,8 @@ bool ConfigurePbrDemoMaterial(const std::shared_ptr<asset::Material>& material) 
 }
 
 void UploadMaterialData(
-    const asset::MaterialPass&         material_pass,
-    gfx::GPUBuffer&                    material_data_buffer) {
+    const asset::MaterialPass& material_pass,
+    gfx::GPUBuffer&            material_data_buffer) {
     const auto& material_data = material_pass.material_data;
     if (material_data.Empty()) return;
 
@@ -306,18 +309,18 @@ auto PbrDemoRenderer::Render(render::RenderContext& context, const render::Rende
 
     auto frame_constant    = context.graph.Create({
         .name   = "PbrDemoFrameConstant",
-        .size   = gfx::ConstantBufferElementSize(sizeof(PbrFrameConstant)),
-        .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+        .size   = utils::align(sizeof(PbrFrameConstant), gfx::GPUBuffer::GetStorageViewRequirements(context.graph.GetDevice()).size_alignment),
+        .usages = gfx::GPUBufferUsageFlags::StorageRead | gfx::GPUBufferUsageFlags::MapWrite,
     });
     auto instance_constant = context.graph.Create({
         .name   = "PbrDemoInstanceConstant",
-        .size   = gfx::ConstantBufferElementSize(sizeof(PbrInstanceConstant)) * std::max<std::size_t>(1, request.frame.draw_items.size()),
-        .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+        .size   = sizeof(PbrInstanceConstant) * std::max<std::size_t>(1, request.frame.draw_items.size()),
+        .usages = gfx::GPUBufferUsageFlags::StorageRead | gfx::GPUBufferUsageFlags::MapWrite,
     });
     auto bindless_info     = context.graph.Create({
         .name   = "PbrDemoBindlessInfo",
-        .size   = gfx::ConstantBufferElementSize(sizeof(PbrBindlessInfo)) * draw_count,
-        .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+        .size   = sizeof(PbrBindlessInfo) * draw_count,
+        .usages = gfx::GPUBufferUsageFlags::StorageRead | gfx::GPUBufferUsageFlags::MapWrite,
     });
 
     std::pmr::vector<PbrDemoDrawRecord> draw_records;
@@ -343,17 +346,17 @@ auto PbrDemoRenderer::Render(render::RenderContext& context, const render::Rende
             auto material_data_handle = context.graph.Create(
                 {
                     .name   = std::pmr::string(std::format("PbrDemoMaterialData-{}", draw_records.size())),
-                    .size   = gfx::ConstantBufferElementSize(material_data.GetDataSize()),
-                    .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+                    .size   = utils::align(material_data.GetDataSize(), gfx::GPUBuffer::GetStorageViewRequirements(context.graph.GetDevice()).size_alignment),
+                    .usages = gfx::GPUBufferUsageFlags::StorageRead | gfx::GPUBufferUsageFlags::MapWrite,
                 });
 
             draw_records.emplace_back(PbrDemoDrawRecord{
-                .sub_mesh                 = sub_mesh,
-                .material                 = sub_mesh.material,
-                .material_data            = std::move(material_data),
-                .material_data_handle     = material_data_handle,
-                .pipeline                 = std::move(material_pipeline),
-                .instance_index           = instance_index,
+                .sub_mesh             = sub_mesh,
+                .material             = sub_mesh.material,
+                .material_data        = std::move(material_data),
+                .material_data_handle = material_data_handle,
+                .pipeline             = std::move(material_pipeline),
+                .instance_index       = instance_index,
             });
             auto& record = draw_records.back();
 
@@ -370,17 +373,16 @@ auto PbrDemoRenderer::Render(render::RenderContext& context, const render::Rende
 
     auto                  sampler = context.graph.Import(m_Sampler);
     rg::RenderPassBuilder builder(context.graph);
-    builder
-        .SetName(std::format("PbrDemoForwardPass-{}", context.graph.GetFrameIndex()))
-        .SetRenderTarget(color, true)
-        .SetDepthStencil(depth, true)
-        .Read(frame_constant, gfx::PipelineStage::VertexShader | gfx::PipelineStage::PixelShader)
-        .Read(instance_constant, gfx::PipelineStage::VertexShader)
-        .Read(bindless_info)
-        .AddSampler(sampler);
+    builder.SetName(std::format("PbrDemoForwardPass-{}", context.graph.GetFrameIndex()));
+    builder.SetRenderTarget(color, true);
+    builder.SetDepthStencil(depth, true);
+    const auto frame_constant_access    = builder.Read(frame_constant, {.offset = 0, .element_size = sizeof(PbrFrameConstant), .element_count = 1}, gfx::PipelineStage::VertexShader | gfx::PipelineStage::PixelShader);
+    const auto instance_constant_access = builder.Read(instance_constant, {.offset = 0, .element_size = sizeof(PbrInstanceConstant), .element_count = std::max<std::size_t>(1, request.frame.draw_items.size())}, gfx::PipelineStage::VertexShader);
+    const auto bindless_info_access     = builder.Read(bindless_info, {.offset = 0, .element_size = sizeof(PbrBindlessInfo), .element_count = draw_count}, gfx::PipelineStage::All);
+    builder.AddSampler(sampler);
 
-    for (const auto& record : draw_records) {
-        builder.Read(record.material_data_handle);
+    for (auto& record : draw_records) {
+        record.material_access = builder.Read(record.material_data_handle);
         for (const auto [_, vertex_buffer] : record.vertex_buffers) {
             builder.ReadAsVertices(vertex_buffer);
         }
@@ -392,14 +394,14 @@ auto PbrDemoRenderer::Render(render::RenderContext& context, const render::Rende
     for (const auto& item : request.frame.draw_items) instance_transforms.emplace_back(item.transform);
 
     builder.SetExecutor([=, this, records = std::move(draw_records), transforms = std::move(instance_transforms), frame_data = MakeFrameConstant(request)](const rg::RenderGraph&, const rg::RenderPassNode& pass) mutable {
-        gfx::GPUBufferView::MappedSpan<PbrFrameConstant>(pass.Resolve(frame_constant)).front() = frame_data;
+        pass.Resolve(frame_constant_access).GetMappedSpan<PbrFrameConstant>().front() = frame_data;
 
-        auto instance_constants = gfx::GPUBufferView::MappedSpan<PbrInstanceConstant>(pass.Resolve(instance_constant));
+        auto instance_constants = pass.Resolve(instance_constant_access).GetMappedSpan<PbrInstanceConstant>();
         for (std::size_t i = 0; i < transforms.size(); ++i) {
             instance_constants[i] = {.model = transforms[i]};
         }
 
-        auto        bindless_infos = gfx::GPUBufferView::MappedSpan<PbrBindlessInfo>(pass.Resolve(bindless_info));
+        auto        bindless_infos = pass.Resolve(bindless_info_access).GetMappedSpan<PbrBindlessInfo>();
         auto&       cmd            = pass.GetCmd();
         const auto& target         = pass.Resolve(color);
         cmd.SetViewPort({
@@ -425,14 +427,18 @@ auto PbrDemoRenderer::Render(render::RenderContext& context, const render::Rende
 
             auto& bindless = bindless_infos[i];
             bindless       = {
-                .frame_constant    = pass.GetBindless(frame_constant),
-                .instance_constant = pass.GetBindless(instance_constant, record.instance_index),
-                .material_data     = pass.GetBindless(record.material_data_handle),
-                .sampler           = pass.GetBindless(sampler),
+                .frame_constant    = pass.Resolve(frame_constant_access).GetBindlessHandle(),
+                .instance_constant = pass.Resolve(instance_constant_access).GetBindlessHandle(),
+                .instance_index    = static_cast<std::uint32_t>(record.instance_index),
+                .instance_stride   = static_cast<std::uint32_t>(pass.Resolve(instance_constant_access).GetDesc().element_stride),
+                .material_data     = pass.Resolve(record.material_access).GetBindlessHandle(),
+                .sampler           = pass.Resolve(sampler).GetBindlessHandle(),
             };
 
             cmd.PushBindlessMetaInfo({
-                .handle = pass.GetBindless(bindless_info, i),
+                .handle        = pass.Resolve(bindless_info_access).GetBindlessHandle(),
+                .record_index  = static_cast<std::uint32_t>(i),
+                .record_stride = static_cast<std::uint32_t>(pass.Resolve(bindless_info_access).GetDesc().element_stride),
             });
 
             cmd.SetPipeline(*record.pipeline);
