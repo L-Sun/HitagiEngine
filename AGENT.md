@@ -117,6 +117,11 @@ Important ownership boundaries:
 
 All engine code uses **C++23 modules** (`.cppm` files) with the `export module xxx;` pattern. Regular `.cpp` files contain module implementations. Headers (`.h`/`.hpp`) are only used at module boundaries for third-party libraries via `module;` global fragment blocks.
 
+### Namespace Style
+
+- **Do not use anonymous namespaces** (`namespace { ... }`) in project C++ code, including tests.
+- Place implementation helpers directly in the owning named namespace, or use a descriptive named namespace when grouping is needed. Keep module implementation details unexported.
+
 ### Module Layers
 
 Following the layered architecture from *Game Engine Architecture* (Jason Gregory), higher layers depend on lower ones — never the reverse:

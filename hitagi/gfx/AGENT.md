@@ -46,7 +46,7 @@
 | `dx12_command_queue.cppm` | `:command_queue` | `DX12CommandQueue` — wraps `ID3D12CommandQueue` + internal `DX12Fence` for WaitIdle |
 | `dx12_descriptor_heap.cppm` | `:descriptor_heap` | `Descriptor`, `DescriptorHeap`, `DescriptorAllocator` — CPU-side RTV/DSV only |
 | `dx12_sync.cppm` | `:sync` | `DX12Fence` — wraps `ID3D12Fence` + Win32 event handle |
-| `dx12_bindless.cppm` | `:bindless` | `DX12BindlessUtils` — CBV_SRV_UAV heap + Sampler heap + shared root signature |
+| `dx12_bindless.cpp` | implementation | `DX12BindlessUtils` — CBV_SRV_UAV heap + Sampler heap + shared root signature |
 | `dx12_utils.cppm` | `:utils` | Format/barrier/state conversion functions (`to_dxgi_format`, `to_d3d_barrier_access`, etc.) |
 
 **`vulkan/`** — 9 module partitions composing `gfx.vulkan`:
@@ -58,8 +58,8 @@
 | `vk_command_buffer.cppm` | `:command_buffer` | `VulkanGraphicsCommandBuffer`, `VulkanComputeCommandBuffer`, `VulkanTransferCommandBuffer` |
 | `vk_command_queue.cppm` | `:command_queue` | `VulkanCommandQueue` — wraps vk::raii::Queue with queue family index |
 | `vk_sync.cppm` | `:sync` | `VulkanTimelineSemaphore` — wraps `vk::raii::Semaphore` (timeline type) |
-| `vk_bindless.cppm` | `:bindless` | `VulkanBindlessUtils` — descriptor pool + set layouts + pipeline layout |
-| `vk_configs.cppm` | `:configs` | Required instance/device extensions, descriptor pool sizes |
+| `vk_bindless.cpp` | implementation | `VulkanBindlessUtils` — resource/sampler heaps + shader mappings |
+| `vk_device.cppm` | `:configs` | Required instance/device extensions, descriptor heap capacities |
 | `vk_utils.cppm` | `:utils` | Format/barrier/state conversion functions, physical device scoring, queue helpers |
 | `vma_patch.cpp` | — | VMA translation unit (separate static lib `vma_patch`) |
 
@@ -68,10 +68,10 @@
 | File | Partition | Contains |
 |---|---|---|
 | `type.cppm` | `:type` | `RenderGraphNode`, `RenderGraphHandle<T>` template, typed handle aliases |
-| `resource_edge.cppm` | `:resource_edge` | `GPUBufferEdge`, `TextureEdge`, `SamplerEdge` — carry access/stage/layout metadata |
+| `resource_edge.cppm` | `:resource_edge` | `GPUBufferEdge`, `TextureEdge` — carry access/stage/layout metadata |
 | `resource_node.cppm` | `:resource_node` | `ResourceNode` hierarchy: `GPUBufferNode`, `TextureNode`, `SamplerNode` |
 | `pass_node.cppm` | `:pass_node` | `PassNode` hierarchy: `RenderPassNode`, `ComputePassNode`, `CopyPassNode`, `PresentPassNode` |
-| `pass_builder.cppm` | `:pass_builder` | Fluent builder API: `RenderPassBuilder`, `ComputePassBuilder`, `CopyPassBuilder`, `PresentPassBuilder` |
+| `pass_builder.cppm` | `:pass_builder` | Non-fluent pass declaration API: `RenderPassBuilder`, `ComputePassBuilder`, `CopyPassBuilder`, `PresentPassBuilder` |
 | `render_graph.cppm` | primary | `RenderGraph` — owns all nodes, BlackBoard, per-queue fences, retired nodes |
 
 ## Class Hierarchy
@@ -96,7 +96,7 @@ Resource → ResourceWithDesc<Desc>  [CRTP]    base/gpu_resource.cppm
 │   ├── DX12Texture       (ID3D12Resource + RTV/DSV Descriptor)
 │   ├── VulkanImage       (vk::raii::Image + vk::raii::ImageView + VmaAllocation)
 │   └── MockTexture
-├── Sampler  [= ResourceWithDesc<SamplerDesc>]
+├── Sampler (owns its bindless handle)
 ├── SwapChain
 │   ├── DX12SwapChain     (IDXGISwapChain4 + vector<DX12Texture> back buffers)
 │   └── VulkanSwapChain   (vk::raii::SwapchainKHR + SemaphorePair per-frame)
@@ -188,7 +188,7 @@ auto gfx::create_device(Device::Type type, ...) -> std::unique_ptr<Device> {
 | `ComputeCommandContext` | `DX12ComputeCommandList` | `VulkanComputeCommandBuffer` | — |
 | `CopyCommandContext` | `DX12CopyCommandList` | `VulkanTransferCommandBuffer` | Vulkan transfer also holds swapchain semaphores |
 | `BeginRendering` | `OMSetRenderTargets` (up to 8 RTVs + DSV) | `vkCmdBeginRendering` (VK_KHR_dynamic_rendering, multiple color attachments) | MRT supported — up to 8 color render targets + optional depth-stencil |
-| `PushBindlessMetaInfo` | `SetGraphicsRoot32BitConstants` | `vkCmdPushConstants` | Push constant = single `BindlessMetaInfo` |
+| `PushBindlessMetaInfo` | `SetGraphicsRoot32BitConstants` | `vkCmdPushDataEXT` | Push constant = single `BindlessMetaInfo` |
 | `ResourceBarrier` | Enhanced Barriers (`ID3D12GraphicsCommandList7::Barrier`) | `vkCmdPipelineBarrier2` (Synchronization2) | Both use modern barrier APIs |
 
 ### Synchronization
@@ -214,7 +214,6 @@ auto gfx::create_device(Device::Type type, ...) -> std::unique_ptr<Device> {
 | `CopyDst` | `COPY_DEST` | `eTransferWrite` |
 | `Vertex` | `VERTEX_BUFFER` | `eVertexAttributeRead` |
 | `Index` | `INDEX_BUFFER` | `eIndexRead` |
-| `Constant` | `CONSTANT_BUFFER` | `eUniformRead` |
 | `ShaderRead` | `SHADER_RESOURCE` | `eShaderRead` |
 | `ShaderWrite` | `UNORDERED_ACCESS` | `eShaderWrite` |
 | `DepthStencilRead` | `DEPTH_STENCIL_READ` | `eDepthStencilAttachmentRead` |
@@ -260,14 +259,29 @@ auto gfx::create_device(Device::Type type, ...) -> std::unique_ptr<Device> {
 
 ### Bindless Mapping
 
+- Each Vulkan heap has one shared reserved range sized from device properties. Every command buffer binds exactly the same range of the same heap type; there is no per-command-buffer reservation pool. The range stays untouched by the application until all referencing command buffers are reset or freed.
+
+- Buffer creation uses `GPUBufferUsageFlags::StorageRead` / `StorageWrite`; views use the corresponding `GPUBufferViewType`. DX12 only enables UAV resource flags for `StorageWrite`.
+- Vulkan shader array declarations still require runtime descriptor arrays and non-uniform indexing features. Descriptor mapping resolves these declarations into heaps; no descriptor sets or update-after-bind path remains.
+- Shader data uses raw SRV/UAV (`ByteAddressBuffer` / `RWByteAddressBuffer`) on both backends. There is no constant-buffer resource/view path. DX12 root constants remain for `BindlessMetaInfo`.
+- Storage binding constraints are queried before allocation via the static `GPUBuffer::GetStorageViewRequirements(device)` API (offset and size alignment). Both read/write storage views use the same requirements; the backend dispatch is private to Device. DX12 uses `D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT`; Vulkan uses at least `minStorageBufferOffsetAlignment`; gfx storage binding sizes have 4-byte granularity.
+- `GPUBufferDesc::size` remains a byte count. `GPUBufferViewDesc::element_stride` explicitly describes the stored sequence (zero means element_size). No backend may infer record padding from Storage usage. Only the binding's final byte range is rounded, validated against the allocation; material field offsets remain unchanged.
+- Each RenderGraph buffer/texture access returns a pass-owned `GPUBufferEdgeHandle` / `TextureEdgeHandle`. Edges retain gfx ViewDesc values (physical resource pointer must be empty at declaration) and at most one instantiated view. `Resolve(edge)` checks the pass owner and returns that view; buffer/texture bindless handles come from the view, not PassNode. Copy accesses have no view. Sampler dependencies are stored as a set of resource nodes; `Resolve(sampler)` returns the gfx Sampler, whose `GetBindlessHandle()` owns the binding. No PassNode bindless API remains.
+- Sampler backends create one bindless handle during construction after backend initialization; Sampler releases it on destruction. The handle is shared across passes/frames and direct gfx use. Keep the Sampler alive through GPU completion; graph resource ownership provides this lifetime for graph accesses.
+- Record sequences use one view and one descriptor. `BindlessMetaInfo` carries `record_index` and `record_stride`; `load_bindless<T>()` reads at index * stride. SimpleBuffer/RWSimpleBuffer accept byte offsets. Instance references carry the shared binding plus instance index/stride. Renderer record arrays are tightly packed where their shader ABI permits; independent binding offset alignment is not an element-stride requirement.
+- `MappedSpan` uses `utils::StridedSpan`; iteration/indexing honors the explicit stride. `data()` rejects non-contiguous multi-element spans; use element-wise copying. Mapping also validates C++ type alignment.
+- Integer object/material ID debug textures use `Texture::load<uint2>` at the fragment pixel coordinate; IDs must not be filtered through a sampler.
+- `asset::EncodeMaterialData` encodes resolved numeric values and handles without a Device; texture resolution stays in Material.
+- Heap descriptors must stay alive until GPU execution finishes. RenderGraph retains its views through queue completion; direct gfx callers own the same lifetime responsibility.
+
 | `gfx::base` | DX12 | Vulkan | Docs |
 |---|---|---|---|
 | `BindlessUtils` | `DX12BindlessUtils` | `VulkanBindlessUtils` | — |
-| Descriptor Storage | Two `ID3D12DescriptorHeap`s: CBV_SRV_UAV + Sampler (GPU-visible, shader-bound) | `vk::raii::DescriptorPool` with `UPDATE_AFTER_BIND` + multiple `DescriptorSet`s | [D3D12 Bindless](https://microsoft.github.io/DirectX-Specs/d3d/ResourceBinding.html) / [VK_EXT_descriptor_indexing](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VK_EXT_descriptor_indexing) |
-| Root/Pipeline Layout | Shared `ID3D12RootSignature` with root constants + descriptor tables | Shared `vk::raii::PipelineLayout` with push constant range + set layouts | — |
-| Meta Info Delivery | `SetGraphicsRoot32BitConstants` / `SetComputeRoot32BitConstants` | `vkCmdPushConstants` | Both push a `BindlessMetaInfo` struct (single `BindlessHandle`) |
-| Handle Pool | `deque<BindlessHandle>` per type (CBV_SRV_UAV / Sampler) | `vector<BindlessHandle>` per type (4 pools: Buffer, Texture, Sampler, Invalid) | Handles are recycled on discard |
-| Descriptor Limits | Configured via heap creation size | `max_storage_descriptors=10000`, `max_sampled_image=10000`, `max_storage_image=10000`, `max_sampler=128` (in `vk_configs.cppm`) | — |
+| Descriptor Storage | Two `ID3D12DescriptorHeap`s: CBV_SRV_UAV + Sampler (GPU-visible, shader-bound) | Resource and sampler heap buffers (`VK_EXT_descriptor_heap`) | [D3D12 Bindless](https://microsoft.github.io/DirectX-Specs/d3d/ResourceBinding.html) / [VK_EXT_descriptor_heap](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VK_EXT_descriptor_heap) |
+| Root/Pipeline Layout | Shared `ID3D12RootSignature` with root constants + directly indexed heaps | Descriptor heap pipeline flag + per-stage descriptor mappings; no pipeline layout | — |
+| Meta Info Delivery | `SetGraphicsRoot32BitConstants` / `SetComputeRoot32BitConstants` | `vkCmdPushDataEXT` | Both push a `BindlessMetaInfo` struct (single `BindlessHandle`) |
+| Handle Pool | `deque<BindlessHandle>` per type (CBV_SRV_UAV / Sampler) | `vector<BindlessHandle>` per type (4 pools: Buffer, sampled image, storage image, Sampler) | Handles are recycled on discard |
+| Descriptor Limits | Configured via heap creation size | `max_storage_descriptors=10000`, `max_sampled_image=10000`, `max_storage_image=10000`, `max_sampler=128` (in `vk_device.cppm`) | — |
 
 ## Synchronization Details
 
@@ -307,13 +321,15 @@ All GPU resources are created via `Device::Create*()` and returned as `std::shar
 - Safe import into render graphs (the graph holds a `shared_ptr`)
 
 ### Memory Allocation
+- **DX12 device creation**: `DX12Device` uses an `ID3D12DeviceFactory` from the executable-adjacent `D3D12` Agility SDK directory. Debug settings are factory-local; global SDK exports and global debug-layer toggles are not used. Independent-device support is required (`DISALLOW_STORING_NEW_DEVICE_AS_SINGLETON`), so unsupported drivers fail instead of modifying process-wide configuration.
 - **DX12**: All buffers and textures go through `D3D12MA::Allocator` (committed or placed resources). The allocator is configured with custom allocation callbacks for tracking.
 - **Vulkan**: All buffers and images go through `VmaAllocator`. Custom allocation callbacks for both Vulkan API objects and VMA.
-- **Buffer alignment**: `GPUBuffer` stores `m_ElementAlignment`; `AlignedElementSize()` returns `align(element_size, m_ElementAlignment)`. Total size = `AlignedElementSize() * element_count`.
+- **Buffer alignment**: GPUBuffer is byte storage; storage binding requirements are queried statically on GPUBuffer. GPUBufferView stores explicit element stride and a checked byte range; views can overlap without rearranging data.
 
 ### Host-Visible Buffers (Map/UnMap)
 - Buffers with `GPUBufferUsageFlags::MapRead` or `MapWrite` can be mapped.
-- `GPUBufferView<T>` provides a typed RAII wrapper: maps on construction, unmaps on destruction, validates usages at runtime.
+- `GPUBufferView::MappedSpan<T>` is created only through `view.GetMappedSpan<T>()`; its constructor is private and GPUBufferView is a friend. It does not accept a GPUBuffer or create/own a temporary view. Keep the underlying buffer alive for the mapping's lifetime. It maps on construction, unmaps on destruction, and validates usages and C++ alignment at runtime.
+- For vertex/index mapping, pass a GPUBufferViewDesc to `ReadAsVertices` / `ReadAsIndices`, retain the returned access edge handle, then map `pass.Resolve(edge)`. A default descriptor covers the buffer as bytes. Buffers remain transient/pool-managed and tightly packed.
 - Both backends use a `map_mutex` + `mapped_count` to support nested maps.
 
 ### Initial Data Upload
@@ -335,34 +351,35 @@ All GPU resources are created via `Device::Create*()` and returned as `std::shar
 ```
 1. Import/Create resources     → get typed handles (GPUBufferHandle, TextureHandle, ...)
 2. Declare passes              → use RenderPassBuilder/ComputePassBuilder/CopyPassBuilder/PresentPassBuilder
-   - .Read(handle) / .Write(handle) / .AddRenderTarget(handle) / .SetExecutor(lambda)
-   - .Finish() → registers the pass node + edges
-3. Compile()                   → DFS from PresentPassNode to find essential nodes
+   - Read/Write/attachment declarations return access edge handles; setters return void (no chaining)
+   - Finish() → registers the pass node + resource dependency edges
+3. Compile()                   → DFS from present and non-cullable passes to find essential nodes
                                → topological sort into ExecuteLayers keyed by CommandType
                                → Initialize() acquires GPU resources (pool first, then Device::Create*)
 4. Execute()                   → for each layer, prepare resource barriers in deterministic order
-                               → record pass command contexts through core::JobSystem
+                               → record pass command contexts serially
                                → Submit to queues with fence wait/signal on the render thread
                                → Retire nodes guarded by fence values
 5. RetireNodes()               → recycle transient resources to pool, evict stale entries
-6. Reset()                     → clear all nodes, blackboard, execute layers for next frame
+6. Reset()                     → clear passes/transient nodes and dependencies; retain imported resource nodes
 ```
 
 ### Compilation Details
-- `Compile()` starts a DFS from the `PresentPassNode` to determine which nodes are "essential"
+- `Compile()` starts a DFS from an enabled PresentPassNode and all non-cullable passes (including extraction passes) to determine essential nodes.
 - Output nodes of essential pass nodes are also kept to avoid execution failure
 - Topological sort (Kahn's algorithm) groups nodes into `ExecuteLayer`s
 - Each `ExecuteLayer` is an `EnumArray<vector<PassNode*>, CommandType>` — passes in the same layer and same command type are batched together
 - Cycle detection: if visited count != essential count, reports error
 
 ### Execution Details
-- Pass layer order is determined by `m_ExecuteLayers`; passes inside a layer may record in parallel.
+- Pass layer order is determined by `m_ExecuteLayers`; the current implementation records passes serially.
 - Before recording a layer, resource transitions are prepared serially in deterministic pass order so shared read resources do not race on CPU state tracking.
-- Each pass records: `Begin()` → `ResourceBarrier()` → user's `Executor` lambda → `End()`.
+- Each pass prepares its access views, then records: `Begin()` → `ResourceBarrier()` → user's `Executor` lambda → `End()`. Attachment views are retained by their access edges as well.
+- Multiple compatible accesses to the same resource are allowed. Barriers are aggregated per physical resource, not per view; conflicting read/write or texture layouts within a pass are rejected. Synchronization remains whole-resource, not byte-range/subresource scheduling.
 - Queue submit remains on the render thread: per-layer, per-command-type batch submit with:
-  - Wait on ALL current fence values (cross-queue sync)
+  - Wait on the latest nonzero fence values of other queues (cross-queue sync)
   - Signal this queue's fence with incremented value
-- After all layers: wait on the **previous** frame's fence values (not current — allows overlap)
+- After all layers: wait on the current latest submitted fence value of each queue before retirement/reset.
 - `RetireNodes()` checks front of `m_RetiredNodes` deque against GPU-completed fence values; transient resources are recycled to the `TransientResourcePool` before being popped
 
 ### BlackBoard
@@ -387,10 +404,11 @@ All GPU resources are created via `Device::Create*()` and returned as `std::shar
 
 ## Required Vulkan Extensions
 
-Defined in `vulkan/vk_configs.cppm`:
+Defined in `vulkan/vk_device.cppm`:
 - `VK_KHR_SWAPCHAIN` — swapchain support
 - `VK_KHR_DYNAMIC_RENDERING` — renderpass-less rendering
-- `VK_EXT_DESCRIPTOR_INDEXING` — bindless descriptor access
+- `VK_EXT_DESCRIPTOR_HEAP` — resource/sampler heaps and push data (required; no descriptor set fallback)
+- `VK_KHR_SHADER_UNTYPED_POINTERS` — descriptor heap extension dependency
 - `VK_EXT_HOST_IMAGE_COPY` — CPU-side image data upload
 
 Debug-only: `VK_EXT_DEBUG_UTILS`, `VK_LAYER_KHRONOS_validation`
@@ -406,7 +424,7 @@ Physical device selection: scored by `compute_physical_device_score()` (discrete
 - Resources track barrier state internally (`m_CurrentAccess`, `m_CurrentStage`, `m_CurrentLayout`). `Transition()` returns the barrier AND updates the tracked state — calling it twice gives different results
 - `Format` enum values mirror `DXGI_FORMAT` numerically (same integer values)
 - All command lists must call `Begin()` before recording and `End()` before submission
-- `BindlessHandle` is valid only between `CreateBindlessHandle()` and `DiscardBindlessHandle()` — the render graph manages this automatically per-pass
+- `BindlessHandle` is valid only between `CreateBindlessHandle()` and `DiscardBindlessHandle()` — views and samplers own their handles; the render graph retains the owning objects through GPU completion
 - `SwapChain::AcquireTextureForRendering()` must be called exactly once per frame before using the back buffer
 - Shaders are compiled via DXC in both backends — HLSL is the source language, compiled to DXIL (DX12) or SPIR-V (Vulkan)
 - All shared_ptr resources imported into a `RenderGraph` must remain alive until the GPU finishes consuming them (managed via retired nodes + fence guarding)
@@ -446,7 +464,7 @@ Physical device selection: scored by `compute_physical_device_score()` (discrete
 4. Update barrier construction in `dx12/dx12_command_list.cpp` and `vulkan/vk_command_buffer.cpp`
 
 ### Adding a New Vulkan Extension Requirement
-1. `vulkan/vk_configs.cppm` — add to `required_device_extensions` array
+1. `vulkan/vk_device.cppm` — add to `required_device_extensions` array
 2. `vulkan/vk_device.cpp` — enable corresponding features in device creation
 3. `vulkan/vk_utils.cppm` — update `is_physical_suitable()` if the extension affects device selection
 
@@ -465,7 +483,7 @@ Physical device selection: scored by `compute_physical_device_score()` (discrete
 - [Vulkan Specification](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html) — official Vulkan spec
 - [VK_KHR_synchronization2](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VK_KHR_synchronization2) — Vulkan barrier model used
 - [VK_KHR_dynamic_rendering](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VK_KHR_dynamic_rendering) — renderpass-less rendering
-- [VK_EXT_descriptor_indexing](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VK_EXT_descriptor_indexing) — bindless descriptors
+- [VK_EXT_descriptor_heap](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VK_EXT_descriptor_heap) — bindless descriptors
 - [VK_EXT_host_image_copy](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VK_EXT_host_image_copy) — CPU-side texture upload
 - [Vulkan Memory Allocator](https://gpuopen.com/vulkan-memory-allocator/) — VMA library
 - [DirectX Shader Compiler](https://github.com/microsoft/DirectXShaderCompiler) — DXC used for both DXIL and SPIR-V
