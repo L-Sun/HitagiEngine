@@ -130,6 +130,8 @@ private:
     struct BindlessInfo {
         gfx::BindlessHandle frame_constant;
         gfx::BindlessHandle instance_constant;
+    std::uint32_t instance_index = 0;
+    std::uint32_t instance_stride = 0;
     };
 
     enum class Target : std::uint8_t {
@@ -151,7 +153,9 @@ private:
         std::shared_ptr<gfx::RenderPipeline> pipeline,
         Target                              target_kind,
         std::span<const InstanceConstant>   selected_constants,
-        std::span<const std::size_t>        selected_instances);
+        std::span<const std::size_t>        selected_instances,
+        std::uint64_t                      instance_stride,
+        std::uint64_t                      bindless_stride);
 
     gfx::Device&                         m_Device;
     render::ShaderSource                 m_Shader;

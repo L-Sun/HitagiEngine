@@ -715,7 +715,7 @@ inline std::string ImGui::FileBrowser::ToLower(const std::string& s) {
 }
 
 inline void ImGui::FileBrowser::UpdateFileRecords() {
-    fileRecords_ = {FileRecord{true, "..", "[D] ..", ""}};
+    fileRecords_ = {FileRecord{.isDir = true, .name = "..", .showName = "[D] ..", .extension = ""}};
 
     for (auto& p : std::filesystem::directory_iterator(pwd_)) {
         FileRecord rcd;

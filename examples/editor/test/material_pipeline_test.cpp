@@ -388,7 +388,7 @@ TEST(MaterialGraphCompilerTest, CacheKeyIsStableAndChangesWithGraph) {
     EXPECT_NE(first.cache_key, changed_result.cache_key);
 }
 
-TEST(MaterialGraphCompilerTest, GeneratedPixelShaderCompilesToDXIL) {
+TEST(MaterialGraphCompilerTest, GeneratedIndexedRecordShadersCompileForBothBackends) {
     MaterialGraph graph;
     const auto    color   = graph.AddNode("base_color", "parameter", {}, {{"value", ShaderValueType::Color}});
     const auto    surface = graph.AddNode("surface", "surface_output", {{"base_color", ShaderValueType::Color}}, {{"out", ShaderValueType::Surface}});
@@ -398,9 +398,13 @@ TEST(MaterialGraphCompilerTest, GeneratedPixelShaderCompilesToDXIL) {
     const auto result = MaterialGraphCompiler{}.Compile(graph, {.shader_name = "CompilableMaterial"});
     ASSERT_TRUE(result);
 
-    gfx::ShaderCompiler compiler("MaterialGraphCompilerTest.GeneratedPixelShaderCompilesToDXIL");
-    const auto          dxil = compiler.CompileToDXIL(result.shader);
-    EXPECT_FALSE(dxil.Empty());
+    EXPECT_NE(result.hlsl.find("uint instance_index;"), std::string::npos);
+    EXPECT_NE(result.hlsl.find("resource.instance_index * resource.instance_stride"), std::string::npos);
+    gfx::ShaderCompiler compiler("MaterialGraphCompilerTest.GeneratedIndexedRecordShaders");
+    for (const auto& shader : result.pass.pipeline->GetShaders()) {
+        EXPECT_FALSE(compiler.CompileToDXIL(shader->GetDesc()).Empty());
+        EXPECT_FALSE(compiler.CompileToSPIRV(shader->GetDesc()).Empty());
+    }
 }
 
 TEST(MaterialGraphCompilerTest, SupportsBaseNodeKindsAndShaderCacheRecompile) {

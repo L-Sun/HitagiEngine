@@ -915,8 +915,13 @@ void Editor::SavePendingScreenshot() {
     if (!m_LaunchOptions.screenshot->parent_path().empty()) {
         std::filesystem::create_directories(m_LaunchOptions.screenshot->parent_path());
     }
-    const gfx::GPUBufferView::MappedSpan<const std::uint32_t> readback(*m_ScreenshotBuffer);
-    asset::Texture                                            image(
+    const auto     readback_view = m_ScreenshotBuffer->GetDevice().CreateGPUBufferView({
+        .buffer        = m_ScreenshotBuffer,
+        .element_size  = sizeof(std::uint32_t),
+        .element_count = 0,
+    });
+    const auto     readback      = readback_view->GetMappedSpan<const std::uint32_t>();
+    asset::Texture image(
         m_ScreenshotWidth,
         m_ScreenshotHeight,
         gfx::Format::R8G8B8A8_UNORM,

@@ -3,6 +3,8 @@
 struct SelectionMaskBindlessInfo {
     hitagi::SimpleBuffer frame_constant;
     hitagi::SimpleBuffer instance_constant;
+    uint instance_index;
+    uint instance_stride;
 };
 
 struct SelectionOutlineBindlessInfo {
@@ -59,7 +61,7 @@ struct FullscreenPSInput {
 SelectionPSInput VSSelectionMaskMain(VSInput input) {
     const SelectionMaskBindlessInfo resource = hitagi::load_bindless<SelectionMaskBindlessInfo>();
     const FrameConstant frame = resource.frame_constant.load<FrameConstant>();
-    const SelectionInstanceConstant instance = resource.instance_constant.load<SelectionInstanceConstant>();
+    const SelectionInstanceConstant instance = resource.instance_constant.load<SelectionInstanceConstant>(resource.instance_index * resource.instance_stride);
 
     const float4 world_pos = mul(instance.model, float4(input.position, 1.0f));
     const float3 view_pos = mul(frame.view, world_pos).xyz;
@@ -72,13 +74,13 @@ SelectionPSInput VSSelectionMaskMain(VSInput input) {
 
 uint PSSelectionIdMain(SelectionPSInput input) : SV_TARGET {
     const SelectionMaskBindlessInfo resource = hitagi::load_bindless<SelectionMaskBindlessInfo>();
-    const SelectionInstanceConstant instance = resource.instance_constant.load<SelectionInstanceConstant>();
+    const SelectionInstanceConstant instance = resource.instance_constant.load<SelectionInstanceConstant>(resource.instance_index * resource.instance_stride);
     return instance.selection_id;
 }
 
 uint PSSelectionVisualMain(SelectionPSInput input) : SV_TARGET {
     const SelectionMaskBindlessInfo resource = hitagi::load_bindless<SelectionMaskBindlessInfo>();
-    const SelectionInstanceConstant instance = resource.instance_constant.load<SelectionInstanceConstant>();
+    const SelectionInstanceConstant instance = resource.instance_constant.load<SelectionInstanceConstant>(resource.instance_index * resource.instance_stride);
     return instance.visual_id;
 }
 

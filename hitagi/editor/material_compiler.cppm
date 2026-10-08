@@ -633,6 +633,7 @@ auto MaterialGraphCompiler::Compile(const MaterialGraph& graph, MaterialGraphCom
     declarations += "struct BindlessInfo {\n";
     declarations += "    hitagi::SimpleBuffer frame_constant;\n";
     declarations += "    hitagi::SimpleBuffer instance_constant;\n";
+    declarations += "    uint instance_index;\n    uint instance_stride;\n";
     declarations += "    hitagi::SimpleBuffer material_data;\n";
     declarations += "    hitagi::Sampler      sampler;\n";
     declarations += "};\n\n";
@@ -727,7 +728,7 @@ auto MaterialGraphCompiler::Compile(const MaterialGraph& graph, MaterialGraphCom
     declarations += "PSInput VSMain(VSInput input) {\n";
     declarations += "    BindlessInfo resource = hitagi::load_bindless<BindlessInfo>();\n";
     declarations += "    FrameConstant frame_constant = resource.frame_constant.load<FrameConstant>();\n";
-    declarations += "    InstanceConstant instance_constant = resource.instance_constant.load<InstanceConstant>();\n";
+    declarations += "    InstanceConstant instance_constant = resource.instance_constant.load<InstanceConstant>(resource.instance_index * resource.instance_stride);\n";
     declarations += "    const float4 world_pos = mul(instance_constant.model, float4(input.position, 1.0f));\n";
     declarations += "    PSInput output;\n";
     declarations += "    output.position = mul(frame_constant.proj_view, world_pos);\n";

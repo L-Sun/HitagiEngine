@@ -169,7 +169,7 @@ TEST_F(EditorTest, CommandStackUndoRedoTransformChange) {
 TEST_F(EditorTest, ComponentCommandsUndoRedoValues) {
     auto material = std::make_shared<asset::Material>(
         asset::MaterialParameters{
-            {"roughness", 1.0f},
+            {.name = "roughness", .value = 1.0f},
         });
     auto before_material = asset::MaterialParameter{.name = "roughness", .value = 1.0f};
     auto after_material  = asset::MaterialParameter{.name = "roughness", .value = 0.25f};
