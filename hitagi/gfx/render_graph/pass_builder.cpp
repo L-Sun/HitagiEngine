@@ -25,7 +25,8 @@ auto PassBuilder::Finish() -> std::size_t {
     //      |                    v         OR        |                         v
     //      +--- new_edge -->  pass_2                +--------- move --- >  resource_2(*)
 
-    for (auto& [buffer_node, buffer_edge] : pass_base->m_GPUBufferEdges) {
+    for (auto& buffer_edge : pass_base->m_GPUBufferEdges) {
+        auto* buffer_node = buffer_edge.resource;
         if (buffer_edge.write) {
             buffer_node->AddInputNode(pass_base.get());
         } else {
@@ -38,7 +39,8 @@ auto PassBuilder::Finish() -> std::size_t {
         }
     }
 
-    for (const auto& [texture_node, texture_edge] : pass_base->m_TextureEdges) {
+    for (const auto& texture_edge : pass_base->m_TextureEdges) {
+        auto* texture_node = texture_edge.resource;
         if (texture_edge.write) {
             texture_node->AddInputNode(pass_base.get());
         } else {
@@ -51,7 +53,7 @@ auto PassBuilder::Finish() -> std::size_t {
         }
     }
 
-    for (const auto& [sampler_node, sampler_edge] : pass_base->m_SamplerEdges) {
+    for (auto* sampler_node : pass_base->m_Samplers) {
         pass_base->AddInputNode(sampler_node);
     }
 
@@ -72,115 +74,85 @@ void PassBuilder::SetPassCullingAllowed(bool allow) noexcept {
     pass_base->m_Cullable = allow;
 }
 
-void PassBuilder::AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge new_edge) noexcept {
-    ZoneScoped;
-
-    if (m_Invalid) return;
-
-    const auto write_str = new_edge.write ? "write" : "read";
-
-    if (!m_RenderGraph.IsValid(buffer_handle)) {
-        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer_handle.index));
-        return;
+auto PassBuilder::AddGPUBufferEdge(GPUBufferHandle handle, GPUBufferEdge edge) noexcept -> GPUBufferEdgeHandle {
+    if (m_Invalid || m_Finished) return {};
+    if (!m_RenderGraph.IsValid(handle)) {
+        Invalidate("Invalid buffer handle");
+        return {};
     }
-
-    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer_handle.index].get());
-    const auto usages      = buffer_node->GetDesc().usages;
-
-    if (!new_edge.write &&
-        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Constant) &&
-        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Storage) &&
-        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Vertex) &&
-        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Index) &&
-        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::CopySrc)) {
-        Invalidate(std::format("{} buffer failed: buffer({}) is not readable", write_str, buffer_node->GetName()));
-        return;
+    if (edge.view_desc.buffer) {
+        Invalidate("Access descriptors must not contain a physical resource");
+        return {};
     }
-    if (new_edge.write &&
-        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::Storage) &&
-        !utils::has_flag(usages, gfx::GPUBufferUsageFlags::CopyDst)) {
-        Invalidate(std::format("{} buffer failed: buffer({}) is not a storage buffer", write_str, buffer_node->GetName()));
-        return;
+    auto*      node     = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[handle.index].get());
+    const auto usages   = node->GetDesc().usages;
+    const auto required = edge.access == gfx::BarrierAccess::Vertex    ? gfx::GPUBufferUsageFlags::Vertex
+                          : edge.access == gfx::BarrierAccess::Index   ? gfx::GPUBufferUsageFlags::Index
+                          : edge.access == gfx::BarrierAccess::CopySrc ? gfx::GPUBufferUsageFlags::CopySrc
+                          : edge.access == gfx::BarrierAccess::CopyDst ? gfx::GPUBufferUsageFlags::CopyDst
+                          : edge.write                                 ? gfx::GPUBufferUsageFlags::StorageWrite
+                                                                       : gfx::GPUBufferUsageFlags::StorageRead;
+    if (!utils::has_flag(usages, required)) {
+        Invalidate("buffer usage does not support the declared access");
+        return {};
     }
-
-    {
-        ZoneScopedN("Find existing edge");
-        if (pass_base->m_GPUBufferEdges.contains(buffer_node)) {
-            if (pass_base->m_GPUBufferEdges[buffer_node] != new_edge) {
-                Invalidate(std::format("{} buffer: {} buffer({}) repeat with different usage", write_str, write_str, m_RenderGraph.m_Nodes[buffer_handle.index]->GetName()));
-            }
-            return;
+    for (const auto& existing : pass_base->m_GPUBufferEdges) {
+        if (existing.resource != node) continue;
+        if (existing.write != edge.write) {
+            Invalidate("Incompatible accesses to the same buffer in one pass");
+            return {};
         }
     }
-
-    {
-        ZoneScopedN("check multiple write");
-        if (new_edge.write) {
-            if (const auto writer = buffer_node->GetWriter(); writer != nullptr) {
-                Invalidate(std::format("Write buffer failed: buffer({}) is written by pass({})", buffer_node->GetName(), writer->GetName()));
-                return;
-            }
-        }
+    if (edge.write && node->GetWriter() != nullptr) {
+        Invalidate("buffer already has a writer");
+        return {};
     }
-
-    pass_base->m_GPUBufferEdges.emplace(buffer_node, new_edge);
+    edge.resource = node;
+    const GPUBufferEdgeHandle result{.owner = pass_base->m_AccessOwner, .index = pass_base->m_GPUBufferEdges.size()};
+    pass_base->m_GPUBufferEdges.push_back(std::move(edge));
+    return result;
 }
 
-void PassBuilder::AddTextureEdge(TextureHandle texture_handle, TextureEdge new_edge) noexcept {
-    ZoneScoped;
-
-    if (m_Invalid) return;
-
-    const auto write_str = new_edge.write ? "write" : "read";
-
-    if (!m_RenderGraph.IsValid(texture_handle)) {
-        Invalidate(std::format("{} texture failed: texture({}) is invalid", write_str, texture_handle.index));
-        return;
+auto PassBuilder::AddTextureEdge(TextureHandle handle, TextureEdge edge) noexcept -> TextureEdgeHandle {
+    if (m_Invalid || m_Finished) return {};
+    if (!m_RenderGraph.IsValid(handle)) {
+        Invalidate("Invalid texture handle");
+        return {};
     }
-
-    const auto texture_node = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture_handle.index].get());
-    const auto usages       = texture_node->GetDesc().usages;
-
-    if (!new_edge.write &&
-        !utils::has_flag(usages, gfx::TextureUsageFlags::SRV) &&
-        !utils::has_flag(usages, gfx::TextureUsageFlags::CopySrc) &&
-        !(new_edge.access == gfx::BarrierAccess::DepthStencilRead && utils::has_flag(usages, gfx::TextureUsageFlags::DepthStencil))) {
-        Invalidate(std::format("{} texture failed: texture({}) is not readable", write_str, texture_node->GetName()));
-        return;
+    if (edge.view_desc.texture) {
+        Invalidate("Access descriptors must not contain a physical resource");
+        return {};
     }
-    if (new_edge.write &&
-        !utils::has_flag(usages, gfx::TextureUsageFlags::UAV) &&
-        !utils::has_flag(usages, gfx::TextureUsageFlags::RenderTarget) &&
-        !utils::has_flag(usages, gfx::TextureUsageFlags::DepthStencil) &&
-        !utils::has_flag(usages, gfx::TextureUsageFlags::CopyDst)) {
-        Invalidate(std::format("{} texture failed: texture({}) is not writable", write_str, texture_node->GetName()));
-        return;
+    auto*      node     = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[handle.index].get());
+    const auto usages   = node->GetDesc().usages;
+    const auto required = edge.access == gfx::BarrierAccess::RenderTarget                                                                 ? gfx::TextureUsageFlags::RenderTarget
+                          : (edge.access == gfx::BarrierAccess::DepthStencilRead || edge.access == gfx::BarrierAccess::DepthStencilWrite) ? gfx::TextureUsageFlags::DepthStencil
+                          : edge.access == gfx::BarrierAccess::CopySrc                                                                    ? gfx::TextureUsageFlags::CopySrc
+                          : edge.access == gfx::BarrierAccess::CopyDst                                                                    ? gfx::TextureUsageFlags::CopyDst
+                          : edge.write                                                                                                    ? gfx::TextureUsageFlags::UAV
+                                                                                                                                          : gfx::TextureUsageFlags::SRV;
+    if (!utils::has_flag(usages, required)) {
+        Invalidate("texture usage does not support the declared access");
+        return {};
     }
-
-    {
-        ZoneScopedN("Find existing edge");
-        if (pass_base->m_TextureEdges.contains(texture_node)) {
-            if (pass_base->m_TextureEdges[texture_node] != new_edge) {
-                Invalidate(std::format("{} texture failed: {} texture({}) repeat with different usage", write_str, write_str, texture_node->GetName()));
-            }
-            return;
+    for (const auto& existing : pass_base->m_TextureEdges) {
+        if (existing.resource != node) continue;
+        if (existing.write != edge.write || existing.layout != edge.layout) {
+            Invalidate("Incompatible accesses to the same texture in one pass");
+            return {};
         }
     }
-
-    {
-        ZoneScopedN("check multiple write");
-        if (new_edge.write) {
-            if (const auto writer = texture_node->GetWriter(); writer != nullptr) {
-                Invalidate(std::format("Write texture failed: texture({}) is written by pass({})", texture_node->GetName(), writer->GetName()));
-                return;
-            }
-        }
+    if (edge.write && node->GetWriter() != nullptr) {
+        Invalidate("texture already has a writer");
+        return {};
     }
-
-    pass_base->m_TextureEdges.emplace(texture_node, new_edge);
+    edge.resource = node;
+    const TextureEdgeHandle result{.owner = pass_base->m_AccessOwner, .index = pass_base->m_TextureEdges.size()};
+    pass_base->m_TextureEdges.push_back(std::move(edge));
+    return result;
 }
 
-void PassBuilder::AddSamplerEdge(SamplerHandle sampler_handle, SamplerEdge new_edge) noexcept {
+void PassBuilder::AddSamplerEdge(SamplerHandle sampler_handle) noexcept {
     ZoneScoped;
 
     if (m_Invalid) return;
@@ -192,205 +164,167 @@ void PassBuilder::AddSamplerEdge(SamplerHandle sampler_handle, SamplerEdge new_e
 
     const auto sampler_node = static_cast<SamplerNode*>(m_RenderGraph.m_Nodes[sampler_handle.index].get());
 
-    if (pass_base->m_SamplerEdges.contains(sampler_node)) {
+    if (pass_base->m_Samplers.contains(sampler_node)) {
         return;
     }
 
-    pass_base->m_SamplerEdges.emplace(sampler_node, new_edge);
+    pass_base->m_Samplers.emplace(sampler_node);
 }
 
 RenderPassBuilder::RenderPassBuilder(RenderGraph& rg)
     : PassBuilder(rg, std::make_shared<RenderPassNode>(rg)),
       pass(std::static_pointer_cast<RenderPassNode>(pass_base)) {}
 
-auto RenderPassBuilder::SetName(std::string_view name) noexcept -> RenderPassBuilder& {
-    if (m_Invalid) return *this;
+void RenderPassBuilder::SetName(std::string_view name) noexcept {
+    if (m_Invalid) return;
 
     if (m_RenderGraph.m_BlackBoard[RenderGraphNode::Type::RenderPass].contains(std::pmr::string(name))) {
         Invalidate(fmt::format("Set name failed: name ({}) already exists", fmt::styled(name, fmt::fg(fmt::color::red))));
     }
 
     pass->m_Name = name;
-
-    return *this;
 }
 
-auto RenderPassBuilder::AllowPassCulling(bool allow) noexcept -> RenderPassBuilder& {
+void RenderPassBuilder::AllowPassCulling(bool allow) noexcept {
     SetPassCullingAllowed(allow);
-    return *this;
 }
 
-auto RenderPassBuilder::Read(GPUBufferHandle buffer, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
-    if (m_Invalid) return *this;
-    if (!m_RenderGraph.IsValid(buffer)) {
-        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer.index));
-        return *this;
-    }
-    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
-    return Read(buffer, 0, 1, buffer_node->GetDesc().size, stage);
+auto RenderPassBuilder::ReadAsVertices(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc) noexcept -> GPUBufferEdgeHandle {
+    return AddGPUBufferEdge(
+        buffer, {
+                    .access    = gfx::BarrierAccess::Vertex,
+                    .stage     = gfx::PipelineStage::VertexInput,
+                    .view_desc = std::move(desc),
+                });
 }
 
-auto RenderPassBuilder::Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
-    AddGPUBufferEdge(
-        buffer,
-        {
-            .write          = false,
-            .access         = gfx::BarrierAccess::Constant,
-            .stage          = stage,
-            .element_offset = element_offset,
-            .num_elements   = num_elements,
-            .element_size    = element_size,
-        });
-    return *this;
+auto RenderPassBuilder::ReadAsIndices(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc) noexcept -> GPUBufferEdgeHandle {
+    return AddGPUBufferEdge(
+        buffer, {
+                    .access    = gfx::BarrierAccess::Index,
+                    .stage     = gfx::PipelineStage::VertexInput,
+                    .view_desc = std::move(desc),
+                });
 }
 
-auto RenderPassBuilder::Read(TextureHandle texture, gfx::TextureSubresourceLayer layer, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
-    AddTextureEdge(
-        texture,
-        {
-            .write  = false,
-            .access = gfx::BarrierAccess::ShaderRead,
-            .stage  = stage,
-            .layout = gfx::TextureLayout::ShaderRead,
-            .layer  = layer,
-        });
-    return *this;
-}
-
-auto RenderPassBuilder::ReadAsVertices(GPUBufferHandle buffer) noexcept -> RenderPassBuilder& {
-    AddGPUBufferEdge(
-        buffer,
-        {
-            .write  = false,
-            .access = gfx::BarrierAccess::Vertex,
-            .stage  = gfx::PipelineStage::VertexInput,
-        });
-    return *this;
-}
-
-auto RenderPassBuilder::ReadAsIndices(GPUBufferHandle buffer) noexcept -> RenderPassBuilder& {
-    AddGPUBufferEdge(
-        buffer,
-        {
-            .write  = false,
-            .access = gfx::BarrierAccess::Index,
-            .stage  = gfx::PipelineStage::VertexInput,
-        });
-    return *this;
-}
-
-auto RenderPassBuilder::Write(GPUBufferHandle buffer, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
-    if (m_Invalid) return *this;
-    if (!m_RenderGraph.IsValid(buffer)) {
-        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer.index));
-        return *this;
-    }
-    auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
-    return Write(buffer, 0, 1, buffer_node->GetDesc().size, stage);
-}
-
-auto RenderPassBuilder::Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
-    AddGPUBufferEdge(
-        buffer,
-        {
-            .write          = true,
-            .access         = gfx::BarrierAccess::ShaderWrite,
-            .stage          = stage,
-            .element_offset = element_offset,
-            .num_elements   = num_elements,
-            .element_size    = element_size,
-        });
-    return *this;
-}
-
-auto RenderPassBuilder::Write(TextureHandle texture, gfx::TextureSubresourceLayer layer, gfx::PipelineStage stage) noexcept -> RenderPassBuilder& {
-    AddTextureEdge(
-        texture,
-        {
-            .write  = true,
-            .access = gfx::BarrierAccess::ShaderWrite,
-            .stage  = stage,
-            .layout = gfx::TextureLayout::ShaderWrite,
-            .layer  = layer,
-        });
-    return *this;
-}
-
-auto RenderPassBuilder::SetRenderTarget(TextureHandle texture, bool clear, gfx::TextureSubresourceLayer layer) noexcept -> RenderPassBuilder& {
+auto RenderPassBuilder::SetRenderTarget(TextureHandle texture, bool clear, gfx::TextureViewDesc desc) noexcept -> TextureEdgeHandle {
+    if (m_Invalid) return {};
     if (pass->m_RenderTarget) {
-        Invalidate(std::format("Set render target failed: render target is already set"));
-        return *this;
+        Invalidate("Attachment already declared");
+        return {};
     }
-    AddTextureEdge(
-        texture,
-        {
-            .write  = true,
-            .access = gfx::BarrierAccess::RenderTarget,
-            .stage  = gfx::PipelineStage::Render,
-            .layout = gfx::TextureLayout::RenderTarget,
-            .layer  = layer,
-        });
-    pass->m_RenderTarget      = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture.index].get());
+    desc.type       = gfx::TextureViewType::RenderTarget;
+    const auto edge = AddTextureEdge(
+        texture, {
+                     .write     = true,
+                     .access    = gfx::BarrierAccess::RenderTarget,
+                     .stage     = gfx::PipelineStage::Render,
+                     .layout    = gfx::TextureLayout::RenderTarget,
+                     .view_desc = std::move(desc),
+                 });
+    pass->m_RenderTarget      = edge;
     pass->m_ClearRenderTarget = clear;
-    return *this;
+    return edge;
 }
 
-auto RenderPassBuilder::SetDepthStencil(TextureHandle texture, bool clear, gfx::TextureSubresourceLayer layer) noexcept -> RenderPassBuilder& {
+auto RenderPassBuilder::SetDepthStencil(TextureHandle texture, bool clear, gfx::TextureViewDesc desc) noexcept -> TextureEdgeHandle {
+    if (m_Invalid) return {};
     if (pass->m_DepthStencil) {
-        Invalidate(std::format("Set depth stencil failed: depth stencil is already set"));
-        return *this;
+        Invalidate("Attachment already declared");
+        return {};
     }
-    AddTextureEdge(
-        texture,
-        {
-            .write  = true,
-            .access = gfx::BarrierAccess::DepthStencilWrite,
-            .stage  = gfx::PipelineStage::DepthStencil,
-            .layout = gfx::TextureLayout::DepthStencilWrite,
-            .layer  = layer,
-        });
-    pass->m_DepthStencil      = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture.index].get());
+    desc.type       = gfx::TextureViewType::DepthStencil;
+    const auto edge = AddTextureEdge(
+        texture, {
+                     .write     = true,
+                     .access    = gfx::BarrierAccess::DepthStencilWrite,
+                     .stage     = gfx::PipelineStage::DepthStencil,
+                     .layout    = gfx::TextureLayout::DepthStencilWrite,
+                     .view_desc = std::move(desc),
+                 });
+    pass->m_DepthStencil      = edge;
     pass->m_ClearDepthStencil = clear;
-    return *this;
+    return edge;
 }
 
-auto RenderPassBuilder::ReadDepthStencil(TextureHandle texture, gfx::TextureSubresourceLayer layer) noexcept -> RenderPassBuilder& {
+auto RenderPassBuilder::ReadDepthStencil(TextureHandle texture, gfx::TextureViewDesc desc) noexcept -> TextureEdgeHandle {
+    if (m_Invalid) return {};
     if (pass->m_DepthStencil) {
-        Invalidate(std::format("Read depth stencil failed: depth stencil is already set"));
-        return *this;
+        Invalidate("Attachment already declared");
+        return {};
     }
-    AddTextureEdge(
-        texture,
-        {
-            .write  = false,
-            .access = gfx::BarrierAccess::DepthStencilRead,
-            .stage  = gfx::PipelineStage::DepthStencil,
-            .layout = gfx::TextureLayout::DepthStencilRead,
-            .layer  = layer,
-        });
-    if (m_Invalid) return *this;
-    pass->m_DepthStencil      = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture.index].get());
+    desc.type       = gfx::TextureViewType::DepthStencil;
+    const auto edge = AddTextureEdge(
+        texture, {
+                     .write     = false,
+                     .access    = gfx::BarrierAccess::DepthStencilRead,
+                     .stage     = gfx::PipelineStage::DepthStencil,
+                     .layout    = gfx::TextureLayout::DepthStencilRead,
+                     .view_desc = std::move(desc),
+                 });
+    pass->m_DepthStencil      = edge;
     pass->m_ClearDepthStencil = false;
-    return *this;
+    return edge;
 }
 
-auto RenderPassBuilder::AddSampler(SamplerHandle sampler) noexcept -> RenderPassBuilder& {
-    AddSamplerEdge(
-        sampler,
-        SamplerEdge{});
-    return *this;
+auto RenderPassBuilder::Read(GPUBufferHandle resource, gfx::GPUBufferViewDesc desc, gfx::PipelineStage stage) noexcept -> GPUBufferEdgeHandle {
+    desc.type = gfx::GPUBufferViewType::StorageRead;
+    return AddGPUBufferEdge(
+        resource, {
+                      .write     = false,
+                      .access    = gfx::BarrierAccess::ShaderRead,
+                      .stage     = stage,
+                      .view_desc = std::move(desc),
+                  });
 }
 
-auto RenderPassBuilder::SetExecutor(RenderPassNode::Executor executor) noexcept -> RenderPassBuilder& {
-    if (m_Invalid) return *this;
+auto RenderPassBuilder::Read(TextureHandle resource, gfx::TextureViewDesc desc, gfx::PipelineStage stage) noexcept -> TextureEdgeHandle {
+    desc.type = gfx::TextureViewType::ShaderRead;
+    return AddTextureEdge(
+        resource, {
+                      .write     = false,
+                      .access    = gfx::BarrierAccess::ShaderRead,
+                      .stage     = stage,
+                      .layout    = gfx::TextureLayout::ShaderRead,
+                      .view_desc = std::move(desc),
+                  });
+}
+
+auto RenderPassBuilder::Write(GPUBufferHandle resource, gfx::GPUBufferViewDesc desc, gfx::PipelineStage stage) noexcept -> GPUBufferEdgeHandle {
+    desc.type = gfx::GPUBufferViewType::StorageWrite;
+    return AddGPUBufferEdge(
+        resource, {
+                      .write     = true,
+                      .access    = gfx::BarrierAccess::ShaderWrite,
+                      .stage     = stage,
+                      .view_desc = std::move(desc),
+                  });
+}
+
+auto RenderPassBuilder::Write(TextureHandle resource, gfx::TextureViewDesc desc, gfx::PipelineStage stage) noexcept -> TextureEdgeHandle {
+    desc.type = gfx::TextureViewType::ShaderWrite;
+    return AddTextureEdge(
+        resource, {
+                      .write     = true,
+                      .access    = gfx::BarrierAccess::ShaderWrite,
+                      .stage     = stage,
+                      .layout    = gfx::TextureLayout::ShaderWrite,
+                      .view_desc = std::move(desc),
+                  });
+}
+
+void RenderPassBuilder::AddSampler(SamplerHandle sampler) noexcept {
+    AddSamplerEdge(sampler);
+}
+
+void RenderPassBuilder::SetExecutor(RenderPassNode::Executor executor) noexcept {
+    if (m_Invalid) return;
 
     if (pass->m_Executor) {
         Invalidate("Set executor failed: executor is already set");
-        return *this;
+        return;
     }
     pass->m_Executor = std::move(executor);
-
-    return *this;
 }
 
 auto RenderPassBuilder::Finish() noexcept -> RenderPassHandle {
@@ -420,114 +354,79 @@ ComputePassBuilder::ComputePassBuilder(RenderGraph& render_graph)
     : PassBuilder(render_graph, std::make_shared<ComputePassNode>(render_graph)),
       pass(std::static_pointer_cast<ComputePassNode>(pass_base)) {}
 
-auto ComputePassBuilder::SetName(std::string_view name) noexcept -> ComputePassBuilder& {
-    if (m_Invalid) return *this;
+void ComputePassBuilder::SetName(std::string_view name) noexcept {
+    if (m_Invalid) return;
 
     if (m_RenderGraph.m_BlackBoard[RenderGraphNode::Type::ComputePass].contains(std::pmr::string(name))) {
         Invalidate(fmt::format("Set name failed: the name ({}) already exists", fmt::styled(name, fmt::fg(fmt::color::red))));
-        return *this;
+        return;
     }
 
     pass->m_Name = name;
-
-    return *this;
 }
 
-auto ComputePassBuilder::AllowPassCulling(bool allow) noexcept -> ComputePassBuilder& {
+void ComputePassBuilder::AllowPassCulling(bool allow) noexcept {
     SetPassCullingAllowed(allow);
-    return *this;
 }
 
-auto ComputePassBuilder::Read(GPUBufferHandle buffer) noexcept -> ComputePassBuilder& {
-    if (m_Invalid) return *this;
-    if (!m_RenderGraph.IsValid(buffer)) {
-        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer.index));
-        return *this;
-    }
-    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
-    return Read(buffer, 0, 1, buffer_node->GetDesc().size);
+auto ComputePassBuilder::Read(GPUBufferHandle resource, gfx::GPUBufferViewDesc desc) noexcept -> GPUBufferEdgeHandle {
+    desc.type = gfx::GPUBufferViewType::StorageRead;
+    return AddGPUBufferEdge(
+        resource, {
+                      .write     = false,
+                      .access    = gfx::BarrierAccess::ShaderRead,
+                      .stage     = gfx::PipelineStage::ComputeShader,
+                      .view_desc = std::move(desc),
+                  });
 }
 
-auto ComputePassBuilder::Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size) noexcept -> ComputePassBuilder& {
-    AddGPUBufferEdge(
-        buffer,
-        {
-            .write          = false,
-            .access         = gfx::BarrierAccess::Constant,
-            .stage          = gfx::PipelineStage::ComputeShader,
-            .element_offset = element_offset,
-            .num_elements   = num_elements,
-            .element_size    = element_size,
-        });
-    return *this;
+auto ComputePassBuilder::Read(TextureHandle resource, gfx::TextureViewDesc desc) noexcept -> TextureEdgeHandle {
+    desc.type = gfx::TextureViewType::ShaderRead;
+    return AddTextureEdge(
+        resource, {
+                      .write     = false,
+                      .access    = gfx::BarrierAccess::ShaderRead,
+                      .stage     = gfx::PipelineStage::ComputeShader,
+                      .layout    = gfx::TextureLayout::ShaderRead,
+                      .view_desc = std::move(desc),
+                  });
 }
 
-auto ComputePassBuilder::Read(TextureHandle texture, gfx::TextureSubresourceLayer layer) noexcept -> ComputePassBuilder& {
-    AddTextureEdge(
-        texture,
-        {
-            .write  = false,
-            .access = gfx::BarrierAccess::ShaderRead,
-            .stage  = gfx::PipelineStage::ComputeShader,
-            .layout = gfx::TextureLayout::ShaderRead,
-            .layer  = layer,
-        });
-    return *this;
+auto ComputePassBuilder::Write(GPUBufferHandle resource, gfx::GPUBufferViewDesc desc) noexcept -> GPUBufferEdgeHandle {
+    desc.type = gfx::GPUBufferViewType::StorageWrite;
+    return AddGPUBufferEdge(
+        resource, {
+                      .write     = true,
+                      .access    = gfx::BarrierAccess::ShaderWrite,
+                      .stage     = gfx::PipelineStage::ComputeShader,
+                      .view_desc = std::move(desc),
+                  });
 }
 
-auto ComputePassBuilder::Write(GPUBufferHandle buffer) noexcept -> ComputePassBuilder& {
-    if (m_Invalid) return *this;
-
-    if (!m_RenderGraph.IsValid(buffer)) {
-        Invalidate(std::format("Read buffer failed: buffer({}) is invalid", buffer.index));
-        return *this;
-    }
-    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph.m_Nodes[buffer.index].get());
-    return Write(buffer, 0, 1, buffer_node->GetDesc().size);
+auto ComputePassBuilder::Write(TextureHandle resource, gfx::TextureViewDesc desc) noexcept -> TextureEdgeHandle {
+    desc.type = gfx::TextureViewType::ShaderWrite;
+    return AddTextureEdge(
+        resource, {
+                      .write     = true,
+                      .access    = gfx::BarrierAccess::ShaderWrite,
+                      .stage     = gfx::PipelineStage::ComputeShader,
+                      .layout    = gfx::TextureLayout::ShaderWrite,
+                      .view_desc = std::move(desc),
+                  });
 }
 
-auto ComputePassBuilder::Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size) noexcept -> ComputePassBuilder& {
-    AddGPUBufferEdge(
-        buffer,
-        {
-            .write          = true,
-            .access         = gfx::BarrierAccess::ShaderWrite,
-            .stage          = gfx::PipelineStage::ComputeShader,
-            .element_offset = element_offset,
-            .num_elements   = num_elements,
-            .element_size    = element_size,
-        });
-    return *this;
+void ComputePassBuilder::AddSampler(SamplerHandle sampler) noexcept {
+    AddSamplerEdge(sampler);
 }
 
-auto ComputePassBuilder::Write(TextureHandle texture, gfx::TextureSubresourceLayer layer) noexcept -> ComputePassBuilder& {
-    AddTextureEdge(
-        texture,
-        {
-            .write  = true,
-            .access = gfx::BarrierAccess::ShaderWrite,
-            .stage  = gfx::PipelineStage::ComputeShader,
-            .layout = gfx::TextureLayout::ShaderWrite,
-            .layer  = layer,
-        });
-    return *this;
-}
-
-auto ComputePassBuilder::AddSampler(SamplerHandle sampler) noexcept -> ComputePassBuilder& {
-    AddSamplerEdge(sampler, SamplerEdge{});
-    return *this;
-}
-
-auto ComputePassBuilder::SetExecutor(ComputePassNode::Executor executor) noexcept -> ComputePassBuilder& {
-    if (m_Invalid) return *this;
+void ComputePassBuilder::SetExecutor(ComputePassNode::Executor executor) noexcept {
+    if (m_Invalid) return;
 
     if (pass->m_Executor) {
         Invalidate("Set executor failed: executor is already set");
-        return *this;
+        return;
     }
     pass->m_Executor = std::move(executor);
-
-    return *this;
 }
 
 auto ComputePassBuilder::Finish() noexcept -> ComputePassHandle {
@@ -554,124 +453,122 @@ CopyPassBuilder::CopyPassBuilder(RenderGraph& rg)
     : PassBuilder(rg, std::make_shared<CopyPassNode>(rg)),
       pass(std::static_pointer_cast<CopyPassNode>(pass_base)) {}
 
-auto CopyPassBuilder::SetName(std::string_view name) noexcept -> CopyPassBuilder& {
-    if (m_Invalid) return *this;
+void CopyPassBuilder::SetName(std::string_view name) noexcept {
+    if (m_Invalid) return;
 
     if (m_RenderGraph.m_BlackBoard[RenderGraphNode::Type::CopyPass].contains(std::pmr::string(name))) {
         Invalidate(fmt::format("Set name failed: name {} already exists", fmt::styled(name, fmt::fg(fmt::color::red))));
     }
 
     pass->m_Name = name;
-
-    return *this;
 }
 
-auto CopyPassBuilder::AllowPassCulling(bool allow) noexcept -> CopyPassBuilder& {
+void CopyPassBuilder::AllowPassCulling(bool allow) noexcept {
     SetPassCullingAllowed(allow);
-    return *this;
 }
 
-auto CopyPassBuilder::BufferToBuffer(GPUBufferHandle src, GPUBufferHandle dst) noexcept -> CopyPassBuilder& {
+void CopyPassBuilder::BufferToBuffer(GPUBufferHandle src, GPUBufferHandle dst) noexcept {
     if (src == dst) {
         Invalidate(std::format("Copy buffer failed: src and dst are the same buffer"));
-        return *this;
+        return;
     }
     AddGPUBufferEdge(
         src,
         {
-            .write  = false,
-            .access = gfx::BarrierAccess::CopySrc,
-            .stage  = gfx::PipelineStage::Copy,
+            .write       = false,
+            .access      = gfx::BarrierAccess::CopySrc,
+            .stage       = gfx::PipelineStage::Copy,
+            .create_view = false,
         });
     AddGPUBufferEdge(
         dst,
         {
-            .write  = true,
-            .access = gfx::BarrierAccess::CopyDst,
-            .stage  = gfx::PipelineStage::Copy,
+            .write       = true,
+            .access      = gfx::BarrierAccess::CopyDst,
+            .stage       = gfx::PipelineStage::Copy,
+            .create_view = false,
         });
-    return *this;
 }
 
-auto CopyPassBuilder::BufferToTexture(GPUBufferHandle src, TextureHandle dst, gfx::TextureSubresourceLayer layer) noexcept -> CopyPassBuilder& {
+void CopyPassBuilder::BufferToTexture(GPUBufferHandle src, TextureHandle dst, gfx::TextureSubresourceLayer layer) noexcept {
     AddGPUBufferEdge(
         src,
         {
-            .write  = false,
-            .access = gfx::BarrierAccess::CopySrc,
-            .stage  = gfx::PipelineStage::Copy,
+            .write       = false,
+            .access      = gfx::BarrierAccess::CopySrc,
+            .stage       = gfx::PipelineStage::Copy,
+            .create_view = false,
         });
     AddTextureEdge(
         dst,
         {
-            .write  = true,
-            .access = gfx::BarrierAccess::CopyDst,
-            .stage  = gfx::PipelineStage::Copy,
-            .layout = gfx::TextureLayout::CopyDst,
-            .layer  = layer,
+            .write       = true,
+            .access      = gfx::BarrierAccess::CopyDst,
+            .stage       = gfx::PipelineStage::Copy,
+            .layout      = gfx::TextureLayout::CopyDst,
+            .view_desc   = {.base_mip_level = layer.mip_level, .mip_levels = 1, .base_array_layer = layer.base_array_layer, .layer_count = layer.layer_count},
+            .create_view = false,
         });
-    return *this;
 }
 
-auto CopyPassBuilder::TextureToBuffer(TextureHandle src, GPUBufferHandle dst, gfx::TextureSubresourceLayer layer) noexcept -> CopyPassBuilder& {
+void CopyPassBuilder::TextureToBuffer(TextureHandle src, GPUBufferHandle dst, gfx::TextureSubresourceLayer layer) noexcept {
     AddTextureEdge(
         src,
         {
-            .write  = false,
-            .access = gfx::BarrierAccess::CopySrc,
-            .stage  = gfx::PipelineStage::Copy,
-            .layout = gfx::TextureLayout::CopySrc,
-            .layer  = layer,
+            .write       = false,
+            .access      = gfx::BarrierAccess::CopySrc,
+            .stage       = gfx::PipelineStage::Copy,
+            .layout      = gfx::TextureLayout::CopySrc,
+            .view_desc   = {.base_mip_level = layer.mip_level, .mip_levels = 1, .base_array_layer = layer.base_array_layer, .layer_count = layer.layer_count},
+            .create_view = false,
         });
     AddGPUBufferEdge(
         dst,
         {
-            .write  = true,
-            .access = gfx::BarrierAccess::CopyDst,
-            .stage  = gfx::PipelineStage::Copy,
+            .write       = true,
+            .access      = gfx::BarrierAccess::CopyDst,
+            .stage       = gfx::PipelineStage::Copy,
+            .create_view = false,
         });
-    return *this;
 }
 
-auto CopyPassBuilder::TextureToTexture(TextureHandle src, TextureHandle dst, gfx::TextureSubresourceLayer src_layer, gfx::TextureSubresourceLayer dst_layer) noexcept -> CopyPassBuilder& {
+void CopyPassBuilder::TextureToTexture(TextureHandle src, TextureHandle dst, gfx::TextureSubresourceLayer src_layer, gfx::TextureSubresourceLayer dst_layer) noexcept {
     if (src == dst) {
         Invalidate(std::format("Copy texture failed: src and dst are the same texture"));
-        return *this;
+        return;
     }
 
     AddTextureEdge(
         src,
         {
-            .write  = false,
-            .access = gfx::BarrierAccess::CopySrc,
-            .stage  = gfx::PipelineStage::Copy,
-            .layout = gfx::TextureLayout::CopySrc,
-            .layer  = src_layer,
+            .write       = false,
+            .access      = gfx::BarrierAccess::CopySrc,
+            .stage       = gfx::PipelineStage::Copy,
+            .layout      = gfx::TextureLayout::CopySrc,
+            .view_desc   = {.base_mip_level = src_layer.mip_level, .mip_levels = 1, .base_array_layer = src_layer.base_array_layer, .layer_count = src_layer.layer_count},
+            .create_view = false,
         });
 
     AddTextureEdge(
         dst,
         {
-            .write  = true,
-            .access = gfx::BarrierAccess::CopyDst,
-            .stage  = gfx::PipelineStage::Copy,
-            .layout = gfx::TextureLayout::CopyDst,
-            .layer  = dst_layer,
+            .write       = true,
+            .access      = gfx::BarrierAccess::CopyDst,
+            .stage       = gfx::PipelineStage::Copy,
+            .layout      = gfx::TextureLayout::CopyDst,
+            .view_desc   = {.base_mip_level = dst_layer.mip_level, .mip_levels = 1, .base_array_layer = dst_layer.base_array_layer, .layer_count = dst_layer.layer_count},
+            .create_view = false,
         });
-
-    return *this;
 }
 
-auto CopyPassBuilder::SetExecutor(CopyPassNode::Executor executor) noexcept -> CopyPassBuilder& {
-    if (m_Invalid) return *this;
+void CopyPassBuilder::SetExecutor(CopyPassNode::Executor executor) noexcept {
+    if (m_Invalid) return;
 
     if (pass->m_Executor) {
         Invalidate("Set executor failed: executor is already set");
-        return *this;
+        return;
     }
     pass->m_Executor = std::move(executor);
-
-    return *this;
 }
 
 auto CopyPassBuilder::Finish() noexcept -> CopyPassHandle {
@@ -720,7 +617,7 @@ PresentPassBuilder::PresentPassBuilder(RenderGraph& rg)
                 std::min(render_target->get().GetDesc().height, pass.m_From->Resolve().GetDesc().height),
                 1,
             },
-            pass.m_TextureEdges.begin()->second.layer);
+            gfx::TextureSubresourceLayer{.mip_level = pass.m_TextureEdges.front().view_desc.base_mip_level, .base_array_layer = pass.m_TextureEdges.front().view_desc.base_array_layer, .layer_count = pass.m_TextureEdges.front().view_desc.layer_count});
 
         cmd.ResourceBarrier(
             {}, {}, {{
@@ -729,33 +626,32 @@ PresentPassBuilder::PresentPassBuilder(RenderGraph& rg)
     };
 }
 
-auto PresentPassBuilder::From(TextureHandle texture, gfx::TextureSubresourceLayer layer) noexcept -> PresentPassBuilder& {
+void PresentPassBuilder::From(TextureHandle texture, gfx::TextureSubresourceLayer layer) noexcept {
     if (pass->m_From) {
         Invalidate(std::format("Present from texture({}) failed: already presented from texture({})", texture.index, pass->m_From->GetName()));
-        return *this;
+        return;
     }
 
     AddTextureEdge(
         texture,
         {
-            .write  = false,
-            .access = gfx::BarrierAccess::CopySrc,
-            .stage  = gfx::PipelineStage::All,
-            .layout = gfx::TextureLayout::CopySrc,
-            .layer  = layer,
+            .write       = false,
+            .access      = gfx::BarrierAccess::CopySrc,
+            .stage       = gfx::PipelineStage::All,
+            .layout      = gfx::TextureLayout::CopySrc,
+            .view_desc   = {.base_mip_level = layer.mip_level, .mip_levels = 1, .base_array_layer = layer.base_array_layer, .layer_count = layer.layer_count},
+            .create_view = false,
         });
     pass->m_From = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[texture.index].get());
-    return *this;
 }
 
-auto PresentPassBuilder::SetSwapChain(const std::shared_ptr<gfx::SwapChain>& swap_chain) noexcept -> PresentPassBuilder& {
-    if (m_Invalid) return *this;
+void PresentPassBuilder::SetSwapChain(const std::shared_ptr<gfx::SwapChain>& swap_chain) noexcept {
+    if (m_Invalid) return;
     if (pass->swap_chain) {
         Invalidate("Set swap chain failed: swap chain is already set");
-        return *this;
+        return;
     }
     pass->swap_chain = swap_chain;
-    return *this;
 }
 
 void PresentPassBuilder::Finish() noexcept {

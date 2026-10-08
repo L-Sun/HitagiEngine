@@ -222,29 +222,29 @@ auto RenderGraph::QueueTextureExtraction(TextureHandle from, std::shared_ptr<gfx
     const auto dst  = Import(std::move(to));
     const auto name = std::format("TextureExtraction-{}-{}", m_FrameIndex, m_ExtractionIndex++);
 
-    return CopyPassBuilder(*this)
-        .SetName(name)
-        .AllowPassCulling(false)
-        .TextureToTexture(from, dst, from_layer, to_layer)
-        .SetExecutor([from, dst, from_layer, to_layer](const RenderGraph&, const CopyPassNode& pass) {
-            auto& cmd     = pass.GetCmd();
-            auto& src     = pass.Resolve(from);
-            auto& dst_tex = pass.Resolve(dst);
+    CopyPassBuilder builder(*this);
+    builder.SetName(name);
+    builder.AllowPassCulling(false);
+    builder.TextureToTexture(from, dst, from_layer, to_layer);
+    builder.SetExecutor([from, dst, from_layer, to_layer](const RenderGraph&, const CopyPassNode& pass) {
+        auto& cmd     = pass.GetCmd();
+        auto& src     = pass.Resolve(from);
+        auto& dst_tex = pass.Resolve(dst);
 
-            cmd.CopyTextureRegion(
-                src,
-                {0, 0, 0},
-                dst_tex,
-                {0, 0, 0},
-                {
-                    std::min(src.GetDesc().width, dst_tex.GetDesc().width),
-                    std::min(src.GetDesc().height, dst_tex.GetDesc().height),
-                    std::min(static_cast<std::uint32_t>(src.GetDesc().depth), static_cast<std::uint32_t>(dst_tex.GetDesc().depth)),
-                },
-                from_layer,
-                to_layer);
-        })
-        .Finish();
+        cmd.CopyTextureRegion(
+            src,
+            {0, 0, 0},
+            dst_tex,
+            {0, 0, 0},
+            {
+                std::min(src.GetDesc().width, dst_tex.GetDesc().width),
+                std::min(src.GetDesc().height, dst_tex.GetDesc().height),
+                std::min(static_cast<std::uint32_t>(src.GetDesc().depth), static_cast<std::uint32_t>(dst_tex.GetDesc().depth)),
+            },
+            from_layer,
+            to_layer);
+    });
+    return builder.Finish();
 }
 
 auto RenderGraph::QueueBufferExtraction(TextureHandle from, std::shared_ptr<gfx::GPUBuffer> to, gfx::TextureSubresourceLayer from_layer) noexcept -> CopyPassHandle {
@@ -260,28 +260,28 @@ auto RenderGraph::QueueBufferExtraction(TextureHandle from, std::shared_ptr<gfx:
     const auto dst  = Import(std::move(to));
     const auto name = std::format("BufferExtraction-{}-{}", m_FrameIndex, m_ExtractionIndex++);
 
-    return CopyPassBuilder(*this)
-        .SetName(name)
-        .AllowPassCulling(false)
-        .TextureToBuffer(from, dst, from_layer)
-        .SetExecutor([from, dst, from_layer](const RenderGraph&, const CopyPassNode& pass) {
-            auto& cmd        = pass.GetCmd();
-            auto& src        = pass.Resolve(from);
-            auto& dst_buffer = pass.Resolve(dst);
+    CopyPassBuilder builder(*this);
+    builder.SetName(name);
+    builder.AllowPassCulling(false);
+    builder.TextureToBuffer(from, dst, from_layer);
+    builder.SetExecutor([from, dst, from_layer](const RenderGraph&, const CopyPassNode& pass) {
+        auto& cmd        = pass.GetCmd();
+        auto& src        = pass.Resolve(from);
+        auto& dst_buffer = pass.Resolve(dst);
 
-            cmd.CopyTextureToBuffer(
-                src,
-                {0, 0, 0},
-                {
-                    src.GetDesc().width,
-                    src.GetDesc().height,
-                    static_cast<std::uint32_t>(src.GetDesc().depth),
-                },
-                dst_buffer,
-                0,
-                from_layer);
-        })
-        .Finish();
+        cmd.CopyTextureToBuffer(
+            src,
+            {0, 0, 0},
+            {
+                src.GetDesc().width,
+                src.GetDesc().height,
+                static_cast<std::uint32_t>(src.GetDesc().depth),
+            },
+            dst_buffer,
+            0,
+            from_layer);
+    });
+    return builder.Finish();
 }
 
 bool RenderGraph::Compile() {
@@ -702,7 +702,7 @@ void RenderGraph::RecycleTransientResource(RenderGraphNode* node) noexcept {
         case RenderGraphNode::Type::GPUBuffer: {
             auto* buffer_node = static_cast<GPUBufferNode*>(node);
             if (buffer_node->m_MoveFromNode || buffer_node->m_MoveToNode) return;
-            auto resource = std::static_pointer_cast<gfx::GPUBuffer>(resource_node->m_Resource);
+            auto       resource  = std::static_pointer_cast<gfx::GPUBuffer>(resource_node->m_Resource);
             const auto byte_size = resource->GetAllocationSize();
             m_TransientPool.buffers.emplace(
                 buffer_pool_key(buffer_node->GetDesc()),
@@ -718,7 +718,7 @@ void RenderGraph::RecycleTransientResource(RenderGraphNode* node) noexcept {
         case RenderGraphNode::Type::Texture: {
             auto* texture_node = static_cast<TextureNode*>(node);
             if (texture_node->m_MoveFromNode || texture_node->m_MoveToNode) return;
-            auto resource = std::static_pointer_cast<gfx::Texture>(resource_node->m_Resource);
+            auto       resource  = std::static_pointer_cast<gfx::Texture>(resource_node->m_Resource);
             const auto byte_size = resource->GetAllocationSize();
             m_TransientPool.textures.emplace(
                 texture_pool_key(texture_node->GetDesc()),
@@ -784,23 +784,19 @@ auto RenderGraph::ToDot() const noexcept -> std::pmr::string {
 
         if (pass_node) {
             std::pmr::string edge;
-            switch (resource_node->GetType()) {
-                case RenderGraphNode::Type::GPUBuffer: {
-                    const auto  buffer_node = const_cast<GPUBufferNode*>(static_cast<const GPUBufferNode*>(resource_node));
-                    const auto& buffer_edge = pass_node->m_GPUBufferEdges.at(buffer_node);
-                    if (!(buffer_edge.write && resource_node == from)) {
-                        edge = std::format("{},{}", magic_enum::enum_name(buffer_edge.access), magic_enum::enum_name(buffer_edge.stage));
-                    }
-                } break;
-                case RenderGraphNode::Type::Texture: {
-                    const auto  texture_node = const_cast<TextureNode*>(static_cast<const TextureNode*>(resource_node));
-                    const auto& texture_edge = pass_node->m_TextureEdges.at(texture_node);
-                    if (!(texture_edge.write && resource_node == from)) {
-                        edge = std::format("{},{},{}", magic_enum::enum_name(texture_edge.access), magic_enum::enum_name(texture_edge.layout), magic_enum::enum_name(texture_edge.stage));
-                    }
-                } break;
-                default: {
-                }
+            for (const auto& access : pass_node->m_GPUBufferEdges) {
+                if (access.resource != resource_node) continue;
+                if (!edge.empty()) edge += "\\n";
+                edge += std::format("{},{}; offset={}, count={}, stride={}",
+                                    magic_enum::enum_name(access.access), magic_enum::enum_name(access.stage),
+                                    access.view_desc.offset, access.view_desc.element_count, access.view_desc.element_stride);
+            }
+            for (const auto& access : pass_node->m_TextureEdges) {
+                if (access.resource != resource_node) continue;
+                if (!edge.empty()) edge += "\\n";
+                edge += std::format("{},{},{}; mip={}, layers={}",
+                                    magic_enum::enum_name(access.access), magic_enum::enum_name(access.layout), magic_enum::enum_name(access.stage),
+                                    access.view_desc.base_mip_level, access.view_desc.layer_count);
             }
             return std::pmr::string(std::format("label=\"{}\"", edge));
         }

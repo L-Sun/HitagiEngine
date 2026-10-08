@@ -102,13 +102,13 @@ struct RenderGraphHandle {
     RenderGraphNode::Type type = T;
 };
 
-using GPUBufferHandle       = RenderGraphHandle<RenderGraphNode::Type::GPUBuffer>;
-using TextureHandle         = RenderGraphHandle<RenderGraphNode::Type::Texture>;
-using SamplerHandle         = RenderGraphHandle<RenderGraphNode::Type::Sampler>;
-using RenderPassHandle      = RenderGraphHandle<RenderGraphNode::Type::RenderPass>;
-using ComputePassHandle     = RenderGraphHandle<RenderGraphNode::Type::ComputePass>;
-using CopyPassHandle        = RenderGraphHandle<RenderGraphNode::Type::CopyPass>;
-using PresentPassHandle     = RenderGraphHandle<RenderGraphNode::Type::PresentPass>;
+using GPUBufferHandle   = RenderGraphHandle<RenderGraphNode::Type::GPUBuffer>;
+using TextureHandle     = RenderGraphHandle<RenderGraphNode::Type::Texture>;
+using SamplerHandle     = RenderGraphHandle<RenderGraphNode::Type::Sampler>;
+using RenderPassHandle  = RenderGraphHandle<RenderGraphNode::Type::RenderPass>;
+using ComputePassHandle = RenderGraphHandle<RenderGraphNode::Type::ComputePass>;
+using CopyPassHandle    = RenderGraphHandle<RenderGraphNode::Type::CopyPass>;
+using PresentPassHandle = RenderGraphHandle<RenderGraphNode::Type::PresentPass>;
 
 }  // namespace hitagi::rg
 
@@ -123,48 +123,37 @@ struct hash<hitagi::rg::RenderGraphHandle<T>> {
 
 export namespace hitagi::rg {
 
+// Access handles belong to one pass instance, not to a resource or a view node.
+template <RenderGraphNode::Type T>
+struct ResourceEdgeHandle {
+    std::uint64_t owner = 0;
+    std::size_t   index = std::numeric_limits<std::size_t>::max();
+    explicit      operator bool() const noexcept { return owner != 0; }
+    bool          operator==(const ResourceEdgeHandle&) const noexcept = default;
+};
+using GPUBufferEdgeHandle = ResourceEdgeHandle<RenderGraphNode::Type::GPUBuffer>;
+using TextureEdgeHandle   = ResourceEdgeHandle<RenderGraphNode::Type::Texture>;
+
 struct GPUBufferEdge {
-    bool               write;
-    gfx::BarrierAccess access;
-    gfx::PipelineStage stage;
-    std::size_t        element_offset;
-    std::size_t        num_elements;
-    std::size_t        element_size;
-
-    std::pmr::vector<std::shared_ptr<gfx::GPUBufferView>> bindless_views;
-
-    bool operator==(const GPUBufferEdge& rhs) const noexcept {
-        return write == rhs.write &&
-               access == rhs.access &&
-               stage == rhs.stage &&
-               element_offset == rhs.element_offset &&
-               num_elements == rhs.num_elements &&
-               element_size == rhs.element_size;
-    }
+    GPUBufferNode*                      resource = nullptr;
+    bool                                write    = false;
+    gfx::BarrierAccess                  access{};
+    gfx::PipelineStage                  stage{};
+    gfx::GPUBufferViewDesc              view_desc;
+    bool                                create_view = true;
+    std::shared_ptr<gfx::GPUBufferView> view;
 };
 
 struct TextureEdge {
-    bool                         write;
-    gfx::BarrierAccess           access;
-    gfx::PipelineStage           stage;
-    gfx::TextureLayout           layout;
-    gfx::TextureSubresourceLayer layer;
-
-    std::shared_ptr<gfx::TextureView> bindless_view;
-
-    bool operator==(const TextureEdge& rhs) const noexcept {
-        return write == rhs.write &&
-               access == rhs.access &&
-               layout == rhs.layout &&
-               stage == rhs.stage;
-    }
+    TextureNode*                      resource = nullptr;
+    bool                              write    = false;
+    gfx::BarrierAccess                access{};
+    gfx::PipelineStage                stage{};
+    gfx::TextureLayout                layout{};
+    gfx::TextureViewDesc              view_desc;
+    bool                              create_view = true;
+    std::shared_ptr<gfx::TextureView> view;
 };
-
-struct SamplerEdge {
-    gfx::BindlessHandle bindless;
-};
-
-
 
 class ResourceNode : public RenderGraphNode {
 public:
@@ -246,32 +235,31 @@ public:
     friend RenderGraph;
     friend PassBuilder;
 
-    virtual ~PassNode() override;
+    ~PassNode() override = default;
 
     auto Resolve(GPUBufferHandle buffer) const -> gfx::GPUBuffer&;
+    auto Resolve(GPUBufferEdgeHandle edge) const -> gfx::GPUBufferView&;
+    auto Resolve(TextureEdgeHandle edge) const -> gfx::TextureView&;
     auto Resolve(TextureHandle texture) const -> gfx::Texture&;
     auto Resolve(SamplerHandle sampler) const -> gfx::Sampler&;
-
-    auto GetBindless(GPUBufferHandle buffer, std::size_t index = 0) const noexcept -> gfx::BindlessHandle;
-    auto GetBindless(TextureHandle buffer) const noexcept -> gfx::BindlessHandle;
-    auto GetBindless(SamplerHandle sampler) const noexcept -> gfx::BindlessHandle;
 
     auto GetCommandType() const noexcept -> gfx::CommandType;
 
 protected:
-    PassNode(RenderGraph& render_graph, Type type) : RenderGraphNode(render_graph, type) {}
+    PassNode(RenderGraph& render_graph, Type type);
 
     void Initialize() final;
 
     void PrepareResourceBarriers();
     void ResourceBarrier();
-    void CreateBindless();
+    void PrepareResourceViews();
 
     virtual void Execute() = 0;
 
-    std::pmr::unordered_map<GPUBufferNode*, GPUBufferEdge> m_GPUBufferEdges;
-    std::pmr::unordered_map<TextureNode*, TextureEdge>     m_TextureEdges;
-    std::pmr::unordered_map<SamplerNode*, SamplerEdge>     m_SamplerEdges;
+    std::pmr::vector<GPUBufferEdge>       m_GPUBufferEdges;
+    std::pmr::vector<TextureEdge>         m_TextureEdges;
+    std::uint64_t                         m_AccessOwner;
+    std::pmr::unordered_set<SamplerNode*> m_Samplers;
 
     std::pmr::vector<gfx::GPUBufferBarrier> m_GPUBufferBarriers;
     std::pmr::vector<gfx::TextureBarrier>   m_TextureBarriers;
@@ -295,11 +283,11 @@ public:
 protected:
     void Execute() final;
 
-    Executor     m_Executor;
-    TextureNode* m_RenderTarget      = nullptr;
-    TextureNode* m_DepthStencil      = nullptr;
-    bool         m_ClearRenderTarget = false;
-    bool         m_ClearDepthStencil = false;
+    Executor          m_Executor;
+    TextureEdgeHandle m_RenderTarget;
+    TextureEdgeHandle m_DepthStencil;
+    bool              m_ClearRenderTarget = false;
+    bool              m_ClearDepthStencil = false;
 };
 
 class ComputePassNode : public PassNode {
@@ -356,8 +344,6 @@ protected:
     TextureNode* m_From = nullptr;
 };
 
-
-
 class PassBuilder {
 public:
     friend RenderGraph;
@@ -374,9 +360,9 @@ protected:
 
     void Invalidate(std::string_view error_message) noexcept;
     void SetPassCullingAllowed(bool allow) noexcept;
-    void AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge edge) noexcept;
-    void AddTextureEdge(TextureHandle texture_handle, TextureEdge edge) noexcept;
-    void AddSamplerEdge(SamplerHandle sampler_handle, SamplerEdge edge) noexcept;
+    auto AddGPUBufferEdge(GPUBufferHandle buffer_handle, GPUBufferEdge edge) noexcept -> GPUBufferEdgeHandle;
+    auto AddTextureEdge(TextureHandle texture_handle, TextureEdge edge) noexcept -> TextureEdgeHandle;
+    void AddSamplerEdge(SamplerHandle sampler_handle) noexcept;
 
     auto Finish() -> std::size_t;
 
@@ -393,26 +379,24 @@ public:
 
     RenderPassBuilder(RenderGraph& render_graph);
 
-    RenderPassBuilder& SetName(std::string_view name) noexcept;
-    RenderPassBuilder& AllowPassCulling(bool allow) noexcept;
+    void SetName(std::string_view name) noexcept;
+    void AllowPassCulling(bool allow) noexcept;
 
-    RenderPassBuilder& Read(GPUBufferHandle buffer, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
-    RenderPassBuilder& Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
-    RenderPassBuilder& Read(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
-    RenderPassBuilder& ReadAsVertices(GPUBufferHandle buffer) noexcept;
-    RenderPassBuilder& ReadAsIndices(GPUBufferHandle buffer) noexcept;
+    auto Read(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc = {.element_count = 0}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept -> GPUBufferEdgeHandle;
+    auto Read(TextureHandle texture, gfx::TextureViewDesc desc = {}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept -> TextureEdgeHandle;
+    auto ReadAsVertices(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc = {.element_count = 0}) noexcept -> GPUBufferEdgeHandle;
+    auto ReadAsIndices(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc = {.element_count = 0}) noexcept -> GPUBufferEdgeHandle;
 
-    RenderPassBuilder& Write(GPUBufferHandle buffer, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
-    RenderPassBuilder& Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
-    RenderPassBuilder& Write(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept;
+    auto Write(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc = {.element_count = 0}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept -> GPUBufferEdgeHandle;
+    auto Write(TextureHandle texture, gfx::TextureViewDesc desc = {}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept -> TextureEdgeHandle;
 
-    RenderPassBuilder& SetRenderTarget(TextureHandle texture, bool clear = false, gfx::TextureSubresourceLayer layer = {}) noexcept;
-    RenderPassBuilder& SetDepthStencil(TextureHandle texture, bool clear = false, gfx::TextureSubresourceLayer layer = {}) noexcept;
-    RenderPassBuilder& ReadDepthStencil(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}) noexcept;
+    auto SetRenderTarget(TextureHandle texture, bool clear = false, gfx::TextureViewDesc desc = {.mip_levels = 1, .layer_count = 1}) noexcept -> TextureEdgeHandle;
+    auto SetDepthStencil(TextureHandle texture, bool clear = false, gfx::TextureViewDesc desc = {.mip_levels = 1, .layer_count = 1}) noexcept -> TextureEdgeHandle;
+    auto ReadDepthStencil(TextureHandle texture, gfx::TextureViewDesc desc = {.mip_levels = 1, .layer_count = 1}) noexcept -> TextureEdgeHandle;
 
-    RenderPassBuilder& AddSampler(SamplerHandle sampler) noexcept;
+    void AddSampler(SamplerHandle sampler) noexcept;
 
-    RenderPassBuilder& SetExecutor(RenderPassNode::Executor executor) noexcept;
+    void SetExecutor(RenderPassNode::Executor executor) noexcept;
 
     auto Finish() noexcept -> RenderPassHandle;
 
@@ -426,20 +410,18 @@ public:
 
     ComputePassBuilder(RenderGraph& render_graph);
 
-    ComputePassBuilder& SetName(std::string_view name) noexcept;
-    ComputePassBuilder& AllowPassCulling(bool allow) noexcept;
+    void SetName(std::string_view name) noexcept;
+    void AllowPassCulling(bool allow) noexcept;
 
-    ComputePassBuilder& Read(GPUBufferHandle buffer) noexcept;
-    ComputePassBuilder& Read(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size) noexcept;
-    ComputePassBuilder& Read(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}) noexcept;
+    auto Read(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc = {.element_count = 0}) noexcept -> GPUBufferEdgeHandle;
+    auto Read(TextureHandle texture, gfx::TextureViewDesc desc = {}) noexcept -> TextureEdgeHandle;
 
-    ComputePassBuilder& Write(GPUBufferHandle buffer) noexcept;
-    ComputePassBuilder& Write(GPUBufferHandle buffer, std::size_t element_offset, std::size_t num_elements, std::size_t element_size) noexcept;
-    ComputePassBuilder& Write(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}) noexcept;
+    auto Write(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc = {.element_count = 0}) noexcept -> GPUBufferEdgeHandle;
+    auto Write(TextureHandle texture, gfx::TextureViewDesc desc = {}) noexcept -> TextureEdgeHandle;
 
-    ComputePassBuilder& AddSampler(SamplerHandle sampler) noexcept;
+    void AddSampler(SamplerHandle sampler) noexcept;
 
-    ComputePassBuilder& SetExecutor(ComputePassNode::Executor executor) noexcept;
+    void SetExecutor(ComputePassNode::Executor executor) noexcept;
 
     auto Finish() noexcept -> ComputePassHandle;
 
@@ -453,15 +435,15 @@ public:
 
     CopyPassBuilder(RenderGraph& render_graph);
 
-    CopyPassBuilder& SetName(std::string_view name) noexcept;
-    CopyPassBuilder& AllowPassCulling(bool allow) noexcept;
+    void SetName(std::string_view name) noexcept;
+    void AllowPassCulling(bool allow) noexcept;
 
-    CopyPassBuilder& BufferToBuffer(GPUBufferHandle src, GPUBufferHandle dst) noexcept;
-    CopyPassBuilder& BufferToTexture(GPUBufferHandle src, TextureHandle dst, gfx::TextureSubresourceLayer layer = {}) noexcept;
-    CopyPassBuilder& TextureToBuffer(TextureHandle src, GPUBufferHandle dst, gfx::TextureSubresourceLayer layer = {}) noexcept;
-    CopyPassBuilder& TextureToTexture(TextureHandle src, TextureHandle dst, gfx::TextureSubresourceLayer src_layer = {}, gfx::TextureSubresourceLayer dst_layer = {}) noexcept;
+    void BufferToBuffer(GPUBufferHandle src, GPUBufferHandle dst) noexcept;
+    void BufferToTexture(GPUBufferHandle src, TextureHandle dst, gfx::TextureSubresourceLayer layer = {}) noexcept;
+    void TextureToBuffer(TextureHandle src, GPUBufferHandle dst, gfx::TextureSubresourceLayer layer = {}) noexcept;
+    void TextureToTexture(TextureHandle src, TextureHandle dst, gfx::TextureSubresourceLayer src_layer = {}, gfx::TextureSubresourceLayer dst_layer = {}) noexcept;
 
-    CopyPassBuilder& SetExecutor(CopyPassNode::Executor executor) noexcept;
+    void SetExecutor(CopyPassNode::Executor executor) noexcept;
 
     auto Finish() noexcept -> CopyPassHandle;
 
@@ -475,16 +457,14 @@ public:
 
     PresentPassBuilder(RenderGraph& render_graph);
 
-    PresentPassBuilder& From(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}) noexcept;
-    PresentPassBuilder& SetSwapChain(const std::shared_ptr<gfx::SwapChain>& swap_chain) noexcept;
+    void From(TextureHandle texture, gfx::TextureSubresourceLayer layer = {}) noexcept;
+    void SetSwapChain(const std::shared_ptr<gfx::SwapChain>& swap_chain) noexcept;
 
     void Finish() noexcept;
 
 private:
     std::shared_ptr<PresentPassNode> pass;
 };
-
-
 
 class RenderGraph {
 public:
@@ -617,7 +597,7 @@ private:
     std::pmr::vector<LayerProfile> m_LastLayerProfiles;
 
     struct TransientResourcePool {
-        static constexpr std::uint64_t max_unused_frames = 3;
+        static constexpr std::uint64_t max_unused_frames      = 3;
         static constexpr std::uint64_t max_texture_pool_bytes = 128ull * 1024ull * 1024ull;
 
         struct CachedBuffer {

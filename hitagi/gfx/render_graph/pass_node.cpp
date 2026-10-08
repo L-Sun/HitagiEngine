@@ -4,12 +4,9 @@ module;
 module gfx.render_graph;
 namespace hitagi::rg {
 
-PassNode::~PassNode() {
-    auto& bindless_utils = m_RenderGraph->GetDevice().GetBindlessUtils();
-    for (const auto& [sampler_handle, sampler_edge] : m_SamplerEdges) {
-        if (sampler_edge.bindless)
-            bindless_utils.DiscardBindlessHandle(sampler_edge.bindless);
-    }
+PassNode::PassNode(RenderGraph& graph, Type type) : RenderGraphNode(graph, type) {
+    static std::uint64_t next_owner{1};
+    m_AccessOwner = next_owner++;
 }
 
 auto PassNode::Resolve(GPUBufferHandle buffer) const -> gfx::GPUBuffer& {
@@ -21,7 +18,7 @@ auto PassNode::Resolve(GPUBufferHandle buffer) const -> gfx::GPUBuffer& {
 
     const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph->m_Nodes[buffer.index].get());
 
-    if (!m_GPUBufferEdges.contains(buffer_node)) {
+    if (!std::ranges::any_of(m_GPUBufferEdges, [buffer_node](const auto& edge) { return edge.resource == buffer_node; })) {
         std::string error_message = std::format("Buffer({}) is not used in pass({})", buffer.index, m_Name);
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::out_of_range(error_message);
@@ -39,7 +36,7 @@ auto PassNode::Resolve(TextureHandle texture) const -> gfx::Texture& {
 
     const auto texture_node = static_cast<TextureNode*>(m_RenderGraph->m_Nodes[texture.index].get());
 
-    if (!m_TextureEdges.contains(texture_node)) {
+    if (!std::ranges::any_of(m_TextureEdges, [texture_node](const auto& edge) { return edge.resource == texture_node; })) {
         std::string error_message = std::format("Texture({}) is not used in pass({})", texture.index, m_Name);
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::out_of_range(error_message);
@@ -57,7 +54,7 @@ auto PassNode::Resolve(SamplerHandle sampler) const -> gfx::Sampler& {
 
     const auto sampler_node = static_cast<SamplerNode*>(m_RenderGraph->m_Nodes[sampler.index].get());
 
-    if (!m_SamplerEdges.contains(sampler_node)) {
+    if (!m_Samplers.contains(sampler_node)) {
         std::string error_message = std::format("Sampler({}) is not used in pass({})", sampler.index, m_Name);
         m_RenderGraph->GetLogger()->error(error_message);
         throw std::out_of_range(error_message);
@@ -66,68 +63,22 @@ auto PassNode::Resolve(SamplerHandle sampler) const -> gfx::Sampler& {
     return sampler_node->Resolve();
 }
 
-auto PassNode::GetBindless(GPUBufferHandle buffer, std::size_t index) const noexcept -> gfx::BindlessHandle {
-    if (!m_RenderGraph->IsValid(buffer)) {
-        std::string error_message = std::format("Buffer({}) is not valid handle", buffer.index);
-        m_RenderGraph->GetLogger()->error(error_message);
-        return {};
+auto PassNode::Resolve(GPUBufferEdgeHandle handle) const -> gfx::GPUBufferView& {
+    if (handle.owner != m_AccessOwner || handle.index >= m_GPUBufferEdges.size()) {
+        throw std::out_of_range("Access handle does not belong to this pass");
     }
-
-    const auto buffer_node = static_cast<GPUBufferNode*>(m_RenderGraph->m_Nodes[buffer.index].get());
-
-    if (!m_GPUBufferEdges.contains(buffer_node)) {
-        m_RenderGraph->GetLogger()->error("Buffer({}) is not used in pass({})", buffer.index, m_Name);
-        return {};
-    }
-
-    const auto& buffer_edge = m_GPUBufferEdges.at(buffer_node);
-
-    if (index >= buffer_edge.bindless_views.size() || !buffer_edge.bindless_views[index]) {
-        m_RenderGraph->GetLogger()->error("Buffer({}) is not used in pass({})", buffer.index, m_Name);
-        return {};
-    }
-
-    return buffer_edge.bindless_views[index]->GetBindlessHandle();
+    const auto& view = m_GPUBufferEdges[handle.index].view;
+    if (!view) throw std::logic_error("Access has no view available");
+    return *view;
 }
 
-auto PassNode::GetBindless(TextureHandle texture) const noexcept -> gfx::BindlessHandle {
-    if (!m_RenderGraph->IsValid(texture)) {
-        std::string error_message = std::format("Texture({}) is not valid handle", texture.index);
-        m_RenderGraph->GetLogger()->error(error_message);
-        return {};
+auto PassNode::Resolve(TextureEdgeHandle handle) const -> gfx::TextureView& {
+    if (handle.owner != m_AccessOwner || handle.index >= m_TextureEdges.size()) {
+        throw std::out_of_range("Access handle does not belong to this pass");
     }
-
-    const auto texture_node = static_cast<TextureNode*>(m_RenderGraph->m_Nodes[texture.index].get());
-
-    if (!m_TextureEdges.contains(texture_node)) {
-        m_RenderGraph->GetLogger()->error("Texture({}) is not used in pass({})", texture.index, m_Name);
-        return {};
-    }
-
-    const auto& texture_edge = m_TextureEdges.at(texture_node);
-    if (!texture_edge.bindless_view) {
-        m_RenderGraph->GetLogger()->error("Texture({}) is not used in pass({})", texture.index, m_Name);
-        return {};
-    }
-
-    return texture_edge.bindless_view->GetBindlessHandle();
-}
-
-auto PassNode::GetBindless(SamplerHandle handle) const noexcept -> gfx::BindlessHandle {
-    if (!m_RenderGraph->IsValid(handle)) {
-        std::string error_message = std::format("Sampler({}) is not valid handle", handle.index);
-        m_RenderGraph->GetLogger()->error(error_message);
-        return {};
-    }
-
-    const auto sampler_node = static_cast<SamplerNode*>(m_RenderGraph->m_Nodes[handle.index].get());
-
-    if (!m_SamplerEdges.contains(sampler_node)) {
-        m_RenderGraph->GetLogger()->error("Sampler({}) is not used in pass({})", handle.index, m_Name);
-        return {};
-    }
-
-    return m_SamplerEdges.at(sampler_node).bindless;
+    const auto& view = m_TextureEdges[handle.index].view;
+    if (!view) throw std::logic_error("Access has no view available");
+    return *view;
 }
 
 auto PassNode::GetCommandType() const noexcept -> gfx::CommandType {
@@ -150,25 +101,7 @@ void PassNode::Initialize() {
     if (m_CommandContext == nullptr)
         m_CommandContext = device.CreateCommandContext(GetCommandType(), GetName());
 
-    // ! We defer bindless handle creation at the front of pass execution to avoid READ_AFTER_WRITE hazard
-    // for example: pass_1 -> resource_1 -> pass_2
-    // execution order:
-    //      not deferred: pass_1::create bindless   +---> pass_2::create bindless  +---> pass_1::execute  +--> pass_2::execute
-    //                      |                       |     |                        |     |                |    |
-    //                      v                       |     v                        |     v                |    v
-    //                     [resource_1 write bindless]    resource_1 read bindless +     write resource_1 +    read resource_1
-    //
-    // Although we use barrier to avoid this hazard, but the resource_1 read bindless has been created before pass execution
-    // and the global bindless descriptor heap(set) is set at the beginning of pass execution.
-    // So in the pass_1::execute, there is a resource_1 read bindless handle, but resource_1 is no longer memory available required by resource_1 read bindless.
-    //
-    //
-    //        deferred: pass_1::create bindless   +---> pass_1::execute    +---> pass_2::create bindless    +--> pass_2::execute
-    //                    |                       |     |                  |     |                          |    |
-    //                    v                       |     v                  |     |                          |    v
-    //                   [resource_1 write bindless]    write resource_1 --+     resource_1 read bindless --+    read resource
-    //
-    // In this case, the resource_1 read bindless handle is created after pass_1::execute, so there is no hazard.
+    // Views are prepared immediately before recording each pass.
 }
 
 void PassNode::PrepareResourceBarriers() {
@@ -177,15 +110,48 @@ void PassNode::PrepareResourceBarriers() {
     m_GPUBufferBarriers.clear();
     m_TextureBarriers.clear();
 
-    for (const auto& [buffer_node, buffer_edge] : m_GPUBufferEdges) {
-        auto& buffer = buffer_node->Resolve();
-        m_GPUBufferBarriers.emplace_back(buffer.Transition(buffer_edge.access, buffer_edge.stage));
+    // Aggregate by physical resource: multiple access views do not imply independent barriers.
+    struct BufferAccess {
+        gfx::GPUBuffer*    resource;
+        bool               write;
+        gfx::BarrierAccess access;
+        gfx::PipelineStage stage;
+    };
+    struct TextureAccess {
+        gfx::Texture*      resource;
+        bool               write;
+        gfx::BarrierAccess access;
+        gfx::PipelineStage stage;
+        gfx::TextureLayout layout;
+    };
+    std::vector<BufferAccess>  buffers;
+    std::vector<TextureAccess> textures;
+    for (const auto& edge : m_GPUBufferEdges) {
+        auto* resource = &edge.resource->Resolve();
+        auto  found    = std::ranges::find(buffers, resource, &BufferAccess::resource);
+        if (found == buffers.end())
+            buffers.push_back({.resource = resource, .write = edge.write, .access = edge.access, .stage = edge.stage});
+        else {
+            if (found->write != edge.write) throw std::invalid_argument("Conflicting accesses to an aliased buffer");
+            found->access |= edge.access;
+            found->stage |= edge.stage;
+        }
     }
-
-    for (const auto& [texture_node, texture_edge] : m_TextureEdges) {
-        auto& texture = texture_node->Resolve();
-        m_TextureBarriers.emplace_back(texture.Transition(texture_edge.access, texture_edge.layout, texture_edge.stage));
+    for (const auto& edge : m_TextureEdges) {
+        auto* resource = &edge.resource->Resolve();
+        auto  found    = std::ranges::find(textures, resource, &TextureAccess::resource);
+        if (found == textures.end())
+            textures.push_back({.resource = resource, .write = edge.write, .access = edge.access, .stage = edge.stage, .layout = edge.layout});
+        else {
+            if (found->write != edge.write || found->layout != edge.layout) throw std::invalid_argument("Conflicting accesses to an aliased texture");
+            found->access |= edge.access;
+            found->stage |= edge.stage;
+        }
     }
+    for (const auto& access : buffers)
+        m_GPUBufferBarriers.emplace_back(access.resource->Transition(access.access, access.stage));
+    for (const auto& access : textures)
+        m_TextureBarriers.emplace_back(access.resource->Transition(access.access, access.layout, access.stage));
 
     // https://microsoft.github.io/DirectX-Specs/d3d/D3D12EnhancedBarriers.html#command-queue-layout-compatibility
     if (device.device_type == gfx::Device::Type::DX12) {
@@ -227,65 +193,19 @@ void PassNode::ResourceBarrier() {
     m_ResourceBarriersPrepared = false;
 }
 
-void PassNode::CreateBindless() {
-    ZoneScopedN("Create Bindless");
-
-    auto& device         = m_RenderGraph->GetDevice();
-    auto& bindless_utils = device.GetBindlessUtils();
-
-    for (auto& [buffer_node, buffer_edge] : m_GPUBufferEdges) {
-        const auto buffer = buffer_node->GetBuffer();
-        if (!buffer) continue;
-
-        const auto usage = buffer->GetDesc().usages;
-        if (buffer_edge.bindless_views.empty() &&
-            ((!buffer_edge.write && utils::has_flag(usage, gfx::GPUBufferUsageFlags::Constant)) ||
-             (!buffer_edge.write && utils::has_flag(usage, gfx::GPUBufferUsageFlags::Storage)) ||
-             (buffer_edge.write && utils::has_flag(usage, gfx::GPUBufferUsageFlags::Storage)))) {
-            const auto view_type = buffer_edge.write
-                                       ? gfx::GPUBufferViewType::StorageWrite
-                                   : utils::has_flag(usage, gfx::GPUBufferUsageFlags::Constant)
-                                       ? gfx::GPUBufferViewType::Constant
-                                       : gfx::GPUBufferViewType::StorageRead;
-
-            const auto element_stride = view_type == gfx::GPUBufferViewType::Constant
-                                            ? gfx::ConstantBufferElementSize(buffer_edge.element_size)
-                                            : buffer_edge.element_size;
-            for (std::size_t index = 0; index < buffer_edge.num_elements; index++) {
-                auto view = device.CreateGPUBufferView(gfx::GPUBufferViewDesc{
-                    .name          = std::pmr::string(std::format("{}-view-{}", buffer->GetName(), index)),
-                    .buffer        = buffer,
-                    .type          = view_type,
-                    .offset        = (buffer_edge.element_offset + index) * element_stride,
-                    .element_size  = buffer_edge.element_size,
-                    .element_count = 1,
-                });
-                buffer_edge.bindless_views.emplace_back(std::move(view));
-            }
-        }
+void PassNode::PrepareResourceViews() {
+    auto& device = m_RenderGraph->GetDevice();
+    for (auto& edge : m_GPUBufferEdges) {
+        if (!edge.create_view || edge.view) continue;
+        auto desc   = edge.view_desc;
+        desc.buffer = edge.resource->GetBuffer();
+        edge.view   = device.CreateGPUBufferView(std::move(desc));
     }
-    for (auto& [texture_node, texture_edge] : m_TextureEdges) {
-        const auto texture = texture_node->GetTexture();
-        if (!texture) continue;
-
-        const auto usage = texture->GetDesc().usages;
-
-        if ((!texture_edge.write && utils::has_flag(usage, gfx::TextureUsageFlags::SRV)) ||
-            (texture_edge.write && utils::has_flag(usage, gfx::TextureUsageFlags::UAV))) {
-            texture_edge.bindless_view = device.CreateTextureView(gfx::TextureViewDesc{
-                .name             = std::pmr::string(std::format("{}-view", texture->GetName())),
-                .texture          = texture,
-                .type             = texture_edge.write ? gfx::TextureViewType::ShaderWrite : gfx::TextureViewType::ShaderRead,
-                .base_mip_level   = texture_edge.layer.mip_level,
-                .mip_levels       = texture_edge.write ? 1u : 0u,
-                .base_array_layer = texture_edge.layer.base_array_layer,
-                .layer_count      = texture_edge.layer.layer_count,
-            });
-        }
-    }
-
-    for (auto& [sampler_node, sampler_edge] : m_SamplerEdges) {
-        sampler_edge.bindless = bindless_utils.CreateBindlessHandle(sampler_node->Resolve());
+    for (auto& edge : m_TextureEdges) {
+        if (!edge.create_view || edge.view) continue;
+        auto desc    = edge.view_desc;
+        desc.texture = edge.resource->GetTexture();
+        edge.view    = device.CreateTextureView(std::move(desc));
     }
 }
 
@@ -293,45 +213,16 @@ void RenderPassNode::Execute() {
     ZoneScoped;
     ZoneName(m_Name.data(), m_Name.size());
 
-    CreateBindless();
+    PrepareResourceViews();
 
     auto& cmd = GetCmd();
     cmd.Begin();
     ResourceBarrier();
 
-    auto& device              = m_RenderGraph->GetDevice();
-    auto  render_target       = m_RenderTarget->GetTexture();
-    auto& render_target_edge  = m_TextureEdges.at(m_RenderTarget);
-    auto  render_target_view  = device.CreateTextureView(gfx::TextureViewDesc{
-         .name             = std::pmr::string(std::format("{}-rtv", render_target->GetName())),
-         .texture          = render_target,
-         .type             = gfx::TextureViewType::RenderTarget,
-         .base_mip_level   = render_target_edge.layer.mip_level,
-         .mip_levels       = 1,
-         .base_array_layer = render_target_edge.layer.base_array_layer,
-         .layer_count      = render_target_edge.layer.layer_count,
-    });
-
-    std::shared_ptr<gfx::TextureView> depth_stencil_view;
-    if (m_DepthStencil) {
-        auto  depth_stencil      = m_DepthStencil->GetTexture();
-        auto& depth_stencil_edge = m_TextureEdges.at(m_DepthStencil);
-        depth_stencil_view       = device.CreateTextureView(gfx::TextureViewDesc{
-                  .name             = std::pmr::string(std::format("{}-dsv", depth_stencil->GetName())),
-                  .texture          = depth_stencil,
-                  .type             = gfx::TextureViewType::DepthStencil,
-                  .base_mip_level   = depth_stencil_edge.layer.mip_level,
-                  .mip_levels       = 1,
-                  .base_array_layer = depth_stencil_edge.layer.base_array_layer,
-                  .layer_count      = depth_stencil_edge.layer.layer_count,
-        });
-    }
-
+    auto& render_target_view = Resolve(m_RenderTarget);
     cmd.BeginRendering(
-        *render_target_view,
-        depth_stencil_view
-            ? utils::make_optional_ref(*depth_stencil_view)
-            : std::nullopt,
+        render_target_view,
+        m_DepthStencil ? utils::make_optional_ref(Resolve(m_DepthStencil)) : std::nullopt,
         m_ClearRenderTarget,
         m_ClearDepthStencil);
 
@@ -342,7 +233,7 @@ void RenderPassNode::Execute() {
 }
 
 void ComputePassNode::Execute() {
-    CreateBindless();
+    PrepareResourceViews();
 
     auto& cmd = GetCmd();
     cmd.Begin();
@@ -352,7 +243,7 @@ void ComputePassNode::Execute() {
 }
 
 void CopyPassNode::Execute() {
-    CreateBindless();
+    PrepareResourceViews();
 
     auto& cmd = GetCmd();
     cmd.Begin();
@@ -362,7 +253,7 @@ void CopyPassNode::Execute() {
 }
 
 void PresentPassNode::Execute() {
-    CreateBindless();
+    PrepareResourceViews();
 
     auto& cmd = GetCmd();
     cmd.Begin();

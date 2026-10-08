@@ -34,9 +34,9 @@ protected:
 
 TEST_F(RenderGraphTest, ImportBuffer) {
     const auto buffer_0 = device->CreateGPUBuffer({
-        .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
-        .size = (sizeof(float)) * (16),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
+        .size   = (sizeof(float)) * (16),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
     });
 
     // import with empty name
@@ -45,9 +45,9 @@ TEST_F(RenderGraphTest, ImportBuffer) {
     EXPECT_EQ(rg.Import(buffer_0, "new_name"), buffer_handle_0) << "Reimport buffer with new name should return same handle";
 
     const auto buffer_1 = device->CreateGPUBuffer({
-        .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
-        .size = (sizeof(float)) * (16),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
+        .size   = (sizeof(float)) * (16),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
     });
 
     const auto buffer_handle_1 = rg.Import(buffer_1, buffer_1->GetName());
@@ -63,9 +63,9 @@ TEST_F(RenderGraphTest, ImportBuffer) {
         EXPECT_FALSE(rg.IsValid(rg.Import(null_buffer, "null_buffer"))) << "Import nullptr should fail";
 
         const auto diff_buffer = device->CreateGPUBuffer({
-            .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
-            .size = (sizeof(float)) * (16),
-            .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+            .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
+            .size   = (sizeof(float)) * (16),
+            .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
         });
         EXPECT_FALSE(rg.IsValid(rg.Import(diff_buffer, buffer_1->GetName()))) << "Import buffer with existed name but different buffer should fail";
     }
@@ -136,9 +136,9 @@ TEST_F(RenderGraphTest, CreateTexture) {
 
 TEST_F(RenderGraphTest, MoveBuffer) {
     const auto buffer_0 = device->CreateGPUBuffer({
-        .name          = std::pmr::string(std::format("Buffer-{}", test_name)),
-        .size = (sizeof(float)) * (16),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::MapWrite,
+        .name   = std::pmr::string(std::format("Buffer-{}", test_name)),
+        .size   = (sizeof(float)) * (16),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
     });
 
     const auto buffer_handle_0 = rg.Import(buffer_0);
@@ -173,7 +173,8 @@ TEST_F(RenderGraphTest, AddRenderPass) {
     }
 
     auto app = hitagi::Application::CreateApp({
-        .headless = true,
+        .log_level = spdlog::level::to_string_view(spdlog::get_level()).data(),
+        .headless  = true,
     });
 
     auto swap_chain = device->CreateSwapChain({
@@ -240,71 +241,72 @@ TEST_F(RenderGraphTest, AddRenderPass) {
     });
     ASSERT_TRUE(output_texture);
 
-    const auto render_pass =
-        RenderPassBuilder(rg)
-            .SetName("RenderPass")
-            .ReadAsVertices(rg.Create(
-                {
-                    .name          = std::pmr::string(std::format("positions-{}", test_name)),
-                    .size = (sizeof(vec3f)) * (3),
-                    .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
-                },
-                "positions"))
-            .ReadAsVertices(rg.Create(
-                {
-                    .name          = std::pmr::string(std::format("colors-{}", test_name)),
-                    .size = (sizeof(vec3f)) * (3),
-                    .usages        = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
-                },
-                "colors"))
-            .SetRenderTarget(rg.Import(output_texture, "output"), true)
-            .SetExecutor([=](const RenderGraph& rg, const RenderPassNode& pass) {
-                auto rotate_matrix = rotate_z(deg2rad(static_cast<float>(rg.GetFrameIndex())));
+    RenderPassBuilder render_builder(rg);
+    render_builder.SetName("RenderPass");
+    const auto positions_access = render_builder.ReadAsVertices(rg.Create(
+                                                                    {
+                                                                        .name   = std::pmr::string(std::format("positions-{}", test_name)),
+                                                                        .size   = (sizeof(vec3f)) * (3),
+                                                                        .usages = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
+                                                                    },
+                                                                    "positions"),
+                                                                {.element_size = sizeof(vec3f), .element_count = 0});
+    const auto colors_access    = render_builder.ReadAsVertices(rg.Create(
+                                                                    {
+                                                                        .name   = std::pmr::string(std::format("colors-{}", test_name)),
+                                                                        .size   = (sizeof(vec3f)) * (3),
+                                                                        .usages = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
+                                                                    },
+                                                                    "colors"),
+                                                                {.element_size = sizeof(vec3f), .element_count = 0});
+    render_builder.SetRenderTarget(rg.Import(output_texture, "output"), true);
+    render_builder.SetExecutor([=](const RenderGraph& rg, const RenderPassNode& pass) {
+        auto rotate_matrix = rotate_z(deg2rad(static_cast<float>(rg.GetFrameIndex())));
 
-                auto&                position_buffer = pass.Resolve(rg.GetBufferHandle("positions"));
-                GPUBufferView::MappedSpan<vec3f> positions(position_buffer);
-                positions[0] = (rotate_matrix * vec4f{0.0f, 0.5f, 0.0f, 1.0f}).xyz;
-                positions[1] = (rotate_matrix * vec4f{0.5f, -0.5f, 0.0f, 1.0f}).xyz;
-                positions[2] = (rotate_matrix * vec4f{-0.5f, -0.5f, 0.0f, 1.0f}).xyz;
+        auto& position_buffer = pass.Resolve(rg.GetBufferHandle("positions"));
+        auto  positions       = pass.Resolve(positions_access).GetMappedSpan<vec3f>();
+        positions[0]          = (rotate_matrix * vec4f{0.0f, 0.5f, 0.0f, 1.0f}).xyz;
+        positions[1]          = (rotate_matrix * vec4f{0.5f, -0.5f, 0.0f, 1.0f}).xyz;
+        positions[2]          = (rotate_matrix * vec4f{-0.5f, -0.5f, 0.0f, 1.0f}).xyz;
 
-                auto&                color_buffer = pass.Resolve(rg.GetBufferHandle("colors"));
-                GPUBufferView::MappedSpan<vec3f> colors(color_buffer);
-                colors[0] = {1.0f, 0.0f, 0.0f};
-                colors[1] = {0.0f, 1.0f, 0.0f};
-                colors[2] = {0.0f, 0.0f, 1.0f};
+        auto& color_buffer = pass.Resolve(rg.GetBufferHandle("colors"));
+        auto  colors       = pass.Resolve(colors_access).GetMappedSpan<vec3f>();
+        colors[0]          = {1.0f, 0.0f, 0.0f};
+        colors[1]          = {0.0f, 1.0f, 0.0f};
+        colors[2]          = {0.0f, 0.0f, 1.0f};
 
-                auto& cmd = pass.GetCmd();
-                cmd.SetPipeline(*pipeline);
-                cmd.SetViewPort({
-                    .x      = 0,
-                    .y      = 0,
-                    .width  = static_cast<float>(swap_chain->GetWidth()),
-                    .height = static_cast<float>(swap_chain->GetHeight()),
-                });
-                cmd.SetScissorRect({
-                    .x      = 0,
-                    .y      = 0,
-                    .width  = swap_chain->GetWidth(),
-                    .height = swap_chain->GetHeight(),
-                });
+        auto& cmd = pass.GetCmd();
+        cmd.SetPipeline(*pipeline);
+        cmd.SetViewPort({
+            .x      = 0,
+            .y      = 0,
+            .width  = static_cast<float>(swap_chain->GetWidth()),
+            .height = static_cast<float>(swap_chain->GetHeight()),
+        });
+        cmd.SetScissorRect({
+            .x      = 0,
+            .y      = 0,
+            .width  = swap_chain->GetWidth(),
+            .height = swap_chain->GetHeight(),
+        });
 
-                cmd.SetVertexBuffers(
-                    0,
-                    {{
-                        position_buffer,
-                        color_buffer,
-                    }},
-                    {{0, 0}});
-                cmd.Draw(3);
-            })
-            .Finish();
+        cmd.SetVertexBuffers(
+            0,
+            {{
+                position_buffer,
+                color_buffer,
+            }},
+            {{0, 0}});
+        cmd.Draw(3);
+    });
+    const auto render_pass = render_builder.Finish();
 
     EXPECT_TRUE(render_pass);
 
-    PresentPassBuilder(rg)
-        .From(rg.GetTextureHandle("output"))
-        .SetSwapChain(swap_chain)
-        .Finish();
+    PresentPassBuilder present_builder(rg);
+    present_builder.From(rg.GetTextureHandle("output"));
+    present_builder.SetSwapChain(swap_chain);
+    present_builder.Finish();
 
     EXPECT_TRUE(rg.Compile());
     rg.Execute();
@@ -332,15 +334,15 @@ TEST_F(RenderGraphTest, GraphTest) {
     }
 
     const auto buffer_1 = rg.Create(GPUBufferDesc{
-        .name          = "buffer_1",
-        .size = (sizeof(float)) * (1),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
+        .name   = "buffer_1",
+        .size   = (sizeof(float)) * (1),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite | GPUBufferUsageFlags::MapWrite,
     });
 
     const auto buffer_2 = rg.Create(GPUBufferDesc{
-        .name          = "buffer_2",
-        .size = (sizeof(float)) * (1),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage | GPUBufferUsageFlags::MapWrite,
+        .name   = "buffer_2",
+        .size   = (sizeof(float)) * (1),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite | GPUBufferUsageFlags::MapWrite,
     });
 
     const auto texture_1 = rg.Create(TextureDesc{
@@ -372,65 +374,59 @@ TEST_F(RenderGraphTest, GraphTest) {
         .usages = TextureUsageFlags::RenderTarget,
     });
 
-    const auto compute_pass_1 =
-        ComputePassBuilder(rg)
-            .SetName("compute pass 1")
-            .Write(buffer_1)
-            .SetExecutor([](const RenderGraph& rg, const ComputePassNode& node) {})
-            .Finish();
+    ComputePassBuilder buffer_1_builder(rg);
+    buffer_1_builder.SetName("compute pass 1");
+    buffer_1_builder.Write(buffer_1);
+    buffer_1_builder.SetExecutor([](const RenderGraph& rg, const ComputePassNode& node) {});
+    const auto compute_pass_1 = buffer_1_builder.Finish();
     ASSERT_TRUE(rg.IsValid(compute_pass_1));
 
-    const auto compute_pass_2 =
-        ComputePassBuilder(rg)
-            .SetName("compute pass 2")
-            .Write(buffer_2)
-            .SetExecutor([](const RenderGraph& rg, const ComputePassNode& node) {})
-            .Finish();
+    ComputePassBuilder buffer_2_builder(rg);
+    buffer_2_builder.SetName("compute pass 2");
+    buffer_2_builder.Write(buffer_2);
+    buffer_2_builder.SetExecutor([](const RenderGraph& rg, const ComputePassNode& node) {});
+    const auto compute_pass_2 = buffer_2_builder.Finish();
     ASSERT_TRUE(rg.IsValid(compute_pass_2));
 
-    const auto render_pass_1 =
-        RenderPassBuilder(rg)
-            .SetName("render pass 1")
-            .Read(buffer_1, PipelineStage::VertexShader)
-            .Read(buffer_2, PipelineStage::PixelShader)
-            .SetRenderTarget(texture_1)
-            .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
-            .Finish();
+    RenderPassBuilder texture_1_builder(rg);
+    texture_1_builder.SetName("render pass 1");
+    texture_1_builder.Read(buffer_1, {.element_count = 0}, PipelineStage::VertexShader);
+    texture_1_builder.Read(buffer_2, {.element_count = 0}, PipelineStage::PixelShader);
+    texture_1_builder.SetRenderTarget(texture_1);
+    texture_1_builder.SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {});
+    const auto render_pass_1 = texture_1_builder.Finish();
     ASSERT_TRUE(rg.IsValid(render_pass_1));
 
-    const auto render_pass_2 =
-        RenderPassBuilder(rg)
-            .SetName("render pass 2")
-            .Read(buffer_1, PipelineStage::VertexShader)
-            .SetRenderTarget(texture_2)
-            .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
-            .Finish();
+    RenderPassBuilder texture_2_builder(rg);
+    texture_2_builder.SetName("render pass 2");
+    texture_2_builder.Read(buffer_1, {.element_count = 0}, PipelineStage::VertexShader);
+    texture_2_builder.SetRenderTarget(texture_2);
+    texture_2_builder.SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {});
+    const auto render_pass_2 = texture_2_builder.Finish();
     ASSERT_TRUE(rg.IsValid(render_pass_2));
 
-    const auto render_pass_3 =
-        RenderPassBuilder(rg)
-            .SetName("render pass 3")
-            .Read(texture_1, {}, PipelineStage::PixelShader)
-            .Read(texture_2, {}, PipelineStage::PixelShader)
-            .SetRenderTarget(texture_3)
-            .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
-            .Finish();
+    RenderPassBuilder composite_builder(rg);
+    composite_builder.SetName("render pass 3");
+    composite_builder.Read(texture_1, {}, PipelineStage::PixelShader);
+    composite_builder.Read(texture_2, {}, PipelineStage::PixelShader);
+    composite_builder.SetRenderTarget(texture_3);
+    composite_builder.SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {});
+    const auto render_pass_3 = composite_builder.Finish();
     ASSERT_TRUE(rg.IsValid(render_pass_3));
 
-    const auto unused_render_pass =
-        RenderPassBuilder(rg)
-            .SetName("unused render pass")
-            .Read(texture_1, {}, PipelineStage::PixelShader)
-            .Read(texture_2, {}, PipelineStage::PixelShader)
-            .SetRenderTarget(texture_4)
-            .SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {})
-            .Finish();
+    RenderPassBuilder unused_builder(rg);
+    unused_builder.SetName("unused render pass");
+    unused_builder.Read(texture_1, {}, PipelineStage::PixelShader);
+    unused_builder.Read(texture_2, {}, PipelineStage::PixelShader);
+    unused_builder.SetRenderTarget(texture_4);
+    unused_builder.SetExecutor([](const RenderGraph& rg, const RenderPassNode& node) {});
+    const auto unused_render_pass = unused_builder.Finish();
     ASSERT_TRUE(rg.IsValid(unused_render_pass));
 
-    PresentPassBuilder(rg)
-        .From(texture_3)
-        .SetSwapChain(device->CreateSwapChain({}))
-        .Finish();
+    PresentPassBuilder present_builder(rg);
+    present_builder.From(texture_3);
+    present_builder.SetSwapChain(device->CreateSwapChain({}));
+    present_builder.Finish();
 
     EXPECT_TRUE(rg.Compile());
     rg.Execute();
@@ -460,21 +456,21 @@ protected:
             name);
     }
 
-    std::shared_ptr<Device>         device;
-    RenderGraph                     rg;
-    std::shared_ptr<SwapChain>      swap_chain;
+    std::shared_ptr<Device>    device;
+    RenderGraph                rg;
+    std::shared_ptr<SwapChain> swap_chain;
 };
 
 TEST_F(RenderGraphCullingTest, CullsUnrootedPassWithoutPresent) {
     bool executed = false;
 
-    RenderPassBuilder(rg)
-        .SetName("unrooted_pass")
-        .SetRenderTarget(CreateRenderTarget("unrooted_target"))
-        .SetExecutor([&executed](const RenderGraph&, const RenderPassNode&) {
-            executed = true;
-        })
-        .Finish();
+    RenderPassBuilder builder(rg);
+    builder.SetName("unrooted_pass");
+    builder.SetRenderTarget(CreateRenderTarget("unrooted_target"));
+    builder.SetExecutor([&executed](const RenderGraph&, const RenderPassNode&) {
+        executed = true;
+    });
+    builder.Finish();
 
     EXPECT_TRUE(rg.Compile());
     rg.Execute();
@@ -483,11 +479,11 @@ TEST_F(RenderGraphCullingTest, CullsUnrootedPassWithoutPresent) {
 }
 
 TEST_F(RenderGraphCullingTest, ToDotSkipsFreedNodeSlotsAfterReset) {
-    RenderPassBuilder(rg)
-        .SetName("transient_pass")
-        .SetRenderTarget(CreateRenderTarget("transient_target"))
-        .SetExecutor([](const RenderGraph&, const RenderPassNode&) {})
-        .Finish();
+    RenderPassBuilder builder(rg);
+    builder.SetName("transient_pass");
+    builder.SetRenderTarget(CreateRenderTarget("transient_target"));
+    builder.SetExecutor([](const RenderGraph&, const RenderPassNode&) {});
+    builder.Finish();
 
     EXPECT_TRUE(rg.Compile());
     rg.Execute();
@@ -500,14 +496,14 @@ TEST_F(RenderGraphCullingTest, ToDotSkipsFreedNodeSlotsAfterReset) {
 TEST_F(RenderGraphCullingTest, NonCullablePassExecutesWithoutPresent) {
     bool executed = false;
 
-    RenderPassBuilder(rg)
-        .SetName("side_effect_pass")
-        .AllowPassCulling(false)
-        .SetRenderTarget(CreateRenderTarget("side_effect_target"))
-        .SetExecutor([&executed](const RenderGraph&, const RenderPassNode&) {
-            executed = true;
-        })
-        .Finish();
+    RenderPassBuilder builder(rg);
+    builder.SetName("side_effect_pass");
+    builder.AllowPassCulling(false);
+    builder.SetRenderTarget(CreateRenderTarget("side_effect_target"));
+    builder.SetExecutor([&executed](const RenderGraph&, const RenderPassNode&) {
+        executed = true;
+    });
+    builder.Finish();
 
     EXPECT_TRUE(rg.Compile());
     rg.Execute();
@@ -520,18 +516,18 @@ TEST_F(RenderGraphCullingTest, BufferExtractionKeepsProducerWithoutPresent) {
 
     const auto target = CreateRenderTarget("extracted_target");
 
-    RenderPassBuilder(rg)
-        .SetName("producer_pass")
-        .SetRenderTarget(target)
-        .SetExecutor([&producer_executed](const RenderGraph&, const RenderPassNode&) {
-            producer_executed = true;
-        })
-        .Finish();
+    RenderPassBuilder builder(rg);
+    builder.SetName("producer_pass");
+    builder.SetRenderTarget(target);
+    builder.SetExecutor([&producer_executed](const RenderGraph&, const RenderPassNode&) {
+        producer_executed = true;
+    });
+    builder.Finish();
 
     const auto readback_buffer = device->CreateGPUBuffer({
-        .name          = "extraction_readback",
-        .size = (4) * (16 * 16),
-        .usages        = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
+        .name   = "extraction_readback",
+        .size   = (4) * (16 * 16),
+        .usages = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
     });
 
     const auto extraction = rg.QueueBufferExtraction(target, readback_buffer);
@@ -549,26 +545,26 @@ TEST_F(RenderGraphCullingTest, CullsDisconnectedBranchWithPresent) {
 
     const auto present_target = CreateRenderTarget("present_target");
 
-    RenderPassBuilder(rg)
-        .SetName("present_branch")
-        .SetRenderTarget(present_target)
-        .SetExecutor([&present_branch_executed](const RenderGraph&, const RenderPassNode&) {
-            present_branch_executed = true;
-        })
-        .Finish();
+    RenderPassBuilder visible_builder(rg);
+    visible_builder.SetName("present_branch");
+    visible_builder.SetRenderTarget(present_target);
+    visible_builder.SetExecutor([&present_branch_executed](const RenderGraph&, const RenderPassNode&) {
+        present_branch_executed = true;
+    });
+    visible_builder.Finish();
 
-    RenderPassBuilder(rg)
-        .SetName("culled_branch")
-        .SetRenderTarget(CreateRenderTarget("culled_target"))
-        .SetExecutor([&culled_branch_executed](const RenderGraph&, const RenderPassNode&) {
-            culled_branch_executed = true;
-        })
-        .Finish();
+    RenderPassBuilder culled_builder(rg);
+    culled_builder.SetName("culled_branch");
+    culled_builder.SetRenderTarget(CreateRenderTarget("culled_target"));
+    culled_builder.SetExecutor([&culled_branch_executed](const RenderGraph&, const RenderPassNode&) {
+        culled_branch_executed = true;
+    });
+    culled_builder.Finish();
 
-    PresentPassBuilder(rg)
-        .From(present_target)
-        .SetSwapChain(swap_chain)
-        .Finish();
+    PresentPassBuilder present_builder(rg);
+    present_builder.From(present_target);
+    present_builder.SetSwapChain(swap_chain);
+    present_builder.Finish();
 
     EXPECT_TRUE(rg.Compile());
     rg.Execute();
@@ -578,54 +574,51 @@ TEST_F(RenderGraphCullingTest, CullsDisconnectedBranchWithPresent) {
 }
 
 TEST_F(RenderGraphCullingTest, SideEffectPassesRespectLayerDependencies) {
-    const auto producer_buffer = rg.Create(GPUBufferDesc{
-        .name          = "producer_buffer",
-        .size = (sizeof(float)) * (1),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+    const auto producer_buffer    = rg.Create(GPUBufferDesc{
+        .name   = "producer_buffer",
+        .size   = (sizeof(float)) * (1),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite,
     });
     const auto independent_buffer = rg.Create(GPUBufferDesc{
-        .name          = "independent_buffer",
-        .size = (sizeof(float)) * (1),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+        .name   = "independent_buffer",
+        .size   = (sizeof(float)) * (1),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite,
     });
 
-    std::mutex              execution_mutex;
+    std::mutex               execution_mutex;
     std::vector<std::string> execution_order;
-    const auto              record_execution = [&](std::string name) {
+    const auto               record_execution = [&](std::string name) {
         std::scoped_lock lock(execution_mutex);
         execution_order.emplace_back(std::move(name));
     };
 
-    const auto producer_pass =
-        ComputePassBuilder(rg)
-            .SetName("producer")
-            .Write(producer_buffer)
-            .SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
-                record_execution("producer");
-            })
-            .Finish();
+    ComputePassBuilder producer_builder(rg);
+    producer_builder.SetName("producer");
+    producer_builder.Write(producer_buffer);
+    producer_builder.SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
+        record_execution("producer");
+    });
+    const auto producer_pass = producer_builder.Finish();
     ASSERT_TRUE(rg.IsValid(producer_pass));
 
-    const auto independent_pass =
-        ComputePassBuilder(rg)
-            .SetName("independent")
-            .AllowPassCulling(false)
-            .Write(independent_buffer)
-            .SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
-                record_execution("independent");
-            })
-            .Finish();
+    ComputePassBuilder independent_builder(rg);
+    independent_builder.SetName("independent");
+    independent_builder.AllowPassCulling(false);
+    independent_builder.Write(independent_buffer);
+    independent_builder.SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
+        record_execution("independent");
+    });
+    const auto independent_pass = independent_builder.Finish();
     ASSERT_TRUE(rg.IsValid(independent_pass));
 
-    const auto consumer_pass =
-        ComputePassBuilder(rg)
-            .SetName("consumer")
-            .AllowPassCulling(false)
-            .Read(producer_buffer)
-            .SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
-                record_execution("consumer");
-            })
-            .Finish();
+    ComputePassBuilder consumer_builder(rg);
+    consumer_builder.SetName("consumer");
+    consumer_builder.AllowPassCulling(false);
+    consumer_builder.Read(producer_buffer);
+    consumer_builder.SetExecutor([&](const RenderGraph&, const ComputePassNode&) {
+        record_execution("consumer");
+    });
+    const auto consumer_pass = consumer_builder.Finish();
     ASSERT_TRUE(rg.IsValid(consumer_pass));
 
     EXPECT_TRUE(rg.Compile());
@@ -657,31 +650,83 @@ TEST_F(RenderGraphTest, CopyTextureToBuffer) {
     });
 
     const auto dst_buffer = rg.Create(GPUBufferDesc{
-        .name          = "dst_buffer",
-        .size = (4) * (64 * 64),
-        .usages        = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
+        .name   = "dst_buffer",
+        .size   = (4) * (64 * 64),
+        .usages = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead,
     });
 
-    const auto copy_pass =
-        CopyPassBuilder(rg)
-            .SetName("texture_to_buffer_copy")
-            .TextureToBuffer(src_texture, dst_buffer)
-            .SetExecutor([=](const RenderGraph& rg, const CopyPassNode& pass) {
-                auto& cmd     = pass.GetCmd();
-                auto& texture = pass.Resolve(src_texture);
-                auto& buffer  = pass.Resolve(dst_buffer);
-                cmd.CopyTextureToBuffer(texture, {0, 0, 0}, {64, 64, 1}, buffer, 0);
-            })
-            .Finish();
+    CopyPassBuilder copy_builder(rg);
+    copy_builder.SetName("texture_to_buffer_copy");
+    copy_builder.TextureToBuffer(src_texture, dst_buffer);
+    copy_builder.SetExecutor([=](const RenderGraph& rg, const CopyPassNode& pass) {
+        auto& cmd     = pass.GetCmd();
+        auto& texture = pass.Resolve(src_texture);
+        auto& buffer  = pass.Resolve(dst_buffer);
+        cmd.CopyTextureToBuffer(texture, {0, 0, 0}, {64, 64, 1}, buffer, 0);
+    });
+    const auto copy_pass = copy_builder.Finish();
     ASSERT_TRUE(rg.IsValid(copy_pass));
 
-    PresentPassBuilder(rg)
-        .From(src_texture)
-        .SetSwapChain(device->CreateSwapChain({}))
-        .Finish();
+    PresentPassBuilder present_builder(rg);
+    present_builder.From(src_texture);
+    present_builder.SetSwapChain(device->CreateSwapChain({}));
+    present_builder.Finish();
 
     EXPECT_TRUE(rg.Compile());
     rg.Execute();
+}
+
+TEST(RenderGraphAccessTest, RejectsConflictingAccessesAndPhysicalDescriptors) {
+    auto        device = create_device(Device::Type::Mock, "GraphAccessValidation");
+    RenderGraph graph(*device);
+    const auto  buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite});
+    {
+        ComputePassBuilder builder(graph);
+        EXPECT_TRUE(builder.Read(buffer));
+        EXPECT_FALSE(builder.Write(buffer));
+        EXPECT_FALSE(graph.IsValid(builder.Finish()));
+    }
+    {
+        ComputePassBuilder builder(graph);
+        auto               physical = device->CreateGPUBuffer({.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
+        EXPECT_FALSE(builder.Read(buffer, {.buffer = physical}));
+        EXPECT_FALSE(graph.IsValid(builder.Finish()));
+    }
+    const auto depth = graph.Create(TextureDesc{
+        .width = 8, .height = 8, .depth = 1, .format = Format::D32_FLOAT, .usages = TextureUsageFlags::SRV | TextureUsageFlags::DepthStencil});
+    {
+        RenderPassBuilder builder(graph);
+        EXPECT_TRUE(builder.Read(depth));
+        EXPECT_FALSE(builder.ReadDepthStencil(depth));
+        EXPECT_FALSE(graph.IsValid(builder.Finish()));
+    }
+}
+
+TEST(RenderGraphAccessTest, MergesReadStagesPerResource) {
+    auto              device = create_device(Device::Type::Mock, "GraphReadStages");
+    RenderGraph       graph(*device);
+    const auto        buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
+    const auto        target = graph.Create(TextureDesc{
+        .width = 8, .height = 8, .depth = 1, .format = Format::R8G8B8A8_UNORM, .usages = TextureUsageFlags::RenderTarget});
+    RenderPassBuilder builder(graph);
+    builder.AllowPassCulling(false);
+    builder.Read(buffer, {.element_size = 4, .element_count = 8}, PipelineStage::VertexShader);
+    builder.Read(buffer, {.element_size = 8, .element_count = 4}, PipelineStage::PixelShader);
+    builder.SetRenderTarget(target);
+    bool executed = false;
+    builder.SetExecutor([&](const RenderGraph&, const RenderPassNode& pass) {
+        executed = true;
+        // Mock-only: inspect tracked state while keeping the transition a no-op.
+        const auto stages  = PipelineStage::VertexShader | PipelineStage::PixelShader;
+        const auto barrier = pass.Resolve(buffer).Transition(BarrierAccess::ShaderRead, stages);
+        EXPECT_EQ(barrier.src_stage, stages);
+        EXPECT_EQ(barrier.src_access, BarrierAccess::ShaderRead);
+        pass.GetCmd().ResourceBarrier({}, std::array{barrier});
+    });
+    ASSERT_TRUE(graph.IsValid(builder.Finish()));
+    ASSERT_TRUE(graph.Compile());
+    graph.Execute();
+    EXPECT_TRUE(executed);
 }
 
 class TransientResourcePoolTest : public Test {
@@ -703,39 +748,39 @@ protected:
     auto RunFrame(const GPUBufferDesc& buffer_desc, const TextureDesc& texture_desc) -> FrameResources {
         FrameResources result;
 
-        const auto buffer          = rg.Create(buffer_desc, "buf");
-        const auto texture         = rg.Create(texture_desc, "tex");
+        const auto buffer  = rg.Create(buffer_desc, "buf");
+        const auto texture = rg.Create(texture_desc, "tex");
 
-        RenderPassBuilder(rg)
-            .SetName("pass")
-            .Read(buffer, PipelineStage::VertexShader)
-            .SetRenderTarget(texture)
-            .SetExecutor([&result, buffer, texture](const RenderGraph& rg_ref, const RenderPassNode& node) {
-                result.buffer  = &node.Resolve(buffer);
-                result.texture = &node.Resolve(texture);
-            })
-            .Finish();
+        RenderPassBuilder render_builder(rg);
+        render_builder.SetName("pass");
+        render_builder.Read(buffer, {.element_count = 0}, PipelineStage::VertexShader);
+        render_builder.SetRenderTarget(texture);
+        render_builder.SetExecutor([&result, buffer, texture](const RenderGraph& rg_ref, const RenderPassNode& node) {
+            result.buffer  = &node.Resolve(buffer);
+            result.texture = &node.Resolve(texture);
+        });
+        render_builder.Finish();
 
-        PresentPassBuilder(rg)
-            .From(texture)
-            .SetSwapChain(swap_chain)
-            .Finish();
+        PresentPassBuilder present_builder(rg);
+        present_builder.From(texture);
+        present_builder.SetSwapChain(swap_chain);
+        present_builder.Finish();
 
         EXPECT_TRUE(rg.Compile());
         rg.Execute();
         return result;
     }
 
-    std::shared_ptr<Device>         device;
-    RenderGraph                     rg;
-    std::shared_ptr<SwapChain>      swap_chain;
+    std::shared_ptr<Device>    device;
+    RenderGraph                rg;
+    std::shared_ptr<SwapChain> swap_chain;
 };
 
 TEST_F(TransientResourcePoolTest, BufferAndTextureReuse) {
     const GPUBufferDesc buffer_desc{
-        .name          = "test_buffer",
-        .size = (sizeof(float)) * (16),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+        .name   = "test_buffer",
+        .size   = (sizeof(float)) * (16),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite,
     };
     const TextureDesc texture_desc{
         .name   = "test_texture",
@@ -760,9 +805,9 @@ TEST_F(TransientResourcePoolTest, BufferAndTextureReuse) {
 
 TEST_F(TransientResourcePoolTest, NoReuseOnDescMismatch) {
     const GPUBufferDesc buffer_desc_a{
-        .name          = "buffer_a",
-        .size = (sizeof(float)) * (16),
-        .usages        = GPUBufferUsageFlags::Constant,
+        .name   = "buffer_a",
+        .size   = (sizeof(float)) * (16),
+        .usages = GPUBufferUsageFlags::StorageRead,
     };
     const TextureDesc texture_desc_a{
         .name   = "texture_a",
@@ -776,9 +821,9 @@ TEST_F(TransientResourcePoolTest, NoReuseOnDescMismatch) {
     auto frame1 = RunFrame(buffer_desc_a, texture_desc_a);
 
     const GPUBufferDesc buffer_desc_b{
-        .name          = "buffer_b",
-        .size = (sizeof(float)) * (32),
-        .usages        = GPUBufferUsageFlags::Constant,
+        .name   = "buffer_b",
+        .size   = (sizeof(float)) * (32),
+        .usages = GPUBufferUsageFlags::StorageRead,
     };
     const TextureDesc texture_desc_b{
         .name   = "texture_b",
@@ -797,9 +842,9 @@ TEST_F(TransientResourcePoolTest, NoReuseOnDescMismatch) {
 
 TEST_F(TransientResourcePoolTest, NameIndependentReuse) {
     const GPUBufferDesc buffer_desc_frame1{
-        .name          = "buffer_frame1",
-        .size = (sizeof(float)) * (16),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+        .name   = "buffer_frame1",
+        .size   = (sizeof(float)) * (16),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite,
     };
     const TextureDesc texture_desc_frame1{
         .name   = "texture_frame1",
@@ -813,9 +858,9 @@ TEST_F(TransientResourcePoolTest, NameIndependentReuse) {
     auto frame1 = RunFrame(buffer_desc_frame1, texture_desc_frame1);
 
     const GPUBufferDesc buffer_desc_frame2{
-        .name          = "buffer_frame2_different_name",
-        .size = (sizeof(float)) * (16),
-        .usages        = GPUBufferUsageFlags::Constant | GPUBufferUsageFlags::Storage,
+        .name   = "buffer_frame2_different_name",
+        .size   = (sizeof(float)) * (16),
+        .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite,
     };
     const TextureDesc texture_desc_frame2{
         .name   = "texture_frame2_different_name",
