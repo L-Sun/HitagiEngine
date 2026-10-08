@@ -1,8 +1,8 @@
 module;
 
 // Implementation partition (not exported from the module interface): the cooked
-// parsers stay internal to hitagi::asset, while sibling partitions such as
-// :manager can `import :cooked_binary;` to see these declarations.
+// parsers stay internal to hitagi::asset. Module implementation units such as
+// asset_manager.cpp import :cooked_binary to use these declarations.
 module asset:cooked_binary;
 import std;
 import core;

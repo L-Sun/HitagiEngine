@@ -24,65 +24,9 @@ auto MakeMaterial(
     return std::make_shared<Material>(std::move(parameters), std::move(passes), name);
 }
 
-class MaterialDataDevice final : public hitagi::gfx::Device {
-public:
-    explicit MaterialDataDevice(hitagi::gfx::Device::Type type)
-        : hitagi::gfx::Device(type, type == hitagi::gfx::Device::Type::DX12 ? "MaterialDataDeviceDX12" : "MaterialDataDeviceMock") {}
-
-    void WaitIdle() final {}
-
-    auto CreateFence(std::uint64_t = 0, std::string_view = "") -> std::shared_ptr<hitagi::gfx::Fence> final {
-        return Unused<std::shared_ptr<hitagi::gfx::Fence>>();
-    }
-    auto GetCommandQueue(hitagi::gfx::CommandType) const -> hitagi::gfx::CommandQueue& final {
-        return Unused<hitagi::gfx::CommandQueue&>();
-    }
-    auto CreateCommandContext(hitagi::gfx::CommandType, std::string_view = "") -> std::shared_ptr<hitagi::gfx::CommandContext> final {
-        return Unused<std::shared_ptr<hitagi::gfx::CommandContext>>();
-    }
-    auto CreateSwapChain(hitagi::gfx::SwapChainDesc) -> std::shared_ptr<hitagi::gfx::SwapChain> final {
-        return Unused<std::shared_ptr<hitagi::gfx::SwapChain>>();
-    }
-    auto CreateGPUBuffer(hitagi::gfx::GPUBufferDesc, std::span<const std::byte> = {}) -> std::shared_ptr<hitagi::gfx::GPUBuffer> final {
-        return Unused<std::shared_ptr<hitagi::gfx::GPUBuffer>>();
-    }
-    auto CreateGPUBufferView(hitagi::gfx::GPUBufferViewDesc) -> std::shared_ptr<hitagi::gfx::GPUBufferView> final {
-        return Unused<std::shared_ptr<hitagi::gfx::GPUBufferView>>();
-    }
-    auto CreateTexture(hitagi::gfx::TextureDesc, std::span<const std::byte> = {}) -> std::shared_ptr<hitagi::gfx::Texture> final {
-        return Unused<std::shared_ptr<hitagi::gfx::Texture>>();
-    }
-    auto CreateTextureView(hitagi::gfx::TextureViewDesc) -> std::shared_ptr<hitagi::gfx::TextureView> final {
-        return Unused<std::shared_ptr<hitagi::gfx::TextureView>>();
-    }
-    auto CreateSampler(hitagi::gfx::SamplerDesc) -> std::shared_ptr<hitagi::gfx::Sampler> final {
-        return Unused<std::shared_ptr<hitagi::gfx::Sampler>>();
-    }
-    auto CreateShader(hitagi::gfx::ShaderDesc) -> std::shared_ptr<hitagi::gfx::Shader> final {
-        return Unused<std::shared_ptr<hitagi::gfx::Shader>>();
-    }
-    auto CreateRenderPipeline(
-        hitagi::gfx::RenderPipelineDesc,
-        const std::pmr::vector<std::shared_ptr<hitagi::gfx::Shader>>&) -> std::shared_ptr<hitagi::gfx::RenderPipeline> final {
-        return Unused<std::shared_ptr<hitagi::gfx::RenderPipeline>>();
-    }
-    auto CreateComputePipeline(hitagi::gfx::ComputePipelineDesc, const std::shared_ptr<hitagi::gfx::Shader>&) -> std::shared_ptr<hitagi::gfx::ComputePipeline> final {
-        return Unused<std::shared_ptr<hitagi::gfx::ComputePipeline>>();
-    }
-    auto GetBindlessUtils() -> hitagi::gfx::BindlessUtils& final {
-        return Unused<hitagi::gfx::BindlessUtils&>();
-    }
-
-private:
-    template <typename T>
-    [[noreturn]] static auto Unused() -> T {
-        throw std::logic_error("MaterialDataDevice only supplies Device::device_type for material data generation tests.");
-    }
-};
-
-auto LoadMaterialPass(Material& material, std::string_view pass_contract, hitagi::gfx::Device::Type device_type) -> const MaterialPass& {
-    MaterialDataDevice device(device_type);
-    material.Load({.device = device});
+auto LoadMaterialPass(Material& material, std::string_view pass_contract) -> const MaterialPass& {
+    auto device = hitagi::gfx::create_device(hitagi::gfx::Device::Type::Mock, "MaterialDataDevice");
+    material.Load({.device = *device});
     const auto* pass = material.FindPass(pass_contract);
     if (!pass) throw std::logic_error("Material test pass was not found after Load().");
     return *pass;
@@ -104,11 +48,11 @@ TEST(MaterialTest, InitMaterial) {
     const auto texture = std::make_shared<Texture>(128, 128, hitagi::gfx::Format::R8G8B8A8_UNORM);
 
     MaterialParameters parameters{
-        {"param1", vec2f{0.0f, 1.0f}},
-        {"param2", vec4f{0.0f, 1.0f, 2.0f, 3.0f}},
-        {"param2", vec3f{0.0f, 1.0f, 2.0f}},  // no effect
-        {"param3", vec2f{0.0f, 1.0f}},
-        {"texture", texture},
+        {.name = "param1", .value = vec2f{0.0f, 1.0f}},
+        {.name = "param2", .value = vec4f{0.0f, 1.0f, 2.0f, 3.0f}},
+        {.name = "param2", .value = vec3f{0.0f, 1.0f, 2.0f}},  // no effect
+        {.name = "param3", .value = vec2f{0.0f, 1.0f}},
+        {.name = "texture", .value = texture},
     };
 
     const auto mat = MakeMaterial(parameters);
@@ -126,9 +70,9 @@ TEST(MaterialTest, InitMaterial) {
 TEST(MaterialTest, HasParameter) {
     auto mat = MakeMaterial(
         {
-            {"param1", float{1.0f}},
-            {"param2", vec2f{1, 2}},
-            {"tex1", std::shared_ptr<Texture>{}},
+            {.name = "param1", .value = float{1.0f}},
+            {.name = "param2", .value = vec2f{1, 2}},
+            {.name = "tex1", .value = std::shared_ptr<Texture>{}},
         });
 
     EXPECT_TRUE(mat->GetParameter<float>("param1").has_value());
@@ -142,9 +86,9 @@ TEST(MaterialTest, SetAndGetParameter) {
     const auto texture = std::make_shared<Texture>(128, 128, hitagi::gfx::Format::R8G8B8A8_UNORM);
     auto       mat     = MakeMaterial(
         {
-            {"param1", float{1.0f}},
-            {"param2", vec2f{1, 2}},
-            {"tex1", texture},
+            {.name = "param1", .value = float{1.0f}},
+            {.name = "param2", .value = vec2f{1, 2}},
+            {.name = "tex1", .value = texture},
         });
 
     mat->SetParameter("param1", 2.0f);
@@ -174,8 +118,8 @@ TEST(MaterialTest, DefineParameterFixesType) {
 }
 
 TEST(MaterialTest, RejectedAssignmentPreservesLoadedData) {
-    Material material({{"roughness", 0.5f}}, {{.pass_contract = "Forward", .bindings = {"roughness"}}});
-    const auto& pass = LoadMaterialPass(material, "Forward", hitagi::gfx::Device::Type::Mock);
+    Material    material({{.name = "roughness", .value = 0.5f}}, {{.pass_contract = "Forward", .bindings = {"roughness"}}});
+    const auto& pass = LoadMaterialPass(material, "Forward");
     ASSERT_FALSE(pass.material_data.Empty());
     const auto size = pass.material_data.GetDataSize();
 
@@ -189,7 +133,7 @@ TEST(MaterialTest, RejectedAssignmentPreservesLoadedData) {
     material.SetParameter("roughness", 0.8f);
     EXPECT_EQ(material.GetLoadState(), ResourceLoadState::Unloaded);
     EXPECT_TRUE(pass.material_data.Empty());
-    const auto& updated = LoadMaterialPass(material, "Forward", hitagi::gfx::Device::Type::Mock);
+    const auto& updated = LoadMaterialPass(material, "Forward");
     EXPECT_FLOAT_EQ(*reinterpret_cast<const float*>(updated.material_data.GetData()), 0.8f);
 
     material.DefineParameter("metallic", 1.0f);
@@ -214,7 +158,7 @@ TEST(MaterialTest, MaterialBuffer_TightLayout) {
             },
         });
 
-    const auto& pass   = LoadMaterialPass(*mat, "Test", hitagi::gfx::Device::Type::Mock);
+    const auto& pass   = LoadMaterialPass(*mat, "Test");
     const auto& buffer = pass.material_data;
     ASSERT_EQ(buffer.GetDataSize(), 64);
 
@@ -226,33 +170,25 @@ TEST(MaterialTest, MaterialBuffer_TightLayout) {
     EXPECT_VEC_EQ(*reinterpret_cast<const vec3f*>(buffer.GetData() + 52), vec3f(1, 2, 3));
 }
 
-TEST(MaterialTest, MaterialBuffer_16BitsPackingLayout) {
-    const auto mat = MakeMaterial(
-        {
-            {.name = "param1", .value = vec2f{1, 2}},
-            {.name = "param2", .value = float{1}},
-            {.name = "param3", .value = vec4f{1, 2, 3, 4}},
-            {.name = "param4", .value = std::shared_ptr<Texture>{nullptr}},
-            {.name = "param5", .value = vec2f{1, 2}},
-            {.name = "param6", .value = vec3f{1, 2, 3}},
-        },
-        {
-            MaterialPass{
-                .pass_contract = "Test",
-                .bindings      = {"param1", "param2", "param3", "param4", "param5", "param6"},
-            },
-        });
+TEST(MaterialTest, EncodeMaterialDataWithoutDevice) {
+    const hitagi::gfx::BindlessHandle      handle{.index = 37, .type = hitagi::gfx::BindlessHandleType::Texture, .version = 2};
+    const std::array<MaterialDataValue, 5> values{vec2f{1, 2}, 3.0f, vec4f{4, 5, 6, 7}, handle, vec3f{8, 9, 10}};
+    const auto                             buffer = EncodeMaterialData(values);
+    ASSERT_EQ(buffer.GetDataSize(), 56);
+    const std::array<float, 7> scalars{1, 2, 3, 4, 5, 6, 7};
+    EXPECT_EQ(std::memcmp(buffer.GetData(), scalars.data(), sizeof(scalars)), 0);
+    EXPECT_EQ(std::memcmp(buffer.GetData() + 28, &handle, sizeof(handle)), 0);
+    const vec3f tail{8, 9, 10};
+    EXPECT_EQ(std::memcmp(buffer.GetData() + 44, &tail, sizeof(tail)), 0);
+    EXPECT_TRUE(EncodeMaterialData({}).Empty());
+}
 
-    const auto& pass   = LoadMaterialPass(*mat, "Test", hitagi::gfx::Device::Type::DX12);
-    const auto& buffer = pass.material_data;
-    ASSERT_EQ(buffer.GetDataSize(), 80);
-
-    EXPECT_VEC_EQ(*reinterpret_cast<const vec2f*>(buffer.GetData() + 0), vec2f(1, 2));
-    EXPECT_EQ(*reinterpret_cast<const float*>(buffer.GetData() + 8), 1.0f);
-    EXPECT_VEC_EQ(*reinterpret_cast<const vec4f*>(buffer.GetData() + 16), vec4f(1, 2, 3, 4));
-    EXPECT_FALSE(*reinterpret_cast<const hitagi::gfx::BindlessHandle*>(buffer.GetData() + 32));
-    EXPECT_VEC_EQ(*reinterpret_cast<const vec2f*>(buffer.GetData() + 48), vec2f(1, 2));
-    EXPECT_VEC_EQ(*reinterpret_cast<const vec3f*>(buffer.GetData() + 64), vec3f(1, 2, 3));
+TEST(MaterialTest, EncodeMaterialMatrixAfterScalar) {
+    const mat4f                            matrix{{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}, {13, 14, 15, 16}};
+    const std::array<MaterialDataValue, 2> values{2.0f, matrix};
+    const auto                             buffer = EncodeMaterialData(values);
+    ASSERT_EQ(buffer.GetDataSize(), 68);
+    EXPECT_EQ(std::memcmp(buffer.GetData() + 4, &matrix, sizeof(matrix)), 0);
 }
 
 TEST(MaterialTest, MaterialPass_TightBindingOrder) {
@@ -274,7 +210,7 @@ TEST(MaterialTest, MaterialPass_TightBindingOrder) {
             },
         });
 
-    const auto& pass = LoadMaterialPass(*mat, "Test", hitagi::gfx::Device::Type::Mock);
+    const auto& pass = LoadMaterialPass(*mat, "Test");
 
     ASSERT_EQ(pass.bindings.size(), 6);
     EXPECT_EQ(pass.bindings[0], "param1");
@@ -283,7 +219,7 @@ TEST(MaterialTest, MaterialPass_TightBindingOrder) {
     EXPECT_EQ(pass.bindings[3], "tex1");
     EXPECT_EQ(pass.bindings[4], "param4");
     EXPECT_EQ(pass.bindings[5], "tex2");
-    EXPECT_EQ(pass.material_data.GetDataSize(), 80);
+    EXPECT_EQ(pass.material_data.GetDataSize(), 72);
 
     const auto textures = ResolvePassTextures(*mat, pass);
     ASSERT_EQ(textures.size(), 2);
@@ -291,7 +227,7 @@ TEST(MaterialTest, MaterialPass_TightBindingOrder) {
     EXPECT_EQ(textures[1], tex2);
 }
 
-TEST(MaterialTest, MaterialPass_DX12BindingOrderAndMaterialData) {
+TEST(MaterialTest, MaterialPass_BindingOrderAndReload) {
     const auto mat = MakeMaterial(
         {
             {.name = "param1", .value = vec2f{1, 2}},
@@ -308,7 +244,7 @@ TEST(MaterialTest, MaterialPass_DX12BindingOrderAndMaterialData) {
             },
         });
 
-    const auto& pass_a = LoadMaterialPass(*mat, "Test", hitagi::gfx::Device::Type::DX12);
+    const auto& pass_a = LoadMaterialPass(*mat, "Test");
     ASSERT_EQ(pass_a.bindings.size(), 6);
     EXPECT_EQ(pass_a.bindings[0], "param1");
     EXPECT_EQ(pass_a.bindings[1], "param2");
@@ -316,14 +252,14 @@ TEST(MaterialTest, MaterialPass_DX12BindingOrderAndMaterialData) {
     EXPECT_EQ(pass_a.bindings[3], "texture");
     EXPECT_EQ(pass_a.bindings[4], "param4");
     EXPECT_EQ(pass_a.bindings[5], "param5");
-    EXPECT_EQ(pass_a.material_data.GetDataSize(), 80);
+    EXPECT_EQ(pass_a.material_data.GetDataSize(), 64);
 
     mat->Unload();
-    const auto& pass_b = LoadMaterialPass(*mat, "Test", hitagi::gfx::Device::Type::DX12);
-    EXPECT_EQ(pass_b.material_data.GetDataSize(), 80);
+    const auto& pass_b = LoadMaterialPass(*mat, "Test");
+    EXPECT_EQ(pass_b.material_data.GetDataSize(), 64);
 
     mat->Unload();
-    const auto& pass_tight = LoadMaterialPass(*mat, "Test", hitagi::gfx::Device::Type::Mock);
+    const auto& pass_tight = LoadMaterialPass(*mat, "Test");
     EXPECT_EQ(pass_tight.material_data.GetDataSize(), 64);
 }
 
@@ -344,13 +280,13 @@ TEST(MaterialTest, MaterialPass_GeneratesBufferAndTextures) {
             },
         });
 
-    const auto& pass   = LoadMaterialPass(*mat, "Test", hitagi::gfx::Device::Type::DX12);
+    const auto& pass   = LoadMaterialPass(*mat, "Test");
     const auto& buffer = pass.material_data;
     ASSERT_EQ(buffer.GetDataSize(), pass.material_data.GetDataSize());
     EXPECT_VEC_EQ(*reinterpret_cast<const vec2f*>(buffer.GetData() + 0), vec2f(1, 2));
     EXPECT_EQ(*reinterpret_cast<const float*>(buffer.GetData() + 8), 3.0f);
-    EXPECT_FALSE(*reinterpret_cast<const hitagi::gfx::BindlessHandle*>(buffer.GetData() + 16));
-    EXPECT_FALSE(*reinterpret_cast<const hitagi::gfx::BindlessHandle*>(buffer.GetData() + 32));
+    EXPECT_FALSE(*reinterpret_cast<const hitagi::gfx::BindlessHandle*>(buffer.GetData() + 12));
+    EXPECT_FALSE(*reinterpret_cast<const hitagi::gfx::BindlessHandle*>(buffer.GetData() + 28));
 
     const auto textures = ResolvePassTextures(*mat, pass);
     ASSERT_EQ(textures.size(), 2);

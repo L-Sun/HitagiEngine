@@ -31,6 +31,40 @@ using MaterialParameterValue = std::variant<
     math::mat4f,
     std::shared_ptr<Texture>>;
 
+using MaterialDataValue = std::variant<
+    float,
+    std::int32_t,
+    std::uint32_t,
+    math::vec2i,
+    math::vec2u,
+    math::vec2f,
+    math::vec3i,
+    math::vec3u,
+    math::vec3f,
+    math::vec4i,
+    math::vec4u,
+    math::vec4f,
+    math::Color,
+    math::mat4f,
+    gfx::BindlessHandle>;
+
+auto EncodeMaterialData(std::span<const MaterialDataValue> values) -> core::Buffer {
+    std::size_t size = 0;
+    for (const auto& value : values) std::visit([&](const auto& data) { size += sizeof(data); }, value);
+    core::Buffer result(size);
+    std::size_t  offset = 0;
+    for (const auto& value : values) {
+        std::visit([&](const auto& data) {
+            // Material encoding follows the shader's 32-bit field ABI, not binding alignment.
+            static_assert(sizeof(data) % sizeof(std::uint32_t) == 0);
+            std::memcpy(result.GetData() + offset, &data, sizeof(data));
+            offset += sizeof(data);
+        },
+                   value);
+    }
+    return result;
+}
+
 template <typename T>
 concept MaterialParametric = requires(const MaterialParameterValue& parameter) {
     { std::get<T>(parameter) } -> std::same_as<const T&>;
@@ -78,7 +112,7 @@ public:
 
 private:
     void InvalidatePassData() noexcept;
-    auto GenerateMaterialData(const MaterialPass& pass, bool enable_16_bytes_packing) noexcept -> core::Buffer;
+    auto GenerateMaterialData(const MaterialPass& pass) -> core::Buffer;
 
     MaterialParameters             m_Parameters;
     std::pmr::vector<MaterialPass> m_Passes;
@@ -149,79 +183,25 @@ auto Material::FindPass(std::string_view pass_contract) const noexcept -> const 
     return iter == m_Passes.end() ? nullptr : std::addressof(*iter);
 }
 
-auto Material::GenerateMaterialData(const MaterialPass& pass, bool enable_16_bytes_packing) noexcept -> core::Buffer {
-    const auto get_parameter_size = [](const MaterialParameterValue& parameter) noexcept -> std::size_t {
-        return std::visit(
-            utils::Overloaded{
-                [](const std::shared_ptr<Texture>&) -> std::size_t { return sizeof(gfx::BindlessHandle); },
-                [](const auto& value) -> std::size_t { return sizeof(value); },
-            },
-            parameter);
-    };
-
-    const auto find_parameter = [this](std::string_view name) noexcept -> utils::optional_ref<const MaterialParameter> {
-        const auto iter = std::ranges::find_if(m_Parameters, [name](const auto& parameter) {
-            return parameter.name == name;
-        });
-        if (iter == m_Parameters.end()) return std::nullopt;
-        return utils::make_optional_ref(*iter);
-    };
-
-    const auto calculate_material_data_size = [&]() noexcept -> std::size_t {
-        std::size_t offset = 0;
-        for (const auto& binding : pass.bindings) {
-            const auto parameter = find_parameter(binding);
-            if (!parameter) continue;
-
-            const auto size = get_parameter_size(parameter->get().value);
-
-            if (enable_16_bytes_packing) {
-                const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-                offset += remaining >= size ? 0 : remaining;
-            }
-            offset += size;
-        }
-        return std::max<std::size_t>(16, utils::align(offset, 16));
-    };
-
-    const auto buffer_size = pass.bindings.empty() ? 0 : calculate_material_data_size();
-
-    core::Buffer result(buffer_size);
-    if (!result.Empty()) std::memset(result.GetData(), 0, result.GetDataSize());
-
-    std::size_t offset = 0;
+auto Material::GenerateMaterialData(const MaterialPass& pass) -> core::Buffer {
+    std::pmr::vector<MaterialDataValue> values;
+    values.reserve(pass.bindings.size());
     for (const auto& binding : pass.bindings) {
-        const auto parameter = find_parameter(binding);
-        if (!parameter) continue;
-
-        const auto& value = parameter->get().value;
-        const auto  size  = get_parameter_size(value);
-        if (enable_16_bytes_packing) {
-            const std::size_t remaining = (~(offset & 0xf) & 0xf) + 0x1;
-            offset += remaining >= size ? 0 : remaining;
-        }
-
-        std::visit(
-            utils::Overloaded{
-                [&](const std::shared_ptr<Texture>& texture) {
-                    auto view = texture ? texture->GetGPUView() : nullptr;
-                    if (texture && !texture->Empty() && view == nullptr) {
-                        // Async decode still in flight: sample the placeholder until
-                        // Load() repacks this buffer with the real handle.
-                        if (const auto placeholder = Texture::DefaultTexture()) view = placeholder->GetGPUView();
-                    }
-                    const auto handle = view ? view->GetBindlessHandle() : gfx::BindlessHandle{};
-                    if (size == sizeof(handle)) std::memcpy(result.GetData() + offset, std::addressof(handle), size);
-                },
-                [&](const auto& data) {
-                    using T = std::decay_t<decltype(data)>;
-                    if (size == sizeof(T)) std::memcpy(result.GetData() + offset, std::addressof(data), size);
-                },
-            },
-            value);
-        offset += size;
+        const auto parameter = std::ranges::find(m_Parameters, binding, &MaterialParameter::name);
+        if (parameter == m_Parameters.end()) continue;
+        std::visit(utils::Overloaded{
+                       [&](const std::shared_ptr<Texture>& texture) {
+                           auto view = texture ? texture->GetGPUView() : nullptr;
+                           if (texture && !texture->Empty() && !view) {
+                               if (const auto placeholder = Texture::DefaultTexture()) view = placeholder->GetGPUView();
+                           }
+                           values.emplace_back(view ? view->GetBindlessHandle() : gfx::BindlessHandle{});
+                       },
+                       [&](const auto& value) { values.emplace_back(value); },
+                   },
+                   parameter->value);
     }
-    return result;
+    return EncodeMaterialData(values);
 }
 
 void Material::InvalidatePassData() noexcept {
@@ -247,7 +227,7 @@ void Material::Load(const ResourceLoadContext& context) {
 
     for (auto& pass : m_Passes) {
         if (pass.pipeline) pass.pipeline->Load(context);
-        pass.material_data = GenerateMaterialData(pass, context.device.device_type == gfx::Device::Type::DX12);
+        pass.material_data = GenerateMaterialData(pass);
     }
     m_HasPendingTextures = pending;
     SetLoadState(ResourceLoadState::Loaded);
