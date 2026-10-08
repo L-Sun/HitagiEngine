@@ -78,5 +78,8 @@ target("unit_tests")
     add_files("*/test/*.cpp")
     remove_files("*/test/*_test_main.cpp")
     remove_files("*/test/*_benchmark.cpp")
+    on_run(function (target)
+        import("xmake.scripts.run_unit_tests", {rootdir = os.projectdir()}).main(target)
+    end)
 
 includes("editor/xmake.lua")

@@ -6,7 +6,20 @@ import core;
 import asset;
 
 int main(int argc, char** argv) {
-    spdlog::set_level(spdlog::level::trace);
+    // Consume our flags before passing the remaining arguments to GoogleTest.
+    bool verbose        = false;
+    int  remaining_argc = 1;
+    for (int i = 1; i < argc; ++i) {
+        const std::string_view arg = argv[i];
+        if (arg == "--verbose" || arg == "-v") {
+            verbose = true;
+        } else {
+            argv[remaining_argc++] = argv[i];
+        }
+    }
+    argc       = remaining_argc;
+    argv[argc] = nullptr;
+    spdlog::set_level(verbose ? spdlog::level::trace : spdlog::level::off);
 
     // GoogleTest keeps some process-lifetime state; initialize it before
     // MemoryManager replaces the global PMR default resource.

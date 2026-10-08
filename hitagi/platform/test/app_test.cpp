@@ -1,4 +1,5 @@
 #include "test_macros.hpp"
+#include <spdlog/spdlog.h>
 
 import app;
 import test_utils;
@@ -9,8 +10,9 @@ class AppTest : public ::testing::Test {
 protected:
     AppTest()
         : app(Application::CreateApp({
-              .title    = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-              .headless = true,
+              .title     = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+              .log_level = spdlog::level::to_string_view(spdlog::get_level()).data(),
+              .headless  = true,
           })) {}
     std::unique_ptr<Application> app;
 };

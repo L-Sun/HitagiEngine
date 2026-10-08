@@ -1,5 +1,6 @@
 #include "test_macros.hpp"
 #include <imgui.h>
+#include <spdlog/spdlog.h>
 
 import app;
 import core;
@@ -13,12 +14,15 @@ class GuiManagerTest : public ::testing::Test {
 protected:
     GuiManagerTest()
         : app(Application::CreateApp({
-              .title    = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-              .width    = 640,
-              .height   = 480,
-              .headless = true,
+              .title     = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+              .width     = 640,
+              .height    = 480,
+              .log_level = spdlog::level::to_string_view(spdlog::get_level()).data(),
+              .headless  = true,
           })),
           gui_manager(std::make_unique<gui::GuiManager>(*app, file_io)) {
+        // Test processes must not read or overwrite the same imgui.ini.
+        ImGui::GetIO().IniFilename = nullptr;
         app->ResizeWindow(640, 480);
         app->Tick();
     }
