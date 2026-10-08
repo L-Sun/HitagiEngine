@@ -229,9 +229,9 @@ struct TextRenderUtils::Impl {
                     .primitive = gfx::PrimitiveTopology::TriangleList,
                 },
                 .vertex_input_layout = {
-                    {"POSITION", gfx::Format::R32G32_FLOAT, 0, offsetof(TextVertex, pos), sizeof(TextVertex)},
-                    {"TEXCOORD", gfx::Format::R32G32_FLOAT, 0, offsetof(TextVertex, uv), sizeof(TextVertex)},
-                    {"COLOR", gfx::Format::R32G32B32A32_FLOAT, 0, offsetof(TextVertex, color), sizeof(TextVertex)},
+                    {.semantic = "POSITION", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(TextVertex, pos), .stride = sizeof(TextVertex)},
+                    {.semantic = "TEXCOORD", .format = gfx::Format::R32G32_FLOAT, .binding = 0, .offset = offsetof(TextVertex, uv), .stride = sizeof(TextVertex)},
+                    {.semantic = "COLOR", .format = gfx::Format::R32G32B32A32_FLOAT, .binding = 0, .offset = offsetof(TextVertex, color), .stride = sizeof(TextVertex)},
                 },
                 .rasterization_state = {
                     .cull_mode               = gfx::CullMode::None,
@@ -274,16 +274,16 @@ struct TextRenderUtils::Impl {
         const auto bindless_info_handle = render_graph.Create(
             {
                 .name   = "text_bindless_info",
-                .size   = gfx::ConstantBufferElementSize(sizeof(BindlessInfo)),
-                .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+                .size   = utils::align(sizeof(BindlessInfo), gfx::GPUBuffer::GetStorageViewRequirements(render_graph.GetDevice()).size_alignment),
+                .usages = gfx::GPUBufferUsageFlags::StorageRead | gfx::GPUBufferUsageFlags::MapWrite,
             },
             "text_bindless_info");
 
         const auto frame_constant_handle = render_graph.Create(
             {
                 .name   = "text_frame_constant",
-                .size   = gfx::ConstantBufferElementSize(sizeof(TextFrameConstant)),
-                .usages = gfx::GPUBufferUsageFlags::Constant | gfx::GPUBufferUsageFlags::MapWrite,
+                .size   = utils::align(sizeof(TextFrameConstant), gfx::GPUBuffer::GetStorageViewRequirements(render_graph.GetDevice()).size_alignment),
+                .usages = gfx::GPUBufferUsageFlags::StorageRead | gfx::GPUBufferUsageFlags::MapWrite,
             },
             "text_frame_constant");
 
@@ -310,64 +310,64 @@ struct TextRenderUtils::Impl {
         if (!render_pipeline) return;
 
         rg::RenderPassBuilder builder(render_graph);
-        builder.SetName("TextRenderPass")
-            .Read(bindless_info_handle, 0, 1, sizeof(BindlessInfo))
-            .Read(frame_constant_handle, 0, 1, sizeof(TextFrameConstant))
-            .ReadAsVertices(vertex_buffer_handle)
-            .ReadAsIndices(index_buffer_handle)
-            .Read(atlas_handle, {}, gfx::PipelineStage::PixelShader)
-            .AddSampler(sampler_handle)
-            .SetRenderTarget(target, clear_target);
+        builder.SetName("TextRenderPass");
+        const auto bindless_info_access  = builder.Read(bindless_info_handle, {.offset = 0, .element_size = sizeof(BindlessInfo), .element_count = 1});
+        const auto frame_constant_access = builder.Read(frame_constant_handle, {.offset = 0, .element_size = sizeof(TextFrameConstant), .element_count = 1});
+        const auto vertex_buffer_access  = builder.ReadAsVertices(vertex_buffer_handle, {.element_size = sizeof(TextVertex), .element_count = 0});
+        const auto index_buffer_access   = builder.ReadAsIndices(index_buffer_handle, {.element_size = sizeof(std::uint32_t), .element_count = 0});
+        const auto atlas_access          = builder.Read(atlas_handle, {}, gfx::PipelineStage::PixelShader);
+        builder.AddSampler(sampler_handle);
+        builder.SetRenderTarget(target, clear_target);
 
         builder.SetExecutor(
-                   [=, vertices = std::move(vertices), indices = std::move(indices)](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
-                       auto& cmd           = pass.GetCmd();
-                       auto& render_target = pass.Resolve(target);
+            [=, vertices = std::move(vertices), indices = std::move(indices)](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+                auto& cmd           = pass.GetCmd();
+                auto& render_target = pass.Resolve(target);
 
-                       cmd.SetViewPort({
-                           .x      = 0.0f,
-                           .y      = 0.0f,
-                           .width  = static_cast<float>(render_target.GetDesc().width),
-                           .height = static_cast<float>(render_target.GetDesc().height),
-                       });
-                       cmd.SetScissorRect({
-                           .x      = 0,
-                           .y      = 0,
-                           .width  = render_target.GetDesc().width,
-                           .height = render_target.GetDesc().height,
-                       });
+                cmd.SetViewPort({
+                    .x      = 0.0f,
+                    .y      = 0.0f,
+                    .width  = static_cast<float>(render_target.GetDesc().width),
+                    .height = static_cast<float>(render_target.GetDesc().height),
+                });
+                cmd.SetScissorRect({
+                    .x      = 0,
+                    .y      = 0,
+                    .width  = render_target.GetDesc().width,
+                    .height = render_target.GetDesc().height,
+                });
 
-                       gfx::GPUBufferView::MappedSpan<TextFrameConstant> frame_constant(pass.Resolve(frame_constant_handle));
-                       frame_constant.front().projection = math::ortho(
-                           0.0f,
-                           static_cast<float>(render_target.GetDesc().width),
-                           static_cast<float>(render_target.GetDesc().height),
-                           0.0f,
-                           3.0f,
-                           -1.0f);
+                auto frame_constant               = pass.Resolve(frame_constant_access).GetMappedSpan<TextFrameConstant>();
+                frame_constant.front().projection = math::ortho(
+                    0.0f,
+                    static_cast<float>(render_target.GetDesc().width),
+                    static_cast<float>(render_target.GetDesc().height),
+                    0.0f,
+                    3.0f,
+                    -1.0f);
 
-                       gfx::GPUBufferView::MappedSpan<TextVertex> vertex_buffer(pass.Resolve(vertex_buffer_handle));
-                       std::memcpy(vertex_buffer.data(), vertices.data(), vertices.size() * sizeof(TextVertex));
+                auto vertex_buffer = pass.Resolve(vertex_buffer_access).GetMappedSpan<TextVertex>();
+                std::memcpy(vertex_buffer.data(), vertices.data(), vertices.size() * sizeof(TextVertex));
 
-                       gfx::GPUBufferView::MappedSpan<std::uint32_t> index_buffer(pass.Resolve(index_buffer_handle));
-                       std::memcpy(index_buffer.data(), indices.data(), indices.size() * sizeof(std::uint32_t));
+                auto index_buffer = pass.Resolve(index_buffer_access).GetMappedSpan<std::uint32_t>();
+                std::memcpy(index_buffer.data(), indices.data(), indices.size() * sizeof(std::uint32_t));
 
-                       gfx::GPUBufferView::MappedSpan<BindlessInfo> bindless_infos(pass.Resolve(bindless_info_handle));
-                       bindless_infos.front() = {
-                           .frame_constant = pass.GetBindless(frame_constant_handle),
-                           .atlas          = pass.GetBindless(atlas_handle),
-                           .sampler        = pass.GetBindless(sampler_handle),
-                       };
+                auto bindless_infos    = pass.Resolve(bindless_info_access).GetMappedSpan<BindlessInfo>();
+                bindless_infos.front() = {
+                    .frame_constant = pass.Resolve(frame_constant_access).GetBindlessHandle(),
+                    .atlas          = pass.Resolve(atlas_access).GetBindlessHandle(),
+                    .sampler        = pass.Resolve(sampler_handle).GetBindlessHandle(),
+                };
 
-                       cmd.SetPipeline(*render_pipeline);
-                       cmd.SetVertexBuffers(0, {{pass.Resolve(vertex_buffer_handle)}}, {{0}});
-                       cmd.SetIndexBuffer(pass.Resolve(index_buffer_handle), 0, gfx::Format::R32_UINT);
-                       cmd.PushBindlessMetaInfo({
-                           .handle = pass.GetBindless(bindless_info_handle),
-                       });
-                       cmd.DrawIndexed(static_cast<std::uint32_t>(indices.size()));
-                   })
-            .Finish();
+                cmd.SetPipeline(*render_pipeline);
+                cmd.SetVertexBuffers(0, {{pass.Resolve(vertex_buffer_handle)}}, {{0}});
+                cmd.SetIndexBuffer(pass.Resolve(index_buffer_handle), 0, gfx::Format::R32_UINT);
+                cmd.PushBindlessMetaInfo({
+                    .handle = pass.Resolve(bindless_info_access).GetBindlessHandle(),
+                });
+                cmd.DrawIndexed(static_cast<std::uint32_t>(indices.size()));
+            });
+        builder.Finish();
     }
 
     bool EnsureFace() {

@@ -29,26 +29,26 @@ public:
         auto& graph  = context.graph;
         auto  output = graph.MoveFrom(input, "CustomFullscreenPassOutput");
 
-        rg::RenderPassBuilder(graph)
-            .SetName("CustomFullscreenPass")
-            .SetRenderTarget(output, false)
-            .SetExecutor([output](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
-                auto&       cmd           = pass.GetCmd();
-                const auto& render_target = pass.Resolve(output);
-                cmd.SetViewPort({
-                    .x      = 0,
-                    .y      = 0,
-                    .width  = static_cast<float>(render_target.GetDesc().width),
-                    .height = static_cast<float>(render_target.GetDesc().height),
-                });
-                cmd.SetScissorRect({
-                    .x      = 0,
-                    .y      = 0,
-                    .width  = render_target.GetDesc().width,
-                    .height = render_target.GetDesc().height,
-                });
-            })
-            .Finish();
+        rg::RenderPassBuilder pass_builder(graph);
+        pass_builder.SetName("CustomFullscreenPass");
+        pass_builder.SetRenderTarget(output, false);
+        pass_builder.SetExecutor([output](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+            auto&       cmd           = pass.GetCmd();
+            const auto& render_target = pass.Resolve(output);
+            cmd.SetViewPort({
+                .x      = 0,
+                .y      = 0,
+                .width  = static_cast<float>(render_target.GetDesc().width),
+                .height = static_cast<float>(render_target.GetDesc().height),
+            });
+            cmd.SetScissorRect({
+                .x      = 0,
+                .y      = 0,
+                .width  = render_target.GetDesc().width,
+                .height = render_target.GetDesc().height,
+            });
+        });
+        pass_builder.Finish();
 
         return output;
     }
@@ -79,6 +79,7 @@ protected:
         : test_name(UnitTest::GetInstance()->current_test_info()->name()),
           app(Application::CreateApp(AppConfig{
               .gfx_backend = std::pmr::string(magic_enum::enum_name(GetParam())),
+              .log_level   = spdlog::level::to_string_view(spdlog::get_level()).data(),
               .headless    = true,
           })),
           device(gfx::create_device(GetParam())) {}
@@ -100,6 +101,17 @@ TEST_P(RendererTest, DeferredRendererAcceptsExplicitFrame) {
     RenderRuntime   runtime(*device, *app, test_name);
     DefaultRenderer renderer(*device, file_io, *app, test_name);
 
+    const std::array debug_views{
+        RenderGraphDebugView::Final,
+        RenderGraphDebugView::BaseColor,
+        RenderGraphDebugView::Normal,
+        RenderGraphDebugView::Metallic,
+        RenderGraphDebugView::Roughness,
+        RenderGraphDebugView::Occlusion,
+        RenderGraphDebugView::MaterialId,
+        RenderGraphDebugView::Emissive,
+        RenderGraphDebugView::Final,
+    };
     std::size_t frame_index = 0;
     while (!app->IsQuit()) {
         const auto width   = runtime.GetSwapChain().GetWidth();
@@ -126,13 +138,23 @@ TEST_P(RendererTest, DeferredRendererAcceptsExplicitFrame) {
         const auto frame_output = renderer.Render(
             context,
             RenderRequest{
-                .frame  = frame,
-                .target = texture,
+                .frame      = frame,
+                .target     = texture,
+                .debug_view = debug_views[frame_index],
             });
         EXPECT_EQ(frame_output.color, texture);
         EXPECT_TRUE(frame_output.depth);
         EXPECT_TRUE(frame_output.linear_depth);
         EXPECT_TRUE(frame_output.normal);
+        const auto graph_dot = runtime.GetRenderGraph().ToDot();
+        if (debug_views[frame_index] == RenderGraphDebugView::Final) {
+            EXPECT_EQ(graph_dot.find("DeferredDebugViewPass-"), std::pmr::string::npos);
+            EXPECT_NE(graph_dot.find("DeferredLightingPass-"), std::pmr::string::npos);
+        } else {
+            EXPECT_NE(graph_dot.find(std::format("DeferredDebugViewPass-{}-", RenderGraphDebugViewName(debug_views[frame_index]))),
+                      std::pmr::string::npos);
+            EXPECT_EQ(graph_dot.find("DeferredLightingPass-"), std::pmr::string::npos);
+        }
         texture = runtime.GetRenderGraph().MoveFrom(texture);
         runtime.ToSwapChain(texture);
         runtime.Tick();
@@ -141,7 +163,7 @@ TEST_P(RendererTest, DeferredRendererAcceptsExplicitFrame) {
 
         FrameMark;
 
-        if (frame_index++ == 3) {
+        if (++frame_index == debug_views.size()) {
             break;
         }
     }
@@ -274,14 +296,14 @@ TEST(RendererPassBuilderTest, CreatesDepthShadowGBufferAndIdResources) {
     };
 
     const auto frame_constant    = graph.Create(gfx::GPUBufferDesc{
-        .name          = "frame_constant",
-        .size = (sizeof(FrameConstant)) * (1),
-        .usages        = gfx::GPUBufferUsageFlags::Constant,
+        .name   = "frame_constant",
+        .size   = (sizeof(FrameConstant)) * (1),
+        .usages = gfx::GPUBufferUsageFlags::StorageRead,
     });
     const auto instance_constant = graph.Create(gfx::GPUBufferDesc{
-        .name          = "instance_constant",
-        .size = (sizeof(InstanceConstant)) * (1),
-        .usages        = gfx::GPUBufferUsageFlags::Constant,
+        .name   = "instance_constant",
+        .size   = (sizeof(InstanceConstant)) * (1),
+        .usages = gfx::GPUBufferUsageFlags::StorageRead,
     });
     const auto pipeline          = mock_device->CreateRenderPipeline({}, {});
 

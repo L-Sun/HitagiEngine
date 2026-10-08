@@ -66,9 +66,8 @@ float4 PSEmissiveMain(VSOutput input) : SV_TARGET {
 
 float4 PSObjectMaterialIdMain(VSOutput input) : SV_TARGET {
     BindlessInfo resource = hitagi::load_bindless<BindlessInfo>();
-    SamplerState sampler  = resource.sampler.load();
 
-    const uint2 ids = resource.object_material_id.sample_level<uint2>(sampler, input.uv, 0.0f);
+    const uint2 ids = resource.object_material_id.load<uint2>(uint2(input.pos.xy));
     const float object_id = frac((float)ids.x / 255.0f);
     const float material_id = frac((float)ids.y / 255.0f);
     return float4(object_id, material_id, 0.0f, 1.0f);

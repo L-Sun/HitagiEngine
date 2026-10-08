@@ -3,6 +3,8 @@
 struct BindlessInfo {
     hitagi::SimpleBuffer frame_constant;
     hitagi::SimpleBuffer instance_constant;
+    uint instance_index;
+    uint instance_stride;
     hitagi::SimpleBuffer material_data;
     hitagi::Sampler      base_sampler;
 };
@@ -59,7 +61,7 @@ float3 SRGBToLinear(float3 color) {
 PSInput VSMain(VSInput input) {
     BindlessInfo     resource          = hitagi::load_bindless<BindlessInfo>();
     FrameConstant    frame_constant    = resource.frame_constant.load<FrameConstant>();
-    InstanceConstant instance_constant = resource.instance_constant.load<InstanceConstant>();
+    InstanceConstant instance_constant = resource.instance_constant.load<InstanceConstant>(resource.instance_index * resource.instance_stride);
 
     const float4 world_pos = mul(instance_constant.model, float4(input.position, 1.0f));
 

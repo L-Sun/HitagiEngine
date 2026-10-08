@@ -3,8 +3,6 @@ module;
 #include <spdlog/spdlog.h>
 #include <tracy/Tracy.hpp>
 
-#include <cstdlib>
-
 #undef near
 #undef far
 
@@ -151,6 +149,8 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
             .device_type              = m_GfxDevice.device_type,
             .width                    = target_desc.width,
             .height                   = target_desc.height,
+            .instance_stride = m_InstanceConstantStride,
+            .bindless_stride = m_DrawBindlessInfoStride,
         });
 
     const auto  normal_pipeline = m_GBufferPass.GetNormalPipeline();
@@ -161,8 +161,8 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
 
     m_NormalBindlessInfoConstantBuffer = render_graph.Create({
         .name   = "normal_bindless_infos",
-        .size   = gfx::ConstantBufferElementSize(sizeof(DrawBindlessInfo)) * std::max<std::size_t>(1, num_draws),
-        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .size   = m_DrawBindlessInfoStride * std::max<std::size_t>(1, num_draws),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::StorageRead,
     });
 
     // The albedo pass uploads per-frame, instance, and material data;
@@ -182,14 +182,16 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
             .pipeline          = normal_pipeline,
             .width             = target_desc.width,
             .height            = target_desc.height,
+            .instance_stride = m_InstanceConstantStride,
+            .bindless_stride = m_DrawBindlessInfoStride,
         });
 
     const auto material_pipeline = m_GBufferPass.GetMaterialPipeline();
 
     m_MaterialBindlessInfoConstantBuffer = render_graph.Create({
         .name   = "material_bindless_infos",
-        .size   = gfx::ConstantBufferElementSize(sizeof(DrawBindlessInfo)) * std::max<std::size_t>(1, num_draws),
-        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .size   = m_DrawBindlessInfoStride * std::max<std::size_t>(1, num_draws),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::StorageRead,
     });
 
     m_GBufferPass.BuildAttributePass(
@@ -207,14 +209,16 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
             .pipeline          = material_pipeline,
             .width             = target_desc.width,
             .height            = target_desc.height,
+            .instance_stride = m_InstanceConstantStride,
+            .bindless_stride = m_DrawBindlessInfoStride,
         });
 
     const auto emissive_pipeline = m_GBufferPass.GetEmissivePipeline();
 
     m_EmissiveBindlessInfoConstantBuffer = render_graph.Create({
         .name   = "emissive_bindless_infos",
-        .size   = gfx::ConstantBufferElementSize(sizeof(DrawBindlessInfo)) * std::max<std::size_t>(1, num_draws),
-        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .size   = m_DrawBindlessInfoStride * std::max<std::size_t>(1, num_draws),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::StorageRead,
     });
 
     m_GBufferPass.BuildAttributePass(
@@ -232,6 +236,8 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
             .pipeline          = emissive_pipeline,
             .width             = target_desc.width,
             .height            = target_desc.height,
+            .instance_stride = m_InstanceConstantStride,
+            .bindless_stride = m_DrawBindlessInfoStride,
         });
 
     DeferredRenderResources resources{
@@ -257,13 +263,12 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
         extension->AfterGBuffer(context, view, resources, draw_data);
     }
 
-    const auto debug_view = std::getenv("HITAGI_RENDER_DEBUG_VIEW");
-    if (debug_view != nullptr && std::string_view(debug_view) != "final") {
+    if (request.debug_view != RenderGraphDebugView::Final) {
         m_GBufferDebugViewPass.Build(
             context,
             gbuffer,
             m_Sampler,
-            debug_view,
+            RenderGraphDebugViewName(request.debug_view),
             target);
         return RenderResult{
             .color        = target,
@@ -277,8 +282,8 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
 
     m_DeferredLightingBindlessInfoConstantBuffer = render_graph.Create({
         .name   = "deferred_lighting_bindless_info",
-        .size   = gfx::ConstantBufferElementSize(sizeof(passes::DeferredLighting::BindlessInfo)),
-        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .size   = utils::align(sizeof(passes::DeferredLighting::BindlessInfo), gfx::GPUBuffer::GetStorageViewRequirements(render_graph.GetDevice()).size_alignment),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::StorageRead,
     });
 
     resources.color = m_DeferredLightingPass.Build(
@@ -378,8 +383,8 @@ void DeferredRenderer::UpdateConstantBuffer(rg::RenderGraph& render_graph, std::
         auto material_data_handle = render_graph.Create(
             {
                 .name   = std::pmr::string(material->GetName()),
-                .size   = gfx::ConstantBufferElementSize(material_pass->material_data.GetDataSize()),
-                .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+                .size   = utils::align(material_pass->material_data.GetDataSize(), gfx::GPUBuffer::GetStorageViewRequirements(render_graph.GetDevice()).size_alignment),
+                .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::StorageRead,
             },
             material->GetName());
 
@@ -394,17 +399,19 @@ void DeferredRenderer::UpdateConstantBuffer(rg::RenderGraph& render_graph, std::
             });
     }
 
+    m_InstanceConstantStride = sizeof(InstanceConstant);
+    m_DrawBindlessInfoStride = sizeof(DrawBindlessInfo);
     m_InstanceConstantBuffer = render_graph.Create({
         .name   = "instance_constant",
-        .size   = gfx::ConstantBufferElementSize(sizeof(InstanceConstant)) * std::max<std::size_t>(1, m_DrawState.instance_infos.size()),
-        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .size   = m_InstanceConstantStride * std::max<std::size_t>(1, m_DrawState.instance_infos.size()),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::StorageRead,
     });
 
     m_FrameConstantBuffer = render_graph.Create(
         {
             .name   = "frame_constant",
-            .size   = gfx::ConstantBufferElementSize(sizeof(FrameConstant)),
-            .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+            .size   = utils::align(sizeof(FrameConstant), gfx::GPUBuffer::GetStorageViewRequirements(render_graph.GetDevice()).size_alignment),
+            .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::StorageRead,
         });
 
     std::size_t num_draws = 0;
@@ -414,8 +421,8 @@ void DeferredRenderer::UpdateConstantBuffer(rg::RenderGraph& render_graph, std::
 
     m_BindlessInfoConstantBuffer = render_graph.Create({
         .name   = "bindless_infos",
-        .size   = gfx::ConstantBufferElementSize(sizeof(DrawBindlessInfo)) * std::max<std::size_t>(1, num_draws),
-        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::Constant,
+        .size   = m_DrawBindlessInfoStride * std::max<std::size_t>(1, num_draws),
+        .usages = gfx::GPUBufferUsageFlags::MapWrite | gfx::GPUBufferUsageFlags::StorageRead,
     });
 }
 void DeferredRenderer::ClearFrameState() {

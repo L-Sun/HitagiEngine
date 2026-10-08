@@ -19,8 +19,8 @@ auto CountDraws(const RenderDrawState& draw_state) noexcept -> std::size_t {
 }
 
 void UploadMaterialData(
-    const asset::MaterialPass&                material_pass,
-    gfx::GPUBuffer&                           material_data_buffer) {
+    const asset::MaterialPass& material_pass,
+    gfx::GPUBuffer&            material_data_buffer) {
     const auto& material_data = material_pass.material_data;
     if (material_data.Empty()) return;
 
@@ -65,29 +65,29 @@ void passes::DepthPrepass::Build(RenderContext& context, const BuildDesc& desc) 
         .usages      = gfx::TextureUsageFlags::RenderTarget,
     });
 
-    rg::RenderPassBuilder(render_graph)
-        .SetName(pass_name)
-        .SetRenderTarget(scratch_target, true)
-        .SetDepthStencil(desc.depth, desc.clear_depth)
-        .Read(desc.frame_constant, gfx::PipelineStage::VertexShader)
-        .Read(desc.instance_constant, gfx::PipelineStage::VertexShader)
-        .SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
-            auto& cmd = pass.GetCmd();
-            cmd.SetViewPort({
-                .x      = 0,
-                .y      = 0,
-                .width  = static_cast<float>(desc.width),
-                .height = static_cast<float>(desc.height),
-            });
-            cmd.SetScissorRect({
-                .x      = 0,
-                .y      = 0,
-                .width  = desc.width,
-                .height = desc.height,
-            });
-            cmd.SetPipeline(*desc.pipeline);
-        })
-        .Finish();
+    rg::RenderPassBuilder pass_builder(render_graph);
+    pass_builder.SetName(pass_name);
+    pass_builder.SetRenderTarget(scratch_target, true);
+    pass_builder.SetDepthStencil(desc.depth, desc.clear_depth);
+    pass_builder.Read(desc.frame_constant, {.element_count = 0}, gfx::PipelineStage::VertexShader);
+    pass_builder.Read(desc.instance_constant, {.element_count = 0}, gfx::PipelineStage::VertexShader);
+    pass_builder.SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+        auto& cmd = pass.GetCmd();
+        cmd.SetViewPort({
+            .x      = 0,
+            .y      = 0,
+            .width  = static_cast<float>(desc.width),
+            .height = static_cast<float>(desc.height),
+        });
+        cmd.SetScissorRect({
+            .x      = 0,
+            .y      = 0,
+            .width  = desc.width,
+            .height = desc.height,
+        });
+        cmd.SetPipeline(*desc.pipeline);
+    });
+    pass_builder.Finish();
 }
 
 auto passes::ShadowMapPass::CreateTarget(RenderContext& context, const Desc& desc) -> rg::TextureHandle {
@@ -125,29 +125,29 @@ void passes::ShadowMapPass::Build(RenderContext& context, const BuildDesc& desc)
         .usages      = gfx::TextureUsageFlags::RenderTarget,
     });
 
-    rg::RenderPassBuilder(render_graph)
-        .SetName(pass_name)
-        .SetRenderTarget(scratch_target, true)
-        .SetDepthStencil(desc.shadow_map, desc.clear_depth)
-        .Read(desc.light_frame_constant, gfx::PipelineStage::VertexShader)
-        .Read(desc.instance_constant, gfx::PipelineStage::VertexShader)
-        .SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
-            auto& cmd = pass.GetCmd();
-            cmd.SetViewPort({
-                .x      = 0,
-                .y      = 0,
-                .width  = static_cast<float>(desc.width),
-                .height = static_cast<float>(desc.height),
-            });
-            cmd.SetScissorRect({
-                .x      = 0,
-                .y      = 0,
-                .width  = desc.width,
-                .height = desc.height,
-            });
-            cmd.SetPipeline(*desc.pipeline);
-        })
-        .Finish();
+    rg::RenderPassBuilder pass_builder(render_graph);
+    pass_builder.SetName(pass_name);
+    pass_builder.SetRenderTarget(scratch_target, true);
+    pass_builder.SetDepthStencil(desc.shadow_map, desc.clear_depth);
+    pass_builder.Read(desc.light_frame_constant, {.element_count = 0}, gfx::PipelineStage::VertexShader);
+    pass_builder.Read(desc.instance_constant, {.element_count = 0}, gfx::PipelineStage::VertexShader);
+    pass_builder.SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+        auto& cmd = pass.GetCmd();
+        cmd.SetViewPort({
+            .x      = 0,
+            .y      = 0,
+            .width  = static_cast<float>(desc.width),
+            .height = static_cast<float>(desc.height),
+        });
+        cmd.SetScissorRect({
+            .x      = 0,
+            .y      = 0,
+            .width  = desc.width,
+            .height = desc.height,
+        });
+        cmd.SetPipeline(*desc.pipeline);
+    });
+    pass_builder.Finish();
 }
 
 auto passes::ObjectMaterialIdPass::CreateTarget(RenderContext& context, const Desc& desc) -> rg::TextureHandle {
@@ -325,21 +325,21 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, RenderDrawState& d
 
     const auto draw_count = CountDraws(draw_state);
 
-    rg::RenderPassBuilder builder(render_graph);
-    builder
-        .SetName(desc.pass_name)
-        .SetRenderTarget(desc.target, true)
-        .SetDepthStencil(desc.depth, desc.clear_depth)
-        .Read(desc.frame_constant_buffer, 0, 1, sizeof(FrameConstant), gfx::PipelineStage::VertexShader)
-        .Read(desc.instance_constant_buffer, 0, std::max<std::size_t>(1, draw_state.instance_infos.size()), sizeof(InstanceConstant), gfx::PipelineStage::VertexShader)
-        .Read(desc.bindless_info_buffer, 0, draw_count, sizeof(DrawBindlessInfo))
-        .AddSampler(desc.sampler);
+    std::unordered_map<rg::GPUBufferHandle, rg::GPUBufferEdgeHandle> material_accesses;
+    rg::RenderPassBuilder                                            builder(render_graph);
+    builder.SetName(desc.pass_name);
+    builder.SetRenderTarget(desc.target, true);
+    builder.SetDepthStencil(desc.depth, desc.clear_depth);
+    const auto frame_constant_buffer_access    = builder.Read(desc.frame_constant_buffer, {.offset = 0, .element_size = sizeof(FrameConstant), .element_count = 1}, gfx::PipelineStage::VertexShader);
+    const auto instance_constant_buffer_access = builder.Read(desc.instance_constant_buffer, {.offset = 0, .element_size = sizeof(InstanceConstant), .element_count = std::max<std::size_t>(1, draw_state.instance_infos.size()), .element_stride = desc.instance_stride}, gfx::PipelineStage::VertexShader);
+    const auto bindless_info_buffer_access     = builder.Read(desc.bindless_info_buffer, {.offset = 0, .element_size = sizeof(DrawBindlessInfo), .element_count = std::max<std::size_t>(1, draw_count), .element_stride = desc.bindless_stride}, gfx::PipelineStage::All);
+    builder.AddSampler(desc.sampler);
 
     for (const auto& [_, material_info] : draw_state.material_infos) {
         if (!material_info.pass_participation.Participates(MaterialPass::GBuffer)) continue;
         const auto* material_pass = material_info.material ? material_info.material->FindPass(material_info.material_pass_contract) : nullptr;
         if (material_pass) {
-            builder.Read(material_info.material_data, 0, 1, material_pass->material_data.GetDataSize());
+            material_accesses[material_info.material_data] = builder.Read(material_info.material_data, {.offset = 0, .element_size = material_pass->material_data.GetDataSize(), .element_count = 1});
         }
     }
     for (const auto& [_, mesh_info] : draw_state.mesh_infos) {
@@ -352,11 +352,11 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, RenderDrawState& d
         builder.ReadAsIndices(mesh_info.indices);
     }
 
-    builder.SetExecutor([&draw_state, desc](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+    builder.SetExecutor([&draw_state, desc, material_accesses, frame_constant_buffer_access, instance_constant_buffer_access, bindless_info_buffer_access](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
         auto& cmd = pass.GetCmd();
 
-        gfx::GPUBufferView::MappedSpan<FrameConstant>(pass.Resolve(desc.frame_constant_buffer)).front() = desc.frame_constant;
-        gfx::GPUBufferView::MappedSpan<DrawBindlessInfo> bindless_infos(pass.Resolve(desc.bindless_info_buffer));
+        pass.Resolve(frame_constant_buffer_access).GetMappedSpan<FrameConstant>().front() = desc.frame_constant;
+        auto bindless_infos                                                                   = pass.Resolve(bindless_info_buffer_access).GetMappedSpan<DrawBindlessInfo>();
 
         const auto& render_target = pass.Resolve(desc.target);
         cmd.SetViewPort({
@@ -383,7 +383,7 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, RenderDrawState& d
                 material_data_buffer);
         }
 
-        auto instance_constant = gfx::GPUBufferView::MappedSpan<InstanceConstant>(pass.Resolve(desc.instance_constant_buffer));
+        auto instance_constant = pass.Resolve(instance_constant_buffer_access).GetMappedSpan<InstanceConstant>();
         for (const auto& instance_info : draw_state.instance_infos) {
             instance_constant[instance_info.instance_index] = instance_info.instance_data;
         }
@@ -404,14 +404,18 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, RenderDrawState& d
                 cmd.SetPipeline(pipeline);
 
                 bindless_infos[draw_index] = {
-                    .frame_constant    = pass.GetBindless(desc.frame_constant_buffer),
-                    .instance_constant = pass.GetBindless(desc.instance_constant_buffer, instance_info.instance_index),
-                    .material_data     = pass.GetBindless(material_info.material_data),
-                    .sampler           = pass.GetBindless(desc.sampler),
+                    .frame_constant    = pass.Resolve(frame_constant_buffer_access).GetBindlessHandle(),
+                    .instance_constant = pass.Resolve(instance_constant_buffer_access).GetBindlessHandle(),
+                    .instance_index    = static_cast<std::uint32_t>(instance_info.instance_index),
+                    .instance_stride   = static_cast<std::uint32_t>(pass.Resolve(instance_constant_buffer_access).GetDesc().element_stride),
+                    .material_data     = pass.Resolve(material_accesses.at(material_info.material_data)).GetBindlessHandle(),
+                    .sampler           = pass.Resolve(desc.sampler).GetBindlessHandle(),
                 };
 
                 cmd.PushBindlessMetaInfo({
-                    .handle = pass.GetBindless(desc.bindless_info_buffer, draw_index),
+                    .handle        = pass.Resolve(bindless_info_buffer_access).GetBindlessHandle(),
+                    .record_index  = static_cast<std::uint32_t>(draw_index),
+                    .record_stride = static_cast<std::uint32_t>(pass.Resolve(bindless_info_buffer_access).GetDesc().element_stride),
                 });
                 for (const auto& vertex_attr : pipeline.GetDesc().vertex_input_layout) {
                     auto mesh_attr   = asset::semantic_to_vertex_attribute(vertex_attr.semantic);
@@ -445,16 +449,16 @@ void passes::GBuffer::BuildAttributePass(RenderContext& context, RenderDrawState
 
     const auto draw_count = CountDraws(draw_state);
 
-    rg::RenderPassBuilder builder(render_graph);
-    builder
-        .SetName(desc.pass_name)
-        .SetRenderTarget(desc.target, true)
-        .ReadDepthStencil(desc.depth)
-        .Read(desc.dependency, {}, gfx::PipelineStage::PixelShader)
-        .Read(desc.frame_constant, 0, 1, sizeof(FrameConstant), gfx::PipelineStage::VertexShader)
-        .Read(desc.instance_constant, 0, std::max<std::size_t>(1, draw_state.instance_infos.size()), sizeof(InstanceConstant), gfx::PipelineStage::VertexShader)
-        .Read(desc.bindless_info, 0, draw_count, sizeof(DrawBindlessInfo))
-        .AddSampler(desc.sampler);
+    std::unordered_map<rg::GPUBufferHandle, rg::GPUBufferEdgeHandle> material_accesses;
+    rg::RenderPassBuilder                                            builder(render_graph);
+    builder.SetName(desc.pass_name);
+    builder.SetRenderTarget(desc.target, true);
+    builder.ReadDepthStencil(desc.depth);
+    builder.Read(desc.dependency, {}, gfx::PipelineStage::PixelShader);
+    const auto frame_constant_access    = builder.Read(desc.frame_constant, {.offset = 0, .element_size = sizeof(FrameConstant), .element_count = 1}, gfx::PipelineStage::VertexShader);
+    const auto instance_constant_access = builder.Read(desc.instance_constant, {.offset = 0, .element_size = sizeof(InstanceConstant), .element_count = std::max<std::size_t>(1, draw_state.instance_infos.size()), .element_stride = desc.instance_stride}, gfx::PipelineStage::VertexShader);
+    const auto bindless_info_access     = builder.Read(desc.bindless_info, {.offset = 0, .element_size = sizeof(DrawBindlessInfo), .element_count = std::max<std::size_t>(1, draw_count), .element_stride = desc.bindless_stride}, gfx::PipelineStage::All);
+    builder.AddSampler(desc.sampler);
 
     for (const auto& [mesh, mesh_info] : draw_state.mesh_infos) {
         magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
@@ -469,13 +473,13 @@ void passes::GBuffer::BuildAttributePass(RenderContext& context, RenderDrawState
         if (!material_info.pass_participation.Participates(MaterialPass::GBuffer)) continue;
         const auto* material_pass = material_info.material ? material_info.material->FindPass(material_info.material_pass_contract) : nullptr;
         if (material_pass) {
-            builder.Read(material_info.material_data, 0, 1, material_pass->material_data.GetDataSize());
+            material_accesses[material_info.material_data] = builder.Read(material_info.material_data, {.offset = 0, .element_size = material_pass->material_data.GetDataSize(), .element_count = 1});
         }
     }
-    builder.SetExecutor([&draw_state, desc](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+    builder.SetExecutor([&draw_state, desc, material_accesses, frame_constant_access, instance_constant_access, bindless_info_access](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
         auto& cmd = pass.GetCmd();
 
-        gfx::GPUBufferView::MappedSpan<DrawBindlessInfo> bindless_infos(pass.Resolve(desc.bindless_info));
+        auto bindless_infos = pass.Resolve(bindless_info_access).GetMappedSpan<DrawBindlessInfo>();
 
         const auto& render_target = pass.Resolve(desc.target);
         cmd.SetViewPort({
@@ -505,14 +509,18 @@ void passes::GBuffer::BuildAttributePass(RenderContext& context, RenderDrawState
                 const auto& material_info = material_info_iter->second;
                 if (!material_info.pass_participation.Participates(MaterialPass::GBuffer)) continue;
                 bindless_infos[draw_index] = {
-                    .frame_constant    = pass.GetBindless(desc.frame_constant),
-                    .instance_constant = pass.GetBindless(desc.instance_constant, instance_info.instance_index),
-                    .material_data     = pass.GetBindless(material_info.material_data),
-                    .sampler           = pass.GetBindless(desc.sampler),
+                    .frame_constant    = pass.Resolve(frame_constant_access).GetBindlessHandle(),
+                    .instance_constant = pass.Resolve(instance_constant_access).GetBindlessHandle(),
+                    .instance_index    = static_cast<std::uint32_t>(instance_info.instance_index),
+                    .instance_stride   = static_cast<std::uint32_t>(pass.Resolve(instance_constant_access).GetDesc().element_stride),
+                    .material_data     = pass.Resolve(material_accesses.at(material_info.material_data)).GetBindlessHandle(),
+                    .sampler           = pass.Resolve(desc.sampler).GetBindlessHandle(),
                 };
 
                 cmd.PushBindlessMetaInfo({
-                    .handle = pass.GetBindless(desc.bindless_info, draw_index),
+                    .handle        = pass.Resolve(bindless_info_access).GetBindlessHandle(),
+                    .record_index  = static_cast<std::uint32_t>(draw_index),
+                    .record_stride = static_cast<std::uint32_t>(pass.Resolve(bindless_info_access).GetDesc().element_stride),
                 });
                 for (const auto& vertex_attr : pipeline.GetDesc().vertex_input_layout) {
                     auto mesh_attr   = asset::semantic_to_vertex_attribute(vertex_attr.semantic);

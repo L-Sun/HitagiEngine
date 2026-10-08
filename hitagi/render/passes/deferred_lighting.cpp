@@ -1,6 +1,5 @@
 module;
 
-
 module render;
 import std;
 
@@ -47,13 +46,13 @@ auto passes::DeferredLighting::GetPipeline(gfx::Format target_format) -> std::sh
 }
 
 auto passes::DeferredLighting::Build(
-    RenderContext&           context,
-    const GBufferOutput&     gbuffer,
-    rg::GPUBufferHandle      frame_constant,
-    rg::GPUBufferHandle      bindless_info,
-    rg::SamplerHandle        sampler,
+    RenderContext&                       context,
+    const GBufferOutput&                 gbuffer,
+    rg::GPUBufferHandle                  frame_constant,
+    rg::GPUBufferHandle                  bindless_info,
+    rg::SamplerHandle                    sampler,
     std::shared_ptr<gfx::RenderPipeline> pipeline,
-    rg::TextureHandle        target) -> rg::TextureHandle {
+    rg::TextureHandle                    target) -> rg::TextureHandle {
     auto& render_graph = context.graph;
     if (!render_graph.IsValid(target) ||
         !render_graph.IsValid(gbuffer.albedo) ||
@@ -68,49 +67,48 @@ auto passes::DeferredLighting::Build(
     }
 
     rg::RenderPassBuilder lighting_pass_builder(render_graph);
-    lighting_pass_builder
-        .SetName(std::format("DeferredLightingPass-{}", render_graph.GetFrameIndex()))
-        .SetRenderTarget(target, true)
-        .Read(gbuffer.albedo, {}, gfx::PipelineStage::PixelShader)
-        .Read(gbuffer.normal, {}, gfx::PipelineStage::PixelShader)
-        .Read(gbuffer.material, {}, gfx::PipelineStage::PixelShader)
-        .Read(gbuffer.emissive, {}, gfx::PipelineStage::PixelShader)
-        .Read(frame_constant, 0, 1, sizeof(FrameConstant), gfx::PipelineStage::PixelShader)
-        .Read(bindless_info, 0, 1, sizeof(BindlessInfo), gfx::PipelineStage::PixelShader)
-        .AddSampler(sampler)
-        .SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
-            auto& cmd = pass.GetCmd();
+    lighting_pass_builder.SetName(std::format("DeferredLightingPass-{}", render_graph.GetFrameIndex()));
+    lighting_pass_builder.SetRenderTarget(target, true);
+    const auto albedo_access         = lighting_pass_builder.Read(gbuffer.albedo, {}, gfx::PipelineStage::PixelShader);
+    const auto normal_access         = lighting_pass_builder.Read(gbuffer.normal, {}, gfx::PipelineStage::PixelShader);
+    const auto material_access       = lighting_pass_builder.Read(gbuffer.material, {}, gfx::PipelineStage::PixelShader);
+    const auto emissive_access       = lighting_pass_builder.Read(gbuffer.emissive, {}, gfx::PipelineStage::PixelShader);
+    const auto frame_constant_access = lighting_pass_builder.Read(frame_constant, {.offset = 0, .element_size = sizeof(FrameConstant), .element_count = 1}, gfx::PipelineStage::PixelShader);
+    const auto bindless_info_access  = lighting_pass_builder.Read(bindless_info, {.offset = 0, .element_size = sizeof(BindlessInfo), .element_count = 1}, gfx::PipelineStage::PixelShader);
+    lighting_pass_builder.AddSampler(sampler);
+    lighting_pass_builder.SetExecutor([=](const rg::RenderGraph&, const rg::RenderPassNode& pass) {
+        auto& cmd = pass.GetCmd();
 
-            gfx::GPUBufferView::MappedSpan<BindlessInfo>(pass.Resolve(bindless_info)).front() = {
-                .frame_constant   = pass.GetBindless(frame_constant),
-                .gbuffer_albedo   = pass.GetBindless(gbuffer.albedo),
-                .gbuffer_normal   = pass.GetBindless(gbuffer.normal),
-                .gbuffer_material = pass.GetBindless(gbuffer.material),
-                .gbuffer_emissive = pass.GetBindless(gbuffer.emissive),
-                .sampler          = pass.GetBindless(sampler),
-            };
+        pass.Resolve(bindless_info_access).GetMappedSpan<BindlessInfo>().front() = {
+            .frame_constant   = pass.Resolve(frame_constant_access).GetBindlessHandle(),
+            .gbuffer_albedo   = pass.Resolve(albedo_access).GetBindlessHandle(),
+            .gbuffer_normal   = pass.Resolve(normal_access).GetBindlessHandle(),
+            .gbuffer_material = pass.Resolve(material_access).GetBindlessHandle(),
+            .gbuffer_emissive = pass.Resolve(emissive_access).GetBindlessHandle(),
+            .sampler          = pass.Resolve(sampler).GetBindlessHandle(),
+        };
 
-            const auto& render_target = pass.Resolve(target);
-            cmd.SetViewPort({
-                .x      = 0,
-                .y      = 0,
-                .width  = static_cast<float>(render_target.GetDesc().width),
-                .height = static_cast<float>(render_target.GetDesc().height),
-            });
-            cmd.SetScissorRect({
-                .x      = 0,
-                .y      = 0,
-                .width  = render_target.GetDesc().width,
-                .height = render_target.GetDesc().height,
-            });
+        const auto& render_target = pass.Resolve(target);
+        cmd.SetViewPort({
+            .x      = 0,
+            .y      = 0,
+            .width  = static_cast<float>(render_target.GetDesc().width),
+            .height = static_cast<float>(render_target.GetDesc().height),
+        });
+        cmd.SetScissorRect({
+            .x      = 0,
+            .y      = 0,
+            .width  = render_target.GetDesc().width,
+            .height = render_target.GetDesc().height,
+        });
 
-            cmd.SetPipeline(*pipeline);
-            cmd.PushBindlessMetaInfo({
-                .handle = pass.GetBindless(bindless_info),
-            });
-            cmd.Draw(3);
-        })
-        .Finish();
+        cmd.SetPipeline(*pipeline);
+        cmd.PushBindlessMetaInfo({
+            .handle = pass.Resolve(bindless_info_access).GetBindlessHandle(),
+        });
+        cmd.Draw(3);
+    });
+    lighting_pass_builder.Finish();
 
     return target;
 }

@@ -59,10 +59,23 @@ struct RenderOutputMask {
     bool motion_vector = false;
 };
 
+enum struct RenderGraphDebugView : std::uint8_t {
+    Final,
+    BaseColor,
+    Normal,
+    Metallic,
+    Roughness,
+    Occlusion,
+    MaterialId,
+    Emissive,
+};
+
 struct RenderRequest {
     RenderFrame       frame;
     rg::TextureHandle target = {};
     RenderOutputMask  requested_outputs;
+    // Selects the deferred renderer output for this call only.
+    RenderGraphDebugView debug_view = RenderGraphDebugView::Final;
 };
 
 struct RenderResult {
@@ -108,6 +121,8 @@ struct InstanceConstant {
 struct DrawBindlessInfo {
     gfx::BindlessHandle frame_constant;
     gfx::BindlessHandle instance_constant;
+    std::uint32_t instance_index = 0;
+    std::uint32_t instance_stride = 0;
     gfx::BindlessHandle material_data;
     gfx::BindlessHandle sampler;
 };
@@ -194,17 +209,6 @@ enum struct ToonDebugView : std::uint8_t {
     ShadowBand,
     FaceMask,
     RimMask,
-};
-
-enum struct RenderGraphDebugView : std::uint8_t {
-    Final,
-    BaseColor,
-    Normal,
-    Metallic,
-    Roughness,
-    Occlusion,
-    MaterialId,
-    Emissive,
 };
 
 constexpr auto RenderGraphDebugViewName(RenderGraphDebugView view) noexcept -> std::string_view {
@@ -593,6 +597,8 @@ public:
         bool                     clear_depth = false;
         std::uint32_t            width       = 1;
         std::uint32_t            height      = 1;
+        std::uint64_t instance_stride = 0;
+        std::uint64_t bindless_stride = 0;
     };
 
     struct AlbedoPassDesc {
@@ -608,6 +614,8 @@ public:
         bool                clear_depth = true;
         std::uint32_t       width       = 1;
         std::uint32_t       height      = 1;
+        std::uint64_t instance_stride = 0;
+        std::uint64_t bindless_stride = 0;
     };
 
     auto CreateTargets(RenderContext& context, const Desc& desc) -> GBufferOutput;
@@ -790,6 +798,8 @@ private:
     rg::SamplerHandle   m_Sampler;
     rg::GPUBufferHandle m_FrameConstantBuffer;
     rg::GPUBufferHandle m_InstanceConstantBuffer;
+    std::uint64_t m_InstanceConstantStride = 0;
+    std::uint64_t m_DrawBindlessInfoStride = 0;
     rg::GPUBufferHandle m_BindlessInfoConstantBuffer;
     rg::GPUBufferHandle m_NormalBindlessInfoConstantBuffer;
     rg::GPUBufferHandle m_MaterialBindlessInfoConstantBuffer;
