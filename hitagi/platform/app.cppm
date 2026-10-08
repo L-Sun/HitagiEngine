@@ -688,10 +688,10 @@ auto SDL3Application::GetWindowRect() const -> Rect {
     int w, h;
     SDL_GetWindowSize(m_Window, &w, &h);
     return {
-        static_cast<std::uint32_t>(x),
-        static_cast<std::uint32_t>(y),
-        static_cast<std::uint32_t>(x + w),
-        static_cast<std::uint32_t>(y + h),
+        .left   = static_cast<std::uint32_t>(x),
+        .top    = static_cast<std::uint32_t>(y),
+        .right  = static_cast<std::uint32_t>(x + w),
+        .bottom = static_cast<std::uint32_t>(y + h),
     };
 }
 
