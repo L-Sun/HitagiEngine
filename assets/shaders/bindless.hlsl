@@ -12,6 +12,8 @@ namespace hitagi {
 
     struct BindlessMetaInfo {
         BindlessHandle handle;
+        uint record_index;
+        uint record_stride;
     };
 
     template <typename T>
@@ -38,7 +40,9 @@ namespace hitagi {
     [[vk::binding(binding_index, set_index)]]                         \
     TextureType<float4> g_##TextureType##_float4[];                   \
     [[vk::binding(binding_index, set_index)]]                         \
-    TextureType<uint> g_##TextureType##_uint[];
+    TextureType<uint> g_##TextureType##_uint[];                       \
+    [[vk::binding(binding_index, set_index)]]                         \
+    TextureType<uint2> g_##TextureType##_uint2[];
 
     // Support Texture2D now
     DEFINE_TEXTURE_BINDING(Texture1D, 0, 1)
@@ -55,7 +59,7 @@ namespace hitagi {
 
     template <typename T>
     T load_bindless() {
-        T result = g_byte_address_buffer[g_bindless_meta_info.handle.index].Load<T>(0);
+        T result = g_byte_address_buffer[NonUniformResourceIndex(g_bindless_meta_info.handle.index)].Load<T>(g_bindless_meta_info.record_index * g_bindless_meta_info.record_stride);
         return result;
     }
 
@@ -63,8 +67,8 @@ namespace hitagi {
         BindlessHandle handle;
 
         template <typename T>
-        T load() {
-            return g_byte_address_buffer[handle.index].Load<T>(0);
+        T load(uint byte_offset = 0) {
+            return g_byte_address_buffer[NonUniformResourceIndex(handle.index)].Load<T>(byte_offset);
         }
     };
 
@@ -72,8 +76,13 @@ namespace hitagi {
         BindlessHandle handle;
 
         template <typename T>
-        T load() {
-            return g_rw_byte_address_buffer[handle.index].Load<T>(0);
+        T load(uint byte_offset = 0) {
+            return g_rw_byte_address_buffer[NonUniformResourceIndex(handle.index)].Load<T>(byte_offset);
+        }
+
+        template <typename T>
+        void store(T value, uint byte_offset = 0) {
+            g_rw_byte_address_buffer[NonUniformResourceIndex(handle.index)].Store<T>(byte_offset, value);
         }
     };
 
@@ -83,18 +92,19 @@ namespace hitagi {
     };
 
     struct TextureHelper {
-#define DEFINE_TEXTURE_GET_FN(TextureType, ValueType)                                          \
-    TextureType<ValueType> operator[](HandleWrapper<TextureType<ValueType> > handle) {         \
-        TextureType<ValueType> result = g_##TextureType##_##ValueType[handle._internal.index]; \
-        return result;                                                                         \
-    }
+#define DEFINE_TEXTURE_GET_FN(TextureType, ValueType)                                                                   \
+        TextureType<ValueType> operator[](HandleWrapper<TextureType<ValueType> > handle) {                                  \
+            TextureType<ValueType> result = g_##TextureType##_##ValueType[NonUniformResourceIndex(handle._internal.index)]; \
+            return result;                                                                                                  \
+        }
 
 #define DEFINE_TEXTURE_GET_FN_WITH_VALUE(TextureType) \
         DEFINE_TEXTURE_GET_FN(TextureType, float)         \
         DEFINE_TEXTURE_GET_FN(TextureType, float2)        \
         DEFINE_TEXTURE_GET_FN(TextureType, float3)        \
         DEFINE_TEXTURE_GET_FN(TextureType, float4)        \
-        DEFINE_TEXTURE_GET_FN(TextureType, uint)
+        DEFINE_TEXTURE_GET_FN(TextureType, uint)          \
+        DEFINE_TEXTURE_GET_FN(TextureType, uint2)
 
         DEFINE_TEXTURE_GET_FN_WITH_VALUE(Texture1D)
         DEFINE_TEXTURE_GET_FN_WITH_VALUE(Texture2D)
@@ -141,7 +151,7 @@ namespace hitagi {
         BindlessHandle handle;
 
         SamplerState load() {
-            return g_samplers[handle.index];
+            return g_samplers[NonUniformResourceIndex(handle.index)];
         }
     };
 
@@ -150,17 +160,33 @@ namespace hitagi {
 
     template <typename T>
     T load_bindless() {
-        ConstantBuffer<T> result = ResourceDescriptorHeap[NonUniformResourceIndex(g_bindless_meta_info.handle.index)];
-        return result;
+        ByteAddressBuffer result = ResourceDescriptorHeap[NonUniformResourceIndex(g_bindless_meta_info.handle.index)];
+        return result.Load<T>(g_bindless_meta_info.record_index * g_bindless_meta_info.record_stride);
     }
 
     struct SimpleBuffer {
         BindlessHandle handle;
 
         template <typename T>
-        T load() {
-            ConstantBuffer<T> result = ResourceDescriptorHeap[NonUniformResourceIndex(handle.index)];
-            return result;
+        T load(uint byte_offset = 0) {
+            ByteAddressBuffer result = ResourceDescriptorHeap[NonUniformResourceIndex(handle.index)];
+            return result.Load<T>(byte_offset);
+        }
+    };
+
+    struct RWSimpleBuffer {
+        BindlessHandle handle;
+
+        template <typename T>
+        T load(uint byte_offset = 0) {
+            RWByteAddressBuffer buffer = ResourceDescriptorHeap[NonUniformResourceIndex(handle.index)];
+            return buffer.Load<T>(byte_offset);
+        }
+
+        template <typename T>
+        void store(T value, uint byte_offset = 0) {
+            RWByteAddressBuffer buffer = ResourceDescriptorHeap[NonUniformResourceIndex(handle.index)];
+            buffer.Store<T>(byte_offset, value);
         }
     };
 

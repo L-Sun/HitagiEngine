@@ -54,7 +54,8 @@ constexpr std::array required_instance_extensions = {
 constexpr std::array required_device_extensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+    VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME,
+    VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME,
     VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME,
 };
 
@@ -197,6 +198,7 @@ public:
         std::span<const FenceSignalInfo>                              signal_fences = {}) final;
 
     void WaitIdle() final;
+
     void InitializeTracyContext();
 
     inline auto  GetFamilyIndex() const noexcept { return m_FamilyIndex; }
@@ -215,16 +217,26 @@ struct VulkanBindlessUtils : public BindlessUtils {
     auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle final;
     void DiscardBindlessHandle(BindlessHandle handle) final;
 
-    std::unique_ptr<vk::raii::DescriptorPool>       pool;
-    std::pmr::vector<vk::raii::DescriptorSetLayout> set_layouts;
-    vk::PushConstantRange                           bindless_info_constant_range;
-    std::unique_ptr<vk::raii::PipelineLayout>       pipeline_layout;
+    void Bind(const vk::raii::CommandBuffer& command_buffer) const;
 
-    std::vector<vk::raii::DescriptorSet> descriptor_sets;
+    vk::ShaderDescriptorSetAndBindingMappingInfoEXT mapping_info;
 
 private:
     auto CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle final;
     auto CreateBindlessHandle(TextureView& view) -> BindlessHandle final;
+
+    struct Heap {
+        ~Heap();
+        VmaAllocator        allocator  = nullptr;
+        VmaAllocation       allocation = nullptr;
+        VkBuffer            buffer     = VK_NULL_HANDLE;
+        std::byte*          mapped     = nullptr;
+        vk::BindHeapInfoEXT bind_info;
+    };
+    std::array<Heap, 2>                                  m_Heaps;
+    std::array<vk::DescriptorSetAndBindingMappingEXT, 4> m_Mappings;
+    std::array<std::uint32_t, 4>                         m_DescriptorSizes;
+    std::array<std::uint32_t, 4>                         m_Offsets;
 
     struct BindlessHandlePool {
         std::pmr::vector<BindlessHandle> pool;
@@ -407,7 +419,15 @@ inline auto is_physical_suitable(const vk::raii::PhysicalDevice& physical_device
     for (const auto& extension : supported_extensions) {
         required_extensions.erase(std::pmr::string{extension.extensionName});
     }
-    return queue_family_found && required_extensions.empty();
+    if (!queue_family_found || !required_extensions.empty()) return false;
+    const auto  features = physical_device.getFeatures2<vk::PhysicalDeviceFeatures2,
+                                                        vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceDescriptorHeapFeaturesEXT>();
+    const auto& vulkan12 = features.get<vk::PhysicalDeviceVulkan12Features>();
+    return vulkan12.bufferDeviceAddress && vulkan12.runtimeDescriptorArray &&
+           vulkan12.shaderSampledImageArrayNonUniformIndexing &&
+           vulkan12.shaderStorageBufferArrayNonUniformIndexing &&
+           vulkan12.shaderStorageImageArrayNonUniformIndexing &&
+           features.get<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>().descriptorHeap;
 }
 
 inline auto get_sdl3_window_size(SDL_Window* window) -> math::vec2u {
@@ -782,17 +802,17 @@ inline constexpr auto to_vk_mipmap_filter_mode(FilterMode mode) noexcept -> vk::
 
 inline constexpr auto to_vk_rect(Rect rect) noexcept -> vk::Rect2D {
     return {
-        .offset = {static_cast<std::int32_t>(rect.x), static_cast<std::int32_t>(rect.y)},
-        .extent = {rect.width, rect.height},
+        .offset = {.x = static_cast<std::int32_t>(rect.x), .y = static_cast<std::int32_t>(rect.y)},
+        .extent = {.width = rect.width, .height = rect.height},
     };
 }
 
 inline constexpr auto to_vk_extent3D(math::vec3u value) noexcept -> vk::Extent3D {
-    return {value.x, value.y, value.z};
+    return {.width = value.x, .height = value.y, .depth = value.z};
 };
 
 inline constexpr auto to_vk_offset3D(math::vec3i value) noexcept -> vk::Offset3D {
-    return {value.x, value.y, value.z};
+    return {.x = value.x, .y = value.y, .z = value.z};
 };
 
 inline constexpr auto to_vk_buffer_usage(GPUBufferUsageFlags usages) noexcept -> vk::BufferUsageFlags {
@@ -810,13 +830,9 @@ inline constexpr auto to_vk_buffer_usage(GPUBufferUsageFlags usages) noexcept ->
     if (utils::has_flag(usages, GPUBufferUsageFlags::Index)) {
         vk_usages |= vk::BufferUsageFlagBits::eIndexBuffer;
     }
-    if (utils::has_flag(usages, GPUBufferUsageFlags::Constant)) {
-        vk_usages |= vk::BufferUsageFlagBits::eUniformBuffer;
-        // TODO for now we use storage to simulate uniform buffer for bindless usage
-        vk_usages |= vk::BufferUsageFlagBits::eStorageBuffer;
-    }
-    if (utils::has_flag(usages, GPUBufferUsageFlags::Storage)) {
-        vk_usages |= vk::BufferUsageFlagBits::eStorageBuffer;
+    if (utils::has_flag(usages, GPUBufferUsageFlags::StorageRead) ||
+        utils::has_flag(usages, GPUBufferUsageFlags::StorageWrite)) {
+        vk_usages |= vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
     }
     return vk_usages;
 }
@@ -1210,9 +1226,6 @@ inline constexpr auto to_vk_access_flags(BarrierAccess access) noexcept -> vk::A
     if (utils::has_flag(access, BarrierAccess::Vertex)) {
         result |= vk::AccessFlagBits2::eVertexAttributeRead;
     }
-    if (utils::has_flag(access, BarrierAccess::Constant)) {
-        result |= vk::AccessFlagBits2::eUniformRead;
-    }
     if (utils::has_flag(access, BarrierAccess::ShaderRead)) {
         result |= vk::AccessFlagBits2::eShaderRead;
     }
@@ -1494,6 +1507,10 @@ public:
     inline auto& GetBindlessUtils() const noexcept { return m_BindlessUtils; }
 
 private:
+    auto GetStorageBufferViewRequirements() const noexcept -> GPUBuffer::StorageViewRequirements final {
+        return {.offset_alignment = std::max(std::uint64_t{4}, m_PhysicalDevice->getProperties().limits.minStorageBufferOffsetAlignment), .size_alignment = 4};
+    }
+
     void Profile() const;
 
     vk::AllocationCallbacks m_CustomAllocator;

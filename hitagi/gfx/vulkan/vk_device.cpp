@@ -78,7 +78,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
         std::erase_if(physical_devices, [](const auto& device) { return !is_physical_suitable(device); });
         std::ranges::sort(physical_devices, std::ranges::greater(), compute_physical_device_score);
         if (physical_devices.empty()) {
-            throw std::runtime_error("Failed to find physical device Vulkan supported!");
+            throw std::runtime_error("No Vulkan device supports the required Descriptor Heap features and queues");
         }
         m_PhysicalDevice = std::make_unique<vk::raii::PhysicalDevice>(std::move(physical_devices.front()));
         m_Logger->trace(
@@ -98,19 +98,15 @@ VulkanDevice::VulkanDevice(std::string_view name)
                 .ppEnabledExtensionNames = required_device_extensions.data(),
             },
             vk::PhysicalDeviceVulkan12Features{
-                // -- Bindless features
-                .descriptorIndexing                            = true,
-                .shaderInputAttachmentArrayDynamicIndexing     = true,
-                .shaderInputAttachmentArrayNonUniformIndexing  = true,
-                .descriptorBindingUniformBufferUpdateAfterBind = true,
-                .descriptorBindingSampledImageUpdateAfterBind  = true,
-                .descriptorBindingStorageImageUpdateAfterBind  = true,
-                .descriptorBindingStorageBufferUpdateAfterBind = true,
-                .descriptorBindingPartiallyBound               = true,
-                .descriptorBindingVariableDescriptorCount      = true,
-                .runtimeDescriptorArray                        = true,
-                // -- Bindless features
-                .timelineSemaphore = true,
+                .shaderSampledImageArrayNonUniformIndexing  = true,
+                .shaderStorageBufferArrayNonUniformIndexing = true,
+                .shaderStorageImageArrayNonUniformIndexing  = true,
+                .runtimeDescriptorArray                     = true,
+                .timelineSemaphore                          = true,
+                .bufferDeviceAddress                        = true,
+            },
+            vk::PhysicalDeviceDescriptorHeapFeaturesEXT{
+                .descriptorHeap = true,
             },
             vk::PhysicalDeviceVulkan13Features{
                 .synchronization2 = true,
@@ -136,6 +132,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
     m_Logger->trace("Create VMA Allocator...");
     {
         const VmaAllocatorCreateInfo allocator_info = {
+            .flags                = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
             .physicalDevice       = **m_PhysicalDevice,
             .device               = **m_Device,
             .pAllocationCallbacks = &static_cast<VkAllocationCallbacks&>(m_CustomAllocator),
@@ -172,6 +169,8 @@ VulkanDevice::VulkanDevice(std::string_view name)
 }
 
 VulkanDevice::~VulkanDevice() {
+    WaitIdle();
+    m_BindlessUtils.reset();
     vmaDestroyAllocator(m_VmaAllocator);
 }
 

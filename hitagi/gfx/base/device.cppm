@@ -27,18 +27,17 @@ enum struct ResourceType : std::uint8_t {
 };
 
 enum struct GPUBufferUsageFlags : std::uint8_t {
-    MapRead  = 0x1,
-    MapWrite = (MapRead << 1),
-    CopySrc  = (MapWrite << 1),
-    CopyDst  = (CopySrc << 1),
-    Vertex   = (CopyDst << 1),
-    Index    = (Vertex << 1),
-    Constant = (Index << 1),
-    Storage  = (Constant << 1),
+    MapRead      = 0x1,
+    MapWrite     = (MapRead << 1),
+    CopySrc      = (MapWrite << 1),
+    CopyDst      = (CopySrc << 1),
+    Vertex       = (CopyDst << 1),
+    Index        = (Vertex << 1),
+    StorageRead  = (Index << 1),
+    StorageWrite = (StorageRead << 1),
 };
 
 enum struct GPUBufferViewType : std::uint8_t {
-    Constant,
     StorageRead,
     StorageWrite,
 };
@@ -384,8 +383,7 @@ enum struct BarrierAccess : std::uint32_t {
     CopyDst           = (CopySrc << 1),
     Vertex            = (CopyDst << 1),
     Index             = (Vertex << 1),
-    Constant          = (Index << 1),
-    ShaderRead        = (Constant << 1),
+    ShaderRead        = (Index << 1),
     ShaderWrite       = (ShaderRead << 1),
     DepthStencilRead  = (ShaderWrite << 1),
     DepthStencilWrite = (DepthStencilRead << 1),
@@ -518,15 +516,15 @@ struct GPUBufferDesc {
     inline constexpr bool operator==(const GPUBufferDesc&) const noexcept;
 };
 
-inline constexpr auto ConstantBufferAlignment = std::uint64_t{256};
-
-inline constexpr auto ConstantBufferElementSize(std::uint64_t size) noexcept -> std::uint64_t {
-    return utils::align(size, ConstantBufferAlignment);
-}
-
 class GPUBuffer : public ResourceWithDesc<GPUBufferDesc> {
 public:
-    struct Pointer;
+    struct StorageViewRequirements {
+        std::uint64_t offset_alignment;
+        std::uint64_t size_alignment;
+    };
+
+    // Constraints on storage bindings, not on individual elements or GPU allocations.
+    static auto GetStorageViewRequirements(const Device& device) noexcept -> StorageViewRequirements;
 
     inline auto Size() const noexcept -> std::uint64_t { return m_Desc.size; }
 
@@ -547,10 +545,11 @@ protected:
 struct GPUBufferViewDesc {
     std::pmr::string           name = UNKOWN_NAME;
     std::shared_ptr<GPUBuffer> buffer;
-    GPUBufferViewType          type          = GPUBufferViewType::Constant;
-    std::uint64_t              offset        = 0;
-    std::uint64_t              element_size  = 1;
-    std::uint64_t              element_count = 1;
+    GPUBufferViewType          type           = GPUBufferViewType::StorageRead;
+    std::uint64_t              offset         = 0;
+    std::uint64_t              element_size   = 1;
+    std::uint64_t              element_count  = 1;
+    std::uint64_t              element_stride = 0;  // Zero means tightly packed elements.
 
     inline bool operator==(const GPUBufferViewDesc&) const noexcept;
 };
@@ -561,12 +560,12 @@ public:
 
     inline auto GetBindlessHandle() const noexcept -> BindlessHandle { return m_BindlessHandle; }
 
+    inline auto Size() const noexcept -> std::uint64_t { return m_ByteSize; }
+
     template <typename T>
         requires(!std::is_reference_v<T>)
-    class MappedSpan : public utils::AlignedSpan<T> {
+    class MappedSpan : public utils::StridedSpan<T> {
     public:
-        explicit MappedSpan(GPUBufferView& view);
-        explicit MappedSpan(GPUBuffer& buffer, std::uint64_t offset = 0, std::uint64_t element_count = 0);
         MappedSpan(const MappedSpan&)                = delete;
         MappedSpan(MappedSpan&&) noexcept            = delete;
         MappedSpan& operator=(const MappedSpan&)     = delete;
@@ -574,10 +573,10 @@ public:
         ~MappedSpan();
 
     private:
-        explicit MappedSpan(std::shared_ptr<GPUBufferView> view);
+        friend class GPUBufferView;
+        explicit MappedSpan(GPUBufferView& view);
 
-        std::shared_ptr<GPUBufferView> m_OwnedView;
-        GPUBuffer&                     m_Buffer;
+        GPUBuffer& m_Buffer;
     };
 
     template <typename T>
@@ -586,14 +585,14 @@ public:
     [[nodiscard]] inline auto GetMappedSpan() const -> MappedSpan<const T> { return MappedSpan<const T>(const_cast<GPUBufferView&>(*this)); }
 
 protected:
-    using ResourceWithDesc::ResourceWithDesc;
+    GPUBufferView(Device& device, GPUBufferViewDesc desc);
 
     void CreateBindlessHandle();
 
     [[nodiscard]] auto Map() -> std::byte* { return m_Desc.buffer->Map() + m_Desc.offset; }
     void               UnMap() { m_Desc.buffer->UnMap(); }
 
-    std::uint64_t  m_AlignSize = 1;
+    std::uint64_t  m_ByteSize = 0;
     BindlessHandle m_BindlessHandle{};
 };
 
@@ -668,7 +667,19 @@ struct SamplerDesc {
 
     inline constexpr bool operator==(const SamplerDesc&) const noexcept;
 };
-using Sampler = ResourceWithDesc<SamplerDesc>;
+class Sampler : public ResourceWithDesc<SamplerDesc> {
+public:
+    ~Sampler() override;
+
+    inline auto GetBindlessHandle() const noexcept -> BindlessHandle { return m_BindlessHandle; }
+
+protected:
+    using ResourceWithDesc::ResourceWithDesc;
+
+    void CreateBindlessHandle();
+
+    BindlessHandle m_BindlessHandle{};
+};
 
 struct SwapChainDesc {
     std::pmr::string name = UNKOWN_NAME;
@@ -762,7 +773,8 @@ inline bool GPUBufferViewDesc::operator==(const GPUBufferViewDesc& rhs) const no
            type == rhs.type &&
            offset == rhs.offset &&
            element_size == rhs.element_size &&
-           element_count == rhs.element_count;
+           element_count == rhs.element_count &&
+           element_stride == rhs.element_stride;
 }
 
 inline constexpr bool TextureDesc::operator==(const TextureDesc& rhs) const noexcept {
@@ -838,6 +850,7 @@ struct hash<hitagi::gfx::GPUBufferViewDesc> {
             hitagi::utils::hash(desc.offset),
             hitagi::utils::hash(desc.element_size),
             hitagi::utils::hash(desc.element_count),
+            hitagi::utils::hash(desc.element_stride),
         });
     }
 };
@@ -957,16 +970,18 @@ struct FenceWaitInfo {
 
 struct BindlessMetaInfo {
     BindlessHandle handle = {};
+    std::uint32_t record_index = 0;
+    std::uint32_t record_stride = 0;
 };
 
 class BindlessUtils {
     friend class GPUBufferView;
     friend class TextureView;
+    friend class Sampler;
 
 public:
     virtual ~BindlessUtils() = default;
 
-    [[nodiscard]] virtual auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle = 0;
     virtual void               DiscardBindlessHandle(BindlessHandle handle)             = 0;
 
     inline auto& GetDevice() const noexcept { return m_Device; }
@@ -977,6 +992,7 @@ protected:
 
     [[nodiscard]] virtual auto CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle = 0;
     [[nodiscard]] virtual auto CreateBindlessHandle(TextureView& view) -> BindlessHandle   = 0;
+    [[nodiscard]] virtual auto CreateBindlessHandle(Sampler& sampler) -> BindlessHandle    = 0;
 
     Device&          m_Device;
     std::pmr::string m_Name;
@@ -1381,6 +1397,13 @@ protected:
 
     std::size_t m_FrameIndex    = 0;
     bool        m_EnableProfile = false;
+
+private:
+    friend GPUBuffer;
+    // Backend dispatch for GPUBuffer's static query; not a public Device capability API.
+    virtual auto GetStorageBufferViewRequirements() const noexcept -> GPUBuffer::StorageViewRequirements {
+        return {.offset_alignment = 4, .size_alignment = 4};
+    }
 };
 
 inline auto Device::CreateGraphicsContext(std::string_view name) -> std::shared_ptr<GraphicsCommandContext> {
@@ -1393,6 +1416,20 @@ inline auto Device::CreateCopyContext(std::string_view name) -> std::shared_ptr<
     return std::static_pointer_cast<CopyCommandContext>(CreateCommandContext(CommandType::Copy, name));
 };
 
+inline Sampler::~Sampler() {
+    if (m_BindlessHandle) {
+        GetDevice().GetBindlessUtils().DiscardBindlessHandle(m_BindlessHandle);
+        m_BindlessHandle = {};
+    }
+}
+
+inline void Sampler::CreateBindlessHandle() {
+    if (m_BindlessHandle) {
+        throw std::logic_error(std::format("Sampler({}) already has bindless handle", GetName()));
+    }
+    m_BindlessHandle = GetDevice().GetBindlessUtils().CreateBindlessHandle(*this);
+}
+
 inline GPUBufferView::~GPUBufferView() {
     if (m_BindlessHandle) {
         GetDevice().GetBindlessUtils().DiscardBindlessHandle(m_BindlessHandle);
@@ -1404,12 +1441,11 @@ inline void GPUBufferView::CreateBindlessHandle() {
     if (m_BindlessHandle) {
         throw std::logic_error(std::format("GPUBufferView({}) already has bindless handle", GetName()));
     }
-    const auto usage = m_Desc.buffer->GetDesc().usages;
-    if ((m_Desc.type == GPUBufferViewType::Constant && !utils::has_flag(usage, GPUBufferUsageFlags::Constant)) ||
-        ((m_Desc.type == GPUBufferViewType::StorageRead || m_Desc.type == GPUBufferViewType::StorageWrite) &&
-         !utils::has_flag(usage, GPUBufferUsageFlags::Storage))) {
-        return;
-    }
+    const auto usage          = m_Desc.buffer->GetDesc().usages;
+    const auto required_usage = m_Desc.type == GPUBufferViewType::StorageWrite
+                                    ? GPUBufferUsageFlags::StorageWrite
+                                    : GPUBufferUsageFlags::StorageRead;
+    if (!utils::has_flag(usage, required_usage)) return;
     m_BindlessHandle = GetDevice().GetBindlessUtils().CreateBindlessHandle(*this);
 }
 
@@ -1458,7 +1494,7 @@ inline void TextureView::CreateBindlessHandle() {
 template <typename T>
     requires(!std::is_reference_v<T>)
 GPUBufferView::MappedSpan<T>::MappedSpan(GPUBufferView& view)
-    : utils::AlignedSpan<T>(nullptr, view.m_Desc.element_count, view.m_AlignSize), m_Buffer(*view.m_Desc.buffer) {
+    : utils::StridedSpan<T>(nullptr, view.m_Desc.element_count, view.m_Desc.element_stride), m_Buffer(*view.m_Desc.buffer) {
     using ValueType = std::remove_const_t<T>;
 
     if (view.m_Desc.element_size != sizeof(ValueType)) {
@@ -1478,24 +1514,14 @@ GPUBufferView::MappedSpan<T>::MappedSpan(GPUBufferView& view)
         throw std::invalid_argument(std::format("GPUBuffer {} is not writable on host", view.GetName()));
     }
 
+    if (view.m_Desc.element_stride % alignof(ValueType) != 0 && view.m_Desc.element_count > 1) {
+        throw std::invalid_argument("Mapped buffer element stride does not satisfy the C++ type alignment");
+    }
     this->m_Data = view.Map();
-}
-
-template <typename T>
-    requires(!std::is_reference_v<T>)
-GPUBufferView::MappedSpan<T>::MappedSpan(GPUBuffer& buffer, std::uint64_t offset, std::uint64_t element_count)
-    : MappedSpan(buffer.GetDevice().CreateGPUBufferView(GPUBufferViewDesc{
-          .name          = std::pmr::string(buffer.GetName()),
-          .buffer        = std::shared_ptr<GPUBuffer>(&buffer, [](GPUBuffer*) {}),
-          .offset        = offset,
-          .element_size  = sizeof(std::remove_const_t<T>),
-          .element_count = element_count,
-      })) {}
-
-template <typename T>
-    requires(!std::is_reference_v<T>)
-GPUBufferView::MappedSpan<T>::MappedSpan(std::shared_ptr<GPUBufferView> view) : MappedSpan(*view) {
-    m_OwnedView = std::move(view);
+    if (reinterpret_cast<std::uintptr_t>(this->m_Data) % alignof(ValueType) != 0) {
+        view.UnMap();
+        throw std::invalid_argument("Mapped buffer address does not satisfy the C++ type alignment");
+    }
 }
 
 template <typename T>

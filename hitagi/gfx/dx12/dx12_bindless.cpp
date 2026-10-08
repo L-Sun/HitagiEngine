@@ -89,27 +89,12 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBufferView& view) -> BindlessHan
     const auto& view_desc  = view.GetDesc();
     auto&       buffer     = *view_desc.buffer;
     const auto  view_type  = view_desc.type;
-    const auto is_storage = view_type == GPUBufferViewType::StorageRead || view_type == GPUBufferViewType::StorageWrite;
     const auto writable   = view_type == GPUBufferViewType::StorageWrite;
-
-    if (is_storage && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
-        const auto error_message = fmt::format(
-            "Failed to create BindlessHandle: buffer({}) is not a storage buffer",
-            fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
-        m_Device.GetLogger()->error(error_message);
-        throw std::invalid_argument(error_message);
-    }
-    if (view_type == GPUBufferViewType::Constant && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
-        const auto error_message = fmt::format(
-            "Failed to create BindlessHandle: buffer({}) is not a constant buffer",
-            fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
-        m_Device.GetLogger()->error(error_message);
-        throw std::invalid_argument(error_message);
-    }
 
     BindlessHandle handle;
     {
         std::scoped_lock lock{m_Mutex};
+        if (m_Available_CBV_SRV_UAV_BindlessHandlePool.empty()) throw std::runtime_error("Bindless descriptor heap exhausted");
         handle = m_Available_CBV_SRV_UAV_BindlessHandlePool.front();
         m_Available_CBV_SRV_UAV_BindlessHandlePool.pop_front();
     }
@@ -127,12 +112,13 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBufferView& view) -> BindlessHan
 
     if (writable) {
         D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
+            .Format        = DXGI_FORMAT_R32_TYPELESS,
             .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
             .Buffer        = {
-                .FirstElement        = view_desc.offset / view_desc.element_size,
-                .NumElements         = static_cast<UINT>(view_desc.element_count),
-                .StructureByteStride = static_cast<UINT>(view_desc.element_size),
-                .Flags               = D3D12_BUFFER_UAV_FLAG_NONE,
+                .FirstElement        = view_desc.offset / 4,
+                .NumElements         = static_cast<UINT>(view.Size() / 4),
+                .StructureByteStride = 0,
+                .Flags               = D3D12_BUFFER_UAV_FLAG_RAW,
             },
         };
         dx12_device.GetDevice()->CreateUnorderedAccessView(
@@ -140,29 +126,21 @@ auto DX12BindlessUtils::CreateBindlessHandle(GPUBufferView& view) -> BindlessHan
             nullptr,
             &uav_desc,
             descriptor_cpu_handle);
-    } else if (view_type == GPUBufferViewType::StorageRead) {
+    } else {
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
-            .Format                  = DXGI_FORMAT_UNKNOWN,
+            .Format                  = DXGI_FORMAT_R32_TYPELESS,
             .ViewDimension           = D3D12_SRV_DIMENSION_BUFFER,
             .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
             .Buffer                  = {
-                .FirstElement        = view_desc.offset / view_desc.element_size,
-                .NumElements         = static_cast<UINT>(view_desc.element_count),
-                .StructureByteStride = static_cast<UINT>(view_desc.element_size),
-                .Flags               = D3D12_BUFFER_SRV_FLAG_NONE,
+                .FirstElement        = view_desc.offset / 4,
+                .NumElements         = static_cast<UINT>(view.Size() / 4),
+                .StructureByteStride = 0,
+                .Flags               = D3D12_BUFFER_SRV_FLAG_RAW,
             },
         };
         dx12_device.GetDevice()->CreateShaderResourceView(
             dx12_buffer.resource.Get(),
             &srv_desc,
-            descriptor_cpu_handle);
-    } else {
-        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
-            .BufferLocation = dx12_buffer.resource->GetGPUVirtualAddress() + view_desc.offset,
-            .SizeInBytes    = static_cast<UINT>(ConstantBufferElementSize(view_desc.element_size) * view_desc.element_count),
-        };
-        dx12_device.GetDevice()->CreateConstantBufferView(
-            &cbv_desc,
             descriptor_cpu_handle);
     }
 
@@ -192,6 +170,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(TextureView& view) -> BindlessHandl
     BindlessHandle handle;
     {
         std::scoped_lock lock{m_Mutex};
+        if (m_Available_CBV_SRV_UAV_BindlessHandlePool.empty()) throw std::runtime_error("Bindless descriptor heap exhausted");
         handle = m_Available_CBV_SRV_UAV_BindlessHandlePool.front();
         m_Available_CBV_SRV_UAV_BindlessHandlePool.pop_front();
     }
@@ -232,6 +211,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHandle
     BindlessHandle handle;
     {
         std::scoped_lock lock{m_Mutex};
+        if (m_Available_Sampler_BindlessHandlePool.empty()) throw std::runtime_error("Bindless descriptor heap exhausted");
         handle = m_Available_Sampler_BindlessHandlePool.front();
         m_Available_Sampler_BindlessHandlePool.pop_front();
     }

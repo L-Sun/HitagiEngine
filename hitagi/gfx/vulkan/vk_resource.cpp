@@ -52,7 +52,7 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
 
             if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Vertex) ||
                 utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Index) ||
-                utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Constant)) {
+                utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::StorageRead)) {
                 allocation_create_info.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
             }
         } else if (!initial_data.empty() && utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst)) {
@@ -128,56 +128,6 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, GPUBufferDesc desc, std::span<c
 }
 
 VulkanBufferView::VulkanBufferView(VulkanDevice& device, GPUBufferViewDesc desc) : GPUBufferView(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
-    const auto fail   = [&](std::string message) {
-        const auto error_message = fmt::format(
-            "Invalid GPU buffer view({}): {}",
-            fmt::styled(GetName(), fmt::fg(fmt::color::red)),
-            message);
-        logger->error(error_message);
-        throw std::invalid_argument(error_message);
-    };
-
-    if (!m_Desc.buffer) {
-        fail("buffer is nullptr");
-    }
-    if (&m_Desc.buffer->GetDevice() != &device) {
-        fail("buffer belongs to another device");
-    }
-    if (m_Desc.element_size == 0) {
-        fail("element size must be larger than 0");
-    }
-
-    auto& buffer = *m_Desc.buffer;
-    if (m_Desc.type == GPUBufferViewType::Constant && utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
-        m_AlignSize = ConstantBufferAlignment;
-    } else {
-        m_AlignSize = m_Desc.element_size;
-    }
-
-    if (m_Desc.offset >= buffer.Size()) {
-        fail("offset is outside the buffer range");
-    }
-    if (m_Desc.offset % m_AlignSize != 0) {
-        fail(std::format("offset must be aligned to {}", m_AlignSize));
-    }
-    const auto aligned_element_size = utils::align(m_Desc.element_size, m_AlignSize);
-    if (m_Desc.element_count == 0) {
-        m_Desc.element_count = (buffer.Size() - m_Desc.offset) / aligned_element_size;
-    }
-    if (m_Desc.element_count == 0) {
-        fail("element count must be larger than 0");
-    }
-    const auto required_size = (m_Desc.element_count - 1) * aligned_element_size + m_Desc.element_size;
-    if (m_Desc.offset + required_size > buffer.Size()) {
-        fail(std::format(
-            "range [{}..{}) exceeds buffer {} size({})",
-            m_Desc.offset,
-            m_Desc.offset + required_size,
-            buffer.GetName(),
-            buffer.Size()));
-    }
-
     CreateBindlessHandle();
 }
 
@@ -324,8 +274,8 @@ VulkanImage::VulkanImage(VulkanDevice& device, TextureDesc desc, std::span<const
                     .baseArrayLayer = 0,
                     .layerCount     = m_Desc.array_size,
                 },
-                .imageOffset = {0, 0, 0},
-                .imageExtent = {m_Desc.width, m_Desc.height, m_Desc.depth},
+                .imageOffset = {.x = 0, .y = 0, .z = 0},
+                .imageExtent = {.width = m_Desc.width, .height = m_Desc.height, .depth = m_Desc.depth},
             };
 
             device.GetDevice().copyMemoryToImageEXT(vk::CopyMemoryToImageInfoEXT{
@@ -442,6 +392,7 @@ VulkanImage::~VulkanImage() {
 VulkanSampler::VulkanSampler(VulkanDevice& device, SamplerDesc desc) : Sampler(device, std::move(desc)) {
     sampler = std::make_unique<vk::raii::Sampler>(device.GetDevice(), to_vk_sampler_create_info(m_Desc), device.GetCustomAllocator());
     create_vk_debug_object_info(*sampler, GetName(), device.GetDevice());
+    CreateBindlessHandle();
 }
 
 VulkanSwapChain::SemaphorePair::SemaphorePair(VulkanDevice& device, std::string_view name)
@@ -641,7 +592,7 @@ void VulkanSwapChain::CreateSwapChain() {
         .surface          = **m_Surface,
         .minImageCount    = m_NumImages,
         .imageFormat      = to_vk_format(m_Format),
-        .imageExtent      = vk::Extent2D{m_Size.x, m_Size.y},
+        .imageExtent      = vk::Extent2D{.width = m_Size.x, .height = m_Size.y},
         .imageArrayLayers = 1,
         .imageUsage       = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst,
         .preTransform     = preTransform,
@@ -750,8 +701,9 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
     std::pmr::vector<vk::PipelineShaderStageCreateInfo> shader_stage_create_infos;
     std::transform(
         shaders.begin(), shaders.end(), std::back_inserter(shader_stage_create_infos),
-        [](const auto& shader) {
+        [&device](const auto& shader) {
             return vk::PipelineShaderStageCreateInfo{
+                .pNext  = &static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).mapping_info,
                 .stage  = to_vk_shader_stage(shader->GetDesc().type),
                 .module = *std::static_pointer_cast<VulkanShader>(shader)->shader,
                 .pName  = shader->GetDesc().entry.data(),
@@ -837,7 +789,6 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
                                     ? depth_format
                                     : vk::Format::eUndefined;
 
-    const auto& pipeline_layout = *static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).pipeline_layout;
 
     logger->trace("Create render pipeline({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
@@ -853,9 +804,10 @@ VulkanRenderPipeline::VulkanRenderPipeline(VulkanDevice& device, RenderPipelineD
                 .pDepthStencilState  = &depth_stencil_state,
                 .pColorBlendState    = &blend_state,
                 .pDynamicState       = &dynamic_state_create_info,
-                .layout              = *pipeline_layout,
+                .layout              = nullptr,
                 .renderPass          = nullptr,
             },
+            vk::PipelineCreateFlags2CreateInfo{.flags = vk::PipelineCreateFlagBits2::eDescriptorHeapEXT},
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount    = 1,
                 .pColorAttachmentFormats = &render_format,
@@ -890,21 +842,20 @@ VulkanComputePipeline::VulkanComputePipeline(VulkanDevice& device, ComputePipeli
     }
 
     const vk::PipelineShaderStageCreateInfo shader_stage_create_info{
+        .pNext  = &static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).mapping_info,
         .stage  = vk::ShaderStageFlagBits::eCompute,
         .module = *compute_shader->shader,
         .pName  = compute_shader->GetDesc().entry.data(),
     };
 
-    const auto& pipeline_layout = *static_cast<VulkanBindlessUtils&>(device.GetBindlessUtils()).pipeline_layout;
-
     logger->trace("Create compute pipeline({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
-        const vk::ComputePipelineCreateInfo pipeline_create_info{
-            .stage  = shader_stage_create_info,
-            .layout = *pipeline_layout,
+        const vk::StructureChain pipeline_create_info{
+            vk::ComputePipelineCreateInfo{.stage = shader_stage_create_info},
+            vk::PipelineCreateFlags2CreateInfo{.flags = vk::PipelineCreateFlagBits2::eDescriptorHeapEXT},
         };
 
-        pipeline = std::make_unique<vk::raii::Pipeline>(device.GetDevice(), nullptr, pipeline_create_info, device.GetCustomAllocator());
+        pipeline = std::make_unique<vk::raii::Pipeline>(device.GetDevice(), nullptr, pipeline_create_info.get(), device.GetCustomAllocator());
 
         switch (pipeline->getConstructorSuccessCode()) {
             case vk::Result::eSuccess:

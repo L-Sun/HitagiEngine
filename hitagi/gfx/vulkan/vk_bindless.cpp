@@ -1,314 +1,148 @@
 module;
 #include <spdlog/logger.h>
-#include <fmt/color.h>
 #include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_raii.hpp>
+#include <vk_mem_alloc.h>
 
 module gfx.vulkan;
 import std;
 
 namespace hitagi::gfx {
+
+VulkanBindlessUtils::Heap::~Heap() {
+    if (buffer) vmaDestroyBuffer(allocator, buffer, allocation);
+}
+
 VulkanBindlessUtils::VulkanBindlessUtils(VulkanDevice& device, std::string_view name)
     : BindlessUtils(device, name) {
-    const auto logger = device.GetLogger();
+    const auto  properties = device.GetPhysicalDevice().getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
+    const auto& limits     = properties.get<vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
+    if (limits.maxPushDataSize < sizeof(BindlessMetaInfo)) throw std::runtime_error("Insufficient Vulkan push data size");
 
-    const auto limits = device.GetPhysicalDevice().getProperties().limits;
-
-    const std::array<vk::DescriptorPoolSize, 4> pool_sizes = {{
-        {vk::DescriptorType::eStorageBuffer, std::min(max_storage_descriptors, limits.maxDescriptorSetStorageBuffers)},
-        {vk::DescriptorType::eSampledImage, std::min(max_sampled_image_descriptors, limits.maxDescriptorSetSampledImages)},
-        {vk::DescriptorType::eStorageImage, std::min(max_storage_image_descriptors, limits.maxDescriptorSetStorageImages)},
-        {vk::DescriptorType::eSampler, std::min(max_storage_image_descriptors, limits.maxDescriptorSetSamplers)},
-        // TODO ray tracing
-    }};
-
-    const std::array descriptor_counts = {
-        pool_sizes[0].descriptorCount,
-        pool_sizes[1].descriptorCount,
-        pool_sizes[2].descriptorCount,
-        pool_sizes[3].descriptorCount,
-    };
-
-    static_assert(pool_sizes.size() == std::tuple_size<decltype(m_BindlessHandlePools)>());
-
-    const vk::DescriptorPoolCreateInfo descriptor_pool_create_info{
-        .flags         = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet |
-                         vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind,
-        .maxSets       = pool_sizes.size(),  // we will make sure each set only contains one descriptor type
-        .poolSizeCount = pool_sizes.size(),
-        .pPoolSizes    = pool_sizes.data(),
-    };
-
-    logger->trace("Creating bindless descriptor pool...");
-    pool = std::make_unique<vk::raii::DescriptorPool>(device.GetDevice(), descriptor_pool_create_info, device.GetCustomAllocator());
-    create_vk_debug_object_info(*pool, std::format("{}-BindlessDescriptorPool", device.GetName()), device.GetDevice());
-
-    logger->trace("Creating bindless descriptor set layout...");
-    std::transform(
-        pool_sizes.begin(), pool_sizes.end(),
-        std::back_inserter(set_layouts),
-        [&](const auto& pool_size) {
-            const vk::DescriptorSetLayoutBinding binding{
-                .binding            = 0,
-                .descriptorType     = pool_size.type,
-                .descriptorCount    = pool_size.descriptorCount,
-                .stageFlags         = vk::ShaderStageFlagBits::eAll,
-                .pImmutableSamplers = nullptr,
-            };
-
-            constexpr auto ext_flags = vk::DescriptorBindingFlagBits::eUpdateAfterBind |
-                                       vk::DescriptorBindingFlagBits::ePartiallyBound |
-                                       vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
-
-            const vk::StructureChain descriptor_set_layout_create_info{
-                vk::DescriptorSetLayoutCreateInfo{
-                    .flags        = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
-                    .bindingCount = 1,
-                    .pBindings    = &binding,
-                },
-                vk::DescriptorSetLayoutBindingFlagsCreateInfo{
-                    .bindingCount  = 1,
-                    .pBindingFlags = &ext_flags,
-                },
-            };
-            auto layout = vk::raii::DescriptorSetLayout(device.GetDevice(), descriptor_set_layout_create_info.get(), device.GetCustomAllocator());
-            create_vk_debug_object_info(layout, std::format("{}-BindlessSetLayout-{}", device.GetName(), vk::to_string(pool_size.type)), device.GetDevice());
-            return layout;
-        });
-
-    bindless_info_constant_range = {
-        .stageFlags = vk::ShaderStageFlagBits::eAll,
-        .offset     = 0,
-        .size       = sizeof(BindlessMetaInfo),
-    };
-
-    std::pmr::vector<vk::DescriptorSetLayout> vk_descriptor_set_layouts;
-    std::transform(
-        set_layouts.begin(), set_layouts.end(),
-        std::back_inserter(vk_descriptor_set_layouts),
-        [](const auto& layout) { return *layout; });
-
-    logger->trace("Creating bindless pipeline layout...");
-    {
-        pipeline_layout = std::make_unique<vk::raii::PipelineLayout>(
-            device.GetDevice(),
-            vk::PipelineLayoutCreateInfo{
-                .setLayoutCount         = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
-                .pSetLayouts            = vk_descriptor_set_layouts.data(),
-                .pushConstantRangeCount = 1,
-                .pPushConstantRanges    = &bindless_info_constant_range,
-            },
-            device.GetCustomAllocator());
-        create_vk_debug_object_info(*pipeline_layout, std::format("{}-BindlessPipelineLayout", device.GetName()), device.GetDevice());
-    }
-
-    logger->trace("Allocator Descriptors");
-    {
-        const vk::StructureChain descriptor_set_allocate_info = {
-            vk::DescriptorSetAllocateInfo{
-                .descriptorPool     = **pool,
-                .descriptorSetCount = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
-                .pSetLayouts        = vk_descriptor_set_layouts.data(),
-            },
-            vk::DescriptorSetVariableDescriptorCountAllocateInfo{
-                .descriptorSetCount = static_cast<std::uint32_t>(vk_descriptor_set_layouts.size()),
-                .pDescriptorCounts  = descriptor_counts.data(),
-            },
+    m_DescriptorSizes                        = {static_cast<std::uint32_t>(limits.bufferDescriptorSize), static_cast<std::uint32_t>(limits.imageDescriptorSize), static_cast<std::uint32_t>(limits.imageDescriptorSize), static_cast<std::uint32_t>(limits.samplerDescriptorSize)};
+    const std::array              counts     = {max_storage_descriptors, max_sampled_image_descriptors, max_storage_image_descriptors, max_sampler_descriptors};
+    const std::array              alignments = {limits.bufferDescriptorAlignment, limits.imageDescriptorAlignment, limits.imageDescriptorAlignment, limits.samplerDescriptorAlignment};
+    std::array<vk::DeviceSize, 2> sizes{};
+    for (std::uint32_t kind = 0; kind < counts.size(); ++kind) {
+        auto& size              = sizes[kind == 3 ? 1 : 0];
+        size                    = utils::align(size, alignments[kind]);
+        m_Offsets[kind]         = static_cast<std::uint32_t>(size);
+        m_DescriptorSizes[kind] = utils::align(m_DescriptorSizes[kind], alignments[kind]);
+        size += vk::DeviceSize(m_DescriptorSizes[kind]) * counts[kind];
+        m_Mappings[kind] = {
+            .descriptorSet = kind,
+            .firstBinding  = 0,
+            .bindingCount  = 1,
+            .resourceMask  = vk::SpirvResourceTypeFlagBitsEXT::eAll,
+            .source        = vk::DescriptorMappingSourceEXT::eHeapWithConstantOffset,
         };
-
-        descriptor_sets = device.GetDevice().allocateDescriptorSets(descriptor_set_allocate_info.get());
-
-        for (std::size_t set_index = 0; set_index < descriptor_sets.size(); set_index++) {
-            create_vk_debug_object_info(
-                descriptor_sets[set_index],
-                std::format("{}-BindlessDescriptorSet-{}", device.GetName(), vk::to_string(pool_sizes[set_index].type)),
-                device.GetDevice());
-        }
+        m_Mappings[kind].sourceData.constantOffset = {.heapOffset = m_Offsets[kind], .heapArrayStride = m_DescriptorSizes[kind]};
+        auto& pool                                 = m_BindlessHandlePools[kind].pool;
+        pool.reserve(counts[kind]);
+        for (std::uint32_t index = 0; index < counts[kind]; ++index) pool.emplace_back(BindlessHandle{.index = index});
     }
+    mapping_info = {.mappingCount = static_cast<std::uint32_t>(m_Mappings.size()), .pMappings = m_Mappings.data()};
 
-    logger->trace("Initial Bindless Handle Pool...");
-    {
-        for (std::uint8_t set_index = 0; set_index < pool_sizes.size(); set_index++) {
-            const auto& pool_size = pool_sizes[set_index];
-
-            auto& handle_pool = m_BindlessHandlePools.at(set_index).pool;
-
-            for (std::uint32_t index = 0; index < pool_size.descriptorCount; index++) {
-                handle_pool.emplace_back(BindlessHandle{
-                    .index = index,
-                });
-            }
+    const std::array heap_alignments     = {limits.resourceHeapAlignment, limits.samplerHeapAlignment};
+    const std::array reserved_alignments = {std::max(limits.bufferDescriptorAlignment, limits.imageDescriptorAlignment), limits.samplerDescriptorAlignment};
+    const std::array reserved_sizes      = {limits.minResourceHeapReservedRange, limits.minSamplerHeapReservedRange};
+    const std::array max_sizes           = {limits.maxResourceHeapSize, limits.maxSamplerHeapSize};
+    for (std::size_t index = 0; index < m_Heaps.size(); ++index) {
+        auto& heap                         = m_Heaps[index];
+        heap.allocator                     = device.GetVmaAllocator();
+        heap.bind_info.reservedRangeOffset = utils::align(sizes[index], reserved_alignments[index]);
+        heap.bind_info.reservedRangeSize   = utils::align(reserved_sizes[index], reserved_alignments[index]);
+        const auto size                    = heap.bind_info.reservedRangeOffset + heap.bind_info.reservedRangeSize;
+        if (size > max_sizes[index]) throw std::runtime_error("Vulkan descriptor heap capacity exceeds device limits");
+        const VkBufferCreateInfo buffer_info{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size  = size,
+            .usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        };
+        const VmaAllocationCreateInfo allocation_info{
+            .flags         = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+            .usage         = VMA_MEMORY_USAGE_AUTO,
+            .requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        };
+        VmaAllocationInfo allocation{};
+        if (vmaCreateBufferWithAlignment(heap.allocator, &buffer_info, &allocation_info, heap_alignments[index], &heap.buffer, &heap.allocation, &allocation) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate Vulkan descriptor heap");
         }
+        heap.mapped              = static_cast<std::byte*>(allocation.pMappedData);
+        heap.bind_info.heapRange = {.address = device.GetDevice().getBufferAddress({.buffer = heap.buffer}), .size = size};
     }
 }
 
+void VulkanBindlessUtils::Bind(const vk::raii::CommandBuffer& command_buffer) const {
+    command_buffer.bindResourceHeapEXT(m_Heaps[0].bind_info);
+    command_buffer.bindSamplerHeapEXT(m_Heaps[1].bind_info);
+}
+
 auto VulkanBindlessUtils::CreateBindlessHandle(GPUBufferView& view) -> BindlessHandle {
-    const auto& view_desc  = view.GetDesc();
-    auto&       buffer     = *view_desc.buffer;
-    const auto  view_type  = view_desc.type;
-    const auto is_storage = view_type == GPUBufferViewType::StorageRead || view_type == GPUBufferViewType::StorageWrite;
-    const auto writable   = view_type == GPUBufferViewType::StorageWrite;
-
-    if (is_storage && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Storage)) {
-        const auto error_message = fmt::format(
-            "Failed to create BindlessHandle: buffer({}) is not a storage buffer",
-            fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
-        m_Device.GetLogger()->error(error_message);
-        throw std::invalid_argument(error_message);
-    }
-    if (view_type == GPUBufferViewType::Constant && !utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
-        const auto error_message = fmt::format(
-            "Failed to create BindlessHandle: buffer({}) is not a constant buffer",
-            fmt::styled(buffer.GetName(), fmt::fg(fmt::color::red)));
-        m_Device.GetLogger()->error(error_message);
-        throw std::invalid_argument(error_message);
-    }
-
-    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
-
+    const auto& desc    = view.GetDesc();
+    auto&       device  = static_cast<VulkanDevice&>(m_Device);
     auto& [pool, mutex] = m_BindlessHandlePools[0];
     std::scoped_lock lock{mutex};
-
+    if (pool.empty()) throw std::runtime_error("Bindless buffer heap exhausted");
     auto handle = pool.back();
+    const vk::DeviceAddressRangeEXT range{
+        .address = device.GetDevice().getBufferAddress({.buffer = **static_cast<VulkanBuffer&>(*desc.buffer).buffer}) + desc.offset,
+        .size    = view.Size(),
+    };
+    vk::ResourceDescriptorInfoEXT resource{.type = vk::DescriptorType::eStorageBuffer};
+    resource.data.pAddressRange = &range;
+    device.GetDevice().writeResourceDescriptorsEXT(resource, vk::HostAddressRangeEXT{
+                                                                 .address = m_Heaps[0].mapped + m_Offsets[0] + handle.index * m_DescriptorSizes[0], .size = m_DescriptorSizes[0]});
     pool.pop_back();
     handle.type     = BindlessHandleType::Buffer;
-    handle.writable = writable ? 1 : 0;
-
-    const vk::DescriptorBufferInfo buffer_info{
-        .buffer = **dynamic_cast<VulkanBuffer&>(buffer).buffer,
-        .offset = view_desc.offset,
-        .range  = view_desc.element_size * view_desc.element_count,
-    };
-
-    const vk::WriteDescriptorSet write_info{
-        .dstSet          = *descriptor_sets[0],
-        .dstBinding      = 0,
-        .dstArrayElement = handle.index,
-        .descriptorCount = 1,
-        .descriptorType  = vk::DescriptorType::eStorageBuffer,
-        .pBufferInfo     = &buffer_info,
-    };
-
-    vk_device.GetDevice().updateDescriptorSets(write_info, {});
-
+    handle.writable = desc.type == GPUBufferViewType::StorageWrite;
     return handle;
 }
 
 auto VulkanBindlessUtils::CreateBindlessHandle(TextureView& view) -> BindlessHandle {
-    const auto& view_desc = view.GetDesc();
-    auto&       texture   = *view_desc.texture;
-    const auto  writable  = view_desc.type == TextureViewType::ShaderWrite;
-
-    if (writable && !utils::has_flag(texture.GetDesc().usages, TextureUsageFlags::UAV)) {
-        const auto error_message = fmt::format(
-            "Failed to create BindlessHandle: texture({}) is not writable",
-            fmt::styled(texture.GetName(), fmt::fg(fmt::color::red)));
-        m_Device.GetLogger()->error(error_message);
-        throw std::invalid_argument(error_message);
-    }
-    if (!writable && !utils::has_flag(texture.GetDesc().usages, TextureUsageFlags::SRV)) {
-        const auto error_message = fmt::format(
-            "Failed to create BindlessHandle: texture({}) is not used for shader visible",
-            fmt::styled(texture.GetName(), fmt::fg(fmt::color::red)));
-        m_Device.GetLogger()->error(error_message);
-        throw std::invalid_argument(error_message);
-    }
-
-    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
-
-    BindlessHandle handle;
-    if (writable) {
-        auto& [pool, mutex] = m_BindlessHandlePools[2];
-        std::scoped_lock lock{mutex};
-
-        handle = pool.back();
-        pool.pop_back();
-        handle.type     = BindlessHandleType::Texture;
-        handle.writable = 1;
-    } else {
-        auto& [pool, mutex] = m_BindlessHandlePools[1];
-        std::scoped_lock lock{mutex};
-
-        handle = pool.back();
-        pool.pop_back();
-        handle.type     = BindlessHandleType::Texture;
-        handle.writable = 0;
-    }
-
-    const vk::DescriptorImageInfo image_info{
-        .sampler     = nullptr,
-        .imageView   = **dynamic_cast<VulkanTextureView&>(view).image_view,
-        .imageLayout = writable ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal,
-    };
-
-    const vk::WriteDescriptorSet write_info{
-        .dstSet          = *descriptor_sets[writable ? 2 : 1],
-        .dstBinding      = 0,
-        .dstArrayElement = handle.index,
-        .descriptorCount = 1,
-        .descriptorType  = writable ? vk::DescriptorType::eStorageImage : vk::DescriptorType::eSampledImage,
-        .pImageInfo      = &image_info,
-    };
-
-    vk_device.GetDevice().updateDescriptorSets(write_info, {});
-
+    const auto& desc     = view.GetDesc();
+    const bool  writable = desc.type == TextureViewType::ShaderWrite;
+    const auto  kind     = writable ? 2 : 1;
+    auto&       device   = static_cast<VulkanDevice&>(m_Device);
+    auto& [pool, mutex]  = m_BindlessHandlePools[kind];
+    std::scoped_lock lock{mutex};
+    if (pool.empty()) throw std::runtime_error("Bindless image heap exhausted");
+    auto                             handle    = pool.back();
+    const auto                       view_info = to_vk_image_view_create_info(desc, static_cast<VulkanImage&>(*desc.texture).image_handle);
+    const vk::ImageDescriptorInfoEXT image_info{.pView = &view_info, .layout = writable ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal};
+    vk::ResourceDescriptorInfoEXT    resource{.type = writable ? vk::DescriptorType::eStorageImage : vk::DescriptorType::eSampledImage};
+    resource.data.pImage = &image_info;
+    device.GetDevice().writeResourceDescriptorsEXT(resource, vk::HostAddressRangeEXT{
+                                                                 .address = m_Heaps[0].mapped + m_Offsets[kind] + handle.index * m_DescriptorSizes[kind], .size = m_DescriptorSizes[kind]});
+    pool.pop_back();
+    handle.type     = BindlessHandleType::Texture;
+    handle.writable = writable;
     return handle;
 }
 
 auto VulkanBindlessUtils::CreateBindlessHandle(Sampler& sampler) -> BindlessHandle {
-    auto& vk_device = static_cast<VulkanDevice&>(m_Device);
-
+    auto& device        = static_cast<VulkanDevice&>(m_Device);
     auto& [pool, mutex] = m_BindlessHandlePools[3];
     std::scoped_lock lock{mutex};
-
+    if (pool.empty()) throw std::runtime_error("Bindless sampler heap exhausted");
     auto handle = pool.back();
+    device.GetDevice().writeSamplerDescriptorsEXT(to_vk_sampler_create_info(sampler.GetDesc()), vk::HostAddressRangeEXT{
+                                                                                                    .address = m_Heaps[1].mapped + handle.index * m_DescriptorSizes[3], .size = m_DescriptorSizes[3]});
     pool.pop_back();
     handle.type = BindlessHandleType::Sampler;
-
-    const vk::DescriptorImageInfo image_info{
-        .sampler     = **dynamic_cast<VulkanSampler&>(sampler).sampler,
-        .imageView   = nullptr,
-        .imageLayout = vk::ImageLayout::eUndefined,
-    };
-
-    const vk::WriteDescriptorSet write_info{
-        .dstSet          = *descriptor_sets[3],
-        .dstBinding      = 0,
-        .dstArrayElement = handle.index,
-        .descriptorCount = 1,
-        .descriptorType  = vk::DescriptorType::eSampler,
-        .pImageInfo      = &image_info,
-    };
-
-    vk_device.GetDevice().updateDescriptorSets(write_info, {});
-
     return handle;
 }
 
 void VulkanBindlessUtils::DiscardBindlessHandle(BindlessHandle handle) {
-    ZoneScopedN("DiscardBindlessHandle");
-
-    std::size_t pool_index = 0;
-
-    if (handle.type == BindlessHandleType::Buffer) {
-        pool_index = 0;
-    } else if (handle.type == BindlessHandleType::Texture) {
-        if (handle.writable) {
-            pool_index = 2;
-        } else {
-            pool_index = 1;
-        }
-    } else if (handle.type == BindlessHandleType::Sampler) {
-        pool_index = 3;
-    } else {
-        return;
-    }
-
-    handle.version++;
-    handle.type = BindlessHandleType::Invalid;
-
-    auto& [pool, mutex] = m_BindlessHandlePools[pool_index];
+    ZoneScoped;
+    if (!handle) return;
+    const auto kind     = handle.type == BindlessHandleType::Buffer ? 0 : handle.type == BindlessHandleType::Sampler ? 3
+                                                                      : handle.writable                              ? 2
+                                                                                                                     : 1;
+    auto& [pool, mutex] = m_BindlessHandlePools[kind];
     std::scoped_lock lock{mutex};
+    ++handle.version;
+    handle.type = BindlessHandleType::Invalid;
     pool.emplace_back(handle);
 }
 

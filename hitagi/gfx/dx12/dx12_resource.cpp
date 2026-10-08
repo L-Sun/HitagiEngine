@@ -23,7 +23,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
     }
 
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
-    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Storage)) {
+    if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::StorageWrite)) {
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     }
 
@@ -31,7 +31,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
         .HeapType = D3D12_HEAP_TYPE_DEFAULT,
     };
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead)) {
-        if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Storage)) {
+        if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::StorageWrite)) {
             auto error_message = fmt::format(
                 "GPU buffer({}) cannot be mapped and used as storage buffer at the same time",
                 fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -41,7 +41,7 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
         allocation_desc.HeapType = D3D12_HEAP_TYPE_READBACK;
     }
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
-        if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::Storage)) {
+        if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::StorageWrite)) {
             auto error_message = fmt::format(
                 "GPU buffer({}) cannot be mapped and used as storage buffer at the same time",
                 fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -119,56 +119,6 @@ DX12GPUBuffer::DX12GPUBuffer(DX12Device& device, GPUBufferDesc desc, std::span<c
 }
 
 DX12GPUBufferView::DX12GPUBufferView(DX12Device& device, GPUBufferViewDesc desc) : GPUBufferView(device, std::move(desc)) {
-    const auto logger = device.GetLogger();
-    const auto fail   = [&](std::string message) {
-        const auto error_message = fmt::format(
-            "Invalid GPU buffer view({}): {}",
-            fmt::styled(GetName(), fmt::fg(fmt::color::red)),
-            message);
-        logger->error(error_message);
-        throw std::invalid_argument(error_message);
-    };
-
-    if (!m_Desc.buffer) {
-        fail("buffer is nullptr");
-    }
-    if (&m_Desc.buffer->GetDevice() != &device) {
-        fail("buffer belongs to another device");
-    }
-    if (m_Desc.element_size == 0) {
-        fail("element size must be larger than 0");
-    }
-
-    auto& buffer = *m_Desc.buffer;
-    if (m_Desc.type == GPUBufferViewType::Constant && utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
-        m_AlignSize = ConstantBufferAlignment;
-    } else {
-        m_AlignSize = m_Desc.element_size;
-    }
-
-    if (m_Desc.offset >= buffer.Size()) {
-        fail("offset is outside the buffer range");
-    }
-    if (m_Desc.offset % m_AlignSize != 0) {
-        fail(std::format("offset must be aligned to {}", m_AlignSize));
-    }
-    const auto aligned_element_size = utils::align(m_Desc.element_size, m_AlignSize);
-    if (m_Desc.element_count == 0) {
-        m_Desc.element_count = (buffer.Size() - m_Desc.offset) / aligned_element_size;
-    }
-    if (m_Desc.element_count == 0) {
-        fail("element count must be larger than 0");
-    }
-    const auto required_size = (m_Desc.element_count - 1) * aligned_element_size + m_Desc.element_size;
-    if (m_Desc.offset + required_size > buffer.Size()) {
-        fail(std::format(
-            "range [{}..{}) exceeds buffer {} size({})",
-            m_Desc.offset,
-            m_Desc.offset + required_size,
-            buffer.GetName(),
-            buffer.Size()));
-    }
-
     CreateBindlessHandle();
 }
 
@@ -518,6 +468,7 @@ DX12TextureView::DX12TextureView(DX12Device& device, TextureViewDesc desc) : Tex
 DX12Sampler::DX12Sampler(DX12Device& device, SamplerDesc desc) : Sampler(device, std::move(desc)) {
     const auto logger = device.GetLogger();
     logger->trace("Create sampler ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+    CreateBindlessHandle();
 }
 
 DX12Shader::DX12Shader(DX12Device& device, ShaderDesc desc) : Shader(device, std::move(desc)) {

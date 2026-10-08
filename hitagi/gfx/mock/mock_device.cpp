@@ -22,50 +22,6 @@ MockDevice::MockDevice(std::string_view name)
 void MockDevice::WaitIdle() {}
 
 MockGPUBufferView::MockGPUBufferView(Device& device, GPUBufferViewDesc desc) : GPUBufferView(device, std::move(desc)) {
-    const auto fail = [&](std::string message) {
-        throw std::invalid_argument(std::format("Invalid GPU buffer view({}): {}", GetName(), message));
-    };
-
-    if (!m_Desc.buffer) {
-        fail("buffer is nullptr");
-    }
-    if (&m_Desc.buffer->GetDevice() != &device) {
-        fail("buffer belongs to another device");
-    }
-    if (m_Desc.element_size == 0) {
-        fail("element size must be larger than 0");
-    }
-
-    auto& buffer = *m_Desc.buffer;
-    if (m_Desc.type == GPUBufferViewType::Constant && utils::has_flag(buffer.GetDesc().usages, GPUBufferUsageFlags::Constant)) {
-        m_AlignSize = ConstantBufferAlignment;
-    } else {
-        m_AlignSize = m_Desc.element_size;
-    }
-
-    if (m_Desc.offset >= buffer.Size()) {
-        fail("offset is outside the buffer range");
-    }
-    if (m_Desc.offset % m_AlignSize != 0) {
-        fail(std::format("offset must be aligned to {}", m_AlignSize));
-    }
-    const auto aligned_element_size = utils::align(m_Desc.element_size, m_AlignSize);
-    if (m_Desc.element_count == 0) {
-        m_Desc.element_count = (buffer.Size() - m_Desc.offset) / aligned_element_size;
-    }
-    if (m_Desc.element_count == 0) {
-        fail("element count must be larger than 0");
-    }
-    const auto required_size = (m_Desc.element_count - 1) * aligned_element_size + m_Desc.element_size;
-    if (m_Desc.offset + required_size > buffer.Size()) {
-        fail(std::format(
-            "range [{}..{}) exceeds buffer {} size({})",
-            m_Desc.offset,
-            m_Desc.offset + required_size,
-            buffer.GetName(),
-            buffer.Size()));
-    }
-
     CreateBindlessHandle();
 }
 

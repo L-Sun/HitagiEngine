@@ -102,21 +102,9 @@ void VulkanGraphicsCommandBuffer::Begin() {
     command_buffer.begin({
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
-    const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
+    auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
 
-    std::pmr::vector<vk::DescriptorSet> descriptor_sets;
-    std::transform(
-        vk_bindless_utils.descriptor_sets.begin(),
-        vk_bindless_utils.descriptor_sets.end(),
-        std::back_inserter(descriptor_sets),
-        [](const auto& descriptor_set) -> const vk::DescriptorSet { return *descriptor_set; });
-
-    command_buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics,
-        **vk_bindless_utils.pipeline_layout,
-        0,
-        descriptor_sets,
-        {});
+    vk_bindless_utils.Bind(command_buffer);
 
 #ifdef TRACY_ENABLE
     auto& queue = static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Graphics));
@@ -188,7 +176,7 @@ void VulkanGraphicsCommandBuffer::BeginRendering(TextureView& render_target, uti
 
     command_buffer.beginRendering({
         .renderArea = {
-            .offset = {0, 0},
+            .offset = {.x = 0, .y = 0},
             .extent = {
                 .width  = vk_color_attachment_image.GetDesc().width,
                 .height = vk_color_attachment_image.GetDesc().height,
@@ -221,13 +209,13 @@ void VulkanGraphicsCommandBuffer::SetScissorRect(const Rect& scissor_rect) {
     command_buffer.setScissor(
         0,
         vk::Rect2D{
-            .offset = {static_cast<std::int32_t>(scissor_rect.x), static_cast<std::int32_t>(scissor_rect.y)},
-            .extent = {scissor_rect.width, scissor_rect.height},
+            .offset = {.x = static_cast<std::int32_t>(scissor_rect.x), .y = static_cast<std::int32_t>(scissor_rect.y)},
+            .extent = {.width = scissor_rect.width, .height = scissor_rect.height},
         });
 }
 
 void VulkanGraphicsCommandBuffer::SetBlendColor(const math::Color& color) {
-    command_buffer.setBlendConstants(color);
+    command_buffer.setBlendConstants(color.data);
 }
 
 void VulkanGraphicsCommandBuffer::SetIndexBuffer(const GPUBuffer& buffer, std::size_t offset, Format index_format) {
@@ -257,15 +245,7 @@ void VulkanGraphicsCommandBuffer::SetVertexBuffers(std::uint8_t                 
 }
 
 void VulkanGraphicsCommandBuffer::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
-    const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
-
-    const vk::ArrayProxy<const BindlessMetaInfo> data_proxy(info);
-
-    command_buffer.pushConstants(
-        **vk_bindless_utils.pipeline_layout,
-        vk_bindless_utils.bindless_info_constant_range.stageFlags,
-        vk_bindless_utils.bindless_info_constant_range.offset,
-        data_proxy);
+    command_buffer.pushDataEXT({.offset = 0, .data = {.address = &info, .size = sizeof(info)}});
 }
 
 void VulkanGraphicsCommandBuffer::Draw(std::uint32_t vertex_count, std::uint32_t instance_count, std::uint32_t first_vertex, std::uint32_t first_instance) {
@@ -339,21 +319,9 @@ void VulkanComputeCommandBuffer::Begin() {
     command_buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
-    const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
+    auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
 
-    std::pmr::vector<vk::DescriptorSet> descriptor_sets;
-    std::transform(
-        vk_bindless_utils.descriptor_sets.begin(),
-        vk_bindless_utils.descriptor_sets.end(),
-        std::back_inserter(descriptor_sets),
-        [](const auto& descriptor_set) -> const vk::DescriptorSet { return *descriptor_set; });
-
-    command_buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute,
-        **vk_bindless_utils.pipeline_layout,
-        0,
-        descriptor_sets,
-        {});
+    vk_bindless_utils.Bind(command_buffer);
 
 #ifdef TRACY_ENABLE
     auto& queue = static_cast<VulkanCommandQueue&>(m_Device.GetCommandQueue(CommandType::Compute));
@@ -391,15 +359,7 @@ void VulkanComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
 }
 
 void VulkanComputeCommandBuffer::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
-    const auto& vk_bindless_utils = static_cast<VulkanBindlessUtils&>(m_Device.GetBindlessUtils());
-
-    const vk::ArrayProxy<const BindlessMetaInfo> data_proxy(info);
-
-    command_buffer.pushConstants(
-        **vk_bindless_utils.pipeline_layout,
-        vk_bindless_utils.bindless_info_constant_range.stageFlags,
-        vk_bindless_utils.bindless_info_constant_range.offset,
-        data_proxy);
+    command_buffer.pushDataEXT({.offset = 0, .data = {.address = &info, .size = sizeof(info)}});
 }
 
 VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(VulkanDevice& device, std::string_view name)

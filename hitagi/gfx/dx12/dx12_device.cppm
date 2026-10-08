@@ -140,7 +140,7 @@ struct DX12Shader : public Shader {
         return binary_program.Span<const std::byte>();
     }
     inline auto GetShaderByteCode() const noexcept -> D3D12_SHADER_BYTECODE {
-        return {binary_program.GetData(), binary_program.GetDataSize()};
+        return {.pShaderBytecode = binary_program.GetData(), .BytecodeLength = binary_program.GetDataSize()};
     }
 
     core::Buffer binary_program;
@@ -1519,9 +1519,6 @@ inline constexpr auto to_d3d_barrier_access(BarrierAccess access) noexcept -> D3
     if (utils::has_flag(access, BarrierAccess::Index)) {
         d3d_access |= D3D12_BARRIER_ACCESS_INDEX_BUFFER;
     }
-    if (utils::has_flag(access, BarrierAccess::Constant)) {
-        d3d_access |= D3D12_BARRIER_ACCESS_CONSTANT_BUFFER;
-    }
     if (utils::has_flag(access, BarrierAccess::ShaderRead)) {
         d3d_access |= D3D12_BARRIER_ACCESS_SHADER_RESOURCE;
     }
@@ -1687,6 +1684,10 @@ public:
     inline auto& GetDSVDescriptorAllocator() const noexcept { return *m_DSVDescriptorAllocator; }
 
 private:
+    auto GetStorageBufferViewRequirements() const noexcept -> GPUBuffer::StorageViewRequirements final {
+        return {.offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT, .size_alignment = 4};
+    }
+
     static void ReportDebugLog(const ComPtr<ID3D12Device>& device);
     void        Profile() const;
 
@@ -1695,7 +1696,8 @@ private:
 
     ComPtr<IDXGIFactory2> m_Factory;
     ComPtr<IDXGIAdapter4> m_Adapter;
-    ComPtr<ID3D12Device>  m_Device;
+    ComPtr<ID3D12DeviceFactory> m_DeviceFactory;
+    ComPtr<ID3D12Device>        m_Device;
 
     D3D12MA::ALLOCATION_CALLBACKS                                       m_CustomAllocationCallback;
     std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>> m_CustomAllocationInfos;

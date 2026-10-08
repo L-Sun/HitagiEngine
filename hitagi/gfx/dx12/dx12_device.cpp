@@ -9,24 +9,52 @@ module;
 module gfx.dx12;
 import magic_enum;
 
-extern "C" {
-_declspec(dllexport) extern const UINT D3D12SDKVersion = D3D12SDK_VERSION;
-}
-extern "C" {
-_declspec(dllexport) extern const char* D3D12SDKPath = "./D3D12/";
-}
-
 namespace hitagi::gfx {
 
 DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
+    ComPtr<ID3D12SDKConfiguration1> sdk_configuration;
+    if (const auto result = D3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&sdk_configuration)); FAILED(result)) {
+        const auto error_message = std::format("Failed to get D3D12 SDK configuration (HRESULT 0x{:08X}).", static_cast<unsigned long>(result));
+        m_Logger->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+
+    const auto sdk_directory = [this]() -> std::string {
+        std::string executable(MAX_PATH, '\0');
+        for (;;) {
+            const auto length = GetModuleFileNameA(nullptr, executable.data(), static_cast<DWORD>(executable.size()));
+            if (length == 0) {
+                m_Logger->error("Failed to locate the executable for the Agility SDK.");
+                throw std::runtime_error("Failed to locate the executable for the Agility SDK.");
+            }
+            if (length < executable.size()) {
+                executable.resize(length);
+                break;
+            }
+            executable.resize(executable.size() * 2);
+        }
+        return (std::filesystem::path(executable).parent_path() / "D3D12").string() + "\\";
+    }();
+    if (const auto result = sdk_configuration->CreateDeviceFactory(D3D12SDK_VERSION, sdk_directory.c_str(), IID_PPV_ARGS(&m_DeviceFactory)); FAILED(result)) {
+        const auto error_message = std::format("Failed to create D3D12 device factory (HRESULT 0x{:08X}).", static_cast<unsigned long>(result));
+        m_Logger->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+    // A singleton fallback would copy the factory's debug configuration into global state.
+    if (const auto result = m_DeviceFactory->SetFlags(D3D12_DEVICE_FACTORY_FLAG_DISALLOW_STORING_NEW_DEVICE_AS_SINGLETON); FAILED(result)) {
+        const auto error_message = std::format("Failed to require independent D3D12 devices (HRESULT 0x{:08X}).", static_cast<unsigned long>(result));
+        m_Logger->error(error_message);
+        throw std::runtime_error(error_message);
+    }
+
     unsigned dxgi_factory_flags = 0;
 
 #ifdef HITAGI_DEBUG
     {
         ComPtr<ID3D12Debug> debug_controller;
-        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller)))) {
+        if (SUCCEEDED(m_DeviceFactory->GetConfigurationInterface(CLSID_D3D12Debug, IID_PPV_ARGS(&debug_controller)))) {
             dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
-            m_Logger->trace("Enabled D3D12 debug layer.");
+            m_Logger->trace("Enabled factory-local D3D12 debug layer.");
             debug_controller->EnableDebugLayer();
 
             // if (ComPtr<ID3D12Debug3> debug_controller_3;
@@ -60,7 +88,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
                 continue;
             }
 
-            if (SUCCEEDED(D3D12CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
+            if (SUCCEEDED(m_DeviceFactory->CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
                 std::pmr::wstring description = desc.Description;
                 m_Logger->info("Pick: {}", std::pmr::string(description.begin(), description.end()));
                 p_adapter.As(&m_Adapter);
@@ -68,7 +96,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
             }
         }
 
-        if (p_adapter == nullptr) {
+        if (m_Adapter == nullptr) {
             m_Logger->warn("Fail to pick high performance gpu.");
 
             std::optional<UINT> warp_adapter_index;
@@ -81,7 +109,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
                     continue;
                 }
 
-                if (SUCCEEDED(D3D12CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
+                if (SUCCEEDED(m_DeviceFactory->CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
                     std::pmr::wstring description = desc.Description;
                     m_Logger->info("Pick: {}", std::pmr::string(description.begin(), description.end()));
                     p_adapter.As(&m_Adapter);
@@ -89,7 +117,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
                 }
             }
 
-            if (p_adapter == nullptr && warp_adapter_index.has_value()) {
+            if (m_Adapter == nullptr && warp_adapter_index.has_value()) {
                 m_Logger->error("Use wrap device.");
 
                 if (FAILED(m_Factory->EnumAdapters1(warp_adapter_index.value(), &p_adapter))) {
@@ -99,7 +127,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
                 p_adapter.As(&m_Adapter);
             }
 
-            if (p_adapter == nullptr) {
+            if (m_Adapter == nullptr) {
                 m_Logger->error("Failed to get adapter.");
                 throw std::runtime_error("Failed to get adapter.");
             }
@@ -108,15 +136,21 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
 
     m_Logger->trace("Create D3D12 device...");
     {
-        if (FAILED(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&m_Device)))) {
-            m_Logger->error("Failed to create D3D12 device.");
-            throw std::runtime_error("Failed to create D3D12 device.");
+        if (const auto result = m_DeviceFactory->CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&m_Device)); FAILED(result)) {
+            const auto error_message = std::format("Failed to create independent D3D12 device (HRESULT 0x{:08X}).", static_cast<unsigned long>(result));
+            m_Logger->error(error_message);
+            throw std::runtime_error(error_message);
         }
 
         CD3DX12FeatureSupport feature_support;
         if (FAILED(feature_support.Init(m_Device.Get()))) {
             m_Logger->error("Failed to init feature support.");
             throw std::runtime_error("Failed to init feature support.");
+        }
+
+        if (feature_support.HighestShaderModel() < D3D_SHADER_MODEL_6_7 ||
+            feature_support.ResourceBindingTier() < D3D12_RESOURCE_BINDING_TIER_3) {
+            throw std::runtime_error("Bindless requires Shader Model 6.7 and Resource Binding Tier 3");
         }
 
         if (!feature_support.EnhancedBarriersSupported()) {

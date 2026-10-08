@@ -50,7 +50,7 @@ struct MockTextureView final : public TextureView {
 };
 
 struct MockSampler : public Sampler {
-    MockSampler(Device& device, SamplerDesc desc) : Sampler(device, std::move(desc)) {}
+    MockSampler(Device& device, SamplerDesc desc) : Sampler(device, std::move(desc)) { CreateBindlessHandle(); }
 };
 
 struct MockSwapChain : public SwapChain {
