@@ -19,7 +19,8 @@ module;
 export module interop.jolt;
 
 export namespace hitagi::interop {
-inline constexpr int max_physics_barriers = JPH::cMaxPhysicsBarriers;
+// Work around Clang's TU-local exposure diagnostic for constant-value initialization.
+inline constexpr int max_physics_barriers = static_cast<int>(JPH::cMaxPhysicsBarriers);
 }
 
 export namespace JPH {
