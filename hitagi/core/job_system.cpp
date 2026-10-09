@@ -17,7 +17,7 @@ using JobSubmitter = std::function<void(std::move_only_function<void()>)>;
 class JobSystem final : public RuntimeModule {
 public:
     explicit JobSystem(std::uint32_t num_workers = 0);
-    ~JobSystem() final;
+    ~JobSystem() final = default;
 
     [[nodiscard]] auto GetWorkerCount() const noexcept -> std::uint32_t { return m_NumWorkers; }
     [[nodiscard]] auto GetCurrentWorkerId() const noexcept -> int;
@@ -76,8 +76,6 @@ JobSystem::JobSystem(std::uint32_t num_workers)
       m_Executor(m_NumWorkers) {
     m_Logger->trace("create job system({})", m_NumWorkers);
 }
-
-JobSystem::~JobSystem() = default;
 
 auto JobSystem::GetCurrentWorkerId() const noexcept -> int {
     return m_Executor.this_worker_id();

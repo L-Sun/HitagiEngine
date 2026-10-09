@@ -18,7 +18,7 @@ export namespace hitagi::render {
 class TextRenderUtils {
 public:
     TextRenderUtils(gfx::Device& gfx_device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, std::filesystem::path font_dir);
-    ~TextRenderUtils();
+    ~TextRenderUtils() = default;
 
     TextRenderUtils(const TextRenderUtils&)            = delete;
     TextRenderUtils& operator=(const TextRenderUtils&) = delete;
@@ -651,8 +651,6 @@ struct TextRenderUtils::Impl {
 
 TextRenderUtils::TextRenderUtils(gfx::Device& gfx_device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, std::filesystem::path font_dir)
     : m_Impl(std::make_unique<Impl>(gfx_device, queues, bindings, compiler, std::move(font_dir))) {}
-
-TextRenderUtils::~TextRenderUtils() = default;
 
 void TextRenderUtils::TextPass(rg::RenderGraph& render_graph, rg::TextureHandle target, std::span<const TextDrawCommand> commands, bool clear_target) {
     m_Impl->TextPass(render_graph, target, commands, clear_target);

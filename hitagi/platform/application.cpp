@@ -39,7 +39,7 @@ public:
         std::uint32_t left = 0, top = 0, right = 0, bottom = 0;
     };
     Application(AppConfig config);
-    ~Application() override;
+    ~Application() override = default;
 
     static auto CreateApp(AppConfig config = {}) -> std::unique_ptr<Application>;
 
@@ -84,8 +84,6 @@ Application::Application(AppConfig config)
     m_InputManager = static_cast<hid::InputManager*>(AddSubModule(std::make_unique<hid::InputManager>()));
     m_Clock.Start();
 }
-
-Application::~Application() = default;
 
 void Application::Tick() {
     m_Clock.Tick();

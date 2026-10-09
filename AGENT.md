@@ -39,6 +39,8 @@ These are defaults for engineering judgment; retain the invariants and correctne
 
 Use XMake from the repository root. Preserve the active build configuration unless the task requires changing it. Windows uses clang-cl, UTF-8 sources, and MDd/MD runtimes for debug/non-debug modes.
 
+When switching between clang-cl and MSVC in the same build directory, run `xmake clean` after reconfiguring and before building. Stale build artifacts can otherwise cause misleading duplicate-symbol and weak-external link errors.
+
 ```powershell
 # Configure when needed; release uses -m release.
 xmake f -m debug --toolchain=clang-cl
@@ -100,6 +102,8 @@ Current engine code generally uses `hitagi::`; some editor and example types sti
 ### Modules and Source Navigation
 
 The project uses C++23 modules. Determine a file's role from its module declaration: interfaces commonly use `.cppm`, but asset also has interface partitions declared in `.cpp`. Keep third-party includes at module boundaries using the global module fragment where needed.
+
+Prefer `= default` on the first, in-class declaration of a defaulted destructor when member-type completeness permits it. MSVC 19.51 emits duplicate destructor symbols for the out-of-class defaulted definitions of JobSystem, Application and TextRenderUtils in interface partitions; in-class definitions pass both MSVC and clang-cl consumer builds. For PImpl owners, verify that the implementation type is reachable and complete where destruction is instantiated rather than applying this mechanically.
 
 For modules split by responsibility (core, math, utils, ecs, render, gui, hid, physics, and gfx), keep the primary `.cppm` as an `export import` entry point and put exported declarations and templates in the corresponding `.cpp` interface partitions. Keep non-template implementations alongside their declarations when dependencies permit; use ordinary implementation units when complete types would introduce a partition import cycle. Import the dependencies each partition uses directly; do not import its own primary module from a partition. Application backends use private `app:win32` / `app:sdl` implementation partitions, while `app:application` exports the platform-independent interface.
 
