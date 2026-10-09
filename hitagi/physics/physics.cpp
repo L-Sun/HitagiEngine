@@ -18,13 +18,13 @@ namespace {
 std::mutex  g_JoltRuntimeMutex;
 std::size_t g_JoltRuntimeRefCount = 0;
 
-void JoltTrace(const char* fmt, ...) {
-    char    buffer[1024];
-    va_list args;
+void JoltTrace(const char* fmt, ...) {  // NOLINT(modernize-avoid-variadic-functions): signature required by JPH::Trace
+    std::array<char, 1024> buffer{};
+    va_list                args;
     va_start(args, fmt);
-    std::vsnprintf(buffer, sizeof(buffer), fmt, args);
+    std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
     va_end(args);
-    std::fprintf(stderr, "[Jolt] %s\n", buffer);
+    std::println(stderr, "[Jolt] {}", buffer.data());
 }
 
 JPH_IF_ENABLE_ASSERTS(
@@ -103,7 +103,7 @@ public:
 #endif
 
 private:
-    JPH::BroadPhaseLayer m_ObjectToBroadPhase[ObjectLayers::Count];
+    std::array<JPH::BroadPhaseLayer, ObjectLayers::Count> m_ObjectToBroadPhase;
 };
 
 class ObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter {
@@ -178,30 +178,30 @@ private:
 };
 
 auto ToJolt(math::vec3f value) noexcept -> JPH::Vec3 {
-    return JPH::Vec3(value.x, value.y, value.z);
+    return {value.x, value.y, value.z};
 }
 
 auto ToJoltPosition(math::vec3f value) noexcept -> JPH::RVec3 {
-    return JPH::RVec3(value.x, value.y, value.z);
+    return {value.x, value.y, value.z};
 }
 
 auto ToJolt(math::quatf value) noexcept -> JPH::Quat {
-    return JPH::Quat(value.x, value.y, value.z, value.w);
+    return {value.x, value.y, value.z, value.w};
 }
 
 auto FromJolt(JPH::Vec3Arg value) noexcept -> math::vec3f {
-    return math::vec3f(value.GetX(), value.GetY(), value.GetZ());
+    return {value.GetX(), value.GetY(), value.GetZ()};
 }
 
 auto FromJoltPosition(JPH::RVec3Arg value) noexcept -> math::vec3f {
-    return math::vec3f(
+    return {
         static_cast<float>(value.GetX()),
         static_cast<float>(value.GetY()),
-        static_cast<float>(value.GetZ()));
+        static_cast<float>(value.GetZ())};
 }
 
 auto FromJolt(JPH::QuatArg value) noexcept -> math::quatf {
-    return math::quatf(value.GetX(), value.GetY(), value.GetZ(), value.GetW());
+    return {value.GetX(), value.GetY(), value.GetZ(), value.GetW()};
 }
 
 auto ToJolt(MotionType motion_type) noexcept -> JPH::EMotionType {
@@ -279,7 +279,7 @@ struct PhysicsWorld::Impl {
     JPH::PhysicsSystem            physics_system;
 };
 
-PhysicsWorld::PhysicsWorld(core::JobSystem& job_system, PhysicsWorldDesc desc) : core::RuntimeModule(desc.name) {
+PhysicsWorld::PhysicsWorld(core::JobSystem& job_system, const PhysicsWorldDesc& desc) : core::RuntimeModule(desc.name) {
     AcquireJoltRuntime();
     m_Impl = std::make_unique<Impl>(job_system, desc);
 }

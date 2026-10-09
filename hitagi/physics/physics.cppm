@@ -109,7 +109,7 @@ struct PhysicsWorldDesc {
 class PhysicsWorld final : public core::RuntimeModule {
 public:
     // `job_system` drives Jolt's parallel simulation and must outlive the world.
-    explicit PhysicsWorld(core::JobSystem& job_system, PhysicsWorldDesc desc = {});
+    explicit PhysicsWorld(core::JobSystem& job_system, const PhysicsWorldDesc& desc = {});
     ~PhysicsWorld() final;
 
     PhysicsWorld(const PhysicsWorld&)            = delete;
